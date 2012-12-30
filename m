@@ -1,7 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net-next v4 20/22] bnx2x: Support VF FLR
-Date: Sun, 30 Dec 2012 21:57:20 +0200
-Message-ID: <1356897442-3063-21-git-send-email-ariele@broadcom.com>
+Subject: [PATCH net-next v4 22/22] bnx2x: Add VF device ids and enable
+ feature
+Date: Sun, 30 Dec 2012 21:57:22 +0200
+Message-ID: <1356897442-3063-23-git-send-email-ariele@broadcom.com>
 References: <1356897442-3063-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,477 +12,325 @@ Cc: netdev <netdev@vger.kernel.org>,
 	"Eilon Greenstein" <eilong@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3268 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:2651 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755218Ab2L3TzL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Dec 2012 14:55:11 -0500
+	id S1755224Ab2L3TzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Dec 2012 14:55:14 -0500
 In-Reply-To: <1356897442-3063-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The FLR indication arrives as an attention from the management processor.
-Upon VF flr all FLRed function in the indication have already been
-released by Firmware and now we basically need to free the resources
-allocated to those VFs, and clean any remainders from the device
-(FLR final cleanup).
+Add the various VF device ids (of all supported hardware)
+Add the calls to enable_sriov and disable_sriov to enable the
+SR-IOV feature. This patch also advances the version and release
+date of the bnx2x module.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |    6 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   19 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h   |    1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |  294 +++++++++++++++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |    7 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h  |    1 +
- 6 files changed, 321 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |   22 +++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  |   85 +++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c |    4 +
+ 3 files changed, 101 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index fbe8be3..2431ffd 100644
+index 335b536..8596917 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1879,7 +1879,13 @@ void bnx2x_prep_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae,
- int bnx2x_issue_dmae_with_comp(struct bnx2x *bp, struct dmae_command *dmae);
- void bnx2x_dp_dmae(struct bnx2x *bp, struct dmae_command *dmae, int msglvl);
+@@ -26,8 +26,8 @@
+  * (you will need to reboot afterwards) */
+ /* #define BNX2X_STOP_ON_ERROR */
  
-+/* FLR related routines */
-+u32 bnx2x_flr_clnup_poll_count(struct bnx2x *bp);
-+void bnx2x_tx_hw_flushed(struct bnx2x *bp, u32 poll_count);
-+int bnx2x_send_final_clnup(struct bnx2x *bp, u8 clnup_func, u32 poll_cnt);
- u8 bnx2x_is_pcie_pending(struct pci_dev *dev);
-+int bnx2x_flr_clnup_poll_hw_counter(struct bnx2x *bp, u32 reg,
-+				    char *msg, u32 poll_cnt);
+-#define DRV_MODULE_VERSION      "1.78.00-0"
+-#define DRV_MODULE_RELDATE      "2012/09/27"
++#define DRV_MODULE_VERSION      "1.78.01-0"
++#define DRV_MODULE_RELDATE      "2012/10/30"
+ #define BNX2X_BC_VER            0x040200
  
- void bnx2x_calc_fc_adv(struct bnx2x *bp);
- int bnx2x_sp_post(struct bnx2x *bp, int command, int cid,
+ #if defined(CONFIG_DCB)
+@@ -802,36 +802,46 @@ struct bnx2x_common {
+ #define CHIP_NUM_57711E			0x1650
+ #define CHIP_NUM_57712			0x1662
+ #define CHIP_NUM_57712_MF		0x1663
++#define CHIP_NUM_57712_VF		0x166f
+ #define CHIP_NUM_57713			0x1651
+ #define CHIP_NUM_57713E			0x1652
+ #define CHIP_NUM_57800			0x168a
+ #define CHIP_NUM_57800_MF		0x16a5
++#define CHIP_NUM_57800_VF		0x16a9
+ #define CHIP_NUM_57810			0x168e
+ #define CHIP_NUM_57810_MF		0x16ae
++#define CHIP_NUM_57810_VF		0x16af
+ #define CHIP_NUM_57811			0x163d
+ #define CHIP_NUM_57811_MF		0x163e
++#define CHIP_NUM_57811_VF		0x163f
+ #define CHIP_NUM_57840_OBSOLETE	0x168d
+ #define CHIP_NUM_57840_MF_OBSOLETE	0x16ab
+ #define CHIP_NUM_57840_4_10		0x16a1
+ #define CHIP_NUM_57840_2_20		0x16a2
+ #define CHIP_NUM_57840_MF		0x16a4
++#define CHIP_NUM_57840_VF		0x16ad
+ #define CHIP_IS_E1(bp)			(CHIP_NUM(bp) == CHIP_NUM_57710)
+ #define CHIP_IS_57711(bp)		(CHIP_NUM(bp) == CHIP_NUM_57711)
+ #define CHIP_IS_57711E(bp)		(CHIP_NUM(bp) == CHIP_NUM_57711E)
+ #define CHIP_IS_57712(bp)		(CHIP_NUM(bp) == CHIP_NUM_57712)
++#define CHIP_IS_57712_VF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57712_VF)
+ #define CHIP_IS_57712_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57712_MF)
+ #define CHIP_IS_57800(bp)		(CHIP_NUM(bp) == CHIP_NUM_57800)
+ #define CHIP_IS_57800_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57800_MF)
++#define CHIP_IS_57800_VF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57800_VF)
+ #define CHIP_IS_57810(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810)
+ #define CHIP_IS_57810_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810_MF)
++#define CHIP_IS_57810_VF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57810_VF)
+ #define CHIP_IS_57811(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811)
+ #define CHIP_IS_57811_MF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811_MF)
++#define CHIP_IS_57811_VF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57811_VF)
+ #define CHIP_IS_57840(bp)		\
+ 		((CHIP_NUM(bp) == CHIP_NUM_57840_4_10) || \
+ 		 (CHIP_NUM(bp) == CHIP_NUM_57840_2_20) || \
+ 		 (CHIP_NUM(bp) == CHIP_NUM_57840_OBSOLETE))
+ #define CHIP_IS_57840_MF(bp)	((CHIP_NUM(bp) == CHIP_NUM_57840_MF) || \
+ 				 (CHIP_NUM(bp) == CHIP_NUM_57840_MF_OBSOLETE))
++#define CHIP_IS_57840_VF(bp)		(CHIP_NUM(bp) == CHIP_NUM_57840_VF)
+ #define CHIP_IS_E1H(bp)			(CHIP_IS_57711(bp) || \
+ 					 CHIP_IS_57711E(bp))
+ #define CHIP_IS_E2(bp)			(CHIP_IS_57712(bp) || \
+@@ -840,10 +850,13 @@ struct bnx2x_common {
+ 					 CHIP_IS_57800_MF(bp) || \
+ 					 CHIP_IS_57810(bp) || \
+ 					 CHIP_IS_57810_MF(bp) || \
++					 CHIP_IS_57810_VF(bp) || \
+ 					 CHIP_IS_57811(bp) || \
+ 					 CHIP_IS_57811_MF(bp) || \
++					 CHIP_IS_57811_VF(bp) || \
+ 					 CHIP_IS_57840(bp) || \
+-					 CHIP_IS_57840_MF(bp))
++					 CHIP_IS_57840_MF(bp) || \
++					 CHIP_IS_57840_VF(bp))
+ #define CHIP_IS_E1x(bp)			(CHIP_IS_E1((bp)) || CHIP_IS_E1H((bp)))
+ #define USES_WARPCORE(bp)		(CHIP_IS_E3(bp))
+ #define IS_E1H_OFFSET			(!CHIP_IS_E1(bp))
+@@ -1195,8 +1208,9 @@ struct bnx2x_fw_stats_data {
+ enum {
+ 	BNX2X_SP_RTNL_SETUP_TC,
+ 	BNX2X_SP_RTNL_TX_TIMEOUT,
+-	BNX2X_SP_RTNL_AFEX_F_UPDATE,
+ 	BNX2X_SP_RTNL_FAN_FAILURE,
++	BNX2X_SP_RTNL_AFEX_F_UPDATE,
++	BNX2X_SP_RTNL_ENABLE_SRIOV,
+ 	BNX2X_SP_RTNL_VFPF_MCAST,
+ 	BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
+ };
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 673872b..98299cb 100644
+index b836d0a..9a7c222 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -1097,8 +1097,8 @@ static u32 bnx2x_flr_clnup_reg_poll(struct bnx2x *bp, u32 reg,
- 	return val;
- }
+@@ -195,12 +195,18 @@ static struct {
+ #ifndef PCI_DEVICE_ID_NX2_57712_MF
+ #define PCI_DEVICE_ID_NX2_57712_MF	CHIP_NUM_57712_MF
+ #endif
++#ifndef PCI_DEVICE_ID_NX2_57712_VF
++#define PCI_DEVICE_ID_NX2_57712_VF	CHIP_NUM_57712_VF
++#endif
+ #ifndef PCI_DEVICE_ID_NX2_57800
+ #define PCI_DEVICE_ID_NX2_57800		CHIP_NUM_57800
+ #endif
+ #ifndef PCI_DEVICE_ID_NX2_57800_MF
+ #define PCI_DEVICE_ID_NX2_57800_MF	CHIP_NUM_57800_MF
+ #endif
++#ifndef PCI_DEVICE_ID_NX2_57800_VF
++#define PCI_DEVICE_ID_NX2_57800_VF	CHIP_NUM_57800_VF
++#endif
+ #ifndef PCI_DEVICE_ID_NX2_57810
+ #define PCI_DEVICE_ID_NX2_57810		CHIP_NUM_57810
+ #endif
+@@ -210,6 +216,9 @@ static struct {
+ #ifndef PCI_DEVICE_ID_NX2_57840_O
+ #define PCI_DEVICE_ID_NX2_57840_O	CHIP_NUM_57840_OBSOLETE
+ #endif
++#ifndef PCI_DEVICE_ID_NX2_57810_VF
++#define PCI_DEVICE_ID_NX2_57810_VF	CHIP_NUM_57810_VF
++#endif
+ #ifndef PCI_DEVICE_ID_NX2_57840_4_10
+ #define PCI_DEVICE_ID_NX2_57840_4_10	CHIP_NUM_57840_4_10
+ #endif
+@@ -222,29 +231,41 @@ static struct {
+ #ifndef PCI_DEVICE_ID_NX2_57840_MF
+ #define PCI_DEVICE_ID_NX2_57840_MF	CHIP_NUM_57840_MF
+ #endif
++#ifndef PCI_DEVICE_ID_NX2_57840_VF
++#define PCI_DEVICE_ID_NX2_57840_VF	CHIP_NUM_57840_VF
++#endif
+ #ifndef PCI_DEVICE_ID_NX2_57811
+ #define PCI_DEVICE_ID_NX2_57811		CHIP_NUM_57811
+ #endif
+ #ifndef PCI_DEVICE_ID_NX2_57811_MF
+ #define PCI_DEVICE_ID_NX2_57811_MF	CHIP_NUM_57811_MF
+ #endif
++#ifndef PCI_DEVICE_ID_NX2_57811_VF
++#define PCI_DEVICE_ID_NX2_57811_VF	CHIP_NUM_57811_VF
++#endif
++
+ static DEFINE_PCI_DEVICE_TABLE(bnx2x_pci_tbl) = {
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57710), BCM57710 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57711), BCM57711 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57711E), BCM57711E },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57712), BCM57712 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57712_MF), BCM57712_MF },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57712_VF), BCM57712_VF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57800), BCM57800 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57800_MF), BCM57800_MF },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57800_VF), BCM57800_VF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810), BCM57810 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810_MF), BCM57810_MF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_O), BCM57840_O },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_4_10), BCM57840_4_10 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_2_20), BCM57840_2_20 },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57810_VF), BCM57810_VF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_MFO), BCM57840_MFO },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_MF), BCM57840_MF },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57840_VF), BCM57840_VF },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811), BCM57811 },
+ 	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811_MF), BCM57811_MF },
++	{ PCI_VDEVICE(BROADCOM, PCI_DEVICE_ID_NX2_57811_VF), BCM57811_VF },
+ 	{ 0 }
+ };
  
--static int bnx2x_flr_clnup_poll_hw_counter(struct bnx2x *bp, u32 reg,
--					   char *msg, u32 poll_cnt)
-+int bnx2x_flr_clnup_poll_hw_counter(struct bnx2x *bp, u32 reg,
-+				    char *msg, u32 poll_cnt)
- {
- 	u32 val = bnx2x_flr_clnup_reg_poll(bp, reg, 0, poll_cnt);
- 	if (val != 0) {
-@@ -1108,7 +1108,8 @@ static int bnx2x_flr_clnup_poll_hw_counter(struct bnx2x *bp, u32 reg,
- 	return 0;
- }
+@@ -9428,8 +9449,10 @@ static void bnx2x_sp_rtnl_task(struct work_struct *work)
  
--static u32 bnx2x_flr_clnup_poll_count(struct bnx2x *bp)
-+/* Common routines with VF FLR cleanup */
-+u32 bnx2x_flr_clnup_poll_count(struct bnx2x *bp)
- {
- 	/* adjust polling timeout */
- 	if (CHIP_REV_IS_EMUL(bp))
-@@ -1120,7 +1121,7 @@ static u32 bnx2x_flr_clnup_poll_count(struct bnx2x *bp)
- 	return FLR_POLL_CNT;
- }
+ 	rtnl_lock();
  
--static void bnx2x_tx_hw_flushed(struct bnx2x *bp, u32 poll_count)
-+void bnx2x_tx_hw_flushed(struct bnx2x *bp, u32 poll_count)
- {
- 	struct pbf_pN_cmd_regs cmd_regs[] = {
- 		{0, (CHIP_IS_E3B0(bp)) ?
-@@ -1195,8 +1196,7 @@ static void bnx2x_tx_hw_flushed(struct bnx2x *bp, u32 poll_count)
- 	(((index) << SDM_OP_GEN_AGG_VECT_IDX_SHIFT) & SDM_OP_GEN_AGG_VECT_IDX)
+-	if (!netif_running(bp->dev))
+-		goto sp_rtnl_exit;
++	if (!netif_running(bp->dev)) {
++		rtnl_unlock();
++		return;
++	}
  
+ 	/* if stop on error is defined no recovery flows should be executed */
+ #ifdef BNX2X_STOP_ON_ERROR
+@@ -9448,7 +9471,8 @@ static void bnx2x_sp_rtnl_task(struct work_struct *work)
  
--static int bnx2x_send_final_clnup(struct bnx2x *bp, u8 clnup_func,
--					 u32 poll_cnt)
-+int bnx2x_send_final_clnup(struct bnx2x *bp, u8 clnup_func, u32 poll_cnt)
- {
- 	struct sdm_op_gen op_gen = {0};
+ 		bnx2x_parity_recover(bp);
  
-@@ -1221,7 +1221,8 @@ static int bnx2x_send_final_clnup(struct bnx2x *bp, u8 clnup_func,
- 		BNX2X_ERR("FW final cleanup did not succeed\n");
- 		DP(BNX2X_MSG_SP, "At timeout completion address contained %x\n",
- 		   (REG_RD(bp, comp_addr)));
--		ret = 1;
-+		bnx2x_panic();
-+		return 1;
+-		goto sp_rtnl_exit;
++		rtnl_unlock();
++		return;
  	}
- 	/* Zero completion for nxt FLR */
- 	REG_WR(bp, comp_addr, 0);
-@@ -3904,6 +3905,10 @@ static void bnx2x_attn_int_deasserted3(struct bnx2x *bp, u32 attn)
  
- 			if (val & DRV_STATUS_DRV_INFO_REQ)
- 				bnx2x_handle_drv_info_req(bp);
-+
-+			if (val & DRV_STATUS_VF_DISABLED)
-+				bnx2x_vf_handle_flr_event(bp);
-+
- 			if ((bp->port.pmf == 0) && (val & DRV_STATUS_PMF))
- 				bnx2x_pmf_update(bp);
+ 	if (test_and_clear_bit(BNX2X_SP_RTNL_TX_TIMEOUT, &bp->sp_rtnl_state)) {
+@@ -9462,7 +9486,8 @@ static void bnx2x_sp_rtnl_task(struct work_struct *work)
+ 		bnx2x_nic_unload(bp, UNLOAD_NORMAL, true);
+ 		bnx2x_nic_load(bp, LOAD_NORMAL);
  
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-index 1008d3f..a015965 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
-@@ -876,6 +876,7 @@
- #define HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0			 (0x1<<2)
- #define HC_CONFIG_0_REG_SINGLE_ISR_EN_0				 (0x1<<1)
- #define HC_CONFIG_1_REG_BLOCK_DISABLE_1				 (0x1<<0)
-+#define DORQ_REG_VF_USAGE_CNT					 0x170320
- #define HC_REG_AGG_INT_0					 0x108050
- #define HC_REG_AGG_INT_1					 0x108054
- #define HC_REG_ATTN_BIT 					 0x108120
+-		goto sp_rtnl_exit;
++		rtnl_unlock();
++		return;
+ 	}
+ #ifdef BNX2X_STOP_ON_ERROR
+ sp_rtnl_not_reset:
+@@ -9480,6 +9505,8 @@ sp_rtnl_not_reset:
+ 		DP(NETIF_MSG_HW, "fan failure detected. Unloading driver\n");
+ 		netif_device_detach(bp->dev);
+ 		bnx2x_close(bp->dev);
++		rtnl_unlock();
++		return;
+ 	}
+ 
+ 	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_MCAST, &bp->sp_rtnl_state)) {
+@@ -9495,8 +9522,28 @@ sp_rtnl_not_reset:
+ 		bnx2x_vfpf_storm_rx_mode(bp);
+ 	}
+ 
+-sp_rtnl_exit:
++	/* work which needs rtnl lock not-taken (as it takes the lock itself and
++	 * can be called from other contexts as well)
++	 */
++
+ 	rtnl_unlock();
++
++	if (IS_SRIOV(bp) && test_and_clear_bit(BNX2X_SP_RTNL_ENABLE_SRIOV,
++					       &bp->sp_rtnl_state)) {
++		int rc = 0;
++
++		/* disbale sriov in case it is still enabled */
++		pci_disable_sriov(bp->pdev);
++		DP(BNX2X_MSG_IOV, "sriov disabled\n");
++
++		/* enable sriov */
++		DP(BNX2X_MSG_IOV, "vf num (%d)\n", (bp->vfdb->sriov.nr_virtfn));
++		rc = pci_enable_sriov(bp->pdev, (bp->vfdb->sriov.nr_virtfn));
++		if (rc)
++			BNX2X_ERR("pci_enable_sriov failed with %d\n", rc);
++		else
++			DP(BNX2X_MSG_IOV, "sriov enabled\n");
++	}
+ }
+ 
+ /* end of nic load/unload */
+@@ -11355,6 +11402,26 @@ static int bnx2x_init_bp(struct bnx2x *bp)
+  * net_device service functions
+  */
+ 
++static int bnx2x_open_epilog(struct bnx2x *bp)
++{
++	/* Enable sriov via delayed work. This must be done via delayed work
++	 * because it causes the probe of the vf devices to be run, which invoke
++	 * register_netdevice which must have rtnl lock taken. As we are holding
++	 * the lock right now, that could only work if the probe would not take
++	 * the lock. However, as the probe of the vf may be called from other
++	 * contexts as well (such as passthrough to vm failes) it can't assume
++	 * the lock is being held for it. Using delayed work here allows the
++	 * probe code to simply take the lock (i.e. wait for it to be released
++	 * if it is being held).
++	 */
++	smp_mb__before_clear_bit();
++	set_bit(BNX2X_SP_RTNL_ENABLE_SRIOV, &bp->sp_rtnl_state);
++	smp_mb__after_clear_bit();
++	schedule_delayed_work(&bp->sp_rtnl_task, 0);
++
++	return 0;
++}
++
+ /* called with rtnl_lock */
+ static int bnx2x_open(struct net_device *dev)
+ {
+@@ -11362,6 +11429,7 @@ static int bnx2x_open(struct net_device *dev)
+ 	bool global = false;
+ 	int other_engine = BP_PATH(bp) ? 0 : 1;
+ 	bool other_load_status, load_status;
++	int rc;
+ 
+ 	bp->stats_init = true;
+ 
+@@ -11419,7 +11487,12 @@ static int bnx2x_open(struct net_device *dev)
+ 		} while (0);
+ 
+ 	bp->recovery_state = BNX2X_RECOVERY_DONE;
+-	return bnx2x_nic_load(bp, LOAD_OPEN);
++
++	rc = bnx2x_nic_load(bp, LOAD_OPEN);
++	if (rc)
++		return rc;
++
++	return bnx2x_open_epilog(bp);
+ }
+ 
+ /* called with rtnl_lock */
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index 71d0976..c96ce5b 100644
+index 1f1e823..71fcef0 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -138,6 +138,17 @@ enum bnx2x_vfop_mcast_state {
- 	   BNX2X_VFOP_MCAST_ADD,
- 	   BNX2X_VFOP_MCAST_CHK_DONE
- };
-+enum bnx2x_vfop_qflr_state {
-+	   BNX2X_VFOP_QFLR_CLR_VLAN,
-+	   BNX2X_VFOP_QFLR_CLR_MAC,
-+	   BNX2X_VFOP_QFLR_TERMINATE,
-+	   BNX2X_VFOP_QFLR_DONE
-+};
-+
-+enum bnx2x_vfop_flr_state {
-+	   BNX2X_VFOP_FLR_QUEUES,
-+	   BNX2X_VFOP_FLR_HW
-+};
+@@ -2034,6 +2034,10 @@ void bnx2x_iov_remove_one(struct bnx2x *bp)
+ 	if (!IS_SRIOV(bp))
+ 		return;
  
- enum bnx2x_vfop_close_state {
- 	   BNX2X_VFOP_CLOSE_QUEUES,
-@@ -973,6 +984,94 @@ int bnx2x_vfop_qsetup_cmd(struct bnx2x *bp,
- 	return -ENOMEM;
++	DP(BNX2X_MSG_IOV, "about to call disable sriov\n");
++	pci_disable_sriov(bp->pdev);
++	DP(BNX2X_MSG_IOV, "sriov disabled\n");
++
+ 	/* free vf database */
+ 	__bnx2x_iov_free_vfdb(bp);
  }
- 
-+/* VFOP queue FLR handling (clear vlans, clear macs, queue destructor) */
-+static void bnx2x_vfop_qflr(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_cur(bp, vf);
-+	int qid = vfop->args.qx.qid;
-+	enum bnx2x_vfop_qflr_state state = vfop->state;
-+	struct bnx2x_queue_state_params *qstate;
-+	struct bnx2x_vfop_cmd cmd;
-+
-+	bnx2x_vfop_reset_wq(vf);
-+
-+	if (vfop->rc < 0)
-+		goto op_err;
-+
-+	DP(BNX2X_MSG_IOV, "VF[%d] STATE: %d\n", vf->abs_vfid, state);
-+
-+	cmd.done = bnx2x_vfop_qflr;
-+	cmd.block = false;
-+
-+	switch (state) {
-+	case BNX2X_VFOP_QFLR_CLR_VLAN:
-+		/* vlan-clear-all: driver-only, don't consume credit */
-+		vfop->state = BNX2X_VFOP_QFLR_CLR_MAC;
-+		vfop->rc = bnx2x_vfop_vlan_delall_cmd(bp, vf, &cmd, qid, true);
-+		if (vfop->rc)
-+			goto op_err;
-+		return;
-+
-+	case BNX2X_VFOP_QFLR_CLR_MAC:
-+		/* mac-clear-all: driver only consume credit */
-+		vfop->state = BNX2X_VFOP_QFLR_TERMINATE;
-+		vfop->rc = bnx2x_vfop_mac_delall_cmd(bp, vf, &cmd, qid, true);
-+		DP(BNX2X_MSG_IOV,
-+		   "VF[%d] vfop->rc after bnx2x_vfop_mac_delall_cmd was %d",
-+		   vf->abs_vfid, vfop->rc);
-+		if (vfop->rc)
-+			goto op_err;
-+		return;
-+
-+	case BNX2X_VFOP_QFLR_TERMINATE:
-+		qstate = &vfop->op_p->qctor.qstate;
-+		memset(qstate , 0, sizeof(*qstate));
-+		qstate->q_obj = &bnx2x_vfq(vf, qid, sp_obj);
-+		vfop->state = BNX2X_VFOP_QFLR_DONE;
-+
-+		DP(BNX2X_MSG_IOV, "VF[%d] qstate during flr was %d\n",
-+		   vf->abs_vfid, qstate->q_obj->state);
-+
-+		if (qstate->q_obj->state != BNX2X_Q_STATE_RESET) {
-+			qstate->q_obj->state = BNX2X_Q_STATE_STOPPED;
-+			qstate->cmd = BNX2X_Q_CMD_TERMINATE;
-+			vfop->rc = bnx2x_queue_state_change(bp, qstate);
-+			bnx2x_vfop_finalize(vf, vfop->rc, VFOP_VERIFY_PEND);
-+		} else {
-+			goto op_done;
-+		}
-+
-+op_err:
-+	BNX2X_ERR("QFLR[%d:%d] error: rc %d\n",
-+		  vf->abs_vfid, qid, vfop->rc);
-+op_done:
-+	case BNX2X_VFOP_QFLR_DONE:
-+		bnx2x_vfop_end(bp, vf, vfop);
-+		return;
-+	default:
-+		bnx2x_vfop_default(state);
-+	}
-+op_pending:
-+	return;
-+}
-+
-+static int bnx2x_vfop_qflr_cmd(struct bnx2x *bp,
-+			       struct bnx2x_virtf *vf,
-+			       struct bnx2x_vfop_cmd *cmd,
-+			       int qid)
-+{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
-+
-+	if (vfop) {
-+		vfop->args.qx.qid = qid;
-+		bnx2x_vfop_opset(BNX2X_VFOP_QFLR_CLR_VLAN,
-+				 bnx2x_vfop_qflr, cmd->done);
-+		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_qflr,
-+					     cmd->block);
-+	}
-+	return -ENOMEM;
-+}
-+
- /* VFOP multi-casts */
- static void bnx2x_vfop_mcast(struct bnx2x *bp, struct bnx2x_virtf *vf)
- {
-@@ -1430,6 +1529,201 @@ static void bnx2x_vf_free_resc(struct bnx2x *bp, struct bnx2x_virtf *vf)
- 	vf->state = VF_FREE;
- }
- 
-+static void bnx2x_vf_flr_clnup_hw(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	u32 poll_cnt = bnx2x_flr_clnup_poll_count(bp);
-+
-+	/* DQ usage counter */
-+	bnx2x_pretend_func(bp, HW_VF_HANDLE(bp, vf->abs_vfid));
-+	bnx2x_flr_clnup_poll_hw_counter(bp, DORQ_REG_VF_USAGE_CNT,
-+					"DQ VF usage counter timed out",
-+					poll_cnt);
-+	bnx2x_pretend_func(bp, BP_ABS_FUNC(bp));
-+
-+	/* FW cleanup command - poll for the results */
-+	if (bnx2x_send_final_clnup(bp, (u8)FW_VF_HANDLE(vf->abs_vfid),
-+				   poll_cnt))
-+		BNX2X_ERR("VF[%d] Final cleanup timed-out\n", vf->abs_vfid);
-+
-+	/* verify TX hw is flushed */
-+	bnx2x_tx_hw_flushed(bp, poll_cnt);
-+}
-+
-+static void bnx2x_vfop_flr(struct bnx2x *bp, struct bnx2x_virtf *vf)
-+{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_cur(bp, vf);
-+	struct bnx2x_vfop_args_qx *qx = &vfop->args.qx;
-+	enum bnx2x_vfop_flr_state state = vfop->state;
-+	struct bnx2x_vfop_cmd cmd = {
-+		.done = bnx2x_vfop_flr,
-+		.block = false,
-+	};
-+
-+	if (vfop->rc < 0)
-+		goto op_err;
-+
-+	DP(BNX2X_MSG_IOV, "vf[%d] STATE: %d\n", vf->abs_vfid, state);
-+
-+	switch (state) {
-+	case BNX2X_VFOP_FLR_QUEUES:
-+		/* the cleanup operations are valid if and only if the VF
-+		 * was first acquired.
-+		 */
-+		if (++(qx->qid) < vf_rxq_count(vf)) {
-+			vfop->rc = bnx2x_vfop_qflr_cmd(bp, vf, &cmd,
-+						       qx->qid);
-+			if (vfop->rc)
-+				goto op_err;
-+			return;
-+		}
-+		/* remove multicasts */
-+		vfop->state = BNX2X_VFOP_FLR_HW;
-+		vfop->rc = bnx2x_vfop_mcast_cmd(bp, vf, &cmd, NULL,
-+						0, true);
-+		if (vfop->rc)
-+			goto op_err;
-+		return;
-+	case BNX2X_VFOP_FLR_HW:
-+
-+		/* dispatch final cleanup and wait for HW queues to flush */
-+		bnx2x_vf_flr_clnup_hw(bp, vf);
-+
-+		/* release VF resources */
-+		bnx2x_vf_free_resc(bp, vf);
-+
-+		/* re-open the mailbox */
-+		bnx2x_vf_enable_mbx(bp, vf->abs_vfid);
-+
-+		goto op_done;
-+	default:
-+		bnx2x_vfop_default(state);
-+	}
-+op_err:
-+	BNX2X_ERR("VF[%d] FLR error: rc %d\n", vf->abs_vfid, vfop->rc);
-+op_done:
-+	vf->flr_clnup_stage = VF_FLR_ACK;
-+	bnx2x_vfop_end(bp, vf, vfop);
-+	bnx2x_unlock_vf_pf_channel(bp, vf, CHANNEL_TLV_FLR);
-+}
-+
-+static int bnx2x_vfop_flr_cmd(struct bnx2x *bp,
-+			      struct bnx2x_virtf *vf,
-+			      vfop_handler_t done)
-+{
-+	struct bnx2x_vfop *vfop = bnx2x_vfop_add(bp, vf);
-+	if (vfop) {
-+		vfop->args.qx.qid = -1; /* loop */
-+		bnx2x_vfop_opset(BNX2X_VFOP_FLR_QUEUES,
-+				 bnx2x_vfop_flr, done);
-+		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_flr, false);
-+	}
-+	return -ENOMEM;
-+}
-+
-+static void bnx2x_vf_flr_clnup(struct bnx2x *bp, struct bnx2x_virtf *prev_vf)
-+{
-+	int i = prev_vf ? prev_vf->index + 1 : 0;
-+	struct bnx2x_virtf *vf;
-+
-+	/* find next VF to cleanup */
-+next_vf_to_clean:
-+	for (;
-+	     i < BNX2X_NR_VIRTFN(bp) &&
-+	     (bnx2x_vf(bp, i, state) != VF_RESET ||
-+	      bnx2x_vf(bp, i, flr_clnup_stage) != VF_FLR_CLN);
-+	     i++)
-+		;
-+
-+	DP(BNX2X_MSG_IOV, "next vf to cleanup: %d. num of vfs: %d\n", i,
-+	   BNX2X_NR_VIRTFN(bp));
-+
-+	if (i < BNX2X_NR_VIRTFN(bp)) {
-+		vf = BP_VF(bp, i);
-+
-+		/* lock the vf pf channel */
-+		bnx2x_lock_vf_pf_channel(bp, vf, CHANNEL_TLV_FLR);
-+
-+		/* invoke the VF FLR SM */
-+		if (bnx2x_vfop_flr_cmd(bp, vf, bnx2x_vf_flr_clnup)) {
-+			BNX2X_ERR("VF[%d]: FLR cleanup failed -ENOMEM\n",
-+				  vf->abs_vfid);
-+
-+			/* mark the VF to be ACKED and continue */
-+			vf->flr_clnup_stage = VF_FLR_ACK;
-+			goto next_vf_to_clean;
-+		}
-+		return;
-+	}
-+
-+	/* we are done, update vf records */
-+	for_each_vf(bp, i) {
-+		vf = BP_VF(bp, i);
-+
-+		if (vf->flr_clnup_stage != VF_FLR_ACK)
-+			continue;
-+
-+		vf->flr_clnup_stage = VF_FLR_EPILOG;
-+	}
-+
-+	/* Acknowledge the handled VFs.
-+	 * we are acknowledge all the vfs which an flr was requested for, even
-+	 * if amongst them there are such that we never opened, since the mcp
-+	 * will interrupt us immediately again if we only ack some of the bits,
-+	 * resulting in an endless loop. This can happen for example in KVM
-+	 * where an 'all ones' flr request is sometimes given by hyper visor
-+	 */
-+	DP(BNX2X_MSG_MCP, "DRV_STATUS_VF_DISABLED ACK for vfs 0x%x 0x%x\n",
-+	   bp->vfdb->flrd_vfs[0], bp->vfdb->flrd_vfs[1]);
-+	for (i = 0; i < FLRD_VFS_DWORDS; i++)
-+		SHMEM2_WR(bp, drv_ack_vf_disabled[BP_FW_MB_IDX(bp)][i],
-+			  bp->vfdb->flrd_vfs[i]);
-+
-+	bnx2x_fw_command(bp, DRV_MSG_CODE_VF_DISABLED_DONE, 0);
-+
-+	/* clear the acked bits - better yet if the MCP implemented
-+	 * write to clear semantics
-+	 */
-+	for (i = 0; i < FLRD_VFS_DWORDS; i++)
-+		SHMEM2_WR(bp, drv_ack_vf_disabled[BP_FW_MB_IDX(bp)][i], 0);
-+}
-+
-+void bnx2x_vf_handle_flr_event(struct bnx2x *bp)
-+{
-+	int i;
-+
-+	/* Read FLR'd VFs */
-+	for (i = 0; i < FLRD_VFS_DWORDS; i++)
-+		bp->vfdb->flrd_vfs[i] = SHMEM2_RD(bp, mcp_vf_disabled[i]);
-+
-+	DP(BNX2X_MSG_MCP,
-+	   "DRV_STATUS_VF_DISABLED received for vfs 0x%x 0x%x\n",
-+	   bp->vfdb->flrd_vfs[0], bp->vfdb->flrd_vfs[1]);
-+
-+	for_each_vf(bp, i) {
-+		struct bnx2x_virtf *vf = BP_VF(bp, i);
-+		u32 reset = 0;
-+
-+		if (vf->abs_vfid < 32)
-+			reset = bp->vfdb->flrd_vfs[0] & (1 << vf->abs_vfid);
-+		else
-+			reset = bp->vfdb->flrd_vfs[1] &
-+				(1 << (vf->abs_vfid - 32));
-+
-+		if (reset) {
-+			/* set as reset and ready for cleanup */
-+			vf->state = VF_RESET;
-+			vf->flr_clnup_stage = VF_FLR_CLN;
-+
-+			DP(BNX2X_MSG_IOV,
-+			   "Initiating Final cleanup for VF %d\n",
-+			   vf->abs_vfid);
-+		}
-+	}
-+
-+	/* do the FLR cleanup for all marked VFs*/
-+	bnx2x_vf_flr_clnup(bp, NULL);
-+}
-+
- /* IOV global initialization routines  */
- void bnx2x_iov_init_dq(struct bnx2x *bp)
- {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-index a09db28..25396fa 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
-@@ -684,9 +684,16 @@ int bnx2x_vfop_release_cmd(struct bnx2x *bp,
- void bnx2x_vf_release(struct bnx2x *bp, struct bnx2x_virtf *vf, bool block);
- int bnx2x_vf_idx_by_abs_fid(struct bnx2x *bp, u16 abs_vfid);
- u8 bnx2x_vf_max_queue_cnt(struct bnx2x *bp, struct bnx2x_virtf *vf);
-+
-+/* FLR routines */
-+
- /* VF FLR helpers */
- int bnx2x_vf_flr_clnup_epilog(struct bnx2x *bp, u8 abs_vfid);
- void bnx2x_vf_enable_access(struct bnx2x *bp, u8 abs_vfid);
-+
-+/* Handles an FLR (or VF_DISABLE) notification form the MCP */
-+void bnx2x_vf_handle_flr_event(struct bnx2x *bp);
-+
- void bnx2x_add_tlv(struct bnx2x *bp, void *tlvs_list, u16 offset, u16 type,
- 		   u16 length);
- void bnx2x_vfpf_prep(struct bnx2x *bp, struct vfpf_first_tlv *first_tlv,
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-index 6278a9e..554c119 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-@@ -312,6 +312,7 @@ enum channel_tlvs {
- 	CHANNEL_TLV_RELEASE,
- 	CHANNEL_TLV_PF_RELEASE_VF,
- 	CHANNEL_TLV_LIST_END,
-+	CHANNEL_TLV_FLR,
- 	CHANNEL_TLV_MAX
- };
- 
 -- 
 1.7.9.GIT
