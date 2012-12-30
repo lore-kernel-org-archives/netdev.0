@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] bridge: respect RFC2863 operational state
-Date: Sun, 30 Dec 2012 02:32:37 -0800 (PST)
-Message-ID: <20121230.023237.824657555139331896.davem@davemloft.net>
-References: <20121227222854.6ec132dd@nehalam.linuxnetplumber.net>
-	<20121228.152754.707370216340290808.davem@davemloft.net>
-	<20121228201522.62a48370@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next] team: implement carrier change
+Date: Sun, 30 Dec 2012 02:32:43 -0800 (PST)
+Message-ID: <20121230.023243.1327921483859016813.davem@davemloft.net>
+References: <1356831061-1483-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40194 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40198 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753895Ab2L3Kci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 05:32:38 -0500
-In-Reply-To: <20121228201522.62a48370@nehalam.linuxnetplumber.net>
+	with ESMTP id S1754083Ab2L3Kco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 05:32:44 -0500
+In-Reply-To: <1356831061-1483-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 28 Dec 2012 20:15:22 -0800
+From: Flavio Leitner <fbl@redhat.com>
+Date: Sat, 29 Dec 2012 23:31:01 -0200
 
-> The bridge link detection should follow the operational state
-> of the lower device, rather than the carrier bit. This allows devices
-> like tunnels that are controlled by userspace control plane to work
-> with bridge STP link management.
+> The user space teamd daemon may need to control the
+> master's carrier state depending on the selected mode.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
 
 Applied.
