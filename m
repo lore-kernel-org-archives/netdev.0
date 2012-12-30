@@ -1,27 +1,34 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Is keepalive behaving as expected in 3.7.0+/net-next?
-Date: Sun, 30 Dec 2012 12:51:47 -0800
-Message-ID: <50E0A963.6080900@hp.com>
-References: <50D4DD28.30903@hp.com> <1356645265.30414.1542.camel@edumazet-glaptop> <50df48f4.0e5b650a.36fa.1452@mx.google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] team: update master carrier state
+Date: Sun, 30 Dec 2012 22:47:23 +0100
+Message-ID: <20121230214723.GD1575@minipsycho.orion>
+References: <1356892049-14667-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <erdnetdev@gmail.com>, netdev@vger.kernel.org
-To: Jamie Gloudon <jamie.gloudon@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0017.houston.hp.com ([15.201.24.20]:12980 "EHLO
-	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754955Ab2L3Uvs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 15:51:48 -0500
-In-Reply-To: <50df48f4.0e5b650a.36fa.1452@mx.google.com>
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:42755 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755049Ab2L3Vr1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 16:47:27 -0500
+Received: by mail-ea0-f173.google.com with SMTP id i13so4862100eaa.4
+        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 13:47:26 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1356892049-14667-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Make a lot of sense. However, I got the impression from Rick that
-> having tcp_keepalive_intvl > tcp_keepalive_time behaved correctly in
-> older versions of the kernel.
+Sun, Dec 30, 2012 at 07:27:29PM CET, fbl@redhat.com wrote:
+>Update master's carrier state when there is any
+>change with its ports.
 
-I seek to make no assertions about the behaviour of older kernels.  I 
-was just going off the ip-sysctl.txt wording I was looking to clean-up.
 
-rick
+This patch looks good to me. Just one nitpick I spotted....
+
+>+	bool team_linkup;
+>+
+>+	team_linkup = false;
+
+
+This can be squashed together.
