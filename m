@@ -1,86 +1,53 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: [PATCH net-next] team: update master carrier state
-Date: Sun, 30 Dec 2012 16:27:29 -0200
-Message-ID: <1356892049-14667-1-git-send-email-fbl@redhat.com>
-Cc: Jiri Pirko <jiri@resnulli.us>, Flavio Leitner <fbl@redhat.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15018 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754715Ab2L3S3L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Dec 2012 13:29:11 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pau Koning <paukoning-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: batman-adv: Unable to add interface in LXC
+Date: Sun, 30 Dec 2012 20:34:38 +0100
+Message-ID: <CANiGF9-dq-HrvWrgu9EMC94rP=1YdrmaFbCF2g1SZ9ocu77ysw@mail.gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Update master's carrier state when there is any
-change with its ports.
+I am running LXC (SID) under Debian SID and the current git version of
+batman-adv (v3.7-rc7-1325-gaf5d4f7) +batctl (v2012.4.0-30-ga395164).
+But it fails to add any of my interfaces and non-batman-adv interfaces
+can be created without problems
 
-Signed-off-by: Flavio Leitner <fbl@redhat.com>
----
- drivers/net/team/team.c | 24 ++++++++++++++++++++++--
- 1 file changed, 22 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 918a901..78c7d87 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1400,13 +1400,11 @@ static void team_destructor(struct net_device *dev)
- 
- static int team_open(struct net_device *dev)
- {
--	netif_carrier_on(dev);
- 	return 0;
- }
- 
- static int team_close(struct net_device *dev)
- {
--	netif_carrier_off(dev);
- 	return 0;
- }
- 
-@@ -2560,21 +2558,43 @@ send_event:
- 
- }
- 
-+static void __team_carrier_check(struct team *team)
-+{
-+	struct team_port *port;
-+	bool team_linkup;
-+
-+	team_linkup = false;
-+	list_for_each_entry(port, &team->port_list, list) {
-+		if (port->linkup) {
-+			team_linkup = true;
-+			break;
-+		}
-+	}
-+
-+	if (team_linkup)
-+		netif_carrier_on(team->dev);
-+	else
-+		netif_carrier_off(team->dev);
-+}
-+
- static void __team_port_change_check(struct team_port *port, bool linkup)
- {
- 	if (port->state.linkup != linkup)
- 		__team_port_change_send(port, linkup);
-+	__team_carrier_check(port->team);
- }
- 
- static void __team_port_change_port_added(struct team_port *port, bool linkup)
- {
- 	__team_port_change_send(port, linkup);
-+	__team_carrier_check(port->team);
- }
- 
- static void __team_port_change_port_removed(struct team_port *port)
- {
- 	port->removed = true;
- 	__team_port_change_send(port, false);
-+	__team_carrier_check(port->team);
- }
- 
- static void team_port_change_check(struct team_port *port, bool linkup)
--- 
-1.8.0.1
+# ip link
+13: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+state UP mode DEFAULT qlen 1000
+    link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
+15: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+mode DEFAULT
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+# batctl if add eth0
+Error - can't open file '/sys/class/net/eth0/batman_adv/mesh_iface':
+Read-only file system
+# ls -l /sys/class/net/eth0/batman_adv/mesh_iface
+-rw-r--r-- 1 root root 4096 Dec 30 18:26
+/sys/class/net/eth0/batman_adv/mesh_iface
+# id
+uid=0(root) gid=0(root) groups=0(root)
+# ip link add dev br0 type bridge
+# ip link set dev eth0 master br0
+# ip link
+18: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+master br0 state UP mode DEFAULT qlen 1000
+    link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
+20: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+mode DEFAULT
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+21: br0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT
+    link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
