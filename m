@@ -1,33 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next] team: add ethtool support
-Date: Sat, 29 Dec 2012 17:29:45 -0800
-Message-ID: <20121229172945.25a09fc8@nehalam.linuxnetplumber.net>
-References: <1356830366-991-1-git-send-email-fbl@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Flavio Leitner <fbl@redhat.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH net-next] team: implement carrier change
+Date: Sat, 29 Dec 2012 23:31:01 -0200
+Message-ID: <1356831061-1483-1-git-send-email-fbl@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45234 "EHLO mail.vyatta.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17869 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753705Ab2L3BbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Dec 2012 20:31:09 -0500
-In-Reply-To: <1356830366-991-1-git-send-email-fbl@redhat.com>
+	id S1753732Ab2L3BbT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Dec 2012 20:31:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 29 Dec 2012 23:19:26 -0200
-Flavio Leitner <fbl@redhat.com> wrote:
+The user space teamd daemon may need to control the
+master's carrier state depending on the selected mode.
 
-> This patch adds few ethtool operations to team driver.
-> 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+---
+ drivers/net/team/team.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-What is the motivation for this? Is there an application that depends
-on ethtool (versus netlink, or /proc)?
-
-Sorry, I see no point in providing ethtool statistics for generic data that is already
-reported by existing netlink and other infrastructure. The purpose of ethtool
-statistics is to report device specific that is not available through the normal
-generic statistics.
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index f711039..14cb843 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1708,6 +1708,15 @@ static netdev_features_t team_fix_features(struct net_device *dev,
+ 	return features;
+ }
+ 
++static int team_change_carrier(struct net_device *dev, bool new_carrier)
++{
++	if (new_carrier)
++		netif_carrier_on(dev);
++	else
++		netif_carrier_off(dev);
++	return 0;
++}
++
+ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_init		= team_init,
+ 	.ndo_uninit		= team_uninit,
+@@ -1730,6 +1739,7 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_add_slave		= team_add_slave,
+ 	.ndo_del_slave		= team_del_slave,
+ 	.ndo_fix_features	= team_fix_features,
++	.ndo_change_carrier     = team_change_carrier,
+ };
+ 
+ /***********************
+-- 
+1.8.0.1
