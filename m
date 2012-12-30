@@ -1,53 +1,100 @@
-From: Pau Koning <paukoning-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: batman-adv: Unable to add interface in LXC
-Date: Sun, 30 Dec 2012 20:34:38 +0100
-Message-ID: <CANiGF9-dq-HrvWrgu9EMC94rP=1YdrmaFbCF2g1SZ9ocu77ysw@mail.gmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: [PATCH v3 net-next 00/22] bnx2x: support SR-IOV
+Date: Sun, 30 Dec 2012 21:57:00 +0200
+Message-ID: <1356897442-3063-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3268 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754949Ab2L3Tyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Dec 2012 14:54:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I am running LXC (SID) under Debian SID and the current git version of
-batman-adv (v3.7-rc7-1325-gaf5d4f7) +batctl (v2012.4.0-30-ga395164).
-But it fails to add any of my interfaces and non-batman-adv interfaces
-can be created without problems
+Hi Dave,
 
-# ip link
-13: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-state UP mode DEFAULT qlen 1000
-    link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
-15: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-mode DEFAULT
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-# batctl if add eth0
-Error - can't open file '/sys/class/net/eth0/batman_adv/mesh_iface':
-Read-only file system
-# ls -l /sys/class/net/eth0/batman_adv/mesh_iface
--rw-r--r-- 1 root root 4096 Dec 30 18:26
-/sys/class/net/eth0/batman_adv/mesh_iface
-# id
-uid=0(root) gid=0(root) groups=0(root)
-# ip link add dev br0 type bridge
-# ip link set dev eth0 master br0
-# ip link
-18: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
-master br0 state UP mode DEFAULT qlen 1000
-    link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
-20: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
-mode DEFAULT
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-21: br0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT
-    link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
+Changes for v2:
+-Remove redundant empty lines
+-Remove redundant 'inline'
+
+Changes for v3:
+-Really remove all redundant empty lines
+-Remove __dev* attributes from series
+
+Changes for v4:
+-Rearrange comments to be indented according to basic block
+-Remove more redundant empty lines...
+-use dev_info() rather than pr_info()
+-add termnating newlines to all printouts (thanks Joe)
+-add empty line between functional local variable declarations and actual code
+
+This patch series adds support for SR-IOV in the bnx2x driver.
+In bnx2x SR-IOV scheme the same bnx2x driver drives both VFs and PFs (single
+binary).
+The bulk of the communication between the VF drivers and the PF driver is done
+via the VF <-> PF channel, a hardware-based communications channel with TLV
+messages. The TLVs are designed to support different versions of VF drivers
+(from multiple VMs) communicating with the same PF driver.
+
+Patches:
+01-03 - Probing and removing a VF driver
+Includes sending the 'acquire' and 'release' messages on the VF PF channel.
+Here the VF PF channel infrastructure is added, including the allocations of
+the mailboxes and the definition of thin API structures (which will fill out 
+with more content as the series progresses).
+
+04-07 - Loading/Unloading a VF driver
+Includes refactoring of the driver load code and differentiating the VF flow
+from the PF flow. This also includes requests from the VF for the PF to open
+a queue in the HW on its behalf, configure the device with macs/vlans/rxmode
+data, etc. Likewise the unload flow has been modified for the PF to undo these
+configurations when the VF indicates it is going down.
+
+08    - Modify fastpath flows for VFs
+VFs have almost identical behavior in fastpath to PFs. In this patch the
+VFs prepare transmit transaction for tx-switching, and the code for acking a
+fastpath interrupt has been reorganized to allow a VF or PF to preconfigure the
+offset of the interrupt's location in the BAR (as they have BARs with different
+mapping) so as not to do so in fastpath.
+
+09-10 - Probe and Load a PF driver with SR-IOV
+The PF driver allocates and initializes the VF database to manage and keep track
+of its VFs, their resources, queues, etc.
+
+11-19 - The PF side of the VF <-> PF channel requests
+Here is the implementation on the PF's side of the requests submitted in patches
+01 through 07 by the VF. Patch 14 adds support for statistics collection by the 
+PF for all of its VFs (stats are DMAEed directly to VM GPA memory).
+
+20    - Support for VF function level reset
+When FLR indication is received for VFs, the PF reclaims all the resources
+allocated for these VFs (interrupts, queues) and releases allocation it
+performed for the FLRed VFs (it does so by consulting the VF database).
+
+21    - Bulletin Board interface
+This patch adds the PF <-> VF Bulletin Board interface. This interface is a
+simple interface where the PF can be the initiator, and indicate to a VF that
+it has a new MAC for it to use. In this interface each post "covers" any
+previous posts (hence the name).
+
+22    - Add the VF device ids and enable feature
+In this patch we add the VF device ids of the various devices driven by bnx2x.
+Here we also add the calls to "pci_enable_sriov" and "pci_disable_sriov".
+
+Important: In this patch series we have laid the ground work for interfacing
+with the infrastructure for dynamically controlling the number of VFs of a
+physical device.
+
+Meanwhile, in patch 9 this code is added to bnx2x_init_one():
+--snip snip--
+rc = bnx2x_iov_init_one(bp, int_mode, 0/*num vfs*/);
+--snip snip--
+recompiling the bnx2x with a number of vfs which is not 0 will enable SR-IOV
+with that number of VFs.
+
+Please consider applying these patches.
