@@ -1,8 +1,8 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [patch net-next 01/15] net: introduce upper device lists
-Date: Sun, 30 Dec 2012 10:00:42 -0800
-Message-ID: <50E0814A.3090100@candelatech.com>
-References: <1356868702-8144-1-git-send-email-jiri@resnulli.us> <1356868702-8144-2-git-send-email-jiri@resnulli.us>
+Subject: Re: [patch net-next 04/15] rtnetlink: remove usage of dev->master
+Date: Sun, 30 Dec 2012 10:00:55 -0800
+Message-ID: <50E08157.2010001@candelatech.com>
+References: <1356868702-8144-1-git-send-email-jiri@resnulli.us> <1356868702-8144-5-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -19,50 +19,43 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
 	pablo@netfilter.org
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:34215 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:34222 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754696Ab2L3SCW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 13:02:22 -0500
-In-Reply-To: <1356868702-8144-2-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1754696Ab2L3SC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 13:02:29 -0500
+In-Reply-To: <1356868702-8144-5-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 12/30/2012 03:58 AM, Jiri Pirko wrote:
-> This lists are supposed to serve for storing pointers to all upper devices.
-> Eventually it will replace dev->master pointer which is used for
-> bonding, bridge, team but it cannot be used for vlan, macvlan where
-> there might be multiple upper present. In case the upper link is
-> replacement for dev->master, it is marked with "master" flag.
-
-This is confusing and full of grammatical errors.  For instance, the 'it'
-in "team but it cannot be used"...you are talking about the list this
-patch introduces, or the old dev->master?
-
->
-> New upper device list resolves this limitation. Also, the information
-> stored in lists is used for preventing looping setups like
-> "bond->somethingelse->samebond"
->
 > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 > ---
->   include/linux/netdevice.h |  14 +++
->   net/core/dev.c            | 237 +++++++++++++++++++++++++++++++++++++++++++++-
->   2 files changed, 247 insertions(+), 4 deletions(-)
+>   net/core/rtnetlink.c | 69 ++++++++++++++++++++++++++++------------------------
+>   1 file changed, 37 insertions(+), 32 deletions(-)
 >
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 6835b58..52d1146 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1172,6 +1172,8 @@ struct net_device {
->   					  * which this device is member of.
->   					  */
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 2ef7a56..ae612f4 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -880,6 +880,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>   	const struct rtnl_link_stats64 *stats;
+>   	struct nlattr *attr, *af_spec;
+>   	struct rtnl_af_ops *af_ops;
+> +	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
 >
-> +	struct list_head	upper_dev_list; /* List of upper devices */
-> +
+>   	ASSERT_RTNL();
+>   	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
+> @@ -908,8 +909,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+>   #endif
+>   	    (dev->ifindex != dev->iflink &&
+>   	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+> -	    (dev->master &&
+> -	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
+> +	    (upper_dev &&
+> +	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
 
-Unless I mis-understand, this is often contains 'lower' devices instead,
-and could contain a mixture.
-Maybe this could use a rename, or at least a lot more comments?
+This seems confusing to me.  You are calling the new variable 'upper_dev',
+but it seems you are actually using it as a lower_dev???
 
 Thanks,
 Ben
