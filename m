@@ -1,85 +1,35 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 01/15] net: introduce upper device lists
-Date: Sun, 30 Dec 2012 10:53:38 +0100
-Message-ID: <20121230095338.GC1575@minipsycho.orion>
-References: <1356777522-19652-1-git-send-email-jiri@resnulli.us>
- <1356777522-19652-2-git-send-email-jiri@resnulli.us>
- <20121229.153101.676681277388952344.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: filter: return -EINVAL if BPF_S_ANC*
+ operation is not supported
+Date: Sun, 30 Dec 2012 02:30:58 -0800 (PST)
+Message-ID: <20121230.023058.1273764783843598991.davem@davemloft.net>
+References: <1356727817-10649-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	bhutchings@solarflare.com, faisal.latif@intel.com,
-	shemminger@vyatta.com, fbl@redhat.com, roland@kernel.org,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com, fubar@us.ibm.com,
-	andy@greyhouse.net, divy@chelsio.com, jitendra.kalsaria@qlogic.com,
-	sony.chacko@qlogic.com, linux-driver@qlogic.com, kaber@trash.net,
-	ursula.braun@de.ibm.com, blaschka@linux.vnet.ibm.com,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	ebiederm@xmission.com, joe@perches.com, amwang@redhat.com,
-	nhorman@tuxdriver.com, john.r.fastabend@intel.com,
-	pablo@netfilter.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ani@aristanetworks.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:51612 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866Ab2L3Jxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 04:53:43 -0500
-Received: by mail-ea0-f172.google.com with SMTP id a1so4946240eaa.3
-        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 01:53:42 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121229.153101.676681277388952344.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40181 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753194Ab2L3KbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 05:31:02 -0500
+In-Reply-To: <1356727817-10649-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Dec 30, 2012 at 12:31:01AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Sat, 29 Dec 2012 11:38:28 +0100
->
->> +	/*
->> +	 * To prevent loops, check if dev is not upper device to upper_dev.
->> +	 */
->
->Please use:
->
->	/* To prevent loops, check if dev is not upper device to upper_dev.  */
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 28 Dec 2012 21:50:17 +0100
 
-fixed
+> Currently, we return -EINVAL for malformed or wrong BPF filters.
+> However, this is not done for BPF_S_ANC* operations, which makes it
+> more difficult to detect if it's actually supported or not by the
+> BPF machine. Therefore, we should also return -EINVAL if K is within
+> the SKF_AD_OFF universe and the ancillary operation did not match.
+ ...
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Reported-by: Ani Sinha <ani@aristanetworks.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
->
->> +/**
->> + * netdev_upper_free_rcu - Frees a upper device list item via the RCU pointer
->> + * @entry: the entry's RCU field
->> + *
->> + * This function is designed to be used as a callback to the call_rcu()
->> + * function so that the memory allocated to the netdev upper device list item
->> + * can be released safely.
->> + */
->> +static void netdev_upper_free_rcu(struct rcu_head *entry)
->> +{
->> +	struct netdev_upper *upper;
->> +
->> +	upper = container_of(entry, struct netdev_upper, rcu);
->> +	kfree(upper);
->> +}
->
->Please use kfree_rcu().
-
-fixed
-
->
->Also, since __netdev_has_upper_dev() modifies &search_list inside
->of the list traversal loop, I think you really need to use
->list_for_each_entry_safe() even though you always append to the
->tail of &search_list.
-
-Hmm, I do not believe that list_for_each_entry_safe() would work correctly
-here. In case that the current iterator is at the very end of
-the list and now other items are added, list_for_each_entry_safe() would
-remember that next is head and the newly added items would not be
-processed. list_for_each_entry() works just fine in any case I can
-imagine. Note that no items are removed during the iteration.
-Am I missing something?
-
-Thanks!
-
-Jiri
+Applied, thanks.
