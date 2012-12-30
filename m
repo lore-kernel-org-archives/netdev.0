@@ -1,45 +1,72 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next] team: implement carrier change
-Date: Sun, 30 Dec 2012 14:03:28 +0100
-Message-ID: <CAHXqBFKtm6y3V-OepX9NnDP1GT28J=tPRmEtmR68wACPT9Pq8g@mail.gmail.com>
-References: <1356831061-1483-1-git-send-email-fbl@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [patch net-next 01/15] net: introduce upper device lists
+Date: Sun, 30 Dec 2012 10:00:42 -0800
+Message-ID: <50E0814A.3090100@candelatech.com>
+References: <1356868702-8144-1-git-send-email-jiri@resnulli.us> <1356868702-8144-2-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, faisal.latif@intel.com,
+	shemminger@vyatta.com, fbl@redhat.com, roland@kernel.org,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com, fubar@us.ibm.com,
+	andy@greyhouse.net, divy@chelsio.com, jitendra.kalsaria@qlogic.com,
+	sony.chacko@qlogic.com, linux-driver@qlogic.com, kaber@trash.net,
+	ursula.braun@de.ibm.com, blaschka@linux.vnet.ibm.com,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	ebiederm@xmission.com, joe@perches.com, amwang@redhat.com,
+	nhorman@tuxdriver.com, john.r.fastabend@intel.com,
+	pablo@netfilter.org
 To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:61398 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754502Ab2L3NI7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 08:08:59 -0500
-Received: by mail-ob0-f175.google.com with SMTP id vb8so10771343obc.6
-        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 05:08:58 -0800 (PST)
-In-Reply-To: <1356831061-1483-1-git-send-email-fbl@redhat.com>
+Received: from mail.candelatech.com ([208.74.158.172]:34215 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754696Ab2L3SCW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 13:02:22 -0500
+In-Reply-To: <1356868702-8144-2-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2012/12/30 Flavio Leitner <fbl@redhat.com>:
-> The user space teamd daemon may need to control the
-> master's carrier state depending on the selected mode.
-[...]
-> +static int team_change_carrier(struct net_device *dev, bool new_carr=
-ier)
-> +{
-> +       if (new_carrier)
-> +               netif_carrier_on(dev);
-> +       else
-> +               netif_carrier_off(dev);
-> +       return 0;
-> +}
+On 12/30/2012 03:58 AM, Jiri Pirko wrote:
+> This lists are supposed to serve for storing pointers to all upper devices.
+> Eventually it will replace dev->master pointer which is used for
+> bonding, bridge, team but it cannot be used for vlan, macvlan where
+> there might be multiple upper present. In case the upper link is
+> replacement for dev->master, it is marked with "master" flag.
+
+This is confusing and full of grammatical errors.  For instance, the 'it'
+in "team but it cannot be used"...you are talking about the list this
+patch introduces, or the old dev->master?
+
+>
+> New upper device list resolves this limitation. Also, the information
+> stored in lists is used for preventing looping setups like
+> "bond->somethingelse->samebond"
+>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>   include/linux/netdevice.h |  14 +++
+>   net/core/dev.c            | 237 +++++++++++++++++++++++++++++++++++++++++++++-
+>   2 files changed, 247 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 6835b58..52d1146 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1172,6 +1172,8 @@ struct net_device {
+>   					  * which this device is member of.
+>   					  */
+>
+> +	struct list_head	upper_dev_list; /* List of upper devices */
 > +
-[...]
-> +       .ndo_change_carrier     =3D team_change_carrier,
 
-I wonder what else you might put in the .ndo_change_carrier
-implementation? It's already the same for dummy device and tunnels
-would get more copies. Maybe it would be enough to allocate a bit in
-netdev->priv_flags and use that in dev_change_carrier() instead?
+Unless I mis-understand, this is often contains 'lower' devices instead,
+and could contain a mixture.
+Maybe this could use a rename, or at least a lot more comments?
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
