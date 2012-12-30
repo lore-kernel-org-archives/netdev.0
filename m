@@ -1,82 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] team: add ethtool support
-Date: Sat, 29 Dec 2012 18:31:56 -0800
-Message-ID: <1356834716.21409.6258.camel@edumazet-glaptop>
-References: <1356830366-991-1-git-send-email-fbl@redhat.com>
-	 <20121229172945.25a09fc8@nehalam.linuxnetplumber.net>
-	 <20121230014403.GA2077@obelix.rh>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Flavio Leitner <fbl@redhat.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: [PATCH v2 net-next] team: add ethtool support
+Date: Sun, 30 Dec 2012 00:37:33 -0200
+Message-ID: <1356835053-25602-1-git-send-email-fbl@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>, Flavio Leitner <fbl@redhat.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f54.google.com ([209.85.210.54]:42965 "EHLO
-	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753705Ab2L3Cb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Dec 2012 21:31:59 -0500
-Received: by mail-da0-f54.google.com with SMTP id n2so5346925dad.41
-        for <netdev@vger.kernel.org>; Sat, 29 Dec 2012 18:31:58 -0800 (PST)
-In-Reply-To: <20121230014403.GA2077@obelix.rh>
+Received: from mx1.redhat.com ([209.132.183.28]:11861 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753705Ab2L3Chz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 29 Dec 2012 21:37:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2012-12-29 at 23:44 -0200, Flavio Leitner wrote:
+This patch adds few ethtool operations to team driver.
 
-> Speaking as a support engineer, it's a lot easier to grab ethtool -S and
-> see everything than grab two or more outputs.
-> 
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+---
+v2 - removed generic statistics from ethtool
 
-I agree its very convenient.
+ drivers/net/team/team.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-I have a patch to add GRO statistics at the core layer, in the ethtool
--S stats. 
-
-I was about to ask netdev guys what they think of this idea ?
-
-
-net-gro: Add GRO counters to ethtool -S
-    
-In order to get an idea of how effective is GRO aggregation on a machine,
-we need appropriate counters. Preferably use "ethtool -S" to display them
-on a per device basis, or even per RX queue.
-    
-In this implementation, I chose to not change NIC drivers.
-
-Core network stack adds the gro counters at the end of the counters
-each NIC driver provides for ethtool -S
-    
-There are 5 counters per RX queue :
-    
-    gro_complete:  number of time the NAPI handler did not consume its budget
-                   (This force a flush of all GRO packets in the GRO queue)
-    gro_overflows: number of time a segment could not be stored in GRO queue
-                   because current number or messages is too high
-    gro_nogro:     number of time a segment was not stored in GRO queue.
-                   (Because its not a TCP packet, or it includes a
-                   SYN/FIN/RST/PSH flag)
-    gro_msgs:      number of GRO messages (might contain 1 to 17 segments)
-    gro_segs:      number of GRO segments
-    
-Example:
-    
-     On receiver machine, with 8 RX queues :
-
-     ethtool -S eth4 | tail -n 10
-         gro_complete[7]: 56635
-         gro_overflows[7]: 0
-         gro_nogro[7]: 212
-         gro_msgs[7]: 129410
-         gro_segs[7]: 1434925
-         gro_complete: 699479
-         gro_overflows: 0
-         gro_nogro: 2455
-         gro_msgs: 1626470
-         gro_segs: 17876794
-    
-    In this example, we can compute average number of segments per GRO message :
-    
-    17876794/17876794 = 10.99
-    
-    Or more precisely : 17876794/(17876794+2455) = 10.97
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index ad86660..7665a088 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -28,6 +28,7 @@
+ #include <net/genetlink.h>
+ #include <net/netlink.h>
+ #include <net/sch_generic.h>
++#include <generated/utsrelease.h>
+ #include <linux/if_team.h>
+ 
+ #define DRV_NAME "team"
+@@ -1731,6 +1732,21 @@ static const struct net_device_ops team_netdev_ops = {
+ 	.ndo_fix_features	= team_fix_features,
+ };
+ 
++/***********************
++ * ethtool interface
++ ***********************/
++
++static void team_ethtool_get_drvinfo(struct net_device *dev,
++				     struct ethtool_drvinfo *drvinfo)
++{
++	strncpy(drvinfo->driver, DRV_NAME, 32);
++	strncpy(drvinfo->version, UTS_RELEASE, 32);
++}
++
++static const struct ethtool_ops team_ethtool_ops = {
++	.get_drvinfo		= team_ethtool_get_drvinfo,
++	.get_link		= ethtool_op_get_link,
++};
+ 
+ /***********************
+  * rt netlink interface
+@@ -1780,6 +1796,7 @@ static void team_setup(struct net_device *dev)
+ 	ether_setup(dev);
+ 
+ 	dev->netdev_ops = &team_netdev_ops;
++	dev->ethtool_ops = &team_ethtool_ops;
+ 	dev->destructor	= team_destructor;
+ 	dev->tx_queue_len = 0;
+ 	dev->flags |= IFF_MULTICAST;
+-- 
+1.8.0.1
