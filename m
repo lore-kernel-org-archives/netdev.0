@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/15] rtnetlink: remove usage of dev->master
-Date: Sun, 30 Dec 2012 12:58:11 +0100
-Message-ID: <1356868702-8144-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 05/15] team: remove usage of netdev_set_master()
+Date: Sun, 30 Dec 2012 12:58:12 +0100
+Message-ID: <1356868702-8144-6-git-send-email-jiri@resnulli.us>
 References: <1356868702-8144-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com,
 	bhutchings@solarflare.com, faisal.latif@intel.com,
@@ -16,206 +16,60 @@ Cc: davem@davemloft.net, edumazet@google.com,
 	pablo@netfilter.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:65075 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753806Ab2L3L71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 06:59:27 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so5728591eek.5
-        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 03:59:26 -0800 (PST)
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:47599 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754482Ab2L3L7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 06:59:38 -0500
+Received: by mail-ee0-f52.google.com with SMTP id d17so5710696eek.11
+        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 03:59:37 -0800 (PST)
 In-Reply-To: <1356868702-8144-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/core/rtnetlink.c | 69 ++++++++++++++++++++++++++++------------------------
- 1 file changed, 37 insertions(+), 32 deletions(-)
+ drivers/net/team/team.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 2ef7a56..ae612f4 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -880,6 +880,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	const struct rtnl_link_stats64 *stats;
- 	struct nlattr *attr, *af_spec;
- 	struct rtnl_af_ops *af_ops;
-+	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
- 
- 	ASSERT_RTNL();
- 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
-@@ -908,8 +909,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- #endif
- 	    (dev->ifindex != dev->iflink &&
- 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
--	    (dev->master &&
--	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
-+	    (upper_dev &&
-+	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
- 	    nla_put_u8(skb, IFLA_CARRIER, netif_carrier_ok(dev)) ||
- 	    (dev->qdisc &&
- 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
-@@ -1273,16 +1274,16 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- 
- static int do_set_master(struct net_device *dev, int ifindex)
- {
--	struct net_device *master_dev;
-+	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
- 	const struct net_device_ops *ops;
- 	int err;
- 
--	if (dev->master) {
--		if (dev->master->ifindex == ifindex)
-+	if (upper_dev) {
-+		if (upper_dev->ifindex == ifindex)
- 			return 0;
--		ops = dev->master->netdev_ops;
-+		ops = upper_dev->netdev_ops;
- 		if (ops->ndo_del_slave) {
--			err = ops->ndo_del_slave(dev->master, dev);
-+			err = ops->ndo_del_slave(upper_dev, dev);
- 			if (err)
- 				return err;
- 		} else {
-@@ -1291,12 +1292,12 @@ static int do_set_master(struct net_device *dev, int ifindex)
- 	}
- 
- 	if (ifindex) {
--		master_dev = __dev_get_by_index(dev_net(dev), ifindex);
--		if (!master_dev)
-+		upper_dev = __dev_get_by_index(dev_net(dev), ifindex);
-+		if (!upper_dev)
- 			return -EINVAL;
--		ops = master_dev->netdev_ops;
-+		ops = upper_dev->netdev_ops;
- 		if (ops->ndo_add_slave) {
--			err = ops->ndo_add_slave(master_dev, dev);
-+			err = ops->ndo_add_slave(upper_dev, dev);
- 			if (err)
- 				return err;
- 		} else {
-@@ -2064,7 +2065,6 @@ errout:
- static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
--	struct net_device *master = NULL;
- 	struct ndmsg *ndm;
- 	struct nlattr *tb[NDA_MAX+1];
- 	struct net_device *dev;
-@@ -2106,10 +2106,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	/* Support fdb on master device the net/bridge default case */
- 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
- 	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
--		master = dev->master;
--		err = master->netdev_ops->ndo_fdb_add(ndm, tb,
--						      dev, addr,
--						      nlh->nlmsg_flags);
-+		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
-+		const struct net_device_ops *ops = br_dev->netdev_ops;
-+
-+		err = ops->ndo_fdb_add(ndm, tb, dev, addr, nlh->nlmsg_flags);
- 		if (err)
- 			goto out;
- 		else
-@@ -2170,10 +2170,11 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	/* Support fdb on master device the net/bridge default case */
- 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
- 	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
--		struct net_device *master = dev->master;
-+		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
-+		const struct net_device_ops *ops = br_dev->netdev_ops;
- 
--		if (master->netdev_ops->ndo_fdb_del)
--			err = master->netdev_ops->ndo_fdb_del(ndm, dev, addr);
-+		if (ops->ndo_fdb_del)
-+			err = ops->ndo_fdb_del(ndm, dev, addr);
- 
- 		if (err)
- 			goto out;
-@@ -2257,9 +2258,11 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
- 		if (dev->priv_flags & IFF_BRIDGE_PORT) {
--			struct net_device *master = dev->master;
--			const struct net_device_ops *ops = master->netdev_ops;
-+			struct net_device *br_dev;
-+			const struct net_device_ops *ops;
- 
-+			br_dev = netdev_master_upper_dev_get(dev);
-+			ops = br_dev->netdev_ops;
- 			if (ops->ndo_fdb_dump)
- 				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 918a901..3df5cc1 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1055,10 +1055,11 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
  		}
-@@ -2280,6 +2283,7 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	struct ifinfomsg *ifm;
- 	struct nlattr *br_afspec;
- 	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
-+	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
- 
- 	nlh = nlmsg_put(skb, pid, seq, RTM_NEWLINK, sizeof(*ifm), NLM_F_MULTI);
- 	if (nlh == NULL)
-@@ -2297,8 +2301,8 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 	if (nla_put_string(skb, IFLA_IFNAME, dev->name) ||
- 	    nla_put_u32(skb, IFLA_MTU, dev->mtu) ||
- 	    nla_put_u8(skb, IFLA_OPERSTATE, operstate) ||
--	    (dev->master &&
--	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
-+	    (br_dev &&
-+	     nla_put_u32(skb, IFLA_MASTER, br_dev->ifindex)) ||
- 	    (dev->addr_len &&
- 	     nla_put(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr)) ||
- 	    (dev->ifindex != dev->iflink &&
-@@ -2334,11 +2338,11 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
- 		const struct net_device_ops *ops = dev->netdev_ops;
--		struct net_device *master = dev->master;
-+		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
- 
--		if (master && master->netdev_ops->ndo_bridge_getlink) {
-+		if (br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
- 			if (idx >= cb->args[0] &&
--			    master->netdev_ops->ndo_bridge_getlink(
-+			    br_dev->netdev_ops->ndo_bridge_getlink(
- 				    skb, portid, seq, dev) < 0)
- 				break;
- 			idx++;
-@@ -2375,7 +2379,7 @@ static inline size_t bridge_nlmsg_size(void)
- static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
- {
- 	struct net *net = dev_net(dev);
--	struct net_device *master = dev->master;
-+	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
- 	struct sk_buff *skb;
- 	int err = -EOPNOTSUPP;
- 
-@@ -2386,8 +2390,8 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
  	}
  
- 	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
--	    master && master->netdev_ops->ndo_bridge_getlink) {
--		err = master->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
-+	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
-+		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
- 		if (err < 0)
- 			goto errout;
+-	err = netdev_set_master(port_dev, dev);
++	err = netdev_master_upper_dev_link(port_dev, dev);
+ 	if (err) {
+-		netdev_err(dev, "Device %s failed to set master\n", portname);
+-		goto err_set_master;
++		netdev_err(dev, "Device %s failed to set upper link\n",
++			   portname);
++		goto err_set_upper_link;
  	}
-@@ -2446,13 +2450,14 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
- 	oflags = flags;
  
- 	if (!flags || (flags & BRIDGE_FLAGS_MASTER)) {
--		if (!dev->master ||
--		    !dev->master->netdev_ops->ndo_bridge_setlink) {
-+		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
-+
-+		if (!br_dev || !br_dev->netdev_ops->ndo_bridge_setlink) {
- 			err = -EOPNOTSUPP;
- 			goto out;
- 		}
+ 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
+@@ -1091,9 +1092,9 @@ err_option_port_add:
+ 	netdev_rx_handler_unregister(port_dev);
  
--		err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
-+		err = br_dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
- 		if (err)
- 			goto out;
+ err_handler_register:
+-	netdev_set_master(port_dev, NULL);
++	netdev_upper_dev_unlink(port_dev, dev);
  
+-err_set_master:
++err_set_upper_link:
+ 	team_port_disable_netpoll(port);
+ 
+ err_enable_netpoll:
+@@ -1137,7 +1138,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+ 	team_port_disable(team, port);
+ 	list_del_rcu(&port->list);
+ 	netdev_rx_handler_unregister(port_dev);
+-	netdev_set_master(port_dev, NULL);
++	netdev_upper_dev_unlink(port_dev, dev);
+ 	team_port_disable_netpoll(port);
+ 	vlan_vids_del_by_dev(port_dev, dev);
+ 	dev_close(port_dev);
 -- 
 1.8.0
