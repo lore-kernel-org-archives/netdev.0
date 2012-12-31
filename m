@@ -1,64 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 7/8] sparc: bpf_jit_comp: add JMP_NEQ instructions for BPF JIT
-Date: Mon, 31 Dec 2012 14:59:47 +0100
-Message-ID: <58f3f55effbff9f5082ab97f15ef9ba65c523e60.1356960070.git.dborkman@redhat.com>
-References: <cover.1356960070.git.dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH 10/14] atm: Removed redundant check on unsigned variable
+Date: Mon, 31 Dec 2012 10:18:51 -0500
+Message-ID: <20121231101851.22526c61@thirdoffive.cmf.nrl.navy.mil>
+References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
+	<1353048646-10935-11-git-send-email-tushar.behera@linaro.org>
+	<50DD2B34.9070905@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, patches@linaro.org,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: Tushar Behera <tushar.behera@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5647 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751216Ab2LaOiv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Dec 2012 09:38:51 -0500
-In-Reply-To: <cover.1356960070.git.dborkman@redhat.com>
-In-Reply-To: <cover.1356960070.git.dborkman@redhat.com>
-References: <cover.1356960070.git.dborkman@redhat.com>
+Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:42715 "EHLO
+	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751235Ab2LaPTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:19:11 -0500
+In-Reply-To: <50DD2B34.9070905@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch is a follow-up for patch "net: bpf: add neq jump
-operations to bpf machine" that implements BPF Sparc JIT parts
-for the BPF JMP_NEQ operation.
+Acked-by: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- arch/sparc/net/bpf_jit_comp.c | 4 ++++
- 1 file changed, 4 insertions(+)
+On Fri, 28 Dec 2012 10:46:36 +0530
+Tushar Behera <tushar.behera@linaro.org> wrote:
 
-diff --git a/arch/sparc/net/bpf_jit_comp.c b/arch/sparc/net/bpf_jit_comp.c
-index f5b4fc9..5da318c 100644
---- a/arch/sparc/net/bpf_jit_comp.c
-+++ b/arch/sparc/net/bpf_jit_comp.c
-@@ -694,12 +694,14 @@ common_load_ind:		seen |= SEEN_DATAREF | SEEN_XREG;
- 			COND_SEL(BPF_S_JMP_JLT_K, BLU, BGEU);
- 			COND_SEL(BPF_S_JMP_JLE_K, BLEU, BGU);
- 			COND_SEL(BPF_S_JMP_JEQ_K, BE, BNE);
-+			COND_SEL(BPF_S_JMP_JNEQ_K, BNE, BE);
- 			COND_SEL(BPF_S_JMP_JSET_K, BNE, BE);
- 			COND_SEL(BPF_S_JMP_JGT_X, BGU, BLEU);
- 			COND_SEL(BPF_S_JMP_JGE_X, BGEU, BLU);
- 			COND_SEL(BPF_S_JMP_JLT_X, BLU, BGEU);
- 			COND_SEL(BPF_S_JMP_JLE_X, BLEU, BGU);
- 			COND_SEL(BPF_S_JMP_JEQ_X, BE, BNE);
-+			COND_SEL(BPF_S_JMP_JNEQ_X, BNE, BE);
- 			COND_SEL(BPF_S_JMP_JSET_X, BNE, BE);
- 
- cond_branch:			f_offset = addrs[i + filter[i].jf];
-@@ -718,6 +720,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
- 				case BPF_S_JMP_JLT_X:
- 				case BPF_S_JMP_JLE_X:
- 				case BPF_S_JMP_JEQ_X:
-+				case BPF_S_JMP_JNEQ_X:
- 					seen |= SEEN_XREG;
- 					emit_cmp(r_A, r_X);
- 					break;
-@@ -726,6 +729,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf];
- 					emit_btst(r_A, r_X);
- 					break;
- 				case BPF_S_JMP_JEQ_K:
-+				case BPF_S_JMP_JNEQ_K:
- 				case BPF_S_JMP_JGT_K:
- 				case BPF_S_JMP_JGE_K:
- 				case BPF_S_JMP_JLT_K:
--- 
-1.7.11.7
+> Ping.
+> 
+> On 11/16/2012 12:20 PM, Tushar Behera wrote:
+> > No need to check whether unsigned variable is less than 0.
+> > 
+> > CC: Chas Williams <chas@cmf.nrl.navy.mil>
+> > CC: linux-atm-general@lists.sourceforge.net
+> > CC: netdev@vger.kernel.org
+> > Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
+> > ---
+> >  drivers/atm/fore200e.c |    2 +-
+> >  1 files changed, 1 insertions(+), 1 deletions(-)
+> > 
+> > diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+> > index 361f5ae..fdd3fe7 100644
+> > --- a/drivers/atm/fore200e.c
+> > +++ b/drivers/atm/fore200e.c
+> > @@ -972,7 +972,7 @@ int bsq_audit(int where, struct host_bsq* bsq, int scheme, int magn)
+> >  		   where, scheme, magn, buffer->index, buffer->scheme);
+> >  	}
+> >  
+> > -	if ((buffer->index < 0) || (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ])) {
+> > +	if (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ]) {
+> >  	    printk(FORE200E "bsq_audit(%d): queue %d.%d, out of range buffer index = %ld !\n",
+> >  		   where, scheme, magn, buffer->index);
+> >  	}
+> > 
+> 
+> 
