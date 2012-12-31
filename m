@@ -1,56 +1,69 @@
 From: Andreas Mohr <andi@lisas.de>
-Subject: [PATCH RFC 03/15] via-rhine: small rhine_wait_bit() improvement.
-Date: Mon, 31 Dec 2012 16:25:37 +0100
-Message-ID: <1356967549-5056-4-git-send-email-andi@lisas.de>
-References: <1356967549-5056-1-git-send-email-andi@lisas.de>
+Subject: [PATCH RFC 00/15] via-rhine: fix resume, cleanup, eth ops (regs)
+Date: Mon, 31 Dec 2012 16:25:34 +0100
+Message-ID: <1356967549-5056-1-git-send-email-andi@lisas.de>
 Cc: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
 	Francois Romieu <romieu@fr.zoreil.com>
 To: andim2@users.sf.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:54114 "EHLO
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:54152 "EHLO
 	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235Ab2LaPeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:34:44 -0500
-In-Reply-To: <1356967549-5056-1-git-send-email-andi@lisas.de>
+	with ESMTP id S1751414Ab2LaPep (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:34:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andreas Mohr <andim2@users.sf.net>
 
-Precalculate actual I/O address,
-make sure to remember value in helper variable,
-add a logging helper line.
+This patchset fixes suspend/resume of via-rhine in the NetworkManager case
+(patch 0001), with subsequent patches being predominantly
+about general cleanup/renovation work
+(one patch adds get_regs() ethtool support, though).
 
-Signed-off-by: Andreas Mohr <andim2@users.sf.net>
----
- drivers/net/ethernet/via/via-rhine.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+Currently marked as RFC since it's somewhat larger,
+without prior review activity.
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 928d96f..6be6566 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -505,11 +505,19 @@ static void rhine_restart_tx(struct net_device *dev);
- 
- static void rhine_wait_bit(struct rhine_private *rp, u8 reg, u8 mask, bool low)
- {
--	void __iomem *ioaddr = rp->base;
-+	void __iomem *ioaddr_reg = rp->base;
- 	int i;
- 
-+	ioaddr_reg += reg;
- 	for (i = 0; i < 1024; i++) {
--		bool has_mask_bits = !!(ioread8(ioaddr + reg) & mask);
-+		u8 val = ioread8(ioaddr_reg);
-+		bool has_mask_bits = !!(val & mask);
-+
-+		if (i < 20 /* avoid log spew */) {
-+			/* netif_err(rp, hw, rp->dev,
-+			"wait_bit %02x val %02x mask %02x %s hmb %d\n",
-+			reg, val, mask, low ? "low" : "high", has_mask_bits); */
-+		}
- 
- 		if (low ^ has_mask_bits)
- 			break;
+checkpatch.pl'd patchset against a slightly oldish master
+(current state of via-rhine.c in linux-next is identical).
+
+Note that some parts in this patchset have a dependency on predecessors
+(e.g. __read_mostly comes to mind).
+
+I managed to stay at 15 patches, thus right at (below) the
+official mailing list patch limit.
+
+Somehow Christmas must have been mighty boring :)
+
+And one of the patches narrows down on non-default
+compiler warning levels, too (c.f. my recent LKML tirade).
+
+The first patch (resume fix) possibly is -stable material,
+but since layer separation currently is not crystal clear
+there might be some risk, thus I'm hesitating.
+
+Thanks!
+
+
+Andreas Mohr (15):
+  via-rhine: YARB: fix broken resume of ifdown case (NetworkManager).
+  via-rhine: some suspend/resume cleanup.
+  via-rhine: small rhine_wait_bit() improvement.
+  via-rhine: handle compile warnings (use PCI_VDEVICE macro).
+  via-rhine: Spelling/phrases cleanup.
+  via-rhine: The Great Renaming.
+  via-rhine: MMIO: move register verify into helper function.
+  via-rhine: MMIO: move support decision (compile-time-only to
+    runtime).
+  via-rhine: mark some variables as __read_mostly.
+  via-rhine: WOL: remove duplication into a helper.
+  via-rhine: WOL: separate WOL configuration (and its logging).
+  via-rhine: implement get_regs() ethtool ops.
+  via-rhine: misc. cleanup.
+  via-rhine: The Great Deduplication.
+  via-rhine: add helper (reduce type-unsafe void * assignments).
+
+ drivers/net/ethernet/via/via-rhine.c |  572 +++++++++++++++++++++++-----------
+ 1 files changed, 396 insertions(+), 176 deletions(-)
+
 -- 
 1.7.2.5
