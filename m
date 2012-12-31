@@ -1,33 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 18/22] bnx2x: Support of PF driver of a VF
- close request
-Date: Sun, 30 Dec 2012 17:42:20 -0800 (PST)
-Message-ID: <20121230.174220.2299504481944665597.davem@davemloft.net>
-References: <1356897442-3063-1-git-send-email-ariele@broadcom.com>
-	<1356897442-3063-19-git-send-email-ariele@broadcom.com>
+From: Jamie Gloudon <jamie.gloudon@gmail.com>
+Subject: Re: Is keepalive behaving as expected in 3.7.0+/net-next?
+Date: Sun, 30 Dec 2012 21:50:09 -0400
+Message-ID: <50e0ef55.11f2640a.4ef8.ffffd018@mx.google.com>
+References: <50D4DD28.30903@hp.com>
+ <1356645265.30414.1542.camel@edumazet-glaptop>
+ <50df48f4.0e5b650a.36fa.1452@mx.google.com>
+ <50E0A963.6080900@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: ariele@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <erdnetdev@gmail.com>, netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47421 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755271Ab2LaBmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 20:42:20 -0500
-In-Reply-To: <1356897442-3063-19-git-send-email-ariele@broadcom.com>
+Received: from mail-yh0-f44.google.com ([209.85.213.44]:62135 "EHLO
+	mail-yh0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020Ab2LaCRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 21:17:34 -0500
+Received: by mail-yh0-f44.google.com with SMTP id 56so2041349yhq.17
+        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 18:17:33 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <50E0A963.6080900@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogIkFyaWVsIEVsaW9yIiA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCkRhdGU6IFN1biwgMzAg
-RGVjIDIwMTIgMjE6NTc6MTggKzAyMDANCg0KPiBUaGUgJ2Nsb3NlJyBjb21tYW5kIGlzIHRoZSBv
-cHBvc2l0ZSBvZiBhbiBpbml0IHJlcXVlc3QuIEhlcmUgdGhlDQo+IHF1ZXVlcyBvZiB0aGUgVkYg
-YXJlIGNsb3NlZCAoaWYgYW55IGFyZSBvcGVuZWQpIGFuZCByZWxlYXNlZC4NCj4gVGhpcyBmbG93
-IGFwcGxpZXMgdGhlICdxX3RlYXJkb3duJyBmbG93IG9uIGFsbCB0aGUgcXVldWVzLg0KPiBUaGUg
-VkYgc3RhdGUgaXMgY2hhbmdlZCBieSB0aGlzIHJlcXVlc3QuDQo+IEludGVycnVwdHMgYXJlIGRp
-c2FibGVkIGZvciB0aGUgVkYgd2hlbiBjbG9zZWQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBBcmll
-bCBFbGlvciA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogRWlsb24gR3Jl
-ZW5zdGVpbiA8ZWlsb25nQGJyb2FkY29tLmNvbT4NCg0KVGhpcyBpbnRyb2R1Y2VzIGEgd2Fybmlu
-ZzoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfdmZwZi5jOjgx
-NjoxMzogd2FybmluZzogoWJueDJ4X3ZmX21ieF9jbG9zZV92ZqIgZGVmaW5lZCBidXQgbm90IHVz
-ZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0K
+On Sun, Dec 30, 2012 at 12:51:47PM -0800, Rick Jones wrote:
+> >Make a lot of sense. However, I got the impression from Rick that
+> >having tcp_keepalive_intvl > tcp_keepalive_time behaved correctly in
+> >older versions of the kernel.
+> 
+> I seek to make no assertions about the behaviour of older kernels.  I was
+> just going off the ip-sysctl.txt wording I was looking to clean-up.
+> 
+> rick
+
+Ok, should ip-sysctl.txt documentation be updated to warn not to set tcp_keepalive_intvl > tcp_keepalive_time?
+
+Regards,
+Jamie Gloudon
