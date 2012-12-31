@@ -1,56 +1,76 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 10/14] atm: Removed redundant check on unsigned variable
-Date: Mon, 31 Dec 2012 10:18:51 -0500
-Message-ID: <20121231101851.22526c61@thirdoffive.cmf.nrl.navy.mil>
-References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
-	<1353048646-10935-11-git-send-email-tushar.behera@linaro.org>
-	<50DD2B34.9070905@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, patches@linaro.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
-To: Tushar Behera <tushar.behera@linaro.org>
+From: Andreas Mohr <andi@lisas.de>
+Subject: [PATCH RFC 15/15] via-rhine: add helper (reduce type-unsafe void * assignments).
+Date: Mon, 31 Dec 2012 16:25:49 +0100
+Message-ID: <1356967549-5056-16-git-send-email-andi@lisas.de>
+References: <1356967549-5056-1-git-send-email-andi@lisas.de>
+Cc: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: andim2@users.sf.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:42715 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751235Ab2LaPTL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:19:11 -0500
-In-Reply-To: <50DD2B34.9070905@linaro.org>
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:54069 "EHLO
+	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751020Ab2LaPen (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:34:43 -0500
+In-Reply-To: <1356967549-5056-1-git-send-email-andi@lisas.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Acked-by: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+From: Andreas Mohr <andim2@users.sf.net>
 
-On Fri, 28 Dec 2012 10:46:36 +0530
-Tushar Behera <tushar.behera@linaro.org> wrote:
+Signed-off-by: Andreas Mohr <andim2@users.sf.net>
+---
+ drivers/net/ethernet/via/via-rhine.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
-> Ping.
-> 
-> On 11/16/2012 12:20 PM, Tushar Behera wrote:
-> > No need to check whether unsigned variable is less than 0.
-> > 
-> > CC: Chas Williams <chas@cmf.nrl.navy.mil>
-> > CC: linux-atm-general@lists.sourceforge.net
-> > CC: netdev@vger.kernel.org
-> > Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
-> > ---
-> >  drivers/atm/fore200e.c |    2 +-
-> >  1 files changed, 1 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
-> > index 361f5ae..fdd3fe7 100644
-> > --- a/drivers/atm/fore200e.c
-> > +++ b/drivers/atm/fore200e.c
-> > @@ -972,7 +972,7 @@ int bsq_audit(int where, struct host_bsq* bsq, int scheme, int magn)
-> >  		   where, scheme, magn, buffer->index, buffer->scheme);
-> >  	}
-> >  
-> > -	if ((buffer->index < 0) || (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ])) {
-> > +	if (buffer->index >= fore200e_rx_buf_nbr[ scheme ][ magn ]) {
-> >  	    printk(FORE200E "bsq_audit(%d): queue %d.%d, out of range buffer index = %ld !\n",
-> >  		   where, scheme, magn, buffer->index);
-> >  	}
-> > 
-> 
-> 
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 051bb95..dd4fd04 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -2411,10 +2411,17 @@ static int rhine_close(struct net_device *dev)
+ 	return 0;
+ }
+ 
++/* Cast-only helper (try to minimize type-unsafe void * assignments). */
++/* TODO: could be doing the same thing for netdev_priv() use. */
++static inline struct net_device *
++rhine_to_net_device(struct pci_dev *pdev)
++{
++	return pci_get_drvdata(pdev);
++}
+ 
+ static void rhine_remove_one(struct pci_dev *pdev)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
++	struct net_device *dev = rhine_to_net_device(pdev);
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	unregister_netdev(dev);
+@@ -2430,7 +2437,7 @@ static void rhine_remove_one(struct pci_dev *pdev)
+ static void
+ rhine_shutdown_and_keep_wol(struct pci_dev *pdev)
+ {
+-	struct net_device *dev = pci_get_drvdata(pdev);
++	struct net_device *dev = rhine_to_net_device(pdev);
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 	void __iomem *ioaddr = rp->base;
+ 
+@@ -2489,7 +2496,7 @@ rhine_shutdown_and_keep_wol(struct pci_dev *pdev)
+ static int rhine_suspend(struct device *device)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(device);
+-	struct net_device *dev = pci_get_drvdata(pdev);
++	struct net_device *dev = rhine_to_net_device(pdev);
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	if (!netif_running(dev))
+@@ -2509,7 +2516,7 @@ static int rhine_suspend(struct device *device)
+ static int rhine_resume(struct device *device)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(device);
+-	struct net_device *dev = pci_get_drvdata(pdev);
++	struct net_device *dev = rhine_to_net_device(pdev);
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	/*
+-- 
+1.7.2.5
