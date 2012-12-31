@@ -1,40 +1,85 @@
-From: Glen Turner <gdt@gdt.id.au>
-Subject: Re: [PATCH] net: fix checking boundary of valid vlan id
-Date: Mon, 31 Dec 2012 22:06:43 +1030
-Message-ID: <186CBD58-5106-4FCD-8C73-E4EC84C3A303@gdt.id.au>
-References: <1356848931-22193-1-git-send-email-akong@redhat.com> <20121230122542.GC11727@breakpoint.cc>
-Mime-Version: 1.0 (Apple Message framework v1283)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: akong@redhat.com, netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eth6445.sa.adsl.internode.on.net ([150.101.30.44]:49718 "EHLO
-	aix.gdt.id.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750935Ab2LaMU7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 07:20:59 -0500
-In-Reply-To: <20121230122542.GC11727@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: [PATCH] poll: prevent missed events if _qproc is NULL
+Date: Mon, 31 Dec 2012 13:21:00 +0000
+Message-ID: <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+Cc: Eric Wong <normalperson@yhbt.net>,
+	Hans Verkuil <hans.verkuil@cisco.com>,
+	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Hans de Goede <hdegoede@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andreas Voellmy <andreas.voellmy@yale.edu>,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20121228014503.GA5017@dcvr.yhbt.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch seems to fix my issue with ppoll() being stuck on my
+SMP machine: http://article.gmane.org/gmane.linux.file-systems/70414
 
-On 30/12/2012, at 10:55 PM, Florian Westphal wrote:
+The change to sock_poll_wait() in
+commit 626cf236608505d376e4799adb4f7eb00a8594af
+  (poll: add poll_requested_events() and poll_does_not_wait() functions)
+seems to have allowed additional cases where the SMP memory barrier
+is not issued before checking for readiness.
 
-> akong@redhat.com <akong@redhat.com> wrote:
->> From: Amos Kong <akong@redhat.com>
->> 
->> 4096 is not a valid vlan id.
-> 
-> True.
-> 
-> But why shouldn't users be allowed to check for frames
-> with reserved value
+In my case, this affects the select()-family of functions
+which register descriptors once and set _qproc to NULL before
+checking events again (after poll_schedule_timeout() returns).
+The set_mb() barrier in poll_schedule_timeout() appears to be
+insufficient on my SMP x86-64 machine (as it's only an xchg()).
 
+This may also be related to the epoll issue described by
+Andreas Voellmy in http://thread.gmane.org/gmane.linux.kernel/1408782/
 
-It may be a valid VLAN ID, or it may not. The meaning of FFF is reserved for vendor use, which doesn't preclude a vendor using it as a (non-interoperable) VLAN identifier. Many vendor's products treat 4096 as they do any other VID.
+Signed-off-by: Eric Wong <normalperson@yhbt.net>
+Cc: Hans Verkuil <hans.verkuil@cisco.com>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Davide Libenzi <davidel@xmailserver.org>
+Cc: Hans de Goede <hdegoede@redhat.com>
+Cc: Mauro Carvalho Chehab <mchehab@infradead.org>
+Cc: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Andreas Voellmy <andreas.voellmy@yale.edu>
+Cc: "Junchang(Jason) Wang" <junchang.wang@yale.edu>
+Cc: netdev@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org
+---
+ If this patch is correct, I think we can just drop the
+ poll_does_not_wait() function entirely since poll_wait()
+ does the same check anyways...
 
-It's up to Linux if it cares to treat 4096 as a VLAN or as something else.
+ include/net/sock.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-In any case, Florian's point is good: an ethernet-layer firewall should be able to trigger on any value of VID, and particularly one which should not be seen from some vendor's gear.
-
--glen
+diff --git a/include/net/sock.h b/include/net/sock.h
+index c945fba..1923e48 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1925,8 +1925,9 @@ static inline bool wq_has_sleeper(struct socket_wq *wq)
+ static inline void sock_poll_wait(struct file *filp,
+ 		wait_queue_head_t *wait_address, poll_table *p)
+ {
+-	if (!poll_does_not_wait(p) && wait_address) {
+-		poll_wait(filp, wait_address, p);
++	if (wait_address) {
++		if (!poll_does_not_wait(p))
++			poll_wait(filp, wait_address, p);
+ 		/* We need to be sure we are in sync with the
+ 		 * socket flags modification.
+ 		 *
+-- 
+Eric Wong
