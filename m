@@ -1,37 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] Add complementary BPF conditional jump
- instructions
-Date: Mon, 31 Dec 2012 14:37:15 -0800 (PST)
-Message-ID: <20121231.143715.1238174487756359071.davem@davemloft.net>
-References: <cover.1356960070.git.dborkman@redhat.com>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: [PATCH] poll: prevent missed events if _qproc is NULL
+Date: Mon, 31 Dec 2012 23:24:24 +0000
+Message-ID: <20121231232424.GA24235@dcvr.yhbt.net>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+ <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans Verkuil <hans.verkuil@cisco.com>,
+	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Hans de Goede <hdegoede@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andreas Voellmy <andreas.voellmy@yale.edu>,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54791 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901Ab2LaWhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 17:37:16 -0500
-In-Reply-To: <cover.1356960070.git.dborkman@redhat.com>
+Received: from dcvr.yhbt.net ([64.71.152.64]:58801 "EHLO dcvr.yhbt.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750898Ab2LaXYZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Dec 2012 18:24:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 31 Dec 2012 14:59:40 +0100
+Eric Wong <normalperson@yhbt.net> wrote:
+> This patch seems to fix my issue with ppoll() being stuck on my
+> SMP machine: http://article.gmane.org/gmane.linux.file-systems/70414
 
-> This set adds adds jump operations for lt (<), le (<=), ne (!=) that
-> compare A with K resp. X in order to facilitate filter programming
-> with conditional jumps, as also available in McCanne et. al's BPF+
-> paper (``BPF+: Exploiting Global Data-flow Optimization in a Generalized
-> Packet Filter Architecture'').
+OK, it doesn't fix my issue, but it seems to make it harder-to-hit...
+
+> The change to sock_poll_wait() in
+> commit 626cf236608505d376e4799adb4f7eb00a8594af
+>   (poll: add poll_requested_events() and poll_does_not_wait() functions)
+> seems to have allowed additional cases where the SMP memory barrier
+> is not issued before checking for readiness.
 > 
-> Also, follow-up BPF JIT implementations for x86, Sparc and PowerPC
-> are added in this set.
+> In my case, this affects the select()-family of functions
+> which register descriptors once and set _qproc to NULL before
+> checking events again (after poll_schedule_timeout() returns).
+> The set_mb() barrier in poll_schedule_timeout() appears to be
+> insufficient on my SMP x86-64 machine (as it's only an xchg()).
+> 
+> This may also be related to the epoll issue described by
+> Andreas Voellmy in http://thread.gmane.org/gmane.linux.kernel/1408782/
 
-Whilst I agree that adding NE jumps adds great value and closes a
-serious gap, the rest can be synthesized by simply swapping the
-arguments and using a comparison that does already exist.
+However, I believe my patch will still fix Andreas' issue with epoll
+due to how ep_modify() uses a NULL qproc when calling ->poll().
 
-Why isn't that sufficient?
+(I've never been able to reproduce Andreas' issue on my 4-core system,
+ but he's been hitting it since 3.4 (at least))
