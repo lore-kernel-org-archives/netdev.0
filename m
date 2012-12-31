@@ -1,121 +1,67 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 5/8] net: bpf: add neq jump operations to bpf machine
-Date: Mon, 31 Dec 2012 14:59:45 +0100
-Message-ID: <ce1ddcbf8c0effcfa561b224630e3645504a6ad4.1356960070.git.dborkman@redhat.com>
+Subject: [PATCH net-next 2/8] x86: bpf_jit_comp: add JMP instructions for BPF JIT
+Date: Mon, 31 Dec 2012 14:59:42 +0100
+Message-ID: <f8cc6429a4a4df0668b5c6388960eb9bb72d4976.1356960070.git.dborkman@redhat.com>
 References: <cover.1356960070.git.dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45562 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:4258 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751286Ab2LaN77 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Dec 2012 08:59:59 -0500
+	id S1751234Ab2LaN7z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Dec 2012 08:59:55 -0500
 In-Reply-To: <cover.1356960070.git.dborkman@redhat.com>
 In-Reply-To: <cover.1356960070.git.dborkman@redhat.com>
 References: <cover.1356960070.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds jump operations for neq (!=) that compare A
-with K resp. X in order to facilitate filter programming with
-conditional jumps, since currently only eq (==) is present in
-the BPF machine. For user-space filter programming / compilers,
-it might be good to also have this complementary operation.
-They don't need to be as ancillary, since they fit into the
-instruction encoding directly. Follow-up BPF JIT patches are
-welcomed.
+This patch is a follow-up for patch "net: bpf: add lt,le jump
+operations to bpf machine" that implements BPF x86 JIT parts
+for BPF JMP_LT/JMP_LE operations.
 
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/linux/filter.h      |  2 ++
- include/uapi/linux/filter.h |  1 +
- net/core/filter.c           | 14 ++++++++++++++
- 3 files changed, 17 insertions(+)
+ arch/x86/net/bpf_jit_comp.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 36630bc..256c01f 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -105,6 +105,8 @@ enum {
- 	BPF_S_JMP_JA,
- 	BPF_S_JMP_JEQ_K,
- 	BPF_S_JMP_JEQ_X,
-+	BPF_S_JMP_JNEQ_K,
-+	BPF_S_JMP_JNEQ_X,
- 	BPF_S_JMP_JGE_K,
- 	BPF_S_JMP_JGE_X,
- 	BPF_S_JMP_JGT_K,
-diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
-index 3ebcc2e..d909a6f 100644
---- a/include/uapi/linux/filter.h
-+++ b/include/uapi/linux/filter.h
-@@ -80,6 +80,7 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
- #define         BPF_JSET        0x40
- #define         BPF_JLT         0x50
- #define         BPF_JLE         0x60
-+#define         BPF_JNEQ        0x70
+diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+index d11a470..6d6a4ce 100644
+--- a/arch/x86/net/bpf_jit_comp.c
++++ b/arch/x86/net/bpf_jit_comp.c
+@@ -584,10 +584,14 @@ common_load_ind:		seen |= SEEN_DATAREF | SEEN_XREG;
+ 				break;
+ 			COND_SEL(BPF_S_JMP_JGT_K, X86_JA, X86_JBE);
+ 			COND_SEL(BPF_S_JMP_JGE_K, X86_JAE, X86_JB);
++			COND_SEL(BPF_S_JMP_JLT_K, X86_JB, X86_JAE);
++			COND_SEL(BPF_S_JMP_JLE_K, X86_JBE, X86_JA);
+ 			COND_SEL(BPF_S_JMP_JEQ_K, X86_JE, X86_JNE);
+ 			COND_SEL(BPF_S_JMP_JSET_K,X86_JNE, X86_JE);
+ 			COND_SEL(BPF_S_JMP_JGT_X, X86_JA, X86_JBE);
+ 			COND_SEL(BPF_S_JMP_JGE_X, X86_JAE, X86_JB);
++			COND_SEL(BPF_S_JMP_JLT_X, X86_JB, X86_JAE);
++			COND_SEL(BPF_S_JMP_JLE_X, X86_JBE, X86_JA);
+ 			COND_SEL(BPF_S_JMP_JEQ_X, X86_JE, X86_JNE);
+ 			COND_SEL(BPF_S_JMP_JSET_X,X86_JNE, X86_JE);
  
- #define BPF_SRC(code)   ((code) & 0x08)
- #define         BPF_K           0x00
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 2122eba..b360fb3 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -228,6 +228,9 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
- 		case BPF_S_JMP_JEQ_K:
- 			fentry += (A == K) ? fentry->jt : fentry->jf;
- 			continue;
-+		case BPF_S_JMP_JNEQ_K:
-+			fentry += (A != K) ? fentry->jt : fentry->jf;
-+			continue;
- 		case BPF_S_JMP_JSET_K:
- 			fentry += (A & K) ? fentry->jt : fentry->jf;
- 			continue;
-@@ -246,6 +249,9 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
- 		case BPF_S_JMP_JEQ_X:
- 			fentry += (A == X) ? fentry->jt : fentry->jf;
- 			continue;
-+		case BPF_S_JMP_JNEQ_X:
-+			fentry += (A != X) ? fentry->jt : fentry->jf;
-+			continue;
- 		case BPF_S_JMP_JSET_X:
- 			fentry += (A & X) ? fentry->jt : fentry->jf;
- 			continue;
-@@ -454,6 +460,8 @@ static int check_load_and_stores(struct sock_filter *filter, int flen)
- 			break;
- 		case BPF_S_JMP_JEQ_K:
- 		case BPF_S_JMP_JEQ_X:
-+		case BPF_S_JMP_JNEQ_K:
-+		case BPF_S_JMP_JNEQ_X:
- 		case BPF_S_JMP_JGE_K:
- 		case BPF_S_JMP_JGE_X:
- 		case BPF_S_JMP_JGT_K:
-@@ -540,6 +548,8 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 		[BPF_JMP|BPF_JA]         = BPF_S_JMP_JA,
- 		[BPF_JMP|BPF_JEQ|BPF_K]  = BPF_S_JMP_JEQ_K,
- 		[BPF_JMP|BPF_JEQ|BPF_X]  = BPF_S_JMP_JEQ_X,
-+		[BPF_JMP|BPF_JNEQ|BPF_K] = BPF_S_JMP_JNEQ_K,
-+		[BPF_JMP|BPF_JNEQ|BPF_X] = BPF_S_JMP_JNEQ_X,
- 		[BPF_JMP|BPF_JGE|BPF_K]  = BPF_S_JMP_JGE_K,
- 		[BPF_JMP|BPF_JGE|BPF_X]  = BPF_S_JMP_JGE_X,
- 		[BPF_JMP|BPF_JGT|BPF_K]  = BPF_S_JMP_JGT_K,
-@@ -599,6 +609,8 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 			break;
- 		case BPF_S_JMP_JEQ_K:
- 		case BPF_S_JMP_JEQ_X:
-+		case BPF_S_JMP_JNEQ_K:
-+		case BPF_S_JMP_JNEQ_X:
- 		case BPF_S_JMP_JGE_K:
- 		case BPF_S_JMP_JGE_X:
- 		case BPF_S_JMP_JGT_K:
-@@ -852,6 +864,8 @@ static void sk_decode_filter(struct sock_filter *filt, struct sock_filter *to)
- 		[BPF_S_JMP_JA]		= BPF_JMP|BPF_JA,
- 		[BPF_S_JMP_JEQ_K]	= BPF_JMP|BPF_JEQ|BPF_K,
- 		[BPF_S_JMP_JEQ_X]	= BPF_JMP|BPF_JEQ|BPF_X,
-+		[BPF_S_JMP_JNEQ_K]	= BPF_JMP|BPF_JNEQ|BPF_K,
-+		[BPF_S_JMP_JNEQ_X]	= BPF_JMP|BPF_JNEQ|BPF_X,
- 		[BPF_S_JMP_JGE_K]	= BPF_JMP|BPF_JGE|BPF_K,
- 		[BPF_S_JMP_JGE_X]	= BPF_JMP|BPF_JGE|BPF_X,
- 		[BPF_S_JMP_JGT_K]	= BPF_JMP|BPF_JGT|BPF_K,
+@@ -603,6 +607,8 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+ 				switch (filter[i].code) {
+ 				case BPF_S_JMP_JGT_X:
+ 				case BPF_S_JMP_JGE_X:
++				case BPF_S_JMP_JLT_X:
++				case BPF_S_JMP_JLE_X:
+ 				case BPF_S_JMP_JEQ_X:
+ 					seen |= SEEN_XREG;
+ 					EMIT2(0x39, 0xd8); /* cmp %ebx,%eax */
+@@ -618,6 +624,8 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+ 					}
+ 				case BPF_S_JMP_JGT_K:
+ 				case BPF_S_JMP_JGE_K:
++				case BPF_S_JMP_JLT_K:
++				case BPF_S_JMP_JLE_K:
+ 					if (K <= 127)
+ 						EMIT3(0x83, 0xf8, K); /* cmp imm8,%eax */
+ 					else
 -- 
 1.7.11.7
