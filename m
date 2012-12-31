@@ -1,52 +1,49 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next 01/15] net: introduce upper device lists
-Date: Sun, 30 Dec 2012 20:56:33 -0800
-Message-ID: <20121230205633.5e5614ac@nehalam.linuxnetplumber.net>
-References: <1356868702-8144-1-git-send-email-jiri@resnulli.us>
-	<1356868702-8144-2-git-send-email-jiri@resnulli.us>
+From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Subject: Re: batman-adv: Unable to add interface in LXC
+Date: Mon, 31 Dec 2012 15:11:24 +0800
+Message-ID: <201212311511.24877.lindner_marek@yahoo.de>
+References: <CANiGF9-dq-HrvWrgu9EMC94rP=1YdrmaFbCF2g1SZ9ocu77ysw@mail.gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, faisal.latif@intel.com, fbl@redhat.com,
-	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
-	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
-	blaschka@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, ebiederm@xmission.com, joe@perches.com,
-	amwang@redhat.com, nhorman@tuxdriver.com,
-	john.r.fastabend@intel.com, pablo@netfilter.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:40400 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750790Ab2LaE55 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 30 Dec 2012 23:57:57 -0500
-In-Reply-To: <1356868702-8144-2-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Pau Koning <paukoning-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <CANiGF9-dq-HrvWrgu9EMC94rP=1YdrmaFbCF2g1SZ9ocu77ysw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Dec 2012 12:58:08 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
-
-> This lists are supposed to serve for storing pointers to all upper devices.
-> Eventually it will replace dev->master pointer which is used for
-> bonding, bridge, team but it cannot be used for vlan, macvlan where
-> there might be multiple upper present. In case the upper link is
-> replacement for dev->master, it is marked with "master" flag.
+On Monday, December 31, 2012 03:34:38 Pau Koning wrote:
+> I am running LXC (SID) under Debian SID and the current git version of
+> batman-adv (v3.7-rc7-1325-gaf5d4f7) +batctl (v2012.4.0-30-ga395164).
+> But it fails to add any of my interfaces and non-batman-adv interfaces
+> can be created without problems
 > 
-> New upper device list resolves this limitation. Also, the information
-> stored in lists is used for preventing looping setups like
-> "bond->somethingelse->samebond"
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> # ip link
+> 13: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast
+> state UP mode DEFAULT qlen 1000
+>     link/ether 00:ff:aa:00:00:01 brd ff:ff:ff:ff:ff:ff
+> 15: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
+> mode DEFAULT
+>     link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+> # batctl if add eth0
+> Error - can't open file '/sys/class/net/eth0/batman_adv/mesh_iface':
+> Read-only file system
 
-What is the use case for this?
-Could you describe a topology that the new upper device list supports,
-that the old scheme does not?
 
-I am concerned that it may open up many new possibilities for user
-error that were not possible before. For example how does it prevent
-an ethernet from being assigned to both a bonding and bridge at the
-same time?
+Did you check your kernel log messages ? I'd expect batman-adv to print 
+something there in case of an error.
+
+Cheers,
+Marek
