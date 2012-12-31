@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 04/22] bnx2x: Separate VF and PF logic
-Date: Sun, 30 Dec 2012 17:35:13 -0800 (PST)
-Message-ID: <20121230.173513.545111396374915524.davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 18/22] bnx2x: Support of PF driver of a VF
+ close request
+Date: Sun, 30 Dec 2012 17:42:20 -0800 (PST)
+Message-ID: <20121230.174220.2299504481944665597.davem@davemloft.net>
 References: <1356897442-3063-1-git-send-email-ariele@broadcom.com>
-	<1356897442-3063-5-git-send-email-ariele@broadcom.com>
+	<1356897442-3063-19-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-7
 Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47374 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47421 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755279Ab2LaBfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 20:35:16 -0500
-In-Reply-To: <1356897442-3063-5-git-send-email-ariele@broadcom.com>
+	with ESMTP id S1755271Ab2LaBmU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 20:42:20 -0500
+In-Reply-To: <1356897442-3063-19-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 RnJvbTogIkFyaWVsIEVsaW9yIiA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCkRhdGU6IFN1biwgMzAg
-RGVjIDIwMTIgMjE6NTc6MDQgKzAyMDANCg0KPiBHZW5lcmFsbHksIHRoZSBWRiBkcml2ZXIgY2Fu
-bm90IGFjY2VzcyB0aGUgY2hpcCwgZXhjZXB0IGJ5IHRoZQ0KPiBuYXJyb3cgd2luZG93IGl0cyBC
-QVIgYWxsb3dzLiBDYXJlIGhhZCB0byBiZSB0YWtlbiBzbyB0aGUgVkYgZHJpdmVyDQo+IHdpbGwg
-bm90IHJlYWNoIGNvZGUgd2hpY2ggYWNjZXNzZXMgdGhlIGNoaXAgZWxzZXdoZXJlLg0KPiBSZWZh
-Y3RvciB0aGUgbmljX2xvYWQgZmxvdyBpbnRvIHBhcnRzIHNvIGl0IHdvdWxkIGJlDQo+IGVhc2ll
-ciB0byBzZXBhcmF0ZSB0aGUgVkYtb25seSBsb2dpYyBmcm9tIHRoZSBQRi1vbmx5IGxvZ2ljLg0K
-PiANCj4gU2lnbmVkLW9mZi1ieTogQXJpZWwgRWxpb3IgPGFyaWVsZUBicm9hZGNvbS5jb20+DQo+
-IFNpZ25lZC1vZmYtYnk6IEVpbG9uIEdyZWVuc3RlaW4gPGVpbG9uZ0Bicm9hZGNvbS5jb20+DQoN
-ClRoaXMgaW50cm9kdWNlcyB3YXJuaW5nczoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRj
-b20vYm54MngvYm54MnhfbWFpbi5jOiBJbiBmdW5jdGlvbiChYm54Mnhfb3BlbqI6DQpkcml2ZXJz
-L25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmM6MTEzMTE6Nzogd2Fybmlu
-ZzogoWxvYWRfc3RhdHVzoiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rp
-b24gWy1XbWF5YmUtdW5pbml0aWFsaXplZF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29t
-L2JueDJ4L2JueDJ4X21haW4uYzoxMTMxMjoxODogd2FybmluZzogoW90aGVyX2xvYWRfc3RhdHVz
-oiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XbWF5YmUtdW5p
-bml0aWFsaXplZF0NCg0KVGhpcyBpcyB3aXRoIGdjYy00LjcuMiBvbiBGZWRvcmEgMTcNCg==
+RGVjIDIwMTIgMjE6NTc6MTggKzAyMDANCg0KPiBUaGUgJ2Nsb3NlJyBjb21tYW5kIGlzIHRoZSBv
+cHBvc2l0ZSBvZiBhbiBpbml0IHJlcXVlc3QuIEhlcmUgdGhlDQo+IHF1ZXVlcyBvZiB0aGUgVkYg
+YXJlIGNsb3NlZCAoaWYgYW55IGFyZSBvcGVuZWQpIGFuZCByZWxlYXNlZC4NCj4gVGhpcyBmbG93
+IGFwcGxpZXMgdGhlICdxX3RlYXJkb3duJyBmbG93IG9uIGFsbCB0aGUgcXVldWVzLg0KPiBUaGUg
+VkYgc3RhdGUgaXMgY2hhbmdlZCBieSB0aGlzIHJlcXVlc3QuDQo+IEludGVycnVwdHMgYXJlIGRp
+c2FibGVkIGZvciB0aGUgVkYgd2hlbiBjbG9zZWQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBBcmll
+bCBFbGlvciA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCj4gU2lnbmVkLW9mZi1ieTogRWlsb24gR3Jl
+ZW5zdGVpbiA8ZWlsb25nQGJyb2FkY29tLmNvbT4NCg0KVGhpcyBpbnRyb2R1Y2VzIGEgd2Fybmlu
+ZzoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfdmZwZi5jOjgx
+NjoxMzogd2FybmluZzogoWJueDJ4X3ZmX21ieF9jbG9zZV92ZqIgZGVmaW5lZCBidXQgbm90IHVz
+ZWQgWy1XdW51c2VkLWZ1bmN0aW9uXQ0K
