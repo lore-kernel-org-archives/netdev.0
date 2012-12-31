@@ -1,50 +1,33 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 net-next] team: add ethtool support
-Date: Mon, 31 Dec 2012 22:16:26 +0000
-Message-ID: <1356992186.31299.1.camel@deadeye.wl.decadent.org.uk>
-References: <1356835053-25602-1-git-send-email-fbl@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH RFC 15/15] via-rhine: add helper (reduce type-unsafe
+ void * assignments).
+Date: Mon, 31 Dec 2012 14:21:24 -0800 (PST)
+Message-ID: <20121231.142124.257039279927120043.davem@davemloft.net>
+References: <1356967549-5056-1-git-send-email-andi@lisas.de>
+	<1356967549-5056-16-git-send-email-andi@lisas.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Flavio Leitner <fbl@redhat.com>
+Cc: andim2@users.sf.net, rl@hellgate.ch, netdev@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: andi@lisas.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:48989 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751899Ab2LaWQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 17:16:33 -0500
-In-Reply-To: <1356835053-25602-1-git-send-email-fbl@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54715 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751930Ab2LaWV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 17:21:26 -0500
+In-Reply-To: <1356967549-5056-16-git-send-email-andi@lisas.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2012-12-30 at 00:37 -0200, Flavio Leitner wrote:
-> This patch adds few ethtool operations to team driver.
-> 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> ---
-> v2 - removed generic statistics from ethtool
-> 
->  drivers/net/team/team.c | 17 +++++++++++++++++
->  1 file changed, 17 insertions(+)
-> 
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index ad86660..7665a088 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-[...]
-> +static void team_ethtool_get_drvinfo(struct net_device *dev,
-> +				     struct ethtool_drvinfo *drvinfo)
-> +{
-> +	strncpy(drvinfo->driver, DRV_NAME, 32);
-> +	strncpy(drvinfo->version, UTS_RELEASE, 32);
-> +}
-[...]
+From: Andreas Mohr <andi@lisas.de>
+Date: Mon, 31 Dec 2012 16:25:49 +0100
 
-These must be null-terminated, so use strlcpy() not strncpy().
+> From: Andreas Mohr <andim2@users.sf.net>
+> 
+> Signed-off-by: Andreas Mohr <andim2@users.sf.net>
 
-Ben.
+This is of zero value.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It is just as likely one would forget to use the helper as it would be
+to assign pci_get_drvdata() to a pointer of the wrong type.
