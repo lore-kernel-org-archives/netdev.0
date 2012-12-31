@@ -1,75 +1,84 @@
 From: Andreas Mohr <andi@lisas.de>
-Subject: [PATCH RFC 05/15] via-rhine: Spelling/phrases cleanup.
-Date: Mon, 31 Dec 2012 16:25:39 +0100
-Message-ID: <1356967549-5056-6-git-send-email-andi@lisas.de>
+Subject: [PATCH RFC 02/15] via-rhine: some suspend/resume cleanup.
+Date: Mon, 31 Dec 2012 16:25:36 +0100
+Message-ID: <1356967549-5056-3-git-send-email-andi@lisas.de>
 References: <1356967549-5056-1-git-send-email-andi@lisas.de>
 Cc: Roger Luethi <rl@hellgate.ch>, netdev@vger.kernel.org,
 	Francois Romieu <romieu@fr.zoreil.com>
 To: andim2@users.sf.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:54114 "EHLO
+Received: from rhlx01.hs-esslingen.de ([129.143.116.10]:54115 "EHLO
 	rhlx01.hs-esslingen.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750928Ab2LaPep (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:34:45 -0500
+	with ESMTP id S1751308Ab2LaPeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 10:34:44 -0500
 In-Reply-To: <1356967549-5056-1-git-send-email-andi@lisas.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andreas Mohr <andim2@users.sf.net>
 
+Work towards unifying duplicated power setup sections,
+add large comment.
+
 Signed-off-by: Andreas Mohr <andim2@users.sf.net>
 ---
- drivers/net/ethernet/via/via-rhine.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/via/via-rhine.c |   27 +++++++++++++++++++++++----
+ 1 files changed, 23 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index 2d410ec..4162649 100644
+index 5facb0b..928d96f 100644
 --- a/drivers/net/ethernet/via/via-rhine.c
 +++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -83,7 +83,7 @@ static const int multicast_filter_limit = 32;
- /* Time in jiffies before concluding the transmitter is hung. */
- #define TX_TIMEOUT	(2*HZ)
+@@ -955,8 +955,10 @@ static int rhine_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_free_res;
+ 	}
  
--#define PKT_BUF_SZ	1536	/* Size of each temporary Rx buffer.*/
-+#define PKT_BUF_SZ	1536	/* Size of each temporary Rx buffer. */
++	rp->base = ioaddr;
++
+ #ifdef USE_MMIO
+-	enable_mmio(pioaddr, quirks);
++	enable_mmio(rp->pioaddr, rp->quirks);
  
- #include <linux/module.h>
- #include <linux/moduleparam.h>
-@@ -264,7 +264,7 @@ enum rhine_quirks {
- /*
-  * rqRhineI: VT86C100A (aka Rhine-I) uses different bits to enable
-  * MMIO as well as for the collision counter and the Tx FIFO underflow
-- * indicator. In addition, Tx and Rx buffers need to 4 byte aligned.
-+ * indicator. In addition, Tx and Rx buffers need to be 4 byte aligned.
-  */
+ 	/* Check that selected MMIO registers match the PIO ones */
+ 	i = 0;
+@@ -974,11 +976,9 @@ static int rhine_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ #endif /* USE_MMIO */
  
- /* Beware of PCI posted writes */
-@@ -1266,7 +1266,7 @@ static void rhine_set_carrier(struct mii_if_info *mii)
- 		/* autoneg is off: Link is always assumed to be up */
- 		if (!netif_carrier_ok(dev))
- 			netif_carrier_on(dev);
--	} else	/* Let MMI library update carrier status */
-+	} else	/* Let MII library update carrier status */
- 		rhine_check_media(dev, 0);
+-	rp->base = ioaddr;
+-
+ 	/* Get chip registers into a sane state */
+ 	rhine_power_init(dev);
+-	rhine_hw_init(dev, pioaddr);
++	rhine_hw_init(dev, rp->pioaddr);
  
- 	netif_info(rp, link, dev, "force_media %d, carrier %d\n",
-@@ -1649,7 +1649,7 @@ static netdev_tx_t rhine_start_tx(struct sk_buff *skb,
- 	void __iomem *ioaddr = rp->base;
- 	unsigned entry;
+ 	for (i = 0; i < 6; i++)
+ 		dev->dev_addr[i] = ioread8(ioaddr + StationAddr + i);
+@@ -2324,6 +2324,25 @@ static int rhine_resume(struct device *device)
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rhine_private *rp = netdev_priv(dev);
  
--	/* Caution: the write order is important here, set the field
-+	/* Caution: the write order is important here - set the field
- 	   with the "ownership" bits last. */
- 
- 	/* Calculate the next Tx descriptor entry. */
-@@ -1868,7 +1868,7 @@ static int rhine_rx(struct net_device *dev, int limit)
- 					    &rp->rx_ring[entry]);
- 				dev->stats.rx_length_errors++;
- 			} else if (desc_status & RxErr) {
--				/* There was a error. */
-+				/* There was an error. */
- 				netif_dbg(rp, rx_err, dev,
- 					  "%s() Rx error %08x\n", __func__,
- 					  desc_status);
++	/*
++	 * Resume theory of operation ("state machine" description):
++	 * Card state post resume() needs to be sufficiently restored
++	 * to be at least as "good" as post-probe()
++	 * (plus certain user-side card attribute modifications
++	 * ideally being preserved, too!).
++	 * In the case of an ifdown iface prior to suspend,
++	 * this means equal state.
++	 * open()/close() then do a state elevation (working iface)
++	 * and reversal (back down to post-probe() card state).
++	 * NetworkManager likes to close() ifaces prior to suspend(),
++	 * thus they end up "closed" on resume() yet the card
++	 * needs to be sufficiently restored to have its basics working...
++	 * (open() does NOT and should not carry out such things!!).
++	 * FIXME: the card setup parts here are duplicated
++	 * with corresponding parts in probe() - they should be moved
++	 * into a helper to be commonly called by both places.
++	 */
++
+ #ifdef USE_MMIO
+ 	enable_mmio(rp->pioaddr, rp->quirks);
+ #endif
 -- 
 1.7.2.5
