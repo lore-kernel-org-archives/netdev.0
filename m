@@ -1,46 +1,37 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next] team: update master carrier state
-Date: Sun, 30 Dec 2012 23:10:52 +0100
-Message-ID: <20121230221052.GF1575@minipsycho.orion>
-References: <1356892049-14667-1-git-send-email-fbl@redhat.com>
- <20121230214723.GD1575@minipsycho.orion>
- <20121230220616.GA2065@obelix.rh>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 04/22] bnx2x: Separate VF and PF logic
+Date: Sun, 30 Dec 2012 17:35:13 -0800 (PST)
+Message-ID: <20121230.173513.545111396374915524.davem@davemloft.net>
+References: <1356897442-3063-1-git-send-email-ariele@broadcom.com>
+	<1356897442-3063-5-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: ariele@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:60384 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046Ab2L3WK4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 17:10:56 -0500
-Received: by mail-ee0-f42.google.com with SMTP id c41so5834844eek.15
-        for <netdev@vger.kernel.org>; Sun, 30 Dec 2012 14:10:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121230220616.GA2065@obelix.rh>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47374 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755279Ab2LaBfQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Dec 2012 20:35:16 -0500
+In-Reply-To: <1356897442-3063-5-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Dec 30, 2012 at 11:06:16PM CET, fbl@redhat.com wrote:
->On Sun, Dec 30, 2012 at 10:47:23PM +0100, Jiri Pirko wrote:
->> Sun, Dec 30, 2012 at 07:27:29PM CET, fbl@redhat.com wrote:
->> >Update master's carrier state when there is any
->> >change with its ports.
->> 
->> 
->> This patch looks good to me. Just one nitpick I spotted....
->> 
->> >+	bool team_linkup;
->> >+
->> >+	team_linkup = false;
->> 
->> 
->> This can be squashed together.
->
->Ok, but that increases the static size of the module because it
->moves the variable out of bss.
->
->I have no strong opinion on either case, so it's up to you.
-
-Ok :)
-
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+RnJvbTogIkFyaWVsIEVsaW9yIiA8YXJpZWxlQGJyb2FkY29tLmNvbT4NCkRhdGU6IFN1biwgMzAg
+RGVjIDIwMTIgMjE6NTc6MDQgKzAyMDANCg0KPiBHZW5lcmFsbHksIHRoZSBWRiBkcml2ZXIgY2Fu
+bm90IGFjY2VzcyB0aGUgY2hpcCwgZXhjZXB0IGJ5IHRoZQ0KPiBuYXJyb3cgd2luZG93IGl0cyBC
+QVIgYWxsb3dzLiBDYXJlIGhhZCB0byBiZSB0YWtlbiBzbyB0aGUgVkYgZHJpdmVyDQo+IHdpbGwg
+bm90IHJlYWNoIGNvZGUgd2hpY2ggYWNjZXNzZXMgdGhlIGNoaXAgZWxzZXdoZXJlLg0KPiBSZWZh
+Y3RvciB0aGUgbmljX2xvYWQgZmxvdyBpbnRvIHBhcnRzIHNvIGl0IHdvdWxkIGJlDQo+IGVhc2ll
+ciB0byBzZXBhcmF0ZSB0aGUgVkYtb25seSBsb2dpYyBmcm9tIHRoZSBQRi1vbmx5IGxvZ2ljLg0K
+PiANCj4gU2lnbmVkLW9mZi1ieTogQXJpZWwgRWxpb3IgPGFyaWVsZUBicm9hZGNvbS5jb20+DQo+
+IFNpZ25lZC1vZmYtYnk6IEVpbG9uIEdyZWVuc3RlaW4gPGVpbG9uZ0Bicm9hZGNvbS5jb20+DQoN
+ClRoaXMgaW50cm9kdWNlcyB3YXJuaW5nczoNCg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRj
+b20vYm54MngvYm54MnhfbWFpbi5jOiBJbiBmdW5jdGlvbiChYm54Mnhfb3BlbqI6DQpkcml2ZXJz
+L25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9tYWluLmM6MTEzMTE6Nzogd2Fybmlu
+ZzogoWxvYWRfc3RhdHVzoiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rp
+b24gWy1XbWF5YmUtdW5pbml0aWFsaXplZF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29t
+L2JueDJ4L2JueDJ4X21haW4uYzoxMTMxMjoxODogd2FybmluZzogoW90aGVyX2xvYWRfc3RhdHVz
+oiBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24gWy1XbWF5YmUtdW5p
+bml0aWFsaXplZF0NCg0KVGhpcyBpcyB3aXRoIGdjYy00LjcuMiBvbiBGZWRvcmEgMTcNCg==
