@@ -1,100 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next 1/7] rtnl: use dev_set_mac_address() instead of
- plain ndo_
-Date: Tue, 1 Jan 2013 10:33:06 -0800
-Message-ID: <20130101103306.78e26e89@nehalam.linuxnetplumber.net>
-References: <1357047019-1037-1-git-send-email-jiri@resnulli.us>
-	<1357047019-1037-2-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] poll: prevent missed events if _qproc is NULL
+Date: Tue, 01 Jan 2013 10:42:30 -0800
+Message-ID: <1357065750.21409.12527.camel@edumazet-glaptop>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+	 <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, sassmann@redhat.com, kaber@trash.net,
-	richard@nod.at
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33554 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752390Ab3AASeb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jan 2013 13:34:31 -0500
-In-Reply-To: <1357047019-1037-2-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	Hans Verkuil <hans.verkuil@cisco.com>,
+	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Hans de Goede <hdegoede@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andreas Voellmy <andreas.voellmy@yale.edu>,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: Eric Wong <normalperson@yhbt.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue,  1 Jan 2013 14:30:13 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
-
-> Benefit from existence of dev_set_mac_address() and remove duplicate
-> code.
+On Mon, 2012-12-31 at 13:21 +0000, Eric Wong wrote:
+> This patch seems to fix my issue with ppoll() being stuck on my
+> SMP machine: http://article.gmane.org/gmane.linux.file-systems/70414
 > 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  net/core/rtnetlink.c | 20 ++------------------
->  1 file changed, 2 insertions(+), 18 deletions(-)
+> The change to sock_poll_wait() in
+> commit 626cf236608505d376e4799adb4f7eb00a8594af
+>   (poll: add poll_requested_events() and poll_does_not_wait() functions)
+> seems to have allowed additional cases where the SMP memory barrier
+> is not issued before checking for readiness.
 > 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 2ef7a56..78d05a9 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1310,7 +1310,6 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  		      struct nlattr **tb, char *ifname, int modified)
->  {
->  	const struct net_device_ops *ops = dev->netdev_ops;
-> -	int send_addr_notify = 0;
->  	int err;
->  
->  	if (tb[IFLA_NET_NS_PID] || tb[IFLA_NET_NS_FD]) {
-> @@ -1363,16 +1362,6 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  		struct sockaddr *sa;
->  		int len;
->  
-> -		if (!ops->ndo_set_mac_address) {
-> -			err = -EOPNOTSUPP;
-> -			goto errout;
-> -		}
-> -
-> -		if (!netif_device_present(dev)) {
-> -			err = -ENODEV;
-> -			goto errout;
-> -		}
-> -
->  		len = sizeof(sa_family_t) + dev->addr_len;
->  		sa = kmalloc(len, GFP_KERNEL);
->  		if (!sa) {
-> @@ -1382,13 +1371,11 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  		sa->sa_family = dev->type;
->  		memcpy(sa->sa_data, nla_data(tb[IFLA_ADDRESS]),
->  		       dev->addr_len);
-> -		err = ops->ndo_set_mac_address(dev, sa);
-> +		err = dev_set_mac_address(dev, sa);
->  		kfree(sa);
->  		if (err)
->  			goto errout;
-> -		send_addr_notify = 1;
->  		modified = 1;
-> -		add_device_randomness(dev->dev_addr, dev->addr_len);
->  	}
->  
->  	if (tb[IFLA_MTU]) {
-> @@ -1425,7 +1412,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
->  
->  	if (tb[IFLA_BROADCAST]) {
->  		nla_memcpy(dev->broadcast, tb[IFLA_BROADCAST], dev->addr_len);
-> -		send_addr_notify = 1;
-> +		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
->  	}
->  
->  	if (ifm->ifi_flags || ifm->ifi_change) {
-> @@ -1546,9 +1533,6 @@ errout:
->  		net_warn_ratelimited("A link change request failed with some changes committed already. Interface %s may have been left with an inconsistent configuration, please check.\n",
->  				     dev->name);
->  
-> -	if (send_addr_notify)
-> -		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
-> -
->  	return err;
->  }
->  
+> In my case, this affects the select()-family of functions
+> which register descriptors once and set _qproc to NULL before
+> checking events again (after poll_schedule_timeout() returns).
+> The set_mb() barrier in poll_schedule_timeout() appears to be
+> insufficient on my SMP x86-64 machine (as it's only an xchg()).
+> 
+> This may also be related to the epoll issue described by
+> Andreas Voellmy in http://thread.gmane.org/gmane.linux.kernel/1408782/
 
-This will cause call_netdevice_notifiers to be called twice if both IFLA_BROADCAST and IFLA_ADDRESS
-are changed in one request. Not sure if that would break anything?
+Hmm, the change seems not very logical to me.
+
+If it helps, I would like to understand the real issue.
+
+commit 626cf236608505d376e4799adb4f7eb00a8594af should not have this
+side effect, at least for poll()/select() functions. The epoll() changes
+I am not yet very confident.
+
+I suspect a race already existed before this commit, it would be nice to
+track it properly.
