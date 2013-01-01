@@ -1,56 +1,403 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 4/7] net: add address assign type "SET"
-Date: Tue,  1 Jan 2013 14:30:16 +0100
-Message-ID: <1357047019-1037-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 5/7] net: remove unnecessary NET_ADDR_RANDOM "bitclean"
+Date: Tue,  1 Jan 2013 14:30:17 +0100
+Message-ID: <1357047019-1037-6-git-send-email-jiri@resnulli.us>
 References: <1357047019-1037-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com,
 	bhutchings@solarflare.com, shemminger@vyatta.com,
 	sassmann@redhat.com, kaber@trash.net, richard@nod.at
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f181.google.com ([209.85.215.181]:35300 "EHLO
-	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752323Ab3AANai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2013 08:30:38 -0500
-Received: by mail-ea0-f181.google.com with SMTP id k14so5312576eaa.26
-        for <netdev@vger.kernel.org>; Tue, 01 Jan 2013 05:30:37 -0800 (PST)
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:44235 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752282Ab3AANal (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2013 08:30:41 -0500
+Received: by mail-ee0-f47.google.com with SMTP id e51so6419991eek.34
+        for <netdev@vger.kernel.org>; Tue, 01 Jan 2013 05:30:40 -0800 (PST)
 In-Reply-To: <1357047019-1037-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is the way to indicate that mac address of a device has been set by
-dev_set_mac_address()
+NET_ADDR_SET is set in dev_set_mac_address() no need to alter
+dev->addr_assign_type value in drivers.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h | 2 ++
- net/core/dev.c            | 1 +
- 2 files changed, 3 insertions(+)
+ drivers/net/ethernet/adi/bfin_mac.c             | 1 -
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c | 1 -
+ drivers/net/ethernet/atheros/atlx/atlx.c        | 1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 1 -
+ drivers/net/ethernet/calxeda/xgmac.c            | 1 -
+ drivers/net/ethernet/cisco/enic/enic_main.c     | 1 -
+ drivers/net/ethernet/ethoc.c                    | 1 -
+ drivers/net/ethernet/intel/igbvf/netdev.c       | 1 -
+ drivers/net/ethernet/marvell/pxa168_eth.c       | 1 -
+ drivers/net/ethernet/micrel/ks8842.c            | 1 -
+ drivers/net/ethernet/micrel/ks8851.c            | 1 -
+ drivers/net/ethernet/micrel/ks8851_mll.c        | 1 -
+ drivers/net/ethernet/microchip/enc28j60.c       | 1 -
+ drivers/net/ethernet/nvidia/forcedeth.c         | 1 -
+ drivers/net/ethernet/octeon/octeon_mgmt.c       | 6 ++----
+ drivers/net/ethernet/smsc/smsc911x.c            | 1 -
+ drivers/net/ethernet/ti/davinci_emac.c          | 1 -
+ drivers/net/ethernet/tile/tilepro.c             | 1 -
+ drivers/net/ethernet/wiznet/w5100.c             | 1 -
+ drivers/net/ethernet/wiznet/w5300.c             | 1 -
+ drivers/net/macvlan.c                           | 1 -
+ drivers/net/team/team.c                         | 2 --
+ drivers/staging/octeon/ethernet.c               | 6 ++----
+ net/batman-adv/soft-interface.c                 | 1 -
+ net/bridge/br_device.c                          | 1 -
+ net/ethernet/eth.c                              | 2 --
+ net/openvswitch/vport-internal_dev.c            | 1 -
+ 27 files changed, 4 insertions(+), 35 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6835b58..c5031a4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -64,6 +64,8 @@ struct wireless_dev;
- #define NET_ADDR_PERM		0	/* address is permanent (default) */
- #define NET_ADDR_RANDOM		1	/* address is generated randomly */
- #define NET_ADDR_STOLEN		2	/* address is stolen from other device */
-+#define NET_ADDR_SET		3	/* address is set using
-+					 * dev_set_mac_address() */
- 
- /* Backlog congestion levels */
- #define NET_RX_SUCCESS		0	/* keep 'em coming, baby */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index c85e32b..bddb2f2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5022,6 +5022,7 @@ int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
- 	err = ops->ndo_set_mac_address(dev, sa);
- 	if (err)
- 		return err;
-+	dev->addr_assign_type = NET_ADDR_SET;
- 	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
- 	add_device_randomness(dev->dev_addr, dev->addr_len);
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index c1fdb8b..8c3c9cf 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -647,7 +647,6 @@ static int bfin_mac_set_mac_address(struct net_device *dev, void *p)
+ 	if (netif_running(dev))
+ 		return -EBUSY;
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	setup_mac_addr(dev->dev_addr);
  	return 0;
+ }
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 17651c7..7af95ce 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -472,7 +472,6 @@ static int atl1c_set_mac_addr(struct net_device *netdev, void *p)
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
+-	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	atl1c_hw_set_mac_addr(&adapter->hw, adapter->hw.mac_addr);
+ 
+diff --git a/drivers/net/ethernet/atheros/atlx/atlx.c b/drivers/net/ethernet/atheros/atlx/atlx.c
+index 77ffbc4..f82eb16 100644
+--- a/drivers/net/ethernet/atheros/atlx/atlx.c
++++ b/drivers/net/ethernet/atheros/atlx/atlx.c
+@@ -84,7 +84,6 @@ static int atlx_set_mac(struct net_device *netdev, void *p)
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	memcpy(adapter->hw.mac_addr, addr->sa_data, netdev->addr_len);
+-	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	atlx_set_mac_addr(&adapter->hw);
+ 	return 0;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 01588b6..072669d 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3542,7 +3542,6 @@ int bnx2x_change_mac_addr(struct net_device *dev, void *p)
+ 			return rc;
+ 	}
+ 
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+ 	if (netif_running(dev))
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index b407043..a345e24 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -1459,7 +1459,6 @@ static int xgmac_set_mac_address(struct net_device *dev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 
+ 	xgmac_set_mac_addr(ioaddr, dev->dev_addr, 0);
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 64866ff..ebccebf 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -865,7 +865,6 @@ static int enic_set_mac_addr(struct net_device *netdev, char *addr)
+ 	}
+ 
+ 	memcpy(netdev->dev_addr, addr, netdev->addr_len);
+-	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+index f380bb7..b93062d 100644
+--- a/drivers/net/ethernet/ethoc.c
++++ b/drivers/net/ethernet/ethoc.c
+@@ -784,7 +784,6 @@ static int ethoc_set_mac_address(struct net_device *dev, void *addr)
+ 	ethoc_write(priv, MAC_ADDR1, (mac[0] <<  8) | (mac[1] <<  0));
+ 
+ 	memcpy(dev->dev_addr, mac, ETH_ALEN);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 277f5df..53281ff 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1738,7 +1738,6 @@ static int igbvf_set_mac(struct net_device *netdev, void *p)
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+-	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
+index 10d678d..aa037ca 100644
+--- a/drivers/net/ethernet/marvell/pxa168_eth.c
++++ b/drivers/net/ethernet/marvell/pxa168_eth.c
+@@ -627,7 +627,6 @@ static int pxa168_eth_set_mac_address(struct net_device *dev, void *addr)
+ 	if (!is_valid_ether_addr(sa->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 	memcpy(oldMac, dev->dev_addr, ETH_ALEN);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
+ 	netif_addr_lock_bh(dev);
+ 	update_hash_table_mac_address(pep, oldMac, dev->dev_addr);
+diff --git a/drivers/net/ethernet/micrel/ks8842.c b/drivers/net/ethernet/micrel/ks8842.c
+index b71eb39..fbcb9e7 100644
+--- a/drivers/net/ethernet/micrel/ks8842.c
++++ b/drivers/net/ethernet/micrel/ks8842.c
+@@ -1080,7 +1080,6 @@ static int ks8842_set_mac(struct net_device *netdev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(netdev->dev_addr, mac, netdev->addr_len);
+ 
+ 	ks8842_write_mac_addr(adapter, mac);
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 286816a..d59bc0e 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -1052,7 +1052,6 @@ static int ks8851_set_mac_address(struct net_device *dev, void *addr)
+ 	if (!is_valid_ether_addr(sa->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
+ 	return ks8851_write_mac_addr(dev);
+ }
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index ef8f9f9..a343066 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -1237,7 +1237,6 @@ static int ks_set_mac_address(struct net_device *netdev, void *paddr)
+ 	struct sockaddr *addr = paddr;
+ 	u8 *da;
+ 
+-	netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 
+ 	da = (u8 *)netdev->dev_addr;
+diff --git a/drivers/net/ethernet/microchip/enc28j60.c b/drivers/net/ethernet/microchip/enc28j60.c
+index a99456c..5d98a9f 100644
+--- a/drivers/net/ethernet/microchip/enc28j60.c
++++ b/drivers/net/ethernet/microchip/enc28j60.c
+@@ -527,7 +527,6 @@ static int enc28j60_set_mac_address(struct net_device *dev, void *addr)
+ 	if (!is_valid_ether_addr(address->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, address->sa_data, dev->addr_len);
+ 	return enc28j60_set_hw_macaddr(dev);
+ }
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index 653487d..b53bf9d 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -3025,7 +3025,6 @@ static int nv_set_mac_address(struct net_device *dev, void *addr)
+ 
+ 	/* synchronized against open : rtnl_lock() held by caller */
+ 	memcpy(dev->dev_addr, macaddr->sa_data, ETH_ALEN);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	if (netif_running(dev)) {
+ 		netif_tx_lock_bh(dev);
+diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+index b549919..b4a842c 100644
+--- a/drivers/net/ethernet/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+@@ -1534,12 +1534,10 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
+ 
+ 	mac = of_get_mac_address(pdev->dev.of_node);
+ 
+-	if (mac && is_valid_ether_addr(mac)) {
++	if (mac && is_valid_ether_addr(mac))
+ 		memcpy(netdev->dev_addr, mac, ETH_ALEN);
+-		netdev->addr_assign_type &= ~NET_ADDR_RANDOM;
+-	} else {
++	else
+ 		eth_hw_addr_random(netdev);
+-	}
+ 
+ 	p->phy_np = of_parse_phandle(pdev->dev.of_node, "phy-handle", 0);
+ 
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index e112877..04ff63c 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -1831,7 +1831,6 @@ static int smsc911x_set_mac_address(struct net_device *dev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 
+ 	spin_lock_irq(&pdata->mac_lock);
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 2a3e2c5..6841a22 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1264,7 +1264,6 @@ static int emac_dev_setmac_addr(struct net_device *ndev, void *addr)
+ 	/* Store mac addr in priv and rx channel and set it in EMAC hw */
+ 	memcpy(priv->mac_addr, sa->sa_data, ndev->addr_len);
+ 	memcpy(ndev->dev_addr, sa->sa_data, ndev->addr_len);
+-	ndev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	/* MAC address is configured only after the interface is enabled. */
+ 	if (netif_running(ndev)) {
+diff --git a/drivers/net/ethernet/tile/tilepro.c b/drivers/net/ethernet/tile/tilepro.c
+index 96070e9..3643549 100644
+--- a/drivers/net/ethernet/tile/tilepro.c
++++ b/drivers/net/ethernet/tile/tilepro.c
+@@ -2195,7 +2195,6 @@ static int tile_net_set_mac_address(struct net_device *dev, void *p)
+ 
+ 	/* ISSUE: Note that "dev_addr" is now a pointer. */
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/wiznet/w5100.c b/drivers/net/ethernet/wiznet/w5100.c
+index 3523838..545043c 100644
+--- a/drivers/net/ethernet/wiznet/w5100.c
++++ b/drivers/net/ethernet/wiznet/w5100.c
+@@ -570,7 +570,6 @@ static int w5100_set_macaddr(struct net_device *ndev, void *addr)
+ 	if (!is_valid_ether_addr(sock_addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 	memcpy(ndev->dev_addr, sock_addr->sa_data, ETH_ALEN);
+-	ndev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	w5100_write_macaddr(priv);
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/wiznet/w5300.c b/drivers/net/ethernet/wiznet/w5300.c
+index 9d1d986..7cbd0e6 100644
+--- a/drivers/net/ethernet/wiznet/w5300.c
++++ b/drivers/net/ethernet/wiznet/w5300.c
+@@ -490,7 +490,6 @@ static int w5300_set_macaddr(struct net_device *ndev, void *addr)
+ 	if (!is_valid_ether_addr(sock_addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 	memcpy(ndev->dev_addr, sock_addr->sa_data, ETH_ALEN);
+-	ndev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	w5300_write_macaddr(priv);
+ 	return 0;
+ }
+diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+index 68a43fe..80c6f92 100644
+--- a/drivers/net/macvlan.c
++++ b/drivers/net/macvlan.c
+@@ -375,7 +375,6 @@ static int macvlan_set_mac_address(struct net_device *dev, void *p)
+ 
+ 	if (!(dev->flags & IFF_UP)) {
+ 		/* Just copy in the new address */
+-		dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 		memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 	} else {
+ 		/* Rehash and update the device filters */
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 918a901..04638bd 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1502,7 +1502,6 @@ static int team_set_mac_address(struct net_device *dev, void *p)
+ 	if (dev->type == ARPHRD_ETHER && !is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(port, &team->port_list, list)
+ 		if (team->ops.port_change_dev_addr)
+@@ -1772,7 +1771,6 @@ static void team_setup_by_port(struct net_device *dev,
+ 	dev->mtu = port_dev->mtu;
+ 	memcpy(dev->broadcast, port_dev->broadcast, port_dev->addr_len);
+ 	memcpy(dev->dev_addr, port_dev->dev_addr, port_dev->addr_len);
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ }
+ 
+ static int team_dev_type_check_change(struct net_device *dev,
+diff --git a/drivers/staging/octeon/ethernet.c b/drivers/staging/octeon/ethernet.c
+index ef32dc1..9a2ec25 100644
+--- a/drivers/staging/octeon/ethernet.c
++++ b/drivers/staging/octeon/ethernet.c
+@@ -453,12 +453,10 @@ int cvm_oct_common_init(struct net_device *dev)
+ 	if (priv->of_node)
+ 		mac = of_get_mac_address(priv->of_node);
+ 
+-	if (mac && is_valid_ether_addr(mac)) {
++	if (mac && is_valid_ether_addr(mac))
+ 		memcpy(dev->dev_addr, mac, ETH_ALEN);
+-		dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+-	} else {
++	else
+ 		eth_hw_addr_random(dev);
+-	}
+ 
+ 	/*
+ 	 * Force the interface to use the POW send if always_use_pow
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 6b548fd..fa388b2 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -124,7 +124,6 @@ static int batadv_interface_set_mac_addr(struct net_device *dev, void *p)
+ 		batadv_tt_local_add(dev, addr->sa_data, BATADV_NULL_IFINDEX);
+ 	}
+ 
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	return 0;
+ }
+ 
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 7c78e26..38974f7 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -172,7 +172,6 @@ static int br_set_mac_address(struct net_device *dev, void *p)
+ 
+ 	spin_lock_bh(&br->lock);
+ 	if (!ether_addr_equal(dev->dev_addr, addr->sa_data)) {
+-		dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 		memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 		br_fdb_change_mac_address(br, addr->sa_data);
+ 		br_stp_change_bridge_id(br, addr->sa_data);
+diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+index 4efad53..bc39c8c 100644
+--- a/net/ethernet/eth.c
++++ b/net/ethernet/eth.c
+@@ -290,8 +290,6 @@ int eth_mac_addr(struct net_device *dev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+-	/* if device marked as NET_ADDR_RANDOM, reset it */
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	return 0;
+ }
+ EXPORT_SYMBOL(eth_mac_addr);
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 5d460c3..44cd5c3 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -69,7 +69,6 @@ static int internal_dev_mac_addr(struct net_device *dev, void *p)
+ 
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EADDRNOTAVAIL;
+-	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+ 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
+ 	return 0;
+ }
 -- 
 1.8.0
