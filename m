@@ -1,53 +1,60 @@
-From: Alexey Khoroshilov <khoroshilov-ufN2psIa012HXe+LvDLADg@public.gmane.org>
-Subject: Re: [PATCH] p54pci: don't return zero on failure path in p54p_probe()
-Date: Wed, 02 Jan 2013 02:44:38 +0400
-Message-ID: <50E366D6.7040709@ispras.ru>
-References: <1357074661-15784-1-git-send-email-khoroshilov@ispras.ru> <201301012245.43064.chunkeey@googlemail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH] poll: prevent missed events if _qproc is NULL
+Date: Tue, 1 Jan 2013 14:53:42 -0800
+Message-ID: <CA+55aFwP3Tvmfh23KDDXhB3k=RS8pNhqasw5vuBUHw4TxrakOQ@mail.gmail.com>
+References: <20121228014503.GA5017@dcvr.yhbt.net> <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
+ <1357065750.21409.12527.camel@edumazet-glaptop> <20130101210033.GA13255@dcvr.yhbt.net>
+ <20130101211728.GA13380@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ldv-project-tpLiQldItUH5n4uC9ZG1Ww@public.gmane.org
-To: Christian Lamparter <chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <201301012245.43064.chunkeey-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Hans Verkuil <hans.verkuil@cisco.com>,
+	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Hans de Goede <hdegoede@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andreas Voellmy <andreas.voellmy@yale.edu>,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Eric Wong <normalperson@yhbt.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130101211728.GA13380@dcvr.yhbt.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/02/2013 01:45 AM, Christian Lamparter wrote:
-> On Tuesday 01 January 2013 22:11:01 Alexey Khoroshilov wrote:
->> If pci_set_dma_mask() or pci_set_consistent_dma_mask() fails in p54p_probe(),
->> it breaks off initialization, deallocates all resources, but returns zero.
+On Tue, Jan 1, 2013 at 1:17 PM, Eric Wong <normalperson@yhbt.net> wrote:
 >>
->> The patch implements proper error code propagation.
-> Uh, Thanks!
+>> An alternate version (limited to epoll) would be:
+>>
+>> diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+>> index cd96649..ca5f3d0 100644
+>> --- a/fs/eventpoll.c
+>> +++ b/fs/eventpoll.c
+>> @@ -1299,6 +1299,7 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
+>>        * Get current event bits. We can safely use the file* here because
+>>        * its usage count has been increased by the caller of this function.
+>>        */
+>> +     smp_mb();
+>>       revents = epi->ffd.file->f_op->poll(epi->ffd.file, &pt);
+>>
+>>       /*
 >
-> But wait, I think there's another return 0 in the error
-> path. See p54pci.c @ line 558:
+> I was wrong, rereading 626cf236608505d376e4799adb4f7eb00a8594af,
+> I think this race existed before.
 >
-> mem_len = pci_resource_len(pdev, 0);
-> if (mem_len < sizeof(...)) {
-> 	dev_err(...)
-> 	goto err_disabled_dev;
-> }
->
-> Do you think you can add a err = -EINVAL; before the goto too?
-You are right! But I would say -ENODEV is more popular error code in 
-this case.
-> [I wonder why this wasn't found by the verification project as
-> well? Could it be that pci_resource_len(...) < sizeof(...) is
-> somehow always true and this is a dead branch?]
-Actually it was found, but I have no direct access to the results at the 
-moment. My fault.
+> Perhaps my alternate patch above is a better fix.
 
-Would you like I resend the patch to fix both?
+Please document the barrier that this mb() pairs with, and then give
+an explanation for the fix in the commit message, and I'll happily
+take it. Even if it's just duplicating the comments above the
+wq_has_sleeper() function, except modified for the ep_modify() case.
 
---
-Best regards,
-Alexey
+Of course, it would be good to get verification from Jason and Andreas
+that the alternate patch also works for them.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+               Linus
