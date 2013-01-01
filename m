@@ -1,85 +1,85 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 01/15] net: introduce upper device lists
-Date: Tue, 1 Jan 2013 02:04:01 +0100
-Message-ID: <20130101010401.GA1515@minipsycho.orion>
-References: <1356868702-8144-1-git-send-email-jiri@resnulli.us>
- <1356868702-8144-2-git-send-email-jiri@resnulli.us>
- <20121231112212.03319226@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 5/8] net: bpf: add neq jump operations to bpf
+ machine
+Date: Mon, 31 Dec 2012 19:25:49 -0800
+Message-ID: <1357010749.21409.8935.camel@edumazet-glaptop>
+References: <cover.1356960070.git.dborkman@redhat.com>
+	 <ce1ddcbf8c0effcfa561b224630e3645504a6ad4.1356960070.git.dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bhutchings@solarflare.com, faisal.latif@intel.com, fbl@redhat.com,
-	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
-	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
-	blaschka@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
-	heiko.carstens@de.ibm.com, ebiederm@xmission.com, joe@perches.com,
-	amwang@redhat.com, nhorman@tuxdriver.com,
-	john.r.fastabend@intel.com, pablo@netfilter.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:45170 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876Ab3AABEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 20:04:09 -0500
-Received: by mail-ee0-f48.google.com with SMTP id b57so6528078eek.21
-        for <netdev@vger.kernel.org>; Mon, 31 Dec 2012 17:04:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20121231112212.03319226@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:62975 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751283Ab3AADZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Dec 2012 22:25:52 -0500
+Received: by mail-pb0-f51.google.com with SMTP id ro12so7299479pbb.10
+        for <netdev@vger.kernel.org>; Mon, 31 Dec 2012 19:25:52 -0800 (PST)
+In-Reply-To: <ce1ddcbf8c0effcfa561b224630e3645504a6ad4.1356960070.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Dec 31, 2012 at 08:22:12PM CET, shemminger@vyatta.com wrote:
->On Sun, 30 Dec 2012 12:58:08 +0100
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> This lists are supposed to serve for storing pointers to all upper devices.
->> Eventually it will replace dev->master pointer which is used for
->> bonding, bridge, team but it cannot be used for vlan, macvlan where
->> there might be multiple upper present. In case the upper link is
->> replacement for dev->master, it is marked with "master" flag.
->> 
->> New upper device list resolves this limitation. Also, the information
->> stored in lists is used for preventing looping setups like
->> "bond->somethingelse->samebond"
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->I like the concept of knowing the topology of layered network devices.
->The name "upper device lists" is a little confusing to me.
+On Mon, 2012-12-31 at 14:59 +0100, Daniel Borkmann wrote:
+> This patch adds jump operations for neq (!=) that compare A
+> with K resp. X in order to facilitate filter programming with
+> conditional jumps, since currently only eq (==) is present in
+> the BPF machine. For user-space filter programming / compilers,
+> it might be good to also have this complementary operation.
+> They don't need to be as ancillary, since they fit into the
+> instruction encoding directly. Follow-up BPF JIT patches are
+> welcomed.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  include/linux/filter.h      |  2 ++
+>  include/uapi/linux/filter.h |  1 +
+>  net/core/filter.c           | 14 ++++++++++++++
+>  3 files changed, 17 insertions(+)
+> 
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 36630bc..256c01f 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -105,6 +105,8 @@ enum {
+>  	BPF_S_JMP_JA,
+>  	BPF_S_JMP_JEQ_K,
+>  	BPF_S_JMP_JEQ_X,
+> +	BPF_S_JMP_JNEQ_K,
+> +	BPF_S_JMP_JNEQ_X,
+>  	BPF_S_JMP_JGE_K,
+>  	BPF_S_JMP_JGE_X,
+>  	BPF_S_JMP_JGT_K,
+> diff --git a/include/uapi/linux/filter.h b/include/uapi/linux/filter.h
+> index 3ebcc2e..d909a6f 100644
+> --- a/include/uapi/linux/filter.h
+> +++ b/include/uapi/linux/filter.h
+> @@ -80,6 +80,7 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
+>  #define         BPF_JSET        0x40
+>  #define         BPF_JLT         0x50
+>  #define         BPF_JLE         0x60
+> +#define         BPF_JNEQ        0x70
+>  
+>  #define BPF_SRC(code)   ((code) & 0x08)
+>  #define         BPF_K           0x00
+> diff --git a/net/core/filter.c b/net/core/filter.c
+> index 2122eba..b360fb3 100644
+> --- a/net/core/filter.c
+> +++ b/net/core/filter.c
+> @@ -228,6 +228,9 @@ unsigned int sk_run_filter(const struct sk_buff *skb,
+>  		case BPF_S_JMP_JEQ_K:
+>  			fentry += (A == K) ? fentry->jt : fentry->jf;
+>  			continue;
+> +		case BPF_S_JMP_JNEQ_K:
+> +			fentry += (A != K) ? fentry->jt : fentry->jf;
+> +			continue;
+>  		case BPF_S_JMP_JSET_K:
+>  			fentry += (A & K) ? fentry->jt : fentry->jf;
+>  			continue;
 
-Well, it's a list of devices "upper" to this one. Please provide more
-suitable name alternative. I can't think of any, in fact I think "upper"
-is pretty suitable.
+This makes no sense at all to me, it seems kernel bloat.
 
+The JNE instruction already exists.
 
->Also, the amount of additional data structures and book keeping
->seems more than needed; but not sure how to reduce it down to the
->least code.
-
-Yep, that's it. I tried to make that as slim as possible. Trimming ideas
-are very welcome.
-
->
->For simple case of detecting loops, just using existing master
->pointer is sufficient.
->       ethernet --> bonding --> bridge --+
->                       ^                 |
->                       |                 |
->                       +-----------------+
->This is the simple case of detecting if singularly linked list
->is a loop.
->
->The only device where multiple upper devices is possible seems
->to be macvlan. Could the special case code be limited to there?
-
-Well, there are others, vlan for example. And the whole concept is to
-make this uniform and generic, to avoid specific code for specific
-drivers. And there are some usecases which can benefit from the upper
-lists, like for example drivers which need to obtain l3 address info
-(cxgb3, qlcnic, qeth).
-
-But in any case, I doubt that this alternative approach will
-lead to much smaller code footprint. I think it would be just more
-messy.
+You only have to take the JEQ (jt,jf) and swap the jt/jf targets.
