@@ -1,15 +1,15 @@
 From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: [PATCH V1 06/14] qlcnic: 83xx sysfs routines
-Date: Tue,  1 Jan 2013 08:20:22 -0500
-Message-ID: <1357046430-31437-7-git-send-email-sony.chacko@qlogic.com>
+Subject: [PATCH V1 05/14] qlcnic: 83xx base driver
+Date: Tue,  1 Jan 2013 08:20:21 -0500
+Message-ID: <1357046430-31437-6-git-send-email-sony.chacko@qlogic.com>
 References: <1357046430-31437-1-git-send-email-sony.chacko@qlogic.com>
 Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Sony Chacko <sony.chacko@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:54678 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:33733 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752279Ab3AANkS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752282Ab3AANkS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 1 Jan 2013 08:40:18 -0500
 In-Reply-To: <1357046430-31437-1-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,914 +17,1103 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Sony Chacko <sony.chacko@qlogic.com>
 
-Add 83xx sysfs interface routines
-Update 82xx sysfs interface routines
+Enable base 83xx adapter driver.
 
-Signed-off-by: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+Common driver interface routines like probe,
+interface up/down routines, irq and resource
+allocation routines are modified to add support for 83xx
+adapter.
+
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
+Signed-off-by: Sritej Velaga <sritej.velaga@qlogic.com>
 Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   11 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   60 +++++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    3 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    4 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   56 ++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |  254 +++++++++++++-------
- 6 files changed, 266 insertions(+), 122 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    1 -
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  503 +++++++++++++-------
+ 3 files changed, 330 insertions(+), 175 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index dd9be4f..6d51c24 100644
+index 31cf1b1..dd9be4f 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1429,8 +1429,8 @@ int qlcnic_reset_context(struct qlcnic_adapter *);
- void qlcnic_diag_free_res(struct net_device *netdev, int max_sds_rings);
- int qlcnic_diag_alloc_res(struct net_device *netdev, int test);
- netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev);
--int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data);
--int qlcnic_validate_max_rss(struct net_device *netdev, u8, u8);
-+int qlcnic_set_max_rss(struct qlcnic_adapter *, u8, size_t);
-+int qlcnic_validate_max_rss(u8, u8);
- void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter);
- int qlcnic_enable_msix(struct qlcnic_adapter *, u32);
+@@ -1377,6 +1377,7 @@ void qlcnic_delete_lb_filters(struct qlcnic_adapter *adapter);
+ int qlcnic_dump_fw(struct qlcnic_adapter *);
  
-@@ -1468,6 +1468,13 @@ void qlcnic_set_vlan_config(struct qlcnic_adapter *,
- 			    struct qlcnic_esw_func_cfg *);
- void qlcnic_set_eswitch_port_features(struct qlcnic_adapter *,
- 				      struct qlcnic_esw_func_cfg *);
-+void __qlcnic_down(struct qlcnic_adapter *, struct net_device *);
-+void qlcnic_detach(struct qlcnic_adapter *);
-+void qlcnic_teardown_intr(struct qlcnic_adapter *);
-+int qlcnic_attach(struct qlcnic_adapter *);
-+int __qlcnic_up(struct qlcnic_adapter *, struct net_device *);
-+void qlcnic_restore_indev_addr(struct net_device *, unsigned long);
-+
- 
- /*
-  * QLOGIC Board information
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index b2b024c..6d4d792 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -242,6 +242,8 @@ static struct qlcnic_hardware_ops qlcnic_83xx_hw_ops = {
- 	.get_func_no			= qlcnic_83xx_get_func_no,
- 	.api_lock			= qlcnic_83xx_cam_lock,
- 	.api_unlock			= qlcnic_83xx_cam_unlock,
-+	.add_sysfs			= qlcnic_83xx_add_sysfs,
-+	.remove_sysfs			= qlcnic_83xx_remove_sysfs,
- 	.process_lb_rcv_ring_diag	= qlcnic_83xx_process_rcv_ring_diag,
- 	.create_rx_ctx			= qlcnic_83xx_create_rx_ctx,
- 	.create_tx_ctx			= qlcnic_83xx_create_tx_ctx,
-@@ -1154,6 +1156,64 @@ out:
- 	return err;
- }
- 
-+int qlcnic_83xx_config_led(struct qlcnic_adapter *adapter, u32 state,
-+			   u32 beacon)
-+{
-+	struct qlcnic_cmd_args cmd;
-+	u32 mbx_in;
-+	int i, status = 0;
-+
-+	if (state) {
-+		/* Get LED configuration */
-+		qlcnic_alloc_mbx_args(&cmd, adapter,
-+				      QLCNIC_CMD_GET_LED_CONFIG);
-+		status = qlcnic_issue_cmd(adapter, &cmd);
-+		if (status) {
-+			dev_err(&adapter->pdev->dev,
-+				"Get led config failed.\n");
-+			goto mbx_err;
-+		} else {
-+			for (i = 0; i < 4; i++)
-+				adapter->ahw->mbox_reg[i] = cmd.rsp.arg[i+1];
-+		}
-+		qlcnic_free_mbx_args(&cmd);
-+		/* Set LED Configuration */
-+		mbx_in = (LSW(QLC_83XX_LED_CONFIG) << 16) |
-+			  LSW(QLC_83XX_LED_CONFIG);
-+		qlcnic_alloc_mbx_args(&cmd, adapter,
-+				      QLCNIC_CMD_SET_LED_CONFIG);
-+		cmd.req.arg[1] = mbx_in;
-+		cmd.req.arg[2] = mbx_in;
-+		cmd.req.arg[3] = mbx_in;
-+		if (beacon)
-+			cmd.req.arg[4] = QLC_83XX_ENABLE_BEACON;
-+		status = qlcnic_issue_cmd(adapter, &cmd);
-+		if (status) {
-+			dev_err(&adapter->pdev->dev,
-+				"Set led config failed.\n");
-+		}
-+mbx_err:
-+		qlcnic_free_mbx_args(&cmd);
-+		return status;
-+
-+	} else {
-+		/* Restoring default LED configuration */
-+		qlcnic_alloc_mbx_args(&cmd, adapter,
-+				      QLCNIC_CMD_SET_LED_CONFIG);
-+		cmd.req.arg[1] = adapter->ahw->mbox_reg[0];
-+		cmd.req.arg[2] = adapter->ahw->mbox_reg[1];
-+		cmd.req.arg[3] = adapter->ahw->mbox_reg[2];
-+		if (beacon)
-+			cmd.req.arg[4] = adapter->ahw->mbox_reg[3];
-+		status = qlcnic_issue_cmd(adapter, &cmd);
-+		if (status)
-+			dev_err(&adapter->pdev->dev,
-+				"Restoring led config failed.\n");
-+		qlcnic_free_mbx_args(&cmd);
-+		return status;
-+	}
-+}
-+
- void qlcnic_83xx_register_nic_idc_func(struct qlcnic_adapter *adapter,
- 				       int enable)
- {
+ /* Functions from qlcnic_init.c */
++void qlcnic_schedule_work(struct qlcnic_adapter *, work_func_t, int);
+ int qlcnic_load_firmware(struct qlcnic_adapter *adapter);
+ int qlcnic_need_fw_reset(struct qlcnic_adapter *adapter);
+ void qlcnic_request_firmware(struct qlcnic_adapter *adapter);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 51775e4..7af5a46 100644
+index e2cfc86..51775e4 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -189,6 +189,8 @@ void qlcnic_83xx_get_func_no(struct qlcnic_adapter *);
- int qlcnic_83xx_cam_lock(struct qlcnic_adapter *);
- void qlcnic_83xx_cam_unlock(struct qlcnic_adapter *);
- int qlcnic_send_ctrl_op(struct qlcnic_adapter *, struct qlcnic_cmd_args *, u32);
-+void qlcnic_83xx_add_sysfs(struct qlcnic_adapter *);
-+void qlcnic_83xx_remove_sysfs(struct qlcnic_adapter *);
- void qlcnic_83xx_write_crb(struct qlcnic_adapter *, char *, loff_t, size_t);
- void qlcnic_83xx_read_crb(struct qlcnic_adapter *, char *, loff_t, size_t);
- int qlcnic_83xx_rd_reg_indirect(struct qlcnic_adapter *, ulong);
-@@ -209,6 +211,7 @@ int qlcnic_83xx_napi_add(struct qlcnic_adapter *, struct net_device *);
+@@ -209,7 +209,6 @@ int qlcnic_83xx_napi_add(struct qlcnic_adapter *, struct net_device *);
  void qlcnic_83xx_napi_del(struct qlcnic_adapter *);
  void qlcnic_83xx_napi_enable(struct qlcnic_adapter *);
  void qlcnic_83xx_napi_disable(struct qlcnic_adapter *);
-+int qlcnic_83xx_config_led(struct qlcnic_adapter *, u32, u32);
+-
  void qlcnic_ind_wr(struct qlcnic_adapter *, u32, u32);
  int qlcnic_ind_rd(struct qlcnic_adapter *, u32);
  void qlcnic_83xx_get_stats(struct qlcnic_adapter *,
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 064f36b..920e33d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -529,11 +529,11 @@ static int qlcnic_set_channels(struct net_device *dev,
- 	    channel->tx_count != channel->max_tx)
- 		return -EINVAL;
- 
--	err = qlcnic_validate_max_rss(dev, channel->max_rx, channel->rx_count);
-+	err = qlcnic_validate_max_rss(channel->max_rx, channel->rx_count);
- 	if (err)
- 		return err;
- 
--	err = qlcnic_set_max_rss(adapter, channel->rx_count);
-+	err = qlcnic_set_max_rss(adapter, channel->rx_count, 0);
- 	netdev_info(dev, "allocated 0x%x sds rings\n",
- 				 adapter->max_sds_rings);
- 	return err;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 2e69ff8..4a05dc0 100644
+index ae289ab..2e69ff8 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -82,7 +82,6 @@ static irqreturn_t qlcnic_msix_intr(int irq, void *data);
- static irqreturn_t qlcnic_msix_tx_intr(int irq, void *data);
+@@ -2,10 +2,15 @@
+  * QLogic qlcnic NIC Driver
+  * Copyright (c)  2009-2010 QLogic Corporation
+  *
++ * PCI searching functions pci_get_domain_bus_and_slot & pci_channel_offline
++ * Copyright (C) 1993 -- 1997 Drew Eckhardt, Frederic Potter,
++ *					David Mosberger-Tang
++ * Copyright (C) 1997 -- 2000 Martin Mares <mj@ucw.cz>
++ * Copyright (C) 2003 -- 2004 Greg Kroah-Hartman <greg@kroah.com>.
++ *
+  * See LICENSE.qlcnic for copyright and licensing details.
+  */
  
- static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev);
--static void qlcnic_restore_indev_addr(struct net_device *dev, unsigned long);
- static int qlcnic_start_firmware(struct qlcnic_adapter *);
- 
- static void qlcnic_free_lb_filters_mem(struct qlcnic_adapter *adapter);
-@@ -181,6 +180,7 @@ static const struct qlcnic_board_info qlcnic_boards[] = {
- };
- 
- #define NUM_SUPPORTED_BOARDS ARRAY_SIZE(qlcnic_boards)
-+#define QLC_MAX_SDS_RINGS	8
- 
- static const
- struct qlcnic_legacy_intr_set legacy_intr[] = QLCNIC_LEGACY_INTR_CONFIG;
-@@ -451,8 +451,7 @@ int qlcnic_82xx_setup_intr(struct qlcnic_adapter *adapter, u8 num_intr)
- 	return 0;
- }
- 
--static void
--qlcnic_teardown_intr(struct qlcnic_adapter *adapter)
-+void qlcnic_teardown_intr(struct qlcnic_adapter *adapter)
- {
- 	if (adapter->flags & QLCNIC_MSIX_ENABLED)
- 		pci_disable_msix(adapter->pdev);
-@@ -1244,8 +1243,7 @@ qlcnic_free_irq(struct qlcnic_adapter *adapter)
- 	}
- }
- 
--static int
--__qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
-+int __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- {
- 	int ring;
- 	u32 capab2;
-@@ -1310,8 +1308,7 @@ static int qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 	return err;
- }
- 
--static void
--__qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
-+void __qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
- {
- 	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
- 		return;
-@@ -1353,7 +1350,7 @@ qlcnic_down(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 
- }
- 
--static int
-+int
- qlcnic_attach(struct qlcnic_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -1399,8 +1396,7 @@ err_out_napi_del:
- 	return err;
- }
- 
--static void
--qlcnic_detach(struct qlcnic_adapter *adapter)
-+void qlcnic_detach(struct qlcnic_adapter *adapter)
- {
- 	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
- 		return;
-@@ -2055,14 +2051,8 @@ done:
- static int qlcnic_open(struct net_device *netdev)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
--	u32 state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 	int err;
- 
--	if (state == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD)) {
--		netdev_err(netdev, "Device in FAILED state\n");
--		return -EIO;
--	}
--
- 	netif_carrier_off(netdev);
- 
- 	err = qlcnic_attach(adapter);
-@@ -3092,33 +3082,38 @@ qlcnicvf_start_firmware(struct qlcnic_adapter *adapter)
- 	return err;
- }
- 
--int qlcnic_validate_max_rss(struct net_device *netdev, u8 max_hw, u8 val)
-+int qlcnic_validate_max_rss(u8 max_hw, u8 val)
- {
--	if (!qlcnic_use_msi_x && !qlcnic_use_msi) {
--		netdev_info(netdev, "no msix or msi support, hence no rss\n");
--		return -EINVAL;
-+	u32 max_allowed;
-+
-+	if (max_hw > QLC_MAX_SDS_RINGS) {
-+		max_hw = QLC_MAX_SDS_RINGS;
-+		pr_info("max rss reset to %d\n", QLC_MAX_SDS_RINGS);
- 	}
- 
--	if ((val > max_hw) || (val <  2) || !is_power_of_2(val)) {
--		netdev_info(netdev, "rss_ring valid range [2 - %x] in "
--			" powers of 2\n", max_hw);
-+	max_allowed = rounddown_pow_of_two(min_t(int, max_hw,
-+						 num_online_cpus()));
-+	if ((val > max_allowed) || (val < 2) || !is_power_of_2(val)) {
-+		pr_info("rss_ring valid range [2 - %x] in powers of 2\n",
-+			max_allowed);
- 		return -EINVAL;
- 	}
- 	return 0;
--
- }
- 
--int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data)
-+int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data, size_t len)
- {
- 	int err;
- 	struct net_device *netdev = adapter->netdev;
- 
--	rtnl_lock();
-+	if (test_bit(__QLCNIC_RESETTING, &adapter->state))
-+		return -EBUSY;
-+
- 	netif_device_detach(netdev);
- 	if (netif_running(netdev))
- 		__qlcnic_down(adapter, netdev);
- 
--	if (qlcnic_83xx_check(adapter)) {
-+	if (qlcnic_82xx_check(adapter)) {
- 		if (adapter->flags & QLCNIC_MSIX_ENABLED)
- 			qlcnic_83xx_config_intrpt(adapter, 0);
- 		qlcnic_83xx_free_mbx_intr(adapter);
-@@ -3126,7 +3121,7 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data)
- 
- 	qlcnic_detach(adapter);
- 	qlcnic_teardown_intr(adapter);
--	err = adapter->ahw->hw_ops->setup_intr(adapter, data);
-+	err = qlcnic_setup_intr(adapter, data);
- 	if (err)
- 		dev_err(&adapter->pdev->dev,
- 			"failed setting max_rss; rss disabled\n");
-@@ -3149,10 +3144,10 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data)
- 			goto done;
- 		qlcnic_restore_indev_addr(netdev, NETDEV_UP);
- 	}
-+	err = len;
-  done:
- 	netif_device_attach(netdev);
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
--	rtnl_unlock();
- 	return err;
- }
- 
-@@ -3188,8 +3183,7 @@ qlcnic_config_indev_addr(struct qlcnic_adapter *adapter,
- 	in_dev_put(indev);
- }
- 
--static void
--qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
-+void qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct net_device *dev;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-index eeefc73..5045063 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
-@@ -3,6 +3,7 @@
+-#include <linux/slab.h>
+ #include <linux/vmalloc.h>
  #include <linux/interrupt.h>
  
- #include "qlcnic.h"
-+#include "qlcnic_hw.h"
+@@ -14,10 +19,10 @@
  
  #include <linux/swab.h>
  #include <linux/dma-mapping.h>
-@@ -13,6 +14,10 @@
++#include <linux/if_vlan.h>
+ #include <net/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/inetdevice.h>
+-#include <linux/sysfs.h>
  #include <linux/aer.h>
  #include <linux/log2.h>
  
-+#include <linux/sysfs.h>
-+
-+#define QLC_STATUS_UNSUPPORTED_CMD	-2
-+
- int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *adapter, u32 enable)
- {
- 	return -EOPNOTSUPP;
-@@ -40,7 +45,7 @@ static ssize_t qlcnic_store_bridged_mode(struct device *dev,
- 	if (strict_strtoul(buf, 2, &new))
- 		goto err_out;
+@@ -30,7 +35,6 @@ char qlcnic_driver_name[] = "qlcnic";
+ static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
+ 	"Converged/Intelligent Ethernet Driver v" QLCNIC_LINUX_VERSIONID;
  
--	if (!adapter->nic_ops->config_bridged_mode(adapter, !!new))
-+	if (!qlcnic_config_bridged_mode(adapter, !!new))
- 		ret = len;
+-static struct workqueue_struct *qlcnic_wq;
+ static int qlcnic_mac_learn;
+ module_param(qlcnic_mac_learn, int, 0444);
+ MODULE_PARM_DESC(qlcnic_mac_learn, "Mac Filter (0=disabled, 1=enabled)");
+@@ -63,9 +67,6 @@ static void qlcnic_tx_timeout(struct net_device *netdev);
+ static void qlcnic_attach_work(struct work_struct *work);
+ static void qlcnic_fwinit_work(struct work_struct *work);
+ static void qlcnic_fw_poll_work(struct work_struct *work);
+-static void qlcnic_schedule_work(struct qlcnic_adapter *adapter,
+-		work_func_t func, int delay);
+-static void qlcnic_cancel_fw_work(struct qlcnic_adapter *adapter);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void qlcnic_poll_controller(struct net_device *netdev);
+ #endif
+@@ -78,6 +79,7 @@ static irqreturn_t qlcnic_tmp_intr(int irq, void *data);
+ static irqreturn_t qlcnic_intr(int irq, void *data);
+ static irqreturn_t qlcnic_msi_intr(int irq, void *data);
+ static irqreturn_t qlcnic_msix_intr(int irq, void *data);
++static irqreturn_t qlcnic_msix_tx_intr(int irq, void *data);
  
- err_out:
-@@ -80,9 +85,7 @@ static ssize_t qlcnic_show_diag_mode(struct device *dev,
- 				     struct device_attribute *attr, char *buf)
- {
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--
--	return sprintf(buf, "%d\n",
--		       !!(adapter->flags & QLCNIC_DIAG_ENABLED));
-+	return sprintf(buf, "%d\n", !!(adapter->flags & QLCNIC_DIAG_ENABLED));
- }
+ static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev);
+ static void qlcnic_restore_indev_addr(struct net_device *dev, unsigned long);
+@@ -94,15 +96,24 @@ static int qlcnic_vlan_rx_del(struct net_device *, u16);
+ #define QLCNIC_IS_TSO_CAPABLE(adapter)	\
+ 	((adapter)->ahw->capabilities & QLCNIC_FW_CAPABILITY_TSO)
  
- static int qlcnic_validate_beacon(struct qlcnic_adapter *adapter, u16 beacon,
-@@ -111,10 +114,11 @@ static ssize_t qlcnic_store_beacon(struct device *dev,
- 				   const char *buf, size_t len)
- {
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	int max_sds_rings = adapter->max_sds_rings;
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	int err, max_sds_rings = adapter->max_sds_rings;
- 	u16 beacon;
- 	u8 b_state, b_rate;
--	int err;
-+	unsigned long h_beacon;
- 
- 	if (adapter->ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
- 		dev_warn(dev,
-@@ -122,6 +126,41 @@ static ssize_t qlcnic_store_beacon(struct device *dev,
- 		return -EOPNOTSUPP;
- 	}
- 
-+	if (qlcnic_83xx_check(adapter) &&
-+	    !test_bit(__QLCNIC_RESETTING, &adapter->state)) {
-+		if (kstrtoul(buf, 2, &h_beacon))
-+			return -EINVAL;
-+
-+		if (ahw->beacon_state == h_beacon)
-+			return len;
-+
-+		rtnl_lock();
-+		if (!ahw->beacon_state) {
-+			if (test_and_set_bit(__QLCNIC_LED_ENABLE,
-+					     &adapter->state)) {
-+				rtnl_unlock();
-+				return -EBUSY;
-+			}
-+		}
-+		if (h_beacon) {
-+			err = qlcnic_83xx_config_led(adapter, 1, h_beacon);
-+			if (err)
-+				goto beacon_err;
-+		} else {
-+			err = qlcnic_83xx_config_led(adapter, 0, !h_beacon);
-+			if (err)
-+				goto beacon_err;
-+		}
-+		/* set the current beacon state */
-+		ahw->beacon_state = h_beacon;
-+beacon_err:
-+		if (!ahw->beacon_state)
-+			clear_bit(__QLCNIC_LED_ENABLE, &adapter->state);
-+
-+		rtnl_unlock();
-+		return len;
-+	}
-+
- 	if (len != sizeof(u16))
- 		return QL_STATUS_INVALID_PARAM;
- 
-@@ -154,11 +193,10 @@ static ssize_t qlcnic_store_beacon(struct device *dev,
- 	}
- 
- 	err = qlcnic_config_led(adapter, b_state, b_rate);
--
--	if (!err) {
-+	if (!err)
- 		err = len;
--		adapter->ahw->beacon_state = b_state;
--	}
-+	else
-+		ahw->beacon_state = b_state;
- 
- 	if (test_and_clear_bit(__QLCNIC_DIAG_RES_ALLOC, &adapter->state))
- 		qlcnic_diag_free_res(adapter->netdev, max_sds_rings);
-@@ -207,21 +245,13 @@ static ssize_t qlcnic_sysfs_read_crb(struct file *filp, struct kobject *kobj,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 data;
--	u64 qmdata;
- 	int ret;
- 
- 	ret = qlcnic_sysfs_validate_crb(adapter, offset, size);
- 	if (ret != 0)
- 		return ret;
-+	qlcnic_read_crb(adapter, buf, offset, size);
- 
--	if (ADDR_IN_RANGE(offset, QLCNIC_PCI_CAMQM, QLCNIC_PCI_CAMQM_END)) {
--		qlcnic_pci_camqm_read_2M(adapter, offset, &qmdata);
--		memcpy(buf, &qmdata, size);
--	} else {
--		data = QLCRD32(adapter, offset);
--		memcpy(buf, &data, size);
--	}
- 	return size;
- }
- 
-@@ -231,21 +261,13 @@ static ssize_t qlcnic_sysfs_write_crb(struct file *filp, struct kobject *kobj,
- {
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
--	u32 data;
--	u64 qmdata;
- 	int ret;
- 
- 	ret = qlcnic_sysfs_validate_crb(adapter, offset, size);
- 	if (ret != 0)
- 		return ret;
- 
--	if (ADDR_IN_RANGE(offset, QLCNIC_PCI_CAMQM, QLCNIC_PCI_CAMQM_END)) {
--		memcpy(&qmdata, buf, size);
--		qlcnic_pci_camqm_write_2M(adapter, offset, qmdata);
--	} else {
--		memcpy(&data, buf, size);
--		QLCWR32(adapter, offset, data);
--	}
-+	qlcnic_write_crb(adapter, buf, offset, size);
- 	return size;
- }
- 
-@@ -303,33 +325,44 @@ static ssize_t qlcnic_sysfs_write_mem(struct file *filp, struct kobject *kobj,
- 	return size;
- }
- 
-+static int qlcnic_is_valid_nic_func(struct qlcnic_adapter *adapter, u8 pci_func)
++static u32 qlcnic_vlan_tx_check(struct qlcnic_adapter *adapter)
 +{
-+	int i;
-+	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
-+		if (adapter->npars[i].pci_func == pci_func)
-+			return i;
-+	}
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
 +
-+	return -1;
++	if (adapter->pdev->device == PCI_DEVICE_ID_QLOGIC_QLE824X)
++		return ahw->capabilities & QLCNIC_FW_CAPABILITY_FVLANTX;
++	else
++		return 1;
 +}
 +
- static int validate_pm_config(struct qlcnic_adapter *adapter,
- 			      struct qlcnic_pm_func_cfg *pm_cfg, int count)
- {
--	u8 src_pci_func, s_esw_id, d_esw_id, dest_pci_func;
--	int i;
-+	u8 src_pci_func, s_esw_id, d_esw_id;
-+	u8 dest_pci_func;
-+	int i, src_index, dest_index;
+ /*  PCI Device ID Table  */
+ #define ENTRY(device) \
+ 	{PCI_DEVICE(PCI_VENDOR_ID_QLOGIC, (device)), \
+ 	.class = PCI_CLASS_NETWORK_ETHERNET << 8, .class_mask = ~0}
  
- 	for (i = 0; i < count; i++) {
- 		src_pci_func = pm_cfg[i].pci_func;
- 		dest_pci_func = pm_cfg[i].dest_npar;
--		if (src_pci_func >= QLCNIC_MAX_PCI_FUNC ||
--		    dest_pci_func >= QLCNIC_MAX_PCI_FUNC)
--			return QL_STATUS_INVALID_PARAM;
-+		src_index = qlcnic_is_valid_nic_func(adapter, src_pci_func);
- 
--		if (adapter->npars[src_pci_func].type != QLCNIC_TYPE_NIC)
-+		if (src_index < 0)
- 			return QL_STATUS_INVALID_PARAM;
- 
--		if (adapter->npars[dest_pci_func].type != QLCNIC_TYPE_NIC)
-+		dest_index = qlcnic_is_valid_nic_func(adapter, dest_pci_func);
-+		if (dest_index < 0)
- 			return QL_STATUS_INVALID_PARAM;
- 
--		s_esw_id = adapter->npars[src_pci_func].phy_port;
--		d_esw_id = adapter->npars[dest_pci_func].phy_port;
-+		s_esw_id = adapter->npars[src_index].phy_port;
-+		d_esw_id = adapter->npars[dest_index].phy_port;
- 
- 		if (s_esw_id != d_esw_id)
- 			return QL_STATUS_INVALID_PARAM;
- 	}
--	return 0;
- 
-+	return 0;
- }
- 
- static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
-@@ -342,7 +375,7 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	struct qlcnic_pm_func_cfg *pm_cfg;
- 	u32 id, action, pci_func;
--	int count, rem, i, ret;
-+	int count, rem, i, ret, index;
- 
- 	count	= size / sizeof(struct qlcnic_pm_func_cfg);
- 	rem	= size % sizeof(struct qlcnic_pm_func_cfg);
-@@ -350,26 +383,32 @@ static ssize_t qlcnic_sysfs_write_pm_config(struct file *filp,
- 		return QL_STATUS_INVALID_PARAM;
- 
- 	pm_cfg = (struct qlcnic_pm_func_cfg *)buf;
+-#define PCI_DEVICE_ID_QLOGIC_QLE824X  0x8020
 -
- 	ret = validate_pm_config(adapter, pm_cfg, count);
-+
- 	if (ret)
- 		return ret;
- 	for (i = 0; i < count; i++) {
- 		pci_func = pm_cfg[i].pci_func;
- 		action = !!pm_cfg[i].action;
--		id = adapter->npars[pci_func].phy_port;
--		ret = qlcnic_config_port_mirroring(adapter, id, action,
--						   pci_func);
-+		index = qlcnic_is_valid_nic_func(adapter, pci_func);
-+		if (index < 0)
-+			return QL_STATUS_INVALID_PARAM;
-+
-+		id = adapter->npars[index].phy_port;
-+		ret = qlcnic_config_port_mirroring(adapter, id,
-+						   action, pci_func);
- 		if (ret)
- 			return ret;
- 	}
+ static DEFINE_PCI_DEVICE_TABLE(qlcnic_pci_tbl) = {
+ 	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE824X),
++	ENTRY(PCI_DEVICE_ID_QLOGIC_QLE834X),
+ 	{0,}
+ };
  
- 	for (i = 0; i < count; i++) {
- 		pci_func = pm_cfg[i].pci_func;
--		id = adapter->npars[pci_func].phy_port;
--		adapter->npars[pci_func].enable_pm = !!pm_cfg[i].action;
--		adapter->npars[pci_func].dest_npar = id;
-+		index = qlcnic_is_valid_nic_func(adapter, pci_func);
-+		id = adapter->npars[index].phy_port;
-+		adapter->npars[index].enable_pm = !!pm_cfg[i].action;
-+		adapter->npars[index].dest_npar = id;
- 	}
-+
- 	return size;
+@@ -191,30 +202,6 @@ void qlcnic_free_sds_rings(struct qlcnic_recv_context *recv_ctx)
+ 	recv_ctx->sds_rings = NULL;
  }
  
-@@ -383,16 +422,19 @@ static ssize_t qlcnic_sysfs_read_pm_config(struct file *filp,
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	struct qlcnic_pm_func_cfg pm_cfg[QLCNIC_MAX_PCI_FUNC];
- 	int i;
-+	u8 pci_func;
- 
- 	if (size != sizeof(pm_cfg))
- 		return QL_STATUS_INVALID_PARAM;
- 
--	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
--		if (adapter->npars[i].type != QLCNIC_TYPE_NIC)
--			continue;
--		pm_cfg[i].action = adapter->npars[i].enable_pm;
--		pm_cfg[i].dest_npar = 0;
--		pm_cfg[i].pci_func = i;
-+	memset(&pm_cfg, 0,
-+	       sizeof(struct qlcnic_pm_func_cfg) * QLCNIC_MAX_PCI_FUNC);
-+
-+	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
-+		pci_func = adapter->npars[i].pci_func;
-+		pm_cfg[pci_func].action = adapter->npars[i].enable_pm;
-+		pm_cfg[pci_func].dest_npar = 0;
-+		pm_cfg[pci_func].pci_func = i;
- 	}
- 	memcpy(buf, &pm_cfg, size);
- 
-@@ -404,24 +446,33 @@ static int validate_esw_config(struct qlcnic_adapter *adapter,
- {
- 	u32 op_mode;
- 	u8 pci_func;
+-static void qlcnic_set_msix_bit(struct pci_dev *pdev, int enable)
+-{
+-	u32 control;
+-	int pos;
+-
+-	pos = pci_find_capability(pdev, PCI_CAP_ID_MSIX);
+-	if (pos) {
+-		pci_read_config_dword(pdev, pos, &control);
+-		if (enable)
+-			control |= PCI_MSIX_FLAGS_ENABLE;
+-		else
+-			control = 0;
+-		pci_write_config_dword(pdev, pos, control);
+-	}
+-}
+-
+-static void qlcnic_init_msix_entries(struct qlcnic_adapter *adapter, int count)
+-{
 -	int i;
-+	int i, ret;
+-
+-	for (i = 0; i < count; i++)
+-		adapter->msix_entries[i].entry = i;
+-}
+-
+ static int
+ qlcnic_read_mac_addr(struct qlcnic_adapter *adapter)
+ {
+@@ -247,7 +234,7 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ 		return -EOPNOTSUPP;
  
--	op_mode = readl(adapter->ahw->pci_base0 + QLCNIC_DRV_OP_MODE);
-+	if (qlcnic_82xx_check(adapter))
-+		op_mode = readl(adapter->ahw->pci_base0 + QLCNIC_DRV_OP_MODE);
-+	else
-+		op_mode = QLCRDX(adapter->ahw, QLC_83XX_DRV_OP_MODE);
+ 	if (!is_valid_ether_addr(addr->sa_data))
+-		return -EADDRNOTAVAIL;
++		return -EINVAL;
  
- 	for (i = 0; i < count; i++) {
- 		pci_func = esw_cfg[i].pci_func;
- 		if (pci_func >= QLCNIC_MAX_PCI_FUNC)
- 			return QL_STATUS_INVALID_PARAM;
+ 	if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
+ 		netif_device_detach(netdev);
+@@ -351,31 +338,66 @@ static struct qlcnic_hardware_ops qlcnic_hw_ops = {
+ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ {
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int err = -1;
++	int err = -1, i;
++	int max_tx_rings;
++
++	if (!adapter->msix_entries) {
++		adapter->msix_entries = kcalloc(num_msix,
++						sizeof(struct msix_entry),
++						GFP_KERNEL);
++		if (!adapter->msix_entries) {
++			dev_err(&pdev->dev, "failed allocating msix_entries\n");
++			return -ENOMEM;
++		}
++	}
  
--		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC) {
--			if (adapter->npars[pci_func].type != QLCNIC_TYPE_NIC)
-+		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
-+			if (qlcnic_is_valid_nic_func(adapter, pci_func) < 0)
- 				return QL_STATUS_INVALID_PARAM;
--		}
+ 	adapter->max_sds_rings = 1;
+ 	adapter->flags &= ~(QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED);
+-	qlcnic_set_msix_bit(pdev, 0);
  
- 		switch (esw_cfg[i].op_mode) {
- 		case QLCNIC_PORT_DEFAULTS:
--			if (QLC_DEV_GET_DRV(op_mode, pci_func) !=
--					    QLCNIC_NON_PRIV_FUNC) {
-+			if (qlcnic_82xx_check(adapter)) {
-+				ret = QLC_DEV_GET_DRV(op_mode, pci_func);
+ 	if (adapter->ahw->msix_supported) {
+  enable_msix:
+-		qlcnic_init_msix_entries(adapter, num_msix);
++		for (i = 0; i < num_msix; i++)
++			adapter->msix_entries[i].entry = i;
+ 		err = pci_enable_msix(pdev, adapter->msix_entries, num_msix);
+ 		if (err == 0) {
+ 			adapter->flags |= QLCNIC_MSIX_ENABLED;
+-			qlcnic_set_msix_bit(pdev, 1);
+-
+-			adapter->max_sds_rings = num_msix;
+-
++			if (qlcnic_83xx_check(adapter)) {
++				adapter->ahw->num_msix = num_msix;
++				/* subtract mail box and tx ring vectors */
++				max_tx_rings = adapter->max_drv_tx_rings;
++				adapter->max_sds_rings = num_msix -
++							 max_tx_rings - 1;
 +			} else {
-+				ret = QLC_83XX_GET_FUNC_PRIVILEGE(op_mode,
-+								  pci_func);
-+				esw_cfg[i].offload_flags = 0;
++				adapter->max_sds_rings = num_msix;
++			}
+ 			dev_info(&pdev->dev, "using msi-x interrupts\n");
+ 			return err;
+-		}
+-		if (err > 0) {
+-			num_msix = rounddown_pow_of_two(err);
+-			if (num_msix)
++		} else if (err > 0) {
++			dev_info(&pdev->dev,
++				 "Unable to allocate %d MSI-X interrupt vectors\n",
++				 num_msix);
++			if (qlcnic_83xx_check(adapter)) {
++				if (err < QLC_83XX_MINIMUM_VECTOR)
++					return err;
++				err -= (adapter->max_drv_tx_rings + 1);
++				num_msix = rounddown_pow_of_two(err);
++				num_msix += (adapter->max_drv_tx_rings + 1);
++			} else {
++				num_msix = rounddown_pow_of_two(err);
 +			}
 +
-+			if (ret != QLCNIC_NON_PRIV_FUNC) {
- 				if (esw_cfg[i].mac_anti_spoof != 0)
- 					return QL_STATUS_INVALID_PARAM;
- 				if (esw_cfg[i].mac_override != 1)
-@@ -444,6 +495,7 @@ static int validate_esw_config(struct qlcnic_adapter *adapter,
- 			return QL_STATUS_INVALID_PARAM;
++			if (num_msix) {
++				dev_info(&pdev->dev,
++					 "Trying %d MSI-X interrupt vectors\n",
++					 num_msix);
+ 				goto enable_msix;
++			}
++		} else {
++			dev_info(&pdev->dev, "Failed to get %d vectors\n",
++				 num_msix);
  		}
  	}
++
+ 	return err;
+ }
+ 
+@@ -428,6 +450,7 @@ int qlcnic_82xx_setup_intr(struct qlcnic_adapter *adapter, u8 num_intr)
+ 	qlcnic_enable_msi_legacy(adapter);
+ 	return 0;
+ }
++
+ static void
+ qlcnic_teardown_intr(struct qlcnic_adapter *adapter)
+ {
+@@ -435,6 +458,14 @@ qlcnic_teardown_intr(struct qlcnic_adapter *adapter)
+ 		pci_disable_msix(adapter->pdev);
+ 	if (adapter->flags & QLCNIC_MSI_ENABLED)
+ 		pci_disable_msi(adapter->pdev);
++
++	kfree(adapter->msix_entries);
++	adapter->msix_entries = NULL;
++
++	if (adapter->ahw->intr_tbl) {
++		vfree(adapter->ahw->intr_tbl);
++		adapter->ahw->intr_tbl = NULL;
++	}
+ }
+ 
+ static void
+@@ -524,8 +555,11 @@ static int qlcnic_init_pci_info(struct qlcnic_adapter *adapter)
+ 		j++;
+ 	}
+ 
+-	for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++)
++	for (i = 0; i < QLCNIC_NIU_MAX_XG_PORTS; i++) {
+ 		adapter->eswitch[i].flags |= QLCNIC_SWITCH_ENABLE;
++		if (qlcnic_83xx_check(adapter))
++			qlcnic_enable_eswitch(adapter, i, 1);
++	}
+ 
+ 	kfree(pci_info);
+ 	return 0;
+@@ -574,29 +608,20 @@ err_lock:
+ 	return ret;
+ }
+ 
+-static void
+-qlcnic_check_vf(struct qlcnic_adapter *adapter)
++static void qlcnic_check_vf(struct qlcnic_adapter *adapter,
++			    const struct pci_device_id *ent)
+ {
+-	void __iomem *msix_base_addr;
+-	void __iomem *priv_op;
+-	u32 func;
+-	u32 msix_base;
+ 	u32 op_mode, priv_level;
+ 
+ 	/* Determine FW API version */
+-	adapter->ahw->fw_hal_version = readl(adapter->ahw->pci_base0 +
+-					     QLCNIC_FW_API);
++	adapter->ahw->fw_hal_version = QLC_SHARED_REG_RD32(adapter,
++							   QLCNIC_FW_API);
+ 
+ 	/* Find PCI function number */
+-	pci_read_config_dword(adapter->pdev, QLCNIC_MSIX_TABLE_OFFSET, &func);
+-	msix_base_addr = adapter->ahw->pci_base0 + QLCNIC_MSIX_BASE;
+-	msix_base = readl(msix_base_addr);
+-	func = (func - msix_base)/QLCNIC_MSIX_TBL_PGSIZE;
+-	adapter->ahw->pci_func = func;
++	qlcnic_get_func_no(adapter);
+ 
+ 	/* Determine function privilege level */
+-	priv_op = adapter->ahw->pci_base0 + QLCNIC_DRV_OP_MODE;
+-	op_mode = readl(priv_op);
++	op_mode = QLC_SHARED_REG_RD32(adapter, QLCNIC_DRV_OP_MODE);
+ 	if (op_mode == QLC_DEV_DRV_DEFAULT)
+ 		priv_level = QLCNIC_MGMT_FUNC;
+ 	else
+@@ -613,12 +638,16 @@ qlcnic_check_vf(struct qlcnic_adapter *adapter)
+ }
+ 
+ #define QLCNIC_82XX_BAR0_LENGTH 0x00200000UL
++#define QLCNIC_83XX_BAR0_LENGTH 0x4000
+ static void qlcnic_get_bar_length(u32 dev_id, ulong *bar)
+ {
+ 	switch (dev_id) {
+ 	case PCI_DEVICE_ID_QLOGIC_QLE824X:
+ 		*bar = QLCNIC_82XX_BAR0_LENGTH;
+ 		break;
++	case PCI_DEVICE_ID_QLOGIC_QLE834X:
++		*bar = QLCNIC_83XX_BAR0_LENGTH;
++		break;
+ 	default:
+ 		*bar = 0;
+ 	}
+@@ -713,8 +742,9 @@ qlcnic_check_options(struct qlcnic_adapter *adapter)
+ 		}
+ 	}
+ 
+-	dev_info(&pdev->dev, "firmware v%d.%d.%d\n",
+-			fw_major, fw_minor, fw_build);
++	dev_info(&pdev->dev, "Driver v%s, firmware v%d.%d.%d\n",
++		 QLCNIC_LINUX_VERSIONID, fw_major, fw_minor, fw_build);
++
+ 	if (adapter->ahw->port_type == QLCNIC_XGBE) {
+ 		if (adapter->flags & QLCNIC_ESWITCH_ENABLED) {
+ 			adapter->num_rxd = DEFAULT_RCV_DESCRIPTORS_VF;
+@@ -760,6 +790,10 @@ qlcnic_initialize_nic(struct qlcnic_adapter *adapter)
+ 	adapter->ahw->max_mac_filters = nic_info.max_mac_filters;
+ 	adapter->ahw->max_mtu = nic_info.max_mtu;
+ 
++	/* Disable NPAR for 83XX */
++	if (qlcnic_83xx_check(adapter))
++		return err;
++
+ 	if (adapter->ahw->capabilities & BIT_6)
+ 		adapter->flags |= QLCNIC_ESWITCH_ENABLED;
+ 	else
+@@ -839,14 +873,17 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
+ 		struct qlcnic_esw_func_cfg *esw_cfg)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+-	netdev_features_t features, vlan_features;
++	unsigned long features, vlan_features;
++
++	if (qlcnic_83xx_check(adapter))
++		return;
+ 
+-	features = (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
++	features = (NETIF_F_SG | NETIF_F_IP_CSUM |
+ 			NETIF_F_IPV6_CSUM | NETIF_F_GRO);
+ 	vlan_features = (NETIF_F_SG | NETIF_F_IP_CSUM |
+-			NETIF_F_IPV6_CSUM | NETIF_F_HW_VLAN_FILTER);
++			NETIF_F_IPV6_CSUM);
+ 
+-	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_TSO) {
++	if (QLCNIC_IS_TSO_CAPABLE(adapter)) {
+ 		features |= (NETIF_F_TSO | NETIF_F_TSO6);
+ 		vlan_features |= (NETIF_F_TSO | NETIF_F_TSO6);
+ 	}
+@@ -856,12 +893,14 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
+ 
+ 	if (esw_cfg->offload_flags & BIT_0) {
+ 		netdev->features |= features;
++		adapter->rx_csum = 1;
+ 		if (!(esw_cfg->offload_flags & BIT_1))
+ 			netdev->features &= ~NETIF_F_TSO;
+ 		if (!(esw_cfg->offload_flags & BIT_2))
+ 			netdev->features &= ~NETIF_F_TSO6;
+ 	} else {
+ 		netdev->features &= ~features;
++		adapter->rx_csum = 0;
+ 	}
+ 
+ 	netdev->vlan_features = (features & vlan_features);
+@@ -870,7 +909,6 @@ qlcnic_set_netdev_features(struct qlcnic_adapter *adapter,
+ static int
+ qlcnic_check_eswitch_mode(struct qlcnic_adapter *adapter)
+ {
+-	void __iomem *priv_op;
+ 	u32 op_mode, priv_level;
+ 	int err = 0;
+ 
+@@ -881,8 +919,7 @@ qlcnic_check_eswitch_mode(struct qlcnic_adapter *adapter)
+ 	if (adapter->flags & QLCNIC_ADAPTER_INITIALIZED)
+ 		return 0;
+ 
+-	priv_op = adapter->ahw->pci_base0 + QLCNIC_DRV_OP_MODE;
+-	op_mode = readl(priv_op);
++	op_mode = QLC_SHARED_REG_RD32(adapter, QLCNIC_DRV_OP_MODE);
+ 	priv_level = QLC_DEV_GET_DRV(op_mode, adapter->ahw->pci_func);
+ 
+ 	if (op_mode == QLC_DEV_DRV_DEFAULT)
+@@ -947,6 +984,7 @@ static int qlcnic_set_default_offload_settings(struct qlcnic_adapter *adapter)
+ 	return 0;
+ }
+ 
++
+ static int
+ qlcnic_reset_eswitch_config(struct qlcnic_adapter *adapter,
+ 			struct qlcnic_npar_info *npar, int pci_func)
+@@ -986,8 +1024,7 @@ static int qlcnic_reset_npar_config(struct qlcnic_adapter *adapter)
+ 		npar = &adapter->npars[i];
+ 		pci_func = npar->pci_func;
+ 		memset(&nic_info, 0, sizeof(struct qlcnic_info));
+-		err = qlcnic_get_nic_info(adapter,
+-					  &nic_info, pci_func);
++		err = qlcnic_get_nic_info(adapter, &nic_info, pci_func);
+ 		if (err)
+ 			return err;
+ 		nic_info.min_tx_bw = npar->min_bw;
+@@ -1052,6 +1089,8 @@ qlcnic_set_mgmt_operations(struct qlcnic_adapter *adapter)
+ 
+ 	qlcnic_dev_set_npar_ready(adapter);
+ 
++	if (qlcnic_83xx_check(adapter))
++		qlcnic_83xx_register_nic_idc_func(adapter, 1);
+ 	return err;
+ }
+ 
+@@ -1126,6 +1165,7 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
+ {
+ 	irq_handler_t handler;
+ 	struct qlcnic_host_sds_ring *sds_ring;
++	struct qlcnic_host_tx_ring *tx_ring;
+ 	int err, ring;
+ 
+ 	unsigned long flags = 0;
+@@ -1133,7 +1173,8 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
+ 
+ 	if (adapter->ahw->diag_test == QLCNIC_INTERRUPT_TEST) {
+-		handler = qlcnic_tmp_intr;
++		if (qlcnic_82xx_check(adapter))
++			handler = qlcnic_tmp_intr;
+ 		if (!QLCNIC_IS_MSI_FAMILY(adapter))
+ 			flags |= IRQF_SHARED;
+ 
+@@ -1149,15 +1190,32 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
+ 	}
+ 	adapter->irq = netdev->irq;
+ 
+-	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+-		sds_ring = &recv_ctx->sds_rings[ring];
+-		sprintf(sds_ring->name, "%s[%d]", netdev->name, ring);
+-		err = request_irq(sds_ring->irq, handler,
+-				  flags, sds_ring->name, sds_ring);
+-		if (err)
+-			return err;
++	if (adapter->ahw->diag_test != QLCNIC_LOOPBACK_TEST) {
++		for (ring = 0; ring < adapter->max_sds_rings; ring++) {
++			sds_ring = &recv_ctx->sds_rings[ring];
++			snprintf(sds_ring->name, sizeof(int) + IFNAMSIZ,
++				 "%s[%d]", netdev->name, ring);
++			err = request_irq(sds_ring->irq, handler, flags,
++					  sds_ring->name, sds_ring);
++			if (err)
++				return err;
++		}
++		if (qlcnic_83xx_check(adapter) &&
++		    (adapter->flags & QLCNIC_MSIX_ENABLED)) {
++			handler = qlcnic_msix_tx_intr;
++			for (ring = 0; ring < adapter->max_drv_tx_rings;
++			     ring++) {
++				tx_ring = &adapter->tx_ring[ring];
++				snprintf(tx_ring->name, sizeof(int) + IFNAMSIZ,
++					 "%s[%d]", netdev->name,
++				adapter->max_sds_rings + ring);
++				err = request_irq(tx_ring->irq, handler, flags,
++						  tx_ring->name, tx_ring);
++				if (err)
++					return err;
++			}
++		}
+ 	}
+-
+ 	return 0;
+ }
+ 
+@@ -1166,12 +1224,23 @@ qlcnic_free_irq(struct qlcnic_adapter *adapter)
+ {
+ 	int ring;
+ 	struct qlcnic_host_sds_ring *sds_ring;
++	struct qlcnic_host_tx_ring *tx_ring;
+ 
+ 	struct qlcnic_recv_context *recv_ctx = adapter->recv_ctx;
+ 
+-	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+-		sds_ring = &recv_ctx->sds_rings[ring];
+-		free_irq(sds_ring->irq, sds_ring);
++	if (adapter->ahw->diag_test != QLCNIC_LOOPBACK_TEST) {
++		for (ring = 0; ring < adapter->max_sds_rings; ring++) {
++			sds_ring = &recv_ctx->sds_rings[ring];
++			free_irq(sds_ring->irq, sds_ring);
++		}
++		if (qlcnic_83xx_check(adapter)) {
++			for (ring = 0; ring < adapter->max_drv_tx_rings;
++			     ring++) {
++				tx_ring = &adapter->tx_ring[ring];
++				if (tx_ring->irq)
++					free_irq(tx_ring->irq, tx_ring);
++			}
++		}
+ 	}
+ }
+ 
+@@ -1229,8 +1298,7 @@ __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
+ 
+ /* Usage: During resume and firmware recovery module.*/
+ 
+-static int
+-qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
++static int qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
+ {
+ 	int err = 0;
+ 
+@@ -1358,7 +1426,10 @@ void qlcnic_diag_free_res(struct net_device *netdev, int max_sds_rings)
+ 	if (adapter->ahw->diag_test == QLCNIC_INTERRUPT_TEST) {
+ 		for (ring = 0; ring < adapter->max_sds_rings; ring++) {
+ 			sds_ring = &adapter->recv_ctx->sds_rings[ring];
+-			qlcnic_disable_int(sds_ring);
++			if (qlcnic_83xx_check(adapter))
++				writel(1, sds_ring->crb_intr_mask);
++			else
++				qlcnic_disable_int(sds_ring);
+ 		}
+ 	}
+ 
+@@ -1484,6 +1555,7 @@ qlcnic_reset_hw_context(struct qlcnic_adapter *adapter)
+ 	netif_device_attach(netdev);
+ 
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
++	dev_err(&adapter->pdev->dev, "%s:\n", __func__);
+ 	return 0;
+ }
+ 
+@@ -1527,33 +1599,38 @@ qlcnic_setup_netdev(struct qlcnic_adapter *adapter, struct net_device *netdev,
+ 	int err;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
++	adapter->rx_csum = 1;
+ 	adapter->ahw->mc_enabled = 0;
+-	adapter->ahw->max_mc_count = 38;
++	adapter->ahw->max_mc_count = QLCNIC_MAX_MC_COUNT;
+ 
+ 	netdev->netdev_ops	   = &qlcnic_netdev_ops;
+-	netdev->watchdog_timeo     = 5*HZ;
++	netdev->watchdog_timeo     = QLCNIC_WATCHDOG_TIMEOUTVALUE * HZ;
+ 
+ 	qlcnic_change_mtu(netdev, netdev->mtu);
+ 
+ 	SET_ETHTOOL_OPS(netdev, &qlcnic_ethtool_ops);
+ 
+-	netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM |
+-		NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
++	netdev->features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
++			     NETIF_F_IPV6_CSUM | NETIF_F_GRO |
++			     NETIF_F_HW_VLAN_RX);
++	netdev->vlan_features |= (NETIF_F_SG | NETIF_F_IP_CSUM |
++				  NETIF_F_IPV6_CSUM);
+ 
+-	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_TSO)
+-		netdev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
+-	if (pci_using_dac == 1)
+-		netdev->hw_features |= NETIF_F_HIGHDMA;
++	if (QLCNIC_IS_TSO_CAPABLE(adapter)) {
++		netdev->features |= (NETIF_F_TSO | NETIF_F_TSO6);
++		netdev->vlan_features |= (NETIF_F_TSO | NETIF_F_TSO6);
++	}
+ 
+-	netdev->vlan_features = netdev->hw_features;
++	if (pci_using_dac) {
++		netdev->features |= NETIF_F_HIGHDMA;
++		netdev->vlan_features |= NETIF_F_HIGHDMA;
++	}
+ 
+-	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_FVLANTX)
+-		netdev->hw_features |= NETIF_F_HW_VLAN_TX;
+-	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_HW_LRO)
+-		netdev->hw_features |= NETIF_F_LRO;
++	if (qlcnic_vlan_tx_check(adapter))
++		netdev->features |= (NETIF_F_HW_VLAN_TX);
+ 
+-	netdev->features |= netdev->hw_features |
+-		NETIF_F_HW_VLAN_RX | NETIF_F_HW_VLAN_FILTER;
++	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_HW_LRO)
++		netdev->features |= NETIF_F_LRO;
+ 
+ 	netdev->irq = adapter->msix_entries[0].vector;
+ 
+@@ -1582,19 +1659,6 @@ static int qlcnic_set_dma_mask(struct pci_dev *pdev, int *pci_using_dac)
+ 	return 0;
+ }
+ 
+-static int
+-qlcnic_alloc_msix_entries(struct qlcnic_adapter *adapter, u16 count)
+-{
+-	adapter->msix_entries = kcalloc(count, sizeof(struct msix_entry),
+-					GFP_KERNEL);
+-
+-	if (adapter->msix_entries)
+-		return 0;
+-
+-	dev_err(&adapter->pdev->dev, "failed allocating msix_entries\n");
+-	return -ENOMEM;
+-}
+-
+ void qlcnic_free_tx_rings(struct qlcnic_adapter *adapter)
+ {
+ 	int ring;
+@@ -1691,6 +1755,10 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (ent->device == PCI_DEVICE_ID_QLOGIC_QLE824X) {
+ 		ahw->hw_ops = &qlcnic_hw_ops;
+ 		ahw->reg_tbl = (u32 *)qlcnic_reg_tbl;
++	} else if (ent->device == PCI_DEVICE_ID_QLOGIC_QLE834X) {
++		qlcnic_83xx_register_map(ahw);
++	} else {
++		goto err_out_free_hw_res;
+ 	}
+ 
+ 	err = qlcnic_setup_pci_map(pdev, ahw);
+@@ -1708,6 +1776,13 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	adapter = netdev_priv(netdev);
+ 	adapter->netdev  = netdev;
+ 	adapter->pdev    = pdev;
++	adapter->ahw = ahw;
++
++	adapter->qlcnic_wq = create_singlethread_workqueue("qlcnic");
++	if (adapter->qlcnic_wq == NULL) {
++		dev_err(&pdev->dev, "Failed to create workqueue\n");
++		goto err_out_free_netdev;
++	}
+ 
+ 	err = qlcnic_alloc_adapter_resources(adapter);
+ 	if (err)
+@@ -1725,7 +1800,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	INIT_LIST_HEAD(&adapter->mac_list);
+ 
+ 	if (qlcnic_82xx_check(adapter)) {
+-		qlcnic_check_vf(adapter);
++		qlcnic_check_vf(adapter, ent);
+ 		adapter->portnum = adapter->ahw->pci_func;
+ 		err = qlcnic_start_firmware(adapter);
+ 		if (err) {
+@@ -1738,6 +1813,13 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			goto err_out_free_hw;
+ 
+ 		adapter->flags |= QLCNIC_NEED_FLR;
++	} else if (qlcnic_83xx_check(adapter)) {
++		qlcnic_83xx_check_vf(adapter, ent);
++		adapter->portnum = adapter->ahw->pci_func;
++	} else {
++		dev_err(&pdev->dev,
++			"%s: failed. Please Reboot\n", __func__);
++		goto err_out_free_hw;
+ 	}
+ 
+ 	if (qlcnic_read_mac_addr(adapter))
+@@ -1745,18 +1827,20 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	if (adapter->portnum == 0) {
+ 		qlcnic_get_board_name(adapter, board_name);
++
+ 		pr_info("%s: %s Board Chip rev 0x%x\n",
+ 			module_name(THIS_MODULE),
+ 			board_name, adapter->ahw->revision_id);
+ 	}
+-	err = qlcnic_alloc_msix_entries(adapter, adapter->ahw->max_rx_ques);
+-	if (err)
+-		goto err_out_disable_msi;
+-
+ 	err = qlcnic_setup_intr(adapter, 0);
+ 	if (err)
+ 		goto err_out_disable_msi;
+ 
++	if (qlcnic_83xx_check(adapter)) {
++		err = qlcnic_83xx_setup_mbx_intr(adapter);
++		if (err)
++			goto err_out_disable_msi;
++	}
+ 
+ 	err = qlcnic_setup_netdev(adapter, netdev, pci_using_dac);
+ 	if (err)
+@@ -1790,6 +1874,11 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	return 0;
+ 
+ err_out_disable_mbx_intr:
++	if (qlcnic_83xx_check(adapter)) {
++		if (adapter->flags & QLCNIC_MSIX_ENABLED)
++			qlcnic_83xx_config_intrpt(adapter, 0);
++		qlcnic_83xx_free_mbx_intr(adapter);
++	}
+ 
+ err_out_disable_msi:
+ 	qlcnic_teardown_intr(adapter);
+@@ -1817,10 +1906,11 @@ err_out_disable_pdev:
+ 	return err;
+ }
+ 
+-static void qlcnic_remove(struct pci_dev *pdev)
++static void __devexit qlcnic_remove(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter;
+ 	struct net_device *netdev;
++	struct qlcnic_hardware_context *ahw;
+ 
+ 	adapter = pci_get_drvdata(pdev);
+ 	if (adapter == NULL)
+@@ -1828,10 +1918,17 @@ static void qlcnic_remove(struct pci_dev *pdev)
+ 
+ 	netdev = adapter->netdev;
+ 
+-	qlcnic_cancel_fw_work(adapter);
++	qlcnic_cancel_idc_work(adapter);
++	ahw = adapter->ahw;
+ 
+ 	unregister_netdev(netdev);
+ 
++	if (qlcnic_83xx_check(adapter)) {
++		if (adapter->flags & QLCNIC_MSIX_ENABLED)
++			qlcnic_83xx_config_intrpt(adapter, 0);
++		qlcnic_83xx_free_mbx_intr(adapter);
++	}
++
+ 	qlcnic_detach(adapter);
+ 
+ 	if (adapter->npars != NULL)
+@@ -1847,9 +1944,8 @@ static void qlcnic_remove(struct pci_dev *pdev)
+ 	qlcnic_free_lb_filters_mem(adapter);
+ 
+ 	qlcnic_teardown_intr(adapter);
+-	kfree(adapter->msix_entries);
+ 
+-	qlcnic_remove_diag_entries(adapter);
++	qlcnic_remove_sysfs(adapter);
+ 
+ 	qlcnic_cleanup_pci_map(adapter);
+ 
+@@ -1860,7 +1956,12 @@ static void qlcnic_remove(struct pci_dev *pdev)
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+ 
++	if (adapter->qlcnic_wq) {
++		destroy_workqueue(adapter->qlcnic_wq);
++		adapter->qlcnic_wq = NULL;
++	}
+ 	qlcnic_free_adapter_resources(adapter);
++	kfree(ahw);
+ 	free_netdev(netdev);
+ }
+ static int __qlcnic_shutdown(struct pci_dev *pdev)
+@@ -1871,7 +1972,7 @@ static int __qlcnic_shutdown(struct pci_dev *pdev)
+ 
+ 	netif_device_detach(netdev);
+ 
+-	qlcnic_cancel_fw_work(adapter);
++	qlcnic_cancel_idc_work(adapter);
+ 
+ 	if (netif_running(netdev))
+ 		qlcnic_down(adapter, netdev);
+@@ -1884,7 +1985,6 @@ static int __qlcnic_shutdown(struct pci_dev *pdev)
+ 	retval = pci_save_state(pdev);
+ 	if (retval)
+ 		return retval;
+-
+ 	if (qlcnic_82xx_check(adapter)) {
+ 		if (qlcnic_wol_supported(adapter)) {
+ 			pci_enable_wake(pdev, PCI_D3cold, 1);
+@@ -1932,7 +2032,7 @@ qlcnic_resume(struct pci_dev *pdev)
+ 	pci_set_master(pdev);
+ 	pci_restore_state(pdev);
+ 
+-	err = adapter->nic_ops->start_firmware(adapter);
++	err = qlcnic_start_firmware(adapter);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "failed to start firmware\n");
+ 		return err;
+@@ -1990,6 +2090,11 @@ static int qlcnic_close(struct net_device *netdev)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 
+ 	__qlcnic_down(adapter, netdev);
++	if (qlcnic_83xx_check(adapter)) {
++		qlcnic_83xx_register_nic_idc_func(adapter, 0);
++		cancel_delayed_work_sync(&adapter->idc_aen_work);
++	}
 +
  	return 0;
  }
  
-@@ -458,7 +510,8 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
- 	struct qlcnic_esw_func_cfg *esw_cfg;
- 	struct qlcnic_npar_info *npar;
- 	int count, rem, i, ret;
--	u8 pci_func, op_mode = 0;
-+	int index;
-+	u8 op_mode = 0, pci_func;
+@@ -1997,21 +2102,37 @@ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter)
+ {
+ 	void *head;
+ 	int i;
++	struct net_device *netdev = adapter->netdev;
++	u32 filter_size = 0;
++	u16 act_pci_func = 0;
  
- 	count	= size / sizeof(struct qlcnic_esw_func_cfg);
- 	rem	= size % sizeof(struct qlcnic_esw_func_cfg);
-@@ -471,10 +524,9 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
- 		return ret;
+ 	if (adapter->fhash.fmax && adapter->fhash.fhead)
+ 		return;
  
- 	for (i = 0; i < count; i++) {
--		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC) {
-+		if (adapter->ahw->op_mode == QLCNIC_MGMT_FUNC)
- 			if (qlcnic_config_switch_port(adapter, &esw_cfg[i]))
- 				return QL_STATUS_INVALID_PARAM;
--		}
++	act_pci_func = adapter->ahw->act_pci_func;
+ 	spin_lock_init(&adapter->mac_learn_lock);
  
- 		if (adapter->ahw->pci_func != esw_cfg[i].pci_func)
- 			continue;
-@@ -503,7 +555,8 @@ static ssize_t qlcnic_sysfs_write_esw_config(struct file *file,
- 
- 	for (i = 0; i < count; i++) {
- 		pci_func = esw_cfg[i].pci_func;
--		npar = &adapter->npars[pci_func];
-+		index = qlcnic_is_valid_nic_func(adapter, pci_func);
-+		npar = &adapter->npars[index];
- 		switch (esw_cfg[i].op_mode) {
- 		case QLCNIC_PORT_DEFAULTS:
- 			npar->promisc_mode = esw_cfg[i].promisc_mode;
-@@ -533,18 +586,21 @@ static ssize_t qlcnic_sysfs_read_esw_config(struct file *file,
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	struct qlcnic_esw_func_cfg esw_cfg[QLCNIC_MAX_PCI_FUNC];
--	u8 i;
-+	u8 i, pci_func;
- 
- 	if (size != sizeof(esw_cfg))
- 		return QL_STATUS_INVALID_PARAM;
- 
--	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
--		if (adapter->npars[i].type != QLCNIC_TYPE_NIC)
--			continue;
--		esw_cfg[i].pci_func = i;
--		if (qlcnic_get_eswitch_port_config(adapter, &esw_cfg[i]))
-+	memset(&esw_cfg, 0,
-+	       sizeof(struct qlcnic_esw_func_cfg) * QLCNIC_MAX_PCI_FUNC);
+-	head = kcalloc(QLCNIC_LB_MAX_FILTERS, sizeof(struct hlist_head),
+-								GFP_KERNEL);
++	if (qlcnic_82xx_check(adapter)) {
++		filter_size = QLCNIC_LB_MAX_FILTERS;
++		adapter->fhash.fbucket_size = QLCNIC_LB_BUCKET_SIZE;
++	} else {
++		filter_size = QLC_83XX_LB_MAX_FILTERS;
++		adapter->fhash.fbucket_size = QLC_83XX_LB_BUCKET_SIZE;
++	}
 +
-+	for (i = 0; i < adapter->ahw->act_pci_func; i++) {
-+		pci_func = adapter->npars[i].pci_func;
-+		esw_cfg[pci_func].pci_func = pci_func;
-+		if (qlcnic_get_eswitch_port_config(adapter, &esw_cfg[pci_func]))
- 			return QL_STATUS_INVALID_PARAM;
- 	}
++	head = kcalloc(adapter->fhash.fbucket_size,
++		       sizeof(struct hlist_head), GFP_KERNEL);
 +
- 	memcpy(buf, &esw_cfg, size);
+ 	if (!head)
+ 		return;
  
- 	return size;
-@@ -558,10 +614,7 @@ static int validate_npar_config(struct qlcnic_adapter *adapter,
+-	adapter->fhash.fmax = QLCNIC_LB_MAX_FILTERS;
++	adapter->fhash.fmax = (filter_size / act_pci_func);
+ 	adapter->fhash.fhead = head;
  
- 	for (i = 0; i < count; i++) {
- 		pci_func = np_cfg[i].pci_func;
--		if (pci_func >= QLCNIC_MAX_PCI_FUNC)
--			return QL_STATUS_INVALID_PARAM;
--
--		if (adapter->npars[pci_func].type != QLCNIC_TYPE_NIC)
-+		if (qlcnic_is_valid_nic_func(adapter, pci_func) < 0)
- 			return QL_STATUS_INVALID_PARAM;
- 
- 		if (!IS_VALID_BW(np_cfg[i].min_bw) ||
-@@ -581,7 +634,7 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	struct qlcnic_info nic_info;
- 	struct qlcnic_npar_func_cfg *np_cfg;
--	int i, count, rem, ret;
-+	int i, count, rem, ret, index;
- 	u8 pci_func;
- 
- 	count	= size / sizeof(struct qlcnic_npar_func_cfg);
-@@ -594,8 +647,10 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
- 	if (ret)
- 		return ret;
- 
--	for (i = 0; i < count ; i++) {
-+	for (i = 0; i < count; i++) {
- 		pci_func = np_cfg[i].pci_func;
+-	for (i = 0; i < adapter->fhash.fmax; i++)
++	netdev_info(netdev, "active nic func = %d, mac filter size=%d\n",
++		    act_pci_func, adapter->fhash.fmax);
 +
-+		memset(&nic_info, 0, sizeof(struct qlcnic_info));
- 		ret = qlcnic_get_nic_info(adapter, &nic_info, pci_func);
- 		if (ret)
- 			return ret;
-@@ -605,12 +660,12 @@ static ssize_t qlcnic_sysfs_write_npar_config(struct file *file,
- 		ret = qlcnic_set_nic_info(adapter, &nic_info);
- 		if (ret)
- 			return ret;
--		adapter->npars[i].min_bw = nic_info.min_tx_bw;
--		adapter->npars[i].max_bw = nic_info.max_tx_bw;
-+		index = qlcnic_is_valid_nic_func(adapter, pci_func);
-+		adapter->npars[index].min_bw = nic_info.min_tx_bw;
-+		adapter->npars[index].max_bw = nic_info.max_tx_bw;
- 	}
- 
- 	return size;
--
++	for (i = 0; i < adapter->fhash.fbucket_size; i++)
+ 		INIT_HLIST_HEAD(&adapter->fhash.fhead[i]);
  }
  
- static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
-@@ -628,8 +683,12 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
- 	if (size != sizeof(np_cfg))
- 		return QL_STATUS_INVALID_PARAM;
+@@ -2030,6 +2151,9 @@ static int qlcnic_check_temp(struct qlcnic_adapter *adapter)
+ 	u32 temp_state, temp_val, temp = 0;
+ 	int rv = 0;
  
-+	memset(&nic_info, 0, sizeof(struct qlcnic_info));
-+	memset(&np_cfg, 0,
-+	       sizeof(struct qlcnic_npar_func_cfg) * QLCNIC_MAX_PCI_FUNC);
++	if (qlcnic_83xx_check(adapter))
++		temp = QLCRDX(adapter->ahw, QLC_83XX_ASIC_TEMP);
 +
- 	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
--		if (adapter->npars[i].type != QLCNIC_TYPE_NIC)
-+		if (qlcnic_is_valid_nic_func(adapter, i) < 0)
- 			continue;
- 		ret = qlcnic_get_nic_info(adapter, &nic_info, i);
- 		if (ret)
-@@ -644,6 +703,7 @@ static ssize_t qlcnic_sysfs_read_npar_config(struct file *file,
- 		np_cfg[i].max_tx_queues = nic_info.max_tx_ques;
- 		np_cfg[i].max_rx_queues = nic_info.max_rx_ques;
- 	}
-+
- 	memcpy(buf, &np_cfg, size);
- 	return size;
+ 	if (qlcnic_82xx_check(adapter))
+ 		temp = QLC_SHARED_REG_RD32(adapter, QLCNIC_ASIC_TEMP);
+ 
+@@ -2167,6 +2291,14 @@ static irqreturn_t qlcnic_msix_intr(int irq, void *data)
+ 	return IRQ_HANDLED;
  }
-@@ -659,6 +719,9 @@ static ssize_t qlcnic_sysfs_get_port_stats(struct file *file,
- 	struct qlcnic_esw_statistics port_stats;
- 	int ret;
  
-+	if (qlcnic_83xx_check(adapter))
-+		return QLC_STATUS_UNSUPPORTED_CMD;
-+
- 	if (size != sizeof(struct qlcnic_esw_statistics))
- 		return QL_STATUS_INVALID_PARAM;
- 
-@@ -691,6 +754,9 @@ static ssize_t qlcnic_sysfs_get_esw_stats(struct file *file,
- 	struct qlcnic_esw_statistics esw_stats;
- 	int ret;
- 
-+	if (qlcnic_83xx_check(adapter))
-+		return QLC_STATUS_UNSUPPORTED_CMD;
-+
- 	if (size != sizeof(struct qlcnic_esw_statistics))
- 		return QL_STATUS_INVALID_PARAM;
- 
-@@ -722,6 +788,9 @@ static ssize_t qlcnic_sysfs_clear_esw_stats(struct file *file,
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	int ret;
- 
-+	if (qlcnic_83xx_check(adapter))
-+		return QLC_STATUS_UNSUPPORTED_CMD;
-+
- 	if (offset >= QLCNIC_NIU_MAX_XG_PORTS)
- 		return QL_STATUS_INVALID_PARAM;
- 
-@@ -744,10 +813,14 @@ static ssize_t qlcnic_sysfs_clear_port_stats(struct file *file,
- 					     char *buf, loff_t offset,
- 					     size_t size)
- {
-+
- 	struct device *dev = container_of(kobj, struct device, kobj);
- 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
- 	int ret;
- 
-+	if (qlcnic_83xx_check(adapter))
-+		return QLC_STATUS_UNSUPPORTED_CMD;
-+
- 	if (offset >= QLCNIC_MAX_PCI_FUNC)
- 		return QL_STATUS_INVALID_PARAM;
- 
-@@ -789,7 +862,10 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
- 		return ret;
- 	}
- 
--	for (i = 0; i < QLCNIC_MAX_PCI_FUNC ; i++) {
-+	memset(&pci_cfg, 0,
-+	       sizeof(struct qlcnic_pci_func_cfg) * QLCNIC_MAX_PCI_FUNC);
-+
-+	for (i = 0; i < QLCNIC_MAX_PCI_FUNC; i++) {
- 		pci_cfg[i].pci_func = pci_info[i].id;
- 		pci_cfg[i].func_type = pci_info[i].type;
- 		pci_cfg[i].port_num = pci_info[i].default_port;
-@@ -797,6 +873,7 @@ static ssize_t qlcnic_sysfs_read_pci_config(struct file *file,
- 		pci_cfg[i].max_bw = pci_info[i].tx_max_bw;
- 		memcpy(&pci_cfg[i].def_mac_addr, &pci_info[i].mac, ETH_ALEN);
- 	}
-+
- 	memcpy(buf, &pci_cfg, size);
- 	kfree(pci_info);
- 	return size;
-@@ -897,7 +974,6 @@ void qlcnic_remove_sysfs_entries(struct qlcnic_adapter *adapter)
- void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
--	u32 state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 
- 	if (device_create_bin_file(dev, &bin_attr_port_stats))
- 		dev_info(dev, "failed to create port stats sysfs entry");
-@@ -911,9 +987,6 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- 	if (device_create_bin_file(dev, &bin_attr_mem))
- 		dev_info(dev, "failed to create mem sysfs entry\n");
- 
--	if (state == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD))
--		return;
--
- 	if (device_create_bin_file(dev, &bin_attr_pci_config))
- 		dev_info(dev, "failed to create pci config sysfs entry");
- 	if (device_create_file(dev, &dev_attr_beacon))
-@@ -936,7 +1009,6 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter)
- void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
--	u32 state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
- 
- 	device_remove_bin_file(dev, &bin_attr_port_stats);
- 
-@@ -945,8 +1017,6 @@ void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter)
- 	device_remove_file(dev, &dev_attr_diag_mode);
- 	device_remove_bin_file(dev, &bin_attr_crb);
- 	device_remove_bin_file(dev, &bin_attr_mem);
--	if (state == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD))
--		return;
- 	device_remove_bin_file(dev, &bin_attr_pci_config);
- 	device_remove_file(dev, &dev_attr_beacon);
- 	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED))
-@@ -968,3 +1038,13 @@ void qlcnic_82xx_remove_sysfs(struct qlcnic_adapter *adapter)
- {
- 	qlcnic_remove_diag_entries(adapter);
- }
-+
-+void qlcnic_83xx_add_sysfs(struct qlcnic_adapter *adapter)
++static irqreturn_t qlcnic_msix_tx_intr(int irq, void *data)
 +{
-+	qlcnic_create_diag_entries(adapter);
++	struct qlcnic_host_tx_ring *tx_ring = data;
++
++	napi_schedule(&tx_ring->napi);
++	return IRQ_HANDLED;
 +}
 +
-+void qlcnic_83xx_remove_sysfs(struct qlcnic_adapter *adapter)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void qlcnic_poll_controller(struct net_device *netdev)
+ {
+@@ -2592,25 +2724,22 @@ void qlcnic_82xx_dev_request_reset(struct qlcnic_adapter *adapter, u32 key)
+ 	dev_info(&adapter->pdev->dev, "Pause control frames disabled"
+ 				" on all ports\n");
+ 	adapter->need_fw_reset = 1;
++
+ 	if (qlcnic_api_lock(adapter))
+ 		return;
+ 
+-	state = QLCRD32(adapter, QLCNIC_CRB_DEV_STATE);
+-	if (state  == QLCNIC_DEV_FAILED || (state == QLCNIC_DEV_BADBAD)) {
+-		netdev_err(adapter->netdev,
+-				"Device is in FAILED state, Please Reboot\n");
+-		qlcnic_api_unlock(adapter);
+-		return;
+-	}
++	state = QLC_SHARED_REG_RD32(adapter, QLCNIC_CRB_DEV_STATE);
+ 
+ 	if (state == QLCNIC_DEV_READY) {
+-		QLCWR32(adapter, QLCNIC_CRB_DEV_STATE, QLCNIC_DEV_NEED_RESET);
++		QLC_SHARED_REG_WR32(adapter, QLCNIC_CRB_DEV_STATE,
++				    QLCNIC_DEV_NEED_RESET);
+ 		adapter->flags |= QLCNIC_FW_RESET_OWNER;
+ 		QLCDB(adapter, DRV, "NEED_RESET state set\n");
+ 		qlcnic_idc_debug_info(adapter, 0);
+ 	}
+ 
+-	QLCWR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE, QLCNIC_DEV_NPAR_NON_OPER);
++	QLC_SHARED_REG_WR32(adapter, QLCNIC_CRB_DEV_NPAR_STATE,
++			    QLCNIC_DEV_NPAR_NON_OPER);
+ 	qlcnic_api_unlock(adapter);
+ }
+ 
+@@ -2628,28 +2757,15 @@ qlcnic_dev_set_npar_ready(struct qlcnic_adapter *adapter)
+ 	qlcnic_api_unlock(adapter);
+ }
+ 
+-static void
+-qlcnic_schedule_work(struct qlcnic_adapter *adapter,
+-		work_func_t func, int delay)
++void qlcnic_schedule_work(struct qlcnic_adapter *adapter,
++			  work_func_t func, int delay)
+ {
+ 	if (test_bit(__QLCNIC_AER, &adapter->state))
+ 		return;
+ 
+ 	INIT_DELAYED_WORK(&adapter->fw_work, func);
+-	queue_delayed_work(qlcnic_wq, &adapter->fw_work,
+-					round_jiffies_relative(delay));
+-}
+-
+-static void
+-qlcnic_cancel_fw_work(struct qlcnic_adapter *adapter)
+-{
+-	while (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
+-		msleep(10);
+-
+-	if (!adapter->fw_work.work.func)
+-		return;
+-
+-	cancel_delayed_work_sync(&adapter->fw_work);
++	queue_delayed_work(adapter->qlcnic_wq, &adapter->fw_work,
++			   round_jiffies_relative(delay));
+ }
+ 
+ static void
+@@ -2788,6 +2904,19 @@ reschedule:
+ 	qlcnic_schedule_work(adapter, qlcnic_fw_poll_work, FW_POLL_DELAY);
+ }
+ 
++struct pci_dev *pci_get_domain_bus_and_slot(int domain, unsigned int bus,
++					    unsigned int devfn)
 +{
-+	qlcnic_remove_diag_entries(adapter);
++	struct pci_dev *dev = NULL;
++
++	while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL) {
++		if (pci_domain_nr(dev->bus) == domain &&
++		    (dev->bus->number == bus && dev->devfn == devfn))
++			return dev;
++	}
++	return NULL;
 +}
++
+ static int qlcnic_is_first_func(struct pci_dev *pdev)
+ {
+ 	struct pci_dev *oth_pdev;
+@@ -2839,12 +2968,25 @@ static int qlcnic_attach_func(struct pci_dev *pdev)
+ 	}
+ 	qlcnic_api_unlock(adapter);
+ 
+-	err = adapter->nic_ops->start_firmware(adapter);
++	err = qlcnic_start_firmware(adapter);
+ 	if (err)
+ 		return err;
+ 
+ 	qlcnic_clr_drv_state(adapter);
+-	qlcnic_setup_intr(adapter, 0);
++	kfree(adapter->msix_entries);
++	adapter->msix_entries = NULL;
++	err = qlcnic_setup_intr(adapter, 0);
++
++	if (qlcnic_83xx_check(adapter)) {
++		err = qlcnic_83xx_setup_mbx_intr(adapter);
++		if (err) {
++			dev_err(&adapter->pdev->dev,
++				"failed to setup mbx interrupt\n");
++			qlcnic_clr_all_drv_state(adapter, 1);
++			clear_bit(__QLCNIC_AER, &adapter->state);
++			goto done;
++		}
++	}
+ 
+ 	if (netif_running(netdev)) {
+ 		err = qlcnic_attach(adapter);
+@@ -2886,6 +3028,12 @@ static pci_ers_result_t qlcnic_io_error_detected(struct pci_dev *pdev,
+ 	if (netif_running(netdev))
+ 		qlcnic_down(adapter, netdev);
+ 
++	if (qlcnic_83xx_check(adapter)) {
++		if (adapter->flags & QLCNIC_MSIX_ENABLED)
++			qlcnic_83xx_config_intrpt(adapter, 0);
++		qlcnic_83xx_free_mbx_intr(adapter);
++	}
++
+ 	qlcnic_detach(adapter);
+ 	qlcnic_teardown_intr(adapter);
+ 
+@@ -2962,21 +3110,34 @@ int qlcnic_validate_max_rss(struct net_device *netdev, u8 max_hw, u8 val)
+ 
+ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data)
+ {
++	int err;
+ 	struct net_device *netdev = adapter->netdev;
+-	int err = 0;
+-
+-	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
+-		return -EBUSY;
+ 
++	rtnl_lock();
+ 	netif_device_detach(netdev);
+ 	if (netif_running(netdev))
+ 		__qlcnic_down(adapter, netdev);
++
++	if (qlcnic_83xx_check(adapter)) {
++		if (adapter->flags & QLCNIC_MSIX_ENABLED)
++			qlcnic_83xx_config_intrpt(adapter, 0);
++		qlcnic_83xx_free_mbx_intr(adapter);
++	}
++
+ 	qlcnic_detach(adapter);
+ 	qlcnic_teardown_intr(adapter);
++	err = adapter->ahw->hw_ops->setup_intr(adapter, data);
++	if (err)
++		dev_err(&adapter->pdev->dev,
++			"failed setting max_rss; rss disabled\n");
+ 
+-	if (qlcnic_enable_msix(adapter, data)) {
+-		netdev_info(netdev, "failed setting max_rss; rss disabled\n");
+-		qlcnic_enable_msi_legacy(adapter);
++	if (qlcnic_83xx_check(adapter)) {
++		err = qlcnic_83xx_setup_mbx_intr(adapter);
++		if (err) {
++			dev_err(&adapter->pdev->dev,
++				"failed to setup mbx interrupt\n");
++			goto done;
++		}
+ 	}
+ 
+ 	if (netif_running(netdev)) {
+@@ -2991,6 +3152,7 @@ int qlcnic_set_max_rss(struct qlcnic_adapter *adapter, u8 data)
+  done:
+ 	netif_device_attach(netdev);
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
++	rtnl_unlock();
+ 	return err;
+ }
+ 
+@@ -3108,9 +3270,11 @@ recheck:
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		qlcnic_config_ipaddr(adapter, ifa->ifa_address, QLCNIC_IP_UP);
++
+ 		break;
+ 	case NETDEV_DOWN:
+ 		qlcnic_config_ipaddr(adapter, ifa->ifa_address, QLCNIC_IP_DOWN);
++
+ 		break;
+ 	default:
+ 		break;
+@@ -3158,12 +3322,6 @@ static int __init qlcnic_init_module(void)
+ 
+ 	printk(KERN_INFO "%s\n", qlcnic_driver_string);
+ 
+-	qlcnic_wq = create_singlethread_workqueue("qlcnic");
+-	if (qlcnic_wq == NULL) {
+-		printk(KERN_ERR "qlcnic: cannot create workqueue\n");
+-		return -ENOMEM;
+-	}
+-
+ #ifdef CONFIG_INET
+ 	register_netdevice_notifier(&qlcnic_netdev_cb);
+ 	register_inetaddr_notifier(&qlcnic_inetaddr_cb);
+@@ -3175,7 +3333,6 @@ static int __init qlcnic_init_module(void)
+ 		unregister_inetaddr_notifier(&qlcnic_inetaddr_cb);
+ 		unregister_netdevice_notifier(&qlcnic_netdev_cb);
+ #endif
+-		destroy_workqueue(qlcnic_wq);
+ 	}
+ 
+ 	return ret;
+@@ -3185,14 +3342,12 @@ module_init(qlcnic_init_module);
+ 
+ static void __exit qlcnic_exit_module(void)
+ {
+-
+ 	pci_unregister_driver(&qlcnic_driver);
+ 
+ #ifdef CONFIG_INET
+ 	unregister_inetaddr_notifier(&qlcnic_inetaddr_cb);
+ 	unregister_netdevice_notifier(&qlcnic_netdev_cb);
+ #endif
+-	destroy_workqueue(qlcnic_wq);
+ }
+ 
+ module_exit(qlcnic_exit_module);
 -- 
 1.7.1
