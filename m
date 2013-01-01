@@ -1,62 +1,73 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: [PATCH] poll: prevent missed events if _qproc is NULL
-Date: Tue, 1 Jan 2013 21:17:28 +0000
-Message-ID: <20130101211728.GA13380@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
- <1357065750.21409.12527.camel@edumazet-glaptop>
- <20130101210033.GA13255@dcvr.yhbt.net>
+From: Christian Lamparter <chunkeey@googlemail.com>
+Subject: Re: [PATCH] p54pci: don't return zero on failure path in p54p_probe()
+Date: Tue, 1 Jan 2013 22:45:42 +0100
+Message-ID: <201301012245.43064.chunkeey@googlemail.com>
+References: <1357074661-15784-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Hans de Goede <hdegoede@redhat.com>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andreas Voellmy <andreas.voellmy@yale.edu>,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130101210033.GA13255@dcvr.yhbt.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f51.google.com ([209.85.214.51]:61791 "EHLO
+	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752448Ab3AAVpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jan 2013 16:45:49 -0500
+In-Reply-To: <1357074661-15784-1-git-send-email-khoroshilov@ispras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Wong <normalperson@yhbt.net> wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > commit 626cf236608505d376e4799adb4f7eb00a8594af should not have this
-> > side effect, at least for poll()/select() functions. The epoll() changes
-> > I am not yet very confident.
+On Tuesday 01 January 2013 22:11:01 Alexey Khoroshilov wrote:
+> If pci_set_dma_mask() or pci_set_consistent_dma_mask() fails in p54p_probe(),
+> it breaks off initialization, deallocates all resources, but returns zero.
 > 
-> I have a better explanation of the epoll problem below.
+> The patch implements proper error code propagation.
+
+Uh, Thanks!
+
+But wait, I think there's another return 0 in the error
+path. See p54pci.c @ line 558:
+
+mem_len = pci_resource_len(pdev, 0);
+if (mem_len < sizeof(...)) {
+	dev_err(...)
+	goto err_disabled_dev;
+}
+
+Do you think you can add a err = -EINVAL; before the goto too?
+[I wonder why this wasn't found by the verification project as
+well? Could it be that pci_resource_len(...) < sizeof(...) is 
+somehow always true and this is a dead branch?]
+
+> Found by Linux Driver Verification project (linuxtesting.org).
 > 
-> An alternate version (limited to epoll) would be:
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Acked-by: Christian Lamparter <chunkeey@googlemail.com>
+
+Regards,
+	Christian
+> ---
+>  drivers/net/wireless/p54/p54pci.c |    6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
 > 
-> diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-> index cd96649..ca5f3d0 100644
-> --- a/fs/eventpoll.c
-> +++ b/fs/eventpoll.c
-> @@ -1299,6 +1299,7 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
->  	 * Get current event bits. We can safely use the file* here because
->  	 * its usage count has been increased by the caller of this function.
->  	 */
-> +	smp_mb();
->  	revents = epi->ffd.file->f_op->poll(epi->ffd.file, &pt);
+> diff --git a/drivers/net/wireless/p54/p54pci.c b/drivers/net/wireless/p54/p54pci.c
+> index 933e5d9..fef69ea 100644
+> --- a/drivers/net/wireless/p54/p54pci.c
+> +++ b/drivers/net/wireless/p54/p54pci.c
+> @@ -568,8 +568,10 @@ static int p54p_probe(struct pci_dev *pdev,
+>  		goto err_disable_dev;
+>  	}
 >  
->  	/*
+> -	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) ||
+> -	    pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32))) {
+> +	err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+> +	if (!err)
+> +		err = pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(32));
+> +	if (err) {
+>  		dev_err(&pdev->dev, "No suitable DMA available\n");
+>  		goto err_free_reg;
+>  	}
 > 
-> > I suspect a race already existed before this commit, it would be nice to
-> > track it properly.
-> 
-> I don't believe this race existed before that change.
-
-I was wrong, rereading 626cf236608505d376e4799adb4f7eb00a8594af,
-I think this race existed before.
-
-Perhaps my alternate patch above is a better fix.
