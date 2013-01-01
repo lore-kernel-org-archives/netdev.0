@@ -1,8 +1,8 @@
 From: "Ariel Elior" <ariele@broadcom.com>
-Subject: [PATCH net-next v5 07/22] bnx2x: Support ndo_set_rxmode in VF
- driver
-Date: Tue, 1 Jan 2013 17:22:29 +0200
-Message-ID: <1357053764-8187-8-git-send-email-ariele@broadcom.com>
+Subject: [PATCH net-next v5 05/22] bnx2x: Add init, setup_q, set_mac to
+ VF <-> PF channel
+Date: Tue, 1 Jan 2013 17:22:27 +0200
+Message-ID: <1357053764-8187-6-git-send-email-ariele@broadcom.com>
 References: <1357053764-8187-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,237 +11,123 @@ Cc: netdev <netdev@vger.kernel.org>, eilong@broadcom.com,
 	"Ariel Elior" <ariele@broadcom.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4220 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4273 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752387Ab3AAPUB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752390Ab3AAPUB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 1 Jan 2013 10:20:01 -0500
 In-Reply-To: <1357053764-8187-1-git-send-email-ariele@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The VF driver uses the 'q_filter' request in the VF <-> PF channel to
-have the PF configure the requested rxmode to device. ndo_set_rxmode
-is called under bottom half lock, so sleeping until the response
-arrives over the VF <-> PF channel is out of the question. For this reason
-the VF driver returns from the ndo after scheduling a work item, which
-in turn processes the rx mode request and adds the classification
-information through the VF <-> PF channel accordingly.
+'init' - init an acquired VF. Supply allocation GPAs to PF.
+'setup_q' - PF to allocate a queue in device on behalf of the VF.
+'set_mac' - PF to configure a mac in device on behalf of the VF.
+VF driver uses these requests in the VF <-> PF channel in nic_load
+flow.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    5 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  173 +++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h |    7 +
- 3 files changed, 179 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |    6 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |   18 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  163 ++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h |  123 ++++++++++++++++
+ 4 files changed, 310 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 82c6233..2fe1908 100644
+index 634eb30..5c64d1d 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -1191,6 +1191,8 @@ enum {
- 	BNX2X_SP_RTNL_TX_TIMEOUT,
- 	BNX2X_SP_RTNL_AFEX_F_UPDATE,
- 	BNX2X_SP_RTNL_FAN_FAILURE,
-+	BNX2X_SP_RTNL_VFPF_MCAST,
-+	BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
- };
+@@ -341,6 +341,9 @@ union db_prod {
+ #define SGE_PAGE_SIZE		PAGE_SIZE
+ #define SGE_PAGE_SHIFT		PAGE_SHIFT
+ #define SGE_PAGE_ALIGN(addr)	PAGE_ALIGN((typeof(PAGE_SIZE))(addr))
++#define SGE_PAGES		(SGE_PAGE_SIZE * PAGES_PER_SGE)
++#define TPA_AGG_SIZE		min_t(u32, (min_t(u32, 8, MAX_SKB_FRAGS) * \
++					    SGE_PAGES), 0xffff)
  
- 
-@@ -2229,6 +2231,9 @@ void bnx2x_vfpf_close_vf(struct bnx2x *bp);
- int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx);
- int bnx2x_vfpf_teardown_queue(struct bnx2x *bp, int qidx);
- int bnx2x_vfpf_set_mac(struct bnx2x *bp);
-+int bnx2x_vfpf_set_mcast(struct net_device *dev);
-+int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp);
-+
+ /* SGE ring related macros */
+ #define NUM_RX_SGE_PAGES	2
+@@ -2221,6 +2224,9 @@ int bnx2x_get_vf_id(struct bnx2x *bp, u32 *vf_id);
+ int bnx2x_send_msg2pf(struct bnx2x *bp, u8 *done, dma_addr_t msg_mapping);
+ int bnx2x_vfpf_acquire(struct bnx2x *bp, u8 tx_count, u8 rx_count);
+ int bnx2x_vfpf_release(struct bnx2x *bp);
++int bnx2x_vfpf_init(struct bnx2x *bp);
++int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx);
++int bnx2x_vfpf_set_mac(struct bnx2x *bp);
  int bnx2x_nic_load_analyze_req(struct bnx2x *bp, u32 load_code);
  /* Congestion management fairness mode */
  #define CMNG_FNS_NONE		0
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 2bf7dcc..d278205 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -9403,6 +9403,19 @@ sp_rtnl_not_reset:
- 		bnx2x_close(bp->dev);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 646bfd1..f7b23c2 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2445,6 +2445,13 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 		LOAD_ERROR_EXIT(bp, load_error0);
  	}
  
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_MCAST, &bp->sp_rtnl_state)) {
-+		DP(BNX2X_MSG_SP,
-+		   "sending set mcast vf pf channel message from rtnl sp-task\n");
-+		bnx2x_vfpf_set_mcast(bp->dev);
++	/* request pf to initialize status blocks */
++	if (IS_VF(bp)) {
++		rc = bnx2x_vfpf_init(bp);
++		if (rc)
++			LOAD_ERROR_EXIT(bp, load_error0);
 +	}
 +
-+	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
-+			       &bp->sp_rtnl_state)) {
-+		DP(BNX2X_MSG_SP,
-+		   "sending set storm rx mode vf pf channel message from rtnl sp-task\n");
-+		bnx2x_vfpf_storm_rx_mode(bp);
-+	}
+ 	/* As long as bnx2x_alloc_mem() may possibly update
+ 	 * bp->num_queues, bnx2x_set_real_num_queues() should always
+ 	 * come after it. At this stage cnic queues are not counted.
+@@ -2564,6 +2571,15 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 			BNX2X_ERR("PF RSS init failed\n");
+ 			LOAD_ERROR_EXIT(bp, load_error3);
+ 		}
 +
- sp_rtnl_exit:
- 	rtnl_unlock();
- }
-@@ -11479,12 +11492,25 @@ void bnx2x_set_rx_mode(struct net_device *dev)
- 		  CHIP_IS_E1(bp)))
- 		rx_mode = BNX2X_RX_MODE_ALLMULTI;
- 	else {
--		/* some multicasts */
--		if (bnx2x_set_mc_list(bp) < 0)
--			rx_mode = BNX2X_RX_MODE_ALLMULTI;
-+		if (IS_PF(bp)) {
-+			/* some multicasts */
-+			if (bnx2x_set_mc_list(bp) < 0)
-+				rx_mode = BNX2X_RX_MODE_ALLMULTI;
- 
--		if (bnx2x_set_uc_list(bp) < 0)
--			rx_mode = BNX2X_RX_MODE_PROMISC;
-+			if (bnx2x_set_uc_list(bp) < 0)
-+				rx_mode = BNX2X_RX_MODE_PROMISC;
-+		} else {
-+			/* configuring mcast to a vf involves sleeping (when we
-+			 * wait for the pf's response). Since this function is
-+			 * called from non sleepable context we must schedule
-+			 * a work item for this purpose
-+			 */
-+			smp_mb__before_clear_bit();
-+			set_bit(BNX2X_SP_RTNL_VFPF_MCAST,
-+				&bp->sp_rtnl_state);
-+			smp_mb__after_clear_bit();
-+			schedule_delayed_work(&bp->sp_rtnl_task, 0);
++	} else { /* vf */
++		for_each_eth_queue(bp, i) {
++			rc = bnx2x_vfpf_setup_q(bp, i);
++			if (rc) {
++				BNX2X_ERR("Queue setup failed\n");
++				LOAD_ERROR_EXIT(bp, load_error3);
++			}
 +		}
  	}
  
- 	bp->rx_mode = rx_mode;
-@@ -11498,7 +11524,20 @@ void bnx2x_set_rx_mode(struct net_device *dev)
- 		return;
- 	}
- 
--	bnx2x_set_storm_rx_mode(bp);
-+	if (IS_PF(bp)) {
-+		bnx2x_set_storm_rx_mode(bp);
-+	} else {
-+		/* configuring rx mode to storms in a vf involves sleeping (when
-+		 * we wait for the pf's response). Since this function is
-+		 * called from non sleepable context we must schedule
-+		 * a work item for this purpose
-+		 */
-+		smp_mb__before_clear_bit();
-+		set_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
-+			&bp->sp_rtnl_state);
-+		smp_mb__after_clear_bit();
-+		schedule_delayed_work(&bp->sp_rtnl_task, 0);
-+	}
- }
- 
- /* called with rtnl_lock */
-@@ -13676,3 +13715,125 @@ int bnx2x_vfpf_set_mac(struct bnx2x *bp)
+ 	/* Now when Clients are configured we are ready to work */
+@@ -2572,6 +2588,8 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
+ 	/* Configure a ucast MAC */
+ 	if (IS_PF(bp))
+ 		rc = bnx2x_set_eth_mac(bp, true);
++	else /* vf */
++		rc = bnx2x_vfpf_set_mac(bp);
+ 	if (rc) {
+ 		BNX2X_ERR("Setting Ethernet MAC failed\n");
+ 		LOAD_ERROR_EXIT(bp, load_error3);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 6e07c70..8ba054a 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -13428,3 +13428,166 @@ int bnx2x_vfpf_release(struct bnx2x *bp)
  
  	return 0;
  }
 +
-+int bnx2x_vfpf_set_mcast(struct net_device *dev)
++/* Tell PF about SB addresses */
++int bnx2x_vfpf_init(struct bnx2x *bp)
 +{
-+	struct bnx2x *bp = netdev_priv(dev);
-+	struct vfpf_set_q_filters_tlv *req = &bp->vf2pf_mbox->req.set_q_filters;
++	struct vfpf_init_tlv *req = &bp->vf2pf_mbox->req.init;
 +	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
-+	int rc, i = 0;
-+	struct netdev_hw_addr *ha;
-+
-+	if (bp->state != BNX2X_STATE_OPEN) {
-+		DP(NETIF_MSG_IFUP, "state is %x, returning\n", bp->state);
-+		return -EINVAL;
-+	}
++	int rc, i;
 +
 +	/* clear mailbox and prep first tlv */
-+	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_SET_Q_FILTERS,
-+			sizeof(*req));
++	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_INIT, sizeof(*req));
 +
-+	/* Get Rx mode requested */
-+	DP(NETIF_MSG_IFUP, "dev->flags = %x\n", dev->flags);
++	/* status blocks */
++	for_each_eth_queue(bp, i)
++		req->sb_addr[i] = (dma_addr_t)bnx2x_fp(bp, i,
++						       status_blk_mapping);
 +
-+	netdev_for_each_mc_addr(ha, dev) {
-+		DP(NETIF_MSG_IFUP, "Adding mcast MAC: %pM\n",
-+		   bnx2x_mc_addr(ha));
-+		memcpy(req->multicast[i], bnx2x_mc_addr(ha), ETH_ALEN);
-+		i++;
-+	}
-+
-+	/* We support four PFVF_MAX_MULTICAST_PER_VF mcast
-+	 * addresses tops
-+	 */
-+	if (i >= PFVF_MAX_MULTICAST_PER_VF) {
-+		DP(NETIF_MSG_IFUP,
-+		   "VF supports not more than %d multicast MAC addresses\n",
-+		   PFVF_MAX_MULTICAST_PER_VF);
-+		return -EINVAL;
-+	}
-+
-+	req->n_multicast = i;
-+	req->flags |= VFPF_SET_Q_FILTERS_MULTICAST_CHANGED;
-+	req->vf_qid = 0;
-+
-+	/* add list termination tlv */
-+	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
-+		      sizeof(struct channel_list_end_tlv));
-+
-+	/* output tlvs list */
-+	bnx2x_dp_tlv_list(bp, req);
-+
-+	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
-+	if (rc) {
-+		BNX2X_ERR("Sending a message failed: %d\n", rc);
-+		return rc;
-+	}
-+
-+	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		BNX2X_ERR("Set Rx mode/multicast failed: %d\n",
-+			  resp->hdr.status);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+int bnx2x_vfpf_storm_rx_mode(struct bnx2x *bp)
-+{
-+	int mode = bp->rx_mode;
-+	struct vfpf_set_q_filters_tlv *req = &bp->vf2pf_mbox->req.set_q_filters;
-+	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
-+	int rc;
-+
-+	/* clear mailbox and prep first tlv */
-+	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_SET_Q_FILTERS,
-+			sizeof(*req));
-+
-+	DP(NETIF_MSG_IFUP, "Rx mode is %d\n", mode);
-+
-+	switch (mode) {
-+	case BNX2X_RX_MODE_NONE: /* no Rx */
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_NONE;
-+		break;
-+	case BNX2X_RX_MODE_NORMAL:
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_MATCHED_MULTICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_BROADCAST;
-+		break;
-+	case BNX2X_RX_MODE_ALLMULTI:
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_ALL_MULTICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_BROADCAST;
-+		break;
-+	case BNX2X_RX_MODE_PROMISC:
-+		req->rx_mask = VFPF_RX_MASK_ACCEPT_ALL_UNICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_ALL_MULTICAST;
-+		req->rx_mask |= VFPF_RX_MASK_ACCEPT_BROADCAST;
-+		break;
-+	default:
-+		BNX2X_ERR("BAD rx mode (%d)\n", mode);
-+		return -EINVAL;
-+	}
-+
-+	req->flags |= VFPF_SET_Q_FILTERS_RX_MASK_CHANGED;
-+	req->vf_qid = 0;
++	/* statistics - requests only supports single queue for now */
++	req->stats_addr = bp->fw_stats_data_mapping +
++			  offsetof(struct bnx2x_fw_stats_data, queue_stats);
 +
 +	/* add list termination tlv */
 +	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
@@ -252,32 +138,294 @@ index 2bf7dcc..d278205 100644
 +
 +	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
 +	if (rc)
-+		BNX2X_ERR("Sending a message failed: %d\n", rc);
++		return rc;
 +
 +	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
-+		BNX2X_ERR("Set Rx mode failed: %d\n", resp->hdr.status);
++		BNX2X_ERR("INIT VF failed: %d. Breaking...\n",
++			  resp->hdr.status);
++		return -EAGAIN;
++	}
++
++	DP(BNX2X_MSG_SP, "INIT VF Succeeded\n");
++	return 0;
++}
++
++/* ask the pf to open a queue for the vf */
++int bnx2x_vfpf_setup_q(struct bnx2x *bp, int fp_idx)
++{
++	struct vfpf_setup_q_tlv *req = &bp->vf2pf_mbox->req.setup_q;
++	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
++	struct bnx2x_fastpath *fp = &bp->fp[fp_idx];
++	u16 tpa_agg_size = 0, flags = 0;
++	int rc;
++
++	/* clear mailbox and prep first tlv */
++	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_SETUP_Q, sizeof(*req));
++
++	/* select tpa mode to request */
++	if (!fp->disable_tpa) {
++		flags |= VFPF_QUEUE_FLG_TPA;
++		flags |= VFPF_QUEUE_FLG_TPA_IPV6;
++		if (fp->mode == TPA_MODE_GRO)
++			flags |= VFPF_QUEUE_FLG_TPA_GRO;
++		tpa_agg_size = TPA_AGG_SIZE;
++	}
++
++	/* calculate queue flags */
++	flags |= VFPF_QUEUE_FLG_STATS;
++	flags |= VFPF_QUEUE_FLG_CACHE_ALIGN;
++	flags |= IS_MF_SD(bp) ? VFPF_QUEUE_FLG_OV : 0;
++	flags |= VFPF_QUEUE_FLG_VLAN;
++	DP(NETIF_MSG_IFUP, "vlan removal enabled\n");
++
++	/* Common */
++	req->vf_qid = fp_idx;
++	req->param_valid = VFPF_RXQ_VALID | VFPF_TXQ_VALID;
++
++	/* Rx */
++	req->rxq.rcq_addr = fp->rx_comp_mapping;
++	req->rxq.rcq_np_addr = fp->rx_comp_mapping + BCM_PAGE_SIZE;
++	req->rxq.rxq_addr = fp->rx_desc_mapping;
++	req->rxq.sge_addr = fp->rx_sge_mapping;
++	req->rxq.vf_sb = fp_idx;
++	req->rxq.sb_index = HC_INDEX_ETH_RX_CQ_CONS;
++	req->rxq.hc_rate = bp->rx_ticks ? 1000000/bp->rx_ticks : 0;
++	req->rxq.mtu = bp->dev->mtu;
++	req->rxq.buf_sz = fp->rx_buf_size;
++	req->rxq.sge_buf_sz = BCM_PAGE_SIZE * PAGES_PER_SGE;
++	req->rxq.tpa_agg_sz = tpa_agg_size;
++	req->rxq.max_sge_pkt = SGE_PAGE_ALIGN(bp->dev->mtu) >> SGE_PAGE_SHIFT;
++	req->rxq.max_sge_pkt = ((req->rxq.max_sge_pkt + PAGES_PER_SGE - 1) &
++			  (~(PAGES_PER_SGE-1))) >> PAGES_PER_SGE_SHIFT;
++	req->rxq.flags = flags;
++	req->rxq.drop_flags = 0;
++	req->rxq.cache_line_log = BNX2X_RX_ALIGN_SHIFT;
++	req->rxq.stat_id = -1; /* No stats at the moment */
++
++	/* Tx */
++	req->txq.txq_addr = fp->txdata_ptr[FIRST_TX_COS_INDEX]->tx_desc_mapping;
++	req->txq.vf_sb = fp_idx;
++	req->txq.sb_index = HC_INDEX_ETH_TX_CQ_CONS_COS0;
++	req->txq.hc_rate = bp->tx_ticks ? 1000000/bp->tx_ticks : 0;
++	req->txq.flags = flags;
++	req->txq.traffic_type = LLFC_TRAFFIC_TYPE_NW;
++
++	/* add list termination tlv */
++	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
++		      sizeof(struct channel_list_end_tlv));
++
++	/* output tlvs list */
++	bnx2x_dp_tlv_list(bp, req);
++
++	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
++	if (rc)
++		BNX2X_ERR("Sending SETUP_Q message for queue[%d] failed!\n",
++			  fp_idx);
++
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		BNX2X_ERR("Status of SETUP_Q for queue[%d] is %d\n",
++			  fp_idx, resp->hdr.status);
++		return -EINVAL;
++	}
++	return rc;
++}
++
++/* request pf to add a mac for the vf */
++int bnx2x_vfpf_set_mac(struct bnx2x *bp)
++{
++	struct vfpf_set_q_filters_tlv *req = &bp->vf2pf_mbox->req.set_q_filters;
++	struct pfvf_general_resp_tlv *resp = &bp->vf2pf_mbox->resp.general_resp;
++	int rc;
++
++	/* clear mailbox and prep first tlv */
++	bnx2x_vfpf_prep(bp, &req->first_tlv, CHANNEL_TLV_SET_Q_FILTERS,
++			sizeof(*req));
++
++	req->flags = VFPF_SET_Q_FILTERS_MAC_VLAN_CHANGED;
++	req->vf_qid = 0;
++	req->n_mac_vlan_filters = 1;
++	req->filters[0].flags =
++		VFPF_Q_FILTER_DEST_MAC_VALID | VFPF_Q_FILTER_SET_MAC;
++
++	/* copy mac from device to request */
++	memcpy(req->filters[0].mac, bp->dev->dev_addr, ETH_ALEN);
++
++	/* add list termination tlv */
++	bnx2x_add_tlv(bp, req, req->first_tlv.tl.length, CHANNEL_TLV_LIST_END,
++		      sizeof(struct channel_list_end_tlv));
++
++	/* output tlvs list */
++	bnx2x_dp_tlv_list(bp, req);
++
++	/* send message to pf */
++	rc = bnx2x_send_msg2pf(bp, &resp->hdr.status, bp->vf2pf_mbox_mapping);
++	if (rc) {
++		BNX2X_ERR("failed to send message to pf. rc was %d\n", rc);
++		return rc;
++	}
++
++	/* PF failed the transaction */
++	if (resp->hdr.status != PFVF_STATUS_SUCCESS) {
++		BNX2X_ERR("vfpf SET MAC failed: %d\n", resp->hdr.status);
 +		return -EINVAL;
 +	}
 +
-+	return rc;
++	return 0;
 +}
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-index ed4a618..bf11e08 100644
+index 561c656..12889f0 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
-@@ -54,6 +54,13 @@ struct hw_sb_info {
- #define VFPF_QUEUE_DROP_TTL0		(1 << 2)
- #define VFPF_QUEUE_DROP_UDP_CS_ERR	(1 << 3)
+@@ -38,6 +38,22 @@ struct hw_sb_info {
+  */
+ #define TLV_BUFFER_SIZE			1024
  
-+#define VFPF_RX_MASK_ACCEPT_NONE		0x00000000
-+#define VFPF_RX_MASK_ACCEPT_MATCHED_UNICAST	0x00000001
-+#define VFPF_RX_MASK_ACCEPT_MATCHED_MULTICAST	0x00000002
-+#define VFPF_RX_MASK_ACCEPT_ALL_UNICAST		0x00000004
-+#define VFPF_RX_MASK_ACCEPT_ALL_MULTICAST	0x00000008
-+#define VFPF_RX_MASK_ACCEPT_BROADCAST		0x00000010
++#define VFPF_QUEUE_FLG_TPA		0x0001
++#define VFPF_QUEUE_FLG_TPA_IPV6		0x0002
++#define VFPF_QUEUE_FLG_TPA_GRO		0x0004
++#define VFPF_QUEUE_FLG_CACHE_ALIGN	0x0008
++#define VFPF_QUEUE_FLG_STATS		0x0010
++#define VFPF_QUEUE_FLG_OV		0x0020
++#define VFPF_QUEUE_FLG_VLAN		0x0040
++#define VFPF_QUEUE_FLG_COS		0x0080
++#define VFPF_QUEUE_FLG_HC		0x0100
++#define VFPF_QUEUE_FLG_DHC		0x0200
++
++#define VFPF_QUEUE_DROP_IP_CS_ERR	(1 << 0)
++#define VFPF_QUEUE_DROP_TCP_CS_ERR	(1 << 1)
++#define VFPF_QUEUE_DROP_TTL0		(1 << 2)
++#define VFPF_QUEUE_DROP_UDP_CS_ERR	(1 << 3)
 +
  enum {
  	PFVF_STATUS_WAITING = 0,
  	PFVF_STATUS_SUCCESS,
+@@ -130,6 +146,107 @@ struct pfvf_acquire_resp_tlv {
+ 	} resc;
+ };
+ 
++/* Init VF */
++struct vfpf_init_tlv {
++	struct vfpf_first_tlv first_tlv;
++	aligned_u64 sb_addr[PFVF_MAX_SBS_PER_VF]; /* vf_sb based */
++	aligned_u64 spq_addr;
++	aligned_u64 stats_addr;
++};
++
++/* Setup Queue */
++struct vfpf_setup_q_tlv {
++	struct vfpf_first_tlv first_tlv;
++
++	struct vf_pf_rxq_params {
++		/* physical addresses */
++		aligned_u64 rcq_addr;
++		aligned_u64 rcq_np_addr;
++		aligned_u64 rxq_addr;
++		aligned_u64 sge_addr;
++
++		/* sb + hc info */
++		u8  vf_sb;		/* index in hw_sbs[] */
++		u8  sb_index;		/* Index in the SB */
++		u16 hc_rate;		/* desired interrupts per sec. */
++					/* valid iff VFPF_QUEUE_FLG_HC */
++		/* rx buffer info */
++		u16 mtu;
++		u16 buf_sz;
++		u16 flags;		/* VFPF_QUEUE_FLG_X flags */
++		u16 stat_id;		/* valid iff VFPF_QUEUE_FLG_STATS */
++
++		/* valid iff VFPF_QUEUE_FLG_TPA */
++		u16 sge_buf_sz;
++		u16 tpa_agg_sz;
++		u8 max_sge_pkt;
++
++		u8 drop_flags;		/* VFPF_QUEUE_DROP_X, for Linux VMs
++					 * all the flags are turned off
++					 */
++
++		u8 cache_line_log;	/* VFPF_QUEUE_FLG_CACHE_ALIGN */
++		u8 padding;
++	} rxq;
++
++	struct vf_pf_txq_params {
++		/* physical addresses */
++		aligned_u64 txq_addr;
++
++		/* sb + hc info */
++		u8  vf_sb;		/* index in hw_sbs[] */
++		u8  sb_index;		/* Index in the SB */
++		u16 hc_rate;		/* desired interrupts per sec. */
++					/* valid iff VFPF_QUEUE_FLG_HC */
++		u32 flags;		/* VFPF_QUEUE_FLG_X flags */
++		u16 stat_id;		/* valid iff VFPF_QUEUE_FLG_STATS */
++		u8  traffic_type;	/* see in setup_context() */
++		u8  padding;
++	} txq;
++
++	u8 vf_qid;			/* index in hw_qid[] */
++	u8 param_valid;
++#define VFPF_RXQ_VALID		0x01
++#define VFPF_TXQ_VALID		0x02
++	u8 padding[2];
++};
++
++/* Set Queue Filters */
++struct vfpf_q_mac_vlan_filter {
++	u32 flags;
++#define VFPF_Q_FILTER_DEST_MAC_VALID	0x01
++#define VFPF_Q_FILTER_VLAN_TAG_VALID	0x02
++#define VFPF_Q_FILTER_SET_MAC		0x100	/* set/clear */
++	u8  mac[ETH_ALEN];
++	u16 vlan_tag;
++};
++
++/* configure queue filters */
++struct vfpf_set_q_filters_tlv {
++	struct vfpf_first_tlv first_tlv;
++
++	u32 flags;
++#define VFPF_SET_Q_FILTERS_MAC_VLAN_CHANGED	0x01
++#define VFPF_SET_Q_FILTERS_MULTICAST_CHANGED	0x02
++#define VFPF_SET_Q_FILTERS_RX_MASK_CHANGED	0x04
++
++	u8 vf_qid;			/* index in hw_qid[] */
++	u8 n_mac_vlan_filters;
++	u8 n_multicast;
++	u8 padding;
++
++#define PFVF_MAX_MAC_FILTERS                   16
++#define PFVF_MAX_VLAN_FILTERS                  16
++#define PFVF_MAX_FILTERS               (PFVF_MAX_MAC_FILTERS +\
++					 PFVF_MAX_VLAN_FILTERS)
++	struct vfpf_q_mac_vlan_filter filters[PFVF_MAX_FILTERS];
++
++#define PFVF_MAX_MULTICAST_PER_VF              32
++	u8  multicast[PFVF_MAX_MULTICAST_PER_VF][ETH_ALEN];
++
++	u32 rx_mask;	/* see mask constants at the top of the file */
++};
++
+ /* release the VF's acquired resources */
+ struct vfpf_release_tlv {
+ 	struct vfpf_first_tlv	first_tlv;
+@@ -144,6 +261,9 @@ struct tlv_buffer_size {
+ union vfpf_tlvs {
+ 	struct vfpf_first_tlv		first_tlv;
+ 	struct vfpf_acquire_tlv		acquire;
++	struct vfpf_init_tlv		init;
++	struct vfpf_setup_q_tlv		setup_q;
++	struct vfpf_set_q_filters_tlv	set_q_filters;
+ 	struct vfpf_release_tlv         release;
+ 	struct channel_list_end_tlv     list_end;
+ 	struct tlv_buffer_size		tlv_buf_size;
+@@ -161,6 +281,9 @@ union pfvf_tlvs {
+ enum channel_tlvs {
+ 	CHANNEL_TLV_NONE,
+ 	CHANNEL_TLV_ACQUIRE,
++	CHANNEL_TLV_INIT,
++	CHANNEL_TLV_SETUP_Q,
++	CHANNEL_TLV_SET_Q_FILTERS,
+ 	CHANNEL_TLV_RELEASE,
+ 	CHANNEL_TLV_LIST_END,
+ 	CHANNEL_TLV_MAX
 -- 
 1.7.9.GIT
