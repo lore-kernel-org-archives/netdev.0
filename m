@@ -1,61 +1,70 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch net-next V5 08/15] cxgb3: remove usage of dev->master
-Date: Wed,  2 Jan 2013 13:28:29 +0100
-Message-ID: <1357129716-2450-9-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next V5 05/15] team: remove usage of netdev_set_master()
+Date: Wed,  2 Jan 2013 13:28:26 +0100
+Message-ID: <1357129716-2450-6-git-send-email-jiri@resnulli.us>
 References: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1357129716-2450-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
+	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
+	shemminger@vyatta.com, bhutchings@solarflare.com,
+	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
+	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
+	fbl@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/team/team.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-index 942dace..3f1f501 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-@@ -182,14 +182,17 @@ static struct net_device *get_iff_from_mac(struct adapter *adapter,
- 		struct net_device *dev = adapter->port[i];
- 
- 		if (!memcmp(dev->dev_addr, mac, ETH_ALEN)) {
-+			rcu_read_lock();
- 			if (vlan && vlan != VLAN_VID_MASK) {
--				rcu_read_lock();
- 				dev = __vlan_find_dev_deep(dev, vlan);
--				rcu_read_unlock();
- 			} else if (netif_is_bond_slave(dev)) {
--				while (dev->master)
--					dev = dev->master;
-+				struct net_device *upper_dev;
-+
-+				while ((upper_dev =
-+					netdev_master_upper_dev_get_rcu(dev)))
-+					dev = upper_dev;
- 			}
-+			rcu_read_unlock();
- 			return dev;
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 918a901..3df5cc1 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1055,10 +1055,11 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
  		}
  	}
+ 
+-	err = netdev_set_master(port_dev, dev);
++	err = netdev_master_upper_dev_link(port_dev, dev);
+ 	if (err) {
+-		netdev_err(dev, "Device %s failed to set master\n", portname);
+-		goto err_set_master;
++		netdev_err(dev, "Device %s failed to set upper link\n",
++			   portname);
++		goto err_set_upper_link;
+ 	}
+ 
+ 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
+@@ -1091,9 +1092,9 @@ err_option_port_add:
+ 	netdev_rx_handler_unregister(port_dev);
+ 
+ err_handler_register:
+-	netdev_set_master(port_dev, NULL);
++	netdev_upper_dev_unlink(port_dev, dev);
+ 
+-err_set_master:
++err_set_upper_link:
+ 	team_port_disable_netpoll(port);
+ 
+ err_enable_netpoll:
+@@ -1137,7 +1138,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+ 	team_port_disable(team, port);
+ 	list_del_rcu(&port->list);
+ 	netdev_rx_handler_unregister(port_dev);
+-	netdev_set_master(port_dev, NULL);
++	netdev_upper_dev_unlink(port_dev, dev);
+ 	team_port_disable_netpoll(port);
+ 	vlan_vids_del_by_dev(port_dev, dev);
+ 	dev_close(port_dev);
 -- 
 1.8.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
