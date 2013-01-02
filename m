@@ -1,50 +1,161 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: inaccurate packet scheduling
-Date: Wed, 02 Jan 2013 08:34:42 -0800
-Message-ID: <1357144482.21409.16876.camel@edumazet-glaptop>
-References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
-	 <1355849503.9380.37.camel@edumazet-glaptop>
-	 <20130102152601.GB1532@minipsycho.orion>
+Subject: Re: [PATCH] epoll: prevent missed events on EPOLL_CTL_MOD
+Date: Wed, 02 Jan 2013 09:45:50 -0800
+Message-ID: <1357148750.21409.17169.camel@edumazet-glaptop>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+	 <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
+	 <1357065750.21409.12527.camel@edumazet-glaptop>
+	 <20130101210033.GA13255@dcvr.yhbt.net>
+	 <20130101211728.GA13380@dcvr.yhbt.net>
+	 <CA+55aFwP3Tvmfh23KDDXhB3k=RS8pNhqasw5vuBUHw4TxrakOQ@mail.gmail.com>
+	 <20130101235605.GA17168@dcvr.yhbt.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f50.google.com ([209.85.210.50]:59598 "EHLO
-	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752964Ab3ABQeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 11:34:46 -0500
-Received: by mail-da0-f50.google.com with SMTP id h15so6553641dan.9
-        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 08:34:45 -0800 (PST)
-In-Reply-To: <20130102152601.GB1532@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Hans Verkuil <hans.verkuil@cisco.com>,
+	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Hans de Goede <hdegoede@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andreas Voellmy <andreas.voellmy@yale.edu>,
+	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>
+To: Eric Wong <normalperson@yhbt.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20130101235605.GA17168@dcvr.yhbt.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-01-02 at 16:26 +0100, Jiri Pirko wrote:
-> Tue, Dec 18, 2012 at 05:51:43PM CET, erdnetdev@gmail.com wrote:
-> >On Tue, 2012-12-18 at 08:26 -0800, Stephen Hemminger wrote:
-> >
-> >> Check kernel log for messages about clock. It could be that on the
-> >> machines with issues TSC is not usable for kernel clock.
-> >> Also turn off TSO since it screws up any form of rate control.
-> >
-> >Yes, but we should fix it eventually. I'll take a look.
+On Tue, 2013-01-01 at 23:56 +0000, Eric Wong wrote:
+> Linus Torvalds <torvalds@linux-foundation.org> wrote:
+> > Please document the barrier that this mb() pairs with, and then give
+> > an explanation for the fix in the commit message, and I'll happily
+> > take it. Even if it's just duplicating the comments above the
+> > wq_has_sleeper() function, except modified for the ep_modify() case.
 > 
-> Hi Eric, did you have a chance to look at this? Or should I give it a try?
+> Hopefully my explanation is correct and makes sense below,
+> I think both effects of the barrier are needed
+> 
+> > Of course, it would be good to get verification from Jason and Andreas
+> > that the alternate patch also works for them.
+> 
+> Jason just confirmed it.
+> 
+> ------------------------------- 8< ----------------------------
+> From 02f43757d04bb6f2786e79eecf1cfa82e6574379 Mon Sep 17 00:00:00 2001
+> From: Eric Wong <normalperson@yhbt.net>
+> Date: Tue, 1 Jan 2013 21:20:27 +0000
+> Subject: [PATCH] epoll: prevent missed events on EPOLL_CTL_MOD
+> 
+> EPOLL_CTL_MOD sets the interest mask before calling f_op->poll() to
+> ensure events are not missed.  Since the modifications to the interest
+> mask are not protected by the same lock as ep_poll_callback, we need to
+> ensure the change is visible to other CPUs calling ep_poll_callback.
+> 
+> We also need to ensure f_op->poll() has an up-to-date view of past
+> events which occured before we modified the interest mask.  So this
+> barrier also pairs with the barrier in wq_has_sleeper().
+> 
+> This should guarantee either ep_poll_callback or f_op->poll() (or both)
+> will notice the readiness of a recently-ready/modified item.
+> 
+> This issue was encountered by Andreas Voellmy and Junchang(Jason) Wang in:
+> http://thread.gmane.org/gmane.linux.kernel/1408782/
+> 
+> Signed-off-by: Eric Wong <normalperson@yhbt.net>
+> Cc: Hans Verkuil <hans.verkuil@cisco.com>
+> Cc: Jiri Olsa <jolsa@redhat.com>
+> Cc: Jonathan Corbet <corbet@lwn.net>
+> Cc: Al Viro <viro@zeniv.linux.org.uk>
+> Cc: Davide Libenzi <davidel@xmailserver.org>
+> Cc: Hans de Goede <hdegoede@redhat.com>
+> Cc: Mauro Carvalho Chehab <mchehab@infradead.org>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Linus Torvalds <torvalds@linux-foundation.org>
+> Cc: Andreas Voellmy <andreas.voellmy@yale.edu>
+> Tested-by: "Junchang(Jason) Wang" <junchang.wang@yale.edu>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-fsdevel@vger.kernel.org
+> ---
+>  fs/eventpoll.c | 22 +++++++++++++++++++++-
+>  1 file changed, 21 insertions(+), 1 deletion(-)
+> 
+> diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+> index cd96649..39573ee 100644
+> --- a/fs/eventpoll.c
+> +++ b/fs/eventpoll.c
+> @@ -1285,7 +1285,7 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
+>  	 * otherwise we might miss an event that happens between the
+>  	 * f_op->poll() call and the new event set registering.
+>  	 */
+> -	epi->event.events = event->events;
+> +	epi->event.events = event->events; /* need barrier below */
+>  	pt._key = event->events;
+>  	epi->event.data = event->data; /* protected by mtx */
+>  	if (epi->event.events & EPOLLWAKEUP) {
+> @@ -1296,6 +1296,26 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
+>  	}
+>  
+>  	/*
+> +	 * The following barrier has two effects:
+> +	 *
+> +	 * 1) Flush epi changes above to other CPUs.  This ensures
+> +	 *    we do not miss events from ep_poll_callback if an
+> +	 *    event occurs immediately after we call f_op->poll().
+> +	 *    We need this because we did not take ep->lock while
+> +	 *    changing epi above (but ep_poll_callback does take
+> +	 *    ep->lock).
+> +	 *
+> +	 * 2) We also need to ensure we do not miss _past_ events
+> +	 *    when calling f_op->poll().  This barrier also
+> +	 *    pairs with the barrier in wq_has_sleeper (see
+> +	 *    comments for wq_has_sleeper).
+> +	 *
+> +	 * This barrier will now guarantee ep_poll_callback or f_op->poll
+> +	 * (or both) will notice the readiness of an item.
+> +	 */
+> +	smp_mb();
+> +
+> +	/*
+>  	 * Get current event bits. We can safely use the file* here because
+>  	 * its usage count has been increased by the caller of this function.
+>  	 */
+> -- 
+> Eric Wong
 
-I took a look, and TBF does :
+First, thanks for working on this issue.
 
-if (qdisc_pkt_len(skb) > q->max_size)
-    return qdisc_reshape_fail(skb, sch);
+It seems the real problem is the epi->event.events = event->events;
+which is done without taking ep->lock
 
-We have several choices :
+While a smp_mb() could reduce the race window, I believe there is still
+a race, and the following patch would close it.
 
-1) Add a one time warning
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index be56b21..25e5c53 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -1313,7 +1313,10 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
+ 	 * otherwise we might miss an event that happens between the
+ 	 * f_op->poll() call and the new event set registering.
+ 	 */
++	spin_lock_irq(&ep->lock);
+ 	epi->event.events = event->events;
++	spin_unlock_irq(&ep->lock);
++
+ 	pt._key = event->events;
+ 	epi->event.data = event->data; /* protected by mtx */
+ 	if (epi->event.events & EPOLLWAKEUP) {
 
-2) cap dev->gso_max_size at Qdisc setup time
 
-3) Re-segment the packet instead of dropping it (if GSO packet), and
-call the expensive qdisc_tree_decrease_qlen() function.
 
-4) remove max_size limitation 
+
+
