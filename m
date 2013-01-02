@@ -1,40 +1,43 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: inaccurate packet scheduling
-Date: Wed, 2 Jan 2013 16:26:01 +0100
-Message-ID: <20130102152601.GB1532@minipsycho.orion>
-References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
- <1355849503.9380.37.camel@edumazet-glaptop>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Subject: Re: Support for Marvell 88E1510 and 88E1116R
+Date: Wed, 02 Jan 2013 17:08:20 +0100
+Message-ID: <50E45B74.70301@metafoo.de>
+References: <50E404BC.3010604@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: edumazet@google.com, netdev@vger.kernel.org
-To: Eric Dumazet <erdnetdev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:65014 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752714Ab3ABP0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 10:26:08 -0500
-Received: by mail-ee0-f53.google.com with SMTP id c50so7124080eek.40
-        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 07:26:06 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1355849503.9380.37.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Christian Hohnstaedt <chohnstaedt@innominate.com>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	John Linn <linnj@xilinx.com>,
+	Michal Simek <michal.simek@xilinx.com>,
+	Sam Bobrowicz <SBobrowicz@digilentinc.com>,
+	Rick Hoover <RHoover@digilentinc.com>,
+	Steven Wang <steven.wang@digilentinc.com>
+To: monstr@monstr.eu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50E404BC.3010604@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Dec 18, 2012 at 05:51:43PM CET, erdnetdev@gmail.com wrote:
->On Tue, 2012-12-18 at 08:26 -0800, Stephen Hemminger wrote:
->
->> Check kernel log for messages about clock. It could be that on the
->> machines with issues TSC is not usable for kernel clock.
->> Also turn off TSO since it screws up any form of rate control.
->
->Yes, but we should fix it eventually. I'll take a look.
+On 01/02/2013 10:58 AM, Michal Simek wrote:
+> Hi guys,
+> 
+> just a question regarding to Marvell 88e1510 and 88E1116R phys.
+> We have these phys on the arm zynq board and would like to add
+> support to the kernel. Is there any repository with these phys?
+> If yes, when are you going to add them to the mainline?
+> 
+> If there is not, I can send patches for them.
+> (I am not the author of that patches just trying to clean our
+> repository and add patches to the mainline)
 
-Hi Eric, did you have a chance to look at this? Or should I give it a try?
+I think the 88E1510 support was added by the Digilent guys (added to Cc) and
+the 88E1116R support came from within Xilinx.
 
-Thanks a lot.
+I agree that these are pretty straight forward changes and could go upstream in
+their current form.
 
-Jiri
-
->
->
->
+- Lars
