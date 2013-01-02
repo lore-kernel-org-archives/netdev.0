@@ -1,61 +1,54 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: [PATCH] epoll: prevent missed events on EPOLL_CTL_MOD
-Date: Wed, 2 Jan 2013 21:16:32 +0000
-Message-ID: <20130102211632.GB17806@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
- <1357065750.21409.12527.camel@edumazet-glaptop>
- <20130101210033.GA13255@dcvr.yhbt.net>
- <20130101211728.GA13380@dcvr.yhbt.net>
- <CA+55aFwP3Tvmfh23KDDXhB3k=RS8pNhqasw5vuBUHw4TxrakOQ@mail.gmail.com>
- <20130101235605.GA17168@dcvr.yhbt.net>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH 08/14] xen: netback: Remove redundant check
+ on unsigned variable
+Date: Wed, 2 Jan 2013 16:40:04 -0500
+Message-ID: <20130102214003.GA15833@phenom.dumpdata.com>
+References: <1353048646-10935-1-git-send-email-tushar.behera@linaro.org>
+ <1353048646-10935-9-git-send-email-tushar.behera@linaro.org>
+ <1353057394.3499.159.camel@zakaz.uk.xensource.com>
+ <50DD2AFB.6030701@linaro.org>
+ <1356691292.2917.9.camel@iceland>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Hans de Goede <hdegoede@redhat.com>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andreas Voellmy <andreas.voellmy@yale.edu>,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Tushar Behera <tushar.behera@linaro.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"patches@linaro.org" <patches@linaro.org>
+To: Wei Liu <Wei.Liu2@citrix.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dcvr.yhbt.net ([64.71.152.64]:42774 "EHLO dcvr.yhbt.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752702Ab3ABVQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jan 2013 16:16:33 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:26333 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752803Ab3ABVkT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 16:40:19 -0500
 Content-Disposition: inline
-In-Reply-To: <20130101235605.GA17168@dcvr.yhbt.net>
+In-Reply-To: <1356691292.2917.9.camel@iceland>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Wong <normalperson@yhbt.net> wrote:
-> Linus Torvalds <torvalds@linux-foundation.org> wrote:
-> > Please document the barrier that this mb() pairs with, and then give
-> > an explanation for the fix in the commit message, and I'll happily
-> > take it. Even if it's just duplicating the comments above the
-> > wq_has_sleeper() function, except modified for the ep_modify() case.
+On Fri, Dec 28, 2012 at 10:41:32AM +0000, Wei Liu wrote:
+> On Fri, 2012-12-28 at 05:15 +0000, Tushar Behera wrote:
+> > On 11/16/2012 02:46 PM, Ian Campbell wrote:
+> > > On Fri, 2012-11-16 at 06:50 +0000, Tushar Behera wrote:
+> > >> No need to check whether unsigned variable is less than 0.
+> > >>
+> > >> CC: Ian Campbell <ian.campbell@citrix.com>
+> > >> CC: xen-devel@lists.xensource.com
+> > >> CC: netdev@vger.kernel.org
+> > >> Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
+> > > 
+> > > Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> > > 
+> > > Thanks.
+> > > 
+> > 
+> > This patch was not picked up for 3.8-rc1. Any idea, who should pick this up?
 > 
-> Hopefully my explanation is correct and makes sense below,
-> I think both effects of the barrier are needed
+> CC'ing Konrad.
+> 
 
-I noticed Linus accepted this already.  This should probably go to
-stable, right?
+And CC-ing the network maintainer. David, Ian (who is the sub-maintainer
+of xen-netback) has Acked the patch.
 
->From ancient git history[1], it seems this bug exists for all
-2.6 kernels:
-
-	commit 424980a87e226d63af46579b2af16ec1b8d17e52
-	Author: Davide Libenzi <davidel@xmailserver.org>
-	Date:   Thu Nov 14 16:17:23 2002 -0800
-
-	    [PATCH] epoll bits 0.46 ...
-
-[1] - git://git.kernel.org/pub/scm/linux/kernel/git/tglx/history.git
+I can put this in my queue if you would like.
