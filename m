@@ -1,47 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V1 0/14] qlcnic: Qlogic 83xx CNA adapter driver patches
-Date: Wed, 02 Jan 2013 02:44:56 -0800 (PST)
-Message-ID: <20130102.024456.1635017592445135759.davem@davemloft.net>
-References: <1357046430-31437-1-git-send-email-sony.chacko@qlogic.com>
+From: Daniel Borkmann <danborkmann@iogearbox.net>
+Subject: Re: [PATCH net-next 0/8] Add complementary BPF conditional jump instructions
+Date: Wed, 2 Jan 2013 11:47:15 +0100
+Message-ID: <CAD6jFUTRBcQrodQ7xydMgNyyeHz9bggvJ+tDhApfbGOfznwQMw@mail.gmail.com>
+References: <cover.1356960070.git.dborkman@redhat.com>
+	<20121231.143715.1238174487756359071.davem@davemloft.net>
+	<1357010942.21409.8948.camel@edumazet-glaptop>
+	<20121231.211800.1021263690220417469.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: sony.chacko@qlogic.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40195 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752134Ab3ABKo5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 05:44:57 -0500
-In-Reply-To: <1357046430-31437-1-git-send-email-sony.chacko@qlogic.com>
+Received: from www62.your-server.de ([213.133.104.62]:59046 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111Ab3ABKrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 05:47:23 -0500
+Received: from [78.46.5.203] (helo=sslproxy01.your-server.de)
+	by www62.your-server.de with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.74)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TqLqz-0008Vm-Ll
+	for netdev@vger.kernel.org; Wed, 02 Jan 2013 11:47:21 +0100
+Received: from [74.125.83.46] (helo=mail-ee0-f46.google.com)
+	by sslproxy01.your-server.de with esmtpsa (TLS1.0:RSA_ARCFOUR_SHA1:16)
+	(Exim 4.72)
+	(envelope-from <danborkmann@iogearbox.net>)
+	id 1TqLqz-0000gY-4a
+	for netdev@vger.kernel.org; Wed, 02 Jan 2013 11:47:21 +0100
+Received: by mail-ee0-f46.google.com with SMTP id e53so6962207eek.33
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 02:47:15 -0800 (PST)
+In-Reply-To: <20121231.211800.1021263690220417469.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
-Date: Tue,  1 Jan 2013 08:20:16 -0500
+On Tue, Jan 1, 2013 at 6:18 AM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Mon, 31 Dec 2012 19:29:02 -0800
+>
+>> On Mon, 2012-12-31 at 14:37 -0800, David Miller wrote:
+>>
+>>> Whilst I agree that adding NE jumps adds great value and closes a
+>>> serious gap, the rest can be synthesized by simply swapping the
+>>> arguments and using a comparison that does already exist.
+>>>
+>>> Why isn't that sufficient?
+>>
+>> I am afraid none of these patches is needed at all.
+>>
+>> Swapping the jt/jf is plainly enough for the user land compiler.
+>>
+>> libcap seems to do it already
+>
+> Agreed.
 
-> From: Sony Chacko <sony.chacko@qlogic.com>
-> 
-> Patches 1-2 refactors the existing 82xx driver
-> 
-> 0001-qlcnic-change-driver-hardware-interface-mechanism.patch
-> 0002-qlcnic-macros-for-common-register-access.patch
-> 
-> Patches 3-14 add logical features of 83xx adpater
-> 
-> 0003-qlcnic-83xx-memory-map-and-HW-access-routines.patch
-> 0004-qlcnic-83xx-data-path-routines.patch
-> 0005-qlcnic-83xx-base-driver.patch
-> 0006-qlcnic-83xx-sysfs-routines.patch
-> 0007-qlcnic-83xx-adpater-flash-interface-routines.patch
-> 0008-qlcnic-83xx-CNA-inter-driver-communication-mechanism.patch
-> 0009-qlcnic-flash-template-based-firmware-reset-recovery.patch
-> 0010-qlcnic-enable-83xx-virtual-NIC-mode.patch
-> 0011-qlcnic-83xx-register-dump-routines.patch
-> 0012-qlcnic-83xx-ethtool-interface-routines.patch
-> 0013-qlcnic-remove-unused-definitions-from-header-file.patch
-> 0014-qlcnic-update-driver-version.patch
-> 
-> Please apply to net-next.
-
-Series applied, thanks.
+Fair enough, it's probably better to let this be done by user space
+via such a hack than adding the actual operations for this.
