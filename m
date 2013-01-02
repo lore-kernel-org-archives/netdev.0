@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V5 11/15] vlan: remove usage of dev->master in __vlan_find_dev_deep()
-Date: Wed,  2 Jan 2013 13:28:32 +0100
-Message-ID: <1357129716-2450-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next V5 15/15] net: kill dev->master
+Date: Wed,  2 Jan 2013 13:28:36 +0100
+Message-ID: <1357129716-2450-16-git-send-email-jiri@resnulli.us>
 References: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -17,60 +17,37 @@ Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	fbl@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:38268 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752840Ab3ABM3V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 07:29:21 -0500
-Received: by mail-ee0-f49.google.com with SMTP id c4so6734882eek.8
-        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 04:29:20 -0800 (PST)
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:48457 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752863Ab3ABM3f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 07:29:35 -0500
+Received: by mail-ee0-f47.google.com with SMTP id e51so6782009eek.20
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 04:29:34 -0800 (PST)
 In-Reply-To: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, since all users call __vlan_find_dev_deep() with rcu_read_lock,
-make no possibility to call this with rtnl mutex held only.
+Nobody uses this now. Remove it.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/8021q/vlan_core.c | 18 +++++++++++-------
- 1 file changed, 11 insertions(+), 7 deletions(-)
+ include/linux/netdevice.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
-index 65e06ab..380440b 100644
---- a/net/8021q/vlan_core.c
-+++ b/net/8021q/vlan_core.c
-@@ -60,21 +60,25 @@ bool vlan_do_receive(struct sk_buff **skbp)
- 	return true;
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c3723ef..009bad3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1167,10 +1167,6 @@ struct net_device {
+ 						 * avoid dirtying this cache line.
+ 						 */
  
--/* Must be invoked with rcu_read_lock or with RTNL. */
--struct net_device *__vlan_find_dev_deep(struct net_device *real_dev,
-+/* Must be invoked with rcu_read_lock. */
-+struct net_device *__vlan_find_dev_deep(struct net_device *dev,
- 					u16 vlan_id)
- {
--	struct vlan_info *vlan_info = rcu_dereference_rtnl(real_dev->vlan_info);
-+	struct vlan_info *vlan_info = rcu_dereference(dev->vlan_info);
+-	struct net_device	*master; /* Pointer to master device of a group,
+-					  * which this device is member of.
+-					  */
+-
+ 	struct list_head	upper_dev_list; /* List of upper devices */
  
- 	if (vlan_info) {
- 		return vlan_group_get_device(&vlan_info->grp, vlan_id);
- 	} else {
- 		/*
--		 * Bonding slaves do not have grp assigned to themselves.
--		 * Grp is assigned to bonding master instead.
-+		 * Lower devices of master uppers (bonding, team) do not have
-+		 * grp assigned to themselves. Grp is assigned to upper device
-+		 * instead.
- 		 */
--		if (netif_is_bond_slave(real_dev))
--			return __vlan_find_dev_deep(real_dev->master, vlan_id);
-+		struct net_device *upper_dev;
-+
-+		upper_dev = netdev_master_upper_dev_get_rcu(dev);
-+		if (upper_dev)
-+			return __vlan_find_dev_deep(upper_dev, vlan_id);
- 	}
- 
- 	return NULL;
+ 	/* Interface address info used in eth_type_trans() */
 -- 
 1.8.0
