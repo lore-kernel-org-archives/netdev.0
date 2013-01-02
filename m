@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V5 12/15] nes: remove usage of dev->master
-Date: Wed,  2 Jan 2013 13:28:33 +0100
-Message-ID: <1357129716-2450-13-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next V5 10/15] qeth: ensure that __vlan_find_dev_deep() is called with rcu_read_lock
+Date: Wed,  2 Jan 2013 13:28:31 +0100
+Message-ID: <1357129716-2450-11-git-send-email-jiri@resnulli.us>
 References: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -17,69 +17,106 @@ Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	fbl@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:62747 "EHLO
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:65152 "EHLO
 	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752747Ab3ABM3Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 07:29:25 -0500
-Received: by mail-ee0-f44.google.com with SMTP id b47so7076066eek.31
-        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 04:29:23 -0800 (PST)
+	with ESMTP id S1752841Ab3ABM3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 07:29:18 -0500
+Received: by mail-ee0-f44.google.com with SMTP id b47so7076010eek.31
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 04:29:17 -0800 (PST)
 In-Reply-To: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Also benefit from rcu_read_lock held and use __in_dev_get_rcu() in ipv4 case.
+
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/infiniband/hw/nes/nes.c    | 8 +++++---
- drivers/infiniband/hw/nes/nes_cm.c | 2 +-
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/s390/net/qeth_l3_main.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/infiniband/hw/nes/nes.c b/drivers/infiniband/hw/nes/nes.c
-index 748db2d..d129c36 100644
---- a/drivers/infiniband/hw/nes/nes.c
-+++ b/drivers/infiniband/hw/nes/nes.c
-@@ -135,6 +135,7 @@ static int nes_inetaddr_event(struct notifier_block *notifier,
- 	struct net_device *event_netdev = ifa->ifa_dev->dev;
- 	struct nes_device *nesdev;
- 	struct net_device *netdev;
-+	struct net_device *upper_dev;
- 	struct nes_vnic *nesvnic;
- 	unsigned int is_bonded;
- 
-@@ -145,8 +146,9 @@ static int nes_inetaddr_event(struct notifier_block *notifier,
- 				nesdev, nesdev->netdev[0]->name);
- 		netdev = nesdev->netdev[0];
- 		nesvnic = netdev_priv(netdev);
-+		upper_dev = netdev_master_upper_dev_get(netdev);
- 		is_bonded = netif_is_bond_slave(netdev) &&
--			    (netdev->master == event_netdev);
-+			    (upper_dev == event_netdev);
- 		if ((netdev == event_netdev) || is_bonded) {
- 			if (nesvnic->rdma_enabled == 0) {
- 				nes_debug(NES_DBG_NETDEV, "Returning without processing event for %s since"
-@@ -179,9 +181,9 @@ static int nes_inetaddr_event(struct notifier_block *notifier,
- 					/* fall through */
- 				case NETDEV_CHANGEADDR:
- 					/* Add the address to the IP table */
--					if (netdev->master)
-+					if (upper_dev)
- 						nesvnic->local_ipaddr =
--							((struct in_device *)netdev->master->ip_ptr)->ifa_list->ifa_address;
-+							((struct in_device *)upper_dev->ip_ptr)->ifa_list->ifa_address;
- 					else
- 						nesvnic->local_ipaddr = ifa->ifa_address;
- 
-diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
-index 22ea67e..24b9f1a 100644
---- a/drivers/infiniband/hw/nes/nes_cm.c
-+++ b/drivers/infiniband/hw/nes/nes_cm.c
-@@ -1340,7 +1340,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 6e5eef0..0749efe 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1640,6 +1640,7 @@ static void qeth_l3_add_mc(struct qeth_card *card, struct in_device *in4_dev)
  	}
+ }
  
- 	if (netif_is_bond_slave(nesvnic->netdev))
--		netdev = nesvnic->netdev->master;
-+		netdev = netdev_master_upper_dev_get(nesvnic->netdev);
- 	else
- 		netdev = nesvnic->netdev;
++/* called with rcu_read_lock */
+ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
+ {
+ 	struct in_device *in_dev;
+@@ -1652,19 +1653,14 @@ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
+ 	for_each_set_bit(vid, card->active_vlans, VLAN_N_VID) {
+ 		struct net_device *netdev;
  
+-		rcu_read_lock();
+ 		netdev = __vlan_find_dev_deep(card->dev, vid);
+-		rcu_read_unlock();
+ 		if (netdev == NULL ||
+ 		    !(netdev->flags & IFF_UP))
+ 			continue;
+-		in_dev = in_dev_get(netdev);
++		in_dev = __in_dev_get_rcu(netdev);
+ 		if (!in_dev)
+ 			continue;
+-		rcu_read_lock();
+ 		qeth_l3_add_mc(card, in_dev);
+-		rcu_read_unlock();
+-		in_dev_put(in_dev);
+ 	}
+ }
+ 
+@@ -1673,14 +1669,14 @@ static void qeth_l3_add_multicast_ipv4(struct qeth_card *card)
+ 	struct in_device *in4_dev;
+ 
+ 	QETH_CARD_TEXT(card, 4, "chkmcv4");
+-	in4_dev = in_dev_get(card->dev);
+-	if (in4_dev == NULL)
+-		return;
+ 	rcu_read_lock();
++	in4_dev = __in_dev_get_rcu(card->dev);
++	if (in4_dev == NULL)
++		goto unlock;
+ 	qeth_l3_add_mc(card, in4_dev);
+ 	qeth_l3_add_vlan_mc(card);
++unlock:
+ 	rcu_read_unlock();
+-	in_dev_put(in4_dev);
+ }
+ 
+ #ifdef CONFIG_QETH_IPV6
+@@ -1705,6 +1701,7 @@ static void qeth_l3_add_mc6(struct qeth_card *card, struct inet6_dev *in6_dev)
+ 	}
+ }
+ 
++/* called with rcu_read_lock */
+ static void qeth_l3_add_vlan_mc6(struct qeth_card *card)
+ {
+ 	struct inet6_dev *in_dev;
+@@ -1741,10 +1738,12 @@ static void qeth_l3_add_multicast_ipv6(struct qeth_card *card)
+ 	in6_dev = in6_dev_get(card->dev);
+ 	if (in6_dev == NULL)
+ 		return;
++	rcu_read_lock();
+ 	read_lock_bh(&in6_dev->lock);
+ 	qeth_l3_add_mc6(card, in6_dev);
+ 	qeth_l3_add_vlan_mc6(card);
+ 	read_unlock_bh(&in6_dev->lock);
++	rcu_read_unlock();
+ 	in6_dev_put(in6_dev);
+ }
+ #endif /* CONFIG_QETH_IPV6 */
+@@ -1813,8 +1812,10 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
+ static void qeth_l3_free_vlan_addresses(struct qeth_card *card,
+ 			unsigned short vid)
+ {
++	rcu_read_lock();
+ 	qeth_l3_free_vlan_addresses4(card, vid);
+ 	qeth_l3_free_vlan_addresses6(card, vid);
++	rcu_read_unlock();
+ }
+ 
+ static int qeth_l3_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
 -- 
 1.8.0
