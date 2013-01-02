@@ -1,62 +1,79 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: [PATCH] epoll: prevent missed events on EPOLL_CTL_MOD
-Date: Wed, 2 Jan 2013 19:32:27 +0000
-Message-ID: <20130102193227.GA13566@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
- <1357065750.21409.12527.camel@edumazet-glaptop>
- <20130101210033.GA13255@dcvr.yhbt.net>
- <20130101211728.GA13380@dcvr.yhbt.net>
- <CA+55aFwP3Tvmfh23KDDXhB3k=RS8pNhqasw5vuBUHw4TxrakOQ@mail.gmail.com>
- <20130101235605.GA17168@dcvr.yhbt.net>
- <1357148750.21409.17169.camel@edumazet-glaptop>
- <20130102184010.GA21780@dcvr.yhbt.net>
- <1357153416.21409.17488.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Hans de Goede <hdegoede@redhat.com>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andreas Voellmy <andreas.voellmy@yale.edu>,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1357153416.21409.17488.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] bridge: Correctly unregister MDB rtnetlink handlers
+Date: Wed,  2 Jan 2013 14:41:25 -0500
+Message-ID: <1357155685-14672-1-git-send-email-vyasevic@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42416 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752695Ab3ABTlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jan 2013 14:41:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-01-02 at 18:40 +0000, Eric Wong wrote:
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > > It seems the real problem is the epi->event.events = event->events;
-> > > which is done without taking ep->lock
-> > 
-> > Yes.  I am hoping it is possible to do it without a lock there,
-> > but your change is more obviously correct.
-> > 
-> > > While a smp_mb() could reduce the race window, I believe there is still
-> > > a race, and the following patch would close it.
-> > 
-> > I'm not an experienced kernel hacker, can you describe where the race
-> > would be?
-> 
-> It would be for example in ep_send_events_proc() doing :
-> 
-> if (epi->event.events & EPOLLONESHOT)
->     epi->event.events &= EP_PRIVATE_BITS;
-> 
-> And this could happen at the same time.
+Commit 63233159fd4e596568f5f168ecb0879b61631d47:
+    bridge: Do not unregister all PF_BRIDGE rtnl operations
+introduced a bug where a removal of a single bridge from a
+multi-bridge system would remove MDB netlink handlers.
+The handlers should only be removed once all bridges are gone, but
+since we don't keep track of the number of bridge interfaces, it's
+simpler to do it when the bridge module is unloaded.  To make it
+consistent, move the registration code into module initialization
+code path.
 
-That modification in ep_send_events_proc() is protected by ep->mtx
-(as is ep_modify()), though.  Maybe there are other places, but I
-don't see it.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_multicast.c |    2 --
+ net/bridge/br_netlink.c   |   13 ++++++++++++-
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 5391ca4..6d6f265 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1608,7 +1608,6 @@ void br_multicast_init(struct net_bridge *br)
+ 		    br_multicast_querier_expired, (unsigned long)br);
+ 	setup_timer(&br->multicast_query_timer, br_multicast_query_expired,
+ 		    (unsigned long)br);
+-	br_mdb_init();
+ }
+ 
+ void br_multicast_open(struct net_bridge *br)
+@@ -1633,7 +1632,6 @@ void br_multicast_stop(struct net_bridge *br)
+ 	del_timer_sync(&br->multicast_querier_timer);
+ 	del_timer_sync(&br->multicast_query_timer);
+ 
+-	br_mdb_uninit();
+ 	spin_lock_bh(&br->multicast_lock);
+ 	mdb = mlock_dereference(br->mdb, br);
+ 	if (!mdb)
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index 97ba018..5dc66ab 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -299,10 +299,21 @@ struct rtnl_link_ops br_link_ops __read_mostly = {
+ 
+ int __init br_netlink_init(void)
+ {
+-	return rtnl_link_register(&br_link_ops);
++	int err;
++
++	br_mdb_init();
++	err = rtnl_link_register(&br_link_ops);
++	if (err)
++		goto out;
++
++	return 0;
++out:
++	br_mdb_uninit();
++	return err;
+ }
+ 
+ void __exit br_netlink_fini(void)
+ {
++	br_mdb_uninit();
+ 	rtnl_link_unregister(&br_link_ops);
+ }
+-- 
+1.7.7.6
