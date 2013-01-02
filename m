@@ -1,43 +1,61 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next V4 00/15] net: introduce upper device lists and
- remove dev->master
-Date: Wed, 2 Jan 2013 13:30:46 +0100
-Message-ID: <20130102123046.GA1532@minipsycho.orion>
-References: <1356868702-8144-1-git-send-email-jiri@resnulli.us>
- <20130102.025420.1993175980232815756.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:39258 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758Ab3ABMau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 07:30:50 -0500
-Received: by mail-ea0-f172.google.com with SMTP id a1so5914688eaa.3
-        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 04:30:49 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20130102.025420.1993175980232815756.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Subject: [patch net-next V5 08/15] cxgb3: remove usage of dev->master
+Date: Wed,  2 Jan 2013 13:28:29 +0100
+Message-ID: <1357129716-2450-9-git-send-email-jiri@resnulli.us>
+References: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+	blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
+	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
+	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1357129716-2450-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Jan 02, 2013 at 11:54:20AM CET, davem@davemloft.net wrote:
->
->This patch set breaks the build:
->
->drivers/infiniband/hw/nes/nes_cm.c: In function =E2=80=98nes_addr_reso=
-lve_neigh=E2=80=99:
->drivers/infiniband/hw/nes/nes_cm.c:1343:3: error: implicit declaration=
- of function =E2=80=98netdev_unique_upper_dev_get=E2=80=99
->
->I could give you a hard time and say that any time you touch a core
->header file you must do something at least approximating an
->allmodconfig build.
->
->But in this case, it is clear that you didn't even test the final
->patch set with this specific infiniband driver enabled.
->
->That's really disappointing.
+Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+---
+ drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-That option somehow left my config. Sorry about that.
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+index 942dace..3f1f501 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
+@@ -182,14 +182,17 @@ static struct net_device *get_iff_from_mac(struct adapter *adapter,
+ 		struct net_device *dev = adapter->port[i];
+ 
+ 		if (!memcmp(dev->dev_addr, mac, ETH_ALEN)) {
++			rcu_read_lock();
+ 			if (vlan && vlan != VLAN_VID_MASK) {
+-				rcu_read_lock();
+ 				dev = __vlan_find_dev_deep(dev, vlan);
+-				rcu_read_unlock();
+ 			} else if (netif_is_bond_slave(dev)) {
+-				while (dev->master)
+-					dev = dev->master;
++				struct net_device *upper_dev;
++
++				while ((upper_dev =
++					netdev_master_upper_dev_get_rcu(dev)))
++					dev = upper_dev;
+ 			}
++			rcu_read_unlock();
+ 			return dev;
+ 		}
+ 	}
+-- 
+1.8.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
