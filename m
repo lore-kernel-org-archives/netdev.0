@@ -1,52 +1,43 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V5 09/15] qlcnic: guard __vlan_find_dev_deep() by rcu_read_lock
-Date: Wed,  2 Jan 2013 13:28:30 +0100
-Message-ID: <1357129716-2450-10-git-send-email-jiri@resnulli.us>
-References: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
-	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
-	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
-	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
-	shemminger@vyatta.com, bhutchings@solarflare.com,
-	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
-	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
-	fbl@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357129716-2450-1-git-send-email-jiri@resnulli.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [patch net-next V4 00/15] net: introduce upper device lists and
+ remove dev->master
+Date: Wed, 2 Jan 2013 13:30:46 +0100
+Message-ID: <20130102123046.GA1532@minipsycho.orion>
+References: <1356868702-8144-1-git-send-email-jiri@resnulli.us>
+ <20130102.025420.1993175980232815756.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:39258 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758Ab3ABMau (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 07:30:50 -0500
+Received: by mail-ea0-f172.google.com with SMTP id a1so5914688eaa.3
+        for <netdev@vger.kernel.org>; Wed, 02 Jan 2013 04:30:49 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20130102.025420.1993175980232815756.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-rcu_read_lock was missing here
+Wed, Jan 02, 2013 at 11:54:20AM CET, davem@davemloft.net wrote:
+>
+>This patch set breaks the build:
+>
+>drivers/infiniband/hw/nes/nes_cm.c: In function =E2=80=98nes_addr_reso=
+lve_neigh=E2=80=99:
+>drivers/infiniband/hw/nes/nes_cm.c:1343:3: error: implicit declaration=
+ of function =E2=80=98netdev_unique_upper_dev_get=E2=80=99
+>
+>I could give you a hard time and say that any time you touch a core
+>header file you must do something at least approximating an
+>allmodconfig build.
+>
+>But in this case, it is clear that you didn't even test the final
+>patch set with this specific infiniband driver enabled.
+>
+>That's really disappointing.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Sony Chacko <sony.chacko@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index e1a3625..d4170a0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -3204,12 +3204,14 @@ void qlcnic_restore_indev_addr(struct net_device *netdev, unsigned long event)
- 
- 	qlcnic_config_indev_addr(adapter, netdev, event);
- 
-+	rcu_read_lock();
- 	for_each_set_bit(vid, adapter->vlans, VLAN_N_VID) {
- 		dev = __vlan_find_dev_deep(netdev, vid);
- 		if (!dev)
- 			continue;
- 		qlcnic_config_indev_addr(adapter, dev, event);
- 	}
-+	rcu_read_unlock();
- }
- 
- static int qlcnic_netdev_event(struct notifier_block *this,
--- 
-1.8.0
+That option somehow left my config. Sorry about that.
