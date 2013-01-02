@@ -1,63 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] epoll: prevent missed events on EPOLL_CTL_MOD
-Date: Wed, 02 Jan 2013 11:03:36 -0800
-Message-ID: <1357153416.21409.17488.camel@edumazet-glaptop>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
-	 <1356960060-1263-1-git-send-email-normalperson@yhbt.net>
-	 <1357065750.21409.12527.camel@edumazet-glaptop>
-	 <20130101210033.GA13255@dcvr.yhbt.net>
-	 <20130101211728.GA13380@dcvr.yhbt.net>
-	 <CA+55aFwP3Tvmfh23KDDXhB3k=RS8pNhqasw5vuBUHw4TxrakOQ@mail.gmail.com>
-	 <20130101235605.GA17168@dcvr.yhbt.net>
-	 <1357148750.21409.17169.camel@edumazet-glaptop>
-	 <20130102184010.GA21780@dcvr.yhbt.net>
+From: Steven Wang <steven.wang@digilentinc.com>
+Subject: RE: Support for Marvell 88E1510 and 88E1116R
+Date: Wed, 2 Jan 2013 11:16:53 -0800
+Message-ID: <BF617F5A412EFC46879ABC89757850DE02692A298149@SERVER.digilent.local>
+References: <50E404BC.3010604@monstr.eu> <50E45B74.70301@metafoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Hans de Goede <hdegoede@redhat.com>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Christian Hohnstaedt <chohnstaedt@innominate.com>,
+	Srinivas Kandagatla <srinivas.kandagatla@st.com>,
 	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andreas Voellmy <andreas.voellmy@yale.edu>,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>
-To: Eric Wong <normalperson@yhbt.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20130102184010.GA21780@dcvr.yhbt.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+	LKML <linux-kernel@vger.kernel.org>,
+	John Linn <linnj@xilinx.com>,
+	Michal Simek <michal.simek@xilinx.com>,
+	Sam Bobrowicz <SBobrowicz@digilentinc.com>,
+	Rick Hoover <RHoover@digilentinc.com>
+To: Lars-Peter Clausen <lars@metafoo.de>,
+	"monstr@monstr.eu" <monstr@monstr.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50E45B74.70301@metafoo.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-01-02 at 18:40 +0000, Eric Wong wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > First, thanks for working on this issue.
+Hi, Michal,
+
+We do have the Ethernet support for 88E1510 (used on ZedBoard) in our repository. The commit is
+https://github.com/Digilent/linux-digilent/commit/ae635e5fff35e9fe5928b4aca7264a1e5313a6b8
+Or, I can send the patch to you if you need.
+
+Best Regards,
+Steve
+
+-----Original Message-----
+From: Lars-Peter Clausen [mailto:lars@metafoo.de] 
+Sent: Wednesday, January 2, 2013 8:08 AM
+To: monstr@monstr.eu
+Cc: netdev@vger.kernel.org; Christian Hohnstaedt; Srinivas Kandagatla; David Miller; LKML; John Linn; Michal Simek; Sam Bobrowicz; Rick Hoover; Steven Wang
+Subject: Re: Support for Marvell 88E1510 and 88E1116R
+
+On 01/02/2013 10:58 AM, Michal Simek wrote:
+> Hi guys,
 > 
-> No problem!
+> just a question regarding to Marvell 88e1510 and 88E1116R phys.
+> We have these phys on the arm zynq board and would like to add
+> support to the kernel. Is there any repository with these phys?
+> If yes, when are you going to add them to the mainline?
 > 
-> > It seems the real problem is the epi->event.events = event->events;
-> > which is done without taking ep->lock
-> 
-> Yes.  I am hoping it is possible to do it without a lock there,
-> but your change is more obviously correct.
-> 
-> > While a smp_mb() could reduce the race window, I believe there is still
-> > a race, and the following patch would close it.
-> 
-> I'm not an experienced kernel hacker, can you describe where the race
-> would be?
+> If there is not, I can send patches for them.
+> (I am not the author of that patches just trying to clean our
+> repository and add patches to the mainline)
 
-It would be for example in ep_send_events_proc() doing :
+I think the 88E1510 support was added by the Digilent guys (added to Cc) and
+the 88E1116R support came from within Xilinx.
 
-if (epi->event.events & EPOLLONESHOT)
-    epi->event.events &= EP_PRIVATE_BITS;
+I agree that these are pretty straight forward changes and could go upstream in
+their current form.
 
-And this could happen at the same time.
-
-
-
+- Lars
