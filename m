@@ -1,45 +1,48 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: Re: [PATCH 4/4 v3] net/smsc911x: Provide common clock functionality
-Date: Thu, 3 Jan 2013 15:28:42 +0100
-Message-ID: <CACRpkda-4C+ezaZFSkxsNbmHnBN8RCoCeGePaOF-DzV0XnkzQw@mail.gmail.com>
-References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
-	<1355937587-31730-4-git-send-email-lee.jones@linaro.org>
-	<CACRpkda79O_b3Z8g7Sy7vMtW9neZU4x-Z=iEQgjqu4X5tFKyhw@mail.gmail.com>
-	<20121220192441.GC14363@n2100.arm.linux.org.uk>
-	<20121220203514.GN2691@gmail.com>
-	<20121220205113.GD14363@n2100.arm.linux.org.uk>
-	<20121221091306.GO2691@gmail.com>
-	<20121221092421.GG14363@n2100.arm.linux.org.uk>
-	<20121221114105.GP2691@gmail.com>
-	<20130103111450.GC14714@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next v2 2/3] netpoll: add IPv6 support
+Date: Thu, 03 Jan 2013 23:08:58 +0800
+Message-ID: <1357225738.2505.4.camel@cr0>
+References: <1357188623-15206-1-git-send-email-amwang@redhat.com>
+	 <1357188623-15206-2-git-send-email-amwang@redhat.com>
+	 <20130103.015453.730687035214069794.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	linus.walleij@stericsson.com, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Lee Jones <lee.jones@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130103111450.GC14714@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58631 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753035Ab3ACPJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 10:09:07 -0500
+In-Reply-To: <20130103.015453.730687035214069794.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 3, 2013 at 12:14 PM, Lee Jones <lee.jones@linaro.org> wrote:
+On Thu, 2013-01-03 at 01:54 -0800, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Thu,  3 Jan 2013 12:50:22 +0800
+> 
+> > -static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh,
+> > -				 int proto)
+> > +int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+> >  {
+> >  	int err;
+> >  
+> > -- 
+> > 1.7.7.6
+> > 
+> 
+> With IPV6=m and NETPOLL=y using this symbol will not work.
+> 
 
-> Some platforms provide clocks which require enabling before the
-> SMSC911x chip will power on. This patch uses the new common clk
-> framework to do just that. If no clock is provided, it will just
-> be ignored and the driver will continue to assume that no clock
-> is required for the chip to run successfully.
->
-> Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Lee Jones <lee.jones@linaro.org>
+Good point!
 
-Looks all right to me now:
-Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
+One solution is to introduce a new Kconfig option:
 
-Yours,
-Linus Walleij
++config NETPOLL6
++       depends on (IPV6 || IPV6=n)
++       def_bool NETPOLL
++
+
+and move these IPV6 code under #ifdef CONFIG_NETPOLL6.
