@@ -1,96 +1,45 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: linux-next: Tree for Jan 2 (netfilter)
-Date: Thu, 3 Jan 2013 03:30:01 +0100
-Message-ID: <20130103023001.GA13254@1984>
-References: <20130102151216.b81cd4d4bf54fc8d1f5d9b27@canb.auug.org.au>
- <50E47EEF.8090005@infradead.org>
- <20130103013559.GA2323@1984>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bnx2x: Fix compilation when CONFIG_PCI_IOV is
+ not defined
+Date: Wed, 02 Jan 2013 18:47:28 -0800 (PST)
+Message-ID: <20130102.184728.810047795466238734.davem@davemloft.net>
+References: <1357133785-9569-1-git-send-email-ariele@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="PEIAKu/WMn1b1Hv9"
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	netfilter-devel@vger.kernel.org
-To: Randy Dunlap <rdunlap@infradead.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130103013559.GA2323@1984>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: ariele@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47313 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753021Ab3ACCrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jan 2013 21:47:31 -0500
+In-Reply-To: <1357133785-9569-1-git-send-email-ariele@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: "Ariel Elior" <ariele@broadcom.com>
+Date: Wed, 2 Jan 2013 15:36:25 +0200
 
---PEIAKu/WMn1b1Hv9
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Thu, Jan 03, 2013 at 02:35:59AM +0100, Pablo Neira Ayuso wrote:
-> > when NF_CONNTRACK is not enabled (build was on i386):
-> > 
-> >   CC [M]  net/netfilter/xt_CT.o
-> > In file included from net/netfilter/xt_CT.c:16:0:
-> > include/net/netfilter/nf_conntrack.h:77:22: error: field 'ct_general' has incomplete type
-> > include/net/netfilter/nf_conntrack.h: In function 'nf_ct_get':
-> > include/net/netfilter/nf_conntrack.h:157:30: error: 'const struct sk_buff' has no member named 'nfct'
-> > include/net/netfilter/nf_conntrack.h: In function 'nf_ct_put':
-> > include/net/netfilter/nf_conntrack.h:164:2: error: implicit declaration of function 'nf_conntrack_put' [-Werror=implicit-function-declaration]
-> > net/netfilter/xt_CT.c: In function 'xt_ct_target_v0':
-> > net/netfilter/xt_CT.c:30:9: error: 'struct sk_buff' has no member named 'nfct'
-> > net/netfilter/xt_CT.c:34:5: error: 'struct sk_buff' has no member named 'nfct'
-> > net/netfilter/xt_CT.c: In function 'xt_ct_target_v1':
-> > net/netfilter/xt_CT.c:47:9: error: 'struct sk_buff' has no member named 'nfct'
-> > net/netfilter/xt_CT.c:51:5: error: 'struct sk_buff' has no member named 'nfct'
-> > net/netfilter/xt_CT.c: In function 'xt_ct_tg_check_v0':
-> > net/netfilter/xt_CT.c:155:15: error: 'struct net' has no member named 'ct'
-> > net/netfilter/xt_CT.c: In function 'xt_ct_tg_check_v1':
-> > net/netfilter/xt_CT.c:299:15: error: 'struct net' has no member named 'ct'
-> > net/netfilter/xt_CT.c: In function 'notrack_tg':
-> > net/netfilter/xt_CT.c:392:9: error: 'struct sk_buff' has no member named 'nfct'
-> > net/netfilter/xt_CT.c:395:5: error: 'struct sk_buff' has no member named 'nfct'
-> > net/netfilter/xt_CT.c:397:2: error: implicit declaration of function 'nf_conntrack_get' [-Werror=implicit-function-declaration]
-> > net/netfilter/xt_CT.c:397:22: error: 'struct sk_buff' has no member named 'nfct'
-> > cc1: some warnings being treated as errors
-> > make[3]: *** [net/netfilter/xt_CT.o] Error 1
+> This patch ifdefs out the use of PCI_IOV_RESOURCES which exists in the
+> kernel only when CONFIG_PCI_IOV is defined. There is no point in doing
+> the same for the invocation of SRIOV functionality in the driver as it
+> will be immediately failed by a kernel which was thus compiled.
 > 
-> Sorry, I cannot reproduce the selection ...
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
 
-Caught it. Patch attached, thanks for the report.
+This fixes the build but this is a very disappointing patch.
 
---PEIAKu/WMn1b1Hv9
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-netfilter-fix-missing-dependencies-for-the-NOTRACK-t.patch"
+None of your SR-IOV support can possibly work if CONFIG_PCI_IOV
+is not set.
 
->From b8198d1ee451c00c2fd660202ad68580c35e1dd8 Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 3 Jan 2013 03:22:36 +0100
-Subject: [PATCH] netfilter: fix missing dependencies for the NOTRACK target
+Look at how the SFC driver has a special Kconfig option and elides
+all of it's SR-IOV code when that Kconfig option is not set.
 
-warning: (NETFILTER_XT_TARGET_NOTRACK) selects NETFILTER_XT_TARGET_CT which has unmet direct
-+dependencies (NET && INET && NETFILTER && NETFILTER_XTABLES && NF_CONNTRACK && (IP_NF_RAW ||
-+IP6_NF_RAW) && NETFILTER_ADVANCED)
+That kind of Kconfig option is where you express the CONFIG_PCI_IOV
+dependency, rather than in a hackish way with ifdefs as a knee-jerk
+response to a build failure reports.
 
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/Kconfig |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 390f96c..49e96df 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -682,6 +682,9 @@ config NETFILTER_XT_TARGET_NFQUEUE
- 
- config NETFILTER_XT_TARGET_NOTRACK
- 	tristate  '"NOTRACK" target support (DEPRECATED)'
-+	depends on NF_CONNTRACK
-+	depends on IP_NF_RAW || IP6_NF_RAW
-+	depends on NETFILTER_ADVANCED
- 	select NETFILTER_XT_TARGET_CT
- 
- config NETFILTER_XT_TARGET_RATEEST
--- 
-1.7.10.4
-
-
---PEIAKu/WMn1b1Hv9--
+I'm not applying this patch, segregate your driver properly and use
+Kconfig dependencies to elide the building of all of the SR-IOV
+support code in this driver.
