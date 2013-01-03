@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/3] netpoll: add IPv6 support
-Date: Thu, 03 Jan 2013 01:54:53 -0800 (PST)
-Message-ID: <20130103.015453.730687035214069794.davem@davemloft.net>
-References: <1357188623-15206-1-git-send-email-amwang@redhat.com>
-	<1357188623-15206-2-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] bridge: Correctly unregister MDB rtnetlink handlers
+Date: Thu, 03 Jan 2013 01:56:39 -0800 (PST)
+Message-ID: <20130103.015639.300000536792223155.davem@davemloft.net>
+References: <1357155685-14672-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50065 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50076 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753046Ab3ACJyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 04:54:54 -0500
-In-Reply-To: <1357188623-15206-2-git-send-email-amwang@redhat.com>
+	with ESMTP id S1753027Ab3ACJ4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 04:56:40 -0500
+In-Reply-To: <1357155685-14672-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Thu,  3 Jan 2013 12:50:22 +0800
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Wed,  2 Jan 2013 14:41:25 -0500
 
-> -static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh,
-> -				 int proto)
-> +int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
->  {
->  	int err;
->  
-> -- 
-> 1.7.7.6
+> Commit 63233159fd4e596568f5f168ecb0879b61631d47:
+>     bridge: Do not unregister all PF_BRIDGE rtnl operations
+> introduced a bug where a removal of a single bridge from a
+> multi-bridge system would remove MDB netlink handlers.
+> The handlers should only be removed once all bridges are gone, but
+> since we don't keep track of the number of bridge interfaces, it's
+> simpler to do it when the bridge module is unloaded.  To make it
+> consistent, move the registration code into module initialization
+> code path.
 > 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-With IPV6=m and NETPOLL=y using this symbol will not work.
+Applied, thanks.
