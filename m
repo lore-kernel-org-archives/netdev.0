@@ -1,80 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Thu, 03 Jan 2013 05:41:09 -0800
-Message-ID: <1357220469.21409.24574.camel@edumazet-glaptop>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
-	 <20130102200848.GA4500@dcvr.yhbt.net>
-	 <20130102204712.GA17806@dcvr.yhbt.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: clk dereference in drivers/net/ethernet/ti/cpts.c
+Date: Thu, 3 Jan 2013 15:00:00 +0100
+Message-ID: <20130103140000.GA9656@localhost.localdomain>
+References: <alpine.DEB.2.02.1301031040320.1989@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Wong <normalperson@yhbt.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, tony@atomide.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <julia.lawall@lip6.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:51704 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753271Ab3ACNlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 08:41:12 -0500
-In-Reply-To: <20130102204712.GA17806@dcvr.yhbt.net>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:44270 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753444Ab3ACOAK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 09:00:10 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1301031040320.1989@hadrien>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-02 at 20:47 +0000, Eric Wong wrote:
-> Eric Wong <normalperson@yhbt.net> wrote:
-> > [1] my full setup is very strange.
-> > 
-> >     Other than the FUSE component I forgot to mention, little depends on
-> >     the kernel.  With all this, the standalone toosleepy can get stuck.
-> >     I'll try to reproduce it with less...
+On Thu, Jan 03, 2013 at 11:20:52AM +0100, Julia Lawall wrote:
+> There has been a discussion recently about how the result of get_clk
+> should be an opaque handle, not a value that can be dereferenced:
 > 
-> I just confirmed my toosleepy processes will get stuck while just
-> doing "rsync -a" between local disks.  So this does not depend on
-> sendfile or FUSE to reproduce.
-> --
+> https://lkml.org/lkml/2012/12/20/105
+> 
+> There is such a dereference in drivers/net/ethernet/ti/cpts.c, in the
+> function cpts_clk_init:
+> 
+> cpts->freq = cpts->refclk->recalc(cpts->refclk);
+> 
+> It was not obvious to me, however, what API function should be used
+> instead, so I am just reporting the (potential) problem.
 
-How do you tell your 'toosleepy' is stuck ?
+This issue has been fixed in v3.8-rc2.
 
-If reading its output, you should change its logic, there is no
-guarantee the recv() will deliver exactly 16384 bytes each round.
-
-With the following patch, I cant reproduce the 'apparent stuck'
-
-diff --git a/toosleepy.c b/toosleepy.c
-index e64b7cd..df3610f 100644
---- a/toosleepy.c
-+++ b/toosleepy.c
-@@ -15,6 +15,7 @@
- #include <fcntl.h>
- #include <assert.h>
- #include <limits.h>
-+#include <time.h>
- 
- struct receiver {
- 	int rfd;
-@@ -53,6 +54,7 @@ static void * recv_loop(void *p)
- 	ssize_t r, s;
- 	size_t received = 0;
- 	size_t sent = 0;
-+	time_t t0 = time(NULL), t1;
- 
- 	for (;;) {
- 		r = recv(rcvr->rfd, buf, sizeof(buf), 0);
-@@ -80,9 +82,12 @@ static void * recv_loop(void *p)
- 				write(-1, buf, sizeof(buf));
- 			}
- 		}
--		if ((received % (sizeof(buf) * sizeof(buf) * 16) == 0))
-+		t1 = time(NULL);
-+		if (t1 != t0) {
- 			dprintf(2, " %d progress: %zu\n",
- 			        rcvr->rfd, received);
-+			t0 = t1;
-+		}
- 	}
- 	dprintf(2, "%d got: %zu\n", rcvr->rfd, received);
- 	if (rcvr->sfd >= 0) {
+Thanks,
+Richard
