@@ -1,58 +1,49 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH -v2 18/26] drivers/net: rename random32() to
- prandom_u32()
-Date: Thu, 3 Jan 2013 11:36:54 -0800
-Message-ID: <477F20668A386D41ADCC57781B1F70430D13EA8B31@SC-VEXCH1.marvell.com>
-References: <1357215562-6288-1-git-send-email-akinobu.mita@gmail.com>
- <1357215562-6288-19-git-send-email-akinobu.mita@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] softirq: reduce latencies
+Date: Thu, 03 Jan 2013 11:41:35 -0800
+Message-ID: <50E5DEEF.2080009@hp.com>
+References: <CA+icZUVEvzyrPsQG1QWLnHxhtaewaWTOVzBpTnLqjKuHMjjFHg@mail.gmail.com> <1357219919.21409.24519.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Thomas Sailer <t.sailer@alumni.ethz.ch>,
-	Jean-Paul Roubelat <jpr@f6fbb.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-hams@vger.kernel.org" <linux-hams@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Akinobu Mita <akinobu.mita@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"akpm@linux-foundation.org" <akpm@linux-foundation.org>
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <1357215562-6288-19-git-send-email-akinobu.mita@gmail.com>
-Content-Language: en-US
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sedat.dilek@gmail.com, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357219919.21409.24519.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Akinobu,
+On 01/03/2013 05:31 AM, Eric Dumazet wrote:
+> A common network load is to launch ~200 concurrent TCP_RR netperf
+> sessions like the following
+>
+> netperf -H remote_host -t TCP_RR -l 1000
 
-> Use more preferable function name which implies using a pseudo-random
-> number generator.
-> 
-> Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-> Acked-by: Thomas Sailer <t.sailer@alumni.ethz.ch>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Michael Chan <mchan@broadcom.com>
-> Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
-> Cc: Jean-Paul Roubelat <jpr@f6fbb.org>
-> Cc: Bing Zhao <bzhao@marvell.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-hams@vger.kernel.org
-> Cc: linux-wireless@vger.kernel.org
+> And then you can launch some netperf asking P99_LATENCY results :
+>
+> netperf -H remote_host -t TCP_RR -- -k P99_LATENCY
 
-Acked-by: Bing Zhao <bzhao@marvell.com> [mwifiex]
+In terms of netperf overhead, once you specify P99_LATENCY, you are 
+already in for the pound of cost but only getting the penny of output 
+(so to speak).  While it would clutter the output, one could go ahead 
+and ask for the other latency stats and it won't "cost" anything more:
 
-Thanks,
-Bing
+... -- -k 
+RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
 
-> ---
-> 
-> No change from v1
-> 
->  drivers/net/ethernet/broadcom/cnic.c    | 4 ++--
->  drivers/net/hamradio/baycom_epp.c       | 2 +-
->  drivers/net/hamradio/hdlcdrv.c          | 2 +-
->  drivers/net/hamradio/yam.c              | 2 +-
->  drivers/net/wireless/mwifiex/cfg80211.c | 4 ++--
->  5 files changed, 7 insertions(+), 7 deletions(-)
+Additional information about how the omni output selectors work can be 
+found at 
+http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Omni-Output-Selection
 
+happy benchmarking,
+
+rick jones
+
+BTW - you will likely see some differences between RT_LATENCY, which is 
+calculated from the average transactions per second, and MEAN_LATENCY, 
+which is calculated from the histogram of individual latencies 
+maintained when any of the _LATENCY outputs other than RT_LATENCY is 
+requested.  Kudos to the folks at Google who did the extensions to the 
+then-existing histogram code to enable it to be used for more reasonably 
+accurate statistics.
