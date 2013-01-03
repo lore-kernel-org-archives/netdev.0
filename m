@@ -1,48 +1,46 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH net-next v2 2/3] netpoll: add IPv6 support
-Date: Thu, 03 Jan 2013 23:08:58 +0800
-Message-ID: <1357225738.2505.4.camel@cr0>
-References: <1357188623-15206-1-git-send-email-amwang@redhat.com>
-	 <1357188623-15206-2-git-send-email-amwang@redhat.com>
-	 <20130103.015453.730687035214069794.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC PATCH net-next 3/3] vxlan: remove NETIF_F_NETNS_LOCAL from
+ vxlan device features.
+Date: Thu, 3 Jan 2013 07:45:03 -0800
+Message-ID: <20130103074503.3bafe61a@nehalam.linuxnetplumber.net>
+References: <1357205121-4700-1-git-send-email-ramirose@gmail.com>
+	<1357205121-4700-4-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ebiederm@xmission.com
+To: Rami Rosen <ramirose@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58631 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:44166 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753035Ab3ACPJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jan 2013 10:09:07 -0500
-In-Reply-To: <20130103.015453.730687035214069794.davem@davemloft.net>
+	id S1753392Ab3ACPq2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 10:46:28 -0500
+In-Reply-To: <1357205121-4700-4-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-03 at 01:54 -0800, David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Thu,  3 Jan 2013 12:50:22 +0800
+On Thu,  3 Jan 2013 11:25:21 +0200
+Rami Rosen <ramirose@gmail.com> wrote:
+
+> There is no need for NETIF_F_NETNS_LOCAL for vxlan device; this patch removes it.
 > 
-> > -static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh,
-> > -				 int proto)
-> > +int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
-> >  {
-> >  	int err;
-> >  
-> > -- 
-> > 1.7.7.6
-> > 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> ---
+>  drivers/net/vxlan.c | 1 -
+>  1 file changed, 1 deletion(-)
 > 
-> With IPV6=m and NETPOLL=y using this symbol will not work.
-> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 40f2cc1..385f743 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1185,7 +1185,6 @@ static void vxlan_setup(struct net_device *dev)
+>  
+>  	dev->tx_queue_len = 0;
+>  	dev->features	|= NETIF_F_LLTX;
+> -	dev->features	|= NETIF_F_NETNS_LOCAL;
+>  	dev->features	|= NETIF_F_SG | NETIF_F_HW_CSUM;
+>  	dev->features   |= NETIF_F_RXCSUM;
+>  
 
-Good point!
-
-One solution is to introduce a new Kconfig option:
-
-+config NETPOLL6
-+       depends on (IPV6 || IPV6=n)
-+       def_bool NETPOLL
-+
-
-and move these IPV6 code under #ifdef CONFIG_NETPOLL6.
+Vxlan works over UDP socket, and the UDP socket is part of the namespace
+it is created in. Moving the vxlan device does not move that state.
