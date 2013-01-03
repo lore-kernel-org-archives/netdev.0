@@ -1,67 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: order 7 allocations from xt_recent
-Date: Thu, 03 Jan 2013 10:00:46 -0800
-Message-ID: <1357236046.21409.25385.camel@edumazet-glaptop>
-References: <20130103164315.GA18908@redhat.com>
-	 <1357232104.21409.25175.camel@edumazet-glaptop>
-	 <20130103171115.GA20982@redhat.com>  <20130103172636.GB20982@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, h.reindl@thelounge.net,
-	Fedora Kernel Team <kernel-team@fedoraproject.org>
-To: Dave Jones <davej@redhat.com>
+From: Philippe De Muyter <phdm@macqel.be>
+Subject: [PATCH resent] net/ipv4/ipconfig: really display the BOOTP/DHCP server's address.
+Date: Thu,  3 Jan 2013 19:02:12 +0100
+Message-ID: <1357236132-12574-1-git-send-email-phdm@macqel.be>
+Cc: Philippe De Muyter <phdm@macqel.be>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f49.google.com ([209.85.210.49]:60890 "EHLO
-	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753475Ab3ACSAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 13:00:52 -0500
-Received: by mail-da0-f49.google.com with SMTP id v40so7119829dad.36
-        for <netdev@vger.kernel.org>; Thu, 03 Jan 2013 10:00:49 -0800 (PST)
-In-Reply-To: <20130103172636.GB20982@redhat.com>
+Received: from smtp2.macqel.be ([194.78.208.39]:27065 "EHLO smtp2.macqel.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753475Ab3ACSCp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 13:02:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-03 at 12:26 -0500, Dave Jones wrote:
-> On Thu, Jan 03, 2013 at 12:11:15PM -0500, Dave Jones wrote:
->  > On Thu, Jan 03, 2013 at 08:55:04AM -0800, Eric Dumazet wrote:
->  >  > On Thu, 2013-01-03 at 11:43 -0500, Dave Jones wrote:
->  >  > > We had a report from a user that shows this code trying
->  >  > > to do enormous allocations, which isn't going to work too well..
->  >  > >  ...
->  >  > > Which is initialised thus..
->  >  > > 
->  >  > >         ip_list_hash_size = 1 << fls(ip_list_tot);
->  >  > > 
->  >  > > And ip_list_tot is 10000 in this case. Hmm ?
->  >  > > 
->  >  > > Complete report and setup described in his bug report at https://bugzilla.redhat.com/show_bug.cgi?id=890715
->  >  > 
->  >  > Yes, we had a report and a patch :
->  >  > 
->  >  > http://comments.gmane.org/gmane.linux.network/248216
->  >  > 
->  >  > I'll send it in a more formal way.
->  > 
->  > Ah! Excellent.
->  > 
->  > That 'check size and vmalloc/kmalloc accordingly' thing seems to be a pattern
->  > that comes up time and time again.  Is it worth maybe making a more generic
->  > version of that instead of open-coding it each time it comes up ?
-> 
-> Something else that I'm puzzled by.
-> 
-> In the report above, it failed to allocate 512kb, but..
-> 
-> Node 0 Normal: 2388*4kB 347*8kB 1029*16kB 3512*32kB 29*64kB 2*128kB 1*256kB 5*512kB 1*1024kB 0*2048kB 0*4096kB = 147128kB
->                                                                             ^^^^^^^^^^^^^^^^
-> 
-> Shouldn't the allocator have been able to satisfy that anyway ?
-> 
-> 	Dave
-> 
+Up to now, the debug and info messages from the ipconfig subsytem
+claim to display the IP address of the DHCP/BOOTP server but
+display instead the IP address of the bootserver.  Fix that.
 
-Might be something related to the CONFIG_COMPACTION=y and lumpy reclaim
-removal ?
+Signed-off-by: Philippe De Muyter <phdm@macqel.be>
+---
+ net/ipv4/ipconfig.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-Anyway, we keep a fraction of memory for ATOMIC allocations.
+PS:
+I sent exactly(*) the same patch some weeks ago, and only discovered using google,
+that it was marked as 'Not Applicable' at http://patchwork.ozlabs.org/patch/207970/
+I did not receive any mail, or see any post on the list.  Is that the normal policy ?
+
+* I rebased it, but id did not change, and changed the title and the comment hoping 
+to better explain the bug fixed.
+
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index d763701..a2e50ae 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -136,6 +136,8 @@ __be32 ic_myaddr = NONE;		/* My IP address */
+ static __be32 ic_netmask = NONE;	/* Netmask for local subnet */
+ __be32 ic_gateway = NONE;	/* Gateway IP address */
+ 
++__be32 ic_addrservaddr = NONE;	/* IP Address of the IP addresses'server */
++
+ __be32 ic_servaddr = NONE;	/* Boot server IP address */
+ 
+ __be32 root_server_addr = NONE;	/* Address of NFS server */
+@@ -558,6 +560,7 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	if (ic_myaddr == NONE)
+ 		ic_myaddr = tip;
+ 	ic_servaddr = sip;
++	ic_addrservaddr = sip;
+ 	ic_got_reply = IC_RARP;
+ 
+ drop_unlock:
+@@ -1068,7 +1071,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
+ 				ic_servaddr = server_id;
+ #ifdef IPCONFIG_DEBUG
+ 				printk("DHCP: Offered address %pI4 by server %pI4\n",
+-				       &ic_myaddr, &ic_servaddr);
++				       &ic_myaddr, &b->iph.saddr);
+ #endif
+ 				/* The DHCP indicated server address takes
+ 				 * precedence over the bootp header one if
+@@ -1113,6 +1116,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
+ 	ic_dev = dev;
+ 	ic_myaddr = b->your_ip;
+ 	ic_servaddr = b->server_ip;
++	ic_addrservaddr = b->iph.saddr;
+ 	if (ic_gateway == NONE && b->relay_ip)
+ 		ic_gateway = b->relay_ip;
+ 	if (ic_nameservers[0] == NONE)
+@@ -1268,7 +1272,7 @@ static int __init ic_dynamic(void)
+ 	printk("IP-Config: Got %s answer from %pI4, ",
+ 		((ic_got_reply & IC_RARP) ? "RARP"
+ 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
+-	       &ic_servaddr);
++	       &ic_addrservaddr);
+ 	pr_cont("my address is %pI4\n", &ic_myaddr);
+ 
+ 	return 0;
+-- 
+1.7.1
