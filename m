@@ -1,55 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] tcp: split tcp_ecn sysctl knob to distinguish between IPv4 and IPv6
-Date: Thu, 3 Jan 2013 17:58:38 +0100
-Message-ID: <20130103165838.GA14323@order.stressinduktion.org>
-References: <20130103000009.GG4464@order.stressinduktion.org> <20130103122844.GH4464@order.stressinduktion.org> <20130103.045350.1322196416782379673.davem@davemloft.net> <20130103125812.GJ4464@order.stressinduktion.org> <20130103082254.770d4222@nehalam.linuxnetplumber.net>
+From: Dave Jones <davej@redhat.com>
+Subject: Re: order 7 allocations from xt_recent
+Date: Thu, 3 Jan 2013 12:11:15 -0500
+Message-ID: <20130103171115.GA20982@redhat.com>
+References: <20130103164315.GA18908@redhat.com>
+ <1357232104.21409.25175.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, h.reindl@thelounge.net,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34264 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753248Ab3ACQ6j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 11:58:39 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:54423 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753430Ab3ACRLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 12:11:22 -0500
 Content-Disposition: inline
-In-Reply-To: <20130103082254.770d4222@nehalam.linuxnetplumber.net>
+In-Reply-To: <1357232104.21409.25175.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 03, 2013 at 08:22:54AM -0800, Stephen Hemminger wrote:
-> On Thu, 3 Jan 2013 13:58:12 +0100
-> Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> 
-> > On Thu, Jan 03, 2013 at 04:53:50AM -0800, David Miller wrote:
-> > > From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > > Date: Thu, 3 Jan 2013 13:28:44 +0100
-> > > 
-> > > > On Thu, Jan 03, 2013 at 01:00:09AM +0100, Hannes Frederic Sowa wrote:
-> > > >> ECN could be more reliable when used with IPv6 (I don't have proofs). For
-> > > >> people who want to try ECN with IPv6 but still have problems connecting
-> > > >> to destinations because of broken IPv4 routers this switch allows one
-> > > >> to enable ECN just for IPv6.
-> > > >> 
-> > > >> Perhaps ECN could be enabled by default in future.
-> > > >> 
-> > > >> No code changes since initial submission, just added documentation.
-> > > > 
-> > > > May I ask what lead to the rejection of the patch?
-> > > 
-> > > I don't see any value in splitting up ipv4 and ipv6.
-> > > 
-> > > I think we should turn the existing knob on unliaterally
-> > > by default.  That would be a much better patch.
-> > 
-> > Oh, I would be happy to do that. :)
-> 
-> Perhaps, ECN should be a property of the route.
-> There is RTAX_FEATURE_ECN but it appears to have been lost
-> as part of the removal of route cache.
+On Thu, Jan 03, 2013 at 08:55:04AM -0800, Eric Dumazet wrote:
+ > On Thu, 2013-01-03 at 11:43 -0500, Dave Jones wrote:
+ > > We had a report from a user that shows this code trying
+ > > to do enormous allocations, which isn't going to work too well..
+ > >  ...
+ > > Which is initialised thus..
+ > > 
+ > >         ip_list_hash_size = 1 << fls(ip_list_tot);
+ > > 
+ > > And ip_list_tot is 10000 in this case. Hmm ?
+ > > 
+ > > Complete report and setup described in his bug report at https://bugzilla.redhat.com/show_bug.cgi?id=890715
+ > 
+ > Yes, we had a report and a patch :
+ > 
+ > http://comments.gmane.org/gmane.linux.network/248216
+ > 
+ > I'll send it in a more formal way.
 
-I suggested something like this in the discussion on bufferbloat:
-<http://thread.gmane.org/gmane.network.routing.bufferbloat/1086>
+Ah! Excellent.
 
-Especially if RFC5562 would be implemented one day, this could really be
-helpful.
+That 'check size and vmalloc/kmalloc accordingly' thing seems to be a pattern
+that comes up time and time again.  Is it worth maybe making a more generic
+version of that instead of open-coding it each time it comes up ?
+
+thanks,
+
+	Dave
