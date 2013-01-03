@@ -1,109 +1,70 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH -v2 00/26] rename random32 to prandom
-Date: Thu,  3 Jan 2013 21:18:56 +0900
-Message-ID: <1357215562-6288-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	"Theodore Ts'o" <tytso@mit.edu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH -v2 19/26] batman-adv: rename random32() to
+	prandom_u32()
+Date: Thu,  3 Jan 2013 21:19:15 +0900
+Message-ID: <1357215562-6288-20-git-send-email-akinobu.mita@gmail.com>
+References: <1357215562-6288-1-git-send-email-akinobu.mita@gmail.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
+ Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1357215562-6288-1-git-send-email-akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Commit 496f2f93b1cc286f5a4f4f9acdc1e5314978683f ("random32: rename random32
-to prandom") renamed random32() and srandom32() to prandom_u32() and
-prandom_seed() respectively.  Due to the volume of existing random32()
-callers, they were preserved as backword compatibility wrapper macros.
+Use more preferable function name which implies using a pseudo-random
+number generator.
 
-This patch series aims for finishing the naming transition and removing
-the backword compatibility wrapper macros.
+Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Cc: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
+Cc: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
+Cc: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+---
 
-The naming transition is mainly simple substitution work for random32()
-and srandom32().  But this patch series also includes minor cleanup
-which was found while I was working on the substitution.
+No change from v1
 
-* Changes from v1
-- leave all net_random() and net_srandom callers as-is and preserve the
-  macro definisions. Because that is a useful indirection.
-  Spotted by Neil Horman.
-- remove batman-adv fix which has been applied to net
-- collect Acked-by:
+ net/batman-adv/bat_iv_ogm.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Akinobu Mita (26):
-  raid6test: use prandom_bytes()
-  uuid: use prandom_bytes()
-  x86: pageattr-test: remove srandom32 call
-  x86: rename random32() to prandom_u32()
-  lib/: rename random32() to prandom_u32()
-  mm/: rename random32() to prandom_u32()
-  kernel/: rename random32() to prandom_u32()
-  drbd: rename random32() to prandom_u32()
-  infiniband: rename random32() to prandom_u32()
-  mmc: rename random32() to prandom_u32()
-  video/uvesafb: rename random32() to prandom_u32()
-  xfs: rename random32() to prandom_u32()
-  ubifs: rename random32() to prandom_u32()
-  uwb: rename random32() to prandom_u32()
-  lguest: rename random32() to prandom_u32()
-  scsi: rename random32() to prandom_u32()
-  mtd: rename random32() to prandom_u32()
-  drivers/net: rename random32() to prandom_u32()
-  batman-adv: rename random32() to prandom_u32()
-  net/sunrpc: rename random32() to prandom_u32()
-  net/sched: rename random32() to prandom_u32()
-  net/netfilter: rename random32() to prandom_u32()
-  net/core:  rename random32() to prandom_u32()
-  net/core: remove duplicate statements by do-while loop
-  net: rename random32 to prandom
-  remove unused random32() and srandom32()
-
- arch/x86/mm/pageattr-test.c                 |  5 ++--
- crypto/async_tx/raid6test.c                 |  9 ++-----
- drivers/block/drbd/drbd_receiver.c          |  5 ++--
- drivers/infiniband/hw/cxgb3/cxio_resource.c |  4 +--
- drivers/infiniband/hw/cxgb4/id_table.c      |  4 +--
- drivers/infiniband/hw/mlx4/mad.c            |  2 +-
- drivers/infiniband/ulp/ipoib/ipoib_cm.c     |  2 +-
- drivers/lguest/page_tables.c                |  2 +-
- drivers/mmc/core/core.c                     |  4 +--
- drivers/mtd/nand/nandsim.c                  |  6 ++---
- drivers/mtd/tests/mtd_nandecctest.c         | 10 +++----
- drivers/mtd/tests/mtd_stresstest.c          |  8 +++---
- drivers/mtd/ubi/debug.h                     |  6 ++---
- drivers/net/ethernet/broadcom/cnic.c        |  4 +--
- drivers/net/hamradio/baycom_epp.c           |  2 +-
- drivers/net/hamradio/hdlcdrv.c              |  2 +-
- drivers/net/hamradio/yam.c                  |  2 +-
- drivers/net/wireless/mwifiex/cfg80211.c     |  4 +--
- drivers/scsi/fcoe/fcoe_ctlr.c               |  4 +--
- drivers/scsi/lpfc/lpfc_hbadisc.c            |  6 ++---
- drivers/scsi/qla2xxx/qla_attr.c             |  7 +++--
- drivers/uwb/rsv.c                           |  4 +--
- drivers/video/uvesafb.c                     |  2 +-
- fs/ubifs/debug.c                            |  8 +++---
- fs/ubifs/lpt_commit.c                       | 14 +++++-----
- fs/ubifs/tnc_commit.c                       |  2 +-
- fs/xfs/xfs_alloc.c                          |  2 +-
- fs/xfs/xfs_error.c                          |  2 +-
- fs/xfs/xfs_ialloc.c                         |  2 +-
- fs/xfs/xfs_log.c                            |  2 +-
- include/linux/net.h                         |  4 +--
- include/linux/random.h                      |  7 -----
- kernel/rcutree.c                            |  2 +-
- kernel/test_kprobes.c                       |  2 +-
- lib/fault-inject.c                          |  2 +-
- lib/list_sort.c                             |  2 +-
- lib/uuid.c                                  |  8 +-----
- mm/swapfile.c                               |  2 +-
- net/batman-adv/bat_iv_ogm.c                 |  4 +--
- net/core/pktgen.c                           | 42 ++++++++++++++---------------
- net/netfilter/nf_conntrack_core.c           |  4 +--
- net/sched/sch_choke.c                       |  2 +-
- net/sunrpc/auth_gss/gss_krb5_wrap.c         |  4 +--
- 43 files changed, 102 insertions(+), 119 deletions(-)
-
-Cc: "Theodore Ts'o" <tytso@mit.edu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 7d02ebd..bc434c4 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -123,7 +123,7 @@ batadv_iv_ogm_emit_send_time(const struct batadv_priv *bat_priv)
+ 	unsigned int msecs;
+ 
+ 	msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
+-	msecs += random32() % (2 * BATADV_JITTER);
++	msecs += prandom_u32() % (2 * BATADV_JITTER);
+ 
+ 	return jiffies + msecs_to_jiffies(msecs);
+ }
+@@ -131,7 +131,7 @@ batadv_iv_ogm_emit_send_time(const struct batadv_priv *bat_priv)
+ /* when do we schedule a ogm packet to be sent */
+ static unsigned long batadv_iv_ogm_fwd_send_time(void)
+ {
+-	return jiffies + msecs_to_jiffies(random32() % (BATADV_JITTER / 2));
++	return jiffies + msecs_to_jiffies(prandom_u32() % (BATADV_JITTER / 2));
+ }
+ 
+ /* apply hop penalty for a normal link */
 -- 
 1.7.11.7
