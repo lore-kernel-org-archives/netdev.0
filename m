@@ -1,44 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the final tree
- (net-next tree related)
-Date: Wed, 02 Jan 2013 19:28:48 -0800 (PST)
-Message-ID: <20130102.192848.1391048999163570664.davem@davemloft.net>
-References: <20130103142353.b4fee0ccd57730e4fbd63ba9@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sony.chacko@qlogic.com,
-	sucheta.chakraborty@qlogic.com, sritej.velaga@qlogic.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130103142353.b4fee0ccd57730e4fbd63ba9@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH net-next v2 3/3] netconsole: add IPv6 example in doc
+Date: Thu,  3 Jan 2013 12:50:23 +0800
+Message-ID: <1357188623-15206-3-git-send-email-amwang@redhat.com>
+References: <1357188623-15206-1-git-send-email-amwang@redhat.com>
+Cc: Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:11220 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753214Ab3ACEus (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jan 2013 23:50:48 -0500
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r034olVc018743
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 2 Jan 2013 23:50:47 -0500
+In-Reply-To: <1357188623-15206-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 3 Jan 2013 14:23:53 +1100
+From: Cong Wang <amwang@redhat.com>
 
-> Caused by commit 13159183ec7a ("qlcnic: 83xx base driver") from the
-> net-next tree.  Why is this commit adding a function that already exists
-> globally?
+Update the netconsole document as well.
 
-And this is after I pushed back on this patch series 5 times or so.
+iCc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ Documentation/networking/netconsole.txt |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
 
-You qlogic guys, can you see why I give you such a hard time with
-your patch submissions?  Even after I ask you to correct all of the
-most obvious problems, there is still garbage like this that shows
-up in your changes.
-
-What in the world do I have to do, other than push back on your
-submissions even harder, to keep crap like this from happening
-in the future?
-
-Tell me.
-
-You, as a group, are the absolute worst networking driver submitters.
-
-This is a real problem because you submit large bodies of code that 1)
-nobody wants to review and 2) has a very small user base.  So you
-impart an extremely large burdon upon me, in particular, because I'm
-the only person that actually reviews your code at all.
+diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
+index 2e9e0ae2..a5d574a 100644
+--- a/Documentation/networking/netconsole.txt
++++ b/Documentation/networking/netconsole.txt
+@@ -1,9 +1,10 @@
+ 
+ started by Ingo Molnar <mingo@redhat.com>, 2001.09.17
+ 2.6 port and netpoll api by Matt Mackall <mpm@selenic.com>, Sep 9 2003
++IPv6 support by Cong Wang <xiyou.wangcong@gmail.com>, Jan 1 2013
+ 
+ Please send bug reports to Matt Mackall <mpm@selenic.com>
+-and Satyam Sharma <satyam.sharma@gmail.com>
++Satyam Sharma <satyam.sharma@gmail.com>, and Cong Wang <xiyou.wangcong@gmail.com>
+ 
+ Introduction:
+ =============
+@@ -41,6 +42,10 @@ Examples:
+ 
+  insmod netconsole netconsole=@/,@10.0.0.2/
+ 
++  or using IPv6
++
++ insmod netconsole netconsole=@/,@fd00:1:2:3::1/
++
+ It also supports logging to multiple remote agents by specifying
+ parameters for the multiple agents separated by semicolons and the
+ complete string enclosed in "quotes", thusly:
+-- 
+1.7.7.6
