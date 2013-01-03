@@ -1,48 +1,67 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH V2] bgmac: driver for GBit MAC core on BCMA bus
-Date: Thu, 3 Jan 2013 18:38:11 +0100
-Message-ID: <CACna6rzOm3+NihpzMdsQUFfLXy+gZmhtatzjU3+EiujOvndW-A@mail.gmail.com>
-References: <1357232192-32634-1-git-send-email-zajec5@gmail.com>
-	<1357234105.4740.10.camel@joe-AO722>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] ip-sysctl: fix spelling errors
+Date: Thu, 3 Jan 2013 09:50:29 -0800
+Message-ID: <20130103095029.40579b3f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f175.google.com ([209.85.214.175]:55334 "EHLO
-	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753444Ab3ACRiM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 12:38:12 -0500
-Received: by mail-ob0-f175.google.com with SMTP id vb8so13827229obc.20
-        for <netdev@vger.kernel.org>; Thu, 03 Jan 2013 09:38:12 -0800 (PST)
-In-Reply-To: <1357234105.4740.10.camel@joe-AO722>
+Received: from mail.vyatta.com ([76.74.103.46]:58550 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753490Ab3ACRvx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 12:51:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/1/3 Joe Perches <joe@perches.com>:
-> On Thu, 2013-01-03 at 17:56 +0100, Rafa=C5=82 Mi=C5=82ecki wrote:
->> BCMA is a Broadcom specific bus with devices AKA cores. All recent B=
-CMA
->> based SoCs have gigabit ethernet provided by the GBit MAC core. This
->> patch adds driver for such a cores registering itself as a netdev. I=
-t
->> has been tested on a BCM4706 and BCM4718 chipsets.
->
-> Just some style trivia if you want to clean it up later.
->
->> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/eth=
-ernet/broadcom/bgmac.c
-> []
->> +             bgmac_err(bgmac, "Timeout suspending DMA TX ring 0x%X =
-(BGMAC_DMA_TX_STAT: 0x%08X)\n",
->> +                       ring->mmio_base, val);
->
-> It'd be nicer if you always used this wrapping style.
 
-My bad, sorry! Waiting for Francois comments before submitting next ver=
-sion.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---=20
-Rafa=C5=82
+--- a/Documentation/networking/ip-sysctl.txt	2012-12-10 16:18:19.221560164 -0800
++++ b/Documentation/networking/ip-sysctl.txt	2013-01-03 09:48:53.946686658 -0800
+@@ -36,7 +36,7 @@ neigh/default/unres_qlen_bytes - INTEGER
+ 	The maximum number of bytes which may be used by packets
+ 	queued for each	unresolved address by other network layers.
+ 	(added in linux 3.3)
+-	Seting negative value is meaningless and will retrun error.
++	Setting negative value is meaningless and will return error.
+ 	Default: 65536 Bytes(64KB)
+ 
+ neigh/default/unres_qlen - INTEGER
+@@ -215,7 +215,7 @@ tcp_ecn - INTEGER
+ 	Possible values are:
+ 		0 Disable ECN.  Neither initiate nor accept ECN.
+ 		1 Always request ECN on outgoing connection attempts.
+-		2 Enable ECN when requested by incomming connections
++		2 Enable ECN when requested by incoming connections
+ 		  but do not request ECN on outgoing connections.
+ 	Default: 2
+ 
+@@ -503,7 +503,7 @@ tcp_fastopen - INTEGER
+ tcp_syn_retries - INTEGER
+ 	Number of times initial SYNs for an active TCP connection attempt
+ 	will be retransmitted. Should not be higher than 255. Default value
+-	is 6, which corresponds to 63seconds till the last restransmission
++	is 6, which corresponds to 63seconds till the last retransmission
+ 	with the current initial RTO of 1second. With this the final timeout
+ 	for an active TCP connection attempt will happen after 127seconds.
+ 
+@@ -1530,7 +1530,7 @@ cookie_hmac_alg - STRING
+ 	* sha1
+ 	* none
+ 	Ability to assign md5 or sha1 as the selected alg is predicated on the
+-	configuarion of those algorithms at build time (CONFIG_CRYPTO_MD5 and
++	configuration of those algorithms at build time (CONFIG_CRYPTO_MD5 and
+ 	CONFIG_CRYPTO_SHA1).
+ 
+ 	Default: Dependent on configuration.  MD5 if available, else SHA1 if
+@@ -1548,7 +1548,7 @@ rcvbuf_policy - INTEGER
+ 	blocking.
+ 
+ 	1: rcvbuf space is per association
+-	0: recbuf space is per socket
++	0: rcvbuf space is per socket
+ 
+ 	Default: 0
+ 
