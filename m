@@ -1,52 +1,80 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] softirq: reduce latencies
-Date: Thu, 03 Jan 2013 05:31:59 -0800
-Message-ID: <1357219919.21409.24519.camel@edumazet-glaptop>
-References: <CA+icZUVEvzyrPsQG1QWLnHxhtaewaWTOVzBpTnLqjKuHMjjFHg@mail.gmail.com>
+Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Thu, 03 Jan 2013 05:41:09 -0800
+Message-ID: <1357220469.21409.24574.camel@edumazet-glaptop>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+	 <20130102200848.GA4500@dcvr.yhbt.net>
+	 <20130102204712.GA17806@dcvr.yhbt.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: sedat.dilek@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+icZUVEvzyrPsQG1QWLnHxhtaewaWTOVzBpTnLqjKuHMjjFHg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rik van Riel <riel@redhat.com>,
+	Minchan Kim <minchan@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Eric Wong <normalperson@yhbt.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:51704 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753271Ab3ACNlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 08:41:12 -0500
+In-Reply-To: <20130102204712.GA17806@dcvr.yhbt.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-03 at 14:12 +0100, Sedat Dilek wrote:
-> Hi Eric,
+On Wed, 2013-01-02 at 20:47 +0000, Eric Wong wrote:
+> Eric Wong <normalperson@yhbt.net> wrote:
+> > [1] my full setup is very strange.
+> > 
+> >     Other than the FUSE component I forgot to mention, little depends on
+> >     the kernel.  With all this, the standalone toosleepy can get stuck.
+> >     I'll try to reproduce it with less...
 > 
-> your patch from [2] applies cleanly on top of Linux v3.8-rc2.
-> I would like to test it.
-> In [1] you were talking about benchmarks you did.
-> Can you describe them or provide a testcase (script etc.)?
-> You made only network testing?
+> I just confirmed my toosleepy processes will get stuck while just
+> doing "rsync -a" between local disks.  So this does not depend on
+> sendfile or FUSE to reproduce.
+> --
 
-Yes I did network testing : 
+How do you tell your 'toosleepy' is stuck ?
 
-- net_rx_action() softirq handler is the typical function that can
-consume 2 ms per call.
+If reading its output, you should change its logic, there is no
+guarantee the recv() will deliver exactly 16384 bytes each round.
 
-I did some netperf sessions, with multiqueue 10G nics, tuned to that IRQ
-would be handled by few cpus.
- (check /proc/irq/*/eth0-$QUEUE/../smp_affinity )
+With the following patch, I cant reproduce the 'apparent stuck'
 
-Another way to make the softirq processing use more cpu cycles is by
-adding a fake iptable setup like :
-
-for n in `seq 1 100`
-do
- iptables -I INPUT
-done
-
-A common network load is to launch ~200 concurrent TCP_RR netperf
-sessions like the following
-
-netperf -H remote_host -t TCP_RR -l 1000
-
-And then you can launch some netperf asking P99_LATENCY results :
-
-netperf -H remote_host -t TCP_RR -- -k P99_LATENCY
-
-You can play with taskset or netperf option -T to force
-netperf/netserver running on given cpus.
+diff --git a/toosleepy.c b/toosleepy.c
+index e64b7cd..df3610f 100644
+--- a/toosleepy.c
++++ b/toosleepy.c
+@@ -15,6 +15,7 @@
+ #include <fcntl.h>
+ #include <assert.h>
+ #include <limits.h>
++#include <time.h>
+ 
+ struct receiver {
+ 	int rfd;
+@@ -53,6 +54,7 @@ static void * recv_loop(void *p)
+ 	ssize_t r, s;
+ 	size_t received = 0;
+ 	size_t sent = 0;
++	time_t t0 = time(NULL), t1;
+ 
+ 	for (;;) {
+ 		r = recv(rcvr->rfd, buf, sizeof(buf), 0);
+@@ -80,9 +82,12 @@ static void * recv_loop(void *p)
+ 				write(-1, buf, sizeof(buf));
+ 			}
+ 		}
+-		if ((received % (sizeof(buf) * sizeof(buf) * 16) == 0))
++		t1 = time(NULL);
++		if (t1 != t0) {
+ 			dprintf(2, " %d progress: %zu\n",
+ 			        rcvr->rfd, received);
++			t0 = t1;
++		}
+ 	}
+ 	dprintf(2, "%d got: %zu\n", rcvr->rfd, received);
+ 	if (rcvr->sfd >= 0) {
