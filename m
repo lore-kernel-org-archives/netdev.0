@@ -1,128 +1,30 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: [PATCH -v2 18/26] drivers/net: rename random32() to prandom_u32()
-Date: Thu,  3 Jan 2013 21:19:14 +0900
-Message-ID: <1357215562-6288-19-git-send-email-akinobu.mita@gmail.com>
-References: <1357215562-6288-1-git-send-email-akinobu.mita@gmail.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Thomas Sailer <t.sailer@alumni.ethz.ch>,
-	Jean-Paul Roubelat <jpr@f6fbb.org>,
-	Bing Zhao <bzhao@marvell.com>, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org, linux-wireless@vger.kernel.org
-To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <1357215562-6288-1-git-send-email-akinobu.mita@gmail.com>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] tcp: split tcp_ecn sysctl knob to distinguish between IPv4 and IPv6
+Date: Thu, 3 Jan 2013 13:28:44 +0100
+Message-ID: <20130103122844.GH4464@order.stressinduktion.org>
+References: <20130103000009.GG4464@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:33767 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752852Ab3ACM2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 07:28:46 -0500
+Content-Disposition: inline
+In-Reply-To: <20130103000009.GG4464@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use more preferable function name which implies using a pseudo-random
-number generator.
+On Thu, Jan 03, 2013 at 01:00:09AM +0100, Hannes Frederic Sowa wrote:
+> ECN could be more reliable when used with IPv6 (I don't have proofs). For
+> people who want to try ECN with IPv6 but still have problems connecting
+> to destinations because of broken IPv4 routers this switch allows one
+> to enable ECN just for IPv6.
+> 
+> Perhaps ECN could be enabled by default in future.
+> 
+> No code changes since initial submission, just added documentation.
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Acked-by: Thomas Sailer <t.sailer@alumni.ethz.ch>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Michael Chan <mchan@broadcom.com>
-Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
-Cc: Jean-Paul Roubelat <jpr@f6fbb.org>
-Cc: Bing Zhao <bzhao@marvell.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-hams@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
----
-
-No change from v1
-
- drivers/net/ethernet/broadcom/cnic.c    | 4 ++--
- drivers/net/hamradio/baycom_epp.c       | 2 +-
- drivers/net/hamradio/hdlcdrv.c          | 2 +-
- drivers/net/hamradio/yam.c              | 2 +-
- drivers/net/wireless/mwifiex/cfg80211.c | 4 ++--
- 5 files changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
-index df8c30d..27d7a32 100644
---- a/drivers/net/ethernet/broadcom/cnic.c
-+++ b/drivers/net/ethernet/broadcom/cnic.c
-@@ -4085,7 +4085,7 @@ static int cnic_cm_alloc_mem(struct cnic_dev *dev)
- 	if (!cp->csk_tbl)
- 		return -ENOMEM;
- 
--	port_id = random32();
-+	port_id = prandom_u32();
- 	port_id %= CNIC_LOCAL_PORT_RANGE;
- 	if (cnic_init_id_tbl(&cp->csk_port_tbl, CNIC_LOCAL_PORT_RANGE,
- 			     CNIC_LOCAL_PORT_MIN, port_id)) {
-@@ -4145,7 +4145,7 @@ static int cnic_cm_init_bnx2_hw(struct cnic_dev *dev)
- {
- 	u32 seed;
- 
--	seed = random32();
-+	seed = prandom_u32();
- 	cnic_ctx_wr(dev, 45, 0, seed);
- 	return 0;
- }
-diff --git a/drivers/net/hamradio/baycom_epp.c b/drivers/net/hamradio/baycom_epp.c
-index 49b8b58..484f77e 100644
---- a/drivers/net/hamradio/baycom_epp.c
-+++ b/drivers/net/hamradio/baycom_epp.c
-@@ -449,7 +449,7 @@ static int transmit(struct baycom_state *bc, int cnt, unsigned char stat)
- 			if ((--bc->hdlctx.slotcnt) > 0)
- 				return 0;
- 			bc->hdlctx.slotcnt = bc->ch_params.slottime;
--			if ((random32() % 256) > bc->ch_params.ppersist)
-+			if ((prandom_u32() % 256) > bc->ch_params.ppersist)
- 				return 0;
- 		}
- 	}
-diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
-index a4a3516..3169252 100644
---- a/drivers/net/hamradio/hdlcdrv.c
-+++ b/drivers/net/hamradio/hdlcdrv.c
-@@ -389,7 +389,7 @@ void hdlcdrv_arbitrate(struct net_device *dev, struct hdlcdrv_state *s)
- 	if ((--s->hdlctx.slotcnt) > 0)
- 		return;
- 	s->hdlctx.slotcnt = s->ch_params.slottime;
--	if ((random32() % 256) > s->ch_params.ppersist)
-+	if ((prandom_u32() % 256) > s->ch_params.ppersist)
- 		return;
- 	start_tx(dev, s);
- }
-diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
-index c6645f1..21f231a 100644
---- a/drivers/net/hamradio/yam.c
-+++ b/drivers/net/hamradio/yam.c
-@@ -638,7 +638,7 @@ static void yam_arbitrate(struct net_device *dev)
- 	yp->slotcnt = yp->slot / 10;
- 
- 	/* is random > persist ? */
--	if ((random32() % 256) > yp->pers)
-+	if ((prandom_u32() % 256) > yp->pers)
- 		return;
- 
- 	yam_start_tx(dev, yp);
-diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
-index a875499..78dbc18 100644
---- a/drivers/net/wireless/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/mwifiex/cfg80211.c
-@@ -216,7 +216,7 @@ mwifiex_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
- 	mwifiex_form_mgmt_frame(skb, buf, len);
- 	mwifiex_queue_tx_pkt(priv, skb);
- 
--	*cookie = random32() | 1;
-+	*cookie = prandom_u32() | 1;
- 	cfg80211_mgmt_tx_status(wdev, *cookie, buf, len, true, GFP_ATOMIC);
- 
- 	wiphy_dbg(wiphy, "info: management frame transmitted\n");
-@@ -271,7 +271,7 @@ mwifiex_cfg80211_remain_on_channel(struct wiphy *wiphy,
- 					 duration);
- 
- 	if (!ret) {
--		*cookie = random32() | 1;
-+		*cookie = prandom_u32() | 1;
- 		priv->roc_cfg.cookie = *cookie;
- 		priv->roc_cfg.chan = *chan;
- 
--- 
-1.7.11.7
-
+May I ask what lead to the rejection of the patch?
