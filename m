@@ -1,80 +1,34 @@
-From: Philippe De Muyter <phdm@macqel.be>
-Subject: [PATCH resent] net/ipv4/ipconfig: really display the BOOTP/DHCP server's address.
-Date: Thu,  3 Jan 2013 19:02:12 +0100
-Message-ID: <1357236132-12574-1-git-send-email-phdm@macqel.be>
-Cc: Philippe De Muyter <phdm@macqel.be>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: order 7 allocations from xt_recent
+Date: Thu, 03 Jan 2013 10:02:42 -0800
+Message-ID: <1357236162.21409.25394.camel@edumazet-glaptop>
+References: <20130103164315.GA18908@redhat.com>
+	 <1357232104.21409.25175.camel@edumazet-glaptop>
+	 <20130103171115.GA20982@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, h.reindl@thelounge.net,
+	Fedora Kernel Team <kernel-team@fedoraproject.org>
+To: Dave Jones <davej@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp2.macqel.be ([194.78.208.39]:27065 "EHLO smtp2.macqel.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753475Ab3ACSCp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jan 2013 13:02:45 -0500
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:64132 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753580Ab3ACSCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 13:02:45 -0500
+Received: by mail-pa0-f50.google.com with SMTP id hz10so8811687pad.23
+        for <netdev@vger.kernel.org>; Thu, 03 Jan 2013 10:02:44 -0800 (PST)
+In-Reply-To: <20130103171115.GA20982@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Up to now, the debug and info messages from the ipconfig subsytem
-claim to display the IP address of the DHCP/BOOTP server but
-display instead the IP address of the bootserver.  Fix that.
+On Thu, 2013-01-03 at 12:11 -0500, Dave Jones wrote:
 
-Signed-off-by: Philippe De Muyter <phdm@macqel.be>
----
- net/ipv4/ipconfig.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+> That 'check size and vmalloc/kmalloc accordingly' thing seems to be a pattern
+> that comes up time and time again.  Is it worth maybe making a more generic
+> version of that instead of open-coding it each time it comes up ?
 
-PS:
-I sent exactly(*) the same patch some weeks ago, and only discovered using google,
-that it was marked as 'Not Applicable' at http://patchwork.ozlabs.org/patch/207970/
-I did not receive any mail, or see any post on the list.  Is that the normal policy ?
+We had numerous discussions and patch submissions in the past, and this
+went nowhere. I am not sure anybody wants to spend more cycles on this.
 
-* I rebased it, but id did not change, and changed the title and the comment hoping 
-to better explain the bug fixed.
-
-diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
-index d763701..a2e50ae 100644
---- a/net/ipv4/ipconfig.c
-+++ b/net/ipv4/ipconfig.c
-@@ -136,6 +136,8 @@ __be32 ic_myaddr = NONE;		/* My IP address */
- static __be32 ic_netmask = NONE;	/* Netmask for local subnet */
- __be32 ic_gateway = NONE;	/* Gateway IP address */
- 
-+__be32 ic_addrservaddr = NONE;	/* IP Address of the IP addresses'server */
-+
- __be32 ic_servaddr = NONE;	/* Boot server IP address */
- 
- __be32 root_server_addr = NONE;	/* Address of NFS server */
-@@ -558,6 +560,7 @@ ic_rarp_recv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	if (ic_myaddr == NONE)
- 		ic_myaddr = tip;
- 	ic_servaddr = sip;
-+	ic_addrservaddr = sip;
- 	ic_got_reply = IC_RARP;
- 
- drop_unlock:
-@@ -1068,7 +1071,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 				ic_servaddr = server_id;
- #ifdef IPCONFIG_DEBUG
- 				printk("DHCP: Offered address %pI4 by server %pI4\n",
--				       &ic_myaddr, &ic_servaddr);
-+				       &ic_myaddr, &b->iph.saddr);
- #endif
- 				/* The DHCP indicated server address takes
- 				 * precedence over the bootp header one if
-@@ -1113,6 +1116,7 @@ static int __init ic_bootp_recv(struct sk_buff *skb, struct net_device *dev, str
- 	ic_dev = dev;
- 	ic_myaddr = b->your_ip;
- 	ic_servaddr = b->server_ip;
-+	ic_addrservaddr = b->iph.saddr;
- 	if (ic_gateway == NONE && b->relay_ip)
- 		ic_gateway = b->relay_ip;
- 	if (ic_nameservers[0] == NONE)
-@@ -1268,7 +1272,7 @@ static int __init ic_dynamic(void)
- 	printk("IP-Config: Got %s answer from %pI4, ",
- 		((ic_got_reply & IC_RARP) ? "RARP"
- 		 : (ic_proto_enabled & IC_USE_DHCP) ? "DHCP" : "BOOTP"),
--	       &ic_servaddr);
-+	       &ic_addrservaddr);
- 	pr_cont("my address is %pI4\n", &ic_myaddr);
- 
- 	return 0;
--- 
-1.7.1
+Its sad, but true.
