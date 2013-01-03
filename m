@@ -1,40 +1,45 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [RFC PATCH net-next 1/3] ppp: remove NETIF_F_NETNS_LOCAL from ppp device features.
-Date: Thu,  3 Jan 2013 11:25:19 +0200
-Message-ID: <1357205121-4700-2-git-send-email-ramirose@gmail.com>
-References: <1357205121-4700-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com,
-	shemminger@vyatta.com, Rami Rosen <ramirose@gmail.com>
+From: Sony Chacko <sony.chacko@qlogic.com>
+Subject: [PATCH 1/1] qlcnic: fix build error
+Date: Thu,  3 Jan 2013 04:10:15 -0500
+Message-ID: <1357204215-17607-2-git-send-email-sony.chacko@qlogic.com>
+References: <1357204215-17607-1-git-send-email-sony.chacko@qlogic.com>
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Sony Chacko <sony.chacko@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:49999 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752715Ab3ACJ0d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 04:26:33 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c13so7190523eek.27
-        for <netdev@vger.kernel.org>; Thu, 03 Jan 2013 01:26:32 -0800 (PST)
-In-Reply-To: <1357205121-4700-1-git-send-email-ramirose@gmail.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:16959 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1750955Ab3ACJaE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 04:30:04 -0500
+In-Reply-To: <1357204215-17607-1-git-send-email-sony.chacko@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no need for NETIF_F_NETNS_LOCAL for ppp device; this patch removes it.
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
+Fix the following error reported by kbuild test robot.
+static declaration of 'qlcnic_restore_indev_addr' follows
+non-static declaration.
+
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 ---
- drivers/net/ppp/ppp_generic.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 0b2706a..89b6fc5 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -1073,7 +1073,6 @@ static void ppp_setup(struct net_device *dev)
- 	dev->tx_queue_len = 3;
- 	dev->type = ARPHRD_PPP;
- 	dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
--	dev->features |= NETIF_F_NETNS_LOCAL;
- 	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
- }
- 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index e1a3625..7d13aec 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -3299,8 +3299,7 @@ static struct notifier_block qlcnic_inetaddr_cb = {
+ 	.notifier_call = qlcnic_inetaddr_event,
+ };
+ #else
+-static void
+-qlcnic_restore_indev_addr(struct net_device *dev, unsigned long event)
++void qlcnic_restore_indev_addr(struct net_device *dev, unsigned long event)
+ { }
+ #endif
+ static struct pci_error_handlers qlcnic_err_handler = {
 -- 
-1.7.11.7
+1.7.1
