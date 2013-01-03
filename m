@@ -1,52 +1,38 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [PATCH v2 net-next] team: add ethtool support
-Date: Thu, 3 Jan 2013 10:32:17 -0200
-Message-ID: <20130103123217.GB2278@obelix.rh>
-References: <1356835053-25602-1-git-send-email-fbl@redhat.com>
- <1356992186.31299.1.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] tcp: split tcp_ecn sysctl knob to distinguish
+ between IPv4 and IPv6
+Date: Thu, 03 Jan 2013 04:47:40 -0800
+Message-ID: <1357217260.21409.24224.camel@edumazet-glaptop>
+References: <20130103000009.GG4464@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48968 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752981Ab3ACMcX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jan 2013 07:32:23 -0500
-Content-Disposition: inline
-In-Reply-To: <1356992186.31299.1.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-pb0-f46.google.com ([209.85.160.46]:57240 "EHLO
+	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751237Ab3ACMrm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 07:47:42 -0500
+Received: by mail-pb0-f46.google.com with SMTP id wy7so8509236pbc.33
+        for <netdev@vger.kernel.org>; Thu, 03 Jan 2013 04:47:42 -0800 (PST)
+In-Reply-To: <20130103000009.GG4464@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 31, 2012 at 10:16:26PM +0000, Ben Hutchings wrote:
-> On Sun, 2012-12-30 at 00:37 -0200, Flavio Leitner wrote:
-> > This patch adds few ethtool operations to team driver.
-> > 
-> > Signed-off-by: Flavio Leitner <fbl@redhat.com>
-> > ---
-> > v2 - removed generic statistics from ethtool
-> > 
-> >  drivers/net/team/team.c | 17 +++++++++++++++++
-> >  1 file changed, 17 insertions(+)
-> > 
-> > diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> > index ad86660..7665a088 100644
-> > --- a/drivers/net/team/team.c
-> > +++ b/drivers/net/team/team.c
-> [...]
-> > +static void team_ethtool_get_drvinfo(struct net_device *dev,
-> > +				     struct ethtool_drvinfo *drvinfo)
-> > +{
-> > +	strncpy(drvinfo->driver, DRV_NAME, 32);
-> > +	strncpy(drvinfo->version, UTS_RELEASE, 32);
-> > +}
-> [...]
+On Thu, 2013-01-03 at 01:00 +0100, Hannes Frederic Sowa wrote:
+> ECN could be more reliable when used with IPv6 (I don't have proofs). For
+> people who want to try ECN with IPv6 but still have problems connecting
+> to destinations because of broken IPv4 routers this switch allows one
+> to enable ECN just for IPv6.
 > 
-> These must be null-terminated, so use strlcpy() not strncpy().
+> Perhaps ECN could be enabled by default in future.
+> 
+> No code changes since initial submission, just added documentation.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-Ok, I will post another patch fixing this and few other  drivers as
-well.
+It would be nice to make the ecn sysctl per net namespace.
 
-Thank you!
--- 
-fbl
+Do you have an idea of how to adapt your patch to get this as well ?
