@@ -1,53 +1,50 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/4] DSA: Convert msleep calls to usleep_range calls
-Date: Thu, 3 Jan 2013 22:56:31 +0000
-Message-ID: <1357253791.2685.48.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1357178098-4057-1-git-send-email-barry@grussling.com>
-	 <1357178098-4057-3-git-send-email-barry@grussling.com>
-	 <1357244056.2685.7.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CABLseQ6h8+Vu+eMwhTwC44vFArL107bLrwY-sipgR89RxWbSBA@mail.gmail.com>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Thu, 3 Jan 2013 23:45:58 +0000
+Message-ID: <20130103234558.GA1689@dcvr.yhbt.net>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+ <20130102200848.GA4500@dcvr.yhbt.net>
+ <20130102204712.GA17806@dcvr.yhbt.net>
+ <1357220469.21409.24574.camel@edumazet-glaptop>
+ <20130103183251.GA10113@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Barry Grussling <barry@grussling.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:28480 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753497Ab3ACW4e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 17:56:34 -0500
-In-Reply-To: <CABLseQ6h8+Vu+eMwhTwC44vFArL107bLrwY-sipgR89RxWbSBA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20130103183251.GA10113@dcvr.yhbt.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-03 at 14:33 -0800, Barry Grussling wrote:
-> On Thu, Jan 3, 2013 at 12:14 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > I seriously doubt that it is worth the trouble to save wake-ups during
-> > the occasional hardware reset.  And using usleep_range() 1000 times is
-> > weird.  If the sleep duration can vary then the right thing to do is
-> > probably to calculate a deadline first (jiffies + HZ) and then sleep
-> > repeatedly until the deadline is in the past.  This also accounts for
-> > the fact that HZ may be < 1000...
+Eric Wong <normalperson@yhbt.net> wrote:
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > With the following patch, I cant reproduce the 'apparent stuck'
 > 
-> I don't think the idea here is variable sleep time.  Its more just
-> giving hardware a little
-> bit of time to catch up with firmware.  I don't really care about
-> variable sleep times,
-> but checkpatch.pl says msleep of less than 20 ms is bad and may result in sleep
-> times of up to 20 ms for requests of shorter durations.
+> Right, the output is just an approximation and the logic there
+> was bogus.
+> 
+> Thanks for looking at this.
 
-Still true for usleep_range() on hardware that doesn't have an hrtimer.
+I'm still able to reproduce the issue under v3.8-rc2 with your patch
+for toosleepy.
 
-> Should I use udelay instead?  What is the recommended method for sleeping 1 ms?
+(As expected when blocked,) TCP send() will eventually return
+ETIMEOUT when I forget to check (and toosleepy will abort from it)
 
-This driver doesn't want to wait 1 ms, it wants to wait for up to 1
-second and poll periodically.  Think about the whole loop, not just that
-one function call.
+I think this requires frequent dirtying/cycling of pages to reproduce.
+(from copying large files around) to interact with compaction.
+I'll see if I can reproduce the issue with read-only FS activity.
 
-Ben.
+With 3.7.1 and compaction/THP disabled, I was able to run ~21 hours
+and copy a few TB around without anything getting stuck.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
