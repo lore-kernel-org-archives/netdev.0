@@ -1,49 +1,58 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] softirq: reduce latencies
-Date: Thu, 03 Jan 2013 11:41:35 -0800
-Message-ID: <50E5DEEF.2080009@hp.com>
-References: <CA+icZUVEvzyrPsQG1QWLnHxhtaewaWTOVzBpTnLqjKuHMjjFHg@mail.gmail.com> <1357219919.21409.24519.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] net: fix checking boundary of valid vlan id
+Date: Thu, 3 Jan 2013 20:06:31 +0000
+Message-ID: <1357243591.2685.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1356848931-22193-1-git-send-email-akong@redhat.com>
+	 <20130103003923.GA30625@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: sedat.dilek@gmail.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357219919.21409.24519.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <akong@redhat.com>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>,
+	Netfilter Development Mailing list
+	<netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130103003923.GA30625@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/03/2013 05:31 AM, Eric Dumazet wrote:
-> A common network load is to launch ~200 concurrent TCP_RR netperf
-> sessions like the following
->
-> netperf -H remote_host -t TCP_RR -l 1000
+On Thu, 2013-01-03 at 01:39 +0100, Pablo Neira Ayuso wrote:
+> On Sun, Dec 30, 2012 at 02:28:51PM +0800, akong@redhat.com wrote:
+> > From: Amos Kong <akong@redhat.com>
+> > 
+> > 4096 is not a valid vlan id.
+> > 
+> > Signed-off-by: Amos Kong <akong@redhat.com>
+> > ---
+> >  net/bridge/netfilter/ebt_vlan.c | 4 ++--
+> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > 
+> > diff --git a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
+> > index eae67bf..b279ec0 100644
+> > --- a/net/bridge/netfilter/ebt_vlan.c
+> > +++ b/net/bridge/netfilter/ebt_vlan.c
+> > @@ -121,8 +121,8 @@ static int ebt_vlan_mt_check(const struct xt_mtchk_param *par)
+> >  	 * if_vlan.h: VLAN_N_VID 4096. */
+> >  	if (GET_BITMASK(EBT_VLAN_ID)) {
+> >  		if (!!info->id) { /* if id!=0 => check vid range */
+> > -			if (info->id > VLAN_N_VID) {
+> > -				pr_debug("id %d is out of range (1-4096)\n",
+> > +			if (info->id >= VLAN_N_VID) {
+> > +				pr_debug("id %d is out of range (1-4095)\n",
+> 
+> Someone may forge frames including reserved VLAN ids.
 
-> And then you can launch some netperf asking P99_LATENCY results :
->
-> netperf -H remote_host -t TCP_RR -- -k P99_LATENCY
+They may find it difficult to fit the value 4096 into a 12-bit field,
+though.
 
-In terms of netperf overhead, once you specify P99_LATENCY, you are 
-already in for the pound of cost but only getting the penny of output 
-(so to speak).  While it would clutter the output, one could go ahead 
-and ask for the other latency stats and it won't "cost" anything more:
+Ben.
 
-... -- -k 
-RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
+> People can use ebtables to drop invalid frames, this is a firewalling
+> utility after all ;-). I'm not taking these, sorry.
 
-Additional information about how the omni output selectors work can be 
-found at 
-http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Omni-Output-Selection
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-happy benchmarking,
-
-rick jones
-
-BTW - you will likely see some differences between RT_LATENCY, which is 
-calculated from the average transactions per second, and MEAN_LATENCY, 
-which is calculated from the histogram of individual latencies 
-maintained when any of the _LATENCY outputs other than RT_LATENCY is 
-requested.  Kudos to the folks at Google who did the extensions to the 
-then-existing histogram code to enable it to be used for more reasonably 
-accurate statistics.
