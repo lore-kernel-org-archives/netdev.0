@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bridge: Correctly unregister MDB rtnetlink handlers
-Date: Thu, 03 Jan 2013 01:56:39 -0800 (PST)
-Message-ID: <20130103.015639.300000536792223155.davem@davemloft.net>
-References: <1357155685-14672-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH] vxlan: allow live mac address change
+Date: Thu, 03 Jan 2013 01:58:45 -0800 (PST)
+Message-ID: <20130103.015845.17138214634424115.davem@davemloft.net>
+References: <20121231140021.5ec82f3a@nehalam.linuxnetplumber.net>
+	<20130101081949.GA1531@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: vyasevic@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50076 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50107 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753027Ab3ACJ4k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 04:56:40 -0500
-In-Reply-To: <1357155685-14672-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1753046Ab3ACJ6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 04:58:46 -0500
+In-Reply-To: <20130101081949.GA1531@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed,  2 Jan 2013 14:41:25 -0500
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 1 Jan 2013 09:19:49 +0100
 
-> Commit 63233159fd4e596568f5f168ecb0879b61631d47:
->     bridge: Do not unregister all PF_BRIDGE rtnl operations
-> introduced a bug where a removal of a single bridge from a
-> multi-bridge system would remove MDB netlink handlers.
-> The handlers should only be removed once all bridges are gone, but
-> since we don't keep track of the number of bridge interfaces, it's
-> simpler to do it when the bridge module is unloaded.  To make it
-> consistent, move the registration code into module initialization
-> code path.
-> 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Mon, Dec 31, 2012 at 11:00:21PM CET, shemminger@vyatta.com wrote:
+>>The VXLAN pseudo-device doesn't care if the mac address changes
+>>when device is up.
+>>
+>>Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+ ...
+> Reviewed-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thanks.
+Applied.
