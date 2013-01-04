@@ -1,52 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP multi-core performance on a single socket and SO_REUSEPORT
-Date: Fri, 04 Jan 2013 11:37:18 -0800
-Message-ID: <1357328238.1678.2189.camel@edumazet-glaptop>
-References: <50DD6DF1.7080304@markandruth.co.uk>
-	 <50E72493.4050406@markandruth.co.uk>
+From: Rami Rosen <roszenrami@gmail.com>
+Subject: Re: linux-next: Tree for Jan 4 (net/bridge)
+Date: Fri, 4 Jan 2013 21:54:52 +0200
+Message-ID: <CAKoUArn=6UMjcKC6rnUmpkXFxQvSWnc=1N44iZFPKn80aMBNvA@mail.gmail.com>
+References: <20130104152814.3a3cf74bdec76cea09d3e134@canb.auug.org.au>
+	<50E72977.7030605@infradead.org>
+	<20130104112716.596f9085@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Mark Zealey <netdev@markandruth.co.uk>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:60781 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754436Ab3ADThW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 14:37:22 -0500
-Received: by mail-pb0-f42.google.com with SMTP id rp2so9365845pbb.15
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 11:37:22 -0800 (PST)
-In-Reply-To: <50E72493.4050406@markandruth.co.uk>
+Received: from mail-qc0-f169.google.com ([209.85.216.169]:52573 "EHLO
+	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755075Ab3ADTyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 14:54:54 -0500
+In-Reply-To: <20130104112716.596f9085@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-04 at 18:50 +0000, Mark Zealey wrote:
-> I have written two small test scripts now which can be found at 
-> http://mark.zealey.org/uploads/ - one launches 16 listening threads for 
-> a single UDP socket, the other needs to be run as
-> 
-> for i in `seq 16`; do ./udp_test_client & done
-> 
-> On my test server (32-core), stock kernel 3.7.1, 90% of the time is 
-> spent in the kernel waiting on spinlocks. Perf output:
+Hi,
 
-Mark
+The cause of the problem in net tree (but **not** net-next tree) is:
+commit 3ec8e9f085bcaef0de1077f555c2c5102c223390
+"bridge: Correctly unregister MDB rtnetlink handlers"
+and it is fixed by a patch from me, for the net tree, from yesterday.
 
-We know the scalability issue of using a single socket and many threads.
+see:
+http://www.spinics.net/lists/netdev/msg221168.html
 
-The send path was somehow fixed to not require socket lock.
+probably this patch, which was applied to net,  was not pulled yet.
 
-But the receive path uses a single receive_queue, protected by a
-spinlock.
+I believe that since the commit above was not to net-next, this
+problem is not observed in your tree.
 
-SO_REUSEPORT would be nice, but had known issues.
+Rami Rosen
+http://ramirose.wix.com/ramirosen
 
-af_packet fanout implementation was nicer.
-You could try :
-
-1) Use af_packet FANOUT instead of UDP sockets
-
-2) rewrite SO_REUSEPORT to use a FANOUT like implementation
-
-3) Extend UDP sockets to be able to use a configurable number of receive
-queues instead of a single one.
+On Fri, Jan 4, 2013 at 9:27 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
+> On Fri, 04 Jan 2013 11:11:51 -0800
+> Randy Dunlap <rdunlap@infradead.org> wrote:
+>
+>> On 01/03/13 20:28, Stephen Rothwell wrote:
+>> > Hi all,
+>> >
+>> > Changes since 20130103:
+>> >
+>>
+>> on i386 and x86_64:
+>>
+>>   CC      net/bridge/br_netlink.o
+>> net/bridge/br_netlink.c: In function 'br_netlink_init':
+>> net/bridge/br_netlink.c:307:2: error: implicit declaration of function 'br_mdb_init' [-Werror=implicit-function-declaration]
+>> net/bridge/br_netlink.c:314:2: error: implicit declaration of function 'br_mdb_uninit' [-Werror=implicit-function-declaration]
+>> cc1: some warnings being treated as errors
+>> make[3]: *** [net/bridge/br_netlink.o] Error 1
+>>
+>>
+>> Full randconfig file is attached.
+>>
+>>
+>
+> Problem not observed with current net-next and your configuration.
+> Probably already fixed.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
