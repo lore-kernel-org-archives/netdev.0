@@ -1,63 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-01-04
-Date: Fri, 04 Jan 2013 13:24:26 -0800 (PST)
-Message-ID: <20130104.132426.2174792167438869648.davem@davemloft.net>
-References: <20130104205343.GB21871@tuxdriver.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [patch net-next V6 00/15] net: introduce upper device lists
+ and remove dev->master
+Date: Fri, 04 Jan 2013 13:33:31 -0800 (PST)
+Message-ID: <20130104.133331.1729083969241157711.davem@davemloft.net>
+References: <1357289343-817-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40839 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754682Ab3ADVY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 16:24:27 -0500
-In-Reply-To: <20130104205343.GB21871@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org,
+	divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
+	sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+	linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org, shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org,
+	bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org, therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
+	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+To: jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1357289343-817-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 4 Jan 2013 15:53:43 -0500
+From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Date: Fri,  4 Jan 2013 09:48:48 +0100
 
-> Arend "fixes" a copyright notice in brcmsmac -- seems harmless.
->=20
-> Christian Lamparter adds a device ID to p54usb, and changes the
-> interface combinations reported by carl9170 in order to get it
-> working again.
->=20
-> Geert Uytterhoeven gives us a pair of fixes for Kconfig warnings
-> about bcma and ssb.
->=20
-> Hante Meuleman fixes some IE parsing to get AP mode working with
-> WPA2 security.
->=20
-> Jesper Juhl fixes a urb leak in rtlwifi.
->=20
-> Jussi Kivilinna fixes some mis-usage of usb_alloc_coherent in rtlwifi=
-,
-> avoiding a BUG on ARM.
->=20
-> Larry Finger provides a handful of rtlwifi fixes to avoid some log
-> SPAM due to not checking the return of pci_map_single.
->=20
-> Niels Ole Salscheider changes a usleep_range in brcmsmac to use udela=
-y
-> instead, avoiding a "BUG: scheduling while atomic".
->=20
-> Rafa=A9=A9 Mi=A9=A9ecki fixes an ID for a serial flash in the bcma co=
-de.
->=20
-> Sujith Manoharan provides a pair of ath9k fixes, one for a compilatio=
-n
-> break and one to correct some gain-related initvals.
->=20
-> Tomasz Guszkowski adds a device ID to p54usb.
->=20
-> Vladimir Kondratiev fixes a Kconfig problem which cause ath9k_htc
-> not to build properly.
->=20
-> Please let me know if there are problems!
+> This patchset adds a possibility to record upper device linkage.
+> All upper<->lower devices are converted to use this mechanism right after.
+> That leads to dev->master removal because this info becomes redundant since
+> "master links" have the same value.
 
-Pulled, thanks John.
+Series applied, thanks Jiri.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
