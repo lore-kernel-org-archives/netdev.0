@@ -1,82 +1,118 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] softirq: reduce latencies
-Date: Thu, 03 Jan 2013 20:41:50 -0800
-Message-ID: <1357274510.21409.27807.camel@edumazet-glaptop>
-References: <CA+icZUVEvzyrPsQG1QWLnHxhtaewaWTOVzBpTnLqjKuHMjjFHg@mail.gmail.com>
-	 <1357219919.21409.24519.camel@edumazet-glaptop>  <50E5DEEF.2080009@hp.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: TUN problems (regression?)
+Date: Fri, 04 Jan 2013 13:04:21 +0800
+Message-ID: <50E662D5.8010007@redhat.com>
+References: <4151394.nMo40zlg68@sifl> <1356046697.21834.3606.camel@edumazet-glaptop> <20121220155001.538bbdb0@nehalam.linuxnetplumber.net> <50D3D85B.1070605@redhat.com> <1356061179.21834.4515.camel@edumazet-glaptop> <50D3E510.6020008@redhat.com> <20121227164106.078604a8@nehalam.linuxnetplumber.net> <50DD319A.5000708@redhat.com> <20121227222513.394d8234@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: sedat.dilek@gmail.com, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Cc: Eric Dumazet <erdnetdev@gmail.com>, Paul Moore <pmoore@redhat.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:56019 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754397Ab3ADElz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 23:41:55 -0500
-In-Reply-To: <50E5DEEF.2080009@hp.com>
+Received: from mx1.redhat.com ([209.132.183.28]:48742 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750837Ab3ADFE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2013 00:04:27 -0500
+In-Reply-To: <20121227222513.394d8234@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-03 at 11:41 -0800, Rick Jones wrote:
+On 12/28/2012 02:25 PM, Stephen Hemminger wrote:
+> On Fri, 28 Dec 2012 13:43:54 +0800
+> Jason Wang <jasowang@redhat.com> wrote:
+>
+>> On 12/28/2012 08:41 AM, Stephen Hemminger wrote:
+>>> On Fri, 21 Dec 2012 12:26:56 +0800
+>>> Jason Wang <jasowang@redhat.com> wrote:
+>>>
+>>>> On 12/21/2012 11:39 AM, Eric Dumazet wrote:
+>>>>> On Fri, 2012-12-21 at 11:32 +0800, Jason Wang wrote:
+>>>>>> On 12/21/2012 07:50 AM, Stephen Hemminger wrote:
+>>>>>>> On Thu, 20 Dec 2012 15:38:17 -0800
+>>>>>>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>>>>>>>
+>>>>>>>> On Thu, 2012-12-20 at 18:16 -0500, Paul Moore wrote:
+>>>>>>>>> [CC'ing netdev in case this is a known problem I just missed ...]
+>>>>>>>>>
+>>>>>>>>> Hi Jason,
+>>>>>>>>>
+>>>>>>>>> I started doing some more testing with the multiqueue TUN changes and I ran 
+>>>>>>>>> into a problem when running tunctl: running it once w/o arguments works as 
+>>>>>>>>> expected, but running it a second time results in failure and a 
+>>>>>>>>> kmem_cache_sanity_check() failure.  The problem appears to be very repeatable 
+>>>>>>>>> on my test VM and happens independent of the LSM/SELinux fixup patches.
+>>>>>>>>>
+>>>>>>>>> Have you seen this before?
+>>>>>>>>>
+>>>>>>>> Obviously code in tun_flow_init() is wrong...
+>>>>>>>>
+>>>>>>>> static int tun_flow_init(struct tun_struct *tun)
+>>>>>>>> {
+>>>>>>>>         int i;
+>>>>>>>>
+>>>>>>>>         tun->flow_cache = kmem_cache_create("tun_flow_cache",
+>>>>>>>>                                             sizeof(struct tun_flow_entry), 0, 0,
+>>>>>>>>                                             NULL);
+>>>>>>>>         if (!tun->flow_cache)
+>>>>>>>>                 return -ENOMEM;
+>>>>>>>> ...
+>>>>>>>> }
+>>>>>>>>
+>>>>>>>>
+>>>>>>>> I have no idea why we would need a kmem_cache per tun_struct,
+>>>>>>>> and why we even need a kmem_cache.
+>>>>>>> Normally flow malloc/free should be good enough.
+>>>>>>> It might make sense to use private kmem_cache if doing hlist_nulls.
+>>>>>>>
+>>>>>>>
+>>>>>>> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>>>>>> Should be at least a global cache, I thought I can get some speed-up by
+>>>>>> using kmem_cache.
+>>>>>>
+>>>>>> Acked-by: Jason Wang <jasowang@redhat.com>
+>>>>> Was it with SLUB or SLAB ?
+>>>>>
+>>>>> Using generic kmalloc-64 is better than a dedicated kmem_cache of 48
+>>>>> bytes per object, as we guarantee each object is on a single cache line.
+>>>>>
+>>>>>
+>>>> Right, thanks for the explanation.
+>>>>
+>>> I wonder if TUN would be better if it used a array to translate
+>>> receive hash to receive queue. This is how real hardware works with the
+>>> indirection table, and it would allow RFS acceleration. The current flow
+>>> cache stuff is prone to DoS attack and scaling problems with lots of
+>>> short lived flows.
+>> The problem of indirection table is hash collision which may even happen
+>> when few flows existed.
+> Hash collision is fine, as long as the the statistical average of
+> hash across queue's is approximately equal it will be faster. A simple
+> array indirection is much faster than walking a hash table.
 
-> In terms of netperf overhead, once you specify P99_LATENCY, you are 
-> already in for the pound of cost but only getting the penny of output 
-> (so to speak).  While it would clutter the output, one could go ahead 
-> and ask for the other latency stats and it won't "cost" anything more:
-> 
-> ... -- -k 
-> RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
-> 
-> Additional information about how the omni output selectors work can be 
-> found at 
-> http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Omni-Output-Selection
-> 
-> happy benchmarking,
-> 
-> rick jones
-> 
-> BTW - you will likely see some differences between RT_LATENCY, which is 
-> calculated from the average transactions per second, and MEAN_LATENCY, 
-> which is calculated from the histogram of individual latencies 
-> maintained when any of the _LATENCY outputs other than RT_LATENCY is 
-> requested.  Kudos to the folks at Google who did the extensions to the 
-> then-existing histogram code to enable it to be used for more reasonably 
-> accurate statistics.
-> 
-
-Yeah ;)
-
-Here are the before/after_patch results, cpu 2 handling the NIC irqs :
-
-
-Before patch :
-
-# netperf -H 7.7.7.84 -t TCP_RR -T2,2 -- -k
-RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
-to 7.7.7.84 () port 0 AF_INET : first burst 0 : cpu bind
-RT_LATENCY=550110.424
-MIN_LATENCY=146858
-MAX_LATENCY=997109
-P50_LATENCY=305000
-P90_LATENCY=550000
-P99_LATENCY=710000
-MEAN_LATENCY=376989.12
-STDDEV_LATENCY=184046.92
-
-After patch :
-
-# netperf -H 7.7.7.84 -t TCP_RR -T2,2 -- -k
-RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
-MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
-to 7.7.7.84 () port 0 AF_INET : first burst 0 : cpu bind
-RT_LATENCY=40545.492
-MIN_LATENCY=9834
-MAX_LATENCY=78366
-P50_LATENCY=33583
-P90_LATENCY=59000
-P99_LATENCY=69000
-MEAN_LATENCY=38364.67
-STDDEV_LATENCY=12865.26
+True, but hash collision may cause some negative effects such as losing
+the flow affinity and packet re-ordering in guest which does not exist
+in a perfect filter. Maybe we can implement them both and let user to
+choose.
+>
+>> For the RFS, we can open a API/ioctl for userspace to add or remove a
+>> flow cache.
+> RFS acceleration relies on programming the table. It is easier if
+> TUN looks more like hardware.
+>
+>> For the DoS/scaling issue, I have an idea of:
+>> - limit the total number of flow entries in tun/tap
+>> - only update the flow entry every N (say 20 like ixgbe) packets or the
+>> the tcp packet has sync flag
+>> - I'm not sure skb_get_rxhash() is lightweight enough, or change to more
+>> lightweight one?
+> Ideally the hash should be programmable L2 vs L3, but that is splitting
+> hairs at this point.
+>
+> Flow tables are scaling problem, especially on highly loaded servers where
+> they are most needed.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
