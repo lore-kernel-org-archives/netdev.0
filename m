@@ -1,112 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: xt_recent: avoid high order page allocations
-Date: Fri, 04 Jan 2013 00:18:39 -0800
-Message-ID: <1357287519.1678.70.camel@edumazet-glaptop>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: Re: [PATCH v2 net-next] softirq: reduce latencies
+Date: Fri, 04 Jan 2013 00:23:06 -0800
+Message-ID: <1357287786.1678.87.camel@edumazet-glaptop>
+References: <1357216132.21409.24107.camel@edumazet-glaptop>
+	 <1357250880.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1357252816.21409.26384.camel@edumazet-glaptop>
+	 <1357285780.21409.28416.camel@edumazet-glaptop>
+	 <1357287351.5452.44.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Miroslav Kratochvil <exa.exa@gmail.com>,
-	h.reindl@thelounge.net, Dave Jones <davej@redhat.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357287351.5452.44.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, 2013-01-04 at 00:15 -0800, Joe Perches wrote:
+> On Thu, 2013-01-03 at 23:49 -0800, Eric Dumazet wrote:
+> > In various network workloads, __do_softirq() latencies can be up
+> > to 20 ms if HZ=1000, and 200 ms if HZ=100.
+> > This patch changes the fallback to ksoftirqd condition to :
+> > - A time limit of 2 ms.
+> 
+> []
+> > diff --git a/kernel/softirq.c b/kernel/softirq.c
+> []
+> > +#define MAX_SOFTIRQ_TIME  max(1, (2*HZ/1000))
+> 
+> And if HZ is 10000?
+>  
 
-xt_recent can try high order page allocations and this can fail.
-
-iptables: page allocation failure: order:9, mode:0xc0d0
-
-It also wastes about half the allocated space because of kmalloc()
-power-of-two roundups and struct recent_table layout.
-
-Use vmalloc() instead to save space and be less prone to allocation
-errors when memory is fragmented.
-
-Reported-by: Miroslav Kratochvil <exa.exa@gmail.com>
-Reported-by: Dave Jones <davej@redhat.com>
-Reported-by: Harald Reindl <h.reindl@thelounge.net>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/netfilter/xt_recent.c |   23 ++++++++++++++++++-----
- 1 file changed, 18 insertions(+), 5 deletions(-)
-
-diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index dab053e..978efc9 100644
---- a/net/netfilter/xt_recent.c
-+++ b/net/netfilter/xt_recent.c
-@@ -29,6 +29,7 @@
- #include <linux/skbuff.h>
- #include <linux/inet.h>
- #include <linux/slab.h>
-+#include <linux/vmalloc.h>
- #include <net/net_namespace.h>
- #include <net/netns/generic.h>
- 
-@@ -310,6 +311,14 @@ out:
- 	return ret;
- }
- 
-+static void recent_table_free(void *addr)
-+{
-+	if (is_vmalloc_addr(addr))
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
- static int recent_mt_check(const struct xt_mtchk_param *par,
- 			   const struct xt_recent_mtinfo_v1 *info)
- {
-@@ -322,6 +331,7 @@ static int recent_mt_check(const struct xt_mtchk_param *par,
- #endif
- 	unsigned int i;
- 	int ret = -EINVAL;
-+	size_t sz;
- 
- 	if (unlikely(!hash_rnd_inited)) {
- 		get_random_bytes(&hash_rnd, sizeof(hash_rnd));
-@@ -360,8 +370,11 @@ static int recent_mt_check(const struct xt_mtchk_param *par,
- 		goto out;
- 	}
- 
--	t = kzalloc(sizeof(*t) + sizeof(t->iphash[0]) * ip_list_hash_size,
--		    GFP_KERNEL);
-+	sz = sizeof(*t) + sizeof(t->iphash[0]) * ip_list_hash_size;
-+	if (sz <= PAGE_SIZE)
-+		t = kzalloc(sz, GFP_KERNEL);
-+	else
-+		t = vzalloc(sz);
- 	if (t == NULL) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -377,14 +390,14 @@ static int recent_mt_check(const struct xt_mtchk_param *par,
- 	uid = make_kuid(&init_user_ns, ip_list_uid);
- 	gid = make_kgid(&init_user_ns, ip_list_gid);
- 	if (!uid_valid(uid) || !gid_valid(gid)) {
--		kfree(t);
-+		recent_table_free(t);
- 		ret = -EINVAL;
- 		goto out;
- 	}
- 	pde = proc_create_data(t->name, ip_list_perms, recent_net->xt_recent,
- 		  &recent_mt_fops, t);
- 	if (pde == NULL) {
--		kfree(t);
-+		recent_table_free(t);
- 		ret = -ENOMEM;
- 		goto out;
- 	}
-@@ -435,7 +448,7 @@ static void recent_mt_destroy(const struct xt_mtdtor_param *par)
- 			remove_proc_entry(t->name, recent_net->xt_recent);
- #endif
- 		recent_table_flush(t);
--		kfree(t);
-+		recent_table_free(t);
- 	}
- 	mutex_unlock(&recent_mutex);
- }
+Then its OK.  2*10000/1000 -> 20 ticks -> 2 ms
 
 
+> >  asmlinkage void __do_softirq(void)
+> >  {
+> []
+> > +	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
+> 
+> Perhaps MAX_SOFTIRQ_TIME should be
+> 
+> #define MAX_SOFTIRQ_TIME msecs_to_jiffies(2)
+> 
+> though it would be nicer if it were a compile time constant.
+
+If you send a patch to convert msecs_to_jiffies() to an inline function
+when HZ = 1000, I will gladly use it instead of (2*HZ/1000)
+
+Right now, max(1, msecs_to_jiffies(2)) uses way too many instructions,
+while it should be the constant 2, known at compile time.
