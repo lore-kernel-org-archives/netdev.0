@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V6 02/15] macvlan: add link to upper device
-Date: Fri,  4 Jan 2013 09:48:50 +0100
-Message-ID: <1357289343-817-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next V6 05/15] team: remove usage of netdev_set_master()
+Date: Fri,  4 Jan 2013 09:48:53 +0100
+Message-ID: <1357289343-817-6-git-send-email-jiri@resnulli.us>
 References: <1357289343-817-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
@@ -16,57 +16,55 @@ Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
 	fbl@redhat.com
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:60952 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753994Ab3ADItU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 03:49:20 -0500
-Received: by mail-ea0-f179.google.com with SMTP id i12so6512289eaa.10
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 00:49:19 -0800 (PST)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1357289343-817-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/macvlan.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/team/team.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 68a43fe..b7b614f 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -765,16 +765,22 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 		memcpy(dev->dev_addr, lowerdev->dev_addr, ETH_ALEN);
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 78c7d87..5f35d6b 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1055,10 +1055,11 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 		}
  	}
  
-+	err = netdev_upper_dev_link(lowerdev, dev);
-+	if (err)
-+		goto destroy_port;
-+
- 	port->count += 1;
- 	err = register_netdevice(dev);
- 	if (err < 0)
--		goto destroy_port;
-+		goto upper_dev_unlink;
+-	err = netdev_set_master(port_dev, dev);
++	err = netdev_master_upper_dev_link(port_dev, dev);
+ 	if (err) {
+-		netdev_err(dev, "Device %s failed to set master\n", portname);
+-		goto err_set_master;
++		netdev_err(dev, "Device %s failed to set upper link\n",
++			   portname);
++		goto err_set_upper_link;
+ 	}
  
- 	list_add_tail(&vlan->list, &port->vlans);
- 	netif_stacked_transfer_operstate(lowerdev, dev);
+ 	err = netdev_rx_handler_register(port_dev, team_handle_frame,
+@@ -1091,9 +1092,9 @@ err_option_port_add:
+ 	netdev_rx_handler_unregister(port_dev);
  
- 	return 0;
+ err_handler_register:
+-	netdev_set_master(port_dev, NULL);
++	netdev_upper_dev_unlink(port_dev, dev);
  
-+upper_dev_unlink:
-+	netdev_upper_dev_unlink(lowerdev, dev);
- destroy_port:
- 	port->count -= 1;
- 	if (!port->count)
-@@ -798,6 +804,7 @@ void macvlan_dellink(struct net_device *dev, struct list_head *head)
+-err_set_master:
++err_set_upper_link:
+ 	team_port_disable_netpoll(port);
  
- 	list_del(&vlan->list);
- 	unregister_netdevice_queue(dev, head);
-+	netdev_upper_dev_unlink(vlan->lowerdev, dev);
- }
- EXPORT_SYMBOL_GPL(macvlan_dellink);
- 
+ err_enable_netpoll:
+@@ -1137,7 +1138,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+ 	team_port_disable(team, port);
+ 	list_del_rcu(&port->list);
+ 	netdev_rx_handler_unregister(port_dev);
+-	netdev_set_master(port_dev, NULL);
++	netdev_upper_dev_unlink(port_dev, dev);
+ 	team_port_disable_netpoll(port);
+ 	vlan_vids_del_by_dev(port_dev, dev);
+ 	dev_close(port_dev);
 -- 
 1.8.0
