@@ -1,569 +1,673 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH v3 1/1 net-next] NET: FEC: dynamtic check DMA desc buff type
-Date: Fri, 4 Jan 2013 10:04:23 +0800
-Message-ID: <1357265063-30528-1-git-send-email-Frank.Li@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-arm-kernel@lists.infradead.org>, <shawn.guo@linaro.org>,
-	<netdev@vger.kernel.org>, Frank Li <Frank.Li@freescale.com>
-To: <lznuaa@gmail.com>, <davem@davemloft.net>, <s.hauer@pengutronix.de>
+From: Cong Wang <amwang@redhat.com>
+Subject: [PATCH net-next v3 1/3] netpoll: prepare for ipv6
+Date: Fri,  4 Jan 2013 10:45:39 +0800
+Message-ID: <1357267541-6433-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe006.messaging.microsoft.com ([216.32.180.189]:52736
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753833Ab3ADCn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 21:43:56 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:42382 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753833Ab3ADCpy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Jan 2013 21:45:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MX6 and mx28 support enhanced DMA descriptor buff to support 1588
-ptp. But MX25, MX3x, MX5x can't support enhanced DMA descriptor buff.
-Check fec type and choose correct DMA descriptor buff type.
+From: Cong Wang <amwang@redhat.com>
 
-Remove static config CONFIG_FEC_PTP.
-ptp function will be auto detected.
+v3: fix CONFIG_IPV6=m case
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
+v2: use bool for ipv6 flag
+    fix !CONFIG_IPV6 case
+
+This patch adjusts some struct and functions, to prepare
+for supporting IPv6.
+
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
-change from v2->v3:
- 1. s/DAM/DMA/
- 2. s/descript/descriptor/g
- 3. s/QUICK/QUIRK/g
- 
-change from v1->v2:
- 1. remove CONFIG_FEC_PTP
- 2. fix code style issue. pass checkpatch
- 3. fix issue "return bdp++", return value is not added
- 4. remove unnecessary module parameter fec_ptp_enable
- 5. change get_nextdesc to fec_enet_get_nextdesc
+ drivers/net/netconsole.c |   12 +-
+ include/linux/netpoll.h  |   13 ++-
+ net/core/netpoll.c       |  402 ++++++++++++++++++++++++++--------------------
+ 3 files changed, 243 insertions(+), 184 deletions(-)
 
- drivers/net/ethernet/freescale/Kconfig  |    9 +--
- drivers/net/ethernet/freescale/Makefile |    3 +-
- drivers/net/ethernet/freescale/fec.c    |  175 +++++++++++++++++++------------
- drivers/net/ethernet/freescale/fec.h    |   16 +--
- 4 files changed, 116 insertions(+), 87 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
-index ec490d7..6048dc8 100644
---- a/drivers/net/ethernet/freescale/Kconfig
-+++ b/drivers/net/ethernet/freescale/Kconfig
-@@ -26,6 +26,7 @@ config FEC
- 		   ARCH_MXC || SOC_IMX28)
- 	default ARCH_MXC || SOC_IMX28 if ARM
- 	select PHYLIB
-+	select PTP_1588_CLOCK
- 	---help---
- 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
- 	  controller on some Motorola ColdFire and Freescale i.MX processors.
-@@ -92,12 +93,4 @@ config GIANFAR
- 	  This driver supports the Gigabit TSEC on the MPC83xx, MPC85xx,
- 	  and MPC86xx family of chips, and the FEC on the 8540.
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index 6989ebe..998fa02 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -269,12 +269,14 @@ static ssize_t show_remote_port(struct netconsole_target *nt, char *buf)
  
--config FEC_PTP
--	bool "PTP Hardware Clock (PHC)"
--	depends on FEC && ARCH_MXC && !SOC_IMX25 && !SOC_IMX27 && !SOC_IMX35 && !SOC_IMX5
--	select PTP_1588_CLOCK
--	--help---
--	  Say Y here if you want to use PTP Hardware Clock (PHC) in the
--	  driver.  Only the basic clock operations have been implemented.
--
- endif # NET_VENDOR_FREESCALE
-diff --git a/drivers/net/ethernet/freescale/Makefile b/drivers/net/ethernet/freescale/Makefile
-index d4d19b3..b7d58fe 100644
---- a/drivers/net/ethernet/freescale/Makefile
-+++ b/drivers/net/ethernet/freescale/Makefile
-@@ -2,8 +2,7 @@
- # Makefile for the Freescale network device drivers.
- #
- 
--obj-$(CONFIG_FEC) += fec.o
--obj-$(CONFIG_FEC_PTP) += fec_ptp.o
-+obj-$(CONFIG_FEC) += fec.o fec_ptp.o
- obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx.o
- ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
- 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 0704bca..a379319 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -76,6 +76,8 @@
- #define FEC_QUIRK_USE_GASKET		(1 << 2)
- /* Controller has GBIT support */
- #define FEC_QUIRK_HAS_GBIT		(1 << 3)
-+/* Controller has extend desc buffer */
-+#define FEC_QUIRK_HAS_BUFDESC_EX	(1 << 4)
- 
- static struct platform_device_id fec_devtype[] = {
- 	{
-@@ -93,7 +95,8 @@ static struct platform_device_id fec_devtype[] = {
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
- 	}, {
- 		.name = "imx6q-fec",
--		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT,
-+		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
-+				FEC_QUIRK_HAS_BUFDESC_EX,
- 	}, {
- 		/* sentinel */
- 	}
-@@ -140,7 +143,7 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #endif
- #endif /* CONFIG_M5272 */
- 
--#if (((RX_RING_SIZE + TX_RING_SIZE) * 8) > PAGE_SIZE)
-+#if (((RX_RING_SIZE + TX_RING_SIZE) * 32) > PAGE_SIZE)
- #error "FEC: descriptor ring size constants too large"
- #endif
- 
-@@ -192,6 +195,24 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- 
- static int mii_cnt;
- 
-+static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp, int is_ex)
-+{
-+	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-+	if (is_ex)
-+		return (struct bufdesc *)(ex + 1);
-+	else
-+		return bdp + 1;
-+}
-+
-+static struct bufdesc *fec_enet_get_prevdesc(struct bufdesc *bdp, int is_ex)
-+{
-+	struct bufdesc_ex *ex = (struct bufdesc_ex *)bdp;
-+	if (is_ex)
-+		return (struct bufdesc *)(ex - 1);
-+	else
-+		return bdp - 1;
-+}
-+
- static void *swap_buffer(void *bufaddr, int len)
+ static ssize_t show_local_ip(struct netconsole_target *nt, char *buf)
  {
- 	int i;
-@@ -248,7 +269,11 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	 */
- 	if (((unsigned long) bufaddr) & FEC_ALIGNMENT) {
- 		unsigned int index;
--		index = bdp - fep->tx_bd_base;
-+		if (fep->bufdesc_ex)
-+			index = (struct bufdesc_ex *)bdp -
-+				(struct bufdesc_ex *)fep->tx_bd_base;
-+		else
-+			index = bdp - fep->tx_bd_base;
- 		memcpy(fep->tx_bounce[index], skb->data, skb->len);
- 		bufaddr = fep->tx_bounce[index];
- 	}
-@@ -280,17 +305,19 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 			| BD_ENET_TX_LAST | BD_ENET_TX_TC);
- 	bdp->cbd_sc = status;
- 
--#ifdef CONFIG_FEC_PTP
--	bdp->cbd_bdu = 0;
--	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
-+	if (fep->bufdesc_ex) {
-+
-+		struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-+		ebdp->cbd_bdu = 0;
-+		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
- 			fep->hwts_tx_en)) {
--			bdp->cbd_esc = (BD_ENET_TX_TS | BD_ENET_TX_INT);
-+			ebdp->cbd_esc = (BD_ENET_TX_TS | BD_ENET_TX_INT);
- 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
--	} else {
-+		} else {
- 
--		bdp->cbd_esc = BD_ENET_TX_INT;
-+			ebdp->cbd_esc = BD_ENET_TX_INT;
-+		}
- 	}
--#endif
- 	/* Trigger transmission start */
- 	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
- 
-@@ -298,7 +325,7 @@ fec_enet_start_xmit(struct sk_buff *skb, struct net_device *ndev)
- 	if (status & BD_ENET_TX_WRAP)
- 		bdp = fep->tx_bd_base;
- 	else
--		bdp++;
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 
- 	if (bdp == fep->dirty_tx) {
- 		fep->tx_full = 1;
-@@ -359,8 +386,12 @@ fec_restart(struct net_device *ndev, int duplex)
- 
- 	/* Set receive and transmit descriptor base. */
- 	writel(fep->bd_dma, fep->hwp + FEC_R_DES_START);
--	writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc) * RX_RING_SIZE,
--			fep->hwp + FEC_X_DES_START);
-+	if (fep->bufdesc_ex)
-+		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc_ex)
-+			* RX_RING_SIZE, fep->hwp + FEC_X_DES_START);
-+	else
-+		writel((unsigned long)fep->bd_dma + sizeof(struct bufdesc)
-+			* RX_RING_SIZE,	fep->hwp + FEC_X_DES_START);
- 
- 	fep->dirty_tx = fep->cur_tx = fep->tx_bd_base;
- 	fep->cur_rx = fep->rx_bd_base;
-@@ -448,17 +479,16 @@ fec_restart(struct net_device *ndev, int duplex)
- 		writel(1 << 8, fep->hwp + FEC_X_WMRK);
- 	}
- 
--#ifdef CONFIG_FEC_PTP
--	ecntl |= (1 << 4);
--#endif
-+	if (fep->bufdesc_ex)
-+		ecntl |= (1 << 4);
- 
- 	/* And last, enable the transmit and receive processing */
- 	writel(ecntl, fep->hwp + FEC_ECNTRL);
- 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
- 
--#ifdef CONFIG_FEC_PTP
--	fec_ptp_start_cyclecounter(ndev);
--#endif
-+	if (fep->bufdesc_ex)
-+		fec_ptp_start_cyclecounter(ndev);
-+
- 	/* Enable interrupts we wish to service */
- 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
- }
-@@ -544,19 +574,20 @@ fec_enet_tx(struct net_device *ndev)
- 			ndev->stats.tx_packets++;
- 		}
- 
--#ifdef CONFIG_FEC_PTP
--		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS)) {
-+		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) &&
-+			fep->bufdesc_ex) {
- 			struct skb_shared_hwtstamps shhwtstamps;
- 			unsigned long flags;
-+			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
- 
- 			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
- 			spin_lock_irqsave(&fep->tmreg_lock, flags);
- 			shhwtstamps.hwtstamp = ns_to_ktime(
--				timecounter_cyc2time(&fep->tc, bdp->ts));
-+				timecounter_cyc2time(&fep->tc, ebdp->ts));
- 			spin_unlock_irqrestore(&fep->tmreg_lock, flags);
- 			skb_tstamp_tx(skb, &shhwtstamps);
- 		}
--#endif
-+
- 		if (status & BD_ENET_TX_READY)
- 			printk("HEY! Enet xmit interrupt and TX_READY.\n");
- 
-@@ -575,7 +606,7 @@ fec_enet_tx(struct net_device *ndev)
- 		if (status & BD_ENET_TX_WRAP)
- 			bdp = fep->tx_bd_base;
- 		else
--			bdp++;
-+			bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 
- 		/* Since we have freed up a buffer, the ring is no longer full
- 		 */
-@@ -683,21 +714,23 @@ fec_enet_rx(struct net_device *ndev)
- 			skb_put(skb, pkt_len - 4);	/* Make room */
- 			skb_copy_to_linear_data(skb, data, pkt_len - 4);
- 			skb->protocol = eth_type_trans(skb, ndev);
--#ifdef CONFIG_FEC_PTP
-+
- 			/* Get receive timestamp from the skb */
--			if (fep->hwts_rx_en) {
-+			if (fep->hwts_rx_en && fep->bufdesc_ex) {
- 				struct skb_shared_hwtstamps *shhwtstamps =
- 							    skb_hwtstamps(skb);
- 				unsigned long flags;
-+				struct bufdesc_ex *ebdp =
-+					(struct bufdesc_ex *)bdp;
- 
- 				memset(shhwtstamps, 0, sizeof(*shhwtstamps));
- 
- 				spin_lock_irqsave(&fep->tmreg_lock, flags);
- 				shhwtstamps->hwtstamp = ns_to_ktime(
--				    timecounter_cyc2time(&fep->tc, bdp->ts));
-+				    timecounter_cyc2time(&fep->tc, ebdp->ts));
- 				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
- 			}
--#endif
-+
- 			if (!skb_defer_rx_timestamp(skb))
- 				netif_rx(skb);
- 		}
-@@ -712,17 +745,19 @@ rx_processing_done:
- 		status |= BD_ENET_RX_EMPTY;
- 		bdp->cbd_sc = status;
- 
--#ifdef CONFIG_FEC_PTP
--		bdp->cbd_esc = BD_ENET_RX_INT;
--		bdp->cbd_prot = 0;
--		bdp->cbd_bdu = 0;
--#endif
-+		if (fep->bufdesc_ex) {
-+			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-+
-+			ebdp->cbd_esc = BD_ENET_RX_INT;
-+			ebdp->cbd_prot = 0;
-+			ebdp->cbd_bdu = 0;
-+		}
- 
- 		/* Update BD pointer to next entry */
- 		if (status & BD_ENET_RX_WRAP)
- 			bdp = fep->rx_bd_base;
- 		else
--			bdp++;
-+			bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 		/* Doing this here will keep the FEC running while we process
- 		 * incoming frames.  On a heavily loaded network, we should be
- 		 * able to keep up at the expense of system resources.
-@@ -1157,10 +1192,9 @@ static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
- 	if (!phydev)
- 		return -ENODEV;
- 
--#ifdef CONFIG_FEC_PTP
--	if (cmd == SIOCSHWTSTAMP)
-+	if (cmd == SIOCSHWTSTAMP && fep->bufdesc_ex)
- 		return fec_ptp_ioctl(ndev, rq, cmd);
--#endif
-+
- 	return phy_mii_ioctl(phydev, rq, cmd);
+-	return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.local_ip);
++	if (!nt->np.ipv6)
++		return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.local_ip);
  }
  
-@@ -1180,7 +1214,7 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
- 		if (skb)
- 			dev_kfree_skb(skb);
--		bdp++;
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+ static ssize_t show_remote_ip(struct netconsole_target *nt, char *buf)
+ {
+-	return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.remote_ip);
++	if (!nt->np.ipv6)
++		return snprintf(buf, PAGE_SIZE, "%pI4\n", &nt->np.remote_ip);
+ }
+ 
+ static ssize_t show_local_mac(struct netconsole_target *nt, char *buf)
+@@ -410,7 +412,8 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
+ 		return -EINVAL;
  	}
  
- 	bdp = fep->tx_bd_base;
-@@ -1207,14 +1241,17 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
- 				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
- 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
--#ifdef CONFIG_FEC_PTP
--		bdp->cbd_esc = BD_ENET_RX_INT;
--#endif
--		bdp++;
-+
-+		if (fep->bufdesc_ex) {
-+			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-+			ebdp->cbd_esc = BD_ENET_RX_INT;
-+		}
-+
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
+-	nt->np.local_ip = in_aton(buf);
++	if (!strnchr(buf, count, ':'))
++		nt->np.local_ip.ip = in_aton(buf);
+ 
+ 	return strnlen(buf, count);
+ }
+@@ -426,7 +429,8 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
+ 		return -EINVAL;
  	}
  
- 	/* Set the last buffer to wrap. */
--	bdp--;
-+	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
+-	nt->np.remote_ip = in_aton(buf);
++	if (!strnchr(buf, count, ':'))
++		nt->np.remote_ip.ip = in_aton(buf);
  
- 	bdp = fep->tx_bd_base;
-@@ -1224,14 +1261,16 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
- 		bdp->cbd_sc = 0;
- 		bdp->cbd_bufaddr = 0;
+ 	return strnlen(buf, count);
+ }
+diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+index 66d5379..f54c3bb 100644
+--- a/include/linux/netpoll.h
++++ b/include/linux/netpoll.h
+@@ -12,13 +12,22 @@
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
  
--#ifdef CONFIG_FEC_PTP
--		bdp->cbd_esc = BD_ENET_RX_INT;
--#endif
--		bdp++;
-+		if (fep->bufdesc_ex) {
-+			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
-+			ebdp->cbd_esc = BD_ENET_RX_INT;
-+		}
-+
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap. */
--	bdp--;
-+	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	return 0;
-@@ -1444,7 +1483,11 @@ static int fec_enet_init(struct net_device *ndev)
- 
- 	/* Set receive and transmit descriptor base. */
- 	fep->rx_bd_base = cbd_base;
--	fep->tx_bd_base = cbd_base + RX_RING_SIZE;
-+	if (fep->bufdesc_ex)
-+		fep->tx_bd_base = (struct bufdesc *)
-+			(((struct bufdesc_ex *)cbd_base) + RX_RING_SIZE);
-+	else
-+		fep->tx_bd_base = cbd_base + RX_RING_SIZE;
- 
- 	/* The FEC Ethernet specific entries in the device structure */
- 	ndev->watchdog_timeo = TX_TIMEOUT;
-@@ -1457,11 +1500,11 @@ static int fec_enet_init(struct net_device *ndev)
- 
- 		/* Initialize the BD for every fragment in the page. */
- 		bdp->cbd_sc = 0;
--		bdp++;
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap */
--	bdp--;
-+	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	/* ...and the same for transmit */
-@@ -1471,11 +1514,11 @@ static int fec_enet_init(struct net_device *ndev)
- 		/* Initialize the BD for every fragment in the page. */
- 		bdp->cbd_sc = 0;
- 		bdp->cbd_bufaddr = 0;
--		bdp++;
-+		bdp = fec_enet_get_nextdesc(bdp, fep->bufdesc_ex);
- 	}
- 
- 	/* Set the last buffer to wrap */
--	bdp--;
-+	bdp = fec_enet_get_prevdesc(bdp, fep->bufdesc_ex);
- 	bdp->cbd_sc |= BD_SC_WRAP;
- 
- 	fec_restart(ndev, 0);
-@@ -1574,6 +1617,8 @@ fec_probe(struct platform_device *pdev)
- 	fep->pdev = pdev;
- 	fep->dev_id = dev_id++;
- 
-+	fep->bufdesc_ex = 0;
-+
- 	if (!fep->hwp) {
- 		ret = -ENOMEM;
- 		goto failed_ioremap;
-@@ -1628,19 +1673,19 @@ fec_probe(struct platform_device *pdev)
- 		goto failed_clk;
- 	}
- 
--#ifdef CONFIG_FEC_PTP
- 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
-+	fep->bufdesc_ex =
-+		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
- 	if (IS_ERR(fep->clk_ptp)) {
- 		ret = PTR_ERR(fep->clk_ptp);
--		goto failed_clk;
-+		fep->bufdesc_ex = 0;
- 	}
--#endif
- 
- 	clk_prepare_enable(fep->clk_ahb);
- 	clk_prepare_enable(fep->clk_ipg);
--#ifdef CONFIG_FEC_PTP
--	clk_prepare_enable(fep->clk_ptp);
--#endif
-+	if (!IS_ERR(fep->clk_ptp))
-+		clk_prepare_enable(fep->clk_ptp);
-+
- 	reg_phy = devm_regulator_get(&pdev->dev, "phy");
- 	if (!IS_ERR(reg_phy)) {
- 		ret = regulator_enable(reg_phy);
-@@ -1668,9 +1713,8 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_register;
- 
--#ifdef CONFIG_FEC_PTP
--	fec_ptp_init(ndev, pdev);
--#endif
-+	if (fep->bufdesc_ex)
-+		fec_ptp_init(ndev, pdev);
- 
- 	return 0;
- 
-@@ -1681,9 +1725,8 @@ failed_init:
- failed_regulator:
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
--#ifdef CONFIG_FEC_PTP
--	clk_disable_unprepare(fep->clk_ptp);
--#endif
-+	if (!IS_ERR(fep->clk_ptp))
-+		clk_disable_unprepare(fep->clk_ptp);
- failed_pin:
- failed_clk:
- 	for (i = 0; i < FEC_IRQ_NUM; i++) {
-@@ -1716,12 +1759,10 @@ fec_drv_remove(struct platform_device *pdev)
- 		if (irq > 0)
- 			free_irq(irq, ndev);
- 	}
--#ifdef CONFIG_FEC_PTP
- 	del_timer_sync(&fep->time_keep);
- 	clk_disable_unprepare(fep->clk_ptp);
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
--#endif
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
- 	iounmap(fep->hwp);
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index c5a3bc1..4862394 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -13,11 +13,9 @@
- #define	FEC_H
- /****************************************************************************/
- 
--#ifdef CONFIG_FEC_PTP
- #include <linux/clocksource.h>
- #include <linux/net_tstamp.h>
- #include <linux/ptp_clock_kernel.h>
--#endif
- 
- #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG_M528x) || \
-     defined(CONFIG_M520x) || defined(CONFIG_M532x) || \
-@@ -94,14 +92,17 @@ struct bufdesc {
- 	unsigned short cbd_datlen;	/* Data length */
- 	unsigned short cbd_sc;	/* Control and status info */
- 	unsigned long cbd_bufaddr;	/* Buffer address */
--#ifdef CONFIG_FEC_PTP
++union inet_addr {
++	__u32		all[4];
++	__be32		ip;
++	__be32		ip6[4];
++	struct in_addr	in;
++	struct in6_addr	in6;
 +};
 +
-+struct bufdesc_ex {
-+	struct bufdesc desc;
- 	unsigned long cbd_esc;
- 	unsigned long cbd_prot;
- 	unsigned long cbd_bdu;
- 	unsigned long ts;
- 	unsigned short res0[4];
--#endif
- };
+ struct netpoll {
+ 	struct net_device *dev;
+ 	char dev_name[IFNAMSIZ];
+ 	const char *name;
+ 	void (*rx_hook)(struct netpoll *, int, char *, int);
+ 
+-	__be32 local_ip, remote_ip;
++	union inet_addr local_ip, remote_ip;
++	bool ipv6;
+ 	u16 local_port, remote_port;
+ 	u8 remote_mac[ETH_ALEN];
+ 
+@@ -33,7 +42,7 @@ struct netpoll_info {
+ 	spinlock_t rx_lock;
+ 	struct list_head rx_np; /* netpolls that registered an rx_hook */
+ 
+-	struct sk_buff_head arp_tx; /* list of arp requests to reply to */
++	struct sk_buff_head neigh_tx; /* list of neigh requests to reply to */
+ 	struct sk_buff_head txq;
+ 
+ 	struct delayed_work tx_work;
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 3151acf..e28978a 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -55,7 +55,7 @@ static atomic_t trapped;
+ 	 MAX_UDP_CHUNK)
+ 
+ static void zap_completion_queue(void);
+-static void netpoll_arp_reply(struct sk_buff *skb, struct netpoll_info *npinfo);
++static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo);
+ 
+ static unsigned int carrier_timeout = 4;
+ module_param(carrier_timeout, uint, 0644);
+@@ -181,13 +181,13 @@ static void poll_napi(struct net_device *dev)
+ 	}
+ }
+ 
+-static void service_arp_queue(struct netpoll_info *npi)
++static void service_neigh_queue(struct netpoll_info *npi)
+ {
+ 	if (npi) {
+ 		struct sk_buff *skb;
+ 
+-		while ((skb = skb_dequeue(&npi->arp_tx)))
+-			netpoll_arp_reply(skb, npi);
++		while ((skb = skb_dequeue(&npi->neigh_tx)))
++			netpoll_neigh_reply(skb, npi);
+ 	}
+ }
+ 
+@@ -213,14 +213,14 @@ static void netpoll_poll_dev(struct net_device *dev)
+ 			struct net_device *bond_dev = dev->master;
+ 			struct sk_buff *skb;
+ 			struct netpoll_info *bond_ni = rcu_dereference_bh(bond_dev->npinfo);
+-			while ((skb = skb_dequeue(&ni->arp_tx))) {
++			while ((skb = skb_dequeue(&ni->neigh_tx))) {
+ 				skb->dev = bond_dev;
+-				skb_queue_tail(&bond_ni->arp_tx, skb);
++				skb_queue_tail(&bond_ni->neigh_tx, skb);
+ 			}
+ 		}
+ 	}
+ 
+-	service_arp_queue(ni);
++	service_neigh_queue(ni);
+ 
+ 	zap_completion_queue();
+ }
+@@ -383,7 +383,9 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 	static atomic_t ip_ident;
+ 
+ 	udp_len = len + sizeof(*udph);
+-	ip_len = udp_len + sizeof(*iph);
++	if (!np->ipv6)
++		ip_len = udp_len + sizeof(*iph);
 +
- #else
- struct bufdesc {
- 	unsigned short	cbd_sc;			/* Control and status info */
-@@ -203,9 +204,7 @@ struct fec_enet_private {
+ 	total_len = ip_len + LL_RESERVED_SPACE(np->dev);
  
- 	struct clk *clk_ipg;
- 	struct clk *clk_ahb;
--#ifdef CONFIG_FEC_PTP
- 	struct clk *clk_ptp;
--#endif
+ 	skb = find_skb(np, total_len + np->dev->needed_tailroom,
+@@ -400,34 +402,38 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ 	udph->source = htons(np->local_port);
+ 	udph->dest = htons(np->remote_port);
+ 	udph->len = htons(udp_len);
+-	udph->check = 0;
+-	udph->check = csum_tcpudp_magic(np->local_ip,
+-					np->remote_ip,
+-					udp_len, IPPROTO_UDP,
+-					csum_partial(udph, udp_len, 0));
+-	if (udph->check == 0)
+-		udph->check = CSUM_MANGLED_0;
+-
+-	skb_push(skb, sizeof(*iph));
+-	skb_reset_network_header(skb);
+-	iph = ip_hdr(skb);
+-
+-	/* iph->version = 4; iph->ihl = 5; */
+-	put_unaligned(0x45, (unsigned char *)iph);
+-	iph->tos      = 0;
+-	put_unaligned(htons(ip_len), &(iph->tot_len));
+-	iph->id       = htons(atomic_inc_return(&ip_ident));
+-	iph->frag_off = 0;
+-	iph->ttl      = 64;
+-	iph->protocol = IPPROTO_UDP;
+-	iph->check    = 0;
+-	put_unaligned(np->local_ip, &(iph->saddr));
+-	put_unaligned(np->remote_ip, &(iph->daddr));
+-	iph->check    = ip_fast_csum((unsigned char *)iph, iph->ihl);
+-
+-	eth = (struct ethhdr *) skb_push(skb, ETH_HLEN);
+-	skb_reset_mac_header(skb);
+-	skb->protocol = eth->h_proto = htons(ETH_P_IP);
++
++	if (!np->ipv6) {
++		udph->check = 0;
++		udph->check = csum_tcpudp_magic(np->local_ip.ip,
++						np->remote_ip.ip,
++						udp_len, IPPROTO_UDP,
++						csum_partial(udph, udp_len, 0));
++		if (udph->check == 0)
++			udph->check = CSUM_MANGLED_0;
++
++		skb_push(skb, sizeof(*iph));
++		skb_reset_network_header(skb);
++		iph = ip_hdr(skb);
++
++		/* iph->version = 4; iph->ihl = 5; */
++		put_unaligned(0x45, (unsigned char *)iph);
++		iph->tos      = 0;
++		put_unaligned(htons(ip_len), &(iph->tot_len));
++		iph->id       = htons(atomic_inc_return(&ip_ident));
++		iph->frag_off = 0;
++		iph->ttl      = 64;
++		iph->protocol = IPPROTO_UDP;
++		iph->check    = 0;
++		put_unaligned(np->local_ip.ip, &(iph->saddr));
++		put_unaligned(np->remote_ip.ip, &(iph->daddr));
++		iph->check    = ip_fast_csum((unsigned char *)iph, iph->ihl);
++
++		eth = (struct ethhdr *) skb_push(skb, ETH_HLEN);
++		skb_reset_mac_header(skb);
++		skb->protocol = eth->h_proto = htons(ETH_P_IP);
++	}
++
+ 	memcpy(eth->h_source, np->dev->dev_addr, ETH_ALEN);
+ 	memcpy(eth->h_dest, np->remote_mac, ETH_ALEN);
  
- 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
- 	unsigned char *tx_bounce[TX_RING_SIZE];
-@@ -243,8 +242,8 @@ struct fec_enet_private {
- 	int	full_duplex;
- 	struct	completion mdio_done;
- 	int	irq[FEC_IRQ_NUM];
-+	int	bufdesc_ex;
+@@ -437,7 +443,7 @@ void netpoll_send_udp(struct netpoll *np, const char *msg, int len)
+ }
+ EXPORT_SYMBOL(netpoll_send_udp);
  
--#ifdef CONFIG_FEC_PTP
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info ptp_caps;
- 	unsigned long last_overflow_check;
-@@ -257,15 +256,12 @@ struct fec_enet_private {
- 	int hwts_rx_en;
- 	int hwts_tx_en;
- 	struct timer_list time_keep;
--#endif
+-static void netpoll_arp_reply(struct sk_buff *skb, struct netpoll_info *npinfo)
++static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo)
+ {
+ 	struct arphdr *arp;
+ 	unsigned char *arp_ptr;
+@@ -448,7 +454,7 @@ static void netpoll_arp_reply(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 	struct netpoll *np, *tmp;
+ 	unsigned long flags;
+ 	int hlen, tlen;
+-	int hits = 0;
++	int hits = 0, proto;
  
- };
+ 	if (list_empty(&npinfo->rx_np))
+ 		return;
+@@ -466,94 +472,97 @@ static void netpoll_arp_reply(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 	if (!hits)
+ 		return;
  
--#ifdef CONFIG_FEC_PTP
- void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev);
- void fec_ptp_start_cyclecounter(struct net_device *ndev);
- int fec_ptp_ioctl(struct net_device *ndev, struct ifreq *ifr, int cmd);
--#endif
+-	/* No arp on this interface */
+-	if (skb->dev->flags & IFF_NOARP)
+-		return;
+-
+-	if (!pskb_may_pull(skb, arp_hdr_len(skb->dev)))
+-		return;
++	proto = ntohs(eth_hdr(skb)->h_proto);
++	if (proto == ETH_P_IP) {
++		/* No arp on this interface */
++		if (skb->dev->flags & IFF_NOARP)
++			return;
  
- /****************************************************************************/
- #endif /* FEC_H */
+-	skb_reset_network_header(skb);
+-	skb_reset_transport_header(skb);
+-	arp = arp_hdr(skb);
++		if (!pskb_may_pull(skb, arp_hdr_len(skb->dev)))
++			return;
+ 
+-	if ((arp->ar_hrd != htons(ARPHRD_ETHER) &&
+-	     arp->ar_hrd != htons(ARPHRD_IEEE802)) ||
+-	    arp->ar_pro != htons(ETH_P_IP) ||
+-	    arp->ar_op != htons(ARPOP_REQUEST))
+-		return;
++		skb_reset_network_header(skb);
++		skb_reset_transport_header(skb);
++		arp = arp_hdr(skb);
+ 
+-	arp_ptr = (unsigned char *)(arp+1);
+-	/* save the location of the src hw addr */
+-	sha = arp_ptr;
+-	arp_ptr += skb->dev->addr_len;
+-	memcpy(&sip, arp_ptr, 4);
+-	arp_ptr += 4;
+-	/* If we actually cared about dst hw addr,
+-	   it would get copied here */
+-	arp_ptr += skb->dev->addr_len;
+-	memcpy(&tip, arp_ptr, 4);
+-
+-	/* Should we ignore arp? */
+-	if (ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
+-		return;
++		if ((arp->ar_hrd != htons(ARPHRD_ETHER) &&
++		     arp->ar_hrd != htons(ARPHRD_IEEE802)) ||
++		    arp->ar_pro != htons(ETH_P_IP) ||
++		    arp->ar_op != htons(ARPOP_REQUEST))
++			return;
+ 
+-	size = arp_hdr_len(skb->dev);
++		arp_ptr = (unsigned char *)(arp+1);
++		/* save the location of the src hw addr */
++		sha = arp_ptr;
++		arp_ptr += skb->dev->addr_len;
++		memcpy(&sip, arp_ptr, 4);
++		arp_ptr += 4;
++		/* If we actually cared about dst hw addr,
++		   it would get copied here */
++		arp_ptr += skb->dev->addr_len;
++		memcpy(&tip, arp_ptr, 4);
+ 
+-	spin_lock_irqsave(&npinfo->rx_lock, flags);
+-	list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
+-		if (tip != np->local_ip)
+-			continue;
++		/* Should we ignore arp? */
++		if (ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
++			return;
+ 
+-		hlen = LL_RESERVED_SPACE(np->dev);
+-		tlen = np->dev->needed_tailroom;
+-		send_skb = find_skb(np, size + hlen + tlen, hlen);
+-		if (!send_skb)
+-			continue;
++		size = arp_hdr_len(skb->dev);
+ 
+-		skb_reset_network_header(send_skb);
+-		arp = (struct arphdr *) skb_put(send_skb, size);
+-		send_skb->dev = skb->dev;
+-		send_skb->protocol = htons(ETH_P_ARP);
++		spin_lock_irqsave(&npinfo->rx_lock, flags);
++		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
++			if (tip != np->local_ip.ip)
++				continue;
++
++			hlen = LL_RESERVED_SPACE(np->dev);
++			tlen = np->dev->needed_tailroom;
++			send_skb = find_skb(np, size + hlen + tlen, hlen);
++			if (!send_skb)
++				continue;
++
++			skb_reset_network_header(send_skb);
++			arp = (struct arphdr *) skb_put(send_skb, size);
++			send_skb->dev = skb->dev;
++			send_skb->protocol = htons(ETH_P_ARP);
++
++			/* Fill the device header for the ARP frame */
++			if (dev_hard_header(send_skb, skb->dev, ptype,
++					    sha, np->dev->dev_addr,
++					    send_skb->len) < 0) {
++				kfree_skb(send_skb);
++				continue;
++			}
+ 
+-		/* Fill the device header for the ARP frame */
+-		if (dev_hard_header(send_skb, skb->dev, ptype,
+-				    sha, np->dev->dev_addr,
+-				    send_skb->len) < 0) {
+-			kfree_skb(send_skb);
+-			continue;
++			/*
++			 * Fill out the arp protocol part.
++			 *
++			 * we only support ethernet device type,
++			 * which (according to RFC 1390) should
++			 * always equal 1 (Ethernet).
++			 */
++
++			arp->ar_hrd = htons(np->dev->type);
++			arp->ar_pro = htons(ETH_P_IP);
++			arp->ar_hln = np->dev->addr_len;
++			arp->ar_pln = 4;
++			arp->ar_op = htons(type);
++
++			arp_ptr = (unsigned char *)(arp + 1);
++			memcpy(arp_ptr, np->dev->dev_addr, np->dev->addr_len);
++			arp_ptr += np->dev->addr_len;
++			memcpy(arp_ptr, &tip, 4);
++			arp_ptr += 4;
++			memcpy(arp_ptr, sha, np->dev->addr_len);
++			arp_ptr += np->dev->addr_len;
++			memcpy(arp_ptr, &sip, 4);
++
++			netpoll_send_skb(np, send_skb);
++
++			/* If there are several rx_hooks for the same address,
++			   we're fine by sending a single reply */
++			break;
+ 		}
+-
+-		/*
+-		 * Fill out the arp protocol part.
+-		 *
+-		 * we only support ethernet device type,
+-		 * which (according to RFC 1390) should
+-		 * always equal 1 (Ethernet).
+-		 */
+-
+-		arp->ar_hrd = htons(np->dev->type);
+-		arp->ar_pro = htons(ETH_P_IP);
+-		arp->ar_hln = np->dev->addr_len;
+-		arp->ar_pln = 4;
+-		arp->ar_op = htons(type);
+-
+-		arp_ptr = (unsigned char *)(arp + 1);
+-		memcpy(arp_ptr, np->dev->dev_addr, np->dev->addr_len);
+-		arp_ptr += np->dev->addr_len;
+-		memcpy(arp_ptr, &tip, 4);
+-		arp_ptr += 4;
+-		memcpy(arp_ptr, sha, np->dev->addr_len);
+-		arp_ptr += np->dev->addr_len;
+-		memcpy(arp_ptr, &sip, 4);
+-
+-		netpoll_send_skb(np, send_skb);
+-
+-		/* If there are several rx_hooks for the same address,
+-		   we're fine by sending a single reply */
+-		break;
++		spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ 	}
+-	spin_unlock_irqrestore(&npinfo->rx_lock, flags);
+ }
+ 
+ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
+@@ -573,7 +582,7 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 	/* check if netpoll clients need ARP */
+ 	if (skb->protocol == htons(ETH_P_ARP) &&
+ 	    atomic_read(&trapped)) {
+-		skb_queue_tail(&npinfo->arp_tx, skb);
++		skb_queue_tail(&npinfo->neigh_tx, skb);
+ 		return 1;
+ 	}
+ 
+@@ -584,60 +593,61 @@ int __netpoll_rx(struct sk_buff *skb, struct netpoll_info *npinfo)
+ 	}
+ 
+ 	proto = ntohs(eth_hdr(skb)->h_proto);
+-	if (proto != ETH_P_IP)
++	if (proto != ETH_P_IP && proto != ETH_P_IPV6)
+ 		goto out;
+ 	if (skb->pkt_type == PACKET_OTHERHOST)
+ 		goto out;
+ 	if (skb_shared(skb))
+ 		goto out;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+-		goto out;
+-	iph = (struct iphdr *)skb->data;
+-	if (iph->ihl < 5 || iph->version != 4)
+-		goto out;
+-	if (!pskb_may_pull(skb, iph->ihl*4))
+-		goto out;
+-	iph = (struct iphdr *)skb->data;
+-	if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
+-		goto out;
+-
+-	len = ntohs(iph->tot_len);
+-	if (skb->len < len || len < iph->ihl*4)
+-		goto out;
+-
+-	/*
+-	 * Our transport medium may have padded the buffer out.
+-	 * Now We trim to the true length of the frame.
+-	 */
+-	if (pskb_trim_rcsum(skb, len))
+-		goto out;
++	if (proto == ETH_P_IP) {
++		if (!pskb_may_pull(skb, sizeof(struct iphdr)))
++			goto out;
++		iph = (struct iphdr *)skb->data;
++		if (iph->ihl < 5 || iph->version != 4)
++			goto out;
++		if (!pskb_may_pull(skb, iph->ihl*4))
++			goto out;
++		iph = (struct iphdr *)skb->data;
++		if (ip_fast_csum((u8 *)iph, iph->ihl) != 0)
++			goto out;
+ 
+-	iph = (struct iphdr *)skb->data;
+-	if (iph->protocol != IPPROTO_UDP)
+-		goto out;
++		len = ntohs(iph->tot_len);
++		if (skb->len < len || len < iph->ihl*4)
++			goto out;
+ 
+-	len -= iph->ihl*4;
+-	uh = (struct udphdr *)(((char *)iph) + iph->ihl*4);
+-	ulen = ntohs(uh->len);
++		/*
++		 * Our transport medium may have padded the buffer out.
++		 * Now We trim to the true length of the frame.
++		 */
++		if (pskb_trim_rcsum(skb, len))
++			goto out;
+ 
+-	if (ulen != len)
+-		goto out;
+-	if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
+-		goto out;
++		iph = (struct iphdr *)skb->data;
++		if (iph->protocol != IPPROTO_UDP)
++			goto out;
+ 
+-	list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
+-		if (np->local_ip && np->local_ip != iph->daddr)
+-			continue;
+-		if (np->remote_ip && np->remote_ip != iph->saddr)
+-			continue;
+-		if (np->local_port && np->local_port != ntohs(uh->dest))
+-			continue;
++		len -= iph->ihl*4;
++		uh = (struct udphdr *)(((char *)iph) + iph->ihl*4);
++		ulen = ntohs(uh->len);
+ 
+-		np->rx_hook(np, ntohs(uh->source),
+-			       (char *)(uh+1),
+-			       ulen - sizeof(struct udphdr));
+-		hits++;
++		if (ulen != len)
++			goto out;
++		if (checksum_udp(skb, uh, ulen, iph->saddr, iph->daddr))
++			goto out;
++		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
++			if (np->local_ip.ip && np->local_ip.ip != iph->daddr)
++				continue;
++			if (np->remote_ip.ip && np->remote_ip.ip != iph->saddr)
++				continue;
++			if (np->local_port && np->local_port != ntohs(uh->dest))
++				continue;
++
++			np->rx_hook(np, ntohs(uh->source),
++				       (char *)(uh+1),
++				       ulen - sizeof(struct udphdr));
++			hits++;
++		}
+ 	}
+ 
+ 	if (!hits)
+@@ -658,17 +668,40 @@ out:
+ void netpoll_print_options(struct netpoll *np)
+ {
+ 	np_info(np, "local port %d\n", np->local_port);
+-	np_info(np, "local IP %pI4\n", &np->local_ip);
++	if (!np->ipv6)
++		np_info(np, "local IPv4 address %pI4\n", &np->local_ip.ip);
+ 	np_info(np, "interface '%s'\n", np->dev_name);
+ 	np_info(np, "remote port %d\n", np->remote_port);
+-	np_info(np, "remote IP %pI4\n", &np->remote_ip);
++	if (!np->ipv6)
++		np_info(np, "remote IPv4 address %pI4\n", &np->remote_ip.ip);
+ 	np_info(np, "remote ethernet address %pM\n", np->remote_mac);
+ }
+ EXPORT_SYMBOL(netpoll_print_options);
+ 
++static int netpoll_parse_ip_addr(const char *str, union inet_addr *addr)
++{
++	const char *end;
++
++	if (!strchr(str, ':') &&
++	    in4_pton(str, -1, (void *)addr, -1, &end) > 0) {
++		if (!*end)
++			return 0;
++	}
++	if (in6_pton(str, -1, addr->in6.s6_addr, -1, &end) > 0) {
++#if IS_ENABLED(CONFIG_IPV6)
++		if (!*end)
++			return 1;
++#else
++		return -1;
++#endif
++	}
++	return -1;
++}
++
+ int netpoll_parse_options(struct netpoll *np, char *opt)
+ {
+ 	char *cur=opt, *delim;
++	int ipv6;
+ 
+ 	if (*cur != '@') {
+ 		if ((delim = strchr(cur, '@')) == NULL)
+@@ -684,7 +717,11 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 		if ((delim = strchr(cur, '/')) == NULL)
+ 			goto parse_failed;
+ 		*delim = 0;
+-		np->local_ip = in_aton(cur);
++		ipv6 = netpoll_parse_ip_addr(cur, &np->local_ip);
++		if (ipv6 < 0)
++			goto parse_failed;
++		else
++			np->ipv6 = (bool)ipv6;
+ 		cur = delim;
+ 	}
+ 	cur++;
+@@ -716,7 +753,13 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
+ 	if ((delim = strchr(cur, '/')) == NULL)
+ 		goto parse_failed;
+ 	*delim = 0;
+-	np->remote_ip = in_aton(cur);
++	ipv6 = netpoll_parse_ip_addr(cur, &np->remote_ip);
++	if (ipv6 < 0)
++		goto parse_failed;
++	else if (np->ipv6 != (bool)ipv6)
++		goto parse_failed;
++	else
++		np->ipv6 = (bool)ipv6;
+ 	cur = delim + 1;
+ 
+ 	if (*cur != 0) {
+@@ -764,7 +807,7 @@ int __netpoll_setup(struct netpoll *np, struct net_device *ndev, gfp_t gfp)
+ 		INIT_LIST_HEAD(&npinfo->rx_np);
+ 
+ 		spin_lock_init(&npinfo->rx_lock);
+-		skb_queue_head_init(&npinfo->arp_tx);
++		skb_queue_head_init(&npinfo->neigh_tx);
+ 		skb_queue_head_init(&npinfo->txq);
+ 		INIT_DELAYED_WORK(&npinfo->tx_work, queue_process);
+ 
+@@ -856,21 +899,24 @@ int netpoll_setup(struct netpoll *np)
+ 		}
+ 	}
+ 
+-	if (!np->local_ip) {
+-		rcu_read_lock();
+-		in_dev = __in_dev_get_rcu(ndev);
++	if (!np->local_ip.ip) {
++		if (!np->ipv6) {
++			rcu_read_lock();
++			in_dev = __in_dev_get_rcu(ndev);
+ 
+-		if (!in_dev || !in_dev->ifa_list) {
++
++			if (!in_dev || !in_dev->ifa_list) {
++				rcu_read_unlock();
++				np_err(np, "no IP address for %s, aborting\n",
++				       np->dev_name);
++				err = -EDESTADDRREQ;
++				goto put;
++			}
++
++			np->local_ip.ip = in_dev->ifa_list->ifa_local;
+ 			rcu_read_unlock();
+-			np_err(np, "no IP address for %s, aborting\n",
+-			       np->dev_name);
+-			err = -EDESTADDRREQ;
+-			goto put;
++			np_info(np, "local IP %pI4\n", &np->local_ip.ip);
+ 		}
+-
+-		np->local_ip = in_dev->ifa_list->ifa_local;
+-		rcu_read_unlock();
+-		np_info(np, "local IP %pI4\n", &np->local_ip);
+ 	}
+ 
+ 	/* fill up the skb queue */
+@@ -903,7 +949,7 @@ static void rcu_cleanup_netpoll_info(struct rcu_head *rcu_head)
+ 	struct netpoll_info *npinfo =
+ 			container_of(rcu_head, struct netpoll_info, rcu);
+ 
+-	skb_queue_purge(&npinfo->arp_tx);
++	skb_queue_purge(&npinfo->neigh_tx);
+ 	skb_queue_purge(&npinfo->txq);
+ 
+ 	/* we can't call cancel_delayed_work_sync here, as we are in softirq */
 -- 
-1.7.1
+1.7.7.6
