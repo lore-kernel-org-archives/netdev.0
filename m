@@ -1,79 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 3.0.y 3/3] rtnetlink: fix rtnl_calcit() and
- rtnl_dump_ifinfo()
-Date: Fri, 4 Jan 2013 00:34:22 +0000
-Message-ID: <1357259662.2685.63.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 3.0.y 0/3] rtnetlink: Fix problem with buffer allocation
+Date: Thu, 03 Jan 2013 16:36:14 -0800 (PST)
+Message-ID: <20130103.163614.162474717714949991.davem@davemloft.net>
 References: <1357259449.2685.60.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Greg Rose <gregory.v.rose@intel.com>, <stable@vger.kernel.org>,
-	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	<linux-net-drivers@solarflare.com>
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <stable-owner@vger.kernel.org>
+Cc: gregkh@linuxfoundation.org, gregory.v.rose@intel.com,
+	stable@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58142 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754497Ab3ADAgQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 19:36:16 -0500
 In-Reply-To: <1357259449.2685.60.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 4 Jan 2013 00:30:49 +0000
 
-commit a4b64fbe482c7766f7925f03067fc637716bfa3f upstream.
+> These patches fix the problem that interface information including many
+> VFs is too large for the 4K buffers used by glibc and other clients.
+> This breaks many network services.
+> 
+> The first of these ('rtnetlink: Compute and store minimum ifinfo dump
+> size') went into 3.1 and has also been included in SLE11 SP2.  The
+> second and third were acked by David Miller and included in 3.2.34.
+> 
+> I've applied and briefly tested these changes in conjunction with a
+> backport of the sfc driver to SLE11 SP3.
 
-nlmsg_parse() might return an error, so test its return value before
-potential random memory accesses.
-
-Errors introduced in commit 115c9b81928 (rtnetlink: Fix problem with
-buffer allocation)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/rtnetlink.c |   18 ++++++++++--------
- 1 files changed, 10 insertions(+), 8 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index e41ce2a..49f281e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1044,11 +1044,12 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	rcu_read_lock();
- 
--	nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
--		    ifla_policy);
-+	if (nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
-+			ifla_policy) >= 0) {
- 
--	if (tb[IFLA_EXT_MASK])
--		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
-+		if (tb[IFLA_EXT_MASK])
-+			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
-+	}
- 
- 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
- 		idx = 0;
-@@ -1874,10 +1875,11 @@ static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	u32 ext_filter_mask = 0;
- 	u16 min_ifinfo_dump_size = 0;
- 
--	nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX, ifla_policy);
--
--	if (tb[IFLA_EXT_MASK])
--		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
-+	if (nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
-+			ifla_policy) >= 0) {
-+		if (tb[IFLA_EXT_MASK])
-+			ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
-+	}
- 
- 	if (!ext_filter_mask)
- 		return NLMSG_GOODSIZE;
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I'm fine with these going into 3.0.x-stable, thanks for doing the
+backport.
