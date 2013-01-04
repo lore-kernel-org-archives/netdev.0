@@ -1,111 +1,151 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NULL pointer dereference in veth_stats_one
-Date: Fri, 04 Jan 2013 08:17:11 -0800
-Message-ID: <1357316231.1678.1528.camel@edumazet-glaptop>
-References: <20130104105955.GA3663@raven>
-	 <1357314320.1678.1414.camel@edumazet-glaptop>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH 1/2] usbnet: allow status interrupt URB to always be active
+Date: Fri, 04 Jan 2013 10:48:16 -0600
+Message-ID: <1357318096.5370.15.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Parkin <tparkin@katalix.com>,
-	David Miller <davem@davemloft.net>
+Cc: Elina Pasheva <epasheva@sierrawireless.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:64919 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755120Ab3ADQRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 11:17:14 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so9338806pad.19
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 08:17:14 -0800 (PST)
-In-Reply-To: <1357314320.1678.1414.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:28570 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754952Ab3ADQqC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2013 11:46:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Some drivers (ex sierra_net) need the status interrupt URB
+active even when the device is closed, because they receive
+custom indications from firmware.  Allow sub-drivers to set
+a flag that submits the status interrupt URB on probe and
+keeps the URB alive over device open/close.  The URB is still
+killed/re-submitted for suspend/resume, as before.
 
-On Fri, 2013-01-04 at 07:45 -0800, Eric Dumazet wrote:
-> On Fri, 2013-01-04 at 10:59 +0000, Tom Parkin wrote:
-> > Hi list,
-> > 
-> > I recently tripped over a NULL pointer dereference in the veth driver.
-> > I'm running a 3.8.0_rc1 (updated from net-next git tree this morning)
-> > on an Athlon 64 X2 machine running a 32 bit kernel.  To trigger the
-> > oops I simply created a veth interface as follows:
-> > 
-> >         ip link add name ve0 type veth peer name ve1
-> > 
-> > I did a little digging in the git history and I note that veth
-> > statistics changed a little with commit 2681128f0ced8aa4.  I tried
-> > reverting that commit in my tree, which made the oops go away again.
-> > 
-> > Thanks,
-> > Tom
-> 
-> Thanks Tom, I'll fix this.
-> 
-
-Oh well, a last minute change again...
-
-I was fooled by veth_get_ethtool_stats() doing the priv->peer->ifindex
-deref without checking.
-
-Here is the fix, thanks !
-
-[PATCH net-next] veth: avoid a NULL deref in veth_stats_one
-
-commit 2681128f0ced8a (veth: extend device features) added a NULL deref
-in veth_stats_one(), as veth_get_stats64() was not testing if the peer
-device was setup or not.
-
-At init time, we call dev_get_stats() before veth pair is fully setup.
-
-[  178.854758]  [<ffffffffa00f5677>] veth_get_stats64+0x47/0x70 [veth]
-[  178.861013]  [<ffffffff814f0a2d>] dev_get_stats+0x6d/0x130
-[  178.866486]  [<ffffffff81504efc>] rtnl_fill_ifinfo+0x47c/0x930
-[  178.872299]  [<ffffffff81505b93>] rtmsg_ifinfo+0x83/0x100
-[  178.877678]  [<ffffffff81505cc6>] rtnl_configure_link+0x76/0xa0
-[  178.883580]  [<ffffffffa00f52fa>] veth_newlink+0x16a/0x350 [veth]
-[  178.889654]  [<ffffffff815061cc>] rtnl_newlink+0x4dc/0x5e0
-[  178.895128]  [<ffffffff81505e1e>] ? rtnl_newlink+0x12e/0x5e0
-[  178.900769]  [<ffffffff8150587d>] rtnetlink_rcv_msg+0x11d/0x310
-[  178.906669]  [<ffffffff81505760>] ? __rtnl_unlock+0x20/0x20
-[  178.912225]  [<ffffffff81521f89>] netlink_rcv_skb+0xa9/0xd0
-[  178.917779]  [<ffffffff81502d55>] rtnetlink_rcv+0x25/0x40
-[  178.923159]  [<ffffffff815218d1>] netlink_unicast+0x1b1/0x230
-[  178.928887]  [<ffffffff81521c4e>] netlink_sendmsg+0x2fe/0x3b0
-[  178.934615]  [<ffffffff814dbe22>] sock_sendmsg+0xd2/0xf0
-
-So we must check if peer was setup in veth_get_stats64()
-
-Reported-by: Tom Parkin <tparkin@katalix.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Dan Williams <dcbw@redhat.com>
 ---
- drivers/net/veth.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+Oliver: alternatively, is there a problem with *always*
+submitting the interrupt URB, and then simply not calling
+the subdriver's .status function when the netdev is
+closed?  That would be a much simpler patch.
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 8b2e112..bd57213 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -162,15 +162,18 @@ static struct rtnl_link_stats64 *veth_get_stats64(struct net_device *dev,
- 						  struct rtnl_link_stats64 *tot)
- {
- 	struct veth_priv *priv = netdev_priv(dev);
-+	struct net_device *peer = priv->peer;
- 	struct pcpu_vstats one;
+ drivers/net/usb/usbnet.c   | 43 +++++++++++++++++++++++++++++++------------
+ include/linux/usb/usbnet.h |  3 +++
+ 2 files changed, 34 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 3d4bf01..081b685 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -206,13 +206,13 @@ static void intr_complete (struct urb *urb)
+ 		break;
+ 	}
  
- 	tot->tx_dropped = veth_stats_one(&one, dev);
- 	tot->tx_bytes = one.bytes;
- 	tot->tx_packets = one.packets;
- 
--	tot->rx_dropped = veth_stats_one(&one, priv->peer);
--	tot->rx_bytes = one.bytes;
--	tot->rx_packets = one.packets;
-+	if (peer) {
-+		tot->rx_dropped = veth_stats_one(&one, peer);
-+		tot->rx_bytes = one.bytes;
-+		tot->rx_packets = one.packets;
+-	if (!netif_running (dev->net))
+-		return;
+-
+-	status = usb_submit_urb (urb, GFP_ATOMIC);
+-	if (status != 0)
+-		netif_err(dev, timer, dev->net,
+-			  "intr resubmit --> %d\n", status);
++	if (dev->driver_info->flags & FLAG_INTR_ALWAYS ||
++			netif_running(dev->net)) {
++		status = usb_submit_urb(urb, GFP_ATOMIC);
++		if (status != 0)
++			netif_err(dev, timer, dev->net,
++				  "intr resubmit --> %d\n", status);
 +	}
- 
- 	return tot;
  }
+ 
+ static int init_status (struct usbnet *dev, struct usb_interface *intf)
+@@ -708,7 +708,8 @@ int usbnet_stop (struct net_device *net)
+ 	if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
+ 		usbnet_terminate_urbs(dev);
+ 
+-	usb_kill_urb(dev->interrupt);
++	if (!(info->flags & FLAG_INTR_ALWAYS))
++		usb_kill_urb(dev->interrupt);
+ 
+ 	usbnet_purge_paused_rxq(dev);
+ 
+@@ -769,7 +770,7 @@ int usbnet_open (struct net_device *net)
+ 	}
+ 
+ 	/* start any status interrupt transfer */
+-	if (dev->interrupt) {
++	if (dev->interrupt && !(info->flags & FLAG_INTR_ALWAYS)) {
+ 		retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
+ 		if (retval < 0) {
+ 			netif_err(dev, ifup, dev->net,
+@@ -1469,6 +1470,15 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	if (status < 0)
+ 		goto out3;
+ 
++	/* Submit status interrupt URB immediately if sub-driver wants */
++	if (dev->interrupt && (info->flags & FLAG_INTR_ALWAYS)) {
++		status = usb_submit_urb(dev->interrupt, GFP_KERNEL);
++		if (status < 0) {
++			dev_err(&udev->dev, "intr submit %d\n", status);
++			goto out4;
++		}
++	}
++
+ 	if (!dev->rx_urb_size)
+ 		dev->rx_urb_size = dev->hard_mtu;
+ 	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
+@@ -1480,7 +1490,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 
+ 	status = register_netdev (net);
+ 	if (status)
+-		goto out4;
++		goto out5;
+ 	netif_info(dev, probe, dev->net,
+ 		   "register '%s' at usb-%s-%s, %s, %pM\n",
+ 		   udev->dev.driver->name,
+@@ -1498,6 +1508,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 
+ 	return 0;
+ 
++out5:
++	usb_kill_urb(dev->interrupt);
+ out4:
+ 	usb_free_urb(dev->interrupt);
+ out3:
+@@ -1559,8 +1571,15 @@ int usbnet_resume (struct usb_interface *intf)
+ 
+ 	if (!--dev->suspend_count) {
+ 		/* resume interrupt URBs */
+-		if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
+-			usb_submit_urb(dev->interrupt, GFP_NOIO);
++		if (dev->interrupt &&
++			(dev->driver_info->flags & FLAG_INTR_ALWAYS ||
++				test_bit(EVENT_DEV_OPEN, &dev->flags))) {
++			retval = usb_submit_urb(dev->interrupt, GFP_NOIO);
++			if (retval < 0) {
++				netif_err(dev, ifup, dev->net,
++					  "intr submit %d\n", retval);
++			}
++		}
+ 
+ 		spin_lock_irq(&dev->txq.lock);
+ 		while ((res = usb_get_from_anchor(&dev->deferred))) {
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index bd45eb7..8503920 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -108,6 +108,9 @@ struct driver_info {
+ #define FLAG_MULTI_PACKET	0x2000
+ #define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
+ 
++/* Indicates that the interrupt URB should not depend on netdev open/close */
++#define FLAG_INTR_ALWAYS	0x8000
++
+ 	/* init device ... can sleep, or cause probe() failure */
+ 	int	(*bind)(struct usbnet *, struct usb_interface *);
+ 
+-- 
+1.7.11.7
