@@ -1,48 +1,75 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Fri, 4 Jan 2013 00:26:35 +0000
-Message-ID: <20130104002635.GA6693@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130102204712.GA17806@dcvr.yhbt.net>
- <1357220469.21409.24574.camel@edumazet-glaptop>
- <20130103183251.GA10113@dcvr.yhbt.net>
- <20130103234558.GA1689@dcvr.yhbt.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 3.0.y 0/3] rtnetlink: Fix problem with buffer allocation
+Date: Fri, 4 Jan 2013 00:30:49 +0000
+Message-ID: <1357259449.2685.60.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20130103234558.GA1689@dcvr.yhbt.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Greg Rose <gregory.v.rose@intel.com>, <stable@vger.kernel.org>,
+	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Eric Wong <normalperson@yhbt.net> wrote:
-> I think this requires frequent dirtying/cycling of pages to reproduce.
-> (from copying large files around) to interact with compaction.
-> I'll see if I can reproduce the issue with read-only FS activity.
+These patches fix the problem that interface information including many
+VFs is too large for the 4K buffers used by glibc and other clients.
+This breaks many network services.
 
-Still successfully running the read-only test on my main machine, will
-provide another update in a few hours or so if it's still successful
-(it usually takes <1 hour to hit).
+The first of these ('rtnetlink: Compute and store minimum ifinfo dump
+size') went into 3.1 and has also been included in SLE11 SP2.  The
+second and third were acked by David Miller and included in 3.2.34.
 
-I also fired up a VM on my laptop (still running v3.7) and was able to
-get stuck with only 2 cores and 512M on the VM (x86_64).  On the small
-VM with little disk space, it doesn't need much dirty data to trigger.
-I just did this:
+I've applied and briefly tested these changes in conjunction with a
+backport of the sfc driver to SLE11 SP3.
 
-    find $45G_NFS_MOUNT -type f -print0 | \
-       xargs -0 -n1 -P4 sh -c 'cat "$1" >> tmp; > tmp' --
+Ben.
 
-...while running two instances of toosleepy (one got stuck and aborted).
+Eric Dumazet (1):
+  rtnetlink: fix rtnl_calcit() and rtnl_dump_ifinfo()
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Greg Rose (2):
+  rtnetlink: Compute and store minimum ifinfo dump size
+  rtnetlink: Fix problem with buffer allocation
+
+ drivers/infiniband/core/netlink.c    |    2 +-
+ include/linux/if_link.h              |    1 +
+ include/linux/netlink.h              |    6 +-
+ include/linux/rtnetlink.h            |    3 +
+ include/net/rtnetlink.h              |    7 ++-
+ net/bridge/br_netlink.c              |   15 +++--
+ net/core/fib_rules.c                 |    6 +-
+ net/core/neighbour.c                 |   11 ++--
+ net/core/rtnetlink.c                 |  127 +++++++++++++++++++++++++++-------
+ net/dcb/dcbnl.c                      |    4 +-
+ net/decnet/dn_dev.c                  |    6 +-
+ net/decnet/dn_fib.c                  |    4 +-
+ net/decnet/dn_route.c                |    5 +-
+ net/ipv4/devinet.c                   |    6 +-
+ net/ipv4/fib_frontend.c              |    6 +-
+ net/ipv4/inet_diag.c                 |    2 +-
+ net/ipv4/ipmr.c                      |    3 +-
+ net/ipv4/route.c                     |    2 +-
+ net/ipv6/addrconf.c                  |   16 +++--
+ net/ipv6/addrlabel.c                 |    9 ++-
+ net/ipv6/ip6_fib.c                   |    3 +-
+ net/ipv6/ip6mr.c                     |    3 +-
+ net/ipv6/route.c                     |    6 +-
+ net/netfilter/ipset/ip_set_core.c    |    2 +-
+ net/netfilter/nf_conntrack_netlink.c |    4 +-
+ net/netlink/af_netlink.c             |   17 +++--
+ net/netlink/genetlink.c              |    2 +-
+ net/phonet/pn_netlink.c              |   13 ++--
+ net/sched/act_api.c                  |    7 +-
+ net/sched/cls_api.c                  |    6 +-
+ net/sched/sch_api.c                  |   12 ++--
+ net/xfrm/xfrm_user.c                 |    3 +-
+ 32 files changed, 216 insertions(+), 103 deletions(-)
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
