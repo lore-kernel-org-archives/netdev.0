@@ -1,44 +1,51 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: NULL pointer dereference in veth_stats_one
-Date: Fri, 04 Jan 2013 11:23:26 -0800
-Message-ID: <1357327406.1678.2139.camel@edumazet-glaptop>
-References: <20130104105955.GA3663@raven>
-	 <1357314320.1678.1414.camel@edumazet-glaptop>
-	 <1357316231.1678.1528.camel@edumazet-glaptop>
-	 <1357323443.2693.9.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: linux-next: Tree for Jan 4 (net/bridge)
+Date: Fri, 4 Jan 2013 11:27:16 -0800
+Message-ID: <20130104112716.596f9085@nehalam.linuxnetplumber.net>
+References: <20130104152814.3a3cf74bdec76cea09d3e134@canb.auug.org.au>
+	<50E72977.7030605@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Tom Parkin <tparkin@katalix.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:61200 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754060Ab3ADTX3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 14:23:29 -0500
-Received: by mail-da0-f53.google.com with SMTP id x6so7613227dac.12
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 11:23:29 -0800 (PST)
-In-Reply-To: <1357323443.2693.9.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bridge@lists.linux-foundation.org, Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <50E72977.7030605@infradead.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-01-04 at 18:17 +0000, Ben Hutchings wrote:
+On Fri, 04 Jan 2013 11:11:51 -0800
+Randy Dunlap <rdunlap@infradead.org> wrote:
 
-> This possibly needs some memory barriers to properly synchronise with
-> veth_newlink().  But can you not move initialisation of the peer
-> pointers before registration of the devices in veth_newlink(), so that
-> veth_get_stats64() cannot be called before they are initialised?
+> On 01/03/13 20:28, Stephen Rothwell wrote:
+> > Hi all,
+> > 
+> > Changes since 20130103:
+> > 
+> 
+> on i386 and x86_64:
+> 
+>   CC      net/bridge/br_netlink.o
+> net/bridge/br_netlink.c: In function 'br_netlink_init':
+> net/bridge/br_netlink.c:307:2: error: implicit declaration of function 'br_mdb_init' [-Werror=implicit-function-declaration]
+> net/bridge/br_netlink.c:314:2: error: implicit declaration of function 'br_mdb_uninit' [-Werror=implicit-function-declaration]
+> cc1: some warnings being treated as errors
+> make[3]: *** [net/bridge/br_netlink.o] Error 1
+> 
+> 
+> Full randconfig file is attached.
+> 
+> 
 
-The ->peer pointer cannot change once set. ( its never cleared )
-
-So the problem would not be in veth_newlink(), but might be in
-veth_dellink()
-
-It seems we would have a problem in veth_get_ethtool_stats() already...
-
-More generally, what prevents a get_stats() being called while a
-dellink() (-> veth_dev_free() -> free_percpu()) is done ?
-
-(Same thing is done for tunnel/dummy stats percpu data)
+Problem not observed with current net-next and your configuration.
+Probably already fixed.
