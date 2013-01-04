@@ -1,39 +1,59 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: NULL pointer dereference in veth_stats_one
-Date: Fri, 04 Jan 2013 07:45:20 -0800
-Message-ID: <1357314320.1678.1414.camel@edumazet-glaptop>
-References: <20130104105955.GA3663@raven>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ndisc: Remove unused space at tail of skb for
+ ndisc messages. (TAKE 3)
+Date: Fri, 04 Jan 2013 08:00:19 -0800
+Message-ID: <1357315219.1678.1461.camel@edumazet-glaptop>
+References: <50E6DFEC.7080603@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Tom Parkin <tparkin@katalix.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:35521 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754751Ab3ADPpY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 10:45:24 -0500
-Received: by mail-pb0-f44.google.com with SMTP id uo1so9219954pbc.3
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 07:45:23 -0800 (PST)
-In-Reply-To: <20130104105955.GA3663@raven>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:37832 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754822Ab3ADQAW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 11:00:22 -0500
+Received: by mail-pa0-f43.google.com with SMTP id fb10so9398080pad.16
+        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 08:00:21 -0800 (PST)
+In-Reply-To: <50E6DFEC.7080603@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-04 at 10:59 +0000, Tom Parkin wrote:
-> Hi list,
+On Fri, 2013-01-04 at 22:58 +0900, YOSHIFUJI Hideaki wrote:
+> Currently, the size of skb allocated for NDISC is MAX_HEADER +
+> LL_RESERVED_SPACE(dev) + packet length + dev->needed_tailroom,
+> but only LL_RESERVED_SPACE(dev) bytes is "reserved" for headers.
+> As a result, the skb looks like this (after construction of the
+> message):
 > 
-> I recently tripped over a NULL pointer dereference in the veth driver.
-> I'm running a 3.8.0_rc1 (updated from net-next git tree this morning)
-> on an Athlon 64 X2 machine running a 32 bit kernel.  To trigger the
-> oops I simply created a veth interface as follows:
+> head       data                   tail                       end
+> +--------------------------------------------------------------+
+> +           |                      |          |                |
+> +--------------------------------------------------------------+
+> |<-hlen---->|<---ipv6 packet------>|<--tlen-->|<--MAX_HEADER-->|
+>     =LL_                               = dev
+>      RESERVED_                           ->needed_
+>      SPACE(dev)                            tailroom
 > 
->         ip link add name ve0 type veth peer name ve1
+> As the name implies, "MAX_HEADER" is used for headers, and should
+> be "reserved" in prior to packet construction.  Or, if some space
+> is really required at the tail of ther skb, it should be
+> explicitly documented.
 > 
-> I did a little digging in the git history and I note that veth
-> statistics changed a little with commit 2681128f0ced8aa4.  I tried
-> reverting that commit in my tree, which made the oops go away again.
+> We have several option after construction of NDISC message:
 > 
-> Thanks,
-> Tom
+> Option 1:
+> 
+> head       data                   tail       end
+> +---------------------------------------------+
+> +           |                      |          |
+> +---------------------------------------------+
+> |<-hlen---->|<---ipv6 packet------>|<--tlen-->|
+>    =LL_                                = dev
+>     RESERVED_                           ->needed_
+>     SPACE(dev)                            tailroom
 
-Thanks Tom, I'll fix this.
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
