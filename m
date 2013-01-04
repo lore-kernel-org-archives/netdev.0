@@ -1,12 +1,13 @@
 From: Eric Wong <normalperson@yhbt.net>
 Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Thu, 3 Jan 2013 23:45:58 +0000
-Message-ID: <20130103234558.GA1689@dcvr.yhbt.net>
+Date: Fri, 4 Jan 2013 00:26:35 +0000
+Message-ID: <20130104002635.GA6693@dcvr.yhbt.net>
 References: <20121228014503.GA5017@dcvr.yhbt.net>
  <20130102200848.GA4500@dcvr.yhbt.net>
  <20130102204712.GA17806@dcvr.yhbt.net>
  <1357220469.21409.24574.camel@edumazet-glaptop>
  <20130103183251.GA10113@dcvr.yhbt.net>
+ <20130103234558.GA1689@dcvr.yhbt.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
@@ -17,31 +18,28 @@ Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <20130103183251.GA10113@dcvr.yhbt.net>
+In-Reply-To: <20130103234558.GA1689@dcvr.yhbt.net>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 Eric Wong <normalperson@yhbt.net> wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > With the following patch, I cant reproduce the 'apparent stuck'
-> 
-> Right, the output is just an approximation and the logic there
-> was bogus.
-> 
-> Thanks for looking at this.
+> I think this requires frequent dirtying/cycling of pages to reproduce.
+> (from copying large files around) to interact with compaction.
+> I'll see if I can reproduce the issue with read-only FS activity.
 
-I'm still able to reproduce the issue under v3.8-rc2 with your patch
-for toosleepy.
+Still successfully running the read-only test on my main machine, will
+provide another update in a few hours or so if it's still successful
+(it usually takes <1 hour to hit).
 
-(As expected when blocked,) TCP send() will eventually return
-ETIMEOUT when I forget to check (and toosleepy will abort from it)
+I also fired up a VM on my laptop (still running v3.7) and was able to
+get stuck with only 2 cores and 512M on the VM (x86_64).  On the small
+VM with little disk space, it doesn't need much dirty data to trigger.
+I just did this:
 
-I think this requires frequent dirtying/cycling of pages to reproduce.
-(from copying large files around) to interact with compaction.
-I'll see if I can reproduce the issue with read-only FS activity.
+    find $45G_NFS_MOUNT -type f -print0 | \
+       xargs -0 -n1 -P4 sh -c 'cat "$1" >> tmp; > tmp' --
 
-With 3.7.1 and compaction/THP disabled, I was able to run ~21 hours
-and copy a few TB around without anything getting stuck.
+...while running two instances of toosleepy (one got stuck and aborted).
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
