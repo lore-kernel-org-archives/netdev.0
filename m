@@ -1,61 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Fri, 04 Jan 2013 09:15:03 -0800
-Message-ID: <1357319703.1678.1737.camel@edumazet-glaptop>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
-	 <20130102200848.GA4500@dcvr.yhbt.net>  <20130104160148.GB3885@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Wong <normalperson@yhbt.net>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
+From: Tom Parkin <tparkin@katalix.com>
+Subject: [RFC PATCH 0/3] net namespace support in l2tp_core
+Date: Fri,  4 Jan 2013 17:51:45 +0000
+Message-ID: <1357321908-30619-1-git-send-email-tparkin@katalix.com>
+Cc: Tom Parkin <tparkin@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:33945 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754994Ab3ADRPL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 12:15:11 -0500
-In-Reply-To: <20130104160148.GB3885@suse.de>
+Received: from katalix.com ([82.103.140.233]:53772 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755113Ab3ADRwA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2013 12:52:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-04 at 16:01 +0000, Mel Gorman wrote:
+This exploratory patchset is an attempt to fix up l2tp_core to behave properly
+with network namespaces, based on issues raised previously on netdev[1].
 
-> Implying that it's stuck in compaction somewhere. It could be the case
-> that compaction alters timing enough to trigger another bug. You say it
-> tests differently depending on whether TCP or unix sockets are used
-> which might indicate multiple problems. However, lets try and see if
-> compaction is the primary problem or not.
+The reason I'm posting it as an RFC is that I'm seeing some bugs that I'm
+having trouble tracking down, and I'd appreciate any suggestions as to what
+I'm doing wrong.
 
-One difference between TCP or unix socket is that :
+During stress testing I see kernel oopses after a few hours.  My stress test is 
+a script which spawns lots of sub-processes which create and delete multiple 
+namespaces containing multiple l2tp tunnels.  I've seen oopses in various 
+locations -- for example, ndist_net_exit, dst_ifdown, 
+netlink_broadcast_filtered, dev_change_net_namespace.  I'm assuming my changes 
+are causing some race condition which might bite in multiple places depending 
+on timing.
 
-Unix sockets try hard to limit the order of allocations.
+So far I'm guessing that the method I'm using to clean up l2tp tunnel sockets
+in the net namespace callback may be to blame.  In the case of "unmanaged"
+sockets (see patch 3 for details) the socket is created using:
 
-For a 16KB (+ skb overhead) send(), we will probably use one order-2
-page and one order-0 page as a frag (data_len being not 0) :
+	sock_create_kern
+	sk_change_net
 
-vi +1484 net/unix/af_unix.c
+to create a socket without a namespace reference.  When the namespace exits, I
+walk the per-namespace list of tunnels, calling sk_release_kernel to release
+the socket.  The l2tp-specific resources are freed in the socket destructor
+function.
 
-       if (len > SKB_MAX_ALLOC)
-                data_len = min_t(size_t,
-                                 len - SKB_MAX_ALLOC,
-                                 MAX_SKB_FRAGS * PAGE_SIZE);
+This general pattern of socket creation and destruction
+(sock_create_kern/sk_change_net/sk_release_kernel) seems to be used
+elsewhere, for example inet_ctl_sock_create and inet_ctl_sock_destroy.  So
+this seems reasonable.  I'm not sure if hanging resource deallocation off
+sk_destruct in this context is OK, though.  Any comments welcome!
 
-        skb = sock_alloc_send_pskb(sk, len - data_len, data_len,
-                                   msg->msg_flags & MSG_DONTWAIT, &err);
+Thanks,
+Tom
 
-While TCP could use order-3 pages if available
+[1].
+	http://www.spinics.net/lists/netdev/msg214776.html
+	http://www.spinics.net/lists/netdev/msg212234.html
 
-Eric, you could try to change SKB_FRAG_PAGE_ORDER in net/core/sock.c to
-lower values (16384, 8192, 4096) and check if the hang can disappear or
-not.
+Tom Parkin (3):
+  l2tp: set netnsok flag for netlink messages
+  l2tp: prevent tunnel creation on netns mismatch
+  l2tp: fix network namespace use for unmanaged tunnel sockets
 
-Alternatively (no kernel patching needed), you could try to hang AF_UNIX
-using buffers of 90KB, to force order-3 allocations as well (one 32KB
-allocation plus 16 * 4KB frags)
+ net/l2tp/l2tp_core.c    |   94 ++++++++++++++++++++++++++++++-----------------
+ net/l2tp/l2tp_netlink.c |    1 +
+ 2 files changed, 62 insertions(+), 33 deletions(-)
 
-Thanks
+-- 
+1.7.9.5
