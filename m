@@ -1,15 +1,15 @@
 From: Lubomir Rintel <lkundrak@v3.sk>
 Subject: [PATCH] mv643xx_eth: Fix a possible deadlock upon ifdown
-Date: Fri,  4 Jan 2013 15:07:02 +0100
-Message-ID: <1357308422-19639-1-git-send-email-lkundrak@v3.sk>
+Date: Fri,  4 Jan 2013 15:17:43 +0100
+Message-ID: <1357309063-20236-1-git-send-email-lkundrak@v3.sk>
+References: <1357308422-19639-1-git-send-email-lkundrak@v3.sk>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Lubomir Rintel <lubo.rintel@gooddata.com>
+	Lubomir Rintel <lkundrak@v3.sk>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357308422-19639-1-git-send-email-lkundrak@v3.sk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
-
-From: Lubomir Rintel <lubo.rintel@gooddata.com>
 
 =================================
 [ INFO: inconsistent lock state ]
@@ -85,7 +85,13 @@ stack backtrace:
 [<c03d209c>] (sock_sendmsg+0xa8/0xd0) from [<c03d2314>] (__sys_sendmsg+0x1d8/0x280)
 [<c03d2314>] (__sys_sendmsg+0x1d8/0x280) from [<c03d4054>] (sys_sendmsg+0x44/0x68)
 [<c03d4054>] (sys_sendmsg+0x44/0x68) from [<c0008cc0>] (ret_fast_syscall+0x0/0x38)
+
+Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 ---
+
+I've sent an incorrect version; resending with a proper signoff and headers 
+this time; sorry about that.
+
  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 ++--
  1 files changed, 2 insertions(+), 2 deletions(-)
 
