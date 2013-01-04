@@ -1,59 +1,141 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH net-next] softirq: reduce latencies
-Date: Thu, 03 Jan 2013 23:46:37 -0800
-Message-ID: <1357285597.21409.28406.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2 net-next] softirq: reduce latencies
+Date: Thu, 03 Jan 2013 23:49:40 -0800
+Message-ID: <1357285780.21409.28416.camel@edumazet-glaptop>
 References: <1357216132.21409.24107.camel@edumazet-glaptop>
-	 <20130103124608.136fd65b.akpm@linux-foundation.org>
-	 <1357252875.21409.26390.camel@edumazet-glaptop>
-	 <787701357283699@web24e.yandex.ru>
+	 <1357250880.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1357252816.21409.26384.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
 	netdev <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	Tom Herbert <therbert@google.com>
-To: "Oleg A.Arkhangelsky" <sysoleg@yandex.ru>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:62946 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750711Ab3ADHqk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 02:46:40 -0500
-In-Reply-To: <787701357283699@web24e.yandex.ru>
+Received: from mail-da0-f48.google.com ([209.85.210.48]:39330 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab3ADHto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 02:49:44 -0500
+In-Reply-To: <1357252816.21409.26384.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-04 at 11:14 +0400, Oleg A.Arkhangelsky wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> It leads to many context switches when softirqs processing deffered to
-> ksoftirqd kthreads which can be very expensive. Here is some evidence
-> of ksoftirqd activation effects:
-> 
-> http://marc.info/?l=linux-netdev&m=124116262916969&w=2
-> 
-> Look for "magic threshold". Yes, I know there was another bug in scheduler
-> discovered that time, but this bug was only about tick accounting.
-> 
+In various network workloads, __do_softirq() latencies can be up
+to 20 ms if HZ=1000, and 200 ms if HZ=100.
 
-This thread is 3 years old : 
+This is because we iterate 10 times in the softirq dispatcher,
+and some actions can consume a lot of cycles.
 
-- It was a router workload. Forwarded packets should not wakeup a task.
-- The measure of how cpus spent their cycles was completely wrong.
-- A lot of things have changed, both in network stack and scheduler.
+This patch changes the fallback to ksoftirqd condition to :
 
-In fact, under moderate load, my patch is able to loop more than 10
-times before deferring to ksoftirqd.
+- A time limit of 2 ms.
+- need_resched() being set on current task
 
-Under stress, ksoftirqd will be started anyway, and its a good thing,
-because it enables process migration.
+When one of this condition is met, we wakeup ksoftirqd for further
+softirq processing if we still have pending softirqs.
 
-500 "context switches" [1] per second instead of 50 on behalf of
-ksoftirqd is absolutely not measurable. It also permits smoother RCU
-cleanups.
+Using need_resched() as the only condition can trigger RCU stalls,
+as we can keep BH disabled for too long.
 
-I did a lot of benchmarks, and didnt see any regression yet, but usual
-noise.
+I ran several benchmarks and got no significant difference in
+throughput, but a very significant reduction of latencies (one order
+of magnitude) :
 
-[1] Under load, __do_softirq() would be called 500 times per second,
-instead of ~50 times per second.
+In following bench, 200 antagonist "netperf -t TCP_RR" are started in
+background, using all available cpus.
+
+Then we start one "netperf -t TCP_RR", bound to the cpu handling the NIC
+IRQ (hard+soft)
+
+Before patch :
+
+# netperf -H 7.7.7.84 -t TCP_RR -T2,2 -- -k
+RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
+to 7.7.7.84 () port 0 AF_INET : first burst 0 : cpu bind
+RT_LATENCY=550110.424
+MIN_LATENCY=146858
+MAX_LATENCY=997109
+P50_LATENCY=305000
+P90_LATENCY=550000
+P99_LATENCY=710000
+MEAN_LATENCY=376989.12
+STDDEV_LATENCY=184046.92
+
+After patch :
+
+# netperf -H 7.7.7.84 -t TCP_RR -T2,2 -- -k
+RT_LATENCY,MIN_LATENCY,MAX_LATENCY,P50_LATENCY,P90_LATENCY,P99_LATENCY,MEAN_LATENCY,STDDEV_LATENCY
+MIGRATED TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET
+to 7.7.7.84 () port 0 AF_INET : first burst 0 : cpu bind
+RT_LATENCY=40545.492
+MIN_LATENCY=9834
+MAX_LATENCY=78366
+P50_LATENCY=33583
+P90_LATENCY=59000
+P99_LATENCY=69000
+MEAN_LATENCY=38364.67
+STDDEV_LATENCY=12865.26
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+---
+v2: min(1, (2*HZ/1000)) -> max(1, (2*HZ/1000)), as spotted by Ben
+
+ kernel/softirq.c |   17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index ed567ba..8d5e4be 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -195,21 +195,21 @@ void local_bh_enable_ip(unsigned long ip)
+ EXPORT_SYMBOL(local_bh_enable_ip);
+ 
+ /*
+- * We restart softirq processing MAX_SOFTIRQ_RESTART times,
+- * and we fall back to softirqd after that.
++ * We restart softirq processing for at most 2 ms,
++ * and if need_resched() is not set.
+  *
+- * This number has been established via experimentation.
++ * These limits have been established via experimentation.
+  * The two things to balance is latency against fairness -
+  * we want to handle softirqs as soon as possible, but they
+  * should not be able to lock up the box.
+  */
+-#define MAX_SOFTIRQ_RESTART 10
++#define MAX_SOFTIRQ_TIME  max(1, (2*HZ/1000))
+ 
+ asmlinkage void __do_softirq(void)
+ {
+ 	struct softirq_action *h;
+ 	__u32 pending;
+-	int max_restart = MAX_SOFTIRQ_RESTART;
++	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
+ 	int cpu;
+ 	unsigned long old_flags = current->flags;
+ 
+@@ -264,11 +264,12 @@ restart:
+ 	local_irq_disable();
+ 
+ 	pending = local_softirq_pending();
+-	if (pending && --max_restart)
+-		goto restart;
++	if (pending) {
++		if (time_before(jiffies, end) && !need_resched())
++			goto restart;
+ 
+-	if (pending)
+ 		wakeup_softirqd();
++	}
+ 
+ 	lockdep_softirq_exit();
+ 
