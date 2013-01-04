@@ -1,473 +1,116 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch net-next V6 13/15] bonding: remove usage of dev->master
-Date: Fri,  4 Jan 2013 09:49:01 +0100
-Message-ID: <1357289343-817-14-git-send-email-jiri@resnulli.us>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next V6 10/15] qeth: ensure that __vlan_find_dev_deep() is called with rcu_read_lock
+Date: Fri,  4 Jan 2013 09:48:58 +0100
+Message-ID: <1357289343-817-11-git-send-email-jiri@resnulli.us>
 References: <1357289343-817-1-git-send-email-jiri@resnulli.us>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org, andy-QlMahl40kYEqcZcGjlUOXw@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	jitendra.kalsaria-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, sony.chacko-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org,
-	linux-driver-h88ZbnxC6KDQT0dZR+AlfA@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, ursula.braun-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	blaschka-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, linux390-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org,
-	shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-	therbert-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	gregory.v.rose-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bridge-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1357289343-817-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
+	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
+	shemminger@vyatta.com, bhutchings@solarflare.com,
+	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
+	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
+	fbl@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357289343-817-1-git-send-email-jiri@resnulli.us>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Benefit from new upper dev list and free bonding from dev->master usage.
+Also benefit from rcu_read_lock held and use __in_dev_get_rcu() in ipv4 case.
 
-Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/bonding/bond_3ad.c  | 30 ++++++-------
- drivers/net/bonding/bond_alb.c  |  6 +--
- drivers/net/bonding/bond_main.c | 94 ++++++++++++++++++++++++-----------------
- drivers/net/bonding/bonding.h   | 14 +++---
- net/core/rtnetlink.c            |  1 +
- 5 files changed, 81 insertions(+), 64 deletions(-)
+ drivers/s390/net/qeth_l3_main.c | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index a030e63..84fabd6 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -1127,7 +1127,7 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
- 				// INFO_RECEIVED_LOOPBACK_FRAMES
- 				pr_err("%s: An illegal loopback occurred on adapter (%s).\n"
- 				       "Check the configuration to verify that all adapters are connected to 802.3ad compliant switch ports\n",
--				       port->slave->dev->master->name, port->slave->dev->name);
-+				       port->slave->bond->dev->name, port->slave->dev->name);
- 				return;
- 			}
- 			__update_selected(lacpdu, port);
-@@ -1306,7 +1306,7 @@ static void ad_port_selection_logic(struct port *port)
- 		}
- 		if (!curr_port) { // meaning: the port was related to an aggregator but was not on the aggregator port list
- 			pr_warning("%s: Warning: Port %d (on %s) was related to aggregator %d but was not on its port list\n",
--				   port->slave->dev->master->name,
-+				   port->slave->bond->dev->name,
- 				   port->actor_port_number,
- 				   port->slave->dev->name,
- 				   port->aggregator->aggregator_identifier);
-@@ -1386,7 +1386,7 @@ static void ad_port_selection_logic(struct port *port)
- 				 port->aggregator->aggregator_identifier);
- 		} else {
- 			pr_err("%s: Port %d (on %s) did not find a suitable aggregator\n",
--			       port->slave->dev->master->name,
-+			       port->slave->bond->dev->name,
- 			       port->actor_port_number, port->slave->dev->name);
- 		}
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 6e5eef0..0749efe 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -1640,6 +1640,7 @@ static void qeth_l3_add_mc(struct qeth_card *card, struct in_device *in4_dev)
  	}
-@@ -1463,7 +1463,7 @@ static struct aggregator *ad_agg_selection_test(struct aggregator *best,
+ }
  
- 	default:
- 		pr_warning("%s: Impossible agg select mode %d\n",
--			   curr->slave->dev->master->name,
-+			   curr->slave->bond->dev->name,
- 			   __get_agg_selection_mode(curr->lag_ports));
- 		break;
- 	}
-@@ -1571,7 +1571,7 @@ static void ad_agg_selection_logic(struct aggregator *agg)
- 		// check if any partner replys
- 		if (best->is_individual) {
- 			pr_warning("%s: Warning: No 802.3ad response from the link partner for any adapters in the bond\n",
--				   best->slave ? best->slave->dev->master->name : "NULL");
-+				   best->slave ? best->slave->bond->dev->name : "NULL");
- 		}
- 
- 		best->is_active = 1;
-@@ -1898,7 +1898,7 @@ int bond_3ad_bind_slave(struct slave *slave)
- 
- 	if (bond == NULL) {
- 		pr_err("%s: The slave %s is not attached to its bond\n",
--		       slave->dev->master->name, slave->dev->name);
-+		       slave->bond->dev->name, slave->dev->name);
- 		return -1;
- 	}
- 
-@@ -1973,7 +1973,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 	// if slave is null, the whole port is not initialized
- 	if (!port->slave) {
- 		pr_warning("Warning: %s: Trying to unbind an uninitialized port on %s\n",
--			   slave->dev->master->name, slave->dev->name);
-+			   slave->bond->dev->name, slave->dev->name);
- 		return;
- 	}
- 
-@@ -2009,7 +2009,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 
- 				if ((new_aggregator->lag_ports == port) && new_aggregator->is_active) {
- 					pr_info("%s: Removing an active aggregator\n",
--						aggregator->slave->dev->master->name);
-+						aggregator->slave->bond->dev->name);
- 					// select new active aggregator
- 					 select_new_active_agg = 1;
- 				}
-@@ -2040,7 +2040,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 					ad_agg_selection_logic(__get_first_agg(port));
- 			} else {
- 				pr_warning("%s: Warning: unbinding aggregator, and could not find a new aggregator for its ports\n",
--					   slave->dev->master->name);
-+					   slave->bond->dev->name);
- 			}
- 		} else { // in case that the only port related to this aggregator is the one we want to remove
- 			select_new_active_agg = aggregator->is_active;
-@@ -2048,7 +2048,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 			ad_clear_agg(aggregator);
- 			if (select_new_active_agg) {
- 				pr_info("%s: Removing an active aggregator\n",
--					slave->dev->master->name);
-+					slave->bond->dev->name);
- 				// select new active aggregator
- 				ad_agg_selection_logic(__get_first_agg(port));
- 			}
-@@ -2076,7 +2076,7 @@ void bond_3ad_unbind_slave(struct slave *slave)
- 					ad_clear_agg(temp_aggregator);
- 					if (select_new_active_agg) {
- 						pr_info("%s: Removing an active aggregator\n",
--							slave->dev->master->name);
-+							slave->bond->dev->name);
- 						// select new active aggregator
- 						ad_agg_selection_logic(__get_first_agg(port));
- 					}
-@@ -2184,7 +2184,7 @@ static int bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u1
- 
- 		if (!port->slave) {
- 			pr_warning("%s: Warning: port of slave %s is uninitialized\n",
--				   slave->dev->name, slave->dev->master->name);
-+				   slave->dev->name, slave->bond->dev->name);
- 			return ret;
- 		}
- 
-@@ -2240,7 +2240,7 @@ void bond_3ad_adapter_speed_changed(struct slave *slave)
- 	// if slave is null, the whole port is not initialized
- 	if (!port->slave) {
- 		pr_warning("Warning: %s: speed changed for uninitialized port on %s\n",
--			   slave->dev->master->name, slave->dev->name);
-+			   slave->bond->dev->name, slave->dev->name);
- 		return;
- 	}
- 
-@@ -2268,7 +2268,7 @@ void bond_3ad_adapter_duplex_changed(struct slave *slave)
- 	// if slave is null, the whole port is not initialized
- 	if (!port->slave) {
- 		pr_warning("%s: Warning: duplex changed for uninitialized port on %s\n",
--			   slave->dev->master->name, slave->dev->name);
-+			   slave->bond->dev->name, slave->dev->name);
- 		return;
- 	}
- 
-@@ -2297,7 +2297,7 @@ void bond_3ad_handle_link_change(struct slave *slave, char link)
- 	// if slave is null, the whole port is not initialized
- 	if (!port->slave) {
- 		pr_warning("Warning: %s: link status changed for uninitialized port on %s\n",
--			   slave->dev->master->name, slave->dev->name);
-+			   slave->bond->dev->name, slave->dev->name);
- 		return;
- 	}
- 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 7c9d136..f5e0527 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -507,7 +507,7 @@ static void rlb_update_client(struct rlb_client_info *client_info)
- 				 client_info->mac_dst);
- 		if (!skb) {
- 			pr_err("%s: Error: failed to create an ARP packet\n",
--			       client_info->slave->dev->master->name);
-+			       client_info->slave->bond->dev->name);
- 			continue;
- 		}
- 
-@@ -517,7 +517,7 @@ static void rlb_update_client(struct rlb_client_info *client_info)
- 			skb = vlan_put_tag(skb, client_info->vlan_id);
- 			if (!skb) {
- 				pr_err("%s: Error: failed to insert VLAN tag\n",
--				       client_info->slave->dev->master->name);
-+				       client_info->slave->bond->dev->name);
- 				continue;
- 			}
- 		}
-@@ -1043,7 +1043,7 @@ static int alb_set_slave_mac_addr(struct slave *slave, u8 addr[])
- 	if (dev_set_mac_address(dev, &s_addr)) {
- 		pr_err("%s: Error: dev_set_mac_address of dev %s failed!\n"
- 		       "ALB mode requires that the base driver support setting the hw address also when the network device's interface is open\n",
--		       dev->master->name, dev->name);
-+		       slave->bond->dev->name, dev->name);
- 		return -EOPNOTSUPP;
- 	}
- 	return 0;
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b7d45f3..c495298 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -746,11 +746,9 @@ static void __bond_resend_igmp_join_requests(struct net_device *dev)
++/* called with rcu_read_lock */
+ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
  {
  	struct in_device *in_dev;
+@@ -1652,19 +1653,14 @@ static void qeth_l3_add_vlan_mc(struct qeth_card *card)
+ 	for_each_set_bit(vid, card->active_vlans, VLAN_N_VID) {
+ 		struct net_device *netdev;
  
--	rcu_read_lock();
- 	in_dev = __in_dev_get_rcu(dev);
- 	if (in_dev)
- 		ip_mc_rejoin_groups(in_dev);
--	rcu_read_unlock();
- }
- 
- /*
-@@ -760,9 +758,10 @@ static void __bond_resend_igmp_join_requests(struct net_device *dev)
-  */
- static void bond_resend_igmp_join_requests(struct bonding *bond)
- {
--	struct net_device *bond_dev, *vlan_dev, *master_dev;
-+	struct net_device *bond_dev, *vlan_dev, *upper_dev;
- 	struct vlan_entry *vlan;
- 
-+	rcu_read_lock();
- 	read_lock(&bond->lock);
- 
- 	bond_dev = bond->dev;
-@@ -774,18 +773,14 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
- 	 * if bond is enslaved to a bridge,
- 	 * then rejoin all groups on its master
- 	 */
--	master_dev = bond_dev->master;
--	if (master_dev)
--		if ((master_dev->priv_flags & IFF_EBRIDGE)
--			&& (bond_dev->priv_flags & IFF_BRIDGE_PORT))
--			__bond_resend_igmp_join_requests(master_dev);
-+	upper_dev = netdev_master_upper_dev_get_rcu(bond_dev);
-+	if (upper_dev && upper_dev->priv_flags & IFF_EBRIDGE)
-+		__bond_resend_igmp_join_requests(upper_dev);
- 
- 	/* rejoin all groups on vlan devices */
- 	list_for_each_entry(vlan, &bond->vlan_list, vlan_list) {
 -		rcu_read_lock();
- 		vlan_dev = __vlan_find_dev_deep(bond_dev,
- 						vlan->vlan_id);
+ 		netdev = __vlan_find_dev_deep(card->dev, vid);
 -		rcu_read_unlock();
- 		if (vlan_dev)
- 			__bond_resend_igmp_join_requests(vlan_dev);
+ 		if (netdev == NULL ||
+ 		    !(netdev->flags & IFF_UP))
+ 			continue;
+-		in_dev = in_dev_get(netdev);
++		in_dev = __in_dev_get_rcu(netdev);
+ 		if (!in_dev)
+ 			continue;
+-		rcu_read_lock();
+ 		qeth_l3_add_mc(card, in_dev);
+-		rcu_read_unlock();
+-		in_dev_put(in_dev);
  	}
-@@ -794,13 +789,16 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
- 		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
- 
- 	read_unlock(&bond->lock);
-+	rcu_read_unlock();
  }
  
- static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+@@ -1673,14 +1669,14 @@ static void qeth_l3_add_multicast_ipv4(struct qeth_card *card)
+ 	struct in_device *in4_dev;
+ 
+ 	QETH_CARD_TEXT(card, 4, "chkmcv4");
+-	in4_dev = in_dev_get(card->dev);
+-	if (in4_dev == NULL)
+-		return;
+ 	rcu_read_lock();
++	in4_dev = __in_dev_get_rcu(card->dev);
++	if (in4_dev == NULL)
++		goto unlock;
+ 	qeth_l3_add_mc(card, in4_dev);
+ 	qeth_l3_add_vlan_mc(card);
++unlock:
+ 	rcu_read_unlock();
+-	in_dev_put(in4_dev);
+ }
+ 
+ #ifdef CONFIG_QETH_IPV6
+@@ -1705,6 +1701,7 @@ static void qeth_l3_add_mc6(struct qeth_card *card, struct inet6_dev *in6_dev)
+ 	}
+ }
+ 
++/* called with rcu_read_lock */
+ static void qeth_l3_add_vlan_mc6(struct qeth_card *card)
  {
- 	struct bonding *bond = container_of(work, struct bonding,
- 					    mcast_work.work);
+ 	struct inet6_dev *in_dev;
+@@ -1741,10 +1738,12 @@ static void qeth_l3_add_multicast_ipv6(struct qeth_card *card)
+ 	in6_dev = in6_dev_get(card->dev);
+ 	if (in6_dev == NULL)
+ 		return;
 +	rcu_read_lock();
- 	bond_resend_igmp_join_requests(bond);
+ 	read_lock_bh(&in6_dev->lock);
+ 	qeth_l3_add_mc6(card, in6_dev);
+ 	qeth_l3_add_vlan_mc6(card);
+ 	read_unlock_bh(&in6_dev->lock);
++	rcu_read_unlock();
+ 	in6_dev_put(in6_dev);
+ }
+ #endif /* CONFIG_QETH_IPV6 */
+@@ -1813,8 +1812,10 @@ static void qeth_l3_free_vlan_addresses6(struct qeth_card *card,
+ static void qeth_l3_free_vlan_addresses(struct qeth_card *card,
+ 			unsigned short vid)
+ {
++	rcu_read_lock();
+ 	qeth_l3_free_vlan_addresses4(card, vid);
+ 	qeth_l3_free_vlan_addresses6(card, vid);
 +	rcu_read_unlock();
  }
  
- /*
-@@ -1493,6 +1491,27 @@ static rx_handler_result_t bond_handle_frame(struct sk_buff **pskb)
- 	return ret;
- }
- 
-+static int bond_master_upper_dev_link(struct net_device *bond_dev,
-+				      struct net_device *slave_dev)
-+{
-+	int err;
-+
-+	err = netdev_master_upper_dev_link(slave_dev, bond_dev);
-+	if (err)
-+		return err;
-+	slave_dev->flags |= IFF_SLAVE;
-+	rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE);
-+	return 0;
-+}
-+
-+static void bond_upper_dev_unlink(struct net_device *bond_dev,
-+				  struct net_device *slave_dev)
-+{
-+	netdev_upper_dev_unlink(slave_dev, bond_dev);
-+	slave_dev->flags &= ~IFF_SLAVE;
-+	rtmsg_ifinfo(RTM_NEWLINK, slave_dev, IFF_SLAVE);
-+}
-+
- /* enslave device <slave> to bond device <master> */
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- {
-@@ -1655,9 +1674,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		}
- 	}
- 
--	res = netdev_set_bond_master(slave_dev, bond_dev);
-+	res = bond_master_upper_dev_link(bond_dev, slave_dev);
- 	if (res) {
--		pr_debug("Error %d calling netdev_set_bond_master\n", res);
-+		pr_debug("Error %d calling bond_master_upper_dev_link\n", res);
- 		goto err_restore_mac;
- 	}
- 
-@@ -1891,7 +1910,7 @@ err_close:
- 	dev_close(slave_dev);
- 
- err_unset_master:
--	netdev_set_bond_master(slave_dev, NULL);
-+	bond_upper_dev_unlink(bond_dev, slave_dev);
- 
- err_restore_mac:
- 	if (!bond->params.fail_over_mac) {
-@@ -1936,7 +1955,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 
- 	/* slave is not a slave or master is not master of this slave */
- 	if (!(slave_dev->flags & IFF_SLAVE) ||
--	    (slave_dev->master != bond_dev)) {
-+	    !netdev_has_upper_dev(slave_dev, bond_dev)) {
- 		pr_err("%s: Error: cannot release %s.\n",
- 		       bond_dev->name, slave_dev->name);
- 		return -EINVAL;
-@@ -2080,7 +2099,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		netif_addr_unlock_bh(bond_dev);
- 	}
- 
--	netdev_set_bond_master(slave_dev, NULL);
-+	bond_upper_dev_unlink(bond_dev, slave_dev);
- 
- 	slave_disable_netpoll(slave);
- 
-@@ -2195,7 +2214,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 			netif_addr_unlock_bh(bond_dev);
- 		}
- 
--		netdev_set_bond_master(slave_dev, NULL);
-+		bond_upper_dev_unlink(bond_dev, slave_dev);
- 
- 		slave_disable_netpoll(slave);
- 
-@@ -2259,8 +2278,9 @@ static int bond_ioctl_change_active(struct net_device *bond_dev, struct net_devi
- 	if (!USES_PRIMARY(bond->params.mode))
- 		return -EINVAL;
- 
--	/* Verify that master_dev is indeed the master of slave_dev */
--	if (!(slave_dev->flags & IFF_SLAVE) || (slave_dev->master != bond_dev))
-+	/* Verify that bond_dev is indeed the master of slave_dev */
-+	if (!(slave_dev->flags & IFF_SLAVE) ||
-+	    !netdev_has_upper_dev(slave_dev, bond_dev))
- 		return -EINVAL;
- 
- 	read_lock(&bond->lock);
-@@ -3258,36 +3278,32 @@ static int bond_master_netdev_event(unsigned long event,
- static int bond_slave_netdev_event(unsigned long event,
- 				   struct net_device *slave_dev)
- {
--	struct net_device *bond_dev = slave_dev->master;
--	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave = NULL;
-+	struct slave *slave = bond_slave_get_rtnl(slave_dev);
-+	struct bonding *bond = slave->bond;
-+	struct net_device *bond_dev = slave->bond->dev;
-+	u32 old_speed;
-+	u8 old_duplex;
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
--		if (bond_dev) {
--			if (bond->setup_by_slave)
--				bond_release_and_destroy(bond_dev, slave_dev);
--			else
--				bond_release(bond_dev, slave_dev);
--		}
-+		if (bond->setup_by_slave)
-+			bond_release_and_destroy(bond_dev, slave_dev);
-+		else
-+			bond_release(bond_dev, slave_dev);
- 		break;
- 	case NETDEV_UP:
- 	case NETDEV_CHANGE:
--		slave = bond_get_slave_by_dev(bond, slave_dev);
--		if (slave) {
--			u32 old_speed = slave->speed;
--			u8  old_duplex = slave->duplex;
-+		old_speed = slave->speed;
-+		old_duplex = slave->duplex;
- 
--			bond_update_speed_duplex(slave);
-+		bond_update_speed_duplex(slave);
- 
--			if (bond->params.mode == BOND_MODE_8023AD) {
--				if (old_speed != slave->speed)
--					bond_3ad_adapter_speed_changed(slave);
--				if (old_duplex != slave->duplex)
--					bond_3ad_adapter_duplex_changed(slave);
--			}
-+		if (bond->params.mode == BOND_MODE_8023AD) {
-+			if (old_speed != slave->speed)
-+				bond_3ad_adapter_speed_changed(slave);
-+			if (old_duplex != slave->duplex)
-+				bond_3ad_adapter_duplex_changed(slave);
- 		}
--
- 		break;
- 	case NETDEV_DOWN:
- 		/*
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 21b68e5..0d282d2 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -258,6 +258,9 @@ static inline bool bond_vlan_used(struct bonding *bond)
- #define bond_slave_get_rcu(dev) \
- 	((struct slave *) rcu_dereference(dev->rx_handler_data))
- 
-+#define bond_slave_get_rtnl(dev) \
-+	((struct slave *) rtnl_dereference(dev->rx_handler_data))
-+
- /**
-  * Returns NULL if the net_device does not belong to any of the bond's slaves
-  *
-@@ -280,11 +283,9 @@ static inline struct slave *bond_get_slave_by_dev(struct bonding *bond,
- 
- static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
- {
--	if (!slave || !slave->dev->master) {
-+	if (!slave || !slave->bond)
- 		return NULL;
--	}
--
--	return netdev_priv(slave->dev->master);
-+	return slave->bond;
- }
- 
- static inline bool bond_is_lb(const struct bonding *bond)
-@@ -360,10 +361,9 @@ static inline void bond_netpoll_send_skb(const struct slave *slave,
- 
- static inline void bond_set_slave_inactive_flags(struct slave *slave)
- {
--	struct bonding *bond = netdev_priv(slave->dev->master);
--	if (!bond_is_lb(bond))
-+	if (!bond_is_lb(slave->bond))
- 		bond_set_backup_slave(slave);
--	if (!bond->params.all_slaves_active)
-+	if (!slave->bond->params.all_slaves_active)
- 		slave->inactive = 1;
- }
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index ae612f4..095bbc7 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2003,6 +2003,7 @@ errout:
- 	if (err < 0)
- 		rtnl_set_sk_err(net, RTNLGRP_LINK, err);
- }
-+EXPORT_SYMBOL(rtmsg_ifinfo);
- 
- static int nlmsg_populate_fdb_fill(struct sk_buff *skb,
- 				   struct net_device *dev,
+ static int qeth_l3_vlan_rx_add_vid(struct net_device *dev, unsigned short vid)
 -- 
 1.8.0
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
