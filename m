@@ -1,788 +1,305 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 3.0.y 1/3] rtnetlink: Compute and store minimum ifinfo dump
- size
-Date: Fri, 4 Jan 2013 00:32:54 +0000
-Message-ID: <1357259574.2685.61.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: [PATCH 3.0.y 2/3] rtnetlink: Fix problem with buffer allocation
+Date: Fri, 4 Jan 2013 00:33:34 +0000
+Message-ID: <1357259614.2685.62.camel@bwh-desktop.uk.solarflarecom.com>
 References: <1357259449.2685.60.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	<stable@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+	Greg Rose <gregory.v.rose@intel.com>, <stable@vger.kernel.org>,
+	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
+	<linux-net-drivers@solarflare.com>
 To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:35515 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754344Ab3ADAc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 19:32:58 -0500
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1357259449.2685.60.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-commit c7ac8679bec9397afe8918f788cbcef88c38da54 upstream.
+commit 115c9b81928360d769a76c632bae62d15206a94a upstream.
 
-The message size allocated for rtnl ifinfo dumps was limited to
-a single page.  This is not enough for additional interface info
-available with devices that support SR-IOV and caused a bug in
-which VF info would not be displayed if more than approximately
-40 VFs were created per interface.
+Implement a new netlink attribute type IFLA_EXT_MASK.  The mask
+is a 32 bit value that can be used to indicate to the kernel that
+certain extended ifinfo values are requested by the user application.
+At this time the only mask value defined is RTEXT_FILTER_VF to
+indicate that the user wants the ifinfo dump to send information
+about the VFs belonging to the interface.
 
-Implement a new function pointer for the rtnl_register service that will
-calculate the amount of data required for the ifinfo dump and allocate
-enough data to satisfy the request.
+This patch fixes a bug in which certain applications do not have
+large enough buffers to accommodate the extra information returned
+by the kernel with large numbers of SR-IOV virtual functions.
+Those applications will not send the new netlink attribute with
+the interface info dump request netlink messages so they will
+not get unexpectedly large request buffers returned by the kernel.
+
+Modifies the rtnl_calcit function to traverse the list of net
+devices and compute the minimum buffer size that can hold the
+info dumps of all matching devices based upon the filter passed
+in via the new netlink attribute filter mask.  If no filter
+mask is sent then the buffer allocation defaults to NLMSG_GOODSIZE.
+
+With this change it is possible to add yet to be defined netlink
+attributes to the dump request which should make it fairly extensible
+in the future.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[bwh: Backported to 3.0:
+ - Adjust context
+ - Drop the change in do_setlink() that reverts commit f18da1456581
+   ('net: RTNETLINK adjusting values of min_ifinfo_dump_size'), which
+   was never applied here]
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/infiniband/core/netlink.c    |    2 +-
- include/linux/netlink.h              |    6 ++-
- include/net/rtnetlink.h              |    7 +++-
- net/bridge/br_netlink.c              |   15 ++++++---
- net/core/fib_rules.c                 |    6 ++--
- net/core/neighbour.c                 |   11 +++---
- net/core/rtnetlink.c                 |   60 +++++++++++++++++++++++++++------
- net/dcb/dcbnl.c                      |    4 +-
- net/decnet/dn_dev.c                  |    6 ++--
- net/decnet/dn_fib.c                  |    4 +-
- net/decnet/dn_route.c                |    5 ++-
- net/ipv4/devinet.c                   |    6 ++--
- net/ipv4/fib_frontend.c              |    6 ++--
- net/ipv4/inet_diag.c                 |    2 +-
- net/ipv4/ipmr.c                      |    3 +-
- net/ipv4/route.c                     |    2 +-
- net/ipv6/addrconf.c                  |   16 ++++++---
- net/ipv6/addrlabel.c                 |    9 +++--
- net/ipv6/ip6_fib.c                   |    3 +-
- net/ipv6/ip6mr.c                     |    3 +-
- net/ipv6/route.c                     |    6 ++--
- net/netfilter/ipset/ip_set_core.c    |    2 +-
- net/netfilter/nf_conntrack_netlink.c |    4 +-
- net/netlink/af_netlink.c             |   17 ++++++---
- net/netlink/genetlink.c              |    2 +-
- net/phonet/pn_netlink.c              |   13 ++++---
- net/sched/act_api.c                  |    7 ++--
- net/sched/cls_api.c                  |    6 ++--
- net/sched/sch_api.c                  |   12 +++---
- net/xfrm/xfrm_user.c                 |    3 +-
- 30 files changed, 158 insertions(+), 90 deletions(-)
+ include/linux/if_link.h   |    1 +
+ include/linux/rtnetlink.h |    3 ++
+ include/net/rtnetlink.h   |    2 +-
+ net/core/rtnetlink.c      |   77 ++++++++++++++++++++++++++++++++++-----------
+ 4 files changed, 63 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
-index 4a5abaf..9227f4a 100644
---- a/drivers/infiniband/core/netlink.c
-+++ b/drivers/infiniband/core/netlink.c
-@@ -148,7 +148,7 @@ static int ibnl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 				return -EINVAL;
- 			return netlink_dump_start(nls, skb, nlh,
- 						  client->cb_table[op].dump,
--						  NULL);
-+						  NULL, 0);
- 		}
- 	}
- 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index a9dd895..fdd0188 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -221,7 +221,8 @@ struct netlink_callback {
- 	int			(*dump)(struct sk_buff * skb,
- 					struct netlink_callback *cb);
- 	int			(*done)(struct netlink_callback *cb);
--	int			family;
-+	u16			family;
-+	u16			min_dump_alloc;
- 	long			args[6];
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index 0ee969a..61a48b5 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -137,6 +137,7 @@ enum {
+ 	IFLA_AF_SPEC,
+ 	IFLA_GROUP,		/* Group the device belongs to */
+ 	IFLA_NET_NS_FD,
++	IFLA_EXT_MASK,		/* Extended info mask, VFs, etc */
+ 	__IFLA_MAX
  };
  
-@@ -259,7 +260,8 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
- extern int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 			      const struct nlmsghdr *nlh,
- 			      int (*dump)(struct sk_buff *skb, struct netlink_callback*),
--			      int (*done)(struct netlink_callback*));
-+			      int (*done)(struct netlink_callback*),
-+			      u16 min_dump_alloc);
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index bbad657..5415dfb 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -600,6 +600,9 @@ struct tcamsg {
+ #define TCA_ACT_TAB 1 /* attr type must be >=1 */	
+ #define TCAA_MAX 1
  
-
- #define NL_NONROOT_RECV 0x1
++/* New extended info filters for IFLA_EXT_MASK */
++#define RTEXT_FILTER_VF		(1 << 0)
++
+ /* End of information exported to user level */
+ 
+ #ifdef __KERNEL__
 diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
-index 4093ca7..678f1ff 100644
+index 678f1ff..3702939 100644
 --- a/include/net/rtnetlink.h
 +++ b/include/net/rtnetlink.h
-@@ -6,11 +6,14 @@
+@@ -6,7 +6,7 @@
  
  typedef int (*rtnl_doit_func)(struct sk_buff *, struct nlmsghdr *, void *);
  typedef int (*rtnl_dumpit_func)(struct sk_buff *, struct netlink_callback *);
-+typedef u16 (*rtnl_calcit_func)(struct sk_buff *);
+-typedef u16 (*rtnl_calcit_func)(struct sk_buff *);
++typedef u16 (*rtnl_calcit_func)(struct sk_buff *, struct nlmsghdr *);
  
  extern int	__rtnl_register(int protocol, int msgtype,
--				rtnl_doit_func, rtnl_dumpit_func);
-+				rtnl_doit_func, rtnl_dumpit_func,
-+				rtnl_calcit_func);
- extern void	rtnl_register(int protocol, int msgtype,
--			      rtnl_doit_func, rtnl_dumpit_func);
-+			      rtnl_doit_func, rtnl_dumpit_func,
-+			      rtnl_calcit_func);
- extern int	rtnl_unregister(int protocol, int msgtype);
- extern void	rtnl_unregister_all(int protocol);
- 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 71861a9..d372df2 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -219,19 +219,24 @@ int __init br_netlink_init(void)
- 	if (err < 0)
- 		goto err1;
- 
--	err = __rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL, br_dump_ifinfo);
-+	err = __rtnl_register(PF_BRIDGE, RTM_GETLINK, NULL,
-+			      br_dump_ifinfo, NULL);
- 	if (err)
- 		goto err2;
--	err = __rtnl_register(PF_BRIDGE, RTM_SETLINK, br_rtm_setlink, NULL);
-+	err = __rtnl_register(PF_BRIDGE, RTM_SETLINK,
-+			      br_rtm_setlink, NULL, NULL);
- 	if (err)
- 		goto err3;
--	err = __rtnl_register(PF_BRIDGE, RTM_NEWNEIGH, br_fdb_add, NULL);
-+	err = __rtnl_register(PF_BRIDGE, RTM_NEWNEIGH,
-+			      br_fdb_add, NULL, NULL);
- 	if (err)
- 		goto err3;
--	err = __rtnl_register(PF_BRIDGE, RTM_DELNEIGH, br_fdb_delete, NULL);
-+	err = __rtnl_register(PF_BRIDGE, RTM_DELNEIGH,
-+			      br_fdb_delete, NULL, NULL);
- 	if (err)
- 		goto err3;
--	err = __rtnl_register(PF_BRIDGE, RTM_GETNEIGH, NULL, br_fdb_dump);
-+	err = __rtnl_register(PF_BRIDGE, RTM_GETNEIGH,
-+			      NULL, br_fdb_dump, NULL);
- 	if (err)
- 		goto err3;
- 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index f39ef5c..3231b46 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -740,9 +740,9 @@ static struct pernet_operations fib_rules_net_ops = {
- static int __init fib_rules_init(void)
- {
- 	int err;
--	rtnl_register(PF_UNSPEC, RTM_NEWRULE, fib_nl_newrule, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELRULE, fib_nl_delrule, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, fib_nl_dumprule);
-+	rtnl_register(PF_UNSPEC, RTM_NEWRULE, fib_nl_newrule, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELRULE, fib_nl_delrule, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, fib_nl_dumprule, NULL);
- 
- 	err = register_pernet_subsys(&fib_rules_net_ops);
- 	if (err < 0)
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index eb8857a..34032f2 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2918,12 +2918,13 @@ EXPORT_SYMBOL(neigh_sysctl_unregister);
- 
- static int __init neigh_init(void)
- {
--	rtnl_register(PF_UNSPEC, RTM_NEWNEIGH, neigh_add, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELNEIGH, neigh_delete, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETNEIGH, NULL, neigh_dump_info);
-+	rtnl_register(PF_UNSPEC, RTM_NEWNEIGH, neigh_add, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELNEIGH, neigh_delete, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETNEIGH, NULL, neigh_dump_info, NULL);
- 
--	rtnl_register(PF_UNSPEC, RTM_GETNEIGHTBL, NULL, neightbl_dump_info);
--	rtnl_register(PF_UNSPEC, RTM_SETNEIGHTBL, neightbl_set, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETNEIGHTBL, NULL, neightbl_dump_info,
-+		      NULL);
-+	rtnl_register(PF_UNSPEC, RTM_SETNEIGHTBL, neightbl_set, NULL, NULL);
- 
- 	return 0;
- }
+ 				rtnl_doit_func, rtnl_dumpit_func,
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index ac49ad5..848de7b 100644
+index 848de7b..e41ce2a 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -56,9 +56,11 @@
- struct rtnl_link {
- 	rtnl_doit_func		doit;
- 	rtnl_dumpit_func	dumpit;
-+	rtnl_calcit_func 	calcit;
+@@ -60,7 +60,6 @@ struct rtnl_link {
  };
  
  static DEFINE_MUTEX(rtnl_mutex);
-+static u16 min_ifinfo_dump_size;
+-static u16 min_ifinfo_dump_size;
  
  void rtnl_lock(void)
  {
-@@ -144,12 +146,28 @@ static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
- 	return tab ? tab[msgindex].dumpit : NULL;
+@@ -727,10 +726,11 @@ static void copy_rtnl_link_stats64(void *v, const struct rtnl_link_stats64 *b)
  }
  
-+static rtnl_calcit_func rtnl_get_calcit(int protocol, int msgindex)
-+{
-+	struct rtnl_link *tab;
-+
-+	if (protocol <= RTNL_FAMILY_MAX)
-+		tab = rtnl_msg_handlers[protocol];
-+	else
-+		tab = NULL;
-+
-+	if (tab == NULL || tab[msgindex].calcit == NULL)
-+		tab = rtnl_msg_handlers[PF_UNSPEC];
-+
-+	return tab ? tab[msgindex].calcit : NULL;
-+}
-+
- /**
-  * __rtnl_register - Register a rtnetlink message type
-  * @protocol: Protocol family or PF_UNSPEC
-  * @msgtype: rtnetlink message type
-  * @doit: Function pointer called for each request message
-  * @dumpit: Function pointer called for each dump request (NLM_F_DUMP) message
-+ * @calcit: Function pointer to calc size of dump message
-  *
-  * Registers the specified function pointers (at least one of them has
-  * to be non-NULL) to be called whenever a request message for the
-@@ -162,7 +180,8 @@ static rtnl_dumpit_func rtnl_get_dumpit(int protocol, int msgindex)
-  * Returns 0 on success or a negative error code.
-  */
- int __rtnl_register(int protocol, int msgtype,
--		    rtnl_doit_func doit, rtnl_dumpit_func dumpit)
-+		    rtnl_doit_func doit, rtnl_dumpit_func dumpit,
-+		    rtnl_calcit_func calcit)
+ /* All VF info */
+-static inline int rtnl_vfinfo_size(const struct net_device *dev)
++static inline int rtnl_vfinfo_size(const struct net_device *dev,
++				   u32 ext_filter_mask)
  {
- 	struct rtnl_link *tab;
- 	int msgindex;
-@@ -185,6 +204,9 @@ int __rtnl_register(int protocol, int msgtype,
- 	if (dumpit)
- 		tab[msgindex].dumpit = dumpit;
- 
-+	if (calcit)
-+		tab[msgindex].calcit = calcit;
-+
- 	return 0;
+-	if (dev->dev.parent && dev_is_pci(dev->dev.parent)) {
+-
++	if (dev->dev.parent && dev_is_pci(dev->dev.parent) &&
++	    (ext_filter_mask & RTEXT_FILTER_VF)) {
+ 		int num_vfs = dev_num_vf(dev->dev.parent);
+ 		size_t size = nla_total_size(sizeof(struct nlattr));
+ 		size += nla_total_size(num_vfs * sizeof(struct nlattr));
+@@ -768,7 +768,8 @@ static size_t rtnl_port_size(const struct net_device *dev)
+ 		return port_self_size;
  }
- EXPORT_SYMBOL_GPL(__rtnl_register);
-@@ -199,9 +221,10 @@ EXPORT_SYMBOL_GPL(__rtnl_register);
-  * of memory implies no sense in continuing.
-  */
- void rtnl_register(int protocol, int msgtype,
--		   rtnl_doit_func doit, rtnl_dumpit_func dumpit)
-+		   rtnl_doit_func doit, rtnl_dumpit_func dumpit,
-+		   rtnl_calcit_func calcit)
+ 
+-static noinline size_t if_nlmsg_size(const struct net_device *dev)
++static noinline size_t if_nlmsg_size(const struct net_device *dev,
++				     u32 ext_filter_mask)
  {
--	if (__rtnl_register(protocol, msgtype, doit, dumpit) < 0)
-+	if (__rtnl_register(protocol, msgtype, doit, dumpit, calcit) < 0)
- 		panic("Unable to register rtnetlink message handler, "
- 		      "protocol = %d, message type = %d\n",
- 		      protocol, msgtype);
-@@ -1825,6 +1848,11 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	return NLMSG_ALIGN(sizeof(struct ifinfomsg))
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_IFNAME */
+@@ -786,8 +787,9 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev)
+ 	       + nla_total_size(4) /* IFLA_MASTER */
+ 	       + nla_total_size(1) /* IFLA_OPERSTATE */
+ 	       + nla_total_size(1) /* IFLA_LINKMODE */
+-	       + nla_total_size(4) /* IFLA_NUM_VF */
+-	       + rtnl_vfinfo_size(dev) /* IFLA_VFINFO_LIST */
++	       + nla_total_size(ext_filter_mask
++			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
++	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
+@@ -870,7 +872,7 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+-			    unsigned int flags)
++			    unsigned int flags, u32 ext_filter_mask)
+ {
+ 	struct ifinfomsg *ifm;
+ 	struct nlmsghdr *nlh;
+@@ -943,10 +945,11 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		goto nla_put_failure;
+ 	copy_rtnl_link_stats64(nla_data(attr), stats);
+ 
+-	if (dev->dev.parent)
++	if (dev->dev.parent && (ext_filter_mask & RTEXT_FILTER_VF))
+ 		NLA_PUT_U32(skb, IFLA_NUM_VF, dev_num_vf(dev->dev.parent));
+ 
+-	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent) {
++	if (dev->netdev_ops->ndo_get_vf_config && dev->dev.parent
++	    && (ext_filter_mask & RTEXT_FILTER_VF)) {
+ 		int i;
+ 
+ 		struct nlattr *vfinfo, *vf;
+@@ -1033,11 +1036,20 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 	struct net_device *dev;
+ 	struct hlist_head *head;
+ 	struct hlist_node *node;
++	struct nlattr *tb[IFLA_MAX+1];
++	u32 ext_filter_mask = 0;
+ 
+ 	s_h = cb->args[0];
+ 	s_idx = cb->args[1];
+ 
+ 	rcu_read_lock();
++
++	nlmsg_parse(cb->nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX,
++		    ifla_policy);
++
++	if (tb[IFLA_EXT_MASK])
++		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++
+ 	for (h = s_h; h < NETDEV_HASHENTRIES; h++, s_idx = 0) {
+ 		idx = 0;
+ 		head = &net->dev_index_head[h];
+@@ -1047,7 +1059,8 @@ static int rtnl_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ 			if (rtnl_fill_ifinfo(skb, dev, RTM_NEWLINK,
+ 					     NETLINK_CB(cb->skb).pid,
+ 					     cb->nlh->nlmsg_seq, 0,
+-					     NLM_F_MULTI) <= 0)
++					     NLM_F_MULTI,
++					     ext_filter_mask) <= 0)
+ 				goto out;
+ cont:
+ 			idx++;
+@@ -1081,6 +1094,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_VF_PORTS]		= { .type = NLA_NESTED },
+ 	[IFLA_PORT_SELF]	= { .type = NLA_NESTED },
+ 	[IFLA_AF_SPEC]		= { .type = NLA_NESTED },
++	[IFLA_EXT_MASK]		= { .type = NLA_U32 },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -1813,6 +1827,7 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	struct net_device *dev = NULL;
+ 	struct sk_buff *nskb;
+ 	int err;
++	u32 ext_filter_mask = 0;
+ 
+ 	err = nlmsg_parse(nlh, sizeof(*ifm), tb, IFLA_MAX, ifla_policy);
+ 	if (err < 0)
+@@ -1821,6 +1836,9 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (tb[IFLA_IFNAME])
+ 		nla_strlcpy(ifname, tb[IFLA_IFNAME], IFNAMSIZ);
+ 
++	if (tb[IFLA_EXT_MASK])
++		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++
+ 	ifm = nlmsg_data(nlh);
+ 	if (ifm->ifi_index > 0)
+ 		dev = __dev_get_by_index(net, ifm->ifi_index);
+@@ -1832,12 +1850,12 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (dev == NULL)
+ 		return -ENODEV;
+ 
+-	nskb = nlmsg_new(if_nlmsg_size(dev), GFP_KERNEL);
++	nskb = nlmsg_new(if_nlmsg_size(dev, ext_filter_mask), GFP_KERNEL);
+ 	if (nskb == NULL)
+ 		return -ENOBUFS;
+ 
+ 	err = rtnl_fill_ifinfo(nskb, dev, RTM_NEWLINK, NETLINK_CB(skb).pid,
+-			       nlh->nlmsg_seq, 0, 0);
++			       nlh->nlmsg_seq, 0, 0, ext_filter_mask);
+ 	if (err < 0) {
+ 		/* -EMSGSIZE implies BUG in if_nlmsg_size */
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -1848,8 +1866,31 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
  	return err;
  }
  
-+static u16 rtnl_calcit(struct sk_buff *skb)
-+{
-+	return min_ifinfo_dump_size;
-+}
-+
- static int rtnl_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+-static u16 rtnl_calcit(struct sk_buff *skb)
++static u16 rtnl_calcit(struct sk_buff *skb, struct nlmsghdr *nlh)
  {
- 	int idx;
-@@ -1854,11 +1882,14 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
- 	struct net *net = dev_net(dev);
- 	struct sk_buff *skb;
- 	int err = -ENOBUFS;
-+	size_t if_info_size;
++	struct net *net = sock_net(skb->sk);
++	struct net_device *dev;
++	struct nlattr *tb[IFLA_MAX+1];
++	u32 ext_filter_mask = 0;
++	u16 min_ifinfo_dump_size = 0;
++
++	nlmsg_parse(nlh, sizeof(struct rtgenmsg), tb, IFLA_MAX, ifla_policy);
++
++	if (tb[IFLA_EXT_MASK])
++		ext_filter_mask = nla_get_u32(tb[IFLA_EXT_MASK]);
++
++	if (!ext_filter_mask)
++		return NLMSG_GOODSIZE;
++	/*
++	 * traverse the list of net devices and compute the minimum
++	 * buffer size based upon the filter mask.
++	 */
++	list_for_each_entry(dev, &net->dev_base_head, dev_list) {
++		min_ifinfo_dump_size = max_t(u16, min_ifinfo_dump_size,
++					     if_nlmsg_size(dev,
++						           ext_filter_mask));
++	}
++
+ 	return min_ifinfo_dump_size;
+ }
  
--	skb = nlmsg_new(if_nlmsg_size(dev), GFP_KERNEL);
-+	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev)), GFP_KERNEL);
+@@ -1884,13 +1925,11 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change)
+ 	int err = -ENOBUFS;
+ 	size_t if_info_size;
+ 
+-	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev)), GFP_KERNEL);
++	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), GFP_KERNEL);
  	if (skb == NULL)
  		goto errout;
  
-+	min_ifinfo_dump_size = max_t(u16, if_info_size, min_ifinfo_dump_size);
-+
- 	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0);
+-	min_ifinfo_dump_size = max_t(u16, if_info_size, min_ifinfo_dump_size);
+-
+-	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0);
++	err = rtnl_fill_ifinfo(skb, dev, type, 0, 0, change, 0, 0);
  	if (err < 0) {
  		/* -EMSGSIZE implies BUG in if_nlmsg_size() */
-@@ -1909,14 +1940,20 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
- 		struct sock *rtnl;
- 		rtnl_dumpit_func dumpit;
-+		rtnl_calcit_func calcit;
-+		u16 min_dump_alloc = 0;
- 
- 		dumpit = rtnl_get_dumpit(family, type);
- 		if (dumpit == NULL)
+ 		WARN_ON(err == -EMSGSIZE);
+@@ -1948,7 +1987,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
  			return -EOPNOTSUPP;
-+		calcit = rtnl_get_calcit(family, type);
-+		if (calcit)
-+			min_dump_alloc = calcit(skb);
+ 		calcit = rtnl_get_calcit(family, type);
+ 		if (calcit)
+-			min_dump_alloc = calcit(skb);
++			min_dump_alloc = calcit(skb, nlh);
  
  		__rtnl_unlock();
  		rtnl = net->rtnl;
--		err = netlink_dump_start(rtnl, skb, nlh, dumpit, NULL);
-+		err = netlink_dump_start(rtnl, skb, nlh, dumpit,
-+					 NULL, min_dump_alloc);
- 		rtnl_lock();
- 		return err;
- 	}
-@@ -2026,12 +2063,13 @@ void __init rtnetlink_init(void)
- 	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
- 	register_netdevice_notifier(&rtnetlink_dev_notifier);
- 
--	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink, rtnl_dump_ifinfo);
--	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL);
--	rtnl_register(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETLINK, rtnl_getlink,
-+		      rtnl_dump_ifinfo, rtnl_calcit);
-+	rtnl_register(PF_UNSPEC, RTM_SETLINK, rtnl_setlink, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_NEWLINK, rtnl_newlink, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELLINK, rtnl_dellink, NULL, NULL);
- 
--	rtnl_register(PF_UNSPEC, RTM_GETADDR, NULL, rtnl_dump_all);
--	rtnl_register(PF_UNSPEC, RTM_GETROUTE, NULL, rtnl_dump_all);
-+	rtnl_register(PF_UNSPEC, RTM_GETADDR, NULL, rtnl_dump_all, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETROUTE, NULL, rtnl_dump_all, NULL);
- }
- 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 3609eac..ed1bb8c 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -1819,8 +1819,8 @@ static int __init dcbnl_init(void)
- {
- 	INIT_LIST_HEAD(&dcb_app_list);
- 
--	rtnl_register(PF_UNSPEC, RTM_GETDCB, dcb_doit, NULL);
--	rtnl_register(PF_UNSPEC, RTM_SETDCB, dcb_doit, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETDCB, dcb_doit, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_SETDCB, dcb_doit, NULL, NULL);
- 
- 	return 0;
- }
-diff --git a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
-index cf26ac7..3780fd6 100644
---- a/net/decnet/dn_dev.c
-+++ b/net/decnet/dn_dev.c
-@@ -1414,9 +1414,9 @@ void __init dn_dev_init(void)
- 
- 	dn_dev_devices_on();
- 
--	rtnl_register(PF_DECnet, RTM_NEWADDR, dn_nl_newaddr, NULL);
--	rtnl_register(PF_DECnet, RTM_DELADDR, dn_nl_deladdr, NULL);
--	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, dn_nl_dump_ifaddr);
-+	rtnl_register(PF_DECnet, RTM_NEWADDR, dn_nl_newaddr, NULL, NULL);
-+	rtnl_register(PF_DECnet, RTM_DELADDR, dn_nl_deladdr, NULL, NULL);
-+	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, dn_nl_dump_ifaddr, NULL);
- 
- 	proc_net_fops_create(&init_net, "decnet_dev", S_IRUGO, &dn_dev_seq_fops);
- 
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index 1c74ed3..104324d 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -763,8 +763,8 @@ void __init dn_fib_init(void)
- 
- 	register_dnaddr_notifier(&dn_fib_dnaddr_notifier);
- 
--	rtnl_register(PF_DECnet, RTM_NEWROUTE, dn_fib_rtm_newroute, NULL);
--	rtnl_register(PF_DECnet, RTM_DELROUTE, dn_fib_rtm_delroute, NULL);
-+	rtnl_register(PF_DECnet, RTM_NEWROUTE, dn_fib_rtm_newroute, NULL, NULL);
-+	rtnl_register(PF_DECnet, RTM_DELROUTE, dn_fib_rtm_delroute, NULL, NULL);
- }
- 
-
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index b91b603..82d6250 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1843,10 +1843,11 @@ void __init dn_route_init(void)
- 	proc_net_fops_create(&init_net, "decnet_cache", S_IRUGO, &dn_rt_cache_seq_fops);
- 
- #ifdef CONFIG_DECNET_ROUTER
--	rtnl_register(PF_DECnet, RTM_GETROUTE, dn_cache_getroute, dn_fib_dump);
-+	rtnl_register(PF_DECnet, RTM_GETROUTE, dn_cache_getroute,
-+		      dn_fib_dump, NULL);
- #else
- 	rtnl_register(PF_DECnet, RTM_GETROUTE, dn_cache_getroute,
--		      dn_cache_dump);
-+		      dn_cache_dump, NULL);
- #endif
- }
- 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 7d7fb20..070f214 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -1838,8 +1838,8 @@ void __init devinet_init(void)
- 
- 	rtnl_af_register(&inet_af_ops);
- 
--	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL);
--	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL);
--	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr);
-+	rtnl_register(PF_INET, RTM_NEWADDR, inet_rtm_newaddr, NULL, NULL);
-+	rtnl_register(PF_INET, RTM_DELADDR, inet_rtm_deladdr, NULL, NULL);
-+	rtnl_register(PF_INET, RTM_GETADDR, NULL, inet_dump_ifaddr, NULL);
- }
- 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 2252471..92fc5f6 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1124,9 +1124,9 @@ static struct pernet_operations fib_net_ops = {
- 
- void __init ip_fib_init(void)
- {
--	rtnl_register(PF_INET, RTM_NEWROUTE, inet_rtm_newroute, NULL);
--	rtnl_register(PF_INET, RTM_DELROUTE, inet_rtm_delroute, NULL);
--	rtnl_register(PF_INET, RTM_GETROUTE, NULL, inet_dump_fib);
-+	rtnl_register(PF_INET, RTM_NEWROUTE, inet_rtm_newroute, NULL, NULL);
-+	rtnl_register(PF_INET, RTM_DELROUTE, inet_rtm_delroute, NULL, NULL);
-+	rtnl_register(PF_INET, RTM_GETROUTE, NULL, inet_dump_fib, NULL);
- 
- 	register_pernet_subsys(&fib_net_ops);
- 	register_netdevice_notifier(&fib_netdev_notifier);
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 3267d38..389a2e6 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -869,7 +869,7 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		}
- 
- 		return netlink_dump_start(idiagnl, skb, nlh,
--					  inet_diag_dump, NULL);
-+					  inet_diag_dump, NULL, 0);
- 	}
- 
- 	return inet_diag_get_exact(skb, nlh);
-diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index ec7d8e7..dc89714 100644
---- a/net/ipv4/ipmr.c
-+++ b/net/ipv4/ipmr.c
-@@ -2554,7 +2554,8 @@ int __init ip_mr_init(void)
- 		goto add_proto_fail;
- 	}
- #endif
--	rtnl_register(RTNL_FAMILY_IPMR, RTM_GETROUTE, NULL, ipmr_rtm_dumproute);
-+	rtnl_register(RTNL_FAMILY_IPMR, RTM_GETROUTE,
-+		      NULL, ipmr_rtm_dumproute, NULL);
- 	return 0;
- 
- #ifdef CONFIG_IP_PIMSM_V2
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 5ff2614..0428b64 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -3454,7 +3454,7 @@ int __init ip_rt_init(void)
- 	xfrm_init();
- 	xfrm4_init(ip_rt_max_size);
- #endif
--	rtnl_register(PF_INET, RTM_GETROUTE, inet_rtm_getroute, NULL);
-+	rtnl_register(PF_INET, RTM_GETROUTE, inet_rtm_getroute, NULL, NULL);
- 
- #ifdef CONFIG_SYSCTL
- 	register_pernet_subsys(&sysctl_route_ops);
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 70d6a7f..e845c0c 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4694,16 +4694,20 @@ int __init addrconf_init(void)
- 	if (err < 0)
- 		goto errout_af;
- 
--	err = __rtnl_register(PF_INET6, RTM_GETLINK, NULL, inet6_dump_ifinfo);
-+	err = __rtnl_register(PF_INET6, RTM_GETLINK, NULL, inet6_dump_ifinfo,
-+			      NULL);
- 	if (err < 0)
- 		goto errout;
- 
- 	/* Only the first call to __rtnl_register can fail */
--	__rtnl_register(PF_INET6, RTM_NEWADDR, inet6_rtm_newaddr, NULL);
--	__rtnl_register(PF_INET6, RTM_DELADDR, inet6_rtm_deladdr, NULL);
--	__rtnl_register(PF_INET6, RTM_GETADDR, inet6_rtm_getaddr, inet6_dump_ifaddr);
--	__rtnl_register(PF_INET6, RTM_GETMULTICAST, NULL, inet6_dump_ifmcaddr);
--	__rtnl_register(PF_INET6, RTM_GETANYCAST, NULL, inet6_dump_ifacaddr);
-+	__rtnl_register(PF_INET6, RTM_NEWADDR, inet6_rtm_newaddr, NULL, NULL);
-+	__rtnl_register(PF_INET6, RTM_DELADDR, inet6_rtm_deladdr, NULL, NULL);
-+	__rtnl_register(PF_INET6, RTM_GETADDR, inet6_rtm_getaddr,
-+			inet6_dump_ifaddr, NULL);
-+	__rtnl_register(PF_INET6, RTM_GETMULTICAST, NULL,
-+			inet6_dump_ifmcaddr, NULL);
-+	__rtnl_register(PF_INET6, RTM_GETANYCAST, NULL,
-+			inet6_dump_ifacaddr, NULL);
- 
- 	ipv6_addr_label_rtnl_register();
- 
-diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
-index c8993e5..2d8ddba 100644
---- a/net/ipv6/addrlabel.c
-+++ b/net/ipv6/addrlabel.c
-@@ -592,8 +592,11 @@ out:
- 
- void __init ipv6_addr_label_rtnl_register(void)
- {
--	__rtnl_register(PF_INET6, RTM_NEWADDRLABEL, ip6addrlbl_newdel, NULL);
--	__rtnl_register(PF_INET6, RTM_DELADDRLABEL, ip6addrlbl_newdel, NULL);
--	__rtnl_register(PF_INET6, RTM_GETADDRLABEL, ip6addrlbl_get, ip6addrlbl_dump);
-+	__rtnl_register(PF_INET6, RTM_NEWADDRLABEL, ip6addrlbl_newdel,
-+			NULL, NULL);
-+	__rtnl_register(PF_INET6, RTM_DELADDRLABEL, ip6addrlbl_newdel,
-+			NULL, NULL);
-+	__rtnl_register(PF_INET6, RTM_GETADDRLABEL, ip6addrlbl_get,
-+			ip6addrlbl_dump, NULL);
- }
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 0f9b37a..320d91d 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1586,7 +1586,8 @@ int __init fib6_init(void)
- 	if (ret)
- 		goto out_kmem_cache_create;
- 
--	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib);
-+	ret = __rtnl_register(PF_INET6, RTM_GETROUTE, NULL, inet6_dump_fib,
-+			      NULL);
- 	if (ret)
- 		goto out_unregister_subsys;
- out:
-diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
-index 86e3cc1..def0538 100644
---- a/net/ipv6/ip6mr.c
-+++ b/net/ipv6/ip6mr.c
-@@ -1356,7 +1356,8 @@ int __init ip6_mr_init(void)
- 		goto add_proto_fail;
- 	}
- #endif
--	rtnl_register(RTNL_FAMILY_IP6MR, RTM_GETROUTE, NULL, ip6mr_rtm_dumproute);
-+	rtnl_register(RTNL_FAMILY_IP6MR, RTM_GETROUTE, NULL,
-+		      ip6mr_rtm_dumproute, NULL);
- 	return 0;
- #ifdef CONFIG_IPV6_PIMSM_V2
- add_proto_fail:
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index da056c8..550fec3 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2956,9 +2956,9 @@ int __init ip6_route_init(void)
- 		goto fib6_rules_init;
- 
- 	ret = -ENOBUFS;
--	if (__rtnl_register(PF_INET6, RTM_NEWROUTE, inet6_rtm_newroute, NULL) ||
--	    __rtnl_register(PF_INET6, RTM_DELROUTE, inet6_rtm_delroute, NULL) ||
--	    __rtnl_register(PF_INET6, RTM_GETROUTE, inet6_rtm_getroute, NULL))
-+	if (__rtnl_register(PF_INET6, RTM_NEWROUTE, inet6_rtm_newroute, NULL, NULL) ||
-+	    __rtnl_register(PF_INET6, RTM_DELROUTE, inet6_rtm_delroute, NULL, NULL) ||
-+	    __rtnl_register(PF_INET6, RTM_GETROUTE, inet6_rtm_getroute, NULL, NULL))
- 		goto out_register_late_subsys;
- 
- 	ret = register_netdevice_notifier(&ip6_route_dev_notifier);
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index 42aa64b..ee37ae5 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -1120,7 +1120,7 @@ ip_set_dump(struct sock *ctnl, struct sk_buff *skb,
- 
- 	return netlink_dump_start(ctnl, skb, nlh,
- 				  ip_set_dump_start,
--				  ip_set_dump_done);
-+				  ip_set_dump_done, 0);
- }
- 
- /* Add, del and test */
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 482e90c..7dec88a 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -970,7 +970,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 
- 	if (nlh->nlmsg_flags & NLM_F_DUMP)
- 		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
--					  ctnetlink_done);
-+					  ctnetlink_done, 0);
- 
- 	err = ctnetlink_parse_zone(cda[CTA_ZONE], &zone);
- 	if (err < 0)
-@@ -1840,7 +1840,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
- 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
- 		return netlink_dump_start(ctnl, skb, nlh,
- 					  ctnetlink_exp_dump_table,
--					  ctnetlink_exp_done);
-+					  ctnetlink_exp_done, 0);
- 	}
- 
- 	err = ctnetlink_parse_zone(cda[CTA_EXPECT_ZONE], &zone);
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index d29c222..10851ee 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1677,13 +1677,10 @@ static int netlink_dump(struct sock *sk)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 	struct netlink_callback *cb;
--	struct sk_buff *skb;
-+	struct sk_buff *skb = NULL;
- 	struct nlmsghdr *nlh;
- 	int len, err = -ENOBUFS;
--
--	skb = sock_rmalloc(sk, NLMSG_GOODSIZE, 0, GFP_KERNEL);
--	if (!skb)
--		goto errout;
-+	int alloc_size;
- 
- 	mutex_lock(nlk->cb_mutex);
- 
-@@ -1693,6 +1690,12 @@ static int netlink_dump(struct sock *sk)
- 		goto errout_skb;
- 	}
- 
-+	alloc_size = max_t(int, cb->min_dump_alloc, NLMSG_GOODSIZE);
-+
-+	skb = sock_rmalloc(sk, alloc_size, 0, GFP_KERNEL);
-+	if (!skb)
-+		goto errout;
-+
- 	len = cb->dump(skb, cb);
- 
- 	if (len > 0) {
-@@ -1735,7 +1738,8 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 		       const struct nlmsghdr *nlh,
- 		       int (*dump)(struct sk_buff *skb,
- 				   struct netlink_callback *),
--		       int (*done)(struct netlink_callback *))
-+		       int (*done)(struct netlink_callback *),
-+		       u16 min_dump_alloc)
- {
- 	struct netlink_callback *cb;
- 	struct sock *sk;
-@@ -1749,6 +1753,7 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 	cb->dump = dump;
- 	cb->done = done;
- 	cb->nlh = nlh;
-+	cb->min_dump_alloc = min_dump_alloc;
- 	atomic_inc(&skb->users);
- 	cb->skb = skb;
- 
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 1781d99..482fa57 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -525,7 +525,7 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 
- 		genl_unlock();
- 		err = netlink_dump_start(net->genl_sock, skb, nlh,
--					 ops->dumpit, ops->done);
-+					 ops->dumpit, ops->done, 0);
- 		genl_lock();
- 		return err;
- 	}
-diff --git a/net/phonet/pn_netlink.c b/net/phonet/pn_netlink.c
-index 438accb..d61f676 100644
---- a/net/phonet/pn_netlink.c
-+++ b/net/phonet/pn_netlink.c
-@@ -289,15 +289,16 @@ out:
- 
- int __init phonet_netlink_register(void)
- {
--	int err = __rtnl_register(PF_PHONET, RTM_NEWADDR, addr_doit, NULL);
-+	int err = __rtnl_register(PF_PHONET, RTM_NEWADDR, addr_doit,
-+				  NULL, NULL);
- 	if (err)
- 		return err;
- 
- 	/* Further __rtnl_register() cannot fail */
--	__rtnl_register(PF_PHONET, RTM_DELADDR, addr_doit, NULL);
--	__rtnl_register(PF_PHONET, RTM_GETADDR, NULL, getaddr_dumpit);
--	__rtnl_register(PF_PHONET, RTM_NEWROUTE, route_doit, NULL);
--	__rtnl_register(PF_PHONET, RTM_DELROUTE, route_doit, NULL);
--	__rtnl_register(PF_PHONET, RTM_GETROUTE, NULL, route_dumpit);
-+	__rtnl_register(PF_PHONET, RTM_DELADDR, addr_doit, NULL, NULL);
-+	__rtnl_register(PF_PHONET, RTM_GETADDR, NULL, getaddr_dumpit, NULL);
-+	__rtnl_register(PF_PHONET, RTM_NEWROUTE, route_doit, NULL, NULL);
-+	__rtnl_register(PF_PHONET, RTM_DELROUTE, route_doit, NULL, NULL);
-+	__rtnl_register(PF_PHONET, RTM_GETROUTE, NULL, route_dumpit, NULL);
- 	return 0;
- }
-diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index a606025..2f64262 100644
---- a/net/sched/act_api.c
-+++ b/net/sched/act_api.c
-@@ -1115,9 +1115,10 @@ nlmsg_failure:
- 
- static int __init tc_action_init(void)
- {
--	rtnl_register(PF_UNSPEC, RTM_NEWACTION, tc_ctl_action, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELACTION, tc_ctl_action, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETACTION, tc_ctl_action, tc_dump_action);
-+	rtnl_register(PF_UNSPEC, RTM_NEWACTION, tc_ctl_action, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELACTION, tc_ctl_action, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETACTION, tc_ctl_action, tc_dump_action,
-+		      NULL);
- 
- 	return 0;
- }
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index bb2c523..9563887 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -610,10 +610,10 @@ EXPORT_SYMBOL(tcf_exts_dump_stats);
- 
- static int __init tc_filter_init(void)
- {
--	rtnl_register(PF_UNSPEC, RTM_NEWTFILTER, tc_ctl_tfilter, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELTFILTER, tc_ctl_tfilter, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_NEWTFILTER, tc_ctl_tfilter, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELTFILTER, tc_ctl_tfilter, NULL, NULL);
- 	rtnl_register(PF_UNSPEC, RTM_GETTFILTER, tc_ctl_tfilter,
--						 tc_dump_tfilter);
-+		      tc_dump_tfilter, NULL);
- 
- 	return 0;
- }
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 6b86276..8182aef 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -1792,12 +1792,12 @@ static int __init pktsched_init(void)
- 	register_qdisc(&pfifo_head_drop_qdisc_ops);
- 	register_qdisc(&mq_qdisc_ops);
- 
--	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELQDISC, tc_get_qdisc, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETQDISC, tc_get_qdisc, tc_dump_qdisc);
--	rtnl_register(PF_UNSPEC, RTM_NEWTCLASS, tc_ctl_tclass, NULL);
--	rtnl_register(PF_UNSPEC, RTM_DELTCLASS, tc_ctl_tclass, NULL);
--	rtnl_register(PF_UNSPEC, RTM_GETTCLASS, tc_ctl_tclass, tc_dump_tclass);
-+	rtnl_register(PF_UNSPEC, RTM_NEWQDISC, tc_modify_qdisc, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELQDISC, tc_get_qdisc, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETQDISC, tc_get_qdisc, tc_dump_qdisc, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_NEWTCLASS, tc_ctl_tclass, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_DELTCLASS, tc_ctl_tclass, NULL, NULL);
-+	rtnl_register(PF_UNSPEC, RTM_GETTCLASS, tc_ctl_tclass, tc_dump_tclass, NULL);
- 
- 	return 0;
- }
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 05f82e6..9bbe858 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2326,7 +2326,8 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		if (link->dump == NULL)
- 			return -EINVAL;
- 
--		return netlink_dump_start(net->xfrm.nlsk, skb, nlh, link->dump, link->done);
-+		return netlink_dump_start(net->xfrm.nlsk, skb, nlh,
-+					  link->dump, link->done, 0);
- 	}
- 
- 	err = nlmsg_parse(nlh, xfrm_msg_min[type], attrs, XFRMA_MAX,
 
 
 -- 
