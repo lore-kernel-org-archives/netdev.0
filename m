@@ -1,56 +1,37 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next v3 3/3] netconsole: add IPv6 example in doc
-Date: Fri,  4 Jan 2013 10:45:41 +0800
-Message-ID: <1357267541-6433-3-git-send-email-amwang@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 1/3] netpoll: prepare for ipv6
+Date: Thu, 03 Jan 2013 18:56:18 -0800 (PST)
+Message-ID: <20130103.185618.1472655606309483969.davem@davemloft.net>
 References: <1357267541-6433-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33214 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753833Ab3ADCp6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jan 2013 21:45:58 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:59214 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753939Ab3ADC4T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jan 2013 21:56:19 -0500
 In-Reply-To: <1357267541-6433-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
+Date: Fri,  4 Jan 2013 10:45:39 +0800
 
-Update the netconsole document as well.
+> v3: fix CONFIG_IPV6=m case
 
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- Documentation/networking/netconsole.txt |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+You're talking about a change that isn't even present in this patch.
 
-diff --git a/Documentation/networking/netconsole.txt b/Documentation/networking/netconsole.txt
-index 2e9e0ae2..a5d574a 100644
---- a/Documentation/networking/netconsole.txt
-+++ b/Documentation/networking/netconsole.txt
-@@ -1,9 +1,10 @@
- 
- started by Ingo Molnar <mingo@redhat.com>, 2001.09.17
- 2.6 port and netpoll api by Matt Mackall <mpm@selenic.com>, Sep 9 2003
-+IPv6 support by Cong Wang <xiyou.wangcong@gmail.com>, Jan 1 2013
- 
- Please send bug reports to Matt Mackall <mpm@selenic.com>
--and Satyam Sharma <satyam.sharma@gmail.com>
-+Satyam Sharma <satyam.sharma@gmail.com>, and Cong Wang <xiyou.wangcong@gmail.com>
- 
- Introduction:
- =============
-@@ -41,6 +42,10 @@ Examples:
- 
-  insmod netconsole netconsole=@/,@10.0.0.2/
- 
-+  or using IPv6
-+
-+ insmod netconsole netconsole=@/,@fd00:1:2:3::1/
-+
- It also supports logging to multiple remote agents by specifying
- parameters for the multiple agents separated by semicolons and the
- complete string enclosed in "quotes", thusly:
--- 
-1.7.7.6
+That's why people do "[PATCH 0/N]" cover postings with their
+patch series, to collect information like this in the most
+useful and relevent place.
+
+Then I can check your patch set into a branch, and then do
+a merge into my master branch and make the merge commit have
+your cover letter as the commit message.
+
+I'm not applying this series, submit it properly.
+
+Thanks.
