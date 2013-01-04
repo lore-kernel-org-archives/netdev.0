@@ -1,35 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/1 net-next] NET: FEC: dynamtic check DMA desc buff
- type
-Date: Fri, 04 Jan 2013 15:16:06 -0800 (PST)
-Message-ID: <20130104.151606.181887747842513051.davem@davemloft.net>
-References: <1357265063-30528-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [PATCH net-next] ndisc: Remove unused space at tail of skb for
+ ndisc messages. (TAKE 3)
+Date: Fri, 04 Jan 2013 15:17:10 -0800 (PST)
+Message-ID: <20130104.151710.601442706907153024.davem@davemloft.net>
+References: <50E6DFEC.7080603@linux-ipv6.org>
+	<1357315219.1678.1461.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, s.hauer@pengutronix.de,
-	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
-	netdev@vger.kernel.org
-To: Frank.Li@freescale.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41782 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41798 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755243Ab3ADXQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 18:16:07 -0500
-In-Reply-To: <1357265063-30528-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1754749Ab3ADXRL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 18:17:11 -0500
+In-Reply-To: <1357315219.1678.1461.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Fri, 4 Jan 2013 10:04:23 +0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 04 Jan 2013 08:00:19 -0800
 
-> MX6 and mx28 support enhanced DMA descriptor buff to support 1588
-> ptp. But MX25, MX3x, MX5x can't support enhanced DMA descriptor buff.
-> Check fec type and choose correct DMA descriptor buff type.
+> On Fri, 2013-01-04 at 22:58 +0900, YOSHIFUJI Hideaki wrote:
+>> Currently, the size of skb allocated for NDISC is MAX_HEADER +
+>> LL_RESERVED_SPACE(dev) + packet length + dev->needed_tailroom,
+>> but only LL_RESERVED_SPACE(dev) bytes is "reserved" for headers.
+>> As a result, the skb looks like this (after construction of the
+>> message):
+>> 
+>> head       data                   tail                       end
+>> +--------------------------------------------------------------+
+>> +           |                      |          |                |
+>> +--------------------------------------------------------------+
+>> |<-hlen---->|<---ipv6 packet------>|<--tlen-->|<--MAX_HEADER-->|
+>>     =LL_                               = dev
+>>      RESERVED_                           ->needed_
+>>      SPACE(dev)                            tailroom
+>> 
+>> As the name implies, "MAX_HEADER" is used for headers, and should
+>> be "reserved" in prior to packet construction.  Or, if some space
+>> is really required at the tail of ther skb, it should be
+>> explicitly documented.
+>> 
+>> We have several option after construction of NDISC message:
+>> 
+>> Option 1:
+>> 
+>> head       data                   tail       end
+>> +---------------------------------------------+
+>> +           |                      |          |
+>> +---------------------------------------------+
+>> |<-hlen---->|<---ipv6 packet------>|<--tlen-->|
+>>    =LL_                                = dev
+>>     RESERVED_                           ->needed_
+>>     SPACE(dev)                            tailroom
 > 
-> Remove static config CONFIG_FEC_PTP.
-> ptp function will be auto detected.
-> 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied, thanks for your persistence.
