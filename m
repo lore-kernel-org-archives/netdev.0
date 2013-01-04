@@ -1,67 +1,170 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V6 06/15] bridge: remove usage of netdev_set_master()
-Date: Fri,  4 Jan 2013 09:48:54 +0100
-Message-ID: <1357289343-817-7-git-send-email-jiri@resnulli.us>
-References: <1357289343-817-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
-	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
-	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
-	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
-	shemminger@vyatta.com, bhutchings@solarflare.com,
-	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
-	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
-	fbl@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:45933 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754188Ab3ADIth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 03:49:37 -0500
-Received: by mail-ee0-f50.google.com with SMTP id b45so8144002eek.9
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 00:49:34 -0800 (PST)
-In-Reply-To: <1357289343-817-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 net-next] softirq: reduce latencies
+Date: Fri, 04 Jan 2013 01:12:01 -0800
+Message-ID: <1357290721.5452.55.camel@joe-AO722>
+References: <1357216132.21409.24107.camel@edumazet-glaptop>
+	 <1357250880.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1357252816.21409.26384.camel@edumazet-glaptop>
+	 <1357285780.21409.28416.camel@edumazet-glaptop>
+	 <1357287351.5452.44.camel@joe-AO722>
+	 <1357287786.1678.87.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Eric Dumazet <erdnetdev@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357287786.1678.87.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/bridge/br_if.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+On Fri, 2013-01-04 at 00:23 -0800, Eric Dumazet wrote:
+> On Fri, 2013-01-04 at 00:15 -0800, Joe Perches wrote:
+> > Perhaps MAX_SOFTIRQ_TIME should be
+> > #define MAX_SOFTIRQ_TIME msecs_to_jiffies(2)
+> > though it would be nicer if it were a compile time constant.
+> 
+> If you send a patch to convert msecs_to_jiffies() to an inline function
+> when HZ = 1000, I will gladly use it instead of (2*HZ/1000)
+> 
+> Right now, max(1, msecs_to_jiffies(2)) uses way too many instructions,
+> while it should be the constant 2, known at compile time.
 
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 1edd71d..2148d47 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -148,7 +148,7 @@ static void del_nbp(struct net_bridge_port *p)
- 	netdev_rx_handler_unregister(dev);
- 	synchronize_net();
+Something like this might work.
+
+This is incomplete, it just does msecs_to_jiffies,
+and it should convert usecs_to_jiffies and the
+jiffies_to_<foo> types too.
+
+Maybe it's worthwhile.
+
+It does reduce object size by 16 bytes per call site
+(x86-32) when the argument is a constant. There are
+about 800 of these jiffies conversions in kernel sources.
+
+What do you think?
+
+ include/linux/jiffies.h | 49 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ kernel/time.c           | 42 +++---------------------------------------
+ 2 files changed, 51 insertions(+), 40 deletions(-)
+
+diff --git a/include/linux/jiffies.h b/include/linux/jiffies.h
+index 82ed068..c67ddcf 100644
+--- a/include/linux/jiffies.h
++++ b/include/linux/jiffies.h
+@@ -291,7 +291,54 @@ extern unsigned long preset_lpj;
+  */
+ extern unsigned int jiffies_to_msecs(const unsigned long j);
+ extern unsigned int jiffies_to_usecs(const unsigned long j);
+-extern unsigned long msecs_to_jiffies(const unsigned int m);
++extern unsigned long __msecs_to_jiffies(const unsigned int m);
++
++static inline unsigned long __inline_msecs_to_jiffies(const unsigned int m)
++{
++	/*
++	 * Negative value, means infinite timeout:
++	 */
++	if ((int)m < 0)
++		return MAX_JIFFY_OFFSET;
++
++#if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)
++	/*
++	 * HZ is equal to or smaller than 1000, and 1000 is a nice
++	 * round multiple of HZ, divide with the factor between them,
++	 * but round upwards:
++	 */
++	return (m + (MSEC_PER_SEC / HZ) - 1) / (MSEC_PER_SEC / HZ);
++#elif HZ > MSEC_PER_SEC && !(HZ % MSEC_PER_SEC)
++	/*
++	 * HZ is larger than 1000, and HZ is a nice round multiple of
++	 * 1000 - simply multiply with the factor between them.
++	 *
++	 * But first make sure the multiplication result cannot
++	 * overflow:
++	 */
++	if (m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
++		return MAX_JIFFY_OFFSET;
++
++	return m * (HZ / MSEC_PER_SEC);
++#else
++	/*
++	 * Generic case - multiply, round and divide. But first
++	 * check that if we are doing a net multiplication, that
++	 * we wouldn't overflow:
++	 */
++	if (HZ > MSEC_PER_SEC && m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
++		return MAX_JIFFY_OFFSET;
++
++	return (MSEC_TO_HZ_MUL32 * m + MSEC_TO_HZ_ADJ32)
++		>> MSEC_TO_HZ_SHR32;
++#endif
++}
++
++#define msecs_to_jiffies(x)			\
++	(__builtin_constant_p(x) ?		\
++	 __inline_msecs_to_jiffies(x) :		\
++	 __msecs_to_jiffies(x))
++
+ extern unsigned long usecs_to_jiffies(const unsigned int u);
+ extern unsigned long timespec_to_jiffies(const struct timespec *value);
+ extern void jiffies_to_timespec(const unsigned long jiffies,
+diff --git a/kernel/time.c b/kernel/time.c
+index d226c6a..231f2ac 100644
+--- a/kernel/time.c
++++ b/kernel/time.c
+@@ -425,47 +425,11 @@ EXPORT_SYMBOL(ns_to_timeval);
+  *
+  * We must also be careful about 32-bit overflows.
+  */
+-unsigned long msecs_to_jiffies(const unsigned int m)
++unsigned long __msecs_to_jiffies(const unsigned int m)
+ {
+-	/*
+-	 * Negative value, means infinite timeout:
+-	 */
+-	if ((int)m < 0)
+-		return MAX_JIFFY_OFFSET;
+-
+-#if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)
+-	/*
+-	 * HZ is equal to or smaller than 1000, and 1000 is a nice
+-	 * round multiple of HZ, divide with the factor between them,
+-	 * but round upwards:
+-	 */
+-	return (m + (MSEC_PER_SEC / HZ) - 1) / (MSEC_PER_SEC / HZ);
+-#elif HZ > MSEC_PER_SEC && !(HZ % MSEC_PER_SEC)
+-	/*
+-	 * HZ is larger than 1000, and HZ is a nice round multiple of
+-	 * 1000 - simply multiply with the factor between them.
+-	 *
+-	 * But first make sure the multiplication result cannot
+-	 * overflow:
+-	 */
+-	if (m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
+-		return MAX_JIFFY_OFFSET;
+-
+-	return m * (HZ / MSEC_PER_SEC);
+-#else
+-	/*
+-	 * Generic case - multiply, round and divide. But first
+-	 * check that if we are doing a net multiplication, that
+-	 * we wouldn't overflow:
+-	 */
+-	if (HZ > MSEC_PER_SEC && m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
+-		return MAX_JIFFY_OFFSET;
+-
+-	return (MSEC_TO_HZ_MUL32 * m + MSEC_TO_HZ_ADJ32)
+-		>> MSEC_TO_HZ_SHR32;
+-#endif
++	return __inline_msecs_to_jiffies(m);
+ }
+-EXPORT_SYMBOL(msecs_to_jiffies);
++EXPORT_SYMBOL(__msecs_to_jiffies);
  
--	netdev_set_master(dev, NULL);
-+	netdev_upper_dev_unlink(dev, br->dev);
- 
- 	br_multicast_del_port(p);
- 
-@@ -364,7 +364,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	if (br_netpoll_info(br) && ((err = br_netpoll_enable(p, GFP_KERNEL))))
- 		goto err3;
- 
--	err = netdev_set_master(dev, br->dev);
-+	err = netdev_master_upper_dev_link(dev, br->dev);
- 	if (err)
- 		goto err4;
- 
-@@ -403,7 +403,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
- 	return 0;
- 
- err5:
--	netdev_set_master(dev, NULL);
-+	netdev_upper_dev_unlink(dev, br->dev);
- err4:
- 	br_netpoll_disable(p);
- err3:
--- 
-1.8.0
+ unsigned long usecs_to_jiffies(const unsigned int u)
+ {
