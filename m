@@ -1,72 +1,135 @@
-From: Rami Rosen <roszenrami@gmail.com>
-Subject: Re: linux-next: Tree for Jan 4 (net/bridge)
-Date: Fri, 4 Jan 2013 21:54:52 +0200
-Message-ID: <CAKoUArn=6UMjcKC6rnUmpkXFxQvSWnc=1N44iZFPKn80aMBNvA@mail.gmail.com>
-References: <20130104152814.3a3cf74bdec76cea09d3e134@canb.auug.org.au>
-	<50E72977.7030605@infradead.org>
-	<20130104112716.596f9085@nehalam.linuxnetplumber.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] mv643xx_eth: Fix a possible deadlock upon ifdown
+Date: Fri, 4 Jan 2013 21:25:09 +0100
+Message-ID: <20130104202509.GX27530@wantstofly.org>
+References: <1357308422-19639-1-git-send-email-lkundrak@v3.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Lubomir Rintel <lubo.rintel@gooddata.com>
+To: Lubomir Rintel <lkundrak@v3.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:52573 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755075Ab3ADTyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 14:54:54 -0500
-In-Reply-To: <20130104112716.596f9085@nehalam.linuxnetplumber.net>
+Received: from fw.wantstofly.org ([80.101.37.227]:63851 "EHLO
+	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755120Ab3ADUZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 15:25:13 -0500
+Content-Disposition: inline
+In-Reply-To: <1357308422-19639-1-git-send-email-lkundrak@v3.sk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Fri, Jan 04, 2013 at 03:07:02PM +0100, Lubomir Rintel wrote:
 
-The cause of the problem in net tree (but **not** net-next tree) is:
-commit 3ec8e9f085bcaef0de1077f555c2c5102c223390
-"bridge: Correctly unregister MDB rtnetlink handlers"
-and it is fixed by a patch from me, for the net tree, from yesterday.
+> From: Lubomir Rintel <lubo.rintel@gooddata.com>
+> 
+> =================================
+> [ INFO: inconsistent lock state ]
+> 3.7.0-6.luboskovo.fc19.armv5tel.kirkwood #1 Tainted: G        W
+> ---------------------------------
+> inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+> NetworkManager/337 [HC0[0]:SC0[0]:HE1:SE1] takes:
+>  (_xmit_ETHER#2){+.?...}, at: [<bf07adfc>] txq_reclaim+0x54/0x264 [mv643xx_eth]
+> {IN-SOFTIRQ-W} state was registered at:
+>   [<c0068480>] __lock_acquire+0x5b4/0x17d0
+>   [<c0069d7c>] lock_acquire+0x160/0x1e0
+>   [<c04f41a0>] _raw_spin_lock+0x50/0x88
+>   [<c0407178>] sch_direct_xmit+0x4c/0x2d4
+>   [<c03ec978>] dev_queue_xmit+0x4b8/0x8d8
+>   [<c0492dc8>] ip6_finish_output2+0x350/0x42c
+>   [<c04b7fd8>] mld_sendpack+0x2d0/0x514
+>   [<c04b8834>] mld_ifc_timer_expire+0x228/0x278
+>   [<c002afe8>] call_timer_fn+0x140/0x33c
+>   [<c002bbf0>] run_timer_softirq+0x278/0x32c
+>   [<c0024288>] __do_softirq+0x16c/0x398
+>   [<c002488c>] irq_exit+0x5c/0xc0
+>   [<c0009c64>] handle_IRQ+0x6c/0x8c
+>   [<c04f5218>] __irq_svc+0x38/0x80
+>   [<c0065684>] lock_is_held+0x4/0x54
+>   [<c004d5a0>] __might_sleep+0x44/0x228
+>   [<c04f25a4>] down_read+0x28/0x88
+>   [<c0263c94>] __copy_to_user_memcpy+0xa8/0x140
+>   [<c01374d0>] seq_read+0x3ac/0x474
+>   [<c011623c>] vfs_read+0xac/0x184
+>   [<c0116354>] sys_read+0x40/0x6c
+>   [<c0008cc0>] ret_fast_syscall+0x0/0x38
+> irq event stamp: 115119
+> hardirqs last  enabled at (115119): [<c04f4cf0>] _raw_spin_unlock_irqrestore+0x44/0x64
+> hardirqs last disabled at (115118): [<c04f430c>] _raw_spin_lock_irqsave+0x28/0xa0
+> softirqs last  enabled at (114880): [<c00243d4>] __do_softirq+0x2b8/0x398
+> softirqs last disabled at (114873): [<c002488c>] irq_exit+0x5c/0xc0
+> 
+> other info that might help us debug this:
+>  Possible unsafe locking scenario:
+> 
+>        CPU0
+>        ----
+>   lock(_xmit_ETHER#2);
+>   <Interrupt>
+>     lock(_xmit_ETHER#2);
+> 
+>  *** DEADLOCK ***
+> 
+> 1 lock held by NetworkManager/337:
+>  #0:  (rtnl_mutex){+.+.+.}, at: [<c03fad04>] rtnetlink_rcv+0x14/0x2c
+> 
+> stack backtrace:
+> [<c000f5a8>] (unwind_backtrace+0x0/0x124) from [<c04ebea8>] (print_usage_bug.part.29+0x20c/0x26c)
+> [<c04ebea8>] (print_usage_bug.part.29+0x20c/0x26c) from [<c0067cc4>] (mark_lock+0x404/0x60c)
+> [<c0067cc4>] (mark_lock+0x404/0x60c) from [<c0068504>] (__lock_acquire+0x638/0x17d0)
+> [<c0068504>] (__lock_acquire+0x638/0x17d0) from [<c0069d7c>] (lock_acquire+0x160/0x1e0)
+> [<c0069d7c>] (lock_acquire+0x160/0x1e0) from [<c04f41a0>] (_raw_spin_lock+0x50/0x88)
+> [<c04f41a0>] (_raw_spin_lock+0x50/0x88) from [<bf07adfc>] (txq_reclaim+0x54/0x264 [mv643xx_eth])
+> [<bf07adfc>] (txq_reclaim+0x54/0x264 [mv643xx_eth]) from [<bf07b03c>] (txq_deinit+0x30/0xec [mv643xx_eth])
+> [<bf07b03c>] (txq_deinit+0x30/0xec [mv643xx_eth]) from [<bf07b21c>] (mv643xx_eth_stop+0x124/0x140 [mv643xx_eth])
+> [<bf07b21c>] (mv643xx_eth_stop+0x124/0x140 [mv643xx_eth]) from [<c03e8bbc>] (__dev_close_many+0xb0/0xec)
+> [<c03e8bbc>] (__dev_close_many+0xb0/0xec) from [<c03e8c28>] (__dev_close+0x30/0x44)
+> [<c03e8c28>] (__dev_close+0x30/0x44) from [<c03ed154>] (__dev_change_flags+0x94/0x120)
+> [<c03ed154>] (__dev_change_flags+0x94/0x120) from [<c03ed260>] (dev_change_flags+0x18/0x4c)
+> [<c03ed260>] (dev_change_flags+0x18/0x4c) from [<c03fb174>] (do_setlink+0x2cc/0x7ac)
+> [<c03fb174>] (do_setlink+0x2cc/0x7ac) from [<c03fc5ec>] (rtnl_newlink+0x26c/0x4a8)
+> [<c03fc5ec>] (rtnl_newlink+0x26c/0x4a8) from [<c03fc104>] (rtnetlink_rcv_msg+0x280/0x29c)
+> [<c03fc104>] (rtnetlink_rcv_msg+0x280/0x29c) from [<c041245c>] (netlink_rcv_skb+0x58/0xb4)
+> [<c041245c>] (netlink_rcv_skb+0x58/0xb4) from [<c03fad10>] (rtnetlink_rcv+0x20/0x2c)
+> [<c03fad10>] (rtnetlink_rcv+0x20/0x2c) from [<c0411dec>] (netlink_unicast+0x158/0x208)
+> [<c0411dec>] (netlink_unicast+0x158/0x208) from [<c0412254>] (netlink_sendmsg+0x310/0x3c0)
+> [<c0412254>] (netlink_sendmsg+0x310/0x3c0) from [<c03d209c>] (sock_sendmsg+0xa8/0xd0)
+> [<c03d209c>] (sock_sendmsg+0xa8/0xd0) from [<c03d2314>] (__sys_sendmsg+0x1d8/0x280)
+> [<c03d2314>] (__sys_sendmsg+0x1d8/0x280) from [<c03d4054>] (sys_sendmsg+0x44/0x68)
+> [<c03d4054>] (sys_sendmsg+0x44/0x68) from [<c0008cc0>] (ret_fast_syscall+0x0/0x38)
+> ---
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index 84c1326..67a3e78 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -943,7 +943,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+>  	struct netdev_queue *nq = netdev_get_tx_queue(mp->dev, txq->index);
+>  	int reclaimed;
+>  
+> -	__netif_tx_lock(nq, smp_processor_id());
+> +	__netif_tx_lock_bh(nq);
+>  
+>  	reclaimed = 0;
+>  	while (reclaimed < budget && txq->tx_desc_count > 0) {
+> @@ -989,7 +989,7 @@ static int txq_reclaim(struct tx_queue *txq, int budget, int force)
+>  		dev_kfree_skb(skb);
+>  	}
+>  
+> -	__netif_tx_unlock(nq);
+> +	__netif_tx_unlock_bh(nq);
+>  
+>  	if (reclaimed < budget)
+>  		mp->work_tx &= ~(1 << txq->index);
+> -- 
 
-see:
-http://www.spinics.net/lists/netdev/msg221168.html
+Maybe I'm not reading it right, but I doubt that this is an actual
+deadlock or that the patch is needed.
 
-probably this patch, which was applied to net,  was not pulled yet.
+txq_reclaim() indeed doesn't disable BHs, but that's because it's
+always called in BH context.  Almost always -- the only exception is
+txq_deinit(), called from ->ndo_stop(), but by that time we've
+already napi_disable()'d and netif_carrier_off()'d and free_irq()'d.
 
-I believe that since the commit above was not to net-next, this
-problem is not observed in your tree.
-
-Rami Rosen
-http://ramirose.wix.com/ramirosen
-
-On Fri, Jan 4, 2013 at 9:27 PM, Stephen Hemminger <shemminger@vyatta.com> wrote:
-> On Fri, 04 Jan 2013 11:11:51 -0800
-> Randy Dunlap <rdunlap@infradead.org> wrote:
->
->> On 01/03/13 20:28, Stephen Rothwell wrote:
->> > Hi all,
->> >
->> > Changes since 20130103:
->> >
->>
->> on i386 and x86_64:
->>
->>   CC      net/bridge/br_netlink.o
->> net/bridge/br_netlink.c: In function 'br_netlink_init':
->> net/bridge/br_netlink.c:307:2: error: implicit declaration of function 'br_mdb_init' [-Werror=implicit-function-declaration]
->> net/bridge/br_netlink.c:314:2: error: implicit declaration of function 'br_mdb_uninit' [-Werror=implicit-function-declaration]
->> cc1: some warnings being treated as errors
->> make[3]: *** [net/bridge/br_netlink.o] Error 1
->>
->>
->> Full randconfig file is attached.
->>
->>
->
-> Problem not observed with current net-next and your configuration.
-> Probably already fixed.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+How to explain that to lockdep, though, I don't know.
