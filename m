@@ -1,58 +1,73 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [PATCH v2 net-next] softirq: reduce latencies
-Date: Fri, 04 Jan 2013 00:23:06 -0800
-Message-ID: <1357287786.1678.87.camel@edumazet-glaptop>
-References: <1357216132.21409.24107.camel@edumazet-glaptop>
-	 <1357250880.2685.29.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1357252816.21409.26384.camel@edumazet-glaptop>
-	 <1357285780.21409.28416.camel@edumazet-glaptop>
-	 <1357287351.5452.44.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357287351.5452.44.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next V6 03/15] vlan: add link to upper device
+Date: Fri,  4 Jan 2013 09:48:51 +0100
+Message-ID: <1357289343-817-4-git-send-email-jiri@resnulli.us>
+References: <1357289343-817-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
+	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, kaber@trash.net, ursula.braun@de.ibm.com,
+	blaschka@linux.vnet.ibm.com, linux390@de.ibm.com,
+	shemminger@vyatta.com, bhutchings@solarflare.com,
+	therbert@google.com, xiyou.wangcong@gmail.com, joe@perches.com,
+	gregory.v.rose@intel.com, john.r.fastabend@intel.com,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
+	fbl@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:34823 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754062Ab3ADItZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 03:49:25 -0500
+Received: by mail-ea0-f172.google.com with SMTP id a1so6531344eaa.17
+        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 00:49:23 -0800 (PST)
+In-Reply-To: <1357289343-817-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-04 at 00:15 -0800, Joe Perches wrote:
-> On Thu, 2013-01-03 at 23:49 -0800, Eric Dumazet wrote:
-> > In various network workloads, __do_softirq() latencies can be up
-> > to 20 ms if HZ=1000, and 200 ms if HZ=100.
-> > This patch changes the fallback to ksoftirqd condition to :
-> > - A time limit of 2 ms.
-> 
-> []
-> > diff --git a/kernel/softirq.c b/kernel/softirq.c
-> []
-> > +#define MAX_SOFTIRQ_TIME  max(1, (2*HZ/1000))
-> 
-> And if HZ is 10000?
->  
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/8021q/vlan.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-Then its OK.  2*10000/1000 -> 20 ticks -> 2 ms
-
-
-> >  asmlinkage void __do_softirq(void)
-> >  {
-> []
-> > +	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
-> 
-> Perhaps MAX_SOFTIRQ_TIME should be
-> 
-> #define MAX_SOFTIRQ_TIME msecs_to_jiffies(2)
-> 
-> though it would be nicer if it were a compile time constant.
-
-If you send a patch to convert msecs_to_jiffies() to an inline function
-when HZ = 1000, I will gladly use it instead of (2*HZ/1000)
-
-Right now, max(1, msecs_to_jiffies(2)) uses way too many instructions,
-while it should be the constant 2, known at compile time.
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index a292e80..babfde9 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -105,6 +105,8 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ 	 */
+ 	unregister_netdevice_queue(dev, head);
+ 
++	netdev_upper_dev_unlink(real_dev, dev);
++
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_gvrp_uninit_applicant(real_dev);
+ 
+@@ -162,9 +164,13 @@ int register_vlan_dev(struct net_device *dev)
+ 	if (err < 0)
+ 		goto out_uninit_applicant;
+ 
++	err = netdev_upper_dev_link(real_dev, dev);
++	if (err)
++		goto out_uninit_applicant;
++
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+-		goto out_uninit_applicant;
++		goto out_upper_dev_unlink;
+ 
+ 	/* Account for reference in struct vlan_dev_priv */
+ 	dev_hold(real_dev);
+@@ -180,6 +186,8 @@ int register_vlan_dev(struct net_device *dev)
+ 
+ 	return 0;
+ 
++out_upper_dev_unlink:
++	netdev_upper_dev_unlink(real_dev, dev);
+ out_uninit_applicant:
+ 	if (grp->nr_vlan_devs == 0)
+ 		vlan_gvrp_uninit_applicant(real_dev);
+-- 
+1.8.0
