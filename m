@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V6 00/15] net: introduce upper device lists and remove dev->master
-Date: Fri,  4 Jan 2013 09:48:48 +0100
-Message-ID: <1357289343-817-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next V6 04/15] rtnetlink: remove usage of dev->master
+Date: Fri,  4 Jan 2013 09:48:52 +0100
+Message-ID: <1357289343-817-5-git-send-email-jiri@resnulli.us>
+References: <1357289343-817-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	roland@kernel.org, sean.hefty@intel.com, hal.rosenstock@gmail.com,
 	fubar@us.ibm.com, andy@greyhouse.net, divy@chelsio.com,
@@ -15,89 +16,207 @@ Cc: davem@davemloft.net, edumazet@google.com, faisal.latif@intel.com,
 	linux-s390@vger.kernel.org, bridge@lists.linux-foundation.org,
 	fbl@redhat.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:36801 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753677Ab3ADIt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 03:49:28 -0500
+Received: by mail-ee0-f50.google.com with SMTP id b45so8075118eek.23
+        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 00:49:26 -0800 (PST)
+In-Reply-To: <1357289343-817-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a V6 of a repost of my previous patchset:
-"[patch net-next v2 00/15] net: introduce upper device lists and remove dev->master" from Aug 14
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/rtnetlink.c | 69 ++++++++++++++++++++++++++++------------------------
+ 1 file changed, 37 insertions(+), 32 deletions(-)
 
-The discussion around
-"[net-next] bonding: don't allow the master to become its slave"
-forced me to think about upper<->lower device connections.
-
-This patchset adds a possibility to record upper device linkage.
-All upper<->lower devices are converted to use this mechanism right after.
-That leads to dev->master removal because this info becomes redundant since
-"master links" have the same value.
-
-After all changes, there is no longer possible to do things as:
-"bond->someotherdevice->samebond"
-
-Also I think that drivers like cxgb3, qlcnic, qeth would benefit by this
-in future by being able to get more appropriate info about l3 addresses.
-
-v5->v6:
-- netdev_has_upper_dev() - added statement to comment that this is looking at
-  the immediate upper devices only.
-- renamed "RTNL semaphore" -> "RTNL lock" in all comments
-- renamed __netdev_has_upper_dev() to __netdev_search_upper_dev() to emhasize
-  the difference to netdev_has_upper_dev()
-
-v4->v5:
-- fixed missed typo in drivers/infiniband/hw/nes/nes_cm.c
-
-v3->v4:
-- comments in __netdev_upper_dev_link() squashed into one line
-- kfree_rcu used instead of call_rcu in netdev_upper_dev_unlink()
-
-v2->v3:
-- removed recursion in __netdev_has_upper_dev()
-- refreshed bits to be applicable on current net-next
-
-v1->v2:
-- s/unique/master/ better naming + stays closer to the past
-- fixed vlan err goto
-- original patch 15 (WARN_ON change) is squashed into the first patch
-
-
-Jiri Pirko (15):
-  net: introduce upper device lists
-  macvlan: add link to upper device
-  vlan: add link to upper device
-  rtnetlink: remove usage of dev->master
-  team: remove usage of netdev_set_master()
-  bridge: remove usage of netdev_set_master()
-  netpoll: remove usage of dev->master
-  cxgb3: remove usage of dev->master
-  qlcnic: guard __vlan_find_dev_deep() by rcu_read_lock
-  qeth: ensure that __vlan_find_dev_deep() is called with rcu_read_lock
-  vlan: remove usage of dev->master in __vlan_find_dev_deep()
-  nes: remove usage of dev->master
-  bonding: remove usage of dev->master
-  net: remove no longer used netdev_set_bond_master() and
-    netdev_set_master()
-  net: kill dev->master
-
- drivers/infiniband/hw/nes/nes.c                    |   8 +-
- drivers/infiniband/hw/nes/nes_cm.c                 |   2 +-
- drivers/net/bonding/bond_3ad.c                     |  30 +--
- drivers/net/bonding/bond_alb.c                     |   6 +-
- drivers/net/bonding/bond_main.c                    |  94 ++++----
- drivers/net/bonding/bonding.h                      |  14 +-
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |  11 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   2 +
- drivers/net/macvlan.c                              |   9 +-
- drivers/net/team/team.c                            |  13 +-
- drivers/s390/net/qeth_l3_main.c                    |  21 +-
- include/linux/netdevice.h                          |  22 +-
- net/8021q/vlan.c                                   |  10 +-
- net/8021q/vlan_core.c                              |  18 +-
- net/bridge/br_if.c                                 |   6 +-
- net/core/dev.c                                     | 246 +++++++++++++++++----
- net/core/netpoll.c                                 |   9 +-
- net/core/rtnetlink.c                               |  70 +++---
- 18 files changed, 409 insertions(+), 182 deletions(-)
-
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 2ef7a56..ae612f4 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -880,6 +880,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	const struct rtnl_link_stats64 *stats;
+ 	struct nlattr *attr, *af_spec;
+ 	struct rtnl_af_ops *af_ops;
++	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
+ 
+ 	ASSERT_RTNL();
+ 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
+@@ -908,8 +909,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ #endif
+ 	    (dev->ifindex != dev->iflink &&
+ 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)) ||
+-	    (dev->master &&
+-	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
++	    (upper_dev &&
++	     nla_put_u32(skb, IFLA_MASTER, upper_dev->ifindex)) ||
+ 	    nla_put_u8(skb, IFLA_CARRIER, netif_carrier_ok(dev)) ||
+ 	    (dev->qdisc &&
+ 	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
+@@ -1273,16 +1274,16 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
+ 
+ static int do_set_master(struct net_device *dev, int ifindex)
+ {
+-	struct net_device *master_dev;
++	struct net_device *upper_dev = netdev_master_upper_dev_get(dev);
+ 	const struct net_device_ops *ops;
+ 	int err;
+ 
+-	if (dev->master) {
+-		if (dev->master->ifindex == ifindex)
++	if (upper_dev) {
++		if (upper_dev->ifindex == ifindex)
+ 			return 0;
+-		ops = dev->master->netdev_ops;
++		ops = upper_dev->netdev_ops;
+ 		if (ops->ndo_del_slave) {
+-			err = ops->ndo_del_slave(dev->master, dev);
++			err = ops->ndo_del_slave(upper_dev, dev);
+ 			if (err)
+ 				return err;
+ 		} else {
+@@ -1291,12 +1292,12 @@ static int do_set_master(struct net_device *dev, int ifindex)
+ 	}
+ 
+ 	if (ifindex) {
+-		master_dev = __dev_get_by_index(dev_net(dev), ifindex);
+-		if (!master_dev)
++		upper_dev = __dev_get_by_index(dev_net(dev), ifindex);
++		if (!upper_dev)
+ 			return -EINVAL;
+-		ops = master_dev->netdev_ops;
++		ops = upper_dev->netdev_ops;
+ 		if (ops->ndo_add_slave) {
+-			err = ops->ndo_add_slave(master_dev, dev);
++			err = ops->ndo_add_slave(upper_dev, dev);
+ 			if (err)
+ 				return err;
+ 		} else {
+@@ -2064,7 +2065,6 @@ errout:
+ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ {
+ 	struct net *net = sock_net(skb->sk);
+-	struct net_device *master = NULL;
+ 	struct ndmsg *ndm;
+ 	struct nlattr *tb[NDA_MAX+1];
+ 	struct net_device *dev;
+@@ -2106,10 +2106,10 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	/* Support fdb on master device the net/bridge default case */
+ 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+ 	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+-		master = dev->master;
+-		err = master->netdev_ops->ndo_fdb_add(ndm, tb,
+-						      dev, addr,
+-						      nlh->nlmsg_flags);
++		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
++		const struct net_device_ops *ops = br_dev->netdev_ops;
++
++		err = ops->ndo_fdb_add(ndm, tb, dev, addr, nlh->nlmsg_flags);
+ 		if (err)
+ 			goto out;
+ 		else
+@@ -2170,10 +2170,11 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 	/* Support fdb on master device the net/bridge default case */
+ 	if ((!ndm->ndm_flags || ndm->ndm_flags & NTF_MASTER) &&
+ 	    (dev->priv_flags & IFF_BRIDGE_PORT)) {
+-		struct net_device *master = dev->master;
++		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
++		const struct net_device_ops *ops = br_dev->netdev_ops;
+ 
+-		if (master->netdev_ops->ndo_fdb_del)
+-			err = master->netdev_ops->ndo_fdb_del(ndm, dev, addr);
++		if (ops->ndo_fdb_del)
++			err = ops->ndo_fdb_del(ndm, dev, addr);
+ 
+ 		if (err)
+ 			goto out;
+@@ -2257,9 +2258,11 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+ 		if (dev->priv_flags & IFF_BRIDGE_PORT) {
+-			struct net_device *master = dev->master;
+-			const struct net_device_ops *ops = master->netdev_ops;
++			struct net_device *br_dev;
++			const struct net_device_ops *ops;
+ 
++			br_dev = netdev_master_upper_dev_get(dev);
++			ops = br_dev->netdev_ops;
+ 			if (ops->ndo_fdb_dump)
+ 				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
+ 		}
+@@ -2280,6 +2283,7 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 	struct ifinfomsg *ifm;
+ 	struct nlattr *br_afspec;
+ 	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
++	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 
+ 	nlh = nlmsg_put(skb, pid, seq, RTM_NEWLINK, sizeof(*ifm), NLM_F_MULTI);
+ 	if (nlh == NULL)
+@@ -2297,8 +2301,8 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 	if (nla_put_string(skb, IFLA_IFNAME, dev->name) ||
+ 	    nla_put_u32(skb, IFLA_MTU, dev->mtu) ||
+ 	    nla_put_u8(skb, IFLA_OPERSTATE, operstate) ||
+-	    (dev->master &&
+-	     nla_put_u32(skb, IFLA_MASTER, dev->master->ifindex)) ||
++	    (br_dev &&
++	     nla_put_u32(skb, IFLA_MASTER, br_dev->ifindex)) ||
+ 	    (dev->addr_len &&
+ 	     nla_put(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr)) ||
+ 	    (dev->ifindex != dev->iflink &&
+@@ -2334,11 +2338,11 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
+ 	rcu_read_lock();
+ 	for_each_netdev_rcu(net, dev) {
+ 		const struct net_device_ops *ops = dev->netdev_ops;
+-		struct net_device *master = dev->master;
++		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 
+-		if (master && master->netdev_ops->ndo_bridge_getlink) {
++		if (br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
+ 			if (idx >= cb->args[0] &&
+-			    master->netdev_ops->ndo_bridge_getlink(
++			    br_dev->netdev_ops->ndo_bridge_getlink(
+ 				    skb, portid, seq, dev) < 0)
+ 				break;
+ 			idx++;
+@@ -2375,7 +2379,7 @@ static inline size_t bridge_nlmsg_size(void)
+ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
+ {
+ 	struct net *net = dev_net(dev);
+-	struct net_device *master = dev->master;
++	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
+ 	struct sk_buff *skb;
+ 	int err = -EOPNOTSUPP;
+ 
+@@ -2386,8 +2390,8 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
+ 	}
+ 
+ 	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
+-	    master && master->netdev_ops->ndo_bridge_getlink) {
+-		err = master->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
++	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
++		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
+ 		if (err < 0)
+ 			goto errout;
+ 	}
+@@ -2446,13 +2450,14 @@ static int rtnl_bridge_setlink(struct sk_buff *skb, struct nlmsghdr *nlh,
+ 	oflags = flags;
+ 
+ 	if (!flags || (flags & BRIDGE_FLAGS_MASTER)) {
+-		if (!dev->master ||
+-		    !dev->master->netdev_ops->ndo_bridge_setlink) {
++		struct net_device *br_dev = netdev_master_upper_dev_get(dev);
++
++		if (!br_dev || !br_dev->netdev_ops->ndo_bridge_setlink) {
+ 			err = -EOPNOTSUPP;
+ 			goto out;
+ 		}
+ 
+-		err = dev->master->netdev_ops->ndo_bridge_setlink(dev, nlh);
++		err = br_dev->netdev_ops->ndo_bridge_setlink(dev, nlh);
+ 		if (err)
+ 			goto out;
+ 
 -- 
 1.8.0
