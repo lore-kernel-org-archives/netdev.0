@@ -1,166 +1,93 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH] drivers/net: remove orphaned references to micro channel
-Date: Fri,  4 Jan 2013 21:57:17 -0500
-Message-ID: <1357354637-1784-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 19/19] netfilter: gre: fix resource leak when
+ unregister gre proto
+Date: Sat, 5 Jan 2013 04:50:48 +0100
+Message-ID: <20130105035048.GA20027@1984>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="Kj7319i9nmIyA2yE"
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	canqunzhang@gmail.com, kaber@trash.net, ebiederm@xmission.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34207 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755789Ab3AEC7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 21:59:30 -0500
+Received: from mail.us.es ([193.147.175.20]:41565 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754775Ab3AEDuy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2013 22:50:54 -0500
+Content-Disposition: inline
+In-Reply-To: <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We threw away the microchannel support, but the removal wasn't
-completely trivial since there was namespace overlap with the
-machine check support, and hence some orphaned dependencies
-survived the deletion.  This attempts to sweep those up and
-send them to the bit-bucket.
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+--Kj7319i9nmIyA2yE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Gao,
+
+On Fri, Dec 28, 2012 at 10:36:46AM +0800, Gao feng wrote:
+> Currectly we unregister proto before all conntrack entries of
+> this proto being destroyed. so in function destroy_conntrack
+> we can't find proper l4proto to call l4proto->destroy.
+> this will cause resource leak.
+
+Good catch.
+
+But better to remove the entries before unregistering the protocol
+tracker, so l4proto->destroy is always called.
+
+Patch attached.
+
+--Kj7319i9nmIyA2yE
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-netfilter-nf_conntrack-fix-memory-leak-during-unregi.patch"
+
+>From 1c082b3ef4c9bf8bfd0159142ce6ffc49aa7bab2 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 4 Jan 2013 22:09:44 +0100
+Subject: [PATCH] netfilter: nf_conntrack: fix memory leak during
+ unregistration with GRE entries
+
+Protocol trackers are unregistered before conntrack entries of that
+type are removed. For that reason, l4proto->destroy is never called
+and that results in leaking the keymap.
+
+Fix this by releasing entries before unregistering protocols.
+
+Reported-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- drivers/net/ethernet/3com/Kconfig    | 6 +++---
- drivers/net/ethernet/8390/Kconfig    | 9 +++------
- drivers/net/ethernet/8390/Makefile   | 1 -
- drivers/net/ethernet/amd/Kconfig     | 4 ++--
- drivers/net/ethernet/fujitsu/Kconfig | 4 ++--
- drivers/net/ethernet/i825xx/Kconfig  | 2 +-
- drivers/net/ethernet/intel/Kconfig   | 2 +-
- 7 files changed, 12 insertions(+), 16 deletions(-)
+ net/netfilter/nf_conntrack_proto.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
-index eb56174..8c417ed 100644
---- a/drivers/net/ethernet/3com/Kconfig
-+++ b/drivers/net/ethernet/3com/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_3COM
- 	bool "3Com devices"
- 	default y
--	depends on ISA || EISA || MCA || PCI || PCMCIA
-+	depends on ISA || EISA || PCI || PCMCIA
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-@@ -33,8 +33,8 @@ config EL1
- 	  will be called 3c501.
+diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
+index 51e928d..29cd353 100644
+--- a/net/netfilter/nf_conntrack_proto.c
++++ b/net/netfilter/nf_conntrack_proto.c
+@@ -488,6 +488,9 @@ void nf_conntrack_l4proto_unregister(struct net *net,
+ {
+ 	struct nf_proto_net *pn = NULL;
  
- config EL3
--	tristate "3c509/3c529 (MCA)/3c579 \"EtherLink III\" support"
--	depends on (ISA || EISA || MCA)
-+	tristate "3c509/3c579 \"EtherLink III\" support"
-+	depends on (ISA || EISA)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to the 3Com
- 	  EtherLinkIII series, say Y and read the Ethernet-HOWTO, available
-diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
-index e1219e0..8801217 100644
---- a/drivers/net/ethernet/8390/Kconfig
-+++ b/drivers/net/ethernet/8390/Kconfig
-@@ -6,8 +6,8 @@ config NET_VENDOR_8390
- 	bool "National Semi-conductor 8390 devices"
- 	default y
- 	depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH || \
--		   ISA || MCA || EISA || MAC || M32R || MACH_TX49XX || \
--		   MCA_LEGACY || H8300 || ARM || MIPS || ZORRO || PCMCIA || \
-+		   ISA || EISA || MAC || M32R || MACH_TX49XX || \
-+		   H8300 || ARM || MIPS || ZORRO || PCMCIA || \
- 		   EXPERIMENTAL)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
-@@ -188,10 +188,7 @@ config NE2000
++	/* Remove all contrack entries before unregistration */
++	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
++
+ 	if (net == &init_net)
+ 		nf_conntrack_l4proto_unregister_net(l4proto);
  
- 	  If you have a PCI NE2000 card however, say N here and Y to "PCI
- 	  NE2000 and clone support" under "EISA, VLB, PCI and on board
--	  controllers" below. If you have a NE2000 card and are running on
--	  an MCA system (a bus system used on some IBM PS/2 computers and
--	  laptops), say N here and Y to "NE/2 (ne2000 MCA version) support",
--	  below.
-+	  controllers" below.
+@@ -497,9 +500,6 @@ void nf_conntrack_l4proto_unregister(struct net *net,
  
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ne.
-diff --git a/drivers/net/ethernet/8390/Makefile b/drivers/net/ethernet/8390/Makefile
-index f43038b..8fb462c 100644
---- a/drivers/net/ethernet/8390/Makefile
-+++ b/drivers/net/ethernet/8390/Makefile
-@@ -16,7 +16,6 @@ obj-$(CONFIG_HYDRA) += hydra.o 8390.o
- obj-$(CONFIG_LNE390) += lne390.o 8390.o
- obj-$(CONFIG_MCF8390) += mcf8390.o 8390.o
- obj-$(CONFIG_NE2000) += ne.o 8390p.o
--obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
- obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
- obj-$(CONFIG_NE3210) += ne3210.o 8390.o
- obj-$(CONFIG_NE_H8300) += ne-h8300.o 8390.o
-diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
-index 8350f4b..3046133 100644
---- a/drivers/net/ethernet/amd/Kconfig
-+++ b/drivers/net/ethernet/amd/Kconfig
-@@ -7,7 +7,7 @@ config NET_VENDOR_AMD
- 	default y
- 	depends on DIO || MACH_DECSTATION || MVME147 || ATARI || SUN3 || \
- 		   SUN3X || SBUS || PCI || ZORRO || (ISA && ISA_DMA_API) || \
--		   (ARM && ARCH_EBSA110) || ISA || EISA || MCA || PCMCIA
-+		   (ARM && ARCH_EBSA110) || ISA || EISA || PCMCIA
- 	---help---
- 	  If you have a network (Ethernet) chipset belonging to this class,
- 	  say Y.
-@@ -107,7 +107,7 @@ config DECLANCE
+ 	pn->users--;
+ 	nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
+-
+-	/* Remove all contrack entries for this protocol */
+-	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
  
- config DEPCA
- 	tristate "DEPCA, DE10x, DE200, DE201, DE202, DE422 support"
--	depends on (ISA || EISA || MCA)
-+	depends on (ISA || EISA)
- 	select CRC32
- 	---help---
- 	  If you have a network (Ethernet) card of this type, say Y and read
-diff --git a/drivers/net/ethernet/fujitsu/Kconfig b/drivers/net/ethernet/fujitsu/Kconfig
-index dffee9d..aca1568 100644
---- a/drivers/net/ethernet/fujitsu/Kconfig
-+++ b/drivers/net/ethernet/fujitsu/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_FUJITSU
- 	bool "Fujitsu devices"
- 	default y
--	depends on ISA || PCMCIA || ((ISA || MCA_LEGACY) && EXPERIMENTAL)
-+	depends on ISA || PCMCIA || (ISA && EXPERIMENTAL)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
-@@ -19,7 +19,7 @@ if NET_VENDOR_FUJITSU
- 
- config AT1700
- 	tristate "AT1700/1720 support (EXPERIMENTAL)"
--	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
-+	depends on ISA && EXPERIMENTAL
- 	select CRC32
- 	---help---
- 	  If you have a network (Ethernet) card of this type, say Y and read
-diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
-index 959faf7..70f8c2d 100644
---- a/drivers/net/ethernet/i825xx/Kconfig
-+++ b/drivers/net/ethernet/i825xx/Kconfig
-@@ -6,7 +6,7 @@ config NET_VENDOR_I825XX
- 	bool "Intel (82586/82593/82596) devices"
- 	default y
- 	depends on NET_VENDOR_INTEL && (ISA || ISA_DMA_API || ARM || \
--		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
-+		   ARCH_ACORN || SNI_RM || SUN3 || \
- 		   GSC || BVME6000 || MVME16x || EXPERIMENTAL)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index ddee406..bde4f3d 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -6,7 +6,7 @@ config NET_VENDOR_INTEL
- 	bool "Intel devices"
- 	default y
- 	depends on PCI || PCI_MSI || ISA || ISA_DMA_API || ARM || \
--		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
-+		   ARCH_ACORN || SNI_RM || SUN3 || \
- 		   GSC || BVME6000 || MVME16x || \
- 		   (ARM && ARCH_IXP4XX && IXP4XX_NPE && IXP4XX_QMGR) || \
- 		   EXPERIMENTAL
 -- 
-1.8.1
+1.7.10.4
+
+
+--Kj7319i9nmIyA2yE--
