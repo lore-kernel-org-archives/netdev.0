@@ -1,95 +1,139 @@
-From: Romain KUNTZ <r.kuntz@ipflavors.com>
-Subject: Re: [PATCH 1/2] ipv6: avoid blackhole and prohibited entries upon prefix purge [v2]
-Date: Sat, 5 Jan 2013 22:44:03 +0100
-Message-ID: <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com>
-References: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com> <1357415941.1678.4163.camel@edumazet-glaptop>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+From: Willy Tarreau <w@1wt.eu>
+Subject: Major network performance regression in 3.7
+Date: Sat, 5 Jan 2013 22:49:58 +0100
+Message-ID: <20130105214958.GA19814@1wt.eu>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, yoshfuji@linux-ipv6.org,
-	davem@davemloft.net
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:44307 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755865Ab3AEVoG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 16:44:06 -0500
-Received: by mail-wg0-f52.google.com with SMTP id 12so8540133wgh.19
-        for <netdev@vger.kernel.org>; Sat, 05 Jan 2013 13:44:04 -0800 (PST)
-In-Reply-To: <1357415941.1678.4163.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mobile IPv6 provokes a kernel Oops since commit 64c6d08e (ipv6:
-del unreachable route when an addr is deleted on lo), because
-ip6_route_lookup() may also return blackhole and prohibited
-entry. However, these entries have a NULL rt6i_table argument,
-which provokes an Oops in __ip6_del_rt() when trying to lock
-rt6i_table->tb6_lock.
+Hi,
 
-Beside, when purging a prefix, blakhole and prohibited entries
-should not be selected because they are not what we are looking
-for.
+I'm observing multiple apparently unrelated network performance
+issues in 3.7, to the point that I'm doubting it comes from the
+network stack.
 
-We fix this by adding two new lookup flags (RT6_LOOKUP_F_NO_BLK_HOLE
-and RT6_LOOKUP_F_NO_PROHIBIT) in order to ensure that such entries
-are skipped during lookup and that the correct entry is returned.
+My setup involves 3 machines connected point-to-point with myri
+10GE NICs (the middle machine has 2 NICs). The middle machine
+normally runs haproxy, the other two run either an HTTP load
+generator or a dummy web server :
 
-[v2]: use 'goto out;' instead of 'goto again;' to avoid unnecessary
-oprations on rt (as suggested by Eric Dumazet).
 
-Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
----
- include/net/ip6_route.h |    2 ++
- net/ipv6/addrconf.c     |    4 +++-
- net/ipv6/fib6_rules.c   |    4 ++++
- 3 files changed, 9 insertions(+), 1 deletions(-)
+  [ client ] <--------> [ haproxy ] <--------> [ server ]
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 27d8318..3c93743 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -30,6 +30,8 @@ struct route_info {
- #define RT6_LOOKUP_F_SRCPREF_TMP	0x00000008
- #define RT6_LOOKUP_F_SRCPREF_PUBLIC	0x00000010
- #define RT6_LOOKUP_F_SRCPREF_COA	0x00000020
-+#define RT6_LOOKUP_F_NO_BLK_HOLE	0x00000040
-+#define RT6_LOOKUP_F_NO_PROHIBIT	0x00000080
- 
- /*
-  * rt6_srcprefs2flags() and rt6_flags2srcprefs() translate
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 408cac4a..1891e23 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -948,7 +948,9 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
- 		fl6.flowi6_oif = ifp->idev->dev->ifindex;
- 		fl6.daddr = prefix;
- 		rt = (struct rt6_info *)ip6_route_lookup(net, &fl6,
--							 RT6_LOOKUP_F_IFACE);
-+						RT6_LOOKUP_F_IFACE |
-+						RT6_LOOKUP_F_NO_BLK_HOLE |
-+						RT6_LOOKUP_F_NO_PROHIBIT);
- 
- 		if (rt != net->ipv6.ip6_null_entry &&
- 		    addrconf_is_prefix_route(rt)) {
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2e1a432..9b48128 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -64,9 +64,13 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 		goto discard_pkt;
- 	default:
- 	case FR_ACT_BLACKHOLE:
-+		if (flags & RT6_LOOKUP_F_NO_BLK_HOLE)
-+			goto out;
- 		rt = net->ipv6.ip6_blk_hole_entry;
- 		goto discard_pkt;
- 	case FR_ACT_PROHIBIT:
-+		if (flags & RT6_LOOKUP_F_NO_PROHIBIT)
-+			goto out;
- 		rt = net->ipv6.ip6_prohibit_entry;
- 		goto discard_pkt;
- 	}
--- 
-1.7.2.5
+Usually transferring HTTP objects from the server to the client
+via haproxy causes no problem at 10 Gbps for moderately large
+objects.
+
+This time I observed that it was not possible to go beyond 6.8 Gbps,
+with all the chain idling a lot. I tried to change the IRQ rate, CPU
+affinity, tcp_rmem/tcp_wmem, disabling flow control, etc... the usual
+knobs, nothing managed to go beyond.
+
+So I removed haproxy from the equation, and simply started the client
+on the middle machine. Same issue. I thought about concurrency issues,
+so I reduced to a single connection, and nothing changed (usually I
+achieve 10G even with a single connection with large enough TCP windows).
+I tried to start tcpdump and the transfer immediately stalled and did not
+come back after I stopped tcpdump. This was reproducible several times
+but not always.
+
+So I first thought about an issue in the myri10ge driver and wanted to
+confirm that everything was OK on the middle machine.
+
+I started the server on it and aimed the client at it via the loopback.
+The transfer rate was even worse : randomly oscillating between 10 and
+100 MB/s ! Normally on the loop back, I get several GB/s here.
+
+Running tcpdump on the loopback showed be several very concerning issues :
+
+1) lots of packets are lost before reaching tcpdump. The trace shows that
+   these segments are ACKed so they're correctly received, but tcpdump
+   does not get them. Tcpdump stats at the end report impressive numbers,
+   around 90% packet dropped from the capture!
+
+2) ACKs seem to be immediately delivered but do not trigger sending, the
+   system seems to be running with delayed ACKs, as it waits 40 or 200ms
+   before restarting, and this is visible even in the first round trips :
+
+   - connection setup :
+
+   18:32:08.071602 IP 127.0.0.1.26792 > 127.0.0.1.8000: S 2036886615:2036886615(0) win 8030 <mss 65495,nop,nop,sackOK,nop,wscale 9>
+   18:32:08.071605 IP 127.0.0.1.8000 > 127.0.0.1.26792: S 126397113:126397113(0) ack 2036886616 win 8030 <mss 65495,nop,nop,sackOK,nop,wscale 9>
+   18:32:08.071614 IP 127.0.0.1.26792 > 127.0.0.1.8000: . ack 126397114 win 16
+
+   - GET /?s=1g HTTP/1.0
+
+   18:32:08.071649 IP 127.0.0.1.26792 > 127.0.0.1.8000: P 2036886616:2036886738(122) ack 126397114 win 16
+
+   - HTTP/1.1 200 OK with the beginning of the response :
+
+   18:32:08.071672 IP 127.0.0.1.8000 > 127.0.0.1.26792: . 126397114:126401210(4096) ack 2036886738 win 16
+   18:32:08.071676 IP 127.0.0.1.26792 > 127.0.0.1.8000: . ack 126401210 win 250
+   ==> 200ms pause here
+   18:32:08.275493 IP 127.0.0.1.8000 > 127.0.0.1.26792: P 126401210:126463006(61796) ack 2036886738 win 16
+   ==> 40ms pause here
+   18:32:08.315493 IP 127.0.0.1.26792 > 127.0.0.1.8000: . ack 126463006 win 256
+   18:32:08.315498 IP 127.0.0.1.8000 > 127.0.0.1.26792: . 126463006:126527006(64000) ack 2036886738 win 16
+
+   ... and so on
+
+   My server is using splice() with the SPLICE_F_MORE flag to send data.
+   I noticed that not using splice and relying on send(MSG_MORE) instead
+   I don't get the issue.
+
+3) I wondered if this had something to do with the 64k MTU on the loopback
+   so I lowered it to 16kB. The performance was even worse (about 5MB/s).
+   Starting tcpdump managed to make my transfer stall, just like with the
+   myri10ge. In this last test, I noticed that there were some real drops,
+   because there were some SACKs :
+
+   18:45:16.699951 IP 127.0.0.1.8000 > 127.0.0.1.8002: P 956153186:956169530(16344) ack 131668746 win 16
+   18:45:16.699956 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 956169530 win 64
+   18:45:16.904119 IP 127.0.0.1.8000 > 127.0.0.1.8002: P 957035762:957052106(16344) ack 131668746 win 16
+   18:45:16.904122 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 957052106 win 703
+   18:45:16.904124 IP 127.0.0.1.8000 > 127.0.0.1.8002: P 957052106:957099566(47460) ack 131668746 win 16
+   18:45:17.108117 IP 127.0.0.1.8000 > 127.0.0.1.8002: P 957402550:957418894(16344) ack 131668746 win 16
+   18:45:17.108119 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 957418894 win 1846
+   18:45:17.312115 IP 127.0.0.1.8000 > 127.0.0.1.8002: P 957672806:957689150(16344) ack 131668746 win 16
+   18:45:17.312117 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 957689150 win 2902
+   18:45:17.516114 IP 127.0.0.1.8000 > 127.0.0.1.8002: P 958962966:958979310(16344) ack 131668746 win 16
+   18:45:17.516116 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 958979310 win 7941
+   18:45:17.516150 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 959503678 win 9926 <nop,nop,sack 1 {959405614:959421958}>
+   18:45:17.516151 IP 127.0.0.1.8002 > 127.0.0.1.8000: . ack 959503678 win 9926 <nop,nop,sack 1 {959421958:959438302}>
+
+Please note that the Myri card is running with the normal MTU of 1500,
+jumbo frames were not used.
+
+>From what I could test, only the Tx path seems affected, because after
+rebooting the server on 3.5.7, I can transfer at 10 Gbps via the myri10ge
+again to the 3.7.1 client. I tried to disable GSO, TSO, etc... but nothing
+worked. Also, on 3.5.7, there are almost no drops between the kernel and
+tcpdump.
+
+I really suspect that all these issues are related. Maybe something about
+send buffers recycling, I don't know. The fact that tcpdump gets very few
+packets also makes me think about something about memory allocation. And
+that could perhaps explain why starting it causes the traffic to stall.
+
+Sadly, it will be hard to bisect this bug because I had a hard time running
+3.7-rc up to rc5 due to several bugs that affected this workload (and were
+fortunately fixed since).
+
+I think it's better to only focus on the issue with the loopback since it's
+easier to reproduce and involves less moving blocks.
+
+I've just tried to remove the SPLICE_F_MORE flag on the sender but it does
+not change anything.
+
+If anyone has any idea of things to test to narrow the problem down, I'm
+interested. I have not tried 3.8-rc2 yet, and reading the archives there
+does not seem to be any similar reports. Note that I've been using 3.5.7
+as a fallback, but the same lab has run 3.6.6 without any issues 2 months
+ago, so I'm really confident that this is a 3.7 regression.
+
+Regards,
+Willy
