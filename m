@@ -1,48 +1,31 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 3/3] tuntap: don't add to waitqueue when POLLERR
-Date: Sat,  5 Jan 2013 17:34:06 +0800
-Message-ID: <1357378446-19656-4-git-send-email-jasowang@redhat.com>
-References: <1357378446-19656-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357378446-19656-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Sat, 5 Jan 2013 10:37:18 +0100
+Message-ID: <20130105093718.GA938@electric-eye.fr.zoreil.com>
+References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?utf-8?B?SsO2cmc=?= Otte <jrg.otte@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43294 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755338Ab3AEKFA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 05:05:00 -0500
+Content-Disposition: inline
+In-Reply-To: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently, tun_chr_poll() returns POLLERR after waitqueue adding during device
-unregistration. This would confuse some of its user such as vhost which assume
-when POLLERR is returned, it wasn't added to the waitqueue. Fix this by
-returning POLLERR before adding to waitqueue.
+J=C3=B6rg Otte <jrg.otte@gmail.com> :
+[...]
+> It's a regression, it never happend before 3.8-rc.
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
+Please check that 'dmesg | grep XID' exhibits a 8168evl.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index fbd106e..f9c0049 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -886,7 +886,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
- 	struct sock *sk;
- 	unsigned int mask = 0;
- 
--	if (!tun)
-+	if (!tun || tun->dev->reg_state != NETREG_REGISTERED)
- 		return POLLERR;
- 
- 	sk = tfile->socket.sk;
-@@ -903,9 +903,6 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
- 	     sock_writeable(sk)))
- 		mask |= POLLOUT | POLLWRNORM;
- 
--	if (tun->dev->reg_state != NETREG_REGISTERED)
--		mask = POLLERR;
--
- 	tun_put(tun);
- 	return mask;
- }
--- 
-1.7.1
+I'll showe and dig it. It's epidemic.
+
+--=20
+Ueimor
