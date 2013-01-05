@@ -1,39 +1,43 @@
-From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
-Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit
- queue 0 timed out
-Date: Sat, 5 Jan 2013 11:15:27 +0100
-Message-ID: <CADDKRnBCrDz2X=5qpGE+r92ZFX5cA+jnSGt3wS8TR0RE8hi1HA@mail.gmail.com>
-References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
-	<20130105093718.GA938@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: [PATCH] ethtool: Add version check for et131x regs
+Date: Sat,  5 Jan 2013 09:57:31 +0000
+Message-ID: <1357379851-5298-1-git-send-email-mark.einon@gmail.com>
+Cc: netdev@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:49894 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755401Ab3AEKP2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 05:15:28 -0500
-In-Reply-To: <20130105093718.GA938@electric-eye.fr.zoreil.com>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:43973 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755501Ab3AEKTf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 05:19:35 -0500
+Received: by mail-wg0-f48.google.com with SMTP id dt10so8162550wgb.27
+        for <netdev@vger.kernel.org>; Sat, 05 Jan 2013 02:19:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/1/5 Francois Romieu <romieu@fr.zoreil.com>:
-> J=C3=B6rg Otte <jrg.otte@gmail.com> :
-> [...]
->> It's a regression, it never happend before 3.8-rc.
->
-> Please check that 'dmesg | grep XID' exhibits a 8168evl.
+Added a version check for the et131x reg dump, in case the dump format
+needs to be changed later.
 
-jojo@ahorn:~$ dmesg | grep XID
-[    1.808847] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at
-0xffffc90000054000, 5c:9a:d8:69:2b:39, XID 0c900800 IRQ 42
-jojo@ahorn:~$
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
+ et131x.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
->
-> I'll showe and dig it. It's epidemic.
->
-
-Thanks, J=C3=B6rg
+diff --git a/et131x.c b/et131x.c
+index b36c184..8cdbec0 100644
+--- a/et131x.c
++++ b/et131x.c
+@@ -4,8 +4,12 @@
+ 
+ int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ {
++	u8 version = (u8)(regs->version >> 24);
+ 	u32 *reg = (u32 *)regs->data;
+ 
++	if(version != 1)
++		return -1;
++
+ 	fprintf(stdout, "PHY Registers\n");
+ 	fprintf(stdout, "0x0, Basic Control Reg          = 0x%04X\n", *reg++);
+ 	fprintf(stdout, "0x1, Basic Status Reg           = 0x%04X\n", *reg++);
+-- 
+1.7.9.5
