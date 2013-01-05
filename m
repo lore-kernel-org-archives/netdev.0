@@ -1,220 +1,246 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: NULL pointer dereference in veth_stats_one
-Date: Fri, 04 Jan 2013 17:42:40 -0800
-Message-ID: <1357350160.1678.3303.camel@edumazet-glaptop>
-References: <20130104105955.GA3663@raven>
-	 <1357314320.1678.1414.camel@edumazet-glaptop>
-	 <1357316231.1678.1528.camel@edumazet-glaptop>
-	 <1357323443.2693.9.camel@bwh-desktop.uk.solarflarecom.com>
-	 <1357327406.1678.2139.camel@edumazet-glaptop>
-	 <1357331112.2693.33.camel@bwh-desktop.uk.solarflarecom.com>
+From: CAI Qian <caiqian@redhat.com>
+Subject: Re: load/unload dccp module caused oops
+Date: Fri, 4 Jan 2013 21:02:47 -0500 (EST)
+Message-ID: <69507431.8510419.1357351367419.JavaMail.root@redhat.com>
+References: <0000013c0618832c-11b14217-2010-4cdb-abb3-c1afcbc44145-000000@email.amazonses.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Tom Parkin <tparkin@katalix.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, Dave Miller <davem@redhat.com>,
+	stable@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Pekka Enberg <penberg@kernel.org>,
+	Glauber Costa <glommer@parallels.com>
+To: Christoph Lameter <cl@linux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:55288 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755320Ab3AEBmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 20:42:45 -0500
-Received: by mail-pb0-f52.google.com with SMTP id ro2so9427307pbb.11
-        for <netdev@vger.kernel.org>; Fri, 04 Jan 2013 17:42:44 -0800 (PST)
-In-Reply-To: <1357331112.2693.33.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mx4-phx2.redhat.com ([209.132.183.25]:60645 "EHLO
+	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755543Ab3AECC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 21:02:59 -0500
+In-Reply-To: <0000013c0618832c-11b14217-2010-4cdb-abb3-c1afcbc44145-000000@email.amazonses.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
 
-On Fri, 2013-01-04 at 20:25 +0000, Ben Hutchings wrote:
 
-> Anything calling dev_get_stats() must have a counted or RCU reference to
-> the device, and netdev_run_todo() waits for those to go away.  For
-> mutually referencing devices we want a kind of weak reference and we
-> have no good way to implement those.
+----- Original Message -----
+> From: "Christoph Lameter" <cl@linux.com>
+> To: "CAI Qian" <caiqian@redhat.com>
+> Cc: netdev@vger.kernel.org, "Dave Miller" <davem@redhat.com>, stable@vger.kernel.org, "linux-kernel"
+> <linux-kernel@vger.kernel.org>, "Pekka Enberg" <penberg@kernel.org>, "Glauber Costa" <glommer@parallels.com>
+> Sent: Friday, January 4, 2013 11:05:35 PM
+> Subject: Re: load/unload dccp module caused oops
+> 
+> See the fix available here:
+> 
+> https://patchwork.kernel.org/patch/1909861/
+Excellent! Thanks Christoph.
 
-OK, so to be on the safe side I added RCU barriers/synchro everywhere.
-
-Thanks !
-
-[PATCH v2 net-next] veth: avoid a NULL deref in veth_stats_one
-
-commit 2681128f0ced8a (veth: extend device features) added a NULL deref
-in veth_stats_one(), as veth_get_stats64() was not testing if the peer
-device was setup or not.
-
-At init time, we call dev_get_stats() before veth pair is fully setup.
-
-[  178.854758]  [<ffffffffa00f5677>] veth_get_stats64+0x47/0x70 [veth]
-[  178.861013]  [<ffffffff814f0a2d>] dev_get_stats+0x6d/0x130
-[  178.866486]  [<ffffffff81504efc>] rtnl_fill_ifinfo+0x47c/0x930
-[  178.872299]  [<ffffffff81505b93>] rtmsg_ifinfo+0x83/0x100
-[  178.877678]  [<ffffffff81505cc6>] rtnl_configure_link+0x76/0xa0
-[  178.883580]  [<ffffffffa00f52fa>] veth_newlink+0x16a/0x350 [veth]
-[  178.889654]  [<ffffffff815061cc>] rtnl_newlink+0x4dc/0x5e0
-[  178.895128]  [<ffffffff81505e1e>] ? rtnl_newlink+0x12e/0x5e0
-[  178.900769]  [<ffffffff8150587d>] rtnetlink_rcv_msg+0x11d/0x310
-[  178.906669]  [<ffffffff81505760>] ? __rtnl_unlock+0x20/0x20
-[  178.912225]  [<ffffffff81521f89>] netlink_rcv_skb+0xa9/0xd0
-[  178.917779]  [<ffffffff81502d55>] rtnetlink_rcv+0x25/0x40
-[  178.923159]  [<ffffffff815218d1>] netlink_unicast+0x1b1/0x230
-[  178.928887]  [<ffffffff81521c4e>] netlink_sendmsg+0x2fe/0x3b0
-[  178.934615]  [<ffffffff814dbe22>] sock_sendmsg+0xd2/0xf0
-
-So we must check if peer was setup in veth_get_stats64()
-
-As pointed out by Ben Hutchings, priv->peer is missing proper
-synchronization. Adding RCU protection is a safe and well documented
-way to make sure we don't access about to be freed or already
-freed data.
-
-Reported-by: Tom Parkin <tparkin@katalix.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/veth.c |   58 +++++++++++++++++++++++++++++--------------
- 1 file changed, 40 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 8b2e112..e778bff 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -32,7 +32,7 @@ struct pcpu_vstats {
- };
- 
- struct veth_priv {
--	struct net_device	*peer;
-+	struct net_device __rcu	*peer;
- 	atomic64_t		dropped;
- };
- 
-@@ -89,10 +89,10 @@ static int veth_get_sset_count(struct net_device *dev, int sset)
- static void veth_get_ethtool_stats(struct net_device *dev,
- 		struct ethtool_stats *stats, u64 *data)
- {
--	struct veth_priv *priv;
-+	struct veth_priv *priv = netdev_priv(dev);
-+	struct net_device *peer = rtnl_dereference(priv->peer);
- 
--	priv = netdev_priv(dev);
--	data[0] = priv->peer->ifindex;
-+	data[0] = peer ? peer->ifindex : 0;
- }
- 
- static const struct ethtool_ops veth_ethtool_ops = {
-@@ -107,9 +107,15 @@ static const struct ethtool_ops veth_ethtool_ops = {
- static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct veth_priv *priv = netdev_priv(dev);
--	struct net_device *rcv = priv->peer;
-+	struct net_device *rcv;
- 	int length = skb->len;
- 
-+	rcu_read_lock();
-+	rcv = rcu_dereference(priv->peer);
-+	if (unlikely(!rcv)) {
-+		kfree_skb(skb);
-+		goto drop;
-+	}
- 	/* don't change ip_summed == CHECKSUM_PARTIAL, as that
- 	 * will cause bad checksum on forwarded packets
- 	 */
-@@ -125,9 +131,10 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, struct net_device *dev)
- 		stats->packets++;
- 		u64_stats_update_end(&stats->syncp);
- 	} else {
-+drop:
- 		atomic64_inc(&priv->dropped);
- 	}
--
-+	rcu_read_unlock();
- 	return NETDEV_TX_OK;
- }
- 
-@@ -162,30 +169,36 @@ static struct rtnl_link_stats64 *veth_get_stats64(struct net_device *dev,
- 						  struct rtnl_link_stats64 *tot)
- {
- 	struct veth_priv *priv = netdev_priv(dev);
-+	struct net_device *peer;
- 	struct pcpu_vstats one;
- 
- 	tot->tx_dropped = veth_stats_one(&one, dev);
- 	tot->tx_bytes = one.bytes;
- 	tot->tx_packets = one.packets;
- 
--	tot->rx_dropped = veth_stats_one(&one, priv->peer);
--	tot->rx_bytes = one.bytes;
--	tot->rx_packets = one.packets;
-+	rcu_read_lock();
-+	peer = rcu_dereference(priv->peer);
-+	if (peer) {
-+		tot->rx_dropped = veth_stats_one(&one, peer);
-+		tot->rx_bytes = one.bytes;
-+		tot->rx_packets = one.packets;
-+	}
-+	rcu_read_unlock();
- 
- 	return tot;
- }
- 
- static int veth_open(struct net_device *dev)
- {
--	struct veth_priv *priv;
-+	struct veth_priv *priv = netdev_priv(dev);
-+	struct net_device *peer = rtnl_dereference(priv->peer);
- 
--	priv = netdev_priv(dev);
--	if (priv->peer == NULL)
-+	if (!peer)
- 		return -ENOTCONN;
- 
--	if (priv->peer->flags & IFF_UP) {
-+	if (peer->flags & IFF_UP) {
- 		netif_carrier_on(dev);
--		netif_carrier_on(priv->peer);
-+		netif_carrier_on(peer);
- 	}
- 	return 0;
- }
-@@ -195,7 +208,7 @@ static int veth_close(struct net_device *dev)
- 	struct veth_priv *priv = netdev_priv(dev);
- 
- 	netif_carrier_off(dev);
--	netif_carrier_off(priv->peer);
-+	netif_carrier_off(rtnl_dereference(priv->peer));
- 
- 	return 0;
- }
-@@ -380,10 +393,10 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	 */
- 
- 	priv = netdev_priv(dev);
--	priv->peer = peer;
-+	rcu_assign_pointer(priv->peer, peer);
- 
- 	priv = netdev_priv(peer);
--	priv->peer = dev;
-+	rcu_assign_pointer(priv->peer, dev);
- 	return 0;
- 
- err_register_dev:
-@@ -404,7 +417,16 @@ static void veth_dellink(struct net_device *dev, struct list_head *head)
- 	struct net_device *peer;
- 
- 	priv = netdev_priv(dev);
--	peer = priv->peer;
-+	peer = rtnl_dereference(priv->peer);
-+
-+	/* Note : dellink() is called from default_device_exit_batch(),
-+	 * before a rcu_synchronize() point. The devices are guaranteed
-+	 * not being freed before one RCU grace period.
-+	 */
-+	RCU_INIT_POINTER(priv->peer, NULL);
-+
-+	priv = netdev_priv(peer);
-+	RCU_INIT_POINTER(priv->peer, NULL);
- 
- 	unregister_netdevice_queue(dev, head);
- 	unregister_netdevice_queue(peer, head);
+Tested-by: CAI Qian <caiqian@redhat.com>
+> 
+> 
+> On Fri, 4 Jan 2013, CAI Qian wrote:
+> 
+> > The bisecting pointed out this commit fixed the problem in
+> > the mainline.
+> >
+> > 3c58346525d82625e68e24f071804c2dc057b6f4
+> > slab: Simplify bootstrap
+> >
+> > However, simply back-ported this single commit to the 3.7.1
+> > stable wasn't enough to fix it. My guess is that there are
+> > some other slab/slub commits required to fix this. Keep digging...
+> >
+> > The kernel config used the SLUB,
+> > http://people.redhat.com/qcai/stable/.config
+> >
+> > CAI Qian
+> >
+> > ----- Original Message -----
+> > > From: "CAI Qian" <caiqian@redhat.com>
+> > > To: netdev@vger.kernel.org
+> > > Cc: "Dave Miller" <davem@redhat.com>, stable@vger.kernel.org
+> > > Sent: Friday, January 4, 2013 9:57:43 AM
+> > > Subject: Re: load/unload dccp module caused
+> > >
+> > > Adding the netdev as Dave suggested.
+> > >
+> > > ----- Original Message -----
+> > > > From: "CAI Qian" <caiqian@redhat.com>
+> > > > To: stable@vger.kernel.org
+> > > > Cc: "Dave Miller" <davem@redhat.com>
+> > > > Sent: Monday, December 31, 2012 5:42:59 PM
+> > > > Subject: load/unload dccp module caused
+> > > >
+> > > > Just a head up that load and then unload the dccp module
+> > > > caused an oops below using the current stable kernel - v3.7.1.
+> > > > Some additional data point here: the mainline v3.6 release has
+> > > > no such problem, so this looks like a regression. The mainline
+> > > > v3.8-rc1 also has no such problem, so it looks like it has
+> > > > already been fixed there but looks like yet queued up for the
+> > > > stable yet (tested a few commits in Greg's stable-queue and
+> > > > Dave's net-stable queue did not find anything obvious to fix
+> > > > this). I am in-process to bisect to figure out the one that
+> > > > need to back-port right now.
+> > > >
+> > > > [   93.809573]
+> > > > =============================================================================
+> > > > [   93.809577] BUG kmalloc-16 (Tainted: G    B       ): Objects
+> > > > remaining in kmalloc-16 on kmem_cache_close()
+> > > > [   93.809580]
+> > > > -----------------------------------------------------------------------------
+> > > > [   93.809580]
+> > > > ...
+> > > > [  356.336244] INFO: Object 0xc0000000fa1f0aa0 @offset=2720
+> > > > [  356.336247] INFO: Object 0xc0000000fa1f0ab0 @offset=2736
+> > > > [  356.336249] INFO: Object 0xc0000000fa1f0ac0 @offset=2752
+> > > > [  356.336254] INFO: Object 0xc0000000fa1f0ad0 @offset=2768
+> > > > [  356.336257] INFO: Object 0xc0000000fa1f0ae0 @offset=2784
+> > > > [  356.336259] INFO: Object 0xc0000000fa1f0af0 @offset=2800
+> > > > [  356.336262] INFO: Object 0xc0000000fa1f0b80 @offset=2944
+> > > > [  356.336264] INFO: Object 0xc0000000fa1f0bd0 @offset=3024
+> > > > [  356.336271] INFO: Object 0xc0000000fa1f1870 @offset=6256
+> > > > [  356.336274] INFO: Object 0xc0000000fa1f1880 @offset=6272
+> > > > [  356.336276] INFO: Object 0xc0000000fa1f1890 @offset=6288
+> > > > [  356.346976] INFO: Object 0xc0000000fa1f18a0 @offset=6304
+> > > > [  356.346979] INFO: Object 0xc0000000fa1f18b0 @offset=6320
+> > > > [  356.346981] INFO: Object 0xc0000000fa1f1950 @offset=6480
+> > > > [  356.346986] INFO: Object 0xc0000000fa1f1960 @offset=6496
+> > > > [  356.346989] INFO: Object 0xc0000000fa1f1970 @offset=6512
+> > > > [  356.346991] INFO: Object 0xc0000000fa1f1980 @offset=6528
+> > > > [  356.346994] INFO: Object 0xc0000000fa1f1990 @offset=6544
+> > > > [  356.346997] INFO: Object 0xc0000000fa1f19a0 @offset=6560
+> > > > [  356.346999] INFO: Object 0xc0000000fa1f19b0 @offset=6576
+> > > > [  356.347005] INFO: Object 0xc0000000fa1f19c0 @offset=6592
+> > > > [  356.347008] INFO: Object 0xc0000000fa1f19d0 @offset=6608
+> > > > [  356.347010] INFO: Object 0xc0000000fa1f19e0 @offset=6624
+> > > > [  356.347012] INFO: Object 0xc0000000fa1f19f0 @offset=6640
+> > > > [  356.347081] kmem_cache_destroy kmalloc-16: Slab cache still
+> > > > has
+> > > > objects
+> > > > ...
+> > > > [441283.322161] BUG: unable to handle kernel NULL pointer
+> > > > dereference
+> > > > at           (null)
+> > > > [441283.331020] IP: [<ffffffff811785f9>]
+> > > > __kmem_cache_shutdown+0xa9/0x2f0
+> > > > [441283.338320] PGD 105568f067 PUD 104a086067 PMD 0
+> > > > [441283.343600] Oops: 0000 [#1] SMP
+> > > > [441283.347318] Modules linked in: dccp(-) nf_tproxy_core
+> > > > deflate
+> > > > zlib_deflate lzo nls_koi8_u nls_cp932 ts_kmp sctp libcrc32c
+> > > > binfmt_misc des_generic md4 nls_utf8 cifs dns_resolver sg
+> > > > iTCO_wdt
+> > > > kvm_intel igb iTCO_vendor_support coretemp kvm crc32c_intel
+> > > > lpc_ich
+> > > > i7core_edac edac_core i2c_i801 i2c_core mfd_core pcspkr
+> > > > microcode
+> > > > ioatdma dca sr_mod cdrom ata_generic sd_mod pata_acpi
+> > > > crc_t10dif
+> > > > ata_piix libata megaraid_sas dm_mirror dm_region_hash dm_log
+> > > > dm_mod
+> > > > [last unloaded: inet_diag]
+> > > > [441283.395187] CPU 6
+> > > > [441283.397337] Pid: 40979, comm: modprobe Tainted: G    B
+> > > >        3.7.1+ #10 QCI QSSC-S4R/QSSC-S4R
+> > > > [441283.407245] RIP: 0010:[<ffffffff811785f9>]
+> > > >  [<ffffffff811785f9>]
+> > > > __kmem_cache_shutdown+0xa9/0x2f0
+> > > > [441283.417256] RSP: 0018:ffff88205247de08  EFLAGS: 00010292
+> > > > [441283.423280] RAX: ffff881059780001 RBX: ffff88085acfa000
+> > > > RCX:
+> > > > 00000000001c7d72
+> > > > [441283.431336] RDX: 00000000001c7d71 RSI: 0000000000000ff0
+> > > > RDI:
+> > > > ffff88085f802600
+> > > > [441283.439394] RBP: ffff88205247de68 R08: 0000000000016940
+> > > > R09:
+> > > > ffff88105fd36940
+> > > > [441283.447451] R10: ffffea004165e000 R11: ffffffff81178721
+> > > > R12:
+> > > > ffffffffffffffe0
+> > > > [441283.455508] R13: ffff88085acf9000 R14: ffff88085f802500
+> > > > R15:
+> > > > ffffea00216b3e40
+> > > > [441283.463565] FS:  00007fd36f206740(0000)
+> > > > GS:ffff88105fc20000(0000)
+> > > > knlGS:0000000000000000
+> > > > [441283.472687] CS:  0010 DS: 0000 ES: 0000 CR0:
+> > > > 000000008005003b
+> > > > [441283.479194] CR2: 00007fd545ae9c74 CR3: 000000104a273000
+> > > > CR4:
+> > > > 00000000000007e0
+> > > > [441283.487251] DR0: 0000000000000000 DR1: 0000000000000000
+> > > > DR2:
+> > > > 0000000000000000
+> > > > [441283.495308] DR3: 0000000000000000 DR6: 00000000ffff0ff0
+> > > > DR7:
+> > > > 0000000000000400
+> > > > [441283.503366] Process modprobe (pid: 40979, threadinfo
+> > > > ffff88205247c000, task ffff8820493fb240)
+> > > > [441283.512974] Stack:
+> > > > [441283.515312]  ffffffffa0169760 ffff8810597800c0
+> > > > 0000000000000000
+> > > > 0000000000000000
+> > > > [441283.523705]  ffff88085f8010d0 ffff88085f8010c0
+> > > > ffff88205247de68
+> > > > ffff88085f802500
+> > > > [441283.532104]  ffff88085f802568 0000000000000000
+> > > > 00000000011ec578
+> > > > 0000000000000000
+> > > > [441283.540499] Call Trace:
+> > > > [441283.543328]  [<ffffffff8114993a>]
+> > > > kmem_cache_destroy+0x3a/0xe0
+> > > > [441283.549941]  [<ffffffffa0164c0a>] tfrc_li_exit+0x1a/0x30
+> > > > [dccp]
+> > > > [441283.556649]  [<ffffffffa01635e8>] tfrc_lib_exit+0x18/0x20
+> > > > [dccp]
+> > > > [441283.563451]  [<ffffffffa01583e6>]
+> > > > ccid_cleanup_builtins+0x26/0x30
+> > > > [dccp]
+> > > > [441283.571032]  [<ffffffffa0164e33>] dccp_fini+0xe/0x1db
+> > > > [dccp]
+> > > > [441283.577449]  [<ffffffffa0164e25>] ?
+> > > > scaled_div.part.0+0x6/0x6
+> > > > [dccp]
+> > > > [441283.584639]  [<ffffffff810bc3fe>]
+> > > > sys_delete_module+0x16e/0x2d0
+> > > > [441283.591342]  [<ffffffff810d851c>] ?
+> > > > __audit_syscall_entry+0xcc/0x300
+> > > > [441283.598530]  [<ffffffff810d8b3c>] ?
+> > > > __audit_syscall_exit+0x3ec/0x450
+> > > > [441283.605719]  [<ffffffff815d3b99>]
+> > > > system_call_fastpath+0x16/0x1b
+> > > > [441283.612516] Code: 48 39 d7 4d 89 ec 75 41 e9 55 01 00 00 0f
+> > > > 1f
+> > > > 44
+> > > > 00 00 e8 0b f7 16 00 48 8b 55 c8 4c 89 fe 4c 89 f7 48 83 6a 08
+> > > > 01
+> > > > e8
+> > > > 97 c6 ff ff <49> 8b 44 24 20 49 8d 7c 24 20 4d 89 e7 48 83 e8
+> > > > 20 48
+> > > > 39 7d c0
+> > > > [441283.634440] RIP  [<ffffffff811785f9>]
+> > > > __kmem_cache_shutdown+0xa9/0x2f0
+> > > > [441283.641831]  RSP <ffff88205247de08>
+> > > > [441283.645817] CR2: 0000000000000000
+> > > > [441283.649815] ---[ end trace 8e20d31634421a27 ]---
+> > > >
+> > > > CAI Qian
+> > > > --
+> > > > To unsubscribe from this list: send the line "unsubscribe
+> > > > stable"
+> > > > in
+> > > > the body of a message to majordomo@vger.kernel.org
+> > > > More majordomo info at
+> > > >  http://vger.kernel.org/majordomo-info.html
+> > > >
+> > > --
+> > > To unsubscribe from this list: send the line "unsubscribe stable"
+> > > in
+> > > the body of a message to majordomo@vger.kernel.org
+> > > More majordomo info at
+> > >  http://vger.kernel.org/majordomo-info.html
+> > >
+> >
+> 
