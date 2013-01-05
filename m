@@ -1,210 +1,61 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Sat, 5 Jan 2013 01:07:15 +0000
-Message-ID: <20130105010715.GA12385@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 1/2] usbnet: allow status interrupt URB to always be
+ active
+Date: Fri, 04 Jan 2013 19:26:33 -0600
+Message-ID: <1357349193.19684.3.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	 <1357318096.5370.15.camel@dcbw.foobar.com>
+	 <2212516.GkG3xP33yG@linux-5eaq.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Elina Pasheva <epasheva@sierrawireless.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dcvr.yhbt.net ([64.71.152.64]:59519 "EHLO dcvr.yhbt.net"
+Received: from mx1.redhat.com ([209.132.183.28]:9725 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754963Ab3AEBHR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jan 2013 20:07:17 -0500
-Content-Disposition: inline
-In-Reply-To: <20130104160148.GB3885@suse.de>
+	id S1755254Ab3AEBYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jan 2013 20:24:19 -0500
+In-Reply-To: <2212516.GkG3xP33yG@linux-5eaq.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman <mgorman@suse.de> wrote:
-> On Wed, Jan 02, 2013 at 08:08:48PM +0000, Eric Wong wrote:
-> > Instead, I disabled THP+compaction under v3.7.1 and I've been unable to
-> > reproduce the issue without THP+compaction.
+On Fri, 2013-01-04 at 23:16 +0100, Oliver Neukum wrote:
+> On Friday 04 January 2013 10:48:16 Dan Williams wrote:
+> > Some drivers (ex sierra_net) need the status interrupt URB
+> > active even when the device is closed, because they receive
+> > custom indications from firmware.  Allow sub-drivers to set
+> > a flag that submits the status interrupt URB on probe and
+> > keeps the URB alive over device open/close.  The URB is still
+> > killed/re-submitted for suspend/resume, as before.
 > > 
+> > Signed-off-by: Dan Williams <dcbw@redhat.com>
+> > ---
+> > Oliver: alternatively, is there a problem with *always*
+> > submitting the interrupt URB, and then simply not calling
+> > the subdriver's .status function when the netdev is
+> > closed?  That would be a much simpler patch.
 > 
-> Implying that it's stuck in compaction somewhere. It could be the case
-> that compaction alters timing enough to trigger another bug. You say it
-> tests differently depending on whether TCP or unix sockets are used
-> which might indicate multiple problems. However, lets try and see if
-> compaction is the primary problem or not.
+> That is quite radical. We have no idea what a device
+> does when we do not react to a status update. I would
+> much prefer to not take the risk.
+> Besides, we don't use bandwidth if we don't have to.
 
-I've only managed to encounter this issue with TCP sockets.
+Ok, so scratch the alternative.  Thus, does the posted patch look like
+the right course of action?
 
-No luck reproducing the issue with Unix sockets, not even with 90K
-buffers as suggested by Eric Dumazet.  This seems unique to TCP.
+If I wasn't clear enough before, sierra_net needs to listen to the
+status interrupt URB to receive the custom Restart indication as part of
+the driver's device setup.  Thus for sierra_net at least, tying the
+status interrupt URB submission to device open/close isn't right.
 
-Fwiw, I also tried going back to a 16K MTU on loopback a few days ago,
-but was still able to reproduce the issue, so
-commit 0cf833aefaa85bbfce3ff70485e5534e09254773 doesn't seem
-to be a culprit, either.
+I'd previously done a patch to handle this all in sierra_net, but the
+problem there is suspend/resume: without directly accessing the usbnet
+structure's ->suspend_count member (icky!) sierra_net can't correctly
+kill/submit the URB itself.  So I went with a flag to usbnet that Sierra
+can set.
 
-> > As I mention in http://mid.gmane.org/20121229113434.GA13336@dcvr.yhbt.net
-> > I run my below test (`toosleepy') with heavy network and disk activity
-> > for a long time before hitting this.
-> > 
-> 
-> Using a 3.7.1 or 3.8-rc2 kernel, can you reproduce the problem and then
-> answer the following questions please?
-
-OK, I'm on 3.8-rc2.
-
-> 1. What are the contents of /proc/vmstat at the time it is stuck?
-
-nr_free_pages 1998
-nr_inactive_anon 3401
-nr_active_anon 3349
-nr_inactive_file 94361
-nr_active_file 10929
-nr_unevictable 0
-nr_mlock 0
-nr_anon_pages 6643
-nr_mapped 2255
-nr_file_pages 105400
-nr_dirty 44
-nr_writeback 0
-nr_slab_reclaimable 0
-nr_slab_unreclaimable 0
-nr_page_table_pages 697
-nr_kernel_stack 161
-nr_unstable 0
-nr_bounce 0
-nr_vmscan_write 0
-nr_vmscan_immediate_reclaim 0
-nr_writeback_temp 0
-nr_isolated_anon 0
-nr_isolated_file 0
-nr_shmem 114
-nr_dirtied 1076168
-nr_written 46330
-nr_anon_transparent_hugepages 0
-nr_free_cma 0
-nr_dirty_threshold 22495
-nr_dirty_background_threshold 11247
-pgpgin 4398164
-pgpgout 188556
-pswpin 0
-pswpout 0
-pgalloc_dma 369887
-pgalloc_dma32 28406230
-pgalloc_normal 0
-pgalloc_movable 0
-pgfree 28779104
-pgactivate 18160
-pgdeactivate 17404
-pgfault 34862559
-pgmajfault 358
-pgrefill_dma 14076
-pgrefill_dma32 3328
-pgrefill_normal 0
-pgrefill_movable 0
-pgsteal_kswapd_dma 12708
-pgsteal_kswapd_dma32 917837
-pgsteal_kswapd_normal 0
-pgsteal_kswapd_movable 0
-pgsteal_direct_dma 73
-pgsteal_direct_dma32 4085
-pgsteal_direct_normal 0
-pgsteal_direct_movable 0
-pgscan_kswapd_dma 12708
-pgscan_kswapd_dma32 918789
-pgscan_kswapd_normal 0
-pgscan_kswapd_movable 0
-pgscan_direct_dma 73
-pgscan_direct_dma32 4115
-pgscan_direct_normal 0
-pgscan_direct_movable 0
-pgscan_direct_throttle 0
-pginodesteal 0
-slabs_scanned 257024
-kswapd_inodesteal 69910
-kswapd_low_wmark_hit_quickly 2165
-kswapd_high_wmark_hit_quickly 275
-kswapd_skip_congestion_wait 0
-pageoutrun 13412
-allocstall 73
-pgrotated 3
-pgmigrate_success 448
-pgmigrate_fail 0
-compact_migrate_scanned 14860
-compact_free_scanned 219867
-compact_isolated 1652
-compact_stall 33
-compact_fail 10
-compact_success 23
-unevictable_pgs_culled 1058
-unevictable_pgs_scanned 0
-unevictable_pgs_rescued 1671
-unevictable_pgs_mlocked 1671
-unevictable_pgs_munlocked 1671
-unevictable_pgs_cleared 0
-unevictable_pgs_stranded 0
-thp_fault_alloc 0
-thp_fault_fallback 0
-thp_collapse_alloc 0
-thp_collapse_alloc_failed 0
-thp_split 0
-thp_zero_page_alloc 0
-thp_zero_page_alloc_failed 0
-
-> 2. What are the contents of /proc/PID/stack for every toosleepy
->    process when they are stuck?
-
-Oops, I needed a rebuild with CONFIG_STACKTRACE=y (it took some effort
-to get the right combination of options).
-
-I probably enabled a few more debugging options than I needed and it
-seems to have taken longer to reproduce the issue.  Unfortunately I was
-distracted when toosleepy got stuck and missed the change to inspect
-before hitting ETIMEDOUT :x
-
-Attempting to reproduce the issue while I'm looking.
-
-> 3. Can you do a sysrq+m and post the resulting dmesg?
-
-SysRq : Show Memory
-Mem-Info:
-DMA per-cpu:
-CPU    0: hi:    0, btch:   1 usd:   0
-CPU    1: hi:    0, btch:   1 usd:   0
-DMA32 per-cpu:
-CPU    0: hi:  186, btch:  31 usd: 144
-CPU    1: hi:  186, btch:  31 usd: 160
-active_anon:3358 inactive_anon:3379 isolated_anon:0
- active_file:10615 inactive_file:92319 isolated_file:0
- unevictable:0 dirty:3 writeback:0 unstable:0
- free:2240 slab_reclaimable:0 slab_unreclaimable:0
- mapped:2333 shmem:114 pagetables:697 bounce:0
- free_cma:0
-DMA free:2408kB min:84kB low:104kB high:124kB active_anon:8kB inactive_anon:44kB active_file:824kB inactive_file:11512kB unevictable:0kB isolated(anon):0kB isolated(file):0kB present:15676kB managed:15900kB mlocked:0kB dirty:0kB writeback:0kB mapped:16kB shmem:0kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:112kB pagetables:20kB unstable:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_scanned:0 all_unreclaimable? no
-lowmem_reserve[]: 0 489 489 489
-DMA32 free:6552kB min:2784kB low:3480kB high:4176kB active_anon:13424kB inactive_anon:13472kB active_file:41636kB inactive_file:357764kB unevictable:0kB isolated(anon):0kB isolated(file):0kB present:500952kB managed:491396kB mlocked:0kB dirty:12kB writeback:0kB mapped:9316kB shmem:456kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:1160kB pagetables:2768kB unstable:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_scanned:0 all_unreclaimable? no
-lowmem_reserve[]: 0 0 0 0
-DMA: 52*4kB (UMR) 13*8kB (UMR) 4*16kB (R) 2*32kB (R) 1*64kB (R) 1*128kB (R) 1*256kB (R) 1*512kB (R) 1*1024kB (R) 0*2048kB 0*4096kB = 2424kB
-DMA32: 1608*4kB (UM) 15*8kB (M) 0*16kB 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 0*1024kB 0*2048kB 0*4096kB = 6552kB
-103053 total pagecache pages
-0 pages in swap cache
-Swap cache stats: add 0, delete 0, find 0/0
-Free swap  = 392188kB
-Total swap = 392188kB
-131054 pages RAM
-3477 pages reserved
-283467 pages shared
-111732 pages non-shared
-
-> What I'm looking for is a throttling bug (if pgscan_direct_throttle is
-> elevated), an isolated page accounting bug (nr_isolated_* is elevated
-> and process is stuck in congestion_wait in a too_many_isolated() loop)
-> or a free page accounting bug (big difference between nr_free_pages and
-> buddy list figures).
-> 
-> I'll try reproducing this early next week if none of that shows an
-> obvious candidate.
-
-Thanks!  I'll try to get you more information as soon as possible.
+Dan
