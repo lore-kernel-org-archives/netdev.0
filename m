@@ -1,93 +1,57 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 19/19] netfilter: gre: fix resource leak when
- unregister gre proto
-Date: Sat, 5 Jan 2013 04:50:48 +0100
-Message-ID: <20130105035048.GA20027@1984>
-References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
- <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com>
+From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
+Subject: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0
+ timed out
+Date: Sat, 5 Jan 2013 10:01:42 +0100
+Message-ID: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Kj7319i9nmIyA2yE"
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	canqunzhang@gmail.com, kaber@trash.net, ebiederm@xmission.com
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41565 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754775Ab3AEDuy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jan 2013 22:50:54 -0500
-Content-Disposition: inline
-In-Reply-To: <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+I frequently see the following in the syslog:
 
---Kj7319i9nmIyA2yE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+[  184.552914] ------------[ cut here ]------------
+[  184.552927] WARNING: at
+/data/kernel/linux/net/sched/sch_generic.c:254
+dev_watchdog+0xf2/0x151()
+[  184.552929] Hardware name: LIFEBOOK AH532
+[  184.552932] NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed ou=
+t
+[  184.552937] Pid: 0, comm: swapper/1 Not tainted
+3.8.0-rc2-b11-00221-gd1c3ed6 #15
+[  184.552939] Call Trace:
+[  184.552941]  <IRQ>  [<ffffffff8138d4a2>] ? dev_watchdog+0xf2/0x151
+[  184.552953]  [<ffffffff81025c8a>] ? warn_slowpath_common+0x73/0x87
+[  184.552956]  [<ffffffff8138d3b0>] ? netif_tx_unlock+0x49/0x49
+[  184.552961]  [<ffffffff81025d02>] ? warn_slowpath_fmt+0x45/0x4a
+[  184.552967]  [<ffffffff8138d332>] ? netif_tx_lock+0x40/0x75
+[  184.552971]  [<ffffffff8138d4a2>] ? dev_watchdog+0xf2/0x151
+[  184.552977]  [<ffffffff8102f1a1>] ? call_timer_fn.isra.32+0x1d/0x73
+[  184.552981]  [<ffffffff8102f34b>] ? run_timer_softirq+0x154/0x194
+[  184.552988]  [<ffffffff8104cb84>] ? timekeeping_get_ns.constprop.6+0=
+xd/0x31
+[  184.552992]  [<ffffffff8102b4a5>] ? __do_softirq+0x96/0x139
+[  184.552997]  [<ffffffff8146b00c>] ? call_softirq+0x1c/0x26
+[  184.553002]  [<ffffffff81003cf4>] ? do_softirq+0x2e/0x62
+[  184.553006]  [<ffffffff8102b615>] ? irq_exit+0x3d/0x98
+[  184.553011]  [<ffffffff810184ad>] ? smp_apic_timer_interrupt+0x73/0x=
+80
+[  184.553018]  [<ffffffff8146aa0a>] ? apic_timer_interrupt+0x6a/0x70
+[  184.553020]  <EOI>  [<ffffffff81326f2b>] ? cpuidle_wrap_enter+0x38/0=
+x69
+[  184.553033]  [<ffffffff81326f27>] ? cpuidle_wrap_enter+0x34/0x69
+[  184.553039]  [<ffffffff81326d81>] ? cpuidle_enter_state+0xa/0x31
+[  184.553044]  [<ffffffff81326e41>] ? cpuidle_idle_call+0x99/0xb9
+[  184.553050]  [<ffffffff81009059>] ? cpu_idle+0x99/0xe0
+[  184.553056]  [<ffffffff8145e3a4>] ? start_secondary+0x1d6/0x1dc
+[  184.553059] ---[ end trace 54db26a54b22f673 ]---
+[  184.587487] r8169 0000:02:00.0 eth0: link up
 
-Hi Gao,
+It's a regression, it never happend before 3.8-rc.
 
-On Fri, Dec 28, 2012 at 10:36:46AM +0800, Gao feng wrote:
-> Currectly we unregister proto before all conntrack entries of
-> this proto being destroyed. so in function destroy_conntrack
-> we can't find proper l4proto to call l4proto->destroy.
-> this will cause resource leak.
-
-Good catch.
-
-But better to remove the entries before unregistering the protocol
-tracker, so l4proto->destroy is always called.
-
-Patch attached.
-
---Kj7319i9nmIyA2yE
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-netfilter-nf_conntrack-fix-memory-leak-during-unregi.patch"
-
->From 1c082b3ef4c9bf8bfd0159142ce6ffc49aa7bab2 Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Fri, 4 Jan 2013 22:09:44 +0100
-Subject: [PATCH] netfilter: nf_conntrack: fix memory leak during
- unregistration with GRE entries
-
-Protocol trackers are unregistered before conntrack entries of that
-type are removed. For that reason, l4proto->destroy is never called
-and that results in leaking the keymap.
-
-Fix this by releasing entries before unregistering protocols.
-
-Reported-by: Gao feng <gaofeng@cn.fujitsu.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_proto.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/netfilter/nf_conntrack_proto.c b/net/netfilter/nf_conntrack_proto.c
-index 51e928d..29cd353 100644
---- a/net/netfilter/nf_conntrack_proto.c
-+++ b/net/netfilter/nf_conntrack_proto.c
-@@ -488,6 +488,9 @@ void nf_conntrack_l4proto_unregister(struct net *net,
- {
- 	struct nf_proto_net *pn = NULL;
- 
-+	/* Remove all contrack entries before unregistration */
-+	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
-+
- 	if (net == &init_net)
- 		nf_conntrack_l4proto_unregister_net(l4proto);
- 
-@@ -497,9 +500,6 @@ void nf_conntrack_l4proto_unregister(struct net *net,
- 
- 	pn->users--;
- 	nf_ct_l4proto_unregister_sysctl(net, pn, l4proto);
--
--	/* Remove all contrack entries for this protocol */
--	nf_ct_iterate_cleanup(net, kill_l4proto, l4proto);
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_l4proto_unregister);
- 
--- 
-1.7.10.4
-
-
---Kj7319i9nmIyA2yE--
+-- J=C3=B6rg
