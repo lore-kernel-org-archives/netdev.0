@@ -1,49 +1,58 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [PATCH net-next] team: use strlcpy with ethtool_drvinfo fields
-Date: Sat, 5 Jan 2013 14:17:31 +0100
-Message-ID: <20130105131731.GA1594@minipsycho.orion>
-References: <1357390390-16549-1-git-send-email-fbl@redhat.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] drivers/net/wireless/ipw2x00: use strlcpy instead of strncpy
+Date: Sat, 05 Jan 2013 21:41:17 +0800
+Message-ID: <50E82D7D.4090107@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: stas.yakovlev@gmail.com, linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5836 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755481Ab3AENRe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Jan 2013 08:17:34 -0500
-Content-Disposition: inline
-In-Reply-To: <1357390390-16549-1-git-send-email-fbl@redhat.com>
+Received: from intranet.asianux.com ([58.214.24.6]:48715 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755664Ab3AENkZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 08:40:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Jan 05, 2013 at 01:53:10PM CET, fbl@redhat.com wrote:
->The fields must be null-terminated.
->
->Signed-off-by: Flavio Leitner <fbl@redhat.com>
->---
-> drivers/net/team/team.c | 4 ++--
-> 1 file changed, 2 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->index 78c7d87..e27ac5c 100644
->--- a/drivers/net/team/team.c
->+++ b/drivers/net/team/team.c
->@@ -1747,8 +1747,8 @@ static const struct net_device_ops team_netdev_ops = {
-> static void team_ethtool_get_drvinfo(struct net_device *dev,
-> 				     struct ethtool_drvinfo *drvinfo)
-> {
->-	strncpy(drvinfo->driver, DRV_NAME, 32);
->-	strncpy(drvinfo->version, UTS_RELEASE, 32);
->+	strlcpy(drvinfo->driver, DRV_NAME, sizeof(drvinfo->driver));
->+	strlcpy(drvinfo->version, UTS_RELEASE, sizeof(drvinfo->version));
-> }
-> 
-> static const struct ethtool_ops team_ethtool_ops = {
->-- 
->1.8.0.1
->
 
+  The fields must be null-terminated, or IPW_DEBUG_ASSOC will cause issue.
 
-Acked-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ drivers/net/wireless/ipw2x00/ipw2200.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 844f201..c85261b 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -5558,7 +5558,7 @@ static int ipw_find_adhoc_network(struct ipw_priv *priv,
+ 			    min(network->ssid_len, priv->essid_len)))) {
+ 			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
+ 
+-			strncpy(escaped,
++			strlcpy(escaped,
+ 				print_ssid(ssid, network->ssid,
+ 					   network->ssid_len),
+ 				sizeof(escaped));
+@@ -5771,7 +5771,7 @@ static int ipw_best_network(struct ipw_priv *priv,
+ 		     memcmp(network->ssid, priv->essid,
+ 			    min(network->ssid_len, priv->essid_len)))) {
+ 			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
+-			strncpy(escaped,
++			strlcpy(escaped,
+ 				print_ssid(ssid, network->ssid,
+ 					   network->ssid_len),
+ 				sizeof(escaped));
+@@ -5788,7 +5788,7 @@ static int ipw_best_network(struct ipw_priv *priv,
+ 	 * testing everything else. */
+ 	if (match->network && match->network->stats.rssi > network->stats.rssi) {
+ 		char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
+-		strncpy(escaped,
++		strlcpy(escaped,
+ 			print_ssid(ssid, network->ssid, network->ssid_len),
+ 			sizeof(escaped));
+ 		IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded because "
+-- 
+1.7.10.4
