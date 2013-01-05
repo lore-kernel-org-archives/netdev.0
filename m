@@ -1,89 +1,80 @@
-From: Romain KUNTZ <r.kuntz@ipflavors.com>
-Subject: [PATCH 1/2] ipv6: avoid blackhole and prohibited entries upon prefix purge
-Date: Sat, 5 Jan 2013 17:13:57 +0100
-Message-ID: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] bgmac: driver for GBit MAC core on BCMA bus
+Date: Sat, 5 Jan 2013 17:57:15 +0100
+Message-ID: <20130105165715.GA4906@electric-eye.fr.zoreil.com>
+References: <1356363222-16672-1-git-send-email-zajec5@gmail.com> <20121226231721.GA8243@electric-eye.fr.zoreil.com> <CACna6rydCnf9tjsueOQRvxPQz5_u_h6b=q9j_pTQN+j7_+6uLA@mail.gmail.com> <20130103203027.GA4305@electric-eye.fr.zoreil.com> <CACna6ry4fQCvh_hSKooNi1Lq=ftjVD=tNeDijnfW1gnnvGzLeQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:56339 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755811Ab3AEQVw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 11:21:52 -0500
-Received: by mail-we0-f169.google.com with SMTP id t49so8905004wey.28
-        for <netdev@vger.kernel.org>; Sat, 05 Jan 2013 08:21:50 -0800 (PST)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43712 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755802Ab3AERY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 12:24:57 -0500
+Content-Disposition: inline
+In-Reply-To: <CACna6ry4fQCvh_hSKooNi1Lq=ftjVD=tNeDijnfW1gnnvGzLeQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mobile IPv6 provokes a kernel Oops since commit 64c6d08e (ipv6:
-del unreachable route when an addr is deleted on lo), because
-ip6_route_lookup() may also return blackhole and prohibited
-entry. However, these entries have a NULL rt6i_table argument,
-which provokes an Oops in __ip6_del_rt() when trying to lock
-rt6i_table->tb6_lock.
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> :
+[...]
+> We really need some good explanation for NETDEV_TX_BUSY somewhere
+> (documentation!).
 
-Beside, when purging a prefix, blakhole and prohibited entries
-should not be selected because they are not what we are looking
-for.
+It is already explained in Documentation/networking/driver.txt:
+<snip>
+1) The ndo_start_xmit method must not return NETDEV_TX_BUSY under
+   any normal circumstances.  It is considered a hard error unless
+   there is no way your device can tell ahead of time when it's
+   transmit function will become busy.
 
-We fix this by adding two new lookup flags (RT6_LOOKUP_F_NO_BLK_HOLE
-and RT6_LOOKUP_F_NO_PROHIBIT) in order to ensure that such entries
-are skipped during lookup and that the correct entry is returned.
+   Instead it must maintain the queue properly.  For example,
+   for a driver implementing scatter-gather this means:
+</snip>
 
-Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
----
- include/net/ip6_route.h |    2 ++
- net/ipv6/addrconf.c     |    4 +++-
- net/ipv6/fib6_rules.c   |    4 ++++
- 3 files changed, 9 insertions(+), 1 deletions(-)
+Please compare your V3:bgmac_dma_tx_add and the sample code after the
+aforementioned paragraph.
 
-diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-index 27d8318..3c93743 100644
---- a/include/net/ip6_route.h
-+++ b/include/net/ip6_route.h
-@@ -30,6 +30,8 @@ struct route_info {
- #define RT6_LOOKUP_F_SRCPREF_TMP	0x00000008
- #define RT6_LOOKUP_F_SRCPREF_PUBLIC	0x00000010
- #define RT6_LOOKUP_F_SRCPREF_COA	0x00000020
-+#define RT6_LOOKUP_F_NO_BLK_HOLE	0x00000040
-+#define RT6_LOOKUP_F_NO_PROHIBIT	0x00000080
- 
- /*
-  * rt6_srcprefs2flags() and rt6_flags2srcprefs() translate
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 408cac4a..1891e23 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -948,7 +948,9 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
- 		fl6.flowi6_oif = ifp->idev->dev->ifindex;
- 		fl6.daddr = prefix;
- 		rt = (struct rt6_info *)ip6_route_lookup(net, &fl6,
--							 RT6_LOOKUP_F_IFACE);
-+						RT6_LOOKUP_F_IFACE |
-+						RT6_LOOKUP_F_NO_BLK_HOLE |
-+						RT6_LOOKUP_F_NO_PROHIBIT);
- 
- 		if (rt != net->ipv6.ip6_null_entry &&
- 		    addrconf_is_prefix_route(rt)) {
-diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
-index 2e1a432..d290da5 100644
---- a/net/ipv6/fib6_rules.c
-+++ b/net/ipv6/fib6_rules.c
-@@ -64,9 +64,13 @@ static int fib6_rule_action(struct fib_rule *rule, struct flowi *flp,
- 		goto discard_pkt;
- 	default:
- 	case FR_ACT_BLACKHOLE:
-+		if (flags & RT6_LOOKUP_F_NO_BLK_HOLE)
-+			goto again;
- 		rt = net->ipv6.ip6_blk_hole_entry;
- 		goto discard_pkt;
- 	case FR_ACT_PROHIBIT:
-+		if (flags & RT6_LOOKUP_F_NO_PROHIBIT)
-+			goto again;
- 		rt = net->ipv6.ip6_prohibit_entry;
- 		goto discard_pkt;
- 	}
--- 
-1.7.2.5
+> I've checked some drivers and:
+>=20
+> 1) b44.c
+> In case of:
+> > if (unlikely(TX_BUFFS_AVAIL(bp) < 1)) {
+> it does netif_stop_queue and returns NETDEV_TX_BUSY
+
+The driver labels it as bug checking and it stops queueing when need
+arises at the end of the xmit function.
+
+> 2) sky2.c
+> In case of:
+> > if (unlikely(tx_avail(sky2) < tx_le_req(skb)))
+> it just returns NETDEV_TX_BUSY
+
+Same thing as above. Less documented though.
+
+> 3) jme.2
+> In case of:
+> > if (unlikely(idx < 0)) {
+> it does netif_stop_queue and returns NETDEV_TX_BUSY
+
+The driver labels it as bug checking. It stops queueing when need
+arises at the end of the xmit function (see jme_stop_queue_if_full).
+
+> 4) de2104x.c
+> In case of:
+> > if (tx_free =3D=3D 0) {
+> it does netif_stop_queue and returns NETDEV_TX_BUSY
+
+It stops queueing at the end of the start_xmit handler as well.
+
+> So there are many drivers doing the same mistake I did.
+
+After a packet has been handed to hardware, each of these drivers
+checks if queueing should be disabled before returning from start_xmit.
+
+V3 bgmac doesn't.
+
+--=20
+Ueimor
