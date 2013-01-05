@@ -1,246 +1,166 @@
-From: CAI Qian <caiqian@redhat.com>
-Subject: Re: load/unload dccp module caused oops
-Date: Fri, 4 Jan 2013 21:02:47 -0500 (EST)
-Message-ID: <69507431.8510419.1357351367419.JavaMail.root@redhat.com>
-References: <0000013c0618832c-11b14217-2010-4cdb-abb3-c1afcbc44145-000000@email.amazonses.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dave Miller <davem@redhat.com>,
-	stable@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Pekka Enberg <penberg@kernel.org>,
-	Glauber Costa <glommer@parallels.com>
-To: Christoph Lameter <cl@linux.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH] drivers/net: remove orphaned references to micro channel
+Date: Fri,  4 Jan 2013 21:57:17 -0500
+Message-ID: <1357354637-1784-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:60645 "EHLO
-	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755543Ab3AECC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 21:02:59 -0500
-In-Reply-To: <0000013c0618832c-11b14217-2010-4cdb-abb3-c1afcbc44145-000000@email.amazonses.com>
+Received: from mail.windriver.com ([147.11.1.11]:34207 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755789Ab3AEC7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jan 2013 21:59:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+We threw away the microchannel support, but the removal wasn't
+completely trivial since there was namespace overlap with the
+machine check support, and hence some orphaned dependencies
+survived the deletion.  This attempts to sweep those up and
+send them to the bit-bucket.
 
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ drivers/net/ethernet/3com/Kconfig    | 6 +++---
+ drivers/net/ethernet/8390/Kconfig    | 9 +++------
+ drivers/net/ethernet/8390/Makefile   | 1 -
+ drivers/net/ethernet/amd/Kconfig     | 4 ++--
+ drivers/net/ethernet/fujitsu/Kconfig | 4 ++--
+ drivers/net/ethernet/i825xx/Kconfig  | 2 +-
+ drivers/net/ethernet/intel/Kconfig   | 2 +-
+ 7 files changed, 12 insertions(+), 16 deletions(-)
 
------ Original Message -----
-> From: "Christoph Lameter" <cl@linux.com>
-> To: "CAI Qian" <caiqian@redhat.com>
-> Cc: netdev@vger.kernel.org, "Dave Miller" <davem@redhat.com>, stable@vger.kernel.org, "linux-kernel"
-> <linux-kernel@vger.kernel.org>, "Pekka Enberg" <penberg@kernel.org>, "Glauber Costa" <glommer@parallels.com>
-> Sent: Friday, January 4, 2013 11:05:35 PM
-> Subject: Re: load/unload dccp module caused oops
-> 
-> See the fix available here:
-> 
-> https://patchwork.kernel.org/patch/1909861/
-Excellent! Thanks Christoph.
-
-Tested-by: CAI Qian <caiqian@redhat.com>
-> 
-> 
-> On Fri, 4 Jan 2013, CAI Qian wrote:
-> 
-> > The bisecting pointed out this commit fixed the problem in
-> > the mainline.
-> >
-> > 3c58346525d82625e68e24f071804c2dc057b6f4
-> > slab: Simplify bootstrap
-> >
-> > However, simply back-ported this single commit to the 3.7.1
-> > stable wasn't enough to fix it. My guess is that there are
-> > some other slab/slub commits required to fix this. Keep digging...
-> >
-> > The kernel config used the SLUB,
-> > http://people.redhat.com/qcai/stable/.config
-> >
-> > CAI Qian
-> >
-> > ----- Original Message -----
-> > > From: "CAI Qian" <caiqian@redhat.com>
-> > > To: netdev@vger.kernel.org
-> > > Cc: "Dave Miller" <davem@redhat.com>, stable@vger.kernel.org
-> > > Sent: Friday, January 4, 2013 9:57:43 AM
-> > > Subject: Re: load/unload dccp module caused
-> > >
-> > > Adding the netdev as Dave suggested.
-> > >
-> > > ----- Original Message -----
-> > > > From: "CAI Qian" <caiqian@redhat.com>
-> > > > To: stable@vger.kernel.org
-> > > > Cc: "Dave Miller" <davem@redhat.com>
-> > > > Sent: Monday, December 31, 2012 5:42:59 PM
-> > > > Subject: load/unload dccp module caused
-> > > >
-> > > > Just a head up that load and then unload the dccp module
-> > > > caused an oops below using the current stable kernel - v3.7.1.
-> > > > Some additional data point here: the mainline v3.6 release has
-> > > > no such problem, so this looks like a regression. The mainline
-> > > > v3.8-rc1 also has no such problem, so it looks like it has
-> > > > already been fixed there but looks like yet queued up for the
-> > > > stable yet (tested a few commits in Greg's stable-queue and
-> > > > Dave's net-stable queue did not find anything obvious to fix
-> > > > this). I am in-process to bisect to figure out the one that
-> > > > need to back-port right now.
-> > > >
-> > > > [   93.809573]
-> > > > =============================================================================
-> > > > [   93.809577] BUG kmalloc-16 (Tainted: G    B       ): Objects
-> > > > remaining in kmalloc-16 on kmem_cache_close()
-> > > > [   93.809580]
-> > > > -----------------------------------------------------------------------------
-> > > > [   93.809580]
-> > > > ...
-> > > > [  356.336244] INFO: Object 0xc0000000fa1f0aa0 @offset=2720
-> > > > [  356.336247] INFO: Object 0xc0000000fa1f0ab0 @offset=2736
-> > > > [  356.336249] INFO: Object 0xc0000000fa1f0ac0 @offset=2752
-> > > > [  356.336254] INFO: Object 0xc0000000fa1f0ad0 @offset=2768
-> > > > [  356.336257] INFO: Object 0xc0000000fa1f0ae0 @offset=2784
-> > > > [  356.336259] INFO: Object 0xc0000000fa1f0af0 @offset=2800
-> > > > [  356.336262] INFO: Object 0xc0000000fa1f0b80 @offset=2944
-> > > > [  356.336264] INFO: Object 0xc0000000fa1f0bd0 @offset=3024
-> > > > [  356.336271] INFO: Object 0xc0000000fa1f1870 @offset=6256
-> > > > [  356.336274] INFO: Object 0xc0000000fa1f1880 @offset=6272
-> > > > [  356.336276] INFO: Object 0xc0000000fa1f1890 @offset=6288
-> > > > [  356.346976] INFO: Object 0xc0000000fa1f18a0 @offset=6304
-> > > > [  356.346979] INFO: Object 0xc0000000fa1f18b0 @offset=6320
-> > > > [  356.346981] INFO: Object 0xc0000000fa1f1950 @offset=6480
-> > > > [  356.346986] INFO: Object 0xc0000000fa1f1960 @offset=6496
-> > > > [  356.346989] INFO: Object 0xc0000000fa1f1970 @offset=6512
-> > > > [  356.346991] INFO: Object 0xc0000000fa1f1980 @offset=6528
-> > > > [  356.346994] INFO: Object 0xc0000000fa1f1990 @offset=6544
-> > > > [  356.346997] INFO: Object 0xc0000000fa1f19a0 @offset=6560
-> > > > [  356.346999] INFO: Object 0xc0000000fa1f19b0 @offset=6576
-> > > > [  356.347005] INFO: Object 0xc0000000fa1f19c0 @offset=6592
-> > > > [  356.347008] INFO: Object 0xc0000000fa1f19d0 @offset=6608
-> > > > [  356.347010] INFO: Object 0xc0000000fa1f19e0 @offset=6624
-> > > > [  356.347012] INFO: Object 0xc0000000fa1f19f0 @offset=6640
-> > > > [  356.347081] kmem_cache_destroy kmalloc-16: Slab cache still
-> > > > has
-> > > > objects
-> > > > ...
-> > > > [441283.322161] BUG: unable to handle kernel NULL pointer
-> > > > dereference
-> > > > at           (null)
-> > > > [441283.331020] IP: [<ffffffff811785f9>]
-> > > > __kmem_cache_shutdown+0xa9/0x2f0
-> > > > [441283.338320] PGD 105568f067 PUD 104a086067 PMD 0
-> > > > [441283.343600] Oops: 0000 [#1] SMP
-> > > > [441283.347318] Modules linked in: dccp(-) nf_tproxy_core
-> > > > deflate
-> > > > zlib_deflate lzo nls_koi8_u nls_cp932 ts_kmp sctp libcrc32c
-> > > > binfmt_misc des_generic md4 nls_utf8 cifs dns_resolver sg
-> > > > iTCO_wdt
-> > > > kvm_intel igb iTCO_vendor_support coretemp kvm crc32c_intel
-> > > > lpc_ich
-> > > > i7core_edac edac_core i2c_i801 i2c_core mfd_core pcspkr
-> > > > microcode
-> > > > ioatdma dca sr_mod cdrom ata_generic sd_mod pata_acpi
-> > > > crc_t10dif
-> > > > ata_piix libata megaraid_sas dm_mirror dm_region_hash dm_log
-> > > > dm_mod
-> > > > [last unloaded: inet_diag]
-> > > > [441283.395187] CPU 6
-> > > > [441283.397337] Pid: 40979, comm: modprobe Tainted: G    B
-> > > >        3.7.1+ #10 QCI QSSC-S4R/QSSC-S4R
-> > > > [441283.407245] RIP: 0010:[<ffffffff811785f9>]
-> > > >  [<ffffffff811785f9>]
-> > > > __kmem_cache_shutdown+0xa9/0x2f0
-> > > > [441283.417256] RSP: 0018:ffff88205247de08  EFLAGS: 00010292
-> > > > [441283.423280] RAX: ffff881059780001 RBX: ffff88085acfa000
-> > > > RCX:
-> > > > 00000000001c7d72
-> > > > [441283.431336] RDX: 00000000001c7d71 RSI: 0000000000000ff0
-> > > > RDI:
-> > > > ffff88085f802600
-> > > > [441283.439394] RBP: ffff88205247de68 R08: 0000000000016940
-> > > > R09:
-> > > > ffff88105fd36940
-> > > > [441283.447451] R10: ffffea004165e000 R11: ffffffff81178721
-> > > > R12:
-> > > > ffffffffffffffe0
-> > > > [441283.455508] R13: ffff88085acf9000 R14: ffff88085f802500
-> > > > R15:
-> > > > ffffea00216b3e40
-> > > > [441283.463565] FS:  00007fd36f206740(0000)
-> > > > GS:ffff88105fc20000(0000)
-> > > > knlGS:0000000000000000
-> > > > [441283.472687] CS:  0010 DS: 0000 ES: 0000 CR0:
-> > > > 000000008005003b
-> > > > [441283.479194] CR2: 00007fd545ae9c74 CR3: 000000104a273000
-> > > > CR4:
-> > > > 00000000000007e0
-> > > > [441283.487251] DR0: 0000000000000000 DR1: 0000000000000000
-> > > > DR2:
-> > > > 0000000000000000
-> > > > [441283.495308] DR3: 0000000000000000 DR6: 00000000ffff0ff0
-> > > > DR7:
-> > > > 0000000000000400
-> > > > [441283.503366] Process modprobe (pid: 40979, threadinfo
-> > > > ffff88205247c000, task ffff8820493fb240)
-> > > > [441283.512974] Stack:
-> > > > [441283.515312]  ffffffffa0169760 ffff8810597800c0
-> > > > 0000000000000000
-> > > > 0000000000000000
-> > > > [441283.523705]  ffff88085f8010d0 ffff88085f8010c0
-> > > > ffff88205247de68
-> > > > ffff88085f802500
-> > > > [441283.532104]  ffff88085f802568 0000000000000000
-> > > > 00000000011ec578
-> > > > 0000000000000000
-> > > > [441283.540499] Call Trace:
-> > > > [441283.543328]  [<ffffffff8114993a>]
-> > > > kmem_cache_destroy+0x3a/0xe0
-> > > > [441283.549941]  [<ffffffffa0164c0a>] tfrc_li_exit+0x1a/0x30
-> > > > [dccp]
-> > > > [441283.556649]  [<ffffffffa01635e8>] tfrc_lib_exit+0x18/0x20
-> > > > [dccp]
-> > > > [441283.563451]  [<ffffffffa01583e6>]
-> > > > ccid_cleanup_builtins+0x26/0x30
-> > > > [dccp]
-> > > > [441283.571032]  [<ffffffffa0164e33>] dccp_fini+0xe/0x1db
-> > > > [dccp]
-> > > > [441283.577449]  [<ffffffffa0164e25>] ?
-> > > > scaled_div.part.0+0x6/0x6
-> > > > [dccp]
-> > > > [441283.584639]  [<ffffffff810bc3fe>]
-> > > > sys_delete_module+0x16e/0x2d0
-> > > > [441283.591342]  [<ffffffff810d851c>] ?
-> > > > __audit_syscall_entry+0xcc/0x300
-> > > > [441283.598530]  [<ffffffff810d8b3c>] ?
-> > > > __audit_syscall_exit+0x3ec/0x450
-> > > > [441283.605719]  [<ffffffff815d3b99>]
-> > > > system_call_fastpath+0x16/0x1b
-> > > > [441283.612516] Code: 48 39 d7 4d 89 ec 75 41 e9 55 01 00 00 0f
-> > > > 1f
-> > > > 44
-> > > > 00 00 e8 0b f7 16 00 48 8b 55 c8 4c 89 fe 4c 89 f7 48 83 6a 08
-> > > > 01
-> > > > e8
-> > > > 97 c6 ff ff <49> 8b 44 24 20 49 8d 7c 24 20 4d 89 e7 48 83 e8
-> > > > 20 48
-> > > > 39 7d c0
-> > > > [441283.634440] RIP  [<ffffffff811785f9>]
-> > > > __kmem_cache_shutdown+0xa9/0x2f0
-> > > > [441283.641831]  RSP <ffff88205247de08>
-> > > > [441283.645817] CR2: 0000000000000000
-> > > > [441283.649815] ---[ end trace 8e20d31634421a27 ]---
-> > > >
-> > > > CAI Qian
-> > > > --
-> > > > To unsubscribe from this list: send the line "unsubscribe
-> > > > stable"
-> > > > in
-> > > > the body of a message to majordomo@vger.kernel.org
-> > > > More majordomo info at
-> > > >  http://vger.kernel.org/majordomo-info.html
-> > > >
-> > > --
-> > > To unsubscribe from this list: send the line "unsubscribe stable"
-> > > in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at
-> > >  http://vger.kernel.org/majordomo-info.html
-> > >
-> >
-> 
+diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
+index eb56174..8c417ed 100644
+--- a/drivers/net/ethernet/3com/Kconfig
++++ b/drivers/net/ethernet/3com/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_3COM
+ 	bool "3Com devices"
+ 	default y
+-	depends on ISA || EISA || MCA || PCI || PCMCIA
++	depends on ISA || EISA || PCI || PCMCIA
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -33,8 +33,8 @@ config EL1
+ 	  will be called 3c501.
+ 
+ config EL3
+-	tristate "3c509/3c529 (MCA)/3c579 \"EtherLink III\" support"
+-	depends on (ISA || EISA || MCA)
++	tristate "3c509/3c579 \"EtherLink III\" support"
++	depends on (ISA || EISA)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to the 3Com
+ 	  EtherLinkIII series, say Y and read the Ethernet-HOWTO, available
+diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+index e1219e0..8801217 100644
+--- a/drivers/net/ethernet/8390/Kconfig
++++ b/drivers/net/ethernet/8390/Kconfig
+@@ -6,8 +6,8 @@ config NET_VENDOR_8390
+ 	bool "National Semi-conductor 8390 devices"
+ 	default y
+ 	depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH || \
+-		   ISA || MCA || EISA || MAC || M32R || MACH_TX49XX || \
+-		   MCA_LEGACY || H8300 || ARM || MIPS || ZORRO || PCMCIA || \
++		   ISA || EISA || MAC || M32R || MACH_TX49XX || \
++		   H8300 || ARM || MIPS || ZORRO || PCMCIA || \
+ 		   EXPERIMENTAL)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+@@ -188,10 +188,7 @@ config NE2000
+ 
+ 	  If you have a PCI NE2000 card however, say N here and Y to "PCI
+ 	  NE2000 and clone support" under "EISA, VLB, PCI and on board
+-	  controllers" below. If you have a NE2000 card and are running on
+-	  an MCA system (a bus system used on some IBM PS/2 computers and
+-	  laptops), say N here and Y to "NE/2 (ne2000 MCA version) support",
+-	  below.
++	  controllers" below.
+ 
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called ne.
+diff --git a/drivers/net/ethernet/8390/Makefile b/drivers/net/ethernet/8390/Makefile
+index f43038b..8fb462c 100644
+--- a/drivers/net/ethernet/8390/Makefile
++++ b/drivers/net/ethernet/8390/Makefile
+@@ -16,7 +16,6 @@ obj-$(CONFIG_HYDRA) += hydra.o 8390.o
+ obj-$(CONFIG_LNE390) += lne390.o 8390.o
+ obj-$(CONFIG_MCF8390) += mcf8390.o 8390.o
+ obj-$(CONFIG_NE2000) += ne.o 8390p.o
+-obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
+ obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
+ obj-$(CONFIG_NE3210) += ne3210.o 8390.o
+ obj-$(CONFIG_NE_H8300) += ne-h8300.o 8390.o
+diff --git a/drivers/net/ethernet/amd/Kconfig b/drivers/net/ethernet/amd/Kconfig
+index 8350f4b..3046133 100644
+--- a/drivers/net/ethernet/amd/Kconfig
++++ b/drivers/net/ethernet/amd/Kconfig
+@@ -7,7 +7,7 @@ config NET_VENDOR_AMD
+ 	default y
+ 	depends on DIO || MACH_DECSTATION || MVME147 || ATARI || SUN3 || \
+ 		   SUN3X || SBUS || PCI || ZORRO || (ISA && ISA_DMA_API) || \
+-		   (ARM && ARCH_EBSA110) || ISA || EISA || MCA || PCMCIA
++		   (ARM && ARCH_EBSA110) || ISA || EISA || PCMCIA
+ 	---help---
+ 	  If you have a network (Ethernet) chipset belonging to this class,
+ 	  say Y.
+@@ -107,7 +107,7 @@ config DECLANCE
+ 
+ config DEPCA
+ 	tristate "DEPCA, DE10x, DE200, DE201, DE202, DE422 support"
+-	depends on (ISA || EISA || MCA)
++	depends on (ISA || EISA)
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type, say Y and read
+diff --git a/drivers/net/ethernet/fujitsu/Kconfig b/drivers/net/ethernet/fujitsu/Kconfig
+index dffee9d..aca1568 100644
+--- a/drivers/net/ethernet/fujitsu/Kconfig
++++ b/drivers/net/ethernet/fujitsu/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_FUJITSU
+ 	bool "Fujitsu devices"
+ 	default y
+-	depends on ISA || PCMCIA || ((ISA || MCA_LEGACY) && EXPERIMENTAL)
++	depends on ISA || PCMCIA || (ISA && EXPERIMENTAL)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -19,7 +19,7 @@ if NET_VENDOR_FUJITSU
+ 
+ config AT1700
+ 	tristate "AT1700/1720 support (EXPERIMENTAL)"
+-	depends on (ISA || MCA_LEGACY) && EXPERIMENTAL
++	depends on ISA && EXPERIMENTAL
+ 	select CRC32
+ 	---help---
+ 	  If you have a network (Ethernet) card of this type, say Y and read
+diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
+index 959faf7..70f8c2d 100644
+--- a/drivers/net/ethernet/i825xx/Kconfig
++++ b/drivers/net/ethernet/i825xx/Kconfig
+@@ -6,7 +6,7 @@ config NET_VENDOR_I825XX
+ 	bool "Intel (82586/82593/82596) devices"
+ 	default y
+ 	depends on NET_VENDOR_INTEL && (ISA || ISA_DMA_API || ARM || \
+-		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
++		   ARCH_ACORN || SNI_RM || SUN3 || \
+ 		   GSC || BVME6000 || MVME16x || EXPERIMENTAL)
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index ddee406..bde4f3d 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -6,7 +6,7 @@ config NET_VENDOR_INTEL
+ 	bool "Intel devices"
+ 	default y
+ 	depends on PCI || PCI_MSI || ISA || ISA_DMA_API || ARM || \
+-		   ARCH_ACORN || MCA || MCA_LEGACY || SNI_RM || SUN3 || \
++		   ARCH_ACORN || SNI_RM || SUN3 || \
+ 		   GSC || BVME6000 || MVME16x || \
+ 		   (ARM && ARCH_IXP4XX && IXP4XX_NPE && IXP4XX_QMGR) || \
+ 		   EXPERIMENTAL
+-- 
+1.8.1
