@@ -1,52 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] tcp: make sysctl_tcp_ecn namespace aware
-Date: Sat, 5 Jan 2013 20:05:08 +0100
-Message-ID: <20130105190508.GE4031@order.stressinduktion.org>
-References: <20130105150130.GC4031@order.stressinduktion.org> <20130105110005.2bf230eb@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2 3/3] tuntap: don't add to waitqueue when POLLERR
+Date: Sat, 05 Jan 2013 11:37:30 -0800
+Message-ID: <1357414650.1678.4092.camel@edumazet-glaptop>
+References: <1357378446-19656-1-git-send-email-jasowang@redhat.com>
+	 <1357378446-19656-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:37932 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755833Ab3AETFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 14:05:09 -0500
-Content-Disposition: inline
-In-Reply-To: <20130105110005.2bf230eb@nehalam.linuxnetplumber.net>
+Received: from mail-da0-f48.google.com ([209.85.210.48]:48477 "EHLO
+	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755832Ab3AEThe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 14:37:34 -0500
+In-Reply-To: <1357378446-19656-4-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 05, 2013 at 11:00:05AM -0800, Stephen Hemminger wrote:
-> Rather than passing sysctl_tcp_ecn around as a parameter, I think it
-> would be clearer and more efficient to make the ECN functions namespace
-> aware.
+On Sat, 2013-01-05 at 17:34 +0800, Jason Wang wrote:
+> Currently, tun_chr_poll() returns POLLERR after waitqueue adding during device
+> unregistration. This would confuse some of its user such as vhost which assume
+> when POLLERR is returned, it wasn't added to the waitqueue. Fix this by
+> returning POLLERR before adding to waitqueue.
 > 
-> Instead of:
-> > @@ -728,7 +728,8 @@ struct tcp_skb_cb {
-> >   * notifications, we disable TCP ECN negociation.
-> >   */
-> >  static inline void
-> > -TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb)
-> > +TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb,
-> > +		int sysctl_tcp_ecn)
-> >  {
-> >  	const struct tcphdr *th = tcp_hdr(skb);
-> >  
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/tun.c |    5 +----
+>  1 files changed, 1 insertions(+), 4 deletions(-)
 > 
-> @@ -731,8 +730,9 @@ static inline void
->  TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb)
->  {
->         const struct tcphdr *th = tcp_hdr(skb);
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index fbd106e..f9c0049 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -886,7 +886,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+>  	struct sock *sk;
+>  	unsigned int mask = 0;
+>  
+> -	if (!tun)
+> +	if (!tun || tun->dev->reg_state != NETREG_REGISTERED)
+>  		return POLLERR;
+>  
+>  	sk = tfile->socket.sk;
+> @@ -903,9 +903,6 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+>  	     sock_writeable(sk)))
+>  		mask |= POLLOUT | POLLWRNORM;
+>  
+> -	if (tun->dev->reg_state != NETREG_REGISTERED)
+> -		mask = POLLERR;
 > -
-> -       if (sysctl_tcp_ecn && th->ece && th->cwr &&
-> +       
-> +       if (sock_net(req->sk)->ipv4.sysctl_tcp_ecn && 
-> +           th->ece && th->cwr &&
->             INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield))
->                 inet_rsk(req)->ecn_ok = 1;
+>  	tun_put(tun);
+>  	return mask;
+>  }
 
-Having a quick look, I think req->sk is not initialized at that moment, but
-I'll verify later.
+This patch is buggy.
 
-Thanks!
+First, the caller assuming POLLERR means poll_wait() was not called is
+wrong.
+
+Secondly, you add a ref leak.
