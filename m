@@ -1,58 +1,50 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] drivers/net/wireless/ipw2x00: use strlcpy instead of strncpy
-Date: Sat, 05 Jan 2013 21:41:17 +0800
-Message-ID: <50E82D7D.4090107@asianux.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] team: use strlcpy with ethtool_drvinfo fields
+Date: Sat, 5 Jan 2013 14:11:17 +0000
+Message-ID: <1357395077.4324.5.camel@deadeye.wl.decadent.org.uk>
+References: <1357390390-16549-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: stas.yakovlev@gmail.com, linville@tuxdriver.com
+Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jpirko@redhat.com>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:48715 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755664Ab3AENkZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 08:40:25 -0500
+Received: from webmail.solarflare.com ([12.187.104.25]:64662 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab3AEOLZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 09:11:25 -0500
+In-Reply-To: <1357390390-16549-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, 2013-01-05 at 10:53 -0200, Flavio Leitner wrote:
+> The fields must be null-terminated.
+> 
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
 
-  The fields must be null-terminated, or IPW_DEBUG_ASSOC will cause issue.
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- drivers/net/wireless/ipw2x00/ipw2200.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> ---
+>  drivers/net/team/team.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index 78c7d87..e27ac5c 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -1747,8 +1747,8 @@ static const struct net_device_ops team_netdev_ops = {
+>  static void team_ethtool_get_drvinfo(struct net_device *dev,
+>  				     struct ethtool_drvinfo *drvinfo)
+>  {
+> -	strncpy(drvinfo->driver, DRV_NAME, 32);
+> -	strncpy(drvinfo->version, UTS_RELEASE, 32);
+> +	strlcpy(drvinfo->driver, DRV_NAME, sizeof(drvinfo->driver));
+> +	strlcpy(drvinfo->version, UTS_RELEASE, sizeof(drvinfo->version));
+>  }
+>  
+>  static const struct ethtool_ops team_ethtool_ops = {
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index 844f201..c85261b 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -5558,7 +5558,7 @@ static int ipw_find_adhoc_network(struct ipw_priv *priv,
- 			    min(network->ssid_len, priv->essid_len)))) {
- 			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
- 
--			strncpy(escaped,
-+			strlcpy(escaped,
- 				print_ssid(ssid, network->ssid,
- 					   network->ssid_len),
- 				sizeof(escaped));
-@@ -5771,7 +5771,7 @@ static int ipw_best_network(struct ipw_priv *priv,
- 		     memcmp(network->ssid, priv->essid,
- 			    min(network->ssid_len, priv->essid_len)))) {
- 			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
--			strncpy(escaped,
-+			strlcpy(escaped,
- 				print_ssid(ssid, network->ssid,
- 					   network->ssid_len),
- 				sizeof(escaped));
-@@ -5788,7 +5788,7 @@ static int ipw_best_network(struct ipw_priv *priv,
- 	 * testing everything else. */
- 	if (match->network && match->network->stats.rssi > network->stats.rssi) {
- 		char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
--		strncpy(escaped,
-+		strlcpy(escaped,
- 			print_ssid(ssid, network->ssid, network->ssid_len),
- 			sizeof(escaped));
- 		IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded because "
 -- 
-1.7.10.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
