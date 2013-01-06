@@ -1,38 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: make sysctl_tcp_ecn namespace aware
-Date: Sat, 05 Jan 2013 17:27:26 -0800
-Message-ID: <1357435646.1678.5082.camel@edumazet-glaptop>
-References: <20130105150130.GC4031@order.stressinduktion.org>
-	 <20130105110005.2bf230eb@nehalam.linuxnetplumber.net>
-	 <20130105190508.GE4031@order.stressinduktion.org>
-	 <20130106011849.GA28545@order.stressinduktion.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Major network performance regression in 3.7
+Date: Sun, 6 Jan 2013 02:30:27 +0100
+Message-ID: <20130106013027.GV16031@1wt.eu>
+References: <20130105214958.GA19814@1wt.eu> <1357427926.1678.4771.camel@edumazet-glaptop> <20130105232913.GQ16031@1wt.eu> <1357430523.1678.4901.camel@edumazet-glaptop> <20130106005053.GS16031@1wt.eu> <1357435276.1678.5067.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:37872 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754791Ab3AFB13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 20:27:29 -0500
-Received: by mail-pa0-f50.google.com with SMTP id hz10so10017487pad.9
-        for <netdev@vger.kernel.org>; Sat, 05 Jan 2013 17:27:29 -0800 (PST)
-In-Reply-To: <20130106011849.GA28545@order.stressinduktion.org>
+Received: from 1wt.eu ([62.212.114.60]:37517 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754618Ab3AFBad (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Jan 2013 20:30:33 -0500
+Content-Disposition: inline
+In-Reply-To: <1357435276.1678.5067.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-01-06 at 02:18 +0100, Hannes Frederic Sowa wrote:
-
+On Sat, Jan 05, 2013 at 05:21:16PM -0800, Eric Dumazet wrote:
+> On Sun, 2013-01-06 at 01:50 +0100, Willy Tarreau wrote:
 > 
-> I just verified that req->sk is indeed not initialized at that point. I
-> had a kernel panic on the first syn packet. So I would propose to keep
-> the patch as it is.
+> > Yes, I've removed all zero counters in this short view for easier
+> > reading (complete version appended at the end of this email). This
+> > was after around 140 GB were transferred :
 > 
+> OK I only wanted to make sure skb were not linearized in xmit.
+> 
+> Could you try to disable CONFIG_COMPACTION ?
 
-Please pass the "struct net" pointer instead, so that the tcp_ecn
-dereference is done only if really needed.
+It's already disabled.
 
-Naming a function parameter, or an automatic variable, sysctl_tcp_ecn is
-not very nice.
+> ( This is the other thread mentioning this : "ppoll() stuck on POLLIN
+> while TCP peer is sending" )
+
+Ah interesting because these were some of the mm patches that I had
+tried to revert.
+
+Willy
