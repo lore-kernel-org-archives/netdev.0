@@ -1,65 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Major network performance regression in 3.7
-Date: Sat, 05 Jan 2013 23:35:24 -0800
-Message-ID: <1357457724.1678.5941.camel@edumazet-glaptop>
-References: <20130105214958.GA19814@1wt.eu>
-	 <1357427926.1678.4771.camel@edumazet-glaptop>
-	 <20130105232913.GQ16031@1wt.eu>
-	 <1357430523.1678.4901.camel@edumazet-glaptop>
-	 <20130106005053.GS16031@1wt.eu>
-	 <1357435276.1678.5067.camel@edumazet-glaptop>
-	 <20130106013027.GV16031@1wt.eu>
-	 <1357436430.1678.5111.camel@edumazet-glaptop>
-	 <1357437086.1678.5135.camel@edumazet-glaptop>
-	 <1357438591.1678.5205.camel@edumazet-glaptop>
-	 <20130106025256.GY16031@1wt.eu>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 1/1] net: fec: report correct hardware stamping info to
+ ethtool
+Date: Sun, 6 Jan 2013 09:09:29 +0100
+Message-ID: <20130106080929.GA2276@netboy.at.omicron.at>
+References: <1357436318-12425-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=us-ascii
+Cc: lznuaa@gmail.com, shawn.guo@linaro.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.or, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:61199 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945Ab3AFHf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 02:35:28 -0500
-In-Reply-To: <20130106025256.GY16031@1wt.eu>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:55436 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751062Ab3AFIJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 03:09:41 -0500
+Received: by mail-ee0-f50.google.com with SMTP id b45so8970977eek.23
+        for <netdev@vger.kernel.org>; Sun, 06 Jan 2013 00:09:40 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1357436318-12425-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-01-06 at 03:52 +0100, Willy Tarreau wrote:
-
-> OK so I observed no change with this patch, either on the loopback
-> data rate at >16kB MTU, or on the myri. I'm keeping it at hand for
-> experimentation anyway.
+On Sun, Jan 06, 2013 at 09:38:38AM +0800, Frank Li wrote:
+> Report correct hardware stamping capibilty by ethtool interface.
+> The v1.0 ptp4l check it.
 > 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |   28 +++++++++++++++++++++++++++-
+>  1 files changed, 27 insertions(+), 1 deletions(-)
 
-Yeah, there was no bug. I rewrote it for net-next as a cleanup/optim
-only.
+Thanks for following up to add this.
 
-> Concerning the loopback MTU, I find it strange that the MTU changes
-> the splice() behaviour and not send/recv. I thought that there could
-> be a relation between the MTU and the pipe size, but it does not
-> appear to be the case either, as I tried various sizes between 16kB
-> and 256kB without achieving original performance.
-
-
-It probably is related to a too small receive window, given the MTU was
-multiplied by 4, I guess we need to make some adjustments
-
-You also could try :
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1ca2536..b68cdfb 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -1482,6 +1482,9 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
- 					break;
- 			}
- 			used = recv_actor(desc, skb, offset, len);
-+			/* Clean up data we have read: This will do ACK frames. */
-+			if (used > 0)
-+				tcp_cleanup_rbuf(sk, used);
- 			if (used < 0) {
- 				if (!copied)
- 					copied = used;
+Acked-by: Richard Cochran <richardcochran@gmail.com>
