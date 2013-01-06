@@ -1,7 +1,7 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Major network performance regression in 3.7
-Date: Sun, 06 Jan 2013 10:51:16 -0800
-Message-ID: <1357498276.6919.547.camel@edumazet-glaptop>
+Date: Sun, 06 Jan 2013 11:00:15 -0800
+Message-ID: <1357498815.6919.570.camel@edumazet-glaptop>
 References: <1357437086.1678.5135.camel@edumazet-glaptop>
 	 <1357438591.1678.5205.camel@edumazet-glaptop>
 	 <20130106025256.GY16031@1wt.eu>
@@ -14,26 +14,45 @@ References: <1357437086.1678.5135.camel@edumazet-glaptop>
 	 <20130106173543.GB22432@1wt.eu>
 	 <1357497541.6919.519.camel@edumazet-glaptop>
 	 <1357497809.6919.529.camel@edumazet-glaptop>
+	 <1357498276.6919.547.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:61043 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756075Ab3AFSvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 13:51:19 -0500
-In-Reply-To: <1357497809.6919.529.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357498276.6919.547.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
+On Sun, 2013-01-06 at 10:51 -0800, Eric Dumazet wrote:
+> > 
+> > (sd->len is usually 4096, which is expected, but sd->total_len value is
+> > huge in your case, so we always set the flag in fs/splice.c)
 > 
-> (sd->len is usually 4096, which is expected, but sd->total_len value is
-> huge in your case, so we always set the flag in fs/splice.c)
+> I am testing :
+> 
+>        if (sd->len < sd->total_len && pipe->nrbufs > 1)
+>                 more |= MSG_SENDPAGE_NOTLAST;
+> 
 
-I am testing :
+Yes, this should fix the problem :
 
-       if (sd->len < sd->total_len && pipe->nrbufs > 1)
-                more |= MSG_SENDPAGE_NOTLAST;
+If there is no following buffer in the pipe, we should not set NOTLAST.
+
+diff --git a/fs/splice.c b/fs/splice.c
+index 8890604..6909d89 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -696,8 +696,10 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
+ 		return -EINVAL;
+ 
+ 	more = (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
+-	if (sd->len < sd->total_len)
++
++	if (sd->len < sd->total_len && pipe->nrbufs > 1)
+ 		more |= MSG_SENDPAGE_NOTLAST;
++
+ 	return file->f_op->sendpage(file, buf->page, buf->offset,
+ 				    sd->len, &pos, more);
+ }
