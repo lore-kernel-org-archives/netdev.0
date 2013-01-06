@@ -1,55 +1,35 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] tcp: make sysctl_tcp_ecn namespace aware
-Date: Sun, 6 Jan 2013 02:18:49 +0100
-Message-ID: <20130106011849.GA28545@order.stressinduktion.org>
-References: <20130105150130.GC4031@order.stressinduktion.org> <20130105110005.2bf230eb@nehalam.linuxnetplumber.net> <20130105190508.GE4031@order.stressinduktion.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Major network performance regression in 3.7
+Date: Sat, 05 Jan 2013 17:21:16 -0800
+Message-ID: <1357435276.1678.5067.camel@edumazet-glaptop>
+References: <20130105214958.GA19814@1wt.eu>
+	 <1357427926.1678.4771.camel@edumazet-glaptop>
+	 <20130105232913.GQ16031@1wt.eu>
+	 <1357430523.1678.4901.camel@edumazet-glaptop>
+	 <20130106005053.GS16031@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:38396 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754609Ab3AFBSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 20:18:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20130105190508.GE4031@order.stressinduktion.org>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:48419 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754757Ab3AFBVU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 20:21:20 -0500
+In-Reply-To: <20130106005053.GS16031@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 05, 2013 at 08:05:08PM +0100, Hannes Frederic Sowa wrote:
-> On Sat, Jan 05, 2013 at 11:00:05AM -0800, Stephen Hemminger wrote:
-> > Rather than passing sysctl_tcp_ecn around as a parameter, I think it
-> > would be clearer and more efficient to make the ECN functions namespace
-> > aware.
-> > 
-> > Instead of:
-> > > @@ -728,7 +728,8 @@ struct tcp_skb_cb {
-> > >   * notifications, we disable TCP ECN negociation.
-> > >   */
-> > >  static inline void
-> > > -TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb)
-> > > +TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb,
-> > > +		int sysctl_tcp_ecn)
-> > >  {
-> > >  	const struct tcphdr *th = tcp_hdr(skb);
-> > >  
-> > 
-> > @@ -731,8 +730,9 @@ static inline void
-> >  TCP_ECN_create_request(struct request_sock *req, const struct sk_buff *skb)
-> >  {
-> >         const struct tcphdr *th = tcp_hdr(skb);
-> > -
-> > -       if (sysctl_tcp_ecn && th->ece && th->cwr &&
-> > +       
-> > +       if (sock_net(req->sk)->ipv4.sysctl_tcp_ecn && 
-> > +           th->ece && th->cwr &&
-> >             INET_ECN_is_not_ect(TCP_SKB_CB(skb)->ip_dsfield))
-> >                 inet_rsk(req)->ecn_ok = 1;
-> 
-> Having a quick look, I think req->sk is not initialized at that moment, but
-> I'll verify later.
+On Sun, 2013-01-06 at 01:50 +0100, Willy Tarreau wrote:
 
-I just verified that req->sk is indeed not initialized at that point. I
-had a kernel panic on the first syn packet. So I would propose to keep
-the patch as it is.
+> Yes, I've removed all zero counters in this short view for easier
+> reading (complete version appended at the end of this email). This
+> was after around 140 GB were transferred :
+
+OK I only wanted to make sure skb were not linearized in xmit.
+
+Could you try to disable CONFIG_COMPACTION ?
+
+( This is the other thread mentioning this : "ppoll() stuck on POLLIN
+while TCP peer is sending" )
