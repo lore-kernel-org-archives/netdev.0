@@ -1,17 +1,17 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] ethtool: set addr_assign_type to NET_ADDR_SET when addr is passed on create
-Date: Sun,  6 Jan 2013 23:38:41 +0100
-Message-ID: <1357511921-5537-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next] ethtool: set addr_assign_type to NET_ADDR_SET when addr is passed on create
+Date: Sun,  6 Jan 2013 23:41:57 +0100
+Message-ID: <1357512117-5581-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, bhutchings@solarflare.com,
 	shemminger@vyatta.com, sassmann@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:40163 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753138Ab3AFWit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 17:38:49 -0500
-Received: by mail-ee0-f43.google.com with SMTP id e49so9225630eek.2
-        for <netdev@vger.kernel.org>; Sun, 06 Jan 2013 14:38:46 -0800 (PST)
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:42260 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753169Ab3AFWmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 17:42:03 -0500
+Received: by mail-ea0-f170.google.com with SMTP id d11so7458706eaa.15
+        for <netdev@vger.kernel.org>; Sun, 06 Jan 2013 14:42:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
