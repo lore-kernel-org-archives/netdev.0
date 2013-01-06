@@ -1,81 +1,70 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: [patch net-next] net: use ETHTOOL_FWVERS_LEN instead of ETHTOOL_BUSINFO_LEN for fw_ver strings
-Date: Sun,  6 Jan 2013 13:12:51 +0100
-Message-ID: <1357474371-30887-1-git-send-email-jiri@resnulli.us>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
+Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit
+ queue 0 timed out
+Date: Sun, 6 Jan 2013 14:03:39 +0100
+Message-ID: <CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com>
+References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
+	<20130105093718.GA938@electric-eye.fr.zoreil.com>
+	<CADDKRnBCrDz2X=5qpGE+r92ZFX5cA+jnSGt3wS8TR0RE8hi1HA@mail.gmail.com>
+	<20130105165735.GB4906@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130105165735.GB4906@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
----
- drivers/net/wireless/ath/ath9k/htc_drv_init.c | 2 +-
- drivers/net/wireless/iwlwifi/iwl-fw.h         | 2 +-
- drivers/net/wireless/ti/wlcore/wlcore_i.h     | 4 ++--
- include/net/cfg80211.h                        | 2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+2013/1/5 Francois Romieu <romieu@fr.zoreil.com>:
+> Can you check if things improve with v3.8-rc2 after removing :
+>
+> 1. 9ecb9aabaf634677c77af467f4e3028b09d7bcda
+>    r8169: workaround for missing extended GigaMAC registers
+> 2. d64ec841517a25f6d468bde9f67e5b4cffdc67c7
+>    r8169: enable internal ASPM and clock request settings
 
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_init.c b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-index 05d5ba6..b2f85cb 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_init.c
-@@ -783,7 +783,7 @@ static int ath9k_init_firmware_version(struct ath9k_htc_priv *priv)
- 	priv->fw_version_major = be16_to_cpu(cmd_rsp.major);
- 	priv->fw_version_minor = be16_to_cpu(cmd_rsp.minor);
- 
--	snprintf(hw->wiphy->fw_version, ETHTOOL_BUSINFO_LEN, "%d.%d",
-+	snprintf(hw->wiphy->fw_version, sizeof(hw->wiphy->fw_version), "%d.%d",
- 		 priv->fw_version_major,
- 		 priv->fw_version_minor);
- 
-diff --git a/drivers/net/wireless/iwlwifi/iwl-fw.h b/drivers/net/wireless/iwlwifi/iwl-fw.h
-index d1a86b6..715291e 100644
---- a/drivers/net/wireless/iwlwifi/iwl-fw.h
-+++ b/drivers/net/wireless/iwlwifi/iwl-fw.h
-@@ -157,7 +157,7 @@ struct fw_img {
- struct iwl_fw {
- 	u32 ucode_ver;
- 
--	char fw_version[ETHTOOL_BUSINFO_LEN];
-+	char fw_version[ETHTOOL_FWVERS_LEN];
- 
- 	/* ucode images */
- 	struct fw_img img[IWL_UCODE_TYPE_MAX];
-diff --git a/drivers/net/wireless/ti/wlcore/wlcore_i.h b/drivers/net/wireless/ti/wlcore/wlcore_i.h
-index 6678d4b..5ce26cf 100644
---- a/drivers/net/wireless/ti/wlcore/wlcore_i.h
-+++ b/drivers/net/wireless/ti/wlcore/wlcore_i.h
-@@ -122,9 +122,9 @@ enum {
- 
- struct wl1271_chip {
- 	u32 id;
--	char fw_ver_str[ETHTOOL_BUSINFO_LEN];
-+	char fw_ver_str[ETHTOOL_FWVERS_LEN];
- 	unsigned int fw_ver[NUM_FW_VER];
--	char phy_fw_ver_str[ETHTOOL_BUSINFO_LEN];
-+	char phy_fw_ver_str[ETHTOOL_FWVERS_LEN];
- };
- 
- #define NUM_TX_QUEUES              4
-diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
-index 8e6a6b7..f78fa19 100644
---- a/include/net/cfg80211.h
-+++ b/include/net/cfg80211.h
-@@ -2333,7 +2333,7 @@ struct wiphy {
- 	u32 rts_threshold;
- 	u8 coverage_class;
- 
--	char fw_version[ETHTOOL_BUSINFO_LEN];
-+	char fw_version[ETHTOOL_FWVERS_LEN];
- 	u32 hw_version;
- 
- #ifdef CONFIG_PM
--- 
-1.8.1
+Doesn't help for this problem.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+However this fixes a second issue for me:
+In 3.7.1 at startup the link came up after 15 sec.:
+grep r8169 dmesg.3.7.1
+[    1.956842] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.957059] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
+[    1.957161] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at..
+[    1.957163] r8169 0000:02:00.0 eth0: jumbo features [frames..
+[   13.575452] r8169 0000:02:00.0 eth0: link down
+[   13.575475] r8169 0000:02:00.0 eth0: link down
+[   15.181317] r8169 0000:02:00.0 eth0: link up
+
+In 3.8rc the time increased to 24 seconds:
+grep r8169 dmesg.3.8.0
+[    1.852546] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.852765] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
+[    1.852872] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
+[    1.852874] r8169 0000:02:00.0 eth0: jumbo features [frames...
+[   14.150212] r8169 0000:02:00.0 eth0: link down
+[   14.150229] r8169 0000:02:00.0 eth0: link down
+[   24.140263] r8169 0000:02:00.0 eth0: link up
+
+But with this revert I get the old performance:
+dmesg | grep r8169
+[    1.816613] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+[    1.816832] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
+[    1.816947] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
+[    1.816948] r8169 0000:02:00.0 eth0: jumbo features [frames...
+[   13.986401] r8169 0000:02:00.0 eth0: link down
+[   13.986422] r8169 0000:02:00.0 eth0: link down
+[   15.623631] r8169 0000:02:00.0 eth0: link up
+
+Thus I recommend to revert this too.
+
+> 3. e0c075577965d1c01b30038d38bf637b027a1df3
+>    r8169: enable ALDPS for power saving
+
+That's it! This fixes the problem for me!
+
+
+Thanks, J=C3=B6rg
