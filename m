@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: splice: avoid high order page splitting
-Date: Sat, 05 Jan 2013 23:31:18 -0800
-Message-ID: <1357457478.1678.5928.camel@edumazet-glaptop>
+Subject: Re: Major network performance regression in 3.7
+Date: Sat, 05 Jan 2013 23:35:24 -0800
+Message-ID: <1357457724.1678.5941.camel@edumazet-glaptop>
 References: <20130105214958.GA19814@1wt.eu>
 	 <1357427926.1678.4771.camel@edumazet-glaptop>
 	 <20130105232913.GQ16031@1wt.eu>
@@ -16,97 +16,50 @@ References: <20130105214958.GA19814@1wt.eu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>, David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:49498 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780Ab3AFHbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 02:31:21 -0500
-Received: by mail-pa0-f54.google.com with SMTP id bi5so10029278pad.13
-        for <netdev@vger.kernel.org>; Sat, 05 Jan 2013 23:31:21 -0800 (PST)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:61199 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945Ab3AFHf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 02:35:28 -0500
 In-Reply-To: <20130106025256.GY16031@1wt.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
- 
-splice() can handle pages of any order, but network code tries hard to
-split them in PAGE_SIZE units. Not quite successfully anyway, as
-__splice_segment() assumed poff < PAGE_SIZE. This is true for
-the skb->data part, not necessarily for the fragments.
+On Sun, 2013-01-06 at 03:52 +0100, Willy Tarreau wrote:
 
-This patch removes this logic to give the pages as they are in the skb.
+> OK so I observed no change with this patch, either on the loopback
+> data rate at >16kB MTU, or on the myri. I'm keeping it at hand for
+> experimentation anyway.
+> 
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Willy Tarreau <w@1wt.eu>
----
- net/core/skbuff.c |   38 +++++++++-----------------------------
- 1 file changed, 9 insertions(+), 29 deletions(-)
+Yeah, there was no bug. I rewrote it for net-next as a cleanup/optim
+only.
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index bc96100..b03fc0c 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -1707,20 +1707,6 @@ static bool spd_fill_page(struct splice_pipe_desc *spd,
- 	return false;
- }
- 
--static inline void __segment_seek(struct page **page, unsigned int *poff,
--				  unsigned int *plen, unsigned int off)
--{
--	unsigned long n;
--
--	*poff += off;
--	n = *poff / PAGE_SIZE;
--	if (n)
--		*page = nth_page(*page, n);
--
--	*poff = *poff % PAGE_SIZE;
--	*plen -= off;
--}
--
- static bool __splice_segment(struct page *page, unsigned int poff,
- 			     unsigned int plen, unsigned int *off,
- 			     unsigned int *len, struct sk_buff *skb,
-@@ -1728,6 +1714,8 @@ static bool __splice_segment(struct page *page, unsigned int poff,
- 			     struct sock *sk,
- 			     struct pipe_inode_info *pipe)
- {
-+	unsigned int flen;
-+
- 	if (!*len)
- 		return true;
- 
-@@ -1738,24 +1726,16 @@ static bool __splice_segment(struct page *page, unsigned int poff,
- 	}
- 
- 	/* ignore any bits we already processed */
--	if (*off) {
--		__segment_seek(&page, &poff, &plen, *off);
--		*off = 0;
--	}
--
--	do {
--		unsigned int flen = min(*len, plen);
-+	poff += *off;
-+	plen -= *off;
-+	*off = 0;
- 
--		/* the linear region may spread across several pages  */
--		flen = min_t(unsigned int, flen, PAGE_SIZE - poff);
-+	flen = min(*len, plen);
- 
--		if (spd_fill_page(spd, pipe, page, &flen, poff, skb, linear, sk))
--			return true;
--
--		__segment_seek(&page, &poff, &plen, flen);
--		*len -= flen;
-+	if (spd_fill_page(spd, pipe, page, &flen, poff, skb, linear, sk))
-+		return true;
- 
--	} while (*len && plen);
-+	*len -= flen;
- 
- 	return false;
- }
+> Concerning the loopback MTU, I find it strange that the MTU changes
+> the splice() behaviour and not send/recv. I thought that there could
+> be a relation between the MTU and the pipe size, but it does not
+> appear to be the case either, as I tried various sizes between 16kB
+> and 256kB without achieving original performance.
+
+
+It probably is related to a too small receive window, given the MTU was
+multiplied by 4, I guess we need to make some adjustments
+
+You also could try :
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 1ca2536..b68cdfb 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1482,6 +1482,9 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+ 					break;
+ 			}
+ 			used = recv_actor(desc, skb, offset, len);
++			/* Clean up data we have read: This will do ACK frames. */
++			if (used > 0)
++				tcp_cleanup_rbuf(sk, used);
+ 			if (used < 0) {
+ 				if (!copied)
+ 					copied = used;
