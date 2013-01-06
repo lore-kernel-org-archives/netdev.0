@@ -1,75 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] ethoc: fix mac address set
-Date: Sun,  6 Jan 2013 14:25:45 +0100
-Message-ID: <1357478745-19923-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:40539 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755572Ab3AFNZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 08:25:52 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c13so9090851eek.13
-        for <netdev@vger.kernel.org>; Sun, 06 Jan 2013 05:25:50 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Major network performance regression in 3.7
+Date: Sun, 06 Jan 2013 06:59:02 -0800
+Message-ID: <1357484342.6919.61.camel@edumazet-glaptop>
+References: <20130105232913.GQ16031@1wt.eu>
+	 <1357430523.1678.4901.camel@edumazet-glaptop>
+	 <20130106005053.GS16031@1wt.eu>
+	 <1357435276.1678.5067.camel@edumazet-glaptop>
+	 <20130106013027.GV16031@1wt.eu>
+	 <1357436430.1678.5111.camel@edumazet-glaptop>
+	 <1357437086.1678.5135.camel@edumazet-glaptop>
+	 <1357438591.1678.5205.camel@edumazet-glaptop>
+	 <20130106025256.GY16031@1wt.eu>
+	 <1357457724.1678.5941.camel@edumazet-glaptop>
+	 <20130106092435.GZ16031@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130106092435.GZ16031@1wt.eu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Function ethoc_set_mac_address() was incorrectly using passed pointer as
-pointer to address, that is not correct.
-Struct sockaddr have to be be used here.
+On Sun, 2013-01-06 at 10:24 +0100, Willy Tarreau wrote:
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/ethernet/ethoc.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+> It does not change anything to the tests above unfortunately. It did not
+> even stabilize the unstable runs.
+> 
+> I'll check if I can spot the original commit which caused the regression
+> for MTUs that are not n*4096+52.
 
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index b93062d..b51c81a 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -771,20 +771,24 @@ static int ethoc_config(struct net_device *dev, struct ifmap *map)
- 	return -ENOSYS;
- }
- 
--static int ethoc_set_mac_address(struct net_device *dev, void *addr)
-+static void ethoc_do_set_mac_address(struct net_device *dev)
- {
- 	struct ethoc *priv = netdev_priv(dev);
--	u8 *mac = (u8 *)addr;
--
--	if (!is_valid_ether_addr(mac))
--		return -EADDRNOTAVAIL;
-+	unsigned char *mac = dev->dev_addr;
- 
- 	ethoc_write(priv, MAC_ADDR0, (mac[2] << 24) | (mac[3] << 16) |
- 				     (mac[4] <<  8) | (mac[5] <<  0));
- 	ethoc_write(priv, MAC_ADDR1, (mac[0] <<  8) | (mac[1] <<  0));
-+}
- 
--	memcpy(dev->dev_addr, mac, ETH_ALEN);
-+static int ethoc_set_mac_address(struct net_device *dev, void *p)
-+{
-+	const struct sockaddr *addr = p;
- 
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EADDRNOTAVAIL;
-+	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-+	ethoc_do_set_mac_address(dev);
- 	return 0;
- }
- 
-@@ -1060,11 +1064,7 @@ static int ethoc_probe(struct platform_device *pdev)
- 		random_mac = true;
- 	}
- 
--	ret = ethoc_set_mac_address(netdev, netdev->dev_addr);
--	if (ret) {
--		dev_err(&netdev->dev, "failed to set MAC address\n");
--		goto error;
--	}
-+	ethoc_do_set_mac_address(netdev);
- 
- 	if (random_mac)
- 		netdev->addr_assign_type = NET_ADDR_RANDOM;
--- 
-1.8.1
+Since you don't post your program, I wont be able to help, just by
+guessing what it does...
+
+TCP has very low defaults concerning initial window, and it appears you
+set RCVBUF to even smaller values.
+
+Here we can see "win 8030", this is not a sane value...
+
+18:32:08.071602 IP 127.0.0.1.26792 > 127.0.0.1.8000: S 2036886615:2036886615(0) win 8030 <mss 65495,nop,nop,sackOK,nop,wscale 9>
+18:32:08.071605 IP 127.0.0.1.8000 > 127.0.0.1.26792: S 126397113:126397113(0) ack 2036886616 win 8030 <mss 65495,nop,nop,sackOK,nop,wscale 9>
+
+So you apparently changed /proc/sys/net/ipv4/tcp_rmem or SO_RCVBUF ?
