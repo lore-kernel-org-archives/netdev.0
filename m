@@ -1,54 +1,32 @@
-From: Arjan van de Ven <arjanvandeven@gmail.com>
-Subject: small iputils build patch
-Date: Sun, 6 Jan 2013 08:42:03 -0800
-Message-ID: <CADyApD2CxE=mEWKCF9gW=0vGgFkcZZo=DRi-UKP8wNeXMXUifQ@mail.gmail.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Major network performance regression in 3.7
+Date: Sun, 6 Jan 2013 17:44:16 +0100
+Message-ID: <20130106164416.GF16031@1wt.eu>
+References: <20130106013027.GV16031@1wt.eu> <1357436430.1678.5111.camel@edumazet-glaptop> <1357437086.1678.5135.camel@edumazet-glaptop> <1357438591.1678.5205.camel@edumazet-glaptop> <20130106025256.GY16031@1wt.eu> <1357457724.1678.5941.camel@edumazet-glaptop> <20130106092435.GZ16031@1wt.eu> <1357484342.6919.61.camel@edumazet-glaptop> <20130106155123.GB16031@1wt.eu> <1357490393.6919.267.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=f46d0434bf1e6d88f004d2a16439
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <erdnetdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f50.google.com ([209.85.212.50]:60617 "EHLO
-	mail-vb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756050Ab3AFQmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 11:42:04 -0500
-Received: by mail-vb0-f50.google.com with SMTP id ft2so6775043vbb.9
-        for <netdev@vger.kernel.org>; Sun, 06 Jan 2013 08:42:03 -0800 (PST)
+Received: from 1wt.eu ([62.212.114.60]:37699 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756056Ab3AFQoW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jan 2013 11:44:22 -0500
+Content-Disposition: inline
+In-Reply-To: <1357490393.6919.267.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---f46d0434bf1e6d88f004d2a16439
-Content-Type: text/plain; charset=UTF-8
+On Sun, Jan 06, 2013 at 08:39:53AM -0800, Eric Dumazet wrote:
+> Hmm, I'll have to check if this really can be reverted without hurting
+> vmsplice() again.
 
-The ping6 command can use either openssl or gnutls...
-and the Makefile has a bunch of setup for defining which of the two to use.
+Looking at the code I've been wondering whether we shouldn't transform
+the condition to perform the push if we can't push more segments, but
+I don't know what to rely on. It would be something like this :
 
-Unfortunately, the final -D define on the commandline to enable gnutls
-inside the ping6.c file didn't actually make it onto the gcc
-commandline.
-This patch adds the $(DEF_CRYPTO) Makefile variable to fix this gap.
+       if (copied &&
+          (!(flags & MSG_SENDPAGE_NOTLAST) || cant_push_more))
+                tcp_push(sk, flags, mss_now, tp->nonagle);
 
-Signed-off-by: Arjan van de Ven <arjanvandeven@gmail.com>
-
---f46d0434bf1e6d88f004d2a16439
-Content-Type: application/octet-stream; name="build.patch"
-Content-Disposition: attachment; filename="build.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hbmespo70
-
-VGhlIHBpbmc2IGNvbW1hbmQgY2FuIHVzZSBlaXRoZXIgb3BlbnNzbCBvciBnbnV0bHMuLi4KYW5k
-IHRoZSBNYWtlZmlsZSBoYXMgYSBidW5jaCBvZiBzZXR1cCBmb3IgZGVmaW5pbmcgd2hpY2ggb2Yg
-dGhlIHR3byB0byB1c2UuCgpVbmZvcnR1bmF0ZWx5LCB0aGUgZmluYWwgLUQgZGVmaW5lIG9uIHRo
-ZSBjb21tYW5kbGluZSB0byBlbmFibGUgZ251dGxzIGluc2lkZSB0aGUgcGluZzYuYyBmaWxlIGRp
-ZG4ndCBhY3R1YWxseSBtYWtlIGl0IG9udG8gdGhlIGdjYyBjb21tYW5kbGluZS4KVGhpcyBwYXRj
-aCBhZGRzIHRoZSAkKERFRl9DUllQVE8pIE1ha2VmaWxlIHZhcmlhYmxlIHRvIGZpeCB0aGlzIGdh
-cC4KClNpZ25lZC1vZmYtYnk6IEFyamFuIHZhbiBkZSBWZW4gPGFyamFudmFuZGV2ZW5AZ21haWwu
-Y29tPgoKLS0tIGlwdXRpbHMtczIwMTIxMjIxL01ha2VmaWxlfgkyMDEyLTEyLTIxIDA2OjAxOjA3
-LjAwMDAwMDAwMCAtMDgwMAorKysgaXB1dGlscy1zMjAxMjEyMjEvTWFrZWZpbGUJMjAxMy0wMS0w
-NiAwODoyNzo1Ni4wMTQ4OTE4NDYgLTA4MDAKQEAgLTE0OSw3ICsxNDksNyBAQAogREVGX3Bpbmdf
-Y29tbW9uID0gJChERUZfQ0FQKSAkKERFRl9JRE4pCiBERUZfcGluZyAgPSAkKERFRl9DQVApICQo
-REVGX0lETikgJChERUZfV0lUSE9VVF9JRkFERFJTKQogTElCX3BpbmcgID0gJChMSUJfQ0FQKSAk
-KExJQl9JRE4pCi1ERUZfcGluZzYgPSAkKERFRl9DQVApICQoREVGX0lETikgJChERUZfV0lUSE9V
-VF9JRkFERFJTKSAkKERFRl9FTkFCTEVfUElORzZfUlRIRFIpCitERUZfcGluZzYgPSAkKERFRl9D
-QVApICQoREVGX0lETikgJChERUZfV0lUSE9VVF9JRkFERFJTKSAkKERFRl9FTkFCTEVfUElORzZf
-UlRIRFIpICQoREVGX0NSWVBUTykKIExJQl9waW5nNiA9ICQoTElCX0NBUCkgJChMSUJfSUROKSAk
-KExJQl9SRVNPTFYpICQoTElCX0NSWVBUTykKIAogcGluZzogcGluZ19jb21tb24ubwo=
---f46d0434bf1e6d88f004d2a16439--
+Willy
