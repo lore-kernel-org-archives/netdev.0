@@ -1,72 +1,42 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH 1/1] net: fec: report correct hardware stamping info to ethtool
-Date: Sun, 6 Jan 2013 09:38:38 +0800
-Message-ID: <1357436318-12425-1-git-send-email-Frank.Li@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: make sysctl_tcp_ecn namespace aware
+Date: Sat, 05 Jan 2013 18:19:22 -0800
+Message-ID: <1357438762.1678.5215.camel@edumazet-glaptop>
+References: <20130105150130.GC4031@order.stressinduktion.org>
+	 <20130105110005.2bf230eb@nehalam.linuxnetplumber.net>
+	 <20130105190508.GE4031@order.stressinduktion.org>
+	 <20130106011849.GA28545@order.stressinduktion.org>
+	 <1357435646.1678.5082.camel@edumazet-glaptop>
+	 <20130106021048.GA32202@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <s.hauer@pengutronix.de>, Frank Li <Frank.Li@freescale.com>
-To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>,
-	<richardcochran@gmail.com>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.or>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe001.messaging.microsoft.com ([213.199.154.204]:52199
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755011Ab3AFCSg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 21:18:36 -0500
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:49378 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975Ab3AFCTZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jan 2013 21:19:25 -0500
+Received: by mail-pb0-f48.google.com with SMTP id rq13so9930418pbb.21
+        for <netdev@vger.kernel.org>; Sat, 05 Jan 2013 18:19:24 -0800 (PST)
+In-Reply-To: <20130106021048.GA32202@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Report correct hardware stamping capibilty by ethtool interface.
-The v1.0 ptp4l check it.
+On Sun, 2013-01-06 at 03:10 +0100, Hannes Frederic Sowa wrote:
+> As per suggestion from Eric Dumazet this patch makes tcp_ecn sysctl
+> namespace aware.  The reason behind this patch is to ease the testing
+> of ecn problems on the internet and allows applications to tune their
+> own use of ecn.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- drivers/net/ethernet/freescale/fec.c |   28 +++++++++++++++++++++++++++-
- 1 files changed, 27 insertions(+), 1 deletions(-)
+Seems good to me, thanks !
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a379319..c713db5 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1173,12 +1173,38 @@ static void fec_enet_get_drvinfo(struct net_device *ndev,
- 	strcpy(info->bus_info, dev_name(&ndev->dev));
- }
- 
-+static int fec_enet_get_ts_info(struct net_device *ndev,
-+				struct ethtool_ts_info *info)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+	int ret;
-+	ret = ethtool_op_get_ts_info(ndev, info);
-+
-+	if (fep->bufdesc_ex) {
-+
-+		info->so_timestamping |= SOF_TIMESTAMPING_TX_HARDWARE |
-+					 SOF_TIMESTAMPING_RX_HARDWARE |
-+					 SOF_TIMESTAMPING_RAW_HARDWARE;
-+		if (fep->ptp_clock)
-+			info->phc_index = ptp_clock_index(fep->ptp_clock);
-+		else
-+			info->phc_index = -1;
-+
-+		info->tx_types = (1 << HWTSTAMP_TX_OFF) |
-+				 (1 << HWTSTAMP_TX_ON);
-+
-+		info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
-+				   (1 << HWTSTAMP_FILTER_ALL);
-+	}
-+	return ret;
-+}
-+
- static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
--	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_ts_info		= fec_enet_get_ts_info,
- };
- 
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
--- 
-1.7.1
+Acked-by: Eric Dumazet <edumazet@google.com>
