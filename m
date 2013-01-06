@@ -1,87 +1,225 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 4/4 net-next] tg3: Remove IS_ENABLED(CONFIG_HWMON) check
-Date: Sun, 6 Jan 2013 14:51:10 -0800
-Message-ID: <1357512670-17636-4-git-send-email-mchan@broadcom.com>
+Subject: [PATCH 2/4 net-next] tg3: Add NVRAM support for 5762
+Date: Sun, 6 Jan 2013 14:51:08 -0800
+Message-ID: <1357512670-17636-2-git-send-email-mchan@broadcom.com>
 References: <1357512670-17636-1-git-send-email-mchan@broadcom.com>
- <1357512670-17636-2-git-send-email-mchan@broadcom.com>
- <1357512670-17636-3-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, nsujir@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1980 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4621 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753166Ab3AFWfG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2013 17:35:06 -0500
-In-Reply-To: <1357512670-17636-3-git-send-email-mchan@broadcom.com>
+	id S1753231Ab3AFWfM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jan 2013 17:35:12 -0500
+In-Reply-To: <1357512670-17636-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nithin Nayak Sujir <nsujir@broadcom.com>
+Detect NVRAM types for 5762 and read OTP firmware version.
 
-Commit de0a41484c47d783dd4d442914815076aa2caac2 added Kconfig logic to
-select HWMON and removed all the IS_ENABLED(CONFIG_HWMON) checks in the
-tg3.c file. It missed this one check in the header.
-
-Update version to 3.129 and update copyright year.
-
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c |    6 +++---
- drivers/net/ethernet/broadcom/tg3.h |    4 +---
- 2 files changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/broadcom/tg3.c |   96 ++++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/broadcom/tg3.h |   15 ++++++
+ 2 files changed, 110 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3596b7b..bc4d989 100644
+index 01e3201..6eab7d7 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -4,7 +4,7 @@
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-  * Copyright (C) 2001, 2002, 2003 Jeff Garzik (jgarzik@pobox.com)
-  * Copyright (C) 2004 Sun Microsystems Inc.
-- * Copyright (C) 2005-2012 Broadcom Corporation.
-+ * Copyright (C) 2005-2013 Broadcom Corporation.
-  *
-  * Firmware is:
-  *	Derived from proprietary unpublished source code,
-@@ -93,10 +93,10 @@ static inline void _tg3_flag_clear(enum TG3_FLAGS flag, unsigned long *bits)
+@@ -330,6 +330,9 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5719)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5720)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57762)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5762)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5725)},
++	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5727)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9DXX)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_SYSKONNECT, PCI_DEVICE_ID_SYSKONNECT_9MXX)},
+ 	{PCI_DEVICE(PCI_VENDOR_ID_ALTIMA, PCI_DEVICE_ID_ALTIMA_AC1000)},
+@@ -13714,6 +13717,20 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
+ 	nvcfg1 = tr32(NVRAM_CFG1);
+ 	nvmpinstrp = nvcfg1 & NVRAM_CFG1_5752VENDOR_MASK;
  
- #define DRV_MODULE_NAME		"tg3"
- #define TG3_MAJ_NUM			3
--#define TG3_MIN_NUM			128
-+#define TG3_MIN_NUM			129
- #define DRV_MODULE_VERSION	\
- 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
--#define DRV_MODULE_RELDATE	"December 03, 2012"
-+#define DRV_MODULE_RELDATE	"January 06, 2013"
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5762) {
++		if (!(nvcfg1 & NVRAM_CFG1_5762VENDOR_MASK)) {
++			tg3_flag_set(tp, NO_NVRAM);
++			return;
++		}
++
++		switch (nvmpinstrp) {
++		case FLASH_5762_EEPROM_HD:
++			nvmpinstrp = FLASH_5720_EEPROM_HD;
++		case FLASH_5762_EEPROM_LD:
++			nvmpinstrp = FLASH_5720_EEPROM_LD;
++		}
++	}
++
+ 	switch (nvmpinstrp) {
+ 	case FLASH_5720_EEPROM_HD:
+ 	case FLASH_5720_EEPROM_LD:
+@@ -13817,6 +13834,17 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
+ 	tg3_nvram_get_pagesize(tp, nvcfg1);
+ 	if (tp->nvram_pagesize != 264 && tp->nvram_pagesize != 528)
+ 		tg3_flag_set(tp, NO_NVRAM_ADDR_TRANS);
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5762) {
++		u32 val;
++
++		if (tg3_nvram_read(tp, 0, &val))
++			return;
++
++		if (val != TG3_EEPROM_MAGIC &&
++		    (val & TG3_EEPROM_MAGIC_FW_MSK) != TG3_EEPROM_MAGIC_FW)
++			tg3_flag_set(tp, NO_NVRAM);
++	}
+ }
  
- #define RESET_KIND_SHUTDOWN	0
- #define RESET_KIND_INIT		1
+ /* Chips other than 5700/5701 use the NVRAM for fetching info. */
+@@ -13866,7 +13894,8 @@ static void tg3_nvram_init(struct tg3 *tp)
+ 		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
+ 			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
+ 			tg3_get_5717_nvram_info(tp);
+-		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720)
++		else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720 ||
++			 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5762)
+ 			tg3_get_5720_nvram_info(tp);
+ 		else
+ 			tg3_get_nvram_info(tp);
+@@ -14168,6 +14197,39 @@ done:
+ 		device_set_wakeup_capable(&tp->pdev->dev, false);
+ }
+ 
++static int tg3_ape_otp_read(struct tg3 *tp, u32 offset, u32 *val)
++{
++	int i, err;
++	u32 val2, off = offset * 8;
++
++	err = tg3_nvram_lock(tp);
++	if (err)
++		return err;
++
++	tg3_ape_write32(tp, TG3_APE_OTP_ADDR, off | APE_OTP_ADDR_CPU_ENABLE);
++	tg3_ape_write32(tp, TG3_APE_OTP_CTRL, APE_OTP_CTRL_PROG_EN |
++			APE_OTP_CTRL_CMD_RD | APE_OTP_CTRL_START);
++	tg3_ape_read32(tp, TG3_APE_OTP_CTRL);
++	udelay(10);
++
++	for (i = 0; i < 100; i++) {
++		val2 = tg3_ape_read32(tp, TG3_APE_OTP_STATUS);
++		if (val2 & APE_OTP_STATUS_CMD_DONE) {
++			*val = tg3_ape_read32(tp, TG3_APE_OTP_RD_DATA);
++			break;
++		}
++		udelay(10);
++	}
++
++	tg3_ape_write32(tp, TG3_APE_OTP_CTRL, 0);
++
++	tg3_nvram_unlock(tp);
++	if (val2 & APE_OTP_STATUS_CMD_DONE)
++		return 0;
++
++	return -EBUSY;
++}
++
+ static int tg3_issue_otp_command(struct tg3 *tp, u32 cmd)
+ {
+ 	int i;
+@@ -14708,6 +14770,8 @@ static void tg3_read_dash_ver(struct tg3 *tp)
+ 
+ 	if (tg3_flag(tp, APE_HAS_NCSI))
+ 		fwtype = "NCSI";
++	else if (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5725)
++		fwtype = "SMASH";
+ 	else
+ 		fwtype = "DASH";
+ 
+@@ -14721,6 +14785,31 @@ static void tg3_read_dash_ver(struct tg3 *tp)
+ 		 (apedata & APE_FW_VERSION_BLDMSK));
+ }
+ 
++static void tg3_read_otp_ver(struct tg3 *tp)
++{
++	u32 val, val2;
++
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5762)
++		return;
++
++	if (!tg3_ape_otp_read(tp, OTP_ADDRESS_MAGIC0, &val) &&
++	    !tg3_ape_otp_read(tp, OTP_ADDRESS_MAGIC0 + 4, &val2) &&
++	    TG3_OTP_MAGIC0_VALID(val)) {
++		u64 val64 = (u64) val << 32 | val2;
++		u32 ver = 0;
++		int i, vlen;
++
++		for (i = 0; i < 7; i++) {
++			if ((val64 & 0xff) == 0)
++				break;
++			ver = val64 & 0xff;
++			val64 >>= 8;
++		}
++		vlen = strlen(tp->fw_ver);
++		snprintf(&tp->fw_ver[vlen], TG3_VER_SIZE - vlen, " .%02d", ver);
++	}
++}
++
+ static void tg3_read_fw_ver(struct tg3 *tp)
+ {
+ 	u32 val;
+@@ -14731,6 +14820,7 @@ static void tg3_read_fw_ver(struct tg3 *tp)
+ 
+ 	if (tg3_flag(tp, NO_NVRAM)) {
+ 		strcat(tp->fw_ver, "sb");
++		tg3_read_otp_ver(tp);
+ 		return;
+ 	}
+ 
+@@ -15428,6 +15518,10 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
+ 					      GRC_LCLCTRL_GPIO_OUTPUT0;
+ 	}
+ 
++	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5762)
++		tp->grc_local_ctrl |=
++			tr32(GRC_LOCAL_CTRL) & GRC_LCLCTRL_GPIO_UART_SEL;
++
+ 	/* Switch out of Vaux if it is a NIC */
+ 	tg3_pwrsrc_switch_to_vmain(tp);
+ 
 diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 39afc0e..9cd88a4 100644
+index 46d43f7..39afc0e 100644
 --- a/drivers/net/ethernet/broadcom/tg3.h
 +++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -4,7 +4,7 @@
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-  * Copyright (C) 2001 Jeff Garzik (jgarzik@pobox.com)
-  * Copyright (C) 2004 Sun Microsystems Inc.
-- * Copyright (C) 2007-2012 Broadcom Corporation.
-+ * Copyright (C) 2007-2013 Broadcom Corporation.
-  */
+@@ -1859,6 +1859,7 @@
+ #define  FLASH_VENDOR_SST_SMALL		 0x00000001
+ #define  FLASH_VENDOR_SST_LARGE		 0x02000001
+ #define  NVRAM_CFG1_5752VENDOR_MASK	 0x03c00003
++#define  NVRAM_CFG1_5762VENDOR_MASK	 0x03e00003
+ #define  FLASH_5752VENDOR_ATMEL_EEPROM_64KHZ	 0x00000000
+ #define  FLASH_5752VENDOR_ATMEL_EEPROM_376KHZ	 0x02000000
+ #define  FLASH_5752VENDOR_ATMEL_FLASH_BUFFERED	 0x02000003
+@@ -2376,6 +2377,20 @@
+ #define  APE_LOCK_REQ_DRIVER		 0x00001000
+ #define TG3_APE_LOCK_GRANT		0x004c
+ #define  APE_LOCK_GRANT_DRIVER		 0x00001000
++#define TG3_APE_OTP_CTRL		0x00e8
++#define  APE_OTP_CTRL_PROG_EN		 0x200000
++#define  APE_OTP_CTRL_CMD_RD		 0x000000
++#define  APE_OTP_CTRL_START		 0x000001
++#define TG3_APE_OTP_STATUS		0x00ec
++#define  APE_OTP_STATUS_CMD_DONE	 0x000001
++#define TG3_APE_OTP_ADDR		0x00f0
++#define  APE_OTP_ADDR_CPU_ENABLE	 0x80000000
++#define TG3_APE_OTP_RD_DATA		0x00f8
++
++#define OTP_ADDRESS_MAGIC0		 0x00000050
++#define TG3_OTP_MAGIC0_VALID(val)		\
++	((((val) & 0xf0000000) == 0xa0000000) ||\
++	 (((val) & 0x0f000000) == 0x0a000000))
  
- #ifndef _T3_H
-@@ -3348,9 +3348,7 @@ struct tg3 {
- 	const struct firmware		*fw;
- 	u32				fw_len; /* includes BSS */
- 
--#if IS_ENABLED(CONFIG_HWMON)
- 	struct device			*hwmon_dev;
--#endif
- 	bool				link_up;
- };
- 
+ /* APE shared memory.  Accessible through BAR1 */
+ #define TG3_APE_SHMEM_BASE		0x4000
 -- 
 1.7.1
