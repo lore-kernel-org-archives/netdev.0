@@ -1,68 +1,66 @@
-From: "John Stoffel" <john@stoffel.org>
-Subject: Re: Major network performance regression in 3.7
-Date: Sun, 6 Jan 2013 16:49:35 -0500
-Message-ID: <20713.61807.385486.594545@quad.stoffel.home>
-References: <1357484342.6919.61.camel@edumazet-glaptop>
-	<20130106155123.GB16031@1wt.eu>
-	<1357490393.6919.267.camel@edumazet-glaptop>
-	<20130106164416.GF16031@1wt.eu>
-	<1357492255.6919.336.camel@edumazet-glaptop>
-	<20130106173543.GB22432@1wt.eu>
-	<1357497541.6919.519.camel@edumazet-glaptop>
-	<1357497809.6919.529.camel@edumazet-glaptop>
-	<1357498276.6919.547.camel@edumazet-glaptop>
-	<1357498815.6919.570.camel@edumazet-glaptop>
-	<20130106193410.GL16031@1wt.eu>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 3/4 net-next] tg3: Improve PCI function number
+ detection.
+Date: Sun, 6 Jan 2013 14:51:09 -0800
+Message-ID: <1357512670-17636-3-git-send-email-mchan@broadcom.com>
+References: <1357512670-17636-1-git-send-email-mchan@broadcom.com>
+ <1357512670-17636-2-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130106193410.GL16031@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nsujir@broadcom.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1981 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753138Ab3AFWfG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jan 2013 17:35:06 -0500
+In-Reply-To: <1357512670-17636-2-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>>>> "Willy" == Willy Tarreau <w@1wt.eu> writes:
+Simplify the code to detect PCI function number on 5717, 5719, and 5720.
+If shared memory does not have proper signature, read the function number
+from register directly.
 
-Willy> On Sun, Jan 06, 2013 at 11:00:15AM -0800, Eric Dumazet wrote:
->> On Sun, 2013-01-06 at 10:51 -0800, Eric Dumazet wrote:
->> > > 
->> > > (sd->len is usually 4096, which is expected, but sd->total_len value is
->> > > huge in your case, so we always set the flag in fs/splice.c)
->> > 
->> > I am testing :
->> > 
->> >        if (sd->len < sd->total_len && pipe->nrbufs > 1)
->> >                 more |= MSG_SENDPAGE_NOTLAST;
->> > 
->> 
->> Yes, this should fix the problem :
->> 
->> If there is no following buffer in the pipe, we should not set NOTLAST.
->> 
->> diff --git a/fs/splice.c b/fs/splice.c
->> index 8890604..6909d89 100644
->> --- a/fs/splice.c
->> +++ b/fs/splice.c
->> @@ -696,8 +696,10 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
->> return -EINVAL;
->> 
->> more = (sd->flags & SPLICE_F_MORE) ? MSG_MORE : 0;
->> -	if (sd->len < sd->total_len)
->> +
->> +	if (sd->len < sd->total_len && pipe->nrbufs > 1)
->> more |= MSG_SENDPAGE_NOTLAST;
->> +
->> return file->f_op->sendpage(file, buf->page, buf->offset,
-sd-> len, &pos, more);
->> }
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   19 ++++++++-----------
+ 1 files changed, 8 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 6eab7d7..3596b7b 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -15441,21 +15441,18 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
+ 					      &val);
+ 			tp->pci_fn = val & 0x7;
+ 		}
+-	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717) {
+-		tg3_read_mem(tp, NIC_SRAM_CPMU_STATUS, &val);
+-		if ((val & NIC_SRAM_CPMUSTAT_SIG_MSK) ==
+-		    NIC_SRAM_CPMUSTAT_SIG) {
+-			tp->pci_fn = val & TG3_CPMU_STATUS_FMSK_5717;
+-			tp->pci_fn = tp->pci_fn ? 1 : 0;
+-		}
+-	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
++	} else if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 ||
++		   GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
+ 		   GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720) {
+ 		tg3_read_mem(tp, NIC_SRAM_CPMU_STATUS, &val);
+-		if ((val & NIC_SRAM_CPMUSTAT_SIG_MSK) ==
+-		    NIC_SRAM_CPMUSTAT_SIG) {
++		if ((val & NIC_SRAM_CPMUSTAT_SIG_MSK) != NIC_SRAM_CPMUSTAT_SIG)
++			val = tr32(TG3_CPMU_STATUS);
++
++		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717)
++			tp->pci_fn = (val & TG3_CPMU_STATUS_FMSK_5717) ? 1 : 0;
++		else
+ 			tp->pci_fn = (val & TG3_CPMU_STATUS_FMSK_5719) >>
+ 				     TG3_CPMU_STATUS_FSHFT_5719;
+-		}
+ 	}
  
-Willy> OK it works like a charm here now ! I can't break it anymore, so it
-Willy> looks like you finally got it !
-
-It's still broken, there's no comments in the code to explain all this
-magic to mere mortals!  *grin*
-
-John
+ 	/* Get eeprom hw config before calling tg3_set_power_state().
+-- 
+1.7.1
