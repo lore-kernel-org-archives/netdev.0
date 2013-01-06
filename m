@@ -1,101 +1,145 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: Re: [PATCH -v2 19/26] batman-adv: rename random32()
-	to prandom_u32()
-Date: Sun, 6 Jan 2013 10:00:17 +0100
-Message-ID: <20130106090016.GF27589@ritirata.org>
-References: <1357215562-6288-1-git-send-email-akinobu.mita@gmail.com>
- <1357215562-6288-20-git-send-email-akinobu.mita@gmail.com>
- <20130104021252.GE27589@ritirata.org>
- <CAC5umyhLB++mh=-pFRzhD-YxZH2RwC5ED4g8mYxS5pYGcbxsvw@mail.gmail.com>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: Major network performance regression in 3.7
+Date: Sun, 6 Jan 2013 10:24:35 +0100
+Message-ID: <20130106092435.GZ16031@1wt.eu>
+References: <20130105232913.GQ16031@1wt.eu> <1357430523.1678.4901.camel@edumazet-glaptop> <20130106005053.GS16031@1wt.eu> <1357435276.1678.5067.camel@edumazet-glaptop> <20130106013027.GV16031@1wt.eu> <1357436430.1678.5111.camel@edumazet-glaptop> <1357437086.1678.5135.camel@edumazet-glaptop> <1357438591.1678.5205.camel@edumazet-glaptop> <20130106025256.GY16031@1wt.eu> <1357457724.1678.5941.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature"; boundary="ULyIDA2m8JTe+TiX"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>,
- akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 1wt.eu ([62.212.114.60]:37525 "EHLO 1wt.eu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751828Ab3AFJYm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jan 2013 04:24:42 -0500
 Content-Disposition: inline
-In-Reply-To: <CAC5umyhLB++mh=-pFRzhD-YxZH2RwC5ED4g8mYxS5pYGcbxsvw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1357457724.1678.5941.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, Jan 05, 2013 at 11:35:24PM -0800, Eric Dumazet wrote:
+> On Sun, 2013-01-06 at 03:52 +0100, Willy Tarreau wrote:
+> 
+> > OK so I observed no change with this patch, either on the loopback
+> > data rate at >16kB MTU, or on the myri. I'm keeping it at hand for
+> > experimentation anyway.
+> > 
+> 
+> Yeah, there was no bug. I rewrote it for net-next as a cleanup/optim
+> only.
 
---ULyIDA2m8JTe+TiX
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I have re-applied your last rewrite and noticed a small but nice
+performance improvement on a single stream over the loopback :
 
-On Fri, Jan 04, 2013 at 10:50:41PM +0900, Akinobu Mita wrote:
-> 2013/1/4 Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>:
-> > On Thu, Jan 03, 2013 at 09:19:15PM +0900, Akinobu Mita wrote:
-> >> Use more preferable function name which implies using a pseudo-random
-> >> number generator.
-> >>
-> >> Signed-off-by: Akinobu Mita <akinobu.mita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> >> Acked-by: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> >> Cc: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
-> >> Cc: Simon Wunderlich <siwu-MaAgPAbsBIVS8oHt8HbXEIQuADTiUCJX@public.gmane.org>
-> >> Cc: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-> >> Cc: b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-> >> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> >> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> >> ---
-> >
-> > Hello Akinobu,
-> >
-> > as you can see in <201301021952.49979.lindner_marek-LWAfsSFWpa4@public.gmane.org>, Marek Li=
-ndner
-> > already applied this change onto our tree. You didn't need to resend th=
-is patch
-> > to netdev, it will be sent by us through a future pull request.
->=20
-> Yes. I read Marek's email. But I included it in v2 again in order not
-> to break the build. Because it doesn't show up the latest linux-next yet
-> and the last patch 26/26 removes random32() and srandom32().
->=20
-> But I should have mentioned it and trimmed the Cc list.
-> Sorry for the confusion.
+                        1 session       10 sessions
+  - without the patch :   55.8 Gbps       68.4 Gbps
+  - with the patch    :   56.4 Gbps       70.4 Gbps
 
-Ok..everything is fine as soon David won't apply this patch.
-Cheers,
+This was with the loopback reverted to 16kB MTU of course.
 
---=20
-Antonio Quartulli
+> > Concerning the loopback MTU, I find it strange that the MTU changes
+> > the splice() behaviour and not send/recv. I thought that there could
+> > be a relation between the MTU and the pipe size, but it does not
+> > appear to be the case either, as I tried various sizes between 16kB
+> > and 256kB without achieving original performance.
+> 
+> 
+> It probably is related to a too small receive window, given the MTU was
+> multiplied by 4, I guess we need to make some adjustments
 
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
+In fact even if I set it to 32kB it breaks.
 
---ULyIDA2m8JTe+TiX
-Content-Type: application/pgp-signature
+I have tried to progressively increase the loopback's MTU from the default
+16436, by steps of 4096 :
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
+            tcp_rmem = 256 kB           tcp_rmem = 256 kB
+            pipe size = 64 kB           pipe size = 256 kB
 
-iQIcBAEBAgAGBQJQ6T0gAAoJEADl0hg6qKeORmoP/0ufdpjCTS3JAqZTBxhxztqA
-66ijELkVTinlb5XENn72cTm3kSvFzacZN0+nOFyW+MiQ34xCuuvZPeKSHZPa5fdF
-YBbWX8+KZPBVKRekMFv12P8wRuh3FBIHF9tnJE//uZ98w5GKyrCjSlC58kLf1Xqy
-2jssHcPi/fsqHzjxF7V7NdZV5PtrekUtjyddwmH2pAicpcbwWWpmO4FZH6DkPcho
-lR8tbXJh/I3bDo8Qrwk0wW6yAuFduiAwYwXkOOKoTuauq25tP+9VwrU4/yrcl7Fp
-JJWHHgUsAAMu/saey22dGR8fckGBYRcxBsuk080vsQ82lsbII5nx9NSDFOsZLyW2
-uVbQLZEeERrwPLbovabPwb+rre9QgaW0x57vPpkm5EwJa/0ukO7ojUrymoKhiGcr
-kHVNmO633vq+yM2/IYxpAaWGEViuFr0hFkg/9PXqRjUzbnOBLVThUYKqwOO0LIq2
-ILA7mEknuQxToFGS3uujxroRRsvTEEh0lOwEJQsOwqzCr61zzPBcAaQbyhONmpnz
-bHOAxQcgbuvkCH3x9RknfyPpbJlg/J/ezdG2BV7lsgirBNMLE+7d6xNB0IG6SXyc
-CCiVRMFS5Lbp/1RF0KBEAvKiVm+m5X55BcIy1KPr0cFzyAxZy6cRoH3u6TvAp8xn
-dAjmVFueY0eZ0lj8yOzQ
-=VonP
------END PGP SIGNATURE-----
+    16436 : 55.8 Gbps                   65.2 Gbps
+    20532 : 32..48 Gbps unstable        24..45 Gbps unstable
+    24628 : 56.0 Gbps                   66.4 Gbps
+    28724 : 58.6 Gbps                   67.8 Gbps
+    32820 : 54.5 Gbps                   61.7 Gbps
+    36916 : 56.8 Gbps                   65.5 Gbps
+    41012 : 57.8..58.2 Gbps ~stable     67.5..68.8 Gbps ~stable
+    45108 : 59.4 Gbps                   70.0 Gbps
+    49204 : 61.2 Gbps                   71.1 Gbps
+    53300 : 58.8 Gbps                   70.6 Gbps
+    57396 : 60.2 Gbps                   70.8 Gbps
+    61492 : 61.4 Gbps                   71.1 Gbps
 
---ULyIDA2m8JTe+TiX--
+            tcp_rmem = 1 MB             tcp_rmem = 1 MB
+            pipe size = 64 kB           pipe size = 256 kB
+
+    16436 : 16..34 Gbps unstable        49.5 or 65.2 Gbps (unstable)
+    20532 :  7..15 Gbps unstable        15..32 Gbps unstable
+    24628 : 36..48 Gbps unstable        34..61 Gbps unstable
+    28724 : 40..51 Gbps unstable        40..69 Gbps unstable
+    32820 : 40..55 Gbps unstable        59.9..62.3 Gbps ~stable
+    36916 : 38..51 Gbps unstable        66.0 Gbps
+    41012 : 30..42 Gbps unstable        47..66 Gbps unstable
+    45108 : 59.5 Gbps                   71.2 Gbps
+    49204 : 61.3 Gbps                   74.0 Gbps
+    53300 : 63.1 Gbps                   74.5 Gbps
+    57396 : 64.6 Gbps                   74.7 Gbps
+    61492 : 61..66 Gbps unstable        76.5 Gbps
+
+So as long as we maintain the MTU to n*4096 + 52, performance is still
+almost OK. It is interesting to see that the transfer rate is unstable
+at many values and that it depends both on the rmem and pipe size, just
+as if some segments sometimes remained stuck for too long.
+
+And if I pick a value which does not match n*4096+52, such as
+61492+2048 = 63540, then the transfer falls to about 50-100 Mbps again.
+
+So there's clearly something related to the copy of segments from
+incomplete pages instead of passing them via the pipe.
+
+It is possible that this bug has been there for a long time and that
+we never detected it because nobody plays with the loopback MTU.
+
+I have tried with 2.6.35 :
+
+    16436 : 31..33 Gbps
+    61492 : 48..50 Gbps
+    63540 : 50..53 Gbps  => so at least it's not affected
+
+Even forcing the MTU to 16384 maintains 30..33 Gbps almost stable.
+
+On 3.5.7.2 :
+
+    16436 : 23..27 Gbps
+    61492 : 61..64 Gbps
+    63540 : 40..100 Mbps  => the problem was already there.
+
+Since there were many splice changes in 3.5, I'd suspect that the issue
+appeared there though I could be wrong.
+
+> You also could try :
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 1ca2536..b68cdfb 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -1482,6 +1482,9 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+>  					break;
+>  			}
+>  			used = recv_actor(desc, skb, offset, len);
+> +			/* Clean up data we have read: This will do ACK frames. */
+> +			if (used > 0)
+> +				tcp_cleanup_rbuf(sk, used);
+>  			if (used < 0) {
+>  				if (!copied)
+>  					copied = used;
+
+It does not change anything to the tests above unfortunately. It did not
+even stabilize the unstable runs.
+
+I'll check if I can spot the original commit which caused the regression
+for MTUs that are not n*4096+52.
+
+But before that I'll try to find the recent one causing the myri10ge to
+slow down, it should take less time to bisect.
+
+Regards,
+Willy
