@@ -1,121 +1,89 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] drivers/net/wireless/ipw2x00: use strlcpy instead of
- strncpy
-Date: Sun, 06 Jan 2013 19:19:06 -0800
-Message-ID: <1357528746.4940.31.camel@joe-AO722>
-References: <50E82D7D.4090107@asianux.com>
-	 <1357396966.21156.4.camel@joe-AO722> <50EA37CE.1090901@asianux.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 19/19] netfilter: gre: fix resource leak when
+ unregister gre proto
+Date: Mon, 7 Jan 2013 04:27:11 +0100
+Message-ID: <20130107032711.GA18953@1984>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com>
+ <20130105035048.GA20027@1984>
+ <50EA2489.3070309@cn.fujitsu.com>
+ <20130107021517.GA12215@1984>
+ <20130107023808.GA14431@1984>
+ <50EA3A1F.8020108@cn.fujitsu.com>
+ <50EA3B68.1080001@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: stas.yakovlev@gmail.com, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Chen Gang <gang.chen@asianux.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	canqunzhang@gmail.com, kaber@trash.net, ebiederm@xmission.com
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:38699 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753395Ab3AGDTI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2013 22:19:08 -0500
-In-Reply-To: <50EA37CE.1090901@asianux.com>
+Received: from mail.us.es ([193.147.175.20]:33239 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753561Ab3AGD1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Jan 2013 22:27:18 -0500
+Content-Disposition: inline
+In-Reply-To: <50EA3B68.1080001@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-07 at 10:49 +0800, Chen Gang wrote:
->   but I think the original author intended to use escaped instead of ssid
->     DECLARE_SSID_BUF(ssid)  (line 5525, 5737)
->     use ssid to print debug information directly
->       (such as: line 5530..5535, 5545..5549, 5745..5749, ...)
->     when need print additional information, use escaped
->       (line 5559..5569, 5773..5782, 5791..5799)
+On Mon, Jan 07, 2013 at 11:05:12AM +0800, Gao feng wrote:
+> On 01/07/13 10:59, Gao feng wrote:
+> > On 01/07/13 10:38, Pablo Neira Ayuso wrote:
+> >> On Mon, Jan 07, 2013 at 03:15:17AM +0100, Pablo Neira Ayuso wrote:
+> >>> Hi Gao,
+> >>>
+> >>> On Mon, Jan 07, 2013 at 09:27:37AM +0800, Gao feng wrote:
+> >>>> Hi Pablo,
+> >>>>
+> >>>> On 01/05/13 11:50, Pablo Neira Ayuso wrote:
+> >>>>> Hi Gao,
+> >>>>>
+> >>>>> On Fri, Dec 28, 2012 at 10:36:46AM +0800, Gao feng wrote:
+> >>>>>> Currectly we unregister proto before all conntrack entries of
+> >>>>>> this proto being destroyed. so in function destroy_conntrack
+> >>>>>> we can't find proper l4proto to call l4proto->destroy.
+> >>>>>> this will cause resource leak.
+> >>>>>
+> >>>>> Good catch.
+> >>>>>
+> >>>>> But better to remove the entries before unregistering the protocol
+> >>>>> tracker, so l4proto->destroy is always called.
+> >>>>>
+> >>>>
+> >>>> I think the reason we unregister proto before remove all entries
+> >>>> is to avoid new entry for this protocol being created.
+> >>>>
+> >>>> If we remove all contrack entries before unregistration, there maybe
+> >>>> some new entries being created between nf_ct_iterate_cleanup and
+> >>>> nf_conntrack_l4proto_unregister_net.this will cause some terrible things.
+> >>>
+> >>> Leaks are less likely to happen, but may well still happen while
+> >>> racing with protocol removal, agreed.
+> >>>
+> >>>> SO I think we should make proto unavailable first,remove all entries next,
+> >>>> and remove proto from nf_ct_protos arrays finally.
+> >>>
+> >>> Your proposal adds a branch in the packet path to fix an issue that is
+> >>> specific of the GRE protocol tracker. In the current code, this fixes
+> >>> the memory leak while removing the nf_conntrack_proto_gre module,
+> >>> which is a rare operation.
+> >>>
+> >>> We have to come with a less intrusive solution.
+> >>
+> >> Wait. The existing code is calling nf_ct_gre_keymap_flush in
+> >> proto_gre_net_exit path, so those keymap objects are not leaked.
+> > 
+> > Agree, it looks like nf_ct_gre_keymap_flush is added to solve this
+> > problem.
+> > 
+> > Please ignore this patch.
 > 
->   so, I still suggest:
->     only fix the bug (use strlcpy instead of strncpy)
->     and not touch original features which orignal author intended using.
+> I mean ignore the codes of gre part.
+> I still think nf_ct_iterate_cleanup doesn't make sure all entries being
+> destroyed.
 
-More likely John Linville just missed the conversions.
-4+ years ago.
+There is another round of nf_ct_iterate cleanup in
+nf_conntrack_cleanup_net. So I don't see any possible leak so far. Let
+me know if you find anything.
 
-commit 9387b7caf3049168fc97a8a9111af8fe2143af18
-Author: John W. Linville <linville@tuxdriver.com>
-Date:   Tue Sep 30 20:59:05 2008 -0400
-
-    wireless: use individual buffers for printing ssid values
-  
-    Also change escape_ssid to print_ssid to match print_mac semantics.
-    
-    Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-Maybe these days this should be another vsprintf %p extension
-like %pM when the DECLARE_MAC_BUF/print_mac uses were converted.
-
-(or maybe extend %ph for ssids with %*phs, length, array)
-
-But if and until then, I suggest this instead:
-
- drivers/net/wireless/ipw2x00/ipw2200.c | 38 ++++++++++++++--------------------
- 1 file changed, 15 insertions(+), 23 deletions(-)
-
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index 844f201..3dc6a92 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -5556,15 +5556,12 @@ static int ipw_find_adhoc_network(struct ipw_priv *priv,
- 		    ((network->ssid_len != priv->essid_len) ||
- 		     memcmp(network->ssid, priv->essid,
- 			    min(network->ssid_len, priv->essid_len)))) {
--			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
-+			DECLARE_SSID_BUF(escaped);
- 
--			strncpy(escaped,
--				print_ssid(ssid, network->ssid,
--					   network->ssid_len),
--				sizeof(escaped));
--			IPW_DEBUG_MERGE("Network '%s (%pM)' excluded "
--					"because of ESSID mismatch: '%s'.\n",
--					escaped, network->bssid,
-+			IPW_DEBUG_MERGE("Network '%s (%pM)' excluded because of ESSID mismatch: '%s'\n",
-+					print_ssid(escaped, network->ssid,
-+						   network->ssid_len),
-+					network->bssid,
- 					print_ssid(ssid, priv->essid,
- 						   priv->essid_len));
- 			return 0;
-@@ -5770,14 +5767,11 @@ static int ipw_best_network(struct ipw_priv *priv,
- 		    ((network->ssid_len != priv->essid_len) ||
- 		     memcmp(network->ssid, priv->essid,
- 			    min(network->ssid_len, priv->essid_len)))) {
--			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
--			strncpy(escaped,
--				print_ssid(ssid, network->ssid,
--					   network->ssid_len),
--				sizeof(escaped));
--			IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded "
--					"because of ESSID mismatch: '%s'.\n",
--					escaped, network->bssid,
-+			DECLARE_SSID_BUF(escaped);
-+			IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded because of ESSID mismatch: '%s'\n",
-+					print_ssid(escaped, network->ssid,
-+						   network->ssid_len),
-+					network->bssid,
- 					print_ssid(ssid, priv->essid,
- 						   priv->essid_len));
- 			return 0;
-@@ -5787,13 +5781,11 @@ static int ipw_best_network(struct ipw_priv *priv,
- 	/* If the old network rate is better than this one, don't bother
- 	 * testing everything else. */
- 	if (match->network && match->network->stats.rssi > network->stats.rssi) {
--		char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
--		strncpy(escaped,
--			print_ssid(ssid, network->ssid, network->ssid_len),
--			sizeof(escaped));
--		IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded because "
--				"'%s (%pM)' has a stronger signal.\n",
--				escaped, network->bssid,
-+		DECLARE_SSID_BUF(escaped);
-+		IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded because '%s (%pM)' has a stronger signal\n",
-+				print_ssid(escaped, network->ssid,
-+					   network->ssid_len),
-+				network->bssid,
- 				print_ssid(ssid, match->network->ssid,
- 					   match->network->ssid_len),
- 				match->network->bssid);
+Thanks.
