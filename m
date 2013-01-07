@@ -1,32 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: remove orphaned references to micro
- channel
-Date: Sun, 06 Jan 2013 21:13:48 -0800 (PST)
-Message-ID: <20130106.211348.1999152444992940682.davem@davemloft.net>
-References: <1357354637-1784-1-git-send-email-paul.gortmaker@windriver.com>
+From: Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>
+Subject: Re: [patch net-next] net: use ETHTOOL_FWVERS_LEN instead of
+ ETHTOOL_BUSINFO_LEN for fw_ver strings
+Date: Mon, 7 Jan 2013 07:58:55 +0200
+Message-ID: <1357538335.22318.19.camel@cumari.coelho.fi>
+References: <1357474371-30887-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38142 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176Ab3AGFNs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 00:13:48 -0500
-In-Reply-To: <1357354637-1784-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1357474371-30887-1-git-send-email-jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri,  4 Jan 2013 21:57:17 -0500
+Hi Jiri,
 
-> We threw away the microchannel support, but the removal wasn't
-> completely trivial since there was namespace overlap with the
-> machine check support, and hence some orphaned dependencies
-> survived the deletion.  This attempts to sweep those up and
-> send them to the bit-bucket.
-> 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+On Sun, 2013-01-06 at 13:12 +0100, Jiri Pirko wrote:
+> Signed-off-by: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
+> ---
 
-Applied, thanks.
+Please add a commit message explaining why this change is needed.
+
+--
+Luca.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
