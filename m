@@ -1,217 +1,197 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 1/1] drivers/net: delete 8390 based EISA drivers.
-Date: Mon,  7 Jan 2013 13:16:58 -0500
-Message-ID: <1357582618-17183-2-git-send-email-paul.gortmaker@windriver.com>
-References: <1357582618-17183-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v2] ethtool: consolidate work with ethtool_ops
+Date: Mon,  7 Jan 2013 20:02:08 +0100
+Message-ID: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, bhutchings@solarflare.com,
+	richardcochran@gmail.com, greearb@candelatech.com,
+	jeffrey.t.kirsher@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:54850 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753217Ab3AGSRO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 13:17:14 -0500
-In-Reply-To: <1357582618-17183-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:57950 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755005Ab3AGTCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 14:02:15 -0500
+Received: by mail-ea0-f169.google.com with SMTP id a12so8107797eaa.28
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 11:02:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The NS8390 chip was essentially the 1st widespread PC ethernet
-chip, starting its life on 8 bit ISA cards in the late 1980s.
-Even with better technologies available (bus mastering etc)
-the 8390 managed to get used on a few rare EISA cards in the
-early to mid 1990s.
+No need to check if ethtool_ops == NULL since it can't be.
+Use local variable "ops" in functions where it is present
+instead of dev->ethtool_ops
+Introduce local variable "ops" in functions where dev->ethtool_ops is used
+many times.
 
-The EISA bus in the x86 world was largely confined to systems
-ranging from 486 to 586 (essentially 200MHz or lower, and less
-than 100MB RAM) -- i.e. machines unlikely to be still in service,
-and even less likely to be running a 3.9+ kernel.
-
-On top of that, only one of the five really ever was considered
-non-experimental; the smc-ultra32 was the one -- since it was
-largely just an EISA version of the popular smc-ultra ISA card.
-All the others had such a tiny user base that they simply never
-could be considered anything more than experimental.
-
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- drivers/net/ethernet/8390/Kconfig       |  66 +----
- drivers/net/ethernet/8390/Makefile      |   5 -
- drivers/net/ethernet/8390/ac3200.c      | 431 -----------------------------
- drivers/net/ethernet/8390/es3210.c      | 445 ------------------------------
- drivers/net/ethernet/8390/lne390.c      | 433 -----------------------------
- drivers/net/ethernet/8390/ne3210.c      | 346 ------------------------
- drivers/net/ethernet/8390/smc-ultra32.c | 463 --------------------------------
- 7 files changed, 2 insertions(+), 2187 deletions(-)
- delete mode 100644 drivers/net/ethernet/8390/ac3200.c
- delete mode 100644 drivers/net/ethernet/8390/es3210.c
- delete mode 100644 drivers/net/ethernet/8390/lne390.c
- delete mode 100644 drivers/net/ethernet/8390/ne3210.c
- delete mode 100644 drivers/net/ethernet/8390/smc-ultra32.c
 
-diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
-index 8801217..e49a442 100644
---- a/drivers/net/ethernet/8390/Kconfig
-+++ b/drivers/net/ethernet/8390/Kconfig
-@@ -6,7 +6,7 @@ config NET_VENDOR_8390
- 	bool "National Semi-conductor 8390 devices"
- 	default y
- 	depends on NET_VENDOR_NATSEMI && (AMIGA_PCMCIA || PCI || SUPERH || \
--		   ISA || EISA || MAC || M32R || MACH_TX49XX || \
-+		   ISA || MAC || M32R || MACH_TX49XX || \
- 		   H8300 || ARM || MIPS || ZORRO || PCMCIA || \
- 		   EXPERIMENTAL)
- 	---help---
-@@ -33,18 +33,6 @@ config EL2
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called 3c503.
+v1->v2:
+- fixed negation spotted by Ben
+
+ net/core/ethtool.c | 45 +++++++++++++++++++++------------------------
+ 1 file changed, 21 insertions(+), 24 deletions(-)
+
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index a870543..d9d5520 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -175,7 +175,7 @@ static int __ethtool_get_sset_count(struct net_device *dev, int sset)
+ 	if (sset == ETH_SS_FEATURES)
+ 		return ARRAY_SIZE(netdev_features_strings);
  
--config AC3200
--	tristate "Ansel Communications EISA 3200 support (EXPERIMENTAL)"
--	depends on PCI && (ISA || EISA) && EXPERIMENTAL
--	select CRC32
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called ac3200.
--
- config PCMCIA_AXNET
- 	tristate "Asix AX88190 PCMCIA support"
- 	depends on PCMCIA
-@@ -86,18 +74,6 @@ config E2100
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called e2100.
+-	if (ops && ops->get_sset_count && ops->get_strings)
++	if (ops->get_sset_count && ops->get_strings)
+ 		return ops->get_sset_count(dev, sset);
+ 	else
+ 		return -EOPNOTSUPP;
+@@ -311,7 +311,7 @@ int __ethtool_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	ASSERT_RTNL();
  
--config ES3210
--	tristate "Racal-Interlan EISA ES3210 support (EXPERIMENTAL)"
--	depends on PCI && EISA && EXPERIMENTAL
--	select CRC32
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called es3210.
--
- config HPLAN_PLUS
- 	tristate "HP PCLAN+ (27247B and 27252A) support"
- 	depends on ISA
-@@ -140,18 +116,6 @@ config ARM_ETHERH
- 	  If you have an Acorn system with one of these network cards, you
- 	  should say Y to this option if you wish to use it with Linux.
+-	if (!dev->ethtool_ops || !dev->ethtool_ops->get_settings)
++	if (!dev->ethtool_ops->get_settings)
+ 		return -EOPNOTSUPP;
  
--config LNE390
--	tristate "Mylex EISA LNE390A/B support (EXPERIMENTAL)"
--	depends on PCI && EISA && EXPERIMENTAL
--	select CRC32
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called lne390.
--
- config MAC8390
- 	bool "Macintosh NS 8390 based ethernet cards"
- 	depends on MAC
-@@ -187,8 +151,7 @@ config NE2000
- 	  without a specific driver are compatible with NE2000.
+ 	memset(cmd, 0, sizeof(struct ethtool_cmd));
+@@ -355,7 +355,7 @@ static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
  
- 	  If you have a PCI NE2000 card however, say N here and Y to "PCI
--	  NE2000 and clone support" under "EISA, VLB, PCI and on board
--	  controllers" below.
-+	  NE2000 and clone support" below.
+ 	memset(&info, 0, sizeof(info));
+ 	info.cmd = ETHTOOL_GDRVINFO;
+-	if (ops && ops->get_drvinfo) {
++	if (ops->get_drvinfo) {
+ 		ops->get_drvinfo(dev, &info);
+ 	} else if (dev->dev.parent && dev->dev.parent->driver) {
+ 		strlcpy(info.bus_info, dev_name(dev->dev.parent),
+@@ -370,7 +370,7 @@ static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
+ 	 * this method of obtaining string set info is deprecated;
+ 	 * Use ETHTOOL_GSSET_INFO instead.
+ 	 */
+-	if (ops && ops->get_sset_count) {
++	if (ops->get_sset_count) {
+ 		int rc;
  
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ne.
-@@ -223,19 +186,6 @@ config APNE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called apne.
+ 		rc = ops->get_sset_count(dev, ETH_SS_TEST);
+@@ -383,9 +383,9 @@ static noinline_for_stack int ethtool_get_drvinfo(struct net_device *dev,
+ 		if (rc >= 0)
+ 			info.n_priv_flags = rc;
+ 	}
+-	if (ops && ops->get_regs_len)
++	if (ops->get_regs_len)
+ 		info.regdump_len = ops->get_regs_len(dev);
+-	if (ops && ops->get_eeprom_len)
++	if (ops->get_eeprom_len)
+ 		info.eedump_len = ops->get_eeprom_len(dev);
  
--config NE3210
--	tristate "Novell/Eagle/Microdyne NE3210 EISA support (EXPERIMENTAL)"
--	depends on PCI && EISA && EXPERIMENTAL
--	select CRC32
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.  Note that this driver
--	  will NOT WORK for NE3200 cards as they are completely different.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called ne3210.
--
- config PCMCIA_PCNET
- 	tristate "NE2000 compatible PCMCIA support"
- 	depends on PCMCIA
-@@ -285,18 +235,6 @@ config ULTRA
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called smc-ultra.
+ 	if (copy_to_user(useraddr, &info, sizeof(info)))
+@@ -590,13 +590,14 @@ static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
+ 	struct ethtool_rxnfc rx_rings;
+ 	u32 user_size, dev_size, i;
+ 	u32 *indir;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	int ret;
  
--config ULTRA32
--	tristate "SMC Ultra32 EISA support"
--	depends on EISA
--	select CRC32
--	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
--
--	  To compile this driver as a module, choose M here. The module
--	  will be called smc-ultra32.
--
- config WD80x3
- 	tristate "WD80*3 support"
- 	depends on ISA
-diff --git a/drivers/net/ethernet/8390/Makefile b/drivers/net/ethernet/8390/Makefile
-index 8fb462c..e8bb97c 100644
---- a/drivers/net/ethernet/8390/Makefile
-+++ b/drivers/net/ethernet/8390/Makefile
-@@ -3,26 +3,21 @@
- #
+-	if (!dev->ethtool_ops->get_rxfh_indir_size ||
+-	    !dev->ethtool_ops->set_rxfh_indir ||
+-	    !dev->ethtool_ops->get_rxnfc)
++	if (!ops->get_rxfh_indir_size || !ops->set_rxfh_indir ||
++	    !ops->get_rxnfc)
+ 		return -EOPNOTSUPP;
+-	dev_size = dev->ethtool_ops->get_rxfh_indir_size(dev);
++
++	dev_size = ops->get_rxfh_indir_size(dev);
+ 	if (dev_size == 0)
+ 		return -EOPNOTSUPP;
  
- obj-$(CONFIG_MAC8390) += mac8390.o
--obj-$(CONFIG_AC3200) += ac3200.o 8390.o
- obj-$(CONFIG_APNE) += apne.o 8390.o
- obj-$(CONFIG_ARM_ETHERH) += etherh.o
- obj-$(CONFIG_AX88796) += ax88796.o
- obj-$(CONFIG_E2100) += e2100.o 8390.o
- obj-$(CONFIG_EL2) += 3c503.o 8390p.o
--obj-$(CONFIG_ES3210) += es3210.o 8390.o
- obj-$(CONFIG_HPLAN_PLUS) += hp-plus.o 8390p.o
- obj-$(CONFIG_HPLAN) += hp.o 8390p.o
- obj-$(CONFIG_HYDRA) += hydra.o 8390.o
--obj-$(CONFIG_LNE390) += lne390.o 8390.o
- obj-$(CONFIG_MCF8390) += mcf8390.o 8390.o
- obj-$(CONFIG_NE2000) += ne.o 8390p.o
- obj-$(CONFIG_NE2K_PCI) += ne2k-pci.o 8390.o
--obj-$(CONFIG_NE3210) += ne3210.o 8390.o
- obj-$(CONFIG_NE_H8300) += ne-h8300.o 8390.o
- obj-$(CONFIG_PCMCIA_AXNET) += axnet_cs.o 8390.o
- obj-$(CONFIG_PCMCIA_PCNET) += pcnet_cs.o 8390.o
- obj-$(CONFIG_STNIC) += stnic.o 8390.o
- obj-$(CONFIG_ULTRA) += smc-ultra.o 8390.o
--obj-$(CONFIG_ULTRA32) += smc-ultra32.o 8390.o
- obj-$(CONFIG_WD80x3) += wd.o 8390.o
- obj-$(CONFIG_ZORRO8390) += zorro8390.o 8390.o
-diff --git a/drivers/net/ethernet/8390/ac3200.c b/drivers/net/ethernet/8390/ac3200.c
-deleted file mode 100644
-index ccf0794..0000000
-diff --git a/drivers/net/ethernet/8390/es3210.c b/drivers/net/ethernet/8390/es3210.c
-deleted file mode 100644
-index ba1b5c9..0000000
-diff --git a/drivers/net/ethernet/8390/lne390.c b/drivers/net/ethernet/8390/lne390.c
-deleted file mode 100644
-index 479409b..0000000
-diff --git a/drivers/net/ethernet/8390/ne3210.c b/drivers/net/ethernet/8390/ne3210.c
-deleted file mode 100644
-index ebcdb52..0000000
-diff --git a/drivers/net/ethernet/8390/smc-ultra32.c b/drivers/net/ethernet/8390/smc-ultra32.c
-deleted file mode 100644
-index 923e42a..0000000
+@@ -613,7 +614,7 @@ static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
+ 		return -ENOMEM;
+ 
+ 	rx_rings.cmd = ETHTOOL_GRXRINGS;
+-	ret = dev->ethtool_ops->get_rxnfc(dev, &rx_rings, NULL);
++	ret = ops->get_rxnfc(dev, &rx_rings, NULL);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -639,7 +640,7 @@ static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
+ 		}
+ 	}
+ 
+-	ret = dev->ethtool_ops->set_rxfh_indir(dev, indir);
++	ret = ops->set_rxfh_indir(dev, indir);
+ 
+ out:
+ 	kfree(indir);
+@@ -1082,9 +1083,10 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+ {
+ 	struct ethtool_value id;
+ 	static bool busy;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	int rc;
+ 
+-	if (!dev->ethtool_ops->set_phys_id)
++	if (!ops->set_phys_id)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (busy)
+@@ -1093,7 +1095,7 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+ 	if (copy_from_user(&id, useraddr, sizeof(id)))
+ 		return -EFAULT;
+ 
+-	rc = dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_ACTIVE);
++	rc = ops->set_phys_id(dev, ETHTOOL_ID_ACTIVE);
+ 	if (rc < 0)
+ 		return rc;
+ 
+@@ -1118,7 +1120,7 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+ 			i = n;
+ 			do {
+ 				rtnl_lock();
+-				rc = dev->ethtool_ops->set_phys_id(dev,
++				rc = ops->set_phys_id(dev,
+ 				    (i & 1) ? ETHTOOL_ID_OFF : ETHTOOL_ID_ON);
+ 				rtnl_unlock();
+ 				if (rc)
+@@ -1133,7 +1135,7 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+ 	dev_put(dev);
+ 	busy = false;
+ 
+-	(void)dev->ethtool_ops->set_phys_id(dev, ETHTOOL_ID_INACTIVE);
++	(void) ops->set_phys_id(dev, ETHTOOL_ID_INACTIVE);
+ 	return rc;
+ }
+ 
+@@ -1275,7 +1277,7 @@ static int ethtool_get_dump_flag(struct net_device *dev,
+ 	struct ethtool_dump dump;
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 
+-	if (!dev->ethtool_ops->get_dump_flag)
++	if (!ops->get_dump_flag)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&dump, useraddr, sizeof(dump)))
+@@ -1299,8 +1301,7 @@ static int ethtool_get_dump_data(struct net_device *dev,
+ 	const struct ethtool_ops *ops = dev->ethtool_ops;
+ 	void *data = NULL;
+ 
+-	if (!dev->ethtool_ops->get_dump_data ||
+-		!dev->ethtool_ops->get_dump_flag)
++	if (!ops->get_dump_data || !ops->get_dump_flag)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (copy_from_user(&dump, useraddr, sizeof(dump)))
+@@ -1346,13 +1347,9 @@ static int ethtool_get_ts_info(struct net_device *dev, void __user *useraddr)
+ 	info.cmd = ETHTOOL_GET_TS_INFO;
+ 
+ 	if (phydev && phydev->drv && phydev->drv->ts_info) {
+-
+ 		err = phydev->drv->ts_info(phydev, &info);
+-
+-	} else if (dev->ethtool_ops && dev->ethtool_ops->get_ts_info) {
+-
++	} else if (ops->get_ts_info) {
+ 		err = ops->get_ts_info(dev, &info);
+-
+ 	} else {
+ 		info.so_timestamping =
+ 			SOF_TIMESTAMPING_RX_SOFTWARE |
 -- 
 1.8.1
