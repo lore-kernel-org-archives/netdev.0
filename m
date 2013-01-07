@@ -1,44 +1,52 @@
-From: Luciano Coelho <coelho@ti.com>
-Subject: Re: [patch net-next] net: use ETHTOOL_FWVERS_LEN instead of
- ETHTOOL_BUSINFO_LEN for fw_ver strings
-Date: Mon, 7 Jan 2013 08:09:37 +0200
-Message-ID: <1357538977.22318.22.camel@cumari.coelho.fi>
-References: <1357474371-30887-1-git-send-email-jiri@resnulli.us>
-	 <1357538335.22318.19.camel@cumari.coelho.fi>
-	 <20130106.220523.1783238632929635985.davem@davemloft.net>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [RFC PATCH] vsprintf: Add %p*D extension for 80211 SSIDs
+Date: Sun, 06 Jan 2013 22:37:50 -0800
+Message-ID: <1357540670.21481.38.camel@joe-AO722>
+References: <50E82D7D.4090107@asianux.com>
+	 <1357396966.21156.4.camel@joe-AO722> <50EA37CE.1090901@asianux.com>
+	 <1357528746.4940.31.camel@joe-AO722> <1357534195.21481.31.camel@joe-AO722>
+	 <50EA6612.6010506@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-	<linville@tuxdriver.com>, <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:42343 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068Ab3AGGKi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2013 01:10:38 -0500
-In-Reply-To: <20130106.220523.1783238632929635985.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50EA6612.6010506-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-01-06 at 22:05 -0800, David Miller wrote:
-> From: Luciano Coelho <coelho@ti.com>
-> Date: Mon, 7 Jan 2013 07:58:55 +0200
-> 
-> > Hi Jiri,
-> > 
-> > On Sun, 2013-01-06 at 13:12 +0100, Jiri Pirko wrote:
-> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >> ---
-> > 
-> > Please add a commit message explaining why this change is needed.
-> 
-> It's obvious, not such commit message is necessary.
+On Mon, 2013-01-07 at 14:07 +0800, Chen Gang wrote:
+> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8807=E6=97=A5 12:49, Joe Perches =E5=86=
+=99=E9=81=93:
+> > On Sun, 2013-01-06 at 19:19 -0800, Joe Perches wrote:
+> >> Maybe these days this should be another vsprintf %p extension
+> >> like %pM when the DECLARE_MAC_BUF/print_mac uses were converted.
+> >>
+> >> (or maybe extend %ph for ssids with %*phs, length, array)
+> >=20
+>   excuse me:
+>     I do not quite know how to reply the [RFC PATCH].
+>     it would be better if you can tell me how to do for [RFC PATCH], =
+thanks.
 
-Hmmm, okay.  I just always prefer to see a commit message.  If not for
-more clarity, at least so that the commit looks more "balanced" in the
-log.
+You did fine except you unnecessarily quoted the entire original email.
+Remember to trim your replies please.  _lots_ of people read these
+mailing lists and unnecessary quoting wastes all of their times.
 
-Anyway, for the wlcore part:
+>   at least for me:
+>     although it is good idea to add common, widely used features in p=
+ublic tools function.
 
-Acked-by: Luciano Coelho <coelho@ti.com>
+It's akin to most of the minor uuid/bluetooth mac, etc codes
+in vsprintf I've added.
+
+cheers, Joe
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
