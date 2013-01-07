@@ -1,87 +1,51 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 1/2] usbnet: allow status interrupt URB to always be
- active
-Date: Mon, 07 Jan 2013 09:25:10 -0600
-Message-ID: <1357572310.27649.10.camel@dcbw.foobar.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	 <2212516.GkG3xP33yG@linux-5eaq.site>
-	 <1357349193.19684.3.camel@dcbw.foobar.com>
-	 <3476529.YzSzbMTfeu@linux-5eaq.site>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] xen/netfront: improve truesize tracking
+Date: Mon, 07 Jan 2013 07:26:39 -0800
+Message-ID: <1357572399.6919.3047.camel@edumazet-glaptop>
+References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
+	 <1355843525.9380.18.camel@edumazet-glaptop>
+	 <1355844398.14620.254.camel@zakaz.uk.xensource.com>
+	 <55633610.20121219123427@eikelenboom.it>
+	 <1355933869.21834.13.camel@edumazet-glaptop>
+	 <1797374383.20121220135139@eikelenboom.it>
+	 <1356017968.21834.2859.camel@edumazet-glaptop>
+	 <1609010645.20121221122100@eikelenboom.it> <50D4AB87.8050601@hp.com>
+	 <561084196.20130103214030@eikelenboom.it>
+	 <1357566063.7989.68.camel@zakaz.uk.xensource.com>
+	 <606842712.20130107151133@eikelenboom.it>
+	 <1357568565.7989.96.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Elina Pasheva <epasheva@sierrawireless.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Oliver Neukum <oliver@neukum.org>
+Cc: Sander Eikelenboom <linux@eikelenboom.it>,
+	Rick Jones <rick.jones2@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	annie li <annie.li@oracle.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16888 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380Ab3AGPWq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2013 10:22:46 -0500
-In-Reply-To: <3476529.YzSzbMTfeu@linux-5eaq.site>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:33797 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387Ab3AGP0m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 10:26:42 -0500
+Received: by mail-pb0-f50.google.com with SMTP id wz7so10649388pbc.37
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 07:26:42 -0800 (PST)
+In-Reply-To: <1357568565.7989.96.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-01-05 at 12:01 +0100, Oliver Neukum wrote:
-> On Friday 04 January 2013 19:26:33 Dan Williams wrote:
-> > On Fri, 2013-01-04 at 23:16 +0100, Oliver Neukum wrote:
-> > > On Friday 04 January 2013 10:48:16 Dan Williams wrote:
-> > > > Some drivers (ex sierra_net) need the status interrupt URB
-> > > > active even when the device is closed, because they receive
-> > > > custom indications from firmware.  Allow sub-drivers to set
-> > > > a flag that submits the status interrupt URB on probe and
-> > > > keeps the URB alive over device open/close.  The URB is still
-> > > > killed/re-submitted for suspend/resume, as before.
-> > > > 
-> > > > Signed-off-by: Dan Williams <dcbw@redhat.com>
-> > > > ---
-> > > > Oliver: alternatively, is there a problem with *always*
-> > > > submitting the interrupt URB, and then simply not calling
-> > > > the subdriver's .status function when the netdev is
-> > > > closed?  That would be a much simpler patch.
-> > > 
-> > > That is quite radical. We have no idea what a device
-> > > does when we do not react to a status update. I would
-> > > much prefer to not take the risk.
-> > > Besides, we don't use bandwidth if we don't have to.
+On Mon, 2013-01-07 at 14:22 +0000, Ian Campbell wrote:
+> On Mon, 2013-01-07 at 14:11 +0000, Sander Eikelenboom wrote:
+> one is buggy.
 > > 
-> > Ok, so scratch the alternative.  Thus, does the posted patch look like
-> > the right course of action?
+> > Will see if i can run against that as well, although i thought Eric
+> > said to prefer the "skb->truesize += PAGE_SIZE *
+> > skb_shinfo(skb)->nr_frags;"
 > 
-> In principle yes.
-> 
-> > If I wasn't clear enough before, sierra_net needs to listen to the
-> > status interrupt URB to receive the custom Restart indication as part of
-> > the driver's device setup.  Thus for sierra_net at least, tying the
-> > status interrupt URB submission to device open/close isn't right.
-> 
-> So, there seems to be an inevitable race before probe() is called.
+> Right, I meant to compare "PAGE_SIZE * skb_shinfo(skb)->nr_frags" vs
+> "skb->data_len - NETFRONT_SKB_CB(skb)->pull_to". TBH I trust Eric so I'm
+> inclined to just go with what he suggests.
 
-Yeah, you're right, we need Sierra to send the SYNC message *after* bind
-is called.    Is there an existing "after bind" hook or do we need to
-create one?
-
-> Have you looked at FLAG_AVOID_UNLINK_URBS ?
-
-Not yet, but I will.
-
-Thanks,
-Dan
-
-> > I'd previously done a patch to handle this all in sierra_net, but the
-> > problem there is suspend/resume: without directly accessing the usbnet
-> > structure's ->suspend_count member (icky!) sierra_net can't correctly
-> > kill/submit the URB itself.  So I went with a flag to usbnet that Sierra
-> > can set.
-> 
-> That is absolutely the right way to do it.
-> 
-> 	Regards
-> 		Oliver
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This is the more precise estimation, and it appears to not bring obvious
+performance regression, so I definitely would favor this one ;)
