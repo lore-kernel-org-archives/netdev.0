@@ -1,52 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] sunrpc: verbs: Avoid 1kb stack
-Date: Mon, 07 Jan 2013 11:41:36 -0800
-Message-ID: <1357587696.21481.48.camel@joe-AO722>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch net-next v2] ethtool: consolidate work with ethtool_ops
+Date: Mon, 7 Jan 2013 19:42:11 +0000
+Message-ID: <1357587731.2658.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "J. Bruce Fields" <bfields@fieldses.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<richardcochran@gmail.com>, <greearb@candelatech.com>,
+	<jeffrey.t.kirsher@intel.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:20363 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753829Ab3AGTmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 14:42:15 -0500
+In-Reply-To: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-16 * 64 is a bit much.
-Use kmalloc_array instead.
+On Mon, 2013-01-07 at 20:02 +0100, Jiri Pirko wrote:
+> No need to check if ethtool_ops == NULL since it can't be.
+> Use local variable "ops" in functions where it is present
+> instead of dev->ethtool_ops
+> Introduce local variable "ops" in functions where dev->ethtool_ops is used
+> many times.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+[...]
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- net/sunrpc/xprtrdma/verbs.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
-index 745973b..9cfebb4 100644
---- a/net/sunrpc/xprtrdma/verbs.c
-+++ b/net/sunrpc/xprtrdma/verbs.c
-@@ -1736,8 +1736,13 @@ rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
- 	int mem_priv = (writing ? IB_ACCESS_REMOTE_WRITE :
- 				  IB_ACCESS_REMOTE_READ);
- 	struct rpcrdma_mr_seg *seg1 = seg;
--	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
- 	int len, i, rc = 0;
-+	struct ib_phys_buf *ipb = kmalloc_array(RPCRDMA_MAX_DATA_SEGS,
-+						sizeof(*ipb),
-+						GFP_KERNEL);
-+
-+	if (!ipb)
-+		return -ENOMEM;
- 
- 	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
- 		*nsegs = RPCRDMA_MAX_DATA_SEGS;
-@@ -1770,6 +1775,9 @@ rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
- 		seg1->mr_len = len;
- 	}
- 	*nsegs = i;
-+
-+	kfree(ipb);
-+
- 	return rc;
- }
- 
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
