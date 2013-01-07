@@ -1,338 +1,118 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V3 2/2] vhost: handle polling errors
-Date: Mon, 07 Jan 2013 23:04:32 +0800
-Message-ID: <50EAE400.6030301@redhat.com>
-References: <1357456718-3072-1-git-send-email-jasowang@redhat.com>
-	<1357456718-3072-3-git-send-email-jasowang@redhat.com>
-	<20130106132201.GC18612@redhat.com> <50EA5139.7000904@redhat.com>
-	<20130107145559.GA5901@redhat.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
+Date: Mon, 07 Jan 2013 16:15:24 +0100
+Message-ID: <50EAE68C.2050300@openwrt.org>
+References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com> <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com> <50EACCD3.90609@openwrt.org> <20130107144921.GA31577@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130107145559.GA5901@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:53599 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751387Ab3AGPR4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 10:17:56 -0500
+In-Reply-To: <20130107144921.GA31577@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2013 10:55 PM, Michael S. Tsirkin wrote:
-> On Mon, Jan 07, 2013 at 12:38:17PM +0800, Jason Wang wrote:
->> On 01/06/2013 09:22 PM, Michael S. Tsirkin wrote:
->>> On Sun, Jan 06, 2013 at 03:18:38PM +0800, Jason Wang wrote:
->>>> Polling errors were ignored by vhost/vhost_net, this may lead to crash when
->>>> trying to remove vhost from waitqueue when after the polling is failed. Solve
->>>> this problem by:
->>>>
->>>> - checking the poll->wqh before trying to remove from waitqueue
->>>> - report an error when poll() returns a POLLERR in vhost_start_poll()
->>>> - report an error when vhost_start_poll() fails in
->>>>   vhost_vring_ioctl()/vhost_net_set_backend() which is used to notify the
->>>>   failure to userspace.
->>>> - report an error in the data path in vhost_net when meet polling errors.
->>>>
->>>> After those changes, we can safely drop the tx polling state in vhost_net since
->>>> it was replaced by the checking of poll->wqh.
->>>>
->>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>>> ---
->>>>  drivers/vhost/net.c   |   74 ++++++++++++++++--------------------------------
->>>>  drivers/vhost/vhost.c |   31 +++++++++++++++-----
->>>>  drivers/vhost/vhost.h |    2 +-
->>>>  3 files changed, 49 insertions(+), 58 deletions(-)
->>>>
->>>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->>>> index d10ad6f..125c1e5 100644
->>>> --- a/drivers/vhost/net.c
->>>> +++ b/drivers/vhost/net.c
->>>> @@ -64,20 +64,10 @@ enum {
->>>>  	VHOST_NET_VQ_MAX = 2,
->>>>  };
->>>>  
->>>> -enum vhost_net_poll_state {
->>>> -	VHOST_NET_POLL_DISABLED = 0,
->>>> -	VHOST_NET_POLL_STARTED = 1,
->>>> -	VHOST_NET_POLL_STOPPED = 2,
->>>> -};
->>>> -
->>>>  struct vhost_net {
->>>>  	struct vhost_dev dev;
->>>>  	struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
->>>>  	struct vhost_poll poll[VHOST_NET_VQ_MAX];
->>>> -	/* Tells us whether we are polling a socket for TX.
->>>> -	 * We only do this when socket buffer fills up.
->>>> -	 * Protected by tx vq lock. */
->>>> -	enum vhost_net_poll_state tx_poll_state;
->>>>  	/* Number of TX recently submitted.
->>>>  	 * Protected by tx vq lock. */
->>>>  	unsigned tx_packets;
->>>> @@ -155,24 +145,6 @@ static void copy_iovec_hdr(const struct iovec *from, struct iovec *to,
->>>>  	}
->>>>  }
->>>>  
->>>> -/* Caller must have TX VQ lock */
->>>> -static void tx_poll_stop(struct vhost_net *net)
->>>> -{
->>>> -	if (likely(net->tx_poll_state != VHOST_NET_POLL_STARTED))
->>>> -		return;
->>>> -	vhost_poll_stop(net->poll + VHOST_NET_VQ_TX);
->>>> -	net->tx_poll_state = VHOST_NET_POLL_STOPPED;
->>>> -}
->>>> -
->>>> -/* Caller must have TX VQ lock */
->>>> -static void tx_poll_start(struct vhost_net *net, struct socket *sock)
->>>> -{
->>>> -	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
->>>> -		return;
->>>> -	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
->>>> -	net->tx_poll_state = VHOST_NET_POLL_STARTED;
->>>> -}
->>>> -
->>>>  /* In case of DMA done not in order in lower device driver for some reason.
->>>>   * upend_idx is used to track end of used idx, done_idx is used to track head
->>>>   * of used idx. Once lower device DMA done contiguously, we will signal KVM
->>>> @@ -227,6 +199,7 @@ static void vhost_zerocopy_callback(struct ubuf_info *ubuf, bool success)
->>>>  static void handle_tx(struct vhost_net *net)
->>>>  {
->>>>  	struct vhost_virtqueue *vq = &net->dev.vqs[VHOST_NET_VQ_TX];
->>>> +	struct vhost_poll *poll = net->poll + VHOST_NET_VQ_TX;
->>>>  	unsigned out, in, s;
->>>>  	int head;
->>>>  	struct msghdr msg = {
->>>> @@ -252,7 +225,8 @@ static void handle_tx(struct vhost_net *net)
->>>>  	wmem = atomic_read(&sock->sk->sk_wmem_alloc);
->>>>  	if (wmem >= sock->sk->sk_sndbuf) {
->>>>  		mutex_lock(&vq->mutex);
->>>> -		tx_poll_start(net, sock);
->>>> +		if (vhost_poll_start(poll, sock->file))
->>>> +			vq_err(vq, "Fail to start TX polling\n");
->>> s/Fail/Failed/
+Le 01/07/13 15:49, Neil Horman a =C3=A9crit :
+> On Mon, Jan 07, 2013 at 02:25:39PM +0100, Florian Fainelli wrote:
+>> Hello Neil,
+>>
+>> Le 12/15/12 02:22, Neil Horman a =C3=A9crit :
+>>> Recently I posted commit 3c68198e75 which made selection of the coo=
+kie hmac
+>>> algorithm selectable.  This is all well and good, but Linus noted t=
+hat it
+>>> changes the default config:
+>>> http://marc.info/?l=3Dlinux-netdev&m=3D135536629004808&w=3D2
 >>>
->>> A question though: how can this happen? Could you clarify please?
->>> Maybe we can find a way to prevent this error?
->> Two conditions I think this can happen:
+>>> I've modified the sctp Kconfig file to reflect the recommended way =
+of making
+>>> this choice, using the thermal driver example specified, and brough=
+t the
+>>> defaults back into line with the way they were prior to my origiona=
+l patch
+>>>
+>>> Also, on Linus' suggestion, re-adding ability to select default 'no=
+ne' hmac
+>>> algorithm, so we don't needlessly bloat the kernel by forcing a non=
+-none
+>>> default.  This also led me to note that we won't honor the default =
+none
+>>> condition properly because of how sctp_net_init is encoded.  Fix th=
+at up as
+>>> well.
+>>>
+>>> Tested by myself (allbeit fairly quickly).  All configuration combi=
+nations seems
+>>> to work soundly.
+>>>
+>>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>>> CC: David Miller <davem@davemloft.net>
+>>> CC: Linus Torvalds <torvalds@linux-foundation.org>
+>>> CC: Vlad Yasevich <vyasevich@gmail.com>
+>>> CC: linux-sctp@vger.kernel.org
+>>> ---
+>>>   net/sctp/Kconfig    | 27 +++++++++++++++++++++++++--
+>>>   net/sctp/protocol.c |  4 ++--
+>>>   2 files changed, 27 insertions(+), 4 deletions(-)
+>>>
+>>> diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+>>> index a9edd2e..c262106 100644
+>>> --- a/net/sctp/Kconfig
+>>> +++ b/net/sctp/Kconfig
+>>> @@ -66,12 +66,36 @@ config SCTP_DBG_OBJCNT
+>>>   	  'cat /proc/net/sctp/sctp_dbg_objcnt'
+>>>
+>>>   	  If unsure, say N
+>>> +choice
+>>> +	prompt "Default SCTP cookie HMAC encoding"
+>>> +	default SCTP_COOKIE_HMAC_MD5
+>> Should not this be SCTP_DEFAULT_COOKIE_HMAC_MD5? I just tried to
+>> update to 3.8-rc2, and I usually build my kernel-headers with:
 >>
->> 1) a buggy userspace disable a queue through TUNSETQUEUE
->> 2) the net device were gone
+>> yes '' | ARCH=3Dfoo make oldconfig
 >>
->> For 1, looks like we can delay the disabling until the refcnt goes to
->> zero. For 2 may needs more changes.
-> I'd expect keeping a socket reference would prevent both issues.
-> Doesn't it?
+>> and this just kept asking me for this config symbol because none
+>> could be provided.
+>> --
+>> Florian
+>>
+> No, the config mechanism is setup to offer the user the ability to ch=
+oose a
+> default cookie hmac, alg, then optionally select any other hmac algs =
+you would
+> like to be made available (in the event you want to change the defaul=
+t at run
+> time).  When you select the default, it eables (via the select direct=
+ive), the
+> corresponding SCTP_COOKIE_HMAC_* config option, which is used in the =
+build, and
+> then prompts for the remaining values.
 
-Doesn't work for 2 I think, the socket didn't hold a refcnt of the
-device, so the device can go away at anytime. Although we can change
-this, but it's the behaviour before multiqueue support.
->
->> Not sure it's worth to do this work,
->> maybe a warning is enough just like other failure.
-> With other failures, you normally can correct the error then
-> kick to have it restart. This is soomething thagt would not
-> work here.
+Ok for the explanation, but this still breaks an oldconfig because we d=
+o=20
+not actually propose the user with a default choice:
 
-If userspace is wrote correctly, (e.g passing a fd with correct state)
-it can also be corrected.
->
->>>>  		mutex_unlock(&vq->mutex);
->>>>  		return;
->>>>  	}
->>>> @@ -261,7 +235,7 @@ static void handle_tx(struct vhost_net *net)
->>>>  	vhost_disable_notify(&net->dev, vq);
->>>>  
->>>>  	if (wmem < sock->sk->sk_sndbuf / 2)
->>>> -		tx_poll_stop(net);
->>>> +		vhost_poll_stop(poll);
->>>>  	hdr_size = vq->vhost_hlen;
->>>>  	zcopy = vq->ubufs;
->>>>  
->>>> @@ -283,8 +257,10 @@ static void handle_tx(struct vhost_net *net)
->>>>  
->>>>  			wmem = atomic_read(&sock->sk->sk_wmem_alloc);
->>>>  			if (wmem >= sock->sk->sk_sndbuf * 3 / 4) {
->>>> -				tx_poll_start(net, sock);
->>>> -				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
->>>> +				if (vhost_poll_start(poll, sock->file))
->>>> +					vq_err(vq, "Fail to start TX polling\n");
->>>> +				else
->>>> +					set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
->>>>  				break;
->>>>  			}
->>>>  			/* If more outstanding DMAs, queue the work.
->>>> @@ -294,8 +270,10 @@ static void handle_tx(struct vhost_net *net)
->>>>  				    (vq->upend_idx - vq->done_idx) :
->>>>  				    (vq->upend_idx + UIO_MAXIOV - vq->done_idx);
->>>>  			if (unlikely(num_pends > VHOST_MAX_PEND)) {
->>>> -				tx_poll_start(net, sock);
->>>> -				set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
->>>> +				if (vhost_poll_start(poll, sock->file))
->>>> +					vq_err(vq, "Fail to start TX polling\n");
->>>> +				else
->>>> +					set_bit(SOCK_ASYNC_NOSPACE, &sock->flags);
->>>>  				break;
->>>>  			}
->>>>  			if (unlikely(vhost_enable_notify(&net->dev, vq))) {
->>>> @@ -360,7 +338,8 @@ static void handle_tx(struct vhost_net *net)
->>>>  			}
->>>>  			vhost_discard_vq_desc(vq, 1);
->>>>  			if (err == -EAGAIN || err == -ENOBUFS)
->>>> -				tx_poll_start(net, sock);
->>>> +				if (vhost_poll_start(poll, sock->file))
->>>> +					vq_err(vq, "Fail to start TX polling\n");
->>>>  			break;
->>>>  		}
->>>>  		if (err != len)
->>>> @@ -623,7 +602,6 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->>>>  
->>>>  	vhost_poll_init(n->poll + VHOST_NET_VQ_TX, handle_tx_net, POLLOUT, dev);
->>>>  	vhost_poll_init(n->poll + VHOST_NET_VQ_RX, handle_rx_net, POLLIN, dev);
->>>> -	n->tx_poll_state = VHOST_NET_POLL_DISABLED;
->>>>  
->>>>  	f->private_data = n;
->>>>  
->>>> @@ -633,29 +611,25 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->>>>  static void vhost_net_disable_vq(struct vhost_net *n,
->>>>  				 struct vhost_virtqueue *vq)
->>>>  {
->>>> +	struct vhost_poll *poll = n->poll + (vq - n->vqs);
->>>> +
->>>>  	if (!vq->private_data)
->>>>  		return;
->>>> -	if (vq == n->vqs + VHOST_NET_VQ_TX) {
->>>> -		tx_poll_stop(n);
->>>> -		n->tx_poll_state = VHOST_NET_POLL_DISABLED;
->>>> -	} else
->>>> -		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
->>>> +	vhost_poll_stop(poll);
->>>>  }
->>>>  
->>>> -static void vhost_net_enable_vq(struct vhost_net *n,
->>>> +static int vhost_net_enable_vq(struct vhost_net *n,
->>>>  				struct vhost_virtqueue *vq)
->>>>  {
->>>>  	struct socket *sock;
->>>> +	struct vhost_poll *poll = n->poll + (vq - n->vqs);
->>>>  
->>>>  	sock = rcu_dereference_protected(vq->private_data,
->>>>  					 lockdep_is_held(&vq->mutex));
->>>>  	if (!sock)
->>>> -		return;
->>>> -	if (vq == n->vqs + VHOST_NET_VQ_TX) {
->>>> -		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
->>>> -		tx_poll_start(n, sock);
->>>> -	} else
->>>> -		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
->>>> +		return 0;
->>>> +
->>>> +	return vhost_poll_start(poll, sock->file);
->>>>  }
->>>>  
->>>>  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
->>>> @@ -833,7 +807,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->>>>  		r = vhost_init_used(vq);
->>>>  		if (r)
->>>>  			goto err_used;
->>>> -		vhost_net_enable_vq(n, vq);
->>>> +		r = vhost_net_enable_vq(n, vq);
->>>> +		if (r)
->>>> +			goto err_used;
->>>>  
->>>>  		oldubufs = vq->ubufs;
->>>>  		vq->ubufs = ubufs;
->>>> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
->>>> index 34389f7..5c7a466 100644
->>>> --- a/drivers/vhost/vhost.c
->>>> +++ b/drivers/vhost/vhost.c
->>>> @@ -77,26 +77,41 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->>>>  	init_poll_funcptr(&poll->table, vhost_poll_func);
->>>>  	poll->mask = mask;
->>>>  	poll->dev = dev;
->>>> +	poll->wqh = NULL;
->>>>  
->>>>  	vhost_work_init(&poll->work, fn);
->>>>  }
->>>>  
->>>> +/* Stop polling a file. After this function returns, it becomes safe to drop the
->>>> + * file reference. You must also flush afterwards. */
->>>> +void vhost_poll_stop(struct vhost_poll *poll)
->>>> +{
->>>> +	if (poll->wqh) {
->>>> +		remove_wait_queue(poll->wqh, &poll->wait);
->>>> +		poll->wqh = NULL;
->>>> +	}
->>>> +}
->>>> +
->>>>  /* Start polling a file. We add ourselves to file's wait queue. The caller must
->>>>   * keep a reference to a file until after vhost_poll_stop is called. */
->>>> -void vhost_poll_start(struct vhost_poll *poll, struct file *file)
->>>> +int vhost_poll_start(struct vhost_poll *poll, struct file *file)
->>>>  {
->>>>  	unsigned long mask;
->>>> +	int ret = 0;
->>>> +
->>>> +	if (poll->wqh)
->>>> +		return -EBUSY;
->>>>  
->>> I think this should return success: we are already polling.
->>> Otherwise this would trigger a bug below I think.
->> Ok.
->>>>  	mask = file->f_op->poll(file, &poll->table);
->>>>  	if (mask)
->>>>  		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
->>>> -}
->>>>  
->>>> -/* Stop polling a file. After this function returns, it becomes safe to drop the
->>>> - * file reference. You must also flush afterwards. */
->>>> -void vhost_poll_stop(struct vhost_poll *poll)
->>>> -{
->>>> -	remove_wait_queue(poll->wqh, &poll->wait);
->>>> +	if (mask & POLLERR) {
->>>> +		ret = -EINVAL;
->>>> +		vhost_poll_stop(poll);
->>>> +	}
->>>> +
->>>> +	return ret;
->>>>  }
->>>>  
->>>>  static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
->>>> @@ -792,7 +807,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
->>>>  		fput(filep);
->>>>  
->>>>  	if (pollstart && vq->handle_kick)
->>>> -		vhost_poll_start(&vq->poll, vq->kick);
->>>> +		r = vhost_poll_start(&vq->poll, vq->kick);
->>>>  
->>>>  	mutex_unlock(&vq->mutex);
->>>>  
->>>> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
->>>> index 2639c58..17261e2 100644
->>>> --- a/drivers/vhost/vhost.h
->>>> +++ b/drivers/vhost/vhost.h
->>>> @@ -42,7 +42,7 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
->>>>  
->>>>  void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->>>>  		     unsigned long mask, struct vhost_dev *dev);
->>>> -void vhost_poll_start(struct vhost_poll *poll, struct file *file);
->>>> +int vhost_poll_start(struct vhost_poll *poll, struct file *file);
->>>>  void vhost_poll_stop(struct vhost_poll *poll);
->>>>  void vhost_poll_flush(struct vhost_poll *poll);
->>>>  void vhost_poll_queue(struct vhost_poll *poll);
->>>> -- 
->>>> 1.7.1
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     choice[1-3?]:     Default SCTP cookie HMAC encoding
+       1. Enable optional MD5 hmac cookie generation=20
+(SCTP_DEFAULT_COOKIE_HMAC_MD5) (NEW)
+       2. Enable optional SHA1 hmac cookie generation=20
+(SCTP_DEFAULT_COOKIE_HMAC_SHA1) (NEW)
+       3. Use no hmac alg in SCTP cookie generation=20
+(SCTP_DEFAULT_COOKIE_HMAC_NONE) (NEW)
+
+I do not see any difference in what I am proposed if the default config=
+=20
+symbol is SCTP_DEFAULT_COOKIE_HMAC_MD5, I can still optionally choose=20
+SHA1 to be supported, and I do have a valid default config for this=20
+choice. While if I keep SCTP_COOKIE_HMAC_MD5 as the default I have to=20
+manually enter which option I want.
+--
+=46lorian
