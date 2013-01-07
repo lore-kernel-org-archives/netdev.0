@@ -1,51 +1,88 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH v2 net-next 0/2] Remove NETIF_F_NETNS_LOCAL from software devices.
-Date: Mon, 07 Jan 2013 01:25:25 -0800
-Message-ID: <87d2xh5oqi.fsf@xmission.com>
-References: <1357543176-15352-1-git-send-email-ramirose@gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH repost] net,wireless: check against default_ethtool_ops
+Date: Mon, 7 Jan 2013 10:55:49 +0100
+Message-ID: <20130107095548.GA6931@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com
-To: Rami Rosen <ramirose@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	Ben Greear <greearb@candelatech.com>,
+	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	linux-wireless@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:37103 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750796Ab3AGJZc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 04:25:32 -0500
-In-Reply-To: <1357543176-15352-1-git-send-email-ramirose@gmail.com> (Rami
-	Rosen's message of "Mon, 7 Jan 2013 09:19:34 +0200")
+Received: from mx1.redhat.com ([209.132.183.28]:31061 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752779Ab3AGJ4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2013 04:56:02 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rami Rosen <ramirose@gmail.com> writes:
+Since:
 
-> When NETIF_F_NETNS_LOCAL feature is set in some network device,  
-> we do not allow this device to be moved from one network namespace 
-> to another (see dev_change_net_namespace()). Vlan device is not considered 
-> a local device and does not have the NETIF_F_NETNS_LOCAL feature. There is no 
-> reason that software devices like ppp and bridge will set the
-> NETIF_F_NETNS_LOCAL feature. This patchset removes NETIF_F_NETNS_LOCAL
-> from ppp and bridge devices.
+commit 2c60db037034d27f8c636403355d52872da92f81
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sun Sep 16 09:17:26 2012 +0000
 
-After you saw the case for vxlan I am disappointed you respun this
-patchset without asking the question: Could other devices suffer
-from the same class of problem.
+    net: provide a default dev->ethtool_ops
 
-It didn't take me more than a few minutes of looking to see that the
-bridge and the ppp network device have the same class of issue as
-vxlan.
+wireless core does not correctly assign ethtool_ops. In order to fix
+the problem, and avoid assigning ethtool_ops on each individual cfg80211
+drivers, we check against default_ethool_ops pointer instead of NULL in
+wireless core.
 
-> * Changes from v1
-> 	Do not remove NETIF_F_NETNS_LOCAL from vxlan devices. Moving vxlan device 
-> 	to a different namesapce does not move the state of the UDP socket related 
-> 	to this vxlan device (Following Stephen Hemminger comment).
-> 	
-> Rami Rosen (2):
->   [RFC PATCH v2 net-next 1/3] ppp: remove NETIF_F_NETNS_LOCAL from ppp
->     device features.
->   [RFC PATCH v2 net-next 2/3] bridge: remove NETIF_F_NETNS_LOCAL from
->     bridge device features.
->
->  drivers/net/ppp/ppp_generic.c | 1 -
->  net/bridge/br_device.c        | 2 +-
->  2 files changed, 1 insertion(+), 2 deletions(-)
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: stable@vger.kernel.org # 3.7+
+---
+This should go directly through net tree since patch include core
+net specific changes.
+
+ include/linux/netdevice.h |    2 ++
+ net/core/dev.c            |    3 ++-
+ net/wireless/core.c       |    2 +-
+ 3 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f8eda02..c98e1c3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -60,6 +60,8 @@ struct wireless_dev;
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
+ 
++extern const struct ethtool_ops default_ethtool_ops;
++
+ /* hardware address assignment types */
+ #define NET_ADDR_PERM		0	/* address is permanent (default) */
+ #define NET_ADDR_RANDOM		1	/* address is generated randomly */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index c0946cb..4cd2168 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6008,7 +6008,8 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
+ 	return queue;
+ }
+ 
+-static const struct ethtool_ops default_ethtool_ops;
++const struct ethtool_ops default_ethtool_ops;
++EXPORT_SYMBOL_GPL(default_ethtool_ops);
+ 
+ /**
+  *	alloc_netdev_mqs - allocate network device
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 14d9904..90915d4 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -866,7 +866,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
+ 		/* allow mac80211 to determine the timeout */
+ 		wdev->ps_timeout = -1;
+ 
+-		if (!dev->ethtool_ops)
++		if (dev->ethtool_ops == &default_ethtool_ops)
+ 			dev->ethtool_ops = &cfg80211_ethtool_ops;
+ 
+ 		if ((wdev->iftype == NL80211_IFTYPE_STATION ||
+-- 
+1.7.1
