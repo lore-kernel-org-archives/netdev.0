@@ -1,205 +1,101 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
-Date: Mon, 07 Jan 2013 11:39:06 -0500
-Message-ID: <50EAFA2A.3000200@gmail.com>
-References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com> <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com> <50EACCD3.90609@openwrt.org> <20130107144921.GA31577@hmsreliant.think-freely.org> <50EAEA71.1060007@gmail.com> <20130107154625.GD31577@hmsreliant.think-freely.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH V2] tcp: introduce raw access to experimental
+ options
+Date: Mon, 07 Jan 2013 08:44:11 -0800
+Message-ID: <1357577051.6919.3171.camel@edumazet-glaptop>
+References: <1357575210-52926-1-git-send-email-elelueck@linux.vnet.ibm.com>
+	 <1357575210-52926-2-git-send-email-elelueck@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ubacher@de.ibm.com,
+	raspl@de.ibm.com, frankbla@de.ibm.com, samudrala@us.ibm.com
+To: elelueck@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:39243 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751463Ab3AGQjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:39:10 -0500
-In-Reply-To: <20130107154625.GD31577@hmsreliant.think-freely.org>
+Received: from mail-da0-f51.google.com ([209.85.210.51]:50712 "EHLO
+	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675Ab3AGQoP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:44:15 -0500
+Received: by mail-da0-f51.google.com with SMTP id i30so8708871dad.38
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 08:44:14 -0800 (PST)
+In-Reply-To: <1357575210-52926-2-git-send-email-elelueck@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2013 10:46 AM, Neil Horman wrote:
-> On Mon, Jan 07, 2013 at 10:32:01AM -0500, Vlad Yasevich wrote:
->> On 01/07/2013 09:49 AM, Neil Horman wrote:
->>> On Mon, Jan 07, 2013 at 02:25:39PM +0100, Florian Fainelli wrote:
->>>> Hello Neil,
->>>>
->>>> Le 12/15/12 02:22, Neil Horman a =E9crit :
->>>>> Recently I posted commit 3c68198e75 which made selection of the c=
-ookie hmac
->>>>> algorithm selectable.  This is all well and good, but Linus noted=
- that it
->>>>> changes the default config:
->>>>> http://marc.info/?l=3Dlinux-netdev&m=3D135536629004808&w=3D2
->>>>>
->>>>> I've modified the sctp Kconfig file to reflect the recommended wa=
-y of making
->>>>> this choice, using the thermal driver example specified, and brou=
-ght the
->>>>> defaults back into line with the way they were prior to my origio=
-nal patch
->>>>>
->>>>> Also, on Linus' suggestion, re-adding ability to select default '=
-none' hmac
->>>>> algorithm, so we don't needlessly bloat the kernel by forcing a n=
-on-none
->>>>> default.  This also led me to note that we won't honor the defaul=
-t none
->>>>> condition properly because of how sctp_net_init is encoded.  Fix =
-that up as
->>>>> well.
->>>>>
->>>>> Tested by myself (allbeit fairly quickly).  All configuration com=
-binations seems
->>>>> to work soundly.
->>>>>
->>>>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
->>>>> CC: David Miller <davem@davemloft.net>
->>>>> CC: Linus Torvalds <torvalds@linux-foundation.org>
->>>>> CC: Vlad Yasevich <vyasevich@gmail.com>
->>>>> CC: linux-sctp@vger.kernel.org
->>>>> ---
->>>>>   net/sctp/Kconfig    | 27 +++++++++++++++++++++++++--
->>>>>   net/sctp/protocol.c |  4 ++--
->>>>>   2 files changed, 27 insertions(+), 4 deletions(-)
->>>>>
->>>>> diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
->>>>> index a9edd2e..c262106 100644
->>>>> --- a/net/sctp/Kconfig
->>>>> +++ b/net/sctp/Kconfig
->>>>> @@ -66,12 +66,36 @@ config SCTP_DBG_OBJCNT
->>>>>   	  'cat /proc/net/sctp/sctp_dbg_objcnt'
->>>>>
->>>>>   	  If unsure, say N
->>>>> +choice
->>>>> +	prompt "Default SCTP cookie HMAC encoding"
->>>>> +	default SCTP_COOKIE_HMAC_MD5
->>>>
->>>> Should not this be SCTP_DEFAULT_COOKIE_HMAC_MD5? I just tried to
->>>> update to 3.8-rc2, and I usually build my kernel-headers with:
->>>>
->>>> yes '' | ARCH=3Dfoo make oldconfig
->>>>
->>>> and this just kept asking me for this config symbol because none
->>>> could be provided.
->>>> --
->>>> Florian
->>>>
->>>
->>> No, the config mechanism is setup to offer the user the ability to =
-choose a
->>> default cookie hmac, alg, then optionally select any other hmac alg=
-s you would
->>> like to be made available (in the event you want to change the defa=
-ult at run
->>> time).  When you select the default, it eables (via the select dire=
-ctive), the
->>> corresponding SCTP_COOKIE_HMAC_* config option, which is used in th=
-e build, and
->>> then prompts for the remaining values.
->>>
->>
->> Neil
->>
->> Actually, I think it should be as Florian suggests.  The default
->> value of the choice should be one of the values defined as part of
->> the choice (the SCTP_DEFAULT_COOKIE_*).  Turning on appropriate
->> default would turn on appropriate cookie config
->> (SCTP_COOKIE_HMAC_*).
->>
-> I absolutely disagree.
->
->> Would that save all the config trouble?
->>
-> Yes, it would fix it as Florian has noted, but at the cost of silentl=
-y modifying
-> what the default hmac config vaule is.  If you've expressly disabled
-> SCTP_COOKIE_HMAC_MD5, and then blindly take the default choice in the
-> SCTP_DEFAULT_COOKIE selection option (the default default as it were)=
-, using the
-> approach your suggesting, then that will silently enable SCTP_COOKIE_=
-HMAC_MD5
-> again, which may not be expected by users.  If you expressly have a c=
-onfig
-> option disabled in an old configuration, we should leave it there.
+On Mon, 2013-01-07 at 17:13 +0100, elelueck@linux.vnet.ibm.com wrote:
+> From: Einar Lueck <elelueck@linux.vnet.ibm.com>
+> 
+> This patch adds means for raw acces to TCP expirimental options
+> 253 and 254. The intention of this is to enable user space
+> applications to implement communication behaviour that depends
+> on experimental options. For that, new (set|get)sockopts are
+> introduced:
+> 
+> TCP_EXPOPTS (get & set): TCP experimental options to be added to
+> 			 packets
+> TCP_RECV_EXPOPTS (get):  experimental options received with last
+> 			 packet
+> TCP_RECV_SYN_EXPOPTS (get): experimental options received with
+> 			 SYN packet
+> 
+> Access to these options is allowed only with CAP_NET_RAW privilige.
+> 
+> TCP experimental options 253 and 254 configured via TCP_EXPOPTS on
+> any TCP socket are appended to every packet that is sent as long
+> as there is enough room left. If there is not enough room left they
+> are silently dropped.
+> 
+> Listening sockets reply to SYN packets with SYN ACK packets containing
+> TCP experimental options 253 and 254 as configured via TCP_EXPOPTS, too.
+> If a TCP connection gets established the configured experimental options
+> are the defaults for the new socket, too. Thus, a getsockopt on the
+> resulting accept socket for TCP_EXPOPTS returns the same stuff configured
+> on the listening socket.
+> 
+> As mentioned above, even after the 3whs is complete, experimental options
+> are sent with every packet. To enable user space applications to distinguish
+> between what has been advertized via SYN and what has been received with the
+> last packet the aforementioned TCP_RECV_SYN_EXPOPTS and TCP_RECV_EXPOPTS are
+> introduced.
+> 
+> Today, experimental option 253 (COOKIE) and 254 (FASTOPEN) are already
+> exploited. For co-existence the following approach has been taken:
+> 
+> General remarks:
+> * Interface to COOKIE and FASTOPEN stays the same
+> Sender side:
+> 1. COOKIE and FASTPATH code adds own options first (if applicable)
+> 2. Finally, if enough room is left, TCP_EXPOPTS experimental options are
+>    appended
+> Receiver side:
+> 1. ALL 253 and 254 experimental options are made available via
+>    TCP_RECV(_SYN)_EXPOPTS
+> 2. COOKIE and FASTOPEN code check if there is any option relevant for them
+> 
+> References:
+> http://tools.ietf.org/html/draft-ietf-tcpm-experimental-options-02
+> 
+> Signed-off-by: Einar Lueck <elelueck@linux.vnet.ibm.com>
+> ---
+>  include/linux/tcp.h      |  23 +++++++++
+>  include/net/tcp.h        |   3 ++
+>  include/uapi/linux/tcp.h |   3 ++
+>  net/ipv4/tcp.c           | 122 +++++++++++++++++++++++++++++++++++++++++++++++
+>  net/ipv4/tcp_input.c     | 119 ++++++++++++++++++++++++++++++---------------
+>  net/ipv4/tcp_ipv4.c      |  14 ++++++
+>  net/ipv4/tcp_minisocks.c |  17 +++++++
+>  net/ipv4/tcp_output.c    |  47 +++++++++++-------
+>  8 files changed, 293 insertions(+), 55 deletions(-)
 
-GACK.  Just reproduced this and I really don't like this infinite loop=20
-of choice prompts.  That's a horrible bug and we need to fix this.
+Thats a big addition, and for example doesn't help if the SYNACK should
+include an option that is depending on the content of SYN message.
 
-I don't think overriding the value is that big of a deal, especially=20
-considering that this is exactly what 'make menuconfig' and other=20
-graphical configs will do.
-If I start with:
-	CONFIG_IP_SCTP=3Dm
-	CONFIG_NET_SCTPPROBE=3Dm
-	# CONFIG_SCTP_DBG_MSG is not set
-	# CONFIG_SCTP_DBG_OBJCNT is not set
-	# CONFIG_SCTP_HMAC_NONE is not set
-	CONFIG_SCTP_HMAC_SHA1=3Dy
-	# CONFIG_SCTP_HMAC_MD5 is not set
+For TCP fastopen for example, the cookie we send to the client is not a
+constant cookie.
 
-then run:
-	yes "" | make oldconfig
+Also TCP coalescing of TCP collapse will merge several skbs, so storing
+"the last received options" in the socket is kind of not well defined
+semantic.
 
-I get an infinite loop.
-
-If I run "make menuconfig", I get:
-	CONFIG_IP_SCTP=3Dm
-	CONFIG_NET_SCTPPROBE=3Dm
-	# CONFIG_SCTP_DBG_MSG is not set
-	# CONFIG_SCTP_DBG_OBJCNT is not set
-	CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5=3Dy
-	# CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1 is not set
-	# CONFIG_SCTP_DEFAULT_COOKIE_HMAC_NONE is not set
-	CONFIG_SCTP_COOKIE_HMAC_MD5=3Dy
-	# CONFIG_SCTP_COOKIE_HMAC_SHA1 is not set
-
-Note, that SHA1 is now overridden with MD5.
-
-If I change the value of the default choice in Kconfig, the behavior=20
-between oldconfig and menuconfig is the same.
-
--vlad
-
-
-
-
-
-
-
->
-> We're doing the right thing now, IMO.  When presented with a conflict=
-ly set
-> of configuration options, the config utilty is (repeatedly) prompting=
- us to
-> resolve them.  That seems like a much more reasonable approach to thi=
-s, than
-> silently changing pre-existing options so people can do the equivalen=
-t of just
-> blindly pressing enter through the config process (which is all yes "=
-" | make
-> oldconfig is).
->
-> This is a momentary hiccup, corrected by taking 30 seconds to make a =
-manual
-> config change (or by taking a second to understand what the config ut=
-ility is
-> tell us by prompting for a default choice repeatedly).  Theres nothin=
-g to fix
-> here.
->
-> Neil
->
->> -vlad
->>
->>> Neil
->>>
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
+It looks like you need to add hooks and kernel modules to fully use
+experimental options, like congestion control modules.
