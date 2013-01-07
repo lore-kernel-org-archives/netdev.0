@@ -1,132 +1,110 @@
-From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH] vsprintf: Add %p*D extension for 80211 SSIDs
-Date: Sun, 06 Jan 2013 20:49:55 -0800
-Message-ID: <1357534195.21481.31.camel@joe-AO722>
-References: <50E82D7D.4090107@asianux.com>
-	 <1357396966.21156.4.camel@joe-AO722> <50EA37CE.1090901@asianux.com>
-	 <1357528746.4940.31.camel@joe-AO722>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Bug#697357: bridging broken over bond interfaces
+Date: Mon, 07 Jan 2013 04:58:24 +0000
+Message-ID: <1357534704.26822.6.camel@deadeye.wl.decadent.org.uk>
+References: <20130104111712.25539.62770.reportbug@valiant.palfrader.org>
+	 <20130104114407.GA303@waldi.eu.org>
+	 <20130104124012.GH14827@anguilla.noreply.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Chen Gang <gang.chen@asianux.com>, stas.yakovlev@gmail.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-7JTQ5S3aTaGLVIrBfy+W"
+Cc: Bastian Blank <waldi@debian.org>, 697357@bugs.debian.org,
+	Peter Palfrader <weasel@debian.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:39090 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753524Ab3AGEt5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2013 23:49:57 -0500
-In-Reply-To: <1357528746.4940.31.camel@joe-AO722>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:58110 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753574Ab3AGE6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 23:58:31 -0500
+In-Reply-To: <20130104124012.GH14827@anguilla.noreply.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-01-06 at 19:19 -0800, Joe Perches wrote:
-> Maybe these days this should be another vsprintf %p extension
-> like %pM when the DECLARE_MAC_BUF/print_mac uses were converted.
-> 
-> (or maybe extend %ph for ssids with %*phs, length, array)
 
-Maybe like this:
+--=-7JTQ5S3aTaGLVIrBfy+W
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
- lib/vsprintf.c | 57 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 55 insertions(+), 2 deletions(-)
+Forwarding this to netdev since the bug is still present in Linux 3.7.1.
+For those joining us, this thread is archive at
+<http://bugs.debian.org/697357>.
 
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index fab33a9..98916a0 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -26,6 +26,7 @@
- #include <linux/math64.h>
- #include <linux/uaccess.h>
- #include <linux/ioport.h>
-+#include <linux/ieee80211.h>
- #include <net/addrconf.h>
- 
- #include <asm/page.h>		/* for PAGE_SIZE */
-@@ -660,10 +661,59 @@ char *resource_string(char *buf, char *end, struct resource *res,
- }
- 
- static noinline_for_stack
-+char *ssid_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
-+		  const char *fmt)
-+{
-+	int i, len = 1;		/* if we pass %*p, field width remains
-+				   negative value, fallback to the default */
-+
-+	if (spec.field_width == 0)
-+		/* nothing to print */
-+		return buf;
-+
-+	if (ZERO_OR_NULL_PTR(addr))
-+		/* NULL pointer */
-+		return string(buf, end, NULL, spec);
-+
-+	if (spec.field_width > 0)
-+		len = min_t(int, spec.field_width, IEEE80211_MAX_SSID_LEN);
-+
-+	for (i = 0; i < len && buf < end; i++) {
-+		if (isprint(addr[i])) {
-+			*buf++ = addr[i];
-+			continue;
-+		}
-+		*buf++ = '\\';
-+		if (buf >= end)
-+			continue;
-+		if (addr[i] == '\0')
-+			*buf++ = '0';
-+		else if (addr[i] == '\n')
-+			*buf++ = 'n';
-+		else if (addr[i] == '\r')
-+			*buf++ = 'r';
-+		else if (addr[i] == '\t')
-+			*buf++ = 't';
-+		else if (addr[i] == '\\')
-+			*buf++ = '\\';
-+		else {
-+			if (buf < end)
-+				*buf++ = ((addr[i] >> 6) & 7) + '0';
-+			if (buf < end)
-+				*buf++ = ((addr[i] >> 3) & 7) + '0';
-+			if (buf < end)
-+				*buf++ = ((addr[i] >> 0) & 7) + '0';
-+		}
-+	}
-+
-+	return buf;
-+}
-+
-+static noinline_for_stack
- char *hex_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
- 		 const char *fmt)
- {
--	int i, len = 1;		/* if we pass '%ph[CDN]', field witdh remains
-+	int i, len = 1;		/* if we pass '%ph[CDN]', field width remains
- 				   negative value, fallback to the default */
- 	char separator;
- 
-@@ -695,7 +745,6 @@ char *hex_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
- 
- 	for (i = 0; i < len && buf < end - 1; i++) {
- 		buf = hex_byte_pack(buf, addr[i]);
--
- 		if (buf < end && separator && i != len - 1)
- 			*buf++ = separator;
- 	}
-@@ -1016,6 +1065,8 @@ int kptr_restrict __read_mostly;
-  *             [0][1][2][3]-[4][5]-[6][7]-[8][9]-[10][11][12][13][14][15]
-  *           little endian output byte order is:
-  *             [3][2][1][0]-[5][4]-[7][6]-[8][9]-[10][11][12][13][14][15]
-+ * - 'D' For a 80211 SSID, it prints the SSID escaping any non-printable
-+         characters with a leading \ and octal or [0nrt\]
-  * - 'V' For a struct va_format which contains a format string * and va_list *,
-  *       call vsnprintf(->format, *->va_list).
-  *       Implements a "recursive vsnprintf".
-@@ -1088,6 +1139,8 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
- 		break;
- 	case 'U':
- 		return uuid_string(buf, end, ptr, spec, fmt);
-+	case 'D':
-+		return ssid_string(buf, end, ptr, spec, fmt);
- 	case 'V':
- 		{
- 			va_list va;
+On Fri, 2013-01-04 at 13:40 +0100, Peter Palfrader wrote:
+> On Fri, 04 Jan 2013, Bastian Blank wrote:
+>=20
+> > On Fri, Jan 04, 2013 at 12:17:12PM +0100, Peter Palfrader wrote:
+> > > I tried to set up a new KVM host in the usual way:
+> > >   - have a bond0 interface over all physcial eth* interfaces
+> > >   - create a br0 over that bond0 and any vnet* interfaces for the
+> > >     guests.
+>=20
+> Also, arp works through the bridge, forgot to mention that.
+>=20
+> > > *   Manually switching the eth* to promiscious mode makes stuff work.
+> >=20
+> > Okay, so a workaround is available.
+> >=20
+> > When did it last work? Does it work with the kernel from experimental?
+>=20
+> It works nicely on stable, e.g. pasquini.debian.org:
+>=20
+> | weasel@pasquini:~$ sudo brctl show
+> | bridge name     bridge id               STP enabled     interfaces
+> | br0             8000.e83935a9ec10       no              bond0
+> |                                                         tap0
+> |                                                         tap1
+> |                                                         tap2
+> | br1             8000.e83935a9ec10       no              bond0.221
+> | br2             8000.da1343affe92       no              bond0.3301
+> |                                                         tap3
+>=20
+> And there the bond interface is promisc automatically:
+> weasel@pasquini:~$ ip a | grep -i bond
+> | 2: eth0: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_f=
+ast master bond0 state UP qlen 1000
+> | 3: eth1: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc pfifo_f=
+ast master bond0 state UP qlen 1000
+> | 4: bond0: <BROADCAST,MULTICAST,PROMISC,MASTER,UP,LOWER_UP> mtu 1500 qdi=
+sc noqueue state UP=20
+> | 7: bond0.221@bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 q=
+disc noqueue state UP=20
+> | 9: bond0.3301@bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 1500 =
+qdisc noqueue state UP=20
+>=20
+> Likewise it works as expected when one does br directly on eth0, without =
+any
+> bonding.
+>=20
+> It's also broken with linux-image-3.7-trunk-amd64_3.7.1-1~experimental.1_=
+amd64.deb.
+
+--=20
+Ben Hutchings
+If you seem to know what you are doing, you'll be given more to do.
+
+--=-7JTQ5S3aTaGLVIrBfy+W
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUOpV8Oe/yOyVhhEJAQqu5hAA0Geaj3/GPLl66PIYgwoT605NxhiwhxZB
+3fBvnvEGRdZN5KSJMbYv58dY0VxD4XFHIeQZGSg4NF7hI6yvMw8mjxftbE6PsCKb
+fcrSjdU/MfQgDRjmuPjiRSOUzNAKNoP+3jNBNH0FdQ//riBxR+OKnuASiPhDH3SD
+cOgjl276iWvNaBCCC2M6BMikCBh+rIB+TNW5I9jlEjIsCv9WAJ12WHG7l9494+5s
+epMkL2QhkadXmkDQxK8U211k5isJzXLRyGbQdhfQ1Z/UjlsHK8n/6O8/sXNsRDON
+UDaMC4qldVWRPtE3mpSYSuS+MTWPyH2E9H2Otg8U4q1PFhVW6tOFUfnQnIE3M1i3
+247OVcoqyFjgUK7Oa8+HrmAMlCtN1Pq/CO/lNQE9xhcsA73ObQb1HN2iiMjrU/49
+wSk6VGRWxZ8K1Y3mLqs//0ucNSUD7lWobLWEJeso8b3Edm0ZtbvWKVfa9CaCV2Rl
+WV0ywXdVZkUSD43CX33A416vvm7Dl5BPyRNKmnIW/yYmJfyut+sf20dQhJi4Bs/O
+KQ+tGUmlXyL8OOXxSw15D762Kh6TUjNVVkL1bP5uxsJs8bSwF1ePx1LWnLw70raI
+ne4vyJj8Xf2TQ3/Po2O+tTmSEKxxT2XhVevpZsB3CXlnQj6Vrb0XV0N6u5brsisH
+nbMd0Z9dmGc=
+=2KlK
+-----END PGP SIGNATURE-----
+
+--=-7JTQ5S3aTaGLVIrBfy+W--
