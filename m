@@ -1,75 +1,102 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] xen/netfront: improve truesize tracking
-Date: Mon, 7 Jan 2013 14:22:45 +0000
-Message-ID: <1357568565.7989.96.camel@zakaz.uk.xensource.com>
-References: <1355838711-5473-1-git-send-email-ian.campbell@citrix.com>
-	 <1355843525.9380.18.camel@edumazet-glaptop>
-	 <1355844398.14620.254.camel@zakaz.uk.xensource.com>
-	 <55633610.20121219123427@eikelenboom.it>
-	 <1355933869.21834.13.camel@edumazet-glaptop>
-	 <1797374383.20121220135139@eikelenboom.it>
-	 <1356017968.21834.2859.camel@edumazet-glaptop>
-	 <1609010645.20121221122100@eikelenboom.it> <50D4AB87.8050601@hp.com>
-	 <561084196.20130103214030@eikelenboom.it>
-	 <1357566063.7989.68.camel@zakaz.uk.xensource.com>
-	 <606842712.20130107151133@eikelenboom.it>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
+Date: Mon, 7 Jan 2013 09:49:21 -0500
+Message-ID: <20130107144921.GA31577@hmsreliant.think-freely.org>
+References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com>
+ <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com>
+ <50EACCD3.90609@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	annie li <annie.li@oracle.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:27227 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751884Ab3AGOWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 09:22:48 -0500
-In-Reply-To: <606842712.20130107151133@eikelenboom.it>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34855 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750969Ab3AGOtc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 09:49:32 -0500
+Content-Disposition: inline
+In-Reply-To: <50EACCD3.90609@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-07 at 14:11 +0000, Sander Eikelenboom wrote:
-> Monday, January 7, 2013, 2:41:03 PM, you wrote:
-> 
-> > On Thu, 2013-01-03 at 20:40 +0000, Sander Eikelenboom wrote:
-> >> Friday, December 21, 2012, 7:33:43 PM, you wrote:
-> >> 
-> >> > I'm guessing that trusize checks matter more on the "inbound" path than 
-> >> > the outbound path?  If that is indeed the case, then instead of, or in 
-> >> > addition to using the -s option to set the local (netperf side) socket 
-> >> > buffer size, you should use a -S option to set the remote (netserver 
-> >> > side) socket buffer size.
-> >> 
-> >> > happy benchmarking,
-> >> 
-> >> > rick jones
-> >> 
-> >> 
-> >> OK, ran them with -S as well:
-> 
-> > Are these all from domU -> dom0 ? Did you try traffic going the other
-> > way?
-> 
-> Yes running netperf in domU and netserver in dom0, but i must say i'm far from a netperf expert.
-> So i don't even know for sure if the tests i ran give a good picture.
-> 
-> >> "current" is with netfront as is        (skb->truesize += skb->data_len - RX_COPY_THRESHOLD;)
-> >> "patched" is with IanC's latest patch   (skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;)
-> 
-> skb->>truesize += skb->data_len - NETFRONT_SKB_CB(skb)->pull_to; is
-> > probably more interesting to compare against since we know the current
-> > one is buggy.
-> 
-> Will see if i can run against that as well, although i thought Eric
-> said to prefer the "skb->truesize += PAGE_SIZE *
-> skb_shinfo(skb)->nr_frags;"
+On Mon, Jan 07, 2013 at 02:25:39PM +0100, Florian Fainelli wrote:
+> Hello Neil,
+>=20
+> Le 12/15/12 02:22, Neil Horman a =E9crit :
+> >Recently I posted commit 3c68198e75 which made selection of the cook=
+ie hmac
+> >algorithm selectable.  This is all well and good, but Linus noted th=
+at it
+> >changes the default config:
+> >http://marc.info/?l=3Dlinux-netdev&m=3D135536629004808&w=3D2
+> >
+> >I've modified the sctp Kconfig file to reflect the recommended way o=
+f making
+> >this choice, using the thermal driver example specified, and brought=
+ the
+> >defaults back into line with the way they were prior to my origional=
+ patch
+> >
+> >Also, on Linus' suggestion, re-adding ability to select default 'non=
+e' hmac
+> >algorithm, so we don't needlessly bloat the kernel by forcing a non-=
+none
+> >default.  This also led me to note that we won't honor the default n=
+one
+> >condition properly because of how sctp_net_init is encoded.  Fix tha=
+t up as
+> >well.
+> >
+> >Tested by myself (allbeit fairly quickly).  All configuration combin=
+ations seems
+> >to work soundly.
+> >
+> >Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> >CC: David Miller <davem@davemloft.net>
+> >CC: Linus Torvalds <torvalds@linux-foundation.org>
+> >CC: Vlad Yasevich <vyasevich@gmail.com>
+> >CC: linux-sctp@vger.kernel.org
+> >---
+> >  net/sctp/Kconfig    | 27 +++++++++++++++++++++++++--
+> >  net/sctp/protocol.c |  4 ++--
+> >  2 files changed, 27 insertions(+), 4 deletions(-)
+> >
+> >diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+> >index a9edd2e..c262106 100644
+> >--- a/net/sctp/Kconfig
+> >+++ b/net/sctp/Kconfig
+> >@@ -66,12 +66,36 @@ config SCTP_DBG_OBJCNT
+> >  	  'cat /proc/net/sctp/sctp_dbg_objcnt'
+> >
+> >  	  If unsure, say N
+> >+choice
+> >+	prompt "Default SCTP cookie HMAC encoding"
+> >+	default SCTP_COOKIE_HMAC_MD5
+>=20
+> Should not this be SCTP_DEFAULT_COOKIE_HMAC_MD5? I just tried to
+> update to 3.8-rc2, and I usually build my kernel-headers with:
+>=20
+> yes '' | ARCH=3Dfoo make oldconfig
+>=20
+> and this just kept asking me for this config symbol because none
+> could be provided.
+> --
+> Florian
+>=20
 
-Right, I meant to compare "PAGE_SIZE * skb_shinfo(skb)->nr_frags" vs
-"skb->data_len - NETFRONT_SKB_CB(skb)->pull_to". TBH I trust Eric so I'm
-inclined to just go with what he suggests.
+No, the config mechanism is setup to offer the user the ability to choo=
+se a
+default cookie hmac, alg, then optionally select any other hmac algs yo=
+u would
+like to be made available (in the event you want to change the default =
+at run
+time).  When you select the default, it eables (via the select directiv=
+e), the
+corresponding SCTP_COOKIE_HMAC_* config option, which is used in the bu=
+ild, and
+then prompts for the remaining values.
 
-Ian.
+Neil
