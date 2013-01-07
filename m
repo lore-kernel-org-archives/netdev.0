@@ -1,118 +1,57 @@
-From: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Subject: Re: [PATCH 3.8-rc] net: mvneta: fix driver operation in SMP context
-Date: Mon, 07 Jan 2013 18:14:32 +0100
-Message-ID: <50EB0278.4010806@free-electrons.com>
-References: <1357576074-24245-1-git-send-email-thomas.petazzoni@free-electrons.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH repost] net,wireless: check against default_ethtool_ops
+Date: Mon, 7 Jan 2013 18:20:58 +0100
+Message-ID: <CAHXqBFLQau4iROXA=GL9EQFYJpRGJHpkuW7knt=9YfSqz+_XRQ@mail.gmail.com>
+References: <20130107095548.GA6931@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Lior Amsalem <alior@marvell.com>, Andrew Lunn <andrew@lunn.ch>,
-	Jason Cooper <jason@lakedaemon.net>, netdev@vger.kernel.org,
-	Maen Suleiman <maen@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>,
-	linux-arm-kernel@lists.infradead.org
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Greear <greearb@candelatech.com>,
+	=?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	linux-wireless@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.32.191]:41069 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791Ab3AGROh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 12:14:37 -0500
-In-Reply-To: <1357576074-24245-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:38080 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502Ab3AGRVT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 12:21:19 -0500
+In-Reply-To: <20130107095548.GA6931@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2013 05:27 PM, Thomas Petazzoni wrote:
-> From: Dmitri Epshtein <dima@marvell.com>
-> 
-> In order for the driver to behave properly in a SMP context, the same
-> transmit queue should be used by the kernel in dev_queue_xmit() and in
-> the driver's mvneta_tx() function. To achieve that, the driver now
-> implements the ->ndo_select_txq() operation.
-> 
-> For now, it always returns the same transmit queue, txq_def, until the
-> driver is expanded to properly take advantage of the multiqueue
-> capabilities of the hardware.
-> 
-> Without this patch, the network driver crashes the kernel almost
-> immediately on Armada XP platforms, if the network load is at least a
-> little bit parallel (i.e several threads).
-> 
-> [Thomas Petazzoni: reword commit message]
-> Signed-off-by: Dmitri Epshtein <dima@marvell.com>
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+2013/1/7 Stanislaw Gruszka <sgruszka@redhat.com>:
+> Since:
+>
+> commit 2c60db037034d27f8c636403355d52872da92f81
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Sun Sep 16 09:17:26 2012 +0000
+>
+>     net: provide a default dev->ethtool_ops
+>
+> wireless core does not correctly assign ethtool_ops. In order to fix
+> the problem, and avoid assigning ethtool_ops on each individual cfg80=
+211
+> drivers, we check against default_ethool_ops pointer instead of NULL =
+in
+> wireless core.
+[...]
 
-I have tested this patch on my Armada XP DB board and on the
-OpenBlocks AX3 board. I confirmed that it fixes the problem when
-multiple thread are used.
+You could instead move the assignment of default ethtool_ops to just af=
+ter
+call_netdevice_notifiers(NETDEV_REGISTER) in register_netdevice() or
+just after call_netdevice_notifiers(NETDEV_POST_INIT) and initialize th=
+e default
+wireless ethtool_ops in NETDEV_POST_INIT hook. That will avoid the expo=
+rt.
 
-You can add my
-Tested-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
-and also my
-Acked-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+Either way is good because register_netdevice() is called under RTNL, s=
+o
+ethtool_ops can't be called until it returns. NETDEV_POST_INIT seams mo=
+re
+natural to me, but it's not a strong opinion.
 
-Or a combination of the two if you prefer!
-
-> ---
-> This is 3.8-rc material.
-> ---
->  drivers/net/ethernet/marvell/mvneta.c |   17 +++++++++++++++--
->  1 file changed, 15 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index b6025c3..af2c421 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -1310,6 +1310,17 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
->  	return MVNETA_TX_L4_CSUM_NOT;
->  }
->  
-> +static u16 mvneta_tx_policy(struct mvneta_port *pp, struct sk_buff *skb)
-> +{
-> +	return (u16)txq_def;
-> +}
-> +
-> +static u16 mvneta_select_txq(struct net_device *dev, struct sk_buff *skb)
-> +{
-> +	struct mvneta_port *pp = netdev_priv(dev);
-> +	return mvneta_tx_policy(pp, skb);
-> +}
-> +
->  /* Returns rx queue pointer (find last set bit) according to causeRxTx
->   * value
->   */
-> @@ -1476,7 +1487,8 @@ error:
->  static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
->  {
->  	struct mvneta_port *pp = netdev_priv(dev);
-> -	struct mvneta_tx_queue *txq = &pp->txqs[txq_def];
-> +	u16 txq_id = mvneta_tx_policy(pp, skb);
-> +	struct mvneta_tx_queue *txq = &pp->txqs[txq_id];
->  	struct mvneta_tx_desc *tx_desc;
->  	struct netdev_queue *nq;
->  	int frags = 0;
-> @@ -1486,7 +1498,7 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
->  		goto out;
->  
->  	frags = skb_shinfo(skb)->nr_frags + 1;
-> -	nq    = netdev_get_tx_queue(dev, txq_def);
-> +	nq    = netdev_get_tx_queue(dev, txq_id);
->  
->  	/* Get a descriptor for the first part of the packet */
->  	tx_desc = mvneta_txq_next_desc_get(txq);
-> @@ -2550,6 +2562,7 @@ static const struct net_device_ops mvneta_netdev_ops = {
->  	.ndo_change_mtu      = mvneta_change_mtu,
->  	.ndo_tx_timeout      = mvneta_tx_timeout,
->  	.ndo_get_stats64     = mvneta_get_stats64,
-> +	.ndo_select_queue    = mvneta_select_txq,
->  };
->  
->  const struct ethtool_ops mvneta_eth_tool_ops = {
-> 
-
-
--- 
-Gregory Clement, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
