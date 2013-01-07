@@ -1,58 +1,42 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next] ethtool: consolidate work with ethtool_ops
-Date: Mon, 7 Jan 2013 16:19:02 +0000
-Message-ID: <1357575542.2658.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1357561574-14255-1-git-send-email-jiri@resnulli.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH V2] xen/netfront: improve truesize tracking
+Date: Mon, 07 Jan 2013 08:19:05 -0800
+Message-ID: <1357575545.6919.3110.camel@edumazet-glaptop>
+References: <1357572726-7059-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<richardcochran@gmail.com>, <greearb@candelatech.com>,
-	<jeffrey.t.kirsher@intel.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: netdev@vger.kernel.org, Sander Eikelenboom <linux@eikelenboom.it>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	annie li <annie.li@oracle.com>, xen-devel@lists.xen.org
+To: Ian Campbell <ian.campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:8584 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753598Ab3AGQTI (ORCPT
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:44967 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753515Ab3AGQTI (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:19:08 -0500
-In-Reply-To: <1357561574-14255-1-git-send-email-jiri@resnulli.us>
+Received: by mail-pa0-f47.google.com with SMTP id fa10so10775374pad.20
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 08:19:08 -0800 (PST)
+In-Reply-To: <1357572726-7059-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-07 at 13:26 +0100, Jiri Pirko wrote:
-> No need to check if ethtool_ops == NULL since it can't be.
-> Use local variable "ops" in functions where it is present
-> instead of dev->ethtool_ops
-> Introduce local variable "ops" in functions where dev->ethtool_ops is used
-> many times.
+On Mon, 2013-01-07 at 15:32 +0000, Ian Campbell wrote:
+> Using RX_COPY_THRESHOLD is incorrect if the SKB is actually smaller
+> than that. We have already accounted for this in
+> NETFRONT_SKB_CB(skb)->pull_to so use that instead.
 > 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Fixes WARN_ON from skb_try_coalesce.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Sander Eikelenboom <linux@eikelenboom.it>
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Cc: annie li <annie.li@oracle.com>
+> Cc: xen-devel@lists.xen.org
+> Cc: netdev@vger.kernel.org
+> Cc: stable@kernel.org # 3.7.x only
 > ---
->  net/core/ethtool.c | 45 +++++++++++++++++++++------------------------
->  1 file changed, 21 insertions(+), 24 deletions(-)
-> 
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index a870543..08c213e 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-[...]
-> @@ -1082,9 +1083,10 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
->  {
->  	struct ethtool_value id;
->  	static bool busy;
-> +	const struct ethtool_ops *ops = dev->ethtool_ops;
->  	int rc;
->  
-> -	if (!dev->ethtool_ops->set_phys_id)
-> +	if (ops->set_phys_id)
->  		return -EOPNOTSUPP;
-[...]
+> v2:
+>  - acount frags as a full page as recommended by Eric.
 
-This condition is inverted.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Acked-by: Eric Dumazet <edumazet@google.com>
