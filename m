@@ -1,106 +1,84 @@
-From: Jiri Pirko <jiri-rHqAuBHg3fBzbRFIqnYvSA@public.gmane.org>
-Subject: Re: [PATCH repost] net,wireless: check against default_ethtool_ops
-Date: Mon, 7 Jan 2013 11:23:07 +0100
-Message-ID: <20130107102307.GA1587@minipsycho.orion>
-References: <20130107095548.GA6931@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 1/2] ipv6: avoid blackhole and prohibited entries upon
+ prefix purge [v2]
+Date: Mon, 07 Jan 2013 11:25:15 +0100
+Message-ID: <50EAA28B.1080300@6wind.com>
+References: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com> <1357415941.1678.4163.camel@edumazet-glaptop> <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>,
-	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20130107095548.GA6931-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, yoshfuji@linux-ipv6.org,
+	davem@davemloft.net
+To: Romain KUNTZ <r.kuntz@ipflavors.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:64037 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933Ab3AGKZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 05:25:18 -0500
+Received: by mail-la0-f48.google.com with SMTP id ej20so15175680lab.35
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 02:25:17 -0800 (PST)
+In-Reply-To: <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Jan 07, 2013 at 10:55:49AM CET, sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org wrote:
->Since:
+Le 05/01/2013 22:44, Romain KUNTZ a =E9crit :
+> Mobile IPv6 provokes a kernel Oops since commit 64c6d08e (ipv6:
+> del unreachable route when an addr is deleted on lo), because
+> ip6_route_lookup() may also return blackhole and prohibited
+> entry. However, these entries have a NULL rt6i_table argument,
+> which provokes an Oops in __ip6_del_rt() when trying to lock
+> rt6i_table->tb6_lock.
 >
->commit 2c60db037034d27f8c636403355d52872da92f81
->Author: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->Date:   Sun Sep 16 09:17:26 2012 +0000
+> Beside, when purging a prefix, blakhole and prohibited entries
+> should not be selected because they are not what we are looking
+> for.
 >
->    net: provide a default dev->ethtool_ops
+> We fix this by adding two new lookup flags (RT6_LOOKUP_F_NO_BLK_HOLE
+> and RT6_LOOKUP_F_NO_PROHIBIT) in order to ensure that such entries
+> are skipped during lookup and that the correct entry is returned.
 >
->wireless core does not correctly assign ethtool_ops. In order to fix
->the problem, and avoid assigning ethtool_ops on each individual cfg80211
->drivers, we check against default_ethool_ops pointer instead of NULL in
->wireless core.
+> [v2]: use 'goto out;' instead of 'goto again;' to avoid unnecessary
+> oprations on rt (as suggested by Eric Dumazet).
 >
->Signed-off-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->Acked-by: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
->Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org # 3.7+
->---
->This should go directly through net tree since patch include core
->net specific changes.
+> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+> ---
+>   include/net/ip6_route.h |    2 ++
+>   net/ipv6/addrconf.c     |    4 +++-
+>   net/ipv6/fib6_rules.c   |    4 ++++
+>   3 files changed, 9 insertions(+), 1 deletions(-)
 >
-> include/linux/netdevice.h |    2 ++
-> net/core/dev.c            |    3 ++-
-> net/wireless/core.c       |    2 +-
-> 3 files changed, 5 insertions(+), 2 deletions(-)
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index 27d8318..3c93743 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
+> @@ -30,6 +30,8 @@ struct route_info {
+>   #define RT6_LOOKUP_F_SRCPREF_TMP	0x00000008
+>   #define RT6_LOOKUP_F_SRCPREF_PUBLIC	0x00000010
+>   #define RT6_LOOKUP_F_SRCPREF_COA	0x00000020
+> +#define RT6_LOOKUP_F_NO_BLK_HOLE	0x00000040
+> +#define RT6_LOOKUP_F_NO_PROHIBIT	0x00000080
 >
->diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->index f8eda02..c98e1c3 100644
->--- a/include/linux/netdevice.h
->+++ b/include/linux/netdevice.h
->@@ -60,6 +60,8 @@ struct wireless_dev;
-> #define SET_ETHTOOL_OPS(netdev,ops) \
-> 	( (netdev)->ethtool_ops = (ops) )
-> 
->+extern const struct ethtool_ops default_ethtool_ops;
->+
-> /* hardware address assignment types */
-> #define NET_ADDR_PERM		0	/* address is permanent (default) */
-> #define NET_ADDR_RANDOM		1	/* address is generated randomly */
->diff --git a/net/core/dev.c b/net/core/dev.c
->index c0946cb..4cd2168 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -6008,7 +6008,8 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
-> 	return queue;
-> }
-> 
->-static const struct ethtool_ops default_ethtool_ops;
->+const struct ethtool_ops default_ethtool_ops;
->+EXPORT_SYMBOL_GPL(default_ethtool_ops);
-
-I think that default_ethtool_ops should stay static. Wouldn't it be
-nicer to introduce a helper like:
-
-bool dev_has_default_ethtool_ops(struct net_device *dev)
-{
-	return dev->ethtool_ops == &default_ethtool_ops;
-}
-
-> 
-> /**
->  *	alloc_netdev_mqs - allocate network device
->diff --git a/net/wireless/core.c b/net/wireless/core.c
->index 14d9904..90915d4 100644
->--- a/net/wireless/core.c
->+++ b/net/wireless/core.c
->@@ -866,7 +866,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
-> 		/* allow mac80211 to determine the timeout */
-> 		wdev->ps_timeout = -1;
-> 
->-		if (!dev->ethtool_ops)
->+		if (dev->ethtool_ops == &default_ethtool_ops)
-> 			dev->ethtool_ops = &cfg80211_ethtool_ops;
-> 
-> 		if ((wdev->iftype == NL80211_IFTYPE_STATION ||
->-- 
->1.7.1
+>   /*
+>    * rt6_srcprefs2flags() and rt6_flags2srcprefs() translate
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 408cac4a..1891e23 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -948,7 +948,9 @@ static void ipv6_del_addr(struct inet6_ifaddr *if=
+p)
+>   		fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
+>   		fl6.daddr =3D prefix;
+>   		rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
+> -							 RT6_LOOKUP_F_IFACE);
+> +						RT6_LOOKUP_F_IFACE |
+> +						RT6_LOOKUP_F_NO_BLK_HOLE |
+> +						RT6_LOOKUP_F_NO_PROHIBIT);
 >
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>   		if (rt !=3D net->ipv6.ip6_null_entry &&
+Is it not simpler to test the result here (net->ipv6.ip6_blk_hole_entry=
+ and
+net->ipv6.ip6_prohibit_entry) like for the null_entry?
+It will also avoid adding more flags.
