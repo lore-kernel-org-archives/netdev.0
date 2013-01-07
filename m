@@ -1,95 +1,63 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH 3.8-rc] net: mvneta: fix driver operation in SMP context
-Date: Mon,  7 Jan 2013 17:27:54 +0100
-Message-ID: <1357576074-24245-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Lior Amsalem <alior@marvell.com>,
-	Maen Suleiman <maen@marvell.com>,
-	Dmitri Epshtein <dima@marvell.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [patch net] ethtool: set addr_assign_type to NET_ADDR_SET when
+ addr is passed on create
+Date: Mon, 7 Jan 2013 16:36:05 +0000
+Message-ID: <1357576565.2658.6.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1357511921-5537-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<shemminger@vyatta.com>, <sassmann@redhat.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.32.191]:40758 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751019Ab3AGQ2J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:28:09 -0500
+Received: from webmail.solarflare.com ([12.187.104.25]:57776 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026Ab3AGQgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:36:08 -0500
+In-Reply-To: <1357511921-5537-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitri Epshtein <dima@marvell.com>
+On Sun, 2013-01-06 at 23:38 +0100, Jiri Pirko wrote:
+> In case user passed address via netlink during create, NET_ADDR_PERM was set.
+> That is not correct so fix this by setting NET_ADDR_SET.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-In order for the driver to behave properly in a SMP context, the same
-transmit queue should be used by the kernel in dev_queue_xmit() and in
-the driver's mvneta_tx() function. To achieve that, the driver now
-implements the ->ndo_select_txq() operation.
+Not sure what this has to do with ethtool...
 
-For now, it always returns the same transmit queue, txq_def, until the
-driver is expanded to properly take advantage of the multiqueue
-capabilities of the hardware.
+> ---
+>  net/core/rtnetlink.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index 9969afb..9a419b0 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -1667,9 +1667,11 @@ struct net_device *rtnl_create_link(struct net *net,
+>  
+>  	if (tb[IFLA_MTU])
+>  		dev->mtu = nla_get_u32(tb[IFLA_MTU]);
+> -	if (tb[IFLA_ADDRESS])
+> +	if (tb[IFLA_ADDRESS]) {
+>  		memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
+>  				nla_len(tb[IFLA_ADDRESS]));
+> +		dev->addr_assign_type = NET_ADDR_SET;
+> +	}
+>  	if (tb[IFLA_BROADCAST])
+>  		memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
+>  				nla_len(tb[IFLA_BROADCAST]));
 
-Without this patch, the network driver crashes the kernel almost
-immediately on Armada XP platforms, if the network load is at least a
-little bit parallel (i.e several threads).
+But if the address is not specified for this new device,
+addr_assign_type remains NET_ADD_PERM, right?  That sort of makes sense
+in that the 'permanent address' of a software device is all-zeroes.  I
+would prefer to have a way for devices to deny having a permanent
+address, but it's a bit late to change that now.
 
-[Thomas Petazzoni: reword commit message]
-Signed-off-by: Dmitri Epshtein <dima@marvell.com>
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
-This is 3.8-rc material.
----
- drivers/net/ethernet/marvell/mvneta.c |   17 +++++++++++++++--
- 1 file changed, 15 insertions(+), 2 deletions(-)
+Ben.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index b6025c3..af2c421 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -1310,6 +1310,17 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
- 	return MVNETA_TX_L4_CSUM_NOT;
- }
- 
-+static u16 mvneta_tx_policy(struct mvneta_port *pp, struct sk_buff *skb)
-+{
-+	return (u16)txq_def;
-+}
-+
-+static u16 mvneta_select_txq(struct net_device *dev, struct sk_buff *skb)
-+{
-+	struct mvneta_port *pp = netdev_priv(dev);
-+	return mvneta_tx_policy(pp, skb);
-+}
-+
- /* Returns rx queue pointer (find last set bit) according to causeRxTx
-  * value
-  */
-@@ -1476,7 +1487,8 @@ error:
- static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct mvneta_port *pp = netdev_priv(dev);
--	struct mvneta_tx_queue *txq = &pp->txqs[txq_def];
-+	u16 txq_id = mvneta_tx_policy(pp, skb);
-+	struct mvneta_tx_queue *txq = &pp->txqs[txq_id];
- 	struct mvneta_tx_desc *tx_desc;
- 	struct netdev_queue *nq;
- 	int frags = 0;
-@@ -1486,7 +1498,7 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
- 		goto out;
- 
- 	frags = skb_shinfo(skb)->nr_frags + 1;
--	nq    = netdev_get_tx_queue(dev, txq_def);
-+	nq    = netdev_get_tx_queue(dev, txq_id);
- 
- 	/* Get a descriptor for the first part of the packet */
- 	tx_desc = mvneta_txq_next_desc_get(txq);
-@@ -2550,6 +2562,7 @@ static const struct net_device_ops mvneta_netdev_ops = {
- 	.ndo_change_mtu      = mvneta_change_mtu,
- 	.ndo_tx_timeout      = mvneta_tx_timeout,
- 	.ndo_get_stats64     = mvneta_get_stats64,
-+	.ndo_select_queue    = mvneta_select_txq,
- };
- 
- const struct ethtool_ops mvneta_eth_tool_ops = {
 -- 
-1.7.9.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
