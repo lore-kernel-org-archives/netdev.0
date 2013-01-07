@@ -1,46 +1,86 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous
- block ciphers
-Date: Mon, 7 Jan 2013 08:00:36 +0100
-Message-ID: <20130107070036.GP18940@secunet.com>
-References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
- <20121228224248.GA29448@gondor.apana.org.au>
- <20121228.152311.290755667605168896.davem@davemloft.net>
- <20121229000812.GA29866@gondor.apana.org.au>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: [PATCH V2 1/2] virtio-net: fix the set affinity bug when CPU IDs are
+	not consecutive
+Date: Mon, 7 Jan 2013 15:14:59 +0800
+Message-ID: <1357542900-15557-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48802 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068Ab3AGHAk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2013 02:00:40 -0500
-Content-Disposition: inline
-In-Reply-To: <20121229000812.GA29866@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Dec 29, 2012 at 11:08:12AM +1100, Herbert Xu wrote:
-> On Fri, Dec 28, 2012 at 03:23:11PM -0800, David Miller wrote:
-> > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > Date: Sat, 29 Dec 2012 09:42:49 +1100
-> > 
-> > > On Fri, Dec 28, 2012 at 12:04:48PM +0200, Jussi Kivilinna wrote:
-> > >> I'm not sure how this patchset should be dealt with (should 1st patch go
-> > >> through different tree than 2nd and 3rd?), so therefore it's RFC.
-> > >> 
-> > >> Second patch makes rfc3686 template work with asynchronous block ciphers and
-> > >> third patch changes aesni-intel to use this template. First patch fixed problem
-> > >> in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
-> > >> 2nd patch breaks aes-ctr with IPSEC.
-> > > 
-> > > I think the easiest way is to have these patches go through Dave's
-> > > tree.
-> > 
-> > Better yet, Steffen's IPSEC tree :-)
-> 
-> Of course :)
+As M.S.T mentioned, set affinity will not work very well when
+CPU IDs are not consecutive, this can happen with hot unplug.
+Fix this bug by traversal the online CPUs.
 
-Herbert, can I add your Ack to the crypto patches?
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+Cc: Eric Dumazet <erdnetdev@gmail.com>
+Cc: virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+---
+ drivers/net/virtio_net.c | 24 +++++++++++++++++-------
+ 1 file changed, 17 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index a6fcf15..b483fb5 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -1016,6 +1016,7 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+ {
+ 	int i;
++	int cpu;
+ 
+ 	/* In multiqueue mode, when the number of cpu is equal to the number of
+ 	 * queue pairs, we let the queue pairs to be private to one cpu by
+@@ -1029,16 +1030,25 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+ 			return;
+ 	}
+ 
+-	for (i = 0; i < vi->max_queue_pairs; i++) {
+-		int cpu = set ? i : -1;
+-		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+-		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+-	}
++	if (set) {
++		i = 0;
++		for_each_online_cpu(cpu) {
++			virtqueue_set_affinity(vi->rq[i].vq, cpu);
++			virtqueue_set_affinity(vi->sq[i].vq, cpu);
++			i++;
++			if (i >= vi->max_queue_pairs)
++				break;
++		}
+ 
+-	if (set)
+ 		vi->affinity_hint_set = true;
+-	else
++	} else {
++		for(i = 0; i < vi->max_queue_pairs; i++) {
++			virtqueue_set_affinity(vi->rq[i].vq, -1);
++			virtqueue_set_affinity(vi->sq[i].vq, -1);
++		}
++
+ 		vi->affinity_hint_set = false;
++	}
+ }
+ 
+ static void virtnet_get_ringparam(struct net_device *dev,
+-- 
+1.8.1
