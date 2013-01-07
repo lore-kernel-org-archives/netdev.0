@@ -1,49 +1,68 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [PATCH net-next v3 0/3] netpoll: add IPv6 support
-Date: Mon, 07 Jan 2013 10:58:05 +0800
-Message-ID: <1357527485.20798.4.camel@cr0>
-References: <1357269273-7575-1-git-send-email-amwang@redhat.com>
-	 <20130103.192041.782458185484678551.davem@davemloft.net>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 19/19] netfilter: gre: fix resource leak when unregister
+ gre proto
+Date: Mon, 07 Jan 2013 10:59:43 +0800
+Message-ID: <50EA3A1F.8020108@cn.fujitsu.com>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com> <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com> <20130105035048.GA20027@1984> <50EA2489.3070309@cn.fujitsu.com> <20130107021517.GA12215@1984> <20130107023808.GA14431@1984>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10796 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753286Ab3AGC6P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Jan 2013 21:58:15 -0500
-In-Reply-To: <20130103.192041.782458185484678551.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	canqunzhang@gmail.com, kaber@trash.net, ebiederm@xmission.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130107023808.GA14431@1984>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-03 at 19:20 -0800, David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Fri,  4 Jan 2013 11:14:30 +0800
+On 01/07/13 10:38, Pablo Neira Ayuso wrote:
+> On Mon, Jan 07, 2013 at 03:15:17AM +0100, Pablo Neira Ayuso wrote:
+>> Hi Gao,
+>>
+>> On Mon, Jan 07, 2013 at 09:27:37AM +0800, Gao feng wrote:
+>>> Hi Pablo,
+>>>
+>>> On 01/05/13 11:50, Pablo Neira Ayuso wrote:
+>>>> Hi Gao,
+>>>>
+>>>> On Fri, Dec 28, 2012 at 10:36:46AM +0800, Gao feng wrote:
+>>>>> Currectly we unregister proto before all conntrack entries of
+>>>>> this proto being destroyed. so in function destroy_conntrack
+>>>>> we can't find proper l4proto to call l4proto->destroy.
+>>>>> this will cause resource leak.
+>>>>
+>>>> Good catch.
+>>>>
+>>>> But better to remove the entries before unregistering the protocol
+>>>> tracker, so l4proto->destroy is always called.
+>>>>
+>>>
+>>> I think the reason we unregister proto before remove all entries
+>>> is to avoid new entry for this protocol being created.
+>>>
+>>> If we remove all contrack entries before unregistration, there maybe
+>>> some new entries being created between nf_ct_iterate_cleanup and
+>>> nf_conntrack_l4proto_unregister_net.this will cause some terrible things.
+>>
+>> Leaks are less likely to happen, but may well still happen while
+>> racing with protocol removal, agreed.
+>>
+>>> SO I think we should make proto unavailable first,remove all entries next,
+>>> and remove proto from nf_ct_protos arrays finally.
+>>
+>> Your proposal adds a branch in the packet path to fix an issue that is
+>> specific of the GRE protocol tracker. In the current code, this fixes
+>> the memory leak while removing the nf_conntrack_proto_gre module,
+>> which is a rare operation.
+>>
+>> We have to come with a less intrusive solution.
 > 
-> > (Resend with a cover letter)
-> > 
-> > v3: fix CONFIG_IPV6=m case
-> > 
-> > v2: use bool for ipv6 flag
-> >     fix !CONFIG_IPV6 case
-> > 
-> > This patchset implements netpoll over IPv6.
-> 
-> Thanks for submitting this properly.
-> 
-> But disallowing ipv6 netpoll support when IPV6=m is an unacceptable
-> limitation, compiling IPV6 as a module is common and in fact
-> recommended.
-> 
-> We've solved problems like this before, by putting the needed ipv6
-> routines into a seperate library that is built statically into the
-> kernel when necessary.
-> 
-> You should use a similar approach here.
+> Wait. The existing code is calling nf_ct_gre_keymap_flush in
+> proto_gre_net_exit path, so those keymap objects are not leaked.
 
-Hmm, here we need ndisc_parse_options() and udp6_csum_init(). Not sure
-if both can be inlined?
+Agree, it looks like nf_ct_gre_keymap_flush is added to solve this
+problem.
+
+Please ignore this patch.
 
 Thanks!
