@@ -1,81 +1,75 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH v2 1/1 net-next] net: fec: report correct hardware stamping info to ethtool
-Date: Mon, 7 Jan 2013 10:25:07 +0800
-Message-ID: <1357525507-16148-1-git-send-email-Frank.Li@freescale.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH 19/19] netfilter: gre: fix resource leak when unregister
+ gre proto
+Date: Mon, 07 Jan 2013 11:05:12 +0800
+Message-ID: <50EA3B68.1080001@cn.fujitsu.com>
+References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com> <1356662206-2260-20-git-send-email-gaofeng@cn.fujitsu.com> <20130105035048.GA20027@1984> <50EA2489.3070309@cn.fujitsu.com> <20130107021517.GA12215@1984> <20130107023808.GA14431@1984> <50EA3A1F.8020108@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <s.hauer@pengutronix.de>, Frank Li <Frank.Li@freescale.com>
-To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>,
-	<richardcochran@gmail.com>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:43414
-	"EHLO am1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753409Ab3AGDE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jan 2013 22:04:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	canqunzhang@gmail.com, kaber@trash.net, ebiederm@xmission.com
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <50EA3A1F.8020108@cn.fujitsu.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Report correct hardware stamping capability by ethtool interface.
-The v1.0 ptp4l check it.
+On 01/07/13 10:59, Gao feng wrote:
+> On 01/07/13 10:38, Pablo Neira Ayuso wrote:
+>> On Mon, Jan 07, 2013 at 03:15:17AM +0100, Pablo Neira Ayuso wrote:
+>>> Hi Gao,
+>>>
+>>> On Mon, Jan 07, 2013 at 09:27:37AM +0800, Gao feng wrote:
+>>>> Hi Pablo,
+>>>>
+>>>> On 01/05/13 11:50, Pablo Neira Ayuso wrote:
+>>>>> Hi Gao,
+>>>>>
+>>>>> On Fri, Dec 28, 2012 at 10:36:46AM +0800, Gao feng wrote:
+>>>>>> Currectly we unregister proto before all conntrack entries of
+>>>>>> this proto being destroyed. so in function destroy_conntrack
+>>>>>> we can't find proper l4proto to call l4proto->destroy.
+>>>>>> this will cause resource leak.
+>>>>>
+>>>>> Good catch.
+>>>>>
+>>>>> But better to remove the entries before unregistering the protocol
+>>>>> tracker, so l4proto->destroy is always called.
+>>>>>
+>>>>
+>>>> I think the reason we unregister proto before remove all entries
+>>>> is to avoid new entry for this protocol being created.
+>>>>
+>>>> If we remove all contrack entries before unregistration, there maybe
+>>>> some new entries being created between nf_ct_iterate_cleanup and
+>>>> nf_conntrack_l4proto_unregister_net.this will cause some terrible things.
+>>>
+>>> Leaks are less likely to happen, but may well still happen while
+>>> racing with protocol removal, agreed.
+>>>
+>>>> SO I think we should make proto unavailable first,remove all entries next,
+>>>> and remove proto from nf_ct_protos arrays finally.
+>>>
+>>> Your proposal adds a branch in the packet path to fix an issue that is
+>>> specific of the GRE protocol tracker. In the current code, this fixes
+>>> the memory leak while removing the nf_conntrack_proto_gre module,
+>>> which is a rare operation.
+>>>
+>>> We have to come with a less intrusive solution.
+>>
+>> Wait. The existing code is calling nf_ct_gre_keymap_flush in
+>> proto_gre_net_exit path, so those keymap objects are not leaked.
+> 
+> Agree, it looks like nf_ct_gre_keymap_flush is added to solve this
+> problem.
+> 
+> Please ignore this patch.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
-Change v1->v2
- 1. s/capibilty/capability/
- 2. apply Sascha's feedback 
-    avoid return the return value of ethtool_op_get_ts_info()
-    when bufdesc_ex ==  1
+I mean ignore the codes of gre part.
+I still think nf_ct_iterate_cleanup doesn't make sure all entries being
+destroyed.
 
- drivers/net/ethernet/freescale/fec.c |   31 ++++++++++++++++++++++++++++++-
- 1 files changed, 30 insertions(+), 1 deletions(-)
+I will resend this patch.
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a379319..1c117e5 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1173,12 +1173,41 @@ static void fec_enet_get_drvinfo(struct net_device *ndev,
- 	strcpy(info->bus_info, dev_name(&ndev->dev));
- }
- 
-+static int fec_enet_get_ts_info(struct net_device *ndev,
-+				struct ethtool_ts_info *info)
-+{
-+	struct fec_enet_private *fep = netdev_priv(ndev);
-+
-+	if (fep->bufdesc_ex) {
-+
-+		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
-+					SOF_TIMESTAMPING_RX_SOFTWARE |
-+					SOF_TIMESTAMPING_SOFTWARE |
-+					SOF_TIMESTAMPING_TX_HARDWARE |
-+					SOF_TIMESTAMPING_RX_HARDWARE |
-+					SOF_TIMESTAMPING_RAW_HARDWARE;
-+		if (fep->ptp_clock)
-+			info->phc_index = ptp_clock_index(fep->ptp_clock);
-+		else
-+			info->phc_index = -1;
-+
-+		info->tx_types = (1 << HWTSTAMP_TX_OFF) |
-+				 (1 << HWTSTAMP_TX_ON);
-+
-+		info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
-+				   (1 << HWTSTAMP_FILTER_ALL);
-+		return 0;
-+	} else {
-+		return ethtool_op_get_ts_info(ndev, info);
-+	}
-+}
-+
- static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
--	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_ts_info		= fec_enet_get_ts_info,
- };
- 
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
--- 
-1.7.1
+Thanks!
