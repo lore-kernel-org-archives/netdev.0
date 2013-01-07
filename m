@@ -1,63 +1,205 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net] ethtool: set addr_assign_type to NET_ADDR_SET when
- addr is passed on create
-Date: Mon, 7 Jan 2013 16:36:05 +0000
-Message-ID: <1357576565.2658.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1357511921-5537-1-git-send-email-jiri@resnulli.us>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
+Date: Mon, 07 Jan 2013 11:39:06 -0500
+Message-ID: <50EAFA2A.3000200@gmail.com>
+References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com> <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com> <50EACCD3.90609@openwrt.org> <20130107144921.GA31577@hmsreliant.think-freely.org> <50EAEA71.1060007@gmail.com> <20130107154625.GD31577@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<shemminger@vyatta.com>, <sassmann@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Florian Fainelli <florian@openwrt.org>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:57776 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751026Ab3AGQgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:36:08 -0500
-In-Reply-To: <1357511921-5537-1-git-send-email-jiri@resnulli.us>
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:39243 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751463Ab3AGQjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:39:10 -0500
+In-Reply-To: <20130107154625.GD31577@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-01-06 at 23:38 +0100, Jiri Pirko wrote:
-> In case user passed address via netlink during create, NET_ADDR_PERM was set.
-> That is not correct so fix this by setting NET_ADDR_SET.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+On 01/07/2013 10:46 AM, Neil Horman wrote:
+> On Mon, Jan 07, 2013 at 10:32:01AM -0500, Vlad Yasevich wrote:
+>> On 01/07/2013 09:49 AM, Neil Horman wrote:
+>>> On Mon, Jan 07, 2013 at 02:25:39PM +0100, Florian Fainelli wrote:
+>>>> Hello Neil,
+>>>>
+>>>> Le 12/15/12 02:22, Neil Horman a =E9crit :
+>>>>> Recently I posted commit 3c68198e75 which made selection of the c=
+ookie hmac
+>>>>> algorithm selectable.  This is all well and good, but Linus noted=
+ that it
+>>>>> changes the default config:
+>>>>> http://marc.info/?l=3Dlinux-netdev&m=3D135536629004808&w=3D2
+>>>>>
+>>>>> I've modified the sctp Kconfig file to reflect the recommended wa=
+y of making
+>>>>> this choice, using the thermal driver example specified, and brou=
+ght the
+>>>>> defaults back into line with the way they were prior to my origio=
+nal patch
+>>>>>
+>>>>> Also, on Linus' suggestion, re-adding ability to select default '=
+none' hmac
+>>>>> algorithm, so we don't needlessly bloat the kernel by forcing a n=
+on-none
+>>>>> default.  This also led me to note that we won't honor the defaul=
+t none
+>>>>> condition properly because of how sctp_net_init is encoded.  Fix =
+that up as
+>>>>> well.
+>>>>>
+>>>>> Tested by myself (allbeit fairly quickly).  All configuration com=
+binations seems
+>>>>> to work soundly.
+>>>>>
+>>>>> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+>>>>> CC: David Miller <davem@davemloft.net>
+>>>>> CC: Linus Torvalds <torvalds@linux-foundation.org>
+>>>>> CC: Vlad Yasevich <vyasevich@gmail.com>
+>>>>> CC: linux-sctp@vger.kernel.org
+>>>>> ---
+>>>>>   net/sctp/Kconfig    | 27 +++++++++++++++++++++++++--
+>>>>>   net/sctp/protocol.c |  4 ++--
+>>>>>   2 files changed, 27 insertions(+), 4 deletions(-)
+>>>>>
+>>>>> diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+>>>>> index a9edd2e..c262106 100644
+>>>>> --- a/net/sctp/Kconfig
+>>>>> +++ b/net/sctp/Kconfig
+>>>>> @@ -66,12 +66,36 @@ config SCTP_DBG_OBJCNT
+>>>>>   	  'cat /proc/net/sctp/sctp_dbg_objcnt'
+>>>>>
+>>>>>   	  If unsure, say N
+>>>>> +choice
+>>>>> +	prompt "Default SCTP cookie HMAC encoding"
+>>>>> +	default SCTP_COOKIE_HMAC_MD5
+>>>>
+>>>> Should not this be SCTP_DEFAULT_COOKIE_HMAC_MD5? I just tried to
+>>>> update to 3.8-rc2, and I usually build my kernel-headers with:
+>>>>
+>>>> yes '' | ARCH=3Dfoo make oldconfig
+>>>>
+>>>> and this just kept asking me for this config symbol because none
+>>>> could be provided.
+>>>> --
+>>>> Florian
+>>>>
+>>>
+>>> No, the config mechanism is setup to offer the user the ability to =
+choose a
+>>> default cookie hmac, alg, then optionally select any other hmac alg=
+s you would
+>>> like to be made available (in the event you want to change the defa=
+ult at run
+>>> time).  When you select the default, it eables (via the select dire=
+ctive), the
+>>> corresponding SCTP_COOKIE_HMAC_* config option, which is used in th=
+e build, and
+>>> then prompts for the remaining values.
+>>>
+>>
+>> Neil
+>>
+>> Actually, I think it should be as Florian suggests.  The default
+>> value of the choice should be one of the values defined as part of
+>> the choice (the SCTP_DEFAULT_COOKIE_*).  Turning on appropriate
+>> default would turn on appropriate cookie config
+>> (SCTP_COOKIE_HMAC_*).
+>>
+> I absolutely disagree.
+>
+>> Would that save all the config trouble?
+>>
+> Yes, it would fix it as Florian has noted, but at the cost of silentl=
+y modifying
+> what the default hmac config vaule is.  If you've expressly disabled
+> SCTP_COOKIE_HMAC_MD5, and then blindly take the default choice in the
+> SCTP_DEFAULT_COOKIE selection option (the default default as it were)=
+, using the
+> approach your suggesting, then that will silently enable SCTP_COOKIE_=
+HMAC_MD5
+> again, which may not be expected by users.  If you expressly have a c=
+onfig
+> option disabled in an old configuration, we should leave it there.
 
-Not sure what this has to do with ethtool...
+GACK.  Just reproduced this and I really don't like this infinite loop=20
+of choice prompts.  That's a horrible bug and we need to fix this.
 
-> ---
->  net/core/rtnetlink.c | 4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index 9969afb..9a419b0 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -1667,9 +1667,11 @@ struct net_device *rtnl_create_link(struct net *net,
->  
->  	if (tb[IFLA_MTU])
->  		dev->mtu = nla_get_u32(tb[IFLA_MTU]);
-> -	if (tb[IFLA_ADDRESS])
-> +	if (tb[IFLA_ADDRESS]) {
->  		memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
->  				nla_len(tb[IFLA_ADDRESS]));
-> +		dev->addr_assign_type = NET_ADDR_SET;
-> +	}
->  	if (tb[IFLA_BROADCAST])
->  		memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
->  				nla_len(tb[IFLA_BROADCAST]));
+I don't think overriding the value is that big of a deal, especially=20
+considering that this is exactly what 'make menuconfig' and other=20
+graphical configs will do.
+If I start with:
+	CONFIG_IP_SCTP=3Dm
+	CONFIG_NET_SCTPPROBE=3Dm
+	# CONFIG_SCTP_DBG_MSG is not set
+	# CONFIG_SCTP_DBG_OBJCNT is not set
+	# CONFIG_SCTP_HMAC_NONE is not set
+	CONFIG_SCTP_HMAC_SHA1=3Dy
+	# CONFIG_SCTP_HMAC_MD5 is not set
 
-But if the address is not specified for this new device,
-addr_assign_type remains NET_ADD_PERM, right?  That sort of makes sense
-in that the 'permanent address' of a software device is all-zeroes.  I
-would prefer to have a way for devices to deny having a permanent
-address, but it's a bit late to change that now.
+then run:
+	yes "" | make oldconfig
 
-Ben.
+I get an infinite loop.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If I run "make menuconfig", I get:
+	CONFIG_IP_SCTP=3Dm
+	CONFIG_NET_SCTPPROBE=3Dm
+	# CONFIG_SCTP_DBG_MSG is not set
+	# CONFIG_SCTP_DBG_OBJCNT is not set
+	CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5=3Dy
+	# CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1 is not set
+	# CONFIG_SCTP_DEFAULT_COOKIE_HMAC_NONE is not set
+	CONFIG_SCTP_COOKIE_HMAC_MD5=3Dy
+	# CONFIG_SCTP_COOKIE_HMAC_SHA1 is not set
+
+Note, that SHA1 is now overridden with MD5.
+
+If I change the value of the default choice in Kconfig, the behavior=20
+between oldconfig and menuconfig is the same.
+
+-vlad
+
+
+
+
+
+
+
+>
+> We're doing the right thing now, IMO.  When presented with a conflict=
+ly set
+> of configuration options, the config utilty is (repeatedly) prompting=
+ us to
+> resolve them.  That seems like a much more reasonable approach to thi=
+s, than
+> silently changing pre-existing options so people can do the equivalen=
+t of just
+> blindly pressing enter through the config process (which is all yes "=
+" | make
+> oldconfig is).
+>
+> This is a momentary hiccup, corrected by taking 30 seconds to make a =
+manual
+> config change (or by taking a second to understand what the config ut=
+ility is
+> tell us by prompting for a default choice repeatedly).  Theres nothin=
+g to fix
+> here.
+>
+> Neil
+>
+>> -vlad
+>>
+>>> Neil
+>>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
