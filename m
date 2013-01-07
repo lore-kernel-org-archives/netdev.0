@@ -1,46 +1,32 @@
-From: pablo@netfilter.org
-Subject: [PATCH 2/3] netfilter: fix missing dependencies for the NOTRACK target
-Date: Mon,  7 Jan 2013 21:04:06 +0100
-Message-ID: <1357589047-3373-3-git-send-email-pablo@netfilter.org>
-References: <1357589047-3373-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [patch net-next v2] ethtool: consolidate work with ethtool_ops
+Date: Mon, 7 Jan 2013 18:06:56 -0200
+Message-ID: <20130107200656.GA2090@obelix.rh>
+References: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	bhutchings@solarflare.com, richardcochran@gmail.com,
+	greearb@candelatech.com, jeffrey.t.kirsher@intel.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57393 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:15438 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755476Ab3AGUEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jan 2013 15:04:21 -0500
-In-Reply-To: <1357589047-3373-1-git-send-email-pablo@netfilter.org>
+	id S1750796Ab3AGUHJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2013 15:07:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+On Mon, Jan 07, 2013 at 08:02:08PM +0100, Jiri Pirko wrote:
+> No need to check if ethtool_ops == NULL since it can't be.
+> Use local variable "ops" in functions where it is present
+> instead of dev->ethtool_ops
+> Introduce local variable "ops" in functions where dev->ethtool_ops is used
+> many times.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
 
-warning: (NETFILTER_XT_TARGET_NOTRACK) selects NETFILTER_XT_TARGET_CT which has unmet direct
-+dependencies (NET && INET && NETFILTER && NETFILTER_XTABLES && NF_CONNTRACK && (IP_NF_RAW ||
-+IP6_NF_RAW) && NETFILTER_ADVANCED)
-
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Acked-by: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/Kconfig |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 390f96c..49e96df 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -682,6 +682,9 @@ config NETFILTER_XT_TARGET_NFQUEUE
- 
- config NETFILTER_XT_TARGET_NOTRACK
- 	tristate  '"NOTRACK" target support (DEPRECATED)'
-+	depends on NF_CONNTRACK
-+	depends on IP_NF_RAW || IP6_NF_RAW
-+	depends on NETFILTER_ADVANCED
- 	select NETFILTER_XT_TARGET_CT
- 
- config NETFILTER_XT_TARGET_RATEEST
--- 
-1.7.10.4
+Reviewed-by: Flavio Leitner <fbl@redhat.com>
