@@ -1,41 +1,95 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [patch net-next] ethtool: consolidate work with ethtool_ops
-Date: Mon, 7 Jan 2013 17:19:19 +0100
-Message-ID: <20130107161919.GB5715@netboy.at.omicron.at>
-References: <1357561574-14255-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	bhutchings@solarflare.com, greearb@candelatech.com,
-	jeffrey.t.kirsher@intel.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH 3.8-rc] net: mvneta: fix driver operation in SMP context
+Date: Mon,  7 Jan 2013 17:27:54 +0100
+Message-ID: <1357576074-24245-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Lior Amsalem <alior@marvell.com>,
+	Maen Suleiman <maen@marvell.com>,
+	Dmitri Epshtein <dima@marvell.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:53319 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214Ab3AGQ1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:27:23 -0500
-Received: by mail-we0-f177.google.com with SMTP id x48so10070611wey.8
-        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 08:27:22 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1357561574-14255-1-git-send-email-jiri@resnulli.us>
+Received: from mail.free-electrons.com ([94.23.32.191]:40758 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751019Ab3AGQ2J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 11:28:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 07, 2013 at 01:26:14PM +0100, Jiri Pirko wrote:
-> @@ -1346,13 +1347,9 @@ static int ethtool_get_ts_info(struct net_device *dev, void __user *useraddr)
->  	info.cmd = ETHTOOL_GET_TS_INFO;
->  
->  	if (phydev && phydev->drv && phydev->drv->ts_info) {
-> -
->  		err = phydev->drv->ts_info(phydev, &info);
-> -
-> -	} else if (dev->ethtool_ops && dev->ethtool_ops->get_ts_info) {
-> -
-> +	} else if (ops->get_ts_info) {
->  		err = ops->get_ts_info(dev, &info);
-> -
->  	} else {
->  		info.so_timestamping =
->  			SOF_TIMESTAMPING_RX_SOFTWARE |
+From: Dmitri Epshtein <dima@marvell.com>
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+In order for the driver to behave properly in a SMP context, the same
+transmit queue should be used by the kernel in dev_queue_xmit() and in
+the driver's mvneta_tx() function. To achieve that, the driver now
+implements the ->ndo_select_txq() operation.
+
+For now, it always returns the same transmit queue, txq_def, until the
+driver is expanded to properly take advantage of the multiqueue
+capabilities of the hardware.
+
+Without this patch, the network driver crashes the kernel almost
+immediately on Armada XP platforms, if the network load is at least a
+little bit parallel (i.e several threads).
+
+[Thomas Petazzoni: reword commit message]
+Signed-off-by: Dmitri Epshtein <dima@marvell.com>
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+This is 3.8-rc material.
+---
+ drivers/net/ethernet/marvell/mvneta.c |   17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index b6025c3..af2c421 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1310,6 +1310,17 @@ static u32 mvneta_skb_tx_csum(struct mvneta_port *pp, struct sk_buff *skb)
+ 	return MVNETA_TX_L4_CSUM_NOT;
+ }
+ 
++static u16 mvneta_tx_policy(struct mvneta_port *pp, struct sk_buff *skb)
++{
++	return (u16)txq_def;
++}
++
++static u16 mvneta_select_txq(struct net_device *dev, struct sk_buff *skb)
++{
++	struct mvneta_port *pp = netdev_priv(dev);
++	return mvneta_tx_policy(pp, skb);
++}
++
+ /* Returns rx queue pointer (find last set bit) according to causeRxTx
+  * value
+  */
+@@ -1476,7 +1487,8 @@ error:
+ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct mvneta_port *pp = netdev_priv(dev);
+-	struct mvneta_tx_queue *txq = &pp->txqs[txq_def];
++	u16 txq_id = mvneta_tx_policy(pp, skb);
++	struct mvneta_tx_queue *txq = &pp->txqs[txq_id];
+ 	struct mvneta_tx_desc *tx_desc;
+ 	struct netdev_queue *nq;
+ 	int frags = 0;
+@@ -1486,7 +1498,7 @@ static int mvneta_tx(struct sk_buff *skb, struct net_device *dev)
+ 		goto out;
+ 
+ 	frags = skb_shinfo(skb)->nr_frags + 1;
+-	nq    = netdev_get_tx_queue(dev, txq_def);
++	nq    = netdev_get_tx_queue(dev, txq_id);
+ 
+ 	/* Get a descriptor for the first part of the packet */
+ 	tx_desc = mvneta_txq_next_desc_get(txq);
+@@ -2550,6 +2562,7 @@ static const struct net_device_ops mvneta_netdev_ops = {
+ 	.ndo_change_mtu      = mvneta_change_mtu,
+ 	.ndo_tx_timeout      = mvneta_tx_timeout,
+ 	.ndo_get_stats64     = mvneta_get_stats64,
++	.ndo_select_queue    = mvneta_select_txq,
+ };
+ 
+ const struct ethtool_ops mvneta_eth_tool_ops = {
+-- 
+1.7.9.5
