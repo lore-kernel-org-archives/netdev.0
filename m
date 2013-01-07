@@ -1,42 +1,121 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [RFC PATCH v2 net-next 0/2] Remove NETIF_F_NETNS_LOCAL from software devices.
-Date: Mon,  7 Jan 2013 09:19:34 +0200
-Message-ID: <1357543176-15352-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	ebiederm@xmission.com, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:39372 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793Ab3AGHVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 02:21:07 -0500
-Received: by mail-ee0-f50.google.com with SMTP id b45so9452974eek.9
-        for <netdev@vger.kernel.org>; Sun, 06 Jan 2013 23:21:06 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V2 2/2] virtio-net: reset virtqueue affinity when doing
+	cpu hotplug
+Date: Mon, 07 Jan 2013 15:28:47 +0800
+Message-ID: <50EA792F.1010408@redhat.com>
+References: <1357542900-15557-1-git-send-email-gaowanlong@cn.fujitsu.com>
+	<1357542900-15557-2-git-send-email-gaowanlong@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1357542900-15557-2-git-send-email-gaowanlong@cn.fujitsu.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-When NETIF_F_NETNS_LOCAL feature is set in some network device,  
-we do not allow this device to be moved from one network namespace 
-to another (see dev_change_net_namespace()). Vlan device is not considered 
-a local device and does not have the NETIF_F_NETNS_LOCAL feature. There is no 
-reason that software devices like ppp and bridge will set the
-NETIF_F_NETNS_LOCAL feature. This patchset removes NETIF_F_NETNS_LOCAL
-from ppp and bridge devices.
+On 01/07/2013 03:15 PM, Wanlong Gao wrote:
+> Add a cpu notifier to virtio-net, so that we can reset the
+> virtqueue affinity if the cpu hotplug happens. It improve
+> the performance through enabling or disabling the virtqueue
+> affinity after doing cpu hotplug.
+> Adding the notifier block to virtnet_info is suggested by
+> Jason, thank you.
+>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Eric Dumazet <erdnetdev@gmail.com>
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> ---
+>  drivers/net/virtio_net.c | 30 ++++++++++++++++++++++++++++++
+>  1 file changed, 30 insertions(+)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index b483fb5..9547b4c 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -26,6 +26,7 @@
+>  #include <linux/scatterlist.h>
+>  #include <linux/if_vlan.h>
+>  #include <linux/slab.h>
+> +#include <linux/cpu.h>
+>  
+>  static int napi_weight = 128;
+>  module_param(napi_weight, int, 0444);
+> @@ -123,6 +124,9 @@ struct virtnet_info {
+>  
+>  	/* Does the affinity hint is set for virtqueues? */
+>  	bool affinity_hint_set;
+> +
+> +	/* CPU hot plug notifier */
+> +	struct notifier_block nb;
+>  };
+>  
+>  struct skb_vnet_hdr {
+> @@ -1051,6 +1055,23 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>  	}
+>  }
+>  
+> +static int virtnet_cpu_callback(struct notifier_block *nfb,
+> +			        unsigned long action, void *hcpu)
+> +{
+> +	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
+> +	switch(action) {
+> +	case CPU_ONLINE:
+> +	case CPU_ONLINE_FROZEN:
+> +	case CPU_DEAD:
+> +	case CPU_DEAD_FROZEN:
+> +		virtnet_set_affinity(vi, true);
+> +		break;
+> +	default:
+> +		break;
+> +	}
+> +	return NOTIFY_OK;
+> +}
+> +
 
-* Changes from v1
-	Do not remove NETIF_F_NETNS_LOCAL from vxlan devices. Moving vxlan device 
-	to a different namesapce does not move the state of the UDP socket related 
-	to this vxlan device (Following Stephen Hemminger comment).
-	
-Rami Rosen (2):
-  [RFC PATCH v2 net-next 1/3] ppp: remove NETIF_F_NETNS_LOCAL from ppp
-    device features.
-  [RFC PATCH v2 net-next 2/3] bridge: remove NETIF_F_NETNS_LOCAL from
-    bridge device features.
+I think you'd better fix the .ndo_select_queue() as well (as Michael
+said in your V1) since it currently uses smp processor id which may not
+work very well in this case also.
 
- drivers/net/ppp/ppp_generic.c | 1 -
- net/bridge/br_device.c        | 2 +-
- 2 files changed, 1 insertion(+), 2 deletions(-)
-
--- 
-1.7.11.7
+Thanks
+>  static void virtnet_get_ringparam(struct net_device *dev,
+>  				struct ethtool_ringparam *ring)
+>  {
+> @@ -1509,6 +1530,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  		}
+>  	}
+>  
+> +	vi->nb.notifier_call = &virtnet_cpu_callback;
+> +	err = register_hotcpu_notifier(&vi->nb);
+> +	if (err) {
+> +		pr_debug("virtio_net: registering cpu notifier failed\n");
+> +		goto free_recv_bufs;
+> +	}
+> +
+>  	/* Assume link up if device can't report link status,
+>  	   otherwise get link status from config. */
+>  	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
+> @@ -1553,6 +1581,8 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  {
+>  	struct virtnet_info *vi = vdev->priv;
+>  
+> +	unregister_hotcpu_notifier(&vi->nb);
+> +
+>  	/* Prevent config work handler from accessing the device. */
+>  	mutex_lock(&vi->config_lock);
+>  	vi->config_enable = false;
