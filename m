@@ -1,54 +1,174 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous
- block ciphers
-Date: Tue, 8 Jan 2013 07:18:06 +1100
-Message-ID: <20130107201806.GA30190@gondor.apana.org.au>
-References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
- <20121228224248.GA29448@gondor.apana.org.au>
- <20121228.152311.290755667605168896.davem@davemloft.net>
- <20121229000812.GA29866@gondor.apana.org.au>
- <20130107070036.GP18940@secunet.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [RFC PATCH net-next] can-gw: add a variable limit for CAN frame routings
+Date: Mon, 07 Jan 2013 22:51:51 +0100
+Message-ID: <50EB4377.6030306@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jussi.kivilinna@mbnet.fi,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:56096 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1749667Ab3AGUSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 15:18:18 -0500
-Content-Disposition: inline
-In-Reply-To: <20130107070036.GP18940@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux CAN List <linux-can@vger.kernel.org>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 07, 2013 at 08:00:36AM +0100, Steffen Klassert wrote:
-> On Sat, Dec 29, 2012 at 11:08:12AM +1100, Herbert Xu wrote:
-> > On Fri, Dec 28, 2012 at 03:23:11PM -0800, David Miller wrote:
-> > > From: Herbert Xu <herbert@gondor.apana.org.au>
-> > > Date: Sat, 29 Dec 2012 09:42:49 +1100
-> > > 
-> > > > On Fri, Dec 28, 2012 at 12:04:48PM +0200, Jussi Kivilinna wrote:
-> > > >> I'm not sure how this patchset should be dealt with (should 1st patch go
-> > > >> through different tree than 2nd and 3rd?), so therefore it's RFC.
-> > > >> 
-> > > >> Second patch makes rfc3686 template work with asynchronous block ciphers and
-> > > >> third patch changes aesni-intel to use this template. First patch fixed problem
-> > > >> in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
-> > > >> 2nd patch breaks aes-ctr with IPSEC.
-> > > > 
-> > > > I think the easiest way is to have these patches go through Dave's
-> > > > tree.
-> > > 
-> > > Better yet, Steffen's IPSEC tree :-)
-> > 
-> > Of course :)
-> 
-> Herbert, can I add your Ack to the crypto patches?
+To prevent a possible misconfiguration (e.g. circular CAN frame routings)
+limit the number of routings of a single CAN frame to a small variable value.
 
-Sure.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The limit can be specified by the module parameter 'max_hops' (1..6).
+The default value is 1 (one hop), according to the original can-gw behaviour.
+
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+
+---
+
+Having the possibility of only a single CAN frame routing (one hop) hinders
+use-cases for some complex application setups. To enable more than one CAN
+frame routing process with a single CAN frame (skb) a counter needed to be
+implemented to prevent an endless frame processing (e.g. due to some kind of
+misconfiguration).
+
+As the skb control buffer (cb) potentially gets modified by net/sched in the
+tx path the csum element for IP checksums is re-used for the counter, as CAN
+frame skbs (ARPHRD_CAN) never contain any kind of checksums (see src comment).
+
+@Marc: I wanted to sent this patch on netdev ML to see if there are any
+objections of using skb->csum in the way i proposed here. When the patch is
+fine please take it via can-next for this net-next cycle then. Tnx.
+
+
+diff --git a/include/uapi/linux/can/gw.h b/include/uapi/linux/can/gw.h
+index 8e1db18..ba87697 100644
+--- a/include/uapi/linux/can/gw.h
++++ b/include/uapi/linux/can/gw.h
+@@ -44,6 +44,7 @@ enum {
+ 	CGW_SRC_IF,	/* ifindex of source network interface */
+ 	CGW_DST_IF,	/* ifindex of destination network interface */
+ 	CGW_FILTER,	/* specify struct can_filter on source CAN device */
++	CGW_DELETED,	/* number of deleted CAN frames (see max_hops param) */
+ 	__CGW_MAX
+ };
+ 
+diff --git a/net/can/gw.c b/net/can/gw.c
+index 574dda78e..20d5a7d 100644
+--- a/net/can/gw.c
++++ b/net/can/gw.c
+@@ -57,15 +57,23 @@
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+ 
+-#define CAN_GW_VERSION "20101209"
++#define CAN_GW_VERSION "20130107"
+ static __initconst const char banner[] =
+-	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")\n";
++	KERN_INFO "can: netlink gateway (rev " CAN_GW_VERSION ")";
+ 
+ MODULE_DESCRIPTION("PF_CAN netlink gateway");
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+ MODULE_ALIAS("can-gw");
+ 
++#define CAN_GW_MAX_HOPS 6
++
++static unsigned int max_hops __read_mostly = 1;
++module_param(max_hops, uint, S_IRUGO);
++MODULE_PARM_DESC(max_hops,
++		 "maximum can-gw routing hops for CAN frames "
++		 "(valid values: 1-6 hops, default: 1)");
++
+ static HLIST_HEAD(cgw_list);
+ static struct notifier_block notifier;
+ 
+@@ -118,6 +126,7 @@ struct cgw_job {
+ 	struct rcu_head rcu;
+ 	u32 handled_frames;
+ 	u32 dropped_frames;
++	u32 deleted_frames;
+ 	struct cf_mod mod;
+ 	union {
+ 		/* CAN frame data source */
+@@ -338,9 +347,27 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
+ 	struct sk_buff *nskb;
+ 	int modidx = 0;
+ 
+-	/* do not handle already routed frames - see comment below */
+-	if (skb_mac_header_was_set(skb))
++	/*
++	 * Do not handle CAN frames routed more than 'max_hops' times.
++	 * In general we should never catch this delimiter which is intended
++	 * to cover a misconfiguration protection (e.g. circular CAN routes).
++	 *
++	 * The Controller Area Network controllers only accept CAN frames with
++	 * correct CRCs - which are not visible in the controller registers.
++	 * According to skbuff.h documentation the csum element for IP checksums
++	 * is undefined/unsued when ip_summed == CHECKSUM_UNNECESSARY. Only
++	 * CAN skbs can be processed here which already have this property.
++	 */
++
++#define cgw_hops(skb) ((skb)->csum)
++
++	BUG_ON(skb->ip_summed != CHECKSUM_UNNECESSARY);
++
++	if (cgw_hops(skb) >= max_hops) {
++		/* indicate deleted frames due to misconfiguration */
++		gwj->deleted_frames++;
+ 		return;
++	}
+ 
+ 	if (!(gwj->dst.dev->flags & IFF_UP)) {
+ 		gwj->dropped_frames++;
+@@ -363,15 +390,8 @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data)
+ 		return;
+ 	}
+ 
+-	/*
+-	 * Mark routed frames by setting some mac header length which is
+-	 * not relevant for the CAN frames located in the skb->data section.
+-	 *
+-	 * As dev->header_ops is not set in CAN netdevices no one is ever
+-	 * accessing the various header offsets in the CAN skbuffs anyway.
+-	 * E.g. using the packet socket to read CAN frames is still working.
+-	 */
+-	skb_set_mac_header(nskb, 8);
++	/* put the incremented hop counter in the cloned skb */
++	cgw_hops(nskb) = cgw_hops(skb) + 1;
+ 	nskb->dev = gwj->dst.dev;
+ 
+ 	/* pointer to modifiable CAN frame */
+@@ -472,6 +492,11 @@ static int cgw_put_job(struct sk_buff *skb, struct cgw_job *gwj, int type,
+ 			goto cancel;
+ 	}
+ 
++	if (gwj->deleted_frames) {
++		if (nla_put_u32(skb, CGW_DELETED, gwj->deleted_frames) < 0)
++			goto cancel;
++	}
++
+ 	/* check non default settings of attributes */
+ 
+ 	if (gwj->mod.modtype.and) {
+@@ -771,6 +796,7 @@ static int cgw_create_job(struct sk_buff *skb,  struct nlmsghdr *nlh,
+ 
+ 	gwj->handled_frames = 0;
+ 	gwj->dropped_frames = 0;
++	gwj->deleted_frames = 0;
+ 	gwj->flags = r->flags;
+ 	gwj->gwtype = r->gwtype;
+ 
+@@ -895,7 +921,14 @@ static int cgw_remove_job(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
+ 
+ static __init int cgw_module_init(void)
+ {
+-	printk(banner);
++	/* sanitize given module parameter */
++	if (max_hops < 1)
++		max_hops = 1;
++
++	if (max_hops > CAN_GW_MAX_HOPS)
++		max_hops = CAN_GW_MAX_HOPS;
++
++	printk("%s max_hops=%d\n", banner, max_hops);
+ 
+ 	cgw_cache = kmem_cache_create("can_gw", sizeof(struct cgw_job),
+ 				      0, 0, NULL);
+
