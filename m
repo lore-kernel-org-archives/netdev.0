@@ -1,72 +1,60 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net] ethtool: set addr_assign_type to NET_ADDR_SET when
- addr is passed on create
-Date: Mon, 7 Jan 2013 18:52:15 +0100
-Message-ID: <20130107175215.GD1587@minipsycho.orion>
-References: <1357511921-5537-1-git-send-email-jiri@resnulli.us>
- <1357576565.2658.6.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [patch net-next] ethtool: consolidate work with ethtool_ops
+Date: Mon, 7 Jan 2013 19:11:17 +0100
+Message-ID: <20130107181117.GE1587@minipsycho.orion>
+References: <1357561574-14255-1-git-send-email-jiri@resnulli.us>
+ <1357575542.2658.1.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
-	sassmann@redhat.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	richardcochran@gmail.com, greearb@candelatech.com,
+	jeffrey.t.kirsher@intel.com
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f43.google.com ([74.125.83.43]:55040 "EHLO
-	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754189Ab3AGRwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 12:52:25 -0500
-Received: by mail-ee0-f43.google.com with SMTP id e49so9506227eek.2
-        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 09:52:24 -0800 (PST)
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:55343 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754322Ab3AGSLW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 13:11:22 -0500
+Received: by mail-ea0-f178.google.com with SMTP id k11so8057661eaa.23
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 10:11:21 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1357576565.2658.6.camel@bwh-desktop.uk.solarflarecom.com>
+In-Reply-To: <1357575542.2658.1.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jan 07, 2013 at 05:36:05PM CET, bhutchings@solarflare.com wrote:
->On Sun, 2013-01-06 at 23:38 +0100, Jiri Pirko wrote:
->> In case user passed address via netlink during create, NET_ADDR_PERM was set.
->> That is not correct so fix this by setting NET_ADDR_SET.
+Mon, Jan 07, 2013 at 05:19:02PM CET, bhutchings@solarflare.com wrote:
+>On Mon, 2013-01-07 at 13:26 +0100, Jiri Pirko wrote:
+>> No need to check if ethtool_ops == NULL since it can't be.
+>> Use local variable "ops" in functions where it is present
+>> instead of dev->ethtool_ops
+>> Introduce local variable "ops" in functions where dev->ethtool_ops is used
+>> many times.
 >> 
 >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->Not sure what this has to do with ethtool...
-
-Should have been "netlink" ...
-
->
 >> ---
->>  net/core/rtnetlink.c | 4 +++-
->>  1 file changed, 3 insertions(+), 1 deletion(-)
+>>  net/core/ethtool.c | 45 +++++++++++++++++++++------------------------
+>>  1 file changed, 21 insertions(+), 24 deletions(-)
 >> 
->> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->> index 9969afb..9a419b0 100644
->> --- a/net/core/rtnetlink.c
->> +++ b/net/core/rtnetlink.c
->> @@ -1667,9 +1667,11 @@ struct net_device *rtnl_create_link(struct net *net,
+>> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+>> index a870543..08c213e 100644
+>> --- a/net/core/ethtool.c
+>> +++ b/net/core/ethtool.c
+>[...]
+>> @@ -1082,9 +1083,10 @@ static int ethtool_phys_id(struct net_device *dev, void __user *useraddr)
+>>  {
+>>  	struct ethtool_value id;
+>>  	static bool busy;
+>> +	const struct ethtool_ops *ops = dev->ethtool_ops;
+>>  	int rc;
 >>  
->>  	if (tb[IFLA_MTU])
->>  		dev->mtu = nla_get_u32(tb[IFLA_MTU]);
->> -	if (tb[IFLA_ADDRESS])
->> +	if (tb[IFLA_ADDRESS]) {
->>  		memcpy(dev->dev_addr, nla_data(tb[IFLA_ADDRESS]),
->>  				nla_len(tb[IFLA_ADDRESS]));
->> +		dev->addr_assign_type = NET_ADDR_SET;
->> +	}
->>  	if (tb[IFLA_BROADCAST])
->>  		memcpy(dev->broadcast, nla_data(tb[IFLA_BROADCAST]),
->>  				nla_len(tb[IFLA_BROADCAST]));
+>> -	if (!dev->ethtool_ops->set_phys_id)
+>> +	if (ops->set_phys_id)
+>>  		return -EOPNOTSUPP;
+>[...]
 >
->But if the address is not specified for this new device,
->addr_assign_type remains NET_ADD_PERM, right?  That sort of makes sense
->in that the 'permanent address' of a software device is all-zeroes.  I
->would prefer to have a way for devices to deny having a permanent
->address, but it's a bit late to change that now.
+>This condition is inverted.
 
-Well if soft-dev uses eth_hw_addr_random() (like team, bridge,
-macvlan, etc) it is set to NET_ADDR_RANDOM
-
-And that is exactly the right way to deny having perm address.
-
+Thanks, will fix this in v2
 
 >
 >Ben.
