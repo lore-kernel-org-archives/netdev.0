@@ -1,39 +1,99 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Mon, 7 Jan 2013 22:38:50 +0000
-Message-ID: <20130107223850.GA21311@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
- <20130106120700.GA24671@dcvr.yhbt.net>
- <20130107122516.GC3885@suse.de>
+From: Paul Pearce <pearce@cs.berkeley.edu>
+Subject: PROBLEM: Software injected vlan tagged packets are unable to be
+ identified using recent BPF modifications
+Date: Mon, 7 Jan 2013 16:05:39 -0800
+Message-ID: <CAOUgPvQP2RrngPPf=hYxpPdGSQ4L-Db0T-BMDwVg6iy8LTAu=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20130107122516.GC3885@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, edumazet@google.com, jpirko@redhat.com,
+	Ani Sinha <ani@aristanetworks.com>
+To: netdev@vger.kernel.org, tcpdump-workers@lists.tcpdump.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:51383 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415Ab3AHAGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 19:06:20 -0500
+Received: by mail-oa0-f51.google.com with SMTP id n12so18515896oag.24
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 16:06:19 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman <mgorman@suse.de> wrote:
-> Right now it's difficult to see how the capture could be the source of
-> this bug but I'm not ruling it out either so try the following (untested
-> but should be ok) patch.  It's not a proper revert, it just disables the
-> capture page logic to see if it's at fault.
+Hello folks,
 
-Things look good so far with your change.
-It's been running 2 hours on a VM and 1 hour on my regular machine.
-Will update again in a few hours (or sooner if it's stuck again).
+PROBLEM:
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+vlan tagged packets that are injected via software are not picked up
+by filters using recent (kernel commit
+f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
+BPF vlan modifications. I suspect this is a problem with the Linux
+kernel.
+
+linux-netdev and tcpdump-workers are both cc'd.
+
+BACKGROUND:
+
+Kernel commit bcc6d47903612c3861201cc3a866fb604f26b8b2 (Jiri
+Pirko/David S. Miller) removed vlan headers on rx packets prior to
+them reaching the packet filters. This broke BPF/libpcap's ability to
+do kernel-level packet filtering based on vlan tag information (the
+'vlan' keyword).
+
+Kernel commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1 (Eric
+Dumazet/David S. Miller, just merged into Linus's tree
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
+added the ability to use BPF to once again filter based on vlan
+tags. Related bpf jit commit:
+http://www.spinics.net/lists/netdev/msg214759.html
+
+libpcap (Ani Sinha) recently RFC'd a patch to use Eric/David's BPF
+modifications to restore vlan filtering to libpcap.
+http://www.mail-archive.com/tcpdump-workers@lists.tcpdump.org/msg06810.html
+I'm using this patch and it works.
+
+DETAILS:
+
+Under these patches vlan tagged packets received from mediam (actual
+packets from the wire) can be identified based on vlan tag information
+using the new BPF functionality.This is good.
+
+However, raw vlan tagged packets that are *injected* into the
+interface using libpcap's pcap_inject() (which is just a fancy wrapper
+for the send() syscall) are not identified by filters using the recent
+BPF modifications.
+
+The bug manifests itself if you attempt to use the new BPF
+modifications to filter vlan tagged packets on a live interface. All
+packets from the medium show up, but all injected packets are dropped.
+
+Prior to commit bcc6d47 both medium and injected packets could both be
+identified using BPFs.
+
+These injected packets can however still be identified using the
+previous, now incorrect "offset into the header" technique. Given
+this, I suspect what's going on is the kernel code path for these
+injected packets is not setting skb->vlan_tci correctly (at all?).
+Since the vlan tag is not in the skb data structure the new BPF
+modifications don't identify the packets as having a vlan tag,
+despite it being in the packet header.
+
+I'm not sure exactly where the bug exists so I'm reaching out to both
+netdev and tcpdump-workers. Although, as I said, I suspect this is on
+the kernel side.
+
+SOFTWARE:
+
+kernel-3.6.11-1.fc16.x86_64, with both kernel commits
+f3335031b9452baebfe49b8b5e55d3fe0c4677d1 and the related commit
+http://www.spinics.net/lists/netdev/msg214759.html backported.
+tcpdump version 4.4.0-PRE-GIT_2013_01_06 (commit
+05bf602ef684d5b75c0ac71be04212d909c37834)
+libpcap version 1.4.0-PRE-GIT_2013_01_06 (commit
+713034fc4b3a2c14ae81e44dca34d998db8d0795 with patch specified above)
+
+Thanks.
+
+-Paul Pearce
+
+Security Graduate Student
+Computer Science
+University of California, Berkeley
