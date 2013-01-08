@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] chelsio: Use netdev_<level> and pr_<level>
-Date: Mon, 07 Jan 2013 19:41:19 -0800 (PST)
-Message-ID: <20130107.194119.904344091925634365.davem@davemloft.net>
-References: <1357515289.4940.6.camel@joe-AO722>
+Subject: Re: NULL pointer dereference in veth_stats_one
+Date: Mon, 07 Jan 2013 19:43:16 -0800 (PST)
+Message-ID: <20130107.194316.1611337776405613841.davem@davemloft.net>
+References: <1357327406.1678.2139.camel@edumazet-glaptop>
+	<1357331112.2693.33.camel@bwh-desktop.uk.solarflarecom.com>
+	<1357350160.1678.3303.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: divy@chelsio.com, dm@chelsio.com, leedom@chelsio.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357515289.4940.6.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, tparkin@katalix.com,
+	netdev@vger.kernel.org
+To: erdnetdev@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49756 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753338Ab3AHDnR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 22:43:17 -0500
+In-Reply-To: <1357350160.1678.3303.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sun, 06 Jan 2013 15:34:49 -0800
+From: Eric Dumazet <erdnetdev@gmail.com>
+Date: Fri, 04 Jan 2013 17:42:40 -0800
 
-> Use more current logging styles.
-> 
-> Convert printks to pr_<level> and
-> printks with ("%s: ...", dev->name to netdev_<level>(dev, "...
-> 
-> Add pr_fmt #defines where appropriate.
-> Coalesce formats.
-> Use pr_<level>_once where appropriate.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> From: Eric Dumazet <edumazet@google.com>
+ ...
+> [PATCH v2 net-next] veth: avoid a NULL deref in veth_stats_one
 
-Applied.
+Applied, thanks Eric.
