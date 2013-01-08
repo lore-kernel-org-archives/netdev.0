@@ -1,113 +1,54 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: [PATCH V3 2/2] virtio-net: reset virtqueue affinity when doing cpu
-	hotplug
-Date: Tue, 8 Jan 2013 18:07:40 +0800
-Message-ID: <1357639660-6660-2-git-send-email-gaowanlong@cn.fujitsu.com>
-References: <1357639660-6660-1-git-send-email-gaowanlong@cn.fujitsu.com>
+From: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
+Subject: Re: [RFC PATCH net-next] can-gw: add a variable limit for CAN frame
+ routings
+Date: Tue, 08 Jan 2013 11:26:27 +0100
+Message-ID: <50EBF453.7020408@volkswagen.de>
+References: <50EB4377.6030306@hartkopp.net> <50EBDB94.3000705@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Eric Dumazet <erdnetdev@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1357639660-6660-1-git-send-email-gaowanlong@cn.fujitsu.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Linux CAN List <linux-can@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <50EBDB94.3000705@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add a cpu notifier to virtio-net, so that we can reset the
-virtqueue affinity if the cpu hotplug happens. It improve
-the performance through enabling or disabling the virtqueue
-affinity after doing cpu hotplug.
+Am 08.01.2013 09:40, schrieb Marc Kleine-Budde:
+> On 01/07/2013 10:51 PM, Oliver Hartkopp wrote:
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-Cc: Eric Dumazet <erdnetdev@gmail.com>
-Cc: virtualization@lists.linux-foundation.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
----
- drivers/net/virtio_net.c | 30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index a77f86c..31a25db 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -26,6 +26,7 @@
- #include <linux/scatterlist.h>
- #include <linux/if_vlan.h>
- #include <linux/slab.h>
-+#include <linux/cpu.h>
- 
- static int napi_weight = 128;
- module_param(napi_weight, int, 0444);
-@@ -125,6 +126,9 @@ struct virtnet_info {
- 
- 	/* Does the affinity hint is set for virtqueues? */
- 	bool affinity_hint_set;
-+
-+	/* CPU hot plug notifier */
-+	struct notifier_block nb;
- };
- 
- struct skb_vnet_hdr {
-@@ -1057,6 +1061,23 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
- 	}
- }
- 
-+static int virtnet_cpu_callback(struct notifier_block *nfb,
-+			        unsigned long action, void *hcpu)
-+{
-+	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
-+	switch(action) {
-+	case CPU_ONLINE:
-+	case CPU_ONLINE_FROZEN:
-+	case CPU_DEAD:
-+	case CPU_DEAD_FROZEN:
-+		virtnet_set_affinity(vi, true);
-+		break;
-+	default:
-+		break;
-+	}
-+	return NOTIFY_OK;
-+}
-+
- static void virtnet_get_ringparam(struct net_device *dev,
- 				struct ethtool_ringparam *ring)
- {
-@@ -1518,6 +1539,13 @@ static int virtnet_probe(struct virtio_device *vdev)
- 		}
- 	}
- 
-+	vi->nb.notifier_call = &virtnet_cpu_callback;
-+	err = register_hotcpu_notifier(&vi->nb);
-+	if (err) {
-+		pr_debug("virtio_net: registering cpu notifier failed\n");
-+		goto free_recv_bufs;
-+	}
-+
- 	/* Assume link up if device can't report link status,
- 	   otherwise get link status from config. */
- 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
-@@ -1562,6 +1590,8 @@ static void virtnet_remove(struct virtio_device *vdev)
- {
- 	struct virtnet_info *vi = vdev->priv;
- 
-+	unregister_hotcpu_notifier(&vi->nb);
-+
- 	/* Prevent config work handler from accessing the device. */
- 	mutex_lock(&vi->config_lock);
- 	vi->config_enable = false;
--- 
-1.8.1
+>>
+>>   static __init int cgw_module_init(void)
+>>   {
+>> -	printk(banner);
+>> +	/* sanitize given module parameter */
+>> +	if (max_hops < 1)
+>> +		max_hops = 1;
+>> +
+>> +	if (max_hops > CAN_GW_MAX_HOPS)
+>> +		max_hops = CAN_GW_MAX_HOPS;
+>
+> You can make use of clamp(val, min, max) here.
+>
+
+ok.
+
+I added
+
+	#include <linux/kernel.h>
+
+where clamp is defined and reduced the code above to
+
+clamp_t(unsigned int, max_hops, CAN_GW_MIN_HOPS, CAN_GW_MAX_HOPS);
+
+Unfortunately clamp(max_hops, CAN_GW_MIN_HOPS, CAN_GW_MAX_HOPS) did not work.
+
+=> (warning: comparison of distinct pointer types lacks a cast)
+
+Will send the v2 when there're no other remarks tommorrow.
+
+Tnx,
+Oliver
+
