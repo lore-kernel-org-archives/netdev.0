@@ -1,55 +1,42 @@
-From: Einar Lueck <elelueck@linux.vnet.ibm.com>
-Subject: Re: [RFC PATCH V2] tcp: introduce raw access to experimental options
-Date: Tue, 08 Jan 2013 15:36:35 +0100
-Message-ID: <50EC2EF3.5080506@linux.vnet.ibm.com>
-References: <1357575210-52926-1-git-send-email-elelueck@linux.vnet.ibm.com> <1357575210-52926-2-git-send-email-elelueck@linux.vnet.ibm.com> <1357577051.6919.3171.camel@edumazet-glaptop>
+From: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
+Subject: IPV4 TCP connection reset using iperf
+Date: Tue, 8 Jan 2013 20:11:17 +0530
+Message-ID: <CAAvRe=izMJWEFDcZYEoJCY2Em7NQKco4_6x1L7t4h2XSJf6_Sg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, ubacher@de.ibm.com,
-	raspl@de.ibm.com, frankbla@de.ibm.com, samudrala@us.ibm.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:48399 "EHLO
-	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756428Ab3AHOgm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 09:36:42 -0500
-Received: from /spool/local
-	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <elelueck@linux.vnet.ibm.com>;
-	Tue, 8 Jan 2013 14:35:55 -0000
-Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
-	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r08EaTbC55771238
-	for <netdev@vger.kernel.org>; Tue, 8 Jan 2013 14:36:29 GMT
-Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
-	by d06av01.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r08EaaZN003649
-	for <netdev@vger.kernel.org>; Tue, 8 Jan 2013 07:36:37 -0700
-In-Reply-To: <1357577051.6919.3171.camel@edumazet-glaptop>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:39565 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756428Ab3AHOlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 09:41:17 -0500
+Received: by mail-ie0-f179.google.com with SMTP id k14so560869iea.10
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 06:41:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/07/2013 05:44 PM, Eric Dumazet wrote:
->
-> Thats a big addition, and for example doesn't help if the SYNACK should
-> include an option that is depending on the content of SYN message.
->
-> For TCP fastopen for example, the cookie we send to the client is not a
-> constant cookie.
->
-> Also TCP coalescing of TCP collapse will merge several skbs, so storing
-> "the last received options" in the socket is kind of not well defined
-> semantic.
->
-> It looks like you need to add hooks and kernel modules to fully use
-> experimental options, like congestion control modules.
->
->
-Thanks for the fast feedback, Eric. Let me try to make sure that I
-understand your suggestions correctly:
-You suggest to have a set of hooks that allow to move all code that
-exploits experimental options into dedicated modules (e.g. one module
-for TCP fastopen and one for cookies). Extensibility then comes on
-a per module granularity. Is my understanding correct?
+Hi,
 
-Thx,
-Einar.
+I have recently migrated to kernel version 3.6.10 from 3.2.1. I was
+running iperf to routinely measure TCP throughput and I have been
+facing problems eversince. I am using a wireless interface.
+
+wireless client: iperf -s -i 1 -w 1024K
+wireless server: iperf -c 192.168.1.1 -i -1 -w 1024 -t 600
+
+While, the connection is maintained for sometime and the perf logs
+keep going. Randomly, the connection breaks with the server side
+resetting the connection. The tcp dump on the client shows RST sent by
+the server. Switching back to 3.2.1 works. This issue starts from
+kernel version 3.5 onnwards.
+
+I have tried to probe along some points to take a look at the air
+logs, tcpdump on either sides but to no clue - everything seems normal
+like, the tcp window values, very less/negligible retransmissions and
+so on. The RST is set abruptly and randomly (no definite time - may
+happen randomly).
+
+I am looking for some suggestions or pointers towards analyzing the issue.
+
+Thanks and regards,
+Madhvapathi Sriram
