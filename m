@@ -1,54 +1,42 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net 2/2] net: dev_queue_xmit_nit: fix potential NULL ptr
- dereference
-Date: Tue, 08 Jan 2013 20:38:43 +0100
-Message-ID: <50EC75C3.9000103@redhat.com>
-References: <1357671093-9605-1-git-send-email-dborkman@redhat.com>  <1357671093-9605-3-git-send-email-dborkman@redhat.com> <1357672943.18156.328.camel@edumazet-glaptop>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: Re: [PATCH net 1/2] net: dev_queue_xmit_nit: fix skb->vlan_tci field value
+Date: Tue, 8 Jan 2013 11:54:49 -0800
+Message-ID: <CAOxq_8O4+g4=r6QDRjxAjOTwy1wmqSMuFggrjdpDwFmoFUY4sw@mail.gmail.com>
+References: <1357671093-9605-1-git-send-email-dborkman@redhat.com>
+	<1357671093-9605-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61964 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755393Ab3AHTis (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2013 14:38:48 -0500
-In-Reply-To: <1357672943.18156.328.camel@edumazet-glaptop>
+Received: from mail-ia0-f177.google.com ([209.85.210.177]:36015 "EHLO
+	mail-ia0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756140Ab3AHTyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 14:54:50 -0500
+Received: by mail-ia0-f177.google.com with SMTP id h8so121109iaa.8
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 11:54:50 -0800 (PST)
+In-Reply-To: <1357671093-9605-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2013 08:22 PM, Eric Dumazet wrote:
-> On Tue, 2013-01-08 at 19:51 +0100, Daniel Borkmann wrote:
->> Commit 71d9dec24dce548bf699815c976cf063ad9257e2 (``net: increase
->> skb->users instead of skb_clone()'') introduced a skb_clone in
->> dev_queue_xmit_nit that, when NULL, leaves the loop, but can still
->> be injected into pt_prev->func().
->>
->> Cc: Changli Gao <xiaosuo@gmail.com>
->> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   net/core/dev.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index 723dcd0..6c35c33 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -1827,7 +1827,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
->>   			pt_prev = ptype;
->>   		}
->>   	}
->> -	if (pt_prev)
->> +	if (skb2 && pt_prev)
->>   		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
->>   	rcu_read_unlock();
->>   }
->
-> My opinion is this patch is not needed.
->
-> pt_prev can be set only if skb2 is not NULL
+Agreed with the fix. This fixes the issue introduced by this change :l
 
-Agreed, I missed that, thanks.
+
+On Tue, Jan 8, 2013 at 10:51 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> VLAN packets that are locally injected through taps will loose their
+> skb->vlan_tci value when they pass dev_hard_start_xmit and get looped
+> back to a packet sniffer via dev_queue_xmit_nit. Besides others, this
+> meta data is used in Linux socket filtering for VLANs. Tested with a
+> VLAN ancillary ops filter.
+>
+> Patch is based on a previous version by Jiri Pirko.
+>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Ani Sinha <ani@aristanetworks.com>
+> Cc: Jiri Pirko <jpirko@redhat.com>
+> Reported-by: Paul Pearce <pearce@cs.berkeley.edu>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+
+Acked-by: Ani Sinha <ani@aristanetworks.com>
