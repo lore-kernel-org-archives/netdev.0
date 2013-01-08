@@ -1,7 +1,7 @@
 From: "Ariel Elior" <ariele@broadcom.com>
 Subject: RE: [patch] bnx2x: NULL dereference on error in debug code
-Date: Tue, 8 Jan 2013 14:50:50 +0000
-Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BCC7E9F@SJEXCHMB05.corp.ad.broadcom.com>
+Date: Tue, 8 Jan 2013 14:54:04 +0000
+Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BCC7EBC@SJEXCHMB05.corp.ad.broadcom.com>
 References: <20130108134213.GA23742@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -48,6 +48,10 @@ List-Id: netdev.vger.kernel.org
 >  	return -ENOMEM;
 >  }
 > 
-Right you are. Ack.
-Thanks Dan,
-Ariel
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+And now acking it properly.
+Acked-by Ariel Elior <ariele@broadcom.com>
