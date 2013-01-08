@@ -1,34 +1,55 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next] net: introduce skb_transport_header_was_set()
-Date: Tue, 08 Jan 2013 09:05:13 -0500
-Message-ID: <50EC2799.4070103@mojatatu.com>
-References: <50C4821D.5090206@gmail.com> <50CCE961.5050204@mojatatu.com>  <alpine.LNX.2.01.1212160002330.4901@nerf07.vanv.qr>  <CAASe=fQT2pVOK0uctdaKL+aOrF8nYeTMfoF15kmd-rC02+7Vnw@mail.gmail.com>  <50CDFB6A.3090806@mojatatu.com> <50CE1A04.1000405@mojatatu.com>  <alpine.LNX.2.01.1212162003340.27614@nerf07.vanv.qr>  <50CE3203.9080007@mojatatu.com> <50CF1071.1050405@mojatatu.com>  <CAASe=fRuJdtisEvp7uo=PHwN3nKHqsYDW4Om1gk2MK-vyNvBrA@mail.gmail.com>  <50D06177.2090905@mojatatu.com>  <CAASe=fR6Hm2dxp=1wDchtrzqnaH6qacHpg2wrsqLfmGpPbQ9Fg@mail.gmail.com>  <50D1A8A7.1090002@mojatatu.com> <50D1AB7E.5060000@mojatatu.com>  <50D2D229.6040802@gmail.com> <50D305FD.7000901@mojatatu.com>  <50D327CD.3050904@gmail.com> <50D45E25.7050703@mojatatu.com>  <50D46060.2070308@gmail.com> <50D46928.9070809@mojatatu.c
- om>  <alpine.LNX.2.01.1212211533360.957@nerf07.vanv.qr>  <1356104720.21834.7497.camel@edumazet-glaptop>  <50D5B8BA.9010808@mojatatu.com> <1357586901.6919.3551.camel@edumazet-glaptop>
+From: Einar Lueck <elelueck@linux.vnet.ibm.com>
+Subject: Re: [RFC PATCH V2] tcp: introduce raw access to experimental options
+Date: Tue, 08 Jan 2013 15:36:35 +0100
+Message-ID: <50EC2EF3.5080506@linux.vnet.ibm.com>
+References: <1357575210-52926-1-git-send-email-elelueck@linux.vnet.ibm.com> <1357575210-52926-2-git-send-email-elelueck@linux.vnet.ibm.com> <1357577051.6919.3171.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ubacher@de.ibm.com,
+	raspl@de.ibm.com, frankbla@de.ibm.com, samudrala@us.ibm.com
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:40873 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756190Ab3AHOFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 09:05:22 -0500
-Received: by mail-ie0-f181.google.com with SMTP id 16so488561iea.40
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 06:05:22 -0800 (PST)
-In-Reply-To: <1357586901.6919.3551.camel@edumazet-glaptop>
+Received: from e06smtp13.uk.ibm.com ([195.75.94.109]:48399 "EHLO
+	e06smtp13.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756428Ab3AHOgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 09:36:42 -0500
+Received: from /spool/local
+	by e06smtp13.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <elelueck@linux.vnet.ibm.com>;
+	Tue, 8 Jan 2013 14:35:55 -0000
+Received: from d06av01.portsmouth.uk.ibm.com (d06av01.portsmouth.uk.ibm.com [9.149.37.212])
+	by b06cxnps3075.portsmouth.uk.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r08EaTbC55771238
+	for <netdev@vger.kernel.org>; Tue, 8 Jan 2013 14:36:29 GMT
+Received: from d06av01.portsmouth.uk.ibm.com (loopback [127.0.0.1])
+	by d06av01.portsmouth.uk.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r08EaaZN003649
+	for <netdev@vger.kernel.org>; Tue, 8 Jan 2013 07:36:37 -0700
+In-Reply-To: <1357577051.6919.3171.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-01-07 02:28 PM, Eric Dumazet wrote:
-
-> Note that network stacks usually reset the transport header anyway,
-> after pulling the network header, so this change only allows
-> a followup patch to have more precise qdisc pkt_len computation
-> for GSO packets at ingress side.
+On 01/07/2013 05:44 PM, Eric Dumazet wrote:
 >
+> Thats a big addition, and for example doesn't help if the SYNACK should
+> include an option that is depending on the content of SYN message.
+>
+> For TCP fastopen for example, the cookie we send to the client is not a
+> constant cookie.
+>
+> Also TCP coalescing of TCP collapse will merge several skbs, so storing
+> "the last received options" in the socket is kind of not well defined
+> semantic.
+>
+> It looks like you need to add hooks and kernel modules to fully use
+> experimental options, like congestion control modules.
+>
+>
+Thanks for the fast feedback, Eric. Let me try to make sure that I
+understand your suggestions correctly:
+You suggest to have a set of hooks that allow to move all code that
+exploits experimental options into dedicated modules (e.g. one module
+for TCP fastopen and one for cookies). Extensibility then comes on
+a per module granularity. Is my understanding correct?
 
-Looks good to me.
-
-cheers,
-jamal
+Thx,
+Einar.
