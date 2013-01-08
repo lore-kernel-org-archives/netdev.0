@@ -1,46 +1,116 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [RFC patch net-next] ipv4: use bcast as dst address in case
- IFF_NOARP is set
-Date: Tue, 8 Jan 2013 18:45:38 +0100
-Message-ID: <20130108174538.GC1621@minipsycho.orion>
-References: <1357650162-5554-1-git-send-email-jiri@resnulli.us>
- <7abb4995-17a4-49ca-b0a7-41af6ff763e1@tahiti.vyatta.com>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
+Date: Tue, 08 Jan 2013 18:48:23 +0100
+Message-ID: <50EC5BE7.3090401@openwrt.org>
+References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com> <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com> <50EACCD3.90609@openwrt.org> <20130107144921.GA31577@hmsreliant.think-freely.org> <50EAEA71.1060007@gmail.com> <20130107154625.GD31577@hmsreliant.think-freely.org> <50EAFA2A.3000200@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, edumazet@google.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, pavlix@pavlix.net
-To: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:62422 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756804Ab3AHRpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 12:45:42 -0500
-Received: by mail-we0-f173.google.com with SMTP id z2so573882wey.18
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 09:45:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <7abb4995-17a4-49ca-b0a7-41af6ff763e1@tahiti.vyatta.com>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:63685 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756485Ab3AHRu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 12:50:56 -0500
+In-Reply-To: <50EAFA2A.3000200@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jan 08, 2013 at 06:11:55PM CET, stephen.hemminger@vyatta.com wrote:
+Le 01/07/13 17:39, Vlad Yasevich a =C3=A9crit :
+>>
+>>> Would that save all the config trouble?
+>>>
+>> Yes, it would fix it as Florian has noted, but at the cost of=20
+>> silently modifying
+>> what the default hmac config vaule is.  If you've expressly disabled
+>> SCTP_COOKIE_HMAC_MD5, and then blindly take the default choice in th=
+e
+>> SCTP_DEFAULT_COOKIE selection option (the default default as it=20
+>> were), using the
+>> approach your suggesting, then that will silently enable=20
+>> SCTP_COOKIE_HMAC_MD5
+>> again, which may not be expected by users.  If you expressly have a=20
+>> config
+>> option disabled in an old configuration, we should leave it there.
 >
->> When IFF_NOARP is set on a device, dev->dev_addr is used as *dst*
->> addr of sent frames. That does not make sense. Use rather bcast
->> address
->> instead.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> GACK.  Just reproduced this and I really don't like this infinite loo=
+p=20
+> of choice prompts.  That's a horrible bug and we need to fix this.
 >
->What did you test this on? I think this may have been
->intentional to avoid broadcasting.
+> I don't think overriding the value is that big of a deal, especially=20
+> considering that this is exactly what 'make menuconfig' and other=20
+> graphical configs will do.
+> If I start with:
+>     CONFIG_IP_SCTP=3Dm
+>     CONFIG_NET_SCTPPROBE=3Dm
+>     # CONFIG_SCTP_DBG_MSG is not set
+>     # CONFIG_SCTP_DBG_OBJCNT is not set
+>     # CONFIG_SCTP_HMAC_NONE is not set
+>     CONFIG_SCTP_HMAC_SHA1=3Dy
+>     # CONFIG_SCTP_HMAC_MD5 is not set
+>
+> then run:
+>     yes "" | make oldconfig
+>
+> I get an infinite loop.
+>
+> If I run "make menuconfig", I get:
+>     CONFIG_IP_SCTP=3Dm
+>     CONFIG_NET_SCTPPROBE=3Dm
+>     # CONFIG_SCTP_DBG_MSG is not set
+>     # CONFIG_SCTP_DBG_OBJCNT is not set
+>     CONFIG_SCTP_DEFAULT_COOKIE_HMAC_MD5=3Dy
+>     # CONFIG_SCTP_DEFAULT_COOKIE_HMAC_SHA1 is not set
+>     # CONFIG_SCTP_DEFAULT_COOKIE_HMAC_NONE is not set
+>     CONFIG_SCTP_COOKIE_HMAC_MD5=3Dy
+>     # CONFIG_SCTP_COOKIE_HMAC_SHA1 is not set
+>
+> Note, that SHA1 is now overridden with MD5.
+>
+> If I change the value of the default choice in Kconfig, the behavior=20
+> between oldconfig and menuconfig is the same.
 
-Thanks for looking at this Stephen.
+Right, the issue is as simple as there is no default *valid* config=20
+symbol being proposed. In any case Neil's patch changes both config=20
+symbol names such that they are non-existent when transitionning from a=
+=20
+pre-3.8-rc config and a 3.8-rc config. The following patch fixes this=20
+for me:
 
-I tested this on two boxes connected via ethernet.
+ From c8e277512bafafc009a3fbf889c78d6b6a06d5fa Mon Sep 17 00:00:00 2001
+=46rom: Florian Fainelli <florian@openwrt.org>
+Date: Mon, 7 Jan 2013 14:26:15 +0100
+Subject: [PATCH] sctp: fix typo in default SCTP cookie choice
 
-I believe this may have been intentional, but what sense does it have to
-use dev_addr as destination address? That is what I do not understand.
+Commit 0d0863b0 (sctp: Change defaults on cookie hmac selection)
+introduced a choice configuration option to select the default SCTP
+cookie hashing algorithm, a typo was introduced for the default choice.
+This is an issue when running make oldconfig because an explicit choice
+number must be entered since no default is available. This patch fixes
+the typo, thus providing a valid default choice.
 
-Also, what is the issue with sending all packets to broadcast when NOARP is
-set? In my opinion, it only makes sense.
+Signed-off-by: Florian Fainelli <florian@openwrt.org>
+---
+  net/sctp/Kconfig |    2 +-
+  1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/Kconfig b/net/sctp/Kconfig
+index c262106..7521d94 100644
+--- a/net/sctp/Kconfig
++++ b/net/sctp/Kconfig
+@@ -68,7 +68,7 @@ config SCTP_DBG_OBJCNT
+        If unsure, say N
+  choice
+      prompt "Default SCTP cookie HMAC encoding"
+-    default SCTP_COOKIE_HMAC_MD5
++    default SCTP_DEFAULT_COOKIE_HMAC_MD5
+      help
+        This option sets the default sctp cookie hmac algorithm
+        when in doubt select 'md5'
+--=20
+1.7.10.4
