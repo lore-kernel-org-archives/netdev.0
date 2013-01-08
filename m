@@ -1,11 +1,12 @@
 From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH 1/5] GRE: Add segmentation offload for GRE TAP
-	device.
-Date: Mon,  7 Jan 2013 18:31:36 -0800
-Message-ID: <1357612296-1715-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH 2/5] GRE: Use RTNL for atomic protocol
+	registration.
+Date: Mon,  7 Jan 2013 18:31:46 -0800
+Message-ID: <1357612306-1748-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org
 To: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
@@ -22,263 +23,119 @@ List-Id: netdev.vger.kernel.org
 
 From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
+Currently gre demultiplexer uses its own spin-lock. We should
+rather RTNL lock.
+
+Suggested-by: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
 Signed-off-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- include/linux/skbuff.h |   12 ++++++
- include/net/gre.h      |    6 +++
- net/ipv4/af_inet.c     |    1 +
- net/ipv4/gre.c         |  101 ++++++++++++++++++++++++++++++++++++++++++++++++
- net/ipv4/tcp.c         |    1 +
- net/ipv4/udp.c         |    3 +-
- net/ipv6/ip6_offload.c |    1 +
- net/ipv6/udp_offload.c |    3 +-
- 8 files changed, 126 insertions(+), 2 deletions(-)
+ drivers/net/ppp/pptp.c |    4 ++++
+ net/ipv4/gre.c         |   18 +++++-------------
+ net/ipv4/ip_gre.c      |    4 ++++
+ 3 files changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 320e976..43033f0 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -307,6 +307,8 @@ enum {
- 	SKB_GSO_TCPV6 = 1 << 4,
+diff --git a/drivers/net/ppp/pptp.c b/drivers/net/ppp/pptp.c
+index 162464f..672e7e3 100644
+--- a/drivers/net/ppp/pptp.c
++++ b/drivers/net/ppp/pptp.c
+@@ -673,7 +673,9 @@ static int __init pptp_init_module(void)
+ 	if (!callid_sock)
+ 		return -ENOMEM;
  
- 	SKB_GSO_FCOE = 1 << 5,
-+
-+	SKB_GSO_GRE = 1 << 6,
- };
- 
- #if BITS_PER_LONG > 32
-@@ -797,6 +799,16 @@ static inline int skb_cloned(const struct sk_buff *skb)
- 	       (atomic_read(&skb_shinfo(skb)->dataref) & SKB_DATAREF_MASK) != 1;
++	rtnl_lock();
+ 	err = gre_add_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
++	rtnl_unlock();
+ 	if (err) {
+ 		pr_err("PPTP: can't add gre protocol\n");
+ 		goto out_mem_free;
+@@ -707,7 +709,9 @@ static void __exit pptp_exit_module(void)
+ {
+ 	unregister_pppox_proto(PX_PROTO_PPTP);
+ 	proto_unregister(&pptp_sk_proto);
++	rtnl_lock();
+ 	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
++	rtnl_unlock();
+ 	vfree(callid_sock);
  }
- 
-+static inline int skb_unclone(struct sk_buff *skb, gfp_t pri)
-+{
-+	might_sleep_if(pri & __GFP_WAIT);
-+
-+	if (skb_cloned(skb))
-+		return pskb_expand_head(skb, 0, 0, pri);
-+
-+	return 0;
-+}
-+
- /**
-  *	skb_header_cloned - is the header a clone
-  *	@skb: buffer to check
-diff --git a/include/net/gre.h b/include/net/gre.h
-index 8266547..f7d5bfb 100644
---- a/include/net/gre.h
-+++ b/include/net/gre.h
-@@ -15,4 +15,10 @@ struct gre_protocol {
- int gre_add_protocol(const struct gre_protocol *proto, u8 version);
- int gre_del_protocol(const struct gre_protocol *proto, u8 version);
- 
-+struct gre_base_hdr {
-+	__be16 flags;
-+	__be16 protocol;
-+};
-+#define GRE_HEADER_SECTION 4
-+
- #endif
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 24b384b..9a3d5d2 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1306,6 +1306,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb,
- 		       SKB_GSO_UDP |
- 		       SKB_GSO_DODGY |
- 		       SKB_GSO_TCP_ECN |
-+		       SKB_GSO_GRE |
- 		       0)))
- 		goto out;
  
 diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-index 42a4910..0eaaf44 100644
+index 0eaaf44..c0757c9 100644
 --- a/net/ipv4/gre.c
 +++ b/net/ipv4/gre.c
-@@ -19,6 +19,7 @@
- #include <linux/in.h>
- #include <linux/ip.h>
- #include <linux/netdevice.h>
-+#include <linux/if_tunnel.h>
- #include <linux/spinlock.h>
- #include <net/protocol.h>
- #include <net/gre.h>
-@@ -112,12 +113,105 @@ static void gre_err(struct sk_buff *skb, u32 info)
- 	rcu_read_unlock();
- }
+@@ -26,23 +26,19 @@
  
-+static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
-+				       netdev_features_t features)
-+{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	struct gre_base_hdr *greh;
-+	unsigned char *mac = skb_mac_header(skb);
-+	int net_hlen = skb_network_header_len(skb);
-+	int ghl = GRE_HEADER_SECTION;
-+	int mac_len;
-+	int doffset;
-+
-+	if (unlikely(skb_shinfo(skb)->gso_type &
-+				~(SKB_GSO_TCPV4 |
-+					SKB_GSO_UDP |
-+					SKB_GSO_DODGY |
-+					SKB_GSO_TCP_ECN |
-+					SKB_GSO_GRE |
-+					0)))
-+		goto out;
-+
-+	if (unlikely(!pskb_may_pull(skb, sizeof(*greh))))
-+		goto out;
-+
-+	greh = (struct gre_base_hdr *)skb_transport_header(skb);
-+
-+	if (greh->flags & GRE_KEY)
-+		ghl += GRE_HEADER_SECTION;
-+	if (greh->flags & GRE_CSUM)
-+		ghl += GRE_HEADER_SECTION;
-+
-+	if (unlikely(!pskb_may_pull(skb, ghl)))
-+		goto out;
-+
-+	__skb_pull(skb, ghl);
-+	skb_reset_mac_header(skb);
-+	skb_set_network_header(skb, skb->mac_len);
-+	doffset = skb_mac_header(skb) - mac;
-+	/* segment inner packet. */
-+	segs = skb_gso_segment(skb, 0);
-+	if (!segs || IS_ERR(segs))
-+		goto out;
-+
-+	mac_len = skb_inner_network_header(skb) - ((unsigned char *)greh + ghl);
-+	skb = segs;
-+	do {
-+		unsigned char *smac;
-+
-+		skb_push(skb, doffset);
-+
-+		skb_reset_mac_header(skb);
-+		skb_set_network_header(skb, mac_len);
-+		skb_set_transport_header(skb,
-+					 skb_network_offset(skb) + net_hlen);
-+		smac = skb_mac_header(skb);
-+		skb->mac_len = mac_len;
-+		/* Copy entire outer header from original skb. */
-+		memcpy(smac, mac, doffset);
-+
-+		greh = (struct gre_base_hdr *)skb_transport_header(skb);
-+		if (greh->flags & GRE_CSUM) {
-+			__be32 *gre_csum = (__be32 *)(greh + 1);
-+			*gre_csum = 0;
-+			*(__sum16 *)gre_csum = csum_fold(skb_checksum(skb,
-+						skb_transport_offset(skb),
-+						skb->len - skb_transport_offset(skb),
-+						0));
-+		}
-+	} while ((skb = skb->next));
-+
-+out:
-+	return segs;
-+}
-+
-+static int gre_gso_send_check(struct sk_buff *skb)
-+{
-+	struct gre_base_hdr *greh;
-+
-+	if (!skb->encapsulation)
-+		return -EINVAL;
-+
-+	greh = (struct gre_base_hdr *)skb_transport_header(skb);
-+	if (greh->flags & GRE_SEQ)
-+		return -EINVAL;
-+	return 0;
-+}
-+
- static const struct net_protocol net_gre_protocol = {
- 	.handler     = gre_rcv,
- 	.err_handler = gre_err,
- 	.netns_ok    = 1,
- };
  
-+static const struct net_offload gre_offload = {
-+	.callbacks = {
-+		.gso_send_check =	gre_gso_send_check,
-+		.gso_segment    =	gre_gso_segment,
-+	},
-+};
-+
- static int __init gre_init(void)
+ static const struct gre_protocol __rcu *gre_proto[GREPROTO_MAX] __read_mostly;
+-static DEFINE_SPINLOCK(gre_proto_lock);
+ 
+ int gre_add_protocol(const struct gre_protocol *proto, u8 version)
  {
- 	pr_info("GRE over IPv4 demultiplexor driver\n");
-@@ -127,11 +221,18 @@ static int __init gre_init(void)
- 		return -EAGAIN;
- 	}
++	ASSERT_RTNL();
+ 	if (version >= GREPROTO_MAX)
+ 		goto err_out;
  
-+	if (inet_add_offload(&gre_offload, IPPROTO_GRE)) {
-+		pr_err("can't add protocol offload\n");
-+		inet_del_protocol(&net_gre_protocol, IPPROTO_GRE);
-+		return -EAGAIN;
-+	}
-+
+-	spin_lock(&gre_proto_lock);
+ 	if (gre_proto[version])
+-		goto err_out_unlock;
++		goto err_out;
+ 
+ 	RCU_INIT_POINTER(gre_proto[version], proto);
+-	spin_unlock(&gre_proto_lock);
  	return 0;
- }
  
- static void __exit gre_exit(void)
+-err_out_unlock:
+-	spin_unlock(&gre_proto_lock);
+ err_out:
+ 	return -1;
+ }
+@@ -50,20 +46,16 @@ EXPORT_SYMBOL_GPL(gre_add_protocol);
+ 
+ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
  {
-+	inet_del_offload(&gre_offload, IPPROTO_GRE);
- 	inet_del_protocol(&net_gre_protocol, IPPROTO_GRE);
++	ASSERT_RTNL();
+ 	if (version >= GREPROTO_MAX)
+ 		goto err_out;
+ 
+-	spin_lock(&gre_proto_lock);
+-	if (rcu_dereference_protected(gre_proto[version],
+-			lockdep_is_held(&gre_proto_lock)) != proto)
+-		goto err_out_unlock;
++	if (rtnl_dereference(gre_proto[version]) != proto)
++		goto err_out;
+ 	RCU_INIT_POINTER(gre_proto[version], NULL);
+-	spin_unlock(&gre_proto_lock);
+ 	synchronize_rcu();
+ 	return 0;
+ 
+-err_out_unlock:
+-	spin_unlock(&gre_proto_lock);
+ err_out:
+ 	return -1;
  }
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 303012a..05f389f 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1792,7 +1792,9 @@ static int __init ipgre_init(void)
+ 	if (err < 0)
+ 		return err;
  
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 1ca2536..08d22e3 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -3025,6 +3025,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
- 			       SKB_GSO_DODGY |
- 			       SKB_GSO_TCP_ECN |
- 			       SKB_GSO_TCPV6 |
-+			       SKB_GSO_GRE |
- 			       0) ||
- 			     !(type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))))
- 			goto out;
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 79c8dbe..c256008 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2279,7 +2279,8 @@ struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 		/* Packet is from an untrusted source, reset gso_segs. */
- 		int type = skb_shinfo(skb)->gso_type;
- 
--		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY) ||
-+		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
-+				      SKB_GSO_GRE) ||
- 			     !(type & (SKB_GSO_UDP))))
- 			goto out;
- 
-diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
-index f26f0da..8234c1d 100644
---- a/net/ipv6/ip6_offload.c
-+++ b/net/ipv6/ip6_offload.c
-@@ -99,6 +99,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
- 		     ~(SKB_GSO_UDP |
- 		       SKB_GSO_DODGY |
- 		       SKB_GSO_TCP_ECN |
-+		       SKB_GSO_GRE |
- 		       SKB_GSO_TCPV6 |
- 		       0)))
- 		goto out;
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index 0c8934a..cf05cf0 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -56,7 +56,8 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 		/* Packet is from an untrusted source, reset gso_segs. */
- 		int type = skb_shinfo(skb)->gso_type;
- 
--		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY) ||
-+		if (unlikely(type & ~(SKB_GSO_UDP | SKB_GSO_DODGY |
-+				      SKB_GSO_GRE) ||
- 			     !(type & (SKB_GSO_UDP))))
- 			goto out;
++	rtnl_lock();
+ 	err = gre_add_protocol(&ipgre_protocol, GREPROTO_CISCO);
++	rtnl_unlock();
+ 	if (err < 0) {
+ 		pr_info("%s: can't add protocol\n", __func__);
+ 		goto add_proto_failed;
+@@ -1822,8 +1824,10 @@ static void __exit ipgre_fini(void)
+ {
+ 	rtnl_link_unregister(&ipgre_tap_ops);
+ 	rtnl_link_unregister(&ipgre_link_ops);
++	rtnl_lock();
+ 	if (gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+ 		pr_info("%s: can't remove protocol\n", __func__);
++	rtnl_unlock();
+ 	unregister_pernet_device(&ipgre_net_ops);
+ }
  
 -- 
 1.7.1
