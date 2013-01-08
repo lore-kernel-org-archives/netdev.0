@@ -1,48 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V4] bgmac: driver for GBit MAC core on BCMA bus
-Date: Mon, 07 Jan 2013 22:21:52 -0800 (PST)
-Message-ID: <20130107.222152.1296444483411794560.davem@davemloft.net>
-References: <1357431609-27981-1-git-send-email-zajec5@gmail.com>
-	<20130107.194011.1849511206295563088.davem@davemloft.net>
-	<CACna6rxknwzwvrZZp5++10-ZLLjUf2TMuO7d7vzxqJM2nxtckA@mail.gmail.com>
+From: nitin padalia <padalia.nitin@gmail.com>
+Subject: Fwd: setsockopt() doesn't throw error while setting IP_TTL set to 0
+ on RHEL6
+Date: Tue, 8 Jan 2013 11:48:35 +0530
+Message-ID: <CADxGeP62ebaC4HHz-mqsBq_n6-8DzbX8YoMe-D9N8mV-P5STcg@mail.gmail.com>
+References: <CADxGeP6X09uRmaV2y6ugdforbjyAvqnq6_D_=OuAP1+6q7EONA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, joe@perches.com
-To: zajec5@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51201 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874Ab3AHGVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 01:21:54 -0500
-In-Reply-To: <CACna6rxknwzwvrZZp5++10-ZLLjUf2TMuO7d7vzxqJM2nxtckA@mail.gmail.com>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:46657 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750801Ab3AHGZ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 01:25:27 -0500
+Received: by mail-we0-f174.google.com with SMTP id x10so35155wey.19
+        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 22:25:26 -0800 (PST)
+In-Reply-To: <CADxGeP6X09uRmaV2y6ugdforbjyAvqnq6_D_=OuAP1+6q7EONA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Tue, 8 Jan 2013 06:51:13 +0100
+---------- Forwarded message ----------
+From: nitin padalia <padalia.nitin@gmail.com>
+Date: Tue, Jan 8, 2013 at 11:46 AM
+Subject: setsockopt() doesn't throw error while setting IP_TTL set to 0 on RHEL6
+To: majordomo@vger.kernel.org
 
-> 2013/1/8 David Miller <davem@davemloft.net>:
->> From: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
->> Date: Sun,  6 Jan 2013 01:20:09 +0100
->>
->>> V4: stop queue when ring is full
->>
->> You're still not doing it right.
->>
->>> +     if (free_slots =3D=3D 1) { /* Should never happen (netif_stop=
-_queue) */
->>> +             bgmac_err(bgmac, "TX after stopping queue!\n");
->>> +             return NETDEV_TX_BUSY;
->>> +     }
->>
->> You need to call netif_stop_queue() in this code path too.
->=20
-> In case of (free_slots =3D=3D 1) the queue should already be stopped =
-by
-> the previous xmit call (at the end). I didn't know it make sens to tr=
-y
-> stopping it again.
 
-It obviously is not stopped, otherwise this function wouldn't get
-called.
+While setting IP_TTL's optval to 0 using setsockopt() then function
+doesn't throw any error anymore and sets the TTL value to 0. However
+ in previous release it used to throw error.
+
+This causes problem on the behavior of client application. I've tested
+with ping utility and I could able to set TTL value to 0.
+
+
+Best Regards,
+Nitin Padalia
