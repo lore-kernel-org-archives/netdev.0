@@ -1,58 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 rx_missed increasing in bursts (regression)
-Date: Tue, 8 Jan 2013 23:58:33 +0100
-Message-ID: <20130108225833.GA4193@electric-eye.fr.zoreil.com>
-References: <20130108102814.7abe8c08@vostro>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH v2 3/3] net: stmmac: add gmac autonego set for ethtool support
+Date: Tue, 08 Jan 2013 15:32:02 -0800
+Message-ID: <000601cdedf8$5d39bdf0$17ad39d0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51013 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752551Ab3AHX0b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 18:26:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20130108102814.7abe8c08@vostro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, kgene.kim@samsung.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-language: en-zw
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Timo Teras <timo.teras@iki.fi> :
-[...]
-> My current hypothesis is that due to high softirq and recent(ish)
-> commit da78dbf "r8169: remove work from irq handler" moving more work
-> to softirq makes the receive path now suffer from latency from getting
-> irq to reading packets from the NIC on these boxes. And that at times
-> the rx fifo can get full causing a missed packet or so.
 
-This hypothesis won't explain the regression in 3.3.8 since 3.3.x does
-not include commit da78dbf.
+This patch adds gmac auto-negotiation setting for ethtool.
+If interface is SGMII, TBI or RTBI, gmac's auto-negotiation
+enable bit is need to set.
 
-Do you notice any netdev watchdog message in dmesg ?
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-'perf top' may exhibit something unusual too.
-
-> This might be further escalated by the bug fixed in commit 7dbb491
-> "r8169: avoid NAPI scheduling delay" (which is not present in -stable
-> trees).
-
-Right, it would had been worth adding to -stable.
-
-However it only 1) is a problem for 3.4.x (fixed in 3.5) and 2) triggers
-when returning from the slow work thread - which should not be used much.
-
-[...]
-> So would it be sensible to do something like:
-> -#define NUM_RX_DESC    256     /* Number of Rx descriptor registers */
-> +#define NUM_RX_DESC    512     /* Number of Rx descriptor registers */
-
-You can try it but it may actually increase the amount of heavy work done
-in softirq.
-
-> And cherry-picking the commit 7dbb491? Perhaps this could be pushed to
-> the -stable queues too.
-
-3.4.x at most.
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 1372ce2..457c1a4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -335,6 +335,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 	struct phy_device *phy = priv->phydev;
+ 	int new_pause = FLOW_OFF;
+ 	int ret = 0;
++	int interface = priv->plat->interface;
+ 
+ 	spin_lock(&priv->lock);
+ 
+@@ -348,6 +349,10 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 
+ 	if (phy->autoneg) {
+ 		if (netif_running(netdev))
++			if((interface == PHY_INTERFACE_MODE_SGMII) ||
++				(interface == PHY_INTERFACE_MODE_TBI) ||
++				(interface == PHY_INTERFACE_MODE_RTBI)) 
++				priv->hw->mac->set_autoneg(priv->ioaddr);
+ 			ret = phy_start_aneg(phy);
+ 	} else
+ 		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
 -- 
-Ueimor
+1.7.10.4
