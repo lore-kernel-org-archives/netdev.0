@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v2] ethtool: consolidate work with ethtool_ops
-Date: Mon, 07 Jan 2013 19:54:35 -0800 (PST)
-Message-ID: <20130107.195435.763201132949773285.davem@davemloft.net>
-References: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
-	<20130107200656.GA2090@obelix.rh>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [PATCH net-next v4 0/3] netpoll: add IPv6 support
+Date: Tue, 08 Jan 2013 11:55:51 +0800
+Message-ID: <1357617351.3544.8.camel@cr0>
+References: <1357543036-15492-1-git-send-email-amwang@redhat.com>
+	 <20130107.194621.1068055780988116658.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, richardcochran@gmail.com,
-	greearb@candelatech.com, jeffrey.t.kirsher@intel.com
-To: fbl@redhat.com
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49912 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751523Ab3AHDyg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 22:54:36 -0500
-In-Reply-To: <20130107200656.GA2090@obelix.rh>
+Received: from mx1.redhat.com ([209.132.183.28]:22519 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750785Ab3AHDz5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jan 2013 22:55:57 -0500
+In-Reply-To: <20130107.194621.1068055780988116658.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Mon, 7 Jan 2013 18:06:56 -0200
-
-> On Mon, Jan 07, 2013 at 08:02:08PM +0100, Jiri Pirko wrote:
->> No need to check if ethtool_ops == NULL since it can't be.
->> Use local variable "ops" in functions where it is present
->> instead of dev->ethtool_ops
->> Introduce local variable "ops" in functions where dev->ethtool_ops is used
->> many times.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
+On Mon, 2013-01-07 at 19:46 -0800, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Mon,  7 Jan 2013 15:17:13 +0800
 > 
-> Reviewed-by: Flavio Leitner <fbl@redhat.com>
+> > v4: remove ndisc_parse_options(), ignore ICMP options there
+> >     make udp6_csum_init() inline so that we don't rely on IPV6=y
+> >     fix a conflict with Jiri's patchset
+> 
+> Where did I say to inline this function?
+> 
+> I said to put it into a seperate static library that gets
+> linked into the kernel statically, regardless of whether
+> IPV6 is 'm' or 'y'.
+> 
+> I've said this _3_ times and I'm really starting to get
+> frustrated with the fact that you can't seem to read what
+> I write.
+> 
+> What part of the "obj-y +=" rules in net/ipv6/Makefile
+> are you unable to see?
 
-Applied.
+I knew.
+
+Our goal is to make it work for IPV6=m, so why inline is not a solution
+while putting it into a static library is? udp6_csum_init() is not a big
+function, so I see no reason why it can't be inlined.
+
+And AFAIK, udp6_csum_init() can't fit into any of these obj-y files in
+net/ipv6/.
+
+Am I still missing anything?
+
+Thanks.
