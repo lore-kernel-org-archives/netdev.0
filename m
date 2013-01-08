@@ -1,92 +1,92 @@
-From: Ian Pilcher <arequipeno@gmail.com>
-Subject: Proxy ARP causing Neighbour table overflow
-Date: Tue, 08 Jan 2013 11:26:22 -0600
-Message-ID: <kchkrs$nmb$1@ger.gmane.org>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
+Date: Tue, 08 Jan 2013 18:36:50 +0100
+Message-ID: <50EC5932.4040407@openwrt.org>
+References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com> <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com> <50EACCD3.90609@openwrt.org> <20130107144921.GA31577@hmsreliant.think-freely.org> <50EAE68C.2050300@openwrt.org> <20130107153812.GC31577@hmsreliant.think-freely.org> <50EAEE64.5010300@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:50494 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756796Ab3AHR34 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2013 12:29:56 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Tsd00-0007Qu-0h
-	for netdev@vger.kernel.org; Tue, 08 Jan 2013 18:30:04 +0100
-Received: from pool-71-170-109-80.dllstx.fios.verizon.net ([71.170.109.80])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 18:30:04 +0100
-Received: from arequipeno by pool-71-170-109-80.dllstx.fios.verizon.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 18:30:04 +0100
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:50927 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756777Ab3AHRjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 12:39:22 -0500
+In-Reply-To: <50EAEE64.5010300@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am using proxy ARP to divide my home network into several different
-subnets, while allowing them all to communicate through my residential
-"router".  I am seeing a (very) large number of "Neighbour table over-
-flow" messages, although I haven't noticed any impact on connectivity or
-performance.
+Le 01/07/13 16:48, Vlad Yasevich a =C3=A9crit :
+> No, thats the problem, your old config is no longer valid with this=20
+> new Kconfig
+>> file.  Your config is telling the config utility that you want your=20
+>> default
+>> Cookie hmac to be MD5, but you've explicitly told it (via your yes "=
+"=20
+>> | make
+>> oldconfig command), that you want SCTP_COOKIE_HMAC_MD5 to be=20
+>> disabled, so the
+>> config utility is left with no choice to prompt you again for a=20
+>> default hmac,
+>> which your command answers again by saying=20
+>> SCTP_DEFAULT_COOKIE_HMAC_MD5 (the
+>> default choice of 1).  Thats your loop, you keep telling the config=20
+>> utility that
+>> you both want the default hmac to be md5, and that you don't want to=
+=20
+>> allow md5
+>> to be an available hmac alg.
+>>
+>> Thats not a bug.  I'm sorry if your old configuration needs manual=20
+>> updating, but
+>> there are no guarantees that old configurations will 'just work' in=20
+>> perpituity.
+>>
+>
+> Neil
+>
+> Actually, I think we have a bug in the config.  Look at the thermal=20
+> driver config again.  It has:
+>
+> choice
+>         prompt "Default Thermal governor"
+>         default THERMAL_DEFAULT_GOV_STEP_WISE
+>
+> config THERMAL_DEFAULT_GOV_STEP_WISE
+>     ...
+> config THERMAL_DEFAULT_GOV_FAIR_SHARE
+>     ...
+> config THERMAL_DEFAULT_GOV_USER_SPACE
+>     ...
+> endchoice
+>
+>
+> SCTP has:
+>
+> choice
+>         prompt "Default SCTP cookie HMAC encoding"
+>         default SCTP_COOKIE_HMAC_MD5
+>
+> config SCTP_DEFAULT_COOKIE_HMAC_MD5
+>     ...
+> config SCTP_DEFAULT_COOKIE_HMAC_SHA1
+>     ...
+> config SCTP_DEFAULT_COOKIE_HMAC_NONE
+>     ...
+> endchoice
+>
+> See the difference?  The default value of the choice statement needs =
+to
+> be one of the available choices.
 
-(If you're not familiar with proxy ARP, it's pretty cool.  See
-http://en.wikipedia.org/wiki/Proxy_ARP.)
-
-Some details on my setup:
-
-* I have configured my residential router (Verizon FiOS) to use all of
-  172.31.0.0/16 as my home network.
-
-* The routers internal IP address is 172.31.255.254.  As expected its
-  subnet mask is 255.255.0.0.
-
-* I have configured the router's built-in DHCP server to provide
-  addresses within the range 172.31.255.151 - 172.31.255.253 (along with
-  a subnet mask of 255.255.0.0).  Normally, the only devices using these
-  addresses are my FiOS set-top boxes.
-
-* My subnets run on separate VLANs.  Routing between them is provided by
-  a small server running CentOS 6.3 (32-bit).  The server has a dual-
-  port NIC, and it is using mode 6 (balance-alb) bonding.  Thus, the
-  interfaces on the server range from bond0.249 - bond0.255.
-
-* The "upstream" IP address of my server (on bond0.255) is
-  172.31.255.1; it's subnet mask is 255.255.255.0.  (Note the
-  difference from the router's subnet mask.)
-
-* The server acts as the default gateway for the other subnets --
-  172.31.249.0/24 (on bond0.249, 172.31.249.254) through 172.31.254.0/24
-  (on bond0.254, 172.31.249.254).
-
-* I have set "net.ipv4.conf.bond0/255.proxy_arp = 1" in
-  /etc/sysctl.conf.  When the server sees an ARP request on bond0.255
-  for an address in the range 172.31.249.1 - 172.31.254.254, it responds
-  with its own MAC (actually, one of its two MACs because of the way
-  mode 6 bonding works).
-
-Despite all this complexity (for a home network at least), I really
-don't have a huge number of devices.  Running "arp -n | wc -l" on the
-server shows that it has 15 entries in its ARP cache right now, which is
-about normal.  It may go up a bit when I spin up a bunch of VMs, but not
-by that much.
-
-So why am I getting the "Neighbour table overflow" messages.  Everything
-I can Google up on this messages indicates that it happens with "large,
-flat networks" with a lot of users.  I do sort of have a large flat
-network, but that's really only true from the router's point of view.
-
-(I should note that I only recently configured Ethernet bonding, I was
-seeing the "Neighbour table overflow" messages when I was using only a
-single interface.)
-
-Any ideas?
-
-Thanks!
-
--- 
-========================================================================
-Ian Pilcher                                         arequipeno@gmail.com
-Sometimes there's nothing left to do but crash and burn...or die trying.
-========================================================================
+Right, since none of the config symbols actually exist when migrating=20
+from and oldconfig we are still being prompted, which is just fine=20
+actually. Having the config symbol being the default a member of the=20
+choice/endchoice section is what should be expected.
+--
+=46lorian
