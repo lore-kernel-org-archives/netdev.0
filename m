@@ -1,52 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1 net-next] net: fec: enable pause frame to improve rx
- prefomance for 1G network
-Date: Tue, 8 Jan 2013 12:52:44 +0000
-Message-ID: <1357649564.29986.10.camel@deadeye.wl.decadent.org.uk>
-References: <1357634609-4112-1-git-send-email-Frank.Li@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<netdev@vger.kernel.org>, <s.hauer@pengutronix.de>
-To: Frank Li <Frank.Li@freescale.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [RFC patch net-next] ipv4: use bcast as dst address in case IFF_NOARP is set
+Date: Tue,  8 Jan 2013 14:02:42 +0100
+Message-ID: <1357650162-5554-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, shemminger@vyatta.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:24928 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755857Ab3AHMww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 07:52:52 -0500
-In-Reply-To: <1357634609-4112-1-git-send-email-Frank.Li@freescale.com>
+Received: from mail-wg0-f54.google.com ([74.125.82.54]:62648 "EHLO
+	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756299Ab3AHNCt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 08:02:49 -0500
+Received: by mail-wg0-f54.google.com with SMTP id fg15so311545wgb.9
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 05:02:47 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-08 at 16:43 +0800, Frank Li wrote:
-> The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
-> There will be many packages lost because FIFO over run.
+When IFF_NOARP is set on a device, dev->dev_addr is used as *dst*
+addr of sent frames. That does not make sense. Use rather bcast address
+instead.
 
-How sad...
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/ipv4/arp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> This patch enable pause frame flow control.
-[...]
-
-You should not enable pause frames unconditionally. It will cause
-compatibility problems with some switches.  It should be possible to
-control their use manually or through autonegotiation (if the medium
-supports that).
-
-You should:
-1. Implement the ethtool get_pauseparam and set_pauseparam operations.
-If the medium supports autoneog, use mii_advertise_flowctrl() in
-set_pauseparam to update pause frame advertising and then restart
-autoneg.
-2. Allow pause frame advertising to be changed through set_settings (I
-think phylib covers this for you).
-3. Program the MAC according to the the parameters set with
-set_pauseparam or (if pause autoneg was enabled) the result of autoneg.
-
-Ben.
-
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 9547a273..19d5ac2 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -290,11 +290,11 @@ static int arp_constructor(struct neighbour *neigh)
+ 		if (neigh->type == RTN_MULTICAST) {
+ 			neigh->nud_state = NUD_NOARP;
+ 			arp_mc_map(addr, neigh->ha, dev, 1);
+-		} else if (dev->flags & (IFF_NOARP | IFF_LOOPBACK)) {
++		} else if (dev->flags & IFF_LOOPBACK) {
+ 			neigh->nud_state = NUD_NOARP;
+ 			memcpy(neigh->ha, dev->dev_addr, dev->addr_len);
+ 		} else if (neigh->type == RTN_BROADCAST ||
+-			   (dev->flags & IFF_POINTOPOINT)) {
++			   (dev->flags & (IFF_POINTOPOINT | IFF_NOARP))) {
+ 			neigh->nud_state = NUD_NOARP;
+ 			memcpy(neigh->ha, dev->broadcast, dev->addr_len);
+ 		}
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1
