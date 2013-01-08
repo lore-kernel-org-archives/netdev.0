@@ -1,56 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] bnx2x: NULL dereference on error in debug code
-Date: Tue, 08 Jan 2013 14:30:58 -0800 (PST)
-Message-ID: <20130108.143058.802178708339067441.davem@davemloft.net>
-References: <20130108134213.GA23742@elgon.mountain>
-	<6AE768456CEC4B4A9B2248CB6B87EB3E1BCC7E9F@SJEXCHMB05.corp.ad.broadcom.com>
+Subject: Re: [RFC patch net-next] ipv4: use bcast as dst address in case
+ IFF_NOARP is set
+Date: Tue, 08 Jan 2013 14:33:13 -0800 (PST)
+Message-ID: <20130108.143313.1895311523435309641.davem@davemloft.net>
+References: <1357650162-5554-1-git-send-email-jiri@resnulli.us>
+	<7abb4995-17a4-49ca-b0a7-41af6ff763e1@tahiti.vyatta.com>
+	<20130108174538.GC1621@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dan.carpenter@oracle.com, eilong@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: ariele@broadcom.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6AE768456CEC4B4A9B2248CB6B87EB3E1BCC7E9F@SJEXCHMB05.corp.ad.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen.hemminger@vyatta.com, edumazet@google.com,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org, pavlix@pavlix.net
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33805 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755431Ab3AHWdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 17:33:14 -0500
+In-Reply-To: <20130108174538.GC1621@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Ariel Elior" <ariele@broadcom.com>
-Date: Tue, 8 Jan 2013 14:50:50 +0000
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 8 Jan 2013 18:45:38 +0100
 
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Dan Carpenter
->> Sent: Tuesday, January 08, 2013 3:42 PM
->> To: Eilon Greenstein
->> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; kernel-
->> janitors@vger.kernel.org
->> Subject: [patch] bnx2x: NULL dereference on error in debug code
->> 
->> "vfop" is NULL here.  I've changed the debugging to not use it.
->> 
->> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
->> ---
->> Only needed in linux-next.
->> 
->> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> index 71fcef0..3eef972 100644
->> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
->> @@ -463,8 +463,7 @@ static int bnx2x_vfop_qdtor_cmd(struct bnx2x *bp,
->>  		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_qdtor,
->>  					     cmd->block);
->>  	}
->> -	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop. rc %d\n",
->> -	   vf->abs_vfid, vfop->rc);
->> +	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop.\n", vf->abs_vfid);
->>  	return -ENOMEM;
->>  }
->> 
-> Right you are. Ack.
+> I believe this may have been intentional, but what sense does it have to
+> use dev_addr as destination address? That is what I do not understand.
 
-This is not the correct way to ack a patch, this is:
-
-Acked-by: Ariel Elior <ariele@broadcom.com>
+It's the only address we know isn't someone else's and is not broadcast.
