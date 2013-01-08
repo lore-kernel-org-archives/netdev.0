@@ -1,92 +1,922 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH V5] bgmac: driver for GBit MAC core on BCMA bus
-Date: Tue, 8 Jan 2013 12:03:23 +0100
-Message-ID: <CACna6rxEOfAPsZDn=zrcE2eAocdX4C4QxpdtDjJ+JCMLCAQqUw@mail.gmail.com>
-References: <1357626888-2375-1-git-send-email-zajec5@gmail.com>
-	<50EBE8EE.2030902@openwrt.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Joe Perches <joe@perches.com>
-To: Florian Fainelli <florian@openwrt.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 2/2] remove init of dev->perm_addr in drivers
+Date: Tue,  8 Jan 2013 12:38:26 +0100
+Message-ID: <1357645106-1976-3-git-send-email-jiri@resnulli.us>
+References: <1357645106-1976-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com,
+	bhutchings@solarflare.com, shemminger@vyatta.com,
+	ebiederm@xmission.com, amwang@redhat.com, sassmann@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:34650 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755776Ab3AHLDY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 06:03:24 -0500
-Received: by mail-we0-f179.google.com with SMTP id r6so212395wey.38
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 03:03:23 -0800 (PST)
-In-Reply-To: <50EBE8EE.2030902@openwrt.org>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:33342 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754171Ab3AHLik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 06:38:40 -0500
+Received: by mail-we0-f180.google.com with SMTP id t57so244862wey.11
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 03:38:38 -0800 (PST)
+In-Reply-To: <1357645106-1976-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/1/8 Florian Fainelli <florian@openwrt.org>:
-> Hello Rafal,
->
-> Le 01/08/13 07:34, Rafa=C5=82 Mi=C5=82ecki a =C3=A9crit :
->
->> BCMA is a Broadcom specific bus with devices AKA cores. All recent B=
-CMA
->> based SoCs have gigabit ethernet provided by the GBit MAC core. This
->> patch adds driver for such a cores registering itself as a netdev. I=
-t
->> has been tested on a BCM4706 and BCM4718 chipsets.
->>
->> In the kernel tree there is already b44 driver which has some common
->> things with bgmac, however there are many differences that has led t=
-o
->> the decision or writing a new driver:
->> 1) GBit MAC cores appear on BCMA bus (not SSB as in case of b44)
->> 2) There is 64bit DMA engine which differs from 32bit one
->> 3) There is no CAM (Content Addressable Memory) in GBit MAC
->> 4) We have 4 TX queues on GBit MAC devices (instead of 1)
->> 5) Many registers have different addresses/values
->> 6) RX header flags are also different
->>
->> The driver in it's state is functional how, however there is of cour=
-se
->> place for improvements:
->> 1) Supporting more net_device_ops
->> 2) SUpporting more ethtool_ops
->> 3) Unaligned addressing in DMA
->> 4) Writing separated PHY driver
->
->
-> It does not seem like 4) would be too hard to do just right now becau=
-se your
-> PHY functions actually match the semantics of the callbacks you are s=
-upposed
-> to implement for a separate PHY driver. Doing this would make you use=
- phylib
-> in the bgmac driver which is a good thing.
->
-> I would be glad if you could do this just now, so we make sure this d=
-oes not
-> get lost.
->
-> If David is ok with your v5 patch and wants to merge it just now, I a=
-m just
-> as happy with that.
+perm_addr is initialized correctly in register_netdevice() so to init it in
+drivers is no longer needed.
 
-Personally I'd like to have it pushed even with limited features, as
-long as it doesn't go anything really wrong.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ drivers/infiniband/hw/nes/nes_nic.c                |  1 -
+ drivers/net/ethernet/3com/3c59x.c                  |  1 -
+ drivers/net/ethernet/8390/ne2k-pci.c               |  1 -
+ drivers/net/ethernet/amd/pcnet32.c                 |  3 +-
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |  1 -
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c    |  1 -
+ drivers/net/ethernet/atheros/atlx/atl2.c           |  7 ----
+ drivers/net/ethernet/broadcom/b44.c                |  2 -
+ drivers/net/ethernet/broadcom/bnx2.c               |  1 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  1 -
+ drivers/net/ethernet/broadcom/tg3.c                |  3 --
+ drivers/net/ethernet/chelsio/cxgb3/t3_hw.c         |  2 -
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  1 -
+ drivers/net/ethernet/chelsio/cxgb4vf/adapter.h     |  1 -
+ drivers/net/ethernet/dlink/sundance.c              |  1 -
+ drivers/net/ethernet/intel/e100.c                  |  3 +-
+ drivers/net/ethernet/intel/e1000/e1000_main.c      |  3 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  5 +--
+ drivers/net/ethernet/intel/igb/igb_main.c          |  3 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c          |  2 -
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c        |  3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |  3 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c  |  2 -
+ drivers/net/ethernet/marvell/skge.c                |  1 -
+ drivers/net/ethernet/marvell/sky2.c                |  1 -
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  4 +-
+ drivers/net/ethernet/natsemi/natsemi.c             |  3 --
+ drivers/net/ethernet/neterion/s2io.c               |  1 -
+ drivers/net/ethernet/neterion/vxge/vxge-main.c     |  1 -
+ drivers/net/ethernet/nvidia/forcedeth.c            |  3 +-
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |  3 +-
+ drivers/net/ethernet/qlogic/qla3xxx.c              |  1 -
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  3 +-
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c       |  1 -
+ drivers/net/ethernet/rdc/r6040.c                   |  3 --
+ drivers/net/ethernet/realtek/8139cp.c              |  1 -
+ drivers/net/ethernet/realtek/8139too.c             |  1 -
+ drivers/net/ethernet/realtek/r8169.c               |  1 -
+ drivers/net/ethernet/silan/sc92031.c               | 12 +++---
+ drivers/net/ethernet/sis/sis900.c                  | 22 ++---------
+ drivers/net/ethernet/sun/niu.c                     | 46 ++++++++++------------
+ drivers/net/ethernet/sun/sunvnet.c                 |  2 -
+ drivers/net/ethernet/toshiba/tc35815.c             |  1 -
+ drivers/net/ethernet/via/via-rhine.c               |  1 -
+ drivers/net/ieee802154/fakehard.c                  |  1 -
+ drivers/net/usb/kalmia.c                           |  1 -
+ drivers/net/usb/rndis_host.c                       |  1 -
+ drivers/net/wimax/i2400m/fw.c                      |  1 -
+ drivers/net/wireless/ipw2x00/ipw2200.c             |  1 -
+ drivers/net/wireless/mwifiex/cfg80211.c            |  1 -
+ drivers/net/wireless/orinoco/main.c                |  1 -
+ 51 files changed, 42 insertions(+), 128 deletions(-)
 
-It's harder to maintain whole driver as a patch, harder to make a
-changes, harder to track/review them and somehow discouraging the
-developer (me). I prefer sending small changes than mini-bomb of 64KB
-code each time I want to change 5 lines.
-You can always find some small feature that could be implemented with
-a low cost and postpone driver inclusion for weeks/months. I'd like to
-avoid that.
-Apart from that, having driver pushed into some "real" tree makes it
-possible for other developers to cooperate (see Nathan who sent fixes
-to OpenWRT).
-
-If you're afraid of forgetting anything from the "TODO" list placed in
-commit message, we can always create a "TODO" file for the driver. I
-don't think we really need that though.
-
---=20
-Rafa=C5=82
+diff --git a/drivers/infiniband/hw/nes/nes_nic.c b/drivers/infiniband/hw/nes/nes_nic.c
+index 177cf76..85cf4d1 100644
+--- a/drivers/infiniband/hw/nes/nes_nic.c
++++ b/drivers/infiniband/hw/nes/nes_nic.c
+@@ -1705,7 +1705,6 @@ struct net_device *nes_netdev_init(struct nes_device *nesdev,
+ 	netdev->dev_addr[3] = (u8)(u64temp>>16);
+ 	netdev->dev_addr[4] = (u8)(u64temp>>8);
+ 	netdev->dev_addr[5] = (u8)u64temp;
+-	memcpy(netdev->perm_addr, netdev->dev_addr, 6);
+ 
+ 	netdev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_RXCSUM | NETIF_F_HW_VLAN_RX;
+ 	if ((nesvnic->logical_port < 2) || (nesdev->nesadapter->hw_rev != NE020_REV))
+diff --git a/drivers/net/ethernet/3com/3c59x.c b/drivers/net/ethernet/3com/3c59x.c
+index ed0feb3..1928e20 100644
+--- a/drivers/net/ethernet/3com/3c59x.c
++++ b/drivers/net/ethernet/3com/3c59x.c
+@@ -1293,7 +1293,6 @@ static int vortex_probe1(struct device *gendev, void __iomem *ioaddr, int irq,
+ 		pr_cont(" ***INVALID CHECKSUM %4.4x*** ", checksum);
+ 	for (i = 0; i < 3; i++)
+ 		((__be16 *)dev->dev_addr)[i] = htons(eeprom[i + 10]);
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 	if (print_info)
+ 		pr_cont(" %pM", dev->dev_addr);
+ 	/* Unfortunately an all zero eeprom passes the checksum and this
+diff --git a/drivers/net/ethernet/8390/ne2k-pci.c b/drivers/net/ethernet/8390/ne2k-pci.c
+index c0c1279..587a885 100644
+--- a/drivers/net/ethernet/8390/ne2k-pci.c
++++ b/drivers/net/ethernet/8390/ne2k-pci.c
+@@ -374,7 +374,6 @@ static int ne2k_pci_init_one(struct pci_dev *pdev,
+ 	NS8390_init(dev, 0);
+ 
+ 	memcpy(dev->dev_addr, SA_prom, dev->addr_len);
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	i = register_netdev(dev);
+ 	if (i)
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index a227ccd..74cfc01 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -1688,10 +1688,9 @@ pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
+ 			memcpy(dev->dev_addr, promaddr, 6);
+ 		}
+ 	}
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	/* if the ethernet address is not valid, force to 00:00:00:00:00:00 */
+-	if (!is_valid_ether_addr(dev->perm_addr))
++	if (!is_valid_ether_addr(dev->dev_addr))
+ 		memset(dev->dev_addr, 0, ETH_ALEN);
+ 
+ 	if (pcnet32_debug & NETIF_MSG_PROBE) {
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 7af95ce..8df02ba 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -2542,7 +2542,6 @@ static int atl1c_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netdev->addr_assign_type = NET_ADDR_RANDOM;
+ 	}
+ 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, adapter->hw.mac_addr, netdev->addr_len);
+ 	if (netif_msg_probe(adapter))
+ 		dev_dbg(&pdev->dev, "mac address : %pM\n",
+ 			adapter->hw.mac_addr);
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index e4466a3..cf79d93 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -2342,7 +2342,6 @@ static int atl1e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, adapter->hw.mac_addr, netdev->addr_len);
+ 	netdev_dbg(netdev, "mac address : %pM\n", adapter->hw.mac_addr);
+ 
+ 	INIT_WORK(&adapter->reset_task, atl1e_reset_task);
+diff --git a/drivers/net/ethernet/atheros/atlx/atl2.c b/drivers/net/ethernet/atheros/atlx/atl2.c
+index aab83a2..1278b47 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl2.c
++++ b/drivers/net/ethernet/atheros/atlx/atl2.c
+@@ -1433,14 +1433,7 @@ static int atl2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* copy the MAC address out of the EEPROM */
+ 	atl2_read_mac_addr(&adapter->hw);
+ 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
+-/* FIXME: do we still need this? */
+-#ifdef ETHTOOL_GPERMADDR
+-	memcpy(netdev->perm_addr, adapter->hw.mac_addr, netdev->addr_len);
+-
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
+-#else
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-#endif
+ 		err = -EIO;
+ 		goto err_eeprom;
+ 	}
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 219f622..3ba6be6 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -2111,8 +2111,6 @@ static int b44_get_invariants(struct b44 *bp)
+ 		return -EINVAL;
+ 	}
+ 
+-	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, bp->dev->addr_len);
+-
+ 	bp->imask = IMASK_DEF;
+ 
+ 	/* XXX - really required?
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index a1adfaf..2f0ba8f 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -8543,7 +8543,6 @@ bnx2_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	pci_set_drvdata(pdev, dev);
+ 
+ 	memcpy(dev->dev_addr, bp->mac_addr, 6);
+-	memcpy(dev->perm_addr, bp->mac_addr, 6);
+ 
+ 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
+ 		NETIF_F_TSO | NETIF_F_TSO_ECN |
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 5fcaee1..c6a2089 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -10806,7 +10806,6 @@ static void bnx2x_get_mac_hwinfo(struct bnx2x *bp)
+ 	}
+ 
+ 	memcpy(bp->link_params.mac_addr, bp->dev->dev_addr, ETH_ALEN);
+-	memcpy(bp->dev->perm_addr, bp->dev->dev_addr, ETH_ALEN);
+ 
+ 	if (!bnx2x_is_valid_ether_addr(bp, bp->dev->dev_addr))
+ 		dev_err(&bp->pdev->dev,
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index bc4d989..b7696eb 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -15772,7 +15772,6 @@ static int tg3_get_macaddr_sparc(struct tg3 *tp)
+ 	addr = of_get_property(dp, "local-mac-address", &len);
+ 	if (addr && len == 6) {
+ 		memcpy(dev->dev_addr, addr, 6);
+-		memcpy(dev->perm_addr, dev->dev_addr, 6);
+ 		return 0;
+ 	}
+ 	return -ENODEV;
+@@ -15783,7 +15782,6 @@ static int tg3_get_default_macaddr_sparc(struct tg3 *tp)
+ 	struct net_device *dev = tp->dev;
+ 
+ 	memcpy(dev->dev_addr, idprom->id_ethaddr, 6);
+-	memcpy(dev->perm_addr, idprom->id_ethaddr, 6);
+ 	return 0;
+ }
+ #endif
+@@ -15860,7 +15858,6 @@ static int tg3_get_device_address(struct tg3 *tp)
+ #endif
+ 		return -EINVAL;
+ 	}
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+index 3dee686..c74a898 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/t3_hw.c
+@@ -3725,8 +3725,6 @@ int t3_prep_adapter(struct adapter *adapter, const struct adapter_info *ai,
+ 
+ 		memcpy(adapter->port[i]->dev_addr, hw_addr,
+ 		       ETH_ALEN);
+-		memcpy(adapter->port[i]->perm_addr, hw_addr,
+-		       ETH_ALEN);
+ 		init_link_config(&p->link_config, p->phy.caps);
+ 		p->phy.ops->power_down(&p->phy, 1);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 22f3af5..4ce6203 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3603,7 +3603,6 @@ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
+ 		p->lport = j;
+ 		p->rss_size = rss_size;
+ 		memcpy(adap->port[i]->dev_addr, addr, ETH_ALEN);
+-		memcpy(adap->port[i]->perm_addr, addr, ETH_ALEN);
+ 		adap->port[i]->dev_id = j;
+ 
+ 		ret = ntohl(c.u.info.lstatus_to_modtype);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+index 611396c..68eaa9c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/adapter.h
+@@ -466,7 +466,6 @@ static inline void t4_os_set_hw_addr(struct adapter *adapter, int pidx,
+ 				     u8 hw_addr[])
+ {
+ 	memcpy(adapter->port[pidx]->dev_addr, hw_addr, ETH_ALEN);
+-	memcpy(adapter->port[pidx]->perm_addr, hw_addr, ETH_ALEN);
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/dlink/sundance.c b/drivers/net/ethernet/dlink/sundance.c
+index 28fc11b..50d9c63 100644
+--- a/drivers/net/ethernet/dlink/sundance.c
++++ b/drivers/net/ethernet/dlink/sundance.c
+@@ -530,7 +530,6 @@ static int sundance_probe1(struct pci_dev *pdev,
+ 	for (i = 0; i < 3; i++)
+ 		((__le16 *)dev->dev_addr)[i] =
+ 			cpu_to_le16(eeprom_read(ioaddr, i + EEPROM_SA_OFFSET));
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	np = netdev_priv(dev);
+ 	np->base = ioaddr;
+diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
+index a59f077..ec800b0 100644
+--- a/drivers/net/ethernet/intel/e100.c
++++ b/drivers/net/ethernet/intel/e100.c
+@@ -2928,8 +2928,7 @@ static int e100_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	e100_phy_init(nic);
+ 
+ 	memcpy(netdev->dev_addr, nic->eeprom, ETH_ALEN);
+-	memcpy(netdev->perm_addr, nic->eeprom, ETH_ALEN);
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		if (!eeprom_bad_csum_allow) {
+ 			netif_err(nic, probe, nic->netdev, "Invalid MAC address from EEPROM, aborting\n");
+ 			err = -EAGAIN;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 294da56..b20fff1 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -1123,9 +1123,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 	/* don't block initalization here due to bad MAC address */
+ 	memcpy(netdev->dev_addr, hw->mac_addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, hw->mac_addr, netdev->addr_len);
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr))
++	if (!is_valid_ether_addr(netdev->dev_addr))
+ 		e_err(probe, "Invalid MAC Address\n");
+ 
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index fbf75fd..337644d 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6228,11 +6228,10 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 			"NVM Read Error while reading MAC address\n");
+ 
+ 	memcpy(netdev->dev_addr, adapter->hw.mac.addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		dev_err(&pdev->dev, "Invalid MAC Address: %pM\n",
+-			netdev->perm_addr);
++			netdev->dev_addr);
+ 		err = -EIO;
+ 		goto err_eeprom;
+ 	}
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 31cfe2e..a0a31b5 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2022,9 +2022,8 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		dev_err(&pdev->dev, "NVM Read Error\n");
+ 
+ 	memcpy(netdev->dev_addr, hw->mac.addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, hw->mac.addr, netdev->addr_len);
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		dev_err(&pdev->dev, "Invalid MAC Address\n");
+ 		err = -EIO;
+ 		goto err_eeprom;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 53281ff..8f66d45 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -2757,8 +2757,6 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_hw_init;
+ 	}
+ 
+-	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+-
+ 	setup_timer(&adapter->watchdog_timer, &igbvf_watchdog,
+ 	            (unsigned long) adapter);
+ 
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index ae96c10..c756412 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -500,9 +500,8 @@ ixgb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	ixgb_get_ee_mac_addr(&adapter->hw, netdev->dev_addr);
+-	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		netif_err(adapter, probe, adapter->netdev, "Invalid MAC Address\n");
+ 		err = -EIO;
+ 		goto err_eeprom;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 20a5af6..20d6764 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7444,9 +7444,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	memcpy(netdev->dev_addr, hw->mac.perm_addr, netdev->addr_len);
+-	memcpy(netdev->perm_addr, hw->mac.perm_addr, netdev->addr_len);
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr)) {
++	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		e_dev_err("invalid MAC address\n");
+ 		err = -EIO;
+ 		goto err_sw_init;
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 257357a..c27d986 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3328,8 +3328,6 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_sw_init;
+ 
+ 	/* The HW MAC address was set and/or determined in sw_init */
+-	memcpy(netdev->perm_addr, adapter->hw.mac.addr, netdev->addr_len);
+-
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		pr_err("invalid MAC address\n");
+ 		err = -EIO;
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 5544a1f..8b08bc4 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -3855,7 +3855,6 @@ static struct net_device *skge_devinit(struct skge_hw *hw, int port,
+ 
+ 	/* read the mac address */
+ 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	return dev;
+ }
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 3269eb3..366a12a 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -4801,7 +4801,6 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ 
+ 	/* read the mac address */
+ 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	return dev;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 75a3f46..b467513 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1655,10 +1655,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	/* Set defualt MAC */
+ 	dev->addr_len = ETH_ALEN;
+-	for (i = 0; i < ETH_ALEN; i++) {
++	for (i = 0; i < ETH_ALEN; i++)
+ 		dev->dev_addr[ETH_ALEN - 1 - i] = (u8) (priv->mac >> (8 * i));
+-		dev->perm_addr[ETH_ALEN - 1 - i] = (u8) (priv->mac >> (8 * i));
+-	}
+ 
+ 	/*
+ 	 * Set driver features
+diff --git a/drivers/net/ethernet/natsemi/natsemi.c b/drivers/net/ethernet/natsemi/natsemi.c
+index f4ad60c..7a5e295 100644
+--- a/drivers/net/ethernet/natsemi/natsemi.c
++++ b/drivers/net/ethernet/natsemi/natsemi.c
+@@ -862,9 +862,6 @@ static int natsemi_probe1(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		prev_eedata = eedata;
+ 	}
+ 
+-	/* Store MAC Address in perm_addr */
+-	memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
+-
+ 	np = netdev_priv(dev);
+ 	np->ioaddr = ioaddr;
+ 
+diff --git a/drivers/net/ethernet/neterion/s2io.c b/drivers/net/ethernet/neterion/s2io.c
+index 7c94c08..bfd8873 100644
+--- a/drivers/net/ethernet/neterion/s2io.c
++++ b/drivers/net/ethernet/neterion/s2io.c
+@@ -8014,7 +8014,6 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	/*  Set the factory defined MAC address initially   */
+ 	dev->addr_len = ETH_ALEN;
+ 	memcpy(dev->dev_addr, sp->def_mac_addr, ETH_ALEN);
+-	memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
+ 
+ 	/* initialize number of multicast & unicast MAC entries variables */
+ 	if (sp->device_type == XFRAME_I_DEVICE) {
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-main.c b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+index 7c87105..794444e 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-main.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-main.c
+@@ -4682,7 +4682,6 @@ vxge_probe(struct pci_dev *pdev, const struct pci_device_id *pre)
+ 	/* Store the fw version for ethttool option */
+ 	strcpy(vdev->fw_version, ll_config->device_hw_info.fw_version.version);
+ 	memcpy(vdev->ndev->dev_addr, (u8 *)vdev->vpaths[0].macaddr, ETH_ALEN);
+-	memcpy(vdev->ndev->perm_addr, vdev->ndev->dev_addr, ETH_ALEN);
+ 
+ 	/* Copy the station mac address to the list */
+ 	for (i = 0; i < vdev->no_of_vpath; i++) {
+diff --git a/drivers/net/ethernet/nvidia/forcedeth.c b/drivers/net/ethernet/nvidia/forcedeth.c
+index b53bf9d..ceb1617 100644
+--- a/drivers/net/ethernet/nvidia/forcedeth.c
++++ b/drivers/net/ethernet/nvidia/forcedeth.c
+@@ -5730,9 +5730,8 @@ static int nv_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
+ 			"%s: set workaround bit for reversed mac addr\n",
+ 			__func__);
+ 	}
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+-	if (!is_valid_ether_addr(dev->perm_addr)) {
++	if (!is_valid_ether_addr(dev->dev_addr)) {
+ 		/*
+ 		 * Bad mac address. At least one bios sets the mac address
+ 		 * to 01:23:45:67:89:ab
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 6098fd4a..8e40ea0 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -501,12 +501,11 @@ netxen_read_mac_addr(struct netxen_adapter *adapter)
+ 	for (i = 0; i < 6; i++)
+ 		netdev->dev_addr[i] = *(p + 5 - i);
+ 
+-	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 	memcpy(adapter->mac_addr, netdev->dev_addr, netdev->addr_len);
+ 
+ 	/* set station address */
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr))
++	if (!is_valid_ether_addr(netdev->dev_addr))
+ 		dev_warn(&pdev->dev, "Bad MAC address %pM.\n", netdev->dev_addr);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index 67a679a..c0ed12d 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -3867,7 +3867,6 @@ static int ql3xxx_probe(struct pci_dev *pdev,
+ 		ndev->mtu = qdev->nvram_data.macCfg_port0.etherMtu_mac ;
+ 		ql_set_mac_addr(ndev, qdev->nvram_data.funcCfg_fn0.macAddress);
+ 	}
+-	memcpy(ndev->perm_addr, ndev->dev_addr, ndev->addr_len);
+ 
+ 	ndev->tx_queue_len = NUM_REQ_Q_ENTRIES;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 3655ca2..d331313 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -208,12 +208,11 @@ qlcnic_read_mac_addr(struct qlcnic_adapter *adapter)
+ 		return -EIO;
+ 
+ 	memcpy(netdev->dev_addr, mac_addr, ETH_ALEN);
+-	memcpy(netdev->perm_addr, netdev->dev_addr, netdev->addr_len);
+ 	memcpy(adapter->mac_addr, netdev->dev_addr, netdev->addr_len);
+ 
+ 	/* set station address */
+ 
+-	if (!is_valid_ether_addr(netdev->perm_addr))
++	if (!is_valid_ether_addr(netdev->dev_addr))
+ 		dev_warn(&pdev->dev, "Bad MAC address %pM.\n",
+ 					netdev->dev_addr);
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index f80cd97..7c8ba1a 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -4586,7 +4586,6 @@ static int ql_init_device(struct pci_dev *pdev, struct net_device *ndev,
+ 		goto err_out2;
+ 	}
+ 
+-	memcpy(ndev->perm_addr, ndev->dev_addr, ndev->addr_len);
+ 	/* Keep local copy of current mac address. */
+ 	memcpy(qdev->current_mac_addr, ndev->dev_addr, ndev->addr_len);
+ 
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index ba0be4b..be3616d 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -755,9 +755,6 @@ static void r6040_mac_address(struct net_device *dev)
+ 	iowrite16(adrp[0], ioaddr + MID_0L);
+ 	iowrite16(adrp[1], ioaddr + MID_0M);
+ 	iowrite16(adrp[2], ioaddr + MID_0H);
+-
+-	/* Store MAC Address in perm_addr */
+-	memcpy(dev->perm_addr, dev->dev_addr, ETH_ALEN);
+ }
+ 
+ static int r6040_open(struct net_device *dev)
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 5ac9332..b62a324 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1949,7 +1949,6 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	for (i = 0; i < 3; i++)
+ 		((__le16 *) (dev->dev_addr))[i] =
+ 		    cpu_to_le16(read_eeprom (regs, i + 7, addr_len));
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	dev->netdev_ops = &cp_netdev_ops;
+ 	netif_napi_add(dev, &cp->napi, cp_rx_poll, 16);
+diff --git a/drivers/net/ethernet/realtek/8139too.c b/drivers/net/ethernet/realtek/8139too.c
+index 5dc1616..1276ac7 100644
+--- a/drivers/net/ethernet/realtek/8139too.c
++++ b/drivers/net/ethernet/realtek/8139too.c
+@@ -991,7 +991,6 @@ static int rtl8139_init_one(struct pci_dev *pdev,
+ 	for (i = 0; i < 3; i++)
+ 		((__le16 *) (dev->dev_addr))[i] =
+ 		    cpu_to_le16(read_eeprom (ioaddr, i + 7, addr_len));
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	/* The Rtl8139-specific entries in the device structure. */
+ 	dev->netdev_ops = &rtl8139_netdev_ops;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index ed96f30..89184f3 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -6948,7 +6948,6 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* Get MAC address */
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
+ 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
+diff --git a/drivers/net/ethernet/silan/sc92031.c b/drivers/net/ethernet/silan/sc92031.c
+index b231532..28f7268 100644
+--- a/drivers/net/ethernet/silan/sc92031.c
++++ b/drivers/net/ethernet/silan/sc92031.c
+@@ -1458,12 +1458,12 @@ static int sc92031_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 	mac0 = ioread32(port_base + MAC0);
+ 	mac1 = ioread32(port_base + MAC0 + 4);
+-	dev->dev_addr[0] = dev->perm_addr[0] = mac0 >> 24;
+-	dev->dev_addr[1] = dev->perm_addr[1] = mac0 >> 16;
+-	dev->dev_addr[2] = dev->perm_addr[2] = mac0 >> 8;
+-	dev->dev_addr[3] = dev->perm_addr[3] = mac0;
+-	dev->dev_addr[4] = dev->perm_addr[4] = mac1 >> 8;
+-	dev->dev_addr[5] = dev->perm_addr[5] = mac1;
++	dev->dev_addr[0] = mac0 >> 24;
++	dev->dev_addr[1] = mac0 >> 16;
++	dev->dev_addr[2] = mac0 >> 8;
++	dev->dev_addr[3] = mac0;
++	dev->dev_addr[4] = mac1 >> 8;
++	dev->dev_addr[5] = mac1;
+ 
+ 	err = register_netdev(dev);
+ 	if (err < 0)
+diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+index 5bffd97..efca14e 100644
+--- a/drivers/net/ethernet/sis/sis900.c
++++ b/drivers/net/ethernet/sis/sis900.c
+@@ -247,8 +247,7 @@ static const struct ethtool_ops sis900_ethtool_ops;
+  *	@net_dev: the net device to get address for
+  *
+  *	Older SiS900 and friends, use EEPROM to store MAC address.
+- *	MAC address is read from read_eeprom() into @net_dev->dev_addr and
+- *	@net_dev->perm_addr.
++ *	MAC address is read from read_eeprom() into @net_dev->dev_addr.
+  */
+ 
+ static int sis900_get_mac_addr(struct pci_dev *pci_dev,
+@@ -271,9 +270,6 @@ static int sis900_get_mac_addr(struct pci_dev *pci_dev,
+ 	for (i = 0; i < 3; i++)
+ 	        ((u16 *)(net_dev->dev_addr))[i] = read_eeprom(ioaddr, i+EEPROMMACAddr);
+ 
+-	/* Store MAC Address in perm_addr */
+-	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
+-
+ 	return 1;
+ }
+ 
+@@ -284,8 +280,7 @@ static int sis900_get_mac_addr(struct pci_dev *pci_dev,
+  *
+  *	SiS630E model, use APC CMOS RAM to store MAC address.
+  *	APC CMOS RAM is accessed through ISA bridge.
+- *	MAC address is read into @net_dev->dev_addr and
+- *	@net_dev->perm_addr.
++ *	MAC address is read into @net_dev->dev_addr.
+  */
+ 
+ static int sis630e_get_mac_addr(struct pci_dev *pci_dev,
+@@ -311,9 +306,6 @@ static int sis630e_get_mac_addr(struct pci_dev *pci_dev,
+ 		((u8 *)(net_dev->dev_addr))[i] = inb(0x71);
+ 	}
+ 
+-	/* Store MAC Address in perm_addr */
+-	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
+-
+ 	pci_write_config_byte(isa_bridge, 0x48, reg & ~0x40);
+ 	pci_dev_put(isa_bridge);
+ 
+@@ -328,7 +320,7 @@ static int sis630e_get_mac_addr(struct pci_dev *pci_dev,
+  *
+  *	SiS635 model, set MAC Reload Bit to load Mac address from APC
+  *	to rfdr. rfdr is accessed through rfcr. MAC address is read into
+- *	@net_dev->dev_addr and @net_dev->perm_addr.
++ *	@net_dev->dev_addr.
+  */
+ 
+ static int sis635_get_mac_addr(struct pci_dev *pci_dev,
+@@ -353,9 +345,6 @@ static int sis635_get_mac_addr(struct pci_dev *pci_dev,
+ 		*( ((u16 *)net_dev->dev_addr) + i) = sr16(rfdr);
+ 	}
+ 
+-	/* Store MAC Address in perm_addr */
+-	memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
+-
+ 	/* enable packet filtering */
+ 	sw32(rfcr, rfcrSave | RFEN);
+ 
+@@ -375,7 +364,7 @@ static int sis635_get_mac_addr(struct pci_dev *pci_dev,
+  *	EEDONE signal to refuse EEPROM access by LAN.
+  *	The EEPROM map of SiS962 or SiS963 is different to SiS900.
+  *	The signature field in SiS962 or SiS963 spec is meaningless.
+- *	MAC address is read into @net_dev->dev_addr and @net_dev->perm_addr.
++ *	MAC address is read into @net_dev->dev_addr.
+  */
+ 
+ static int sis96x_get_mac_addr(struct pci_dev *pci_dev,
+@@ -395,9 +384,6 @@ static int sis96x_get_mac_addr(struct pci_dev *pci_dev,
+ 			for (i = 0; i < 3; i++)
+ 			        mac[i] = read_eeprom(ioaddr, i + EEPROMMACAddr);
+ 
+-			/* Store MAC Address in perm_addr */
+-			memcpy(net_dev->perm_addr, net_dev->dev_addr, ETH_ALEN);
+-
+ 			rc = 1;
+ 			break;
+ 		}
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index a0bdf07..c8c4915 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -8366,14 +8366,12 @@ static void niu_pci_vpd_validate(struct niu *np)
+ 		return;
+ 	}
+ 
+-	memcpy(dev->perm_addr, vpd->local_mac, ETH_ALEN);
++	memcpy(dev->dev_addr, vpd->local_mac, ETH_ALEN);
+ 
+-	val8 = dev->perm_addr[5];
+-	dev->perm_addr[5] += np->port;
+-	if (dev->perm_addr[5] < val8)
+-		dev->perm_addr[4]++;
+-
+-	memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len);
++	val8 = dev->dev_addr[5];
++	dev->dev_addr[5] += np->port;
++	if (dev->dev_addr[5] < val8)
++		dev->dev_addr[4]++;
+ }
+ 
+ static int niu_pci_probe_sprom(struct niu *np)
+@@ -8470,29 +8468,27 @@ static int niu_pci_probe_sprom(struct niu *np)
+ 	val = nr64(ESPC_MAC_ADDR0);
+ 	netif_printk(np, probe, KERN_DEBUG, np->dev,
+ 		     "SPROM: MAC_ADDR0[%08llx]\n", (unsigned long long)val);
+-	dev->perm_addr[0] = (val >>  0) & 0xff;
+-	dev->perm_addr[1] = (val >>  8) & 0xff;
+-	dev->perm_addr[2] = (val >> 16) & 0xff;
+-	dev->perm_addr[3] = (val >> 24) & 0xff;
++	dev->dev_addr[0] = (val >>  0) & 0xff;
++	dev->dev_addr[1] = (val >>  8) & 0xff;
++	dev->dev_addr[2] = (val >> 16) & 0xff;
++	dev->dev_addr[3] = (val >> 24) & 0xff;
+ 
+ 	val = nr64(ESPC_MAC_ADDR1);
+ 	netif_printk(np, probe, KERN_DEBUG, np->dev,
+ 		     "SPROM: MAC_ADDR1[%08llx]\n", (unsigned long long)val);
+-	dev->perm_addr[4] = (val >>  0) & 0xff;
+-	dev->perm_addr[5] = (val >>  8) & 0xff;
++	dev->dev_addr[4] = (val >>  0) & 0xff;
++	dev->dev_addr[5] = (val >>  8) & 0xff;
+ 
+-	if (!is_valid_ether_addr(&dev->perm_addr[0])) {
++	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
+ 		dev_err(np->device, "SPROM MAC address invalid [ %pM ]\n",
+-			dev->perm_addr);
++			dev->dev_addr);
+ 		return -EINVAL;
+ 	}
+ 
+-	val8 = dev->perm_addr[5];
+-	dev->perm_addr[5] += np->port;
+-	if (dev->perm_addr[5] < val8)
+-		dev->perm_addr[4]++;
+-
+-	memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len);
++	val8 = dev->dev_addr[5];
++	dev->dev_addr[5] += np->port;
++	if (dev->dev_addr[5] < val8)
++		dev->dev_addr[4]++;
+ 
+ 	val = nr64(ESPC_MOD_STR_LEN);
+ 	netif_printk(np, probe, KERN_DEBUG, np->dev,
+@@ -9267,16 +9263,14 @@ static int niu_get_of_props(struct niu *np)
+ 		netdev_err(dev, "%s: OF MAC address prop len (%d) is wrong\n",
+ 			   dp->full_name, prop_len);
+ 	}
+-	memcpy(dev->perm_addr, mac_addr, dev->addr_len);
+-	if (!is_valid_ether_addr(&dev->perm_addr[0])) {
++	memcpy(dev->dev_addr, mac_addr, dev->addr_len);
++	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
+ 		netdev_err(dev, "%s: OF MAC address is invalid\n",
+ 			   dp->full_name);
+-		netdev_err(dev, "%s: [ %pM ]\n", dp->full_name, dev->perm_addr);
++		netdev_err(dev, "%s: [ %pM ]\n", dp->full_name, dev->dev_addr);
+ 		return -EINVAL;
+ 	}
+ 
+-	memcpy(dev->dev_addr, dev->perm_addr, dev->addr_len);
+-
+ 	model = of_get_property(dp, "model", &prop_len);
+ 
+ 	if (model)
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 1cf767e..289b4ee 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -1032,8 +1032,6 @@ static struct vnet *vnet_new(const u64 *local_mac)
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		dev->dev_addr[i] = (*local_mac >> (5 - i) * 8) & 0xff;
+ 
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+-
+ 	vp = netdev_priv(dev);
+ 
+ 	spin_lock_init(&vp->lock);
+diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
+index 23a789e..f16410e 100644
+--- a/drivers/net/ethernet/toshiba/tc35815.c
++++ b/drivers/net/ethernet/toshiba/tc35815.c
+@@ -856,7 +856,6 @@ static int tc35815_init_one(struct pci_dev *pdev,
+ 	if (rc)
+ 		goto err_out;
+ 
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 	printk(KERN_INFO "%s: %s at 0x%lx, %pM, IRQ %d\n",
+ 		dev->name,
+ 		chip_info[ent->driver_data].name,
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 7992b3e..eab63e1 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -990,7 +990,6 @@ static int rhine_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		netdev_info(dev, "Using random MAC address: %pM\n",
+ 			    dev->dev_addr);
+ 	}
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	/* For Rhine-I/II, phy_id is loaded from EEPROM */
+ 	if (!phy_id)
+diff --git a/drivers/net/ieee802154/fakehard.c b/drivers/net/ieee802154/fakehard.c
+index 1e9cb0b..8f1c256 100644
+--- a/drivers/net/ieee802154/fakehard.c
++++ b/drivers/net/ieee802154/fakehard.c
+@@ -372,7 +372,6 @@ static int ieee802154fake_probe(struct platform_device *pdev)
+ 
+ 	memcpy(dev->dev_addr, "\xba\xbe\xca\xfe\xde\xad\xbe\xef",
+ 			dev->addr_len);
+-	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+ 	/*
+ 	 * For now we'd like to emulate 2.4 GHz-only device,
+diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+index 92c49e0..0192073 100644
+--- a/drivers/net/usb/kalmia.c
++++ b/drivers/net/usb/kalmia.c
+@@ -159,7 +159,6 @@ kalmia_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	}
+ 
+ 	memcpy(dev->net->dev_addr, ethernet_addr, ETH_ALEN);
+-	memcpy(dev->net->perm_addr, ethernet_addr, ETH_ALEN);
+ 
+ 	return status;
+ }
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 4a433583..cc49aac 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -431,7 +431,6 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ 		goto halt_fail_and_release;
+ 	}
+ 	memcpy(net->dev_addr, bp, ETH_ALEN);
+-	memcpy(net->perm_addr, bp, ETH_ALEN);
+ 
+ 	/* set a nonzero filter to enable data transfers */
+ 	memset(u.set, 0, sizeof *u.set);
+diff --git a/drivers/net/wimax/i2400m/fw.c b/drivers/net/wimax/i2400m/fw.c
+index def12b3..c9c711d 100644
+--- a/drivers/net/wimax/i2400m/fw.c
++++ b/drivers/net/wimax/i2400m/fw.c
+@@ -1055,7 +1055,6 @@ int i2400m_read_mac_addr(struct i2400m *i2400m)
+ 		result = 0;
+ 	}
+ 	net_dev->addr_len = ETH_ALEN;
+-	memcpy(net_dev->perm_addr, ack_buf.ack_pl, ETH_ALEN);
+ 	memcpy(net_dev->dev_addr, ack_buf.ack_pl, ETH_ALEN);
+ error_read_mac:
+ 	d_fnend(5, dev, "(i2400m %p) = %d\n", i2400m, result);
+diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
+index 844f201..3e824b8 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/ipw2x00/ipw2200.c
+@@ -11327,7 +11327,6 @@ static int ipw_up(struct ipw_priv *priv)
+ 		if (!(priv->config & CFG_CUSTOM_MAC))
+ 			eeprom_parse_mac(priv, priv->mac_addr);
+ 		memcpy(priv->net_dev->dev_addr, priv->mac_addr, ETH_ALEN);
+-		memcpy(priv->net_dev->perm_addr, priv->mac_addr, ETH_ALEN);
+ 
+ 		ipw_set_geo(priv);
+ 
+diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
+index a875499..3b3d471 100644
+--- a/drivers/net/wireless/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/mwifiex/cfg80211.c
+@@ -2117,7 +2117,6 @@ struct wireless_dev *mwifiex_add_virtual_intf(struct wiphy *wiphy,
+ 	dev->ieee80211_ptr = priv->wdev;
+ 	dev->ieee80211_ptr->iftype = priv->bss_mode;
+ 	memcpy(dev->dev_addr, wiphy->perm_addr, ETH_ALEN);
+-	memcpy(dev->perm_addr, wiphy->perm_addr, ETH_ALEN);
+ 	SET_NETDEV_DEV(dev, wiphy_dev(wiphy));
+ 
+ 	dev->flags |= IFF_BROADCAST | IFF_MULTICAST;
+diff --git a/drivers/net/wireless/orinoco/main.c b/drivers/net/wireless/orinoco/main.c
+index 88e3ad2..1e802f8 100644
+--- a/drivers/net/wireless/orinoco/main.c
++++ b/drivers/net/wireless/orinoco/main.c
+@@ -2290,7 +2290,6 @@ int orinoco_if_add(struct orinoco_private *priv,
+ 	netif_carrier_off(dev);
+ 
+ 	memcpy(dev->dev_addr, wiphy->perm_addr, ETH_ALEN);
+-	memcpy(dev->perm_addr, wiphy->perm_addr, ETH_ALEN);
+ 
+ 	dev->base_addr = base_addr;
+ 	dev->irq = irq;
+-- 
+1.8.1
