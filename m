@@ -1,37 +1,73 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Tue, 8 Jan 2013 20:14:19 +0000
-Message-ID: <20130108201419.GA30568@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
- <20130106120700.GA24671@dcvr.yhbt.net>
- <20130107122516.GC3885@suse.de>
- <20130107223850.GA21311@dcvr.yhbt.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net 1/2] net: dev_queue_xmit_nit: fix skb->vlan_tci field
+ value
+Date: Tue, 8 Jan 2013 21:14:50 +0100
+Message-ID: <20130108201450.GD1621@minipsycho.orion>
+References: <1357671093-9605-1-git-send-email-dborkman@redhat.com>
+ <1357671093-9605-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	Ani Sinha <ani@aristanetworks.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:65313 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751336Ab3AHUOz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 15:14:55 -0500
+Received: by mail-we0-f173.google.com with SMTP id z2so649717wey.4
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 12:14:54 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20130107223850.GA21311@dcvr.yhbt.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1357671093-9605-2-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eric Wong <normalperson@yhbt.net> wrote:
-> Mel Gorman <mgorman@suse.de> wrote:
-> > Right now it's difficult to see how the capture could be the source of
-> > this bug but I'm not ruling it out either so try the following (untested
-> > but should be ok) patch.  It's not a proper revert, it just disables the
-> > capture page logic to see if it's at fault.
-> 
-> Things look good so far with your change.
-> It's been running 2 hours on a VM and 1 hour on my regular machine.
-> Will update again in a few hours (or sooner if it's stuck again).
+Tue, Jan 08, 2013 at 07:51:32PM CET, dborkman@redhat.com wrote:
+>VLAN packets that are locally injected through taps will loose their
+>skb->vlan_tci value when they pass dev_hard_start_xmit and get looped
+>back to a packet sniffer via dev_queue_xmit_nit. Besides others, this
+>meta data is used in Linux socket filtering for VLANs. Tested with a
+>VLAN ancillary ops filter.
+>
+>Patch is based on a previous version by Jiri Pirko.
+>
+>Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>Cc: Ani Sinha <ani@aristanetworks.com>
+>Cc: Jiri Pirko <jpirko@redhat.com>
+>Reported-by: Paul Pearce <pearce@cs.berkeley.edu>
+>Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>---
+> net/core/dev.c | 13 +++++++++++++
+> 1 file changed, 13 insertions(+)
+>
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 515473e..723dcd0 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -1775,6 +1775,19 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+> 	struct packet_type *ptype;
+> 	struct sk_buff *skb2 = NULL;
+> 	struct packet_type *pt_prev = NULL;
+>+	struct ethhdr *ehdr;
+>+
+>+	/* Network taps could make use of skb->vlan_tci, which got wiped
+>+	 * out. Hence, we need to reset it correctly.
+>+	 */
+>+	skb_reset_mac_header(skb);
+>+	ehdr = eth_hdr(skb);
+>+
+>+	if (ehdr->h_proto == __constant_htons(ETH_P_8021Q)) {
+>+		skb2 = vlan_untag(skb);
+>+		if (likely(skb2))
+>+			skb = skb2;
+>+	}
 
-Things still seem good on my regular machine.
+	Hmm, nitpick, I think that better would be to do:
+		skb = vlan_untag(skb);
+		if (unlikely(!skb))
+			return;
+	
+	I believe that better is to deliver skbs in consistent way and
+	to do not deliver at all in case of -ENOMEM
