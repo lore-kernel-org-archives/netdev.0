@@ -1,35 +1,34 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 1/1 net-next] net: fec: enable pause frame to improve rx prefomance for 1G network
-Date: Tue, 8 Jan 2013 13:32:11 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7104@saturn3.aculab.com>
-References: <1357634609-4112-1-git-send-email-Frank.Li@freescale.com> <1357649564.29986.10.camel@deadeye.wl.decadent.org.uk>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] bnx2x: NULL dereference on error in debug code
+Date: Tue, 8 Jan 2013 16:42:14 +0300
+Message-ID: <20130108134213.GA23742@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<netdev@vger.kernel.org>, <s.hauer@pengutronix.de>
-To: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"Frank Li" <Frank.Li@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45950 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756248Ab3AHNeF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2013 08:34:05 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 14412-09 for <netdev@vger.kernel.org>;
- Tue,  8 Jan 2013 13:34:00 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1357649564.29986.10.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Eilon Greenstein <eilong@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiBJZiB0aGUgbWVkaXVtIHN1cHBvcnRzIGF1dG9uZW9nLCB1c2UgbWlpX2FkdmVydGlzZV9mbG93
-Y3RybCgpIGluDQo+IHNldF9wYXVzZXBhcmFtIHRvIHVwZGF0ZSBwYXVzZSBmcmFtZSBhZHZlcnRp
-c2luZyBhbmQgdGhlbiByZXN0YXJ0DQo+IGF1dG9uZWcuDQoNCklzbid0IGF1dG9uZWcgY29udGlu
-dW91cz8NCkluIHdoaWNoIGNhc2UgeW91IGp1c3QgbmVlZCB0byBtb25pdG9yIHRoZSByZXNwb25z
-ZSByZWdpc3Rlci4NCk1vbml0b3JpbmcgTUlJIHJlZ2lzdGVycyBpcyB1c3VhbGx5IGEgY29tcGxl
-dGUgUElUQSB0aG91Z2gNCihkdWUgdG8gdGhlIHJlcXVpcmVtZW50cyBmb3IgZGVsYXlzIGR1cmlu
-ZyB0aGUgYml0LWJhc2hpbmcpLg0KDQoJRGF2aWQNCg0K
+"vfop" is NULL here.  I've changed the debugging to not use it.
+
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Only needed in linux-next.
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 71fcef0..3eef972 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -463,8 +463,7 @@ static int bnx2x_vfop_qdtor_cmd(struct bnx2x *bp,
+ 		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_qdtor,
+ 					     cmd->block);
+ 	}
+-	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop. rc %d\n",
+-	   vf->abs_vfid, vfop->rc);
++	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop.\n", vf->abs_vfid);
+ 	return -ENOMEM;
+ }
+ 
