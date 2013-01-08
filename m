@@ -1,51 +1,27 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH] net: fec: Place 'inline' in the beginning of declaration
-Date: Tue,  8 Jan 2013 01:20:33 -0200
-Message-ID: <1357615233-30241-1-git-send-email-festevam@gmail.com>
-Cc: shawn.guo@linaro.org, netdev@vger.kernel.org,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Netfilter fixes for 3.8-rc2
+Date: Mon, 07 Jan 2013 19:26:30 -0800 (PST)
+Message-ID: <20130107.192630.46268552180952153.davem@davemloft.net>
+References: <1357589047-3373-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f54.google.com ([209.85.213.54]:35823 "EHLO
-	mail-yh0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751568Ab3AHD0Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 22:26:24 -0500
-Received: by mail-yh0-f54.google.com with SMTP id i57so1547632yha.13
-        for <netdev@vger.kernel.org>; Mon, 07 Jan 2013 19:26:23 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:49439 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753179Ab3AHD0b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 22:26:31 -0500
+In-Reply-To: <1357589047-3373-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+From: pablo@netfilter.org
+Date: Mon,  7 Jan 2013 21:04:04 +0100
 
-Fix the following warning when building with W=1 option:
+> You can pull these changes from:
+> 
+> git://1984.lsi.us.es/nf master
 
-drivers/net/ethernet/freescale/fec.c:810:1: warning: '__inline__' is not at beginning of declaration [-Wold-style-declaration]
-
-Putting __inline__ in the beggining then checkpath complains:
-
-WARNING: plain inline is preferred over __inline__
-#24: FILE: drivers/net/ethernet/freescale/fec.c:810:
-+static __inline__ void fec_get_mac(struct net_device *ndev)
-
-,so use 'inline' in the beginning and make gcc and checkpath happy.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index a379319..4624f6b 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -807,7 +807,7 @@ fec_enet_interrupt(int irq, void *dev_id)
- 
- 
- /* ------------------------------------------------------------------------- */
--static void __inline__ fec_get_mac(struct net_device *ndev)
-+static inline void fec_get_mac(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 	struct fec_platform_data *pdata = fep->pdev->dev.platform_data;
--- 
-1.7.9.5
+Pulled, thanks Pablo.
