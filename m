@@ -1,7 +1,7 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH v2 3/3] net: stmmac: add gmac autonego set for ethtool support
-Date: Tue, 08 Jan 2013 15:32:02 -0800
-Message-ID: <000601cdedf8$5d39bdf0$17ad39d0$@samsung.com>
+Subject: [PATCH v2 2/3] net: stmmac: add autoneg complete irq
+Date: Tue, 08 Jan 2013 15:32:00 -0800
+Message-ID: <000501cdedf8$5c323900$1496ab00$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,38 +14,75 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This patch adds gmac auto-negotiation setting for ethtool.
-If interface is SGMII, TBI or RTBI, gmac's auto-negotiation
-enable bit is need to set.
+This patch adds auto-negotiation complete irq and ISR.
+when the irq is occured it read GMAC_AN_STATUS register
+to clear PCSANCIS bit.
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
+Singed-off-by: Byungho An <bh74.an@samsung.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |    5 +++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac.h         |    1 +
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    2 ++
+ 4 files changed, 9 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-index 1372ce2..457c1a4 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
-@@ -335,6 +335,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
- 	struct phy_device *phy = priv->phydev;
- 	int new_pause = FLOW_OFF;
- 	int ret = 0;
-+	int interface = priv->plat->interface;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
+b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 72ba769..bc5ce7a 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -203,6 +203,7 @@ enum core_specific_irq_mask {
+ 	core_irq_tx_path_exit_lpi_mode = 32,
+ 	core_irq_rx_path_in_lpi_mode = 64,
+ 	core_irq_rx_path_exit_lpi_mode = 128,
++	core_irq_pcs_autoneg_complete = 256,
+ };
  
- 	spin_lock(&priv->lock);
+ /* DMA HW capabilities */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index a0737b39..0643ed3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -222,6 +222,11 @@ static int dwmac1000_irq_status(void __iomem *ioaddr)
+ 		readl(ioaddr + GMAC_PMT);
+ 		status |= core_irq_receive_pmt_irq;
+ 	}
++	if (unlikely(intr_status & pcs_ane_irq)) {
++		CHIP_DBG(KERN_INFO "GMAC: PCS Auto-negotiation complete\n");
++		readl(ioaddr + GMAC_AN_STATUS);
++		status |= core_irq_pcs_autoneg_complete;
++	}
+ 	/* MAC trx/rx EEE LPI entry/exit interrupts */
+ 	if (intr_status & lpiis_irq) {
+ 		/* Clean LPI interrupt by reading the Reg 12 */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+index b05df89..b4220f3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac.h
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac.h
+@@ -93,6 +93,7 @@ struct stmmac_priv {
+ 	u32 tx_coal_timer;
+ 	int use_riwt;
+ 	u32 rx_riwt;
++	bool core_pcs_an;
+ };
  
-@@ -348,6 +349,10 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ extern int phyaddr;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 3e28934..0d2afbb 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1623,6 +1623,8 @@ static irqreturn_t stmmac_interrupt(int irq, void
+*dev_id)
+ 				priv->xstats.mmc_rx_csum_offload_irq_n++;
+ 			if (status & core_irq_receive_pmt_irq)
+ 				priv->xstats.irq_receive_pmt_irq_n++;
++			if (status & core_irq_pcs_autoneg_complete)
++				priv->core_pcs_an = true;
  
- 	if (phy->autoneg) {
- 		if (netif_running(netdev))
-+			if((interface == PHY_INTERFACE_MODE_SGMII) ||
-+				(interface == PHY_INTERFACE_MODE_TBI) ||
-+				(interface == PHY_INTERFACE_MODE_RTBI)) 
-+				priv->hw->mac->set_autoneg(priv->ioaddr);
- 			ret = phy_start_aneg(phy);
- 	} else
- 		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
+ 			/* For LPI we need to save the tx status */
+ 			if (status & core_irq_tx_path_in_lpi_mode) {
 -- 
 1.7.10.4
