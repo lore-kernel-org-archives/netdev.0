@@ -1,45 +1,51 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net 2/2] net: dev_queue_xmit_nit: fix potential NULL ptr dereference
-Date: Tue,  8 Jan 2013 19:51:33 +0100
-Message-ID: <1357671093-9605-3-git-send-email-dborkman@redhat.com>
-References: <1357671093-9605-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Daniel Borkmann <dborkman@redhat.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Subject: Re: [RFC patch net-next] ipv4: use bcast as dst address in case IFF_NOARP is set
+Date: Tue, 08 Jan 2013 11:10:33 -0800 (PST)
+Message-ID: <0355baea-4761-477b-a68a-cd40fd5033b8@tahiti.vyatta.com>
+References: <20130108174538.GC1621@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, edumazet@google.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, pavlix@pavlix.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3814 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:41843 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756980Ab3AHSvu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2013 13:51:50 -0500
-In-Reply-To: <1357671093-9605-1-git-send-email-dborkman@redhat.com>
+	id S1756889Ab3AHTKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jan 2013 14:10:34 -0500
+In-Reply-To: <20130108174538.GC1621@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 71d9dec24dce548bf699815c976cf063ad9257e2 (``net: increase
-skb->users instead of skb_clone()'') introduced a skb_clone in
-dev_queue_xmit_nit that, when NULL, leaves the loop, but can still
-be injected into pt_prev->func().
 
-Cc: Changli Gao <xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Tue, Jan 08, 2013 at 06:11:55PM CET, stephen.hemminger@vyatta.com
+> wrote:
+> >
+> >> When IFF_NOARP is set on a device, dev->dev_addr is used as *dst*
+> >> addr of sent frames. That does not make sense. Use rather bcast
+> >> address
+> >> instead.
+> >> 
+> >> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >
+> >What did you test this on? I think this may have been
+> >intentional to avoid broadcasting.
+> 
+> Thanks for looking at this Stephen.
+> 
+> I tested this on two boxes connected via ethernet.
+> 
+> I believe this may have been intentional, but what sense does it have
+> to
+> use dev_addr as destination address? That is what I do not
+> understand.
+> 
+> Also, what is the issue with sending all packets to broadcast when
+> NOARP is
+> set? In my opinion, it only makes sense.
+> 
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 723dcd0..6c35c33 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1827,7 +1827,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 			pt_prev = ptype;
- 		}
- 	}
--	if (pt_prev)
-+	if (skb2 && pt_prev)
- 		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
- 	rcu_read_unlock();
- }
--- 
-1.7.11.7
+It looks like NOARP devices are point-to-point and don't really
+have any concept of broadcast.
