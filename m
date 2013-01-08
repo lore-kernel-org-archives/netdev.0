@@ -1,43 +1,30 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH 0/3] Make rfc3686 template work with asynchronous
- block ciphers
-Date: Tue, 8 Jan 2013 08:04:31 +0100
-Message-ID: <20130108070431.GT18940@secunet.com>
-References: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+From: "Shibakawa ink" <inkmaster@sina.cn>
+Subject: Re:riso ink shared photo with you
+Date: Tue, 8 Jan 2013 14:28:24 +0800
+Message-ID: <201301081428243903579@sina.cn>
+Reply-To: lucky_shibakawa@foxmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-crypto@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: base64
+To: "netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36278 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750990Ab3AHHEf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jan 2013 02:04:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20121228100448.11073.25546.stgit@localhost6.localdomain6>
+Received: from mail3-164.sinamail.sina.com.cn ([202.108.3.164]:54107 "EHLO
+	smtp.sina.com.cn" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750923Ab3AHHGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 02:06:40 -0500
+Received: from irja2-172.sinamail.sina.com.cn (unknown [10.69.2.172])
+	by smtp.sina.com.cn (SINAMAIL) with ESMTP id 9920A1C6420
+	for <netdev@vger.kernel.org>; Tue,  8 Jan 2013 14:28:31 +0800 (CST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 28, 2012 at 12:04:48PM +0200, Jussi Kivilinna wrote:
-> I'm not sure how this patchset should be dealt with (should 1st patch go
-> through different tree than 2nd and 3rd?), so therefore it's RFC.
-> 
-> Second patch makes rfc3686 template work with asynchronous block ciphers and
-> third patch changes aesni-intel to use this template. First patch fixed problem
-> in xfrm_algo found with help of 2nd and 3rd patches and without 1st patch
-> 2nd patch breaks aes-ctr with IPSEC.
-> 
-> 
-> ---
-> 
-> Jussi Kivilinna (3):
->       xfrm_algo: probe asynchronous block ciphers instead of synchronous
->       crypto: ctr - make rfc3686 asynchronous block cipher
->       crypto: aesni-intel - remove rfc3686(ctr(aes)), utilize rfc3686 from ctr-module instead
-> 
-
-All applied to ipsec-next.
-
-Thanks!
+RGVhciBGcmllbmQsDQoNCiBIYXBweSBOZXcgWWVhciAhICBNdWNoIGpveSB0byB5b3UgaW4gdGhl
+IHVwY29taW5nIHllYXIuIA0KDQpJbiB0aGlzIGdvb2Qgc2Vhc29uLCBtb3N0IG9mIG91ciBpbmsg
+YW5kIG1hc3RlciBhcmUgb24gcHJvbW90aW9uIG5vdyENCg0KVGhhbmtzIGZvciB5b3VyIHN1cHBv
+cnQgYWxsIHRoZSB0aW1lISBXZSB3aWxsIHRyeSBvdXIgYmVzdCB0byBnaXZlIHlvdSBiZXR0ZXIg
+c2VydmljZSBpbiB0aGUgbmV3IHllYXIhIA0KDQpZb3UgbWF5IHJlcGx5IHRoaXMgZW1haWwgaWYg
+eW91IG5lZWQgdG8ga25vdyBkZXRhaWxzLCB0aGFua3MgdmVyeSBtdWNoIQ0KDQoNCigqXl9fXiop
+Li4uLi4uLi4uLi4uLi4uLi4NCg0KDQpSaXNvIGR1cGxpY2F0b3IgaW5rJm1hc3Rlcg0KU2t5cGU6
+ICBsdWNreW1lOTkxDQpZYWhvbyEgTWVzc2VuZ2VyOiAgbHVja3ltZTk5MQ0KVGVsOiAgIDAwODYg
+MTU5ODkwODE1MjE=
