@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3.8-rc] net: mvneta: fix driver operation in SMP context
-Date: Mon, 07 Jan 2013 19:52:59 -0800 (PST)
-Message-ID: <20130107.195259.1760491533497807910.davem@davemloft.net>
-References: <1357576074-24245-1-git-send-email-thomas.petazzoni@free-electrons.com>
-	<20130107164415.GI5075@titan.lakedaemon.net>
+Subject: Re: [patch net-next v2] ethtool: consolidate work with ethtool_ops
+Date: Mon, 07 Jan 2013 19:54:35 -0800 (PST)
+Message-ID: <20130107.195435.763201132949773285.davem@davemloft.net>
+References: <1357585328-3405-1-git-send-email-jiri@resnulli.us>
+	<20130107200656.GA2090@obelix.rh>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, alior@marvell.com,
-	andrew@lunn.ch, netdev@vger.kernel.org, maen@marvell.com,
-	gregory.clement@free-electrons.com, dima@marvell.com,
-	linux-arm-kernel@lists.infradead.org
-To: jason@lakedaemon.net
+Cc: jiri@resnulli.us, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, richardcochran@gmail.com,
+	greearb@candelatech.com, jeffrey.t.kirsher@intel.com
+To: fbl@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49899 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49912 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752133Ab3AHDxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 22:53:00 -0500
-In-Reply-To: <20130107164415.GI5075@titan.lakedaemon.net>
+	with ESMTP id S1751523Ab3AHDyg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jan 2013 22:54:36 -0500
+In-Reply-To: <20130107200656.GA2090@obelix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Cooper <jason@lakedaemon.net>
-Date: Mon, 7 Jan 2013 11:44:15 -0500
+From: Flavio Leitner <fbl@redhat.com>
+Date: Mon, 7 Jan 2013 18:06:56 -0200
 
-> I'll assume this is going through -net, let me know if it should be
-> otherwise.
+> On Mon, Jan 07, 2013 at 08:02:08PM +0100, Jiri Pirko wrote:
+>> No need to check if ethtool_ops == NULL since it can't be.
+>> Use local variable "ops" in functions where it is present
+>> instead of dev->ethtool_ops
+>> Introduce local variable "ops" in functions where dev->ethtool_ops is used
+>> many times.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+> 
+> Reviewed-by: Flavio Leitner <fbl@redhat.com>
 
-It needs to be fixed up before it can be applied anywhere, see
-Ben Hutchings's feedback.
+Applied.
