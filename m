@@ -1,56 +1,61 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [RFC PATCH] vsprintf: Add %p*D extension for 80211 SSIDs
-Date: Mon, 07 Jan 2013 19:11:27 -0800
-Message-ID: <1357614687.12749.41.camel@joe-AO722>
-References: <50E82D7D.4090107@asianux.com>
-	 <1357396966.21156.4.camel@joe-AO722> <50EA37CE.1090901@asianux.com>
-	 <1357528746.4940.31.camel@joe-AO722> <1357534195.21481.31.camel@joe-AO722>
-	 (sfid-20130107_055017_668200_9F1C3EAF) <1357544828.9912.0.camel@jlt4.sipsolutions.net>
-	 <1357579362.21481.45.camel@joe-AO722> <50EB8B1A.9000404@asianux.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the drop-experimental tree with the
+ net-next tree
+Date: Tue, 8 Jan 2013 14:15:13 +1100
+Message-ID: <20130108141513.573d65ff946749624c9b4281@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50EB8B1A.9000404-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__8_Jan_2013_14_15_13_+1100_lsZWrqV6hTh/1zuw"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: Kees Cook <keescook@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-01-08 at 10:57 +0800, Chen Gang wrote:
-> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8808=E6=97=A5 01:22, Joe Perches =E5=86=
-=99=E9=81=93:
-> > On Mon, 2013-01-07 at 08:47 +0100, Johannes Berg wrote:
-> >> > print_ssid() is used in two or
-> >> > three legacy drivers only, not in any modern driver, and is unli=
-kely to
-> >> > be used in the more modern drivers due to tracing etc.
-> > Swell.  It was just another way to correct those overrun
-> > errors Chen Gang found.
-> >=20
->   sorry, I am not quite clear about what you said.
+--Signature=_Tue__8_Jan_2013_14_15_13_+1100_lsZWrqV6hTh/1zuw
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-You found some overrun errors and proposed a patch.
-Your solution could output incomplete SSIDs.
+Hi Kees,
 
-I proposed a different patch that would fully output
-any binary/non-ascii printable SSID.
+Today's linux-next merge of the drop-experimental tree got conflicts in
+drivers/net/ethernet/8390/Kconfig and drivers/net/ethernet/i825xx/Kconfig
+between commits 483f777266f5 ("drivers/net: remove orphaned references to
+micro channel") from the net-next tree and commits 16f5471ff2da
+("drivers/net/ethernet/8390: remove depends on CONFIG_EXPERIMENTAL") and
+65af6f091e6d ("drivers/net/ethernet/i825xx: remove depends on
+CONFIG_EXPERIMENTAL") from the drop-experimental tree.
 
-I also proposed a different mechanism to avoid the
-overrun via printk and also avoid possibly excessive
-stack consumption as a means for John Linville to
-select 1 of the above options.
+I fixed it up (I used the latter versions) and can carry the fix as
+necessary (no action is required).
 
-I don't care what is done with any of those proposed
-patches.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Clear?
+--Signature=_Tue__8_Jan_2013_14_15_13_+1100_lsZWrqV6hTh/1zuw
+Content-Type: application/pgp-signature
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQ649BAAoJEECxmPOUX5FETPsP/RkelQ9UNweMhzUjSrU0tawT
+I+0pZjBXh8HviV+KFnRvSPYtP4BfoqGPmRY0l2gUZCEuz0O1m6jb7O9pWXteBKbH
+2HJEH5xg+o8Zxd5P143PAS39K7mvN2ui+FoUGXGABjGFambJbwi6P4Lgr+KI/Xrr
+WTl8z9lcTHMrraz9q64a+O3jHgzp7u4+q/k+qe3jTVp0VCA3Tl5yBUzInFc/ig0a
+B/k9g1UNZmUEXQbqjbsXrQ5Tb4F3cE0KCsCovIdsfWMp6AIuQP1iaqmv8Jbdwb30
+jD16z5BOh89HQAavAOnylO6+bh2aG6k9OqbC6pz669dr3jRfW7JHKjo2Zhp6T3MW
+EMAEtrq+Ym0oZhnZaWOo09pABXylIdw/vZ73wmaze+j9l/inukJBWEaqqCImJxBC
+Co6rAfdOXmfVs1Fu0a/4O6crbRDQ1J9o4qRnk8WPFi451ATjIJnDYvY28+PDm1T/
+IOwYBXbP5zUGp7f4zM64pGXgOu2ZxyqEqnP4c/f0BrcOYXo60w7bHN3m1Z701g5O
+vC7JBmZgnRE8vXUR4JlfKo0rUrjANz560S5Iy+Y4r5pic1WZQNxkDLIUdWLp2X0/
+bHcMqluhJXf1uGwD+VJgfNcJcEXAWjU8h9Oi6OzSmMZ6J31O1wLvJCxODvSfHMfH
+v7OMpxCJU8vNN9Cs/mwB
+=+Uaz
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__8_Jan_2013_14_15_13_+1100_lsZWrqV6hTh/1zuw--
