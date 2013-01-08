@@ -1,92 +1,50 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH v2] sctp: Change defaults on cookie hmac selection
-Date: Tue, 08 Jan 2013 18:36:50 +0100
-Message-ID: <50EC5932.4040407@openwrt.org>
-References: <1355511060-27320-1-git-send-email-nhorman@tuxdriver.com> <1355534521-32719-1-git-send-email-nhorman@tuxdriver.com> <50EACCD3.90609@openwrt.org> <20130107144921.GA31577@hmsreliant.think-freely.org> <50EAE68C.2050300@openwrt.org> <20130107153812.GC31577@hmsreliant.think-freely.org> <50EAEE64.5010300@gmail.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: IPV4 TCP connection reset using iperf
+Date: Tue, 08 Jan 2013 09:39:36 -0800
+Message-ID: <50EC59D8.9000701@hp.com>
+References: <CAAvRe=izMJWEFDcZYEoJCY2Em7NQKco4_6x1L7t4h2XSJf6_Sg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:50927 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756777Ab3AHRjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 12:39:22 -0500
-In-Reply-To: <50EAEE64.5010300@gmail.com>
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:25158 "EHLO
+	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756777Ab3AHRji (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 12:39:38 -0500
+In-Reply-To: <CAAvRe=izMJWEFDcZYEoJCY2Em7NQKco4_6x1L7t4h2XSJf6_Sg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/07/13 16:48, Vlad Yasevich a =C3=A9crit :
-> No, thats the problem, your old config is no longer valid with this=20
-> new Kconfig
->> file.  Your config is telling the config utility that you want your=20
->> default
->> Cookie hmac to be MD5, but you've explicitly told it (via your yes "=
-"=20
->> | make
->> oldconfig command), that you want SCTP_COOKIE_HMAC_MD5 to be=20
->> disabled, so the
->> config utility is left with no choice to prompt you again for a=20
->> default hmac,
->> which your command answers again by saying=20
->> SCTP_DEFAULT_COOKIE_HMAC_MD5 (the
->> default choice of 1).  Thats your loop, you keep telling the config=20
->> utility that
->> you both want the default hmac to be md5, and that you don't want to=
-=20
->> allow md5
->> to be an available hmac alg.
->>
->> Thats not a bug.  I'm sorry if your old configuration needs manual=20
->> updating, but
->> there are no guarantees that old configurations will 'just work' in=20
->> perpituity.
->>
+On 01/08/2013 06:41 AM, Madhvapathi Sriram wrote:
+> Hi,
 >
-> Neil
+> I have recently migrated to kernel version 3.6.10 from 3.2.1. I was
+> running iperf to routinely measure TCP throughput and I have been
+> facing problems eversince. I am using a wireless interface.
 >
-> Actually, I think we have a bug in the config.  Look at the thermal=20
-> driver config again.  It has:
+> wireless client: iperf -s -i 1 -w 1024K
+> wireless server: iperf -c 192.168.1.1 -i -1 -w 1024 -t 600
 >
-> choice
->         prompt "Default Thermal governor"
->         default THERMAL_DEFAULT_GOV_STEP_WISE
+> While, the connection is maintained for sometime and the perf logs
+> keep going. Randomly, the connection breaks with the server side
+> resetting the connection. The tcp dump on the client shows RST sent by
+> the server. Switching back to 3.2.1 works. This issue starts from
+> kernel version 3.5 onnwards.
 >
-> config THERMAL_DEFAULT_GOV_STEP_WISE
->     ...
-> config THERMAL_DEFAULT_GOV_FAIR_SHARE
->     ...
-> config THERMAL_DEFAULT_GOV_USER_SPACE
->     ...
-> endchoice
+> I have tried to probe along some points to take a look at the air
+> logs, tcpdump on either sides but to no clue - everything seems normal
+> like, the tcp window values, very less/negligible retransmissions and
+> so on. The RST is set abruptly and randomly (no definite time - may
+> happen randomly).
 >
->
-> SCTP has:
->
-> choice
->         prompt "Default SCTP cookie HMAC encoding"
->         default SCTP_COOKIE_HMAC_MD5
->
-> config SCTP_DEFAULT_COOKIE_HMAC_MD5
->     ...
-> config SCTP_DEFAULT_COOKIE_HMAC_SHA1
->     ...
-> config SCTP_DEFAULT_COOKIE_HMAC_NONE
->     ...
-> endchoice
->
-> See the difference?  The default value of the choice statement needs =
-to
-> be one of the available choices.
+> I am looking for some suggestions or pointers towards analyzing the issue.
 
-Right, since none of the config symbols actually exist when migrating=20
-from and oldconfig we are still being prompted, which is just fine=20
-actually. Having the config symbol being the default a member of the=20
-choice/endchoice section is what should be expected.
---
-=46lorian
+I cannot imagine that iperf bulk transfer would look all that much 
+different from netperf bulk transfer, but I suppose you could see if a 
+netperf TCP_STREAM test with similar configuration settings encounters 
+the same RST issues.  Or, for that matter, an equally long-lived FTP or 
+scp transfer.
+
+rick jones
