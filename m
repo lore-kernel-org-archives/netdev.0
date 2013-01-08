@@ -1,42 +1,72 @@
-From: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
-Subject: IPV4 TCP connection reset using iperf
-Date: Tue, 8 Jan 2013 20:11:17 +0530
-Message-ID: <CAAvRe=izMJWEFDcZYEoJCY2Em7NQKco4_6x1L7t4h2XSJf6_Sg@mail.gmail.com>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] sunrpc: verbs: Avoid 1kb stack
+Date: Tue, 8 Jan 2013 09:46:04 -0500
+Message-ID: <20130108144604.GB16343@fieldses.org>
+References: <1357587696.21481.48.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:39565 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756428Ab3AHOlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 09:41:17 -0500
-Received: by mail-ie0-f179.google.com with SMTP id k14so560869iea.10
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 06:41:17 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Tom Tucker <tom-/Yg/VP3ZvrM@public.gmane.org>, steved-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	Tom Talpey <ttalpey-0li6OtcxBFHby3iVrkZq2A@public.gmane.org>
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1357587696.21481.48.camel@joe-AO722>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, Jan 07, 2013 at 11:41:36AM -0800, Joe Perches wrote:
+> 16 * 64 is a bit much.
+> Use kmalloc_array instead.
 
-I have recently migrated to kernel version 3.6.10 from 3.2.1. I was
-running iperf to routinely measure TCP throughput and I have been
-facing problems eversince. I am using a wireless interface.
+I thought there was some reason we didn't do this.
 
-wireless client: iperf -s -i 1 -w 1024K
-wireless server: iperf -c 192.168.1.1 -i -1 -w 1024 -t 600
+Grepping up through the callers....  It looks like the result is
+xprt_rdma_send_request returns -EIO, and as far as I can tell that gets
+passed up to the application on the client.   That doesn't sound right.
 
-While, the connection is maintained for sometime and the perf logs
-keep going. Randomly, the connection breaks with the server side
-resetting the connection. The tcp dump on the client shows RST sent by
-the server. Switching back to 3.2.1 works. This issue starts from
-kernel version 3.5 onnwards.
+--b.
 
-I have tried to probe along some points to take a look at the air
-logs, tcpdump on either sides but to no clue - everything seems normal
-like, the tcp window values, very less/negligible retransmissions and
-so on. The RST is set abruptly and randomly (no definite time - may
-happen randomly).
-
-I am looking for some suggestions or pointers towards analyzing the issue.
-
-Thanks and regards,
-Madhvapathi Sriram
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  net/sunrpc/xprtrdma/verbs.c | 10 +++++++++-
+>  1 file changed, 9 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+> index 745973b..9cfebb4 100644
+> --- a/net/sunrpc/xprtrdma/verbs.c
+> +++ b/net/sunrpc/xprtrdma/verbs.c
+> @@ -1736,8 +1736,13 @@ rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
+>  	int mem_priv = (writing ? IB_ACCESS_REMOTE_WRITE :
+>  				  IB_ACCESS_REMOTE_READ);
+>  	struct rpcrdma_mr_seg *seg1 = seg;
+> -	struct ib_phys_buf ipb[RPCRDMA_MAX_DATA_SEGS];
+>  	int len, i, rc = 0;
+> +	struct ib_phys_buf *ipb = kmalloc_array(RPCRDMA_MAX_DATA_SEGS,
+> +						sizeof(*ipb),
+> +						GFP_KERNEL);
+> +
+> +	if (!ipb)
+> +		return -ENOMEM;
+>  
+>  	if (*nsegs > RPCRDMA_MAX_DATA_SEGS)
+>  		*nsegs = RPCRDMA_MAX_DATA_SEGS;
+> @@ -1770,6 +1775,9 @@ rpcrdma_register_default_external(struct rpcrdma_mr_seg *seg,
+>  		seg1->mr_len = len;
+>  	}
+>  	*nsegs = i;
+> +
+> +	kfree(ipb);
+> +
+>  	return rc;
+>  }
+>  
+> 
+> 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
