@@ -1,127 +1,134 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V3 1/2] virtio-net: fix the set affinity bug when CPU
-	IDs are not consecutive
-Date: Tue, 08 Jan 2013 18:26:20 +0800
-Message-ID: <50EBF44C.9040401@redhat.com>
-References: <1357639660-6660-1-git-send-email-gaowanlong@cn.fujitsu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: PROBLEM: Software injected vlan tagged packets are unable to be
+ identified using recent BPF modifications
+Date: Tue, 8 Jan 2013 11:38:11 +0100
+Message-ID: <20130108103811.GA1621@minipsycho.orion>
+References: <CAOUgPvQP2RrngPPf=hYxpPdGSQ4L-Db0T-BMDwVg6iy8LTAu=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <erdnetdev@gmail.com>
-To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1357639660-6660-1-git-send-email-gaowanlong@cn.fujitsu.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, tcpdump-workers@lists.tcpdump.org,
+	davem@davemloft.net, edumazet@google.com, jpirko@redhat.com,
+	Ani Sinha <ani@aristanetworks.com>
+To: Paul Pearce <pearce@cs.berkeley.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:34962 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755419Ab3AHKiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 05:38:16 -0500
+Received: by mail-ea0-f176.google.com with SMTP id d13so111921eaa.21
+        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 02:38:15 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAOUgPvQP2RrngPPf=hYxpPdGSQ4L-Db0T-BMDwVg6iy8LTAu=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/08/2013 06:07 PM, Wanlong Gao wrote:
-> As Michael mentioned, set affinity and select queue will not work very
-> well when CPU IDs are not consecutive, this can happen with hot unplug.
-> Fix this bug by traversal the online CPUs, and create a per cpu variable
-> to find the mapping from CPU to the preferable virtual-queue.
+Tue, Jan 08, 2013 at 01:05:39AM CET, pearce@cs.berkeley.edu wrote:
+>Hello folks,
 >
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: Eric Dumazet <erdnetdev@gmail.com>
-> Cc: virtualization@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> ---
->  drivers/net/virtio_net.c | 39 +++++++++++++++++++++++++++++----------
->  1 file changed, 29 insertions(+), 10 deletions(-)
+>PROBLEM:
 >
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index a6fcf15..a77f86c 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -41,6 +41,8 @@ module_param(gso, bool, 0444);
->  #define VIRTNET_SEND_COMMAND_SG_MAX    2
->  #define VIRTNET_DRIVER_VERSION "1.0.0"
->  
-> +DEFINE_PER_CPU(int, vq_index) = -1;
-> +
+>vlan tagged packets that are injected via software are not picked up
+>by filters using recent (kernel commit
+>f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
+>BPF vlan modifications. I suspect this is a problem with the Linux
+>kernel.
+>
+>linux-netdev and tcpdump-workers are both cc'd.
+>
+>BACKGROUND:
+>
+>Kernel commit bcc6d47903612c3861201cc3a866fb604f26b8b2 (Jiri
+>Pirko/David S. Miller) removed vlan headers on rx packets prior to
+>them reaching the packet filters. This broke BPF/libpcap's ability to
+>do kernel-level packet filtering based on vlan tag information (the
+>'vlan' keyword).
+>
+>Kernel commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1 (Eric
+>Dumazet/David S. Miller, just merged into Linus's tree
+>http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
+>added the ability to use BPF to once again filter based on vlan
+>tags. Related bpf jit commit:
+>http://www.spinics.net/lists/netdev/msg214759.html
+>
+>libpcap (Ani Sinha) recently RFC'd a patch to use Eric/David's BPF
+>modifications to restore vlan filtering to libpcap.
+>http://www.mail-archive.com/tcpdump-workers@lists.tcpdump.org/msg06810.html
+>I'm using this patch and it works.
+>
+>DETAILS:
+>
+>Under these patches vlan tagged packets received from mediam (actual
+>packets from the wire) can be identified based on vlan tag information
+>using the new BPF functionality.This is good.
+>
+>However, raw vlan tagged packets that are *injected* into the
+>interface using libpcap's pcap_inject() (which is just a fancy wrapper
+>for the send() syscall) are not identified by filters using the recent
+>BPF modifications.
+>
+>The bug manifests itself if you attempt to use the new BPF
+>modifications to filter vlan tagged packets on a live interface. All
+>packets from the medium show up, but all injected packets are dropped.
+>
+>Prior to commit bcc6d47 both medium and injected packets could both be
+>identified using BPFs.
+>
+>These injected packets can however still be identified using the
+>previous, now incorrect "offset into the header" technique. Given
+>this, I suspect what's going on is the kernel code path for these
+>injected packets is not setting skb->vlan_tci correctly (at all?).
+>Since the vlan tag is not in the skb data structure the new BPF
+>modifications don't identify the packets as having a vlan tag,
+>despite it being in the packet header.
 
-I think this should not be a global one, consider we may have more than
-one virtio-net cards with different max queues.
->  struct virtnet_stats {
->  	struct u64_stats_sync tx_syncp;
->  	struct u64_stats_sync rx_syncp;
-> @@ -1016,6 +1018,7 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
->  static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
->  {
->  	int i;
-> +	int cpu;
->  
->  	/* In multiqueue mode, when the number of cpu is equal to the number of
->  	 * queue pairs, we let the queue pairs to be private to one cpu by
-> @@ -1029,16 +1032,29 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
->  			return;
->  	}
->  
-> -	for (i = 0; i < vi->max_queue_pairs; i++) {
-> -		int cpu = set ? i : -1;
-> -		virtqueue_set_affinity(vi->rq[i].vq, cpu);
-> -		virtqueue_set_affinity(vi->sq[i].vq, cpu);
-> -	}
-> +	if (set) {
-> +		i = 0;
-> +		for_each_online_cpu(cpu) {
-> +			virtqueue_set_affinity(vi->rq[i].vq, cpu);
-> +			virtqueue_set_affinity(vi->sq[i].vq, cpu);
-> +			per_cpu(vq_index, cpu) = i;
-> +			i++;
-> +			if (i >= vi->max_queue_pairs)
-> +				break;
 
-Can this happen? we check only set when the number are equal.
-> +		}
->  
-> -	if (set)
->  		vi->affinity_hint_set = true;
-> -	else
-> +	} else {
-> +		for(i = 0; i < vi->max_queue_pairs; i++) {
-> +			virtqueue_set_affinity(vi->rq[i].vq, -1);
-> +			virtqueue_set_affinity(vi->sq[i].vq, -1);
-> +		}
-> +
-> +		for_each_online_cpu(cpu)
-> +			per_cpu(vq_index, cpu) = -1;
-> +
+You are right. skb->vlan_tci is not set. Looking at packet_snd() function
+in net/packet/af_packet.c I guess that something like following patch
+would be needed:
 
-This looks suboptimal since it may leads only txq zero is used.
->  		vi->affinity_hint_set = false;
-> +	}
->  }
->  
->  static void virtnet_get_ringparam(struct net_device *dev,
-> @@ -1127,12 +1143,15 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->  
->  /* To avoid contending a lock hold by a vcpu who would exit to host, select the
->   * txq based on the processor id.
-> - * TODO: handle cpu hotplug.
->   */
->  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
->  {
-> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
-> -		  smp_processor_id();
-> +	int txq = 0;
-> +
-> +	if (skb_rx_queue_recorded(skb))
-> +		txq = skb_get_rx_queue(skb);
-> +	else if ((txq = per_cpu(vq_index, smp_processor_id())) == -1)
-> +		txq = 0;
->  
->  	while (unlikely(txq >= dev->real_num_tx_queues))
->  		txq -= dev->real_num_tx_queues;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e639645..2238559 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2292,6 +2292,12 @@ static int packet_snd(struct socket *sock,
+ 	if (unlikely(extra_len == 4))
+ 		skb->no_fcs = 1;
+ 
++	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
++		skb = vlan_untag(skb);
++		if (unlikely(!skb))
++			goto out_unlock;
++	}
++
+ 	/*
+ 	 *	Now send it
+ 	 */
+
+Thoughts?
+
+>
+>I'm not sure exactly where the bug exists so I'm reaching out to both
+>netdev and tcpdump-workers. Although, as I said, I suspect this is on
+>the kernel side.
+>
+>SOFTWARE:
+>
+>kernel-3.6.11-1.fc16.x86_64, with both kernel commits
+>f3335031b9452baebfe49b8b5e55d3fe0c4677d1 and the related commit
+>http://www.spinics.net/lists/netdev/msg214759.html backported.
+>tcpdump version 4.4.0-PRE-GIT_2013_01_06 (commit
+>05bf602ef684d5b75c0ac71be04212d909c37834)
+>libpcap version 1.4.0-PRE-GIT_2013_01_06 (commit
+>713034fc4b3a2c14ae81e44dca34d998db8d0795 with patch specified above)
+>
+>Thanks.
+>
+>-Paul Pearce
+>
+>Security Graduate Student
+>Computer Science
+>University of California, Berkeley
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
