@@ -1,41 +1,50 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Fix incorrect PFVF CMASK
-Date: Wed,  9 Jan 2013 23:12:49 +0530
-Message-ID: <1357753369-26471-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	abhishek@chelsio.com, Vipul Pandya <vipul@chelsio.com>,
-	Jay Hernandez <jay@chelsio.com>
-To: netdev@vger.kernel.org
+From: Stefan Assmann <sassmann@kpanic.de>
+Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting addr_assign_type
+ if PF is up
+Date: Wed, 09 Jan 2013 18:58:30 +0100
+Message-ID: <50EDAFC6.3070700@kpanic.de>
+References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:20568 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932148Ab3AIRru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 12:47:50 -0500
+Received: from mailout114.xlhost.de ([213.202.242.114]:48866 "EHLO
+	app1a.xlhost.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932241Ab3AISIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 13:08:32 -0500
+In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With Hard-Wired firmware configuration it was incorrectly provisioning the VFs
-Channel Access Rights Mask.
+On 09.01.2013 18:09, Williams, Mitch A wrote:
+>> -----Original Message-----
+>> From: Stefan Assmann [mailto:sassmann@kpanic.de]
+>> Sent: Wednesday, January 09, 2013 1:59 AM
+>> To: netdev@vger.kernel.org
+>> Cc: e1000-devel@lists.sourceforge.net; sassmann@kpanic.de
+>> Subject: [E1000-devel] [PATCH net-next] igbvf: fix setting
+>> addr_assign_type if PF is up
+>>
+>> When the PF is up and igbvf is loaded the MAC address is not generated
+>> using eth_hw_addr_random(). This results in addr_assign_type not to be
+>> set.
+>> Make sure it gets set.
+>>
+> 
+> NAK - In this case, the address may or may not be random. The user may
+> have (and should have!) explicitly set this address from the host to
+> ensure that the VF device receives the same address each time it boots.
 
-Signed-off-by: Jay Hernandez <jay@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Maybe you can give me some advice on this then. Why is there different
+behaviour depending on the PF being up or down? The problem I'm facing
+is that if the user did not set a MAC address for the VF manually and
+the PF is up during igbvf_probe it will not be labelled as random
+although it is.
+What about checking IGB_VF_FLAG_PF_SET_MAC and only set NET_ADDR_RANDOM
+if the flag is cleared?
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index aa63b66..424f8ed 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4016,8 +4016,7 @@ static int adap_init0_no_config(struct adapter *adapter, int reset)
- 						  VFRES_NEQ, VFRES_NETHCTRL,
- 						  VFRES_NIQFLINT, VFRES_NIQ,
- 						  VFRES_TC, VFRES_NVI,
--						  FW_PFVF_CMD_CMASK_GET(
--						  FW_PFVF_CMD_CMASK_MASK),
-+						  FW_PFVF_CMD_CMASK_MASK,
- 						  pfvfres_pmask(
- 						  adapter, pf, vf),
- 						  VFRES_NEXACTF,
--- 
-1.7.1
+  Stefan
