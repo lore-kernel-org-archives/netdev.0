@@ -1,50 +1,48 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [PATCH net-next] doc: Clarify behavior when sysctl tcp_ecn = 1
-Date: Wed,  9 Jan 2013 14:21:30 -0800
-Message-ID: <1357770090-29253-1-git-send-email-subramanian.vijay@gmail.com>
-Cc: davem@davemloft.net, edumazet@google.com, rick.jones2@hp.com,
-	Vijay Subramanian <subramanian.vijay@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:48552 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756709Ab3AIWRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 17:17:13 -0500
-Received: by mail-pb0-f47.google.com with SMTP id un1so1216866pbc.34
-        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 14:17:13 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chris Friesen <chris.friesen-b7o/lNNmKxtBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: recvmmsg() timeout behavior strangeness
+Date: Wed, 09 Jan 2013 16:33:02 -0600
+Message-ID: <50EDF01E.10709@genband.com>
+References: <CAHO5Pa2goUtiBU8ye2beTBExL4it2-aDCPBhDOGyO3NX_PV_pQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
+	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Chris Van Hoof <vanhoof-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Clark Williams <williams-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Grover <andy.grover-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
+	=?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+To: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAHO5Pa2goUtiBU8ye2beTBExL4it2-aDCPBhDOGyO3NX_PV_pQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Recent commit (commit 7e3a2dc52953 doc: make the description of how tcp_ecn
-works more explicit and clear ) clarified the behavior of tcp_ecn sysctl
-variable but description is inconsistent. When requested by incoming conections,
-ECN is enabled with not just tcp_ecn = 2 but also with tcp_ecn = 1.
+On 12/23/2012 02:50 PM, Michael Kerrisk wrote:
 
-This patch makes it clear that with tcp_ecn = 1, ECN is enabled when requested
-by incoming connections.
+> If I understand correctly, the *intended* purpose of the timeout
+> argument is to set a limit on how long to wait for additional
+> datagrams after the arrival of an initial datagram. However, the
+> syscall behaves in quite a different way. Instead, it potentially
+> blocks forever, regardless of the timeout.
 
-Also fix spelling of 'incoming'.
+Looking at the code, I think you're correct.
 
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- Documentation/networking/ip-sysctl.txt |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+The comments for a2e2725 say the timeout works like for ppoll(), where 
+it is "an upper limit on the time for which poll() will block, in 
+milliseconds."
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index dd52d51..51dcd52 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -214,8 +214,9 @@ tcp_ecn - INTEGER
- 	congestion before having to drop packets.
- 	Possible values are:
- 		0 Disable ECN.  Neither initiate nor accept ECN.
--		1 Always request ECN on outgoing connection attempts.
--		2 Enable ECN when requested by incomming connections
-+		1 Enable ECN when requested by incoming connections and
-+		  also request ECN on outgoing connection attempts.
-+		2 Enable ECN when requested by incoming connections
- 		  but do not request ECN on outgoing connections.
- 	Default: 2
- 
--- 
-1.7.0.4
+I wonder if we could play some games with sk->sk_rcvtimeo to accomplish 
+this?
+
+Chris
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
