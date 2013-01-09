@@ -1,75 +1,107 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting addr_assign_type
- if PF is up
-Date: Wed, 09 Jan 2013 20:53:46 +0100
-Message-ID: <50EDCACA.9050803@kpanic.de>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com> <50EDAFC6.3070700@kpanic.de> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
+From: John Greene <jogreene@redhat.com>
+Subject: Re: [PATCH] 8139cp: Prevent dev_close/cp_interrupt race on MTU change
+Date: Wed, 09 Jan 2013 14:58:02 -0500
+Message-ID: <50EDCBCA.8080601@redhat.com>
+References: <1355946468-3290-1-git-send-email-jogreene@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	David Woodhouse <David.Woodhouse@intel.com>
+To: John Greene <jogreene@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout114.xlhost.de ([213.202.242.114]:44747 "EHLO
-	app1a.xlhost.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932354Ab3AITxs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 14:53:48 -0500
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:24223 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932439Ab3AIT6J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2013 14:58:09 -0500
+In-Reply-To: <1355946468-3290-1-git-send-email-jogreene@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.01.2013 19:56, Williams, Mitch A wrote:
->>>> When the PF is up and igbvf is loaded the MAC address is not
->>>> generated using eth_hw_addr_random(). This results in
->>>> addr_assign_type not to be set.
->>>> Make sure it gets set.
->>>>
->>>
->>> NAK - In this case, the address may or may not be random. The user may
->>> have (and should have!) explicitly set this address from the host to
->>> ensure that the VF device receives the same address each time it
->> boots.
->>
->> Maybe you can give me some advice on this then. Why is there different
->> behaviour depending on the PF being up or down? The problem I'm facing
->> is that if the user did not set a MAC address for the VF manually and
->> the PF is up during igbvf_probe it will not be labelled as random
->> although it is.
->> What about checking IGB_VF_FLAG_PF_SET_MAC and only set NET_ADDR_RANDOM
->> if the flag is cleared?
->>
-> 
-> The difference in behavior is because we cannot get any MAC address at all
-> if the PF is down. The interface won't operate at all in this case, but if
-> the PF comes up sometime later, we can start working. The other alternative
-> is to leave the MAC address as all zeros and forcing the user to assign
-> an address manually. We chose to use a random address to at least give it
-> a chance of working once the PF woke up.
-> 
-> Currently, the PF has no way to communicate to the VF whether or not the
-> MAC address is random or assigned. The VF cannot check the
-> IGB_VF_FLAG_PF_SET_MAC flag because that only exists in the PF driver. To
-> propagate this flag down to the VF driver would require changes to the
-> PF/VF communication protocol.
-> 
-> In any case, I'm not sure that's the correct thing to do. From a policy
-> viewpoint, we don't want the VF to know what's happening in the PF. It
-> should not know how or why the MAC address was assigned, just like it
-> should not know whether or not the PF has placed it on a VLAN. VF devices
-> are not to be trusted and should not be given more information about the
-> state of the PF and host OS than is absolutely necessary to operate.
-> 
-> What's your use case here, Stefan? Why is this flag important to you?
-> As far as I can tell, nothing in the kernel ever looks at this flag.
+On 12/19/2012 02:47 PM, John Greene wrote:
+> commit:  cb64edb6b89491edfdbae52ba7db9a8b8391d339 upstream
+>
+> Above commit may introduce a race between cp_interrupt and dev_close
+> / change MTU / dev_open up state. Changes cp_interrupt to tolerate
+> this.  Change spin_locking in cp_interrupt to avoid possible
+> but unobserved race.
+>
+> Reported-by: "Francois Romieu" <romieu@fr.zoreil.com>
+>
+> Tested on virtual hardware, Tx MTU size up to 4096, max tx payload
+>      was ping -s 4068 for MTU of 4096. No real hardware, need test
+>      assist.
+>
+> Signed-off-by: "John Greene" <jogreene@redhat.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: "David Woodhouse" <David.Woodhouse@intel.com>
+> ---
+>   drivers/net/ethernet/realtek/8139cp.c | 18 +++++++++++-------
+>   1 file changed, 11 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+> index 0da3f5e..585c35c 100644
+> --- a/drivers/net/ethernet/realtek/8139cp.c
+> +++ b/drivers/net/ethernet/realtek/8139cp.c
+> @@ -577,28 +577,30 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   {
+>   	struct net_device *dev = dev_instance;
+>   	struct cp_private *cp;
+> +	int handled = 0;
+>   	u16 status;
+>
+>   	if (unlikely(dev == NULL))
+>   		return IRQ_NONE;
+>   	cp = netdev_priv(dev);
+>
+> +	spin_lock(&cp->lock);
+> +
+>   	status = cpr16(IntrStatus);
+>   	if (!status || (status == 0xFFFF))
+> -		return IRQ_NONE;
+> +		goto out_unlock;
+> +
+> +	handled = 1;
+>
+>   	netif_dbg(cp, intr, dev, "intr, status %04x cmd %02x cpcmd %04x\n",
+>   		  status, cpr8(Cmd), cpr16(CpCmd));
+>
+>   	cpw16(IntrStatus, status & ~cp_rx_intr_mask);
+>
+> -	spin_lock(&cp->lock);
+> -
+>   	/* close possible race's with dev_close */
+>   	if (unlikely(!netif_running(dev))) {
+>   		cpw16(IntrMask, 0);
+> -		spin_unlock(&cp->lock);
+> -		return IRQ_HANDLED;
+> +		goto out_unlock;
+>   	}
+>
+>   	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr))
+> @@ -612,7 +614,6 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   	if (status & LinkChg)
+>   		mii_check_media(&cp->mii_if, netif_msg_link(cp), false);
+>
+> -	spin_unlock(&cp->lock);
+>
+>   	if (status & PciErr) {
+>   		u16 pci_status;
+> @@ -625,7 +626,10 @@ static irqreturn_t cp_interrupt (int irq, void *dev_instance)
+>   		/* TODO: reset hardware */
+>   	}
+>
+> -	return IRQ_HANDLED;
+> +out_unlock:
+> +	spin_unlock(&cp->lock);
+> +
+> +	return IRQ_RETVAL(handled);
+>   }
+>
+>   #ifdef CONFIG_NET_POLL_CONTROLLER
+>
+Can I get a quick update on this? Seems to have fallen thru the cracks. 
+  Thanks.
 
-It's about persistent device names.
-You're right nothing in the kernel looks at the flag but udev uses it to
-decide if the device should be identified by MAC address or PCI bus
-topology.
-If NET_ADDR_RANDOM is set udev will use the PCI bus information to
-identify the device (instead of a changing MAC address, which would lead
-to a new device name every reboot).
-
-  Stefan
+-- 
+John Greene
