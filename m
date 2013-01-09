@@ -1,69 +1,60 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 084/123] batman-adv: fix random jitter calculation
-Date: Wed,  9 Jan 2013 12:35:23 -0800
-Message-ID: <20130109201509.395329312@linuxfoundation.org>
-References: <20130109201458.392601412@linuxfoundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	alan@lxorguk.ukuu.org.uk, Akinobu Mita <akinobu.mita@gmail.com>,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.19.201]:43355 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933838Ab3AIUkZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2013 15:40:25 -0500
-In-Reply-To: <20130109201458.392601412@linuxfoundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Wed, 9 Jan 2013 21:29:07 +0000
+Message-ID: <20130109212907.GA27361@dcvr.yhbt.net>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+ <20130102200848.GA4500@dcvr.yhbt.net>
+ <20130104160148.GB3885@suse.de>
+ <20130106120700.GA24671@dcvr.yhbt.net>
+ <20130107122516.GC3885@suse.de>
+ <20130107223850.GA21311@dcvr.yhbt.net>
+ <20130108224313.GA13304@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
+	Minchan Kim <minchan@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20130108224313.GA13304@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-3.7-stable review patch.  If anyone has any objections, please let me know.
+Mel Gorman <mgorman@suse.de> wrote:
+> When I looked at it for long enough I found a number of problems. Most
+> affect timing but two serious issues are in there. One affects how long
+> kswapd spends compacting versus reclaiming and the other increases lock
+> contention meaning that async compaction can abort early. Both are serious
+> and could explain why a driver would fail high-order allocations.
+> 
+> Please try the following patch. However, even if it works the benefit of
+> capture may be so marginal that partially reverting it and simplifying
+> compaction.c is the better decision.
 
-------------------
+Btw, I'm still testing this patch with the "page->pfemalloc = false"
+change on top of it.
 
+> diff --git a/mm/compaction.c b/mm/compaction.c
+> index 6b807e4..03c82c0 100644
+> --- a/mm/compaction.c
+> +++ b/mm/compaction.c
+> @@ -857,7 +857,8 @@ static int compact_finished(struct zone *zone,
+>  	} else {
+>  		unsigned int order;
+>  		for (order = cc->order; order < MAX_ORDER; order++) {
+> -			struct free_area *area = &zone->free_area[cc->order];
+> +			struct free_area *area = &zone->free_area[order];
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
+I noticed something like this hunk wasn't in your latest partial revert
+(<20130109135010.GB13475@suse.de>)
+I admit I don't understand this code, but this jumped out at me.
 
-[ Upstream commit 143cdd8f33909ff5a153e3f02048738c5964ba26 ]
-
-batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
-in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
-
-        msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
-        msecs += (random32() % 2 * BATADV_JITTER);
-
-But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
-because '%' and '*' have same precedence and associativity is
-left-to-right.
-
-This adds the parentheses at the appropriate position so that it matches
-original intension.
-
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Acked-by: Antonio Quartulli <ordex@autistici.org>
-Cc: Marek Lindner <lindner_marek@yahoo.de>
-Cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Cc: Antonio Quartulli <ordex@autistici.org>
-Cc: b.a.t.m.a.n@lists.open-mesh.org
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- net/batman-adv/bat_iv_ogm.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -119,7 +119,7 @@ batadv_iv_ogm_emit_send_time(const struc
- 	unsigned int msecs;
- 
- 	msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
--	msecs += (random32() % 2 * BATADV_JITTER);
-+	msecs += random32() % (2 * BATADV_JITTER);
- 
- 	return jiffies + msecs_to_jiffies(msecs);
- }
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
