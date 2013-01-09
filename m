@@ -1,138 +1,96 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH 4/4] net/smsc911x: Provide common clock functionality
-Date: Wed, 9 Jan 2013 08:56:56 +0000
-Message-ID: <20130109085656.GC31678@gmail.com>
-References: <1355937587-31730-1-git-send-email-lee.jones@linaro.org>
- <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
+From: "pupilla@libero.it" <pupilla@libero.it>
+Subject: mtu issue with ipsec tunnel and netfilter snat
+Date: Wed, 9 Jan 2013 10:01:54 +0100 (CET)
+Message-ID: <23599275.2918881357722114614.JavaMail.defaultUser@defaultHost>
+Reply-To: "pupilla@libero.it" <pupilla@libero.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: arnd@arndb.de, linus.walleij@stericsson.com,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1355937587-31730-4-git-send-email-lee.jones@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outrelay02.libero.it ([212.52.84.102]:35155 "EHLO
+	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757411Ab3AIJB4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 04:01:56 -0500
+Received: from wmail47 (172.31.0.237) by outrelay02.libero.it (8.5.140.03)
+        id 50D43E1301F7EA78 for netdev@vger.kernel.org; Wed, 9 Jan 2013 10:01:54 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Dec 2012, Lee Jones wrote:
+Hello everybody.
+ 
+I'm experimenting a pretty strange
+problem with an ipsec gateway source
+natting packets running linux 3.6.9
+on slackware 14 32bit
+ 
+Here is the network schema.
+ 
+customer private network 10.148.0.0/16
+|
+|
++ipsec customer gateway (checkpoint)
+||
+||---ipsec tunnel 10.148.0.0/16<->172.16.128.0/28 (des3/md5)
+||   mtu=1446
+||
+++ linux_gw_snat ipsec gateway (SNAT all packets from 10.81.128.0/21 to 
+172.16.128.1)
+||
+||---ipsec tunnel 10.148.0.0/16<->10.81.128.0/21 (aes/sha1/ipcomp)
+||   mtu=1430
+||
++linux_final ipsec gateway
+|
+|
+client 10.81.128.176
+ 
 
-> Some platforms provide clocks which require enabling before the
-> SMSC911x chip will power on. This patch uses the new common clk
-> framework to do just that. If no clock is provided, it will just
-> be ignored and the driver will continue to assume that no clock
-> is required for the chip to run successfully.
->=20
-> Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Lee Jones <lee.jones@linaro.org>
-> ---
->  drivers/net/ethernet/smsc/smsc911x.c |   31 ++++++++++++++++++++++++=
-++++++-
->  1 file changed, 30 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ether=
-net/smsc/smsc911x.c
-> index 4616bf2..f6196cd 100644
-> --- a/drivers/net/ethernet/smsc/smsc911x.c
-> +++ b/drivers/net/ethernet/smsc/smsc911x.c
-> @@ -33,6 +33,7 @@
->  #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> =20
->  #include <linux/crc32.h>
-> +#include <linux/clk.h>
->  #include <linux/delay.h>
->  #include <linux/errno.h>
->  #include <linux/etherdevice.h>
-> @@ -144,6 +145,9 @@ struct smsc911x_data {
-> =20
->  	/* regulators */
->  	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
-> +
-> +	/* clock */
-> +	struct clk *clk;
->  };
-> =20
->  /* Easy access to information */
-> @@ -369,7 +373,7 @@ out:
->  }
-> =20
->  /*
-> - * enable resources, currently just regulators.
-> + * enable regulator and clock resources.
->   */
->  static int smsc911x_enable_resources(struct platform_device *pdev)
->  {
-> @@ -382,6 +386,13 @@ static int smsc911x_enable_resources(struct plat=
-form_device *pdev)
->  	if (ret)
->  		netdev_err(ndev, "failed to enable regulators %d\n",
->  				ret);
-> +
-> +	if (pdata->clk) {
-> +		ret =3D clk_prepare_enable(pdata->clk);
-> +		if (ret < 0)
-> +			netdev_err(ndev, "failed to enable clock %d\n", ret);
-> +	}
-> +
->  	return ret;
->  }
-> =20
-> @@ -396,6 +407,10 @@ static int smsc911x_disable_resources(struct pla=
-tform_device *pdev)
-> =20
->  	ret =3D regulator_bulk_disable(ARRAY_SIZE(pdata->supplies),
->  			pdata->supplies);
-> +
-> +	if (pdata->clk)
-> +		clk_disable_unprepare(pdata->clk);
-> +
->  	return ret;
->  }
-> =20
-> @@ -421,6 +436,14 @@ static int smsc911x_request_resources(struct pla=
-tform_device *pdev)
->  	if (ret)
->  		netdev_err(ndev, "couldn't get regulators %d\n",
->  				ret);
-> +
-> +	/* Request clock */
-> +	pdata->clk =3D clk_get(&pdev->dev, NULL);
-> +	if (IS_ERR(pdata->clk)) {
-> +		netdev_warn(ndev, "couldn't get clock %d\n", PTR_ERR(pdata->clk));
-> +		pdata->clk =3D NULL;
-> +	}
-> +
->  	return ret;
->  }
-> =20
-> @@ -436,6 +459,12 @@ static void smsc911x_free_resources(struct platf=
-orm_device *pdev)
->  	/* Free regulators */
->  	regulator_bulk_free(ARRAY_SIZE(pdata->supplies),
->  			pdata->supplies);
-> +
-> +	/* Free clock */
-> +	if (pdata->clk) {
-> +		clk_put(pdata->clk);
-> +		pdata->clk =3D NULL;
-> +	}
->  }
-> =20
->  /* waits for MAC not busy, with timeout.  Only called by smsc911x_ma=
-c_read
-> --=20
-> 1.7.9.5
->=20
+Here is a tcpdump capture taken on
+linux_gw_snat:
 
-I still need a maintiner Ack for this before I can push it.
+15:35:05.123634 IP (tos 0x40, ttl 56, id 41983, offset 0, flags [DF], proto 
+TCP (6), length 1500)
+    10.148.12.23.3229 > 172.16.128.1.4019: Flags [P.], cksum 0x961d (correct), 
+seq 1619799544:1619801004, ack 2757141216, win 49640, length 1460
+15:35:06.153638 IP (tos 0x40, ttl 56, id 41984, offset 0, flags [DF], proto 
+TCP (6), length 1500)
+    10.148.12.23.3229 > 172.16.128.1.2616: Flags [P.], cksum 0x837f (correct), 
+seq 1603048284:1603049744, ack 1511439922, win 49640, length 1460
+15:35:07.393657 IP (tos 0x40, ttl 56, id 41985, offset 0, flags [DF], proto 
+TCP (6), length 1500)
+    10.148.12.23.3229 > 172.16.128.1.4019: Flags [P.], cksum 0x961d (correct), 
+seq 0:1460, ack 1, win 49640, length 1460
+15:35:11.913425 IP (tos 0x40, ttl 56, id 41986, offset 0, flags [DF], proto 
+TCP (6), length 1500)
+    10.148.12.23.3229 > 172.16.128.1.4019: Flags [P.], cksum 0x961d (correct), 
+seq 0:1460, ack 1, win 49640, length 1460
+15:35:20.934013 IP (tos 0x40, ttl 56, id 23204, offset 0, flags [DF], proto 
+TCP (6), length 1500)
+    10.148.12.23.3229 > 172.16.128.1.4019: Flags [P.], cksum 0x961d (correct), 
+seq 0:1460, ack 1, win 49640, length 1460
+15:35:26.393357 IP (tos 0x40, ttl 56, id 23205, offset 0, flags [DF], proto 
+TCP (6), length 1500)
+    10.148.12.23.3229 > 172.16.128.1.4014: Flags [P.], cksum 0x24f2 (correct), 
+seq 1570503240:1570504700, ack 585563091, win 49640, length 1460
 
-Mike?
+As you can see there are incoming
+1500 bytes packets (these are the
+decrypted ipsec packets) with DF
+bit set.
+These packets are never delivered to
+the final client 10.81.128.176 (the
+destination address is 172.16.128.1
+which is the ip used for SNATing
+the original ip 10.81.128.176).
 
---=20
-Lee Jones
-Linaro ST-Ericsson Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-=46ollow Linaro: Facebook | Twitter | Blog
+IMHO this is a mtu issue: 1500
+bytes packets cannot be routed
+inside the ipsec tunnel.
+
+But why linux_gw_snat is not sending
+icmp need to frag packets to 10.148.12.23?
+
+Any response are welcome.
+
+TIA
