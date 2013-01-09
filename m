@@ -1,46 +1,246 @@
 From: Romain KUNTZ <r.kuntz@ipflavors.com>
-Subject: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
-Date: Wed, 9 Jan 2013 15:36:40 +0100
-Message-ID: <470C14E4-2866-4C55-89A3-D6751E1587C4@ipflavors.com>
+Subject: Re: [PATCH 1/2] ipv6: avoid blackhole and prohibited entries upon prefix purge [v3]
+Date: Wed, 9 Jan 2013 15:37:03 +0100
+Message-ID: <6A08EDC1-08A0-411D-90CF-6DB1CB7FA3A0@ipflavors.com>
+References: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com> <1357415941.1678.4163.camel@edumazet-glaptop> <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com> <50EAA28B.1080300@6wind.com> <3EF640F8-5242-486E-B7A3-9DA2A88F5A4F@ipflavors.com> <50EAED10.90904@6wind.com> <08F52788-0BD9-4907-8FC3-E9DF530AB042@ipflavors.com> <50EC47AD.8000801@6wind.com> <50EC54E3.9080606@linux-ipv6.org>
 Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Andreas Hofmeister <andi@collax.com>,
-	Romain KUNTZ <r.kuntz@ipflavors.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
+To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f51.google.com ([209.85.214.51]:38998 "EHLO
+	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757858Ab3AIOlo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 09:41:44 -0500
+Received: by mail-bk0-f51.google.com with SMTP id ik5so962288bkc.10
+        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 06:41:43 -0800 (PST)
+In-Reply-To: <50EC54E3.9080606@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From e7ece201c35615c44a3cfdc10ee28ad5a5878f41 Mon Sep 17 00:00:00 2001
-From: Romain Kuntz <r.kuntz@ipflavors.com>
-Date: Wed, 9 Jan 2013 15:02:26 +0100
-Subject: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
+On Jan 8, 2013, at 18:18 , YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> =
+wrote:
+> Nicolas Dichtel wrote:
+>> Le 08/01/2013 12:38, Romain KUNTZ a =E9crit :
+>>> On Jan 7, 2013, at 16:43 , Nicolas Dichtel <nicolas.dichtel@6wind.c=
+om> wrote:
+>>>> Le 07/01/2013 12:30, Romain KUNTZ a =E9crit :
+>>>>> Hello Nicolas,
+>>>>>=20
+>>>>> On Jan 7, 2013, at 11:25 , Nicolas Dichtel <nicolas.dichtel@6wind=
+=2Ecom> wrote:
+>>>>>=20
+>>>>>> Le 05/01/2013 22:44, Romain KUNTZ a =E9crit :
+>>>>>>> Mobile IPv6 provokes a kernel Oops since commit 64c6d08e (ipv6:
+>>>>>>> del unreachable route when an addr is deleted on lo), because
+>>>>>>> ip6_route_lookup() may also return blackhole and prohibited
+>>>>>>> entry. However, these entries have a NULL rt6i_table argument,
+>>>>>>> which provokes an Oops in __ip6_del_rt() when trying to lock
+>>>>>>> rt6i_table->tb6_lock.
+>>>>>>>=20
+>>>>>>> Beside, when purging a prefix, blakhole and prohibited entries
+>>>>>>> should not be selected because they are not what we are looking
+>>>>>>> for.
+>>>>>>>=20
+>>>>>>> We fix this by adding two new lookup flags (RT6_LOOKUP_F_NO_BLK=
+_HOLE
+>>>>>>> and RT6_LOOKUP_F_NO_PROHIBIT) in order to ensure that such entr=
+ies
+>>>>>>> are skipped during lookup and that the correct entry is returne=
+d.
+>>>>>>>=20
+>>>>>>> [v2]: use 'goto out;' instead of 'goto again;' to avoid unneces=
+sary
+>>>>>>> oprations on rt (as suggested by Eric Dumazet).
+>>>>>>>=20
+>>>>>>> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+>>>>>>> ---
+>>>>>>>  include/net/ip6_route.h |    2 ++
+>>>>>>>  net/ipv6/addrconf.c     |    4 +++-
+>>>>>>>  net/ipv6/fib6_rules.c   |    4 ++++
+>>>>>>>  3 files changed, 9 insertions(+), 1 deletions(-)
+>>>>>>>=20
+>>>>>>> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+>>>>>>> index 27d8318..3c93743 100644
+>>>>>>> --- a/include/net/ip6_route.h
+>>>>>>> +++ b/include/net/ip6_route.h
+>>>>>>> @@ -30,6 +30,8 @@ struct route_info {
+>>>>>>>  #define RT6_LOOKUP_F_SRCPREF_TMP    0x00000008
+>>>>>>>  #define RT6_LOOKUP_F_SRCPREF_PUBLIC    0x00000010
+>>>>>>>  #define RT6_LOOKUP_F_SRCPREF_COA    0x00000020
+>>>>>>> +#define RT6_LOOKUP_F_NO_BLK_HOLE    0x00000040
+>>>>>>> +#define RT6_LOOKUP_F_NO_PROHIBIT    0x00000080
+>>>>>>>=20
+>>>>>>>  /*
+>>>>>>>   * rt6_srcprefs2flags() and rt6_flags2srcprefs() translate
+>>>>>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>>>>>>> index 408cac4a..1891e23 100644
+>>>>>>> --- a/net/ipv6/addrconf.c
+>>>>>>> +++ b/net/ipv6/addrconf.c
+>>>>>>> @@ -948,7 +948,9 @@ static void ipv6_del_addr(struct inet6_ifad=
+dr *ifp)
+>>>>>>>          fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
+>>>>>>>          fl6.daddr =3D prefix;
+>>>>>>>          rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
+>>>>>>> -                             RT6_LOOKUP_F_IFACE);
+>>>>>>> +                        RT6_LOOKUP_F_IFACE |
+>>>>>>> +                        RT6_LOOKUP_F_NO_BLK_HOLE |
+>>>>>>> +                        RT6_LOOKUP_F_NO_PROHIBIT);
+>>>>>>>=20
+>>>>>>>          if (rt !=3D net->ipv6.ip6_null_entry &&
+>>>>>> Is it not simpler to test the result here (net->ipv6.ip6_blk_hol=
+e_entry and
+>>>>>> net->ipv6.ip6_prohibit_entry) like for the null_entry?
+>>>>>> It will also avoid adding more flags.
+>>>>>=20
+>>>>> Your proposal would only solve part of the problem (the Oops in _=
+_ip6_del_rt()). Another problem here is that blackhole and prohibited r=
+ules should not be selected when trying to purge a prefix (correct me i=
+f I'm wrong) because they are not what we are looking for. This can pre=
+vent the targeted prefix from being purged.
+>>>> In fact, I'm not sure to get the scenario. This part of the code j=
+ust tries
+>>>> to remove the connected prefix, added by the kernel when the addre=
+ss was added.
+>>>> Can you describe your scenario?
+>>>=20
+>>>=20
+>>> I should have given more details from the beginning, my mistake. Th=
+e scenario where this happens is quite simple:
+>>>=20
+>>> - install a blackhole rule (e.g. "from 2001:db8::1000 blackhole" - =
+the source address does not matter at all) with the FIB_RULE_FIND_SADDR=
+ flag set (setting this flag is not possible with iproute2, but for tes=
+t purpose you can use the enclosed patch against the latest iproute2 tr=
+ee and then use "./ip -6 rule add from 2001:db8::1000/128 blackhole pri=
+o 1000").
+>>>=20
+>>> - try to delete an address from one of your interface (any address,=
+ it can be different from the one you used for the blackhole rule): "ip=
+ -6 addr del <v6-addr>/64 dev eth<x>"
+>>>=20
+>>> and you get an Oops. When trying to remove the connected prefix, th=
+e fib6_rule_match() function will match the blackhole rule because RT6_=
+LOOKUP_F_HAS_SADDR is not set and FIB_RULE_FIND_SADDR is set.
+>>>=20
+>>> With your proposal, the Oops is fixed but the connected prefix rout=
+e is not deleted. With my initial patch, the Oops is fixed and the conn=
+ected prefix route is also deleted.
+>> Ok, I get it. I thin,there is two bugs: the oops and the wrong looku=
+p.
+>>=20
+>> Your proposal fix only a particular case. Try this (with your ip rou=
+te2 patch):
+>> ip -6 addr add 2002::1/64 dev eth0
+>> ip -6 route add 2002::/64 table 257 dev eth0
 
-The tests on the flags in addrconf_get_prefix_route() does no make
-much sense: the 'noflags' parameter contains the set of flags that
-must not match with the route flags, so the test must be done
-against 'noflags', and not against 'flags'.
+(you also need to add a rule such as this one:)
+ip -6 rule to 2002::/64 table 257
+
+>> ip -6 addr del 2002::1/64 dev eth0
+>>=20
+>> The route deleted is not the connected prefix, but the route added i=
+n table 257.
+
+You are right.
+
+>> The connected prefix is still here in the main table. It's not what =
+we want.
+>> Maybe the lookup should be done directly into the right table, ie ta=
+ble RT6_TABLE_PREFIX. What do you think?
+>=20
+> I agree.  I think we can use addrconf_get_prefix_route() here.
+
+Right, thanks for the hint! What about the below patch?=20
+
+Note that addrconf_get_prefix_route() also requires a fix (I believe it=
+ does not handle the 'noflags' parameter correctly), I have sent a patc=
+h in a separate mail (subject "ipv6: fix the noflags test in addrconf_g=
+et_prefix_route").
+
+Thanks,
+Romain
+
+
+
+=46rom 2a79f191042ee8d48119b095b2ef7527a89817fc Mon Sep 17 00:00:00 200=
+1
+=46rom: Romain Kuntz <r.kuntz@ipflavors.com>
+Date: Wed, 9 Jan 2013 15:11:08 +0100
+Subject: [PATCH 1/1] ipv6: use addrconf_get_prefix_route for prefix rou=
+te lookup
+
+Replace ip6_route_lookup() with addrconf_get_prefix_route() when
+looking up for a prefix route. This ensures that the connected prefix
+is looked up in the main table, and avoids the selection of other
+matching route located in different tables.
+
+As a consequence, the function addrconf_is_prefix_route() is not
+used anymore and is removed.
 
 Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
 ---
- net/ipv6/addrconf.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv6/addrconf.c |   24 ++++++++++--------------
+ 1 files changed, 10 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 408cac4a..29ba4ff 100644
+index 29ba4ff..409dd47 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -1877,7 +1877,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
- 			continue;
- 		if ((rt->rt6i_flags & flags) != flags)
- 			continue;
--		if ((noflags != 0) && ((rt->rt6i_flags & flags) != 0))
-+		if ((rt->rt6i_flags & noflags) != 0)
- 			continue;
- 		dst_hold(&rt->dst);
- 		break;
--- 
+@@ -154,6 +154,10 @@ static void addrconf_type_change(struct net_device=
+ *dev,
+ 				 unsigned long event);
+ static int addrconf_ifdown(struct net_device *dev, int how);
+=20
++static struct rt6_info *addrconf_get_prefix_route(const struct in6_add=
+r *pfx,
++				int plen, const struct net_device *dev,
++				u32 flags, u32 noflags);
++
+ static void addrconf_dad_start(struct inet6_ifaddr *ifp);
+ static void addrconf_dad_timer(unsigned long data);
+ static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
+@@ -250,12 +254,6 @@ static inline bool addrconf_qdisc_ok(const struct =
+net_device *dev)
+ 	return !qdisc_tx_is_noop(dev);
+ }
+=20
+-/* Check if a route is valid prefix route */
+-static inline int addrconf_is_prefix_route(const struct rt6_info *rt)
+-{
+-	return (rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) =3D=3D 0;
+-}
+-
+ static void addrconf_del_timer(struct inet6_ifaddr *ifp)
+ {
+ 	if (del_timer(&ifp->timer))
+@@ -941,17 +939,15 @@ static void ipv6_del_addr(struct inet6_ifaddr *if=
+p)
+ 	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+ 		struct in6_addr prefix;
+ 		struct rt6_info *rt;
+-		struct net *net =3D dev_net(ifp->idev->dev);
+-		struct flowi6 fl6 =3D {};
+=20
+ 		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
+-		fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
+-		fl6.daddr =3D prefix;
+-		rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
+-							 RT6_LOOKUP_F_IFACE);
+=20
+-		if (rt !=3D net->ipv6.ip6_null_entry &&
+-		    addrconf_is_prefix_route(rt)) {
++		rt =3D addrconf_get_prefix_route(&prefix,
++					ifp->prefix_len,
++					ifp->idev->dev,
++					0, RTF_GATEWAY | RTF_DEFAULT);
++
++		if (rt) {
+ 			if (onlink =3D=3D 0) {
+ 				ip6_del_rt(rt);
+ 				rt =3D NULL;
+--=20
 1.7.2.5
