@@ -1,83 +1,108 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: r8169 rx_missed increasing in bursts (regression)
-Date: Wed, 9 Jan 2013 11:58:50 +0200
-Message-ID: <20130109115850.055b7a7e@vostro>
-References: <20130108102814.7abe8c08@vostro>
-	<20130108225833.GA4193@electric-eye.fr.zoreil.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] xen-netback notify DomU to send ARP.
+Date: Wed, 09 Jan 2013 10:06:05 +0000
+Message-ID: <50ED4F1D02000078000B3F87@nat28.tlf.novell.com>
+References: <50EC099D.6020407@oracle.com>
+ <50EC297A02000078000B3BB5@nat28.tlf.novell.com>
+ <1357652541.7989.179.camel@zakaz.uk.xensource.com>
+ <50EC3DFD.8060206@oracle.com>
+ <1357660834.12649.103.camel@dagon.hellion.org.uk>
+ <50ED1EB3.3080605@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Transfer-Encoding: 8BIT
+Cc: "Ian Campbell" <Ian.Campbell@citrix.com>,
+	<xen-devel@lists.xensource.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
+	<netdev@vger.kernel.org>
+To: "jianhai luan" <jianhai.luan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:64065 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757422Ab3AIJ6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 04:58:55 -0500
-Received: by mail-la0-f45.google.com with SMTP id ep20so1640018lab.18
-        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 01:58:54 -0800 (PST)
-In-Reply-To: <20130108225833.GA4193@electric-eye.fr.zoreil.com>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:53081 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757528Ab3AIKGH convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Wed, 9 Jan 2013 05:06:07 -0500
+In-Reply-To: <50ED1EB3.3080605@oracle.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 8 Jan 2013 23:58:33 +0100 Francois Romieu
-<romieu@fr.zoreil.com> wrote:
-
-> Timo Teras <timo.teras@iki.fi> :
-> [...]
-> > My current hypothesis is that due to high softirq and recent(ish)
-> > commit da78dbf "r8169: remove work from irq handler" moving more
-> > work to softirq makes the receive path now suffer from latency from
-> > getting irq to reading packets from the NIC on these boxes. And
-> > that at times the rx fifo can get full causing a missed packet or
-> > so.
+>>> On 09.01.13 at 08:39, jianhai luan <jianhai.luan@oracle.com> wrote:
+>@@ -34,11 +35,42 @@ static void connect(struct backend_info *);
+> static void backend_create_xenvif(struct backend_info *be);
+> static void unregister_hotplug_status_watch(struct backend_info *be);
 > 
-> This hypothesis won't explain the regression in 3.3.8 since 3.3.x does
-> not include commit da78dbf.
+>+#define nb_to_backend(nb) container_of(nb, struct backend_info, vif_notifier)
+>+/**
+>+ * When network condition of vif change, notify the frontend.
+>+ */
+>+static int netback_netdev_event(struct notifier_block *this,
+>+				unsigned long event, void *ptr)
+>+{
+>+	struct net_device *event_dev = (struct net_device *)ptr;
+
+Pointless cast.
+
+>+	struct backend_info *be = nb_to_backend(this);
+>+
+>+	pr_debug("event_dev: %s, event: %lx\n",
+>+		 event_dev ? event_dev->name : "None", event);
+>+
+>+	if (!be->vif)
+>+		goto out;
+>+
+>+	switch (event) {
+>+	case NETDEV_NOTIFY_PEERS:
+>+		/* Notify frontend to Send gratuitous ARP */
+>+		xenbus_switch_state(be->dev, XenbusStateInitialised);
+>+		xenbus_switch_state(be->dev, XenbusStateConnected);
+
+This is the sort of change that clearly isn't acceptable, as I don't
+think you have ways to check _all_ existing frontends for their
+compatibility with this. A connected -> connected transition
+might be acceptable (that was done in the block frontend too, for
+implementing dynamic resize), but will likely need to be
+accompanied by a frontend side patch to handle that (which so
+far should be a no-op).
+
+>+		break;
+>+	default:
+>+		break;
+
+Pointless default case.
+
+>+	}
+>+
+>+out:
+
+I don't think you really need the label (and the goto above) - just
+put a return there.
+
+>+	return NOTIFY_DONE;
+>+}
+>+
+> static int netback_remove(struct xenbus_device *dev)
+> {
+> 	struct backend_info *be = dev_get_drvdata(&dev->dev);
 > 
-> Do you notice any netdev watchdog message in dmesg ?
-
-In production boxes. No.
-
-The lab environment where we tried to reproduce this, we received:
-NOHZ: local_softirq_pending 08
-
-Which is likely related, but separate issue. And fixed by commit
-da78dbf. So seems that just got upgraded to "regression fix".
-
-> 'perf top' may exhibit something unusual too.
-
-Will try this.
-
-I did notice that:
-/proc/net/softnet_stat's 3rd field aka. softnet_data.time_squeeze keeps
-incrementing when ever rx_missed increases. Sometiems time_squeeze
-increments on it own. But rx_missed never increases without time_squeeze
-bumping up seriously too.
-
-> > This might be further escalated by the bug fixed in commit 7dbb491
-> > "r8169: avoid NAPI scheduling delay" (which is not present in
-> > -stable trees).
+> 	unregister_hotplug_status_watch(be);
+>+	unregister_netdevice_notifier(&be->vif_notifier);
+> 	if (be->vif) {
+> 		kobject_uevent(&dev->dev.kobj, KOBJ_OFFLINE);
+> 		xenbus_rm(XBT_NIL, dev->nodename, "hotplug-status");
+>@@ -129,6 +161,10 @@ static int netback_probe(struct xenbus_device *dev,
+> 	/* This kicks hotplug scripts, so do it immediately. */
+> 	backend_create_xenvif(be);
 > 
-> Right, it would had been worth adding to -stable.
+>+	/* Register Frontend Event Notify */
+>+	(be->vif_notifier).notifier_call = netback_netdev_event;
+
+Pointless parentheses.
+
+Jan
+
+>+	register_netdevice_notifier(&be->vif_notifier);
+>+
+> 	return 0;
 > 
-> However it only 1) is a problem for 3.4.x (fixed in 3.5) and 2)
-> triggers when returning from the slow work thread - which should not
-> be used much.
-
-Ok. Didn't realize 3.3.x did not include it. So something else is broke
-too.
-
-The slow thread handles the RxOverflow, and in rx_missed case is taken
-relatively often. Maybe add a printk there.
-
-> [...]
-> > So would it be sensible to do something like:
-> > -#define NUM_RX_DESC    256     /* Number of Rx descriptor
-> > registers */ +#define NUM_RX_DESC    512     /* Number of Rx
-> > descriptor registers */
-> 
-> You can try it but it may actually increase the amount of heavy work
-> done in softirq.
-
-Ok. Will try this and some other things along with added debug logging.
+> abort_transaction:
