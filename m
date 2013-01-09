@@ -1,66 +1,65 @@
-From: "Choi, David" <David.Choi@Micrel.Com>
-Subject: [patch 3.8-rc2] drivers/net/ethernet/micrel/ks8851_mll
-Date: Wed, 9 Jan 2013 20:17:29 +0000
-Message-ID: <FD9AD8C5375B924CABC56D982DB3A802079D2520@EXMB1.micrel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Choi, David" <David.Choi@Micrel.Com>,
-	"Doong, Ping" <Ping.Doong@Micrel.Com>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c12o149.mxlogic.net ([208.65.145.72]:38704 "EHLO
-	p01c12o149.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932106Ab3AIURe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 15:17:34 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [ 57/80] batman-adv: fix random jitter calculation
+Date: Wed,  9 Jan 2013 12:35:49 -0800
+Message-ID: <20130109201507.762332404@linuxfoundation.org>
+References: <20130109201500.410171651@linuxfoundation.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	alan@lxorguk.ukuu.org.uk, Akinobu Mita <akinobu.mita@gmail.com>,
+	Antonio Quartulli <ordex@autistici.org>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130109201500.410171651@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David J. Choi <david.choi@micrel.com>
+3.4-stable review patch.  If anyone has any objections, please let me know.
 
-Summary of changes:
-.add codes to collect statistical information(for example rx/tx packets/bytes, error packets) 
- about Ethernet packets.
+------------------
 
-Signed-off-by: David J. Choi <david.choi@micrel.com>
+
+From: Akinobu Mita <akinobu.mita@gmail.com>
+
+[ Upstream commit 143cdd8f33909ff5a153e3f02048738c5964ba26 ]
+
+batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
+in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
+
+        msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
+        msecs += (random32() % 2 * BATADV_JITTER);
+
+But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
+because '%' and '*' have same precedence and associativity is
+left-to-right.
+
+This adds the parentheses at the appropriate position so that it matches
+original intension.
+
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Acked-by: Antonio Quartulli <ordex@autistici.org>
+Cc: Marek Lindner <lindner_marek@yahoo.de>
+Cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Cc: Antonio Quartulli <ordex@autistici.org>
+Cc: b.a.t.m.a.n@lists.open-mesh.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
+ net/batman-adv/bat_iv_ogm.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- linux-3.8-rc2/drivers/net/ethernet/micrel/ks8851_mll.c.orig	2013-01-03 09:45:57.830447923 -0800
-+++ linux-3.8-rc2/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-03 10:05:57.675756568 -0800
-@@ -801,7 +801,14 @@ static void ks_rcv(struct ks_net *ks, st
- 			skb_put(skb, frame_hdr->len);
- 			skb->protocol = eth_type_trans(skb, netdev);
- 			netif_rx(skb);
-+			netdev->stats.rx_packets++;
-+			netdev->stats.rx_bytes += (frame_hdr->len - 4);
- 		} else {
-+			netdev->stats.rx_dropped++;
-+			if ((frame_hdr->len >= RX_BUF_SIZE) || (frame_hdr->len == 0))
-+			    netdev->stats.rx_length_errors++;
-+			if (frame_hdr->sts & RXFSHR_RXFV) 
-+			    netdev->stats.rx_frame_errors++;
- 			pr_err("%s: err:skb alloc\n", __func__);
- 			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
- 			if (skb)
-@@ -876,6 +883,8 @@ static irqreturn_t ks_irq(int irq, void
- 		pmecr &= ~PMECR_WKEVT_MASK;
- 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
- 	}
-+	if (unlikely(status & IRQ_RXOI))
-+		ks->netdev->stats.rx_over_errors++;
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -72,7 +72,7 @@ static unsigned long bat_iv_ogm_emit_sen
+ {
+ 	return jiffies + msecs_to_jiffies(
+ 		   atomic_read(&bat_priv->orig_interval) -
+-		   JITTER + (random32() % 2*JITTER));
++		   JITTER + (random32() % (2*JITTER)));
+ }
  
- 	/* this should be the last in IRQ handler*/
- 	ks_restore_cmd_reg(ks);
-@@ -1015,6 +1024,8 @@ static int ks_start_xmit(struct sk_buff
- 
- 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
- 		ks_write_qmu(ks, skb->data, skb->len);
-+		netdev->stats.tx_bytes += skb->len;
-+		netdev->stats.tx_packets++;
- 		dev_kfree_skb(skb);
- 	} else
- 		retv = NETDEV_TX_BUSY;
-
----
+ /* when do we schedule a ogm packet to be sent */
