@@ -1,74 +1,175 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: [PATCH net 1/2] net: dev_queue_xmit_nit: fix
-	skb->vlan_tci field value
-Date: Wed, 9 Jan 2013 11:27:10 -0800
-Message-ID: <CAOxq_8P4PLKXn9FOAWyq4zYH5+Yt7DT1mrU2OSQujGCOjBJZYg@mail.gmail.com>
-References: <CAOUgPvRGQ4XQ-HCFzwKi5rFFfC1fJcicH8DxH0pUjAvgxfi7cw@mail.gmail.com>
-	<CAOxq_8MXCvGpq4Q0UfxSbWMDNTusrK710fQ11qgfXKWS+zpoZQ@mail.gmail.com>
-	<1357712850.27446.28.camel@edumazet-glaptop>
-	<CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2013-01-09
+Date: Wed, 9 Jan 2013 14:18:18 -0500
+Message-ID: <20130109191817.GA17321@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dborkman <dborkman@redhat.com>,
-	Jiri Pirko <jpirko@redhat.com>, edumazet <edumazet@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>, tcpdump-workers@lists.tcpdump.org
-Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
-In-Reply-To: <CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
-List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
-List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
-List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
-List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
-	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
-Sender: tcpdump-workers-bounces@lists.tcpdump.org
-Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->> Thats irrelevant. This only shows that user land was depending on a
->> prior undocumented behavior.
+Dave,
 
-Why do you say that? The following patch from Pirko ensured that on
-both RX and TX regardless whether the driver/hw supported vlan
-acceleration, the outermost vlan tags will always be extracted out of
-the packet and put in skb aux data :
+Please pull this batch of fixes (and a new driver) for the 3.8 stream...
 
-commit bcc6d47903612c3861201cc3a866fb604f26b8b2
-Author: Jiri Pirko <jpirko@redhat.com>
-Date:   Thu Apr 7 19:48:33 2011 +0000
+Included is a mac80211 pull, of which Johannes says the following:
 
-    net: vlan: make non-hw-accel rx path similar to hw-accel
+'This includes a number of fixes for various pieces of mac80211. I've
+also included Thomas's memory RMC hash table optimisation since it
+saves so much memory.'
 
-Now this meant that the filter code should always look into the aux
-data for vlan tagging, not in the packet, regardless of hw
-acceleration availability. Your patch
-b40863c667c16b7a73d4f034a8eab67029b5b15a broke this symmetric
-semantics - now on TX on the network tap, we do not have the vlan tags
-in the skb aux data.
+Also from Johannes is an iwlwifi pull:
 
-In my opinion, for a given kernel, the filter code should either look
-into the packet offset or in the packet aux data for vlan tags but not
-both. Otherwise the filter code becomes incredibly complex since an
-inline vlan tag in the packet changes offsets of all headers coming
-afterwords and I don't even know if filter code can be correctly
-generated in this case. tcpdump-workers folks are CC's here and they
-clearly have more experience with libpcap filter code that I do. Hence
-I leave it up to them to provide inputs here.
+'I have two fixes for iwlwifi: one to fix a lost return value that was
+dropped in a previous patch and could cause "nobody cared" IRQ messages,
+and one to work around a firmware issue.'
 
->> What's wrong instructing libpcap to extend the filter to be able to
->> get the correct result, vlan id being in skb->vlan_id (vlan accel on),
->> or in the packet itself (vlan accel off)
->>
->> This way, you could chose if you want to get only accelerated vlan,
->> or non accelerated vlan, or both. And you need no kernel hacking.
+Amitkumar Karwar brings an mwifiex for a typo in an comparison.
 
-This is wrong. Accelerated or not, the kernel code was organized to
-have the tags in the packet aux data. So I think this is how user land
-should be coded as well.
+Bing Zhao gives us an mwifiex fix to properly check the return value
+from wait_event_interruptible and handle it properly.
 
-ani
-_______________________________________________
-tcpdump-workers mailing list
-tcpdump-workers@lists.tcpdump.org
-https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
+Chen Gang provides a fix to make iwlegacy use strlcpy instead of
+strncpy, avoiding a potential buffer underflow.
+
+Julian Wollrath fixes a typo in an error message in rtlwifi.
+
+Larry Finger brings a b43 fix for a firmware loading problem.
+
+Nickolai Zeldovich avoids a use-after-free in the mwl8k driver.
+
+Vladimir Kondratiev brings the last big piece, the new Qualcomm/Atheros
+wil6210 802.11ad driver.  Since it is for new hardware, I hope that
+taking it for 3.8 is not a problem.
+
+Please let me know if there are problems!
+
+Thanks,
+
+John
+
+---
+
+The following changes since commit c9be4a5c49cf51cc70a993f004c5bb30067a65ce:
+
+  net: prevent setting ttl=0 via IP_TTL (2013-01-08 17:57:10 -0800)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
+
+for you to fetch changes up to a9b8a894ad7d0b90b0464c9ac7e8e5c1687edcae:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless into for-davem (2013-01-09 11:01:37 -0500)
+
+----------------------------------------------------------------
+
+Amitkumar Karwar (1):
+      mwifiex: fix typo in setting up ibss network parameters
+
+Bing Zhao (1):
+      mwifiex: check wait_event_interruptible return value
+
+Chaitanya (1):
+      mac80211: fix maximum MTU
+
+Chen Gang (1):
+      drivers/net/wireless/iwlegacy: use strlcpy instead of strncpy
+
+Emmanuel Grumbach (1):
+      iwlwifi: fix the reclaimed packet tracking upon flush queue
+
+Felix Fietkau (1):
+      mac80211: flush AP_VLAN stations when tearing down the BSS AP
+
+Johannes Berg (5):
+      mac80211: assign VLAN channel contexts
+      mac80211: fix station destruction in AP/mesh modes
+      mac80211: use del_timer_sync for final sta cleanup timer deletion
+      mac80211: fix dtim_period in hidden SSID AP association
+      iwlwifi: fix PCIe interrupt handle return value
+
+John W. Linville (3):
+      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'for-john' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless into for-davem
+
+Julian Wollrath (1):
+      rtlwifi: Fix typo in debug output of rtl8192c and rtl8723ae
+
+Larry Finger (1):
+      b43: Fix firmware loading when driver is built into the kernel
+
+Nickolai Zeldovich (1):
+      drivers/net/wireless/mwl8k.c: avoid use-after-free
+
+Stanislaw Gruszka (1):
+      mac80211: fix ibss scanning
+
+Thomas Pedersen (1):
+      mac80211: RMC buckets are just list heads
+
+Vladimir Kondratiev (1):
+      wireless: add new wil6210 802.11ad 60GHz driver
+
+ MAINTAINERS                                        |    8 +
+ drivers/net/wireless/ath/Kconfig                   |    1 +
+ drivers/net/wireless/ath/Makefile                  |    1 +
+ drivers/net/wireless/ath/wil6210/Kconfig           |   29 +
+ drivers/net/wireless/ath/wil6210/Makefile          |   13 +
+ drivers/net/wireless/ath/wil6210/cfg80211.c        |  573 ++++++++++
+ drivers/net/wireless/ath/wil6210/dbg_hexdump.h     |   30 +
+ drivers/net/wireless/ath/wil6210/debugfs.c         |  603 +++++++++++
+ drivers/net/wireless/ath/wil6210/interrupt.c       |  471 +++++++++
+ drivers/net/wireless/ath/wil6210/main.c            |  407 +++++++
+ drivers/net/wireless/ath/wil6210/netdev.c          |  157 +++
+ drivers/net/wireless/ath/wil6210/pcie_bus.c        |  223 ++++
+ drivers/net/wireless/ath/wil6210/txrx.c            |  871 +++++++++++++++
+ drivers/net/wireless/ath/wil6210/txrx.h            |  362 +++++++
+ drivers/net/wireless/ath/wil6210/wil6210.h         |  363 +++++++
+ drivers/net/wireless/ath/wil6210/wmi.c             |  975 +++++++++++++++++
+ drivers/net/wireless/ath/wil6210/wmi.h             | 1116 ++++++++++++++++++++
+ drivers/net/wireless/b43/b43.h                     |    5 +
+ drivers/net/wireless/b43/main.c                    |   54 +-
+ drivers/net/wireless/b43/main.h                    |    5 +-
+ drivers/net/wireless/iwlegacy/3945-mac.c           |    2 +-
+ drivers/net/wireless/iwlwifi/dvm/tx.c              |   24 +-
+ drivers/net/wireless/iwlwifi/pcie/rx.c             |    1 +
+ drivers/net/wireless/mwifiex/cfg80211.c            |    2 +-
+ drivers/net/wireless/mwifiex/sta_ioctl.c           |   21 +-
+ drivers/net/wireless/mwl8k.c                       |    4 +-
+ drivers/net/wireless/rtlwifi/rtl8192c/phy_common.c |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/phy.c       |    2 +-
+ net/mac80211/cfg.c                                 |    2 +
+ net/mac80211/chan.c                                |   38 +
+ net/mac80211/ibss.c                                |    9 +-
+ net/mac80211/ieee80211_i.h                         |   16 +-
+ net/mac80211/iface.c                               |   48 +-
+ net/mac80211/mesh.c                                |    8 +-
+ net/mac80211/mesh.h                                |    2 +-
+ net/mac80211/mlme.c                                |   75 +-
+ net/mac80211/scan.c                                |   46 +-
+ net/mac80211/sta_info.c                            |   46 +-
+ net/mac80211/sta_info.h                            |    3 +-
+ 39 files changed, 6488 insertions(+), 130 deletions(-)
+ create mode 100644 drivers/net/wireless/ath/wil6210/Kconfig
+ create mode 100644 drivers/net/wireless/ath/wil6210/Makefile
+ create mode 100644 drivers/net/wireless/ath/wil6210/cfg80211.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/dbg_hexdump.h
+ create mode 100644 drivers/net/wireless/ath/wil6210/debugfs.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/interrupt.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/main.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/netdev.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/pcie_bus.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/txrx.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/txrx.h
+ create mode 100644 drivers/net/wireless/ath/wil6210/wil6210.h
+ create mode 100644 drivers/net/wireless/ath/wil6210/wmi.c
+ create mode 100644 drivers/net/wireless/ath/wil6210/wmi.h
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
