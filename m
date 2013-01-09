@@ -1,93 +1,83 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: Re: [PATCH net-next] igbvf: fix setting
- addr_assign_type	if PF is up
-Date: Wed, 9 Jan 2013 17:09:55 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: r8169 rx_missed increasing in bursts (regression)
+Date: Wed, 9 Jan 2013 19:14:56 +0200
+Message-ID: <20130109191456.0888ac75@vostro>
+References: <20130108102814.7abe8c08@vostro>
+	<20130108225833.GA4193@electric-eye.fr.zoreil.com>
+	<20130109115850.055b7a7e@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
-To: Stefan Assmann <sassmann@kpanic.de>, "netdev@vger.kernel.org"
-	<netdev@vger.kernel.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:61695 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932218Ab3AIRPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 12:15:00 -0500
+Received: by mail-ee0-f46.google.com with SMTP id e53so959803eek.33
+        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 09:14:59 -0800 (PST)
+In-Reply-To: <20130109115850.055b7a7e@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Stefan Assmann [mailto:sassmann@kpanic.de]
-> Sent: Wednesday, January 09, 2013 1:59 AM
-> To: netdev@vger.kernel.org
-> Cc: e1000-devel@lists.sourceforge.net; sassmann@kpanic.de
-> Subject: [E1000-devel] [PATCH net-next] igbvf: fix setting
-> addr_assign_type if PF is up
-> 
-> When the PF is up and igbvf is loaded the MAC address is not generated
-> using eth_hw_addr_random(). This results in addr_assign_type not to be
-> set.
-> Make sure it gets set.
-> 
+On Wed, 9 Jan 2013 11:58:50 +0200 Timo Teras <timo.teras@iki.fi> wrote:
 
-NAK - In this case, the address may or may not be random. The user may
-have (and should have!) explicitly set this address from the host to
-ensure that the VF device receives the same address each time it boots.
-
--Mitch
-
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/igbvf/netdev.c | 1 +
->  1 file changed, 1 insertion(+)
+> On Tue, 8 Jan 2013 23:58:33 +0100 Francois Romieu
+> <romieu@fr.zoreil.com> wrote:
 > 
-> diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c
-> b/drivers/net/ethernet/intel/igbvf/netdev.c
-> index 53281ff..6a698c5 100644
-> --- a/drivers/net/ethernet/intel/igbvf/netdev.c
-> +++ b/drivers/net/ethernet/intel/igbvf/netdev.c
-> @@ -2746,6 +2746,7 @@ static int igbvf_probe(struct pci_dev *pdev, const
-> struct pci_device_id *ent)
->  			dev_err(&pdev->dev, "Error reading MAC address\n");
->  			goto err_hw_init;
->  		}
-> +		netdev->addr_assign_type = NET_ADDR_RANDOM;
->  		memcpy(netdev->dev_addr, adapter->hw.mac.addr,
->  			netdev->addr_len);
->  	}
-> --
-> 1.8.0.2
+> > Timo Teras <timo.teras@iki.fi> :
+> > [...]
+> > > My current hypothesis is that due to high softirq and recent(ish)
+> > > commit da78dbf "r8169: remove work from irq handler" moving more
+> > > work to softirq makes the receive path now suffer from latency
+> > > from getting irq to reading packets from the NIC on these boxes.
+> > > And that at times the rx fifo can get full causing a missed
+> > > packet or so.
+> > 
+> > This hypothesis won't explain the regression in 3.3.8 since 3.3.x
+> > does not include commit da78dbf.
+> > 
+> > Do you notice any netdev watchdog message in dmesg ?
 > 
+> In production boxes. No.
 > 
-> ------------------------------------------------------------------------
-> ------
-> Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
-> and much more. Keep your Java skills current with LearnJavaNow -
-> 200+ hours of step-by-step video tutorials by Java experts.
-> SALE $49.99 this month only -- learn more at:
-> http://p.sf.net/sfu/learnmore_122612
-> _______________________________________________
-> E1000-devel mailing list
-> E1000-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/e1000-devel
-> To learn more about Intel&#174; Ethernet, visit
-> http://communities.intel.com/community/wired
+> The lab environment where we tried to reproduce this, we received:
+> NOHZ: local_softirq_pending 08
+> 
+> Which is likely related, but separate issue. And fixed by commit
+> da78dbf. So seems that just got upgraded to "regression fix".
+> 
+> > 'perf top' may exhibit something unusual too.
+> 
+> Will try this.
+> 
+> I did notice that:
+> /proc/net/softnet_stat's 3rd field aka. softnet_data.time_squeeze
+> keeps incrementing when ever rx_missed increases. Sometiems
+> time_squeeze increments on it own. But rx_missed never increases
+> without time_squeeze bumping up seriously too.
 
-------------------------------------------------------------------------------
-Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
-and much more. Keep your Java skills current with LearnJavaNow -
-200+ hours of step-by-step video tutorials by Java experts.
-SALE $49.99 this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_122612 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Did more general observing.
+
+It seems that the rx_missed is not directly related to traffic amount.
+At times the box is handling easily 10000+ pps, while packet loss can
+happen at other times on 4000-8000pps levels.
+
+Generally time_squeeze does not happen, and the box is at 20-30%
+softirq. Some times time_squeeze bumps up with one (within a one second
+interval) or two and packet loss does not happen.
+
+When rx_missed is getting bumped, time_squeeze goes up with 1-3, and
+rx_missed goes up with 50-1000 packets. Usually around 200 packets. (1
+second sampling period)
+
+I did find a strong correlation that rx_misses happen usually when the
+box has dropped a packet due to iptables DROP/REJECT rule, or some
+other reason (e.g. I'm seeing once in a while dmesg contain:
+"nf_ct_sip: dropping packet").
+
+Any ideas why a netfilter packet drop might cause netdevice rx to stall
+long enough to saturate the hardware receive queue?
+
+- Timo
