@@ -1,81 +1,50 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting
- addr_assign_type if PF is up
-Date: Wed, 9 Jan 2013 13:37:45 -0800
-Message-ID: <20130109133745.00004627@unknown>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
-	<50EDAFC6.3070700@kpanic.de>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Assmann <sassmann@kpanic.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [PATCH net-next] doc: Clarify behavior when sysctl tcp_ecn = 1
+Date: Wed,  9 Jan 2013 14:21:30 -0800
+Message-ID: <1357770090-29253-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: davem@davemloft.net, edumazet@google.com, rick.jones2@hp.com,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:40588 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933245Ab3AIVhu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2013 16:37:50 -0500
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:48552 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756709Ab3AIWRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 17:17:13 -0500
+Received: by mail-pb0-f47.google.com with SMTP id un1so1216866pbc.34
+        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 14:17:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Jan 2013 18:56:36 +0000
-"Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
+Recent commit (commit 7e3a2dc52953 doc: make the description of how tcp_ecn
+works more explicit and clear ) clarified the behavior of tcp_ecn sysctl
+variable but description is inconsistent. When requested by incoming conections,
+ECN is enabled with not just tcp_ecn = 2 but also with tcp_ecn = 1.
 
-> > >> When the PF is up and igbvf is loaded the MAC address is not
-> > >> generated using eth_hw_addr_random(). This results in
-> > >> addr_assign_type not to be set.
-> > >> Make sure it gets set.
-> > >>
-> > >
-> > > NAK - In this case, the address may or may not be random. The
-> > > user may have (and should have!) explicitly set this address from
-> > > the host to ensure that the VF device receives the same address
-> > > each time it
-> > boots.
-> > 
-> > Maybe you can give me some advice on this then. Why is there
-> > different behaviour depending on the PF being up or down? The
-> > problem I'm facing is that if the user did not set a MAC address
-> > for the VF manually and the PF is up during igbvf_probe it will not
-> > be labelled as random although it is.
-> > What about checking IGB_VF_FLAG_PF_SET_MAC and only set
-> > NET_ADDR_RANDOM if the flag is cleared?
-> > 
-> 
-> The difference in behavior is because we cannot get any MAC address
-> at all if the PF is down. The interface won't operate at all in this
-> case, but if the PF comes up sometime later, we can start working.
-> The other alternative is to leave the MAC address as all zeros and
-> forcing the user to assign an address manually. We chose to use a
-> random address to at least give it a chance of working once the PF
-> woke up.
+This patch makes it clear that with tcp_ecn = 1, ECN is enabled when requested
+by incoming connections.
 
-Having been around at the inception of SR-IOV in Linux I recall that
-the primary reason we used a random ethernet address was so
-that the VF could at least work because there was no infrastructure
-to allow the host administrator to set the MAC address of the VF.  This
-hobbled testing and validation because the user would have to go to
-each VM and use a command local to the VM to set the VF MAC address to
-some LAA via ifconfig or ip.  When testing large numbers of VFs this was
-a definite pain.
+Also fix spelling of 'incoming'.
 
-Now that has changed and I wonder if maybe we shouldn't back out the
-random ethernet address assignment and go ahead with all zeros, leaving
-the device non-functional until the user has intentionally set either
-an LAA through the VF itself, or an administratively assigned MAC
-through the ip tool via the PF.
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Use of the random MAC address is not recommended by Intel's own best
-known methods literature, it was used mostly so that we could get the
-technology working and it should probably be at least considered for
-deprecation or out right elimination.
-
-My two cents...
-
-- Greg
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index dd52d51..51dcd52 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -214,8 +214,9 @@ tcp_ecn - INTEGER
+ 	congestion before having to drop packets.
+ 	Possible values are:
+ 		0 Disable ECN.  Neither initiate nor accept ECN.
+-		1 Always request ECN on outgoing connection attempts.
+-		2 Enable ECN when requested by incomming connections
++		1 Enable ECN when requested by incoming connections and
++		  also request ECN on outgoing connection attempts.
++		2 Enable ECN when requested by incoming connections
+ 		  but do not request ECN on outgoing connections.
+ 	Default: 2
+ 
+-- 
+1.7.0.4
