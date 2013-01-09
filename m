@@ -1,42 +1,41 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 1/6] ipv4: Use FIELD_SIZEOF() in inet_init().
-Date: Thu, 10 Jan 2013 02:19:37 +0900
-Message-ID: <50EDA6A9.9060707@linux-ipv6.org>
+Subject: [PATCH net-next 2/6] ipv6: Use FIELD_SIZEOF() in inet6_init().
+Date: Thu, 10 Jan 2013 02:19:43 +0900
+Message-ID: <50EDA6AF.7020509@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60714 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60717 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932156Ab3AIRTi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 12:19:38 -0500
+	with ESMTP id S932156Ab3AIRTo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 12:19:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv4/af_inet.c |    3 +--
+ net/ipv6/af_inet6.c |    3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 24b384b..4fdf967 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1705,12 +1705,11 @@ static struct packet_type ip_packet_type __read_mostly = {
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index b043c60..6b793bf 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -811,11 +811,10 @@ static struct pernet_operations inet6_net_ops = {
  
- static int __init inet_init(void)
+ static int __init inet6_init(void)
  {
 -	struct sk_buff *dummy_skb;
- 	struct inet_protosw *q;
  	struct list_head *r;
- 	int rc = -EINVAL;
+ 	int err = 0;
  
--	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > sizeof(dummy_skb->cb));
-+	BUILD_BUG_ON(sizeof(struct inet_skb_parm) > FIELD_SIZEOF(struct sk_buff, cb));
+-	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
++	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > FIELD_SIZEOF(struct sk_buff, cb));
  
- 	sysctl_local_reserved_ports = kzalloc(65536 / 8, GFP_KERNEL);
- 	if (!sysctl_local_reserved_ports)
+ 	/* Register the socket-side information for inet6_create.  */
+ 	for (r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
 -- 
 1.7.9.5
