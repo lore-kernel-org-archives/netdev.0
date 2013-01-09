@@ -1,71 +1,58 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Wed, 9 Jan 2013 13:42:48 +0000
-Message-ID: <20130109134248.GE13304@suse.de>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
- <20130106120700.GA24671@dcvr.yhbt.net>
- <20130107122516.GC3885@suse.de>
- <20130107223850.GA21311@dcvr.yhbt.net>
- <20130108224313.GA13304@suse.de>
- <20130108232325.GA5948@dcvr.yhbt.net>
- <1357697647.18156.1217.camel@edumazet-glaptop>
- <1357698749.27446.6.camel@edumazet-glaptop>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] xen-netback notify DomU to send ARP.
+Date: Wed, 09 Jan 2013 13:44:40 +0000
+Message-ID: <50ED825802000078000B4113@nat28.tlf.novell.com>
+References: <50EC099D.6020407@oracle.com>
+ <50EC297A02000078000B3BB5@nat28.tlf.novell.com>
+ <1357652541.7989.179.camel@zakaz.uk.xensource.com>
+ <50EC3DFD.8060206@oracle.com>
+ <1357660834.12649.103.camel@dagon.hellion.org.uk>
+ <50ED1EB3.3080605@oracle.com>
+ <50ED4F1D02000078000B3F87@nat28.tlf.novell.com>
+ <50ED6255.7020006@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Eric Wong <normalperson@yhbt.net>, linux-mm@kvack.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <xen-devel@lists.xensource.com>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
+	<netdev@vger.kernel.org>
+To: "jianhai luan" <jianhai.luan@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47340 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757897Ab3AINmv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2013 08:42:51 -0500
+Received: from nat28.tlf.novell.com ([130.57.49.28]:53759 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757436Ab3AINom convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:3:1>);
+	Wed, 9 Jan 2013 08:44:42 -0500
+In-Reply-To: <50ED6255.7020006@oracle.com>
 Content-Disposition: inline
-In-Reply-To: <1357698749.27446.6.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 08, 2013 at 06:32:29PM -0800, Eric Dumazet wrote:
-> On Tue, 2013-01-08 at 18:14 -0800, Eric Dumazet wrote:
-> > On Tue, 2013-01-08 at 23:23 +0000, Eric Wong wrote:
-> > > Mel Gorman <mgorman@suse.de> wrote:
-> > > > Please try the following patch. However, even if it works the benefit of
-> > > > capture may be so marginal that partially reverting it and simplifying
-> > > > compaction.c is the better decision.
-> > > 
-> > > I already got my VM stuck on this one.  I had two twosleepy instances,
-> > > 2774 was the one that got stuck (also confirmed by watching top).
-> > > 
-> > > Btw, have you been able to reproduce this on your end?
-> > > 
-> > > I think the easiest reproduction on my 2-core VM is by running 2
-> > > twosleepy processes and doing the following to dirty a lot of pages:
-> > 
-> > Given the persistent sk_stream_wait_memory() traces I suspect a plain
-> > TCP bug, triggered by some extra wait somewhere.
-> > 
-> > Please mm guys don't spend too much time right now, I'll try to
-> > reproduce the problem.
-> > 
-> > Don't be confused by sk_stream_wait_memory() name.
-> > A thread is stuck here because TCP stack is failing to wake it.
-> > 
-> 
-> Hmm, it seems sk_filter() can return -ENOMEM because skb has the
-> pfmemalloc() set.
-> 
+>>> On 09.01.13 at 13:28, jianhai luan <jianhai.luan@oracle.com> wrote:
+>>> +	switch (event) {
+>>> +	case NETDEV_NOTIFY_PEERS:
+>>> +		/* Notify frontend to Send gratuitous ARP */
+>>> +		xenbus_switch_state(be->dev, XenbusStateInitialised);
+>>> +		xenbus_switch_state(be->dev, );
+>> This is the sort of change that clearly isn't acceptable, as I don't
+>> think you have ways to check _all_ existing frontends for their
+>> compatibility with this. A connected -> connected transition
+>> might be acceptable (that was done in the block frontend too, for
+>> implementing dynamic resize), but will likely need to be
+>> accompanied by a frontend side patch to handle that (which so
+>> far should be a no-op).
+> The latest xen net-frontent driver have handled the condition. State 
+> XenbusStateInitialised will do nothing,
+> but change to XenbusStateConnected will trigger 
+> netdev_notify_peers(netdev) to send ARP.
 
-The skb should not have pfmemalloc set in most cases, particularly after
-cfd19c5a (mm: only set page->pfmemalloc when ALLOC_NO_WATERMARKS was used)
-but the capture patch also failed to clear pfmemalloc properly so it could
-be set in error.
+Did you read my earlier reply carefully? You still only talk about
+(upstream) Linux netfront, but this is not the only (possible)
+frontend. You should not invoke state transitions that can -
+even if only theoretically - blow up frontends. And afaict the
+only thing you can safely assume frontends ought to tolerate
+are transitions from Connected to Connected (or more
+generally from one state to the same one, but the other
+states aren't useful here, except maybe the Reconfigur* ones).
 
--- 
-Mel Gorman
-SUSE Labs
+Jan
