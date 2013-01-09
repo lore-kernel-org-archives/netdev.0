@@ -1,50 +1,40 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting addr_assign_type
- if PF is up
-Date: Wed, 09 Jan 2013 18:58:30 +0100
-Message-ID: <50EDAFC6.3070700@kpanic.de>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de> <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+From: Tom Parkin <tparkin@katalix.com>
+Subject: [PATCH 0/4] l2tp: fix up network namespace use in l2tp_core
+Date: Wed,  9 Jan 2013 18:36:19 +0000
+Message-ID: <1357756583-22535-1-git-send-email-tparkin@katalix.com>
+Cc: Tom Parkin <tparkin@katalix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout114.xlhost.de ([213.202.242.114]:48866 "EHLO
-	app1a.xlhost.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932241Ab3AISIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 13:08:32 -0500
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
+Received: from katalix.com ([82.103.140.233]:55327 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932134Ab3AISge (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2013 13:36:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.01.2013 18:09, Williams, Mitch A wrote:
->> -----Original Message-----
->> From: Stefan Assmann [mailto:sassmann@kpanic.de]
->> Sent: Wednesday, January 09, 2013 1:59 AM
->> To: netdev@vger.kernel.org
->> Cc: e1000-devel@lists.sourceforge.net; sassmann@kpanic.de
->> Subject: [E1000-devel] [PATCH net-next] igbvf: fix setting
->> addr_assign_type if PF is up
->>
->> When the PF is up and igbvf is loaded the MAC address is not generated
->> using eth_hw_addr_random(). This results in addr_assign_type not to be
->> set.
->> Make sure it gets set.
->>
-> 
-> NAK - In this case, the address may or may not be random. The user may
-> have (and should have!) explicitly set this address from the host to
-> ensure that the VF device receives the same address each time it boots.
+This patchset addresses network namespace issues in l2tp_core as previously
+raised on netdev[1].
 
-Maybe you can give me some advice on this then. Why is there different
-behaviour depending on the PF being up or down? The problem I'm facing
-is that if the user did not set a MAC address for the VF manually and
-the PF is up during igbvf_probe it will not be labelled as random
-although it is.
-What about checking IGB_VF_FLAG_PF_SET_MAC and only set NET_ADDR_RANDOM
-if the flag is cleared?
+There is further work to be done to bring namespace support to the rest of
+l2tp -- this will be addressed in a further patchset.
 
-  Stefan
+I've tested these changes using a stress script based around iproute2's netns
+command.  Test platforms include i386, x86_64, and armv6l, running on
+single-core and SMP platforms, and with/without preemption enabled.
+
+[1].
+http://www.spinics.net/lists/netdev/msg214776.html
+http://www.spinics.net/lists/netdev/msg212234.html
+
+Tom Parkin (4):
+  l2tp: set netnsok flag for netlink messages
+  l2tp: prevent tunnel creation on netns mismatch
+  l2tp: don't pin network namespaces with tunnel sockets
+  l2tp: clear tunnel socket field as soon as we release it
+
+ net/l2tp/l2tp_core.c    |  101 +++++++++++++++++++++++++++++++----------------
+ net/l2tp/l2tp_netlink.c |    1 +
+ 2 files changed, 68 insertions(+), 34 deletions(-)
+
+-- 
+1.7.9.5
