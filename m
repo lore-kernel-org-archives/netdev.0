@@ -1,115 +1,55 @@
-From: Ani Sinha <ani@aristanetworks.com>
-Subject: Re: [PATCH net 1/2] net: dev_queue_xmit_nit: fix skb->vlan_tci field value
-Date: Tue, 8 Jan 2013 22:34:29 -0800
-Message-ID: <CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com>
-References: <CAOUgPvRGQ4XQ-HCFzwKi5rFFfC1fJcicH8DxH0pUjAvgxfi7cw@mail.gmail.com>
-	<CAOxq_8MXCvGpq4Q0UfxSbWMDNTusrK710fQ11qgfXKWS+zpoZQ@mail.gmail.com>
-	<1357712850.27446.28.camel@edumazet-glaptop>
+From: "Ariel Elior" <ariele@broadcom.com>
+Subject: RE: [patch] bnx2x: NULL dereference on error in debug code
+Date: Wed, 9 Jan 2013 07:38:52 +0000
+Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BCC826E@SJEXCHMB05.corp.ad.broadcom.com>
+References: <20130108134213.GA23742@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Paul Pearce <pearce@cs.berkeley.edu>, netdev@vger.kernel.org,
-	dborkman <dborkman@redhat.com>, edumazet <edumazet@google.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	tcpdump-workers@lists.tcpdump.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f172.google.com ([209.85.210.172]:59115 "EHLO
-	mail-ia0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059Ab3AIGe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 01:34:29 -0500
-Received: by mail-ia0-f172.google.com with SMTP id u8so529044iag.3
-        for <netdev@vger.kernel.org>; Tue, 08 Jan 2013 22:34:29 -0800 (PST)
-In-Reply-To: <1357712850.27446.28.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: "Dan Carpenter" <dan.carpenter@oracle.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130108134213.GA23742@elgon.mountain>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-+tcpdump-workers
-
-
-On Tue, Jan 8, 2013 at 10:27 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2013-01-08 at 22:06 -0800, Ani Sinha wrote:
->
->> The proposed patch tries to fix the issue that arose after the
->> following commit :
->>
->> commit b40863c667c16b7a73d4f034a8eab67029b5b15a
->> Author: Eric Dumazet <edumazet@google.com>
->> Date:   Tue Sep 18 20:44:49 2012 +0000
->>
->>     net: more accurate network taps in transmit path
->>
->>
->> I do not believe 3.6.11 kernel has this change. 3.6.11 should not need
->> the patch.
->
-> Thats irrelevant. This only shows that user land was depending on a
-> prior undocumented behavior.
->
-> It seems a libpcap issue to me. Kernel side provides all needed bits.
->
-> When I want "tcpdump src port 2030", filter is :
->
-> (000) ldh      [12]
-> (001) jeq      #0x86dd          jt 2    jf 8
-> (002) ldb      [20]
-> (003) jeq      #0x84            jt 6    jf 4
-> (004) jeq      #0x6             jt 6    jf 5
-> (005) jeq      #0x11            jt 6    jf 19
-> (006) ldh      [54]
-> (007) jeq      #0x7ee           jt 18   jf 19
-> (008) jeq      #0x800           jt 9    jf 19
-> (009) ldb      [23]
-> (010) jeq      #0x84            jt 13   jf 11
-> (011) jeq      #0x6             jt 13   jf 12
-> (012) jeq      #0x11            jt 13   jf 19
-> (013) ldh      [20]
-> (014) jset     #0x1fff          jt 19   jf 15
-> (015) ldxb     4*([14]&0xf)
-> (016) ldh      [x + 14]
-> (017) jeq      #0x7ee           jt 18   jf 19
-> (018) ret      #96
-> (019) ret      #0
->
-> See how it handles both IPv4 and IPv6, and various protocols
-> automatically ?
->
-> If I only wanted "udp and src port 2030" it would give :
->
-> (000) ldh      [12]
-> (001) jeq      #0x86dd          jt 2    jf 6
-> (002) ldb      [20]
-> (003) jeq      #0x11            jt 4    jf 15
-> (004) ldh      [54]
-> (005) jeq      #0x7ee           jt 14   jf 15
-> (006) jeq      #0x800           jt 7    jf 15
-> (007) ldb      [23]
-> (008) jeq      #0x11            jt 9    jf 15
-> (009) ldh      [20]
-> (010) jset     #0x1fff          jt 15   jf 11
-> (011) ldxb     4*([14]&0xf)
-> (012) ldh      [x + 14]
-> (013) jeq      #0x7ee           jt 14   jf 15
-> (014) ret      #96
-> (015) ret      #0
->
->
->
-> So when I want "tcpdump vlan 100" it generates :
->
-> (000) ldh      [12]
-> (001) jeq      #0x8100          jt 2    jf 6
-> (002) ldh      [14]
-> (003) and      #0xfff
-> (004) jeq      #0x64            jt 5    jf 6
-> (005) ret      #96
-> (006) ret      #0
->
-> What's wrong instructing libpcap to extend the filter to be able to
-> get the correct result, vlan id being in skb->vlan_id (vlan accel on),
-> or in the packet itself (vlan accel off)
->
-> This way, you could chose if you want to get only accelerated vlan,
-> or non accelerated vlan, or both. And you need no kernel hacking.
->
->
->
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Dan Carpenter
+> Sent: Tuesday, January 08, 2013 3:42 PM
+> To: Eilon Greenstein
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; kernel-
+> janitors@vger.kernel.org
+> Subject: [patch] bnx2x: NULL dereference on error in debug code
+> 
+> "vfop" is NULL here.  I've changed the debugging to not use it.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> Only needed in linux-next.
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> index 71fcef0..3eef972 100644
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> @@ -463,8 +463,7 @@ static int bnx2x_vfop_qdtor_cmd(struct bnx2x *bp,
+>  		return bnx2x_vfop_transition(bp, vf, bnx2x_vfop_qdtor,
+>  					     cmd->block);
+>  	}
+> -	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop. rc %d\n",
+> -	   vf->abs_vfid, vfop->rc);
+> +	DP(BNX2X_MSG_IOV, "VF[%d] failed to add a vfop.\n", vf->abs_vfid);
+>  	return -ENOMEM;
+>  }
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Ariel Elior <ariele@broadcom.com>
