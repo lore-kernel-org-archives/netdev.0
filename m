@@ -1,235 +1,115 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 10/14] bridge: Add the ability to pvid
-Date: Wed, 09 Jan 2013 12:24:50 -0500
-Message-ID: <50EDA7E2.1020005@redhat.com>
-References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com> <1357751882-8619-12-git-send-email-vyasevic@redhat.com>
-Reply-To: vyasevic@redhat.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stephen@redhat.com,
-	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
-	mst@redhat.com
-To: netdev@vger.kernel.org
+From: Roland Dreier <roland@kernel.org>
+Subject: [PATCH/RFC] ipv6: fib: Drop cached routes with dead neighbours on fib GC
+Date: Wed,  9 Jan 2013 09:44:19 -0800
+Message-ID: <1357753459-12872-1-git-send-email-roland@kernel.org>
+Cc: netdev@vger.kernel.org, Roland Dreier <roland@purestorage.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28302 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932181Ab3AIRYz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2013 12:24:55 -0500
-In-Reply-To: <1357751882-8619-12-git-send-email-vyasevic@redhat.com>
+Received: from na3sys010aog103.obsmtp.com ([74.125.245.74]:51610 "HELO
+	na3sys010aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932233Ab3AIRo1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 12:44:27 -0500
+Received: by mail-pa0-f72.google.com with SMTP id fb10so1807613pad.3
+        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 09:44:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/09/2013 12:17 PM, Vlad Yasevich wrote:
-> A user may designate a certain vlan as PVID.  This means that
-> any ingress frame that does not contain a vlan tag is assigned to
-> this vlan and any forwarding decisions are made with this vlan in mind.
->
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+From: Roland Dreier <roland@purestorage.com>
 
-Sorry..  this one is a left-over that snuck in....  Disregard this 
-patch.  The proper one is in the series already.
+This patch is as much bug report as it is a proposal to merge this
+specific patch.  The problem is definitely real; we hit it in a
+situation where we have two systems connected back-to-back with two
+bonded links between them, one system reboots, and the other system
+gets NETDEV_CHANGEADDR.  This patch definitely fixes that case for us,
+but I'm not sure it's the right place to fix this, or if it covers all
+the cases where this could happen.  Anyway...
 
--vlad
+------------ 8< ------------
 
-> ---
->   include/uapi/linux/if_bridge.h |    1 +
->   net/bridge/br_if.c             |   77 +++++++++++++++++++++++++++++++++++++--
->   net/bridge/br_netlink.c        |    9 +++--
->   net/bridge/br_private.h        |    5 ++-
->   4 files changed, 82 insertions(+), 10 deletions(-)
->
-> diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-> index 1bc9216..e5ea4cb 100644
-> --- a/include/uapi/linux/if_bridge.h
-> +++ b/include/uapi/linux/if_bridge.h
-> @@ -120,6 +120,7 @@ enum {
->   #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
->
->   #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
-> +#define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
->
->   struct bridge_vlan_info {
->   	u16 flags;
-> diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-> index 7377113..0698581 100644
-> --- a/net/bridge/br_if.c
-> +++ b/net/bridge/br_if.c
-> @@ -182,6 +182,56 @@ static void br_vlan_flush(struct net_bridge *br)
->   	}
->   }
->
-> +static int nbp_vlan_add_pvid(struct net_port_vlans *v,
-> +			     struct net_bridge_vlan *vlan)
-> +{
-> +	struct net_bridge_vlan *pvlan = rtnl_dereference(v->pvlan);
-> +
-> +	if (pvlan == vlan)
-> +		return 0;
-> +	else if (pvlan) {
-> +		/* PVID is already set.  Drop the ref
-> +		 * to the old one since we'll be replace it.
-> +		 */
-> +		br_vlan_put(pvlan);
-> +	} else if (v->port_idx) {
-> +		struct net_device *dev = vlans_to_port(v)->dev;
-> +
-> +		/* Add vid 0 to filter if filter is available. */
-> +		if (!vlan_hw_buggy(dev)) {
-> +			int err = vlan_vid_add_hw(dev, 0);
-> +			if (err)
-> +				return err;
-> +		}
-> +	}
-> +
-> +	br_vlan_hold(vlan);
-> +	rcu_assign_pointer(v->pvlan, vlan);
-> +	return 0;
-> +}
-> +
-> +static void nbp_vlan_delete_pvid(struct net_port_vlans *v,
-> +				 struct net_bridge_vlan *vlan)
-> +{
-> +	struct net_bridge_vlan *pvlan = rtnl_dereference(v->pvlan);
-> +
-> +	if (pvlan != vlan)
-> +		return;
-> +
-> +	if (v->port_idx &&
-> +	    vlan_vid_del_hw(vlans_to_port(v)->dev, 0)) {
-> +		pr_warn("failed to kill vid 0 for device %s\n",
-> +			vlans_to_port(v)->dev->name);
-> +	}
-> +
-> +	/* If this VLAN is currently functioning as pvlan, clear it.
-> +	 * It's safe to drop the refcount, since the vlan is still held
-> +	 * by the pve->vlan pointer.
-> +	 */
-> +	br_vlan_put(vlan);
-> +	rcu_assign_pointer(v->pvlan, NULL);
-> +}
-> +
->   struct net_port_vlan *nbp_vlan_find(const struct net_port_vlans *v, u16 vid)
->   {
->   	struct net_port_vlan *pve;
-> @@ -198,9 +248,9 @@ struct net_port_vlan *nbp_vlan_find(const struct net_port_vlans *v, u16 vid)
->   }
->
->   /* Must be protected by RTNL */
-> -int nbp_vlan_add(struct net_port_vlans *v, u16 vid)
-> +int nbp_vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
->   {
-> -	struct net_port_vlan *pve;
-> +	struct net_port_vlan *pve = NULL;
->   	struct net_bridge_vlan *vlan;
->   	struct net_bridge *br = vlans_to_bridge(v);
->   	struct net_bridge_port *p = vlans_to_port(v);
-> @@ -247,26 +297,45 @@ int nbp_vlan_add(struct net_port_vlans *v, u16 vid)
->   	set_bit(v->port_idx, vlan->port_bitmap);
->
->   	list_add_tail_rcu(&pve->list, &v->vlan_list);
-> +
-> +	if (flags & BRIDGE_VLAN_INFO_PVID) {
-> +		err = nbp_vlan_add_pvid(v, vlan);
-> +		if (err)
-> +			goto del_vlan;
-> +	}
-> +
->   	return 0;
->
->   clean_up:
->   	kfree(pve);
->   	br_vlan_del(vlan);
->   	return err;
-> +del_vlan:
-> +	nbp_vlan_delete(v, vid, flags);
-> +	return err;
->   }
->
->   /* Must be protected by RTNL */
-> -int nbp_vlan_delete(struct net_port_vlans *v, u16 vid)
-> +int nbp_vlan_delete(struct net_port_vlans *v, u16 vid, u16 flags)
->   {
->   	struct net_port_vlan *pve;
->   	struct net_bridge_vlan *vlan;
-> +	struct net_bridge *br;
->
->   	ASSERT_RTNL();
->
-> +	if (v->port_idx)
-> +		br = vlans_to_port(v)->br;
-> +	else
-> +		br = vlans_to_bridge(v);
-> +
->   	pve = nbp_vlan_find(v, vid);
->   	if (!pve)
->   		return -ENOENT;
->
-> +	if (flags & BRIDGE_VLAN_INFO_PVID)
-> +		nbp_vlan_delete_pvid(v, pve->vlan);
-> +
->   	if (v->port_idx) {
->   		/* A valid port index means this is a port.
->   		 * Remove VLAN from the port device filter if it is supported.
-> @@ -301,7 +370,7 @@ static void nbp_vlan_flush(struct net_port_vlans *vlans)
->   	ASSERT_RTNL();
->
->   	list_for_each_entry_safe(pve, tmp, &vlans->vlan_list, list)
-> -		nbp_vlan_delete(vlans, pve->vid);
-> +		nbp_vlan_delete(vlans, pve->vid, BRIDGE_VLAN_INFO_PVID);
->   }
->
->   static void release_nbp(struct kobject *kobj)
-> diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-> index f365ac4..08692d1 100644
-> --- a/net/bridge/br_netlink.c
-> +++ b/net/bridge/br_netlink.c
-> @@ -200,19 +200,20 @@ static int br_afspec(struct net_bridge *br,
->
->   		switch (cmd) {
->   		case RTM_SETLINK:
-> -			err = nbp_vlan_add(v, vinfo->vid);
-> +			err = nbp_vlan_add(v, vinfo->vid, vinfo->flags);
->   			if (err)
->   				break;
->   			if (p && (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)) {
->   				err = nbp_vlan_add(&p->br->vlan_info,
-> -						   vinfo->vid);
-> +						   vinfo->vid, vinfo->flags);
->   			}
->   			break;
->
->   		case RTM_DELLINK:
-> -			nbp_vlan_delete(v, vinfo->vid);
-> +			nbp_vlan_delete(v, vinfo->vid, vinfo->flags);
->   			if (p && (vinfo->flags & BRIDGE_VLAN_INFO_MASTER))
-> -				nbp_vlan_delete(&p->br->vlan_info, vinfo->vid);
-> +				nbp_vlan_delete(&p->br->vlan_info, vinfo->vid,
-> +						vinfo->flags);
->
->   			break;
->   		}
-> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-> index 4c507a4..d39701a 100644
-> --- a/net/bridge/br_private.h
-> +++ b/net/bridge/br_private.h
-> @@ -89,6 +89,7 @@ struct net_port_vlan {
->   struct net_port_vlans {
->   	u16				port_idx;
->   	struct list_head		vlan_list;
-> +	struct net_bridge_vlan __rcu	*pvlan;
->   };
->
->   struct net_bridge_fdb_entry
-> @@ -472,8 +473,8 @@ extern int br_min_mtu(const struct net_bridge *br);
->   extern netdev_features_t br_features_recompute(struct net_bridge *br,
->   	netdev_features_t features);
->   extern struct net_bridge_vlan *br_vlan_find(struct net_bridge *br, u16 vid);
-> -extern int nbp_vlan_add(struct net_port_vlans *v, u16 vid);
-> -extern int nbp_vlan_delete(struct net_port_vlans *v, u16 vid);
-> +extern int nbp_vlan_add(struct net_port_vlans *v, u16 vid, u16 flags);
-> +extern int nbp_vlan_delete(struct net_port_vlans *v, u16 vid, u16 flags);
->   extern struct net_port_vlan *nbp_vlan_find(const struct net_port_vlans *v,
->   					   u16 vid);
->
->
+When a bonding interface changes slaves (or goes from no active slaves
+to having a slave with link), the bonding driver generates a
+NETDEV_CHANGEADDR notification.  In this case, the ipv6 neighbour
+discovery code calls neigh_changeaddr(), which basically just calls
+neigh_flush_dev().
+
+Now, neigh_flush_dev() just goes through the neighbour hash table and
+tries to free every neighbour from the device being flushed.  However,
+if someone else has an additional reference on the neighbour, we hit
+
+			if (atomic_read(&n->refcnt) != 1) {
+				/* The most unpleasant situation.
+				   We must destroy neighbour entry,
+				   but someone still uses it.
+
+				   The destroy will be delayed until
+				   the last user releases us, but
+				   we must kill timers etc. and move
+				   it to safe state.
+				 */
+				skb_queue_purge(&n->arp_queue);
+				n->arp_queue_len_bytes = 0;
+				n->output = neigh_blackhole;
+				if (n->nud_state & NUD_VALID)
+					n->nud_state = NUD_NOARP;
+				else
+					n->nud_state = NUD_NONE;
+				NEIGH_PRINTK2("neigh %p is stray.\n", n);
+			}
+
+which leaves the final freeing of the "stray" neighbour until the last
+reference is dropped; in the meantime the output function is set to
+neigh_blackhole, which does nothing but free the skb and return ENETDOWN.
+
+All of this is fine, unless we have something like a TCP over IPv6 to
+a system directly reachable via the bonding interface.  In that case,
+we'll have a cached route for the flow.  The route will hold a
+reference on a neighbour pointing to the destination, so the neighbour
+will become "stray" and won't be freed.  The TCP socket will hold a
+reference on the route, so it won't be GCed after the aging interval.
+Since every packet we send via the "stray" neighbour will be dropped,
+a TCP connection can stay in the ESTABLISHED (or FIN-WAIT-1) state for
+a *long* time before it finally gives up.
+
+This leads to a situation where even new connections to or from that
+destination fail, because we just drop every packet we try to send
+(including things like neighbour discovery advertisements in response
+to the remote system trying to find us).  One symptom of having the
+cached route with a "stray" neighbour around is that ping6 to the
+unreachable system up will fail with:
+
+    # ping6 fe80::202:c903:f:185b%bond0
+    PING fe80::202:c903:f:185b%bond0(fe80::202:c903:f:185b) 56 data bytes
+    ping: sendmsg: Network is down
+    ping: sendmsg: Network is down
+
+("sendmsg: Network is down" == ENETDOWN returned from neigh_blackhole())
+
+A solution is much simpler than the problem's description: the ipv6
+ndisc code calls fib6_run_gc() right after it calls neigh_changeaddr(),
+and we can add one line to fib6_age() to drop cached routes with a
+"stray" neighbour.  This forcibly kills the routes that hold a reference
+to the "stray" neighbour so it can be freed without waiting.
+
+Signed-off-by: Roland Dreier <roland@purestorage.com>
+---
+ net/ipv6/ip6_fib.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 710cafd..5895b1c 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1602,8 +1602,9 @@ static int fib6_age(struct rt6_info *rt, void *arg)
+ 		}
+ 		gc_args.more++;
+ 	} else if (rt->rt6i_flags & RTF_CACHE) {
+-		if (atomic_read(&rt->dst.__refcnt) == 0 &&
+-		    time_after_eq(now, rt->dst.lastuse + gc_args.timeout)) {
++		if ((rt->n && rt->n->dead) ||
++		    (atomic_read(&rt->dst.__refcnt) == 0 &&
++		     time_after_eq(now, rt->dst.lastuse + gc_args.timeout))) {
+ 			RT6_TRACE("aging clone %p\n", rt);
+ 			return -1;
+ 		} else if (rt->rt6i_flags & RTF_GATEWAY) {
+-- 
+1.8.0
