@@ -1,69 +1,74 @@
-From: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Subject: RE: [E1000-devel] [PATCH net-next] igbvf: fix setting
- addr_assign_type if PF is up
-Date: Wed, 9 Jan 2013 18:56:36 +0000
-Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
- <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
- <50EDAFC6.3070700@kpanic.de>
+From: Ani Sinha <ani@aristanetworks.com>
+Subject: Re: [PATCH net 1/2] net: dev_queue_xmit_nit: fix
+	skb->vlan_tci field value
+Date: Wed, 9 Jan 2013 11:27:10 -0800
+Message-ID: <CAOxq_8P4PLKXn9FOAWyq4zYH5+Yt7DT1mrU2OSQujGCOjBJZYg@mail.gmail.com>
+References: <CAOUgPvRGQ4XQ-HCFzwKi5rFFfC1fJcicH8DxH0pUjAvgxfi7cw@mail.gmail.com>
+	<CAOxq_8MXCvGpq4Q0UfxSbWMDNTusrK710fQ11qgfXKWS+zpoZQ@mail.gmail.com>
+	<1357712850.27446.28.camel@edumazet-glaptop>
+	<CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Stefan Assmann <sassmann@kpanic.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:19998 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932478Ab3AIS4i convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 13:56:38 -0500
-In-Reply-To: <50EDAFC6.3070700@kpanic.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dborkman <dborkman@redhat.com>,
+	Jiri Pirko <jpirko@redhat.com>, edumazet <edumazet@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>, tcpdump-workers@lists.tcpdump.org
+Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
+In-Reply-To: <CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
+List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
+List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
+List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
+List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
+Sender: tcpdump-workers-bounces@lists.tcpdump.org
+Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
+List-Id: netdev.vger.kernel.org
 
-> >> When the PF is up and igbvf is loaded the MAC address is not
-> >> generated using eth_hw_addr_random(). This results in
-> >> addr_assign_type not to be set.
-> >> Make sure it gets set.
-> >>
-> >
-> > NAK - In this case, the address may or may not be random. The user may
-> > have (and should have!) explicitly set this address from the host to
-> > ensure that the VF device receives the same address each time it
-> boots.
-> 
-> Maybe you can give me some advice on this then. Why is there different
-> behaviour depending on the PF being up or down? The problem I'm facing
-> is that if the user did not set a MAC address for the VF manually and
-> the PF is up during igbvf_probe it will not be labelled as random
-> although it is.
-> What about checking IGB_VF_FLAG_PF_SET_MAC and only set NET_ADDR_RANDOM
-> if the flag is cleared?
-> 
+>> Thats irrelevant. This only shows that user land was depending on a
+>> prior undocumented behavior.
 
-The difference in behavior is because we cannot get any MAC address at all
-if the PF is down. The interface won't operate at all in this case, but if
-the PF comes up sometime later, we can start working. The other alternative
-is to leave the MAC address as all zeros and forcing the user to assign
-an address manually. We chose to use a random address to at least give it
-a chance of working once the PF woke up.
+Why do you say that? The following patch from Pirko ensured that on
+both RX and TX regardless whether the driver/hw supported vlan
+acceleration, the outermost vlan tags will always be extracted out of
+the packet and put in skb aux data :
 
-Currently, the PF has no way to communicate to the VF whether or not the
-MAC address is random or assigned. The VF cannot check the
-IGB_VF_FLAG_PF_SET_MAC flag because that only exists in the PF driver. To
-propagate this flag down to the VF driver would require changes to the
-PF/VF communication protocol.
+commit bcc6d47903612c3861201cc3a866fb604f26b8b2
+Author: Jiri Pirko <jpirko@redhat.com>
+Date:   Thu Apr 7 19:48:33 2011 +0000
 
-In any case, I'm not sure that's the correct thing to do. From a policy
-viewpoint, we don't want the VF to know what's happening in the PF. It
-should not know how or why the MAC address was assigned, just like it
-should not know whether or not the PF has placed it on a VLAN. VF devices
-are not to be trusted and should not be given more information about the
-state of the PF and host OS than is absolutely necessary to operate.
+    net: vlan: make non-hw-accel rx path similar to hw-accel
 
-What's your use case here, Stefan? Why is this flag important to you?
-As far as I can tell, nothing in the kernel ever looks at this flag.
+Now this meant that the filter code should always look into the aux
+data for vlan tagging, not in the packet, regardless of hw
+acceleration availability. Your patch
+b40863c667c16b7a73d4f034a8eab67029b5b15a broke this symmetric
+semantics - now on TX on the network tap, we do not have the vlan tags
+in the skb aux data.
 
--Mitch
+In my opinion, for a given kernel, the filter code should either look
+into the packet offset or in the packet aux data for vlan tags but not
+both. Otherwise the filter code becomes incredibly complex since an
+inline vlan tag in the packet changes offsets of all headers coming
+afterwords and I don't even know if filter code can be correctly
+generated in this case. tcpdump-workers folks are CC's here and they
+clearly have more experience with libpcap filter code that I do. Hence
+I leave it up to them to provide inputs here.
+
+>> What's wrong instructing libpcap to extend the filter to be able to
+>> get the correct result, vlan id being in skb->vlan_id (vlan accel on),
+>> or in the packet itself (vlan accel off)
+>>
+>> This way, you could chose if you want to get only accelerated vlan,
+>> or non accelerated vlan, or both. And you need no kernel hacking.
+
+This is wrong. Accelerated or not, the kernel code was organized to
+have the tags in the packet aux data. So I think this is how user land
+should be coded as well.
+
+ani
+_______________________________________________
+tcpdump-workers mailing list
+tcpdump-workers@lists.tcpdump.org
+https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
