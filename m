@@ -1,40 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: introduce skb_transport_header_was_set()
-Date: Tue, 08 Jan 2013 17:52:09 -0800 (PST)
-Message-ID: <20130108.175209.183446498109754610.davem@davemloft.net>
-References: <1356104720.21834.7497.camel@edumazet-glaptop>
-	<50D5B8BA.9010808@mojatatu.com>
-	<1357586901.6919.3551.camel@edumazet-glaptop>
+Subject: Re: [PATCH v3] net: fec: Remove 'inline' declarations
+Date: Tue, 08 Jan 2013 17:54:28 -0800 (PST)
+Message-ID: <20130108.175428.1998635740764887597.davem@davemloft.net>
+References: <1357616576-25307-1-git-send-email-festevam@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: shawn.guo@linaro.org, netdev@vger.kernel.org, joe@perches.com,
+	fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36015 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36031 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756193Ab3AIBwK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 20:52:10 -0500
-In-Reply-To: <1357586901.6919.3551.camel@edumazet-glaptop>
+	with ESMTP id S1756061Ab3AIBy3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 20:54:29 -0500
+In-Reply-To: <1357616576-25307-1-git-send-email-festevam@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 07 Jan 2013 11:28:21 -0800
+From: Fabio Estevam <festevam@gmail.com>
+Date: Tue,  8 Jan 2013 01:42:56 -0200
 
-> [PATCH net-next] net: introduce skb_transport_header_was_set()
+> From: Fabio Estevam <fabio.estevam@freescale.com>
 > 
-> We have skb_mac_header_was_set() helper to tell if mac_header
-> was set on a skb. We would like the same for transport_header.
+> Fix the following warning when building with W=1 option:
 > 
-> __netif_receive_skb() doesn't reset the transport header if already
-> set by GRO layer.
+> drivers/net/ethernet/freescale/fec.c:810:1: warning: '__inline__' is not at beginning of declaration [-Wold-style-declaration]
 > 
-> Note that network stacks usually reset the transport header anyway,
-> after pulling the network header, so this change only allows
-> a followup patch to have more precise qdisc pkt_len computation
-> for GSO packets at ingress side.
+> The inline declaration is pointless in this function, so just remove it.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> While at it, also remove the other 'inline' declarations.
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Applied.
+Applied to net-next.
