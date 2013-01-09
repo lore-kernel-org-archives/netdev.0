@@ -1,83 +1,130 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: r8169 rx_missed increasing in bursts (regression)
-Date: Wed, 9 Jan 2013 19:14:56 +0200
-Message-ID: <20130109191456.0888ac75@vostro>
-References: <20130108102814.7abe8c08@vostro>
-	<20130108225833.GA4193@electric-eye.fr.zoreil.com>
-	<20130109115850.055b7a7e@vostro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH net-next V5 00/14] Add basic VLAN support to bridges
+Date: Wed,  9 Jan 2013 12:17:47 -0500
+Message-ID: <1357751882-8619-1-git-send-email-vyasevic@redhat.com>
+Cc: davem@davemloft.net, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	mst@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:61695 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932218Ab3AIRPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 12:15:00 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e53so959803eek.33
-        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 09:14:59 -0800 (PST)
-In-Reply-To: <20130109115850.055b7a7e@vostro>
+Received: from mx1.redhat.com ([209.132.183.28]:61935 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932129Ab3AIRSI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2013 12:18:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Jan 2013 11:58:50 +0200 Timo Teras <timo.teras@iki.fi> wrote:
+This series of patches provides an ability to add VLANs to the bridge
+ports.  This is similar to what can be found in most switches.  The bridge
+port may have any number of VLANs added to it including vlan 0 priority tagged
+traffic.  When vlans are added to the port, only traffic tagged with particular
+vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
+entries and become part of the lookup.  This way we correctly identify the FDB
+entry.
 
-> On Tue, 8 Jan 2013 23:58:33 +0100 Francois Romieu
-> <romieu@fr.zoreil.com> wrote:
-> 
-> > Timo Teras <timo.teras@iki.fi> :
-> > [...]
-> > > My current hypothesis is that due to high softirq and recent(ish)
-> > > commit da78dbf "r8169: remove work from irq handler" moving more
-> > > work to softirq makes the receive path now suffer from latency
-> > > from getting irq to reading packets from the NIC on these boxes.
-> > > And that at times the rx fifo can get full causing a missed
-> > > packet or so.
-> > 
-> > This hypothesis won't explain the regression in 3.3.8 since 3.3.x
-> > does not include commit da78dbf.
-> > 
-> > Do you notice any netdev watchdog message in dmesg ?
-> 
-> In production boxes. No.
-> 
-> The lab environment where we tried to reproduce this, we received:
-> NOHZ: local_softirq_pending 08
-> 
-> Which is likely related, but separate issue. And fixed by commit
-> da78dbf. So seems that just got upgraded to "regression fix".
-> 
-> > 'perf top' may exhibit something unusual too.
-> 
-> Will try this.
-> 
-> I did notice that:
-> /proc/net/softnet_stat's 3rd field aka. softnet_data.time_squeeze
-> keeps incrementing when ever rx_missed increases. Sometiems
-> time_squeeze increments on it own. But rx_missed never increases
-> without time_squeeze bumping up seriously too.
+A single vlan per port may also be designated as a PVID.  Any untagged
+traffic recieved by the port will be assigned to this vlan and all further
+processing will be done with this vlan in mind.
 
-Did more general observing.
+Any number for vlans per port may also be designated as untagged.  This
+defines their egress policy such that any frame exiting the port with a
+VID matching the untagged vlan will exit untagged (the bridge will strip the
+vlan header).
 
-It seems that the rx_missed is not directly related to traffic amount.
-At times the box is handling easily 10000+ pps, while packet loss can
-happen at other times on 4000-8000pps levels.
+Bridge device is trated as just another port for the purposes of vlan
+configuration so, users have to configure which vlans are allowed to
+enter and exit the bridge master device.
 
-Generally time_squeeze does not happen, and the box is at 20-30%
-softirq. Some times time_squeeze bumps up with one (within a one second
-interval) or two and packet loss does not happen.
+The default behavior of the bridge is unchanged if no vlans have been
+configured.  Default behavior of each port is also unchanged if no
+vlans are configured on that port (i.e there are no ingress/egress checks
+or vlan header manipulation).
 
-When rx_missed is getting bumped, time_squeeze goes up with 1-3, and
-rx_missed goes up with 50-1000 packets. Usually around 200 packets. (1
-second sampling period)
+Changes since v4:
+ - Pull per-port vlan data into its own structures and give it to the bridge
+   device thus making bridge device behave like a regular port for vlan
+   configuration.
+ - Add a per-vlan 'untagged' bitmap that determins egress policy.  If a port
+   is part of this bitmap, traffic egresses untagged.
+ - PVID is now used for ingress policy only.  Incomming frames without VLAN tag
+   are assigned to the PVID vlan.  Egress is determined via bitmap memberships.
+ - Allow for incremental config of a vlan.  Now, PVID and untagged memberships
+   may be set on existing vlans.  They however can NOT be cleared separately.
+ - VLAN deletion is now done via RTM_DELLINK command for PF_BRIDGE family.
+   This cleans up the netlink interface.
 
-I did find a strong correlation that rx_misses happen usually when the
-box has dropped a packet due to iptables DROP/REJECT rule, or some
-other reason (e.g. I'm seeing once in a while dmesg contain:
-"nf_ct_sip: dropping packet").
+Changes since v3:
+ - Re-integrated compiler problems that got left out last time.  Appologies.
+ - checkpatches.pl errors fixed
 
-Any ideas why a netfilter packet drop might cause netdevice rx to stall
-long enough to saturate the hardware receive queue?
+Changes since v2:
+ - Added inline functiosn to manimulate vlan hw filters and re-use in 8021q
+   and bridge code.
+ - Use rtnl_dereference (Michael Tsirkin)
+ - Remove synchronize_net() call (Eric Dumazet)
+ - Fix NULL ptr deref bug I introduced in br_ifinfo_notify.
 
-- Timo
+Changes since v1:
+ - Fixed some forwarding bugs.
+ - Add vlan to local fdb entries.  New local entries are created per vlan
+   to facilite correct forwarding to bridge interface.
+ - Allow configuration of vlans directly on the bridge master device
+   in addition to ports.
+
+Changes since rfc v2:
+ - Per-port vlan bitmap is gone and is replaced with a vlan list.
+ - Added bridge vlan list, which is referenced by each port.  Entries in
+   the birdge vlan list have port bitmap that shows which port are parts
+   of which vlan.
+ - Netlink API changes.
+ - Dropped sysfs support for now.  If people think this is really usefull,
+   can add it back.
+ - Support for native/untagged vlans.
+
+Changes since rfc v1:
+ - Comments addressed regarding formatting and RCU usage
+ - iocts have been removed and changed over the netlink interface.
+ - Added support of user added ndb entries.
+ - changed sysfs interface to export a bitmap.  Also added a write interface.
+   I am not sure how much I like it, but it made my testing easier/faster.  I
+   might change the write interface to take text instead of binary.
+
+Vlad Yasevich (14):
+  vlan: wrap hw-acceleration calls in separate functions.
+  bridge: Add vlan filtering infrastructure
+  bridge: Validate that vlan is permitted on ingress
+  bridge: Verify that a vlan is allowed to egress on give port
+  bridge: Cache vlan in the cb for faster egress lookup.
+  bridge: Add vlan to unicast fdb entries
+  bridge: Add vlan id to multicast groups
+  bridge: Add netlink interface to configure vlans on bridge ports
+  bridge: Add vlan support to static neighbors
+  bridge: Add the ability to configure pvid
+  bridge: API to configure egress policy
+  bridge: Implement vlan ingress/egress policy
+  bridge: Dump vlan information from a bridge port
+  bridge: Add vlan support for local fdb entries
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
+ drivers/net/macvlan.c                         |    2 +-
+ drivers/net/vxlan.c                           |    3 +-
+ include/linux/if_vlan.h                       |   57 ++++
+ include/linux/netdevice.h                     |    6 +-
+ include/uapi/linux/if_bridge.h                |   13 +-
+ include/uapi/linux/neighbour.h                |    1 +
+ include/uapi/linux/rtnetlink.h                |    1 +
+ net/8021q/vlan.c                              |    4 +-
+ net/8021q/vlan_core.c                         |   24 +--
+ net/bridge/br_device.c                        |   13 +-
+ net/bridge/br_fdb.c                           |  254 +++++++++++++++----
+ net/bridge/br_forward.c                       |  131 ++++++++++
+ net/bridge/br_if.c                            |  347 ++++++++++++++++++++++++-
+ net/bridge/br_input.c                         |   69 +++++-
+ net/bridge/br_multicast.c                     |   71 ++++--
+ net/bridge/br_netlink.c                       |  242 +++++++++++++++--
+ net/bridge/br_private.h                       |  101 +++++++-
+ net/core/rtnetlink.c                          |  111 +++++++-
+ 19 files changed, 1307 insertions(+), 148 deletions(-)
+
+-- 
+1.7.7.6
