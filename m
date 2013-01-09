@@ -1,36 +1,58 @@
-From: Sujith Manoharan <sujith@msujith.org>
-Subject: Re: [PATCH] ath9k_htc: Fix skb leaks
-Date: Wed, 9 Jan 2013 13:49:47 +0530
-Message-ID: <20717.10275.994429.552141@gargle.gargle.HOWL>
-References: <1357098567-8558-1-git-send-email-Larry.Finger@lwfinger.net>
-	<20707.47067.474241.813195@gargle.gargle.HOWL>
-	<50E3BE23.3010102@lwfinger.net>
-	<20707.50445.510814.481023@gargle.gargle.HOWL>
-	<50EC44B5.6020605@lwfinger.net>
+From: =?UTF-8?B?S2lyaWxsIEthcHJhbm92?= <kapranoff@inbox.ru>
+Subject: =?UTF-8?B?W1BBVENIXSBFbGltaW5hdGUgdGhlIGZvcmNlZCBzcGVlZCByZWR1Y3Rpb24g?=
+ =?UTF-8?B?YWxnb3JpdGht?=
+Date: Wed, 09 Jan 2013 12:21:12 +0400
+Message-ID: <1357719672.688670642@f210.mail.ru>
+Reply-To: =?UTF-8?B?S2lyaWxsIEthcHJhbm92?= <kapranoff@inbox.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
-	Senthil Balasubramanian <senthilb@qca.qualcomm.com>,
-	ath9k-devel@lists.ath9k.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sg2plout10-02.prod.sin2.secureserver.net ([182.50.145.5]:55601
-	"EHLO sg2plout10-02.prod.sin2.secureserver.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757020Ab3AIIUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 03:20:47 -0500
-In-Reply-To: <50EC44B5.6020605@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Larry Finger wrote:
-> > I'll come up with a patch and see if kmemleak still complains.
-> 
-> Did I miss your posting on this issue?
-
-Nope, I haven't got to this yet, sorry. I'll try to send a patch by today.
-
-Sujith
+TkVUL1BIWTogRWxpbWluYXRlIHRoZSBmb3JjZWQgc3BlZWQgcmVkdWN0aW9uIGFsZ29yaXRobS4K
+SW4gY2FzZSBvZiB0aGUgZml4ZWQgc3BlZWQgc2V0IHVwIGZvciBOSUMgCihlLmcuIGV0aHRvb2wg
+LXMgZXRoMCBhdXRvbmVnIG9mZiBzcGVlZCAxMDAgZHVwbGV4IGZ1bGwpCndpdGggZXRoZXJuZXQg
+Y2FibGUgcGx1Z2dlZCBvZmYsIG1lbnRpb25lZCBhbGdvcml0aG0Kc2xvd3MgZG93biBOSUMgc3Bl
+ZWQsIHNvIHRoZSBmdXJ0aGVyICJob29raW5nIHVwIiBnaXZlcwpubyByZXN1bHQuIEFGQUlLLCB0
+aGlzIGJlaGF2aW91ciBpcyBub3QgUkZDcycgcmVjb21tZW5kZWQuClRlc3RlZCBhdCAyLjYuMzgu
+NywgYXBwbGljYWJsZSB1cCB0byBmb3IgMy4wLjQuIApTaWduZWQtb2ZmLWJ5OiBLaXJpbGwgS2Fw
+cmFub3YgPGtra0BuaXRhLnJ1Piw8a2FwcmFub2ZmQGluYm94LnJ1PgotLS0gbGludXgvZHJpdmVy
+cy9uZXQvcGh5L3BoeS5jLm9yaWcgMjAxMS0wNS0yMiAwMjoxMzo1OS4wMDAwMDAwMDAgKzA0MDAK
+KysrIGxpbnV4L2RyaXZlcnMvbmV0L3BoeS9waHkuYyAyMDEyLTA0LTI4IDEyOjQ5OjM3LjAwMDAw
+MDAwMCArMDQwMApAQCAtNDU3LDM0ICs0NTcsNiBAQCB2b2lkIHBoeV9zdG9wX21hY2hpbmUoc3Ry
+dWN0IHBoeV9kZXZpY2UKfQoKLyoqCi0gKiBwaHlfZm9yY2VfcmVkdWN0aW9uIC0gcmVkdWNlIFBI
+WSBzcGVlZC9kdXBsZXggc2V0dGluZ3MgYnkgb25lIHN0ZXAKLSAqIEBwaHlkZXY6IHRhcmdldCBw
+aHlfZGV2aWNlIHN0cnVjdAotICoKLSAqIERlc2NyaXB0aW9uOiBSZWR1Y2VzIHRoZSBzcGVlZC9k
+dXBsZXggc2V0dGluZ3MgYnkgb25lIG5vdGNoLAotICogaW4gdGhpcyBvcmRlci0tCi0gKiAxMDAw
+L0ZVTEwsIDEwMDAvSEFMRiwgMTAwL0ZVTEwsIDEwMC9IQUxGLCAxMC9GVUxMLCAxMC9IQUxGLgot
+ICogVGhlIGZ1bmN0aW9uIGJvdHRvbXMgb3V0IGF0IDEwL0hBTEYuCi0gKi8KLXN0YXRpYyB2b2lk
+IHBoeV9mb3JjZV9yZWR1Y3Rpb24oc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikKLXsKLSBpbnQg
+aWR4OwotCi0gaWR4ID0gcGh5X2ZpbmRfc2V0dGluZyhwaHlkZXYtPnNwZWVkLCBwaHlkZXYtPmR1
+cGxleCk7Ci0gCi0gaWR4Kys7Ci0KLSBpZHggPSBwaHlfZmluZF92YWxpZChpZHgsIHBoeWRldi0+
+c3VwcG9ydGVkKTsKLQotIHBoeWRldi0+c3BlZWQgPSBzZXR0aW5nc1tpZHhdLnNwZWVkOwotIHBo
+eWRldi0+ZHVwbGV4ID0gc2V0dGluZ3NbaWR4XS5kdXBsZXg7Ci0KLSBwcl9pbmZvKCJUcnlpbmcg
+JWQvJXNcbiIsIHBoeWRldi0+c3BlZWQsCi0gRFVQTEVYX0ZVTEwgPT0gcGh5ZGV2LT5kdXBsZXgg
+PwotICJGVUxMIiA6ICJIQUxGIik7Ci19Ci0KLQotLyoqCiogcGh5X2Vycm9yIC0gZW50ZXIgSEFM
+VEVEIHN0YXRlIGZvciB0aGlzIFBIWSBkZXZpY2UKKiBAcGh5ZGV2OiB0YXJnZXQgcGh5X2Rldmlj
+ZSBzdHJ1Y3QKKgpAQCAtODE0LDMwICs3ODYsMTIgQEAgdm9pZCBwaHlfc3RhdGVfbWFjaGluZShz
+dHJ1Y3Qgd29ya19zdHJ1YwpwaHlkZXYtPmFkanVzdF9saW5rKHBoeWRldi0+YXR0YWNoZWRfZGV2
+KTsKCn0gZWxzZSBpZiAoMCA9PSBwaHlkZXYtPmxpbmtfdGltZW91dC0tKSB7Ci0gaW50IGlkeDsK
+Cm5lZWRzX2FuZWcgPSAxOwovKiBJZiB3ZSBoYXZlIHRoZSBtYWdpY19hbmVnIGJpdCwKKiB3ZSB0
+cnkgYWdhaW4gKi8KaWYgKHBoeWRldi0+ZHJ2LT5mbGFncyAmIFBIWV9IQVNfTUFHSUNBTkVHKQpi
+cmVhazsKLQotIC8qIFRoZSB0aW1lciBleHBpcmVkLCBhbmQgd2Ugc3RpbGwKLSAqIGRvbid0IGhh
+dmUgYSBzZXR0aW5nLCBzbyB3ZSB0cnkKLSAqIGZvcmNpbmcgaXQgdW50aWwgd2UgZmluZCBvbmUg
+dGhhdAotICogd29ya3MsIHN0YXJ0aW5nIGZyb20gdGhlIGZhc3Rlc3Qgc3BlZWQsCi0gKiBhbmQg
+d29ya2luZyBvdXIgd2F5IGRvd24gKi8KLSBpZHggPSBwaHlfZmluZF92YWxpZCgwLCBwaHlkZXYt
+PnN1cHBvcnRlZCk7Ci0KLSBwaHlkZXYtPnNwZWVkID0gc2V0dGluZ3NbaWR4XS5zcGVlZDsKLSBw
+aHlkZXYtPmR1cGxleCA9IHNldHRpbmdzW2lkeF0uZHVwbGV4OwotCi0gcGh5ZGV2LT5hdXRvbmVn
+ID0gQVVUT05FR19ESVNBQkxFOwotCi0gcHJfaW5mbygiVHJ5aW5nICVkLyVzXG4iLCBwaHlkZXYt
+PnNwZWVkLAotIERVUExFWF9GVUxMID09Ci0gcGh5ZGV2LT5kdXBsZXggPwotICJGVUxMIiA6ICJI
+QUxGIik7Cn0KYnJlYWs7CmNhc2UgUEhZX05PTElOSzoKQEAgLTg2Myw3ICs4MTcsNiBAQCB2b2lk
+IHBoeV9zdGF0ZV9tYWNoaW5lKHN0cnVjdCB3b3JrX3N0cnVjCm5ldGlmX2NhcnJpZXJfb24ocGh5
+ZGV2LT5hdHRhY2hlZF9kZXYpOwp9IGVsc2UgewppZiAoMCA9PSBwaHlkZXYtPmxpbmtfdGltZW91
+dC0tKSB7Ci0gcGh5X2ZvcmNlX3JlZHVjdGlvbihwaHlkZXYpOwpuZWVkc19hbmVnID0gMTsKfQp9
+CiA=
