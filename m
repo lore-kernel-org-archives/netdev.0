@@ -1,60 +1,81 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Wed, 9 Jan 2013 21:29:07 +0000
-Message-ID: <20130109212907.GA27361@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
- <20130106120700.GA24671@dcvr.yhbt.net>
- <20130107122516.GC3885@suse.de>
- <20130107223850.GA21311@dcvr.yhbt.net>
- <20130108224313.GA13304@suse.de>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting
+ addr_assign_type if PF is up
+Date: Wed, 9 Jan 2013 13:37:45 -0800
+Message-ID: <20130109133745.00004627@unknown>
+References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
+	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
+	<50EDAFC6.3070700@kpanic.de>
+	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20130108224313.GA13304@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Assmann <sassmann@kpanic.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:40588 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933245Ab3AIVhu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2013 16:37:50 -0500
+In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman <mgorman@suse.de> wrote:
-> When I looked at it for long enough I found a number of problems. Most
-> affect timing but two serious issues are in there. One affects how long
-> kswapd spends compacting versus reclaiming and the other increases lock
-> contention meaning that async compaction can abort early. Both are serious
-> and could explain why a driver would fail high-order allocations.
+On Wed, 9 Jan 2013 18:56:36 +0000
+"Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
+
+> > >> When the PF is up and igbvf is loaded the MAC address is not
+> > >> generated using eth_hw_addr_random(). This results in
+> > >> addr_assign_type not to be set.
+> > >> Make sure it gets set.
+> > >>
+> > >
+> > > NAK - In this case, the address may or may not be random. The
+> > > user may have (and should have!) explicitly set this address from
+> > > the host to ensure that the VF device receives the same address
+> > > each time it
+> > boots.
+> > 
+> > Maybe you can give me some advice on this then. Why is there
+> > different behaviour depending on the PF being up or down? The
+> > problem I'm facing is that if the user did not set a MAC address
+> > for the VF manually and the PF is up during igbvf_probe it will not
+> > be labelled as random although it is.
+> > What about checking IGB_VF_FLAG_PF_SET_MAC and only set
+> > NET_ADDR_RANDOM if the flag is cleared?
+> > 
 > 
-> Please try the following patch. However, even if it works the benefit of
-> capture may be so marginal that partially reverting it and simplifying
-> compaction.c is the better decision.
+> The difference in behavior is because we cannot get any MAC address
+> at all if the PF is down. The interface won't operate at all in this
+> case, but if the PF comes up sometime later, we can start working.
+> The other alternative is to leave the MAC address as all zeros and
+> forcing the user to assign an address manually. We chose to use a
+> random address to at least give it a chance of working once the PF
+> woke up.
 
-Btw, I'm still testing this patch with the "page->pfemalloc = false"
-change on top of it.
+Having been around at the inception of SR-IOV in Linux I recall that
+the primary reason we used a random ethernet address was so
+that the VF could at least work because there was no infrastructure
+to allow the host administrator to set the MAC address of the VF.  This
+hobbled testing and validation because the user would have to go to
+each VM and use a command local to the VM to set the VF MAC address to
+some LAA via ifconfig or ip.  When testing large numbers of VFs this was
+a definite pain.
 
-> diff --git a/mm/compaction.c b/mm/compaction.c
-> index 6b807e4..03c82c0 100644
-> --- a/mm/compaction.c
-> +++ b/mm/compaction.c
-> @@ -857,7 +857,8 @@ static int compact_finished(struct zone *zone,
->  	} else {
->  		unsigned int order;
->  		for (order = cc->order; order < MAX_ORDER; order++) {
-> -			struct free_area *area = &zone->free_area[cc->order];
-> +			struct free_area *area = &zone->free_area[order];
+Now that has changed and I wonder if maybe we shouldn't back out the
+random ethernet address assignment and go ahead with all zeros, leaving
+the device non-functional until the user has intentionally set either
+an LAA through the VF itself, or an administratively assigned MAC
+through the ip tool via the PF.
 
-I noticed something like this hunk wasn't in your latest partial revert
-(<20130109135010.GB13475@suse.de>)
-I admit I don't understand this code, but this jumped out at me.
+Use of the random MAC address is not recommended by Intel's own best
+known methods literature, it was used mostly so that we could get the
+technology working and it should probably be at least considered for
+deprecation or out right elimination.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+My two cents...
+
+- Greg
