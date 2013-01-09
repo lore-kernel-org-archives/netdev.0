@@ -1,41 +1,72 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next] ipv6: Use FIELD_SIZEOF() instead of dummy variable.
-Date: Thu, 10 Jan 2013 00:31:01 +0900
-Message-ID: <50ED8D35.8070506@linux-ipv6.org>
+From: Jason Luan <luanjianhai@163.com>
+Subject: Re: xen-netback notify DomU to send ARP.
+Date: Wed, 09 Jan 2013 23:37:55 +0800
+Message-ID: <50ED8ED3.8010007@163.com>
+References: <50EC099D.6020407@oracle.com>
+	<50EC297A02000078000B3BB5@nat28.tlf.novell.com>
+	<1357652541.7989.179.camel@zakaz.uk.xensource.com>
+	<50EC3DFD.8060206@oracle.com>
+	<1357660834.12649.103.camel@dagon.hellion.org.uk>
+	<50ED1EB3.3080605@oracle.com>
+	<50ED4F1D02000078000B3F87@nat28.tlf.novell.com>
+	<50ED6255.7020006@oracle.com>
+	<50ED825802000078000B4113@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:60592 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757904Ab3AIPbD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 10:31:03 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
+	Ian Campbell <Ian.Campbell@citrix.com>, konrad.wilk@oracle.com
+To: Jan Beulich <JBeulich@suse.com>
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <50ED825802000078000B4113@nat28.tlf.novell.com>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/af_inet6.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index b043c60..6b793bf 100644
---- a/net/ipv6/af_inet6.c
-+++ b/net/ipv6/af_inet6.c
-@@ -811,11 +811,10 @@ static struct pernet_operations inet6_net_ops = {
- 
- static int __init inet6_init(void)
- {
--	struct sk_buff *dummy_skb;
- 	struct list_head *r;
- 	int err = 0;
- 
--	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
-+	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > FIELD_SIZEOF(struct sk_buff, cb));
- 
- 	/* Register the socket-side information for inet6_create.  */
- 	for (r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
--- 
-1.7.9.5
+5LqOIDIwMTPlubQwMeaciDA55pelIDIxOjQ0LCBKYW4gQmV1bGljaCDlhpnpgZM6Cj4+Pj4gT24g
+MDkuMDEuMTMgYXQgMTM6MjgsIGppYW5oYWkgbHVhbiA8amlhbmhhaS5sdWFuQG9yYWNsZS5jb20+
+IHdyb3RlOgo+Pj4+ICsJc3dpdGNoIChldmVudCkgewo+Pj4+ICsJY2FzZSBORVRERVZfTk9USUZZ
+X1BFRVJTOgo+Pj4+ICsJCS8qIE5vdGlmeSBmcm9udGVuZCB0byBTZW5kIGdyYXR1aXRvdXMgQVJQ
+ICovCj4+Pj4gKwkJeGVuYnVzX3N3aXRjaF9zdGF0ZShiZS0+ZGV2LCBYZW5idXNTdGF0ZUluaXRp
+YWxpc2VkKTsKPj4+PiArCQl4ZW5idXNfc3dpdGNoX3N0YXRlKGJlLT5kZXYsICk7Cj4+PiBUaGlz
+IGlzIHRoZSBzb3J0IG9mIGNoYW5nZSB0aGF0IGNsZWFybHkgaXNuJ3QgYWNjZXB0YWJsZSwgYXMg
+SSBkb24ndAo+Pj4gdGhpbmsgeW91IGhhdmUgd2F5cyB0byBjaGVjayBfYWxsXyBleGlzdGluZyBm
+cm9udGVuZHMgZm9yIHRoZWlyCj4+PiBjb21wYXRpYmlsaXR5IHdpdGggdGhpcy4gQSBjb25uZWN0
+ZWQgLT4gY29ubmVjdGVkIHRyYW5zaXRpb24KPj4+IG1pZ2h0IGJlIGFjY2VwdGFibGUgKHRoYXQg
+d2FzIGRvbmUgaW4gdGhlIGJsb2NrIGZyb250ZW5kIHRvbywgZm9yCj4+PiBpbXBsZW1lbnRpbmcg
+ZHluYW1pYyByZXNpemUpLCBidXQgd2lsbCBsaWtlbHkgbmVlZCB0byBiZQo+Pj4gYWNjb21wYW5p
+ZWQgYnkgYSBmcm9udGVuZCBzaWRlIHBhdGNoIHRvIGhhbmRsZSB0aGF0ICh3aGljaCBzbwo+Pj4g
+ZmFyIHNob3VsZCBiZSBhIG5vLW9wKS4KPj4gVGhlIGxhdGVzdCB4ZW4gbmV0LWZyb250ZW50IGRy
+aXZlciBoYXZlIGhhbmRsZWQgdGhlIGNvbmRpdGlvbi4gU3RhdGUKPj4gWGVuYnVzU3RhdGVJbml0
+aWFsaXNlZCB3aWxsIGRvIG5vdGhpbmcsCj4+IGJ1dCBjaGFuZ2UgdG8gWGVuYnVzU3RhdGVDb25u
+ZWN0ZWQgd2lsbCB0cmlnZ2VyCj4+IG5ldGRldl9ub3RpZnlfcGVlcnMobmV0ZGV2KSB0byBzZW5k
+IEFSUC4KPiBEaWQgeW91IHJlYWQgbXkgZWFybGllciByZXBseSBjYXJlZnVsbHk/IFlvdSBzdGls
+bCBvbmx5IHRhbGsgYWJvdXQKPiAodXBzdHJlYW0pIExpbnV4IG5ldGZyb250LCBidXQgdGhpcyBp
+cyBub3QgdGhlIG9ubHkgKHBvc3NpYmxlKQo+IGZyb250ZW5kLiBZb3Ugc2hvdWxkIG5vdCBpbnZv
+a2Ugc3RhdGUgdHJhbnNpdGlvbnMgdGhhdCBjYW4gLQo+IGV2ZW4gaWYgb25seSB0aGVvcmV0aWNh
+bGx5IC0gYmxvdyB1cCBmcm9udGVuZHMuIEFuZCBhZmFpY3QgdGhlCkkgb25seSB3YW50IHRvIG5v
+dGlmeSB4ZW4tbmV0ZnJvbnQuIEkgZG9uJ3Qga25vdyB3aGF0IGlzIGJldHRlciB3YXk/ClRvIGF0
+dGFpbnRoZWdvYWwsIGkgdHJ5IHRvIG1vZGlmeSB2aXJ0dWFsIGludGVycnVwdCwgYnV0IHRoZSB3
+YXkgaXMKbW9yZWNvbXBsaWNhdGVkLG1vZGlmaWVkIGFuZCB3b3JraW5nLiBTbywgaSBnaXZlIHVw
+IHRoZSB3YXkuCldvdWxkIHlvdSBsaWtlIHRvIGdpdmUgc29tZSBzdWdnZXN0aW9uIGFib3V0IGhv
+dyB0byBub3RpZnkgeGVuLW5ldGZyb250Pwo+IG9ubHkgdGhpbmcgeW91IGNhbiBzYWZlbHkgYXNz
+dW1lIGZyb250ZW5kcyBvdWdodCB0byB0b2xlcmF0ZQo+IGFyZSB0cmFuc2l0aW9ucyBmcm9tIENv
+bm5lY3RlZCB0byBDb25uZWN0ZWQgKG9yIG1vcmUKPiBnZW5lcmFsbHkgZnJvbSBvbmUgc3RhdGUg
+dG8gdGhlIHNhbWUgb25lLCBidXQgdGhlIG90aGVyCj4gc3RhdGVzIGFyZW4ndCB1c2VmdWwgaGVy
+ZSwgZXhjZXB0IG1heWJlIHRoZSBSZWNvbmZpZ3VyKiBvbmVzKS4KU29ycnkgZm9yIHRoYXQuIEF0
+IHRoZSBiZWdpbm5pbmcgdGhlIHBhdGNoIGJlIGFwcGxpZWQgaW4ga2VybmVsIDIuNi4xOCB0bwpm
+aXhlZCBvbmUgaXNzdWUuIE9ubHkgWGVuYnVzU3RhdGVJbml0aWFsaXNlZCBhbmQgWGVuYnVzU3Rh
+dGVDbG9zZWQgKCBOb3QKUmVjb25maWd1cmUqIG9uZSkgZG9uJ3QgYW55IHRoaW5nLCBzbyBpIGNo
+b29zZSB0aGUgWGVuYnVzU3RhdGVJbml0aWFsaXNlZC4KRG8geW91IHN1Z2dlc3Rpb24gdGhhdCBp
+IGNob29zZSBSZWNvbmZpZ3VyZSo/Cj4KPiBKYW4KPgo+Cj4gX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18KPiBYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Cj4gWGVu
+LWRldmVsQGxpc3RzLnhlbi5vcmcKPiBodHRwOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwKCgoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVs
+IG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwOi8vbGlzdHMueGVuLm9y
+Zy94ZW4tZGV2ZWwK
