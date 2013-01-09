@@ -1,246 +1,61 @@
-From: Romain KUNTZ <r.kuntz@ipflavors.com>
-Subject: Re: [PATCH 1/2] ipv6: avoid blackhole and prohibited entries upon prefix purge [v3]
-Date: Wed, 9 Jan 2013 15:37:03 +0100
-Message-ID: <6A08EDC1-08A0-411D-90CF-6DB1CB7FA3A0@ipflavors.com>
-References: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com> <1357415941.1678.4163.camel@edumazet-glaptop> <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com> <50EAA28B.1080300@6wind.com> <3EF640F8-5242-486E-B7A3-9DA2A88F5A4F@ipflavors.com> <50EAED10.90904@6wind.com> <08F52788-0BD9-4907-8FC3-E9DF530AB042@ipflavors.com> <50EC47AD.8000801@6wind.com> <50EC54E3.9080606@linux-ipv6.org>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+From: Lukas Tribus <luky-37@hotmail.com>
+Subject: RE: tainted warnings with tcp splicing in 3.7.1
+Date: Wed, 9 Jan 2013 15:50:01 +0100
+Message-ID: <DUB107-W5763CF0DBFD588719D246DED2B0@phx.gbl>
+References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
-To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f51.google.com ([209.85.214.51]:38998 "EHLO
-	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757858Ab3AIOlo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 09:41:44 -0500
-Received: by mail-bk0-f51.google.com with SMTP id ik5so962288bkc.10
-        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 06:41:43 -0800 (PST)
-In-Reply-To: <50EC54E3.9080606@linux-ipv6.org>
+Received: from dub0-omc1-s1.dub0.hotmail.com ([157.55.0.200]:26942 "EHLO
+	dub0-omc1-s1.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756339Ab3AIO4T convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jan 2013 09:56:19 -0500
+In-Reply-To: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jan 8, 2013, at 18:18 , YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org> =
-wrote:
-> Nicolas Dichtel wrote:
->> Le 08/01/2013 12:38, Romain KUNTZ a =E9crit :
->>> On Jan 7, 2013, at 16:43 , Nicolas Dichtel <nicolas.dichtel@6wind.c=
-om> wrote:
->>>> Le 07/01/2013 12:30, Romain KUNTZ a =E9crit :
->>>>> Hello Nicolas,
->>>>>=20
->>>>> On Jan 7, 2013, at 11:25 , Nicolas Dichtel <nicolas.dichtel@6wind=
-=2Ecom> wrote:
->>>>>=20
->>>>>> Le 05/01/2013 22:44, Romain KUNTZ a =E9crit :
->>>>>>> Mobile IPv6 provokes a kernel Oops since commit 64c6d08e (ipv6:
->>>>>>> del unreachable route when an addr is deleted on lo), because
->>>>>>> ip6_route_lookup() may also return blackhole and prohibited
->>>>>>> entry. However, these entries have a NULL rt6i_table argument,
->>>>>>> which provokes an Oops in __ip6_del_rt() when trying to lock
->>>>>>> rt6i_table->tb6_lock.
->>>>>>>=20
->>>>>>> Beside, when purging a prefix, blakhole and prohibited entries
->>>>>>> should not be selected because they are not what we are looking
->>>>>>> for.
->>>>>>>=20
->>>>>>> We fix this by adding two new lookup flags (RT6_LOOKUP_F_NO_BLK=
-_HOLE
->>>>>>> and RT6_LOOKUP_F_NO_PROHIBIT) in order to ensure that such entr=
-ies
->>>>>>> are skipped during lookup and that the correct entry is returne=
-d.
->>>>>>>=20
->>>>>>> [v2]: use 'goto out;' instead of 'goto again;' to avoid unneces=
-sary
->>>>>>> oprations on rt (as suggested by Eric Dumazet).
->>>>>>>=20
->>>>>>> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
->>>>>>> ---
->>>>>>>  include/net/ip6_route.h |    2 ++
->>>>>>>  net/ipv6/addrconf.c     |    4 +++-
->>>>>>>  net/ipv6/fib6_rules.c   |    4 ++++
->>>>>>>  3 files changed, 9 insertions(+), 1 deletions(-)
->>>>>>>=20
->>>>>>> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
->>>>>>> index 27d8318..3c93743 100644
->>>>>>> --- a/include/net/ip6_route.h
->>>>>>> +++ b/include/net/ip6_route.h
->>>>>>> @@ -30,6 +30,8 @@ struct route_info {
->>>>>>>  #define RT6_LOOKUP_F_SRCPREF_TMP    0x00000008
->>>>>>>  #define RT6_LOOKUP_F_SRCPREF_PUBLIC    0x00000010
->>>>>>>  #define RT6_LOOKUP_F_SRCPREF_COA    0x00000020
->>>>>>> +#define RT6_LOOKUP_F_NO_BLK_HOLE    0x00000040
->>>>>>> +#define RT6_LOOKUP_F_NO_PROHIBIT    0x00000080
->>>>>>>=20
->>>>>>>  /*
->>>>>>>   * rt6_srcprefs2flags() and rt6_flags2srcprefs() translate
->>>>>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
->>>>>>> index 408cac4a..1891e23 100644
->>>>>>> --- a/net/ipv6/addrconf.c
->>>>>>> +++ b/net/ipv6/addrconf.c
->>>>>>> @@ -948,7 +948,9 @@ static void ipv6_del_addr(struct inet6_ifad=
-dr *ifp)
->>>>>>>          fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
->>>>>>>          fl6.daddr =3D prefix;
->>>>>>>          rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
->>>>>>> -                             RT6_LOOKUP_F_IFACE);
->>>>>>> +                        RT6_LOOKUP_F_IFACE |
->>>>>>> +                        RT6_LOOKUP_F_NO_BLK_HOLE |
->>>>>>> +                        RT6_LOOKUP_F_NO_PROHIBIT);
->>>>>>>=20
->>>>>>>          if (rt !=3D net->ipv6.ip6_null_entry &&
->>>>>> Is it not simpler to test the result here (net->ipv6.ip6_blk_hol=
-e_entry and
->>>>>> net->ipv6.ip6_prohibit_entry) like for the null_entry?
->>>>>> It will also avoid adding more flags.
->>>>>=20
->>>>> Your proposal would only solve part of the problem (the Oops in _=
-_ip6_del_rt()). Another problem here is that blackhole and prohibited r=
-ules should not be selected when trying to purge a prefix (correct me i=
-f I'm wrong) because they are not what we are looking for. This can pre=
-vent the targeted prefix from being purged.
->>>> In fact, I'm not sure to get the scenario. This part of the code j=
-ust tries
->>>> to remove the connected prefix, added by the kernel when the addre=
-ss was added.
->>>> Can you describe your scenario?
->>>=20
->>>=20
->>> I should have given more details from the beginning, my mistake. Th=
-e scenario where this happens is quite simple:
->>>=20
->>> - install a blackhole rule (e.g. "from 2001:db8::1000 blackhole" - =
-the source address does not matter at all) with the FIB_RULE_FIND_SADDR=
- flag set (setting this flag is not possible with iproute2, but for tes=
-t purpose you can use the enclosed patch against the latest iproute2 tr=
-ee and then use "./ip -6 rule add from 2001:db8::1000/128 blackhole pri=
-o 1000").
->>>=20
->>> - try to delete an address from one of your interface (any address,=
- it can be different from the one you used for the blackhole rule): "ip=
- -6 addr del <v6-addr>/64 dev eth<x>"
->>>=20
->>> and you get an Oops. When trying to remove the connected prefix, th=
-e fib6_rule_match() function will match the blackhole rule because RT6_=
-LOOKUP_F_HAS_SADDR is not set and FIB_RULE_FIND_SADDR is set.
->>>=20
->>> With your proposal, the Oops is fixed but the connected prefix rout=
-e is not deleted. With my initial patch, the Oops is fixed and the conn=
-ected prefix route is also deleted.
->> Ok, I get it. I thin,there is two bugs: the oops and the wrong looku=
-p.
->>=20
->> Your proposal fix only a particular case. Try this (with your ip rou=
-te2 patch):
->> ip -6 addr add 2002::1/64 dev eth0
->> ip -6 route add 2002::/64 table 257 dev eth0
 
-(you also need to add a rule such as this one:)
-ip -6 rule to 2002::/64 table 257
+=46or the record:
+Another user reported similar warnings in a 3.5.0 kernel back in Septem=
+ber [1] on the haproxy mailing list with the following kernel warnings:
 
->> ip -6 addr del 2002::1/64 dev eth0
->>=20
->> The route deleted is not the connected prefix, but the route added i=
-n table 257.
-
-You are right.
-
->> The connected prefix is still here in the main table. It's not what =
-we want.
->> Maybe the lookup should be done directly into the right table, ie ta=
-ble RT6_TABLE_PREFIX. What do you think?
->=20
-> I agree.  I think we can use addrconf_get_prefix_route() here.
-
-Right, thanks for the hint! What about the below patch?=20
-
-Note that addrconf_get_prefix_route() also requires a fix (I believe it=
- does not handle the 'noflags' parameter correctly), I have sent a patc=
-h in a separate mail (subject "ipv6: fix the noflags test in addrconf_g=
-et_prefix_route").
-
-Thanks,
-Romain
+[142654.793193] ------------[ cut here ]------------
+[142654.793395] WARNING: at net/ipv4/tcp.c:1301 tcp_cleanup_rbuf+0x54/0=
+x150()
+[142654.793972] Hardware name: System Product Name
+[142654.794573] cleanup rbuf bug: copied 68D1EF11 seq 68CFF65F rcvnxt 6=
+8D3565D
+[142654.795165] Modules linked in: ixgbe(O) binfmt_misc 8021q fcoe
+garp stp llc libfcoe libfc scsi_transport_fc scsi_tgt ip6t_REJECT nf
+_conntrack_ipv6 nf_defrag_ipv6 xt_state nf_conntrack ip6table_filter
+ip6_tables snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_intel
+snd_hda_codec nouveau snd_hwdep igb snd_seq snd_seq_device snd_pcm
+eeepc_wmi asus_wmi ttm drm_kms_helper sparse_keymap snd_timer snd drm
+coretemp rfkill i2c_algo_bit mxm_wmi wmi video lpc_ich mfd_core
+crc32c_intel r8169 i2c_i801 i2c_core soundcore snd_page_alloc mii mdio
+pcspkr serio_raw ghash_clmulni_intel microcode uinput [last unloaded:
+ixgbe]
+[142654.798215] Pid: 18374, comm: haproxy Tainted: G =A0 =A0 =A0 =A0W =A0=
+O 3.5.0 #1
+[142654.798838] Call Trace:
+[142654.799440] =A0[<ffffffff810422cf>] warn_slowpath_common+0x7f/0xc0
+[142654.800031] =A0[<ffffffff810423c6>] warn_slowpath_fmt+0x46/0x50
+[142654.800653] =A0[<ffffffff8147c270>] ? sock_pipe_buf_release+0x20/0x=
+20
+[142654.801237] =A0[<ffffffff814cf294>] tcp_cleanup_rbuf+0x54/0x150
+[142654.801847] =A0[<ffffffff814d0ae1>] tcp_read_sock+0x1b1/0x200
+[142654.802440] =A0[<ffffffff81472777>] ? sock_sendpage+0x27/0x30
+[142654.803037] =A0[<ffffffff814ccd60>] ? tcp_done+0x90/0x90
+[142654.803644] =A0[<ffffffff814d0bf0>] tcp_splice_read+0xc0/0x250
+[142654.804239] =A0[<ffffffff814726b2>] sock_splice_read+0x62/0x80
+[142654.804843] =A0[<ffffffff8118c73b>] do_splice_to+0x7b/0xa0
+[142654.805457] =A0[<ffffffff8118e850>] sys_splice+0x540/0x560
+[142654.806040] =A0[<ffffffff8159aed2>] system_call_fastpath+0x16/0x1b
+[142654.806646] ---[ end trace 46d7fb693af33fde ]---
 
 
 
-=46rom 2a79f191042ee8d48119b095b2ef7527a89817fc Mon Sep 17 00:00:00 200=
-1
-=46rom: Romain Kuntz <r.kuntz@ipflavors.com>
-Date: Wed, 9 Jan 2013 15:11:08 +0100
-Subject: [PATCH 1/1] ipv6: use addrconf_get_prefix_route for prefix rou=
-te lookup
-
-Replace ip6_route_lookup() with addrconf_get_prefix_route() when
-looking up for a prefix route. This ensures that the connected prefix
-is looked up in the main table, and avoids the selection of other
-matching route located in different tables.
-
-As a consequence, the function addrconf_is_prefix_route() is not
-used anymore and is removed.
-
-Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
----
- net/ipv6/addrconf.c |   24 ++++++++++--------------
- 1 files changed, 10 insertions(+), 14 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 29ba4ff..409dd47 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -154,6 +154,10 @@ static void addrconf_type_change(struct net_device=
- *dev,
- 				 unsigned long event);
- static int addrconf_ifdown(struct net_device *dev, int how);
-=20
-+static struct rt6_info *addrconf_get_prefix_route(const struct in6_add=
-r *pfx,
-+				int plen, const struct net_device *dev,
-+				u32 flags, u32 noflags);
-+
- static void addrconf_dad_start(struct inet6_ifaddr *ifp);
- static void addrconf_dad_timer(unsigned long data);
- static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
-@@ -250,12 +254,6 @@ static inline bool addrconf_qdisc_ok(const struct =
-net_device *dev)
- 	return !qdisc_tx_is_noop(dev);
- }
-=20
--/* Check if a route is valid prefix route */
--static inline int addrconf_is_prefix_route(const struct rt6_info *rt)
--{
--	return (rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) =3D=3D 0;
--}
--
- static void addrconf_del_timer(struct inet6_ifaddr *ifp)
- {
- 	if (del_timer(&ifp->timer))
-@@ -941,17 +939,15 @@ static void ipv6_del_addr(struct inet6_ifaddr *if=
-p)
- 	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
- 		struct in6_addr prefix;
- 		struct rt6_info *rt;
--		struct net *net =3D dev_net(ifp->idev->dev);
--		struct flowi6 fl6 =3D {};
-=20
- 		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
--		fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
--		fl6.daddr =3D prefix;
--		rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
--							 RT6_LOOKUP_F_IFACE);
-=20
--		if (rt !=3D net->ipv6.ip6_null_entry &&
--		    addrconf_is_prefix_route(rt)) {
-+		rt =3D addrconf_get_prefix_route(&prefix,
-+					ifp->prefix_len,
-+					ifp->idev->dev,
-+					0, RTF_GATEWAY | RTF_DEFAULT);
-+
-+		if (rt) {
- 			if (onlink =3D=3D 0) {
- 				ip6_del_rt(rt);
- 				rt =3D NULL;
---=20
-1.7.2.5
+[1] http://permalink.gmane.org/gmane.comp.web.haproxy/9559 		 	   		  -=
