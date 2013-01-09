@@ -1,63 +1,47 @@
-From: Jason Luan <luanjianhai@163.com>
-Subject: Re: xen-netback notify DomU to send ARP.
-Date: Wed, 09 Jan 2013 09:07:16 +0800
-Message-ID: <50ECC2C4.5060501@163.com>
-References: <50EC099D.6020407@oracle.com>
-	<50EC297A02000078000B3BB5@nat28.tlf.novell.com>
-	<1357652541.7989.179.camel@zakaz.uk.xensource.com>
-	<50EC3DFD.8060206@oracle.com>
-	<1357660834.12649.103.camel@dagon.hellion.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Tue, 08 Jan 2013 17:30:56 -0800 (PST)
+Message-ID: <20130108.173056.1029788106028104571.davem@davemloft.net>
+References: <20130108235633.3719.6085.stgit@promb-2n-dhcp175.eng.vmware.com>
+	<20130109002110.GB5296@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	konrad.wilk@oracle.com
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <1357660834.12649.103.camel@dagon.hellion.org.uk>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	georgezhang@vmware.com, virtualization@lists.linux-foundation.org
+To: gregkh@linuxfoundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130109002110.GB5296@kroah.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-5LqOIDIwMTPlubQwMeaciDA55pelIDAwOjAwLCBJYW4gQ2FtcGJlbGwg5YaZ6YGTOgo+IE9uIFR1
-ZSwgMjAxMy0wMS0wOCBhdCAxNTo0MCArMDAwMCwgamlhbmhhaSBsdWFuIHdyb3RlOgo+PiBPbiAy
-MDEzLTEtOCAyMTo0MiwgSWFuIENhbXBiZWxsIHdyb3RlOgo+Pj4gT24gVHVlLCAyMDEzLTAxLTA4
-IGF0IDEzOjEzICswMDAwLCBKYW4gQmV1bGljaCB3cm90ZToKPj4+Pj4+PiBPbiAwOC4wMS4xMyBh
-dCAxMjo1NywgamlhbmhhaSBsdWFuIDxqaWFuaGFpLmx1YW5Ab3JhY2xlLmNvbT4KPj4+Pj4+PiB3
-cm90ZToKPj4+Pj4gICAgICBXaGVuIFhlbiBEb20wJ3MgbmV0d29yayBjaXJjdW1zdGFuY2UgY2hh
-bmdlZCwgRG9tVQo+Pj4+PiBzaG91bGQgYmUgbm90aWZpZWQgaW4gc29tZSBzcGVjaWFsIGNvbmRp
-dGlvbi4gRm9yCj4+Pj4+IGV4YW1wbGUgdGhlIGJlbG93IGNpcmN1bXN0YW5jZToKPj4+Pj4gICAg
-ICBwaW5nIGZyb20gR3Vlc3QgQSB0byBEb21VOgo+Pj4+PiAgICAgIEd1ZXN0IEEgLS0+IGV0aDAg
-LSBib25kMCAtIHhlbmJyMCAtLVZJRihET01VKQo+Pj4+PiAgICAgICAgICAgICAgICAgIGV0aDEg
-Lwo+Pj4+PiAgICAgIHdoZW4gZXRoMCBpbmFjdGl2ZSwgYW5kIGV0aDEgYWN0aXZlLgo+Pj4gSG93
-IGlzIGV0aDAgZmFpbGluZz8gQXJlIHlvdSB1bnBsdWdnaW5nIGl0LCB1bi1lbnNsYXZpbmcgaXQg
-b3IKPj4+IHRha2luZwo+Pj4gc29tZSBvdGhlciBzb3J0IG9mIGFkbWluaXN0cmF0aXZlIGFjdGlv
-bj8KPj4gSW4gbXkgZW11bGF0aW9uIGVudmlyb25tZW50LCBpIHVucGx1ZyBpdCBvciBpZmRvd24g
-dGhlIGludGVyZmFjZSwKPiBJIGV4cGVjdCB0aGVzZSB3b3VsZCBiZWhhdmUgcmF0aGVyIGRpZmZl
-cmVudCwgc2luY2UgdGhlIGFmZmVjdCBvZiBpZmRvd24KPiBsb29rcyByYXRoZXIgZGlmZmVyZW50
-IHRvIGFuIHVucGx1ZyBmcm9tIHRoZSBQb1Ygb2YgdGhlIHN3aXRjaC4KPgo+IElzIHRoZSBpZmRv
-d24gY2FzZSBzb21ldGhpbmcgd2hpY2ggeW91IGFyZSB0cnlpbmcgdG8gc29sdmUgb3IganVzdCB3
-aGF0Cj4gYXBwZWFyZWQgdG8gYmUgYSBjb252ZW5pZW50IHRlc3QgY2FzZT8gSSdkIGJlIGxlc3Mg
-aW5jbGluZWQgdG8gd29ycnkKPiBhYm91dCBleHBsaWN0IGFkbWluIGFjdGlvbnMgc3VjaCBhcyB0
-aGF0Lgo+Cj4gVW5wbHVnZ2luZyB0aGUgY2FibGUgc2hvdWxkIGNhdXNlOgo+CkkgZG8gYWJvdmUg
-bGlzdGVkIHRoaW5nIHRvIGxldCBzd2l0Y2ggYWN0aXZlIHNsYXZlIG9ubHkuCkkgdGhpbmsgdGhh
-dCB3ZSBzaG91bGQgcHV0IGF0dGVudGlvbiBvbiB0aGUgdGhpbmcgd2hpY2ggYm9uZCBzd2l0Y2gg
-CmFjdGl2ZSBzbGF2ZSBpbnRlcmZhY2UgaW4gYWN0aXZlLWJhY2t1cCBtb2RlLiBJbiBuZXR3b3Jr
-IGNpcmN1bXN0YW5jZSwgCm1hbnkgdGhpbmcgd2lsbCBjYXVzZSB0aGUgc3dpdGNoLCB3aGF0IGRv
-IFZpZiB3aGVuIHRoZSBldmVudCBoYXBwZW4/Cj4+PiBEb2Vzbid0IHRoaXMgc3RhdGUgY2hhbmdl
-IGNhdXNlIHRoZSBzd2l0Y2ggdG8gd2hpY2ggZXRoMCBhbmQgZXRoMQo+Pj4gYXJlCj4+PiBhdHRh
-Y2hlZCB0byBmb3JnZXQgdGhlIE1BQyB0YWJsZXMgYXNzb2NpYXRlZCB3aXRoIHRoZSBldGgwIHBv
-cnQsCj4+PiBtZWFuaW5nCj4+PiB0aGF0IHN1YnNlcXVlbnQgdHJhZmZpYyB3aWxsIGJlIGZsb29k
-ZWQgdW50aWwgaXQgbGVhcm5zIHRoYXQgZXRoMSBpcwo+Pj4gdGhlCj4+PiBuZXcgcG9ydD8KPiBJ
-YW4KPgo+Cj4KPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-Xwo+IFhlbi1kZXZlbCBtYWlsaW5nIGxpc3QKVGhhbmtzLApKYXNvbgo+IFhlbi1kZXZlbEBsaXN0
-cy54ZW4ub3JnCj4gaHR0cDovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVsCgoKCl9fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClhlbi1kZXZlbCBtYWlsaW5nIGxp
-c3QKWGVuLWRldmVsQGxpc3RzLnhlbi5vcmcKaHR0cDovL2xpc3RzLnhlbi5vcmcveGVuLWRldmVs
-Cg==
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Tue, 8 Jan 2013 16:21:10 -0800
+
+> On Tue, Jan 08, 2013 at 03:59:08PM -0800, George Zhang wrote:
+>> 
+>> * * *
+>> 
+>> This series of VSOCK linux upstreaming patches include latest udpate from
+>> VMware to address Greg's and all other's code review comments.
+> 
+> Dave, you acked these patches a while ago,
+
+Really?  I'd like to see where I did that.
+
+Instead, what I remember doing was deferring to the feedback these
+folks received, stating that ideas that the virtio people had
+mentioned should be considered instead.
+
+http://marc.info/?l=linux-netdev&m=135301515818462&w=2
+
+So definitely NACK this code and any infrastructure you've
+merged which essentialy depends upon it.
