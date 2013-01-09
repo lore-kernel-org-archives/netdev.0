@@ -1,49 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V5] bgmac: driver for GBit MAC core on BCMA bus
-Date: Tue, 08 Jan 2013 17:55:20 -0800 (PST)
-Message-ID: <20130108.175520.708710866856394716.davem@davemloft.net>
-References: <1357626888-2375-1-git-send-email-zajec5@gmail.com>
+Subject: Re: [PATCH net-next v5 0/4] netpoll: add IPv6 support
+Date: Tue, 08 Jan 2013 17:56:27 -0800 (PST)
+Message-ID: <20130108.175627.1534780496006559722.davem@davemloft.net>
+References: <1357627962-28683-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, joe@perches.com
-To: zajec5@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36046 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36068 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756523Ab3AIBzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 20:55:21 -0500
-In-Reply-To: <1357626888-2375-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1755912Ab3AIB42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 20:56:28 -0500
+In-Reply-To: <1357627962-28683-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Tue,  8 Jan 2013 07:34:48 +0100
+From: Cong Wang <amwang@redhat.com>
+Date: Tue,  8 Jan 2013 14:52:38 +0800
 
-> BCMA is a Broadcom specific bus with devices AKA cores. All recent BC=
-MA
-> based SoCs have gigabit ethernet provided by the GBit MAC core. This
-> patch adds driver for such a cores registering itself as a netdev. It
-> has been tested on a BCM4706 and BCM4718 chipsets.
->=20
-> In the kernel tree there is already b44 driver which has some common
-> things with bgmac, however there are many differences that has led to
-> the decision or writing a new driver:
-> 1) GBit MAC cores appear on BCMA bus (not SSB as in case of b44)
-> 2) There is 64bit DMA engine which differs from 32bit one
-> 3) There is no CAM (Content Addressable Memory) in GBit MAC
-> 4) We have 4 TX queues on GBit MAC devices (instead of 1)
-> 5) Many registers have different addresses/values
-> 6) RX header flags are also different
->=20
-> The driver in it's state is functional how, however there is of cours=
-e
-> place for improvements:
-> 1) Supporting more net_device_ops
-> 2) SUpporting more ethtool_ops
-> 3) Unaligned addressing in DMA
-> 4) Writing separated PHY driver
->=20
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> v5: move some ipv6 checksum functions into net/ipv6/ip6_checksum.c
+> 
+> v4: remove ndisc_parse_options(), ignore ICMP options there
+>     make udp6_csum_init() inline so that we don't rely on IPV6=y
+>     fix a conflict with Jiri's patchset
+> 
+> v3: fix CONFIG_IPV6=m case
+>  
+> v2: use bool for ipv6 flag
+>     fix !CONFIG_IPV6 case
+> 
+> This patchset implements netpoll over IPv6.
 
-This patch doesn't apply to the net-next tree, please re-spin.
+Series applied, thanks.
