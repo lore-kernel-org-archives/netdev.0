@@ -1,36 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v5 0/4] netpoll: add IPv6 support
-Date: Tue, 08 Jan 2013 17:56:27 -0800 (PST)
-Message-ID: <20130108.175627.1534780496006559722.davem@davemloft.net>
-References: <1357627962-28683-1-git-send-email-amwang@redhat.com>
+Subject: Re: [Patch] net: prevent setting ttl=0 via IP_TTL
+Date: Tue, 08 Jan 2013 17:57:55 -0800 (PST)
+Message-ID: <20130108.175755.500141755302198039.davem@davemloft.net>
+References: <1357629420-29725-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
+Cc: netdev@vger.kernel.org, padalia.nitin@gmail.com,
+	eric.dumazet@gmail.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36068 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36088 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755912Ab3AIB42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 20:56:28 -0500
-In-Reply-To: <1357627962-28683-1-git-send-email-amwang@redhat.com>
+	with ESMTP id S1753851Ab3AIB5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jan 2013 20:57:55 -0500
+In-Reply-To: <1357629420-29725-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue,  8 Jan 2013 14:52:38 +0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue,  8 Jan 2013 15:17:00 +0800
 
-> v5: move some ipv6 checksum functions into net/ipv6/ip6_checksum.c
+> From: Cong Wang <xiyou.wangcong@gmail.com>
 > 
-> v4: remove ndisc_parse_options(), ignore ICMP options there
->     make udp6_csum_init() inline so that we don't rely on IPV6=y
->     fix a conflict with Jiri's patchset
+> A regression is introduced by the following commit:
 > 
-> v3: fix CONFIG_IPV6=m case
->  
-> v2: use bool for ipv6 flag
->     fix !CONFIG_IPV6 case
+> 	commit 4d52cfbef6266092d535237ba5a4b981458ab171
+> 	Author: Eric Dumazet <eric.dumazet@gmail.com>
+> 	Date:   Tue Jun 2 00:42:16 2009 -0700
 > 
-> This patchset implements netpoll over IPv6.
+> 	    net: ipv4/ip_sockglue.c cleanups
+> 	    
+> 	    Pure cleanups
+> 
+> but it is not a pure cleanup...
+> 
+> 	-               if (val != -1 && (val < 1 || val>255))
+> 	+               if (val != -1 && (val < 0 || val > 255))
+> 
+> Since there is no reason provided to allow ttl=0, change it back.
+> 
+> Reported-by: nitin padalia <padalia.nitin@gmail.com>
+> Cc: nitin padalia <padalia.nitin@gmail.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
