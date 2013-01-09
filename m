@@ -1,132 +1,56 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH 1/3] net: stmac: add gmac autonet set for SGMII, TBI,
- and RTBI
-Date: Wed, 09 Jan 2013 09:34:13 +0100
-Message-ID: <50ED2B85.5030602@st.com>
-References: <000901cdedf8$dfaf4390$9f0dcab0$@samsung.com>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Wed, 9 Jan 2013 08:42:47 +0000
+Message-ID: <20130109084247.GA6545@dcvr.yhbt.net>
+References: <20130104160148.GB3885@suse.de>
+ <20130106120700.GA24671@dcvr.yhbt.net>
+ <20130107122516.GC3885@suse.de>
+ <20130107223850.GA21311@dcvr.yhbt.net>
+ <20130108224313.GA13304@suse.de>
+ <20130108232325.GA5948@dcvr.yhbt.net>
+ <1357697647.18156.1217.camel@edumazet-glaptop>
+ <1357698749.27446.6.camel@edumazet-glaptop>
+ <1357700082.27446.11.camel@edumazet-glaptop>
+ <20130109035511.GA6857@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	kgene.kim@samsung.com
-To: Byungho An <bh74.an@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:33795 "EHLO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750817Ab3AIIez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 03:34:55 -0500
-In-Reply-To: <000901cdedf8$dfaf4390$9f0dcab0$@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Eric Dumazet <erdnetdev@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <20130109035511.GA6857@dcvr.yhbt.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Hello Byungho
+Eric Wong <normalperson@yhbt.net> wrote:
+> Eric Dumazet <erdnetdev@gmail.com> wrote:
+> > On Tue, 2013-01-08 at 18:32 -0800, Eric Dumazet wrote:
+> > > Hmm, it seems sk_filter() can return -ENOMEM because skb has the
+> > > pfmemalloc() set.
+> > 
+> > > 
+> > > One TCP socket keeps retransmitting an SKB via loopback, and TCP stack 
+> > > drops the packet again and again.
+> > 
+> > sock_init_data() sets sk->sk_allocation to GFP_KERNEL
+> > 
+> > Shouldnt it use (GFP_KERNEL | __GFP_NOMEMALLOC) instead ?
+> 
+> Thanks, things are running good after ~35 minutes so far.
+> Will report back if things break (hopefully I don't run out
+> of laptop battery power :x).
 
-On 1/9/2013 12:35 AM, Byungho An wrote:
->
-> This patch adds gmac autoneg set function for SGMII, TBI,
-> and RTBI interface. In case of PHY's autoneg is set, gmac's
-> autoneg enable bit should set. After checking phy's autoneg
-> if phydev's autoneg is '1' gmac's ANE bit set for those
-> interface.
->
+Oops, I had to restart my test :x.  However, I was able to reproduce the
+issue very quickly again with your patch.  I've double-checked I'm
+booting into the correct kernel, but I do have more load on this
+laptop host now, so maybe that made it happen more quickly...
 
-I suppose I have to not look at this patch but I have to directly look 
-at the series:
-
-[PATCH v2 1/3] net: stmac: add gmac autonet set for SGMII, TBI, and RTBI
-[PATCH v2 2/3] net: stmmac: add autoneg complete irq
-[PATCH v2 3/3] net: stmmac: add gmac autonego set for ethtool support
-
-At any rate, I'm looking at them and they actually sound better than the 
-previous ones.
-Pls use stmmac instead of stmac.
-Also these patches add a new functionality and, IMO, they should be done 
-for net-next. In this case, pls verify if the patches are for this 
-branch and add in the subject net-next.
-
-I'll come back with further details asap.
-
-BR
-Peppe
-
-> Signed-off-by: Byungho An <bh74.an@samsung.com>
-> ---
->   drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
->   drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11 +++++++++++
->   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
->   3 files changed, 21 insertions(+)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
-> b/drivers/net/ethernet/stmicro/stmmac/common.h
-> index 186d148..72ba769 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
-> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-> @@ -344,6 +344,7 @@ struct stmmac_ops {
->   	void (*reset_eee_mode) (void __iomem *ioaddr);
->   	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
->   	void (*set_eee_pls) (void __iomem *ioaddr, int link);
-> +	void (*set_autoneg) (void __iomem *ioaddr);
->   };
->
->   struct mac_link {
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> index bfe0226..a0737b39 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> @@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void __iomem
-> *ioaddr, int ls, int tw)
->   	writel(value, ioaddr + LPI_TIMER_CTRL);
->   }
->
-> +static void dwmac1000_set_autoneg(void __iomem *ioaddr)
-> +{
-> +	u32 value;
-> +
-> +	value = readl(ioaddr + GMAC_AN_CTRL);
-> +	value |= 0x1000;
-> +	writel(value, ioaddr + GMAC_AN_CTRL);
-> +}
-> +
-> +
->   static const struct stmmac_ops dwmac1000_ops = {
->   	.core_init = dwmac1000_core_init,
->   	.rx_ipc = dwmac1000_rx_ipc_enable,
-> @@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
->   	.reset_eee_mode =  dwmac1000_reset_eee_mode,
->   	.set_eee_timer =  dwmac1000_set_eee_timer,
->   	.set_eee_pls =  dwmac1000_set_eee_pls,
-> +	.set_autoneg =  dwmac1000_set_autoneg,
->   };
->
->   struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> index f07c061..3e28934 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> @@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
->   {
->   	struct stmmac_priv *priv = netdev_priv(dev);
->   	int ret;
-> +	int interface = priv->plat->interface;
->
->   	clk_prepare_enable(priv->stmmac_clk);
->
-> @@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
->   	/* Initialize the MAC Core */
->   	priv->hw->mac->core_init(priv->ioaddr);
->
-> +	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
-> +	if((interface == PHY_INTERFACE_MODE_SGMII) ||
-> +		(interface == PHY_INTERFACE_MODE_TBI) ||
-> +		(interface == PHY_INTERFACE_MODE_RTBI)) {
-> +		if (priv->phydev->autoneg)
-> +			priv->hw->mac->set_autoneg(priv->ioaddr);
-> +	}
-> +
->   	/* Request the IRQ lines */
->   	ret = request_irq(dev->irq, stmmac_interrupt,
->   			 IRQF_SHARED, dev->name, dev);
->
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
