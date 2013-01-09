@@ -1,72 +1,89 @@
-From: Jason Luan <luanjianhai@163.com>
-Subject: Re: xen-netback notify DomU to send ARP.
-Date: Wed, 09 Jan 2013 23:37:55 +0800
-Message-ID: <50ED8ED3.8010007@163.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] xen-netback notify DomU to send ARP.
+Date: Wed, 09 Jan 2013 15:44:21 +0000
+Message-ID: <50ED9E6502000078000B4220@nat28.tlf.novell.com>
 References: <50EC099D.6020407@oracle.com>
-	<50EC297A02000078000B3BB5@nat28.tlf.novell.com>
-	<1357652541.7989.179.camel@zakaz.uk.xensource.com>
-	<50EC3DFD.8060206@oracle.com>
-	<1357660834.12649.103.camel@dagon.hellion.org.uk>
-	<50ED1EB3.3080605@oracle.com>
-	<50ED4F1D02000078000B3F87@nat28.tlf.novell.com>
-	<50ED6255.7020006@oracle.com>
-	<50ED825802000078000B4113@nat28.tlf.novell.com>
+ <50EC297A02000078000B3BB5@nat28.tlf.novell.com>
+ <1357652541.7989.179.camel@zakaz.uk.xensource.com>
+ <50EC3DFD.8060206@oracle.com>
+ <1357660834.12649.103.camel@dagon.hellion.org.uk>
+ <50ED1EB3.3080605@oracle.com>
+ <50ED4F1D02000078000B3F87@nat28.tlf.novell.com>
+ <50ED6255.7020006@oracle.com>
+ <50ED825802000078000B4113@nat28.tlf.novell.com> <50ED8ED3.8010007@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com,
-	Ian Campbell <Ian.Campbell@citrix.com>, konrad.wilk@oracle.com
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <xen-devel-bounces@lists.xen.org>
-In-Reply-To: <50ED825802000078000B4113@nat28.tlf.novell.com>
-List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
-List-Post: <mailto:xen-devel@lists.xen.org>
-List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
-List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
-	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
-Sender: xen-devel-bounces@lists.xen.org
-Errors-To: xen-devel-bounces@lists.xen.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Ian Campbell" <Ian.Campbell@citrix.com>,
+	<xen-devel@lists.xensource.com>, <konrad.wilk@oracle.com>,
+	<netdev@vger.kernel.org>
+To: "Jason Luan" <luanjianhai@163.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:52556 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757971Ab3AIPoW (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
+	Wed, 9 Jan 2013 10:44:22 -0500
+In-Reply-To: <50ED8ED3.8010007@163.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-5LqOIDIwMTPlubQwMeaciDA55pelIDIxOjQ0LCBKYW4gQmV1bGljaCDlhpnpgZM6Cj4+Pj4gT24g
-MDkuMDEuMTMgYXQgMTM6MjgsIGppYW5oYWkgbHVhbiA8amlhbmhhaS5sdWFuQG9yYWNsZS5jb20+
-IHdyb3RlOgo+Pj4+ICsJc3dpdGNoIChldmVudCkgewo+Pj4+ICsJY2FzZSBORVRERVZfTk9USUZZ
-X1BFRVJTOgo+Pj4+ICsJCS8qIE5vdGlmeSBmcm9udGVuZCB0byBTZW5kIGdyYXR1aXRvdXMgQVJQ
-ICovCj4+Pj4gKwkJeGVuYnVzX3N3aXRjaF9zdGF0ZShiZS0+ZGV2LCBYZW5idXNTdGF0ZUluaXRp
-YWxpc2VkKTsKPj4+PiArCQl4ZW5idXNfc3dpdGNoX3N0YXRlKGJlLT5kZXYsICk7Cj4+PiBUaGlz
-IGlzIHRoZSBzb3J0IG9mIGNoYW5nZSB0aGF0IGNsZWFybHkgaXNuJ3QgYWNjZXB0YWJsZSwgYXMg
-SSBkb24ndAo+Pj4gdGhpbmsgeW91IGhhdmUgd2F5cyB0byBjaGVjayBfYWxsXyBleGlzdGluZyBm
-cm9udGVuZHMgZm9yIHRoZWlyCj4+PiBjb21wYXRpYmlsaXR5IHdpdGggdGhpcy4gQSBjb25uZWN0
-ZWQgLT4gY29ubmVjdGVkIHRyYW5zaXRpb24KPj4+IG1pZ2h0IGJlIGFjY2VwdGFibGUgKHRoYXQg
-d2FzIGRvbmUgaW4gdGhlIGJsb2NrIGZyb250ZW5kIHRvbywgZm9yCj4+PiBpbXBsZW1lbnRpbmcg
-ZHluYW1pYyByZXNpemUpLCBidXQgd2lsbCBsaWtlbHkgbmVlZCB0byBiZQo+Pj4gYWNjb21wYW5p
-ZWQgYnkgYSBmcm9udGVuZCBzaWRlIHBhdGNoIHRvIGhhbmRsZSB0aGF0ICh3aGljaCBzbwo+Pj4g
-ZmFyIHNob3VsZCBiZSBhIG5vLW9wKS4KPj4gVGhlIGxhdGVzdCB4ZW4gbmV0LWZyb250ZW50IGRy
-aXZlciBoYXZlIGhhbmRsZWQgdGhlIGNvbmRpdGlvbi4gU3RhdGUKPj4gWGVuYnVzU3RhdGVJbml0
-aWFsaXNlZCB3aWxsIGRvIG5vdGhpbmcsCj4+IGJ1dCBjaGFuZ2UgdG8gWGVuYnVzU3RhdGVDb25u
-ZWN0ZWQgd2lsbCB0cmlnZ2VyCj4+IG5ldGRldl9ub3RpZnlfcGVlcnMobmV0ZGV2KSB0byBzZW5k
-IEFSUC4KPiBEaWQgeW91IHJlYWQgbXkgZWFybGllciByZXBseSBjYXJlZnVsbHk/IFlvdSBzdGls
-bCBvbmx5IHRhbGsgYWJvdXQKPiAodXBzdHJlYW0pIExpbnV4IG5ldGZyb250LCBidXQgdGhpcyBp
-cyBub3QgdGhlIG9ubHkgKHBvc3NpYmxlKQo+IGZyb250ZW5kLiBZb3Ugc2hvdWxkIG5vdCBpbnZv
-a2Ugc3RhdGUgdHJhbnNpdGlvbnMgdGhhdCBjYW4gLQo+IGV2ZW4gaWYgb25seSB0aGVvcmV0aWNh
-bGx5IC0gYmxvdyB1cCBmcm9udGVuZHMuIEFuZCBhZmFpY3QgdGhlCkkgb25seSB3YW50IHRvIG5v
-dGlmeSB4ZW4tbmV0ZnJvbnQuIEkgZG9uJ3Qga25vdyB3aGF0IGlzIGJldHRlciB3YXk/ClRvIGF0
-dGFpbnRoZWdvYWwsIGkgdHJ5IHRvIG1vZGlmeSB2aXJ0dWFsIGludGVycnVwdCwgYnV0IHRoZSB3
-YXkgaXMKbW9yZWNvbXBsaWNhdGVkLG1vZGlmaWVkIGFuZCB3b3JraW5nLiBTbywgaSBnaXZlIHVw
-IHRoZSB3YXkuCldvdWxkIHlvdSBsaWtlIHRvIGdpdmUgc29tZSBzdWdnZXN0aW9uIGFib3V0IGhv
-dyB0byBub3RpZnkgeGVuLW5ldGZyb250Pwo+IG9ubHkgdGhpbmcgeW91IGNhbiBzYWZlbHkgYXNz
-dW1lIGZyb250ZW5kcyBvdWdodCB0byB0b2xlcmF0ZQo+IGFyZSB0cmFuc2l0aW9ucyBmcm9tIENv
-bm5lY3RlZCB0byBDb25uZWN0ZWQgKG9yIG1vcmUKPiBnZW5lcmFsbHkgZnJvbSBvbmUgc3RhdGUg
-dG8gdGhlIHNhbWUgb25lLCBidXQgdGhlIG90aGVyCj4gc3RhdGVzIGFyZW4ndCB1c2VmdWwgaGVy
-ZSwgZXhjZXB0IG1heWJlIHRoZSBSZWNvbmZpZ3VyKiBvbmVzKS4KU29ycnkgZm9yIHRoYXQuIEF0
-IHRoZSBiZWdpbm5pbmcgdGhlIHBhdGNoIGJlIGFwcGxpZWQgaW4ga2VybmVsIDIuNi4xOCB0bwpm
-aXhlZCBvbmUgaXNzdWUuIE9ubHkgWGVuYnVzU3RhdGVJbml0aWFsaXNlZCBhbmQgWGVuYnVzU3Rh
-dGVDbG9zZWQgKCBOb3QKUmVjb25maWd1cmUqIG9uZSkgZG9uJ3QgYW55IHRoaW5nLCBzbyBpIGNo
-b29zZSB0aGUgWGVuYnVzU3RhdGVJbml0aWFsaXNlZC4KRG8geW91IHN1Z2dlc3Rpb24gdGhhdCBp
-IGNob29zZSBSZWNvbmZpZ3VyZSo/Cj4KPiBKYW4KPgo+Cj4gX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX18KPiBYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Cj4gWGVu
-LWRldmVsQGxpc3RzLnhlbi5vcmcKPiBodHRwOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwKCgoK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KWGVuLWRldmVs
-IG1haWxpbmcgbGlzdApYZW4tZGV2ZWxAbGlzdHMueGVuLm9yZwpodHRwOi8vbGlzdHMueGVuLm9y
-Zy94ZW4tZGV2ZWwK
+>>> On 09.01.13 at 16:37, Jason Luan <luanjianhai@163.com> wrote:
+> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8809=E6=97=A5 21:44, Jan Beulich =E5=86=
+=99=E9=81=93:
+>>>>> On 09.01.13 at 13:28, jianhai luan <jianhai.luan@oracle.com> wrot=
+e:
+>>>>> +	switch (event) {
+>>>>> +	case NETDEV_NOTIFY_PEERS:
+>>>>> +		/* Notify frontend to Send gratuitous ARP */
+>>>>> +		xenbus_switch_state(be->dev, XenbusStateInitialised);
+>>>>> +		xenbus_switch_state(be->dev, );
+>>>> This is the sort of change that clearly isn't acceptable, as I don=
+'t
+>>>> think you have ways to check _all_ existing frontends for their
+>>>> compatibility with this. A connected -> connected transition
+>>>> might be acceptable (that was done in the block frontend too, for
+>>>> implementing dynamic resize), but will likely need to be
+>>>> accompanied by a frontend side patch to handle that (which so
+>>>> far should be a no-op).
+>>> The latest xen net-frontent driver have handled the condition. Stat=
+e
+>>> XenbusStateInitialised will do nothing,
+>>> but change to XenbusStateConnected will trigger
+>>> netdev_notify_peers(netdev) to send ARP.
+>> Did you read my earlier reply carefully? You still only talk about
+>> (upstream) Linux netfront, but this is not the only (possible)
+>> frontend. You should not invoke state transitions that can -
+>> even if only theoretically - blow up frontends. And afaict the
+> I only want to notify xen-netfront. I don't know what is better way?
+> To attainthegoal, i try to modify virtual interrupt, but the way is
+> morecomplicated,modified and working. So, i give up the way.
+> Would you like to give some suggestion about how to notify xen-netfro=
+nt?
+>> only thing you can safely assume frontends ought to tolerate
+>> are transitions from Connected to Connected (or more
+>> generally from one state to the same one, but the other
+>> states aren't useful here, except maybe the Reconfigur* ones).
+> Sorry for that. At the beginning the patch be applied in kernel 2.6.1=
+8 to
+> fixed one issue. Only XenbusStateInitialised and XenbusStateClosed ( =
+Not
+> Reconfigure* one) don't any thing, so i choose the XenbusStateInitial=
+ised.
+> Do you suggestion that i choose Reconfigure*?
+
+I already said that I think that only a Connected->Connected
+transition is to be considered here. Bringing up Reconfigur* was
+just to point out that there are other states available that could
+be used, but you'd first need to make sure that (a) they aren't
+used for anything else and (b) frontends can reasonably be
+expected to deal with (ignore) them when not originally aware
+of them (as opposed to a Connected->Connected transition,
+which all frontends ought to be able to deal with afaict).
+
+Also, when you reply to earlier mails, could you - in order to make
+the result readable - insert blank lines between the quoted text
+and your responses, please?
+
+Jan
