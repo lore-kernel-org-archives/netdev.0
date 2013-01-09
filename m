@@ -1,88 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Tue, 08 Jan 2013 18:32:29 -0800
-Message-ID: <1357698749.27446.6.camel@edumazet-glaptop>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
-	 <20130102200848.GA4500@dcvr.yhbt.net> <20130104160148.GB3885@suse.de>
-	 <20130106120700.GA24671@dcvr.yhbt.net> <20130107122516.GC3885@suse.de>
-	 <20130107223850.GA21311@dcvr.yhbt.net> <20130108224313.GA13304@suse.de>
-	 <20130108232325.GA5948@dcvr.yhbt.net>
-	 <1357697647.18156.1217.camel@edumazet-glaptop>
+From: Yuanhan Liu <yuanhan.liu@linux.intel.com>
+Subject: Re: [PATCH 5/5] kfifo: log based kfifo API
+Date: Wed, 9 Jan 2013 10:42:26 +0800
+Message-ID: <20130109024226.GD304@yliu-dev.sh.intel.com>
+References: <1357657073-27352-1-git-send-email-yuanhan.liu@linux.intel.com>
+ <1357657073-27352-6-git-send-email-yuanhan.liu@linux.intel.com>
+ <20130108181645.GA7972@core.coreip.homeip.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org, netdev@vger.kernel.org,  linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Wong <normalperson@yhbt.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Stefani Seibold <stefani@seibold.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	platform-driver-x86@vger.kernel.org, linux-input@vger.kernel.org,
+	linux-iio@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-media@vger.kernel.org, linux-mmc@vger.kernel.org,
+	linux-mtd@lists.infradead.org, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-pci@vger.kernel.org, open-iscsi@googlegroups.com,
+	linux-scsi@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-serial@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-mm@kvack.org, dccp@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Dmitry Torokhov <dmitry.torokhov@gmail.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1357697647.18156.1217.camel@edumazet-glaptop>
+Content-Disposition: inline
+In-Reply-To: <20130108181645.GA7972@core.coreip.homeip.net>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-01-08 at 18:14 -0800, Eric Dumazet wrote:
-> On Tue, 2013-01-08 at 23:23 +0000, Eric Wong wrote:
-> > Mel Gorman <mgorman@suse.de> wrote:
-> > > Please try the following patch. However, even if it works the benefit of
-> > > capture may be so marginal that partially reverting it and simplifying
-> > > compaction.c is the better decision.
+On Tue, Jan 08, 2013 at 10:16:46AM -0800, Dmitry Torokhov wrote:
+> Hi Yuanhan,
+> 
+> On Tue, Jan 08, 2013 at 10:57:53PM +0800, Yuanhan Liu wrote:
+> > The current kfifo API take the kfifo size as input, while it rounds
+> >  _down_ the size to power of 2 at __kfifo_alloc. This may introduce
+> > potential issue.
 > > 
-> > I already got my VM stuck on this one.  I had two twosleepy instances,
-> > 2774 was the one that got stuck (also confirmed by watching top).
+> > Take the code at drivers/hid/hid-logitech-dj.c as example:
 > > 
-> > Btw, have you been able to reproduce this on your end?
+> > 	if (kfifo_alloc(&djrcv_dev->notif_fifo,
+> >                        DJ_MAX_NUMBER_NOTIFICATIONS * sizeof(struct dj_report),
+> >                        GFP_KERNEL)) {
 > > 
-> > I think the easiest reproduction on my 2-core VM is by running 2
-> > twosleepy processes and doing the following to dirty a lot of pages:
+> > Where, DJ_MAX_NUMBER_NOTIFICATIONS is 8, and sizeo of(struct dj_report)
+> > is 15.
+> > 
+> > Which means it wants to allocate a kfifo buffer which can store 8
+> > dj_report entries at once. The expected kfifo buffer size would be
+> > 8 * 15 = 120 then. While, in the end, __kfifo_alloc will turn the
+> > size to rounddown_power_of_2(120) =  64, and then allocate a buf
+> > with 64 bytes, which I don't think this is the original author want.
+> > 
+> > With the new log API, we can do like following:
+> > 
+> > 	int kfifo_size_order = order_base_2(DJ_MAX_NUMBER_NOTIFICATIONS *
+> > 					    sizeof(struct dj_report));
+> > 
+> > 	if (kfifo_alloc(&djrcv_dev->notif_fifo, kfifo_size_order, GFP_KERNEL)) {
+> > 
+> > This make sure we will allocate enough kfifo buffer for holding
+> > DJ_MAX_NUMBER_NOTIFICATIONS dj_report entries.
 > 
-> Given the persistent sk_stream_wait_memory() traces I suspect a plain
-> TCP bug, triggered by some extra wait somewhere.
-> 
-> Please mm guys don't spend too much time right now, I'll try to
-> reproduce the problem.
-> 
-> Don't be confused by sk_stream_wait_memory() name.
-> A thread is stuck here because TCP stack is failing to wake it.
-> 
+> Why don't you simply change __kfifo_alloc to round the allocation up
+> instead of down?
 
-Hmm, it seems sk_filter() can return -ENOMEM because skb has the
-pfmemalloc() set.
+Hi Dmitry,
 
-It seems nobody really tested this stuff under memory stress.
+Yes, it would be neat and that was my first reaction as well. I then
+sent out a patch, but it was NACKed by Stefani(the original kfifo
+author). Here is the link:
 
-Mel, it looks like you are the guy who could fix this, after all ;)
+    https://lkml.org/lkml/2012/10/26/144
 
-One TCP socket keeps retransmitting an SKB via loopback, and TCP stack 
-drops the packet again and again.
+Then Stefani proposed to change the API to take log of size as input to
+root fix this kind of issues. And here it is.
 
+Thanks.
 
-commit c93bdd0e03e848555d144eb44a1f275b871a8dd5
-Author: Mel Gorman <mgorman@suse.de>
-Date:   Tue Jul 31 16:44:19 2012 -0700
-
-    netvm: allow skb allocation to use PFMEMALLOC reserves
-    
-    Change the skb allocation API to indicate RX usage and use this to fall
-    back to the PFMEMALLOC reserve when needed.  SKBs allocated from the
-    reserve are tagged in skb->pfmemalloc.  If an SKB is allocated from the
-    reserve and the socket is later found to be unrelated to page reclaim, the
-    packet is dropped so that the memory remains available for page reclaim.
-    Network protocols are expected to recover from this packet loss.
-    
-    [a.p.zijlstra@chello.nl: Ideas taken from various patches]
-    [davem@davemloft.net: Use static branches, coding style corrections]
-    [sebastian@breakpoint.cc: Avoid unnecessary cast, fix !CONFIG_NET build]
-    Signed-off-by: Mel Gorman <mgorman@suse.de>
-    Acked-by: David S. Miller <davem@davemloft.net>
-    Cc: Neil Brown <neilb@suse.de>
-    Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-    Cc: Mike Christie <michaelc@cs.wisc.edu>
-    Cc: Eric B Munson <emunson@mgebm.net>
-    Cc: Eric Dumazet <eric.dumazet@gmail.com>
-    Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
-    Cc: Mel Gorman <mgorman@suse.de>
-    Cc: Christoph Lameter <cl@linux.com>
-    Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-
+	--yliu
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
