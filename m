@@ -1,66 +1,91 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH 01/19] netfilter: move nf_conntrack initialize out of
- pernet operations
-Date: Thu, 10 Jan 2013 09:03:16 +0800
-Message-ID: <50EE1354.8060805@cn.fujitsu.com>
-References: <1356662206-2260-1-git-send-email-gaofeng@cn.fujitsu.com> <CAFFEFTXT_fkF2pPSxDEEgic80NVWLqBWtFuvs6W9uDUW2aCnqw@mail.gmail.com> <50DD4737.2070306@cn.fujitsu.com> <CAFFEFTXU1Yptqx0x6CjtqXMU+7HYu4F7Hk7u29oPCeghZ9Wc_Q@mail.gmail.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: niu interface automatically goes up then down
+Date: Thu, 10 Jan 2013 12:27:11 +1100
+Message-ID: <CAGRGNgX6u=Q4_8pFhLNHDQYRCv1m3ULBgyc+wA=+_KDjDDbSjQ@mail.gmail.com>
+References: <alpine.LNX.2.01.1301092342290.21351@nerf07.vanv.qr>
+ <CAGRGNgWqweBphbr+rpTZ2Fe=yLG_xNSvS4sf8XteoCiAx8b81A@mail.gmail.com> <alpine.LNX.2.01.1301100134300.29388@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: canqun zhang <canqunzhang@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAFFEFTXU1Yptqx0x6CjtqXMU+7HYu4F7Hk7u29oPCeghZ9Wc_Q@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>,
+	sparclinux@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
+Return-path: <sparclinux-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1301100134300.29388@nerf07.vanv.qr>
+Sender: sparclinux-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi canqun,
+Hi Jan,
 
-On 2012/12/28 16:48, canqun zhang wrote:
-> ok, I can help you take a test, please send a big patch container this
-> patchset  to my email.
-> 
+Thanks for the answers.
 
-Can you give me your tested-by to this patchset besides patch [19/19]?
-Thanks!
-
-> 
-> 2012/12/28 Gao feng <gaofeng@cn.fujitsu.com>:
->> On 12/28/12 11:52, canqun zhang wrote:
->>> Hi all
->>> As discussed above,if the host machine create several linux
->>> containers, there will be several  net namespaces.Resources with "nf
->>> conntrack" are registered or unregistered on the first net
->>> namespace(init_net),But init_net is not unregistered lastly,so
->>> cleanuping other net namespaces  will triger painic.
->>> If net namespaces are created  with the order of 1,2,...n,they should
->>> be cleaned with the order of n,...2,1,so in this case init_net will be
->>> unregistered lastly.
->>> I fixed it up (see below). I have taken a lot of test!
+On Thu, Jan 10, 2013 at 11:55 AM, Jan Engelhardt <jengelh@inai.de> wrote:
+>
+> On Thursday 2013-01-10 01:24, Julian Calaby wrote:
 >>>
+>>> The interface itself is marked UP, and is part of a bridge,
+>>> if that matters. The kernel version is 3.7.1 on sparc64.
+>>>
+>>> 6: eth4: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500
+>>> qdisc mq master br0 state DOWN qlen 1000
+>>>     link/ether 00:21:28:71:32:5a brd ff:ff:ff:ff:ff:ff
+>>>     inet6 fe80::221:28ff:fe71:325a/64 scope link
+>>>        valid_lft forever preferred_lft forever
 >>
->> I thinks this BUG is a netfilter BUG,not a netns BUG.
->> Other subsystems implemented netns support don't use init_net to
->> do some special works((un)register/(un)set).
->>
->> In fact,we can't use init_net to do this job well.such as function
->> nf_conntrack_clean,we shoud set ip_ct_attach to NULL before any
->> netns doing cleanup jobs, and set nf_ct_destroy to NULL after all of
->> netns finish these cleanup jobs.
->>
->> So I think finally we still need this patchset,And this is a regular
->> way to fix this problem.
->>
->> Can you help me to test if the panic bug is fixed by this patchset?
->> and then give me your tested-by?
->>
->> thank you very much!
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+>>That is rather odd. Is this particular interface connected to anything
+>>that could be causing this?
+>
+> Nope, there is nothing connected to eth4. UP indicates that
+> I had issue `ip link set dev eth4 up`.
 
+I assumed that from the "NO-CARRIER" status, but I had to check: for
+all I know it's some sort of failover connection and is hooked up to a
+disabled port on a different switch.
+
+>>> At the same time, eth5, to which a cable+machine _is_ connected,
+>>> randomly goes out. At first I thought it might be the connected peer,
+>>> but seeing that eth4 randomly does a up-down cycle leads me to assume
+>>> that niu is doing a cycle here rather than the peer.
+>>>
+>>> [ 3839.724721] niu 0000:10:00.1 eth5: Link is down
+>>> [ 3839.725077] br0: port 5(eth5) entered disabled state
+>>> [ 3840.725016] niu 0000:10:00.1 eth5: Link is up at 100Mbit/sec, half duplex
+>>> [ 3840.725195] br0: port 5(eth5) entered forwarding state
+>>> [ 3840.725327] br0: port 5(eth5) entered forwarding state
+>>> [ 3855.762171] br0: port 5(eth5) entered forwarding state
+>>
+>>Again, could it be the device at the end of the link?
+>>Out of curiosity, why do you have these two ports bridged together and
+>>what is the purpose of this configuration?
+>
+> Nobody expects the... lack of a switch. And since there are
+> plenty of ports in the machine anyway, might as well use them as a
+> software switch as an intermediate solution.
+
+True that. I have an overabundance of PCI network cards and have built
+temporary servers with two of them bridged together so I'm not
+stealing a port that might be needed.
+
+> eth0 through eth3 is a quad-port e1000e.
+> eth4 through eth7 is the quad-port niu.
+>
+> The e1000e ports don't flake out at all, therefore I rate
+> the peer(s) being at fault with a very low probability.
+
+Makes sense.
+
+> The issue is not pressing, since it's just service processors
+> which are connected.
+
+Ok, I'm guessing that this is production so heavy debugging isn't
+going to happen.
+
+I'm out of ideas. Tag?
+
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby/
