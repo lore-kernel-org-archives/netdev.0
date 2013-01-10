@@ -1,52 +1,80 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
-Date: Thu, 10 Jan 2013 19:00:33 +0900
-Message-ID: <50EE9141.6020805@linux-ipv6.org>
-References: <470C14E4-2866-4C55-89A3-D6751E1587C4@ipflavors.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: set default_ethtool_ops in register_netdevice
+Date: Thu, 10 Jan 2013 02:07:29 -0800 (PST)
+Message-ID: <20130110.020729.1358020934840866117.davem@davemloft.net>
+References: <20130108153850.GA10464@redhat.com>
+	<20130109.235738.467651533138068641.davem@davemloft.net>
+	<20130110083641.GA5637@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, Andreas Hofmeister <andi@collax.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Romain KUNTZ <r.kuntz@ipflavors.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <470C14E4-2866-4C55-89A3-D6751E1587C4@ipflavors.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	greearb@candelatech.com, bjorn@mork.no,
+	linux-wireless@vger.kernel.org, bhutchings@solarflare.com,
+	mirqus@gmail.com
+To: sgruszka@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54547 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751948Ab3AJKHd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 05:07:33 -0500
+In-Reply-To: <20130110083641.GA5637@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Romain KUNTZ wrote:
-> From e7ece201c35615c44a3cfdc10ee28ad5a5878f41 Mon Sep 17 00:00:00 2001
-> From: Romain Kuntz <r.kuntz@ipflavors.com>
-> Date: Wed, 9 Jan 2013 15:02:26 +0100
-> Subject: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
-> 
-> The tests on the flags in addrconf_get_prefix_route() does no make
-> much sense: the 'noflags' parameter contains the set of flags that
-> must not match with the route flags, so the test must be done
-> against 'noflags', and not against 'flags'.
-> 
-> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
-> ---
->  net/ipv6/addrconf.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 408cac4a..29ba4ff 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1877,7 +1877,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
->  			continue;
->  		if ((rt->rt6i_flags & flags) != flags)
->  			continue;
-> -		if ((noflags != 0) && ((rt->rt6i_flags & flags) != 0))
-> +		if ((rt->rt6i_flags & noflags) != 0)
->  			continue;
->  		dst_hold(&rt->dst);
->  		break;
-> 
+=46rom: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Thu, 10 Jan 2013 09:36:42 +0100
 
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> On Wed, Jan 09, 2013 at 11:57:38PM -0800, David Miller wrote:
+>> From: Stanislaw Gruszka <sgruszka@redhat.com>
+>> Date: Tue, 8 Jan 2013 16:38:51 +0100
+>>=20
+>> > Since:
+>> >=20
+>> > commit 2c60db037034d27f8c636403355d52872da92f81
+>> > Author: Eric Dumazet <edumazet@google.com>
+>> > Date:   Sun Sep 16 09:17:26 2012 +0000
+>> >=20
+>> >     net: provide a default dev->ethtool_ops
+>> >=20
+>> > wireless core does not correctly assign ethtool_ops. In order to f=
+ix
+>> > the problem, move assignement of default_ethtool_ops to
+>> > register_netdevice(). This is safe because both register_netdevice=
+()
+>> > and dev_ethtool() are protected by RTNL lock.
+>> >=20
+>> > Patch is besed on hint of Micha=A9=A9 Miros=A9=A9aw.
+>> >=20
+>> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+>> > Cc: stable@vger.kernel.org # 3.7+
+>> > ---
+>> > v1 -> v2: change order of default_ethtool_ops initialization to av=
+oid
+>> > the problem. Change the subject accordingly.
+>>=20
+>> I don't understand this.  Why is the assignment of default_ethtool_o=
+ps
+>> at netdev allocation time not working?  Is wireless really not using
+>> alloc_netdev*()?
+>=20
+> It does. This is done on individual cfg80211 drivers , i.e. on mac802=
+11
+> or full mac drivers. After alloc_netdev*() call, some cfg80211 driver=
+s
+> provide they own ethtool_ops, but some do not. For them, wireless cor=
+e
+> provide generic cfg80211_ethtool_ops, which is assigned in
+> NETDEV_REGISTER notify call:=20
+>=20
+> 	if (!dev->ethtool_ops)
+> 		dev->ethtool_ops =3D &cfg80211_ethtool_ops;
+>=20
+> But after Eric's commit, dev->ethtool_ops is no longer NULL (on cfg80=
+211
+> drivers without custom ethtool_ops), but points to &default_ethtool_o=
+ps.
 
---yoshfuji
+The whole idea is to remove these kinds of NULL tests against
+dev->ethtool_ops, thus creating the invariant that given any netdev
+one must never be able to see a non-NULL value there.
