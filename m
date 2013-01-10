@@ -1,135 +1,64 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different tun_struct
-Date: Thu, 10 Jan 2013 21:53:59 +0800
-Message-ID: <50EEC7F7.1030905@redhat.com>
-References: <1357804788-19976-1-git-send-email-stefanha@redhat.com> <20130110102319.GB13451@redhat.com> <50EE9B48.6080306@redhat.com> <20130110110737.GD13451@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Hajnoczi <stefanha@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130110110737.GD13451@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Shuai <cpuwolf@gmail.com>
+Subject: [PATCH] CDC_NCM adding support IFF_NOARP for buggy device
+Date: Thu, 10 Jan 2013 21:59:28 +0800
+Message-ID: <1357826368-30543-1-git-send-email-cpuwolf@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Wei Shuai <cpuwolf@gmail.com>
+To: gregkh@linuxfoundation.org, alexey.orishko@stericsson.com,
+	hans.petter.selasky@stericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:52142 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041Ab3AJOBQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 09:01:16 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2013 07:07 PM, Michael S. Tsirkin wrote:
-> On Thu, Jan 10, 2013 at 06:43:20PM +0800, Jason Wang wrote:
->> On 01/10/2013 06:23 PM, Michael S. Tsirkin wrote:
->>> On Thu, Jan 10, 2013 at 08:59:48AM +0100, Stefan Hajnoczi wrote:
->>>> Multiqueue tun devices support detaching a tun_file from its tun_struct
->>>> and re-attaching at a later point in time.  This allows users to disable
->>>> a specific queue temporarily.
->>>>
->>>> ioctl(TUNSETIFF) allows the user to specify the network interface to
->>>> attach by name.  This means the user can attempt to attach to interface
->>>> "B" after detaching from interface "A".
->>>>
->>>> The driver is not designed to support this so check we are re-attaching
->>>> to the right tun_struct.  Failure to do so may lead to oops.
->>>>
->>>> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
->>>> ---
->>>> This fix is for 3.8-rc.
->>>>
->>>>  drivers/net/tun.c | 2 ++
->>>>  1 file changed, 2 insertions(+)
->>>>
->>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->>>> index fbd106e..cf6da6e 100644
->>>> --- a/drivers/net/tun.c
->>>> +++ b/drivers/net/tun.c
->>>> @@ -491,6 +491,8 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
->>>>  	err = -EINVAL;
->>>>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
->>>>  		goto out;
->>>> +	if (tfile->detached && tun != tfile->detached)
->>>> +		goto out;
->>>>  
->>>>  	err = -EBUSY;
->>>>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
->>>> -- 
->>>> 1.8.0.2
->>> I agree this is a bug but even with this patch, we still allow:
->>>
->>> SETIFF
->>> SETQUEUE (DISABLED)
->>> SETIFF
->>>
->>> Originally the rule always was that repeated setiff calls fail with
->>> EINVAL. We broke that when we set tun to NULL.  It's probably worth
->>> preserving that, even if queue is disabled.  Applying something like the below
->>> instead will address this concern, won't it?
->>>
->>> Note: works with regular userspace but I didn't test
->>> multiqueue userspace. What do you think.
->> Or just fail when tun->detached is not NULL at the beginning of
->> tun_set_iff()?
-> Yes that'll also work I think. If you prefer this pls send patch.
 
-Will post a patch, thanks.
->>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>>
->>> ---
->>>
->>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->>> index fbd106e..5ec8b08 100644
->>> --- a/drivers/net/tun.c
->>> +++ b/drivers/net/tun.c
->>> @@ -483,7 +483,7 @@ static void tun_detach_all(struct net_device *dev)
->>>  	BUG_ON(tun->numdisabled != 0);
->>>  }
->>>  
->>> -static int tun_attach(struct tun_struct *tun, struct file *file)
->>> +static int tun_attach(struct tun_struct *tun, struct file *file, bool setiff)
->>>  {
->>>  	struct tun_file *tfile = file->private_data;
->>>  	int err;
->>> @@ -492,6 +492,9 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
->>>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
->>>  		goto out;
->>>  
->>> +	if (setiff && tfile->detached)
->>> +		goto out;
->>> +
->>>  	err = -EBUSY;
->>>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
->>>  		goto out;
->>> @@ -1561,7 +1564,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->>>  		if (err < 0)
->>>  			return err;
->>>  
->>> -		err = tun_attach(tun, file);
->>> +		err = tun_attach(tun, file, true);
->>>  		if (err < 0)
->>>  			return err;
->>>  
->>> @@ -1627,7 +1630,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->>>  		dev->features = dev->hw_features;
->>>  
->>>  		INIT_LIST_HEAD(&tun->disabled);
->>> -		err = tun_attach(tun, file);
->>> +		err = tun_attach(tun, file, true);
->>>  		if (err < 0)
->>>  			goto err_free_dev;
->>>  
->>> @@ -1792,7 +1795,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
->>>  		else if (tun_not_capable(tun))
->>>  			ret = -EPERM;
->>>  		else
->>> -			ret = tun_attach(tun, file);
->>> +			ret = tun_attach(tun, file, false);
->>>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
->>>  		tun = rcu_dereference_protected(tfile->tun,
->>>  						lockdep_rtnl_is_held());
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>> Please read the FAQ at  http://www.tux.org/lkml/
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+---
+ drivers/net/usb/cdc_ncm.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 71b6e92..9903f79 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -545,6 +545,7 @@ EXPORT_SYMBOL_GPL(cdc_ncm_unbind);
+ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	int ret;
++	struct usb_device *udev = interface_to_usbdev(intf);
+ 
+ 	/* The MBIM spec defines a NCM compatible default altsetting,
+ 	 * which we may have matched:
+@@ -572,6 +573,10 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	    cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
+ 		return -ENODEV;
+ #endif
++	/*  this buggy device cannot do ARP */
++	if( (le16_to_cpu(udev->descriptor.idVendor) == 0xAAAA) ) {
++		dev->net->flags |= IFF_NOARP;
++	}
+ 
+ 	/* NCM data altsetting is always 1 */
+ 	ret = cdc_ncm_bind_common(dev, intf, 1);
+@@ -1186,6 +1191,16 @@ static const struct usb_device_id cdc_devs[] = {
+ 	  .driver_info = (unsigned long) &wwan_info,
+ 	},
+ 
++	/* buggy device cannot send ARP */
++	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
++		| USB_DEVICE_ID_MATCH_VENDOR,
++	  .idVendor = 0xAAAA,
++	  .bInterfaceClass = USB_CLASS_COMM,
++	  .bInterfaceSubClass = USB_CDC_SUBCLASS_NCM,
++	  .bInterfaceProtocol = USB_CDC_PROTO_NONE,
++	  .driver_info = (unsigned long) &wwan_info,
++	},
++
+ 	/* Huawei NCM devices disguised as vendor specific */
+ 	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x16),
+ 	  .driver_info = (unsigned long)&wwan_info,
+-- 
+1.7.6.5
