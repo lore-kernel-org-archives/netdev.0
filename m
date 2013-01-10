@@ -1,40 +1,46 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH] tcp: splice: fix an infinite loop in tcp_read_sock()
-Date: Fri, 11 Jan 2013 00:21:53 +0100
-Message-ID: <20130110232153.GE17390@1wt.eu>
-References: <1357837570.27446.2285.camel@edumazet-glaptop> <20130110230145.GC17390@1wt.eu> <1357859155.27446.2768.camel@edumazet-glaptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [RFCv2 00/12] Introduce host-side virtio queue and CAIF Virtio.
+Date: Fri, 11 Jan 2013 09:18:33 +1030
+Message-ID: <87sj681wou.fsf@rustcorp.com.au>
+References: <871ug75vp1.fsf@rustcorp.com.au>
+	<1354718230-4486-1-git-send-email-sjur@brendeland.net>
+	<20121206102750.GF10837@redhat.com>
+	<877goc0wac.fsf@rustcorp.com.au>
+	<CAJK669bP41oBhJ=MB64NS21Ag7XO5WswuTiVKCFTb96nvmyBiw@mail.gmail.com>
+	<87pq1f2rj0.fsf@rustcorp.com.au> <87wqvl1g9s.fsf@rustcorp.com.au>
+	<20130110111117.GE13451@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 1wt.eu ([62.212.114.60]:38326 "EHLO 1wt.eu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752431Ab3AJXWB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 18:22:01 -0500
-Content-Disposition: inline
-In-Reply-To: <1357859155.27446.2768.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130110111117.GE13451@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 10, 2013 at 03:05:55PM -0800, Eric Dumazet wrote:
-> On Fri, 2013-01-11 at 00:01 +0100, Willy Tarreau wrote:
-> > Hi Eric,
-> 
-> > Thanks for catching this one. I'm amazed we didn't notice it earlier,
-> > I've been running my stress-test kernels with this patch applied since
-> > we did it.
-> > 
-> 
-> Thats because you splice(    very_large_amount_of_bytes), so you dont
-> hit this bug.
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+> On Thu, Jan 10, 2013 at 09:00:55PM +1030, Rusty Russell wrote:
+>> Not sure why vhost/net doesn't built a packet and feed it in
+>> netif_rx_ni().  This is what tun seems to do, and with this code it
+>> should be fairly optimal.
+>
+> Because we want to use NAPI.
 
-Not always, I use many sizes (from 1k to very large).
+Not quite what I was asking; it was more a question of why we're using a
+raw socket, when we trivially have a complete skb already which we
+should be able to feed to Linux like any network packet.
 
-> netperf does the splice (    exact_amount_of_bytes ) so hits this pretty
-> fast on loopback at least.
+And that path is pretty well optimized...
 
-OK I see, if we need an exact size to trigger it, that explains it !
-
-Thanks for the explanation,
-Willy
+Cheers,
+Rusty.
