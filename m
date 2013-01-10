@@ -1,52 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-01-09
-Date: Thu, 10 Jan 2013 00:12:01 -0800 (PST)
-Message-ID: <20130110.001201.1186658910482812389.davem@davemloft.net>
-References: <20130109191817.GA17321@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH 3.8-rc] tuntap: refuse to re-attach to different tun_struct
+Date: Thu, 10 Jan 2013 08:59:48 +0100
+Message-ID: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Stefan Hajnoczi <stefanha@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130109191817.GA17321@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 9 Jan 2013 14:18:18 -0500
+Multiqueue tun devices support detaching a tun_file from its tun_struct
+and re-attaching at a later point in time.  This allows users to disable
+a specific queue temporarily.
 
-> Included is a mac80211 pull, of which Johannes says the following:
-> 
-> 'This includes a number of fixes for various pieces of mac80211. I've
-> also included Thomas's memory RMC hash table optimisation since it
-> saves so much memory.'
-> 
-> Also from Johannes is an iwlwifi pull:
-> 
-> 'I have two fixes for iwlwifi: one to fix a lost return value that was
-> dropped in a previous patch and could cause "nobody cared" IRQ messages,
-> and one to work around a firmware issue.'
-> 
-> Amitkumar Karwar brings an mwifiex for a typo in an comparison.
-> 
-> Bing Zhao gives us an mwifiex fix to properly check the return value
-> from wait_event_interruptible and handle it properly.
-> 
-> Chen Gang provides a fix to make iwlegacy use strlcpy instead of
-> strncpy, avoiding a potential buffer underflow.
-> 
-> Julian Wollrath fixes a typo in an error message in rtlwifi.
-> 
-> Larry Finger brings a b43 fix for a firmware loading problem.
-> 
-> Nickolai Zeldovich avoids a use-after-free in the mwl8k driver.
-> 
-> Vladimir Kondratiev brings the last big piece, the new Qualcomm/Atheros
-> wil6210 802.11ad driver.  Since it is for new hardware, I hope that
-> taking it for 3.8 is not a problem.
-> 
-> Please let me know if there are problems!
+ioctl(TUNSETIFF) allows the user to specify the network interface to
+attach by name.  This means the user can attempt to attach to interface
+"B" after detaching from interface "A".
 
-Pulled, thanks John.
+The driver is not designed to support this so check we are re-attaching
+to the right tun_struct.  Failure to do so may lead to oops.
+
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+This fix is for 3.8-rc.
+
+ drivers/net/tun.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index fbd106e..cf6da6e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -491,6 +491,8 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 	err = -EINVAL;
+ 	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+ 		goto out;
++	if (tfile->detached && tun != tfile->detached)
++		goto out;
+ 
+ 	err = -EBUSY;
+ 	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
+-- 
+1.8.0.2
