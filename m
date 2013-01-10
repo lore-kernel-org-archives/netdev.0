@@ -1,65 +1,66 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] Fix phy_init for Marvell network eth driver
-Date: Thu, 10 Jan 2013 11:38:07 +0100
-Message-ID: <50EE9A0F.8050008@openwrt.org>
-References: <1357812298-26399-1-git-send-email-konszert@marvell.com> <1357812298-26399-2-git-send-email-konszert@marvell.com>
+From: Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: recvmmsg() timeout behavior strangeness
+Date: Thu, 10 Jan 2013 10:04:09 +0000
+Message-ID: <1357812249.2760.6.camel@menhir>
+References: <CAHO5Pa2goUtiBU8ye2beTBExL4it2-aDCPBhDOGyO3NX_PV_pQ@mail.gmail.com>
+	 <50EDF01E.10709@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, benavi@marvell.com, alior@marvell.com,
-	linux-arm-kernel@lists.infradead.org, andrew@lunn.ch
-To: Kosta Zertsekel <konszert@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:58186 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984Ab3AJKkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 05:40:43 -0500
-Received: by mail-la0-f48.google.com with SMTP id ej20so381401lab.21
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 02:40:42 -0800 (PST)
-In-Reply-To: <1357812298-26399-2-git-send-email-konszert@marvell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
+	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Chris Van Hoof <vanhoof-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Clark Williams <williams-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Grover <andy.grover-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
+To: Chris Friesen <chris.friesen-b7o/lNNmKxtBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50EDF01E.10709-b7o/lNNmKxtBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 01/10/13 11:04, Kosta Zertsekel a =C3=A9crit :
-> At least it fixes DNS323_REV_C1 board case (mach-orion5x/dsn323-setup=
-=2Ec file).
+Hi,
 
-This looks right, but a bit more detail would be welcome, such as:
+On Wed, 2013-01-09 at 16:33 -0600, Chris Friesen wrote:
+> On 12/23/2012 02:50 PM, Michael Kerrisk wrote:
+> 
+> > If I understand correctly, the *intended* purpose of the timeout
+> > argument is to set a limit on how long to wait for additional
+> > datagrams after the arrival of an initial datagram. However, the
+> > syscall behaves in quite a different way. Instead, it potentially
+> > blocks forever, regardless of the timeout.
+> 
+> Looking at the code, I think you're correct.
+> 
+> The comments for a2e2725 say the timeout works like for ppoll(), where 
+> it is "an upper limit on the time for which poll() will block, in 
+> milliseconds."
+> 
+> I wonder if we could play some games with sk->sk_rcvtimeo to accomplish 
+> this?
+> 
+> Chris
 
-"The D-Link DNS323_REV_C1 board has a specific PHY device fixup using=20
-the flag MARVELL_PHY_M1118_DNS323_LEDS which is set by the architecture=
-=20
-code in arch/arm/mach-orion5x/dns323-setup.c. This flag is unfortunatel=
-y=20
-lost during the call to phy_attach() in mv643xx_eth and therefore, the=20
-underlying Marvell PHY driver cannot make use of this flag to fixup the=
-=20
-PHY device LEDs. This patch ensures the phy->dev_flags value is passed=20
-to the phy_attach() function such that the PHY device driver can=20
-actually use it."
+Which timeout are we talking about? I've been copied into the thread
+without seeing the start of it.
 
->
-> Change-Id: I37d64795f79c358f66a211a150cec2263e40e295
-> ---
->   drivers/net/ethernet/marvell/mv643xx_eth.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net=
-/ethernet/marvell/mv643xx_eth.c
-> index 84c1326..7b8c1ac 100644
-> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-> @@ -2789,7 +2789,7 @@ static void phy_init(struct mv643xx_eth_private=
- *mp, int speed, int duplex)
->
->   	phy_reset(mp);
->
-> -	phy_attach(mp->dev, dev_name(&phy->dev), 0, PHY_INTERFACE_MODE_GMII=
-);
-> +	phy_attach(mp->dev, dev_name(&phy->dev), phy->dev_flags, PHY_INTERF=
-ACE_MODE_GMII);
->
->   	if (speed =3D=3D 0) {
->   		phy->autoneg =3D AUTONEG_ENABLE;
->
+If this is the rcvtimeo then afaik this is supposed to be the max time
+that the call waits for data, but is overridden by MSG_DONTWAIT, for
+example, on a per call basis. I'd assume that recvmmsg should work
+exactly like recvmsg in this case unless there is a good reason for it
+to differ,
+
+Steve.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
