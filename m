@@ -1,51 +1,87 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 2/2] Fix phy_attach - forward dev_flags for phy_attach
-Date: Thu, 10 Jan 2013 18:12:53 +0100
-Message-ID: <50EEF695.9060001@openwrt.org>
-References: <1357819234-27752-1-git-send-email-konszert@marvell.com> <1357819234-27752-3-git-send-email-konszert@marvell.com> <50EED2E4.80008@openwrt.org> <BC373419EB4337418B2B595BAEDC155F015896370062@IL-MB01.marvell.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Fw: [Bug 52481] New: Occasional NULL pointer dereference during ftp
+ networking since 3.7
+Date: Thu, 10 Jan 2013 09:21:36 -0800
+Message-ID: <20130110092136.0a74f203@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zertsekel@gmail.com" <zertsekel@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Eran Ben-Avi <benavi@marvell.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Lior Amsalem <alior@marvell.com>
-To: Kosta Zertsekel <konszert@marvell.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:54348 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276Ab3AJRP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 12:15:27 -0500
-Received: by mail-lb0-f178.google.com with SMTP id l5so666933lbo.9
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 09:15:26 -0800 (PST)
-In-Reply-To: <BC373419EB4337418B2B595BAEDC155F015896370062@IL-MB01.marvell.com>
+Received: from mail.vyatta.com ([76.74.103.46]:36728 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751907Ab3AJRXD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 12:23:03 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.vyatta.com (Postfix) with ESMTP id 32B861410447
+	for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 09:23:03 -0800 (PST)
+Received: from mail.vyatta.com ([127.0.0.1])
+	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id yEoere-mR5VH for <netdev@vger.kernel.org>;
+	Thu, 10 Jan 2013 09:23:02 -0800 (PST)
+Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
+	by mail.vyatta.com (Postfix) with ESMTPSA id 090B41410444
+	for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 09:23:02 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/10/13 16:57, Kosta Zertsekel a =C3=A9crit :
->> By the way, most, if not all of the phy_connect() users in drivers/n=
-et/ethernet/ also do not ensure they pass the phy device flags, so you =
-might
-> want to fix this globally and not just for Marvell driver.
-> Indeed, phy_connect() mostly just pass zero intead of phy_dev->dev_fl=
-ags.
-> But, I think, the guy that calls phy_connect() in its driver should k=
-now what he does, and,
-> probably, we should rely on him knowing his stuff.
-> The only evidence of the bug is when phy_dev->dev_flags was actually =
-changed by PHY fixup callback
-> (see dns323-setup.c for example) and was *not* propagated to phy_conn=
-ect() or phy_attach() as in pxa168_eth.c phy_init().
-> The code conforming to the former should be fixed IMHO.
 
-Actually, I wonder if we should not rather remove entirely the flags=20
-argument, let the phy_connect() or phy_attach() callers modify the phy=20
-device dev_flags like it does today (e.g: tg3) and modify phy_connect()=
-=20
-and phy_attach() to pass phy->dev_flags to phy_attach_direct().
---
-=46lorian
+
+Begin forwarded message:
+
+Date: Tue,  8 Jan 2013 14:29:18 +0000 (UTC)
+From: bugzilla-daemon@bugzilla.kernel.org
+To: shemminger@linux-foundation.org
+Subject: [Bug 52481] New: Occasional NULL pointer dereference during ftp networking since 3.7
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=52481
+
+           Summary: Occasional NULL pointer dereference during ftp
+                    networking since 3.7
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.7.0
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: itumaykin@gmail.com
+        Regression: Yes
+
+
+Created an attachment (id=90771)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=90771)
+lspci -vvv
+
+I am experiencing occasional panics during ftp networking after installing
+kernel 3.7.0.
+
+I have vsftpd-3.0.2 up and running on port 21 with configuration not changed
+for months, I use passive FTP with nf_conntrack_ftp helper. My distro is
+Hardened Gentoo amd64 and I use not vanilla kernel, but with some Gentoo
+specific and grsec specific patches.
+
+Anyway, with kernel 3.5.4 I had no problems with my FTP at all, but with 3.7.0
+there are random panics during or after FTP sessions. It happens more often
+after sessions with lots of data transferred, but sometimes only `ls` is enough
+to hang my machine.
+The nature of these errors is unknown to me, but the issue is definetely within
+the kernel as I tried to downgrade solely kernel back to 3.5.4 and everything
+returned back to normal.
+
+Also, I don't have traces of these panics in my logs, but I took photos of one
+of such cases. Here are links to them:
+https://docs.google.com/folder/d/0B9NAm8_0mptgU2RrMTZWX0NucUk/edit
+
+I understand there is probably not enough info to investigate the source of
+this issue, but I am ready to provide any additional info or do some testing.
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
