@@ -1,51 +1,94 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: tainted warnings with tcp splicing in 3.7.1
-Date: Thu, 10 Jan 2013 10:22:21 -0800
-Message-ID: <50EF06DD.7070207@hp.com>
-References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan> <1357750898.27446.33.camel@edumazet-glaptop> <1357751372.27446.40.camel@edumazet-glaptop> <1357801149.27446.1142.camel@edumazet-glaptop> <20130110072136.GK9943@1wt.eu> <1357831787.27446.2168.camel@edumazet-glaptop> <1357834825.27446.2205.camel@edumazet-glaptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next v5 01/14] vlan: wrap hw-acceleration
+ calls in separate functions.
+Date: Thu, 10 Jan 2013 10:25:25 -0800
+Message-ID: <20130110102525.2ff40c12@nehalam.linuxnetplumber.net>
+References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com>
+	<1357751882-8619-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Willy Tarreau <w@1wt.eu>,
-	Christian Becker <c.becker@traviangames.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:38762 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753596Ab3AJSW2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 13:22:28 -0500
-In-Reply-To: <1357834825.27446.2205.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	davem@davemloft.net
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1357751882-8619-2-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 01/10/2013 08:20 AM, Eric Dumazet wrote:
-> I also want to thanks Rick, as the latest netperf has splice() support.
->
-> Thanks Rick !
+On Wed,  9 Jan 2013 12:17:48 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-You are quite welcome - and thank you for helping me get it to actually 
-work :)
+>  
+>  /**
+> + * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
+> + * @dev: netdevice of the lowerdev/hw nic
+> + *
+> + * Checks to see if HW and driver report VLAN acceleration correctly.
+> + */
+> +static inline bool vlan_hw_buggy(const struct net_device *dev)
+> +{
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +
+> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> +	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
+> +		return true;
+> +
+> +	return false;
+> +}
+> +
+> +/**
+> + * vlan_vid_add_hw - Add the VLAN vid to the HW filter
+> + * @dev: netdevice of the lowerdev/hw nic
+> + * @vid: vlan id.
+> + *
+> + * Inserts the vid into the HW vlan filter table if hw supports it.
+> + */
+> +static inline int vlan_vid_add_hw(struct net_device *dev,
+> +				  unsigned short vid)
+> +{
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +	int err = 0;
+> +
+> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> +	    ops->ndo_vlan_rx_add_vid)
+> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
+> +
+> +	return err;
+> +}
+> +
+> +/**
+> + * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
+> + * @dev: netdevice of the lowerdev/hw nic
+> + * @vid: vlan id.
+> + *
+> + * Delete the vid from the HW vlan filter table if hw supports it.
+> + */
+> +static inline int vlan_vid_del_hw(struct net_device *dev,
+> +				  unsigned short vid)
+> +{
+> +	const struct net_device_ops *ops = dev->netdev_ops;
+> +	int err = 0;
+> +
+> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> +	    ops->ndo_vlan_rx_kill_vid)
+> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
+> +
+> +	return err;
+> +}
+> +
 
-Those wishing to try it themselves should grab the top-of-trunk netperf 
-bits from http://www.netperf.org/svn/netperf2/trunk .  The use of 
-splice() is gated by a test-specific -V option:
-
-raj@tardy:~/netperf2_trunk/src$ ./netperf -t omni -- -d recv -V
-OMNI Receive TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 
-localhost.localdomain () port 0 AF_INET : copy avoidance : demo
-Remote      Local       Remote Elapsed Throughput Throughput
-Send Socket Recv Socket Send   Time               Units
-Size        Size        Size   (sec)
-Final       Final
-1661688     4194304     16384  10.00   26103.14   10^6bits/s
-
-You should see that "copy avoidance" appearing in the test banner.  It 
-will also "take" for things like a migrated TCP_mumble test.  For those 
-cases where you don't see a throughput change, enabling CPU utilization 
-measurement and looking at that and service demand should show a difference.
-
-happy benchmarking,
-
-rick jones
+I would rather not have all these inline's. This isn't performance critical.
+Also, the check for buggy devices should be done inside the vlan code,
+not repeated in the functions using the add/remove API. When device is
+registered the flag and add/kill should be checked, and if the device driver
+is buggy it should fail the register_netdevice.
