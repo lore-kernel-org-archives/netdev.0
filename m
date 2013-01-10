@@ -1,45 +1,48 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Wed, 9 Jan 2013 18:42:57 -0800 (PST)
-Message-ID: <1426158581.24554896.1357785777229.JavaMail.root@vmware.com>
-References: <50ED25E7.9010609@redhat.com>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: Re: [patch net-next 5/7] net: remove unnecessary
+ =?UTF-8?Q?NET=5FADDR=5FRANDOM=20=22bitclean=22?=
+Date: Thu, 10 Jan 2013 04:55:23 +0200
+Message-ID: <315462fcac2927e7ddac59ce6bb97148@autistici.org>
+References: <1357047019-1037-1-git-send-email-jiri@resnulli.us>
+ <1357047019-1037-6-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Torokhov <dtor@vmware.com>, pv-drivers@vmware.com,
-	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Gerd Hoffmann <kraxel@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <50ED25E7.9010609@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from diserzione.investici.org ([82.221.99.153]:34321 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757961Ab3AJCz2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jan 2013 21:55:28 -0500
+In-Reply-To: <1357047019-1037-6-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > Our position is that VSOCK feature set is more complete and that it
-> > should be possible to use transports other than VMCI for VSOCK
-> > traffic, should interested parties implement them,
-> 
-> Implementing other transports requires restructing vsock (and vmci)
-> first as the current vsock code is not a hypervisor neutral service.
+Il 01.01.2013 15:30 Jiri Pirko ha scritto:
+> NET_ADDR_SET is set in dev_set_mac_address() no need to alter
+> dev->addr_assign_type value in drivers.
+>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I'm going to bite the bullet and spend the next couple of days doing
-just that: factoring out the VMCI bits and hiding them behind a
-transport layer.  It'll be a bit rough, but it'll be a start.  We'll
-submit another patch series next week with that.  I'm hoping that'll
-get us over this hump, since it should by hypervisor agnostic at
-that point.  It'll be up to you guys to add virtio, though :)
+Hello Jiri,
 
-And in the meantime, are there any other glaring errors that we need
-to address?
+please, next time it would be good if you CC all the poeple involved in 
+a patch: in this way
+everybody can easily realise that the code they are maintaining is 
+going to be touched/modified.
+If you don't (like this time) we have to wait some somebody/something 
+comparing net-next with
+our tree to trigger a reaction in our repo.
 
-Thanks!
-- Andy
+The get_maintainer.pl script will give you all the email addresses that 
+you should include
+(some of them can possibly be skept).
+
+Thanks a lot,
+Antonio
+
+
+-- 
+Antonio Quartulli
