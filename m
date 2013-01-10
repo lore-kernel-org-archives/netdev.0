@@ -1,37 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] ipv6: fix the noflags test in
- addrconf_get_prefix_route
-Date: Thu, 10 Jan 2013 14:39:32 -0800 (PST)
-Message-ID: <20130110.143932.748033133604759561.davem@davemloft.net>
-References: <470C14E4-2866-4C55-89A3-D6751E1587C4@ipflavors.com>
-	<50EE9141.6020805@linux-ipv6.org>
+Subject: Re: tainted warnings with tcp splicing in 3.7.1
+Date: Thu, 10 Jan 2013 14:39:55 -0800 (PST)
+Message-ID: <20130110.143955.1612875084927284724.davem@davemloft.net>
+References: <1357750898.27446.33.camel@edumazet-glaptop>
+	<1357751372.27446.40.camel@edumazet-glaptop>
+	<1357801149.27446.1142.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: r.kuntz@ipflavors.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, andi@collax.com
-To: yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50EE9141.6020805@linux-ipv6.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: c.becker@traviangames.com, netdev@vger.kernel.org, w@1wt.eu
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34610 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753231Ab3AJWjz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 17:39:55 -0500
+In-Reply-To: <1357801149.27446.1142.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 10 Jan 2013 19:00:33 +0900
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 09 Jan 2013 22:59:09 -0800
 
-> Romain KUNTZ wrote:
->> From e7ece201c35615c44a3cfdc10ee28ad5a5878f41 Mon Sep 17 00:00:00 2001
->> From: Romain Kuntz <r.kuntz@ipflavors.com>
->> Date: Wed, 9 Jan 2013 15:02:26 +0100
->> Subject: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
->> 
->> The tests on the flags in addrconf_get_prefix_route() does no make
->> much sense: the 'noflags' parameter contains the set of flags that
->> must not match with the route flags, so the test must be done
->> against 'noflags', and not against 'flags'.
->> 
->> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
- ...
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> [PATCH] tcp: fix splice() and tcp collapsing interaction
+> 
+> Under unusual circumstances, TCP collapse can split a big GRO TCP packet
+> while its being used in a splice(socket->pipe) operation.
+> 
+> skb_splice_bits() releases the socket lock before calling
+> splice_to_pipe().
+> 
+> [ 1081.353685] WARNING: at net/ipv4/tcp.c:1330 tcp_cleanup_rbuf+0x4d/0xfc()
+> [ 1081.371956] Hardware name: System x3690 X5 -[7148Z68]-
+> [ 1081.391820] cleanup rbuf bug: copied AD3BCF1 seq AD370AF rcvnxt AD3CF13
+> 
+> To fix this problem, we must eat skbs in tcp_recv_skb().
+> 
+> Remove the inline keyword from tcp_recv_skb() definition since
+> it has three call sites.
+> 
+> Reported-by: Christian Becker <c.becker@traviangames.com>
+> Cc: Willy Tarreau <w@1wt.eu>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
