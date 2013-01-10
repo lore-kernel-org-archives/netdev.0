@@ -1,40 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tainted warnings with tcp splicing in 3.7.1
-Date: Thu, 10 Jan 2013 08:20:25 -0800
-Message-ID: <1357834825.27446.2205.camel@edumazet-glaptop>
-References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan>
-	 <1357750898.27446.33.camel@edumazet-glaptop>
-	 <1357751372.27446.40.camel@edumazet-glaptop>
-	 <1357801149.27446.1142.camel@edumazet-glaptop>
-	 <20130110072136.GK9943@1wt.eu>
-	 <1357831787.27446.2168.camel@edumazet-glaptop>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH] CDC_NCM adding support IFF_NOARP for buggy device
+Date: Thu, 10 Jan 2013 20:18:35 +0300
+Message-ID: <50EEF7EB.4030503@mvista.com>
+References: <1357826368-30543-1-git-send-email-cpuwolf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Christian Becker <c.becker@traviangames.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>, Rick Jones <rick.jones2@hp.com>
+Cc: gregkh@linuxfoundation.org, alexey.orishko@stericsson.com,
+	hans.petter.selasky@stericsson.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Wei Shuai <cpuwolf@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:63766 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754610Ab3AJQU3 (ORCPT
+Received: from mail-la0-f46.google.com ([209.85.215.46]:60269 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754598Ab3AJQU3 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 11:20:29 -0500
-Received: by mail-pb0-f48.google.com with SMTP id rq13so389033pbb.21
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 08:20:28 -0800 (PST)
-In-Reply-To: <1357831787.27446.2168.camel@edumazet-glaptop>
+Received: by mail-la0-f46.google.com with SMTP id fq13so819408lab.19
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 08:20:27 -0800 (PST)
+In-Reply-To: <1357826368-30543-1-git-send-email-cpuwolf@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-10 at 07:29 -0800, Eric Dumazet wrote:
-> On Thu, 2013-01-10 at 08:21 +0100, Willy Tarreau wrote:
-> 
-> > FWIW, I tested your patch here and did not notice any regression
-> > compared to last week-end tests, at various MTU size combinations.
-> > 
-> 
-> Thanks Willy
+Hello.
 
-I also want to thanks Rick, as the latest netperf has splice() support.
+On 01/10/2013 04:59 PM, Wei Shuai wrote:
 
-Thanks Rick !
+> Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+> ---
+>  drivers/net/usb/cdc_ncm.c |   15 +++++++++++++++
+>  1 files changed, 15 insertions(+), 0 deletions(-)
+
+> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+> index 71b6e92..9903f79 100644
+> --- a/drivers/net/usb/cdc_ncm.c
+> +++ b/drivers/net/usb/cdc_ncm.c
+[...]
+> @@ -572,6 +573,10 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+>  	    cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
+>  		return -ENODEV;
+>  #endif
+> +	/*  this buggy device cannot do ARP */
+> +	if( (le16_to_cpu(udev->descriptor.idVendor) == 0xAAAA) ) {
+
+   Please run the patch thru scripts/checkpatch.pl and resubmit.
+
+WBR, Sergei
