@@ -1,53 +1,45 @@
-From: Lars-Peter Clausen <lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org>
-Subject: [PATCH] bfin_mac: Restore hardware
-	time-stamping dependency on BF518
-Date: Thu, 10 Jan 2013 15:42:28 +0100
-Message-ID: <1357828948-22682-1-git-send-email-lars@metafoo.de>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 2/2] Fix phy_attach - forward dev_flags for phy_attach
+Date: Thu, 10 Jan 2013 15:40:36 +0100
+Message-ID: <50EED2E4.80008@openwrt.org>
+References: <1357819234-27752-1-git-send-email-konszert@marvell.com> <1357819234-27752-3-git-send-email-konszert@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
-        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
-List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
-List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
-List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
-	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
-Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, zertsekel@gmail.com, andrew@lunn.ch,
+	benavi@marvell.com, linux-arm-kernel@lists.infradead.org,
+	alior@marvell.com
+To: Kosta Zertsekel <konszert@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:57230 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753100Ab3AJOnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 09:43:10 -0500
+Received: by mail-lb0-f173.google.com with SMTP id c1so540192lbg.32
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 06:43:08 -0800 (PST)
+In-Reply-To: <1357819234-27752-3-git-send-email-konszert@marvell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Q29tbWl0IDcwYWM2MThjMDcgKCJwdHA6IGZpeHVwIEtjb25maWcgZm9yIHR3byBQSEMgZHJpdmVy
-cy4iKSByZW1vdmVkIGFsbApkZXBlbmRlbmNpZXMgZm9yIHRoZSBibGFja2ZpbiBoYXJkd2FyZSB0
-aW1lLXN0YW1waW5nIEtjb25maWcgZW50cnkuIEhhcmR3YXJlCnRpbWUtc3RhbXBpbmcgaXMgb25s
-eSBhdmFpbGFibGUgb24gQkY1MTggdGhvdWdoLiBTaW5jZSB0aGUgS2NvbmZpZyBlbnRyeSBpcwon
-ZGVmYXVsdCB5JywganVzdCB1cGRhdGVpbmcgeW91ciBrZXJuZWwgc291cmNlIGFuZCBydW5uaW5n
-IGBtYWtlIGRlZmNvbmZpZ2Agd2lsbApyZXN1bHQgaW4gdGhlIHRoZSBmb2xsb3dpbmcgYnVpbGQg
-ZXJyb3JzOgoKCWRyaXZlcnMvbmV0L2V0aGVybmV0L2FkaS9iZmluX21hYy5jOjY5NDogZXJyb3I6
-IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmGJmaW5fcmVhZF9FTUFDX1BUUF9D
-VEzigJkKCWRyaXZlcnMvbmV0L2V0aGVybmV0L2FkaS9iZmluX21hYy5jOjcwMjogZXJyb3I6IGlt
-cGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmGJmaW5fd3JpdGVfRU1BQ19QVFBfRlYz
-4oCZCglkcml2ZXJzL25ldC9ldGhlcm5ldC9hZGkvYmZpbl9tYWMuYzo3MTI6IGVycm9yOiBpbXBs
-aWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhiZmluX3dyaXRlX0VNQUNfUFRQX0NUTOKA
-mQoJZHJpdmVycy9uZXQvZXRoZXJuZXQvYWRpL2JmaW5fbWFjLmM6NzE3OiBlcnJvcjogaW1wbGlj
-aXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCYYmZpbl93cml0ZV9FTUFDX1BUUF9GT0ZG4oCZ
-CgkuLi4KClRoaXMgcGF0Y2ggYWRkcyBiYWNrIHRoZSBkZXBlbmRlbmN5IG9uIEJGNTE4LCBhbmQg
-c2luY2UgaXQgZG9lcyBub3QgbWFrZSBzZW5zZQp0byBleHBvc2UgdGhpcyBjb25maWcgb3B0aW9u
-IHdoZW4gdGhlIGJsYWNrZmluIE1BQyBkcml2ZXIgaXMgbm90IGVuYWJsZWQgYWxzbwpyZXN0b3Jl
-IHRoZSBkZXBlbmRlbmN5IG9uIEJGSU5fTUFDLgoKU2lnbmVkLW9mZi1ieTogTGFycy1QZXRlciBD
-bGF1c2VuIDxsYXJzQG1ldGFmb28uZGU+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYWRpL0tj
-b25maWcgfCAxICsKIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQoKZGlmZiAtLWdpdCBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2FkaS9LY29uZmlnIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-YWRpL0tjb25maWcKaW5kZXggZTQ5YzBlZi4uYTk0ODE2MCAxMDA2NDQKLS0tIGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvYWRpL0tjb25maWcKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYWRpL0tj
-b25maWcKQEAgLTYxLDYgKzYxLDcgQEAgY29uZmlnIEJGSU5fUlhfREVTQ19OVU0KIAogY29uZmln
-IEJGSU5fTUFDX1VTRV9IV1NUQU1QCiAJYm9vbCAiVXNlIElFRUUgMTU4OCBod3N0YW1wIgorCWRl
-cGVuZHMgb24gQkZJTl9NQUMgJiYgQkY1MTgKIAlzZWxlY3QgUFRQXzE1ODhfQ0xPQ0sKIAlkZWZh
-dWx0IHkKIAktLS1oZWxwLS0tCi0tIAoxLjguMAoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KVWNsaW51eC1kaXN0LWRldmVsIG1haWxpbmcgbGlzdApVY2xp
-bnV4LWRpc3QtZGV2ZWxAYmxhY2tmaW4udWNsaW51eC5vcmcKaHR0cHM6Ly9ibGFja2Zpbi51Y2xp
-bnV4Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL3VjbGludXgtZGlzdC1kZXZlbA==
+Le 01/10/13 13:00, Kosta Zertsekel a =C3=A9crit :
+> Change-Id: Ie3191f95c36eada6d0c673460de5393641128182
+> ---
+>   drivers/net/ethernet/marvell/pxa168_eth.c | 2 +-
+>   net/dsa/slave.c                           | 2 +-
+>   2 files changed, 2 insertions(+), 2 deletions(-)
+
+I think that you should have actually two patches, one for pxa168_eth=20
+and one for net/dsa/slave.c.
+
+Also, please prefix your patches with what was usually used on these=20
+files before: "pxa168_eth:" and "net: dsa:" respectively.
+
+By the way, most, if not all of the phy_connect() users in=20
+drivers/net/ethernet/ also do not ensure they pass the phy device flags=
+,=20
+so you might want to fix this globally and not just for Marvell driver.
+
+Thanks.
+--
+=46lorian
