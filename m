@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tun: avoid owner checks on IFF_ATTACH_QUEUE
-Date: Thu, 10 Jan 2013 14:38:35 -0800 (PST)
-Message-ID: <20130110.143835.2008690798301758570.davem@davemloft.net>
-References: <20130110113108.GF13451@redhat.com>
-	<20130110115503.GD30885@stefanha-thinkpad.redhat.com>
+Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different
+ tun_struct
+Date: Thu, 10 Jan 2013 14:39:02 -0800 (PST)
+Message-ID: <20130110.143902.2166041015759450388.davem@davemloft.net>
+References: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, jasowang@redhat.com, netdev@vger.kernel.org,
+Cc: jasowang@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: stefanha@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130110115503.GD30885@stefanha-thinkpad.redhat.com>
+In-Reply-To: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Thu, 10 Jan 2013 12:55:03 +0100
+Date: Thu, 10 Jan 2013 08:59:48 +0100
 
-> On Thu, Jan 10, 2013 at 01:31:08PM +0200, Michael S. Tsirkin wrote:
->> At the moment, we check owner when we enable queue in tun.
->> This seems redundant and will break some valid uses
->> where fd is passed around: I think TUNSETOWNER is there
->> to prevent others from attaching to a persistent device not
->> owned by them. Here the fd is already attached,
->> enabling/disabling queue is more like read/write.
->> 
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> 
->> ---
->> 
->> Note: this is unrelated to Stefan's bugfix.
+> Multiqueue tun devices support detaching a tun_file from its tun_struct
+> and re-attaching at a later point in time.  This allows users to disable
+> a specific queue temporarily.
 > 
-> This should go into 3.8-rc.
+> ioctl(TUNSETIFF) allows the user to specify the network interface to
+> attach by name.  This means the user can attempt to attach to interface
+> "B" after detaching from interface "A".
 > 
-> Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+> The driver is not designed to support this so check we are re-attaching
+> to the right tun_struct.  Failure to do so may lead to oops.
+> 
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
 
 Applied.
