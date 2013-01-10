@@ -1,94 +1,135 @@
-From: Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: pull request: wireless 2013-01-09
-Date: Thu, 10 Jan 2013 14:43:12 +0100
-Message-ID: <CA+icZUXZYtdwBuY3WVM5ZNR-_7bOs4W2GYNtFQSRv_iqEpnS+Q@mail.gmail.com>
-References: <20130109191817.GA17321@tuxdriver.com>
-	<CA+icZUV9+JgZcYKZ4DAoj69D89hF-1cqr_bTpJvfgzWZZJ41kQ@mail.gmail.com>
-Reply-To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different tun_struct
+Date: Thu, 10 Jan 2013 21:53:59 +0800
+Message-ID: <50EEC7F7.1030905@redhat.com>
+References: <1357804788-19976-1-git-send-email-stefanha@redhat.com> <20130110102319.GB13451@redhat.com> <50EE9B48.6080306@redhat.com> <20130110110737.GD13451@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+icZUV9+JgZcYKZ4DAoj69D89hF-1cqr_bTpJvfgzWZZJ41kQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Hajnoczi <stefanha@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130110110737.GD13451@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 10, 2013 at 11:14 AM, Sedat Dilek <sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> On Wed, Jan 9, 2013 at 8:18 PM, John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->> Dave,
->>
->> Please pull this batch of fixes (and a new driver) for the 3.8 stream...
->>
->> Included is a mac80211 pull, of which Johannes says the following:
->>
->> 'This includes a number of fixes for various pieces of mac80211. I've
->> also included Thomas's memory RMC hash table optimisation since it
->> saves so much memory.'
->>
->> Also from Johannes is an iwlwifi pull:
->>
->> 'I have two fixes for iwlwifi: one to fix a lost return value that was
->> dropped in a previous patch and could cause "nobody cared" IRQ messages,
->> and one to work around a firmware issue.'
->>
->> Amitkumar Karwar brings an mwifiex for a typo in an comparison.
->>
->> Bing Zhao gives us an mwifiex fix to properly check the return value
->> from wait_event_interruptible and handle it properly.
->>
->> Chen Gang provides a fix to make iwlegacy use strlcpy instead of
->> strncpy, avoiding a potential buffer underflow.
->>
->> Julian Wollrath fixes a typo in an error message in rtlwifi.
->>
->> Larry Finger brings a b43 fix for a firmware loading problem.
->>
->> Nickolai Zeldovich avoids a use-after-free in the mwl8k driver.
->>
->> Vladimir Kondratiev brings the last big piece, the new Qualcomm/Atheros
->> wil6210 802.11ad driver.  Since it is for new hardware, I hope that
->> taking it for 3.8 is not a problem.
->>
->> Please let me know if there are problems!
->>
->> Thanks,
->>
->> John
->>
->> ---
->>
->> The following changes since commit c9be4a5c49cf51cc70a993f004c5bb30067a65ce:
->>
->>   net: prevent setting ttl=0 via IP_TTL (2013-01-08 17:57:10 -0800)
->>
->> are available in the git repository at:
->>
->>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
->>
->> for you to fetch changes up to a9b8a894ad7d0b90b0464c9ac7e8e5c1687edcae:
->>
->>   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless into for-davem (2013-01-09 11:01:37 -0500)
->>
->> ----------------------------------------------------------------
->
-> Hi John,
->
-> if I look at for-davem GIT branch (online GitWeb interface) [1], this
-> has no tag "master-2013-01-09" like in master branch.
-> Comments?
->
+On 01/10/2013 07:07 PM, Michael S. Tsirkin wrote:
+> On Thu, Jan 10, 2013 at 06:43:20PM +0800, Jason Wang wrote:
+>> On 01/10/2013 06:23 PM, Michael S. Tsirkin wrote:
+>>> On Thu, Jan 10, 2013 at 08:59:48AM +0100, Stefan Hajnoczi wrote:
+>>>> Multiqueue tun devices support detaching a tun_file from its tun_struct
+>>>> and re-attaching at a later point in time.  This allows users to disable
+>>>> a specific queue temporarily.
+>>>>
+>>>> ioctl(TUNSETIFF) allows the user to specify the network interface to
+>>>> attach by name.  This means the user can attempt to attach to interface
+>>>> "B" after detaching from interface "A".
+>>>>
+>>>> The driver is not designed to support this so check we are re-attaching
+>>>> to the right tun_struct.  Failure to do so may lead to oops.
+>>>>
+>>>> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+>>>> ---
+>>>> This fix is for 3.8-rc.
+>>>>
+>>>>  drivers/net/tun.c | 2 ++
+>>>>  1 file changed, 2 insertions(+)
+>>>>
+>>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>>> index fbd106e..cf6da6e 100644
+>>>> --- a/drivers/net/tun.c
+>>>> +++ b/drivers/net/tun.c
+>>>> @@ -491,6 +491,8 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>>>>  	err = -EINVAL;
+>>>>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+>>>>  		goto out;
+>>>> +	if (tfile->detached && tun != tfile->detached)
+>>>> +		goto out;
+>>>>  
+>>>>  	err = -EBUSY;
+>>>>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
+>>>> -- 
+>>>> 1.8.0.2
+>>> I agree this is a bug but even with this patch, we still allow:
+>>>
+>>> SETIFF
+>>> SETQUEUE (DISABLED)
+>>> SETIFF
+>>>
+>>> Originally the rule always was that repeated setiff calls fail with
+>>> EINVAL. We broke that when we set tun to NULL.  It's probably worth
+>>> preserving that, even if queue is disabled.  Applying something like the below
+>>> instead will address this concern, won't it?
+>>>
+>>> Note: works with regular userspace but I didn't test
+>>> multiqueue userspace. What do you think.
+>> Or just fail when tun->detached is not NULL at the beginning of
+>> tun_set_iff()?
+> Yes that'll also work I think. If you prefer this pls send patch.
 
-Sorry, forget this, I looked at wireless-next.git#for-davem.
-
-- Sedat -
-
-> Regards,
-> - Sedat -
->
-> [1] http://git.kernel.org/?p=linux/kernel/git/linville/wireless-next.git;a=shortlog;h=refs/heads/for-davem
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Will post a patch, thanks.
+>>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>>>
+>>> ---
+>>>
+>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>>> index fbd106e..5ec8b08 100644
+>>> --- a/drivers/net/tun.c
+>>> +++ b/drivers/net/tun.c
+>>> @@ -483,7 +483,7 @@ static void tun_detach_all(struct net_device *dev)
+>>>  	BUG_ON(tun->numdisabled != 0);
+>>>  }
+>>>  
+>>> -static int tun_attach(struct tun_struct *tun, struct file *file)
+>>> +static int tun_attach(struct tun_struct *tun, struct file *file, bool setiff)
+>>>  {
+>>>  	struct tun_file *tfile = file->private_data;
+>>>  	int err;
+>>> @@ -492,6 +492,9 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>>>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+>>>  		goto out;
+>>>  
+>>> +	if (setiff && tfile->detached)
+>>> +		goto out;
+>>> +
+>>>  	err = -EBUSY;
+>>>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
+>>>  		goto out;
+>>> @@ -1561,7 +1564,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>>>  		if (err < 0)
+>>>  			return err;
+>>>  
+>>> -		err = tun_attach(tun, file);
+>>> +		err = tun_attach(tun, file, true);
+>>>  		if (err < 0)
+>>>  			return err;
+>>>  
+>>> @@ -1627,7 +1630,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>>>  		dev->features = dev->hw_features;
+>>>  
+>>>  		INIT_LIST_HEAD(&tun->disabled);
+>>> -		err = tun_attach(tun, file);
+>>> +		err = tun_attach(tun, file, true);
+>>>  		if (err < 0)
+>>>  			goto err_free_dev;
+>>>  
+>>> @@ -1792,7 +1795,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>>>  		else if (tun_not_capable(tun))
+>>>  			ret = -EPERM;
+>>>  		else
+>>> -			ret = tun_attach(tun, file);
+>>> +			ret = tun_attach(tun, file, false);
+>>>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+>>>  		tun = rcu_dereference_protected(tfile->tun,
+>>>  						lockdep_rtnl_is_held());
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>> Please read the FAQ at  http://www.tux.org/lkml/
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
