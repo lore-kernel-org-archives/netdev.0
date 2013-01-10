@@ -1,87 +1,107 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Fw: [Bug 52481] New: Occasional NULL pointer dereference during ftp
- networking since 3.7
-Date: Thu, 10 Jan 2013 09:21:36 -0800
-Message-ID: <20130110092136.0a74f203@nehalam.linuxnetplumber.net>
+From: Tom Parkin <tom.parkin@gmail.com>
+Subject: BUG: NULL pointer dereference in netif_carrier_off
+Date: Thu, 10 Jan 2013 17:50:19 +0000
+Message-ID: <CACzvQmaj1_r4DHJjU7K4JN7jywX8y0_j_EQ_6tC8VkGryMmQPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:36728 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751907Ab3AJRXD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 12:23:03 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id 32B861410447
-	for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 09:23:03 -0800 (PST)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id yEoere-mR5VH for <netdev@vger.kernel.org>;
-	Thu, 10 Jan 2013 09:23:02 -0800 (PST)
-Received: from nehalam.linuxnetplumber.net (static-50-53-80-93.bvtn.or.frontiernet.net [50.53.80.93])
-	by mail.vyatta.com (Postfix) with ESMTPSA id 090B41410444
-	for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 09:23:02 -0800 (PST)
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:48721 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755428Ab3AJRuV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 12:50:21 -0500
+Received: by mail-wi0-f170.google.com with SMTP id hq7so1454165wib.1
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 09:50:20 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi Eric,
 
+I've just had a chance to try your fix for the veth oops I previously
+reported[1], but I still see some problems (please see oops below).
 
-Begin forwarded message:
+If I revert the original stats overhead fix (2681128f0ced8) and the
+subsequent NULL deref patch (d0e2c55e7c94) this problem goes away for
+me.
 
-Date: Tue,  8 Jan 2013 14:29:18 +0000 (UTC)
-From: bugzilla-daemon@bugzilla.kernel.org
-To: shemminger@linux-foundation.org
-Subject: [Bug 52481] New: Occasional NULL pointer dereference during ftp networking since 3.7
+I've reproduced this bug using a script intended to stress test L2TP
+network namespace code, which uses veth tunnels to bridge namespaces.
 
+Apologies for the late report!
 
-https://bugzilla.kernel.org/show_bug.cgi?id=52481
+Thanks,
+Tom
 
-           Summary: Occasional NULL pointer dereference during ftp
-                    networking since 3.7
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 3.7.0
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: itumaykin@gmail.com
-        Regression: Yes
+[1]
+http://www.spinics.net/lists/netdev/msg221284.html
 
+BUG: unable to handle kernel NULL pointer dereference at 0000002c
+IP: [<c151f5f8>] netif_carrier_off+0x8/0x30
+*pde = 00000000
+Oops: 0002 [#1] SMP
+Modules linked in: veth bridge stp llc l2tp_ip6 l2tp_ip l2tp_ppp pppox
+l2tp_eth l2tp_netlink l2tp_core kvm_amd 9
+Pid: 5778, comm: ip Tainted: G        W    3.8.0-rc1-tpdev-33-lockdep+
+#42 Gigabyte Technology Co., Ltd. GA-MA62
+EIP: 0060:[<c151f5f8>] EFLAGS: 00010202 CPU: 0
+EIP is at netif_carrier_off+0x8/0x30
+EAX: 00000000 EBX: ee422800 ECX: 00000001 EDX: c18e4b80
+ESI: efec7c44 EDI: ee422840 EBP: efec7b38 ESP: efec7b38
+ DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+CR0: 80050033 CR2: 0000002c CR3: 2fdb2000 CR4: 000007d0
+DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+DR6: ffff0ff0 DR7: 00000400
+Process ip (pid: 5778, ti=efec6000 task=f1d4bf00 task.ti=efec6000)
+Stack:
+ efec7b44 f810e23d ee422800 efec7b60 c14fc169 ffffffff ffffffff f594c210
+ ee422800 efec7c44 efec7b80 c14fc25e efec7b6c ee422040 ee422040 efec7c04
+ ee422800 efec7c44 efec7ba0 c14fc357 f180dd00 efec7c44 ee422000 efec7c44
+Call Trace:
+ [<f810e23d>] veth_close+0x2d/0x60 [veth]
+ [<c14fc169>] __dev_close_many+0x69/0xb0
+ [<c14fc25e>] dev_close_many+0x6e/0xc0
+ [<c14fc357>] rollback_registered_many+0xa7/0x1c0
+ [<c14fc484>] unregister_netdevice_many+0x14/0x60
+ [<c1510e0e>] rtnl_dellink+0x9e/0x100
+ [<c10461a8>] ? ns_capable+0x38/0x70
+ [<c1510d70>] ? rtnetlink_put_metrics+0xf0/0xf0
+ [<c1512ae3>] rtnetlink_rcv_msg+0x153/0x2a0
+ [<c160db1a>] ? mutex_lock_nested+0x21a/0x2e0
+ [<c150f924>] ? rtnl_lock+0x14/0x20
+ [<c1512990>] ? __rtnl_unlock+0x20/0x20
+ [<c152a31e>] netlink_rcv_skb+0x8e/0xb0
+ [<c150f94c>] rtnetlink_rcv+0x1c/0x30
+ [<c1529cdd>] netlink_unicast+0x17d/0x1f0
+ [<c1529f74>] netlink_sendmsg+0x224/0x390
+ [<c14e8791>] sock_sendmsg+0xd1/0xf0
+ [<c1135b89>] ? might_fault+0x89/0x90
+ [<c12fa932>] ? _copy_from_user+0x42/0x60
+ [<c14f5c64>] ? verify_iovec+0x44/0xb0
+ [<c14e96a2>] __sys_sendmsg+0x262/0x270
+ [<c1073e4f>] ? sched_clock_cpu+0xcf/0x150
+ [<c109c02b>] ? trace_hardirqs_off+0xb/0x10
+ [<c1073f35>] ? local_clock+0x65/0x70
+ [<c109c69c>] ? lock_release_holdtime.part.23+0xbc/0xf0
+ [<c10a15ed>] ? lock_release_non_nested+0x29d/0x2e0
+ [<c1073f35>] ? local_clock+0x65/0x70
+ [<c1178ab1>] ? fget_light+0x371/0x450
+ [<c14ead9b>] sys_sendmsg+0x3b/0x60
+ [<c14eb443>] sys_socketcall+0x283/0x2e0
+ [<c1611310>] ? restore_all+0xf/0xf
+ [<c1614bc0>] ? __do_page_fault+0x4e0/0x4e0
+ [<c12fa548>] ? trace_hardirqs_on_thunk+0xc/0x10
+ [<c1618acd>] sysenter_do_call+0x12/0x38
+Code: 00 00 00 e8 ab 2f fd ff 8b 75 f8 b8 01 00 00 00 83 83 9c 00 00
+00 01 8b 5d f4 8b 7d fc 89 ec 5d c3 66 90 3
+EIP: [<c151f5f8>] netif_carrier_off+0x8/0x30 SS:ESP 0068:efec7b38
+CR2: 000000000000002c
+---[ end trace e9f7b433da03329a ]---
 
-Created an attachment (id=90771)
- --> (https://bugzilla.kernel.org/attachment.cgi?id=90771)
-lspci -vvv
-
-I am experiencing occasional panics during ftp networking after installing
-kernel 3.7.0.
-
-I have vsftpd-3.0.2 up and running on port 21 with configuration not changed
-for months, I use passive FTP with nf_conntrack_ftp helper. My distro is
-Hardened Gentoo amd64 and I use not vanilla kernel, but with some Gentoo
-specific and grsec specific patches.
-
-Anyway, with kernel 3.5.4 I had no problems with my FTP at all, but with 3.7.0
-there are random panics during or after FTP sessions. It happens more often
-after sessions with lots of data transferred, but sometimes only `ls` is enough
-to hang my machine.
-The nature of these errors is unknown to me, but the issue is definetely within
-the kernel as I tried to downgrade solely kernel back to 3.5.4 and everything
-returned back to normal.
-
-Also, I don't have traces of these panics in my logs, but I took photos of one
-of such cases. Here are links to them:
-https://docs.google.com/folder/d/0B9NAm8_0mptgU2RrMTZWX0NucUk/edit
-
-I understand there is probably not enough info to investigate the source of
-this issue, but I am ready to provide any additional info or do some testing.
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
+--
+Tom Parkin
+www.thesecretdogproject.com
+The competent programmer is fully aware of the strictly limited size
+of his own skull; therefore he approaches the programming task in full
+humility, and among other things he avoids clever tricks like the
+plague. /E. W. Dijkstra/
