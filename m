@@ -1,63 +1,52 @@
-From: "Ariel Elior" <ariele@broadcom.com>
-Subject: RE: [patch] bnx2x: move debugging code before the return
-Date: Thu, 10 Jan 2013 09:53:36 +0000
-Message-ID: <6AE768456CEC4B4A9B2248CB6B87EB3E1BCC893D@SJEXCHMB05.corp.ad.broadcom.com>
-References: <20130110085807.GB23063@elgon.mountain>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
+Date: Thu, 10 Jan 2013 19:00:33 +0900
+Message-ID: <50EE9141.6020805@linux-ipv6.org>
+References: <470C14E4-2866-4C55-89A3-D6751E1587C4@ipflavors.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: "Dan Carpenter" <dan.carpenter@oracle.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3474 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751114Ab3AJJxs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 04:53:48 -0500
-In-Reply-To: <20130110085807.GB23063@elgon.mountain>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	linux-kernel@vger.kernel.org, Andreas Hofmeister <andi@collax.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Romain KUNTZ <r.kuntz@ipflavors.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <470C14E4-2866-4C55-89A3-D6751E1587C4@ipflavors.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Dan Carpenter
-> Sent: Thursday, January 10, 2013 10:58 AM
-> To: Eilon Greenstein
-> Cc: netdev@vger.kernel.org; kernel-janitors@vger.kernel.org
-> Subject: [patch] bnx2x: move debugging code before the return
+Romain KUNTZ wrote:
+> From e7ece201c35615c44a3cfdc10ee28ad5a5878f41 Mon Sep 17 00:00:00 2001
+> From: Romain Kuntz <r.kuntz@ipflavors.com>
+> Date: Wed, 9 Jan 2013 15:02:26 +0100
+> Subject: [PATCH 1/1] ipv6: fix the noflags test in addrconf_get_prefix_route
 > 
-> I move the return down a line after the debugging printk.
+> The tests on the flags in addrconf_get_prefix_route() does no make
+> much sense: the 'noflags' parameter contains the set of flags that
+> must not match with the route flags, so the test must be done
+> against 'noflags', and not against 'flags'.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+> ---
+>  net/ipv6/addrconf.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> index 292634f..d7029c8 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> @@ -2768,10 +2768,10 @@ static int bnx2x_set_rss_flags(struct bnx2x *bp,
-> struct ethtool_rxnfc *info)
->  		} else if ((info->flow_type == UDP_V6_FLOW) &&
->  			   (bp->rss_conf_obj.udp_rss_v6 !=
-> udp_rss_requested)) {
->  			bp->rss_conf_obj.udp_rss_v6 = udp_rss_requested;
-> -			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj,
-> 0);
->  			DP(BNX2X_MSG_ETHTOOL,
->  			   "rss re-configured, UDP 4-tupple %s\n",
->  			   udp_rss_requested ? "enabled" : "disabled");
-> +			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj,
-> 0);
->  		} else {
->  			return 0;
->  		}
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 408cac4a..29ba4ff 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -1877,7 +1877,7 @@ static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+>  			continue;
+>  		if ((rt->rt6i_flags & flags) != flags)
+>  			continue;
+> -		if ((noflags != 0) && ((rt->rt6i_flags & flags) != 0))
+> +		if ((rt->rt6i_flags & noflags) != 0)
+>  			continue;
+>  		dst_hold(&rt->dst);
+>  		break;
+> 
 
-Thanks Dan.
-Acked-by: Ariel Elior <ariele@broadcom.com>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--yoshfuji
