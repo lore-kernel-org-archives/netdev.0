@@ -1,105 +1,46 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] tun: avoid owner checks on IFF_ATTACH_QUEUE
-Date: Thu, 10 Jan 2013 23:27:21 +0800
-Message-ID: <50EEDDD9.2020007@redhat.com>
-References: <20130110113108.GF13451@redhat.com> <50EECB43.8020405@redhat.com> <20130110141939.GA30557@redhat.com> <50EECFC8.9020402@redhat.com> <20130110144138.GA30731@redhat.com> <50EED495.4040405@redhat.com> <20130110151037.GD30731@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tainted warnings with tcp splicing in 3.7.1
+Date: Thu, 10 Jan 2013 07:29:47 -0800
+Message-ID: <1357831787.27446.2168.camel@edumazet-glaptop>
+References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan>
+	 <1357750898.27446.33.camel@edumazet-glaptop>
+	 <1357751372.27446.40.camel@edumazet-glaptop>
+	 <1357801149.27446.1142.camel@edumazet-glaptop>
+	 <20130110072136.GK9943@1wt.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Hajnoczi <stefanha@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Paul Moore <pmoore@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130110151037.GD30731@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Christian Becker <c.becker@traviangames.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33150 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753679Ab3AJP3w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 10:29:52 -0500
+Received: by mail-pa0-f53.google.com with SMTP id hz1so417421pad.26
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 07:29:51 -0800 (PST)
+In-Reply-To: <20130110072136.GK9943@1wt.eu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2013 11:10 PM, Michael S. Tsirkin wrote:
-> On Thu, Jan 10, 2013 at 10:47:49PM +0800, Jason Wang wrote:
->> On 01/10/2013 10:41 PM, Michael S. Tsirkin wrote:
->>> On Thu, Jan 10, 2013 at 10:27:20PM +0800, Jason Wang wrote:
->>>> On 01/10/2013 10:19 PM, Michael S. Tsirkin wrote:
->>>>> On Thu, Jan 10, 2013 at 10:08:03PM +0800, Jason Wang wrote:
->>>>>> On 01/10/2013 07:31 PM, Michael S. Tsirkin wrote:
->>>>>>> At the moment, we check owner when we enable queue in tun.
->>>>>>> This seems redundant and will break some valid uses
->>>>>>> where fd is passed around: I think TUNSETOWNER is there
->>>>>>> to prevent others from attaching to a persistent device not
->>>>>>> owned by them. Here the fd is already attached,
->>>>>>> enabling/disabling queue is more like read/write.
->>>>>> It also change the number of queues of the tuntap, maybe we should limit
->>>>>> this.
->>>>> Number of active queues? Why does it matter?
->>>>> Max number of queues is already limited by SETIFF.
->>>> Yes the number of active(real) queues in the kernel net device and this
->>>> changing may introduce other events such uevent.
->>> How can it trigger a uevent?
->> netif_set_real_num_{tx|rx}_queues() will update the queue kobjects which
->> may trigger an uevent.
-> Look SETOWNER is a tool intended mostly for persistent taps,
-> where you give a specific user the rights to attach to
-> specific taps but not others.
+On Thu, 2013-01-10 at 08:21 +0100, Willy Tarreau wrote:
 
-True.
-> The uevent issue is preventing a DOS by a uevent flood?
-> Then it applies to persistent and non persistent as one.
-> So if one cares about this one should use an LSM
-> or we can add a separate capability to limit this if we
-> care enough.
+> FWIW, I tested your patch here and did not notice any regression
+> compared to last week-end tests, at various MTU size combinations.
+> 
 
-Ok.
->>>> With this patch, even
->>>> if a owner is set for tap, every user could change the number of real
->>>> queues which I don't think is not expected. Without this patch, we can
->>>> limit a user that just do read and write.
->>> In the end if you want very fine tuned security policy you have to
->>> use an LSM.
->>>
->>> Here we are talking about the expected usage without an LSM.
->>> There, enabling/disabling queues is just an optimization:
->>> if an application wants to process data from a single thread
->>> it's better off getting it through a single fd.
->>> Having to channel threading changes through a priveledged
->>> proxy would be very awkward.
->> Yes, but we have something similar like bridge-helper in qemu which
->> create devices through a privileged proxy.
-> This only happens on startup. Threading changes can happen
-> at any time.
+Thanks Willy
 
-Yes. So no objection from my side. Thanks for the explanation.
->>>>>> Note that if management layer does not call TUNSETOWNER, the check
->>>>>> is just a nop. So if management layer want to limit the behavior, it's
->>>>>> its duty to do this correctly.
->>>>> The point is that management limits tun to allow SETIFF from libvirt
->>>>> only, then passes the fds to qemu.
->>>> Yes, but looks like libvirt does not call TUNSETOWNER before passing it
->>>> to qemu, so we're ok even without this patch. And if libvirt want to do
->>>> this, it can just call TUNSETOWNER to the user of qemu.
->>> No, that would allow qemu to do SETIFF which we don't want.
->> True, I was wrong.
->>>>>>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->>>>>>>
->>>>>>> ---
->>>>>>>
->>>>>>> Note: this is unrelated to Stefan's bugfix.
->>>>>>>
->>>>>>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
->>>>>>> index fbd106e..78e3225 100644
->>>>>>> --- a/drivers/net/tun.c
->>>>>>> +++ b/drivers/net/tun.c
->>>>>>> @@ -1789,10 +1792,8 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
->>>>>>>  		tun = tfile->detached;
->>>>>>>  		if (!tun)
->>>>>>>  			ret = -EINVAL;
->>>>>>> -		else if (tun_not_capable(tun))
->>>>>>> -			ret = -EPERM;
->>>>>>>  		else
->>>>>>>  			ret = tun_attach(tun, file);
->>>>>>>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
->>>>>>>  		tun = rcu_dereference_protected(tfile->tun,
->>>>>>>  						lockdep_rtnl_is_held());
->>>>> --
->>>>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>>>> the body of a message to majordomo@vger.kernel.org
->>>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Tested-by: Willy Tarreau <w@1wt.eu>
+
+I believe I need to fix net-next, 
+
+commit 9ca1b22d6d228177e6f929f6818a1cd3d5e30c4a
+(net: splice: avoid high order page splitting)
+
+missed the loopback case : the skb->head might need several
+linear_to_page() calls.
+
+I'll send a patch after full testing.
