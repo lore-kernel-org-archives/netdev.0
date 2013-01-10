@@ -1,94 +1,64 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next v5 01/14] vlan: wrap hw-acceleration
- calls in separate functions.
-Date: Thu, 10 Jan 2013 10:25:25 -0800
-Message-ID: <20130110102525.2ff40c12@nehalam.linuxnetplumber.net>
-References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com>
-	<1357751882-8619-2-git-send-email-vyasevic@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG: NULL pointer dereference in netif_carrier_off
+Date: Thu, 10 Jan 2013 10:32:45 -0800
+Message-ID: <1357842765.27446.2396.camel@edumazet-glaptop>
+References: <CACzvQmaj1_r4DHJjU7K4JN7jywX8y0_j_EQ_6tC8VkGryMmQPQ@mail.gmail.com>
+	 <1357840590.27446.2331.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: mst@redhat.com, netdev@vger.kernel.org, stephen@redhat.com,
-	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
-	davem@davemloft.net
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1357751882-8619-2-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Tom Parkin <tom.parkin@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:54127 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755194Ab3AJSct (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 13:32:49 -0500
+Received: by mail-pa0-f48.google.com with SMTP id fa1so512539pad.35
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 10:32:48 -0800 (PST)
+In-Reply-To: <1357840590.27446.2331.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed,  9 Jan 2013 12:17:48 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
+From: Eric Dumazet <edumazet@google.com>
 
->  
->  /**
-> + * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
-> + * @dev: netdevice of the lowerdev/hw nic
-> + *
-> + * Checks to see if HW and driver report VLAN acceleration correctly.
-> + */
-> +static inline bool vlan_hw_buggy(const struct net_device *dev)
-> +{
-> +	const struct net_device_ops *ops = dev->netdev_ops;
-> +
-> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
-> +	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
-> +		return true;
-> +
-> +	return false;
-> +}
-> +
-> +/**
-> + * vlan_vid_add_hw - Add the VLAN vid to the HW filter
-> + * @dev: netdevice of the lowerdev/hw nic
-> + * @vid: vlan id.
-> + *
-> + * Inserts the vid into the HW vlan filter table if hw supports it.
-> + */
-> +static inline int vlan_vid_add_hw(struct net_device *dev,
-> +				  unsigned short vid)
-> +{
-> +	const struct net_device_ops *ops = dev->netdev_ops;
-> +	int err = 0;
-> +
-> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
-> +	    ops->ndo_vlan_rx_add_vid)
-> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
-> +
-> +	return err;
-> +}
-> +
-> +/**
-> + * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
-> + * @dev: netdevice of the lowerdev/hw nic
-> + * @vid: vlan id.
-> + *
-> + * Delete the vid from the HW vlan filter table if hw supports it.
-> + */
-> +static inline int vlan_vid_del_hw(struct net_device *dev,
-> +				  unsigned short vid)
-> +{
-> +	const struct net_device_ops *ops = dev->netdev_ops;
-> +	int err = 0;
-> +
-> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
-> +	    ops->ndo_vlan_rx_kill_vid)
-> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
-> +
-> +	return err;
-> +}
-> +
+On Thu, 2013-01-10 at 09:56 -0800, Eric Dumazet wrote:
 
-I would rather not have all these inline's. This isn't performance critical.
-Also, the check for buggy devices should be done inside the vlan code,
-not repeated in the functions using the add/remove API. When device is
-registered the flag and add/kill should be checked, and if the device driver
-is buggy it should fail the register_netdevice.
+> 
+> Hi Tom, thanks for the report, I'll take a look.
+
+Oh well, fix seems straightforward...
+
+Thanks !
+
+[PATCH net-next] veth: fix a NULL deref in netif_carrier_off
+
+In commit d0e2c55e7c94 (veth: avoid a NULL deref in veth_stats_one)
+we now clear the peer pointers in veth_dellink()
+
+veth_close() must therefore make sure the peer pointer is set.
+
+Reported-by: Tom Parkin <tom.parkin@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ drivers/net/veth.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 0f71a4f..e1da42a 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -206,9 +206,11 @@ static int veth_open(struct net_device *dev)
+ static int veth_close(struct net_device *dev)
+ {
+ 	struct veth_priv *priv = netdev_priv(dev);
++	struct net_device *peer = rtnl_dereference(priv->peer);
+ 
+ 	netif_carrier_off(dev);
+-	netif_carrier_off(rtnl_dereference(priv->peer));
++	if (peer)
++		netif_carrier_off(peer);
+ 
+ 	return 0;
+ }
