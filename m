@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH v2 08/10] ixgbe: Update ixgbe driver to use
- __netdev_pick_tx in ixgbe_select_queue
-Date: Thu, 10 Jan 2013 10:58:30 -0800
-Message-ID: <20130110185817.29578.27780.stgit@ahduyck-cp1.jf.intel.com>
+Subject: [RFC PATCH v2 09/10] ixgbe: Add support for displaying the number
+ of Tx/Rx channels
+Date: Thu, 10 Jan 2013 10:58:41 -0800
+Message-ID: <20130110185835.29578.88663.stgit@ahduyck-cp1.jf.intel.com>
 References: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,98 +11,112 @@ Cc: bhutchings@solarflare.com, therbert@google.com, ycai@google.com,
 	eric.dumazet@gmail.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:35072 "EHLO mga03.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:7969 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754756Ab3AJTAF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 14:00:05 -0500
+	id S1754214Ab3AJTAP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 14:00:15 -0500
 In-Reply-To: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change updates the ixgbe driver to use __netdev_pick_tx instead of
-the current logic it is using to select a queue.  The main result of this
-change is that ixgbe can now fully support XPS, and in the case of non-FCoE
-enabled configs it means we don't need to have our own ndo_select_queue.
+This patch adds support for the ethtool get_channels operation.
+
+Since the ixgbe driver has to support DCB as well as the other modes the
+assumption I made here is that the number of channels in DCB modes refers
+to the number of queues per traffic class, not the number of queues total.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   48 ++++++++++++++-----------
- 1 files changed, 26 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   72 ++++++++++++++++++++++
+ 1 files changed, 72 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 8ca9794..4c0bcd8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6363,38 +6363,40 @@ static inline int ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
- 	return __ixgbe_maybe_stop_tx(tx_ring, size);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 3268584..688effc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2704,6 +2704,77 @@ static int ixgbe_get_ts_info(struct net_device *dev,
+ 	return 0;
  }
  
-+#ifdef IXGBE_FCOE
- static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
- {
--	struct ixgbe_adapter *adapter = netdev_priv(dev);
--	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
--					       smp_processor_id();
--#ifdef IXGBE_FCOE
--	__be16 protocol = vlan_get_protocol(skb);
-+	struct ixgbe_adapter *adapter;
-+	struct ixgbe_ring_feature *f;
-+	int txq;
- 
--	if (((protocol == htons(ETH_P_FCOE)) ||
--	    (protocol == htons(ETH_P_FIP))) &&
--	    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
--		struct ixgbe_ring_feature *f;
-+	/*
-+	 * only execute the code below if protocol is FCoE
-+	 * or FIP and we have FCoE enabled on the adapter
-+	 */
-+	switch (vlan_get_protocol(skb)) {
-+	case __constant_htons(ETH_P_FCOE):
-+	case __constant_htons(ETH_P_FIP):
-+		adapter = netdev_priv(dev);
- 
--		f = &adapter->ring_feature[RING_F_FCOE];
-+		if (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)
-+			break;
-+	default:
-+		return __netdev_pick_tx(dev, skb);
++static unsigned int ixgbe_max_channels(struct ixgbe_adapter *adapter)
++{
++	unsigned int max_combined;
++	u8 tcs = netdev_get_num_tc(adapter->netdev);
++
++	if (!(adapter->flags & IXGBE_FLAG_MSIX_ENABLED)) {
++		/* We only support one q_vector without MSI-X */
++		max_combined = 1;
++	} else if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
++		/* SR-IOV currently only allows one queue on the PF */
++		max_combined = 1;
++	} else if (tcs > 1) {
++		/* For DCB report channels per traffic class */
++		if (adapter->hw.mac.type == ixgbe_mac_82598EB) {
++			/* 8 TC w/ 4 queues per TC */
++			max_combined = 4;
++		} else if (tcs > 4) {
++			/* 8 TC w/ 8 queues per TC */
++			max_combined = 8;
++		} else {
++			/* 4 TC w/ 16 queues per TC */
++			max_combined = 16;
++		}
++	} else if (adapter->atr_sample_rate) {
++		/* support up to 64 queues with ATR */
++		max_combined = IXGBE_MAX_FDIR_INDICES;
++	} else {
++		/* support up to 16 queues with RSS */
++		max_combined = IXGBE_MAX_RSS_INDICES;
 +	}
++
++	return max_combined;
++}
++
++static void ixgbe_get_channels(struct net_device *dev,
++			       struct ethtool_channels *ch)
++{
++	struct ixgbe_adapter *adapter = netdev_priv(dev);
++
++	/* report maximum channels */
++	ch->max_combined = ixgbe_max_channels(adapter);
++
++	/* report info for other vector */
++	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
++		ch->max_other = NON_Q_VECTORS;
++		ch->other_count = NON_Q_VECTORS;
++	}
++
++	/* record RSS queues */
++	ch->combined_count = adapter->ring_feature[RING_F_RSS].indices;
++
++	/* nothing else to report if RSS is disabled */
++	if (ch->combined_count == 1)
++		return;
++
++	/* we do not support ATR queueing if SR-IOV is enabled */
++	if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
++		return;
++
++	/* same thing goes for being DCB enabled */
++	if (netdev_get_num_tc(dev) > 1)
++		return;
++
++	/* if ATR is disabled we can exit */
++	if (!adapter->atr_sample_rate)
++		return;
++
++	/* report flow director queues as maximum channels */
++	ch->combined_count = adapter->ring_feature[RING_F_FDIR].indices;
++}
++
+ static const struct ethtool_ops ixgbe_ethtool_ops = {
+ 	.get_settings           = ixgbe_get_settings,
+ 	.set_settings           = ixgbe_set_settings,
+@@ -2733,6 +2804,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
+ 	.get_rxnfc		= ixgbe_get_rxnfc,
+ 	.set_rxnfc		= ixgbe_set_rxnfc,
+ 	.get_ts_info		= ixgbe_get_ts_info,
++	.get_channels		= ixgbe_get_channels,
+ };
  
--		while (txq >= f->indices)
--			txq -= f->indices;
--		txq += adapter->ring_feature[RING_F_FCOE].offset;
-+	f = &adapter->ring_feature[RING_F_FCOE];
- 
--		return txq;
--	}
--#endif
-+	txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
-+					   smp_processor_id();
- 
--	if (adapter->flags & IXGBE_FLAG_FDIR_HASH_CAPABLE) {
--		while (unlikely(txq >= dev->real_num_tx_queues))
--			txq -= dev->real_num_tx_queues;
--		return txq;
--	}
-+	while (txq >= f->indices)
-+		txq -= f->indices;
- 
--	return skb_tx_hash(dev, skb);
-+	return txq + f->offset;
- }
- 
-+#endif
- netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 			  struct ixgbe_adapter *adapter,
- 			  struct ixgbe_ring *tx_ring)
-@@ -7092,7 +7094,9 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_open		= ixgbe_open,
- 	.ndo_stop		= ixgbe_close,
- 	.ndo_start_xmit		= ixgbe_xmit_frame,
-+#ifdef IXGBE_FCOE
- 	.ndo_select_queue	= ixgbe_select_queue,
-+#endif
- 	.ndo_set_rx_mode	= ixgbe_set_rx_mode,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_set_mac_address	= ixgbe_set_mac,
+ void ixgbe_set_ethtool_ops(struct net_device *netdev)
