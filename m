@@ -1,52 +1,41 @@
-From: Kosta Zertsekel <konszert@marvell.com>
-Subject: [PATCH 2/2] Fix phy_attach - forward dev_flags for phy_attach
-Date: Thu, 10 Jan 2013 14:00:34 +0200
-Message-ID: <1357819234-27752-3-git-send-email-konszert@marvell.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: Fix phy_init for Marvell network eth driver
+Date: Thu, 10 Jan 2013 07:17:19 -0500
+Message-ID: <20130110121719.GL5075@titan.lakedaemon.net>
 References: <1357819234-27752-1-git-send-email-konszert@marvell.com>
-Cc: zertsekel@gmail.com, andrew@lunn.ch, benavi@marvell.com,
-	linux-arm-kernel@lists.infradead.org, alior@marvell.com,
-	Kosta Zertsekel <konszert@marvell.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:40093 "EHLO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750984Ab3AJMJr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 07:09:47 -0500
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: alior@marvell.com, andrew@lunn.ch, netdev@vger.kernel.org,
+ benavi@marvell.com, zertsekel@gmail.com, linux-arm-kernel@lists.infradead.org
+To: Kosta Zertsekel <konszert@marvell.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
 In-Reply-To: <1357819234-27752-1-git-send-email-konszert@marvell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Change-Id: Ie3191f95c36eada6d0c673460de5393641128182
----
- drivers/net/ethernet/marvell/pxa168_eth.c | 2 +-
- net/dsa/slave.c                           | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+On Thu, Jan 10, 2013 at 02:00:32PM +0200, Kosta Zertsekel wrote:
+> Hi all,
+> resubmitting the patch for Marvell mv643xx driver (patch 1/2) adding the below explanation (thanks to Florian F.):
+> The D-Link DNS323_REV_C1 board has a specific PHY device fixup using the flag MARVELL_PHY_M1118_DNS323_LEDS which is set by the architecture code in arch/arm/mach-orion5x/dns323-setup.c. This flag is unfortunately lost during the call to phy_attach() in mv643xx_eth and therefore, the underlying Marvell PHY driver cannot make use of this flag to fixup the PHY device LEDs. This patch ensures the phy->dev_flags value is passed to the phy_attach() function such that the PHY device driver can
+> actually use it.
+> 
+> Also submitting new patch 2/2 using the same (or at least very close in meaning) explanation.
 
-diff --git a/drivers/net/ethernet/marvell/pxa168_eth.c b/drivers/net/ethernet/marvell/pxa168_eth.c
-index 10d678d..63baa3b 100644
---- a/drivers/net/ethernet/marvell/pxa168_eth.c
-+++ b/drivers/net/ethernet/marvell/pxa168_eth.c
-@@ -1391,7 +1391,7 @@ static void phy_init(struct pxa168_eth_private *pep, int speed, int duplex)
- 	struct phy_device *phy = pep->phy;
- 	ethernet_phy_reset(pep);
- 
--	phy_attach(pep->dev, dev_name(&phy->dev), 0, PHY_INTERFACE_MODE_MII);
-+	phy_attach(pep->dev, dev_name(&phy->dev), phy->dev_flags, PHY_INTERFACE_MODE_MII);
- 
- 	if (speed == 0) {
- 		phy->autoneg = AUTONEG_ENABLE;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index e32083d..bf09902 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -391,7 +391,7 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 
- 	if (p->phy != NULL) {
- 		phy_attach(slave_dev, dev_name(&p->phy->dev),
--			   0, PHY_INTERFACE_MODE_GMII);
-+			   phy->dev_flags, PHY_INTERFACE_MODE_GMII);
- 
- 		p->phy->autoneg = AUTONEG_ENABLE;
- 		p->phy->speed = 0;
--- 
-1.8.1
+Could you please put the above description in the patch commit log for
+both patches?  Other than that,
+
+Acked-by: Jason Cooper <jason@lakedaemon.net>
+
+thx,
+
+Jason.
