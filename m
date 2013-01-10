@@ -1,109 +1,32 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next v5 01/14] vlan: wrap hw-acceleration calls in
- separate functions.
-Date: Thu, 10 Jan 2013 13:41:58 -0500
-Message-ID: <50EF0B76.2040503@redhat.com>
-References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com> <1357751882-8619-2-git-send-email-vyasevic@redhat.com> <20130110102525.2ff40c12@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: tainted warnings with tcp splicing in 3.7.1
+Date: Thu, 10 Jan 2013 10:49:17 -0800
+Message-ID: <50EF0D2D.3040700@hp.com>
+References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan> <1357750898.27446.33.camel@edumazet-glaptop> <1357751372.27446.40.camel@edumazet-glaptop> <1357801149.27446.1142.camel@edumazet-glaptop> <20130110072136.GK9943@1wt.eu> <1357831787.27446.2168.camel@edumazet-glaptop> <1357834825.27446.2205.camel@edumazet-glaptop>  <50EF06DD.7070207@hp.com> <1357843328.27446.2417.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, stephen@redhat.com,
-	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
-	mst@redhat.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: Willy Tarreau <w@1wt.eu>,
+	Christian Becker <c.becker@traviangames.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49380 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754461Ab3AJSmH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 13:42:07 -0500
-In-Reply-To: <20130110102525.2ff40c12@nehalam.linuxnetplumber.net>
+Received: from g4t0017.houston.hp.com ([15.201.24.20]:39589 "EHLO
+	g4t0017.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753961Ab3AJStY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 13:49:24 -0500
+In-Reply-To: <1357843328.27446.2417.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2013 01:25 PM, Stephen Hemminger wrote:
-> On Wed,  9 Jan 2013 12:17:48 -0500
-> Vlad Yasevich <vyasevic@redhat.com> wrote:
->
->>
->>   /**
->> + * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
->> + * @dev: netdevice of the lowerdev/hw nic
->> + *
->> + * Checks to see if HW and driver report VLAN acceleration correctly.
->> + */
->> +static inline bool vlan_hw_buggy(const struct net_device *dev)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +
->> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
->> +	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
->> +		return true;
->> +
->> +	return false;
->> +}
->> +
->> +/**
->> + * vlan_vid_add_hw - Add the VLAN vid to the HW filter
->> + * @dev: netdevice of the lowerdev/hw nic
->> + * @vid: vlan id.
->> + *
->> + * Inserts the vid into the HW vlan filter table if hw supports it.
->> + */
->> +static inline int vlan_vid_add_hw(struct net_device *dev,
->> +				  unsigned short vid)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +	int err = 0;
->> +
->> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
->> +	    ops->ndo_vlan_rx_add_vid)
->> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
->> +
->> +	return err;
->> +}
->> +
->> +/**
->> + * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
->> + * @dev: netdevice of the lowerdev/hw nic
->> + * @vid: vlan id.
->> + *
->> + * Delete the vid from the HW vlan filter table if hw supports it.
->> + */
->> +static inline int vlan_vid_del_hw(struct net_device *dev,
->> +				  unsigned short vid)
->> +{
->> +	const struct net_device_ops *ops = dev->netdev_ops;
->> +	int err = 0;
->> +
->> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
->> +	    ops->ndo_vlan_rx_kill_vid)
->> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
->> +
->> +	return err;
->> +}
->> +
->
-> I would rather not have all these inline's. This isn't performance critical.
+On 01/10/2013 10:42 AM, Eric Dumazet wrote:
+> Can we use zero copy for the sender as well (sendfile() or vmsplice()) ?
 
-I kind of need to keep them as inlines because of the VLAN support is 
-built.  Right now, none of the VLAN files are build if VLAN support is
-turned off.  So all we get access to are inlines from if_vlan.h.
+Not at present.  The TCP_SENDFILE test has not been "migrated" and there 
+is no corresponding sendfile() test in the omni code, so the attempt to 
+enable copy-avoidance won't "take."
 
-I suppose I can change how VLANs get built, but not if that's the right 
-thing.  It looks like it is set up the way it is on purpose.
+I'll take that as a feature request for netperf.
 
-> Also, the check for buggy devices should be done inside the vlan code,
-> not repeated in the functions using the add/remove API. When device is
-> registered the flag and add/kill should be checked, and if the device driver
-> is buggy it should fail the register_netdevice.
->
-
-Not sure what you mean here.  I don't check if it's buggy again.  I 
-check that the device supports filter and the pointer is set.  I does
-exactly what the code used to do.  I suppose that the checks for valid
-function pointers may be a little redundant since otherwise 
-vlan_hw_buggy() would have triggered, but it's safer to have them since 
-we can't guarantee that other users have checked for buggy implementations.
-
--vlad
+rick
