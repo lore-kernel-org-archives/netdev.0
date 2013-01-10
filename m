@@ -1,27 +1,23 @@
-From: Jason Cooper <jason@lakedaemon.net>
+From: Andrew Lunn <andrew@lunn.ch>
 Subject: Re: Fix phy_init for Marvell network eth driver
-Date: Thu, 10 Jan 2013 07:17:19 -0500
-Message-ID: <20130110121719.GL5075@titan.lakedaemon.net>
+Date: Thu, 10 Jan 2013 13:24:41 +0100
+Message-ID: <20130110122441.GQ3392@lunn.ch>
 References: <1357819234-27752-1-git-send-email-konszert@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alior@marvell.com, andrew@lunn.ch, netdev@vger.kernel.org,
- benavi@marvell.com, zertsekel@gmail.com, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, zertsekel@gmail.com, andrew@lunn.ch,
+	benavi@marvell.com, linux-arm-kernel@lists.infradead.org,
+	alior@marvell.com
 To: Kosta Zertsekel <konszert@marvell.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from londo.lunn.ch ([80.238.139.98]:42404 "EHLO londo.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752281Ab3AJMYs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 07:24:48 -0500
 Content-Disposition: inline
 In-Reply-To: <1357819234-27752-1-git-send-email-konszert@marvell.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Thu, Jan 10, 2013 at 02:00:32PM +0200, Kosta Zertsekel wrote:
 > Hi all,
@@ -30,12 +26,17 @@ On Thu, Jan 10, 2013 at 02:00:32PM +0200, Kosta Zertsekel wrote:
 > actually use it.
 > 
 > Also submitting new patch 2/2 using the same (or at least very close in meaning) explanation.
+> 
 
-Could you please put the above description in the patch commit log for
-both patches?  Other than that,
+Hi Kosta
 
-Acked-by: Jason Cooper <jason@lakedaemon.net>
+This comment is supposed to be in the header of the patch. 
 
-thx,
+Since this comment is about a bug for the D-Link DNS323_REV_C1, the
+fix to DSA should be in a separate patch, again with a comment about
+the patch, why its needed, what if fixes etc.
 
-Jason.
+I suggest you take a look at Documentation/SubmittingPatches
+
+Thanks
+	Andrew
