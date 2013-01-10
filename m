@@ -1,74 +1,104 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Thu, 10 Jan 2013 12:58:16 -0800
-Message-ID: <1357851496.27446.2619.camel@edumazet-glaptop>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
-	 <20130102200848.GA4500@dcvr.yhbt.net> <20130104160148.GB3885@suse.de>
-	 <20130106120700.GA24671@dcvr.yhbt.net> <20130107122516.GC3885@suse.de>
-	 <20130107223850.GA21311@dcvr.yhbt.net> <20130108224313.GA13304@suse.de>
-	 <20130108232325.GA5948@dcvr.yhbt.net> <20130109133746.GD13304@suse.de>
-	 <20130110092511.GA32333@dcvr.yhbt.net>  <20130110194212.GJ13304@suse.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: set default_ethtool_ops in register_netdevice
+Date: Thu, 10 Jan 2013 13:00:24 -0800 (PST)
+Message-ID: <20130110.130024.1675024063662393029.davem@davemloft.net>
+References: <20130110.020729.1358020934840866117.davem@davemloft.net>
+	<20130110.021202.232771737304117743.davem@davemloft.net>
+	<1357818103.17902.3.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Wong <normalperson@yhbt.net>, linux-mm@kvack.org,  netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20130110194212.GJ13304@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sgruszka@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+	greearb@candelatech.com, bjorn@mork.no,
+	linux-wireless@vger.kernel.org, bhutchings@solarflare.com,
+	mirqus@gmail.com
+To: johannes@sipsolutions.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33529 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754850Ab3AJVA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 16:00:26 -0500
+In-Reply-To: <1357818103.17902.3.camel@jlt4.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-10 at 19:42 +0000, Mel Gorman wrote:
+=46rom: Johannes Berg <johannes@sipsolutions.net>
+Date: Thu, 10 Jan 2013 12:41:43 +0100
 
-> Thanks Eric, it's much appreciated. However, I'm still very much in favour
-> of a partial revert as in retrospect the implementation of capture took the
-> wrong approach. Could you confirm the following patch works for you?
-> It's should functionally have the same effect as the first revert and
-> there are only minor changes from the last revert prototype I sent you
-> but there is no harm in being sure.
-> 
-> ---8<---
-> mm: compaction: Partially revert capture of suitable high-order page
-> 
-> Eric Wong reported on 3.7 and 3.8-rc2 that ppoll() got stuck when waiting
-> for POLLIN on a local TCP socket. It was easier to trigger if there was disk
-> IO and dirty pages at the same time and he bisected it to commit 1fb3f8ca
-> "mm: compaction: capture a suitable high-order page immediately when it
-> is made available".
-> 
-> The intention of that patch was to improve high-order allocations under
-> memory pressure after changes made to reclaim in 3.6 drastically hurt
-> THP allocations but the approach was flawed. For Eric, the problem was
-> that page->pfmemalloc was not being cleared for captured pages leading to
-> a poor interaction with swap-over-NFS support causing the packets to be
-> dropped. However, I identified a few more problems with the patch including
-> the fact that it can increase contention on zone->lock in some cases which
-> could result in async direct compaction being aborted early.
-> 
-> In retrospect the capture patch took the wrong approach. What it should
-> have done is mark the pageblock being migrated as MIGRATE_ISOLATE if it
-> was allocating for THP and avoided races that way. While the patch was
-> showing to improve allocation success rates at the time, the benefit is
-> marginal given the relative complexity and it should be revisited from
-> scratch in the context of the other reclaim-related changes that have taken
-> place since the patch was first written and tested. This patch partially
-> reverts commit 1fb3f8ca "mm: compaction: capture a suitable high-order
-> page immediately when it is made available".
-> 
-> Reported-by: Eric Wong <normalperson@yhbt.net>
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
-> ---
+> On Thu, 2013-01-10 at 02:12 -0800, David Miller wrote:
+>=20
+>> >> On Wed, Jan 09, 2013 at 11:57:38PM -0800, David Miller wrote:
+>> >>> From: Stanislaw Gruszka <sgruszka@redhat.com>
+>> >>> Date: Tue, 8 Jan 2013 16:38:51 +0100
+>> >>>=20
+>> >>> > Since:
+>> >>> >=20
+>> >>> > commit 2c60db037034d27f8c636403355d52872da92f81
+>> >>> > Author: Eric Dumazet <edumazet@google.com>
+>> >>> > Date:   Sun Sep 16 09:17:26 2012 +0000
+>> >>> >=20
+>> >>> >     net: provide a default dev->ethtool_ops
+>> >>> >=20
+>> >>> > wireless core does not correctly assign ethtool_ops. In order =
+to fix
+>> >>> > the problem, move assignement of default_ethtool_ops to
+>> >>> > register_netdevice(). This is safe because both register_netde=
+vice()
+>> >>> > and dev_ethtool() are protected by RTNL lock.
+>> >>> >=20
+>> >>> > Patch is besed on hint of Micha=A9=A9 Miros=A9=A9aw.
+>> >>> >=20
+>> >>> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+>> >>> > Cc: stable@vger.kernel.org # 3.7+
+>> >>> > ---
+>> >>> > v1 -> v2: change order of default_ethtool_ops initialization t=
+o avoid
+>> >>> > the problem. Change the subject accordingly.
+>> >>>=20
+>> >>> I don't understand this.  Why is the assignment of default_ethto=
+ol_ops
+>> >>> at netdev allocation time not working?  Is wireless really not u=
+sing
+>> >>> alloc_netdev*()?
+>> >>=20
+>> >> It does. This is done on individual cfg80211 drivers , i.e. on ma=
+c80211
+>> >> or full mac drivers. After alloc_netdev*() call, some cfg80211 dr=
+ivers
+>> >> provide they own ethtool_ops, but some do not. For them, wireless=
+ core
+>> >> provide generic cfg80211_ethtool_ops, which is assigned in
+>> >> NETDEV_REGISTER notify call:=20
+>> >>=20
+>> >>      if (!dev->ethtool_ops)
+>> >>              dev->ethtool_ops =3D &cfg80211_ethtool_ops;
+>> >>=20
+>> >> But after Eric's commit, dev->ethtool_ops is no longer NULL (on c=
+fg80211
+>> >> drivers without custom ethtool_ops), but points to &default_ethto=
+ol_ops.
+>> >=20
+>> > The whole idea is to remove these kinds of NULL tests against
+>> > dev->ethtool_ops, thus creating the invariant that given any netde=
+v
+>> > one must never be able to see a non-NULL value there.
+>>=20
+>> Of course I meant that we should never see a NULL value in
+>> dev->ethtool_ops.
+>>=20
+>> I would suggest fixing this by making the wireless core express it's
+>> intentions, that it wants to use a different default ethtool ops, to
+>> the netdev allocation layer.
+>>=20
+>> You have two way to do this:
+>>=20
+>> 1) Add default_ethtool_ops argument to alloc_netdev*().
+>>=20
+>> 2) Add a "netdev_set_default_ethtool_ops(netdev, ops)"
+>=20
+> Neither of these work as (I think) you think they would :-)
 
-It seems to solve the problem on my kvm testbed
-
-(512 MB of ram, 2 vcpus)
-
-Tested-by: Eric Dumazet <edumazet@google.com>
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+2) works because all netdev_set_ethtool_ops() is going to do is
+compare netdev->ops against &default_ethtool_ops as the test,
+and therefore you can replace the above cfg80211 test and
+assignment with a call to it.
