@@ -1,66 +1,128 @@
-From: Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: recvmmsg() timeout behavior strangeness
-Date: Thu, 10 Jan 2013 10:04:09 +0000
-Message-ID: <1357812249.2760.6.camel@menhir>
-References: <CAHO5Pa2goUtiBU8ye2beTBExL4it2-aDCPBhDOGyO3NX_PV_pQ@mail.gmail.com>
-	 <50EDF01E.10709@genband.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different tun_struct
+Date: Thu, 10 Jan 2013 18:43:20 +0800
+Message-ID: <50EE9B48.6080306@redhat.com>
+References: <1357804788-19976-1-git-send-email-stefanha@redhat.com> <20130110102319.GB13451@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>,
-	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Chris Van Hoof <vanhoof-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Clark Williams <williams-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Andrew Grover <andy.grover-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?ISO-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-To: Chris Friesen <chris.friesen-b7o/lNNmKxtBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50EDF01E.10709-b7o/lNNmKxtBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Stefan Hajnoczi <stefanha@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130110102319.GB13451@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On 01/10/2013 06:23 PM, Michael S. Tsirkin wrote:
+> On Thu, Jan 10, 2013 at 08:59:48AM +0100, Stefan Hajnoczi wrote:
+>> Multiqueue tun devices support detaching a tun_file from its tun_struct
+>> and re-attaching at a later point in time.  This allows users to disable
+>> a specific queue temporarily.
+>>
+>> ioctl(TUNSETIFF) allows the user to specify the network interface to
+>> attach by name.  This means the user can attempt to attach to interface
+>> "B" after detaching from interface "A".
+>>
+>> The driver is not designed to support this so check we are re-attaching
+>> to the right tun_struct.  Failure to do so may lead to oops.
+>>
+>> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+>> ---
+>> This fix is for 3.8-rc.
+>>
+>>  drivers/net/tun.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index fbd106e..cf6da6e 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -491,6 +491,8 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>>  	err = -EINVAL;
+>>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+>>  		goto out;
+>> +	if (tfile->detached && tun != tfile->detached)
+>> +		goto out;
+>>  
+>>  	err = -EBUSY;
+>>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
+>> -- 
+>> 1.8.0.2
+>
+> I agree this is a bug but even with this patch, we still allow:
+>
+> SETIFF
+> SETQUEUE (DISABLED)
+> SETIFF
+>
+> Originally the rule always was that repeated setiff calls fail with
+> EINVAL. We broke that when we set tun to NULL.  It's probably worth
+> preserving that, even if queue is disabled.  Applying something like the below
+> instead will address this concern, won't it?
+>
+> Note: works with regular userspace but I didn't test
+> multiqueue userspace. What do you think.
 
-On Wed, 2013-01-09 at 16:33 -0600, Chris Friesen wrote:
-> On 12/23/2012 02:50 PM, Michael Kerrisk wrote:
-> 
-> > If I understand correctly, the *intended* purpose of the timeout
-> > argument is to set a limit on how long to wait for additional
-> > datagrams after the arrival of an initial datagram. However, the
-> > syscall behaves in quite a different way. Instead, it potentially
-> > blocks forever, regardless of the timeout.
-> 
-> Looking at the code, I think you're correct.
-> 
-> The comments for a2e2725 say the timeout works like for ppoll(), where 
-> it is "an upper limit on the time for which poll() will block, in 
-> milliseconds."
-> 
-> I wonder if we could play some games with sk->sk_rcvtimeo to accomplish 
-> this?
-> 
-> Chris
-
-Which timeout are we talking about? I've been copied into the thread
-without seeing the start of it.
-
-If this is the rcvtimeo then afaik this is supposed to be the max time
-that the call waits for data, but is overridden by MSG_DONTWAIT, for
-example, on a per call basis. I'd assume that recvmmsg should work
-exactly like recvmsg in this case unless there is a good reason for it
-to differ,
-
-Steve.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-man" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Or just fail when tun->detached is not NULL at the beginning of
+tun_set_iff()?
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>
+> ---
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index fbd106e..5ec8b08 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -483,7 +483,7 @@ static void tun_detach_all(struct net_device *dev)
+>  	BUG_ON(tun->numdisabled != 0);
+>  }
+>  
+> -static int tun_attach(struct tun_struct *tun, struct file *file)
+> +static int tun_attach(struct tun_struct *tun, struct file *file, bool setiff)
+>  {
+>  	struct tun_file *tfile = file->private_data;
+>  	int err;
+> @@ -492,6 +492,9 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+>  		goto out;
+>  
+> +	if (setiff && tfile->detached)
+> +		goto out;
+> +
+>  	err = -EBUSY;
+>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
+>  		goto out;
+> @@ -1561,7 +1564,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  		if (err < 0)
+>  			return err;
+>  
+> -		err = tun_attach(tun, file);
+> +		err = tun_attach(tun, file, true);
+>  		if (err < 0)
+>  			return err;
+>  
+> @@ -1627,7 +1630,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  		dev->features = dev->hw_features;
+>  
+>  		INIT_LIST_HEAD(&tun->disabled);
+> -		err = tun_attach(tun, file);
+> +		err = tun_attach(tun, file, true);
+>  		if (err < 0)
+>  			goto err_free_dev;
+>  
+> @@ -1792,7 +1795,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  		else if (tun_not_capable(tun))
+>  			ret = -EPERM;
+>  		else
+> -			ret = tun_attach(tun, file);
+> +			ret = tun_attach(tun, file, false);
+>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+>  		tun = rcu_dereference_protected(tfile->tun,
+>  						lockdep_rtnl_is_held());
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
