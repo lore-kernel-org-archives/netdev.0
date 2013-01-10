@@ -1,62 +1,57 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Thu, 10 Jan 2013 09:25:11 +0000
-Message-ID: <20130110092511.GA32333@dcvr.yhbt.net>
-References: <20121228014503.GA5017@dcvr.yhbt.net>
- <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
- <20130106120700.GA24671@dcvr.yhbt.net>
- <20130107122516.GC3885@suse.de>
- <20130107223850.GA21311@dcvr.yhbt.net>
- <20130108224313.GA13304@suse.de>
- <20130108232325.GA5948@dcvr.yhbt.net>
- <20130109133746.GD13304@suse.de>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different tun_struct
+Date: Thu, 10 Jan 2013 17:25:45 +0800
+Message-ID: <4517911.WDi5JC0yEs@jason-thinkpad-t430s>
+References: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20130109133746.GD13304@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35778 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751201Ab3AJJZw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 04:25:52 -0500
+In-Reply-To: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman <mgorman@suse.de> wrote:
-> page->pfmemalloc can be left set for captured pages so try this but as
-> capture is rarely used I'm strongly favouring a partial revert even if
-> this works for you. I haven't reproduced this using your workload yet
-> but I have found that high-order allocation stress tests for 3.8-rc2 are
-> completely screwed. 71% success rates at rest in 3.7 and 6% in 3.8-rc2 so
-> I have to chase that down too.
+On Thursday, January 10, 2013 08:59:48 AM Stefan Hajnoczi wrote:
+> Multiqueue tun devices support detaching a tun_file from its tun_struct
+> and re-attaching at a later point in time.  This allows users to disable
+> a specific queue temporarily.
 > 
-> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> index 9d20c13..c242d21 100644
-> --- a/mm/page_alloc.c
-> +++ b/mm/page_alloc.c
-> @@ -2180,8 +2180,10 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
->  	current->flags &= ~PF_MEMALLOC;
->  
->  	/* If compaction captured a page, prep and use it */
-> -	if (page && !prep_new_page(page, order, gfp_mask))
-> +	if (page && !prep_new_page(page, order, gfp_mask)) {
-> +		page->pfmemalloc = false;
->  		goto got_page;
-> +	}
->  
->  	if (*did_some_progress != COMPACT_SKIPPED) {
->  		/* Page migration frees to the PCP lists but we want merging */
+> ioctl(TUNSETIFF) allows the user to specify the network interface to
+> attach by name.  This means the user can attempt to attach to interface
+> "B" after detaching from interface "A".
+> 
+> The driver is not designed to support this so check we are re-attaching
+> to the right tun_struct.  Failure to do so may lead to oops.
+> 
+> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> ---
+> This fix is for 3.8-rc.
+> 
+>  drivers/net/tun.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index fbd106e..cf6da6e 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -491,6 +491,8 @@ static int tun_attach(struct tun_struct *tun, struct
+> file *file) err = -EINVAL;
+>  	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
+>  		goto out;
+> +	if (tfile->detached && tun != tfile->detached)
+> +		goto out;
+> 
+>  	err = -EBUSY;
+>  	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
 
-This (on top of your previous patch) seems to work great after several
-hours of testing on both my VM and real machine.  I haven't tried your
-partial revert, yet.  Will try that in a bit on the VM.
+Thanks.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Acked-by: Jason Wang <jasowang@redhat.com>
