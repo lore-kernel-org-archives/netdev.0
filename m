@@ -1,78 +1,52 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next v5 02/14] bridge: Add vlan filtering infrastructure
-Date: Thu, 10 Jan 2013 14:23:35 -0500
-Message-ID: <50EF1537.7030209@redhat.com>
-References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com> <1357751882-8619-3-git-send-email-vyasevic@redhat.com> <20130110103614.23383079@nehalam.linuxnetplumber.net> <50EF0FF7.3080407@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH 0/5] ipv4_tunnels: Modularize ipv4 tunneling.
+Date: Thu, 10 Jan 2013 11:28:07 -0800
+Message-ID: <CALnjE+p1=+sOAHkndaXGCCm1QPUAfkmgLqrP_8L+8RXnNLvXuw@mail.gmail.com>
+References: <1357612292-1682-1-git-send-email-pshelar@nicira.com>
+	<20130109.235239.1789560948007134858.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, stephen@redhat.com,
-	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
-	mst@redhat.com
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13976 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751624Ab3AJTXk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 14:23:40 -0500
-In-Reply-To: <50EF0FF7.3080407@redhat.com>
+Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:59432 "HELO
+	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754824Ab3AJT2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 14:28:08 -0500
+Received: by mail-qc0-f198.google.com with SMTP id l35so1595423qco.1
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 11:28:07 -0800 (PST)
+In-Reply-To: <20130109.235239.1789560948007134858.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2013 02:01 PM, Vlad Yasevich wrote:
-> On 01/10/2013 01:36 PM, Stephen Hemminger wrote:
->> This patch has some minor whitespace and spelling errors:
->>
->> WARNING: line over 80 characters
->> #429: FILE: net/bridge/br_private.h:205:
->> +static inline struct net_bridge_port *vlans_to_port(struct
->> net_port_vlans *vlans)
->>
->> ERROR: trailing whitespace
->> #432: FILE: net/bridge/br_private.h:208:
->> +       $
->>
->> WARNING: please, no spaces at the start of a line
->> #432: FILE: net/bridge/br_private.h:208:
->> +       $
->>
->> +/* Must be protected by RTNL */
->> +static void br_vlan_del(struct net_bridge_vlan *vlan)
->>
->> +    /* Drop the self-ref to trigger descrution. */
->>                                          ^^^^^^^^^^
->>
+On Wed, Jan 9, 2013 at 11:52 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin B Shelar <pshelar@nicira.com>
+> Date: Mon,  7 Jan 2013 18:31:32 -0800
 >
-> sorry, will fix.  I thought I ran everything through checkpatch.  I'll
-> re-run them.
->
->> Also, the data structure vlan's seems inverted. Why do you keep a hash
->> list
->> of vlan's and then a bitmap of ports. Seems more natural to just put a
->> bitmap
->> on each port that has vlan filtering rather than introducing yet
->> another list
->> to manage.
+>> Following patch series restructure GRE and IPIP tunneling code
+>> to make it modular. It adds ip_tunnel module which acts as
+>> generic tunneling layer which has common code. I have patch
+>> to do same for VXLAN too.
 >>
+>> In Addidtion to restructuring it adds demultiplexer for ipgre
+>> protocol, so that linux kernel IPGRE module and OVS gre module
+>> can co-exist.
+>> Last patch adds linux state updates to tunnel device from
+>> lower device.
 >
-> I originally had it this way.  I found that it wasted space and made
-> other things more difficult to do.  For instance, to do egress policy, I
-> would have needed another bitmap of vlans... With 4096 vlans, that's
-> 512 bytes per port (1024 with policy).
+> Please resubmit this when you can also submit the patches which
+> actually use this new modularity.
 >
-> I could probably remove the per-port list.  It would make 2 things a
-> little harder:
->    1) detecting if the port has any vlan info at all.
->    2) dumping the vlan information
+> Otherwise the value proposition is impossible to analyze.
+>
+Ok. These patches are not just modularize ipv4 tunnels but also does
+code refactoring, so that there is less code duplication in different
+tunneling implementation.
 
-One other thing would become a little more difficult.  fdb management 
-for manually added neighbors.
+There are couple of independent patches from this patch series. I will
+submit them separately. Later I will resubmit modular ip-tunnel
+patches as you have suggested.
 
--vlad
-
->
-> I could pursue this if you think it'll be better.
->
-> -vlad
+Thanks,
+Pravin.
