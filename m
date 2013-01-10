@@ -1,46 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: tainted warnings with tcp splicing in 3.7.1
-Date: Thu, 10 Jan 2013 14:39:55 -0800 (PST)
-Message-ID: <20130110.143955.1612875084927284724.davem@davemloft.net>
-References: <1357750898.27446.33.camel@edumazet-glaptop>
-	<1357751372.27446.40.camel@edumazet-glaptop>
-	<1357801149.27446.1142.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] doc: Clarify behavior when sysctl tcp_ecn = 1
+Date: Thu, 10 Jan 2013 14:40:05 -0800 (PST)
+Message-ID: <20130110.144005.1409444774954325906.davem@davemloft.net>
+References: <1357770090-29253-1-git-send-email-subramanian.vijay@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: c.becker@traviangames.com, netdev@vger.kernel.org, w@1wt.eu
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, rick.jones2@hp.com
+To: subramanian.vijay@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34610 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34616 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753231Ab3AJWjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 17:39:55 -0500
-In-Reply-To: <1357801149.27446.1142.camel@edumazet-glaptop>
+	with ESMTP id S1753231Ab3AJWkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 17:40:05 -0500
+In-Reply-To: <1357770090-29253-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 09 Jan 2013 22:59:09 -0800
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Date: Wed,  9 Jan 2013 14:21:30 -0800
 
-> [PATCH] tcp: fix splice() and tcp collapsing interaction
+> Recent commit (commit 7e3a2dc52953 doc: make the description of how tcp_ecn
+> works more explicit and clear ) clarified the behavior of tcp_ecn sysctl
+> variable but description is inconsistent. When requested by incoming conections,
+> ECN is enabled with not just tcp_ecn = 2 but also with tcp_ecn = 1.
 > 
-> Under unusual circumstances, TCP collapse can split a big GRO TCP packet
-> while its being used in a splice(socket->pipe) operation.
+> This patch makes it clear that with tcp_ecn = 1, ECN is enabled when requested
+> by incoming connections.
 > 
-> skb_splice_bits() releases the socket lock before calling
-> splice_to_pipe().
+> Also fix spelling of 'incoming'.
 > 
-> [ 1081.353685] WARNING: at net/ipv4/tcp.c:1330 tcp_cleanup_rbuf+0x4d/0xfc()
-> [ 1081.371956] Hardware name: System x3690 X5 -[7148Z68]-
-> [ 1081.391820] cleanup rbuf bug: copied AD3BCF1 seq AD370AF rcvnxt AD3CF13
-> 
-> To fix this problem, we must eat skbs in tcp_recv_skb().
-> 
-> Remove the inline keyword from tcp_recv_skb() definition since
-> it has three call sites.
-> 
-> Reported-by: Christian Becker <c.becker@traviangames.com>
-> Cc: Willy Tarreau <w@1wt.eu>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 
 Applied.
