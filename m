@@ -1,41 +1,40 @@
-From: Kosta Zertsekel <konszert@marvell.com>
-Subject: RE: [PATCH 2/2] Fix phy_attach - forward dev_flags for phy_attach
-Date: Thu, 10 Jan 2013 17:57:25 +0200
-Message-ID: <BC373419EB4337418B2B595BAEDC155F015896370062@IL-MB01.marvell.com>
-References: <1357819234-27752-1-git-send-email-konszert@marvell.com>
- <1357819234-27752-3-git-send-email-konszert@marvell.com>
- <50EED2E4.80008@openwrt.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tainted warnings with tcp splicing in 3.7.1
+Date: Thu, 10 Jan 2013 08:20:25 -0800
+Message-ID: <1357834825.27446.2205.camel@edumazet-glaptop>
+References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan>
+	 <1357750898.27446.33.camel@edumazet-glaptop>
+	 <1357751372.27446.40.camel@edumazet-glaptop>
+	 <1357801149.27446.1142.camel@edumazet-glaptop>
+	 <20130110072136.GK9943@1wt.eu>
+	 <1357831787.27446.2168.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zertsekel@gmail.com" <zertsekel@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Eran Ben-Avi <benavi@marvell.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Lior Amsalem <alior@marvell.com>
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Christian Becker <c.becker@traviangames.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Willy Tarreau <w@1wt.eu>, Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from galiil.marvell.com ([199.203.130.254]:7329 "EHLO
-	galiil.marvell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751800Ab3AJP53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 10:57:29 -0500
-In-Reply-To: <50EED2E4.80008@openwrt.org>
-Content-Language: en-US
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:63766 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754610Ab3AJQU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 11:20:29 -0500
+Received: by mail-pb0-f48.google.com with SMTP id rq13so389033pbb.21
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 08:20:28 -0800 (PST)
+In-Reply-To: <1357831787.27446.2168.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBCeSB0aGUgd2F5LCBtb3N0LCBpZiBub3QgYWxsIG9mIHRoZSBwaHlfY29ubmVjdCgpIHVzZXJz
-IGluIGRyaXZlcnMvbmV0L2V0aGVybmV0LyBhbHNvIGRvIG5vdCBlbnN1cmUgdGhleSBwYXNzIHRo
-ZSBwaHkgZGV2aWNlIGZsYWdzLCBzbyB5b3UgbWlnaHQgDQoNCndhbnQgdG8gZml4IHRoaXMgZ2xv
-YmFsbHkgYW5kIG5vdCBqdXN0IGZvciBNYXJ2ZWxsIGRyaXZlci4NCkluZGVlZCwgcGh5X2Nvbm5l
-Y3QoKSBtb3N0bHkganVzdCBwYXNzIHplcm8gaW50ZWFkIG9mIHBoeV9kZXYtPmRldl9mbGFncy4N
-CkJ1dCwgSSB0aGluaywgdGhlIGd1eSB0aGF0IGNhbGxzIHBoeV9jb25uZWN0KCkgaW4gaXRzIGRy
-aXZlciBzaG91bGQga25vdyB3aGF0IGhlIGRvZXMsIGFuZCwNCnByb2JhYmx5LCB3ZSBzaG91bGQg
-cmVseSBvbiBoaW0ga25vd2luZyBoaXMgc3R1ZmYuDQpUaGUgb25seSBldmlkZW5jZSBvZiB0aGUg
-YnVnIGlzIHdoZW4gcGh5X2Rldi0+ZGV2X2ZsYWdzIHdhcyBhY3R1YWxseSBjaGFuZ2VkIGJ5IFBI
-WSBmaXh1cCBjYWxsYmFjaw0KKHNlZSBkbnMzMjMtc2V0dXAuYyBmb3IgZXhhbXBsZSkgYW5kIHdh
-cyAqbm90KiBwcm9wYWdhdGVkIHRvIHBoeV9jb25uZWN0KCkgb3IgcGh5X2F0dGFjaCgpIGFzIGlu
-IHB4YTE2OF9ldGguYyBwaHlfaW5pdCgpLg0KVGhlIGNvZGUgY29uZm9ybWluZyB0byB0aGUgZm9y
-bWVyIHNob3VsZCBiZSBmaXhlZCBJTUhPLg0KDQpUaGFua3MsDQotLS0gS29zdGFaDQo=
+On Thu, 2013-01-10 at 07:29 -0800, Eric Dumazet wrote:
+> On Thu, 2013-01-10 at 08:21 +0100, Willy Tarreau wrote:
+> 
+> > FWIW, I tested your patch here and did not notice any regression
+> > compared to last week-end tests, at various MTU size combinations.
+> > 
+> 
+> Thanks Willy
+
+I also want to thanks Rick, as the latest netperf has splice() support.
+
+Thanks Rick !
