@@ -1,83 +1,104 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH] tcp: splice: fix an infinite loop in tcp_read_sock()
-Date: Thu, 10 Jan 2013 15:48:47 -0800
-Message-ID: <50EF535F.4040905@hp.com>
-References: <1357837570.27446.2285.camel@edumazet-glaptop> <20130110230145.GC17390@1wt.eu> <1357859155.27446.2768.camel@edumazet-glaptop> <20130110232153.GE17390@1wt.eu>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH 1/3] net: stmmac: add gmac autonet set for SGMII, TBI,
+ and RTBI
+Date: Thu, 10 Jan 2013 15:54:20 -0800
+Message-ID: <003c01cdef8d$d12e92d0$738bb870$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Willy Tarreau <w@1wt.eu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:2445 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754532Ab3AJXsx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 18:48:53 -0500
-In-Reply-To: <20130110232153.GE17390@1wt.eu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On 01/10/2013 03:21 PM, Willy Tarreau wrote:
-> On Thu, Jan 10, 2013 at 03:05:55PM -0800, Eric Dumazet wrote:
->> Thats because you splice(    very_large_amount_of_bytes), so you dont
->> hit this bug.
->
-> Not always, I use many sizes (from 1k to very large).
->
->> netperf does the splice (    exact_amount_of_bytes ) so hits this pretty
->> fast on loopback at least.
->
-> OK I see, if we need an exact size to trigger it, that explains it !
-
-Netperf does not use a specific size all the time - the size it uses on 
-the receive will be the "receive_size" calculated the same way it has 
-been since the beginning - either a size specified by a test-specific -M 
-option, or based on the value of SO_RCVBUF at the time the socket was 
-created.
-
-The kernel of the code making the splice calls - recv_data_no_copy() in 
-src/nettest_omni.c looks like:
-
-recv_data_no_copy(SOCKET data_socket, struct ring_elt *recv_ring, 
-uint32_t bytes_to_recv, struct sockaddr *source, netperf_socklen_t 
-*sourcelen, uint32_t flags, uint32_t *num_receives) {
-
-...
-
-   do {
-
-     bytes_recvd = splice(data_socket,
-			 NULL,
-			 pfd[1],
-			 NULL,
-			 bytes_left,
-			 my_flags);
+Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, kgene.kim@samsung.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-language: en-zw
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-     if (bytes_recvd > 0) {
-       /* per Eric Dumazet, we should just let this second splice call
-	 move as many bytes as it can and not worry about how much.
-	 this should make the call more robust when made on a system
-	 under memory pressure */
-       splice(pfd[0], NULL, fdnull, NULL, 1 << 30, my_flags);
-       bytes_left -= bytes_recvd;
-     }
-     else {
-       break;
-     }
-     my_recvs++; /* should the pair of splices count as one? */
-   } while ((bytes_left > 0) && (flags & NETPERF_WAITALL));
+This patch adds gmac autoneg set function for SGMII, TBI,
+or RTBI interface. In case of PHY's autoneg is set, gmac's
+autoneg enable bit should set. After checking phy's autoneg
+if phydev's autoneg is '1' gmac's ANE bit set for those
+interface.
 
-where NETPERF_WAITALL is only set for an _RR test.  Bytes_left is 
-initialized to bytes_to_recv which is the "receive_size." my_flags is 
-set to 0x03.
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11 +++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
+ 3 files changed, 21 insertions(+)
 
-Now, if there are no test-specific -M option (or -s or -S depending on 
-the test) netperf will, from run to run use the same receive_size - 
-under Linux chances are quite good that will be 87380.
-
-happy benchmarking,
-
-rick jones
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
+b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 186d148..72ba769 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -344,6 +344,7 @@ struct stmmac_ops {
+ 	void (*reset_eee_mode) (void __iomem *ioaddr);
+ 	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
+ 	void (*set_eee_pls) (void __iomem *ioaddr, int link);
++	void (*set_autoneg) (void __iomem *ioaddr);
+ };
+ 
+ struct mac_link {
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index bfe0226..a0737b39 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void __iomem
+*ioaddr, int ls, int tw)
+ 	writel(value, ioaddr + LPI_TIMER_CTRL);
+ }
+ 
++static void dwmac1000_set_autoneg(void __iomem *ioaddr)
++{
++	u32 value;
++
++	value = readl(ioaddr + GMAC_AN_CTRL);
++	value |= 0x1000;
++	writel(value, ioaddr + GMAC_AN_CTRL);
++}
++
++
+ static const struct stmmac_ops dwmac1000_ops = {
+ 	.core_init = dwmac1000_core_init,
+ 	.rx_ipc = dwmac1000_rx_ipc_enable,
+@@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
+ 	.reset_eee_mode =  dwmac1000_reset_eee_mode,
+ 	.set_eee_timer =  dwmac1000_set_eee_timer,
+ 	.set_eee_pls =  dwmac1000_set_eee_pls,
++	.set_autoneg =  dwmac1000_set_autoneg,
+ };
+ 
+ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index f07c061..3e28934 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
+ {
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 	int ret;
++	int interface = priv->plat->interface;
+ 
+ 	clk_prepare_enable(priv->stmmac_clk);
+ 
+@@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
+ 	/* Initialize the MAC Core */
+ 	priv->hw->mac->core_init(priv->ioaddr);
+ 
++	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
++	if((interface == PHY_INTERFACE_MODE_SGMII) ||
++	   (interface == PHY_INTERFACE_MODE_TBI) ||
++	   (interface == PHY_INTERFACE_MODE_RTBI)) {
++		if (priv->phydev->autoneg)
++			priv->hw->mac->set_autoneg(priv->ioaddr);
++	}
++
+ 	/* Request the IRQ lines */
+ 	ret = request_irq(dev->irq, stmmac_interrupt,
+ 			 IRQF_SHARED, dev->name, dev);
+-- 
+1.7.10.4
