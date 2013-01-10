@@ -1,141 +1,359 @@
-From: jianhai luan <jianhai.luan@oracle.com>
-Subject: Re: [Xen-devel] xen-netback notify DomU to send ARP.
-Date: Thu, 10 Jan 2013 15:00:15 +0800
-Message-ID: <50EE66FF.2020802@oracle.com>
-References: <50EC099D.6020407@oracle.com> <50EC297A02000078000B3BB5@nat28.tlf.novell.com> <1357652541.7989.179.camel@zakaz.uk.xensource.com> <50EC3DFD.8060206@oracle.com> <1357660834.12649.103.camel@dagon.hellion.org.uk> <50ED1EB3.3080605@oracle.com> <50ED4F1D02000078000B3F87@nat28.tlf.novell.com> <50ED6255.7020006@oracle.com> <50ED825802000078000B4113@nat28.tlf.novell.com> <50ED8ED3.8010007@163.com> <50ED9E6502000078000B4220@nat28.tlf.novell.com> <50ED950A.6010203@163.com> <50EDA80002000078000B427B@nat28.tlf.novell.com> <50EDA624.1010008@163.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020303050809000304010502"
-Cc: Jan Beulich <JBeulich@suse.com>, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org
-To: Ian Campbell <Ian.Campbell@citrix.com>
+From: Romain KUNTZ <r.kuntz@ipflavors.com>
+Subject: Re: [PATCH 1/2] ipv6: avoid blackhole and prohibited entries upon prefix purge [v3]
+Date: Thu, 10 Jan 2013 08:06:03 +0100
+Message-ID: <683E9BA1-C85B-43E0-AF98-397D50E302F6@ipflavors.com>
+References: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com> <1357415941.1678.4163.camel@edumazet-glaptop> <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com> <50EAA28B.1080300@6wind.com> <3EF640F8-5242-486E-B7A3-9DA2A88F5A4F@ipflavors.com> <50EAED10.90904@6wind.com> <08F52788-0BD9-4907-8FC3-E9DF530AB042@ipflavors.com> <50EC47AD.8000801@6wind.com> <50EC54E3.9080606@linux-ipv6.org> <6A08EDC1-08A0-411D-90CF-6DB1CB7FA3A0@ipflavors.com> <50ED88AF.3040705@6wind.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25678 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751174Ab3AJHAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 02:00:40 -0500
-In-Reply-To: <50EDA624.1010008@163.com>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:62020 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752171Ab3AJHGI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 02:06:08 -0500
+Received: by mail-wi0-f179.google.com with SMTP id o1so98796wic.0
+        for <netdev@vger.kernel.org>; Wed, 09 Jan 2013 23:06:05 -0800 (PST)
+In-Reply-To: <50ED88AF.3040705@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------020303050809000304010502
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Jan 9, 2013, at 16:11 , Nicolas Dichtel <nicolas.dichtel@6wind.com> =
+wrote:
+> Le 09/01/2013 15:37, Romain KUNTZ a =E9crit :
+>> On Jan 8, 2013, at 18:18 , YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.or=
+g> wrote:
+>>> Nicolas Dichtel wrote:
+>>>> Le 08/01/2013 12:38, Romain KUNTZ a =E9crit :
+>>>>> On Jan 7, 2013, at 16:43 , Nicolas Dichtel <nicolas.dichtel@6wind=
+=2Ecom> wrote:
+>>>>>> Le 07/01/2013 12:30, Romain KUNTZ a =E9crit :
+>>>>>>> Hello Nicolas,
+>>>>>>>=20
+>>>>>>> On Jan 7, 2013, at 11:25 , Nicolas Dichtel <nicolas.dichtel@6wi=
+nd.com> wrote:
+>>>>>>>=20
+>>>>>>>> Le 05/01/2013 22:44, Romain KUNTZ a =E9crit :
+>>>>>>>>> Mobile IPv6 provokes a kernel Oops since commit 64c6d08e (ipv=
+6:
+>>>>>>>>> del unreachable route when an addr is deleted on lo), because
+>>>>>>>>> ip6_route_lookup() may also return blackhole and prohibited
+>>>>>>>>> entry. However, these entries have a NULL rt6i_table argument=
+,
+>>>>>>>>> which provokes an Oops in __ip6_del_rt() when trying to lock
+>>>>>>>>> rt6i_table->tb6_lock.
+>>>>>>>>>=20
+>>>>>>>>> Beside, when purging a prefix, blakhole and prohibited entrie=
+s
+>>>>>>>>> should not be selected because they are not what we are looki=
+ng
+>>>>>>>>> for.
+>>>>>>>>>=20
+>>>>>>>>> We fix this by adding two new lookup flags (RT6_LOOKUP_F_NO_B=
+LK_HOLE
+>>>>>>>>> and RT6_LOOKUP_F_NO_PROHIBIT) in order to ensure that such en=
+tries
+>>>>>>>>> are skipped during lookup and that the correct entry is retur=
+ned.
+>>>>>>>>>=20
+>>>>>>>>> [v2]: use 'goto out;' instead of 'goto again;' to avoid unnec=
+essary
+>>>>>>>>> oprations on rt (as suggested by Eric Dumazet).
+>>>>>>>>>=20
+>>>>>>>>> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+>>>>>>>>> ---
+>>>>>>>>>  include/net/ip6_route.h |    2 ++
+>>>>>>>>>  net/ipv6/addrconf.c     |    4 +++-
+>>>>>>>>>  net/ipv6/fib6_rules.c   |    4 ++++
+>>>>>>>>>  3 files changed, 9 insertions(+), 1 deletions(-)
+>>>>>>>>>=20
+>>>>>>>>> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.=
+h
+>>>>>>>>> index 27d8318..3c93743 100644
+>>>>>>>>> --- a/include/net/ip6_route.h
+>>>>>>>>> +++ b/include/net/ip6_route.h
+>>>>>>>>> @@ -30,6 +30,8 @@ struct route_info {
+>>>>>>>>>  #define RT6_LOOKUP_F_SRCPREF_TMP    0x00000008
+>>>>>>>>>  #define RT6_LOOKUP_F_SRCPREF_PUBLIC    0x00000010
+>>>>>>>>>  #define RT6_LOOKUP_F_SRCPREF_COA    0x00000020
+>>>>>>>>> +#define RT6_LOOKUP_F_NO_BLK_HOLE    0x00000040
+>>>>>>>>> +#define RT6_LOOKUP_F_NO_PROHIBIT    0x00000080
+>>>>>>>>>=20
+>>>>>>>>>  /*
+>>>>>>>>>   * rt6_srcprefs2flags() and rt6_flags2srcprefs() translate
+>>>>>>>>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>>>>>>>>> index 408cac4a..1891e23 100644
+>>>>>>>>> --- a/net/ipv6/addrconf.c
+>>>>>>>>> +++ b/net/ipv6/addrconf.c
+>>>>>>>>> @@ -948,7 +948,9 @@ static void ipv6_del_addr(struct inet6_if=
+addr *ifp)
+>>>>>>>>>          fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
+>>>>>>>>>          fl6.daddr =3D prefix;
+>>>>>>>>>          rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6=
+,
+>>>>>>>>> -                             RT6_LOOKUP_F_IFACE);
+>>>>>>>>> +                        RT6_LOOKUP_F_IFACE |
+>>>>>>>>> +                        RT6_LOOKUP_F_NO_BLK_HOLE |
+>>>>>>>>> +                        RT6_LOOKUP_F_NO_PROHIBIT);
+>>>>>>>>>=20
+>>>>>>>>>          if (rt !=3D net->ipv6.ip6_null_entry &&
+>>>>>>>> Is it not simpler to test the result here (net->ipv6.ip6_blk_h=
+ole_entry and
+>>>>>>>> net->ipv6.ip6_prohibit_entry) like for the null_entry?
+>>>>>>>> It will also avoid adding more flags.
+>>>>>>>=20
+>>>>>>> Your proposal would only solve part of the problem (the Oops in=
+ __ip6_del_rt()). Another problem here is that blackhole and prohibited=
+ rules should not be selected when trying to purge a prefix (correct me=
+ if I'm wrong) because they are not what we are looking for. This can p=
+revent the targeted prefix from being purged.
+>>>>>> In fact, I'm not sure to get the scenario. This part of the code=
+ just tries
+>>>>>> to remove the connected prefix, added by the kernel when the add=
+ress was added.
+>>>>>> Can you describe your scenario?
+>>>>>=20
+>>>>>=20
+>>>>> I should have given more details from the beginning, my mistake. =
+The scenario where this happens is quite simple:
+>>>>>=20
+>>>>> - install a blackhole rule (e.g. "from 2001:db8::1000 blackhole" =
+- the source address does not matter at all) with the FIB_RULE_FIND_SAD=
+DR flag set (setting this flag is not possible with iproute2, but for t=
+est purpose you can use the enclosed patch against the latest iproute2 =
+tree and then use "./ip -6 rule add from 2001:db8::1000/128 blackhole p=
+rio 1000").
+>>>>>=20
+>>>>> - try to delete an address from one of your interface (any addres=
+s, it can be different from the one you used for the blackhole rule): "=
+ip -6 addr del <v6-addr>/64 dev eth<x>"
+>>>>>=20
+>>>>> and you get an Oops. When trying to remove the connected prefix, =
+the fib6_rule_match() function will match the blackhole rule because RT=
+6_LOOKUP_F_HAS_SADDR is not set and FIB_RULE_FIND_SADDR is set.
+>>>>>=20
+>>>>> With your proposal, the Oops is fixed but the connected prefix ro=
+ute is not deleted. With my initial patch, the Oops is fixed and the co=
+nnected prefix route is also deleted.
+>>>> Ok, I get it. I thin,there is two bugs: the oops and the wrong loo=
+kup.
+>>>>=20
+>>>> Your proposal fix only a particular case. Try this (with your ip r=
+oute2 patch):
+>>>> ip -6 addr add 2002::1/64 dev eth0
+>>>> ip -6 route add 2002::/64 table 257 dev eth0
+>>=20
+>> (you also need to add a rule such as this one:)
+>> ip -6 rule to 2002::/64 table 257
+>>=20
+>>>> ip -6 addr del 2002::1/64 dev eth0
+>>>>=20
+>>>> The route deleted is not the connected prefix, but the route added=
+ in table 257.
+>>=20
+>> You are right.
+>>=20
+>>>> The connected prefix is still here in the main table. It's not wha=
+t we want.
+>>>> Maybe the lookup should be done directly into the right table, ie =
+table RT6_TABLE_PREFIX. What do you think?
+>>>=20
+>>> I agree.  I think we can use addrconf_get_prefix_route() here.
+>>=20
+>> Right, thanks for the hint! What about the below patch?
+>>=20
+>> Note that addrconf_get_prefix_route() also requires a fix (I believe=
+ it does not handle the 'noflags' parameter correctly), I have sent a p=
+atch in a separate mail (subject "ipv6: fix the noflags test in addrcon=
+f_get_prefix_route").
+>>=20
+>> Thanks,
+>> Romain
+>>=20
+>>=20
+>>=20
+>> From 2a79f191042ee8d48119b095b2ef7527a89817fc Mon Sep 17 00:00:00 20=
+01
+>> From: Romain Kuntz <r.kuntz@ipflavors.com>
+>> Date: Wed, 9 Jan 2013 15:11:08 +0100
+>> Subject: [PATCH 1/1] ipv6: use addrconf_get_prefix_route for prefix =
+route lookup
+>>=20
+>> Replace ip6_route_lookup() with addrconf_get_prefix_route() when
+>> looking up for a prefix route. This ensures that the connected prefi=
+x
+>> is looked up in the main table, and avoids the selection of other
+>> matching route located in different tables.
+>>=20
+>> As a consequence, the function addrconf_is_prefix_route() is not
+>> used anymore and is removed.
+> Because this patch also fix an oops, I think it's interesting to tell=
+ it in the commit log and point the commit that introduce this oops.
+>=20
+>>=20
+>> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+>> ---
+>>  net/ipv6/addrconf.c |   24 ++++++++++--------------
+>>  1 files changed, 10 insertions(+), 14 deletions(-)
+>>=20
+>> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+>> index 29ba4ff..409dd47 100644
+>> --- a/net/ipv6/addrconf.c
+>> +++ b/net/ipv6/addrconf.c
+>> @@ -154,6 +154,10 @@ static void addrconf_type_change(struct net_dev=
+ice *dev,
+>>  				 unsigned long event);
+>>  static int addrconf_ifdown(struct net_device *dev, int how);
+>>=20
+>> +static struct rt6_info *addrconf_get_prefix_route(const struct in6_=
+addr *pfx,
+>> +				int plen, const struct net_device *dev,
+>> +				u32 flags, u32 noflags);
+> These args should be aligned to the previous '('.
+>=20
+>> +
+>>  static void addrconf_dad_start(struct inet6_ifaddr *ifp);
+>>  static void addrconf_dad_timer(unsigned long data);
+>>  static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
+>> @@ -250,12 +254,6 @@ static inline bool addrconf_qdisc_ok(const stru=
+ct net_device *dev)
+>>  	return !qdisc_tx_is_noop(dev);
+>>  }
+>>=20
+>> -/* Check if a route is valid prefix route */
+>> -static inline int addrconf_is_prefix_route(const struct rt6_info *r=
+t)
+>> -{
+>> -	return (rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) =3D=3D 0;
+>> -}
+>> -
+>>  static void addrconf_del_timer(struct inet6_ifaddr *ifp)
+>>  {
+>>  	if (del_timer(&ifp->timer))
+>> @@ -941,17 +939,15 @@ static void ipv6_del_addr(struct inet6_ifaddr =
+*ifp)
+>>  	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+>>  		struct in6_addr prefix;
+>>  		struct rt6_info *rt;
+>> -		struct net *net =3D dev_net(ifp->idev->dev);
+>> -		struct flowi6 fl6 =3D {};
+>>=20
+>>  		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
+>> -		fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
+>> -		fl6.daddr =3D prefix;
+>> -		rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
+>> -							 RT6_LOOKUP_F_IFACE);
+>>=20
+>> -		if (rt !=3D net->ipv6.ip6_null_entry &&
+>> -		    addrconf_is_prefix_route(rt)) {
+>> +		rt =3D addrconf_get_prefix_route(&prefix,
+>> +					ifp->prefix_len,
+>> +					ifp->idev->dev,
+>> +					0, RTF_GATEWAY | RTF_DEFAULT);
+> Same here.
+>=20
+>> +
+>> +		if (rt) {
+>>  			if (onlink =3D=3D 0) {
+>>  				ip6_del_rt(rt);
+>>  				rt =3D NULL;
+>>=20
+> After, you can add my "Acked-by: Nicolas Dichtel <nicolas.dichtel@6wi=
+nd.com>" ;-)
 
-The patch main to fix the below circumstance:
-Bonding  run in Active-Backup mode.
-Out PC --> switcher
-             port A --> eth0 --> bond0 --> xenbr0 --> netbackend --> DomU
-             port B -- eth1 /
-Or
 
-Out PC (R)--> switcher A --> eth0 --> bond0 --> xenbr0 --> netbackend 
---> DomU
-             \ switcher B -- eth1 /
+Thanks Nicolas, here is the new version.=20
 
-When Switcher Port A (active port) don't reach, or switcher A don't reach,
-the surroundings will changed to the below circumstance.
-Out PC --> switcher
-             port A -X- eth0 -- bond0 -- xenbr0 -- netbackend -- DomU
-             port B -- eth1 /
-Or
 
-Out PC (R)--> switcher A -X- eth0 -- bond0 -- xenbr0 -- netbackend -- DomU
-             \ switcher B -- eth1 /
+=46rom 203474c87f45da40b5c9d9e629164561307b4199 Mon Sep 17 00:00:00 200=
+1
+=46rom: Romain Kuntz <r.kuntz@ipflavors.com>
+Date: Thu, 10 Jan 2013 07:41:36 +0100
+Subject: [PATCH 1/1] ipv6: use addrconf_get_prefix_route for prefix rou=
+te lookup [v2]
 
-So, the former traffic will be unreachable before find the correct path 
-(by sending
-ARP request).
+Replace ip6_route_lookup() with addrconf_get_prefix_route() when
+looking up for a prefix route. This ensures that the connected prefix
+is looked up in the main table, and avoids the selection of other
+matching routes located in different tables as well as blackhole
+or prohibited entries.
 
-So, the patch is main to found the bonding change event, and gratutious 
-ARP initialtivly
-to out PC find the correct path.
+In addition, this fixes an Opps introduced by commit 64c6d08e (ipv6:
+del unreachable route when an addr is deleted on lo), that would occur
+when a blackhole or prohibited entry is selected by ip6_route_lookup().
+Such entries have a NULL rt6i_table argument, which is accessed by
+__ip6_del_rt() when trying to lock rt6i_table->tb6_lock.
 
-the correct path should be the below circumstance:
-Out PC --> switcher
-             port A -X- eth0 --> bond0 --> xenbr0 --> netbackend --> DomU
-             port B --> eth1 /
-Or
+The function addrconf_is_prefix_route() is not used anymore and is
+removed.
 
-Out PC (R)--> switcher A -X- eth0 --> bond0 --> xenbr0 --> netbackend 
---> DomU
-             \ switcher B --> eth1 /
+[v2] Minor indentation cleanup and log updates.
 
-Thanks,
-Jason
+Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv6/addrconf.c |   25 +++++++++++--------------
+ 1 files changed, 11 insertions(+), 14 deletions(-)
 
---------------020303050809000304010502
-Content-Type: text/plain; charset=gb18030;
- name="0001-xen-netback-notify-frontend-to-send-gratuitous-ARP.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename*0="0001-xen-netback-notify-frontend-to-send-gratuitous-ARP.patc";
- filename*1="h"
-
-RnJvbSBjZDVhMzNmOTEzN2E2MGYyN2MyYThjNmM3N2E1MjBkMmRmMzU2YzdhIE1vbiBTZXAg
-MTcgMDA6MDA6MDAgMjAwMQpGcm9tOiBKYXNvbiBMdWFuIDxqaWFuaGFpLmx1YW5Ab3JhY2xl
-LmNvbT4KRGF0ZTogRnJpLCAyOCBEZWMgMjAxMiAxNTo0MzowNiArMDgwMApTdWJqZWN0OiBb
-UEFUQ0hdIHhlbi1uZXRiYWNrIG5vdGlmeSBmcm9udGVuZCB0byBzZW5kIGdyYXR1aXRvdXMg
-QVJQLgoKSW4gdGhlIHJlYWwgbmV0d29yayBlbnZpcm9ubWVudCwgc29tZSBjYXVzZSB3aWxs
-IGxlYWQKdG8gQWN0aXZlLUJhY2t1cCBtb2RlIGJvbmRpbmcgY2hvc2UgbmV3IGFjdGl2ZWQg
-cG9ydC4KQWZ0ZXIgdGhhdCwgdGhlIHRyZmZpYywgZGVzdGluYXRlZCB0byBEb21VIGJ5IGlu
-YWN0aXZlZApwb3J0IChmb3JtZXIgYWN0aXZlZCBwb3J0KSwgd2lsbCBiZSB1bnJlYWNoYWJs
-ZSBhdCBub3cuCkRvbVUgc2hvdWxkIHNlbmQgZ3JhdHV0aW91cyBBUlAgaW5pdGlhbHRpdmx5
-IHRvIGZpbmQgdGhlCm5ldyBjb3JyZWN0ZWQgcGF0aC4KCkJ5IG5ldGJhY2sncyBDb25uZWN0
-ZWQtPkNvbm5lY3RlZCB0cmFuc2l0aW9uLCBmcm9udGVuZAp3aWxsIHdhdGNoIHRoZSBjaGFu
-Z2UsIGFuZCBzZW5kIGdyYXR1aXRvdXMgQVJQLgoKU2lnbmVkLW9mZi1ieTogSmFzb24gTHVh
-biA8amlhbmhhaS5sdWFuQG9yYWNsZS5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJh
-Y2sveGVuYnVzLmMgfCAgIDY4ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrCiAxIGZpbGVzIGNoYW5nZWQsIDY4IGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0p
-CgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMgYi9kcml2
-ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwppbmRleCA0MTAwMThjLi5lYmVhNjgzIDEw
-MDY0NAotLS0gYS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYworKysgYi9kcml2
-ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwpAQCAtMjYsNiArMjYsNyBAQCBzdHJ1Y3Qg
-YmFja2VuZF9pbmZvIHsKIAlzdHJ1Y3QgeGVudmlmICp2aWY7CiAJZW51bSB4ZW5idXNfc3Rh
-dGUgZnJvbnRlbmRfc3RhdGU7CiAJc3RydWN0IHhlbmJ1c193YXRjaCBob3RwbHVnX3N0YXR1
-c193YXRjaDsKKwlzdHJ1Y3Qgbm90aWZpZXJfYmxvY2sgdmlmX25vdGlmaWVyOwogCXU4IGhh
-dmVfaG90cGx1Z19zdGF0dXNfd2F0Y2g6MTsKIH07CiAKQEAgLTM0LDExICszNSw3NCBAQCBz
-dGF0aWMgdm9pZCBjb25uZWN0KHN0cnVjdCBiYWNrZW5kX2luZm8gKik7CiBzdGF0aWMgdm9p
-ZCBiYWNrZW5kX2NyZWF0ZV94ZW52aWYoc3RydWN0IGJhY2tlbmRfaW5mbyAqYmUpOwogc3Rh
-dGljIHZvaWQgdW5yZWdpc3Rlcl9ob3RwbHVnX3N0YXR1c193YXRjaChzdHJ1Y3QgYmFja2Vu
-ZF9pbmZvICpiZSk7CiAKKy8qCisgKiBCeSBDb25uZWN0ZWQtPkNvbm5lY3RlZCB0cmFuc2l0
-aW9uLCBuZXRmcm9udCB3aWxsIHdhdGNoIHRoZSBjaGFuZ2UgYW5kCisgKiBzZW5kIGdyYXR1
-aXRvdXMgQVJQLgorICovCitzdGF0aWMgdm9pZCBub3RpZnlfZnJvbnRfYXJwaW5nKHN0cnVj
-dCB4ZW5idXNfZGV2aWNlICpkZXYpCit7CisJc3RydWN0IHhlbmJ1c190cmFuc2FjdGlvbiB4
-YnQ7CisJaW50IGVycjsKKworCWlmICh4ZW5idXNfcmVhZF9kcml2ZXJfc3RhdGUoZGV2LT5u
-b2RlbmFtZSkgIT0gWGVuYnVzU3RhdGVDb25uZWN0ZWQpCisJCXJldHVybjsKKworYWdhaW46
-CisJZXJyID0geGVuYnVzX3RyYW5zYWN0aW9uX3N0YXJ0KCZ4YnQpOworCWlmIChlcnIpIHsK
-KwkJcHJfZm10KCJFcnJvciBzdGFydGluZyB0cmFuc2FjdGlvbiIpOworCQlyZXR1cm47CisJ
-fQorCisJZXJyID0geGVuYnVzX3ByaW50Zih4YnQsIGRldi0+bm9kZW5hbWUsICJzdGF0ZSIs
-ICIlZCIsIGRldi0+c3RhdGUpOworCWlmIChlcnIpIHsKKwkJcHJfZm10KCJFcnJvciB3cml0
-aW5nIHRoZSBzdGF0ZSIpOworCQlnb3RvIGFib3J0OworCX0KKworCWVyciA9IHhlbmJ1c190
-cmFuc2FjdGlvbl9lbmQoeGJ0LCAwKTsKKwlpZiAoZXJyID09IC1FQUdBSU4pCisJCWdvdG8g
-YWdhaW47CisJaWYgKGVycikKKwkJcHJfZm10KCJFcnJvciBlbmRpbmcgdHJhbnNhY3Rpb24i
-KTsKKworCXJldHVybjsKK2Fib3J0OgorCXhlbmJ1c190cmFuc2FjdGlvbl9lbmQoeGJ0LCAx
-KTsKK30KKworI2RlZmluZSBuYl90b19iYWNrZW5kKG5iKSBjb250YWluZXJfb2YobmIsIHN0
-cnVjdCBiYWNrZW5kX2luZm8sIHZpZl9ub3RpZmllcikKKy8qKgorICogV2hlbiBuZXR3b3Jr
-IGNvbmRpdGlvbiBvZiB2aWYgY2hhbmdlLCBub3RpZnkgdGhlIGZyb250ZW5kLgorICovCitz
-dGF0aWMgaW50IG5ldGJhY2tfbmV0ZGV2X2V2ZW50KHN0cnVjdCBub3RpZmllcl9ibG9jayAq
-dGhpcywKKwkJCQl1bnNpZ25lZCBsb25nIGV2ZW50LCB2b2lkICpwdHIpCit7CisJc3RydWN0
-IG5ldF9kZXZpY2UgKmV2ZW50X2RldiA9IHB0cjsKKwlzdHJ1Y3QgYmFja2VuZF9pbmZvICpi
-ZSA9IG5iX3RvX2JhY2tlbmQodGhpcyk7CisKKwlwcl9kZWJ1ZygiZXZlbnRfZGV2OiAlcywg
-ZXZlbnQ6ICVseFxuIiwKKwkJIGV2ZW50X2RldiA/IGV2ZW50X2Rldi0+bmFtZSA6ICJOb25l
-IiwgZXZlbnQpOworCisJaWYgKCFiZS0+dmlmKQorCQlyZXR1cm4gTk9USUZZX0RPTkU7CisK
-Kwlzd2l0Y2ggKGV2ZW50KSB7CisJY2FzZSBORVRERVZfTk9USUZZX1BFRVJTOgorCQkvKiBO
-b3RpZnkgZnJvbnRlbmQgdG8gU2VuZCBncmF0dWl0b3VzIEFSUCAqLworCQlub3RpZnlfZnJv
-bnRfYXJwaW5nKGJlLT5kZXYpOworCQlicmVhazsKKwl9CisKKwlyZXR1cm4gTk9USUZZX0RP
-TkU7Cit9CisKIHN0YXRpYyBpbnQgbmV0YmFja19yZW1vdmUoc3RydWN0IHhlbmJ1c19kZXZp
-Y2UgKmRldikKIHsKIAlzdHJ1Y3QgYmFja2VuZF9pbmZvICpiZSA9IGRldl9nZXRfZHJ2ZGF0
-YSgmZGV2LT5kZXYpOwogCiAJdW5yZWdpc3Rlcl9ob3RwbHVnX3N0YXR1c193YXRjaChiZSk7
-CisJdW5yZWdpc3Rlcl9uZXRkZXZpY2Vfbm90aWZpZXIoJmJlLT52aWZfbm90aWZpZXIpOwog
-CWlmIChiZS0+dmlmKSB7CiAJCWtvYmplY3RfdWV2ZW50KCZkZXYtPmRldi5rb2JqLCBLT0JK
-X09GRkxJTkUpOwogCQl4ZW5idXNfcm0oWEJUX05JTCwgZGV2LT5ub2RlbmFtZSwgImhvdHBs
-dWctc3RhdHVzIik7CkBAIC0xMjksNiArMTkzLDEwIEBAIHN0YXRpYyBpbnQgbmV0YmFja19w
-cm9iZShzdHJ1Y3QgeGVuYnVzX2RldmljZSAqZGV2LAogCS8qIFRoaXMga2lja3MgaG90cGx1
-ZyBzY3JpcHRzLCBzbyBkbyBpdCBpbW1lZGlhdGVseS4gKi8KIAliYWNrZW5kX2NyZWF0ZV94
-ZW52aWYoYmUpOwogCisJLyogUmVnaXN0ZXIgRnJvbnRlbmQgRXZlbnQgTm90aWZ5ICovCisJ
-YmUtPnZpZl9ub3RpZmllci5ub3RpZmllcl9jYWxsID0gbmV0YmFja19uZXRkZXZfZXZlbnQ7
-CisJcmVnaXN0ZXJfbmV0ZGV2aWNlX25vdGlmaWVyKCZiZS0+dmlmX25vdGlmaWVyKTsKKwog
-CXJldHVybiAwOwogCiBhYm9ydF90cmFuc2FjdGlvbjoKLS0gCjEuNy42LjUKCg==
---------------020303050809000304010502--
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 29ba4ff..ec3e065 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -154,6 +154,11 @@ static void addrconf_type_change(struct net_device=
+ *dev,
+ 				 unsigned long event);
+ static int addrconf_ifdown(struct net_device *dev, int how);
+=20
++static struct rt6_info *addrconf_get_prefix_route(const struct in6_add=
+r *pfx,
++						  int plen,
++						  const struct net_device *dev,
++						  u32 flags, u32 noflags);
++
+ static void addrconf_dad_start(struct inet6_ifaddr *ifp);
+ static void addrconf_dad_timer(unsigned long data);
+ static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
+@@ -250,12 +255,6 @@ static inline bool addrconf_qdisc_ok(const struct =
+net_device *dev)
+ 	return !qdisc_tx_is_noop(dev);
+ }
+=20
+-/* Check if a route is valid prefix route */
+-static inline int addrconf_is_prefix_route(const struct rt6_info *rt)
+-{
+-	return (rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) =3D=3D 0;
+-}
+-
+ static void addrconf_del_timer(struct inet6_ifaddr *ifp)
+ {
+ 	if (del_timer(&ifp->timer))
+@@ -941,17 +940,15 @@ static void ipv6_del_addr(struct inet6_ifaddr *if=
+p)
+ 	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+ 		struct in6_addr prefix;
+ 		struct rt6_info *rt;
+-		struct net *net =3D dev_net(ifp->idev->dev);
+-		struct flowi6 fl6 =3D {};
+=20
+ 		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
+-		fl6.flowi6_oif =3D ifp->idev->dev->ifindex;
+-		fl6.daddr =3D prefix;
+-		rt =3D (struct rt6_info *)ip6_route_lookup(net, &fl6,
+-							 RT6_LOOKUP_F_IFACE);
+=20
+-		if (rt !=3D net->ipv6.ip6_null_entry &&
+-		    addrconf_is_prefix_route(rt)) {
++		rt =3D addrconf_get_prefix_route(&prefix,
++					       ifp->prefix_len,
++					       ifp->idev->dev,
++					       0, RTF_GATEWAY | RTF_DEFAULT);
++
++		if (rt) {
+ 			if (onlink =3D=3D 0) {
+ 				ip6_del_rt(rt);
+ 				rt =3D NULL;
+--=20
+1.7.2.5
