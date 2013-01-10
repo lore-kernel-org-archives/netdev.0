@@ -1,104 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: set default_ethtool_ops in register_netdevice
-Date: Thu, 10 Jan 2013 13:00:24 -0800 (PST)
-Message-ID: <20130110.130024.1675024063662393029.davem@davemloft.net>
-References: <20130110.020729.1358020934840866117.davem@davemloft.net>
-	<20130110.021202.232771737304117743.davem@davemloft.net>
-	<1357818103.17902.3.camel@jlt4.sipsolutions.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next v5 01/14] vlan: wrap hw-acceleration calls in
+ separate functions.
+Date: Thu, 10 Jan 2013 14:07:49 -0800
+Message-ID: <20130110140749.153023fa@nehalam.linuxnetplumber.net>
+References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com>
+	<1357751882-8619-2-git-send-email-vyasevic@redhat.com>
+	<20130110102525.2ff40c12@nehalam.linuxnetplumber.net>
+	<50EF0B76.2040503@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sgruszka@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
-	greearb@candelatech.com, bjorn@mork.no,
-	linux-wireless@vger.kernel.org, bhutchings@solarflare.com,
-	mirqus@gmail.com
-To: johannes@sipsolutions.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	mst@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33529 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754850Ab3AJVA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 16:00:26 -0500
-In-Reply-To: <1357818103.17902.3.camel@jlt4.sipsolutions.net>
+Received: from mail.vyatta.com ([76.74.103.46]:56720 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751203Ab3AJWJQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 17:09:16 -0500
+In-Reply-To: <50EF0B76.2040503@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Johannes Berg <johannes@sipsolutions.net>
-Date: Thu, 10 Jan 2013 12:41:43 +0100
+On Thu, 10 Jan 2013 13:41:58 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-> On Thu, 2013-01-10 at 02:12 -0800, David Miller wrote:
->=20
->> >> On Wed, Jan 09, 2013 at 11:57:38PM -0800, David Miller wrote:
->> >>> From: Stanislaw Gruszka <sgruszka@redhat.com>
->> >>> Date: Tue, 8 Jan 2013 16:38:51 +0100
->> >>>=20
->> >>> > Since:
->> >>> >=20
->> >>> > commit 2c60db037034d27f8c636403355d52872da92f81
->> >>> > Author: Eric Dumazet <edumazet@google.com>
->> >>> > Date:   Sun Sep 16 09:17:26 2012 +0000
->> >>> >=20
->> >>> >     net: provide a default dev->ethtool_ops
->> >>> >=20
->> >>> > wireless core does not correctly assign ethtool_ops. In order =
-to fix
->> >>> > the problem, move assignement of default_ethtool_ops to
->> >>> > register_netdevice(). This is safe because both register_netde=
-vice()
->> >>> > and dev_ethtool() are protected by RTNL lock.
->> >>> >=20
->> >>> > Patch is besed on hint of Micha=A9=A9 Miros=A9=A9aw.
->> >>> >=20
->> >>> > Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
->> >>> > Cc: stable@vger.kernel.org # 3.7+
->> >>> > ---
->> >>> > v1 -> v2: change order of default_ethtool_ops initialization t=
-o avoid
->> >>> > the problem. Change the subject accordingly.
->> >>>=20
->> >>> I don't understand this.  Why is the assignment of default_ethto=
-ol_ops
->> >>> at netdev allocation time not working?  Is wireless really not u=
-sing
->> >>> alloc_netdev*()?
->> >>=20
->> >> It does. This is done on individual cfg80211 drivers , i.e. on ma=
-c80211
->> >> or full mac drivers. After alloc_netdev*() call, some cfg80211 dr=
-ivers
->> >> provide they own ethtool_ops, but some do not. For them, wireless=
- core
->> >> provide generic cfg80211_ethtool_ops, which is assigned in
->> >> NETDEV_REGISTER notify call:=20
->> >>=20
->> >>      if (!dev->ethtool_ops)
->> >>              dev->ethtool_ops =3D &cfg80211_ethtool_ops;
->> >>=20
->> >> But after Eric's commit, dev->ethtool_ops is no longer NULL (on c=
-fg80211
->> >> drivers without custom ethtool_ops), but points to &default_ethto=
-ol_ops.
->> >=20
->> > The whole idea is to remove these kinds of NULL tests against
->> > dev->ethtool_ops, thus creating the invariant that given any netde=
-v
->> > one must never be able to see a non-NULL value there.
->>=20
->> Of course I meant that we should never see a NULL value in
->> dev->ethtool_ops.
->>=20
->> I would suggest fixing this by making the wireless core express it's
->> intentions, that it wants to use a different default ethtool ops, to
->> the netdev allocation layer.
->>=20
->> You have two way to do this:
->>=20
->> 1) Add default_ethtool_ops argument to alloc_netdev*().
->>=20
->> 2) Add a "netdev_set_default_ethtool_ops(netdev, ops)"
->=20
-> Neither of these work as (I think) you think they would :-)
+> On 01/10/2013 01:25 PM, Stephen Hemminger wrote:
+> > On Wed,  9 Jan 2013 12:17:48 -0500
+> > Vlad Yasevich <vyasevic@redhat.com> wrote:
+> >
+> >>
+> >>   /**
+> >> + * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
+> >> + * @dev: netdevice of the lowerdev/hw nic
+> >> + *
+> >> + * Checks to see if HW and driver report VLAN acceleration correctly.
+> >> + */
+> >> +static inline bool vlan_hw_buggy(const struct net_device *dev)
+> >> +{
+> >> +	const struct net_device_ops *ops = dev->netdev_ops;
+> >> +
+> >> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> >> +	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
+> >> +		return true;
+> >> +
+> >> +	return false;
+> >> +}
+> >> +
+> >> +/**
+> >> + * vlan_vid_add_hw - Add the VLAN vid to the HW filter
+> >> + * @dev: netdevice of the lowerdev/hw nic
+> >> + * @vid: vlan id.
+> >> + *
+> >> + * Inserts the vid into the HW vlan filter table if hw supports it.
+> >> + */
+> >> +static inline int vlan_vid_add_hw(struct net_device *dev,
+> >> +				  unsigned short vid)
+> >> +{
+> >> +	const struct net_device_ops *ops = dev->netdev_ops;
+> >> +	int err = 0;
+> >> +
+> >> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> >> +	    ops->ndo_vlan_rx_add_vid)
+> >> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
+> >> +
+> >> +	return err;
+> >> +}
+> >> +
+> >> +/**
+> >> + * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
+> >> + * @dev: netdevice of the lowerdev/hw nic
+> >> + * @vid: vlan id.
+> >> + *
+> >> + * Delete the vid from the HW vlan filter table if hw supports it.
+> >> + */
+> >> +static inline int vlan_vid_del_hw(struct net_device *dev,
+> >> +				  unsigned short vid)
+> >> +{
+> >> +	const struct net_device_ops *ops = dev->netdev_ops;
+> >> +	int err = 0;
+> >> +
+> >> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+> >> +	    ops->ndo_vlan_rx_kill_vid)
+> >> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
+> >> +
+> >> +	return err;
+> >> +}
+> >> +
+> >
+> > I would rather not have all these inline's. This isn't performance critical.
+> 
+> I kind of need to keep them as inlines because of the VLAN support is 
+> built.  Right now, none of the VLAN files are build if VLAN support is
+> turned off.  So all we get access to are inlines from if_vlan.h.
+> 
+> I suppose I can change how VLANs get built, but not if that's the right 
+> thing.  It looks like it is set up the way it is on purpose.
+> 
+> > Also, the check for buggy devices should be done inside the vlan code,
+> > not repeated in the functions using the add/remove API. When device is
+> > registered the flag and add/kill should be checked, and if the device driver
+> > is buggy it should fail the register_netdevice.
+> >
+> 
+> Not sure what you mean here.  I don't check if it's buggy again.  I 
+> check that the device supports filter and the pointer is set.  I does
+> exactly what the code used to do.  I suppose that the checks for valid
+> function pointers may be a little redundant since otherwise 
+> vlan_hw_buggy() would have triggered, but it's safer to have them since 
+> we can't guarantee that other users have checked for buggy implementations.
+> 
+> -vlad
 
-2) works because all netdev_set_ethtool_ops() is going to do is
-compare netdev->ops against &default_ethtool_ops as the test,
-and therefore you can replace the above cfg80211 test and
-assignment with a call to it.
+The best way to handle this is to add stubs for the unconfigure case, and
+include real code if configured.
+
+I.e something like
+
+#if IS_ENABLED(CONFIG_VLAN_8012Q)
+extern int vlan_vid_add_hw(struct net_device *, unsigned short);
+extern int vlan_vid_del_hw(struct net_device *, unsigned short);
+#else
+#define vlan_vid_add_hw(dev,vid) (-ENOTSUPP)
+#define vlan_vid_del_hw(dev,vid) (-ENOTSUPP)
+#endif
