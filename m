@@ -1,99 +1,83 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] net: set default_ethtool_ops in register_netdevice
-Date: Thu, 10 Jan 2013 02:12:02 -0800 (PST)
-Message-ID: <20130110.021202.232771737304117743.davem@davemloft.net>
-References: <20130109.235738.467651533138068641.davem@davemloft.net>
-	<20130110083641.GA5637@redhat.com>
-	<20130110.020729.1358020934840866117.davem@davemloft.net>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: pull request: wireless 2013-01-09
+Date: Thu, 10 Jan 2013 11:14:41 +0100
+Message-ID: <CA+icZUV9+JgZcYKZ4DAoj69D89hF-1cqr_bTpJvfgzWZZJ41kQ@mail.gmail.com>
+References: <20130109191817.GA17321@tuxdriver.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-	mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130110.020729.1358020934840866117.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130109191817.GA17321@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Date: Thu, 10 Jan 2013 02:07:29 -0800 (PST)
+On Wed, Jan 9, 2013 at 8:18 PM, John W. Linville <linville@tuxdriver.com> wrote:
+> Dave,
+>
+> Please pull this batch of fixes (and a new driver) for the 3.8 stream...
+>
+> Included is a mac80211 pull, of which Johannes says the following:
+>
+> 'This includes a number of fixes for various pieces of mac80211. I've
+> also included Thomas's memory RMC hash table optimisation since it
+> saves so much memory.'
+>
+> Also from Johannes is an iwlwifi pull:
+>
+> 'I have two fixes for iwlwifi: one to fix a lost return value that was
+> dropped in a previous patch and could cause "nobody cared" IRQ messages,
+> and one to work around a firmware issue.'
+>
+> Amitkumar Karwar brings an mwifiex for a typo in an comparison.
+>
+> Bing Zhao gives us an mwifiex fix to properly check the return value
+> from wait_event_interruptible and handle it properly.
+>
+> Chen Gang provides a fix to make iwlegacy use strlcpy instead of
+> strncpy, avoiding a potential buffer underflow.
+>
+> Julian Wollrath fixes a typo in an error message in rtlwifi.
+>
+> Larry Finger brings a b43 fix for a firmware loading problem.
+>
+> Nickolai Zeldovich avoids a use-after-free in the mwl8k driver.
+>
+> Vladimir Kondratiev brings the last big piece, the new Qualcomm/Atheros
+> wil6210 802.11ad driver.  Since it is for new hardware, I hope that
+> taking it for 3.8 is not a problem.
+>
+> Please let me know if there are problems!
+>
+> Thanks,
+>
+> John
+>
+> ---
+>
+> The following changes since commit c9be4a5c49cf51cc70a993f004c5bb30067a65ce:
+>
+>   net: prevent setting ttl=0 via IP_TTL (2013-01-08 17:57:10 -0800)
+>
+> are available in the git repository at:
+>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-davem
+>
+> for you to fetch changes up to a9b8a894ad7d0b90b0464c9ac7e8e5c1687edcae:
+>
+>   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless into for-davem (2013-01-09 11:01:37 -0500)
+>
+> ----------------------------------------------------------------
 
-> From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Date: Thu, 10 Jan 2013 09:36:42 +0100
->=20
->> On Wed, Jan 09, 2013 at 11:57:38PM -0800, David Miller wrote:
->>> From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>> Date: Tue, 8 Jan 2013 16:38:51 +0100
->>>=20
->>> > Since:
->>> >=20
->>> > commit 2c60db037034d27f8c636403355d52872da92f81
->>> > Author: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
->>> > Date:   Sun Sep 16 09:17:26 2012 +0000
->>> >=20
->>> >     net: provide a default dev->ethtool_ops
->>> >=20
->>> > wireless core does not correctly assign ethtool_ops. In order to =
-fix
->>> > the problem, move assignement of default_ethtool_ops to
->>> > register_netdevice(). This is safe because both register_netdevic=
-e()
->>> > and dev_ethtool() are protected by RTNL lock.
->>> >=20
->>> > Patch is besed on hint of Micha=A9=A9 Miros=A9=A9aw.
->>> >=20
->>> > Signed-off-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
->>> > Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org # 3.7+
->>> > ---
->>> > v1 -> v2: change order of default_ethtool_ops initialization to a=
-void
->>> > the problem. Change the subject accordingly.
->>>=20
->>> I don't understand this.  Why is the assignment of default_ethtool_=
-ops
->>> at netdev allocation time not working?  Is wireless really not usin=
-g
->>> alloc_netdev*()?
->>=20
->> It does. This is done on individual cfg80211 drivers , i.e. on mac80=
-211
->> or full mac drivers. After alloc_netdev*() call, some cfg80211 drive=
-rs
->> provide they own ethtool_ops, but some do not. For them, wireless co=
-re
->> provide generic cfg80211_ethtool_ops, which is assigned in
->> NETDEV_REGISTER notify call:=20
->>=20
->> 	if (!dev->ethtool_ops)
->> 		dev->ethtool_ops =3D &cfg80211_ethtool_ops;
->>=20
->> But after Eric's commit, dev->ethtool_ops is no longer NULL (on cfg8=
-0211
->> drivers without custom ethtool_ops), but points to &default_ethtool_=
-ops.
->=20
-> The whole idea is to remove these kinds of NULL tests against
-> dev->ethtool_ops, thus creating the invariant that given any netdev
-> one must never be able to see a non-NULL value there.
+Hi John,
 
-Of course I meant that we should never see a NULL value in
-dev->ethtool_ops.
+if I look at for-davem GIT branch (online GitWeb interface) [1], this
+has no tag "master-2013-01-09" like in master branch.
+Comments?
 
-I would suggest fixing this by making the wireless core express it's
-intentions, that it wants to use a different default ethtool ops, to
-the netdev allocation layer.
+Regards,
+- Sedat -
 
-You have two way to do this:
-
-1) Add default_ethtool_ops argument to alloc_netdev*().
-
-2) Add a "netdev_set_default_ethtool_ops(netdev, ops)"
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[1] http://git.kernel.org/?p=linux/kernel/git/linville/wireless-next.git;a=shortlog;h=refs/heads/for-davem
