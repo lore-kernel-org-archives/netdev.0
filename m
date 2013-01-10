@@ -1,90 +1,112 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: Re: [PATCH V3 1/2] virtio-net: fix the set affinity bug when CPU
-	IDs are not consecutive
-Date: Thu, 10 Jan 2013 17:26:22 +0800
-Message-ID: <50EE893E.8020107@cn.fujitsu.com>
-References: <1357639660-6660-1-git-send-email-gaowanlong@cn.fujitsu.com>
-	<87k3rn2qwb.fsf@rustcorp.com.au> <50ECCDF3.9050403@cn.fujitsu.com>
-	<87a9sh3lru.fsf@rustcorp.com.au>
-Reply-To: gaowanlong@cn.fujitsu.com
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/1] ipv6: use addrconf_get_prefix_route for prefix route
+ lookup [v2] (was [PATCH 1/2] ipv6: avoid blackhole and prohibited entries
+ upon prefix purge [v3])
+Date: Thu, 10 Jan 2013 18:44:25 +0900
+Message-ID: <50EE8D79.1080807@linux-ipv6.org>
+References: <0CC79564-4AF2-42F9-8D06-1BCC912A1AF7@ipflavors.com> <1357415941.1678.4163.camel@edumazet-glaptop> <2A507F9D-3D53-475F-8FA9-9E6CFEE9C97A@ipflavors.com> <50EAA28B.1080300@6wind.com> <3EF640F8-5242-486E-B7A3-9DA2A88F5A4F@ipflavors.com> <50EAED10.90904@6wind.com> <08F52788-0BD9-4907-8FC3-E9DF530AB042@ipflavors.com> <50EC47AD.8000801@6wind.com> <50EC54E3.9080606@linux-ipv6.org> <6A08EDC1-08A0-411D-90CF-6DB1CB7FA3A0@ipflavors.com> <50ED88AF.3040705@6wind.com> <683E9BA1-C85B-43E0-AF98-397D50E302F6@ipflavors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: Rusty Russell <rusty@rustcorp.com.au>, Eric Dumazet <erdnetdev@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87a9sh3lru.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: nicolas.dichtel@6wind.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Romain KUNTZ <r.kuntz@ipflavors.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33482 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751041Ab3AJJo2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 04:44:28 -0500
+In-Reply-To: <683E9BA1-C85B-43E0-AF98-397D50E302F6@ipflavors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2013 08:49 AM, Rusty Russell wrote:
-> Wanlong Gao <gaowanlong@cn.fujitsu.com> writes:
->> On 01/09/2013 07:31 AM, Rusty Russell wrote:
->>> Wanlong Gao <gaowanlong@cn.fujitsu.com> writes:
->>>>   */
->>>>  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
->>>>  {
->>>> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
->>>> -		  smp_processor_id();
->>>> +	int txq = 0;
->>>> +
->>>> +	if (skb_rx_queue_recorded(skb))
->>>> +		txq = skb_get_rx_queue(skb);
->>>> +	else if ((txq = per_cpu(vq_index, smp_processor_id())) == -1)
->>>> +		txq = 0;
->>>
->>> You should use __get_cpu_var() instead of smp_processor_id() here, ie:
->>>
->>>         else if ((txq = __get_cpu_var(vq_index)) == -1)
->>>
->>> And AFAICT, no reason to initialize txq to 0 to start with.
->>>
->>> So:
->>>
->>>         int txq;
->>>
->>>         if (skb_rx_queue_recorded(skb))
->>> 		txq = skb_get_rx_queue(skb);
->>>         else {
->>>                 txq = __get_cpu_var(vq_index);
->>>                 if (txq == -1)
->>>                         txq = 0;
->>>         }
->>
->> Got it, thank you.
->>
->>>
->>> Now, just to confirm, I assume this can happen even if we use vq_index,
->>> right, because of races with virtnet_set_channels?
->>
->> I still can't understand this race, could you explain more? thank you.
-> 
-> I assume that someone can call virtnet_set_channels() while we are
-> inside virtnet_select_queue(), so they reduce dev->real_num_tx_queues,
-> causing virtnet_set_channels to do:
-> 
-> 	while (unlikely(txq >= dev->real_num_tx_queues))
-> 		txq -= dev->real_num_tx_queues;
-> 
-> Otherwise, when is this loop called?
+Romain KUNTZ wrote:
 
-How about just remove this loop? 
-
-Eric, can you give a help here?
-
-Thanks,
-Wanlong Gao
-
+> From 203474c87f45da40b5c9d9e629164561307b4199 Mon Sep 17 00:00:00 2001
+> From: Romain Kuntz <r.kuntz@ipflavors.com>
+> Date: Thu, 10 Jan 2013 07:41:36 +0100
+> Subject: [PATCH 1/1] ipv6: use addrconf_get_prefix_route for prefix route lookup [v2]
 > 
-> Thanks,
-> Rusty.
+> Replace ip6_route_lookup() with addrconf_get_prefix_route() when
+> looking up for a prefix route. This ensures that the connected prefix
+> is looked up in the main table, and avoids the selection of other
+> matching routes located in different tables as well as blackhole
+> or prohibited entries.
 > 
+> In addition, this fixes an Opps introduced by commit 64c6d08e (ipv6:
+> del unreachable route when an addr is deleted on lo), that would occur
+> when a blackhole or prohibited entry is selected by ip6_route_lookup().
+> Such entries have a NULL rt6i_table argument, which is accessed by
+> __ip6_del_rt() when trying to lock rt6i_table->tb6_lock.
+> 
+> The function addrconf_is_prefix_route() is not used anymore and is
+> removed.
+> 
+> [v2] Minor indentation cleanup and log updates.
+> 
+> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  net/ipv6/addrconf.c |   25 +++++++++++--------------
+>  1 files changed, 11 insertions(+), 14 deletions(-)
+> 
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 29ba4ff..ec3e065 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -154,6 +154,11 @@ static void addrconf_type_change(struct net_device *dev,
+>  				 unsigned long event);
+>  static int addrconf_ifdown(struct net_device *dev, int how);
+>  
+> +static struct rt6_info *addrconf_get_prefix_route(const struct in6_addr *pfx,
+> +						  int plen,
+> +						  const struct net_device *dev,
+> +						  u32 flags, u32 noflags);
+> +
+>  static void addrconf_dad_start(struct inet6_ifaddr *ifp);
+>  static void addrconf_dad_timer(unsigned long data);
+>  static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
+> @@ -250,12 +255,6 @@ static inline bool addrconf_qdisc_ok(const struct net_device *dev)
+>  	return !qdisc_tx_is_noop(dev);
+>  }
+>  
+> -/* Check if a route is valid prefix route */
+> -static inline int addrconf_is_prefix_route(const struct rt6_info *rt)
+> -{
+> -	return (rt->rt6i_flags & (RTF_GATEWAY | RTF_DEFAULT)) == 0;
+> -}
+> -
+>  static void addrconf_del_timer(struct inet6_ifaddr *ifp)
+>  {
+>  	if (del_timer(&ifp->timer))
+> @@ -941,17 +940,15 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+>  	if ((ifp->flags & IFA_F_PERMANENT) && onlink < 1) {
+>  		struct in6_addr prefix;
+>  		struct rt6_info *rt;
+> -		struct net *net = dev_net(ifp->idev->dev);
+> -		struct flowi6 fl6 = {};
+>  
+>  		ipv6_addr_prefix(&prefix, &ifp->addr, ifp->prefix_len);
+> -		fl6.flowi6_oif = ifp->idev->dev->ifindex;
+> -		fl6.daddr = prefix;
+> -		rt = (struct rt6_info *)ip6_route_lookup(net, &fl6,
+> -							 RT6_LOOKUP_F_IFACE);
+>  
+> -		if (rt != net->ipv6.ip6_null_entry &&
+> -		    addrconf_is_prefix_route(rt)) {
+> +		rt = addrconf_get_prefix_route(&prefix,
+> +					       ifp->prefix_len,
+> +					       ifp->idev->dev,
+> +					       0, RTF_GATEWAY | RTF_DEFAULT);
+> +
+> +		if (rt) {
+>  			if (onlink == 0) {
+>  				ip6_del_rt(rt);
+>  				rt = NULL;
+> 
+
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+--yoshfuji
