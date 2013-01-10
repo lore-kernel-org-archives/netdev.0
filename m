@@ -1,145 +1,66 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [RFC PATCH v2 10/10] ixgbe: Add support for set_channels ethtool
- operation
-Date: Thu, 10 Jan 2013 10:58:52 -0800
-Message-ID: <20130110185846.29578.94872.stgit@ahduyck-cp1.jf.intel.com>
-References: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v5 02/14] bridge: Add vlan filtering infrastructure
+Date: Thu, 10 Jan 2013 14:01:11 -0500
+Message-ID: <50EF0FF7.3080407@redhat.com>
+References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com> <1357751882-8619-3-git-send-email-vyasevic@redhat.com> <20130110103614.23383079@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, therbert@google.com, ycai@google.com,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	mst@redhat.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:26337 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26146 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754214Ab3AJTA2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 14:00:28 -0500
-In-Reply-To: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
+	id S1752513Ab3AJTBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 14:01:30 -0500
+In-Reply-To: <20130110103614.23383079@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds support for the ethtool set_channels operation.
+On 01/10/2013 01:36 PM, Stephen Hemminger wrote:
+> This patch has some minor whitespace and spelling errors:
+>
+> WARNING: line over 80 characters
+> #429: FILE: net/bridge/br_private.h:205:
+> +static inline struct net_bridge_port *vlans_to_port(struct net_port_vlans *vlans)
+>
+> ERROR: trailing whitespace
+> #432: FILE: net/bridge/br_private.h:208:
+> +       $
+>
+> WARNING: please, no spaces at the start of a line
+> #432: FILE: net/bridge/br_private.h:208:
+> +       $
+>
+> +/* Must be protected by RTNL */
+> +static void br_vlan_del(struct net_bridge_vlan *vlan)
+>
+> +	/* Drop the self-ref to trigger descrution. */
+>                                          ^^^^^^^^^^
+>
 
-Since the ixgbe driver has to support DCB as well as the other modes the
-assumption I made here is that the number of channels in DCB modes refers
-to the number of queues per traffic class, not the number of queues total.
+sorry, will fix.  I thought I ran everything through checkpatch.  I'll 
+re-run them.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |    2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   40 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    7 +++-
- 3 files changed, 46 insertions(+), 3 deletions(-)
+> Also, the data structure vlan's seems inverted. Why do you keep a hash list
+> of vlan's and then a bitmap of ports. Seems more natural to just put a bitmap
+> on each port that has vlan filtering rather than introducing yet another list
+> to manage.
+>
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 590f042..a431628 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -695,8 +695,8 @@ extern bool ixgbe_verify_lesm_fw_enabled_82599(struct ixgbe_hw *hw);
- extern void ixgbe_set_rx_mode(struct net_device *netdev);
- #ifdef CONFIG_IXGBE_DCB
- extern void ixgbe_set_rx_drop_en(struct ixgbe_adapter *adapter);
--extern int ixgbe_setup_tc(struct net_device *dev, u8 tc);
- #endif
-+extern int ixgbe_setup_tc(struct net_device *dev, u8 tc);
- extern void ixgbe_tx_ctxtdesc(struct ixgbe_ring *, u32, u32, u32, u32);
- extern void ixgbe_do_reset(struct net_device *netdev);
- #ifdef CONFIG_IXGBE_HWMON
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 688effc..31998a3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2775,6 +2775,45 @@ static void ixgbe_get_channels(struct net_device *dev,
- 	ch->combined_count = adapter->ring_feature[RING_F_FDIR].indices;
- }
- 
-+static int ixgbe_set_channels(struct net_device *dev,
-+			      struct ethtool_channels *ch)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	unsigned int count = ch->combined_count;
-+
-+	/* verify they are not requesting separate vectors */
-+	if (ch->rx_count || ch->tx_count)
-+		return -EINVAL;
-+
-+	/* ignore other_count since it is not changeable */
-+
-+	/* verify we have at least one channel requested */
-+	if (!count)
-+		return -EINVAL;
-+
-+	/* verify the number of channels does not exceed hardware limits */
-+	if (count > ixgbe_max_channels(adapter))
-+		return -EINVAL;
-+
-+	/* update feature limits from largest to smallest supported values */
-+	adapter->ring_feature[RING_F_FDIR].limit = count;
-+
-+	/* cap RSS limit at 16 */
-+	if (count > IXGBE_MAX_RSS_INDICES)
-+		count = IXGBE_MAX_RSS_INDICES;
-+	adapter->ring_feature[RING_F_RSS].limit = count;
-+
-+#ifdef IXGBE_FCOE
-+	/* cap FCoE limit at 8 */
-+	if (count > IXGBE_FCRETA_SIZE)
-+		count = IXGBE_FCRETA_SIZE;
-+	adapter->ring_feature[RING_F_FCOE].limit = count;
-+
-+#endif
-+	/* use setup TC to update any traffic class queue mapping */
-+	return ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
-+}
-+
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2805,6 +2844,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.set_rxnfc		= ixgbe_set_rxnfc,
- 	.get_ts_info		= ixgbe_get_ts_info,
- 	.get_channels		= ixgbe_get_channels,
-+	.set_channels		= ixgbe_set_channels,
- };
- 
- void ixgbe_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 4c0bcd8..798bbf6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -6796,6 +6796,7 @@ static void ixgbe_set_prio_tc_map(struct ixgbe_adapter *adapter)
- 	}
- }
- 
-+#endif /* CONFIG_IXGBE_DCB */
- /**
-  * ixgbe_setup_tc - configure net_device for multiple traffic classes
-  *
-@@ -6821,6 +6822,7 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 		ixgbe_close(dev);
- 	ixgbe_clear_interrupt_scheme(adapter);
- 
-+#ifdef CONFIG_IXGBE_DCB
- 	if (tc) {
- 		netdev_set_num_tc(dev, tc);
- 		ixgbe_set_prio_tc_map(adapter);
-@@ -6843,15 +6845,16 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- 		adapter->dcb_cfg.pfc_mode_enable = false;
- 	}
- 
--	ixgbe_init_interrupt_scheme(adapter);
- 	ixgbe_validate_rtr(adapter, tc);
-+
-+#endif /* CONFIG_IXGBE_DCB */
-+	ixgbe_init_interrupt_scheme(adapter);
- 	if (netif_running(dev))
- 		ixgbe_open(dev);
- 
- 	return 0;
- }
- 
--#endif /* CONFIG_IXGBE_DCB */
- void ixgbe_do_reset(struct net_device *netdev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+I originally had it this way.  I found that it wasted space and made 
+other things more difficult to do.  For instance, to do egress policy, I 
+would have needed another bitmap of vlans... With 4096 vlans, that's
+512 bytes per port (1024 with policy).
+
+I could probably remove the per-port list.  It would make 2 things a 
+little harder:
+   1) detecting if the port has any vlan info at all.
+   2) dumping the vlan information
+
+I could pursue this if you think it'll be better.
+
+-vlad
