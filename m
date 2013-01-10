@@ -1,37 +1,62 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] bnx2x: move debugging code before the return
-Date: Thu, 10 Jan 2013 11:58:07 +0300
-Message-ID: <20130110085807.GB23063@elgon.mountain>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
+Date: Thu, 10 Jan 2013 09:25:11 +0000
+Message-ID: <20130110092511.GA32333@dcvr.yhbt.net>
+References: <20121228014503.GA5017@dcvr.yhbt.net>
+ <20130102200848.GA4500@dcvr.yhbt.net>
+ <20130104160148.GB3885@suse.de>
+ <20130106120700.GA24671@dcvr.yhbt.net>
+ <20130107122516.GC3885@suse.de>
+ <20130107223850.GA21311@dcvr.yhbt.net>
+ <20130108224313.GA13304@suse.de>
+ <20130108232325.GA5948@dcvr.yhbt.net>
+ <20130109133746.GD13304@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Eilon Greenstein <eilong@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:32468 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752406Ab3AJI6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 03:58:05 -0500
+Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
+	Minchan Kim <minchan@kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Mel Gorman <mgorman@suse.de>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130109133746.GD13304@suse.de>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-I move the return down a line after the debugging printk.
+Mel Gorman <mgorman@suse.de> wrote:
+> page->pfmemalloc can be left set for captured pages so try this but as
+> capture is rarely used I'm strongly favouring a partial revert even if
+> this works for you. I haven't reproduced this using your workload yet
+> but I have found that high-order allocation stress tests for 3.8-rc2 are
+> completely screwed. 71% success rates at rest in 3.7 and 6% in 3.8-rc2 so
+> I have to chase that down too.
+> 
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index 9d20c13..c242d21 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -2180,8 +2180,10 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
+>  	current->flags &= ~PF_MEMALLOC;
+>  
+>  	/* If compaction captured a page, prep and use it */
+> -	if (page && !prep_new_page(page, order, gfp_mask))
+> +	if (page && !prep_new_page(page, order, gfp_mask)) {
+> +		page->pfmemalloc = false;
+>  		goto got_page;
+> +	}
+>  
+>  	if (*did_some_progress != COMPACT_SKIPPED) {
+>  		/* Page migration frees to the PCP lists but we want merging */
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+This (on top of your previous patch) seems to work great after several
+hours of testing on both my VM and real machine.  I haven't tried your
+partial revert, yet.  Will try that in a bit on the VM.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 292634f..d7029c8 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -2768,10 +2768,10 @@ static int bnx2x_set_rss_flags(struct bnx2x *bp, struct ethtool_rxnfc *info)
- 		} else if ((info->flow_type == UDP_V6_FLOW) &&
- 			   (bp->rss_conf_obj.udp_rss_v6 != udp_rss_requested)) {
- 			bp->rss_conf_obj.udp_rss_v6 = udp_rss_requested;
--			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, 0);
- 			DP(BNX2X_MSG_ETHTOOL,
- 			   "rss re-configured, UDP 4-tupple %s\n",
- 			   udp_rss_requested ? "enabled" : "disabled");
-+			return bnx2x_config_rss_pf(bp, &bp->rss_conf_obj, 0);
- 		} else {
- 			return 0;
- 		}
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
