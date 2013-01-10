@@ -1,8 +1,8 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH v2 05/10] net: Add support for XPS without sysfs being
- defined
-Date: Thu, 10 Jan 2013 10:57:46 -0800
-Message-ID: <20130110185741.29578.16197.stgit@ahduyck-cp1.jf.intel.com>
+Subject: [RFC PATCH v2 06/10] ixgbe: Define FCoE and Flow director limits
+ much sooner to allow for changes
+Date: Thu, 10 Jan 2013 10:57:59 -0800
+Message-ID: <20130110185751.29578.52072.stgit@ahduyck-cp1.jf.intel.com>
 References: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,149 +11,101 @@ Cc: bhutchings@solarflare.com, therbert@google.com, ycai@google.com,
 	eric.dumazet@gmail.com, davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:46659 "EHLO mga11.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62739 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753961Ab3AJS7V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 13:59:21 -0500
+	id S1754756Ab3AJS7e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 13:59:34 -0500
 In-Reply-To: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes it so that we can support transmit packet steering without
-sysfs needing to be enabled.  The reason for making this change is to make
-it so that a driver can make use of the XPS even while the sysfs portion of
-the interface is not present.
+Instead of adjusting the FCoE and Flow director limits based on the number
+of CPUs we can define them much sooner.  This allows the user to come
+through later and adjust them once we have updated the code to support the
+set_channels ethtool operation.
+
+I am still allowing for FCoE and RSS queues to be separated if the number
+queues is less than the number of CPUs.  This essentially treats the two
+groupings like they are two separate traffic classes.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 ---
- include/linux/netdevice.h |    1 -
- net/Kconfig               |    2 +-
- net/core/dev.c            |   26 ++++++++++++++++++++------
- net/core/net-sysfs.c      |   14 --------------
- 4 files changed, 21 insertions(+), 22 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |    7 +------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   12 ++++++++----
+ 2 files changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 59fe9da..aa7ad8a 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2104,7 +2104,6 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 8c74f73..4b1eeb6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -386,7 +386,6 @@ static bool ixgbe_set_dcb_sriov_queues(struct ixgbe_adapter *adapter)
+ 		fcoe = &adapter->ring_feature[RING_F_FCOE];
  
- #ifdef CONFIG_XPS
--extern void netif_reset_xps_queue(struct net_device *dev, u16 index);
- extern int netif_set_xps_queue(struct net_device *dev, struct cpumask *mask,
- 			       u16 index);
- #else
-diff --git a/net/Kconfig b/net/Kconfig
-index 30b48f5..3cc5be0 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -232,7 +232,7 @@ config RFS_ACCEL
+ 		/* limit ourselves based on feature limits */
+-		fcoe_i = min_t(u16, fcoe_i, num_online_cpus());
+ 		fcoe_i = min_t(u16, fcoe_i, fcoe->limit);
  
- config XPS
- 	boolean
--	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
-+	depends on SMP && USE_GENERIC_SMP_HELPERS
- 	default y
+ 		if (fcoe_i) {
+@@ -562,9 +561,6 @@ static bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
+ 		fcoe_i = min_t(u16, fcoe_i, fcoe->limit);
  
- config NETPRIO_CGROUP
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 715d8d4..095d22f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1887,10 +1887,10 @@ static struct xps_map *remove_xps_queue(struct xps_dev_maps *dev_maps,
- 	return map;
- }
+ 		if (vmdq_i > 1 && fcoe_i) {
+-			/* reserve no more than number of CPUs */
+-			fcoe_i = min_t(u16, fcoe_i, num_online_cpus());
+-
+ 			/* alloc queues for FCoE separately */
+ 			fcoe->indices = fcoe_i;
+ 			fcoe->offset = vmdq_i * rss_i;
+@@ -623,8 +619,7 @@ static bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+ 	if (rss_i > 1 && adapter->atr_sample_rate) {
+ 		f = &adapter->ring_feature[RING_F_FDIR];
  
--void netif_reset_xps_queue(struct net_device *dev, u16 index)
-+static void netif_reset_xps_queues_gt(struct net_device *dev, u16 index)
+-		f->indices = min_t(u16, num_online_cpus(), f->limit);
+-		rss_i = max_t(u16, rss_i, f->indices);
++		rss_i = f->indices = f->limit;
+ 
+ 		if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+ 			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 20d6764..810f2b8 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4466,7 +4466,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
  {
- 	struct xps_dev_maps *dev_maps;
--	int cpu;
-+	int cpu, i;
- 	bool active = false;
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	unsigned int rss;
++	unsigned int rss, fdir;
+ 	u32 fwsm;
+ #ifdef CONFIG_IXGBE_DCB
+ 	int j;
+@@ -4502,8 +4502,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 			adapter->flags2 |= IXGBE_FLAG2_TEMP_SENSOR_CAPABLE;
+ 		/* Flow Director hash filters enabled */
+ 		adapter->atr_sample_rate = 20;
+-		adapter->ring_feature[RING_F_FDIR].limit =
+-							 IXGBE_MAX_FDIR_INDICES;
++		fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, num_online_cpus());
++		adapter->ring_feature[RING_F_FDIR].limit = fdir;
+ 		adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
+ #ifdef IXGBE_FCOE
+ 		adapter->flags |= IXGBE_FLAG_FCOE_CAPABLE;
+@@ -7410,13 +7410,17 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
- 	mutex_lock(&xps_map_mutex);
-@@ -1900,7 +1900,11 @@ void netif_reset_xps_queue(struct net_device *dev, u16 index)
- 		goto out_no_maps;
- 
- 	for_each_possible_cpu(cpu) {
--		if (remove_xps_queue(dev_maps, cpu, index))
-+		for (i = index; i < dev->num_tx_queues; i++) {
-+			if (!remove_xps_queue(dev_maps, cpu, i))
-+				break;
-+		}
-+		if (i == dev->num_tx_queues)
- 			active = true;
- 	}
- 
-@@ -1909,8 +1913,10 @@ void netif_reset_xps_queue(struct net_device *dev, u16 index)
- 		kfree_rcu(dev_maps, rcu);
- 	}
- 
--	netdev_queue_numa_node_write(netdev_get_tx_queue(dev, index),
--				     NUMA_NO_NODE);
-+	for (i = index; i < dev->num_tx_queues; i++)
-+		netdev_queue_numa_node_write(netdev_get_tx_queue(dev, i),
-+					     NUMA_NO_NODE);
+ #ifdef IXGBE_FCOE
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_CAPABLE) {
++		unsigned int fcoe_l;
 +
- out_no_maps:
- 	mutex_unlock(&xps_map_mutex);
- }
-@@ -2096,8 +2102,12 @@ int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
- 		if (dev->num_tc)
- 			netif_setup_tc(dev, txq);
+ 		if (hw->mac.ops.get_device_caps) {
+ 			hw->mac.ops.get_device_caps(hw, &device_caps);
+ 			if (device_caps & IXGBE_DEVICE_CAPS_FCOE_OFFLOADS)
+ 				adapter->flags &= ~IXGBE_FLAG_FCOE_CAPABLE;
+ 		}
  
--		if (txq < dev->real_num_tx_queues)
-+		if (txq < dev->real_num_tx_queues) {
- 			qdisc_reset_all_tx_gt(dev, txq);
-+#ifdef CONFIG_XPS
-+			netif_reset_xps_queues_gt(dev, txq);
-+#endif
-+		}
- 	}
+-		adapter->ring_feature[RING_F_FCOE].limit = IXGBE_FCRETA_SIZE;
++
++		fcoe_l = min_t(int, IXGBE_FCRETA_SIZE, num_online_cpus());
++		adapter->ring_feature[RING_F_FCOE].limit = fcoe_l;
  
- 	dev->real_num_tx_queues = txq;
-@@ -5899,6 +5909,10 @@ static void rollback_registered_many(struct list_head *head)
- 
- 		/* Remove entries from kobject tree */
- 		netdev_unregister_kobject(dev);
-+#ifdef CONFIG_XPS
-+		/* Remove XPS queueing entries */
-+		netif_reset_xps_queues_gt(dev, 0);
-+#endif
- 	}
- 
- 	synchronize_net();
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 5ad489d..a5b89a6 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1002,16 +1002,6 @@ static ssize_t show_xps_map(struct netdev_queue *queue,
- 	return len;
- }
- 
--static void xps_queue_release(struct netdev_queue *queue)
--{
--	struct net_device *dev = queue->dev;
--	unsigned long index;
--
--	index = get_netdev_queue_index(queue);
--
--	netif_reset_xps_queue(dev, index);
--}
--
- static ssize_t store_xps_map(struct netdev_queue *queue,
- 		      struct netdev_queue_attribute *attribute,
- 		      const char *buf, size_t len)
-@@ -1058,10 +1048,6 @@ static void netdev_queue_release(struct kobject *kobj)
- {
- 	struct netdev_queue *queue = to_netdev_queue(kobj);
- 
--#ifdef CONFIG_XPS
--	xps_queue_release(queue);
--#endif
--
- 	memset(kobj, 0, sizeof(*kobj));
- 	dev_put(queue->dev);
- }
+ 		netdev->features |= NETIF_F_FSO |
+ 				    NETIF_F_FCOE_CRC;
