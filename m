@@ -1,39 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] ipv4_tunnels: Modularize ipv4 tunneling.
-Date: Wed, 09 Jan 2013 23:52:39 -0800 (PST)
-Message-ID: <20130109.235239.1789560948007134858.davem@davemloft.net>
-References: <1357612292-1682-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [patch] bnx2x: NULL dereference on error in debug code
+Date: Wed, 09 Jan 2013 23:53:49 -0800 (PST)
+Message-ID: <20130109.235349.2198186690882677527.davem@davemloft.net>
+References: <20130108134213.GA23742@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev@openvswitch.org, netdev@vger.kernel.org, jesse@nicira.com
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53354 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932466Ab3AJHwk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 02:52:40 -0500
-In-Reply-To: <1357612292-1682-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eilong@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130108134213.GA23742@elgon.mountain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon,  7 Jan 2013 18:31:32 -0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Tue, 8 Jan 2013 16:42:14 +0300
 
-> Following patch series restructure GRE and IPIP tunneling code
-> to make it modular. It adds ip_tunnel module which acts as
-> generic tunneling layer which has common code. I have patch
-> to do same for VXLAN too.
+> "vfop" is NULL here.  I've changed the debugging to not use it.
 > 
-> In Addidtion to restructuring it adds demultiplexer for ipgre
-> protocol, so that linux kernel IPGRE module and OVS gre module
-> can co-exist.
-> Last patch adds linux state updates to tunnel device from
-> lower device.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Please resubmit this when you can also submit the patches which
-actually use this new modularity.
-
-Otherwise the value proposition is impossible to analyze.
-
-Thanks.
+Applied, thanks Dan.
