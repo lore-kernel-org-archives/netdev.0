@@ -1,42 +1,45 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: niu interface automatically goes up then down
-Date: Thu, 10 Jan 2013 02:52:24 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1301100231320.29960@nerf07.vanv.qr>
-References: <alpine.LNX.2.01.1301092342290.21351@nerf07.vanv.qr> <CAGRGNgWqweBphbr+rpTZ2Fe=yLG_xNSvS4sf8XteoCiAx8b81A@mail.gmail.com> <alpine.LNX.2.01.1301100134300.29388@nerf07.vanv.qr> <CAGRGNgX6u=Q4_8pFhLNHDQYRCv1m3ULBgyc+wA=+_KDjDDbSjQ@mail.gmail.com>
+From: Andy King <acking@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Wed, 9 Jan 2013 18:42:57 -0800 (PST)
+Message-ID: <1426158581.24554896.1357785777229.JavaMail.root@vmware.com>
+References: <50ED25E7.9010609@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Networking Developer Mailing List <netdev@vger.kernel.org>,
-	sparclinux@vger.kernel.org
-To: Julian Calaby <julian.calaby@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ares07.inai.de ([5.9.24.206]:54431 "EHLO ares07.inai.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491Ab3AJBw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jan 2013 20:52:27 -0500
-In-Reply-To: <CAGRGNgX6u=Q4_8pFhLNHDQYRCv1m3ULBgyc+wA=+_KDjDDbSjQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Torokhov <dtor@vmware.com>, pv-drivers@vmware.com,
+	gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Gerd Hoffmann <kraxel@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <50ED25E7.9010609@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+> > Our position is that VSOCK feature set is more complete and that it
+> > should be possible to use transports other than VMCI for VSOCK
+> > traffic, should interested parties implement them,
+> 
+> Implementing other transports requires restructing vsock (and vmci)
+> first as the current vsock code is not a hypervisor neutral service.
 
-On Thursday 2013-01-10 02:27, Julian Calaby wrote:
->
->> The issue is not pressing, since it's just service processors
->> which are connected.
->
->Ok, I'm guessing that this is production so heavy debugging isn't
->going to happen.
+I'm going to bite the bullet and spend the next couple of days doing
+just that: factoring out the VMCI bits and hiding them behind a
+transport layer.  It'll be a bit rough, but it'll be a start.  We'll
+submit another patch series next week with that.  I'm hoping that'll
+get us over this hump, since it should by hypervisor agnostic at
+that point.  It'll be up to you guys to add virtio, though :)
 
-No production, free to toy.
+And in the meantime, are there any other glaring errors that we need
+to address?
 
->I'm out of ideas. Tag?
-
-Here is a fun fact. If I disable autonegotiation (via ethtool) on the 
-link on the niu side, the remote side will deassert the carrier and 
-won't return it until autoneg is turned on again.
-
-In fact, if I do `ethtool -s eth7 autoneg off; ethtool -s eth7 autoneg 
-on;`, it will take a good exact second (~1.000400 s) for the HW to 
-reestablish an autonegotiated link. This delay is of the same magnitude 
-and value as when the link bounces on its own.
-Hypothesis: maybe the niu HW drops autoneg for a splitsecond (or it 
-gets lost due to some other reason), causing the observed bounces.
+Thanks!
+- Andy
