@@ -1,104 +1,56 @@
 From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH 1/3] net: stmmac: add gmac autonet set for SGMII, TBI,
- and RTBI
-Date: Thu, 10 Jan 2013 15:54:20 -0800
-Message-ID: <003c01cdef8d$d12e92d0$738bb870$@samsung.com>
+Subject: RE: [PATCH v2 3/3] net: stmmac: add gmac autonego set for ethtool
+ support
+Date: Thu, 10 Jan 2013 15:54:24 -0800
+Message-ID: <003d01cdef8d$d25b2bf0$771183d0$@samsung.com>
+References: <000601cdedf8$5d39bdf0$17ad39d0$@samsung.com>
+ <20130110.000208.2040524620441942742.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, kgene.kim@samsung.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	peppe.cavallaro@st.com, jeffrey.t.kirsher@intel.com,
+	kgene.kim@samsung.com
+To: 'David Miller' <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <20130110.000208.2040524620441942742.davem@davemloft.net>
 Content-language: en-zw
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-This patch adds gmac autoneg set function for SGMII, TBI,
-or RTBI interface. In case of PHY's autoneg is set, gmac's
-autoneg enable bit should set. After checking phy's autoneg
-if phydev's autoneg is '1' gmac's ANE bit set for those
-interface.
+This patch adds gmac auto-negotiation setting for ethtool.
+If interface is SGMII, TBI or RTBI, gmac's auto-negotiation
+enable bit is need to set.
 
 Signed-off-by: Byungho An <bh74.an@samsung.com>
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11 +++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
- 3 files changed, 21 insertions(+)
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
-b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 186d148..72ba769 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -344,6 +344,7 @@ struct stmmac_ops {
- 	void (*reset_eee_mode) (void __iomem *ioaddr);
- 	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
- 	void (*set_eee_pls) (void __iomem *ioaddr, int link);
-+	void (*set_autoneg) (void __iomem *ioaddr);
- };
- 
- struct mac_link {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index bfe0226..a0737b39 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void __iomem
-*ioaddr, int ls, int tw)
- 	writel(value, ioaddr + LPI_TIMER_CTRL);
- }
- 
-+static void dwmac1000_set_autoneg(void __iomem *ioaddr)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + GMAC_AN_CTRL);
-+	value |= 0x1000;
-+	writel(value, ioaddr + GMAC_AN_CTRL);
-+}
-+
-+
- static const struct stmmac_ops dwmac1000_ops = {
- 	.core_init = dwmac1000_core_init,
- 	.rx_ipc = dwmac1000_rx_ipc_enable,
-@@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
- 	.reset_eee_mode =  dwmac1000_reset_eee_mode,
- 	.set_eee_timer =  dwmac1000_set_eee_timer,
- 	.set_eee_pls =  dwmac1000_set_eee_pls,
-+	.set_autoneg =  dwmac1000_set_autoneg,
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index f07c061..3e28934 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	int ret;
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 1372ce2..457c1a4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -335,6 +335,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 	struct phy_device *phy = priv->phydev;
+ 	int new_pause = FLOW_OFF;
+ 	int ret = 0;
 +	int interface = priv->plat->interface;
  
- 	clk_prepare_enable(priv->stmmac_clk);
+ 	spin_lock(&priv->lock);
  
-@@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
- 	/* Initialize the MAC Core */
- 	priv->hw->mac->core_init(priv->ioaddr);
+@@ -348,6 +349,10 @@ stmmac_set_pauseparam(struct net_device *netdev,
  
-+	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
-+	if((interface == PHY_INTERFACE_MODE_SGMII) ||
-+	   (interface == PHY_INTERFACE_MODE_TBI) ||
-+	   (interface == PHY_INTERFACE_MODE_RTBI)) {
-+		if (priv->phydev->autoneg)
-+			priv->hw->mac->set_autoneg(priv->ioaddr);
-+	}
-+
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
- 			 IRQF_SHARED, dev->name, dev);
+ 	if (phy->autoneg) {
+ 		if (netif_running(netdev))
++			if((interface == PHY_INTERFACE_MODE_SGMII) ||
++			   (interface == PHY_INTERFACE_MODE_TBI) ||
++			   (interface == PHY_INTERFACE_MODE_RTBI)) 
++				priv->hw->mac->set_autoneg(priv->ioaddr);
+ 			ret = phy_start_aneg(phy);
+ 	} else
+ 		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
 -- 
 1.7.10.4
