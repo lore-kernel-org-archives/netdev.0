@@ -1,39 +1,57 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Thu, 10 Jan 2013 20:03:52 +0000
-Message-ID: <20130110200352.GA5316@dcvr.yhbt.net>
-References: <20130102200848.GA4500@dcvr.yhbt.net>
- <20130104160148.GB3885@suse.de>
- <20130106120700.GA24671@dcvr.yhbt.net>
- <20130107122516.GC3885@suse.de>
- <20130107223850.GA21311@dcvr.yhbt.net>
- <20130108224313.GA13304@suse.de>
- <20130108232325.GA5948@dcvr.yhbt.net>
- <20130109133746.GD13304@suse.de>
- <20130110092511.GA32333@dcvr.yhbt.net>
- <20130110194212.GJ13304@suse.de>
+From: Bill Fenner <fenner@gmail.com>
+Subject: Re: PROBLEM: Software injected vlan tagged
+ packets are unable to be identified using recent BPF modifications
+Date: Thu, 10 Jan 2013 15:37:46 -0500
+Message-ID: <CAF4SogagSH_NdT3Shr-_0D9TQNv8QP6viJaY=4PMv5rYMSgX6Q@mail.gmail.com>
+References: <CAOUgPvQP2RrngPPf=hYxpPdGSQ4L-Db0T-BMDwVg6iy8LTAu=Q@mail.gmail.com>
+	<CAOxq_8MJZtFYHmsqQdZ+DSDuHjgkQYrHG2rPt32m6TRTV-ZS9A@mail.gmail.com>
+	<CAOUgPvQhyC5LTVAZeeRd3N-Jdpe+cHK4LQWZUB-qTKT_og7dSw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130110194212.GJ13304@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jpirko@redhat.com, netdev@vger.kernel.org,
+	Francesco Ruggeri <fruggeri@aristanetworks.com>,
+	edumazet <edumazet@google.com>,
+	tcpdump-workers <tcpdump-workers@lists.tcpdump.org>,
+	David Miller <davem@davemloft.net>
+To: Paul Pearce <pearce@cs.berkeley.edu>
+Return-path: <tcpdump-workers-bounces@lists.tcpdump.org>
+In-Reply-To: <CAOUgPvQhyC5LTVAZeeRd3N-Jdpe+cHK4LQWZUB-qTKT_og7dSw@mail.gmail.com>
+List-Unsubscribe: <https://lists.sandelman.ca/mailman/options/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=unsubscribe>
+List-Archive: <http://lists.sandelman.ca/pipermail/tcpdump-workers>
+List-Post: <mailto:tcpdump-workers@lists.tcpdump.org>
+List-Help: <mailto:tcpdump-workers-request@lists.tcpdump.org?subject=help>
+List-Subscribe: <https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers>,
+	<mailto:tcpdump-workers-request@lists.tcpdump.org?subject=subscribe>
+Sender: tcpdump-workers-bounces@lists.tcpdump.org
+Errors-To: tcpdump-workers-bounces@lists.tcpdump.org
 List-Id: netdev.vger.kernel.org
 
-Mel Gorman <mgorman@suse.de> wrote:
-> Thanks Eric, it's much appreciated. However, I'm still very much in favour
-> of a partial revert as in retrospect the implementation of capture took the
-> wrong approach. Could you confirm the following patch works for you?
-> It's should functionally have the same effect as the first revert and
-> there are only minor changes from the last revert prototype I sent you
-> but there is no harm in being sure.
+On Mon, Jan 7, 2013 at 10:04 PM, Paul Pearce <pearce@cs.berkeley.edu> wrote:
+> However, raw vlan tagged packets that are *injected* into the
+> interface using libpcap's pcap_inject() (which is just a fancy wrapper
+> for the send() syscall) are not identified by filters using the recent
+> BPF modifications.
+>
+> The bug manifests itself if you attempt to use the new BPF
+> modifications to filter vlan tagged packets on a live interface. All
+> packets from the medium show up, but all injected packets are dropped.
 
-Thanks, I was just about to report back on the last partial revert
-being successful :)  Will start testing this one, now.
+Given that the vlan tag metadata is supplied to userland with
+PACKET_AUXDATA, does the symmetrical sendmsg() with PACKET_AUXDATA
+work to put the vlan info in the metadata?  I.e., this would require
+modifying pcap_inject() to parse the packet and extract the VLAN tag
+info into a struct tpacket_auxdata, but obviously you could write a
+little test program to test the underlying PF_PACKET socket behavior.
+
+Even if it doesn't currently work, I think this may be a more
+acceptable change ("provide a way to set PACKET_AUXDATA using
+sendmsg") than having the packet send code munge/parse the vlan tag on
+output.
+
+  Bill
+_______________________________________________
+tcpdump-workers mailing list
+tcpdump-workers@lists.tcpdump.org
+https://lists.sandelman.ca/mailman/listinfo/tcpdump-workers
