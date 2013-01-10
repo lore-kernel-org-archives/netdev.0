@@ -1,32 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: tainted warnings with tcp splicing in 3.7.1
-Date: Thu, 10 Jan 2013 10:37:38 -0800
-Message-ID: <1357843058.27446.2406.camel@edumazet-glaptop>
-References: <F476A81A60AA6B458C3DA58B993EA70A1B8F394A@MUCR10053060111.muc.traviangames.lan>
-	 ,<1357750898.27446.33.camel@edumazet-glaptop>
-	 ,<1357751372.27446.40.camel@edumazet-glaptop>
-	 ,<1357801149.27446.1142.camel@edumazet-glaptop>
-	 <DUB107-W210F9409862AAA949CB15ED2A0@phx.gbl>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH net-next v5 02/14] bridge: Add vlan filtering
+ infrastructure
+Date: Thu, 10 Jan 2013 10:36:14 -0800
+Message-ID: <20130110103614.23383079@nehalam.linuxnetplumber.net>
+References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com>
+	<1357751882-8619-3-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Lukas Tribus <luky-37@hotmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:35506 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754688Ab3AJShl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 13:37:41 -0500
-Received: by mail-pb0-f45.google.com with SMTP id mc8so456221pbc.18
-        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 10:37:40 -0800 (PST)
-In-Reply-To: <DUB107-W210F9409862AAA949CB15ED2A0@phx.gbl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	davem@davemloft.net
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1357751882-8619-3-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-10 at 19:27 +0100, Lukas Tribus wrote:
-> Hi Eric,
-> 
-> this is probably a dumb question ... but since the fix is in net/ipv4/tcp.c I was asking myself if this can affect IPv6 as well?
-> 
+This patch has some minor whitespace and spelling errors:
 
-Yes it can, net/ipv4 contains generic TCP code.
+WARNING: line over 80 characters
+#429: FILE: net/bridge/br_private.h:205:
++static inline struct net_bridge_port *vlans_to_port(struct net_port_vlans *vlans)
+
+ERROR: trailing whitespace
+#432: FILE: net/bridge/br_private.h:208:
++       $
+
+WARNING: please, no spaces at the start of a line
+#432: FILE: net/bridge/br_private.h:208:
++       $
+
++/* Must be protected by RTNL */
++static void br_vlan_del(struct net_bridge_vlan *vlan)
+
++	/* Drop the self-ref to trigger descrution. */
+                                        ^^^^^^^^^^
+
+Also, the data structure vlan's seems inverted. Why do you keep a hash list
+of vlan's and then a bitmap of ports. Seems more natural to just put a bitmap
+on each port that has vlan filtering rather than introducing yet another list
+to manage.
