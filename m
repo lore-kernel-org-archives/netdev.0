@@ -1,93 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] tun: avoid owner checks on IFF_ATTACH_QUEUE
-Date: Thu, 10 Jan 2013 16:41:39 +0200
-Message-ID: <20130110144138.GA30731@redhat.com>
-References: <20130110113108.GF13451@redhat.com>
- <50EECB43.8020405@redhat.com>
- <20130110141939.GA30557@redhat.com>
- <50EECFC8.9020402@redhat.com>
+From: Lars-Peter Clausen <lars-Qo5EllUWu/uELgA04lAiVw@public.gmane.org>
+Subject: [PATCH] bfin_mac: Restore hardware
+	time-stamping dependency on BF518
+Date: Thu, 10 Jan 2013 15:42:28 +0100
+Message-ID: <1357828948-22682-1-git-send-email-lars@metafoo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Hajnoczi <stefanha@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Paul Moore <pmoore@redhat.com>
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <50EECFC8.9020402@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org,
+        Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Unsubscribe: <https://blackfin.uclinux.org/mailman/options/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://blackfin.uclinux.org/pipermail/uclinux-dist-devel>
+List-Post: <mailto:uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org>
+List-Help: <mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=help>
+List-Subscribe: <https://blackfin.uclinux.org/mailman/listinfo/uclinux-dist-devel>,
+	<mailto:uclinux-dist-devel-request-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org?subject=subscribe>
+Sender: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
+Errors-To: uclinux-dist-devel-bounces-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 10, 2013 at 10:27:20PM +0800, Jason Wang wrote:
-> On 01/10/2013 10:19 PM, Michael S. Tsirkin wrote:
-> > On Thu, Jan 10, 2013 at 10:08:03PM +0800, Jason Wang wrote:
-> >> On 01/10/2013 07:31 PM, Michael S. Tsirkin wrote:
-> >>> At the moment, we check owner when we enable queue in tun.
-> >>> This seems redundant and will break some valid uses
-> >>> where fd is passed around: I think TUNSETOWNER is there
-> >>> to prevent others from attaching to a persistent device not
-> >>> owned by them. Here the fd is already attached,
-> >>> enabling/disabling queue is more like read/write.
-> >> It also change the number of queues of the tuntap, maybe we should limit
-> >> this.
-> > Number of active queues? Why does it matter?
-> > Max number of queues is already limited by SETIFF.
-> 
-> Yes the number of active(real) queues in the kernel net device and this
-> changing may introduce other events such uevent.
-
-How can it trigger a uevent?
-
-> With this patch, even
-> if a owner is set for tap, every user could change the number of real
-> queues which I don't think is not expected. Without this patch, we can
-> limit a user that just do read and write.
-
-In the end if you want very fine tuned security policy you have to
-use an LSM.
-
-Here we are talking about the expected usage without an LSM.
-There, enabling/disabling queues is just an optimization:
-if an application wants to process data from a single thread
-it's better off getting it through a single fd.
-Having to channel threading changes through a priveledged
-proxy would be very awkward.
-
-> >
-> >> Note that if management layer does not call TUNSETOWNER, the check
-> >> is just a nop. So if management layer want to limit the behavior, it's
-> >> its duty to do this correctly.
-> > The point is that management limits tun to allow SETIFF from libvirt
-> > only, then passes the fds to qemu.
-> 
-> Yes, but looks like libvirt does not call TUNSETOWNER before passing it
-> to qemu, so we're ok even without this patch. And if libvirt want to do
-> this, it can just call TUNSETOWNER to the user of qemu.
-
-No, that would allow qemu to do SETIFF which we don't want.
-
-> >>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> >>>
-> >>> ---
-> >>>
-> >>> Note: this is unrelated to Stefan's bugfix.
-> >>>
-> >>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> >>> index fbd106e..78e3225 100644
-> >>> --- a/drivers/net/tun.c
-> >>> +++ b/drivers/net/tun.c
-> >>> @@ -1789,10 +1792,8 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
-> >>>  		tun = tfile->detached;
-> >>>  		if (!tun)
-> >>>  			ret = -EINVAL;
-> >>> -		else if (tun_not_capable(tun))
-> >>> -			ret = -EPERM;
-> >>>  		else
-> >>>  			ret = tun_attach(tun, file);
-> >>>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
-> >>>  		tun = rcu_dereference_protected(tfile->tun,
-> >>>  						lockdep_rtnl_is_held());
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Q29tbWl0IDcwYWM2MThjMDcgKCJwdHA6IGZpeHVwIEtjb25maWcgZm9yIHR3byBQSEMgZHJpdmVy
+cy4iKSByZW1vdmVkIGFsbApkZXBlbmRlbmNpZXMgZm9yIHRoZSBibGFja2ZpbiBoYXJkd2FyZSB0
+aW1lLXN0YW1waW5nIEtjb25maWcgZW50cnkuIEhhcmR3YXJlCnRpbWUtc3RhbXBpbmcgaXMgb25s
+eSBhdmFpbGFibGUgb24gQkY1MTggdGhvdWdoLiBTaW5jZSB0aGUgS2NvbmZpZyBlbnRyeSBpcwon
+ZGVmYXVsdCB5JywganVzdCB1cGRhdGVpbmcgeW91ciBrZXJuZWwgc291cmNlIGFuZCBydW5uaW5n
+IGBtYWtlIGRlZmNvbmZpZ2Agd2lsbApyZXN1bHQgaW4gdGhlIHRoZSBmb2xsb3dpbmcgYnVpbGQg
+ZXJyb3JzOgoKCWRyaXZlcnMvbmV0L2V0aGVybmV0L2FkaS9iZmluX21hYy5jOjY5NDogZXJyb3I6
+IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmGJmaW5fcmVhZF9FTUFDX1BUUF9D
+VEzigJkKCWRyaXZlcnMvbmV0L2V0aGVybmV0L2FkaS9iZmluX21hYy5jOjcwMjogZXJyb3I6IGlt
+cGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uIOKAmGJmaW5fd3JpdGVfRU1BQ19QVFBfRlYz
+4oCZCglkcml2ZXJzL25ldC9ldGhlcm5ldC9hZGkvYmZpbl9tYWMuYzo3MTI6IGVycm9yOiBpbXBs
+aWNpdCBkZWNsYXJhdGlvbiBvZiBmdW5jdGlvbiDigJhiZmluX3dyaXRlX0VNQUNfUFRQX0NUTOKA
+mQoJZHJpdmVycy9uZXQvZXRoZXJuZXQvYWRpL2JmaW5fbWFjLmM6NzE3OiBlcnJvcjogaW1wbGlj
+aXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCYYmZpbl93cml0ZV9FTUFDX1BUUF9GT0ZG4oCZ
+CgkuLi4KClRoaXMgcGF0Y2ggYWRkcyBiYWNrIHRoZSBkZXBlbmRlbmN5IG9uIEJGNTE4LCBhbmQg
+c2luY2UgaXQgZG9lcyBub3QgbWFrZSBzZW5zZQp0byBleHBvc2UgdGhpcyBjb25maWcgb3B0aW9u
+IHdoZW4gdGhlIGJsYWNrZmluIE1BQyBkcml2ZXIgaXMgbm90IGVuYWJsZWQgYWxzbwpyZXN0b3Jl
+IHRoZSBkZXBlbmRlbmN5IG9uIEJGSU5fTUFDLgoKU2lnbmVkLW9mZi1ieTogTGFycy1QZXRlciBD
+bGF1c2VuIDxsYXJzQG1ldGFmb28uZGU+Ci0tLQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYWRpL0tj
+b25maWcgfCAxICsKIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQoKZGlmZiAtLWdpdCBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2FkaS9LY29uZmlnIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+YWRpL0tjb25maWcKaW5kZXggZTQ5YzBlZi4uYTk0ODE2MCAxMDA2NDQKLS0tIGEvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvYWRpL0tjb25maWcKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvYWRpL0tj
+b25maWcKQEAgLTYxLDYgKzYxLDcgQEAgY29uZmlnIEJGSU5fUlhfREVTQ19OVU0KIAogY29uZmln
+IEJGSU5fTUFDX1VTRV9IV1NUQU1QCiAJYm9vbCAiVXNlIElFRUUgMTU4OCBod3N0YW1wIgorCWRl
+cGVuZHMgb24gQkZJTl9NQUMgJiYgQkY1MTgKIAlzZWxlY3QgUFRQXzE1ODhfQ0xPQ0sKIAlkZWZh
+dWx0IHkKIAktLS1oZWxwLS0tCi0tIAoxLjguMAoKX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KVWNsaW51eC1kaXN0LWRldmVsIG1haWxpbmcgbGlzdApVY2xp
+bnV4LWRpc3QtZGV2ZWxAYmxhY2tmaW4udWNsaW51eC5vcmcKaHR0cHM6Ly9ibGFja2Zpbi51Y2xp
+bnV4Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL3VjbGludXgtZGlzdC1kZXZlbA==
