@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different
- tun_struct
-Date: Thu, 10 Jan 2013 14:39:02 -0800 (PST)
-Message-ID: <20130110.143902.2166041015759450388.davem@davemloft.net>
-References: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
+Subject: Re: [patch] bnx2x: move debugging code before the return
+Date: Thu, 10 Jan 2013 14:39:08 -0800 (PST)
+Message-ID: <20130110.143908.2290964096217827110.davem@davemloft.net>
+References: <20130110085807.GB23063@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: stefanha@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357804788-19976-1-git-send-email-stefanha@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34574 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786Ab3AJWjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 17:39:09 -0500
+In-Reply-To: <20130110085807.GB23063@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Date: Thu, 10 Jan 2013 08:59:48 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 10 Jan 2013 11:58:07 +0300
 
-> Multiqueue tun devices support detaching a tun_file from its tun_struct
-> and re-attaching at a later point in time.  This allows users to disable
-> a specific queue temporarily.
+> I move the return down a line after the debugging printk.
 > 
-> ioctl(TUNSETIFF) allows the user to specify the network interface to
-> attach by name.  This means the user can attempt to attach to interface
-> "B" after detaching from interface "A".
-> 
-> The driver is not designed to support this so check we are re-attaching
-> to the right tun_struct.  Failure to do so may lead to oops.
-> 
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
