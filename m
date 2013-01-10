@@ -1,66 +1,97 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next v5 02/14] bridge: Add vlan filtering infrastructure
-Date: Thu, 10 Jan 2013 14:01:11 -0500
-Message-ID: <50EF0FF7.3080407@redhat.com>
-References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com> <1357751882-8619-3-git-send-email-vyasevic@redhat.com> <20130110103614.23383079@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH V3 1/2] virtio-net: fix the set affinity bug when CPU
+	IDs are not consecutive
+Date: Thu, 10 Jan 2013 19:12:22 +0000
+Message-ID: <1357845142.2712.11.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1357639660-6660-1-git-send-email-gaowanlong@cn.fujitsu.com>
+	<87k3rn2qwb.fsf@rustcorp.com.au> <50ECCDF3.9050403@cn.fujitsu.com>
+	<87a9sh3lru.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, stephen@redhat.com,
-	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
-	mst@redhat.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26146 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752513Ab3AJTBa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jan 2013 14:01:30 -0500
-In-Reply-To: <20130110103614.23383079@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87a9sh3lru.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 01/10/2013 01:36 PM, Stephen Hemminger wrote:
-> This patch has some minor whitespace and spelling errors:
->
-> WARNING: line over 80 characters
-> #429: FILE: net/bridge/br_private.h:205:
-> +static inline struct net_bridge_port *vlans_to_port(struct net_port_vlans *vlans)
->
-> ERROR: trailing whitespace
-> #432: FILE: net/bridge/br_private.h:208:
-> +       $
->
-> WARNING: please, no spaces at the start of a line
-> #432: FILE: net/bridge/br_private.h:208:
-> +       $
->
-> +/* Must be protected by RTNL */
-> +static void br_vlan_del(struct net_bridge_vlan *vlan)
->
-> +	/* Drop the self-ref to trigger descrution. */
->                                          ^^^^^^^^^^
->
+On Thu, 2013-01-10 at 11:19 +1030, Rusty Russell wrote:
+> Wanlong Gao <gaowanlong@cn.fujitsu.com> writes:
+> > On 01/09/2013 07:31 AM, Rusty Russell wrote:
+> >> Wanlong Gao <gaowanlong@cn.fujitsu.com> writes:
+> >>>   */
+> >>>  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
+> >>>  {
+> >>> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
+> >>> -		  smp_processor_id();
+> >>> +	int txq = 0;
+> >>> +
+> >>> +	if (skb_rx_queue_recorded(skb))
+> >>> +		txq = skb_get_rx_queue(skb);
+> >>> +	else if ((txq = per_cpu(vq_index, smp_processor_id())) == -1)
+> >>> +		txq = 0;
+> >> 
+> >> You should use __get_cpu_var() instead of smp_processor_id() here, ie:
+> >> 
+> >>         else if ((txq = __get_cpu_var(vq_index)) == -1)
+> >> 
+> >> And AFAICT, no reason to initialize txq to 0 to start with.
+> >> 
+> >> So:
+> >> 
+> >>         int txq;
+> >> 
+> >>         if (skb_rx_queue_recorded(skb))
+> >> 		txq = skb_get_rx_queue(skb);
+> >>         else {
+> >>                 txq = __get_cpu_var(vq_index);
+> >>                 if (txq == -1)
+> >>                         txq = 0;
+> >>         }
+> >
+> > Got it, thank you.
+> >
+> >> 
+> >> Now, just to confirm, I assume this can happen even if we use vq_index,
+> >> right, because of races with virtnet_set_channels?
+> >
+> > I still can't understand this race, could you explain more? thank you.
+> 
+> I assume that someone can call virtnet_set_channels() while we are
+> inside virtnet_select_queue(), so they reduce dev->real_num_tx_queues,
+> causing virtnet_set_channels to do:
+> 
+> 	while (unlikely(txq >= dev->real_num_tx_queues))
+> 		txq -= dev->real_num_tx_queues;
+> 
+> Otherwise, when is this loop called?
 
-sorry, will fix.  I thought I ran everything through checkpatch.  I'll 
-re-run them.
+In fact, this race can result in the TX scheduler using a queue that has
+been disabled, or other weirdness (consider what happens if
+real_num_tx_queues increases between those two uses).
 
-> Also, the data structure vlan's seems inverted. Why do you keep a hash list
-> of vlan's and then a bitmap of ports. Seems more natural to just put a bitmap
-> on each port that has vlan filtering rather than introducing yet another list
-> to manage.
->
+virtnet_set_channels() really must disable TX temporarily:
 
-I originally had it this way.  I found that it wasted space and made 
-other things more difficult to do.  For instance, to do egress policy, I 
-would have needed another bitmap of vlans... With 4096 vlans, that's
-512 bytes per port (1024 with policy).
+	netif_tx_lock(dev);
+	netif_device_detach(dev);
+	netif_tx_unlock(dev);
+	...
+	netif_device_attach(dev);
 
-I could probably remove the per-port list.  It would make 2 things a 
-little harder:
-   1) detecting if the port has any vlan info at all.
-   2) dumping the vlan information
+Ben.
 
-I could pursue this if you think it'll be better.
-
--vlad
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
