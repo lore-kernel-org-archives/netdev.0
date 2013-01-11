@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/15] e1000e: add missing bailout on error
-Date: Fri, 11 Jan 2013 02:23:44 -0800
-Message-ID: <1357899831-4168-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] e1000e: unexpected "Reset adapter" message when cable pulled
+Date: Fri, 11 Jan 2013 02:23:43 -0800
+Message-ID: <1357899831-4168-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1357899831-4168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8893 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43607 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753907Ab3AKKYB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753020Ab3AKKYB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 11 Jan 2013 05:24:01 -0500
 In-Reply-To: <1357899831-4168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,27 +18,138 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-...discovered during code inspection.
+When there is heavy traffic and the cable is pulled, the driver must reset
+the adapter to flush the Tx queue in hardware.  This causes the reset path
+to be scheduled and logs the message "Reset adapter" which could be mis-
+interpreted as an error by the user.  Change how the reset path is invoked
+for this scenario by using the same method done in an existing work-around
+for 80003es2lan (i.e. set a flag and if the flag is set in the reset code
+do not log the "Reset adapter" message since the reset is expected).
+
+Re-name the FLAG_RX_RESTART_NOW to FLAG_RESTART_NOW since it is used for
+resets in both the Rx and Tx specific code.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/e1000e/e1000.h  |  2 +-
+ drivers/net/ethernet/intel/e1000e/netdev.c | 39 +++++++++++++++---------------
+ 2 files changed, 21 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 15d9314..051dfda 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -2077,6 +2077,8 @@ static s32 e1000_lv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 6782a2e..3f8bbc3 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -447,7 +447,7 @@ struct e1000_info {
+ #define FLAG_MSI_ENABLED                  (1 << 27)
+ /* reserved (1 << 28) */
+ #define FLAG_TSO_FORCE                    (1 << 29)
+-#define FLAG_RX_RESTART_NOW               (1 << 30)
++#define FLAG_RESTART_NOW                  (1 << 30)
+ #define FLAG_MSI_TEST_FAILED              (1 << 31)
  
- 	/* Set MDIO slow mode before any other MDIO access */
- 	ret_val = e1000_set_mdio_slow_mode_hv(hw);
-+	if (ret_val)
-+		return ret_val;
+ #define FLAG2_CRC_STRIPPING               (1 << 0)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 337644d..7ad8ef6 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1671,7 +1671,7 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
+ 			/* disable receives */
+ 			u32 rctl = er32(RCTL);
+ 			ew32(RCTL, rctl & ~E1000_RCTL_EN);
+-			adapter->flags |= FLAG_RX_RESTART_NOW;
++			adapter->flags |= FLAG_RESTART_NOW;
+ 		}
+ 		/* guard against interrupt when we're going down */
+ 		if (!test_bit(__E1000_DOWN, &adapter->state))
+@@ -1734,7 +1734,7 @@ static irqreturn_t e1000_intr(int irq, void *data)
+ 			/* disable receives */
+ 			rctl = er32(RCTL);
+ 			ew32(RCTL, rctl & ~E1000_RCTL_EN);
+-			adapter->flags |= FLAG_RX_RESTART_NOW;
++			adapter->flags |= FLAG_RESTART_NOW;
+ 		}
+ 		/* guard against interrupt when we're going down */
+ 		if (!test_bit(__E1000_DOWN, &adapter->state))
+@@ -3013,7 +3013,7 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
  
- 	ret_val = hw->phy.ops.acquire(hw);
- 	if (ret_val)
+ 	ew32(RCTL, rctl);
+ 	/* just started the receive unit, no need to restart */
+-	adapter->flags &= ~FLAG_RX_RESTART_NOW;
++	adapter->flags &= ~FLAG_RESTART_NOW;
+ }
+ 
+ /**
+@@ -4355,11 +4355,11 @@ static void e1000e_enable_receives(struct e1000_adapter *adapter)
+ {
+ 	/* make sure the receive unit is started */
+ 	if ((adapter->flags & FLAG_RX_NEEDS_RESTART) &&
+-	    (adapter->flags & FLAG_RX_RESTART_NOW)) {
++	    (adapter->flags & FLAG_RESTART_NOW)) {
+ 		struct e1000_hw *hw = &adapter->hw;
+ 		u32 rctl = er32(RCTL);
+ 		ew32(RCTL, rctl | E1000_RCTL_EN);
+-		adapter->flags &= ~FLAG_RX_RESTART_NOW;
++		adapter->flags &= ~FLAG_RESTART_NOW;
+ 	}
+ }
+ 
+@@ -4528,8 +4528,16 @@ static void e1000_watchdog_task(struct work_struct *work)
+ 				mod_timer(&adapter->phy_info_timer,
+ 					  round_jiffies(jiffies + 2 * HZ));
+ 
+-			if (adapter->flags & FLAG_RX_NEEDS_RESTART)
+-				schedule_work(&adapter->reset_task);
++			/* The link is lost so the controller stops DMA.
++			 * If there is queued Tx work that cannot be done
++			 * or if on an 8000ES2LAN which requires a Rx packet
++			 * buffer work-around on link down event, reset the
++			 * controller to flush the Tx/Rx packet buffers.
++			 * (Do the reset outside of interrupt context).
++			 */
++			if ((adapter->flags & FLAG_RX_NEEDS_RESTART) ||
++			    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count))
++				adapter->flags |= FLAG_RESTART_NOW;
+ 			else
+ 				pm_schedule_suspend(netdev->dev.parent,
+ 							LINK_TIMEOUT);
+@@ -4551,20 +4559,14 @@ link_up:
+ 	adapter->gotc_old = adapter->stats.gotc;
+ 	spin_unlock(&adapter->stats64_lock);
+ 
+-	e1000e_update_adaptive(&adapter->hw);
+-
+-	if (!netif_carrier_ok(netdev) &&
+-	    (e1000_desc_unused(tx_ring) + 1 < tx_ring->count)) {
+-		/* We've lost link, so the controller stops DMA,
+-		 * but we've got queued Tx work that's never going
+-		 * to get done, so reset controller to flush Tx.
+-		 * (Do the reset outside of interrupt context).
+-		 */
++	if (adapter->flags & FLAG_RESTART_NOW) {
+ 		schedule_work(&adapter->reset_task);
+ 		/* return immediately since reset is imminent */
+ 		return;
+ 	}
+ 
++	e1000e_update_adaptive(&adapter->hw);
++
+ 	/* Simple mode for Interrupt Throttle Rate (ITR) */
+ 	if (adapter->itr_setting == 4) {
+ 		/* Symmetric Tx/Rx gets a reduced ITR=2000;
+@@ -5134,10 +5136,9 @@ static void e1000_reset_task(struct work_struct *work)
+ 	if (test_bit(__E1000_DOWN, &adapter->state))
+ 		return;
+ 
+-	if (!((adapter->flags & FLAG_RX_NEEDS_RESTART) &&
+-	      (adapter->flags & FLAG_RX_RESTART_NOW))) {
++	if (!(adapter->flags & FLAG_RESTART_NOW)) {
+ 		e1000e_dump(adapter);
+-		e_err("Reset adapter\n");
++		e_err("Reset adapter unexpectedly\n");
+ 	}
+ 	e1000e_reinit_locked(adapter);
+ }
 -- 
 1.7.11.7
