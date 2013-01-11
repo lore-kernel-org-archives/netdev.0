@@ -1,72 +1,62 @@
-From: Roman Mamedov <rm@romanrm.ru>
-Subject: Re: Problem with IPv6 Route Cache
-Date: Fri, 11 Jan 2013 22:37:55 +0600
-Message-ID: <20130111223755.714ddf7f@natsu>
-References: <20130111185126.56cababe@natsu>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH 1/2] [iproute2] add man7 to subdirs list
+Date: Fri, 11 Jan 2013 11:56:28 -0500
+Message-ID: <1357923389-20114-1-git-send-email-vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/KNkZuFUwOtFX8rx6qqOLjv_"; protocol="application/pgp-signature"
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from len.romanrm.net ([176.31.121.172]:51817 "EHLO len.romanrm.net"
+Received: from smtp.gentoo.org ([140.211.166.183]:53900 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754711Ab3AKQiC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2013 11:38:02 -0500
-Received: from natsu (unknown [IPv6:fd39::1e6f:65ff:fea1:3ea6])
-	by len.romanrm.net (Postfix) with ESMTPS id 2745A205D5
-	for <netdev@vger.kernel.org>; Fri, 11 Jan 2013 16:38:00 +0000 (UTC)
-In-Reply-To: <20130111185126.56cababe@natsu>
+	id S1751543Ab3AKQxn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 11:53:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/KNkZuFUwOtFX8rx6qqOLjv_
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+The man dir misses the man7 as a subdir which means none of the pages
+get installed.
 
-Hello,
+URL: https://bugs.gentoo.org/451166
+Reported-by: Marcin Miros=C5=82aw <bug@mejor.pl>
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ man/Makefile      |  2 +-
+ man/man7/Makefile | 13 +++++++++++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+ create mode 100644 man/man7/Makefile
 
-I have discovered that when the problem is occuring, I have:
-
-root@neru:~# ip -6 neigh
-fd39:20::39 dev tun-rm  FAILED
-fe80::20b:45ff:fe80:c000 dev eth0 lladdr 00:0b:45:80:c0:00 router REACHABLE
-2a02:e00:ffff:56::1 dev eth0 lladdr 00:0b:45:80:c0:00 router REACHABLE
-
-Launching "ping6 fd39:20::39" turns fd39:20::39 from FAILED to REACHABLE.
-After that, "ip -6 route flush cache" actually succeeds in removing the rou=
-te
-via default gateway, and I then get the proper route entry:
-
-root@neru:~# ip -6 route get fd39::100
-fd39::100 from :: via fd39:20::39 dev tun-rm  src fd39:20::3  metric 0=20
-    cache
-
-So I conclude that my issue is very similar to [1] mentioned in a Bugzilla
-entry [2] linked here just today.
-
-  [1] https://lkml.org/lkml/2012/5/25/96
-  [2] https://bugzilla.kernel.org/show_bug.cgi?id=3D42991
-
+diff --git a/man/Makefile b/man/Makefile
+index 67fea05..9a60fa7 100644
+--- a/man/Makefile
++++ b/man/Makefile
+@@ -2,7 +2,7 @@ INSTALL=3Dinstall
+ INSTALLDIR=3Dinstall -m 0755 -d
+ INSTALLMAN=3Dinstall -m 0644
+=20
+-SUBDIRS =3D man3 man8
++SUBDIRS =3D man3 man7 man8
+=20
+ all:
+ 	@for subdir in $(SUBDIRS); do $(MAKE) -C $$subdir; done
+diff --git a/man/man7/Makefile b/man/man7/Makefile
+new file mode 100644
+index 0000000..ccfd839
+--- /dev/null
++++ b/man/man7/Makefile
+@@ -0,0 +1,13 @@
++MAN7PAGES =3D tc-hfsc.7
++
++all:
++
++distclean: clean
++
++clean:
++
++install:
++	$(INSTALLDIR) $(DESTDIR)$(MANDIR)/man7
++	$(INSTALLMAN) $(MAN7PAGES) $(DESTDIR)$(MANDIR)/man7
++
++.PHONY: install clean distclean
 --=20
-With respect,
-Roman
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-"Stallman had a printer,
-with code he could not see.
-So he began to tinker,
-and set the software free."
-
---Sig_/KNkZuFUwOtFX8rx6qqOLjv_
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iEYEARECAAYFAlDwP+MACgkQTLKSvz+PZwjBngCdEWG1ikJOug/eorUVjLYNRGfc
-nS8AniNZTSvXC67IexxkX8gka8YHq6p7
-=zlkK
------END PGP SIGNATURE-----
-
---Sig_/KNkZuFUwOtFX8rx6qqOLjv_--
+1.8.0.2
