@@ -1,57 +1,93 @@
-From: Mel Gorman <mgorman@suse.de>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Fri, 11 Jan 2013 09:30:49 +0000
-Message-ID: <20130111093049.GL13304@suse.de>
-References: <20130110194212.GJ13304@suse.de>
- <20130111005105.GA15023@dcvr.yhbt.net>
+From: "Freddy" <freddy@asix.com.tw>
+Subject: RE: [PATCH] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
+Date: Fri, 11 Jan 2013 17:30:19 +0800
+Message-ID: <00af01cdefde$46ecbab0$d4c63010$@asix.com.tw>
+References: <1357867046-22918-1-git-send-email-freddy@asix.com.tw> <CACVXFVMdgx1we67poF5yU5pAYRYoA9Ao1EJqQgGBaaORuARFQQ@mail.gmail.com> <50EFCAE6.9070306@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Wong <normalperson@yhbt.net>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20130111005105.GA15023@dcvr.yhbt.net>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Ming Lei'" <ming.lei@canonical.com>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, <louis@asix.com.tw>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
+To: "'Christian Riesch'" <christian.riesch@omicron.at>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50EFCAE6.9070306@omicron.at>
+Content-Language: zh-tw
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 11, 2013 at 12:51:05AM +0000, Eric Wong wrote:
-> Mel Gorman <mgorman@suse.de> wrote:
-> > mm: compaction: Partially revert capture of suitable high-order page
-> 
-> <snip>
->  
-> > Reported-by: Eric Wong <normalperson@yhbt.net>
-> > Cc: stable@vger.kernel.org
-> > Signed-off-by: Mel Gorman <mgorman@suse.de>
-> 
-> Thanks, my original use case and test works great after several hours!
-> 
-> Tested-by: Eric Wong <normalperson@yhbt.net>
-> 
+Hi,
 
-Thanks very much Eric. I've resent the patch to Andrew so it should make
-its way to mainline. It'll fail to apply to 3.7-stable but I should get
-a notification from Greg when that happens and fix it up.
+>> +static int ax88179_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16
+index,
+>> +                           u16 size, void *data) {
+>> +       int ret;
+>> +       ret = usbnet_read_cmd(dev, cmd,
+>> +                              USB_DIR_IN | USB_TYPE_VENDOR |
+USB_RECIP_DEVICE,
+>> +                              value, index, data, size);
+>> +
+>> +       if (ret != size && ret >= 0)
+>> +               return -EINVAL;
+>> +       return ret;
+>> +}
+>> +
+>> +static int ax88179_write_cmd(struct usbnet *dev, u8 cmd, u16 value, u16
+index,
+>> +                            u16 size, void *data) {
+>> +       return usbnet_write_cmd(dev, cmd, USB_DIR_OUT | USB_TYPE_VENDOR
+>> +                               | USB_RECIP_DEVICE, value, index, 
+>> +data, size); }
+>> +
+>> +static void
+>> +ax88179_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value, u16
+index,
+>> +                                   u16 size, void *data) {
+>> +       usbnet_write_cmd_async(dev, cmd,
+>> +                              USB_DIR_OUT | USB_TYPE_VENDOR |
+USB_RECIP_DEVICE,
+>> +                              value, index, data, size); }
+>> +
 
-> Unfortunately, I also hit a new bug in 3.8 (not in 3.7.x).  based on Eric
-> Dumazet's observations, sk_stream_wait_memory may be to blame.
-> Fortunately this is easier to reproduce (I've cc-ed participants
-> on this thread already): <20130111004915.GA15415@dcvr.yhbt.net>
+ax88179_read_cmd, ax88179_write_cmd, and ax88179_write_cmd_async duplicate
+code from asix_common.c.
 
-It looks like the relevant fix for this has already been written by Eric
-Dumazet and picked up by David Miller.
+Do you mean that I should merge this driver into asix_common and
+asix_devices, or just reuse the functions that had been implemented?
 
--- 
-Mel Gorman
-SUSE Labs
+[...]
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>> +static int ax88179_get_eeprom(struct net_device *net,
+>> +                             struct ethtool_eeprom *eeprom, u8 
+>> +*data) {
+>> +       struct usbnet *dev = netdev_priv(net);
+>> +       u16 *ebuf = (u16 *)data;
+>> +       int i;
+>> +
+>> +       /* Crude hack to ensure that we don't overwrite memory
+>> +        * if an odd length is supplied
+
+Have a look at asix_get_eeprom() in asix_common.c for a better
+implementation. There is also code for programming the eeprom
+(asix_set_eeprom in asix_common.c), can this be used for the AX88179/178A as
+well?
+
+Thanks, I will check whether the eeprom access functions in asix_common.c
+can be used in the driver or not.
+
+Regards, Freddy
+
+>> +        */
+>> +       if (eeprom->len % 2)
+>> +               return -EINVAL;
+>> +
+>> +       /* ax8817x returns 2 bytes from eeprom on read */
+>> +       for (i = 0; i < eeprom->len / 2; i++) {
+>> +               if (ax88179_read_cmd(dev, AX_ACCESS_EEPROM,
+>> +                       eeprom->offset + i, 1, 2, &ebuf[i]) < 0)
+>> +                       return -EINVAL;
+>> +       }
+>> +       return 0;
+>> +}
+>> +
