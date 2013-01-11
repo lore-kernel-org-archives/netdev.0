@@ -1,54 +1,66 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFCv2 00/12] Introduce host-side virtio queue and CAIF Virtio.
-Date: Fri, 11 Jan 2013 09:31:55 +0200
-Message-ID: <20130111073155.GA13315@redhat.com>
-References: <871ug75vp1.fsf@rustcorp.com.au>
- <1354718230-4486-1-git-send-email-sjur@brendeland.net>
- <20121206102750.GF10837@redhat.com>
- <877goc0wac.fsf@rustcorp.com.au>
- <CAJK669bP41oBhJ=MB64NS21Ag7XO5WswuTiVKCFTb96nvmyBiw@mail.gmail.com>
- <87pq1f2rj0.fsf@rustcorp.com.au>
- <87wqvl1g9s.fsf@rustcorp.com.au>
- <20130110111117.GE13451@redhat.com>
- <87sj681wou.fsf@rustcorp.com.au>
+Subject: Re: [RFC PATCH 0/2] make mac programming for virtio net more robust
+Date: Fri, 11 Jan 2013 09:46:24 +0200
+Message-ID: <20130111074624.GB13315@redhat.com>
+References: <1357829141-25455-1-git-send-email-akong@redhat.com>
+ <20130110152829.GG30731@redhat.com>
+ <87fw281mr8.fsf@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sjur =?iso-8859-1?Q?Br=E6ndeland?= <sjurbren@gmail.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+Cc: akong@redhat.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, qemu-devel@nongnu.org,
+	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58460 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:52442 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753168Ab3AKH2J (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2013 02:28:09 -0500
+	id S1753456Ab3AKHmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 02:42:39 -0500
 Content-Disposition: inline
-In-Reply-To: <87sj681wou.fsf@rustcorp.com.au>
+In-Reply-To: <87fw281mr8.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2013 at 09:18:33AM +1030, Rusty Russell wrote:
+On Fri, Jan 11, 2013 at 12:53:07PM +1030, Rusty Russell wrote:
 > "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > On Thu, Jan 10, 2013 at 09:00:55PM +1030, Rusty Russell wrote:
-> >> Not sure why vhost/net doesn't built a packet and feed it in
-> >> netif_rx_ni().  This is what tun seems to do, and with this code it
-> >> should be fairly optimal.
+> 
+> > On Thu, Jan 10, 2013 at 10:45:39PM +0800, akong@redhat.com wrote:
+> >> From: Amos Kong <akong@redhat.com>
+> >> 
+> >> Currenly mac is programmed byte by byte. This means that we
+> >> have an intermediate step where mac is wrong. 
+> >> 
+> >> Second patch introduced a new vq control command to set mac
+> >> address in one time.
 > >
-> > Because we want to use NAPI.
+> > As you mention we could alternatively do it without
+> > new commands, simply add a feature bit that says that MACs are
+> > in the mac table.
+> > This would be a much bigger patch, and I'm fine with either way.
+> > Rusty what do you think?
 > 
-> Not quite what I was asking; it was more a question of why we're using a
-> raw socket, when we trivially have a complete skb already which we
-> should be able to feed to Linux like any network packet.
+> Hmm, mac filtering and "my mac address" are not quite the same thing.  I
+> don't know if it matters for anyone: does it?
+> The mac address is abused
+> for things like identifying machines, etc.
+
+I don't know either. I think net core differentiates between mac and
+uc_list because linux has to know which mac to use when building
+up packets, so at some level, I agree it might be useful to identify the
+machine.
+
+BTW netdev/davem should have been copied on this, Amos I think it's a
+good idea to remember to do it next time you post.
+
 > 
-> And that path is pretty well optimized...
+> If we keep it as a separate concept, Amos' patch seems to make sense.
+
+Yes. It also keeps the patch small, I just thought I'd mention the
+option.
+
 > 
 > Cheers,
 > Rusty.
-
-
-Oh for some reason I thought you were talking about virtio.
-I don't really understand what you are saying here - vhost
-actually calls out to tun to build and submit the skb.
 
 -- 
 MST
