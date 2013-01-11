@@ -1,93 +1,52 @@
-From: "Freddy" <freddy@asix.com.tw>
-Subject: RE: [PATCH] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
-Date: Fri, 11 Jan 2013 17:30:19 +0800
-Message-ID: <00af01cdefde$46ecbab0$d4c63010$@asix.com.tw>
-References: <1357867046-22918-1-git-send-email-freddy@asix.com.tw> <CACVXFVMdgx1we67poF5yU5pAYRYoA9Ao1EJqQgGBaaORuARFQQ@mail.gmail.com> <50EFCAE6.9070306@omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Ming Lei'" <ming.lei@canonical.com>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>, <louis@asix.com.tw>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>
-To: "'Christian Riesch'" <christian.riesch@omicron.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50EFCAE6.9070306@omicron.at>
-Content-Language: zh-tw
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 11 Jan 2013 02:23:36 -0800
+Message-ID: <1357899831-4168-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:35178 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752977Ab3AKKX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 05:23:57 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This series contains updates to e1000e only.
 
->> +static int ax88179_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16
-index,
->> +                           u16 size, void *data) {
->> +       int ret;
->> +       ret = usbnet_read_cmd(dev, cmd,
->> +                              USB_DIR_IN | USB_TYPE_VENDOR |
-USB_RECIP_DEVICE,
->> +                              value, index, data, size);
->> +
->> +       if (ret != size && ret >= 0)
->> +               return -EINVAL;
->> +       return ret;
->> +}
->> +
->> +static int ax88179_write_cmd(struct usbnet *dev, u8 cmd, u16 value, u16
-index,
->> +                            u16 size, void *data) {
->> +       return usbnet_write_cmd(dev, cmd, USB_DIR_OUT | USB_TYPE_VENDOR
->> +                               | USB_RECIP_DEVICE, value, index, 
->> +data, size); }
->> +
->> +static void
->> +ax88179_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value, u16
-index,
->> +                                   u16 size, void *data) {
->> +       usbnet_write_cmd_async(dev, cmd,
->> +                              USB_DIR_OUT | USB_TYPE_VENDOR |
-USB_RECIP_DEVICE,
->> +                              value, index, data, size); }
->> +
+The following are changes since commit 1def9238d4aa2146924994aa4b7dc861f03b9362:
+  net_sched: more precise pkt_len computation
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-ax88179_read_cmd, ax88179_write_cmd, and ax88179_write_cmd_async duplicate
-code from asix_common.c.
+Bruce Allan (15):
+  e1000e: SerDes autoneg flow control
+  e1000e: Acquire/release semaphore when writing each EEPROM page
+  e1000e: Invalid Image CSUM bit changed for I217
+  e1000e: helper functions for accessing EMI registers
+  e1000e: 82577: workaround for link drop issue
+  e1000e: fix enabling of EEE on 82579 and I217
+  e1000e: unexpected "Reset adapter" message when cable pulled
+  e1000e: add missing bailout on error
+  e1000e: resolve checkpatch PREFER_PR_LEVEL warning
+  e1000e: cleanup redundant statistics counter
+  e1000e: cleanup unusual comment placement
+  e1000e: cleanup unnecessary line wrap
+  e1000e: cleanup magic number
+  e1000e: cleanup code duplication
+  e1000e: merge multiple conditional statements into one
 
-Do you mean that I should merge this driver into asix_common and
-asix_devices, or just reuse the functions that had been implemented?
+ drivers/net/ethernet/intel/e1000e/defines.h |  10 +-
+ drivers/net/ethernet/intel/e1000e/e1000.h   |   2 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c |   1 -
+ drivers/net/ethernet/intel/e1000e/hw.h      |   4 +
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 213 +++++++++++++++++++++-------
+ drivers/net/ethernet/intel/e1000e/mac.c     | 125 ++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/netdev.c  |  67 ++++-----
+ drivers/net/ethernet/intel/e1000e/nvm.c     |  26 ++--
+ drivers/net/ethernet/intel/e1000e/param.c   |   3 +-
+ 9 files changed, 340 insertions(+), 111 deletions(-)
 
-[...]
-
->> +static int ax88179_get_eeprom(struct net_device *net,
->> +                             struct ethtool_eeprom *eeprom, u8 
->> +*data) {
->> +       struct usbnet *dev = netdev_priv(net);
->> +       u16 *ebuf = (u16 *)data;
->> +       int i;
->> +
->> +       /* Crude hack to ensure that we don't overwrite memory
->> +        * if an odd length is supplied
-
-Have a look at asix_get_eeprom() in asix_common.c for a better
-implementation. There is also code for programming the eeprom
-(asix_set_eeprom in asix_common.c), can this be used for the AX88179/178A as
-well?
-
-Thanks, I will check whether the eeprom access functions in asix_common.c
-can be used in the driver or not.
-
-Regards, Freddy
-
->> +        */
->> +       if (eeprom->len % 2)
->> +               return -EINVAL;
->> +
->> +       /* ax8817x returns 2 bytes from eeprom on read */
->> +       for (i = 0; i < eeprom->len / 2; i++) {
->> +               if (ax88179_read_cmd(dev, AX_ACCESS_EEPROM,
->> +                       eeprom->offset + i, 1, 2, &ebuf[i]) < 0)
->> +                       return -EINVAL;
->> +       }
->> +       return 0;
->> +}
->> +
+-- 
+1.7.11.7
