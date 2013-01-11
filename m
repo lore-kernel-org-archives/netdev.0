@@ -1,35 +1,54 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: [PATCH/RFC] ipv6: fib: Drop cached routes with dead neighbours on
- fib GC
-Date: Fri, 11 Jan 2013 13:13:42 -0800
-Message-ID: <CAL1RGDVjwddbyVdkzMeXEiqFXQNECjCWAyEFK5V5oAPddfbwZA@mail.gmail.com>
-References: <1357753459-12872-1-git-send-email-roland@kernel.org> <20130110.141847.265135906896223944.davem@davemloft.net>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: RE: [PATCH net] qlge: remove NETIF_F_TSO6 flag
+Date: Fri, 11 Jan 2013 21:48:52 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E03F661@avmb2.qlogic.org>
+References: <1357894374-10767-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ron Mercer <ron.mercer@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	David Miller <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog101.obsmtp.com ([74.125.245.70]:54912 "HELO
-	na3sys010aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753523Ab3AKVOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 16:14:04 -0500
-Received: by mail-fa0-f72.google.com with SMTP id s10so2146172fas.7
-        for <netdev@vger.kernel.org>; Fri, 11 Jan 2013 13:14:02 -0800 (PST)
-In-Reply-To: <20130110.141847.265135906896223944.davem@davemloft.net>
+Received: from [216.32.180.13] ([216.32.180.13]:43546 "EHLO
+	va3outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754594Ab3AKVvL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 16:51:11 -0500
+In-Reply-To: <1357894374-10767-1-git-send-email-amwang@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 10, 2013 at 2:18 PM, David Miller <davem@davemloft.net> wrote:
-> Another reason we must make ipv6 like ipv4, which looks up neighbours
-> on demand at packet output time rather than caching them in the route
-> entries.
 
-Not sure I'm qualified to perform that level of surgery, but I'll take
-a look at ipv4 and try to understand how that works.
+>From: Cong Wang [mailto:amwang@redhat.com] 
+>Sent: Friday, January 11, 2013 12:53 AM
+>To: netdev
+>Cc: Jitendra Kalsaria; Ron Mercer; Dept-Eng Linux Driver; David Miller; Cong Wang
+>Subject: [PATCH net] qlge: remove NETIF_F_TSO6 flag
+>
+>It is werid that qlge driver supports NETIF_F_TSO6 but
+>not NETIF_F_IPV6_CSUM. This also causes some kernel warning [1]
+>when VLAN device setups on a qlge interface.
+>
+>I think the qlge hardware doesn't support NETIF_F_IPV6_CSUM,
+>so we have to just remove the NETIF_F_TSO6 flag.
+>
+>After this patch, the TCP/IPv6 traffic becomes normal again,
+>no kernel warnings any more.
+>
+>NOTE: I only tested it on 2.6.32 kernel, even if the upstream
+>kernel could fix this automatically (it is hard to track NETIF*
+>flags), removing it is also safe.
+>
+>1. https://bugzilla.redhat.com/show_bug.cgi?id=891839
+>
+>Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+>Cc: Ron Mercer <ron.mercer@qlogic.com>
+>Cc: linux-driver@qlogic.com
+>Cc: David S. Miller <davem@davemloft.net>
+>Signed-off-by: Cong Wang <amwang@redhat.com>
 
-In the meantime does it make sense to put a smaller bandaid in 3.8?
-I'm pretty sure this is a regression (we never saw it with older
-kernels), probably due to some part of the route cache improvements
-you've been doing.
-
- - R.
+Thanks!
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
