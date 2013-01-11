@@ -1,50 +1,72 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: 3.8-rc2/rc3 write() blocked on CLOSE_WAIT TCP socket
-Date: Fri, 11 Jan 2013 02:50:39 +0000
-Message-ID: <20130111025039.GA4723@dcvr.yhbt.net>
-References: <20130111004915.GA15415@dcvr.yhbt.net>
- <1357869675.27446.2962.camel@edumazet-glaptop>
- <1357870727.27446.2988.camel@edumazet-glaptop>
+From: Ming Lei <ming.lei-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: Re: [PATCH 1/2] usbnet: allow status interrupt URB to always be active
+Date: Fri, 11 Jan 2013 11:06:00 +0800
+Message-ID: <CACVXFVOAjHMxRC=uok-OWPYjw-7D1MSnbaWo97LcGFAVRq+o2g@mail.gmail.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<1357318096.5370.15.camel@dcbw.foobar.com>
+	<2212516.GkG3xP33yG@linux-5eaq.site>
+	<1357349193.19684.3.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1357870727.27446.2988.camel@edumazet-glaptop>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>,
+	Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1357349193.19684.3.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Yes, thats definitely the problem, sorry for that.
-> 
-> 
-> [PATCH] tcp: accept RST without ACK flag
-> 
-> commit c3ae62af8e755 (tcp: should drop incoming frames without ACK flag
-> set) added a regression on the handling of RST messages.
-> 
-> RST should be allowed to come even without ACK bit set. We validate
-> the RST by checking the exact sequence, as requested by RFC 793 and 
-> 5961 3.2, in tcp_validate_incoming()
-> 
-> Reported-by: Eric Wong <normalperson@yhbt.net>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Sat, Jan 5, 2013 at 9:26 AM, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Fri, 2013-01-04 at 23:16 +0100, Oliver Neukum wrote:
+>> On Friday 04 January 2013 10:48:16 Dan Williams wrote:
+>> > Some drivers (ex sierra_net) need the status interrupt URB
+>> > active even when the device is closed, because they receive
+>> > custom indications from firmware.  Allow sub-drivers to set
+>> > a flag that submits the status interrupt URB on probe and
+>> > keeps the URB alive over device open/close.  The URB is still
+>> > killed/re-submitted for suspend/resume, as before.
+>> >
+>> > Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> > ---
+>> > Oliver: alternatively, is there a problem with *always*
+>> > submitting the interrupt URB, and then simply not calling
+>> > the subdriver's .status function when the netdev is
+>> > closed?  That would be a much simpler patch.
+>>
+>> That is quite radical. We have no idea what a device
+>> does when we do not react to a status update. I would
+>> much prefer to not take the risk.
+>> Besides, we don't use bandwidth if we don't have to.
+>
+> Ok, so scratch the alternative.  Thus, does the posted patch look like
+> the right course of action?
+>
+> If I wasn't clear enough before, sierra_net needs to listen to the
+> status interrupt URB to receive the custom Restart indication as part of
+> the driver's device setup.  Thus for sierra_net at least, tying the
 
-All good here, thanks for the quick turnaround!
+I am curious who are interested in the 'custom Restart indication'
+information after the interface is closed.
 
-Tested-by: Eric Wong <normalperson@yhbt.net>
+If sierra_net provides ways(such as read registers) to query the
+indication event, you can just query the information and setup
+the device in driver_info->reset() during device open, so you can
+avoid submitting interrupt URB always.
 
-(I originally thought the FIFOs were part of the problem, so I left
- that in my test case)
+> status interrupt URB submission to device open/close isn't right.
 
+In theory, drivers should support to report its link status
+even it is closed, but looks no much actual usage, so guys opt to
+submit the interrupt URB only after it is opened.
+
+
+Thanks,
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
