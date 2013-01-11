@@ -1,192 +1,172 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] e1000e: fix enabling of EEE on 82579 and I217
-Date: Fri, 11 Jan 2013 02:23:42 -0800
-Message-ID: <1357899831-4168-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/15] e1000e: helper functions for accessing EMI registers
+Date: Fri, 11 Jan 2013 02:23:40 -0800
+Message-ID: <1357899831-4168-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1357899831-4168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35178 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:43607 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753676Ab3AKKYA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2013 05:24:00 -0500
+	id S1752977Ab3AKKX7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 05:23:59 -0500
 In-Reply-To: <1357899831-4168-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Energy Efficient Ethernet on 82579 and I217 should only be enabled if not
-disabled by the user, if the link is full duplex and the link partner has
-similar EEE capabilities (stored in different EMI registers on the two
-different parts).
-
-After enabling EEE, read the IEEE MMD register 3.1 (which is also stored in
-different EMI registers on the two different parts) to clear the count of
-received Tx/Rx LPI indications.
-
-Also, rename I217_EEE_100_SUPPORTED to I82579_EEE_100_SUPPORTED to indicate
-the bit is valid starting with I82579 (released before I217).
+The Extended Management Interface (EMI) registers are accessed by first
+writing the EMI register offset to the EMI_ADDR regiter and then either
+reading or writing the data to/from the EMI_DATA register.  Add helper
+functions for performing these steps and convert existing EMI register
+accesses accordingly.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 94 ++++++++++++++++++++---------
- 1 file changed, 65 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 84 ++++++++++++++++++++++-------
+ 1 file changed, 65 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index a7d6c87..15d9314 100644
+index 7d5f6b7..8004d71 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -150,6 +150,8 @@
- 
- /* PHY Low Power Idle Control */
- #define I82579_LPI_CTRL				PHY_REG(772, 20)
-+#define I82579_LPI_CTRL_100_ENABLE		0x2000
-+#define I82579_LPI_CTRL_1000_ENABLE		0x4000
+@@ -153,7 +153,7 @@
  #define I82579_LPI_CTRL_ENABLE_MASK		0x6000
  #define I82579_LPI_CTRL_FORCE_PLL_LOCK_COUNT	0x80
  
-@@ -160,9 +162,13 @@
- #define I82579_MSE_THRESHOLD    0x084F	/* 82579 Mean Square Error Threshold */
- #define I82577_MSE_THRESHOLD    0x0887	/* 82577 Mean Square Error Threshold */
- #define I82579_MSE_LINK_DOWN    0x2411	/* MSE count before dropping link */
-+#define I82579_EEE_PCS_STATUS	0x182D	/* IEEE MMD Register 3.1 >> 8 */
-+#define I82579_EEE_LP_ABILITY	0x040F	/* IEEE MMD Register 7.61 */
-+#define I82579_EEE_100_SUPPORTED	(1 << 1) /* 100BaseTx EEE supported */
-+#define I82579_EEE_1000_SUPPORTED	(1 << 2) /* 1000BaseTx EEE supported */
-+#define I217_EEE_PCS_STATUS	0x9401	/* IEEE MMD Register 3.1 */
- #define I217_EEE_ADVERTISEMENT  0x8001	/* IEEE MMD Register 7.60 */
- #define I217_EEE_LP_ABILITY     0x8002	/* IEEE MMD Register 7.61 */
--#define I217_EEE_100_SUPPORTED  (1 << 1)	/* 100BaseTx EEE supported */
- 
- /* Intel Rapid Start Technology Support */
- #define I217_PROXY_CTRL                 BM_PHY_REG(BM_WUC_PAGE, 70)
-@@ -845,54 +851,84 @@ static s32 e1000_write_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 data)
-  *  e1000_set_eee_pchlan - Enable/disable EEE support
-  *  @hw: pointer to the HW structure
-  *
-- *  Enable/disable EEE based on setting in dev_spec structure.  The bits in
-- *  the LPI Control register will remain set only if/when link is up.
-+ *  Enable/disable EEE based on setting in dev_spec structure, the duplex of
-+ *  the link and the EEE capabilities of the link partner.  The LPI Control
-+ *  register bits will remain set only if/when link is up.
-  **/
- static s32 e1000_set_eee_pchlan(struct e1000_hw *hw)
- {
- 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
--	s32 ret_val = 0;
--	u16 phy_reg;
-+	s32 ret_val;
-+	u16 lpi_ctrl;
- 
- 	if ((hw->phy.type != e1000_phy_82579) &&
- 	    (hw->phy.type != e1000_phy_i217))
- 		return 0;
- 
--	ret_val = e1e_rphy(hw, I82579_LPI_CTRL, &phy_reg);
-+	ret_val = hw->phy.ops.acquire(hw);
- 	if (ret_val)
- 		return ret_val;
- 
--	if (dev_spec->eee_disable)
--		phy_reg &= ~I82579_LPI_CTRL_ENABLE_MASK;
--	else
--		phy_reg |= I82579_LPI_CTRL_ENABLE_MASK;
--
--	ret_val = e1e_wphy(hw, I82579_LPI_CTRL, phy_reg);
-+	ret_val = e1e_rphy_locked(hw, I82579_LPI_CTRL, &lpi_ctrl);
- 	if (ret_val)
--		return ret_val;
-+		goto release;
-+
-+	/* Clear bits that enable EEE in various speeds */
-+	lpi_ctrl &= ~I82579_LPI_CTRL_ENABLE_MASK;
-+
-+	/* Enable EEE if not disabled by user */
-+	if (!dev_spec->eee_disable) {
-+		u16 lpa, pcs_status, data;
- 
--	if ((hw->phy.type == e1000_phy_i217) && !dev_spec->eee_disable) {
- 		/* Save off link partner's EEE ability */
--		ret_val = hw->phy.ops.acquire(hw);
--		if (ret_val)
--			return ret_val;
--		ret_val = e1000_read_emi_reg_locked(hw,
--						    I217_EEE_LP_ABILITY,
-+		switch (hw->phy.type) {
-+		case e1000_phy_82579:
-+			lpa = I82579_EEE_LP_ABILITY;
-+			pcs_status = I82579_EEE_PCS_STATUS;
-+			break;
-+		case e1000_phy_i217:
-+			lpa = I217_EEE_LP_ABILITY;
-+			pcs_status = I217_EEE_PCS_STATUS;
-+			break;
-+		default:
-+			ret_val = -E1000_ERR_PHY;
-+			goto release;
-+		}
-+		ret_val = e1000_read_emi_reg_locked(hw, lpa,
- 						    &dev_spec->eee_lp_ability);
- 		if (ret_val)
- 			goto release;
- 
--		/* EEE is not supported in 100Half, so ignore partner's EEE
--		 * in 100 ability if full-duplex is not advertised.
-+		/* Enable EEE only for speeds in which the link partner is
-+		 * EEE capable.
- 		 */
--		e1e_rphy_locked(hw, PHY_LP_ABILITY, &phy_reg);
--		if (!(phy_reg & NWAY_LPAR_100TX_FD_CAPS))
--			dev_spec->eee_lp_ability &= ~I217_EEE_100_SUPPORTED;
--release:
--		hw->phy.ops.release(hw);
-+		if (dev_spec->eee_lp_ability & I82579_EEE_1000_SUPPORTED)
-+			lpi_ctrl |= I82579_LPI_CTRL_1000_ENABLE;
-+
-+		if (dev_spec->eee_lp_ability & I82579_EEE_100_SUPPORTED) {
-+			e1e_rphy_locked(hw, PHY_LP_ABILITY, &data);
-+			if (data & NWAY_LPAR_100TX_FD_CAPS)
-+				lpi_ctrl |= I82579_LPI_CTRL_100_ENABLE;
-+			else
-+				/* EEE is not supported in 100Half, so ignore
-+				 * partner's EEE in 100 ability if full-duplex
-+				 * is not advertised.
-+				 */
-+				dev_spec->eee_lp_ability &=
-+				    ~I82579_EEE_100_SUPPORTED;
-+		}
-+
-+		/* R/Clr IEEE MMD 3.1 bits 11:10 - Tx/Rx LPI Received */
-+		ret_val = e1000_read_emi_reg_locked(hw, pcs_status, &data);
-+		if (ret_val)
-+			goto release;
- 	}
- 
--	return 0;
-+	ret_val = e1e_wphy_locked(hw, I82579_LPI_CTRL, lpi_ctrl);
-+release:
-+	hw->phy.ops.release(hw);
-+
-+	return ret_val;
+-/* EMI Registers */
++/* Extended Management Interface (EMI) Registers */
+ #define I82579_EMI_ADDR         0x10
+ #define I82579_EMI_DATA         0x11
+ #define I82579_LPI_UPDATE_TIMER 0x4805	/* in 40ns units + 40 ns base value */
+@@ -789,6 +789,58 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
  }
  
  /**
-@@ -4075,9 +4111,9 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
++ *  __e1000_access_emi_reg_locked - Read/write EMI register
++ *  @hw: pointer to the HW structure
++ *  @addr: EMI address to program
++ *  @data: pointer to value to read/write from/to the EMI address
++ *  @read: boolean flag to indicate read or write
++ *
++ *  This helper function assumes the SW/FW/HW Semaphore is already acquired.
++ **/
++static s32 __e1000_access_emi_reg_locked(struct e1000_hw *hw, u16 address,
++					 u16 *data, bool read)
++{
++	s32 ret_val = 0;
++
++	ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR, address);
++	if (ret_val)
++		return ret_val;
++
++	if (read)
++		ret_val = e1e_rphy_locked(hw, I82579_EMI_DATA, data);
++	else
++		ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, *data);
++
++	return ret_val;
++}
++
++/**
++ *  e1000_read_emi_reg_locked - Read Extended Management Interface register
++ *  @hw: pointer to the HW structure
++ *  @addr: EMI address to program
++ *  @data: value to be read from the EMI address
++ *
++ *  Assumes the SW/FW/HW Semaphore is already acquired.
++ **/
++static s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data)
++{
++	return __e1000_access_emi_reg_locked(hw, addr, data, true);
++}
++
++/**
++ *  e1000_write_emi_reg_locked - Write Extended Management Interface register
++ *  @hw: pointer to the HW structure
++ *  @addr: EMI address to program
++ *  @data: value to be written to the EMI address
++ *
++ *  Assumes the SW/FW/HW Semaphore is already acquired.
++ **/
++static s32 e1000_write_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 data)
++{
++	return __e1000_access_emi_reg_locked(hw, addr, &data, false);
++}
++
++/**
+  *  e1000_set_eee_pchlan - Enable/disable EEE support
+  *  @hw: pointer to the HW structure
+  *
+@@ -823,11 +875,11 @@ static s32 e1000_set_eee_pchlan(struct e1000_hw *hw)
+ 		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			return ret_val;
+-		ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR,
+-					  I217_EEE_LP_ABILITY);
++		ret_val = e1000_read_emi_reg_locked(hw,
++						    I217_EEE_LP_ABILITY,
++						    &dev_spec->eee_lp_ability);
+ 		if (ret_val)
+ 			goto release;
+-		e1e_rphy_locked(hw, I82579_EMI_DATA, &dev_spec->eee_lp_ability);
+ 
+ 		/* EEE is not supported in 100Half, so ignore partner's EEE
+ 		 * in 100 ability if full-duplex is not advertised.
+@@ -1987,18 +2039,12 @@ static s32 e1000_lv_phy_workarounds_ich8lan(struct e1000_hw *hw)
+ 	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val)
+ 		return ret_val;
+-	ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR, I82579_MSE_THRESHOLD);
+-	if (ret_val)
+-		goto release;
+ 	/* set MSE higher to enable link to stay up when noise is high */
+-	ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, 0x0034);
+-	if (ret_val)
+-		goto release;
+-	ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR, I82579_MSE_LINK_DOWN);
++	ret_val = e1000_write_emi_reg_locked(hw, I82579_MSE_THRESHOLD, 0x0034);
+ 	if (ret_val)
+ 		goto release;
+ 	/* drop link after 5 times MSE threshold was reached */
+-	ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, 0x0005);
++	ret_val = e1000_write_emi_reg_locked(hw, I82579_MSE_LINK_DOWN, 0x0005);
+ release:
+ 	hw->phy.ops.release(hw);
+ 
+@@ -2172,10 +2218,9 @@ static s32 e1000_post_phy_reset_ich8lan(struct e1000_hw *hw)
+ 		ret_val = hw->phy.ops.acquire(hw);
+ 		if (ret_val)
+ 			return ret_val;
+-		ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR,
+-					  I82579_LPI_UPDATE_TIMER);
+-		if (!ret_val)
+-			ret_val = e1e_wphy_locked(hw, I82579_EMI_DATA, 0x1387);
++		ret_val = e1000_write_emi_reg_locked(hw,
++						     I82579_LPI_UPDATE_TIMER,
++						     0x1387);
+ 		hw->phy.ops.release(hw);
+ 	}
+ 
+@@ -4013,11 +4058,12 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
+ 		if (!dev_spec->eee_disable) {
+ 			u16 eee_advert;
+ 
+-			ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR,
+-						  I217_EEE_ADVERTISEMENT);
++			ret_val =
++			    e1000_read_emi_reg_locked(hw,
++						      I217_EEE_ADVERTISEMENT,
++						      &eee_advert);
+ 			if (ret_val)
+ 				goto release;
+-			e1e_rphy_locked(hw, I82579_EMI_DATA, &eee_advert);
+ 
+ 			/* Disable LPLU if both link partners support 100BaseT
  			 * EEE and 100Full is advertised on both ends of the
- 			 * link.
- 			 */
--			if ((eee_advert & I217_EEE_100_SUPPORTED) &&
-+			if ((eee_advert & I82579_EEE_100_SUPPORTED) &&
- 			    (dev_spec->eee_lp_ability &
--			     I217_EEE_100_SUPPORTED) &&
-+			     I82579_EEE_100_SUPPORTED) &&
- 			    (hw->phy.autoneg_advertised & ADVERTISE_100_FULL))
- 				phy_ctrl &= ~(E1000_PHY_CTRL_D0A_LPLU |
- 					      E1000_PHY_CTRL_NOND0A_LPLU);
 -- 
 1.7.11.7
