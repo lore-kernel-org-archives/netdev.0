@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 00/10] Make XPS usable within ixgbe
-Date: Thu, 10 Jan 2013 22:47:31 -0800 (PST)
-Message-ID: <20130110.224731.1485226572082498176.davem@davemloft.net>
-References: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
+Subject: Re: 3.8-rc2/rc3 write() blocked on CLOSE_WAIT TCP socket
+Date: Thu, 10 Jan 2013 22:49:54 -0800 (PST)
+Message-ID: <20130110.224954.902891494419623809.davem@davemloft.net>
+References: <20130111004915.GA15415@dcvr.yhbt.net>
+	<1357869675.27446.2962.camel@edumazet-glaptop>
+	<1357870727.27446.2988.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	therbert@google.com, ycai@google.com, eric.dumazet@gmail.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38194 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751702Ab3AKGre (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 01:47:34 -0500
-In-Reply-To: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: normalperson@yhbt.net, netdev@vger.kernel.org, mgorman@suse.de,
+ linux-mm@kvack.org, linux-kernel@vger.kernel.org, riel@redhat.com,
+ minchan@kernel.org, akpm@linux-foundation.org,
+ torvalds@linux-foundation.org
+To: eric.dumazet@gmail.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1357870727.27446.2988.camel@edumazet-glaptop>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Thu, 10 Jan 2013 10:56:03 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 10 Jan 2013 18:18:47 -0800
 
-> The following patch series makes it so that the ixgbe driver can support
-> ATR even when the number of queues is less than the number of CPUs.  To do
-> this I have updated the kernel to support letting drivers set their own XPS
-> configuration.  To do this it was necessary to move the code out of the
-> sysfs specific code and into the dev specific regions.
+> [PATCH] tcp: accept RST without ACK flag
 > 
-> It has been almost 6 months since the last time I released these patches.  I
-> have been meaning to get back to them but I just haven't had a chance to get
-> this work done until recently.
+> commit c3ae62af8e755 (tcp: should drop incoming frames without ACK flag
+> set) added a regression on the handling of RST messages.
 > 
-> Only the core net patches are meant for acceptance at this time.  I will
-> submit the ixgbe patches through Jeff Kirsher's tree.  For this reason I have
-> tagged the ixgbe related patches as RFC.
+> RST should be allowed to come even without ACK bit set. We validate
+> the RST by checking the exact sequence, as requested by RFC 793 and 
+> 5961 3.2, in tcp_validate_incoming()
+> 
+> Reported-by: Eric Wong <normalperson@yhbt.net>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Patches 1-5 look fine, all applied, thanks.
+Applied, thanks Eric.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
