@@ -1,47 +1,44 @@
-From: "pupilla@libero.it" <pupilla@libero.it>
-Subject: R: Re: R: Re: mtu issue with ipsec tunnel and netfilter snat
-Date: Fri, 11 Jan 2013 16:34:04 +0100 (CET)
-Message-ID: <19220632.617321357918444464.JavaMail.defaultUser@defaultHost>
-Reply-To: "pupilla@libero.it" <pupilla@libero.it>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH] cpsw: Add support to read cpu MAC address
+Date: Fri, 11 Jan 2013 15:47:53 +0000
+Message-ID: <20130111154753.GB23505@n2100.arm.linux.org.uk>
+References: <1357917302-32550-1-git-send-email-michal.bachraty@streamunlimited.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <jengelh@inai.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outrelay03.libero.it ([212.52.84.103]:46639 "EHLO
-	outrelay03.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752022Ab3AKPeH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 10:34:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
+	rob@landley.net, devicetree-discuss@lists.ozlabs.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Michal Bachraty <michal.bachraty@streamunlimited.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1357917302-32550-1-git-send-email-michal.bachraty@streamunlimited.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-jengelh@inai.de wrote
->On Thursday 2013-01-10 17:46, pupilla@libero.it wrote:
->
->>jengelh@inai.de wrote:
->>>>
->>>>But why linux_gw_snat is not sending icmp need to frag packets to
->>>>10.148.12.23?
->>>
->>>Perhaps because ICMP was blocked erroneously?
->>
->>well, I don't see the icmp packets because tcpdump 'see' only the 
->>incoming ipsec clear packets. Is there a way to see the outgoing clear 
->>ipsec packets with tcpdump?
->
->Not with AF_PACKET sockets (tcpdump uses such), but you could with 
->iptables -j LOG, NFLOG and TRACE they can be made visible. If you need 
->the full packet, you can either patch up LOG to call the kernel hexdump 
->functions, or use NFLOG - I think - to deliver it to any userspace 
->program to do further processing. If all else fails, there is also 
->NFQUEUE with which the packet can also be copied to userspace.
->
+On Fri, Jan 11, 2013 at 04:15:02PM +0100, Michal Bachraty wrote:
+> +	if (!request_mem_region(priv->conf_res->start,
+> +			resource_size(priv->conf_res), ndev->name)) {
+> +		dev_err(priv->dev, "failed request i/o region\n");
+> +		ret = -ENXIO;
+> +		goto clean_clk_ret;
+> +	}
+> +
+> +	regs = ioremap(priv->conf_res->start,
+> +				resource_size(priv->conf_res));
+> +	if (!regs) {
+> +		dev_err(priv->dev, "unable to map i/o region\n");
+> +		goto clean_configuration_iores_ret;
+> +	}
 
-Thanks for the reply.
-I have saved the esp packets with tcpdump and then
-decrypted with wireshark. Indeed, the icmp need to
-frag packets are being sent by the linux ipsec
-gateway.
+In this day and age where error paths don't get any testing, and are
+frequently buggy, where we have alternative APIs which make those paths
+more reliable, I think we should do everything to make use of that.
 
-Thanks for support.
+And, to prove the point, your error paths are buggy.  Yes, you release
+the mem region correctly (well done for picking the right interface for
+that!) but the ioremap() is never cleaned up.
+
+So, any chance of converting the above to devm_request_and_ioremap() ?
+
+Thanks.
