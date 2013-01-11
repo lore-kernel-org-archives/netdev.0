@@ -1,64 +1,72 @@
-From: "pupilla@libero.it" <pupilla@libero.it>
-Subject: per route MTU settings
-Date: Fri, 11 Jan 2013 17:29:28 +0100 (CET)
-Message-ID: <22271727.642511357921768466.JavaMail.defaultUser@defaultHost>
-Reply-To: "pupilla@libero.it" <pupilla@libero.it>
+From: Roman Mamedov <rm@romanrm.ru>
+Subject: Re: Problem with IPv6 Route Cache
+Date: Fri, 11 Jan 2013 22:37:55 +0600
+Message-ID: <20130111223755.714ddf7f@natsu>
+References: <20130111185126.56cababe@natsu>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/KNkZuFUwOtFX8rx6qqOLjv_"; protocol="application/pgp-signature"
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outrelay01.libero.it ([212.52.84.101]:47370 "EHLO
-	outrelay01.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754403Ab3AKQ33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 11:29:29 -0500
-Received: from wmail43 (172.31.0.232) by outrelay01.libero.it (8.5.140.03)
-        id 50D43D7F026FA70F for netdev@vger.kernel.org; Fri, 11 Jan 2013 17:29:28 +0100
+Received: from len.romanrm.net ([176.31.121.172]:51817 "EHLO len.romanrm.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754711Ab3AKQiC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 11:38:02 -0500
+Received: from natsu (unknown [IPv6:fd39::1e6f:65ff:fea1:3ea6])
+	by len.romanrm.net (Postfix) with ESMTPS id 2745A205D5
+	for <netdev@vger.kernel.org>; Fri, 11 Jan 2013 16:38:00 +0000 (UTC)
+In-Reply-To: <20130111185126.56cababe@natsu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello everybody.
+--Sig_/KNkZuFUwOtFX8rx6qqOLjv_
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I have done some tests with per route
-mtu settings.
+Hello,
 
-Here is the results on the 10.81.104.254
-linux box running 3.6.9 on Slackware 14
-32bit:
+I have discovered that when the problem is occuring, I have:
 
-ip route add 10.81.105.109/32 via 10.81.104.1 mtu lock 1450
-ip route flush cache
+root@neru:~# ip -6 neigh
+fd39:20::39 dev tun-rm  FAILED
+fe80::20b:45ff:fe80:c000 dev eth0 lladdr 00:0b:45:80:c0:00 router REACHABLE
+2a02:e00:ffff:56::1 dev eth0 lladdr 00:0b:45:80:c0:00 router REACHABLE
 
-ping -M do 10.81.105.109 -c 5 -s 1450
-PING 10.81.105.109 (10.81.105.109) 1450(1478) bytes of data.
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+Launching "ping6 fd39:20::39" turns fd39:20::39 from FAILED to REACHABLE.
+After that, "ip -6 route flush cache" actually succeeds in removing the rou=
+te
+via default gateway, and I then get the proper route entry:
 
-Here is the results on my linux box with
-ip address 10.81.104.126 (the default
-gateway is 10.81.104.254) running linux
-3.7.0 on Slackware 14 64bit
+root@neru:~# ip -6 route get fd39::100
+fd39::100 from :: via fd39:20::39 dev tun-rm  src fd39:20::3  metric 0=20
+    cache
 
-ping -M do 10.81.105.109 -c 5 -s 560
-PING 10.81.105.109 (10.81.105.109) 560(588) bytes of data.
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+So I conclude that my issue is very similar to [1] mentioned in a Bugzilla
+entry [2] linked here just today.
 
-When packets are generated locally (on
-the 10.81.104.254 box), linux icmp message
-'need to frag' report the correct mtu of
-next hop. Instead on the forwarded packets
-(those that aren't originated on the 10.81.104.254
-box), I always get the 576 value on the mtu
-of nexthop.
-Is this the expected behaviour?
+  [1] https://lkml.org/lkml/2012/5/25/96
+  [2] https://bugzilla.kernel.org/show_bug.cgi?id=3D42991
 
-Any response are welcome
+--=20
+With respect,
+Roman
 
-TIA
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+"Stallman had a printer,
+with code he could not see.
+So he began to tinker,
+and set the software free."
+
+--Sig_/KNkZuFUwOtFX8rx6qqOLjv_
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iEYEARECAAYFAlDwP+MACgkQTLKSvz+PZwjBngCdEWG1ikJOug/eorUVjLYNRGfc
+nS8AniNZTSvXC67IexxkX8gka8YHq6p7
+=zlkK
+-----END PGP SIGNATURE-----
+
+--Sig_/KNkZuFUwOtFX8rx6qqOLjv_--
