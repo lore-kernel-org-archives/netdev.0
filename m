@@ -1,72 +1,58 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 0/3] ixgbe: request_firmware for configuration parameters
-Date: Fri, 11 Jan 2013 11:41:34 -0800
-Message-ID: <20130111194134.GA4817@kroah.com>
-References: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
- <20130111182547.GA22231@kroah.com>
- <CAP-MU4MzG_P9fz3_eix=zgzyjijZ5qo1mpKE=r_K7y3xcJqc5Q@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3] net, wireless: overwrite default_ethtool_ops
+Date: Fri, 11 Jan 2013 20:00:32 +0000
+Message-ID: <1357934432.2643.4.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130111091909.GA2347@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, dwmw2@infradead.org,
-	jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
-To: Shannon Nelson <shannon.nelson@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAP-MU4MzG_P9fz3_eix=zgzyjijZ5qo1mpKE=r_K7y3xcJqc5Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Ben Greear <greearb@candelatech.com>,
+	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	<linux-wireless@vger.kernel.org>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:63169 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733Ab3AKUAg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 15:00:36 -0500
+In-Reply-To: <20130111091909.GA2347@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2013 at 11:30:54AM -0800, Shannon Nelson wrote:
-> On Fri, Jan 11, 2013 at 10:25 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> > On Thu, Jan 10, 2013 at 06:02:20PM -0800, Shannon Nelson wrote:
-> >> Most networking dials and knobs can be set using ethtool, ifconfig, ip link
-> >> commands, or sysfs entries, all of which can be driven by startup scripts
-> >> and other configuration tools.  However, they all depend on having a netdev
-> >> already set up, and we have some low-level device functionality that needs
-> >> to be sorted out before we start setting up MSI-x and memory allocations.
+On Fri, 2013-01-11 at 10:19 +0100, Stanislaw Gruszka wrote:
+> Since:
 > 
-> > Ick, please don't abuse request_firmware() for this type of thing.
+> commit 2c60db037034d27f8c636403355d52872da92f81
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Sun Sep 16 09:17:26 2012 +0000
 > 
-> Yeah, it seemed ugly to me at first as well, but it grew on me as I
-> realized that it does solve a problem in a rather elegant way.  While
-> working this up I discussed this with Mr. Woodhouse thinking that as a
-> firmware tree maintainer he'd have a similar reaction, but he actually
-> wasn't opposed to it (David, please speak up if I'm misrepresenting
-> your comments).
-
-David maintains the external firmware tree repo, not the in-kernel
-firmware core code (which I used to maintain.)
-
-> > What's wrong with configfs?  It sounds like it will fit your need, and
-> > that is what is created for.
+>     net: provide a default dev->ethtool_ops
 > 
-> configfs has similar problems as sysfs - the driver needs to create
-> the hooks before it has all the info it might need for some hooks,
-> there is no persistence across reboots, and I don't think it will help
-> for initrd images.  Additionally, there would need to be some userland
-> mechanism to notice that the hooks were there and to feed it the
-> startup info.  Using a file in the firmware path gives us persistence
-> and a way for the driver to get info before having to set up
-> filesystem hooks.  It also gives us a way to get special config info
-> into the boot image.  And the whole mechanism already exists,
-> including UDEV hooks that can do more fancy stuff if needed.
+> wireless core does not correctly assign ethtool_ops.
+> 
+> After alloc_netdev*() call, some cfg80211 drivers provide they own
+> ethtool_ops, but some do not. For them, wireless core provide generic
+> cfg80211_ethtool_ops, which is assigned in NETDEV_REGISTER notify call:
+> 
+>         if (!dev->ethtool_ops)
+>                 dev->ethtool_ops = &cfg80211_ethtool_ops;
+> 
+> But after Eric's commit, dev->ethtool_ops is no longer NULL (on cfg80211
+> drivers without custom ethtool_ops), but points to &default_ethtool_ops.
+> 
+> In order to fix the problem, provide function which will overwrite
+> default_ethtool_ops and use it by wireless core.
+> 
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+[...]
 
-Yes, but you are now starting to use "configuration files" for kernel
-drivers, which we have resisted for 20+ years for a variety of good
-reasons.  You can't just ignore all of the arguments to not do this all
-of a sudden because you feel your driver is somehow "special" here.
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-All of the above issues you seem to have with sysfs and configfs can be
-resolved with userspace code, and having your driver not do anything to
-the hardware until it is told to by userspace.
-
-The boot image problem is harder, but I would argue that your driver
-better fall-back to some "known good" configuration for that type of
-instance, as you will need to do that anyway if your "firmware" file
-isn't present in the first place.
-
-So please try configfs again, the idea of loading configuration files
-from the filesystem, no matter what the mechanism, into your driver,
-isn't ok to do, sorry.
-
-greg k-h
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
