@@ -1,74 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.8-rc2/rc3 write() blocked on CLOSE_WAIT TCP socket
-Date: Thu, 10 Jan 2013 18:18:47 -0800
-Message-ID: <1357870727.27446.2988.camel@edumazet-glaptop>
-References: <20130111004915.GA15415@dcvr.yhbt.net>
-	 <1357869675.27446.2962.camel@edumazet-glaptop>
+From: Paul Pearce <pearce@cs.berkeley.edu>
+Subject: Re: [tcpdump-workers] [PATCH net 1/2] net: dev_queue_xmit_nit: fix
+ skb->vlan_tci field value
+Date: Thu, 10 Jan 2013 18:37:19 -0800
+Message-ID: <CAOUgPvSpMmsLpiwmnxwFx9p+B=KOG5VqjNvu_+54hLcBPNK4Cg@mail.gmail.com>
+References: <CAOUgPvRGQ4XQ-HCFzwKi5rFFfC1fJcicH8DxH0pUjAvgxfi7cw@mail.gmail.com>
+ <CAOxq_8MXCvGpq4Q0UfxSbWMDNTusrK710fQ11qgfXKWS+zpoZQ@mail.gmail.com>
+ <1357712850.27446.28.camel@edumazet-glaptop> <CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com>
+ <CAOxq_8P4PLKXn9FOAWyq4zYH5+Yt7DT1mrU2OSQujGCOjBJZYg@mail.gmail.com>
+ <1357761063.27446.60.camel@edumazet-glaptop> <32117.1357868869@sandelman.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mel Gorman <mgorman@suse.de>, linux-mm@kvack.org,  linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
-To: Eric Wong <normalperson@yhbt.net>, David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1357869675.27446.2962.camel@edumazet-glaptop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Ani Sinha <ani@aristanetworks.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	edumazet <edumazet@google.com>,
+	tcpdump-workers <tcpdump-workers@lists.tcpdump.org>,
+	dborkman <dborkman@redhat.com>
+To: Michael Richardson <mcr@sandelman.ca>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:46963 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752023Ab3AKCiA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jan 2013 21:38:00 -0500
+Received: by mail-oa0-f52.google.com with SMTP id o6so1364594oag.11
+        for <netdev@vger.kernel.org>; Thu, 10 Jan 2013 18:37:59 -0800 (PST)
+In-Reply-To: <32117.1357868869@sandelman.ca>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+>> My opinion as a kernel developer is that the network tap is here to have
+>> a copy of the exact frame given to the _device_.
 
-On Thu, 2013-01-10 at 18:01 -0800, Eric Dumazet wrote:
+> Good: as someone who spends lots of time with tcpdump doing both network
+> and protocol diagnostics, it's really important to see exactly there.
+> If that means turning off some hardware offload in order to get the
+> intact 1p header, then that may be fine for many situations.
+> (At 10G, on a live router... well...)
 
-> Hmm, it might be commit c3ae62af8e755ea68380fb5ce682e60079a4c388
-> tcp: should drop incoming frames without ACK flag set
-> 
-> It seems RST should be allowed to not have ACK set.
-> 
-> I'll send a fix, thanks !
+I agree as well.
 
-Yes, thats definitely the problem, sorry for that.
+But I think Ani's point was that for RX packets, as of commit
+bcc6d47903612c3861201cc3a866fb604f26b8b2, the filters are not
+getting exactly what's "on the wire." Independent of hardware
+acceleration the vlan headers are being stripped off and skb->vlan_tci
+is being set. That's was the origin of this whole mess.
 
+The msg from that commit reads in part:
+> Vlan untagging happens early in __netif_receive_skb so the rest of
+> code (ptype_all handlers, rx_handlers) see the skb like it was
+> untagged by hw.
 
-[PATCH] tcp: accept RST without ACK flag
+His confusion (which I share) is why it's acceptable to have this
+behavior of removing headers and setting skb->vlan_tci (regardless of
+hardware acceleration) on the RX path but not also set skb->vlan_tci
+on the TX path.
 
-commit c3ae62af8e755 (tcp: should drop incoming frames without ACK flag
-set) added a regression on the handling of RST messages.
+Indepdent of proposed userspace or PACKET_AUXDATA solutions,
+clarification on the RX skb->vlan_tci behavior would be appreciated.
 
-RST should be allowed to come even without ACK bit set. We validate
-the RST by checking the exact sequence, as requested by RFC 793 and 
-5961 3.2, in tcp_validate_incoming()
-
-Reported-by: Eric Wong <normalperson@yhbt.net>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/tcp_input.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 38e1184..0905997 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5541,7 +5541,7 @@ slow_path:
- 	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
- 		goto csum_error;
- 
--	if (!th->ack)
-+	if (!th->ack && !th->rst)
- 		goto discard;
- 
- 	/*
-@@ -5986,7 +5986,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 			goto discard;
- 	}
- 
--	if (!th->ack)
-+	if (!th->ack && !th->rst)
- 		goto discard;
- 
- 	if (!tcp_validate_incoming(sk, skb, th, 0))
-
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+My knowledge of this code is quite limited so it's entirely possible
+I'm off base here. If so please tell me.
+-Paul
