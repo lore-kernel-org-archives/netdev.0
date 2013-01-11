@@ -1,157 +1,105 @@
-From: Shannon Nelson <shannon.nelson@intel.com>
-Subject: [PATCH 2/3] ixgbe: add additional parameter options
-Date: Thu, 10 Jan 2013 18:02:36 -0800
-Message-ID: <20130111020234.15463.3763.stgit@starfish.jf.intel.com>
-References: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Fri, 11 Jan 2013 13:18:07 +1100
+Message-ID: <20130111131807.5d41574cda2c8d6a8b08ae1f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, dwmw2@infradead.org,
-	jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__11_Jan_2013_13_18_07_+1100_H3f8pzYHr7Dlwwaq"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Greg KH <greg@kroah.com>, Sony Chacko <sony.chacko@qlogic.com>,
+	Sritej Velaga <sritej.velaga@qlogic.com>,
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>,
+	Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With the new userland ASCII parameter file available, add a few
-new parameters for finer control of some driver activity.
+--Signature=_Fri__11_Jan_2013_13_18_07_+1100_H3f8pzYHr7Dlwwaq
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-dca=off	Disable DCA (Direct Cache Access) activity
+Hi all,
 
-FdirPballoc=N
-	Flow Director packet buffer allocation control
-	1 = 8k hash filters or 2k perfect filters
-	2 = 16k hash filters or 4k perfect filters
-	3 = 32k hash filters or 8k perfect filters
+After merging the net-next tree, today's linux-next build (x86_64
+allmodconfig) failed like this:
 
-AtrSampleRate=N
-	Set the Software ATR Tx packet sample rate to every Nth packet,
-	from 0 (disabled) to 255.
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c:1721:1: error: expected '=
+=3D', ',', ';', 'asm' or '__attribute__' before 'qlcnic_probe'
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c:1912:23: error: expected '=
+=3D', ',', ';', 'asm' or '__attribute__' before 'qlcnic_remove'
 
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: David Woodhouse <dwmw2@infradead.org>
+Caused by commits 7e2cf4feba05 ("qlcnic: change driver hardware interface
+mechanism") and 13159183ec7a ("qlcnic: 83xx base driver") from the
+net-next tree interacting with commit 54b956b90360 ("Remove __dev*
+markings from init.h") from the drover-core.current tree.
+
+I have added the following merge fix patch for today which could be added
+directly to the scsi tree (please).
+
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 11 Jan 2013 13:15:05 +1100
+Subject: [PATCH] qlcnic: remove new __dev* annotations
+
+CONFIG_HOTPLUG is always true now and the __dev* macros have been removed.
+
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
 ---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    4 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   63 +++++++++++++++++++++++++
- 2 files changed, 66 insertions(+), 1 deletions(-)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net=
+/ethernet/qlogic/qlcnic/qlcnic_main.c
+index d331313..fb7ac8e 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -1717,7 +1717,7 @@ int qlcnic_alloc_tx_rings(struct qlcnic_adapter *adap=
+ter,
+ 	return 0;
+ }
+=20
+-static int __devinit
++static int
+ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	struct net_device *netdev =3D NULL;
+@@ -1909,7 +1909,7 @@ err_out_disable_pdev:
+ 	return err;
+ }
+=20
+-static void __devexit qlcnic_remove(struct pci_dev *pdev)
++static void qlcnic_remove(struct pci_dev *pdev)
+ {
+ 	struct qlcnic_adapter *adapter;
+ 	struct net_device *netdev;
+--=20
+1.7.10.280.gaa39
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 8e78676..adfcd58 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -111,6 +111,10 @@
- #define IXGBE_TX_FLAGS_VLAN_PRIO_SHIFT  29
- #define IXGBE_TX_FLAGS_VLAN_SHIFT	16
- 
-+#define IXGBE_MAX_ATR_SAMPLE_RATE	255
-+#define IXGBE_MIN_ATR_SAMPLE_RATE	1
-+#define IXGBE_ATR_SAMPLE_RATE_OFF	0
-+
- #define IXGBE_MAX_VF_MC_ENTRIES         30
- #define IXGBE_MAX_VF_FUNCTIONS          64
- #define IXGBE_MAX_VFTA_ENTRIES          128
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1670fc7..9a94ca2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -164,6 +164,11 @@ enum {
- #ifdef CONFIG_PCI_IOV
- 	Opt_max_vfs,
- #endif
-+#ifdef CONFIG_IXGBE_DCA
-+	Opt_no_dca,
-+#endif
-+	Opt_FdirPballoc,
-+	Opt_AtrSampleRate,
- };
- 
- static const match_table_t tokens = {
-@@ -172,6 +177,11 @@ static const match_table_t tokens = {
- #ifdef CONFIG_PCI_IOV
- 	{ Opt_max_vfs, "max_vfs=%u" },
- #endif
-+#ifdef CONFIG_IXGBE_DCA
-+	{ Opt_no_dca, "nodca" },
-+#endif
-+	{ Opt_FdirPballoc, "FdirPballoc=%u" },
-+	{ Opt_AtrSampleRate, "AtrSampleRate=%u" },
- 
- 	/* terminator token */
- 	{ 0, NULL },
-@@ -181,6 +191,9 @@ MODULE_INFO(fw_option, "allow_unsupported_sfp : Allow unsupported and untested S
- MODULE_INFO(fw_option,
- 	    "max_vfs=N : Maximum number of virtual functions per physical function (default=0) - 0 <= N < "
- 	    xstr(IXGBE_MAX_VF_FUNCTIONS));
-+MODULE_INFO(fw_option, "nodca : Disable Direct Cache Access");
-+MODULE_INFO(fw_option, "FdirPballoc=N : Flow Director packet buffer allocation level - 1, 2, or 3");
-+MODULE_INFO(fw_option, "AtrSampleRate=N : Software ATR Tx packet sample rate, 0-255");
- 
- /**
-  * ixgbe_parse_option_line - find ixgbe options
-@@ -195,7 +208,7 @@ static void ixgbe_parse_option_line(struct ixgbe_adapter *adapter,
- 	char *p;
- 	char *next_option = config_line;
- 	substring_t args[MAX_OPT_ARGS];
--	int value;
-+	int value, x;
- 
- 	if (!config_line)
- 		return;
-@@ -239,6 +252,54 @@ static void ixgbe_parse_option_line(struct ixgbe_adapter *adapter,
- 			break;
- 
- #endif
-+#ifdef CONFIG_IXGBE_DCA
-+		case Opt_no_dca:
-+			adapter->flags &= ~(IXGBE_FLAG_DCA_CAPABLE |
-+					    IXGBE_FLAG_DCA_ENABLED);
-+			break;
-+
-+#endif
-+		case Opt_FdirPballoc:
-+			if (match_int(args, &value))
-+				goto parse_error;
-+
-+			x = adapter->fdir_pballoc;
-+			if (adapter->hw.mac.type == ixgbe_mac_82598EB
-+			    || value == IXGBE_FDIR_PBALLOC_NONE) {
-+				adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_NONE;
-+				x = 0;
-+			} else if (value == IXGBE_FDIR_PBALLOC_256K) {
-+				adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_256K;
-+				x = 256;
-+			} else if (value == IXGBE_FDIR_PBALLOC_128K) {
-+				adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_128K;
-+				x = 128;
-+			} else if (value == IXGBE_FDIR_PBALLOC_64K) {
-+				adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
-+				x = 64;
-+			} else {
-+				e_dev_err("Bad FdirPballoc value %d\n", value);
-+			}
-+
-+			e_dev_err(
-+				"Flow Director will be allocated %dKB of packet buffer\n",
-+				x);
-+			break;
-+
-+		case Opt_AtrSampleRate:
-+			if (match_int(args, &value))
-+				goto parse_error;
-+
-+			if (adapter->hw.mac.type == ixgbe_mac_82598EB
-+			    || value == IXGBE_ATR_SAMPLE_RATE_OFF)
-+				adapter->atr_sample_rate = value;
-+			else if (value >= IXGBE_MIN_ATR_SAMPLE_RATE
-+				   && value <= IXGBE_MAX_ATR_SAMPLE_RATE)
-+				adapter->atr_sample_rate = value;
-+			else
-+				e_dev_err("Bad AtrSampleRate %d\n", value);
-+			break;
-+
- 		default:
- 			goto parse_error;
- 			break;
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Fri__11_Jan_2013_13_18_07_+1100_H3f8pzYHr7Dlwwaq
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQ73ZfAAoJEECxmPOUX5FEpXAQAJJYXe+e+bOS0/n2aPwgL8la
+oBUhO2quamBaxJb4/6emP7nCSFnGCs0Shgy1wDrYjGqcw+Uvfxdda4/vdpYhjyCn
+Y3bkhaqyru+dTJ6J4538lKNPvzQhVMnxLnCpNBJL7TRc63oWJFSaFEbGntbCmRkm
+F1zfwrDxOnsX/U+2yuNM9Czs3mXxOXGAE8gx9qB10jPeIPX5t4DS4Hfc6YSGSa42
+zenXaP0sZw/t48YvGxci8zCBdRRtjTZCXX/XUwyaaH4d/zPqVwIDkNX2OLFWBpV9
+khIf+fdC1KFwYyWmrM5sLtnieLXyS9YnLl28K8r1x3wqnYAPXpLk5/+z2d8Paxym
+0UPlHlAFxNb0a5t+a+PwR5CxEgnSrptA3MjuZuQQFZCKKXWnBPSGveKjDflNsMzq
+XuyuZRV6vPmrIj2XR+PrL6Fyi5puLoQwZ+SeZrcLQrs6gII7Xl9bYwv8o+2A8IuA
+5q3GR2FA7tuYrA/u8r5Od6lRzPA8XL3G9ZKQ2T3sth11gk1QX/89mLmQ2nW2qAzf
+znfBOUGAHz7tV86OExsKYMNnlTKd1c08OvmPQ9u+JeMR/tARknh+kNh/Cpp1VfUt
+7/oocaXecVmsd/aRTjLrEExTo6X1lOgDbsM4/cpGUKLMh4zD4GwiN9uXwMh35v85
+t+8dgVSYRbh4doH0YY+t
+=zQKj
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__11_Jan_2013_13_18_07_+1100_H3f8pzYHr7Dlwwaq--
