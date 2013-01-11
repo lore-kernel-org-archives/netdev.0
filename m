@@ -1,30 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit
- ethernet adapter driver
-Date: Thu, 10 Jan 2013 21:14:27 -0800 (PST)
-Message-ID: <20130110.211427.85497246370240845.davem@davemloft.net>
-References: <1357867046-22918-1-git-send-email-freddy@asix.com.tw>
-	<CACVXFVMdgx1we67poF5yU5pAYRYoA9Ao1EJqQgGBaaORuARFQQ@mail.gmail.com>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: [PATCH V4 2/2] virtio-net: reset virtqueue affinity when doing cpu
+	hotplug
+Date: Fri, 11 Jan 2013 13:56:33 +0800
+Message-ID: <1357883793-15199-2-git-send-email-gaowanlong@cn.fujitsu.com>
+References: <1357883793-15199-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: freddy@asix.com.tw, linux-kernel@vger.kernel.org,
-	louis@asix.com.tw, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: ming.lei@canonical.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37637 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751576Ab3AKFO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 00:14:28 -0500
-In-Reply-To: <CACVXFVMdgx1we67poF5yU5pAYRYoA9Ao1EJqQgGBaaORuARFQQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1357883793-15199-1-git-send-email-gaowanlong@cn.fujitsu.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Ming Lei <ming.lei@canonical.com>
-Date: Fri, 11 Jan 2013 10:45:38 +0800
+Add a cpu notifier to virtio-net, so that we can reset the
+virtqueue affinity if the cpu hotplug happens. It improve
+the performance through enabling or disabling the virtqueue
+affinity after doing cpu hotplug.
 
-> Cc netdev and usb lists.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+Cc: Eric Dumazet <erdnetdev@gmail.com>
+Cc: virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+---
+ drivers/net/virtio_net.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
 
-That doesn't work for patches, sorry.  It will have to be submitted
-freshly and cleanly to the appropriate lists, not as a quoted reply.
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index ca17a58..e0b1f25 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -26,6 +26,7 @@
+ #include <linux/scatterlist.h>
+ #include <linux/if_vlan.h>
+ #include <linux/slab.h>
++#include <linux/cpu.h>
+ 
+ static int napi_weight = 128;
+ module_param(napi_weight, int, 0444);
+@@ -126,6 +127,9 @@ struct virtnet_info {
+ 
+ 	/* Per-cpu variable to show the mapping from CPU to virtqueue */
+ 	int __percpu *vq_index;
++
++	/* CPU hot plug notifier */
++	struct notifier_block nb;
+ };
+ 
+ struct skb_vnet_hdr {
+@@ -1058,6 +1062,23 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+ 	}
+ }
+ 
++static int virtnet_cpu_callback(struct notifier_block *nfb,
++			        unsigned long action, void *hcpu)
++{
++	struct virtnet_info *vi = container_of(nfb, struct virtnet_info, nb);
++	switch(action) {
++	case CPU_ONLINE:
++	case CPU_ONLINE_FROZEN:
++	case CPU_DEAD:
++	case CPU_DEAD_FROZEN:
++		virtnet_set_affinity(vi, true);
++		break;
++	default:
++		break;
++	}
++	return NOTIFY_OK;
++}
++
+ static void virtnet_get_ringparam(struct net_device *dev,
+ 				struct ethtool_ringparam *ring)
+ {
+@@ -1527,6 +1548,13 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 		}
+ 	}
+ 
++	vi->nb.notifier_call = &virtnet_cpu_callback;
++	err = register_hotcpu_notifier(&vi->nb);
++	if (err) {
++		pr_debug("virtio_net: registering cpu notifier failed\n");
++		goto free_recv_bufs;
++	}
++
+ 	/* Assume link up if device can't report link status,
+ 	   otherwise get link status from config. */
+ 	if (virtio_has_feature(vi->vdev, VIRTIO_NET_F_STATUS)) {
+@@ -1573,6 +1601,8 @@ static void virtnet_remove(struct virtio_device *vdev)
+ {
+ 	struct virtnet_info *vi = vdev->priv;
+ 
++	unregister_hotcpu_notifier(&vi->nb);
++
+ 	/* Prevent config work handler from accessing the device. */
+ 	mutex_lock(&vi->config_lock);
+ 	vi->config_enable = false;
+-- 
+1.8.1
