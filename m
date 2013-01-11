@@ -1,124 +1,88 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 11 Jan 2013 13:03:43 +1100
-Message-ID: <20130111130343.36787155f84ed84387c7286e@canb.auug.org.au>
+From: Shannon Nelson <shannon.nelson@intel.com>
+Subject: [PATCH 0/3] ixgbe: request_firmware for configuration parameters
+Date: Thu, 10 Jan 2013 18:02:20 -0800
+Message-ID: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__11_Jan_2013_13_03_43_+1100_wa=J4NXvRnnCDN=3"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Yuval Mintz <yuvalmin@broadcom.com>,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, dwmw2@infradead.org,
+	jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__11_Jan_2013_13_03_43_+1100_wa=J4NXvRnnCDN=3
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Most networking dials and knobs can be set using ethtool, ifconfig, ip link
+commands, or sysfs entries, all of which can be driven by startup scripts
+and other configuration tools.  However, they all depend on having a netdev
+already set up, and we have some low-level device functionality that needs
+to be sorted out before we start setting up MSI-x and memory allocations.
 
-Hi all,
+In order to do early device configuration, most kernel drivers use module
+parameters whose settings can be persisted in modprobe.d config files.
+However, these can be clumsy to use and manage, difficult to specify port
+specific values in a multiport device, and are actively discouraged in
+some circles.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c between commit
-4864a16ae69d ("bnx2x: Fix fastpath structures when memory allocation
-fails") from the net tree and commit 8ca5e17e58c9 ("bnx2x: Support of PF
-driver of a VF acquire request") from the net-next tree.
+In this patchset, the driver uses the existing request_firmware() and
+match_token() facilities to grab an ASCII config file from userspace to
+find special startup-time configuration information that needs persistence
+across reboots.  The configuration strings are formed similar to the
+mount options that get passed from /etc/fstab into filesystem modules.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+We can assume that the driver and device will come up with sane defaults
+that will make the part reasonably useful - we're not solving something
+for basic usability.  This capability is for folks that need special
+configurations for their virtualization server or cloud configuration or
+whatever network server where they've taken the time to tune things more
+specifically to their application.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+We are using existing facilities so that we don't have to build any
+userland utilities, and a config file format that is both humanly and
+potentially mechanically editable.
 
-diff --cc drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index f771ddf,00706c4..0000000
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@@ -87,30 -85,33 +85,58 @@@ static inline void bnx2x_move_fp(struc
-  }
- =20
-  /**
- + * bnx2x_shrink_eth_fp - guarantees fastpath structures stay intact
- + *
- + * @bp:	driver handle
- + * @delta:	number of eth queues which were not allocated
- + */
- +static void bnx2x_shrink_eth_fp(struct bnx2x *bp, int delta)
- +{
- +	int i, cos, old_eth_num =3D BNX2X_NUM_ETH_QUEUES(bp);
- +
- +	/* Queue pointer cannot be re-set on an fp-basis, as moving pointer
- +	 * backward along the array could cause memory to be overriden
- +	 */
- +	for (cos =3D 1; cos < bp->max_cos; cos++) {
- +		for (i =3D 0; i < old_eth_num - delta; i++) {
- +			struct bnx2x_fastpath *fp =3D &bp->fp[i];
- +			int new_idx =3D cos * (old_eth_num - delta) + i;
- +
- +			memcpy(&bp->bnx2x_txq[new_idx], fp->txdata_ptr[cos],
- +			       sizeof(struct bnx2x_fp_txdata));
- +			fp->txdata_ptr[cos] =3D &bp->bnx2x_txq[new_idx];
- +		}
- +	}
- +}
- +
-++/**
-+  * bnx2x_fill_fw_str - Fill buffer with FW version string.
-+  *
-+  * @bp:        driver handle
-+  * @buf:       character buffer to fill with the fw name
-+  * @buf_len:   length of the above buffer
-+  *
-+  */
-+ void bnx2x_fill_fw_str(struct bnx2x *bp, char *buf, size_t buf_len)
-+ {
-+ 	if (IS_PF(bp)) {
-+ 		u8 phy_fw_ver[PHY_FW_VER_LEN];
-+=20
-+ 		phy_fw_ver[0] =3D '\0';
-+ 		bnx2x_get_ext_phy_fw_version(&bp->link_params,
-+ 					     phy_fw_ver, PHY_FW_VER_LEN);
-+ 		strlcpy(buf, bp->fw_ver, buf_len);
-+ 		snprintf(buf + strlen(bp->fw_ver), 32 - strlen(bp->fw_ver),
-+ 			 "bc %d.%d.%d%s%s",
-+ 			 (bp->common.bc_ver & 0xff0000) >> 16,
-+ 			 (bp->common.bc_ver & 0xff00) >> 8,
-+ 			 (bp->common.bc_ver & 0xff),
-+ 			 ((phy_fw_ver[0] !=3D '\0') ? " phy " : ""), phy_fw_ver);
-+ 	} else {
-+ 		bnx2x_vf_fill_fw_str(bp, buf, buf_len);
-+ 	}
-+ }
-+=20
-  int load_count[2][3] =3D { {0} }; /* per-path: 0-common, 1-port0, 2-port1=
- */
- =20
-  /* free skb in the packet ring at pos idx
+After doing some digging around, it seems that the combination of ASCII
+config files stored where request_firmware() can find them, plus the
+kind of option configurations used in fstab for mount commands can solve
+the need.  Using the lib/parser.c tools seems obvious - we don't want to
+add any other parser code to the kernel, and heaven forbid someone tries to
+extend any new parser into an XML solution.  Using the request_firmware()
+framework also allows the configuration file to get included when building
+an initrd image.
 
---Signature=_Fri__11_Jan_2013_13_03_43_+1100_wa=J4NXvRnnCDN=3
-Content-Type: application/pgp-signature
+In these RFC patches for ixgbe, the configuration data would be found in
+the file /lib/firmware/ixgbe.conf, and might look something like this:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+	#
+	# example ixgbe driver configuration
+	#
 
-iQIcBAEBCAAGBQJQ73L/AAoJEECxmPOUX5FE1ekP+wfCaEBgRA3qQmuFXv9/wDgD
-D4Fsv+bdz1OMi9SKe32XSm37CiGDTnxzxwjjDZDdVWcGulHsI7RLMIZPqwlB8rg2
-8sb310GIuZaY/RLnMi00q2pTwDT/kHv0DPZOJIU7Ct9712Z7LajMuIT2gS1SLh/F
-ZFcXvcD+6ghUzWStE6EvSfVcNQULMY4YBHrexRjqo7VU8z591uWEGGfQmOX0VeRg
-ofcoFt6pywKitWydYHz8wXWYTCthk61x70BKPm21z1xdkjgl76E41uoijVXJ/L07
-a0FjyXq8QTyaGOkuZwNQM5uN1IdkUHcmSs/saXy2DoeZhIEoqKgazWcElf+0nu1y
-wJs2FCewAzx9P6yZeMVem6uk6mWNCk6cXyjBHbOnezBu3yrCxD9Vb9H/PWlIwC7q
-ihUJwuf4FOtqQaw1vjcuI6JGmz4JYSc2k+6ND7UiacVAuCA8eJWzJAJTxUxEztSW
-VEbDvJgerHvq9W/e6WeorcT1vPUQQHeTaaHI4Bq/cDnwRvJlLuvOyJ5ESRtvILo1
-+Vz8Ym5MT+9qHdUDRiHKx4Y8nW5On8t+f4bz1oyDe8yxsCXj/6ZQKQC53y5/hfH4
-XvHG1tSqPd+014v1i2iucRMpbU/SDKS3bGSq4iZ9IAX1QKrk86xSM2rmzK1qIAba
-6akI3gdOY8yTkdphEycI
-=RxCy
------END PGP SIGNATURE-----
+		# this is a generic setting for the driver
+	ixgbe allow_unsupported_sfp,debug=0xf,AtrSampleRate=0
 
---Signature=_Fri__11_Jan_2013_13_03_43_+1100_wa=J4NXvRnnCDN=3--
+		# msix restricted on one port for testing purposes
+	00:1b:21:12:4e:60  nomsix
+
+
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: David Woodhouse <dwmw2@infradead.org>
+
+---
+
+Shannon Nelson (3):
+      ixgbe: add interrupt control parameters
+      ixgbe: add additional parameter options
+      ixgbe: replace module options with configuration through request_firmware
+
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    4 
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |    6 
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  305 +++++++++++++++++++++++--
+ 3 files changed, 289 insertions(+), 26 deletions(-)
+
+-- 
+======================================================================
+Mr. Shannon Nelson                 LAN Access Division, Intel Corp.
+shannon.nelson@intel.com                I don't speak for Intel
+(503) 712-7659                    Parents can't afford to be squeamish
