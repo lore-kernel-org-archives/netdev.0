@@ -1,39 +1,33 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] ipv4: fib: fix a comment.
-Date: Fri, 11 Jan 2013 21:59:20 +0200
-Message-ID: <1357934360-17986-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Roland Dreier <roland@kernel.org>
+Subject: Re: [PATCH/RFC] ipv6: fib: Drop cached routes with dead neighbours on
+ fib GC
+Date: Fri, 11 Jan 2013 13:10:20 -0800
+Message-ID: <CAL1RGDXG=7vnf2xReeN6jR0MwSGhqcep4cN5FUApcUTJpt_mCg@mail.gmail.com>
+References: <1357753459-12872-1-git-send-email-roland@kernel.org>
+ <20130111134058.GB8436@order.stressinduktion.org> <20130111140119.GC8436@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+To: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:39968 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753826Ab3AKUAh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 15:00:37 -0500
-Received: by mail-ee0-f52.google.com with SMTP id b15so605598eek.25
-        for <netdev@vger.kernel.org>; Fri, 11 Jan 2013 12:00:36 -0800 (PST)
+Received: from na3sys010aog114.obsmtp.com ([74.125.245.96]:34191 "HELO
+	na3sys010aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755322Ab3AKVKm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 16:10:42 -0500
+Received: by mail-la0-f72.google.com with SMTP id fp12so2124294lab.3
+        for <netdev@vger.kernel.org>; Fri, 11 Jan 2013 13:10:40 -0800 (PST)
+In-Reply-To: <20130111140119.GC8436@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In fib_frontend.c, there is a confusing comment; NETLINK_CB(skb).portid does not 
-refer to a pid of sending process, but rather to a netlink portid.
+On Fri, Jan 11, 2013 at 6:01 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> The report I meant was actually not referred in this bug report:
+> http://article.gmane.org/gmane.linux.network/224832
+>
+> ENETDOWN was also observed via bridges.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- net/ipv4/fib_frontend.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Yes, I would have to think any report of ENETDOWN with ipv6 and
+bridging is quite likely to be the same issue I hit.
 
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 5cd75e2..99f00d3 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -974,7 +974,7 @@ static void nl_fib_input(struct sk_buff *skb)
- 
- 	nl_fib_lookup(frn, tb);
- 
--	portid = NETLINK_CB(skb).portid;      /* pid of sending process */
-+	portid = NETLINK_CB(skb).portid;      /* netlink portid */
- 	NETLINK_CB(skb).portid = 0;        /* from kernel */
- 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
- 	netlink_unicast(net->ipv4.fibnl, skb, portid, MSG_DONTWAIT);
--- 
-1.7.11.7
+ - R.
