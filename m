@@ -1,46 +1,174 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 3.8-rc] tuntap: refuse to re-attach to different tun_struct
-Date: Fri, 11 Jan 2013 16:38:34 +0800
-Message-ID: <50EFCF8A.3020907@redhat.com>
-References: <1357804788-19976-1-git-send-email-stefanha@redhat.com> <20130110.143902.2166041015759450388.davem@davemloft.net> <50EF6AF0.1020005@redhat.com> <20130110.211237.653335807366477404.davem@davemloft.net>
+Subject: Re: [PATCH V4 1/2] virtio-net: fix the set affinity bug when CPU
+	IDs are not consecutive
+Date: Fri, 11 Jan 2013 16:44:20 +0800
+Message-ID: <50EFD0E4.60203@redhat.com>
+References: <1357883793-15199-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: stefanha@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130110.211237.653335807366477404.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1357883793-15199-1-git-send-email-gaowanlong@cn.fujitsu.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 01/11/2013 01:12 PM, David Miller wrote:
-> From: Jason Wang <jasowang@redhat.com>
-> Date: Fri, 11 Jan 2013 09:29:20 +0800
+On 01/11/2013 01:56 PM, Wanlong Gao wrote:
+> As Michael mentioned, set affinity and select queue will not work very
+> well when CPU IDs are not consecutive, this can happen with hot unplug.
+> Fix this bug by traversal the online CPUs, and create a per cpu variable
+> to find the mapping from CPU to the preferable virtual-queue.
+
+Looks like ixgbe is trying to handling a similar issue recently by
+trying to reuse XPS when the channels and cpus are not equal. I wonder
+whether we can use the same method.
 >
->> On 01/11/2013 06:39 AM, David Miller wrote:
->>> From: Stefan Hajnoczi <stefanha@redhat.com>
->>> Date: Thu, 10 Jan 2013 08:59:48 +0100
->>>
->>>> Multiqueue tun devices support detaching a tun_file from its tun_struct
->>>> and re-attaching at a later point in time.  This allows users to disable
->>>> a specific queue temporarily.
->>>>
->>>> ioctl(TUNSETIFF) allows the user to specify the network interface to
->>>> attach by name.  This means the user can attempt to attach to interface
->>>> "B" after detaching from interface "A".
->>>>
->>>> The driver is not designed to support this so check we are re-attaching
->>>> to the right tun_struct.  Failure to do so may lead to oops.
->>>>
->>>> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
->>> Applied.
->> Hi David:
->>
->> Any chance that I can have a respin on this patch, there's still a bug
->> after this patch. Or I just can send a patch on top?
-> If I've applied it, there is no reverting.
-
-Get it, will send patch on top.
-
-Thanks
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Eric Dumazet <erdnetdev@gmail.com>
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> ---
+> V3->V4:
+> 	move vq_index into virtnet_info	(Jason)
+> 	change the mapping value when not setting affinity (Jason)
+> 	address the comments about select_queue (Rusty)
+> Not Addressed yet:
+> 	race between select_queue and set_channels need discuss more
+> 	but not the same problem with this (Rusty)
+>
+>  drivers/net/virtio_net.c | 53 ++++++++++++++++++++++++++++++++++++++----------
+>  1 file changed, 42 insertions(+), 11 deletions(-)
+>
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index a6fcf15..ca17a58 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -123,6 +123,9 @@ struct virtnet_info {
+>  
+>  	/* Does the affinity hint is set for virtqueues? */
+>  	bool affinity_hint_set;
+> +
+> +	/* Per-cpu variable to show the mapping from CPU to virtqueue */
+> +	int __percpu *vq_index;
+>  };
+>  
+>  struct skb_vnet_hdr {
+> @@ -1016,6 +1019,7 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+>  static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>  {
+>  	int i;
+> +	int cpu;
+>  
+>  	/* In multiqueue mode, when the number of cpu is equal to the number of
+>  	 * queue pairs, we let the queue pairs to be private to one cpu by
+> @@ -1029,16 +1033,29 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>  			return;
+>  	}
+>  
+> -	for (i = 0; i < vi->max_queue_pairs; i++) {
+> -		int cpu = set ? i : -1;
+> -		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+> -		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+> -	}
+> +	if (set) {
+> +		i = 0;
+> +		for_each_online_cpu(cpu) {
+> +			virtqueue_set_affinity(vi->rq[i].vq, cpu);
+> +			virtqueue_set_affinity(vi->sq[i].vq, cpu);
+> +			*per_cpu_ptr(vi->vq_index, cpu) = i;
+> +			i++;
+> +		}
+>  
+> -	if (set)
+>  		vi->affinity_hint_set = true;
+> -	else
+> +	} else {
+> +		for(i = 0; i < vi->max_queue_pairs; i++) {
+> +			virtqueue_set_affinity(vi->rq[i].vq, -1);
+> +			virtqueue_set_affinity(vi->sq[i].vq, -1);
+> +		}
+> +
+> +		i = 0;
+> +		for_each_online_cpu(cpu)
+> +			*per_cpu_ptr(vi->vq_index, cpu) =
+> +				++i % vi->curr_queue_pairs;
+> +
+>  		vi->affinity_hint_set = false;
+> +	}
+>  }
+>  
+>  static void virtnet_get_ringparam(struct net_device *dev,
+> @@ -1127,12 +1144,19 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>  
+>  /* To avoid contending a lock hold by a vcpu who would exit to host, select the
+>   * txq based on the processor id.
+> - * TODO: handle cpu hotplug.
+>   */
+>  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  {
+> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
+> -		  smp_processor_id();
+> +	int txq;
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	if (skb_rx_queue_recorded(skb)) {
+> +		txq = skb_get_rx_queue(skb);
+> +	} else {
+> +		txq = *__this_cpu_ptr(vi->vq_index);
+> +		if (txq == -1)
+> +			txq = 0;
+> +	}
+>  
+>  	while (unlikely(txq >= dev->real_num_tx_queues))
+>  		txq -= dev->real_num_tx_queues;
+> @@ -1453,6 +1477,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (vi->stats == NULL)
+>  		goto free;
+>  
+> +	vi->vq_index = alloc_percpu(int);
+> +	if (vi->vq_index == NULL)
+> +		goto free_stats;
+> +
+>  	mutex_init(&vi->config_lock);
+>  	vi->config_enable = true;
+>  	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+> @@ -1476,7 +1504,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+>  	err = init_vqs(vi);
+>  	if (err)
+> -		goto free_stats;
+> +		goto free_index;
+>  
+>  	netif_set_real_num_tx_queues(dev, 1);
+>  	netif_set_real_num_rx_queues(dev, 1);
+> @@ -1520,6 +1548,8 @@ free_recv_bufs:
+>  free_vqs:
+>  	cancel_delayed_work_sync(&vi->refill);
+>  	virtnet_del_vqs(vi);
+> +free_index:
+> +	free_percpu(vi->vq_index);
+>  free_stats:
+>  	free_percpu(vi->stats);
+>  free:
+> @@ -1554,6 +1584,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  
+>  	flush_work(&vi->config_work);
+>  
+> +	free_percpu(vi->vq_index);
+>  	free_percpu(vi->stats);
+>  	free_netdev(vi->dev);
+>  }
