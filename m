@@ -1,103 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next v5 01/14] vlan: wrap hw-acceleration calls in
- separate functions.
-Date: Fri, 11 Jan 2013 10:23:18 -0800
-Message-ID: <20130111102318.579abe94@nehalam.linuxnetplumber.net>
-References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com>
-	<1357751882-8619-2-git-send-email-vyasevic@redhat.com>
-	<20130110102525.2ff40c12@nehalam.linuxnetplumber.net>
-	<50EF0B76.2040503@redhat.com>
-	<20130110140749.153023fa@nehalam.linuxnetplumber.net>
-	<50EF660B.2090500@redhat.com>
-	<20130111092004.2d55ae65@nehalam.linuxnetplumber.net>
-	<50F04EDC.9040309@redhat.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/3] ixgbe: request_firmware for configuration parameters
+Date: Fri, 11 Jan 2013 10:25:47 -0800
+Message-ID: <20130111182547.GA22231@kroah.com>
+References: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, stephen@redhat.com,
-	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
-	mst@redhat.com
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47761 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753704Ab3AKSYq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2013 13:24:46 -0500
-In-Reply-To: <50F04EDC.9040309@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, dwmw2@infradead.org,
+	jeffrey.t.kirsher@intel.com, linux-kernel@vger.kernel.org
+To: Shannon Nelson <shannon.nelson@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130111020046.15463.72333.stgit@starfish.jf.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Jan 2013 12:41:48 -0500
-Vlad Yasevich <vyasevic@redhat.com> wrote:
+On Thu, Jan 10, 2013 at 06:02:20PM -0800, Shannon Nelson wrote:
+> Most networking dials and knobs can be set using ethtool, ifconfig, ip link
+> commands, or sysfs entries, all of which can be driven by startup scripts
+> and other configuration tools.  However, they all depend on having a netdev
+> already set up, and we have some low-level device functionality that needs
+> to be sorted out before we start setting up MSI-x and memory allocations.
+> 
+> In order to do early device configuration, most kernel drivers use module
+> parameters whose settings can be persisted in modprobe.d config files.
+> However, these can be clumsy to use and manage, difficult to specify port
+> specific values in a multiport device, and are actively discouraged in
+> some circles.
+> 
+> In this patchset, the driver uses the existing request_firmware() and
+> match_token() facilities to grab an ASCII config file from userspace to
+> find special startup-time configuration information that needs persistence
+> across reboots.  The configuration strings are formed similar to the
+> mount options that get passed from /etc/fstab into filesystem modules.
 
-> On 01/11/2013 12:20 PM, Stephen Hemminger wrote:
-> > What I think is the least intrusive and allows for maximum flexibility
-> > is having the VLAN bridge filtering depend on VLAN support (CONFIG_VLAN_8021Q).
-> > There already is drivers that depend on that value to enable filtering.
-> >
-> 
-> The only thing that I see depending on CONFIG_VLAN_8021Q is 
-> CONFIG_VLAN_8021Q_GVRP which is part of the 8021Q support.
-> There are currently no other drivers depending on 8021Q functionality
-> and vlan filtering in drivers doesn't depend on 8021Q support in
-> the kernel.
-> 
-> I admit that I've thought of having a dependency on 8021Q as it would 
-> have allowed me to re-use a bit more code, but decided that bridge 
-> should be able to stand on its own in this regard.  8021Q is not 
-> necessary to turn on VLAN accelerated filtering on the nics as anyone 
-> can do it through the ndo_vlan_rx_add_vid() call.
-> 
-> The reason for this patch was to make the nic vlan filter code reusable
-> and address Jiri Pirko's comment in the V2 series.
-> (http://marc.info/?l=linux-netdev&m=135590565719164&w=2).  This way,
-> bridge wouldn't need to make direct ndo_ calls and all call sights will
-> be consistent.
-> 
-> > And make the support of VLAN filtering in the bridge conditional like
-> > IGMP snooping is optional
-> 
-> I could certainly make the VLAN filtering conditional, but I am not sure 
-> what it would buy us other then a lot of ifdefs.
-> 
-> Thanks
-> -vlad
-> 
-> >
-> > --- a/net/bridge/Kconfig
-> > +++ b/net/bridge/Kconfig
-> > @@ -46,3 +46,17 @@ config BRIDGE_IGMP_SNOOPING
-> >            Say N to exclude this support and reduce the binary size.
-> >
-> >            If unsure, say Y.
-> > +
-> > +config BRIDGE_VLAN_FILTERING
-> > +       bool "VLAN filtering"
-> > +       depends on BRIDGE
-> > +       depends on VLAN_8021Q
-> > +       default n
-> > +       ---help---
-> > +         If you say Y here, then the Ethernet bridge will be able to
-> > +        selectively filter traffic based on VLAN tag.
-> > +
-> > +        Say N to exclude this support and reduce the binary size.
-> > +
-> > +        If unsure, say Y.
-> >
-> 
+Ick, please don't abuse request_firmware() for this type of thing.
 
-Doing the following shows several drivers that still depend on VLAN_8021Q being
-enabled to do VLAN tagging.
-$ git grep -l CONFIG_VLAN_8021Q
-ethernet/3com/3c59x.c
-ethernet/adaptec/starfire.c
-ethernet/amd/amd8111e.c
-ethernet/broadcom/cnic.c
-ethernet/broadcom/tg3.c
-ethernet/dlink/sundance.c
-ethernet/natsemi/ns83820.c
-ethernet/sis/sis900.c
-ethernet/sis/sis900.h
-ethernet/stmicro/stmmac/common.h
+What's wrong with configfs?  It sounds like it will fit your need, and
+that is what is created for.
 
- 
+greg k-h
