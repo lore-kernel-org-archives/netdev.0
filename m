@@ -1,44 +1,139 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: ppoll() stuck on POLLIN while TCP peer is sending
-Date: Fri, 11 Jan 2013 00:51:05 +0000
-Message-ID: <20130111005105.GA15023@dcvr.yhbt.net>
-References: <20130110194212.GJ13304@suse.de>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next v5 01/14] vlan: wrap hw-acceleration calls in
+ separate functions.
+Date: Thu, 10 Jan 2013 20:08:27 -0500
+Message-ID: <50EF660B.2090500@redhat.com>
+References: <1357751882-8619-1-git-send-email-vyasevic@redhat.com> <1357751882-8619-2-git-send-email-vyasevic@redhat.com> <20130110102525.2ff40c12@nehalam.linuxnetplumber.net> <50EF0B76.2040503@redhat.com> <20130110140749.153023fa@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mm@kvack.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>,
-	Minchan Kim <minchan@kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Mel Gorman <mgorman@suse.de>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <20130110194212.GJ13304@suse.de>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	mst@redhat.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38378 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752133Ab3AKBId (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jan 2013 20:08:33 -0500
+In-Reply-To: <20130110140749.153023fa@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mel Gorman <mgorman@suse.de> wrote:
-> mm: compaction: Partially revert capture of suitable high-order page
+On 01/10/2013 05:07 PM, Stephen Hemminger wrote:
+> On Thu, 10 Jan 2013 13:41:58 -0500
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>
+>> On 01/10/2013 01:25 PM, Stephen Hemminger wrote:
+>>> On Wed,  9 Jan 2013 12:17:48 -0500
+>>> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>>>
+>>>>
+>>>>    /**
+>>>> + * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
+>>>> + * @dev: netdevice of the lowerdev/hw nic
+>>>> + *
+>>>> + * Checks to see if HW and driver report VLAN acceleration correctly.
+>>>> + */
+>>>> +static inline bool vlan_hw_buggy(const struct net_device *dev)
+>>>> +{
+>>>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>>>> +
+>>>> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+>>>> +	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
+>>>> +		return true;
+>>>> +
+>>>> +	return false;
+>>>> +}
+>>>> +
+>>>> +/**
+>>>> + * vlan_vid_add_hw - Add the VLAN vid to the HW filter
+>>>> + * @dev: netdevice of the lowerdev/hw nic
+>>>> + * @vid: vlan id.
+>>>> + *
+>>>> + * Inserts the vid into the HW vlan filter table if hw supports it.
+>>>> + */
+>>>> +static inline int vlan_vid_add_hw(struct net_device *dev,
+>>>> +				  unsigned short vid)
+>>>> +{
+>>>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>>>> +	int err = 0;
+>>>> +
+>>>> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+>>>> +	    ops->ndo_vlan_rx_add_vid)
+>>>> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
+>>>> +
+>>>> +	return err;
+>>>> +}
+>>>> +
+>>>> +/**
+>>>> + * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
+>>>> + * @dev: netdevice of the lowerdev/hw nic
+>>>> + * @vid: vlan id.
+>>>> + *
+>>>> + * Delete the vid from the HW vlan filter table if hw supports it.
+>>>> + */
+>>>> +static inline int vlan_vid_del_hw(struct net_device *dev,
+>>>> +				  unsigned short vid)
+>>>> +{
+>>>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>>>> +	int err = 0;
+>>>> +
+>>>> +	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+>>>> +	    ops->ndo_vlan_rx_kill_vid)
+>>>> +		err = ops->ndo_vlan_rx_add_vid(dev, vid);
+>>>> +
+>>>> +	return err;
+>>>> +}
+>>>> +
+>>>
+>>> I would rather not have all these inline's. This isn't performance critical.
+>>
+>> I kind of need to keep them as inlines because of the VLAN support is
+>> built.  Right now, none of the VLAN files are build if VLAN support is
+>> turned off.  So all we get access to are inlines from if_vlan.h.
+>>
+>> I suppose I can change how VLANs get built, but not if that's the right
+>> thing.  It looks like it is set up the way it is on purpose.
+>>
+>>> Also, the check for buggy devices should be done inside the vlan code,
+>>> not repeated in the functions using the add/remove API. When device is
+>>> registered the flag and add/kill should be checked, and if the device driver
+>>> is buggy it should fail the register_netdevice.
+>>>
+>>
+>> Not sure what you mean here.  I don't check if it's buggy again.  I
+>> check that the device supports filter and the pointer is set.  I does
+>> exactly what the code used to do.  I suppose that the checks for valid
+>> function pointers may be a little redundant since otherwise
+>> vlan_hw_buggy() would have triggered, but it's safer to have them since
+>> we can't guarantee that other users have checked for buggy implementations.
+>>
+>> -vlad
+>
+> The best way to handle this is to add stubs for the unconfigure case, and
+> include real code if configured.
+>
+> I.e something like
+>
+> #if IS_ENABLED(CONFIG_VLAN_8012Q)
+> extern int vlan_vid_add_hw(struct net_device *, unsigned short);
+> extern int vlan_vid_del_hw(struct net_device *, unsigned short);
+> #else
+> #define vlan_vid_add_hw(dev,vid) (-ENOTSUPP)
+> #define vlan_vid_del_hw(dev,vid) (-ENOTSUPP)
+> #endif
+>
+>
 
-<snip>
- 
-> Reported-by: Eric Wong <normalperson@yhbt.net>
-> Cc: stable@vger.kernel.org
-> Signed-off-by: Mel Gorman <mgorman@suse.de>
+But that wouldn't be right as this would prevent HW filtering from
+working when VLAN support isn't built in which defeats the whole point
+of extracting this code out it its own functions so it can be re-used.
 
-Thanks, my original use case and test works great after several hours!
+Either we always build in some parts of VLAN support or we make keep 
+these inlines.
 
-Tested-by: Eric Wong <normalperson@yhbt.net>
+-vlad
 
-
-Unfortunately, I also hit a new bug in 3.8 (not in 3.7.x).  based on Eric
-Dumazet's observations, sk_stream_wait_memory may be to blame.
-Fortunately this is easier to reproduce (I've cc-ed participants
-on this thread already): <20130111004915.GA15415@dcvr.yhbt.net>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+>
