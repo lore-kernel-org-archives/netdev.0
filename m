@@ -1,69 +1,108 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH 2/2] tuntap: fix leaking reference count
-Date: Fri, 11 Jan 2013 16:50:42 +0800
-Message-ID: <1357894242-25020-2-git-send-email-jasowang@redhat.com>
-References: <1357894242-25020-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357894242-25020-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH v3] net, wireless: overwrite default_ethtool_ops
+Date: Fri, 11 Jan 2013 10:19:10 +0100
+Message-ID: <20130111091909.GA2347@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	Ben Greear <greearb@candelatech.com>,
+	=?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	linux-wireless@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	=?utf-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	Johannes Berg <johannes@sipsolutions.net>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56171 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753217Ab3AKJTa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 04:19:30 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reference count leaking of both module and sock were found:
+Since:
 
-- When a detached file were closed, its sock refcnt from device were not
-  released, solving this by add the sock_put().
-- The module were hold or drop unconditionally in TUNSETPERSIST, which means we
-  if we set the persist flag for N times, we need unset it for another N
-  times. Solving this by only hold or drop an reference when there's a flag
-  change and also drop the reference count when the persist device is deleted.
+commit 2c60db037034d27f8c636403355d52872da92f81
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Sun Sep 16 09:17:26 2012 +0000
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
+    net: provide a default dev->ethtool_ops
+
+wireless core does not correctly assign ethtool_ops.
+
+After alloc_netdev*() call, some cfg80211 drivers provide they own
+ethtool_ops, but some do not. For them, wireless core provide generic
+cfg80211_ethtool_ops, which is assigned in NETDEV_REGISTER notify call:
+
+        if (!dev->ethtool_ops)
+                dev->ethtool_ops = &cfg80211_ethtool_ops;
+
+But after Eric's commit, dev->ethtool_ops is no longer NULL (on cfg80211
+drivers without custom ethtool_ops), but points to &default_ethtool_ops.
+
+In order to fix the problem, provide function which will overwrite
+default_ethtool_ops and use it by wireless core.
+
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 ---
- drivers/net/tun.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+v1 -> v2: change order of default_ethtool_ops initialization to avoid
+the problem. Change the subject accordingly.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 9a46d70..d690dc8 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -429,8 +429,10 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		/* Drop read queue */
- 		skb_queue_purge(&tfile->sk.sk_receive_queue);
- 		tun_set_real_num_queues(tun);
--	} else if (tfile->detached && clean)
-+	} else if (tfile->detached && clean) {
- 		tun = tun_enable_queue(tfile);
-+		sock_put(&tfile->sk);
-+	}
+v2 -> v3: provide function to overwrite default_ethtool_ops, describe
+problem a bit more detailed in the changelog
+
+ include/linux/netdevice.h |    3 +++
+ net/core/dev.c            |    8 ++++++++
+ net/wireless/core.c       |    3 +--
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c599e47..9ef07d0 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -60,6 +60,9 @@ struct wireless_dev;
+ #define SET_ETHTOOL_OPS(netdev,ops) \
+ 	( (netdev)->ethtool_ops = (ops) )
  
- 	if (clean) {
- 		if (tun && tun->numqueues == 0 && tun->numdisabled == 0 &&
-@@ -481,6 +483,9 @@ static void tun_detach_all(struct net_device *dev)
- 		sock_put(&tfile->sk);
- 	}
- 	BUG_ON(tun->numdisabled != 0);
++extern void netdev_set_default_ethtool_ops(struct net_device *dev,
++					   const struct ethtool_ops *ops);
 +
-+	if (tun->flags & TUN_PERSIST)
-+		module_put(THIS_MODULE);
- }
+ /* hardware address assignment types */
+ #define NET_ADDR_PERM		0	/* address is permanent (default) */
+ #define NET_ADDR_RANDOM		1	/* address is generated randomly */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 515473e..f64e439 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6121,6 +6121,14 @@ struct netdev_queue *dev_ingress_queue_create(struct net_device *dev)
  
- static int tun_attach(struct tun_struct *tun, struct file *file)
-@@ -1881,10 +1886,11 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		/* Disable/Enable persist mode. Keep an extra reference to the
- 		 * module to prevent the module being unprobed.
- 		 */
--		if (arg) {
-+		if (arg && !(tun->flags & TUN_PERSIST)) {
- 			tun->flags |= TUN_PERSIST;
- 			__module_get(THIS_MODULE);
--		} else {
-+		}
-+		if (!arg && (tun->flags & TUN_PERSIST)) {
- 			tun->flags &= ~TUN_PERSIST;
- 			module_put(THIS_MODULE);
- 		}
+ static const struct ethtool_ops default_ethtool_ops;
+ 
++void netdev_set_default_ethtool_ops(struct net_device *dev,
++				    const struct ethtool_ops *ops)
++{
++	if (dev->ethtool_ops == &default_ethtool_ops)
++		dev->ethtool_ops = ops;
++}
++EXPORT_SYMBOL_GPL(netdev_set_default_ethtool_ops);
++
+ /**
+  *	alloc_netdev_mqs - allocate network device
+  *	@sizeof_priv:	size of private data to allocate space for
+diff --git a/net/wireless/core.c b/net/wireless/core.c
+index 747dd93..7cbd3bf 100644
+--- a/net/wireless/core.c
++++ b/net/wireless/core.c
+@@ -858,8 +858,7 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
+ 		/* allow mac80211 to determine the timeout */
+ 		wdev->ps_timeout = -1;
+ 
+-		if (!dev->ethtool_ops)
+-			dev->ethtool_ops = &cfg80211_ethtool_ops;
++		netdev_set_default_ethtool_ops(dev, &cfg80211_ethtool_ops);
+ 
+ 		if ((wdev->iftype == NL80211_IFTYPE_STATION ||
+ 		     wdev->iftype == NL80211_IFTYPE_P2P_CLIENT ||
 -- 
 1.7.1
