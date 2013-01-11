@@ -1,44 +1,64 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] cpsw: Add support to read cpu MAC address
-Date: Fri, 11 Jan 2013 15:47:53 +0000
-Message-ID: <20130111154753.GB23505@n2100.arm.linux.org.uk>
-References: <1357917302-32550-1-git-send-email-michal.bachraty@streamunlimited.com>
+From: "pupilla@libero.it" <pupilla@libero.it>
+Subject: per route MTU settings
+Date: Fri, 11 Jan 2013 17:29:28 +0100 (CET)
+Message-ID: <22271727.642511357921768466.JavaMail.defaultUser@defaultHost>
+Reply-To: "pupilla@libero.it" <pupilla@libero.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: grant.likely@secretlab.ca, rob.herring@calxeda.com,
-	rob@landley.net, devicetree-discuss@lists.ozlabs.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Michal Bachraty <michal.bachraty@streamunlimited.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1357917302-32550-1-git-send-email-michal.bachraty@streamunlimited.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outrelay01.libero.it ([212.52.84.101]:47370 "EHLO
+	outrelay01.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754403Ab3AKQ33 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 11:29:29 -0500
+Received: from wmail43 (172.31.0.232) by outrelay01.libero.it (8.5.140.03)
+        id 50D43D7F026FA70F for netdev@vger.kernel.org; Fri, 11 Jan 2013 17:29:28 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2013 at 04:15:02PM +0100, Michal Bachraty wrote:
-> +	if (!request_mem_region(priv->conf_res->start,
-> +			resource_size(priv->conf_res), ndev->name)) {
-> +		dev_err(priv->dev, "failed request i/o region\n");
-> +		ret = -ENXIO;
-> +		goto clean_clk_ret;
-> +	}
-> +
-> +	regs = ioremap(priv->conf_res->start,
-> +				resource_size(priv->conf_res));
-> +	if (!regs) {
-> +		dev_err(priv->dev, "unable to map i/o region\n");
-> +		goto clean_configuration_iores_ret;
-> +	}
+Hello everybody.
 
-In this day and age where error paths don't get any testing, and are
-frequently buggy, where we have alternative APIs which make those paths
-more reliable, I think we should do everything to make use of that.
+I have done some tests with per route
+mtu settings.
 
-And, to prove the point, your error paths are buggy.  Yes, you release
-the mem region correctly (well done for picking the right interface for
-that!) but the ioremap() is never cleaned up.
+Here is the results on the 10.81.104.254
+linux box running 3.6.9 on Slackware 14
+32bit:
 
-So, any chance of converting the above to devm_request_and_ioremap() ?
+ip route add 10.81.105.109/32 via 10.81.104.1 mtu lock 1450
+ip route flush cache
 
-Thanks.
+ping -M do 10.81.105.109 -c 5 -s 1450
+PING 10.81.105.109 (10.81.105.109) 1450(1478) bytes of data.
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+
+Here is the results on my linux box with
+ip address 10.81.104.126 (the default
+gateway is 10.81.104.254) running linux
+3.7.0 on Slackware 14 64bit
+
+ping -M do 10.81.105.109 -c 5 -s 560
+PING 10.81.105.109 (10.81.105.109) 560(588) bytes of data.
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+
+When packets are generated locally (on
+the 10.81.104.254 box), linux icmp message
+'need to frag' report the correct mtu of
+next hop. Instead on the forwarded packets
+(those that aren't originated on the 10.81.104.254
+box), I always get the 576 value on the mtu
+of nexthop.
+Is this the expected behaviour?
+
+Any response are welcome
+
+TIA
