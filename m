@@ -1,66 +1,34 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH 0/2] make mac programming for virtio net more robust
-Date: Fri, 11 Jan 2013 09:46:24 +0200
-Message-ID: <20130111074624.GB13315@redhat.com>
-References: <1357829141-25455-1-git-send-email-akong@redhat.com>
- <20130110152829.GG30731@redhat.com>
- <87fw281mr8.fsf@rustcorp.com.au>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH] ah4/esp4: set transport header correctly for IPsec
+ tunnel mode.
+Date: Fri, 11 Jan 2013 08:53:16 +0100
+Message-ID: <20130111075316.GV18940@secunet.com>
+References: <1356682036-25642-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akong@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, qemu-devel@nongnu.org,
-	netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52442 "EHLO mx1.redhat.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:34396 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753456Ab3AKHmj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jan 2013 02:42:39 -0500
+	id S1754156Ab3AKHxT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 02:53:19 -0500
 Content-Disposition: inline
-In-Reply-To: <87fw281mr8.fsf@rustcorp.com.au>
+In-Reply-To: <1356682036-25642-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2013 at 12:53:07PM +1030, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
+On Fri, Dec 28, 2012 at 04:07:16PM +0800, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> > On Thu, Jan 10, 2013 at 10:45:39PM +0800, akong@redhat.com wrote:
-> >> From: Amos Kong <akong@redhat.com>
-> >> 
-> >> Currenly mac is programmed byte by byte. This means that we
-> >> have an intermediate step where mac is wrong. 
-> >> 
-> >> Second patch introduced a new vq control command to set mac
-> >> address in one time.
-> >
-> > As you mention we could alternatively do it without
-> > new commands, simply add a feature bit that says that MACs are
-> > in the mac table.
-> > This would be a much bigger patch, and I'm fine with either way.
-> > Rusty what do you think?
+> IPsec tunnel does not set ECN field to CE in inner header when
+> the ECN field in the outer header is CE, and the ECN field in
+> the inner header is ECT(0) or ECT(1).
 > 
-> Hmm, mac filtering and "my mac address" are not quite the same thing.  I
-> don't know if it matters for anyone: does it?
-> The mac address is abused
-> for things like identifying machines, etc.
-
-I don't know either. I think net core differentiates between mac and
-uc_list because linux has to know which mac to use when building
-up packets, so at some level, I agree it might be useful to identify the
-machine.
-
-BTW netdev/davem should have been copied on this, Amos I think it's a
-good idea to remember to do it next time you post.
-
+> The cause is ipip_hdr() does not return the correct address of
+> inner header since skb->transport-header is not the inner header
+> after esp_input_done2(), or ah_input().
 > 
-> If we keep it as a separate concept, Amos' patch seems to make sense.
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Yes. It also keeps the patch small, I just thought I'd mention the
-option.
-
-> 
-> Cheers,
-> Rusty.
-
--- 
-MST
+Applied.
