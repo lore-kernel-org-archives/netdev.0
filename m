@@ -1,34 +1,69 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH/RFC] ipv6: fib: Drop cached routes with dead neighbours on fib GC
-Date: Fri, 11 Jan 2013 08:57:09 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7107@saturn3.aculab.com>
-References: <1357753459-12872-1-git-send-email-roland@kernel.org> <20130110.141847.265135906896223944.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <roland@purestorage.com>
-To: "David Miller" <davem@davemloft.net>, <roland@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59892 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753213Ab3AKI7M convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 03:59:12 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 09066-07 for <netdev@vger.kernel.org>;
- Fri, 11 Jan 2013 08:59:02 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130110.141847.265135906896223944.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH 2/2] tuntap: fix leaking reference count
+Date: Fri, 11 Jan 2013 16:50:42 +0800
+Message-ID: <1357894242-25020-2-git-send-email-jasowang@redhat.com>
+References: <1357894242-25020-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1357894242-25020-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Another reason we must make ipv6 like ipv4, which looks up neighbours
-> on demand at packet output time rather than caching them in the route
-> entries.
+Reference count leaking of both module and sock were found:
 
-Presumable the neighbour could be left cached in the route entry
-provided the code checks that the cached entry is still valid
-and does a relookup if not (rather than a send-blackhole).
+- When a detached file were closed, its sock refcnt from device were not
+  released, solving this by add the sock_put().
+- The module were hold or drop unconditionally in TUNSETPERSIST, which means we
+  if we set the persist flag for N times, we need unset it for another N
+  times. Solving this by only hold or drop an reference when there's a flag
+  change and also drop the reference count when the persist device is deleted.
 
-	David
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/tun.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 9a46d70..d690dc8 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -429,8 +429,10 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+ 		/* Drop read queue */
+ 		skb_queue_purge(&tfile->sk.sk_receive_queue);
+ 		tun_set_real_num_queues(tun);
+-	} else if (tfile->detached && clean)
++	} else if (tfile->detached && clean) {
+ 		tun = tun_enable_queue(tfile);
++		sock_put(&tfile->sk);
++	}
+ 
+ 	if (clean) {
+ 		if (tun && tun->numqueues == 0 && tun->numdisabled == 0 &&
+@@ -481,6 +483,9 @@ static void tun_detach_all(struct net_device *dev)
+ 		sock_put(&tfile->sk);
+ 	}
+ 	BUG_ON(tun->numdisabled != 0);
++
++	if (tun->flags & TUN_PERSIST)
++		module_put(THIS_MODULE);
+ }
+ 
+ static int tun_attach(struct tun_struct *tun, struct file *file)
+@@ -1881,10 +1886,11 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 		/* Disable/Enable persist mode. Keep an extra reference to the
+ 		 * module to prevent the module being unprobed.
+ 		 */
+-		if (arg) {
++		if (arg && !(tun->flags & TUN_PERSIST)) {
+ 			tun->flags |= TUN_PERSIST;
+ 			__module_get(THIS_MODULE);
+-		} else {
++		}
++		if (!arg && (tun->flags & TUN_PERSIST)) {
+ 			tun->flags &= ~TUN_PERSIST;
+ 			module_put(THIS_MODULE);
+ 		}
+-- 
+1.7.1
