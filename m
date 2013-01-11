@@ -1,174 +1,75 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V4 1/2] virtio-net: fix the set affinity bug when CPU
-	IDs are not consecutive
-Date: Fri, 11 Jan 2013 16:44:20 +0800
-Message-ID: <50EFD0E4.60203@redhat.com>
-References: <1357883793-15199-1-git-send-email-gaowanlong@cn.fujitsu.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [tcpdump-workers] [PATCH net 1/2] net: dev_queue_xmit_nit: fix
+ skb->vlan_tci field value
+Date: Fri, 11 Jan 2013 09:46:19 +0100
+Message-ID: <50EFD15B.4050307@redhat.com>
+References: <CAOUgPvRGQ4XQ-HCFzwKi5rFFfC1fJcicH8DxH0pUjAvgxfi7cw@mail.gmail.com> <CAOxq_8MXCvGpq4Q0UfxSbWMDNTusrK710fQ11qgfXKWS+zpoZQ@mail.gmail.com> <1357712850.27446.28.camel@edumazet-glaptop> <CAOxq_8P=yOYGhhJ2_YJT3ya32k7UNjX6d6Qpz+oVfD4d56sJfQ@mail.gmail.com> <CAOxq_8P4PLKXn9FOAWyq4zYH5+Yt7DT1mrU2OSQujGCOjBJZYg@mail.gmail.com> <1357761063.27446.60.camel@edumazet-glaptop> <32117.1357868869@sandelman.ca> <CAOUgPvSpMmsLpiwmnxwFx9p+B=KOG5VqjNvu_+54hLcBPNK4Cg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	Eric Dumazet <erdnetdev@gmail.com>
-To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1357883793-15199-1-git-send-email-gaowanlong@cn.fujitsu.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Michael Richardson <mcr@sandelman.ca>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ani Sinha <ani@aristanetworks.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	edumazet <edumazet@google.com>,
+	tcpdump-workers <tcpdump-workers@lists.tcpdump.org>
+To: Paul Pearce <pearce@cs.berkeley.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52744 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753043Ab3AKIqd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 03:46:33 -0500
+In-Reply-To: <CAOUgPvSpMmsLpiwmnxwFx9p+B=KOG5VqjNvu_+54hLcBPNK4Cg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2013 01:56 PM, Wanlong Gao wrote:
-> As Michael mentioned, set affinity and select queue will not work very
-> well when CPU IDs are not consecutive, this can happen with hot unplug.
-> Fix this bug by traversal the online CPUs, and create a per cpu variable
-> to find the mapping from CPU to the preferable virtual-queue.
+On 01/11/2013 03:37 AM, Paul Pearce wrote:
+>>> My opinion as a kernel developer is that the network tap is here to have
+>>> a copy of the exact frame given to the _device_.
 
-Looks like ixgbe is trying to handling a similar issue recently by
-trying to reuse XPS when the channels and cpus are not equal. I wonder
-whether we can use the same method.
+Agreed.
+
+>> Good: as someone who spends lots of time with tcpdump doing both network
+>> and protocol diagnostics, it's really important to see exactly there.
+>> If that means turning off some hardware offload in order to get the
+>> intact 1p header, then that may be fine for many situations.
+>> (At 10G, on a live router... well...)
 >
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: "Michael S. Tsirkin" <mst@redhat.com>
-> Cc: Jason Wang <jasowang@redhat.com>
-> Cc: Eric Dumazet <erdnetdev@gmail.com>
-> Cc: virtualization@lists.linux-foundation.org
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-> ---
-> V3->V4:
-> 	move vq_index into virtnet_info	(Jason)
-> 	change the mapping value when not setting affinity (Jason)
-> 	address the comments about select_queue (Rusty)
-> Not Addressed yet:
-> 	race between select_queue and set_channels need discuss more
-> 	but not the same problem with this (Rusty)
+> I agree as well.
 >
->  drivers/net/virtio_net.c | 53 ++++++++++++++++++++++++++++++++++++++----------
->  1 file changed, 42 insertions(+), 11 deletions(-)
+> But I think Ani's point was that for RX packets, as of commit
+> bcc6d47903612c3861201cc3a866fb604f26b8b2, the filters are not
+> getting exactly what's "on the wire." Independent of hardware
+> acceleration the vlan headers are being stripped off and skb->vlan_tci
+> is being set. That's was the origin of this whole mess.
 >
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index a6fcf15..ca17a58 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -123,6 +123,9 @@ struct virtnet_info {
->  
->  	/* Does the affinity hint is set for virtqueues? */
->  	bool affinity_hint_set;
-> +
-> +	/* Per-cpu variable to show the mapping from CPU to virtqueue */
-> +	int __percpu *vq_index;
->  };
->  
->  struct skb_vnet_hdr {
-> @@ -1016,6 +1019,7 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
->  static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
->  {
->  	int i;
-> +	int cpu;
->  
->  	/* In multiqueue mode, when the number of cpu is equal to the number of
->  	 * queue pairs, we let the queue pairs to be private to one cpu by
-> @@ -1029,16 +1033,29 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
->  			return;
->  	}
->  
-> -	for (i = 0; i < vi->max_queue_pairs; i++) {
-> -		int cpu = set ? i : -1;
-> -		virtqueue_set_affinity(vi->rq[i].vq, cpu);
-> -		virtqueue_set_affinity(vi->sq[i].vq, cpu);
-> -	}
-> +	if (set) {
-> +		i = 0;
-> +		for_each_online_cpu(cpu) {
-> +			virtqueue_set_affinity(vi->rq[i].vq, cpu);
-> +			virtqueue_set_affinity(vi->sq[i].vq, cpu);
-> +			*per_cpu_ptr(vi->vq_index, cpu) = i;
-> +			i++;
-> +		}
->  
-> -	if (set)
->  		vi->affinity_hint_set = true;
-> -	else
-> +	} else {
-> +		for(i = 0; i < vi->max_queue_pairs; i++) {
-> +			virtqueue_set_affinity(vi->rq[i].vq, -1);
-> +			virtqueue_set_affinity(vi->sq[i].vq, -1);
-> +		}
-> +
-> +		i = 0;
-> +		for_each_online_cpu(cpu)
-> +			*per_cpu_ptr(vi->vq_index, cpu) =
-> +				++i % vi->curr_queue_pairs;
-> +
->  		vi->affinity_hint_set = false;
-> +	}
->  }
->  
->  static void virtnet_get_ringparam(struct net_device *dev,
-> @@ -1127,12 +1144,19 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
->  
->  /* To avoid contending a lock hold by a vcpu who would exit to host, select the
->   * txq based on the processor id.
-> - * TODO: handle cpu hotplug.
->   */
->  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
->  {
-> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
-> -		  smp_processor_id();
-> +	int txq;
-> +	struct virtnet_info *vi = netdev_priv(dev);
-> +
-> +	if (skb_rx_queue_recorded(skb)) {
-> +		txq = skb_get_rx_queue(skb);
-> +	} else {
-> +		txq = *__this_cpu_ptr(vi->vq_index);
-> +		if (txq == -1)
-> +			txq = 0;
-> +	}
->  
->  	while (unlikely(txq >= dev->real_num_tx_queues))
->  		txq -= dev->real_num_tx_queues;
-> @@ -1453,6 +1477,10 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (vi->stats == NULL)
->  		goto free;
->  
-> +	vi->vq_index = alloc_percpu(int);
-> +	if (vi->vq_index == NULL)
-> +		goto free_stats;
-> +
->  	mutex_init(&vi->config_lock);
->  	vi->config_enable = true;
->  	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
-> @@ -1476,7 +1504,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
->  	err = init_vqs(vi);
->  	if (err)
-> -		goto free_stats;
-> +		goto free_index;
->  
->  	netif_set_real_num_tx_queues(dev, 1);
->  	netif_set_real_num_rx_queues(dev, 1);
-> @@ -1520,6 +1548,8 @@ free_recv_bufs:
->  free_vqs:
->  	cancel_delayed_work_sync(&vi->refill);
->  	virtnet_del_vqs(vi);
-> +free_index:
-> +	free_percpu(vi->vq_index);
->  free_stats:
->  	free_percpu(vi->stats);
->  free:
-> @@ -1554,6 +1584,7 @@ static void virtnet_remove(struct virtio_device *vdev)
->  
->  	flush_work(&vi->config_work);
->  
-> +	free_percpu(vi->vq_index);
->  	free_percpu(vi->stats);
->  	free_netdev(vi->dev);
->  }
+> The msg from that commit reads in part:
+>> Vlan untagging happens early in __netif_receive_skb so the rest of
+>> code (ptype_all handlers, rx_handlers) see the skb like it was
+>> untagged by hw.
+>
+> His confusion (which I share) is why it's acceptable to have this
+> behavior of removing headers and setting skb->vlan_tci (regardless of
+> hardware acceleration) on the RX path but not also set skb->vlan_tci
+> on the TX path.
+>
+> Indepdent of proposed userspace or PACKET_AUXDATA solutions,
+> clarification on the RX skb->vlan_tci behavior would be appreciated.
+>
+> My knowledge of this code is quite limited so it's entirely possible
+> I'm off base here. If so please tell me.
+
+While we're at the topic, though it's slightly unrelated this particular
+problem, but related to capturing VLANs and ``what's seen on the wire'',
+since it was mentioned.
+
+For different NICs/drivers you might get different default behaviours, and
+mostly it's the case (I assume, correct me if I'm wrong) that libpcap has
+to ``un-untag'' the VLAN headers in user space, doing a memmove(3) for each
+stripped VLAN packet in order to ``fix'' this.
+
+Because of this hack, I even got a report of a user recently, that in
+Wireshark, he saw a QinQ header, although it should just have been one
+VLAN encapsulation (AR8131 driver with ethtool -K eth0 rxvlan off) as he
+saw with netsniff-ng (no memmove(3) done there). (I didn't further follow
+or verify this report though.)
