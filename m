@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 3.8-rc2/rc3 write() blocked on CLOSE_WAIT TCP socket
-Date: Thu, 10 Jan 2013 22:49:54 -0800 (PST)
-Message-ID: <20130110.224954.902891494419623809.davem@davemloft.net>
-References: <20130111004915.GA15415@dcvr.yhbt.net>
-	<1357869675.27446.2962.camel@edumazet-glaptop>
-	<1357870727.27446.2988.camel@edumazet-glaptop>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] tg3: missing break statement in tg3_get_5720_nvram_info()
+Date: Fri, 11 Jan 2013 09:57:33 +0300
+Message-ID: <20130111065733.GG13207@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: normalperson@yhbt.net, netdev@vger.kernel.org, mgorman@suse.de,
- linux-mm@kvack.org, linux-kernel@vger.kernel.org, riel@redhat.com,
- minchan@kernel.org, akpm@linux-foundation.org,
- torvalds@linux-foundation.org
-To: eric.dumazet@gmail.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1357870727.27446.2988.camel@edumazet-glaptop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	kernel-janitors@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:31959 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753456Ab3AKG5g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 01:57:36 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 10 Jan 2013 18:18:47 -0800
+There is a missing break statement so FLASH_5762_EEPROM_HD gets treated
+like FLASH_5762_EEPROM_LD.
 
-> [PATCH] tcp: accept RST without ACK flag
-> 
-> commit c3ae62af8e755 (tcp: should drop incoming frames without ACK flag
-> set) added a regression on the handling of RST messages.
-> 
-> RST should be allowed to come even without ACK bit set. We validate
-> the RST by checking the exact sequence, as requested by RFC 793 and 
-> 5961 3.2, in tcp_validate_incoming()
-> 
-> Reported-by: Eric Wong <normalperson@yhbt.net>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Only needed in linux-next.
 
-Applied, thanks Eric.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index bc4d989..642764e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -13726,8 +13726,10 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
+ 		switch (nvmpinstrp) {
+ 		case FLASH_5762_EEPROM_HD:
+ 			nvmpinstrp = FLASH_5720_EEPROM_HD;
++			break;
+ 		case FLASH_5762_EEPROM_LD:
+ 			nvmpinstrp = FLASH_5720_EEPROM_LD;
++			break;
+ 		}
+ 	}
+ 
