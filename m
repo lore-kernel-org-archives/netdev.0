@@ -1,70 +1,56 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 3/3] tuntap: fix leaking reference count
-Date: Sat, 12 Jan 2013 10:59:34 +0800
-Message-ID: <1357959574-13113-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH V2 2/3] tuntap: forbid calling TUNSETIFF when detached
+Date: Sat, 12 Jan 2013 10:59:33 +0800
+Message-ID: <1357959574-13113-3-git-send-email-jasowang@redhat.com>
 References: <1357959574-13113-1-git-send-email-jasowang@redhat.com>
 Cc: edumazet@google.com, stefanha@redhat.com,
 	Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41075 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755830Ab3ALDIC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jan 2013 22:08:02 -0500
 In-Reply-To: <1357959574-13113-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Reference count leaking of both module and sock were found:
+Michael points out that even after Stefan's fix the TUNSETIFF is still allowed
+to create a new tap device. This because we only check tfile->tun but the
+tfile->detached were introduced. Fix this by failing early in tun_set_iff() if
+the file is detached. After this fix, there's no need to do the check again in
+tun_set_iff(), so this patch removes it.
 
-- When a detached file were closed, its sock refcnt from device were not
-  released, solving this by add the sock_put().
-- The module were hold or drop unconditionally in TUNSETPERSIST, which means we
-  if we set the persist flag for N times, we need unset it for another N
-  times. Solving this by only hold or drop an reference when there's a flag
-  change and also drop the reference count when the persist device is deleted.
-
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/tun.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index a36b56f..af372d0 100644
+index aa963c4..a36b56f 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -428,8 +428,10 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		/* Drop read queue */
- 		skb_queue_purge(&tfile->sk.sk_receive_queue);
- 		tun_set_real_num_queues(tun);
--	} else if (tfile->detached && clean)
-+	} else if (tfile->detached && clean) {
- 		tun = tun_enable_queue(tfile);
-+		sock_put(&tfile->sk);
-+	}
+@@ -488,8 +488,6 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+ 	err = -EINVAL;
+ 	if (rtnl_dereference(tfile->tun))
+ 		goto out;
+-	if (tfile->detached && tun != tfile->detached)
+-		goto out;
  
- 	if (clean) {
- 		if (tun && tun->numqueues == 0 && tun->numdisabled == 0 &&
-@@ -478,6 +480,9 @@ static void tun_detach_all(struct net_device *dev)
- 		sock_put(&tfile->sk);
- 	}
- 	BUG_ON(tun->numdisabled != 0);
+ 	err = -EBUSY;
+ 	if (!(tun->flags & TUN_TAP_MQ) && tun->numqueues == 1)
+@@ -1543,6 +1541,9 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 	struct net_device *dev;
+ 	int err;
+ 
++	if (tfile->detached)
++		return -EINVAL;
 +
-+	if (tun->flags & TUN_PERSIST)
-+		module_put(THIS_MODULE);
- }
- 
- static int tun_attach(struct tun_struct *tun, struct file *file)
-@@ -1874,10 +1879,11 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		/* Disable/Enable persist mode. Keep an extra reference to the
- 		 * module to prevent the module being unprobed.
- 		 */
--		if (arg) {
-+		if (arg && !(tun->flags & TUN_PERSIST)) {
- 			tun->flags |= TUN_PERSIST;
- 			__module_get(THIS_MODULE);
--		} else {
-+		}
-+		if (!arg && (tun->flags & TUN_PERSIST)) {
- 			tun->flags &= ~TUN_PERSIST;
- 			module_put(THIS_MODULE);
- 		}
+ 	dev = __dev_get_by_name(net, ifr->ifr_name);
+ 	if (dev) {
+ 		if (ifr->ifr_flags & IFF_TUN_EXCL)
 -- 
 1.7.1
