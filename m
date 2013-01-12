@@ -1,63 +1,85 @@
-From: Tabi Timur-B04825 <B04825@freescale.com>
-Subject: Re: [net-next] gianfar: use more portable i/o accessors
-Date: Sat, 12 Jan 2013 13:44:43 +0000
-Message-ID: <6AE080B68D46FC4BA2D2769E68D765B70820D753@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <20130111161821.d62a0a60ee8d1005fb14b4d5@freescale.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: [RFC davem] revert: net: Make skb->skb_iif always track skb->dev
+Date: Sat, 12 Jan 2013 14:48:14 +0100
+Message-ID: <50F1699E.1000200@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Phillips Kim-R1AAHA <R1AAHA@freescale.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Linux Netdev List <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [65.55.88.15] ([65.55.88.15]:40075 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1753292Ab3ALNqR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2013 08:46:17 -0500
-In-Reply-To: <20130111161821.d62a0a60ee8d1005fb14b4d5@freescale.com>
-Content-Language: en-US
-Content-ID: <C48F636AB1BC07419A6C3240C2F2D502@mgd.freescale.com>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:43403 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753292Ab3ALNsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 08:48:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2013 at 4:18 PM, Kim Phillips
-<kim.phillips@freescale.com> wrote:
-> in/out_be32 accessors are Power arch centric whereas
-> ioread/writebe32 are available in other arches.  Also, unlike
-> in/out_be32, ioread/writebe32 expect non-volatile address arguments.
+Hello Dave,
 
-I was under the impression that the "volatile" in in/out_be32() is so
-that the functions can accept a volatile pointer, not that it expects
-one.  Otherwise, if you pass in a volatile, you'll get a compiler
-warning.
+in your below patch from 23 Jul 2012 you removed the check for an already set
+value of skb_iif in net/core/dev.c
 
->
-> Signed-off-by: Kim Phillips <kim.phillips@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/gianfar.h | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-> index 1b6a67c..91bb2de 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.h
-> +++ b/drivers/net/ethernet/freescale/gianfar.h
-> @@ -1136,16 +1136,16 @@ static inline int gfar_has_errata(struct gfar_private *priv,
->         return priv->errata & err;
->  }
->
-> -static inline u32 gfar_read(volatile unsigned __iomem *addr)
-> +static inline u32 gfar_read(unsigned __iomem *addr)
->  {
->         u32 val;
-> -       val = in_be32(addr);
-> +       val = ioread32be(addr);
->         return val;
->  }
+I'm currently working on a solution to prevent some routed CAN frames to be
+sent back onto the originating network device.
 
-Can't we just get rid of these functions altogether?  Or at least, get
-rid of the local variable?
+With your patch it is not possible anymore to check on which netdev the
+CAN frame has originally been received, as for every routing the frame
+goes through netif_receive_skb(), which hard sets
 
--- 
-Timur Tabi
-Linux kernel developer at Freescale
+	skb->skb_iif = skb->dev->ifindex
+
+and therefore kills the original incoming interface index.
+
+To me it is not clear why skb_iff is needed anyway as the value should
+always be available via skb->dev->ifindex, right?
+
+But if skb_iff has any right to exist it should contain the first incoming
+interface on the host IMO.
+
+Please correct my if i'm wrong and/or tell me what your commit message means
+in respect to my request and why skb->dev->ifindex is not used instead of
+skb_iif. I feel somehow lost about the skb_iif intention ...
+
+Best regards,
+Oliver
+
+---
+
+
+http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commitdiff;h=b68581778cd0051a3fb9a2b614dee7eccb5127ff
+
+net: Make skb->skb_iif always track skb->dev
+
+Make it follow device decapsulation, from things such as VLAN and
+bonding.
+
+The stuff that actually cares about pre-demuxed device pointers, is
+handled by the "orig_dev" variable in __netif_receive_skb().  And
+the only consumer of that is the po->origdev feature of AF_PACKET
+sockets.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index cca02ae..0ebaea1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3173,8 +3173,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (netpoll_receive_skb(skb))
+ 		return NET_RX_DROP;
+ 
+-	if (!skb->skb_iif)
+-		skb->skb_iif = skb->dev->ifindex;
+ 	orig_dev = skb->dev;
+ 
+ 	skb_reset_network_header(skb);
+@@ -3186,6 +3184,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	rcu_read_lock();
+ 
+ another_round:
++	skb->skb_iif = skb->dev->ifindex;
+ 
+ 	__this_cpu_inc(softnet_data.processed);
+ 
