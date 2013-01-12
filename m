@@ -1,29 +1,36 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [RFC PATCH 6/6] ipv6: IPv6 over IEEE1394 (RFC3146) support.
-Date: Sat, 12 Jan 2013 17:44:15 +0100
-Message-ID: <50F192DF.9090100@gmail.com>
-References: <50F17178.3090705@linux-ipv6.org> <20130112164741.1a0ab7bb@stein> <50F191CF.3060803@linux-ipv6.org>
-Reply-To: stephan.gatzka@gmail.com
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [RFC PATCH 5/6] firewire net: IPv6 support (RFC3146).
+Date: Sat, 12 Jan 2013 18:00:58 +0100
+Message-ID: <20130112180058.0289baba@stein>
+References: <50F17171.3050105@linux-ipv6.org>
+	<20130112162224.10e2aa44@stein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>, netdev@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Stephan Gatzka <stephan.gatzka@gmail.com>,
+	netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:33341 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752374Ab3ALQoS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 11:44:18 -0500
-Received: by mail-ea0-f179.google.com with SMTP id i12so1093061eaa.24
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 08:44:17 -0800 (PST)
-In-Reply-To: <50F191CF.3060803@linux-ipv6.org>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:60887 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753510Ab3ALRBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 12:01:18 -0500
+In-Reply-To: <20130112162224.10e2aa44@stein>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> How about putting EUI64, maxrec, sspd and fifo in dev->dev_addr?
-> This enable us to send NDISC/ARP packet easily (based on neighbor
-> cache entry), and driver can be notified for new neighbors (thus
-> new peers).
-Hm, that looks a bit strange to me, because we need that only for link 
-layer option packets and not for every IPv6 packet transmitted via firewire.
+On Jan 12 Stefan Richter wrote:
+> At least one thing which is still missing (also
+> missing in Stephan's patch from previous week) is the RFC 3146 clause 5
+> Configuration ROM entry.
+
+Another thing:  As far as I understand, the current code assumes that
+peers will use the same unicast_FIFO for IPv4 unicast as for IPv6
+unicast.  This is not necessarily true.  Either firewire-net needs to
+maintain two lists of peers (one for IPv4, another for IPv6), or it needs
+to maintain two unicast_FIFOs per peer.
+-- 
+Stefan Richter
+-=====-===-= ---= -==--
+http://arcgraph.de/sr/
