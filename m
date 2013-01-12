@@ -1,30 +1,107 @@
 From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 0/3] tg3: add support for Ethernet core in BCM4785
-Date: Sat, 12 Jan 2013 21:01:42 +0100
-Message-ID: <1358020905-9924-1-git-send-email-hauke@hauke-m.de>
+Subject: [PATCH 2/3] tg3: make it possible to provide phy_id in ioctl
+Date: Sat, 12 Jan 2013 21:01:44 +0100
+Message-ID: <1358020905-9924-3-git-send-email-hauke@hauke-m.de>
+References: <1358020905-9924-1-git-send-email-hauke@hauke-m.de>
 Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
 	m@bues.ch, Hauke Mehrtens <hauke@hauke-m.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:55489 "EHLO
+Received: from server19320154104.serverpool.info ([193.201.54.104]:55499 "EHLO
 	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754147Ab3ALUHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2013 15:07:50 -0500
+	id S1754059Ab3ALUMu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jan 2013 15:12:50 -0500
+In-Reply-To: <1358020905-9924-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These patches are adding support for the Ethernet core found in the BCM4705/BCM4785 SoC.
+In OpenWrt we currently use a switch driver which uses the ioctls to
+configure the switch in the phy. We have to provide the phy_id to do
+so, but without this patch this is not possible.
 
-Hauke Mehrtens (3):
-  ssb: add missing method ssb_gige_get_macaddr
-  tg3: make it possible to provide phy_id in ioctl
-  tg3: add support for Ethernet core in bcm4785
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   26 ++++++++++++++++++++------
+ 1 file changed, 20 insertions(+), 6 deletions(-)
 
- drivers/net/ethernet/broadcom/tg3.c |  137 +++++++++++++++++++++++++++++++----
- drivers/net/ethernet/broadcom/tg3.h |    5 ++
- include/linux/pci_ids.h             |    1 +
- include/linux/ssb/ssb_driver_gige.h |    3 +
- 4 files changed, 133 insertions(+), 13 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 88f2d41..6c397d7 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -1091,7 +1091,8 @@ static void tg3_switch_clocks(struct tg3 *tp)
+ 
+ #define PHY_BUSY_LOOPS	5000
+ 
+-static int tg3_readphy(struct tg3 *tp, int reg, u32 *val)
++static int __tg3_readphy(struct tg3 *tp, unsigned int phy_addr, int reg,
++			 u32 *val)
+ {
+ 	u32 frame_val;
+ 	unsigned int loops;
+@@ -1107,7 +1108,7 @@ static int tg3_readphy(struct tg3 *tp, int reg, u32 *val)
+ 
+ 	*val = 0x0;
+ 
+-	frame_val  = ((tp->phy_addr << MI_COM_PHY_ADDR_SHIFT) &
++	frame_val  = ((phy_addr << MI_COM_PHY_ADDR_SHIFT) &
+ 		      MI_COM_PHY_ADDR_MASK);
+ 	frame_val |= ((reg << MI_COM_REG_ADDR_SHIFT) &
+ 		      MI_COM_REG_ADDR_MASK);
+@@ -1144,7 +1145,13 @@ static int tg3_readphy(struct tg3 *tp, int reg, u32 *val)
+ 	return ret;
+ }
+ 
+-static int tg3_writephy(struct tg3 *tp, int reg, u32 val)
++static int tg3_readphy(struct tg3 *tp, int reg, u32 *val)
++{
++	return __tg3_readphy(tp, tp->phy_addr, reg, val);
++}
++
++static int __tg3_writephy(struct tg3 *tp, unsigned int phy_addr, int reg,
++			  u32 val)
+ {
+ 	u32 frame_val;
+ 	unsigned int loops;
+@@ -1162,7 +1169,7 @@ static int tg3_writephy(struct tg3 *tp, int reg, u32 val)
+ 
+ 	tg3_ape_lock(tp, tp->phy_ape_lock);
+ 
+-	frame_val  = ((tp->phy_addr << MI_COM_PHY_ADDR_SHIFT) &
++	frame_val  = ((phy_addr << MI_COM_PHY_ADDR_SHIFT) &
+ 		      MI_COM_PHY_ADDR_MASK);
+ 	frame_val |= ((reg << MI_COM_REG_ADDR_SHIFT) &
+ 		      MI_COM_REG_ADDR_MASK);
+@@ -1197,6 +1204,11 @@ static int tg3_writephy(struct tg3 *tp, int reg, u32 val)
+ 	return ret;
+ }
+ 
++static int tg3_writephy(struct tg3 *tp, int reg, u32 val)
++{
++	return __tg3_writephy(tp, tp->phy_addr, reg, val);
++}
++
+ static int tg3_phy_cl45_write(struct tg3 *tp, u32 devad, u32 addr, u32 val)
+ {
+ 	int err;
+@@ -12956,7 +12968,8 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			return -EAGAIN;
+ 
+ 		spin_lock_bh(&tp->lock);
+-		err = tg3_readphy(tp, data->reg_num & 0x1f, &mii_regval);
++		err = __tg3_readphy(tp, data->phy_id & 0x1f,
++				    data->reg_num & 0x1f, &mii_regval);
+ 		spin_unlock_bh(&tp->lock);
+ 
+ 		data->val_out = mii_regval;
+@@ -12972,7 +12985,8 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ 			return -EAGAIN;
+ 
+ 		spin_lock_bh(&tp->lock);
+-		err = tg3_writephy(tp, data->reg_num & 0x1f, data->val_in);
++		err = __tg3_writephy(tp, data->phy_id & 0x1f,
++				     data->reg_num & 0x1f, data->val_in);
+ 		spin_unlock_bh(&tp->lock);
+ 
+ 		return err;
 -- 
 1.7.10.4
