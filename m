@@ -1,39 +1,49 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: IPv6 over firewire
-Date: Sat, 12 Jan 2013 14:57:57 +0100
-Message-ID: <20130112145757.4ff61f18@stein>
-References: <50EF1AEB.1080704@gmail.com>
-	<20130110210912.09c62d38@stein>
-	<50F10E94.9090302@gmail.com>
-	<20130112102452.13babc65@stein>
-	<50F140F7.60503@gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [RFC PATCH 0/6] IPv6 over Firewire (PoC)
+Date: Sat, 12 Jan 2013 23:20:53 +0900
+Message-ID: <50F17145.9050104@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: linux1394-devel@lists.sourceforge.net, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: stephan.gatzka@gmail.com
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	yoshfuji@linux-ipv6.org
+To: Stephan Gatzka <stephan.gatzka@gmail.com>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:59578 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921Ab3ALN6P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 08:58:15 -0500
-In-Reply-To: <50F140F7.60503@gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:36667 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752812Ab3ALOUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 09:20:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jan 12 Stephan Gatzka wrote:
-> >    - There is another downside:  Each new driver method increases the
-> >      memory footprint of instances of respective function pointer tables
-> >      by 4 or 8 bytes.
-> 
-> I can't imagine that this is a show stopper. How many instances of 
-> struct netdev do we have o a typical system? I guess not the much.
+This is my proof of concept changes over the tree.
+Code compiles, but untested.
 
-There aren't many instances, but these instances are used in hot paths
-where cache utilization matters.  Of course such structures can be ordered
-so that often used parts are located close to each other.
+Full changesets are also availble at:
+        http://www.linux-ipv6.org/gitweb/gitweb.cgi?p=gitroot/yoshfuji/linux-2.6-dev.git;a=shortlog;h=refs/heads/v3.7%2Bnet-next%2Bfirewire
+
+I think firewire/net bits should be moved to firewire/net_core.c or something,
+which is compiled statically even if FIREWIRE_NET = m.
+
+YOSHIFUJI Hideaki (6):
+  ndisc: Move ndisc_opt_addr_space() to include/net/ndisc.h.
+  ndisc: Pass net_device to ndisc_fill_addr_option().
+  firewire net: Export fwnet_peerinfo structure for ieee1394-specific
+    peer information in ARP/NDP.
+  firewire net: Export peerinfo handlers.
+  firewire net: IPv6 support (RFC3146).
+  ipv6: IPv6 over IEEE1394 (RFC3146) support.
+
+ drivers/firewire/Kconfig |    8 +++
+ drivers/firewire/net.c   |  125 ++++++++++++++++++++++++++++------------------
+ include/net/firewire.h   |   21 ++++++++
+ include/net/ndisc.h      |   20 +++++++-
+ net/ipv6/addrconf.c      |    4 +-
+ net/ipv6/ndisc.c         |   71 +++++++++++++++++++++-----
+ net/ipv6/route.c         |    2 +
+ 7 files changed, 188 insertions(+), 63 deletions(-)
+ create mode 100644 include/net/firewire.h
+
 -- 
-Stefan Richter
--=====-===-= ---= -==--
-http://arcgraph.de/sr/
+1.7.9.5
