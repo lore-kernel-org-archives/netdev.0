@@ -1,118 +1,86 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: IPv6 over firewire
-Date: Sat, 12 Jan 2013 11:54:47 +0100
-Message-ID: <50F140F7.60503@gmail.com>
-References: <50EF1AEB.1080704@gmail.com> <20130110210912.09c62d38@stein> <50F10E94.9090302@gmail.com> <20130112102452.13babc65@stein>
-Reply-To: stephan.gatzka@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux1394-devel@lists.sourceforge.net, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+From: Wei Shuai <cpuwolf@gmail.com>
+Subject: [PATCH] CDC_NCM adding support IFF_NOARP for infineon modem platform
+Date: Sat, 12 Jan 2013 19:34:39 +0800
+Message-ID: <1357990479-5836-1-git-send-email-cpuwolf@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Wei Shuai <cpuwolf@gmail.com>
+To: gregkh@linuxfoundation.org, alexey.orishko@stericsson.com,
+	bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:55035 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751600Ab3ALKyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 05:54:51 -0500
-Received: by mail-ee0-f41.google.com with SMTP id d41so1205935eek.14
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 02:54:49 -0800 (PST)
-In-Reply-To: <20130112102452.13babc65@stein>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:63101 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752775Ab3ALLfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 06:35:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> But if a new callback is needed, it doesn't have to burden the kernel=
- much:
->
->    - In the linux-kernel OOP model, there are mandatory methods as we=
-ll
->      as optional methods.  A new method for RFC 3146 Neighbor Discove=
-ry
->      should of course be an optional one.
->
->    - There is a downside to optional methods:  The core code which ma=
-y
->      have to use the method first needs to do a NULL check of the
->      method's function pointer or needs to check a correlated
->      capabilities flag or something like that.  Such additional check=
-s
->      are undesirable in hot paths, but I suppose IPv6 Neighbor Discov=
-ery
->      is not a particularly hot path.
+Infineon(now Intel) HSPA Modem platform NCM cannot support ARP. so I introduce a flag CDC_NCM_DRIVER_DATA_NOARP which is defined in driver_info:data. so later on, if more such buggy devices are found, they could use same flag to handle. 
 
-Yes, that should be true.
+Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+---
+ drivers/net/usb/cdc_ncm.c |   29 +++++++++++++++++++++++++++++
+ 1 files changed, 29 insertions(+), 0 deletions(-)
 
->
->    - There is another downside:  Each new driver method increases the
->      memory footprint of instances of respective function pointer tab=
-les
->      by 4 or 8 bytes.
-
-I can't imagine that this is a show stopper. How many instances of=20
-struct netdev do we have o a typical system? I guess not the much.
-
->
-> Both downsides can be countered somewhat by enclosing the respective
-> code into #ifdef CONFIG_RFC3146_NDISC...#endif and have something lik=
-e
->      select RFC3146_NDISC if IPV6 =3D y || (IPV6 =3D m && FIREWIRE_NE=
-T =3D m)
-> in the "config FIREWIRE_NET" section.
->
-> But the new callback (if one is really needed) doesn't have to be a d=
-river
-> method.  It could also look about like this:
->
->      include/net/ndisc.h:
->      -extern struct ndisc_options *ndisc_parse_options(u8 *opt, int o=
-pt_len,
->      -		struct ndisc_options *ndopts);
->      +extern struct ndisc_options *__ndisc_parse_options(u8 *opt,
->      +		int opt_len, struct ndisc_options *ndopts,
->      +		whatever_type *callback);
->      +
->      +static inline struct ndisc_options *ndisc_parse_options(u8 *opt=
-,
->      +		int opt_len, struct ndisc_options *ndopts)
->      +{
->      +	return __ndisc_parse_options(opt, len, ndopts, NULL);
->      +}
->
->      net/ipv6/ndisc.c:
->      -struct ndisc_options *ndisc_parse_options(u8 *opt, int opt_len,
->      -		struct ndisc_options *ndopts)
->      +struct ndisc_options *__ndisc_parse_options(u8 *opt, int opt_le=
-n,
->      +		struct ndisc_options *ndopts, whatever_type *callback)
->       {
->
-> Or the (optional!) callback could be a new member of struct ndisc_opt=
-ions.
-
-Hm, right now I have no opinion on that. Where does
-whatever_type *callback comes from? Is it an exported method of the=20
-firewire net driver or the new function pointer in struct netdevice?
-
-> However, does net/ipv6/ndisc.c really need to be aware of the RFC 314=
-6
-> Neighbor Discovery related packet header layouts?  Isn't it possible =
-to
-> rewrite these headers in-place in drivers/firewire/net.c?
-
-
-Yes, it it possible, but yoshfuji strongly voted against rewriting ndis=
-c=20
-packets in firewire net driver to maintain extensibility to protocols.=20
-Especially IPSEC can just not work if I rewrite the packets in the driv=
-er.
-
-Regards,
-
-Stephan
-
-
---=20
-Welchen Unterschied gibt es zwischen einem toten Hund auf der
-Stra=DFe und einer =FCberfahrenen Bratsche auf der Stra=DFe? Vor dem
-toten Hund gibt es Bremsspuren.
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 71b6e92..6093e07 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -55,6 +55,9 @@
+ 
+ #define	DRIVER_VERSION				"14-Mar-2012"
+ 
++/* Flags for driver_info::data */
++#define CDC_NCM_DRIVER_DATA_NOARP  1
++
+ static void cdc_ncm_txpath_bh(unsigned long param);
+ static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
+ static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
+@@ -573,6 +576,10 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+ 		return -ENODEV;
+ #endif
+ 
++	if (dev->driver_info->data & CDC_NCM_DRIVER_DATA_NOARP) {
++		/* some buggy device cannot do ARP*/
++		dev->net->flags |= IFF_NOARP;
++	}
+ 	/* NCM data altsetting is always 1 */
+ 	ret = cdc_ncm_bind_common(dev, intf, 1);
+ 
+@@ -1155,6 +1162,21 @@ static const struct driver_info wwan_info = {
+ 	.tx_fixup = cdc_ncm_tx_fixup,
+ };
+ 
++/* Same as wwan_info, but with IFF_NOARP  */
++static const struct driver_info wwan_noarp_info = {
++	.description = "Mobile Broadband Network Device (NO ARP)",
++	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
++			| FLAG_WWAN,
++	.data = CDC_NCM_DRIVER_DATA_NOARP,
++	.bind = cdc_ncm_bind,
++	.unbind = cdc_ncm_unbind,
++	.check_connect = cdc_ncm_check_connect,
++	.manage_power = usbnet_manage_power,
++	.status = cdc_ncm_status,
++	.rx_fixup = cdc_ncm_rx_fixup,
++	.tx_fixup = cdc_ncm_tx_fixup,
++};
++
+ static const struct usb_device_id cdc_devs[] = {
+ 	/* Ericsson MBM devices like F5521gw */
+ 	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
+@@ -1194,6 +1216,13 @@ static const struct usb_device_id cdc_devs[] = {
+ 	  .driver_info = (unsigned long)&wwan_info,
+ 	},
+ 
++	/* Infineon(now Intel) HSPA Modem platform */
++	{ USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0443,
++		USB_CLASS_COMM,
++		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
++	  .driver_info = (unsigned long)&wwan_noarp_info,
++	},
++
+ 	/* Generic CDC-NCM devices */
+ 	{ USB_INTERFACE_INFO(USB_CLASS_COMM,
+ 		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+-- 
+1.7.6.5
