@@ -1,30 +1,44 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: IPv6 over firewire
-Date: Sat, 12 Jan 2013 15:42:51 +0100
-Message-ID: <50F1766B.3010301@gmail.com>
-References: <50EF1AEB.1080704@gmail.com> <20130110210912.09c62d38@stein> <50F10E94.9090302@gmail.com> <20130112102452.13babc65@stein> <50F140F7.60503@gmail.com> <20130112153755.3fd96d58@stein>
-Reply-To: stephan.gatzka@gmail.com
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [RFC PATCH 3/6] firewire net: Export fwnet_peerinfo structure
+ for ieee1394-specific peer information in ARP/NDP.
+Date: Sat, 12 Jan 2013 15:59:29 +0100
+Message-ID: <20130112155929.20a3d789@stein>
+References: <50F17162.4060005@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux1394-devel@lists.sourceforge.net, yoshfuji@linux-ipv6.org,
-	netdev@vger.kernel.org
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Cc: Stephan Gatzka <stephan.gatzka@gmail.com>, netdev@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:44733 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753292Ab3ALOmz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 09:42:55 -0500
-Received: by mail-ea0-f180.google.com with SMTP id c1so741527eaa.25
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 06:42:53 -0800 (PST)
-In-Reply-To: <20130112153755.3fd96d58@stein>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:59990 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753716Ab3ALO7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 09:59:46 -0500
+In-Reply-To: <50F17162.4060005@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Jan 12 YOSHIFUJI Hideaki wrote:
+[...]
+> --- /dev/null
+> +++ b/include/net/firewire.h
+> @@ -0,0 +1,11 @@
+> +#ifndef _NET_FIREWIRE_H
+> +#define _NET_FIREWIRE_H
+> +
+> +struct fwnet_peerinfo {
+> +	u8 max_rec;		/* Sender's max packet size		*/
+> +	u8 sspd;		/* Sender's max speed			*/
+> +	__be16 fifo_hi;		/* hi 16bits of sender's FIFO addr	*/
+> +	__be32 fifo_lo;		/* lo 32bits of sender's FIFO addr	*/
+> +} __packed;
+> +
+> +#endif
 
-> Apparently the Linux IPv6 core needs to learn a little bit about RFC 3146.
-> But it doesn't need to (and should not) learn anything about the Linux
-> IEEE 1394 implementation, that's what I am trying to convey. :-)
->
-
-That is something I'm absolutely with you. :)
+If it is deemed necessary to put definitions of on-the-wire formats of the
+RFC 2734 or RFC 3146 encapsulations into include/net/, then fine by me.
+-- 
+Stefan Richter
+-=====-===-= ---= -==--
+http://arcgraph.de/sr/
