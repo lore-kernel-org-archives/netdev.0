@@ -1,55 +1,30 @@
 From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [RFC PATCH 6/6] ipv6: IPv6 over IEEE1394 (RFC3146) support.
-Date: Sat, 12 Jan 2013 15:40:27 +0100
-Message-ID: <50F175DB.5050400@gmail.com>
-References: <50F17178.3090705@linux-ipv6.org>
+Subject: Re: IPv6 over firewire
+Date: Sat, 12 Jan 2013 15:42:51 +0100
+Message-ID: <50F1766B.3010301@gmail.com>
+References: <50EF1AEB.1080704@gmail.com> <20130110210912.09c62d38@stein> <50F10E94.9090302@gmail.com> <20130112102452.13babc65@stein> <50F140F7.60503@gmail.com> <20130112153755.3fd96d58@stein>
 Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>, netdev@vger.kernel.org,
-	linux1394-devel@lists.sourceforge.net
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: linux1394-devel@lists.sourceforge.net, yoshfuji@linux-ipv6.org,
+	netdev@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:60130 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753292Ab3ALOkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 09:40:31 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c13so1263581eek.27
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 06:40:30 -0800 (PST)
-In-Reply-To: <50F17178.3090705@linux-ipv6.org>
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:44733 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753292Ab3ALOmz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 09:42:55 -0500
+Received: by mail-ea0-f180.google.com with SMTP id c1so741527eaa.25
+        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 06:42:53 -0800 (PST)
+In-Reply-To: <20130112153755.3fd96d58@stein>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-That looks good to me and is more or less exactly I wanted to do.
 
+> Apparently the Linux IPv6 core needs to learn a little bit about RFC 3146.
+> But it doesn't need to (and should not) learn anything about the Linux
+> IEEE 1394 implementation, that's what I am trying to convey. :-)
+>
 
-> diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-> index 3c53257..1de4e0c 100644
-> --- a/include/net/ndisc.h
-> +++ b/include/net/ndisc.h
-> @@ -52,6 +52,7 @@ enum {
->   #include <linux/hash.h>
->   
->   #include <net/neighbour.h>
-> +#include <net/firewire.h>
-
--- snip --
-
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index 99cd286..9a0ba9c 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -72,6 +72,8 @@
->   #include <linux/netfilter.h>
->   #include <linux/netfilter_ipv6.h>
->   
-> +#include <net/firewire.h>
--- snip --
-
-But now we have to include firewire.h in the ndisc code.  The advantage
-is that we the firewire_net structure is now private.
-
-Regards,
-
-Stephan
+That is something I'm absolutely with you. :)
