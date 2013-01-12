@@ -1,49 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] networking/cs89x0.txt: delete stale
- information about hand patching
-Date: Fri, 11 Jan 2013 16:47:17 -0800 (PST)
-Message-ID: <20130111.164717.998537291622337013.davem@davemloft.net>
-References: <1357949976-11463-1-git-send-email-paul.gortmaker@windriver.com>
-	<20130111.163112.1015838278440673633.davem@davemloft.net>
-	<20130112004558.GB4625@windriver.com>
+Subject: Re: [PATCH net-next] net: splice: fix __splice_segment()
+Date: Fri, 11 Jan 2013 16:48:30 -0800 (PST)
+Message-ID: <20130111.164830.1939655866109021139.davem@davemloft.net>
+References: <20130110072136.GK9943@1wt.eu>
+	<1357831787.27446.2168.camel@edumazet-glaptop>
+	<1357951597.20249.247.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: w@1wt.eu, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48940 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48954 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755416Ab3ALArS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 19:47:18 -0500
-In-Reply-To: <20130112004558.GB4625@windriver.com>
+	with ESMTP id S1755744Ab3ALAsb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 19:48:31 -0500
+In-Reply-To: <1357951597.20249.247.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri, 11 Jan 2013 19:45:58 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 11 Jan 2013 16:46:37 -0800
 
-> [Re: [PATCH net-next] networking/cs89x0.txt: delete stale information about hand patching] On 11/01/2013 (Fri 16:31) David Miller wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
->> From: Paul Gortmaker <paul.gortmaker@windriver.com>
->> Date: Fri, 11 Jan 2013 19:19:36 -0500
->> 
->> > Output of a git grep happened to make me look into this file, and
->> > I found instructions about how to hand patch (without using patch)
->> > the driver into the kernel tree.
->> > 
->> > Since the driver has been a part of the mainline kernel for years,
->> > we can dump this whole section.  Fortunately it doesn't even cause
->> > a renumbering of the sections to do so.
->> > 
->> > Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
->> 
->> When removing a section you should fix up the numbers of the
->> remaining sections and any cross references within.
+> commit 9ca1b22d6d2 (net: splice: avoid high order page splitting)
+> forgot that skb->head could need a copy into several page frags.
 > 
-> Ah crap, I was so glad that I didn't have to renumber anything, that
-> I did forget to delete the dangling TOC entry; thanks for spotting
-> that, and sorry for the v2 on something so trivial.
+> This could be the case for loopback traffic mostly.
+> 
+> Also remove now useless skb argument from linear_to_page()
+> and __splice_segment() prototypes.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Willy Tarreau <w@1wt.eu>
 
-Section 5 is still numbered 5, you didn't renumber the sections after
-the one you are removing, as I asked you to.
+Applied, thanks Eric.
