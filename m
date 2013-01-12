@@ -1,45 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: phy: remove flags argument from
- phy_{attach,connect,connect_direct}
-Date: Fri, 11 Jan 2013 19:47:29 -0800 (PST)
-Message-ID: <20130111.194729.1404456884791637120.davem@davemloft.net>
-References: <1357903907-16049-1-git-send-email-florian@openwrt.org>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: IPv6 over firewire
+Date: Sat, 12 Jan 2013 09:27:30 +0100
+Message-ID: <20130112092730.2cd18294@stein>
+References: <50EF1AEB.1080704@gmail.com>
+	<50EFE095.2040505@linux-ipv6.org>
+	<50F10C53.4000803@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, konszert@marvell.com, afleming@gmail.com
-To: florian@openwrt.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: stephan.gatzka@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50447 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753656Ab3ALDra (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jan 2013 22:47:30 -0500
-In-Reply-To: <1357903907-16049-1-git-send-email-florian@openwrt.org>
+Received: from einhorn.in-berlin.de ([192.109.42.8]:57320 "EHLO
+	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752921Ab3ALI1v convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 03:27:51 -0500
+In-Reply-To: <50F10C53.4000803@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Fri, 11 Jan 2013 12:31:47 +0100
-
-> The flags argument of the phy_{attach,connect,connect_direct} functions
-> is used to assign a struct phy_device dev_flags with the value passed.
-> All callers but the tg3 driver pass the flag 0, which results in the
-> underlying PHY drivers in drivers/net/phy/ not being able to actually
-> use any of the flags they would check in dev_flags. This patch gets rid of
-> the flags argument, and passes phydev->dev_flags to the internal PHY
-> library call phy_attach_direct() such that drivers which actually modify
-> a phy device dev_flags get the value preserved for use by the underly
-> phy driver.
+On Jan 12 Stephan Gatzka wrote:
 > 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
+> > And, last but big issue is, well, packet inspection at
+> > driver level.  For example, you use ndisc_parse_options()
+> > and code depends on CONFIG_IPV6=y.
+> 
+> Good point. Of course I can make firewire-net dependent from IPv6.
+> 
+> The other option is to build a separate firewire_ipv6 module. 
+> Implementing that looks easy enough. From the original firewire net 
+> driver I just need a hook to register a function that investigates 
+> incoming packets for IPv6 link layer option. In addition, 
+> fwnet_peer_find_by_guid must be exported.
+> 
+> Stefan, what is your opinion on that?
 
-This change is fine, except for this part:
+>From your previous patch it looks like that the RFC 3146 related parts in
+drivers/firewire/net.c are just a few places that can be enclosed into
+#if/#endif blocks.  That way, firewire-net will be built according to the
+same Kconfig switches as before, and gets RFC 3146 capability if
+CONFIG_IPV6=y or =m.
 
-> diff --git a/include/linux/version.h b/include/linux/version.h
-> new file mode 100644
-> index 0000000..0c8c321
-> --- /dev/null
-> +++ b/include/linux/version.h
-> @@ -0,0 +1,2 @@
-> +#define LINUX_VERSION_CODE 197120
-> +#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#if/#endif are generally not very nice, but in this case I think they can
+be kept localized and thus are more beneficial than hurtful.
+
+There is a catch:  Since both net/ipv6/Kconfig::IPV6 and
+drivers/firewire/Kconfig::FIREWIRE_NET are tristate variables, we need to
+prevent CONFIG_FIREWIRE_NET=y while CONFIG_IPV6=m.  One way to do that
+would be like it was done for the infrared remote control support in the
+firedtv driver which depends on the CONFIG_INPUT tristate variable.  This
+was solved like this:
+  - The helper variable drivers/media/firewire/Kconfig::DVB_FIREDTV_INPUT
+    was added.
+  - This variable is true if CONFIG_INPUT=y,
+    or if CONFIG_DVB_FIREDTV=m and CONFIG_INPUT=m.
+    In other words, if CONFIG_INPUT=m and CONFIG_DVB_FIREDTV=y, firedtv
+    silently loses support for remote control input.
+  - The respective firedtv parts are of course made dependent on
+    CONFIG_DVB_FIREDTV.  In this case, only
+    drivers/media/firewire/firedtv.h and drivers/media/firewire/Makefile
+    are minimally affected.
+
+So, if implemented like that, the special case of CONFIG_FIREWIRE_NET=y &&
+CONFIG_IPV6=m would mean that firewire-net would be built but would lack
+RFC 3146 support.
+
+With a little bit more Kconfig related effort one could solve it such that
+CONFIG_FIREWIRE_NET=y && CONFIG_IPV6=m would actually put RFC 3146 support
+into firewire-net but would force it to be built modular instead of
+statically.
+
+Not sure which way is preferrable.  Cc'ing netdev.
+
+In case of CONFIG_IPV6=n however, people should still be able to build
+firewire-net with its current RFC 2734-only feature set.
+-- 
+Stefan Richter
+-=====-===-= ---= -==--
+http://arcgraph.de/sr/
