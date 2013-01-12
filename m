@@ -1,40 +1,51 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next] gianfar: use more portable i/o accessors
-Date: Sat, 12 Jan 2013 16:57:48 +0100
-Message-ID: <20130112155748.GA2286@netboy.at.omicron.at>
-References: <20130111161821.d62a0a60ee8d1005fb14b4d5@freescale.com>
- <6AE080B68D46FC4BA2D2769E68D765B70820D753@039-SN2MPN1-023.039d.mgd.msft.net>
+From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH net-next] be2net: fix unconditionally returning
+ IRQ_HANDLED in INTx
+Date: Sat, 12 Jan 2013 16:29:36 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C0F1F0CD6@RVEXMB1.ad.emulex.com>
+References: <ac9920f8-3e7c-4920-8323-510e648822c8@CMEXHTCAS2.ad.emulex.com>
+ <20130112.012146.1746775070657245621.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phillips Kim-R1AAHA <R1AAHA@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Tabi Timur-B04825 <B04825@freescale.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f49.google.com ([209.85.214.49]:41984 "EHLO
-	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752009Ab3ALP57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 10:57:59 -0500
-Received: by mail-bk0-f49.google.com with SMTP id jm19so1359889bkc.22
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 07:57:57 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <6AE080B68D46FC4BA2D2769E68D765B70820D753@039-SN2MPN1-023.039d.mgd.msft.net>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:10729 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753402Ab3ALQ3i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 11:29:38 -0500
+In-Reply-To: <20130112.012146.1746775070657245621.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 12, 2013 at 01:44:43PM +0000, Tabi Timur-B04825 wrote:
-> 
-> Can't we just get rid of these functions altogether?
+>-----Original Message-----
+>From: David Miller [mailto:davem@davemloft.net]
+>
+>From: Sathya Perla <sathya.perla@emulex.com>
+>Date: Sat, 12 Jan 2013 14:17:02 +0530
+>
+>> commit e49cc34f introduced an unconditional IRQ_HANDLED return in be_intx()
+>> to workaround Lancer and BE2 HW issues. This is bad as it prevents the kernel
+>> from detecting interrupt storms due to broken HW.
+>>
+...
+>> Issue (1) can cause the notified events to be orphaned, if NAPI was already
+>> running.
+>> This patch fixes this issue by scheduling NAPI only if it is not scheduled
+>> already. Doing this also takes care of possible events_get() race that may be
+>> caused due to issue (2) and (3). Also, IRQ_HANDLED is returned only the first
+>> time zero events are detected.
+>> (Thanks Ben H. for the feedback and suggestions.)
+>>
+>> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+>
+>Any particular reason why we shouldn't put this fix into 'net' instead
+>of 'net-next'?
 
-Since they are already in place, I would leave them there. Watching
-the kernel development over time, every few years these IO access
-idioms tend to change form, and having helper functions avoids huge
-change sets when updating.
+Dave, this fix can surely go into "net" as the previous commit is already in Linus tree....
+I guess I requested "net-next" just out of habit.
 
-> Or at least, get
-> rid of the local variable?
-
-Okay, sure.
-
-Thanks,
-Richard
+thanks,
+-Sathya 
