@@ -1,81 +1,99 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: IPv6 over firewire
-Date: Sat, 12 Jan 2013 09:27:30 +0100
-Message-ID: <20130112092730.2cd18294@stein>
-References: <50EF1AEB.1080704@gmail.com>
-	<50EFE095.2040505@linux-ipv6.org>
-	<50F10C53.4000803@gmail.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next] be2net: fix unconditionally returning IRQ_HANDLED in INTx
+Date: Sat, 12 Jan 2013 14:17:02 +0530
+Message-ID: <ac9920f8-3e7c-4920-8323-510e648822c8@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: stephan.gatzka@gmail.com
+Content-Type: text/plain
+Cc: Sathya Perla <sathya.perla@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:57320 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752921Ab3ALI1v convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 03:27:51 -0500
-In-Reply-To: <50F10C53.4000803@gmail.com>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:10526 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752941Ab3ALIog (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 03:44:36 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jan 12 Stephan Gatzka wrote:
-> 
-> > And, last but big issue is, well, packet inspection at
-> > driver level.  For example, you use ndisc_parse_options()
-> > and code depends on CONFIG_IPV6=y.
-> 
-> Good point. Of course I can make firewire-net dependent from IPv6.
-> 
-> The other option is to build a separate firewire_ipv6 module. 
-> Implementing that looks easy enough. From the original firewire net 
-> driver I just need a hook to register a function that investigates 
-> incoming packets for IPv6 link layer option. In addition, 
-> fwnet_peer_find_by_guid must be exported.
-> 
-> Stefan, what is your opinion on that?
+commit e49cc34f introduced an unconditional IRQ_HANDLED return in be_intx()
+to workaround Lancer and BE2 HW issues. This is bad as it prevents the kernel
+from detecting interrupt storms due to broken HW.
 
->From your previous patch it looks like that the RFC 3146 related parts in
-drivers/firewire/net.c are just a few places that can be enclosed into
-#if/#endif blocks.  That way, firewire-net will be built according to the
-same Kconfig switches as before, and gets RFC 3146 capability if
-CONFIG_IPV6=y or =m.
+The BE2/Lancer HW issues are:
+1) In Lancer, there is no means for the driver to detect if the interrupt
+belonged to device, other than counting and notifying events.
+2) In Lancer de-asserting INTx takes a while, causing the INTx irq handler
+to be called multiple times till the de-assert happens.
+3) In BE2, we see an occasional interrupt even when EQs are unarmed.
 
-#if/#endif are generally not very nice, but in this case I think they can
-be kept localized and thus are more beneficial than hurtful.
+Issue (1) can cause the notified events to be orphaned, if NAPI was already
+running.
+This patch fixes this issue by scheduling NAPI only if it is not scheduled
+already. Doing this also takes care of possible events_get() race that may be
+caused due to issue (2) and (3). Also, IRQ_HANDLED is returned only the first
+time zero events are detected.
+(Thanks Ben H. for the feedback and suggestions.)
 
-There is a catch:  Since both net/ipv6/Kconfig::IPV6 and
-drivers/firewire/Kconfig::FIREWIRE_NET are tristate variables, we need to
-prevent CONFIG_FIREWIRE_NET=y while CONFIG_IPV6=m.  One way to do that
-would be like it was done for the infrared remote control support in the
-firedtv driver which depends on the CONFIG_INPUT tristate variable.  This
-was solved like this:
-  - The helper variable drivers/media/firewire/Kconfig::DVB_FIREDTV_INPUT
-    was added.
-  - This variable is true if CONFIG_INPUT=y,
-    or if CONFIG_DVB_FIREDTV=m and CONFIG_INPUT=m.
-    In other words, if CONFIG_INPUT=m and CONFIG_DVB_FIREDTV=y, firedtv
-    silently loses support for remote control input.
-  - The respective firedtv parts are of course made dependent on
-    CONFIG_DVB_FIREDTV.  In this case, only
-    drivers/media/firewire/firedtv.h and drivers/media/firewire/Makefile
-    are minimally affected.
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_main.c |   29 ++++++++++++++++++--------
+ 2 files changed, 21 insertions(+), 9 deletions(-)
 
-So, if implemented like that, the special case of CONFIG_FIREWIRE_NET=y &&
-CONFIG_IPV6=m would mean that firewire-net would be built but would lack
-RFC 3146 support.
-
-With a little bit more Kconfig related effort one could solve it such that
-CONFIG_FIREWIRE_NET=y && CONFIG_IPV6=m would actually put RFC 3146 support
-into firewire-net but would force it to be built modular instead of
-statically.
-
-Not sure which way is preferrable.  Cc'ing netdev.
-
-In case of CONFIG_IPV6=n however, people should still be able to build
-firewire-net with its current RFC 2734-only feature set.
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 3bc1912..4eba17b 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -190,6 +190,7 @@ struct be_eq_obj {
+ 
+ 	u8 idx;			/* array index */
+ 	u16 tx_budget;
++	u16 spurious_intr;
+ 	struct napi_struct napi;
+ 	struct be_adapter *adapter;
+ } ____cacheline_aligned_in_smp;
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 9dca22b..5c99570 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2026,19 +2026,30 @@ static irqreturn_t be_intx(int irq, void *dev)
+ 	struct be_adapter *adapter = eqo->adapter;
+ 	int num_evts = 0;
+ 
+-	/* On Lancer, clear-intr bit of the EQ DB does not work.
+-	 * INTx is de-asserted only on notifying num evts.
++	/* IRQ is not expected when NAPI is scheduled as the EQ
++	 * will not be armed.
++	 * But, this can happen on Lancer INTx where it takes
++	 * a while to de-assert INTx or in BE2 where occasionaly
++	 * an interrupt may be raised even when EQ is unarmed.
++	 * If NAPI is already scheduled, then counting & notifying
++	 * events will orphan them.
+ 	 */
+-	if (lancer_chip(adapter))
++	if (napi_schedule_prep(&eqo->napi)) {
+ 		num_evts = events_get(eqo);
++		__napi_schedule(&eqo->napi);
++		if (num_evts)
++			eqo->spurious_intr = 0;
++	}
++	be_eq_notify(adapter, eqo->q.id, false, true, num_evts);
+ 
+-	/* The EQ-notify may not de-assert INTx rightaway, causing
+-	 * the ISR to be invoked again. So, return HANDLED even when
+-	 * num_evts is zero.
++	/* Return IRQ_HANDLED only for the the first spurious intr
++	 * after a valid intr to stop the kernel from branding
++	 * this irq as a bad one!
+ 	 */
+-	be_eq_notify(adapter, eqo->q.id, false, true, num_evts);
+-	napi_schedule(&eqo->napi);
+-	return IRQ_HANDLED;
++	if (num_evts || eqo->spurious_intr++ == 0)
++		return IRQ_HANDLED;
++	else
++		return IRQ_NONE;
+ }
+ 
+ static irqreturn_t be_msix(int irq, void *dev)
 -- 
-Stefan Richter
--=====-===-= ---= -==--
-http://arcgraph.de/sr/
+1.7.1
