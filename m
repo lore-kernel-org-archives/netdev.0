@@ -1,305 +1,94 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH 3/3] tg3: add support for Ethernet core in bcm4785
-Date: Sat, 12 Jan 2013 21:01:45 +0100
-Message-ID: <1358020905-9924-4-git-send-email-hauke@hauke-m.de>
-References: <1358020905-9924-1-git-send-email-hauke@hauke-m.de>
-Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
-	m@bues.ch, Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [RFC davem] revert: net: Make skb->skb_iif always track skb->dev
+Date: Sat, 12 Jan 2013 21:14:25 +0100
+Message-ID: <50F1C421.7080501@hartkopp.net>
+References: <50F1699E.1000200@hartkopp.net> <20130112181307.GA1567@minipsycho.orion> <50F1AE21.90701@hartkopp.net> <20130112193728.GB1567@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:55498 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754010Ab3ALUMu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2013 15:12:50 -0500
-In-Reply-To: <1358020905-9924-1-git-send-email-hauke@hauke-m.de>
+Received: from mo-p00-ob.rzone.de ([81.169.146.161]:60030 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754010Ab3ALUO2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 15:14:28 -0500
+In-Reply-To: <20130112193728.GB1567@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The BCM4785 or sometimes named BMC4705 is a Broadcom SoC which a
-Gigabit 5750 Ethernet core. The core is connected via PCI with the rest
-of the SoC, but it uses some extension.
+On 12.01.2013 20:37, Jiri Pirko wrote:
 
-This core does not use a firmware or an eeprom.
+> Sat, Jan 12, 2013 at 07:40:33PM CET, socketcan@hartkopp.net wrote:
 
-Some devices only have a switch which supports 100MBit/s, this
-currently does not work with this driver.
 
-This patch was original written by Michael Buesch <m@bues.ch> and is in
-OpenWrt for some years now.
+>> An there i wanted to add this code to omit sending the CAN frame on the
+>> originating interface:
+>>
+>> @@ .. @@ static void can_can_gw_rcv(struct sk_buff *skb, void *data
+>>
+>>        if (!(gwj->dst.dev->flags & IFF_UP)) {
+>>                gwj->dropped_frames++;
+>>                return;
+>>        }
+>>
+>> +       /* is sending the skb back to the incoming interface allowed? */
+>> +       if (!(gwj->flags & CGW_FLAGS_CAN_IIF_TX_OK) &&
+>> +           skb->skb_iif == gwj->dst.dev->ifindex)
+>> +               return;
+>> +
+>>        /*
+>>         * clone the given skb, which has not been done in can_rcv()
+>>         *
+>>
+>> This works fine, when the patch from Dave is reverted.
+>>
+>> I did not find any good solution to preserve the originating netdev over
+>> several netif_receive_skb() calls - but this skb_iif which has been made
+>> unusable ...
+> 
+> 
+> 
+> Well, look at struct receiver in net/can/af_can.h:
+> 
+> struct receiver {
+>         struct hlist_node list;
+>         struct rcu_head rcu;
+>         canid_t can_id;
+>         canid_t mask;
+>         unsigned long matches;
+>         void (*func)(struct sk_buff *, void *);
+>         void *data;
+>         char *ident;
+> };
+> 
+> your can_can_gw_rcv() is callback registered as ->func here.
+> This ->func is called from chain can_rcv->can_receive->can_rcv_filter->deliver
+> 
+> So just extend
+> ->func to something like:
+> 
+>         void (*func)(struct sk_buff *, struct neti_device *orig_dev, void *);
+> and pass the orig_dev all the way through the chain.
+> 
 
-This was tested on a Linksys WRT610N V1 and older version by other
-people on different devices.
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/tg3.c |  111 ++++++++++++++++++++++++++++++++---
- drivers/net/ethernet/broadcom/tg3.h |    5 ++
- include/linux/pci_ids.h             |    1 +
- 3 files changed, 110 insertions(+), 7 deletions(-)
+Passing the information up to the can-gw once is not the problem.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 6c397d7..788f0e3 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -44,6 +44,7 @@
- #include <linux/prefetch.h>
- #include <linux/dma-mapping.h>
- #include <linux/firmware.h>
-+#include <linux/ssb/ssb_driver_gige.h>
- #include <linux/hwmon.h>
- #include <linux/hwmon-sysfs.h>
- 
-@@ -263,6 +264,7 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
- 			TG3_DRV_DATA_FLAG_5705_10_100},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5721)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5722)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5750)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751M)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5751F),
-@@ -573,7 +575,9 @@ static void _tw32_flush(struct tg3 *tp, u32 off, u32 val, u32 usec_wait)
- static inline void tw32_mailbox_flush(struct tg3 *tp, u32 off, u32 val)
- {
- 	tp->write32_mbox(tp, off, val);
--	if (!tg3_flag(tp, MBOX_WRITE_REORDER) && !tg3_flag(tp, ICH_WORKAROUND))
-+	if (tg3_flag(tp, FLUSH_POSTED_WRITES) ||
-+	    (!tg3_flag(tp, MBOX_WRITE_REORDER) &&
-+	     !tg3_flag(tp, ICH_WORKAROUND)))
- 		tp->read32_mbox(tp, off);
- }
- 
-@@ -583,7 +587,8 @@ static void tg3_write32_tx_mbox(struct tg3 *tp, u32 off, u32 val)
- 	writel(val, mbox);
- 	if (tg3_flag(tp, TXD_MBOX_HWBUG))
- 		writel(val, mbox);
--	if (tg3_flag(tp, MBOX_WRITE_REORDER))
-+	if (tg3_flag(tp, MBOX_WRITE_REORDER) ||
-+	    tg3_flag(tp, FLUSH_POSTED_WRITES))
- 		readl(mbox);
- }
- 
-@@ -1781,6 +1786,11 @@ static int tg3_poll_fw(struct tg3 *tp)
- 	int i;
- 	u32 val;
- 
-+	if (tg3_flag(tp, IS_SSB_CORE)) {
-+		/* We don't use firmware. */
-+		return 0;
-+	}
-+
- 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906) {
- 		/* Wait up to 20ms for init done. */
- 		for (i = 0; i < 200; i++) {
-@@ -3453,6 +3463,11 @@ static int tg3_halt_cpu(struct tg3 *tp, u32 offset)
- 		tw32_f(offset + CPU_MODE,  CPU_MODE_HALT);
- 		udelay(10);
- 	} else {
-+		/* There is only an Rx CPU for the 5750 derivative in the
-+		 * BCM4785. */
-+		if (tg3_flag(tp, IS_SSB_CORE))
-+			return 0;
-+
- 		for (i = 0; i < 10000; i++) {
- 			tw32(offset + CPU_STATE, 0xffffffff);
- 			tw32(offset + CPU_MODE,  CPU_MODE_HALT);
-@@ -3920,8 +3935,9 @@ static int tg3_power_down_prepare(struct tg3 *tp)
- 	tg3_frob_aux_power(tp, true);
- 
- 	/* Workaround for unstable PLL clock */
--	if ((GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_AX) ||
--	    (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_BX)) {
-+	if ((!tg3_flag(tp, IS_SSB_CORE)) &&
-+	    ((GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_AX) ||
-+	     (GET_CHIP_REV(tp->pci_chip_rev_id) == CHIPREV_5750_BX))) {
- 		u32 val = tr32(0x7d00);
- 
- 		val &= ~((1 << 16) | (1 << 4) | (1 << 2) | (1 << 1) | 1);
-@@ -4442,6 +4458,15 @@ relink:
- 	if (current_link_up == 0 || (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)) {
- 		tg3_phy_copper_begin(tp);
- 
-+		if (tg3_flag(tp, ROBOSWITCH)) {
-+			current_link_up = 1;
-+			/* FIXME: when BCM5325 switch is used use 100 MBit/s */
-+			current_speed = SPEED_1000;
-+			current_duplex = DUPLEX_FULL;
-+			tp->link_config.active_speed = current_speed;
-+			tp->link_config.active_duplex = current_duplex;
-+		}
-+
- 		tg3_readphy(tp, MII_BMSR, &bmsr);
- 		if ((!tg3_readphy(tp, MII_BMSR, &bmsr) && (bmsr & BMSR_LSTATUS)) ||
- 		    (tp->mac_mode & MAC_MODE_PORT_INT_LPBACK))
-@@ -4460,6 +4485,26 @@ relink:
- 	else
- 		tp->mac_mode |= MAC_MODE_PORT_MODE_GMII;
- 
-+	/* In order for the 5750 core in BCM4785 chip to work properly
-+	 * in RGMII mode, the Led Control Register must be set up.
-+	 */
-+	if (tg3_flag(tp, RGMII_MODE)) {
-+		u32 led_ctrl = tr32(MAC_LED_CTRL);
-+		led_ctrl &= ~(LED_CTRL_1000MBPS_ON | LED_CTRL_100MBPS_ON);
-+
-+		if (tp->link_config.active_speed == SPEED_10)
-+			led_ctrl |= LED_CTRL_LNKLED_OVERRIDE;
-+		else if (tp->link_config.active_speed == SPEED_100)
-+			led_ctrl |= (LED_CTRL_LNKLED_OVERRIDE |
-+				     LED_CTRL_100MBPS_ON);
-+		else if (tp->link_config.active_speed == SPEED_1000)
-+			led_ctrl |= (LED_CTRL_LNKLED_OVERRIDE |
-+				     LED_CTRL_1000MBPS_ON);
-+
-+		tw32(MAC_LED_CTRL, led_ctrl);
-+		udelay(40);
-+	}
-+
- 	tp->mac_mode &= ~MAC_MODE_HALF_DUPLEX;
- 	if (tp->link_config.active_duplex == DUPLEX_HALF)
- 		tp->mac_mode |= MAC_MODE_HALF_DUPLEX;
-@@ -8436,6 +8481,14 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		tw32(0x5000, 0x400);
- 	}
- 
-+	if (tg3_flag(tp, IS_SSB_CORE)) {
-+		/* BCM4785: In order to avoid repercussions from using
-+		 * potentially defective internal ROM, stop the Rx RISC CPU,
-+		 * which is not required. */
-+		tg3_stop_fw(tp);
-+		tg3_halt_cpu(tp, RX_CPU_BASE);
-+	}
-+
- 	tw32(GRC_MODE, tp->grc_mode);
- 
- 	if (tp->pci_chip_rev_id == CHIPREV_ID_5705_A0) {
-@@ -10094,6 +10147,11 @@ static void tg3_timer(unsigned long __opaque)
- 	    tg3_flag(tp, 57765_CLASS))
- 		tg3_chk_missed_msi(tp);
- 
-+	if (tg3_flag(tp, FLUSH_POSTED_WRITES)) {
-+		/* BCM4785: Flush posted writes from GbE to host memory. */
-+		tr32(HOSTCC_MODE);
-+	}
-+
- 	if (!tg3_flag(tp, TAGGED_STATUS)) {
- 		/* All of this garbage is because when using non-tagged
- 		 * IRQ status the mailbox/status_block protocol the chip
-@@ -13866,6 +13924,14 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
- /* Chips other than 5700/5701 use the NVRAM for fetching info. */
- static void tg3_nvram_init(struct tg3 *tp)
- {
-+	if (tg3_flag(tp, IS_SSB_CORE)) {
-+		/* No NVRAM and EEPROM on the SSB Broadcom GigE core. */
-+		tg3_flag_clear(tp, NVRAM);
-+		tg3_flag_clear(tp, NVRAM_BUFFERED);
-+		tg3_flag_set(tp, NO_NVRAM);
-+		return;
-+	}
-+
- 	tw32_f(GRC_EEPROM_ADDR,
- 	     (EEPROM_ADDR_FSM_RESET |
- 	      (EEPROM_DEFAULT_CLOCK_PERIOD <<
-@@ -14392,10 +14458,19 @@ static int tg3_phy_probe(struct tg3 *tp)
- 			 * subsys device table.
- 			 */
- 			p = tg3_lookup_by_subsys(tp);
--			if (!p)
-+			if (p) {
-+				tp->phy_id = p->phy_id;
-+			} else if (!tg3_flag(tp, IS_SSB_CORE)) {
-+				/* For now we saw the IDs 0xbc050cd0,
-+				 * 0xbc050f80 and 0xbc050c30 on devices
-+				 * connected to an BCM4785 and there are
-+				 * probably more. Just assume that the phy is
-+				 * supported when it is connected to a SSB core
-+				 * for now.
-+				 */
- 				return -ENODEV;
-+			}
- 
--			tp->phy_id = p->phy_id;
- 			if (!tp->phy_id ||
- 			    tp->phy_id == TG3_PHY_ID_BCM8002)
- 				tp->phy_flags |= TG3_PHYFLG_PHY_SERDES;
-@@ -15471,6 +15546,11 @@ static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
- 				     TG3_CPMU_STATUS_FSHFT_5719;
- 	}
- 
-+	if (tg3_flag(tp, FLUSH_POSTED_WRITES)) {
-+		tp->write32_tx_mbox = tg3_write_flush_reg32;
-+		tp->write32_rx_mbox = tg3_write_flush_reg32;
-+	}
-+
- 	/* Get eeprom hw config before calling tg3_set_power_state().
- 	 * In particular, the TG3_FLAG_IS_NIC flag must be
- 	 * determined before calling tg3_set_power_state() so that
-@@ -15868,6 +15948,10 @@ static int tg3_get_device_address(struct tg3 *tp)
- 	}
- 
- 	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
-+		if (tg3_flag(tp, IS_SSB_CORE))
-+			ssb_gige_get_macaddr(tp->pdev, &dev->dev_addr[0]);
-+	}
-+	if (!is_valid_ether_addr(&dev->dev_addr[0])) {
- #ifdef CONFIG_SPARC
- 		if (!tg3_get_default_macaddr_sparc(tp))
- 			return 0;
-@@ -16152,7 +16236,8 @@ static int tg3_test_dma(struct tg3 *tp)
- 			if (tg3_flag(tp, 40BIT_DMA_BUG) &&
- 			    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704)
- 				tp->dma_rwctrl |= 0x8000;
--			else if (ccval == 0x6 || ccval == 0x7)
-+			else if ((ccval == 0x6 || ccval == 0x7) ||
-+				 tg3_flag(tp, ONE_DMA_AT_ONCE))
- 				tp->dma_rwctrl |= DMA_RWCTRL_ONE_DMA;
- 
- 			if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703)
-@@ -16516,6 +16601,18 @@ static int tg3_init_one(struct pci_dev *pdev,
- 	else
- 		tp->msg_enable = TG3_DEF_MSG_ENABLE;
- 
-+	if (pdev_is_ssb_gige_core(pdev)) {
-+		tg3_flag_set(tp, IS_SSB_CORE);
-+		if (ssb_gige_must_flush_posted_writes(pdev))
-+			tg3_flag_set(tp, FLUSH_POSTED_WRITES);
-+		if (ssb_gige_one_dma_at_once(pdev))
-+			tg3_flag_set(tp, ONE_DMA_AT_ONCE);
-+		if (ssb_gige_have_roboswitch(pdev))
-+			tg3_flag_set(tp, ROBOSWITCH);
-+		if (ssb_gige_is_rgmii(pdev))
-+			tg3_flag_set(tp, RGMII_MODE);
-+	}
-+
- 	/* The word/byte swap controls here control register access byte
- 	 * swapping.  DMA data byte swapping is controlled in the GRC_MODE
- 	 * setting below.
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 9cd88a4..ef6ced2 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -3056,6 +3056,11 @@ enum TG3_FLAGS {
- 	TG3_FLAG_57765_PLUS,
- 	TG3_FLAG_57765_CLASS,
- 	TG3_FLAG_5717_PLUS,
-+	TG3_FLAG_IS_SSB_CORE,
-+	TG3_FLAG_FLUSH_POSTED_WRITES,
-+	TG3_FLAG_ROBOSWITCH,
-+	TG3_FLAG_ONE_DMA_AT_ONCE,
-+	TG3_FLAG_RGMII_MODE,
- 
- 	/* Add new flags before this comment and TG3_FLAG_NUMBER_OF_FLAGS */
- 	TG3_FLAG_NUMBER_OF_FLAGS,	/* Last entry in enum TG3_FLAGS */
-diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
-index 0f84473..badb429 100644
---- a/include/linux/pci_ids.h
-+++ b/include/linux/pci_ids.h
-@@ -2126,6 +2126,7 @@
- #define PCI_DEVICE_ID_TIGON3_5754M	0x1672
- #define PCI_DEVICE_ID_TIGON3_5755M	0x1673
- #define PCI_DEVICE_ID_TIGON3_5756	0x1674
-+#define PCI_DEVICE_ID_TIGON3_5750	0x1676
- #define PCI_DEVICE_ID_TIGON3_5751	0x1677
- #define PCI_DEVICE_ID_TIGON3_5715	0x1678
- #define PCI_DEVICE_ID_TIGON3_5715S	0x1679
--- 
-1.7.10.4
+But when this skb has to be routed to another CAN netdev it is cloned and goes
+down from can_can_gw_rcv() to
+-> can_send(cloned_skb) -> dev_queue_xmit(cloned_skb)
+
+And when it has been sent successfully on the CAN bus the cloned_skb is echoed
+back into the system via netif_rx_ni(cloned_skb).
+(see http://lxr.linux.no/#linux+v3.7.2/Documentation/networking/can.txt#L177 )
+
+This entire path - using dev_queue_xmit() / netif_rx_ni() - is reduced to a
+skb structure and can not deal with any orig_dev pointer.
+
+Therefore storing the first incoming interface in skb_iif is relevant for this
+use-case.
+
+Regards,
+Oliver
