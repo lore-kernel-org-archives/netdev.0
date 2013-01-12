@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2 1/3] tuntap: switch to use rtnl_dereference()
-Date: Sat, 12 Jan 2013 10:59:32 +0800
-Message-ID: <1357959574-13113-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH V2 3/3] tuntap: fix leaking reference count
+Date: Sat, 12 Jan 2013 10:59:34 +0800
+Message-ID: <1357959574-13113-4-git-send-email-jasowang@redhat.com>
 References: <1357959574-13113-1-git-send-email-jasowang@redhat.com>
 Cc: edumazet@google.com, stefanha@redhat.com,
 	Jason Wang <jasowang@redhat.com>
@@ -12,107 +12,59 @@ In-Reply-To: <1357959574-13113-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Switch to use rtnl_dereference() instead of the open code, suggested by Eric.
+Reference count leaking of both module and sock were found:
 
-Cc: Eric Dumazet <edumazet@google.com>
+- When a detached file were closed, its sock refcnt from device were not
+  released, solving this by add the sock_put().
+- The module were hold or drop unconditionally in TUNSETPERSIST, which means we
+  if we set the persist flag for N times, we need unset it for another N
+  times. Solving this by only hold or drop an reference when there's a flag
+  change and also drop the reference count when the persist device is deleted.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/tun.c |   27 ++++++++++-----------------
- 1 files changed, 10 insertions(+), 17 deletions(-)
+ drivers/net/tun.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 99b58d8..aa963c4 100644
+index a36b56f..af372d0 100644
 --- a/drivers/net/tun.c
 +++ b/drivers/net/tun.c
-@@ -404,8 +404,8 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 	struct tun_struct *tun;
- 	struct net_device *dev;
- 
--	tun = rcu_dereference_protected(tfile->tun,
--					lockdep_rtnl_is_held());
-+	tun = rtnl_dereference(tfile->tun);
-+
- 	if (tun) {
- 		u16 index = tfile->queue_index;
- 		BUG_ON(index >= tun->numqueues);
-@@ -414,8 +414,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 		rcu_assign_pointer(tun->tfiles[index],
- 				   tun->tfiles[tun->numqueues - 1]);
- 		rcu_assign_pointer(tfile->tun, NULL);
--		ntfile = rcu_dereference_protected(tun->tfiles[index],
--						   lockdep_rtnl_is_held());
-+		ntfile = rtnl_dereference(tun->tfiles[index]);
- 		ntfile->queue_index = index;
- 
- 		--tun->numqueues;
-@@ -458,8 +457,7 @@ static void tun_detach_all(struct net_device *dev)
- 	int i, n = tun->numqueues;
- 
- 	for (i = 0; i < n; i++) {
--		tfile = rcu_dereference_protected(tun->tfiles[i],
--						  lockdep_rtnl_is_held());
-+		tfile = rtnl_dereference(tun->tfiles[i]);
- 		BUG_ON(!tfile);
- 		wake_up_all(&tfile->wq.wait);
- 		rcu_assign_pointer(tfile->tun, NULL);
-@@ -469,8 +467,7 @@ static void tun_detach_all(struct net_device *dev)
- 
- 	synchronize_net();
- 	for (i = 0; i < n; i++) {
--		tfile = rcu_dereference_protected(tun->tfiles[i],
--						  lockdep_rtnl_is_held());
-+		tfile = rtnl_dereference(tun->tfiles[i]);
+@@ -428,8 +428,10 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
  		/* Drop read queue */
  		skb_queue_purge(&tfile->sk.sk_receive_queue);
+ 		tun_set_real_num_queues(tun);
+-	} else if (tfile->detached && clean)
++	} else if (tfile->detached && clean) {
+ 		tun = tun_enable_queue(tfile);
++		sock_put(&tfile->sk);
++	}
+ 
+ 	if (clean) {
+ 		if (tun && tun->numqueues == 0 && tun->numdisabled == 0 &&
+@@ -478,6 +480,9 @@ static void tun_detach_all(struct net_device *dev)
  		sock_put(&tfile->sk);
-@@ -489,7 +486,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
- 	int err;
- 
- 	err = -EINVAL;
--	if (rcu_dereference_protected(tfile->tun, lockdep_rtnl_is_held()))
-+	if (rtnl_dereference(tfile->tun))
- 		goto out;
- 	if (tfile->detached && tun != tfile->detached)
- 		goto out;
-@@ -1740,8 +1737,7 @@ static void tun_detach_filter(struct tun_struct *tun, int n)
- 	struct tun_file *tfile;
- 
- 	for (i = 0; i < n; i++) {
--		tfile = rcu_dereference_protected(tun->tfiles[i],
--						  lockdep_rtnl_is_held());
-+		tfile = rtnl_dereference(tun->tfiles[i]);
- 		sk_detach_filter(tfile->socket.sk);
  	}
- 
-@@ -1754,8 +1750,7 @@ static int tun_attach_filter(struct tun_struct *tun)
- 	struct tun_file *tfile;
- 
- 	for (i = 0; i < tun->numqueues; i++) {
--		tfile = rcu_dereference_protected(tun->tfiles[i],
--						  lockdep_rtnl_is_held());
-+		tfile = rtnl_dereference(tun->tfiles[i]);
- 		ret = sk_attach_filter(&tun->fprog, tfile->socket.sk);
- 		if (ret) {
- 			tun_detach_filter(tun, i);
-@@ -1773,8 +1768,7 @@ static void tun_set_sndbuf(struct tun_struct *tun)
- 	int i;
- 
- 	for (i = 0; i < tun->numqueues; i++) {
--		tfile = rcu_dereference_protected(tun->tfiles[i],
--						lockdep_rtnl_is_held());
-+		tfile = rtnl_dereference(tun->tfiles[i]);
- 		tfile->socket.sk->sk_sndbuf = tun->sndbuf;
- 	}
+ 	BUG_ON(tun->numdisabled != 0);
++
++	if (tun->flags & TUN_PERSIST)
++		module_put(THIS_MODULE);
  }
-@@ -1794,8 +1788,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
- 		else
- 			ret = tun_attach(tun, file);
- 	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
--		tun = rcu_dereference_protected(tfile->tun,
--						lockdep_rtnl_is_held());
-+		tun = rtnl_dereference(tfile->tun);
- 		if (!tun || !(tun->flags & TUN_TAP_MQ))
- 			ret = -EINVAL;
- 		else
+ 
+ static int tun_attach(struct tun_struct *tun, struct file *file)
+@@ -1874,10 +1879,11 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
+ 		/* Disable/Enable persist mode. Keep an extra reference to the
+ 		 * module to prevent the module being unprobed.
+ 		 */
+-		if (arg) {
++		if (arg && !(tun->flags & TUN_PERSIST)) {
+ 			tun->flags |= TUN_PERSIST;
+ 			__module_get(THIS_MODULE);
+-		} else {
++		}
++		if (!arg && (tun->flags & TUN_PERSIST)) {
+ 			tun->flags &= ~TUN_PERSIST;
+ 			module_put(THIS_MODULE);
+ 		}
 -- 
 1.7.1
