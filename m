@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH V3 2/2] vhost: handle polling errors
-Date: Sun, 13 Jan 2013 13:10:35 +0200
-Message-ID: <20130113111035.GA23431@redhat.com>
+Date: Sun, 13 Jan 2013 13:04:55 +0200
+Message-ID: <20130113110455.GB23238@redhat.com>
 References: <1357456718-3072-1-git-send-email-jasowang@redhat.com>
 	<1357456718-3072-3-git-send-email-jasowang@redhat.com>
 	<20130106132201.GC18612@redhat.com> <50EA5139.7000904@redhat.com>
@@ -133,16 +133,16 @@ On Mon, Jan 07, 2013 at 11:04:32PM +0800, Jason Wang wrote:
 > > Doesn't it?
 > 
 > Doesn't work for 2 I think, the socket didn't hold a refcnt of the
-> device, so the device can go away at anytime. Although we can change
+> device, so the device can go away at anytime.
+
+Hmm I don't really understand.
+All we care about is that socket is around no?
+Could you please show how a problematic case can
+be triggered?
+
+
+> Although we can change
 > this, but it's the behaviour before multiqueue support.
-
-Hmm there's one scenario that does seem to
-trigger this: queue can get disabled
-and then poll fails.
-
-Is this the only issue?
-
-
 > >
 > >> Not sure it's worth to do this work,
 > >> maybe a warning is enough just like other failure.
@@ -152,6 +152,14 @@ Is this the only issue?
 > 
 > If userspace is wrote correctly, (e.g passing a fd with correct state)
 > it can also be corrected.
+
+What I mean is that since we don't poll
+the backend, there appears to be no way to
+recover. So I'd prefer that we prevent
+userspace from creating this broken configuration
+when ring is running.
+
+
 > >
 > >>>>  		mutex_unlock(&vq->mutex);
 > >>>>  		return;
