@@ -1,67 +1,31 @@
-From: Thomas Backlund <tmb@mageia.org>
-Subject: Re: if_bridge.h: include in6.h for struct in6_addr use
-Date: Sun, 13 Jan 2013 22:05:57 +0200
-Message-ID: <50F313A5.3020707@mageia.org>
-References: <50F2FF1B.3020708@mageia.org>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: Re: [PATCH 0/3] tg3: add support for Ethernet core in BCM4785
+Date: Sun, 13 Jan 2013 23:26:13 +0100
+Message-ID: <50F33485.8070008@hauke-m.de>
+References: <1358020905-9924-1-git-send-email-hauke@hauke-m.de> <20130112.153230.941764467355663758.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, libvirt-list@redhat.com
-To: netdev@vger.kernel.org
+Cc: mcarlson@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org,
+	m@bues.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.multi.fi ([85.134.37.151]:44082 "EHLO smtp.multi.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756029Ab3AMUGI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Jan 2013 15:06:08 -0500
-In-Reply-To: <50F2FF1B.3020708@mageia.org>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:57322 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756067Ab3AMW01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Jan 2013 17:26:27 -0500
+In-Reply-To: <20130112.153230.941764467355663758.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thomas Backlund skrev 13.1.2013 20:38:
-> patch both inline and attached as thunderbird tends to mess up ...
+On 01/13/2013 12:32 AM, David Miller wrote:
+> From: Hauke Mehrtens <hauke@hauke-m.de>
+> Date: Sat, 12 Jan 2013 21:01:42 +0100
+> 
+>> These patches are adding support for the Ethernet core found in the BCM4705/BCM4785 SoC.
+>>
+> 
+> You must always indicate what tree you are targetting your changes
+> at, rather than have me guess.
 
-> -----
->
-> if_bridge.h uses struct in6_addr ip6; but does not include the in6.h
-> header.
->
-> Found by trying to build libvirt and connman against 3.8-rc3 headers.
->
-
-Ok,
-ignore this patch, it's not the correct fix as it introduces
-redefinitions...
-
-Btw, the error that I hit that made me suggest this fix was libvirt
-config check bailing out:
-
-config.log:/usr/include/linux/if_bridge.h:173:20: error: field 'ip6' has 
-incomplete type
-
-> Reported-by: Colin Guthrie <colin@mageia.org>
-> Reported-by: Christiaan Welvaart <cjw@daneel.dyndns.org>
-> Signed-off-by: Thomas Backlund <tmb@mageia.org>
->
-> --
->
-> diff -Nurp linux-3.8-rc3/include/uapi/linux/if_bridge.h
-> linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h
-> --- linux-3.8-rc3/include/uapi/linux/if_bridge.h        2013-01-13
-> 20:09:54.257271755 +0200
-> +++ linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h    2013-01-13
-> 20:15:04.153676151 +0200
-> @@ -14,6 +14,7 @@
->   #define _UAPI_LINUX_IF_BRIDGE_H
->
->   #include <linux/types.h>
-> +#include <linux/in6.h>
->
->   #define SYSFS_BRIDGE_ATTR      "bridge"
->   #define SYSFS_BRIDGE_FDB       "brforward"
->
->
-> -----
-> Thomas
->
---
-Thomas
+Sorry, I missed that in the cover letter, this is based your net-next  tree.
