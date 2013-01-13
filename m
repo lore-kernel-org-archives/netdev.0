@@ -1,71 +1,100 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: Re: [PATCH 1/3] ssb: add missing method ssb_gige_get_macaddr
-Date: Sun, 13 Jan 2013 23:31:58 +0100
-Message-ID: <50F335DE.5020306@hauke-m.de>
-References: <1358020905-9924-1-git-send-email-hauke@hauke-m.de> <1358020905-9924-2-git-send-email-hauke@hauke-m.de> <20130112.153211.562541025115995797.davem@davemloft.net> <20130113104729.37b9fa03@milhouse>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request: batman-adv 2013-01-14
+Date: Mon, 14 Jan 2013 09:41:05 +1000
+Message-ID: <1358120480-25960-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, mcarlson@broadcom.com,
-	mchan@broadcom.com, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Michael_B=FCsch?= <m@bues.ch>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:57342 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755774Ab3AMWcL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Jan 2013 17:32:11 -0500
-In-Reply-To: <20130113104729.37b9fa03@milhouse>
+Received: from diserzione.investici.org ([82.221.99.153]:49306 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755309Ab3AMXmW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 18:42:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+this is our first changeset intended for net-next/linux-3.9.
+In this batch you have mostly code refactoring, style adjustments and o=
+utput
+beautifications.
+The only new 'behaviours' are:
+- prevent the TT component from learning multicast mac addresses as the=
+y are not
+  really handled (yet)
+- initialise own lockdep class for each hash table in order to avoid fa=
+lse
+  positive from lockdep
 
-On 01/13/2013 10:47 AM, Michael B=FCsch wrote:
-> On Sat, 12 Jan 2013 15:32:11 -0800 (PST) David Miller
-> <davem@davemloft.net> wrote:
->=20
->> From: Hauke Mehrtens <hauke@hauke-m.de> Date: Sat, 12 Jan 2013
->> 21:01:43 +0100
->>=20
->>> When CONFIG_SSB_DRIVER_GIGE is not set the header does not
->>> provide the needed method.
->>>=20
->>> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
->>=20
->> This isn't right.
->>=20
->> You can't implement this function in a way that the caller
->> cannot determine that it didn't actually do anything.
->>=20
->> You either have to protect calls with ifdefs or make this
->> routine return an error indication, in response to which the
->> caller can set a random ethernet address or take some other
->> corrective action.
->=20
-> tg3 uses is_valid_ether_addr() afterwards anyway. An error code
-> return value could be added, but it didn't seem necessary.
 
-David, I could change that function to return an error code in this
-case, but this stub should never get called, because a caller should
-check if this device is a ssb gige core with pdev_is_ssb_gige_core()
-before and this always returns false if CONFIG_SSB_DRIVER_GIGE is not s=
-et.
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
+Please pull or let me know if there is any problem.
+Thanks a lot,
+	Antonio
 
-iQIcBAEBAgAGBQJQ8zXWAAoJEIZ0px9YPRMyFgEP/Rz1BOXwbHawvupAWKCLdhm5
-UquCnygVZrsbskN63c5R4OfVXGZ6UFihbf1xKHq4IRv9UXkNdymoiCmv6sUVfkjR
-=46emyqRZ4QOz08cbVhb0k0nEIpVguyf16063kGo4JHIGAZc54xruMZv54uZYOfvvR
-GYbTsVbkzNvW2ArVesGGYjbKHyEyOmjqW5GvjyyH72cQK+vZI8PBRC8tO9l8d3D1
-pq3KnHSeOEXBbODgWC36QmcMV8EEQ4BAxJQjsABXO7KRyu0HpAu7zSEn8aGhV4ln
-X1q6WMzPQIOjJhmxJUGbnJEo1s05/AjT2lIU7J7QcHN21YQqIUjWzG9lYCWcbhX/
-RloFjEk/Gf80CfzJj97RCLKiJScfa8tdbvFvisDZaQVbet7Ql5nHeRSyiMTzMFKi
-oivkh3gmaN/2CE8rgj5QIiL3DSzy0MY2cbTZMx3QmYAlTQ52cTT3NLRaT5RKxv3c
-gAUq0EvkOZhHKo/WkBWbI/V4p4CWNhJI/wNphHuOM7lJ3kvfITXw17+/29rywkZY
-pB5TwdlQBtuRUjAbXvUJmfIAZE1p4bd9+0liW+qPlpoa1d7ZOaTWPhxUg+74kvgP
-rItNpGf9RAb7/A/n9XjciemihcMpEH4BjShgJVNN66+LwfbQ2ZRNGsJfyJZGcYEO
-n7qAWVoPmgKihES59NtA
-=3D1JMZ
------END PGP SIGNATURE-----
+
+The following changes since commit 00494be4546432a11d62ebfeca363256ff98=
+22b5:
+
+  networking/cs89x0.txt: delete stale information about hand patching (=
+2013-01-11 16:52:26 -0800)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 0c430d0d7b8bafa74959a84156ef0bda1417a3d4=
+:
+
+  batman-adv: unbloat batadv_priv if debug is not enabled (2013-01-12 2=
+0:58:23 +1000)
+
+----------------------------------------------------------------
+Included changes:
+- use per_cpu_add when possible
+- prevent the TT component to add multicast address as "mesh clients"
+- some debug output improvements
+- proper lockdeps class initializations
+- new style fixes (space before/after brackets)
+- other minor fixes and refactoring
+
+----------------------------------------------------------------
+Antonio Quartulli (11):
+      batman-adv: reduce local TT entry timeout to 10 minutes
+      batman-adv: improve local translation table output
+      batman-adv: print the CRC together with the translation tables
+      batman-adv: unify and properly print hex values
+      batman-adv: remove useless assignment in tt_local_add()
+      batman-adv: Initialize lockdep class keys for hashes
+      batman-adv: remove useless blank lines before and after brackets
+      batman-adv: remove useless NULL check
+      batman-adv: don't compile the BLA switch if not requested
+      batman-adv: use the const qualifier in hash functions
+      batman-adv: fix typo in debug message
+
+Linus L=C3=BCssing (1):
+      batman-adv: Do not add multicast MAC addresses to translation tab=
+le
+
+Marek Lindner (2):
+      batman-adv: remove unused variable from orig_node struct
+      batman-adv: unbloat batadv_priv if debug is not enabled
+
+Shan Wei (1):
+      batman-adv: use per_cpu_add helper
+
+ net/batman-adv/bat_iv_ogm.c            |  8 +---
+ net/batman-adv/bridge_loop_avoidance.c | 24 +++++------
+ net/batman-adv/debugfs.c               |  8 +---
+ net/batman-adv/hash.h                  |  2 +-
+ net/batman-adv/main.h                  |  6 +--
+ net/batman-adv/originator.c            |  9 +++--
+ net/batman-adv/routing.c               |  4 --
+ net/batman-adv/send.c                  |  2 -
+ net/batman-adv/soft-interface.c        |  7 +++-
+ net/batman-adv/translation-table.c     | 73 ++++++++++++++++++++++----=
+--------
+ net/batman-adv/types.h                 |  7 +++-
+ net/batman-adv/unicast.c               |  2 -
+ net/batman-adv/vis.c                   |  6 +++
+ 13 files changed, 88 insertions(+), 70 deletions(-)
