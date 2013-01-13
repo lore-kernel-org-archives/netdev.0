@@ -1,58 +1,53 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [PATCH net-next] pkt_sched: namespace aware ifb
-Date: Sat, 12 Jan 2013 22:50:13 -0500
-Message-ID: <20130113035013.GJ5259@kvack.org>
-References: <50F1699E.1000200@hartkopp.net> <20130112.132316.2121287993605534669.davem@davemloft.net> <20130112.133630.257139657732337147.davem@davemloft.net> <1358046374.20249.1789.camel@edumazet-glaptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC PATCH 6/6] ipv6: IPv6 over IEEE1394 (RFC3146) support.
+Date: Sun, 13 Jan 2013 12:57:08 +0900
+Message-ID: <50F23094.9040003@linux-ipv6.org>
+References: <50F17178.3090705@linux-ipv6.org> <20130112164741.1a0ab7bb@stein> <50F191CF.3060803@linux-ipv6.org> <50F192DF.9090100@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>, netdev@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kanga.kvack.org ([205.233.56.17]:47246 "EHLO kanga.kvack.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754457Ab3AMDuO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jan 2013 22:50:14 -0500
-Content-Disposition: inline
-In-Reply-To: <1358046374.20249.1789.camel@edumazet-glaptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:37525 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754258Ab3AMD5L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jan 2013 22:57:11 -0500
+In-Reply-To: <50F192DF.9090100@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 12, 2013 at 07:06:14PM -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> act_mirred needs to find the current net_ns, and struct net
-> pointer is not provided in the call chain. We run in process
-> context and current->nsproxy->net_ns is the needed pointer.
-...
+Stephan Gatzka wrote:
+>> How about putting EUI64, maxrec, sspd and fifo in dev->dev_addr?
+>> This enable us to send NDISC/ARP packet easily (based on neighbor
+>> cache entry), and driver can be notified for new neighbors (thus
+>> new peers).
+> Hm, that looks a bit strange to me, because we need that only for link layer option packets and not for every IPv6 packet transmitted via firewire.
 
-I don't think this is correct.  Going by the call chain, tcf_action_add can 
-be called because of a netlink message, and that netlink message may not be 
-in the same "struct net" as the current process.  It looks like the ->init 
-operation is going to need to have the namespace passed in for this to work 
-correctly.
+It seems the stack will be clearner, overall.
 
-		-ben
+In addition to ARP/NDP things, for example, it will become easier to
+implement multicast as well; IP layer can tell net_device layer
+multicast listener information via special mapping.
 
-> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-> index 9c0fd0c..f5a7e18 100644
-> --- a/net/sched/act_mirred.c
-> +++ b/net/sched/act_mirred.c
-> @@ -88,7 +88,7 @@ static int tcf_mirred_init(struct nlattr *nla, struct nlattr *est,
->  		return -EINVAL;
->  	}
->  	if (parm->ifindex) {
-> -		dev = __dev_get_by_index(&init_net, parm->ifindex);
-> +		dev = __dev_get_by_index(current->nsproxy->net_ns, parm->ifindex);
->  		if (dev == NULL)
->  			return -ENODEV;
->  		switch (dev->type) {
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Given multicast bit is disabled in the Unique ID (well, it should be
+disabled; otherwise, disable multicast bit and trun on locally
+administrated bit), IP layer can tell full IPv6 address via
+ip6_mc_map() by copying full IPv6 address to EUI-64 + additional
+space, e.g: 
+  IPv6: FF xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx (IPv6 mutlicast address (FF00::/8))
+Similar in IPv4:
+  IPv4: 01 00 00 00 00 00 00 00 00 00 00 00 xx xx xx xx (IPv4 multicast address)
 
--- 
-"Thought is the essence of where you are now."
+Device will be notified via dev_mc_add() / dev_mc_del(),
+then net_device_opts->ndo_set_rx_mode(), and you can manage
+multicast lists based on that.
+
+When sending the driver can determine if the packet is multicast or not
+by seeing 0x01 bit in the first octet in the destination virtual
+"MAC" address, and then MCAP manager can determine IP version by seeing
+the first octet of our virtual "MAC" address.
+
+--yoshfuji
