@@ -1,101 +1,153 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 3/7] ipv6: Use ipv6_get_dsfield() instead of ipv6_tclass().
-Date: Mon, 14 Jan 2013 00:02:01 +0900
-Message-ID: <50F2CC69.9000808@linux-ipv6.org>
+Subject: [PATCH net-next 4/7] ipv6: Make ipv6_is_mld() inline and use it from
+ ip6_mc_input().
+Date: Mon, 14 Jan 2013 00:02:18 +0900
+Message-ID: <50F2CC7A.9070400@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38234 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38237 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755061Ab3AMPCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 10:02:02 -0500
+	with ESMTP id S1755019Ab3AMPCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 10:02:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 7a3198a8 ("ipv6: helper function to get tclass") introduced
-ipv6_tclass(), but similar function is already available as
-ipv6_get_dsfield().
-
-We might be able to call ipv6_tclass() from ipv6_get_dsfield(),
-but it is confusing to have two versions.
+Move generalized version of ipv6_is_mld() to header,
+and use it from ip6_mc_input().
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/linux/ipv6.h |    5 -----
- net/ipv6/datagram.c  |    3 ++-
- net/ipv6/tcp_ipv6.c  |    6 +++---
- 3 files changed, 5 insertions(+), 9 deletions(-)
+ include/net/addrconf.h |   26 +++++++++++++++++++++++++-
+ net/ipv6/ip6_input.c   |   21 +++------------------
+ net/ipv6/mcast.c       |   27 ---------------------------
+ 3 files changed, 28 insertions(+), 46 deletions(-)
 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index faed1e3..304a9f4 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -77,11 +77,6 @@ static inline struct ipv6hdr *ipipv6_hdr(const struct sk_buff *skb)
- 	return (struct ipv6hdr *)skb_transport_header(skb);
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index df4ef94..7cd14c0 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -150,7 +150,31 @@ extern void addrconf_dad_failure(struct inet6_ifaddr *ifp);
+ extern bool ipv6_chk_mcast_addr(struct net_device *dev,
+ 				const struct in6_addr *group,
+ 				const struct in6_addr *src_addr);
+-extern bool ipv6_is_mld(struct sk_buff *skb, int nexthdr);
++
++/*
++ * identify MLD packets for MLD filter exceptions
++ */
++static inline bool ipv6_is_mld(struct sk_buff *skb, int nexthdr, int offset)
++{
++	struct icmp6hdr *hdr;
++
++	if (nexthdr != IPPROTO_ICMPV6 ||
++	    !pskb_network_may_pull(skb, offset + sizeof(struct icmp6hdr)))
++		return false;
++
++	hdr = (struct icmp6hdr *)(skb_network_header(skb) + offset);
++
++	switch (hdr->icmp6_type) {
++	case ICMPV6_MGM_QUERY:
++	case ICMPV6_MGM_REPORT:
++	case ICMPV6_MGM_REDUCTION:
++	case ICMPV6_MLD2_REPORT:
++		return true;
++	default:
++		break;
++	}
++	return false;
++}
+ 
+ extern void addrconf_prefix_rcv(struct net_device *dev,
+ 				u8 *opt, int len, bool sllao);
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index a52d864..2ccd35e 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -212,7 +212,7 @@ resubmit:
+ 			if (ipv6_addr_is_multicast(&hdr->daddr) &&
+ 			    !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
+ 			    &hdr->saddr) &&
+-			    !ipv6_is_mld(skb, nexthdr))
++			    !ipv6_is_mld(skb, nexthdr, skb_network_header_len(skb)))
+ 				goto discard;
+ 		}
+ 		if (!(ipprot->flags & INET6_PROTO_NOPOLICY) &&
+@@ -283,7 +283,6 @@ int ip6_mc_input(struct sk_buff *skb)
+ 		if (unlikely(opt->ra)) {
+ 			/* Check if this is a mld message */
+ 			u8 *ptr = skb_network_header(skb) + opt->ra;
+-			struct icmp6hdr *icmp6;
+ 			u8 nexthdr = hdr->nexthdr;
+ 			__be16 frag_off;
+ 			int offset;
+@@ -303,24 +302,10 @@ int ip6_mc_input(struct sk_buff *skb)
+ 				if (offset < 0)
+ 					goto out;
+ 
+-				if (nexthdr != IPPROTO_ICMPV6)
++				if (!ipv6_is_mld(skb, nexthdr, offset))
+ 					goto out;
+ 
+-				if (!pskb_may_pull(skb, (skb_network_header(skb) +
+-						   offset + 1 - skb->data)))
+-					goto out;
+-
+-				icmp6 = (struct icmp6hdr *)(skb_network_header(skb) + offset);
+-
+-				switch (icmp6->icmp6_type) {
+-				case ICMPV6_MGM_QUERY:
+-				case ICMPV6_MGM_REPORT:
+-				case ICMPV6_MGM_REDUCTION:
+-				case ICMPV6_MLD2_REPORT:
+-					deliver = true;
+-					break;
+-				}
+-				goto out;
++				deliver = true;
+ 			}
+ 			/* unknown RA - process it normally */
+ 		}
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 28dfa5f..8237ee1 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -935,33 +935,6 @@ int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_addr *addr)
  }
  
--static inline __u8 ipv6_tclass(const struct ipv6hdr *iph)
+ /*
+- * identify MLD packets for MLD filter exceptions
+- */
+-bool ipv6_is_mld(struct sk_buff *skb, int nexthdr)
 -{
--	return (ntohl(*(__be32 *)iph) >> 20) & 0xff;
+-	struct icmp6hdr *pic;
+-
+-	if (nexthdr != IPPROTO_ICMPV6)
+-		return false;
+-
+-	if (!pskb_may_pull(skb, sizeof(struct icmp6hdr)))
+-		return false;
+-
+-	pic = icmp6_hdr(skb);
+-
+-	switch (pic->icmp6_type) {
+-	case ICMPV6_MGM_QUERY:
+-	case ICMPV6_MGM_REPORT:
+-	case ICMPV6_MGM_REDUCTION:
+-	case ICMPV6_MLD2_REPORT:
+-		return true;
+-	default:
+-		break;
+-	}
+-	return false;
 -}
 -
- /* 
-    This structure contains results of exthdrs parsing
-    as offsets from skb->nh.
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 7f65df4..33be363 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -30,6 +30,7 @@
- #include <net/transp_v6.h>
- #include <net/ip6_route.h>
- #include <net/tcp_states.h>
-+#include <net/dsfield.h>
- 
- #include <linux/errqueue.h>
- #include <asm/uaccess.h>
-@@ -487,7 +488,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
- 	}
- 
- 	if (np->rxopt.bits.rxtclass) {
--		int tclass = ipv6_tclass(ipv6_hdr(skb));
-+		int tclass = ipv6_get_dsfield(ipv6_hdr(skb));
- 		put_cmsg(msg, SOL_IPV6, IPV6_TCLASS, sizeof(tclass), &tclass);
- 	}
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3164ad2..3701c3c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1163,7 +1163,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 		newnp->opt	   = NULL;
- 		newnp->mcast_oif   = inet6_iif(skb);
- 		newnp->mcast_hops  = ipv6_hdr(skb)->hop_limit;
--		newnp->rcv_tclass  = ipv6_tclass(ipv6_hdr(skb));
-+		newnp->rcv_tclass  = ipv6_get_dsfield(ipv6_hdr(skb));
- 
- 		/*
- 		 * No need to charge this sock to the relevant IPv6 refcnt debug socks count
-@@ -1243,7 +1243,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
- 	newnp->opt	  = NULL;
- 	newnp->mcast_oif  = inet6_iif(skb);
- 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
--	newnp->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
-+	newnp->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
- 
- 	/* Clone native IPv6 options from listening socket (if any)
- 
-@@ -1456,7 +1456,7 @@ ipv6_pktoptions:
- 		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
- 			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
- 		if (np->rxopt.bits.rxtclass)
--			np->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
-+			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
- 		if (ipv6_opt_accepted(sk, opt_skb)) {
- 			skb_set_owner_r(opt_skb, sk);
- 			opt_skb = xchg(&np->pktoptions, opt_skb);
+-/*
+  *	check if the interface/address pair is valid
+  */
+ bool ipv6_chk_mcast_addr(struct net_device *dev, const struct in6_addr *group,
 -- 
 1.7.9.5
