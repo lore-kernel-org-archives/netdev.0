@@ -1,52 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ifb: dont hard code inet_net use
-Date: Sun, 13 Jan 2013 09:46:34 -0800
-Message-ID: <1358099194.8744.311.camel@edumazet-glaptop>
-References: <50F1699E.1000200@hartkopp.net>
-	 <20130112.132316.2121287993605534669.davem@davemloft.net>
-	 <20130112.133630.257139657732337147.davem@davemloft.net>
-	 <1358046374.20249.1789.camel@edumazet-glaptop>
-	 <20130113035013.GJ5259@kvack.org>
-	 <1358056199.20249.2121.camel@edumazet-glaptop>
-	 <50F2C860.1060602@mojatatu.com>
+From: Thomas Backlund <tmb@mageia.org>
+Subject: if_bridge.h: include in6.h for struct in6_addr use
+Date: Sun, 13 Jan 2013 20:38:19 +0200
+Message-ID: <50F2FF1B.3020708@mageia.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: multipart/mixed;
+ boundary="------------080708000708030904060806"
+Cc: linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:37647 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755647Ab3AMRqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 12:46:37 -0500
-Received: by mail-pb0-f44.google.com with SMTP id uo1so1764206pbc.17
-        for <netdev@vger.kernel.org>; Sun, 13 Jan 2013 09:46:37 -0800 (PST)
-In-Reply-To: <50F2C860.1060602@mojatatu.com>
+Received: from smtp.multi.fi ([85.134.37.151]:43734 "EHLO smtp.multi.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754020Ab3AMS5N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Jan 2013 13:57:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+This is a multi-part message in MIME format.
+--------------080708000708030904060806
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-ifb should lookup devices in the appropriate namespace.
+patch both inline and attached as thunderbird tends to mess up ...
+-----
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Benjamin LaHaise <bcrl@kvack.org>
----
- drivers/net/ifb.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+if_bridge.h uses struct in6_addr ip6; but does not include the in6.h header.
 
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 344dceb..8216438 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -90,7 +90,7 @@ static void ri_tasklet(unsigned long dev)
- 		u64_stats_update_end(&dp->tsync);
+Found by trying to build libvirt and connman against 3.8-rc3 headers.
+
+Reported-by: Colin Guthrie <colin@mageia.org>
+Reported-by: Christiaan Welvaart <cjw@daneel.dyndns.org>
+Signed-off-by: Thomas Backlund <tmb@mageia.org>
+
+--
+
+diff -Nurp linux-3.8-rc3/include/uapi/linux/if_bridge.h 
+linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h
+--- linux-3.8-rc3/include/uapi/linux/if_bridge.h        2013-01-13 
+20:09:54.257271755 +0200
++++ linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h    2013-01-13 
+20:15:04.153676151 +0200
+@@ -14,6 +14,7 @@
+  #define _UAPI_LINUX_IF_BRIDGE_H
+
+  #include <linux/types.h>
++#include <linux/in6.h>
+
+  #define SYSFS_BRIDGE_ATTR      "bridge"
+  #define SYSFS_BRIDGE_FDB       "brforward"
+
+
+-----
+Thomas
+
+
+--------------080708000708030904060806
+Content-Type: text/plain; charset=windows-1252;
+ name="if_bridge.h-include-in6.h-for-struct-in6_addr-use.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="if_bridge.h-include-in6.h-for-struct-in6_addr-use.patch"
+
+
+if_bridge.h uses struct in6_addr ip6; but does not include the in6.h header.
+
+Found by trying to build libvirt and connman against 3.8-rc3 headers.
+
+Reported-by: Colin Guthrie <colin@mageia.org>
+Reported-by: Christiaan Welvaart <cjw@daneel.dyndns.org>
+Signed-off-by: Thomas Backlund <tmb@mageia.org>
+
+--
+
+diff -Nurp linux-3.8-rc3/include/uapi/linux/if_bridge.h linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h
+--- linux-3.8-rc3/include/uapi/linux/if_bridge.h	2013-01-13 20:09:54.257271755 +0200
++++ linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h	2013-01-13 20:15:04.153676151 +0200
+@@ -14,6 +14,7 @@
+ #define _UAPI_LINUX_IF_BRIDGE_H
  
- 		rcu_read_lock();
--		skb->dev = dev_get_by_index_rcu(&init_net, skb->skb_iif);
-+		skb->dev = dev_get_by_index_rcu(dev_net(_dev), skb->skb_iif);
- 		if (!skb->dev) {
- 			rcu_read_unlock();
- 			dev_kfree_skb(skb);
+ #include <linux/types.h>
++#include <linux/in6.h>
+ 
+ #define SYSFS_BRIDGE_ATTR	"bridge"
+ #define SYSFS_BRIDGE_FDB	"brforward"
+
+--------------080708000708030904060806--
