@@ -1,101 +1,101 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 2/7] ipv6: Introduce ip6_flowinfo() to extract flowinfo
- (tclass + flowlabel).
-Date: Mon, 14 Jan 2013 00:01:51 +0900
-Message-ID: <50F2CC5F.9050202@linux-ipv6.org>
+Subject: [PATCH net-next 3/7] ipv6: Use ipv6_get_dsfield() instead of ipv6_tclass().
+Date: Mon, 14 Jan 2013 00:02:01 +0900
+Message-ID: <50F2CC69.9000808@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38230 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38234 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755055Ab3AMPBw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 10:01:52 -0500
+	with ESMTP id S1755061Ab3AMPCC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 10:02:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Commit 7a3198a8 ("ipv6: helper function to get tclass") introduced
+ipv6_tclass(), but similar function is already available as
+ipv6_get_dsfield().
+
+We might be able to call ipv6_tclass() from ipv6_get_dsfield(),
+but it is confusing to have two versions.
+
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/net/ipv6.h  |    5 +++++
- net/ipv6/datagram.c |    9 +++++----
- net/ipv6/route.c    |    6 +++---
- 3 files changed, 13 insertions(+), 7 deletions(-)
+ include/linux/ipv6.h |    5 -----
+ net/ipv6/datagram.c  |    3 ++-
+ net/ipv6/tcp_ipv6.c  |    6 +++---
+ 3 files changed, 5 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index fcbc646..ed67208 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -555,6 +555,11 @@ static inline void ip6_flow_hdr(struct ipv6hdr *hdr, unsigned int tclass,
- 	*(__be32 *)hdr = ntohl(0x60000000 | (tclass << 20)) | flowlabel;
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index faed1e3..304a9f4 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -77,11 +77,6 @@ static inline struct ipv6hdr *ipipv6_hdr(const struct sk_buff *skb)
+ 	return (struct ipv6hdr *)skb_transport_header(skb);
  }
  
-+static inline __be32 ip6_flowinfo(const struct ipv6hdr *hdr)
-+{
-+	return *(__be32 *)hdr & IPV6_FLOWINFO_MASK;
-+}
-+
- /*
-  *	Prototypes exported by ipv6
-  */
+-static inline __u8 ipv6_tclass(const struct ipv6hdr *iph)
+-{
+-	return (ntohl(*(__be32 *)iph) >> 20) & 0xff;
+-}
+-
+ /* 
+    This structure contains results of exthdrs parsing
+    as offsets from skb->nh.
 diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 56b692b..7f65df4 100644
+index 7f65df4..33be363 100644
 --- a/net/ipv6/datagram.c
 +++ b/net/ipv6/datagram.c
-@@ -360,7 +360,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
- 								  struct ipv6hdr, daddr);
- 			sin->sin6_addr = ip6h->daddr;
- 			if (np->sndflow)
--				sin->sin6_flowinfo = *(__be32 *)ip6h & IPV6_FLOWINFO_MASK;
-+				sin->sin6_flowinfo = ip6_flowinfo(ip6h);
- 			if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
- 				sin->sin6_scope_id = IP6CB(skb)->iif;
- 		} else {
-@@ -491,9 +491,10 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
+@@ -30,6 +30,7 @@
+ #include <net/transp_v6.h>
+ #include <net/ip6_route.h>
+ #include <net/tcp_states.h>
++#include <net/dsfield.h>
+ 
+ #include <linux/errqueue.h>
+ #include <asm/uaccess.h>
+@@ -487,7 +488,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
+ 	}
+ 
+ 	if (np->rxopt.bits.rxtclass) {
+-		int tclass = ipv6_tclass(ipv6_hdr(skb));
++		int tclass = ipv6_get_dsfield(ipv6_hdr(skb));
  		put_cmsg(msg, SOL_IPV6, IPV6_TCLASS, sizeof(tclass), &tclass);
  	}
  
--	if (np->rxopt.bits.rxflow && (*(__be32 *)nh & IPV6_FLOWINFO_MASK)) {
--		__be32 flowinfo = *(__be32 *)nh & IPV6_FLOWINFO_MASK;
--		put_cmsg(msg, SOL_IPV6, IPV6_FLOWINFO, sizeof(flowinfo), &flowinfo);
-+	if (np->rxopt.bits.rxflow) {
-+		__be32 flowinfo = ip6_flowinfo((struct ipv6hdr *)nh);
-+		if (flowinfo)
-+			put_cmsg(msg, SOL_IPV6, IPV6_FLOWINFO, sizeof(flowinfo), &flowinfo);
- 	}
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3164ad2..3701c3c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1163,7 +1163,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		newnp->opt	   = NULL;
+ 		newnp->mcast_oif   = inet6_iif(skb);
+ 		newnp->mcast_hops  = ipv6_hdr(skb)->hop_limit;
+-		newnp->rcv_tclass  = ipv6_tclass(ipv6_hdr(skb));
++		newnp->rcv_tclass  = ipv6_get_dsfield(ipv6_hdr(skb));
  
- 	/* HbH is allowed only once */
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 621b68e..6238eb5 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -994,7 +994,7 @@ void ip6_route_input(struct sk_buff *skb)
- 		.flowi6_iif = skb->dev->ifindex,
- 		.daddr = iph->daddr,
- 		.saddr = iph->saddr,
--		.flowlabel = (* (__be32 *) iph) & IPV6_FLOWINFO_MASK,
-+		.flowlabel = ip6_flowinfo(iph),
- 		.flowi6_mark = skb->mark,
- 		.flowi6_proto = iph->nexthdr,
- 	};
-@@ -1159,7 +1159,7 @@ void ip6_update_pmtu(struct sk_buff *skb, struct net *net, __be32 mtu,
- 	fl6.flowi6_flags = 0;
- 	fl6.daddr = iph->daddr;
- 	fl6.saddr = iph->saddr;
--	fl6.flowlabel = (*(__be32 *) iph) & IPV6_FLOWINFO_MASK;
-+	fl6.flowlabel = ip6_flowinfo(iph);
+ 		/*
+ 		 * No need to charge this sock to the relevant IPv6 refcnt debug socks count
+@@ -1243,7 +1243,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newnp->opt	  = NULL;
+ 	newnp->mcast_oif  = inet6_iif(skb);
+ 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
+-	newnp->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
++	newnp->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
  
- 	dst = ip6_route_output(net, NULL, &fl6);
- 	if (!dst->error)
-@@ -1187,7 +1187,7 @@ void ip6_redirect(struct sk_buff *skb, struct net *net, int oif, u32 mark)
- 	fl6.flowi6_flags = 0;
- 	fl6.daddr = iph->daddr;
- 	fl6.saddr = iph->saddr;
--	fl6.flowlabel = (*(__be32 *) iph) & IPV6_FLOWINFO_MASK;
-+	fl6.flowlabel = ip6_flowinfo(iph);
+ 	/* Clone native IPv6 options from listening socket (if any)
  
- 	dst = ip6_route_output(net, NULL, &fl6);
- 	if (!dst->error)
+@@ -1456,7 +1456,7 @@ ipv6_pktoptions:
+ 		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
+ 			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
+ 		if (np->rxopt.bits.rxtclass)
+-			np->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
++			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+ 		if (ipv6_opt_accepted(sk, opt_skb)) {
+ 			skb_set_owner_r(opt_skb, sk);
+ 			opt_skb = xchg(&np->pktoptions, opt_skb);
 -- 
 1.7.9.5
