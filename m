@@ -1,73 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] pkt_sched: namespace aware ifb
-Date: Sat, 12 Jan 2013 21:49:59 -0800
-Message-ID: <1358056199.20249.2121.camel@edumazet-glaptop>
-References: <50F1699E.1000200@hartkopp.net>
-	 <20130112.132316.2121287993605534669.davem@davemloft.net>
-	 <20130112.133630.257139657732337147.davem@davemloft.net>
-	 <1358046374.20249.1789.camel@edumazet-glaptop>
-	 <20130113035013.GJ5259@kvack.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next] ipv6: Use ipv6_get_dsfield() instead of ipv6_tclass().
+Date: Sun, 13 Jan 2013 17:32:13 +0900
+Message-ID: <50F2710D.4030005@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
-	netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
+Cc: yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f41.google.com ([209.85.210.41]:46378 "EHLO
-	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151Ab3AMFuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 00:50:03 -0500
-Received: by mail-da0-f41.google.com with SMTP id e20so1354824dak.0
-        for <netdev@vger.kernel.org>; Sat, 12 Jan 2013 21:50:02 -0800 (PST)
-In-Reply-To: <20130113035013.GJ5259@kvack.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:37815 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752013Ab3AMIcO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 03:32:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-01-12 at 22:50 -0500, Benjamin LaHaise wrote:
-> On Sat, Jan 12, 2013 at 07:06:14PM -0800, Eric Dumazet wrote:
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > act_mirred needs to find the current net_ns, and struct net
-> > pointer is not provided in the call chain. We run in process
-> > context and current->nsproxy->net_ns is the needed pointer.
-> ...
-> 
-> I don't think this is correct.  Going by the call chain, tcf_action_add can 
-> be called because of a netlink message, and that netlink message may not be 
-> in the same "struct net" as the current process.  It looks like the ->init 
-> operation is going to need to have the namespace passed in for this to work 
-> correctly.
+Commit 7a3198a8 ("ipv6: helper function to get tclass") introduced
+ipv6_tclass(), but similar function is already available as
+ipv6_get_dsfield().
 
-But it is working in my tests.
+We might be able to call ipv6_tclass() from ipv6_get_dsfield(),
+but it is confusing to have two versions.
 
-I added a WARN and the call stack is :
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/linux/ipv6.h |    5 -----
+ net/ipv6/datagram.c  |    3 ++-
+ net/ipv6/tcp_ipv6.c  |    6 +++---
+ 3 files changed, 5 insertions(+), 9 deletions(-)
 
-[  701.522282]  [<ffffffff8108634f>] warn_slowpath_common+0x7f/0xc0
-[  701.522284]  [<ffffffff810863aa>] warn_slowpath_null+0x1a/0x20
-[  701.522286]  [<ffffffffa00e00e3>] tcf_mirred_init+0x43/0x340 [act_mirred]
-[  701.522289]  [<ffffffff81506385>] ? __rtnl_unlock+0x15/0x20
-[  701.522293]  [<ffffffff815195e8>] tcf_action_init_1+0x198/0x1e0
-[  701.522295]  [<ffffffff815196c8>] tcf_action_init+0x98/0x100
-[  701.522298]  [<ffffffff81517f30>] tcf_exts_validate+0x90/0xb0
-[  701.522300]  [<ffffffff8151e55b>] u32_set_parms.isra.11+0x3b/0x270
-[  701.522303]  [<ffffffff812ffdf0>] ? nla_parse+0x90/0xe0
-[  701.522304]  [<ffffffff8151ed16>] u32_change+0x2e6/0x4c0
-[  701.522306]  [<ffffffff81518432>] tc_ctl_tfilter+0x4e2/0x720
-[  701.522308]  [<ffffffff815064ad>] rtnetlink_rcv_msg+0x11d/0x310
-[  701.522310]  [<ffffffff81506390>] ? __rtnl_unlock+0x20/0x20
-[  701.522312]  [<ffffffff81522d39>] netlink_rcv_skb+0xa9/0xd0
-[  701.522314]  [<ffffffff81503875>] rtnetlink_rcv+0x25/0x40
-[  701.522316]  [<ffffffff81522681>] netlink_unicast+0x1b1/0x230
-[  701.522317]  [<ffffffff815229fe>] netlink_sendmsg+0x2fe/0x3b0
-[  701.522321]  [<ffffffff814dbdf2>] sock_sendmsg+0xd2/0xf0
-[  701.522323]  [<ffffffff814dbca0>] ? sock_recvmsg+0xe0/0x100
-[  701.522326]  [<ffffffff814dd0f0>] __sys_sendmsg+0x380/0x390
-[  701.522329]  [<ffffffff815b20b4>] ? __do_page_fault+0x214/0x460
-[  701.522331]  [<ffffffff814df4e9>] sys_sendmsg+0x49/0x90
-[  701.522334]  [<ffffffff815b68c2>] system_call_fastpath+0x16/0x1b
-
-Could you elaborate on what could be the problem ?
-
-We hold the RTNL, so I dont think another process could possibly call
-tcf_mirred_init()
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index faed1e3..304a9f4 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -77,11 +77,6 @@ static inline struct ipv6hdr *ipipv6_hdr(const struct sk_buff *skb)
+ 	return (struct ipv6hdr *)skb_transport_header(skb);
+ }
+ 
+-static inline __u8 ipv6_tclass(const struct ipv6hdr *iph)
+-{
+-	return (ntohl(*(__be32 *)iph) >> 20) & 0xff;
+-}
+-
+ /* 
+    This structure contains results of exthdrs parsing
+    as offsets from skb->nh.
+diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
+index 56b692b..633ac55 100644
+--- a/net/ipv6/datagram.c
++++ b/net/ipv6/datagram.c
+@@ -30,6 +30,7 @@
+ #include <net/transp_v6.h>
+ #include <net/ip6_route.h>
+ #include <net/tcp_states.h>
++#include <net/dsfield.h>
+ 
+ #include <linux/errqueue.h>
+ #include <asm/uaccess.h>
+@@ -487,7 +488,7 @@ int datagram_recv_ctl(struct sock *sk, struct msghdr *msg, struct sk_buff *skb)
+ 	}
+ 
+ 	if (np->rxopt.bits.rxtclass) {
+-		int tclass = ipv6_tclass(ipv6_hdr(skb));
++		int tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+ 		put_cmsg(msg, SOL_IPV6, IPV6_TCLASS, sizeof(tclass), &tclass);
+ 	}
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 3164ad2..3701c3c 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1163,7 +1163,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 		newnp->opt	   = NULL;
+ 		newnp->mcast_oif   = inet6_iif(skb);
+ 		newnp->mcast_hops  = ipv6_hdr(skb)->hop_limit;
+-		newnp->rcv_tclass  = ipv6_tclass(ipv6_hdr(skb));
++		newnp->rcv_tclass  = ipv6_get_dsfield(ipv6_hdr(skb));
+ 
+ 		/*
+ 		 * No need to charge this sock to the relevant IPv6 refcnt debug socks count
+@@ -1243,7 +1243,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	newnp->opt	  = NULL;
+ 	newnp->mcast_oif  = inet6_iif(skb);
+ 	newnp->mcast_hops = ipv6_hdr(skb)->hop_limit;
+-	newnp->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
++	newnp->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+ 
+ 	/* Clone native IPv6 options from listening socket (if any)
+ 
+@@ -1456,7 +1456,7 @@ ipv6_pktoptions:
+ 		if (np->rxopt.bits.rxhlim || np->rxopt.bits.rxohlim)
+ 			np->mcast_hops = ipv6_hdr(opt_skb)->hop_limit;
+ 		if (np->rxopt.bits.rxtclass)
+-			np->rcv_tclass = ipv6_tclass(ipv6_hdr(skb));
++			np->rcv_tclass = ipv6_get_dsfield(ipv6_hdr(skb));
+ 		if (ipv6_opt_accepted(sk, opt_skb)) {
+ 			skb_set_owner_r(opt_skb, sk);
+ 			opt_skb = xchg(&np->pktoptions, opt_skb);
+-- 
+1.7.9.5
