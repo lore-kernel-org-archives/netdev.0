@@ -1,77 +1,46 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
 Subject: Re: [PATCH net-next] pkt_sched: namespace aware ifb
-Date: Sun, 13 Jan 2013 09:44:48 -0500
-Message-ID: <50F2C860.1060602@mojatatu.com>
-References: <50F1699E.1000200@hartkopp.net>  <20130112.132316.2121287993605534669.davem@davemloft.net>  <20130112.133630.257139657732337147.davem@davemloft.net>  <1358046374.20249.1789.camel@edumazet-glaptop>  <20130113035013.GJ5259@kvack.org> <1358056199.20249.2121.camel@edumazet-glaptop>
+Date: Sun, 13 Jan 2013 09:59:29 -0500
+Message-ID: <20130113145929.GK5259@kvack.org>
+References: <50F1699E.1000200@hartkopp.net> <20130112.132316.2121287993605534669.davem@davemloft.net> <20130112.133630.257139657732337147.davem@davemloft.net> <1358046374.20249.1789.camel@edumazet-glaptop> <20130113035013.GJ5259@kvack.org> <1358056199.20249.2121.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Benjamin LaHaise <bcrl@kvack.org>,
-	David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, socketcan@hartkopp.net,
 	netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:43313 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754989Ab3AMOpB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 09:45:01 -0500
-Received: by mail-ie0-f182.google.com with SMTP id s9so4090247iec.27
-        for <netdev@vger.kernel.org>; Sun, 13 Jan 2013 06:45:01 -0800 (PST)
+Received: from kanga.kvack.org ([205.233.56.17]:47753 "EHLO kanga.kvack.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755061Ab3AMO7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Jan 2013 09:59:30 -0500
+Content-Disposition: inline
 In-Reply-To: <1358056199.20249.2121.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-01-13 12:49 AM, Eric Dumazet wrote:
-
+On Sat, Jan 12, 2013 at 09:49:59PM -0800, Eric Dumazet wrote:
+> But it is working in my tests.
+> 
+> I added a WARN and the call stack is :
+...
 > Could you elaborate on what could be the problem ?
->
+> 
 > We hold the RTNL, so I dont think another process could possibly call
 > tcf_mirred_init()
->
 
-Eric, the point probably Ben was trying to make is not about 
-synchronizing rather about which namespace has the right to that action 
-config. Your change is correct for the common use of actions
-but does not fix the larger picture.
+The locking isn't the issue, but how the network namespace is selected it.  
+I've implemented some virtual router functionality using network namespaces, 
+and prior to having the setns() syscall, the only way to manipulate other 
+network namespaces was via socket passing between threads in different 
+namespaces.  One of the optimizations in using this technique was to open a 
+netlink socket in another namespace, then pass that file descriptor back to 
+the main daemon.  The code could then add routes and manipulate other areas 
+of the network stack via that netlink socket.
 
-At the moment a dev is owned by a specific namespace; that owns a tc 
-filter that in turn owns an action. So no problem with the change you 
-make if all configuration follows those rules i.e something along the 
-lines of:
-===
-tc filter add dev eth0 parent 1: protocol ip prio 1 u32 \
-match ip dst 10.0.0.229/32 flowid 1:10 \
-action mirred egress redirect dev ifb0
-=====
+I think this technique is a valid approach for making use of network 
+namespaces.  It also has the benefit of avoid the use of setns() for the 
+vast majority of operations.
 
-I would say most people use the above syntax.
-However, there is another way to configure actions so they can be 
-shared[1], example control syntax:
-----
-tc actions add \
-action police rate 1kbit burst 90k drop index 3 \
-action mirred egress mirror dev eth0 index 5
-----
-
-In such a case, the "tc actions" netlink path may be
-entered from a different namespace than the one that is
-using it. Then current->nsproxy->net_ns is no longer correct.
-
-To correct this, i think what Ben points out in passing the
-init() the correct namespace seem like the way to go. Feel free
-to make that change - otherwise i will get to it and fix it.
-
-cheers,
-jamal
-
-[1]
-You can then have multiple filters use this action like so:
-===
-tc filter add dev eth0 parent 1: protocol ip prio 1 u32 \
-match ip dst 10.0.0.229/32 flowid 1:10 \
-action police index 3
-#
-tc filter add dev eth0 parent ffff: protocol ip prio 6 u32 \
-match ip src 10.0.0.21/32 flowid 1:16 \
-action police index 3 action mirred egress mirror dev eth0
-=====
+		-ben
+-- 
+"Thought is the essence of where you are now."
