@@ -1,75 +1,69 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: Re: [RFC PATCH v3] cgroup: net_cls: traffic counter based on classification
- control cgroup
-Date: Mon, 14 Jan 2013 09:09:10 +0100
-Message-ID: <50F3BD26.6090903@monom.org>
-References: <50F04502.9090902@samsung.com>
+From: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
+Subject: Re: PMTU discovery is broken on kernel 3.7.1 for UDP sockets
+Date: Mon, 14 Jan 2013 12:26:59 +0400
+Message-ID: <50F3C153.9030204@oktetlabs.ru>
+References: <50D1BCC0.2000208@oktetlabs.ru> <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com> <50D1CECE.7090706@oktetlabs.ru> <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com> <20121220073445.GM18940@secunet.com> <50D2F4E5.4050904@oktetlabs.ru> <20121220123535.GN18940@secunet.com> <20121221102253.GO18940@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: cgroups@vger.kernel.org, Glauber Costa <glommer@parallels.com>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	netdev@vger.kernel.org
-To: Alexey Perevalov <a.perevalov@samsung.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:36238 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755659Ab3ANIJM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 03:09:12 -0500
-In-Reply-To: <50F04502.9090902@samsung.com>
+Received: from shelob.oktetlabs.ru ([195.131.132.186]:46478 "EHLO
+	shelob.oktetlabs.ru" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756208Ab3ANI1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 03:27:14 -0500
+In-Reply-To: <20121221102253.GO18940@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alexey,
-
-On 11.01.2013 17:59, Alexey Perevalov wrote:
-> I'm sorry for previous email with attachments.
-
-It seems something went wrong with the patch, e.g. indention is wrong 
-and also I see '^M$' line endings. I assume you are sending your patches 
-through an exchange server which is likely not to work.
-
-> I would like to represent next version of patch I sent before
-> cgroup: "net_cls: traffic counter based on classification control cgroup"
+On 12/21/12 14:22, Steffen Klassert wrote:
+> On Thu, Dec 20, 2012 at 01:35:35PM +0100, Steffen Klassert wrote:
+>    
+>> On Thu, Dec 20, 2012 at 03:22:13PM +0400, Yurij M. Plotnikov wrote:
+>>      
+>>> On 12/20/12 11:34, Steffen Klassert wrote:
+>>>        
+>>>> diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+>>>> index 3c9d208..1049ce0 100644
+>>>> --- a/net/ipv4/ip_sockglue.c
+>>>> +++ b/net/ipv4/ip_sockglue.c
+>>>> @@ -1198,7 +1198,7 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+>>>>   	{
+>>>>   		struct dst_entry *dst;
+>>>>   		val = 0;
+>>>> -		dst = sk_dst_get(sk);
+>>>> +		dst = sk_dst_check(sk, 0);
+>>>>   		if (dst) {
+>>>>   			val = dst_mtu(dst);
+>>>>   			dst_release(dst);
+>>>>          
+>>> With this patch kernel 3.7.1 works perfect. All described problems
+>>> are fixed.
+>>>        
+>> Thanks for testing!
+>>
+>> I'm not sure if we can't use this as a fix. I think with this patch it
+>> could happen that we return -ENOTCONN instead of a pmtu value on a
+>> connected socket. Perhaps it is better to update the cached dst_entry in
+>> ipv4_sk_update_pmtu() when we receive the -EMSGSIZE. I'll do some
+>> investigation.
+>>
+>>      
+> It turned out that updating the cached dst_entry in ipv4_sk_update_pmtu()
+> is not trivial. We need to implement proper socket locking and we need
+> socket release calback functions for all protocols that use
+> ipv4_sk_update_pmtu(), similar to tcp.
 >
-> The main idea is the same as was. It keeping counter in control groups,
-> but now uses atomic instead resource_counters.
+> Today is my last office day for this year, so we probably have to defer
+> a solution to the next year.
+>
+> Thanks.
+>    
+Hi Steffen,
 
-+#if IS_ENABLED(CONFIG_NET_CLS_COUNTER)
-+ if (copied > 0)
-+ count_cls_rcv(current, copied, ifindex);
-+#endif
-+
-release_sock(sk);
-return copied;
+Could you, please, tell me is there any news about this bug?
 
-Normally, distros will enable most config flags. Maybe you could use
-a jump label to reduce the cost for the users which have 
-CONFIG_NET_CLS_COUNTER enabled and do not use it?
-
-> I have a performance measurement for this patch. It was done by lmbench
-> on physical machine.
-> Results are not so representative for 20 tests and some numbers are real
-> weird.
-
-Could you explain in the commit message how your patch is designed? I 
-see you are using a RB tree. What's the purpose of it?
-
-> Daniel Wagner wrote what he is doing something similar, but using
-> namespaces.
-
-I am trying a different approach on this problem using iptables. I am 
-playing around with a few patches which allow to install a iptables rule
-which matches on the security context, e.g.
-
-iptables -t mangle -A OUTPUT -m secmark --secctx \
-unconfined_u:unconfined_r:foo_t:s0-s0:c0.c1023 -j MARK --set-mark 1
-
-So far it looks promising, but as I me previous networking experience 
-is, that something will not work eventually.
-
-> Proposed by me approach is used in upcoming Tizen release, but little
-> bit different version.
-
-Thanks,
-Daniel
+Thanks in advance,
+Yurij.
