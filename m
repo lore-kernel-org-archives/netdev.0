@@ -1,58 +1,86 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
-Date: Mon, 14 Jan 2013 15:35:40 -0800
-Message-ID: <CAGK4HS8tHrNUBfd8jmRtWNwFwBARsj7jyxbhD8C7OhhHnpqfQQ@mail.gmail.com>
-References: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
-	<20130114.152906.967716859913059764.davem@davemloft.net>
+From: Eric Blake <eblake@redhat.com>
+Subject: Re: [libvirt] if_bridge.h: include in6.h for struct in6_addr use
+Date: Mon, 14 Jan 2013 16:57:50 -0700
+Message-ID: <50F49B7E.50906@redhat.com>
+References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, netdev@vger.kernel.org,
-	netdev@markandruth.co.uk, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:32893 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756805Ab3ANXfl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 18:35:41 -0500
-Received: by mail-qc0-f176.google.com with SMTP id n41so2826946qco.21
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 15:35:40 -0800 (PST)
-In-Reply-To: <20130114.152906.967716859913059764.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="----enig2CKNCDINEWXHVLUWTDLAE"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	libvirt-list@redhat.com
+To: Thomas Backlund <tmb@mageia.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50F313A5.3020707@mageia.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14 January 2013 12:29, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Mon, 14 Jan 2013 12:00:16 -0800 (PST)
->
->> Rebasing the soreuseport patches to 3.8.  No material changes since
->> first posted.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2CKNCDINEWXHVLUWTDLAE
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Tom,
-I am not sure if this series was just RFC or you already are aware of
-this but  I got the following errors when compiling with
-CONFIG_NETFILTER_TPROXY=3Dm
+On 01/13/2013 01:05 PM, Thomas Backlund wrote:
+> Thomas Backlund skrev 13.1.2013 20:38:
+>> patch both inline and attached as thunderbird tends to mess up ...
+>=20
+>> -----
+>>
+>> if_bridge.h uses struct in6_addr ip6; but does not include the in6.h
+>> header.
+>>
+>> Found by trying to build libvirt and connman against 3.8-rc3 headers.
+>>
+>=20
+> Ok,
+> ignore this patch, it's not the correct fix as it introduces
+> redefinitions...
+>=20
+> Btw, the error that I hit that made me suggest this fix was libvirt
+> config check bailing out:
+>=20
+> config.log:/usr/include/linux/if_bridge.h:173:20: error: field 'ip6' ha=
+s
+> incomplete type
 
-This is because the definitions of inet_lookup_listener  and
-inet6_lookup_listener have changed with your patch.
+Hmm, just now noticing this thread, after independently hitting and and
+having to work around the same problem in libvirt:
+https://www.redhat.com/archives/libvir-list/2013-January/msg00930.html
+https://bugzilla.redhat.com/show_bug.cgi?id=3D895141
 
-In file included from net/netfilter/nf_tproxy_core.c:19:
-include/net/netfilter/nf_tproxy_core.h: In function =91nf_tproxy_get_so=
-ck_v4=92:
-include/net/netfilter/nf_tproxy_core.h:86: error: too few arguments to
-function =91inet_lookup_listener=92
-include/net/netfilter/nf_tproxy_core.h: In function =91nf_tproxy_get_so=
-ck_v6=92:
-include/net/netfilter/nf_tproxy_core.h:155: warning: passing argument
-5 of =91inet6_lookup_listener=92 makes pointer from integer without a c=
-ast
-include/net/inet6_hashtables.h:72: note: expected =91const struct
-in6_addr *=92 but argument is of type =91int=92
-include/net/netfilter/nf_tproxy_core.h:155: error: too few arguments
-to function =91inet6_lookup_listener=92
-make[1]: *** [net/netfilter/nf_tproxy_core.o] Error 1
-make[1]: *** Waiting for unfinished jobs....
+>> --- linux-3.8-rc3/include/uapi/linux/if_bridge.h        2013-01-13
+>> 20:09:54.257271755 +0200
+>> +++ linux-3.8-rc3.fix/include/uapi/linux/if_bridge.h    2013-01-13
+>> 20:15:04.153676151 +0200
+>> @@ -14,6 +14,7 @@
+>>   #define _UAPI_LINUX_IF_BRIDGE_H
+>>
+>>   #include <linux/types.h>
+>> +#include <linux/in6.h>
+>>
+
+--=20
+Eric Blake   eblake redhat com    +1-919-301-3266
+Libvirt virtualization library http://libvirt.org
 
 
-Thanks,
-Vijay
+------enig2CKNCDINEWXHVLUWTDLAE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+Comment: Public key at http://people.redhat.com/eblake/eblake.gpg
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQEcBAEBCAAGBQJQ9Jt+AAoJEKeha0olJ0Nqn1sH/2QgflI38ZZg8GVqA0F2NfKs
+E+EYVZ6YqVfoD4iTZkFsrXO/1qnCb7UTqdFgaAnqPToPBLy84ktZukFBJ0LpYWdE
+4FaFC+3lAF4bYPWt3S0Cnk1+yF38EQ36/IGjO5qXfvKKHUIWc6iHEVkYNCQSh+qI
+KLl7DSsxL7eJc3Ixg3/UpNw7k7ggW9atfb/NZWAelmcHwfyWs5wAnamz8/AeFvnk
+83N3e/ficntK2GJW9r0VOc/2mDq4H81/o5uoBCUVr1YpbVghOplp1L9iGOPNwqGp
+BW50YXQFQzh/zXBtWS9oDfqxS7gnZUrMMYFWkNgnp6PMk2TOVkYWHl7MQ+6CyO4=
+=Tun9
+-----END PGP SIGNATURE-----
+
+------enig2CKNCDINEWXHVLUWTDLAE--
