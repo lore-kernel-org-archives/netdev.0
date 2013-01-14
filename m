@@ -1,61 +1,63 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v3] netpoll: fix a rtnl lock assertion failure
-Date: Mon, 14 Jan 2013 18:43:54 +0800
-Message-ID: <1358160234-24996-1-git-send-email-amwang@redhat.com>
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42170 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756109Ab3ANKoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2013 05:44:02 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mel Gorman <mgorman@suse.de>
+Subject: Re: [PATCH] mm: compaction: Partially revert capture of suitable
+ high-order page
+Date: Mon, 14 Jan 2013 10:49:30 +0000
+Message-ID: <20130114104930.GP13304@suse.de>
+References: <20130111092701.GK13304@suse.de>
+ <1358046453.1518.1.camel@kernel.cn.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-15
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Eric Wong <normalperson@yhbt.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rik van Riel <riel@redhat.com>, Minchan Kim <minchan@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>, linux-mm@kvack.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Simon Jeons <simon.jeons@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <1358046453.1518.1.camel@kernel.cn.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
+On Sat, Jan 12, 2013 at 09:07:33PM -0600, Simon Jeons wrote:
+> On Fri, 2013-01-11 at 09:27 +0000, Mel Gorman wrote:
+> > Eric Wong reported on 3.7 and 3.8-rc2 that ppoll() got stuck when waiting
+> > for POLLIN on a local TCP socket. It was easier to trigger if there was disk
+> > IO and dirty pages at the same time and he bisected it to commit 1fb3f8ca
+> > "mm: compaction: capture a suitable high-order page immediately when it
+> > is made available".
+> > 
+> > The intention of that patch was to improve high-order allocations under
+> > memory pressure after changes made to reclaim in 3.6 drastically hurt
+> > THP allocations but the approach was flawed. For Eric, the problem was
+> > that page->pfmemalloc was not being cleared for captured pages leading to
+> > a poor interaction with swap-over-NFS support causing the packets to be
+> > dropped. However, I identified a few more problems with the patch including
+> > the fact that it can increase contention on zone->lock in some cases which
+> > could result in async direct compaction being aborted early.
+> > 
+> > In retrospect the capture patch took the wrong approach. What it should
+> > have done is mark the pageblock being migrated as MIGRATE_ISOLATE if it
+> > was allocating for THP and avoided races that way. While the patch was
+> 
+> Hi Mel,
+> 
+> Mark pageblock being migrated as MIGRATE_ISOLATE if it was allocating
+> for THP and avoided races that way is a good idea. But why I can't see
+> you do it in this patch?
+> 
 
-This patch fixes the following warning:
+Because it is not what the patch does. Implementing that idea will take
+time to do properly and cleanly with no guarantee it'll work well enough
+to justify the complexity. Fixing the POLLIN bug was more important.
 
-[   72.013864] RTNL: assertion failed at net/core/dev.c (4955)
-[   72.017758] Pid: 668, comm: netpoll-prep-v6 Not tainted 3.8.0-rc1+ #474
-[   72.019582] Call Trace:
-[   72.020295]  [<ffffffff8176653d>] netdev_master_upper_dev_get+0x35/0x58
-[   72.022545]  [<ffffffff81784edd>] netpoll_setup+0x61/0x340
-[   72.024846]  [<ffffffff815d837e>] store_enabled+0x82/0xc3
-[   72.027466]  [<ffffffff815d7e51>] netconsole_target_attr_store+0x35/0x37
-[   72.029348]  [<ffffffff811c3479>] configfs_write_file+0xe2/0x10c
-[   72.030959]  [<ffffffff8115d239>] vfs_write+0xaf/0xf6
-[   72.032359]  [<ffffffff81978a05>] ? sysret_check+0x22/0x5d
-[   72.033824]  [<ffffffff8115d453>] sys_write+0x5c/0x84
-[   72.035328]  [<ffffffff819789d9>] system_call_fastpath+0x16/0x1b
+-- 
+Mel Gorman
+SUSE Labs
 
-Just hold RCU read lock and call netdev_master_upper_dev_get_rcu(),
-as suggested by Jiri.
-
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 9f05067..5d1f856 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -1055,11 +1055,14 @@ int netpoll_setup(struct netpoll *np)
- 		return -ENODEV;
- 	}
- 
--	if (netdev_master_upper_dev_get(ndev)) {
-+	rcu_read_lock();
-+	if (netdev_master_upper_dev_get_rcu(ndev)) {
-+		rcu_read_unlock();
- 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
- 		err = -EBUSY;
- 		goto put;
- 	}
-+	rcu_read_unlock();
- 
- 	if (!netif_running(ndev)) {
- 		unsigned long atmost, atleast;
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
