@@ -1,78 +1,32 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 1/6] ipv6: 64bit version of ipv6_addr_diff().
-Date: Tue, 15 Jan 2013 02:09:54 +0900
-Message-ID: <50F43BE2.8090005@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next v3] netpoll: fix a rtnl lock assertion failure
+Date: Mon, 14 Jan 2013 09:09:56 -0800
+Message-ID: <1358183396.8744.3100.camel@edumazet-glaptop>
+References: <1358160234-24996-1-git-send-email-amwang@redhat.com>
+	 <1358183252.8744.3094.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39833 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757227Ab3ANRJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 12:09:55 -0500
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:37702 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757640Ab3ANRKC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 12:10:02 -0500
+Received: by mail-pb0-f49.google.com with SMTP id un15so2256684pbc.8
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 09:10:01 -0800 (PST)
+In-Reply-To: <1358183252.8744.3094.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Introduce __ipv6_addr_diff64() to to find the first different
-bit between two addresses on 64bit architectures.
+On Mon, 2013-01-14 at 09:07 -0800, Eric Dumazet wrote:
 
-32bit version is still available as __ipv6_addr_diff32(),
-and __ipv6_addr_diff() automatically selects appropriate
-version.
+> Strange, why dont we call netdev_master_upper_dev_get() instead ?
+> 
+> 
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- include/net/ipv6.h |   29 ++++++++++++++++++++++++++++-
- 1 file changed, 28 insertions(+), 1 deletion(-)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index ed67208..ace1113 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -507,7 +507,7 @@ static inline void ipv6_addr_set_v4mapped(const __be32 addr,
-  * find the first different bit between two addresses
-  * length of address must be a multiple of 32bits
-  */
--static inline int __ipv6_addr_diff(const void *token1, const void *token2, int addrlen)
-+static inline int __ipv6_addr_diff32(const void *token1, const void *token2, int addrlen)
- {
- 	const __be32 *a1 = token1, *a2 = token2;
- 	int i;
-@@ -539,6 +539,33 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
- 	return addrlen << 5;
- }
- 
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-+static inline int __ipv6_addr_diff64(const void *token1, const void *token2, int addrlen)
-+{
-+	const __be64 *a1 = token1, *a2 = token2;
-+	int i;
-+
-+	addrlen >>= 3;
-+
-+	for (i = 0; i < addrlen; i++) {
-+		__be64 xb = a1[i] ^ a2[i];
-+		if (xb)
-+			return i * 64 + 63 - __fls(be64_to_cpu(xb));
-+	}
-+
-+	return addrlen << 6;
-+}
-+#endif
-+
-+static inline int __ipv6_addr_diff(const void *token1, const void *token2, int addrlen)
-+{
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-+	if (__builtin_constant_p(addrlen) && !(addrlen & 7))
-+		return __ipv6_addr_diff64(token1, token2, addrlen);
-+#endif
-+	return __ipv6_addr_diff32(token1, token2, addrlen);
-+}
-+
- static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_addr *a2)
- {
- 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
--- 
-1.7.9.5
+What I meant is : the result of this check might be of little use, if we
+don't hold any lock preventing another thread to change things behind
+us.
