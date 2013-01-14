@@ -1,42 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ifb: dont hard code inet_net use
-Date: Mon, 14 Jan 2013 15:13:44 -0500 (EST)
-Message-ID: <20130114.151344.304668994986083700.davem@davemloft.net>
-References: <50F2C860.1060602@mojatatu.com>
-	<1358099194.8744.311.camel@edumazet-glaptop>
-	<50F40489.70105@mojatatu.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2/5] soreuseport: TCP/IPv4 implementation
+Date: Tue, 15 Jan 2013 05:20:47 +0900
+Message-ID: <50F4689F.9030806@linux-ipv6.org>
+References: <alpine.DEB.2.00.1301141140330.3472@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, bcrl@kvack.org, netdev@vger.kernel.org
-To: jhs@mojatatu.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33213 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757741Ab3ANUNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:13:46 -0500
-In-Reply-To: <50F40489.70105@mojatatu.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:40050 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757243Ab3ANUUu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:20:50 -0500
+In-Reply-To: <alpine.DEB.2.00.1301141140330.3472@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 14 Jan 2013 08:13:45 -0500
+Tom Herbert wrote:
+>  static inline struct sock *inet_lookup_listener(struct net *net,
+>  		struct inet_hashinfo *hashinfo,
+> +		__be32 saddr, __be16 sport,
+>  		__be32 daddr, __be16 dport, int dif)
+>  {
+> -	return __inet_lookup_listener(net, hashinfo, daddr, ntohs(dport), dif);
+> +	return __inet_lookup_listener(net, hashinfo, saddr, sport,
+> +	    daddr, ntohs(dport), dif);
+>  }
+>  
+>  /* Socket demux engine toys. */
+> @@ -358,7 +364,8 @@ static inline struct sock *__inet_lookup(struct net *net,
+>  	struct sock *sk = __inet_lookup_established(net, hashinfo,
+>  				saddr, sport, daddr, hnum, dif);
+>  
+> -	return sk ? : __inet_lookup_listener(net, hashinfo, daddr, hnum, dif);
+> +	return sk ? : __inet_lookup_listener(net, hashinfo, saddr, sport,
+> +	    daddr, hnum, dif);
+>  }
+>  
 
-> On 13-01-13 12:46 PM, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> ifb should lookup devices in the appropriate namespace.
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> 
-> 
->  Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+Please fix indent.
 
-Jamal, please don't put leading whitespace in your
-signoffs and acks, the automated tools that look for
-these tags in email threads looks for them to start in
-the first column.
-
-I've applied this patch, thanks.
-
-Thanks.
+--yoshfuji
