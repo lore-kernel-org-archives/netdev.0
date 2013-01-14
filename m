@@ -1,103 +1,74 @@
-From: "pupilla@libero.it" <pupilla@libero.it>
-Subject: R: RE: per route MTU settings
-Date: Mon, 14 Jan 2013 09:51:53 +0100 (CET)
-Message-ID: <30645799.1106291358153513079.JavaMail.defaultUser@defaultHost>
-Reply-To: "pupilla@libero.it" <pupilla@libero.it>
-Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: <luky-37@hotmail.com>, <netdev@vger.kernel.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] netpoll: fix a rtnl lock assertion failure
+Date: Mon, 14 Jan 2013 16:55:08 +0800
+Message-ID: <1358153708-9099-1-git-send-email-amwang@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outrelay02.libero.it ([212.52.84.102]:35652 "EHLO
-	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755495Ab3ANIvz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 03:51:55 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:40805 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755277Ab3ANIz0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 03:55:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-luky-37@hotmail.com wrote:
->I guess 10.81.104.1 has a 576B MTU route/interface towards
->10.81.105.109,
+From: Cong Wang <amwang@redhat.com>
 
-no, 10.81.104.1 is only a L3 switch.
+This patch fixes the following warning:
 
->Running from both hosts pings with:
->-s 548
->-s 549
->-s 1422
->-s 1423
->
->and then analyzing the results will probably give us a better
->idea of what actually happens.
+[   72.013864] RTNL: assertion failed at net/core/dev.c (4955)
+[   72.017758] Pid: 668, comm: netpoll-prep-v6 Not tainted 3.8.0-rc1+ #474
+[   72.019582] Call Trace:
+[   72.020295]  [<ffffffff8176653d>] netdev_master_upper_dev_get+0x35/0x58
+[   72.022545]  [<ffffffff81784edd>] netpoll_setup+0x61/0x340
+[   72.024846]  [<ffffffff815d837e>] store_enabled+0x82/0xc3
+[   72.027466]  [<ffffffff815d7e51>] netconsole_target_attr_store+0x35/0x37
+[   72.029348]  [<ffffffff811c3479>] configfs_write_file+0xe2/0x10c
+[   72.030959]  [<ffffffff8115d239>] vfs_write+0xaf/0xf6
+[   72.032359]  [<ffffffff81978a05>] ? sysret_check+0x22/0x5d
+[   72.033824]  [<ffffffff8115d453>] sys_write+0x5c/0x84
+[   72.035328]  [<ffffffff819789d9>] system_call_fastpath+0x16/0x1b
 
-here is the results:
+by holding the rtnl_lock. And as we just want test if the device
+has any upper device, so I think netdev_has_any_upper_dev() is enough.
 
-root@10.81.104.254:~# ip route add 10.81.105.121/32 via 10.81.104.1 mtu lock 
-1450
-root@10.81.104.254:~# ip r s | grep 10.81 | grep eth2
-10.81.104.0/24 dev eth2  proto kernel  scope link  src 10.81.104.254 
-10.81.104.0/21 via 10.81.104.1 dev eth2 
-10.81.105.121 via 10.81.104.1 dev eth2  mtu lock 1450
-root@10.81.104.254:~# ip route flush cache
-root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 548
-PING 10.81.105.121 (10.81.105.121) 548(576) bytes of data.
-556 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.476 ms
-556 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.448 ms
-556 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=0.515 ms
+Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-root@10.81.104.254:~# ip route flush cache
-root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 549
-PING 10.81.105.121 (10.81.105.121) 549(577) bytes of data.
-557 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.386 ms
-557 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.525 ms
-557 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=0.447 ms
-
-root@10.81.104.254:~# ip route flush cache
-root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 1422
-PING 10.81.105.121 (10.81.105.121) 1422(1450) bytes of data.
-1430 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.724 ms
-1430 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.785 ms
-1430 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=1.95 ms
-
-root@10.81.104.254:~# ip route flush cache
-root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 1423
-PING 10.81.105.121 (10.81.105.121) 1423(1451) bytes of data.
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
-
-root@10.81.104.126:~# ip r s
-default via 10.81.104.254 dev eth0  metric 1 
-10.81.104.0/24 dev eth0  proto kernel  scope link  src 10.81.104.126 
-127.0.0.0/8 dev lo  scope link 
-
-root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 548
-PING 10.81.105.121 (10.81.105.121) 548(576) bytes of data.
-556 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.352 ms
-556 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.372 ms
-556 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=0.368 ms
-
-root@10.81.104.126:~# ip route flush cache
-root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 549
-PING 10.81.105.121 (10.81.105.121) 549(577) bytes of data.
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
-
-I don't undestand why 10.81.104.254 here, is reporting
-that the mtu is 576 instead of 1450
-
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
-
-root@10.81.104.126:~# ip route flush cache
-root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 1422
-PING 10.81.105.121 (10.81.105.121) 1422(1450) bytes of data.
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
-
-root@10.81.104.126:~# ip route flush cache
-root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 1423
-PING 10.81.105.121 (10.81.105.121) 1423(1451) bytes of data.
->From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
->From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+---
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9f05067..dd28cdd 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -1055,7 +1055,9 @@ int netpoll_setup(struct netpoll *np)
+ 		return -ENODEV;
+ 	}
+ 
+-	if (netdev_master_upper_dev_get(ndev)) {
++	rtnl_lock();
++	if (netdev_has_any_upper_dev(ndev)) {
++		rtnl_unlock();
+ 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
+ 		err = -EBUSY;
+ 		goto put;
+@@ -1066,7 +1068,6 @@ int netpoll_setup(struct netpoll *np)
+ 
+ 		np_info(np, "device %s not up yet, forcing it\n", np->dev_name);
+ 
+-		rtnl_lock();
+ 		err = dev_open(ndev);
+ 		rtnl_unlock();
+ 
+@@ -1094,7 +1095,8 @@ int netpoll_setup(struct netpoll *np)
+ 			np_notice(np, "carrier detect appears untrustworthy, waiting 4 seconds\n");
+ 			msleep(4000);
+ 		}
+-	}
++	} else
++		rtnl_unlock();
+ 
+ 	if (!np->local_ip.ip) {
+ 		if (!np->ipv6) {
