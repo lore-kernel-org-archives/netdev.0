@@ -1,128 +1,234 @@
-From: Alexey Perevalov <a.perevalov@samsung.com>
-Subject: Re: [RFC PATCH v3] cgroup: net_cls: traffic counter based on
- classification control cgroup
-Date: Mon, 14 Jan 2013 15:50:30 +0400
-Message-ID: <50F3F106.50209@samsung.com>
-References: <50F04502.9090902@samsung.com> <50F3BD26.6090903@monom.org>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: [RFC PATCH 1/3] Avoid making inappropriate requests of
+ NETIF_F_V[46]_CSUM devices
+Date: Mon, 14 Jan 2013 12:10:31 +0000
+Message-ID: <1358165431.27054.62.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: cgroups@vger.kernel.org, Glauber Costa <glommer@parallels.com>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	netdev@vger.kernel.org
-To: Daniel Wagner <wagi@monom.org>
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
+	boundary="=-Hl3+Avy83mJh+W02ByG2"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.w1.samsung.com ([210.118.77.11]:31680 "EHLO
-	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795Ab3ANLud (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 06:50:33 -0500
-In-reply-to: <50F3BD26.6090903@monom.org>
+Received: from merlin.infradead.org ([205.233.59.134]:35677 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751288Ab3ANMKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 07:10:33 -0500
+Received: from shinybook.infradead.org ([2001:8b0:10b:1:e6ce:8fff:fe1f:f2c0])
+	by merlin.infradead.org with esmtpsa (Exim 4.76 #1 (Red Hat Linux))
+	id 1Tuis4-0001wl-FU
+	for netdev@vger.kernel.org; Mon, 14 Jan 2013 12:10:33 +0000
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all,
 
-also I got local benchmark result for 100 test.
+--=-Hl3+Avy83mJh+W02ByG2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-It looks more trully
+Devices with the NETIF_F_V[46]_CSUM feature(s) are *only* required to
+handle checksumming of UDP and TCP.
 
+In netif_skb_features() we attempt to filter out the capabilities which
+are inappropriate for the device that the skb will actually be sent
+from... but there we assume that NETIF_F_V4_CSUM devices can handle
+*all* Legacy IP, and that NETIF_F_V6_CSUM devices can handle *all* IPv6.
 
-     *Local*    Communication    latencies    in    microseconds 
-smaller    is    better
+This may have been OK in the days when CHECKSUM_PARTIAL packets would
+*only* be produced by the local stack, and we knew the local stack
+didn't generate them for anything but UDP and TCP. But these days that's
+not true. When a tun device receives a packet from userspace with
+VIRTIO_NET_HDR_F_NEEDS_CSUM, that translates fairly directly into
+setting CHECKSUM_PARTIAL on the resulting skb. Since virtio_net
+advertises NETIF_F_HW_CSUM to its guests, we should expect to be asked
+to checksum *anything*.
 
-   2p/0K ctxsw     Pipe        AF Unix      UDP      RPC/UDP TCP    
-RPC/TCP TCP conn
-Kernel    without patch    Average values:        3.2809 9.12381    
-8.2354    16.327    18.825    24.274    22.759 30.64
-Kernel    with patch    Average values:             3.4718 9.61495    
-8.5778    19.442    19.807    31.835    23.824 30.85
+This patch attempts to cope with that by checking skb->csum_offset for
+such devices. If that doesn't match the offset for UDP or TCP, then we
+don't use hardware checksum. It won't catch 100% of cases, but a full
+check of the actual skb contents in the fast path isn't a good idea.
+It'll probably do well enough for now.
 
-     *Local*    Communication    bandwidths    in    MB/s bigger    
-is    better
-Pipe          AF Unix    TCP          File reread    Mmap reread         
-Bcopy (libc)    Bcopy (hand)    Mem read    Mem write
-Kernel    without patch    Average values:        2119.25 6853.49    
-3499.27      4421.796    7543.785             6176.899     3483.647     
-      5603.29       6541.38
-Kernel    with patch    Average values:             1966.7 6825.42    
-3413.67      4426.936    7534.443 6170.924      3481.583          
-5602.75       6520.42
+This expands the check in can_checksum_protocol() to make it more
+readable, but doing so shouldn't make the resulting code any *bigger*,
+except obviously for the additional checks.
 
-Performance degradation exists. But I thing it can be solved, for 
-example, by adding incrementation and searching appropriate cgroup to 
-delayed timer (add_timer).
+Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-
-On 01/14/2013 12:09 PM, Daniel Wagner wrote:
-> Hi Alexey,
->
-> On 11.01.2013 17:59, Alexey Perevalov wrote:
->> I'm sorry for previous email with attachments.
->
-> It seems something went wrong with the patch, e.g. indention is wrong 
-> and also I see '^M$' line endings. I assume you are sending your 
-> patches through an exchange server which is likely not to work.
->
->> I would like to represent next version of patch I sent before
->> cgroup: "net_cls: traffic counter based on classification control 
->> cgroup"
->>
->> The main idea is the same as was. It keeping counter in control groups,
->> but now uses atomic instead resource_counters.
->
-> +#if IS_ENABLED(CONFIG_NET_CLS_COUNTER)
-> + if (copied > 0)
-> + count_cls_rcv(current, copied, ifindex);
-> +#endif
-> +
-> release_sock(sk);
-> return copied;
->
-> Normally, distros will enable most config flags. Maybe you could use
-> a jump label to reduce the cost for the users which have 
-> CONFIG_NET_CLS_COUNTER enabled and do not use it?
->
->> I have a performance measurement for this patch. It was done by lmbench
->> on physical machine.
->> Results are not so representative for 20 tests and some numbers are real
->> weird.
->
-> Could you explain in the commit message how your patch is designed? I 
-> see you are using a RB tree. What's the purpose of it?
->
->> Daniel Wagner wrote what he is doing something similar, but using
->> namespaces.
->
-> I am trying a different approach on this problem using iptables. I am 
-> playing around with a few patches which allow to install a iptables rule
-> which matches on the security context, e.g.
->
-> iptables -t mangle -A OUTPUT -m secmark --secctx \
-> unconfined_u:unconfined_r:foo_t:s0-s0:c0.c1023 -j MARK --set-mark 1
->
-> So far it looks promising, but as I me previous networking experience 
-> is, that something will not work eventually.
->
->> Proposed by me approach is used in upcoming Tizen release, but little
->> bit different version.
->
-> Thanks,
-> Daniel
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 515473e..f1048b6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2229,22 +2229,39 @@ static int dev_gso_segment(struct sk_buff *skb, net=
+dev_features_t features)
+ 	return 0;
+ }
+=20
+-static bool can_checksum_protocol(netdev_features_t features, __be16 proto=
+col)
++static bool can_checksum_protocol(netdev_features_t features, __be16 proto=
+col,
++				  __u16 csum_offset)
+ {
+-	return ((features & NETIF_F_GEN_CSUM) ||
+-		((features & NETIF_F_V4_CSUM) &&
+-		 protocol =3D=3D htons(ETH_P_IP)) ||
+-		((features & NETIF_F_V6_CSUM) &&
+-		 protocol =3D=3D htons(ETH_P_IPV6)) ||
+-		((features & NETIF_F_FCOE_CRC) &&
+-		 protocol =3D=3D htons(ETH_P_FCOE)));
++	if (features & NETIF_F_GEN_CSUM)
++		return 1;
++
++	if ((features & NETIF_F_FCOE_CRC) && protocol =3D=3D htons(ETH_P_FCOE))
++		return 1;
++
++	/*
++	 * Only allow NETIF_F_V[46]_CSUM for UDP/TCP packets. This is an
++	 * overly permissive check, but it's very unlikely to have false
++	 * positives in practice, and actually looking in the packet for
++	 * a proper confirmation would be very slow.
++	 */
++	if (csum_offset !=3D offsetof(struct udphdr, check) &&
++	    csum_offset !=3D offsetof(struct tcphdr, check))
++		return 0;
++
++	if ((features & NETIF_F_V4_CSUM) && protocol =3D=3D htons(ETH_P_IP))
++		return 1;
++
++	if ((features & NETIF_F_V6_CSUM) && protocol =3D=3D htons(ETH_P_IPV6))
++		return 1;
++
++	return 0;
+ }
+=20
+ static netdev_features_t harmonize_features(struct sk_buff *skb,
+ 	__be16 protocol, netdev_features_t features)
+ {
+ 	if (skb->ip_summed !=3D CHECKSUM_NONE &&
+-	    !can_checksum_protocol(features, protocol)) {
++	    !can_checksum_protocol(features, protocol, skb->csum_offset)) {
+ 		features &=3D ~NETIF_F_ALL_CSUM;
+ 		features &=3D ~NETIF_F_SG;
+ 	} else if (illegal_highdma(skb->dev, skb)) {
 
 
--- 
-Best regards,
-Alexey Perevalov,
-Technical Leader,
-phone: +7 (495) 797 25 00 ext 3969
-e-mail: a.perevalov@samsung.com <mailto:a.perevalov@samsumng.com>
+--=20
+dwmw2
 
-Mobile group, Moscow Samsung Research Center
-12 Dvintsev street, building 1
-127018, Moscow, Russian Federation
+
+--=-Hl3+Avy83mJh+W02ByG2
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
+AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
+4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
+wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
+xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
+MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
+w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
+d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
+Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
+c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
+IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
+dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
+BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
+aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
+bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
+oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
+MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
+dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
+MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
+hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
+DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
+ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
+NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
+mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
+AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
+MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
+A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
+Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
+7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
+KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
+wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
+V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
+vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
+CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
+BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
+ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
+YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
+ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
+IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
+U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
+ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
+BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
+aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
+bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
+dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
+CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
+QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
+ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
+AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
+t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
+gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
+H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
+kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
+MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
+dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
+eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE0MTIxMDMxWjAjBgkqhkiG9w0BCQQx
+FgQUHAJx/uc2T9G2Mkf7pTrPYhARTLswgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
+ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
+ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
+TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
+aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBEayBd96c6s8JNu9HoRKDI9DuC
+wzFm2nGNxnd28XSuY8sX+bTeQqXljDoYygKsqkUqRbgI+GNQViRXU5lKySBgDdTZvRC2d/LswvJ5
+NLA88Ks0x9NGsc6WG+k7yWRCUX9VIP3px+apYhmHSaoG+oSwpPlUDTdqUz70XtC0RhhGbBm+2nJ7
+jrmcEYLiBDKLRjfzQ/9zzl9ZeR8WX97ScsrqolPxuCuy1DjNFqP0KduMs/EKBXnjsr7NqNiQ55x6
+oUrvjlClA/U/80TCeFVceNFvfCzcZbFzQtZuG0L1fzf+GI1izu2BU1tusBH/Kba5ONBpGCK8mB72
+BmMDP+1jKYSZAAAAAAAA
+
+
+--=-Hl3+Avy83mJh+W02ByG2--
