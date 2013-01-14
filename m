@@ -1,60 +1,30 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] cpsw: Add support to read cpu MAC address
-Date: Mon, 14 Jan 2013 20:26:51 +0000
-Message-ID: <20130114202651.5360F3E249D@localhost>
-References: <1357917302-32550-1-git-send-email-michal.bachraty@streamunlimited.com>
-Cc: devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org,
-	Michal Bachraty <michal.bachraty@streamunlimited.com>
-To: Michal Bachraty <michal.bachraty@streamunlimited.com>,
-	rob.herring@calxeda.com, rob@landley.net, linux@arm.linux.org.uk
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1357917302-32550-1-git-send-email-michal.bachraty@streamunlimited.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 5/5] soreuseport: UDP/IPv6 implementation
+Date: Tue, 15 Jan 2013 05:27:53 +0900
+Message-ID: <50F46A49.3030303@linux-ipv6.org>
+References: <alpine.DEB.2.00.1301141139190.1968@pokey.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:40064 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757347Ab3ANU1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:27:55 -0500
+In-Reply-To: <alpine.DEB.2.00.1301141139190.1968@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 11 Jan 2013 16:15:02 +0100, Michal Bachraty <michal.bachraty@streamunlimited.com> wrote:
-> Signed-off-by: Michal Bachraty <michal.bachraty@streamunlimited.com>
-> ---
->  Documentation/devicetree/bindings/net/cpsw.txt |   10 +-
->  arch/arm/boot/dts/am33xx.dtsi                  |    5 +-
->  drivers/net/ethernet/ti/cpsw.c                 |  121 +++++++++++++++++++++---
->  include/linux/platform_data/cpsw.h             |    8 ++
->  4 files changed, 128 insertions(+), 16 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-> index dcaabe9..432122c 100644
-> --- a/Documentation/devicetree/bindings/net/cpsw.txt
-> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
-> @@ -4,7 +4,7 @@ TI SoC Ethernet Switch Controller Device Tree Bindings
->  Required properties:
->  - compatible		: Should be "ti,cpsw"
->  - reg			: physical base address and size of the cpsw
-> -			  registers map
-> +			  registers map and mac-address cpu config registers
->  - interrupts		: property with a value describing the interrupt
->  			  number
->  - interrupt-parent	: The parent interrupt controller
-> @@ -25,17 +25,23 @@ Required properties:
->  - slave_reg_ofs		: Specifies slave register offset
->  - sliver_reg_ofs	: Specifies slave sliver register offset
->  - phy_id		: Specifies slave phy id
-> -- mac-address		: Specifies slave MAC address
->  
->  Optional properties:
->  - ti,hwmods		: Must be "cpgmac0"
->  - no_bd_ram		: Must be 0 or 1
-> +- mac-address-source 	: Specifies source of MAC address ("user-defined-mac",
-> +			  "cpu-id0-mac", "cpu-id01-mac", "random-mac"). If not
-> +			  specified, "cpu-id0-mac" is selected
+Tom Herbert wrote:
+> +				hash = inet6_ehashfn(net, daddr, hnum,
+> +				    saddr, sport);
+:
+> +				hash = inet6_ehashfn(net, daddr, hnum,
+> +				    saddr, sport);
 
-Drop the '-mac' suffix on the values. The property is already named
-"mac-address-source", so I think it is already unambiguious from the
-context.  :-)
+Ditto.
 
-Otherwise the patch looks good to me, but I haven't gone over the code
-in fine detail.
-
-Acked-by: Grant Likely <grant.likely@secretlab.ca>
-
+--yoshfuji
