@@ -1,121 +1,75 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [RFC PATCH 1/3] Avoid making inappropriate requests of
- NETIF_F_V[46]_CSUM devices
-Date: Mon, 14 Jan 2013 12:10:31 +0000
-Message-ID: <1358165431.27054.62.camel@shinybook.infradead.org>
+Subject: [RFC PATCH 2/3] Prepare to allow for hardware checksum of ICMPv6
+Date: Mon, 14 Jan 2013 12:12:31 +0000
+Message-ID: <1358165551.27054.64.camel@shinybook.infradead.org>
+References: <1358165431.27054.62.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-Hl3+Avy83mJh+W02ByG2"
+	boundary="=-oWj7cywGH17EZzdMiz6m"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:35677 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:35696 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751288Ab3ANMKd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 07:10:33 -0500
+	with ESMTP id S1755732Ab3ANMMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 07:12:34 -0500
 Received: from shinybook.infradead.org ([2001:8b0:10b:1:e6ce:8fff:fe1f:f2c0])
 	by merlin.infradead.org with esmtpsa (Exim 4.76 #1 (Red Hat Linux))
-	id 1Tuis4-0001wl-FU
-	for netdev@vger.kernel.org; Mon, 14 Jan 2013 12:10:33 +0000
+	id 1Tuiu0-0001yb-Ku
+	for netdev@vger.kernel.org; Mon, 14 Jan 2013 12:12:33 +0000
+In-Reply-To: <1358165431.27054.62.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-Hl3+Avy83mJh+W02ByG2
+--=-oWj7cywGH17EZzdMiz6m
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-Devices with the NETIF_F_V[46]_CSUM feature(s) are *only* required to
-handle checksumming of UDP and TCP.
-
-In netif_skb_features() we attempt to filter out the capabilities which
-are inappropriate for the device that the skb will actually be sent
-from... but there we assume that NETIF_F_V4_CSUM devices can handle
-*all* Legacy IP, and that NETIF_F_V6_CSUM devices can handle *all* IPv6.
-
-This may have been OK in the days when CHECKSUM_PARTIAL packets would
-*only* be produced by the local stack, and we knew the local stack
-didn't generate them for anything but UDP and TCP. But these days that's
-not true. When a tun device receives a packet from userspace with
-VIRTIO_NET_HDR_F_NEEDS_CSUM, that translates fairly directly into
-setting CHECKSUM_PARTIAL on the resulting skb. Since virtio_net
-advertises NETIF_F_HW_CSUM to its guests, we should expect to be asked
-to checksum *anything*.
-
-This patch attempts to cope with that by checking skb->csum_offset for
-such devices. If that doesn't match the offset for UDP or TCP, then we
-don't use hardware checksum. It won't catch 100% of cases, but a full
-check of the actual skb contents in the fast path isn't a good idea.
-It'll probably do well enough for now.
-
-This expands the check in can_checksum_protocol() to make it more
-readable, but doing so shouldn't make the resulting code any *bigger*,
-except obviously for the additional checks.
+If netif_skb_features() has to filter out non-TCP and non-UDP frames
+anyway for devices with limited checksum support, there's no reason we
+shouldn't generate them in our *own* stack. This allows ICMPv6 to do
+so...
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 515473e..f1048b6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2229,22 +2229,39 @@ static int dev_gso_segment(struct sk_buff *skb, net=
-dev_features_t features)
- 	return 0;
- }
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index b4a9fd5..e474df9 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -235,12 +235,19 @@ static int icmpv6_push_pending_frames(struct sock *sk=
+, struct flowi6 *fl6, struc
+ 	icmp6h->icmp6_cksum =3D 0;
 =20
--static bool can_checksum_protocol(netdev_features_t features, __be16 proto=
-col)
-+static bool can_checksum_protocol(netdev_features_t features, __be16 proto=
-col,
-+				  __u16 csum_offset)
- {
--	return ((features & NETIF_F_GEN_CSUM) ||
--		((features & NETIF_F_V4_CSUM) &&
--		 protocol =3D=3D htons(ETH_P_IP)) ||
--		((features & NETIF_F_V6_CSUM) &&
--		 protocol =3D=3D htons(ETH_P_IPV6)) ||
--		((features & NETIF_F_FCOE_CRC) &&
--		 protocol =3D=3D htons(ETH_P_FCOE)));
-+	if (features & NETIF_F_GEN_CSUM)
-+		return 1;
-+
-+	if ((features & NETIF_F_FCOE_CRC) && protocol =3D=3D htons(ETH_P_FCOE))
-+		return 1;
-+
-+	/*
-+	 * Only allow NETIF_F_V[46]_CSUM for UDP/TCP packets. This is an
-+	 * overly permissive check, but it's very unlikely to have false
-+	 * positives in practice, and actually looking in the packet for
-+	 * a proper confirmation would be very slow.
-+	 */
-+	if (csum_offset !=3D offsetof(struct udphdr, check) &&
-+	    csum_offset !=3D offsetof(struct tcphdr, check))
-+		return 0;
-+
-+	if ((features & NETIF_F_V4_CSUM) && protocol =3D=3D htons(ETH_P_IP))
-+		return 1;
-+
-+	if ((features & NETIF_F_V6_CSUM) && protocol =3D=3D htons(ETH_P_IPV6))
-+		return 1;
-+
-+	return 0;
- }
+ 	if (skb_queue_len(&sk->sk_write_queue) =3D=3D 1) {
+-		skb->csum =3D csum_partial(icmp6h,
+-					sizeof(struct icmp6hdr), skb->csum);
+-		icmp6h->icmp6_cksum =3D csum_ipv6_magic(&fl6->saddr,
+-						      &fl6->daddr,
+-						      len, fl6->flowi6_proto,
+-						      skb->csum);
++		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
++			skb->csum_start =3D skb_transport_header(skb) - skb->head;
++			skb->csum_offset =3D offsetof(struct icmp6hdr, icmp6_cksum);
++			icmp6h->icmp6_cksum =3D ~csum_ipv6_magic(&fl6->saddr, &fl6->daddr,
++							       len, fl6->flowi6_proto, 0);
++		} else {
++			skb->csum =3D csum_partial(icmp6h,
++						 sizeof(struct icmp6hdr), skb->csum);
++			icmp6h->icmp6_cksum =3D csum_ipv6_magic(&fl6->saddr,
++							      &fl6->daddr,
++							      len, fl6->flowi6_proto,
++							      skb->csum);
++		}
+ 	} else {
+ 		__wsum tmp_csum =3D 0;
 =20
- static netdev_features_t harmonize_features(struct sk_buff *skb,
- 	__be16 protocol, netdev_features_t features)
- {
- 	if (skb->ip_summed !=3D CHECKSUM_NONE &&
--	    !can_checksum_protocol(features, protocol)) {
-+	    !can_checksum_protocol(features, protocol, skb->csum_offset)) {
- 		features &=3D ~NETIF_F_ALL_CSUM;
- 		features &=3D ~NETIF_F_SG;
- 	} else if (illegal_highdma(skb->dev, skb)) {
 
 
 --=20
 dwmw2
 
 
---=-Hl3+Avy83mJh+W02ByG2
+--=-oWj7cywGH17EZzdMiz6m
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -216,19 +170,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE0MTIxMDMxWjAjBgkqhkiG9w0BCQQx
-FgQUHAJx/uc2T9G2Mkf7pTrPYhARTLswgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE0MTIxMjMxWjAjBgkqhkiG9w0BCQQx
+FgQU9P1dKNppQVqnC8tY5iR4sSLGxDwwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBEayBd96c6s8JNu9HoRKDI9DuC
-wzFm2nGNxnd28XSuY8sX+bTeQqXljDoYygKsqkUqRbgI+GNQViRXU5lKySBgDdTZvRC2d/LswvJ5
-NLA88Ks0x9NGsc6WG+k7yWRCUX9VIP3px+apYhmHSaoG+oSwpPlUDTdqUz70XtC0RhhGbBm+2nJ7
-jrmcEYLiBDKLRjfzQ/9zzl9ZeR8WX97ScsrqolPxuCuy1DjNFqP0KduMs/EKBXnjsr7NqNiQ55x6
-oUrvjlClA/U/80TCeFVceNFvfCzcZbFzQtZuG0L1fzf+GI1izu2BU1tusBH/Kba5ONBpGCK8mB72
-BmMDP+1jKYSZAAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAio+Nzsd/FVNq26WOMfMwJ1Cwe
+ib8Sb7Qjz4k4fvYwuCfvu4AZOYzc3H9ITcuHSL5WSfqQQv/e/CYlk3Ic2Tl76X32zg36EMM7uMzK
+UVmCA04sUEtDT25HYCcqNuQlBxgddxHLp6ldcj2bzNDhCy0d7HVl0l6IqC1WDgNRAtYZXHlm3jtY
+RyO1qcQnWE+gfjjMk3tW63kYmGJKFFcmfDI0/48zqhKcnqYyGW+KLdjKAFd2nf7y7rxgqbkVwCj8
+kzjdbpHHcrhq0sKAaYTuouxMtYfe80R5wJYbjMXjsrdM6qaGrDIvYNopAgUnXr0yUq1TvIRD7CUn
+fKhOUNhaqs41AAAAAAAA
 
 
---=-Hl3+Avy83mJh+W02ByG2--
+--=-oWj7cywGH17EZzdMiz6m--
