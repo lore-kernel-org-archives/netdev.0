@@ -1,7 +1,8 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 0/10] bnx2x: patch series
-Date: Mon, 14 Jan 2013 17:11:40 +0200
-Message-ID: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 07/10] bnx2x: improve stop-on-error
+Date: Mon, 14 Jan 2013 17:11:47 +0200
+Message-ID: <1358176310-31504-8-git-send-email-yuvalmin@broadcom.com>
+References: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -9,22 +10,282 @@ Cc: eilong@broadcom.com, ariele@broadcom.com,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1173 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4309 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757209Ab3ANQJz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2013 11:09:55 -0500
+	id S1756432Ab3ANQKK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 11:10:10 -0500
+In-Reply-To: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Get better control over interrupts during panic, and allow FW to
+test outgoing Tx packets when stop-on-error is allowed.
 
-This patch series contains several patches, some of which 
-are cosmetic (e.g., introduce 2013),
-some fix small issues or rare corner cases (e.g., link failure in self test),
-and some add new functionality - better support for dumping our registers 
-(supporting `ethtool -w/-d') and support for FW GRO in bridging scenarios.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |   6 +-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c    |   4 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |   2 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   4 -
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   | 139 +++++++++++----------
+ 5 files changed, 79 insertions(+), 76 deletions(-)
 
-Please consider applying this patch-series to 'net-next'.
-
-Thanks,
-Yuval Mintz
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 309bbb7..757fe2c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -123,20 +123,18 @@ do {								 \
+ } while (0)
+ 
+ #ifdef BNX2X_STOP_ON_ERROR
+-void bnx2x_int_disable(struct bnx2x *bp);
+ #define bnx2x_panic()				\
+ do {						\
+ 	bp->panic = 1;				\
+ 	BNX2X_ERR("driver assert\n");		\
+-	bnx2x_int_disable(bp);			\
+-	bnx2x_panic_dump(bp);			\
++	bnx2x_panic_dump(bp, true);		\
+ } while (0)
+ #else
+ #define bnx2x_panic()				\
+ do {						\
+ 	bp->panic = 1;				\
+ 	BNX2X_ERR("driver assert\n");		\
+-	bnx2x_panic_dump(bp);			\
++	bnx2x_panic_dump(bp, false);		\
+ } while (0)
+ #endif
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 00706c4..53a2c0e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3510,13 +3510,17 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		/* when transmitting in a vf, start bd must hold the ethertype
+ 		 * for fw to enforce it
+ 		 */
++#ifndef BNX2X_STOP_ON_ERROR
+ 		if (IS_VF(bp)) {
++#endif
+ 			tx_start_bd->vlan_or_ethertype =
+ 				cpu_to_le16(ntohs(eth->h_proto));
++#ifndef BNX2X_STOP_ON_ERROR
+ 		} else {
+ 			/* used by FW for packet accounting */
+ 			tx_start_bd->vlan_or_ethertype = cpu_to_le16(pkt_prod);
+ 		}
++#endif
+ 	}
+ 
+ 	/* turn on parsing and get a BD */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index a2583f2..8104b98 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -479,7 +479,7 @@ int bnx2x_set_power_state(struct bnx2x *bp, pci_power_t state);
+  */
+ void bnx2x_update_max_mf_config(struct bnx2x *bp, u32 value);
+ /* Error handling */
+-void bnx2x_panic_dump(struct bnx2x *bp);
++void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int);
+ 
+ void bnx2x_fw_dump_lvl(struct bnx2x *bp, const char *lvl);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index db9ff98..53374de 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -2720,10 +2720,6 @@ static void bnx2x_self_test(struct net_device *dev,
+ 			buf[2] = 1;
+ 		etest->flags |= ETH_TEST_FL_FAILED;
+ 	}
+-
+-#ifdef BNX2X_EXTRA_DEBUG
+-	bnx2x_panic_dump(bp);
+-#endif
+ }
+ 
+ #define IS_PORT_STAT(i) \
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 3b05184..b75049e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -791,7 +791,71 @@ static void bnx2x_fw_dump(struct bnx2x *bp)
+ 	bnx2x_fw_dump_lvl(bp, KERN_ERR);
+ }
+ 
+-void bnx2x_panic_dump(struct bnx2x *bp)
++static void bnx2x_hc_int_disable(struct bnx2x *bp)
++{
++	int port = BP_PORT(bp);
++	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
++	u32 val = REG_RD(bp, addr);
++
++	/* in E1 we must use only PCI configuration space to disable
++	 * MSI/MSIX capablility
++	 * It's forbitten to disable IGU_PF_CONF_MSI_MSIX_EN in HC block
++	 */
++	if (CHIP_IS_E1(bp)) {
++		/* Since IGU_PF_CONF_MSI_MSIX_EN still always on
++		 * Use mask register to prevent from HC sending interrupts
++		 * after we exit the function
++		 */
++		REG_WR(bp, HC_REG_INT_MASK + port*4, 0);
++
++		val &= ~(HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
++			 HC_CONFIG_0_REG_INT_LINE_EN_0 |
++			 HC_CONFIG_0_REG_ATTN_BIT_EN_0);
++	} else
++		val &= ~(HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
++			 HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
++			 HC_CONFIG_0_REG_INT_LINE_EN_0 |
++			 HC_CONFIG_0_REG_ATTN_BIT_EN_0);
++
++	DP(NETIF_MSG_IFDOWN,
++	   "write %x to HC %d (addr 0x%x)\n",
++	   val, port, addr);
++
++	/* flush all outstanding writes */
++	mmiowb();
++
++	REG_WR(bp, addr, val);
++	if (REG_RD(bp, addr) != val)
++		BNX2X_ERR("BUG! proper val not read from IGU!\n");
++}
++
++static void bnx2x_igu_int_disable(struct bnx2x *bp)
++{
++	u32 val = REG_RD(bp, IGU_REG_PF_CONFIGURATION);
++
++	val &= ~(IGU_PF_CONF_MSI_MSIX_EN |
++		 IGU_PF_CONF_INT_LINE_EN |
++		 IGU_PF_CONF_ATTN_BIT_EN);
++
++	DP(NETIF_MSG_IFDOWN, "write %x to IGU\n", val);
++
++	/* flush all outstanding writes */
++	mmiowb();
++
++	REG_WR(bp, IGU_REG_PF_CONFIGURATION, val);
++	if (REG_RD(bp, IGU_REG_PF_CONFIGURATION) != val)
++		BNX2X_ERR("BUG! proper val not read from IGU!\n");
++}
++
++static void bnx2x_int_disable(struct bnx2x *bp)
++{
++	if (bp->common.int_block == INT_BLOCK_HC)
++		bnx2x_hc_int_disable(bp);
++	else
++		bnx2x_igu_int_disable(bp);
++}
++
++void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
+ {
+ 	int i;
+ 	u16 j;
+@@ -801,6 +865,8 @@ void bnx2x_panic_dump(struct bnx2x *bp)
+ 	u16 start = 0, end = 0;
+ 	u8 cos;
+ #endif
++	if (disable_int)
++		bnx2x_int_disable(bp);
+ 
+ 	bp->stats_state = STATS_STATE_DISABLED;
+ 	bp->eth_stats.unrecoverable_error++;
+@@ -1516,71 +1582,6 @@ void bnx2x_int_enable(struct bnx2x *bp)
+ 		bnx2x_igu_int_enable(bp);
+ }
+ 
+-static void bnx2x_hc_int_disable(struct bnx2x *bp)
+-{
+-	int port = BP_PORT(bp);
+-	u32 addr = port ? HC_REG_CONFIG_1 : HC_REG_CONFIG_0;
+-	u32 val = REG_RD(bp, addr);
+-
+-	/*
+-	 * in E1 we must use only PCI configuration space to disable
+-	 * MSI/MSIX capablility
+-	 * It's forbitten to disable IGU_PF_CONF_MSI_MSIX_EN in HC block
+-	 */
+-	if (CHIP_IS_E1(bp)) {
+-		/*  Since IGU_PF_CONF_MSI_MSIX_EN still always on
+-		 *  Use mask register to prevent from HC sending interrupts
+-		 *  after we exit the function
+-		 */
+-		REG_WR(bp, HC_REG_INT_MASK + port*4, 0);
+-
+-		val &= ~(HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
+-			 HC_CONFIG_0_REG_INT_LINE_EN_0 |
+-			 HC_CONFIG_0_REG_ATTN_BIT_EN_0);
+-	} else
+-		val &= ~(HC_CONFIG_0_REG_SINGLE_ISR_EN_0 |
+-			 HC_CONFIG_0_REG_MSI_MSIX_INT_EN_0 |
+-			 HC_CONFIG_0_REG_INT_LINE_EN_0 |
+-			 HC_CONFIG_0_REG_ATTN_BIT_EN_0);
+-
+-	DP(NETIF_MSG_IFDOWN,
+-	   "write %x to HC %d (addr 0x%x)\n",
+-	   val, port, addr);
+-
+-	/* flush all outstanding writes */
+-	mmiowb();
+-
+-	REG_WR(bp, addr, val);
+-	if (REG_RD(bp, addr) != val)
+-		BNX2X_ERR("BUG! proper val not read from IGU!\n");
+-}
+-
+-static void bnx2x_igu_int_disable(struct bnx2x *bp)
+-{
+-	u32 val = REG_RD(bp, IGU_REG_PF_CONFIGURATION);
+-
+-	val &= ~(IGU_PF_CONF_MSI_MSIX_EN |
+-		 IGU_PF_CONF_INT_LINE_EN |
+-		 IGU_PF_CONF_ATTN_BIT_EN);
+-
+-	DP(NETIF_MSG_IFDOWN, "write %x to IGU\n", val);
+-
+-	/* flush all outstanding writes */
+-	mmiowb();
+-
+-	REG_WR(bp, IGU_REG_PF_CONFIGURATION, val);
+-	if (REG_RD(bp, IGU_REG_PF_CONFIGURATION) != val)
+-		BNX2X_ERR("BUG! proper val not read from IGU!\n");
+-}
+-
+-static void bnx2x_int_disable(struct bnx2x *bp)
+-{
+-	if (bp->common.int_block == INT_BLOCK_HC)
+-		bnx2x_hc_int_disable(bp);
+-	else
+-		bnx2x_igu_int_disable(bp);
+-}
+-
+ void bnx2x_int_disable_sync(struct bnx2x *bp, int disable_hw)
+ {
+ 	int msix = (bp->flags & USING_MSIX_FLAG) ? 1 : 0;
+@@ -2934,6 +2935,10 @@ static unsigned long bnx2x_get_common_flags(struct bnx2x *bp,
+ 		__set_bit(BNX2X_Q_FLG_ZERO_STATS, &flags);
+ 
+ 
++#ifdef BNX2X_STOP_ON_ERROR
++	__set_bit(BNX2X_Q_FLG_TX_SEC, &flags);
++#endif
++
+ 	return flags;
+ }
+ 
+@@ -4754,7 +4759,7 @@ static int  bnx2x_cnic_handle_cfc_del(struct bnx2x *bp, u32 cid,
+ 
+ 		BNX2X_ERR("got delete ramrod for CNIC CID %d with error!\n",
+ 			  cid);
+-		bnx2x_panic_dump(bp);
++		bnx2x_panic_dump(bp, false);
+ 	}
+ 	bnx2x_cnic_cfc_comp(bp, cid, err);
+ 	return 0;
+-- 
+1.8.1.227.g44fe835
