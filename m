@@ -1,61 +1,103 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] tcp: fix a panic on UP machines in reqsk_fastopen_remove
-Date: Mon, 14 Jan 2013 00:26:26 -0800
-Message-ID: <CAPshTCiNcSPbC7uCzo5MV2tGuZyoCwyE_XKcGb9smknZ8Rqb2w@mail.gmail.com>
-References: <1358137311.8744.1590.camel@edumazet-glaptop>
+From: "pupilla@libero.it" <pupilla@libero.it>
+Subject: R: RE: per route MTU settings
+Date: Mon, 14 Jan 2013 09:51:53 +0100 (CET)
+Message-ID: <30645799.1106291358153513079.JavaMail.defaultUser@defaultHost>
+Reply-To: "pupilla@libero.it" <pupilla@libero.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ketan Kulkarni <ketkulka@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain;charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: <luky-37@hotmail.com>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f169.google.com ([209.85.217.169]:42344 "EHLO
-	mail-lb0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322Ab3ANIdZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 03:33:25 -0500
-Received: by mail-lb0-f169.google.com with SMTP id gk1so2748063lbb.28
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 00:33:24 -0800 (PST)
-In-Reply-To: <1358137311.8744.1590.camel@edumazet-glaptop>
+Received: from outrelay02.libero.it ([212.52.84.102]:35652 "EHLO
+	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755495Ab3ANIvz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 03:51:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 13, 2013 at 8:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> spin_is_locked() on a non !SMP build is kind of useless.
->
-> BUG_ON(!spin_is_locked(xx)) is guaranteed to crash.
->
-> Just remove this check in reqsk_fastopen_remove() as
-> the callers do hold the socket lock.
->
-> Reported-by: Ketan Kulkarni <ketkulka@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jerry Chu <hkchu@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Dave Taht <dave.taht@gmail.com>
-> ---
->  net/core/request_sock.c |    2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-> index c31d9e8..4425148 100644
-> --- a/net/core/request_sock.c
-> +++ b/net/core/request_sock.c
-> @@ -186,8 +186,6 @@ void reqsk_fastopen_remove(struct sock *sk, struct request_sock *req,
->         struct fastopen_queue *fastopenq =
->             inet_csk(lsk)->icsk_accept_queue.fastopenq;
->
-> -       BUG_ON(!spin_is_locked(&sk->sk_lock.slock) && !sock_owned_by_user(sk));
-> -
->         tcp_sk(sk)->fastopen_rsk = NULL;
->         spin_lock_bh(&fastopenq->lock);
->         fastopenq->qlen--;
->
->
+luky-37@hotmail.com wrote:
+>I guess 10.81.104.1 has a 576B MTU route/interface towards
+>10.81.105.109,
 
-Thanks, Eric. (I thought the assertion would be transparent to UP...)
+no, 10.81.104.1 is only a L3 switch.
 
-Acked-by: H.K. Jerry Chu <hkchu@google.com>
+>Running from both hosts pings with:
+>-s 548
+>-s 549
+>-s 1422
+>-s 1423
+>
+>and then analyzing the results will probably give us a better
+>idea of what actually happens.
+
+here is the results:
+
+root@10.81.104.254:~# ip route add 10.81.105.121/32 via 10.81.104.1 mtu lock 
+1450
+root@10.81.104.254:~# ip r s | grep 10.81 | grep eth2
+10.81.104.0/24 dev eth2  proto kernel  scope link  src 10.81.104.254 
+10.81.104.0/21 via 10.81.104.1 dev eth2 
+10.81.105.121 via 10.81.104.1 dev eth2  mtu lock 1450
+root@10.81.104.254:~# ip route flush cache
+root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 548
+PING 10.81.105.121 (10.81.105.121) 548(576) bytes of data.
+556 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.476 ms
+556 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.448 ms
+556 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=0.515 ms
+
+root@10.81.104.254:~# ip route flush cache
+root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 549
+PING 10.81.105.121 (10.81.105.121) 549(577) bytes of data.
+557 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.386 ms
+557 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.525 ms
+557 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=0.447 ms
+
+root@10.81.104.254:~# ip route flush cache
+root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 1422
+PING 10.81.105.121 (10.81.105.121) 1422(1450) bytes of data.
+1430 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.724 ms
+1430 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.785 ms
+1430 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=1.95 ms
+
+root@10.81.104.254:~# ip route flush cache
+root@10.81.104.254:~# ping -M do 10.81.105.121 -c 4 -s 1423
+PING 10.81.105.121 (10.81.105.121) 1423(1451) bytes of data.
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 1450)
+
+root@10.81.104.126:~# ip r s
+default via 10.81.104.254 dev eth0  metric 1 
+10.81.104.0/24 dev eth0  proto kernel  scope link  src 10.81.104.126 
+127.0.0.0/8 dev lo  scope link 
+
+root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 548
+PING 10.81.105.121 (10.81.105.121) 548(576) bytes of data.
+556 bytes from 10.81.105.121: icmp_req=1 ttl=127 time=0.352 ms
+556 bytes from 10.81.105.121: icmp_req=2 ttl=127 time=0.372 ms
+556 bytes from 10.81.105.121: icmp_req=3 ttl=127 time=0.368 ms
+
+root@10.81.104.126:~# ip route flush cache
+root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 549
+PING 10.81.105.121 (10.81.105.121) 549(577) bytes of data.
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
+
+I don't undestand why 10.81.104.254 here, is reporting
+that the mtu is 576 instead of 1450
+
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+
+root@10.81.104.126:~# ip route flush cache
+root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 1422
+PING 10.81.105.121 (10.81.105.121) 1422(1450) bytes of data.
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+
+root@10.81.104.126:~# ip route flush cache
+root@10.81.104.126:~# ping -M do 10.81.105.121 -c 4 -s 1423
+PING 10.81.105.121 (10.81.105.121) 1423(1451) bytes of data.
+>From 10.81.104.254 icmp_seq=1 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
+>From 10.81.104.126 icmp_seq=2 Frag needed and DF set (mtu = 576)
