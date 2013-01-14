@@ -1,34 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2013-01-14
-Date: Sun, 13 Jan 2013 20:39:40 -0500 (EST)
-Message-ID: <20130113.203940.971636104315231474.davem@davemloft.net>
-References: <1358120480-25960-1-git-send-email-ordex@autistici.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next] ipv6: Move comment to right place.
+Date: Mon, 14 Jan 2013 11:02:06 +0900
+Message-ID: <50F3671E.2090601@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49399 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755300Ab3ANBjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 20:39:41 -0500
-In-Reply-To: <1358120480-25960-1-git-send-email-ordex@autistici.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38912 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753538Ab3ANCCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 21:02:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Mon, 14 Jan 2013 09:41:05 +1000
+IN6ADDR_* and in6addr_* are not exported to userspace, and are defined
+in include/linux/in6.h.
 
-> this is our first changeset intended for net-next/linux-3.9.
-> In this batch you have mostly code refactoring, style adjustments and output
-> beautifications.
-> The only new 'behaviours' are:
-> - prevent the TT component from learning multicast mac addresses as they are not
->   really handled (yet)
-> - initialise own lockdep class for each hash table in order to avoid false
->   positive from lockdep
-...
->   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/linux/in6.h      |    4 ++++
+ include/uapi/linux/in6.h |    5 -----
+ 2 files changed, 4 insertions(+), 5 deletions(-)
 
-Pulled, thanks.
+diff --git a/include/linux/in6.h b/include/linux/in6.h
+index 9e2ae26..a16e193 100644
+--- a/include/linux/in6.h
++++ b/include/linux/in6.h
+@@ -22,6 +22,10 @@
+ 
+ #include <uapi/linux/in6.h>
+ 
++/* IPv6 Wildcard Address (::) and Loopback Address (::1) defined in RFC2553
++ * NOTE: Be aware the IN6ADDR_* constants and in6addr_* externals are defined
++ * in network byte order, not in host byte order as are the IPv4 equivalents
++ */
+ extern const struct in6_addr in6addr_any;
+ #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
+ extern const struct in6_addr in6addr_loopback;
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index f79c372..5673b97 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -38,11 +38,6 @@ struct in6_addr {
+ #define s6_addr32		in6_u.u6_addr32
+ };
+ 
+-/* IPv6 Wildcard Address (::) and Loopback Address (::1) defined in RFC2553
+- * NOTE: Be aware the IN6ADDR_* constants and in6addr_* externals are defined
+- * in network byte order, not in host byte order as are the IPv4 equivalents
+- */
+-
+ struct sockaddr_in6 {
+ 	unsigned short int	sin6_family;    /* AF_INET6 */
+ 	__be16			sin6_port;      /* Transport layer port # */
+-- 
+1.7.9.5
