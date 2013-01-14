@@ -1,29 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC PATCH v3] cgroup: net_cls: traffic counter based on
- classification control cgroup
-Date: Mon, 14 Jan 2013 18:12:36 -0500 (EST)
-Message-ID: <20130114.181236.2276983347407293999.davem@davemloft.net>
-References: <50F3B63B.6050104@samsung.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next v3] netpoll: fix a rtnl lock assertion failure
+Date: Mon, 14 Jan 2013 18:13:50 -0500 (EST)
+Message-ID: <20130114.181350.1796205610296377637.davem@davemloft.net>
+References: <1358160234-24996-1-git-send-email-amwang@redhat.com>
+	<1358183252.8744.3094.camel@edumazet-glaptop>
+	<1358183396.8744.3100.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org, kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
-To: a.perevalov-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50F3B63B.6050104-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: amwang@redhat.com, netdev@vger.kernel.org, jiri@resnulli.us
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35515 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757034Ab3ANXNx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 18:13:53 -0500
+In-Reply-To: <1358183396.8744.3100.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 Jan 2013 09:09:56 -0800
 
-Your email client has corrupted this patch.  Amongst other things, it
-turned tab characters into spaces.
+> On Mon, 2013-01-14 at 09:07 -0800, Eric Dumazet wrote:
+> 
+>> Strange, why dont we call netdev_master_upper_dev_get() instead ?
+>> 
+>> 
+> 
+> What I meant is : the result of this check might be of little use, if we
+> don't hold any lock preventing another thread to change things behind
+> us.
 
-You need to correct this and submit your patch cleanly before people
-are likely to review it.
-
-I would advise that you email the patch to yourself, and only once
-you are able to send yourself a patch that does not get corrupted
-should you try to resubmit it here.
-
-Thank you.
+Agreed, this test is going to be racey.
