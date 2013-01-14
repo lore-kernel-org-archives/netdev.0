@@ -1,8 +1,8 @@
 From: Alexey Perevalov <a.perevalov@samsung.com>
 Subject: Re: [RFC PATCH v3] cgroup: net_cls: traffic counter based on
  classification control cgroup
-Date: Mon, 14 Jan 2013 15:25:36 +0400
-Message-ID: <50F3EB30.1020506@samsung.com>
+Date: Mon, 14 Jan 2013 15:50:30 +0400
+Message-ID: <50F3F106.50209@samsung.com>
 References: <50F04502.9090902@samsung.com> <50F3BD26.6090903@monom.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -12,15 +12,46 @@ Cc: cgroups@vger.kernel.org, Glauber Costa <glommer@parallels.com>,
 	netdev@vger.kernel.org
 To: Daniel Wagner <wagi@monom.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.w1.samsung.com ([210.118.77.13]:58510 "EHLO
-	mailout3.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756212Ab3ANLZk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 06:25:40 -0500
+Received: from mailout1.w1.samsung.com ([210.118.77.11]:31680 "EHLO
+	mailout1.w1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab3ANLud (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 06:50:33 -0500
 In-reply-to: <50F3BD26.6090903@monom.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Hello all,
+
+also I got local benchmark result for 100 test.
+
+It looks more trully
+
+
+     *Local*    Communication    latencies    in    microseconds 
+smaller    is    better
+
+   2p/0K ctxsw     Pipe        AF Unix      UDP      RPC/UDP TCP    
+RPC/TCP TCP conn
+Kernel    without patch    Average values:        3.2809 9.12381    
+8.2354    16.327    18.825    24.274    22.759 30.64
+Kernel    with patch    Average values:             3.4718 9.61495    
+8.5778    19.442    19.807    31.835    23.824 30.85
+
+     *Local*    Communication    bandwidths    in    MB/s bigger    
+is    better
+Pipe          AF Unix    TCP          File reread    Mmap reread         
+Bcopy (libc)    Bcopy (hand)    Mem read    Mem write
+Kernel    without patch    Average values:        2119.25 6853.49    
+3499.27      4421.796    7543.785             6176.899     3483.647     
+      5603.29       6541.38
+Kernel    with patch    Average values:             1966.7 6825.42    
+3413.67      4426.936    7534.443 6170.924      3481.583          
+5602.75       6520.42
+
+Performance degradation exists. But I thing it can be solved, for 
+example, by adding incrementation and searching appropriate cgroup to 
+delayed timer (add_timer).
+
 
 On 01/14/2013 12:09 PM, Daniel Wagner wrote:
 > Hi Alexey,
@@ -31,8 +62,6 @@ On 01/14/2013 12:09 PM, Daniel Wagner wrote:
 > It seems something went wrong with the patch, e.g. indention is wrong 
 > and also I see '^M$' line endings. I assume you are sending your 
 > patches through an exchange server which is likely not to work.
-Your right I'm behind MS Exchange server. I'll find the way to send 
-normal patch without modification. Can you accept attachments?
 >
 >> I would like to represent next version of patch I sent before
 >> cgroup: "net_cls: traffic counter based on classification control 
@@ -52,11 +81,6 @@ normal patch without modification. Can you accept attachments?
 > Normally, distros will enable most config flags. Maybe you could use
 > a jump label to reduce the cost for the users which have 
 > CONFIG_NET_CLS_COUNTER enabled and do not use it?
-Do your mean one big macro instead of #if #endif. I don't like #if 
-#endif in this place too. For example skb_update_prio implemented in 
-such way.
-Or your mean function callback which will be invoked in case of net_cls 
-loaded? This variant is more flexible. I agree.
 >
 >> I have a performance measurement for this patch. It was done by lmbench
 >> on physical machine.
@@ -65,29 +89,6 @@ loaded? This variant is more flexible. I agree.
 >
 > Could you explain in the commit message how your patch is designed? I 
 > see you are using a RB tree. What's the purpose of it?
-The main purpose - it's ability to count network traffic per 
-application, application groups and application threads. Without huge 
-overhead in user space. Also keep information about involved network 
-interface.
-For example:
-ChatOn application
-     consumed 100Mb on netinterface0 and 10Mb on netinterface1.
-
-Why it wasn't done on the netfilter layer. Because of patent threat and 
-big overhead for resolving incoming traffic. At the netfilter layer we 
-know only source address, and destination address/port. And we need to 
-make huge work to know to whom it addressed, even we use assumption like 
-this, destination address for incoming is the same as source address for 
-outgoing, but it true only for TCP.
-
-In this patch I used already prepared buffer (size of buffer) which 
-ready in tcp_recvmsg, tcp_read_sock,... functions. For outgoing traffic 
-I count on the post routing (network interface already defined). But 
-before netprio changing priority, I didn't test such case.
-And here on the post routing in dev_queue_xmit there is no valid current 
-thread. To find appropriate cgroup by classid and increase counter in it 
-I use RB tree.
-
 >
 >> Daniel Wagner wrote what he is doing something similar, but using
 >> namespaces.
@@ -108,6 +109,20 @@ I use RB tree.
 > Thanks,
 > Daniel
 >
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
-BR,
-Alexey Perevalov
+
+
+-- 
+Best regards,
+Alexey Perevalov,
+Technical Leader,
+phone: +7 (495) 797 25 00 ext 3969
+e-mail: a.perevalov@samsung.com <mailto:a.perevalov@samsumng.com>
+
+Mobile group, Moscow Samsung Research Center
+12 Dvintsev street, building 1
+127018, Moscow, Russian Federation
