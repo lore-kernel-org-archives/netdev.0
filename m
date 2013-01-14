@@ -1,30 +1,31 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 5/5] soreuseport: UDP/IPv6 implementation
-Date: Tue, 15 Jan 2013 05:27:53 +0900
-Message-ID: <50F46A49.3030303@linux-ipv6.org>
-References: <alpine.DEB.2.00.1301141139190.1968@pokey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same
+ port
+Date: Mon, 14 Jan 2013 15:29:06 -0500 (EST)
+Message-ID: <20130114.152906.967716859913059764.davem@davemloft.net>
+References: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	netdev@markandruth.co.uk, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org, netdev@markandruth.co.uk,
+	eric.dumazet@gmail.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:40064 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757347Ab3ANU1z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:27:55 -0500
-In-Reply-To: <alpine.DEB.2.00.1301141139190.1968@pokey.mtv.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33424 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756521Ab3ANU3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:29:08 -0500
+In-Reply-To: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert wrote:
-> +				hash = inet6_ehashfn(net, daddr, hnum,
-> +				    saddr, sport);
-:
-> +				hash = inet6_ehashfn(net, daddr, hnum,
-> +				    saddr, sport);
+From: Tom Herbert <therbert@google.com>
+Date: Mon, 14 Jan 2013 12:00:16 -0800 (PST)
 
-Ditto.
+> Rebasing the soreuseport patches to 3.8.  No material changes since
+> first posted.
 
---yoshfuji
+FWIW I'm fine with the basic premise of these changes, and will
+happily apply them once all the details are worked out.
+
+Thanks Tom.
