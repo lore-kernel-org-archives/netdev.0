@@ -1,32 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next v3] netpoll: fix a rtnl lock assertion failure
-Date: Mon, 14 Jan 2013 09:09:56 -0800
-Message-ID: <1358183396.8744.3100.camel@edumazet-glaptop>
-References: <1358160234-24996-1-git-send-email-amwang@redhat.com>
-	 <1358183252.8744.3094.camel@edumazet-glaptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH 2/6] ipv6: 64bit version of ipv6_addr_loopback().
+Date: Tue, 15 Jan 2013 02:10:06 +0900
+Message-ID: <50F43BEE.1070608@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:37702 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757640Ab3ANRKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 12:10:02 -0500
-Received: by mail-pb0-f49.google.com with SMTP id un15so2256684pbc.8
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 09:10:01 -0800 (PST)
-In-Reply-To: <1358183252.8744.3094.camel@edumazet-glaptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39835 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757241Ab3ANRKI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 12:10:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-14 at 09:07 -0800, Eric Dumazet wrote:
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/ipv6.h |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-> Strange, why dont we call netdev_master_upper_dev_get() instead ?
-> 
-> 
-
-What I meant is : the result of this check might be of little use, if we
-don't hold any lock preventing another thread to change things behind
-us.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index ace1113..c5049b0 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -475,8 +475,14 @@ static inline u32 ipv6_addr_hash(const struct in6_addr *a)
+ 
+ static inline bool ipv6_addr_loopback(const struct in6_addr *a)
+ {
++#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
++	const unsigned long *ul = (const unsigned long *)a;
++
++	return (ul[0] | (ul[1] ^ cpu_to_be64(1))) == 0UL;
++#else
+ 	return (a->s6_addr32[0] | a->s6_addr32[1] |
+ 		a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0;
++#endif
+ }
+ 
+ static inline bool ipv6_addr_v4mapped(const struct in6_addr *a)
+-- 
+1.7.9.5
