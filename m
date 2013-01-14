@@ -1,89 +1,225 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [Patch net-next] netpoll: fix a rtnl lock assertion failure
-Date: Mon, 14 Jan 2013 10:15:43 +0100
-Message-ID: <20130114091543.GA1620@minipsycho.orion>
-References: <1358153708-9099-1-git-send-email-amwang@redhat.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH v2 1/1 net-next] net: fec: enable pause frame to improve rx prefomance for 1G network
+Date: Mon, 14 Jan 2013 16:49:47 +0800
+Message-ID: <1358153387-19275-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain
+Cc: <s.hauer@pengutronix.de>, Frank Li <Frank.Li@freescale.com>
+To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
+	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<netdev@vger.kernel.org>, <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:64893 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756580Ab3ANJPr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 04:15:47 -0500
-Received: by mail-we0-f181.google.com with SMTP id t11so1906817wey.12
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 01:15:46 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1358153708-9099-1-git-send-email-amwang@redhat.com>
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:31737 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756389Ab3ANJaE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 04:30:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jan 14, 2013 at 09:55:08AM CET, amwang@redhat.com wrote:
->From: Cong Wang <amwang@redhat.com>
->
->This patch fixes the following warning:
->
->[   72.013864] RTNL: assertion failed at net/core/dev.c (4955)
->[   72.017758] Pid: 668, comm: netpoll-prep-v6 Not tainted 3.8.0-rc1+ #474
->[   72.019582] Call Trace:
->[   72.020295]  [<ffffffff8176653d>] netdev_master_upper_dev_get+0x35/0x58
->[   72.022545]  [<ffffffff81784edd>] netpoll_setup+0x61/0x340
->[   72.024846]  [<ffffffff815d837e>] store_enabled+0x82/0xc3
->[   72.027466]  [<ffffffff815d7e51>] netconsole_target_attr_store+0x35/0x37
->[   72.029348]  [<ffffffff811c3479>] configfs_write_file+0xe2/0x10c
->[   72.030959]  [<ffffffff8115d239>] vfs_write+0xaf/0xf6
->[   72.032359]  [<ffffffff81978a05>] ? sysret_check+0x22/0x5d
->[   72.033824]  [<ffffffff8115d453>] sys_write+0x5c/0x84
->[   72.035328]  [<ffffffff819789d9>] system_call_fastpath+0x16/0x1b
->
->by holding the rtnl_lock. And as we just want test if the device
->has any upper device, so I think netdev_has_any_upper_dev() is enough.
->
->Cc: Jiri Pirko <jiri@resnulli.us>
->Cc: David S. Miller <davem@davemloft.net>
->Signed-off-by: Cong Wang <amwang@redhat.com>
->
->---
->diff --git a/net/core/netpoll.c b/net/core/netpoll.c
->index 9f05067..dd28cdd 100644
->--- a/net/core/netpoll.c
->+++ b/net/core/netpoll.c
->@@ -1055,7 +1055,9 @@ int netpoll_setup(struct netpoll *np)
-> 		return -ENODEV;
-> 	}
-> 
->-	if (netdev_master_upper_dev_get(ndev)) {
->+	rtnl_lock();
->+	if (netdev_has_any_upper_dev(ndev)) {
+The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
+There will be many packages lost because FIFO over run.
 
-	
-This would prevent from using dev with for example vlan dev attached to
-it. Is it desirable? I suppose not.
+This patch enable pause frame flow control.
 
-Also I think in this situation, netdev_master_upper_dev_get_rcu() would
-be probably better to use. Not sure though.
+Before this patch
+iperf -s -i 1
+TCP window size: 85.3 KByte (default)
+------------------------------------------------------------
+[  4] local 10.192.242.153 port 5001 connected with 10.192.242.94 port 49773
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0- 1.0 sec  6.35 MBytes  53.3 Mbits/sec
+[  4]  1.0- 2.0 sec  3.39 MBytes  28.5 Mbits/sec
+[  4]  2.0- 3.0 sec  2.63 MBytes  22.1 Mbits/sec
+[  4]  3.0- 4.0 sec  1.10 MBytes  9.23 Mbits/sec
 
-	
->+		rtnl_unlock();
-> 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
-> 		err = -EBUSY;
-> 		goto put;
->@@ -1066,7 +1068,6 @@ int netpoll_setup(struct netpoll *np)
-> 
-> 		np_info(np, "device %s not up yet, forcing it\n", np->dev_name);
-> 
->-		rtnl_lock();
-> 		err = dev_open(ndev);
-> 		rtnl_unlock();
-> 
->@@ -1094,7 +1095,8 @@ int netpoll_setup(struct netpoll *np)
-> 			np_notice(np, "carrier detect appears untrustworthy, waiting 4 seconds\n");
-> 			msleep(4000);
-> 		}
->-	}
->+	} else
->+		rtnl_unlock();
-> 
-> 	if (!np->local_ip.ip) {
-> 		if (!np->ipv6) {
+ifconfig
+   RX packets:46195 errors:1859 dropped:1 overruns:1859 frame:1859
+
+After this patch
+iperf -s -i 1
+
+[  4] local 10.192.242.153 port 5001 connected with 10.192.242.94 port 49757
+[ ID] Interval       Transfer     Bandwidth
+[  4]  0.0- 1.0 sec  49.8 MBytes   418 Mbits/sec
+[  4]  1.0- 2.0 sec  50.1 MBytes   420 Mbits/sec
+[  4]  2.0- 3.0 sec  47.5 MBytes   399 Mbits/sec
+[  4]  3.0- 4.0 sec  45.9 MBytes   385 Mbits/sec
+[  4]  4.0- 5.0 sec  44.8 MBytes   376 Mbits/sec
+
+ifconfig
+   RX packets:2348454 errors:0 dropped:16 overruns:0 frame:0
+
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+
+Change from V1 to V2
+ * using pause_setparam to enable/disable pause frame
+ * default enable pause frame auto negotiation
+
+ drivers/net/ethernet/freescale/fec.c |   89 +++++++++++++++++++++++++++++++++-
+ drivers/net/ethernet/freescale/fec.h |    5 ++
+ 2 files changed, 93 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 6dc2094..ea30c26 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -68,6 +68,14 @@
+ 
+ #define DRIVER_NAME	"fec"
+ 
++/* Pause frame feild and FIFO threshold */
++#define FEC_ENET_FCE	(1 << 5)
++#define FEC_ENET_RSEM_V	0x84
++#define FEC_ENET_RSFL_V	16
++#define FEC_ENET_RAEM_V	0x8
++#define FEC_ENET_RAFL_V	0x8
++#define FEC_ENET_OPD_V	0xFFF0
++
+ /* Controller is ENET-MAC */
+ #define FEC_QUIRK_ENET_MAC		(1 << 0)
+ /* Controller needs driver to swap frame */
+@@ -193,6 +201,9 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ /* Transmitter timeout */
+ #define TX_TIMEOUT (2 * HZ)
+ 
++#define FEC_PAUSE_FLAG_AUTONEG	0x1
++#define FEC_PAUSE_FLAG_ENABLE	0x2
++
+ static int mii_cnt;
+ 
+ static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp, int is_ex)
+@@ -470,6 +481,26 @@ fec_restart(struct net_device *ndev, int duplex)
+ 		}
+ #endif
+ 	}
++
++	/* enable pause frame*/
++	if ((fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) ||
++		((fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) &&
++			fep->phy_dev && fep->phy_dev->pause)) {
++
++		rcntl |= FEC_ENET_FCE;
++
++		/* set FIFO thresh hold parameter to reduce overrun */
++		writel(FEC_ENET_RSEM_V, fep->hwp + FEC_R_FIFO_RSEM);
++		writel(FEC_ENET_RSFL_V, fep->hwp + FEC_R_FIFO_RSFL);
++		writel(FEC_ENET_RAEM_V, fep->hwp + FEC_R_FIFO_RAEM);
++		writel(FEC_ENET_RAFL_V, fep->hwp + FEC_R_FIFO_RAFL);
++
++		/* OPD */
++		writel(FEC_ENET_OPD_V, fep->hwp + FEC_OPD);
++	} else {
++		rcntl &= ~FEC_ENET_FCE;
++	}
++
+ 	writel(rcntl, fep->hwp + FEC_R_CNTRL);
+ 
+ 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
+@@ -1016,8 +1047,10 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 	}
+ 
+ 	/* mask with MAC supported features */
+-	if (id_entry->driver_data & FEC_QUIRK_HAS_GBIT)
++	if (id_entry->driver_data & FEC_QUIRK_HAS_GBIT) {
+ 		phy_dev->supported &= PHY_GBIT_FEATURES;
++		phy_dev->supported |= SUPPORTED_Pause;
++	}
+ 	else
+ 		phy_dev->supported &= PHY_BASIC_FEATURES;
+ 
+@@ -1203,7 +1236,56 @@ static int fec_enet_get_ts_info(struct net_device *ndev,
+ 	}
+ }
+ 
++static void fec_enet_get_pauseparam(struct net_device *ndev,
++				    struct ethtool_pauseparam *pause)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++
++	pause->autoneg = (fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) != 0;
++	pause->tx_pause = (fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) != 0;
++	pause->rx_pause = pause->tx_pause;
++
++}
++
++static int fec_enet_set_pauseparam(struct net_device *ndev,
++				   struct ethtool_pauseparam *pause)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++
++	if (pause->tx_pause != pause->rx_pause) {
++		netdev_info(ndev,
++			"hardware only support enable/disable both tx and rx");
++		return -EINVAL;
++	}
++
++	fep->pause_flag = 0;
++
++	/* tx pause must be same as rx pause */
++	fep->pause_flag |= pause->rx_pause ? FEC_PAUSE_FLAG_ENABLE : 0;
++	fep->pause_flag |= pause->autoneg ? FEC_PAUSE_FLAG_AUTONEG : 0;
++
++	if (pause->rx_pause || pause->autoneg) {
++		fep->phy_dev->supported |= ADVERTISED_Pause;
++		fep->phy_dev->advertising |= ADVERTISED_Pause;
++	} else {
++		fep->phy_dev->supported &= ~ADVERTISED_Pause;
++		fep->phy_dev->advertising &= ~ADVERTISED_Pause;
++	}
++
++	if (pause->autoneg) {
++		if (netif_running(ndev))
++			fec_stop(ndev);
++		phy_start_aneg(fep->phy_dev);
++	}
++	if (netif_running(ndev))
++		fec_restart(ndev, 0);
++
++	return 0;
++}
++
+ static const struct ethtool_ops fec_enet_ethtool_ops = {
++	.get_pauseparam		= fec_enet_get_pauseparam,
++	.set_pauseparam		= fec_enet_set_pauseparam,
+ 	.get_settings		= fec_enet_get_settings,
+ 	.set_settings		= fec_enet_set_settings,
+ 	.get_drvinfo		= fec_enet_get_drvinfo,
+@@ -1643,6 +1725,11 @@ fec_probe(struct platform_device *pdev)
+ 	/* setup board info structure */
+ 	fep = netdev_priv(ndev);
+ 
++	/* default enable pause frame auto negotiation */
++	if (pdev->id_entry &&
++			(pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
++		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
++
+ 	fep->hwp = ioremap(r->start, resource_size(r));
+ 	fep->pdev = pdev;
+ 	fep->dev_id = dev_id++;
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 4862394..2ebedaf 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -48,6 +48,10 @@
+ #define FEC_R_DES_START		0x180 /* Receive descriptor ring */
+ #define FEC_X_DES_START		0x184 /* Transmit descriptor ring */
+ #define FEC_R_BUFF_SIZE		0x188 /* Maximum receive buff size */
++#define FEC_R_FIFO_RSFL		0x190 /* Receive FIFO section full threshold */
++#define FEC_R_FIFO_RSEM		0x194 /* Receive FIFO section empty threshold */
++#define FEC_R_FIFO_RAEM		0x198 /* Receive FIFO almost empty threshold */
++#define FEC_R_FIFO_RAFL		0x19c /* Receive FIFO almost full threshold */
+ #define FEC_MIIGSK_CFGR		0x300 /* MIIGSK Configuration reg */
+ #define FEC_MIIGSK_ENR		0x308 /* MIIGSK Enable reg */
+ 
+@@ -243,6 +247,7 @@ struct fec_enet_private {
+ 	struct	completion mdio_done;
+ 	int	irq[FEC_IRQ_NUM];
+ 	int	bufdesc_ex;
++	int	pause_flag;
+ 
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+-- 
+1.7.1
