@@ -1,33 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Fix some multiqueue TUN problems
-Date: Mon, 14 Jan 2013 18:17:10 -0500 (EST)
-Message-ID: <20130114.181710.700870251868852657.davem@davemloft.net>
-References: <20130114170837.31874.78897.stgit@localhost>
+From: pablo@netfilter.org
+Subject: [PATCH 0/3] netfilter fixes for 3.8-rc3
+Date: Tue, 15 Jan 2013 00:24:02 +0100
+Message-ID: <1358205845-8522-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: pmoore@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35545 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757043Ab3ANXRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 18:17:12 -0500
-In-Reply-To: <20130114170837.31874.78897.stgit@localhost>
+Received: from mail.us.es ([193.147.175.20]:38546 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757927Ab3ANXYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 18:24:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Mon, 14 Jan 2013 12:12:06 -0500
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-> No significant changes to this patchset since the last posting, just a
-> slight merge with the recent changes in tun_set_queue() and some
-> Acked-by and Tested-by additions.  I believe all the concerns have been
-> addressed and this patch is ready for merging.
-> 
-> Dave, I think it makes the most sense for this to get pulled in via the
-> netdev tree but if you think otherwise let me know and I'll go bug
-> James and Eric.
+Hi David,
 
-Series applied, thanks Paul.
+The following patchset contains netfilter fixes for 3.8-rc3,
+they are:
+
+* fix possible BUG_ON if several netns are in use and the nf_conntrack
+  module is removed, initial patch from Gao feng, final patch from myself.
+
+* fix unset return value if conntrack zone are disabled at
+  compile-time, reported by Borislav Petkov, fix from myself.
+
+* fix display error message via dmesg for arp_tables, from Jan Engelhardt.
+
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf master
+
+Thanks!
+
+Jan Engelhardt (1):
+  netfilter: x_tables: print correct hook names for ARP
+
+Pablo Neira Ayuso (2):
+  netfilter: xt_CT: fix unset return value if conntrack zone are disabled
+  netfilter: nf_conntrack: fix BUG_ON while removing nf_conntrack with netns
+
+ include/net/netfilter/nf_conntrack_core.h |    2 ++
+ net/netfilter/nf_conntrack_core.c         |    9 +++++----
+ net/netfilter/nf_conntrack_standalone.c   |    1 +
+ net/netfilter/x_tables.c                  |   28 ++++++++++++++++++++--------
+ net/netfilter/xt_CT.c                     |    4 ++--
+ 5 files changed, 30 insertions(+), 14 deletions(-)
+
+-- 
+1.7.10.4
