@@ -1,35 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v3] netpoll: fix a rtnl lock assertion failure
-Date: Mon, 14 Jan 2013 18:13:50 -0500 (EST)
-Message-ID: <20130114.181350.1796205610296377637.davem@davemloft.net>
-References: <1358160234-24996-1-git-send-email-amwang@redhat.com>
-	<1358183252.8744.3094.camel@edumazet-glaptop>
-	<1358183396.8744.3100.camel@edumazet-glaptop>
+Subject: Re: [PATCH 0/2] Fix some multiqueue TUN problems
+Date: Mon, 14 Jan 2013 18:17:10 -0500 (EST)
+Message-ID: <20130114.181710.700870251868852657.davem@davemloft.net>
+References: <20130114170837.31874.78897.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org, jiri@resnulli.us
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
+To: pmoore@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35515 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35545 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757034Ab3ANXNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 18:13:53 -0500
-In-Reply-To: <1358183396.8744.3100.camel@edumazet-glaptop>
+	with ESMTP id S1757043Ab3ANXRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 18:17:12 -0500
+In-Reply-To: <20130114170837.31874.78897.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 14 Jan 2013 09:09:56 -0800
+From: Paul Moore <pmoore@redhat.com>
+Date: Mon, 14 Jan 2013 12:12:06 -0500
 
-> On Mon, 2013-01-14 at 09:07 -0800, Eric Dumazet wrote:
+> No significant changes to this patchset since the last posting, just a
+> slight merge with the recent changes in tun_set_queue() and some
+> Acked-by and Tested-by additions.  I believe all the concerns have been
+> addressed and this patch is ready for merging.
 > 
->> Strange, why dont we call netdev_master_upper_dev_get() instead ?
->> 
->> 
-> 
-> What I meant is : the result of this check might be of little use, if we
-> don't hold any lock preventing another thread to change things behind
-> us.
+> Dave, I think it makes the most sense for this to get pulled in via the
+> netdev tree but if you think otherwise let me know and I'll go bug
+> James and Eric.
 
-Agreed, this test is going to be racey.
+Series applied, thanks Paul.
