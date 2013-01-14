@@ -1,44 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix a panic on UP machines in
- reqsk_fastopen_remove
-Date: Mon, 14 Jan 2013 18:10:30 -0500 (EST)
-Message-ID: <20130114.181030.1911364060960863615.davem@davemloft.net>
-References: <1358137311.8744.1590.camel@edumazet-glaptop>
-	<CAPshTCiNcSPbC7uCzo5MV2tGuZyoCwyE_XKcGb9smknZ8Rqb2w@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [RFC PATCH v3] cgroup: net_cls: traffic counter based on
+ classification control cgroup
+Date: Mon, 14 Jan 2013 18:12:36 -0500 (EST)
+Message-ID: <20130114.181236.2276983347407293999.davem@davemloft.net>
+References: <50F3B63B.6050104@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, ketkulka@gmail.com,
-	ycheng@google.com
-To: hkchu@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35480 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756919Ab3ANXKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 18:10:34 -0500
-In-Reply-To: <CAPshTCiNcSPbC7uCzo5MV2tGuZyoCwyE_XKcGb9smknZ8Rqb2w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	glommer-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org, kyungmin.park-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
+To: a.perevalov-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50F3B63B.6050104-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jerry Chu <hkchu@google.com>
-Date: Mon, 14 Jan 2013 00:26:26 -0800
 
-> On Sun, Jan 13, 2013 at 8:21 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> spin_is_locked() on a non !SMP build is kind of useless.
->>
->> BUG_ON(!spin_is_locked(xx)) is guaranteed to crash.
->>
->> Just remove this check in reqsk_fastopen_remove() as
->> the callers do hold the socket lock.
->>
->> Reported-by: Ketan Kulkarni <ketkulka@gmail.com>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
- ...
-> Thanks, Eric. (I thought the assertion would be transparent to UP...)
-> 
-> Acked-by: H.K. Jerry Chu <hkchu@google.com>
-> 
+Your email client has corrupted this patch.  Amongst other things, it
+turned tab characters into spaces.
 
-Applied, thanks.
+You need to correct this and submit your patch cleanly before people
+are likely to review it.
+
+I would advise that you email the patch to yourself, and only once
+you are able to send yourself a patch that does not get corrupted
+should you try to resubmit it here.
+
+Thank you.
