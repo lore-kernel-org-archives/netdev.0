@@ -1,44 +1,75 @@
-From: Sandeepa C S <sandeepacs@tataelxsi.co.in>
-Subject: Information needed on the kernel version which supports ----
-Date: Mon, 14 Jan 2013 15:25:09 +0530
-Message-ID: <50F3D5FD.6090608@tataelxsi.co.in>
-Reply-To: <sandeepacs@tataelxsi.co.in>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] netpoll: fix a rtnl lock assertion failure
+Date: Mon, 14 Jan 2013 17:58:00 +0800
+Message-ID: <1358157480.338.6.camel@cr0>
+References: <1358153708-9099-1-git-send-email-amwang@redhat.com>
+	 <20130114091543.GA1620@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: <vyasevic@redhat.com>, <shemminger@vyatta.com>, <mst@redhat.com>,
-	<netdev@vger.kernel.org>, <stephen@redhat.com>,
-	<bridge@lists.linux-foundation.org>, <shmulik.ladkani@gmail.com>,
-	<davem@davemloft.net>, <mst@redhat.com>, <netdev@vger.kernel.org>,
-	<stephen@redhat.com>, <bridge@lists.linux-foundation.org>,
-	<shmulik.ladkani@gmail.com>, <davem@davemloft.net>,
-	"Satyanarayana Reddy M (D&D)" <satyanarayanam@tataelxsi.co.in>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe003.messaging.microsoft.com ([216.32.180.186]:26881
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751236Ab3ANJzG convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jan 2013 04:55:06 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:33014 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755277Ab3ANJ6I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 04:58:08 -0500
+In-Reply-To: <20130114091543.GA1620@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear All,
+On Mon, 2013-01-14 at 10:15 +0100, Jiri Pirko wrote:
+> Mon, Jan 14, 2013 at 09:55:08AM CET, amwang@redhat.com wrote:
+> >From: Cong Wang <amwang@redhat.com>
+> >
+> >This patch fixes the following warning:
+> >
+> >[   72.013864] RTNL: assertion failed at net/core/dev.c (4955)
+> >[   72.017758] Pid: 668, comm: netpoll-prep-v6 Not tainted 3.8.0-rc1+ #474
+> >[   72.019582] Call Trace:
+> >[   72.020295]  [<ffffffff8176653d>] netdev_master_upper_dev_get+0x35/0x58
+> >[   72.022545]  [<ffffffff81784edd>] netpoll_setup+0x61/0x340
+> >[   72.024846]  [<ffffffff815d837e>] store_enabled+0x82/0xc3
+> >[   72.027466]  [<ffffffff815d7e51>] netconsole_target_attr_store+0x35/0x37
+> >[   72.029348]  [<ffffffff811c3479>] configfs_write_file+0xe2/0x10c
+> >[   72.030959]  [<ffffffff8115d239>] vfs_write+0xaf/0xf6
+> >[   72.032359]  [<ffffffff81978a05>] ? sysret_check+0x22/0x5d
+> >[   72.033824]  [<ffffffff8115d453>] sys_write+0x5c/0x84
+> >[   72.035328]  [<ffffffff819789d9>] system_call_fastpath+0x16/0x1b
+> >
+> >by holding the rtnl_lock. And as we just want test if the device
+> >has any upper device, so I think netdev_has_any_upper_dev() is enough.
+> >
+> >Cc: Jiri Pirko <jiri@resnulli.us>
+> >Cc: David S. Miller <davem@davemloft.net>
+> >Signed-off-by: Cong Wang <amwang@redhat.com>
+> >
+> >---
+> >diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+> >index 9f05067..dd28cdd 100644
+> >--- a/net/core/netpoll.c
+> >+++ b/net/core/netpoll.c
+> >@@ -1055,7 +1055,9 @@ int netpoll_setup(struct netpoll *np)
+> > 		return -ENODEV;
+> > 	}
+> > 
+> >-	if (netdev_master_upper_dev_get(ndev)) {
+> >+	rtnl_lock();
+> >+	if (netdev_has_any_upper_dev(ndev)) {
+> 
+> 	
+> This would prevent from using dev with for example vlan dev attached to
+> it. Is it desirable? I suppose not.
 
-We are trying to add vlan support for the IGMP snooping feature in the
-kernel version 2.6.39
-But from the below thread discussion we understood that vlan support is
-already in the bridge.
-http://www.spinics.net/lists/netdev/msg221800.html
+No, it should not. I didn't notice netdev_has_any_upper_dev() could
+prevent the device under vlan, I will keep
+netdev_master_upper_dev_get().
 
-Could you please let us know the below informations,
-1) On what kernel version the VLAN support for multicast groups is being
-done
-2)On what flavors it is supported, is it available with Debian
-3)How can we get/download the supported patch files for reference.
+> 
+> Also I think in this situation, netdev_master_upper_dev_get_rcu() would
+> be probably better to use. Not sure though.
+> 
 
---
- Thanks & Regards,
- Sandeepa cs.
+Yes, as we only read it.
 
-Notice: The information contained in this e-mail message and/or attachments to it may contain confidential or privileged information. If you are not the intended recipient, any dissemination, use, review, distribution, printing or copying of the information contained in this e-mail message and/or attachments to it are strictly prohibited. If you have received this communication in error, please notify us by reply e-mail or telephone and immediately and permanently delete the message and any attachments. Thank you
+Thanks!
