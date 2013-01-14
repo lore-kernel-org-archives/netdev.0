@@ -1,66 +1,46 @@
-From: horseriver <horserivers@gmail.com>
-Subject: Re: when and where does ep_poll_callback be called ?
-Date: Mon, 14 Jan 2013 15:52:57 +0800
-Message-ID: <20130114075257.GE4289@debian.localdomain>
-References: <20130114011115.GG2743@debian.localdomain>
- <50F433D1.6070809@infradead.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 15/15] batman-adv: unbloat batadv_priv if debug is not
+ enabled
+Date: Mon, 14 Jan 2013 09:36:40 -0800
+Message-ID: <1358185000.19400.15.camel@joe-AO722>
+References: <1358120480-25960-1-git-send-email-ordex@autistici.org>
+	 <1358120480-25960-16-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Randy Dunlap <rdunlap@infradead.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <lindner_marek@yahoo.de>
+To: Antonio Quartulli <ordex@autistici.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f43.google.com ([209.85.210.43]:62337 "EHLO
-	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757376Ab3ANRfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 12:35:07 -0500
-Received: by mail-da0-f43.google.com with SMTP id u36so1915456dak.30
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 09:35:07 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <50F433D1.6070809@infradead.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:52956 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756450Ab3ANRgb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 12:36:31 -0500
+In-Reply-To: <1358120480-25960-16-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 14, 2013 at 08:35:29AM -0800, Randy Dunlap wrote:
-> On 01/13/13 17:11, horseriver wrote:
-> > hi:
-> > 
-> > 
-> >    I'm studying the epoll module , I can not find ep_poll_callback be called somewhere .
-> 
-> 
-> It's right there in fs/eventpoll.c:
-> 
-> 
-> /*
->  * This is the callback that is used to add our wait queue to the
->  * target file wakeup lists.
->  */
-> static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
-> 				 poll_table *pt)
-> {
-> 	struct epitem *epi = ep_item_from_epqueue(pt);
-> 	struct eppoll_entry *pwq;
-> 
-> 	if (epi->nwait >= 0 && (pwq = kmem_cache_alloc(pwq_cache, GFP_KERNEL))) {
-> >>>>>		init_waitqueue_func_entry(&pwq->wait, ep_poll_callback);
+On Mon, 2013-01-14 at 09:41 +1000, Antonio Quartulli wrote:
+> diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+[]
+> @@ -284,12 +284,16 @@ struct batadv_priv {
+>  	atomic_t gw_bandwidth;		/* gw bandwidth */
+>  	atomic_t orig_interval;		/* uint */
+>  	atomic_t hop_penalty;		/* uint */
+> +#ifdef CONFIG_BATMAN_ADV_DEBUG
+>  	atomic_t log_level;		/* uint */
+> +#endif
+>  	atomic_t bcast_seqno;
+>  	atomic_t bcast_queue_left;
+>  	atomic_t batman_queue_left;
+>  	char num_ifaces;
+> +#ifdef CONFIG_BATMAN_ADV_DEBUG
+>  	struct batadv_debug_log *debug_log;
+> +#endif
+>  	struct kobject *mesh_obj;
+>  	struct dentry *debug_dir;
+>  	struct hlist_head forw_bat_list;
 
-     Thanks!
-     
-     I know this is setting  the callbak function into watqueue . But not the called place . 
-
-     I want to know the code which calls  ep_poll_callback .
-
-     Perhaps , it is called at tcp layer when a datagram is reached . but I have not find that key  code .
-
-     
-
-> 		pwq->whead = whead;
-> 		pwq->base = epi;
-> 		add_wait_queue(whead, &pwq->wait);
-> 		list_add_tail(&pwq->llink, &epi->pwqlist);
-> 		epi->nwait++;
-> 
-> 
-> 
-> -- 
-> ~Randy
+How about moving one of these so
+there's only one #ifdef block.
