@@ -1,52 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: fix a panic on UP machines in reqsk_fastopen_remove
-Date: Sun, 13 Jan 2013 20:21:51 -0800
-Message-ID: <1358137311.8744.1590.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Ketan Kulkarni <ketkulka@gmail.com>,
-	Jerry Chu <hkchu@google.com>, Yuchung Cheng <ycheng@google.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] drivers/net: Clean up orphaned probes in Space.c
+Date: Sun, 13 Jan 2013 23:55:05 -0500
+Message-ID: <1358139305-17737-1-git-send-email-paul.gortmaker@windriver.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:45380 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754523Ab3ANEVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 23:21:54 -0500
-Received: by mail-pa0-f46.google.com with SMTP id bh2so1986835pad.19
-        for <netdev@vger.kernel.org>; Sun, 13 Jan 2013 20:21:53 -0800 (PST)
+Received: from mail.windriver.com ([147.11.1.11]:58448 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175Ab3ANE4R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 23:56:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+The removal of the 8390 EISA drivers actually comprises the
+complete content of the EISA probe block, so we can now remove
+that block, and its hook into the unified probe.  Note that
+the deleted comment mentions PCI probes, but they long since
+moved elsewhere, so no PCI probes are touched here.
 
-spin_is_locked() on a non !SMP build is kind of useless.
+We get rid of the orphaned EISA probe prototypes, and a couple
+of left over MCA probe prototypes at the same time.
 
-BUG_ON(!spin_is_locked(xx)) is guaranteed to crash.
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Just remove this check in reqsk_fastopen_remove() as
-the callers do hold the socket lock.
-
-Reported-by: Ketan Kulkarni <ketkulka@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jerry Chu <hkchu@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Dave Taht <dave.taht@gmail.com>
----
- net/core/request_sock.c |    2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-index c31d9e8..4425148 100644
---- a/net/core/request_sock.c
-+++ b/net/core/request_sock.c
-@@ -186,8 +186,6 @@ void reqsk_fastopen_remove(struct sock *sk, struct request_sock *req,
- 	struct fastopen_queue *fastopenq =
- 	    inet_csk(lsk)->icsk_accept_queue.fastopenq;
+diff --git a/drivers/net/Space.c b/drivers/net/Space.c
+index e3f0fac..5637c26 100644
+--- a/drivers/net/Space.c
++++ b/drivers/net/Space.c
+@@ -37,10 +37,8 @@
+    ethernet adaptor have the name "eth[0123...]".
+    */
  
--	BUG_ON(!spin_is_locked(&sk->sk_lock.slock) && !sock_owned_by_user(sk));
+-extern struct net_device *ne2_probe(int unit);
+ extern struct net_device *hp100_probe(int unit);
+ extern struct net_device *ultra_probe(int unit);
+-extern struct net_device *ultra32_probe(int unit);
+ extern struct net_device *wd_probe(int unit);
+ extern struct net_device *el2_probe(int unit);
+ extern struct net_device *ne_probe(int unit);
+@@ -55,11 +53,7 @@ extern struct net_device *i82596_probe(int unit);
+ extern struct net_device *ewrk3_probe(int unit);
+ extern struct net_device *el1_probe(int unit);
+ extern struct net_device *el16_probe(int unit);
+-extern struct net_device *elmc_probe(int unit);
+ extern struct net_device *elplus_probe(int unit);
+-extern struct net_device *ac3200_probe(int unit);
+-extern struct net_device *es_probe(int unit);
+-extern struct net_device *lne390_probe(int unit);
+ extern struct net_device *e2100_probe(int unit);
+ extern struct net_device *ni5010_probe(int unit);
+ extern struct net_device *ni52_probe(int unit);
+@@ -77,7 +71,6 @@ extern struct net_device *tc515_probe(int unit);
+ extern struct net_device *lance_probe(int unit);
+ extern struct net_device *mac8390_probe(int unit);
+ extern struct net_device *mac89x0_probe(int unit);
+-extern struct net_device *mc32_probe(int unit);
+ extern struct net_device *cops_probe(int unit);
+ extern struct net_device *ltpc_probe(void);
+ 
+@@ -111,29 +104,6 @@ static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
+ }
+ 
+ /*
+- * This is a bit of an artificial separation as there are PCI drivers
+- * that also probe for EISA cards (in the PCI group) and there are ISA
+- * drivers that probe for EISA cards (in the ISA group).  These are the
+- * legacy EISA only driver probes, and also the legacy PCI probes
+- */
 -
- 	tcp_sk(sk)->fastopen_rsk = NULL;
- 	spin_lock_bh(&fastopenq->lock);
- 	fastopenq->qlen--;
+-static struct devprobe2 eisa_probes[] __initdata = {
+-#ifdef CONFIG_ULTRA32
+-	{ultra32_probe, 0},
+-#endif
+-#ifdef CONFIG_AC3200
+-	{ac3200_probe, 0},
+-#endif
+-#ifdef CONFIG_ES3210
+-	{es_probe, 0},
+-#endif
+-#ifdef CONFIG_LNE390
+-	{lne390_probe, 0},
+-#endif
+-	{NULL, 0},
+-};
+-
+-/*
+  * ISA probes that touch addresses < 0x400 (including those that also
+  * look for EISA/PCI cards in addition to ISA cards).
+  */
+@@ -264,7 +234,6 @@ static void __init ethif_probe2(int unit)
+ 		return;
+ 
+ 	(void)(	probe_list2(unit, m68k_probes, base_addr == 0) &&
+-		probe_list2(unit, eisa_probes, base_addr == 0) &&
+ 		probe_list2(unit, isa_probes, base_addr == 0) &&
+ 		probe_list2(unit, parport_probes, base_addr == 0));
+ }
+-- 
+1.8.1
