@@ -1,41 +1,35 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 13/15] batman-adv: fix typo in debug message
-Date: Mon, 14 Jan 2013 09:41:18 +1000
-Message-ID: <1358120480-25960-14-git-send-email-ordex@autistici.org>
-References: <1358120480-25960-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/7] IPv6 updates
+Date: Sun, 13 Jan 2013 20:32:55 -0500 (EST)
+Message-ID: <20130113.203255.1305411796615468589.davem@davemloft.net>
+References: <50F2CCA0.4080500@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:49929 "EHLO
-	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755800Ab3AMXnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 18:43:23 -0500
-In-Reply-To: <1358120480-25960-1-git-send-email-ordex@autistici.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49350 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755295Ab3ANBdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jan 2013 20:33:02 -0500
+In-Reply-To: <50F2CCA0.4080500@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-in bat_iv_ogm.c a debug message should print "tq" instead of "td"
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Mon, 14 Jan 2013 00:02:56 +0900
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/bat_iv_ogm.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Hello.
+> 
+> YOSHIFUJI Hideaki (7):
+>   ipv6: Introduce ip6_flow_hdr() to fill version, tclass and flowlabel.
+>   ipv6: Introduce ip6_flowinfo() to extract flowinfo (tclass +
+>     flowlabel).
+>   ipv6: Use ipv6_get_dsfield() instead of ipv6_tclass().
+>   ipv6: Make ipv6_is_mld() inline and use it from ip6_mc_input().
+>   ipv6 route: Use ipv6_addr_hash() in rt6_info_hash_nhsfn().
+>   ipv6 xfrm: Use ipv6_addr_hash() in xfrm6_tunnel_spi_hash_byaddr().
+>   ipv6: Store Router Alert option in IP6CB directly.
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index d90e925..8f2de43 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1028,7 +1028,7 @@ static void batadv_iv_ogm_process(const struct ethhdr *ethhdr,
- 		is_single_hop_neigh = true;
- 
- 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--		   "Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %#.4x, changes %u, td %d, TTL %d, V %d, IDF %d)\n",
-+		   "Received BATMAN packet via NB: %pM, IF: %s [%pM] (from OG: %pM, via prev OG: %pM, seqno %u, ttvn %u, crc %#.4x, changes %u, tq %d, TTL %d, V %d, IDF %d)\n",
- 		   ethhdr->h_source, if_incoming->net_dev->name,
- 		   if_incoming->net_dev->dev_addr, batadv_ogm_packet->orig,
- 		   batadv_ogm_packet->prev_sender,
--- 
-1.8.0.2
+Series applied, thanks.
