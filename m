@@ -1,35 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/net: Clean up orphaned probes in
- Space.c
-Date: Mon, 14 Jan 2013 13:34:53 -0500 (EST)
-Message-ID: <20130114.133453.1392976995470741961.davem@davemloft.net>
-References: <1358139305-17737-1-git-send-email-paul.gortmaker@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 09/10] bnx2x: Added FW GRO bridging support
+Date: Mon, 14 Jan 2013 10:44:35 -0800
+Message-ID: <1358189075.8744.3320.camel@edumazet-glaptop>
+References: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
+	 <1358176310-31504-10-git-send-email-yuvalmin@broadcom.com>
+	 <1358184123.8744.3127.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
+	ariele@broadcom.com
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59877 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756958Ab3ANSey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 13:34:54 -0500
-In-Reply-To: <1358139305-17737-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:52755 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755896Ab3ANSoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 13:44:38 -0500
+Received: by mail-pb0-f52.google.com with SMTP id ro2so2301552pbb.11
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 10:44:38 -0800 (PST)
+In-Reply-To: <1358184123.8744.3127.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Sun, 13 Jan 2013 23:55:05 -0500
+On Mon, 2013-01-14 at 09:22 -0800, Eric Dumazet wrote:
 
-> The removal of the 8390 EISA drivers actually comprises the
-> complete content of the EISA probe block, so we can now remove
-> that block, and its hook into the unified probe.  Note that
-> the deleted comment mentions PCI probes, but they long since
-> moved elsewhere, so no PCI probes are touched here.
+> This looks weird to me. This should be called by GRO stack only.
 > 
-> We get rid of the orphaned EISA probe prototypes, and a couple
-> of left over MCA probe prototypes at the same time.
+> What is the value of gso_segs ?
 > 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> 
 
-Applied.
+The reason I am pointing this out is the recent change in commit
+1def9238d4aa2146924994aa4b7dc861f03b9362
+(net_sched: more precise pkt_len computation)
+
+bnx2x not setting gso_segs means that qdisc accounting on ingress is
+completely wrong.
