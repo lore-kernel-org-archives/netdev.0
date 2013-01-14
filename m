@@ -1,137 +1,72 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next] ipv6 netevent: Remove old_neigh from netevent_redirect.
-Date: Tue, 15 Jan 2013 04:28:27 +0900
-Message-ID: <50F45C5B.8020507@linux-ipv6.org>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
+Date: Mon, 14 Jan 2013 12:00:16 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="296491395-1334412024-1358193616=:959"
+Cc: netdev@markandruth.co.uk, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39989 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756654Ab3ANT23 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 14:28:29 -0500
+Received: from mail-qc0-f202.google.com ([209.85.216.202]:62856 "EHLO
+	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757333Ab3ANUAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:00:18 -0500
+Received: by mail-qc0-f202.google.com with SMTP id s25so532427qcq.1
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 12:00:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The only user is cxgb3 driver.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-old_neigh is used to check device change, but it must not happen
-on redirect.  In this sense, we can remove old_neigh argument.
+--296491395-1334412024-1358193616=:959
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Rebasing the soreuseport patches to 3.8.  No material changes since
+first posted.
 ---
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c |   35 ++++++--------------
- include/net/netevent.h                             |    3 +-
- net/ipv6/route.c                                   |    3 +-
- 3 files changed, 13 insertions(+), 28 deletions(-)
+These patches implements so_reuseport (SO_REUSEPORT socket option) for
+TCP and UDP.  For TCP, so_reuseport allows multiple listener sockets
+to be bound to the same port.  In the case of UDP, so_reuseport allows
+multiple sockets to bind to the same port.  To prevent port hijacking
+all sockets bound to the same port using so_reuseport must have the
+same uid.  Received packets are distributed to multiple sockets bound
+to the same port using a 4-tuple hash.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-index 91d02eb..4232767 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-@@ -64,9 +64,8 @@ static const unsigned int MAX_ATIDS = 64 * 1024;
- static const unsigned int ATID_BASE = 0x10000;
- 
- static void cxgb_neigh_update(struct neighbour *neigh);
--static void cxgb_redirect(struct dst_entry *old, struct neighbour *old_neigh,
--			  struct dst_entry *new, struct neighbour *new_neigh,
--			  const void *daddr);
-+static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new,
-+			  struct neighbour *neigh, const void *daddr);
- 
- static inline int offload_activated(struct t3cdev *tdev)
- {
-@@ -970,10 +969,9 @@ static int nb_callback(struct notifier_block *self, unsigned long event,
- 	}
- 	case (NETEVENT_REDIRECT):{
- 		struct netevent_redirect *nr = ctx;
--		cxgb_redirect(nr->old, nr->old_neigh,
--			      nr->new, nr->new_neigh,
-+		cxgb_redirect(nr->old, nr->new, nr->neigh,
- 			      nr->daddr);
--		cxgb_neigh_update(nr->new_neigh);
-+		cxgb_neigh_update(nr->neigh);
- 		break;
- 	}
- 	default:
-@@ -1109,11 +1107,11 @@ static void set_l2t_ix(struct t3cdev *tdev, u32 tid, struct l2t_entry *e)
- 	tdev->send(tdev, skb);
- }
- 
--static void cxgb_redirect(struct dst_entry *old, struct neighbour *old_neigh,
--			  struct dst_entry *new, struct neighbour *new_neigh,
-+static void cxgb_redirect(struct dst_entry *old, struct dst_entry *new,
-+			  struct neighbour *neigh,
- 			  const void *daddr)
- {
--	struct net_device *olddev, *newdev;
-+	struct net_device *dev;
- 	struct tid_info *ti;
- 	struct t3cdev *tdev;
- 	u32 tid;
-@@ -1121,26 +1119,15 @@ static void cxgb_redirect(struct dst_entry *old, struct neighbour *old_neigh,
- 	struct l2t_entry *e;
- 	struct t3c_tid_entry *te;
- 
--	olddev = old_neigh->dev;
--	newdev = new_neigh->dev;
-+	dev = neigh->dev;
- 
--	if (!is_offloading(olddev))
--		return;
--	if (!is_offloading(newdev)) {
--		pr_warn("%s: Redirect to non-offload device ignored\n",
--			__func__);
-+	if (!is_offloading(dev))
- 		return;
--	}
--	tdev = dev2t3cdev(olddev);
-+	tdev = dev2t3cdev(dev);
- 	BUG_ON(!tdev);
--	if (tdev != dev2t3cdev(newdev)) {
--		pr_warn("%s: Redirect to different offload device ignored\n",
--			__func__);
--		return;
--	}
- 
- 	/* Add new L2T entry */
--	e = t3_l2t_get(tdev, new, newdev, daddr);
-+	e = t3_l2t_get(tdev, new, dev, daddr);
- 	if (!e) {
- 		pr_err("%s: couldn't allocate new l2t entry!\n", __func__);
- 		return;
-diff --git a/include/net/netevent.h b/include/net/netevent.h
-index 3ce4988..fe630dd 100644
---- a/include/net/netevent.h
-+++ b/include/net/netevent.h
-@@ -16,9 +16,8 @@ struct neighbour;
- 
- struct netevent_redirect {
- 	struct dst_entry *old;
--	struct neighbour *old_neigh;
- 	struct dst_entry *new;
--	struct neighbour *new_neigh;
-+	struct neighbour *neigh;
- 	const void *daddr;
- };
- 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 34f392f0..7c34c01 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1803,10 +1803,9 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
- 		goto out;
- 
- 	netevent.old = &rt->dst;
--	netevent.old_neigh = old_neigh;
- 	netevent.new = &nrt->dst;
--	netevent.new_neigh = neigh;
- 	netevent.daddr = &msg->dest;
-+	netevent.neigh = neigh;
- 	call_netevent_notifiers(NETEVENT_REDIRECT, &netevent);
- 
- 	if (rt->rt6i_flags & RTF_CACHE) {
--- 
-1.7.9.5
+The motivating case for so_resuseport in TCP would be something like
+a web server binding to port 80 running with multiple threads, where
+each thread might have it's own listener socket.  This could be done
+as an alternative to other models: 1) have one listener thread which
+dispatches completed connections to workers. 2) accept on a single
+listener socket from multiple threads.  In case #1 the listener thread
+can easily become the bottleneck with high connection turn-over rate.
+In case #2, the proportion of connections accepted per thread tends
+to be uneven under high connection load (assuming simple event loop:
+while (1) { accept(); process() }, wakeup does not promote fairness
+among the sockets.  We have seen the  disproportion to be as high
+as 3:1 ratio between thread accepting most connections and the one
+accepting the fewest.  With so_reusport the distribution is
+uniform.
+
+The TCP implementation has a problem in that the request sockets for a
+listener are attached to a listener socket.  If a SYN is received, a
+listener socket is chosen and request structure is created (SYN-RECV
+state).  If the subsequent ack in 3WHS does not match the same port
+by so_reusport, the connection state is not found (reset) and the
+request structure is orphaned.  This scenario would occur when the
+number of listener sockets bound to a port changes (new ones are
+added, or old ones closed).  We are looking for a solution to this,
+maybe allow multiple sockets to share the same request table...
+
+The motivating case for so_reuseport in UDP would be something like a
+DNS server.  An alternative would be to recv on the same socket from
+multiple threads.  As in the case of TCP, the load across these threads
+tends to be disproportionate and we also see a lot of contection on
+the socket lock.  Note that SO_REUSEADDR already allows multiple UDP
+sockets to bind to the same port, however there is no provision to
+prevent hijacking and nothing to distribute packets across all the
+sockets sharing the same bound port.  This patch does not change the
+semantics of SO_REUSEADDR, but provides usable functionality of it
+for unicast.
+--296491395-1334412024-1358193616=:959--
