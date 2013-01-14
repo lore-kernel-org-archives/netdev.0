@@ -1,54 +1,61 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/3] netfilter fixes for 3.8-rc3
-Date: Tue, 15 Jan 2013 00:24:02 +0100
-Message-ID: <1358205845-8522-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/3] netfilter: xt_CT: fix unset return value if conntrack zone are disabled
+Date: Tue, 15 Jan 2013 00:24:03 +0100
+Message-ID: <1358205845-8522-2-git-send-email-pablo@netfilter.org>
+References: <1358205845-8522-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:38546 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:38548 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757927Ab3ANXYR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757928Ab3ANXYR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 14 Jan 2013 18:24:17 -0500
+In-Reply-To: <1358205845-8522-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Hi David,
+net/netfilter/xt_CT.c: In function =E2=80=98xt_ct_tg_check_v1=E2=80=99:
+net/netfilter/xt_CT.c:250:6: warning: =E2=80=98ret=E2=80=99 may be used=
+ uninitialized in this function [-Wmaybe-uninitialized]
+net/netfilter/xt_CT.c: In function =E2=80=98xt_ct_tg_check_v0=E2=80=99:
+net/netfilter/xt_CT.c:112:6: warning: =E2=80=98ret=E2=80=99 may be used=
+ uninitialized in this function [-Wmaybe-uninitialized]
 
-The following patchset contains netfilter fixes for 3.8-rc3,
-they are:
+Reported-by: Borislav Petkov <bp@alien8.de>
+Acked-by: Borislav Petkov <bp@alien8.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/xt_CT.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-* fix possible BUG_ON if several netns are in use and the nf_conntrack
-  module is removed, initial patch from Gao feng, final patch from myself.
-
-* fix unset return value if conntrack zone are disabled at
-  compile-time, reported by Borislav Petkov, fix from myself.
-
-* fix display error message via dmesg for arp_tables, from Jan Engelhardt.
-
-You can pull these changes from:
-
-git://1984.lsi.us.es/nf master
-
-Thanks!
-
-Jan Engelhardt (1):
-  netfilter: x_tables: print correct hook names for ARP
-
-Pablo Neira Ayuso (2):
-  netfilter: xt_CT: fix unset return value if conntrack zone are disabled
-  netfilter: nf_conntrack: fix BUG_ON while removing nf_conntrack with netns
-
- include/net/netfilter/nf_conntrack_core.h |    2 ++
- net/netfilter/nf_conntrack_core.c         |    9 +++++----
- net/netfilter/nf_conntrack_standalone.c   |    1 +
- net/netfilter/x_tables.c                  |   28 ++++++++++++++++++++--------
- net/netfilter/xt_CT.c                     |    4 ++--
- 5 files changed, 30 insertions(+), 14 deletions(-)
-
--- 
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index 2a08430..bde009e 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -109,7 +109,7 @@ static int xt_ct_tg_check_v0(const struct xt_tgchk_=
+param *par)
+ 	struct xt_ct_target_info *info =3D par->targinfo;
+ 	struct nf_conntrack_tuple t;
+ 	struct nf_conn *ct;
+-	int ret;
++	int ret =3D -EOPNOTSUPP;
+=20
+ 	if (info->flags & ~XT_CT_NOTRACK)
+ 		return -EINVAL;
+@@ -247,7 +247,7 @@ static int xt_ct_tg_check_v1(const struct xt_tgchk_=
+param *par)
+ 	struct xt_ct_target_info_v1 *info =3D par->targinfo;
+ 	struct nf_conntrack_tuple t;
+ 	struct nf_conn *ct;
+-	int ret;
++	int ret =3D -EOPNOTSUPP;
+=20
+ 	if (info->flags & ~XT_CT_NOTRACK)
+ 		return -EINVAL;
+--=20
 1.7.10.4
