@@ -1,75 +1,65 @@
 From: David Woodhouse <dwmw2@infradead.org>
-Subject: [RFC PATCH 2/3] Prepare to allow for hardware checksum of ICMPv6
-Date: Mon, 14 Jan 2013 12:12:31 +0000
-Message-ID: <1358165551.27054.64.camel@shinybook.infradead.org>
+Subject: [RFC PATCH 3/3] Use hardware checksum for UDPv6 and ICMPv6
+Date: Mon, 14 Jan 2013 12:15:07 +0000
+Message-ID: <1358165707.27054.67.camel@shinybook.infradead.org>
 References: <1358165431.27054.62.camel@shinybook.infradead.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-oWj7cywGH17EZzdMiz6m"
+	boundary="=-k9eaXwBdFZLiLvcxzJ9o"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:35696 "EHLO
+Received: from merlin.infradead.org ([205.233.59.134]:36481 "EHLO
 	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755732Ab3ANMMe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 07:12:34 -0500
+	with ESMTP id S1755388Ab3ANMPJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 07:15:09 -0500
 Received: from shinybook.infradead.org ([2001:8b0:10b:1:e6ce:8fff:fe1f:f2c0])
 	by merlin.infradead.org with esmtpsa (Exim 4.76 #1 (Red Hat Linux))
-	id 1Tuiu0-0001yb-Ku
-	for netdev@vger.kernel.org; Mon, 14 Jan 2013 12:12:33 +0000
+	id 1TuiwW-0002Db-C9
+	for netdev@vger.kernel.org; Mon, 14 Jan 2013 12:15:08 +0000
 In-Reply-To: <1358165431.27054.62.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-oWj7cywGH17EZzdMiz6m
+--=-k9eaXwBdFZLiLvcxzJ9o
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-If netif_skb_features() has to filter out non-TCP and non-UDP frames
-anyway for devices with limited checksum support, there's no reason we
-shouldn't generate them in our *own* stack. This allows ICMPv6 to do
-so...
+This actually enables the use of CHECKSUM_PARTIAL for outbound ICMPv6
+frames. My check in the driver for non-hw-csum frames was *also*
+triggering when I was running 'nc -u' over IPv6, and this appears to fix
+that too. Is there a reason it wasn't happening already?
+
+I only see the driver check trigger for ndisc and igmp frames now, and I
+don't think we care very much about those?
 
 Signed-off-by: David Woodhouse <David.Woodhouse@intel.com>
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index b4a9fd5..e474df9 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -235,12 +235,19 @@ static int icmpv6_push_pending_frames(struct sock *sk=
-, struct flowi6 *fl6, struc
- 	icmp6h->icmp6_cksum =3D 0;
-=20
- 	if (skb_queue_len(&sk->sk_write_queue) =3D=3D 1) {
--		skb->csum =3D csum_partial(icmp6h,
--					sizeof(struct icmp6hdr), skb->csum);
--		icmp6h->icmp6_cksum =3D csum_ipv6_magic(&fl6->saddr,
--						      &fl6->daddr,
--						      len, fl6->flowi6_proto,
--						      skb->csum);
-+		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
-+			skb->csum_start =3D skb_transport_header(skb) - skb->head;
-+			skb->csum_offset =3D offsetof(struct icmp6hdr, icmp6_cksum);
-+			icmp6h->icmp6_cksum =3D ~csum_ipv6_magic(&fl6->saddr, &fl6->daddr,
-+							       len, fl6->flowi6_proto, 0);
-+		} else {
-+			skb->csum =3D csum_partial(icmp6h,
-+						 sizeof(struct icmp6hdr), skb->csum);
-+			icmp6h->icmp6_cksum =3D csum_ipv6_magic(&fl6->saddr,
-+							      &fl6->daddr,
-+							      len, fl6->flowi6_proto,
-+							      skb->csum);
-+		}
- 	} else {
- 		__wsum tmp_csum =3D 0;
-=20
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 5552d13..8a27090 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1370,7 +1370,12 @@ alloc_new_skb:
+ 			/*
+ 			 *	Fill in the control structures
+ 			 */
+-			skb->ip_summed =3D CHECKSUM_NONE;
++			if ((sk->sk_protocol =3D=3D IPPROTO_ICMPV6 ||
++			     sk->sk_protocol =3D=3D IPPROTO_UDP) &&
++			    rt->dst.dev->features & NETIF_F_HW_CSUM)
++				skb->ip_summed =3D CHECKSUM_PARTIAL;
++			else
++				skb->ip_summed =3D CHECKSUM_NONE;
+ 			skb->csum =3D 0;
+ 			/* reserve for fragmentation and ipsec header */
+ 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
 
 
 --=20
 dwmw2
 
 
---=-oWj7cywGH17EZzdMiz6m
+--=-k9eaXwBdFZLiLvcxzJ9o
 Content-Type: application/x-pkcs7-signature; name="smime.p7s"
 Content-Disposition: attachment; filename="smime.p7s"
 Content-Transfer-Encoding: base64
@@ -170,19 +160,19 @@ kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
 MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
 dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
 eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE0MTIxMjMxWjAjBgkqhkiG9w0BCQQx
-FgQU9P1dKNppQVqnC8tY5iR4sSLGxDwwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE0MTIxNTA3WjAjBgkqhkiG9w0BCQQx
+FgQUkDL2GbbQaMkC/plKV/EzXwDXH9YwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
 SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
 ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
 ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
 TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
 aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAio+Nzsd/FVNq26WOMfMwJ1Cwe
-ib8Sb7Qjz4k4fvYwuCfvu4AZOYzc3H9ITcuHSL5WSfqQQv/e/CYlk3Ic2Tl76X32zg36EMM7uMzK
-UVmCA04sUEtDT25HYCcqNuQlBxgddxHLp6ldcj2bzNDhCy0d7HVl0l6IqC1WDgNRAtYZXHlm3jtY
-RyO1qcQnWE+gfjjMk3tW63kYmGJKFFcmfDI0/48zqhKcnqYyGW+KLdjKAFd2nf7y7rxgqbkVwCj8
-kzjdbpHHcrhq0sKAaYTuouxMtYfe80R5wJYbjMXjsrdM6qaGrDIvYNopAgUnXr0yUq1TvIRD7CUn
-fKhOUNhaqs41AAAAAAAA
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQAyQN7w3HjgsuSvF7B827HPZTFP
+uTk6wEkeUSWGY9woCpYM0qk+8nZHZmVEaTpqRgA54sYdGLRPo6Nb3vvgstGda/74jB9IZdBaSSGn
+YYriAKd2mLonppKzXYUte/vIKYrv9GL47ijP73R7QvRI5EOVetObZwCOvNcJn1XU5ByuqCF4xjZ8
+/gdvwnX2r5aU9Z4aqiou26zhOjfT+68d3lwmCsNdcnOx44/3u1O7Ab9fXa5lZI7KD+BguhBn5mUp
+h+bfa8aZQetMZ92rHVYQqF6Gh4lL6EnkQlSg1yMR4wXesOFjR3kO5oLjtKfovTPpiFv18QSc3bZ1
+bCa11xhng/0MAAAAAAAA
 
 
---=-oWj7cywGH17EZzdMiz6m--
+--=-k9eaXwBdFZLiLvcxzJ9o--
