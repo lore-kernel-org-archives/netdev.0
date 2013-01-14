@@ -1,46 +1,62 @@
-From: Roger Ricardo Moore <moorer007@gmail.com>
-Subject: Machine hang using YeAH Advanced TCP Congestion Control algorithm
- as default under P2P load
-Date: Mon, 14 Jan 2013 10:19:21 +0000
-Message-ID: <1358158761.14737.12.camel@UK6475R82934W.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2] netpoll: fix a rtnl lock assertion failure
+Date: Mon, 14 Jan 2013 18:24:14 +0800
+Message-ID: <1358159054-21951-1-git-send-email-amwang@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:36967 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756178Ab3ANKTY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 05:19:24 -0500
-Received: by mail-wg0-f41.google.com with SMTP id ds1so1017125wgb.2
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 02:19:23 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:15316 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756502Ab3ANKY2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 05:24:28 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I decided to test out the YeAH Advance TCP Congestion Control algorithm
-- setting it as my default (patched kernel to achieve this)
+From: Cong Wang <amwang@redhat.com>
 
-I found that on 2 different machines (i386/Pentium M/radeon/e1000 and
-amd64/Core2Duo/i915/e1000e) I experienced a complete machine hang after
-~5-10 minutes using a P2P client (aMule) - i.e. multiple connections
-with clients over the internet, both in and out of the machine.
+This patch fixes the following warning:
 
-There was no kernel OOPS just an unrecoverable freeze with no response
-to any input. Each time it required the machine to be turned off and
-rebooted to regain control.
+[   72.013864] RTNL: assertion failed at net/core/dev.c (4955)
+[   72.017758] Pid: 668, comm: netpoll-prep-v6 Not tainted 3.8.0-rc1+ #474
+[   72.019582] Call Trace:
+[   72.020295]  [<ffffffff8176653d>] netdev_master_upper_dev_get+0x35/0x58
+[   72.022545]  [<ffffffff81784edd>] netpoll_setup+0x61/0x340
+[   72.024846]  [<ffffffff815d837e>] store_enabled+0x82/0xc3
+[   72.027466]  [<ffffffff815d7e51>] netconsole_target_attr_store+0x35/0x37
+[   72.029348]  [<ffffffff811c3479>] configfs_write_file+0xe2/0x10c
+[   72.030959]  [<ffffffff8115d239>] vfs_write+0xaf/0xf6
+[   72.032359]  [<ffffffff81978a05>] ? sysret_check+0x22/0x5d
+[   72.033824]  [<ffffffff8115d453>] sys_write+0x5c/0x84
+[   72.035328]  [<ffffffff819789d9>] system_call_fastpath+0x16/0x1b
 
-I tested the machines using stress (CPU, I/O, VM and HDD) to eliminate
-other possible causes of a machine hang after time but this failed to
-replicate the problem. I even copied GBs of files over my local network
-using SCP and this too failed to demonstrate the problem (I presume a
-TCP congestion control has negligible impact in such circumstances)
+Just hold RCU read lock and call netdev_master_upper_dev_get_rcu(),
+as suggested by Jiri.
 
-I found that reverting back to CONFIG_TCP_CONG_ADVANCED=n (and this
-CUBIC w/ Reno fallback) solved my problem.
+Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-I hope this information is useful to you in solving the problems with
-this feature.
-
-Regards
-
-Roger
+---
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9f05067..6d56b57 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -1055,11 +1055,15 @@ int netpoll_setup(struct netpoll *np)
+ 		return -ENODEV;
+ 	}
+ 
+-	if (netdev_master_upper_dev_get(ndev)) {
++	rcu_read_lock();
++	/* We permit devices with VLAN attached to */
++	if (netdev_master_upper_dev_get_rcu(ndev)) {
++		rcu_read_unlock();
+ 		np_err(np, "%s is a slave device, aborting\n", np->dev_name);
+ 		err = -EBUSY;
+ 		goto put;
+ 	}
++	rcu_read_unlock();
+ 
+ 	if (!netif_running(ndev)) {
+ 		unsigned long atmost, atleast;
