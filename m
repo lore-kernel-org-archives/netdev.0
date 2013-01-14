@@ -1,68 +1,39 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 6/6] ipv6: 64bit version of ipv6_prefix_equal().
-Date: Tue, 15 Jan 2013 02:10:38 +0900
-Message-ID: <50F43C0E.8060003@linux-ipv6.org>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH 0/2] Fix some multiqueue TUN problems
+Date: Mon, 14 Jan 2013 12:12:06 -0500
+Message-ID: <20130114170837.31874.78897.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39849 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757701Ab3ANRKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 12:10:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+No significant changes to this patchset since the last posting, just a
+slight merge with the recent changes in tun_set_queue() and some
+Acked-by and Tested-by additions.  I believe all the concerns have been
+addressed and this patch is ready for merging.
+
+Dave, I think it makes the most sense for this to get pulled in via the
+netdev tree but if you think otherwise let me know and I'll go bug
+James and Eric.
+
+-Paul
+
 ---
- include/net/ipv6.h |   26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index fe95053..3d32a8e 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -399,6 +399,31 @@ static inline bool ipv6_addr_equal(const struct in6_addr *a1,
- #endif
- }
- 
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-+static inline bool __ipv6_prefix_equal64_half(const __be64 *a1,
-+					      const __be64 *a2,
-+					      unsigned int len)
-+{
-+	if (len && ((*a1 ^ *a2) & cpu_to_be64(~0UL) << (64 - len)))
-+		return false;
-+	return true;
-+}
-+
-+static inline bool ipv6_prefix_equal(const struct in6_addr *addr1,
-+				     const struct in6_addr *addr2,
-+				     unsigned int prefixlen)
-+{
-+	const __be64 *a1 = (const __be64 *)addr1;
-+	const __be64 *a2 = (const __be64 *)addr2;
-+
-+	if (prefixlen >= 64) {
-+		if (a1[0] ^ a2[0])
-+			return false;
-+		return __ipv6_prefix_equal64_half(a1 + 1, a2 + 1, prefixlen - 64);
-+	}
-+	return __ipv6_prefix_equal64_half(a1, a2, prefixlen);
-+}
-+#else
- static inline bool ipv6_prefix_equal(const struct in6_addr *addr1,
- 				     const struct in6_addr *addr2,
- 				     unsigned int prefixlen)
-@@ -419,6 +444,7 @@ static inline bool ipv6_prefix_equal(const struct in6_addr *addr1,
- 
- 	return true;
- }
-+#endif
- 
- struct inet_frag_queue;
- 
--- 
-1.7.9.5
+Paul Moore (2):
+      selinux: add the "attach_queue" permission to the "tun_socket" class
+      tun: fix LSM/SELinux labeling of tun/tap devices
+
+
+ drivers/net/tun.c                   |   23 +++++++++++---
+ include/linux/security.h            |   59 +++++++++++++++++++++++++++--------
+ security/capability.c               |   24 ++++++++++++--
+ security/security.c                 |   28 ++++++++++++++---
+ security/selinux/hooks.c            |   50 +++++++++++++++++++++++-------
+ security/selinux/include/classmap.h |    2 +
+ security/selinux/include/objsec.h   |    4 ++
+ 7 files changed, 152 insertions(+), 38 deletions(-)
