@@ -1,72 +1,114 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
-Date: Mon, 14 Jan 2013 12:00:16 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
+Subject: [PATCH 1/5] soreuseport: infrastructure
+Date: Mon, 14 Jan 2013 12:00:18 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1301141152130.3433@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="296491395-1334412024-1358193616=:959"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@markandruth.co.uk, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:62856 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757333Ab3ANUAS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:00:18 -0500
-Received: by mail-qc0-f202.google.com with SMTP id s25so532427qcq.1
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 12:00:17 -0800 (PST)
+Received: from mail-la0-f74.google.com ([209.85.215.74]:49672 "EHLO
+	mail-la0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757333Ab3ANUAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 15:00:21 -0500
+Received: by mail-la0-f74.google.com with SMTP id ej20so288356lab.3
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 12:00:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Definitions and macros for implementing soreusport.
 
---296491395-1334412024-1358193616=:959
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-Rebasing the soreuseport patches to 3.8.  No material changes since
-first posted.
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
-These patches implements so_reuseport (SO_REUSEPORT socket option) for
-TCP and UDP.  For TCP, so_reuseport allows multiple listener sockets
-to be bound to the same port.  In the case of UDP, so_reuseport allows
-multiple sockets to bind to the same port.  To prevent port hijacking
-all sockets bound to the same port using so_reuseport must have the
-same uid.  Received packets are distributed to multiple sockets bound
-to the same port using a 4-tuple hash.
+ include/linux/random.h            |    6 ++++++
+ include/net/sock.h                |    5 ++++-
+ include/uapi/asm-generic/socket.h |    3 +--
+ net/core/sock.c                   |    7 +++++++
+ 4 files changed, 18 insertions(+), 3 deletions(-)
 
-The motivating case for so_resuseport in TCP would be something like
-a web server binding to port 80 running with multiple threads, where
-each thread might have it's own listener socket.  This could be done
-as an alternative to other models: 1) have one listener thread which
-dispatches completed connections to workers. 2) accept on a single
-listener socket from multiple threads.  In case #1 the listener thread
-can easily become the bottleneck with high connection turn-over rate.
-In case #2, the proportion of connections accepted per thread tends
-to be uneven under high connection load (assuming simple event loop:
-while (1) { accept(); process() }, wakeup does not promote fairness
-among the sockets.  We have seen the  disproportion to be as high
-as 3:1 ratio between thread accepting most connections and the one
-accepting the fewest.  With so_reusport the distribution is
-uniform.
-
-The TCP implementation has a problem in that the request sockets for a
-listener are attached to a listener socket.  If a SYN is received, a
-listener socket is chosen and request structure is created (SYN-RECV
-state).  If the subsequent ack in 3WHS does not match the same port
-by so_reusport, the connection state is not found (reset) and the
-request structure is orphaned.  This scenario would occur when the
-number of listener sockets bound to a port changes (new ones are
-added, or old ones closed).  We are looking for a solution to this,
-maybe allow multiple sockets to share the same request table...
-
-The motivating case for so_reuseport in UDP would be something like a
-DNS server.  An alternative would be to recv on the same socket from
-multiple threads.  As in the case of TCP, the load across these threads
-tends to be disproportionate and we also see a lot of contection on
-the socket lock.  Note that SO_REUSEADDR already allows multiple UDP
-sockets to bind to the same port, however there is no provision to
-prevent hijacking and nothing to distribute packets across all the
-sockets sharing the same bound port.  This patch does not change the
-semantics of SO_REUSEADDR, but provides usable functionality of it
-for unicast.
---296491395-1334412024-1358193616=:959--
+diff --git a/include/linux/random.h b/include/linux/random.h
+index d984608..347ce55 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -74,4 +74,10 @@ static inline int arch_get_random_int(unsigned int *v)
+ }
+ #endif
+ 
++/* Pseudo random number generator from numerical recipes. */
++static inline u32 next_pseudo_random32(u32 seed)
++{
++	return seed * 1664525 + 1013904223;
++}
++
+ #endif /* _LINUX_RANDOM_H */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 182ca99..360b412 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -140,6 +140,7 @@ typedef __u64 __bitwise __addrpair;
+  *	@skc_family: network address family
+  *	@skc_state: Connection state
+  *	@skc_reuse: %SO_REUSEADDR setting
++ *	@skc_reuseport: %SO_REUSEPORT setting
+  *	@skc_bound_dev_if: bound device index if != 0
+  *	@skc_bind_node: bind hash linkage for various protocol lookup tables
+  *	@skc_portaddr_node: second hash linkage for UDP/UDP-Lite protocol
+@@ -179,7 +180,8 @@ struct sock_common {
+ 
+ 	unsigned short		skc_family;
+ 	volatile unsigned char	skc_state;
+-	unsigned char		skc_reuse;
++	unsigned char		skc_reuse:4;
++	unsigned char		skc_reuseport:4;
+ 	int			skc_bound_dev_if;
+ 	union {
+ 		struct hlist_node	skc_bind_node;
+@@ -297,6 +299,7 @@ struct sock {
+ #define sk_family		__sk_common.skc_family
+ #define sk_state		__sk_common.skc_state
+ #define sk_reuse		__sk_common.skc_reuse
++#define sk_reuseport		__sk_common.skc_reuseport
+ #define sk_bound_dev_if		__sk_common.skc_bound_dev_if
+ #define sk_bind_node		__sk_common.skc_bind_node
+ #define sk_prot			__sk_common.skc_prot
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 2d32d07..331e322 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -22,8 +22,7 @@
+ #define SO_PRIORITY	12
+ #define SO_LINGER	13
+ #define SO_BSDCOMPAT	14
+-/* To add :#define SO_REUSEPORT 15 */
+-
++#define SO_REUSEPORT	15
+ #ifndef SO_PASSCRED /* powerpc only differs in these */
+ #define SO_PASSCRED	16
+ #define SO_PEERCRED	17
+diff --git a/net/core/sock.c b/net/core/sock.c
+index bc131d4..0040832 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -665,6 +665,9 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 	case SO_REUSEADDR:
+ 		sk->sk_reuse = (valbool ? SK_CAN_REUSE : SK_NO_REUSE);
+ 		break;
++	case SO_REUSEPORT:
++		sk->sk_reuseport = valbool;
++		break;
+ 	case SO_TYPE:
+ 	case SO_PROTOCOL:
+ 	case SO_DOMAIN:
+@@ -965,6 +968,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = sk->sk_reuse;
+ 		break;
+ 
++	case SO_REUSEPORT:
++		v.val = sk->sk_reuseport;
++		break;
++
+ 	case SO_KEEPALIVE:
+ 		v.val = sock_flag(sk, SOCK_KEEPOPEN);
+ 		break;
+-- 
+1.7.7.3
