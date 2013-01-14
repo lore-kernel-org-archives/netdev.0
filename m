@@ -1,128 +1,84 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [RFC Patch net-next] ipv6: look up neighbours on demand in ip6_finish_output2()
-Date: Mon, 14 Jan 2013 21:35:15 +0800
-Message-ID: <1358170515-1383-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Roland Dreier <roland@purestorage.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: Information needed on the kernel version which supports ----
+Date: Mon, 14 Jan 2013 09:56:49 -0500
+Message-ID: <50F41CB1.3040909@redhat.com>
+References: <50F3D5FD.6090608@tataelxsi.co.in> <CAJ4ZP5T3nw+E+NP_eDZBCt=gqyiviuUoMEjm=7FuWTCDJhBEmQ@mail.gmail.com>
+Reply-To: vyasevic@redhat.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sandeepacs@tataelxsi.co.in, shemminger@vyatta.com, mst@redhat.com,
+	netdev@vger.kernel.org, stephen@redhat.com,
+	bridge@lists.linux-foundation.org, shmulik.ladkani@gmail.com,
+	davem@davemloft.net,
+	"Satyanarayana Reddy M (D&D)" <satyanarayanam@tataelxsi.co.in>
+To: Balaji Foss <balajig.foss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:36490 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753051Ab3ANNfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 08:35:36 -0500
-Received: by mail-pb0-f51.google.com with SMTP id ro12so2158943pbb.24
-        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 05:35:36 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:1209 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756282Ab3ANO5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jan 2013 09:57:00 -0500
+In-Reply-To: <CAJ4ZP5T3nw+E+NP_eDZBCt=gqyiviuUoMEjm=7FuWTCDJhBEmQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
+On 01/14/2013 06:35 AM, Balaji Foss wrote:
+>   >1) On what kernel version the VLAN support for multicast groups is being
+>> done
+> Its currently in the net-next tree which would become 3.8
 
-Roland reported that we may use a "stray" neigh entry if someone else
-holds a refcount of this entry. Therefore leads to neigh_blackhole().
+I did not see any "Applied" messages from upstream, so I doubt its in 
+any tree yet.  The code is still in development.
 
-And David said:
+-vlad
 
-"Another reason we must make ipv6 like ipv4, which looks up neighbours
-on demand at packet output time rather than caching them in the route
-entries."
-
-Thus, we just follow what IPv4 does, call __ipv6_neigh_lookup_noref()
-to avoid using the "stray" neighbour.
-
-Roland, could you test if this could fix your problem? I don't
-have the environment.
-
-Reported-by: Roland Dreier <roland@purestorage.com>
-Cc: Roland Dreier <roland@purestorage.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
----
-diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index 23b3a7c..a5fe1b3 100644
---- a/include/net/ndisc.h
-+++ b/include/net/ndisc.h
-@@ -148,14 +148,16 @@ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, _
- 		(p32[3] * hash_rnd[3]));
- }
- 
--static inline struct neighbour *__ipv6_neigh_lookup(struct neigh_table *tbl, struct net_device *dev, const void *pkey)
-+static inline
-+struct neighbour *__ipv6_neigh_lookup_noref(struct neigh_table *tbl,
-+					    struct net_device *dev,
-+					    const void *pkey)
- {
- 	struct neigh_hash_table *nht;
- 	const u32 *p32 = pkey;
- 	struct neighbour *n;
- 	u32 hash_val;
- 
--	rcu_read_lock_bh();
- 	nht = rcu_dereference_bh(tbl->nht);
- 	hash_val = ndisc_hashfn(pkey, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
- 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
-@@ -165,11 +167,23 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct neigh_table *tbl, str
- 		if (n->dev == dev &&
- 		    ((n32[0] ^ p32[0]) | (n32[1] ^ p32[1]) |
- 		     (n32[2] ^ p32[2]) | (n32[3] ^ p32[3])) == 0) {
--			if (!atomic_inc_not_zero(&n->refcnt))
--				n = NULL;
- 			break;
- 		}
- 	}
-+
-+	return n;
-+}
-+
-+static inline
-+struct neighbour *__ipv6_neigh_lookup(struct neigh_table *tbl,
-+				      struct net_device *dev, const void *pkey)
-+{
-+	struct neighbour *n;
-+
-+	rcu_read_lock_bh();
-+	n = __ipv6_neigh_lookup_noref(tbl, dev, pkey);
-+	if (n && (!atomic_inc_not_zero(&n->refcnt)))
-+		n = NULL;
- 	rcu_read_unlock_bh();
- 
- 	return n;
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 9250c69..20f2e86 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -89,11 +89,12 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 	struct net_device *dev = dst->dev;
- 	struct neighbour *neigh;
- 	struct rt6_info *rt;
-+	const void *daddr = &ipv6_hdr(skb)->daddr;
- 
- 	skb->protocol = htons(ETH_P_IPV6);
- 	skb->dev = dev;
- 
--	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr)) {
-+	if (ipv6_addr_is_multicast(daddr)) {
- 		struct inet6_dev *idev = ip6_dst_idev(skb_dst(skb));
- 
- 		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(skb->sk) &&
-@@ -124,9 +125,17 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 	}
- 
- 	rt = (struct rt6_info *) dst;
--	neigh = rt->n;
--	if (neigh)
-+	rcu_read_lock_bh();
-+	if (rt->rt6i_flags & RTF_GATEWAY)
-+		daddr = &rt->rt6i_gateway;
-+	neigh = __ipv6_neigh_lookup_noref(&nd_tbl, dev, daddr);
-+	if (unlikely(!neigh))
-+		neigh = __neigh_create(&nd_tbl, daddr, dev, false);
-+	if (!IS_ERR(neigh)) {
-+		rcu_read_unlock_bh();
- 		return dst_neigh_output(dst, neigh, skb);
-+	}
-+	rcu_read_unlock_bh();
- 
- 	IP6_INC_STATS_BH(dev_net(dst->dev),
- 			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
+>
+>> 2)On what flavors it is supported, is it available with Debian
+>
+> If you want to test those changes right away, you will have to do a git
+> clone of the net-next repo and test those patches, else wait for the
+> distributions to package the 3.8 kernel.
+>
+>> 3)How can we get/download the supported patch files for reference.
+> you will have to make a clone of the net-next repo. For more information
+> look up tutorials on git.
+>
+> Cheers,
+>    - Balaji
+>
+> On Mon, Jan 14, 2013 at 3:25 PM, Sandeepa C S <sandeepacs@tataelxsi.co.in>wrote:
+>
+>> Dear All,
+>>
+>> We are trying to add vlan support for the IGMP snooping feature in the
+>> kernel version 2.6.39
+>> But from the below thread discussion we understood that vlan support is
+>> already in the bridge.
+>> http://www.spinics.net/lists/**netdev/msg221800.html<http://www.spinics.net/lists/netdev/msg221800.html>
+>>
+>> Could you please let us know the below informations,
+>> 1) On what kernel version the VLAN support for multicast groups is being
+>> done
+>> 2)On what flavors it is supported, is it available with Debian
+>> 3)How can we get/download the supported patch files for reference.
+>>
+>> --
+>> Thanks & Regards,
+>> Sandeepa cs.
+>>
+>> Notice: The information contained in this e-mail message and/or
+>> attachments to it may contain confidential or privileged information. If
+>> you are not the intended recipient, any dissemination, use, review,
+>> distribution, printing or copying of the information contained in this
+>> e-mail message and/or attachments to it are strictly prohibited. If you
+>> have received this communication in error, please notify us by reply e-mail
+>> or telephone and immediately and permanently delete the message and any
+>> attachments. Thank you
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/**majordomo-info.html<http://vger.kernel.org/majordomo-info.html>
+>>
+>
