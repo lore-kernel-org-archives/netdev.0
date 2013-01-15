@@ -1,115 +1,450 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 04/10] vmxnet3: use netdev_dbg
-Date: Tue, 15 Jan 2013 09:28:29 -0800
-Message-ID: <1358270915-32758-5-git-send-email-stephen@networkplumber.org>
+Subject: [PATCH 05/10] vmxnet3: use netdev_ printk wrappers
+Date: Tue, 15 Jan 2013 09:28:30 -0800
+Message-ID: <1358270915-32758-6-git-send-email-stephen@networkplumber.org>
 References: <1358270915-32758-1-git-send-email-stephen@networkplumber.org>
 Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: David Miller <davem@davemloft.net>,
 	Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f49.google.com ([209.85.210.49]:33083 "EHLO
-	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756779Ab3AORaK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 12:30:10 -0500
-Received: by mail-da0-f49.google.com with SMTP id v40so130235dad.36
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 09:30:10 -0800 (PST)
+Received: from mail-da0-f54.google.com ([209.85.210.54]:44630 "EHLO
+	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756845Ab3AORaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 12:30:12 -0500
+Received: by mail-da0-f54.google.com with SMTP id n2so131362dad.27
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 09:30:12 -0800 (PST)
 In-Reply-To: <1358270915-32758-1-git-send-email-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use netdev_dbg() rather than dev_dbg() because the former prints
-the device name which is more useful than the pci name.
+Use the standard netdev_xxx() and dev_xxx() wrappers to format
+log messages.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c     |  136 ++++++++++++++++-----------------
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |   13 ++--
+ 2 files changed, 73 insertions(+), 76 deletions(-)
 
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 7b10d9c..c566b73 100644
+index c566b73..d862937 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -629,7 +629,7 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
- 		vmxnet3_cmd_ring_adv_next2fill(ring);
+@@ -152,8 +152,8 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
+ 
+ 	adapter->link_speed = ret >> 16;
+ 	if (ret & 1) { /* Link is up. */
+-		printk(KERN_INFO "%s: NIC Link is Up %d Mbps\n",
+-		       adapter->netdev->name, adapter->link_speed);
++		netdev_info(adapter->netdev, "NIC Link is Up %d Mbps\n",
++			    adapter->link_speed);
+ 		if (!netif_carrier_ok(adapter->netdev))
+ 			netif_carrier_on(adapter->netdev);
+ 
+@@ -163,8 +163,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
+ 						 adapter);
+ 		}
+ 	} else {
+-		printk(KERN_INFO "%s: NIC Link is Down\n",
+-		       adapter->netdev->name);
++		netdev_info(adapter->netdev, "NIC Link is Down\n");
+ 		if (netif_carrier_ok(adapter->netdev))
+ 			netif_carrier_off(adapter->netdev);
+ 
+@@ -510,8 +509,7 @@ vmxnet3_tq_create(struct vmxnet3_tx_queue *tq,
+ 			   * sizeof(struct Vmxnet3_TxDesc),
+ 			   &tq->tx_ring.basePA);
+ 	if (!tq->tx_ring.base) {
+-		printk(KERN_ERR "%s: failed to allocate tx ring\n",
+-		       adapter->netdev->name);
++		netdev_err(adapter->netdev, "failed to allocate tx ring\n");
+ 		goto err;
  	}
  
--	dev_dbg(&adapter->netdev->dev,
-+	netdev_dbg(adapter->netdev,
- 		"alloc_rx_buf: %d allocated, next2fill %u, next2comp %u\n",
- 		num_allocated, ring->next2fill, ring->next2comp);
+@@ -520,8 +518,7 @@ vmxnet3_tq_create(struct vmxnet3_tx_queue *tq,
+ 			     sizeof(struct Vmxnet3_TxDataDesc),
+ 			     &tq->data_ring.basePA);
+ 	if (!tq->data_ring.base) {
+-		printk(KERN_ERR "%s: failed to allocate data ring\n",
+-		       adapter->netdev->name);
++		netdev_err(adapter->netdev, "failed to allocate data ring\n");
+ 		goto err;
+ 	}
  
-@@ -688,7 +688,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 		tbi = tq->buf_info + tq->tx_ring.next2fill;
- 		tbi->map_type = VMXNET3_MAP_NONE;
+@@ -530,8 +527,7 @@ vmxnet3_tq_create(struct vmxnet3_tx_queue *tq,
+ 			     sizeof(struct Vmxnet3_TxCompDesc),
+ 			     &tq->comp_ring.basePA);
+ 	if (!tq->comp_ring.base) {
+-		printk(KERN_ERR "%s: failed to allocate tx comp ring\n",
+-		       adapter->netdev->name);
++		netdev_err(adapter->netdev, "failed to allocate tx comp ring\n");
+ 		goto err;
+ 	}
  
--		dev_dbg(&adapter->netdev->dev,
-+		netdev_dbg(adapter->netdev,
- 			"txd[%u]: 0x%Lx 0x%x 0x%x\n",
- 			tq->tx_ring.next2fill,
- 			le64_to_cpu(ctx->sop_txd->txd.addr),
-@@ -728,7 +728,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 		gdesc->dword[2] = cpu_to_le32(dw2);
- 		gdesc->dword[3] = 0;
+@@ -1511,8 +1507,8 @@ vmxnet3_rq_create(struct vmxnet3_rx_queue *rq, struct vmxnet3_adapter *adapter)
+ 		rq->rx_ring[i].base = pci_alloc_consistent(adapter->pdev, sz,
+ 							&rq->rx_ring[i].basePA);
+ 		if (!rq->rx_ring[i].base) {
+-			printk(KERN_ERR "%s: failed to allocate rx ring %d\n",
+-			       adapter->netdev->name, i);
++			netdev_err(adapter->netdev,
++				   "failed to allocate rx ring %d\n", i);
+ 			goto err;
+ 		}
+ 	}
+@@ -1521,8 +1517,7 @@ vmxnet3_rq_create(struct vmxnet3_rx_queue *rq, struct vmxnet3_adapter *adapter)
+ 	rq->comp_ring.base = pci_alloc_consistent(adapter->pdev, sz,
+ 						  &rq->comp_ring.basePA);
+ 	if (!rq->comp_ring.base) {
+-		printk(KERN_ERR "%s: failed to allocate rx comp ring\n",
+-		       adapter->netdev->name);
++		netdev_err(adapter->netdev, "failed to allocate rx comp ring\n");
+ 		goto err;
+ 	}
  
--		dev_dbg(&adapter->netdev->dev,
-+		netdev_dbg(adapter->netdev,
- 			"txd[%u]: 0x%Lx 0x%x 0x%x\n",
- 			tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
- 			le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
-@@ -768,7 +768,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
- 			gdesc->dword[2] = cpu_to_le32(dw2);
- 			gdesc->dword[3] = 0;
+@@ -1814,9 +1809,10 @@ vmxnet3_request_irqs(struct vmxnet3_adapter *adapter)
+ 					  adapter->rx_queue[i].name,
+ 					  &(adapter->rx_queue[i]));
+ 			if (err) {
+-				printk(KERN_ERR "Failed to request irq for MSIX"
+-				       ", %s, error %d\n",
+-				       adapter->rx_queue[i].name, err);
++				netdev_err(adapter->netdev,
++					   "Failed to request irq for MSIX, "
++					   "%s, error %d\n",
++					   adapter->rx_queue[i].name, err);
+ 				return err;
+ 			}
  
--			dev_dbg(&adapter->netdev->dev,
-+			netdev_dbg(adapter->netdev,
- 				"txd[%u]: 0x%llu %u %u\n",
- 				tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
- 				le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
-@@ -868,7 +868,7 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 	tdd = tq->data_ring.base + tq->tx_ring.next2fill;
- 
- 	memcpy(tdd->data, skb->data, ctx->copy_size);
--	dev_dbg(&adapter->netdev->dev,
-+	netdev_dbg(adapter->netdev,
- 		"copy %u bytes to dataRing[%u]\n",
- 		ctx->copy_size, tq->tx_ring.next2fill);
- 	return 1;
-@@ -974,7 +974,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 
- 	if (count > vmxnet3_cmd_ring_desc_avail(&tq->tx_ring)) {
- 		tq->stats.tx_ring_full++;
--		dev_dbg(&adapter->netdev->dev,
-+		netdev_dbg(adapter->netdev,
- 			"tx queue stopped on %s, next2comp %u"
- 			" next2fill %u\n", adapter->netdev->name,
- 			tq->tx_ring.next2comp, tq->tx_ring.next2fill);
-@@ -1057,7 +1057,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
- 			   (struct Vmxnet3_TxDesc *)ctx.sop_txd);
- 	gdesc = ctx.sop_txd;
+@@ -1845,8 +1841,9 @@ vmxnet3_request_irqs(struct vmxnet3_adapter *adapter)
  #endif
--	dev_dbg(&adapter->netdev->dev,
-+	netdev_dbg(adapter->netdev,
- 		"txd[%u]: SOP 0x%Lx 0x%x 0x%x\n",
- 		(u32)(ctx.sop_txd -
- 		tq->tx_ring.base), le64_to_cpu(gdesc->txd.addr),
-@@ -1210,7 +1210,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
- 			if (unlikely(rcd->len == 0)) {
- 				/* Pretend the rx buffer is skipped. */
- 				BUG_ON(!(rcd->sop && rcd->eop));
--				dev_dbg(&adapter->netdev->dev,
-+				netdev_dbg(adapter->netdev,
- 					"rxRing[%u][%u] 0 length\n",
- 					ring_idx, idx);
- 				goto rcd_done;
-@@ -2211,7 +2211,7 @@ vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
- 	u32 ret;
- 	unsigned long flags;
+ 	intr->num_intrs = vector + 1;
+ 	if (err) {
+-		printk(KERN_ERR "Failed to request irq %s (intr type:%d), error"
+-		       ":%d\n", adapter->netdev->name, intr->type, err);
++		netdev_err(adapter->netdev,
++			   "Failed to request irq (intr type:%d), error %d\n",
++			   intr->type, err);
+ 	} else {
+ 		/* Number of rx queues will not change after this */
+ 		for (i = 0; i < adapter->num_rx_queues; i++) {
+@@ -1867,9 +1864,9 @@ vmxnet3_request_irqs(struct vmxnet3_adapter *adapter)
+ 			adapter->rx_queue[0].comp_ring.intr_idx = 0;
+ 		}
  
--	dev_dbg(&adapter->netdev->dev, "%s: skb_buf_size %d, rx_buf_per_pkt %d,"
-+	netdev_dbg(adapter->netdev, "%s: skb_buf_size %d, rx_buf_per_pkt %d,"
- 		" ring sizes %u %u %u\n", adapter->netdev->name,
- 		adapter->skb_buf_size, adapter->rx_buf_per_pkt,
- 		adapter->tx_queue[0].tx_ring.size,
+-		printk(KERN_INFO "%s: intr type %u, mode %u, %u vectors "
+-		       "allocated\n", adapter->netdev->name, intr->type,
+-		       intr->mask_mode, intr->num_intrs);
++		netdev_info(adapter->netdev,
++			    "intr type %u, mode %u, %u vectors allocated\n",
++			    intr->type, intr->mask_mode, intr->num_intrs);
+ 	}
+ 
+ 	return err;
+@@ -2035,8 +2032,8 @@ vmxnet3_set_mc(struct net_device *netdev)
+ 				rxConf->mfTablePA = cpu_to_le64(virt_to_phys(
+ 						    new_table));
+ 			} else {
+-				printk(KERN_INFO "%s: failed to copy mcast list"
+-				       ", setting ALL_MULTI\n", netdev->name);
++				netdev_info(netdev, "failed to copy mcast list"
++					    ", setting ALL_MULTI\n");
+ 				new_mode |= VMXNET3_RXM_ALL_MULTI;
+ 			}
+ 		}
+@@ -2221,15 +2218,15 @@ vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
+ 	vmxnet3_tq_init_all(adapter);
+ 	err = vmxnet3_rq_init_all(adapter);
+ 	if (err) {
+-		printk(KERN_ERR "Failed to init rx queue for %s: error %d\n",
+-		       adapter->netdev->name, err);
++		netdev_err(adapter->netdev,
++			   "Failed to init rx queue error %d\n", err);
+ 		goto rq_err;
+ 	}
+ 
+ 	err = vmxnet3_request_irqs(adapter);
+ 	if (err) {
+-		printk(KERN_ERR "Failed to setup irq for %s: error %d\n",
+-		       adapter->netdev->name, err);
++		netdev_err(adapter->netdev,
++			   "Failed to setup irq for error %d\n", err);
+ 		goto irq_err;
+ 	}
+ 
+@@ -2246,8 +2243,8 @@ vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
+ 	spin_unlock_irqrestore(&adapter->cmd_lock, flags);
+ 
+ 	if (ret != 0) {
+-		printk(KERN_ERR "Failed to activate dev %s: error %u\n",
+-		       adapter->netdev->name, ret);
++		netdev_err(adapter->netdev,
++			   "Failed to activate dev: error %u\n", ret);
+ 		err = -EINVAL;
+ 		goto activate_err;
+ 	}
+@@ -2362,23 +2359,22 @@ vmxnet3_alloc_pci_resources(struct vmxnet3_adapter *adapter, bool *dma64)
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err) {
+-		printk(KERN_ERR "Failed to enable adapter %s: error %d\n",
+-		       pci_name(pdev), err);
++		dev_err(&pdev->dev, "Failed to enable adapter: error %d\n", err);
+ 		return err;
+ 	}
+ 
+ 	if (pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) == 0) {
+ 		if (pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64)) != 0) {
+-			printk(KERN_ERR "pci_set_consistent_dma_mask failed "
+-			       "for adapter %s\n", pci_name(pdev));
++			dev_err(&pdev->dev,
++				"pci_set_consistent_dma_mask failed\n");
+ 			err = -EIO;
+ 			goto err_set_mask;
+ 		}
+ 		*dma64 = true;
+ 	} else {
+ 		if (pci_set_dma_mask(pdev, DMA_BIT_MASK(32)) != 0) {
+-			printk(KERN_ERR "pci_set_dma_mask failed for adapter "
+-			       "%s\n",	pci_name(pdev));
++			dev_err(&pdev->dev,
++				"pci_set_dma_mask failed\n");
+ 			err = -EIO;
+ 			goto err_set_mask;
+ 		}
+@@ -2388,8 +2384,8 @@ vmxnet3_alloc_pci_resources(struct vmxnet3_adapter *adapter, bool *dma64)
+ 	err = pci_request_selected_regions(pdev, (1 << 2) - 1,
+ 					   vmxnet3_driver_name);
+ 	if (err) {
+-		printk(KERN_ERR "Failed to request region for adapter %s: "
+-		       "error %d\n", pci_name(pdev), err);
++		dev_err(&pdev->dev,
++			"Failed to request region for adapter: error %d\n", err);
+ 		goto err_set_mask;
+ 	}
+ 
+@@ -2399,8 +2395,7 @@ vmxnet3_alloc_pci_resources(struct vmxnet3_adapter *adapter, bool *dma64)
+ 	mmio_len = pci_resource_len(pdev, 0);
+ 	adapter->hw_addr0 = ioremap(mmio_start, mmio_len);
+ 	if (!adapter->hw_addr0) {
+-		printk(KERN_ERR "Failed to map bar0 for adapter %s\n",
+-		       pci_name(pdev));
++		dev_err(&pdev->dev, "Failed to map bar0\n");
+ 		err = -EIO;
+ 		goto err_ioremap;
+ 	}
+@@ -2409,8 +2404,7 @@ vmxnet3_alloc_pci_resources(struct vmxnet3_adapter *adapter, bool *dma64)
+ 	mmio_len = pci_resource_len(pdev, 1);
+ 	adapter->hw_addr1 = ioremap(mmio_start, mmio_len);
+ 	if (!adapter->hw_addr1) {
+-		printk(KERN_ERR "Failed to map bar1 for adapter %s\n",
+-		       pci_name(pdev));
++		dev_err(&pdev->dev, "Failed to map bar1\n");
+ 		err = -EIO;
+ 		goto err_bar1;
+ 	}
+@@ -2517,12 +2511,14 @@ vmxnet3_create_queues(struct vmxnet3_adapter *adapter, u32 tx_ring_size,
+ 		err = vmxnet3_rq_create(rq, adapter);
+ 		if (err) {
+ 			if (i == 0) {
+-				printk(KERN_ERR "Could not allocate any rx"
+-				       "queues. Aborting.\n");
++				netdev_err(adapter->netdev,
++					   "Could not allocate any rx queues. "
++					   "Aborting.\n");
+ 				goto queue_err;
+ 			} else {
+-				printk(KERN_INFO "Number of rx queues changed "
+-				       "to : %d.\n", i);
++				netdev_info(adapter->netdev,
++					    "Number of rx queues changed "
++					    "to : %d.\n", i);
+ 				adapter->num_rx_queues = i;
+ 				err = 0;
+ 				break;
+@@ -2635,15 +2631,17 @@ vmxnet3_change_mtu(struct net_device *netdev, int new_mtu)
+ 		vmxnet3_adjust_rx_ring_size(adapter);
+ 		err = vmxnet3_rq_create_all(adapter);
+ 		if (err) {
+-			printk(KERN_ERR "%s: failed to re-create rx queues,"
+-				" error %d. Closing it.\n", netdev->name, err);
++			netdev_err(netdev,
++				   "failed to re-create rx queues, "
++				   " error %d. Closing it.\n", err);
+ 			goto out;
+ 		}
+ 
+ 		err = vmxnet3_activate_dev(adapter);
+ 		if (err) {
+-			printk(KERN_ERR "%s: failed to re-activate, error %d. "
+-				"Closing it\n", netdev->name, err);
++			netdev_err(netdev,
++				   "failed to re-activate, error %d. "
++				   "Closing it\n", err);
+ 			goto out;
+ 		}
+ 	}
+@@ -2786,7 +2784,8 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 			if (adapter->share_intr != VMXNET3_INTR_BUDDYSHARE
+ 			    || adapter->num_rx_queues != 1) {
+ 				adapter->share_intr = VMXNET3_INTR_TXSHARE;
+-				printk(KERN_ERR "Number of rx queues : 1\n");
++				netdev_err(adapter->netdev,
++					   "Number of rx queues : 1\n");
+ 				adapter->num_rx_queues = 1;
+ 				adapter->intr.num_intrs =
+ 						VMXNET3_LINUX_MIN_MSIX_VECT;
+@@ -2816,7 +2815,8 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ #endif /* CONFIG_PCI_MSI */
+ 
+ 	adapter->num_rx_queues = 1;
+-	printk(KERN_INFO "Using INTx interrupt, #Rx queues: 1.\n");
++	dev_info(&adapter->netdev->dev,
++		 "Using INTx interrupt, #Rx queues: 1.\n");
+ 	adapter->intr.type = VMXNET3_IT_INTX;
+ 
+ 	/* INT-X related setting */
+@@ -2842,7 +2842,7 @@ vmxnet3_tx_timeout(struct net_device *netdev)
+ 	struct vmxnet3_adapter *adapter = netdev_priv(netdev);
+ 	adapter->tx_timeout_count++;
+ 
+-	printk(KERN_ERR "%s: tx hang\n", adapter->netdev->name);
++	netdev_err(adapter->netdev, "tx hang\n");
+ 	schedule_work(&adapter->work);
+ 	netif_wake_queue(adapter->netdev);
+ }
+@@ -2862,12 +2862,12 @@ vmxnet3_reset_work(struct work_struct *data)
+ 	/* if the device is closed, we must leave it alone */
+ 	rtnl_lock();
+ 	if (netif_running(adapter->netdev)) {
+-		printk(KERN_INFO "%s: resetting\n", adapter->netdev->name);
++		netdev_notice(adapter->netdev, "resetting\n");
+ 		vmxnet3_quiesce_dev(adapter);
+ 		vmxnet3_reset_dev(adapter);
+ 		vmxnet3_activate_dev(adapter);
+ 	} else {
+-		printk(KERN_INFO "%s: already closed\n", adapter->netdev->name);
++		netdev_info(adapter->netdev, "already closed\n");
+ 	}
+ 	rtnl_unlock();
+ 
+@@ -2926,8 +2926,9 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	num_tx_queues = rounddown_pow_of_two(num_tx_queues);
+ 	netdev = alloc_etherdev_mq(sizeof(struct vmxnet3_adapter),
+ 				   max(num_tx_queues, num_rx_queues));
+-	printk(KERN_INFO "# of Tx queues : %d, # of Rx queues : %d\n",
+-	       num_tx_queues, num_rx_queues);
++	dev_info(&pdev->dev,
++		 "# of Tx queues : %d, # of Rx queues : %d\n",
++		 num_tx_queues, num_rx_queues);
+ 
+ 	if (!netdev)
+ 		return -ENOMEM;
+@@ -2942,8 +2943,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 					       sizeof(struct Vmxnet3_DriverShared),
+ 					       &adapter->shared_pa);
+ 	if (!adapter->shared) {
+-		printk(KERN_ERR "Failed to allocate memory for %s\n",
+-		       pci_name(pdev));
++		dev_err(&pdev->dev, "Failed to allocate memory\n");
+ 		err = -ENOMEM;
+ 		goto err_alloc_shared;
+ 	}
+@@ -2957,8 +2957,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 						  &adapter->queue_desc_pa);
+ 
+ 	if (!adapter->tqd_start) {
+-		printk(KERN_ERR "Failed to allocate memory for %s\n",
+-		       pci_name(pdev));
++		dev_err(&pdev->dev, "Failed to allocate memory\n");
+ 		err = -ENOMEM;
+ 		goto err_alloc_queue_desc;
+ 	}
+@@ -2988,8 +2987,8 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	if (ver & 1) {
+ 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_VRRS, 1);
+ 	} else {
+-		printk(KERN_ERR "Incompatible h/w version (0x%x) for adapter"
+-		       " %s\n",	ver, pci_name(pdev));
++		dev_err(&pdev->dev,
++			"Incompatible h/w version (0x%x) for adapter\n", ver);
+ 		err = -EBUSY;
+ 		goto err_ver;
+ 	}
+@@ -2998,8 +2997,8 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	if (ver & 1) {
+ 		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_UVRS, 1);
+ 	} else {
+-		printk(KERN_ERR "Incompatible upt version (0x%x) for "
+-		       "adapter %s\n", ver, pci_name(pdev));
++		dev_err(&pdev->dev,
++			"Incompatible upt version (0x%x) for adapter\n", ver);
+ 		err = -EBUSY;
+ 		goto err_ver;
+ 	}
+@@ -3020,7 +3019,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	if (adapter->num_rx_queues > 1 &&
+ 	    adapter->intr.type == VMXNET3_IT_MSIX) {
+ 		adapter->rss = true;
+-		printk(KERN_INFO "RSS is enabled.\n");
++		dev_dbg(&pdev->dev, "RSS is enabled.\n");
+ 	} else {
+ 		adapter->rss = false;
+ 	}
+@@ -3054,8 +3053,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	err = register_netdev(netdev);
+ 
+ 	if (err) {
+-		printk(KERN_ERR "Failed to register adapter %s\n",
+-		       pci_name(pdev));
++		dev_err(&pdev->dev, "Failed to register adapter\n");
+ 		goto err_register;
+ 	}
+ 
+@@ -3302,7 +3300,7 @@ static struct pci_driver vmxnet3_driver = {
+ static int __init
+ vmxnet3_init_module(void)
+ {
+-	printk(KERN_INFO "%s - version %s\n", VMXNET3_DRIVER_DESC,
++	pr_info("%s - version %s\n", VMXNET3_DRIVER_DESC,
+ 		VMXNET3_DRIVER_VERSION_REPORT);
+ 	return pci_register_driver(&vmxnet3_driver);
+ }
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index 8c9fa4b..9bc542b 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -522,24 +522,23 @@ vmxnet3_set_ringparam(struct net_device *netdev,
+ 		if (err) {
+ 			/* failed, most likely because of OOM, try default
+ 			 * size */
+-			printk(KERN_ERR "%s: failed to apply new sizes, try the"
+-				" default ones\n", netdev->name);
++			netdev_err(netdev, "failed to apply new sizes, "
++				   "try the default ones\n");
+ 			err = vmxnet3_create_queues(adapter,
+ 						    VMXNET3_DEF_TX_RING_SIZE,
+ 						    VMXNET3_DEF_RX_RING_SIZE,
+ 						    VMXNET3_DEF_RX_RING_SIZE);
+ 			if (err) {
+-				printk(KERN_ERR "%s: failed to create queues "
+-					"with default sizes. Closing it\n",
+-					netdev->name);
++				netdev_err(netdev, "failed to create queues "
++					   "with default sizes. Closing it\n");
+ 				goto out;
+ 			}
+ 		}
+ 
+ 		err = vmxnet3_activate_dev(adapter);
+ 		if (err)
+-			printk(KERN_ERR "%s: failed to re-activate, error %d."
+-				" Closing it\n", netdev->name, err);
++			netdev_err(netdev, "failed to re-activate, error %d."
++				   " Closing it\n", err);
+ 	}
+ 
+ out:
 -- 
 1.7.10.4
