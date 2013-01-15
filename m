@@ -1,43 +1,59 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RFC(v2) net-next 08/13] ipv6: Do not deoend on rt->n in ip6_dst_lookup_tail().
-Date: Wed, 16 Jan 2013 01:46:07 +0900
-Message-ID: <50F587CF.1090306@linux-ipv6.org>
+Subject: [RFC(v2) net-next 09/13] ipv6: Do not depend on rt->n in rt6_check_neigh().
+Date: Wed, 16 Jan 2013 01:46:12 +0900
+Message-ID: <50F587D4.6060208@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41316 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41319 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756428Ab3AOQqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:46:08 -0500
+	with ESMTP id S1756428Ab3AOQqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:46:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/ip6_output.c |    8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ net/ipv6/route.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 9fc5d1d..b2fe048 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -921,8 +921,12 @@ static int ip6_dst_lookup_tail(struct sock *sk,
- 	 * dst entry of the nexthop router
- 	 */
- 	rt = (struct rt6_info *) *dst;
--	n = rt->n;
--	if (n && !(n->nud_state & NUD_VALID)) {
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index e16a483..ffdc8a6 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -552,20 +552,25 @@ static inline bool rt6_check_neigh(struct rt6_info *rt)
+ 	struct neighbour *neigh;
+ 	bool ret = false;
+ 
+-	neigh = rt->n;
+ 	if (rt->rt6i_flags & RTF_NONEXTHOP ||
+-	    !(rt->rt6i_flags & RTF_GATEWAY))
++	    !(rt->rt6i_flags & RTF_GATEWAY)) {
+ 		ret = true;
+-	else if (neigh) {
+-		read_lock_bh(&neigh->lock);
++		goto out;
++	}
 +	rcu_read_lock_bh();
-+	n = __ipv6_neigh_lookup_noref(rt->dst.dev, rt6_nexthop(rt, &fl6->daddr));
-+	err = n && !(n->nud_state & NUD_VALID) ? -EINVAL : 0;
++	neigh = __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway);
++	if (neigh) {
++		read_lock(&neigh->lock);
+ 		if (neigh->nud_state & NUD_VALID)
+ 			ret = true;
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+ 		else if (!(neigh->nud_state & NUD_FAILED))
+ 			ret = true;
+ #endif
+-		read_unlock_bh(&neigh->lock);
++		read_unlock(&neigh->lock);
+ 	}
 +	rcu_read_unlock_bh();
-+
-+	if (err) {
- 		struct inet6_ifaddr *ifp;
- 		struct flowi6 fl_gw6;
- 		int redirect;
++out:
+ 	return ret;
+ }
+ 
 -- 
 1.7.9.5
