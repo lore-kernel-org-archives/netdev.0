@@ -1,77 +1,108 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
-Date: Tue, 15 Jan 2013 09:34:30 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B710E@saturn3.aculab.com>
-References: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
+From: Thomas Backlund <tmb@mageia.org>
+Subject: [libvirt] the patch "bridge: export multicast database via netlink"
+ broke kernel 3.8 uapi (was: Re: if_bridge.h: include in6.h for struct
+ in6_addr use)
+Date: Tue, 15 Jan 2013 12:03:02 +0200
+Message-ID: <50F52956.50201@mageia.org>
+References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org>
+	<50F49B7E.50906@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@markandruth.co.uk>, <eric.dumazet@gmail.com>
-To: "Tom Herbert" <therbert@google.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33190 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751998Ab3AOJgb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 04:36:31 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06412-07 for <netdev@vger.kernel.org>;
- Tue, 15 Jan 2013 09:36:28 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: tgraf@suug.ch, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+        libvirt-list@redhat.com
+To: amwang@redhat.com
+Return-path: <libvir-list-bounces@redhat.com>
+In-Reply-To: <50F49B7E.50906@redhat.com>
+List-Unsubscribe: <https://www.redhat.com/mailman/options/libvir-list>,
+	<mailto:libvir-list-request@redhat.com?subject=unsubscribe>
+List-Archive: <https://www.redhat.com/archives/libvir-list>
+List-Post: <mailto:libvir-list@redhat.com>
+List-Help: <mailto:libvir-list-request@redhat.com?subject=help>
+List-Subscribe: <https://www.redhat.com/mailman/listinfo/libvir-list>,
+	<mailto:libvir-list-request@redhat.com?subject=subscribe>
+Sender: libvir-list-bounces@redhat.com
+Errors-To: libvir-list-bounces@redhat.com
+List-Id: netdev.vger.kernel.org
+
+Eric Blake skrev 15.1.2013 01:57:
+> On 01/13/2013 01:05 PM, Thomas Backlund wrote:
+>> Thomas Backlund skrev 13.1.2013 20:38:
+>>> patch both inline and attached as thunderbird tends to mess up ...
+>>
+>>> -----
+>>>
+>>> if_bridge.h uses struct in6_addr ip6; but does not include the in6.h
+>>> header.
+>>>
+>>> Found by trying to build libvirt and connman against 3.8-rc3 headers.
+>>>
+>>
+>> Ok,
+>> ignore this patch, it's not the correct fix as it introduces
+>> redefinitions...
+>>
+>> Btw, the error that I hit that made me suggest this fix was libvirt
+>> config check bailing out:
+>>
+>> config.log:/usr/include/linux/if_bridge.h:173:20: error: field 'ip6' has
+>> incomplete type
+>
+> Hmm, just now noticing this thread, after independently hitting and and
+> having to work around the same problem in libvirt:
+> https://www.redhat.com/archives/libvir-list/2013-January/msg00930.html
+> https://bugzilla.redhat.com/show_bug.cgi?id=895141
 
 
+Yep,
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.o=
-rg] On Behalf Of Tom Herbert
-> Sent: 14 January 2013 20:00
-> To: netdev@vger.kernel.org; davem@davemloft.net
-> Cc: netdev@markandruth.co.uk; eric.dumazet@gmail.com
-> Subject: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same =
-port
->=20
-> Rebasing the soreuseport patches to 3.8.  No material changes since
-> first posted.
-> ---
-> These patches implements so_reuseport (SO_REUSEPORT socket option) fo=
-r
-> TCP and UDP. =A0For TCP, so_reuseport allows multiple listener socket=
-s
-> to be bound to the same port.
->....
->=20
-> The motivating case for so_resuseport in TCP would be something like
-> a web server binding to port 80 running with multiple threads, ...
-> 2) accept on a single
-> listener socket from multiple threads
-> In case #2, the proportion of connections accepted per thread tends
-> to be uneven under high connection load (assuming simple event loop:
-> while (1) { accept(); process() }, wakeup does not promote fairness
-> among the sockets. =A0We have seen the =A0disproportion to be as high
-> as 3:1 ratio between thread accepting most connections and the one
-> accepting the fewest. =A0With so_reusport the distribution is
-> uniform.
+and the commit breaking uapi headers is by using "struct in6_addr ip6" is:
 
-Hmmm.... do you need that sort of fairness between the threads?
 
-If one request takes longer than average to process, then you
-don't want other requests to be delayed when there are other
-idle worker processes.
+ From ee07c6e7a6f8a25c18f0a6b18152fbd7499245f6 Mon Sep 17 00:00:00 2001
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 7 Dec 2012 00:04:48 +0000
+Subject: [PATCH] bridge: export multicast database via netlink
 
-Also having the same thread normally collect a request would
-make it more likely that the required code/data be in the
-cache of the cpu (assuming that the main reason for multiple
-threads is to load balance over multiple cpus, and with the
-threads tied to a single cpu).
+V5: fix two bugs pointed out by Thomas
+     remove seq check for now, mark it as TODO
 
-If there are a lot of processes sleeping in accept() (on the same
-socket) it might be worth looking at which is actually woken
-when a new connection arrives. If they are sleeping in poll/select
-it is probably more difficult (but not impossible) to avoid waking
-all the processes for every incoming connection.
+V4: remove some useless #include
+     some coding style fix
 
-	David
+V3: drop debugging printk's
+     update selinux perm table as well
+
+V2: drop patch 1/2, export ifindex directly
+     Redesign netlink attributes
+     Improve netlink seq check
+     Handle IPv6 addr as well
+
+This patch exports bridge multicast database via netlink
+message type RTM_GETMDB. Similar to fdb, but currently bridge-specific.
+We may need to support modify multicast database too (RTM_{ADD,DEL}MDB).
+
+(Thanks to Thomas for patient reviews)
+
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+Acked-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+  include/uapi/linux/if_bridge.h |   55 ++++++++++++++
+  include/uapi/linux/rtnetlink.h |    3 +
+  net/bridge/Makefile            |    2 +-
+  net/bridge/br_mdb.c            |  163 
+++++++++++++++++++++++++++++++++++++++++
+  net/bridge/br_multicast.c      |    1 +
+  net/bridge/br_private.h        |    1 +
+  security/selinux/nlmsgtab.c    |    1 +
+  7 files changed, 225 insertions(+), 1 deletions(-)
+  create mode 100644 net/bridge/br_mdb.c
+
+--
+Thomas
