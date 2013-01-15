@@ -1,76 +1,63 @@
-From: Tushar Behera <tushar.behera@linaro.org>
-Subject: [PATCH] usbnet: dm9601: Fix incorrect command
-Date: Tue, 15 Jan 2013 11:09:01 +0530
-Message-ID: <1358228341-2104-1-git-send-email-tushar.behera@linaro.org>
-Cc: gregkh@linuxfoundation.org, jacmet@sunsite.dk, patches@linaro.org,
-	Ming Lei <ming.lei@canonical.com>
-To: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: r8169 rx_missed increasing in bursts (regression)
+Date: Tue, 15 Jan 2013 10:11:14 +0200
+Message-ID: <20130115101114.0a59a7cb@vostro>
+References: <20130108102814.7abe8c08@vostro>
+	<20130108225833.GA4193@electric-eye.fr.zoreil.com>
+	<20130109115850.055b7a7e@vostro>
+	<20130109191456.0888ac75@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f41.google.com ([74.125.83.41]:38537 "EHLO
+	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753565Ab3AOILN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 03:11:13 -0500
+Received: by mail-ee0-f41.google.com with SMTP id d41so2453368eek.0
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 00:11:12 -0800 (PST)
+In-Reply-To: <20130109191456.0888ac75@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 24b1042c4eb2 ("usbnet: dm9601: apply introduced usb command
-APIs") removes the distiction between DM_WRITE_REG and DM_WRITE_REGS
-command. The distiction is reintroduced to the driver so that the
-functionality of the driver remains same.
+On Wed, 9 Jan 2013 19:14:56 +0200 Timo Teras <timo.teras@iki.fi> wrote:
 
-CC: Ming Lei <ming.lei@canonical.com>
-Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
----
- drivers/net/usb/dm9601.c |   22 ++++++----------------
- 1 files changed, 6 insertions(+), 16 deletions(-)
+> It seems that the rx_missed is not directly related to traffic amount.
+> At times the box is handling easily 10000+ pps, while packet loss can
+> happen at other times on 4000-8000pps levels.
+> 
+> Generally time_squeeze does not happen, and the box is at 20-30%
+> softirq. Some times time_squeeze bumps up with one (within a one
+> second interval) or two and packet loss does not happen.
+> 
+> When rx_missed is getting bumped, time_squeeze goes up with 1-3, and
+> rx_missed goes up with 50-1000 packets. Usually around 200 packets. (1
+> second sampling period)
+> 
+> I did find a strong correlation that rx_misses happen usually when the
+> box has dropped a packet due to iptables DROP/REJECT rule, or some
+> other reason (e.g. I'm seeing once in a while dmesg contain:
+> "nf_ct_sip: dropping packet").
+> 
+> Any ideas why a netfilter packet drop might cause netdevice rx to
+> stall long enough to saturate the hardware receive queue?
 
-diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
-index 3f554c1..011410f 100644
---- a/drivers/net/usb/dm9601.c
-+++ b/drivers/net/usb/dm9601.c
-@@ -53,7 +53,6 @@
- #define DM_RX_OVERHEAD	7	/* 3 byte header + 4 byte crc tail */
- #define DM_TIMEOUT	1000
- 
--
- static int dm_read(struct usbnet *dev, u8 reg, u16 length, void *data)
- {
- 	int err;
-@@ -84,32 +83,23 @@ static int dm_write(struct usbnet *dev, u8 reg, u16 length, void *data)
- 
- static int dm_write_reg(struct usbnet *dev, u8 reg, u8 value)
- {
--	return usbnet_write_cmd(dev, DM_WRITE_REGS,
-+	return usbnet_write_cmd(dev, DM_WRITE_REG,
- 				USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
- 				value, reg, NULL, 0);
- }
- 
--static void dm_write_async_helper(struct usbnet *dev, u8 reg, u8 value,
--				  u16 length, void *data)
-+static void dm_write_async(struct usbnet *dev, u8 reg, u16 length, void *data)
- {
- 	usbnet_write_cmd_async(dev, DM_WRITE_REGS,
- 			       USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
--			       value, reg, data, length);
--}
--
--static void dm_write_async(struct usbnet *dev, u8 reg, u16 length, void *data)
--{
--	netdev_dbg(dev->net, "dm_write_async() reg=0x%02x length=%d\n", reg, length);
--
--	dm_write_async_helper(dev, reg, 0, length, data);
-+			       0, reg, data, length);
- }
- 
- static void dm_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
- {
--	netdev_dbg(dev->net, "dm_write_reg_async() reg=0x%02x value=0x%02x\n",
--		   reg, value);
--
--	dm_write_async_helper(dev, reg, value, 0, NULL);
-+	usbnet_write_cmd_async(dev, DM_WRITE_REG,
-+			       USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-+			       value, reg, NULL, 0);
- }
- 
- static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
--- 
-1.7.4.1
+Ok, found the main culprit. Embarassingly, there was LOG targets, which
+wound up writing to ttyS0. That apparently is synchronous operation, so
+the printk's made the napi poller choke whenever packets got dropped.
+
+However, I do still observe minor packet drops on specific loads.
+Increasing the rx fifo size helped noticeably, but even at 512 it still
+does some drops. Seems that Realtek's r8168 driver has rx fifo size of
+1024.
+
+Would it be feasible to make the fifo size a module parameter, or
+somehow autotuned according to available system memory?
+
+I also noticed that since recent commits, the dirty_rx is always
+identical cur_rx. Basically, dirty_rx can be just removed. Should I
+send a patch for this?
+
+ - Timo
