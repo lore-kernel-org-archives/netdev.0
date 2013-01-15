@@ -1,120 +1,48 @@
-From: Thomas Backlund <tmb@mageia.org>
-Subject: Re: the patch "bridge: export multicast database via netlink" broke
- kernel 3.8 uapi
-Date: Tue, 15 Jan 2013 12:55:18 +0200
-Message-ID: <50F53596.4070200@mageia.org>
-References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org>  <50F49B7E.50906@redhat.com> <50F52956.50201@mageia.org> <1358244688.4264.7.camel@cr0>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC Patch net-next] ipv6: look up neighbours on demand in ip6_finish_output2()
+Date: Tue, 15 Jan 2013 21:22:33 +0900
+Message-ID: <50F54A09.2040206@linux-ipv6.org>
+References: <1358170515-1383-1-git-send-email-xiyou.wangcong@gmail.com> <20130114.133004.19237632940616685.davem@davemloft.net> <50F4BEB2.2050201@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Backlund <tmb@mageia.org>, Eric Blake <eblake@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	libvirt-list@redhat.com, tgraf@suug.ch
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358244688.4264.7.camel@cr0>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	roland@purestorage.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41023 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750964Ab3AOMWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 07:22:35 -0500
+In-Reply-To: <50F4BEB2.2050201@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cong Wang skrev 15.1.2013 12:11:
-> On Tue, 2013-01-15 at 12:03 +0200, Thomas Backlund wrote:
->> Eric Blake skrev 15.1.2013 01:57:
->>> On 01/13/2013 01:05 PM, Thomas Backlund wrote:
->>>> Thomas Backlund skrev 13.1.2013 20:38:
->>>>> patch both inline and attached as thunderbird tends to mess up ...
->>>>
->>>>> -----
->>>>>
->>>>> if_bridge.h uses struct in6_addr ip6; but does not include the in6.h
->>>>> header.
->>>>>
->>>>> Found by trying to build libvirt and connman against 3.8-rc3 headers.
->>>>>
->>>>
->>>> Ok,
->>>> ignore this patch, it's not the correct fix as it introduces
->>>> redefinitions...
->>>>
->>>> Btw, the error that I hit that made me suggest this fix was libvirt
->>>> config check bailing out:
->>>>
->>>> config.log:/usr/include/linux/if_bridge.h:173:20: error: field 'ip6' has
->>>> incomplete type
->>>
->>> Hmm, just now noticing this thread, after independently hitting and and
->>> having to work around the same problem in libvirt:
->>> https://www.redhat.com/archives/libvir-list/2013-January/msg00930.html
->>> https://bugzilla.redhat.com/show_bug.cgi?id=895141
+Cong Wang wrote:
+> On 01/15/2013 02:30 AM, David Miller wrote:
 >>
+>> This is a very incomplete patch.
 >>
->> Yep,
+>> If this change were so simple, it would have been done by someone
+>> else a long time ago.
 >>
->> and the commit breaking uapi headers is by using "struct in6_addr ip6" is:
+>> You must, in addition to the incredibly obvious changes in the packet
+>> output path, completely eliminate the caching of the neighbour entry
+>> in the ipv6 routes themselves.
 >>
+>> This means replacing every rt6->n access or test with something
+>> equivalent.
 >>
->>   From ee07c6e7a6f8a25c18f0a6b18152fbd7499245f6 Mon Sep 17 00:00:00 2001
->> From: Cong Wang <amwang@redhat.com>
->> Date: Fri, 7 Dec 2012 00:04:48 +0000
->> Subject: [PATCH] bridge: export multicast database via netlink
->
-> Does the following patch help?
->
-> $ git diff include/uapi/linux/if_bridge.h
-> diff --git a/include/uapi/linux/if_bridge.h
-> b/include/uapi/linux/if_bridge.h
-> index 5db2975..653db23 100644
-> --- a/include/uapi/linux/if_bridge.h
-> +++ b/include/uapi/linux/if_bridge.h
-> @@ -14,6 +14,7 @@
->   #define _UAPI_LINUX_IF_BRIDGE_H
->
->   #include <linux/types.h>
-> +#include <linux/in6.h>
->
->   #define SYSFS_BRIDGE_ATTR      "bridge"
->   #define SYSFS_BRIDGE_FDB       "brforward"
->
+> 
+> THanks, David and Eric!
+> 
+> I knew this is probably incomplete, that is why I added "RFC". Fortunately, YOSHIFUJI just sent a more complete patch:
+> 
+> [RFC net-next] ipv6 route: Do not attach neighbour on route.
+> 
+> So, please ignore mine and use his. :)
 
-Well, I suggested the same fix in the beginning of the thread
-on netdev and lkml: "if_bridge.h: include in6.h for struct in6_addr use"
+Well, in fact, it did't work.  Tt really needs further work.
 
-as it seemed to fix the libvirt case
-
-but then asked it to be ignored after I tried to build connman,
-and hit this conflict with glibc-2.17:
-
-In file included from /usr/include/arpa/inet.h:22:0,
-                  from ./include/connman/inet.h:25,
-                  from src/connman.h:128,
-                  from src/tethering.c:40:
-/usr/include/netinet/in.h:35:5: error: expected identifier before 
-numeric constant
-/usr/include/netinet/in.h:197:8: error: redefinition of 'struct in6_addr'
-In file included from /usr/include/linux/if_bridge.h:17:0,
-                  from src/tethering.c:38:
-/usr/include/linux/in6.h:30:8: note: originally defined here
-In file included from /usr/include/arpa/inet.h:22:0,
-                  from ./include/connman/inet.h:25,
-                  from src/connman.h:128,
-                  from src/tethering.c:40:
-/usr/include/netinet/in.h:238:8: error: redefinition of 'struct 
-sockaddr_in6'
-In file included from /usr/include/linux/if_bridge.h:17:0,
-                  from src/tethering.c:38:
-/usr/include/linux/in6.h:46:8: note: originally defined here
-In file included from /usr/include/arpa/inet.h:22:0,
-                  from ./include/connman/inet.h:25,
-                  from src/connman.h:128,
-                  from src/tethering.c:40:
-/usr/include/netinet/in.h:274:8: error: redefinition of 'struct ipv6_mreq'
-In file included from /usr/include/linux/if_bridge.h:17:0,
-                  from src/tethering.c:38:
-/usr/include/linux/in6.h:54:8: note: originally defined here
-make[1]: *** [src/src_connmand-tethering.o] Error 1
-
-
-So I'm not sure it's the right one...
-
-
---
-Thomas
+--yoshfuji
