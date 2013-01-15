@@ -1,33 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipip: do not use 'err' variable for setting
- return value
-Date: Tue, 15 Jan 2013 03:20:08 -0500 (EST)
-Message-ID: <20130115.032008.1473140825117157751.davem@davemloft.net>
-References: <1358237650-15953-1-git-send-email-sakiwit@gmail.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next 09/10] bnx2x: Added FW GRO bridging support
+Date: Tue, 15 Jan 2013 09:28:55 +0200
+Message-ID: <50F50537.3030608@broadcom.com>
+References: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
+ <1358176310-31504-10-git-send-email-yuvalmin@broadcom.com>
+ <1358184123.8744.3127.camel@edumazet-glaptop>
+ <1358189075.8744.3320.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sakiwit@gmail.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
+	ariele@broadcom.com
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40285 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756371Ab3AOIUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 03:20:11 -0500
-In-Reply-To: <1358237650-15953-1-git-send-email-sakiwit@gmail.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:1071 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750902Ab3AOI07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2013 03:26:59 -0500
+In-Reply-To: <1358189075.8744.3320.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Sacren <sakiwit@gmail.com>
-Date: Tue, 15 Jan 2013 01:14:10 -0700
-
-> It's a bit confusing to set 'err' variable inside and outside of the
-> block for the return value of ipip_err(). We don't even need this
-> variable, so clean it all up to spare declaration as well as bunch of
-> unnecessary initializations and jumps.
+On 01/14/2013 08:44 PM, Eric Dumazet wrote:
+> On Mon, 2013-01-14 at 09:22 -0800, Eric Dumazet wrote:
 > 
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> What is the value of gso_segs ?
+> 
+> The reason I am pointing this out is the recent change in commit
+> 1def9238d4aa2146924994aa4b7dc861f03b9362
+> (net_sched: more precise pkt_len computation)
+> 
+> bnx2x not setting gso_segs means that qdisc accounting on ingress is
+> completely wrong.
 
-It makes the non-error path straight line code.
+Hi Eric,
 
-The code as-is is fine, and I'm not applying this patch, sorry.
+First I just want to state that you're totally correct about the gso_segs -
+bnx2x is not setting it correctly (it's currently totally omitted), and so
+it would incorrectly affect the accounting.
+
+However, notice this behaviour was not introduced in this patch -
+Since 621b4d6 bnx2x is using FW GRO, overriding the kernel's GRO implementation:
+As the bnx2x driver is supplied with the aggregated packet from its FW,
+the bnx2x passes a value in the `gso_size' field of its skb, causing
+`skb_is_gso' to return `true'.
+This will cause the aggregated skb to override the GRO machinations
+(in `dev_gro_receive'), overriding all calls to `gro_receive' and thus also
+the call to `skb_gro_receive' which whould have incremented `gso_segs'.
+
+This patch actually tries to correct said behaviour, obviously failing
+with the gso_segs but still improving the current state of bnx2x GRO
+in bridging scenarios.
+
+>> This looks weird to me. This should be called by GRO stack only.
+
+I think this is the main question - we could try and implement this
+inside the network-core itself, but as said behaviour is unique to the
+bnx2x driver (correct me if I'm wrong, but I'm unaware of any other
+driver which does GRO without the kernel GRO implementation), the
+solution is specially tailored for the bnx2x driver.
+
+We could either:
+  1. Continue with this patch, later sending a patch correcting gso_segs,
+     as this is not a new issue.
+  2. Send a V2 patch-series which will also set gso_segs correctly.
+  3. Send a V2 patch-series which omits this patch, and later send an RFC
+     for some kernel implementation which fixes the issue.
+
+Your thoughts on this matter will be greatly appreciated.
+
+Thanks,
+Yuval
