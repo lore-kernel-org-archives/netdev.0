@@ -1,60 +1,71 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RFC(v2) net-next 01/13] ndisc: Refer/Update neigh->updated with
- write lock.
-Date: Wed, 16 Jan 2013 01:44:39 +0900
-Message-ID: <50F58777.7080209@linux-ipv6.org>
+Subject: [RFC(v2) net-next 03/13] ndisc: Introduce __ipv6_neigh_lookup_noref().
+Date: Wed, 16 Jan 2013 01:44:53 +0900
+Message-ID: <50F58785.6010208@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41294 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41300 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756924Ab3AOQok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:44:40 -0500
+	with ESMTP id S1756066Ab3AOQoy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:44:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/route.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ include/net/ndisc.h |   22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 7c34c01..1341f68 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -499,22 +499,26 @@ static void rt6_probe(struct rt6_info *rt)
- 	 * to no more than one per minute.
- 	 */
- 	neigh = rt ? rt->n : NULL;
--	if (!neigh || (neigh->nud_state & NUD_VALID))
-+	if (!neigh)
-+		return;
-+	write_lock_bh(&neigh->lock);
-+	if (neigh->nud_state & NUD_VALID) {
-+		write_unlock_bh(&neigh->lock);
- 		return;
--	read_lock_bh(&neigh->lock);
-+	}
- 	if (!(neigh->nud_state & NUD_VALID) &&
- 	    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
- 		struct in6_addr mcaddr;
- 		struct in6_addr *target;
- 
- 		neigh->updated = jiffies;
--		read_unlock_bh(&neigh->lock);
-+		write_unlock_bh(&neigh->lock);
- 
- 		target = (struct in6_addr *)&neigh->primary_key;
- 		addrconf_addr_solict_mult(target, &mcaddr);
- 		ndisc_send_ns(rt->dst.dev, NULL, target, &mcaddr, NULL);
- 	} else {
--		read_unlock_bh(&neigh->lock);
-+		write_unlock_bh(&neigh->lock);
- 	}
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index bbc938e..ec48f42 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -148,14 +148,13 @@ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, _
+ 		(p32[3] * hash_rnd[3]));
  }
- #else
+ 
+-static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, const void *pkey)
++static inline struct neighbour *__ipv6_neigh_lookup_noref(struct net_device *dev, const void *pkey)
+ {
+ 	struct neigh_hash_table *nht;
+ 	const u32 *p32 = pkey;
+ 	struct neighbour *n;
+ 	u32 hash_val;
+ 
+-	rcu_read_lock_bh();
+ 	nht = rcu_dereference_bh(nd_tbl.nht);
+ 	hash_val = ndisc_hashfn(pkey, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
+ 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
+@@ -164,12 +163,21 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
+ 		u32 *n32 = (u32 *) n->primary_key;
+ 		if (n->dev == dev &&
+ 		    ((n32[0] ^ p32[0]) | (n32[1] ^ p32[1]) |
+-		     (n32[2] ^ p32[2]) | (n32[3] ^ p32[3])) == 0) {
+-			if (!atomic_inc_not_zero(&n->refcnt))
+-				n = NULL;
+-			break;
+-		}
++		     (n32[2] ^ p32[2]) | (n32[3] ^ p32[3])) == 0)
++			return n;
+ 	}
++
++	return NULL;
++}
++
++static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, const void *pkey)
++{
++	struct neighbour *n;
++
++	rcu_read_lock_bh();
++	n = __ipv6_neigh_lookup_noref(dev, pkey);
++	if (n && !atomic_inc_not_zero(&n->refcnt))
++		n = NULL;
+ 	rcu_read_unlock_bh();
+ 
+ 	return n;
 -- 
 1.7.9.5
