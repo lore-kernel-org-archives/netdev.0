@@ -1,74 +1,68 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [PATCH net-next 09/10] bnx2x: Added FW GRO bridging support
-Date: Tue, 15 Jan 2013 09:28:55 +0200
-Message-ID: <50F50537.3030608@broadcom.com>
-References: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
- <1358176310-31504-10-git-send-email-yuvalmin@broadcom.com>
- <1358184123.8744.3127.camel@edumazet-glaptop>
- <1358189075.8744.3320.camel@edumazet-glaptop>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] CDC_NCM adding support IFF_NOARP for infineon modem platform
+Date: Tue, 15 Jan 2013 09:34:07 +0100
+Message-ID: <87hamikfpc.fsf@nemi.mork.no>
+References: <1357990479-5836-1-git-send-email-cpuwolf@gmail.com>
+	<20130112.153533.1713284383322153346.davem@davemloft.net>
+	<1358183953.1713.28.camel@dcbw.foobar.com>
+	<20130114.133412.479351928049237212.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com,
-	ariele@broadcom.com
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dcbw@redhat.com, cpuwolf@gmail.com, gregkh@linuxfoundation.org,
+	alexey.orishko@stericsson.com, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1071 "EHLO mms1.broadcom.com"
+Received: from canardo.mork.no ([148.122.252.1]:59412 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750902Ab3AOI07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2013 03:26:59 -0500
-In-Reply-To: <1358189075.8744.3320.camel@edumazet-glaptop>
+	id S1755158Ab3AOIe0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 03:34:26 -0500
+In-Reply-To: <20130114.133412.479351928049237212.davem@davemloft.net> (David
+	Miller's message of "Mon, 14 Jan 2013 13:34:12 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2013 08:44 PM, Eric Dumazet wrote:
-> On Mon, 2013-01-14 at 09:22 -0800, Eric Dumazet wrote:
-> 
-> What is the value of gso_segs ?
-> 
-> The reason I am pointing this out is the recent change in commit
-> 1def9238d4aa2146924994aa4b7dc861f03b9362
-> (net_sched: more precise pkt_len computation)
-> 
-> bnx2x not setting gso_segs means that qdisc accounting on ingress is
-> completely wrong.
+David Miller <davem@davemloft.net> writes:
+> From: Dan Williams <dcbw@redhat.com>
+>=20
+>> IFF_NOARP is already done for other WWAN devices (sierra_net, hso,
+>> cdc-ether, cdc-phonet, lg-vl600, etc) so there is some precedent.  S=
+ome
+>> drivers (phonet, hso) set *both* POINTTOPOINT and NOARP.  Is that
+>> redundant, and should all WWAN drivers be moved to only POINTTOPOINT=
+?
+>>=20
+>> (aside: usbnet has FLAG_POINTTOPOINT, but that's nothing to do with
+>> IFF_POINTTOPOINT, it only controls whether the interface is named us=
+bX
+>> or ethX.  Confusing.)
+>
+> I can't answer any of your questions unless you tell me what the
+> real limitation of these devices is.
+>
+> For the second time, is the problem that these devices cannot
+> support broadcast packets properly?
 
-Hi Eric,
+The main problem is that these devices don't support ethernet.  They
+support IP (v4 and _maybe_ v6) with an ethernet header.  Many of them
+will do ARP (and IPv6 ND) as well to complete the picture, but some of
+them don't and that's what these drivers try to deal with.
 
-First I just want to state that you're totally correct about the gso_segs -
-bnx2x is not setting it correctly (it's currently totally omitted), and so
-it would incorrectly affect the accounting.
+Note that most of the devices will run a DHCP server, so there is some
+sort of IP broadcast support.  Whether that qualifies as proper etherne=
+t
+broadcast support is another question...
 
-However, notice this behaviour was not introduced in this patch -
-Since 621b4d6 bnx2x is using FW GRO, overriding the kernel's GRO implementation:
-As the bnx2x driver is supplied with the aggregated packet from its FW,
-the bnx2x passes a value in the `gso_size' field of its skb, causing
-`skb_is_gso' to return `true'.
-This will cause the aggregated skb to override the GRO machinations
-(in `dev_gro_receive'), overriding all calls to `gro_receive' and thus also
-the call to `skb_gro_receive' which whould have incremented `gso_segs'.
+These devices are attempting to bridge an IP-only point-to-point
+interface and an ethernet over USB interface, with the intention to mak=
+e
+the point-to-point interface look like ethernet to applications and
+users. This is of course always going to be imperfect.  But I believe
+that we should aim to help the firmware achive this goal when writing
+drivers instead of working against it.  Setting IFF_NOARP and not
+IFF_POINTTOPOINT is one way to do that.
 
-This patch actually tries to correct said behaviour, obviously failing
-with the gso_segs but still improving the current state of bnx2x GRO
-in bridging scenarios.
 
->> This looks weird to me. This should be called by GRO stack only.
 
-I think this is the main question - we could try and implement this
-inside the network-core itself, but as said behaviour is unique to the
-bnx2x driver (correct me if I'm wrong, but I'm unaware of any other
-driver which does GRO without the kernel GRO implementation), the
-solution is specially tailored for the bnx2x driver.
-
-We could either:
-  1. Continue with this patch, later sending a patch correcting gso_segs,
-     as this is not a new issue.
-  2. Send a V2 patch-series which will also set gso_segs correctly.
-  3. Send a V2 patch-series which omits this patch, and later send an RFC
-     for some kernel implementation which fixes the issue.
-
-Your thoughts on this matter will be greatly appreciated.
-
-Thanks,
-Yuval
+Bj=C3=B8rn
