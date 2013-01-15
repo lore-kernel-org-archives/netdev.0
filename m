@@ -1,8 +1,8 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 121/221] epoll: prevent missed events on EPOLL_CTL_MOD
-Date: Tue, 15 Jan 2013 10:50:48 -0800
-Message-ID: <20130115185006.770590630@linuxfoundation.org>
-References: <20130115184958.025580322@linuxfoundation.org>
+Subject: [ 46/71] epoll: prevent missed events on EPOLL_CTL_MOD
+Date: Tue, 15 Jan 2013 14:54:43 -0800
+Message-ID: <20130115225343.734388897@linuxfoundation.org>
+References: <20130115225340.367496998@linuxfoundation.org>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	alan@lxorguk.ukuu.org.uk, Eric Wong <normalperson@yhbt.net>,
 	Hans Verkuil <hans.verkuil@cisco.com>,
@@ -17,18 +17,17 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Andreas Voellmy <andreas.voellmy@yale.edu>,
 	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
+	Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org
 To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130115184958.025580322@linuxfoundation.org>
+In-Reply-To: <20130115225340.367496998@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.7-stable review patch.  If anyone has any objections, please let me know.
+3.0-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
-
-From: Eric Wong <normalperson@yhbt.net>
 
 commit 128dd1759d96ad36c379240f8b9463e8acfd37a1 upstream.
 
@@ -63,6 +62,8 @@ Tested-by: "Junchang(Jason) Wang" <junchang.wang@yale.edu>
 Cc: netdev@vger.kernel.org
 Cc: linux-fsdevel@vger.kernel.org
 Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+[bwh: Backported to 3.2: adjust context]
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 ---
@@ -71,17 +72,13 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
 --- a/fs/eventpoll.c
 +++ b/fs/eventpoll.c
-@@ -1285,7 +1285,7 @@ static int ep_modify(struct eventpoll *e
+@@ -1197,10 +1197,30 @@ static int ep_modify(struct eventpoll *e
  	 * otherwise we might miss an event that happens between the
  	 * f_op->poll() call and the new event set registering.
  	 */
 -	epi->event.events = event->events;
 +	epi->event.events = event->events; /* need barrier below */
- 	pt._key = event->events;
  	epi->event.data = event->data; /* protected by mtx */
- 	if (epi->event.events & EPOLLWAKEUP) {
-@@ -1296,6 +1296,26 @@ static int ep_modify(struct eventpoll *e
- 	}
  
  	/*
 +	 * The following barrier has two effects:
