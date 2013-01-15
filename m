@@ -1,57 +1,53 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [PATCH net-next 09/10] bnx2x: Added FW GRO bridging support
-Date: Tue, 15 Jan 2013 16:02:32 +0200
-Message-ID: <50F56178.8000502@broadcom.com>
-References: <1358176310-31504-1-git-send-email-yuvalmin@broadcom.com>
- <1358176310-31504-10-git-send-email-yuvalmin@broadcom.com>
- <1358184123.8744.3127.camel@edumazet-glaptop>
- <1358189075.8744.3320.camel@edumazet-glaptop>
- <50F50537.3030608@broadcom.com>
- <1358260752.8744.5677.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH v3] cgroup: net_cls: traffic counter based on
+ classification control cgroup
+Date: Tue, 15 Jan 2013 07:05:09 -0800
+Message-ID: <1358262309.8744.5760.camel@edumazet-glaptop>
+References: <20130115133351.GA8633@aperevalov>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
-To: "Eric Dumazet" <eric.dumazet@gmail.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3005 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754086Ab3AOPCR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2013 10:02:17 -0500
-In-Reply-To: <1358260752.8744.5677.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexey Perevalov <a.perevalov-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130115133351.GA8633@aperevalov>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->>> bnx2x not setting gso_segs means that qdisc accounting on ingress is
->>> completely wrong.
->>
->> Notice this behaviour was not introduced in this patch -
->>
->>	...
->>
->> We could either:
->>   1. Continue with this patch, later sending a patch correcting gso_segs,
->>      as this is not a new issue.
->>   2. Send a V2 patch-series which will also set gso_segs correctly.
+On Tue, 2013-01-15 at 17:33 +0400, Alexey Perevalov wrote:
+> Hello
 > 
-> I am fine with any solution, as long as we fix the problem.
+> I would like to represent next version of patch I sent before
+> cgroup: "net_cls: traffic counter based on classification control cgroup"
+> 
+> The main idea is the same as was. It keeping counter in control groups, but now uses atomic instead of resource_counters.
+> 
+> Signed-off-by: Alexey Perevalov <a.perevalov-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  include/net/cls_cgroup.h         |  200 ++++++++++++++++++++++++++++++++++----
+>  include/net/cls_counter_holder.h |   26 +++++
+>  init/Kconfig                     |   25 +++++
+>  kernel/cgroup.c                  |    2 +
+>  kernel/res_counter.c             |    4 +
+>  net/core/dev.c                   |    6 ++
+>  net/ipv4/tcp.c                   |   27 ++++-
+>  net/ipv4/udp.c                   |    6 ++
+>  net/sched/Kconfig                |   11 ---
+>  net/sched/Makefile               |    1 +
+>  net/sched/cls_cgroup.c           |  194 +++++++++++++++++++++++++++++++++++-
+>  net/sched/cls_counter_holder.c   |  144 +++++++++++++++++++++++++++
+>  12 files changed, 611 insertions(+), 35 deletions(-)
+>  create mode 100644 include/net/cls_counter_holder.h
+>  create mode 100644 net/sched/cls_counter_holder.c
 
-Eric - Thanks.
-Just to be certain - gso_segs should hold the number of non-aggregated packets
-contained in the skb's frags, right?
+Sorry, there are too many issues with this patch and I have not
+a lot of time to review it.
 
+0) No changelog or documentation
 
-Dave -
+1) There is no way you need to add kludges in tcp and udp for this
+accounting. Retransmitted packets should not be ignored for example.
 
-Considering Eric's response, following with option (1) or (2) seems like the
-right way to go.
+2) Ugly #ifdef in c files. Don't do that please.
 
-Do you want a new patch series which will include a fix for this,
-or will you accept a later fix that sets the gso_segs correctly?
-
-(considering this issue is not introduced in this patch,
-merely isn't being solved by it)
-
-Thanks,
-Yuval Mintz
+3) No check of kmalloc() returns (can be NULL)
