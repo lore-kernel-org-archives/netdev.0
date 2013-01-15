@@ -1,57 +1,52 @@
-From: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
-Subject: RE: Patch for stable: bridge: Pull ip header into skb->data before
- looking into ip header.
-Date: Tue, 15 Jan 2013 21:36:24 +0000
-Message-ID: <9f30b203-f14e-40c6-b13d-2532cb6d72f9@CMEXHTCAS1.ad.emulex.com>
-References: <9D1F9FE58F08ED47AA451ABB038550E91FEB7EB1@CMEXMB2.ad.emulex.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: [PATCH net-next 3/3] net: stmmac: add gmac autonego set for ethtool
+ support
+Date: Tue, 15 Jan 2013 13:45:16 -0800
+Message-ID: <00c101cdf369$9c366aa0$d4a33fe0$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:4114 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757045Ab3AOVga convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 16:36:30 -0500
-In-Reply-To: <9D1F9FE58F08ED47AA451ABB038550E91FEB7EB1@CMEXMB2.ad.emulex.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Dave,
-  Did you miss this? Or this is there a different process to request this?
-
-Thanks,
-Sarvesh
-
------Original Message-----
-From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Bandi,Sarveshwar
-Sent: Friday, January 11, 2013 12:29 PM
-To: davem@davemloft.net
-Cc: netdev@vger.kernel.org
-Subject: Patch for stable: bridge: Pull ip header into skb->data before looking into ip header.
-
-Dave,
-  Can you please queue the following patch for linux 3.x stable trees?
-
-commit 6caab7b0544e83e6c160b5e80f5a4a7dd69545c7
-Author: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-Date:   Wed Oct 10 01:15:01 2012 +0000
-
-    bridge: Pull ip header into skb->data before looking into ip header.
-
-    If lower layer driver leaves the ip header in the skb fragment, it needs to
-    be first pulled into skb->data before inspecting ip header length or ip version
-    number.
-
-    Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-Thanks,
-Sarvesh
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, kgene.kim@samsung.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-language: en-zw
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This patch adds gmac auto-negotiation setting for ethtool.
+If interface is SGMII, TBI or RTBI, gmac's auto-negotiation
+enable bit is need to set.
+
+Signed-off-by: Byungho An <bh74.an@samsung.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index 1372ce2..457c1a4 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -335,6 +335,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 	struct phy_device *phy = priv->phydev;
+ 	int new_pause = FLOW_OFF;
+ 	int ret = 0;
++	int interface = priv->plat->interface;
+ 
+ 	spin_lock(&priv->lock);
+ 
+@@ -348,6 +349,10 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 
+ 	if (phy->autoneg) {
+ 		if (netif_running(netdev))
++			if (interface == PHY_INTERFACE_MODE_SGMII ||
++			    interface == PHY_INTERFACE_MODE_TBI ||
++			    interface == PHY_INTERFACE_MODE_RTBI)
++				priv->hw->mac->set_autoneg(priv->ioaddr);
+ 			ret = phy_start_aneg(phy);
+ 	} else
+ 		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
+-- 
+1.7.10.4
