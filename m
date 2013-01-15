@@ -1,104 +1,93 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH net-next 1/3] net: stmmac: add gmac autoneg set for SGMII, TBI,
- and  RTBI
-Date: Tue, 15 Jan 2013 14:06:56 -0800
-Message-ID: <00d301cdf36c$a3acc9c0$eb065d40$@samsung.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [ 103/221] xen/netfront: improve truesize tracking
+Date: Tue, 15 Jan 2013 10:50:30 -0800
+Message-ID: <20130115185005.470007939@linuxfoundation.org>
+References: <20130115184958.025580322@linuxfoundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, kgene.kim@samsung.com
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-language: en-zw
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Eric Dumazet <edumazet@google.com>, xen-devel@lists.xen.org,
+	Sander Eikelenboom <linux@eikelenboom.it>,
+	annie li <annie.li@oracle.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, alan@lxorguk.ukuu.org.uk
+To: linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org
+Return-path: <xen-devel-bounces@lists.xen.org>
+In-Reply-To: <20130115184958.025580322@linuxfoundation.org>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
 List-Id: netdev.vger.kernel.org
 
+3.7-stable review patch.  If anyone has any objections, please let me know.
 
-This patch adds gmac autoneg set function for SGMII, TBI,
-or RTBI interface. In case of PHY's autoneg is set, gmac's
-autoneg enable bit should set. After checking phy's autoneg
-if phydev's autoneg is '1' gmac's ANE bit set for those
-interface.
+------------------
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+
+commit d9a58a782e396a0f04e8445b7ba3763c8a48c7fe upstream.
+
+Using RX_COPY_THRESHOLD is incorrect if the SKB is actually smaller
+than that. We have already accounted for this in
+NETFRONT_SKB_CB(skb)->pull_to so use that instead.
+
+Fixes WARN_ON from skb_try_coalesce.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Sander Eikelenboom <linux@eikelenboom.it>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: annie li <annie.li@oracle.com>
+Cc: xen-devel@lists.xen.org
+Cc: netdev@vger.kernel.org
+Acked-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
- drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11 +++++++++++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
- 3 files changed, 21 insertions(+)
+ drivers/net/xen-netfront.c |   27 ++++-----------------------
+ 1 file changed, 4 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
-b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 186d148..72ba769 100644
---- a/drivers/net/ethernet/stmicro/stmmac/common.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -344,6 +344,7 @@ struct stmmac_ops {
- 	void (*reset_eee_mode) (void __iomem *ioaddr);
- 	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
- 	void (*set_eee_pls) (void __iomem *ioaddr, int link);
-+	void (*set_autoneg) (void __iomem *ioaddr);
- };
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1015,29 +1015,10 @@ err:
+ 		i = xennet_fill_frags(np, skb, &tmpq);
  
- struct mac_link {
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index bfe0226..a0737b39 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void __iomem
-*ioaddr, int ls, int tw)
- 	writel(value, ioaddr + LPI_TIMER_CTRL);
- }
+ 		/*
+-		 * Truesize approximates the size of true data plus
+-		 * any supervisor overheads. Adding hypervisor
+-		 * overheads has been shown to significantly reduce
+-		 * achievable bandwidth with the default receive
+-		 * buffer size. It is therefore not wise to account
+-		 * for it here.
+-		 *
+-		 * After alloc_skb(RX_COPY_THRESHOLD), truesize is set
+-		 * to RX_COPY_THRESHOLD + the supervisor
+-		 * overheads. Here, we add the size of the data pulled
+-		 * in xennet_fill_frags().
+-		 *
+-		 * We also adjust for any unused space in the main
+-		 * data area by subtracting (RX_COPY_THRESHOLD -
+-		 * len). This is especially important with drivers
+-		 * which split incoming packets into header and data,
+-		 * using only 66 bytes of the main data area (see the
+-		 * e1000 driver for example.)  On such systems,
+-		 * without this last adjustement, our achievable
+-		 * receive throughout using the standard receive
+-		 * buffer size was cut by 25%(!!!).
+-		 */
+-		skb->truesize += skb->data_len - RX_COPY_THRESHOLD;
++                 * Truesize is the actual allocation size, even if the
++                 * allocation is only partially used.
++                 */
++		skb->truesize += PAGE_SIZE * skb_shinfo(skb)->nr_frags;
+ 		skb->len += skb->data_len;
  
-+static void dwmac1000_set_autoneg(void __iomem *ioaddr)
-+{
-+	u32 value;
-+
-+	value = readl(ioaddr + GMAC_AN_CTRL);
-+	value |= 0x1000;
-+	writel(value, ioaddr + GMAC_AN_CTRL);
-+}
-+
-+
- static const struct stmmac_ops dwmac1000_ops = {
- 	.core_init = dwmac1000_core_init,
- 	.rx_ipc = dwmac1000_rx_ipc_enable,
-@@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
- 	.reset_eee_mode =  dwmac1000_reset_eee_mode,
- 	.set_eee_timer =  dwmac1000_set_eee_timer,
- 	.set_eee_pls =  dwmac1000_set_eee_pls,
-+	.set_autoneg =  dwmac1000_set_autoneg,
- };
- 
- struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index f07c061..3e28934 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
- {
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 	int ret;
-+	int interface = priv->plat->interface;
- 
- 	clk_prepare_enable(priv->stmmac_clk);
- 
-@@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
- 	/* Initialize the MAC Core */
- 	priv->hw->mac->core_init(priv->ioaddr);
- 
-+	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
-+	if (interface == PHY_INTERFACE_MODE_SGMII ||
-+	    interface == PHY_INTERFACE_MODE_TBI ||
-+	    interface == PHY_INTERFACE_MODE_RTBI) {
-+		if (priv->phydev->autoneg)
-+			priv->hw->mac->set_autoneg(priv->ioaddr);
-+	}
-+
- 	/* Request the IRQ lines */
- 	ret = request_irq(dev->irq, stmmac_interrupt,
- 			 IRQF_SHARED, dev->name, dev);
--- 
-1.7.10.4
+ 		if (rx->flags & XEN_NETRXF_csum_blank)
