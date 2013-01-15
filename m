@@ -1,11 +1,11 @@
-From: Balaji Foss <balajig.foss@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: Information needed on the kernel version which
 	supports ----
-Date: Mon, 14 Jan 2013 17:05:02 +0530
-Message-ID: <CAJ4ZP5T3nw+E+NP_eDZBCt=gqyiviuUoMEjm=7FuWTCDJhBEmQ@mail.gmail.com>
+Date: Mon, 14 Jan 2013 22:10:28 -0800
+Message-ID: <CAOaVG14kSDTcgMHcHu54iCqtEzwP35KmNN_d1KPD0_VecJvf-w@mail.gmail.com>
 References: <50F3D5FD.6090608@tataelxsi.co.in>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=20cf307ac79732179a04d33e0922
+Content-Type: multipart/alternative; boundary=047d7b45070e507e1b04d34d9e5b
 Cc: vyasevic@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
 	stephen@redhat.com, bridge@lists.linux-foundation.org,
 	shmulik.ladkani@gmail.com, shemminger@vyatta.com, davem@davemloft.net
@@ -23,27 +23,17 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
---20cf307ac79732179a04d33e0922
+--047d7b45070e507e1b04d34d9e5b
 Content-Type: text/plain; charset=ISO-8859-1
 
- >1) On what kernel version the VLAN support for multicast groups is being
->done
-Its currently in the net-next tree which would become 3.8
+1. VLAN filtering in bridge is still under review, changes are requested.
+Please see netdev patchwork to check for state of upcoming stuff.
 
->2)On what flavors it is supported, is it available with Debian
+2. I don't remember IGMP snooping is part of that work.
 
-If you want to test those changes right away, you will have to do a git
-clone of the net-next repo and test those patches, else wait for the
-distributions to package the 3.8 kernel.
 
->3)How can we get/download the supported patch files for reference.
-you will have to make a clone of the net-next repo. For more information
-look up tutorials on git.
 
-Cheers,
-  - Balaji
-
-On Mon, Jan 14, 2013 at 3:25 PM, Sandeepa C S <sandeepacs@tataelxsi.co.in>wrote:
+On Mon, Jan 14, 2013 at 1:55 AM, Sandeepa C S <sandeepacs@tataelxsi.co.in>wrote:
 
 > Dear All,
 >
@@ -79,29 +69,20 @@ On Mon, Jan 14, 2013 at 3:25 PM, Sandeepa C S <sandeepacs@tataelxsi.co.in>wrote:
 > More majordomo info at  http://vger.kernel.org/**majordomo-info.html<http://vger.kernel.org/majordomo-info.html>
 >
 
---20cf307ac79732179a04d33e0922
+--047d7b45070e507e1b04d34d9e5b
 Content-Type: text/html; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-
-&gt;1) On what kernel version the VLAN support for multicast groups is bein=
-g<br>
-
-&gt;done<br>
-Its currently in the net-next tree which would become 3.8 <br><br>&gt;2)On =
-what flavors it is supported, is it available with Debian<br><br>If you wan=
-t to test those changes right away, you will have to do a git clone of the =
-net-next repo and test those patches, else wait for the distributions to pa=
-ckage the 3.8 kernel.<br>
-<br>&gt;3)How can we get/download the supported patch files for reference.<=
-br>you will have to make a clone of the net-next repo. For more information=
- look up tutorials on git. <br><br>Cheers,<br>=A0 - Balaji<br><br><div clas=
-s=3D"gmail_quote">
-On Mon, Jan 14, 2013 at 3:25 PM, Sandeepa C S <span dir=3D"ltr">&lt;<a href=
-=3D"mailto:sandeepacs@tataelxsi.co.in" target=3D"_blank">sandeepacs@tataelx=
-si.co.in</a>&gt;</span> wrote:<br><blockquote class=3D"gmail_quote" style=
-=3D"margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex">
-Dear All,<br>
+<div dir=3D"ltr">1. VLAN filtering in bridge is still under review, changes=
+ are requested. Please see netdev patchwork to check for state of upcoming =
+stuff.<div><br></div><div style>2. I don&#39;t remember IGMP snooping is pa=
+rt of that work.=A0</div>
+<div style><br></div></div><div class=3D"gmail_extra"><br><br><div class=3D=
+"gmail_quote">On Mon, Jan 14, 2013 at 1:55 AM, Sandeepa C S <span dir=3D"lt=
+r">&lt;<a href=3D"mailto:sandeepacs@tataelxsi.co.in" target=3D"_blank">sand=
+eepacs@tataelxsi.co.in</a>&gt;</span> wrote:<br>
+<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
+x #ccc solid;padding-left:1ex">Dear All,<br>
 <br>
 We are trying to add vlan support for the IGMP snooping feature in the<br>
 kernel version 2.6.39<br>
@@ -139,6 +120,6 @@ t=3D"_blank">majordomo@vger.kernel.org</a><br>
 More majordomo info at =A0<a href=3D"http://vger.kernel.org/majordomo-info.=
 html" target=3D"_blank">http://vger.kernel.org/<u></u>majordomo-info.html</=
 a><br>
-</blockquote></div><br>
+</blockquote></div><br></div>
 
---20cf307ac79732179a04d33e0922--
+--047d7b45070e507e1b04d34d9e5b--
