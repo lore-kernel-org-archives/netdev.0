@@ -1,53 +1,49 @@
-From: Cong Ding <dinggnu@gmail.com>
-Subject: Re: [PATCH 1/1] net: ipv4: refine the logic for determining daddr in
- ip_queue_xmit.
-Date: Tue, 15 Jan 2013 10:12:30 +0000
-Message-ID: <20130115101229.GA27222@gmail.com>
-References: <1358225255-30973-1-git-send-email-harvey.huawei.yang@gmail.com>
- <1358225829.8744.4508.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Harvey Yang <harvey.huawei.yang@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH V4 0/3] handle polling erros in vhost/vhost_net
+Date: Tue, 15 Jan 2013 18:28:43 +0800
+Message-ID: <1358245726-16250-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1358225829.8744.4508.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 14, 2013 at 08:57:09PM -0800, Eric Dumazet wrote:
-> On Tue, 2013-01-15 at 12:47 +0800, Harvey Yang wrote:
-> > The destination address daddr is faddr if source route option is set, otherwise it is inet_daddr. So use if-else to assign the value.
-> > 
-> > Signed-off-by: Harvey Yang <harvey.huawei.yang@gmail.com>
-> > ---
-> >  net/ipv4/ip_output.c |    4 ++--
-> >  1 files changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-> > index 3e98ed2..22b738c 100644
-> > --- a/net/ipv4/ip_output.c
-> > +++ b/net/ipv4/ip_output.c
-> > @@ -349,10 +349,10 @@ int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
-> >  		__be32 daddr;
-> >  
-> >  		/* Use correct destination address if we have options. */
-> > -		daddr = inet->inet_daddr;
-> >  		if (inet_opt && inet_opt->opt.srr)
-> >  			daddr = inet_opt->opt.faddr;
-> > -
-> > +		else
-> > +			daddr = inet->inet_daddr;
-> >  		/* If this fails, retransmit mechanism of transport layer will
-> >  		 * keep trying until route appears or the connection times
-> >  		 * itself out.
-> 
-> Current code is faster, srr is not often used.
-If you turn on O2 option in GCC, both versions behave the same (generate same
-binary code). If srr is not often used, why not use unlikely() macro?
-- cong
+This is an update version of last version to fix the handling of polling errors
+in vhost/vhost_net.
+
+Currently, vhost and vhost_net ignore polling errors which can lead kernel
+crashing when it tries to remove itself from waitqueue after the polling
+failure. Fix this by:
+
+- examing the POLLERR when set backend and report erros to userspace
+- let tun always add to waitqueue in .poll() after the queue is created even if
+  it was detached.
+
+Changes from V3:
+- make a smaller patch that doesn't touch the whole polling state and only check
+  the polliner errors in backend setting.
+- add a patch that allows tuntap to do polling/reading/writing when detached
+  which could simplify the work of its user.
+
+Changes from v2:
+- check poll->wqh instead of the wrong assumption about POLLERR and waitqueue
+- drop the whole tx polling state check since it was replaced by the wqh
+  checking
+- drop the buggy tuntap patch
+
+Changes from v1:
+- restore the state before the ioctl when vhost_init_used() fails
+- log the error when meet polling errors in the data path
+- don't put into waitqueue when tun_chr_poll() return POLLERR
+
+Jason Wang (3):
+  vhost_net: correct error handling in vhost_net_set_backend()
+  vhost_net: handle polling errors when setting backend
+  tuntap: allow polling/writing/reading when detached
+
+ drivers/net/tun.c     |   18 +++++++++++-------
+ drivers/vhost/net.c   |   41 ++++++++++++++++++++++++++++-------------
+ drivers/vhost/vhost.c |   18 +++++++++++++++---
+ drivers/vhost/vhost.h |    2 +-
+ 4 files changed, 55 insertions(+), 24 deletions(-)
