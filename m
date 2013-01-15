@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2 net] tg3: Fix crc errors on jumbo frame receive
-Date: Mon, 14 Jan 2013 22:09:54 -0500 (EST)
-Message-ID: <20130114.220954.2286778364579479114.davem@davemloft.net>
-References: <1358219460-5993-1-git-send-email-mchan@broadcom.com>
-	<1358219460-5993-2-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nsujir@broadcom.com
-To: mchan@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38030 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755600Ab3AODJ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 22:09:56 -0500
-In-Reply-To: <1358219460-5993-2-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Harvey Yang <harvey.huawei.yang@gmail.com>
+Subject: [PATCH 1/1] net: ipv4: refine the logic for determining daddr in ip_queue_xmit.
+Date: Tue, 15 Jan 2013 12:47:35 +0800
+Message-ID: <1358225255-30973-1-git-send-email-harvey.huawei.yang@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Harvey Yang <harvey.huawei.yang@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Mon, 14 Jan 2013 19:11:00 -0800
+The destination address daddr is faddr if source route option is set, otherwise it is inet_daddr. So use if-else to assign the value.
 
-> From: Nithin Nayak Sujir <nsujir@broadcom.com>
-> 
-> TG3_PHY_AUXCTL_SMDSP_ENABLE/DISABLE macros do a blind write to the phy
-> auxiliary control register and overwrite the EXT_PKT_LEN (bit 14) resulting
-> in intermittent crc errors on jumbo frames with some link partners. Change
-> the code to do a read/modify/write.
-> 
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Harvey Yang <harvey.huawei.yang@gmail.com>
+---
+ net/ipv4/ip_output.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Applied.
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 3e98ed2..22b738c 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -349,10 +349,10 @@ int ip_queue_xmit(struct sk_buff *skb, struct flowi *fl)
+ 		__be32 daddr;
+ 
+ 		/* Use correct destination address if we have options. */
+-		daddr = inet->inet_daddr;
+ 		if (inet_opt && inet_opt->opt.srr)
+ 			daddr = inet_opt->opt.faddr;
+-
++		else
++			daddr = inet->inet_daddr;
+ 		/* If this fails, retransmit mechanism of transport layer will
+ 		 * keep trying until route appears or the connection times
+ 		 * itself out.
+-- 
+1.7.1
