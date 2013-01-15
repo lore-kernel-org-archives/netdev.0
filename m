@@ -1,55 +1,57 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: Re: [PATCH net-next] ipip: do not use 'err' variable for setting
- return value
-Date: Tue, 15 Jan 2013 14:32:31 -0700
-Message-ID: <20130115213231.GB8835@mail.gmail.com>
-References: <1358237650-15953-1-git-send-email-sakiwit@gmail.com>
- <20130115.032008.1473140825117157751.davem@davemloft.net>
+From: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
+Subject: RE: Patch for stable: bridge: Pull ip header into skb->data before
+ looking into ip header.
+Date: Tue, 15 Jan 2013 21:36:24 +0000
+Message-ID: <9f30b203-f14e-40c6-b13d-2532cb6d72f9@CMEXHTCAS1.ad.emulex.com>
+References: <9D1F9FE58F08ED47AA451ABB038550E91FEB7EB1@CMEXMB2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sakiwit@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>,
+	"davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:37505 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755769Ab3AOVdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 16:33:09 -0500
-Received: by mail-pa0-f47.google.com with SMTP id fa10so354865pad.20
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 13:33:08 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20130115.032008.1473140825117157751.davem@davemloft.net>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:4114 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757045Ab3AOVga convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 16:36:30 -0500
+In-Reply-To: <9D1F9FE58F08ED47AA451ABB038550E91FEB7EB1@CMEXMB2.ad.emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 15 Jan 2013 03:20:08 -0500
->
-> From: Jean Sacren <sakiwit@gmail.com>
-> Date: Tue, 15 Jan 2013 01:14:10 -0700
-> 
-> > It's a bit confusing to set 'err' variable inside and outside of the
-> > block for the return value of ipip_err(). We don't even need this
-> > variable, so clean it all up to spare declaration as well as bunch of
-> > unnecessary initializations and jumps.
-> > 
-> > Signed-off-by: Jean Sacren <sakiwit@gmail.com>
-> 
-> It makes the non-error path straight line code.
+Dave,
+  Did you miss this? Or this is there a different process to request this?
 
-I thought about the error path, but I realized the error handling code
-couldn't be simpler. There is only one error, namely ENOENT, which
-warrants no error path. As 'err' variable was used, you were forced to
-reset it to zero seven months ago. Again you were forced to reset it to
-zero six months ago. As you were doubly forced, finally I came up with
-this idea of getting rid of the unnecessary variable.
+Thanks,
+Sarvesh
 
-Also the error handling in the patch is consistent with the way earlier
-portion of the function definition does.
+-----Original Message-----
+From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On Behalf Of Bandi,Sarveshwar
+Sent: Friday, January 11, 2013 12:29 PM
+To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+Subject: Patch for stable: bridge: Pull ip header into skb->data before looking into ip header.
 
-> The code as-is is fine, and I'm not applying this patch, sorry.
+Dave,
+  Can you please queue the following patch for linux 3.x stable trees?
 
-Thank you for reviewing. This is a rather trivial patch. If patches like
-this one are not compelling enough for acceptance, that's fair enough.
+commit 6caab7b0544e83e6c160b5e80f5a4a7dd69545c7
+Author: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Date:   Wed Oct 10 01:15:01 2012 +0000
 
--- 
-Jean Sacren
+    bridge: Pull ip header into skb->data before looking into ip header.
+
+    If lower layer driver leaves the ip header in the skb fragment, it needs to
+    be first pulled into skb->data before inspecting ip header length or ip version
+    number.
+
+    Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+Thanks,
+Sarvesh
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in the body of a message to majordomo@vger.kernel.org More majordomo info at  http://vger.kernel.org/majordomo-info.html
