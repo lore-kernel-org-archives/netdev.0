@@ -1,87 +1,115 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 02/10] vmxnet3: remove unnecessary bookkeeping
-Date: Tue, 15 Jan 2013 09:28:27 -0800
-Message-ID: <1358270915-32758-3-git-send-email-stephen@networkplumber.org>
+Subject: [PATCH 04/10] vmxnet3: use netdev_dbg
+Date: Tue, 15 Jan 2013 09:28:29 -0800
+Message-ID: <1358270915-32758-5-git-send-email-stephen@networkplumber.org>
 References: <1358270915-32758-1-git-send-email-stephen@networkplumber.org>
 Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: David Miller <davem@davemloft.net>,
 	Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:34295 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756264Ab3AORaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 12:30:06 -0500
-Received: by mail-pb0-f47.google.com with SMTP id wz17so169581pbc.20
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 09:30:06 -0800 (PST)
+Received: from mail-da0-f49.google.com ([209.85.210.49]:33083 "EHLO
+	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756779Ab3AORaK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 12:30:10 -0500
+Received: by mail-da0-f49.google.com with SMTP id v40so130235dad.36
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 09:30:10 -0800 (PST)
 In-Reply-To: <1358270915-32758-1-git-send-email-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The uncommitted[] array was set but never used except in a debug
-message. Remove it.
+Use netdev_dbg() rather than dev_dbg() because the former prints
+the device name which is more useful than the pci name.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |    9 ++-------
- drivers/net/vmxnet3/vmxnet3_int.h |    2 --
- 2 files changed, 2 insertions(+), 9 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 3402a0c..99ef9ed 100644
+index 7b10d9c..c566b73 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -628,12 +628,10 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
- 		num_allocated++;
+@@ -629,7 +629,7 @@ vmxnet3_rq_alloc_rx_buf(struct vmxnet3_rx_queue *rq, u32 ring_idx,
  		vmxnet3_cmd_ring_adv_next2fill(ring);
  	}
--	rq->uncommitted[ring_idx] += num_allocated;
  
- 	dev_dbg(&adapter->netdev->dev,
--		"alloc_rx_buf: %d allocated, next2fill %u, next2comp "
--		"%u, uncommitted %u\n", num_allocated, ring->next2fill,
--		ring->next2comp, rq->uncommitted[ring_idx]);
-+		"alloc_rx_buf: %d allocated, next2fill %u, next2comp %u\n",
-+		num_allocated, ring->next2fill, ring->next2comp);
+-	dev_dbg(&adapter->netdev->dev,
++	netdev_dbg(adapter->netdev,
+ 		"alloc_rx_buf: %d allocated, next2fill %u, next2comp %u\n",
+ 		num_allocated, ring->next2fill, ring->next2comp);
  
- 	/* so that the device can distinguish a full ring and an empty ring */
- 	BUG_ON(num_allocated != 0 && ring->next2fill == ring->next2comp);
-@@ -1331,7 +1329,6 @@ rcd_done:
- 			VMXNET3_WRITE_BAR0_REG(adapter,
- 					       rxprod_reg[ring_idx] + rq->qid * 8,
- 					       ring->next2fill);
--			rq->uncommitted[ring_idx] = 0;
- 		}
+@@ -688,7 +688,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 		tbi = tq->buf_info + tq->tx_ring.next2fill;
+ 		tbi->map_type = VMXNET3_MAP_NONE;
  
- 		vmxnet3_comp_ring_adv_next2proc(&rq->comp_ring);
-@@ -1376,7 +1373,6 @@ vmxnet3_rq_cleanup(struct vmxnet3_rx_queue *rq,
- 		rq->rx_ring[ring_idx].gen = VMXNET3_INIT_GEN;
- 		rq->rx_ring[ring_idx].next2fill =
- 					rq->rx_ring[ring_idx].next2comp = 0;
--		rq->uncommitted[ring_idx] = 0;
- 	}
+-		dev_dbg(&adapter->netdev->dev,
++		netdev_dbg(adapter->netdev,
+ 			"txd[%u]: 0x%Lx 0x%x 0x%x\n",
+ 			tq->tx_ring.next2fill,
+ 			le64_to_cpu(ctx->sop_txd->txd.addr),
+@@ -728,7 +728,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 		gdesc->dword[2] = cpu_to_le32(dw2);
+ 		gdesc->dword[3] = 0;
  
- 	rq->comp_ring.gen = VMXNET3_INIT_GEN;
-@@ -1457,7 +1453,6 @@ vmxnet3_rq_init(struct vmxnet3_rx_queue *rq,
- 	/* reset internal state and allocate buffers for both rings */
- 	for (i = 0; i < 2; i++) {
- 		rq->rx_ring[i].next2fill = rq->rx_ring[i].next2comp = 0;
--		rq->uncommitted[i] = 0;
+-		dev_dbg(&adapter->netdev->dev,
++		netdev_dbg(adapter->netdev,
+ 			"txd[%u]: 0x%Lx 0x%x 0x%x\n",
+ 			tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
+ 			le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
+@@ -768,7 +768,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 			gdesc->dword[2] = cpu_to_le32(dw2);
+ 			gdesc->dword[3] = 0;
  
- 		memset(rq->rx_ring[i].base, 0, rq->rx_ring[i].size *
- 		       sizeof(struct Vmxnet3_RxDesc));
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index fc46a81..55465ed 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -276,8 +276,6 @@ struct vmxnet3_rx_queue {
- 	struct vmxnet3_rx_ctx     rx_ctx;
- 	u32 qid;            /* rqID in RCD for buffer from 1st ring */
- 	u32 qid2;           /* rqID in RCD for buffer from 2nd ring */
--	u32 uncommitted[2]; /* # of buffers allocated since last RXPROD
--				* update */
- 	struct vmxnet3_rx_buf_info     *buf_info[2];
- 	struct Vmxnet3_RxQueueCtrl            *shared;
- 	struct vmxnet3_rq_driver_stats  stats;
+-			dev_dbg(&adapter->netdev->dev,
++			netdev_dbg(adapter->netdev,
+ 				"txd[%u]: 0x%llu %u %u\n",
+ 				tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
+ 				le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
+@@ -868,7 +868,7 @@ vmxnet3_parse_and_copy_hdr(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 	tdd = tq->data_ring.base + tq->tx_ring.next2fill;
+ 
+ 	memcpy(tdd->data, skb->data, ctx->copy_size);
+-	dev_dbg(&adapter->netdev->dev,
++	netdev_dbg(adapter->netdev,
+ 		"copy %u bytes to dataRing[%u]\n",
+ 		ctx->copy_size, tq->tx_ring.next2fill);
+ 	return 1;
+@@ -974,7 +974,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 
+ 	if (count > vmxnet3_cmd_ring_desc_avail(&tq->tx_ring)) {
+ 		tq->stats.tx_ring_full++;
+-		dev_dbg(&adapter->netdev->dev,
++		netdev_dbg(adapter->netdev,
+ 			"tx queue stopped on %s, next2comp %u"
+ 			" next2fill %u\n", adapter->netdev->name,
+ 			tq->tx_ring.next2comp, tq->tx_ring.next2fill);
+@@ -1057,7 +1057,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct vmxnet3_tx_queue *tq,
+ 			   (struct Vmxnet3_TxDesc *)ctx.sop_txd);
+ 	gdesc = ctx.sop_txd;
+ #endif
+-	dev_dbg(&adapter->netdev->dev,
++	netdev_dbg(adapter->netdev,
+ 		"txd[%u]: SOP 0x%Lx 0x%x 0x%x\n",
+ 		(u32)(ctx.sop_txd -
+ 		tq->tx_ring.base), le64_to_cpu(gdesc->txd.addr),
+@@ -1210,7 +1210,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 			if (unlikely(rcd->len == 0)) {
+ 				/* Pretend the rx buffer is skipped. */
+ 				BUG_ON(!(rcd->sop && rcd->eop));
+-				dev_dbg(&adapter->netdev->dev,
++				netdev_dbg(adapter->netdev,
+ 					"rxRing[%u][%u] 0 length\n",
+ 					ring_idx, idx);
+ 				goto rcd_done;
+@@ -2211,7 +2211,7 @@ vmxnet3_activate_dev(struct vmxnet3_adapter *adapter)
+ 	u32 ret;
+ 	unsigned long flags;
+ 
+-	dev_dbg(&adapter->netdev->dev, "%s: skb_buf_size %d, rx_buf_per_pkt %d,"
++	netdev_dbg(adapter->netdev, "%s: skb_buf_size %d, rx_buf_per_pkt %d,"
+ 		" ring sizes %u %u %u\n", adapter->netdev->name,
+ 		adapter->skb_buf_size, adapter->rx_buf_per_pkt,
+ 		adapter->tx_queue[0].tx_ring.size,
 -- 
 1.7.10.4
