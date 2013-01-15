@@ -1,52 +1,112 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/5] soreuseport: infrastructure
-Date: Tue, 15 Jan 2013 08:14:04 -0800
-Message-ID: <1358266444.8744.5892.camel@edumazet-glaptop>
-References: <alpine.DEB.2.00.1301141152130.3433@pokey.mtv.corp.google.com>
-	 <20130115075323.64b2fdc7@nehalam.linuxnetplumber.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V4 3/3] tuntap: allow polling/writing/reading when
+ detached
+Date: Tue, 15 Jan 2013 18:48:08 +0200
+Message-ID: <20130115164808.GA8792@redhat.com>
+References: <1358245726-16250-1-git-send-email-jasowang@redhat.com>
+ <1358245726-16250-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, netdev@markandruth.co.uk
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:52321 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754173Ab3AOQOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:14:10 -0500
-Received: by mail-pb0-f50.google.com with SMTP id wz7so126067pbc.37
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 08:14:09 -0800 (PST)
-In-Reply-To: <20130115075323.64b2fdc7@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1358245726-16250-4-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-01-15 at 07:53 -0800, Stephen Hemminger wrote:
-> On Mon, 14 Jan 2013 12:00:18 -0800 (PST)
-> Tom Herbert <therbert@google.com> wrote:
+On Tue, Jan 15, 2013 at 06:28:46PM +0800, Jason Wang wrote:
+> We forbid polling, writing and reading when the file were detached, this may
+> complex the user in several cases:
 > 
-> > +/* Pseudo random number generator from numerical recipes. */
-> > +static inline u32 next_pseudo_random32(u32 seed)
-> > +{
-> > +	return seed * 1664525 + 1013904223;
-> > +}
-> > +
+> - when guest pass some buffers to vhost/qemu and then disable some queues,
+>   vhost/qemu needs to to its own cleanup which is complex. We can do this simply
+>   by allowing a user can still write to an disabled queue to handle this. And
+>   user can still do read but just nothing returned.
+> - align the polling behavior with macvtap which never fails when the queue is
+>   created. this can simplify the polling errors handling of its user (e.g vhost)
 > 
-> Don't reimplement a pseudo random number generator, there already
-> exists net_random() 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>  drivers/net/tun.c |   18 +++++++++++-------
+>  1 files changed, 11 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index af372d0..eb68937 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -307,7 +307,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+>  
+>  	rcu_read_lock();
+>  
+> -	if (tun->numqueues == 1)
+> +	if (tun->numqueues == 1 || queue_index >= tun->numqueues)
+>  		goto unlock;
+>  
+>  	e = tun_flow_find(head, rxhash);
 
-net_random() is way more expensive and not needed in this context.
+Hmm I don't understand - does something ensure that queue_index is >
+numqueues if the queue is disabled?
+Can we check tun->disabled and skip tun_flow_update completely?
+We might need to switch to rcu_assign for tun->disabled for this
+but otherwise it looks easy.
 
-If you have 32 listeners bound on the same port, we can call this 32
-times per SYN message.
 
-Initial seed is random enough (phash = inet_ehashfn(net, daddr,
-hnum,saddr,sport)
-
-Anyway, the full idea of distributing SYN using a random generator is
-not the best one for a multi queue NIC, and/or if RPS/RFS is used.
-
-Ideally, we should chose a target given by the current CPU number, in
-case SYN messages are spread on all cpus or a set of cpus.
-
-(same idea than PACKET_FANOUT_CPU in net/packet/af_packet.c)
+> @@ -406,21 +406,21 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+>  
+>  	tun = rtnl_dereference(tfile->tun);
+>  
+> -	if (tun) {
+> +	if (tun && !tfile->detached) {
+>  		u16 index = tfile->queue_index;
+>  		BUG_ON(index >= tun->numqueues);
+>  		dev = tun->dev;
+>  
+>  		rcu_assign_pointer(tun->tfiles[index],
+>  				   tun->tfiles[tun->numqueues - 1]);
+> -		rcu_assign_pointer(tfile->tun, NULL);
+>  		ntfile = rtnl_dereference(tun->tfiles[index]);
+>  		ntfile->queue_index = index;
+>  
+>  		--tun->numqueues;
+> -		if (clean)
+> +		if (clean) {
+> +			rcu_assign_pointer(tfile->tun, NULL);
+>  			sock_put(&tfile->sk);
+> -		else
+> +		} else
+>  			tun_disable_queue(tun, tfile);
+>  
+>  		synchronize_net();
+> @@ -465,6 +465,10 @@ static void tun_detach_all(struct net_device *dev)
+>  		rcu_assign_pointer(tfile->tun, NULL);
+>  		--tun->numqueues;
+>  	}
+> +	list_for_each_entry(tfile, &tun->disabled, next) {
+> +		wake_up_all(&tfile->wq.wait);
+> +		rcu_assign_pointer(tfile->tun, NULL);
+> +	}
+>  	BUG_ON(tun->numqueues != 0);
+>  
+>  	synchronize_net();
+> @@ -491,7 +495,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  	int err;
+>  
+>  	err = -EINVAL;
+> -	if (rtnl_dereference(tfile->tun))
+> +	if (rtnl_dereference(tfile->tun) && !tfile->detached)
+>  		goto out;
+>  
+>  	err = -EBUSY;
+> @@ -1795,7 +1799,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  			ret = tun_attach(tun, file);
+>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+>  		tun = rtnl_dereference(tfile->tun);
+> -		if (!tun || !(tun->flags & TUN_TAP_MQ))
+> +		if (!tun || !(tun->flags & TUN_TAP_MQ) || tfile->detached)
+>  			ret = -EINVAL;
+>  		else
+>  			__tun_detach(tfile, false);
+> -- 
+> 1.7.1
