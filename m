@@ -1,93 +1,55 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH 03/10] vmxnet3: fix messages printed before registration
-Date: Tue, 15 Jan 2013 09:28:28 -0800
-Message-ID: <1358270915-32758-4-git-send-email-stephen@networkplumber.org>
+Subject: [PATCH 08/10] vmxnet3: remove unused irq_share_mode
+Date: Tue, 15 Jan 2013 09:28:33 -0800
+Message-ID: <1358270915-32758-9-git-send-email-stephen@networkplumber.org>
 References: <1358270915-32758-1-git-send-email-stephen@networkplumber.org>
 Cc: pv-drivers@vmware.com, netdev@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: David Miller <davem@davemloft.net>,
 	Shreyas Bhatewara <sbhatewara@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:32983 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756823Ab3AORaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 12:30:08 -0500
-Received: by mail-pb0-f41.google.com with SMTP id xa7so170639pbc.28
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 09:30:08 -0800 (PST)
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:49424 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756779Ab3AORaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 12:30:18 -0500
+Received: by mail-pa0-f44.google.com with SMTP id hz11so233269pad.17
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 09:30:17 -0800 (PST)
 In-Reply-To: <1358270915-32758-1-git-send-email-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This messages that occur during boot time from this device
-when netdev_err is called before calling register_netdevice().
-Switch to using dev_XXX macros which correlate message with PCI info which
-is available.
-
-Rather than fixing the features message, just remove it since
-the information is redundant and available through ethtool.
+This static variable is never set, it initializes to 0 which
+is VMXNET3_INTR_BUDDYSHARE, and never changes.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |   21 +++++++++------------
- 1 file changed, 9 insertions(+), 12 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 99ef9ed..7b10d9c 100644
+index 1f66a7e..45c39cc 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -2671,10 +2671,6 @@ vmxnet3_declare_features(struct vmxnet3_adapter *adapter, bool dma64)
- 	netdev->vlan_features = netdev->hw_features &
- 				~(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX);
- 	netdev->features = netdev->hw_features | NETIF_F_HW_VLAN_FILTER;
--
--	netdev_info(adapter->netdev,
--		"features: sg csum vlan jf tso tsoIPv6 lro%s\n",
--		dma64 ? " highDMA" : "");
- }
+@@ -44,7 +44,6 @@ static DEFINE_PCI_DEVICE_TABLE(vmxnet3_pciid_table) = {
+ MODULE_DEVICE_TABLE(pci, vmxnet3_pciid_table);
  
+ static int enable_mq = 1;
+-static int irq_share_mode;
  
-@@ -2717,7 +2713,7 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
- 			adapter->intr.num_intrs = vectors;
- 			return 0;
- 		} else if (err < 0) {
--			netdev_err(adapter->netdev,
-+			dev_err(&adapter->netdev->dev,
- 				   "Failed to enable MSI-X, error: %d\n", err);
- 			vectors = 0;
- 		} else if (err < vector_threshold) {
-@@ -2726,15 +2722,16 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
- 			/* If fails to enable required number of MSI-x vectors
- 			 * try enabling minimum number of vectors required.
- 			 */
--			netdev_err(adapter->netdev,
--				   "Failed to enable %d MSI-X, trying %d instead\n",
-+			dev_err(&adapter->netdev->dev,
-+				"Failed to enable %d MSI-X, trying %d instead\n",
- 				    vectors, vector_threshold);
- 			vectors = vector_threshold;
- 		}
- 	}
+ static void
+ vmxnet3_write_mac_addr(struct vmxnet3_adapter *adapter, u8 *mac);
+@@ -3003,9 +3002,9 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 	vmxnet3_declare_features(adapter, dma64);
  
--	netdev_info(adapter->netdev,
--		    "Number of MSI-X interrupts which can be allocated are lower than min threshold required.\n");
-+	dev_info(&adapter->pdev->dev,
-+		 "Number of MSI-X interrupts which can be allocated "
-+		 "is lower than min threshold required.\n");
- 	return err;
- }
+-	adapter->share_intr = irq_share_mode;
+-	if (adapter->share_intr == VMXNET3_INTR_BUDDYSHARE &&
+-	    adapter->num_tx_queues != adapter->num_rx_queues)
++	if (adapter->num_tx_queues == adapter->num_rx_queues)
++		adapter->share_intr = VMXNET3_INTR_BUDDYSHARE;
++	else
+ 		adapter->share_intr = VMXNET3_INTR_DONTSHARE;
  
-@@ -2800,9 +2797,9 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
- 			return;
- 
- 		/* If we cannot allocate MSIx vectors use only one rx queue */
--		netdev_info(adapter->netdev,
--			    "Failed to enable MSI-X, error %d . Limiting #rx queues to 1, try MSI.\n",
--			    err);
-+		dev_info(&adapter->pdev->dev,
-+			 "Failed to enable MSI-X, error %d. "
-+			 "Limiting #rx queues to 1, try MSI.\n", err);
- 
- 		adapter->intr.type = VMXNET3_IT_MSI;
- 	}
+ 	vmxnet3_alloc_intr_resources(adapter);
 -- 
 1.7.10.4
