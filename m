@@ -1,62 +1,67 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH 1/2] usbnet: allow status interrupt URB to always be active
-Date: Tue, 15 Jan 2013 09:13:56 +0800
-Message-ID: <CACVXFVO0b-SRn4H4OVSmifGafBtcneBeegQ7PwfAtuojgn_E-Q@mail.gmail.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	<1357318096.5370.15.camel@dcbw.foobar.com>
-	<2212516.GkG3xP33yG@linux-5eaq.site>
-	<1357349193.19684.3.camel@dcbw.foobar.com>
-	<CACVXFVOAjHMxRC=uok-OWPYjw-7D1MSnbaWo97LcGFAVRq+o2g@mail.gmail.com>
-	<1358184201.1713.30.camel@dcbw.foobar.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
+Date: Mon, 14 Jan 2013 17:33:29 -0800
+Message-ID: <CA+mtBx-tz-OMN224PEgWkQPQTrQ6AUox7i2+Y3hheW-bcjPo1w@mail.gmail.com>
+References: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
+	<20130114.152906.967716859913059764.davem@davemloft.net>
+	<CAGK4HS8tHrNUBfd8jmRtWNwFwBARsj7jyxbhD8C7OhhHnpqfQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:54691 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755706Ab3AOBN7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 20:13:59 -0500
-In-Reply-To: <1358184201.1713.30.camel@dcbw.foobar.com>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:45182 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757677Ab3AOBlo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jan 2013 20:41:44 -0500
+Received: by mail-ie0-f174.google.com with SMTP id c11so6318989ieb.33
+        for <netdev@vger.kernel.org>; Mon, 14 Jan 2013 17:41:44 -0800 (PST)
+In-Reply-To: <CAGK4HS8tHrNUBfd8jmRtWNwFwBARsj7jyxbhD8C7OhhHnpqfQQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 15, 2013 at 1:23 AM, Dan Williams <dcbw@redhat.com> wrote:
-> On Fri, 2013-01-11 at 11:06 +0800, Ming Lei wrote:
->> I am curious who are interested in the 'custom Restart indication'
->> information after the interface is closed.
+On Mon, Jan 14, 2013 at 3:35 PM, Vijay Subramanian
+<subramanian.vijay@gmail.com> wrote:
+> On 14 January 2013 12:29, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <therbert@google.com>
+>> Date: Mon, 14 Jan 2013 12:00:16 -0800 (PST)
+>>
+>>> Rebasing the soreuseport patches to 3.8.  No material changes since
+>>> first posted.
 >
-> It's actually before the interface is even opened.  It's really just a
-> sync signal that's part of the driver's setup/initialization of the
-> device.
-
-OK, got it.
-
-Considered that it is only required by Sierra, could you submit
-the status URB in driver->bind and cancel it in driver->reset so
-we can avoid touching usbnet core code(one simple change
-might be to move init_status() before calling driver->info()
-inside usbnet_probe())?
-
+> Tom,
+> I am not sure if this series was just RFC or you already are aware of
+> this but  I got the following errors when compiling with
+> CONFIG_NETFILTER_TPROXY=3Dm
 >
->> If sierra_net provides ways(such as read registers) to query the
->> indication event, you can just query the information and setup
->> the device in driver_info->reset() during device open, so you can
->> avoid submitting interrupt URB always.
->
-> As far as I know, it does not, or at least Sierra hasn't released such
-> information about the firmware API of their devices.
-
-You are unlucky, :-)
-
-In fact, many usbnet devices provide read command to query this kind of
-information.
-
-
 Thanks,
---
-Ming Lei
+I'll fix that.
+
+Tom
+
+> This is because the definitions of inet_lookup_listener  and
+> inet6_lookup_listener have changed with your patch.
+>
+> In file included from net/netfilter/nf_tproxy_core.c:19:
+> include/net/netfilter/nf_tproxy_core.h: In function =91nf_tproxy_get_=
+sock_v4=92:
+> include/net/netfilter/nf_tproxy_core.h:86: error: too few arguments t=
+o
+> function =91inet_lookup_listener=92
+> include/net/netfilter/nf_tproxy_core.h: In function =91nf_tproxy_get_=
+sock_v6=92:
+> include/net/netfilter/nf_tproxy_core.h:155: warning: passing argument
+> 5 of =91inet6_lookup_listener=92 makes pointer from integer without a=
+ cast
+> include/net/inet6_hashtables.h:72: note: expected =91const struct
+> in6_addr *=92 but argument is of type =91int=92
+> include/net/netfilter/nf_tproxy_core.h:155: error: too few arguments
+> to function =91inet6_lookup_listener=92
+> make[1]: *** [net/netfilter/nf_tproxy_core.o] Error 1
+> make[1]: *** Waiting for unfinished jobs....
+>
+>
+> Thanks,
+> Vijay
