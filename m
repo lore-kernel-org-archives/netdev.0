@@ -1,95 +1,130 @@
-From: Lukas Tribus <luky-37@hotmail.com>
-Subject: RE: per route MTU settings
-Date: Tue, 15 Jan 2013 18:07:59 +0100
-Message-ID: <DUB107-W269A7F1946A7B27212F3F8ED2D0@phx.gbl>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH] net: increase fragment memory usage limits
+Date: Tue, 15 Jan 2013 18:16:35 +0100
+Message-ID: <20130115171635.23951.37626.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>
-To: <pupilla@libero.it>, <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub0-omc1-s32.dub0.hotmail.com ([157.55.0.231]:24043 "EHLO
-	dub0-omc1-s32.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756566Ab3AORIJ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2013 12:08:09 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:21350 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757068Ab3AORNx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2013 12:13:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Increase the amount of memory usage limits for incomplete
+IP fragments.
 
-Hi pupilla,
+Arguing for new thresh high/low values:
 
-looks like the behavior changed with 3.2-rc5 and "[PATCH 5/5] ipv4:
-Don't use the cached pmtu informations for input routes" ([1], [2]).
+ High threshold = 4 MBytes
+ Low  threshold = 3 MBytes
 
-Actually, a "mtu lock XYZ" applied to a route is a bit of a corner case.
+The fragmentation memory accounting code, tries to account for the
+real memory usage, by measuring both the size of frag queue struct
+(inet_frag_queue (ipv4:ipq/ipv6:frag_queue)) and the SKB's truesize.
 
+We want to be able to handle/hold-on-to enough fragments, to ensure
+good performance, without causing incomplete fragments to hurt
+scalability, by causing the number of inet_frag_queue to grow too much
+(resulting longer searches for frag queues).
 
-Steffen, you already made this statement once and I can only agree with you:
+For IPv4, how much memory does the largest frag consume.
 
-> The router that can't send the packet to the next hop network has to
-> send the ICMP Destination Unreachable message. We never propagated
-> learned PMTU informations and I would not like to change this
+Maximum size fragment is 64K, which is approx 44 fragments with
+MTU(1500) sized packets. Sizeof(struct ipq) is 200.  A 1500 byte
+packet results in a truesize of 2944 (not 2048 as I first assumed)
 
+  (44*2944)+200 = 129736 bytes
 
-But here is our issue:
-- the linux "ip_forwarder" has an MTU of 1500 Byte on relevant interfaces
-- there is a route with a "static" mtu lock at 1200 Byte
-- the box is supposed to forward a packet heading the 1200B MTU route
+The current default high thresh of 262144 bytes, is obviously
+problematic, as only two 64K fragments can fit in the queue at the
+same time.
 
-What happens is:
-- the packet is dropped (because it exceeds the 1200 Byte)
-- an ICMP Type 3 Code 4 message is generated with 576 Byte next-hop MTU
+How many 64K fragment can we fit into 4 MBytes:
 
-Notice that the 576 Byte indicated as next-hop MTU in the ICMP packet
-doesn't match neither outgoing interface MTU, nor the static route's MTU.
+  4*2^20/((44*2944)+200) = 32.34 fragment in queues
 
-Prior to your patch (for example in 3.2-rc4), 1200 Byte was indicated as
-MTU in the ICMP packet.
+An attacker could send a separate/distinct fake fragment packets per
+queue, causing us to allocate one inet_frag_queue per packet, and thus
+attacking the hash table and its lists.
 
+How many frag queue do we need to store, and given a current hash size
+of 64, what is the average list length.
 
-root@ubuntuvm:~# cat /proc/version
-Linux version 3.2.0-030200rc5-generic (root@gomeisa) (gcc version 4.4.3 (Ubuntu 4.4.3-4ubuntu5) ) #201112091935 SMP Sat Dec 10 00:36:07 UTC 2011
-root@ubuntuvm:~# echo 1> /proc/sys/net/ipv4/ip_forward
-root@ubuntuvm:~# echo 0> /proc/sys/net/ipv4/conf/eth0/send_redirects
-root@ubuntuvm:~# ip route add 8.8.8.8/32 via 10.0.0.254 mtu lock 1200
-root@ubuntuvm:~# ip r
-default via 10.0.0.254 dev eth0 metric 100
-8.8.8.8 via 10.0.0.254 dev eth0 mtu lock 1200
-10.0.0.0/24 dev eth0 proto kernel scope link src 10.0.0.55
-root@ubuntuvm:~# tcpdump -nvvv icmp -i eth0
-tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 65535 bytes
-01:49:20.193798 IP (tos 0x0, ttl 128, id 12090, offset 0, flags [DF], proto ICMP (1), length 1428)
-10.0.0.3> 8.8.8.8: ICMP echo request, id 1, seq 4150, length 1408
-01:49:20.193847 IP (tos 0xc0, ttl 64, id 15646, offset 0, flags [none], proto ICMP (1), length 576)
-10.0.0.55> 10.0.0.3: ICMP 8.8.8.8 unreachable - need to frag (mtu 576), length 556
-IP (tos 0x0, ttl 128, id 12090, offset 0, flags [DF], proto ICMP (1), length 1428)
-10.0.0.3> 8.8.8.8: ICMP echo request, id 1, seq 4150, length 1408
-^C
-2 packets captured
-2 packets received by filter
-0 packets dropped by kernel
+Using one MTU sized fragment per inet_frag_queue, each consuming
+(2944+200) 3144 bytes.
 
+  4*2^20/(2944+200) = 1334 frag queues -> 21 avg list length
 
-Now, what is the kernel supposed to do in this case?
+An attack could send small fragments, the smallest packet I could send
+resulted in a truesize of 896 bytes (I'm a little surprised by this).
 
-In my opinion either act like <3.2-rc4 and return 1200 Byte in the ICMP
-error message or forward the packet anyway (we have the necessary interface
-MTU to do it), ignoring the route with "mtu lock".
+  4*2^20/(896+200)  = 3827 frag queues -> 59 avg list length
 
+When increasing these number, we also need to followup with
+improvements, that is going to help scalability.  Simply increasing
+the hash size, is not enough as the current implementation does not
+have a per hash bucket locking.
 
-Steffen, could you share your opinion about this?
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
 
+ include/net/ipv6.h     |    4 ++--
+ net/ipv4/ip_fragment.c |   22 +++++++++++++++-------
+ 2 files changed, 17 insertions(+), 9 deletions(-)
 
-Its probably a good idea to avoid "mtu lock" on routes completely though.
-
-
-
-Regards,
-
-Lukas
-
-[1] http://git.kernel.org/?p=linux/kernel/git/davem/net-next.git;a=commit;h=261663b0ee2ee8e3947f4c11c1a08be18cd2cea1
-[2] http://patchwork.ozlabs.org/patch/127288/
-
- 		 	   		  
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index ed67208..e6e65fb 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -292,8 +292,8 @@ static inline int ip6_frag_mem(struct net *net)
+ }
+ #endif
+ 
+-#define IPV6_FRAG_HIGH_THRESH	(256 * 1024)	/* 262144 */
+-#define IPV6_FRAG_LOW_THRESH	(192 * 1024)	/* 196608 */
++#define IPV6_FRAG_HIGH_THRESH	(4 * 1024*1024)	/* 4194304 */
++#define IPV6_FRAG_LOW_THRESH	(3 * 1024*1024)	/* 3145728 */
+ #define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
+ 
+ extern int __ipv6_addr_type(const struct in6_addr *addr);
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index eb9d63a..f55a4e6 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -851,14 +851,22 @@ static inline void ip4_frags_ctl_register(void)
+ 
+ static int __net_init ipv4_frags_init_net(struct net *net)
+ {
+-	/*
+-	 * Fragment cache limits. We will commit 256K at one time. Should we
+-	 * cross that limit we will prune down to 192K. This should cope with
+-	 * even the most extreme cases without allowing an attacker to
+-	 * measurably harm machine performance.
++	/* Fragment cache limits.
++	 *
++	 * The fragment memory accounting code, (tries to) account for
++	 * the real memory usage, by measuring both the size of frag
++	 * queue struct (inet_frag_queue (ipv4:ipq/ipv6:frag_queue))
++	 * and the SKB's truesize.
++	 *
++	 * A 64K fragment consumes 129736 bytes (44*2944)+200
++	 * (1500 truesize == 2944, sizeof(struct ipq) == 200)
++	 *
++	 * We will commit 4MB at one time. Should we cross that limit
++	 * we will prune down to 3MB, making room for approx 8 big 64K
++	 * fragments 8x128k.
+ 	 */
+-	net->ipv4.frags.high_thresh = 256 * 1024;
+-	net->ipv4.frags.low_thresh = 192 * 1024;
++	net->ipv4.frags.high_thresh = 4 * 1024 * 1024;
++	net->ipv4.frags.low_thresh  = 3 * 1024 * 1024;
+ 	/*
+ 	 * Important NOTE! Fragment queue must be destroyed before MSL expires.
+ 	 * RFC791 is wrong proposing to prolongate timer each fragment arrival
