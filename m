@@ -1,115 +1,76 @@
-From: Sandeepa C S <sandeepacs@tataelxsi.co.in>
-Subject: Re: Information needed on the kernel version which supports ----
-Date: Tue, 15 Jan 2013 10:41:30 +0530
-Message-ID: <50F4E502.2070102@tataelxsi.co.in>
-References: <50F3D5FD.6090608@tataelxsi.co.in> <CAJ4ZP5T3nw+E+NP_eDZBCt=gqyiviuUoMEjm=7FuWTCDJhBEmQ@mail.gmail.com> <50F41CB1.3040909@redhat.com>
-Reply-To: <sandeepacs@tataelxsi.co.in>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: Balaji Foss <balajig.foss@gmail.com>, <shemminger@vyatta.com>,
-	<mst@redhat.com>, <netdev@vger.kernel.org>, <stephen@redhat.com>,
-	<bridge@lists.linux-foundation.org>, <shmulik.ladkani@gmail.com>,
-	<davem@davemloft.net>,
-	"Satyanarayana Reddy M (D&D)" <satyanarayanam@tataelxsi.co.in>
-To: <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [213.199.154.141] ([213.199.154.141]:2522 "EHLO
-	db3outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750739Ab3AOFNK convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2013 00:13:10 -0500
-In-Reply-To: <50F41CB1.3040909@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tushar Behera <tushar.behera@linaro.org>
+Subject: [PATCH] usbnet: dm9601: Fix incorrect command
+Date: Tue, 15 Jan 2013 11:09:01 +0530
+Message-ID: <1358228341-2104-1-git-send-email-tushar.behera@linaro.org>
+Cc: gregkh@linuxfoundation.org, jacmet@sunsite.dk, patches@linaro.org,
+	Ming Lei <ming.lei@canonical.com>
+To: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+commit 24b1042c4eb2 ("usbnet: dm9601: apply introduced usb command
+APIs") removes the distiction between DM_WRITE_REG and DM_WRITE_REGS
+command. The distiction is reintroduced to the driver so that the
+functionality of the driver remains same.
 
-Even i could not find the changed files.
-Could you please share if the changed files are available with you.
+CC: Ming Lei <ming.lei@canonical.com>
+Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
+---
+ drivers/net/usb/dm9601.c |   22 ++++++----------------
+ 1 files changed, 6 insertions(+), 16 deletions(-)
 
-Thanks and Regards,
-Sandeepa CS.
-
-
-Vlad Yasevich wrote:
-> On 01/14/2013 06:35 AM, Balaji Foss wrote:
->>   >1) On what kernel version the VLAN support for multicast groups is
->> being
->>> done
->> Its currently in the net-next tree which would become 3.8
->
-> I did not see any "Applied" messages from upstream, so I doubt its in
-> any tree yet.  The code is still in development.
->
-> -vlad
->
->>
->>> 2)On what flavors it is supported, is it available with Debian
->>
->> If you want to test those changes right away, you will have to do a git
->> clone of the net-next repo and test those patches, else wait for the
->> distributions to package the 3.8 kernel.
->>
->>> 3)How can we get/download the supported patch files for reference.
->> you will have to make a clone of the net-next repo. For more information
->> look up tutorials on git.
->>
->> Cheers,
->>    - Balaji
->>
->> On Mon, Jan 14, 2013 at 3:25 PM, Sandeepa C S
->> <sandeepacs@tataelxsi.co.in>wrote:
->>
->>> Dear All,
->>>
->>> We are trying to add vlan support for the IGMP snooping feature in the
->>> kernel version 2.6.39
->>> But from the below thread discussion we understood that vlan support is
->>> already in the bridge.
->>> http://www.spinics.net/lists/**netdev/msg221800.html<http://www.spinics.net/lists/netdev/msg221800.html>
->>>
->>>
->>> Could you please let us know the below informations,
->>> 1) On what kernel version the VLAN support for multicast groups is
->>> being
->>> done
->>> 2)On what flavors it is supported, is it available with Debian
->>> 3)How can we get/download the supported patch files for reference.
->>>
->>> --
->>> Thanks & Regards,
->>> Sandeepa cs.
->>>
->>> Notice: The information contained in this e-mail message and/or
->>> attachments to it may contain confidential or privileged
->>> information. If
->>> you are not the intended recipient, any dissemination, use, review,
->>> distribution, printing or copying of the information contained in this
->>> e-mail message and/or attachments to it are strictly prohibited. If you
->>> have received this communication in error, please notify us by reply
->>> e-mail
->>> or telephone and immediately and permanently delete the message and any
->>> attachments. Thank you
->>>
->>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at
->>> http://vger.kernel.org/**majordomo-info.html<http://vger.kernel.org/majordomo-info.html>
->>>
->>>
->>
->
->
-> .
->
-
-
---
- Thanks & Regards,
- Sandeepa cs.
-
-Notice: The information contained in this e-mail message and/or attachments to it may contain confidential or privileged information. If you are not the intended recipient, any dissemination, use, review, distribution, printing or copying of the information contained in this e-mail message and/or attachments to it are strictly prohibited. If you have received this communication in error, please notify us by reply e-mail or telephone and immediately and permanently delete the message and any attachments. Thank you
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index 3f554c1..011410f 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -53,7 +53,6 @@
+ #define DM_RX_OVERHEAD	7	/* 3 byte header + 4 byte crc tail */
+ #define DM_TIMEOUT	1000
+ 
+-
+ static int dm_read(struct usbnet *dev, u8 reg, u16 length, void *data)
+ {
+ 	int err;
+@@ -84,32 +83,23 @@ static int dm_write(struct usbnet *dev, u8 reg, u16 length, void *data)
+ 
+ static int dm_write_reg(struct usbnet *dev, u8 reg, u8 value)
+ {
+-	return usbnet_write_cmd(dev, DM_WRITE_REGS,
++	return usbnet_write_cmd(dev, DM_WRITE_REG,
+ 				USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+ 				value, reg, NULL, 0);
+ }
+ 
+-static void dm_write_async_helper(struct usbnet *dev, u8 reg, u8 value,
+-				  u16 length, void *data)
++static void dm_write_async(struct usbnet *dev, u8 reg, u16 length, void *data)
+ {
+ 	usbnet_write_cmd_async(dev, DM_WRITE_REGS,
+ 			       USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+-			       value, reg, data, length);
+-}
+-
+-static void dm_write_async(struct usbnet *dev, u8 reg, u16 length, void *data)
+-{
+-	netdev_dbg(dev->net, "dm_write_async() reg=0x%02x length=%d\n", reg, length);
+-
+-	dm_write_async_helper(dev, reg, 0, length, data);
++			       0, reg, data, length);
+ }
+ 
+ static void dm_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
+ {
+-	netdev_dbg(dev->net, "dm_write_reg_async() reg=0x%02x value=0x%02x\n",
+-		   reg, value);
+-
+-	dm_write_async_helper(dev, reg, value, 0, NULL);
++	usbnet_write_cmd_async(dev, DM_WRITE_REG,
++			       USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
++			       value, reg, NULL, 0);
+ }
+ 
+ static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *value)
+-- 
+1.7.4.1
