@@ -1,58 +1,145 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net] net: qmi_wwan: add TP-LINK HSUPA Modem MA180
-Date: Tue, 15 Jan 2013 10:19:50 +0100
-Message-ID: <1358241591-29553-1-git-send-email-bjorn@mork.no>
-References: <201301122122.07307.tschaefer@t-online.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, hockseng leow <lhs@oses.sg>,
-	=?UTF-8?q?Thomas=20Sch=C3=A4fer?= <tschaefer@t-online.de>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v4] netpoll: fix a rtnl lock assertion failure
+Date: Tue, 15 Jan 2013 17:34:06 +0800
+Message-ID: <1358242446-4273-1-git-send-email-amwang@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60002 "EHLO canardo.mork.no"
+Received: from mx1.redhat.com ([209.132.183.28]:48531 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756340Ab3AOJUJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2013 04:20:09 -0500
-In-Reply-To: <201301122122.07307.tschaefer@t-online.de>
+	id S1752689Ab3AOJeU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2013 04:34:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver description files gives these names to the vendor specific
-functions on this modem:
+From: Cong Wang <amwang@redhat.com>
 
- Diagnostics VID_2357&PID_0201&MI_00
- NMEA        VID_2357&PID_0201&MI_01
- Modem       VID_2357&PID_0201&MI_03
- Networkcard VID_2357&PID_0201&MI_04
+v4: hold rtnl lock for the whole netpoll_setup()
+v3: remove the comment
+v2: use RCU read lock
 
-The "Networkcard" function has been verified to support these QMI
-services:
-    ctl (1.3)
-    wds (1.3)
-    dms (1.2)
-    nas (1.0)
+This patch fixes the following warning:
 
-Reported-by: Thomas Sch=C3=A4fer <tschaefer@t-online.de>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+[   72.013864] RTNL: assertion failed at net/core/dev.c (4955)
+[   72.017758] Pid: 668, comm: netpoll-prep-v6 Not tainted 3.8.0-rc1+ #474
+[   72.019582] Call Trace:
+[   72.020295]  [<ffffffff8176653d>] netdev_master_upper_dev_get+0x35/0x58
+[   72.022545]  [<ffffffff81784edd>] netpoll_setup+0x61/0x340
+[   72.024846]  [<ffffffff815d837e>] store_enabled+0x82/0xc3
+[   72.027466]  [<ffffffff815d7e51>] netconsole_target_attr_store+0x35/0x37
+[   72.029348]  [<ffffffff811c3479>] configfs_write_file+0xe2/0x10c
+[   72.030959]  [<ffffffff8115d239>] vfs_write+0xaf/0xf6
+[   72.032359]  [<ffffffff81978a05>] ? sysret_check+0x22/0x5d
+[   72.033824]  [<ffffffff8115d453>] sys_write+0x5c/0x84
+[   72.035328]  [<ffffffff819789d9>] system_call_fastpath+0x16/0x1b
+
+In case of other races, hold rtnl lock for the entire netpoll_setup() function.
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/usb/qmi_wwan.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 6a1ca50..c434108 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -459,6 +459,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QM=
-I mode */
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
- 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
-catel One Touch L100V LTE) */
-+	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
-=20
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
---=20
-1.7.10.4
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 9f05067..a5ad1c1 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -1048,11 +1048,13 @@ int netpoll_setup(struct netpoll *np)
+ 	struct in_device *in_dev;
+ 	int err;
+ 
++	rtnl_lock();
+ 	if (np->dev_name)
+-		ndev = dev_get_by_name(&init_net, np->dev_name);
++		ndev = __dev_get_by_name(&init_net, np->dev_name);
+ 	if (!ndev) {
+ 		np_err(np, "%s doesn't exist, aborting\n", np->dev_name);
+-		return -ENODEV;
++		err = -ENODEV;
++		goto unlock;
+ 	}
+ 
+ 	if (netdev_master_upper_dev_get(ndev)) {
+@@ -1066,15 +1068,14 @@ int netpoll_setup(struct netpoll *np)
+ 
+ 		np_info(np, "device %s not up yet, forcing it\n", np->dev_name);
+ 
+-		rtnl_lock();
+ 		err = dev_open(ndev);
+-		rtnl_unlock();
+ 
+ 		if (err) {
+ 			np_err(np, "failed to open %s\n", ndev->name);
+ 			goto put;
+ 		}
+ 
++		rtnl_unlock();
+ 		atleast = jiffies + HZ/10;
+ 		atmost = jiffies + carrier_timeout * HZ;
+ 		while (!netif_carrier_ok(ndev)) {
+@@ -1094,16 +1095,14 @@ int netpoll_setup(struct netpoll *np)
+ 			np_notice(np, "carrier detect appears untrustworthy, waiting 4 seconds\n");
+ 			msleep(4000);
+ 		}
++		rtnl_lock();
+ 	}
+ 
+ 	if (!np->local_ip.ip) {
+ 		if (!np->ipv6) {
+-			rcu_read_lock();
+-			in_dev = __in_dev_get_rcu(ndev);
+-
++			in_dev = __in_dev_get_rtnl(ndev);
+ 
+ 			if (!in_dev || !in_dev->ifa_list) {
+-				rcu_read_unlock();
+ 				np_err(np, "no IP address for %s, aborting\n",
+ 				       np->dev_name);
+ 				err = -EDESTADDRREQ;
+@@ -1111,14 +1110,12 @@ int netpoll_setup(struct netpoll *np)
+ 			}
+ 
+ 			np->local_ip.ip = in_dev->ifa_list->ifa_local;
+-			rcu_read_unlock();
+ 			np_info(np, "local IP %pI4\n", &np->local_ip.ip);
+ 		} else {
+ #if IS_ENABLED(CONFIG_IPV6)
+ 			struct inet6_dev *idev;
+ 
+ 			err = -EDESTADDRREQ;
+-			rcu_read_lock();
+ 			idev = __in6_dev_get(ndev);
+ 			if (idev) {
+ 				struct inet6_ifaddr *ifp;
+@@ -1133,7 +1130,6 @@ int netpoll_setup(struct netpoll *np)
+ 				}
+ 				read_unlock_bh(&idev->lock);
+ 			}
+-			rcu_read_unlock();
+ 			if (err) {
+ 				np_err(np, "no IPv6 address for %s, aborting\n",
+ 				       np->dev_name);
+@@ -1151,17 +1147,17 @@ int netpoll_setup(struct netpoll *np)
+ 	/* fill up the skb queue */
+ 	refill_skbs();
+ 
+-	rtnl_lock();
+ 	err = __netpoll_setup(np, ndev, GFP_KERNEL);
+-	rtnl_unlock();
+-
+ 	if (err)
+ 		goto put;
+ 
++	rtnl_unlock();
+ 	return 0;
+ 
+ put:
+ 	dev_put(ndev);
++unlock:
++	rtnl_unlock();
+ 	return err;
+ }
+ EXPORT_SYMBOL(netpoll_setup);
