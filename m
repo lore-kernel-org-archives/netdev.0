@@ -1,71 +1,58 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH 2/2] e1000e: display a warning message when SmartSpeed
- works
-Date: Tue, 15 Jan 2013 18:54:52 -0800
-Message-ID: <1358304892.2177.16.camel@jtkirshe-mobl>
-References: <50F60F18.2030108@jp.fujitsu.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: horseriver <horserivers@gmail.com>
+Subject: Re: what is the use of poll function int a net_device struct
+Date: Tue, 15 Jan 2013 08:52:47 +0800
+Message-ID: <20130115005247.GB18654@debian.localdomain>
+References: <20130114142136.GA17094@debian.localdomain>
+ <CAKoUArmq0+aMdMyDvRu+fCJXynrqywpeJiajG=84YCxdFV-GKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-prqP1xv9ET9xhKgKXg//"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, peter.p.waskiewicz.jr@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	tushar.n.dave@intel.com, e1000-devel@lists.sourceforge.net
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Rami Rosen <roszenrami@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:54960 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754976Ab3APCy6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jan 2013 21:54:58 -0500
-In-Reply-To: <50F60F18.2030108@jp.fujitsu.com>
+Received: from mail-da0-f52.google.com ([209.85.210.52]:40469 "EHLO
+	mail-da0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932075Ab3APE0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 23:26:11 -0500
+Received: by mail-da0-f52.google.com with SMTP id f10so374015dak.11
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 20:26:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <CAKoUArmq0+aMdMyDvRu+fCJXynrqywpeJiajG=84YCxdFV-GKg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jan 15, 2013 at 03:20:39PM +0200, Rami Rosen wrote:
+> Hi,
+> 
+> On Mon, Jan 14, 2013 at 4:21 PM, horseriver <horserivers@gmail.com> wrote:
+> > Where is the handler function defined  for an netcard's  IRQ
+> 
+> look for the request_irq() method; you register the handler with this method.
+> 
+> for example,
+> in e1000e:
+> 
+> http://lxr.free-electrons.com/source/drivers/net/ethernet/intel/e1000e/netdev.c
+> 
+> err = request_irq(adapter->msix_entries[vector].vector,
+>                            e1000_intr_msix_rx, 0,
+>                           adapter->rx_ring->name,
+>                              netdev);
+> 
+> so the handler is   e1000_intr_msix_rx().
+> 
+> When an IRQ has reached,  how to wake_up the wait_queue of the socket?
+> TCP/UDP packet goes up from the driver to L3 and then to L4 (in case
+> it is for this machine). In L4 you should find the
+> wake_up of the wait_queue of the socket.
+  
+  thanks!
+  
+  In L4, wake_up should be fired  by IRQ event.
+  where is the code for fire this callback ?
 
---=-prqP1xv9ET9xhKgKXg//
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+  
 
-On Wed, 2013-01-16 at 11:23 +0900, Koki Sanagi wrote:
-> Current e1000e driver doesn't tell nothing when Link Speed is
-> downgraded due to
-> SmartSpeed.  As a result, users suspect that there is something wrong
-> with
-> NIC.  If the cause of it is SmartSpeed, there is no means to replace
-> NIC. This
-> patch make e1000e notify users that SmartSpeed worked.
->=20
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |    7 +++++++
->  1 files changed, 7 insertions(+), 0 deletions(-)=20
-
-Thanks, I have added this patch as well to my queue.
-
---=-prqP1xv9ET9xhKgKXg//
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAABCgAGBQJQ9hZ8AAoJEOVv75VaS+3OFVUP/i8VaD519/38ygEIRW/2LPGh
-ZuYIhCyyxFCtwihL76+QOWKzWU5IuyyastHPoKSA4+opgmVRS4RbO+7aqqzz/2rs
-QOpbfoOqCwn7leABt64Wk1rgEroz8PWKEPL1TJQzTfoB2rnP9qk9IYzVBm3gBOgB
-/LjVdvIUoQXefVkqd3bU0lgYhLHMv2YipxMP2xGbDhnFS9OvpaUbOl4UbIc0M+lz
-yMfPdk6JaRieo3xpi3ga+0VCut8A3OhRIjM/bgWlhUCrjtvM17railMFxC0jg7/r
-TptISHmg46MLsmBBlvi9UM2pUJ+sn2ClklHKn2UM2zt0XONbK+X06rzSI9xu93F4
-XwIkmfxjRHypktriXK5Lzaf1Iy4H1vDmulAy+4WTM+7HyXZWPQoK058xjfgC0+y5
-hYNSJ6AwRJsVG4NKKiy5KJzzb/Z6b8ZvHx0WisG1Kwrw1Je0teqPvnvrXrENkySY
-ZD60yfYhihiWvYJpzI4wSDGGwwsjaRbsZgNncq9H9KBzzlGWqv5O3hHwmfe4RmRP
-56l+ewtWBsGV6EkVigpNW0TWRyb5g4pLTl5g8TNpDhRhiTjNKpRDyii+z2FgH+/k
-v9kHZcjG2P3gWbJ/xYvSeO5SwT3JG1cRaog1c7xfesQL4PoXz6N76FBwxP8Pz/lx
-zrmae5jrxl7jvPdER1Jz
-=BJ0g
------END PGP SIGNATURE-----
-
---=-prqP1xv9ET9xhKgKXg//--
+> 
+> Regards,
+> Rami Rosen
+> http://ramirose.wix.com/ramirosen
