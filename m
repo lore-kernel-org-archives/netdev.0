@@ -1,71 +1,55 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RFC(v2) net-next 04/13] ipv6 route: Dump gateway based on RTF_GATEWAY
- flag and rt->rt6i_gateway.
-Date: Wed, 16 Jan 2013 01:44:58 +0900
-Message-ID: <50F5878A.8050504@linux-ipv6.org>
+Subject: [RFC(v2) net-next 05/13] ipv6: Introduce rt6_nexthop() to select
+ nexthop address.
+Date: Wed, 16 Jan 2013 01:45:03 +0900
+Message-ID: <50F5878F.8070200@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41303 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41306 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755060Ab3AOQo7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:44:59 -0500
+	with ESMTP id S1756691Ab3AOQpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:45:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not depend on rt->n.
+For RTF_GATEWAY route, return rt->rt6i_gateway.
+Otherwise, return 2nd argument (destination address).
+
+This will be used for rt->n removal.
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/route.c |   12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ include/net/ip6_route.h |    9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5d9ca27..d82eb1f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2484,7 +2484,6 @@ static int rt6_fill_node(struct net *net,
- 	struct nlmsghdr *nlh;
- 	long expires;
- 	u32 table;
--	struct neighbour *n;
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 27d8318..9af6480 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -23,6 +23,7 @@ struct route_info {
+ #include <net/sock.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
++#include <linux/route.h>
  
- 	if (prefix) {	/* user wants prefix routes only */
- 		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
-@@ -2597,9 +2596,8 @@ static int rt6_fill_node(struct net *net,
- 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
- 		goto nla_put_failure;
+ #define RT6_LOOKUP_F_IFACE		0x00000001
+ #define RT6_LOOKUP_F_REACHABLE		0x00000002
+@@ -194,4 +195,12 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+ 	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+ }
  
--	n = rt->n;
--	if (n) {
--		if (nla_put(skb, RTA_GATEWAY, 16, &n->primary_key) < 0)
-+	if (rt->rt6i_flags & RTF_GATEWAY) {
-+		if (nla_put(skb, RTA_GATEWAY, 16, &rt->rt6i_gateway) < 0)
- 			goto nla_put_failure;
- 	}
- 
-@@ -2794,7 +2792,6 @@ struct rt6_proc_arg
- static int rt6_info_route(struct rt6_info *rt, void *p_arg)
- {
- 	struct seq_file *m = p_arg;
--	struct neighbour *n;
- 
- 	seq_printf(m, "%pi6 %02x ", &rt->rt6i_dst.addr, rt->rt6i_dst.plen);
- 
-@@ -2803,9 +2800,8 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
- #else
- 	seq_puts(m, "00000000000000000000000000000000 00 ");
++static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
++{
++	BUG_ON(rt == NULL);
++	if (rt->rt6i_flags & RTF_GATEWAY)
++		return &rt->rt6i_gateway;
++	return dest;
++}
++
  #endif
--	n = rt->n;
--	if (n) {
--		seq_printf(m, "%pi6", n->primary_key);
-+	if (rt->rt6i_flags & RTF_GATEWAY) {
-+		seq_printf(m, "%pi6", &rt->rt6i_gateway);
- 	} else {
- 		seq_puts(m, "00000000000000000000000000000000");
- 	}
 -- 
 1.7.9.5
