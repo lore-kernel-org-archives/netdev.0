@@ -1,63 +1,85 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: r8169 rx_missed increasing in bursts (regression)
-Date: Tue, 15 Jan 2013 10:11:14 +0200
-Message-ID: <20130115101114.0a59a7cb@vostro>
-References: <20130108102814.7abe8c08@vostro>
-	<20130108225833.GA4193@electric-eye.fr.zoreil.com>
-	<20130109115850.055b7a7e@vostro>
-	<20130109191456.0888ac75@vostro>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next] ipip: do not use 'err' variable for setting return value
+Date: Tue, 15 Jan 2013 01:14:10 -0700
+Message-ID: <1358237650-15953-1-git-send-email-sakiwit@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:38537 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753565Ab3AOILN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 03:11:13 -0500
-Received: by mail-ee0-f41.google.com with SMTP id d41so2453368eek.0
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 00:11:12 -0800 (PST)
-In-Reply-To: <20130109191456.0888ac75@vostro>
+Received: from mail-da0-f42.google.com ([209.85.210.42]:41124 "EHLO
+	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753644Ab3AOIOq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 03:14:46 -0500
+Received: by mail-da0-f42.google.com with SMTP id z17so2190215dal.1
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 00:14:45 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 9 Jan 2013 19:14:56 +0200 Timo Teras <timo.teras@iki.fi> wrote:
+It's a bit confusing to set 'err' variable inside and outside of the
+block for the return value of ipip_err(). We don't even need this
+variable, so clean it all up to spare declaration as well as bunch of
+unnecessary initializations and jumps.
 
-> It seems that the rx_missed is not directly related to traffic amount.
-> At times the box is handling easily 10000+ pps, while packet loss can
-> happen at other times on 4000-8000pps levels.
-> 
-> Generally time_squeeze does not happen, and the box is at 20-30%
-> softirq. Some times time_squeeze bumps up with one (within a one
-> second interval) or two and packet loss does not happen.
-> 
-> When rx_missed is getting bumped, time_squeeze goes up with 1-3, and
-> rx_missed goes up with 50-1000 packets. Usually around 200 packets. (1
-> second sampling period)
-> 
-> I did find a strong correlation that rx_misses happen usually when the
-> box has dropped a packet due to iptables DROP/REJECT rule, or some
-> other reason (e.g. I'm seeing once in a while dmesg contain:
-> "nf_ct_sip: dropping packet").
-> 
-> Any ideas why a netfilter packet drop might cause netdevice rx to
-> stall long enough to saturate the hardware receive queue?
+Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+---
+ net/ipv4/ipip.c |   20 +++++++-------------
+ 1 files changed, 7 insertions(+), 13 deletions(-)
 
-Ok, found the main culprit. Embarassingly, there was LOG targets, which
-wound up writing to ttyS0. That apparently is synchronous operation, so
-the printk's made the napi poller choke whenever packets got dropped.
-
-However, I do still observe minor packet drops on specific loads.
-Increasing the rx fifo size helped noticeably, but even at 512 it still
-does some drops. Seems that Realtek's r8168 driver has rx fifo size of
-1024.
-
-Would it be feasible to make the fifo size a module parameter, or
-somehow autotuned according to available system memory?
-
-I also noticed that since recent commits, the dirty_rx is always
-identical cur_rx. Basically, dirty_rx can be just removed. Should I
-send a patch for this?
-
- - Timo
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 191fc24..d604824 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -343,7 +343,6 @@ static int ipip_err(struct sk_buff *skb, u32 info)
+ 	const int type = icmp_hdr(skb)->type;
+ 	const int code = icmp_hdr(skb)->code;
+ 	struct ip_tunnel *t;
+-	int err;
+ 
+ 	switch (type) {
+ 	default:
+@@ -372,40 +371,35 @@ static int ipip_err(struct sk_buff *skb, u32 info)
+ 		break;
+ 	}
+ 
+-	err = -ENOENT;
+ 	t = ipip_tunnel_lookup(dev_net(skb->dev), iph->daddr, iph->saddr);
+ 	if (t == NULL)
+-		goto out;
++		return -ENOENT;
+ 
+ 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
+ 		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
+ 				 t->dev->ifindex, 0, IPPROTO_IPIP, 0);
+-		err = 0;
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	if (type == ICMP_REDIRECT) {
+ 		ipv4_redirect(skb, dev_net(skb->dev), t->dev->ifindex, 0,
+ 			      IPPROTO_IPIP, 0);
+-		err = 0;
+-		goto out;
++		return 0;
+ 	}
+ 
+ 	if (t->parms.iph.daddr == 0)
+-		goto out;
++		return -ENOENT;
+ 
+-	err = 0;
+ 	if (t->parms.iph.ttl == 0 && type == ICMP_TIME_EXCEEDED)
+-		goto out;
++		return 0;
+ 
+ 	if (time_before(jiffies, t->err_time + IPTUNNEL_ERR_TIMEO))
+ 		t->err_count++;
+ 	else
+ 		t->err_count = 1;
+-	t->err_time = jiffies;
+-out:
+ 
+-	return err;
++	t->err_time = jiffies;
++	return 0;
+ }
+ 
+ static int ipip_rcv(struct sk_buff *skb)
