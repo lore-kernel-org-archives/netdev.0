@@ -1,48 +1,59 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC Patch net-next] ipv6: look up neighbours on demand in ip6_finish_output2()
-Date: Tue, 15 Jan 2013 21:22:33 +0900
-Message-ID: <50F54A09.2040206@linux-ipv6.org>
-References: <1358170515-1383-1-git-send-email-xiyou.wangcong@gmail.com> <20130114.133004.19237632940616685.davem@davemloft.net> <50F4BEB2.2050201@gmail.com>
+From: Wei Shuai <cpuwolf@gmail.com>
+Subject: Re: [PATCH] CDC_NCM adding support IFF_NOARP for infineon modem platform
+Date: Tue, 15 Jan 2013 21:11:34 +0800
+Message-ID: <CACa7zymy1kg7N9WZjf=u=VGw=GeOJrzvRzRj11LZdKWnuAvgcA@mail.gmail.com>
+References: <1357990479-5836-1-git-send-email-cpuwolf@gmail.com>
+	<20130112.153533.1713284383322153346.davem@davemloft.net>
+	<1358183953.1713.28.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	roland@purestorage.com, Eric Dumazet <eric.dumazet@gmail.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Alexey Orishko <alexey.orishko@stericsson.com>,
+	=?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41023 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750964Ab3AOMWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 07:22:35 -0500
-In-Reply-To: <50F4BEB2.2050201@gmail.com>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:57178 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755379Ab3AONLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 08:11:35 -0500
+In-Reply-To: <1358183953.1713.28.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang wrote:
-> On 01/15/2013 02:30 AM, David Miller wrote:
->>
->> This is a very incomplete patch.
->>
->> If this change were so simple, it would have been done by someone
->> else a long time ago.
->>
->> You must, in addition to the incredibly obvious changes in the packet
->> output path, completely eliminate the caching of the neighbour entry
->> in the ipv6 routes themselves.
->>
->> This means replacing every rt6->n access or test with something
->> equivalent.
->>
-> 
-> THanks, David and Eric!
-> 
-> I knew this is probably incomplete, that is why I added "RFC". Fortunately, YOSHIFUJI just sent a more complete patch:
-> 
-> [RFC net-next] ipv6 route: Do not attach neighbour on route.
-> 
-> So, please ignore mine and use his. :)
+yes. usbnet has FLAG_POINTTOPOINT, but that's nothing to do with
+IFF_POINTTOPOINT. At least we should do something to handle
+relationship of these flags rather than only have different names.
+or new flag FLAG_NOARP could be introduced to corresponding to IFF_NOARP.
 
-Well, in fact, it did't work.  Tt really needs further work.
-
---yoshfuji
+2013/1/15 Dan Williams <dcbw@redhat.com>:
+> On Sat, 2013-01-12 at 15:35 -0800, David Miller wrote:
+>> From: Wei Shuai <cpuwolf@gmail.com>
+>> Date: Sat, 12 Jan 2013 19:34:39 +0800
+>>
+>> > Infineon(now Intel) HSPA Modem platform NCM cannot support ARP. so I
+>> > introduce a flag CDC_NCM_DRIVER_DATA_NOARP which is defined in
+>> > driver_info:data. so later on, if more such buggy devices are found,
+>> > they could use same flag to handle.
+>>
+>> Is it no able to do ARP or, the more likely case, does broadcast
+>> not work at all?
+>>
+>> If it's the latter, IFF_NOARP is just making over the real problem.
+>>
+>> I'm not applying this, no hardware device should set IFF_NOARP.
+>> You probably really want IFF_POINTOPOINT or similar.
+>
+> IFF_NOARP is already done for other WWAN devices (sierra_net, hso,
+> cdc-ether, cdc-phonet, lg-vl600, etc) so there is some precedent.  Some
+> drivers (phonet, hso) set *both* POINTTOPOINT and NOARP.  Is that
+> redundant, and should all WWAN drivers be moved to only POINTTOPOINT?
+>
+> (aside: usbnet has FLAG_POINTTOPOINT, but that's nothing to do with
+> IFF_POINTTOPOINT, it only controls whether the interface is named usbX
+> or ethX.  Confusing.)
+>
+> Dan
+>
