@@ -1,154 +1,207 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RFC(v2) net-next 12/13] ipv6: Remove temporary dst for icmpv6.
-Date: Wed, 16 Jan 2013 01:46:32 +0900
-Message-ID: <50F587E8.1060308@linux-ipv6.org>
+Subject: [RFC(v2) net-next 13/13] ipv6: Complete neighbour entry removal from
+ dst_entry.
+Date: Wed, 16 Jan 2013 01:46:37 +0900
+Message-ID: <50F587ED.5070602@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41328 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:41332 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756413Ab3AOQqd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:46:33 -0500
+	with ESMTP id S1757138Ab3AOQqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 11:46:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/ip6_fib.c |    2 +-
- net/ipv6/route.c   |   98 ----------------------------------------------------
- 2 files changed, 1 insertion(+), 99 deletions(-)
+ include/net/ip6_fib.h   |    2 --
+ net/ipv6/route.c        |   68 +++--------------------------------------------
+ net/ipv6/xfrm6_policy.c |    1 -
+ 3 files changed, 3 insertions(+), 68 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 710cafd..1d7c448 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1643,7 +1643,7 @@ void fib6_run_gc(unsigned long expires, struct net *net)
- 		gc_args.timeout = net->ipv6.sysctl.ip6_rt_gc_interval;
- 	}
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index fdc48a9..6919a50 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -89,8 +89,6 @@ struct fib6_table;
+ struct rt6_info {
+ 	struct dst_entry		dst;
  
--	gc_args.more = icmp6_dst_gc();
-+	gc_args.more = 0;
- 
- 	fib6_clean_all(net, fib6_age, 0, NULL);
- 
+-	struct neighbour		*n;
+-
+ 	/*
+ 	 * Tail elements of dst_entry (__refcnt etc.)
+ 	 * and these elements (rarely used in hot path) are in
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index e30a2aa..9605658 100644
+index 9605658..e30177a 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
-@@ -1252,103 +1252,6 @@ static unsigned int ip6_mtu(const struct dst_entry *dst)
- 	return mtu;
+@@ -151,19 +151,6 @@ static struct neighbour *ip6_neigh_lookup(const struct dst_entry *dst,
+ 	return neigh_create(&nd_tbl, daddr, dst->dev);
  }
  
--static struct dst_entry *icmp6_dst_gc_list;
--static DEFINE_SPINLOCK(icmp6_dst_lock);
--
--struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
--				  struct neighbour *neigh,
--				  struct flowi6 *fl6)
+-static int rt6_bind_neighbour(struct rt6_info *rt, struct net_device *dev)
 -{
--	struct dst_entry *dst;
--	struct rt6_info *rt;
--	struct inet6_dev *idev = in6_dev_get(dev);
--	struct net *net = dev_net(dev);
--
--	if (unlikely(!idev))
--		return ERR_PTR(-ENODEV);
--
--	rt = ip6_dst_alloc(net, dev, 0, NULL);
--	if (unlikely(!rt)) {
--		in6_dev_put(idev);
--		dst = ERR_PTR(-ENOMEM);
--		goto out;
+-	struct neighbour *n = __ipv6_neigh_lookup(dev, &rt->rt6i_gateway);
+-	if (!n) {
+-		n = neigh_create(&nd_tbl, &rt->rt6i_gateway, dev);
+-		if (IS_ERR(n))
+-			return PTR_ERR(n);
 -	}
+-	rt->n = n;
 -
--	if (neigh)
--		neigh_hold(neigh);
--	else {
--		neigh = ip6_neigh_lookup(&rt->dst, NULL, &fl6->daddr);
--		if (IS_ERR(neigh)) {
--			in6_dev_put(idev);
+-	return 0;
+-}
+-
+ static struct dst_ops ip6_dst_ops_template = {
+ 	.family			=	AF_INET6,
+ 	.protocol		=	cpu_to_be16(ETH_P_IPV6),
+@@ -301,9 +288,6 @@ static void ip6_dst_destroy(struct dst_entry *dst)
+ 	struct rt6_info *rt = (struct rt6_info *)dst;
+ 	struct inet6_dev *idev = rt->rt6i_idev;
+ 
+-	if (rt->n)
+-		neigh_release(rt->n);
+-
+ 	if (!(rt->dst.flags & DST_HOST))
+ 		dst_destroy_metrics_generic(dst);
+ 
+@@ -354,11 +338,13 @@ static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 				in6_dev_put(idev);
+ 			}
+ 		}
++#if 0
+ 		if (rt->n && rt->n->dev == dev) {
+ 			rt->n->dev = loopback_dev;
+ 			dev_hold(loopback_dev);
+ 			dev_put(dev);
+ 		}
++#endif
+ 	}
+ }
+ 
+@@ -846,8 +832,6 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
+ 	rt = ip6_rt_copy(ort, daddr);
+ 
+ 	if (rt) {
+-		int attempts = !in_softirq();
+-
+ 		if (!(rt->rt6i_flags & RTF_GATEWAY)) {
+ 			if (ort->rt6i_dst.plen != 128 &&
+ 			    ipv6_addr_equal(&ort->rt6i_dst.addr, daddr))
+@@ -863,32 +847,6 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort,
+ 			rt->rt6i_src.plen = 128;
+ 		}
+ #endif
+-
+-	retry:
+-		if (rt6_bind_neighbour(rt, rt->dst.dev)) {
+-			struct net *net = dev_net(rt->dst.dev);
+-			int saved_rt_min_interval =
+-				net->ipv6.sysctl.ip6_rt_gc_min_interval;
+-			int saved_rt_elasticity =
+-				net->ipv6.sysctl.ip6_rt_gc_elasticity;
+-
+-			if (attempts-- > 0) {
+-				net->ipv6.sysctl.ip6_rt_gc_elasticity = 1;
+-				net->ipv6.sysctl.ip6_rt_gc_min_interval = 0;
+-
+-				ip6_dst_gc(&net->ipv6.ip6_dst_ops);
+-
+-				net->ipv6.sysctl.ip6_rt_gc_elasticity =
+-					saved_rt_elasticity;
+-				net->ipv6.sysctl.ip6_rt_gc_min_interval =
+-					saved_rt_min_interval;
+-				goto retry;
+-			}
+-
+-			net_warn_ratelimited("Neighbour table overflow\n");
 -			dst_free(&rt->dst);
--			return ERR_CAST(neigh);
+-			return NULL;
 -		}
--	}
--
--	rt->dst.flags |= DST_HOST;
--	rt->dst.output  = ip6_output;
--	rt->n = neigh;
--	atomic_set(&rt->dst.__refcnt, 1);
--	rt->rt6i_dst.addr = fl6->daddr;
--	rt->rt6i_dst.plen = 128;
--	rt->rt6i_idev     = idev;
--	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 0);
--
--	spin_lock_bh(&icmp6_dst_lock);
--	rt->dst.next = icmp6_dst_gc_list;
--	icmp6_dst_gc_list = &rt->dst;
--	spin_unlock_bh(&icmp6_dst_lock);
--
--	fib6_force_start_gc(net);
--
--	dst = xfrm_lookup(net, &rt->dst, flowi6_to_flowi(fl6), NULL, 0);
--
--out:
--	return dst;
--}
--
--int icmp6_dst_gc(void)
--{
--	struct dst_entry *dst, **pprev;
--	int more = 0;
--
--	spin_lock_bh(&icmp6_dst_lock);
--	pprev = &icmp6_dst_gc_list;
--
--	while ((dst = *pprev) != NULL) {
--		if (!atomic_read(&dst->__refcnt)) {
--			*pprev = dst->next;
--			dst_free(dst);
--		} else {
--			pprev = &dst->next;
--			++more;
--		}
--	}
--
--	spin_unlock_bh(&icmp6_dst_lock);
--
--	return more;
--}
--
--static void icmp6_clean_all(int (*func)(struct rt6_info *rt, void *arg),
--			    void *arg)
--{
--	struct dst_entry *dst, **pprev;
--
--	spin_lock_bh(&icmp6_dst_lock);
--	pprev = &icmp6_dst_gc_list;
--	while ((dst = *pprev) != NULL) {
--		struct rt6_info *rt = (struct rt6_info *) dst;
--		if (func(rt, arg)) {
--			*pprev = dst->next;
--			dst_free(dst);
--		} else {
--			pprev = &dst->next;
--		}
--	}
--	spin_unlock_bh(&icmp6_dst_lock);
--}
--
- static int ip6_dst_gc(struct dst_ops *ops)
- {
- 	unsigned long now = jiffies;
-@@ -2235,7 +2138,6 @@ void rt6_ifdown(struct net *net, struct net_device *dev)
- 	};
+ 	}
  
- 	fib6_clean_all(net, fib6_ifdown, 0, &adn);
--	icmp6_clean_all(fib6_ifdown, &adn);
+ 	return rt;
+@@ -899,10 +857,8 @@ static struct rt6_info *rt6_alloc_clone(struct rt6_info *ort,
+ {
+ 	struct rt6_info *rt = ip6_rt_copy(ort, daddr);
+ 
+-	if (rt) {
++	if (rt)
+ 		rt->rt6i_flags |= RTF_CACHE;
+-		rt->n = neigh_clone(ort->n);
+-	}
+ 	return rt;
  }
  
- struct rt6_mtu_change_arg {
+@@ -937,7 +893,6 @@ restart:
+ 	read_unlock_bh(&table->tb6_lock);
+ 
+ 	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY))) {
+-		BUG_ON(rt->n != NULL);
+ 		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+ 	} else if (!(rt->dst.flags & DST_HOST))
+ 		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+@@ -1499,12 +1454,6 @@ int ip6_route_add(struct fib6_config *cfg)
+ 	} else
+ 		rt->rt6i_prefsrc.plen = 0;
+ 
+-	if (cfg->fc_flags & (RTF_GATEWAY | RTF_NONEXTHOP)) {
+-		err = rt6_bind_neighbour(rt, dev);
+-		if (err)
+-			goto out;
+-	}
+-
+ 	rt->rt6i_flags = cfg->fc_flags;
+ 
+ install_route:
+@@ -1691,11 +1640,6 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 	if (!neigh)
+ 		return;
+ 
+-	/* Duplicate redirect: silently ignore. */
+-	old_neigh = rt->n;
+-	if (neigh == old_neigh)
+-		goto out;
+-
+ 	/*
+ 	 *	We have finally decided to accept it.
+ 	 */
+@@ -1716,7 +1660,6 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 		nrt->rt6i_flags &= ~RTF_GATEWAY;
+ 
+ 	nrt->rt6i_gateway = *(struct in6_addr *)neigh->primary_key;
+-	nrt->n = neigh_clone(neigh);
+ 
+ 	if (ip6_ins_rt(nrt))
+ 		goto out;
+@@ -2049,11 +1992,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 		rt->rt6i_flags |= RTF_ANYCAST;
+ 	else
+ 		rt->rt6i_flags |= RTF_LOCAL;
+-	err = rt6_bind_neighbour(rt, rt->dst.dev);
+-	if (err) {
+-		dst_free(&rt->dst);
+-		return ERR_PTR(err);
+-	}
+ 
+ 	rt->rt6i_dst.addr = *addr;
+ 	rt->rt6i_dst.plen = 128;
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index c984413..1282737 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -110,7 +110,6 @@ static int xfrm6_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ 
+ 	/* Sheit... I remember I did this right. Apparently,
+ 	 * it was magically lost, so this code needs audit */
+-	xdst->u.rt6.n = neigh_clone(rt->n);
+ 	xdst->u.rt6.rt6i_flags = rt->rt6i_flags & (RTF_ANYCAST |
+ 						   RTF_LOCAL);
+ 	xdst->u.rt6.rt6i_metric = rt->rt6i_metric;
 -- 
 1.7.9.5
