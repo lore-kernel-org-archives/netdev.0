@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: do not create neighbor entries for local delivery
-Date: Wed, 16 Jan 2013 16:28:13 -0500 (EST)
-Message-ID: <20130116.162813.1734293658687337225.davem@davemloft.net>
-References: <50F6ABCA.4020804@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mleitner@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39446 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757016Ab3APV2P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:28:15 -0500
-In-Reply-To: <50F6ABCA.4020804@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabio Baltieri <fabio.baltieri@linaro.org>
+Subject: [PATCH net-next] ipv6: fix ipv6_prefix_equal64_half mask conversion
+Date: Wed, 16 Jan 2013 22:30:17 +0100
+Message-ID: <1358371817-15378-1-git-send-email-fabio.baltieri@linaro.org>
+Cc: linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Fabio Baltieri <fabio.baltieri@linaro.org>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-Date: Wed, 16 Jan 2013 11:31:54 -0200
+Fix the 64bit optimized version of ipv6_prefix_equal to convert the
+bitmask to network byte order only after the bit-shift.
 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index
-> 7c34c01b515b7ac370f8021ba6f5ec4c654e9e41..b63e33bcbdfbc1bd78af0b98ffc2d211805214ea
-> 100644
+The bug was introduced in:
 
-Patch corrupted by your email client.
+3867517 ipv6: 64bit version of ipv6_prefix_equal().
 
-Note also that YOSHIFUJI Hideaki's patches to remove the cached neighbour
-entirely from ipv6 routes will have the same effect, so your patch won't
-be needed.
+Signed-off-by: Fabio Baltieri <fabio.baltieri@linaro.org>
+---
+ include/net/ipv6.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index dfc1363..459a5a4 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -404,7 +404,7 @@ static inline bool __ipv6_prefix_equal64_half(const __be64 *a1,
+ 					      const __be64 *a2,
+ 					      unsigned int len)
+ {
+-	if (len && ((*a1 ^ *a2) & cpu_to_be64(~0UL) << (64 - len)))
++	if (len && ((*a1 ^ *a2) & cpu_to_be64((~0UL) << (64 - len))))
+ 		return false;
+ 	return true;
+ }
+-- 
+1.7.12.1
