@@ -1,34 +1,39 @@
-From: Alan Ott <alan@signal11.us>
-Subject: Re: [PATCH 2/2] 6lowpan: Handle uncompressed IPv6 packets over 6LoWPAN
-Date: Wed, 16 Jan 2013 16:53:03 -0500
-Message-ID: <50F7213F.50601@signal11.us>
-References: <1358315037-10043-1-git-send-email-alan@signal11.us> <1358315037-10043-3-git-send-email-alan@signal11.us> <20130116.162214.444431638469568669.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: remove unneeded dirty_rx index
+Date: Wed, 16 Jan 2013 22:26:22 +0100
+Message-ID: <20130116212622.GA32073@electric-eye.fr.zoreil.com>
+References: <20130115225316.GA924@electric-eye.fr.zoreil.com> <1358319684-32364-1-git-send-email-timo.teras@iki.fi> <20130116.162500.1216966272191204366.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tony.cheneau@amnesiak.org,
-	eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130116.162214.444431638469568669.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:45071 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757323Ab3APVzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:55:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20130116.162500.1216966272191204366.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/16/2013 04:22 PM, David Miller wrote:
-> From: Alan Ott <alan@signal11.us>
-> Date: Wed, 16 Jan 2013 00:43:57 -0500
->
->> +		local_skb = skb_copy_expand(skb, NET_SKB_PAD - 1,
->> +						skb_tailroom(skb), GFP_ATOMIC);
-> This is not indented properly.
->
-> When a function call spans multiple lines, the second and subsequent
-> lines should be indented to the column right after the openning
-> parenthesis of the call itself, using a combination of TAB and
-> SPC characters as needed.
+David Miller <davem@davemloft.net> :
+[...]
+> > @@ -6035,10 +6034,8 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+> >  	unsigned int count;
+> >  
+> >  	cur_rx = tp->cur_rx;
+> > -	rx_left = NUM_RX_DESC + tp->dirty_rx - cur_rx;
+> > -	rx_left = min(rx_left, budget);
+> >  
+> > -	for (; rx_left > 0; rx_left--, cur_rx++) {
+> > +	for (rx_left = min(budget, NUM_RX_DESC); rx_left > 0; rx_left--, cur_rx++) {
+> 
+> Is this really equivalent?  I think cur_rx still needs to be
+> incorporated into whatever you use as the initial rx_left.
 
-Thanks David, I'll fix and re-submit.
+The rx ring can't contain hole so the code above must be read with
+"tp->cur_rx == tp->dirty_rx" in mind.
 
-Alan.
+-- 
+Ueimor
