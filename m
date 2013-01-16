@@ -1,56 +1,62 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V6 0/3] handle polling errors in vhost/vhost_net
-Date: Wed, 16 Jan 2013 23:44:35 +0800
-Message-ID: <1358351078-58915-1-git-send-email-jasowang@redhat.com>
+Subject: [PATCH V6 1/3] vhost_net: correct error handling in vhost_net_set_backend()
+Date: Wed, 16 Jan 2013 23:44:36 +0800
+Message-ID: <1358351078-58915-2-git-send-email-jasowang@redhat.com>
+References: <1358351078-58915-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358351078-58915-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an update version of last version to fix the handling of polling errors
-in vhost/vhost_net.
+Currently, when vhost_init_used() fails the sock refcnt and ubufs were
+leaked. Correct this by calling vhost_init_used() before assign ubufs and
+restore the oldsock when it fails.
 
-Currently, vhost and vhost_net ignore polling errors which can lead kernel
-crashing when it tries to remove itself from waitqueue after the polling
-failure. Fix this by:
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/net.c |   16 +++++++++++-----
+ 1 files changed, 11 insertions(+), 5 deletions(-)
 
-- examing the POLLERR when setting backend and report erros to userspace
-- let tun always add to waitqueue in .poll() after the queue is created even if
-  it was detached.
-
-Changes from V5:
-- use rcu_dereference() instead of the wrong rtnl_dereference() in data path
-- test with CONFIG_PROVE_RCU
-
-Changes from V4:
-- check the detached state by tfile->detached and protect it by RCU
-
-Changes from V3:
-- make a smaller patch that doesn't touch the whole polling state and only check
-  the polliner errors in backend setting.
-- add a patch that allows tuntap to do polling/reading/writing when detached
-  which could simplify the work of its user.
-
-Changes from v2:
-- check poll->wqh instead of the wrong assumption about POLLERR and waitqueue
-- drop the whole tx polling state check since it was replaced by the wqh
-  checking
-- drop the buggy tuntap patch
-
-Changes from v1:
-- restore the state before the ioctl when vhost_init_used() fails
-- log the error when meet polling errors in the data path
-- don't put into waitqueue when tun_chr_poll() return POLLERR
-
-Jason Wang (3):
-  vhost_net: correct error handling in vhost_net_set_backend()
-  vhost_net: handle polling errors when setting backend
-  tuntap: allow polling/writing/reading when detached
-
- drivers/net/tun.c     |   45 ++++++++++++++++++++++++++-------------------
- drivers/vhost/net.c   |   41 ++++++++++++++++++++++++++++-------------
- drivers/vhost/vhost.c |   18 +++++++++++++++---
- drivers/vhost/vhost.h |    2 +-
- 4 files changed, 70 insertions(+), 36 deletions(-)
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index ebd08b2..d10ad6f 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -827,15 +827,16 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 			r = PTR_ERR(ubufs);
+ 			goto err_ubufs;
+ 		}
+-		oldubufs = vq->ubufs;
+-		vq->ubufs = ubufs;
++
+ 		vhost_net_disable_vq(n, vq);
+ 		rcu_assign_pointer(vq->private_data, sock);
+-		vhost_net_enable_vq(n, vq);
+-
+ 		r = vhost_init_used(vq);
+ 		if (r)
+-			goto err_vq;
++			goto err_used;
++		vhost_net_enable_vq(n, vq);
++
++		oldubufs = vq->ubufs;
++		vq->ubufs = ubufs;
+ 
+ 		n->tx_packets = 0;
+ 		n->tx_zcopy_err = 0;
+@@ -859,6 +860,11 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
+ 	mutex_unlock(&n->dev.mutex);
+ 	return 0;
+ 
++err_used:
++	rcu_assign_pointer(vq->private_data, oldsock);
++	vhost_net_enable_vq(n, vq);
++	if (ubufs)
++		vhost_ubuf_put_and_wait(ubufs);
+ err_ubufs:
+ 	fput(sock->file);
+ err_vq:
+-- 
+1.7.1
