@@ -1,32 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: fix qdisc_pkt_len_init()
-Date: Wed, 16 Jan 2013 00:41:41 -0500 (EST)
-Message-ID: <20130116.004141.1061388869492706897.davem@davemloft.net>
-References: <1358313261.19956.12.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yuvalmin@broadcom.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55461 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750877Ab3APFmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 00:42:06 -0500
-In-Reply-To: <1358313261.19956.12.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alan Ott <alan@signal11.us>
+Subject: [PATCH 2/2] 6lowpan: Handle uncompressed IPv6 packets over 6LoWPAN
+Date: Wed, 16 Jan 2013 00:43:57 -0500
+Message-ID: <1358315037-10043-3-git-send-email-alan@signal11.us>
+References: <1358315037-10043-1-git-send-email-alan@signal11.us>
+Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Tony Cheneau <tony.cheneau@amnesiak.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alan Ott <alan@signal11.us>
+To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358315037-10043-1-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Jan 2013 21:14:21 -0800
+Handle the reception of uncompressed packets (dispatch type = IPv6).
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 1def9238d4aa2 (net_sched: more precise pkt_len computation)
-> does a wrong computation of mac + network headers length, as it includes
-> the padding before the frame.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Alan Ott <alan@signal11.us>
+---
+ net/ieee802154/6lowpan.c | 41 ++++++++++++++++++++++++++++++++---------
+ 1 file changed, 32 insertions(+), 9 deletions(-)
 
-Applied.
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index 1714cfa..43bd1c0 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -1147,19 +1147,42 @@ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		goto drop;
+ 
+ 	/* check that it's our buffer */
+-	switch (skb->data[0] & 0xe0) {
+-	case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
+-	case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
+-	case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
+-		local_skb = skb_clone(skb, GFP_ATOMIC);
++	if (skb->data[0] == LOWPAN_DISPATCH_IPV6) {
++		/* Copy the packet so that the IPv6 header is
++		 * properly aligned.
++		 */
++		local_skb = skb_copy_expand(skb, NET_SKB_PAD - 1,
++						skb_tailroom(skb), GFP_ATOMIC);
+ 		if (!local_skb)
+ 			goto drop;
+-		lowpan_process_data(local_skb);
+ 
++		local_skb->protocol = htons(ETH_P_IPV6);
++		local_skb->pkt_type = PACKET_HOST;
++
++		/* Pull off the 1-byte of 6lowpan header. */
++		skb_pull(local_skb, 1);
++		skb_reset_network_header(local_skb);
++		skb_set_transport_header(local_skb, sizeof(struct ipv6hdr));
++
++		lowpan_give_skb_to_devices(local_skb);
++
++		kfree_skb(local_skb);
+ 		kfree_skb(skb);
+-		break;
+-	default:
+-		break;
++	} else {
++		switch (skb->data[0] & 0xe0) {
++		case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
++		case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
++		case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
++			local_skb = skb_clone(skb, GFP_ATOMIC);
++			if (!local_skb)
++				goto drop;
++			lowpan_process_data(local_skb);
++
++			kfree_skb(skb);
++			break;
++		default:
++			break;
++		}
+ 	}
+ 
+ 	return NET_RX_SUCCESS;
+-- 
+1.7.11.2
