@@ -1,167 +1,141 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [RFC PATCH 1/3] Avoid making inappropriate requests of
- NETIF_F_V[46]_CSUM devices
-Date: Wed, 16 Jan 2013 22:34:18 +0000
-Message-ID: <1358375658.2397.69.camel@shinybook.infradead.org>
-References: <1358165431.27054.62.camel@shinybook.infradead.org>
-	 <20130116.155406.351676228334066120.davem@davemloft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: BUG when hot docking my laptop (v3.8-rc3-273-g3152ba0)
+Date: Thu, 17 Jan 2013 09:39:31 +1100
+Message-ID: <20130117093931.834661692f06cf1d5b7807ca@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-LD6iM9J44KDhmsQIYpMG"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:45175 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756310Ab3APWeV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 17:34:21 -0500
-In-Reply-To: <20130116.155406.351676228334066120.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__17_Jan_2013_09_39_31_+1100_QaOUFjB6mFqnjPt0"
+Cc: netdev@vger.kernel.org, linux-pci@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---=-LD6iM9J44KDhmsQIYpMG
-Content-Type: text/plain; charset="UTF-8"
+--Signature=_Thu__17_Jan_2013_09_39_31_+1100_QaOUFjB6mFqnjPt0
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Wed, 2013-01-16 at 15:54 -0500, David Miller wrote:
->=20
-> My opinion on this is that the injectors of packets are responsible
-> for ensuring checksum types are set on SKBs in an appropriate way.
->=20
-> So we ensure this in the local protocol stacks that generate packets,
-> and if foreign alien entities can inject SKBs with these checksum
-> settings (like the tun device can) the burdon of verification falls
-> upon whatever layer allows that to happen.
->=20
-> So really, the fix is in the tun device and the virtio layer.
+Hi all,
 
-The virtio layer (and the tun device) expose the equivalent of the
-NETIF_F_HW_CSUM capability to the guest. In the case where we have a
-real device on the host which *also* has NETIF_F_HW_CSUM capability, are
-you saying that the tun driver should do the checksum for non-UDP/TCP
-packets in software *anyway*, just because the packet might end up going
-out a device *without* that capability, and the check in
-harmonize_features() isn't sophisticated enough to cope properly?
+This morning when I hot docked my laptop (after it actually resumed for
+once!) it produced this BUG message:
+
+[16045.661684] genirq: Flags mismatch irq 46. 00000000 (eth0) vs. 00000000 =
+(eth0)
+[16045.661749] ------------[ cut here ]------------
+[16045.661827] kernel BUG at drivers/pci/msi.c:346!
+[16045.661902] invalid opcode: 0000 [#1] SMP=20
+[16045.661974] Modules linked in: xhci_hcd hid_generic usbhid hid ip6table_=
+filter ip6_tables iptable_filter ip_tables x_tables tun bnep rfcomm cpufreq=
+_conservative cpufreq_stats cpufreq_powersave cpufreq_userspace uinput defl=
+ate zlib_deflate ctr twofish_generic twofish_x86_64_3way twofish_x86_64 two=
+fish_common camellia_generic camellia_x86_64 serpent_sse2_x86_64 serpent_ge=
+neric glue_helper lrw xts gf128mul blowfish_generic blowfish_x86_64 blowfis=
+h_common cast5_generic cast_common ablk_helper cryptd des_generic cbc xcbc =
+rmd160 sha512_generic sha256_generic sha1_ssse3 sha1_generic hmac crypto_nu=
+ll af_key xfrm_algo nf_conntrack_ftp nf_conntrack loop fuse dm_crypt dm_mod=
+ snd_hda_codec_hdmi btusb bluetooth iTCO_wdt arc4 iTCO_vendor_support snd_h=
+da_codec_conexant iwldvm mac80211 sg sr_mod cdrom coretemp kvm_intel kvm cr=
+c32c_intel pcspkr psmouse serio_raw firewire_ohci i7core_edac edac_core fir=
+ewire_core thinkpad_acpi lpc_ich i2c_i801 mfd_core crc_itu_t nvram battery =
+ac snd_seq_midi nouve
+au sdhci_pci acpi_cpufreq sdhci mperf mmc_core snd_hda_intel snd_rawmidi sn=
+d_hda_codec snd_hwdep iwlwifi snd_pcm_oss video snd_seq_midi_event mxm_wmi =
+snd_mixer_oss cfg80211 wmi ehci_pci ehci_hcd snd_pcm snd_seq usbcore rfkill=
+ usb_common snd_seq_device snd_page_alloc snd_timer button drm_kms_helper e=
+1000e ttm snd drm processor i2c_algo_bit i2c_core soundcore microcode therm=
+al thermal_sys [last unloaded: xhci_hcd]
+[16045.664620] CPU 6=20
+[16045.664668] Pid: 8840, comm: ifconfig Not tainted 3.8.0-rc3+ #1 LENOVO 4=
+389A97/4389A97
+[16045.664828] RIP: 0010:[<ffffffff8120a3a3>]  [<ffffffff8120a3a3>] free_ms=
+i_irqs+0x56/0x107
+[16045.664962] RSP: 0018:ffff8801296e9c48  EFLAGS: 00010282
+[16045.665043] RAX: ffff880127be1d80 RBX: ffff88012a5fb9c0 RCX: 00000000fff=
+ffffa
+[16045.665161] RDX: 0000000000000000 RSI: 000000000000002e RDI: 00000000000=
+00000
+[16045.665298] RBP: ffff880131d2a000 R08: ffff880133000050 R09: 00000000000=
+00030
+[16045.665447] R10: 00000000000000c8 R11: 0000000000000000 R12: 00000000000=
+00000
+[16045.665589] R13: ffff880131d2a848 R14: 0000000000000001 R15: 00000000000=
+00000
+[16045.665728] FS:  0000000000000000(0000) GS:ffff880137d80000(0063) knlGS:=
+00000000f765c8d0
+[16045.665894] CS:  0010 DS: 002b ES: 002b CR0: 000000008005003b
+[16045.666010] CR2: 0000000008062e00 CR3: 00000001104aa000 CR4: 00000000000=
+007e0
+[16045.666153] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 00000000000=
+00000
+[16045.666300] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 00000000000=
+00400
+[16045.666456] Process ifconfig (pid: 8840, threadinfo ffff8801296e8000, ta=
+sk ffff88013083f6a0)
+[16045.666636] Stack:
+[16045.666686]  ffff880131d2a000 ffff880130af0000 0000000000000000 ffff8801=
+31d2a098
+[16045.666869]  0000000000000001 ffffffff8120ae37 ffff880130af07c0 ffffffff=
+a00ec658
+[16045.667031]  ffff880130af07c0 ffffffffa00ec924 ffff880130af0000 ffff8801=
+30af07c0
+[16045.667209] Call Trace:
+[16045.667277]  [<ffffffff8120ae37>] ? pci_disable_msi+0x28/0x41
+[16045.667448]  [<ffffffffa00ec658>] ? e1000e_reset_interrupt_capability+0x=
+48/0x54 [e1000e]
+[16045.667654]  [<ffffffffa00ec924>] ? e1000_request_irq+0x1d2/0x249 [e1000=
+e]
+[16045.667807]  [<ffffffffa00eecdd>] ? e1000_open+0xe7/0x393 [e1000e]
+[16045.667931]  [<ffffffff81399c14>] ? notifier_call_chain+0x2e/0x59
+[16045.668068]  [<ffffffff812e63ca>] ? __dev_open+0x8c/0xce
+[16045.668184]  [<ffffffff812e65d1>] ? __dev_change_flags+0x9d/0x118
+[16045.668310]  [<ffffffff812e66b2>] ? dev_change_flags+0x12/0x42
+[16045.668429]  [<ffffffff813308e7>] ? devinet_ioctl+0x247/0x53d
+[16045.668553]  [<ffffffff812e6e4a>] ? dev_ioctl+0x46d/0x5d4
+[16045.668674]  [<ffffffff812d252a>] ? sock_do_ioctl+0x1b/0x36
+[16045.668806]  [<ffffffff812d3458>] ? compat_sock_ioctl+0xaf5/0xb68
+[16045.668951]  [<ffffffff811a0553>] ? file_has_perm+0x6b/0x74
+[16045.669073]  [<ffffffff8112a99b>] ? compat_sys_ioctl+0x1bf/0x10bc
+[16045.669207]  [<ffffffff810e6ca5>] ? kmem_cache_alloc+0x4f/0xbd
+[16045.669330]  [<ffffffff8139d11c>] ? sysenter_dispatch+0x7/0x21
+[16045.669444] Code: eb 10 eb 33 8a 0b 41 be 01 00 00 00 45 31 e4 d0 e9 83 =
+e1 07 41 d3 e6 eb 17 8b 7b 0c 44 01 e7 e8 90 30 e8 ff 48 83 78 58 00 74 02 =
+<0f> 0b 41 ff c4 45 39 f4 7c e4 eb c3 48 8d 43 10 49 39 c5 75 b4=20
+[16045.670155] RIP  [<ffffffff8120a3a3>] free_msi_irqs+0x56/0x107
+[16045.670288]  RSP <ffff8801296e9c48>
+
+This is v3.8-rc3-273-g3152ba0, config at
+http://ozlabs.org/~sfr/config.oops, "lspci -vv -k output at
+http://ozlabs.org/~sfr/lspci.oops
+
+The laptop continued running enough for me to switch back to X and shut
+it down.
 
 --=20
-dwmw2
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
+--Signature=_Thu__17_Jan_2013_09_39_31_+1100_QaOUFjB6mFqnjPt0
+Content-Type: application/pgp-signature
 
---=-LD6iM9J44KDhmsQIYpMG
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE2MjIzNDE4WjAjBgkqhkiG9w0BCQQx
-FgQUQA61VRbFi4Z/JLAR1eXH70hVtvwwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQClbdrT1iTvi6dVNZCJu4/zwHEr
-C2lWWBAklNDD6zwqu6pb42ydBOzDkEcjN1dvelFFl2RY2D1sUOgLOEGWYQV2Sn9RUSQ3/33iGCrm
-jKAmYtWYzwdY1JRmWldSOc8WsLGmqf5PYCfAwFqV7Fg3YgziFoWQiq44X9QKsbvqfAFlKkyfUBGx
-my2CrOOgae3TsPQ+XqWSxmeWXIbn46rIcqWjYhcTp55dYvSD/khQylKix53tq9OBowQr6gqUKilo
-8myRKtFuicv40SegGuoQ9EZapXy8PWqzN3z2lDMMKWBIW7TfkVREjIDxd/lQMIslHKReLaUc+HRK
-HDgeDs5AyhZWAAAAAAAA
+iQIcBAEBCAAGBQJQ9ywjAAoJEECxmPOUX5FEO0IP/0BnF/DjDGQ4vuUK56N0qoMo
+RASi8VB4Tj0RT6MxuqkyrsHOn16dP2bGGncQrS1U24+H9IkXLBdOS7+Wf9P6IBjB
+Cj+sNC2S1waLVS0Sr9DqbDwaAEMqIxWoEF1CrWfxNF0FIC6+3dU0GQjJhqusMklp
+zndd1auduxwqEVmibw+UBCcEFNGV8FLXWdPe8+SD/kVNDo2Op+eihIDSjujY1RBs
+s97us6MKqNG8VtSxWpSwDDXB2CNvauhRCxAcmOkAgys6Tr4EiE/5h5clU7Thafhe
+77sbAJ5+vzUhaA/YJYVIKSaD3cwAAulkAB92AQjcLQBzQk8H2D2c5XtoFPG9PTeF
+rZ3FglBT7GTllmgPrrzghiDm8/gjc7LEt8/nvYnDkwAprrVGMNFVZIJLZdwDp/DF
+F315wizdLQKqjNGwjfPGAfMCIOyg3oh+iqCLNp9wMsrga0tepBdc2lF153hXQ9T+
+/I7yS1oAXbgTf6qrc7QxB02k2MGyo/KqVz0jYn6dc3Expxf4vSkegLRYbZYpTVpO
+QMh6X4jt0DyWN2WNRqOFChH0rJMYNdfr1VPwiFTIyOO4M2FPfKVYzz0Y4+zJ9tv8
+6k/2OrnmJw/J7ZfSQvHwjxBpZa1JP4/Rjs7WmvImDwMQR2tJQsbWtcvtCjSXLdvQ
+VGI52y59izxIe5N7n7qP
+=ZcuK
+-----END PGP SIGNATURE-----
 
-
---=-LD6iM9J44KDhmsQIYpMG--
+--Signature=_Thu__17_Jan_2013_09_39_31_+1100_QaOUFjB6mFqnjPt0--
