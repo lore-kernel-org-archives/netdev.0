@@ -1,54 +1,53 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 7/7] net/mlx4_en: Initialize RFS filters lock and list in init_netdev
-Date: Wed, 16 Jan 2013 17:42:15 +0200
-Message-ID: <1358350935-3281-8-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 6/7] net/mlx4_en: Fix a race when closing TX queue
+Date: Wed, 16 Jan 2013 17:42:14 +0200
+Message-ID: <1358350935-3281-7-git-send-email-amirv@mellanox.com>
 References: <1358350935-3281-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:57635 "HELO
-	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755728Ab3APPnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 10:43:03 -0500
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:43597 "HELO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754064Ab3APPmp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 10:42:45 -0500
 In-Reply-To: <1358350935-3281-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-filters_lock might have been used while it was re-initialized.
-Moved filters_lock and filters_list initialization to init_netdev instead of
-alloc_resources which is called every time the device is configured.
+There is a possible race where the TX completion handler can clean the
+entire TX queue between the decision that the queue is full and actually
+closing it. To avoid this situation, check again if the queue is really
+full, if not, reopen the transmit and continue with sending the packet.
 
+Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c |    9 ++++++++-
+ 1 files changed, 8 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 108c4cf..f297d4c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1455,9 +1455,6 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- 	priv->dev->rx_cpu_rmap = alloc_irq_cpu_rmap(priv->rx_ring_num);
- 	if (!priv->dev->rx_cpu_rmap)
- 		goto err;
--
--	INIT_LIST_HEAD(&priv->filters);
--	spin_lock_init(&priv->filters_lock);
- #endif
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 2b799f4..1d17f5f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -592,7 +592,14 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		netif_tx_stop_queue(ring->tx_queue);
+ 		priv->port_stats.queue_stopped++;
  
- 	return 0;
-@@ -1652,6 +1649,11 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	if (err)
- 		goto out;
+-		return NETDEV_TX_BUSY;
++		/* Check again whether the queue was cleaned */
++		if (unlikely(((int)(ring->prod - ring->cons)) <=
++				ring->size - HEADROOM - MAX_DESC_TXBBS)) {
++			netif_tx_wake_queue(ring->tx_queue);
++			priv->port_stats.wake_queue++;
++		} else {
++			return NETDEV_TX_BUSY;
++		}
+ 	}
  
-+#ifdef CONFIG_RFS_ACCEL
-+	INIT_LIST_HEAD(&priv->filters);
-+	spin_lock_init(&priv->filters_lock);
-+#endif
-+
- 	/* Allocate page for receive rings */
- 	err = mlx4_alloc_hwq_res(mdev->dev, &priv->res,
- 				MLX4_EN_PAGE_SIZE, MLX4_EN_PAGE_SIZE);
+ 	/* Track current inflight packets for performance analysis */
 -- 
 1.7.8.2
