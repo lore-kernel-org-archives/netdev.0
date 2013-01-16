@@ -1,126 +1,87 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next 1/2] xfrm: replace rwlock on xfrm_state_afinfo with rcu
-Date: Wed, 16 Jan 2013 16:05:05 +0800
-Message-ID: <1358323506-19571-1-git-send-email-amwang@redhat.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: fix GRO parameters
+Date: Wed, 16 Jan 2013 09:01:52 +0200
+Message-ID: <50F65060.5000901@broadcom.com>
+References: <50F50537.3030608@broadcom.com>
+ <1358260752.8744.5677.camel@edumazet-glaptop>
+ <50F56178.8000502@broadcom.com>
+ <20130115.150914.729025796621947521.davem@davemloft.net>
+ <1358312188.19956.1.camel@edumazet-glaptop>
+ <1358314662.19956.51.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Eilon Greenstein" <eilong@broadcom.com>, ariele@broadcom.com
+To: "Eric Dumazet" <erdnetdev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:19315 "EHLO mx1.redhat.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2812 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752471Ab3APIGd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2013 03:06:33 -0500
+	id S1753963Ab3APILn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 03:11:43 -0500
+In-Reply-To: <1358314662.19956.51.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+> -static u16 bnx2x_set_lro_mss(struct bnx2x *bp, u16 parsing_flags,
+> -			     u16 len_on_bd)
+> +static void bnx2x_set_gro_params(struct sk_buff *skb, struct bnx2x *bp,
+> +				 u16 parsing_flags, u16 len_on_bd,
+> +				 unsigned int pkt_len)
 
-Similar to commit 418a99ac6ad487dc9c42e6b0e85f941af56330f2
-(Replace rwlock on xfrm_policy_afinfo with rcu), the rwlock
-on xfrm_state_afinfo can be replaced by RCU too.
+This is purely semantic, but our convention is for `struct bnx2x' to be
+the first argument in our functions.
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/xfrm/xfrm_state.c |   33 ++++++++++++++++-----------------
- 1 files changed, 16 insertions(+), 17 deletions(-)
+>  {
+>  	/*
+> -	 * TPA arrgregation won't have either IP options or TCP options
+> +	 * TPA aggregation won't have either IP options or TCP options
+>  	 * other than timestamp or IPv6 extension headers.
+>  	 */
+>  	u16 hdrs_len = ETH_HLEN + sizeof(struct tcphdr);
 
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 3459692..f567716 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -158,8 +158,8 @@ out_unlock:
- 	mutex_unlock(&hash_resize_mutex);
- }
- 
--static DEFINE_RWLOCK(xfrm_state_afinfo_lock);
--static struct xfrm_state_afinfo *xfrm_state_afinfo[NPROTO];
-+static DEFINE_SPINLOCK(xfrm_state_afinfo_lock);
-+static struct xfrm_state_afinfo __rcu *xfrm_state_afinfo[NPROTO];
- 
- static DEFINE_SPINLOCK(xfrm_state_gc_lock);
- 
-@@ -173,17 +173,16 @@ static struct xfrm_state_afinfo *xfrm_state_lock_afinfo(unsigned int family)
- 	struct xfrm_state_afinfo *afinfo;
- 	if (unlikely(family >= NPROTO))
- 		return NULL;
--	write_lock_bh(&xfrm_state_afinfo_lock);
-+	spin_lock_bh(&xfrm_state_afinfo_lock);
- 	afinfo = xfrm_state_afinfo[family];
- 	if (unlikely(!afinfo))
--		write_unlock_bh(&xfrm_state_afinfo_lock);
-+		spin_unlock_bh(&xfrm_state_afinfo_lock);
- 	return afinfo;
- }
- 
- static void xfrm_state_unlock_afinfo(struct xfrm_state_afinfo *afinfo)
--	__releases(xfrm_state_afinfo_lock)
- {
--	write_unlock_bh(&xfrm_state_afinfo_lock);
-+	spin_unlock_bh(&xfrm_state_afinfo_lock);
- }
- 
- int xfrm_register_type(const struct xfrm_type *type, unsigned short family)
-@@ -1848,12 +1847,12 @@ int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo)
- 		return -EINVAL;
- 	if (unlikely(afinfo->family >= NPROTO))
- 		return -EAFNOSUPPORT;
--	write_lock_bh(&xfrm_state_afinfo_lock);
-+	spin_lock_bh(&xfrm_state_afinfo_lock);
- 	if (unlikely(xfrm_state_afinfo[afinfo->family] != NULL))
- 		err = -ENOBUFS;
- 	else
--		xfrm_state_afinfo[afinfo->family] = afinfo;
--	write_unlock_bh(&xfrm_state_afinfo_lock);
-+		rcu_assign_pointer(xfrm_state_afinfo[afinfo->family], afinfo);
-+	spin_unlock_bh(&xfrm_state_afinfo_lock);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_state_register_afinfo);
-@@ -1865,14 +1864,15 @@ int xfrm_state_unregister_afinfo(struct xfrm_state_afinfo *afinfo)
- 		return -EINVAL;
- 	if (unlikely(afinfo->family >= NPROTO))
- 		return -EAFNOSUPPORT;
--	write_lock_bh(&xfrm_state_afinfo_lock);
-+	spin_lock_bh(&xfrm_state_afinfo_lock);
- 	if (likely(xfrm_state_afinfo[afinfo->family] != NULL)) {
- 		if (unlikely(xfrm_state_afinfo[afinfo->family] != afinfo))
- 			err = -EINVAL;
- 		else
--			xfrm_state_afinfo[afinfo->family] = NULL;
-+			RCU_INIT_POINTER(xfrm_state_afinfo[afinfo->family], NULL);
- 	}
--	write_unlock_bh(&xfrm_state_afinfo_lock);
-+	spin_unlock_bh(&xfrm_state_afinfo_lock);
-+	synchronize_rcu();
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_state_unregister_afinfo);
-@@ -1882,17 +1882,16 @@ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned int family)
- 	struct xfrm_state_afinfo *afinfo;
- 	if (unlikely(family >= NPROTO))
- 		return NULL;
--	read_lock(&xfrm_state_afinfo_lock);
--	afinfo = xfrm_state_afinfo[family];
-+	rcu_read_lock();
-+	afinfo = rcu_dereference(xfrm_state_afinfo[family]);
- 	if (unlikely(!afinfo))
--		read_unlock(&xfrm_state_afinfo_lock);
-+		rcu_read_unlock();
- 	return afinfo;
- }
- 
- static void xfrm_state_put_afinfo(struct xfrm_state_afinfo *afinfo)
--	__releases(xfrm_state_afinfo_lock)
- {
--	read_unlock(&xfrm_state_afinfo_lock);
-+	rcu_read_unlock();
- }
- 
- /* Temporarily located here until net/xfrm/xfrm_tunnel.c is created */
--- 
-1.7.7.6
+TPA_MODE_LRO indicates that an LRO aggregation was made by our FW. It seems
+like your patch  eliminates the difference in configuration between the two
+(GRO and LRO)
+
+perhaps instead we should do something like:
+
++ static void bnx2x_set_lro_params(struct bnx2x *bp, struct sk_buff *skb,
++ 				   u16 parsing_flags, u16 len_on_bd,
++ 				   unsigned int pkt_len,
++				   bnx2x_tpa_mode_t mode)
+
+And arrange its suggested code so that only gso_size will be set for LRO.
+
+>  
+>  	if (GET_FLAG(parsing_flags, PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
+> -	    PRS_FLAG_OVERETH_IPV6)
+> +	    PRS_FLAG_OVERETH_IPV6) {
+>  		hdrs_len += sizeof(struct ipv6hdr);
+> -	else /* IPv4 */
+> +		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+> +	} else {
+>  		hdrs_len += sizeof(struct iphdr);
+> -
+> +		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+> +	}
+>  
+
+
+
+>  #ifdef BNX2X_STOP_ON_ERROR
+> @@ -651,7 +655,7 @@ static void bnx2x_gro_receive(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+>  			       struct sk_buff *skb)
+>  {
+>  #ifdef CONFIG_INET
+> -	if (fp->mode == TPA_MODE_GRO && skb_shinfo(skb)->gso_size) {
+> +	if (skb_shinfo(skb)->gso_size) {
+
+This also seems like an incorrect removal, as TPA_MODE_LRO is (again)
+a feasible option, and we wouldn't want the a `gro_complete' here.
+
+>  		skb_set_network_header(skb, 0);
+>  		switch (be16_to_cpu(skb->protocol)) {
+>  		case ETH_P_IP:
+> 
