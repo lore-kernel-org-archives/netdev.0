@@ -1,99 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipv4: Remove output route check in ipv4_mtu
-Date: Wed, 16 Jan 2013 10:58:13 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1301160915030.1621@ja.ssi.bg>
-References: <20130116063645.GC18940@secunet.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
-	luky-37@hotmail.com, pupilla@libero.it, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net 2/2] ixgbe: Fix overwriting of rx_mtrl in ixgbe_ptp_hwtstamp_ioctl
+Date: Wed, 16 Jan 2013 01:03:49 -0800
+Message-ID: <1358327029-13340-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1358327029-13340-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:54530 "EHLO ja.ssi.bg"
+Received: from mga03.intel.com ([143.182.124.21]:57242 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932108Ab3APIzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2013 03:55:25 -0500
-In-Reply-To: <20130116063645.GC18940@secunet.com>
+	id S932287Ab3APJDz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 04:03:55 -0500
+In-Reply-To: <1358327029-13340-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-	Hello,
+This patch corrects a bug introduced by commit f3444d8b. The rxmtrl value for
+the UDP port to timestamp on was moved above the switch statement, but was
+overwritten to 0 if the ioctl selected one of the V1 filters.
 
-On Wed, 16 Jan 2013, Steffen Klassert wrote:
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> The output route check was introduced with git commit 261663b0
-> (ipv4: Don't use the cached pmtu informations for input routes)
-> during times when we cached the pmtu informations on the
-> inetpeer. Now the pmtu informations are back in the routes,
-> so this check is obsolete. It also had some unwanted side effects,
-> as reported by Timo Teras and Lukas Tribus.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv4/route.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 844a9ef..6e4a89c 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1120,7 +1120,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
->  	if (!mtu || time_after_eq(jiffies, rt->dst.expires))
->  		mtu = dst_metric_raw(dst, RTAX_MTU);
->  
-> -	if (mtu && rt_is_output_route(rt))
-> +	if (mtu)
->  		return mtu;
-
-	This fix looks good to me. But I see that we
-have another problem here. doc/ip-cref.tex in iproute2
-claims that a locked MTU value has priority and
-PMTU should not be considered.
-
-	IIRC, rt_pmtu is valid only for output routes but
-we do not check the lock flag here. What about such
-variant:
-
-static unsigned int ipv4_mtu(const struct dst_entry *dst)
-{
-	const struct rtable *rt = (const struct rtable *) dst;
-	unsigned int mtu = rt->rt_pmtu;
-
-	if (unlikely(dst_metric_locked(dst, RTAX_MTU))) {
-		mtu = dst_metric_raw(dst, RTAX_MTU);
-		if (!mtu) {
-			mtu = dst->dev->mtu;
-			if (rt->rt_uses_gateway && mtu > 576)
-				mtu = 576;
-		}
-	} else if (!mtu || time_after_eq(jiffies, rt->dst.expires)) {
-		mtu = dst_metric_raw(dst, RTAX_MTU);
-		if (!mtu)
-			mtu = dst->dev->mtu;
-	}
-	if (mtu > IP_MAX_MTU)
-		mtu = IP_MAX_MTU;
-
-	return mtu;
-}
-
-	I.e. order becomes:
-
-mtu lock non-zero => fixed fib_mtu
-mtu lock 0 => device MTU, up to 576 if via GW, ignore PMTU
-PMTU (output routes)
-mtu non-zero => fib_mtu
-device MTU
-
-	Also, it seems __ip_rt_update_pmtu should start
-with such dst_metric_locked(dst, RTAX_MTU) check?
-
->  	mtu = dst->dev->mtu;
-> -- 
-> 1.7.9.5
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+index 1a751c9..bb9256a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
+@@ -660,11 +660,11 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
+-		tsync_rx_mtrl = IXGBE_RXMTRL_V1_SYNC_MSG;
++		tsync_rx_mtrl |= IXGBE_RXMTRL_V1_SYNC_MSG;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
+-		tsync_rx_mtrl = IXGBE_RXMTRL_V1_DELAY_REQ_MSG;
++		tsync_rx_mtrl |= IXGBE_RXMTRL_V1_DELAY_REQ_MSG;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
+-- 
+1.7.11.7
