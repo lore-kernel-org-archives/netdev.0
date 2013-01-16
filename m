@@ -1,45 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sk-filter: Add ability to lock a socket filter program
-Date: Wed, 16 Jan 2013 16:20:12 -0500 (EST)
-Message-ID: <20130116.162012.1782638746075880444.davem@davemloft.net>
-References: <1358296955-30582-1-git-send-email-bernat@luffy.cx>
+Subject: Re: [PATCH 2/2] 6lowpan: Handle uncompressed IPv6 packets over
+ 6LoWPAN
+Date: Wed, 16 Jan 2013 16:22:14 -0500 (EST)
+Message-ID: <20130116.162214.444431638469568669.davem@davemloft.net>
+References: <1358315037-10043-1-git-send-email-alan@signal11.us>
+	<1358315037-10043-3-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: bernat@luffy.cx
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39350 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755989Ab3APVUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:20:14 -0500
-In-Reply-To: <1358296955-30582-1-git-send-email-bernat@luffy.cx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tony.cheneau@amnesiak.org,
+	eric.dumazet@gmail.com
+To: alan@signal11.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358315037-10043-3-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vincent Bernat <bernat@luffy.cx>
-Date: Wed, 16 Jan 2013 01:42:34 +0100
+From: Alan Ott <alan@signal11.us>
+Date: Wed, 16 Jan 2013 00:43:57 -0500
 
-> While a privileged program can open a raw socket, attach some
-> restrictive filter and drop its privileges (or send the socket to an
-> unprivileged program through some Unix socket), the filter can still
-> be removed or modified by the unprivileged program. This commit adds a
-> socket option to lock the filter (SO_LOCK_FILTER) preventing any
-> modification of a socket filter program.
-> 
-> This is similar to OpenBSD BIOCLOCK ioctl on bpf sockets, except even
-> root is not allowed change/drop the filter.
-> 
-> The state of the lock can be read with getsockopt(). No error is
-> triggered if the state is not changed. -EPERM is returned when a user
-> tries to remove the lock or to change/remove the filter while the lock
-> is active. The check is done directly in sk_attach_filter() and
-> sk_detach_filter() and does not affect only setsockopt() syscall.
-> 
-> Signed-off-by: Vincent Bernat <bernat@luffy.cx>
+> +		local_skb = skb_copy_expand(skb, NET_SKB_PAD - 1,
+> +						skb_tailroom(skb), GFP_ATOMIC);
 
-I'm fine with this feature but:
+This is not indented properly.
 
-> +SO_LOCK_FILTER ioctl allows to lock the filter attached to a
-
-It's not an ioctl, it's a socket option.
+When a function call spans multiple lines, the second and subsequent
+lines should be indented to the column right after the openning
+parenthesis of the call itself, using a combination of TAB and
+SPC characters as needed.
