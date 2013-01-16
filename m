@@ -1,181 +1,122 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V5 2/3] vhost_net: handle polling errors when setting
- backend
-Date: Wed, 16 Jan 2013 13:00:15 +0200
-Message-ID: <20130116110015.GC13470@redhat.com>
-References: <1358332441-26859-1-git-send-email-jasowang@redhat.com>
- <1358332441-26859-3-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1358332441-26859-3-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [RFC Patch net-next] tcp: add a global sysctl to control TCP delayed ack
+Date: Wed, 16 Jan 2013 19:05:45 +0800
+Message-ID: <1358334345-28980-1-git-send-email-amwang@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40987 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751106Ab3APLGK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 06:06:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 16, 2013 at 06:34:00PM +0800, Jason Wang wrote:
-> Currently, the polling errors were ignored, which can lead following issues:
-> 
-> - vhost remove itself unconditionally from waitqueue when stopping the poll,
->   this may crash the kernel since the previous attempt of starting may fail to
->   add itself to the waitqueue
-> - userspace may think the backend were successfully set even when the polling
->   failed.
-> 
-> Solve this by:
-> 
-> - check poll->wqh before trying to remove from waitqueue
-> - report polling errors in vhost_poll_start(), tx_poll_start(), the return value
->   will be checked and returned when userspace want to set the backend
-> 
-> After this fix, there still could be a polling failure after backend is set, it
-> will addressed by the next patch.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+According to previous discussion, it seems there is no
+reasonable heuristics.
 
+Similar to TCP_QUICK_ACK option, but for people who can't
+modify the source code and still wants to control
+TCP delayed ACK behavior.
 
-Looks ok but needs to be considered together with the next one,
-to make sure we cover all cases.
+Makes any sense?
 
-> ---
->  drivers/vhost/net.c   |   27 ++++++++++++++++++---------
->  drivers/vhost/vhost.c |   18 +++++++++++++++---
->  drivers/vhost/vhost.h |    2 +-
->  3 files changed, 34 insertions(+), 13 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index d10ad6f..959b1cd 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -165,12 +165,16 @@ static void tx_poll_stop(struct vhost_net *net)
->  }
->  
->  /* Caller must have TX VQ lock */
-> -static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-> +static int tx_poll_start(struct vhost_net *net, struct socket *sock)
->  {
-> +	int ret;
-> +
->  	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
-> -		return;
-> -	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
-> -	net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> +		return 0;
-> +	ret = vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
-> +	if (!ret)
-> +		net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> +	return ret;
->  }
->  
->  /* In case of DMA done not in order in lower device driver for some reason.
-> @@ -642,20 +646,23 @@ static void vhost_net_disable_vq(struct vhost_net *n,
->  		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
->  }
->  
-> -static void vhost_net_enable_vq(struct vhost_net *n,
-> +static int vhost_net_enable_vq(struct vhost_net *n,
->  				struct vhost_virtqueue *vq)
->  {
->  	struct socket *sock;
-> +	int ret;
->  
->  	sock = rcu_dereference_protected(vq->private_data,
->  					 lockdep_is_held(&vq->mutex));
->  	if (!sock)
-> -		return;
-> +		return 0;
->  	if (vq == n->vqs + VHOST_NET_VQ_TX) {
->  		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
-> -		tx_poll_start(n, sock);
-> +		ret = tx_poll_start(n, sock);
->  	} else
-> -		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +		ret = vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +
-> +	return ret;
->  }
->  
->  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
-> @@ -833,7 +840,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  		r = vhost_init_used(vq);
->  		if (r)
->  			goto err_used;
-> -		vhost_net_enable_vq(n, vq);
-> +		r = vhost_net_enable_vq(n, vq);
-> +		if (r)
-> +			goto err_used;
->  
->  		oldubufs = vq->ubufs;
->  		vq->ubufs = ubufs;
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 34389f7..9759249 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -77,26 +77,38 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  	init_poll_funcptr(&poll->table, vhost_poll_func);
->  	poll->mask = mask;
->  	poll->dev = dev;
-> +	poll->wqh = NULL;
->  
->  	vhost_work_init(&poll->work, fn);
->  }
->  
->  /* Start polling a file. We add ourselves to file's wait queue. The caller must
->   * keep a reference to a file until after vhost_poll_stop is called. */
-> -void vhost_poll_start(struct vhost_poll *poll, struct file *file)
-> +int vhost_poll_start(struct vhost_poll *poll, struct file *file)
->  {
->  	unsigned long mask;
-> +	int ret = 0;
->  
->  	mask = file->f_op->poll(file, &poll->table);
->  	if (mask)
->  		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-> +	if (mask & POLLERR) {
-> +		if (poll->wqh)
-> +			remove_wait_queue(poll->wqh, &poll->wait);
-> +		ret = -EINVAL;
-> +	}
-> +
-> +	return ret;
->  }
->  
->  /* Stop polling a file. After this function returns, it becomes safe to drop the
->   * file reference. You must also flush afterwards. */
->  void vhost_poll_stop(struct vhost_poll *poll)
->  {
-> -	remove_wait_queue(poll->wqh, &poll->wait);
-> +	if (poll->wqh) {
-> +		remove_wait_queue(poll->wqh, &poll->wait);
-> +		poll->wqh = NULL;
-> +	}
->  }
->  
->  static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
-> @@ -792,7 +804,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
->  		fput(filep);
->  
->  	if (pollstart && vq->handle_kick)
-> -		vhost_poll_start(&vq->poll, vq->kick);
-> +		r = vhost_poll_start(&vq->poll, vq->kick);
->  
->  	mutex_unlock(&vq->mutex);
->  
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 2639c58..17261e2 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -42,7 +42,7 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
->  
->  void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  		     unsigned long mask, struct vhost_dev *dev);
-> -void vhost_poll_start(struct vhost_poll *poll, struct file *file);
-> +int vhost_poll_start(struct vhost_poll *poll, struct file *file);
->  void vhost_poll_stop(struct vhost_poll *poll);
->  void vhost_poll_flush(struct vhost_poll *poll);
->  void vhost_poll_queue(struct vhost_poll *poll);
-> -- 
-> 1.7.1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Rick Jones <rick.jones2@hp.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>
+CC: David Laight <David.Laight@ACULAB.COM>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 4976564..8fc96f2 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -605,6 +605,11 @@ tcp_challenge_ack_limit - INTEGER
+ 	in RFC 5961 (Improving TCP's Robustness to Blind In-Window Attacks)
+ 	Default: 100
+ 
++tcp_quick_ack - BOOLEAN
++	Globally enables or disables TCP delayed ACK. The applications
++	can still change the quick ACK mode by TCP_QUICK_ACK option.
++	Default: off
++
+ UDP variables:
+ 
+ udp_mem - vector of 3 INTEGERs: min, pressure, max
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 614af8b..0ba0c26 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -291,6 +291,7 @@ extern int sysctl_tcp_thin_dupack;
+ extern int sysctl_tcp_early_retrans;
+ extern int sysctl_tcp_limit_output_bytes;
+ extern int sysctl_tcp_challenge_ack_limit;
++extern int sysctl_tcp_quick_ack;
+ 
+ extern atomic_long_t tcp_memory_allocated;
+ extern struct percpu_counter tcp_sockets_allocated;
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index a25e1d2..9b4bb75 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -767,6 +767,13 @@ static struct ctl_table ipv4_table[] = {
+ 		.extra2		= &two,
+ 	},
+ 	{
++		.procname	= "tcp_quick_ack",
++		.data		= &sysctl_tcp_quick_ack,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec,
++	},
++	{
+ 		.procname	= "udp_mem",
+ 		.data		= &sysctl_udp_mem,
+ 		.maxlen		= sizeof(sysctl_udp_mem),
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0905997..3f68482 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -100,6 +100,7 @@ int sysctl_tcp_thin_dupack __read_mostly;
+ int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+ int sysctl_tcp_abc __read_mostly;
+ int sysctl_tcp_early_retrans __read_mostly = 2;
++int sysctl_tcp_quick_ack __read_mostly;
+ 
+ #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
+ #define FLAG_WIN_UPDATE		0x02 /* Incoming ACK was a window update.	*/
+@@ -4081,7 +4082,8 @@ static void tcp_fin(struct sock *sk)
+ 	case TCP_ESTABLISHED:
+ 		/* Move to CLOSE_WAIT */
+ 		tcp_set_state(sk, TCP_CLOSE_WAIT);
+-		inet_csk(sk)->icsk_ack.pingpong = 1;
++		if (!sysctl_tcp_quick_ack)
++			inet_csk(sk)->icsk_ack.pingpong = 1;
+ 		break;
+ 
+ 	case TCP_CLOSE_WAIT:
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 667a6ad..44eff34 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -174,8 +174,9 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+ 	/* If it is a reply for ato after last received
+ 	 * packet, enter pingpong mode.
+ 	 */
+-	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato)
+-		icsk->icsk_ack.pingpong = 1;
++	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato &&
++	    !sysctl_tcp_quick_ack)
++			icsk->icsk_ack.pingpong = 1;
+ }
+ 
+ /* Account for an ACK we sent. */
