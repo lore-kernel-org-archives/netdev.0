@@ -1,41 +1,147 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: 802.1q HW filter spammage in 3.7.2+ kernels.
-Date: Wed, 16 Jan 2013 01:11:20 -0500 (EST)
-Message-ID: <20130116.011120.2166745757980086775.davem@davemloft.net>
-References: <50F60404.3090605@candelatech.com>
-	<1358316108.19956.82.camel@edumazet-glaptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V4 3/3] tuntap: allow polling/writing/reading when detached
+Date: Wed, 16 Jan 2013 14:17:06 +0800
+Message-ID: <3742551.hhCnEOvBmh@jason-thinkpad-t430s>
+References: <1358245726-16250-1-git-send-email-jasowang@redhat.com> <1358245726-16250-4-git-send-email-jasowang@redhat.com> <20130115164808.GA8792@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55714 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757544Ab3APGLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 01:11:23 -0500
-In-Reply-To: <1358316108.19956.82.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130115164808.GA8792@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 15 Jan 2013 22:01:48 -0800
+On Tuesday, January 15, 2013 06:48:08 PM Michael S. Tsirkin wrote:
+> On Tue, Jan 15, 2013 at 06:28:46PM +0800, Jason Wang wrote:
+> > We forbid polling, writing and reading when the file were detached, this
+> > may complex the user in several cases:
+> > 
+> > - when guest pass some buffers to vhost/qemu and then disable some queues,
+> > 
+> >   vhost/qemu needs to to its own cleanup which is complex. We can do this
+> >   simply by allowing a user can still write to an disabled queue to
+> >   handle this. And user can still do read but just nothing returned.
+> > 
+> > - align the polling behavior with macvtap which never fails when the queue
+> > is> 
+> >   created. this can simplify the polling errors handling of its user (e.g
+> >   vhost)> 
+> > Signed-off-by: Jason Wang <jasowang@redhat.com>
+> > ---
+> > 
+> >  drivers/net/tun.c |   18 +++++++++++-------
+> >  1 files changed, 11 insertions(+), 7 deletions(-)
+> > 
+> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> > index af372d0..eb68937 100644
+> > --- a/drivers/net/tun.c
+> > +++ b/drivers/net/tun.c
+> > @@ -307,7 +307,7 @@ static void tun_flow_update(struct tun_struct *tun,
+> > u32 rxhash,> 
+> >  	rcu_read_lock();
+> > 
+> > -	if (tun->numqueues == 1)
+> > +	if (tun->numqueues == 1 || queue_index >= tun->numqueues)
+> > 
+> >  		goto unlock;
+> >  	
+> >  	e = tun_flow_find(head, rxhash);
+> 
+> Hmm I don't understand - does something ensure that queue_index is >
+> numqueues if the queue is disabled?
 
-> @@ -828,7 +828,12 @@ static int macvlan_changelink(struct net_device *dev,
->  
->  static size_t macvlan_get_size(const struct net_device *dev)
->  {
-> -	return nla_total_size(4);
-> +	return
-> +		/* IFLA_MACVLAN_MODE, */
-> +		nla_total_size(4) +
-> +		/* IFLA_MACVLAN_FLAGS */
-> +		nla_total_size(2) +
-> +		0;
+I miss this, something is needed.
+> Can we check tun->disabled and skip tun_flow_update completely?
+> We might need to switch to rcu_assign for tun->disabled for this
+> but otherwise it looks easy.
 
-
-Maybe:
-
-	return (nla_total_size(4) + /* IFLA_MACVLAN_MODE, */
-		nla_total_size(2) + /* IFLA_MACVLAN_FLAGS */
-		0);
+Correct, will post another version, thanks.
+> 
+> > @@ -406,21 +406,21 @@ static void __tun_detach(struct tun_file *tfile,
+> > bool clean)> 
+> >  	tun = rtnl_dereference(tfile->tun);
+> > 
+> > -	if (tun) {
+> > +	if (tun && !tfile->detached) {
+> > 
+> >  		u16 index = tfile->queue_index;
+> >  		BUG_ON(index >= tun->numqueues);
+> >  		dev = tun->dev;
+> >  		
+> >  		rcu_assign_pointer(tun->tfiles[index],
+> >  		
+> >  				   tun->tfiles[tun->numqueues - 1]);
+> > 
+> > -		rcu_assign_pointer(tfile->tun, NULL);
+> > 
+> >  		ntfile = rtnl_dereference(tun->tfiles[index]);
+> >  		ntfile->queue_index = index;
+> >  		
+> >  		--tun->numqueues;
+> > 
+> > -		if (clean)
+> > +		if (clean) {
+> > +			rcu_assign_pointer(tfile->tun, NULL);
+> > 
+> >  			sock_put(&tfile->sk);
+> > 
+> > -		else
+> > +		} else
+> > 
+> >  			tun_disable_queue(tun, tfile);
+> >  		
+> >  		synchronize_net();
+> > 
+> > @@ -465,6 +465,10 @@ static void tun_detach_all(struct net_device *dev)
+> > 
+> >  		rcu_assign_pointer(tfile->tun, NULL);
+> >  		--tun->numqueues;
+> >  	
+> >  	}
+> > 
+> > +	list_for_each_entry(tfile, &tun->disabled, next) {
+> > +		wake_up_all(&tfile->wq.wait);
+> > +		rcu_assign_pointer(tfile->tun, NULL);
+> > +	}
+> > 
+> >  	BUG_ON(tun->numqueues != 0);
+> >  	
+> >  	synchronize_net();
+> > 
+> > @@ -491,7 +495,7 @@ static int tun_attach(struct tun_struct *tun, struct
+> > file *file)> 
+> >  	int err;
+> >  	
+> >  	err = -EINVAL;
+> > 
+> > -	if (rtnl_dereference(tfile->tun))
+> > +	if (rtnl_dereference(tfile->tun) && !tfile->detached)
+> > 
+> >  		goto out;
+> >  	
+> >  	err = -EBUSY;
+> > 
+> > @@ -1795,7 +1799,7 @@ static int tun_set_queue(struct file *file, struct
+> > ifreq *ifr)> 
+> >  			ret = tun_attach(tun, file);
+> >  	
+> >  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+> >  	
+> >  		tun = rtnl_dereference(tfile->tun);
+> > 
+> > -		if (!tun || !(tun->flags & TUN_TAP_MQ))
+> > +		if (!tun || !(tun->flags & TUN_TAP_MQ) || tfile->detached)
+> > 
+> >  			ret = -EINVAL;
+> >  		
+> >  		else
+> >  		
+> >  			__tun_detach(tfile, false);
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
