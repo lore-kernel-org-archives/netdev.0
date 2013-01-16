@@ -1,73 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and
- <linux/in6.h>
-Date: Wed, 16 Jan 2013 16:45:11 -0500 (EST)
-Message-ID: <20130116.164511.2027039182184636075.davem@davemloft.net>
-References: <1358316366.14898.8.camel@cr0>
-	<50F6B761.8070106@linux-ipv6.org>
-	<1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 52151] via_rhine stops making new tcp connections.
+Date: Wed, 16 Jan 2013 13:45:27 -0800
+Message-ID: <20130116134527.3f7fd8c1@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, amwang@redhat.com, tmb@mageia.org,
-	eblake@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
-	tgraf@suug.ch, libc-alpha@sourceware.org, schwab@suse.de,
-	carlos@systemhalted.org
-To: bhutchings@solarflare.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Roger Luethi <rl@hellgate.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f43.google.com ([209.85.210.43]:32847 "EHLO
+	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756720Ab3APVqz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:46:55 -0500
+Received: by mail-da0-f43.google.com with SMTP id u36so763592dak.30
+        for <netdev@vger.kernel.org>; Wed, 16 Jan 2013 13:46:54 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 16 Jan 2013 15:47:12 +0000
 
-> On Wed, 2013-01-16 at 23:21 +0900, YOSHIFUJI Hideaki wrote:
->> Cong Wang wrote:
->> > (Cc'ing some glibc developers...)
->> > 
->> > Hello,
->> > 
->> > In glibc source file inet/netinet/in.h and kernel source file
->> > include/uapi/linux/in6.h, both define struct in6_addr, and both are
->> > visible to user applications. Thomas reported a conflict below.
->> > 
->> > So, how can we handle this? /me is wondering why we didn't see this
->> > before.
-> [...]
->> This is not a new issue.  In addition to this,
->> netinet/in.h also conflits with linux/in.h.
->> 
->> We might have
->>  #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
->>  :
->>  #endif
->> around those conflicting definitions in uapi/linux/in{,6}.h.
-> 
-> This only solves half the problem, as <netinet/in.h> might be included
-> after <linux/in.h>.  Also, not all Linux userland uses glibc.
 
-So I've been looking at reasonable ways to fix this.
+Begin forwarded message:
 
-What would be really nice is if GCC treated multiple identical
-definitions of structures the same way it handles multiple identical
-definitions of CPP defines.  Which is to silently accept them.
+Date: Wed, 16 Jan 2013 12:56:07 -0800
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 52151] via_rhine stops making new tcp connections.
 
-But that's not the case, so we need a different solution.
 
-Another thing to do is to use a new structure for in6_addr in kernel
-headers exported to userland.
+https://bugzilla.kernel.org/show_bug.cgi?id=52151
 
-If we were to make the structure members and accessor macros identical
-we could avoid breaking most if not all apps.
 
-However the type name is different so:
 
-	struct in6_addr *p = &kern_struct->member;
 
-wouldn't work so well.  And you couldn't fix up the sources to these
-kinds of accesses in a way that work cleanly both before and after
-changing the kernel headers.
 
-I'm out of ideas for today.
+--- Comment #4 from David W. Hodgins <davidwhodgins@gmail.com>  2013-01-16 20:55:59 ---
+Created an attachment (id=91411)
+ --> (https://bugzilla.kernel.org/attachment.cgi?id=91411)
+dmesg output
+
+Now that it's happened again, I've been able to get proper
+dmesg output, but as shown, there are no error messages
+being generated related to networking.
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
