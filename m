@@ -1,62 +1,54 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [RFC Patch net-next] tcp: add a global sysctl to control TCP delayed ack
-Date: Wed, 16 Jan 2013 12:22:43 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7110@saturn3.aculab.com>
-References: <1358334345-28980-1-git-send-email-amwang@redhat.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC(v2) net-next 08/13] ipv6: Do not deoend on rt->n in ip6_dst_lookup_tail().
+Date: Wed, 16 Jan 2013 21:27:28 +0900
+Message-ID: <50F69CB0.8040900@linux-ipv6.org>
+References: <50F587CF.1090306@linux-ipv6.org> <50F64D96.4090709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Rick Jones" <rick.jones2@hp.com>,
-	"Stephen Hemminger" <shemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Thomas Graf" <tgraf@suug.ch>
-To: "Cong Wang" <amwang@redhat.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58866 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753784Ab3APMYt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 07:24:49 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 19705-09 for <netdev@vger.kernel.org>;
- Wed, 16 Jan 2013 12:24:42 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1358334345-28980-1-git-send-email-amwang@redhat.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42527 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751558Ab3APM1a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 07:27:30 -0500
+In-Reply-To: <50F64D96.4090709@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> According to previous discussion, it seems there is no
-> reasonable heuristics.
+Cong Wang wrote:
+> s/deoend/depend/ in $subject...
 > 
-> Similar to TCP_QUICK_ACK option, but for people who can't
-> modify the source code and still wants to control
-> TCP delayed ACK behavior.
+> On 01/16/2013 12:46 AM, YOSHIFUJI Hideaki wrote:
+>> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>> ---
+>>   net/ipv6/ip6_output.c |    8 ++++++--
+>>   1 file changed, 6 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+>> index 9fc5d1d..b2fe048 100644
+>> --- a/net/ipv6/ip6_output.c
+>> +++ b/net/ipv6/ip6_output.c
+>> @@ -921,8 +921,12 @@ static int ip6_dst_lookup_tail(struct sock *sk,
+>>   	 * dst entry of the nexthop router
+>>   	 */
+>>   	rt = (struct rt6_info *) *dst;
+>> -	n = rt->n;
+>> -	if (n && !(n->nud_state & NUD_VALID)) {
+>> +	rcu_read_lock_bh();
+>> +	n = __ipv6_neigh_lookup_noref(rt->dst.dev, rt6_nexthop(rt, &fl6->daddr));
+>> +	err = n && !(n->nud_state & NUD_VALID) ? -EINVAL : 0;
+>> +	rcu_read_unlock_bh();
+>> +
+>> +	if (err) {
 > 
-> Makes any sense?
+> Are you sure the logic here equals?
+> 
+> In the original code, we could return 0 even we enter this if branch,
+> but after your patch, it seems it will return -EINVAL?
+> 
 
-A sysctl is a bit of a big hammer, it probably isn't necessary
-to disable delayed acks on all connections.
+err is always updated after the branch, or return 0;
 
-IIRC the related problems I saw were really on the sending
-side when Nagle is disabled and it is doing 'slow start'.
-
-Globally disabling on connections that have Nagle disabled
-might be a possibility - but it is the Nagle parameter
-at the other end that matters.
-
-Perhaps the sending side, after sending 4 small frames immediately,
-could send 1 or 2 additional full sized frames in order to
-provoke an ack (IIRC an ack is sent if there are 2 full sized
-frames of data unacked).
-
-The other problem is that 'slow start' is restarted very
-aggressively - whenever there is no unacked data.
-If you have a very low latency connection and aren't doing
-continuous bulk transfer it is restarted for every short
-burst of transmits - effectively after every received ack.
-There really ought to have to be a moderate idle time
-before 'slow start' is restarted.
-
-	David
+--yoshfuji
