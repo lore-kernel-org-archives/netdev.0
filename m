@@ -1,147 +1,135 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH V4 3/3] tuntap: allow polling/writing/reading when detached
-Date: Wed, 16 Jan 2013 14:17:06 +0800
-Message-ID: <3742551.hhCnEOvBmh@jason-thinkpad-t430s>
-References: <1358245726-16250-1-git-send-email-jasowang@redhat.com> <1358245726-16250-4-git-send-email-jasowang@redhat.com> <20130115164808.GA8792@redhat.com>
+Subject: Re: [PATCH v2 2/2] virtio-net: introduce a new control to set macaddr
+Date: Wed, 16 Jan 2013 14:20:39 +0800
+Message-ID: <8243136.frWZnRkUJV@jason-thinkpad-t430s>
+References: <1358315821-29519-1-git-send-email-akong@redhat.com>
+	<1358315821-29519-3-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130115164808.GA8792@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	qemu-devel@nongnu.org, davem@davemloft.net
+To: virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1358315821-29519-3-git-send-email-akong@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, January 15, 2013 06:48:08 PM Michael S. Tsirkin wrote:
-> On Tue, Jan 15, 2013 at 06:28:46PM +0800, Jason Wang wrote:
-> > We forbid polling, writing and reading when the file were detached, this
-> > may complex the user in several cases:
-> > 
-> > - when guest pass some buffers to vhost/qemu and then disable some queues,
-> > 
-> >   vhost/qemu needs to to its own cleanup which is complex. We can do this
-> >   simply by allowing a user can still write to an disabled queue to
-> >   handle this. And user can still do read but just nothing returned.
-> > 
-> > - align the polling behavior with macvtap which never fails when the queue
-> > is> 
-> >   created. this can simplify the polling errors handling of its user (e.g
-> >   vhost)> 
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> > 
-> >  drivers/net/tun.c |   18 +++++++++++-------
-> >  1 files changed, 11 insertions(+), 7 deletions(-)
-> > 
-> > diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> > index af372d0..eb68937 100644
-> > --- a/drivers/net/tun.c
-> > +++ b/drivers/net/tun.c
-> > @@ -307,7 +307,7 @@ static void tun_flow_update(struct tun_struct *tun,
-> > u32 rxhash,> 
-> >  	rcu_read_lock();
-> > 
-> > -	if (tun->numqueues == 1)
-> > +	if (tun->numqueues == 1 || queue_index >= tun->numqueues)
-> > 
-> >  		goto unlock;
-> >  	
-> >  	e = tun_flow_find(head, rxhash);
+On Wednesday, January 16, 2013 01:57:01 PM akong@redhat.com wrote:
+> From: Amos Kong <akong@redhat.com>
 > 
-> Hmm I don't understand - does something ensure that queue_index is >
-> numqueues if the queue is disabled?
+> Currently we write MAC address to pci config space byte by byte,
+> this means that we have an intermediate step where mac is wrong.
+> This patch introduced a new control command to set MAC address
+> in one time.
+> 
+> VIRTIO_NET_F_CTRL_MAC_ADDR is a new feature bit for compatibility.
+> 
+> Signed-off-by: Amos Kong <akong@redhat.com>
+> ---
+>  drivers/net/virtio_net.c        | 24 +++++++++++++++++-------
+>  include/uapi/linux/virtio_net.h |  8 +++++++-
+>  2 files changed, 24 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 395ab4f..c8901b6 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -802,16 +802,25 @@ static int virtnet_set_mac_address(struct net_device
+> *dev, void *p) struct virtnet_info *vi = netdev_priv(dev);
+>  	struct virtio_device *vdev = vi->vdev;
+>  	int ret;
+> +	struct sockaddr *addr = p;
+> +	struct scatterlist sg;
+> 
+> -	ret = eth_mac_addr(dev, p);
+> -	if (ret)
+> -		return ret;
+> -
+> -	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
+> +		sg_init_one(&sg, addr->sa_data, dev->addr_len);
+> +		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+> +					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+> +					  &sg, 1, 0)) {
+> +			dev_warn(&vdev->dev,
+> +				 "Failed to set mac address by vq command.\n");
+> +			return -EINVAL;
+> +		}
+> +	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
+>  		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
+> -		                  dev->dev_addr, dev->addr_len);
+> +				  addr->sa_data, dev->addr_len);
+> +	}
+> +	ret = eth_mac_addr(dev, p);
+> 
 
-I miss this, something is needed.
-> Can we check tun->disabled and skip tun_flow_update completely?
-> We might need to switch to rcu_assign for tun->disabled for this
-> but otherwise it looks easy.
+The you will the validity check in eth_mac_addr which may result a wrong mac 
+address to be set in the hardware (or is there any check in qemu) and a 
+inconsistency bettween what kernel assumes and qemu has.
 
-Correct, will post another version, thanks.
+You can take a look at netvsc driver that calls eth_mac_addr() first and 
+restore the software mac address when fail to enforce it to hardware.
+
+Thanks
+> -	return 0;
+> +	return ret;
+>  }
 > 
-> > @@ -406,21 +406,21 @@ static void __tun_detach(struct tun_file *tfile,
-> > bool clean)> 
-> >  	tun = rtnl_dereference(tfile->tun);
-> > 
-> > -	if (tun) {
-> > +	if (tun && !tfile->detached) {
-> > 
-> >  		u16 index = tfile->queue_index;
-> >  		BUG_ON(index >= tun->numqueues);
-> >  		dev = tun->dev;
-> >  		
-> >  		rcu_assign_pointer(tun->tfiles[index],
-> >  		
-> >  				   tun->tfiles[tun->numqueues - 1]);
-> > 
-> > -		rcu_assign_pointer(tfile->tun, NULL);
-> > 
-> >  		ntfile = rtnl_dereference(tun->tfiles[index]);
-> >  		ntfile->queue_index = index;
-> >  		
-> >  		--tun->numqueues;
-> > 
-> > -		if (clean)
-> > +		if (clean) {
-> > +			rcu_assign_pointer(tfile->tun, NULL);
-> > 
-> >  			sock_put(&tfile->sk);
-> > 
-> > -		else
-> > +		} else
-> > 
-> >  			tun_disable_queue(tun, tfile);
-> >  		
-> >  		synchronize_net();
-> > 
-> > @@ -465,6 +465,10 @@ static void tun_detach_all(struct net_device *dev)
-> > 
-> >  		rcu_assign_pointer(tfile->tun, NULL);
-> >  		--tun->numqueues;
-> >  	
-> >  	}
-> > 
-> > +	list_for_each_entry(tfile, &tun->disabled, next) {
-> > +		wake_up_all(&tfile->wq.wait);
-> > +		rcu_assign_pointer(tfile->tun, NULL);
-> > +	}
-> > 
-> >  	BUG_ON(tun->numqueues != 0);
-> >  	
-> >  	synchronize_net();
-> > 
-> > @@ -491,7 +495,7 @@ static int tun_attach(struct tun_struct *tun, struct
-> > file *file)> 
-> >  	int err;
-> >  	
-> >  	err = -EINVAL;
-> > 
-> > -	if (rtnl_dereference(tfile->tun))
-> > +	if (rtnl_dereference(tfile->tun) && !tfile->detached)
-> > 
-> >  		goto out;
-> >  	
-> >  	err = -EBUSY;
-> > 
-> > @@ -1795,7 +1799,7 @@ static int tun_set_queue(struct file *file, struct
-> > ifreq *ifr)> 
-> >  			ret = tun_attach(tun, file);
-> >  	
-> >  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
-> >  	
-> >  		tun = rtnl_dereference(tfile->tun);
-> > 
-> > -		if (!tun || !(tun->flags & TUN_TAP_MQ))
-> > +		if (!tun || !(tun->flags & TUN_TAP_MQ) || tfile->detached)
-> > 
-> >  			ret = -EINVAL;
-> >  		
-> >  		else
-> >  		
-> >  			__tun_detach(tfile, false);
+>  static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
+> @@ -1627,6 +1636,7 @@ static unsigned int features[] = {
+>  	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+>  	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+> +	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>  };
 > 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  static struct virtio_driver virtio_net_driver = {
+> diff --git a/include/uapi/linux/virtio_net.h
+> b/include/uapi/linux/virtio_net.h index 848e358..a5a8c88 100644
+> --- a/include/uapi/linux/virtio_net.h
+> +++ b/include/uapi/linux/virtio_net.h
+> @@ -53,6 +53,7 @@
+>  					 * network */
+>  #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+>  					 * Steering */
+> +#define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+> 
+>  #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
+>  #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
+> @@ -127,7 +128,7 @@ typedef __u8 virtio_net_ctrl_ack;
+>   #define VIRTIO_NET_CTRL_RX_NOBCAST      5
+> 
+>  /*
+> - * Control the MAC filter table.
+> + * Control the MAC
+>   *
+>   * The MAC filter table is managed by the hypervisor, the guest should
+>   * assume the size is infinite.  Filtering should be considered
+> @@ -140,6 +141,10 @@ typedef __u8 virtio_net_ctrl_ack;
+>   * first sg list contains unicast addresses, the second is for multicast.
+>   * This functionality is present if the VIRTIO_NET_F_CTRL_RX feature
+>   * is available.
+> + *
+> + * The ADDR_SET command requests one out scatterlist, it contains a
+> + * 6 bytes MAC address. This functionality is present if the
+> + * VIRTIO_NET_F_CTRL_MAC_ADDR feature is available.
+>   */
+>  struct virtio_net_ctrl_mac {
+>  	__u32 entries;
+> @@ -148,6 +153,7 @@ struct virtio_net_ctrl_mac {
+> 
+>  #define VIRTIO_NET_CTRL_MAC    1
+>   #define VIRTIO_NET_CTRL_MAC_TABLE_SET        0
+> + #define VIRTIO_NET_CTRL_MAC_ADDR_SET         1
+> 
+>  /*
+>   * Control VLAN filtering
