@@ -1,45 +1,23 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH] ipv4: Remove output route check in ipv4_mtu
-Date: Wed, 16 Jan 2013 07:36:45 +0100
-Message-ID: <20130116063645.GC18940@secunet.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC(v2) net-next 07/13] ipv6: Do not repend on rt->n in rt6_probe().
+Date: Wed, 16 Jan 2013 14:42:31 +0800
+Message-ID: <50F64BD7.3090007@gmail.com>
+References: <50F587C2.9060605@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: timo.teras@iki.fi, luky-37@hotmail.com, pupilla@libero.it,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:35208 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752441Ab3APGgs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2013 01:36:48 -0500
-Content-Disposition: inline
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:44827 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754024Ab3APGmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 01:42:38 -0500
+Received: by mail-pb0-f52.google.com with SMTP id ro2so543295pbb.25
+        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 22:42:37 -0800 (PST)
+In-Reply-To: <50F587C2.9060605@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The output route check was introduced with git commit 261663b0
-(ipv4: Don't use the cached pmtu informations for input routes)
-during times when we cached the pmtu informations on the
-inetpeer. Now the pmtu informations are back in the routes,
-so this check is obsolete. It also had some unwanted side effects,
-as reported by Timo Teras and Lukas Tribus.
 
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv4/route.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 844a9ef..6e4a89c 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1120,7 +1120,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
- 	if (!mtu || time_after_eq(jiffies, rt->dst.expires))
- 		mtu = dst_metric_raw(dst, RTAX_MTU);
- 
--	if (mtu && rt_is_output_route(rt))
-+	if (mtu)
- 		return mtu;
- 
- 	mtu = dst->dev->mtu;
--- 
-1.7.9.5
+s/repend/depend/ in $subject...
