@@ -1,37 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/1] net: ethernet: davinci_cpdma: Add boundary for
- rx and tx descriptors
-Date: Wed, 16 Jan 2013 16:31:03 -0500 (EST)
-Message-ID: <20130116.163103.2220017883581085962.davem@davemloft.net>
-References: <1358367562-1697-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH net-next] ipv6: fix ipv6_prefix_equal64_half mask
+ conversion
+Date: Wed, 16 Jan 2013 16:37:29 -0500 (EST)
+Message-ID: <20130116.163729.1934084260354327196.davem@davemloft.net>
+References: <1358371817-15378-1-git-send-email-fabio.baltieri@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39472 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757264Ab3APVbG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:31:06 -0500
-In-Reply-To: <1358367562-1697-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, kaber@trash.net
+To: fabio.baltieri@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358371817-15378-1-git-send-email-fabio.baltieri@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Thu, 17 Jan 2013 01:49:22 +0530
+From: Fabio Baltieri <fabio.baltieri@linaro.org>
+Date: Wed, 16 Jan 2013 22:30:17 +0100
 
-> +	/*
-> +	 * If there is no more tx desc left free then we need to
-> +	 * tell the kernel to stop sending us tx frames.
-> +	 */
+> Fix the 64bit optimized version of ipv6_prefix_equal to convert the
+> bitmask to network byte order only after the bit-shift.
+> 
+> The bug was introduced in:
+> 
+> 3867517 ipv6: 64bit version of ipv6_prefix_equal().
+> 
+> Signed-off-by: Fabio Baltieri <fabio.baltieri@linaro.org>
 
-Please format multi-line comments:
-
-	/* Like
-	 * this.
-	 */
-
-in the networking.
-
-Thanks.
+Applied, thanks.
