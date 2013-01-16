@@ -1,89 +1,93 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] e1000e: Acquire/release semaphore when writing each EEPROM page
-Date: Wed, 16 Jan 2013 01:10:14 -0800
-Message-ID: <1358327427-3146-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] e1000e: Invalid Image CSUM bit changed for I217
+Date: Wed, 16 Jan 2013 01:10:15 -0800
+Message-ID: <1358327427-3146-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358327427-3146-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:27582 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:36112 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932234Ab3APJKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2013 04:10:33 -0500
+	id S932471Ab3APJKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 04:10:34 -0500
 In-Reply-To: <1358327427-3146-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-When data blocks are written to the EEPROM, the HW/SW/FW semaphore must be
-held for the duration.  With large data blocks on 80003es2lan, 82571 and
-82572, this can take too long and cause the firmware to take ownership of
-the semaphore and consequently ownership of writes to the EEPROM.
-Instead, acquire and release the semaphore for each page of the block
-written.
+On I217, the bit that indicates an invalid EEPROM (NVM) image checksum has
+changed from previous ICH/PCH LOMs.  When validating the EEPROM checksum,
+check the appropriate bit on different devices.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/nvm.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h |  4 ++++
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 29 +++++++++++++++++++++--------
+ 2 files changed, 25 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/nvm.c b/drivers/net/ethernet/intel/e1000e/nvm.c
-index b646880..71938ed 100644
---- a/drivers/net/ethernet/intel/e1000e/nvm.c
-+++ b/drivers/net/ethernet/intel/e1000e/nvm.c
-@@ -359,7 +359,7 @@ s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- {
- 	struct e1000_nvm_info *nvm = &hw->nvm;
--	s32 ret_val;
-+	s32 ret_val = -E1000_ERR_NVM;
- 	u16 widx = 0;
- 
- 	/* A check for invalid values:  offset too large, too many words,
-@@ -371,16 +371,18 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- 		return -E1000_ERR_NVM;
- 	}
- 
--	ret_val = nvm->ops.acquire(hw);
--	if (ret_val)
--		return ret_val;
--
- 	while (widx < words) {
- 		u8 write_opcode = NVM_WRITE_OPCODE_SPI;
- 
--		ret_val = e1000_ready_nvm_eeprom(hw);
-+		ret_val = nvm->ops.acquire(hw);
- 		if (ret_val)
--			goto release;
-+			return ret_val;
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 2073532..7326ea2 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -639,6 +639,10 @@
+ /* NVM Word Offsets */
+ #define NVM_COMPAT                 0x0003
+ #define NVM_ID_LED_SETTINGS        0x0004
++#define NVM_FUTURE_INIT_WORD1      0x0019
++#define NVM_COMPAT_VALID_CSUM      0x0001
++#define NVM_FUTURE_INIT_WORD1_VALID_CSUM	0x0040
 +
-+		ret_val = e1000_ready_nvm_eeprom(hw);
-+		if (ret_val) {
-+			nvm->ops.release(hw);
-+			return ret_val;
-+		}
+ #define NVM_INIT_CONTROL2_REG      0x000F
+ #define NVM_INIT_CONTROL3_PORT_B   0x0014
+ #define NVM_INIT_3GIO_3            0x001A
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 9763365..7d5f6b7 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -2949,19 +2949,32 @@ static s32 e1000_validate_nvm_checksum_ich8lan(struct e1000_hw *hw)
+ {
+ 	s32 ret_val;
+ 	u16 data;
++	u16 word;
++	u16 valid_csum_mask;
  
- 		e1000_standby_nvm(hw);
+-	/* Read 0x19 and check bit 6.  If this bit is 0, the checksum
+-	 * needs to be fixed.  This bit is an indication that the NVM
+-	 * was prepared by OEM software and did not calculate the
+-	 * checksum...a likely scenario.
++	/* Read NVM and check Invalid Image CSUM bit.  If this bit is 0,
++	 * the checksum needs to be fixed.  This bit is an indication that
++	 * the NVM was prepared by OEM software and did not calculate
++	 * the checksum...a likely scenario.
+ 	 */
+-	ret_val = e1000_read_nvm(hw, 0x19, 1, &data);
++	switch (hw->mac.type) {
++	case e1000_pch_lpt:
++		word = NVM_COMPAT;
++		valid_csum_mask = NVM_COMPAT_VALID_CSUM;
++		break;
++	default:
++		word = NVM_FUTURE_INIT_WORD1;
++		valid_csum_mask = NVM_FUTURE_INIT_WORD1_VALID_CSUM;
++		break;
++	}
++
++	ret_val = e1000_read_nvm(hw, word, 1, &data);
+ 	if (ret_val)
+ 		return ret_val;
  
-@@ -413,12 +415,10 @@ s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
- 				break;
- 			}
- 		}
-+		usleep_range(10000, 20000);
-+		nvm->ops.release(hw);
- 	}
- 
--	usleep_range(10000, 20000);
--release:
--	nvm->ops.release(hw);
--
- 	return ret_val;
- }
- 
+-	if (!(data & 0x40)) {
+-		data |= 0x40;
+-		ret_val = e1000_write_nvm(hw, 0x19, 1, &data);
++	if (!(data & valid_csum_mask)) {
++		data |= valid_csum_mask;
++		ret_val = e1000_write_nvm(hw, word, 1, &data);
+ 		if (ret_val)
+ 			return ret_val;
+ 		ret_val = e1000e_update_nvm_checksum(hw);
 -- 
 1.7.11.7
