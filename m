@@ -1,157 +1,71 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next V6 00/14] Add basic VLAN support to bridges
-Date: Wed, 16 Jan 2013 13:17:55 -0500
-Message-ID: <1358360289-23249-1-git-send-email-vyasevic@redhat.com>
-Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
-	shemminger@vyatta.com, mst@redhat.com, shmulik.ladkani@gmail.com
-To: netdev@vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
+Date: Wed, 16 Jan 2013 10:22:39 -0800
+Message-ID: <CA+mtBx-DRiSg4z5OUvp4=pJxZ=Ki4pt-vz716ubsJx1PHnD7Nw@mail.gmail.com>
+References: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B710E@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: David Laight <David.Laight@aculab.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26109 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754064Ab3APSSO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2013 13:18:14 -0500
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:43365 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753038Ab3APSWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 13:22:40 -0500
+Received: by mail-ie0-f175.google.com with SMTP id qd14so3073063ieb.6
+        for <netdev@vger.kernel.org>; Wed, 16 Jan 2013 10:22:39 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B710E@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of patches provides an ability to add VLANs to the bridge
-ports.  This is similar to what can be found in most switches.  The bridge
-port may have any number of VLANs added to it including vlan 0 priority tagged
-traffic.  When vlans are added to the port, only traffic tagged with particular
-vlan will forwarded over this port.  Additionally, vlan ids are added to FDB
-entries and become part of the lookup.  This way we correctly identify the FDB
-entry.
+> Hmmm.... do you need that sort of fairness between the threads?
+>
+Yes :-)
 
-A single vlan per port may also be designated as a PVID.  Any untagged
-traffic recieved by the port will be assigned to this vlan and all further
-processing will be done with this vlan in mind.
+> If one request takes longer than average to process, then you
+> don't want other requests to be delayed when there are other
+> idle worker processes.
+>
+On a heavily loaded server processing thousands of requests/second,
+law of large numbers hopefully applies where each connection
+represents approximately same unit of work.
 
-Any number for vlans per port may also be designated as untagged.  This
-defines their egress policy such that any frame exiting the port with a
-VID matching the untagged vlan will exit untagged (the bridge will strip the
-vlan header).
+> Also having the same thread normally collect a request would
+> make it more likely that the required code/data be in the
+> cache of the cpu (assuming that the main reason for multiple
+> threads is to load balance over multiple cpus, and with the
+> threads tied to a single cpu).
+>
+Right.  Multiple listener sockets also imply that the work on the
+connected sockets will be in the same thread or at least dispatched to
+thread which is close to the same CPU.  soreuseport moves the start of
+siloed processing into kernel.
 
-Bridge device is trated as just another port for the purposes of vlan
-configuration so, users have to configure which vlans are allowed to
-enter and exit the bridge master device.
+> If there are a lot of processes sleeping in accept() (on the same
+> socket) it might be worth looking at which is actually woken
+> when a new connection arrives. If they are sleeping in poll/select
+> it is probably more difficult (but not impossible) to avoid waking
+> all the processes for every incoming connection.
 
-The default behavior of the bridge is unchanged if no vlans have been
-configured.  Default behavior of each port is also unchanged if no
-vlans are configured on that port (i.e there are no ingress/egress checks
-or vlan header manipulation).
+We had considered solving this within accept.  The problem is that
+there's no way to indicate how much work a thread should do via
+accept.  For instance, an event loop usually would look like:
 
-Vlan filtering can now be optionally compiled in or left out.
+while (1) {
+    fd = accept();
+    process(fd);
+}
 
-Changes since v5:
- - Pulled VLAN filtering into its own file and made it a configuration options.
- - Made new vlan filtering option dependent on VLAN_8021Q.
- - Got rid of HW filter inlines and moved then vlan_core.c.
-   (All of the above suggested by Stephen Hemminger)
+With multiple threads, the number of accepted sockets in a particular
+thread is non-deterministic.  It is even possible that one thread
+could end up accepting all the connections, and the others are starved
+(wake up but no connection to process.).  Since connections are the
+unit of work, this creates imbalance among threads.  There was an
+attempt to fix this in user space by sleeping for a while instead of
+calling accept on threads for one that have already have a
+disproportionate number of connections.  This was unpleasant-- it
+needed shared state in user space and provided no granularity.
 
-Changes since v4:
- - Pull per-port vlan data into its own structures and give it to the bridge
-   device thus making bridge device behave like a regular port for vlan
-   configuration.
- - Add a per-vlan 'untagged' bitmap that determins egress policy.  If a port
-   is part of this bitmap, traffic egresses untagged.
- - PVID is now used for ingress policy only.  Incomming frames without VLAN tag
-   are assigned to the PVID vlan.  Egress is determined via bitmap memberships.
- - Allow for incremental config of a vlan.  Now, PVID and untagged memberships
-   may be set on existing vlans.  They however can NOT be cleared separately.
- - VLAN deletion is now done via RTM_DELLINK command for PF_BRIDGE family.
-   This cleans up the netlink interface.
-
-Changes since v3:
- - Re-integrated compiler problems that got left out last time.  Appologies.
- - checkpatches.pl errors fixed
-
-Changes since v2:
- - Added inline functiosn to manimulate vlan hw filters and re-use in 8021q
-   and bridge code.
- - Use rtnl_dereference (Michael Tsirkin)
- - Remove synchronize_net() call (Eric Dumazet)
- - Fix NULL ptr deref bug I introduced in br_ifinfo_notify.
-
-Changes since v1:
- - Fixed some forwarding bugs.
- - Add vlan to local fdb entries.  New local entries are created per vlan
-   to facilite correct forwarding to bridge interface.
- - Allow configuration of vlans directly on the bridge master device
-   in addition to ports.
-
-Changes since rfc v2:
- - Per-port vlan bitmap is gone and is replaced with a vlan list.
- - Added bridge vlan list, which is referenced by each port.  Entries in
-   the birdge vlan list have port bitmap that shows which port are parts
-   of which vlan.
- - Netlink API changes.
- - Dropped sysfs support for now.  If people think this is really usefull,
-   can add it back.
- - Support for native/untagged vlans.
-
-Changes since rfc v1:
- - Comments addressed regarding formatting and RCU usage
- - iocts have been removed and changed over the netlink interface.
- - Added support of user added ndb entries.
- - changed sysfs interface to export a bitmap.  Also added a write interface.
-   I am not sure how much I like it, but it made my testing easier/faster.  I
-   might change the write interface to take text instead of binary.
-
-Vlad Yasevich (14):
-  vlan: wrap hw-acceleration calls in separate functions.
-  bridge: Add vlan filtering infrastructure
-  bridge: Validate that vlan is permitted on ingress
-  bridge: Verify that a vlan is allowed to egress on give port
-  bridge: Cache vlan in the cb for faster egress lookup.
-  bridge: Add netlink interface to configure vlans on bridge ports
-  bridge: Add the ability to configure pvid
-  bridge: Implement vlan ingress/egress policy
-  bridge: API to configure egress policy
-  bridge: Add vlan to unicast fdb entries
-  bridge: Add vlan id to multicast groups
-  bridge: Add vlan support to static neighbors
-  bridge: Add vlan support for local fdb entries
-  bridge: Dump vlan information from a bridge port
-
-Vlad Yasevich (14):
-  vlan: wrap hw-acceleration calls in separate functions.
-  bridge: Add vlan filtering infrastructure
-  bridge: Validate that vlan is permitted on ingress
-  bridge: Verify that a vlan is allowed to egress on give port
-  bridge: Cache vlan in the cb for faster egress lookup.
-  bridge: Add netlink interface to configure vlans on bridge ports
-  bridge: Add the ability to configure pvid
-  bridge: Implement vlan ingress/egress policy
-  bridge: API to configure egress policy
-  bridge: Add vlan to unicast fdb entries
-  bridge: Add vlan id to multicast groups
-  bridge: Add vlan support to static neighbors
-  bridge: Add vlan support for local fdb entries
-  bridge: Dump vlan information from a bridge port
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
- drivers/net/macvlan.c                         |    2 +-
- drivers/net/vxlan.c                           |    3 +-
- include/linux/if_vlan.h                       |   21 +
- include/linux/netdevice.h                     |    6 +-
- include/uapi/linux/if_bridge.h                |   13 +-
- include/uapi/linux/neighbour.h                |    1 +
- include/uapi/linux/rtnetlink.h                |    1 +
- net/8021q/vlan.c                              |    4 +-
- net/8021q/vlan_core.c                         |   82 ++++-
- net/bridge/Kconfig                            |   14 +
- net/bridge/Makefile                           |    2 +
- net/bridge/br_device.c                        |   13 +-
- net/bridge/br_fdb.c                           |  254 +++++++++++---
- net/bridge/br_forward.c                       |    9 +
- net/bridge/br_if.c                            |    7 +-
- net/bridge/br_input.c                         |   29 ++-
- net/bridge/br_multicast.c                     |   69 +++-
- net/bridge/br_netlink.c                       |  245 +++++++++++--
- net/bridge/br_private.h                       |  163 ++++++++-
- net/bridge/br_vlan.c                          |  484 +++++++++++++++++++++++++
- net/core/rtnetlink.c                          |  111 +++++-
- 22 files changed, 1390 insertions(+), 148 deletions(-)
- create mode 100644 net/bridge/br_vlan.c
-
--- 
-1.7.7.6
+Tom
