@@ -1,33 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: remove unneeded dirty_rx index
-Date: Wed, 16 Jan 2013 18:02:41 -0500 (EST)
-Message-ID: <20130116.180241.577406705639005581.davem@davemloft.net>
-References: <20130115225316.GA924@electric-eye.fr.zoreil.com>
-	<1358319684-32364-1-git-send-email-timo.teras@iki.fi>
-	<20130116221640.GB32073@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: timo.teras@iki.fi, netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40388 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756668Ab3APXCm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 18:02:42 -0500
-In-Reply-To: <20130116221640.GB32073@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rob Herring <robherring2@gmail.com>
+Subject: [PATCH] net: calxedaxgmac: throw away overrun frames
+Date: Wed, 16 Jan 2013 17:36:37 -0600
+Message-ID: <1358379397-7152-1-git-send-email-robherring2@gmail.com>
+Cc: Rob Herring <rob.herring@calxeda.com>, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Francois Romieu <romieu@fr.zoreil.com>
-Date: Wed, 16 Jan 2013 23:16:40 +0100
+From: Rob Herring <rob.herring@calxeda.com>
 
-> Timo Ter=E4s <timo.teras@iki.fi> :
->> After commit 6f0333b ("r8169: use 50% less ram for RX ring") the rx
->> ring buffers are always copied making dirty_rx useless.
->>=20
->> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
->=20
-> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+The xgmac driver assumes 1 frame per descriptor. If a frame larger than
+the descriptor's buffer size is received, the frame will spill over into
+the next descriptor. So check for received frames that span more than one
+descriptor and discard them. This prevents a crash if we receive erroneous
+large packets.
 
-Applied to net-next.
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/calxeda/xgmac.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index b407043..f7f0290 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -548,6 +548,10 @@ static int desc_get_rx_status(struct xgmac_priv *priv, struct xgmac_dma_desc *p)
+ 		return -1;
+ 	}
+ 
++	/* All frames should fit into a single buffer */
++	if (!(status & RXDESC_FIRST_SEG) || !(status & RXDESC_LAST_SEG))
++		return -1;
++
+ 	/* Check if packet has checksum already */
+ 	if ((status & RXDESC_FRAME_TYPE) && (status & RXDESC_EXT_STATUS) &&
+ 		!(ext_status & RXDESC_IP_PAYLOAD_MASK))
+-- 
+1.7.10.4
