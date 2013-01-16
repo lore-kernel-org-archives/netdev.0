@@ -1,46 +1,49 @@
-From: Benjamin Kerensa <bkerensa@ubuntu.com>
-Subject: [PATCH] Remove excessive punctuation from ping flood warning
-Date: Wed, 16 Jan 2013 03:10:13 -0800
-Message-ID: <50F68A95.5080203@ubuntu.com>
+From: fjiban <fjiban@inifta.unlp.edu.ar>
+Subject: (unknown)
+Date: Wed, 16 Jan 2013 07:47:16 -0300
+Message-ID: <20130116074716.12844znvebouoj74@webmail.inifta.unlp.edu.ar>
+Reply-To: violetlargeallen116@yahoo.ie
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	DelSp="Yes";
+	format="flowed"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:44155 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758127Ab3APLKP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 06:10:15 -0500
-Received: by mail-pa0-f48.google.com with SMTP id fa1so730989pad.35
-        for <netdev@vger.kernel.org>; Wed, 16 Jan 2013 03:10:15 -0800 (PST)
+Received: from stonestorm.inifta.unlp.edu.ar ([163.10.21.140]:55928 "EHLO
+	stonestorm.inifta.unlp.edu.ar" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753308Ab3APLSX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 06:18:23 -0500
+Subject: 
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes excessive punctuation from the flood warning.
 
- From 932b1fc65d0f93531d2277831c6a584c9b1cfe63 Mon Sep 17 00:00:00 2001
-From: Benjamin Kerensa <bkerensa@ubuntu.com>
-Date: Wed, 16 Jan 2013 02:53:38 -0800
-Subject: [PATCH] Remove excessive punctuation from ping flood warning
-Signed-off-by: Benjamin Kerensa <bkerensa@ubuntu.com
----
-  ping_common.c | 2 +-
-  1 file changed, 1 insertion(+), 1 deletion(-)
+Dear Sir/Madam,
 
-diff --git a/ping_common.c b/ping_common.c
-index 7f82851..261aafc 100644
---- a/ping_common.c
-+++ b/ping_common.c
-@@ -608,7 +608,7 @@ void setup(int icmp_sock)
-          interval = 0;
+I saw your email address during the course of my  research today.My Name
+is Allen my wife and I won a Jackpot Lottery 11.3 million in july and during
+the process my wife passed away as a result of cancer illness, we are donating
+the sum of 1.million dollars to 6 lucky individual  over the world and if you
+received this email then you are one of the lucky recipients and all  
+you have to
+do is get back to us so that we can send your details to the payout bank.
+Please note that you have to contact my private email for more information
+(violetlargeallen116@yahoo.ie)
 
-      if (uid && interval < MINUSERINTERVAL) {
--        fprintf(stderr, "ping: cannot flood; minimal interval, allowed 
-for user, is %dms\n", MINUSERINTERVAL);
-+        fprintf(stderr, "ping: cannot flood; minimal interval allowed 
-for user is %dms\n", MINUSERINTERVAL);
-          exit(2);
-      }
+You can verify this by visiting the web pages below.
 
--- 
-1.8.0
+http://www.dailymail.co.uk/news/article-1326473/Canadian-couple-Allen-Violet-Large-away-entire-11-2m-lottery-win.html
+
+
+Goodluck,
+Allen and Violet Large
+
+
+
+
+
+----------------------------------------------------------------
+This message was sent using IMP, the Internet Messaging Program.
