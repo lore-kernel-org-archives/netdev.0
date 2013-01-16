@@ -1,105 +1,110 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Wed, 16 Jan 2013 23:21:21 +0900
-Message-ID: <50F6B761.8070106@linux-ipv6.org>
-References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org>   <50F49B7E.50906@redhat.com> <50F52956.50201@mageia.org>  <1358244688.4264.7.camel@cr0> <50F53596.4070200@mageia.org> <1358316366.14898.8.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Backlund <tmb@mageia.org>, Eric Blake <eblake@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	libvirt-list@redhat.com, tgraf@suug.ch,
-	David Miller <davem@davemloft.net>, libc-alpha@sourceware.org,
-	schwab@suse.de, carlos@systemhalted.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358316366.14898.8.camel@cr0>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
+Subject: [PATCH v3 1/2] net: asix: init ASIX AX88772B MAC from EEPROM
+Date: Wed, 16 Jan 2013 15:24:06 +0100
+Message-ID: <1358346247-10579-1-git-send-email-dev@lynxeye.de>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
+	Christian Riesch <christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>,
+	eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Cong Wang wrote:
-> (Cc'ing some glibc developers...)
-> 
-> Hello,
-> 
-> In glibc source file inet/netinet/in.h and kernel source file
-> include/uapi/linux/in6.h, both define struct in6_addr, and both are
-> visible to user applications. Thomas reported a conflict below.
-> 
-> So, how can we handle this? /me is wondering why we didn't see this
-> before.
-> 
-> Thanks.
-> 
-> On Tue, 2013-01-15 at 12:55 +0200, Thomas Backlund wrote:
->> Cong Wang skrev 15.1.2013 12:11:
->>>
->>> Does the following patch help?
->>>
->>> $ git diff include/uapi/linux/if_bridge.h
->>> diff --git a/include/uapi/linux/if_bridge.h
->>> b/include/uapi/linux/if_bridge.h
->>> index 5db2975..653db23 100644
->>> --- a/include/uapi/linux/if_bridge.h
->>> +++ b/include/uapi/linux/if_bridge.h
->>> @@ -14,6 +14,7 @@
->>>   #define _UAPI_LINUX_IF_BRIDGE_H
->>>
->>>   #include <linux/types.h>
->>> +#include <linux/in6.h>
->>>
->>>   #define SYSFS_BRIDGE_ATTR      "bridge"
->>>   #define SYSFS_BRIDGE_FDB       "brforward"
->>>
->>
->> Well, I suggested the same fix in the beginning of the thread
->> on netdev and lkml: "if_bridge.h: include in6.h for struct in6_addr use"
->>
->> as it seemed to fix the libvirt case
->>
->> but then asked it to be ignored after I tried to build connman,
->> and hit this conflict with glibc-2.17:
->>
->> In file included from /usr/include/arpa/inet.h:22:0,
->>                   from ./include/connman/inet.h:25,
->>                   from src/connman.h:128,
->>                   from src/tethering.c:40:
->> /usr/include/netinet/in.h:35:5: error: expected identifier before 
->> numeric constant
->> /usr/include/netinet/in.h:197:8: error: redefinition of 'struct in6_addr'
->> In file included from /usr/include/linux/if_bridge.h:17:0,
->>                   from src/tethering.c:38:
->> /usr/include/linux/in6.h:30:8: note: originally defined here
->> In file included from /usr/include/arpa/inet.h:22:0,
->>                   from ./include/connman/inet.h:25,
->>                   from src/connman.h:128,
->>                   from src/tethering.c:40:
->> /usr/include/netinet/in.h:238:8: error: redefinition of 'struct 
->> sockaddr_in6'
->> In file included from /usr/include/linux/if_bridge.h:17:0,
->>                   from src/tethering.c:38:
->> /usr/include/linux/in6.h:46:8: note: originally defined here
->> In file included from /usr/include/arpa/inet.h:22:0,
->>                   from ./include/connman/inet.h:25,
->>                   from src/connman.h:128,
->>                   from src/tethering.c:40:
->> /usr/include/netinet/in.h:274:8: error: redefinition of 'struct ipv6_mreq'
->> In file included from /usr/include/linux/if_bridge.h:17:0,
->>                   from src/tethering.c:38:
->> /usr/include/linux/in6.h:54:8: note: originally defined here
->> make[1]: *** [src/src_connmand-tethering.o] Error 1
->>
->>
->> So I'm not sure it's the right one...
+The device comes up with a MAC address of all zeros. We need to read the
+initial device MAC from EEPROM so it can be set properly later.
 
-This is not a new issue.  In addition to this,
-netinet/in.h also conflits with linux/in.h.
+Signed-off-by: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
+---
+A similar fix was added into U-Boot:
+http://patchwork.ozlabs.org/patch/179409/
 
-We might have
- #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
- :
- #endif
-around those conflicting definitions in uapi/linux/in{,6}.h.
+v2: pass flag in the data field instead of clobbering the global flags
+    space
+v3: no change
+---
+ drivers/net/usb/asix.h         |  3 +++
+ drivers/net/usb/asix_devices.c | 30 +++++++++++++++++++++++++++---
+ 2 files changed, 30 insertions(+), 3 deletions(-)
 
---yoshfuji
+diff --git a/drivers/net/usb/asix.h b/drivers/net/usb/asix.h
+index e889631..7afe8ac 100644
+--- a/drivers/net/usb/asix.h
++++ b/drivers/net/usb/asix.h
+@@ -167,6 +167,9 @@ struct asix_data {
+ 	u8 res;
+ };
+ 
++/* ASIX specific flags */
++#define FLAG_EEPROM_MAC		(1UL << 0)  /* init device MAC from eeprom */
++
+ int asix_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
+ 		  u16 size, void *data);
+ 
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devices.c
+index 7a6e758..0ecc3bc 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -422,14 +422,25 @@ static const struct net_device_ops ax88772_netdev_ops = {
+ 
+ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+-	int ret, embd_phy;
++	int ret, embd_phy, i;
+ 	u8 buf[ETH_ALEN];
+ 	u32 phyid;
+ 
+ 	usbnet_get_endpoints(dev,intf);
+ 
+ 	/* Get the MAC address */
+-	ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID, 0, 0, ETH_ALEN, buf);
++	if (dev->driver_info->data & FLAG_EEPROM_MAC) {
++		for (i = 0; i < (ETH_ALEN >> 1); i++) {
++			ret = asix_read_cmd(dev, AX_CMD_READ_EEPROM, 0x04 + i,
++					0, 2, buf + i * 2);
++			if (ret < 0)
++				break;
++		}
++	} else {
++		ret = asix_read_cmd(dev, AX_CMD_READ_NODE_ID,
++				0, 0, ETH_ALEN, buf);
++	}
++
+ 	if (ret < 0) {
+ 		netdev_dbg(dev->net, "Failed to read MAC address: %d\n", ret);
+ 		return ret;
+@@ -872,6 +883,19 @@ static const struct driver_info ax88772_info = {
+ 	.tx_fixup = asix_tx_fixup,
+ };
+ 
++static const struct driver_info ax88772b_info = {
++	.description = "ASIX AX88772B USB 2.0 Ethernet",
++	.bind = ax88772_bind,
++	.status = asix_status,
++	.link_reset = ax88772_link_reset,
++	.reset = ax88772_reset,
++	.flags = FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR |
++	         FLAG_MULTI_PACKET,
++	.rx_fixup = asix_rx_fixup,
++	.tx_fixup = asix_tx_fixup,
++	.data = FLAG_EEPROM_MAC,
++};
++
+ static const struct driver_info ax88178_info = {
+ 	.description = "ASIX AX88178 USB 2.0 Ethernet",
+ 	.bind = ax88178_bind,
+@@ -953,7 +977,7 @@ static const struct usb_device_id	products [] = {
+ }, {
+ 	// ASIX AX88772B 10/100
+ 	USB_DEVICE (0x0b95, 0x772b),
+-	.driver_info = (unsigned long) &ax88772_info,
++	.driver_info = (unsigned long) &ax88772b_info,
+ }, {
+ 	// ASIX AX88772 10/100
+ 	USB_DEVICE (0x0b95, 0x7720),
+-- 
+1.8.0.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
