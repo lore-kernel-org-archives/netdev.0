@@ -1,30 +1,104 @@
-From: Alan Ott <alan@signal11.us>
-Subject: [PATCH 0/2] Handle Uncompressed IPv6 on 6LoWPAN
-Date: Wed, 16 Jan 2013 00:43:55 -0500
-Message-ID: <1358315037-10043-1-git-send-email-alan@signal11.us>
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Tony Cheneau <tony.cheneau@amnesiak.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alan Ott <alan@signal11.us>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: [PATCH 1/2] 6lowpan: Refactor packet delivery
+	into a function
+Date: Wed, 16 Jan 2013 00:43:56 -0500
+Message-ID: <1358315037-10043-2-git-send-email-alan@signal11.us>
+References: <1358315037-10043-1-git-send-email-alan@signal11.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1358315037-10043-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This has been tested by exchanging data with with the Contiki operating
-system using a Redwire Econotag.  Contiki had to be set to send uncompressed
-data, and had to have a #define modified to enable reception and processing
-of header-compressed packets when not set to send compressed data.
+Refactor the handing of the skb's to the individual lowpan devices into a
+function.
 
-Alan Ott (2):
-  6lowpan: Refactor packet delivery into a function
-  6lowpan: Handle uncompressed IPv6 packets over 6LoWPAN
+Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c | 38 ++++++++++++++++++++++++--------------
+ 1 file changed, 24 insertions(+), 14 deletions(-)
 
- net/ieee802154/6lowpan.c | 79 ++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 56 insertions(+), 23 deletions(-)
-
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index f651da6..1714cfa 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -594,10 +594,32 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	}
+ }
+ 
++static int lowpan_give_skb_to_devices(struct sk_buff *skb)
++{
++	struct lowpan_dev_record *entry;
++	struct sk_buff *skb_cp;
++	int stat = NET_RX_SUCCESS;
++
++	rcu_read_lock();
++	list_for_each_entry_rcu(entry, &lowpan_devices, list)
++		if (lowpan_dev_info(entry->ldev)->real_dev == skb->dev) {
++			skb_cp = skb_copy(skb, GFP_ATOMIC);
++			if (!skb_cp) {
++				stat = -ENOMEM;
++				break;
++			}
++
++			skb_cp->dev = entry->ldev;
++			stat = netif_rx(skb_cp);
++		}
++	rcu_read_unlock();
++
++	return stat;
++}
++
+ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
+ {
+ 	struct sk_buff *new;
+-	struct lowpan_dev_record *entry;
+ 	int stat = NET_RX_SUCCESS;
+ 
+ 	new = skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_tailroom(skb),
+@@ -614,19 +636,7 @@ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
+ 	new->protocol = htons(ETH_P_IPV6);
+ 	new->pkt_type = PACKET_HOST;
+ 
+-	rcu_read_lock();
+-	list_for_each_entry_rcu(entry, &lowpan_devices, list)
+-		if (lowpan_dev_info(entry->ldev)->real_dev == new->dev) {
+-			skb = skb_copy(new, GFP_ATOMIC);
+-			if (!skb) {
+-				stat = -ENOMEM;
+-				break;
+-			}
+-
+-			skb->dev = entry->ldev;
+-			stat = netif_rx(skb);
+-		}
+-	rcu_read_unlock();
++	stat = lowpan_give_skb_to_devices(new);
+ 
+ 	kfree_skb(new);
+ 
 -- 
 1.7.11.2
+
+
+------------------------------------------------------------------------------
+Master Java SE, Java EE, Eclipse, Spring, Hibernate, JavaScript, jQuery
+and much more. Keep your Java skills current with LearnJavaNow -
+200+ hours of step-by-step video tutorials by Java experts.
+SALE $49.99 this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122612 
