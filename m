@@ -1,57 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/5] soreuseport: infrastructure
-Date: Wed, 16 Jan 2013 11:13:06 -0800
-Message-ID: <1358363586.32167.17.camel@edumazet-glaptop>
-References: <alpine.DEB.2.00.1301141152130.3433@pokey.mtv.corp.google.com>
-	 <20130115075323.64b2fdc7@nehalam.linuxnetplumber.net>
-	 <1358266444.8744.5892.camel@edumazet-glaptop>
-	 <CA+mtBx9UqyM-wTmX_ojNdH=oQO28i_4aV_z5mz1OiKJBzRRNnw@mail.gmail.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
+Date: Wed, 16 Jan 2013 14:22:16 -0500
+Message-ID: <201301161422.19202.vapier@gentoo.org>
+References: <201301161205.04502.vapier@gentoo.org> <201301161228.42592.vapier@gentoo.org> <20130116.135959.90676245194307972.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed;
+  boundary="nextPart2151952.n8aPA2lcy6";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	netdev@markandruth.co.uk
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:56993 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752589Ab3APTNL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 14:13:11 -0500
-Received: by mail-pa0-f54.google.com with SMTP id bi5so960766pad.27
-        for <netdev@vger.kernel.org>; Wed, 16 Jan 2013 11:13:10 -0800 (PST)
-In-Reply-To: <CA+mtBx9UqyM-wTmX_ojNdH=oQO28i_4aV_z5mz1OiKJBzRRNnw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: bhutchings@solarflare.com, libc-alpha@sourceware.org,
+	yoshfuji@linux-ipv6.org, amwang@redhat.com, tmb@mageia.org,
+	eblake@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
+	tgraf@suug.ch, schwab@suse.de, carlos@systemhalted.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130116.135959.90676245194307972.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-01-16 at 10:37 -0800, Tom Herbert wrote:
-> > Ideally, we should chose a target given by the current CPU number, in
-> > case SYN messages are spread on all cpus or a set of cpus.
-> >
-> It is an ideal, but I don't readily see a practical way to do this
-> given the available information, the fact that number of sockets
-> created is up to the application, and the fact that there is no fixed
-> binding of a socket to CPU.
-> 
-> Consider the simple "cpu % num" algorithm in packet fanout.  Suppose
-> is a 16 CPU system, and RX queues for the NIC are processed on CPUS
-> 0,3,7,11 and user creates 4 sockets.  In this configuration, on the
-> first socket would ever be selected!
+--nextPart2151952.n8aPA2lcy6
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Sure, any hand coded 'optimization' should be correctly done.
+On Wednesday 16 January 2013 13:59:59 David Miller wrote:
+> From: Mike Frysinger <vapier@gentoo.org>
+> > if you're not calling the kernel directly, why are you including the
+> > kernel headers ?  what is the problem people are actually trying to
+> > address here (and no, "i want to include both headers" is not the
+> > answer) ?
+>=20
+> When GLIBC doesn't provide it's own definition of some networking
+> macros or interfaces that the kernel provides, people include the
+> kernel header.
 
-On a 16 cpus system, I would create 16 queues, if we stick to the "cpu %
-nr_queues" simple selection.
+sounds like glibc's headers are out of date and we should update them to=20
+include the missing definitions
 
-If some queues are never used, thats not a big deal, unless you have a
-crazy spin polling of the queues. A blocked thread consumes almost
-nothing.
+but this is still too vague.  what headers/definitions do people want to se=
+e=20
+simultaneously included ?  changes would be needed on both sides (kernel & =
+C=20
+library).
 
-It would be a rather straightforward patch to add mask capability to
-af_packet (a la rps_cpus ), if we really wanted 4 queues, served by cpus
-0,3,7,11 but I don't think there is an urgent need.
+> This has been done for decades, wake up.
 
-Another way would be to let user land to declare a preferred cpu for the
-queue, even if not related to process scheduler affinity.
+and it's been broken for just as long.  no need to be a dick.
+=2Dmike
 
-Anyway, this can be addressed later, in followup patches.
+--nextPart2151952.n8aPA2lcy6
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iQIcBAABAgAGBQJQ9v3rAAoJEEFjO5/oN/WBg74P/1+Qjn9P3o4Gzdelbg+Rvj2T
+/qPQ+4Uj+CKdMmP143DU6+Y79pARKx1q4B4OVhozSsFWMGXMHToHS8ZJ0LyL5kN/
+fgd1iHE3p5bkp9FChPr4WsPP5xXlUh+qIyRUp7K4x4gc6W6tMPDpBlhp/aZeVKYx
+s6pI3P/3EKzXTSJ2pD6H+rLGgN3zpUZEElXY0nGd8SjdcNtT5IGQ8AhLVTtnE/cx
+4vuo6GPLWQhCdC8IiLwEZvIlxaJlrAgXk1R5RPu9D8zLROGFfvHoCydA5R+Pt0B+
+kS5SMfbSJJk7tnOPvGCnvK1wt5uwLGXJIr53TN8efIhr5eg0dibDPDLDzAhM5yLi
+mLRRgaOg4rAw88EHqTWSHjORMhznE8yvDC45c81077pvDxmHxqZ/kqO9TE/shAOH
+uayqmiZkOZM5JN8et+9MZlNzGQIsYvd1UA0ODk3aVVcUyPrNRdBoWvFAEEC1Vd9s
+NDSbnN4qDGPm6ufQC5SnZnTg6uAIIuikvFVqGXQRonM5mRaaxwVPv2vsqHfFmDLA
+ODPdFrbOwBkbR8M44TuT0jfEcB0tuSE1cF5BUZlRI3cwrAw+M3rZa2ex3TTH/83L
+hh0HxAvWAVJ2sqnngcWZpuPblRjNRTJPqFaYGEz/tiRc2HpkY/W9jYEYjDk4xtBP
+MKa80jIo9+L9RIL+P7Ch
+=SGZ7
+-----END PGP SIGNATURE-----
+
+--nextPart2151952.n8aPA2lcy6--
