@@ -1,112 +1,314 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Repeatable kernel splat in 3.3.8+, related to ip_rcv_finish
-Date: Tue, 15 Jan 2013 16:33:30 -0800
-Message-ID: <50F5F55A.9090706@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+From: Vincent Bernat <bernat@luffy.cx>
+Subject: [PATCH] sk-filter: Add ability to lock a socket filter program
+Date: Wed, 16 Jan 2013 01:42:34 +0100
+Message-ID: <1358296955-30582-1-git-send-email-bernat@luffy.cx>
+Cc: Vincent Bernat <bernat@luffy.cx>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44230 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757809Ab3APAdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 19:33:31 -0500
-Received: from [192.168.100.226] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r0G0XUNP008122
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 16:33:31 -0800
+Received: from bart.luffy.cx ([78.47.78.131]:37383 "EHLO bart.luffy.cx"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756253Ab3APAuo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jan 2013 19:50:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a reproducible crash (5-15 minutes typically)
-in a hacked 3.3.8+ kernel.  No proprietary modules, but my normal mix of
-networking patches are applied, so it could be my fault.
+While a privileged program can open a raw socket, attach some
+restrictive filter and drop its privileges (or send the socket to an
+unprivileged program through some Unix socket), the filter can still
+be removed or modified by the unprivileged program. This commit adds a
+socket option to lock the filter (SO_LOCK_FILTER) preventing any
+modification of a socket filter program.
 
-The crash always appears to be in the ip_rcv_finish method.
-On a pervious panic, the 'IP' was 0xFFFFFFFF, and I've seen
-it be other similar values before.  I'm not sure what this
-implies....
+This is similar to OpenBSD BIOCLOCK ioctl on bpf sockets, except even
+root is not allowed change/drop the filter.
 
-Test case is 2000 mac-vlans, resetting about 50 of them at a time
-during bringup, while also driving lower-speed NFS traffic on a
-mount for each of the already-reset mac-vlans.  It takes multiple
-minutes for my app to fully reset all of the interfaces and start
-traffic, and there are lots and lots of network changes going on
-at or just previous to the crashes.
+The state of the lock can be read with getsockopt(). No error is
+triggered if the state is not changed. -EPERM is returned when a user
+tries to remove the lock or to change/remove the filter while the lock
+is active. The check is done directly in sk_attach_filter() and
+sk_detach_filter() and does not affect only setsockopt() syscall.
 
-I need the nfs-bind-to-local-ip patches that I carry in my tree to
-reproduce this, so I can't run this test on upstream kernels.
-I will work on porting these into the 3.7 kernel for testing there
-in the meantime.
+Signed-off-by: Vincent Bernat <bernat@luffy.cx>
+---
+ Documentation/networking/filter.txt    |    7 +++++++
+ arch/alpha/include/uapi/asm/socket.h   |    1 +
+ arch/avr32/include/uapi/asm/socket.h   |    2 ++
+ arch/cris/include/uapi/asm/socket.h    |    2 ++
+ arch/frv/include/uapi/asm/socket.h     |    2 ++
+ arch/h8300/include/uapi/asm/socket.h   |    2 ++
+ arch/ia64/include/uapi/asm/socket.h    |    2 ++
+ arch/m32r/include/uapi/asm/socket.h    |    2 ++
+ arch/mips/include/uapi/asm/socket.h    |    1 +
+ arch/mn10300/include/uapi/asm/socket.h |    2 ++
+ arch/parisc/include/uapi/asm/socket.h  |    1 +
+ arch/powerpc/include/uapi/asm/socket.h |    2 ++
+ arch/s390/include/uapi/asm/socket.h    |    2 ++
+ arch/sparc/include/uapi/asm/socket.h   |    1 +
+ arch/xtensa/include/uapi/asm/socket.h  |    2 ++
+ include/net/sock.h                     |    1 +
+ include/uapi/asm-generic/socket.h      |    2 ++
+ net/core/filter.c                      |    6 ++++++
+ net/core/sock.c                        |   11 +++++++++++
+ 19 files changed, 51 insertions(+)
 
-Does this bug look familiar to anyone?
-
-
-(gdb) l *(ip_rcv_finish+0x2ea)
-0xffffffff814423e6 is in ip_rcv_finish (/home/greearb/git/linux-3.3.dev.y/net/ipv4/ip_input.c:365).
-360					skb->len);
-361		} else if (rt->rt_type == RTN_BROADCAST)
-362			IP_UPD_PO_STATS_BH(dev_net(rt->dst.dev), IPSTATS_MIB_INBCAST,
-363					skb->len);
-364	
-365		return dst_input(skb);
-366	
-367	drop:
-368		kfree_skb(skb);
-369		return NET_RX_DROP;
-(gdb)
-
-
-BUG: unable to handle kernel paging request at 0000001d00088000
-IP: [<0000001d00088000>] 0x1d00087fff
-PGD 372cb6067 PUD 0
-Oops: 0010 [#1] PREEMPT SMP
-CPU 11
-Modules linked in: nfs nfs_acl auth_rpcgss fscache 8021q garp stp llc lockd sunrpc macvlan pktgen microcode pcspkr i2c_i801 i2c_core i7core_edac e1000e iTCO_wdt 
-iTCO_vendor_support ioatdma igb dca edac_core uinput ipv6 [last unloaded: scsi_wait_scan]
-
-Pid: 67, comm: ksoftirqd/11 Tainted: G           O 3.3.8+ #55 Iron Systems Inc. EE2610R/X8ST3
-RIP: 0010:[<0000001d00088000>]  [<0000001d00088000>] 0x1d00087fff
-RSP: 0018:ffff88040974dc78  EFLAGS: 00010286
-RAX: ffff88038526e500 RBX: ffff88038526eb00 RCX: ffff88038526eb00
-RDX: 0000000000000020 RSI: 0000000000000002 RDI: ffff88038526eb00
-RBP: ffff88040974dca0 R08: ffffffff814420fc R09: 0000000000000000
-R10: ffff88040974d710 R11: ffffffff80000000 R12: ffff880357f4fcfc
-R13: ffff880409295000 R14: 0000000000000000 R15: 0000000000000001
-FS:  0000000000000000(0000) GS:ffff88041fd60000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000001d00088000 CR3: 00000003958bd000 CR4: 00000000000006e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process ksoftirqd/11 (pid: 67, threadinfo ffff88040974c000, task ffff880409741740)
-Stack:
-  ffffffff814423e6 ffff88038526eb00 ffffffff814420fc ffff880409295000
-  0000000000000000 ffff88040974dcd0 ffffffff8144274e ffff880480000000
-  ffff880409741740 ffff88038526eb00 ffff880409295000 ffff88040974dd00
-Call Trace:
-  [<ffffffff814423e6>] ? ip_rcv_finish+0x2ea/0x302
-  [<ffffffff814420fc>] ? inet_del_protocol+0x37/0x37
-eth3#739: no IPv6 routers present
-  [<ffffffff8144274e>] NF_HOOK.clone.1+0x4c/0x53
-  [<ffffffff814429d9>] ip_rcv+0x237/0x262
-  [<ffffffff8140ea4f>] __netif_receive_skb+0x477/0x4c0
-  [<ffffffff8140eb8c>] process_backlog+0xf4/0x1d6
-  [<ffffffff81410ae8>] net_rx_action+0xad/0x1e9
-  [<ffffffff8105b105>] __do_softirq+0x86/0x12f
-  [<ffffffff8105b261>] run_ksoftirqd+0xb3/0x1a6
-  [<ffffffff8105b1ae>] ? __do_softirq+0x12f/0x12f
-  [<ffffffff8105b1ae>] ? __do_softirq+0x12f/0x12f
-  [<ffffffff8106da7d>] kthread+0x84/0x8c
-  [<ffffffff814cc4e4>] kernel_thread_helper+0x4/0x10
-  [<ffffffff8106d9f9>] ? __init_kthread_worker+0x37/0x37
-  [<ffffffff814cc4e0>] ? gs_change+0x13/0x13
-Code:  Bad RIP value.
-RIP  [<0000001d00088000>] 0x1d00087fff
-  RSP <ffff88040974dc78>
-CR2: 0000001d00088000
----[ end trace 1d145cfe9c5c5d55 ]---
-
+diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
+index bbf2005..eeaf8ff 100644
+--- a/Documentation/networking/filter.txt
++++ b/Documentation/networking/filter.txt
+@@ -31,12 +31,19 @@ the old one and placing your new one in its place, assuming your
+ filter has passed the checks, otherwise if it fails the old filter
+ will remain on that socket.
+ 
++SO_LOCK_FILTER ioctl allows to lock the filter attached to a
++socket. Once set, a filter cannot be removed or changed. This allows
++one process to setup a socket, attach a filter, lock it then drop
++privileges and be assured that the filter will be kept until the
++socket is closed.
++
+ Examples
+ ========
+ 
+ Ioctls-
+ setsockopt(sockfd, SOL_SOCKET, SO_ATTACH_FILTER, &Filter, sizeof(Filter));
+ setsockopt(sockfd, SOL_SOCKET, SO_DETACH_FILTER, &value, sizeof(value));
++setsockopt(sockfd, SOL_SOCKET, SO_LOCK_FILTER, &value, sizeof(value));
+ 
+ See the BSD bpf.4 manpage and the BSD Packet Filter paper written by
+ Steven McCanne and Van Jacobson of Lawrence Berkeley Laboratory.
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 097c157..755702e 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -77,5 +77,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
+ 
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 486df68..f3f38a0 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -70,4 +70,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* __ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
+index b681b04..406b583 100644
+--- a/arch/cris/include/uapi/asm/socket.h
++++ b/arch/cris/include/uapi/asm/socket.h
+@@ -72,6 +72,8 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_SOCKET_H */
+ 
+ 
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index 871f89b..d8e1132 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -70,5 +70,7 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/h8300/include/uapi/asm/socket.h b/arch/h8300/include/uapi/asm/socket.h
+index 90a2e57..c8b87a8 100644
+--- a/arch/h8300/include/uapi/asm/socket.h
++++ b/arch/h8300/include/uapi/asm/socket.h
+@@ -70,4 +70,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index 23d6759..f390896 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -79,4 +79,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 5e7088a..6a89515 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -70,4 +70,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index 17307ab..9d11a77 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -90,5 +90,6 @@ To add: #define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
+ 
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index af5366b..ab702c4 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -70,4 +70,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index d9ff473..da2c8d3 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -69,6 +69,7 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		0x4024
+ 
++#define SO_LOCK_FILTER		0x4025
+ 
+ /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
+  * have to define SOCK_NONBLOCK to a different value here.
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index eb0b186..e6ca318 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -77,4 +77,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index 436d07c..9ce60b6 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -76,4 +76,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index c83a937..fbbba57 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -66,6 +66,7 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		0x0027
+ 
++#define SO_LOCK_FILTER		0x0028
+ 
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 38079be..dbf3164 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -81,4 +81,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 182ca99..5a34e2f 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -664,6 +664,7 @@ enum sock_flags {
+ 		     * Will use last 4 bytes of packet sent from
+ 		     * user-space instead.
+ 		     */
++	SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
+ };
+ 
+ static inline void sock_copy_flags(struct sock *nsk, struct sock *osk)
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 2d32d07..3f6a992 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -73,4 +73,6 @@
+ /* Instruct lower device to use last 4-bytes of skb data as FCS */
+ #define SO_NOFCS		43
+ 
++#define SO_LOCK_FILTER		44
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 2ead2a9..2e20b55 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -721,6 +721,9 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ 	unsigned int fsize = sizeof(struct sock_filter) * fprog->len;
+ 	int err;
+ 
++	if (sock_flag(sk, SOCK_FILTER_LOCKED))
++		return -EPERM;
++
+ 	/* Make sure new filter is there and in the right amounts. */
+ 	if (fprog->filter == NULL)
+ 		return -EINVAL;
+@@ -757,6 +760,9 @@ int sk_detach_filter(struct sock *sk)
+ 	int ret = -ENOENT;
+ 	struct sk_filter *filter;
+ 
++	if (sock_flag(sk, SOCK_FILTER_LOCKED))
++		return -EPERM;
++
+ 	filter = rcu_dereference_protected(sk->sk_filter,
+ 					   sock_owned_by_user(sk));
+ 	if (filter) {
+diff --git a/net/core/sock.c b/net/core/sock.c
+index bc131d4..8258fb7 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -861,6 +861,13 @@ set_rcvbuf:
+ 		ret = sk_detach_filter(sk);
+ 		break;
+ 
++	case SO_LOCK_FILTER:
++		if (sock_flag(sk, SOCK_FILTER_LOCKED) && !valbool)
++			ret = -EPERM;
++		else
++			sock_valbool_flag(sk, SOCK_FILTER_LOCKED, valbool);
++		break;
++
+ 	case SO_PASSSEC:
+ 		if (valbool)
+ 			set_bit(SOCK_PASSSEC, &sock->flags);
+@@ -1140,6 +1147,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 		goto lenout;
+ 
++	case SO_LOCK_FILTER:
++		v.val = sock_flag(sk, SOCK_FILTER_LOCKED);
++		break;
++
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	}
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.10.4
