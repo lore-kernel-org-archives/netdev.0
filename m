@@ -1,58 +1,39 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 802.1q HW filter spammage in 3.7.2+ kernels.
-Date: Wed, 16 Jan 2013 06:03:04 -0800
-Message-ID: <50F6B318.2010707@candelatech.com>
-References: <50F60404.3090605@candelatech.com> <1358316108.19956.82.camel@edumazet-glaptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC(v2) net-next 13/13] ipv6: Complete neighbour entry removal
+ from dst_entry.
+Date: Wed, 16 Jan 2013 23:04:35 +0900
+Message-ID: <50F6B373.5040106@linux-ipv6.org>
+References: <50F587ED.5070602@linux-ipv6.org> <50F6521F.4020706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:49464 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752945Ab3APODK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 09:03:10 -0500
-In-Reply-To: <1358316108.19956.82.camel@edumazet-glaptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:42638 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752850Ab3APOEg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 09:04:36 -0500
+In-Reply-To: <50F6521F.4020706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/15/2013 10:01 PM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> On Tue, 2013-01-15 at 17:36 -0800, Ben Greear wrote:
->> My kernel logs are full of this (I have 2000 macvlans).
->
-> Are you using 2000 macvlans on the same device ? Interesting...
+Cong Wang wrote:
+> On 01/16/2013 12:46 AM, YOSHIFUJI Hideaki wrote:
+>> +#if 0
+>>   		if (rt->n && rt->n->dev == dev) {
+>>   			rt->n->dev = loopback_dev;
+>>   			dev_hold(loopback_dev);
+>>   			dev_put(dev);
+>>   		}
+>> +#endif
+> 
+> Why commenting this out instead of removing it? As rt->n is totally
+> removed, how possible could we reuse this code in future?
 
-Well, in this case, we have 1000 mac-vlans on each of 2 1G
-Ethernet ports, but 2000 on a single device has been used
-as well.
+I have confirmed that this dev_put()/dev_hold() operation are really
+for neigh->dev, which has refcnt for dev, so I agree.
 
->
-> I am wondering how multicast/broadcast messages don't generate a huge
-> load and packet drops, since we clone packets for every macvlan, and
-> queue then to netif_rx()
->
+(This is why I need to revisit refcnt 
 
-I have added ARP patches to do a random retry timer to help spread
-out the ARP requests a bit, at least.  The system is still sluggish
-at times, but it does function.  With a fixed-interval ARP timer, things
-can get into very bad patterns.
-
-http://patchwork.ozlabs.org/patch/9301/
-
-My test cases often require SO_BINDTODEVICE to function with full features,
-with one traffic-application per interface, so mac-vlans seems the easiest
-way to scale.
-
-> I guess you dont use IPv6 on these macvlans ?
-
-I have...but many use cases use far fewer (virtual) interfaces.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--yoshfuji
