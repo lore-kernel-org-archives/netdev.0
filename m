@@ -1,20 +1,27 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH net-next V6 01/14] vlan: wrap hw-acceleration calls in separate functions.
-Date: Wed, 16 Jan 2013 23:00:54 +0100 (CET)
-Message-ID: <0897958c5d3142f4e0f0ddbb9709e1d017688e72.1358373119.git.mirq-linux@rere.qmqm.pl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH net-next V6 01/14] vlan: wrap hw-acceleration calls in
+ separate functions.
+Date: Wed, 16 Jan 2013 23:03:17 +0100
+Message-ID: <0897958c5d3142f4e0f0ddbb9709e1d017688e72.1358373119.1.git.mirq-linux@rere.qmqm.pl>
 References: <1358360289-23249-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net, shemminger@vyatta.com, mst@redhat.com,
+	shmulik.ladkani@gmail.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:39790 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:39792 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757477Ab3APWK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757843Ab3APWK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 16 Jan 2013 17:10:29 -0500
+Content-Disposition: inline
 In-Reply-To: <1358360289-23249-2-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+(resend with proper To:)
 
 > Wrap VLAN hardware acceleration calls into separate functions.  This =
 way
@@ -28,7 +35,7 @@ fixed or have NETIF_F_HW_VLAN_FILTER removed from advertised features.
 
 net: disallow drivers with buggy VLAN accel to register_netdevice()
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
 ---
  net/8021q/vlan.c      |    7 -------
  net/8021q/vlan_core.c |    6 ++----
@@ -108,3 +115,6 @@ index b6d2b32..f87cdc2 100644
  		dev->ifindex =3D dev_new_index(net);
 --=20
 1.7.10.4
+
+
+----- End forwarded message -----
