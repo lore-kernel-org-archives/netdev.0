@@ -1,98 +1,99 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v2 2/2] virtio-net: introduce a new control to set macaddr
-Date: Wed, 16 Jan 2013 10:36:58 +0200
-Message-ID: <20130116083658.GE11465@redhat.com>
-References: <1358315821-29519-1-git-send-email-akong@redhat.com>
-	<1358315821-29519-3-git-send-email-akong@redhat.com>
-	<8243136.frWZnRkUJV@jason-thinkpad-t430s>
-	<20130116082447.GA31074@t430s.nay.redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] ipv4: Remove output route check in ipv4_mtu
+Date: Wed, 16 Jan 2013 10:58:13 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1301160915030.1621@ja.ssi.bg>
+References: <20130116063645.GC18940@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, qemu-devel@nongnu.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
-To: Amos Kong <akong@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20130116082447.GA31074@t430s.nay.redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, timo.teras@iki.fi,
+	luky-37@hotmail.com, pupilla@libero.it, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:54530 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932108Ab3APIzZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 03:55:25 -0500
+In-Reply-To: <20130116063645.GC18940@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 16, 2013 at 04:24:47PM +0800, Amos Kong wrote:
-> On Wed, Jan 16, 2013 at 02:20:39PM +0800, Jason Wang wrote:
-> > On Wednesday, January 16, 2013 01:57:01 PM akong@redhat.com wrote:
-> > > From: Amos Kong <akong@redhat.com>
-> > > 
-> > > Currently we write MAC address to pci config space byte by byte,
-> > > this means that we have an intermediate step where mac is wrong.
-> > > This patch introduced a new control command to set MAC address
-> > > in one time.
-> > > 
-> > > VIRTIO_NET_F_CTRL_MAC_ADDR is a new feature bit for compatibility.
-> > > 
-> > > Signed-off-by: Amos Kong <akong@redhat.com>
-> > > ---
-> > >  drivers/net/virtio_net.c        | 24 +++++++++++++++++-------
-> > >  include/uapi/linux/virtio_net.h |  8 +++++++-
-> > >  2 files changed, 24 insertions(+), 8 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> > > index 395ab4f..c8901b6 100644
-> > > --- a/drivers/net/virtio_net.c
-> > > +++ b/drivers/net/virtio_net.c
-> > > @@ -802,16 +802,25 @@ static int virtnet_set_mac_address(struct net_device
-> > > *dev, void *p) struct virtnet_info *vi = netdev_priv(dev);
-> > >  	struct virtio_device *vdev = vi->vdev;
-> > >  	int ret;
-> > > +	struct sockaddr *addr = p;
-> > > +	struct scatterlist sg;
-> > > 
-> > > -	ret = eth_mac_addr(dev, p);
-> > > -	if (ret)
-> > > -		return ret;
-> > > -
-> > > -	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
-> > > +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
-> > > +		sg_init_one(&sg, addr->sa_data, dev->addr_len);
-> > > +		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
-> > > +					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
-> > > +					  &sg, 1, 0)) {
-> > > +			dev_warn(&vdev->dev,
-> > > +				 "Failed to set mac address by vq command.\n");
-> > > +			return -EINVAL;
-> > > +		}
-> > > +	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
-> > >  		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
-> > > -		                  dev->dev_addr, dev->addr_len);
-> > > +				  addr->sa_data, dev->addr_len);
-> > > +	}
-> > > +	ret = eth_mac_addr(dev, p);
-> > > 
-> > 
-> > The you will the validity check in eth_mac_addr which may result a wrong mac 
-> > address to be set in the hardware (or is there any check in qemu) and a 
-> > inconsistency bettween what kernel assumes and qemu has.
-> > 
-> > You can take a look at netvsc driver that calls eth_mac_addr() first and 
-> > restore the software mac address when fail to enforce it to hardware.
-> 
-> Thanks for the catching, I will move eth_mac_addr() back to above,
-> just restore addr if fail to send command.
-> 
-> I will also use DEFINE_PROP_BIT to fix migration issue, thanks.
 
-And clear it if running with a compat machine type.
+	Hello,
 
-> > Thanks
-> > > -	return 0;
-> > > +	return ret;
-> > >  }
+On Wed, 16 Jan 2013, Steffen Klassert wrote:
+
+> The output route check was introduced with git commit 261663b0
+> (ipv4: Don't use the cached pmtu informations for input routes)
+> during times when we cached the pmtu informations on the
+> inetpeer. Now the pmtu informations are back in the routes,
+> so this check is obsolete. It also had some unwanted side effects,
+> as reported by Timo Teras and Lukas Tribus.
 > 
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv4/route.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 844a9ef..6e4a89c 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -1120,7 +1120,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
+>  	if (!mtu || time_after_eq(jiffies, rt->dst.expires))
+>  		mtu = dst_metric_raw(dst, RTAX_MTU);
+>  
+> -	if (mtu && rt_is_output_route(rt))
+> +	if (mtu)
+>  		return mtu;
+
+	This fix looks good to me. But I see that we
+have another problem here. doc/ip-cref.tex in iproute2
+claims that a locked MTU value has priority and
+PMTU should not be considered.
+
+	IIRC, rt_pmtu is valid only for output routes but
+we do not check the lock flag here. What about such
+variant:
+
+static unsigned int ipv4_mtu(const struct dst_entry *dst)
+{
+	const struct rtable *rt = (const struct rtable *) dst;
+	unsigned int mtu = rt->rt_pmtu;
+
+	if (unlikely(dst_metric_locked(dst, RTAX_MTU))) {
+		mtu = dst_metric_raw(dst, RTAX_MTU);
+		if (!mtu) {
+			mtu = dst->dev->mtu;
+			if (rt->rt_uses_gateway && mtu > 576)
+				mtu = 576;
+		}
+	} else if (!mtu || time_after_eq(jiffies, rt->dst.expires)) {
+		mtu = dst_metric_raw(dst, RTAX_MTU);
+		if (!mtu)
+			mtu = dst->dev->mtu;
+	}
+	if (mtu > IP_MAX_MTU)
+		mtu = IP_MAX_MTU;
+
+	return mtu;
+}
+
+	I.e. order becomes:
+
+mtu lock non-zero => fixed fib_mtu
+mtu lock 0 => device MTU, up to 576 if via GW, ignore PMTU
+PMTU (output routes)
+mtu non-zero => fib_mtu
+device MTU
+
+	Also, it seems __ip_rt_update_pmtu should start
+with such dst_metric_locked(dst, RTAX_MTU) check?
+
+>  	mtu = dst->dev->mtu;
+> -- 
+> 1.7.9.5
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
