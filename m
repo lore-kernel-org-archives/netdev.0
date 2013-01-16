@@ -1,32 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] 6lowpan: Handle uncompressed IPv6 packets over
- 6LoWPAN
-Date: Wed, 16 Jan 2013 16:22:14 -0500 (EST)
-Message-ID: <20130116.162214.444431638469568669.davem@davemloft.net>
-References: <1358315037-10043-1-git-send-email-alan@signal11.us>
-	<1358315037-10043-3-git-send-email-alan@signal11.us>
+Subject: Re: [PATCH] r8169: remove unneeded dirty_rx index
+Date: Wed, 16 Jan 2013 16:25:00 -0500 (EST)
+Message-ID: <20130116.162500.1216966272191204366.davem@davemloft.net>
+References: <20130115225316.GA924@electric-eye.fr.zoreil.com>
+	<1358319684-32364-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tony.cheneau@amnesiak.org,
-	eric.dumazet@gmail.com
-To: alan@signal11.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358315037-10043-3-git-send-email-alan@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: timo.teras@iki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39408 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755763Ab3APVZC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:25:02 -0500
+In-Reply-To: <1358319684-32364-1-git-send-email-timo.teras@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alan Ott <alan@signal11.us>
-Date: Wed, 16 Jan 2013 00:43:57 -0500
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Wed, 16 Jan 2013 09:01:24 +0200
 
-> +		local_skb = skb_copy_expand(skb, NET_SKB_PAD - 1,
-> +						skb_tailroom(skb), GFP_ATOMIC);
+> @@ -6035,10 +6034,8 @@ static int rtl_rx(struct net_device *dev, stru=
+ct rtl8169_private *tp, u32 budget
+>  	unsigned int count;
+> =20
+>  	cur_rx =3D tp->cur_rx;
+> -	rx_left =3D NUM_RX_DESC + tp->dirty_rx - cur_rx;
+> -	rx_left =3D min(rx_left, budget);
+> =20
+> -	for (; rx_left > 0; rx_left--, cur_rx++) {
+> +	for (rx_left =3D min(budget, NUM_RX_DESC); rx_left > 0; rx_left--, =
+cur_rx++) {
 
-This is not indented properly.
-
-When a function call spans multiple lines, the second and subsequent
-lines should be indented to the column right after the openning
-parenthesis of the call itself, using a combination of TAB and
-SPC characters as needed.
+Is this really equivalent?  I think cur_rx still needs to be
+incorporated into whatever you use as the initial rx_left.
