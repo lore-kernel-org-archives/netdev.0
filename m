@@ -1,56 +1,45 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC(v2) net-next 01/13] ndisc: Refer/Update neigh->updated with
- write lock.
-Date: Wed, 16 Jan 2013 14:35:40 +0800
-Message-ID: <50F64A3C.9040605@gmail.com>
-References: <50F58777.7080209@linux-ipv6.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] ipv4: Remove output route check in ipv4_mtu
+Date: Wed, 16 Jan 2013 07:36:45 +0100
+Message-ID: <20130116063645.GC18940@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: timo.teras@iki.fi, luky-37@hotmail.com, pupilla@libero.it,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:63139 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752776Ab3APGfq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 01:35:46 -0500
-Received: by mail-pa0-f43.google.com with SMTP id fb10so609310pad.16
-        for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 22:35:46 -0800 (PST)
-In-Reply-To: <50F58777.7080209@linux-ipv6.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:35208 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752441Ab3APGgs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 01:36:48 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/16/2013 12:44 AM, YOSHIFUJI Hideaki wrote:
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->   net/ipv6/route.c |   12 ++++++++----
->   1 file changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-> index 7c34c01..1341f68 100644
-> --- a/net/ipv6/route.c
-> +++ b/net/ipv6/route.c
-> @@ -499,22 +499,26 @@ static void rt6_probe(struct rt6_info *rt)
->   	 * to no more than one per minute.
->   	 */
->   	neigh = rt ? rt->n : NULL;
-> -	if (!neigh || (neigh->nud_state & NUD_VALID))
-> +	if (!neigh)
-> +		return;
-> +	write_lock_bh(&neigh->lock);
-> +	if (neigh->nud_state & NUD_VALID) {
-> +		write_unlock_bh(&neigh->lock);
->   		return;
-> -	read_lock_bh(&neigh->lock);
-> +	}
->   	if (!(neigh->nud_state & NUD_VALID) &&
->   	    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
->   		struct in6_addr mcaddr;
->   		struct in6_addr *target;
->   
->   		neigh->updated = jiffies;
-> -		read_unlock_bh(&neigh->lock);
-> +		write_unlock_bh(&neigh->lock);
+The output route check was introduced with git commit 261663b0
+(ipv4: Don't use the cached pmtu informations for input routes)
+during times when we cached the pmtu informations on the
+inetpeer. Now the pmtu informations are back in the routes,
+so this check is obsolete. It also had some unwanted side effects,
+as reported by Timo Teras and Lukas Tribus.
 
-This looks like a bug fix, which deserves a separated patch rather than
-in this rt->n removal series.
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/route.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 844a9ef..6e4a89c 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1120,7 +1120,7 @@ static unsigned int ipv4_mtu(const struct dst_entry *dst)
+ 	if (!mtu || time_after_eq(jiffies, rt->dst.expires))
+ 		mtu = dst_metric_raw(dst, RTAX_MTU);
+ 
+-	if (mtu && rt_is_output_route(rt))
++	if (mtu)
+ 		return mtu;
+ 
+ 	mtu = dst->dev->mtu;
+-- 
+1.7.9.5
