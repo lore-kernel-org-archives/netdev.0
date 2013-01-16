@@ -1,14 +1,21 @@
 From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
-Subject: [PATCH 182/222] batman-adv: fix random jitter calculation
-Date: Wed, 16 Jan 2013 13:56:22 -0200
-Message-ID: <1358351822-7675-183-git-send-email-herton.krzesinski@canonical.com>
+Subject: [PATCH 176/222] epoll: prevent missed events on EPOLL_CTL_MOD
+Date: Wed, 16 Jan 2013 13:56:16 -0200
+Message-ID: <1358351822-7675-177-git-send-email-herton.krzesinski@canonical.com>
 References: <1358351822-7675-1-git-send-email-herton.krzesinski@canonical.com>
-Cc: Akinobu Mita <akinobu.mita@gmail.com>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	Antonio Quartulli <ordex@autistici.org>,
-	b.a.t.m.a.n@lists.open-mesh.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+Cc: Eric Wong <normalperson@yhbt.net>,
+	Hans Verkuil <hans.verkuil@cisco.com>,
+	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Hans de Goede <hdegoede@redhat.com>,
+	Mauro Carvalho Chehab <mchehab@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Andreas Voellmy <andreas.voellmy@yale.edu>,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
 	Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
 To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
 	kernel-team@lists.ubuntu.com
@@ -21,49 +28,85 @@ List-Id: netdev.vger.kernel.org
 
 ------------------
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
+From: Eric Wong <normalperson@yhbt.net>
 
-commit 143cdd8f33909ff5a153e3f02048738c5964ba26 upstream.
+commit 128dd1759d96ad36c379240f8b9463e8acfd37a1 upstream.
 
-batadv_iv_ogm_emit_send_time() attempts to calculates a random integer
-in the range of 'orig_interval +- BATADV_JITTER' by the below lines.
+EPOLL_CTL_MOD sets the interest mask before calling f_op->poll() to
+ensure events are not missed.  Since the modifications to the interest
+mask are not protected by the same lock as ep_poll_callback, we need to
+ensure the change is visible to other CPUs calling ep_poll_callback.
 
-        msecs = atomic_read(&bat_priv->orig_interval) - BATADV_JITTER;
-        msecs += (random32() % 2 * BATADV_JITTER);
+We also need to ensure f_op->poll() has an up-to-date view of past
+events which occured before we modified the interest mask.  So this
+barrier also pairs with the barrier in wq_has_sleeper().
 
-But it actually gets 'orig_interval' or 'orig_interval - BATADV_JITTER'
-because '%' and '*' have same precedence and associativity is
-left-to-right.
+This should guarantee either ep_poll_callback or f_op->poll() (or both)
+will notice the readiness of a recently-ready/modified item.
 
-This adds the parentheses at the appropriate position so that it matches
-original intension.
+This issue was encountered by Andreas Voellmy and Junchang(Jason) Wang in:
+http://thread.gmane.org/gmane.linux.kernel/1408782/
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Acked-by: Antonio Quartulli <ordex@autistici.org>
-Cc: Marek Lindner <lindner_marek@yahoo.de>
-Cc: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Cc: Antonio Quartulli <ordex@autistici.org>
-Cc: b.a.t.m.a.n@lists.open-mesh.org
-Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Eric Wong <normalperson@yhbt.net>
+Cc: Hans Verkuil <hans.verkuil@cisco.com>
+Cc: Jiri Olsa <jolsa@redhat.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Davide Libenzi <davidel@xmailserver.org>
+Cc: Hans de Goede <hdegoede@redhat.com>
+Cc: Mauro Carvalho Chehab <mchehab@infradead.org>
+Cc: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Andreas Voellmy <andreas.voellmy@yale.edu>
+Tested-by: "Junchang(Jason) Wang" <junchang.wang@yale.edu>
 Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Cc: linux-fsdevel@vger.kernel.org
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 Signed-off-by: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
 ---
- net/batman-adv/bat_iv_ogm.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ fs/eventpoll.c |   22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index dc53798..bcf3760 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -117,7 +117,7 @@ static unsigned long bat_iv_ogm_emit_send_time(const struct bat_priv *bat_priv)
- {
- 	return jiffies + msecs_to_jiffies(
- 		   atomic_read(&bat_priv->orig_interval) -
--		   JITTER + (random32() % 2*JITTER));
-+		   JITTER + (random32() % (2*JITTER)));
- }
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index 1c8b556..dd1a55d 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -1285,7 +1285,7 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
+ 	 * otherwise we might miss an event that happens between the
+ 	 * f_op->poll() call and the new event set registering.
+ 	 */
+-	epi->event.events = event->events;
++	epi->event.events = event->events; /* need barrier below */
+ 	pt._key = event->events;
+ 	epi->event.data = event->data; /* protected by mtx */
+ 	if (epi->event.events & EPOLLWAKEUP) {
+@@ -1296,6 +1296,26 @@ static int ep_modify(struct eventpoll *ep, struct epitem *epi, struct epoll_even
+ 	}
  
- /* when do we schedule a ogm packet to be sent */
+ 	/*
++	 * The following barrier has two effects:
++	 *
++	 * 1) Flush epi changes above to other CPUs.  This ensures
++	 *    we do not miss events from ep_poll_callback if an
++	 *    event occurs immediately after we call f_op->poll().
++	 *    We need this because we did not take ep->lock while
++	 *    changing epi above (but ep_poll_callback does take
++	 *    ep->lock).
++	 *
++	 * 2) We also need to ensure we do not miss _past_ events
++	 *    when calling f_op->poll().  This barrier also
++	 *    pairs with the barrier in wq_has_sleeper (see
++	 *    comments for wq_has_sleeper).
++	 *
++	 * This barrier will now guarantee ep_poll_callback or f_op->poll
++	 * (or both) will notice the readiness of an item.
++	 */
++	smp_mb();
++
++	/*
+ 	 * Get current event bits. We can safely use the file* here because
+ 	 * its usage count has been increased by the caller of this function.
+ 	 */
 -- 
 1.7.9.5
