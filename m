@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: remove unneeded dirty_rx index
-Date: Wed, 16 Jan 2013 16:25:00 -0500 (EST)
-Message-ID: <20130116.162500.1216966272191204366.davem@davemloft.net>
-References: <20130115225316.GA924@electric-eye.fr.zoreil.com>
-	<1358319684-32364-1-git-send-email-timo.teras@iki.fi>
+Subject: Re: [PATCH] ipv6: do not create neighbor entries for local delivery
+Date: Wed, 16 Jan 2013 16:28:13 -0500 (EST)
+Message-ID: <20130116.162813.1734293658687337225.davem@davemloft.net>
+References: <50F6ABCA.4020804@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: timo.teras@iki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: mleitner@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39408 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39446 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755763Ab3APVZC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:25:02 -0500
-In-Reply-To: <1358319684-32364-1-git-send-email-timo.teras@iki.fi>
+	with ESMTP id S1757016Ab3APV2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 16:28:15 -0500
+In-Reply-To: <50F6ABCA.4020804@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Wed, 16 Jan 2013 09:01:24 +0200
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Date: Wed, 16 Jan 2013 11:31:54 -0200
 
-> @@ -6035,10 +6034,8 @@ static int rtl_rx(struct net_device *dev, stru=
-ct rtl8169_private *tp, u32 budget
->  	unsigned int count;
-> =20
->  	cur_rx =3D tp->cur_rx;
-> -	rx_left =3D NUM_RX_DESC + tp->dirty_rx - cur_rx;
-> -	rx_left =3D min(rx_left, budget);
-> =20
-> -	for (; rx_left > 0; rx_left--, cur_rx++) {
-> +	for (rx_left =3D min(budget, NUM_RX_DESC); rx_left > 0; rx_left--, =
-cur_rx++) {
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index
+> 7c34c01b515b7ac370f8021ba6f5ec4c654e9e41..b63e33bcbdfbc1bd78af0b98ffc2d211805214ea
+> 100644
 
-Is this really equivalent?  I think cur_rx still needs to be
-incorporated into whatever you use as the initial rx_left.
+Patch corrupted by your email client.
+
+Note also that YOSHIFUJI Hideaki's patches to remove the cached neighbour
+entirely from ipv6 routes will have the same effect, so your patch won't
+be needed.
