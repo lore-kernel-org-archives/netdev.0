@@ -1,53 +1,55 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 6/7] net/mlx4_en: Fix a race when closing TX queue
-Date: Wed, 16 Jan 2013 17:42:14 +0200
-Message-ID: <1358350935-3281-7-git-send-email-amirv@mellanox.com>
-References: <1358350935-3281-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:43597 "HELO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754064Ab3APPmp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 10:42:45 -0500
-In-Reply-To: <1358350935-3281-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and
+ <linux/in6.h>
+Date: Wed, 16 Jan 2013 15:47:12 +0000
+Message-ID: <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org>
+	   <50F49B7E.50906@redhat.com> <50F52956.50201@mageia.org>
+	  <1358244688.4264.7.camel@cr0> <50F53596.4070200@mageia.org>
+	 <1358316366.14898.8.camel@cr0> <50F6B761.8070106@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, Thomas Backlund <tmb@mageia.org>,
+	Eric Blake <eblake@redhat.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <libvirt-list@redhat.com>,
+	<tgraf@suug.ch>, David Miller <davem@davemloft.net>,
+	<libc-alpha@sourceware.org>, <schwab@suse.de>,
+	<carlos@systemhalted.org>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50F6B761.8070106@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a possible race where the TX completion handler can clean the
-entire TX queue between the decision that the queue is full and actually
-closing it. To avoid this situation, check again if the queue is really
-full, if not, reopen the transmit and continue with sending the packet.
+On Wed, 2013-01-16 at 23:21 +0900, YOSHIFUJI Hideaki wrote:
+> Cong Wang wrote:
+> > (Cc'ing some glibc developers...)
+> > 
+> > Hello,
+> > 
+> > In glibc source file inet/netinet/in.h and kernel source file
+> > include/uapi/linux/in6.h, both define struct in6_addr, and both are
+> > visible to user applications. Thomas reported a conflict below.
+> > 
+> > So, how can we handle this? /me is wondering why we didn't see this
+> > before.
+[...]
+> This is not a new issue.  In addition to this,
+> netinet/in.h also conflits with linux/in.h.
+> 
+> We might have
+>  #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
+>  :
+>  #endif
+> around those conflicting definitions in uapi/linux/in{,6}.h.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_tx.c |    9 ++++++++-
- 1 files changed, 8 insertions(+), 1 deletions(-)
+This only solves half the problem, as <netinet/in.h> might be included
+after <linux/in.h>.  Also, not all Linux userland uses glibc.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 2b799f4..1d17f5f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -592,7 +592,14 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		netif_tx_stop_queue(ring->tx_queue);
- 		priv->port_stats.queue_stopped++;
- 
--		return NETDEV_TX_BUSY;
-+		/* Check again whether the queue was cleaned */
-+		if (unlikely(((int)(ring->prod - ring->cons)) <=
-+				ring->size - HEADROOM - MAX_DESC_TXBBS)) {
-+			netif_tx_wake_queue(ring->tx_queue);
-+			priv->port_stats.wake_queue++;
-+		} else {
-+			return NETDEV_TX_BUSY;
-+		}
- 	}
- 
- 	/* Track current inflight packets for performance analysis */
+Ben.
+
 -- 
-1.7.8.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
