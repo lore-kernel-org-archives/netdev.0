@@ -1,46 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 1/3] Avoid making inappropriate requests of
- NETIF_F_V[46]_CSUM devices
-Date: Wed, 16 Jan 2013 18:00:44 -0500 (EST)
-Message-ID: <20130116.180044.630688719598008373.davem@davemloft.net>
-References: <1358165431.27054.62.camel@shinybook.infradead.org>
-	<20130116.155406.351676228334066120.davem@davemloft.net>
-	<1358375658.2397.69.camel@shinybook.infradead.org>
+Subject: Re: [PATCH] r8169: remove unneeded dirty_rx index
+Date: Wed, 16 Jan 2013 18:02:41 -0500 (EST)
+Message-ID: <20130116.180241.577406705639005581.davem@davemloft.net>
+References: <20130115225316.GA924@electric-eye.fr.zoreil.com>
+	<1358319684-32364-1-git-send-email-timo.teras@iki.fi>
+	<20130116221640.GB32073@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dwmw2@infradead.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: timo.teras@iki.fi, netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40358 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40388 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757773Ab3APXAs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 18:00:48 -0500
-In-Reply-To: <1358375658.2397.69.camel@shinybook.infradead.org>
+	with ESMTP id S1756668Ab3APXCm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 18:02:42 -0500
+In-Reply-To: <20130116221640.GB32073@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Wed, 16 Jan 2013 22:34:18 +0000
+=46rom: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 16 Jan 2013 23:16:40 +0100
 
-> On Wed, 2013-01-16 at 15:54 -0500, David Miller wrote:
->> 
->> My opinion on this is that the injectors of packets are responsible
->> for ensuring checksum types are set on SKBs in an appropriate way.
->> 
->> So we ensure this in the local protocol stacks that generate packets,
->> and if foreign alien entities can inject SKBs with these checksum
->> settings (like the tun device can) the burdon of verification falls
->> upon whatever layer allows that to happen.
->> 
->> So really, the fix is in the tun device and the virtio layer.
-> 
-> The virtio layer (and the tun device) expose the equivalent of the
-> NETIF_F_HW_CSUM capability to the guest. In the case where we have a
-> real device on the host which *also* has NETIF_F_HW_CSUM capability, are
-> you saying that the tun driver should do the checksum for non-UDP/TCP
-> packets in software *anyway*, just because the packet might end up going
-> out a device *without* that capability, and the check in
-> harmonize_features() isn't sophisticated enough to cope properly?
+> Timo Ter=E4s <timo.teras@iki.fi> :
+>> After commit 6f0333b ("r8169: use 50% less ram for RX ring") the rx
+>> ring buffers are always copied making dirty_rx useless.
+>>=20
+>> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+>=20
+> Acked-by: Francois Romieu <romieu@fr.zoreil.com>
 
-I'm saying that tun can't inject unchecked crap into our stack.
+Applied to net-next.
