@@ -1,32 +1,105 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] {cfg,mac}80211.h: fix some kernel-doc warnings
-Date: Wed, 16 Jan 2013 15:11:41 +0100
-Message-ID: <1358345501.22862.10.camel@jlt4.sipsolutions.net>
-References: <1357995254-2318-1-git-send-email-yacine.belkadi.1@gmail.com>
-	 (sfid-20130112_135436_590066_4364BBD9)
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
+Date: Wed, 16 Jan 2013 23:21:21 +0900
+Message-ID: <50F6B761.8070106@linux-ipv6.org>
+References: <50F2FF1B.3020708@mageia.org> <50F313A5.3020707@mageia.org>   <50F49B7E.50906@redhat.com> <50F52956.50201@mageia.org>  <1358244688.4264.7.camel@cr0> <50F53596.4070200@mageia.org> <1358316366.14898.8.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Yacine Belkadi <yacine.belkadi.1@gmail.com>
+Cc: Thomas Backlund <tmb@mageia.org>, Eric Blake <eblake@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	libvirt-list@redhat.com, tgraf@suug.ch,
+	David Miller <davem@davemloft.net>, libc-alpha@sourceware.org,
+	schwab@suse.de, carlos@systemhalted.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1357995254-2318-1-git-send-email-yacine.belkadi.1@gmail.com> (sfid-20130112_135436_590066_4364BBD9)
+In-Reply-To: <1358316366.14898.8.camel@cr0>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-I totally missed your email before.
-
-> Warning(include/net/cfg80211.h:334): No description found for return value of       'cfg80211_get_chandef_type'
+Cong Wang wrote:
+> (Cc'ing some glibc developers...)
 > 
-> These warnings are only reported when scripts/kernel-doc runs in verbose mode.
+> Hello,
 > 
-> Fix:
-> In comments, use "Return:" to describe function return values.
+> In glibc source file inet/netinet/in.h and kernel source file
+> include/uapi/linux/in6.h, both define struct in6_addr, and both are
+> visible to user applications. Thomas reported a conflict below.
+> 
+> So, how can we handle this? /me is wondering why we didn't see this
+> before.
+> 
+> Thanks.
+> 
+> On Tue, 2013-01-15 at 12:55 +0200, Thomas Backlund wrote:
+>> Cong Wang skrev 15.1.2013 12:11:
+>>>
+>>> Does the following patch help?
+>>>
+>>> $ git diff include/uapi/linux/if_bridge.h
+>>> diff --git a/include/uapi/linux/if_bridge.h
+>>> b/include/uapi/linux/if_bridge.h
+>>> index 5db2975..653db23 100644
+>>> --- a/include/uapi/linux/if_bridge.h
+>>> +++ b/include/uapi/linux/if_bridge.h
+>>> @@ -14,6 +14,7 @@
+>>>   #define _UAPI_LINUX_IF_BRIDGE_H
+>>>
+>>>   #include <linux/types.h>
+>>> +#include <linux/in6.h>
+>>>
+>>>   #define SYSFS_BRIDGE_ATTR      "bridge"
+>>>   #define SYSFS_BRIDGE_FDB       "brforward"
+>>>
+>>
+>> Well, I suggested the same fix in the beginning of the thread
+>> on netdev and lkml: "if_bridge.h: include in6.h for struct in6_addr use"
+>>
+>> as it seemed to fix the libvirt case
+>>
+>> but then asked it to be ignored after I tried to build connman,
+>> and hit this conflict with glibc-2.17:
+>>
+>> In file included from /usr/include/arpa/inet.h:22:0,
+>>                   from ./include/connman/inet.h:25,
+>>                   from src/connman.h:128,
+>>                   from src/tethering.c:40:
+>> /usr/include/netinet/in.h:35:5: error: expected identifier before 
+>> numeric constant
+>> /usr/include/netinet/in.h:197:8: error: redefinition of 'struct in6_addr'
+>> In file included from /usr/include/linux/if_bridge.h:17:0,
+>>                   from src/tethering.c:38:
+>> /usr/include/linux/in6.h:30:8: note: originally defined here
+>> In file included from /usr/include/arpa/inet.h:22:0,
+>>                   from ./include/connman/inet.h:25,
+>>                   from src/connman.h:128,
+>>                   from src/tethering.c:40:
+>> /usr/include/netinet/in.h:238:8: error: redefinition of 'struct 
+>> sockaddr_in6'
+>> In file included from /usr/include/linux/if_bridge.h:17:0,
+>>                   from src/tethering.c:38:
+>> /usr/include/linux/in6.h:46:8: note: originally defined here
+>> In file included from /usr/include/arpa/inet.h:22:0,
+>>                   from ./include/connman/inet.h:25,
+>>                   from src/connman.h:128,
+>>                   from src/tethering.c:40:
+>> /usr/include/netinet/in.h:274:8: error: redefinition of 'struct ipv6_mreq'
+>> In file included from /usr/include/linux/if_bridge.h:17:0,
+>>                   from src/tethering.c:38:
+>> /usr/include/linux/in6.h:54:8: note: originally defined here
+>> make[1]: *** [src/src_connmand-tethering.o] Error 1
+>>
+>>
+>> So I'm not sure it's the right one...
 
-I wasn't even aware of this, is that new? Anyway, applied, thanks.
+This is not a new issue.  In addition to this,
+netinet/in.h also conflits with linux/in.h.
 
-johannes
+We might have
+ #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
+ :
+ #endif
+around those conflicting definitions in uapi/linux/in{,6}.h.
+
+--yoshfuji
