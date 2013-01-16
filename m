@@ -1,87 +1,87 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: [PATCH net-next] bnx2x: fix GRO parameters
-Date: Wed, 16 Jan 2013 09:01:52 +0200
-Message-ID: <50F65060.5000901@broadcom.com>
-References: <50F50537.3030608@broadcom.com>
- <1358260752.8744.5677.camel@edumazet-glaptop>
- <50F56178.8000502@broadcom.com>
- <20130115.150914.729025796621947521.davem@davemloft.net>
- <1358312188.19956.1.camel@edumazet-glaptop>
- <1358314662.19956.51.camel@edumazet-glaptop>
+From: Amos Kong <akong@redhat.com>
+Subject: Re: [PATCH v2 2/2] virtio-net: introduce a new control to set macaddr
+Date: Wed, 16 Jan 2013 16:24:47 +0800
+Message-ID: <20130116082447.GA31074@t430s.nay.redhat.com>
+References: <1358315821-29519-1-git-send-email-akong@redhat.com>
+ <1358315821-29519-3-git-send-email-akong@redhat.com>
+ <8243136.frWZnRkUJV@jason-thinkpad-t430s>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	"Eilon Greenstein" <eilong@broadcom.com>, ariele@broadcom.com
-To: "Eric Dumazet" <erdnetdev@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2812 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753963Ab3APILn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jan 2013 03:11:43 -0500
-In-Reply-To: <1358314662.19956.51.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, mst@redhat.com,
+	kvm@vger.kernel.org, netdev@vger.kernel.org, qemu-devel@nongnu.org,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <8243136.frWZnRkUJV@jason-thinkpad-t430s>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -static u16 bnx2x_set_lro_mss(struct bnx2x *bp, u16 parsing_flags,
-> -			     u16 len_on_bd)
-> +static void bnx2x_set_gro_params(struct sk_buff *skb, struct bnx2x *bp,
-> +				 u16 parsing_flags, u16 len_on_bd,
-> +				 unsigned int pkt_len)
-
-This is purely semantic, but our convention is for `struct bnx2x' to be
-the first argument in our functions.
-
->  {
->  	/*
-> -	 * TPA arrgregation won't have either IP options or TCP options
-> +	 * TPA aggregation won't have either IP options or TCP options
->  	 * other than timestamp or IPv6 extension headers.
->  	 */
->  	u16 hdrs_len = ETH_HLEN + sizeof(struct tcphdr);
-
-TPA_MODE_LRO indicates that an LRO aggregation was made by our FW. It seems
-like your patch  eliminates the difference in configuration between the two
-(GRO and LRO)
-
-perhaps instead we should do something like:
-
-+ static void bnx2x_set_lro_params(struct bnx2x *bp, struct sk_buff *skb,
-+ 				   u16 parsing_flags, u16 len_on_bd,
-+ 				   unsigned int pkt_len,
-+				   bnx2x_tpa_mode_t mode)
-
-And arrange its suggested code so that only gso_size will be set for LRO.
-
->  
->  	if (GET_FLAG(parsing_flags, PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
-> -	    PRS_FLAG_OVERETH_IPV6)
-> +	    PRS_FLAG_OVERETH_IPV6) {
->  		hdrs_len += sizeof(struct ipv6hdr);
-> -	else /* IPv4 */
-> +		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-> +	} else {
->  		hdrs_len += sizeof(struct iphdr);
-> -
-> +		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-> +	}
->  
-
-
-
->  #ifdef BNX2X_STOP_ON_ERROR
-> @@ -651,7 +655,7 @@ static void bnx2x_gro_receive(struct bnx2x *bp, struct bnx2x_fastpath *fp,
->  			       struct sk_buff *skb)
->  {
->  #ifdef CONFIG_INET
-> -	if (fp->mode == TPA_MODE_GRO && skb_shinfo(skb)->gso_size) {
-> +	if (skb_shinfo(skb)->gso_size) {
-
-This also seems like an incorrect removal, as TPA_MODE_LRO is (again)
-a feasible option, and we wouldn't want the a `gro_complete' here.
-
->  		skb_set_network_header(skb, 0);
->  		switch (be16_to_cpu(skb->protocol)) {
->  		case ETH_P_IP:
+On Wed, Jan 16, 2013 at 02:20:39PM +0800, Jason Wang wrote:
+> On Wednesday, January 16, 2013 01:57:01 PM akong@redhat.com wrote:
+> > From: Amos Kong <akong@redhat.com>
+> > 
+> > Currently we write MAC address to pci config space byte by byte,
+> > this means that we have an intermediate step where mac is wrong.
+> > This patch introduced a new control command to set MAC address
+> > in one time.
+> > 
+> > VIRTIO_NET_F_CTRL_MAC_ADDR is a new feature bit for compatibility.
+> > 
+> > Signed-off-by: Amos Kong <akong@redhat.com>
+> > ---
+> >  drivers/net/virtio_net.c        | 24 +++++++++++++++++-------
+> >  include/uapi/linux/virtio_net.h |  8 +++++++-
+> >  2 files changed, 24 insertions(+), 8 deletions(-)
+> > 
+> > diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> > index 395ab4f..c8901b6 100644
+> > --- a/drivers/net/virtio_net.c
+> > +++ b/drivers/net/virtio_net.c
+> > @@ -802,16 +802,25 @@ static int virtnet_set_mac_address(struct net_device
+> > *dev, void *p) struct virtnet_info *vi = netdev_priv(dev);
+> >  	struct virtio_device *vdev = vi->vdev;
+> >  	int ret;
+> > +	struct sockaddr *addr = p;
+> > +	struct scatterlist sg;
+> > 
+> > -	ret = eth_mac_addr(dev, p);
+> > -	if (ret)
+> > -		return ret;
+> > -
+> > -	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
+> > +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
+> > +		sg_init_one(&sg, addr->sa_data, dev->addr_len);
+> > +		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+> > +					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+> > +					  &sg, 1, 0)) {
+> > +			dev_warn(&vdev->dev,
+> > +				 "Failed to set mac address by vq command.\n");
+> > +			return -EINVAL;
+> > +		}
+> > +	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
+> >  		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
+> > -		                  dev->dev_addr, dev->addr_len);
+> > +				  addr->sa_data, dev->addr_len);
+> > +	}
+> > +	ret = eth_mac_addr(dev, p);
+> > 
 > 
+> The you will the validity check in eth_mac_addr which may result a wrong mac 
+> address to be set in the hardware (or is there any check in qemu) and a 
+> inconsistency bettween what kernel assumes and qemu has.
+> 
+> You can take a look at netvsc driver that calls eth_mac_addr() first and 
+> restore the software mac address when fail to enforce it to hardware.
+
+Thanks for the catching, I will move eth_mac_addr() back to above,
+just restore addr if fail to send command.
+
+I will also use DEFINE_PROP_BIT to fix migration issue, thanks.
+ 
+> Thanks
+> > -	return 0;
+> > +	return ret;
+> >  }
+
+
