@@ -1,42 +1,89 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2] e1000e: display a warning message when SmartSpeed works
-Date: Wed, 16 Jan 2013 13:59:32 +0100
-Message-ID: <87sj61gu6j.fsf@nemi.mork.no>
-References: <50F60F18.2030108@jp.fujitsu.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [patch net-next] doc: add nf_conntrack sysctl api documentation
+Date: Wed, 16 Jan 2013 14:26:24 +0100
+Message-ID: <20130116132624.GD3484@breakpoint.cc>
+References: <1358340257-1902-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
-	john.ronciak@intel.com, tushar.n.dave@intel.com,
-	e1000-devel@lists.sourceforge.net
-To: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:55605 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751969Ab3APNAE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 08:00:04 -0500
-In-Reply-To: <50F60F18.2030108@jp.fujitsu.com> (Koki Sanagi's message of "Wed,
-	16 Jan 2013 11:23:20 +0900")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, rob@landley.net,
+	linux-doc@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1358340257-1902-1-git-send-email-jiri@resnulli.us>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Koki Sanagi <sanagi.koki@jp.fujitsu.com> writes:
+Jiri Pirko <jiri@resnulli.us> wrote:
+> I grepped through the code and picked bits about nf_conntrack sysctl api
+> and put that into one documentation file.
 
-> +			if (phy->speed_downgraded)
-> +				netdev_warn(netdev, "Link Speed was "
-> +					"downgraded by SmartSpeed\n");
+Thanks a lot for doing this.  A few comments/suggestions below.
+
+> +nf_conntrack_checksum - BOOLEAN
+> +	0 - disabled
+> +	not 0 - enabled (default)
 > +
+> +	Enable connection tracking checksuming.
 
-Could you please avoid breaking the string both here and in the igb
-patch?  This breaks the ability to grep for the warning.
+Verify checksum of incoming packets.  Packets with bad checksum
+will not be considered for connection tracking, i.e. such packets
+will be in INVALID state.
 
-Quoting Documentation/CodingStyle, Chapter 2:
-"However, never break user-visible strings such as printk messages,
- because that breaks the ability to grep for them."
+> +nf_conntrack_events - BOOLEAN
+> +	0 - disabled
+> +	not 0 - enabled (default)
+> +
+> +	If this option is enabled, the connection tracking code will provide
+> +	a notifier chain that can be used by other kernel code to get notified
+> +	about changes in the connection tracking state.
 
+If this option is enabled, the connection tracking code will
+provide userspace with connection tracking events via ctnetlink.
 
-Bj=C3=B8rn
+[ The notifier call chain doesn't exist any more (ctnetlink was
+the only user). ]
+
+> +nf_conntrack_events_retry_timeout - INTEGER (seconds)
+> +	default 15
+> +
+> +	Timeout after which destroy event will be delivered.
+
+This option is only relevant when "reliable connection tracking
+events" are used.  Normally, ctnetlink is "lossy", i.e. when
+userspace listeners can't keep up, events are dropped.
+
+Userspace can request "reliable event mode".  When this mode is
+active, the conntrack will only be destroyed after the event was
+delivered.  If event delivery fails, the kernel periodically
+re-tries to send the event to userspace.
+
+This is the maximum interval the kernel should use when re-trying
+to deliver the destroy event.
+
+Higher number means less delivery re-tries (but it will then take
+longer for a backlog to be processed).
+
+> +nf_conntrack_log_invalid - INTEGER
+> +	0 - disabled (default)
+> +	IPPROTO_RAW (log packets of any proto)
+> +	IPPROTO_TCP
+> +	IPPROTO_ICMP
+> +	IPPROTO_ICMPV6
+> +	IPPROTO_DCCP
+> +	IPPROTO_UDP
+> +	IPPROTO_UDPLITE
+> +
+> +	For values, see <linux/in.h>
+> +
+> +	Log invalid packets of a type specified by value.
+
+I would write the numbers here, e.g:
+
+Log invalid packets of a type specified by protocol number.
+255 - log packets of any protocol
+6 - log tcp
+...
