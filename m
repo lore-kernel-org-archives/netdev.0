@@ -1,106 +1,112 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 069/171] epoll: prevent missed events on EPOLL_CTL_MOD
-Date: Tue, 15 Jan 2013 14:43:54 -0800
-Message-ID: <20130115224318.378490097@linuxfoundation.org>
-References: <20130115224313.394976595@linuxfoundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	alan@lxorguk.ukuu.org.uk, Eric Wong <normalperson@yhbt.net>,
-	Hans Verkuil <hans.verkuil@cisco.com>,
-	Jiri Olsa <jolsa@redhat.com>, Jonathan Corbet <corbet@lwn.net>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	Davide Libenzi <davidel@xmailserver.org>,
-	Hans de Goede <hdegoede@redhat.com>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Andreas Voellmy <andreas.voellmy@yale.edu>,
-	"Junchang(Jason) Wang" <junchang.wang@yale.edu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130115224313.394976595@linuxfoundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Greear <greearb@candelatech.com>
+Subject: Repeatable kernel splat in 3.3.8+, related to ip_rcv_finish
+Date: Tue, 15 Jan 2013 16:33:30 -0800
+Message-ID: <50F5F55A.9090706@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:44230 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757809Ab3APAdb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jan 2013 19:33:31 -0500
+Received: from [192.168.100.226] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r0G0XUNP008122
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 15 Jan 2013 16:33:31 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.4-stable review patch.  If anyone has any objections, please let me know.
+I have a reproducible crash (5-15 minutes typically)
+in a hacked 3.3.8+ kernel.  No proprietary modules, but my normal mix of
+networking patches are applied, so it could be my fault.
 
-------------------
+The crash always appears to be in the ip_rcv_finish method.
+On a pervious panic, the 'IP' was 0xFFFFFFFF, and I've seen
+it be other similar values before.  I'm not sure what this
+implies....
 
-From: Eric Wong <normalperson@yhbt.net>
+Test case is 2000 mac-vlans, resetting about 50 of them at a time
+during bringup, while also driving lower-speed NFS traffic on a
+mount for each of the already-reset mac-vlans.  It takes multiple
+minutes for my app to fully reset all of the interfaces and start
+traffic, and there are lots and lots of network changes going on
+at or just previous to the crashes.
 
-commit 128dd1759d96ad36c379240f8b9463e8acfd37a1 upstream.
+I need the nfs-bind-to-local-ip patches that I carry in my tree to
+reproduce this, so I can't run this test on upstream kernels.
+I will work on porting these into the 3.7 kernel for testing there
+in the meantime.
 
-EPOLL_CTL_MOD sets the interest mask before calling f_op->poll() to
-ensure events are not missed.  Since the modifications to the interest
-mask are not protected by the same lock as ep_poll_callback, we need to
-ensure the change is visible to other CPUs calling ep_poll_callback.
+Does this bug look familiar to anyone?
 
-We also need to ensure f_op->poll() has an up-to-date view of past
-events which occured before we modified the interest mask.  So this
-barrier also pairs with the barrier in wq_has_sleeper().
 
-This should guarantee either ep_poll_callback or f_op->poll() (or both)
-will notice the readiness of a recently-ready/modified item.
+(gdb) l *(ip_rcv_finish+0x2ea)
+0xffffffff814423e6 is in ip_rcv_finish (/home/greearb/git/linux-3.3.dev.y/net/ipv4/ip_input.c:365).
+360					skb->len);
+361		} else if (rt->rt_type == RTN_BROADCAST)
+362			IP_UPD_PO_STATS_BH(dev_net(rt->dst.dev), IPSTATS_MIB_INBCAST,
+363					skb->len);
+364	
+365		return dst_input(skb);
+366	
+367	drop:
+368		kfree_skb(skb);
+369		return NET_RX_DROP;
+(gdb)
 
-This issue was encountered by Andreas Voellmy and Junchang(Jason) Wang in:
-http://thread.gmane.org/gmane.linux.kernel/1408782/
 
-Signed-off-by: Eric Wong <normalperson@yhbt.net>
-Cc: Hans Verkuil <hans.verkuil@cisco.com>
-Cc: Jiri Olsa <jolsa@redhat.com>
-Cc: Jonathan Corbet <corbet@lwn.net>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Davide Libenzi <davidel@xmailserver.org>
-Cc: Hans de Goede <hdegoede@redhat.com>
-Cc: Mauro Carvalho Chehab <mchehab@infradead.org>
-Cc: David Miller <davem@davemloft.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Andreas Voellmy <andreas.voellmy@yale.edu>
-Tested-by: "Junchang(Jason) Wang" <junchang.wang@yale.edu>
-Cc: netdev@vger.kernel.org
-Cc: linux-fsdevel@vger.kernel.org
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+BUG: unable to handle kernel paging request at 0000001d00088000
+IP: [<0000001d00088000>] 0x1d00087fff
+PGD 372cb6067 PUD 0
+Oops: 0010 [#1] PREEMPT SMP
+CPU 11
+Modules linked in: nfs nfs_acl auth_rpcgss fscache 8021q garp stp llc lockd sunrpc macvlan pktgen microcode pcspkr i2c_i801 i2c_core i7core_edac e1000e iTCO_wdt 
+iTCO_vendor_support ioatdma igb dca edac_core uinput ipv6 [last unloaded: scsi_wait_scan]
 
----
- fs/eventpoll.c |   22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+Pid: 67, comm: ksoftirqd/11 Tainted: G           O 3.3.8+ #55 Iron Systems Inc. EE2610R/X8ST3
+RIP: 0010:[<0000001d00088000>]  [<0000001d00088000>] 0x1d00087fff
+RSP: 0018:ffff88040974dc78  EFLAGS: 00010286
+RAX: ffff88038526e500 RBX: ffff88038526eb00 RCX: ffff88038526eb00
+RDX: 0000000000000020 RSI: 0000000000000002 RDI: ffff88038526eb00
+RBP: ffff88040974dca0 R08: ffffffff814420fc R09: 0000000000000000
+R10: ffff88040974d710 R11: ffffffff80000000 R12: ffff880357f4fcfc
+R13: ffff880409295000 R14: 0000000000000000 R15: 0000000000000001
+FS:  0000000000000000(0000) GS:ffff88041fd60000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000001d00088000 CR3: 00000003958bd000 CR4: 00000000000006e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process ksoftirqd/11 (pid: 67, threadinfo ffff88040974c000, task ffff880409741740)
+Stack:
+  ffffffff814423e6 ffff88038526eb00 ffffffff814420fc ffff880409295000
+  0000000000000000 ffff88040974dcd0 ffffffff8144274e ffff880480000000
+  ffff880409741740 ffff88038526eb00 ffff880409295000 ffff88040974dd00
+Call Trace:
+  [<ffffffff814423e6>] ? ip_rcv_finish+0x2ea/0x302
+  [<ffffffff814420fc>] ? inet_del_protocol+0x37/0x37
+eth3#739: no IPv6 routers present
+  [<ffffffff8144274e>] NF_HOOK.clone.1+0x4c/0x53
+  [<ffffffff814429d9>] ip_rcv+0x237/0x262
+  [<ffffffff8140ea4f>] __netif_receive_skb+0x477/0x4c0
+  [<ffffffff8140eb8c>] process_backlog+0xf4/0x1d6
+  [<ffffffff81410ae8>] net_rx_action+0xad/0x1e9
+  [<ffffffff8105b105>] __do_softirq+0x86/0x12f
+  [<ffffffff8105b261>] run_ksoftirqd+0xb3/0x1a6
+  [<ffffffff8105b1ae>] ? __do_softirq+0x12f/0x12f
+  [<ffffffff8105b1ae>] ? __do_softirq+0x12f/0x12f
+  [<ffffffff8106da7d>] kthread+0x84/0x8c
+  [<ffffffff814cc4e4>] kernel_thread_helper+0x4/0x10
+  [<ffffffff8106d9f9>] ? __init_kthread_worker+0x37/0x37
+  [<ffffffff814cc4e0>] ? gs_change+0x13/0x13
+Code:  Bad RIP value.
+RIP  [<0000001d00088000>] 0x1d00087fff
+  RSP <ffff88040974dc78>
+CR2: 0000001d00088000
+---[ end trace 1d145cfe9c5c5d55 ]---
 
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -1226,11 +1226,31 @@ static int ep_modify(struct eventpoll *e
- 	 * otherwise we might miss an event that happens between the
- 	 * f_op->poll() call and the new event set registering.
- 	 */
--	epi->event.events = event->events;
-+	epi->event.events = event->events; /* need barrier below */
- 	pt._key = event->events;
- 	epi->event.data = event->data; /* protected by mtx */
- 
- 	/*
-+	 * The following barrier has two effects:
-+	 *
-+	 * 1) Flush epi changes above to other CPUs.  This ensures
-+	 *    we do not miss events from ep_poll_callback if an
-+	 *    event occurs immediately after we call f_op->poll().
-+	 *    We need this because we did not take ep->lock while
-+	 *    changing epi above (but ep_poll_callback does take
-+	 *    ep->lock).
-+	 *
-+	 * 2) We also need to ensure we do not miss _past_ events
-+	 *    when calling f_op->poll().  This barrier also
-+	 *    pairs with the barrier in wq_has_sleeper (see
-+	 *    comments for wq_has_sleeper).
-+	 *
-+	 * This barrier will now guarantee ep_poll_callback or f_op->poll
-+	 * (or both) will notice the readiness of an item.
-+	 */
-+	smp_mb();
-+
-+	/*
- 	 * Get current event bits. We can safely use the file* here because
- 	 * its usage count has been increased by the caller of this function.
- 	 */
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
