@@ -1,243 +1,93 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V6 3/3] tuntap: allow polling/writing/reading when
- detached
-Date: Wed, 16 Jan 2013 19:03:56 +0200
-Message-ID: <20130116170356.GC4257@redhat.com>
-References: <1358351078-58915-1-git-send-email-jasowang@redhat.com>
- <1358351078-58915-4-git-send-email-jasowang@redhat.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
+Date: Wed, 16 Jan 2013 12:04:56 -0500
+Message-ID: <201301161205.04502.vapier@gentoo.org>
+References: <50F2FF1B.3020708@mageia.org> <50F6B761.8070106@linux-ipv6.org> <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: multipart/signed;
+  boundary="nextPart1512353.NV2mUTysa3";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Cong Wang <amwang@redhat.com>,
+	Thomas Backlund <tmb@mageia.org>,
+	Eric Blake <eblake@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
+	tgraf@suug.ch, David Miller <davem@davemloft.net>, schwab@suse.de,
+	carlos@systemhalted.org
+To: libc-alpha@sourceware.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1358351078-58915-4-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 16, 2013 at 11:44:38PM +0800, Jason Wang wrote:
-> We forbid polling, writing and reading when the file were detached, this may
-> complex the user in several cases:
-> 
-> - when guest pass some buffers to vhost/qemu and then disable some queues,
->   host/qemu needs to do its own cleanup on those buffers which is complex
->   sometimes. We can do this simply by allowing a user can still write to an
->   disabled queue. Write to an disabled queue will cause the packet pass to the
->   kernel and read will get nothing.
-> - align the polling behavior with macvtap which never fails when the queue is
->   created. This can simplify the polling errors handling of its user (e.g vhost)
-> 
-> In order to achieve this, tfile->tun were not assign to NULL when detached. And
-> tfile->tun were converted to be RCU protected in order to let the data path can
-> check whether the file is deated in a lockless manner. This will be used to
-> prevent the flow caches from being updated for a detached queue.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/tun.c |   45 ++++++++++++++++++++++++++-------------------
->  1 files changed, 26 insertions(+), 19 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index c81680d..ec539a9 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -139,7 +139,7 @@ struct tun_file {
->  	unsigned int flags;
->  	u16 queue_index;
->  	struct list_head next;
-> -	struct tun_struct *detached;
-> +	struct tun_struct __rcu *detached;
->  };
->  
->  struct tun_flow_entry {
-> @@ -295,11 +295,12 @@ static void tun_flow_cleanup(unsigned long data)
->  }
->  
->  static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
-> -			    u16 queue_index)
-> +			    struct tun_file *tfile)
->  {
->  	struct hlist_head *head;
->  	struct tun_flow_entry *e;
->  	unsigned long delay = tun->ageing_time;
-> +	u16 queue_index = tfile->queue_index;
->  
->  	if (!rxhash)
->  		return;
-> @@ -308,7 +309,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
->  
->  	rcu_read_lock();
->  
-> -	if (tun->numqueues == 1)
-> +	if (tun->numqueues == 1 || rcu_dereference(tfile->detached))
->  		goto unlock;
->  
->  	e = tun_flow_find(head, rxhash);
+--nextPart1512353.NV2mUTysa3
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-Sorry, still an issue with this one.
+On Wednesday 16 January 2013 10:47:12 Ben Hutchings wrote:
+> On Wed, 2013-01-16 at 23:21 +0900, YOSHIFUJI Hideaki wrote:
+> > Cong Wang wrote:
+> > > (Cc'ing some glibc developers...)
+> > >=20
+> > > Hello,
+> > >=20
+> > > In glibc source file inet/netinet/in.h and kernel source file
+> > > include/uapi/linux/in6.h, both define struct in6_addr, and both are
+> > > visible to user applications. Thomas reported a conflict below.
+> > >=20
+> > > So, how can we handle this? /me is wondering why we didn't see this
+> > > before.
+>=20
+> [...]
+>=20
+> > This is not a new issue.  In addition to this,
+> > netinet/in.h also conflits with linux/in.h.
+> >=20
+> > We might have
+> >=20
+> >  #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
+> > =20
+> >  #endif
+> >=20
+> > around those conflicting definitions in uapi/linux/in{,6}.h.
+>=20
+> This only solves half the problem, as <netinet/in.h> might be included
+> after <linux/in.h>.  Also, not all Linux userland uses glibc.
 
+certainly true, but the current expectation is that you don't mix your ABIs=
+=2E =20
+if you're programming with the C library API, then use the C library header=
+s. =20
+if you're banging directly on the kernel, then use the kernel headers.  not=
+=20
+saying it's a perfect solution, but it works for the vast majority of use=20
+cases.
+=2Dmike
 
-                u16 index = tfile->queue_index;
-                BUG_ON(index >= tun->numqueues);
-                dev = tun->dev;
+--nextPart1512353.NV2mUTysa3
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-                rcu_assign_pointer(tun->tfiles[index],
-                                   tun->tfiles[tun->numqueues - 1]);
-                rcu_assign_pointer(tfile->tun, NULL);
-                ntfile = rtnl_dereference(tun->tfiles[index]);
-                ntfile->queue_index = index;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
 
-                --tun->numqueues;
-                if (clean)
-                        sock_put(&tfile->sk);
-                else
-                        tun_disable_queue(tun, tfile);
+iQIcBAABAgAGBQJQ9t3AAAoJEEFjO5/oN/WBAYgP/A/n5Xk+zSGfX/nN3Q2TPyCL
+d+6D4XPK7QCaPCNJL7g3Rhxcxf2w3KkSiAtuvmLFgPpNtXmKdDbH8Xs+hfms76SF
+PJGCHvb0je7v2WESg1pB6rVWN2jbwcZhUMnDxQfaXvXKtjb3KELoFNMq3EZKlsy/
+VABNofBuwEGgVGDWJaxIXqoZRhLymLhI1YrygO2WJXeuYcqZIO0uvgaRDon5k7uC
+ikc0rst7d08Do2HaS7JUuVKRB/IOtHxleX4tTGiZDQlRMTytrA4jBMuhHNvhZGSf
+cKbmaLc+TrjFLNV0pV7i/NEyErFBwjTozJivyv36Dkv0T83Dt8rhl1zwu4Ok8sPu
+hmhrjswogTmb2NmdCdcL40Bv/Q/E/SiWiY0u73ptHNzoQfZ4yvJ2c/6nJfzTjaJ5
+Pz2wnJO4s6QuTr2/IC7GsH+ofvhxddpccQcL3qQdcwnDTcYwr8knlnjkBRIh10vj
+6cWYPUA/ZuVZs2Qes3IowsUHVZ4xTmswPt9c+5jn/UfambkccQUcdrzTRf1ePa8N
+NNtlqh578olItOIOEvA5CrlCsqxGMLh0a5HfnPGF5HGCdOnQhvOsq2R8VepeevzQ
+r627wklck13cev5V06x59s2XLsbZ7YwF9VY9HH7GZ4zIAF12QN6mmUg8Lo4EQ2Lj
+auNbH2ps4uUtje6lBl6R
+=0ouB
+-----END PGP SIGNATURE-----
 
-You should first disable queue then synchronize network
-only then play with tfiles array.
-As it is you might have removed file from array but
-did not set detached flag yet, so queue_index
-above is stable.
-
-On enable, clear detached last thing.
-
-> @@ -384,16 +385,16 @@ static void tun_set_real_num_queues(struct tun_struct *tun)
->  
->  static void tun_disable_queue(struct tun_struct *tun, struct tun_file *tfile)
->  {
-> -	tfile->detached = tun;
-> +	rcu_assign_pointer(tfile->detached, tun);
->  	list_add_tail(&tfile->next, &tun->disabled);
->  	++tun->numdisabled;
->  }
->  
->  static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
->  {
-> -	struct tun_struct *tun = tfile->detached;
-> +	struct tun_struct *tun = rtnl_dereference(tfile->detached);
->  
-> -	tfile->detached = NULL;
-> +	rcu_assign_pointer(tfile->detached, NULL);
->  	list_del_init(&tfile->next);
->  	--tun->numdisabled;
->  	return tun;
-> @@ -402,26 +403,27 @@ static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
->  static void __tun_detach(struct tun_file *tfile, bool clean)
->  {
->  	struct tun_file *ntfile;
-> -	struct tun_struct *tun;
-> +	struct tun_struct *tun, *detached;
->  	struct net_device *dev;
->  
->  	tun = rtnl_dereference(tfile->tun);
-> +	detached = rtnl_dereference(tfile->detached);
->  
-> -	if (tun) {
-> +	if (tun && !detached) {
->  		u16 index = tfile->queue_index;
->  		BUG_ON(index >= tun->numqueues);
->  		dev = tun->dev;
->  
->  		rcu_assign_pointer(tun->tfiles[index],
->  				   tun->tfiles[tun->numqueues - 1]);
-> -		rcu_assign_pointer(tfile->tun, NULL);
->  		ntfile = rtnl_dereference(tun->tfiles[index]);
->  		ntfile->queue_index = index;
->  
->  		--tun->numqueues;
-> -		if (clean)
-> +		if (clean) {
-> +			rcu_assign_pointer(tfile->tun, NULL);
->  			sock_put(&tfile->sk);
-> -		else
-> +		} else
->  			tun_disable_queue(tun, tfile);
->  
->  		synchronize_net();
-> @@ -429,7 +431,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
->  		/* Drop read queue */
->  		skb_queue_purge(&tfile->sk.sk_receive_queue);
->  		tun_set_real_num_queues(tun);
-> -	} else if (tfile->detached && clean) {
-> +	} else if (detached && clean) {
->  		tun = tun_enable_queue(tfile);
->  		sock_put(&tfile->sk);
->  	}
-> @@ -466,6 +468,10 @@ static void tun_detach_all(struct net_device *dev)
->  		rcu_assign_pointer(tfile->tun, NULL);
->  		--tun->numqueues;
->  	}
-> +	list_for_each_entry(tfile, &tun->disabled, next) {
-> +		wake_up_all(&tfile->wq.wait);
-> +		rcu_assign_pointer(tfile->tun, NULL);
-> +	}
->  	BUG_ON(tun->numqueues != 0);
->  
->  	synchronize_net();
-> @@ -496,7 +502,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
->  		goto out;
->  
->  	err = -EINVAL;
-> -	if (rtnl_dereference(tfile->tun))
-> +	if (rtnl_dereference(tfile->tun) && !rtnl_dereference(tfile->detached))
->  		goto out;
->  
->  	err = -EBUSY;
-> @@ -504,7 +510,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
->  		goto out;
->  
->  	err = -E2BIG;
-> -	if (!tfile->detached &&
-> +	if (!rtnl_dereference(tfile->detached) &&
->  	    tun->numqueues + tun->numdisabled == MAX_TAP_QUEUES)
->  		goto out;
->  
-> @@ -521,7 +527,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
->  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
->  	tun->numqueues++;
->  
-> -	if (tfile->detached)
-> +	if (rtnl_dereference(tfile->detached))
->  		tun_enable_queue(tfile);
->  	else
->  		sock_hold(&tfile->sk);
-> @@ -1195,7 +1201,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
->  	tun->dev->stats.rx_packets++;
->  	tun->dev->stats.rx_bytes += len;
->  
-> -	tun_flow_update(tun, rxhash, tfile->queue_index);
-> +	tun_flow_update(tun, rxhash, tfile);
->  	return total_len;
->  }
->  
-> @@ -1552,7 +1558,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  	struct net_device *dev;
->  	int err;
->  
-> -	if (tfile->detached)
-> +	if (rtnl_dereference(tfile->detached))
->  		return -EINVAL;
->  
->  	dev = __dev_get_by_name(net, ifr->ifr_name);
-> @@ -1796,7 +1802,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
->  	rtnl_lock();
->  
->  	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
-> -		tun = tfile->detached;
-> +		tun = rtnl_dereference(tfile->detached);
->  		if (!tun) {
->  			ret = -EINVAL;
->  			goto unlock;
-> @@ -1807,7 +1813,8 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
->  		ret = tun_attach(tun, file);
->  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
->  		tun = rtnl_dereference(tfile->tun);
-> -		if (!tun || !(tun->flags & TUN_TAP_MQ))
-> +		if (!tun || !(tun->flags & TUN_TAP_MQ) ||
-> +		    rtnl_dereference(tfile->detached))
->  			ret = -EINVAL;
->  		else
->  			__tun_detach(tfile, false);
-> -- 
-> 1.7.1
+--nextPart1512353.NV2mUTysa3--
