@@ -1,73 +1,55 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next (V4) 07/11] ipv6: Do not depend on rt->n in rt6_probe().
-Date: Fri, 18 Jan 2013 07:53:43 +0900
-Message-ID: <50F880F7.8070608@linux-ipv6.org>
+Subject: [PATCH net-next (V4) 08/11] ipv6: Introduce rt6_nexthop() to select
+ nexthop address.
+Date: Fri, 18 Jan 2013 07:53:48 +0900
+Message-ID: <50F880FC.2070505@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44771 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44775 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754284Ab3AQWxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 17:53:44 -0500
+	with ESMTP id S1754284Ab3AQWxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 17:53:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+For RTF_GATEWAY route, return rt->rt6i_gateway.
+Otherwise, return 2nd argument (destination address).
+
+This will be used by following patches which remove rt->n
+dependency patches in ip6_dst_lookup_tail() and ip6_finish_output2().
+
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/route.c |   26 ++++++++++++++++----------
- 1 file changed, 16 insertions(+), 10 deletions(-)
+ include/net/ip6_route.h |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index c7bcd77..afc8386 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -498,28 +498,34 @@ static void rt6_probe(struct rt6_info *rt)
- 	 * Router Reachability Probe MUST be rate-limited
- 	 * to no more than one per minute.
- 	 */
--	neigh = rt ? rt->n : NULL;
--	if (!neigh)
--		return;
--	write_lock_bh(&neigh->lock);
--	if (neigh->nud_state & NUD_VALID) {
--		write_unlock_bh(&neigh->lock);
-+	if (!rt || !(rt->rt6i_flags & RTF_GATEWAY))
- 		return;
-+	rcu_read_lock_bh();
-+	neigh = __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway);
-+	if (neigh) {
-+		write_lock(&neigh->lock);
-+		if (neigh->nud_state & NUD_VALID)
-+			goto out;
- 	}
--	if (!(neigh->nud_state & NUD_VALID) &&
-+
-+	if (!neigh ||
- 	    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
- 		struct in6_addr mcaddr;
- 		struct in6_addr *target;
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 27d8318..30cbb15 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -23,6 +23,7 @@ struct route_info {
+ #include <net/sock.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
++#include <linux/route.h>
  
- 		neigh->updated = jiffies;
--		write_unlock_bh(&neigh->lock);
- 
--		target = (struct in6_addr *)&neigh->primary_key;
-+		if (neigh)
-+			write_unlock(&neigh->lock);
-+
-+		target = (struct in6_addr *)&rt->rt6i_gateway;
- 		addrconf_addr_solict_mult(target, &mcaddr);
- 		ndisc_send_ns(rt->dst.dev, NULL, target, &mcaddr, NULL);
- 	} else {
--		write_unlock_bh(&neigh->lock);
-+out:
-+		write_unlock(&neigh->lock);
- 	}
-+	rcu_read_unlock_bh();
+ #define RT6_LOOKUP_F_IFACE		0x00000001
+ #define RT6_LOOKUP_F_REACHABLE		0x00000002
+@@ -194,4 +195,11 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+ 	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
  }
- #else
- static inline void rt6_probe(struct rt6_info *rt)
+ 
++static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
++{
++	if (rt->rt6i_flags & RTF_GATEWAY)
++		return &rt->rt6i_gateway;
++	return dest;
++}
++
+ #endif
 -- 
 1.7.9.5
