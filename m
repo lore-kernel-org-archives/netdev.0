@@ -1,43 +1,49 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next] ipv6: fix ipv6_prefix_equal64_half mask conversion
-Date: Thu, 17 Jan 2013 12:36:30 +0900
-Message-ID: <50F771BE.7070309@linux-ipv6.org>
-References: <1358371817-15378-1-git-send-email-fabio.baltieri@linaro.org> <20130116.163729.1934084260354327196.davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and
+ <linux/in6.h>
+Date: Thu, 17 Jan 2013 11:40:46 +0800
+Message-ID: <1358394046.3855.10.camel@cr0>
+References: <201301161205.04502.vapier@gentoo.org>
+	 <201301161228.42592.vapier@gentoo.org>
+	 <20130116.135959.90676245194307972.davem@davemloft.net>
+	 <201301161422.19202.vapier@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43521 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757238Ab3AQDgc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 22:36:32 -0500
-In-Reply-To: <20130116.163729.1934084260354327196.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+        libc-alpha@sourceware.org, yoshfuji@linux-ipv6.org, tmb@mageia.org,
+        eblake@redhat.com, netdev@vger.kernel.org,
+        linux-kernel@vger.kernel.org, libvirt-list@redhat.com, tgraf@suug.ch,
+        schwab@suse.de, carlos@systemhalted.org
+To: Mike Frysinger <vapier@gentoo.org>
+Return-path: <libc-alpha-return-36354-glibc-alpha=m.gmane.org@sourceware.org>
+In-Reply-To: <201301161422.19202.vapier@gentoo.org>
+List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
+List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
+List-Archive: <http://sourceware.org/ml/libc-alpha/>
+List-Post: <mailto:libc-alpha@sourceware.org>
+List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
+Sender: libc-alpha-owner@sourceware.org
+List-Id: netdev.vger.kernel.org
 
-David Miller wrote:
-> From: Fabio Baltieri <fabio.baltieri@linaro.org>
-> Date: Wed, 16 Jan 2013 22:30:17 +0100
+On Wed, 2013-01-16 at 14:22 -0500, Mike Frysinger wrote:
 > 
->> Fix the 64bit optimized version of ipv6_prefix_equal to convert the
->> bitmask to network byte order only after the bit-shift.
->>
->> The bug was introduced in:
->>
->> 3867517 ipv6: 64bit version of ipv6_prefix_equal().
->>
->> Signed-off-by: Fabio Baltieri <fabio.baltieri@linaro.org>
-> 
-> Applied, thanks.
+> but this is still too vague.  what headers/definitions do people want to see 
+> simultaneously included ?  changes would be needed on both sides (kernel & C 
+> library).
 > 
 
-Sorry for the mess.
+Hi, Mike,
 
-I'm not seeing this in net-next so far, though I can see my
-patch for ip6_flow_hdr() which you "applied" later.
-Do I miss something?
+Please take a look at my first email in this thread. The user
+application includes <linux/if_bridge.h> and <netinet/in.h>.
 
---yoshfuji
+<linux/if_bridge.h> uses struct_in6 but doesn't include <linux/in6.h>
+(this is my bad, sorry), an obvious fix is just including <linux/in6.h>.
+But this immediately breaks applications which include
+<linux/if_bridge.h> and <netinet/in.h>, just as what Thomas reported.
+
+And if_bridge.h is kernel-specific, there is no corresponding glibc one,
+so you can't blame applications which include both of them.
+
+Thanks.
