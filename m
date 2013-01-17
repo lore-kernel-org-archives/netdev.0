@@ -1,90 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] team: do not use -ENOENT
-Date: Thu, 17 Jan 2013 21:33:47 +0100
-Message-ID: <20130117203347.GA1591@minipsycho.orion>
-References: <1358418300-2346-1-git-send-email-jiri@resnulli.us>
- <20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/11] IPv6: rt->n (neighbour in rt6_info)
+ removal (TAKE 3)
+Date: Thu, 17 Jan 2013 15:37:53 -0500 (EST)
+Message-ID: <20130117.153753.1608817353719202851.davem@davemloft.net>
+References: <50F837D5.4020505@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:46154 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756553Ab3AQUdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:33:54 -0500
-Received: by mail-wi0-f169.google.com with SMTP id hq12so46304wib.2
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 12:33:52 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53173 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757044Ab3AQUh5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:37:57 -0500
+In-Reply-To: <50F837D5.4020505@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 17, 2013 at 04:51:15PM CET, stephen@networkplumber.org wrote:
->On Thu, 17 Jan 2013 11:25:00 +0100
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> Since this error code means "No such file or directory", change this
->> value in team driver to ones which make more sense.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  drivers/net/team/team.c                   | 4 ++--
->>  drivers/net/team/team_mode_activebackup.c | 2 +-
->>  2 files changed, 3 insertions(+), 3 deletions(-)
->> 
->> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
->> index 70d5d6b..3d7cf6e 100644
->> --- a/drivers/net/team/team.c
->> +++ b/drivers/net/team/team.c
->> @@ -1128,7 +1128,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
->>  	if (!port || !team_port_find(team, port)) {
->>  		netdev_err(dev, "Device %s does not act as a port of this team\n",
->>  			   portname);
->> -		return -ENOENT;
->> +		return -ENODEV;
->>  	}
->>  
->>  	__team_option_inst_mark_removed_port(team, port);
->> @@ -2320,7 +2320,7 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
->>  			list_add(&opt_inst->tmp_list, &opt_inst_list);
->>  		}
->>  		if (!opt_found) {
->> -			err = -ENOENT;
->> +			err = -EINVAL;
->>  			goto team_put;
->>  		}
->>  	}
->> diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
->> index 6262b4d..2792e13 100644
->> --- a/drivers/net/team/team_mode_activebackup.c
->> +++ b/drivers/net/team/team_mode_activebackup.c
->> @@ -81,7 +81,7 @@ static int ab_active_port_set(struct team *team, struct team_gsetter_ctx *ctx)
->>  			return 0;
->>  		}
->>  	}
->> -	return -ENOENT;
->> +	return -ENODEV;
->>  }
->>  
->>  static const struct team_option ab_options[] = {
->
->To be pedantic.
->Changing errno's means effectively changing the ABI.
->Linus has already rejected similar patches in other areas.
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Fri, 18 Jan 2013 02:41:41 +0900
 
-I'm not really sure. But in this case, I do not think that is a problem.
+> This is "TAKE 3" of neighbour removal from rt6_info.
+> 
+> 2->3:
+> - Removed "icmp6_dst_alloc() removal" patch.
+>   This is nothing to do with this series.
+> - Removed several unused variables, ifdefs, BUG_ONs.
+> - Handled several comments from Cong Wang.
+> - Reordered.
 
-1) I'm most probably the only one (libteam) who is using this api and
-libteam does not mind about what err code is returned in these cases.
+This series is almost perfect, great work.
 
-2) In this case, it is only about different number. And one number or
-another, it does not imply userspace to behave differently. In other words,
-userspace should not take different actions in case for example -ENOENT
-or -ENODEV is returned.
+In ip6_output you need to accomodate the fact that __neigh_create()
+returns error pointers so it is not valid to simply use a NULL test on
+'neigh'.
 
-But as I said, I'm not sure.
-
-Thanks
-
-Jiri
+You'll need to use IS_ERR().  'neigh' can never be NULL here, it is
+either a valid non-NULL pointer or a return value from
+__neigh_create().
