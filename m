@@ -1,67 +1,43 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH 4/4 v3] net/smsc911x: Provide common clock functionality
-Date: Thu, 17 Jan 2013 10:47:44 +0000
-Message-ID: <20130117104744.GP20091@gmail.com>
-References: <20121220192441.GC14363@n2100.arm.linux.org.uk>
- <20121220203514.GN2691@gmail.com>
- <20121220205113.GD14363@n2100.arm.linux.org.uk>
- <20121221091306.GO2691@gmail.com>
- <20121221092421.GG14363@n2100.arm.linux.org.uk>
- <20121221114105.GP2691@gmail.com>
- <20130103111450.GC14714@gmail.com>
- <CACRpkda-4C+ezaZFSkxsNbmHnBN8RCoCeGePaOF-DzV0XnkzQw@mail.gmail.com>
- <20130109085555.GA31678@gmail.com>
- <CACRpkdY+C8jNT7LsJvBkauN4+x4k4gGJKSe0ynY_HLTpmpgFPA@mail.gmail.com>
+From: akong@redhat.com
+Subject: [PATCH v3 0/2] make mac programming for virtio net more robust
+Date: Thu, 17 Jan 2013 18:40:10 +0800
+Message-ID: <1358419212-32356-1-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	Steve Glendinning <steve.glendinning@shawell.net>,
-	Robert Marklund <robert.marklund@stericsson.com>,
-	linus.walleij@stericsson.com, arnd@arndb.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linus.walleij@linaro.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACRpkdY+C8jNT7LsJvBkauN4+x4k4gGJKSe0ynY_HLTpmpgFPA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, qemu-devel@nongnu.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+From: Amos Kong <akong@redhat.com>
 
-> >> > Some platforms provide clocks which require enabling before the
-> >> > SMSC911x chip will power on. This patch uses the new common clk
-> >> > framework to do just that. If no clock is provided, it will just
-> >> > be ignored and the driver will continue to assume that no clock
-> >> > is required for the chip to run successfully.
-> >> >
-> >> > Cc: Steve Glendinning <steve.glendinning@shawell.net>
-> >> > Cc: netdev@vger.kernel.org
-> >> > Signed-off-by: Lee Jones <lee.jones@linaro.org>
-> >>
-> >> Looks all right to me now:
-> >> Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
-> >
-> > I still need a maintiner Ack for this before I can push it.
-> >
-> > Anyone?
->=20
-> Steve is there sometimes. But I'd ask David Miller to ACK
-> it if he's OK with the change.
->=20
-> Yours,
-> Linus Walleij
+Currenly mac is programmed byte by byte. This means that we
+have an intermediate step where mac is wrong. 
 
-Hi David,
+Second patch introduced a new vq control command to set mac
+address, it's atomic.
 
-Does this [1] patch look okay to you too?
+V2: check return of sending command, delay eth_mac_addr()
+V3: restore software address when fail to set hardware address
 
-It's the last Ack I require before I can push the set.
+Amos Kong (2):
+  move virtnet_send_command() above virtnet_set_mac_address()
+  virtio-net: introduce a new control to set macaddr
 
-[1] https://patchwork.kernel.org/patch/1926971/
+ drivers/net/virtio_net.c        | 110 +++++++++++++++++++++++-----------------
+ include/uapi/linux/virtio_net.h |   8 ++-
+ 2 files changed, 71 insertions(+), 47 deletions(-)
 
---=20
-Lee Jones
-Linaro ST-Ericsson Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-=46ollow Linaro: Facebook | Twitter | Blog
+-- 
+1.7.11.7
