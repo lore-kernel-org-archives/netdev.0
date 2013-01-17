@@ -1,56 +1,41 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH] ipv6: Add an error handler for icmp6
-Date: Thu, 17 Jan 2013 09:09:49 +0100
-Message-ID: <20130117080949.GA24987@secunet.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: Re: [PATCH net-next] bnx2x: fix GRO parameters
+Date: Thu, 17 Jan 2013 09:16:09 +0200
+Message-ID: <50F7A539.7050508@broadcom.com>
+References: <50F50537.3030608@broadcom.com>
+ <1358260752.8744.5677.camel@edumazet-glaptop>
+ <50F56178.8000502@broadcom.com>
+ <20130115.150914.729025796621947521.davem@davemloft.net>
+ <1358312188.19956.1.camel@edumazet-glaptop>
+ <1358314662.19956.51.camel@edumazet-glaptop>
+ <50F65060.5000901@broadcom.com>
+ <1358350146.19956.658.camel@edumazet-glaptop>
+ <50F6BB70.8070409@broadcom.com>
+ <1358355038.19956.694.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Duan Jiong <djduanjiong@gmail.com>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"Eilon Greenstein" <eilong@broadcom.com>, ariele@broadc_tym.com
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54751 "EHLO a.mx.secunet.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1483 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759234Ab3AQIJw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 03:09:52 -0500
-Content-Disposition: inline
+	id S1759203Ab3AQIOv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2013 03:14:51 -0500
+In-Reply-To: <1358355038.19956.694.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-pmtu and redirect events are now handled in the protocols error handler,
-so add an error handler for icmp6 to do this. It is needed in the case
-when we have no socket context. Based on a patch by Duan Jiong.
+> There is no downside providing gso_segs and gso_type, you have all
+> needed information as shown in the patch I cooked and tested.
+> 
+> Our goal is to remove CONFIG_INET_LRO, so all multi-segments packets
+> should have the same set of parameters (gso_size, gso_segs, gso_type)
 
-Reported-by: Duan Jiong <djduanjiong@gmail.com>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/ipv6/icmp.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+I concur - I'll make the semantic modification to your patch and re-submit
+it later on today.
 
-diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-index b4a9fd5..fff5bdd 100644
---- a/net/ipv6/icmp.c
-+++ b/net/ipv6/icmp.c
-@@ -81,10 +81,22 @@ static inline struct sock *icmpv6_sk(struct net *net)
- 	return net->ipv6.icmp_sk[smp_processor_id()];
- }
- 
-+static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
-+		       u8 type, u8 code, int offset, __be32 info)
-+{
-+	struct net *net = dev_net(skb->dev);
-+
-+	if (type == ICMPV6_PKT_TOOBIG)
-+		ip6_update_pmtu(skb, net, info, 0, 0);
-+	else if (type == NDISC_REDIRECT)
-+		ip6_redirect(skb, net, 0, 0);
-+}
-+
- static int icmpv6_rcv(struct sk_buff *skb);
- 
- static const struct inet6_protocol icmpv6_protocol = {
- 	.handler	=	icmpv6_rcv,
-+	.err_handler	=	icmpv6_err,
- 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
- };
- 
--- 
-1.7.9.5
+Thanks,
+Yuval
