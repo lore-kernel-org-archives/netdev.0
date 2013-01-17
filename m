@@ -1,117 +1,90 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Thu, 17 Jan 2013 21:07:33 +0100
-Message-ID: <20130117200733.GA2055@order.stressinduktion.org>
-References: <20130117033258.GA23782@order.stressinduktion.org> <50F81C4B.3050406@linux-ipv6.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] team: do not use -ENOENT
+Date: Thu, 17 Jan 2013 21:33:47 +0100
+Message-ID: <20130117203347.GA1591@minipsycho.orion>
+References: <1358418300-2346-1-git-send-email-jiri@resnulli.us>
+ <20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34468 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663Ab3AQUHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:07:35 -0500
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:46154 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756553Ab3AQUdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:33:54 -0500
+Received: by mail-wi0-f169.google.com with SMTP id hq12so46304wib.2
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 12:33:52 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <50F81C4B.3050406@linux-ipv6.org>
+In-Reply-To: <20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 18, 2013 at 12:44:11AM +0900, YOSHIFUJI Hideaki wrote:
-> It seems wrong.  Check should be done for
-> - inner source prefix
-> - embedded source with relay_prefix.
-> - inner destination prefix.
-> 
-> Note: embedded destination is not being checked.
+Thu, Jan 17, 2013 at 04:51:15PM CET, stephen@networkplumber.org wrote:
+>On Thu, 17 Jan 2013 11:25:00 +0100
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> Since this error code means "No such file or directory", change this
+>> value in team driver to ones which make more sense.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  drivers/net/team/team.c                   | 4 ++--
+>>  drivers/net/team/team_mode_activebackup.c | 2 +-
+>>  2 files changed, 3 insertions(+), 3 deletions(-)
+>> 
+>> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+>> index 70d5d6b..3d7cf6e 100644
+>> --- a/drivers/net/team/team.c
+>> +++ b/drivers/net/team/team.c
+>> @@ -1128,7 +1128,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+>>  	if (!port || !team_port_find(team, port)) {
+>>  		netdev_err(dev, "Device %s does not act as a port of this team\n",
+>>  			   portname);
+>> -		return -ENOENT;
+>> +		return -ENODEV;
+>>  	}
+>>  
+>>  	__team_option_inst_mark_removed_port(team, port);
+>> @@ -2320,7 +2320,7 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+>>  			list_add(&opt_inst->tmp_list, &opt_inst_list);
+>>  		}
+>>  		if (!opt_found) {
+>> -			err = -ENOENT;
+>> +			err = -EINVAL;
+>>  			goto team_put;
+>>  		}
+>>  	}
+>> diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
+>> index 6262b4d..2792e13 100644
+>> --- a/drivers/net/team/team_mode_activebackup.c
+>> +++ b/drivers/net/team/team_mode_activebackup.c
+>> @@ -81,7 +81,7 @@ static int ab_active_port_set(struct team *team, struct team_gsetter_ctx *ctx)
+>>  			return 0;
+>>  		}
+>>  	}
+>> -	return -ENOENT;
+>> +	return -ENODEV;
+>>  }
+>>  
+>>  static const struct team_option ab_options[] = {
+>
+>To be pedantic.
+>Changing errno's means effectively changing the ABI.
+>Linus has already rejected similar patches in other areas.
 
-I fixed the handling of the embedded IPv4 in case of using 6rd
-with prefixlen != 16. I'll investigate on how to easily implement
-further address checks without breaking 6in4. I don't know if this is
-possible without a further flag on the tunnel interface controlling
-source/destination address checking.
+I'm not really sure. But in this case, I do not think that is a problem.
 
-[PATCH RFC] ipv6: add anti-spoofing checks for 6to4 and 6rd
+1) I'm most probably the only one (libteam) who is using this api and
+libteam does not mind about what err code is returned in these cases.
 
-This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-checks which could easily be implemented with netfilter.
+2) In this case, it is only about different number. And one number or
+another, it does not imply userspace to behave differently. In other words,
+userspace should not take different actions in case for example -ENOENT
+or -ENODEV is returned.
 
-Specifically this patch adds following logic (based loosely on the
-pseudocode in RFC3964 section 5.2):
+But as I said, I'm not sure.
 
-if prefix (inner_src_v6) == rd6_prefix (2002::/16 is the default)
-	and outer_src_v4 != embedded_ipv4 (inner_src_v6)
-		drop
-if prefix (inner_dst_v6) == rd6_prefix (or 2002::/16 is the default)
-	and outer_dst_v4 != embedded_ipv4 (inner_dst_v6)
-		drop
-accept
+Thanks
 
-To accomplish the specified security checks proposed by above RFCs,
-it is still necessary to employ uRPF filters with netfilter. These new
-checks only kick in if the employed addresses are within the 2002::/16 or
-another range specified by the 6rd-prefix (which defaults to 2002::/16).
-
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/sit.c | 29 +++++++++++++++++++++++++++--
- 1 file changed, 27 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index cfba99b..7942e81 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -73,6 +73,8 @@ static int ipip6_tunnel_init(struct net_device *dev);
- static void ipip6_tunnel_setup(struct net_device *dev);
- static void ipip6_dev_free(struct net_device *dev);
- static struct rtnl_link_ops sit_link_ops __read_mostly;
-+static inline __be32 try_6rd(const struct in6_addr *v6dst,
-+			struct ip_tunnel *tunnel);
- 
- static int sit_net_id __read_mostly;
- struct sit_net {
-@@ -590,6 +592,22 @@ out:
- 	return err;
- }
- 
-+static int sit_chk_encap_addr(struct ip_tunnel *tunnel, const __be32 *addr,
-+		const struct in6_addr *addr6)
-+{
-+#ifdef CONFIG_IPV6_SIT_6RD
-+	if (ipv6_prefix_equal(addr6, &tunnel->ip6rd.prefix,
-+				tunnel->ip6rd.prefixlen) &&
-+		*addr != try_6rd(addr6, tunnel))
-+		return 0;
-+#else
-+	if (addr6->s6_addr16[0] == htons(0x2002) &&
-+		*addr != try_6rd(addr6, tunnel))
-+		return 0;
-+#endif
-+	return 1;
-+}
-+
- static int ipip6_rcv(struct sk_buff *skb)
- {
- 	const struct iphdr *iph;
-@@ -613,8 +631,15 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		skb->protocol = htons(ETH_P_IPV6);
- 		skb->pkt_type = PACKET_HOST;
- 
--		if ((tunnel->dev->priv_flags & IFF_ISATAP) &&
--		    !isatap_chksrc(skb, iph, tunnel)) {
-+		if (tunnel->dev->priv_flags & IFF_ISATAP) {
-+			if (!isatap_chksrc(skb, iph, tunnel)) {
-+				tunnel->dev->stats.rx_errors++;
-+				goto out;
-+			}
-+		} else if (!sit_chk_encap_addr(tunnel, &iph->saddr,
-+					&ipv6_hdr(skb)->saddr) ||
-+			!sit_chk_encap_addr(tunnel, &iph->daddr,
-+				&ipv6_hdr(skb)->daddr)) {
- 			tunnel->dev->stats.rx_errors++;
- 			goto out;
- 		}
--- 
-1.7.11.7
+Jiri
