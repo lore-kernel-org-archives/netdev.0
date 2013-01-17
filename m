@@ -1,105 +1,57 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH v2 1/2] 6lowpan: Refactor packet
-	delivery into a function
-Date: Thu, 17 Jan 2013 00:09:47 -0500
-Message-ID: <1358399388-30062-2-git-send-email-alan@signal11.us>
-References: <1358315037-10043-1-git-send-email-alan@signal11.us>
-	<1358399388-30062-1-git-send-email-alan@signal11.us>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next V6 12/14] bridge: Add vlan support to static
+ neighbors
+Date: Thu, 17 Jan 2013 05:16:02 +0000 (UTC)
+Message-ID: <kd81eh$ptv$3@ger.gmane.org>
+References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com>
+ <1358360289-23249-13-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1358399388-30062-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:43262 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758296Ab3AQFQX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2013 00:16:23 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Tvhq4-0002FE-Uq
+	for netdev@vger.kernel.org; Thu, 17 Jan 2013 06:16:32 +0100
+Received: from 222.221.64.75 ([222.221.64.75])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 06:16:32 +0100
+Received: from xiyou.wangcong by 222.221.64.75 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 06:16:32 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Refactor the handing of the skb's to the individual lowpan devices into a
-function.
+On Wed, 16 Jan 2013 at 18:18 GMT, Vlad Yasevich <vyasevic@redhat.com> wrote:
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index a244efc..90d0bc9 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -506,6 +506,10 @@ static int fdb_fill_info(struct sk_buff *skb, const struct net_bridge *br,
+>  	ci.ndm_refcnt	 = 0;
+>  	if (nla_put(skb, NDA_CACHEINFO, sizeof(ci), &ci))
+>  		goto nla_put_failure;
+> +
+> +	if (nla_put(skb, NDA_VLAN, sizeof(u16), &fdb->vlan_id))
+> +		goto nla_put_failure;
 
-Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
----
- net/ieee802154/6lowpan.c | 38 ++++++++++++++++++++++++--------------
- 1 file changed, 24 insertions(+), 14 deletions(-)
-
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index f651da6..1714cfa 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -594,10 +594,32 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	}
- }
- 
-+static int lowpan_give_skb_to_devices(struct sk_buff *skb)
-+{
-+	struct lowpan_dev_record *entry;
-+	struct sk_buff *skb_cp;
-+	int stat = NET_RX_SUCCESS;
-+
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(entry, &lowpan_devices, list)
-+		if (lowpan_dev_info(entry->ldev)->real_dev == skb->dev) {
-+			skb_cp = skb_copy(skb, GFP_ATOMIC);
-+			if (!skb_cp) {
-+				stat = -ENOMEM;
-+				break;
-+			}
-+
-+			skb_cp->dev = entry->ldev;
-+			stat = netif_rx(skb_cp);
-+		}
-+	rcu_read_unlock();
-+
-+	return stat;
-+}
-+
- static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
- {
- 	struct sk_buff *new;
--	struct lowpan_dev_record *entry;
- 	int stat = NET_RX_SUCCESS;
- 
- 	new = skb_copy_expand(skb, sizeof(struct ipv6hdr), skb_tailroom(skb),
-@@ -614,19 +636,7 @@ static int lowpan_skb_deliver(struct sk_buff *skb, struct ipv6hdr *hdr)
- 	new->protocol = htons(ETH_P_IPV6);
- 	new->pkt_type = PACKET_HOST;
- 
--	rcu_read_lock();
--	list_for_each_entry_rcu(entry, &lowpan_devices, list)
--		if (lowpan_dev_info(entry->ldev)->real_dev == new->dev) {
--			skb = skb_copy(new, GFP_ATOMIC);
--			if (!skb) {
--				stat = -ENOMEM;
--				break;
--			}
--
--			skb->dev = entry->ldev;
--			stat = netif_rx(skb);
--		}
--	rcu_read_unlock();
-+	stat = lowpan_give_skb_to_devices(new);
- 
- 	kfree_skb(new);
- 
--- 
-1.7.11.2
+Why not just nla_put_u16()?
 
 
-------------------------------------------------------------------------------
-Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
-MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
-with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
-MVPs and experts. ON SALE this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_122712
+> +
+> +		/* We have vlans configured on this port and user didn't
+> +		 * specify a VLAN.  To be nice, add/update entry for every
+> +		 * vlan on this port.
+> +		 */
+> +		err = -ENOENT;
+> +		list_for_each_entry_rcu(pve, &p->vlan_info.vlan_list, list) {
+> +			err &= __br_fdb_delete(p, addr, pve->vid);
+> +		}
+
+ '&=' or '|='?
