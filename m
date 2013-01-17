@@ -1,57 +1,43 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC Patch net-next] tcp: add a global sysctl to control TCP
- delayed ack
-Date: Thu, 17 Jan 2013 12:34:20 +0000
-Message-ID: <20130117123420.GA23639@casper.infradead.org>
-References: <1358334345-28980-1-git-send-email-amwang@redhat.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7110@saturn3.aculab.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [RFC Patch net-next] tcp: add a global sysctl to control TCP delayed ack
+Date: Thu, 17 Jan 2013 13:25:12 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7113@saturn3.aculab.com>
+References: <1358334345-28980-1-git-send-email-amwang@redhat.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7110@saturn3.aculab.com> <20130117123420.GA23639@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Cong Wang" <amwang@redhat.com>, <netdev@vger.kernel.org>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Rick Jones" <rick.jones2@hp.com>,
+	"Stephen Hemminger" <shemminger@vyatta.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>
+To: "Thomas Graf" <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:41871 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750901Ab3AQMe3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 07:34:29 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7110@saturn3.aculab.com>
+Received: from mx0.aculab.com ([213.249.233.131]:53367 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751183Ab3AQN1T convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 08:27:19 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 22524-02 for <netdev@vger.kernel.org>;
+ Thu, 17 Jan 2013 13:27:11 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130117123420.GA23639@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/16/13 at 12:22pm, David Laight wrote:
-> A sysctl is a bit of a big hammer, it probably isn't necessary
-> to disable delayed acks on all connections.
-> 
-> IIRC the related problems I saw were really on the sending
-> side when Nagle is disabled and it is doing 'slow start'.
-> 
-> Globally disabling on connections that have Nagle disabled
-> might be a possibility - but it is the Nagle parameter
-> at the other end that matters.
-> 
-> Perhaps the sending side, after sending 4 small frames immediately,
-> could send 1 or 2 additional full sized frames in order to
-> provoke an ack (IIRC an ack is sent if there are 2 full sized
-> frames of data unacked).
-> 
-> The other problem is that 'slow start' is restarted very
-> aggressively - whenever there is no unacked data.
-> If you have a very low latency connection and aren't doing
-> continuous bulk transfer it is restarted for every short
-> burst of transmits - effectively after every received ack.
-> There really ought to have to be a moderate idle time
-> before 'slow start' is restarted.
+> Not that I disagree with this fundamentally but we already
+> have a socket option to enable the functionality. All this
+> patch does is making the same functionality available to
+> users that are not able to make modification on the
+> application level.
 
-Not that I disagree with this fundamentally but we already
-have a socket option to enable the functionality. All this
-patch does is making the same functionality available to
-users that are not able to make modification on the
-application level.
+My reading of TCP_QUICKACK documentation is that it is a request
+to send an ack now - rather than permanently disable delayed acks.
+Having to do an extra system call after every rcv() call
+is rather OTT.
 
-We can argue about making it available as route metric
-exclusively though.
+Or did you mean some other socket option?
+
+	David
