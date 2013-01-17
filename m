@@ -1,75 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Thu, 17 Jan 2013 17:17:55 +0100
-Message-ID: <20130117161755.GA974@order.stressinduktion.org>
-References: <20130117033258.GA23782@order.stressinduktion.org> <50F81C4B.3050406@linux-ipv6.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: remove redundant code
+Date: Thu, 17 Jan 2013 18:22:11 +0200
+Message-ID: <50F82533.4080906@mellanox.com>
+References: <1358423241-2452-1-git-send-email-amirv@mellanox.com>  <1358423241-2452-6-git-send-email-amirv@mellanox.com>  <1358432538.29723.8.camel@edumazet-glaptop> <1358436367.29723.49.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:34016 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756903Ab3AQQR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 11:17:56 -0500
-Content-Disposition: inline
-In-Reply-To: <50F81C4B.3050406@linux-ipv6.org>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:57272 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756987Ab3AQQVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 11:21:39 -0500
+In-Reply-To: <1358436367.29723.49.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 18, 2013 at 12:44:11AM +0900, YOSHIFUJI Hideaki wrote:
-> Hannes Frederic Sowa wrote:
-> > This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-> > section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-> > checks which could easily be implemented with netfilter.
-> > 
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> >  net/ipv6/sit.c | 27 +++++++++++++++++++++++++--
-> >  1 file changed, 25 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-> > index cfba99b..2b4c15a 100644
-> > --- a/net/ipv6/sit.c
-> > +++ b/net/ipv6/sit.c
-> > @@ -590,6 +590,22 @@ out:
-> >  	return err;
-> >  }
-> >  
-> > +static int sit_chksrc(struct ip_tunnel *tunnel, const __be32 *addr,
-> > +		const struct in6_addr *addr6)
-> > +{
-> > +#ifdef CONFIG_IPV6_SIT_6RD
-> > +	if (ipv6_prefix_equal(addr6, &tunnel->ip6rd.prefix,
-> > +				tunnel->ip6rd.prefixlen) &&
-> > +		memcmp(addr, &addr6->s6_addr16[1], 4))
-> > +		return 0;
-> > +#else
-> > +	if (addr6->s6_addr16[0] == htons(0x2002) &&
-> > +		memcmp(addr, &addr6->s6_addr16[1], 4))
-> > +		return 0;
-> > +#endif
-> > +	return 1;
-> >
-> 
-> It seems wrong.  Check should be done for
-> - inner source prefix
-
-I intentionally skipped this check because it could be easily checked
-with netfilter (after decapsulation) and I am a bit afraid breaking
-already working setups with non-standard prefixes. Do you think I should
-add this check anyway?
-
-> - embedded source with relay_prefix.
-
-I'll use try_6rd to extract the ipv4 address and check it against the
-outer address. I will check this later if I have access to my test setup.
-
-> - inner destination prefix.
+On 17/01/2013 17:26, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Note: embedded destination is not being checked.
+> remove redundant code from build_inline_wqe()
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> Amir, reviewing this driver, it looks like following could be done,
+> could you test the patch for me ?
+>
+> Thanks
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 2b799f4..16af338 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -515,10 +515,6 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
+>   		wmb();
+>   		inl->byte_count = cpu_to_be32(1 << 31 | (skb->len - spc));
+>   	}
+> -	tx_desc->ctrl.vlan_tag = cpu_to_be16(*vlan_tag);
+> -	tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN *
+> -		(!!vlan_tx_tag_present(skb));
+> -	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
+>   }
+>
+>   u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+>
+>
 
-Also left these checks out because of the same reasons I stated above. Should
-they be added?
+It seems that you're right.
 
-Thanks for the review!
+I'm currently out of office - will check it on Sunday.
+
+Thanks,
+Amir
