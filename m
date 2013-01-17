@@ -1,71 +1,45 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next (V4) 03/11] ipv6 route: Dump gateway based on RTF_GATEWAY
- flag and rt->rt6i_gateway.
-Date: Fri, 18 Jan 2013 07:53:15 +0900
-Message-ID: <50F880DB.5020006@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/11] IPv6: rt->n (neighbour in rt6_info)
+ removal (TAKE 3)
+Date: Thu, 17 Jan 2013 17:53:16 -0500 (EST)
+Message-ID: <20130117.175316.2254554394400383765.davem@davemloft.net>
+References: <50F837D5.4020505@linux-ipv6.org>
+	<20130117.153753.1608817353719202851.davem@davemloft.net>
+	<20130117224222.GA29674@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	xiyou.wangcong@gmail.com
+To: davej@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44755 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754458Ab3AQWxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 17:53:16 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:54562 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466Ab3AQWxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 17:53:17 -0500
+In-Reply-To: <20130117224222.GA29674@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not depend on rt->n.
+From: Dave Jones <davej@redhat.com>
+Date: Thu, 17 Jan 2013 17:42:22 -0500
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/route.c |   12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+> On Thu, Jan 17, 2013 at 03:37:53PM -0500, David Miller wrote:
+>  > From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+>  > Date: Fri, 18 Jan 2013 02:41:41 +0900
+>  > 
+>  > > This is "TAKE 3" of neighbour removal from rt6_info.
+>  > > 
+>  > > 2->3:
+>  > > - Removed "icmp6_dst_alloc() removal" patch.
+>  > >   This is nothing to do with this series.
+>  > > - Removed several unused variables, ifdefs, BUG_ONs.
+>  > > - Handled several comments from Cong Wang.
+>  > > - Reordered.
+>  > 
+>  > This series is almost perfect, great work.
+> 
+> I guess if this is going in soon, the ip6 rt->n related oops I reported
+> this morning is moot ? (unless anyone cares about fixing it for older kernels)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 5d9ca27..d82eb1f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -2484,7 +2484,6 @@ static int rt6_fill_node(struct net *net,
- 	struct nlmsghdr *nlh;
- 	long expires;
- 	u32 table;
--	struct neighbour *n;
- 
- 	if (prefix) {	/* user wants prefix routes only */
- 		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
-@@ -2597,9 +2596,8 @@ static int rt6_fill_node(struct net *net,
- 	if (rtnetlink_put_metrics(skb, dst_metrics_ptr(&rt->dst)) < 0)
- 		goto nla_put_failure;
- 
--	n = rt->n;
--	if (n) {
--		if (nla_put(skb, RTA_GATEWAY, 16, &n->primary_key) < 0)
-+	if (rt->rt6i_flags & RTF_GATEWAY) {
-+		if (nla_put(skb, RTA_GATEWAY, 16, &rt->rt6i_gateway) < 0)
- 			goto nla_put_failure;
- 	}
- 
-@@ -2794,7 +2792,6 @@ struct rt6_proc_arg
- static int rt6_info_route(struct rt6_info *rt, void *p_arg)
- {
- 	struct seq_file *m = p_arg;
--	struct neighbour *n;
- 
- 	seq_printf(m, "%pi6 %02x ", &rt->rt6i_dst.addr, rt->rt6i_dst.plen);
- 
-@@ -2803,9 +2800,8 @@ static int rt6_info_route(struct rt6_info *rt, void *p_arg)
- #else
- 	seq_puts(m, "00000000000000000000000000000000 00 ");
- #endif
--	n = rt->n;
--	if (n) {
--		seq_printf(m, "%pi6", n->primary_key);
-+	if (rt->rt6i_flags & RTF_GATEWAY) {
-+		seq_printf(m, "%pi6", &rt->rt6i_gateway);
- 	} else {
- 		seq_puts(m, "00000000000000000000000000000000");
- 	}
--- 
-1.7.9.5
+I wouldn't say it's moot for older kernels, that's for sure.
