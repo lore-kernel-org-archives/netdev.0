@@ -1,52 +1,55 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 00/11] IPv6: rt->n (neighbour in rt6_info) removal
- (TAKE 3)
-Date: Fri, 18 Jan 2013 02:41:41 +0900
-Message-ID: <50F837D5.4020505@linux-ipv6.org>
+Subject: [PATCH net-next 08/11] ipv6: Introduce rt6_nexthop() to select nexthop
+ address.
+Date: Fri, 18 Jan 2013 02:43:03 +0900
+Message-ID: <50F83827.3000506@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44377 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44410 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753161Ab3AQRlr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 12:41:47 -0500
+	with ESMTP id S1754482Ab3AQRnE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 12:43:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is "TAKE 3" of neighbour removal from rt6_info.
+For RTF_GATEWAY route, return rt->rt6i_gateway.
+Otherwise, return 2nd argument (destination address).
 
-2->3:
-- Removed "icmp6_dst_alloc() removal" patch.
-  This is nothing to do with this series.
-- Removed several unused variables, ifdefs, BUG_ONs.
-- Handled several comments from Cong Wang.
-- Reordered.
+This will be used by following patches which remove rt->n
+dependency patches in ip6_dst_lookup_tail() and ip6_finish_output2().
 
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
-YOSHIFUJI Hideaki (11):
-  ndisc: Update neigh->updated with write lock.
-  ndisc: Remove tbl argument for __ipv6_neigh_lookup().
-  ipv6 route: Dump gateway based on RTF_GATEWAY flag and
-    rt->rt6i_gateway.
-  ndisc: Introduce __ipv6_neigh_lookup_noref().
-  ipv6: Do not depend on rt->n in ip6_pol_route().
-  ipv6: Do not depend on rt->n in rt6_check_neigh().
-  ipv6: Do not depend on rt->n in rt6_probe().
-  ipv6: Introduce rt6_nexthop() to select nexthop address.
-  ipv6: Do not depend on rt->n in ip6_dst_lookup_tail().
-  ipv6: Do not depend on rt->n in ip6_finish_output2().
-  ipv6: Complete neighbour entry removal from dst_entry.
+ include/net/ip6_route.h |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
- include/net/ip6_fib.h   |    2 -
- include/net/ip6_route.h |    8 +++
- include/net/ndisc.h     |   24 ++++++---
- net/ipv6/ip6_output.c   |   26 ++++++---
- net/ipv6/route.c        |  138 ++++++++++++-----------------------------------
- net/ipv6/xfrm6_policy.c |    1 -
- 6 files changed, 76 insertions(+), 123 deletions(-)
-
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 27d8318..30cbb15 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -23,6 +23,7 @@ struct route_info {
+ #include <net/sock.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
++#include <linux/route.h>
+ 
+ #define RT6_LOOKUP_F_IFACE		0x00000001
+ #define RT6_LOOKUP_F_REACHABLE		0x00000002
+@@ -194,4 +195,11 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+ 	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+ }
+ 
++static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr *dest)
++{
++	if (rt->rt6i_flags & RTF_GATEWAY)
++		return &rt->rt6i_gateway;
++	return dest;
++}
++
+ #endif
 -- 
 1.7.9.5
