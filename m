@@ -1,62 +1,75 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 10/11] ipv6: Do not depend on rt->n in ip6_finish_output2().
-Date: Fri, 18 Jan 2013 02:43:13 +0900
-Message-ID: <50F83831.30505@linux-ipv6.org>
+Subject: [PATCH net-next 04/11] ndisc: Introduce __ipv6_neigh_lookup_noref().
+Date: Fri, 18 Jan 2013 02:42:07 +0900
+Message-ID: <50F837EF.1040001@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44418 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44394 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756062Ab3AQRnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 12:43:13 -0500
+	with ESMTP id S1755877Ab3AQRmI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 12:42:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If neigh is not found, create new one.
+This function, which looks up neighbour entry for an IPv6 address
+without touching refcnt, will be used for patches to remove
+dependency on rt->n (neighbour entry in rt6_info).
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/ip6_output.c |   18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+ include/net/ndisc.h |   22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7c00edb..b2fe048 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -88,7 +88,8 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *dev = dst->dev;
- 	struct neighbour *neigh;
--	struct rt6_info *rt;
-+	struct in6_addr *nexthop;
-+	int ret;
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index bbc938e..ec48f42 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -148,14 +148,13 @@ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, _
+ 		(p32[3] * hash_rnd[3]));
+ }
  
- 	skb->protocol = htons(ETH_P_IPV6);
- 	skb->dev = dev;
-@@ -123,10 +124,17 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 				skb->len);
+-static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, const void *pkey)
++static inline struct neighbour *__ipv6_neigh_lookup_noref(struct net_device *dev, const void *pkey)
+ {
+ 	struct neigh_hash_table *nht;
+ 	const u32 *p32 = pkey;
+ 	struct neighbour *n;
+ 	u32 hash_val;
+ 
+-	rcu_read_lock_bh();
+ 	nht = rcu_dereference_bh(nd_tbl.nht);
+ 	hash_val = ndisc_hashfn(pkey, dev, nht->hash_rnd) >> (32 - nht->hash_shift);
+ 	for (n = rcu_dereference_bh(nht->hash_buckets[hash_val]);
+@@ -164,12 +163,21 @@ static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, cons
+ 		u32 *n32 = (u32 *) n->primary_key;
+ 		if (n->dev == dev &&
+ 		    ((n32[0] ^ p32[0]) | (n32[1] ^ p32[1]) |
+-		     (n32[2] ^ p32[2]) | (n32[3] ^ p32[3])) == 0) {
+-			if (!atomic_inc_not_zero(&n->refcnt))
+-				n = NULL;
+-			break;
+-		}
++		     (n32[2] ^ p32[2]) | (n32[3] ^ p32[3])) == 0)
++			return n;
  	}
- 
--	rt = (struct rt6_info *) dst;
--	neigh = rt->n;
--	if (neigh)
--		return dst_neigh_output(dst, neigh, skb);
++
++	return NULL;
++}
++
++static inline struct neighbour *__ipv6_neigh_lookup(struct net_device *dev, const void *pkey)
++{
++	struct neighbour *n;
++
 +	rcu_read_lock_bh();
-+	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
-+	neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop);
-+	if (unlikely(!neigh))
-+		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
-+	if (neigh) {
-+		ret = dst_neigh_output(dst, neigh, skb);
-+		rcu_read_unlock_bh();
-+		return ret;
-+	}
-+	rcu_read_unlock_bh();
++	n = __ipv6_neigh_lookup_noref(dev, pkey);
++	if (n && !atomic_inc_not_zero(&n->refcnt))
++		n = NULL;
+ 	rcu_read_unlock_bh();
  
- 	IP6_INC_STATS_BH(dev_net(dst->dev),
- 			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
+ 	return n;
 -- 
 1.7.9.5
