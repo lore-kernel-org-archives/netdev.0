@@ -1,42 +1,42 @@
-From: Jan Engelhardt <jengelh@inai.de>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and
- <linux/in6.h>
-Date: Thu, 17 Jan 2013 11:57:14 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1301171153540.15372@nerf07.vanv.qr>
-References: <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com> <20130116.164511.2027039182184636075.davem@davemloft.net> <50F75AD7.7000703@systemhalted.org> <20130116.210512.2230612692562212911.davem@davemloft.net>
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: Re: [PATCH] ipv6: do not create neighbor entries for local delivery
+Date: Thu, 17 Jan 2013 09:17:40 -0200
+Message-ID: <50F7DDD4.7000503@redhat.com>
+References: <50F6ABCA.4020804@redhat.com> <20130116.162813.1734293658687337225.davem@davemloft.net>
+Reply-To: mleitner@redhat.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: carlos@systemhalted.org, bhutchings@solarflare.com,
-	yoshfuji@linux-ipv6.org, amwang@redhat.com, tmb@mageia.org,
-	eblake@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
-	tgraf@suug.ch, libc-alpha@sourceware.org, schwab@suse.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130116.210512.2230612692562212911.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:6330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751944Ab3AQLRo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2013 06:17:44 -0500
+In-Reply-To: <20130116.162813.1734293658687337225.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 2013-01-17 03:05, David Miller wrote:
-
->From: Carlos O'Donell <carlos@systemhalted.org>
->Date: Wed, 16 Jan 2013 20:58:47 -0500
+Em 16-01-2013 19:28, David Miller escreveu:
+> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Date: Wed, 16 Jan 2013 11:31:54 -0200
 >
->> So I just went down the rabbit hole, and the further I get the
->> closer I get to having two exact copies of the same definitions
->> in both glibc and the kernel and using whichever one was included
->> first.
->> 
->> Is anyone opposed to that kind of solution?
+>> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+>> index
+>> 7c34c01b515b7ac370f8021ba6f5ec4c654e9e41..b63e33bcbdfbc1bd78af0b98ffc2d211805214ea
+>> 100644
 >
->Sounds interesting, please share :-)
+> Patch corrupted by your email client.
 
-iptables has the same issue, and solved it its way. 
-(uapi/)linux/netfilter.h is used to get at things like union 
-nf_inet_addr. This union contains struct in6_addr. There is no include 
-for in6_addr in netfilter.h itself. This may break the "standalone 
-compilation" test, but at least allows for specifying the 
-environment-specific header for in6_addr in the C file:
+Doh, really sorry about that.
 
-a. userspace: #include <netinet/in.h> before <linux/netfilter.h>
-b. kernel parts: #include <linux/in6.h> before <linux/netfilter.h>
+> Note also that YOSHIFUJI Hideaki's patches to remove the cached neighbour
+> entirely from ipv6 routes will have the same effect, so your patch won't
+> be needed.
+
+Yes but seems it needs some time yet. Mind if I submit it again (right 
+this time)?
+
+Thanks,
+Marcelo.
