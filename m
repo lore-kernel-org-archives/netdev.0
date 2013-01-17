@@ -1,49 +1,49 @@
-From: Nickolai Zeldovich <nickolai@csail.mit.edu>
-Subject: [PATCH] net/xfrm/xfrm_replay: avoid division by zero
-Date: Thu, 17 Jan 2013 13:58:28 -0500
-Message-ID: <1358449108-67839-1-git-send-email-nickolai@csail.mit.edu>
-Cc: Nickolai Zeldovich <nickolai@csail.mit.edu>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Que <sque@chromium.org>
+Subject: [PATCH] net: usb: initialize tmp in dm9601.c to avoid warning
+Date: Thu, 17 Jan 2013 11:29:49 -0800
+Message-ID: <1358450989-25205-1-git-send-email-sque@chromium.org>
+Cc: msb@chromium.org, Simon Que <sque@chromium.org>
+To: jacmet@sunsite.dk, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:58912 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753641Ab3AQTg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 14:36:56 -0500
+Received: by mail-ie0-f202.google.com with SMTP id s9so763414iec.1
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 11:36:55 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-All of the xfrm_replay->advance functions in xfrm_replay.c check if
-x->replay_esn->replay_window is zero (and return if so).  However,
-one of them, xfrm_replay_advance_bmp(), divides by that value (in the
-'%' operator) before doing the check, which can potentially trigger
-a divide-by-zero exception.  Some compilers will also assume that the
-earlier division means the value cannot be zero later, and thus will
-eliminate the subsequent zero check as dead code.
+In two places, tmp is initialized implicitly by being passed as a
+pointer during a function call.  However, this is not obvious to the
+compiler, which logs a warning.
 
-This patch moves the division to after the check.
-
-Signed-off-by: Nickolai Zeldovich <nickolai@csail.mit.edu>
+Signed-off-by: Simon Que <sque@chromium.org>
 ---
- net/xfrm/xfrm_replay.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/usb/dm9601.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/xfrm/xfrm_replay.c b/net/xfrm/xfrm_replay.c
-index 765f6fe..35754cc 100644
---- a/net/xfrm/xfrm_replay.c
-+++ b/net/xfrm/xfrm_replay.c
-@@ -242,11 +242,13 @@ static void xfrm_replay_advance_bmp(struct xfrm_state *x, __be32 net_seq)
- 	u32 diff;
- 	struct xfrm_replay_state_esn *replay_esn = x->replay_esn;
- 	u32 seq = ntohl(net_seq);
--	u32 pos = (replay_esn->seq - 1) % replay_esn->replay_window;
-+	u32 pos;
+diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
+index e0433ce..94e716d 100644
+--- a/drivers/net/usb/dm9601.c
++++ b/drivers/net/usb/dm9601.c
+@@ -199,7 +199,7 @@ static int dm_read_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 *valu
+ 	dm_write_reg(dev, DM_SHARED_CTRL, phy ? 0xc : 0x4);
  
- 	if (!replay_esn->replay_window)
- 		return;
+ 	for (i = 0; i < DM_TIMEOUT; i++) {
+-		u8 tmp;
++		u8 tmp = 0;
  
-+	pos = (replay_esn->seq - 1) % replay_esn->replay_window;
-+
- 	if (seq > replay_esn->seq) {
- 		diff = seq - replay_esn->seq;
+ 		udelay(1);
+ 		ret = dm_read_reg(dev, DM_SHARED_CTRL, &tmp);
+@@ -242,7 +242,7 @@ static int dm_write_shared_word(struct usbnet *dev, int phy, u8 reg, __le16 valu
+ 	dm_write_reg(dev, DM_SHARED_CTRL, phy ? 0x1a : 0x12);
  
+ 	for (i = 0; i < DM_TIMEOUT; i++) {
+-		u8 tmp;
++		u8 tmp = 0;
+ 
+ 		udelay(1);
+ 		ret = dm_read_reg(dev, DM_SHARED_CTRL, &tmp);
 -- 
-1.7.10.4
+1.7.8.6
