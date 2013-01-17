@@ -1,42 +1,56 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdn/gigaset: off by one check leading to oops
-Date: Thu, 17 Jan 2013 10:44:05 +0300
-Message-ID: <20130117074405.GA26270@elgon.mountain>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] ipv6: Add an error handler for icmp6
+Date: Thu, 17 Jan 2013 09:09:49 +0100
+Message-ID: <20130117080949.GA24987@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tilman Schmidt <tilman@imap.cc>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Hansjoerg Lipp <hjlipp@web.de>
+Cc: Duan Jiong <djduanjiong@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:27859 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753930Ab3AQHoH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 02:44:07 -0500
+Received: from a.mx.secunet.com ([195.81.216.161]:54751 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759234Ab3AQIJw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2013 03:09:52 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If l == 12 then later we subtract 12 leaving zero.  We do a zero size
-allocation, so "dbgline" points to the ZERO_SIZE_PTR.  It leads to an
-oops when we set the NUL terminator:
-	dbgline[3 * l - 1] = '\0';
+pmtu and redirect events are now handled in the protocols error handler,
+so add an error handler for icmp6 to do this. It is needed in the case
+when we have no socket context. Based on a patch by Duan Jiong.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Reported-by: Duan Jiong <djduanjiong@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
-Static analysis stuff.
+ net/ipv6/icmp.c |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index 68452b7..0d34325 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -239,7 +239,7 @@ static inline void dump_rawmsg(enum debuglevel level, const char *tag,
- 		return;
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index b4a9fd5..fff5bdd 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -81,10 +81,22 @@ static inline struct sock *icmpv6_sk(struct net *net)
+ 	return net->ipv6.icmp_sk[smp_processor_id()];
+ }
  
- 	l = CAPIMSG_LEN(data);
--	if (l < 12) {
-+	if (l <= 12) {
- 		gig_dbg(level, "%s: ??? LEN=%04d", tag, l);
- 		return;
- 	}
++static void icmpv6_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
++		       u8 type, u8 code, int offset, __be32 info)
++{
++	struct net *net = dev_net(skb->dev);
++
++	if (type == ICMPV6_PKT_TOOBIG)
++		ip6_update_pmtu(skb, net, info, 0, 0);
++	else if (type == NDISC_REDIRECT)
++		ip6_redirect(skb, net, 0, 0);
++}
++
+ static int icmpv6_rcv(struct sk_buff *skb);
+ 
+ static const struct inet6_protocol icmpv6_protocol = {
+ 	.handler	=	icmpv6_rcv,
++	.err_handler	=	icmpv6_err,
+ 	.flags		=	INET6_PROTO_NOPOLICY|INET6_PROTO_FINAL,
+ };
+ 
+-- 
+1.7.9.5
