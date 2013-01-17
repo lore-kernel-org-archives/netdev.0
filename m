@@ -1,36 +1,61 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [net-next 12/14] igb: Add mechanism for detecting latched
- hardware Rx timestamp
-Date: Thu, 17 Jan 2013 16:38:12 +0100
-Message-ID: <20130117153812.GB2937@netboy.at.omicron.at>
-References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1358422519-20981-13-git-send-email-jeffrey.t.kirsher@intel.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Fri, 18 Jan 2013 00:44:11 +0900
+Message-ID: <50F81C4B.3050406@linux-ipv6.org>
+References: <20130117033258.GA23782@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Matthew Vick <matthew.vick@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org, hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:45541 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756289Ab3AQPiS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 10:38:18 -0500
-Received: by mail-wg0-f50.google.com with SMTP id es5so1722917wgb.29
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 07:38:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1358422519-20981-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44255 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756710Ab3AQPoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 10:44:14 -0500
+In-Reply-To: <20130117033258.GA23782@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 17, 2013 at 03:35:17AM -0800, Jeff Kirsher wrote:
-> From: Matthew Vick <matthew.vick@intel.com>
+Hannes Frederic Sowa wrote:
+> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
+> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
+> checks which could easily be implemented with netfilter.
 > 
-> Add a check against possible Rx timestamp freezing in the hardware via
-> watchdog mechanism. This situation can occur when an Rx timestamp has been
-> latched, but the packet has been dropped because the Rx ring is full.
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/sit.c | 27 +++++++++++++++++++++++++--
+>  1 file changed, 25 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index cfba99b..2b4c15a 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -590,6 +590,22 @@ out:
+>  	return err;
+>  }
+>  
+> +static int sit_chksrc(struct ip_tunnel *tunnel, const __be32 *addr,
+> +		const struct in6_addr *addr6)
+> +{
+> +#ifdef CONFIG_IPV6_SIT_6RD
+> +	if (ipv6_prefix_equal(addr6, &tunnel->ip6rd.prefix,
+> +				tunnel->ip6rd.prefixlen) &&
+> +		memcmp(addr, &addr6->s6_addr16[1], 4))
+> +		return 0;
+> +#else
+> +	if (addr6->s6_addr16[0] == htons(0x2002) &&
+> +		memcmp(addr, &addr6->s6_addr16[1], 4))
+> +		return 0;
+> +#endif
+> +	return 1;
+>
 
-Does this also need fixing in stable?
+It seems wrong.  Check should be done for
+- inner source prefix
+- embedded source with relay_prefix.
+- inner destination prefix.
 
-The igb patches look okay to me.
+Note: embedded destination is not being checked.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+--yoshfuji
