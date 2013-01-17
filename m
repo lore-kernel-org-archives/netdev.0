@@ -1,41 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/11] IPv6: rt->n (neighbour in rt6_info)
- removal (TAKE 3)
-Date: Thu, 17 Jan 2013 15:37:53 -0500 (EST)
-Message-ID: <20130117.153753.1608817353719202851.davem@davemloft.net>
-References: <50F837D5.4020505@linux-ipv6.org>
+Subject: Re: [patch net-next] team: do not use -ENOENT
+Date: Thu, 17 Jan 2013 15:42:40 -0500 (EST)
+Message-ID: <20130117.154240.1134435647038964241.davem@davemloft.net>
+References: <1358418300-2346-1-git-send-email-jiri@resnulli.us>
+	<20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
+	<20130117203347.GA1591@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: yoshfuji@linux-ipv6.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53173 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53292 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757044Ab3AQUh5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:37:57 -0500
-In-Reply-To: <50F837D5.4020505@linux-ipv6.org>
+	with ESMTP id S1752104Ab3AQUmm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:42:42 -0500
+In-Reply-To: <20130117203347.GA1591@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Fri, 18 Jan 2013 02:41:41 +0900
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 17 Jan 2013 21:33:47 +0100
 
-> This is "TAKE 3" of neighbour removal from rt6_info.
+>>> @@ -2320,7 +2320,7 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+>>>  			list_add(&opt_inst->tmp_list, &opt_inst_list);
+>>>  		}
+>>>  		if (!opt_found) {
+>>> -			err = -ENOENT;
+>>> +			err = -EINVAL;
+>>>  			goto team_put;
+>>>  		}
+>>>  	}
+
+
+> I'm not really sure. But in this case, I do not think that is a problem.
 > 
-> 2->3:
-> - Removed "icmp6_dst_alloc() removal" patch.
->   This is nothing to do with this series.
-> - Removed several unused variables, ifdefs, BUG_ONs.
-> - Handled several comments from Cong Wang.
-> - Reordered.
+> 1) I'm most probably the only one (libteam) who is using this api and
+> libteam does not mind about what err code is returned in these cases.
+> 
+> 2) In this case, it is only about different number. And one number or
+> another, it does not imply userspace to behave differently. In other words,
+> userspace should not take different actions in case for example -ENOENT
+> or -ENODEV is returned.
 
-This series is almost perfect, great work.
+I agree with this analysis.
 
-In ip6_output you need to accomodate the fact that __neigh_create()
-returns error pointers so it is not valid to simply use a NULL test on
-'neigh'.
+But for the team_nl_cmd_options_set() case, I would strongly advise
+that you use some error code more descriptive than -EINVAL.  In fact
+the existing -ENOENT I feel is better, because it tells the caller
+what kind of problem there was.
 
-You'll need to use IS_ERR().  'neigh' can never be NULL here, it is
-either a valid non-NULL pointer or a return value from
-__neigh_create().
+Even if you don't like the fact that -ENOENT is oriented towards file
+existence, it does convey a ton more information than -EINVAL does.
