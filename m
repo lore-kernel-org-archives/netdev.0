@@ -1,63 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1 net-next] net: fec: enable pause frame to
- improve rx prefomance for 1G network
-Date: Wed, 16 Jan 2013 22:10:21 -0500 (EST)
-Message-ID: <20130116.221021.1688403542986325196.davem@davemloft.net>
-References: <1358153387-19275-1-git-send-email-Frank.Li@freescale.com>
-	<CAHrpEqRV7PonDpqAvGkDf7QqSeUj+mVbnF2rA-Zjb9xfWh-_2g@mail.gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] ipv6: Fix endianess warning in ip6_flow_hdr().
+Date: Thu, 17 Jan 2013 12:10:57 +0900
+Message-ID: <50F76BC1.90300@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, shawn.guo@linaro.org, B38611@freescale.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, s.hauer@pengutronix.de
-To: lznuaa@gmail.com
+Cc: fengguang.wu@intel.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42877 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758756Ab3AQDKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 22:10:25 -0500
-In-Reply-To: <CAHrpEqRV7PonDpqAvGkDf7QqSeUj+mVbnF2rA-Zjb9xfWh-_2g@mail.gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:43481 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758750Ab3AQDK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 22:10:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <lznuaa@gmail.com>
-Date: Thu, 17 Jan 2013 10:50:36 +0800
+Commit 3e4e4c1f ("ipv6: Introduce ip6_flow_hdr() to fill version,
+tclass and flowlabel.) uses ntohl(), which should be htonl().
 
-> Any feedback about this patch?
+Found by Fengguang Wu <fengguang.wu@intel.com>.
 
-Well it's full of stylistic problems.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/ipv6.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->> +       /* enable pause frame*/
->> +       if ((fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) ||
->> +               ((fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) &&
->> +                       fep->phy_dev && fep->phy_dev->pause)) {
-
-This is mis-idented.
-
->> +
->> +               rcntl |= FEC_ENET_FCE;
-
-That empty line before this assignment is spurious.
-
->> +       pause->rx_pause = pause->tx_pause;
->> +
->> +}
-
-That empty line is unnecessary, remove it.
-
->> +       /* default enable pause frame auto negotiation */
->> +       if (pdev->id_entry &&
->> +                       (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
-
-You can't possibly tell me that this indentation looks right
-to you.
-
-You must style things like this:
-
-	if (condition1 &&
-	    condition2)
-
-That is, you must line up the first character on the second and
-subsequent lines at the first column after the openning parenthesis of
-the first line.
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 459a5a4..be3358b 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -629,7 +629,7 @@ extern void ipv6_select_ident(struct frag_hdr *fhdr, struct rt6_info *rt);
+ static inline void ip6_flow_hdr(struct ipv6hdr *hdr, unsigned int tclass,
+ 				__be32 flowlabel)
+ {
+-	*(__be32 *)hdr = ntohl(0x60000000 | (tclass << 20)) | flowlabel;
++	*(__be32 *)hdr = htonl(0x60000000 | (tclass << 20)) | flowlabel;
+ }
+ 
+ static inline __be32 ip6_flowinfo(const struct ipv6hdr *hdr)
+-- 
+1.7.9.5
