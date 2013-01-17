@@ -1,84 +1,51 @@
-From: Alan Ott <alan@signal11.us>
-Subject: [PATCH v2 2/2] 6lowpan: Handle uncompressed IPv6 packets over 6LoWPAN
-Date: Thu, 17 Jan 2013 00:09:48 -0500
-Message-ID: <1358399388-30062-3-git-send-email-alan@signal11.us>
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Subject: [PATCH v2 0/2] Handle Uncompressed IPv6 on
+	6LoWPAN
+Date: Thu, 17 Jan 2013 00:09:46 -0500
+Message-ID: <1358399388-30062-1-git-send-email-alan@signal11.us>
 References: <1358315037-10043-1-git-send-email-alan@signal11.us>
- <1358399388-30062-1-git-send-email-alan@signal11.us>
-Cc: linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Tony Cheneau <tony.cheneau@amnesiak.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alan Ott <alan@signal11.us>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358399388-30062-1-git-send-email-alan@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1358315037-10043-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Handle the reception of uncompressed packets (dispatch type = IPv6).
+This has been tested by exchanging data with with the Contiki operating
+system using a Redwire Econotag.  Contiki had to be set to send uncompressed
+data, and had to have a #define modified to enable reception and processing
+of header-compressed packets when not set to send compressed data.
 
-Signed-off-by: Alan Ott <alan@signal11.us>
----
- net/ieee802154/6lowpan.c | 41 ++++++++++++++++++++++++++++++++---------
- 1 file changed, 32 insertions(+), 9 deletions(-)
+Version 2 fixes a format issue pointed out by David Miller.
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 1714cfa..09cba81 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -1147,19 +1147,42 @@ static int lowpan_rcv(struct sk_buff *skb, struct net_device *dev,
- 		goto drop;
- 
- 	/* check that it's our buffer */
--	switch (skb->data[0] & 0xe0) {
--	case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
--	case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
--	case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
--		local_skb = skb_clone(skb, GFP_ATOMIC);
-+	if (skb->data[0] == LOWPAN_DISPATCH_IPV6) {
-+		/* Copy the packet so that the IPv6 header is
-+		 * properly aligned.
-+		 */
-+		local_skb = skb_copy_expand(skb, NET_SKB_PAD - 1,
-+					    skb_tailroom(skb), GFP_ATOMIC);
- 		if (!local_skb)
- 			goto drop;
--		lowpan_process_data(local_skb);
- 
-+		local_skb->protocol = htons(ETH_P_IPV6);
-+		local_skb->pkt_type = PACKET_HOST;
-+
-+		/* Pull off the 1-byte of 6lowpan header. */
-+		skb_pull(local_skb, 1);
-+		skb_reset_network_header(local_skb);
-+		skb_set_transport_header(local_skb, sizeof(struct ipv6hdr));
-+
-+		lowpan_give_skb_to_devices(local_skb);
-+
-+		kfree_skb(local_skb);
- 		kfree_skb(skb);
--		break;
--	default:
--		break;
-+	} else {
-+		switch (skb->data[0] & 0xe0) {
-+		case LOWPAN_DISPATCH_IPHC:	/* ipv6 datagram */
-+		case LOWPAN_DISPATCH_FRAG1:	/* first fragment header */
-+		case LOWPAN_DISPATCH_FRAGN:	/* next fragments headers */
-+			local_skb = skb_clone(skb, GFP_ATOMIC);
-+			if (!local_skb)
-+				goto drop;
-+			lowpan_process_data(local_skb);
-+
-+			kfree_skb(skb);
-+			break;
-+		default:
-+			break;
-+		}
- 	}
- 
- 	return NET_RX_SUCCESS;
+Alan Ott (2):
+  6lowpan: Refactor packet delivery into a function
+  6lowpan: Handle uncompressed IPv6 packets over 6LoWPAN
+
+ net/ieee802154/6lowpan.c | 79 ++++++++++++++++++++++++++++++++++--------------
+ 1 file changed, 56 insertions(+), 23 deletions(-)
+
 -- 
 1.7.11.2
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
