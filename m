@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] igb: Use in-kernel PTP_EV_PORT #define
-Date: Thu, 17 Jan 2013 03:35:18 -0800
-Message-ID: <1358422519-20981-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] igb: Add mechanism for detecting latched hardware Rx timestamp
+Date: Thu, 17 Jan 2013 03:35:17 -0800
+Message-ID: <1358422519-20981-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,18 +9,30 @@ Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:10828 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:1233 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756147Ab3AQLfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 06:35:45 -0500
+	id S1756447Ab3AQLfl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2013 06:35:41 -0500
 In-Reply-To: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Vick <matthew.vick@intel.com>
 
-Rather than use an extra #define for something that already exists, use the
-kernel #define for the PTP port.
+Add a check against possible Rx timestamp freezing in the hardware via
+watchdog mechanism. This situation can occur when an Rx timestamp has been
+latched, but the packet has been dropped because the Rx ring is full.
+
+Whenever a packet comes in that should be timestamped, the Rx timestamp
+gets latched into the hardware registers and we will store the jiffy value
+in the rx_ring. The watchdog will keep track of his own jiffy timer
+whenever there is no valid timestamp in the registers.
+
+If the watchdog detects a valid timestamp in the registers, meaning that no
+Rx packet has consumed it yet, it will check which time is most recent: the
+last time in the watchdog or any time in the rx_rings. If the most recent
+"event" was more than 5 seconds ago, it will flush the Rx timestamp and
+print a warning message to the syslog.
 
 Cc: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Matthew Vick <matthew.vick@intel.com>
@@ -28,43 +40,124 @@ Acked-by: Jacob Keller <Jacob.e.keller@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ptp.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h         |  4 +++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |  1 +
+ drivers/net/ethernet/intel/igb/igb_main.c    |  1 +
+ drivers/net/ethernet/intel/igb/igb_ptp.c     | 45 ++++++++++++++++++++++++++++
+ 4 files changed, 51 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 8c6f59d..ad317ab 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -221,6 +221,7 @@ struct igb_ring {
+ 		struct igb_tx_buffer *tx_buffer_info;
+ 		struct igb_rx_buffer *rx_buffer_info;
+ 	};
++	unsigned long last_rx_timestamp;
+ 	void *desc;			/* descriptor ring memory */
+ 	unsigned long flags;		/* ring specific flags */
+ 	void __iomem *tail;		/* pointer to ring tail register */
+@@ -415,10 +416,12 @@ struct igb_adapter {
+ 	struct work_struct ptp_tx_work;
+ 	struct sk_buff *ptp_tx_skb;
+ 	unsigned long ptp_tx_start;
++	unsigned long last_rx_ptp_check;
+ 	spinlock_t tmreg_lock;
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
+ 	u32 tx_hwtstamp_timeouts;
++	u32 rx_hwtstamp_cleared;
+ 
+ 	char fw_version[32];
+ #ifdef CONFIG_IGB_HWMON
+@@ -486,6 +489,7 @@ extern void igb_ptp_init(struct igb_adapter *adapter);
+ extern void igb_ptp_stop(struct igb_adapter *adapter);
+ extern void igb_ptp_reset(struct igb_adapter *adapter);
+ extern void igb_ptp_tx_work(struct work_struct *work);
++extern void igb_ptp_rx_hang(struct igb_adapter *adapter);
+ extern void igb_ptp_tx_hwtstamp(struct igb_adapter *adapter);
+ extern void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
+ 				struct sk_buff *skb);
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 6f2579c..3ff3794 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -93,6 +93,7 @@ static const struct igb_stats igb_gstrings_stats[] = {
+ 	IGB_STAT("os2bmc_tx_by_host", stats.o2bspc),
+ 	IGB_STAT("os2bmc_rx_by_host", stats.b2ogprc),
+ 	IGB_STAT("tx_hwtstamp_timeouts", tx_hwtstamp_timeouts),
++	IGB_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
+ };
+ 
+ #define IGB_NETDEV_STAT(_net_stat) { \
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 360b991..603fa4b 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -3991,6 +3991,7 @@ static void igb_watchdog_task(struct work_struct *work)
+ 	}
+ 
+ 	igb_spoof_check(adapter);
++	igb_ptp_rx_hang(adapter);
+ 
+ 	/* Reset the timer */
+ 	if (!test_bit(__IGB_DOWN, &adapter->state))
 diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 2ec53d7..5545abc 100644
+index 086af46..2ec53d7 100644
 --- a/drivers/net/ethernet/intel/igb/igb_ptp.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -20,6 +20,7 @@
- #include <linux/module.h>
- #include <linux/device.h>
- #include <linux/pci.h>
-+#include <linux/ptp_classify.h>
+@@ -429,6 +429,51 @@ static void igb_ptp_overflow_check(struct work_struct *work)
+ }
  
- #include "igb.h"
- 
-@@ -698,7 +699,6 @@ int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
- 	else
- 		wr32(E1000_ETQF(3), 0);
- 
--#define PTP_PORT 319
- 	/* L4 Queue Filter[3]: filter by destination port and protocol */
- 	if (is_l4) {
- 		u32 ftqf = (IPPROTO_UDP /* UDP */
-@@ -707,12 +707,12 @@ int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
- 			| E1000_FTQF_MASK); /* mask all inputs */
- 		ftqf &= ~E1000_FTQF_MASK_PROTO_BP; /* enable protocol check */
- 
--		wr32(E1000_IMIR(3), htons(PTP_PORT));
-+		wr32(E1000_IMIR(3), htons(PTP_EV_PORT));
- 		wr32(E1000_IMIREXT(3),
- 		     (E1000_IMIREXT_SIZE_BP | E1000_IMIREXT_CTRL_BP));
- 		if (hw->mac.type == e1000_82576) {
- 			/* enable source port check */
--			wr32(E1000_SPQF(3), htons(PTP_PORT));
-+			wr32(E1000_SPQF(3), htons(PTP_EV_PORT));
- 			ftqf &= ~E1000_FTQF_MASK_SOURCE_PORT_BP;
- 		}
- 		wr32(E1000_FTQF(3), ftqf);
+ /**
++ * igb_ptp_rx_hang - detect error case when Rx timestamp registers latched
++ * @adapter: private network adapter structure
++ *
++ * This watchdog task is scheduled to detect error case where hardware has
++ * dropped an Rx packet that was timestamped when the ring is full. The
++ * particular error is rare but leaves the device in a state unable to timestamp
++ * any future packets.
++ */
++void igb_ptp_rx_hang(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	struct igb_ring *rx_ring;
++	u32 tsyncrxctl = rd32(E1000_TSYNCRXCTL);
++	unsigned long rx_event;
++	int n;
++
++	if (hw->mac.type != e1000_82576)
++		return;
++
++	/* If we don't have a valid timestamp in the registers, just update the
++	 * timeout counter and exit
++	 */
++	if (!(tsyncrxctl & E1000_TSYNCRXCTL_VALID)) {
++		adapter->last_rx_ptp_check = jiffies;
++		return;
++	}
++
++	/* Determine the most recent watchdog or rx_timestamp event */
++	rx_event = adapter->last_rx_ptp_check;
++	for (n = 0; n < adapter->num_rx_queues; n++) {
++		rx_ring = adapter->rx_ring[n];
++		if (time_after(rx_ring->last_rx_timestamp, rx_event))
++			rx_event = rx_ring->last_rx_timestamp;
++	}
++
++	/* Only need to read the high RXSTMP register to clear the lock */
++	if (time_is_before_jiffies(rx_event + 5 * HZ)) {
++		rd32(E1000_RXSTMPH);
++		adapter->last_rx_ptp_check = jiffies;
++		adapter->rx_hwtstamp_cleared++;
++		dev_warn(&adapter->pdev->dev, "clearing Rx timestamp hang");
++	}
++}
++
++/**
+  * igb_ptp_tx_hwtstamp - utility function which checks for TX time stamp
+  * @adapter: Board private structure.
+  *
 -- 
 1.7.11.7
