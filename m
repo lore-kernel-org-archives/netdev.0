@@ -1,159 +1,259 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting
- addr_assign_type if PF is up
-Date: Wed, 16 Jan 2013 20:10:09 -0500
-Message-ID: <CAHashqDW4S-akvSGt_Fh3jL6mWz37ymsM6M5Bf6C9GqKZda3NA@mail.gmail.com>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
-	<50EDAFC6.3070700@kpanic.de>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
-	<20130109133745.00004627@unknown>
-	<20130114222542.GA29729@gospo.rdu.redhat.com>
-	<20130115103141.00001e96@unknown>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D2A3468AE@FMSMSX107.amr.corp.intel.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V6 3/3] tuntap: allow polling/writing/reading when detached
+Date: Thu, 17 Jan 2013 09:16:20 +0800
+Message-ID: <50F750E4.4040002@redhat.com>
+References: <1358351078-58915-1-git-send-email-jasowang@redhat.com> <1358351078-58915-4-git-send-email-jasowang@redhat.com> <20130116170356.GC4257@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Stefan Assmann <sassmann@kpanic.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:46515 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755666Ab3AQBKK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 20:10:10 -0500
-Received: by mail-ob0-f169.google.com with SMTP id v19so2036475obq.28
-        for <netdev@vger.kernel.org>; Wed, 16 Jan 2013 17:10:10 -0800 (PST)
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D2A3468AE@FMSMSX107.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130116170356.GC4257@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 16, 2013 at 7:42 PM, Williams, Mitch A
-<mitch.a.williams@intel.com> wrote:
->
-> > -----Original Message-----
-> > From: Rose, Gregory V
-> > Sent: Tuesday, January 15, 2013 10:32 AM
-> > To: Andy Gospodarek
-> > Cc: Williams, Mitch A; Stefan Assmann; netdev@vger.kernel.org; e1000-
-> > devel@lists.sourceforge.net
-> > Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting
-> > addr_assign_type if PF is up
-> >
-> > On Mon, 14 Jan 2013 17:25:42 -0500
-> > Andy Gospodarek <andy@greyhouse.net> wrote:
-> >
-> > > On Wed, Jan 09, 2013 at 01:37:45PM -0800, Greg Rose wrote:
-> > > > On Wed, 9 Jan 2013 18:56:36 +0000
-> > > > "Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
-> > > >
-> > > > > > >> When the PF is up and igbvf is loaded the MAC address is not
-> > > > > > >> generated using eth_hw_addr_random(). This results in
-> > > > > > >> addr_assign_type not to be set.
-> > > > > > >> Make sure it gets set.
-> > > > > > >>
-> > > > > > >
-> > > > > > > NAK - In this case, the address may or may not be random. The
-> > > > > > > user may have (and should have!) explicitly set this address
-> > > > > > > from the host to ensure that the VF device receives the same
-> > > > > > > address each time it
-> > > > > > boots.
-> > > > > >
-> > > > > > Maybe you can give me some advice on this then. Why is there
-> > > > > > different behaviour depending on the PF being up or down? The
-> > > > > > problem I'm facing is that if the user did not set a MAC address
-> > > > > > for the VF manually and the PF is up during igbvf_probe it will
-> > > > > > not be labelled as random although it is.
-> > > > > > What about checking IGB_VF_FLAG_PF_SET_MAC and only set
-> > > > > > NET_ADDR_RANDOM if the flag is cleared?
-> > > > > >
-> > > > >
-> > > > > The difference in behavior is because we cannot get any MAC
-> > > > > address at all if the PF is down. The interface won't operate at
-> > > > > all in this case, but if the PF comes up sometime later, we can
-> > > > > start working. The other alternative is to leave the MAC address
-> > > > > as all zeros and forcing the user to assign an address manually.
-> > > > > We chose to use a random address to at least give it a chance of
-> > > > > working once the PF woke up.
-> > > >
-> > > > Having been around at the inception of SR-IOV in Linux I recall that
-> > > > the primary reason we used a random ethernet address was so that the
-> > > > VF could at least work because there was no infrastructure to allow
-> > > > the host administrator to set the MAC address of the VF.
-> > > > This hobbled testing and validation because the user would have to
-> > > > go to each VM and use a command local to the VM to set the VF MAC
-> > > > address to some LAA via ifconfig or ip.  When testing large numbers
-> > > > of VFs this was a definite pain.
-> > > >
-> > > > Now that has changed and I wonder if maybe we shouldn't back out the
-> > > > random ethernet address assignment and go ahead with all zeros,
-> > > > leaving the device non-functional until the user has intentionally
-> > > > set either an LAA through the VF itself, or an administratively
-> > > > assigned MAC through the ip tool via the PF.
-> > > >
-> > > > Use of the random MAC address is not recommended by Intel's own best
-> > > > known methods literature, it was used mostly so that we could get
-> > > > the technology working and it should probably be at least considered
-> > > > for deprecation or out right elimination.
-> > > >
-> > >
-> > > It would be great to remove the bits that created random MAC addresses
-> > > for VFs, but wouldn't that break Linus' rule to "not break userspace"
-> > > if it was removed?
-> >
-> > It may, I'm not sure but before we make any changes we'd want to do our
-> > due diligence.
-> >
-> > >
-> > > There are 2 options that immediately come to mind when looking to
-> > > resolve this:
-> > >
-> > > 1.  Use some of the left-over bits in the mailbox messages to pass
-> > > along a flag with the E1000_VF_RESET messages to indicate whether the
-> > > MAC was randomly generated.  This would be pretty easy, but there
-> > > could be compatibility issues for a while.
-> >
-> > We recently introduced the concept of mailbox message API versions in
-> > our PF and VF drivers to handle this sort of thing.  We could probably
-> > leverage that method to introduce a new API version that supports the
-> > additional bits in the reset message.  It would only be used if the VF
-> > could negotiate to the proper mailbox message API version with the PF.
-> >
-> > >
-> > > 2.  Default to a MAC address of all zeros, and as a device with
-> > > all-zeros for a MAC is brought up, randomly create one with
-> > > eth_hw_addr_random.  This may not immediately help cases where device
-> > > assignment are a problem, but it would ensure that any device with a
-> > > random MAC as assigned by the kernel, would have NET_ADDR_RANDOM set
-> > > in addr_assign_type.
-> >
-> > Thanks for the suggestions.  We're considering some changes in this area
-> > but we (Intel) need to give this a lot of thought and right now we're
-> > just in a preliminary discussion mode about it.  Stay tuned.
-> >
-> > - Greg
->
-> OK, here's what I'm thinking. We don't need to change the communications
-> protocol for this, and it shouldn't break userspace.
->
-> First, have the PF driver quit assigning random addresses. It will either
-> give the VF the address assigned by the administrator, or it will give
-> all zeros.
->
-> Second, modify the VF driver init sequence slightly. If it gets all
-> zeros from the PF driver, then it should give itself a random address
-> and set NET_ADDR_RANDOM.
->
-> If we do it this way, the VF will still come up with a random address if
-> one has not been assigned, and it will always know whether or not the
-> address that it is using is random.
->
-> If there are no objections, I'll try to get some patches done in the next
-> few days and get them into our internal test queue. These would then
-> escape into the real world in a few weeks.
->
-> -Mitch
+On 01/17/2013 01:03 AM, Michael S. Tsirkin wrote:
+> On Wed, Jan 16, 2013 at 11:44:38PM +0800, Jason Wang wrote:
+>> We forbid polling, writing and reading when the file were detached, this may
+>> complex the user in several cases:
+>>
+>> - when guest pass some buffers to vhost/qemu and then disable some queues,
+>>   host/qemu needs to do its own cleanup on those buffers which is complex
+>>   sometimes. We can do this simply by allowing a user can still write to an
+>>   disabled queue. Write to an disabled queue will cause the packet pass to the
+>>   kernel and read will get nothing.
+>> - align the polling behavior with macvtap which never fails when the queue is
+>>   created. This can simplify the polling errors handling of its user (e.g vhost)
+>>
+>> In order to achieve this, tfile->tun were not assign to NULL when detached. And
+>> tfile->tun were converted to be RCU protected in order to let the data path can
+>> check whether the file is deated in a lockless manner. This will be used to
+>> prevent the flow caches from being updated for a detached queue.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/tun.c |   45 ++++++++++++++++++++++++++-------------------
+>>  1 files changed, 26 insertions(+), 19 deletions(-)
+>>
+>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> index c81680d..ec539a9 100644
+>> --- a/drivers/net/tun.c
+>> +++ b/drivers/net/tun.c
+>> @@ -139,7 +139,7 @@ struct tun_file {
+>>  	unsigned int flags;
+>>  	u16 queue_index;
+>>  	struct list_head next;
+>> -	struct tun_struct *detached;
+>> +	struct tun_struct __rcu *detached;
+>>  };
+>>  
+>>  struct tun_flow_entry {
+>> @@ -295,11 +295,12 @@ static void tun_flow_cleanup(unsigned long data)
+>>  }
+>>  
+>>  static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+>> -			    u16 queue_index)
+>> +			    struct tun_file *tfile)
+>>  {
+>>  	struct hlist_head *head;
+>>  	struct tun_flow_entry *e;
+>>  	unsigned long delay = tun->ageing_time;
+>> +	u16 queue_index = tfile->queue_index;
+>>  
+>>  	if (!rxhash)
+>>  		return;
+>> @@ -308,7 +309,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+>>  
+>>  	rcu_read_lock();
+>>  
+>> -	if (tun->numqueues == 1)
+>> +	if (tun->numqueues == 1 || rcu_dereference(tfile->detached))
+>>  		goto unlock;
+>>  
+>>  	e = tun_flow_find(head, rxhash);
+> Sorry, still an issue with this one.
 
-Oh, I like this even better than my proposed option 2.  I say, go for it.
+No problem, thanks for the checking.
+>
+>                 u16 index = tfile->queue_index;
+>                 BUG_ON(index >= tun->numqueues);
+>                 dev = tun->dev;
+>
+>                 rcu_assign_pointer(tun->tfiles[index],
+>                                    tun->tfiles[tun->numqueues - 1]);
+>                 rcu_assign_pointer(tfile->tun, NULL);
+>                 ntfile = rtnl_dereference(tun->tfiles[index]);
+>                 ntfile->queue_index = index;
+>
+>                 --tun->numqueues;
+>                 if (clean)
+>                         sock_put(&tfile->sk);
+>                 else
+>                         tun_disable_queue(tun, tfile);
+>
+> You should first disable queue then synchronize network
+> only then play with tfiles array.
+> As it is you might have removed file from array but
+> did not set detached flag yet, so queue_index
+> above is stable.
+
+I think the code is ok here. With this patch, before synchronize_net(), 
+the only thing we do for the tfile that will be detached is to set the
+tfile->detached (tun_disable_queue), and the queue_index is kept
+unchanged. So if the data path don't see the new value of detached, it
+still can treat the tfile is undetached and do the sending and receiving
+as usual. We only do the cleanup after the synchronization which all
+reader are guaranteed to see the new detached value.
+
+For the tfile that will be moved to the new place, some (should be very
+little) OOO will occur which I think is acceptable and can be optimized
+in the future.
+>
+> On enable, clear detached last thing.
+>
+>> @@ -384,16 +385,16 @@ static void tun_set_real_num_queues(struct tun_struct *tun)
+>>  
+>>  static void tun_disable_queue(struct tun_struct *tun, struct tun_file *tfile)
+>>  {
+>> -	tfile->detached = tun;
+>> +	rcu_assign_pointer(tfile->detached, tun);
+>>  	list_add_tail(&tfile->next, &tun->disabled);
+>>  	++tun->numdisabled;
+>>  }
+>>  
+>>  static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
+>>  {
+>> -	struct tun_struct *tun = tfile->detached;
+>> +	struct tun_struct *tun = rtnl_dereference(tfile->detached);
+>>  
+>> -	tfile->detached = NULL;
+>> +	rcu_assign_pointer(tfile->detached, NULL);
+>>  	list_del_init(&tfile->next);
+>>  	--tun->numdisabled;
+>>  	return tun;
+>> @@ -402,26 +403,27 @@ static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
+>>  static void __tun_detach(struct tun_file *tfile, bool clean)
+>>  {
+>>  	struct tun_file *ntfile;
+>> -	struct tun_struct *tun;
+>> +	struct tun_struct *tun, *detached;
+>>  	struct net_device *dev;
+>>  
+>>  	tun = rtnl_dereference(tfile->tun);
+>> +	detached = rtnl_dereference(tfile->detached);
+>>  
+>> -	if (tun) {
+>> +	if (tun && !detached) {
+>>  		u16 index = tfile->queue_index;
+>>  		BUG_ON(index >= tun->numqueues);
+>>  		dev = tun->dev;
+>>  
+>>  		rcu_assign_pointer(tun->tfiles[index],
+>>  				   tun->tfiles[tun->numqueues - 1]);
+>> -		rcu_assign_pointer(tfile->tun, NULL);
+>>  		ntfile = rtnl_dereference(tun->tfiles[index]);
+>>  		ntfile->queue_index = index;
+>>  
+>>  		--tun->numqueues;
+>> -		if (clean)
+>> +		if (clean) {
+>> +			rcu_assign_pointer(tfile->tun, NULL);
+>>  			sock_put(&tfile->sk);
+>> -		else
+>> +		} else
+>>  			tun_disable_queue(tun, tfile);
+>>  
+>>  		synchronize_net();
+>> @@ -429,7 +431,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+>>  		/* Drop read queue */
+>>  		skb_queue_purge(&tfile->sk.sk_receive_queue);
+>>  		tun_set_real_num_queues(tun);
+>> -	} else if (tfile->detached && clean) {
+>> +	} else if (detached && clean) {
+>>  		tun = tun_enable_queue(tfile);
+>>  		sock_put(&tfile->sk);
+>>  	}
+>> @@ -466,6 +468,10 @@ static void tun_detach_all(struct net_device *dev)
+>>  		rcu_assign_pointer(tfile->tun, NULL);
+>>  		--tun->numqueues;
+>>  	}
+>> +	list_for_each_entry(tfile, &tun->disabled, next) {
+>> +		wake_up_all(&tfile->wq.wait);
+>> +		rcu_assign_pointer(tfile->tun, NULL);
+>> +	}
+>>  	BUG_ON(tun->numqueues != 0);
+>>  
+>>  	synchronize_net();
+>> @@ -496,7 +502,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>>  		goto out;
+>>  
+>>  	err = -EINVAL;
+>> -	if (rtnl_dereference(tfile->tun))
+>> +	if (rtnl_dereference(tfile->tun) && !rtnl_dereference(tfile->detached))
+>>  		goto out;
+>>  
+>>  	err = -EBUSY;
+>> @@ -504,7 +510,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>>  		goto out;
+>>  
+>>  	err = -E2BIG;
+>> -	if (!tfile->detached &&
+>> +	if (!rtnl_dereference(tfile->detached) &&
+>>  	    tun->numqueues + tun->numdisabled == MAX_TAP_QUEUES)
+>>  		goto out;
+>>  
+>> @@ -521,7 +527,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>>  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
+>>  	tun->numqueues++;
+>>  
+>> -	if (tfile->detached)
+>> +	if (rtnl_dereference(tfile->detached))
+>>  		tun_enable_queue(tfile);
+>>  	else
+>>  		sock_hold(&tfile->sk);
+>> @@ -1195,7 +1201,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>>  	tun->dev->stats.rx_packets++;
+>>  	tun->dev->stats.rx_bytes += len;
+>>  
+>> -	tun_flow_update(tun, rxhash, tfile->queue_index);
+>> +	tun_flow_update(tun, rxhash, tfile);
+>>  	return total_len;
+>>  }
+>>  
+>> @@ -1552,7 +1558,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>>  	struct net_device *dev;
+>>  	int err;
+>>  
+>> -	if (tfile->detached)
+>> +	if (rtnl_dereference(tfile->detached))
+>>  		return -EINVAL;
+>>  
+>>  	dev = __dev_get_by_name(net, ifr->ifr_name);
+>> @@ -1796,7 +1802,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>>  	rtnl_lock();
+>>  
+>>  	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
+>> -		tun = tfile->detached;
+>> +		tun = rtnl_dereference(tfile->detached);
+>>  		if (!tun) {
+>>  			ret = -EINVAL;
+>>  			goto unlock;
+>> @@ -1807,7 +1813,8 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>>  		ret = tun_attach(tun, file);
+>>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+>>  		tun = rtnl_dereference(tfile->tun);
+>> -		if (!tun || !(tun->flags & TUN_TAP_MQ))
+>> +		if (!tun || !(tun->flags & TUN_TAP_MQ) ||
+>> +		    rtnl_dereference(tfile->detached))
+>>  			ret = -EINVAL;
+>>  		else
+>>  			__tun_detach(tfile, false);
+>> -- 
+>> 1.7.1
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
