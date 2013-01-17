@@ -1,62 +1,41 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next (V4) 10/11] ipv6: Do not depend on rt->n in ip6_finish_output2().
-Date: Fri, 18 Jan 2013 07:54:00 +0900
-Message-ID: <50F88108.3020401@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: usb: initialize tmp in dm9601.c to avoid warning
+Date: Thu, 17 Jan 2013 17:54:54 -0500 (EST)
+Message-ID: <20130117.175454.200184894667897570.davem@davemloft.net>
+References: <1358450989-25205-1-git-send-email-sque@chromium.org>
+	<87wqvbjujl.fsf@dell.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, xiyou.wangcong@gmail.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: sque@chromium.org, netdev@vger.kernel.org, msb@chromium.org
+To: jacmet@sunsite.dk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:44784 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752229Ab3AQWyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 17:54:01 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:54637 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752211Ab3AQWy4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 17:54:56 -0500
+In-Reply-To: <87wqvbjujl.fsf@dell.be.48ers.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If neigh is not found, create new one.
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Date: Thu, 17 Jan 2013 23:47:58 +0100
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/ip6_output.c |   18 +++++++++++++-----
- 1 file changed, 13 insertions(+), 5 deletions(-)
+>>>>>> "Simon" == Simon Que <sque@chromium.org> writes:
+> 
+>  Simon> In two places, tmp is initialized implicitly by being passed as a
+>  Simon> pointer during a function call.  However, this is not obvious to the
+>  Simon> compiler, which logs a warning.
+> 
+> What warning and what compiler version are you using?
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 7c00edb..b0895f5 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -88,7 +88,8 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 	struct dst_entry *dst = skb_dst(skb);
- 	struct net_device *dev = dst->dev;
- 	struct neighbour *neigh;
--	struct rt6_info *rt;
-+	struct in6_addr *nexthop;
-+	int ret;
- 
- 	skb->protocol = htons(ETH_P_IPV6);
- 	skb->dev = dev;
-@@ -123,10 +124,17 @@ static int ip6_finish_output2(struct sk_buff *skb)
- 				skb->len);
- 	}
- 
--	rt = (struct rt6_info *) dst;
--	neigh = rt->n;
--	if (neigh)
--		return dst_neigh_output(dst, neigh, skb);
-+	rcu_read_lock_bh();
-+	nexthop = rt6_nexthop((struct rt6_info *)dst, &ipv6_hdr(skb)->daddr);
-+	neigh = __ipv6_neigh_lookup_noref(dst->dev, nexthop);
-+	if (unlikely(!neigh))
-+		neigh = __neigh_create(&nd_tbl, nexthop, dst->dev, false);
-+	if (!IS_ERR(neigh)) {
-+		ret = dst_neigh_output(dst, neigh, skb);
-+		rcu_read_unlock_bh();
-+		return ret;
-+	}
-+	rcu_read_unlock_bh();
- 
- 	IP6_INC_STATS_BH(dev_net(dst->dev),
- 			 ip6_dst_idev(dst), IPSTATS_MIB_OUTNOROUTES);
--- 
-1.7.9.5
+I wouldn't bother asking this, unless it's so that you personally
+can reproduce this in the future.
+
+The compiler cannot determine with %100 certainty that tmp is
+initialized in all paths.  Any time there are conditional
+statements guarding setting and the use, the compiler is going
+to err on the side of caution and say that if any of those
+paths lead to a use without a set it's going to warn.
+
+Even if it's actually impossible.
