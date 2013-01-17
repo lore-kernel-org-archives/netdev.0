@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next (V4) 00/11] IPv6: rt->n (neighbour in
- rt6_info) removal, TAKE 4.
-Date: Thu, 17 Jan 2013 18:40:55 -0500 (EST)
-Message-ID: <20130117.184055.706437402303529368.davem@davemloft.net>
-References: <50F880C3.2050409@linux-ipv6.org>
+From: "Server Support" <support@server.com>
+Subject: Server Alert
+Date: Thu, 17 Jan 2013 21:42:11 -0200
+Message-ID: <282b7025bf55e40602a0cd3c501d3fd8.squirrel__9318.49762932888$1358466679$gmane$org@webmail.seven.com.br>
+Reply-To: supporte@info.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com
-To: yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55011 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808Ab3AQXk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 18:40:56 -0500
-In-Reply-To: <50F880C3.2050409@linux-ipv6.org>
+Received: from crusader.seven.com.br ([200.229.15.36]:59702 "EHLO
+	crusader.seven.com.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752613Ab3AQXuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 18:50:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Fri, 18 Jan 2013 07:52:51 +0900
 
-> This is "TAKE 4" of neighbour removal from rt6_info.
-> 
-> 3->4:
-> - error check in ip6_finish_output2(), in 10/11.
+Server Alert!!, Our Webmail have upgraded a new Access Login Page by our
+administrator,you are currently running on 0.4GB, due to much spam
+mails,you may not be able to access your account anymore with the old page
+from on the 19th. You are to Submit your Account correct access e-mail and
+password on our Administrator Verified Admin by clicking this link
+http://www.surveytool.com/s/SFDD62B68D
 
-All applied, I'll push this out to net-next after some quick
-build validations, thanks a lot!
+Submit/log on with your correct email and password to re-validate and
+increase your Mailbox limits to avoid De-activated on the 19th of January
+2013.
+
+Thank You.
+Administrator
