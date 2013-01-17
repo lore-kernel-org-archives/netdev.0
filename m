@@ -1,178 +1,45 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [PATCH net-next] igbvf: fix setting
- addr_assign_type if PF is up
-Date: Thu, 17 Jan 2013 09:08:11 -0800
-Message-ID: <20130117090811.0000323f@unknown>
-References: <1357725564-5581-1-git-send-email-sassmann@kpanic.de>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B527A@FMSMSX107.amr.corp.intel.com>
-	<50EDAFC6.3070700@kpanic.de>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D1F8B539A@FMSMSX107.amr.corp.intel.com>
-	<20130109133745.00004627@unknown>
-	<20130114222542.GA29729@gospo.rdu.redhat.com>
-	<20130115103141.00001e96@unknown>
-	<AAEA33E297BCAC4B9BB20A7C2DF0AB8D2A3468AE@FMSMSX107.amr.corp.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 09/14] igb: Report L4 Rx hash via skb->l4_rxhash
+Date: Thu, 17 Jan 2013 09:14:49 -0800
+Message-ID: <1358442889.29723.58.camel@edumazet-glaptop>
+References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1358422519-20981-10-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1358432385.29723.6.camel@edumazet-glaptop>  <50F82FCA.9090709@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	Stefan Assmann <sassmann@kpanic.de>, Andy Gospodarek <andy@greyhouse.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Williams, Mitch A" <mitch.a.williams@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D2A3468AE@FMSMSX107.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:56505 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752446Ab3AQROx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 12:14:53 -0500
+Received: by mail-pb0-f54.google.com with SMTP id wz12so1520641pbc.27
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 09:14:53 -0800 (PST)
+In-Reply-To: <50F82FCA.9090709@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 16 Jan 2013 16:42:30 -0800
-"Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
+On Thu, 2013-01-17 at 09:07 -0800, Alexander Duyck wrote:
 
-> > -----Original Message-----
-> > From: Rose, Gregory V
-> > Sent: Tuesday, January 15, 2013 10:32 AM
-> > To: Andy Gospodarek
-> > Cc: Williams, Mitch A; Stefan Assmann; netdev@vger.kernel.org;
-> > e1000- devel@lists.sourceforge.net
-> > Subject: Re: [E1000-devel] [PATCH net-next] igbvf: fix setting
-> > addr_assign_type if PF is up
-> > 
-> > On Mon, 14 Jan 2013 17:25:42 -0500
-> > Andy Gospodarek <andy@greyhouse.net> wrote:
-> > 
-> > > On Wed, Jan 09, 2013 at 01:37:45PM -0800, Greg Rose wrote:
-> > > > On Wed, 9 Jan 2013 18:56:36 +0000
-> > > > "Williams, Mitch A" <mitch.a.williams@intel.com> wrote:
-> > > >
-> > > > > > >> When the PF is up and igbvf is loaded the MAC address is
-> > > > > > >> not generated using eth_hw_addr_random(). This results in
-> > > > > > >> addr_assign_type not to be set.
-> > > > > > >> Make sure it gets set.
-> > > > > > >>
-> > > > > > >
-> > > > > > > NAK - In this case, the address may or may not be random.
-> > > > > > > The user may have (and should have!) explicitly set this
-> > > > > > > address from the host to ensure that the VF device
-> > > > > > > receives the same address each time it
-> > > > > > boots.
-> > > > > >
-> > > > > > Maybe you can give me some advice on this then. Why is there
-> > > > > > different behaviour depending on the PF being up or down?
-> > > > > > The problem I'm facing is that if the user did not set a
-> > > > > > MAC address for the VF manually and the PF is up during
-> > > > > > igbvf_probe it will not be labelled as random although it
-> > > > > > is. What about checking IGB_VF_FLAG_PF_SET_MAC and only set
-> > > > > > NET_ADDR_RANDOM if the flag is cleared?
-> > > > > >
-> > > > >
-> > > > > The difference in behavior is because we cannot get any MAC
-> > > > > address at all if the PF is down. The interface won't operate
-> > > > > at all in this case, but if the PF comes up sometime later,
-> > > > > we can start working. The other alternative is to leave the
-> > > > > MAC address as all zeros and forcing the user to assign an
-> > > > > address manually. We chose to use a random address to at
-> > > > > least give it a chance of working once the PF woke up.
-> > > >
-> > > > Having been around at the inception of SR-IOV in Linux I recall
-> > > > that the primary reason we used a random ethernet address was
-> > > > so that the VF could at least work because there was no
-> > > > infrastructure to allow the host administrator to set the MAC
-> > > > address of the VF. This hobbled testing and validation because
-> > > > the user would have to go to each VM and use a command local to
-> > > > the VM to set the VF MAC address to some LAA via ifconfig or
-> > > > ip.  When testing large numbers of VFs this was a definite pain.
-> > > >
-> > > > Now that has changed and I wonder if maybe we shouldn't back
-> > > > out the random ethernet address assignment and go ahead with
-> > > > all zeros, leaving the device non-functional until the user has
-> > > > intentionally set either an LAA through the VF itself, or an
-> > > > administratively assigned MAC through the ip tool via the PF.
-> > > >
-> > > > Use of the random MAC address is not recommended by Intel's own
-> > > > best known methods literature, it was used mostly so that we
-> > > > could get the technology working and it should probably be at
-> > > > least considered for deprecation or out right elimination.
-> > > >
-> > >
-> > > It would be great to remove the bits that created random MAC
-> > > addresses for VFs, but wouldn't that break Linus' rule to "not
-> > > break userspace" if it was removed?
-> > 
-> > It may, I'm not sure but before we make any changes we'd want to do
-> > our due diligence.
-> > 
-> > >
-> > > There are 2 options that immediately come to mind when looking to
-> > > resolve this:
-> > >
-> > > 1.  Use some of the left-over bits in the mailbox messages to pass
-> > > along a flag with the E1000_VF_RESET messages to indicate whether
-> > > the MAC was randomly generated.  This would be pretty easy, but
-> > > there could be compatibility issues for a while.
-> > 
-> > We recently introduced the concept of mailbox message API versions
-> > in our PF and VF drivers to handle this sort of thing.  We could
-> > probably leverage that method to introduce a new API version that
-> > supports the additional bits in the reset message.  It would only
-> > be used if the VF could negotiate to the proper mailbox message API
-> > version with the PF.
-> > 
-> > >
-> > > 2.  Default to a MAC address of all zeros, and as a device with
-> > > all-zeros for a MAC is brought up, randomly create one with
-> > > eth_hw_addr_random.  This may not immediately help cases where
-> > > device assignment are a problem, but it would ensure that any
-> > > device with a random MAC as assigned by the kernel, would have
-> > > NET_ADDR_RANDOM set in addr_assign_type.
-> > 
-> > Thanks for the suggestions.  We're considering some changes in this
-> > area but we (Intel) need to give this a lot of thought and right
-> > now we're just in a preliminary discussion mode about it.  Stay
-> > tuned.
-> > 
-> > - Greg
+> Isn't the same true of TCP?  I believe STT is intended to run over the
+> TCP protocol, or am I getting ahead of myself since STT is not supported
+> by the kernel?
 > 
-> OK, here's what I'm thinking. We don't need to change the
-> communications protocol for this, and it shouldn't break userspace.
-> 
-> First, have the PF driver quit assigning random addresses. It will
-> either give the VF the address assigned by the administrator, or it
-> will give all zeros.
-> 
-> Second, modify the VF driver init sequence slightly. If it gets all
-> zeros from the PF driver, then it should give itself a random address
-> and set NET_ADDR_RANDOM.
-> 
-> If we do it this way, the VF will still come up with a random address
-> if one has not been assigned, and it will always know whether or not
-> the address that it is using is random.
-> 
-> If there are no objections, I'll try to get some patches done in the
-> next few days and get them into our internal test queue. These would
-> then escape into the real world in a few weeks.
-> 
-> -Mitch
 
-I'll second and third Andy and Stefan and say go for it.  I'll look
-into making equivalent changes for the 82599 and X540 10G drivers.
+probably ;)
 
-thanks Mitch,
+> > Also, is IGB really using the ports in the rss for UDP packets ?
+> 
+> Not by default.  The default is to only hash on the IP header for UDP
+> packets.
+> 
+> As such the default would only be setting the l4_rxhash on TCP frames
+> only.  The user would have to specifically request L4 port hashing for
+> UDP via the "ethtool -N" command for configuring rx-flow-hash.
 
-- Greg
+So you should rewrite this patch ?
 
-------------------------------------------------------------------------------
-Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
-MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
-with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
-MVPs and experts. ON SALE this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_122712
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Or have I missed something ?
