@@ -1,58 +1,91 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next] net/mlx4_en: remove redundant code
-Date: Thu, 17 Jan 2013 18:22:11 +0200
-Message-ID: <50F82533.4080906@mellanox.com>
-References: <1358423241-2452-1-git-send-email-amirv@mellanox.com>  <1358423241-2452-6-git-send-email-amirv@mellanox.com>  <1358432538.29723.8.camel@edumazet-glaptop> <1358436367.29723.49.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net 1/2] net/mlx4_en: Fix bridged vSwitch configuration
+ for non SRIOV mode
+Date: Thu, 17 Jan 2013 08:21:48 -0800
+Message-ID: <1358439708.29723.55.camel@edumazet-glaptop>
+References: <1358436643-1326-1-git-send-email-ogerlitz@mellanox.com>
+	 <1358436643-1326-2-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, amirv@mellanox.com,
+	jackm@dev.mellanox.co.il, yevgenyp@mellanox.com,
+	Yan Burman <yanb@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:57272 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756987Ab3AQQVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 11:21:39 -0500
-In-Reply-To: <1358436367.29723.49.camel@edumazet-glaptop>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:47106 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757082Ab3AQQVw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 11:21:52 -0500
+Received: by mail-pb0-f41.google.com with SMTP id xa7so1502382pbc.28
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 08:21:51 -0800 (PST)
+In-Reply-To: <1358436643-1326-2-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17/01/2013 17:26, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> remove redundant code from build_inline_wqe()
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+On Thu, 2013-01-17 at 17:30 +0200, Or Gerlitz wrote:
+> From: Yan Burman <yanb@mellanox.com>
+> 
+> Commit 5b4c4d36860e "mlx4_en: Allow communication between functions on
+> same host" introduced a regression under which a bridge acting as vSwitch
+> whose uplink is an mlx4 Ethernet device become non-operative in native
+> (non sriov) mode. This happens since broadcast ARP requests sent by VMs
+> were loopback-ed by the HW and hence the bridge learned VM source MACs
+> on both the VM and the uplink ports.
+> 
+> The fix is to place the DMAC in the send WQE only under SRIOV/eSwitch
+> configuration or when the device is in selftest.
+> 
+> Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Yan Burman <yanb@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 > ---
-> Amir, reviewing this driver, it looks like following could be done,
-> could you test the patch for me ?
->
-> Thanks
->
+>  drivers/net/ethernet/mellanox/mlx4/en_tx.c |   13 +++++++++----
+>  1 files changed, 9 insertions(+), 4 deletions(-)
+> 
 > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index 2b799f4..16af338 100644
+> index 2b799f4..6771b69 100644
 > --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
 > +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -515,10 +515,6 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
->   		wmb();
->   		inl->byte_count = cpu_to_be32(1 << 31 | (skb->len - spc));
->   	}
-> -	tx_desc->ctrl.vlan_tag = cpu_to_be16(*vlan_tag);
-> -	tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN *
-> -		(!!vlan_tx_tag_present(skb));
-> -	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
->   }
->
->   u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
->
->
+> @@ -630,10 +630,15 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+>  		ring->tx_csum++;
+>  	}
+>  
+> -	/* Copy dst mac address to wqe */
+> -	ethh = (struct ethhdr *)skb->data;
+> -	tx_desc->ctrl.srcrb_flags16[0] = get_unaligned((__be16 *)ethh->h_dest);
+> -	tx_desc->ctrl.imm = get_unaligned((__be32 *)(ethh->h_dest + 2));
+> +	if (mlx4_is_mfunc(mdev->dev) || priv->validate_loopback) {
+> +		/* Copy dst mac address to wqe. This allows loopback in eSwitch,
+> +		 * so that VFs and PF can communicate with each other
+> +		 */
+> +		ethh = (struct ethhdr *)skb->data;
+> +		tx_desc->ctrl.srcrb_flags16[0] = get_unaligned((__be16 *)ethh->h_dest);
+> +		tx_desc->ctrl.imm = get_unaligned((__be32 *)(ethh->h_dest + 2));
+> +	}
+> +
+>  	/* Handle LSO (TSO) packets */
+>  	if (lso_header_size) {
+>  		/* Mark opcode as LSO */
 
-It seems that you're right.
+Isn't this bug could explain why mlx4 had to filter incoming frames ?
 
-I'm currently out of office - will check it on Sunday.
+It seems you also could remove this chunk ?
 
-Thanks,
-Amir
+(I don't really understand why mlx4_en_mac_to_u64() is done... its
+horribly expensive...). 
+matching 6 bytes can be done in 3 x86_64 instructions using the right
+helper (ether_addr_equal_64bits())
+
+vi +613 drivers/net/ethernet/mellanox/mlx4/en_rx.c
+
+               ethh = (struct ethhdr *)(page_address(frags[0].page) +
+                                         frags[0].offset);
+                s_mac = mlx4_en_mac_to_u64(ethh->h_source);
+
+                /* If source MAC is equal to our own MAC and not performing
+                 * the selftest or flb disabled - drop the packet */
+                if (s_mac == priv->mac &&
+                    !((dev->features & NETIF_F_LOOPBACK) ||
+                      priv->validate_loopback))
+                        goto next;
