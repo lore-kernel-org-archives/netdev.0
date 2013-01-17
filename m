@@ -1,45 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next 09/14] igb: Report L4 Rx hash via skb->l4_rxhash
-Date: Thu, 17 Jan 2013 09:14:49 -0800
-Message-ID: <1358442889.29723.58.camel@edumazet-glaptop>
-References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1358422519-20981-10-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1358432385.29723.6.camel@edumazet-glaptop>  <50F82FCA.9090709@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:56505 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446Ab3AQROx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 12:14:53 -0500
-Received: by mail-pb0-f54.google.com with SMTP id wz12so1520641pbc.27
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 09:14:53 -0800 (PST)
-In-Reply-To: <50F82FCA.9090709@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nickolai Zeldovich <nickolai@csail.mit.edu>
+Subject: [PATCH] 3c574_cs: fix operator precedence between << and &
+Date: Thu, 17 Jan 2013 12:18:29 -0500
+Message-ID: <1358443109-63402-1-git-send-email-nickolai@csail.mit.edu>
+Cc: Nickolai Zeldovich <nickolai@csail.mit.edu>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-17 at 09:07 -0800, Alexander Duyck wrote:
+The code to print the FIFO size in tc574_config computes it as:
 
-> Isn't the same true of TCP?  I believe STT is intended to run over the
-> TCP protocol, or am I getting ahead of myself since STT is not supported
-> by the kernel?
-> 
+  8 << config & Ram_size
 
-probably ;)
+which evaluates the '<<' first, but the actual intent is to evaluate the
+'&' first.  Add parentheses to enforce desired evaluation order.
 
-> > Also, is IGB really using the ports in the rss for UDP packets ?
-> 
-> Not by default.  The default is to only hash on the IP header for UDP
-> packets.
-> 
-> As such the default would only be setting the l4_rxhash on TCP frames
-> only.  The user would have to specifically request L4 port hashing for
-> UDP via the "ethtool -N" command for configuring rx-flow-hash.
+Signed-off-by: Nickolai Zeldovich <nickolai@csail.mit.edu>
+---
+ drivers/net/ethernet/3com/3c574_cs.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-So you should rewrite this patch ?
-
-Or have I missed something ?
+diff --git a/drivers/net/ethernet/3com/3c574_cs.c b/drivers/net/ethernet/3com/3c574_cs.c
+index 66df936..ffd8de2 100644
+--- a/drivers/net/ethernet/3com/3c574_cs.c
++++ b/drivers/net/ethernet/3com/3c574_cs.c
+@@ -432,7 +432,7 @@ static int tc574_config(struct pcmcia_device *link)
+ 	netdev_info(dev, "%s at io %#3lx, irq %d, hw_addr %pM\n",
+ 		    cardname, dev->base_addr, dev->irq, dev->dev_addr);
+ 	netdev_info(dev, " %dK FIFO split %s Rx:Tx, %sMII interface.\n",
+-		    8 << config & Ram_size,
++		    8 << (config & Ram_size),
+ 		    ram_split[(config & Ram_split) >> Ram_split_shift],
+ 		    config & Autoselect ? "autoselect " : "");
+ 
+-- 
+1.7.10.4
