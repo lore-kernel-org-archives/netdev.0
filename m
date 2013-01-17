@@ -1,41 +1,63 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Thu, 17 Jan 2013 12:10:24 +0900
-Message-ID: <50F76BA0.90502@linux-ipv6.org>
-References: <50F6B761.8070106@linux-ipv6.org> <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com> <201301161205.04502.vapier@gentoo.org> <20130116.135744.697469565804508454.davem@davemloft.net> <50F75EA7.4060309@systemhalted.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/1 net-next] net: fec: enable pause frame to
+ improve rx prefomance for 1G network
+Date: Wed, 16 Jan 2013 22:10:21 -0500 (EST)
+Message-ID: <20130116.221021.1688403542986325196.davem@davemloft.net>
+References: <1358153387-19275-1-git-send-email-Frank.Li@freescale.com>
+	<CAHrpEqRV7PonDpqAvGkDf7QqSeUj+mVbnF2rA-Zjb9xfWh-_2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, vapier@gentoo.org,
-	libc-alpha@sourceware.org, bhutchings@solarflare.com,
-	amwang@redhat.com, tmb@mageia.org, eblake@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	libvirt-list@redhat.com, tgraf@suug.ch, schwab@suse.de,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Carlos O'Donell <carlos@systemhalted.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50F75EA7.4060309@systemhalted.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Frank.Li@freescale.com, shawn.guo@linaro.org, B38611@freescale.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, s.hauer@pengutronix.de
+To: lznuaa@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42877 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758756Ab3AQDKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 22:10:25 -0500
+In-Reply-To: <CAHrpEqRV7PonDpqAvGkDf7QqSeUj+mVbnF2rA-Zjb9xfWh-_2g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Carlos O'Donell wrote:
-> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-> index f79c372..a2b16a5 100644
-> --- a/include/uapi/linux/in6.h
-> +++ b/include/uapi/linux/in6.h
-:
->  #define IPV6_PRIORITY_14		0x0e00
->  #define IPV6_PRIORITY_15		0x0f00
->  
-> +
-> +#ifndef _NETINET_IN_H
-> +#if defined (__GLIBC__)
-> +/* Include all of the other IPPROTO_* defines for userspace. */
-> +#include <linux/ipproto.h>
-> +#endif
->  /*
->   *	IPV6 extension headers
+From: Frank Li <lznuaa@gmail.com>
+Date: Thu, 17 Jan 2013 10:50:36 +0800
 
-Overall, it looks good, but why including linux/ipproto.h?
+> Any feedback about this patch?
 
---yoshfuji
+Well it's full of stylistic problems.
+
+>> +       /* enable pause frame*/
+>> +       if ((fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) ||
+>> +               ((fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) &&
+>> +                       fep->phy_dev && fep->phy_dev->pause)) {
+
+This is mis-idented.
+
+>> +
+>> +               rcntl |= FEC_ENET_FCE;
+
+That empty line before this assignment is spurious.
+
+>> +       pause->rx_pause = pause->tx_pause;
+>> +
+>> +}
+
+That empty line is unnecessary, remove it.
+
+>> +       /* default enable pause frame auto negotiation */
+>> +       if (pdev->id_entry &&
+>> +                       (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
+
+You can't possibly tell me that this indentation looks right
+to you.
+
+You must style things like this:
+
+	if (condition1 &&
+	    condition2)
+
+That is, you must line up the first character on the second and
+subsequent lines at the first column after the openning parenthesis of
+the first line.
