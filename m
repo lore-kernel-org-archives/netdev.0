@@ -1,49 +1,38 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] ipv6: check if dereference of ipv6 header is safe
-Date: Thu, 17 Jan 2013 04:56:52 +0100
-Message-ID: <20130117035652.GB23782@order.stressinduktion.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v4] netpoll: fix a rtnl lock assertion failure
+Date: Thu, 17 Jan 2013 12:00:45 +0800
+Message-ID: <1358395245.3855.12.camel@cr0>
+References: <1358242446-4273-1-git-send-email-amwang@redhat.com>
+	 <1358385885.32167.21.camel@edumazet-glaptop>
+	 <20130116.225238.238898828520417471.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, jiri@resnulli.us
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:32968 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758341Ab3AQD4x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 22:56:53 -0500
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:1058 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758393Ab3AQEPm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 23:15:42 -0500
+In-Reply-To: <20130116.225238.238898828520417471.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When ipip6_rcv gets called we are sure that we have a full blown
-ipv4 packet header in the linear skb buffer (this is checked by
-xfrm4_mode_tunnel_input). Because we dereference fields of the inner
-ipv6 header we should actually check for the length of the sum of the
-ipv4 and ipv6 header.
+On Wed, 2013-01-16 at 22:52 -0500, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 16 Jan 2013 17:24:45 -0800
+> 
+> >>  	if (np->dev_name)
+> >> -		ndev = dev_get_by_name(&init_net, np->dev_name);
+> >> +		ndev = __dev_get_by_name(&init_net, np->dev_name);
+>  ...
+> > Please revert this part.
+> 
+> You mean just revert that hunk above that made it use the
+> non-refcounting version of dev_get_by_name()?
 
-If the skb is too short this packet could very well be destined for
-another tunnel. So we should notify the caller accordingly (albeit
-currently xfrm4_mode_tunnel_input does not care; this could need another
-patch).
+But there is no reason to take both rtnl lock and RCU read lock,
+although that is fine.
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/sit.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 2b4c15a..389d6e3 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -612,8 +612,8 @@ static int ipip6_rcv(struct sk_buff *skb)
- 	struct ip_tunnel *tunnel;
- 	int err;
- 
--	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
--		goto out;
-+	if (!pskb_may_pull(skb, sizeof(struct iphdr) + sizeof(struct ipv6hdr)))
-+		return 1;
- 
- 	iph = ip_hdr(skb);
- 
--- 
-1.7.11.7
+I think just adding dev_hold() is enough.
