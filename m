@@ -1,161 +1,276 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next 3/2] xfrm: use separated locks to protect pointers of struct xfrm_state_afinfo
-Date: Thu, 17 Jan 2013 16:34:11 +0800
-Message-ID: <1358411651-3579-1-git-send-email-amwang@redhat.com>
-References: <1358323506-19571-2-git-send-email-amwang@redhat.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: Re: [PATCH v4 1/1] net: ethernet: davinci_cpdma: Add boundary for
+ rx and tx descriptors
+Date: Thu, 17 Jan 2013 09:37:06 +0100
+Message-ID: <50F7B832.6030307@omicron.at>
+References: <1358381405-7247-1-git-send-email-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, s.hauer@pengutronix.de
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10617 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932144Ab3AQIf1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 03:35:27 -0500
-In-Reply-To: <1358323506-19571-2-git-send-email-amwang@redhat.com>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:46270 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759266Ab3AQIhQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 03:37:16 -0500
+Received: by mail-la0-f52.google.com with SMTP id ee20so227827lab.25
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 00:37:14 -0800 (PST)
+In-Reply-To: <1358381405-7247-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(On top of my previous RCU convert patches)
+Hi,
 
-afinfo->type_map and afinfo->mode_map deserve separated locks,
-they are different things.
+On 2013-01-17 01:10, Mugunthan V N wrote:
+> When there is heavy transmission traffic in the CPDMA, then Rx descriptors
+> memory is also utilized as tx desc memory looses all rx descriptors and the
+> driver stops working then.
+>
+> This patch adds boundary for tx and rx descriptors in bd ram dividing the
+> descriptor memory to ensure that during heavy transmission tx doesn't use
+> rx descriptors.
+>
+> This patch is already applied to davinci_emac driver, since CPSW and
+> davici_dmac shares the same CPDMA, moving the boundry seperation from
+> Davinci EMAC driver to CPDMA driver which was done in the following
+> commit
+>
+> commit 86d8c07ff2448eb4e860e50f34ef6ee78e45c40c
+> Author: Sascha Hauer <s.hauer@pengutronix.de>
+> Date:   Tue Jan 3 05:27:47 2012 +0000
+>
+>      net/davinci: do not use all descriptors for tx packets
+>
+>      The driver uses a shared pool for both rx and tx descriptors.
+>      During open it queues fixed number of 128 descriptors for receive
+>      packets. For each received packet it tries to queue another
+>      descriptor. If this fails the descriptor is lost for rx.
+>      The driver has no limitation on tx descriptors to use, so it
+>      can happen during a nmap / ping -f attack that the driver
+>      allocates all descriptors for tx and looses all rx descriptors.
+>      The driver stops working then.
+>      To fix this limit the number of tx descriptors used to half of
+>      the descriptors available, the rx path uses the other half.
+>
+>      Tested on a custom board using nmap / ping -f to the board from
+>      two different hosts.
+>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+> Changes from v3
+> * Changed multiline commenting as per networking style
+>
+>   drivers/net/ethernet/ti/cpsw.c          |    9 ++++++
+>   drivers/net/ethernet/ti/davinci_cpdma.c |   51 ++++++++++++++++++++++++++-----
+>   drivers/net/ethernet/ti/davinci_cpdma.h |    1 +
+>   drivers/net/ethernet/ti/davinci_emac.c  |   13 ++++----
+>   4 files changed, 61 insertions(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 3772804..b35e6a7 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -374,6 +374,9 @@ void cpsw_tx_handler(void *token, int len, int status)
+>   	struct net_device	*ndev = skb->dev;
+>   	struct cpsw_priv	*priv = netdev_priv(ndev);
+>
+> +	/* Check whether the queue is stopped due to stalled tx dma, if the
+> +	 * queue is stopped then start the queue as we have free desc for tx
+> +	 */
+>   	if (unlikely(netif_queue_stopped(ndev)))
+>   		netif_start_queue(ndev);
+>   	cpts_tx_timestamp(&priv->cpts, skb);
+> @@ -736,6 +739,12 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+>   		goto fail;
+>   	}
+>
+> +	/* If there is no more tx desc left free then we need to
+> +	 * tell the kernel to stop sending us tx frames.
+> +	 */
+> +	if (unlikely(cpdma_check_free_tx_desc(priv->txch)))
+> +		netif_stop_queue(ndev);
+> +
+>   	return NETDEV_TX_OK;
+>   fail:
+>   	priv->stats.tx_dropped++;
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 4995673..4f6d82f 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -105,13 +105,13 @@ struct cpdma_ctlr {
+>   };
+>
+>   struct cpdma_chan {
+> +	struct cpdma_desc __iomem	*head, *tail;
+> +	void __iomem			*hdp, *cp, *rxfree;
+>   	enum cpdma_state		state;
+>   	struct cpdma_ctlr		*ctlr;
+>   	int				chan_num;
+>   	spinlock_t			lock;
+> -	struct cpdma_desc __iomem	*head, *tail;
+>   	int				count;
+> -	void __iomem			*hdp, *cp, *rxfree;
 
-We should just take RCU read lock to protect afinfo itself,
-but not for the inner pointers.
+I still do not see any benefit from this rearranging here.
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+>   	u32				mask;
+>   	cpdma_handler_fn		handler;
+>   	enum dma_data_direction		dir;
+> @@ -217,17 +217,29 @@ desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
+>   }
+>
+>   static struct cpdma_desc __iomem *
+> -cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc)
+> +cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc, bool is_rx)
+>   {
+>   	unsigned long flags;
+>   	int index;
+> +	int desc_start;
+> +	int desc_end;
+>   	struct cpdma_desc __iomem *desc = NULL;
+>
+>   	spin_lock_irqsave(&pool->lock, flags);
+>
+> -	index = bitmap_find_next_zero_area(pool->bitmap, pool->num_desc, 0,
+> -					   num_desc, 0);
+> -	if (index < pool->num_desc) {
+> +	if (is_rx) {
+> +		desc_start = 0;
+> +		desc_end = pool->num_desc/2;
+> +		index = bitmap_find_next_zero_area(pool->bitmap,
+> +				pool->num_desc/2, 0, num_desc, 0);
 
----
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index b40baf7..727e357 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -168,57 +168,45 @@ int __xfrm_state_delete(struct xfrm_state *x);
- int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol);
- void km_state_expired(struct xfrm_state *x, int hard, u32 portid);
- 
--static struct xfrm_state_afinfo *xfrm_state_lock_afinfo(unsigned int family)
--{
--	struct xfrm_state_afinfo *afinfo;
--	if (unlikely(family >= NPROTO))
--		return NULL;
--	spin_lock_bh(&xfrm_state_afinfo_lock);
--	afinfo = xfrm_state_afinfo[family];
--	if (unlikely(!afinfo))
--		spin_unlock_bh(&xfrm_state_afinfo_lock);
--	return afinfo;
--}
--
--static void xfrm_state_unlock_afinfo(struct xfrm_state_afinfo *afinfo)
--{
--	spin_unlock_bh(&xfrm_state_afinfo_lock);
--}
--
-+static DEFINE_SPINLOCK(xfrm_type_lock);
- int xfrm_register_type(const struct xfrm_type *type, unsigned short family)
- {
--	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
-+	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
- 	const struct xfrm_type **typemap;
- 	int err = 0;
- 
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 	typemap = afinfo->type_map;
-+	spin_lock_bh(&xfrm_type_lock);
- 
- 	if (likely(typemap[type->proto] == NULL))
- 		typemap[type->proto] = type;
- 	else
- 		err = -EEXIST;
--	xfrm_state_unlock_afinfo(afinfo);
-+	spin_unlock_bh(&xfrm_type_lock);
-+	xfrm_state_put_afinfo(afinfo);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_register_type);
- 
- int xfrm_unregister_type(const struct xfrm_type *type, unsigned short family)
- {
--	struct xfrm_state_afinfo *afinfo = xfrm_state_lock_afinfo(family);
-+	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
- 	const struct xfrm_type **typemap;
- 	int err = 0;
- 
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 	typemap = afinfo->type_map;
-+	spin_lock_bh(&xfrm_type_lock);
- 
- 	if (unlikely(typemap[type->proto] != type))
- 		err = -ENOENT;
- 	else
- 		typemap[type->proto] = NULL;
--	xfrm_state_unlock_afinfo(afinfo);
-+	spin_unlock_bh(&xfrm_type_lock);
-+	xfrm_state_put_afinfo(afinfo);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_unregister_type);
-@@ -255,6 +243,7 @@ static void xfrm_put_type(const struct xfrm_type *type)
- 	module_put(type->owner);
- }
- 
-+static DEFINE_SPINLOCK(xfrm_mode_lock);
- int xfrm_register_mode(struct xfrm_mode *mode, int family)
- {
- 	struct xfrm_state_afinfo *afinfo;
-@@ -264,12 +253,13 @@ int xfrm_register_mode(struct xfrm_mode *mode, int family)
- 	if (unlikely(mode->encap >= XFRM_MODE_MAX))
- 		return -EINVAL;
- 
--	afinfo = xfrm_state_lock_afinfo(family);
-+	afinfo = xfrm_state_get_afinfo(family);
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 
- 	err = -EEXIST;
- 	modemap = afinfo->mode_map;
-+	spin_lock_bh(&xfrm_mode_lock);
- 	if (modemap[mode->encap])
- 		goto out;
- 
-@@ -282,7 +272,8 @@ int xfrm_register_mode(struct xfrm_mode *mode, int family)
- 	err = 0;
- 
- out:
--	xfrm_state_unlock_afinfo(afinfo);
-+	spin_unlock_bh(&xfrm_mode_lock);
-+	xfrm_state_put_afinfo(afinfo);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_register_mode);
-@@ -296,19 +287,21 @@ int xfrm_unregister_mode(struct xfrm_mode *mode, int family)
- 	if (unlikely(mode->encap >= XFRM_MODE_MAX))
- 		return -EINVAL;
- 
--	afinfo = xfrm_state_lock_afinfo(family);
-+	afinfo = xfrm_state_get_afinfo(family);
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 
- 	err = -ENOENT;
- 	modemap = afinfo->mode_map;
-+	spin_lock_bh(&xfrm_mode_lock);
- 	if (likely(modemap[mode->encap] == mode)) {
- 		modemap[mode->encap] = NULL;
- 		module_put(mode->afinfo->owner);
- 		err = 0;
- 	}
- 
--	xfrm_state_unlock_afinfo(afinfo);
-+	spin_unlock_bh(&xfrm_mode_lock);
-+	xfrm_state_put_afinfo(afinfo);
- 	return err;
- }
- EXPORT_SYMBOL(xfrm_unregister_mode);
+Duplicate calls of bitmap_find_next_zero_area, see a few lines below.
+
+> +	 } else {
+> +		desc_start = pool->num_desc/2;
+> +		desc_end = pool->num_desc;
+> +	}
+> +
+> +	index = bitmap_find_next_zero_area(pool->bitmap,
+> +				desc_end, desc_start, num_desc, 0);
+> +	if (index < desc_end) {
+>   		bitmap_set(pool->bitmap, index, num_desc);
+>   		desc = pool->iomap + pool->desc_size * index;
+>   		pool->used_desc++;
+> @@ -660,6 +672,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+>   	unsigned long			flags;
+>   	u32				mode;
+>   	int				ret = 0;
+> +	bool                            is_rx;
+>
+>   	spin_lock_irqsave(&chan->lock, flags);
+>
+> @@ -668,7 +681,8 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+>   		goto unlock_ret;
+>   	}
+>
+> -	desc = cpdma_desc_alloc(ctlr->pool, 1);
+> +	is_rx = (chan->rxfree != 0);
+
+I guess you should use is_rx_chan() here.
+
+> +	desc = cpdma_desc_alloc(ctlr->pool, 1, is_rx);
+>   	if (!desc) {
+>   		chan->stats.desc_alloc_fail++;
+>   		ret = -ENOMEM;
+> @@ -704,6 +718,29 @@ unlock_ret:
+>   }
+>   EXPORT_SYMBOL_GPL(cpdma_chan_submit);
+>
+> +bool cpdma_check_free_tx_desc(struct cpdma_chan *chan)
+> +{
+> +	unsigned long flags;
+> +	int index;
+> +	bool ret;
+> +	struct cpdma_ctlr	*ctlr = chan->ctlr;
+> +	struct cpdma_desc_pool	*pool = ctlr->pool;
+> +
+> +	spin_lock_irqsave(&pool->lock, flags);
+> +
+> +	index = bitmap_find_next_zero_area(pool->bitmap,
+> +				pool->num_desc, pool->num_desc/2, 1, 0);
+
+I still wonder if using two separate descriptor pools for rx and tx 
+would be a nicer implementation. In this case you could just use 
+bitmap_full here, right? And the two pools would have separate 
+spinlocks, so rx could not lock tx and vice versa (but as I wrote in an 
+earlier email, I am a newbie here, so I don't know if this would be 
+beneficial).
+
+Regards, Christian
+
+> +
+> +	if (index < pool->num_desc)
+> +		ret = true;
+> +	else
+> +		ret = false;
+> +
+> +	spin_unlock_irqrestore(&pool->lock, flags);
+> +	return ret;
+> +}
+> +EXPORT_SYMBOL_GPL(cpdma_check_free_tx_desc);
+> +
+>   static void __cpdma_chan_free(struct cpdma_chan *chan,
+>   			      struct cpdma_desc __iomem *desc,
+>   			      int outlen, int status)
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+> index afa19a0..8d2aeb2 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.h
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+> @@ -88,6 +88,7 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
+>   int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
+>   void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr);
+>   int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
+> +bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
+>
+>   enum cpdma_control {
+>   	CPDMA_CMD_IDLE,			/* write-only */
+> diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+> index 8478d98..1c97c81 100644
+> --- a/drivers/net/ethernet/ti/davinci_emac.c
+> +++ b/drivers/net/ethernet/ti/davinci_emac.c
+> @@ -120,7 +120,6 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+>   #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
+>   #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
+>   #define EMAC_DEF_RX_NUM_DESC		(128)
+> -#define EMAC_DEF_TX_NUM_DESC		(128)
+>   #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
+>   #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
+>   #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
+> @@ -342,7 +341,6 @@ struct emac_priv {
+>   	u32 mac_hash2;
+>   	u32 multicast_hash_cnt[EMAC_NUM_MULTICAST_BITS];
+>   	u32 rx_addr_type;
+> -	atomic_t cur_tx;
+>   	const char *phy_id;
+>   #ifdef CONFIG_OF
+>   	struct device_node *phy_node;
+> @@ -1050,10 +1048,10 @@ static void emac_tx_handler(void *token, int len, int status)
+>   {
+>   	struct sk_buff		*skb = token;
+>   	struct net_device	*ndev = skb->dev;
+> -	struct emac_priv	*priv = netdev_priv(ndev);
+> -
+> -	atomic_dec(&priv->cur_tx);
+>
+> +	/* Check whether the queue is stopped due to stalled tx dma, if the
+> +	 * queue is stopped then start the queue as we have free desc for tx
+> +	 */
+>   	if (unlikely(netif_queue_stopped(ndev)))
+>   		netif_start_queue(ndev);
+>   	ndev->stats.tx_packets++;
+> @@ -1101,7 +1099,10 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
+>   		goto fail_tx;
+>   	}
+>
+> -	if (atomic_inc_return(&priv->cur_tx) >= EMAC_DEF_TX_NUM_DESC)
+> +	/* If there is no more tx desc left free then we need to
+> +	 * tell the kernel to stop sending us tx frames.
+> +	 */
+> +	if (unlikely(cpdma_check_free_tx_desc(priv->txch)))
+>   		netif_stop_queue(ndev);
+>
+>   	return NETDEV_TX_OK;
+>
