@@ -1,70 +1,72 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Thu, 17 Jan 2013 12:22:47 +0900
-Message-ID: <50F76E87.6020606@linux-ipv6.org>
-References: <50F6B761.8070106@linux-ipv6.org> <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com> <201301161205.04502.vapier@gentoo.org> <20130116.135744.697469565804508454.davem@davemloft.net> <50F75EA7.4060309@systemhalted.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Thu, 17 Jan 2013 04:32:58 +0100
+Message-ID: <20130117033258.GA23782@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, vapier@gentoo.org,
- libc-alpha@sourceware.org, bhutchings@solarflare.com, amwang@redhat.com,
- tmb@mageia.org, eblake@redhat.com, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, libvirt-list@redhat.com, tgraf@suug.ch,
- schwab@suse.de, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Carlos O'Donell <carlos@systemhalted.org>
-Return-path: <libc-alpha-return-36353-glibc-alpha=m.gmane.org@sourceware.org>
-In-Reply-To: <50F75EA7.4060309@systemhalted.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:32942 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757317Ab3AQDdA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 22:33:00 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Carlos O'Donell wrote:
-> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
-> index f79c372..a2b16a5 100644
-> --- a/include/uapi/linux/in6.h
-> +++ b/include/uapi/linux/in6.h
-> @@ -23,6 +23,13 @@
->  
->  #include <linux/types.h>
->  
-> +/* If a glibc-based userspace has already included in.h, then we will not 
-> + * define in6_addr (nor the defines), sockaddr_in6, or ipv6_mreq. The
-> + * ABI used by the kernel and by glibc match exactly. Neither the kernel
-> + * nor glibc should break this ABI without coordination.
-> + */
-> +#ifndef _NETINET_IN_H
-> +
->  /*
->   *	IPv6 address structure
->   */
+This patch adds anti-spoofing checks in sit.c as specified in RFC3964
+section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
+checks which could easily be implemented with netfilter.
 
-This should be
-#if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/sit.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
 
-> @@ -30,12 +37,20 @@
->  struct in6_addr {
->  	union {
->  		__u8		u6_addr8[16];
-> +#if !defined(__GLIBC__) \
-> +    || (defined(__GLIBC__) && (defined(__USE_MISC) || defined(__USE_GNU))) \
-> +    || defined(__KERNEL__)
->  		__be16		u6_addr16[8];
->  		__be32		u6_addr32[4];
-> +#endif
->  	} in6_u;
-> +#if !defined(__GLIBC__) \
-> +    || (defined(__GLIBC__) && (defined(__USE_MISC) || defined(__USE_GNU))) \
-> +    || defined(__KERNEL__)
->  #define s6_addr			in6_u.u6_addr8
->  #define s6_addr16		in6_u.u6_addr16
->  #define s6_addr32		in6_u.u6_addr32
-> +#endif
->  };
-
-2nd "if" be after s6_addr?
-
---yoshfuji
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index cfba99b..2b4c15a 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -590,6 +590,22 @@ out:
+ 	return err;
+ }
+ 
++static int sit_chksrc(struct ip_tunnel *tunnel, const __be32 *addr,
++		const struct in6_addr *addr6)
++{
++#ifdef CONFIG_IPV6_SIT_6RD
++	if (ipv6_prefix_equal(addr6, &tunnel->ip6rd.prefix,
++				tunnel->ip6rd.prefixlen) &&
++		memcmp(addr, &addr6->s6_addr16[1], 4))
++		return 0;
++#else
++	if (addr6->s6_addr16[0] == htons(0x2002) &&
++		memcmp(addr, &addr6->s6_addr16[1], 4))
++		return 0;
++#endif
++	return 1;
++}
++
+ static int ipip6_rcv(struct sk_buff *skb)
+ {
+ 	const struct iphdr *iph;
+@@ -613,8 +629,15 @@ static int ipip6_rcv(struct sk_buff *skb)
+ 		skb->protocol = htons(ETH_P_IPV6);
+ 		skb->pkt_type = PACKET_HOST;
+ 
+-		if ((tunnel->dev->priv_flags & IFF_ISATAP) &&
+-		    !isatap_chksrc(skb, iph, tunnel)) {
++		if (tunnel->dev->priv_flags & IFF_ISATAP) {
++			if (!isatap_chksrc(skb, iph, tunnel)) {
++				tunnel->dev->stats.rx_errors++;
++				goto out;
++			}
++		} else if (!sit_chksrc(tunnel, &iph->saddr,
++					&ipv6_hdr(skb)->saddr) ||
++			!sit_chksrc(tunnel, &iph->daddr,
++				&ipv6_hdr(skb)->daddr)) {
+ 			tunnel->dev->stats.rx_errors++;
+ 			goto out;
+ 		}
+-- 
+1.7.11.7
