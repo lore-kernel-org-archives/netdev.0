@@ -1,72 +1,72 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: ip6_dst_lookup_tail oops
-Date: Thu, 17 Jan 2013 10:25:04 -0500
-Message-ID: <20130117152504.GC32586@redhat.com>
-References: <20130116145507.GA12244@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net-next] team: do not use -ENOENT
+Date: Thu, 17 Jan 2013 07:51:15 -0800
+Message-ID: <20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
+References: <1358418300-2346-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10747 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756918Ab3AQPwX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 10:52:23 -0500
-Received: from int-mx01.intmail.prod.int.phx2.redhat.com (int-mx01.intmail.prod.int.phx2.redhat.com [10.5.11.11])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r0HFqMic027671
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 10:52:23 -0500
-Received: from gelk.kernelslacker.org (ovpn-113-149.phx2.redhat.com [10.3.113.149])
-	by int-mx01.intmail.prod.int.phx2.redhat.com (8.13.8/8.13.8) with ESMTP id r0HFP6DT006846
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 10:25:07 -0500
-Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.5/8.14.5) with ESMTP id r0HFP5m6002409
-	for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 10:25:05 -0500
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.5/8.14.5/Submit) id r0HFP5SV002368
-	for netdev@vger.kernel.org; Thu, 17 Jan 2013 10:25:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20130116145507.GA12244@redhat.com>
+Received: from mail-da0-f53.google.com ([209.85.210.53]:58114 "EHLO
+	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756737Ab3AQPwn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 10:52:43 -0500
+Received: by mail-da0-f53.google.com with SMTP id x6so1165028dac.40
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 07:52:43 -0800 (PST)
+In-Reply-To: <1358418300-2346-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 16, 2013 at 09:55:07AM -0500, Dave Jones wrote:
+On Thu, 17 Jan 2013 11:25:00 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
- > BUG: unable to handle kernel NULL pointer dereference at 000000000000017e
- > IP: [<ffffffff81626308>] ip6_dst_lookup_tail+0xe8/0x200
- > RIP: 0010:[<ffffffff81626308>]  [<ffffffff81626308>] ip6_dst_lookup_tail+0xe8/0x200
- > RAX: 0000000000000011 RBX: 0000000000000000 RCX: 0000000000000000
- > ..
- > Call Trace:
- >  [<ffffffff816266cb>] ip6_sk_dst_lookup_flow+0xcb/0x1b0
- >  [<ffffffff8164803e>] udpv6_sendmsg+0x66e/0xb80
- >  [<ffffffff815e6391>] inet_sendmsg+0x111/0x220
- >  [<ffffffff81547220>] sock_sendmsg+0xb0/0xe0
- >  [<ffffffff815486bc>] __sys_sendmsg+0x3ac/0x3c0
- >  [<ffffffff8154afb9>] sys_sendmsg+0x49/0x90
- >  [<ffffffff816a6802>] system_call_fastpath+0x16/0x1b
- > 
- >    0:	f6 80 6d 01 00 00 de 	testb  $0xde,0x16d(%rax)
- >    7:	75 b9                	jne    0xffffffffffffffc2
- >    9:	48 8b 56 18          	mov    0x18(%rsi),%rdx
- >    d:	49 8d 75 24          	lea    0x24(%r13),%rsi
- >   11:	b9                   	.byte 0xb9
- >   12:	01 00                	add    %eax,(%rax)
- > 	...
- > 
- > This looks like the GPF in this function I reported last September.
- > http://www.spinics.net/lists/netdev/msg211894.html
- > 
- > In those reports, I ended up with an rt->n == 0x8000000000000011,
- > but this time, it's just 0x11.
+> Since this error code means "No such file or directory", change this
+> value in team driver to ones which make more sense.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  drivers/net/team/team.c                   | 4 ++--
+>  drivers/net/team/team_mode_activebackup.c | 2 +-
+>  2 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index 70d5d6b..3d7cf6e 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -1128,7 +1128,7 @@ static int team_port_del(struct team *team, struct net_device *port_dev)
+>  	if (!port || !team_port_find(team, port)) {
+>  		netdev_err(dev, "Device %s does not act as a port of this team\n",
+>  			   portname);
+> -		return -ENOENT;
+> +		return -ENODEV;
+>  	}
+>  
+>  	__team_option_inst_mark_removed_port(team, port);
+> @@ -2320,7 +2320,7 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
+>  			list_add(&opt_inst->tmp_list, &opt_inst_list);
+>  		}
+>  		if (!opt_found) {
+> -			err = -ENOENT;
+> +			err = -EINVAL;
+>  			goto team_put;
+>  		}
+>  	}
+> diff --git a/drivers/net/team/team_mode_activebackup.c b/drivers/net/team/team_mode_activebackup.c
+> index 6262b4d..2792e13 100644
+> --- a/drivers/net/team/team_mode_activebackup.c
+> +++ b/drivers/net/team/team_mode_activebackup.c
+> @@ -81,7 +81,7 @@ static int ab_active_port_set(struct team *team, struct team_gsetter_ctx *ctx)
+>  			return 0;
+>  		}
+>  	}
+> -	return -ENOENT;
+> +	return -ENODEV;
+>  }
+>  
+>  static const struct team_option ab_options[] = {
 
-Now I've hit it with rt->n = 2000000000000010. So I'm starting to
-think this is getting passed in directly from userspace somehow, as
-these values look like the output of my 'set a few random bits' routine
-that sometimes gets called for params.
-
-I'm having trouble mapping a corrupt sendmsg parameter to a messed up rt->n though.
-
-Any clues ?
-
-	Dave
+To be pedantic.
+Changing errno's means effectively changing the ABI.
+Linus has already rejected similar patches in other areas.
