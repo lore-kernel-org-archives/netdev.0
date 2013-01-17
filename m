@@ -1,172 +1,250 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [RFC PATCH 1/3] Avoid making inappropriate requests of
- NETIF_F_V[46]_CSUM devices
-Date: Thu, 17 Jan 2013 00:03:49 +0000
-Message-ID: <1358381029.2397.93.camel@shinybook.infradead.org>
-References: <1358165431.27054.62.camel@shinybook.infradead.org>
-	 <20130116.155406.351676228334066120.davem@davemloft.net>
-	 <1358375658.2397.69.camel@shinybook.infradead.org>
-	 <20130116.180044.630688719598008373.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH v4 1/1] net: ethernet: davinci_cpdma: Add boundary for rx and tx descriptors
+Date: Thu, 17 Jan 2013 05:40:05 +0530
+Message-ID: <1358381405-7247-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
-	boundary="=-0NUy0wl9nkyNQWdXZNs3"
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <s.hauer@pengutronix.de>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:33289 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750944Ab3AQADx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jan 2013 19:03:53 -0500
-In-Reply-To: <20130116.180044.630688719598008373.davem@davemloft.net>
+Received: from bear.ext.ti.com ([192.94.94.41]:44972 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754168Ab3AQAKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jan 2013 19:10:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When there is heavy transmission traffic in the CPDMA, then Rx descriptors
+memory is also utilized as tx desc memory looses all rx descriptors and the
+driver stops working then.
 
---=-0NUy0wl9nkyNQWdXZNs3
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch adds boundary for tx and rx descriptors in bd ram dividing the
+descriptor memory to ensure that during heavy transmission tx doesn't use
+rx descriptors.
 
-On Wed, 2013-01-16 at 18:00 -0500, David Miller wrote:
-> I'm saying that tun can't inject unchecked crap into our stack.
+This patch is already applied to davinci_emac driver, since CPSW and
+davici_dmac shares the same CPDMA, moving the boundry seperation from
+Davinci EMAC driver to CPDMA driver which was done in the following
+commit
 
-That's a very strange way of putting it.
+commit 86d8c07ff2448eb4e860e50f34ef6ee78e45c40c
+Author: Sascha Hauer <s.hauer@pengutronix.de>
+Date:   Tue Jan 3 05:27:47 2012 +0000
 
-Our stack has explicit support for sane hardware devices with
-NETIF_F_HW_CSUM capability that can checksum anything.
+    net/davinci: do not use all descriptors for tx packets
 
-And it has checks (harmonize_features) on output, so that if the device
-on which a packet is being emitted *doesn't* have appropriate hardware
-checksum capability, we'll do the checksum in software.
+    The driver uses a shared pool for both rx and tx descriptors.
+    During open it queues fixed number of 128 descriptors for receive
+    packets. For each received packet it tries to queue another
+    descriptor. If this fails the descriptor is lost for rx.
+    The driver has no limitation on tx descriptors to use, so it
+    can happen during a nmap / ping -f attack that the driver
+    allocates all descriptors for tx and looses all rx descriptors.
+    The driver stops working then.
+    To fix this limit the number of tx descriptors used to half of
+    the descriptors available, the rx path uses the other half.
 
-Except that the check in harmonize_features() doesn't do that check
-*properly*. It only catches *some* of the packets that the device can't
-handle, and lets others through.
+    Tested on a custom board using nmap / ping -f to the board from
+    two different hosts.
 
-So we basically can't use NETIF_F_HW_CSUM in the general case, for
-anything like SCTP or any other protocol, because harmonize_features()
-is buggy and will let it go out a device that can't handle it.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+Changes from v3
+* Changed multiline commenting as per networking style
 
-Um, SCTP *does* use CHECKSUM_PARTIAL. Am I missing something or does
-that suffer the same problem?
+ drivers/net/ethernet/ti/cpsw.c          |    9 ++++++
+ drivers/net/ethernet/ti/davinci_cpdma.c |   51 ++++++++++++++++++++++++++-----
+ drivers/net/ethernet/ti/davinci_cpdma.h |    1 +
+ drivers/net/ethernet/ti/davinci_emac.c  |   13 ++++----
+ 4 files changed, 61 insertions(+), 13 deletions(-)
 
---=20
-dwmw2
-
-
---=-0NUy0wl9nkyNQWdXZNs3
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
-ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
-Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
-BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
-DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
-KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
-dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
-AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
-75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
-+y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
-z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
-/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
-ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
-fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
-MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
-aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
-Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
-b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
-dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
-c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
-XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
-UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
-HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
-sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
-sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
-+n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
-zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
-Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
-9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
-AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
-b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
-A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
-MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
-MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
-YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
-4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
-wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
-xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
-MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
-w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
-BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
-BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
-YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
-Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
-d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
-Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
-c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
-IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
-dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
-BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
-aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
-bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
-oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
-MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
-dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
-MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
-hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
-DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
-ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
-NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
-mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
-AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
-ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
-L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
-MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
-A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
-Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
-7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
-KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
-wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
-V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
-vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
-BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
-ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
-Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
-YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
-ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
-IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
-U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
-ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
-BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
-aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
-bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
-dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
-CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
-QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
-ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
-AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
-t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
-gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
-H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
-kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
-MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
-dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
-eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
-MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTE3MDAwMzQ5WjAjBgkqhkiG9w0BCQQx
-FgQUj0nvVirof+Dhc6HclQLV5e7cz54wgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
-SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
-ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
-ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
-TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
-aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
-aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQBiIpYKmbyxA8FHUy717E7Yy2xG
-zXVKGvSdkKCRPPl4+naJlFFz5VC2abdqJOZ3Bch3IJtTe2m0KokLhKe/uAETI1V9M7NYZLn27KAg
-kuqpjjAE/yD0roRSZzYdm7QYM9d1nuIfp5qiC0OIOz3o0+m0oG4t8U5d+Ho6wGp/2utIRMBo3H1C
-6FW6nr402QgSsBcDJLaKSRoFXhL2+c/OVxDa+Sh4Q3l+BNyKmid0R9lnGd88cXJ8oAY2ZmE6JMSl
-ywV99CPzr7MiLTX9NGSQ2lBjzDLqse1ll1NSXqrpswwVdPpADN/SyKeM86qPVPYpsrfsqoMH/LOw
-eqpmUt8j7yDsAAAAAAAA
-
-
---=-0NUy0wl9nkyNQWdXZNs3--
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 3772804..b35e6a7 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -374,6 +374,9 @@ void cpsw_tx_handler(void *token, int len, int status)
+ 	struct net_device	*ndev = skb->dev;
+ 	struct cpsw_priv	*priv = netdev_priv(ndev);
+ 
++	/* Check whether the queue is stopped due to stalled tx dma, if the
++	 * queue is stopped then start the queue as we have free desc for tx
++	 */
+ 	if (unlikely(netif_queue_stopped(ndev)))
+ 		netif_start_queue(ndev);
+ 	cpts_tx_timestamp(&priv->cpts, skb);
+@@ -736,6 +739,12 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
+ 		goto fail;
+ 	}
+ 
++	/* If there is no more tx desc left free then we need to
++	 * tell the kernel to stop sending us tx frames.
++	 */
++	if (unlikely(cpdma_check_free_tx_desc(priv->txch)))
++		netif_stop_queue(ndev);
++
+ 	return NETDEV_TX_OK;
+ fail:
+ 	priv->stats.tx_dropped++;
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 4995673..4f6d82f 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -105,13 +105,13 @@ struct cpdma_ctlr {
+ };
+ 
+ struct cpdma_chan {
++	struct cpdma_desc __iomem	*head, *tail;
++	void __iomem			*hdp, *cp, *rxfree;
+ 	enum cpdma_state		state;
+ 	struct cpdma_ctlr		*ctlr;
+ 	int				chan_num;
+ 	spinlock_t			lock;
+-	struct cpdma_desc __iomem	*head, *tail;
+ 	int				count;
+-	void __iomem			*hdp, *cp, *rxfree;
+ 	u32				mask;
+ 	cpdma_handler_fn		handler;
+ 	enum dma_data_direction		dir;
+@@ -217,17 +217,29 @@ desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
+ }
+ 
+ static struct cpdma_desc __iomem *
+-cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc)
++cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc, bool is_rx)
+ {
+ 	unsigned long flags;
+ 	int index;
++	int desc_start;
++	int desc_end;
+ 	struct cpdma_desc __iomem *desc = NULL;
+ 
+ 	spin_lock_irqsave(&pool->lock, flags);
+ 
+-	index = bitmap_find_next_zero_area(pool->bitmap, pool->num_desc, 0,
+-					   num_desc, 0);
+-	if (index < pool->num_desc) {
++	if (is_rx) {
++		desc_start = 0;
++		desc_end = pool->num_desc/2;
++		index = bitmap_find_next_zero_area(pool->bitmap,
++				pool->num_desc/2, 0, num_desc, 0);
++	 } else {
++		desc_start = pool->num_desc/2;
++		desc_end = pool->num_desc;
++	}
++
++	index = bitmap_find_next_zero_area(pool->bitmap,
++				desc_end, desc_start, num_desc, 0);
++	if (index < desc_end) {
+ 		bitmap_set(pool->bitmap, index, num_desc);
+ 		desc = pool->iomap + pool->desc_size * index;
+ 		pool->used_desc++;
+@@ -660,6 +672,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+ 	unsigned long			flags;
+ 	u32				mode;
+ 	int				ret = 0;
++	bool                            is_rx;
+ 
+ 	spin_lock_irqsave(&chan->lock, flags);
+ 
+@@ -668,7 +681,8 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+ 		goto unlock_ret;
+ 	}
+ 
+-	desc = cpdma_desc_alloc(ctlr->pool, 1);
++	is_rx = (chan->rxfree != 0);
++	desc = cpdma_desc_alloc(ctlr->pool, 1, is_rx);
+ 	if (!desc) {
+ 		chan->stats.desc_alloc_fail++;
+ 		ret = -ENOMEM;
+@@ -704,6 +718,29 @@ unlock_ret:
+ }
+ EXPORT_SYMBOL_GPL(cpdma_chan_submit);
+ 
++bool cpdma_check_free_tx_desc(struct cpdma_chan *chan)
++{
++	unsigned long flags;
++	int index;
++	bool ret;
++	struct cpdma_ctlr	*ctlr = chan->ctlr;
++	struct cpdma_desc_pool	*pool = ctlr->pool;
++
++	spin_lock_irqsave(&pool->lock, flags);
++
++	index = bitmap_find_next_zero_area(pool->bitmap,
++				pool->num_desc, pool->num_desc/2, 1, 0);
++
++	if (index < pool->num_desc)
++		ret = true;
++	else
++		ret = false;
++
++	spin_unlock_irqrestore(&pool->lock, flags);
++	return ret;
++}
++EXPORT_SYMBOL_GPL(cpdma_check_free_tx_desc);
++
+ static void __cpdma_chan_free(struct cpdma_chan *chan,
+ 			      struct cpdma_desc __iomem *desc,
+ 			      int outlen, int status)
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+index afa19a0..8d2aeb2 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.h
++++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+@@ -88,6 +88,7 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
+ int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
+ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr);
+ int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
++bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
+ 
+ enum cpdma_control {
+ 	CPDMA_CMD_IDLE,			/* write-only */
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 8478d98..1c97c81 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -120,7 +120,6 @@ static const char emac_version_string[] = "TI DaVinci EMAC Linux v6.1";
+ #define EMAC_DEF_TX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_CH			(0) /* Default 0th channel */
+ #define EMAC_DEF_RX_NUM_DESC		(128)
+-#define EMAC_DEF_TX_NUM_DESC		(128)
+ #define EMAC_DEF_MAX_TX_CH		(1) /* Max TX channels configured */
+ #define EMAC_DEF_MAX_RX_CH		(1) /* Max RX channels configured */
+ #define EMAC_POLL_WEIGHT		(64) /* Default NAPI poll weight */
+@@ -342,7 +341,6 @@ struct emac_priv {
+ 	u32 mac_hash2;
+ 	u32 multicast_hash_cnt[EMAC_NUM_MULTICAST_BITS];
+ 	u32 rx_addr_type;
+-	atomic_t cur_tx;
+ 	const char *phy_id;
+ #ifdef CONFIG_OF
+ 	struct device_node *phy_node;
+@@ -1050,10 +1048,10 @@ static void emac_tx_handler(void *token, int len, int status)
+ {
+ 	struct sk_buff		*skb = token;
+ 	struct net_device	*ndev = skb->dev;
+-	struct emac_priv	*priv = netdev_priv(ndev);
+-
+-	atomic_dec(&priv->cur_tx);
+ 
++	/* Check whether the queue is stopped due to stalled tx dma, if the
++	 * queue is stopped then start the queue as we have free desc for tx
++	 */
+ 	if (unlikely(netif_queue_stopped(ndev)))
+ 		netif_start_queue(ndev);
+ 	ndev->stats.tx_packets++;
+@@ -1101,7 +1099,10 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 		goto fail_tx;
+ 	}
+ 
+-	if (atomic_inc_return(&priv->cur_tx) >= EMAC_DEF_TX_NUM_DESC)
++	/* If there is no more tx desc left free then we need to
++	 * tell the kernel to stop sending us tx frames.
++	 */
++	if (unlikely(cpdma_check_free_tx_desc(priv->txch)))
+ 		netif_stop_queue(ndev);
+ 
+ 	return NETDEV_TX_OK;
+-- 
+1.7.9.5
