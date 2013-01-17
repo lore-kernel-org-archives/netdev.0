@@ -1,54 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] team: do not use -ENOENT
-Date: Thu, 17 Jan 2013 15:42:40 -0500 (EST)
-Message-ID: <20130117.154240.1134435647038964241.davem@davemloft.net>
-References: <1358418300-2346-1-git-send-email-jiri@resnulli.us>
-	<20130117075115.731c4cf0@nehalam.linuxnetplumber.net>
-	<20130117203347.GA1591@minipsycho.orion>
+Subject: Re: [PATCH net-next V1 5/6] net/mlx4_en: Fix a race when closing
+ TX queue
+Date: Thu, 17 Jan 2013 15:44:11 -0500 (EST)
+Message-ID: <20130117.154411.908604315438836662.davem@davemloft.net>
+References: <1358423241-2452-1-git-send-email-amirv@mellanox.com>
+	<1358423241-2452-6-git-send-email-amirv@mellanox.com>
+	<1358432538.29723.8.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: jiri@resnulli.us
+Cc: amirv@mellanox.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com, eugenia@mellanox.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53292 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53337 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752104Ab3AQUmm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:42:42 -0500
-In-Reply-To: <20130117203347.GA1591@minipsycho.orion>
+	with ESMTP id S1756799Ab3AQUoO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 15:44:14 -0500
+In-Reply-To: <1358432538.29723.8.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 17 Jan 2013 21:33:47 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 17 Jan 2013 06:22:18 -0800
 
->>> @@ -2320,7 +2320,7 @@ static int team_nl_cmd_options_set(struct sk_buff *skb, struct genl_info *info)
->>>  			list_add(&opt_inst->tmp_list, &opt_inst_list);
->>>  		}
->>>  		if (!opt_found) {
->>> -			err = -ENOENT;
->>> +			err = -EINVAL;
->>>  			goto team_put;
->>>  		}
->>>  	}
-
-
-> I'm not really sure. But in this case, I do not think that is a problem.
+> On Thu, 2013-01-17 at 13:47 +0200, Amir Vadai wrote:
+>> There is a possible race where the TX completion handler can clean the
+>> entire TX queue between the decision that the queue is full and actually
+>> closing it. To avoid this situation, check again if the queue is really
+>> full, if not, reopen the transmit and continue with sending the packet.
+>> 
+>> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
+>> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+>> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/en_tx.c |    9 ++++++++-
+>>  1 files changed, 8 insertions(+), 1 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> index 2b799f4..1d17f5f 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> @@ -592,7 +592,14 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+>>  		netif_tx_stop_queue(ring->tx_queue);
+>>  		priv->port_stats.queue_stopped++;
+>>  
+>> -		return NETDEV_TX_BUSY;
+>> +		/* Check again whether the queue was cleaned */
+>> +		if (unlikely(((int)(ring->prod - ring->cons)) <=
+>> +				ring->size - HEADROOM - MAX_DESC_TXBBS)) {
+>> +			netif_tx_wake_queue(ring->tx_queue);
+>> +			priv->port_stats.wake_queue++;
+>> +		} else {
+>> +			return NETDEV_TX_BUSY;
+>> +		}
+>>  	}
+>>  
+>>  	/* Track current inflight packets for performance analysis */
 > 
-> 1) I'm most probably the only one (libteam) who is using this api and
-> libteam does not mind about what err code is returned in these cases.
-> 
-> 2) In this case, it is only about different number. And one number or
-> another, it does not imply userspace to behave differently. In other words,
-> userspace should not take different actions in case for example -ENOENT
-> or -ENODEV is returned.
+> This looks racy to me. You probably want explicit memory barriers ?
 
-I agree with this analysis.
-
-But for the team_nl_cmd_options_set() case, I would strongly advise
-that you use some error code more descriptive than -EINVAL.  In fact
-the existing -ENOENT I feel is better, because it tells the caller
-what kind of problem there was.
-
-Even if you don't like the fact that -ENOENT is oriented towards file
-existence, it does convey a ton more information than -EINVAL does.
+The conditional is also not formatted correctly.
