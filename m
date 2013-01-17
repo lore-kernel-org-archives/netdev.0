@@ -1,43 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-01-17
-Date: Thu, 17 Jan 2013 14:50:56 -0500 (EST)
-Message-ID: <20130117.145056.60689530330513006.davem@davemloft.net>
-References: <20130117173239.GA2098@tuxdriver.com>
+Subject: Re: [PATCH net-next] bnx2x: fix GRO parameters
+Date: Thu, 17 Jan 2013 14:56:41 -0500 (EST)
+Message-ID: <20130117.145641.1261296691027201093.davem@davemloft.net>
+References: <1358429181-3348-1-git-send-email-yuvalmin@broadcom.com>
+	<1358433181.29723.16.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130117173239.GA2098@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yuvalmin@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com,
+	ariele@broadcom.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52680 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755033Ab3AQT4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 14:56:43 -0500
+In-Reply-To: <1358433181.29723.16.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 17 Jan 2013 12:32:40 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 17 Jan 2013 06:33:01 -0800
 
-> This batch of fixes is intended for 3.8...
+> On Thu, 2013-01-17 at 15:26 +0200, Yuval Mintz wrote:
+>> bnx2x does an internal GRO pass but doesn't provide gso_segs, thus
+>> breaking qdisc_pkt_len_init() in case ingress qdisc is used.
+>> 
+>> We store gso_segs in NAPI_GRO_CB(skb)->count, where tcp_gro_complete()
+>> expects to find the number of aggregated segments.
+>> 
+>> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+>> ---
+>> This is Eric Dumazet's patch with slight semantic modifications.
+>> Eric - Do you want to put your ack or signoff on this patch?
+>> 
 > 
-> Included is a Bluetooth pull.  Gustavo says:
+> Sure, thanks !
 > 
-> "A few fixes for 3.8. Five of them are just new devices ids addition.
-> Apart from the that there is fix to a kernel memory leak to userspace from
-> Anderson Lizardo, two interoperability fixes from Jaganath Kanakkassery and
-> Szymon Janc. And a crash fix by me."
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 > 
-> Along with that, Amitkumar Karwar brings a pair of mwifiex fixes for
-> problems related to handling of band information within the driver.
-> These problems can lead to association failures.
-> 
-> Sujith Manoharan fixes a memory leak in the ath9k_htc code (originally
-> reported by Larry Finger).
-> 
-> The big hero this round is Felix Fietkau.  Felix gives us seven
-> ath9k fixes, including a fix for a race condition, the removal of a
-> double-free, and a fix for a deadlock, among others.
-> 
-> These have all been in linux-next for at least a couple of days,
-> with no complaints so far.  Please let me know if there are problems!
+>> Dave - Please apply this to 'net-next' afterwards.
 
-Pulled, thanks John.
+Applied, thanks.
