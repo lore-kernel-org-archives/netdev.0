@@ -1,78 +1,86 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 17 Jan 2013 03:35:05 -0800
-Message-ID: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 02/14] e1000e: Use standard #defines for
+	PCIe Capability ASPM fields
+Date: Thu, 17 Jan 2013 03:35:07 -0800
+Message-ID: <1358422519-20981-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, gospo@redhat.com,
+	Bjorn Helgaas <bhelgaas@google.com>, sassmann@redhat.com
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:39512 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756446Ab3AQLf3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 06:35:29 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This series contains updates to e1000e and igb.  Most notably is the
-added timestamp support in e1000e and additional software timestamp
-support in igb.  As well as, the added thermal data support and SR-IOV
-configuration support in igb.
+From: Bjorn Helgaas <bhelgaas@google.com>
 
-The following are changes since commit d59577b6ffd313d0ab3be39cb1ab47e29bdc9182:
-  sk-filter: Add ability to lock a socket filter program
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+Use the standard #defines for PCIe Capability ASPM fields.
 
-Alexander Duyck (1):
-  igb: Report L4 Rx hash via skb->l4_rxhash
+Previously we used PCIE_LINK_STATE_L0S and PCIE_LINK_STATE_L1 directly, but
+these are defined for the Linux ASPM interfaces, e.g.,
+pci_disable_link_state(), and only coincidentally match the actual register
+bits.  PCIE_LINK_STATE_CLKPM, also part of that interface, does not match
+the register bit.
 
-Bjorn Helgaas (1):
-  e1000e: Use standard #defines for PCIe Capability ASPM fields
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+CC: e1000-devel@lists.sourceforge.net
+Acked-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-Bruce Allan (3):
-  e1000e: add ethtool .get_eee/.set_eee
-  e1000e: add support for hardware timestamping on some devices
-  e1000e: add support for IEEE-1588 PTP
-
-Carolyn Wyborny (3):
-  igb: Add i2c interface to igb.
-  igb: Add support functions to access thermal data.
-  igb: Enable hwmon data output for thermal sensors via I2C.
-
-Greg Rose (1):
-  igb: Enable SR-IOV configuration via PCI sysfs interface
-
-Matthew Vick (5):
-  igb: Add support for SW timestamping
-  igb: Add timeout for PTP Tx work item
-  igb: Add mechanism for detecting latched hardware Rx timestamp
-  igb: Use in-kernel PTP_EV_PORT #define
-  igb: Free any held skb that should have been timestamped on remove
-
- drivers/net/ethernet/intel/Kconfig             |  14 +
- drivers/net/ethernet/intel/e1000e/82571.c      |   2 +
- drivers/net/ethernet/intel/e1000e/Makefile     |   2 +-
- drivers/net/ethernet/intel/e1000e/defines.h    |  55 +++
- drivers/net/ethernet/intel/e1000e/e1000.h      |  56 ++-
- drivers/net/ethernet/intel/e1000e/ethtool.c    | 171 ++++++-
- drivers/net/ethernet/intel/e1000e/hw.h         |  13 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c    |  26 +-
- drivers/net/ethernet/intel/e1000e/netdev.c     | 487 +++++++++++++++++-
- drivers/net/ethernet/intel/e1000e/ptp.c        | 276 +++++++++++
- drivers/net/ethernet/intel/igb/Makefile        |   2 +-
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 140 ++++++
- drivers/net/ethernet/intel/igb/e1000_82575.h   |  26 +-
- drivers/net/ethernet/intel/igb/e1000_defines.h |  13 +
- drivers/net/ethernet/intel/igb/e1000_hw.h      |  20 +
- drivers/net/ethernet/intel/igb/e1000_regs.h    |  16 +
- drivers/net/ethernet/intel/igb/igb.h           |  46 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c   |  11 +
- drivers/net/ethernet/intel/igb/igb_hwmon.c     | 242 +++++++++
- drivers/net/ethernet/intel/igb/igb_main.c      | 653 +++++++++++++++++++++----
- drivers/net/ethernet/intel/igb/igb_ptp.c       |  65 ++-
- 21 files changed, 2191 insertions(+), 145 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/e1000e/ptp.c
- create mode 100644 drivers/net/ethernet/intel/igb/igb_hwmon.c
-
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 05538e6..bf2c84cf 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5548,14 +5548,21 @@ static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+ #else
+ static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
+ {
++	u16 aspm_ctl = 0;
++
++	if (state & PCIE_LINK_STATE_L0S)
++		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L0S;
++	if (state & PCIE_LINK_STATE_L1)
++		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L1;
++
+ 	/* Both device and parent should have the same ASPM setting.
+ 	 * Disable ASPM in downstream component first and then upstream.
+ 	 */
+-	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, state);
++	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, aspm_ctl);
+ 
+ 	if (pdev->bus->self)
+ 		pcie_capability_clear_word(pdev->bus->self, PCI_EXP_LNKCTL,
+-					   state);
++					   aspm_ctl);
+ }
+ #endif
+ static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
 -- 
 1.7.11.7
+
+
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122712
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
