@@ -1,30 +1,47 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next 04/14] e1000e: add support for IEEE-1588 PTP
-Date: Thu, 17 Jan 2013 07:56:26 -0800
-Message-ID: <20130117075626.40eb1500@nehalam.linuxnetplumber.net>
-References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1358422519-20981-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Stef van Os <stef.van.os@prodrive.nl>
+Subject: [PATCH 1/1] phy/marvell: remove fiber/copper autoselect on 88e1111
+Date: Thu, 17 Jan 2013 16:36:18 +0100
+Message-ID: <1358436978-7504-1-git-send-email-stef.van.os@prodrive.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Richard Cochran <richardcochran@gmail.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:59108 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756737Ab3AQP5y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 10:57:54 -0500
-Received: by mail-pb0-f49.google.com with SMTP id un15so1472767pbc.8
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 07:57:53 -0800 (PST)
-In-Reply-To: <1358422519-20981-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Stef van Os <stef.van.os@prodrive.nl>
+To: <chohnstaedt@innominate.com>, <davem@davemloft.net>,
+	<srinivas.kandagatla@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Jan 2013 03:35:09 -0800
-Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+Remove the code that always enables copper/fiber autoselect,
+ignoring the DIS_FC strapping pin. The default value for this
+register is autoselect on anyway, and if you explicitly disable
+autoselect via strapping you probably really don't want
+autoselect.
 
-> +static struct ptp_clock_info e1000e_ptp_clock_info = {
+Signed-off-by: Stef van Os <stef.van.os@prodrive.nl>
+---
+ drivers/net/phy/marvell.c |    9 ---------
+ 1 files changed, 0 insertions(+), 9 deletions(-)
 
-Should be static const since it is immutable and contains function pointers.
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 5d2a3f2..22dec9c 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -353,15 +353,6 @@ static int m88e1111_config_init(struct phy_device *phydev)
+ 	int err;
+ 	int temp;
+ 
+-	/* Enable Fiber/Copper auto selection */
+-	temp = phy_read(phydev, MII_M1111_PHY_EXT_SR);
+-	temp &= ~MII_M1111_HWCFG_FIBER_COPPER_AUTO;
+-	phy_write(phydev, MII_M1111_PHY_EXT_SR, temp);
+-
+-	temp = phy_read(phydev, MII_BMCR);
+-	temp |= BMCR_RESET;
+-	phy_write(phydev, MII_BMCR, temp);
+-
+ 	if ((phydev->interface == PHY_INTERFACE_MODE_RGMII) ||
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID) ||
+ 	    (phydev->interface == PHY_INTERFACE_MODE_RGMII_RXID) ||
+-- 
+1.7.2.5
