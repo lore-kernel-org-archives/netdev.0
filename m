@@ -1,54 +1,91 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 6/6] net/mlx4_en: Initialize RFS filters lock and list in init_netdev
-Date: Thu, 17 Jan 2013 13:47:21 +0200
-Message-ID: <1358423241-2452-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 2/6] net/mlx4_en: Fix traffic loss under promiscuous mode
+Date: Thu, 17 Jan 2013 13:47:17 +0200
+Message-ID: <1358423241-2452-3-git-send-email-amirv@mellanox.com>
 References: <1358423241-2452-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	Aviad Yehezkel <aviadye@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:41823 "HELO
-	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754976Ab3AQLrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 06:47:36 -0500
+Received: from eu1sys200aog110.obsmtp.com ([207.126.144.129]:54701 "HELO
+	eu1sys200aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755006Ab3AQLrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 06:47:37 -0500
 In-Reply-To: <1358423241-2452-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-filters_lock might have been used while it was re-initialized.
-Moved filters_lock and filters_list initialization to init_netdev instead of
-alloc_resources which is called every time the device is configured.
+From: Aviad Yehezkel <aviadye@mellanox.com>
 
+When port is stopped and flow steering mode is not device managed: promisc QP
+rule wasn't removed from MCG table.
+Added code to remove it in all flow steering modes.
+In addition, promsic rule removal should be in stop port and not in start
+port - moved it accordingly.
+
+Signed-off-by: Aviad Yehezkel <aviadye@mellanox.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   35 +++++++++++++++++------
+ 1 files changed, 26 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 805e242..9c42812 100644
+index b6c645f..bab8cec 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1454,9 +1454,6 @@ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv)
- 	priv->dev->rx_cpu_rmap = alloc_irq_cpu_rmap(priv->rx_ring_num);
- 	if (!priv->dev->rx_cpu_rmap)
- 		goto err;
--
--	INIT_LIST_HEAD(&priv->filters);
--	spin_lock_init(&priv->filters_lock);
- #endif
+@@ -1167,15 +1167,6 @@ int mlx4_en_start_port(struct net_device *dev)
  
- 	return 0;
-@@ -1651,6 +1648,11 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	if (err)
- 		goto out;
+ 	/* Must redo promiscuous mode setup. */
+ 	priv->flags &= ~(MLX4_EN_FLAG_PROMISC | MLX4_EN_FLAG_MC_PROMISC);
+-	if (mdev->dev->caps.steering_mode ==
+-	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
+-		mlx4_flow_steer_promisc_remove(mdev->dev,
+-					       priv->port,
+-					       MLX4_FS_PROMISC_UPLINK);
+-		mlx4_flow_steer_promisc_remove(mdev->dev,
+-					       priv->port,
+-					       MLX4_FS_PROMISC_ALL_MULTI);
+-	}
  
-+#ifdef CONFIG_RFS_ACCEL
-+	INIT_LIST_HEAD(&priv->filters);
-+	spin_lock_init(&priv->filters_lock);
-+#endif
+ 	/* Schedule multicast task to populate multicast list */
+ 	queue_work(mdev->workqueue, &priv->mcast_task);
+@@ -1227,6 +1218,32 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 	/* Set port as not active */
+ 	priv->port_up = false;
+ 
++	/* Promsicuous mode */
++	if (mdev->dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		priv->flags &= ~(MLX4_EN_FLAG_PROMISC |
++				 MLX4_EN_FLAG_MC_PROMISC);
++		mlx4_flow_steer_promisc_remove(mdev->dev,
++					       priv->port,
++					       MLX4_FS_PROMISC_UPLINK);
++		mlx4_flow_steer_promisc_remove(mdev->dev,
++					       priv->port,
++					       MLX4_FS_PROMISC_ALL_MULTI);
++	} else if (priv->flags & MLX4_EN_FLAG_PROMISC) {
++		priv->flags &= ~MLX4_EN_FLAG_PROMISC;
 +
- 	/* Allocate page for receive rings */
- 	err = mlx4_alloc_hwq_res(mdev->dev, &priv->res,
- 				MLX4_EN_PAGE_SIZE, MLX4_EN_PAGE_SIZE);
++		/* Disable promiscouos mode */
++		mlx4_unicast_promisc_remove(mdev->dev, priv->base_qpn,
++					    priv->port);
++
++		/* Disable Multicast promisc */
++		if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
++			mlx4_multicast_promisc_remove(mdev->dev, priv->base_qpn,
++						      priv->port);
++			priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
++		}
++	}
++
+ 	/* Detach All multicasts */
+ 	memset(&mc_list[10], 0xff, ETH_ALEN);
+ 	mc_list[5] = priv->port; /* needed for B0 steering support */
 -- 
 1.7.8.2
