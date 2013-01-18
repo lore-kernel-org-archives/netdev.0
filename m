@@ -1,79 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns identify"
-Date: Thu, 17 Jan 2013 17:27:32 -0800
-Message-ID: <87mww71drv.fsf@xmission.com>
-References: <87a9u4q7k9.fsf@xmission.com>
-	<1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<87a9s772zw.fsf@xmission.com>
-	<1358470823.15692.156.camel@deadeye.wl.decadent.org.uk>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH net-next V6 02/14] bridge: Add vlan filtering infrastructure
+Date: Fri, 18 Jan 2013 02:57:14 +0100
+Message-ID: <CAHXqBFKg6Vp5=dprDYKON2LmshhX+nSPF7KRHiQmOS68PrQq-A@mail.gmail.com>
+References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com> <1358360289-23249-3-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net, shemminger@vyatta.com, mst@redhat.com,
+	shmulik.ladkani@gmail.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47349 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754466Ab3ARB1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 20:27:46 -0500
-In-Reply-To: <1358470823.15692.156.camel@deadeye.wl.decadent.org.uk> (Ben
-	Hutchings's message of "Fri, 18 Jan 2013 01:00:23 +0000")
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:34090 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753637Ab3ARB5g convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 20:57:36 -0500
+Received: by mail-qc0-f176.google.com with SMTP id n41so2066964qco.21
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 17:57:35 -0800 (PST)
+In-Reply-To: <1358360289-23249-3-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
+2013/1/16 Vlad Yasevich <vyasevic@redhat.com>:
+[...]
+> --- /dev/null
+> +++ b/net/bridge/br_vlan.c
+[...]
+> +struct net_port_vlan *nbp_vlan_find(const struct net_port_vlans *v, =
+u16 vid)
+> +{
+> +       struct net_port_vlan *pve;
+> +
+> +       /* Must be done either in rcu critical section or with RTNL h=
+eld */
+> +       WARN_ON_ONCE(!rcu_read_lock_held() && !rtnl_is_locked());
+> +
+> +       list_for_each_entry_rcu(pve, &v->vlan_list, list) {
+> +               if (pve->vid =3D=3D vid)
+> +                       return pve;
+> +       }
+> +
+> +       return NULL;
+> +}
 
-> On Thu, 2013-01-17 at 16:23 -0800, Eric W. Biederman wrote:
->> Ben Hutchings <bhutchings@solarflare.com> writes:
->> 
->> > On Mon, 2012-11-26 at 17:16 -0600, Eric W. Biederman wrote:
-> [...]
->> >> --- a/ip/ipnetns.c
->> >> +++ b/ip/ipnetns.c
-> [...]
->> >> +static int is_pid(const char *str)
->> >> +{
->> >> +	int ch;
->> >> +	for (; (ch = *str); str++) {
->> >> +		if (!isdigit(ch))
->> >
->> > ch must be cast to unsigned char before passing to isdigit().
->> 
->> isdigit is defined to take an int.  A legacy of the implicit casts in
->> the K&R C days.  Casting to unsigned char would be pointless and silly.
-> [...]
->
-> It's not pointless.  This is explained in the very first line of the
-> description in the manual page...
+This looks expensive - it's O(n) with n =3D number of configured VLANs =
+on a port.
+And this is called for every packet. The bridge already has a hash of V=
+LAN
+structures found by br_vlan_find(). You could add a second bitmap there
+(eg. ingres_ports[]) and check port's bit instead of walking the list.
+You would use a bit more memory (64 bytes minus the removed list-head)
+per configured VLAN but save some cycles in hot path.
 
-If it's not pointless it is an implementation bug.  The conversion to of
-char to int happens implicitly whenever you pass a char.  It is
-absolutely broken to have a function that takes a char converted to int
-and reject the automatic conversion of char to int.
-
-I suspect much more strongly that it is a case of poor documentation.
-
-If isdigit can't deal with what I have passed it I will be much more
-interested in writing a patch for isdigit.
-
-That said I just dobule checked with the code below.  Negative character
-values work correctly and don't cause any runtime errors.
-
-It looks like it is time to update the manpage to remove that
-confusing/wrong sentence.
-
-Eric
-
-#include <ctype.h>
-#include <limits.h>
-#include <stdio.h>
-
-int main(int argc, char **argv)
-{
-	char c;
-	for (c = CHAR_MIN; c < CHAR_MAX; c++) {
-		printf("c: %d isdigit: %d\n",
-		       c, isdigit(c));
-	}
-	return 0;
-}
+Best Regards,
+Micha=B3 Miros=B3aw
