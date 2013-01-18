@@ -1,47 +1,79 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [net-next 04/14] e1000e: add support for IEEE-1588 PTP
-Date: Fri, 18 Jan 2013 01:13:30 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1843ABB7F00@ORSMSX102.amr.corp.intel.com>
-References: <1358422519-20981-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1358422519-20981-5-git-send-email-jeffrey.t.kirsher@intel.com>
- <20130117075626.40eb1500@nehalam.linuxnetplumber.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns identify"
+Date: Thu, 17 Jan 2013 17:27:32 -0800
+Message-ID: <87mww71drv.fsf@xmission.com>
+References: <87a9u4q7k9.fsf@xmission.com>
+	<1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
+	<87a9s772zw.fsf@xmission.com>
+	<1358470823.15692.156.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:24289 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753963Ab3ARBNc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 20:13:32 -0500
-In-Reply-To: <20130117075626.40eb1500@nehalam.linuxnetplumber.net>
-Content-Language: en-US
+Received: from out01.mta.xmission.com ([166.70.13.231]:47349 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754466Ab3ARB1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 20:27:46 -0500
+In-Reply-To: <1358470823.15692.156.camel@deadeye.wl.decadent.org.uk> (Ben
+	Hutchings's message of "Fri, 18 Jan 2013 01:00:23 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Stephen Hemminger [mailto:stephen@networkplumber.org]
-> Sent: Thursday, January 17, 2013 7:56 AM
-> To: Kirsher, Jeffrey T
-> Cc: davem@davemloft.net; Allan, Bruce W; netdev@vger.kernel.org;
-> gospo@redhat.com; sassmann@redhat.com; Richard Cochran
-> Subject: Re: [net-next 04/14] e1000e: add support for IEEE-1588 PTP
-> 
-> On Thu, 17 Jan 2013 03:35:09 -0800
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
-> 
-> > +static struct ptp_clock_info e1000e_ptp_clock_info = {
-> 
-> Should be static const since it is immutable and contains function pointers.
+Ben Hutchings <bhutchings@solarflare.com> writes:
 
-Nice catch!  Thanks for the review Stephen.  I'll submit a follow-on patch to change this
-if that is alright with you.  Btw, did you catch that through inspection or did you use a
-static analysis tool?
+> On Thu, 2013-01-17 at 16:23 -0800, Eric W. Biederman wrote:
+>> Ben Hutchings <bhutchings@solarflare.com> writes:
+>> 
+>> > On Mon, 2012-11-26 at 17:16 -0600, Eric W. Biederman wrote:
+> [...]
+>> >> --- a/ip/ipnetns.c
+>> >> +++ b/ip/ipnetns.c
+> [...]
+>> >> +static int is_pid(const char *str)
+>> >> +{
+>> >> +	int ch;
+>> >> +	for (; (ch = *str); str++) {
+>> >> +		if (!isdigit(ch))
+>> >
+>> > ch must be cast to unsigned char before passing to isdigit().
+>> 
+>> isdigit is defined to take an int.  A legacy of the implicit casts in
+>> the K&R C days.  Casting to unsigned char would be pointless and silly.
+> [...]
+>
+> It's not pointless.  This is explained in the very first line of the
+> description in the manual page...
 
-Bruce.
+If it's not pointless it is an implementation bug.  The conversion to of
+char to int happens implicitly whenever you pass a char.  It is
+absolutely broken to have a function that takes a char converted to int
+and reject the automatic conversion of char to int.
+
+I suspect much more strongly that it is a case of poor documentation.
+
+If isdigit can't deal with what I have passed it I will be much more
+interested in writing a patch for isdigit.
+
+That said I just dobule checked with the code below.  Negative character
+values work correctly and don't cause any runtime errors.
+
+It looks like it is time to update the manpage to remove that
+confusing/wrong sentence.
+
+Eric
+
+#include <ctype.h>
+#include <limits.h>
+#include <stdio.h>
+
+int main(int argc, char **argv)
+{
+	char c;
+	for (c = CHAR_MIN; c < CHAR_MAX; c++) {
+		printf("c: %d isdigit: %d\n",
+		       c, isdigit(c));
+	}
+	return 0;
+}
