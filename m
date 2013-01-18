@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/12] igb: Add support for SW timestamping
-Date: Fri, 18 Jan 2013 07:04:43 -0800
-Message-ID: <1358521487-28610-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/12] igb: Add timeout for PTP Tx work item
+Date: Fri, 18 Jan 2013 07:04:44 -0800
+Message-ID: <1358521487-28610-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -9,18 +9,21 @@ Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35352 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:2759 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751411Ab3ARPE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 10:04:56 -0500
+	id S1756206Ab3ARPE5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 10:04:57 -0500
 In-Reply-To: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Matthew Vick <matthew.vick@intel.com>
 
-Enable SW timestamping for situations where the user may prefer it over HW
-timestamping or there may not be HW timestamping.
+When transmitting a packet that must return a Tx timestamp, a work item
+gets scheduled to poll for the Tx timestamp being completed in hardware.
+Add a timeout on this work item of 15 seconds from when the driver gets the
+skb, after which it will stop polling. Report via stats and system log if
+this occurs.
 
 Cc: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Matthew Vick <matthew.vick@intel.com>
@@ -28,48 +31,79 @@ Acked-by: Jacob Keller <Jacob.e.keller@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 9 +++++++++
- drivers/net/ethernet/intel/igb/igb_main.c    | 2 ++
- 2 files changed, 11 insertions(+)
+ drivers/net/ethernet/intel/igb/igb.h         |  2 ++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c |  1 +
+ drivers/net/ethernet/intel/igb/igb_main.c    |  1 +
+ drivers/net/ethernet/intel/igb/igb_ptp.c     | 10 ++++++++++
+ 4 files changed, 14 insertions(+)
 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 8372c00..8c6f59d 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -414,9 +414,11 @@ struct igb_adapter {
+ 	struct delayed_work ptp_overflow_work;
+ 	struct work_struct ptp_tx_work;
+ 	struct sk_buff *ptp_tx_skb;
++	unsigned long ptp_tx_start;
+ 	spinlock_t tmreg_lock;
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
++	u32 tx_hwtstamp_timeouts;
+ 
+ 	char fw_version[32];
+ #ifdef CONFIG_IGB_HWMON
 diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index bfe9208..6180303 100644
+index 6180303..6f2579c 100644
 --- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -2272,12 +2272,21 @@ static int igb_get_ts_info(struct net_device *dev,
- 	struct igb_adapter *adapter = netdev_priv(dev);
+@@ -92,6 +92,7 @@ static const struct igb_stats igb_gstrings_stats[] = {
+ 	IGB_STAT("os2bmc_tx_by_bmc", stats.b2ospc),
+ 	IGB_STAT("os2bmc_tx_by_host", stats.o2bspc),
+ 	IGB_STAT("os2bmc_rx_by_host", stats.b2ogprc),
++	IGB_STAT("tx_hwtstamp_timeouts", tx_hwtstamp_timeouts),
+ };
  
- 	switch (adapter->hw.mac.type) {
-+	case e1000_82575:
-+		info->so_timestamping =
-+			SOF_TIMESTAMPING_TX_SOFTWARE |
-+			SOF_TIMESTAMPING_RX_SOFTWARE |
-+			SOF_TIMESTAMPING_SOFTWARE;
-+		return 0;
- 	case e1000_82576:
- 	case e1000_82580:
- 	case e1000_i350:
- 	case e1000_i210:
- 	case e1000_i211:
- 		info->so_timestamping =
-+			SOF_TIMESTAMPING_TX_SOFTWARE |
-+			SOF_TIMESTAMPING_RX_SOFTWARE |
-+			SOF_TIMESTAMPING_SOFTWARE |
- 			SOF_TIMESTAMPING_TX_HARDWARE |
- 			SOF_TIMESTAMPING_RX_HARDWARE |
- 			SOF_TIMESTAMPING_RAW_HARDWARE;
+ #define IGB_NETDEV_STAT(_net_stat) { \
 diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index a9cb84a..9dd3da5 100644
+index 9dd3da5..9540a81 100644
 --- a/drivers/net/ethernet/intel/igb/igb_main.c
 +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4610,6 +4610,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
- 	first->bytecount = skb->len;
- 	first->gso_segs = 1;
+@@ -4618,6 +4618,7 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
+ 		tx_flags |= IGB_TX_FLAGS_TSTAMP;
  
-+	skb_tx_timestamp(skb);
+ 		adapter->ptp_tx_skb = skb_get(skb);
++		adapter->ptp_tx_start = jiffies;
+ 		if (adapter->hw.mac.type == e1000_82576)
+ 			schedule_work(&adapter->ptp_tx_work);
+ 	}
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index ab34297..086af46 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -70,6 +70,7 @@
+  */
+ 
+ #define IGB_SYSTIM_OVERFLOW_PERIOD	(HZ * 60 * 9)
++#define IGB_PTP_TX_TIMEOUT		(HZ * 15)
+ #define INCPERIOD_82576			(1 << E1000_TIMINCA_16NS_SHIFT)
+ #define INCVALUE_82576_MASK		((1 << E1000_TIMINCA_16NS_SHIFT) - 1)
+ #define INCVALUE_82576			(16 << IGB_82576_TSYNC_SHIFT)
+@@ -396,6 +397,15 @@ void igb_ptp_tx_work(struct work_struct *work)
+ 	if (!adapter->ptp_tx_skb)
+ 		return;
+ 
++	if (time_is_before_jiffies(adapter->ptp_tx_start +
++				   IGB_PTP_TX_TIMEOUT)) {
++		dev_kfree_skb_any(adapter->ptp_tx_skb);
++		adapter->ptp_tx_skb = NULL;
++		adapter->tx_hwtstamp_timeouts++;
++		dev_warn(&adapter->pdev->dev, "clearing Tx timestamp hang");
++		return;
++	}
 +
- 	if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
- 		     !(adapter->ptp_tx_skb))) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 	tsynctxctl = rd32(E1000_TSYNCTXCTL);
+ 	if (tsynctxctl & E1000_TSYNCTXCTL_VALID)
+ 		igb_ptp_tx_hwtstamp(adapter);
 -- 
 1.7.11.7
