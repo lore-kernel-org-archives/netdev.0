@@ -1,54 +1,60 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
-Date: Fri, 18 Jan 2013 22:17:03 +0100
-Message-ID: <871udiur74.fsf@nemi.mork.no>
-References: <1358519147-10073-1-git-send-email-bjorn@mork.no>
-	<22276933.xSGyXJfOvq@linux-5eaq.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <22276933.xSGyXJfOvq-7ztolUikljGernLeA6q8OA@public.gmane.org> (Oliver Neukum's message of
-	"Fri, 18 Jan 2013 20:11:25 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] mwl8k: don't return zero on failure paths in mwl8k_probe[_hw]()
+Date: Sat, 19 Jan 2013 01:24:01 +0400
+Message-ID: <1358544241-13032-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Lennert Buytenhek <buytenh@wantstofly.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.ispras.ru ([83.149.199.43]:35128 "EHLO mail.ispras.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755257Ab3ARVYb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 16:24:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
-> On Friday 18 January 2013 15:25:47 Bj=C3=B8rn Mork wrote:
->> Adding support for the MBIM mode in some Sierra Wireless devices.
->>=20
->> Some Sierra Wireless firmwares support CDC MBIM but have no CDC
->> Union funtional descriptor. This violates the MBIM specification,
->> but we can easily work around the bug by looking at the Interface
->> Association Descriptor instead.  This is most likely what
->> Windows uses too, which explains how the firmware bug has gone
->> unnoticed until now.
->
-> Should we do this for everything CDC?
+If pci_iomap() fails in mwl8k_probe(), it breaks off initialization,
+deallocates all resources, but returns zero.
+There is a similar issue when priv->rxd_ops is NULL in mwl8k_probe_hw().
 
-I don't know.  There are workarounds for missing CDC Union descriptors
-on RNDIS devices in cdc_ether.c, but I have no idea if those devices in
-provide an IAD instead.  I don't think this bug is a very common.
+The patch adds proper error code return values.
 
-MBIM devices are likely to have IADs because Microsoft let you skip som=
-e
-of the more hairy vendor specific control message parts if you provide
-one:
-http://msdn.microsoft.com/en-us/library/windows/hardware/mbim-based-mob=
-ile-broadband-requirements-for-windows.aspx
+Found by Linux Driver Verification project (linuxtesting.org).
 
-But they should of course provide the CDC Union functional descriptor a=
-s
-well, even if that is "just" a USB-IF requirement and not a Windows
-requirement ;-)
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+---
+ drivers/net/wireless/mwl8k.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index f221b95..018f442 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -5462,6 +5462,7 @@ static int mwl8k_probe_hw(struct ieee80211_hw *hw)
+ 		if (priv->rxd_ops == NULL) {
+ 			wiphy_err(hw->wiphy,
+ 				  "Driver does not have AP firmware image support for this hardware\n");
++			rc = -ENOENT;
+ 			goto err_stop_firmware;
+ 		}
+ 	} else {
+@@ -5807,6 +5808,7 @@ static int mwl8k_probe(struct pci_dev *pdev,
+ 	priv->sram = pci_iomap(pdev, 0, 0x10000);
+ 	if (priv->sram == NULL) {
+ 		wiphy_err(hw->wiphy, "Cannot map device SRAM\n");
++		rc = -EIO;
+ 		goto err_iounmap;
+ 	}
+ 
+@@ -5819,6 +5821,7 @@ static int mwl8k_probe(struct pci_dev *pdev,
+ 		priv->regs = pci_iomap(pdev, 2, 0x10000);
+ 		if (priv->regs == NULL) {
+ 			wiphy_err(hw->wiphy, "Cannot map device registers\n");
++			rc = -EIO;
+ 			goto err_iounmap;
+ 		}
+ 	}
+-- 
+1.7.9.5
