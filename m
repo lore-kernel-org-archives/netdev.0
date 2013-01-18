@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: remove unneeded check to pskb_may_pull in
- ipip6_rcv
-Date: Fri, 18 Jan 2013 14:44:40 -0500 (EST)
-Message-ID: <20130118.144440.265154252143594884.davem@davemloft.net>
-References: <20130118191816.GA4795@order.stressinduktion.org>
+Subject: Re: IPsec AH use of ahash
+Date: Fri, 18 Jan 2013 14:50:05 -0500 (EST)
+Message-ID: <20130118.145005.156366015893075594.davem@davemloft.net>
+References: <20130116062104.GA18940@secunet.com>
+	<396283550.90353.1358537733820.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38957 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905Ab3ARTol (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:44:41 -0500
-In-Reply-To: <20130118191816.GA4795@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: tstdenis@elliptictech.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <396283550.90353.1358537733820.JavaMail.root@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 18 Jan 2013 20:18:17 +0100
+From: Tom St Denis <tstdenis@elliptictech.com>
+Date: Fri, 18 Jan 2013 14:35:33 -0500 (EST)
 
-> This is already checked by the caller (tunnel64_rcv) and brings ipip6_rcv
-> in line with ipip_rcv.
-> 
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Any "maintainers" going to reply to this at all?  
 
-Applied to net-next, thanks.
+What do you mean?  There was a reply, and the reply if someone
+so skilled finds this facility useful they can feel free to
+submit an implementation.
+
+You can't force people to work on something they have no interest
+in, especially when it's effectively a new feature.
