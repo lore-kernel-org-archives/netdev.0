@@ -1,127 +1,78 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: Wake on LAN for USB ethernet?
-Date: Fri, 18 Jan 2013 10:53:38 +0200 (EET)
-Message-ID: <alpine.DEB.2.02.1301181047290.3637@bender.nucleusys.com>
-References: <20130118001214.GA21137@xanatos> <CACVXFVOtpzOFAGRJ74XP1NFD1ah_au9e9gqHFiBLuv1jAwZ6cQ@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns identify"
+Date: Fri, 18 Jan 2013 09:41:00 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7114@saturn3.aculab.com>
+References: <87a9u4q7k9.fsf@xmission.com><1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com><87a9s772zw.fsf@xmission.com><1358470823.15692.156.camel@deadeye.wl.decadent.org.uk> <87mww71drv.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Sarah Sharp <sarah.a.sharp@linux.intel.com>,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Greg KH <greg@kroah.com>, Oliver Neukum <oliver@neukum.org>
-To: Ming Lei <ming.lei@canonical.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
+	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([78.83.248.164]:55058 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750759Ab3ARJcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 04:32:16 -0500
-In-Reply-To: <CACVXFVOtpzOFAGRJ74XP1NFD1ah_au9e9gqHFiBLuv1jAwZ6cQ@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:42269 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751116Ab3ARJnE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 04:43:04 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06506-03 for <netdev@vger.kernel.org>;
+ Fri, 18 Jan 2013 09:43:01 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <87mww71drv.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code in the driver is based on the specs from ADMTek (later, 
-Infineon).  Since i never suspend my machines this feature has not been 
-tested by me.
+> >> >> +		if (!isdigit(ch))
+> >> >
+> >> > ch must be cast to unsigned char before passing to isdigit().
+> >>
+> >> isdigit is defined to take an int.  A legacy of the implicit casts in
+> >> the K&R C days.  Casting to unsigned char would be pointless and silly.
+> > [...]
+> >
+> > It's not pointless.  This is explained in the very first line of the
+> > description in the manual page...
+> 
+> If it's not pointless it is an implementation bug.  The conversion to of
+> char to int happens implicitly whenever you pass a char.  It is
+> absolutely broken to have a function that takes a char converted to int
+> and reject the automatic conversion of char to int.
+> 
+> I suspect much more strongly that it is a case of poor documentation.
 
-However, if the proposed patch is the right thing to do i'd be happy to 
-see it applied.
+All of the isxxxx() functions have an input domain of EOF and all the
+values of 'char' cast to unsigned (I've forgotten the exact words).
+Passing in a value that is outside the domain has an undefined effect
+and is very likely to generate a core dump, even if it doesn't
+dump, the returned value is likely to be wrong.
 
+This input value matches the values returned by the stdio getc()
+functions and getopt().
 
-cheers,
-Petko
+> If isdigit can't deal with what I have passed it I will be much more
+> interested in writing a patch for isdigit.
 
+The traditional/expected implementation of the isxxx() functions is
+a macro expansion that indexes an array and checks for some bits.
+gcc even has a warning about indexing arrays with 'char' that,
+I suspect, is there to detect incorrect uses of the isxxx() functions.
 
-On Fri, 18 Jan 2013, Ming Lei wrote:
+> That said I just dobule checked with the code below.  Negative character
+> values work correctly and don't cause any runtime errors.
 
-> On Fri, Jan 18, 2013 at 8:12 AM, Sarah Sharp
-> <sarah.a.sharp@linux.intel.com> wrote:
->> Is it reasonable to expect that Wake on LAN works if the target box is
->> connected via a USB-to-ethernet adapter?
->
-> It is surely reasonable, and seems SMSC75xx or SMSC95xx can
-> bring system out of suspend.
->
->>
->> One of my validation testers has a USB ethernet device that successfully
->> wakes up Windows from hibernate (S4), but it doesn't work under Linux.
->> Wake on LAN works fine with the hardwired ethernet port.  USB remote
->> wakeup from S3/S4 works fine with a USB keyboard.
->>
->> So I need to figure out if it's an issue with the kernel, their test
->> suite, or the USB host controller.
->>
->>
->> I've experimented with USB ethernet devices with the pegasus driver with
->> no success.  Here's what I've tried:
->>
->> 1. Connect the USB to ethernet adapter to the rootport under the xHCI
->> (USB 3.0) host controller. (lsusb for the two devices I've tried is
->> attached)
->>
->> 2. Enable remote wakeup for all devices (including the PCI host) by
->> echoing 'enabled' to power/wakeup. (script for that attached)
->>
->> 3. Use ethtool to turn on WOL:
->>    sudo ethtool -s ethX wol g
->
-> Could you check here if the attribute 'power/wakeup' of the USB device
-> has been enabled?  If so, and step 6 still can't wakeup system, the
-> problem may be in the set_wol stetting on hardware of the driver since
-> your USB wakeup works.
->
-> Also, the wakeup enabling is missed in the pegasus_set_wol(), and
-> the below patch is needed:
->
-> diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-> index a0b5807..d5304f1 100644
-> --- a/drivers/net/usb/pegasus.c
-> +++ b/drivers/net/usb/pegasus.c
-> @@ -1096,6 +1096,7 @@ pegasus_set_wol(struct net_device *dev, struct
-> ethtool_wolinfo *wol)
-> {
-> 	pegasus_t	*pegasus = netdev_priv(dev);
-> 	u8		reg78 = 0x04;
-> +	int		ret;
->
-> 	if (wol->wolopts & ~WOL_SUPPORTED)
-> 		return -EINVAL;
-> @@ -1110,7 +1111,11 @@ pegasus_set_wol(struct net_device *dev, struct
-> ethtool_wolinfo *wol)
-> 	else
-> 		pegasus->eth_regs[0] &= ~0x10;
-> 	pegasus->wolopts = wol->wolopts;
-> -	return set_register(pegasus, WakeupControl, reg78);
-> +
-> +	ret = set_register(pegasus, WakeupControl, reg78);
-> +	if (!ret)
-> +		ret = device_set_wakeup_enable(&pegasus->usb->dev, 1);
-> +	return ret;
-> }
->
-> static inline void pegasus_reset_wol(struct net_device *dev)
->
->
->>
->> 4. Find the MAC address by running ifconfig and looking at the HWaddr
->> field.
->>
->> 5. Verify with wireshark that I can see the Magic WOL packet when I run
->> this command on another machine:
->>    sudo etherwake -i ethX macaddr
->>
->> 6. Suspend or hibernate the target machine, and then send the Magic WOL
->> packet from a second machine.
->>
->>
->> Am I missing any steps in testing this?  Does WOL just not work for USB
->> ethernet devices under Linux?  Perhaps just the pegasus driver doesn't
->> support WOL?
->
-> Probably the set_wol of pegasus is broken if wakeup has been enabled
-> on the USB device.
->
-> Thanks,
-> --
-> Ming Lei
->
+The fact that one specific piece of code appears to work doesn't mean
+that all such code will work - it won't.
+
+In any case the functions have to differentiate between EOF and
+the 256 valid values of 'char'. EOF (more or less) has to be -1
+so the char bit pattern 0xff must not become -1 (it passes
+isprint() in at least some locales).
+
+I've had to do a trawl through a large amount of user code fixing
+the buggy calls to the isxxxx() functions. Interestingly I didn't
+actually find any code that could pass EOF as an argument!
+
+	David
