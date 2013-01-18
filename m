@@ -1,234 +1,226 @@
-From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
-Subject: Wake on LAN for USB ethernet?
-Date: Thu, 17 Jan 2013 16:12:14 -0800
-Message-ID: <20130118001214.GA21137@xanatos>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns identify"
+Date: Thu, 17 Jan 2013 16:23:47 -0800
+Message-ID: <87a9s772zw.fsf@xmission.com>
+References: <87a9u4q7k9.fsf@xmission.com>
+	<1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="zhXaljGHf11kAtnf"
-Cc: Alan Stern <stern@rowland.harvard.edu>, Greg KH <greg@kroah.com>,
-	Oliver Neukum <oliver@neukum.org>
-To: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Petko Manolov <petkan@users.sourceforge.net>
+Content-Type: text/plain
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39320 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752823Ab3ARAMP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 19:12:15 -0500
-Content-Disposition: inline
+Received: from out01.mta.xmission.com ([166.70.13.231]:39066 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790Ab3ARAYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 19:24:05 -0500
+In-Reply-To: <1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com> (Ben
+	Hutchings's message of "Tue, 27 Nov 2012 18:00:39 +0000")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ben Hutchings <bhutchings@solarflare.com> writes:
 
---zhXaljGHf11kAtnf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> On Mon, 2012-11-26 at 17:16 -0600, Eric W. Biederman wrote:
+>> Add command that go between network namespace names and process
+>> identifiers.  The code builds and runs agains older kernels but
+>> only works on Linux 3.8+ kernels where I have fixed stat to work
+>> properly.
+>> 
+>> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+>> ---
+>> 
+>> I don't know if this is too soon to send this patch to iproute as the
+>> kernel code that fixes stat is currently sitting in my for-next branch
+>> of:
+>> git://git.kernel.org/pub/scm/linux/kernel/git/ebiederm/user-namespace.git
+>> 
+>> and has not hit Linus's tree yet.  Still the code runs and is harmless
+>> on older kernels so it should be harmless whatever happens with it.
+>> 
+>>  ip/ipnetns.c        |  141 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>>  man/man8/ip-netns.8 |    5 ++-
+>>  2 files changed, 145 insertions(+), 1 deletions(-)
+>> 
+>> diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+>> index e41a598..c55fe3a 100644
+>> --- a/ip/ipnetns.c
+>> +++ b/ip/ipnetns.c
+>> @@ -13,6 +13,7 @@
+>>  #include <dirent.h>
+>>  #include <errno.h>
+>>  #include <unistd.h>
+>> +#include <ctype.h>
+>>  
+>>  #include "utils.h"
+>>  #include "ip_common.h"
+>> @@ -48,6 +49,8 @@ static void usage(void)
+>>  	fprintf(stderr, "Usage: ip netns list\n");
+>>  	fprintf(stderr, "       ip netns add NAME\n");
+>>  	fprintf(stderr, "       ip netns delete NAME\n");
+>> +	fprintf(stderr, "       ip netns identify PID\n");
+>> +	fprintf(stderr, "       ip netns pids NAME\n");
+>>  	fprintf(stderr, "       ip netns exec NAME cmd ...\n");
+>>  	fprintf(stderr, "       ip netns monitor\n");
+>>  	exit(-1);
+>> @@ -171,6 +174,138 @@ static int netns_exec(int argc, char **argv)
+>>  	exit(-1);
+>>  }
+>>  
+>> +static int is_pid(const char *str)
+>> +{
+>> +	int ch;
+>> +	for (; (ch = *str); str++) {
+>> +		if (!isdigit(ch))
+>
+> ch must be cast to unsigned char before passing to isdigit().
 
-Is it reasonable to expect that Wake on LAN works if the target box is
-connected via a USB-to-ethernet adapter?
+isdigit is defined to take an int.  A legacy of the implicit casts in
+the K&R C days.  Casting to unsigned char would be pointless and silly.
 
-One of my validation testers has a USB ethernet device that successfully
-wakes up Windows from hibernate (S4), but it doesn't work under Linux.
-Wake on LAN works fine with the hardwired ethernet port.  USB remote
-wakeup from S3/S4 works fine with a USB keyboard.
+>> +			return 0;
+>> +	}
+>> +	return 1;
+>> +}
+>> +
+>> +static int netns_pids(int argc, char **argv)
+>> +{
+>> +	const char *name;
+>> +	char net_path[MAXPATHLEN];
+>> +	int netns;
+>> +	struct stat netst;
+>> +	DIR *dir;
+>> +	struct dirent *entry;
+>> +
+>> +	if (argc < 1) {
+>> +		fprintf(stderr, "No netns name specified\n");
+>> +		return -1;
+>> +	}
+>> +	if (argc > 1) {
+>> +		fprintf(stderr, "extra arguments specified\n");
+>> +		return -1;
+>> +	}
+>
+> These, and many other return statements in this file which set the
+> process exit code, should return 1 (general failure) or 2 (user error)
+> rather than -1 (likely to be interpreted as command not found).
 
-So I need to figure out if it's an issue with the kernel, their test
-suite, or the USB host controller.
+Good point.  
 
+>> +	name = argv[0];
+>> +	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
+>
+> No check for truncation?
 
-I've experimented with USB ethernet devices with the pegasus driver with
-no success.  Here's what I've tried:
+Nope.  snprintf guarantees returning a '\0' terminated string, so there
+is no point in supplying a bad string to get the program to crash or act
+in odd ways.  It might be more friendly to say:  "Hey silly that string
+you passed me was too long to use for anyting, don't do that".  But I
+don't think it is worth the code complexity to maintain the extra error
+message, for something that in my experience people just don't do.
 
-1. Connect the USB to ethernet adapter to the rootport under the xHCI
-(USB 3.0) host controller. (lsusb for the two devices I've tried is
-attached)
+>> +	netns = open(net_path, O_RDONLY);
+>
+> This file descriptor is leaked, though that probably doesn't really
+> matter.
 
-2. Enable remote wakeup for all devices (including the PCI host) by
-echoing 'enabled' to power/wakeup. (script for that attached)
+Good point.  Probably worth fixing in case someone figures out how
+to use these commands in batch mode.
 
-3. Use ethtool to turn on WOL:
-   sudo ethtool -s ethX wol g
+Thanks fixed.
 
-4. Find the MAC address by running ifconfig and looking at the HWaddr
-field.
+> [...]
+>> +static int netns_identify(int argc, char **argv)
+>> +{
+>> +	const char *pidstr;
+>> +	char net_path[MAXPATHLEN];
+>> +	int netns;
+>> +	struct stat netst;
+>> +	DIR *dir;
+>> +	struct dirent *entry;
+>> +
+>> +	if (argc < 1) {
+>> +		fprintf(stderr, "No pid specified\n");
+>> +		return -1;
+>> +	}
+>> +	if (argc > 1) {
+>> +		fprintf(stderr, "extra arguments specified\n");
+>> +		return -1;
+>> +	}
+>> +	pidstr = argv[0];
+>> +
+>> +	if (!is_pid(pidstr)) {
+>> +		fprintf(stderr, "Specified string '%s' is not a pid\n",
+>> +			pidstr);
+>> +		return -1;
+>> +	}
+>> +
+>> +	snprintf(net_path, sizeof(net_path), "/proc/%s/ns/net", pidstr);
+>> +	netns = open(net_path, O_RDONLY);
+>> +	if (netns < 0) {
+>> +		fprintf(stderr, "Cannot open network namespace: %s\n",
+>> +			strerror(errno));
+>> +		return -1;
+>> +	}
+>> +	if (fstat(netns, &netst) < 0) {
+>> +		fprintf(stderr, "Stat of netns failed: %s\n",
+>> +			strerror(errno));
+>> +		return -1;
+>> +	}
+>> +	dir = opendir(NETNS_RUN_DIR);
+>> +	if (!dir)
+>> +		return 0;
+>
+> Shouldn't this be treated as an error?  Or, if you want it to succeed
+> when the kernel does not have netns functionality, then treat it as an
+> error if !dir && errno != ENOENT.
 
-5. Verify with wireshark that I can see the Magic WOL packet when I run
-this command on another machine:
-   sudo etherwake -i ethX macaddr
+What I want is to treat as a missing directory like an empty directory
+so we don't error in the case where we simply have not named any network
+namespaces yet.
 
-6. Suspend or hibernate the target machine, and then send the Magic WOL
-packet from a second machine.
+But yes treating it an error when errno != ENOENT makes sense.
 
+And is fixed in my next version.
 
-Am I missing any steps in testing this?  Does WOL just not work for USB
-ethernet devices under Linux?  Perhaps just the pegasus driver doesn't
-support WOL?
+>> +	while((entry = readdir(dir))) {
+>> +		char name_path[MAXPATHLEN];
+>> +		struct stat st;
+>> +
+>> +		if (strcmp(entry->d_name, ".") == 0)
+>> +			continue;
+>> +		if (strcmp(entry->d_name, "..") == 0)
+>> +			continue;
+>> +
+>> +		snprintf(name_path, sizeof(name_path), "%s/%s",	NETNS_RUN_DIR,
+>> +			entry->d_name);
+>> +
+>> +		if (stat(name_path, &st) != 0)
+>> +			continue;
+>> +
+>> +		if ((st.st_dev == netst.st_dev) &&
+>> +		    (st.st_ino == netst.st_ino)) {
+>> +			printf("%s\n", entry->d_name);
+>> +		}
+>> +	}
+>> +	closedir(dir);
+>> +	return 0;
+>> +	
+>> +}
+> [...]
+>
+> It's a shame there isn't a more efficient way to do these lookups.
 
-Note that I can't currently test USB remote wakeup for any devices under
-the EHCI host controller on my Lenovo x230.  For some reason, whenever I
-enable remote wakeup for the rate matching hub under the EHCI host, the
-system will immediately resume when I attempt to suspend it.  Don't know
-why yet.
+Well there is no index but this just takes a single pass through
+either all of the processes or all of the network namespaces.  That
+is a simple O(N) algorithm and really isn't inefficient.
 
-Sarah Sharp
+These two new commands really are debugging aids to make it easier
+to match up processes and network namespaces.  Although at some point
+a more generic version of this functionality probably needs to make it's
+way into lsof and fuser as well.
 
---zhXaljGHf11kAtnf
-Content-Type: application/x-sh
-Content-Disposition: attachment; filename="enable-usb-remote-wakeup.sh"
-Content-Transfer-Encoding: quoted-printable
+I will send my updated version after I have had some sleep and
+can double check everything with fresh eyes.
 
-#!/bin/bash=0ADEV_PATH=3D"/sys"`udevadm info --name=3D/dev/bus/usb/$1/$2 --=
-query=3Dpath`=0A=0Awhile true; do=0A	if [[ "`basename $DEV_PATH`" =3D=3D pc=
-i* ]]; then=0A		break;=0A	fi=0A	echo Enabling remote wakeup for $DEV_PATH=
-=0A	echo enabled > $DEV_PATH/power/wakeup=0A	DEV_PATH=3D`dirname $DEV_PATH`=
-=0Adone=0A
---zhXaljGHf11kAtnf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="belkin-pegasus-lsusb.txt"
-
-
-Bus 003 Device 013: ID 050d:0121 Belkin Components F5D5050 100Mbps Ethernet
-Device Descriptor:
-  bLength                18
-  bDescriptorType         1
-  bcdUSB               1.10
-  bDeviceClass            0 (Defined at Interface level)
-  bDeviceSubClass         0 
-  bDeviceProtocol         0 
-  bMaxPacketSize0         8
-  idVendor           0x050d Belkin Components
-  idProduct          0x0121 F5D5050 100Mbps Ethernet
-  bcdDevice            1.01
-  iManufacturer           1 ADMtek
-  iProduct                2 USB To LAN Converter
-  iSerial                 3 0001
-  bNumConfigurations      1
-  Configuration Descriptor:
-    bLength                 9
-    bDescriptorType         2
-    wTotalLength           39
-    bNumInterfaces          1
-    bConfigurationValue     1
-    iConfiguration          0 
-    bmAttributes         0xa0
-      (Bus Powered)
-      Remote Wakeup
-    MaxPower              160mA
-    Interface Descriptor:
-      bLength                 9
-      bDescriptorType         4
-      bInterfaceNumber        0
-      bAlternateSetting       0
-      bNumEndpoints           3
-      bInterfaceClass         0 (Defined at Interface level)
-      bInterfaceSubClass      0 
-      bInterfaceProtocol      0 
-      iInterface              0 
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x81  EP 1 IN
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x02  EP 2 OUT
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x83  EP 3 IN
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0008  1x 8 bytes
-        bInterval               1
-Device Status:     0x0000
-  (Bus Powered)
-
---zhXaljGHf11kAtnf
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="smc-pegasus-lsusb.txt"
-
-
-Bus 003 Device 012: ID 07a6:8513 ADMtek, Inc. AN8513 Ethernet
-Device Descriptor:
-  bLength                18
-  bDescriptorType         1
-  bcdUSB               1.10
-  bDeviceClass          255 Vendor Specific Class
-  bDeviceSubClass         0 
-  bDeviceProtocol       255 
-  bMaxPacketSize0         8
-  idVendor           0x07a6 ADMtek, Inc.
-  idProduct          0x8513 AN8513 Ethernet
-  bcdDevice            2.01
-  iManufacturer           1 USB
-  iProduct                2 SMC2208USB/ETH
-  iSerial                 3 33D0
-  bNumConfigurations      1
-  Configuration Descriptor:
-    bLength                 9
-    bDescriptorType         2
-    wTotalLength           39
-    bNumInterfaces          1
-    bConfigurationValue     1
-    iConfiguration          0 
-    bmAttributes         0xa0
-      (Bus Powered)
-      Remote Wakeup
-    MaxPower              160mA
-    Interface Descriptor:
-      bLength                 9
-      bDescriptorType         4
-      bInterfaceNumber        0
-      bAlternateSetting       0
-      bNumEndpoints           3
-      bInterfaceClass       255 Vendor Specific Class
-      bInterfaceSubClass      1 
-      bInterfaceProtocol    255 
-      iInterface              0 
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x81  EP 1 IN
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x02  EP 2 OUT
-        bmAttributes            2
-          Transfer Type            Bulk
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0040  1x 64 bytes
-        bInterval               0
-      Endpoint Descriptor:
-        bLength                 7
-        bDescriptorType         5
-        bEndpointAddress     0x83  EP 3 IN
-        bmAttributes            3
-          Transfer Type            Interrupt
-          Synch Type               None
-          Usage Type               Data
-        wMaxPacketSize     0x0008  1x 8 bytes
-        bInterval               1
-Device Status:     0x0002
-  (Bus Powered)
-  Remote Wakeup Enabled
-
---zhXaljGHf11kAtnf--
+Eric
