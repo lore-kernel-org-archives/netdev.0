@@ -1,64 +1,78 @@
-From: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
-Subject: Re: IPV4 TCP connection reset using iperf
-Date: Fri, 18 Jan 2013 09:43:16 +0530
-Message-ID: <CAAvRe=g23ZcZn2dHgQxbC+WmQPRkg40UwcqvcujX-FgneXt7sQ@mail.gmail.com>
-References: <CAAvRe=izMJWEFDcZYEoJCY2Em7NQKco4_6x1L7t4h2XSJf6_Sg@mail.gmail.com>
-	<50EC59D8.9000701@hp.com>
+From: "Carlos O'Donell" <carlos@systemhalted.org>
+Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
+Date: Thu, 17 Jan 2013 23:13:56 -0500
+Message-ID: <CAE2sS1iaysD8m6vh9egssxAasdmUEhg5JikiBj-sgomOU2dMGA@mail.gmail.com>
+References: <50F6B761.8070106@linux-ipv6.org>
+	<1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
+	<201301161205.04502.vapier@gentoo.org>
+	<20130116.135744.697469565804508454.davem@davemloft.net>
+	<50F75EA7.4060309@systemhalted.org>
+	<50F76E87.6020606@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:57651 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752798Ab3ARENR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 23:13:17 -0500
-Received: by mail-ie0-f178.google.com with SMTP id c12so5735761ieb.23
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 20:13:16 -0800 (PST)
-In-Reply-To: <50EC59D8.9000701@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, vapier@gentoo.org,
+	libc-alpha@sourceware.org, bhutchings@solarflare.com,
+	amwang@redhat.com, tmb@mageia.org, eblake@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	libvirt-list@redhat.com, tgraf@suug.ch, schwab@suse.de
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50F76E87.6020606@linux-ipv6.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-I was looking into the driver code and found that the problem was with
-merging the code and had messed up with skb_put in the receive path. I
-have corrected that and everything works fine.
-Thanks for the help.
+On 01/16/2013 10:22 PM, YOSHIFUJI Hideaki wrote:
+> Carlos O'Donell wrote:
+>> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+>> index f79c372..a2b16a5 100644
+>> --- a/include/uapi/linux/in6.h
+>> +++ b/include/uapi/linux/in6.h
+>> @@ -23,6 +23,13 @@
+>>
+>>  #include <linux/types.h>
+>>
+>> +/* If a glibc-based userspace has already included in.h, then we will not
+>> + * define in6_addr (nor the defines), sockaddr_in6, or ipv6_mreq. The
+>> + * ABI used by the kernel and by glibc match exactly. Neither the kernel
+>> + * nor glibc should break this ABI without coordination.
+>> + */
+>> +#ifndef _NETINET_IN_H
+>> +
+>>  /*
+>>   *	IPv6 address structure
+>>   */
+>
+> This should be
+> #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
 
-Regards,
-Madhvapathi Sriram
+Correct. If it's non-glibc we want these defines to be used
+even if a non-glibc defined _NETINET_IN_H.
 
-On Tue, Jan 8, 2013 at 11:09 PM, Rick Jones <rick.jones2@hp.com> wrote:
-> On 01/08/2013 06:41 AM, Madhvapathi Sriram wrote:
->>
->> Hi,
->>
->> I have recently migrated to kernel version 3.6.10 from 3.2.1. I was
->> running iperf to routinely measure TCP throughput and I have been
->> facing problems eversince. I am using a wireless interface.
->>
->> wireless client: iperf -s -i 1 -w 1024K
->> wireless server: iperf -c 192.168.1.1 -i -1 -w 1024 -t 600
->>
->> While, the connection is maintained for sometime and the perf logs
->> keep going. Randomly, the connection breaks with the server side
->> resetting the connection. The tcp dump on the client shows RST sent by
->> the server. Switching back to 3.2.1 works. This issue starts from
->> kernel version 3.5 onnwards.
->>
->> I have tried to probe along some points to take a look at the air
->> logs, tcpdump on either sides but to no clue - everything seems normal
->> like, the tcp window values, very less/negligible retransmissions and
->> so on. The RST is set abruptly and randomly (no definite time - may
->> happen randomly).
->>
->> I am looking for some suggestions or pointers towards analyzing the issue.
+>> @@ -30,12 +37,20 @@
+>>  struct in6_addr {
+>>  	union {
+>>  		__u8		u6_addr8[16];
+>> +#if !defined(__GLIBC__) \
+>> +    || (defined(__GLIBC__) && (defined(__USE_MISC) || defined(__USE_GNU))) \
+>> +    || defined(__KERNEL__)
+>>  		__be16		u6_addr16[8];
+>>  		__be32		u6_addr32[4];
+>> +#endif
+>>  	} in6_u;
+>> +#if !defined(__GLIBC__) \
+>> +    || (defined(__GLIBC__) && (defined(__USE_MISC) || defined(__USE_GNU))) \
+>> +    || defined(__KERNEL__)
+>>  #define s6_addr			in6_u.u6_addr8
+>>  #define s6_addr16		in6_u.u6_addr16
+>>  #define s6_addr32		in6_u.u6_addr32
+>> +#endif
+>>  };
 >
->
-> I cannot imagine that iperf bulk transfer would look all that much different
-> from netperf bulk transfer, but I suppose you could see if a netperf
-> TCP_STREAM test with similar configuration settings encounters the same RST
-> issues.  Or, for that matter, an equally long-lived FTP or scp transfer.
->
-> rick jones
->
+> 2nd "if" be after s6_addr?
+
+Correct. We want to unconditinally define s6_addr in this case.
+
+I've fixed both of those cases in the next version of the patch. Thanks.
+
+Cheers,
+Carlos.
