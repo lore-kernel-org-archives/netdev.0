@@ -1,233 +1,79 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: RE: [PATCH net-next 1/3] net: stmmac: add gmac autoneg set for SGMII,
- TBI, and RTBI
-Date: Fri, 18 Jan 2013 09:41:58 -0800
-Message-ID: <01e201cdf5a3$1f3e1890$5dba49b0$@samsung.com>
-References: <00c001cdf369$9b25bdf0$d17139d0$@samsung.com>
- <50F6568D.3060703@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: surprising memory request
+Date: Fri, 18 Jan 2013 09:46:30 -0800
+Message-ID: <1358531190.11051.402.camel@edumazet-glaptop>
+References: <20130118085818.147220.FMU5901@air.gr8dns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	kgene.kim@samsung.com, cpgs@samsung.com
-To: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-reply-to: <50F6568D.3060703@st.com>
-Content-language: en-zw
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>
+To: Dirk Hohndel <dirk@hohndel.org>, Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:37766 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751542Ab3ARRqc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 12:46:32 -0500
+Received: by mail-pb0-f52.google.com with SMTP id ro2so2159077pbb.11
+        for <netdev@vger.kernel.org>; Fri, 18 Jan 2013 09:46:32 -0800 (PST)
+In-Reply-To: <20130118085818.147220.FMU5901@air.gr8dns.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Peppe,
+On Fri, 2013-01-18 at 08:58 -0800, Dirk Hohndel wrote:
+> Running openconnect on a very recent 3.8 (a few commits before Linus cut
+> RC4) I get this allocation failure. I'm unclear why we would need 128
+> contiguous pages here...
+> 
+> /D
+> 
+> [66015.673818] openconnect: page allocation failure: order:7, mode:0x10c0d0
+> [66015.673827] Pid: 3292, comm: openconnect Tainted: G        W    3.8.0-rc3-00352-gdfdebc2 #94
+> [66015.673830] Call Trace:
+> [66015.673841]  [<ffffffff810e9c29>] warn_alloc_failed+0xe9/0x140
+> [66015.673849]  [<ffffffff81093967>] ? on_each_cpu_mask+0x87/0xa0
+> [66015.673854]  [<ffffffff810ec349>] __alloc_pages_nodemask+0x579/0x720
+> [66015.673859]  [<ffffffff810ec507>] __get_free_pages+0x17/0x50
+> [66015.673866]  [<ffffffff81123979>] kmalloc_order_trace+0x39/0xf0
+> [66015.673874]  [<ffffffff81666178>] ? __hw_addr_add_ex+0x78/0xc0
+> [66015.673879]  [<ffffffff811260d8>] __kmalloc+0xc8/0x180
+> [66015.673883]  [<ffffffff81666616>] ? dev_addr_init+0x66/0x90
+> [66015.673889]  [<ffffffff81660985>] alloc_netdev_mqs+0x145/0x300
+> [66015.673896]  [<ffffffff81513830>] ? tun_net_fix_features+0x20/0x20
+> [66015.673902]  [<ffffffff815168aa>] __tun_chr_ioctl+0xd0a/0xec0
+> [66015.673908]  [<ffffffff81516a93>] tun_chr_ioctl+0x13/0x20
+> [66015.673913]  [<ffffffff8113b197>] do_vfs_ioctl+0x97/0x530
+> [66015.673917]  [<ffffffff811256f3>] ? kmem_cache_free+0x33/0x170
+> [66015.673923]  [<ffffffff81134896>] ? final_putname+0x26/0x50
+> [66015.673927]  [<ffffffff8113b6c1>] sys_ioctl+0x91/0xb0
+> [66015.673935]  [<ffffffff8180e3d2>] system_call_fastpath+0x16/0x1b
+> [66015.673938] Mem-Info:
 
-On 1/15/2013 11:28 PM, Giuseppe CAVALLARO write:
-> On 1/15/2013 10:45 PM, Byungho An wrote:
-> >
-> > This patch adds gmac autoneg set function for SGMII, TBI, or RTBI
-> > interface. In case of PHY's autoneg is set, gmac's autoneg enable bit
-> > should set. After checking phy's autoneg if phydev's autoneg is '1'
-> > gmac's ANE bit set for those interface.
-> 
-> Sorry I've some doubts about these patches.
-> 
-> Firstly if the MAC is able to manage RGMII/SGMII etc this should be
-verified
-> by looking at the HW cap register: i.e. PCS bit.
-> 
->    (I have no HW that support this so I cannot do any tests).
->
-I agree with you and actually I tried to use a PCS bit previously.
-(PCS bit indicates TBI, SGMII, or RTBI PHY interface)
-But I was confused which one I should use among PSC, ACTPHYIF or phydev to
-recognize the interface.
-At this time, I want to add auto-negotiation enable because sgmii interface
-is not working without ANE using PCS bit(in H/W feature register).
+Thats because Jason thought that tun device had to have an insane number
+of queues to get good performance.
 
+#define MAX_TAP_QUEUES 1024
 
-> In case of this feature is actually supported then the driver could manage
-> everything bypassing the MDIO.
-> IMO, we could not need to call the stmmac_phy_init and we should not use
-> the PHYLIB.
-> I mean if we have the PCS module we could have a minimal support to get
-> link status, restart ANE etc w/o using at all the PHYLIB (so w/o touching
-the
-> PHY regs via the MDIO/MDC).
-> 
-Yes. For example SGMII/RGMII/SMII Status Register is useful to know status
-so we can use this register to manage status of SGMII/RGMII/SMII
+Thats crazy if your machine has say 8 cpus.
 
+And Jason didnt care to adapt the memory allocations done in
+alloc_netdev_mqs(), in order to switch to vmalloc() when kmalloc()
+fails.
 
->    It could also be useful to complete the support with the RGMII... no
->    extra effort should be needed while adding SGMII if you look at the
->    core registers.
->    If you add the RGMII on some platforms we could guarantee to manage
->    the fix_mac_speed (see stmmac doc).
-> 
-Unfortunately I have only the SGMII.
+commit c8d68e6be1c3b242f1c598595830890b65cea64a
+Author: Jason Wang <jasowang@redhat.com>
+Date:   Wed Oct 31 19:46:00 2012 +0000
 
-> Looking at the other your patches, the ethtool support is not completed. I
-> expected to restart ANE, get/set link property etc.
-> 
-What is link property? It means link up, speed and duplex mode.
-Are there anything else?
-I think get link property is already working using ethtool.
-In case of SGMII/RGMII/SMII, I think we can use SGMII/RGMII/SMII Status
-Register for link status.
-
-I have a question regarding it.
-In the mainline code, there is hardcode interrupt mask in
-dwmac1000_core_init function.
-When I try to get interrupt for link change, interrupt is not occurred
-because of this mask.
-Can we modify that? 
-
-
-> Also pay attention to properly treat EEE. Maybe, as first stage we should
-> disable the feature in this case. We will see it later.
-> The question is that we could not be able to use some extra features that
-> currently need to dialog more with the PHY device. I mean what we actually
-> do by using PHYLIB.
-OK. As I understood, using gmac register instead of phydev or phylib...
-I agree. In my opinion gmac and phy communicate using mdio each other, after
-that gmac can get updated status.
-
-> 
-> >
-> > Signed-off-by: Byungho An <bh74.an@samsung.com>
-> > ---
-> >   drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
-> >   drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11
-> +++++++++++
-> >   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
-> >   3 files changed, 21 insertions(+)
-> >
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
-> > b/drivers/net/ethernet/stmicro/stmmac/common.h
-> > index 186d148..72ba769 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/common.h
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-> > @@ -344,6 +344,7 @@ struct stmmac_ops {
-> >   	void (*reset_eee_mode) (void __iomem *ioaddr);
-> >   	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
-> >   	void (*set_eee_pls) (void __iomem *ioaddr, int link);
-> > +	void (*set_autoneg) (void __iomem *ioaddr);
-> >   };
-> >
-> >   struct mac_link {
-> > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> > b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> > index bfe0226..a0737b39 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-> > @@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void
-> __iomem
-> > *ioaddr, int ls, int tw)
-> >   	writel(value, ioaddr + LPI_TIMER_CTRL);
-> >   }
-> >
-> > +static void dwmac1000_set_autoneg(void __iomem *ioaddr) {
-> > +	u32 value;
-> > +
-> > +	value = readl(ioaddr + GMAC_AN_CTRL);
-> > +	value |= 0x1000;
-> 
-> pls use define instead of raw values ... see below.
-> 
-> > +	writel(value, ioaddr + GMAC_AN_CTRL); }
-> > +
-> > +
-> >   static const struct stmmac_ops dwmac1000_ops = {
-> >   	.core_init = dwmac1000_core_init,
-> >   	.rx_ipc = dwmac1000_rx_ipc_enable,
-> > @@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
-> >   	.reset_eee_mode =  dwmac1000_reset_eee_mode,
-> >   	.set_eee_timer =  dwmac1000_set_eee_timer,
-> >   	.set_eee_pls =  dwmac1000_set_eee_pls,
-> > +	.set_autoneg =  dwmac1000_set_autoneg,
-> >   };
-> >
-> >   struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr) diff
-> > --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > index f07c061..3e28934 100644
-> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-> > @@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
-> >   {
-> >   	struct stmmac_priv *priv = netdev_priv(dev);
-> >   	int ret;
-> > +	int interface = priv->plat->interface;
-> >
-> >   	clk_prepare_enable(priv->stmmac_clk);
-> >
-> > @@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
-> >   	/* Initialize the MAC Core */
-> >   	priv->hw->mac->core_init(priv->ioaddr);
-> >
-> > +	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
-> > +	if (interface == PHY_INTERFACE_MODE_SGMII ||
-> > +	    interface == PHY_INTERFACE_MODE_TBI ||
-> > +	    interface == PHY_INTERFACE_MODE_RTBI) {
-> > +		if (priv->phydev->autoneg)
-> > +			priv->hw->mac->set_autoneg(priv->ioaddr);
-> > +	}
-> 
-> we could use the following instead of priv->hw->mac->set_autoneg:
-> 
-> static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart) {
->      int value = GMAC_CTRL_ANE_EN;
-> 
->      if (restart)
->          value |= GMAC_CTRL_ANE_RESTART;
-> 
->      writel(value, ioaddr +GMAC_AN_CTRL); }
-> 
-> where we should defines all the missing macros for the registers 48, 49
-...
-Actually I tested this code for restart autonegotiation, but even though I
-changed link (1Gb -> 100Mb) phy's link is not changed.
-For more detail, first time 1Gb I changed the link during system working and
-then check speed using ethtool/mii-tool.
-I think phy also should do autonegotiation (I'm not sure this is just for
-the SGMII). Without phy auto negotiation  gmac is not working.
-
-OK, I'll try to check functionality and make macros.
-Anyway as a first step, I want to complete to the code regarding ANE (ctrl
-function, macros, ethtool support for link status etc..)
-I'll send new code before making patch soon.
-
-> 
-> /* RGMI/SGMII defines */
-> #define GMAC_CTRL_ANE_SGMII_RAL (1 << 18)
-> #define GMAC_CTRL_ANE_EN       (1 << 12)
-> #define GMAC_CTRL_ANE_RESTART  (1 << 9)
-> 
-> The handler should store the link status that will be used to pass the
-info to
-> the ethtool for example. We need to manage speed and duplex etc.
-> 
-> What happens if you run "ethtool eth0" command?
-> Or if you run mii-tool?
-> I expect to get the right speed and duplex at least.
-So far, I can get right data speed and duplex and autoneg.
-
-> 
-> Concerning the stmmac_set_pauseparam I'm also not sure you are doing the
-> right thing. Note that you are not restarting the ANE at all ... (this is
-what the
-> phy_start_aneg does). If set the bit 12 then you are enabling the ane. To
-> restart it, you need to set the bit 9 in the reg 48.
-> 
-> I can support you on all the points above. Let me know.
-> 
-> BR,
-> peppe
->
-OK, thank you and happy new year.
-Byungho An
- 
-> > +
-> >   	/* Request the IRQ lines */
-> >   	ret = request_irq(dev->irq, stmmac_interrupt,
-> >   			 IRQF_SHARED, dev->name, dev);
-> >
+    tuntap: multiqueue support
+    
+    This patch converts tun/tap to a multiqueue devices and expose the multiqueue
+    queues as multiple file descriptors to userspace. Internally, each tun_file were
+    abstracted as a queue, and an array of pointers to tun_file structurs were
+    stored in tun_structure device, so multiple tun_files were allowed to be
+    attached to the device as multiple queues.
+    
+    When choosing txq, we first try to identify a flow through its rxhash, if it
+    does not have such one, we could try recorded rxq and then use them to choose
+    the transmit queue. This policy may be changed in the future.
+    
+    Signed-off-by: Jason Wang <jasowang@redhat.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
