@@ -1,69 +1,46 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] enic: change sprintf() to snprintf()
-Date: Fri, 18 Jan 2013 10:46:18 +0300
-Message-ID: <20130118074618.GC31793@elgon.mountain>
+From: Amos Kong <kongjianjun@gmail.com>
+Subject: [PATCH v2] net: fix wrong length of mac address
+Date: Fri, 18 Jan 2013 15:51:54 +0800
+Message-ID: <1358495514-18047-1-git-send-email-kongjianjun@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Roopa Prabhu <roprabhu@cisco.com>, Neel Patel <neepatel@cisco.com>,
-	Nishank Trivedi <nistrive@cisco.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Christian Benvenuti <benve@cisco.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:43042 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772Ab3ARHqc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 02:46:32 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Amos Kong <kongjianjun@gmail.com>,
+ devel@linuxdriverproject.org
+To: davem@davemloft.net, kys@microsoft.com, haiyangz@microsoft.com
+Return-path: <devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-These are copying data into 16 char arrays.  They all specify that the
-first string can't be more than 11 characters but once you add on the
-"-rx-" and the NUL character there isn't space for the %d.
+Typo, it should be ETH_ALEN.
 
-The first string is probably never going to be 11 characters, but if it
-is then let's truncate the string instead of corrupting memory.
+Signed-off-by: Amos Kong <kongjianjun@gmail.com>
+---
+v2: update commitlog, fix cc list
+---
+ drivers/net/hyperv/netvsc_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index ebccebf..ec1a233 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1490,7 +1490,8 @@ static int enic_request_intr(struct enic *enic)
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index f825a62..8264f0e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -349,7 +349,7 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+ 	struct net_device_context *ndevctx = netdev_priv(ndev);
+ 	struct hv_device *hdev =  ndevctx->device_ctx;
+ 	struct sockaddr *addr = p;
+-	char save_adr[14];
++	char save_adr[ETH_ALEN];
+ 	unsigned char save_aatype;
+ 	int err;
  
- 		for (i = 0; i < enic->rq_count; i++) {
- 			intr = enic_msix_rq_intr(enic, i);
--			sprintf(enic->msix[intr].devname,
-+			snprintf(enic->msix[intr].devname,
-+				sizeof(enic->msix[intr].devname),
- 				"%.11s-rx-%d", netdev->name, i);
- 			enic->msix[intr].isr = enic_isr_msix_rq;
- 			enic->msix[intr].devid = &enic->napi[i];
-@@ -1498,20 +1499,23 @@ static int enic_request_intr(struct enic *enic)
- 
- 		for (i = 0; i < enic->wq_count; i++) {
- 			intr = enic_msix_wq_intr(enic, i);
--			sprintf(enic->msix[intr].devname,
-+			snprintf(enic->msix[intr].devname,
-+				sizeof(enic->msix[intr].devname),
- 				"%.11s-tx-%d", netdev->name, i);
- 			enic->msix[intr].isr = enic_isr_msix_wq;
- 			enic->msix[intr].devid = enic;
- 		}
- 
- 		intr = enic_msix_err_intr(enic);
--		sprintf(enic->msix[intr].devname,
-+		snprintf(enic->msix[intr].devname,
-+			sizeof(enic->msix[intr].devname),
- 			"%.11s-err", netdev->name);
- 		enic->msix[intr].isr = enic_isr_msix_err;
- 		enic->msix[intr].devid = enic;
- 
- 		intr = enic_msix_notify_intr(enic);
--		sprintf(enic->msix[intr].devname,
-+		snprintf(enic->msix[intr].devname,
-+			sizeof(enic->msix[intr].devname),
- 			"%.11s-notify", netdev->name);
- 		enic->msix[intr].isr = enic_isr_msix_notify;
- 		enic->msix[intr].devid = enic;
+-- 
+1.7.11.7
