@@ -1,86 +1,654 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/12] e1000e: Use standard #defines for
-	PCIe Capability ASPM fields
-Date: Fri, 18 Jan 2013 07:04:37 -0800
-Message-ID: <1358521487-28610-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/12] igb: Enable hwmon data output for thermal sensors via I2C.
+Date: Fri, 18 Jan 2013 07:04:42 -0800
+Message-ID: <1358521487-28610-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, gospo@redhat.com,
-	Bjorn Helgaas <bhelgaas@google.com>, sassmann@redhat.com
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:34661 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756199Ab3ARPE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 10:04:56 -0500
 In-Reply-To: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bjorn Helgaas <bhelgaas@google.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Use the standard #defines for PCIe Capability ASPM fields.
+Some of our adapters have internal sensors that report thermal data.  This
+patch enables reporting of that data via sysfs.
 
-Previously we used PCIE_LINK_STATE_L0S and PCIE_LINK_STATE_L1 directly, but
-these are defined for the Linux ASPM interfaces, e.g.,
-pci_disable_link_state(), and only coincidentally match the actual register
-bits.  PCIE_LINK_STATE_CLKPM, also part of that interface, does not match
-the register bit.
-
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-CC: e1000-devel@lists.sourceforge.net
-Acked-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/Kconfig           |  11 ++
+ drivers/net/ethernet/intel/igb/Makefile      |   2 +-
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 137 +++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_82575.h |   2 +
+ drivers/net/ethernet/intel/igb/e1000_hw.h    |   4 +
+ drivers/net/ethernet/intel/igb/igb.h         |  29 ++++
+ drivers/net/ethernet/intel/igb/igb_hwmon.c   | 242 +++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/igb_main.c    |  49 +++++-
+ 8 files changed, 469 insertions(+), 7 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/igb/igb_hwmon.c
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 05538e6..bf2c84cf 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -5548,14 +5548,21 @@ static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
- #else
- static void __e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
- {
-+	u16 aspm_ctl = 0;
-+
-+	if (state & PCIE_LINK_STATE_L0S)
-+		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L0S;
-+	if (state & PCIE_LINK_STATE_L1)
-+		aspm_ctl |= PCI_EXP_LNKCTL_ASPM_L1;
-+
- 	/* Both device and parent should have the same ASPM setting.
- 	 * Disable ASPM in downstream component first and then upstream.
- 	 */
--	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, state);
-+	pcie_capability_clear_word(pdev, PCI_EXP_LNKCTL, aspm_ctl);
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index e8912f1..21353f0 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -114,6 +114,17 @@ config IGB
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called igb.
  
- 	if (pdev->bus->self)
- 		pcie_capability_clear_word(pdev->bus->self, PCI_EXP_LNKCTL,
--					   state);
-+					   aspm_ctl);
++config IGB_HWMON
++	bool "Intel(R) PCI-Express Gigabit adapters HWMON support"
++	default y
++	depends on IGB && HWMON && !(IGB=y && HWMON=m)
++	---help---
++	  Say Y if you want to expose thermal sensor data on Intel devices.
++
++	  Some of our devices contain thermal sensors, both external and internal.
++	  This data is available via the hwmon sysfs interface and exposes
++	  the onboard sensors.
++
+ config IGB_DCA
+ 	bool "Direct Cache Access (DCA) Support"
+ 	default y
+diff --git a/drivers/net/ethernet/intel/igb/Makefile b/drivers/net/ethernet/intel/igb/Makefile
+index 624476c..f9d37c8 100644
+--- a/drivers/net/ethernet/intel/igb/Makefile
++++ b/drivers/net/ethernet/intel/igb/Makefile
+@@ -34,4 +34,4 @@ obj-$(CONFIG_IGB) += igb.o
+ 
+ igb-objs := igb_main.o igb_ethtool.o e1000_82575.o \
+ 	    e1000_mac.o e1000_nvm.o e1000_phy.o e1000_mbx.o \
+-	    e1000_i210.o igb_ptp.o
++	    e1000_i210.o igb_ptp.o igb_hwmon.o
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index 51e3f4f..b6ec782 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -2303,12 +2303,149 @@ out:
+ 	return ret_val;
  }
+ 
++static const u8 e1000_emc_temp_data[4] = {
++	E1000_EMC_INTERNAL_DATA,
++	E1000_EMC_DIODE1_DATA,
++	E1000_EMC_DIODE2_DATA,
++	E1000_EMC_DIODE3_DATA
++};
++static const u8 e1000_emc_therm_limit[4] = {
++	E1000_EMC_INTERNAL_THERM_LIMIT,
++	E1000_EMC_DIODE1_THERM_LIMIT,
++	E1000_EMC_DIODE2_THERM_LIMIT,
++	E1000_EMC_DIODE3_THERM_LIMIT
++};
++
++/* igb_get_thermal_sensor_data_generic - Gathers thermal sensor data
++ *  @hw: pointer to hardware structure
++ *
++ *  Updates the temperatures in mac.thermal_sensor_data
++ */
++s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw)
++{
++	s32 status = E1000_SUCCESS;
++	u16 ets_offset;
++	u16 ets_cfg;
++	u16 ets_sensor;
++	u8  num_sensors;
++	u8  sensor_index;
++	u8  sensor_location;
++	u8  i;
++	struct e1000_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
++
++	if ((hw->mac.type != e1000_i350) || (hw->bus.func != 0))
++		return E1000_NOT_IMPLEMENTED;
++
++	data->sensor[0].temp = (rd32(E1000_THMJT) & 0xFF);
++
++	/* Return the internal sensor only if ETS is unsupported */
++	hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_offset);
++	if ((ets_offset == 0x0000) || (ets_offset == 0xFFFF))
++		return status;
++
++	hw->nvm.ops.read(hw, ets_offset, 1, &ets_cfg);
++	if (((ets_cfg & NVM_ETS_TYPE_MASK) >> NVM_ETS_TYPE_SHIFT)
++	    != NVM_ETS_TYPE_EMC)
++		return E1000_NOT_IMPLEMENTED;
++
++	num_sensors = (ets_cfg & NVM_ETS_NUM_SENSORS_MASK);
++	if (num_sensors > E1000_MAX_SENSORS)
++		num_sensors = E1000_MAX_SENSORS;
++
++	for (i = 1; i < num_sensors; i++) {
++		hw->nvm.ops.read(hw, (ets_offset + i), 1, &ets_sensor);
++		sensor_index = ((ets_sensor & NVM_ETS_DATA_INDEX_MASK) >>
++				NVM_ETS_DATA_INDEX_SHIFT);
++		sensor_location = ((ets_sensor & NVM_ETS_DATA_LOC_MASK) >>
++				   NVM_ETS_DATA_LOC_SHIFT);
++
++		if (sensor_location != 0)
++			hw->phy.ops.read_i2c_byte(hw,
++					e1000_emc_temp_data[sensor_index],
++					E1000_I2C_THERMAL_SENSOR_ADDR,
++					&data->sensor[i].temp);
++	}
++	return status;
++}
++
++/* igb_init_thermal_sensor_thresh_generic - Sets thermal sensor thresholds
++ *  @hw: pointer to hardware structure
++ *
++ *  Sets the thermal sensor thresholds according to the NVM map
++ *  and save off the threshold and location values into mac.thermal_sensor_data
++ */
++s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *hw)
++{
++	s32 status = E1000_SUCCESS;
++	u16 ets_offset;
++	u16 ets_cfg;
++	u16 ets_sensor;
++	u8  low_thresh_delta;
++	u8  num_sensors;
++	u8  sensor_index;
++	u8  sensor_location;
++	u8  therm_limit;
++	u8  i;
++	struct e1000_thermal_sensor_data *data = &hw->mac.thermal_sensor_data;
++
++	if ((hw->mac.type != e1000_i350) || (hw->bus.func != 0))
++		return E1000_NOT_IMPLEMENTED;
++
++	memset(data, 0, sizeof(struct e1000_thermal_sensor_data));
++
++	data->sensor[0].location = 0x1;
++	data->sensor[0].caution_thresh =
++		(rd32(E1000_THHIGHTC) & 0xFF);
++	data->sensor[0].max_op_thresh =
++		(rd32(E1000_THLOWTC) & 0xFF);
++
++	/* Return the internal sensor only if ETS is unsupported */
++	hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_offset);
++	if ((ets_offset == 0x0000) || (ets_offset == 0xFFFF))
++		return status;
++
++	hw->nvm.ops.read(hw, ets_offset, 1, &ets_cfg);
++	if (((ets_cfg & NVM_ETS_TYPE_MASK) >> NVM_ETS_TYPE_SHIFT)
++	    != NVM_ETS_TYPE_EMC)
++		return E1000_NOT_IMPLEMENTED;
++
++	low_thresh_delta = ((ets_cfg & NVM_ETS_LTHRES_DELTA_MASK) >>
++			    NVM_ETS_LTHRES_DELTA_SHIFT);
++	num_sensors = (ets_cfg & NVM_ETS_NUM_SENSORS_MASK);
++
++	for (i = 1; i <= num_sensors; i++) {
++		hw->nvm.ops.read(hw, (ets_offset + i), 1, &ets_sensor);
++		sensor_index = ((ets_sensor & NVM_ETS_DATA_INDEX_MASK) >>
++				NVM_ETS_DATA_INDEX_SHIFT);
++		sensor_location = ((ets_sensor & NVM_ETS_DATA_LOC_MASK) >>
++				   NVM_ETS_DATA_LOC_SHIFT);
++		therm_limit = ets_sensor & NVM_ETS_DATA_HTHRESH_MASK;
++
++		hw->phy.ops.write_i2c_byte(hw,
++			e1000_emc_therm_limit[sensor_index],
++			E1000_I2C_THERMAL_SENSOR_ADDR,
++			therm_limit);
++
++		if ((i < E1000_MAX_SENSORS) && (sensor_location != 0)) {
++			data->sensor[i].location = sensor_location;
++			data->sensor[i].caution_thresh = therm_limit;
++			data->sensor[i].max_op_thresh = therm_limit -
++							low_thresh_delta;
++		}
++	}
++	return status;
++}
++
+ static struct e1000_mac_operations e1000_mac_ops_82575 = {
+ 	.init_hw              = igb_init_hw_82575,
+ 	.check_for_link       = igb_check_for_link_82575,
+ 	.rar_set              = igb_rar_set,
+ 	.read_mac_addr        = igb_read_mac_addr_82575,
+ 	.get_speed_and_duplex = igb_get_speed_and_duplex_copper,
++#ifdef CONFIG_IGB_HWMON
++	.get_thermal_sensor_data = igb_get_thermal_sensor_data_generic,
++	.init_thermal_sensor_thresh = igb_init_thermal_sensor_thresh_generic,
++#endif
+ };
+ 
+ static struct e1000_phy_operations e1000_phy_ops_82575 = {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
+index caf6abf..444f6f5 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.h
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
+@@ -264,6 +264,8 @@ void igb_vmdq_set_loopback_pf(struct e1000_hw *, bool);
+ void igb_vmdq_set_replication_pf(struct e1000_hw *, bool);
+ u16 igb_rxpbs_adjust_82580(u32 data);
+ s32 igb_set_eee_i350(struct e1000_hw *);
++s32 igb_init_thermal_sensor_thresh_generic(struct e1000_hw *);
++s32 igb_get_thermal_sensor_data_generic(struct e1000_hw *hw);
+ 
+ #define E1000_I2C_THERMAL_SENSOR_ADDR	0xF8
+ #define E1000_EMC_INTERNAL_DATA		0x00
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 837a274..2c9b6f4 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -325,6 +325,10 @@ struct e1000_mac_operations {
+ 	s32  (*get_speed_and_duplex)(struct e1000_hw *, u16 *, u16 *);
+ 	s32  (*acquire_swfw_sync)(struct e1000_hw *, u16);
+ 	void (*release_swfw_sync)(struct e1000_hw *, u16);
++#ifdef CONFIG_IGB_HWMON
++	s32 (*get_thermal_sensor_data)(struct e1000_hw *);
++	s32 (*init_thermal_sensor_thresh)(struct e1000_hw *);
++#endif
+ 
+ };
+ 
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 9f1af1b..8372c00 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -308,6 +308,27 @@ struct igb_i2c_client_list {
+ 	struct igb_i2c_client_list *next;
+ };
+ 
++#ifdef CONFIG_IGB_HWMON
++
++#define IGB_HWMON_TYPE_LOC	0
++#define IGB_HWMON_TYPE_TEMP	1
++#define IGB_HWMON_TYPE_CAUTION	2
++#define IGB_HWMON_TYPE_MAX	3
++
++struct hwmon_attr {
++	struct device_attribute dev_attr;
++	struct e1000_hw *hw;
++	struct e1000_thermal_diode_data *sensor;
++	char name[12];
++	};
++
++struct hwmon_buff {
++	struct device *device;
++	struct hwmon_attr *hwmon_list;
++	unsigned int n_hwmon;
++	};
++#endif
++
+ /* board specific private data structure */
+ struct igb_adapter {
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+@@ -398,6 +419,10 @@ struct igb_adapter {
+ 	struct timecounter tc;
+ 
+ 	char fw_version[32];
++#ifdef CONFIG_IGB_HWMON
++	struct hwmon_buff igb_hwmon_buff;
++	bool ets;
++#endif
+ 	struct i2c_algo_bit_data i2c_algo;
+ 	struct i2c_adapter i2c_adap;
+ 	struct igb_i2c_client_list *i2c_clients;
+@@ -476,6 +501,10 @@ static inline void igb_ptp_rx_hwtstamp(struct igb_q_vector *q_vector,
+ 
+ extern int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
+ 				  struct ifreq *ifr, int cmd);
++#ifdef CONFIG_IGB_HWMON
++extern void igb_sysfs_exit(struct igb_adapter *adapter);
++extern int igb_sysfs_init(struct igb_adapter *adapter);
++#endif
+ static inline s32 igb_reset_phy(struct e1000_hw *hw)
+ {
+ 	if (hw->phy.ops.reset)
+diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
+new file mode 100644
+index 0000000..106bd7c
+--- /dev/null
++++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
+@@ -0,0 +1,242 @@
++/*******************************************************************************
++
++  Intel(R) Gigabit Ethernet Linux driver
++  Copyright(c) 2007-2012 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#include "igb.h"
++#include "e1000_82575.h"
++#include "e1000_hw.h"
++
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/sysfs.h>
++#include <linux/kobject.h>
++#include <linux/device.h>
++#include <linux/netdevice.h>
++#include <linux/hwmon.h>
++#include <linux/pci.h>
++
++#ifdef CONFIG_IGB_HWMON
++/* hwmon callback functions */
++static ssize_t igb_hwmon_show_location(struct device *dev,
++					 struct device_attribute *attr,
++					 char *buf)
++{
++	struct hwmon_attr *igb_attr = container_of(attr, struct hwmon_attr,
++						     dev_attr);
++	return sprintf(buf, "loc%u\n",
++		       igb_attr->sensor->location);
++}
++
++static ssize_t igb_hwmon_show_temp(struct device *dev,
++				     struct device_attribute *attr,
++				     char *buf)
++{
++	struct hwmon_attr *igb_attr = container_of(attr, struct hwmon_attr,
++						     dev_attr);
++	unsigned int value;
++
++	/* reset the temp field */
++	igb_attr->hw->mac.ops.get_thermal_sensor_data(igb_attr->hw);
++
++	value = igb_attr->sensor->temp;
++
++	/* display millidegree */
++	value *= 1000;
++
++	return sprintf(buf, "%u\n", value);
++}
++
++static ssize_t igb_hwmon_show_cautionthresh(struct device *dev,
++				     struct device_attribute *attr,
++				     char *buf)
++{
++	struct hwmon_attr *igb_attr = container_of(attr, struct hwmon_attr,
++						     dev_attr);
++	unsigned int value = igb_attr->sensor->caution_thresh;
++
++	/* display millidegree */
++	value *= 1000;
++
++	return sprintf(buf, "%u\n", value);
++}
++
++static ssize_t igb_hwmon_show_maxopthresh(struct device *dev,
++				     struct device_attribute *attr,
++				     char *buf)
++{
++	struct hwmon_attr *igb_attr = container_of(attr, struct hwmon_attr,
++						     dev_attr);
++	unsigned int value = igb_attr->sensor->max_op_thresh;
++
++	/* display millidegree */
++	value *= 1000;
++
++	return sprintf(buf, "%u\n", value);
++}
++
++/* igb_add_hwmon_attr - Create hwmon attr table for a hwmon sysfs file.
++ * @ adapter: pointer to the adapter structure
++ * @ offset: offset in the eeprom sensor data table
++ * @ type: type of sensor data to display
++ *
++ * For each file we want in hwmon's sysfs interface we need a device_attribute
++ * This is included in our hwmon_attr struct that contains the references to
++ * the data structures we need to get the data to display.
++ */
++static int igb_add_hwmon_attr(struct igb_adapter *adapter,
++				unsigned int offset, int type) {
++	int rc;
++	unsigned int n_attr;
++	struct hwmon_attr *igb_attr;
++
++	n_attr = adapter->igb_hwmon_buff.n_hwmon;
++	igb_attr = &adapter->igb_hwmon_buff.hwmon_list[n_attr];
++
++	switch (type) {
++	case IGB_HWMON_TYPE_LOC:
++		igb_attr->dev_attr.show = igb_hwmon_show_location;
++		snprintf(igb_attr->name, sizeof(igb_attr->name),
++			 "temp%u_label", offset);
++		break;
++	case IGB_HWMON_TYPE_TEMP:
++		igb_attr->dev_attr.show = igb_hwmon_show_temp;
++		snprintf(igb_attr->name, sizeof(igb_attr->name),
++			 "temp%u_input", offset);
++		break;
++	case IGB_HWMON_TYPE_CAUTION:
++		igb_attr->dev_attr.show = igb_hwmon_show_cautionthresh;
++		snprintf(igb_attr->name, sizeof(igb_attr->name),
++			 "temp%u_max", offset);
++		break;
++	case IGB_HWMON_TYPE_MAX:
++		igb_attr->dev_attr.show = igb_hwmon_show_maxopthresh;
++		snprintf(igb_attr->name, sizeof(igb_attr->name),
++			 "temp%u_crit", offset);
++		break;
++	default:
++		rc = -EPERM;
++		return rc;
++	}
++
++	/* These always the same regardless of type */
++	igb_attr->sensor =
++		&adapter->hw.mac.thermal_sensor_data.sensor[offset];
++	igb_attr->hw = &adapter->hw;
++	igb_attr->dev_attr.store = NULL;
++	igb_attr->dev_attr.attr.mode = S_IRUGO;
++	igb_attr->dev_attr.attr.name = igb_attr->name;
++	sysfs_attr_init(&igb_attr->dev_attr.attr);
++	rc = device_create_file(&adapter->pdev->dev,
++				&igb_attr->dev_attr);
++	if (rc == 0)
++		++adapter->igb_hwmon_buff.n_hwmon;
++
++	return rc;
++}
++
++static void igb_sysfs_del_adapter(struct igb_adapter *adapter)
++{
++	int i;
++
++	if (adapter == NULL)
++		return;
++
++	for (i = 0; i < adapter->igb_hwmon_buff.n_hwmon; i++) {
++		device_remove_file(&adapter->pdev->dev,
++			   &adapter->igb_hwmon_buff.hwmon_list[i].dev_attr);
++	}
++
++	kfree(adapter->igb_hwmon_buff.hwmon_list);
++
++	if (adapter->igb_hwmon_buff.device)
++		hwmon_device_unregister(adapter->igb_hwmon_buff.device);
++}
++
++/* called from igb_main.c */
++void igb_sysfs_exit(struct igb_adapter *adapter)
++{
++	igb_sysfs_del_adapter(adapter);
++}
++
++/* called from igb_main.c */
++int igb_sysfs_init(struct igb_adapter *adapter)
++{
++	struct hwmon_buff *igb_hwmon = &adapter->igb_hwmon_buff;
++	unsigned int i;
++	int n_attrs;
++	int rc = 0;
++
++	/* If this method isn't defined we don't support thermals */
++	if (adapter->hw.mac.ops.init_thermal_sensor_thresh == NULL)
++		goto exit;
++
++	/* Don't create thermal hwmon interface if no sensors present */
++	rc = (adapter->hw.mac.ops.init_thermal_sensor_thresh(&adapter->hw));
++		if (rc)
++			goto exit;
++
++	/* Allocation space for max attributes
++	 * max num sensors * values (loc, temp, max, caution)
++	 */
++	n_attrs = E1000_MAX_SENSORS * 4;
++	igb_hwmon->hwmon_list = kcalloc(n_attrs, sizeof(struct hwmon_attr),
++					  GFP_KERNEL);
++	if (!igb_hwmon->hwmon_list) {
++		rc = -ENOMEM;
++		goto err;
++	}
++
++	igb_hwmon->device = hwmon_device_register(&adapter->pdev->dev);
++	if (IS_ERR(igb_hwmon->device)) {
++		rc = PTR_ERR(igb_hwmon->device);
++		goto err;
++	}
++
++	for (i = 0; i < E1000_MAX_SENSORS; i++) {
++
++		/* Only create hwmon sysfs entries for sensors that have
++		 * meaningful data.
++		 */
++		if (adapter->hw.mac.thermal_sensor_data.sensor[i].location == 0)
++			continue;
++
++		/* Bail if any hwmon attr struct fails to initialize */
++		rc = igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_CAUTION);
++		rc |= igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_LOC);
++		rc |= igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_TEMP);
++		rc |= igb_add_hwmon_attr(adapter, i, IGB_HWMON_TYPE_MAX);
++		if (rc)
++			goto err;
++	}
++
++	goto exit;
++
++err:
++	igb_sysfs_del_adapter(adapter);
++exit:
++	return rc;
++}
++#endif
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 0173b61..a9cb84a 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -1796,6 +1796,18 @@ void igb_reset(struct igb_adapter *adapter)
+ 		igb_force_mac_fc(hw);
+ 
+ 	igb_init_dmac(adapter, pba);
++#ifdef CONFIG_IGB_HWMON
++	/* Re-initialize the thermal sensor on i350 devices. */
++	if (!test_bit(__IGB_DOWN, &adapter->state)) {
++		if (mac->type == e1000_i350 && hw->bus.func == 0) {
++			/* If present, re-initialize the external thermal sensor
++			 * interface.
++			 */
++			if (adapter->ets)
++				mac->ops.init_thermal_sensor_thresh(hw);
++		}
++	}
++#endif
+ 	if (!netif_running(adapter->netdev))
+ 		igb_power_down_link(adapter);
+ 
+@@ -2260,7 +2272,27 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
  #endif
- static void e1000e_disable_aspm(struct pci_dev *pdev, u16 state)
++#ifdef CONFIG_IGB_HWMON
++	/* Initialize the thermal sensor on i350 devices. */
++	if (hw->mac.type == e1000_i350 && hw->bus.func == 0) {
++		u16 ets_word;
+ 
++		/*
++		 * Read the NVM to determine if this i350 device supports an
++		 * external thermal sensor.
++		 */
++		hw->nvm.ops.read(hw, NVM_ETS_CFG, 1, &ets_word);
++		if (ets_word != 0x0000 && ets_word != 0xFFFF)
++			adapter->ets = true;
++		else
++			adapter->ets = false;
++		if (igb_sysfs_init(adapter))
++			dev_err(&pdev->dev,
++				"failed to allocate sysfs resources\n");
++	} else {
++		adapter->ets = false;
++	}
++#endif
+ 	/* do hw tstamp init after resetting */
+ 	igb_ptp_init(adapter);
+ 
+@@ -2443,10 +2475,11 @@ static void igb_remove(struct pci_dev *pdev)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	pm_runtime_get_noresume(&pdev->dev);
++#ifdef CONFIG_IGB_HWMON
++	igb_sysfs_exit(adapter);
++#endif
+ 	igb_remove_i2c(adapter);
+-
+ 	igb_ptp_stop(adapter);
+-
+ 	/*
+ 	 * The watchdog timer may be rescheduled, so explicitly
+ 	 * disable watchdog from being rescheduled.
+@@ -7594,7 +7627,12 @@ igb_get_i2c_client(struct igb_adapter *adapter, u8 dev_addr)
+ 		}
+ 	}
+ 
+-	/* no client_list found, create a new one */
++	/* no client_list found, create a new one as long as
++	 * irqs are not disabled
++	 */
++	if (unlikely(irqs_disabled()))
++		goto exit;
++
+ 	client_list = kzalloc(sizeof(*client_list), GFP_KERNEL);
+ 	if (client_list == NULL)
+ 		goto exit;
+@@ -7606,7 +7644,8 @@ igb_get_i2c_client(struct igb_adapter *adapter, u8 dev_addr)
+ 	client_info.platform_data = adapter;
+ 	client_list->client = i2c_new_device(&adapter->i2c_adap, &client_info);
+ 	if (client_list->client == NULL) {
+-		dev_info(&adapter->pdev->dev, "Failed to create new i2c device..\n");
++		dev_info(&adapter->pdev->dev,
++			"Failed to create new i2c device..\n");
+ 		goto err_no_client;
+ 	}
+ 
+@@ -7614,8 +7653,6 @@ igb_get_i2c_client(struct igb_adapter *adapter, u8 dev_addr)
+ 	client_list->next = adapter->i2c_clients;
+ 	adapter->i2c_clients = client_list;
+ 
+-	spin_unlock_irqrestore(&i2c_clients_lock, flags);
+-
+ 	client = client_list->client;
+ 	goto exit;
+ 
 -- 
 1.7.11.7
-
-
-------------------------------------------------------------------------------
-Master HTML5, CSS3, ASP.NET, MVC, AJAX, Knockout.js, Web API and
-much more. Get web development skills now with LearnDevNow -
-350+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
-SALE $99.99 this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_122812
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
