@@ -1,89 +1,557 @@
-From: Dirk Hohndel <dirk@hohndel.org>
-Subject: surprising memory request
-Date: Fri, 18 Jan 2013 08:58:18 -0800 (PST)
-Message-ID: <20130118085818.147220.FMU5901@air.gr8dns.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Woodhouse <dwmw2@infradead.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH net-next 2/2] mcast: add multicast proxy support (IPv4 and IPv6)
+Date: Fri, 18 Jan 2013 17:59:38 +0100
+Message-ID: <1358528378-2110-3-git-send-email-nicolas.dichtel@6wind.com>
+References: <1358528378-2110-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, Nicolas Dichtel <nicolas.dichtel@6wind.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.hohndel.org ([198.145.64.135]:50032 "EHLO mail.hohndel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752466Ab3ARRHc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 12:07:32 -0500
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:49602 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654Ab3ARRHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 12:07:18 -0500
+In-Reply-To: <1358528378-2110-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch add the support of proxy multicast, ie being able to build a static
+multicast tree. It adds the support of (*,*) and (*,G) entries.
 
-Running openconnect on a very recent 3.8 (a few commits before Linus cut
-RC4) I get this allocation failure. I'm unclear why we would need 128
-contiguous pages here...
+The user should define an (*,*) entry which is not used for real forwarding.
+This entry defines the upstream in iif and contains all interfaces from the
+static tree in its oifs. It will be used to forward packet upstream when they
+come from an interface belonging to the static tree.
+Hence, the user should define (*,G) entries to build its static tree. Note that
+upstream interface must be part of oifs: packets are sent to all oifs
+interfaces except the input interface. This ensures to always join the whole
+static tree, even if the packet is not coming from the upstream interface.
 
-/D
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/uapi/linux/mroute.h  |   4 +-
+ include/uapi/linux/mroute6.h |   4 +-
+ net/ipv4/ipmr.c              | 118 +++++++++++++++++++++++++++++++++++-----
+ net/ipv6/ip6mr.c             | 126 ++++++++++++++++++++++++++++++++++++++-----
+ 4 files changed, 224 insertions(+), 28 deletions(-)
 
-[66015.673818] openconnect: page allocation failure: order:7, mode:0x10c0d0
-[66015.673827] Pid: 3292, comm: openconnect Tainted: G        W    3.8.0-rc3-00352-gdfdebc2 #94
-[66015.673830] Call Trace:
-[66015.673841]  [<ffffffff810e9c29>] warn_alloc_failed+0xe9/0x140
-[66015.673849]  [<ffffffff81093967>] ? on_each_cpu_mask+0x87/0xa0
-[66015.673854]  [<ffffffff810ec349>] __alloc_pages_nodemask+0x579/0x720
-[66015.673859]  [<ffffffff810ec507>] __get_free_pages+0x17/0x50
-[66015.673866]  [<ffffffff81123979>] kmalloc_order_trace+0x39/0xf0
-[66015.673874]  [<ffffffff81666178>] ? __hw_addr_add_ex+0x78/0xc0
-[66015.673879]  [<ffffffff811260d8>] __kmalloc+0xc8/0x180
-[66015.673883]  [<ffffffff81666616>] ? dev_addr_init+0x66/0x90
-[66015.673889]  [<ffffffff81660985>] alloc_netdev_mqs+0x145/0x300
-[66015.673896]  [<ffffffff81513830>] ? tun_net_fix_features+0x20/0x20
-[66015.673902]  [<ffffffff815168aa>] __tun_chr_ioctl+0xd0a/0xec0
-[66015.673908]  [<ffffffff81516a93>] tun_chr_ioctl+0x13/0x20
-[66015.673913]  [<ffffffff8113b197>] do_vfs_ioctl+0x97/0x530
-[66015.673917]  [<ffffffff811256f3>] ? kmem_cache_free+0x33/0x170
-[66015.673923]  [<ffffffff81134896>] ? final_putname+0x26/0x50
-[66015.673927]  [<ffffffff8113b6c1>] sys_ioctl+0x91/0xb0
-[66015.673935]  [<ffffffff8180e3d2>] system_call_fastpath+0x16/0x1b
-[66015.673938] Mem-Info:
-[66015.673940] DMA per-cpu:
-[66015.673943] CPU    0: hi:    0, btch:   1 usd:   0
-[66015.673945] CPU    1: hi:    0, btch:   1 usd:   0
-[66015.673947] CPU    2: hi:    0, btch:   1 usd:   0
-[66015.673949] CPU    3: hi:    0, btch:   1 usd:   0
-[66015.673951] DMA32 per-cpu:
-[66015.673953] CPU    0: hi:  186, btch:  31 usd:   0
-[66015.673956] CPU    1: hi:  186, btch:  31 usd:  42
-[66015.673958] CPU    2: hi:  186, btch:  31 usd:   0
-[66015.673960] CPU    3: hi:  186, btch:  31 usd:   0
-[66015.673962] Normal per-cpu:
-[66015.673964] CPU    0: hi:  186, btch:  31 usd:   0
-[66015.673966] CPU    1: hi:  186, btch:  31 usd:  46
-[66015.673968] CPU    2: hi:  186, btch:  31 usd:   0
-[66015.673970] CPU    3: hi:  186, btch:  31 usd:   0
-[66015.673976] active_anon:1241168 inactive_anon:243402 isolated_anon:0
-[66015.673976]  active_file:171470 inactive_file:184344 isolated_file:0
-[66015.673976]  unevictable:41 dirty:2 writeback:0 unstable:0
-[66015.673976]  free:84294 slab_reclaimable:45897 slab_unreclaimable:8765
-[66015.673976]  mapped:37635 shmem:185852 pagetables:18316 bounce:0
-[66015.673976]  free_cma:0
-[66015.673987] DMA free:15900kB min:20kB low:24kB high:28kB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB isolated(anon):0kB isolated(file):0kB present:15644kB managed:15900kB mlocked:0kB dirty:0kB writeback:0kB mapped:0kB shmem:0kB slab_reclaimable:0kB slab_unreclaimable:0kB kernel_stack:0kB pagetables:0kB unstable:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_scanned:0 all_unreclaimable? yes
-[66015.673989] lowmem_reserve[]: 0 2138 7924 7924
-[66015.674001] DMA32 free:308944kB min:3068kB low:3832kB high:4600kB active_anon:789936kB inactive_anon:270492kB active_file:302520kB inactive_file:346788kB unevictable:0kB isolated(anon):0kB isolated(file):0kB present:2190060kB managed:2136000kB mlocked:0kB dirty:0kB writeback:0kB mapped:36180kB shmem:227796kB slab_reclaimable:111048kB slab_unreclaimable:2632kB kernel_stack:376kB pagetables:6084kB unstable:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_scanned:21 all_unreclaimable? no
-[66015.674004] lowmem_reserve[]: 0 0 5786 5786
-[66015.674014] Normal free:12332kB min:8308kB low:10384kB high:12460kB active_anon:4174736kB inactive_anon:703116kB active_file:383360kB inactive_file:390588kB unevictable:164kB isolated(anon):0kB isolated(file):0kB present:5925024kB managed:5874208kB mlocked:164kB dirty:8kB writeback:0kB mapped:114360kB shmem:515612kB slab_reclaimable:72540kB slab_unreclaimable:32428kB kernel_stack:4264kB pagetables:67180kB unstable:0kB bounce:0kB free_cma:0kB writeback_tmp:0kB pages_scanned:46 all_unreclaimable? no
-[66015.674016] lowmem_reserve[]: 0 0 0 0
-[66015.674021] DMA: 1*4kB (U) 1*8kB (U) 1*16kB (U) 2*32kB (U) 1*64kB (U) 1*128kB (U) 1*256kB (U) 0*512kB 1*1024kB (U) 1*2048kB (R) 3*4096kB (M) = 15900kB
-[66015.674040] DMA32: 4730*4kB (UEM) 14656*8kB (UEM) 6007*16kB (UEM) 1577*32kB (UEMR) 269*64kB (UEMR) 68*128kB (UEMR) 2*256kB (M) 0*512kB 0*1024kB 0*2048kB 0*4096kB = 309176kB
-[66015.674057] Normal: 2772*4kB (UEM) 44*8kB (UEM) 17*16kB (UEM) 6*32kB (R) 1*64kB (R) 0*128kB 1*256kB (R) 1*512kB (R) 0*1024kB 0*2048kB 0*4096kB = 12736kB
-[66015.674074] 541777 total pagecache pages
-[66015.674075] 142 pages in swap cache
-[66015.674078] Swap cache stats: add 4420, delete 4278, find 106/118
-[66015.674080] Free swap  = 9197216kB
-[66015.674082] Total swap = 9213948kB
-[66015.710738] 2094576 pages RAM
-[66015.710745] 85536 pages reserved
-[66015.710746] 1755663 pages shared
-[66015.710748] 1488520 pages non-shared
-[66015.710752] netdev: Unable to allocate 1024 tx queues
-
-
+diff --git a/include/uapi/linux/mroute.h b/include/uapi/linux/mroute.h
+index 1c11004..a382d2c 100644
+--- a/include/uapi/linux/mroute.h
++++ b/include/uapi/linux/mroute.h
+@@ -26,7 +26,9 @@
+ #define MRT_ASSERT	(MRT_BASE+7)	/* Activate PIM assert mode		*/
+ #define MRT_PIM		(MRT_BASE+8)	/* enable PIM code			*/
+ #define MRT_TABLE	(MRT_BASE+9)	/* Specify mroute table ID		*/
+-#define MRT_MAX		(MRT_BASE+9)
++#define MRT_ADD_MFC_PROXY	(MRT_BASE+10)	/* Add a (*,*|G) mfc entry	*/
++#define MRT_DEL_MFC_PROXY	(MRT_BASE+11)	/* Del a (*,*|G) mfc entry	*/
++#define MRT_MAX		(MRT_BASE+11)
+ 
+ #define SIOCGETVIFCNT	SIOCPROTOPRIVATE	/* IP protocol privates */
+ #define SIOCGETSGCNT	(SIOCPROTOPRIVATE+1)
+diff --git a/include/uapi/linux/mroute6.h b/include/uapi/linux/mroute6.h
+index c206ae3..ce91215 100644
+--- a/include/uapi/linux/mroute6.h
++++ b/include/uapi/linux/mroute6.h
+@@ -26,7 +26,9 @@
+ #define MRT6_ASSERT	(MRT6_BASE+7)	/* Activate PIM assert mode		*/
+ #define MRT6_PIM	(MRT6_BASE+8)	/* enable PIM code			*/
+ #define MRT6_TABLE	(MRT6_BASE+9)	/* Specify mroute table ID		*/
+-#define MRT6_MAX	(MRT6_BASE+9)
++#define MRT6_ADD_MFC_PROXY	(MRT6_BASE+10)	/* Add a (*,*|G) mfc entry	*/
++#define MRT6_DEL_MFC_PROXY	(MRT6_BASE+11)	/* Del a (*,*|G) mfc entry	*/
++#define MRT6_MAX	(MRT6_BASE+11)
+ 
+ #define SIOCGETMIFCNT_IN6	SIOCPROTOPRIVATE	/* IP protocol privates */
+ #define SIOCGETSGCNT_IN6	(SIOCPROTOPRIVATE+1)
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index a9454cb..e8ec94a 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -828,6 +828,48 @@ static struct mfc_cache *ipmr_cache_find(struct mr_table *mrt,
+ 	return NULL;
+ }
+ 
++/* Look for a (*,*,oif) entry */
++static struct mfc_cache *ipmr_cache_find_any_parent(struct mr_table *mrt,
++						    int vifi)
++{
++	int line = MFC_HASH(0, 0);
++	struct mfc_cache *c;
++
++	list_for_each_entry_rcu(c, &mrt->mfc_cache_array[line], list)
++		if (c->mfc_origin == 0 &&
++		    c->mfc_mcastgrp == 0 &&
++		    c->mfc_un.res.ttls[vifi] < 255)
++			return c;
++
++	return NULL;
++}
++
++/* Look for a (*,G) entry */
++static struct mfc_cache *ipmr_cache_find_any(struct mr_table *mrt,
++					     __be32 mcastgrp, int vifi)
++{
++	int line = MFC_HASH(mcastgrp, 0);
++	struct mfc_cache *c, *proxy;
++
++	if (!mcastgrp)
++		goto skip;
++
++	list_for_each_entry_rcu(c, &mrt->mfc_cache_array[line], list)
++		if (c->mfc_origin == 0 && c->mfc_mcastgrp == mcastgrp) {
++			if (c->mfc_un.res.ttls[vifi] < 255)
++				return c;
++
++			/* It's ok if the vifi is part of the static tree */
++			proxy = ipmr_cache_find_any_parent(mrt,
++							   c->mfc_parent);
++			if (proxy && proxy->mfc_un.res.ttls[vifi] < 255)
++				return c;
++		}
++
++skip:
++	return ipmr_cache_find_any_parent(mrt, vifi);
++}
++
+ /*
+  *	Allocate a multicast cache entry
+  */
+@@ -1053,7 +1095,7 @@ ipmr_cache_unresolved(struct mr_table *mrt, vifi_t vifi, struct sk_buff *skb)
+  *	MFC cache manipulation by user space mroute daemon
+  */
+ 
+-static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc)
++static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc, int parent)
+ {
+ 	int line;
+ 	struct mfc_cache *c, *next;
+@@ -1062,7 +1104,8 @@ static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc)
+ 
+ 	list_for_each_entry_safe(c, next, &mrt->mfc_cache_array[line], list) {
+ 		if (c->mfc_origin == mfc->mfcc_origin.s_addr &&
+-		    c->mfc_mcastgrp == mfc->mfcc_mcastgrp.s_addr) {
++		    c->mfc_mcastgrp == mfc->mfcc_mcastgrp.s_addr &&
++		    (parent == -1 || parent == c->mfc_parent)) {
+ 			list_del_rcu(&c->list);
+ 			mroute_netlink_event(mrt, c, RTM_DELROUTE);
+ 			ipmr_cache_free(c);
+@@ -1073,7 +1116,7 @@ static int ipmr_mfc_delete(struct mr_table *mrt, struct mfcctl *mfc)
+ }
+ 
+ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+-			struct mfcctl *mfc, int mrtsock)
++			struct mfcctl *mfc, int mrtsock, int parent)
+ {
+ 	bool found = false;
+ 	int line;
+@@ -1086,7 +1129,8 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+ 
+ 	list_for_each_entry(c, &mrt->mfc_cache_array[line], list) {
+ 		if (c->mfc_origin == mfc->mfcc_origin.s_addr &&
+-		    c->mfc_mcastgrp == mfc->mfcc_mcastgrp.s_addr) {
++		    c->mfc_mcastgrp == mfc->mfcc_mcastgrp.s_addr &&
++		    (parent == -1 || parent == c->mfc_parent)) {
+ 			found = true;
+ 			break;
+ 		}
+@@ -1103,7 +1147,8 @@ static int ipmr_mfc_add(struct net *net, struct mr_table *mrt,
+ 		return 0;
+ 	}
+ 
+-	if (!ipv4_is_multicast(mfc->mfcc_mcastgrp.s_addr))
++	if (mfc->mfcc_mcastgrp.s_addr &&
++	    !ipv4_is_multicast(mfc->mfcc_mcastgrp.s_addr))
+ 		return -EINVAL;
+ 
+ 	c = ipmr_cache_alloc();
+@@ -1218,7 +1263,7 @@ static void mrtsock_destruct(struct sock *sk)
+ 
+ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsigned int optlen)
+ {
+-	int ret;
++	int ret, parent = 0;
+ 	struct vifctl vif;
+ 	struct mfcctl mfc;
+ 	struct net *net = sock_net(sk);
+@@ -1287,16 +1332,22 @@ int ip_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsi
+ 		 */
+ 	case MRT_ADD_MFC:
+ 	case MRT_DEL_MFC:
++		parent = -1;
++	case MRT_ADD_MFC_PROXY:
++	case MRT_DEL_MFC_PROXY:
+ 		if (optlen != sizeof(mfc))
+ 			return -EINVAL;
+ 		if (copy_from_user(&mfc, optval, sizeof(mfc)))
+ 			return -EFAULT;
++		if (parent == 0)
++			parent = mfc.mfcc_parent;
+ 		rtnl_lock();
+-		if (optname == MRT_DEL_MFC)
+-			ret = ipmr_mfc_delete(mrt, &mfc);
++		if (optname == MRT_DEL_MFC || optname == MRT_DEL_MFC_PROXY)
++			ret = ipmr_mfc_delete(mrt, &mfc, parent);
+ 		else
+ 			ret = ipmr_mfc_add(net, mrt, &mfc,
+-					   sk == rtnl_dereference(mrt->mroute_sk));
++					   sk == rtnl_dereference(mrt->mroute_sk),
++					   parent);
+ 		rtnl_unlock();
+ 		return ret;
+ 		/*
+@@ -1749,17 +1800,28 @@ static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+ {
+ 	int psend = -1;
+ 	int vif, ct;
++	int true_vifi = ipmr_find_vif(mrt, skb->dev);
+ 
+ 	vif = cache->mfc_parent;
+ 	cache->mfc_un.res.pkt++;
+ 	cache->mfc_un.res.bytes += skb->len;
+ 
++	if (cache->mfc_origin == 0 && true_vifi >= 0) {
++		struct mfc_cache *cache_proxy;
++
++		/* For an (*,G) entry, we only check that the incomming
++		 * interface is part of the static tree.
++		 */
++		cache_proxy = ipmr_cache_find_any_parent(mrt, vif);
++		if (cache_proxy &&
++		    cache_proxy->mfc_un.res.ttls[true_vifi] < 255)
++			goto forward;
++	}
++
+ 	/*
+ 	 * Wrong interface: drop packet and (maybe) send PIM assert.
+ 	 */
+ 	if (mrt->vif_table[vif].dev != skb->dev) {
+-		int true_vifi;
+-
+ 		if (rt_is_output_route(skb_rtable(skb))) {
+ 			/* It is our own packet, looped back.
+ 			 * Very complicated situation...
+@@ -1776,7 +1838,6 @@ static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 		}
+ 
+ 		cache->mfc_un.res.wrong_if++;
+-		true_vifi = ipmr_find_vif(mrt, skb->dev);
+ 
+ 		if (true_vifi >= 0 && mrt->mroute_do_assert &&
+ 		    /* pimsm uses asserts, when switching from RPT to SPT,
+@@ -1794,15 +1855,33 @@ static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 		goto dont_forward;
+ 	}
+ 
++forward:
+ 	mrt->vif_table[vif].pkt_in++;
+ 	mrt->vif_table[vif].bytes_in += skb->len;
+ 
+ 	/*
+ 	 *	Forward the frame
+ 	 */
++	if (cache->mfc_origin == 0 &&
++	    cache->mfc_mcastgrp == 0) {
++		if (true_vifi >= 0 &&
++		    true_vifi != cache->mfc_parent &&
++		    ip_hdr(skb)->ttl >
++				cache->mfc_un.res.ttls[cache->mfc_parent]) {
++			/* It's an (*,*) entry and the packet is not coming from
++			 * the upstream: forward the packet to the upstream
++			 * only.
++			 */
++			psend = cache->mfc_parent;
++			goto last_forward;
++		}
++		goto dont_forward;
++	}
+ 	for (ct = cache->mfc_un.res.maxvif - 1;
+ 	     ct >= cache->mfc_un.res.minvif; ct--) {
+-		if (ip_hdr(skb)->ttl > cache->mfc_un.res.ttls[ct]) {
++		/* For (*,G) entry, don't forward to the incoming interface */
++		if ((cache->mfc_origin || ct != true_vifi) &&
++		    ip_hdr(skb)->ttl > cache->mfc_un.res.ttls[ct]) {
+ 			if (psend != -1) {
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+ 
+@@ -1813,6 +1892,7 @@ static int ip_mr_forward(struct net *net, struct mr_table *mrt,
+ 			psend = ct;
+ 		}
+ 	}
++last_forward:
+ 	if (psend != -1) {
+ 		if (local) {
+ 			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+@@ -1902,6 +1982,13 @@ int ip_mr_input(struct sk_buff *skb)
+ 
+ 	/* already under rcu_read_lock() */
+ 	cache = ipmr_cache_find(mrt, ip_hdr(skb)->saddr, ip_hdr(skb)->daddr);
++	if (cache == NULL) {
++		int vif = ipmr_find_vif(mrt, skb->dev);
++
++		if (vif >= 0)
++			cache = ipmr_cache_find_any(mrt, ip_hdr(skb)->daddr,
++						    vif);
++	}
+ 
+ 	/*
+ 	 *	No usable cache entry
+@@ -2107,7 +2194,12 @@ int ipmr_get_route(struct net *net, struct sk_buff *skb,
+ 
+ 	rcu_read_lock();
+ 	cache = ipmr_cache_find(mrt, saddr, daddr);
++	if (cache == NULL && skb->dev) {
++		int vif = ipmr_find_vif(mrt, skb->dev);
+ 
++		if (vif >= 0)
++			cache = ipmr_cache_find_any(mrt, daddr, vif);
++	}
+ 	if (cache == NULL) {
+ 		struct sk_buff *skb2;
+ 		struct iphdr *iph;
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 26dcdec..acc3249 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1017,6 +1017,50 @@ static struct mfc6_cache *ip6mr_cache_find(struct mr6_table *mrt,
+ 	return NULL;
+ }
+ 
++/* Look for a (*,*,oif) entry */
++static struct mfc6_cache *ip6mr_cache_find_any_parent(struct mr6_table *mrt,
++						      mifi_t mifi)
++{
++	int line = MFC6_HASH(&in6addr_any, &in6addr_any);
++	struct mfc6_cache *c;
++
++	list_for_each_entry(c, &mrt->mfc6_cache_array[line], list)
++		if (ipv6_addr_any(&c->mf6c_origin) &&
++		    ipv6_addr_any(&c->mf6c_mcastgrp) &&
++		    (c->mfc_un.res.ttls[mifi] < 255))
++			return c;
++
++	return NULL;
++}
++
++/* Look for a (*,G) entry */
++static struct mfc6_cache *ip6mr_cache_find_any(struct mr6_table *mrt,
++					       struct in6_addr *mcastgrp,
++					       mifi_t mifi)
++{
++	int line = MFC6_HASH(mcastgrp, &in6addr_any);
++	struct mfc6_cache *c, *proxy;
++
++	if (ipv6_addr_any(mcastgrp))
++		goto skip;
++
++	list_for_each_entry(c, &mrt->mfc6_cache_array[line], list)
++		if (ipv6_addr_any(&c->mf6c_origin) &&
++		    ipv6_addr_equal(&c->mf6c_mcastgrp, mcastgrp)) {
++			if (c->mfc_un.res.ttls[mifi] < 255)
++				return c;
++
++			/* It's ok if the mifi is part of the static tree */
++			proxy = ip6mr_cache_find_any_parent(mrt,
++							    c->mf6c_parent);
++			if (proxy && proxy->mfc_un.res.ttls[mifi] < 255)
++				return c;
++		}
++
++skip:
++	return ip6mr_cache_find_any_parent(mrt, mifi);
++}
++
+ /*
+  *	Allocate a multicast cache entry
+  */
+@@ -1247,7 +1291,8 @@ ip6mr_cache_unresolved(struct mr6_table *mrt, mifi_t mifi, struct sk_buff *skb)
+  *	MFC6 cache manipulation by user space
+  */
+ 
+-static int ip6mr_mfc_delete(struct mr6_table *mrt, struct mf6cctl *mfc)
++static int ip6mr_mfc_delete(struct mr6_table *mrt, struct mf6cctl *mfc,
++			    int parent)
+ {
+ 	int line;
+ 	struct mfc6_cache *c, *next;
+@@ -1256,7 +1301,9 @@ static int ip6mr_mfc_delete(struct mr6_table *mrt, struct mf6cctl *mfc)
+ 
+ 	list_for_each_entry_safe(c, next, &mrt->mfc6_cache_array[line], list) {
+ 		if (ipv6_addr_equal(&c->mf6c_origin, &mfc->mf6cc_origin.sin6_addr) &&
+-		    ipv6_addr_equal(&c->mf6c_mcastgrp, &mfc->mf6cc_mcastgrp.sin6_addr)) {
++		    ipv6_addr_equal(&c->mf6c_mcastgrp,
++				    &mfc->mf6cc_mcastgrp.sin6_addr) &&
++		    (parent == -1 || parent == c->mf6c_parent)) {
+ 			write_lock_bh(&mrt_lock);
+ 			list_del(&c->list);
+ 			write_unlock_bh(&mrt_lock);
+@@ -1391,7 +1438,7 @@ void ip6_mr_cleanup(void)
+ }
+ 
+ static int ip6mr_mfc_add(struct net *net, struct mr6_table *mrt,
+-			 struct mf6cctl *mfc, int mrtsock)
++			 struct mf6cctl *mfc, int mrtsock, int parent)
+ {
+ 	bool found = false;
+ 	int line;
+@@ -1413,7 +1460,9 @@ static int ip6mr_mfc_add(struct net *net, struct mr6_table *mrt,
+ 
+ 	list_for_each_entry(c, &mrt->mfc6_cache_array[line], list) {
+ 		if (ipv6_addr_equal(&c->mf6c_origin, &mfc->mf6cc_origin.sin6_addr) &&
+-		    ipv6_addr_equal(&c->mf6c_mcastgrp, &mfc->mf6cc_mcastgrp.sin6_addr)) {
++		    ipv6_addr_equal(&c->mf6c_mcastgrp,
++				    &mfc->mf6cc_mcastgrp.sin6_addr) &&
++		    (parent == -1 || parent == mfc->mf6cc_parent)) {
+ 			found = true;
+ 			break;
+ 		}
+@@ -1430,7 +1479,8 @@ static int ip6mr_mfc_add(struct net *net, struct mr6_table *mrt,
+ 		return 0;
+ 	}
+ 
+-	if (!ipv6_addr_is_multicast(&mfc->mf6cc_mcastgrp.sin6_addr))
++	if (!ipv6_addr_any(&mfc->mf6cc_mcastgrp.sin6_addr) &&
++	    !ipv6_addr_is_multicast(&mfc->mf6cc_mcastgrp.sin6_addr))
+ 		return -EINVAL;
+ 
+ 	c = ip6mr_cache_alloc();
+@@ -1596,7 +1646,7 @@ struct sock *mroute6_socket(struct net *net, struct sk_buff *skb)
+ 
+ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, unsigned int optlen)
+ {
+-	int ret;
++	int ret, parent = 0;
+ 	struct mif6ctl vif;
+ 	struct mf6cctl mfc;
+ 	mifi_t mifi;
+@@ -1653,15 +1703,21 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+ 	 */
+ 	case MRT6_ADD_MFC:
+ 	case MRT6_DEL_MFC:
++		parent = -1;
++	case MRT6_ADD_MFC_PROXY:
++	case MRT6_DEL_MFC_PROXY:
+ 		if (optlen < sizeof(mfc))
+ 			return -EINVAL;
+ 		if (copy_from_user(&mfc, optval, sizeof(mfc)))
+ 			return -EFAULT;
++		if (parent == 0)
++			parent = mfc.mf6cc_parent;
+ 		rtnl_lock();
+-		if (optname == MRT6_DEL_MFC)
+-			ret = ip6mr_mfc_delete(mrt, &mfc);
++		if (optname == MRT6_DEL_MFC || optname == MRT6_DEL_MFC_PROXY)
++			ret = ip6mr_mfc_delete(mrt, &mfc, parent);
+ 		else
+-			ret = ip6mr_mfc_add(net, mrt, &mfc, sk == mrt->mroute6_sk);
++			ret = ip6mr_mfc_add(net, mrt, &mfc,
++					    sk == mrt->mroute6_sk, parent);
+ 		rtnl_unlock();
+ 		return ret;
+ 
+@@ -2015,19 +2071,29 @@ static int ip6_mr_forward(struct net *net, struct mr6_table *mrt,
+ {
+ 	int psend = -1;
+ 	int vif, ct;
++	int true_vifi = ip6mr_find_vif(mrt, skb->dev);
+ 
+ 	vif = cache->mf6c_parent;
+ 	cache->mfc_un.res.pkt++;
+ 	cache->mfc_un.res.bytes += skb->len;
+ 
++	if (ipv6_addr_any(&cache->mf6c_origin) && true_vifi >= 0) {
++		struct mfc6_cache *cache_proxy;
++
++		/* For an (*,G) entry, we only check that the incomming
++		 * interface is part of the static tree.
++		 */
++		cache_proxy = ip6mr_cache_find_any_parent(mrt, vif);
++		if (cache_proxy &&
++		    cache_proxy->mfc_un.res.ttls[true_vifi] < 255)
++			goto forward;
++	}
++
+ 	/*
+ 	 * Wrong interface: drop packet and (maybe) send PIM assert.
+ 	 */
+ 	if (mrt->vif6_table[vif].dev != skb->dev) {
+-		int true_vifi;
+-
+ 		cache->mfc_un.res.wrong_if++;
+-		true_vifi = ip6mr_find_vif(mrt, skb->dev);
+ 
+ 		if (true_vifi >= 0 && mrt->mroute_do_assert &&
+ 		    /* pimsm uses asserts, when switching from RPT to SPT,
+@@ -2045,14 +2111,32 @@ static int ip6_mr_forward(struct net *net, struct mr6_table *mrt,
+ 		goto dont_forward;
+ 	}
+ 
++forward:
+ 	mrt->vif6_table[vif].pkt_in++;
+ 	mrt->vif6_table[vif].bytes_in += skb->len;
+ 
+ 	/*
+ 	 *	Forward the frame
+ 	 */
++	if (ipv6_addr_any(&cache->mf6c_origin) &&
++	    ipv6_addr_any(&cache->mf6c_mcastgrp)) {
++		if (true_vifi >= 0 &&
++		    true_vifi != cache->mf6c_parent &&
++		    ipv6_hdr(skb)->hop_limit >
++				cache->mfc_un.res.ttls[cache->mf6c_parent]) {
++			/* It's an (*,*) entry and the packet is not coming from
++			 * the upstream: forward the packet to the upstream
++			 * only.
++			 */
++			psend = cache->mf6c_parent;
++			goto last_forward;
++		}
++		goto dont_forward;
++	}
+ 	for (ct = cache->mfc_un.res.maxvif - 1; ct >= cache->mfc_un.res.minvif; ct--) {
+-		if (ipv6_hdr(skb)->hop_limit > cache->mfc_un.res.ttls[ct]) {
++		/* For (*,G) entry, don't forward to the incoming interface */
++		if ((!ipv6_addr_any(&cache->mf6c_origin) || ct != true_vifi) &&
++		    ipv6_hdr(skb)->hop_limit > cache->mfc_un.res.ttls[ct]) {
+ 			if (psend != -1) {
+ 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+ 				if (skb2)
+@@ -2061,6 +2145,7 @@ static int ip6_mr_forward(struct net *net, struct mr6_table *mrt,
+ 			psend = ct;
+ 		}
+ 	}
++last_forward:
+ 	if (psend != -1) {
+ 		ip6mr_forward2(net, mrt, skb, cache, psend);
+ 		return 0;
+@@ -2096,6 +2181,14 @@ int ip6_mr_input(struct sk_buff *skb)
+ 	read_lock(&mrt_lock);
+ 	cache = ip6mr_cache_find(mrt,
+ 				 &ipv6_hdr(skb)->saddr, &ipv6_hdr(skb)->daddr);
++	if (cache == NULL) {
++		int vif = ip6mr_find_vif(mrt, skb->dev);
++
++		if (vif >= 0)
++			cache = ip6mr_cache_find_any(mrt,
++						     &ipv6_hdr(skb)->daddr,
++						     vif);
++	}
+ 
+ 	/*
+ 	 *	No usable cache entry
+@@ -2183,6 +2276,13 @@ int ip6mr_get_route(struct net *net,
+ 
+ 	read_lock(&mrt_lock);
+ 	cache = ip6mr_cache_find(mrt, &rt->rt6i_src.addr, &rt->rt6i_dst.addr);
++	if (!cache && skb->dev) {
++		int vif = ip6mr_find_vif(mrt, skb->dev);
++
++		if (vif >= 0)
++			cache = ip6mr_cache_find_any(mrt, &rt->rt6i_dst.addr,
++						     vif);
++	}
+ 
+ 	if (!cache) {
+ 		struct sk_buff *skb2;
 -- 
-Dirk Hohndel
-Intel Open Source Technology Center
+1.8.0.1
