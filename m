@@ -1,30 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Add an error handler for icmp6
-Date: Fri, 18 Jan 2013 14:20:17 -0500 (EST)
-Message-ID: <20130118.142017.1798763703843518227.davem@davemloft.net>
-References: <20130117080949.GA24987@secunet.com>
+Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0
+ to gigabit ethernet adapter driver
+Date: Fri, 18 Jan 2013 14:23:16 -0500 (EST)
+Message-ID: <20130118.142316.708739494707619536.davem@davemloft.net>
+References: <1358415174-4348-1-git-send-email-freddy@asix.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: djduanjiong@gmail.com, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38610 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815Ab3ARTUS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:20:18 -0500
-In-Reply-To: <20130117080949.GA24987@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, louis@asix.com.tw
+To: freddy@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358415174-4348-1-git-send-email-freddy@asix.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Thu, 17 Jan 2013 09:09:49 +0100
+From: Freddy Xin <freddy@asix.com.tw>
+Date: Thu, 17 Jan 2013 17:32:54 +0800
 
-> pmtu and redirect events are now handled in the protocols error handler,
-> so add an error handler for icmp6 to do this. It is needed in the case
-> when we have no socket context. Based on a patch by Duan Jiong.
-> 
-> Reported-by: Duan Jiong <djduanjiong@gmail.com>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> +struct ax88179_rx_pkt_header {
+> +
+> +	u8	l4_csum_err:1,
 
-Applied and queued up for -stable, thanks Steffen.
+Get rid of such extraneous empty lines.  They do not add clarity,
+rather they just take up space.
+
+> +	ret = fn(dev, cmd, USB_DIR_IN | USB_TYPE_VENDOR |
+> +			USB_RECIP_DEVICE, value, index, data, size);
+
+This is not indented properly.  When a function call takes up
+multiple lines, the text on the second and subsequent lines must
+be left justified to the first column after the openning parenthesis
+of the function call, like this:
+
+	function(arg1, arg2,
+		 arg3, arg4);
+
+You must use the appropriate combination of TAB and space characters
+to achieve this.  If you are trying to only use TAB characters, you
+are doing it wrong.
+
+This code has a lot of other similar coding style errors, please
+put some effort into fixing them up before you consider resubmitting
+this driver.
+
+All of the coding style errors are probably why nobody reviewed your
+driver the first time around, there's already enough properly styled
+submissions to review.
