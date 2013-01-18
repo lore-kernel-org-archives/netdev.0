@@ -1,75 +1,111 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH] [iproute] ipxfrm: simplify algo code a bit
-Date: Thu, 17 Jan 2013 21:39:06 -0500
-Message-ID: <1358476746-10810-1-git-send-email-vapier@gentoo.org>
-To: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
+From: Ming Lei <ming.lei@canonical.com>
+Subject: Re: Wake on LAN for USB ethernet?
+Date: Fri, 18 Jan 2013 10:39:19 +0800
+Message-ID: <CACVXFVOtpzOFAGRJ74XP1NFD1ah_au9e9gqHFiBLuv1jAwZ6cQ@mail.gmail.com>
+References: <20130118001214.GA21137@xanatos>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Petko Manolov <petkan@users.sourceforge.net>,
+	Alan Stern <stern@rowland.harvard.edu>,
+	Greg KH <greg@kroah.com>, Oliver Neukum <oliver@neukum.org>
+To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:40111 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752020Ab3ARCfj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 21:35:39 -0500
+Received: from youngberry.canonical.com ([91.189.89.112]:45035 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752879Ab3ARCjW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 21:39:22 -0500
+In-Reply-To: <20130118001214.GA21137@xanatos>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current code sets up a structure with xfrm_algo embedded in it, but
-doesn't use the supplemental key field.  Drop it.
+On Fri, Jan 18, 2013 at 8:12 AM, Sarah Sharp
+<sarah.a.sharp@linux.intel.com> wrote:
+> Is it reasonable to expect that Wake on LAN works if the target box is
+> connected via a USB-to-ethernet adapter?
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
-note: i don't have a system where this code runs (probably missing options in
-my kernel).  i checked xfrm_aead_print a bit but couldn't quite figure it out.
-it doesn't seem like it needs that trailing space.
+It is surely reasonable, and seems SMSC75xx or SMSC95xx can
+bring system out of suspend.
 
- ip/ipxfrm.c | 26 ++++++++++----------------
- 1 file changed, 10 insertions(+), 16 deletions(-)
+>
+> One of my validation testers has a USB ethernet device that successfully
+> wakes up Windows from hibernate (S4), but it doesn't work under Linux.
+> Wake on LAN works fine with the hardwired ethernet port.  USB remote
+> wakeup from S3/S4 works fine with a USB keyboard.
+>
+> So I need to figure out if it's an issue with the kernel, their test
+> suite, or the USB host controller.
+>
+>
+> I've experimented with USB ethernet devices with the pegasus driver with
+> no success.  Here's what I've tried:
+>
+> 1. Connect the USB to ethernet adapter to the rootport under the xHCI
+> (USB 3.0) host controller. (lsusb for the two devices I've tried is
+> attached)
+>
+> 2. Enable remote wakeup for all devices (including the PCI host) by
+> echoing 'enabled' to power/wakeup. (script for that attached)
+>
+> 3. Use ethtool to turn on WOL:
+>    sudo ethtool -s ethX wol g
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index c7b3420..bd313e6 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -555,16 +555,13 @@ static inline void xfrm_algo_print(struct xfrm_algo *algo, int type, int len,
- static void xfrm_aead_print(struct xfrm_algo_aead *algo, int len,
- 			    FILE *fp, const char *prefix)
+Could you check here if the attribute 'power/wakeup' of the USB device
+has been enabled?  If so, and step 6 still can't wakeup system, the
+problem may be in the set_wol stetting on hardware of the driver since
+your USB wakeup works.
+
+Also, the wakeup enabling is missed in the pegasus_set_wol(), and
+the below patch is needed:
+
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index a0b5807..d5304f1 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -1096,6 +1096,7 @@ pegasus_set_wol(struct net_device *dev, struct
+ethtool_wolinfo *wol)
  {
--	struct {
--		struct xfrm_algo algo;
--		char key[algo->alg_key_len / 8];
--	} base;
-+	struct xfrm_algo base_algo;
- 
--	memcpy(base.algo.alg_name, algo->alg_name, sizeof(base.algo.alg_name));
--	base.algo.alg_key_len = algo->alg_key_len;
--	memcpy(base.algo.alg_key, algo->alg_key, algo->alg_key_len / 8);
-+	memcpy(base_algo.alg_name, algo->alg_name, sizeof(base_algo.alg_name));
-+	base_algo.alg_key_len = algo->alg_key_len;
-+	memcpy(base_algo.alg_key, algo->alg_key, algo->alg_key_len / 8);
- 
--	__xfrm_algo_print(&base.algo, XFRMA_ALG_AEAD, len, fp, prefix, 0);
-+	__xfrm_algo_print(&base_algo, XFRMA_ALG_AEAD, len, fp, prefix, 0);
- 
- 	fprintf(fp, " %d", algo->alg_icv_len);
- 
-@@ -574,16 +571,13 @@ static void xfrm_aead_print(struct xfrm_algo_aead *algo, int len,
- static void xfrm_auth_trunc_print(struct xfrm_algo_auth *algo, int len,
- 				  FILE *fp, const char *prefix)
- {
--	struct {
--		struct xfrm_algo algo;
--		char key[algo->alg_key_len / 8];
--	} base;
-+	struct xfrm_algo base_algo;
- 
--	memcpy(base.algo.alg_name, algo->alg_name, sizeof(base.algo.alg_name));
--	base.algo.alg_key_len = algo->alg_key_len;
--	memcpy(base.algo.alg_key, algo->alg_key, algo->alg_key_len / 8);
-+	memcpy(base_algo.alg_name, algo->alg_name, sizeof(base_algo.alg_name));
-+	base_algo.alg_key_len = algo->alg_key_len;
-+	memcpy(base_algo.alg_key, algo->alg_key, algo->alg_key_len / 8);
- 
--	__xfrm_algo_print(&base.algo, XFRMA_ALG_AUTH_TRUNC, len, fp, prefix, 0);
-+	__xfrm_algo_print(&base_algo, XFRMA_ALG_AUTH_TRUNC, len, fp, prefix, 0);
- 
- 	fprintf(fp, " %d", algo->alg_trunc_len);
- 
--- 
-1.8.0.2
+ 	pegasus_t	*pegasus = netdev_priv(dev);
+ 	u8		reg78 = 0x04;
++	int		ret;
+
+ 	if (wol->wolopts & ~WOL_SUPPORTED)
+ 		return -EINVAL;
+@@ -1110,7 +1111,11 @@ pegasus_set_wol(struct net_device *dev, struct
+ethtool_wolinfo *wol)
+ 	else
+ 		pegasus->eth_regs[0] &= ~0x10;
+ 	pegasus->wolopts = wol->wolopts;
+-	return set_register(pegasus, WakeupControl, reg78);
++
++	ret = set_register(pegasus, WakeupControl, reg78);
++	if (!ret)
++		ret = device_set_wakeup_enable(&pegasus->usb->dev, 1);
++	return ret;
+ }
+
+ static inline void pegasus_reset_wol(struct net_device *dev)
+
+
+>
+> 4. Find the MAC address by running ifconfig and looking at the HWaddr
+> field.
+>
+> 5. Verify with wireshark that I can see the Magic WOL packet when I run
+> this command on another machine:
+>    sudo etherwake -i ethX macaddr
+>
+> 6. Suspend or hibernate the target machine, and then send the Magic WOL
+> packet from a second machine.
+>
+>
+> Am I missing any steps in testing this?  Does WOL just not work for USB
+> ethernet devices under Linux?  Perhaps just the pegasus driver doesn't
+> support WOL?
+
+Probably the set_wol of pegasus is broken if wakeup has been enabled
+on the USB device.
+
+Thanks,
+--
+Ming Lei
