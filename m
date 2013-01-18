@@ -1,60 +1,65 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] mwl8k: don't return zero on failure paths in mwl8k_probe[_hw]()
-Date: Sat, 19 Jan 2013 01:24:01 +0400
-Message-ID: <1358544241-13032-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Lennert Buytenhek <buytenh@wantstofly.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ispras.ru ([83.149.199.43]:35128 "EHLO mail.ispras.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755257Ab3ARVYb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 16:24:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: IPsec AH use of ahash
+Date: Fri, 18 Jan 2013 14:16:14 -0800
+Message-ID: <20130118221614.GA5616@ppwaskie-mobl2.amr.corp.intel.com>
+References: <20130118.145005.156366015893075594.davem@davemloft.net>
+ <220318679.90938.1358542424387.JavaMail.root@elliptictech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	steffen klassert <steffen.klassert@secunet.com>,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <220318679.90938.1358542424387.JavaMail.root@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If pci_iomap() fails in mwl8k_probe(), it breaks off initialization,
-deallocates all resources, but returns zero.
-There is a similar issue when priv->rxd_ops is NULL in mwl8k_probe_hw().
+On Fri, Jan 18, 2013 at 03:53:44PM -0500, Tom St Denis wrote:
+> Admittedly I'm new to the kernel scene but what exactly is a "maintainer" then?
 
-The patch adds proper error code return values.
+Maintainers are ultimately responsible for content that flows into a tree
+or subsystem.  That means they must command a level of expertise on
+everything about the code they maintain to decide what goes in and what
+doesn't.  This doesn't mean they know everything about everything, but
+their judgement is built on experience and time in the job.
 
-Found by Linux Driver Verification project (linuxtesting.org).
+> Suppose I invest time to re-write the IPv4/v6 AH code to correctly use AEAD instead of ahash, to then perform the testing required, etc... do I get credit as a maintainer in the IPsec tree?
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/mwl8k.c |    3 +++
- 1 file changed, 3 insertions(+)
+Working on a single thing doesn't make you a maintainer, it makes you a
+contributor.  There are vastly more contributors than maintainers, and that's
+how it should be.  A maintainer depends on contributors to be the people
+in the trenches dealing with the specifics of things like the AH code, in
+this case.  However, a maintainer's signed-off-by on a contributor's code
+also makes the maintainer accountable for the code being included in the
+kernel.  This is not something to be taken lightly.
 
-diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
-index f221b95..018f442 100644
---- a/drivers/net/wireless/mwl8k.c
-+++ b/drivers/net/wireless/mwl8k.c
-@@ -5462,6 +5462,7 @@ static int mwl8k_probe_hw(struct ieee80211_hw *hw)
- 		if (priv->rxd_ops == NULL) {
- 			wiphy_err(hw->wiphy,
- 				  "Driver does not have AP firmware image support for this hardware\n");
-+			rc = -ENOENT;
- 			goto err_stop_firmware;
- 		}
- 	} else {
-@@ -5807,6 +5808,7 @@ static int mwl8k_probe(struct pci_dev *pdev,
- 	priv->sram = pci_iomap(pdev, 0, 0x10000);
- 	if (priv->sram == NULL) {
- 		wiphy_err(hw->wiphy, "Cannot map device SRAM\n");
-+		rc = -EIO;
- 		goto err_iounmap;
- 	}
- 
-@@ -5819,6 +5821,7 @@ static int mwl8k_probe(struct pci_dev *pdev,
- 		priv->regs = pci_iomap(pdev, 2, 0x10000);
- 		if (priv->regs == NULL) {
- 			wiphy_err(hw->wiphy, "Cannot map device registers\n");
-+			rc = -EIO;
- 			goto err_iounmap;
- 		}
- 	}
--- 
-1.7.9.5
+> I'm also a little annoyed that my CMAC patch was rejected for among other reasons that it violated "coding standards."  Specially since it was almost entirely copied from crypto/xcbc.c which also violates the same rules.  As a newcomer to the tree I tried my best by emulating readily available code (which apparently was already accepted into the tree) to then just get shot down for attempting to contribute.  If my CMAC code is not good enough for the tree I humbly suggest you also remove the XCBC code too while we're at it.
+
+I would recommend just hanging out on the netdev list and read it for a few
+days.  There are a *large* number of patches that are critiqued and asked
+to either be rewritten, modified, or dropped.  The whole point of the
+community is to share your work and code, and then either defend the code,
+or incorporate feedback and resubmit.  Many patches take multiple spins before
+they're applied.  It's the nature of the community.
+
+Note that quite a bit of code has been in the kernel for a long time.  There
+will be examples of code that doesn't conform; there are millions of lines of
+code in Linux, nothing is going to be perfect.  If you find your code doesn't
+meet a coding standard, then respin the patch, and then use that opportunity
+to fix the other code you've seen to meet the coding standard.  That's two
+contributions that only improve the kernel, and increases your credibility
+as an active contributor.
+
+> What I would expect from the "maintainers" is that they actually take on a more than trivial involvement in the progress of the code.  If I have to create original content and massage it into whatever form pleases the owners of the tree am I not the maintainer of the code?  I was honestly expecting someone with more involvement in the tree to move the [in this case] CMAC patch forward.  
+
+I'd suggest you go look at patchwork.ozlabs.org and look at the queues of
+patches that various maintainers are juggling.  Maintainers offer feedback and
+review when they can, but they rely on other contributors to really vet the
+code.  And the fact that David responded at all shouldn't be viewed as
+trivial involvement, he's one of the most busy maintainers in the kernel.
+
+Cheers,
+-PJ
