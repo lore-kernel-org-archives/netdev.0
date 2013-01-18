@@ -1,41 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] 6lowpan: Handle
- uncompressed IPv6 packets over 6LoWPAN
-Date: Fri, 18 Jan 2013 14:18:48 -0500 (EST)
-Message-ID: <20130118.141848.1960193352262628503.davem@davemloft.net>
-References: <1358315037-10043-1-git-send-email-alan@signal11.us>
-	<1358399388-30062-1-git-send-email-alan@signal11.us>
-	<1358399388-30062-3-git-send-email-alan@signal11.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: Add an error handler for icmp6
+Date: Fri, 18 Jan 2013 14:20:17 -0500 (EST)
+Message-ID: <20130118.142017.1798763703843518227.davem@davemloft.net>
+References: <20130117080949.GA24987@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1358399388-30062-3-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: djduanjiong@gmail.com, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38610 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751815Ab3ARTUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:20:18 -0500
+In-Reply-To: <20130117080949.GA24987@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Date: Thu, 17 Jan 2013 00:09:48 -0500
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 17 Jan 2013 09:09:49 +0100
 
-> Handle the reception of uncompressed packets (dispatch type = IPv6).
+> pmtu and redirect events are now handled in the protocols error handler,
+> so add an error handler for icmp6 to do this. It is needed in the case
+> when we have no socket context. Based on a patch by Duan Jiong.
 > 
-> Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+> Reported-by: Duan Jiong <djduanjiong@gmail.com>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-Applied.
-
-------------------------------------------------------------------------------
-Master HTML5, CSS3, ASP.NET, MVC, AJAX, Knockout.js, Web API and
-much more. Get web development skills now with LearnDevNow -
-350+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
-SALE $99.99 this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_122812
+Applied and queued up for -stable, thanks Steffen.
