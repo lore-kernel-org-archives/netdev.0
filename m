@@ -1,116 +1,233 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] CDC_NCM adding support IFF_NOARP for infineon modem
- platform
-Date: Fri, 18 Jan 2013 11:43:17 -0600
-Message-ID: <1358530997.2733.0.camel@dcbw.foobar.com>
-References: <1357990479-5836-1-git-send-email-cpuwolf@gmail.com>
-	 <1358372743.8713.0.camel@dcbw.foobar.com>
-	 <CACa7zyntkL4egpO-XAKe=rmf=A3Zd2WmB4PO0XfHv7KsOb464Q@mail.gmail.com>
+From: Byungho An <bh74.an@samsung.com>
+Subject: RE: [PATCH net-next 1/3] net: stmmac: add gmac autoneg set for SGMII,
+ TBI, and RTBI
+Date: Fri, 18 Jan 2013 09:41:58 -0800
+Message-ID: <01e201cdf5a3$1f3e1890$5dba49b0$@samsung.com>
+References: <00c001cdf369$9b25bdf0$d17139d0$@samsung.com>
+ <50F6568D.3060703@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Alexey Orishko <alexey.orishko@stericsson.com>,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Wei Shuai <cpuwolf@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20116 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751424Ab3ARRlG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 12:41:06 -0500
-In-Reply-To: <CACa7zyntkL4egpO-XAKe=rmf=A3Zd2WmB4PO0XfHv7KsOb464Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	kgene.kim@samsung.com, cpgs@samsung.com
+To: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-reply-to: <50F6568D.3060703@st.com>
+Content-language: en-zw
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-17 at 14:44 +0800, Wei Shuai wrote:
-> OK, I will follow up. after add FLAG_NOARP, how should I handle
-> IFF_NOARP? will I do it in cdc_ncm.c or usb_net.c?
+Hello Peppe,
 
-usbnet.c
+On 1/15/2013 11:28 PM, Giuseppe CAVALLARO write:
+> On 1/15/2013 10:45 PM, Byungho An wrote:
+> >
+> > This patch adds gmac autoneg set function for SGMII, TBI, or RTBI
+> > interface. In case of PHY's autoneg is set, gmac's autoneg enable bit
+> > should set. After checking phy's autoneg if phydev's autoneg is '1'
+> > gmac's ANE bit set for those interface.
+> 
+> Sorry I've some doubts about these patches.
+> 
+> Firstly if the MAC is able to manage RGMII/SGMII etc this should be
+verified
+> by looking at the HW cap register: i.e. PCS bit.
+> 
+>    (I have no HW that support this so I cannot do any tests).
+>
+I agree with you and actually I tried to use a PCS bit previously.
+(PCS bit indicates TBI, SGMII, or RTBI PHY interface)
+But I was confused which one I should use among PSC, ACTPHYIF or phydev to
+recognize the interface.
+At this time, I want to add auto-negotiation enable because sgmii interface
+is not working without ANE using PCS bit(in H/W feature register).
 
-Dan
 
-> 2013/1/17 Dan Williams <dcbw@redhat.com>:
-> > On Sat, 2013-01-12 at 19:34 +0800, Wei Shuai wrote:
-> >> Infineon(now Intel) HSPA Modem platform NCM cannot support ARP. so I introduce a flag CDC_NCM_DRIVER_DATA_NOARP which is defined in driver_info:data. so later on, if more such buggy devices are found, they could use same flag to handle.
+> In case of this feature is actually supported then the driver could manage
+> everything bypassing the MDIO.
+> IMO, we could not need to call the stmmac_phy_init and we should not use
+> the PHYLIB.
+> I mean if we have the PCS module we could have a minimal support to get
+> link status, restart ANE etc w/o using at all the PHYLIB (so w/o touching
+the
+> PHY regs via the MDIO/MDC).
+> 
+Yes. For example SGMII/RGMII/SMII Status Register is useful to know status
+so we can use this register to manage status of SGMII/RGMII/SMII
+
+
+>    It could also be useful to complete the support with the RGMII... no
+>    extra effort should be needed while adding SGMII if you look at the
+>    core registers.
+>    If you add the RGMII on some platforms we could guarantee to manage
+>    the fix_mac_speed (see stmmac doc).
+> 
+Unfortunately I have only the SGMII.
+
+> Looking at the other your patches, the ethtool support is not completed. I
+> expected to restart ANE, get/set link property etc.
+> 
+What is link property? It means link up, speed and duplex mode.
+Are there anything else?
+I think get link property is already working using ethtool.
+In case of SGMII/RGMII/SMII, I think we can use SGMII/RGMII/SMII Status
+Register for link status.
+
+I have a question regarding it.
+In the mainline code, there is hardcode interrupt mask in
+dwmac1000_core_init function.
+When I try to get interrupt for link change, interrupt is not occurred
+because of this mask.
+Can we modify that? 
+
+
+> Also pay attention to properly treat EEE. Maybe, as first stage we should
+> disable the feature in this case. We will see it later.
+> The question is that we could not be able to use some extra features that
+> currently need to dialog more with the PHY device. I mean what we actually
+> do by using PHYLIB.
+OK. As I understood, using gmac register instead of phydev or phylib...
+I agree. In my opinion gmac and phy communicate using mdio each other, after
+that gmac can get updated status.
+
+> 
 > >
-> > So given that Dave now approves of IFF_NOARP, let's change your original
-> > patch to add a FLAG_NOARP for the .flags structure instead of inventing
-> > another mechanism for .data.
+> > Signed-off-by: Byungho An <bh74.an@samsung.com>
+> > ---
+> >   drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
+> >   drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11
+> +++++++++++
+> >   drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
+> >   3 files changed, 21 insertions(+)
 > >
-> > Dan
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
+> > b/drivers/net/ethernet/stmicro/stmmac/common.h
+> > index 186d148..72ba769 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+> > @@ -344,6 +344,7 @@ struct stmmac_ops {
+> >   	void (*reset_eee_mode) (void __iomem *ioaddr);
+> >   	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
+> >   	void (*set_eee_pls) (void __iomem *ioaddr, int link);
+> > +	void (*set_autoneg) (void __iomem *ioaddr);
+> >   };
 > >
-> >> Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
-> >> ---
-> >>  drivers/net/usb/cdc_ncm.c |   29 +++++++++++++++++++++++++++++
-> >>  1 files changed, 29 insertions(+), 0 deletions(-)
-> >>
-> >> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-> >> index 71b6e92..6093e07 100644
-> >> --- a/drivers/net/usb/cdc_ncm.c
-> >> +++ b/drivers/net/usb/cdc_ncm.c
-> >> @@ -55,6 +55,9 @@
-> >>
-> >>  #define      DRIVER_VERSION                          "14-Mar-2012"
-> >>
-> >> +/* Flags for driver_info::data */
-> >> +#define CDC_NCM_DRIVER_DATA_NOARP  1
-> >> +
-> >>  static void cdc_ncm_txpath_bh(unsigned long param);
-> >>  static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
-> >>  static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
-> >> @@ -573,6 +576,10 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
-> >>               return -ENODEV;
-> >>  #endif
-> >>
-> >> +     if (dev->driver_info->data & CDC_NCM_DRIVER_DATA_NOARP) {
-> >> +             /* some buggy device cannot do ARP*/
-> >> +             dev->net->flags |= IFF_NOARP;
-> >> +     }
-> >>       /* NCM data altsetting is always 1 */
-> >>       ret = cdc_ncm_bind_common(dev, intf, 1);
-> >>
-> >> @@ -1155,6 +1162,21 @@ static const struct driver_info wwan_info = {
-> >>       .tx_fixup = cdc_ncm_tx_fixup,
-> >>  };
-> >>
-> >> +/* Same as wwan_info, but with IFF_NOARP  */
-> >> +static const struct driver_info wwan_noarp_info = {
-> >> +     .description = "Mobile Broadband Network Device (NO ARP)",
-> >> +     .flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
-> >> +                     | FLAG_WWAN,
-> >> +     .data = CDC_NCM_DRIVER_DATA_NOARP,
-> >> +     .bind = cdc_ncm_bind,
-> >> +     .unbind = cdc_ncm_unbind,
-> >> +     .check_connect = cdc_ncm_check_connect,
-> >> +     .manage_power = usbnet_manage_power,
-> >> +     .status = cdc_ncm_status,
-> >> +     .rx_fixup = cdc_ncm_rx_fixup,
-> >> +     .tx_fixup = cdc_ncm_tx_fixup,
-> >> +};
-> >> +
-> >>  static const struct usb_device_id cdc_devs[] = {
-> >>       /* Ericsson MBM devices like F5521gw */
-> >>       { .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
-> >> @@ -1194,6 +1216,13 @@ static const struct usb_device_id cdc_devs[] = {
-> >>         .driver_info = (unsigned long)&wwan_info,
-> >>       },
-> >>
-> >> +     /* Infineon(now Intel) HSPA Modem platform */
-> >> +     { USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0443,
-> >> +             USB_CLASS_COMM,
-> >> +             USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
-> >> +       .driver_info = (unsigned long)&wwan_noarp_info,
-> >> +     },
-> >> +
-> >>       /* Generic CDC-NCM devices */
-> >>       { USB_INTERFACE_INFO(USB_CLASS_COMM,
-> >>               USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+> >   struct mac_link {
+> > diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> > b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> > index bfe0226..a0737b39 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+> > @@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void
+> __iomem
+> > *ioaddr, int ls, int tw)
+> >   	writel(value, ioaddr + LPI_TIMER_CTRL);
+> >   }
 > >
+> > +static void dwmac1000_set_autoneg(void __iomem *ioaddr) {
+> > +	u32 value;
+> > +
+> > +	value = readl(ioaddr + GMAC_AN_CTRL);
+> > +	value |= 0x1000;
+> 
+> pls use define instead of raw values ... see below.
+> 
+> > +	writel(value, ioaddr + GMAC_AN_CTRL); }
+> > +
+> > +
+> >   static const struct stmmac_ops dwmac1000_ops = {
+> >   	.core_init = dwmac1000_core_init,
+> >   	.rx_ipc = dwmac1000_rx_ipc_enable,
+> > @@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
+> >   	.reset_eee_mode =  dwmac1000_reset_eee_mode,
+> >   	.set_eee_timer =  dwmac1000_set_eee_timer,
+> >   	.set_eee_pls =  dwmac1000_set_eee_pls,
+> > +	.set_autoneg =  dwmac1000_set_autoneg,
+> >   };
 > >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >   struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr) diff
+> > --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > index f07c061..3e28934 100644
+> > --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> > @@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
+> >   {
+> >   	struct stmmac_priv *priv = netdev_priv(dev);
+> >   	int ret;
+> > +	int interface = priv->plat->interface;
+> >
+> >   	clk_prepare_enable(priv->stmmac_clk);
+> >
+> > @@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
+> >   	/* Initialize the MAC Core */
+> >   	priv->hw->mac->core_init(priv->ioaddr);
+> >
+> > +	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
+> > +	if (interface == PHY_INTERFACE_MODE_SGMII ||
+> > +	    interface == PHY_INTERFACE_MODE_TBI ||
+> > +	    interface == PHY_INTERFACE_MODE_RTBI) {
+> > +		if (priv->phydev->autoneg)
+> > +			priv->hw->mac->set_autoneg(priv->ioaddr);
+> > +	}
+> 
+> we could use the following instead of priv->hw->mac->set_autoneg:
+> 
+> static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart) {
+>      int value = GMAC_CTRL_ANE_EN;
+> 
+>      if (restart)
+>          value |= GMAC_CTRL_ANE_RESTART;
+> 
+>      writel(value, ioaddr +GMAC_AN_CTRL); }
+> 
+> where we should defines all the missing macros for the registers 48, 49
+...
+Actually I tested this code for restart autonegotiation, but even though I
+changed link (1Gb -> 100Mb) phy's link is not changed.
+For more detail, first time 1Gb I changed the link during system working and
+then check speed using ethtool/mii-tool.
+I think phy also should do autonegotiation (I'm not sure this is just for
+the SGMII). Without phy auto negotiation  gmac is not working.
+
+OK, I'll try to check functionality and make macros.
+Anyway as a first step, I want to complete to the code regarding ANE (ctrl
+function, macros, ethtool support for link status etc..)
+I'll send new code before making patch soon.
+
+> 
+> /* RGMI/SGMII defines */
+> #define GMAC_CTRL_ANE_SGMII_RAL (1 << 18)
+> #define GMAC_CTRL_ANE_EN       (1 << 12)
+> #define GMAC_CTRL_ANE_RESTART  (1 << 9)
+> 
+> The handler should store the link status that will be used to pass the
+info to
+> the ethtool for example. We need to manage speed and duplex etc.
+> 
+> What happens if you run "ethtool eth0" command?
+> Or if you run mii-tool?
+> I expect to get the right speed and duplex at least.
+So far, I can get right data speed and duplex and autoneg.
+
+> 
+> Concerning the stmmac_set_pauseparam I'm also not sure you are doing the
+> right thing. Note that you are not restarting the ANE at all ... (this is
+what the
+> phy_start_aneg does). If set the bit 12 then you are enabling the ane. To
+> restart it, you need to set the bit 9 in the reg 48.
+> 
+> I can support you on all the points above. Let me know.
+> 
+> BR,
+> peppe
+>
+OK, thank you and happy new year.
+Byungho An
+ 
+> > +
+> >   	/* Request the IRQ lines */
+> >   	ret = request_irq(dev->irq, stmmac_interrupt,
+> >   			 IRQF_SHARED, dev->name, dev);
+> >
