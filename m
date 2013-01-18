@@ -1,89 +1,64 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Thu, 17 Jan 2013 23:14:31 -0500
-Message-ID: <201301172314.34193.vapier@gentoo.org>
-References: <1358316366.14898.8.camel@cr0> <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com> <20130116.164511.2027039182184636075.davem@davemloft.net>
+From: Madhvapathi Sriram <sriram.madhvapathi@gmail.com>
+Subject: Re: IPV4 TCP connection reset using iperf
+Date: Fri, 18 Jan 2013 09:43:16 +0530
+Message-ID: <CAAvRe=g23ZcZn2dHgQxbC+WmQPRkg40UwcqvcujX-FgneXt7sQ@mail.gmail.com>
+References: <CAAvRe=izMJWEFDcZYEoJCY2Em7NQKco4_6x1L7t4h2XSJf6_Sg@mail.gmail.com>
+	<50EC59D8.9000701@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4524473.iPNIk8yRGl";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
- bhutchings@solarflare.com,
- yoshfuji@linux-ipv6.org,
- amwang@redhat.com,
- tmb@mageia.org,
- eblake@redhat.com,
- netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- libvirt-list@redhat.com,
- tgraf@suug.ch,
- schwab@suse.de,
- carlos@systemhalted.org
-To: libc-alpha@sourceware.org
-Return-path: <libc-alpha-return-36394-glibc-alpha=m.gmane.org@sourceware.org>
-In-Reply-To: <20130116.164511.2027039182184636075.davem@davemloft.net>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f178.google.com ([209.85.223.178]:57651 "EHLO
+	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752798Ab3ARENR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 23:13:17 -0500
+Received: by mail-ie0-f178.google.com with SMTP id c12so5735761ieb.23
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 20:13:16 -0800 (PST)
+In-Reply-To: <50EC59D8.9000701@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart4524473.iPNIk8yRGl
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Hi,
+I was looking into the driver code and found that the problem was with
+merging the code and had messed up with skb_put in the receive path. I
+have corrected that and everything works fine.
+Thanks for the help.
 
-On Wednesday 16 January 2013 16:45:11 David Miller wrote:
-> What would be really nice is if GCC treated multiple identical
-> definitions of structures the same way it handles multiple identical
-> definitions of CPP defines.  Which is to silently accept them.
->=20
-> But that's not the case, so we need a different solution.
->=20
-> Another thing to do is to use a new structure for in6_addr in kernel
-> headers exported to userland.
+Regards,
+Madhvapathi Sriram
 
-the kernel already exports many types with a __kernel_ prefix.  i changed t=
-he=20
-kernel headers in Gentoo for a few releases (2.6.28 - 2.6.34) to do the sam=
-e=20
-thing to pretty much all the networking headers.  a few packages broke, but=
-=20
-the number was low, and trivial to fix (a sed would do it most of the time).
-
-it's also trivial for userland packages to detect that they need to do this=
-=20
-sort of thing in a local header by using linux/version.h and a set of defin=
-es=20
-to redirect the new structure name back to the old one.
-
-would be a lot cleaner to just break it and be done.
-=2Dmike
-
---nextPart4524473.iPNIk8yRGl
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQ+MwqAAoJEEFjO5/oN/WBBskQAMOonwYlzAbcqbYCYHhxza41
-qy82GlFB/k/qwL2ai4b9gdBmFjzvIlF3IM5UOqklp+k1LkGwPJjA8fSq3oXjB74L
-YEtZYm0K8XLwN5PhiuXTRjjWAEnh2+f0KQovIjzHQ9ME7cLWkwjmTDr3SCMaz9d6
-yPcyMQjp9enEe1nt+5/yPphWUfVZl79ipSuHaBdHrqE1oz2tYb2L/wdWQCmZ7HEM
-MmJ2srZ2xOxsCH+v/jjuVKnDXSFyEfEVd0nwdVCNXYiAPeeFwlzkVqrKHwTLpSUI
-Fx8zH09eklkx4gOMXxD8rh6ulXOfWs0Z64nYWAzLhiW4Xo8hh0wi3BQ7MFTb2w5I
-mjllXC/Uq9IXQ1AOab1r/2yL/Axf2OW7yQxG2on5TPzaJotRF4mZXhAusE0S0Rqv
-itpH0Apon+lapezytdMz49r28JW33lmApMXm5bWWwjNhvQDUaWr9IEAqJOqJJ1XL
-hOLzqzFqQ4Fs++1g8t+IKmzB/4C2pcuSjFlBh193unjSoUONWsEIdLGczU6LIVco
-65GO+OOUpkCgK2cLv6aBLywhAwzi02u53ZQ0N7QMI/LYJlg3rVE3Ikz0KoiO0pHn
-6t2Bkv8IYHTT4SyxoZnRdzkyY81ffXMZkutbTHBOSqf2b1BbhUtTIZ2E5F27K1AY
-msbPZjq4OYPX46UJ8zcx
-=BmdQ
------END PGP SIGNATURE-----
-
---nextPart4524473.iPNIk8yRGl--
+On Tue, Jan 8, 2013 at 11:09 PM, Rick Jones <rick.jones2@hp.com> wrote:
+> On 01/08/2013 06:41 AM, Madhvapathi Sriram wrote:
+>>
+>> Hi,
+>>
+>> I have recently migrated to kernel version 3.6.10 from 3.2.1. I was
+>> running iperf to routinely measure TCP throughput and I have been
+>> facing problems eversince. I am using a wireless interface.
+>>
+>> wireless client: iperf -s -i 1 -w 1024K
+>> wireless server: iperf -c 192.168.1.1 -i -1 -w 1024 -t 600
+>>
+>> While, the connection is maintained for sometime and the perf logs
+>> keep going. Randomly, the connection breaks with the server side
+>> resetting the connection. The tcp dump on the client shows RST sent by
+>> the server. Switching back to 3.2.1 works. This issue starts from
+>> kernel version 3.5 onnwards.
+>>
+>> I have tried to probe along some points to take a look at the air
+>> logs, tcpdump on either sides but to no clue - everything seems normal
+>> like, the tcp window values, very less/negligible retransmissions and
+>> so on. The RST is set abruptly and randomly (no definite time - may
+>> happen randomly).
+>>
+>> I am looking for some suggestions or pointers towards analyzing the issue.
+>
+>
+> I cannot imagine that iperf bulk transfer would look all that much different
+> from netperf bulk transfer, but I suppose you could see if a netperf
+> TCP_STREAM test with similar configuration settings encounters the same RST
+> issues.  Or, for that matter, an equally long-lived FTP or scp transfer.
+>
+> rick jones
+>
