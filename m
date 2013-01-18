@@ -1,77 +1,107 @@
-From: Pedro Alves <palves@redhat.com>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Fri, 18 Jan 2013 10:44:53 +0000
-Message-ID: <50F927A5.5060409@redhat.com>
-References: <201301161205.04502.vapier@gentoo.org> <50F75EA7.4060309@systemhalted.org> <20130116.221538.1756411165313441486.davem@davemloft.net> <201301172320.19905.vapier@gentoo.org> <CAE2sS1jMhnRcoo1oe7wQ+SP=40u9mkps6vXua8TQQ4Tbf2qKOQ@mail.gmail.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH v3 2/2] virtio-net: introduce a new control to set macaddr
+Date: Fri, 18 Jan 2013 12:00:42 +0100
+Message-ID: <20130118110042.GB22481@stefanha-thinkpad.redhat.com>
+References: <1358419212-32356-1-git-send-email-akong@redhat.com>
+ <1358419212-32356-3-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Mike Frysinger <vapier@gentoo.org>, David Miller <davem@davemloft.net>,
-        libc-alpha@sourceware.org, bhutchings@solarflare.com,
-        yoshfuji@linux-ipv6.org, amwang@redhat.com, tmb@mageia.org,
-        eblake@redhat.com, netdev@vger.kernel.org,
-        linux-kernel@vger.kernel.org, libvirt-list@redhat.com, tgraf@suug.ch,
-        schwab@suse.de
-To: "Carlos O'Donell" <carlos@systemhalted.org>
-Return-path: <libc-alpha-return-36411-glibc-alpha=m.gmane.org@sourceware.org>
-In-Reply-To: <CAE2sS1jMhnRcoo1oe7wQ+SP=40u9mkps6vXua8TQQ4Tbf2qKOQ@mail.gmail.com>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mst@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	qemu-devel@nongnu.org, virtualization@lists.linux-foundation.org,
+	davem@davemloft.net
+To: akong@redhat.com
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1358419212-32356-3-git-send-email-akong@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/18/2013 04:22 AM, Carlos O'Donell wrote:
-> On Thu, Jan 17, 2013 at 11:20 PM, Mike Frysinger <vapier@gentoo.org> wrote:
->> On Wednesday 16 January 2013 22:15:38 David Miller wrote:
->>> From: Carlos O'Donell <carlos@systemhalted.org>
->>> Date: Wed, 16 Jan 2013 21:15:03 -0500
->>>
->>>> +/* If a glibc-based userspace has already included in.h, then we will
->>>> not + * define in6_addr (nor the defines), sockaddr_in6, or ipv6_mreq.
->>>> The + * ABI used by the kernel and by glibc match exactly. Neither the
->>>> kernel + * nor glibc should break this ABI without coordination.
->>>> + */
->>>> +#ifndef _NETINET_IN_H
->>>> +
->>>
->>> I think we should shoot for a non-glibc-centric solution.
->>>
->>> I can't imagine that other libc's won't have the same exact problem
->>> with their netinet/in.h conflicting with the kernel's, redefining
->>> structures like in6_addr, that we'd want to provide a protection
->>> scheme for here as well.
->>
->> yes, the kernel's use of __GLIBC__ in exported headers has already caused
->> problems in the past.  fortunately, it's been reduced down to just one case
->> now (stat.h).  let's not balloon it back up.
->> -mike
-> 
-> I also see coda.h has grown a __GLIBC__ usage.
-> 
-> In the next revision of the patch I created a single libc-compat.h header
-> which encompasses the logic for any libc that wants to coordinate with
-> the kernel headers.
+On Thu, Jan 17, 2013 at 06:40:12PM +0800, akong@redhat.com wrote:
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 395ab4f..837c978 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -802,14 +802,32 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	struct virtio_device *vdev = vi->vdev;
+>  	int ret;
+> +	struct scatterlist sg;
+> +	char save_addr[ETH_ALEN];
+> +	unsigned char save_aatype;
+> +
+> +	memcpy(save_addr, dev->dev_addr, ETH_ALEN);
+> +	save_aatype = dev->addr_assign_type;
+>  
+>  	ret = eth_mac_addr(dev, p);
+>  	if (ret)
+>  		return ret;
+>  
+> -	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
+> +		sg_init_one(&sg, dev->dev_addr, dev->addr_len);
+> +		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+> +					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+> +					  &sg, 1, 0)) {
+> +			dev_warn(&vdev->dev,
+> +				 "Failed to set mac address by vq command.\n");
+> +			memcpy(dev->dev_addr, save_addr, ETH_ALEN);
+> +			dev->addr_assign_type = save_aatype;
+> +			return -EINVAL;
+> +		}
 
+eth_mac_addr() doesn't allow callers to implement error handling nicely.
+Although you didn't duplicate it's code directly, this patch still leaks
+internals of eth_mac_addr().
 
-> It's simple enough to move all of the __GLIBC__ uses into libc-compat.h,
-> then you control userspace libc coordination from one file.
+How about splitting eth_mac_addr() in a separate patch:
 
-How about just deciding on a single macro/symbol both the
-kernel and libc (any libc that needs this) define?  Something
-like both the kernel and userland doing:
+int eth_prepare_mac_addr_change(struct net_device *dev, void *p)
+{
+        struct sockaddr *addr = p;
+        if (!(dev->priv_flags & IFF_LIVE_ADDR_CHANGE) && netif_running(dev))
+                return -EBUSY;
+        if (!is_valid_ether_addr(addr->sa_data))
+                return -EADDRNOTAVAIL;
+	return 0;
+}
 
-#ifndef __IPV6_BITS_DEFINED
-#define __IPV6_BITS_DEFINED
-...
-define in6_addr, sockaddr_in6, ipv6_mreq, whatnot
-#endif
+void eth_commit_mac_addr_change(struct net_device *dev, void *p)
+{
+        struct sockaddr *addr = p;
+        memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+        /* if device marked as NET_ADDR_RANDOM, reset it */
+        dev->addr_assign_type &= ~NET_ADDR_RANDOM;
+}
 
-So whichever the application includes first, wins.
-Too naive?  I didn't see this option being discarded, so
-not sure it was considered.
+/* Default implementation of MAC address changing */
+int eth_mac_addr(struct net_device *dev, void *p)
+{
+	int ret;
+	ret = eth_prepare_mac_addr_change(dev, p);
+	if (ret < 0)
+		return ret;
+	eth_commit_mac_addr_change(dev, p);
+	return 0;
+}
 
--- 
-Pedro Alves
+Now virtio_net.c does:
+
+ret = eth_prepare_mac_addr_change(dev, p);
+if (ret < 0)
+	return ret;
+
+if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
+	sg_init_one(&sg, dev->dev_addr, dev->addr_len);
+	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+				  VIRTIO_NET_CTRL_MAC_ADDR_SET,
+				  &sg, 1, 0)) {
+		dev_warn(&vdev->dev,
+			 "Failed to set mac address by vq command.\n");
+		return -EINVAL;
+	}
+} ...
+
+eth_commit_mac_addr_change(dev, p);
+return 0;
+
+Stefan
