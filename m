@@ -1,47 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH] ipv6: remove unneeded check to pskb_may_pull in ipip6_rcv
-Date: Fri, 18 Jan 2013 20:18:17 +0100
-Message-ID: <20130118191816.GA4795@order.stressinduktion.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 1/2] 6lowpan: Refactor packet
+ delivery into a function
+Date: Fri, 18 Jan 2013 14:18:42 -0500 (EST)
+Message-ID: <20130118.141842.1541240440239354147.davem@davemloft.net>
+References: <1358315037-10043-1-git-send-email-alan@signal11.us>
+	<1358399388-30062-1-git-send-email-alan@signal11.us>
+	<1358399388-30062-2-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:36682 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574Ab3ARTSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:18:18 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1358399388-30062-2-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is already checked by the caller (tunnel64_rcv) and brings ipip6_rcv
-in line with ipip_rcv.
+From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+Date: Thu, 17 Jan 2013 00:09:47 -0500
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/sit.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+> Refactor the handing of the skb's to the individual lowpan devices into a
+> function.
+> 
+> Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index cfba99b..98fe536 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -592,15 +592,10 @@ out:
- 
- static int ipip6_rcv(struct sk_buff *skb)
- {
--	const struct iphdr *iph;
-+	const struct iphdr *iph = ip_hdr(skb);
- 	struct ip_tunnel *tunnel;
- 	int err;
- 
--	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
--		goto out;
--
--	iph = ip_hdr(skb);
--
- 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
- 				     iph->saddr, iph->daddr);
- 	if (tunnel != NULL) {
--- 
-1.7.11.7
+Applied.
+
+------------------------------------------------------------------------------
+Master HTML5, CSS3, ASP.NET, MVC, AJAX, Knockout.js, Web API and
+much more. Get web development skills now with LearnDevNow -
+350+ hours of step-by-step video tutorials by Microsoft MVPs and experts.
+SALE $99.99 this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_122812
