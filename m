@@ -1,774 +1,510 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/12] e1000e: add support for hardware timestamping on some devices
-Date: Fri, 18 Jan 2013 07:04:38 -0800
-Message-ID: <1358521487-28610-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/12] igb: Add i2c interface to igb.
+Date: Fri, 18 Jan 2013 07:04:40 -0800
+Message-ID: <1358521487-28610-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:35352 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751411Ab3ARPEy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 10:04:54 -0500
+	id S1756149Ab3ARPEz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 10:04:55 -0500
 In-Reply-To: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-On 82574, 82583, 82579, I217 and I218 add support for hardware time
-stamping of all or no Rx packets and Tx packets which have the
-SKBTX_HW_TSTAMP flag set.  Update the .get_ts_info ethtool operation to
-report the supported time stamping modes, and enable and disable hardware
-time stamping with the SIOCSHWTSTAMP ioctl.
+Some of our adapters have sensors on them accessible via i2c and a private
+interface.  This patch implements the kernel interface for i2c to those sensors.
+Subsequent patches will provide functions to export that data.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/82571.c   |   2 +
- drivers/net/ethernet/intel/e1000e/defines.h |  14 ++
- drivers/net/ethernet/intel/e1000e/e1000.h   |  46 +++-
- drivers/net/ethernet/intel/e1000e/ethtool.c |  25 +-
- drivers/net/ethernet/intel/e1000e/hw.h      |  10 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c |   2 +
- drivers/net/ethernet/intel/e1000e/netdev.c  | 371 +++++++++++++++++++++++++++-
- 7 files changed, 462 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/Kconfig             |   2 +
+ drivers/net/ethernet/intel/igb/e1000_82575.c   |   3 +
+ drivers/net/ethernet/intel/igb/e1000_82575.h   |   6 +
+ drivers/net/ethernet/intel/igb/e1000_defines.h |   1 +
+ drivers/net/ethernet/intel/igb/e1000_hw.h      |   2 +
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |   8 +
+ drivers/net/ethernet/intel/igb/igb.h           |  11 +-
+ drivers/net/ethernet/intel/igb/igb_main.c      | 269 +++++++++++++++++++++++++
+ 8 files changed, 301 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index c77d010..587890d 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -2044,6 +2044,7 @@ const struct e1000_info e1000_82574_info = {
- 				  | FLAG_HAS_MSIX
- 				  | FLAG_HAS_JUMBO_FRAMES
- 				  | FLAG_HAS_WOL
-+				  | FLAG_HAS_HW_TIMESTAMP
- 				  | FLAG_APME_IN_CTRL3
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
-@@ -2065,6 +2066,7 @@ const struct e1000_info e1000_82583_info = {
- 	.mac			= e1000_82583,
- 	.flags			= FLAG_HAS_HW_VLAN_FILTER
- 				  | FLAG_HAS_WOL
-+				  | FLAG_HAS_HW_TIMESTAMP
- 				  | FLAG_APME_IN_CTRL3
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 3041a54..36f9fad 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -107,6 +107,7 @@
- #define E1000_RXD_ERR_RXE       0x80    /* Rx Data Error */
- #define E1000_RXD_SPC_VLAN_MASK 0x0FFF  /* VLAN ID is in lower 12 bits */
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index bde4f3d..e8912f1 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -94,6 +94,8 @@ config IGB
+ 	tristate "Intel(R) 82575/82576 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI
+ 	select PTP_1588_CLOCK
++	select I2C
++	select I2C_ALGOBIT
+ 	---help---
+ 	  This driver supports Intel(R) 82575/82576 gigabit ethernet family of
+ 	  adapters.  For more information on how to identify your adapter, go
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index fdaaf27..51e3f4f 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -33,6 +33,7 @@
  
-+#define E1000_RXDEXT_STATERR_TST   0x00000100	/* Time Stamp taken */
- #define E1000_RXDEXT_STATERR_CE    0x01000000
- #define E1000_RXDEXT_STATERR_SE    0x02000000
- #define E1000_RXDEXT_STATERR_SEQ   0x04000000
-@@ -318,6 +319,7 @@
- #define E1000_TXD_CMD_IP     0x02000000 /* IP packet */
- #define E1000_TXD_CMD_TSE    0x04000000 /* TCP Seg enable */
- #define E1000_TXD_STAT_TC    0x00000004 /* Tx Underrun */
-+#define E1000_TXD_EXTCMD_TSTAMP	0x00000010 /* IEEE1588 Timestamp packet */
+ #include <linux/types.h>
+ #include <linux/if_ether.h>
++#include <linux/i2c.h>
  
- /* Transmit Control */
- #define E1000_TCTL_EN     0x00000002    /* enable Tx */
-@@ -536,6 +538,18 @@
- #define E1000_RXCW_C          0x20000000        /* Receive config */
- #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
+ #include "e1000_mac.h"
+ #include "e1000_82575.h"
+@@ -2314,6 +2315,8 @@ static struct e1000_phy_operations e1000_phy_ops_82575 = {
+ 	.acquire              = igb_acquire_phy_82575,
+ 	.get_cfg_done         = igb_get_cfg_done_82575,
+ 	.release              = igb_release_phy_82575,
++	.write_i2c_byte       = igb_write_i2c_byte,
++	.read_i2c_byte        = igb_read_i2c_byte,
+ };
  
-+#define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
-+#define E1000_TSYNCRXCTL_TYPE_ALL	0x08
-+#define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
+ static struct e1000_nvm_operations e1000_nvm_ops_82575 = {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
+index 44b76b3..67bd9f9 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.h
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
+@@ -32,6 +32,10 @@ extern void igb_shutdown_serdes_link_82575(struct e1000_hw *hw);
+ extern void igb_power_up_serdes_link_82575(struct e1000_hw *hw);
+ extern void igb_power_down_phy_copper_82575(struct e1000_hw *hw);
+ extern void igb_rx_fifo_flush_82575(struct e1000_hw *hw);
++extern s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
++				u8 dev_addr, u8 *data);
++extern s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
++				 u8 dev_addr, u8 data);
+ 
+ #define ID_LED_DEFAULT_82575_SERDES ((ID_LED_DEF1_DEF2 << 12) | \
+                                      (ID_LED_DEF1_DEF2 <<  8) | \
+@@ -261,4 +265,6 @@ void igb_vmdq_set_replication_pf(struct e1000_hw *, bool);
+ u16 igb_rxpbs_adjust_82580(u32 data);
+ s32 igb_set_eee_i350(struct e1000_hw *);
+ 
++#define E1000_I2C_THERMAL_SENSOR_ADDR	0xF8
 +
-+#define E1000_TSYNCRXCTL_VALID		0x00000001 /* Rx timestamp valid */
-+#define E1000_TSYNCRXCTL_TYPE_MASK	0x0000000E /* Rx type mask */
-+#define E1000_TSYNCRXCTL_ENABLED	0x00000010 /* enable Rx timestamping */
-+#define E1000_TSYNCRXCTL_SYSCFI		0x00000020 /* Sys clock frequency */
-+
-+#define E1000_TIMINCA_INCPERIOD_SHIFT	24
-+#define E1000_TIMINCA_INCVALUE_MASK	0x00FFFFFF
-+
- /* PCI Express Control */
- #define E1000_GCR_RXD_NO_SNOOP          0x00000001
- #define E1000_GCR_RXDSCW_NO_SNOOP       0x00000002
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index b89b181..dea9e55 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -41,6 +41,8 @@
- #include <linux/pci-aspm.h>
- #include <linux/crc32.h>
+ #endif
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 45dce06..446678e 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -470,6 +470,7 @@
+ #define E1000_ERR_NO_SPACE          17
+ #define E1000_ERR_NVM_PBA_SECTION   18
+ #define E1000_ERR_INVM_VALUE_NOT_FOUND	19
++#define E1000_ERR_I2C               20
+ 
+ /* Loop limit on how long we wait for auto-negotiation to complete */
+ #define COPPER_LINK_UP_LIMIT              10
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index c2a51dc..75312ba 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -342,6 +342,8 @@ struct e1000_phy_operations {
+ 	s32  (*set_d0_lplu_state)(struct e1000_hw *, bool);
+ 	s32  (*set_d3_lplu_state)(struct e1000_hw *, bool);
+ 	s32  (*write_reg)(struct e1000_hw *, u32, u16);
++	s32 (*read_i2c_byte)(struct e1000_hw *, u8, u8, u8 *);
++	s32 (*write_i2c_byte)(struct e1000_hw *, u8, u8, u8);
+ };
+ 
+ struct e1000_nvm_operations {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index e5db485..31c3e2f 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -75,6 +75,14 @@
+ #define E1000_FCRTL    0x02160  /* Flow Control Receive Threshold Low - RW */
+ #define E1000_FCRTH    0x02168  /* Flow Control Receive Threshold High - RW */
+ #define E1000_FCRTV    0x02460  /* Flow Control Refresh Timer Value - RW */
++#define E1000_I2CPARAMS        0x0102C /* SFPI2C Parameters Register - RW */
++#define E1000_I2CBB_EN      0x00000100  /* I2C - Bit Bang Enable */
++#define E1000_I2C_CLK_OUT   0x00000200  /* I2C- Clock */
++#define E1000_I2C_DATA_OUT  0x00000400  /* I2C- Data Out */
++#define E1000_I2C_DATA_OE_N 0x00000800  /* I2C- Data Output Enable */
++#define E1000_I2C_DATA_IN   0x00001000  /* I2C- Data In */
++#define E1000_I2C_CLK_OE_N  0x00002000  /* I2C- Clock Output Enable */
++#define E1000_I2C_CLK_IN    0x00004000  /* I2C- Clock In */
+ 
+ /* IEEE 1588 TIMESYNCH */
+ #define E1000_TSYNCRXCTL 0x0B620 /* Rx Time Sync Control register - RW */
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 17f1686..9f1af1b 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -39,6 +39,8 @@
+ #include <linux/ptp_clock_kernel.h>
+ #include <linux/bitops.h>
  #include <linux/if_vlan.h>
-+#include <linux/clocksource.h>
-+#include <linux/net_tstamp.h>
++#include <linux/i2c.h>
++#include <linux/i2c-algo-bit.h>
  
- #include "hw.h"
+ struct igb_adapter;
  
-@@ -353,6 +355,7 @@ struct e1000_adapter {
- 	u64 gorc_old;
- 	u32 alloc_rx_buff_failed;
- 	u32 rx_dma_failed;
-+	u32 rx_hwtstamp_cleared;
- 
- 	unsigned int rx_ps_pages;
- 	u16 rx_ps_bsize0;
-@@ -402,6 +405,14 @@ struct e1000_adapter {
- 
- 	u16 tx_ring_count;
- 	u16 rx_ring_count;
-+
-+	struct hwtstamp_config hwtstamp_config;
-+	struct delayed_work systim_overflow_work;
-+	struct sk_buff *tx_hwtstamp_skb;
-+	struct work_struct tx_hwtstamp_work;
-+	spinlock_t systim_lock;	/* protects SYSTIML/H regsters */
-+	struct cyclecounter cc;
-+	struct timecounter tc;
- };
- 
- struct e1000_info {
-@@ -416,6 +427,38 @@ struct e1000_info {
- 	const struct e1000_nvm_operations *nvm_ops;
- };
- 
-+/* The system time is maintained by a 64-bit counter comprised of the 32-bit
-+ * SYSTIMH and SYSTIML registers.  How the counter increments (and therefore
-+ * its resolution) is based on the contents of the TIMINCA register - it
-+ * increments every incperiod (bits 31:24) clock ticks by incvalue (bits 23:0).
-+ * For the best accuracy, the incperiod should be as small as possible.  The
-+ * incvalue is scaled by a factor as large as possible (while still fitting
-+ * in bits 23:0) so that relatively small clock corrections can be made.
-+ *
-+ * As a result, a shift of INCVALUE_SHIFT_n is used to fit a value of
-+ * INCVALUE_n into the TIMINCA register allowing 32+8+(24-INCVALUE_SHIFT_n)
-+ * bits to count nanoseconds leaving the rest for fractional nonseconds.
-+ */
-+#define INCVALUE_96MHz		125
-+#define INCVALUE_SHIFT_96MHz	17
-+#define INCPERIOD_SHIFT_96MHz	2
-+#define INCPERIOD_96MHz		(12 >> INCPERIOD_SHIFT_96MHz)
-+
-+#define INCVALUE_25MHz		40
-+#define INCVALUE_SHIFT_25MHz	18
-+#define INCPERIOD_25MHz		1
-+
-+/* Another drawback of scaling the incvalue by a large factor is the
-+ * 64-bit SYSTIM register overflows more quickly.  This is dealt with
-+ * by simply reading the clock before it overflows.
-+ *
-+ * Clock	ns bits	Overflows after
-+ * ~~~~~~	~~~~~~~	~~~~~~~~~~~~~~~
-+ * 96MHz	47-bit	2^(47-INCPERIOD_SHIFT_96MHz) / 10^9 / 3600 = 9.77 hrs
-+ * 25MHz	46-bit	2^46 / 10^9 / 3600 = 19.55 hours
-+ */
-+#define E1000_SYSTIM_OVERFLOW_PERIOD	(HZ * 60 * 60 * 4)
-+
- /* hardware capability, feature, and workaround flags */
- #define FLAG_HAS_AMT                      (1 << 0)
- #define FLAG_HAS_FLASH                    (1 << 1)
-@@ -431,7 +474,7 @@ struct e1000_info {
- #define FLAG_HAS_SMART_POWER_DOWN         (1 << 11)
- #define FLAG_IS_QUAD_PORT_A               (1 << 12)
- #define FLAG_IS_QUAD_PORT                 (1 << 13)
--/* reserved bit14 */
-+#define FLAG_HAS_HW_TIMESTAMP             (1 << 14)
- #define FLAG_APME_IN_WUC                  (1 << 15)
- #define FLAG_APME_IN_CTRL3                (1 << 16)
- #define FLAG_APME_CHECK_PORT_B            (1 << 17)
-@@ -463,6 +506,7 @@ struct e1000_info {
- #define FLAG2_NO_DISABLE_RX               (1 << 10)
- #define FLAG2_PCIM2PCI_ARBITER_WA         (1 << 11)
- #define FLAG2_DFLT_CRC_STRIPPING          (1 << 12)
-+#define FLAG2_CHECK_RX_HWTSTAMP           (1 << 13)
- 
- #define E1000_RX_DESC_PS(R, i)	    \
- 	(&(((union e1000_rx_desc_packet_split *)((R).desc))[i]))
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 636ba09..f268cbc 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -108,6 +108,7 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
- 	E1000_STAT("dropped_smbus", stats.mgpdc),
- 	E1000_STAT("rx_dma_failed", rx_dma_failed),
- 	E1000_STAT("tx_dma_failed", tx_dma_failed),
-+	E1000_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
- };
- 
- #define E1000_GLOBAL_STATS_LEN	ARRAY_SIZE(e1000_gstrings_stats)
-@@ -2182,6 +2183,28 @@ static int e1000e_set_eee(struct net_device *netdev, struct ethtool_eee *edata)
- 	return 0;
+@@ -301,6 +303,11 @@ static inline int igb_desc_unused(struct igb_ring *ring)
+ 	return ring->count + ring->next_to_clean - ring->next_to_use - 1;
  }
  
-+static int e1000e_get_ts_info(struct net_device *netdev,
-+			      struct ethtool_ts_info *info)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
++struct igb_i2c_client_list {
++	struct i2c_client *client;
++	struct igb_i2c_client_list *next;
++};
 +
-+	ethtool_op_get_ts_info(netdev, info);
-+
-+	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
-+		return 0;
-+
-+	info->so_timestamping |= (SOF_TIMESTAMPING_TX_HARDWARE |
-+				  SOF_TIMESTAMPING_RX_HARDWARE |
-+				  SOF_TIMESTAMPING_RAW_HARDWARE);
-+
-+	info->tx_types = (1 << HWTSTAMP_TX_OFF) | (1 << HWTSTAMP_TX_ON);
-+
-+	info->rx_filters = ((1 << HWTSTAMP_FILTER_NONE) |
-+			    (1 << HWTSTAMP_FILTER_ALL));
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops e1000_ethtool_ops = {
- 	.get_settings		= e1000_get_settings,
- 	.set_settings		= e1000_set_settings,
-@@ -2209,7 +2232,7 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 	.get_coalesce		= e1000_get_coalesce,
- 	.set_coalesce		= e1000_set_coalesce,
- 	.get_rxnfc		= e1000_get_rxnfc,
--	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_ts_info		= e1000e_get_ts_info,
- 	.get_eee		= e1000e_get_eee,
- 	.set_eee		= e1000e_set_eee,
- };
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 81afad5..8e7e803 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -60,6 +60,7 @@ enum e1e_registers {
- 	E1000_EIAC_82574 = 0x000DC, /* Ext. Interrupt Auto Clear - RW */
- 	E1000_IAM      = 0x000E0, /* Interrupt Acknowledge Auto Mask */
- 	E1000_IVAR     = 0x000E4, /* Interrupt Vector Allocation - RW */
-+	E1000_FEXTNVM7  = 0x000E4, /* Future Extended NVM 7 - RW */
- 	E1000_EITR_82574_BASE = 0x000E8, /* Interrupt Throttling - RW */
- #define E1000_EITR_82574(_n) (E1000_EITR_82574_BASE + (_n << 2))
- 	E1000_LPIC     = 0x000FC, /* Low Power Idle Control - RW */
-@@ -241,6 +242,15 @@ enum e1e_registers {
- #define E1000_PCH_RAICC(_n)	(E1000_PCH_RAICC_BASE + ((_n) * 4))
- #define E1000_CRC_OFFSET	E1000_PCH_RAICC_BASE
- 	E1000_HICR      = 0x08F00, /* Host Interface Control */
-+	E1000_SYSTIML   = 0x0B600, /* System time register Low - RO */
-+	E1000_SYSTIMH   = 0x0B604, /* System time register High - RO */
-+	E1000_TIMINCA   = 0x0B608, /* Increment attributes register - RW */
-+	E1000_TSYNCTXCTL = 0x0B614, /* Tx Time Sync Control register - RW */
-+	E1000_TXSTMPL   = 0x0B618, /* Tx timestamp value Low - RO */
-+	E1000_TXSTMPH   = 0x0B61C, /* Tx timestamp value High - RO */
-+	E1000_TSYNCRXCTL = 0x0B620, /* Rx Time Sync Control register - RW */
-+	E1000_RXSTMPL   = 0x0B624, /* Rx timestamp Low - RO */
-+	E1000_RXSTMPH   = 0x0B628, /* Rx timestamp High - RO */
+ /* board specific private data structure */
+ struct igb_adapter {
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+@@ -391,6 +398,9 @@ struct igb_adapter {
+ 	struct timecounter tc;
+ 
+ 	char fw_version[32];
++	struct i2c_algo_bit_data i2c_algo;
++	struct i2c_adapter i2c_adap;
++	struct igb_i2c_client_list *i2c_clients;
  };
  
- #define E1000_MAX_PHY_ADDR		4
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 3829f7f..50935ef 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -4601,6 +4601,7 @@ const struct e1000_info e1000_pch2_info = {
- 	.mac			= e1000_pch2lan,
- 	.flags			= FLAG_IS_ICH
- 				  | FLAG_HAS_WOL
-+				  | FLAG_HAS_HW_TIMESTAMP
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_FLASH
-@@ -4620,6 +4621,7 @@ const struct e1000_info e1000_pch_lpt_info = {
- 	.mac			= e1000_pch_lpt,
- 	.flags			= FLAG_IS_ICH
- 				  | FLAG_HAS_WOL
-+				  | FLAG_HAS_HW_TIMESTAMP
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_FLASH
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index bf2c84cf..c15b7e4 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -488,20 +488,87 @@ static int e1000_desc_unused(struct e1000_ring *ring)
- }
+ #define IGB_FLAG_HAS_MSI		(1 << 0)
+@@ -466,7 +476,6 @@ static inline void igb_ptp_rx_hwtstamp(struct igb_q_vector *q_vector,
  
- /**
-+ * e1000e_systim_to_hwtstamp - convert system time value to hw time stamp
-+ * @adapter: board private structure
-+ * @hwtstamps: time stamp structure to update
-+ * @systim: unsigned 64bit system time value.
-+ *
-+ * Convert the system time value stored in the RX/TXSTMP registers into a
-+ * hwtstamp which can be used by the upper level time stamping functions.
-+ *
-+ * The 'systim_lock' spinlock is used to protect the consistency of the
-+ * system time value. This is needed because reading the 64 bit time
-+ * value involves reading two 32 bit registers. The first read latches the
-+ * value.
-+ **/
-+static void e1000e_systim_to_hwtstamp(struct e1000_adapter *adapter,
-+				      struct skb_shared_hwtstamps *hwtstamps,
-+				      u64 systim)
-+{
-+	u64 ns;
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&adapter->systim_lock, flags);
-+	ns = timecounter_cyc2time(&adapter->tc, systim);
-+	spin_unlock_irqrestore(&adapter->systim_lock, flags);
-+
-+	memset(hwtstamps, 0, sizeof(*hwtstamps));
-+	hwtstamps->hwtstamp = ns_to_ktime(ns);
-+}
-+
-+/**
-+ * e1000e_rx_hwtstamp - utility function which checks for Rx time stamp
-+ * @adapter: board private structure
-+ * @status: descriptor extended error and status field
-+ * @skb: particular skb to include time stamp
-+ *
-+ * If the time stamp is valid, convert it into the timecounter ns value
-+ * and store that result into the shhwtstamps structure which is passed
-+ * up the network stack.
-+ **/
-+static void e1000e_rx_hwtstamp(struct e1000_adapter *adapter, u32 status,
-+			       struct sk_buff *skb)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u64 rxstmp;
-+
-+	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP) ||
-+	    !(status & E1000_RXDEXT_STATERR_TST) ||
-+	    !(er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_VALID))
-+		return;
-+
-+	/* The Rx time stamp registers contain the time stamp.  No other
-+	 * received packet will be time stamped until the Rx time stamp
-+	 * registers are read.  Because only one packet can be time stamped
-+	 * at a time, the register values must belong to this packet and
-+	 * therefore none of the other additional attributes need to be
-+	 * compared.
-+	 */
-+	rxstmp = (u64)er32(RXSTMPL);
-+	rxstmp |= (u64)er32(RXSTMPH) << 32;
-+	e1000e_systim_to_hwtstamp(adapter, skb_hwtstamps(skb), rxstmp);
-+
-+	adapter->flags2 &= ~FLAG2_CHECK_RX_HWTSTAMP;
-+}
-+
-+/**
-  * e1000_receive_skb - helper function to handle Rx indications
-  * @adapter: board private structure
-- * @status: descriptor status field as written by hardware
-+ * @staterr: descriptor extended error and status field as written by hardware
-  * @vlan: descriptor vlan field as written by hardware (no le/be conversion)
-  * @skb: pointer to sk_buff to be indicated to stack
-  **/
- static void e1000_receive_skb(struct e1000_adapter *adapter,
- 			      struct net_device *netdev, struct sk_buff *skb,
--			      u8 status, __le16 vlan)
-+			      u32 staterr, __le16 vlan)
+ extern int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
+ 				  struct ifreq *ifr, int cmd);
+-
+ static inline s32 igb_reset_phy(struct e1000_hw *hw)
  {
- 	u16 tag = le16_to_cpu(vlan);
-+
-+	e1000e_rx_hwtstamp(adapter, staterr, skb);
-+
- 	skb->protocol = eth_type_trans(skb, netdev);
+ 	if (hw->phy.ops.reset)
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 342bbd6..0173b61 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -57,6 +57,7 @@
+ #ifdef CONFIG_IGB_DCA
+ #include <linux/dca.h>
+ #endif
++#include <linux/i2c.h>
+ #include "igb.h"
  
--	if (status & E1000_RXD_STAT_VP)
-+	if (staterr & E1000_RXD_STAT_VP)
- 		__vlan_hwaccel_put_tag(skb, tag);
- 
- 	napi_gro_receive(&adapter->napi, skb);
-@@ -1092,6 +1159,41 @@ static void e1000_print_hw_hang(struct work_struct *work)
+ #define MAJ 4
+@@ -567,6 +568,91 @@ exit:
+ 	return;
  }
  
- /**
-+ * e1000e_tx_hwtstamp_work - check for Tx time stamp
-+ * @work: pointer to work struct
++/*  igb_get_i2c_data - Reads the I2C SDA data bit
++ *  @hw: pointer to hardware structure
++ *  @i2cctl: Current value of I2CCTL register
 + *
-+ * This work function polls the TSYNCTXCTL valid bit to determine when a
-+ * timestamp has been taken for the current stored skb.  The timestamp must
-+ * be for this skb because only one such packet is allowed in the queue.
++ *  Returns the I2C data bit value
 + */
-+static void e1000e_tx_hwtstamp_work(struct work_struct *work)
++static int igb_get_i2c_data(void *data)
 +{
-+	struct e1000_adapter *adapter = container_of(work, struct e1000_adapter,
-+						     tx_hwtstamp_work);
++	struct igb_adapter *adapter = (struct igb_adapter *)data;
 +	struct e1000_hw *hw = &adapter->hw;
++	s32 i2cctl = rd32(E1000_I2CPARAMS);
 +
-+	if (!adapter->tx_hwtstamp_skb)
-+		return;
++	return ((i2cctl & E1000_I2C_DATA_IN) != 0);
++}
 +
-+	if (er32(TSYNCTXCTL) & E1000_TSYNCTXCTL_VALID) {
-+		struct skb_shared_hwtstamps shhwtstamps;
-+		u64 txstmp;
++/* igb_set_i2c_data - Sets the I2C data bit
++ *  @data: pointer to hardware structure
++ *  @state: I2C data value (0 or 1) to set
++ *
++ *  Sets the I2C data bit
++ */
++static void igb_set_i2c_data(void *data, int state)
++{
++	struct igb_adapter *adapter = (struct igb_adapter *)data;
++	struct e1000_hw *hw = &adapter->hw;
++	s32 i2cctl = rd32(E1000_I2CPARAMS);
 +
-+		txstmp = er32(TXSTMPL);
-+		txstmp |= (u64)er32(TXSTMPH) << 32;
++	if (state)
++		i2cctl |= E1000_I2C_DATA_OUT;
++	else
++		i2cctl &= ~E1000_I2C_DATA_OUT;
 +
-+		e1000e_systim_to_hwtstamp(adapter, &shhwtstamps, txstmp);
++	i2cctl &= ~E1000_I2C_DATA_OE_N;
++	i2cctl |= E1000_I2C_CLK_OE_N;
++	wr32(E1000_I2CPARAMS, i2cctl);
++	wrfl();
 +
-+		skb_tstamp_tx(adapter->tx_hwtstamp_skb, &shhwtstamps);
-+		dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
-+		adapter->tx_hwtstamp_skb = NULL;
++}
++
++/* igb_set_i2c_clk - Sets the I2C SCL clock
++ *  @data: pointer to hardware structure
++ *  @state: state to set clock
++ *
++ *  Sets the I2C clock line to state
++ */
++static void igb_set_i2c_clk(void *data, int state)
++{
++	struct igb_adapter *adapter = (struct igb_adapter *)data;
++	struct e1000_hw *hw = &adapter->hw;
++	s32 i2cctl = rd32(E1000_I2CPARAMS);
++
++	if (state) {
++		i2cctl |= E1000_I2C_CLK_OUT;
++		i2cctl &= ~E1000_I2C_CLK_OE_N;
 +	} else {
-+		/* reschedule to check later */
-+		schedule_work(&adapter->tx_hwtstamp_work);
++		i2cctl &= ~E1000_I2C_CLK_OUT;
++		i2cctl &= ~E1000_I2C_CLK_OE_N;
 +	}
++	wr32(E1000_I2CPARAMS, i2cctl);
++	wrfl();
 +}
 +
-+/**
-  * e1000_clean_tx_irq - Reclaim resources after transmit completes
-  * @tx_ring: Tx descriptor ring
-  *
-@@ -1345,8 +1447,8 @@ copydone:
- 			   cpu_to_le16(E1000_RXDPS_HDRSTAT_HDRSP))
- 			adapter->rx_hdr_split++;
- 
--		e1000_receive_skb(adapter, netdev, skb,
--				  staterr, rx_desc->wb.middle.vlan);
-+		e1000_receive_skb(adapter, netdev, skb, staterr,
-+				  rx_desc->wb.middle.vlan);
- 
- next_desc:
- 		rx_desc->wb.middle.status_error &= cpu_to_le32(~0xFF);
-@@ -3304,6 +3406,159 @@ static void e1000e_setup_rss_hash(struct e1000_adapter *adapter)
- }
- 
++/* igb_get_i2c_clk - Gets the I2C SCL clock state
++ *  @data: pointer to hardware structure
++ *
++ *  Gets the I2C clock state
++ */
++static int igb_get_i2c_clk(void *data)
++{
++	struct igb_adapter *adapter = (struct igb_adapter *)data;
++	struct e1000_hw *hw = &adapter->hw;
++	s32 i2cctl = rd32(E1000_I2CPARAMS);
++
++	return ((i2cctl & E1000_I2C_CLK_IN) != 0);
++}
++
++static const struct i2c_algo_bit_data igb_i2c_algo = {
++	.setsda		= igb_set_i2c_data,
++	.setscl		= igb_set_i2c_clk,
++	.getsda		= igb_get_i2c_data,
++	.getscl		= igb_get_i2c_clk,
++	.udelay		= 5,
++	.timeout	= 20,
++};
++
  /**
-+ * e1000e_get_base_timinca - get default SYSTIM time increment attributes
-+ * @adapter: board private structure
-+ * @timinca: pointer to returned time increment attributes
-+ *
-+ * Get attributes for incrementing the System Time Register SYSTIML/H at
-+ * the default base frequency, and set the cyclecounter shift value.
-+ **/
-+static s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 incvalue, incperiod, shift;
-+
-+	/* Make sure clock is enabled on I217 before checking the frequency */
-+	if ((hw->mac.type == e1000_pch_lpt) &&
-+	    !(er32(TSYNCTXCTL) & E1000_TSYNCTXCTL_ENABLED) &&
-+	    !(er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_ENABLED)) {
-+		u32 fextnvm7 = er32(FEXTNVM7);
-+
-+		if (!(fextnvm7 & (1 << 0))) {
-+			ew32(FEXTNVM7, fextnvm7 | (1 << 0));
-+			e1e_flush();
-+		}
-+	}
-+
-+	switch (hw->mac.type) {
-+	case e1000_pch2lan:
-+	case e1000_pch_lpt:
-+		/* On I217, the clock frequency is 25MHz or 96MHz as
-+		 * indicated by the System Clock Frequency Indication
-+		 */
-+		if ((hw->mac.type != e1000_pch_lpt) ||
-+		    (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_SYSCFI)) {
-+			/* Stable 96MHz frequency */
-+			incperiod = INCPERIOD_96MHz;
-+			incvalue = INCVALUE_96MHz;
-+			shift = INCVALUE_SHIFT_96MHz;
-+			adapter->cc.shift = shift + INCPERIOD_SHIFT_96MHz;
-+			break;
-+		}
-+		/* fall-through */
-+	case e1000_82574:
-+	case e1000_82583:
-+		/* Stable 25MHz frequency */
-+		incperiod = INCPERIOD_25MHz;
-+		incvalue = INCVALUE_25MHz;
-+		shift = INCVALUE_SHIFT_25MHz;
-+		adapter->cc.shift = shift;
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	*timinca = ((incperiod << E1000_TIMINCA_INCPERIOD_SHIFT) |
-+		    ((incvalue << shift) & E1000_TIMINCA_INCVALUE_MASK));
-+
-+	return 0;
-+}
-+
-+/**
-+ * e1000e_config_hwtstamp - configure the hwtstamp registers and enable/disable
-+ * @adapter: board private structure
-+ *
-+ * Outgoing time stamping can be enabled and disabled. Play nice and
-+ * disable it when requested, although it shouldn't cause any overhead
-+ * when no packet needs it. At most one packet in the queue may be
-+ * marked for time stamping, otherwise it would be impossible to tell
-+ * for sure to which packet the hardware time stamp belongs.
-+ *
-+ * Incoming time stamping has to be configured via the hardware filters.
-+ * Not all combinations are supported, in particular event type has to be
-+ * specified. Matching the kind of event packet is not supported, with the
-+ * exception of "all V2 events regardless of level 2 or 4".
-+ **/
-+static int e1000e_config_hwtstamp(struct e1000_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct hwtstamp_config *config = &adapter->hwtstamp_config;
-+	u32 tsync_tx_ctl = E1000_TSYNCTXCTL_ENABLED;
-+	u32 tsync_rx_ctl = E1000_TSYNCRXCTL_ENABLED;
-+	u32 regval;
-+	s32 ret_val;
-+
-+	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
-+		return -EINVAL;
-+
-+	/* flags reserved for future extensions - must be zero */
-+	if (config->flags)
-+		return -EINVAL;
-+
-+	switch (config->tx_type) {
-+	case HWTSTAMP_TX_OFF:
-+		tsync_tx_ctl = 0;
-+		break;
-+	case HWTSTAMP_TX_ON:
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	switch (config->rx_filter) {
-+	case HWTSTAMP_FILTER_NONE:
-+		tsync_rx_ctl = 0;
-+		break;
-+	case HWTSTAMP_FILTER_ALL:
-+		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_ALL;
-+		config->rx_filter = HWTSTAMP_FILTER_ALL;
-+		break;
-+	default:
-+		return -ERANGE;
-+	}
-+
-+	/* enable/disable Tx h/w time stamping */
-+	regval = er32(TSYNCTXCTL);
-+	regval &= ~E1000_TSYNCTXCTL_ENABLED;
-+	regval |= tsync_tx_ctl;
-+	ew32(TSYNCTXCTL, regval);
-+	if ((er32(TSYNCTXCTL) & E1000_TSYNCTXCTL_ENABLED) !=
-+	    (regval & E1000_TSYNCTXCTL_ENABLED)) {
-+		e_err("Timesync Tx Control register not set as expected\n");
-+		return -EAGAIN;
-+	}
-+
-+	/* enable/disable Rx h/w time stamping */
-+	regval = er32(TSYNCRXCTL);
-+	regval &= ~(E1000_TSYNCRXCTL_ENABLED | E1000_TSYNCRXCTL_TYPE_MASK);
-+	regval |= tsync_rx_ctl;
-+	ew32(TSYNCRXCTL, regval);
-+	if ((er32(TSYNCRXCTL) & (E1000_TSYNCRXCTL_ENABLED |
-+				 E1000_TSYNCRXCTL_TYPE_MASK)) !=
-+	    (regval & (E1000_TSYNCRXCTL_ENABLED |
-+		       E1000_TSYNCRXCTL_TYPE_MASK))) {
-+		e_err("Timesync Rx Control register not set as expected\n");
-+		return -EAGAIN;
-+	}
-+
-+	/* Clear TSYNCRXCTL_VALID & TSYNCTXCTL_VALID bit */
-+	regval = er32(RXSTMPH);
-+	regval = er32(TXSTMPH);
-+
-+	/* Get and set the System Time Register SYSTIM base frequency */
-+	ret_val = e1000e_get_base_timinca(adapter, &regval);
-+	if (ret_val)
-+		return ret_val;
-+	ew32(TIMINCA, regval);
-+
-+	/* reset the ns time counter */
-+	timecounter_init(&adapter->tc, &adapter->cc,
-+			 ktime_to_ns(ktime_get_real()));
-+
-+	return 0;
-+}
-+
-+/**
-  * e1000_configure - configure the hardware for Rx and Tx
-  * @adapter: private board structure
-  **/
-@@ -3529,6 +3784,9 @@ void e1000e_reset(struct e1000_adapter *adapter)
- 
- 	e1000e_reset_adaptive(hw);
- 
-+	/* initialize systim and reset the ns time counter */
-+	e1000e_config_hwtstamp(adapter);
-+
- 	if (!netif_running(adapter->netdev) &&
- 	    !test_bit(__E1000_TESTING, &adapter->state)) {
- 		e1000_power_down_phy(adapter);
-@@ -3665,6 +3923,24 @@ void e1000e_reinit_locked(struct e1000_adapter *adapter)
+  * igb_get_hw_dev - return device
+  * used by hardware layer to print debugging information
+@@ -1824,6 +1910,37 @@ void igb_set_fw_version(struct igb_adapter *adapter)
+ 	return;
  }
  
++static const struct i2c_board_info i350_sensor_info = {
++	I2C_BOARD_INFO("i350bb", 0Xf8),
++};
++
++/*  igb_init_i2c - Init I2C interface
++ *  @adapter: pointer to adapter structure
++ *
++ */
++static s32 igb_init_i2c(struct igb_adapter *adapter)
++{
++	s32 status = E1000_SUCCESS;
++
++	/* I2C interface supported on i350 devices */
++	if (adapter->hw.mac.type != e1000_i350)
++		return E1000_SUCCESS;
++
++	/* Initialize the i2c bus which is controlled by the registers.
++	 * This bus will use the i2c_algo_bit structue that implements
++	 * the protocol through toggling of the 4 bits in the register.
++	 */
++	adapter->i2c_adap.owner = THIS_MODULE;
++	adapter->i2c_algo = igb_i2c_algo;
++	adapter->i2c_algo.data = adapter;
++	adapter->i2c_adap.algo_data = &adapter->i2c_algo;
++	adapter->i2c_adap.dev.parent = &adapter->pdev->dev;
++	strlcpy(adapter->i2c_adap.name, "igb BB",
++		sizeof(adapter->i2c_adap.name));
++	status = i2c_bit_add_bus(&adapter->i2c_adap);
++	return status;
++}
++
  /**
-+ * e1000e_cyclecounter_read - read raw cycle counter (used by time counter)
-+ * @cc: cyclecounter structure
-+ **/
-+static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
-+{
-+	struct e1000_adapter *adapter = container_of(cc, struct e1000_adapter,
-+						     cc);
-+	struct e1000_hw *hw = &adapter->hw;
-+	cycle_t systim;
-+
-+	/* latch SYSTIMH on read of SYSTIML */
-+	systim = (cycle_t)er32(SYSTIML);
-+	systim |= (cycle_t)er32(SYSTIMH) << 32;
-+
-+	return systim;
-+}
-+
-+/**
-  * e1000_sw_init - Initialize general software structures (struct e1000_adapter)
-  * @adapter: board private structure to initialize
-  *
-@@ -3690,6 +3966,17 @@ static int e1000_sw_init(struct e1000_adapter *adapter)
- 	if (e1000_alloc_queues(adapter))
- 		return -ENOMEM;
+  * igb_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
+@@ -2116,6 +2233,13 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* reset the hardware with the new settings */
+ 	igb_reset(adapter);
  
-+	/* Setup hardware time stamping cyclecounter */
-+	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
-+		adapter->cc.read = e1000e_cyclecounter_read;
-+		adapter->cc.mask = CLOCKSOURCE_MASK(64);
-+		adapter->cc.mult = 1;
-+		/* cc.shift set in e1000e_get_base_tininca() */
-+
-+		spin_lock_init(&adapter->systim_lock);
-+		INIT_WORK(&adapter->tx_hwtstamp_work, e1000e_tx_hwtstamp_work);
++	/* Init the I2C interface */
++	err = igb_init_i2c(adapter);
++	if (err) {
++		dev_err(&pdev->dev, "failed to init i2c interface\n");
++		goto err_eeprom;
 +	}
 +
- 	/* Explicitly disable IRQ since the NIC can be in any state. */
- 	e1000_irq_disable(adapter);
+ 	/* let the f/w know that the h/w is now under the control of the
+ 	 * driver. */
+ 	igb_get_hw_control(adapter);
+@@ -2177,6 +2301,7 @@ static int igb_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
  
-@@ -4597,6 +4884,17 @@ link_up:
- 	if (adapter->flags2 & FLAG2_CHECK_PHY_HANG)
- 		e1000e_check_82574_phy_workaround(adapter);
- 
-+	/* Clear valid timestamp stuck in RXSTMPL/H due to a Rx error */
-+	if (adapter->hwtstamp_config.rx_filter != HWTSTAMP_FILTER_NONE) {
-+		if ((adapter->flags2 & FLAG2_CHECK_RX_HWTSTAMP) &&
-+		    (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_VALID)) {
-+			er32(RXSTMPH);
-+			adapter->rx_hwtstamp_cleared++;
-+		} else {
-+			adapter->flags2 |= FLAG2_CHECK_RX_HWTSTAMP;
-+		}
-+	}
-+
- 	/* Reset the timer */
- 	if (!test_bit(__E1000_DOWN, &adapter->state))
- 		mod_timer(&adapter->watchdog_timer,
-@@ -4608,6 +4906,7 @@ link_up:
- #define E1000_TX_FLAGS_TSO		0x00000004
- #define E1000_TX_FLAGS_IPV4		0x00000008
- #define E1000_TX_FLAGS_NO_FCS		0x00000010
-+#define E1000_TX_FLAGS_HWTSTAMP		0x00000020
- #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
- #define E1000_TX_FLAGS_VLAN_SHIFT	16
- 
-@@ -4866,6 +5165,11 @@ static void e1000_tx_queue(struct e1000_ring *tx_ring, int tx_flags, int count)
- 	if (unlikely(tx_flags & E1000_TX_FLAGS_NO_FCS))
- 		txd_lower &= ~(E1000_TXD_CMD_IFCS);
- 
-+	if (unlikely(tx_flags & E1000_TX_FLAGS_HWTSTAMP)) {
-+		txd_lower |= E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D;
-+		txd_upper |= E1000_TXD_EXTCMD_TSTAMP;
-+	}
-+
- 	i = tx_ring->next_to_use;
- 
- 	do {
-@@ -5089,7 +5393,15 @@ static netdev_tx_t e1000_xmit_frame(struct sk_buff *skb,
- 	count = e1000_tx_map(tx_ring, skb, first, adapter->tx_fifo_limit,
- 			     nr_frags);
- 	if (count) {
--		skb_tx_timestamp(skb);
-+		if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-+			     !adapter->tx_hwtstamp_skb)) {
-+			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-+			tx_flags |= E1000_TX_FLAGS_HWTSTAMP;
-+			adapter->tx_hwtstamp_skb = skb_get(skb);
-+			schedule_work(&adapter->tx_hwtstamp_work);
-+		} else {
-+			skb_tx_timestamp(skb);
-+		}
- 
- 		netdev_sent_queue(netdev, skb->len);
- 		e1000_tx_queue(tx_ring, tx_flags, count);
-@@ -5317,6 +5629,43 @@ static int e1000_mii_ioctl(struct net_device *netdev, struct ifreq *ifr,
- 	return 0;
+ err_register:
+ 	igb_release_hw_control(adapter);
++	memset(&adapter->i2c_adap, 0, sizeof(adapter->i2c_adap));
+ err_eeprom:
+ 	if (!igb_check_reset_block(hw))
+ 		igb_reset_phy(hw);
+@@ -2290,6 +2415,18 @@ out:
  }
  
-+/**
-+ * e1000e_hwtstamp_ioctl - control hardware time stamping
-+ * @netdev: network interface device structure
-+ * @ifreq: interface request
+ #endif
++/*
++ *  igb_remove_i2c - Cleanup  I2C interface
++ *  @adapter: pointer to adapter structure
 + *
-+ * Outgoing time stamping can be enabled and disabled. Play nice and
-+ * disable it when requested, although it shouldn't cause any overhead
-+ * when no packet needs it. At most one packet in the queue may be
-+ * marked for time stamping, otherwise it would be impossible to tell
-+ * for sure to which packet the hardware time stamp belongs.
-+ *
-+ * Incoming time stamping has to be configured via the hardware filters.
-+ * Not all combinations are supported, in particular event type has to be
-+ * specified. Matching the kind of event packet is not supported, with the
-+ * exception of "all V2 events regardless of level 2 or 4".
-+ **/
-+static int e1000e_hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
++ */
++static void igb_remove_i2c(struct igb_adapter *adapter)
 +{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct hwtstamp_config config;
-+	int ret_val;
 +
-+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
-+		return -EFAULT;
-+
-+	adapter->hwtstamp_config = config;
-+
-+	ret_val = e1000e_config_hwtstamp(adapter);
-+	if (ret_val)
-+		return ret_val;
-+
-+	config = adapter->hwtstamp_config;
-+
-+	return copy_to_user(ifr->ifr_data, &config,
-+			    sizeof(config)) ? -EFAULT : 0;
++	/* free the adapter bus structure */
++	i2c_del_adapter(&adapter->i2c_adap);
 +}
 +
- static int e1000_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- {
- 	switch (cmd) {
-@@ -5324,6 +5673,8 @@ static int e1000_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
- 	case SIOCGMIIREG:
- 	case SIOCSMIIREG:
- 		return e1000_mii_ioctl(netdev, ifr, cmd);
-+	case SIOCSHWTSTAMP:
-+		return e1000e_hwtstamp_ioctl(netdev, ifr);
- 	default:
- 		return -EOPNOTSUPP;
+ /**
+  * igb_remove - Device Removal Routine
+  * @pdev: PCI device information struct
+@@ -2306,6 +2443,8 @@ static void igb_remove(struct pci_dev *pdev)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 
+ 	pm_runtime_get_noresume(&pdev->dev);
++	igb_remove_i2c(adapter);
++
+ 	igb_ptp_stop(adapter);
+ 
+ 	/*
+@@ -7425,4 +7564,134 @@ static void igb_init_dmac(struct igb_adapter *adapter, u32 pba)
  	}
-@@ -6380,6 +6731,14 @@ static void e1000_remove(struct pci_dev *pdev)
- 	cancel_work_sync(&adapter->update_phy_task);
- 	cancel_work_sync(&adapter->print_hang_task);
+ }
  
-+	if (adapter->flags & FLAG_HAS_HW_TIMESTAMP) {
-+		cancel_work_sync(&adapter->tx_hwtstamp_work);
-+		if (adapter->tx_hwtstamp_skb) {
-+			dev_kfree_skb_any(adapter->tx_hwtstamp_skb);
-+			adapter->tx_hwtstamp_skb = NULL;
++static DEFINE_SPINLOCK(i2c_clients_lock);
++
++/*  igb_get_i2c_client - returns matching client
++ *  in adapters's client list.
++ *  @adapter: adapter struct
++ *  @dev_addr: device address of i2c needed.
++ */
++struct i2c_client *
++igb_get_i2c_client(struct igb_adapter *adapter, u8 dev_addr)
++{
++	ulong flags;
++	struct igb_i2c_client_list *client_list;
++	struct i2c_client *client = NULL;
++	struct i2c_board_info client_info = {
++		I2C_BOARD_INFO("igb", 0x00),
++	};
++
++	spin_lock_irqsave(&i2c_clients_lock, flags);
++	client_list = adapter->i2c_clients;
++
++	/* See if we already have an i2c_client */
++	while (client_list) {
++		if (client_list->client->addr == (dev_addr >> 1)) {
++			client = client_list->client;
++			goto exit;
++		} else {
++			client_list = client_list->next;
 +		}
 +	}
 +
- 	if (!(netdev->flags & IFF_UP))
- 		e1000_power_down_phy(adapter);
- 
++	/* no client_list found, create a new one */
++	client_list = kzalloc(sizeof(*client_list), GFP_KERNEL);
++	if (client_list == NULL)
++		goto exit;
++
++	/* dev_addr passed to us is left-shifted by 1 bit
++	 * i2c_new_device call expects it to be flush to the right.
++	 */
++	client_info.addr = dev_addr >> 1;
++	client_info.platform_data = adapter;
++	client_list->client = i2c_new_device(&adapter->i2c_adap, &client_info);
++	if (client_list->client == NULL) {
++		dev_info(&adapter->pdev->dev, "Failed to create new i2c device..\n");
++		goto err_no_client;
++	}
++
++	/* insert new client at head of list */
++	client_list->next = adapter->i2c_clients;
++	adapter->i2c_clients = client_list;
++
++	spin_unlock_irqrestore(&i2c_clients_lock, flags);
++
++	client = client_list->client;
++	goto exit;
++
++err_no_client:
++	kfree(client_list);
++exit:
++	spin_unlock_irqrestore(&i2c_clients_lock, flags);
++	return client;
++}
++
++/*  igb_read_i2c_byte - Reads 8 bit word over I2C
++ *  @hw: pointer to hardware structure
++ *  @byte_offset: byte offset to read
++ *  @dev_addr: device address
++ *  @data: value read
++ *
++ *  Performs byte read operation over I2C interface at
++ *  a specified device address.
++ */
++s32 igb_read_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
++				u8 dev_addr, u8 *data)
++{
++	struct igb_adapter *adapter = container_of(hw, struct igb_adapter, hw);
++	struct i2c_client *this_client = igb_get_i2c_client(adapter, dev_addr);
++	s32 status;
++	u16 swfw_mask = 0;
++
++	if (!this_client)
++		return E1000_ERR_I2C;
++
++	swfw_mask = E1000_SWFW_PHY0_SM;
++
++	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask)
++	    != E1000_SUCCESS)
++		return E1000_ERR_SWFW_SYNC;
++
++	status = i2c_smbus_read_byte_data(this_client, byte_offset);
++	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
++
++	if (status < 0)
++		return E1000_ERR_I2C;
++	else {
++		*data = status;
++		return E1000_SUCCESS;
++	}
++}
++
++/*  igb_write_i2c_byte - Writes 8 bit word over I2C
++ *  @hw: pointer to hardware structure
++ *  @byte_offset: byte offset to write
++ *  @dev_addr: device address
++ *  @data: value to write
++ *
++ *  Performs byte write operation over I2C interface at
++ *  a specified device address.
++ */
++s32 igb_write_i2c_byte(struct e1000_hw *hw, u8 byte_offset,
++				 u8 dev_addr, u8 data)
++{
++	struct igb_adapter *adapter = container_of(hw, struct igb_adapter, hw);
++	struct i2c_client *this_client = igb_get_i2c_client(adapter, dev_addr);
++	s32 status;
++	u16 swfw_mask = E1000_SWFW_PHY0_SM;
++
++	if (!this_client)
++		return E1000_ERR_I2C;
++
++	if (hw->mac.ops.acquire_swfw_sync(hw, swfw_mask) != E1000_SUCCESS)
++		return E1000_ERR_SWFW_SYNC;
++	status = i2c_smbus_write_byte_data(this_client, byte_offset, data);
++	hw->mac.ops.release_swfw_sync(hw, swfw_mask);
++
++	if (status)
++		return E1000_ERR_I2C;
++	else
++		return E1000_SUCCESS;
++
++}
+ /* igb_main.c */
 -- 
 1.7.11.7
