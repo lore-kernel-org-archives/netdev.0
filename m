@@ -1,49 +1,54 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
-Subject: Re: IPsec AH use of ahash
-Date: Fri, 18 Jan 2013 15:53:44 -0500 (EST)
-Message-ID: <220318679.90938.1358542424387.JavaMail.root@elliptictech.com>
-References: <20130118.145005.156366015893075594.davem@davemloft.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
+Date: Fri, 18 Jan 2013 22:17:03 +0100
+Message-ID: <871udiur74.fsf@nemi.mork.no>
+References: <1358519147-10073-1-git-send-email-bjorn@mork.no>
+	<22276933.xSGyXJfOvq@linux-5eaq.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: steffen klassert <steffen.klassert@secunet.com>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130118.145005.156366015893075594.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <22276933.xSGyXJfOvq-7ztolUikljGernLeA6q8OA@public.gmane.org> (Oliver Neukum's message of
+	"Fri, 18 Jan 2013 20:11:25 +0100")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
------ Original Message -----
-> From: "David Miller" <davem@davemloft.net>
-> To: tstdenis@elliptictech.com
-> Cc: "steffen klassert" <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-> netdev@vger.kernel.org
-> Sent: Friday, 18 January, 2013 2:50:05 PM
-> Subject: Re: IPsec AH use of ahash
-> 
-> From: Tom St Denis <tstdenis@elliptictech.com>
-> Date: Fri, 18 Jan 2013 14:35:33 -0500 (EST)
-> 
-> > Any "maintainers" going to reply to this at all?
-> 
-> What do you mean?  There was a reply, and the reply if someone
-> so skilled finds this facility useful they can feel free to
-> submit an implementation.
-> 
-> You can't force people to work on something they have no interest
-> in, especially when it's effectively a new feature.
-> 
+Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
+> On Friday 18 January 2013 15:25:47 Bj=C3=B8rn Mork wrote:
+>> Adding support for the MBIM mode in some Sierra Wireless devices.
+>>=20
+>> Some Sierra Wireless firmwares support CDC MBIM but have no CDC
+>> Union funtional descriptor. This violates the MBIM specification,
+>> but we can easily work around the bug by looking at the Interface
+>> Association Descriptor instead.  This is most likely what
+>> Windows uses too, which explains how the firmware bug has gone
+>> unnoticed until now.
+>
+> Should we do this for everything CDC?
 
-Admittedly I'm new to the kernel scene but what exactly is a "maintainer" then?
+I don't know.  There are workarounds for missing CDC Union descriptors
+on RNDIS devices in cdc_ether.c, but I have no idea if those devices in
+provide an IAD instead.  I don't think this bug is a very common.
 
-Suppose I invest time to re-write the IPv4/v6 AH code to correctly use AEAD instead of ahash, to then perform the testing required, etc... do I get credit as a maintainer in the IPsec tree?
+MBIM devices are likely to have IADs because Microsoft let you skip som=
+e
+of the more hairy vendor specific control message parts if you provide
+one:
+http://msdn.microsoft.com/en-us/library/windows/hardware/mbim-based-mob=
+ile-broadband-requirements-for-windows.aspx
 
-I'm also a little annoyed that my CMAC patch was rejected for among other reasons that it violated "coding standards."  Specially since it was almost entirely copied from crypto/xcbc.c which also violates the same rules.  As a newcomer to the tree I tried my best by emulating readily available code (which apparently was already accepted into the tree) to then just get shot down for attempting to contribute.  If my CMAC code is not good enough for the tree I humbly suggest you also remove the XCBC code too while we're at it.
+But they should of course provide the CDC Union functional descriptor a=
+s
+well, even if that is "just" a USB-IF requirement and not a Windows
+requirement ;-)
 
-What I would expect from the "maintainers" is that they actually take on a more than trivial involvement in the progress of the code.  If I have to create original content and massage it into whatever form pleases the owners of the tree am I not the maintainer of the code?  I was honestly expecting someone with more involvement in the tree to move the [in this case] CMAC patch forward.  
 
-As for the AH side if it's the implied intent of the maintainers to not support all relevant [and ideally low hanging fruit] standards as possible this should be stated explicitly.
-
-Tom
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
