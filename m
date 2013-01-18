@@ -1,80 +1,116 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: [PATCH v2] [iproute] ipxfrm: use alloca to allocate stack space
-Date: Fri, 18 Jan 2013 12:41:23 -0500
-Message-ID: <201301181241.24082.vapier@gentoo.org>
-References: <1358476746-10810-1-git-send-email-vapier@gentoo.org> <1358481650-20816-1-git-send-email-vapier@gentoo.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7115@saturn3.aculab.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] CDC_NCM adding support IFF_NOARP for infineon modem
+ platform
+Date: Fri, 18 Jan 2013 11:43:17 -0600
+Message-ID: <1358530997.2733.0.camel@dcbw.foobar.com>
+References: <1357990479-5836-1-git-send-email-cpuwolf@gmail.com>
+	 <1358372743.8713.0.camel@dcbw.foobar.com>
+	 <CACa7zyntkL4egpO-XAKe=rmf=A3Zd2WmB4PO0XfHv7KsOb464Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3483008.4g8bRdevz4";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen.hemminger@vyatta.com, netdev@vger.kernel.org
-To: "David Laight" <David.Laight@aculab.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Alexey Orishko <alexey.orishko@stericsson.com>,
+	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Wei Shuai <cpuwolf@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:38974 "EHLO smtp.gentoo.org"
+Received: from mx1.redhat.com ([209.132.183.28]:20116 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751424Ab3ARRhq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 12:37:46 -0500
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7115@saturn3.aculab.com>
+	id S1751424Ab3ARRlG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 12:41:06 -0500
+In-Reply-To: <CACa7zyntkL4egpO-XAKe=rmf=A3Zd2WmB4PO0XfHv7KsOb464Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---nextPart3483008.4g8bRdevz4
-Content-Type: Text/Plain;
-  charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2013-01-17 at 14:44 +0800, Wei Shuai wrote:
+> OK, I will follow up. after add FLAG_NOARP, how should I handle
+> IFF_NOARP? will I do it in cdc_ncm.c or usb_net.c?
 
-On Friday 18 January 2013 05:00:53 David Laight wrote:
-> > Clang doesn't support the gcc extension for embeddeding flexible arrays
-> > inside of structures.  Use the slightly more portable alloca().
-> >=20
-> > Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> > ---
-> > v2
-> > 	- use alloca rather than flexible arrays in structures
-> ...
-> > +#include <alloca.h>
->=20
-> I'm not sure what happens in Linux, but alloca.h is likely
-> to try to use the libc version of alloca().
-> While that worked 20 years ago, these days compilers then
-> to use %sp relative addressing so you must only use the
-> compiler builtin alloca() code.
->=20
-> With gcc, compiling with -std=3Dc89 (I think that is the one)
-> causes the builtin alloca() not to be defined.
-> By default alloca() is part of the language and the header
-> isn't needed.
->=20
-> Use of alloca() also stops some of the stack overwrite
-> protection being enabled.
+usbnet.c
 
-seems like a short coming of the C library then ?  with glibc, if it detect=
-s=20
-the active compiler is gcc, it will define alloca() to the gcc builtin.
-=2Dmike
+Dan
 
---nextPart3483008.4g8bRdevz4
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQ+YlEAAoJEEFjO5/oN/WBdGUP/RdZ9s8AgxydyeTUbihGH28v
-/XLz7KxYESq0YrMG7wRuYd7Re0a978hEXSpc4Cuc+cUXCyRKFIDOypLWWpaORMsx
-ftXSDJc/X0kF9NVTSZfJZ8mo1RmwmSUxTfoupzDy7pARc+RjnByFwmZz2t72+jLG
-ByqGAdyEGoynW1duLNrc+G9QG5fe1ca28oLKpQNoy5N+piSwNd1O6XrKaZ6l7U4n
-nevtmVgbxeXkK57etu9m2fNC8AMbidDpABtYQpymWt2J+f2cRtgGW9hytrhZRAJv
-htvHYBTjO7rTHl1wvOQMtu5bExpf/ExA7yW9FPJ66pN4FPayiIb4/pVShH069w+x
-W4cJ5HBfGmPFWWBgAI389v4dQrvKgaU6RbTunuXwcFNldpSiEaN4kXNPLSAd2I2/
-LjRdCXGffiz3tj+b4fQbzpc3kHlwBNOi/eKt1aC1jXdydENrMmGx+R4s/nfK4UWM
-1OCbo9TyMV3VC4mSgEOdaVWVNvyE2n5HeEVbbVVlDHnjJLABuuP/ovhDO/H61ttg
-ip8BT/Z1Zt6n7DVmK4KzzFz+C3lvLKUevFep1aeIFgDD9HhmrTye2u3AzsVkrZJk
-AWeoy8egAzHjs84Nhzc8NVl4tUx8tW/Hd61UdB4wTxbE+ZHQR1zA182DAfdeGgJ8
-sIre2kCCimb6U0Hjg6Fj
-=bUDD
------END PGP SIGNATURE-----
-
---nextPart3483008.4g8bRdevz4--
+> 2013/1/17 Dan Williams <dcbw@redhat.com>:
+> > On Sat, 2013-01-12 at 19:34 +0800, Wei Shuai wrote:
+> >> Infineon(now Intel) HSPA Modem platform NCM cannot support ARP. so I introduce a flag CDC_NCM_DRIVER_DATA_NOARP which is defined in driver_info:data. so later on, if more such buggy devices are found, they could use same flag to handle.
+> >
+> > So given that Dave now approves of IFF_NOARP, let's change your original
+> > patch to add a FLAG_NOARP for the .flags structure instead of inventing
+> > another mechanism for .data.
+> >
+> > Dan
+> >
+> >> Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+> >> ---
+> >>  drivers/net/usb/cdc_ncm.c |   29 +++++++++++++++++++++++++++++
+> >>  1 files changed, 29 insertions(+), 0 deletions(-)
+> >>
+> >> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+> >> index 71b6e92..6093e07 100644
+> >> --- a/drivers/net/usb/cdc_ncm.c
+> >> +++ b/drivers/net/usb/cdc_ncm.c
+> >> @@ -55,6 +55,9 @@
+> >>
+> >>  #define      DRIVER_VERSION                          "14-Mar-2012"
+> >>
+> >> +/* Flags for driver_info::data */
+> >> +#define CDC_NCM_DRIVER_DATA_NOARP  1
+> >> +
+> >>  static void cdc_ncm_txpath_bh(unsigned long param);
+> >>  static void cdc_ncm_tx_timeout_start(struct cdc_ncm_ctx *ctx);
+> >>  static enum hrtimer_restart cdc_ncm_tx_timer_cb(struct hrtimer *hr_timer);
+> >> @@ -573,6 +576,10 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
+> >>               return -ENODEV;
+> >>  #endif
+> >>
+> >> +     if (dev->driver_info->data & CDC_NCM_DRIVER_DATA_NOARP) {
+> >> +             /* some buggy device cannot do ARP*/
+> >> +             dev->net->flags |= IFF_NOARP;
+> >> +     }
+> >>       /* NCM data altsetting is always 1 */
+> >>       ret = cdc_ncm_bind_common(dev, intf, 1);
+> >>
+> >> @@ -1155,6 +1162,21 @@ static const struct driver_info wwan_info = {
+> >>       .tx_fixup = cdc_ncm_tx_fixup,
+> >>  };
+> >>
+> >> +/* Same as wwan_info, but with IFF_NOARP  */
+> >> +static const struct driver_info wwan_noarp_info = {
+> >> +     .description = "Mobile Broadband Network Device (NO ARP)",
+> >> +     .flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
+> >> +                     | FLAG_WWAN,
+> >> +     .data = CDC_NCM_DRIVER_DATA_NOARP,
+> >> +     .bind = cdc_ncm_bind,
+> >> +     .unbind = cdc_ncm_unbind,
+> >> +     .check_connect = cdc_ncm_check_connect,
+> >> +     .manage_power = usbnet_manage_power,
+> >> +     .status = cdc_ncm_status,
+> >> +     .rx_fixup = cdc_ncm_rx_fixup,
+> >> +     .tx_fixup = cdc_ncm_tx_fixup,
+> >> +};
+> >> +
+> >>  static const struct usb_device_id cdc_devs[] = {
+> >>       /* Ericsson MBM devices like F5521gw */
+> >>       { .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
+> >> @@ -1194,6 +1216,13 @@ static const struct usb_device_id cdc_devs[] = {
+> >>         .driver_info = (unsigned long)&wwan_info,
+> >>       },
+> >>
+> >> +     /* Infineon(now Intel) HSPA Modem platform */
+> >> +     { USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0443,
+> >> +             USB_CLASS_COMM,
+> >> +             USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+> >> +       .driver_info = (unsigned long)&wwan_noarp_info,
+> >> +     },
+> >> +
+> >>       /* Generic CDC-NCM devices */
+> >>       { USB_INTERFACE_INFO(USB_CLASS_COMM,
+> >>               USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+> >
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
