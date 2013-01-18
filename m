@@ -1,78 +1,75 @@
-From: "Carlos O'Donell" <carlos@systemhalted.org>
+From: Mike Frysinger <vapier@gentoo.org>
 Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Thu, 17 Jan 2013 23:13:56 -0500
-Message-ID: <CAE2sS1iaysD8m6vh9egssxAasdmUEhg5JikiBj-sgomOU2dMGA@mail.gmail.com>
-References: <50F6B761.8070106@linux-ipv6.org>
-	<1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
-	<201301161205.04502.vapier@gentoo.org>
-	<20130116.135744.697469565804508454.davem@davemloft.net>
-	<50F75EA7.4060309@systemhalted.org>
-	<50F76E87.6020606@linux-ipv6.org>
+Date: Thu, 17 Jan 2013 23:20:17 -0500
+Message-ID: <201301172320.19905.vapier@gentoo.org>
+References: <201301161205.04502.vapier@gentoo.org> <50F75EA7.4060309@systemhalted.org> <20130116.221538.1756411165313441486.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, vapier@gentoo.org,
-	libc-alpha@sourceware.org, bhutchings@solarflare.com,
+Content-Type: multipart/signed;
+  boundary="nextPart1496406.g15FtnhD6U";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: carlos@systemhalted.org, libc-alpha@sourceware.org,
+	bhutchings@solarflare.com, yoshfuji@linux-ipv6.org,
 	amwang@redhat.com, tmb@mageia.org, eblake@redhat.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	libvirt-list@redhat.com, tgraf@suug.ch, schwab@suse.de
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50F76E87.6020606@linux-ipv6.org>
+In-Reply-To: <20130116.221538.1756411165313441486.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/16/2013 10:22 PM, YOSHIFUJI Hideaki wrote:
-> Carlos O'Donell wrote:
->> diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
->> index f79c372..a2b16a5 100644
->> --- a/include/uapi/linux/in6.h
->> +++ b/include/uapi/linux/in6.h
->> @@ -23,6 +23,13 @@
->>
->>  #include <linux/types.h>
->>
->> +/* If a glibc-based userspace has already included in.h, then we will not
->> + * define in6_addr (nor the defines), sockaddr_in6, or ipv6_mreq. The
->> + * ABI used by the kernel and by glibc match exactly. Neither the kernel
->> + * nor glibc should break this ABI without coordination.
->> + */
->> +#ifndef _NETINET_IN_H
->> +
->>  /*
->>   *	IPv6 address structure
->>   */
->
-> This should be
-> #if !defined(__GLIBC__) || !defined(_NETINET_IN_H)
+--nextPart1496406.g15FtnhD6U
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Correct. If it's non-glibc we want these defines to be used
-even if a non-glibc defined _NETINET_IN_H.
+On Wednesday 16 January 2013 22:15:38 David Miller wrote:
+> From: Carlos O'Donell <carlos@systemhalted.org>
+> Date: Wed, 16 Jan 2013 21:15:03 -0500
+>=20
+> > +/* If a glibc-based userspace has already included in.h, then we will
+> > not + * define in6_addr (nor the defines), sockaddr_in6, or ipv6_mreq.
+> > The + * ABI used by the kernel and by glibc match exactly. Neither the
+> > kernel + * nor glibc should break this ABI without coordination.
+> > + */
+> > +#ifndef _NETINET_IN_H
+> > +
+>=20
+> I think we should shoot for a non-glibc-centric solution.
+>=20
+> I can't imagine that other libc's won't have the same exact problem
+> with their netinet/in.h conflicting with the kernel's, redefining
+> structures like in6_addr, that we'd want to provide a protection
+> scheme for here as well.
 
->> @@ -30,12 +37,20 @@
->>  struct in6_addr {
->>  	union {
->>  		__u8		u6_addr8[16];
->> +#if !defined(__GLIBC__) \
->> +    || (defined(__GLIBC__) && (defined(__USE_MISC) || defined(__USE_GNU))) \
->> +    || defined(__KERNEL__)
->>  		__be16		u6_addr16[8];
->>  		__be32		u6_addr32[4];
->> +#endif
->>  	} in6_u;
->> +#if !defined(__GLIBC__) \
->> +    || (defined(__GLIBC__) && (defined(__USE_MISC) || defined(__USE_GNU))) \
->> +    || defined(__KERNEL__)
->>  #define s6_addr			in6_u.u6_addr8
->>  #define s6_addr16		in6_u.u6_addr16
->>  #define s6_addr32		in6_u.u6_addr32
->> +#endif
->>  };
->
-> 2nd "if" be after s6_addr?
+yes, the kernel's use of __GLIBC__ in exported headers has already caused=20
+problems in the past.  fortunately, it's been reduced down to just one case=
+=20
+now (stat.h).  let's not balloon it back up.
+=2Dmike
 
-Correct. We want to unconditinally define s6_addr in this case.
+--nextPart1496406.g15FtnhD6U
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-I've fixed both of those cases in the next version of the patch. Thanks.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
 
-Cheers,
-Carlos.
+iQIcBAABAgAGBQJQ+M2DAAoJEEFjO5/oN/WBvl4P/iv9RM0G+SXCqbiaAyLNhX4a
+FEE+N2ts5zsxMyc+i4l+YmTJJfbxSBk874uc+Xp8UB3lU68JtvGIcYmw2axQWrbQ
+0DUVsvrwDJT/PQffEPsK1LEE4pscmroKnpZ99YrueVD9a8tZLlVsRu7kj/PUlwob
+l+JIY6WZmJiABtoPnr0XC3V1AI0GZKnCZAkeq3hcT4B8tosOUr2nO1Z/MN/JNqum
+A//LfSKb9q2RcQyJ9n6IO7MG8Rdq/LjFBKUZnUCShejgCSLkpGIIdpZpHMDCoSXC
+ug0KtQRjwkRx+RJNpeudk2N7CxsN3jXI9FWsYgZK2EXef+Z+RGg3IVfKOSJGdqMj
+GvbydkUXfCq8rTCy1TN0vyaKwG+RwR2MZuhnmJuQEYSKdC1JsMY6tw8HhxymhN5q
+c2mqQ2eMDubrG8yk9JJQvr9NzfEi8zEeItU1n5EPVm2x1JVaVJgMXnkyKRt/BxEr
+PTyzFk+SLCHYweftXjCILG+MMHiqNCGx6QYCi/S85mq3744Sr98kCU+7RHDY7THU
+lZfXOV4ClF8SJCVW5DpT3a/XWW2mJkejvy6kpkYk289/ORvut8MPzrUXcZgRCHLi
+Dbsm4r1xuBDvLUbGeJQxvsjWWo/qfipCXN9/nZH5x2Uf4f/IVnQOwDaNHFOdk+DY
+jziPKOX2YygidtKfru+6
+=p4sn
+-----END PGP SIGNATURE-----
+
+--nextPart1496406.g15FtnhD6U--
