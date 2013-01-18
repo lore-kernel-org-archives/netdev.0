@@ -1,44 +1,37 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] net: usb: initialize tmp in dm9601.c to avoid warning
-Date: Fri, 18 Jan 2013 09:44:40 +0100
-Message-ID: <87fw1ykhhj.fsf@dell.be.48ers.dk>
-References: <87wqvbjujl.fsf@dell.be.48ers.dk>
-	<20130117.175454.200184894667897570.davem@davemloft.net>
-	<87sj5zj60q.fsf@dell.be.48ers.dk>
-	<20130118.030341.2246222347501217868.davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [Patch net-next 3/2] xfrm: use separated locks to protect
+ pointers of struct xfrm_state_afinfo
+Date: Fri, 18 Jan 2013 09:54:30 +0100
+Message-ID: <20130118085430.GF24987@secunet.com>
+References: <1358323506-19571-2-git-send-email-amwang@redhat.com>
+ <1358411651-3579-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: sque@chromium.org, netdev@vger.kernel.org, msb@chromium.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f169.google.com ([209.85.215.169]:51551 "EHLO
-	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053Ab3ARIoq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 03:44:46 -0500
-Received: by mail-ea0-f169.google.com with SMTP id d13so1402172eaa.0
-        for <netdev@vger.kernel.org>; Fri, 18 Jan 2013 00:44:45 -0800 (PST)
-In-Reply-To: <20130118.030341.2246222347501217868.davem@davemloft.net> (David
-	Miller's message of "Fri, 18 Jan 2013 03:03:41 -0500 (EST)")
+Received: from a.mx.secunet.com ([195.81.216.161]:45542 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750759Ab3ARIye (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 03:54:34 -0500
+Content-Disposition: inline
+In-Reply-To: <1358411651-3579-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "David" == David Miller <davem@davemloft.net> writes:
+On Thu, Jan 17, 2013 at 04:34:11PM +0800, Cong Wang wrote:
+> (On top of my previous RCU convert patches)
+> 
+> afinfo->type_map and afinfo->mode_map deserve separated locks,
+> they are different things.
+> 
+> We should just take RCU read lock to protect afinfo itself,
+> but not for the inner pointers.
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
- >> Sure, I just wondered as the code hasn't changed in 5+ years, and the
- >> function that gets called is defined just above, so the compiler should
- >> be able to figure it out.
-
- David> Nothing guarentees that a piece of memory passed into an external
- David> function has it's contents initialized completely by that function.
-
- David> The compiler can't see what usbnet_read_cmd() does with the memory
- David> behind the 'data' pointer argument.  So it makes the only assumption
- David> it can make, which is that 'tmp' might be uninitialized.
-
-True, I had forgotten about the usbnet_read_cmd() change (which is the
-change causing the warning). With that:
-
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-
--- 
-Bye, Peter Korsgaard
+All Aplied to ipsec-next, thanks!
