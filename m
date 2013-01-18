@@ -1,78 +1,90 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Fri, 18 Jan 2013 23:24:10 +0900
-Message-ID: <50F95B0A.1090205@linux-ipv6.org>
-References: <201301161205.04502.vapier@gentoo.org> <50F75EA7.4060309@systemhalted.org> <20130116.221538.1756411165313441486.davem@davemloft.net> <201301172320.19905.vapier@gentoo.org> <CAE2sS1jMhnRcoo1oe7wQ+SP=40u9mkps6vXua8TQQ4Tbf2qKOQ@mail.gmail.com> <50F927A5.5060409@redhat.com> <50F94FA6.6070005@systemhalted.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
+Date: Fri, 18 Jan 2013 15:25:47 +0100
+Message-ID: <1358519147-10073-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Pedro Alves <palves@redhat.com>,
-	Mike Frysinger <vapier@gentoo.org>,
-	David Miller <davem@davemloft.net>, libc-alpha@sourceware.org,
-	bhutchings@solarflare.com, amwang@redhat.com, tmb@mageia.org,
-	eblake@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
-	tgraf@suug.ch, schwab@suse.de,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Carlos O'Donell <carlos@systemhalted.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50F94FA6.6070005@systemhalted.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Carlos O'Donell wrote:
-> On 01/18/2013 05:44 AM, Pedro Alves wrote:
->> On 01/18/2013 04:22 AM, Carlos O'Donell wrote:
->>> On Thu, Jan 17, 2013 at 11:20 PM, Mike Frysinger <vapier@gentoo.org> wrote:
->>>> On Wednesday 16 January 2013 22:15:38 David Miller wrote:
->>>>> From: Carlos O'Donell <carlos@systemhalted.org>
->>>>> Date: Wed, 16 Jan 2013 21:15:03 -0500
->>>>>
->>>>>> +/* If a glibc-based userspace has already included in.h, then we will
->>>>>> not + * define in6_addr (nor the defines), sockaddr_in6, or ipv6_mreq.
->>>>>> The + * ABI used by the kernel and by glibc match exactly. Neither the
->>>>>> kernel + * nor glibc should break this ABI without coordination.
->>>>>> + */
->>>>>> +#ifndef _NETINET_IN_H
->>>>>> +
->>>>>
->>>>> I think we should shoot for a non-glibc-centric solution.
->>>>>
->>>>> I can't imagine that other libc's won't have the same exact problem
->>>>> with their netinet/in.h conflicting with the kernel's, redefining
->>>>> structures like in6_addr, that we'd want to provide a protection
->>>>> scheme for here as well.
->>>>
->>>> yes, the kernel's use of __GLIBC__ in exported headers has already caused
->>>> problems in the past.  fortunately, it's been reduced down to just one case
->>>> now (stat.h).  let's not balloon it back up.
->>>> -mike
->>>
->>> I also see coda.h has grown a __GLIBC__ usage.
->>>
->>> In the next revision of the patch I created a single libc-compat.h header
->>> which encompasses the logic for any libc that wants to coordinate with
->>> the kernel headers.
->>
->>
->>> It's simple enough to move all of the __GLIBC__ uses into libc-compat.h,
->>> then you control userspace libc coordination from one file.
->>
->> How about just deciding on a single macro/symbol both the
->> kernel and libc (any libc that needs this) define?  Something
->> like both the kernel and userland doing:
->> 
->> #ifndef __IPV6_BITS_DEFINED
->> #define __IPV6_BITS_DEFINED
->> ...
->> define in6_addr, sockaddr_in6, ipv6_mreq, whatnot
->> #endif
+Adding support for the MBIM mode in some Sierra Wireless devices.
 
-Hmm, how should we handle future structs/enums then?
-For example, if I want to have in6_flowlabel_req{} defined in
-glibc, what should we do?
+Some Sierra Wireless firmwares support CDC MBIM but have no CDC
+Union funtional descriptor. This violates the MBIM specification,
+but we can easily work around the bug by looking at the Interface
+Association Descriptor instead.  This is most likely what
+Windows uses too, which explains how the firmware bug has gone
+unnoticed until now.
 
-We probably want to have __LIBC_HAS_STRUCT_IN6_FLOWLABEL_REQ
-defined.
+This change will not affect any currently supported device
+conforming to the NCM or MBIM specifications, as they must have
+the CDC Union descriptor.
 
---yoshfuji
+Cc: Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>
+Cc: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+ drivers/net/usb/cdc_ncm.c |   25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 71b6e92..5c1210f 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -344,6 +344,21 @@ static const struct ethtool_ops cdc_ncm_ethtool_op=
+s =3D {
+ 	.nway_reset =3D usbnet_nway_reset,
+ };
+=20
++/* return first slave interface if an IAD matches the given master */
++static struct usb_interface *get_iad_slave(struct usb_device *udev,
++					   struct usb_interface *master) {
++	int i;
++	struct usb_interface_assoc_descriptor *iad;
++	u8 mnum =3D master->cur_altsetting->desc.bInterfaceNumber;
++
++	for (i =3D 0; i < USB_MAXIADS; i++) {
++		iad =3D udev->actconfig->intf_assoc[i];
++		if (iad->bFirstInterface =3D=3D mnum && iad->bInterfaceCount =3D=3D =
+2)
++			return usb_ifnum_to_if(udev, mnum + 1);
++	}
++	return NULL;
++}
++
+ int cdc_ncm_bind_common(struct usbnet *dev, struct usb_interface *intf=
+, u8 data_altsetting)
+ {
+ 	struct cdc_ncm_ctx *ctx;
+@@ -435,6 +450,16 @@ advance:
+ 		len -=3D temp;
+ 	}
+=20
++	/* some buggy devices have an IAD but no CDC Union */
++	if (!ctx->union_desc) {
++		dev_dbg(&intf->dev, "missing CDC Union descriptor\n");
++		ctx->data =3D get_iad_slave(dev->udev, intf);
++		if (ctx->data) {
++			ctx->control =3D intf;
++			dev_dbg(&intf->dev, "got slave from IAD\n");
++		}
++	}
++
+ 	/* check if we got everything */
+ 	if ((ctx->control =3D=3D NULL) || (ctx->data =3D=3D NULL) ||
+ 	    ((!ctx->mbim_desc) && ((ctx->ether_desc =3D=3D NULL) || (ctx->con=
+trol !=3D intf))))
+--=20
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
