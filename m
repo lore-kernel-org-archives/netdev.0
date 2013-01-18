@@ -1,32 +1,30 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3 2/2] net: asix: handle packets crossing URB
- boundaries
-Date: Fri, 18 Jan 2013 14:14:17 -0500 (EST)
-Message-ID: <20130118.141417.1689839133859854414.davem@davemloft.net>
-References: <1358346247-10579-1-git-send-email-dev@lynxeye.de>
-	<1358346247-10579-2-git-send-email-dev@lynxeye.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: calxedaxgmac: throw away overrun frames
+Date: Fri, 18 Jan 2013 14:15:06 -0500 (EST)
+Message-ID: <20130118.141506.2118336604190817703.davem@davemloft.net>
+References: <1358379397-7152-1-git-send-email-robherring2@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
-	christian.riesch-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org, eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1358346247-10579-2-git-send-email-dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, rob.herring@calxeda.com,
+	linux-kernel@vger.kernel.org
+To: robherring2@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358379397-7152-1-git-send-email-robherring2@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
-Date: Wed, 16 Jan 2013 15:24:07 +0100
+From: Rob Herring <robherring2@gmail.com>
+Date: Wed, 16 Jan 2013 17:36:37 -0600
 
-> ASIX AX88772B started to pack data even more tightly. Packets and the ASIX packet
-> header may now cross URB boundaries. To handle this we have to introduce
-> some state between individual calls to asix_rx_fixup().
+> From: Rob Herring <rob.herring@calxeda.com>
 > 
-> Signed-off-by: Lucas Stach <dev-8ppwABl0HbeELgA04lAiVw@public.gmane.org>
+> The xgmac driver assumes 1 frame per descriptor. If a frame larger than
+> the descriptor's buffer size is received, the frame will spill over into
+> the next descriptor. So check for received frames that span more than one
+> descriptor and discard them. This prevents a crash if we receive erroneous
+> large packets.
+> 
+> Signed-off-by: Rob Herring <rob.herring@calxeda.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
