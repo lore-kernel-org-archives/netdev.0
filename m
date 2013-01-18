@@ -1,53 +1,109 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] [iproute] ipxfrm: use alloca to allocate stack space
-Date: Fri, 18 Jan 2013 10:00:53 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7115@saturn3.aculab.com>
-References: <1358476746-10810-1-git-send-email-vapier@gentoo.org> <1358481650-20816-1-git-send-email-vapier@gentoo.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "Mike Frysinger" <vapier@gentoo.org>,
-	<stephen.hemminger@vyatta.com>, <netdev@vger.kernel.org>
+From: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Subject: [PATCH 3/4] net: ethernet: ti cpsw: Split up DMA descriptor pool
+Date: Fri, 18 Jan 2013 11:06:11 +0100
+Message-ID: <1358503572-5057-3-git-send-email-sebastian@breakpoint.cc>
+References: <1358503572-5057-1-git-send-email-sebastian@breakpoint.cc>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Rakesh Ranjan <rakesh.ranjan@vnl.in>,
+	Bruno Bittner <Bruno.Bittner@sick.com>,
+	Holger Dengler <dengler@linutronix.de>,
+	Jan Altenberg <jan@linutronix.de>,
+	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42556 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751300Ab3ARKC5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 05:02:57 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 11231-04 for <netdev@vger.kernel.org>;
- Fri, 18 Jan 2013 10:02:54 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1358481650-20816-1-git-send-email-vapier@gentoo.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43934 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751324Ab3ARKGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 05:06:40 -0500
+In-Reply-To: <1358503572-5057-1-git-send-email-sebastian@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Clang doesn't support the gcc extension for embeddeding flexible arrays
-> inside of structures.  Use the slightly more portable alloca().
-> 
-> Signed-off-by: Mike Frysinger <vapier@gentoo.org>
-> ---
-> v2
-> 	- use alloca rather than flexible arrays in structures
-...
-> +#include <alloca.h>
+From: Thomas Gleixner <tglx@linutronix.de>
 
-I'm not sure what happens in Linux, but alloca.h is likely
-to try to use the libc version of alloca().
-While that worked 20 years ago, these days compilers then
-to use %sp relative addressing so you must only use the
-compiler builtin alloca() code.
+Split the buffer pool into a RX and a TX block so neither of the
+channels can influence the other. It is possible to fillup the pool by
+sending a lot of large packets on a slow half-duplex link.
 
-With gcc, compiling with -std=c89 (I think that is the one)
-causes the builtin alloca() not to be defined.
-By default alloca() is part of the language and the header
-isn't needed.
+Cc: Rakesh Ranjan <rakesh.ranjan@vnl.in>
+Cc: Bruno Bittner <Bruno.Bittner@sick.com>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+[dengler: patch description]
+Signed-off-by: Holger Dengler <dengler@linutronix.de>
+[jan: forward ported]
+Signed-off-by: Jan Altenberg <jan@linutronix.de>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
+ drivers/net/ethernet/ti/davinci_cpdma.c |   35 +++++++++++++++++++++++++++---
+ 1 files changed, 31 insertions(+), 4 deletions(-)
 
-Use of alloca() also stops some of the stack overwrite
-protection being enabled.
-
-In this case I suspect malloc() and free() is best.
-(Or change the called function ...)
-
-	David
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index 709c437..70325cd 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -217,16 +217,41 @@ desc_from_phys(struct cpdma_desc_pool *pool, dma_addr_t dma)
+ }
+ 
+ static struct cpdma_desc __iomem *
+-cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc)
++cpdma_desc_alloc(struct cpdma_desc_pool *pool, int num_desc, bool is_rx)
+ {
+ 	unsigned long flags;
+ 	int index;
+ 	struct cpdma_desc __iomem *desc = NULL;
++	static int last_index = 4096;
+ 
+ 	spin_lock_irqsave(&pool->lock, flags);
+ 
+-	index = bitmap_find_next_zero_area(pool->bitmap, pool->num_desc, 0,
+-					   num_desc, 0);
++	/*
++	 * The pool is split into two areas rx and tx. So we make sure
++	 * that we can't run out of pool buffers for RX when TX has
++	 * tons of stuff queued.
++	 */
++	if (is_rx) {
++		index = bitmap_find_next_zero_area(pool->bitmap,
++				pool->num_desc/2, 0, num_desc, 0);
++	 } else {
++		if (last_index >= pool->num_desc)
++			last_index = pool->num_desc / 2;
++
++		index = bitmap_find_next_zero_area(pool->bitmap,
++				pool->num_desc, last_index, num_desc, 0);
++
++		if (!(index < pool->num_desc)) {
++			index = bitmap_find_next_zero_area(pool->bitmap,
++				pool->num_desc, pool->num_desc/2, num_desc, 0);
++		}
++
++		if (index < pool->num_desc)
++			last_index = index + 1;
++		else
++			last_index = pool->num_desc / 2;
++	}
++
+ 	if (index < pool->num_desc) {
+ 		bitmap_set(pool->bitmap, index, num_desc);
+ 		desc = pool->iomap + pool->desc_size * index;
+@@ -660,6 +685,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+ 	unsigned long			flags;
+ 	u32				mode;
+ 	int				ret = 0;
++	bool				is_rx;
+ 
+ 	spin_lock_irqsave(&chan->lock, flags);
+ 
+@@ -668,7 +694,8 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+ 		goto unlock_ret;
+ 	}
+ 
+-	desc = cpdma_desc_alloc(ctlr->pool, 1);
++	is_rx = (chan->rxfree != 0);
++	desc = cpdma_desc_alloc(ctlr->pool, 1, is_rx);
+ 	if (!desc) {
+ 		chan->stats.desc_alloc_fail++;
+ 		ret = -ENOMEM;
+-- 
+1.7.6.5
