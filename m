@@ -1,46 +1,47 @@
-From: Amos Kong <kongjianjun@gmail.com>
-Subject: [PATCH v2] net: fix wrong length of mac address
-Date: Fri, 18 Jan 2013 15:51:54 +0800
-Message-ID: <1358495514-18047-1-git-send-email-kongjianjun@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: usb: initialize tmp in dm9601.c to avoid warning
+Date: Fri, 18 Jan 2013 03:03:41 -0500 (EST)
+Message-ID: <20130118.030341.2246222347501217868.davem@davemloft.net>
+References: <87wqvbjujl.fsf@dell.be.48ers.dk>
+	<20130117.175454.200184894667897570.davem@davemloft.net>
+	<87sj5zj60q.fsf@dell.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Amos Kong <kongjianjun@gmail.com>,
- devel@linuxdriverproject.org
-To: davem@davemloft.net, kys@microsoft.com, haiyangz@microsoft.com
-Return-path: <devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: sque@chromium.org, netdev@vger.kernel.org, msb@chromium.org
+To: jacmet@sunsite.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60075 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755Ab3ARIDp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 03:03:45 -0500
+In-Reply-To: <87sj5zj60q.fsf@dell.be.48ers.dk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Typo, it should be ETH_ALEN.
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Date: Fri, 18 Jan 2013 08:37:41 +0100
 
-Signed-off-by: Amos Kong <kongjianjun@gmail.com>
----
-v2: update commitlog, fix cc list
----
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>>>>>> "David" == David Miller <davem@davemloft.net> writes:
+> 
+>  >> What warning and what compiler version are you using?
+> 
+>  David> I wouldn't bother asking this, unless it's so that you personally
+>  David> can reproduce this in the future.
+> 
+>  David> The compiler cannot determine with %100 certainty that tmp is
+>  David> initialized in all paths.  Any time there are conditional
+>  David> statements guarding setting and the use, the compiler is going
+>  David> to err on the side of caution and say that if any of those
+>  David> paths lead to a use without a set it's going to warn.
+> 
+> Sure, I just wondered as the code hasn't changed in 5+ years, and the
+> function that gets called is defined just above, so the compiler should
+> be able to figure it out.
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f825a62..8264f0e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -349,7 +349,7 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	struct net_device_context *ndevctx = netdev_priv(ndev);
- 	struct hv_device *hdev =  ndevctx->device_ctx;
- 	struct sockaddr *addr = p;
--	char save_adr[14];
-+	char save_adr[ETH_ALEN];
- 	unsigned char save_aatype;
- 	int err;
- 
--- 
-1.7.11.7
+Nothing guarentees that a piece of memory passed into an external
+function has it's contents initialized completely by that function.
+
+The compiler can't see what usbnet_read_cmd() does with the memory
+behind the 'data' pointer argument.  So it makes the only assumption
+it can make, which is that 'tmp' might be uninitialized.
