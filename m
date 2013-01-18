@@ -1,54 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: check if dereference of ipv6 header is safe
-Date: Thu, 17 Jan 2013 21:08:24 -0500 (EST)
-Message-ID: <20130117.210824.1695115756452352857.davem@davemloft.net>
-References: <20130117035652.GB23782@order.stressinduktion.org>
-	<20130118020612.GA14833@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: hannes@stressinduktion.org
+From: Amos Kong <kongjianjun@gmail.com>
+Subject: [PATCH] net: fix wrong length of mac address
+Date: Fri, 18 Jan 2013 10:15:21 +0800
+Message-ID: <1358475321-3406-1-git-send-email-kongjianjun@gmail.com>
+Cc: devel@linuxdriverproject.org, Amos Kong <kongjianjun@gmail.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56679 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751825Ab3ARCI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 21:08:27 -0500
-In-Reply-To: <20130118020612.GA14833@order.stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5367 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751869Ab3ARCPa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jan 2013 21:15:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 18 Jan 2013 03:06:12 +0100
+Replace hardcode 14 with defined ETN_ALEN.
 
-> On Thu, Jan 17, 2013 at 04:56:52AM +0100, Hannes Frederic Sowa wrote:
->> When ipip6_rcv gets called we are sure that we have a full blown
->> ipv4 packet header in the linear skb buffer (this is checked by
->> xfrm4_mode_tunnel_input). Because we dereference fields of the inner
->> ipv6 header we should actually check for the length of the sum of the
->> ipv4 and ipv6 header.
->> 
->> If the skb is too short this packet could very well be destined for
->> another tunnel. So we should notify the caller accordingly (albeit
->> currently xfrm4_mode_tunnel_input does not care; this could need another
->> patch).
-> 
-> While grepping for xfrm_tunnel and handler I studied the wrong
-> call stack. ipip6_rcv is not called by xfrm_mode_tunnel_input but by
-> tunnel64_rcv. This function already ensures that we can safely dereference
-> the ipv6 header. I got confused by xfrm_mode_tunnel only checking for
-> the size of an ipv4 header and assumed that the data section of the
-> skb had not been rolled forward. This patch brings ipip6_rcv in line
-> with ipip_rcv.
-> 
-> This patch superseds the old one:
+Signed-off-by: Amos Kong <kongjianjun@gmail.com>
+---
+ drivers/net/hyperv/netvsc_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Don't post new patches using replies to old threads.  Create entirely
-new patch postings.
-
-> [PATCH] ipv6: remove unneeded check to pskb_may_pull
-
-This is an ambiguous commit header line, it doesn't say that you're
-modifying the SIT tunnel driver at all.  Please fix this.
-
-Thanks.
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index f825a62..8264f0e 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -349,7 +349,7 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+ 	struct net_device_context *ndevctx = netdev_priv(ndev);
+ 	struct hv_device *hdev =  ndevctx->device_ctx;
+ 	struct sockaddr *addr = p;
+-	char save_adr[14];
++	char save_adr[ETH_ALEN];
+ 	unsigned char save_aatype;
+ 	int err;
+ 
+-- 
+1.7.11.7
