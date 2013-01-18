@@ -1,8 +1,8 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [RFC PATCH 2/3] ipv4: Add a socket release callback for datagram
- sockets
-Date: Fri, 18 Jan 2013 09:15:14 +0100
-Message-ID: <20130118081514.GD24987@secunet.com>
+Subject: [RFC PATCH 3/3] xfrm4: Invalidate all ipv4 routes on IPsec pmtu
+ events
+Date: Fri, 18 Jan 2013 09:16:01 +0100
+Message-ID: <20130118081601.GE24987@secunet.com>
 References: <50D1BCC0.2000208@oktetlabs.ru>
  <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com>
  <50D1CECE.7090706@oktetlabs.ru>
@@ -19,110 +19,84 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
 	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
 To: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44929 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:44949 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750761Ab3ARIPR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 03:15:17 -0500
+	id S1750878Ab3ARIQE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 03:16:04 -0500
 Content-Disposition: inline
 In-Reply-To: <20130118081145.GB24987@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements a socket release callback function to check
-if the socket cached route got invalid during the time
-we owned the socket. The function is used from udp, raw
-and ping sockets.
+On IPsec pmtu events we can't access the transport headers of
+the original packet, so we can't find the socket that sent
+the packet. The only chance to notify the socket about the
+pmtu change is to force a relookup for all routes. This
+patch implenents this for the IPsec protocols.
 
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/ip.h    |    2 ++
- net/ipv4/datagram.c |   25 +++++++++++++++++++++++++
- net/ipv4/ping.c     |    1 +
- net/ipv4/raw.c      |    1 +
- net/ipv4/udp.c      |    1 +
- 5 files changed, 30 insertions(+)
+ net/ipv4/ah4.c    |    7 +++++--
+ net/ipv4/esp4.c   |    7 +++++--
+ net/ipv4/ipcomp.c |    7 +++++--
+ 3 files changed, 15 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 0707fb9..a68f838 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -143,6 +143,8 @@ static inline struct sk_buff *ip_finish_skb(struct sock *sk, struct flowi4 *fl4)
- extern int		ip4_datagram_connect(struct sock *sk, 
- 					     struct sockaddr *uaddr, int addr_len);
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index a0d8392..612ecc9 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -413,9 +413,12 @@ static void ah4_err(struct sk_buff *skb, u32 info)
+ 	if (!x)
+ 		return;
  
-+extern void ip4_datagram_release_cb(struct sock *sk);
+-	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
++	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH) {
++		atomic_inc(&flow_cache_genid);
++		rt_genid_bump(net);
 +
- struct ip_reply_arg {
- 	struct kvec iov[1];   
- 	int	    flags;
-diff --git a/net/ipv4/datagram.c b/net/ipv4/datagram.c
-index 424fafb..b28e863 100644
---- a/net/ipv4/datagram.c
-+++ b/net/ipv4/datagram.c
-@@ -85,3 +85,28 @@ out:
- 	return err;
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_AH, 0);
+-	else
++	} else
+ 		ipv4_redirect(skb, net, 0, 0, IPPROTO_AH, 0);
+ 	xfrm_state_put(x);
  }
- EXPORT_SYMBOL(ip4_datagram_connect);
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index b61e9de..2d32ae5 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -499,9 +499,12 @@ static void esp4_err(struct sk_buff *skb, u32 info)
+ 	if (!x)
+ 		return;
+ 
+-	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
++	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH) {
++		atomic_inc(&flow_cache_genid);
++		rt_genid_bump(net);
 +
-+void ip4_datagram_release_cb(struct sock *sk)
-+{
-+	const struct inet_sock *inet = inet_sk(sk);
-+	const struct ip_options_rcu *inet_opt;
-+	__be32 daddr = inet->inet_daddr;
-+	struct flowi4 fl4;
-+	struct rtable *rt;
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_ESP, 0);
+-	else
++	} else
+ 		ipv4_redirect(skb, net, 0, 0, IPPROTO_ESP, 0);
+ 	xfrm_state_put(x);
+ }
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index d3ab47e..9a46dae 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -47,9 +47,12 @@ static void ipcomp4_err(struct sk_buff *skb, u32 info)
+ 	if (!x)
+ 		return;
+ 
+-	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH)
++	if (icmp_hdr(skb)->type == ICMP_DEST_UNREACH) {
++		atomic_inc(&flow_cache_genid);
++		rt_genid_bump(net);
 +
-+	if (! __sk_dst_get(sk) || __sk_dst_check(sk, 0))
-+		return;
-+
-+	rcu_read_lock();
-+	inet_opt = rcu_dereference(inet->inet_opt);
-+	if (inet_opt && inet_opt->opt.srr)
-+		daddr = inet_opt->opt.faddr;
-+	rt = ip_route_output_ports(sock_net(sk), &fl4, sk, daddr,
-+				   inet->inet_saddr, inet->inet_dport,
-+				   inet->inet_sport, sk->sk_protocol,
-+				   RT_CONN_FLAGS(sk), sk->sk_bound_dev_if);
-+	if (!IS_ERR(rt))
-+		__sk_dst_set(sk, &rt->dst);
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL_GPL(ip4_datagram_release_cb);
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 8f3d054..6f9c072 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -738,6 +738,7 @@ struct proto ping_prot = {
- 	.recvmsg =	ping_recvmsg,
- 	.bind =		ping_bind,
- 	.backlog_rcv =	ping_queue_rcv_skb,
-+	.release_cb =	ip4_datagram_release_cb,
- 	.hash =		ping_v4_hash,
- 	.unhash =	ping_v4_unhash,
- 	.get_port =	ping_v4_get_port,
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 73d1e4d..6f08991 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -894,6 +894,7 @@ struct proto raw_prot = {
- 	.recvmsg	   = raw_recvmsg,
- 	.bind		   = raw_bind,
- 	.backlog_rcv	   = raw_rcv_skb,
-+	.release_cb	   = ip4_datagram_release_cb,
- 	.hash		   = raw_hash_sk,
- 	.unhash		   = raw_unhash_sk,
- 	.obj_size	   = sizeof(struct raw_sock),
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 79c8dbe..1f4d405 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1952,6 +1952,7 @@ struct proto udp_prot = {
- 	.recvmsg	   = udp_recvmsg,
- 	.sendpage	   = udp_sendpage,
- 	.backlog_rcv	   = __udp_queue_rcv_skb,
-+	.release_cb	   = ip4_datagram_release_cb,
- 	.hash		   = udp_lib_hash,
- 	.unhash		   = udp_lib_unhash,
- 	.rehash		   = udp_v4_rehash,
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_COMP, 0);
+-	else
++	} else
+ 		ipv4_redirect(skb, net, 0, 0, IPPROTO_COMP, 0);
+ 	xfrm_state_put(x);
+ }
 -- 
 1.7.9.5
