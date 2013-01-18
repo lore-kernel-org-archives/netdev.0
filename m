@@ -1,36 +1,63 @@
-From: Amos Kong <kongjianjun@gmail.com>
-Subject: [PATCH] net: fix wrong length of mac address
-Date: Fri, 18 Jan 2013 10:15:21 +0800
-Message-ID: <1358475321-3406-1-git-send-email-kongjianjun@gmail.com>
-Cc: devel@linuxdriverproject.org, Amos Kong <kongjianjun@gmail.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: check if dereference of ipv6 header is safe
+Date: Thu, 17 Jan 2013 18:21:37 -0800
+Message-ID: <1358475697.11051.9.camel@edumazet-glaptop>
+References: <20130117035652.GB23782@order.stressinduktion.org>
+	 <20130118020612.GA14833@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5367 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751869Ab3ARCPa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jan 2013 21:15:30 -0500
+Received: from mail-da0-f53.google.com ([209.85.210.53]:65043 "EHLO
+	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753587Ab3ARCVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 21:21:42 -0500
+Received: by mail-da0-f53.google.com with SMTP id x6so1385810dac.40
+        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 18:21:41 -0800 (PST)
+In-Reply-To: <20130118020612.GA14833@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace hardcode 14 with defined ETN_ALEN.
+On Fri, 2013-01-18 at 03:06 +0100, Hannes Frederic Sowa wrote:
 
-Signed-off-by: Amos Kong <kongjianjun@gmail.com>
----
- drivers/net/hyperv/netvsc_drv.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> [PATCH] ipv6: remove unneeded check to pskb_may_pull
+> 
+> This is already checked by the caller (tunnel64_rcv) and brings ipip6_rcv
+> in line with ipip_rcv.
+> 
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/sit.c | 7 +------
+>  1 file changed, 1 insertion(+), 6 deletions(-)
+> 
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index cfba99b..98fe536 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -592,15 +592,10 @@ out:
+>  
+>  static int ipip6_rcv(struct sk_buff *skb)
+>  {
+> -	const struct iphdr *iph;
+> +	const struct iphdr *iph = ip_hdr(skb);
+>  	struct ip_tunnel *tunnel;
+>  	int err;
+>  
+> -	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+> -		goto out;
+> -
+> -	iph = ip_hdr(skb);
+> -
+>  	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
+>  				     iph->saddr, iph->daddr);
+>  	if (tunnel != NULL) {
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index f825a62..8264f0e 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -349,7 +349,7 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	struct net_device_context *ndevctx = netdev_priv(ndev);
- 	struct hv_device *hdev =  ndevctx->device_ctx;
- 	struct sockaddr *addr = p;
--	char save_adr[14];
-+	char save_adr[ETH_ALEN];
- 	unsigned char save_aatype;
- 	int err;
- 
--- 
-1.7.11.7
+But we use a 'struct iphdr' here, not a ipv6hdr
+
+So we basically implicitely rely on sizeof(struct iphdr) <=
+sizeof(struct ipv6hdr)
+
+I would leave the pskb_may_pull() call and fix it, even if not really
+needed.
