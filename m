@@ -1,309 +1,128 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/12] e1000e: add ethtool .get_eee/.set_eee
-Date: Fri, 18 Jan 2013 07:04:36 -0800
-Message-ID: <1358521487-28610-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/12] igb: Add support functions to access thermal data.
+Date: Fri, 18 Jan 2013 07:04:41 -0800
+Message-ID: <1358521487-28610-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35352 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:2759 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756027Ab3ARPEw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 10:04:52 -0500
+	id S1756171Ab3ARPE4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 10:04:56 -0500
 In-Reply-To: <1358521487-28610-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-Add the ability to query and set Energy Efficient Ethernet parameters via
-ethtool for applicable devices.
+Some of our devices have internal sensors for reporting thermal data.
+This patch creates the interface to the sensors for exporting via sysfs.
+Subsequent patch will actually export the data.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |  30 +++++++
- drivers/net/ethernet/intel/e1000e/e1000.h   |   1 +
- drivers/net/ethernet/intel/e1000e/ethtool.c | 134 ++++++++++++++++++++++++++++
- drivers/net/ethernet/intel/e1000e/hw.h      |   1 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c |  24 +----
- 5 files changed, 167 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.h   |  9 ++++++++-
+ drivers/net/ethernet/intel/igb/e1000_defines.h | 12 ++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_hw.h      | 14 ++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_regs.h    |  8 ++++++++
+ 4 files changed, 42 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 7326ea2..3041a54 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -383,6 +383,9 @@
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
+index 67bd9f9..caf6abf 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.h
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
+@@ -266,5 +266,12 @@ u16 igb_rxpbs_adjust_82580(u32 data);
+ s32 igb_set_eee_i350(struct e1000_hw *);
  
- #define E1000_KABGTXD_BGSQLBIAS           0x00050000
+ #define E1000_I2C_THERMAL_SENSOR_ADDR	0xF8
+-
++#define E1000_EMC_INTERNAL_DATA		0x00
++#define E1000_EMC_INTERNAL_THERM_LIMIT	0x20
++#define E1000_EMC_DIODE1_DATA		0x01
++#define E1000_EMC_DIODE1_THERM_LIMIT	0x19
++#define E1000_EMC_DIODE2_DATA		0x23
++#define E1000_EMC_DIODE2_THERM_LIMIT	0x1A
++#define E1000_EMC_DIODE3_DATA		0x2A
++#define E1000_EMC_DIODE3_THERM_LIMIT	0x30
+ #endif
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index 446678e..9b7ef93 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -675,6 +675,18 @@
+ #define NVM_COMB_VER_SHFT               8
+ #define NVM_VER_INVALID            0xFFFF
+ #define NVM_ETRACK_SHIFT               16
++#define NVM_ETS_CFG			0x003E
++#define NVM_ETS_LTHRES_DELTA_MASK	0x07C0
++#define NVM_ETS_LTHRES_DELTA_SHIFT	6
++#define NVM_ETS_TYPE_MASK		0x0038
++#define NVM_ETS_TYPE_SHIFT		3
++#define NVM_ETS_TYPE_EMC		0x000
++#define NVM_ETS_NUM_SENSORS_MASK	0x0007
++#define NVM_ETS_DATA_LOC_MASK		0x3C00
++#define NVM_ETS_DATA_LOC_SHIFT		10
++#define NVM_ETS_DATA_INDEX_MASK		0x0300
++#define NVM_ETS_DATA_INDEX_SHIFT	8
++#define NVM_ETS_DATA_HTHRESH_MASK	0x00FF
  
-+/* Low Power IDLE Control */
-+#define E1000_LPIC_LPIET_SHIFT		24	/* Low Power Idle Entry Time */
-+
- /* PBA constants */
- #define E1000_PBA_8K  0x0008    /* 8KB */
- #define E1000_PBA_16K 0x0010    /* 16KB */
-@@ -799,6 +802,33 @@
- /* BME1000 PHY Specific Control Register */
- #define BME1000_PSCR_ENABLE_DOWNSHIFT   0x0800 /* 1 = enable downshift */
- 
-+/* PHY Low Power Idle Control */
-+#define I82579_LPI_CTRL				PHY_REG(772, 20)
-+#define I82579_LPI_CTRL_100_ENABLE		0x2000
-+#define I82579_LPI_CTRL_1000_ENABLE		0x4000
-+#define I82579_LPI_CTRL_ENABLE_MASK		0x6000
-+#define I82579_LPI_CTRL_FORCE_PLL_LOCK_COUNT	0x80
-+
-+/* Extended Management Interface (EMI) Registers */
-+#define I82579_EMI_ADDR		0x10
-+#define I82579_EMI_DATA		0x11
-+#define I82579_LPI_UPDATE_TIMER	0x4805	/* in 40ns units + 40 ns base value */
-+#define I82579_MSE_THRESHOLD	0x084F	/* 82579 Mean Square Error Threshold */
-+#define I82577_MSE_THRESHOLD	0x0887	/* 82577 Mean Square Error Threshold */
-+#define I82579_MSE_LINK_DOWN	0x2411	/* MSE count before dropping link */
-+#define I82579_EEE_PCS_STATUS	0x182D	/* IEEE MMD Register 3.1 >> 8 */
-+#define I82579_EEE_CAPABILITY	0x0410	/* IEEE MMD Register 3.20 */
-+#define I82579_EEE_ADVERTISEMENT	0x040E	/* IEEE MMD Register 7.60 */
-+#define I82579_EEE_LP_ABILITY		0x040F	/* IEEE MMD Register 7.61 */
-+#define I82579_EEE_100_SUPPORTED	(1 << 1) /* 100BaseTx EEE supported */
-+#define I82579_EEE_1000_SUPPORTED	(1 << 2) /* 1000BaseTx EEE supported */
-+#define I217_EEE_PCS_STATUS	0x9401	/* IEEE MMD Register 3.1 */
-+#define I217_EEE_CAPABILITY	0x8000	/* IEEE MMD Register 3.20 */
-+#define I217_EEE_ADVERTISEMENT	0x8001	/* IEEE MMD Register 7.60 */
-+#define I217_EEE_LP_ABILITY	0x8002	/* IEEE MMD Register 7.61 */
-+
-+#define E1000_EEE_RX_LPI_RCVD	0x0400	/* Tx LP idle received */
-+#define E1000_EEE_TX_LPI_RCVD	0x0800	/* Rx LP idle received */
- 
- #define PHY_PAGE_SHIFT 5
- #define PHY_REG(page, reg) (((page) << PHY_PAGE_SHIFT) | \
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 3f8bbc3..b89b181 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -659,6 +659,7 @@ extern s32 e1000_check_polarity_ife(struct e1000_hw *hw);
- extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
- extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
- extern bool e1000_check_phy_82574(struct e1000_hw *hw);
-+extern s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data);
- 
- static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
- {
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 2225603..636ba09 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -35,6 +35,7 @@
- #include <linux/slab.h>
- #include <linux/delay.h>
- #include <linux/vmalloc.h>
-+#include <linux/mdio.h>
- 
- #include "e1000.h"
- 
-@@ -2050,6 +2051,137 @@ static int e1000_get_rxnfc(struct net_device *netdev,
- 	}
- }
- 
-+static int e1000e_get_eee(struct net_device *netdev, struct ethtool_eee *edata)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	u16 cap_addr, adv_addr, lpa_addr, pcs_stat_addr, phy_data, lpi_ctrl;
-+	u32 status, ret_val;
-+
-+	if (!(adapter->flags & FLAG_IS_ICH) ||
-+	    !(adapter->flags2 & FLAG2_HAS_EEE))
-+		return -EOPNOTSUPP;
-+
-+	switch (hw->phy.type) {
-+	case e1000_phy_82579:
-+		cap_addr = I82579_EEE_CAPABILITY;
-+		adv_addr = I82579_EEE_ADVERTISEMENT;
-+		lpa_addr = I82579_EEE_LP_ABILITY;
-+		pcs_stat_addr = I82579_EEE_PCS_STATUS;
-+		break;
-+	case e1000_phy_i217:
-+		cap_addr = I217_EEE_CAPABILITY;
-+		adv_addr = I217_EEE_ADVERTISEMENT;
-+		lpa_addr = I217_EEE_LP_ABILITY;
-+		pcs_stat_addr = I217_EEE_PCS_STATUS;
-+		break;
-+	default:
-+		return -EOPNOTSUPP;
-+	}
-+
-+	ret_val = hw->phy.ops.acquire(hw);
-+	if (ret_val)
-+		return -EBUSY;
-+
-+	/* EEE Capability */
-+	ret_val = e1000_read_emi_reg_locked(hw, cap_addr, &phy_data);
-+	if (ret_val)
-+		goto release;
-+	edata->supported = mmd_eee_cap_to_ethtool_sup_t(phy_data);
-+
-+	/* EEE Advertised */
-+	ret_val = e1000_read_emi_reg_locked(hw, adv_addr, &phy_data);
-+	if (ret_val)
-+		goto release;
-+	edata->advertised = mmd_eee_adv_to_ethtool_adv_t(phy_data);
-+
-+	/* EEE Link Partner Advertised */
-+	ret_val = e1000_read_emi_reg_locked(hw, lpa_addr, &phy_data);
-+	if (ret_val)
-+		goto release;
-+	edata->lp_advertised = mmd_eee_adv_to_ethtool_adv_t(phy_data);
-+
-+	/* EEE PCS Status */
-+	ret_val = e1000_read_emi_reg_locked(hw, pcs_stat_addr, &phy_data);
-+	if (hw->phy.type == e1000_phy_82579)
-+		phy_data <<= 8;
-+
-+release:
-+	hw->phy.ops.release(hw);
-+	if (ret_val)
-+		return -ENODATA;
-+
-+	e1e_rphy(hw, I82579_LPI_CTRL, &lpi_ctrl);
-+	status = er32(STATUS);
-+
-+	/* Result of the EEE auto negotiation - there is no register that
-+	 * has the status of the EEE negotiation so do a best-guess based
-+	 * on whether both Tx and Rx LPI indications have been received or
-+	 * base it on the link speed, the EEE advertised speeds on both ends
-+	 * and the speeds on which EEE is enabled locally.
-+	 */
-+	if (((phy_data & E1000_EEE_TX_LPI_RCVD) &&
-+	     (phy_data & E1000_EEE_RX_LPI_RCVD)) ||
-+	    ((status & E1000_STATUS_SPEED_100) &&
-+	     (edata->advertised & ADVERTISED_100baseT_Full) &&
-+	     (edata->lp_advertised & ADVERTISED_100baseT_Full) &&
-+	     (lpi_ctrl & I82579_LPI_CTRL_100_ENABLE)) ||
-+	    ((status & E1000_STATUS_SPEED_1000) &&
-+	     (edata->advertised & ADVERTISED_1000baseT_Full) &&
-+	     (edata->lp_advertised & ADVERTISED_1000baseT_Full) &&
-+	     (lpi_ctrl & I82579_LPI_CTRL_1000_ENABLE)))
-+		edata->eee_active = true;
-+
-+	edata->eee_enabled = !hw->dev_spec.ich8lan.eee_disable;
-+	edata->tx_lpi_enabled = true;
-+	edata->tx_lpi_timer = er32(LPIC) >> E1000_LPIC_LPIET_SHIFT;
-+
-+	return 0;
-+}
-+
-+static int e1000e_set_eee(struct net_device *netdev, struct ethtool_eee *edata)
-+{
-+	struct e1000_adapter *adapter = netdev_priv(netdev);
-+	struct e1000_hw *hw = &adapter->hw;
-+	struct ethtool_eee eee_curr;
-+	s32 ret_val;
-+
-+	if (!(adapter->flags & FLAG_IS_ICH) ||
-+	    !(adapter->flags2 & FLAG2_HAS_EEE))
-+		return -EOPNOTSUPP;
-+
-+	ret_val = e1000e_get_eee(netdev, &eee_curr);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (eee_curr.advertised != edata->advertised) {
-+		e_err("Setting EEE advertisement is not supported\n");
-+		return -EINVAL;
-+	}
-+
-+	if (eee_curr.tx_lpi_enabled != edata->tx_lpi_enabled) {
-+		e_err("Setting EEE tx-lpi is not supported\n");
-+		return -EINVAL;
-+	}
-+
-+	if (eee_curr.tx_lpi_timer != edata->tx_lpi_timer) {
-+		e_err("Setting EEE Tx LPI timer is not supported\n");
-+		return -EINVAL;
-+	}
-+
-+	if (hw->dev_spec.ich8lan.eee_disable != !edata->eee_enabled) {
-+		hw->dev_spec.ich8lan.eee_disable = !edata->eee_enabled;
-+
-+		/* reset the link */
-+		if (netif_running(netdev))
-+			e1000e_reinit_locked(adapter);
-+		else
-+			e1000e_reset(adapter);
-+	}
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops e1000_ethtool_ops = {
- 	.get_settings		= e1000_get_settings,
- 	.set_settings		= e1000_set_settings,
-@@ -2078,6 +2210,8 @@ static const struct ethtool_ops e1000_ethtool_ops = {
- 	.set_coalesce		= e1000_set_coalesce,
- 	.get_rxnfc		= e1000_get_rxnfc,
- 	.get_ts_info		= ethtool_op_get_ts_info,
-+	.get_eee		= e1000e_get_eee,
-+	.set_eee		= e1000e_set_eee,
+ #define E1000_NVM_CFG_DONE_PORT_0  0x040000 /* MNG config cycle done */
+ #define E1000_NVM_CFG_DONE_PORT_1  0x080000 /* ...for second port */
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 75312ba..837a274 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -356,6 +356,19 @@ struct e1000_nvm_operations {
+ 	s32  (*valid_led_default)(struct e1000_hw *, u16 *);
  };
  
- void e1000e_set_ethtool_ops(struct net_device *netdev)
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 06239fe..81afad5 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -62,6 +62,7 @@ enum e1e_registers {
- 	E1000_IVAR     = 0x000E4, /* Interrupt Vector Allocation - RW */
- 	E1000_EITR_82574_BASE = 0x000E8, /* Interrupt Throttling - RW */
- #define E1000_EITR_82574(_n) (E1000_EITR_82574_BASE + (_n << 2))
-+	E1000_LPIC     = 0x000FC, /* Low Power Idle Control - RW */
- 	E1000_RCTL     = 0x00100, /* Rx Control - RW */
- 	E1000_FCTTV    = 0x00170, /* Flow Control Transmit Timer Value - RW */
- 	E1000_TXCW     = 0x00178, /* Tx Configuration Word - RW */
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 051dfda..3829f7f 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -148,28 +148,6 @@
- #define HV_PM_CTRL		PHY_REG(770, 17)
- #define HV_PM_CTRL_PLL_STOP_IN_K1_GIGA	0x100
++#define E1000_MAX_SENSORS		3
++
++struct e1000_thermal_diode_data {
++	u8 location;
++	u8 temp;
++	u8 caution_thresh;
++	u8 max_op_thresh;
++};
++
++struct e1000_thermal_sensor_data {
++	struct e1000_thermal_diode_data sensor[E1000_MAX_SENSORS];
++};
++
+ struct e1000_info {
+ 	s32 (*get_invariants)(struct e1000_hw *);
+ 	struct e1000_mac_operations *mac_ops;
+@@ -401,6 +414,7 @@ struct e1000_mac_info {
+ 	bool report_tx_early;
+ 	bool serdes_has_link;
+ 	bool tx_pkt_filtering;
++	struct e1000_thermal_sensor_data thermal_sensor_data;
+ };
  
--/* PHY Low Power Idle Control */
--#define I82579_LPI_CTRL				PHY_REG(772, 20)
--#define I82579_LPI_CTRL_100_ENABLE		0x2000
--#define I82579_LPI_CTRL_1000_ENABLE		0x4000
--#define I82579_LPI_CTRL_ENABLE_MASK		0x6000
--#define I82579_LPI_CTRL_FORCE_PLL_LOCK_COUNT	0x80
--
--/* Extended Management Interface (EMI) Registers */
--#define I82579_EMI_ADDR         0x10
--#define I82579_EMI_DATA         0x11
--#define I82579_LPI_UPDATE_TIMER 0x4805	/* in 40ns units + 40 ns base value */
--#define I82579_MSE_THRESHOLD    0x084F	/* 82579 Mean Square Error Threshold */
--#define I82577_MSE_THRESHOLD    0x0887	/* 82577 Mean Square Error Threshold */
--#define I82579_MSE_LINK_DOWN    0x2411	/* MSE count before dropping link */
--#define I82579_EEE_PCS_STATUS	0x182D	/* IEEE MMD Register 3.1 >> 8 */
--#define I82579_EEE_LP_ABILITY	0x040F	/* IEEE MMD Register 7.61 */
--#define I82579_EEE_100_SUPPORTED	(1 << 1) /* 100BaseTx EEE supported */
--#define I82579_EEE_1000_SUPPORTED	(1 << 2) /* 1000BaseTx EEE supported */
--#define I217_EEE_PCS_STATUS	0x9401	/* IEEE MMD Register 3.1 */
--#define I217_EEE_ADVERTISEMENT  0x8001	/* IEEE MMD Register 7.60 */
--#define I217_EEE_LP_ABILITY     0x8002	/* IEEE MMD Register 7.61 */
--
- /* Intel Rapid Start Technology Support */
- #define I217_PROXY_CTRL                 BM_PHY_REG(BM_WUC_PAGE, 70)
- #define I217_PROXY_CTRL_AUTO_DISABLE    0x0080
-@@ -829,7 +807,7 @@ static s32 __e1000_access_emi_reg_locked(struct e1000_hw *hw, u16 address,
+ struct e1000_phy_info {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
+index 31c3e2f..889de26 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_regs.h
++++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
+@@ -132,6 +132,14 @@
+ 
+ /* Split and Replication RX Control - RW */
+ #define E1000_RXPBS    0x02404  /* Rx Packet Buffer Size - RW */
++
++/* Thermal sensor configuration and status registers */
++#define E1000_THMJT	0x08100 /* Junction Temperature */
++#define E1000_THLOWTC	0x08104 /* Low Threshold Control */
++#define E1000_THMIDTC	0x08108 /* Mid Threshold Control */
++#define E1000_THHIGHTC	0x0810C /* High Threshold Control */
++#define E1000_THSTAT	0x08110 /* Thermal Sensor Status */
++
+ /*
+  * Convenience macros
   *
-  *  Assumes the SW/FW/HW Semaphore is already acquired.
-  **/
--static s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data)
-+s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data)
- {
- 	return __e1000_access_emi_reg_locked(hw, addr, data, true);
- }
 -- 
 1.7.11.7
