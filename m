@@ -1,91 +1,200 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Fri, 18 Jan 2013 00:27:02 -0500
-Message-ID: <201301180027.06171.vapier@gentoo.org>
-References: <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com> <201301172314.34193.vapier@gentoo.org> <20130117.235524.2010232687612037902.davem@davemloft.net>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: [PATCH V5 1/2] virtio-net: fix the set affinity bug when CPU IDs are
+	not consecutive
+Date: Fri, 18 Jan 2013 13:32:00 +0800
+Message-ID: <1358487121-7956-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2271619.9SQDBdVnEI";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: libc-alpha@sourceware.org, bhutchings@solarflare.com,
-	yoshfuji@linux-ipv6.org, amwang@redhat.com, tmb@mageia.org,
-	eblake@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
-	tgraf@suug.ch, schwab@suse.de, carlos@systemhalted.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130117.235524.2010232687612037902.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
---nextPart2271619.9SQDBdVnEI
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+As Michael mentioned, set affinity and select queue will not work very
+well when CPU IDs are not consecutive, this can happen with hot unplug.
+Fix this bug by traversal the online CPUs, and create a per cpu variable
+to find the mapping from CPU to the preferable virtual-queue.
 
-On Thursday 17 January 2013 23:55:24 David Miller wrote:
-> From: Mike Frysinger <vapier@gentoo.org>
-> > the kernel already exports many types with a __kernel_ prefix.  i chang=
-ed
-> > the kernel headers in Gentoo for a few releases (2.6.28 - 2.6.34) to do
-> > the same thing to pretty much all the networking headers.  a few
-> > packages broke, but the number was low, and trivial to fix (a sed would
-> > do it most of the time).
-> >=20
-> > it's also trivial for userland packages to detect that they need to do
-> > this sort of thing in a local header by using linux/version.h and a set
-> > of defines to redirect the new structure name back to the old one.
-> >=20
-> > would be a lot cleaner to just break it and be done.
->=20
-> We are not at liberty to break something that has legitimately
-> compiled successfully for two decades.
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+Cc: Eric Dumazet <erdnetdev@gmail.com>
+Cc: virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+---
+V4->V5:
+	Add get/put_online_cpus to avoid CPUs go up and down during operations (Rusty)
 
-i doubt there are code bases that have compiled successfully for that long=
-=20
-w/out being changed.  in fact, the kernel user headers (until recently) hav=
-e=20
-been a volatile mess requiring constant care & feeding of user programs to=
-=20
-keep compiling.  if anything, this would simply be maintaining the status q=
-uo=20
-for a bit longer.
+V3->V4:
+	move vq_index into virtnet_info	(Jason)
+	change the mapping value when not setting affinity (Jason)
+	address the comments about select_queue (Rusty)
 
-> One thing you certainly don't have to be is happy about this header
-> file situation, but you cannot use that dissatisfaction as
-> justification to make the situation worse by breaking the build for
-> people outside of the world you directly control.
+ drivers/net/virtio_net.c | 60 +++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 49 insertions(+), 11 deletions(-)
 
-i think you're making wrong assumptions about my position on the topic.  i=
-=20
-never said i was against cleaning up the kernel user headers (and in fact, =
-you=20
-can find many commits from me doing exactly that over the years in the kern=
-el).
-=2Dmike
-
---nextPart2271619.9SQDBdVnEI
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJQ+N0qAAoJEEFjO5/oN/WBXYQQAKBfGGxMvfL/Fc7VqdvjQ+h1
-ueKUZasQRCfbdmVD9gWuMuxmN7iXt08or6o1anyAFyXS7XHDrY1AF/Mjbtnz9hxU
-WzijugK1IU9E7aeK4DjzZERLMt1cH9sBXhoci/bYHPpIRI6xYxpeZDgBjWRg+/v4
-YMXwl5M9OsOR93/h+RwIZACSb8ueiuluLhX3wMq1OtB1VmpPNh1KGpta97AqvpY9
-6EMdhv8vFPImIu14cXrfYqL7eh3aR47crTbndhpZ2qYlX43+B91U6yuJLCpmYalv
-2RgodJe1dvfhD2SSOIVwLBNsard44d9lFLO7JIU+G247ManMcZwvzZC+H+RYj5zK
-Gfq/SNX+qTGVBToIdCORWZMBJS8/MDuRQoMxH2U8f8JCUKU44h+0qzkuOAxGncdp
-BeH/7KECQvep0/MmgRkPD/5CssWaVnVjN6v1kdCjDpHt1L9WcbdbLyPzjUhXcI26
-pwnB5iiqP8b9qzjmcGHZcUr883lbV2C7LX6i1XUScJEotECdymsuFSQndO2iIKCg
-+/NPapMRf4VKevptfNpaWbqYO8GqGh5rXeeZ2GPT1y4b0WN6UuuYtQWtNGQPBNmY
-vCUSrfmmDnGZrLGTq6xhLA+RRFE7z5XgWvzuY/kv/ZR+js3elVvwZCHlaxA5BssF
-OEqiwvC/rwSaFPYuxaLD
-=qzpw
------END PGP SIGNATURE-----
-
---nextPart2271619.9SQDBdVnEI--
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index a6fcf15..440b0eb 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -123,6 +123,9 @@ struct virtnet_info {
+ 
+ 	/* Does the affinity hint is set for virtqueues? */
+ 	bool affinity_hint_set;
++
++	/* Per-cpu variable to show the mapping from CPU to virtqueue */
++	int __percpu *vq_index;
+ };
+ 
+ struct skb_vnet_hdr {
+@@ -1016,6 +1019,7 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+ {
+ 	int i;
++	int cpu;
+ 
+ 	/* In multiqueue mode, when the number of cpu is equal to the number of
+ 	 * queue pairs, we let the queue pairs to be private to one cpu by
+@@ -1029,16 +1033,29 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+ 			return;
+ 	}
+ 
+-	for (i = 0; i < vi->max_queue_pairs; i++) {
+-		int cpu = set ? i : -1;
+-		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+-		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+-	}
++	if (set) {
++		i = 0;
++		for_each_online_cpu(cpu) {
++			virtqueue_set_affinity(vi->rq[i].vq, cpu);
++			virtqueue_set_affinity(vi->sq[i].vq, cpu);
++			*per_cpu_ptr(vi->vq_index, cpu) = i;
++			i++;
++		}
+ 
+-	if (set)
+ 		vi->affinity_hint_set = true;
+-	else
++	} else {
++		for(i = 0; i < vi->max_queue_pairs; i++) {
++			virtqueue_set_affinity(vi->rq[i].vq, -1);
++			virtqueue_set_affinity(vi->sq[i].vq, -1);
++		}
++
++		i = 0;
++		for_each_online_cpu(cpu)
++			*per_cpu_ptr(vi->vq_index, cpu) =
++				++i % vi->curr_queue_pairs;
++
+ 		vi->affinity_hint_set = false;
++	}
+ }
+ 
+ static void virtnet_get_ringparam(struct net_device *dev,
+@@ -1087,7 +1104,9 @@ static int virtnet_set_channels(struct net_device *dev,
+ 		netif_set_real_num_tx_queues(dev, queue_pairs);
+ 		netif_set_real_num_rx_queues(dev, queue_pairs);
+ 
++		get_online_cpus();
+ 		virtnet_set_affinity(vi, true);
++		put_online_cpus();
+ 	}
+ 
+ 	return err;
+@@ -1127,12 +1146,19 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+ 
+ /* To avoid contending a lock hold by a vcpu who would exit to host, select the
+  * txq based on the processor id.
+- * TODO: handle cpu hotplug.
+  */
+ static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
+ {
+-	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
+-		  smp_processor_id();
++	int txq;
++	struct virtnet_info *vi = netdev_priv(dev);
++
++	if (skb_rx_queue_recorded(skb)) {
++		txq = skb_get_rx_queue(skb);
++	} else {
++		txq = *__this_cpu_ptr(vi->vq_index);
++		if (txq == -1)
++			txq = 0;
++	}
+ 
+ 	while (unlikely(txq >= dev->real_num_tx_queues))
+ 		txq -= dev->real_num_tx_queues;
+@@ -1248,7 +1274,9 @@ static void virtnet_del_vqs(struct virtnet_info *vi)
+ {
+ 	struct virtio_device *vdev = vi->vdev;
+ 
++	get_online_cpus();
+ 	virtnet_set_affinity(vi, false);
++	put_online_cpus();
+ 
+ 	vdev->config->del_vqs(vdev);
+ 
+@@ -1371,7 +1399,10 @@ static int init_vqs(struct virtnet_info *vi)
+ 	if (ret)
+ 		goto err_free;
+ 
++	get_online_cpus();
+ 	virtnet_set_affinity(vi, true);
++	put_online_cpus();
++
+ 	return 0;
+ 
+ err_free:
+@@ -1453,6 +1484,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	if (vi->stats == NULL)
+ 		goto free;
+ 
++	vi->vq_index = alloc_percpu(int);
++	if (vi->vq_index == NULL)
++		goto free_stats;
++
+ 	mutex_init(&vi->config_lock);
+ 	vi->config_enable = true;
+ 	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+@@ -1476,7 +1511,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+ 	err = init_vqs(vi);
+ 	if (err)
+-		goto free_stats;
++		goto free_index;
+ 
+ 	netif_set_real_num_tx_queues(dev, 1);
+ 	netif_set_real_num_rx_queues(dev, 1);
+@@ -1520,6 +1555,8 @@ free_recv_bufs:
+ free_vqs:
+ 	cancel_delayed_work_sync(&vi->refill);
+ 	virtnet_del_vqs(vi);
++free_index:
++	free_percpu(vi->vq_index);
+ free_stats:
+ 	free_percpu(vi->stats);
+ free:
+@@ -1554,6 +1591,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 
+ 	flush_work(&vi->config_work);
+ 
++	free_percpu(vi->vq_index);
+ 	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+-- 
+1.8.1
