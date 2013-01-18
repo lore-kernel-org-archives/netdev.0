@@ -1,52 +1,237 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns
- identify"
-Date: Fri, 18 Jan 2013 01:00:23 +0000
-Message-ID: <1358470823.15692.156.camel@deadeye.wl.decadent.org.uk>
-References: <87a9u4q7k9.fsf@xmission.com>
-	 <1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
-	 <87a9s772zw.fsf@xmission.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch net-next v2] doc: add nf_conntrack sysctl api
+ documentation
+Date: Fri, 18 Jan 2013 02:12:39 +0100
+Message-ID: <20130118011239.GA21650@1984>
+References: <1358348193-2201-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:25600 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753784Ab3ARBA1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 20:00:27 -0500
-In-Reply-To: <87a9s772zw.fsf@xmission.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, rob@landley.net,
+	linux-doc@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org, fw@strlen.de
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1358348193-2201-1-git-send-email-jiri@resnulli.us>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-17 at 16:23 -0800, Eric W. Biederman wrote:
-> Ben Hutchings <bhutchings@solarflare.com> writes:
+Hi Jiri,
+
+Thanks for working on this, some comments and suggestions.
+
+On Wed, Jan 16, 2013 at 03:56:33PM +0100, Jiri Pirko wrote:
+> I grepped through the code and picked bits about nf_conntrack sysctl api
+> and put that into one documentation file.
 > 
-> > On Mon, 2012-11-26 at 17:16 -0600, Eric W. Biederman wrote:
-[...]
-> >> --- a/ip/ipnetns.c
-> >> +++ b/ip/ipnetns.c
-[...]
-> >> +static int is_pid(const char *str)
-> >> +{
-> >> +	int ch;
-> >> +	for (; (ch = *str); str++) {
-> >> +		if (!isdigit(ch))
-> >
-> > ch must be cast to unsigned char before passing to isdigit().
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
 > 
-> isdigit is defined to take an int.  A legacy of the implicit casts in
-> the K&R C days.  Casting to unsigned char would be pointless and silly.
-[...]
+> v1->v2:
+> processed in changes suggested by Florian Westphal
+> 
+>  Documentation/networking/nf_conntrack-sysctl.txt | 172 +++++++++++++++++++++++
+>  1 file changed, 172 insertions(+)
+>  create mode 100644 Documentation/networking/nf_conntrack-sysctl.txt
+> 
+> diff --git a/Documentation/networking/nf_conntrack-sysctl.txt b/Documentation/networking/nf_conntrack-sysctl.txt
+> new file mode 100644
+> index 0000000..61b66e6
+> --- /dev/null
+> +++ b/Documentation/networking/nf_conntrack-sysctl.txt
+> @@ -0,0 +1,172 @@
+> +/proc/sys/net/netfilter/nf_conntrack_* Variables:
+> +
+> +nf_conntrack_acct - BOOLEAN
+> +	0 - disabled (default)
+> +	not 0 - enabled
+> +
+> +	Enable connection tracking flow accounting.
 
-It's not pointless.  This is explained in the very first line of the
-description in the manual page...
+You can probably these add 64-bits byte and packet counters per flow.
 
-Ben.
+> +
+> +nf_conntrack_buckets - INTEGER (read-only)
+> +	Size of hash table. Value is computed in nf_conntrack_init_init_net()
+> +	and it basically depends on total memory size.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Instead of pointing to the function, you can say that we "use 1/16384
+of memory. On i386: 32MB machine has 512 buckets. >= 1GB machines have
+16384 as default" (extracted from comment on the source code).
+
+> +
+> +nf_conntrack_checksum - BOOLEAN
+> +	0 - disabled
+> +	not 0 - enabled (default)
+> +
+> +	Verify checksum of incoming packets.  Packets with bad checksum
+> +	will not be considered for connection tracking, i.e. such packets
+> +	will be in INVALID state.
+> +
+> +nf_conntrack_count - INTEGER (read-only)
+> +	Number of currently allocated conntracks.
+
+Probably use `flow entries' or simply `flows' instead of conntracks?
+I'm familiar with the conntrack term, but the reader may be not.
+
+> +
+> +nf_conntrack_events - BOOLEAN
+> +	0 - disabled
+> +	not 0 - enabled (default)
+> +
+> +	If this option is enabled, the connection tracking code will
+> +	provide userspace with connection tracking events via ctnetlink.
+> +
+> +nf_conntrack_events_retry_timeout - INTEGER (seconds)
+> +	default 15
+> +
+> +	This option is only relevant when "reliable connection tracking
+> +	events" are used.  Normally, ctnetlink is "lossy", i.e. when
+> +	userspace listeners can't keep up, events are dropped.
+> +
+> +	Userspace can request "reliable event mode".  When this mode is
+> +	active, the conntrack will only be destroyed after the event was
+> +	delivered.  If event delivery fails, the kernel periodically
+> +	re-tries to send the event to userspace.
+> +
+> +	This is the maximum interval the kernel should use when re-trying
+> +	to deliver the destroy event.
+> +
+> +	Higher number means less delivery re-tries (but it will then take
+> +	longer for a backlog to be processed).
+> +
+> +nf_conntrack_expect_max - INTEGER
+> +	Maximum size of expectation table.  Default value is computed in
+> +	nf_conntrack_expect_init() and depends on nf_conntrack_buckets value.
+> +
+> +nf_conntrack_frag6_high_thresh - INTEGER
+> +	default 262144
+> +
+> +	Maximum memory used to reassemble IPv6 fragments.  When
+> +	nf_conntrack_frag6_high_thresh bytes of memory is allocated for this
+> +	purpose, the fragment handler will toss packets until
+> +	nf_conntrack_frag6_low_thresh is reached.
+> +
+> +nf_conntrack_frag6_low_thresh - INTEGER
+> +	default 196608
+> +
+> +	See nf_conntrack_frag6_low_thresh
+> +
+> +nf_conntrack_frag6_timeout - INTEGER (seconds)
+> +	default 60
+> +
+> +	Time to keep an IPv6 fragment in memory.
+> +
+> +nf_conntrack_generic_timeout - INTEGER (seconds)
+> +	default 600
+> +
+> +	Default for generic timeout.
+
+You can add here "this refers to layer 4 unknown/unsupported
+protocols"
+
+> +
+> +nf_conntrack_helper - BOOLEAN
+> +	0 - disabled
+> +	not 0 - enabled (default)
+> +
+> +	Enable automatic conntrack helper assignment.
+> +
+> +nf_conntrack_icmp_timeout - INTEGER (seconds)
+> +	default 30
+> +
+> +	Default for ICMP timeout.
+> +
+> +nf_conntrack_icmpv6_timeout - INTEGER (seconds)
+> +	default 30
+> +
+> +	Default for ICMP6 timeout.
+> +
+> +nf_conntrack_log_invalid - INTEGER
+> +	0   - disable (default)
+> +	1   - log ICMP packets
+> +	6   - log TCP packets
+> +	17  - log UDP packets
+> +	33  - log DCCP packets
+> +	41  - log ICMPv6 packets
+> +	136 - log UDPLITE packets
+> +	255 - log packets of any protocol
+> +
+> +	Log invalid packets of a type specified by value.
+> +
+> +nf_conntrack_max - INTEGER
+> +	Size of connection tracking table.  Default value is computed in
+> +	nf_conntrack_init_init_net() and depends on nf_conntrack_buckets value.
+
+By default is 4 * number of buckets in the hashtable.
+
+> +
+> +nf_conntrack_tcp_be_liberal - BOOLEAN
+> +	0 - disabled (default)
+> +	not 0 - enabled
+> +
+> +	Be conservative in what you do, be liberal in what you accept from others.
+> +	If it's non-zero, we mark only out of window RST segments as INVALID.
+> +
+> +nf_conntrack_tcp_loose - BOOLEAN
+> +	0 - disabled
+> +	not 0 - enabled (default)
+> +
+> +	If it is set to zero, we disable picking up already established
+> +	connections.
+> +
+> +nf_conntrack_tcp_max_retrans - INTEGER
+> +	default 3
+> +
+> +	Max number of the retransmitted packets without receiving an
+> +	(acceptable) ACK from the destination.  If this number is reached,
+> +	a shorter timer will be started.
+> +
+> +nf_conntrack_tcp_timeout_close - INTEGER (seconds)
+> +	default 10
+> +
+> +nf_conntrack_tcp_timeout_close_wait - INTEGER (seconds)
+> +	default 60
+> +
+> +nf_conntrack_tcp_timeout_established - INTEGER (seconds)
+> +	default 432000 (5 days)
+> +
+> +nf_conntrack_tcp_timeout_fin_wait - INTEGER (seconds)
+> +	default 120
+> +
+> +nf_conntrack_tcp_timeout_last_ack - INTEGER (seconds)
+> +	default 30
+> +
+> +nf_conntrack_tcp_timeout_max_retrans - INTEGER (seconds)
+> +	default 300
+> +
+> +nf_conntrack_tcp_timeout_syn_recv - INTEGER (seconds)
+> +	default 60
+> +
+> +nf_conntrack_tcp_timeout_syn_sent - INTEGER (seconds)
+> +	default 120
+> +
+> +nf_conntrack_tcp_timeout_time_wait - INTEGER (seconds)
+> +	default 120
+> +
+> +nf_conntrack_tcp_timeout_unacknowledged - INTEGER (seconds)
+> +	default 300
+> +
+> +nf_conntrack_timestamp - BOOLEAN
+> +	0 - disabled (default)
+> +	not 0 - enabled
+> +
+> +	Enable connection tracking flow timestamping.
+> +
+> +nf_conntrack_udp_timeout - INTEGER (seconds)
+> +	default 30
+> +
+> +nf_conntrack_udp_timeout_stream2 - INTEGER (seconds)
+> +	default 180
+> +
+> +	This extended timeout will be used in case there is an UDP stream
+> +	detected.
+> -- 
+> 1.8.1
+> 
