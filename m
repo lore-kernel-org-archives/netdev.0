@@ -1,111 +1,57 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: Wake on LAN for USB ethernet?
-Date: Fri, 18 Jan 2013 10:39:19 +0800
-Message-ID: <CACVXFVOtpzOFAGRJ74XP1NFD1ah_au9e9gqHFiBLuv1jAwZ6cQ@mail.gmail.com>
-References: <20130118001214.GA21137@xanatos>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: check if dereference of ipv6 header is safe
+Date: Fri, 18 Jan 2013 04:08:19 +0100
+Message-ID: <20130118030819.GA20324@order.stressinduktion.org>
+References: <20130117035652.GB23782@order.stressinduktion.org> <20130118020612.GA14833@order.stressinduktion.org> <1358475697.11051.9.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Petko Manolov <petkan@users.sourceforge.net>,
-	Alan Stern <stern@rowland.harvard.edu>,
-	Greg KH <greg@kroah.com>, Oliver Neukum <oliver@neukum.org>
-To: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:45035 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752879Ab3ARCjW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 21:39:22 -0500
-In-Reply-To: <20130118001214.GA21137@xanatos>
+Received: from order.stressinduktion.org ([87.106.68.36]:35204 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754342Ab3ARDIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 22:08:20 -0500
+Content-Disposition: inline
+In-Reply-To: <1358475697.11051.9.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 18, 2013 at 8:12 AM, Sarah Sharp
-<sarah.a.sharp@linux.intel.com> wrote:
-> Is it reasonable to expect that Wake on LAN works if the target box is
-> connected via a USB-to-ethernet adapter?
+On Thu, Jan 17, 2013 at 06:21:37PM -0800, Eric Dumazet wrote:
+> But we use a 'struct iphdr' here, not a ipv6hdr
+> 
+> So we basically implicitely rely on sizeof(struct iphdr) <=
+> sizeof(struct ipv6hdr)
+> 
+> I would leave the pskb_may_pull() call and fix it, even if not really
+> needed.
 
-It is surely reasonable, and seems SMSC75xx or SMSC95xx can
-bring system out of suspend.
+Please correct me if I am wrong:
 
->
-> One of my validation testers has a USB ethernet device that successfully
-> wakes up Windows from hibernate (S4), but it doesn't work under Linux.
-> Wake on LAN works fine with the hardwired ethernet port.  USB remote
-> wakeup from S3/S4 works fine with a USB keyboard.
->
-> So I need to figure out if it's an issue with the kernel, their test
-> suite, or the USB host controller.
->
->
-> I've experimented with USB ethernet devices with the pegasus driver with
-> no success.  Here's what I've tried:
->
-> 1. Connect the USB to ethernet adapter to the rootport under the xHCI
-> (USB 3.0) host controller. (lsusb for the two devices I've tried is
-> attached)
->
-> 2. Enable remote wakeup for all devices (including the PCI host) by
-> echoing 'enabled' to power/wakeup. (script for that attached)
->
-> 3. Use ethtool to turn on WOL:
->    sudo ethtool -s ethX wol g
+The callstack as captured in ipip6_rcv:
+    ipip6_rcv+0xcd/0x680 [sit]
+    tunnel64_rcv+0x4a/0x174 [tunnel4]
+    ip_local_deliver+0x152/0x470
+    ? ip_local_deliver+0x75/0x470
+    ip_rcv+0x36d/0x650
 
-Could you check here if the attribute 'power/wakeup' of the USB device
-has been enabled?  If so, and step 6 still can't wakeup system, the
-problem may be in the set_wol stetting on hardware of the driver since
-your USB wakeup works.
+ip_rcv does first check if the ipv4 header is complete (inclusive options) and
+passes control to ip_local_deliver which calls __skb_pull(skb,
+ip_hdrlen(skb)). So ->data is forwarded behind the ipv4 header. The next
+pskb_may_pull check would check if the necessary amount of data behind the
+ipv4 header is available hence I assume the check in tunnel64_rcv is enough:
 
-Also, the wakeup enabling is missed in the pegasus_set_wol(), and
-the below patch is needed:
-
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index a0b5807..d5304f1 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -1096,6 +1096,7 @@ pegasus_set_wol(struct net_device *dev, struct
-ethtool_wolinfo *wol)
- {
- 	pegasus_t	*pegasus = netdev_priv(dev);
- 	u8		reg78 = 0x04;
-+	int		ret;
-
- 	if (wol->wolopts & ~WOL_SUPPORTED)
- 		return -EINVAL;
-@@ -1110,7 +1111,11 @@ pegasus_set_wol(struct net_device *dev, struct
-ethtool_wolinfo *wol)
- 	else
- 		pegasus->eth_regs[0] &= ~0x10;
- 	pegasus->wolopts = wol->wolopts;
--	return set_register(pegasus, WakeupControl, reg78);
-+
-+	ret = set_register(pegasus, WakeupControl, reg78);
-+	if (!ret)
-+		ret = device_set_wakeup_enable(&pegasus->usb->dev, 1);
-+	return ret;
- }
-
- static inline void pegasus_reset_wol(struct net_device *dev)
-
-
->
-> 4. Find the MAC address by running ifconfig and looking at the HWaddr
-> field.
->
-> 5. Verify with wireshark that I can see the Magic WOL packet when I run
-> this command on another machine:
->    sudo etherwake -i ethX macaddr
->
-> 6. Suspend or hibernate the target machine, and then send the Magic WOL
-> packet from a second machine.
->
->
-> Am I missing any steps in testing this?  Does WOL just not work for USB
-> ethernet devices under Linux?  Perhaps just the pegasus driver doesn't
-> support WOL?
-
-Probably the set_wol of pegasus is broken if wakeup has been enabled
-on the USB device.
+    109 static int tunnel64_rcv(struct sk_buff *skb)
+    110 {
+    111         struct xfrm_tunnel *handler;
+    112 
+    113         if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+    114                 goto drop;
+    115 
+    116         for_each_tunnel_rcu(tunnel64_handlers, handler)
+    117                 if (!handler->handler(skb))
+    118                         return 0;
 
 Thanks,
---
-Ming Lei
+
+  Hannes
