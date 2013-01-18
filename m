@@ -1,36 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xfrm: fix freed block size calculation in
- xfrm_policy_fini()
-Date: Fri, 18 Jan 2013 14:43:15 -0500 (EST)
-Message-ID: <20130118.144315.1258314605128988201.davem@davemloft.net>
-References: <20130118153446.3AE05C1AFE@unicorn.suse.cz>
+Subject: Re: [PATCH] ipv6: remove unneeded check to pskb_may_pull in
+ ipip6_rcv
+Date: Fri, 18 Jan 2013 14:44:40 -0500 (EST)
+Message-ID: <20130118.144440.265154252143594884.davem@davemloft.net>
+References: <20130118191816.GA4795@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: mkubecek@suse.cz
+Cc: netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38947 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38957 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751905Ab3ARTnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:43:17 -0500
-In-Reply-To: <20130118153446.3AE05C1AFE@unicorn.suse.cz>
+	with ESMTP id S1751905Ab3ARTol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:44:41 -0500
+In-Reply-To: <20130118191816.GA4795@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Fri, 18 Jan 2013 16:03:48 +0100
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Fri, 18 Jan 2013 20:18:17 +0100
 
-> Missing multiplication of block size by sizeof(struct hlist_head)
-> can cause xfrm_hash_free() to be called with wrong second argument
-> so that kfree() is called on a block allocated with vzalloc() or
-> __get_free_pages() or free_pages() is called with wrong order when
-> a namespace with enough policies is removed.
+> This is already checked by the caller (tunnel64_rcv) and brings ipip6_rcv
+> in line with ipip_rcv.
 > 
-> Bug introduced by commit a35f6c5d, i.e. versions >= 2.6.29 are
-> affected.
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-I'll let Steffen pick this one up.
+Applied to net-next, thanks.
