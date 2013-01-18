@@ -1,34 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 1/1 net-next] net: fec: enable pause frame to
- improve rx prefomance for 1G network
-Date: Fri, 18 Jan 2013 14:16:26 -0500 (EST)
-Message-ID: <20130118.141626.1543157230023121224.davem@davemloft.net>
-References: <1358391358-27977-1-git-send-email-Frank.Li@freescale.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH] ipv6: remove unneeded check to pskb_may_pull in ipip6_rcv
+Date: Fri, 18 Jan 2013 20:18:17 +0100
+Message-ID: <20130118191816.GA4795@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, s.hauer@pengutronix.de
-To: Frank.Li@freescale.com
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38530 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574Ab3ARTQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:16:28 -0500
-In-Reply-To: <1358391358-27977-1-git-send-email-Frank.Li@freescale.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:36682 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab3ARTSS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 14:18:18 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Thu, 17 Jan 2013 10:55:58 +0800
+This is already checked by the caller (tunnel64_rcv) and brings ipip6_rcv
+in line with ipip_rcv.
 
-> The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
-> There will be many packages lost because FIFO over run.
-> 
-> This patch enable pause frame flow control.
- ...
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/sit.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-Applied.
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index cfba99b..98fe536 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -592,15 +592,10 @@ out:
+ 
+ static int ipip6_rcv(struct sk_buff *skb)
+ {
+-	const struct iphdr *iph;
++	const struct iphdr *iph = ip_hdr(skb);
+ 	struct ip_tunnel *tunnel;
+ 	int err;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+-		goto out;
+-
+-	iph = ip_hdr(skb);
+-
+ 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
+ 				     iph->saddr, iph->daddr);
+ 	if (tunnel != NULL) {
+-- 
+1.7.11.7
