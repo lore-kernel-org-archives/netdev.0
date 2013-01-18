@@ -1,50 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and
- <linux/in6.h>
-Date: Thu, 17 Jan 2013 23:55:24 -0500 (EST)
-Message-ID: <20130117.235524.2010232687612037902.davem@davemloft.net>
-References: <1358351232.2923.10.camel@bwh-desktop.uk.solarflarecom.com>
-	<20130116.164511.2027039182184636075.davem@davemloft.net>
-	<201301172314.34193.vapier@gentoo.org>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCHv2] am33xx: cpsw: default to ethernet hwaddr from efuse
+ if not defined in dt
+Date: Fri, 18 Jan 2013 10:44:34 +0530
+Message-ID: <50F8DA3A.3090406@ti.com>
+References: <1358461134-13452-1-git-send-email-jacmet@sunsite.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: libc-alpha@sourceware.org, bhutchings@solarflare.com,
- yoshfuji@linux-ipv6.org, amwang@redhat.com, tmb@mageia.org,
- eblake@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- libvirt-list@redhat.com, tgraf@suug.ch, schwab@suse.de,
- carlos@systemhalted.org
-To: vapier@gentoo.org
-Return-path: <libc-alpha-return-36401-glibc-alpha=m.gmane.org@sourceware.org>
-In-Reply-To: <201301172314.34193.vapier@gentoo.org>
-List-Unsubscribe: <mailto:libc-alpha-unsubscribe-glibc-alpha=m.gmane.org@sourceware.org>
-List-Subscribe: <mailto:libc-alpha-subscribe@sourceware.org>
-List-Archive: <http://sourceware.org/ml/libc-alpha/>
-List-Post: <mailto:libc-alpha@sourceware.org>
-List-Help: <mailto:libc-alpha-help@sourceware.org>, <http://sourceware.org/ml/#faqs>
-Sender: libc-alpha-owner@sourceware.org
+Cc: michal.bachraty-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, michal.bachraty-6oiIBCxl0MMjD8S081q9vkEOCMrvLtNR@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1358461134-13452-1-git-send-email-jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Thu, 17 Jan 2013 23:14:31 -0500
+On 1/18/2013 3:48 AM, Peter Korsgaard wrote:
+> When booting with CONFIG_ARM_APPENDED_DTB (either because of using an old
+> U-Boot, not wanting the hassle of 2 files or when using Falcon fast boot
+> mode in U-Boot), nothing updates the ethernet hwaddr specified for the
+> CPSW slaves, causing the driver to use a random hwaddr, which is some times
+> troublesome.
+>
+> The am33xx has unique ethernet hwaddrs programmed in the efuse, so it makes
+> more sense to default to these rather than random ones. Add a fixup step
+> which adds mac-address dt properties using the efuse addresses if the DTB
+> didn't contain valid ones.
+>
+> Signed-off-by: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
+>
 
-> the kernel already exports many types with a __kernel_ prefix.  i changed the 
-> kernel headers in Gentoo for a few releases (2.6.28 - 2.6.34) to do the same 
-> thing to pretty much all the networking headers.  a few packages broke, but 
-> the number was low, and trivial to fix (a sed would do it most of the time).
-> 
-> it's also trivial for userland packages to detect that they need to do this 
-> sort of thing in a local header by using linux/version.h and a set of defines 
-> to redirect the new structure name back to the old one.
-> 
-> would be a lot cleaner to just break it and be done.
+This implementation looks fine.
+Acked-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
 
-We are not at liberty to break something that has legitimately
-compiled successfully for two decades.
-
-Your __kernel_ prefix idea breaks compilation just as equally.
-
-One thing you certainly don't have to be is happy about this header
-file situation, but you cannot use that dissatisfaction as
-justification to make the situation worse by breaking the build for
-people outside of the world you directly control.
+Regards
+Mugunthan V N
