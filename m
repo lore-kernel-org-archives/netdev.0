@@ -1,56 +1,73 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next V6 02/14] bridge: Add vlan filtering infrastructure
-Date: Fri, 18 Jan 2013 02:57:14 +0100
-Message-ID: <CAHXqBFKg6Vp5=dprDYKON2LmshhX+nSPF7KRHiQmOS68PrQq-A@mail.gmail.com>
-References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com> <1358360289-23249-3-git-send-email-vyasevic@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: check if dereference of ipv6 header is safe
+Date: Fri, 18 Jan 2013 03:06:12 +0100
+Message-ID: <20130118020612.GA14833@order.stressinduktion.org>
+References: <20130117035652.GB23782@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, shemminger@vyatta.com, mst@redhat.com,
-	shmulik.ladkani@gmail.com
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f176.google.com ([209.85.216.176]:34090 "EHLO
-	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753637Ab3ARB5g convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 20:57:36 -0500
-Received: by mail-qc0-f176.google.com with SMTP id n41so2066964qco.21
-        for <netdev@vger.kernel.org>; Thu, 17 Jan 2013 17:57:35 -0800 (PST)
-In-Reply-To: <1358360289-23249-3-git-send-email-vyasevic@redhat.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:35135 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752781Ab3ARCGN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jan 2013 21:06:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20130117035652.GB23782@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/1/16 Vlad Yasevich <vyasevic@redhat.com>:
-[...]
-> --- /dev/null
-> +++ b/net/bridge/br_vlan.c
-[...]
-> +struct net_port_vlan *nbp_vlan_find(const struct net_port_vlans *v, =
-u16 vid)
-> +{
-> +       struct net_port_vlan *pve;
-> +
-> +       /* Must be done either in rcu critical section or with RTNL h=
-eld */
-> +       WARN_ON_ONCE(!rcu_read_lock_held() && !rtnl_is_locked());
-> +
-> +       list_for_each_entry_rcu(pve, &v->vlan_list, list) {
-> +               if (pve->vid =3D=3D vid)
-> +                       return pve;
-> +       }
-> +
-> +       return NULL;
-> +}
+On Thu, Jan 17, 2013 at 04:56:52AM +0100, Hannes Frederic Sowa wrote:
+> When ipip6_rcv gets called we are sure that we have a full blown
+> ipv4 packet header in the linear skb buffer (this is checked by
+> xfrm4_mode_tunnel_input). Because we dereference fields of the inner
+> ipv6 header we should actually check for the length of the sum of the
+> ipv4 and ipv6 header.
+> 
+> If the skb is too short this packet could very well be destined for
+> another tunnel. So we should notify the caller accordingly (albeit
+> currently xfrm4_mode_tunnel_input does not care; this could need another
+> patch).
 
-This looks expensive - it's O(n) with n =3D number of configured VLANs =
-on a port.
-And this is called for every packet. The bridge already has a hash of V=
-LAN
-structures found by br_vlan_find(). You could add a second bitmap there
-(eg. ingres_ports[]) and check port's bit instead of walking the list.
-You would use a bit more memory (64 bytes minus the removed list-head)
-per configured VLAN but save some cycles in hot path.
+While grepping for xfrm_tunnel and handler I studied the wrong
+call stack. ipip6_rcv is not called by xfrm_mode_tunnel_input but by
+tunnel64_rcv. This function already ensures that we can safely dereference
+the ipv6 header. I got confused by xfrm_mode_tunnel only checking for
+the size of an ipv4 header and assumed that the data section of the
+skb had not been rolled forward. This patch brings ipip6_rcv in line
+with ipip_rcv.
 
-Best Regards,
-Micha=B3 Miros=B3aw
+This patch superseds the old one:
+
+[PATCH] ipv6: remove unneeded check to pskb_may_pull
+
+This is already checked by the caller (tunnel64_rcv) and brings ipip6_rcv
+in line with ipip_rcv.
+
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/sit.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index cfba99b..98fe536 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -592,15 +592,10 @@ out:
+ 
+ static int ipip6_rcv(struct sk_buff *skb)
+ {
+-	const struct iphdr *iph;
++	const struct iphdr *iph = ip_hdr(skb);
+ 	struct ip_tunnel *tunnel;
+ 	int err;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+-		goto out;
+-
+-	iph = ip_hdr(skb);
+-
+ 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
+ 				     iph->saddr, iph->daddr);
+ 	if (tunnel != NULL) {
+-- 
+1.7.11.7
