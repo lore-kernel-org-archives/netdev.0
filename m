@@ -1,34 +1,42 @@
-From: Jan Synacek <jsynacek@redhat.com>
-Subject: [PATCH] ping doc: Fix typo.
-Date: Fri, 18 Jan 2013 12:21:36 +0100
-Message-ID: <1358508096-19915-1-git-send-email-jsynacek@redhat.com>
-Cc: netdev@vger.kernel.org, Jan Synacek <jsynacek@redhat.com>
-To: yoshfuji@linux-ipv6.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net] ipv6: Fix addrconf_dst_alloc() failure check.
+Date: Fri, 18 Jan 2013 20:56:41 +0900
+Message-ID: <50F93879.6010201@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51382 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751836Ab3ARLVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 06:21:53 -0500
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45578 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751015Ab3ARL4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 06:56:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jan Synacek <jsynacek@redhat.com>
----
- doc/ping.sgml | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The function returns NULL on error and it never return error code
+embedded in pointer.
 
-diff --git a/doc/ping.sgml b/doc/ping.sgml
-index 4e0e65f..eec92a2 100644
---- a/doc/ping.sgml
-+++ b/doc/ping.sgml
-@@ -600,7 +600,7 @@ Many Hosts and Gateways ignore the RECORD_ROUTE option.
-  <listitem><para>
- The maximum IP header length is too small for options like
- RECORD_ROUTE to be completely useful.
--There's not much that that can be done about this, however.
-+There's not much that can be done about this, however.
-  </para></listitem>
-  <listitem><para>
- Flood pinging is not recommended in general, and flood pinging the
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/addrconf.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 420e563..d0a2df2b 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -783,8 +783,8 @@ ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 	}
+ 
+ 	rt = addrconf_dst_alloc(idev, addr, false);
+-	if (IS_ERR(rt)) {
+-		err = PTR_ERR(rt);
++	if (!rt) {
++		err = -ENOMEM;
+ 		goto out;
+ 	}
+ 
 -- 
-1.8.0.2
+1.7.9.5
