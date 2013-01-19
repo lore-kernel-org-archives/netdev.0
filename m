@@ -1,22 +1,21 @@
 From: Wei Shuai <cpuwolf@gmail.com>
 Subject: [PATCH 1/2] introduce flag FLAG_NOARP for usb net devices which cannot do ARP
-Date: Sat, 19 Jan 2013 19:53:18 +0800
-Message-ID: <1358596401-7209-1-git-send-email-cpuwolf@gmail.com>
+Date: Sat, 19 Jan 2013 19:53:19 +0800
+Message-ID: <1358596401-7209-2-git-send-email-cpuwolf@gmail.com>
+References: <1358596401-7209-1-git-send-email-cpuwolf@gmail.com>
 Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
 	Wei Shuai <cpuwolf@gmail.com>
 To: dcbw@redhat.com, davem@davemloft.net, peter@stuge.se,
 	oneukum@suse.de, sshtylyov@mvista.com, gregkh@linuxfoundation.org,
 	alexey.orishko@stericsson.com, bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:65452 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751909Ab3ASLyH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 06:54:07 -0500
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:52748 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751909Ab3ASLy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 06:54:27 -0500
+In-Reply-To: <1358596401-7209-1-git-send-email-cpuwolf@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-we do have some USB net devices, which cannot do ARP. so we can introduce a new flag 
-FLAG_NOARP, then client drivers can easily handle these kind of devices
 
 
 Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
