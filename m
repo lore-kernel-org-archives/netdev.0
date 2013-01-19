@@ -1,44 +1,58 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH v3] net/hyperv: fix wrong length of mac address
-Date: Sat, 19 Jan 2013 15:07:14 +0000
-Message-ID: <5fc6e66ddc034250a4e510784266b063@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <20130118083031.GA2303@ppwaskie-mobl2.amr.corp.intel.com>,
- <1358563929-10942-1-git-send-email-kongjianjun@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IPsec AH use of ahash
+Date: Sat, 19 Jan 2013 07:46:24 -0800
+Message-ID: <1358610384.3464.1030.camel@edumazet-glaptop>
+References: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: Amos Kong <kongjianjun@gmail.com>, "davem@davemloft.net"
- <davem@davemloft.net>, KY Srinivasan <kys@microsoft.com>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1358563929-10942-1-git-send-email-kongjianjun@gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>,
+	steffen klassert <steffen.klassert@secunet.com>,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f51.google.com ([209.85.210.51]:49500 "EHLO
+	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751276Ab3ASPq2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 10:46:28 -0500
+In-Reply-To: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Amos Kong
+On Sat, 2013-01-19 at 05:30 -0500, Tom St Denis wrote:
 
-> Sent: Friday, January 18, 2013 9:52 PM
-> To: davem@davemloft.net; KY Srinivasan; Haiyang Zhang
-> Cc: netdev@vger.kernel.org; devel@linuxdriverproject.org; Amos Kong
-> Subject: [PATCH v3] net/hyperv: fix wrong length of mac address
+> As someone who maintained (and I mean that in all senses not just
+> applied patches) OSS projects while working full time and still trying
+> to have a life I get it.  That said I never turned away patches solely
+> on "style" issues.  At the same time you should look at the size and
+> scope of the patches I'm talking about.  It took me all of less than
+> an hour to develop and less than a couple of hours to give it a run to
+> see if it works correctly [talking about the CMAC patch].
 > 
-> This patch fixed wrong mac length, it should be ETH_ALEN,
-> also replaced the hardcode 6 in hyperv_net.h
+> This *should* be a no-brainer to apply.
 > 
-> Signed-off-by: Amos Kong <kongjianjun@gmail.com>
-> ---
-> v2: update commitlog, fix cc list
-> v3: fix hardcode length in hyperv_net.h
-> ---
 
- Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+Again, if its a no-brainer, the patch should be perfect, so that our
+brains can cope with the hard to review patches, and hard to debug
+problems. A maintainer is not a machine doing mechanical work
+
+Every time we have to ask you another round, its a lost of time for
+everybody.
+
+Really if you can not understand that, thats too bad.
+
+
+> For those of us who do Kernel development during business hours it's
+> hard to justify the work when the path to mainline is convoluted and
+> landmined.  
+
+Thousands of contributors just did it very well. 
+
+You might read a bit Documentation/SubmittingPatches
+
+vi +263 Documentation/SubmittingPatches
+
+This is a bit outdated, as obviously Linus is not the guy most
+contributors are dealing with.
