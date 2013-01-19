@@ -1,59 +1,35 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Sat, 19 Jan 2013 10:35:49 +0900
-Message-ID: <50F9F875.30302@linux-ipv6.org>
-References: <20130118200416.GB4795@order.stressinduktion.org>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [PATCH net-next] net: asix: ax88772_unbind() can be static
+Date: Sat, 19 Jan 2013 09:36:56 +0800
+Message-ID: <20130119013656.GA15200@localhost>
+References: <50f9b5d8.Por1KFVVV30/pKOM%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	hannes@stressinduktion.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Lucas Stach <dev@lynxeye.de>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46430 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751745Ab3ASBfv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 20:35:51 -0500
-In-Reply-To: <20130118200416.GB4795@order.stressinduktion.org>
+Received: from mga01.intel.com ([192.55.52.88]:41354 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755734Ab3ASBhB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jan 2013 20:37:01 -0500
+Content-Disposition: inline
+In-Reply-To: <50f9b5d8.Por1KFVVV30/pKOM%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2013=E5=B9=B401=E6=9C=8819=E6=97=A5 05:04), Hannes Frederic Sowa wrote=
-:
-> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-> checks which could easily be implemented with netfilter.
->=20
-> Specifically this patch adds following logic (based loosely on the
-> pseudocode in RFC3964 section 5.2):
->=20
-> if prefix (inner_src_v6) =3D=3D rd6_prefix (2002::/16 is the default)
->         and outer_src_v4 !=3D embedded_ipv4 (inner_src_v6)
->                 drop
-> if prefix (inner_dst_v6) =3D=3D rd6_prefix (or 2002::/16 is the defau=
-lt)
->         and outer_dst_v4 !=3D embedded_ipv4 (inner_dst_v6)
->                 drop
-> accept
->=20
-> To accomplish the specified security checks proposed by above RFCs,
-> it is still necessary to employ uRPF filters with netfilter. These ne=
-w
-> checks only kick in if the employed addresses are within the 2002::/1=
-6 or
-> another range specified by the 6rd-prefix (which defaults to 2002::/1=
-6).
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+ drivers/net/usb/asix_devices.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-It seems this breaks 6rd receiving rules:
-
-BR:
-	if (outer src ip4 !=3D embedded src ip4)
-		drop();
-CE:
-	if (outer src ip4 !=3D embedded src ip4 ||
-	    inner dest ip6 !=3D configured ip6 prefix)
-		drop();
-
-No?
-
---yoshfuji
+--- linux-next.orig/drivers/net/usb/asix_devices.c	2013-01-19 08:27:36.199070226 +0800
++++ linux-next/drivers/net/usb/asix_devices.c	2013-01-19 09:33:49.567164656 +0800
+@@ -502,7 +502,7 @@ static int ax88772_bind(struct usbnet *d
+ 	return 0;
+ }
+ 
+-void ax88772_unbind(struct usbnet *dev, struct usb_interface *intf)
++static void ax88772_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	if (dev->driver_priv)
+ 		kfree(dev->driver_priv);
