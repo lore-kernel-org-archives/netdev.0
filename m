@@ -1,487 +1,200 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 12/13] batman-adv: update copyright years
-Date: Sat, 19 Jan 2013 21:27:58 +0800
-Message-ID: <1358602079-24024-13-git-send-email-ordex@autistici.org>
+Subject: [PATCH 11/13] batman-adv: postpone sysfs removal when unregistering
+Date: Sat, 19 Jan 2013 21:27:57 +0800
+Message-ID: <1358602079-24024-12-git-send-email-ordex@autistici.org>
 References: <1358602079-24024-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
+	Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:58396 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:58314 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751923Ab3ASNaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 08:30:13 -0500
+	with ESMTP id S1751012Ab3ASNaJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 08:30:09 -0500
 In-Reply-To: <1358602079-24024-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/bat_algo.h              | 2 +-
- net/batman-adv/bat_iv_ogm.c            | 2 +-
- net/batman-adv/bitarray.c              | 2 +-
- net/batman-adv/bitarray.h              | 2 +-
- net/batman-adv/bridge_loop_avoidance.c | 2 +-
- net/batman-adv/bridge_loop_avoidance.h | 2 +-
- net/batman-adv/debugfs.c               | 2 +-
- net/batman-adv/debugfs.h               | 2 +-
- net/batman-adv/distributed-arp-table.c | 2 +-
- net/batman-adv/distributed-arp-table.h | 2 +-
- net/batman-adv/gateway_client.c        | 2 +-
- net/batman-adv/gateway_client.h        | 2 +-
- net/batman-adv/gateway_common.c        | 2 +-
- net/batman-adv/gateway_common.h        | 2 +-
- net/batman-adv/hard-interface.c        | 2 +-
- net/batman-adv/hard-interface.h        | 2 +-
- net/batman-adv/hash.c                  | 2 +-
- net/batman-adv/hash.h                  | 2 +-
- net/batman-adv/icmp_socket.c           | 2 +-
- net/batman-adv/icmp_socket.h           | 2 +-
- net/batman-adv/main.c                  | 2 +-
- net/batman-adv/main.h                  | 2 +-
- net/batman-adv/originator.c            | 2 +-
- net/batman-adv/originator.h            | 2 +-
- net/batman-adv/packet.h                | 2 +-
- net/batman-adv/ring_buffer.c           | 2 +-
- net/batman-adv/ring_buffer.h           | 2 +-
- net/batman-adv/routing.c               | 2 +-
- net/batman-adv/routing.h               | 2 +-
- net/batman-adv/send.c                  | 2 +-
- net/batman-adv/send.h                  | 2 +-
- net/batman-adv/soft-interface.c        | 2 +-
- net/batman-adv/soft-interface.h        | 2 +-
- net/batman-adv/sysfs.c                 | 2 +-
- net/batman-adv/sysfs.h                 | 2 +-
- net/batman-adv/translation-table.c     | 2 +-
- net/batman-adv/translation-table.h     | 2 +-
- net/batman-adv/types.h                 | 2 +-
- net/batman-adv/unicast.c               | 2 +-
- net/batman-adv/unicast.h               | 2 +-
- net/batman-adv/vis.c                   | 2 +-
- net/batman-adv/vis.h                   | 2 +-
- 42 files changed, 42 insertions(+), 42 deletions(-)
+From: Simon Wunderlich <simon.wunderlich@s2003.tu-chemnitz.de>
 
-diff --git a/net/batman-adv/bat_algo.h b/net/batman-adv/bat_algo.h
-index a0ba3bf..a4808c2 100644
---- a/net/batman-adv/bat_algo.h
-+++ b/net/batman-adv/bat_algo.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2011-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2011-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 36b9727..72fe1bb 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/bitarray.c b/net/batman-adv/bitarray.c
-index 5453b17..9739824 100644
---- a/net/batman-adv/bitarray.c
-+++ b/net/batman-adv/bitarray.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2006-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2006-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich, Marek Lindner
-  *
-diff --git a/net/batman-adv/bitarray.h b/net/batman-adv/bitarray.h
-index cebaae7..a81b932 100644
---- a/net/batman-adv/bitarray.h
-+++ b/net/batman-adv/bitarray.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2006-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2006-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich, Marek Lindner
-  *
-diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
-index 9971892..30f4652 100644
---- a/net/batman-adv/bridge_loop_avoidance.c
-+++ b/net/batman-adv/bridge_loop_avoidance.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2011-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2011-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich
-  *
-diff --git a/net/batman-adv/bridge_loop_avoidance.h b/net/batman-adv/bridge_loop_avoidance.h
-index 196d9a0..dea2fbc 100644
---- a/net/batman-adv/bridge_loop_avoidance.h
-+++ b/net/batman-adv/bridge_loop_avoidance.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2011-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2011-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich
-  *
-diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
-index e47555b..6ae8651 100644
---- a/net/batman-adv/debugfs.c
-+++ b/net/batman-adv/debugfs.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2010-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2010-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/debugfs.h b/net/batman-adv/debugfs.h
-index 3319e1f..f8c3849 100644
---- a/net/batman-adv/debugfs.h
-+++ b/net/batman-adv/debugfs.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2010-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2010-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index 8e1d89d..7485a78 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2011-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2011-2013 B.A.T.M.A.N. contributors:
-  *
-  * Antonio Quartulli
-  *
-diff --git a/net/batman-adv/distributed-arp-table.h b/net/batman-adv/distributed-arp-table.h
-index d060c03..125c8c6 100644
---- a/net/batman-adv/distributed-arp-table.h
-+++ b/net/batman-adv/distributed-arp-table.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2011-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2011-2013 B.A.T.M.A.N. contributors:
-  *
-  * Antonio Quartulli
-  *
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index dd07c7e..074107f 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2009-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2009-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/gateway_client.h b/net/batman-adv/gateway_client.h
-index f0d129e..039902d 100644
---- a/net/batman-adv/gateway_client.h
-+++ b/net/batman-adv/gateway_client.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2009-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2009-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/gateway_common.c b/net/batman-adv/gateway_common.c
-index 9001208..84bb2b1 100644
---- a/net/batman-adv/gateway_common.c
-+++ b/net/batman-adv/gateway_common.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2009-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2009-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/gateway_common.h b/net/batman-adv/gateway_common.h
-index 13697f6..509b2bf 100644
---- a/net/batman-adv/gateway_common.h
-+++ b/net/batman-adv/gateway_common.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2009-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2009-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
+When processing the unregister notify for a hard interface, removing
+the sysfs files may lead to a circular deadlock (rtnl mutex <->
+s_active).
+
+To overcome this problem, postpone the sysfs removal in a worker.
+
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Reported-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/hard-interface.c | 24 ++++++++++++++++++++++--
+ net/batman-adv/soft-interface.c | 32 +++++++++++++++++++++++++++++---
+ net/batman-adv/types.h          |  6 ++++++
+ 3 files changed, 57 insertions(+), 5 deletions(-)
+
 diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index cb3191f..368219e 100644
+index f1d37cd..cb3191f 100644
 --- a/net/batman-adv/hard-interface.c
 +++ b/net/batman-adv/hard-interface.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
-index 3732366..308437d 100644
---- a/net/batman-adv/hard-interface.h
-+++ b/net/batman-adv/hard-interface.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/hash.c b/net/batman-adv/hash.c
-index 15a849c..7198daf 100644
---- a/net/batman-adv/hash.c
-+++ b/net/batman-adv/hash.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2006-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2006-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich, Marek Lindner
-  *
-diff --git a/net/batman-adv/hash.h b/net/batman-adv/hash.h
-index ea02148..1b4da72 100644
---- a/net/batman-adv/hash.h
-+++ b/net/batman-adv/hash.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2006-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2006-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich, Marek Lindner
-  *
-diff --git a/net/batman-adv/icmp_socket.c b/net/batman-adv/icmp_socket.c
-index 87ca809..0ba6c89 100644
---- a/net/batman-adv/icmp_socket.c
-+++ b/net/batman-adv/icmp_socket.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/icmp_socket.h b/net/batman-adv/icmp_socket.h
-index 29443a1..1fcca37 100644
---- a/net/batman-adv/icmp_socket.h
-+++ b/net/batman-adv/icmp_socket.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index f65a222..21fe698 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index af73d60..74eb960 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 92a55fd..457ea44 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2009-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2009-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index 9778e65..286bf74 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
-index cb6405bf..ed0aa89 100644
---- a/net/batman-adv/packet.h
-+++ b/net/batman-adv/packet.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/ring_buffer.c b/net/batman-adv/ring_buffer.c
-index c8f61e3..ccab0bb 100644
---- a/net/batman-adv/ring_buffer.c
-+++ b/net/batman-adv/ring_buffer.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/ring_buffer.h b/net/batman-adv/ring_buffer.h
-index fda8c17..3f92ae2 100644
---- a/net/batman-adv/ring_buffer.h
-+++ b/net/batman-adv/ring_buffer.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index db89238..60ba03f 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/routing.h b/net/batman-adv/routing.h
-index 9262279..99eeafa 100644
---- a/net/batman-adv/routing.h
-+++ b/net/batman-adv/routing.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index 0b6f65b..80ca65f 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/send.h b/net/batman-adv/send.h
-index 0078dec..38e662f 100644
---- a/net/batman-adv/send.h
-+++ b/net/batman-adv/send.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
+@@ -457,6 +457,24 @@ out:
+ 		batadv_hardif_free_ref(primary_if);
+ }
+ 
++/**
++ * batadv_hardif_remove_interface_finish - cleans up the remains of a hardif
++ * @work: work queue item
++ *
++ * Free the parts of the hard interface which can not be removed under
++ * rtnl lock (to prevent deadlock situations).
++ */
++static void batadv_hardif_remove_interface_finish(struct work_struct *work)
++{
++	struct batadv_hard_iface *hard_iface;
++
++	hard_iface = container_of(work, struct batadv_hard_iface,
++				  cleanup_work);
++
++	batadv_sysfs_del_hardif(&hard_iface->hardif_obj);
++	batadv_hardif_free_ref(hard_iface);
++}
++
+ static struct batadv_hard_iface *
+ batadv_hardif_add_interface(struct net_device *net_dev)
+ {
+@@ -484,6 +502,9 @@ batadv_hardif_add_interface(struct net_device *net_dev)
+ 	hard_iface->soft_iface = NULL;
+ 	hard_iface->if_status = BATADV_IF_NOT_IN_USE;
+ 	INIT_LIST_HEAD(&hard_iface->list);
++	INIT_WORK(&hard_iface->cleanup_work,
++		  batadv_hardif_remove_interface_finish);
++
+ 	/* extra reference for return */
+ 	atomic_set(&hard_iface->refcount, 2);
+ 
+@@ -518,8 +539,7 @@ static void batadv_hardif_remove_interface(struct batadv_hard_iface *hard_iface)
+ 		return;
+ 
+ 	hard_iface->if_status = BATADV_IF_TO_BE_REMOVED;
+-	batadv_sysfs_del_hardif(&hard_iface->hardif_obj);
+-	batadv_hardif_free_ref(hard_iface);
++	queue_work(batadv_event_workqueue, &hard_iface->cleanup_work);
+ }
+ 
+ void batadv_hardif_remove_interfaces(void)
 diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index c9962fe..2711e87 100644
+index 3d68166..c9962fe 100644
 --- a/net/batman-adv/soft-interface.c
 +++ b/net/batman-adv/soft-interface.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/soft-interface.h b/net/batman-adv/soft-interface.h
-index 07a08fe..43182e5 100644
---- a/net/batman-adv/soft-interface.h
-+++ b/net/batman-adv/soft-interface.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index 84a55cb..afbba31 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2010-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2010-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/sysfs.h b/net/batman-adv/sysfs.h
-index 3fd1412..479acf4 100644
---- a/net/batman-adv/sysfs.h
-+++ b/net/batman-adv/sysfs.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2010-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2010-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner
-  *
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 877acd1..fb15b4c 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich, Antonio Quartulli
-  *
-diff --git a/net/batman-adv/translation-table.h b/net/batman-adv/translation-table.h
-index 46d4451..ab8e683 100644
---- a/net/batman-adv/translation-table.h
-+++ b/net/batman-adv/translation-table.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich, Antonio Quartulli
-  *
+@@ -449,6 +449,30 @@ static void batadv_interface_setup(struct net_device *dev)
+ 	memset(priv, 0, sizeof(*priv));
+ }
+ 
++/**
++ * batadv_softif_destroy_finish - cleans up the remains of a softif
++ * @work: work queue item
++ *
++ * Free the parts of the soft interface which can not be removed under
++ * rtnl lock (to prevent deadlock situations).
++ */
++static void batadv_softif_destroy_finish(struct work_struct *work)
++{
++	struct batadv_priv *bat_priv;
++	struct net_device *soft_iface;
++
++	bat_priv = container_of(work, struct batadv_priv,
++				cleanup_work);
++	soft_iface = bat_priv->soft_iface;
++
++	batadv_debugfs_del_meshif(soft_iface);
++	batadv_sysfs_del_meshif(soft_iface);
++
++	rtnl_lock();
++	unregister_netdevice(soft_iface);
++	rtnl_unlock();
++}
++
+ struct net_device *batadv_softif_create(const char *name)
+ {
+ 	struct net_device *soft_iface;
+@@ -463,6 +487,8 @@ struct net_device *batadv_softif_create(const char *name)
+ 		goto out;
+ 
+ 	bat_priv = netdev_priv(soft_iface);
++	bat_priv->soft_iface = soft_iface;
++	INIT_WORK(&bat_priv->cleanup_work, batadv_softif_destroy_finish);
+ 
+ 	/* batadv_interface_stats() needs to be available as soon as
+ 	 * register_netdevice() has been called
+@@ -551,10 +577,10 @@ out:
+ 
+ void batadv_softif_destroy(struct net_device *soft_iface)
+ {
+-	batadv_debugfs_del_meshif(soft_iface);
+-	batadv_sysfs_del_meshif(soft_iface);
++	struct batadv_priv *bat_priv = netdev_priv(soft_iface);
++
+ 	batadv_mesh_free(soft_iface);
+-	unregister_netdevice(soft_iface);
++	queue_work(batadv_event_workqueue, &bat_priv->cleanup_work);
+ }
+ 
+ int batadv_softif_is_valid(const struct net_device *net_dev)
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 8d4a16c..4cd87a0 100644
+index 03197f5..8d4a16c 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2007-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-  *
-  * Marek Lindner, Simon Wunderlich
-  *
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index f56bccf..50e079f 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2010-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2010-2013 B.A.T.M.A.N. contributors:
-  *
-  * Andreas Langer
-  *
-diff --git a/net/batman-adv/unicast.h b/net/batman-adv/unicast.h
-index 61abba5..429cf8a 100644
---- a/net/batman-adv/unicast.h
-+++ b/net/batman-adv/unicast.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2010-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2010-2013 B.A.T.M.A.N. contributors:
-  *
-  * Andreas Langer
-  *
-diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
-index 2e70ec1..22d2785 100644
---- a/net/batman-adv/vis.c
-+++ b/net/batman-adv/vis.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2008-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2008-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich
-  *
-diff --git a/net/batman-adv/vis.h b/net/batman-adv/vis.h
-index 873282f..ad92b0e 100644
---- a/net/batman-adv/vis.h
-+++ b/net/batman-adv/vis.h
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2008-2012 B.A.T.M.A.N. contributors:
-+/* Copyright (C) 2008-2013 B.A.T.M.A.N. contributors:
-  *
-  * Simon Wunderlich, Marek Lindner
-  *
+@@ -68,6 +68,7 @@ struct batadv_hard_iface_bat_iv {
+  * @soft_iface: the batman-adv interface which uses this network interface
+  * @rcu: struct used for freeing in an RCU-safe manner
+  * @bat_iv: BATMAN IV specific per hard interface data
++ * @cleanup_work: work queue callback item for hard interface deinit
+  */
+ struct batadv_hard_iface {
+ 	struct list_head list;
+@@ -81,6 +82,7 @@ struct batadv_hard_iface {
+ 	struct net_device *soft_iface;
+ 	struct rcu_head rcu;
+ 	struct batadv_hard_iface_bat_iv bat_iv;
++	struct work_struct cleanup_work;
+ };
+ 
+ /**
+@@ -428,6 +430,7 @@ struct batadv_priv_dat {
+ /**
+  * struct batadv_priv - per mesh interface data
+  * @mesh_state: current status of the mesh (inactive/active/deactivating)
++ * @soft_iface: net device which holds this struct as private data
+  * @stats: structure holding the data for the ndo_get_stats() call
+  * @bat_counters: mesh internal traffic statistic counters (see batadv_counters)
+  * @aggregated_ogms: bool indicating whether OGM aggregation is enabled
+@@ -457,6 +460,7 @@ struct batadv_priv_dat {
+  * @forw_bat_list_lock: lock protecting forw_bat_list
+  * @forw_bcast_list_lock: lock protecting forw_bcast_list
+  * @orig_work: work queue callback item for orig node purging
++ * @cleanup_work: work queue callback item for soft interface deinit
+  * @primary_if: one of the hard interfaces assigned to this mesh interface
+  *  becomes the primary interface
+  * @bat_algo_ops: routing algorithm used by this mesh interface
+@@ -469,6 +473,7 @@ struct batadv_priv_dat {
+  */
+ struct batadv_priv {
+ 	atomic_t mesh_state;
++	struct net_device *soft_iface;
+ 	struct net_device_stats stats;
+ 	uint64_t __percpu *bat_counters; /* Per cpu counters */
+ 	atomic_t aggregated_ogms;
+@@ -502,6 +507,7 @@ struct batadv_priv {
+ 	spinlock_t forw_bat_list_lock; /* protects forw_bat_list */
+ 	spinlock_t forw_bcast_list_lock; /* protects forw_bcast_list */
+ 	struct delayed_work orig_work;
++	struct work_struct cleanup_work;
+ 	struct batadv_hard_iface __rcu *primary_if;  /* rcu protected pointer */
+ 	struct batadv_algo_ops *bat_algo_ops;
+ #ifdef CONFIG_BATMAN_ADV_BLA
 -- 
 1.8.0.2
