@@ -1,53 +1,41 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: Fix build warning introduced by commit a290593
-Date: Sat, 19 Jan 2013 12:36:49 -0600
-Message-ID: <1358620609-9794-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, kbuild test robot <fengguang.wu@intel.com>
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:44320 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752138Ab3ASShH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 13:37:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 20/21] ntb_netdev: improve logging
+Date: Sat, 19 Jan 2013 10:51:02 -0800
+Message-ID: <1358621462.2108.3.camel@joe-AO722>
+References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
+	 <1358586155-23322-21-git-send-email-jon.mason@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <gregkh@linuxfoundation.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358586155-23322-21-git-send-email-jon.mason@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The kbuild test robot reports the following warning with x86_64-randconfig-x955:
+On Sat, 2013-01-19 at 02:02 -0700, Jon Mason wrote:
+> Improve driver logging to be more helpful
+[]
+> diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
+[]
+> @@ -408,6 +408,5 @@ static void __exit ntb_netdev_exit_module(void)
+>  {
+>  	ntb_unregister_client(&ntb_netdev_client);
+>  	ntb_unregister_client_dev(KBUILD_MODNAME);
+> -	pr_info("%s: Driver removed\n", KBUILD_MODNAME);
 
-warning: (RTL8192CE && RTL8192SE && RTL8192DE && RTL8723AE && RTL8192CU) selects
- RTLWIFI which has unmet direct dependencies (NETDEVICES && WLAN &&
- (RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE))
+It's almost always true that using
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+before any #include
 
-This warning was introduced in commit a290593, "rtlwifi: Modify files for addition
-of rtl8723ae", and is d ue to a missing dependence of RTLWIFI on RTL8723AE.
+and changing all pr_<level>( uses from
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: kbuild test robot <fengguang.wu@intel.com>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
----
- drivers/net/wireless/rtlwifi/Kconfig |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+	pr_<level>("s: etc...", KBUiLD_MODNAME, ...)
+to
+	pr_<level>("etc...", ...)
 
-diff --git a/drivers/net/wireless/rtlwifi/Kconfig b/drivers/net/wireless/rtlwifi/Kconfig
-index 21b1bbb..b80bc46 100644
---- a/drivers/net/wireless/rtlwifi/Kconfig
-+++ b/drivers/net/wireless/rtlwifi/Kconfig
-@@ -57,12 +57,12 @@ config RTL8192CU
- 
- config RTLWIFI
- 	tristate
--	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE
-+	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE || RTL8723AE
- 	default m
- 
- config RTLWIFI_DEBUG
- 	bool "Additional debugging output"
--	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE
-+	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE || RTL8723AE
- 	default y
- 
- config RTL8192C_COMMON
--- 
-1.7.10.4
+produces overall smaller object code.
+That's even more likely for 64 bit compiled code.
