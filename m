@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 05/21] NTB: No sleeping in interrupt context
-Date: Sat, 19 Jan 2013 02:02:19 -0700
-Message-ID: <1358586155-23322-6-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 16/21] ntb_netdev: remove init/exit from probe/remove
+Date: Sat, 19 Jan 2013 02:02:30 -0700
+Message-ID: <1358586155-23322-17-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
@@ -12,89 +12,26 @@ In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move all cancel_delayed_work_sync to a work thread to prevent sleeping
-in interrupt context (when the NTB link goes down).  Caught via
-'Sleep inside atomic section checking'
+Remove init/exit from probe/remove routines to correct warnings of
+"Section mismatch".
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_transport.c |   20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ drivers/net/ntb_netdev.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index 2823087..bf7ade1 100644
---- a/drivers/ntb/ntb_transport.c
-+++ b/drivers/ntb/ntb_transport.c
-@@ -110,6 +110,7 @@ struct ntb_transport_qp {
- 
- 	void (*event_handler) (void *data, int status);
- 	struct delayed_work link_work;
-+	struct work_struct link_cleanup;
- 
- 	struct dentry *debugfs_dir;
- 	struct dentry *debugfs_stats;
-@@ -148,6 +149,7 @@ struct ntb_transport {
- 	unsigned long qp_bitmap;
- 	bool transport_link;
- 	struct delayed_work link_work;
-+	struct work_struct link_cleanup;
- 	struct dentry *debugfs_dir;
- };
- 
-@@ -510,8 +512,11 @@ static int ntb_set_mw(struct ntb_transport *nt, int num_mw, unsigned int size)
- 	return 0;
+diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
+index 4e52fd2..0d4a6ee 100644
+--- a/drivers/net/ntb_netdev.c
++++ b/drivers/net/ntb_netdev.c
+@@ -373,7 +373,7 @@ err:
+ 	return rc;
  }
  
--static void ntb_qp_link_down(struct ntb_transport_qp *qp)
-+static void ntb_qp_link_cleanup(struct work_struct *work)
+-static void __exit ntb_netdev_remove(struct pci_dev *pdev)
++static void ntb_netdev_remove(struct pci_dev *pdev)
  {
-+	struct ntb_transport_qp *qp = container_of(work,
-+						   struct ntb_transport_qp,
-+						   link_cleanup);
- 	struct ntb_transport *nt = qp->transport;
- 	struct pci_dev *pdev = ntb_query_pdev(nt->ndev);
- 
-@@ -531,8 +536,15 @@ static void ntb_qp_link_down(struct ntb_transport_qp *qp)
- 				      msecs_to_jiffies(NTB_LINK_DOWN_TIMEOUT));
- }
- 
--static void ntb_transport_conn_down(struct ntb_transport *nt)
-+static void ntb_qp_link_down(struct ntb_transport_qp *qp)
-+{
-+	schedule_work(&qp->link_cleanup);
-+}
-+
-+static void ntb_transport_link_cleanup(struct work_struct *work)
- {
-+	struct ntb_transport *nt = container_of(work, struct ntb_transport,
-+						link_cleanup);
- 	int i;
- 
- 	if (nt->transport_link == NTB_LINK_DOWN)
-@@ -562,7 +574,7 @@ static void ntb_transport_event_callback(void *data, enum ntb_hw_event event)
- 		schedule_delayed_work(&nt->link_work, 0);
- 		break;
- 	case NTB_EVENT_HW_LINK_DOWN:
--		ntb_transport_conn_down(nt);
-+		schedule_work(&nt->link_cleanup);
- 		break;
- 	default:
- 		BUG();
-@@ -769,6 +781,7 @@ static void ntb_transport_init_queue(struct ntb_transport *nt,
- 	}
- 
- 	INIT_DELAYED_WORK(&qp->link_work, ntb_qp_link_work);
-+	INIT_WORK(&qp->link_cleanup, ntb_qp_link_cleanup);
- 
- 	spin_lock_init(&qp->ntb_rx_pend_q_lock);
- 	spin_lock_init(&qp->ntb_rx_free_q_lock);
-@@ -814,6 +827,7 @@ int ntb_transport_init(struct pci_dev *pdev)
- 		ntb_transport_init_queue(nt, i);
- 
- 	INIT_DELAYED_WORK(&nt->link_work, ntb_transport_link_work);
-+	INIT_WORK(&nt->link_cleanup, ntb_transport_link_cleanup);
- 
- 	rc = ntb_register_event_callback(nt->ndev,
- 					 ntb_transport_event_callback);
+ 	struct net_device *ndev;
+ 	struct ntb_netdev *dev;
 -- 
 1.7.9.5
