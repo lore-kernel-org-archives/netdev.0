@@ -1,87 +1,101 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
-Subject: Re: IPsec AH use of ahash
-Date: Sat, 19 Jan 2013 05:30:57 -0500 (EST)
-Message-ID: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
-References: <1358567995.3464.372.camel@edumazet-glaptop>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [RFC PATCH linux-next] et131x: Promote staging et131x driver to
+ drivers/net
+Date: Sat, 19 Jan 2013 14:03:28 +0300
+Message-ID: <20130119110328.GO4584@mwanda>
+References: <1358541648-29922-1-git-send-email-mark.einon@gmail.com>
+ <20130118225706.GA22140@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>,
-	steffen klassert <steffen.klassert@secunet.com>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
-To: Eric Dumazet <erdnetdev@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Einon <mark.einon@gmail.com>, devel@driverdev.osuosl.org,
+	sfr@canb.auug.org.au, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358567995.3464.372.camel@edumazet-glaptop>
+Content-Disposition: inline
+In-Reply-To: <20130118225706.GA22140@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
------ Original Message -----
-> From: "Eric Dumazet" <erdnetdev@gmail.com>
-> To: "Michal Kubecek" <mkubecek@suse.cz>
-> Cc: "Tom St Denis" <tstdenis@elliptictech.com>, "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>, "David
-> Miller" <davem@davemloft.net>, "steffen klassert" <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au,
-> linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-> Sent: Friday, 18 January, 2013 10:59:55 PM
-> Subject: Re: IPsec AH use of ahash
+On Fri, Jan 18, 2013 at 02:57:06PM -0800, Greg KH wrote:
+> On Fri, Jan 18, 2013 at 08:40:47PM +0000, Mark Einon wrote:
+> > This patch moves the et131x gigabit ethernet driver from drivers/staging
+> > to drivers/net/ethernet/agere.
+> > 
+> > All the existing issues noted for this driver have been resolved, apart
+> > from one performance issue where some fragmented packets suffer from
+> > frame receive errors. As I've only tested the code on one piece of
+> > hardware to date, it would be useful to get feedback on this issue from
+> > any other users of the device (my device has been stepped on several times
+> > now, and is known to need a few wiggles before starting up correctly).
+> > 
+> > Signed-off-by: Mark Einon <mark.einon@gmail.com>
 > 
-> On Sat, 2013-01-19 at 03:33 +0100, Michal Kubecek wrote:
+> No objection from me for this.  It's up to the network driver
+> maintainers if this is ok or not.
 > 
-> > Someone already pointed you to http://patchwork.ozlabs.org/
-> > Please do take a look there. I just did and found that in last
-> > three
-> > months, about 3500 patches were submitted to this list, i.e. about
-> > 40 patches per day (including weekends and Christmas). All of these
-> > need
-> > to be reviewed by a few maintainers who are also doing their part
-> > of
-> > development. How do they manage to handle it, honestly I don't
-> > know.
-> 
-> I want to make here a huge thanks to David Miller, and of course
-> to all contributors.
-> 
-> I truly believe we did very well, and I really hope new contributors
-> will come and continue the impressive work.
-> 
-> Sure, sometime we can react not as good as we could do if we were
-> not overloaded. (I mean, 6 hours listening Lance Amstrong confession.
-> You really cant avoid such a scoop !)
 
-As someone who maintained (and I mean that in all senses not just applied patches) OSS projects while working full time and still trying to have a life I get it.  That said I never turned away patches solely on "style" issues.  At the same time you should look at the size and scope of the patches I'm talking about.  It took me all of less than an hour to develop and less than a couple of hours to give it a run to see if it works correctly [talking about the CMAC patch].
+et131x_get_regs() has endian bugs calling et131x_mii_read().
 
-This *should* be a no-brainer to apply.
+There are a bunch of sparse warnings as well.  I haven't looked at
+them because it's the weekend.
 
-> I understand that for a new contributor, it might be difficult to
-> catch up with various rules, but reading netdev archives should be
-> enough to understand how it really works. Its not like the process
-> was a secret.
-> 
-> Tom, even a maintainer can make errors, thats not a big deal, as long
-> as things can go forward.
-> 
-> If you felt you had 0% chance to get your patch being accepted, then
-> you had a wrong feeling.
+drivers/staging/et131x/et131x.c:1870:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1870:33:    expected unsigned int [usertype] *num_des
+drivers/staging/et131x/et131x.c:1870:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1871:37: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1871:37:    expected unsigned int [usertype] *full_offset
+drivers/staging/et131x/et131x.c:1871:37:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1872:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1872:33:    expected unsigned int [usertype] *min_des
+drivers/staging/et131x/et131x.c:1872:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1873:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1873:33:    expected unsigned int [usertype] *base_hi
+drivers/staging/et131x/et131x.c:1873:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1874:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1874:33:    expected unsigned int [usertype] *base_lo
+drivers/staging/et131x/et131x.c:1874:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1876:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1876:33:    expected unsigned int [usertype] *num_des
+drivers/staging/et131x/et131x.c:1876:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1877:37: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1877:37:    expected unsigned int [usertype] *full_offset
+drivers/staging/et131x/et131x.c:1877:37:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1878:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1878:33:    expected unsigned int [usertype] *min_des
+drivers/staging/et131x/et131x.c:1878:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1879:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1879:33:    expected unsigned int [usertype] *base_hi
+drivers/staging/et131x/et131x.c:1879:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1880:33: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:1880:33:    expected unsigned int [usertype] *base_lo
+drivers/staging/et131x/et131x.c:1880:33:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:1898:24: warning: incorrect type in argument 2 (different address spaces)
+drivers/staging/et131x/et131x.c:1898:24:    expected void volatile [noderef] <asn:2>*addr
+drivers/staging/et131x/et131x.c:1898:24:    got unsigned int [usertype] *base_hi
+drivers/staging/et131x/et131x.c:1900:24: warning: incorrect type in argument 2 (different address spaces)
+drivers/staging/et131x/et131x.c:1900:24:    expected void volatile [noderef] <asn:2>*addr
+drivers/staging/et131x/et131x.c:1900:24:    got unsigned int [usertype] *base_lo
+drivers/staging/et131x/et131x.c:1901:60: warning: incorrect type in argument 2 (different address spaces)
+drivers/staging/et131x/et131x.c:1901:60:    expected void volatile [noderef] <asn:2>*addr
+drivers/staging/et131x/et131x.c:1901:60:    got unsigned int [usertype] *num_des
+drivers/staging/et131x/et131x.c:1902:39: warning: incorrect type in argument 2 (different address spaces)
+drivers/staging/et131x/et131x.c:1902:39:    expected void volatile [noderef] <asn:2>*addr
+drivers/staging/et131x/et131x.c:1902:39:    got unsigned int [usertype] *full_offset
+drivers/staging/et131x/et131x.c:1910:24: warning: incorrect type in argument 2 (different address spaces)
+drivers/staging/et131x/et131x.c:1910:24:    expected void volatile [noderef] <asn:2>*addr
+drivers/staging/et131x/et131x.c:1910:24:    got unsigned int [usertype] *min_des
+drivers/staging/et131x/et131x.c:2583:32: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:2583:32:    expected unsigned int [usertype] *offset
+drivers/staging/et131x/et131x.c:2583:32:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:2585:32: warning: incorrect type in assignment (different address spaces)
+drivers/staging/et131x/et131x.c:2585:32:    expected unsigned int [usertype] *offset
+drivers/staging/et131x/et131x.c:2585:32:    got unsigned int [noderef] <asn:2>*<noident>
+drivers/staging/et131x/et131x.c:2602:24: warning: incorrect type in argument 2 (different address spaces)
+drivers/staging/et131x/et131x.c:2602:24:    expected void volatile [noderef] <asn:2>*addr
+drivers/staging/et131x/et131x.c:2602:24:    got unsigned int [usertype] *offset
+drivers/staging/et131x/et131x.c:4093:13: warning: symbol 'et131x_isr' was not declared. Should it be static?
+  CC [M]  drivers/staging/et131x/et131x.o
 
-My problem is the lack of ownership of the task from the maintainers.  For instance, I was surprised that CryptoAPI didn't support CMAC already given that it's a NIST standard (more than XCBC is).  The maintainers of CryptoAPI deemed fit to add all sorts of non-standard nonsense like Serpent and Twofish and heck even VMAC but not CMAC?  Who's goals are they serving here?
-
-Then I get time from my employer to add CMAC to the kernel so I base it off the closest match, XCBC.  I modify one function, add it's name to a table and fire off a patch.  What happens?  It gets ignored.  Then I resubmit it with he maintainers in the cc: and I get an ack [this is during 3.7-rc...].  The 3.8 window opens up and .... the code is nowhere to be found.  I ask again, and then I get "it doesn't match our coding standards, please try again."
-
-> If the patch makes sense and you agree to address reviewers feedback,
-> it
-> definitely can be accepted. If you think you don't have time to do
-> that,
-> then maybe the patch is not really needed.
-
-The typical OSS cop-out.  It's not about what *you* deem important.  It's what the customer/users do.  And in this case I went the extra yard and submitted working code.  I shouldn't have to resubmit working code because of "style" issues.  The maintainers should be damn grateful that I submitted [working] code at all and they can spend the time to integrate it into mainline.
-
-The fact is right now *I* have the ability to perform CMAC in the kernel.  Nobody else does.  So aside from annoying some of my users by having them patch their kernel with a patch I provide them we're not missing out on functionality.  It's the rest of the Kernel users (whom I don't interact with) who are now missing functionality.
-
-This gets back to the AH AEAD case.  Suppose I take the existing ah4.c and just re-write the ahash statements to use aead and touch nothing else... if the existing ah4.c doesn't meet coding standards will that patch get tossed out too?  Do you see perhaps how impractical that standard is?
-
-For those of us who do Kernel development during business hours it's hard to justify the work when the path to mainline is convoluted and landmined.  
-
-Tom
+regards,
+dan carpenter
