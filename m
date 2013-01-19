@@ -1,84 +1,59 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC PATCH 1/3] ipv4: Invalidate the socket cached route on pmtu
- events if possible
-Date: Sat, 19 Jan 2013 02:54:04 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1301190031080.1803@ja.ssi.bg>
-References: <50D1BCC0.2000208@oktetlabs.ru> <1355924119.2676.6.camel@bwh-desktop.uk.solarflarecom.com> <50D1CECE.7090706@oktetlabs.ru> <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com> <20121220073445.GM18940@secunet.com> <50D2F4E5.4050904@oktetlabs.ru>
- <20121220123535.GN18940@secunet.com> <20121221102253.GO18940@secunet.com> <50F3C153.9030204@oktetlabs.ru> <20130118081145.GB24987@secunet.com> <20130118081419.GC24987@secunet.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Sat, 19 Jan 2013 10:35:49 +0900
+Message-ID: <50F9F875.30302@linux-ipv6.org>
+References: <20130118200416.GB4795@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:43617 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751835Ab3ASAu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jan 2013 19:50:57 -0500
-In-Reply-To: <20130118081419.GC24987@secunet.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:46430 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751745Ab3ASBfv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jan 2013 20:35:51 -0500
+In-Reply-To: <20130118200416.GB4795@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+(2013=E5=B9=B401=E6=9C=8819=E6=97=A5 05:04), Hannes Frederic Sowa wrote=
+:
+> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
+> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
+> checks which could easily be implemented with netfilter.
+>=20
+> Specifically this patch adds following logic (based loosely on the
+> pseudocode in RFC3964 section 5.2):
+>=20
+> if prefix (inner_src_v6) =3D=3D rd6_prefix (2002::/16 is the default)
+>         and outer_src_v4 !=3D embedded_ipv4 (inner_src_v6)
+>                 drop
+> if prefix (inner_dst_v6) =3D=3D rd6_prefix (or 2002::/16 is the defau=
+lt)
+>         and outer_dst_v4 !=3D embedded_ipv4 (inner_dst_v6)
+>                 drop
+> accept
+>=20
+> To accomplish the specified security checks proposed by above RFCs,
+> it is still necessary to employ uRPF filters with netfilter. These ne=
+w
+> checks only kick in if the employed addresses are within the 2002::/1=
+6 or
+> another range specified by the 6rd-prefix (which defaults to 2002::/1=
+6).
 
-	Hello,
+It seems this breaks 6rd receiving rules:
 
-On Fri, 18 Jan 2013, Steffen Klassert wrote:
+BR:
+	if (outer src ip4 !=3D embedded src ip4)
+		drop();
+CE:
+	if (outer src ip4 !=3D embedded src ip4 ||
+	    inner dest ip6 !=3D configured ip6 prefix)
+		drop();
 
-> The route lookup in ipv4_sk_update_pmtu() might return a route
-> different from the route we cached at the socket. This is because
-> standart routes are per cpu, so each cpu has it's own struct rtable.
-> This means that we do not invalidate the socket cached route if the
-> NET_RX_SOFTIRQ is not served by the same cpu that the sending socket
-> uses. As a result, the cached route reused until we disconnect.
-> 
-> With this patch we invalidate the socket cached route if possible.
-> If the socket is owened by the user, we can't update the cached
-> route directly. A followup patch will implement socket release
-> callback functions for datagram sockets to handle this case.
-> 
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv4/route.c |   40 +++++++++++++++++++++++++++++++++++++++-
->  1 file changed, 39 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 259cbee..e59541b 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -965,7 +965,7 @@ void ipv4_update_pmtu(struct sk_buff *skb, struct net *net, u32 mtu,
->  }
->  EXPORT_SYMBOL_GPL(ipv4_update_pmtu);
->  
-> -void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
-> +static void __ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
->  {
->  	const struct iphdr *iph = (const struct iphdr *) skb->data;
->  	struct flowi4 fl4;
-> @@ -978,6 +978,44 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
->  		ip_rt_put(rt);
->  	}
->  }
-> +
-> +void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
-> +{
-> +	const struct iphdr *iph = (const struct iphdr *) skb->data;
-> +	struct flowi4 fl4;
-> +	struct rtable *rt = (struct rtable *) __sk_dst_get(sk);
+No?
 
-	I guess __sk_dst_get should be called after
-bh_lock_sock ?
-
-> +	struct dst_entry *dst;
-> +
-> +	bh_lock_sock(sk);
-> +	if (sock_owned_by_user(sk) || !rt) {
-> +		__ipv4_sk_update_pmtu(skb, sk, mtu);
-> +		goto out;
-> +	}
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+--yoshfuji
