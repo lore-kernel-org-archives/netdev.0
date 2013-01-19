@@ -1,322 +1,76 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/10] igb: Copyright string update to year 2013
-Date: Sat, 19 Jan 2013 05:14:59 -0800
-Message-ID: <1358601299-10404-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] ixgbevf: Synch out of tree and in tree mailbox interrupt handlers
+Date: Sat, 19 Jan 2013 05:14:55 -0800
+Message-ID: <1358601299-10404-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358601299-10404-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:35484 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:7088 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751012Ab3ASNPL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jan 2013 08:15:11 -0500
+	id S1751012Ab3ASNPI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Jan 2013 08:15:08 -0500
 In-Reply-To: <1358601299-10404-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This patch updates Copyright year to 2013
+The out of tree driver and the in kernel driver should use the same
+interrupt handling logic for mailbox interrupts.  The difference in
+the handlers was causing dissimilar behavior between the two drivers
+complicating debug and trouble shooting.
 
-v2: Changed Copyright year on Makefile
-
-Signed-off-by: Akeem G. Abodunrin <akeem.g.abodunrin@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/Makefile        | 2 +-
- drivers/net/ethernet/intel/igb/e1000_82575.c   | 2 +-
- drivers/net/ethernet/intel/igb/e1000_82575.h   | 2 +-
- drivers/net/ethernet/intel/igb/e1000_defines.h | 2 +-
- drivers/net/ethernet/intel/igb/e1000_hw.h      | 2 +-
- drivers/net/ethernet/intel/igb/e1000_i210.c    | 2 +-
- drivers/net/ethernet/intel/igb/e1000_i210.h    | 2 +-
- drivers/net/ethernet/intel/igb/e1000_mac.c     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_mac.h     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_mbx.c     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_mbx.h     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_nvm.c     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_nvm.h     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_phy.c     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_phy.h     | 2 +-
- drivers/net/ethernet/intel/igb/e1000_regs.h    | 2 +-
- drivers/net/ethernet/intel/igb/igb.h           | 2 +-
- drivers/net/ethernet/intel/igb/igb_ethtool.c   | 2 +-
- drivers/net/ethernet/intel/igb/igb_hwmon.c     | 2 +-
- drivers/net/ethernet/intel/igb/igb_main.c      | 5 +++--
- 20 files changed, 22 insertions(+), 21 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c | 27 +++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/Makefile b/drivers/net/ethernet/intel/igb/Makefile
-index f9d37c8..f19700e 100644
---- a/drivers/net/ethernet/intel/igb/Makefile
-+++ b/drivers/net/ethernet/intel/igb/Makefile
-@@ -1,7 +1,7 @@
- ################################################################################
- #
- # Intel 82575 PCI-Express Ethernet Linux driver
--# Copyright(c) 1999 - 2012 Intel Corporation.
-+# Copyright(c) 1999 - 2013 Intel Corporation.
- #
- # This program is free software; you can redistribute it and/or modify it
- # under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index b6ec782..54a7c20 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index c27d986..580dfd8 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -750,12 +750,35 @@ static void ixgbevf_set_itr(struct ixgbevf_q_vector *q_vector)
+ static irqreturn_t ixgbevf_msix_other(int irq, void *data)
+ {
+ 	struct ixgbevf_adapter *adapter = data;
++	struct pci_dev *pdev = adapter->pdev;
+ 	struct ixgbe_hw *hw = &adapter->hw;
++	u32 msg;
++	bool got_ack = false;
  
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
+ 	hw->mac.get_link_status = 1;
++	if (!hw->mbx.ops.check_for_ack(hw))
++		got_ack = true;
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.h b/drivers/net/ethernet/intel/igb/e1000_82575.h
-index 444f6f5..73ab41f 100644
---- a/drivers/net/ethernet/intel/igb/e1000_82575.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_82575.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+-	if (!test_bit(__IXGBEVF_DOWN, &adapter->state))
+-		mod_timer(&adapter->watchdog_timer, jiffies);
++	if (!hw->mbx.ops.check_for_msg(hw)) {
++		hw->mbx.ops.read(hw, &msg, 1);
++
++		if ((msg & IXGBE_MBVFICR_VFREQ_MASK) == IXGBE_PF_CONTROL_MSG)
++			mod_timer(&adapter->watchdog_timer,
++				  round_jiffies(jiffies + 1));
++
++		if (msg & IXGBE_VT_MSGTYPE_NACK)
++			dev_info(&pdev->dev,
++				 "Last Request of type %2.2x to PF Nacked\n",
++				 msg & 0xFF);
++		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFSTS;
++	}
++
++	/* checking for the ack clears the PFACK bit.  Place
++	 * it back in the v2p_mailbox cache so that anyone
++	 * polling for an ack will not miss it
++	 */
++	if (got_ack)
++		hw->mbx.v2p_mailbox |= IXGBE_VFMAILBOX_PFACK;
  
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
+ 	IXGBE_WRITE_REG(hw, IXGBE_VTEIMS, adapter->eims_other);
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index 9b7ef93..7e13337 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
-index 2c9b6f4..0d5cf9c 100644
---- a/drivers/net/ethernet/intel/igb/e1000_hw.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.c b/drivers/net/ethernet/intel/igb/e1000_i210.c
-index fbcdbeb..6a42344 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_i210.h b/drivers/net/ethernet/intel/igb/e1000_i210.h
-index 1c89358..e4e1a73 100644
---- a/drivers/net/ethernet/intel/igb/e1000_i210.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_i210.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.c b/drivers/net/ethernet/intel/igb/e1000_mac.c
-index 101e6e4..a5c7200 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mac.h b/drivers/net/ethernet/intel/igb/e1000_mac.h
-index e2b2c4b..e6d6ce4 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mac.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_mac.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mbx.c b/drivers/net/ethernet/intel/igb/e1000_mbx.c
-index 5988b89..38e0df3 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mbx.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_mbx.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_mbx.h b/drivers/net/ethernet/intel/igb/e1000_mbx.h
-index dbcfa3d..c13b56d 100644
---- a/drivers/net/ethernet/intel/igb/e1000_mbx.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_mbx.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.c b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-index fbb7604..5b62adb 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_nvm.h b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-index 7012d45..6bfc0c4 100644
---- a/drivers/net/ethernet/intel/igb/e1000_nvm.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_nvm.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2012 Intel Corporation.
-+  Copyright(c) 2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
-index fe76004..2918c97 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.c
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
-index ed282f8..784fd1c 100644
---- a/drivers/net/ethernet/intel/igb/e1000_phy.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index 889de26..1534328 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index ad317ab..4b78053 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 3ff3794..40b5d56 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/igb_hwmon.c b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-index 106bd7c..0a9b073 100644
---- a/drivers/net/ethernet/intel/igb/igb_hwmon.c
-+++ b/drivers/net/ethernet/intel/igb/igb_hwmon.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 7835404..b81a953 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   Intel(R) Gigabit Ethernet Linux driver
--  Copyright(c) 2007-2012 Intel Corporation.
-+  Copyright(c) 2007-2013 Intel Corporation.
- 
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -69,7 +69,8 @@ char igb_driver_name[] = "igb";
- char igb_driver_version[] = DRV_VERSION;
- static const char igb_driver_string[] =
- 				"Intel(R) Gigabit Ethernet Network Driver";
--static const char igb_copyright[] = "Copyright (c) 2007-2012 Intel Corporation.";
-+static const char igb_copyright[] =
-+				"Copyright (c) 2007-2013 Intel Corporation.";
- 
- static const struct e1000_info *igb_info_tbl[] = {
- 	[board_82575] = &e1000_82575_info,
 -- 
 1.7.11.7
