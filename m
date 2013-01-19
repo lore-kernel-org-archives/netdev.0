@@ -1,246 +1,100 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 04/21] NTB: separate transmit and receive windows
-Date: Sat, 19 Jan 2013 02:02:18 -0700
-Message-ID: <1358586155-23322-5-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 05/21] NTB: No sleeping in interrupt context
+Date: Sat, 19 Jan 2013 02:02:19 -0700
+Message-ID: <1358586155-23322-6-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
 	Nicholas Bellinger <nab@linux-iscsi.org>
 To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:7352 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751584Ab3ASJDC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jan 2013 04:03:02 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since it is possible for the memory windows on the two NTB connected
-systems to be different sizes, the divergent sizes must be accounted for
-in the segmentation of the MW's on each side.  Create separate size
-variables and initialization as necessary.
+Move all cancel_delayed_work_sync to a work thread to prevent sleeping
+in interrupt context (when the NTB link goes down).  Caught via
+'Sleep inside atomic section checking'
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_transport.c |   79 ++++++++++++++++++++++++-------------------
- 1 file changed, 44 insertions(+), 35 deletions(-)
+ drivers/ntb/ntb_transport.c |   20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index e9666bd..2823087 100644
+index 2823087..bf7ade1 100644
 --- a/drivers/ntb/ntb_transport.c
 +++ b/drivers/ntb/ntb_transport.c
-@@ -60,7 +60,7 @@
- 
- #define NTB_TRANSPORT_VERSION	1
- 
--static int transport_mtu = 0x401E;
-+static unsigned int transport_mtu = 0x401E;
- module_param(transport_mtu, uint, 0644);
- MODULE_PARM_DESC(transport_mtu, "Maximum size of NTB transport packets");
- 
-@@ -94,6 +94,7 @@ struct ntb_transport_qp {
- 	void *tx_mw_begin;
- 	void *tx_mw_end;
- 	void *tx_offset;
-+	unsigned int tx_max_frame;
- 
- 	void (*rx_handler) (struct ntb_transport_qp *qp, void *qp_data,
- 			    void *data, int len);
-@@ -105,6 +106,7 @@ struct ntb_transport_qp {
- 	void *rx_buff_begin;
- 	void *rx_buff_end;
- 	void *rx_offset;
-+	unsigned int rx_max_frame;
+@@ -110,6 +110,7 @@ struct ntb_transport_qp {
  
  	void (*event_handler) (void *data, int status);
  	struct delayed_work link_work;
-@@ -458,28 +460,29 @@ static void ntb_transport_setup_qp_mw(struct ntb_transport *nt,
- 				      unsigned int qp_num)
- {
- 	struct ntb_transport_qp *qp = &nt->qps[qp_num];
--	unsigned int size, num_qps_mw;
-+	unsigned int rx_size, num_qps_mw;
- 	u8 mw_num = QP_TO_MW(qp_num);
-+	void *offset;
++	struct work_struct link_cleanup;
  
- 	WARN_ON(nt->mw[mw_num].virt_addr == 0);
+ 	struct dentry *debugfs_dir;
+ 	struct dentry *debugfs_stats;
+@@ -148,6 +149,7 @@ struct ntb_transport {
+ 	unsigned long qp_bitmap;
+ 	bool transport_link;
+ 	struct delayed_work link_work;
++	struct work_struct link_cleanup;
+ 	struct dentry *debugfs_dir;
+ };
  
--	if (nt->max_qps % NTB_NUM_MW && !mw_num)
--		num_qps_mw = nt->max_qps / NTB_NUM_MW +
--			     (nt->max_qps % NTB_NUM_MW - mw_num);
-+	if (nt->max_qps % NTB_NUM_MW && mw_num < nt->max_qps % NTB_NUM_MW)
-+		num_qps_mw = nt->max_qps / NTB_NUM_MW + 1;
- 	else
- 		num_qps_mw = nt->max_qps / NTB_NUM_MW;
- 
--	size = nt->mw[mw_num].size / num_qps_mw;
--
-+	rx_size = nt->mw[mw_num].size / num_qps_mw;
- 	qp->rx_buff_begin = nt->mw[mw_num].virt_addr +
--			    (qp_num / NTB_NUM_MW * size);
--	qp->rx_buff_end = qp->rx_buff_begin + size;
-+			    (qp_num / NTB_NUM_MW * rx_size);
-+	qp->rx_buff_end = qp->rx_buff_begin + rx_size;
- 	qp->rx_offset = qp->rx_buff_begin;
-+	qp->rx_max_frame = min(transport_mtu, rx_size);
- 
--	qp->tx_mw_begin = ntb_get_mw_vbase(nt->ndev, mw_num) +
--			  (qp_num / NTB_NUM_MW * size);
--	qp->tx_mw_end = qp->tx_mw_begin + size;
--	qp->tx_offset = qp->tx_mw_begin;
-+	/* setup the hdr offsets with 0's */
-+	for (offset = qp->rx_buff_begin + qp->rx_max_frame -
-+		      sizeof(struct ntb_payload_header);
-+	     offset < qp->rx_buff_end; offset += qp->rx_max_frame)
-+		memset(offset, 0, sizeof(struct ntb_payload_header));
- 
- 	qp->rx_pkts = 0;
- 	qp->tx_pkts = 0;
-@@ -489,7 +492,6 @@ static int ntb_set_mw(struct ntb_transport *nt, int num_mw, unsigned int size)
- {
- 	struct ntb_transport_mw *mw = &nt->mw[num_mw];
- 	struct pci_dev *pdev = ntb_query_pdev(nt->ndev);
--	void *offset;
- 
- 	/* Alloc memory for receiving data.  Must be 4k aligned */
- 	mw->size = ALIGN(size, 4096);
-@@ -502,12 +504,6 @@ static int ntb_set_mw(struct ntb_transport *nt, int num_mw, unsigned int size)
- 		return -ENOMEM;
- 	}
- 
--	/* setup the hdr offsets with 0's */
--	for (offset = mw->virt_addr + transport_mtu -
--		      sizeof(struct ntb_payload_header);
--	     offset < mw->virt_addr + size; offset += transport_mtu)
--		memset(offset, 0, sizeof(struct ntb_payload_header));
--
- 	/* Notify HW the memory location of the receive buffer */
- 	ntb_set_mw_addr(nt->ndev, num_mw, mw->dma_addr);
- 
-@@ -737,6 +733,8 @@ static void ntb_transport_init_queue(struct ntb_transport *nt,
- 				     unsigned int qp_num)
- {
- 	struct ntb_transport_qp *qp;
-+	unsigned int num_qps_mw, tx_size;
-+	u8 mw_num = QP_TO_MW(qp_num);
- 
- 	qp = &nt->qps[qp_num];
- 	qp->qp_num = qp_num;
-@@ -746,6 +744,18 @@ static void ntb_transport_init_queue(struct ntb_transport *nt,
- 	qp->client_ready = NTB_LINK_DOWN;
- 	qp->event_handler = NULL;
- 
-+	if (nt->max_qps % NTB_NUM_MW && mw_num < nt->max_qps % NTB_NUM_MW)
-+		num_qps_mw = nt->max_qps / NTB_NUM_MW + 1;
-+	else
-+		num_qps_mw = nt->max_qps / NTB_NUM_MW;
-+
-+	tx_size = ntb_get_mw_size(qp->ndev, mw_num) / num_qps_mw;
-+	qp->tx_mw_begin = ntb_get_mw_vbase(nt->ndev, mw_num) +
-+			  (qp_num / NTB_NUM_MW * tx_size);
-+	qp->tx_mw_end = qp->tx_mw_begin + tx_size;
-+	qp->tx_offset = qp->tx_mw_begin;
-+	qp->tx_max_frame = min(transport_mtu, tx_size);
-+
- 	if (nt->debugfs_dir) {
- 		char debugfs_name[4];
- 
-@@ -873,9 +883,9 @@ static void ntb_rx_copy_task(struct ntb_transport_qp *qp,
- 	struct ntb_payload_header *hdr;
- 
- 	BUG_ON(offset < qp->rx_buff_begin ||
--	       offset + transport_mtu >= qp->rx_buff_end);
-+	       offset + qp->rx_max_frame >= qp->rx_buff_end);
- 
--	hdr = offset + transport_mtu - sizeof(struct ntb_payload_header);
-+	hdr = offset + qp->rx_max_frame - sizeof(struct ntb_payload_header);
- 	entry->len = hdr->len;
- 
- 	memcpy(entry->buf, offset, entry->len);
-@@ -898,7 +908,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 
- 	entry = ntb_list_rm(&qp->ntb_rx_pend_q_lock, &qp->rx_pend_q);
- 	if (!entry) {
--		hdr = offset + transport_mtu -
-+		hdr = offset + qp->rx_max_frame -
- 		      sizeof(struct ntb_payload_header);
- 		dev_dbg(&ntb_query_pdev(qp->ndev)->dev,
- 			"no buffer - HDR ver %llu, len %d, flags %x\n",
-@@ -908,7 +918,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 	}
- 
- 	offset = qp->rx_offset;
--	hdr = offset + transport_mtu - sizeof(struct ntb_payload_header);
-+	hdr = offset + qp->rx_max_frame - sizeof(struct ntb_payload_header);
- 
- 	if (!(hdr->flags & DESC_DONE_FLAG)) {
- 		ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
-@@ -966,8 +976,8 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 	qp->rx_pkts++;
- 
- out:
--	qp->rx_offset += transport_mtu;
--	if (qp->rx_offset + transport_mtu >= qp->rx_buff_end)
-+	qp->rx_offset += qp->rx_max_frame;
-+	if (qp->rx_offset + qp->rx_max_frame >= qp->rx_buff_end)
- 		qp->rx_offset = qp->rx_buff_begin;
- 
+@@ -510,8 +512,11 @@ static int ntb_set_mw(struct ntb_transport *nt, int num_mw, unsigned int size)
  	return 0;
-@@ -1000,11 +1010,11 @@ static void ntb_tx_copy_task(struct ntb_transport_qp *qp,
- 	struct ntb_payload_header *hdr;
+ }
  
- 	BUG_ON(offset < qp->tx_mw_begin ||
--	       offset + transport_mtu >= qp->tx_mw_end);
-+	       offset + qp->tx_max_frame >= qp->tx_mw_end);
+-static void ntb_qp_link_down(struct ntb_transport_qp *qp)
++static void ntb_qp_link_cleanup(struct work_struct *work)
+ {
++	struct ntb_transport_qp *qp = container_of(work,
++						   struct ntb_transport_qp,
++						   link_cleanup);
+ 	struct ntb_transport *nt = qp->transport;
+ 	struct pci_dev *pdev = ntb_query_pdev(nt->ndev);
  
- 	memcpy_toio(offset, entry->buf, entry->len);
+@@ -531,8 +536,15 @@ static void ntb_qp_link_down(struct ntb_transport_qp *qp)
+ 				      msecs_to_jiffies(NTB_LINK_DOWN_TIMEOUT));
+ }
  
--	hdr = offset + transport_mtu - sizeof(struct ntb_payload_header);
-+	hdr = offset + qp->tx_max_frame - sizeof(struct ntb_payload_header);
- 	hdr->len = entry->len;
- 	hdr->ver = qp->tx_pkts;
+-static void ntb_transport_conn_down(struct ntb_transport *nt)
++static void ntb_qp_link_down(struct ntb_transport_qp *qp)
++{
++	schedule_work(&qp->link_cleanup);
++}
++
++static void ntb_transport_link_cleanup(struct work_struct *work)
+ {
++	struct ntb_transport *nt = container_of(work, struct ntb_transport,
++						link_cleanup);
+ 	int i;
  
-@@ -1036,7 +1046,7 @@ static int ntb_process_tx(struct ntb_transport_qp *qp,
- 	void *offset;
- 
- 	offset = qp->tx_offset;
--	hdr = offset + transport_mtu - sizeof(struct ntb_payload_header);
-+	hdr = offset + qp->tx_max_frame - sizeof(struct ntb_payload_header);
- 
- 	dev_dbg(&ntb_query_pdev(qp->ndev)->dev, "%lld - offset %p, tx %p, entry len %d flags %x buff %p\n",
- 		 qp->tx_pkts, offset, qp->tx_offset, entry->len, entry->flags,
-@@ -1046,7 +1056,7 @@ static int ntb_process_tx(struct ntb_transport_qp *qp,
- 		return -EAGAIN;
+ 	if (nt->transport_link == NTB_LINK_DOWN)
+@@ -562,7 +574,7 @@ static void ntb_transport_event_callback(void *data, enum ntb_hw_event event)
+ 		schedule_delayed_work(&nt->link_work, 0);
+ 		break;
+ 	case NTB_EVENT_HW_LINK_DOWN:
+-		ntb_transport_conn_down(nt);
++		schedule_work(&nt->link_cleanup);
+ 		break;
+ 	default:
+ 		BUG();
+@@ -769,6 +781,7 @@ static void ntb_transport_init_queue(struct ntb_transport *nt,
  	}
  
--	if (entry->len > transport_mtu - sizeof(struct ntb_payload_header)) {
-+	if (entry->len > qp->tx_max_frame - sizeof(struct ntb_payload_header)) {
- 		if (qp->tx_handler)
- 			qp->tx_handler(qp->cb_data, qp, NULL, -EIO);
+ 	INIT_DELAYED_WORK(&qp->link_work, ntb_qp_link_work);
++	INIT_WORK(&qp->link_cleanup, ntb_qp_link_cleanup);
  
-@@ -1057,8 +1067,8 @@ static int ntb_process_tx(struct ntb_transport_qp *qp,
+ 	spin_lock_init(&qp->ntb_rx_pend_q_lock);
+ 	spin_lock_init(&qp->ntb_rx_free_q_lock);
+@@ -814,6 +827,7 @@ int ntb_transport_init(struct pci_dev *pdev)
+ 		ntb_transport_init_queue(nt, i);
  
- 	ntb_tx_copy_task(qp, entry, offset);
+ 	INIT_DELAYED_WORK(&nt->link_work, ntb_transport_link_work);
++	INIT_WORK(&nt->link_cleanup, ntb_transport_link_cleanup);
  
--	qp->tx_offset += transport_mtu;
--	if (qp->tx_offset + transport_mtu >= qp->tx_mw_end)
-+	qp->tx_offset += qp->tx_max_frame;
-+	if (qp->tx_offset + qp->tx_max_frame >= qp->tx_mw_end)
- 		qp->tx_offset = qp->tx_mw_begin;
- 
- 	qp->tx_pkts++;
-@@ -1425,9 +1435,8 @@ EXPORT_SYMBOL_GPL(ntb_transport_qp_num);
-  *
-  * RETURNS: the max payload size of a qp
-  */
--unsigned int
--ntb_transport_max_size(__attribute__((unused)) struct ntb_transport_qp *qp)
-+unsigned int ntb_transport_max_size(struct ntb_transport_qp *qp)
- {
--	return transport_mtu - sizeof(struct ntb_payload_header);
-+	return qp->tx_max_frame - sizeof(struct ntb_payload_header);
- }
- EXPORT_SYMBOL_GPL(ntb_transport_max_size);
+ 	rc = ntb_register_event_callback(nt->ndev,
+ 					 ntb_transport_event_callback);
 -- 
 1.7.9.5
