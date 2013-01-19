@@ -1,67 +1,48 @@
-From: Cong Ding <dinggnu@gmail.com>
-Subject: [PATCH] net: wireless/rtlwifi: fix uninitialized variable issue
-Date: Sat, 19 Jan 2013 13:56:36 +0100
-Message-ID: <1358600210-15942-1-git-send-email-dinggnu@gmail.com>
-Cc: Cong Ding <dinggnu@gmail.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Joe Perches <joe@perches.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/10] ixgbe: Make TSO check for CHECKSUM_PARTIAL to avoid skb_is_gso check
+Date: Sat, 19 Jan 2013 05:14:51 -0800
+Message-ID: <1358601299-10404-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1358601299-10404-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:39020 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751157Ab3ASNPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Jan 2013 08:15:06 -0500
+In-Reply-To: <1358601299-10404-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The use of variable packet_beacon might be uninitialized in the three files.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Signed-off-by: Cong Ding <dinggnu@gmail.com>
+This change is meant to reduce the overhead for workloads that are not
+using either TSO or checksum offloads.  Most of the time the compiler
+should jump ahead after failing this check to the VLAN check since in the
+ixgbe_tx_csum call we start with that check as well.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/wireless/rtlwifi/rtl8192de/trx.c |    2 +-
- drivers/net/wireless/rtlwifi/rtl8192se/trx.c |    2 +-
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.c |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192de/trx.c b/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-index a0fbf28..cdb570f 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192de/trx.c
-@@ -452,7 +452,7 @@ static void _rtl92de_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 	u8 *praddr;
- 	u16 type, cfc;
- 	__le16 fc;
--	bool packet_matchbssid, packet_toself, packet_beacon;
-+	bool packet_matchbssid, packet_toself, packet_beacon = false;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 20d6764..e197cc2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5899,6 +5899,9 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	u32 vlan_macip_lens, type_tucmd;
+ 	u32 mss_l4len_idx, l4len;
  
- 	tmp_buf = skb->data + pstats->rx_drvinfo_size + pstats->rx_bufshift;
- 	hdr = (struct ieee80211_hdr *)tmp_buf;
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-index 206561d..f8431a3 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192se/trx.c
-@@ -480,7 +480,7 @@ static void _rtl92se_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 	u8 *praddr;
- 	__le16 fc;
- 	u16 type, cfc;
--	bool packet_matchbssid, packet_toself, packet_beacon;
-+	bool packet_matchbssid, packet_toself, packet_beacon = false;
- 
- 	tmp_buf = skb->data + pstats->rx_drvinfo_size + pstats->rx_bufshift;
- 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-index a313be8..ce8ad12 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/trx.c
-@@ -247,7 +247,7 @@ static void _rtl8723ae_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 	u8 *psaddr;
- 	__le16 fc;
- 	u16 type;
--	bool packet_matchbssid, packet_toself, packet_beacon;
-+	bool packet_matchbssid, packet_toself, packet_beacon = false;
- 
- 	tmp_buf = skb->data + pstatus->rx_drvinfo_size + pstatus->rx_bufshift;
++	if (skb->ip_summed != CHECKSUM_PARTIAL)
++		return 0;
++
+ 	if (!skb_is_gso(skb))
+ 		return 0;
  
 -- 
-1.7.10.4
+1.7.11.7
