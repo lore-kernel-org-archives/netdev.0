@@ -1,44 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net/hyperv: fix wrong length of mac address
-Date: Sat, 19 Jan 2013 11:02:41 -0500 (EST)
-Message-ID: <20130119.110241.1939146667938397430.davem@davemloft.net>
-References: <20130118083031.GA2303@ppwaskie-mobl2.amr.corp.intel.com>
-	<1358563929-10942-1-git-send-email-kongjianjun@gmail.com>
-	<5fc6e66ddc034250a4e510784266b063@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kongjianjun@gmail.com, kys@microsoft.com, netdev@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: Fix build warning introduced by commit a290593
+Date: Sat, 19 Jan 2013 12:36:49 -0600
+Message-ID: <1358620609-9794-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, kbuild test robot <fengguang.wu@intel.com>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47272 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498Ab3ASQCn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 11:02:43 -0500
-In-Reply-To: <5fc6e66ddc034250a4e510784266b063@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:44320 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752138Ab3ASShH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 13:37:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Sat, 19 Jan 2013 15:07:14 +0000
+The kbuild test robot reports the following warning with x86_64-randconfig-x955:
 
->> From: Amos Kong
-> 
->> Sent: Friday, January 18, 2013 9:52 PM
->> To: davem@davemloft.net; KY Srinivasan; Haiyang Zhang
->> Cc: netdev@vger.kernel.org; devel@linuxdriverproject.org; Amos Kong
->> Subject: [PATCH v3] net/hyperv: fix wrong length of mac address
->> 
->> This patch fixed wrong mac length, it should be ETH_ALEN,
->> also replaced the hardcode 6 in hyperv_net.h
->> 
->> Signed-off-by: Amos Kong <kongjianjun@gmail.com>
->> ---
->> v2: update commitlog, fix cc list
->> v3: fix hardcode length in hyperv_net.h
->> ---
-> 
->  Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+warning: (RTL8192CE && RTL8192SE && RTL8192DE && RTL8723AE && RTL8192CU) selects
+ RTLWIFI which has unmet direct dependencies (NETDEVICES && WLAN &&
+ (RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE))
 
-Applied, thanks.
+This warning was introduced in commit a290593, "rtlwifi: Modify files for addition
+of rtl8723ae", and is d ue to a missing dependence of RTLWIFI on RTL8723AE.
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: kbuild test robot <fengguang.wu@intel.com>
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+---
+ drivers/net/wireless/rtlwifi/Kconfig |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/Kconfig b/drivers/net/wireless/rtlwifi/Kconfig
+index 21b1bbb..b80bc46 100644
+--- a/drivers/net/wireless/rtlwifi/Kconfig
++++ b/drivers/net/wireless/rtlwifi/Kconfig
+@@ -57,12 +57,12 @@ config RTL8192CU
+ 
+ config RTLWIFI
+ 	tristate
+-	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE
++	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE || RTL8723AE
+ 	default m
+ 
+ config RTLWIFI_DEBUG
+ 	bool "Additional debugging output"
+-	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE
++	depends on RTL8192CE || RTL8192CU || RTL8192SE || RTL8192DE || RTL8723AE
+ 	default y
+ 
+ config RTL8192C_COMMON
+-- 
+1.7.10.4
