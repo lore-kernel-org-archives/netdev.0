@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 09/21] NTB: namespacecheck cleanups
-Date: Sat, 19 Jan 2013 02:02:23 -0700
-Message-ID: <1358586155-23322-10-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 08/21] NTB: declare unused variables
+Date: Sat, 19 Jan 2013 02:02:22 -0700
+Message-ID: <1358586155-23322-9-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
@@ -12,52 +12,27 @@ In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Declare ntb_bus_type static to remove it from name space, and remove
-unused ntb_get_max_spads function.  Found via `make namespacecheck`.
+Tag pci_device_id in ntb_pci_probe as unused function parameters.  This
+corrects issues found by 'EXTRA_CFLAGS=-W'.
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_hw.c        |   14 --------------
- drivers/ntb/ntb_transport.c |    2 +-
- 2 files changed, 1 insertion(+), 15 deletions(-)
+ drivers/ntb/ntb_hw.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-index 2357c2d..18cb5dc 100644
+index 867ccaa..2357c2d 100644
 --- a/drivers/ntb/ntb_hw.c
 +++ b/drivers/ntb/ntb_hw.c
-@@ -238,20 +238,6 @@ void ntb_unregister_transport(struct ntb_device *ndev)
+@@ -1007,7 +1007,8 @@ static void ntb_free_callbacks(struct ntb_device *ndev)
+ 	kfree(ndev->db_cb);
  }
  
- /**
-- * ntb_get_max_spads() - get the total scratch regs usable
-- * @ndev: pointer to ntb_device instance
-- *
-- * This function returns the max 32bit scratchpad registers usable by the
-- * upper layer.
-- *
-- * RETURNS: total number of scratch pad registers available
-- */
--int ntb_get_max_spads(struct ntb_device *ndev)
--{
--	return ndev->limits.max_spads;
--}
--
--/**
-  * ntb_write_local_spad() - write to the secondary scratchpad register
-  * @ndev: pointer to ntb_device instance
-  * @idx: index to the scratchpad register, 0 based
-diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index c0eca02..903a72e 100644
---- a/drivers/ntb/ntb_transport.c
-+++ b/drivers/ntb/ntb_transport.c
-@@ -212,7 +212,7 @@ static int ntb_client_remove(struct device *dev)
- 	return 0;
- }
- 
--struct bus_type ntb_bus_type = {
-+static struct bus_type ntb_bus_type = {
- 	.name = "ntb_bus",
- 	.match = ntb_match_bus,
- 	.probe = ntb_client_probe,
+-static int ntb_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
++static int ntb_pci_probe(struct pci_dev *pdev,
++			 __attribute__((unused)) const struct pci_device_id *id)
+ {
+ 	struct ntb_device *ndev;
+ 	int rc, i;
 -- 
 1.7.9.5
