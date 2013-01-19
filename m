@@ -1,18 +1,17 @@
 From: Wei Shuai <cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: [PATCH 1/2] introduce flag FLAG_NOARP for usb net devices which cannot do ARP
-Date: Sat, 19 Jan 2013 19:47:56 +0800
-Message-ID: <1358596079-7126-1-git-send-email-cpuwolf@gmail.com>
+Date: Sat, 19 Jan 2013 19:47:57 +0800
+Message-ID: <1358596079-7126-2-git-send-email-cpuwolf@gmail.com>
+References: <1358596079-7126-1-git-send-email-cpuwolf@gmail.com>
 Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Wei Shuai <cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 To: dbbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, peter-Y+HMSxxDrH8@public.gmane.org,
 	oneukum-l3A5Bk7waGM@public.gmane.org, sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
 	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1358596079-7126-1-git-send-email-cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
-
-we do have some USB net devices, which cannot do ARP. so we can introduce a new flag 
-FLAG_NOARP, then client drivers can easily handle these kind of devices
 
 
 Signed-off-by: Wei Shuai <cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
