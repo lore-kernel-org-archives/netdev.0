@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 13/21] NTB: Out of free receive entries issue
-Date: Sat, 19 Jan 2013 02:02:27 -0700
-Message-ID: <1358586155-23322-14-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 11/21] NTB: correct stack usage warning in debugfs_read
+Date: Sat, 19 Jan 2013 02:02:25 -0700
+Message-ID: <1358586155-23322-12-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
@@ -12,40 +12,51 @@ In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the NTB client driver enqueues the maximum number of rx buffers, it
-will not be able to re-enqueue another in its callback handler due to a
-lack of free entries.  This can be avoided by adding the current entry
-to the free queue prior to calling the client callback handler.  With
-this change, ntb_netdev will no longer encounter a rx error on its first
-packet.
+Correct gcc warning of using too much stack debugfs_read.  This is done
+by kmallocing the buffer instead of using the char array on stack.
+Also, shrinking the buffer to something closer to what is currently
+being used.
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_transport.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ drivers/ntb/ntb_transport.c |   13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index 69c58da..b3afb24 100644
+index e11b57e..1bed1ba 100644
 --- a/drivers/ntb/ntb_transport.c
 +++ b/drivers/ntb/ntb_transport.c
-@@ -910,12 +910,15 @@ void ntb_transport_free(void *transport)
- static void ntb_rx_copy_task(struct ntb_transport_qp *qp,
- 			     struct ntb_queue_entry *entry, void *offset)
+@@ -368,10 +368,14 @@ static ssize_t debugfs_read(struct file *filp, char __user *ubuf, size_t count,
+ 			    loff_t *offp)
  {
--	memcpy(entry->buf, offset, entry->len);
-+	void *cb_data = entry->cb_data;
-+	unsigned int len = entry->len;
+ 	struct ntb_transport_qp *qp;
+-	char buf[1024];
++	char *buf;
+ 	ssize_t ret, out_offset, out_count;
  
--	if (qp->rx_handler && qp->client_ready == NTB_LINK_UP)
--		qp->rx_handler(qp, qp->cb_data, entry->cb_data, entry->len);
-+	memcpy(entry->buf, offset, entry->len);
- 
- 	ntb_list_add(&qp->ntb_rx_free_q_lock, &entry->entry, &qp->rx_free_q);
+-	out_count = 1024;
++	out_count = 600;
 +
-+	if (qp->rx_handler && qp->client_ready == NTB_LINK_UP)
-+		qp->rx_handler(qp, qp->cb_data, cb_data, len);
++	buf = kmalloc(out_count, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
+ 
+ 	qp = filp->private_data;
+ 	out_offset = 0;
+@@ -410,10 +414,13 @@ static ssize_t debugfs_read(struct file *filp, char __user *ubuf, size_t count,
+ 			       "tx_mw_end - \t%p\n", qp->tx_mw_end);
+ 
+ 	out_offset += snprintf(buf + out_offset, out_count - out_offset,
+-			       "QP Link %s\n", (qp->qp_link == NTB_LINK_UP) ?
++			       "\nQP Link %s\n", (qp->qp_link == NTB_LINK_UP) ?
+ 			       "Up" : "Down");
++	if (out_offset > out_count)
++		out_offset = out_count;
+ 
+ 	ret = simple_read_from_buffer(ubuf, count, offp, buf, out_offset);
++	kfree(buf);
+ 	return ret;
  }
  
- static int ntb_process_rxc(struct ntb_transport_qp *qp)
 -- 
 1.7.9.5
