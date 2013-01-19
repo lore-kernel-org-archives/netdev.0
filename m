@@ -1,17 +1,17 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 03/13] batman-adv: mark debug_log struct as bat_priv only struct
-Date: Sat, 19 Jan 2013 21:27:49 +0800
-Message-ID: <1358602079-24024-4-git-send-email-ordex@autistici.org>
+Subject: [PATCH 05/13] batman-adv: rename batadv_if_list_entry struct to make clear it is used by vis
+Date: Sat, 19 Jan 2013 21:27:51 +0800
+Message-ID: <1358602079-24024-6-git-send-email-ordex@autistici.org>
 References: <1358602079-24024-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>,
 	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:57671 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:57853 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226Ab3ASN3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 08:29:38 -0500
+	with ESMTP id S1751783Ab3ASN3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 08:29:47 -0500
 In-Reply-To: <1358602079-24024-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -21,123 +21,86 @@ From: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/debugfs.c | 13 +++++++------
- net/batman-adv/types.h   | 25 +++++++++++++------------
- 2 files changed, 20 insertions(+), 18 deletions(-)
+ net/batman-adv/types.h | 19 ++++++++++---------
+ net/batman-adv/vis.c   |  8 ++++----
+ 2 files changed, 14 insertions(+), 13 deletions(-)
 
-diff --git a/net/batman-adv/debugfs.c b/net/batman-adv/debugfs.c
-index 55a9007..e47555b 100644
---- a/net/batman-adv/debugfs.c
-+++ b/net/batman-adv/debugfs.c
-@@ -40,13 +40,14 @@ static struct dentry *batadv_debugfs;
- 
- static const int batadv_log_buff_len = BATADV_LOG_BUF_LEN;
- 
--static char *batadv_log_char_addr(struct batadv_debug_log *debug_log,
-+static char *batadv_log_char_addr(struct batadv_priv_debug_log *debug_log,
- 				  size_t idx)
- {
- 	return &debug_log->log_buff[idx & BATADV_LOG_BUFF_MASK];
- }
- 
--static void batadv_emit_log_char(struct batadv_debug_log *debug_log, char c)
-+static void batadv_emit_log_char(struct batadv_priv_debug_log *debug_log,
-+				 char c)
- {
- 	char *char_addr;
- 
-@@ -59,7 +60,7 @@ static void batadv_emit_log_char(struct batadv_debug_log *debug_log, char c)
- }
- 
- __printf(2, 3)
--static int batadv_fdebug_log(struct batadv_debug_log *debug_log,
-+static int batadv_fdebug_log(struct batadv_priv_debug_log *debug_log,
- 			     const char *fmt, ...)
- {
- 	va_list args;
-@@ -114,7 +115,7 @@ static int batadv_log_release(struct inode *inode, struct file *file)
- 	return 0;
- }
- 
--static int batadv_log_empty(struct batadv_debug_log *debug_log)
-+static int batadv_log_empty(struct batadv_priv_debug_log *debug_log)
- {
- 	return !(debug_log->log_start - debug_log->log_end);
- }
-@@ -123,7 +124,7 @@ static ssize_t batadv_log_read(struct file *file, char __user *buf,
- 			       size_t count, loff_t *ppos)
- {
- 	struct batadv_priv *bat_priv = file->private_data;
--	struct batadv_debug_log *debug_log = bat_priv->debug_log;
-+	struct batadv_priv_debug_log *debug_log = bat_priv->debug_log;
- 	int error, i = 0;
- 	char *char_addr;
- 	char c;
-@@ -177,7 +178,7 @@ static ssize_t batadv_log_read(struct file *file, char __user *buf,
- static unsigned int batadv_log_poll(struct file *file, poll_table *wait)
- {
- 	struct batadv_priv *bat_priv = file->private_data;
--	struct batadv_debug_log *debug_log = bat_priv->debug_log;
-+	struct batadv_priv_debug_log *debug_log = bat_priv->debug_log;
- 
- 	poll_wait(file, &debug_log->queue_wait, wait);
- 
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index dffbdff..db3fb25 100644
+index 9a66115..d17517c 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -233,6 +233,16 @@ struct batadv_priv_bla {
+@@ -426,15 +426,6 @@ struct batadv_forw_packet {
+ 	struct batadv_hard_iface *if_incoming;
  };
- #endif
  
-+#ifdef CONFIG_BATMAN_ADV_DEBUG
-+struct batadv_priv_debug_log {
-+	char log_buff[BATADV_LOG_BUF_LEN];
-+	unsigned long log_start;
-+	unsigned long log_end;
-+	spinlock_t lock; /* protects log_buff, log_start and log_end */
-+	wait_queue_head_t queue_wait;
-+};
-+#endif
-+
- struct batadv_priv_gw {
- 	struct hlist_head list;
- 	spinlock_t list_lock; /* protects gw_list and curr_gw */
-@@ -290,9 +300,6 @@ struct batadv_priv {
- 	atomic_t bcast_queue_left;
- 	atomic_t batman_queue_left;
- 	char num_ifaces;
--#ifdef CONFIG_BATMAN_ADV_DEBUG
--	struct batadv_debug_log *debug_log;
--#endif
- 	struct kobject *mesh_obj;
- 	struct dentry *debug_dir;
- 	struct hlist_head forw_bat_list;
-@@ -306,6 +313,9 @@ struct batadv_priv {
- #ifdef CONFIG_BATMAN_ADV_BLA
- 	struct batadv_priv_bla bla;
- #endif
-+#ifdef CONFIG_BATMAN_ADV_DEBUG
-+	struct batadv_priv_debug_log *debug_log;
-+#endif
- 	struct batadv_priv_gw gw;
- 	struct batadv_priv_tt tt;
- 	struct batadv_priv_vis vis;
-@@ -425,15 +435,6 @@ struct batadv_if_list_entry {
- 	bool primary;
- 	struct hlist_node list;
- };
--
--struct batadv_debug_log {
--	char log_buff[BATADV_LOG_BUF_LEN];
--	unsigned long log_start;
--	unsigned long log_end;
--	spinlock_t lock; /* protects log_buff, log_start and log_end */
--	wait_queue_head_t queue_wait;
+-/* While scanning for vis-entries of a particular vis-originator
+- * this list collects its interfaces to create a subgraph/cluster
+- * out of them later
+- */
+-struct batadv_if_list_entry {
+-	uint8_t addr[ETH_ALEN];
+-	bool primary;
+-	struct hlist_node list;
 -};
--
  struct batadv_frag_packet_list_entry {
  	struct list_head list;
  	uint16_t seqno;
+@@ -467,6 +458,16 @@ struct batadv_recvlist_node {
+ 	uint8_t mac[ETH_ALEN];
+ };
+ 
++/* While scanning for vis-entries of a particular vis-originator
++ * this list collects its interfaces to create a subgraph/cluster
++ * out of them later
++ */
++struct batadv_vis_if_list_entry {
++	uint8_t addr[ETH_ALEN];
++	bool primary;
++	struct hlist_node list;
++};
++
+ struct batadv_algo_ops {
+ 	struct hlist_node list;
+ 	char *name;
+diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
+index 51e2bf0..3d42b17 100644
+--- a/net/batman-adv/vis.c
++++ b/net/batman-adv/vis.c
+@@ -127,7 +127,7 @@ static void batadv_vis_data_insert_interface(const uint8_t *interface,
+ 					     struct hlist_head *if_list,
+ 					     bool primary)
+ {
+-	struct batadv_if_list_entry *entry;
++	struct batadv_vis_if_list_entry *entry;
+ 	struct hlist_node *pos;
+ 
+ 	hlist_for_each_entry(entry, pos, if_list, list) {
+@@ -147,7 +147,7 @@ static void batadv_vis_data_insert_interface(const uint8_t *interface,
+ static void batadv_vis_data_read_prim_sec(struct seq_file *seq,
+ 					  const struct hlist_head *if_list)
+ {
+-	struct batadv_if_list_entry *entry;
++	struct batadv_vis_if_list_entry *entry;
+ 	struct hlist_node *pos;
+ 
+ 	hlist_for_each_entry(entry, pos, if_list, list) {
+@@ -197,7 +197,7 @@ static void batadv_vis_data_read_entries(struct seq_file *seq,
+ 					 struct batadv_vis_info_entry *entries)
+ {
+ 	int i;
+-	struct batadv_if_list_entry *entry;
++	struct batadv_vis_if_list_entry *entry;
+ 	struct hlist_node *pos;
+ 
+ 	hlist_for_each_entry(entry, pos, list, list) {
+@@ -223,7 +223,7 @@ static void batadv_vis_seq_print_text_bucket(struct seq_file *seq,
+ 	struct batadv_vis_packet *packet;
+ 	uint8_t *entries_pos;
+ 	struct batadv_vis_info_entry *entries;
+-	struct batadv_if_list_entry *entry;
++	struct batadv_vis_if_list_entry *entry;
+ 	struct hlist_node *pos, *n;
+ 
+ 	HLIST_HEAD(vis_if_list);
 -- 
 1.8.0.2
