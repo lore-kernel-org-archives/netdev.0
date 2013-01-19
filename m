@@ -1,54 +1,50 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 06/21] NTB: use simple_open for debugfs
-Date: Sat, 19 Jan 2013 02:02:20 -0700
-Message-ID: <1358586155-23322-7-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 02/21] NTB: Handle ntb client device probes without present hardware
+Date: Sat, 19 Jan 2013 02:02:16 -0700
+Message-ID: <1358586155-23322-3-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
 	Nicholas Bellinger <nab@linux-iscsi.org>
 To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:52702 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751970Ab3ASJDF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jan 2013 04:03:05 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use simple_open for debugfs instead of recreating it in the NTB driver.
-Caught by coccicheck.
+Attempts to probe client ntb drivers without ntb hardware present will
+result in null pointer dereference due to the lack of the ntb bus device
+being registers.  Check to see if this is the case, and fail all calls
+by the clients registering their drivers.
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_transport.c |    8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ drivers/ntb/ntb_transport.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index bf7ade1..c0eca02 100644
+index 250190f..1d17857 100644
 --- a/drivers/ntb/ntb_transport.c
 +++ b/drivers/ntb/ntb_transport.c
-@@ -364,12 +364,6 @@ void ntb_unregister_client(struct ntb_client *drv)
- }
- EXPORT_SYMBOL_GPL(ntb_unregister_client);
+@@ -288,6 +288,9 @@ int ntb_register_client_dev(char *device_name)
+ 	struct ntb_transport *nt;
+ 	int rc;
  
--static int debugfs_open(struct inode *inode, struct file *filp)
--{
--	filp->private_data = inode->i_private;
--	return 0;
--}
--
- static ssize_t debugfs_read(struct file *filp, char __user *ubuf, size_t count,
- 			    loff_t *offp)
++	if (list_empty(&ntb_transport_list))
++		return -ENODEV;
++
+ 	list_for_each_entry(nt, &ntb_transport_list, entry) {
+ 		struct device *dev;
+ 
+@@ -336,6 +339,9 @@ int ntb_register_client(struct ntb_client *drv)
  {
-@@ -425,7 +419,7 @@ static ssize_t debugfs_read(struct file *filp, char __user *ubuf, size_t count,
+ 	drv->driver.bus = &ntb_bus_type;
  
- static const struct file_operations ntb_qp_debugfs_stats = {
- 	.owner = THIS_MODULE,
--	.open = debugfs_open,
-+	.open = simple_open,
- 	.read = debugfs_read,
- };
- 
++	if (list_empty(&ntb_transport_list))
++		return -ENODEV;
++
+ 	return driver_register(&drv->driver);
+ }
+ EXPORT_SYMBOL_GPL(ntb_register_client);
 -- 
 1.7.9.5
