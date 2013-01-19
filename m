@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 11/21] NTB: correct stack usage warning in debugfs_read
-Date: Sat, 19 Jan 2013 02:02:25 -0700
-Message-ID: <1358586155-23322-12-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 20/21] ntb_netdev: improve logging
+Date: Sat, 19 Jan 2013 02:02:34 -0700
+Message-ID: <1358586155-23322-21-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
@@ -12,51 +12,41 @@ In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Correct gcc warning of using too much stack debugfs_read.  This is done
-by kmallocing the buffer instead of using the char array on stack.
-Also, shrinking the buffer to something closer to what is currently
-being used.
+Improve driver logging to be more helpful
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_transport.c |   13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ntb_netdev.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index e11b57e..1bed1ba 100644
---- a/drivers/ntb/ntb_transport.c
-+++ b/drivers/ntb/ntb_transport.c
-@@ -368,10 +368,14 @@ static ssize_t debugfs_read(struct file *filp, char __user *ubuf, size_t count,
- 			    loff_t *offp)
+diff --git a/drivers/net/ntb_netdev.c b/drivers/net/ntb_netdev.c
+index 37173ce..02213a8 100644
+--- a/drivers/net/ntb_netdev.c
++++ b/drivers/net/ntb_netdev.c
+@@ -153,7 +153,7 @@ static netdev_tx_t ntb_netdev_start_xmit(struct sk_buff *skb,
+ 	struct ntb_netdev *dev = netdev_priv(ndev);
+ 	int rc;
+ 
+-	netdev_dbg(ndev, "ntb_transport_tx_enqueue\n");
++	netdev_dbg(ndev, "%s: skb len %d\n", __func__, skb->len);
+ 
+ 	rc = ntb_transport_tx_enqueue(dev->qp, skb, skb->data, skb->len);
+ 	if (rc)
+@@ -355,7 +355,7 @@ static int ntb_netdev_probe(struct pci_dev *pdev)
+ 		goto err1;
+ 
+ 	list_add(&dev->list, &dev_list);
+-	pr_info("%s: %s created\n", KBUILD_MODNAME, ndev->name);
++	dev_info(&pdev->dev, "%s created\n", ndev->name);
+ 	return 0;
+ 
+ err1:
+@@ -408,6 +408,5 @@ static void __exit ntb_netdev_exit_module(void)
  {
- 	struct ntb_transport_qp *qp;
--	char buf[1024];
-+	char *buf;
- 	ssize_t ret, out_offset, out_count;
- 
--	out_count = 1024;
-+	out_count = 600;
-+
-+	buf = kmalloc(out_count, GFP_KERNEL);
-+	if (!buf)
-+		return -ENOMEM;
- 
- 	qp = filp->private_data;
- 	out_offset = 0;
-@@ -410,10 +414,13 @@ static ssize_t debugfs_read(struct file *filp, char __user *ubuf, size_t count,
- 			       "tx_mw_end - \t%p\n", qp->tx_mw_end);
- 
- 	out_offset += snprintf(buf + out_offset, out_count - out_offset,
--			       "QP Link %s\n", (qp->qp_link == NTB_LINK_UP) ?
-+			       "\nQP Link %s\n", (qp->qp_link == NTB_LINK_UP) ?
- 			       "Up" : "Down");
-+	if (out_offset > out_count)
-+		out_offset = out_count;
- 
- 	ret = simple_read_from_buffer(ubuf, count, offp, buf, out_offset);
-+	kfree(buf);
- 	return ret;
+ 	ntb_unregister_client(&ntb_netdev_client);
+ 	ntb_unregister_client_dev(KBUILD_MODNAME);
+-	pr_info("%s: Driver removed\n", KBUILD_MODNAME);
  }
- 
+ module_exit(ntb_netdev_exit_module);
 -- 
 1.7.9.5
