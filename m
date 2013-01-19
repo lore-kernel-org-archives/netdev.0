@@ -1,7 +1,7 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: [PATCH 10/21] NTB: whitespace cleanups
-Date: Sat, 19 Jan 2013 02:02:24 -0700
-Message-ID: <1358586155-23322-11-git-send-email-jon.mason@intel.com>
+Subject: [PATCH 09/21] NTB: namespacecheck cleanups
+Date: Sat, 19 Jan 2013 02:02:23 -0700
+Message-ID: <1358586155-23322-10-git-send-email-jon.mason@intel.com>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
@@ -12,148 +12,52 @@ In-Reply-To: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Whitespace cleanups found via `indent`
+Declare ntb_bus_type static to remove it from name space, and remove
+unused ntb_get_max_spads function.  Found via `make namespacecheck`.
 
 Signed-off-by: Jon Mason <jon.mason@intel.com>
 ---
- drivers/ntb/ntb_transport.c |   40 ++++++++++++++++------------------------
- 1 file changed, 16 insertions(+), 24 deletions(-)
+ drivers/ntb/ntb_hw.c        |   14 --------------
+ drivers/ntb/ntb_transport.c |    2 +-
+ 2 files changed, 1 insertion(+), 15 deletions(-)
 
+diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+index 2357c2d..18cb5dc 100644
+--- a/drivers/ntb/ntb_hw.c
++++ b/drivers/ntb/ntb_hw.c
+@@ -238,20 +238,6 @@ void ntb_unregister_transport(struct ntb_device *ndev)
+ }
+ 
+ /**
+- * ntb_get_max_spads() - get the total scratch regs usable
+- * @ndev: pointer to ntb_device instance
+- *
+- * This function returns the max 32bit scratchpad registers usable by the
+- * upper layer.
+- *
+- * RETURNS: total number of scratch pad registers available
+- */
+-int ntb_get_max_spads(struct ntb_device *ndev)
+-{
+-	return ndev->limits.max_spads;
+-}
+-
+-/**
+  * ntb_write_local_spad() - write to the secondary scratchpad register
+  * @ndev: pointer to ntb_device instance
+  * @idx: index to the scratchpad register, 0 based
 diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-index 903a72e..e11b57e 100644
+index c0eca02..903a72e 100644
 --- a/drivers/ntb/ntb_transport.c
 +++ b/drivers/ntb/ntb_transport.c
-@@ -930,7 +930,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 
- 	if (!(hdr->flags & DESC_DONE_FLAG)) {
- 		ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
--				  &qp->rx_pend_q);
-+			     &qp->rx_pend_q);
- 		qp->rx_ring_empty++;
- 		return -EAGAIN;
- 	}
-@@ -940,7 +940,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 			"qp %d: version mismatch, expected %llu - got %llu\n",
- 			qp->qp_num, qp->rx_pkts, hdr->ver);
- 		ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
--				  &qp->rx_pend_q);
-+			     &qp->rx_pend_q);
- 		qp->rx_err_ver++;
- 		return -EIO;
- 	}
-@@ -949,7 +949,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 		ntb_qp_link_down(qp);
- 
- 		ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
--				  &qp->rx_pend_q);
-+			     &qp->rx_pend_q);
- 
- 		/* Ensure that the data is fully copied out before clearing the
- 		 * done flag
-@@ -967,7 +967,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
- 		ntb_rx_copy_task(qp, entry, offset);
- 	else {
- 		ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
--				  &qp->rx_pend_q);
-+			     &qp->rx_pend_q);
- 
- 		/* Ensure that the data is fully copied out before clearing the
- 		 * done flag
-@@ -1057,8 +1057,8 @@ static int ntb_process_tx(struct ntb_transport_qp *qp,
- 	hdr = offset + qp->tx_max_frame - sizeof(struct ntb_payload_header);
- 
- 	dev_dbg(&ntb_query_pdev(qp->ndev)->dev, "%lld - offset %p, tx %p, entry len %d flags %x buff %p\n",
--		 qp->tx_pkts, offset, qp->tx_offset, entry->len, entry->flags,
--		 entry->buf);
-+		qp->tx_pkts, offset, qp->tx_offset, entry->len, entry->flags,
-+		entry->buf);
- 	if (hdr->flags) {
- 		qp->tx_ring_full++;
- 		return -EAGAIN;
-@@ -1097,8 +1097,7 @@ static void ntb_send_link_down(struct ntb_transport_qp *qp)
- 	dev_info(&pdev->dev, "qp %d: Link Down\n", qp->qp_num);
- 
- 	for (i = 0; i < NTB_LINK_DOWN_TIMEOUT; i++) {
--		entry = ntb_list_rm(&qp->ntb_tx_free_q_lock,
--					 &qp->tx_free_q);
-+		entry = ntb_list_rm(&qp->ntb_tx_free_q_lock, &qp->tx_free_q);
- 		if (entry)
- 			break;
- 		msleep(100);
-@@ -1167,7 +1166,7 @@ ntb_transport_create_queue(void *data, struct pci_dev *pdev,
- 			goto err1;
- 
- 		ntb_list_add(&qp->ntb_rx_free_q_lock, &entry->entry,
--				  &qp->rx_free_q);
-+			     &qp->rx_free_q);
- 	}
- 
- 	for (i = 0; i < NTB_QP_DEF_NUM_ENTRIES; i++) {
-@@ -1176,7 +1175,7 @@ ntb_transport_create_queue(void *data, struct pci_dev *pdev,
- 			goto err2;
- 
- 		ntb_list_add(&qp->ntb_tx_free_q_lock, &entry->entry,
--				  &qp->tx_free_q);
-+			     &qp->tx_free_q);
- 	}
- 
- 	tasklet_init(&qp->rx_work, ntb_transport_rx, (unsigned long) qp);
-@@ -1193,12 +1192,10 @@ ntb_transport_create_queue(void *data, struct pci_dev *pdev,
- err3:
- 	tasklet_disable(&qp->rx_work);
- err2:
--	while ((entry =
--		ntb_list_rm(&qp->ntb_tx_free_q_lock, &qp->tx_free_q)))
-+	while ((entry = ntb_list_rm(&qp->ntb_tx_free_q_lock, &qp->tx_free_q)))
- 		kfree(entry);
- err1:
--	while ((entry =
--		ntb_list_rm(&qp->ntb_rx_free_q_lock, &qp->rx_free_q)))
-+	while ((entry = ntb_list_rm(&qp->ntb_rx_free_q_lock, &qp->rx_free_q)))
- 		kfree(entry);
- 	set_bit(free_queue, &nt->qp_bitmap);
- err:
-@@ -1225,18 +1222,15 @@ void ntb_transport_free_queue(struct ntb_transport_qp *qp)
- 	ntb_unregister_db_callback(qp->ndev, qp->qp_num);
- 	tasklet_disable(&qp->rx_work);
- 
--	while ((entry =
--		ntb_list_rm(&qp->ntb_rx_free_q_lock, &qp->rx_free_q)))
-+	while ((entry = ntb_list_rm(&qp->ntb_rx_free_q_lock, &qp->rx_free_q)))
- 		kfree(entry);
- 
--	while ((entry =
--		ntb_list_rm(&qp->ntb_rx_pend_q_lock, &qp->rx_pend_q))) {
-+	while ((entry = ntb_list_rm(&qp->ntb_rx_pend_q_lock, &qp->rx_pend_q))) {
- 		dev_warn(&pdev->dev, "Freeing item from a non-empty queue\n");
- 		kfree(entry);
- 	}
- 
--	while ((entry =
--		ntb_list_rm(&qp->ntb_tx_free_q_lock, &qp->tx_free_q)))
-+	while ((entry = ntb_list_rm(&qp->ntb_tx_free_q_lock, &qp->tx_free_q)))
- 		kfree(entry);
- 
- 	set_bit(qp->qp_num, &qp->transport->qp_bitmap);
-@@ -1270,8 +1264,7 @@ void *ntb_transport_rx_remove(struct ntb_transport_qp *qp, unsigned int *len)
- 	buf = entry->cb_data;
- 	*len = entry->len;
- 
--	ntb_list_add(&qp->ntb_rx_free_q_lock, &entry->entry,
--			  &qp->rx_free_q);
-+	ntb_list_add(&qp->ntb_rx_free_q_lock, &entry->entry, &qp->rx_free_q);
- 
- 	return buf;
- }
-@@ -1305,8 +1298,7 @@ int ntb_transport_rx_enqueue(struct ntb_transport_qp *qp, void *cb, void *data,
- 	entry->buf = data;
- 	entry->len = len;
- 
--	ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
--			  &qp->rx_pend_q);
-+	ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry, &qp->rx_pend_q);
- 
+@@ -212,7 +212,7 @@ static int ntb_client_remove(struct device *dev)
  	return 0;
  }
+ 
+-struct bus_type ntb_bus_type = {
++static struct bus_type ntb_bus_type = {
+ 	.name = "ntb_bus",
+ 	.match = ntb_match_bus,
+ 	.probe = ntb_client_probe,
 -- 
 1.7.9.5
