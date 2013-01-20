@@ -1,50 +1,63 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 3/5] ipv6: Optimize ipv6_addr_is_solict_mult().
-Date: Mon, 21 Jan 2013 02:39:07 +0900
-Message-ID: <50FC2BBB.6040404@linux-ipv6.org>
+Subject: [PATCH net-next 5/5] ndisc: Make several arguments for ndisc_send_na()
+ boolean.
+Date: Mon, 21 Jan 2013 02:39:18 +0900
+Message-ID: <50FC2BC6.7030006@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48883 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48886 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752440Ab3ATRjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 12:39:09 -0500
+	with ESMTP id S1752371Ab3ATRjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 12:39:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- include/net/addrconf.h |   15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ net/ipv6/ndisc.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-index 3a3eeb4..9dc5efc 100644
---- a/include/net/addrconf.h
-+++ b/include/net/addrconf.h
-@@ -307,10 +307,17 @@ static inline bool ipv6_addr_is_isatap(const struct in6_addr *addr)
- 
- static inline bool ipv6_addr_is_solict_mult(const struct in6_addr *addr)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 903191a..067a0d2 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -490,7 +490,7 @@ static void __ndisc_send(struct net_device *dev,
+ static void ndisc_send_na(struct net_device *dev, struct neighbour *neigh,
+ 			  const struct in6_addr *daddr,
+ 			  const struct in6_addr *solicited_addr,
+-			  int router, int solicited, int override, int inc_opt)
++			  bool router, bool solicited, bool override, bool inc_opt)
  {
--	return (addr->s6_addr32[0] == htonl(0xff020000) &&
--		addr->s6_addr32[1] == htonl(0x00000000) &&
--		addr->s6_addr32[2] == htonl(0x00000001) &&
--		addr->s6_addr[12] == 0xff);
-+#if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-+	__u64 *p = (__u64 *)addr;
-+	return ((p[0] ^ cpu_to_be64(0xff02000000000000UL)) |
-+		((p[1] ^ cpu_to_be64(0x00000001ff000000UL)) &
-+		 cpu_to_be64(0xffffffffff000000UL))) == 0UL;
-+#else
-+	return ((addr->s6_addr32[0] ^ htonl(0xff020000)) |
-+		addr->s6_addr32[1] |
-+		(addr->s6_addr32[2] ^ htonl(0x00000001)) |
-+		(addr->s6_addr[12] ^ 0xff)) == 0;
-+#endif
- }
+ 	struct in6_addr tmpaddr;
+ 	struct inet6_ifaddr *ifp;
+@@ -776,11 +776,11 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+ 	}
  
- #ifdef CONFIG_PROC_FS
+ 	if (is_router < 0)
+-		is_router = !!idev->cnf.forwarding;
++		is_router = idev->cnf.forwarding;
+ 
+ 	if (dad) {
+ 		ndisc_send_na(dev, NULL, &in6addr_linklocal_allnodes, &msg->target,
+-			      is_router, 0, (ifp != NULL), 1);
++			      !!is_router, false, (ifp != NULL), true);
+ 		goto out;
+ 	}
+ 
+@@ -801,8 +801,8 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+ 			     NEIGH_UPDATE_F_OVERRIDE);
+ 	if (neigh || !dev->header_ops) {
+ 		ndisc_send_na(dev, neigh, saddr, &msg->target,
+-			      is_router,
+-			      1, (ifp != NULL && inc), inc);
++			      !!is_router,
++			      true, (ifp != NULL && inc), inc);
+ 		if (neigh)
+ 			neigh_release(neigh);
+ 	}
 -- 
 1.7.9.5
