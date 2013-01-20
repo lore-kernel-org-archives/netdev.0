@@ -1,60 +1,51 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [PATCH] firewire net: Ensure checksumming in upper layer.
-Date: Sun, 20 Jan 2013 10:50:58 +0100
-Message-ID: <20130120105058.1aee26c4@stein>
-References: <50FBA02C.9030203@linux-ipv6.org>
+From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] drivers/net/wireless/iwlegacy: adding check length for parameter
+ buf
+Date: Sun, 20 Jan 2013 17:53:54 +0800
+Message-ID: <50FBBEB2.2000306@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	linux-kernel@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <50FBA02C.9030203@linux-ipv6.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Jan 20 YOSHIFUJI Hideaki wrote:
-> It is wrong to set skb->ip_summed to CHECKSUM_UNNECESSARY unless
-> the device has already checked it.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> ---
->  drivers/firewire/net.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-> index e7a711f5..df6a1ca 100644
-> --- a/drivers/firewire/net.c
-> +++ b/drivers/firewire/net.c
-> @@ -520,7 +520,7 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
->  	dev = netdev_priv(net);
->  	/* Write metadata, and then pass to the receive level */
->  	skb->dev = net;
-> -	skb->ip_summed = CHECKSUM_UNNECESSARY;  /* don't check it */
-> +	skb->ip_summed = CHECKSUM_NONE;
->  
->  	/*
->  	 * Parse the encapsulation header. This actually does the job of
 
-Indeed neither the device nor the lower drivers check protocol checksums.
-But the CRCs of the encapsulating 1394 packets are checked in hardware.
-Shall protocol checksums be verified regardless?
+  the parameter 'const char *buf' may be not '\0' based string.
+  so need check the length before use it.
+
+additinal info:
+  originally, it had the relative checking.
+  but it was deleted when fix another issues (using strlcpy instead of
+strncpy)
+  and now, we need restore the checking (but still keep strlcpy)
+
+Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/wireless/iwlegacy/3945-mac.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c
+b/drivers/net/wireless/iwlegacy/3945-mac.c
+index 050ce7c..71cdbac 100644
+--- a/drivers/net/wireless/iwlegacy/3945-mac.c
++++ b/drivers/net/wireless/iwlegacy/3945-mac.c
+@@ -3273,7 +3273,7 @@ il3945_store_measurement(struct device *d, struct
+device_attribute *attr,
+
+ 	if (count) {
+ 		char *p = buffer;
+-		strlcpy(buffer, buf, sizeof(buffer));
++		strlcpy(buffer, buf, min(sizeof(buffer), count));
+ 		channel = simple_strtoul(p, NULL, 0);
+ 		if (channel)
+ 			params.channel = channel;
 -- 
-Stefan Richter
--=====-===-= ---= =-=--
-http://arcgraph.de/sr/
-
-------------------------------------------------------------------------------
-Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
-MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
-with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
-MVPs and experts. ON SALE this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_123012
+1.7.10.4
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
