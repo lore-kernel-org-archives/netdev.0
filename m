@@ -1,72 +1,60 @@
-From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] drivers/net/wireless/iwlegacy: use strlcpy instead of
- strncpy
-Date: Sun, 20 Jan 2013 17:31:35 +0800
-Message-ID: <50FBB977.7080805@asianux.com>
-References: <50EA5246.8060206@asianux.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: Re: [PATCH] firewire net: Ensure checksumming in upper layer.
+Date: Sun, 20 Jan 2013 10:50:58 +0100
+Message-ID: <20130120105058.1aee26c4@stein>
+References: <50FBA02C.9030203@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50EA5246.8060206-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <50FBA02C.9030203@linux-ipv6.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hello all:
-
-  sorry, after checking the details:
-    I think this patch is incorrect.
-      we can not assume that the parameter "char *buf" is terminated by=
- '\0'
-      so we should only use strlcpy instead of strncpy, without touchin=
-g 'min(...'
-
-  since it is already integrated into main branch (at least, in next-20=
-130118).
-    I should send additional patch to fix it.
-
-  please help to check, thanks.
-
-
-gchen.
-
-
-=D3=DA 2013=C4=EA01=D4=C207=C8=D5 12:42, Chen Gang =D0=B4=B5=C0:
->=20
->   The fields must be null-terminated, or simple_strtoul will cause is=
-sue.
->=20
-> Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+On Jan 20 YOSHIFUJI Hideaki wrote:
+> It is wrong to set skb->ip_summed to CHECKSUM_UNNECESSARY unless
+> the device has already checked it.
+> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 > ---
->  drivers/net/wireless/iwlegacy/3945-mac.c |    2 +-
+>  drivers/firewire/net.c |    2 +-
 >  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c b/drivers/net/w=
-ireless/iwlegacy/3945-mac.c
-> index d604b40..3726cd6 100644
-> --- a/drivers/net/wireless/iwlegacy/3945-mac.c
-> +++ b/drivers/net/wireless/iwlegacy/3945-mac.c
-> @@ -3273,7 +3273,7 @@ il3945_store_measurement(struct device *d, stru=
-ct device_attribute *attr,
-> =20
->  	if (count) {
->  		char *p =3D buffer;
-> -		strncpy(buffer, buf, min(sizeof(buffer), count));
-> +		strlcpy(buffer, buf, sizeof(buffer));
->  		channel =3D simple_strtoul(p, NULL, 0);
->  		if (channel)
->  			params.channel =3D channel;
->=20
+> 
+> diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
+> index e7a711f5..df6a1ca 100644
+> --- a/drivers/firewire/net.c
+> +++ b/drivers/firewire/net.c
+> @@ -520,7 +520,7 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
+>  	dev = netdev_priv(net);
+>  	/* Write metadata, and then pass to the receive level */
+>  	skb->dev = net;
+> -	skb->ip_summed = CHECKSUM_UNNECESSARY;  /* don't check it */
+> +	skb->ip_summed = CHECKSUM_NONE;
+>  
+>  	/*
+>  	 * Parse the encapsulation header. This actually does the job of
 
+Indeed neither the device nor the lower drivers check protocol checksums.
+But the CRCs of the encapsulating 1394 packets are checked in hardware.
+Shall protocol checksums be verified regardless?
+-- 
+Stefan Richter
+-=====-===-= ---= =-=--
+http://arcgraph.de/sr/
 
---=20
-Chen Gang
-
-Asianux Corporation
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+------------------------------------------------------------------------------
+Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
+MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
+with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
+MVPs and experts. ON SALE this month only -- learn more at:
+http://p.sf.net/sfu/learnmore_123012
