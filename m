@@ -1,123 +1,119 @@
 From: akong@redhat.com
-Subject: [PATCH v4 2/3] net: split eth_mac_addr for better error handling
-Date: Sun, 20 Jan 2013 10:43:08 +0800
-Message-ID: <1358649789-2338-3-git-send-email-akong@redhat.com>
+Subject: [PATCH v4 3/3] virtio-net: introduce a new control to set macaddr
+Date: Sun, 20 Jan 2013 10:43:09 +0800
+Message-ID: <1358649789-2338-4-git-send-email-akong@redhat.com>
 References: <1358649789-2338-1-git-send-email-akong@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, qemu-devel@nongnu.org,
-	virtualization@lists.linux-foundation.org, davem@davemloft.net
+Cc: rusty@rustcorp.com.au, qemu-devel@nongnu.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	davem@davemloft.net
 To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49862 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752449Ab3ATCnP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Jan 2013 21:43:15 -0500
 In-Reply-To: <1358649789-2338-1-git-send-email-akong@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Hajnoczi <stefanha@gmail.com>
+From: Amos Kong <akong@redhat.com>
 
-When we set mac address, software mac address in system and hardware mac
-address all need to be updated. Current eth_mac_addr() doesn't allow
-callers to implement error handling nicely.
+Currently we write MAC address to pci config space byte by byte,
+this means that we have an intermediate step where mac is wrong.
+This patch introduced a new control command to set MAC address,
+it's atomic.
 
-This patch split eth_mac_addr() to prepare part and real commit part,
-then we can prepare first, and try to change hardware address, then do
-the real commit if hardware address is set successfully.
+VIRTIO_NET_F_CTRL_MAC_ADDR is a new feature bit for compatibility.
 
-Signed-off-by: Stefan Hajnoczi <stefanha@gmail.com>
 Signed-off-by: Amos Kong <akong@redhat.com>
 ---
- include/linux/etherdevice.h |  2 ++
- net/ethernet/eth.c          | 43 ++++++++++++++++++++++++++++++++++++-------
- 2 files changed, 38 insertions(+), 7 deletions(-)
+ drivers/net/virtio_net.c        | 21 ++++++++++++++++++---
+ include/uapi/linux/virtio_net.h |  8 +++++++-
+ 2 files changed, 25 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/etherdevice.h b/include/linux/etherdevice.h
-index 243eea1..5cc6e0e 100644
---- a/include/linux/etherdevice.h
-+++ b/include/linux/etherdevice.h
-@@ -40,6 +40,8 @@ extern int eth_header_cache(const struct neighbour *neigh, struct hh_cache *hh,
- extern void eth_header_cache_update(struct hh_cache *hh,
- 				    const struct net_device *dev,
- 				    const unsigned char *haddr);
-+extern int eth_prepare_mac_addr_change(struct net_device *dev, void *p);
-+extern void eth_commit_mac_addr_change(struct net_device *dev, void *p);
- extern int eth_mac_addr(struct net_device *dev, void *p);
- extern int eth_change_mtu(struct net_device *dev, int new_mtu);
- extern int eth_validate_addr(struct net_device *dev);
-diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-index 4efad53..cce73eb 100644
---- a/net/ethernet/eth.c
-+++ b/net/ethernet/eth.c
-@@ -272,16 +272,11 @@ void eth_header_cache_update(struct hh_cache *hh,
- EXPORT_SYMBOL(eth_header_cache_update);
- 
- /**
-- * eth_mac_addr - set new Ethernet hardware address
-+ * eth_prepare_mac_addr_change - prepare for mac change
-  * @dev: network device
-  * @p: socket address
-- *
-- * Change hardware address of device.
-- *
-- * This doesn't change hardware matching, so needs to be overridden
-- * for most real devices.
-  */
--int eth_mac_addr(struct net_device *dev, void *p)
-+int eth_prepare_mac_addr_change(struct net_device *dev, void *p)
- {
- 	struct sockaddr *addr = p;
- 
-@@ -289,9 +284,43 @@ int eth_mac_addr(struct net_device *dev, void *p)
- 		return -EBUSY;
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EADDRNOTAVAIL;
-+	return 0;
-+}
-+EXPORT_SYMBOL(eth_prepare_mac_addr_change);
-+
-+/**
-+ * eth_commit_mac_addr_change - commit mac change
-+ * @dev: network device
-+ * @p: socket address
-+ */
-+void eth_commit_mac_addr_change(struct net_device *dev, void *p)
-+{
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 395ab4f..701408a 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -802,14 +802,28 @@ static int virtnet_set_mac_address(struct net_device *dev, void *p)
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	struct virtio_device *vdev = vi->vdev;
+ 	int ret;
 +	struct sockaddr *addr = p;
-+
- 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
- 	/* if device marked as NET_ADDR_RANDOM, reset it */
- 	dev->addr_assign_type &= ~NET_ADDR_RANDOM;
-+}
-+EXPORT_SYMBOL(eth_commit_mac_addr_change);
-+
-+/**
-+ * eth_mac_addr - set new Ethernet hardware address
-+ * @dev: network device
-+ * @p: socket address
-+ *
-+ * Change hardware address of device.
-+ *
-+ * This doesn't change hardware matching, so needs to be overridden
-+ * for most real devices.
-+ */
-+int eth_mac_addr(struct net_device *dev, void *p)
-+{
-+	int ret;
-+
++	struct scatterlist sg;
+ 
+-	ret = eth_mac_addr(dev, p);
 +	ret = eth_prepare_mac_addr_change(dev, p);
-+	if (ret < 0)
-+		return ret;
+ 	if (ret)
+ 		return ret;
+ 
+-	if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC))
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_MAC_ADDR)) {
++		sg_init_one(&sg, addr->sa_data, dev->addr_len);
++		if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
++					  VIRTIO_NET_CTRL_MAC_ADDR_SET,
++					  &sg, 1, 0)) {
++			dev_warn(&vdev->dev,
++				 "Failed to set mac address by vq command.\n");
++			return -EINVAL;
++		}
++	} else if (virtio_has_feature(vdev, VIRTIO_NET_F_MAC)) {
+ 		vdev->config->set(vdev, offsetof(struct virtio_net_config, mac),
+-		                  dev->dev_addr, dev->addr_len);
++				  addr->sa_data, dev->addr_len);
++	}
++
 +	eth_commit_mac_addr_change(dev, p);
+ 
  	return 0;
  }
- EXPORT_SYMBOL(eth_mac_addr);
+@@ -1627,6 +1641,7 @@ static unsigned int features[] = {
+ 	VIRTIO_NET_F_MRG_RXBUF, VIRTIO_NET_F_STATUS, VIRTIO_NET_F_CTRL_VQ,
+ 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
+ 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
++	VIRTIO_NET_F_CTRL_MAC_ADDR,
+ };
+ 
+ static struct virtio_driver virtio_net_driver = {
+diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+index 848e358..a5a8c88 100644
+--- a/include/uapi/linux/virtio_net.h
++++ b/include/uapi/linux/virtio_net.h
+@@ -53,6 +53,7 @@
+ 					 * network */
+ #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+ 					 * Steering */
++#define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+ 
+ #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
+ #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
+@@ -127,7 +128,7 @@ typedef __u8 virtio_net_ctrl_ack;
+  #define VIRTIO_NET_CTRL_RX_NOBCAST      5
+ 
+ /*
+- * Control the MAC filter table.
++ * Control the MAC
+  *
+  * The MAC filter table is managed by the hypervisor, the guest should
+  * assume the size is infinite.  Filtering should be considered
+@@ -140,6 +141,10 @@ typedef __u8 virtio_net_ctrl_ack;
+  * first sg list contains unicast addresses, the second is for multicast.
+  * This functionality is present if the VIRTIO_NET_F_CTRL_RX feature
+  * is available.
++ *
++ * The ADDR_SET command requests one out scatterlist, it contains a
++ * 6 bytes MAC address. This functionality is present if the
++ * VIRTIO_NET_F_CTRL_MAC_ADDR feature is available.
+  */
+ struct virtio_net_ctrl_mac {
+ 	__u32 entries;
+@@ -148,6 +153,7 @@ struct virtio_net_ctrl_mac {
+ 
+ #define VIRTIO_NET_CTRL_MAC    1
+  #define VIRTIO_NET_CTRL_MAC_TABLE_SET        0
++ #define VIRTIO_NET_CTRL_MAC_ADDR_SET         1
+ 
+ /*
+  * Control VLAN filtering
 -- 
 1.7.11.7
