@@ -1,48 +1,87 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] firewire net: Ensure checksumming in upper layer.
-Date: Sun, 20 Jan 2013 19:37:09 +0900
-Message-ID: <50FBC8D5.50205@linux-ipv6.org>
-References: <50FBA02C.9030203@linux-ipv6.org> <20130120105058.1aee26c4@stein>
+From: Chen Gang F T <chen.gang.flying.transformer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] drivers/net/wireless/iwlegacy: adding check length for
+ parameter buf
+Date: Sun, 20 Jan 2013 18:43:48 +0800
+Message-ID: <50FBCA64.20505@gmail.com>
+References: <50FBBEB2.2000306@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130120105058.1aee26c4@stein>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------030204050601060100040608"
+Cc: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50FBBEB2.2000306-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Stefan Richter wrote:
-> On Jan 20 YOSHIFUJI Hideaki wrote:
->> It is wrong to set skb->ip_summed to CHECKSUM_UNNECESSARY unless
->> the device has already checked it.
->>
->> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
->> ---
->>  drivers/firewire/net.c |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
->> index e7a711f5..df6a1ca 100644
->> --- a/drivers/firewire/net.c
->> +++ b/drivers/firewire/net.c
->> @@ -520,7 +520,7 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
->>  	dev = netdev_priv(net);
->>  	/* Write metadata, and then pass to the receive level */
->>  	skb->dev = net;
->> -	skb->ip_summed = CHECKSUM_UNNECESSARY;  /* don't check it */
->> +	skb->ip_summed = CHECKSUM_NONE;
->>  
->>  	/*
->>  	 * Parse the encapsulation header. This actually does the job of
+This is a multi-part message in MIME format.
+--------------030204050601060100040608
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 8bit
+
+  oh, sorry, it is my fault.
+
+  according to fill_write_buffer in fs/sysfs/file.c,
+    we can assume that 'const char *buf' must be '\0' based string.
+
+  please skip this patch.
+
+
+gchen.
+
+
+于 2013年01月20日 17:53, Chen Gang 写道:
 > 
-> Indeed neither the device nor the lower drivers check protocol checksums.
-> But the CRCs of the encapsulating 1394 packets are checked in hardware.
-> Shall protocol checksums be verified regardless?
+>   the parameter 'const char *buf' may be not '\0' based string.
+>   so need check the length before use it.
+> 
+> additinal info:
+>   originally, it had the relative checking.
+>   but it was deleted when fix another issues (using strlcpy instead of
+> strncpy)
+>   and now, we need restore the checking (but still keep strlcpy)
+> 
+> Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  drivers/net/wireless/iwlegacy/3945-mac.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c
+> b/drivers/net/wireless/iwlegacy/3945-mac.c
+> index 050ce7c..71cdbac 100644
+> --- a/drivers/net/wireless/iwlegacy/3945-mac.c
+> +++ b/drivers/net/wireless/iwlegacy/3945-mac.c
+> @@ -3273,7 +3273,7 @@ il3945_store_measurement(struct device *d, struct
+> device_attribute *attr,
+> 
+>  	if (count) {
+>  		char *p = buffer;
+> -		strlcpy(buffer, buf, sizeof(buffer));
+> +		strlcpy(buffer, buf, min(sizeof(buffer), count));
+>  		channel = simple_strtoul(p, NULL, 0);
+>  		if (channel)
+>  			params.channel = channel;
+> 
 
-Yes, because packets may come from off-link source.
 
---yoshfuji
+-- 
+Chen Gang
+
+Flying Transformer
+
+--------------030204050601060100040608
+Content-Type: text/x-vcard; charset=utf-8;
+ name="chen_gang_flying_transformer.vcf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="chen_gang_flying_transformer.vcf"
+
+YmVnaW46dmNhcmQNCmZuOkNoZW4gR2FuZw0Kbjo7Q2hlbiBHYW5nDQp2ZXJzaW9uOjIuMQ0K
+ZW5kOnZjYXJkDQoNCg==
+--------------030204050601060100040608--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
