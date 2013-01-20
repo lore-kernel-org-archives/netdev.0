@@ -1,8 +1,8 @@
 From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH] drivers/net/wireless/iwlegacy: adding check length for parameter
- buf
-Date: Sun, 20 Jan 2013 17:53:54 +0800
-Message-ID: <50FBBEB2.2000306@asianux.com>
+Subject: [suggestion]  drivers/net/wireless/iwlegacy: the parameter 'const
+ char *buf' may be not '\0' base string for DINFO
+Date: Sun, 20 Jan 2013 18:05:52 +0800
+Message-ID: <50FBC180.2090003@asianux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
@@ -13,38 +13,63 @@ Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Hello Stanislaw, John
 
-  the parameter 'const char *buf' may be not '\0' based string.
-  so need check the length before use it.
+  we can not assume that the parameter 'const char *buf' is '\0' base string.
+  and DINOF uses '%s' for buf (in line 3288..3289)
+  so it will cause issue.
 
-additinal info:
-  originally, it had the relative checking.
-  but it was deleted when fix another issues (using strlcpy instead of
-strncpy)
-  and now, we need restore the checking (but still keep strlcpy)
+  I am not quite familiar with the detail features.
+  so I send mail as a suggestion.
+  please help checking, if this suggestion is valid, please help fixing, thanks.
 
-Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/wireless/iwlegacy/3945-mac.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  Regards
 
-diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c
-b/drivers/net/wireless/iwlegacy/3945-mac.c
-index 050ce7c..71cdbac 100644
---- a/drivers/net/wireless/iwlegacy/3945-mac.c
-+++ b/drivers/net/wireless/iwlegacy/3945-mac.c
-@@ -3273,7 +3273,7 @@ il3945_store_measurement(struct device *d, struct
-device_attribute *attr,
+gchen.
 
- 	if (count) {
- 		char *p = buffer;
--		strlcpy(buffer, buf, sizeof(buffer));
-+		strlcpy(buffer, buf, min(sizeof(buffer), count));
- 		channel = simple_strtoul(p, NULL, 0);
- 		if (channel)
- 			params.channel = channel;
+3260 static ssize_t
+3261 il3945_store_measurement(struct device *d, struct device_attribute *attr,
+3262                          const char *buf, size_t count)
+3263 {
+3264         struct il_priv *il = dev_get_drvdata(d);
+3265         struct ieee80211_measurement_params params = {
+3266                 .channel = le16_to_cpu(il->active.channel),
+3267                 .start_time = cpu_to_le64(il->_3945.last_tsf),
+3268                 .duration = cpu_to_le16(1),
+3269         };
+3270         u8 type = IL_MEASURE_BASIC;
+3271         u8 buffer[32];
+3272         u8 channel;
+3273 
+3274         if (count) {
+3275                 char *p = buffer;
+3276                 strlcpy(buffer, buf, min(sizeof(buffer), count));
+3277                 channel = simple_strtoul(p, NULL, 0);
+3278                 if (channel)
+3279                         params.channel = channel;
+3280 
+3281                 p = buffer;
+3282                 while (*p && *p != ' ')
+3283                         p++;
+3284                 if (*p)
+3285                         type = simple_strtoul(p + 1, NULL, 0);
+3286         }
+3287 
+3288         D_INFO("Invoking measurement of type %d on " "channel %d (for '%s')\n",
+3289                type, params.channel, buf);
+3290         il3945_get_measurement(il, &params, type);
+3291 
+3292         return count;
+3293 }
+3294 
+
+
+
+
 -- 
-1.7.10.4
+Chen Gang
+
+Asianux Corporation
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
