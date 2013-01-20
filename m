@@ -1,56 +1,61 @@
-From: Wei Shuai <cpuwolf@gmail.com>
-Subject: [PATCH 1/2] usbnet: introduce flag FLAG_NOARP for usb net devices
-Date: Sun, 20 Jan 2013 09:16:48 +0800
-Message-ID: <1358644608-2118-1-git-send-email-cpuwolf@gmail.com>
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Wei Shuai <cpuwolf@gmail.com>
-To: dcbw@redhat.com, davem@davemloft.net, peter@stuge.se,
-	oneukum@suse.de, sshtylyov@mvista.com, gregkh@linuxfoundation.org,
-	alexey.orishko@stericsson.com, bjorn@mork.no
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: fix incorrect LOCKDROPPEDICMPS counter
+Date: Sat, 19 Jan 2013 18:10:37 -0800
+Message-ID: <1358647837.3464.1050.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:63239 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751938Ab3ATBRI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 20:17:08 -0500
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:49959 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054Ab3ATCKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 21:10:40 -0500
+Received: by mail-pa0-f54.google.com with SMTP id bi5so2793372pad.41
+        for <netdev@vger.kernel.org>; Sat, 19 Jan 2013 18:10:39 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-we do have some USB net devices, which cannot do ARP. so we can introduce a new flag 
-FLAG_NOARP, then client drivers can easily handle these kind of devices
+=46rom: Eric Dumazet <edumazet@google.com>
 
+commit 563d34d057 (tcp: dont drop MTU reduction indications)
+added an error leading to incorrect accounting of
+LINUX_MIB_LOCKDROPPEDICMPS
 
-Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+If socket is owned by the user, we want to increment
+this SNMP counter, unless the message is a
+(ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED) one.
+
+Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
 ---
- drivers/net/usb/usbnet.c   |    4 ++++
- include/linux/usb/usbnet.h |    1 +
- 2 files changed, 5 insertions(+), 0 deletions(-)
+ net/ipv4/tcp_ipv4.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 3d4bf01..f34b2eb 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -1448,6 +1448,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 		if ((dev->driver_info->flags & FLAG_WWAN) != 0)
- 			strcpy(net->name, "wwan%d");
- 
-+		/* devices that cannot do ARP */
-+		if ((dev->driver_info->flags & FLAG_NOARP) != 0)
-+			net->flags |= IFF_NOARP;
-+
- 		/* maybe the remote can't receive an Ethernet MTU */
- 		if (net->mtu > (dev->hard_mtu - net->hard_header_len))
- 			net->mtu = dev->hard_mtu - net->hard_header_len;
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index bd45eb7..5de7a22 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -100,6 +100,7 @@ struct driver_info {
- #define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
- 
- #define FLAG_POINTTOPOINT 0x1000	/* possibly use "usb%d" names */
-+#define FLAG_NOARP	0x2000		/* device can't do ARP */
- 
- /*
-  * Indicates to usbnet, that USB driver accumulates multiple IP packets.
--- 
-1.7.6.5
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 54139fa..70b09ef 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -369,11 +369,10 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 inf=
+o)
+ 	 * We do take care of PMTU discovery (RFC1191) special case :
+ 	 * we can receive locally generated ICMP messages while socket is hel=
+d.
+ 	 */
+-	if (sock_owned_by_user(sk) &&
+-	    type !=3D ICMP_DEST_UNREACH &&
+-	    code !=3D ICMP_FRAG_NEEDED)
+-		NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
+-
++	if (sock_owned_by_user(sk)) {
++		if (!(type =3D=3D ICMP_DEST_UNREACH && code =3D=3D ICMP_FRAG_NEEDED)=
+)
++			NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
++	}
+ 	if (sk->sk_state =3D=3D TCP_CLOSE)
+ 		goto out;
+=20
