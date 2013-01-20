@@ -1,102 +1,53 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
-Subject: Re: IPsec AH use of ahash
-Date: Sun, 20 Jan 2013 12:40:20 -0500 (EST)
-Message-ID: <1361595885.93211.1358703620681.JavaMail.root@elliptictech.com>
-References: <1358699692.2494.29.camel@obelisk.thedillows.org>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: [RFC:] struct net_device_ops: Add function pointer to fill device
+ specific ndisc information
+Date: Sun, 20 Jan 2013 18:52:36 +0100
+Message-ID: <50FC2EE4.3080705@gmail.com>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Dillow <dave@thedillows.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358699692.2494.29.camel@obelisk.thedillows.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, stefanr@s5r6.in-berlin.de,
+	davem@davemloft.net
+To: linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f50.google.com ([209.85.214.50]:53769 "EHLO
+	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752442Ab3ATRwk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 12:52:40 -0500
+Received: by mail-bk0-f50.google.com with SMTP id jf3so2687427bkc.9
+        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 09:52:39 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
-> From: "David Dillow" <dave@thedillows.org>
-> To: "Tom St Denis" <tstdenis@elliptictech.com>
-> Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-> Sent: Sunday, 20 January, 2013 11:34:52 AM
-> Subject: Re: IPsec AH use of ahash
-> 
-> On Sun, 2013-01-20 at 10:07 -0500, Tom St Denis wrote:
-> > In all likelihood I will submit a revised CMAC patch but it'll take
-> > time before I can get business hours to work on it.  So instead of
-> > having a maintainer just touch it up we're all going to lose out
-> > because of pride?
-> 
-> Yes -- but it would seem to be yours that presents the problem.
+I've implemented IPv6 over firewire. Right now I'm facing the problem 
+that the corresponding RFC3146 requires very firewire specific 
+information sent during neighborhood discovery.
 
-Not really.  Again, *I* have this content.  You do not.  And the only reason you don't is because someone with pull-request authority is too lazy [or apathetic] to make minor cosmetic changes and get the change pushed through the process.
- 
-> I'm sure you could have fixed your patch up in the amount of time
-> you've
-> spent railing against the push-back. How much of that were you
-> billing
-> for, and is that a productive use your employer's money? Even on your
-> own time, how productive has that been? Do you feel better, having
-> vented?
+There was already a discussion on the linux1394 mailing list 
+(http://sourceforge.net/mailarchive/message.php?msg_id=30342089 and 
+http://sourceforge.net/mailarchive/forum.php?thread_name=50E4A3E5.8080304%40gmail.com&forum_name=linux1394-devel) 
 
-I was hoping to have a constructive conversation in which the maintainers could come clean about the complete hypocrisy of claiming that the source is the reference [since there is no documentation for anything in the kernel] and then saying you can't actually read the source when you want to contribute. Then to tell me I have to adhere to some coding standard (which all things aside I don't agree with in the first place) despite the fact that *none* of the code in the kernel complies with it.
 
-Furthermore I don't think you get how the business side of this works.
+During that discussion all participants agreed that it makes no sense to 
+introduce a dependency between the ndisc code and the firewire net driver.
 
-I was tasked with getting CMAC to work with IPsec.  I did.  I sent the patch off to the LKML.  My boss tasked me with other work (totally unrelated to IPsec) since in their eyes the project was done [we do after all have CMAC support].  
+So the most appealing option seems to be to introduce on more callback 
+routine either in struct net_device or struct net_device_ops:
 
-To then go back to my boss and say I need another couple of hours to "clean" it, re-test it in our IPsec lab and then resubmit it in hopes that the "maintainers" don't find some other reason to reject it is totally unprofessional and unproductive.
+int (*ndo_fill_llao)(void *llao);
 
-> You don't think the maintainers are maintaining if they don't clean
-> up
-> after every random contributor -- fine, call them lieutenants then.
-> Their job is to guide the new development towards the goals for the
-> system, review patches, and develop new features.
+Because I'm not so familiar with the structure of the whole network 
+infrastructure in Linux, I need some advice if struct net_device or 
+struct net_device_ops is the right place.
 
-Know this.  Being a software developer involves doing a lot of lowly work that most people aren't excited by.  You guys already don't comment/document your code.  It's unreasonable to assume you can't at least maintain your own style guidelines... I mean what does a maintainer do?
+Maybe it's worth to generalize this and do the same for IPv4/ARP because 
+right now the ARP packets are mangled in the firewire net driver.
 
-> You'll notice I didn't say "reformat code when standards change."
-> This
-> is a distributed project and it doesn't scale to have the code
-> continually in flux -- reformatting creates conflicts in other
-> contributors patches, which then consume all of a lieutenant's time
-> if
-> they were to try to fix up each one for them. It's much better to
-> push
-> push that work out to the edge of the network -- put another way,
-> "many
-> hands make light work." Fixing existing formatting problems is
-> acceptable in a patch series if one is working in the area, but it is
-> rare that a series devoted solely to that kind of cleanup gets in.
+Nevertheless, I've to admit that right now it seems that only IPv6 over 
+firewire requires such a callback routine.
 
-Because the volunteers don't want to do lowly bitch work.
 
-I'm not a volunteer.  I was paid to write the CMAC patch since our project supports it [amongst other modes including AH-GMAC...].   But that said we don't work on kernel time.  I don't bend my schedule around the whims of some moderator who is too damn lazy to do a bit of lowly work that they think is beneath them.
- 
-> The coding styles have evolved over time, and are different for
-> different areas of the kernel -- for example, most of the kernel
-> wants
-> '/*' on its own line for a multi-line comment, but under net/ it
-> should
-> not. You should try to match the style in your area -- claiming that
-> the
-> cryto/ code does it one way is unlikely to sway opinion in net/.
-> Different lieutenants, different opinions.
+Regards,
 
-Which of course is asinine.
- 
-> As for the existing style issues in net/ipv4/ah4.c you posted, no,
-> your
-> patch adding a feature in ah4 would probably not been rejected
-> because
-> of the existing issues, though if one was in the middle of your
-> changes,
-> it is possible that your would be asked to fix it. As for the issues
-> checkpatch.pl found, they are in many cases legitimate, but are also
-> the
-> exceptions -- there are plenty of counter-examples in that file
-> showing
-> the preferred style.
-
-Except that my CMAC content came almost exclusively from XCBC which was already in the kernel.  Since you guys did reject the patch on the grounds of coding style why would I assume my AH patches would be any different?
-
-Tom
+Stephan
