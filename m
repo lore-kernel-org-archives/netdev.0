@@ -1,89 +1,39 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v3] b43: N-PHY: fix gain in
- b43_nphy_get_gain_ctl_workaround_ent()
-Date: Sun, 20 Jan 2013 19:31:30 +0300
-Message-ID: <20130120163130.GA7730@elgon.mountain>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7118@saturn3.aculab.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
+Subject: Re: IPsec AH use of ahash
+Date: Sun, 20 Jan 2013 09:03:34 -0800
+Message-ID: <50FC2366.1000509@zytor.com>
+References: <2012247681.93123.1358694444237.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Laight <David.Laight@ACULAB.COM>,
-	kernel-janitors@vger.kernel.org
-To: Stefano Brivio <stefano.brivio@polimi.it>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:45837 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752290Ab3ATQcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 11:32:08 -0500
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7118@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mike Galbraith <bitbucket@online.de>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>,
+	steffen klassert <steffen.klassert@secunet.com>,
+	herbert@gondor.hengli.com.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2012247681.93123.1358694444237.JavaMail.root@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There were no break statements in this switch statement so everything
-used the default settings.  Per Walter Harms's suggestion, I've replaced
-the switch statement and done a little cleanup.
+On 01/20/2013 07:07 AM, Tom St Denis wrote:
+>
+> In all likelihood I will submit a revised CMAC patch but it'll take
+> time before I can get business hours to work on it.  So instead of
+> having a maintainer just touch it up we're all going to lose out
+> because of pride?
+>
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: Make additional style fixes as well while we're messing with the
-    function.
-v3: Make the array static const int.
+It's not about pride.  It is about the fact that maintainers don't 
+scale.  A single troublesome contributor can easily take up as much 
+maintainer time as over a dozen contributors who know how to work well 
+with their upstream.
 
-diff --git a/drivers/net/wireless/b43/tables_nphy.c b/drivers/net/wireless/b43/tables_nphy.c
-index 97d4e27..aaca60c 100644
---- a/drivers/net/wireless/b43/tables_nphy.c
-+++ b/drivers/net/wireless/b43/tables_nphy.c
-@@ -3226,8 +3226,6 @@ struct nphy_gain_ctl_workaround_entry *b43_nphy_get_gain_ctl_workaround_ent(
- {
- 	struct nphy_gain_ctl_workaround_entry *e;
- 	u8 phy_idx;
--	u8 tr_iso = ghz5 ? dev->dev->bus_sprom->fem.ghz5.tr_iso :
--			   dev->dev->bus_sprom->fem.ghz2.tr_iso;
- 
- 	if (!ghz5 && dev->phy.rev >= 6 && dev->phy.radio_rev == 11)
- 		return &nphy_gain_ctl_wa_phy6_radio11_ghz2;
-@@ -3249,6 +3247,10 @@ struct nphy_gain_ctl_workaround_entry *b43_nphy_get_gain_ctl_workaround_ent(
- 		    !b43_channel_type_is_40mhz(dev->phy.channel_type))
- 			e->cliplo_gain = 0x2d;
- 	} else if (!ghz5 && dev->phy.rev >= 5) {
-+		static const int gain_data[] = {0x0062, 0x0064, 0x006a, 0x106a,
-+						0x106c, 0x1074, 0x107c, 0x207c};
-+		u8 tr_iso = dev->dev->bus_sprom->fem.ghz2.tr_iso;
-+
- 		if (ext_lna) {
- 			e->rfseq_init[0] &= ~0x4000;
- 			e->rfseq_init[1] &= ~0x4000;
-@@ -3256,26 +3258,10 @@ struct nphy_gain_ctl_workaround_entry *b43_nphy_get_gain_ctl_workaround_ent(
- 			e->rfseq_init[3] &= ~0x4000;
- 			e->init_gain &= ~0x4000;
- 		}
--		switch (tr_iso) {
--		case 0:
--			e->cliplo_gain = 0x0062;
--		case 1:
--			e->cliplo_gain = 0x0064;
--		case 2:
--			e->cliplo_gain = 0x006a;
--		case 3:
--			e->cliplo_gain = 0x106a;
--		case 4:
--			e->cliplo_gain = 0x106c;
--		case 5:
--			e->cliplo_gain = 0x1074;
--		case 6:
--			e->cliplo_gain = 0x107c;
--		case 7:
--			e->cliplo_gain = 0x207c;
--		default:
--			e->cliplo_gain = 0x106a;
--		}
-+		if (tr_iso > 7)
-+			tr_iso = 3;
-+		e->cliplo_gain = gain_data[tr_iso];
-+
- 	} else if (ghz5 && dev->phy.rev == 4 && ext_lna) {
- 		e->rfseq_init[0] &= ~0x4000;
- 		e->rfseq_init[1] &= ~0x4000;
+	-hpa
+
+-- 
+H. Peter Anvin, Intel Open Source Technology Center
+I work for Intel.  I don't speak on their behalf.
