@@ -1,34 +1,34 @@
-From: Alexey Orishko <alexey.orishko@gmail.com>
-Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
-Date: Sun, 20 Jan 2013 01:21:20 +0100
-Message-ID: <CAL_Kpj1B=_+eN3Y0n3d9_r4JoeHD2LQFSU+b+taCZL0G4icu6A@mail.gmail.com>
-References: <1358519147-10073-1-git-send-email-bjorn@mork.no>
-	<22276933.xSGyXJfOvq@linux-5eaq.site>
-	<871udiur74.fsf@nemi.mork.no>
+From: Wei Shuai <cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] introduce flag FLAG_NOARP for usb net devices which
+ cannot do ARP
+Date: Sun, 20 Jan 2013 09:05:07 +0800
+Message-ID: <CACa7zyn6BvsfDts1O4NzXUtA1WHssFPUmzSoYNOZ8NoAXBMgwA@mail.gmail.com>
+References: <1358596079-7126-1-git-send-email-cpuwolf@gmail.com>
+	<20130119.105546.121223240976490384.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Greg Suarez <gsuarez@smithmicro.com>,
-	Alexey Orishko <alexey.orishko@stericsson.com>
-To: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:47801 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752242Ab3ATAVV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 19:21:21 -0500
-In-Reply-To: <871udiur74.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dbbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, peter-Y+HMSxxDrH8@public.gmane.org, oneukum-l3A5Bk7waGM@public.gmane.org,
+	sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130119.105546.121223240976490384.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 18, 2013 at 10:17 PM, Bj=F8rn Mork <bjorn@mork.no> wrote:
+sorry for wrongly use git, I cannot recall them back. There is no
+different between them. Anything else I can fix this? Resubmit?
 
->>> Some Sierra Wireless firmwares support CDC MBIM but have no CDC
->>> Union funtional descriptor. This violates the MBIM specification,
-
-I don't believe Sierra Wireless violates MBIM specification.
-See in the specification: "there are two ways to group interfaces: the
-WHCM Union functional descriptor and IAD."
-
-Regards,
-Alexey
+2013/1/19, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>:
+>
+> Why did you submit this _4_ times?
+>
+> I'm deleteing everything, I'm not even going to try and guess why
+> you submitted this so many times and what might be different between
+> each copy.
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
