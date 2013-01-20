@@ -1,74 +1,82 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
- specific ndisc information
-Date: Mon, 21 Jan 2013 03:47:13 +0900
-Message-ID: <50FC3BB1.4070005@linux-ipv6.org>
-References: <50FC2EE4.3080705@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next V6 02/14] bridge: Add vlan filtering
+ infrastructure
+Date: Sun, 20 Jan 2013 11:38:25 -0800
+Message-ID: <20130120113825.759b4a58@nehalam.linuxnetplumber.net>
+References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com>
+	<1358360289-23249-3-git-send-email-vyasevic@redhat.com>
+	<CAHXqBFKg6Vp5=dprDYKON2LmshhX+nSPF7KRHiQmOS68PrQq-A@mail.gmail.com>
+	<50FC307A.5090003@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux1394-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: stephan.gatzka@gmail.com
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-2?B?TWljaGGzIE1pcm9zs2F3?= <mirqus@gmail.com>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net, shemminger@vyatta.com, mst@redhat.com,
+	shmulik.ladkani@gmail.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48957 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752367Ab3ATSrQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 13:47:16 -0500
-In-Reply-To: <50FC2EE4.3080705@gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:46972 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752284Ab3ATTj5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 14:39:57 -0500
+Received: by mail-pa0-f45.google.com with SMTP id bg2so2990283pad.32
+        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 11:39:56 -0800 (PST)
+In-Reply-To: <50FC307A.5090003@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan Gatzka wrote:
-> I've implemented IPv6 over firewire. Right now I'm facing the problem that the corresponding RFC3146 requires very firewire specific information sent during neighborhood discovery.
-> 
-> There was already a discussion on the linux1394 mailing list (http://sourceforge.net/mailarchive/message.php?msg_id=30342089 and http://sourceforge.net/mailarchive/forum.php?thread_name=50E4A3E5.8080304%40gmail.com&forum_name=linux1394-devel)
-> 
-> During that discussion all participants agreed that it makes no sense to introduce a dependency between the ndisc code and the firewire net driver.
-> 
-> So the most appealing option seems to be to introduce on more callback routine either in struct net_device or struct net_device_ops:
-> 
-> int (*ndo_fill_llao)(void *llao);
-> 
-> Because I'm not so familiar with the structure of the whole network infrastructure in Linux, I need some advice if struct net_device or struct net_device_ops is the right place.
-> 
-> Maybe it's worth to generalize this and do the same for IPv4/ARP because right now the ARP packets are mangled in the firewire net driver.
-> 
-> Nevertheless, I've to admit that right now it seems that only IPv6 over firewire requires such a callback routine.
+On Sun, 20 Jan 2013 12:59:22 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-My current position is to change "mac address" to
+> On 01/17/2013 08:57 PM, Micha=B3 Miros=B3aw wrote:
+> > 2013/1/16 Vlad Yasevich <vyasevic@redhat.com>:
+> > [...]
+> >> --- /dev/null
+> >> +++ b/net/bridge/br_vlan.c
+> > [...]
+> >> +struct net_port_vlan *nbp_vlan_find(const struct net_port_vlans *=
+v, u16 vid)
+> >> +{
+> >> +       struct net_port_vlan *pve;
+> >> +
+> >> +       /* Must be done either in rcu critical section or with RTN=
+L held */
+> >> +       WARN_ON_ONCE(!rcu_read_lock_held() && !rtnl_is_locked());
+> >> +
+> >> +       list_for_each_entry_rcu(pve, &v->vlan_list, list) {
+> >> +               if (pve->vid =3D=3D vid)
+> >> +                       return pve;
+> >> +       }
+> >> +
+> >> +       return NULL;
+> >> +}
+> >
+> > This looks expensive - it's O(n) with n =3D number of configured VL=
+ANs on a port.
+> > And this is called for every packet. The bridge already has a hash =
+of VLAN
+> > structures found by br_vlan_find(). You could add a second bitmap t=
+here
+> > (eg. ingres_ports[]) and check port's bit instead of walking the li=
+st.
+> > You would use a bit more memory (64 bytes minus the removed list-he=
+ad)
+> > per configured VLAN but save some cycles in hot path.
+> >
+>=20
+> Technically wouldn't even need another bitmap as an existing membersh=
+ip=20
+> bitmap would cover this case.  I did some profiling and the list is=20
+> faster for 3 vlans per port.  Hash is faster for more then 3 vlans.
+>=20
+> I can easily switch to hash if that is what others think.
+>=20
+> -vlad
 
-struct fwnet_hwaddr {
-	u8	guid[8];
-	u8	max_rec;
-	u8	sspd;
-	u8	fifo[6];
-};
-
-Benefits:
-
-[ARP and NDISC]
-- both can be handled in more natural way.
--- You will not need to mangle those packets when
-   sending/receiving.
--- You do not need to inspect ARP/NDISC packet.
-   By using netevent notification mechanism, you can
-   learn peer parameters.
--- IP layer is not required to change very much.
-
-[Multicast]
--it can be handled in more natural way.
--- MCAP (Multicast Channel Allocation Protocol) needs to
-   know full IP multicast address.
--- We have IP multicast address => "hardware address"
-   mapping for each L2 type in IP layer.
--- We expect that IP layer can request net_device to
-   receive multicast stream for some multicast address
-   via corresponding "hardware address".
--- This means that we need to have "hardware address"
-   of 128bits (16 octets) or more.
--- By increasing size of dev->dev_addr, we can embedded
-   full IPv6 address in it.
-
---yoshfuji
+Let's assume the people that really want this feature are using a lot
+of vlan's. i.e n =3D 1000 or so. A bitmap is O(1). Any hash list would
+incur a just a big memory penalty for the list head. In other words
+a full bitmap is 4096 bits =3D 512 bytes.  If you use hash list,
+then the equivalent memory size would be only 64 list heads, therefore
+a bitmap is a better choice than a hlist.
