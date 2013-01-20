@@ -1,48 +1,43 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
-Subject: Re: IPsec AH use of ahash
-Date: Sun, 20 Jan 2013 07:56:27 -0500 (EST)
-Message-ID: <313650836.93071.1358686587647.JavaMail.root@elliptictech.com>
-References: <20130120103132.GA16800@pd.tnic>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: surprising memory request
+Date: Sun, 20 Jan 2013 13:06:34 +0000
+Message-ID: <1358687194.24121.165.camel@deadeye.wl.decadent.org.uk>
+References: <20130118085818.147220.FMU5901@air.gr8dns.org>
+	 <1358531190.11051.402.camel@edumazet-glaptop>
+	 <1358531946.2397.265.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <erdnetdev@gmail.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>,
-	steffen klassert <steffen.klassert@secunet.com>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-	Mike Galbraith <bitbucket@online.de>
-To: Borislav Petkov <bp@alien8.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130120103132.GA16800@pd.tnic>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Dirk Hohndel <dirk@hohndel.org>,
+	Jason Wang <jasowang@redhat.com>, <netdev@vger.kernel.org>
+To: David Woodhouse <dwmw2@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:11248 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880Ab3ATNGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 08:06:41 -0500
+In-Reply-To: <1358531946.2397.265.camel@shinybook.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
------ Original Message -----
-> From: "Borislav Petkov" <bp@alien8.de>
-> To: "Mike Galbraith" <bitbucket@online.de>
-> Cc: "Tom St Denis" <tstdenis@elliptictech.com>, "Eric Dumazet" <erdnetdev@gmail.com>, "Waskiewicz Jr, Peter P"
-> <peter.p.waskiewicz.jr@intel.com>, "David Miller" <davem@davemloft.net>, "steffen klassert"
-> <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-> "Michal Kubecek" <mkubecek@suse.cz>
-> Sent: Sunday, 20 January, 2013 5:31:32 AM
-> Subject: Re: IPsec AH use of ahash
+On Fri, 2013-01-18 at 17:59 +0000, David Woodhouse wrote:
+> On Fri, 2013-01-18 at 09:46 -0800, Eric Dumazet wrote:
+> > 
+> > #define MAX_TAP_QUEUES 1024
+> > 
+> > Thats crazy if your machine has say 8 cpus.
 > 
-> On Sun, Jan 20, 2013 at 06:06:21AM +0100, Mike Galbraith wrote:
-> > Sounds as though any patches you submit land on your dinner plate
-> > just
-> > like potatoes. Hand the cook a pot of half peeled potatoes, he/she
-> > may
-> > say try again.
-> 
-> And how he/she would say it! I've seen serious fights spring up from
-> half-peeled potatoes so people better peel them right the first time.
+> Even crazier if your userspace is never going to *use* MQ. Can't we
+> default to one queue unless userspace explicitly requests more?
 
-You should really try running checkpatch.pl over code that's already in the kernel before you call out new contributors on it.
+I don't know about tun's internal TX queue structures but the core TX
+queue structures immediately follow struct net_device and you have to
+set a maximum when allocating it.
 
-How is this supposed to not be adversarial when I can't even use the Kernel source itself as a reference?
+Ben.
 
-Tom
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
