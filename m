@@ -1,36 +1,52 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [PATCH] firewire net: Ensure checksumming in upper layer.
-Date: Sun, 20 Jan 2013 15:46:43 +0100
-Message-ID: <50FC0353.8090902@gmail.com>
-References: <50FBA02C.9030203@linux-ipv6.org> <20130120105058.1aee26c4@stein> <50FBC8D5.50205@linux-ipv6.org>
-Reply-To: stephan.gatzka@gmail.com
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: remove redundant code
+Date: Sun, 20 Jan 2013 16:48:26 +0200
+Message-ID: <50FC03BA.8020200@mellanox.com>
+References: <1358423241-2452-1-git-send-email-amirv@mellanox.com>  <1358423241-2452-6-git-send-email-amirv@mellanox.com>  <1358432538.29723.8.camel@edumazet-glaptop> <1358436367.29723.49.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f52.google.com ([209.85.214.52]:44849 "EHLO
-	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751471Ab3ATOqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 09:46:47 -0500
-In-Reply-To: <50FBC8D5.50205@linux-ipv6.org>
+Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:47183 "HELO
+	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752039Ab3ATOrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 09:47:49 -0500
+In-Reply-To: <1358436367.29723.49.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
->> Indeed neither the device nor the lower drivers check protocol checksums.
->> But the CRCs of the encapsulating 1394 packets are checked in hardware.
->> Shall protocol checksums be verified regardless?
+On 17/01/2013 17:26, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Yes, because packets may come from off-link source.
+> remove redundant code from build_inline_wqe()
 >
-
-Hm, I can't see any off-link packets coming from 
-fwnet_finish_incoming_packet()
-
-So I wont verify checksums in the driver.
-
-Stephan
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> Amir, reviewing this driver, it looks like following could be done,
+> could you test the patch for me ?
+>
+> Thanks
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 2b799f4..16af338 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -515,10 +515,6 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
+>   		wmb();
+>   		inl->byte_count = cpu_to_be32(1 << 31 | (skb->len - spc));
+>   	}
+> -	tx_desc->ctrl.vlan_tag = cpu_to_be16(*vlan_tag);
+> -	tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN *
+> -		(!!vlan_tx_tag_present(skb));
+> -	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
+>   }
+>
+>   u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+>
+>
+Acked-By: Amir Vadai <amirv@mellanox.com>
