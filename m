@@ -1,28 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] usbnet: introduce flag FLAG_NOARP for usb net
- devices
-Date: Sun, 20 Jan 2013 00:33:59 -0500 (EST)
-Message-ID: <20130120.003359.1846975310628814804.davem@davemloft.net>
-References: <1358644608-2118-1-git-send-email-cpuwolf@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dcbw@redhat.com, peter@stuge.se, oneukum@suse.de,
-	sshtylyov@mvista.com, gregkh@linuxfoundation.org,
-	alexey.orishko@stericsson.com, bjorn@mork.no,
-	linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: cpuwolf@gmail.com
+From: Wei Shuai <cpuwolf@gmail.com>
+Subject: [PATCH 1/2] usbnet: add flag FLAG_NOARP for usb net devices
+Date: Sun, 20 Jan 2013 14:12:08 +0800
+Message-ID: <1358662329-8294-1-git-send-email-cpuwolf@gmail.com>
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Wei Shuai <cpuwolf@gmail.com>
+To: dcbw@redhat.com, davem@davemloft.net, peter@stuge.se,
+	oneukum@suse.de, sshtylyov@mvista.com, gregkh@linuxfoundation.org,
+	alexey.orishko@stericsson.com, bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52418 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750783Ab3ATFeC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 00:34:02 -0500
-In-Reply-To: <1358644608-2118-1-git-send-email-cpuwolf@gmail.com>
+Received: from mail-da0-f50.google.com ([209.85.210.50]:52804 "EHLO
+	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750793Ab3ATGOr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 01:14:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+we do have some USB net devices, which cannot do ARP. so we can introduce a new flag 
+FLAG_NOARP, then client drivers can easily handle these kind of devices
 
-When any patch is discarded, the whole series is tossed.
 
-Therefore you must resubmit the entire series, not just one
-part of it.
+Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+---
+ drivers/net/usb/usbnet.c   |    4 ++++
+ include/linux/usb/usbnet.h |    1 +
+ 2 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 3d4bf01..f34b2eb 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1448,6 +1448,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 		if ((dev->driver_info->flags & FLAG_WWAN) != 0)
+ 			strcpy(net->name, "wwan%d");
+ 
++		/* devices that cannot do ARP */
++		if ((dev->driver_info->flags & FLAG_NOARP) != 0)
++			net->flags |= IFF_NOARP;
++
+ 		/* maybe the remote can't receive an Ethernet MTU */
+ 		if (net->mtu > (dev->hard_mtu - net->hard_header_len))
+ 			net->mtu = dev->hard_mtu - net->hard_header_len;
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index bd45eb7..5de7a22 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -100,6 +100,7 @@ struct driver_info {
+ #define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
+ 
+ #define FLAG_POINTTOPOINT 0x1000	/* possibly use "usb%d" names */
++#define FLAG_NOARP	0x2000		/* device can't do ARP */
+ 
+ /*
+  * Indicates to usbnet, that USB driver accumulates multiple IP packets.
+-- 
+1.7.6.5
