@@ -1,58 +1,36 @@
-From: Mike Galbraith <bitbucket@online.de>
-Subject: Re: IPsec AH use of ahash
-Date: Sun, 20 Jan 2013 15:11:34 +0100
-Message-ID: <1358691094.5705.40.camel@marge.simpson.net>
-References: <1331637866.93068.1358686536347.JavaMail.root@elliptictech.com>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [PATCH] firewire net: Ensure checksumming in upper layer.
+Date: Sun, 20 Jan 2013 15:46:43 +0100
+Message-ID: <50FC0353.8090902@gmail.com>
+References: <50FBA02C.9030203@linux-ipv6.org> <20130120105058.1aee26c4@stein> <50FBC8D5.50205@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <erdnetdev@gmail.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>,
-	steffen klassert <steffen.klassert@secunet.com>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
-To: Tom St Denis <tstdenis@elliptictech.com>
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:55848 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752250Ab3ATOMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 09:12:25 -0500
-In-Reply-To: <1331637866.93068.1358686536347.JavaMail.root@elliptictech.com>
+Received: from mail-bk0-f52.google.com ([209.85.214.52]:44849 "EHLO
+	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751471Ab3ATOqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 09:46:47 -0500
+In-Reply-To: <50FBC8D5.50205@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-01-20 at 07:55 -0500, Tom St Denis wrote: 
-> 
-> ----- Original Message -----
-> > From: "Mike Galbraith" <bitbucket@online.de>
-> > To: "Tom St Denis" <tstdenis@elliptictech.com>
-> > Cc: "Eric Dumazet" <erdnetdev@gmail.com>, "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>, "David Miller"
-> > <davem@davemloft.net>, "steffen klassert" <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au,
-> > linux-kernel@vger.kernel.org, netdev@vger.kernel.org, "Michal Kubecek" <mkubecek@suse.cz>
-> > Sent: Sunday, 20 January, 2013 12:06:21 AM
-> > Subject: Re: IPsec AH use of ahash
-> > 
-> > On Sat, 2013-01-19 at 05:30 -0500, Tom St Denis wrote:
-> > 
-> > > For those of us who do Kernel development during business hours
-> > > it's
-> > > hard to justify the work when the path to mainline is convoluted
-> > > and
-> > > landmined.
-> > 
-> > Sounds as though any patches you submit land on your dinner plate
-> > just
-> > like potatoes.  Hand the cook a pot of half peeled potatoes, he/she
-> > may
-> > say try again.  The result of a little extra effort is tastier taters
-> > for everybody feasting at the common table.. including you.
-> 
-> No, in reality what happened is the chef made potatos [incorrectly]
-> got busy and asked others to help out and make more potatos.  Then
-> came back and said ...
 
-Bottom line: either you grit your teeth and try again or you don't.
-Calling the chef a big meanie doesn't put taters on dinner plates.
+>> Indeed neither the device nor the lower drivers check protocol checksums.
+>> But the CRCs of the encapsulating 1394 packets are checked in hardware.
+>> Shall protocol checksums be verified regardless?
+>
+> Yes, because packets may come from off-link source.
+>
 
--Mike
+Hm, I can't see any off-link packets coming from 
+fwnet_finish_incoming_packet()
+
+So I wont verify checksums in the driver.
+
+Stephan
