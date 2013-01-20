@@ -1,51 +1,58 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
+From: Mike Galbraith <bitbucket@online.de>
 Subject: Re: IPsec AH use of ahash
-Date: Sun, 20 Jan 2013 08:54:24 -0500 (EST)
-Message-ID: <650108746.93086.1358690064783.JavaMail.root@elliptictech.com>
-References: <50FBF25C.4030604@ahsoftware.de>
+Date: Sun, 20 Jan 2013 15:11:34 +0100
+Message-ID: <1358691094.5705.40.camel@marge.simpson.net>
+References: <1331637866.93068.1358686536347.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Borislav Petkov <bp@alien8.de>, Eric Dumazet <erdnetdev@gmail.com>,
+Cc: Eric Dumazet <erdnetdev@gmail.com>,
 	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
 	David Miller <davem@davemloft.net>,
 	steffen klassert <steffen.klassert@secunet.com>,
 	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-	Mike Galbraith <bitbucket@online.de>
-To: Alexander Holler <holler@ahsoftware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50FBF25C.4030604@ahsoftware.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:55848 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752250Ab3ATOMZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 09:12:25 -0500
+In-Reply-To: <1331637866.93068.1358686536347.JavaMail.root@elliptictech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
------ Original Message -----
-> From: "Alexander Holler" <holler@ahsoftware.de>
-> To: "Tom St Denis" <tstdenis@elliptictech.com>
-> Cc: "Borislav Petkov" <bp@alien8.de>, "Eric Dumazet" <erdnetdev@gmail.com>, "Waskiewicz Jr, Peter P"
-> <peter.p.waskiewicz.jr@intel.com>, "David Miller" <davem@davemloft.net>, "steffen klassert"
-> <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-> "Michal Kubecek" <mkubecek@suse.cz>, "Mike Galbraith" <bitbucket@online.de>
-> Sent: Sunday, 20 January, 2013 8:34:20 AM
-> Subject: Re: IPsec AH use of ahash
+On Sun, 2013-01-20 at 07:55 -0500, Tom St Denis wrote: 
 > 
-> Am 20.01.2013 13:56, schrieb Tom St Denis:
+> ----- Original Message -----
+> > From: "Mike Galbraith" <bitbucket@online.de>
+> > To: "Tom St Denis" <tstdenis@elliptictech.com>
+> > Cc: "Eric Dumazet" <erdnetdev@gmail.com>, "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>, "David Miller"
+> > <davem@davemloft.net>, "steffen klassert" <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au,
+> > linux-kernel@vger.kernel.org, netdev@vger.kernel.org, "Michal Kubecek" <mkubecek@suse.cz>
+> > Sent: Sunday, 20 January, 2013 12:06:21 AM
+> > Subject: Re: IPsec AH use of ahash
+> > 
+> > On Sat, 2013-01-19 at 05:30 -0500, Tom St Denis wrote:
+> > 
+> > > For those of us who do Kernel development during business hours
+> > > it's
+> > > hard to justify the work when the path to mainline is convoluted
+> > > and
+> > > landmined.
+> > 
+> > Sounds as though any patches you submit land on your dinner plate
+> > just
+> > like potatoes.  Hand the cook a pot of half peeled potatoes, he/she
+> > may
+> > say try again.  The result of a little extra effort is tastier taters
+> > for everybody feasting at the common table.. including you.
 > 
-> > You should really try running checkpatch.pl over code that's
-> > already in the kernel before you call out new contributors on it.
-> >
-> > How is this supposed to not be adversarial when I can't even use
-> > the Kernel source itself as a reference?
-> 
-> In case of the kernel the chicken and egg problem can be answered
-> without any questions, most source existed before checkpatch.pl
-> (evolved
-> to the current state).
+> No, in reality what happened is the chef made potatos [incorrectly]
+> got busy and asked others to help out and make more potatos.  Then
+> came back and said ...
 
-We clearly have different interpretations of the word "maintainer" then...  If they're not maintaining the code then are they really the maintainers of it?
+Bottom line: either you grit your teeth and try again or you don't.
+Calling the chef a big meanie doesn't put taters on dinner plates.
 
-Point is I copied accepted kernel code and was rejected because of "errors" that are in existing kernel code.  Similarly if I did the upgrade to AH to use AEAD I suspect it would be rejected for the same reason.
-
-Tom
+-Mike
