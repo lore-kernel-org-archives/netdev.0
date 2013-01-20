@@ -1,61 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: fix incorrect LOCKDROPPEDICMPS counter
-Date: Sat, 19 Jan 2013 18:10:37 -0800
-Message-ID: <1358647837.3464.1050.camel@edumazet-glaptop>
+From: akong@redhat.com
+Subject: [PATCH v4 0/3] make mac programming for virtio net more robust
+Date: Sun, 20 Jan 2013 10:43:06 +0800
+Message-ID: <1358649789-2338-1-git-send-email-akong@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:49959 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054Ab3ATCKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 21:10:40 -0500
-Received: by mail-pa0-f54.google.com with SMTP id bi5so2793372pad.41
-        for <netdev@vger.kernel.org>; Sat, 19 Jan 2013 18:10:39 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, qemu-devel@nongnu.org,
+	virtualization@lists.linux-foundation.org, davem@davemloft.net
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <edumazet@google.com>
+From: Amos Kong <akong@redhat.com>
 
-commit 563d34d057 (tcp: dont drop MTU reduction indications)
-added an error leading to incorrect accounting of
-LINUX_MIB_LOCKDROPPEDICMPS
+Currenly mac is programmed byte by byte. This means that we
+have an intermediate step where mac is wrong. 
 
-If socket is owned by the user, we want to increment
-this SNMP counter, unless the message is a
-(ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED) one.
+Third patch introduced a new vq control command to set mac
+address, it's atomic.
 
-Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_ipv4.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+V2: check return of sending command, delay eth_mac_addr()
+V3: restore software address when fail to set hardware address
+V4: split eth_mac_addr, fix error handle
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 54139fa..70b09ef 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -369,11 +369,10 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 inf=
-o)
- 	 * We do take care of PMTU discovery (RFC1191) special case :
- 	 * we can receive locally generated ICMP messages while socket is hel=
-d.
- 	 */
--	if (sock_owned_by_user(sk) &&
--	    type !=3D ICMP_DEST_UNREACH &&
--	    code !=3D ICMP_FRAG_NEEDED)
--		NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
--
-+	if (sock_owned_by_user(sk)) {
-+		if (!(type =3D=3D ICMP_DEST_UNREACH && code =3D=3D ICMP_FRAG_NEEDED)=
-)
-+			NET_INC_STATS_BH(net, LINUX_MIB_LOCKDROPPEDICMPS);
-+	}
- 	if (sk->sk_state =3D=3D TCP_CLOSE)
- 		goto out;
-=20
+Amos Kong (2):
+  move virtnet_send_command() above virtnet_set_mac_address()
+  virtio-net: introduce a new control to set macaddr
+
+Stefan Hajnoczi (1):
+  net: split eth_mac_addr for better error handling
+
+ drivers/net/virtio_net.c        | 110 ++++++++++++++++++++++------------------
+ include/linux/etherdevice.h     |   2 +
+ include/uapi/linux/virtio_net.h |   8 ++-
+ net/ethernet/eth.c              |  43 +++++++++++++---
+ 4 files changed, 107 insertions(+), 56 deletions(-)
+
+-- 
+1.7.11.7
