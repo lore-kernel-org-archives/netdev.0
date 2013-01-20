@@ -1,52 +1,75 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next] net/mlx4_en: remove redundant code
-Date: Sun, 20 Jan 2013 16:48:26 +0200
-Message-ID: <50FC03BA.8020200@mellanox.com>
-References: <1358423241-2452-1-git-send-email-amirv@mellanox.com>  <1358423241-2452-6-git-send-email-amirv@mellanox.com>  <1358432538.29723.8.camel@edumazet-glaptop> <1358436367.29723.49.camel@edumazet-glaptop>
+From: Tom St Denis <tstdenis@elliptictech.com>
+Subject: Re: IPsec AH use of ahash
+Date: Sun, 20 Jan 2013 10:07:24 -0500 (EST)
+Message-ID: <2012247681.93123.1358694444237.JavaMail.root@elliptictech.com>
+References: <1358691094.5705.40.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog118.obsmtp.com ([207.126.144.145]:47183 "HELO
-	eu1sys200aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752039Ab3ATOrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 09:47:49 -0500
-In-Reply-To: <1358436367.29723.49.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Eric Dumazet <erdnetdev@gmail.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>,
+	steffen klassert <steffen.klassert@secunet.com>,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
+To: Mike Galbraith <bitbucket@online.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358691094.5705.40.camel@marge.simpson.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 17/01/2013 17:26, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> remove redundant code from build_inline_wqe()
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> Amir, reviewing this driver, it looks like following could be done,
-> could you test the patch for me ?
->
-> Thanks
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index 2b799f4..16af338 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -515,10 +515,6 @@ static void build_inline_wqe(struct mlx4_en_tx_desc *tx_desc, struct sk_buff *sk
->   		wmb();
->   		inl->byte_count = cpu_to_be32(1 << 31 | (skb->len - spc));
->   	}
-> -	tx_desc->ctrl.vlan_tag = cpu_to_be16(*vlan_tag);
-> -	tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_VLAN *
-> -		(!!vlan_tx_tag_present(skb));
-> -	tx_desc->ctrl.fence_size = (real_size / 16) & 0x3f;
->   }
->
->   u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
->
->
-Acked-By: Amir Vadai <amirv@mellanox.com>
+----- Original Message -----
+> From: "Mike Galbraith" <bitbucket@online.de>
+> To: "Tom St Denis" <tstdenis@elliptictech.com>
+> Cc: "Eric Dumazet" <erdnetdev@gmail.com>, "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>, "David Miller"
+> <davem@davemloft.net>, "steffen klassert" <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au,
+> linux-kernel@vger.kernel.org, netdev@vger.kernel.org, "Michal Kubecek" <mkubecek@suse.cz>
+> Sent: Sunday, 20 January, 2013 9:11:34 AM
+> Subject: Re: IPsec AH use of ahash
+> 
+> On Sun, 2013-01-20 at 07:55 -0500, Tom St Denis wrote:
+> > 
+> > ----- Original Message -----
+> > > From: "Mike Galbraith" <bitbucket@online.de>
+> > > To: "Tom St Denis" <tstdenis@elliptictech.com>
+> > > Cc: "Eric Dumazet" <erdnetdev@gmail.com>, "Waskiewicz Jr, Peter
+> > > P" <peter.p.waskiewicz.jr@intel.com>, "David Miller"
+> > > <davem@davemloft.net>, "steffen klassert"
+> > > <steffen.klassert@secunet.com>, herbert@gondor.apana.org.au,
+> > > linux-kernel@vger.kernel.org, netdev@vger.kernel.org, "Michal
+> > > Kubecek" <mkubecek@suse.cz>
+> > > Sent: Sunday, 20 January, 2013 12:06:21 AM
+> > > Subject: Re: IPsec AH use of ahash
+> > > 
+> > > On Sat, 2013-01-19 at 05:30 -0500, Tom St Denis wrote:
+> > > 
+> > > > For those of us who do Kernel development during business hours
+> > > > it's
+> > > > hard to justify the work when the path to mainline is
+> > > > convoluted
+> > > > and
+> > > > landmined.
+> > > 
+> > > Sounds as though any patches you submit land on your dinner plate
+> > > just
+> > > like potatoes.  Hand the cook a pot of half peeled potatoes,
+> > > he/she
+> > > may
+> > > say try again.  The result of a little extra effort is tastier
+> > > taters
+> > > for everybody feasting at the common table.. including you.
+> > 
+> > No, in reality what happened is the chef made potatos [incorrectly]
+> > got busy and asked others to help out and make more potatos.  Then
+> > came back and said ...
+> 
+> Bottom line: either you grit your teeth and try again or you don't.
+> Calling the chef a big meanie doesn't put taters on dinner plates.
+
+One point you're missing is that *I* have CMAC support.  *YOU* don't.  So being contrary and adversarial about it isn't really hurting me, it's annoying me because I have to manually supply a patch for my users but at the end of the day it isn't me who is losing out.  It seems odd that the maintainers who should be happy to receive original content which adds standards support are so ardent that it must be done perfectly and totally unlike the code they submit (which I've already shown doesn't meet these standards).
+
+The other point is that the system can use some working on and unless people raise concerns nothing will change.  Large swathes of kernel code don't meet these "coding standards" despite the fact that many source files that are in violation have been "worked on" long after the checkpatch script was written.
+
+In all likelihood I will submit a revised CMAC patch but it'll take time before I can get business hours to work on it.  So instead of having a maintainer just touch it up we're all going to lose out because of pride?
+
+Tom
