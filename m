@@ -1,76 +1,38 @@
-From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Subject: [suggestion]  drivers/net/wireless/iwlegacy: the parameter 'const
- char *buf' may be not '\0' base string for DINFO
-Date: Sun, 20 Jan 2013 18:05:52 +0800
-Message-ID: <50FBC180.2090003@asianux.com>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: IPsec AH use of ahash
+Date: Sun, 20 Jan 2013 11:31:32 +0100
+Message-ID: <20130120103132.GA16800@pd.tnic>
+References: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
+ <1358658381.5743.44.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Cc: Tom St Denis <tstdenis@elliptictech.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>,
+	steffen klassert <steffen.klassert@secunet.com>,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
+To: Mike Galbraith <bitbucket@online.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1358658381.5743.44.camel@marge.simpson.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Stanislaw, John
+On Sun, Jan 20, 2013 at 06:06:21AM +0100, Mike Galbraith wrote:
+> Sounds as though any patches you submit land on your dinner plate just
+> like potatoes. Hand the cook a pot of half peeled potatoes, he/she may
+> say try again.
 
-  we can not assume that the parameter 'const char *buf' is '\0' base string.
-  and DINOF uses '%s' for buf (in line 3288..3289)
-  so it will cause issue.
+And how he/she would say it! I've seen serious fights spring up from
+half-peeled potatoes so people better peel them right the first time.
 
-  I am not quite familiar with the detail features.
-  so I send mail as a suggestion.
-  please help checking, if this suggestion is valid, please help fixing, thanks.
-
-  Regards
-
-gchen.
-
-3260 static ssize_t
-3261 il3945_store_measurement(struct device *d, struct device_attribute *attr,
-3262                          const char *buf, size_t count)
-3263 {
-3264         struct il_priv *il = dev_get_drvdata(d);
-3265         struct ieee80211_measurement_params params = {
-3266                 .channel = le16_to_cpu(il->active.channel),
-3267                 .start_time = cpu_to_le64(il->_3945.last_tsf),
-3268                 .duration = cpu_to_le16(1),
-3269         };
-3270         u8 type = IL_MEASURE_BASIC;
-3271         u8 buffer[32];
-3272         u8 channel;
-3273 
-3274         if (count) {
-3275                 char *p = buffer;
-3276                 strlcpy(buffer, buf, min(sizeof(buffer), count));
-3277                 channel = simple_strtoul(p, NULL, 0);
-3278                 if (channel)
-3279                         params.channel = channel;
-3280 
-3281                 p = buffer;
-3282                 while (*p && *p != ' ')
-3283                         p++;
-3284                 if (*p)
-3285                         type = simple_strtoul(p + 1, NULL, 0);
-3286         }
-3287 
-3288         D_INFO("Invoking measurement of type %d on " "channel %d (for '%s')\n",
-3289                type, params.channel, buf);
-3290         il3945_get_measurement(il, &params, type);
-3291 
-3292         return count;
-3293 }
-3294 
-
-
-
+:-)
 
 -- 
-Chen Gang
+Regards/Gruss,
+    Boris.
 
-Asianux Corporation
+Sent from a fat crate under my desk. Formatting is fine.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
