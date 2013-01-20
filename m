@@ -1,32 +1,28 @@
-From: Mike Galbraith <bitbucket@online.de>
-Subject: Re: IPsec AH use of ahash
-Date: Sun, 20 Jan 2013 06:06:21 +0100
-Message-ID: <1358658381.5743.44.camel@marge.simpson.net>
-References: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] usbnet: introduce flag FLAG_NOARP for usb net
+ devices
+Date: Sun, 20 Jan 2013 00:33:59 -0500 (EST)
+Message-ID: <20130120.003359.1846975310628814804.davem@davemloft.net>
+References: <1358644608-2118-1-git-send-email-cpuwolf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <erdnetdev@gmail.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>,
-	steffen klassert <steffen.klassert@secunet.com>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
-To: Tom St Denis <tstdenis@elliptictech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dcbw@redhat.com, peter@stuge.se, oneukum@suse.de,
+	sshtylyov@mvista.com, gregkh@linuxfoundation.org,
+	alexey.orishko@stericsson.com, bjorn@mork.no,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: cpuwolf@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52418 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750783Ab3ATFeC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 00:34:02 -0500
+In-Reply-To: <1358644608-2118-1-git-send-email-cpuwolf@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-01-19 at 05:30 -0500, Tom St Denis wrote:
 
-> For those of us who do Kernel development during business hours it's
-> hard to justify the work when the path to mainline is convoluted and
-> landmined.
+When any patch is discarded, the whole series is tossed.
 
-Sounds as though any patches you submit land on your dinner plate just
-like potatoes.  Hand the cook a pot of half peeled potatoes, he/she may
-say try again.  The result of a little extra effort is tastier taters
-for everybody feasting at the common table.. including you.
-
--Mike
+Therefore you must resubmit the entire series, not just one
+part of it.
