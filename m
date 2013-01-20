@@ -1,77 +1,72 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] firewire net: Use LL_RESERVED_SPACE(), HH_DATA_OFF().
-Date: Sun, 20 Jan 2013 17:03:07 +0900
-Message-ID: <50FBA4BB.4010008@linux-ipv6.org>
+From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] drivers/net/wireless/iwlegacy: use strlcpy instead of
+ strncpy
+Date: Sun, 20 Jan 2013 17:31:35 +0800
+Message-ID: <50FBB977.7080805@asianux.com>
+References: <50EA5246.8060206@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:48268 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750896Ab3ATIDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 03:03:08 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50EA5246.8060206-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- drivers/firewire/net.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+Hello all:
 
-diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index df6a1ca..2b27bff 100644
---- a/drivers/firewire/net.c
-+++ b/drivers/firewire/net.c
-@@ -270,7 +270,7 @@ static int fwnet_header_cache(const struct neighbour *neigh,
- 	if (type == cpu_to_be16(ETH_P_802_3))
- 		return -1;
- 	net = neigh->dev;
--	h = (struct fwnet_header *)((u8 *)hh->hh_data + 16 - sizeof(*h));
-+	h = (struct fwnet_header *)((u8 *)hh->hh_data + HH_DATA_OFF(sizeof(*h)));
- 	h->h_proto = type;
- 	memcpy(h->h_dest, neigh->ha, net->addr_len);
- 	hh->hh_len = FWNET_HLEN;
-@@ -282,7 +282,7 @@ static int fwnet_header_cache(const struct neighbour *neigh,
- static void fwnet_header_cache_update(struct hh_cache *hh,
- 		const struct net_device *net, const unsigned char *haddr)
- {
--	memcpy((u8 *)hh->hh_data + 16 - FWNET_HLEN, haddr, net->addr_len);
-+	memcpy((u8 *)hh->hh_data + HH_DATA_OFF(FWNET_HLEN), haddr, net->addr_len);
- }
- 
- static int fwnet_header_parse(const struct sk_buff *skb, unsigned char *haddr)
-@@ -398,11 +398,11 @@ static struct fwnet_partial_datagram *fwnet_pd_new(struct net_device *net,
- 
- 	new->datagram_label = datagram_label;
- 	new->datagram_size = dg_size;
--	new->skb = dev_alloc_skb(dg_size + net->hard_header_len + 15);
-+	new->skb = dev_alloc_skb(dg_size + LL_RESERVED_SPACE(net));
- 	if (new->skb == NULL)
- 		goto fail_w_fi;
- 
--	skb_reserve(new->skb, (net->hard_header_len + 15) & ~15);
-+	skb_reserve(new->skb, LL_RESERVED_SPACE(net));
- 	new->pbuf = skb_put(new->skb, dg_size);
- 	memcpy(new->pbuf + frag_off, frag_buf, frag_len);
- 	list_add_tail(&new->pd_link, &peer->pd_list);
-@@ -690,14 +690,14 @@ static int fwnet_incoming_packet(struct fwnet_device *dev, __be32 *buf, int len,
- 		buf++;
- 		len -= RFC2374_UNFRAG_HDR_SIZE;
- 
--		skb = dev_alloc_skb(len + net->hard_header_len + 15);
-+		skb = dev_alloc_skb(len + LL_RESERVED_SPACE(net));
- 		if (unlikely(!skb)) {
- 			dev_err(&net->dev, "out of memory\n");
- 			net->stats.rx_dropped++;
- 
- 			return -ENOMEM;
- 		}
--		skb_reserve(skb, (net->hard_header_len + 15) & ~15);
-+		skb_reserve(skb, LL_RESERVED_SPACE(net));
- 		memcpy(skb_put(skb, len), buf, len);
- 
- 		return fwnet_finish_incoming_packet(net, skb, source_node_id,
--- 
-1.7.9.5
+  sorry, after checking the details:
+    I think this patch is incorrect.
+      we can not assume that the parameter "char *buf" is terminated by=
+ '\0'
+      so we should only use strlcpy instead of strncpy, without touchin=
+g 'min(...'
+
+  since it is already integrated into main branch (at least, in next-20=
+130118).
+    I should send additional patch to fix it.
+
+  please help to check, thanks.
+
+
+gchen.
+
+
+=D3=DA 2013=C4=EA01=D4=C207=C8=D5 12:42, Chen Gang =D0=B4=B5=C0:
+>=20
+>   The fields must be null-terminated, or simple_strtoul will cause is=
+sue.
+>=20
+> Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  drivers/net/wireless/iwlegacy/3945-mac.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/wireless/iwlegacy/3945-mac.c b/drivers/net/w=
+ireless/iwlegacy/3945-mac.c
+> index d604b40..3726cd6 100644
+> --- a/drivers/net/wireless/iwlegacy/3945-mac.c
+> +++ b/drivers/net/wireless/iwlegacy/3945-mac.c
+> @@ -3273,7 +3273,7 @@ il3945_store_measurement(struct device *d, stru=
+ct device_attribute *attr,
+> =20
+>  	if (count) {
+>  		char *p =3D buffer;
+> -		strncpy(buffer, buf, min(sizeof(buffer), count));
+> +		strlcpy(buffer, buf, sizeof(buffer));
+>  		channel =3D simple_strtoul(p, NULL, 0);
+>  		if (channel)
+>  			params.channel =3D channel;
+>=20
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
