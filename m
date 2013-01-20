@@ -1,34 +1,42 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: IPsec AH use of ahash
-Date: Sun, 20 Jan 2013 17:07:22 -0500
-Message-ID: <20130120220721.GA5434@home.goodmis.org>
-References: <20130120103132.GA16800@pd.tnic>
- <313650836.93071.1358686587647.JavaMail.root@elliptictech.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix incorrect LOCKDROPPEDICMPS counter
+Date: Sun, 20 Jan 2013 17:22:37 -0500 (EST)
+Message-ID: <20130120.172237.308780232580011846.davem@davemloft.net>
+References: <1358647837.3464.1050.camel@edumazet-glaptop>
+	<CADVnQynpupJ3HTmSP3dxEE6MGi0bpq=B_WQMqdxnmxNSQLq3OA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Borislav Petkov <bp@alien8.de>, Eric Dumazet <erdnetdev@gmail.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	David Miller <davem@davemloft.net>,
-	steffen klassert <steffen.klassert@secunet.com>,
-	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>,
-	Mike Galbraith <bitbucket@online.de>
-To: Tom St Denis <tstdenis@elliptictech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <313650836.93071.1358686587647.JavaMail.root@elliptictech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, maze@google.com
+To: ncardwell@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59658 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752515Ab3ATWWm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 17:22:42 -0500
+In-Reply-To: <CADVnQynpupJ3HTmSP3dxEE6MGi0bpq=B_WQMqdxnmxNSQLq3OA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 20, 2013 at 07:56:27AM -0500, Tom St Denis wrote:
-> 
-> You should really try running checkpatch.pl over code that's already in the kernel before you call out new contributors on it.
-> 
-> How is this supposed to not be adversarial when I can't even use the Kernel source itself as a reference?
+=46rom: Neal Cardwell <ncardwell@google.com>
+Date: Sat, 19 Jan 2013 23:19:14 -0500
 
-So there's a lot of crap code in the kernel (that we are trying to clean
-up when we have the time... see Kernel Janitors). But that's still no
-excuse to allow more crap code to enter. That means adding more crap to
-clean up.
+> On Sat, Jan 19, 2013 at 9:10 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> commit 563d34d057 (tcp: dont drop MTU reduction indications)
+>> added an error leading to incorrect accounting of
+>> LINUX_MIB_LOCKDROPPEDICMPS
+>>
+>> If socket is owned by the user, we want to increment
+>> this SNMP counter, unless the message is a
+>> (ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED) one.
+>>
+>> Reported-by: Maciej =AFenczykowski <maze@google.com>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>> Cc: Neal Cardwell <ncardwell@google.com>
+>=20
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 
--- Steve
+Applied, thanks everyone.
