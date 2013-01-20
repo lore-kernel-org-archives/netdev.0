@@ -1,40 +1,32 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH] tcp: fix incorrect LOCKDROPPEDICMPS counter
-Date: Sat, 19 Jan 2013 23:19:14 -0500
-Message-ID: <CADVnQynpupJ3HTmSP3dxEE6MGi0bpq=B_WQMqdxnmxNSQLq3OA@mail.gmail.com>
-References: <1358647837.3464.1050.camel@edumazet-glaptop>
+From: Mike Galbraith <bitbucket@online.de>
+Subject: Re: IPsec AH use of ahash
+Date: Sun, 20 Jan 2013 06:06:21 +0100
+Message-ID: <1358658381.5743.44.camel@marge.simpson.net>
+References: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:54500 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184Ab3ATETQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jan 2013 23:19:16 -0500
-Received: by mail-ea0-f172.google.com with SMTP id f13so2047377eaa.31
-        for <netdev@vger.kernel.org>; Sat, 19 Jan 2013 20:19:15 -0800 (PST)
-In-Reply-To: <1358647837.3464.1050.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <erdnetdev@gmail.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	David Miller <davem@davemloft.net>,
+	steffen klassert <steffen.klassert@secunet.com>,
+	herbert@gondor.apana.org.au, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michal Kubecek <mkubecek@suse.cz>
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1325444527.92017.1358591457919.JavaMail.root@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 19, 2013 at 9:10 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> commit 563d34d057 (tcp: dont drop MTU reduction indications)
-> added an error leading to incorrect accounting of
-> LINUX_MIB_LOCKDROPPEDICMPS
->
-> If socket is owned by the user, we want to increment
-> this SNMP counter, unless the message is a
-> (ICMP_DEST_UNREACH,ICMP_FRAG_NEEDED) one.
->
-> Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
+On Sat, 2013-01-19 at 05:30 -0500, Tom St Denis wrote:
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+> For those of us who do Kernel development during business hours it's
+> hard to justify the work when the path to mainline is convoluted and
+> landmined.
+
+Sounds as though any patches you submit land on your dinner plate just
+like potatoes.  Hand the cook a pot of half peeled potatoes, he/she may
+say try again.  The result of a little extra effort is tastier taters
+for everybody feasting at the common table.. including you.
+
+-Mike
