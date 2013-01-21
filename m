@@ -1,111 +1,99 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
-Date: Mon, 21 Jan 2013 12:56:53 +0100
-Message-ID: <20130121115653.GY1906@pengutronix.de>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
- <50FD02B8.8080401@grandegger.com>
- <20130121100701.GX1906@pengutronix.de>
- <50FD2172.2020608@grandegger.com>
- <50FD22B4.5070307@openwrt.org>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] ipv4: Invalidate the socket cached route on pmtu events
+ if possible
+Date: Mon, 21 Jan 2013 12:59:11 +0100
+Message-ID: <20130121115911.GE30530@secunet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
-	davem@davemloft.net
-To: Florian Fainelli <florian@openwrt.org>
+Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58295 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752403Ab3AUL46 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 06:56:58 -0500
+Received: from a.mx.secunet.com ([195.81.216.161]:47265 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752403Ab3AUL7O (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 06:59:14 -0500
 Content-Disposition: inline
-In-Reply-To: <50FD22B4.5070307@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2013 at 12:12:52PM +0100, Florian Fainelli wrote:
-> On 01/21/2013 12:07 PM, Wolfgang Grandegger wrote:
-> >On 01/21/2013 11:07 AM, Sascha Hauer wrote:
-> >>On Mon, Jan 21, 2013 at 09:56:24AM +0100, Wolfgang Grandegger wrote:
-> >>>On 01/21/2013 09:37 AM, Sascha Hauer wrote:
-> >>>>There may be multiple phys on an mdio bus. This series adds support
-> >>>>for this to the fec driver. I recently had a board which has a switch
-> >>>>connected to the fec's mdio bus, so I had to pick the correct phy.
-> >>>
-> >>>Pick one PHY from a switch port? Well, does a PHY-less (or fixed-link)
-> >>>configuration for a switch not make more sense?
-> >>
-> >>Yes, you're probably right.
-> >>
-> >>>Various ARM Ethernet
-> >>>contoller drivers do not support it. I recently needed a hack for an
-> >>>AT91 board.
-> >>
-> >>I wonder how we want to proceed. Should there be a devicetree property
-> >>'fixed-link' like done for fs_enet (and not recommended for new code,
-> >>stated in the comment above of_phy_connect_fixed_link)?
-> >
-> >Also the gianfar and ucc_geth drivers use this interface (via fixed
-> >link phy). I tried to use it for the AT91 macb driver but stopped
-> >quickly because the usage was not straight forward (too much code)...
-> >even if the idea of using a fake fixed-link phy is not bad.
-> >
-> >>Currently I have a property 'phy' in the fec binding which has a phandle
-> >>to a phy provided by the fec's mdio bus, but this could equally well
-> >
-> >But than the cable must be connected to the associated switch port.
-> >
-> >>point to a fixed dummy phy:
-> >>
-> >>	phy = &fixed-phy;
-> >
-> >The link speed, full/half duplex and maybe some mroe parameter should
-> >be configurable via device tree.
-> >
-> >>Currently there seems to be no common convention for the devicetree how
-> >>to handle such situations, or am I missing something?
-> >
-> >That's also may impression. There seem to be a few more related hacks:
-> >
-> >$ find . -name '*.c'| xargs grep -i "phy-less"
-> >./ethernet/amd/au1000_eth.c:			netdev_info(dev, "using PHY-less setup\n");
-> >./ethernet/amd/au1000_eth.c:	} else { /* PHY-less op, assume full-duplex */
-> >./ethernet/ibm/emac/core.c:	/* PHY-less configuration.
-> >./ethernet/ibm/emac/core.c:		/* PHY-less configuration.
-> >
-> >I would prefer to handle the "fixed-link" property of the ethernet dt
-> >node directly in the driver with a generic helper function.
-> 
-> Is not what of_phy_connect_fixed_link() offer? I am not sure there
-> can be much done by an helper than that.
+The route lookup in ipv4_sk_update_pmtu() might return a route
+different from the route we cached at the socket. This is because
+standart routes are per cpu, so each cpu has it's own struct rtable.
+This means that we do not invalidate the socket cached route if the
+NET_RX_SOFTIRQ is not served by the same cpu that the sending socket
+uses. As a result, the cached route reused until we disconnect.
 
-The comment above this function states:
+With this patch we invalidate the socket cached route if possible.
+If the socket is owened by the user, we can't update the cached
+route directly. A followup patch will implement socket release
+callback functions for datagram sockets to handle this case.
 
-/**
- * of_phy_connect_fixed_link - Parse fixed-link property and return a dummy phy
- * @dev: pointer to net_device claiming the phy
- * @hndlr: Link state callback for the network device
- * @iface: PHY data interface type
- *
- * This function is a temporary stop-gap and will be removed soon.  It is
- * only to support the fs_enet, ucc_geth and gianfar Ethernet drivers.  Do
- * not call this function from new drivers.
- */
+Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/route.c |   42 +++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 41 insertions(+), 1 deletion(-)
 
-And the commit introducing it has:
-
-    Note: the dummy phy handling in arch/powerpc is a bit of a hack and
-    needs to be reworked.  This function is being added now to solve the
-    regression in the Ethernet drivers, but it should be considered a
-    temporary measure until the fixed link handling can be reworked.
-
-
-The 'temporary measure' exists for 3 1/2 years now ;)
-
-Sascha
-
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 259cbee..132737a 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -965,7 +965,7 @@ void ipv4_update_pmtu(struct sk_buff *skb, struct net *net, u32 mtu,
+ }
+ EXPORT_SYMBOL_GPL(ipv4_update_pmtu);
+ 
+-void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
++static void __ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+ {
+ 	const struct iphdr *iph = (const struct iphdr *) skb->data;
+ 	struct flowi4 fl4;
+@@ -978,6 +978,46 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+ 		ip_rt_put(rt);
+ 	}
+ }
++
++void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
++{
++	const struct iphdr *iph = (const struct iphdr *) skb->data;
++	struct flowi4 fl4;
++	struct rtable *rt;
++	struct dst_entry *dst;
++
++	bh_lock_sock(sk);
++	rt = (struct rtable *) __sk_dst_get(sk);
++
++	if (sock_owned_by_user(sk) || !rt) {
++		__ipv4_sk_update_pmtu(skb, sk, mtu);
++		goto out;
++	}
++
++	__build_flow_key(&fl4, sk, iph, 0, 0, 0, 0, 0);
++
++	if (!__sk_dst_check(sk, 0)) {
++		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
++		if (IS_ERR(rt))
++			goto out;
++	}
++
++	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
++
++	dst = dst_check(&rt->dst, 0);
++	if (!dst) {
++		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
++		if (IS_ERR(rt))
++			goto out;
++
++		dst = &rt->dst;
++	}
++
++	 __sk_dst_set(sk, dst);
++
++out:
++	bh_unlock_sock(sk);
++}
+ EXPORT_SYMBOL_GPL(ipv4_sk_update_pmtu);
+ 
+ void ipv4_redirect(struct sk_buff *skb, struct net *net,
 -- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+1.7.9.5
