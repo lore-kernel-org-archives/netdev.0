@@ -1,61 +1,47 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH 1/2] net: fec: refactor dt probing
-Date: Mon, 21 Jan 2013 19:48:26 +0200
-Message-ID: <20130121174824.GA27956@sapphire.tkos.co.il>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
- <1358757475-21035-2-git-send-email-s.hauer@pengutronix.de>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [PATCH 08/21] NTB: declare unused variables
+Date: Mon, 21 Jan 2013 10:50:55 -0700
+Message-ID: <20130121175054.GE22208@jonmason-lab>
+References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
+ <1358586155-23322-9-git-send-email-jon.mason@intel.com>
+ <20130120234228.GC14196@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shawn.guo@linaro.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1358757475-21035-2-git-send-email-s.hauer@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+In-Reply-To: <20130120234228.GC14196@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sascha,
-
-On Mon, Jan 21, 2013 at 09:37:54AM +0100, Sascha Hauer wrote:
-> For devicetree parsing only the fec_get_phy_mode_dt() is
-> available. Rename it to fec_probe_dt() to be able to add more devicetree
-> parsing to it.
+On Sun, Jan 20, 2013 at 03:42:28PM -0800, Greg KH wrote:
+> On Sat, Jan 19, 2013 at 02:02:22AM -0700, Jon Mason wrote:
+> > Tag pci_device_id in ntb_pci_probe as unused function parameters.  This
+> > corrects issues found by 'EXTRA_CFLAGS=-W'.
 > 
-> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-> ---
+> Why would you build the kernel with that option?  This isn't needed, so
 
-[...]
+Per Documentation/SubmitChecklist:
 
-> -static int fec_get_phy_mode_dt(struct platform_device *pdev)
-> +static int fec_probe_dt(struct fec_enet_private *fep)
->  {
-> -	struct device_node *np = pdev->dev.of_node;
-> +	struct device_node *np = fep->pdev->dev.of_node;
->  
-> -	if (np)
-> -		return of_get_phy_mode(np);
-> +	if (!np)
-> +		return -ENODEV;
-> +
-> +	fep->phy_interface = of_get_phy_mode(np);
->  
->  	return -ENODEV;
+22: Newly-added code has been compiled with `gcc -W' (use "make
+    EXTRA_CFLAGS=-W").  This will generate lots of noise, but is good for
+    finding bugs like "warning: comparison between signed and unsigned".
 
-Maybe return fep->phy_interface?
 
-baruch
+I was attempting to comply with that suggestion.  If this is
+unnecessary, then I can toss these, but I don't really see them
+hurting anything.
 
--- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+Same goes for the other 2 patches found via 'EXTRA_CFLAGS=-W'.
+
+Thanks,
+Jon
+
+> I'm not going to apply it.
+> 
+> thanks,
+> 
+> greg k-h
