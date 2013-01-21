@@ -1,47 +1,80 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
- specific ndisc information
-Date: Mon, 21 Jan 2013 21:16:32 +0900
-Message-ID: <50FD31A0.5080003@linux-ipv6.org>
-References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org> <50FCE228.3090801@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux1394-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
+From: frank.blaschka@de.ibm.com
+Subject: [patch 2/6] [PATCH] qeth: Remove unused exports
+Date: Mon, 21 Jan 2013 13:30:19 +0100
+Message-ID: <20130121123037.315280643@de.ibm.com>
+References: <20130121123017.240686588@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Stefan Raspl <raspl@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50035 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753055Ab3AUMQf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 07:16:35 -0500
-In-Reply-To: <50FCE228.3090801@gmail.com>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:34367 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753476Ab3AUMao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 07:30:44 -0500
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Mon, 21 Jan 2013 12:28:52 -0000
+Content-Disposition: inline; filename=601-qeth-exports.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan Gatzka wrote:
->> [ARP and NDISC]
->> - both can be handled in more natural way.
->> -- You will not need to mangle those packets when
->>     sending/receiving.
-> 
-> This is also true if we introduce a function pointer. My last implementation does not mangle packets in the driver.
-> 
->> -- You do not need to inspect ARP/NDISC packet.
->>     By using netevent notification mechanism, you can
->>     learn peer parameters.
-> 
-> That is worth to investigate. Will I get notifications when a ARP/NDISC will be send or only if the stack received ARP/NDISC packets? However, I can't see how this will help to get the firewire specific information into the ARP/NDISC packet. This has to be done either via the suggested function pointer or your extension of the mac address.
+From: Stefan Raspl <raspl@linux.vnet.ibm.com>
 
-Netevent example: drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:netevent_cb().
-It will be notified when NCE has been updated (by ARP/NDP, in most cases).
+Remove exports that are not used anywhere else.
 
-Yes, it is for learning Uniq-ID and FIFO from peer.
+Signed-off-by: Stefan Raspl <raspl@linux.vnet.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+ drivers/s390/net/qeth_core.h      |    3 ---
+ drivers/s390/net/qeth_core_main.c |    6 ++----
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-To send our Uniq-ID and FIFO to peer via ARP/NDP, I am proposing to use
-extended MAC.  This will also help MCAP implementation, without big change
-in IPv4/IPv6 or even whole net stack.
-
---yoshfuji
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -909,9 +909,6 @@ struct qeth_cmd_buffer *qeth_wait_for_bu
+ int qeth_mdio_read(struct net_device *, int, int);
+ int qeth_snmp_command(struct qeth_card *, char __user *);
+ int qeth_query_oat_command(struct qeth_card *, char __user *);
+-struct qeth_cmd_buffer *qeth_get_adapter_cmd(struct qeth_card *, __u32, __u32);
+-int qeth_default_setadapterparms_cb(struct qeth_card *, struct qeth_reply *,
+-					unsigned long);
+ int qeth_send_control_data(struct qeth_card *, int, struct qeth_cmd_buffer *,
+ 	int (*reply_cb)(struct qeth_card *, struct qeth_reply*, unsigned long),
+ 	void *reply_param);
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -2868,7 +2868,7 @@ int qeth_send_startlan(struct qeth_card
+ }
+ EXPORT_SYMBOL_GPL(qeth_send_startlan);
+ 
+-int qeth_default_setadapterparms_cb(struct qeth_card *card,
++static int qeth_default_setadapterparms_cb(struct qeth_card *card,
+ 		struct qeth_reply *reply, unsigned long data)
+ {
+ 	struct qeth_ipa_cmd *cmd;
+@@ -2881,7 +2881,6 @@ int qeth_default_setadapterparms_cb(stru
+ 			cmd->data.setadapterparms.hdr.return_code;
+ 	return 0;
+ }
+-EXPORT_SYMBOL_GPL(qeth_default_setadapterparms_cb);
+ 
+ static int qeth_query_setadapterparms_cb(struct qeth_card *card,
+ 		struct qeth_reply *reply, unsigned long data)
+@@ -2901,7 +2900,7 @@ static int qeth_query_setadapterparms_cb
+ 	return qeth_default_setadapterparms_cb(card, reply, (unsigned long)cmd);
+ }
+ 
+-struct qeth_cmd_buffer *qeth_get_adapter_cmd(struct qeth_card *card,
++static struct qeth_cmd_buffer *qeth_get_adapter_cmd(struct qeth_card *card,
+ 		__u32 command, __u32 cmdlen)
+ {
+ 	struct qeth_cmd_buffer *iob;
+@@ -2917,7 +2916,6 @@ struct qeth_cmd_buffer *qeth_get_adapter
+ 
+ 	return iob;
+ }
+-EXPORT_SYMBOL_GPL(qeth_get_adapter_cmd);
+ 
+ int qeth_query_setadapterparms(struct qeth_card *card)
+ {
