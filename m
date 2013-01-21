@@ -1,63 +1,61 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH 01/21] NTB: correct missing readq/writeq errors
-Date: Mon, 21 Jan 2013 10:38:18 -0700
-Message-ID: <20130121173818.GD22208@jonmason-lab>
-References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
- <1358586155-23322-2-git-send-email-jon.mason@intel.com>
- <20130120234005.GA14196@kroah.com>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: [PATCH 1/2] net: fec: refactor dt probing
+Date: Mon, 21 Jan 2013 19:48:26 +0200
+Message-ID: <20130121174824.GA27956@sapphire.tkos.co.il>
+References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
+ <1358757475-21035-2-git-send-email-s.hauer@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Jiang <dave.jiang@intel.com>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:35353 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752909Ab3AURiT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2013 12:38:19 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shawn.guo@linaro.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20130120234005.GA14196@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1358757475-21035-2-git-send-email-s.hauer@pengutronix.de>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 20, 2013 at 03:40:05PM -0800, Greg KH wrote:
-> On Sat, Jan 19, 2013 at 02:02:15AM -0700, Jon Mason wrote:
-> > Atomic readq and writeq do not exist by default on some 32bit
-> > architectures, thus causing compile errors due to non-existent symbols.
-> > In those cases, use the definitions of those symbols from
-> > include/asm-generic/io-64-nonatomic-hi-lo.h
-> > 
-> > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > ---
-> >  drivers/ntb/ntb_hw.c |    1 +
-> >  1 file changed, 1 insertion(+)
-> > 
-> > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> > index 4c71b17..0b46fef 100644
-> > --- a/drivers/ntb/ntb_hw.c
-> > +++ b/drivers/ntb/ntb_hw.c
-> > @@ -45,6 +45,7 @@
-> >   * Contact Information:
-> >   * Jon Mason <jon.mason@intel.com>
-> >   */
-> > +#include <asm-generic/io-64-nonatomic-hi-lo.h>
+Hi Sascha,
+
+On Mon, Jan 21, 2013 at 09:37:54AM +0100, Sascha Hauer wrote:
+> For devicetree parsing only the fec_get_phy_mode_dt() is
+> available. Rename it to fec_probe_dt() to be able to add more devicetree
+> parsing to it.
 > 
-> Really?  This seems really odd.  Usually we just don't build the code
-> for any platform that doesn't have readq/writeq.  Otherwise, shouldn't
-> those arches just include this file themselves to keep everything
-> working?  Individual drivers shouldn't have to do this.
+> Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> ---
 
-There is no readq/writeq for 32bit x86.  I was using this header file
-to get around that.  I freely admit that I have done 0 testing on
-32bit, but it should work.  If you prefer I modify the Kconfig to only
-enable this for x86_64 until such time as I test on x86_32, I will
-happily submit that patch.
+[...]
 
-Thanks,
-Jon
+> -static int fec_get_phy_mode_dt(struct platform_device *pdev)
+> +static int fec_probe_dt(struct fec_enet_private *fep)
+>  {
+> -	struct device_node *np = pdev->dev.of_node;
+> +	struct device_node *np = fep->pdev->dev.of_node;
+>  
+> -	if (np)
+> -		return of_get_phy_mode(np);
+> +	if (!np)
+> +		return -ENODEV;
+> +
+> +	fep->phy_interface = of_get_phy_mode(np);
+>  
+>  	return -ENODEV;
 
-> 
-> So, I'm not going to take this one just yet, sorry.
-> 
-> greg k-h
+Maybe return fep->phy_interface?
+
+baruch
+
+-- 
+     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
