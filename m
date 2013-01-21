@@ -1,53 +1,62 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 15/21] NTB: Update Version
-Date: Mon, 21 Jan 2013 10:26:04 -0800
-Message-ID: <20130121182604.GE5499@kroah.com>
-References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
- <1358586155-23322-16-git-send-email-jon.mason@intel.com>
- <20130120234714.GA21708@kroah.com>
- <20130121175740.GF22208@jonmason-lab>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 1/2] net: fec: refactor dt probing
+Date: Mon, 21 Jan 2013 19:27:00 +0100
+Message-ID: <20130121182700.GD1906@pengutronix.de>
+References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
+ <1358757475-21035-2-git-send-email-s.hauer@pengutronix.de>
+ <20130121174824.GA27956@sapphire.tkos.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Jiang <dave.jiang@intel.com>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: Jon Mason <jon.mason@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, shawn.guo@linaro.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:59786 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635Ab3AUS1D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 13:27:03 -0500
 Content-Disposition: inline
-In-Reply-To: <20130121175740.GF22208@jonmason-lab>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130121174824.GA27956@sapphire.tkos.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2013 at 10:57:41AM -0700, Jon Mason wrote:
-> On Sun, Jan 20, 2013 at 03:47:14PM -0800, Greg KH wrote:
-> > On Sat, Jan 19, 2013 at 02:02:29AM -0700, Jon Mason wrote:
-> > > Update NTB version to 0.25
-> > > 
-> > > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > > ---
-> > >  drivers/ntb/ntb_hw.c |    2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > > 
-> > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> > > index b792ccd..df86882 100644
-> > > --- a/drivers/ntb/ntb_hw.c
-> > > +++ b/drivers/ntb/ntb_hw.c
-> > > @@ -56,7 +56,7 @@
-> > >  #include "ntb_regs.h"
-> > >  
-> > >  #define NTB_NAME	"Intel(R) PCI-E Non-Transparent Bridge Driver"
-> > > -#define NTB_VER		"0.24"
-> > > +#define NTB_VER		"0.25"
-> > 
-> > I'm not objecting to this, but in the end, does it really matter?  Why
-> > not just stick with whatever kernel version you are using?  Keeping this
-> > up to date is going to be hard over the long haul, right?
+On Mon, Jan 21, 2013 at 07:48:26PM +0200, Baruch Siach wrote:
+> Hi Sascha,
 > 
-> Currently, it is a convenient way to verify the people testing the
-> code are running the latest version, since they are usually running
-> their tests on a stable kernel.  As the code becomes more stable, I
-> can see this becoming unnecessary and I will remove it then.
+> On Mon, Jan 21, 2013 at 09:37:54AM +0100, Sascha Hauer wrote:
+> > For devicetree parsing only the fec_get_phy_mode_dt() is
+> > available. Rename it to fec_probe_dt() to be able to add more devicetree
+> > parsing to it.
+> > 
+> > Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
+> > ---
+> 
+> [...]
+> 
+> > -static int fec_get_phy_mode_dt(struct platform_device *pdev)
+> > +static int fec_probe_dt(struct fec_enet_private *fep)
+> >  {
+> > -	struct device_node *np = pdev->dev.of_node;
+> > +	struct device_node *np = fep->pdev->dev.of_node;
+> >  
+> > -	if (np)
+> > -		return of_get_phy_mode(np);
+> > +	if (!np)
+> > +		return -ENODEV;
+> > +
+> > +	fep->phy_interface = of_get_phy_mode(np);
+> >  
+> >  	return -ENODEV;
+> 
+> Maybe return fep->phy_interface?
 
-Ok, that sounds good, thanks.
+No, but indeed this should return successfully. I will rework this after
+it's clear how we want to proceed with this.
 
-greg k-h
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
