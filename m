@@ -1,49 +1,64 @@
-From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
-Date: Mon, 21 Jan 2013 15:55:05 +0100
-Message-ID: <2214944.HMNV73jJm5@linux-5eaq.site>
-References: <1358519147-10073-1-git-send-email-bjorn@mork.no> <87r4ley6g9.fsf@nemi.mork.no> <87mww2y4ni.fsf@nemi.mork.no>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: r8169 doing more work than napi weight
+Date: Mon, 21 Jan 2013 17:12:41 +0200
+Message-ID: <20130121171241.2af52e12@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87mww2y4ni.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:39986 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753811Ab3AUPMe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 10:12:34 -0500
+Received: by mail-lb0-f182.google.com with SMTP id gg6so3790013lbb.41
+        for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 07:12:33 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday 21 January 2013 15:47:13 Bj=F8rn Mork wrote:
-> But I wonder if this isn't really a generic problem in usbnet.  The
-> FLAG_MULTI_PACKET test here seems completely bogus:
->=20
->         if (length % dev->maxpacket =3D=3D 0) {
->                 if (!(info->flags & FLAG_SEND_ZLP)) {
->                         if (!(info->flags & FLAG_MULTI_PACKET)) {
->                                 urb->transfer_buffer_length++;
->                                 if (skb_tailroom(skb)) {
->                                         skb->data[skb->len] =3D 0;
->                                         __skb_put(skb, 1);
->                                 }
->                         }
->                 } else
->                         urb->transfer_flags |=3D URB_ZERO_PACKET;
->         }
->=20
-> Either the FLAG_MULTI_PACKET minidriver will have already padded the
-> buffer so that we do not hit (length % dev->maxpacket =3D=3D 0), or w=
-e
-> should choose one of the alternatives: ZLP or padding.
+Hi,
 
-But we cannot simply call __skb_put for a complicated data frame.
-Besides you may want the current behavior.
+I'm getting:
 
-	Regards
-		Oliver
+WARNING: at linux-grsec/src/linux-3.4/net/core/dev.c:3875 net_rx_action+0xab/0x153()
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+on one of my r8169 boxes.
+
+This would be the:
+	WARN_ON_ONCE(work > weight); 
+
+Now the only way this seems to be possible to happen is that the AMD
+workaround triggers:
+        if ((desc->opts2 & cpu_to_le32(0xfffe000)) &&
+            (tp->mac_version == RTL_GIGA_MAC_VER_05)) {
+                 desc->opts2 = 0;
+                 cur_rx++;
+        }
+
+And yes, the hardware where the WARN_ON_ONCE triggers is indeed
+RTL_GIGA_MAC_VER_05.
+
+This would cause cur_rx to be incremented twice in the loop, but
+rx_left not decremented accordingly.
+
+As the work done is counted finally based on cur_rx, we might end up
+returning more work done than what was our quota.
+
+This has also the unwanted consequence of messing NAPI state as if more
+work than quota was done then polling is stopped as the work == weight
+does not trigger and the polling is not rescheduled.
+
+Git log says that this workaround was copied from Realtek's r8168
+driver, but I don't see anything like this there anymore.
+
+I'm wondering if we should just delete the
+	cur_rx++;
+Or add:
+	rx_left--;
+
+Or just delete the whole block as obsolete. 'git log' says the problem
+should have gone away by always using hardware Rx VLAN. See commit
+05af214 "r8169: fix Ethernet Hangup for RTL8110SC rev d".
+
+Thanks,
+ Timo
