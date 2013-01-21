@@ -1,67 +1,55 @@
-From: Thierry Reding <thierry.reding@avionic-design.de>
-Subject: Re: [PATCH] net: ethernet: davinci: Fix build breakage
-Date: Mon, 21 Jan 2013 19:36:30 +0100
-Message-ID: <20130121183630.GA11797@avionic-0098.adnet.avionic-design.de>
-References: <1358761119-25846-1-git-send-email-thierry.reding@avionic-design.de>
- <20130121.131314.1276887267486833907.davem@davemloft.net>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: ipv6: Do not depend on rt->n in rt6_probe().
+Date: Tue, 22 Jan 2013 03:41:10 +0900
+Message-ID: <50FD8BC6.1030509@linux-ipv6.org>
+References: <20130121182858.GA8808@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="OgqxwSJOaUobr8KG"
-Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130121.131314.1276887267486833907.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kbuild@01.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50500 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751134Ab3AUSlM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 13:41:12 -0500
+In-Reply-To: <20130121182858.GA8808@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---OgqxwSJOaUobr8KG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, Jan 21, 2013 at 01:13:14PM -0500, David Miller wrote:
-> From: Thierry Reding <thierry.reding@avionic-design.de>
-> Date: Mon, 21 Jan 2013 10:38:39 +0100
+(2013=E5=B9=B401=E6=9C=8822=E6=97=A5 03:28), Dan Carpenter wrote:
+> Hello YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E,
 >=20
-> > The correct name of the transmit DMA channel field in struct emac_priv
-> > is txchan, not txch.
-> >=20
-> > Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
+> This is a semi-automatic email about new static checker warnings.
 >=20
-> Nothing is more irritating than someone not saying what tree their
-> patch is targetted for.  My time is not well used by playing a
-> guessing game about where a patch is supposed to go.
+> The patch 2152caea7196: "ipv6: Do not depend on rt->n in=20
+> rt6_probe()." from Jan 17, 2013, leads to the following Smatch=20
+> complaint:
 >=20
-> After some futzing around I was able to determine that this patch
-> is needed for net-next only, but please make a specific mention of
-> this next time.
+> net/ipv6/route.c:495 rt6_probe()
+> 	 error: we previously assumed 'neigh' could be null (see line 490)
+>=20
+> net/ipv6/route.c
+>    489=09
+>    490		if (!neigh ||
+>                      ^^^^^
+> New test.
+>=20
+>    491		    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.r=
+tr_probe_interval)) {
+>    492			struct in6_addr mcaddr;
+>    493			struct in6_addr *target;
+>    494=09
+>    495			neigh->updated =3D jiffies;
+>                         ^^^^^^^^^^^^^^
+> Old dereference.
+>=20
+>    496=09
+>    497			if (neigh)
+>                             ^^^^^
+> Another new test.
 
-I'm sorry about that. I'll make a mental note to think of it next time.
+Oh, right, I'll fix.  Thanks!
 
-Thierry
-
---OgqxwSJOaUobr8KG
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBAgAGBQJQ/YquAAoJEN0jrNd/PrOhpNMP/2odA5O25xGez/HQpH780/gX
-KLdT69uLVHocGaZNqYU8bdcVfNGXGHltp6V6uY1N5ZRCIB007LphnuM7ziwh11ay
-zzQi+ZiZyRY6dlkha08D8gCWj9wdcA1KHuUm4zggxeasWL7ftOrh+3uvF+WW8JkB
-NlzINk/VqqLcq1ZOlHTeKr7rn8kP4w8pGwqkWMA0W7G/SK0UMtnBSElTNr3JnKul
-z1Oik8fipfCX3fRK79IxT0ZyV+7n5xOq9cXp+4/Ub6fKC7oWFs5i7TMqKWLXqDpA
-QcevTFHfXqsLA2cLFUnOv2syk1XvFzRZiqtUMLWqCyTiWbFJM6SM6K2V2KZgZgWR
-4cOghRcM42TvQew8Rnofixj2KsXJ8JqXhXr5+Y3jg2xM3Mubbs7VxF4NqccBpPwd
-afBZI3BXWFrSLn3low7jRz3Cm9aTn8qKdHEbR8nOKAaAvr5ZOfiGC/38vdIodD3M
-FklVAH1FijFxHI8IBMrdbd64RKYLpJzpEO+vw0r38Y+1vvPG15ZpPMwW3atc2QjR
-+a+SH2lLHmS9IUoL56s2wl5UCOH518bBSFshoQbzVMfGPHxCgMHlB84of0hKm6zZ
-6j4WvnGwRxOBTuSQDhSSkdS3GuAjVtXs6WNECNaLElvLdRNkNNDUK7ehkcyRoB5j
-Bl/KLTydYynuFrJGB8xP
-=GbMN
------END PGP SIGNATURE-----
-
---OgqxwSJOaUobr8KG--
+--yoshfuji
