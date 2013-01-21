@@ -1,47 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] State resolution packet queue for IPsec
-Date: Mon, 21 Jan 2013 16:17:16 -0500 (EST)
-Message-ID: <20130121.161716.752461350033731834.davem@davemloft.net>
-References: <20130121094847.GC30530@secunet.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 14/21] NTB: Fix Sparse Warnings
+Date: Mon, 21 Jan 2013 13:37:19 -0800
+Message-ID: <20130121213719.GA20506@kroah.com>
+References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
+ <1358586155-23322-15-git-send-email-jon.mason@intel.com>
+ <20130120234534.GD14196@kroah.com>
+ <20130121211350.GH22208@jonmason-lab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43018 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751655Ab3AUVRT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 16:17:19 -0500
-In-Reply-To: <20130121094847.GC30530@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: Jon Mason <jon.mason@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130121211350.GH22208@jonmason-lab>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 21 Jan 2013 10:48:48 +0100
-
-> I did a implementation of a state resolution packet queue for IPsec.
-> The original idea is described in git commit 14e50e57a
-> ([XFRM]: Allow packet drops during larval state resolution.)
+On Mon, Jan 21, 2013 at 02:13:50PM -0700, Jon Mason wrote:
+> On Sun, Jan 20, 2013 at 03:45:34PM -0800, Greg KH wrote:
+> > On Sat, Jan 19, 2013 at 02:02:28AM -0700, Jon Mason wrote:
+> > > Address the sparse warnings and resulting fallout
+> > > 
+> > > Signed-off-by: Jon Mason <jon.mason@intel.com>
+> > > ---
+> > >  drivers/ntb/ntb_hw.c        |    7 ++++---
+> > >  drivers/ntb/ntb_hw.h        |    4 ++--
+> > >  drivers/ntb/ntb_transport.c |   32 ++++++++++++++++----------------
+> > >  3 files changed, 22 insertions(+), 21 deletions(-)
+> > > 
+> > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+> > > index 18cb5dc..b792ccd 100644
+> > > --- a/drivers/ntb/ntb_hw.c
+> > > +++ b/drivers/ntb/ntb_hw.c
+> > > @@ -104,8 +104,9 @@ MODULE_DEVICE_TABLE(pci, ntb_pci_tbl);
+> > >   *
+> > >   * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+> > >   */
+> > > -int ntb_register_event_callback(struct ntb_device *ndev,
+> > > -				void (*func)(void *handle, unsigned int event))
+> > > +int
+> > > +ntb_register_event_callback(struct ntb_device *ndev,
+> > > +			    void (*func)(void *handle, enum ntb_hw_event event))
+> > 
+> > What is sparse complaining about here that moving the function name to
+> > the start of the line fixes?  That shouldn't be necessary at all.  Ah,
+> > the enum?  If so, why change the first line at all?
 > 
-> Since we don't have any notifiers for xfrm state resolution, I used
-> a timer that does a relookup in given intervals. This is mainly to speed
-> up the start of tcp connections, so I tried to do the relookup in a higher
-> rate that tcp would resend the syn packet. However, the relookup intervals,
-> the queue size and the timeout value are choosen by gut instincts, so
-> could be suboptimal. If anyone has some insight on good choices of these
-> values, please let me know. All other comment are welcome too, of course.
+> All an effort to get it to fit in under 80 chars.
 
-This is probably the best way to solve this problem without adding
-xfrm_state resolution notifications.
+The original lines were less than 80 characters :)
 
-But really why would notifications be so bad even if they would not
-be fine grained?
+> > > --- a/drivers/ntb/ntb_transport.c
+> > > +++ b/drivers/ntb/ntb_transport.c
+> > > @@ -58,7 +58,7 @@
+> > >  #include <linux/ntb.h>
+> > >  #include "ntb_hw.h"
+> > >  
+> > > -#define NTB_TRANSPORT_VERSION	1
+> > > +#define NTB_TRANSPORT_VERSION	2
+> > 
+> > How is this a sparse fix?
+> 
+> I changed the format of the header below.
 
-Any time a state is resolved, any state, you run what you have put
-currently into this new timer function.
+Ah, ok.
 
-Most of the time, defer list is empty, so no work is done.  Otherwise
-quick notification is essential and worth running the list.
+Care to resend this without the first chunk?
 
-Then there are no time based heuristics to come up with at all.
+thanks,
+
+greg k-h
