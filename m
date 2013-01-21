@@ -1,61 +1,40 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 4/15] drivers/net/ethernet/sfc/ptp.c: adjust duplicate test
-Date: Mon, 21 Jan 2013 14:02:48 +0100
-Message-ID: <1358773378-4700-5-git-send-email-Julia.Lawall@lip6.fr>
-References: <1358773378-4700-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358773378-4700-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH 3/3] xfrm4: Invalidate all ipv4 routes on IPsec pmtu
+ events
+Date: Mon, 21 Jan 2013 13:04:12 +0100
+Message-ID: <20130121120412.GB9147@secunet.com>
+References: <50F3C153.9030204@oktetlabs.ru>
+ <20130118081145.GB24987@secunet.com>
+ <20130118081601.GE24987@secunet.com>
+ <20130118.143923.1384219845592340856.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Yurij.Plotnikov@oktetlabs.ru, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, Alexandra.Kossovsky@oktetlabs.ru
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:47420 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753721Ab3AUMEP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 07:04:15 -0500
+Content-Disposition: inline
+In-Reply-To: <20130118.143923.1384219845592340856.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Fri, Jan 18, 2013 at 02:39:23PM -0500, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Fri, 18 Jan 2013 09:16:01 +0100
+> 
+> > On IPsec pmtu events we can't access the transport headers of
+> > the original packet, so we can't find the socket that sent
+> > the packet. The only chance to notify the socket about the
+> > pmtu change is to force a relookup for all routes. This
+> > patch implenents this for the IPsec protocols.
+> > 
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> 
+> Expensive, but I really can't come up with a better idea.
 
-Delete successive tests to the same location.  rc was previously tested and
-not subsequently updated.  efx_phc_adjtime can return an error code, so the
-call is updated so that is tested instead.
-
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@s exists@
-local idexpression y;
-expression x,e;
-@@
-
-*if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
- { ... when forall
-   return ...; }
-... when != \(y = e\|y += e\|y -= e\|y |= e\|y &= e\|y++\|y--\|&y\)
-    when != \(XT_GETPAGE(...,y)\|WMI_CMD_BUF(...)\)
-*if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
- { ... when forall
-   return ...; }
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
-Not tested.  I'm not familiar with this function, so I don't know whether it
-is desirable to test its result.
-
- drivers/net/ethernet/sfc/ptp.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-index 0767043..3f93624 100644
---- a/drivers/net/ethernet/sfc/ptp.c
-+++ b/drivers/net/ethernet/sfc/ptp.c
-@@ -1439,7 +1439,7 @@ static int efx_phc_settime(struct ptp_clock_info *ptp,
- 
- 	delta = timespec_sub(*e_ts, time_now);
- 
--	efx_phc_adjtime(ptp, timespec_to_ns(&delta));
-+	rc = efx_phc_adjtime(ptp, timespec_to_ns(&delta));
- 	if (rc != 0)
- 		return rc;
- 
+I've just applied this to the ipsec tree.
+I'll send a pull request tomorrow.
