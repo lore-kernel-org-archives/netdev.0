@@ -1,140 +1,54 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 1/2] ipv4: Invalidate the socket cached route on pmtu
- events if possible
-Date: Mon, 21 Jan 2013 23:18:27 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1301212245170.1886@ja.ssi.bg>
-References: <20130121115911.GE30530@secunet.com>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
+ specific ndisc information
+Date: Mon, 21 Jan 2013 22:16:41 +0100
+Message-ID: <50FDB039.2070604@gmail.com>
+References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org> <50FC6068.3020302@gmail.com> <50FCA825.7070609@linux-ipv6.org> <50FCDF5D.3060300@gmail.com> <20130121083957.6e2c5a68@stein> <50FD962B.8020500@gmail.com> <50FD9DB7.60802@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	"Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	netdev <netdev@vger.kernel.org>,
+	linux1394-devel@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:46021 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756809Ab3AUVPF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2013 16:15:05 -0500
-In-Reply-To: <20130121115911.GE30530@secunet.com>
+Received: from mail-bk0-f47.google.com ([209.85.214.47]:36439 "EHLO
+	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750713Ab3AUVQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 16:16:45 -0500
+Received: by mail-bk0-f47.google.com with SMTP id jc3so92238bkc.34
+        for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 13:16:44 -0800 (PST)
+In-Reply-To: <50FD9DB7.60802@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+>> Full ack. And that's the reason why I feel very uncomfortable with a Yoshifujis hardware address extensions by fifo_addr, spd, and max_rec.
+>>
+>> This seems possible with a single netdevice for IPv4/6 only if we _always_ use the same fifo address for both IPv4 and IPv6. Do we all agree on that?
+>
+> I do not understand what "that" and "this" mean here.
+> Do you want to have different FIFO on single net_device? If yes, for what?
+>
 
-On Mon, 21 Jan 2013, Steffen Klassert wrote:
+Oh, I'm sorry for being mixed-up. I meant that your proposal for 
+enhancing the hardware address seems to be a feasible solution, if we 
+_never_ want to have distinct fifo addresses for IPv4 and IPv6. This 
+will be just impossible with a single netdevice.
 
-> The route lookup in ipv4_sk_update_pmtu() might return a route
-> different from the route we cached at the socket. This is because
-> standart routes are per cpu, so each cpu has it's own struct rtable.
-> This means that we do not invalidate the socket cached route if the
-> NET_RX_SOFTIRQ is not served by the same cpu that the sending socket
-> uses. As a result, the cached route reused until we disconnect.
-> 
-> With this patch we invalidate the socket cached route if possible.
-> If the socket is owened by the user, we can't update the cached
-> route directly. A followup patch will implement socket release
-> callback functions for datagram sockets to handle this case.
-> 
-> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> ---
->  net/ipv4/route.c |   42 +++++++++++++++++++++++++++++++++++++++++-
->  1 file changed, 41 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 259cbee..132737a 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -965,7 +965,7 @@ void ipv4_update_pmtu(struct sk_buff *skb, struct net *net, u32 mtu,
->  }
->  EXPORT_SYMBOL_GPL(ipv4_update_pmtu);
->  
-> -void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
-> +static void __ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
->  {
->  	const struct iphdr *iph = (const struct iphdr *) skb->data;
->  	struct flowi4 fl4;
-> @@ -978,6 +978,46 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
->  		ip_rt_put(rt);
->  	}
->  }
-> +
-> +void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
-> +{
-> +	const struct iphdr *iph = (const struct iphdr *) skb->data;
-> +	struct flowi4 fl4;
-> +	struct rtable *rt;
-> +	struct dst_entry *dst;
-> +
-> +	bh_lock_sock(sk);
-> +	rt = (struct rtable *) __sk_dst_get(sk);
+But I have to admit that I have no good use case for different fifo 
+addresses...
 
-	I just saw another problem, sorry that
-I missed it the first time. Here __sk_dst_get
-does not get reference...
+So overall, your proposal seems to be a possible solution. Nevertheless, 
+I can't help that I find it a bit awkward to have speed, max_rec and 
+fifo address in the hardware address of the network device. For me, 
+that's just the GUID.
 
-> +
-> +	if (sock_owned_by_user(sk) || !rt) {
-> +		__ipv4_sk_update_pmtu(skb, sk, mtu);
-> +		goto out;
-> +	}
-> +
-> +	__build_flow_key(&fl4, sk, iph, 0, 0, 0, 0, 0);
-> +
-> +	if (!__sk_dst_check(sk, 0)) {
-> +		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
-> +		if (IS_ERR(rt))
-> +			goto out;
+I want to have an ack from Stefan Richter before I'm going to implement 
+your solution.
 
-		but here rt->dst comes with reference.
+Regards,
 
-> +	}
-
-	May be here we can use 'else dst_hold(&rt->dst);' ?
-It is needed for __sk_dst_set.
-
-> +
-> +	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
-> +
-> +	dst = dst_check(&rt->dst, 0);
-> +	if (!dst) {
-
-		dst_release(&rt->dst);
-
-> +		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
-> +		if (IS_ERR(rt))
-> +			goto out;
-> +
-> +		dst = &rt->dst;
-
-		Remove above line...
-
-> +	}
-> +
-
-	and use here __sk_dst_set(sk, &rt->dst) instead:
-
-> +	 __sk_dst_set(sk, dst);
-
-	Another variant is to remember with flag 'new_rt'
-that we should call __sk_dst_set, eg. when rt comes from
-ip_route_output_flow. By this way we can avoid some of
-the dst_hold/dst_release calls if sk_dst_cache is not
-changed. IIRC, according to sk_dst_check, dst_check can
-not return different dst from the ->check method.
-
-> +
-> +out:
-> +	bh_unlock_sock(sk);
-> +}
->  EXPORT_SYMBOL_GPL(ipv4_sk_update_pmtu);
->  
->  void ipv4_redirect(struct sk_buff *skb, struct net *net,
-> -- 
-> 1.7.9.5
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Stephan
