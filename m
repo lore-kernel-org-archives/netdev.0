@@ -1,55 +1,72 @@
-From: "Cedric VONCKEN" <cedric.voncken@acksys.fr>
-Subject: [patch]  Gianfar : Enable promiscous mode after queue time out
-Date: Mon, 21 Jan 2013 17:24:43 +0100
-Message-ID: <773DB8A82AB6A046AE0195C68612A319014B7309@sbs2003.acksys.local>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: [PATCH] Add support for netconsole driver used on bridge device with
+ VIF attached
+Date: Mon, 21 Jan 2013 09:17:49 -0800 (PST)
+Message-ID: <5757e54b-902b-4338-8ac9-43857cd1906c@default>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8BIT
-To: "Claudiu Manoil" <claudiu.manoil@freescale.com>,
-	<netdev@vger.kernel.org>
+To: <xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
+	<ian.campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out04.msg.oleane.net ([62.161.7.2]:40403 "EHLO
-	smtp-out04.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752052Ab3AURL2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 12:11:28 -0500
-Received: from smtp01.msg.oleane.net (smtp01.mail.priv [172.17.20.110])
-	by smtp-out04.msg.oleane.net with ESMTP id r0LGjcwU001812
-	for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 17:45:38 +0100
-Content-class: urn:content-classes:message
+Received: from aserp1040.oracle.com ([141.146.126.69]:18587 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754726Ab3AURRy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 12:17:54 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hi all, 
+When starting a VM which has virtual interface attached to the same bridge (i.e vif = [type=netfront,bridge=xenbr0'] in vm.cfg) which is used for netconsole the
+following message appears (after about 60 seconds) and VM creation operation fails.
+     Error: Device 0 (vif) could not be connected. Hotplug scripts not working.
 
-	When the Netdev tx queue timeout occurred, the function
-gfar_timeout(..) is called. This function calls indirectly the
-gfar_init_mac(..) function.
+Note:
+When trying to do the opposite, i.e. first create VM and then run
+netconsole we got the error #524 - vif2.0 doesn't support polling,
+aborting.
 
- 	In this function, the rctrl register is set to a default value.
+As i see it, netconsole driver requires ndo_poll_controller from the device's controlling driver (function __netpoll_setup in net/core/netpoll.c), a thing that is not supported currently in xen_netback driver which is the driver that runs on dom0 and serve VM's virtual interface.
 
- 	If the Promiscuous is enable on the net dev ( flag IFF_PROMISC
-is  set), the gfar_init_function does not reactivate it.
+The following patch (to latest kernel) fix this bug by adding implementation to ndo_poll_controller.
 
- 	The Promiscuous mode is used for example when the netdev is
-bridged.
- 	
- 	I apply this patch on the kernel 3.8-rc4 to fix it.
+0001-Add-support-for-netconsole-driver-used-on-bridge-dev.patch
+0 2001
+From: Yuval <yuval.shaia@oracle.com>
+Date: Tue, 8 Jan 2013 10:08:45 +0200
+Subject: [PATCH] Add support for netconsole driver used on bridge device with
+ VIF attached
 
-	Signed-off-by : Voncken C Acksys <cedric.voncken@acksys.fr>
+Signed-off-by: Yuval <yuval.shaia@oracle.com>
+---
+ drivers/net/xen-netback/interface.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -349,6 +349,11 @@ static void gfar_init_mac(struct net_dev
- 	/* Configure the coalescing support */
- 	gfar_configure_coalescing(priv, 0xFF, 0xFF);
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 601ae2a..10751f5 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -179,6 +179,13 @@ static u32 xenvif_fix_features(struct net_device *dev, u32 features)
+ 	return features;
+ }
  
-+	if (ndev->flags & IFF_PROMISC) {
-+		/* Set RCTRL to PROM */
-+		rctrl |= RCTRL_PROM;
-+	}
++static void xenvif_poll_controller(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	xenvif_interrupt(dev->irq, dev);
++	enable_irq(dev->irq);
++}
 +
- 	if (priv->rx_filer_enable) {
- 		rctrl |= RCTRL_FILREN;
- 		/* Program the RIR0 reg with the required distribution
-*/
+ static const struct xenvif_stat {
+ 	char name[ETH_GSTRING_LEN];
+ 	u16 offset;
+@@ -237,6 +244,7 @@ static const struct net_device_ops xenvif_netdev_ops = {
+ 	.ndo_stop	= xenvif_close,
+ 	.ndo_change_mtu	= xenvif_change_mtu,
+ 	.ndo_fix_features = xenvif_fix_features,
++	.ndo_poll_controller = xenvif_poll_controller,
+ };
+ 
+ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+-- 
+1.7.9.5
