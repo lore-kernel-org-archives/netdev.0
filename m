@@ -1,38 +1,92 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: IPsec AH use of ahash
-Date: Mon, 21 Jan 2013 04:18:01 -0500
-Message-ID: <1358759881.2595.15.camel@obelisk.thedillows.org>
-References: <861997288.94032.1358728848956.JavaMail.root@elliptictech.com>
+From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [BUG] Bug in netprio_cgroup and netcls_cgroup ?
+Date: Mon, 21 Jan 2013 01:21:23 -0800
+Message-ID: <50FD0893.1050805@gmail.com>
+References: <50FCDB5C.4050608@huawei.com> <50FD0144.1000401@monom.org> <50FD0402.6060400@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
-To: Tom St Denis <tstdenis@elliptictech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <861997288.94032.1358728848956.JavaMail.root@elliptictech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50FD0402.6060400-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-01-20 at 19:40 -0500, Tom St Denis wrote:
-> The problem is for me to add the ()'s is a no brainer.
+On 01/21/2013 01:01 AM, Li Zefan wrote:
+> On 2013/1/21 16:50, Daniel Wagner wrote:
+>> Hi Li,
+>>
+>> On 21.01.2013 07:08, Li Zefan wrote:
+>>> I'm not a network developer, so correct me if I'm wrong.
+>>>
+>>> Since commit 7955490f732c2b8
+>>> ("net: netprio_cgroup: rework update socket logic"), sock->sk->sk_cgrp_prioidx
+>>> is set when the socket is created, and won't be updated unless the task is
+>>> moved to another cgroup.
+>>>
+>>> Now the problem is, a socket can be _shared_ by multiple processes (fork, SCM_RIGHT).
+>>> If we place those processes in different cgroups, and each cgroup has
+>>> different configs, but all of the processes will send data via this socket
+>>> with the same network priority.
+>>
+>> Wouldn't that be addressed by 48a87cc26c13b68f6cce4e9d769fcb17a6b3e4b8
+>>
+>>     net: netprio: fd passed in SCM_RIGHTS datagram not set correctly
+>>
+>>      A socket fd passed in a SCM_RIGHTS datagram was not getting
+>>      updated with the new tasks cgrp prioidx. This leaves IO on
+>>      the socket tagged with the old tasks priority.
+>>
+>>      To fix this add a check in the scm recvmsg path to update the
+>>      sock cgrp prioidx with the new tasks value.
+>>
+>> As I read this this should work for net_prio.
+>>
+> 
+> But after process A passed the socket fd to B, both A and B can use the
+> same socket to send data, right? Then if A and B were placed in different
+> cgroups with differnt configs, A's config won't take effect anymore.
+> 
+> Am I missing something?
+> 
+> 
 
-It was more than just the ()'s. You completely botched the indentation
-in the parts of code you didn't copy from xcbc.c, among other issues.
+Hi Zefan,
 
-> For me to re-write complete statements for coding style reasons means
-> I have to actually go out and test it again.
+Neil and I discusses this here, http://patchwork.ozlabs.org/patch/172343/
+look towards the bottom of the thread. Quoted here.
 
-Well, for some of the code you submitted, that would be the first
-testing it got, even compile testing AFAICT. I don't doubt that you
-tested against your hardware, but it is obvious that you didn't run the
-algorithm tests you added, or even tried to compile them. You were
-missing a semicolon after your test data, and you were also missing a
-"\x" in there, so your test data was wrong.
+>> I like the idea, but IIRC last time we tried this I think it caused problems
+>> with processes that shared sockets.  That is to say, if you have a parent and
+>> child process that dup an socket descriptior, and put them in separate cgroups,
+>> you get unpredictable results, as the socket gets assigned a priority based on
+>> the last processed that moved cgroups.
+>>
+>> Neil
+>>
+> 
+> Shared sockets creates strange behavior as it exists today. If a dup
+> of the socket fd is created the private data is still shared right. So
+> in this case the sk_cgrp_prioidx value is going to get updated by both
+> threads and then it is a race to see what it happens to be set to in
+> the xmit path.
+> 
+> With this patch at least the behavior is deterministic. Without it
+> I can create the above scenario but have no way to determine what the
+> skb priority will actually be set to.
+> 
 
-I know this, because I just spent the five minutes required to fix up
-the checkpatch warnings to prove to myself that you could have done it
-faster than sending one considered message to the list about how much we
-suck. Of course, that assumes you are trying to have a discussion
-instead of trolling; it's much easier to spew bile than to think before
-you post.
+Its unfortunate but I'm not sure how to fix it off hand with the shared
+value
+in the socket.
+
+.John
+
+-- 
+John Fastabend         Intel Corporation
