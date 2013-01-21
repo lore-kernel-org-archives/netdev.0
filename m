@@ -1,62 +1,83 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill
- device specific ndisc information
-Date: Mon, 21 Jan 2013 09:28:06 +0100
-Message-ID: <20130121092806.3c741bd2@stein>
-References: <50FC2EE4.3080705@gmail.com>
-	<20130120212233.GA6776@ppwaskie-mobl2.amr.corp.intel.com>
-	<50FCDD89.3020403@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
+Date: Mon, 21 Jan 2013 09:31:32 +0100
+Message-ID: <87sj5vszrv.fsf@nemi.mork.no>
+References: <1358519147-10073-1-git-send-email-bjorn@mork.no>
+	<22276933.xSGyXJfOvq@linux-5eaq.site> <871udiur74.fsf@nemi.mork.no>
+	<CAL_Kpj1B=_+eN3Y0n3d9_r4JoeHD2LQFSU+b+taCZL0G4icu6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: stephan.gatzka@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:48359 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751509Ab3AUI22 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 03:28:28 -0500
-In-Reply-To: <50FCDD89.3020403@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAL_Kpj1B=_+eN3Y0n3d9_r4JoeHD2LQFSU+b+taCZL0G4icu6A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Alexey Orishko's message of "Sun, 20 Jan 2013 01:21:20 +0100")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Jan 21 Stephan Gatzka wrote:
-> On Jan 20 Waskiewicz Jr, Peter P wrote:
-> > I'm no expert on firewire requirements, but if you go down the path
-> > of adding a net_device_ops member, I'd recommend adding a pointer
-> > to your own struct of ops.  This would be similar to wireless ops.
-> >
-> > Only a suggestion, since you may still need to add more ops later
-> > on, and this way you can contain the inflation to a firewire-specific
-> > struct of function pointers.
-> >
-> 
-> Thanks for your note. Right now I only need on function pointer for 
-> filling RFC3146 information and I can imagine doing the same for 
-> IPv4/ARP which would be a second function.
+Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+> On Fri, Jan 18, 2013 at 10:17 PM, Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org> wro=
+te:
+>
+>>>> Some Sierra Wireless firmwares support CDC MBIM but have no CDC
+>>>> Union funtional descriptor. This violates the MBIM specification,
+>
+> I don't believe Sierra Wireless violates MBIM specification.
+> See in the specification: "there are two ways to group interfaces: th=
+e
+> WHCM Union functional descriptor and IAD."
 
-There is a limited count of IEEE 1394 specifics:
+I disagree.  This is not about the WHCM Union descriptor, it's about th=
+e
+CDC Union descriptor.  WHCM is of course not mandatory.
 
-  a) RFC 2734 ARP:  currently implemented by inspecting and mangling ARP
-     packets within the firewire-net driver (inbound as well as outbound
-     packets).
+Quoting that whole section from the MBIM specification:
 
-  b) RFC 2734 MCAP (Multicast Channel Allocation Protocol):  currently not
-     implemented; not sure if needed (I see a few big downsides to using
-     per-multicast-group channels); not sure if networking core support
-     would be needed for this
+<quote>
+  6.1 OVERVIEW
+ =20
+  A USB MBIM function is implemented as a USB CDC function with two
+  interfaces.  Functions shall provide a CDC Union functional descripto=
+r
+  to group these two interfaces.  See [USBWMC11].
+ =20
+  A Communication Class interface, with class 02h and subclass 0Eh, and
+  a Data Class interface combine to form a single functional unit
+  representing the USB MBIM device.  The Communication Class interface
+  includes a single endpoint for event notification; it also uses the
+  device=E2=80=99s default pipe for control messages.  The Data Class i=
+nterface
+  includes two bulk endpoints for data traffic.
+ =20
+  There are two ways to group interfaces: the WHCM Union Functional
+  Descriptor (see [USBWMC11]) and the IAD.  Devices may also provide an
+  IAD.  If an IAD is provided, the information in the IAD for MBIM
+  functions shall be consistent with the information in the CDC Union
+  descriptor and Communication Class interface descriptor.
+</quote>
 
-  c) RFC 2855 DHCP for IEEE 1394:  currently not implemented; not sure if
-     needed; not sure if it would concern the kernel at all
 
-  d) RFC 3146 NDISC (Neighbor Discovery Protocol for IPv6):  That's the
-     only real problem in search of a solution.
+The "Functions shall provide a CDC Union functional descriptor to group
+these two interfaces." is pretty clear IMHO.  You also have table 6=E2=80=
+=902
+listing the HEADER, UNION and MBIM functional descriptors as "Required"=
+=2E
 
-I bet there won't be any additional RFCs invented for networking over
-1394, ever.
--- 
-Stefan Richter
--=====-===-= ---= =-=-=
-http://arcgraph.de/sr/
+There is absolutely not way to make this anything but a firmware bug.
+
+But I am all for working around it, of course.  There also seems to be =
+a
+couple more oddities with the MBIM mode of this device compared to the
+other I've seen, but those are more likely revealing driver bugs.  I
+intend to fix them as well.
+
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
