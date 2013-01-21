@@ -1,75 +1,84 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
-	specific ndisc information
-Date: Mon, 21 Jan 2013 21:04:14 +0900
-Message-ID: <50FD2EBE.9050608@linux-ipv6.org>
-References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org>
-	<50FC6068.3020302@gmail.com> <20130121090951.103c0680@stein>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
+Date: Mon, 21 Jan 2013 13:06:02 +0100
+Message-ID: <20130121120602.GZ1906@pengutronix.de>
+References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
+ <50FD02B8.8080401@grandegger.com>
+ <20130121100701.GX1906@pengutronix.de>
+ <50FD2172.2020608@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>, linux1394-devel@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130121090951.103c0680@stein>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	shawn.guo@linaro.org, davem@davemloft.net
+To: Wolfgang Grandegger <wg@grandegger.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58246 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753383Ab3AUMGE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 07:06:04 -0500
+Content-Disposition: inline
+In-Reply-To: <50FD2172.2020608@grandegger.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stefan Richter wrote:
-> On Jan 20 Stephan Gatzka wrote:
->> On 01/20/2013 07:47 PM, YOSHIFUJI Hideaki wrote:
->>
->>> My current position is to change "mac address" to
->>>
->>> struct fwnet_hwaddr {
->>> 	u8	guid[8];
->>> 	u8	max_rec;
->>> 	u8	sspd;
->>> 	u8	fifo[6];
->>> };
->>>
->>
->> That is something I'm not really convinced of. As Stefan Richter pointed 
->> out clearly, the fifo address might be different between IPv4 and IPv6 
->> communication.
+On Mon, Jan 21, 2013 at 12:07:30PM +0100, Wolfgang Grandegger wrote:
+> On 01/21/2013 11:07 AM, Sascha Hauer wrote:
+> > On Mon, Jan 21, 2013 at 09:56:24AM +0100, Wolfgang Grandegger wrote:
+> >> On 01/21/2013 09:37 AM, Sascha Hauer wrote:
+> >>> There may be multiple phys on an mdio bus. This series adds support
+> >>> for this to the fec driver. I recently had a board which has a switch
+> >>> connected to the fec's mdio bus, so I had to pick the correct phy.
+> >>
+> >> Pick one PHY from a switch port? Well, does a PHY-less (or fixed-link)
+> >> configuration for a switch not make more sense?
+> > 
+> > Yes, you're probably right.
+> > 
+> >> Various ARM Ethernet
+> >> contoller drivers do not support it. I recently needed a hack for an
+> >> AT91 board.
+> > 
+> > I wonder how we want to proceed. Should there be a devicetree property
+> > 'fixed-link' like done for fs_enet (and not recommended for new code,
+> > stated in the comment above of_phy_connect_fixed_link)?
 > 
-> If it is of any help, the initial implementation could assume that IPv4
-> unicast_FIFO and IPv6 unicast_FIFO are the same.  RFC 3146 is silent on
-> this topic (which means it can be one way or the other), but from an
-> implementation point of view, using one FIFO offset for both seems quite
-> natural.  Currently the only existing RFC 3146 implementation which is
-> known to us is Mac OS X, and since your tests with OS X 10.6 went well,
-> they obviously use one offset for both protocols.
+> Also the gianfar and ucc_geth drivers use this interface (via fixed
+> link phy). I tried to use it for the AT91 macb driver but stopped
+> quickly because the usage was not straight forward (too much code)...
+> even if the idea of using a fake fixed-link phy is not bad.
 > 
-> But if we actually put this assumption into the implementation now, we
-> should make sure that we can easily expand the implementation later in the
-> event that a third implementation comes across which uses separate
-> unicast_FIFOs.
+> > Currently I have a property 'phy' in the fec binding which has a phandle
+> > to a phy provided by the fec's mdio bus, but this could equally well
+> 
+> But than the cable must be connected to the associated switch port.
+> 
+> > point to a fixed dummy phy:
+> > 
+> > 	phy = &fixed-phy;
+> 
+> The link speed, full/half duplex and maybe some mroe parameter should
+> be configurable via device tree.
 
-Well, FIFO for which side?
+Well this could be done when the fixed phy driver could be registered
+with the devicetree, maybe like this:
 
-I do believe sender will not (or say, must not) care if they use
-different FIFO for both protocol or not.
+	fixed-phy: mdiophy {
+		compatible = "mdio-fixed-phy";
+		link = "100FD";
+	};
 
-Assume that peer has FIFO per protocol, one for IPv4 and another for
-IPv6.  ARP advertise FIFO for IPv4 and NDP advertise FIFO for IPv6.
-neighbour subsystem has protocol dependent tables, and two different
-NCEs (neighbour cache entries) will be created.  So, sender will
-correctly get FIFO from NCE for each protocol.
+The good thing about this would be that every ethernet driver could just
+use such a fixed phy, any external mdio phy (like on Marvell Armada) or
+just a phy connected to the internal mdio interface provided by the ethernet
+core.
+
+I probably should write a RFC to devicetree-discuss.
+
+Sascha
 
 
-------------------------------------------------------------------------------
-Master Visual Studio, SharePoint, SQL, ASP.NET, C# 2012, HTML5, CSS,
-MVC, Windows 8 Apps, JavaScript and much more. Keep your skills current
-with LearnDevNow - 3,200 step-by-step video tutorials by Microsoft
-MVPs and experts. SALE $99.99 this month only -- learn more at:
-http://p.sf.net/sfu/learnmore_122412
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
