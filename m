@@ -1,78 +1,55 @@
-From: Yauheni Kaliuta <y.kaliuta-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net 2/3] net: cdc_mbim: send ZLP after max sized NTBs
-Date: Mon, 21 Jan 2013 18:56:10 +0200
-Message-ID: <87wqv64gr9.fsf@home.kaliuta.org>
-References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
-	<1358783440-11459-3-git-send-email-bjorn@mork.no>
+From: "Cedric VONCKEN" <cedric.voncken@acksys.fr>
+Subject: [patch]  Gianfar : Enable promiscous mode after queue time out
+Date: Mon, 21 Jan 2013 17:24:43 +0100
+Message-ID: <773DB8A82AB6A046AE0195C68612A319014B7309@sbs2003.acksys.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-To: =?utf-8?Q?Bj=C3=B8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1358783440-11459-3-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
- =?utf-8?Q?=28=22Bj=C3=B8rn?= Mork"'s
-	message of "Mon, 21 Jan 2013 16:50:39 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Claudiu Manoil" <claudiu.manoil@freescale.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out04.msg.oleane.net ([62.161.7.2]:40403 "EHLO
+	smtp-out04.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752052Ab3AURL2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 12:11:28 -0500
+Received: from smtp01.msg.oleane.net (smtp01.mail.priv [172.17.20.110])
+	by smtp-out04.msg.oleane.net with ESMTP id r0LGjcwU001812
+	for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 17:45:38 +0100
+Content-class: urn:content-classes:message
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+	Hi all, 
 
-Hi, Bj=C3=B8rn!
+	When the Netdev tx queue timeout occurred, the function
+gfar_timeout(..) is called. This function calls indirectly the
+gfar_init_mac(..) function.
 
->>>>> "BM" =3D=3D Bj=C3=B8rn Mork writes:
+ 	In this function, the rctrl register is set to a default value.
 
- > We normally avoid sending ZLPs by padding NTBs with a zero byte
- > if the NTB is shorter than dwNtbOutMaxSize, resulting in a short
- > USB packet instead of a ZLP.  But in the case where the NTB length
- > is exactly dwNtbOutMaxSize and this is an exact multiplum of
- > wMaxPacketSize, then we must send a ZLP.
+ 	If the Promiscuous is enable on the net dev ( flag IFF_PROMISC
+is  set), the gfar_init_function does not reactivate it.
 
-The idea of NCM was to avoid extra ZLPs. If your transfer is exactly
-dwNtbOutMaxSize, it's known, you can submit such request on the receive=
-r
-side and you do not need any EOT indicatation, so the frametime can be
-used for useful data.
+ 	The Promiscuous mode is used for example when the netdev is
+bridged.
+ 	
+ 	I apply this patch on the kernel 3.8-rc4 to fix it.
 
-I didn't check MBIM specs, but I guess, it wasn't changed. But better g=
-et
-Alexey's answer for sure.
+	Signed-off-by : Voncken C Acksys <cedric.voncken@acksys.fr>
 
- > This fixes an issue seen on a Sierra Wireless MC7710 device
- > where the transmission would fail whenever we ended up padding
- > the NTBs to max size.
-
-Is it buggy?
-
- > Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
- > ---
- >  drivers/net/usb/cdc_mbim.c |    2 +-
- >  1 file changed, 1 insertion(+), 1 deletion(-)
-
- > diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
- > index 42f51c7..3a5673a 100644
- > --- a/drivers/net/usb/cdc_mbim.c
- > +++ b/drivers/net/usb/cdc_mbim.c
- > @@ -366,7 +366,7 @@ err:
- > =20
- >  static const struct driver_info cdc_mbim_info =3D {
- >          .description =3D "CDC MBIM",
- > -        .flags =3D FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
- > +        .flags =3D FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN |=
- FLAG_SEND_ZLP,
- >          .bind =3D cdc_mbim_bind,
- >          .unbind =3D cdc_mbim_unbind,
- >          .manage_power =3D cdc_mbim_manage_power,
- > --=20
- > 1.7.10.4
-
-
-
---=20
-WBR, Yauheni Kaliuta
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -349,6 +349,11 @@ static void gfar_init_mac(struct net_dev
+ 	/* Configure the coalescing support */
+ 	gfar_configure_coalescing(priv, 0xFF, 0xFF);
+ 
++	if (ndev->flags & IFF_PROMISC) {
++		/* Set RCTRL to PROM */
++		rctrl |= RCTRL_PROM;
++	}
++
+ 	if (priv->rx_filer_enable) {
+ 		rctrl |= RCTRL_FILREN;
+ 		/* Program the RIR0 reg with the required distribution
+*/
