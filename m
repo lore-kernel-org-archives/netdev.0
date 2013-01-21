@@ -1,56 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Sparse Warnings: net/ipv6/route.c:521:17: sparse: context
- imbalance in 'rt6_probe' - different lock contexts for basic block
-Date: Mon, 21 Jan 2013 15:48:03 -0500 (EST)
-Message-ID: <20130121.154803.1415897555788515730.davem@davemloft.net>
-References: <201301212103.18066.PeterHuewe@gmx.de>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [PATCH v3] net, wireless: overwrite default_ethtool_ops
+Date: Mon, 21 Jan 2013 12:52:43 -0800
+Message-ID: <CAB=NE6XjvupJ5XO0EN0HVwdy61ECWL=Ey0g1gsNm+v8Sen=nsQ@mail.gmail.com>
+References: <20130111091909.GA2347@redhat.com> <1357934432.2643.4.camel@bwh-desktop.uk.solarflarecom.com>
+ <20130111.155936.1799008114956712424.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: yoshfuji@linux-ipv6.org, fengguang.wu@intel.com,
-	netdev@vger.kernel.org
-To: PeterHuewe@gmx.de
+Content-Type: text/plain; charset=UTF-8
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	edumazet@google.com, greearb@candelatech.com, bjorn@mork.no,
+	linux-wireless@vger.kernel.org, mirqus@gmail.com,
+	johannes@sipsolutions.net, David Miller <davem@davemloft.net>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42822 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754306Ab3AUUsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 15:48:05 -0500
-In-Reply-To: <201301212103.18066.PeterHuewe@gmx.de>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:65320 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074Ab3AUUxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 15:53:05 -0500
+In-Reply-To: <20130111.155936.1799008114956712424.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUGV0ZXIgSMO8d2UgPFBldGVySHVld2VAZ214LmRlPg0KRGF0ZTogTW9uLCAyMSBKYW4g
-MjAxMyAyMTowMzoxNyArMDEwMA0KDQo+IEhpIFlPU0hJRlVKSSwNCj4gDQo+IEZZSSwgdGhlcmUg
-YXJlIG5ldyBzcGFyc2Ugd2FybmluZ3Mgc2hvdyB1cCBpbg0KPiANCj4gdHJlZTogICBnaXQ6Ly9n
-aXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LW5leHQuZ2l0
-DQo+IGJyYW5jaDogbWFzdGVyDQo+IGhlYWQ6ICAgODg3Yzk1Y2MxZGE1M2Y2NmE1ODkwZmRlYWIx
-MzQxNDYxMzAxMDA5Nw0KPiBjb21taXQ6IDIxNTJjYWVhNzE5NjU3NTc5ZGFhM2ExYTU3YTU0MjVh
-M2RiNmQ2MTIgWzE4NS8xODldIGlwdjY6IERvIG5vdCBkZXBlbmQgDQo+IG9uIHJ0LT5uIGluIHJ0
-Nl9wcm9iZSgpLg0KPiANCj4+PiBuZXQvaXB2Ni9yb3V0ZS5jOjUyMToxNzogc3BhcnNlOiBjb250
-ZXh0IGltYmFsYW5jZSBpbiAncnQ2X3Byb2JlJyAtIA0KPiBkaWZmZXJlbnQgbG9jayBjb250ZXh0
-cyBmb3IgYmFzaWMgYmxvY2sNCj4gDQo+IE9uIGxhdGVzdCBuZXQtbmV4dC9tYXN0ZXIgaXQncw0K
-PiBuZXQvaXB2Ni9yb3V0ZS5jOjUwMDoxNzogd2FybmluZzogY29udGV4dCBpbWJhbGFuY2UgaW4g
-J3J0Nl9wcm9iZScgLSBkaWZmZXJlbnQgDQo+IGxvY2sgY29udGV4dHMgZm9yIGJhc2ljIGJsb2Nr
-DQo+IA0KPiANCj4gUmVwb3J0ZWQtYnk6IEZlbmdndWFuZyBXdSA8ZmVuZ2d1YW5nLnd1QGludGVs
-LmNvbT4NCj4gUmVwb3J0ZWQtYnk6IFBldGVyIEh1ZXdlIDxwZXRlcmh1ZXdlQGdteC5kZT4NCg0K
-VGhpcyBpcyBmaXhlZCBieToNCg0KY29tbWl0IGI4MjBiYjZiOTk2OTY2ZDkzYTU0NDJiNWZiZjgw
-M2VhNThlN2Y0ODcNCkF1dGhvcjogWU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4gPHlv
-c2hmdWppQGxpbnV4LWlwdjYub3JnPg0KRGF0ZTogICBNb24gSmFuIDIxIDA5OjU4OjUwIDIwMTMg
-KzAwMDANCg0KICAgIG5kaXNjOiBEbyBub3QgdHJ5IHRvIHVwZGF0ZSAidXBkYXRlZCIgdGltZSBp
-ZiBuZWlnaGJvdXIgaGFzIGFscmVhZHkgZ29uZS4NCiAgICANCiAgICBDb21taXQgMjE1MmNhZWEg
-KCJpcHY2OiBEbyBub3QgZGVwZW5kIG9uIHJ0LT5uIGluIHJ0Nl9wcm9iZSgpLiIpDQogICAgaW50
-cm9kdWNlIGEgYnVnIHRvIHRyeSB0byB1cGRhdGUgInVwZGF0ZWQiIHRpbWUgaW4gbmVpZ2hib3Vy
-DQogICAgc3RydWN0dXJlLg0KICAgIFVwZGF0ZSB0aGUgInVwZGF0ZWQiIHRpbWUgb25seSBpZiBu
-ZWlnaGJvdXIgaXMgYXZhaWxhYmxlLg0KICAgIA0KICAgIEJ1ZyB3YXMgZm91bmQgYnkgRGFuIENh
-cnBlbnRlciA8ZGFuLmNhcnBlbnRlckBvcmFjbGUuY29tPg0KICAgIA0KICAgIFNpZ25lZC1vZmYt
-Ynk6IFlPU0hJRlVKSSBIaWRlYWtpIDx5b3NoZnVqaUBsaW51eC1pcHY2Lm9yZz4NCiAgICBTaWdu
-ZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQoNCmRpZmYg
-LS1naXQgYS9uZXQvaXB2Ni9yb3V0ZS5jIGIvbmV0L2lwdjYvcm91dGUuYw0KaW5kZXggMmQ5NGQ1
-YS4uZjMzMjhiYyAxMDA2NDQNCi0tLSBhL25ldC9pcHY2L3JvdXRlLmMNCisrKyBiL25ldC9pcHY2
-L3JvdXRlLmMNCkBAIC00OTIsMTAgKzQ5MiwxMCBAQCBzdGF0aWMgdm9pZCBydDZfcHJvYmUoc3Ry
-dWN0IHJ0Nl9pbmZvICpydCkNCiAJCXN0cnVjdCBpbjZfYWRkciBtY2FkZHI7DQogCQlzdHJ1Y3Qg
-aW42X2FkZHIgKnRhcmdldDsNCiANCi0JCW5laWdoLT51cGRhdGVkID0gamlmZmllczsNCi0NCi0J
-CWlmIChuZWlnaCkNCisJCWlmIChuZWlnaCkgew0KKwkJCW5laWdoLT51cGRhdGVkID0gamlmZmll
-czsNCiAJCQl3cml0ZV91bmxvY2soJm5laWdoLT5sb2NrKTsNCisJCX0NCiANCiAJCXRhcmdldCA9
-IChzdHJ1Y3QgaW42X2FkZHIgKikmcnQtPnJ0NmlfZ2F0ZXdheTsNCiAJCWFkZHJjb25mX2FkZHJf
-c29saWN0X211bHQodGFyZ2V0LCAmbWNhZGRyKTsNCg==
+On Fri, Jan 11, 2013 at 3:59 PM, David Miller <davem@davemloft.net> wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Fri, 11 Jan 2013 20:00:32 +0000
+>
+>> On Fri, 2013-01-11 at 10:19 +0100, Stanislaw Gruszka wrote:
+>>> Since:
+>>>
+>>> commit 2c60db037034d27f8c636403355d52872da92f81
+>>> Author: Eric Dumazet <edumazet@google.com>
+>>> Date:   Sun Sep 16 09:17:26 2012 +0000
+>>>
+>>>     net: provide a default dev->ethtool_ops
+>>>
+>>> wireless core does not correctly assign ethtool_ops.
+>>>
+>>> After alloc_netdev*() call, some cfg80211 drivers provide they own
+>>> ethtool_ops, but some do not. For them, wireless core provide generic
+>>> cfg80211_ethtool_ops, which is assigned in NETDEV_REGISTER notify call:
+>>>
+>>>         if (!dev->ethtool_ops)
+>>>                 dev->ethtool_ops = &cfg80211_ethtool_ops;
+>>>
+>>> But after Eric's commit, dev->ethtool_ops is no longer NULL (on cfg80211
+>>> drivers without custom ethtool_ops), but points to &default_ethtool_ops.
+>>>
+>>> In order to fix the problem, provide function which will overwrite
+>>> default_ethtool_ops and use it by wireless core.
+>>>
+>>> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+>> [...]
+>>
+>> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+>
+> Applied.
+
+Stanislaw, I see Eric's patch went in on v3.7-rc1 as such I suspect
+this needs to be submitted as a stable fix for v3.7.5. Its already on
+v3.8-rc4.
+
+mcgrof@frijol ~/linux-stable (git::linux-3.7.y)$ git describe
+--contains 2c60db037034d27f8c636403355d52872da92f81
+v3.7-rc1~145^2~142
+
+  Luis
