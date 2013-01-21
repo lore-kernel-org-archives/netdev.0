@@ -1,59 +1,47 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 6/15] drivers/net/wireless/iwlegacy/4965-mac.c: adjust duplicate test
-Date: Mon, 21 Jan 2013 14:02:50 +0100
-Message-ID: <1358773378-4700-7-git-send-email-Julia.Lawall@lip6.fr>
-References: <1358773378-4700-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358773378-4700-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
+ specific ndisc information
+Date: Mon, 21 Jan 2013 21:16:32 +0900
+Message-ID: <50FD31A0.5080003@linux-ipv6.org>
+References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org> <50FCE228.3090801@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux1394-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50035 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753055Ab3AUMQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 07:16:35 -0500
+In-Reply-To: <50FCE228.3090801@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+Stephan Gatzka wrote:
+>> [ARP and NDISC]
+>> - both can be handled in more natural way.
+>> -- You will not need to mangle those packets when
+>>     sending/receiving.
+> 
+> This is also true if we introduce a function pointer. My last implementation does not mangle packets in the driver.
+> 
+>> -- You do not need to inspect ARP/NDISC packet.
+>>     By using netevent notification mechanism, you can
+>>     learn peer parameters.
+> 
+> That is worth to investigate. Will I get notifications when a ARP/NDISC will be send or only if the stack received ARP/NDISC packets? However, I can't see how this will help to get the firewire specific information into the ARP/NDISC packet. This has to be done either via the suggested function pointer or your extension of the mac address.
 
-Delete successive tests to the same location.  This looks like simple code
-duplication.
+Netevent example: drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:netevent_cb().
+It will be notified when NCE has been updated (by ARP/NDP, in most cases).
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+Yes, it is for learning Uniq-ID and FIFO from peer.
 
-// <smpl>
-@s exists@
-local idexpression y;
-expression x,e;
-@@
+To send our Uniq-ID and FIFO to peer via ARP/NDP, I am proposing to use
+extended MAC.  This will also help MCAP implementation, without big change
+in IPv4/IPv6 or even whole net stack.
 
-*if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
- { ... when forall
-   return ...; }
-... when != \(y = e\|y += e\|y -= e\|y |= e\|y &= e\|y++\|y--\|&y\)
-    when != \(XT_GETPAGE(...,y)\|WMI_CMD_BUF(...)\)
-*if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
- { ... when forall
-   return ...; }
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
- drivers/net/wireless/iwlegacy/4965-mac.c |    3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
-index 10fc249..0195190 100644
---- a/drivers/net/wireless/iwlegacy/4965-mac.c
-+++ b/drivers/net/wireless/iwlegacy/4965-mac.c
-@@ -6572,9 +6572,6 @@ il4965_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err)
- 		goto out_free_eeprom;
- 
--	if (err)
--		goto out_free_eeprom;
--
- 	/* extract MAC Address */
- 	il4965_eeprom_get_mac(il, il->addresses[0].addr);
- 	D_INFO("MAC address: %pM\n", il->addresses[0].addr);
+--yoshfuji
