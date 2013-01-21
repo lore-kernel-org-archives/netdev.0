@@ -1,40 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/5] drivers: atm: checkpatch.pl fixed coding style
- issues in eni.c
-Date: Sun, 20 Jan 2013 23:04:28 -0500 (EST)
-Message-ID: <20130120.230428.1678269076372823495.davem@davemloft.net>
-References: <1358723575-8345-1-git-send-email-patrik.karlin@gmail.com>
-	<1358723575-8345-5-git-send-email-patrik.karlin@gmail.com>
+Subject: Re: [PATCH 1/5 v2] soreuseport: infrastructure
+Date: Sun, 20 Jan 2013 23:06:42 -0500 (EST)
+Message-ID: <20130120.230642.705097270069078563.davem@davemloft.net>
+References: <alpine.DEB.2.00.1301201542520.924@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: patrik.karlin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358723575-8345-5-git-send-email-patrik.karlin@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netdev@markandruth.co.uk,
+	eric.dumazet@gmail.com
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33483 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752617Ab3AUEGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 23:06:44 -0500
+In-Reply-To: <alpine.DEB.2.00.1301201542520.924@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Patrik Karlin <patrik.karlin@gmail.com>
-Date: Mon, 21 Jan 2013 00:12:55 +0100
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 20 Jan 2013 16:07:22 -0800 (PST)
 
-> This patch fixes statement placement around if/else/for statments
-> as suggested by checkpatch.pl
->=20
-> Signed-off-by: Patrik K=E5rlin <patrik.karlin@gmail.com>
+> diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+> index 3f6a992..4ef3acb 100644
+> --- a/include/uapi/asm-generic/socket.h
+> +++ b/include/uapi/asm-generic/socket.h
+> @@ -22,8 +22,7 @@
+>  #define SO_PRIORITY	12
+>  #define SO_LINGER	13
+>  #define SO_BSDCOMPAT	14
+> -/* To add :#define SO_REUSEPORT 15 */
+> -
+> +#define SO_REUSEPORT	15
+>  #ifndef SO_PASSCRED /* powerpc only differs in these */
+>  #define SO_PASSCRED	16
+>  #define SO_PEERCRED	17
 
-This patch set is a good example of why nobody should
-fix up coding style in such a robotic way in response
-to codingstyle.pl complaints.
-
-> -		    ATM_MAX_AAL5_PDU) eff =3D (length+3) >> 2;
-> +		    ATM_MAX_AAL5_PDU)=20
-
-I bet you didn't even notice that in this change you are adding
-trailing whitespace, the exact problem you fixed up for this file in a
-previous patch of the series.
-
-I really would encourage you to work on something else entirely.
-
-Thanks.
+A new value needs to be added for every architecture, rather than just
+the ones that happen to use this asm-generic/socket.h file.
