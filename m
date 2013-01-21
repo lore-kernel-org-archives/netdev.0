@@ -1,68 +1,82 @@
-From: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [BUG] Bug in netprio_cgroup and netcls_cgroup ?
-Date: Mon, 21 Jan 2013 17:52:45 +0800
-Message-ID: <50FD0FED.7070204@huawei.com>
-References: <50FCDB5C.4050608@huawei.com> <50FD0144.1000401@monom.org> <50FD0402.6060400@huawei.com> <50FD0893.1050805@gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH for 3.8] iproute2: Add "ip netns pids" and "ip netns identify"
+Date: Mon, 21 Jan 2013 09:52:28 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B711A@saturn3.aculab.com>
+References: <87a9u4q7k9.fsf@xmission.com><1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com><87a9s772zw.fsf@xmission.com><1358470823.15692.156.camel@deadeye.wl.decadent.org.uk><87mww71drv.fsf@xmission.com><1358517218.21229.6.camel@deadeye.wl.decadent.org.uk> <87ehhiqqb3.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="GB2312"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50FD0893.1050805-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Stephen Hemminger" <shemminger@vyatta.com>,
+	<netdev@vger.kernel.org>, "Serge E. Hallyn" <serge@hallyn.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:35074 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751404Ab3AUJyf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 04:54:35 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03639-01 for <netdev@vger.kernel.org>;
+ Mon, 21 Jan 2013 09:54:30 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <87ehhiqqb3.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013/1/21 17:21, John Fastabend wrote:
-> On 01/21/2013 01:01 AM, Li Zefan wrote:
->> On 2013/1/21 16:50, Daniel Wagner wrote:
->>> Hi Li,
->>>
->>> On 21.01.2013 07:08, Li Zefan wrote:
->>>> I'm not a network developer, so correct me if I'm wrong.
->>>>
->>>> Since commit 7955490f732c2b8
->>>> ("net: netprio_cgroup: rework update socket logic"), sock->sk->sk_cgrp_prioidx
->>>> is set when the socket is created, and won't be updated unless the task is
->>>> moved to another cgroup.
->>>>
->>>> Now the problem is, a socket can be _shared_ by multiple processes (fork, SCM_RIGHT).
->>>> If we place those processes in different cgroups, and each cgroup has
->>>> different configs, but all of the processes will send data via this socket
->>>> with the same network priority.
->>>
->>> Wouldn't that be addressed by 48a87cc26c13b68f6cce4e9d769fcb17a6b3e4b8
->>>
->>>     net: netprio: fd passed in SCM_RIGHTS datagram not set correctly
->>>
->>>      A socket fd passed in a SCM_RIGHTS datagram was not getting
->>>      updated with the new tasks cgrp prioidx. This leaves IO on
->>>      the socket tagged with the old tasks priority.
->>>
->>>      To fix this add a check in the scm recvmsg path to update the
->>>      sock cgrp prioidx with the new tasks value.
->>>
->>> As I read this this should work for net_prio.
->>>
->>
->> But after process A passed the socket fd to B, both A and B can use the
->> same socket to send data, right? Then if A and B were placed in different
->> cgroups with differnt configs, A's config won't take effect anymore.
->>
->> Am I missing something?
->>
->>
+> >> >> >> +		if (!isdigit(ch))
+> >> >> >
+> >> >> > ch must be cast to unsigned char before passing to isdigit().
+> >> >>
+> >> >> isdigit is defined to take an int.  A legacy of the implicit casts in
+> >> >> the K&R C days.  Casting to unsigned char would be pointless and silly.
+> >> > [...]
+> >> >
+> >> > It's not pointless.  This is explained in the very first line of the
+> >> > description in the manual page...
+> >>
+> >> If it's not pointless it is an implementation bug.
+> >
+> > You can either get in your time machine and go back to 1978 and fix it,
+> > or add the cast like every C programmer who knows what the C standards
+> > say about these functions.
 > 
-> Hi Zefan,
-> 
-> Neil and I discusses this here, http://patchwork.ozlabs.org/patch/172343/
-> look towards the bottom of the thread. Quoted here.
-> 
+> So I took a moment to look. The C standard is indeed does not say
+> anything about this and supporting signed char becomes a quality of
+> implementation issue.  glibc supports being passed signed character
+> values.
 
-So this is a known issue. Why not document this behavior in
-Documentation/cgroups/netprio.txt?
+You must have looked in the wrong place.
+The standards documentation on all the ctype functions is very clear
+about the valid input domain.
+
+> > Testing on one implementation doesn't prove anything.  'char' can be
+> > signed or unsigned depending on the architecture, and some C libraries
+> > work around buggy applications that .  That's no reason to write another
+> > buggy application.
+> 
+> This code by it's very nature is not portable.  The code is not suid
+> so insane level of paranoia don't need to be maintained.
+
+What!!!! You still don't want core dumps due to invalid input.
+Especially if the input might be from a file.
+I did the full trawl of NetBSD's 'src' tree because of issues with
+one of the shells faulting.
+
+> The definition
+> in the C standard is a least common denominator requirement.  Posix
+> copies that least common denominator requirement.  Glibc does not
+> implment the least common denominator.
+
+Unless you writes 'standards compliant' programs, you will eventually
+fall foul of these sort of problems.
+
+Are you sure that glibc will always be used? What about newlib?
+
+There may be strict requirements on isdigit() (I think you are
+allowed to subtract '0' to get a number). The same is not true
+of isprint(), isprint(EOF) is FALSE, isprint(255) may be TRUE
+(ij ligature).
+
+	David
