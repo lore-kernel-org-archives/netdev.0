@@ -1,10 +1,10 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH 08/21] NTB: declare unused variables
-Date: Mon, 21 Jan 2013 10:50:55 -0700
-Message-ID: <20130121175054.GE22208@jonmason-lab>
+Subject: Re: [PATCH 15/21] NTB: Update Version
+Date: Mon, 21 Jan 2013 10:57:41 -0700
+Message-ID: <20130121175740.GF22208@jonmason-lab>
 References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
- <1358586155-23322-9-git-send-email-jon.mason@intel.com>
- <20130120234228.GC14196@kroah.com>
+ <1358586155-23322-16-git-send-email-jon.mason@intel.com>
+ <20130120234714.GA21708@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
@@ -13,34 +13,42 @@ Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130120234228.GC14196@kroah.com>
+In-Reply-To: <20130120234714.GA21708@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 20, 2013 at 03:42:28PM -0800, Greg KH wrote:
-> On Sat, Jan 19, 2013 at 02:02:22AM -0700, Jon Mason wrote:
-> > Tag pci_device_id in ntb_pci_probe as unused function parameters.  This
-> > corrects issues found by 'EXTRA_CFLAGS=-W'.
+On Sun, Jan 20, 2013 at 03:47:14PM -0800, Greg KH wrote:
+> On Sat, Jan 19, 2013 at 02:02:29AM -0700, Jon Mason wrote:
+> > Update NTB version to 0.25
+> > 
+> > Signed-off-by: Jon Mason <jon.mason@intel.com>
+> > ---
+> >  drivers/ntb/ntb_hw.c |    2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+> > index b792ccd..df86882 100644
+> > --- a/drivers/ntb/ntb_hw.c
+> > +++ b/drivers/ntb/ntb_hw.c
+> > @@ -56,7 +56,7 @@
+> >  #include "ntb_regs.h"
+> >  
+> >  #define NTB_NAME	"Intel(R) PCI-E Non-Transparent Bridge Driver"
+> > -#define NTB_VER		"0.24"
+> > +#define NTB_VER		"0.25"
 > 
-> Why would you build the kernel with that option?  This isn't needed, so
+> I'm not objecting to this, but in the end, does it really matter?  Why
+> not just stick with whatever kernel version you are using?  Keeping this
+> up to date is going to be hard over the long haul, right?
 
-Per Documentation/SubmitChecklist:
-
-22: Newly-added code has been compiled with `gcc -W' (use "make
-    EXTRA_CFLAGS=-W").  This will generate lots of noise, but is good for
-    finding bugs like "warning: comparison between signed and unsigned".
-
-
-I was attempting to comply with that suggestion.  If this is
-unnecessary, then I can toss these, but I don't really see them
-hurting anything.
-
-Same goes for the other 2 patches found via 'EXTRA_CFLAGS=-W'.
+Currently, it is a convenient way to verify the people testing the
+code are running the latest version, since they are usually running
+their tests on a stable kernel.  As the code becomes more stable, I
+can see this becoming unnecessary and I will remove it then.
 
 Thanks,
 Jon
 
-> I'm not going to apply it.
 > 
 > thanks,
 > 
