@@ -1,83 +1,84 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
-Date: Mon, 21 Jan 2013 12:33:04 +0100
-Message-ID: <50FD2770.6080708@grandegger.com>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de> <50FD02B8.8080401@grandegger.com> <20130121100701.GX1906@pengutronix.de> <50FD2172.2020608@grandegger.com> <50FD22B4.5070307@openwrt.org>
+From: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/2] CDC_NCM: adding support FLAG_NOARP for Infineon modem
+ platform
+Date: Mon, 21 Jan 2013 15:33:00 +0400
+Message-ID: <50FD276C.5010608@mvista.com>
+References: <1358662329-8294-1-git-send-email-cpuwolf@gmail.com> <1358662329-8294-2-git-send-email-cpuwolf@gmail.com> <50FC25B7.70708@mvista.com> <CACa7zynymtYN4OtTjVNTNdB23eNU4D-G+JqaTxjaPFekRHkRAg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
-	davem@davemloft.net
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ngcobalt02.manitu.net ([217.11.48.102]:59813 "EHLO
-	ngcobalt02.manitu.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752544Ab3AULdP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 06:33:15 -0500
-In-Reply-To: <50FD22B4.5070307@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, peter-Y+HMSxxDrH8@public.gmane.org,
+	oneukum-l3A5Bk7waGM@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wei Shuai <cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CACa7zynymtYN4OtTjVNTNdB23eNU4D-G+JqaTxjaPFekRHkRAg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/21/2013 12:12 PM, Florian Fainelli wrote:
-> On 01/21/2013 12:07 PM, Wolfgang Grandegger wrote:
->> On 01/21/2013 11:07 AM, Sascha Hauer wrote:
->>> On Mon, Jan 21, 2013 at 09:56:24AM +0100, Wolfgang Grandegger wrote:
->>>> On 01/21/2013 09:37 AM, Sascha Hauer wrote:
->>>>> There may be multiple phys on an mdio bus. This series adds support
->>>>> for this to the fec driver. I recently had a board which has a switch
->>>>> connected to the fec's mdio bus, so I had to pick the correct phy.
->>>>
->>>> Pick one PHY from a switch port? Well, does a PHY-less (or fixed-link)
->>>> configuration for a switch not make more sense?
->>>
->>> Yes, you're probably right.
->>>
->>>> Various ARM Ethernet
->>>> contoller drivers do not support it. I recently needed a hack for an
->>>> AT91 board.
->>>
->>> I wonder how we want to proceed. Should there be a devicetree property
->>> 'fixed-link' like done for fs_enet (and not recommended for new code,
->>> stated in the comment above of_phy_connect_fixed_link)?
->>
->> Also the gianfar and ucc_geth drivers use this interface (via fixed
->> link phy). I tried to use it for the AT91 macb driver but stopped
->> quickly because the usage was not straight forward (too much code)...
->> even if the idea of using a fake fixed-link phy is not bad.
->>
->>> Currently I have a property 'phy' in the fec binding which has a phandle
->>> to a phy provided by the fec's mdio bus, but this could equally well
->>
->> But than the cable must be connected to the associated switch port.
->>
->>> point to a fixed dummy phy:
->>>
->>>     phy = &fixed-phy;
->>
->> The link speed, full/half duplex and maybe some mroe parameter should
->> be configurable via device tree.
->>
->>> Currently there seems to be no common convention for the devicetree how
->>> to handle such situations, or am I missing something?
->>
->> That's also may impression. There seem to be a few more related hacks:
->>
->> $ find . -name '*.c'| xargs grep -i "phy-less"
->> ./ethernet/amd/au1000_eth.c:            netdev_info(dev, "using
->> PHY-less setup\n");
->> ./ethernet/amd/au1000_eth.c:    } else { /* PHY-less op, assume
->> full-duplex */
->> ./ethernet/ibm/emac/core.c:    /* PHY-less configuration.
->> ./ethernet/ibm/emac/core.c:        /* PHY-less configuration.
->>
->> I would prefer to handle the "fixed-link" property of the ethernet dt
->> node directly in the driver with a generic helper function.
-> 
-> Is not what of_phy_connect_fixed_link() offer? I am not sure there can
-> be much done by an helper than that.
+Hello.
 
-Probably. I now remember that my primary problem with the AT91 board was
-that it does not have yet device tree support.
+On 21-01-2013 6:20, Wei Shuai wrote:
 
-Wolfgang.
+> The main problem is that these devices don't support ethernet.  They
+> support IP (v4 and _maybe_ v6) with an ethernet header.  Many of them
+> will do ARP (and IPv6 ND) as well to complete the picture, but some of
+> them don't and that's what these drivers try to deal with.
+>
+> Note that most of the devices will run a DHCP server, so there is some
+> sort of IP broadcast support.  Whether that qualifies as proper ethernet
+> broadcast support is another question...
+>
+> These devices are attempting to bridge an IP-only point-to-point
+> interface and an ethernet over USB interface, with the intention to make
+> the point-to-point interface look like ethernet to applications and
+> users. This is of course always going to be imperfect.  But I believe
+> that we should aim to help the firmware achive this goal when writing
+> drivers instead of working against it.  Setting IFF_NOARP and not
+> IFF_POINTTOPOINT is one way to do that. ---- by  Bjorn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+
+    Why are you replying with this long story to my simple patch comments? :-)
+
+> 2013/1/21, Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>:
+>> Hello.
+
+>> On 20-01-2013 10:12, Wei Shuai wrote:
+
+>>> Infineon(now Intel) HSPA Modem platform NCM cannot support ARP. we can
+>>> define a new common structure wwan_noarp_info.
+
+>>      Wrap your lines at 76-80 columns maximum please.
+
+>>> Then more similiar NO ARP devices can be handled easily
+
+    s/NO/no/.
+
+>>> Signed-off-by: Wei Shuai <cpuwolf-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>> ---
+>>>    drivers/net/usb/cdc_ncm.c |   21 +++++++++++++++++++++
+>>>    1 files changed, 21 insertions(+), 0 deletions(-)
+
+>>> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+>>> index 71b6e92..2d699b6 100644
+>>> --- a/drivers/net/usb/cdc_ncm.c
+>>> +++ b/drivers/net/usb/cdc_ncm.c
+>>> @@ -1155,6 +1155,20 @@ static const struct driver_info wwan_info = {
+>>>    	.tx_fixup = cdc_ncm_tx_fixup,
+>>>    };
+>>>
+>>> +/* Same as wwan_info, but with IFF_NOARP  */
+
+>>      FLAG_NOARP, you mean?
+
+>>> +static const struct driver_info wwan_noarp_info = {
+>>> +	.description = "Mobile Broadband Network Device (NO ARP)",
+>>> +	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
+>>> +			| FLAG_WWAN | FLAG_NOARP,
+
+WBR, Sergei
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
