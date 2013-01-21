@@ -1,66 +1,39 @@
-From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
-Subject: RE: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
-Date: Mon, 21 Jan 2013 21:16:46 +0100
-Message-ID: <f47edcc4-cda9-4349-9590-ee8572b139ca@email.android.com>
-References: <1358783440-11459-1-git-send-email-bjorn@mork.no> <20130121.142242.2240250911008731906.davem@davemloft.net> <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D99@EXDCVYMBSTM006.EQ1STM.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 20/33] net: Convert to devm_ioremap_resource()
+Date: Mon, 21 Jan 2013 15:29:13 -0500 (EST)
+Message-ID: <20130121.152913.1377695352860141642.davem@davemloft.net>
+References: <1358762966-20791-1-git-send-email-thierry.reding@avionic-design.de>
+	<1358762966-20791-21-git-send-email-thierry.reding@avionic-design.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"gsuarez@smithmicro.com" <gsuarez@smithmicro.com>,
-	"oneukum@suse.de" <oneukum@suse.de>,
-	Alexey Orishko <alexey.orishko@gmail.com>
-To: Alexey ORISHKO <alexey.orishko@stericsson.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43071 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752847Ab3AUURv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2013 15:17:51 -0500
-In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D99@EXDCVYMBSTM006.EQ1STM.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
+	dmitry.torokhov@gmail.com, arnd@arndb.de, w.sang@pengutronix.de,
+	netdev@vger.kernel.org
+To: thierry.reding@avionic-design.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358762966-20791-21-git-send-email-thierry.reding@avionic-design.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Alexey ORISHKO <alexey.orishko@stericsson.com> wrote:
+From: Thierry Reding <thierry.reding@avionic-design.de>
+Date: Mon, 21 Jan 2013 11:09:13 +0100
 
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Monday, January 21, 2013 8:23 PM
->> To: bjorn@mork.no
->> Cc: netdev@vger.kernel.org; linux-usb@vger.kernel.org;
->> gsuarez@smithmicro.com; Alexey ORISHKO; oneukum@suse.de
->> Subject: Re: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
->>=20
->> From: Bj=C3=B8rn Mork <bjorn@mork.no>
->> Date: Mon, 21 Jan 2013 16:50:37 +0100
->>=20
->> > The 2 first patches in this series are required to make the Sierra
->> > Wireless MC7710 card work in MBIM mode.  They may also be required
->> for
->> > other Qualcomm firmware based MBIM devices.
->> >
->> > Patch #1 was previously posted as a standalone patch.  This versio=
-n
->> is
->> > a replacement, removing a theoretical NULL pointer exception.
->> >
->> > Patch #3 fixes a bug I introduced in v3.7
->>=20
->> All applied, thanks.
->
->Hi David,
->
->It was way too fast... I don't think we concluded on patch#2 since it
->will damage existing devices :-(
+> Convert all uses of devm_request_and_ioremap() to the newly introduced
+> devm_ioremap_resource() which provides more consistent error handling.
+> 
+> devm_ioremap_resource() provides its own error messages so all explicit
+> error messages can be removed from the failure code paths.
+> 
+> Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
 
-Yes, that was even faster than expected. But it's no problem really. I'=
-ll prepare a fixup patch reducing it to be device specific.=20
+This won't compile if I apply it.
 
-There are still a couple of questions I am wondering about though. The =
-most important one: what is Windows 8 doing different from us? Does any=
-one know? I do not have a Windows 8 system myself and I wouldn't know h=
-ow to snoop on it either.=20
+You really have to be clear when you submit patches like this.
 
+Since you only CC:'d the networking developers for this one
+patch, there is _ZERO_ context for us to work with to understand
+what's going on.
 
-Bj=C3=B8rn
+You have to also CC: us on the other relevant changes and your
+"[PATCH 00/33]" posting that explains what is happening.
