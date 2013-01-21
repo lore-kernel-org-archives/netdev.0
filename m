@@ -1,46 +1,40 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH 1/3] ipv4: Invalidate the socket cached route on pmtu
- events if possible
-Date: Mon, 21 Jan 2013 07:43:26 +0100
-Message-ID: <20130121064326.GA30530@secunet.com>
-References: <50D1CECE.7090706@oktetlabs.ru>
- <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com>
- <20121220073445.GM18940@secunet.com>
- <50D2F4E5.4050904@oktetlabs.ru>
- <20121220123535.GN18940@secunet.com>
- <20121221102253.GO18940@secunet.com>
- <50F3C153.9030204@oktetlabs.ru>
+Subject: Re: [RFC PATCH 3/3] xfrm4: Invalidate all ipv4 routes on IPsec pmtu
+ events
+Date: Mon, 21 Jan 2013 07:48:37 +0100
+Message-ID: <20130121064837.GB30530@secunet.com>
+References: <50F3C153.9030204@oktetlabs.ru>
  <20130118081145.GB24987@secunet.com>
- <20130118081419.GC24987@secunet.com>
- <alpine.LFD.2.00.1301190031080.1803@ja.ssi.bg>
+ <20130118081601.GE24987@secunet.com>
+ <20130118.143923.1384219845592340856.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org,
-	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
-To: Julian Anastasov <ja@ssi.bg>
+Cc: Yurij.Plotnikov@oktetlabs.ru, bhutchings@solarflare.com,
+	netdev@vger.kernel.org, Alexandra.Kossovsky@oktetlabs.ru
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:40951 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:41000 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751811Ab3AUGn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2013 01:43:29 -0500
+	id S1752667Ab3AUGsk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 01:48:40 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1301190031080.1803@ja.ssi.bg>
+In-Reply-To: <20130118.143923.1384219845592340856.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 19, 2013 at 02:54:04AM +0200, Julian Anastasov wrote:
-> > +
-> > +void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
-> > +{
-> > +	const struct iphdr *iph = (const struct iphdr *) skb->data;
-> > +	struct flowi4 fl4;
-> > +	struct rtable *rt = (struct rtable *) __sk_dst_get(sk);
+On Fri, Jan 18, 2013 at 02:39:23PM -0500, David Miller wrote:
+> From: Steffen Klassert <steffen.klassert@secunet.com>
+> Date: Fri, 18 Jan 2013 09:16:01 +0100
 > 
-> 	I guess __sk_dst_get should be called after
-> bh_lock_sock ?
+> > On IPsec pmtu events we can't access the transport headers of
+> > the original packet, so we can't find the socket that sent
+> > the packet. The only chance to notify the socket about the
+> > pmtu change is to force a relookup for all routes. This
+> > patch implenents this for the IPsec protocols.
+> > 
+> > Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> 
+> Expensive, but I really can't come up with a better idea.
 
-Yes, absolutely. I'll fix it before I submit the patch.
-
-Thanks for your review!
+Yes, it's a last resort fix. But pmtu events are rare, so
+it should not harm too much.
