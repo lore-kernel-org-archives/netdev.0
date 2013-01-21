@@ -1,114 +1,315 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 5/5 v2] soreuseport: UDP/IPv6 implementation
-Date: Sun, 20 Jan 2013 16:07:55 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1301201545040.6107@pokey.mtv.corp.google.com>
+Subject: [PATCH 2/5 v2] soreuseport: TCP/IPv4 implementation
+Date: Sun, 20 Jan 2013 16:07:34 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1301201542510.834@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="296491395-1179449863-1358726875=:6107"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@markandruth.co.uk, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:57417 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752554Ab3AUAH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 19:07:56 -0500
-Received: by mail-vc0-f202.google.com with SMTP id m8so459166vcd.3
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 16:07:55 -0800 (PST)
+Received: from mail-gg0-f201.google.com ([209.85.161.201]:59958 "EHLO
+	mail-gg0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752629Ab3AUANB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 19:13:01 -0500
+Received: by mail-gg0-f201.google.com with SMTP id l2so177954ggn.0
+        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 16:13:01 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Allow multiple listener sockets to bind to the same port.
 
---296491395-1179449863-1358726875=:6107
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
-
-Motivation for soreuseport would be something like a DNS server.  An
-alternative would be to recv on the same socket from multiple threads.
-As in the case of TCP, the load across these threads tends to be
-disproportionate and we also see a lot of contection on the socket lock.
-Note that SO_REUSEADDR already allows multiple UDP sockets to bind to
-the same port, however there is no provision to prevent hijacking and
-nothing to distribute packets across all the sockets sharing the same
-bound port.  This patch does not change the semantics of SO_REUSEADDR,
-but provides usable functionality of it for unicast.
+Motivation for soresuseport would be something like a web server
+binding to port 80 running with multiple threads, where each thread
+might have it's own listener socket.  This could be done as an
+alternative to other models: 1) have one listener thread which
+dispatches completed connections to workers. 2) accept on a single
+listener socket from multiple threads.  In case #1 the listener thread
+can easily become the bottleneck with high connection turn-over rate.
+In case #2, the proportion of connections accepted per thread tends
+to be uneven under high connection load (assuming simple event loop:
+while (1) { accept(); process() }, wakeup does not promote fairness
+among the sockets.  We have seen the  disproportion to be as high
+as 3:1 ratio between thread accepting most connections and the one
+accepting the fewest.  With so_reusport the distribution is
+uniform.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/ipv6/udp.c |   30 +++++++++++++++++++++++++++---
- 1 files changed, 27 insertions(+), 3 deletions(-)
+ include/net/inet_hashtables.h          |   13 ++++++--
+ include/net/netfilter/nf_tproxy_core.h |    1 +
+ net/ipv4/inet_connection_sock.c        |   48 ++++++++++++++++++++++++-------
+ net/ipv4/inet_hashtables.c             |   28 ++++++++++++++----
+ net/ipv4/tcp_ipv4.c                    |    4 ++-
+ 5 files changed, 73 insertions(+), 21 deletions(-)
 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1afb635..cb5bf49 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -45,6 +45,7 @@
- #include <net/tcp_states.h>
- #include <net/ip6_checksum.h>
- #include <net/xfrm.h>
-+#include <net/inet6_hashtables.h>
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 67a8fa0..7b2ae9d 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -81,7 +81,9 @@ struct inet_bind_bucket {
+ 	struct net		*ib_net;
+ #endif
+ 	unsigned short		port;
+-	signed short		fastreuse;
++	signed char		fastreuse;
++	signed char		fastreuseport;
++	kuid_t			fastuid;
+ 	int			num_owners;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owners;
+@@ -257,15 +259,19 @@ extern void inet_unhash(struct sock *sk);
  
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-@@ -203,7 +204,8 @@ static struct sock *udp6_lib_lookup2(struct net *net,
+ extern struct sock *__inet_lookup_listener(struct net *net,
+ 					   struct inet_hashinfo *hashinfo,
++					   const __be32 saddr,
++					   const __be16 sport,
+ 					   const __be32 daddr,
+ 					   const unsigned short hnum,
+ 					   const int dif);
+ 
+ static inline struct sock *inet_lookup_listener(struct net *net,
+ 		struct inet_hashinfo *hashinfo,
++		__be32 saddr, __be16 sport,
+ 		__be32 daddr, __be16 dport, int dif)
  {
- 	struct sock *sk, *result;
- 	struct hlist_nulls_node *node;
--	int score, badness;
-+	int score, badness, matches = 0, reuseport = 0;
-+	u32 hash = 0;
+-	return __inet_lookup_listener(net, hashinfo, daddr, ntohs(dport), dif);
++	return __inet_lookup_listener(net, hashinfo, saddr, sport,
++				      daddr, ntohs(dport), dif);
+ }
  
- begin:
- 	result = NULL;
-@@ -214,8 +216,18 @@ begin:
- 		if (score > badness) {
- 			result = sk;
- 			badness = score;
--			if (score == SCORE2_MAX)
-+			reuseport = sk->sk_reuseport;
-+			if (reuseport) {
-+				hash = inet6_ehashfn(net, daddr, hnum,
-+						     saddr, sport);
-+				matches = 1;
-+			} else if (score == SCORE2_MAX)
- 				goto exact_match;
-+		} else if (score == badness && reuseport) {
-+			matches++;
-+			if (((u64)hash * matches) >> 32 == 0)
-+				result = sk;
-+			hash = next_pseudo_random32(hash);
+ /* Socket demux engine toys. */
+@@ -358,7 +364,8 @@ static inline struct sock *__inet_lookup(struct net *net,
+ 	struct sock *sk = __inet_lookup_established(net, hashinfo,
+ 				saddr, sport, daddr, hnum, dif);
+ 
+-	return sk ? : __inet_lookup_listener(net, hashinfo, daddr, hnum, dif);
++	return sk ? : __inet_lookup_listener(net, hashinfo, saddr, sport,
++					     daddr, hnum, dif);
+ }
+ 
+ static inline struct sock *inet_lookup(struct net *net,
+diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
+index 75ca929..1937964 100644
+--- a/include/net/netfilter/nf_tproxy_core.h
++++ b/include/net/netfilter/nf_tproxy_core.h
+@@ -82,6 +82,7 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+ 			break;
+ 		case NFT_LOOKUP_LISTENER:
+ 			sk = inet_lookup_listener(net, &tcp_hashinfo,
++						    saddr, sport,
+ 						    daddr, dport,
+ 						    in->ifindex);
+ 
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index d0670f0..8bb623d 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -59,6 +59,8 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 	struct sock *sk2;
+ 	struct hlist_node *node;
+ 	int reuse = sk->sk_reuse;
++	int reuseport = sk->sk_reuseport;
++	kuid_t uid = sock_i_uid((struct sock *)sk);
+ 
+ 	/*
+ 	 * Unlike other sk lookup places we do not check
+@@ -73,8 +75,11 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 		    (!sk->sk_bound_dev_if ||
+ 		     !sk2->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
+-			if (!reuse || !sk2->sk_reuse ||
+-			    sk2->sk_state == TCP_LISTEN) {
++			if ((!reuse || !sk2->sk_reuse ||
++			    sk2->sk_state == TCP_LISTEN) &&
++			    (!reuseport || !sk2->sk_reuseport ||
++			    (sk2->sk_state != TCP_TIME_WAIT &&
++			     !uid_eq(uid, sock_i_uid(sk2))))) {
+ 				const __be32 sk2_rcv_saddr = sk_rcv_saddr(sk2);
+ 				if (!sk2_rcv_saddr || !sk_rcv_saddr(sk) ||
+ 				    sk2_rcv_saddr == sk_rcv_saddr(sk))
+@@ -106,6 +111,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 	int ret, attempts = 5;
+ 	struct net *net = sock_net(sk);
+ 	int smallest_size = -1, smallest_rover;
++	kuid_t uid = sock_i_uid(sk);
+ 
+ 	local_bh_disable();
+ 	if (!snum) {
+@@ -125,9 +131,12 @@ again:
+ 			spin_lock(&head->lock);
+ 			inet_bind_bucket_for_each(tb, node, &head->chain)
+ 				if (net_eq(ib_net(tb), net) && tb->port == rover) {
+-					if (tb->fastreuse > 0 &&
+-					    sk->sk_reuse &&
+-					    sk->sk_state != TCP_LISTEN &&
++					if (((tb->fastreuse > 0 &&
++					      sk->sk_reuse &&
++					      sk->sk_state != TCP_LISTEN) ||
++					     (tb->fastreuseport > 0 &&
++					      sk->sk_reuseport &&
++					      uid_eq(tb->fastuid, uid))) &&
+ 					    (tb->num_owners < smallest_size || smallest_size == -1)) {
+ 						smallest_size = tb->num_owners;
+ 						smallest_rover = rover;
+@@ -185,14 +194,17 @@ tb_found:
+ 		if (sk->sk_reuse == SK_FORCE_REUSE)
+ 			goto success;
+ 
+-		if (tb->fastreuse > 0 &&
+-		    sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
++		if (((tb->fastreuse > 0 &&
++		      sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
++		     (tb->fastreuseport > 0 &&
++		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
+ 		    smallest_size == -1) {
+ 			goto success;
+ 		} else {
+ 			ret = 1;
+ 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
+-				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
++				if (((sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
++				     (sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
+ 				    smallest_size != -1 && --attempts >= 0) {
+ 					spin_unlock(&head->lock);
+ 					goto again;
+@@ -212,9 +224,23 @@ tb_not_found:
+ 			tb->fastreuse = 1;
+ 		else
+ 			tb->fastreuse = 0;
+-	} else if (tb->fastreuse &&
+-		   (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
+-		tb->fastreuse = 0;
++		if (sk->sk_reuseport) {
++			tb->fastreuseport = 1;
++			tb->fastuid = uid;
++		} else {
++			tb->fastreuseport = 0;
++			tb->fastuid = 0;
++		}
++	} else {
++		if (tb->fastreuse &&
++		    (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
++			tb->fastreuse = 0;
++		if (tb->fastreuseport &&
++		    (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))) {
++			tb->fastreuseport = 0;
++			tb->fastuid = 0;
++		}
++	}
+ success:
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, snum);
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index fa3ae81..0ce0595 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -39,6 +39,7 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
+ 		write_pnet(&tb->ib_net, hold_net(net));
+ 		tb->port      = snum;
+ 		tb->fastreuse = 0;
++		tb->fastreuseport = 0;
+ 		tb->num_owners = 0;
+ 		INIT_HLIST_HEAD(&tb->owners);
+ 		hlist_add_head(&tb->node, &head->chain);
+@@ -151,16 +152,16 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ 	if (net_eq(sock_net(sk), net) && inet->inet_num == hnum &&
+ 			!ipv6_only_sock(sk)) {
+ 		__be32 rcv_saddr = inet->inet_rcv_saddr;
+-		score = sk->sk_family == PF_INET ? 1 : 0;
++		score = sk->sk_family == PF_INET ? 2 : 1;
+ 		if (rcv_saddr) {
+ 			if (rcv_saddr != daddr)
+ 				return -1;
+-			score += 2;
++			score += 4;
+ 		}
+ 		if (sk->sk_bound_dev_if) {
+ 			if (sk->sk_bound_dev_if != dif)
+ 				return -1;
+-			score += 2;
++			score += 4;
  		}
  	}
- 	/*
-@@ -249,7 +261,8 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 	unsigned short hnum = ntohs(dport);
- 	unsigned int hash2, slot2, slot = udp_hashfn(net, hnum, udptable->mask);
- 	struct udp_hslot *hslot2, *hslot = &udptable->hash[slot];
--	int score, badness;
-+	int score, badness, matches = 0, reuseport = 0;
-+	u32 hash = 0;
+ 	return score;
+@@ -176,6 +177,7 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ 
+ struct sock *__inet_lookup_listener(struct net *net,
+ 				    struct inet_hashinfo *hashinfo,
++				    const __be32 saddr, __be16 sport,
+ 				    const __be32 daddr, const unsigned short hnum,
+ 				    const int dif)
+ {
+@@ -183,17 +185,29 @@ struct sock *__inet_lookup_listener(struct net *net,
+ 	struct hlist_nulls_node *node;
+ 	unsigned int hash = inet_lhashfn(net, hnum);
+ 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
+-	int score, hiscore;
++	int score, hiscore, matches = 0, reuseport = 0;
++	u32 phash = 0;
  
  	rcu_read_lock();
- 	if (hslot->count > 10) {
-@@ -284,6 +297,17 @@ begin:
- 		if (score > badness) {
+ begin:
+ 	result = NULL;
+-	hiscore = -1;
++	hiscore = 0;
+ 	sk_nulls_for_each_rcu(sk, node, &ilb->head) {
+ 		score = compute_score(sk, net, hnum, daddr, dif);
+ 		if (score > hiscore) {
  			result = sk;
- 			badness = score;
+ 			hiscore = score;
 +			reuseport = sk->sk_reuseport;
 +			if (reuseport) {
-+				hash = inet6_ehashfn(net, daddr, hnum,
++				phash = inet_ehashfn(net, daddr, hnum,
 +						     saddr, sport);
 +				matches = 1;
 +			}
-+		} else if (score == badness && reuseport) {
++		} else if (score == hiscore && reuseport) {
 +			matches++;
-+			if (((u64)hash * matches) >> 32 == 0)
++			if (((u64)phash * matches) >> 32 == 0)
 +				result = sk;
-+			hash = next_pseudo_random32(hash);
++			phash = next_pseudo_random32(phash);
  		}
  	}
  	/*
+@@ -501,7 +515,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 			inet_bind_bucket_for_each(tb, node, &head->chain) {
+ 				if (net_eq(ib_net(tb), net) &&
+ 				    tb->port == port) {
+-					if (tb->fastreuse >= 0)
++					if (tb->fastreuse >= 0 ||
++					    tb->fastreuseport >= 0)
+ 						goto next_port;
+ 					WARN_ON(hlist_empty(&tb->owners));
+ 					if (!check_established(death_row, sk,
+@@ -518,6 +533,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 				break;
+ 			}
+ 			tb->fastreuse = -1;
++			tb->fastreuseport = -1;
+ 			goto ok;
+ 
+ 		next_port:
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index c6ce9ca..bbbdcc5 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -657,7 +657,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 		 * no RST generated if md5 hash doesn't match.
+ 		 */
+ 		sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
+-					     &tcp_hashinfo, ip_hdr(skb)->daddr,
++					     &tcp_hashinfo, ip_hdr(skb)->saddr,
++					     th->source, ip_hdr(skb)->daddr,
+ 					     ntohs(th->source), inet_iif(skb));
+ 		/* don't send rst if it can't find key */
+ 		if (!sk1)
+@@ -2074,6 +2075,7 @@ do_time_wait:
+ 	case TCP_TW_SYN: {
+ 		struct sock *sk2 = inet_lookup_listener(dev_net(skb->dev),
+ 							&tcp_hashinfo,
++							iph->saddr, th->source,
+ 							iph->daddr, th->dest,
+ 							inet_iif(skb));
+ 		if (sk2) {
 -- 
 1.7.7.3
-
---296491395-1179449863-1358726875=:6107--
