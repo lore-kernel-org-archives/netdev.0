@@ -1,121 +1,92 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: IPsec AH use of ahash
-Date: Mon, 21 Jan 2013 09:37:41 -0500
-Message-ID: <1358779061.21576.19.camel@gandalf.local.home>
-References: <1924594099.94729.1358775949651.JavaMail.root@elliptictech.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
+Date: Mon, 21 Jan 2013 15:47:13 +0100
+Message-ID: <87mww2y4ni.fsf@nemi.mork.no>
+References: <1358519147-10073-1-git-send-email-bjorn@mork.no>
+	<22276933.xSGyXJfOvq@linux-5eaq.site> <871udiur74.fsf@nemi.mork.no>
+	<CAL_Kpj1B=_+eN3Y0n3d9_r4JoeHD2LQFSU+b+taCZL0G4icu6A@mail.gmail.com>
+	<87r4ley6g9.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: David Dillow <dave@thedillows.org>, Borislav Petkov <bp@alien8.de>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Tom St Denis <tstdenis@elliptictech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1924594099.94729.1358775949651.JavaMail.root@elliptictech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.org>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, Greg Suarez <gsuarez@smithmicro.com>,
+	Alexey Orishko <alexey.orishko@stericsson.com>
+To: Alexey Orishko <alexey.orishko@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:38740 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755970Ab3AUOrf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 09:47:35 -0500
+In-Reply-To: <87r4ley6g9.fsf@nemi.mork.no> (=?utf-8?Q?=22Bj=C3=B8rn?=
+ Mork"'s message of "Mon, 21
+	Jan 2013 15:08:22 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-21 at 08:45 -0500, Tom St Denis wrote:
-> 
-> ----- Original Message -----
-> > From: "Steven Rostedt" <rostedt@goodmis.org>
-> > To: "Tom St Denis" <tstdenis@elliptictech.com>
-> > Cc: "David Dillow" <dave@thedillows.org>, "Borislav Petkov" <bp@alien8.de>, linux-kernel@vger.kernel.org,
-> > netdev@vger.kernel.org
-> > Sent: Monday, 21 January, 2013 8:38:54 AM
-> > Subject: Re: IPsec AH use of ahash
-> 
-> > > The missing semi-colon is in fact missing and for that I apologize.
-> > >  This btw is the first legitimate gripe with the code thus far.
-> > 
-> > I've also found that those that have poor coding styles also have
-> > more
-> > of these "legitimate" problems too. Which is another reason not to
-> > accept patches with coding style issues.
-> 
-> I find that 73% of all stats are made up.
+Bj=C3=B8rn Mork <bjorn@mork.no> writes:
 
-I was only talking about my own experience. I gave no numbers.
+> I have another issue with the Sierra firmware which I hope you can he=
+lp
+> me with: The MC7710 device requires at ZLP even if we send
+> dwNtbOutMaxSize sized NTBs. This is a problem because the current cod=
+e
+> explicitly prevents this.
+
+If anyone found this more than normally confused, then that is
+correct...
+
+What the NCM code does is that it sends a *short* packet whenever the
+usbnet would normally have done so, except if the NTP length >=3D
+dwNtbOutMaxSize.
+
+The problem is that we do not set=20
+
+	urb->transfer_flags |=3D URB_ZERO_PACKET;
+
+either in this special case, resulting in neither a short nor a zero
+length packet being sent.  I believe this is what the Sierra firmware
+chokes at. This seems to fix the issue, and is IMHO correct:
+
+diff --git a/drivers/net/usb/cdc_mbim.c b/drivers/net/usb/cdc_mbim.c
+index 42f51c7..3a5673a 100644
+--- a/drivers/net/usb/cdc_mbim.c
++++ b/drivers/net/usb/cdc_mbim.c
+@@ -366,7 +366,7 @@ err:
+=20
+ static const struct driver_info cdc_mbim_info =3D {
+        .description =3D "CDC MBIM",
+-       .flags =3D FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN,
++       .flags =3D FLAG_NO_SETINT | FLAG_MULTI_PACKET | FLAG_WWAN | FLA=
+G_SEND_ZLP,
+        .bind =3D cdc_mbim_bind,
+        .unbind =3D cdc_mbim_unbind,
+        .manage_power =3D cdc_mbim_manage_power,
 
 
-> > Did you try different configs? Before submitting my code, I run under
-> > 8
-> > different configs. SMP, non-SMP, PREEMPT, non PREEMPT, etc. also I
-> > run a
-> > few random configs before submitting.
-> 
-> None of course apply to this code [or shouldn't at least].
 
-I was just giving examples of what I use. As those usually apply to what
-I do. If your code is affected by any configs, you should compile with
-them on and off to make sure you didn't break them. This is a bit more
-extensive testing, and not always required. But it does help to do so,
-as it becomes embarrassing if your code breaks on a config you didn't
-test.
+But I wonder if this isn't really a generic problem in usbnet.  The
+=46LAG_MULTI_PACKET test here seems completely bogus:
 
-That's coming from my own experience too ;-)
+	if (length % dev->maxpacket =3D=3D 0) {
+		if (!(info->flags & FLAG_SEND_ZLP)) {
+			if (!(info->flags & FLAG_MULTI_PACKET)) {
+				urb->transfer_buffer_length++;
+				if (skb_tailroom(skb)) {
+					skb->data[skb->len] =3D 0;
+					__skb_put(skb, 1);
+				}
+			}
+		} else
+			urb->transfer_flags |=3D URB_ZERO_PACKET;
+	}
 
->   
-> 
-> > Until you can play by the rules, don't bother playing. Feel free to
-> > dump
-> > code on LKML. Maybe someone that knows how to play the game will take
-> > it. But leave your gripes to your managers. No one here, but you,
-> > thinks
-> > there's a problem with the frame work.
-> 
-> I actually did resubmit this morning with most of the checkpatch issues fixed. 
+Either the FLAG_MULTI_PACKET minidriver will have already padded the
+buffer so that we do not hit (length % dev->maxpacket =3D=3D 0), or we
+should choose one of the alternatives: ZLP or padding.
 
-Thank you.
+Minidrivers not wanting the short packets (like cdc_ncm) must set
+=46LAG_SEND_ZLP.
 
-> 
-> I'll avoid beating the dead horse though I'd like to move forward.
-> 
-> > > At least the testmgr errors are something I can work on whenever
-> > > without setting up a lab so likely that'll be something I can
-> > > tackle today actually.
-> > 
-> > While you're at it. You could spend an extra 5 minutes cleaning up
-> > the
-> > coding style ;-)
-> 
-> It actually took me about 45 minutes and about 5 revisions of the patches to clean up all the random coding style gripes from checkpatch.  The only reason I worked on it though is that there were build errors.  That way I can justify it to my boss.
 
-Your boss micro manages your time that much? And 45 mintes to do that?
-
-> 
-> Seriously, no spaces on the trailing edge of multi line comments?  :-/
-
-Some of checkpatch'es complaints are annoying. I'll grant you that. And
-checkpatch is more of a guideline than a strict rule. It's up to the
-maintainer of the code to determine how much checkpatch should be
-enforced.
-
-For example, checkpatch complains on code like:
-
-+       asm volatile (
-+#ifdef CONFIG_X86_64
-+                       "       xchg   %%rbx,%%rsp      \n"
-+#else
-+                       "       xchgl   %%ebx,%%esp     \n"
-+#endif
-+                       "       int3                    \n"
-+                       "       .globl jprobe_return_end\n"
-+                       "       jprobe_return_end:      \n"
-+                       "       nop                     \n"::"b"
-+                       (kcb->jprobe_saved_sp):"memory");
-
-Because the white space before the '\n' is not needed. But adding that
-whitespace makes it easier to read the assembly.
-
-When enforcing checkpatch makes the code less readable, that's when it
-should be ignored. But again, that's really up to the maintainer of the
-code to decide.
-
-> 
-> Anyways, I did re-submit.  I still have no idea how testmgr works but hopefully someone can pick it up from there.
-
-Well thank you again. This is the way the kernel community works. Just
-state you're not familiar with testmgr, and someone who is should check
-it out.
-
--- Steve
+Bj=C3=B8rn
