@@ -1,74 +1,78 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next V6 03/14] bridge: Validate that vlan is permitted
- on ingress
-Date: Sun, 20 Jan 2013 20:58:50 -0500
-Message-ID: <50FCA0DA.7000008@redhat.com>
-References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com> <1358360289-23249-4-git-send-email-vyasevic@redhat.com> <20130121002710.5189a959.shmulik.ladkani@gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Wei Shuai <cpuwolf@gmail.com>
+Subject: Re: [PATCH 2/2] CDC_NCM: adding support FLAG_NOARP for Infineon modem platform
+Date: Mon, 21 Jan 2013 10:20:22 +0800
+Message-ID: <CACa7zynymtYN4OtTjVNTNdB23eNU4D-G+JqaTxjaPFekRHkRAg@mail.gmail.com>
+References: <1358662329-8294-1-git-send-email-cpuwolf@gmail.com>
+	<1358662329-8294-2-git-send-email-cpuwolf@gmail.com>
+	<50FC25B7.70708@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, shemminger@vyatta.com, mst@redhat.com
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: dcbw@redhat.com, davem@davemloft.net, peter@stuge.se,
+	oneukum@suse.de, gregkh@linuxfoundation.org,
+	alexey.orishko@stericsson.com, bjorn@mork.no,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Sergei Shtylyov <sshtylyov@mvista.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57994 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752559Ab3AUB64 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Jan 2013 20:58:56 -0500
-In-Reply-To: <20130121002710.5189a959.shmulik.ladkani@gmail.com>
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:49352 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752528Ab3AUCUX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 21:20:23 -0500
+In-Reply-To: <50FC25B7.70708@mvista.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2013 05:27 PM, Shmulik Ladkani wrote:
-> Hi Vlad,
+The main problem is that these devices don't support ethernet.  They
+support IP (v4 and _maybe_ v6) with an ethernet header.  Many of them
+will do ARP (and IPv6 ND) as well to complete the picture, but some of
+them don't and that's what these drivers try to deal with.
+
+Note that most of the devices will run a DHCP server, so there is some
+sort of IP broadcast support.  Whether that qualifies as proper ethernet
+broadcast support is another question...
+
+These devices are attempting to bridge an IP-only point-to-point
+interface and an ethernet over USB interface, with the intention to make
+the point-to-point interface look like ethernet to applications and
+users. This is of course always going to be imperfect.  But I believe
+that we should aim to help the firmware achive this goal when writing
+drivers instead of working against it.  Setting IFF_NOARP and not
+IFF_POINTTOPOINT is one way to do that. ---- by  Bjorn Mork <bjorn@mork.no>
+
+2013/1/21, Sergei Shtylyov <sshtylyov@mvista.com>:
+> Hello.
 >
-> On Wed, 16 Jan 2013 13:17:58 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
->> @@ -45,6 +45,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
->>   	brstats->tx_bytes += skb->len;
->>   	u64_stats_update_end(&brstats->syncp);
+> On 20-01-2013 10:12, Wei Shuai wrote:
+>
+>> Infineon(now Intel) HSPA Modem platform NCM cannot support ARP. we can
+>> define a new common structure wwan_noarp_info.
+>
+>     Wrap your lines at 76-80 columns maximum please.
+>
+>> Then more similiar NO ARP devices can be handled easily
+>
+>
+>> Signed-off-by: Wei Shuai <cpuwolf@gmail.com>
+>> ---
+>>   drivers/net/usb/cdc_ncm.c |   21 +++++++++++++++++++++
+>>   1 files changed, 21 insertions(+), 0 deletions(-)
+>
+>> diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+>> index 71b6e92..2d699b6 100644
+>> --- a/drivers/net/usb/cdc_ncm.c
+>> +++ b/drivers/net/usb/cdc_ncm.c
+>> @@ -1155,6 +1155,20 @@ static const struct driver_info wwan_info = {
+>>   	.tx_fixup = cdc_ncm_tx_fixup,
+>>   };
 >>
->> +	if (!br_allowed_ingress(&br->vlan_info, skb))
->> +		goto out;
->> +
+>> +/* Same as wwan_info, but with IFF_NOARP  */
 >
-> Shouldn't you consume the 'skb' in case "not allowed"? the 'out' label
-> doesn't take care of that.
+>     FLAG_NOARP, you mean?
 >
->> +bool br_allowed_ingress(struct net_port_vlans *v, struct sk_buff *skb)
->> +{
->> +	struct net_port_vlan *pve;
->> +	u16 vid;
->> +
->> +	/* If there are no vlan in the permitted list, all packets are
->> +	 * permitted.
->> +	 */
->> +	if (list_empty(&v->vlan_list))
->> +		return true;
+>> +static const struct driver_info wwan_noarp_info = {
+>> +	.description = "Mobile Broadband Network Device (NO ARP)",
+>> +	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
+>> +			| FLAG_WWAN | FLAG_NOARP,
 >
-> Rethinking this, after discussed at [1].
-> The above means the port having no vlans is actually a member of every
-> possible vlan.
-> IMO it might not be what users expect, and may complicate things.
+> WBR, Sergei
 >
-> Maybe we should adapt a simpler approach:
-> If the bridge is a vlan enabled bridge, and the port is not a member of
-> the given vid, drop.
-> If the bridge is "vlan disabled", then all packets are permitted.
->
-
-this is hybrid configuration where some ports have vlan filtering 
-enabled while others do not.
-
-Currently the default is to act as a non-vlan bridge when there is no 
-configuration.  I'll consider adding a configuration nob to switch the 
-behavior so that strict filtering can be enforced.
-
--vlad
-
-> Regards,
-> Shmulik
->
-> [1]
-> http://marc.info/?l=linux-netdev&m=135602065425514&w=2
 >
