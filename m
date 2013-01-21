@@ -1,55 +1,25 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: ipv6: Do not depend on rt->n in rt6_probe().
-Date: Tue, 22 Jan 2013 03:41:10 +0900
-Message-ID: <50FD8BC6.1030509@linux-ipv6.org>
-References: <20130121182858.GA8808@elgon.mountain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch 0/6] s390: network patches for net-next
+Date: Mon, 21 Jan 2013 13:52:42 -0500 (EST)
+Message-ID: <20130121.135242.457238968555370604.davem@davemloft.net>
+References: <20130121123017.240686588@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kbuild@01.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50500 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751134Ab3AUSlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 13:41:12 -0500
-In-Reply-To: <20130121182858.GA8808@elgon.mountain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41045 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751134Ab3AUSwo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 13:52:44 -0500
+In-Reply-To: <20130121123017.240686588@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2013=E5=B9=B401=E6=9C=8822=E6=97=A5 03:28), Dan Carpenter wrote:
-> Hello YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E,
->=20
-> This is a semi-automatic email about new static checker warnings.
->=20
-> The patch 2152caea7196: "ipv6: Do not depend on rt->n in=20
-> rt6_probe()." from Jan 17, 2013, leads to the following Smatch=20
-> complaint:
->=20
-> net/ipv6/route.c:495 rt6_probe()
-> 	 error: we previously assumed 'neigh' could be null (see line 490)
->=20
-> net/ipv6/route.c
->    489=09
->    490		if (!neigh ||
->                      ^^^^^
-> New test.
->=20
->    491		    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.r=
-tr_probe_interval)) {
->    492			struct in6_addr mcaddr;
->    493			struct in6_addr *target;
->    494=09
->    495			neigh->updated =3D jiffies;
->                         ^^^^^^^^^^^^^^
-> Old dereference.
->=20
->    496=09
->    497			if (neigh)
->                             ^^^^^
-> Another new test.
+From: frank.blaschka@de.ibm.com
+Date: Mon, 21 Jan 2013 13:30:17 +0100
 
-Oh, right, I'll fix.  Thanks!
+> here are some s390 related patches for net-next
 
---yoshfuji
+All applied, thanks.
