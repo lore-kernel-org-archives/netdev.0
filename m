@@ -1,90 +1,42 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: Re: Redefinition of struct in6_addr in <netinet/in.h> and <linux/in6.h>
-Date: Sun, 20 Jan 2013 19:54:47 -0500
-Message-ID: <201301201954.51109.vapier@gentoo.org>
-References: <201301161205.04502.vapier@gentoo.org> <50F95B0A.1090205@linux-ipv6.org> <50F95DF3.7080602@redhat.com>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: IPsec AH use of ahash
+Date: Mon, 21 Jan 2013 02:08:29 +0100
+Message-ID: <20130121010829.GB19343@pd.tnic>
+References: <20130121003441.GA19447@pd.tnic>
+ <861997288.94032.1358728848956.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6316602.foUSqU4aQs";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	"Carlos O'Donell" <carlos@systemhalted.org>,
-	David Miller <davem@davemloft.net>, libc-alpha@sourceware.org,
-	bhutchings@solarflare.com, amwang@redhat.com, tmb@mageia.org,
-	eblake@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, libvirt-list@redhat.com,
-	tgraf@suug.ch, schwab@suse.de
-To: Pedro Alves <palves@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Dillow <dave@thedillows.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+To: Tom St Denis <tstdenis@elliptictech.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50F95DF3.7080602@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <861997288.94032.1358728848956.JavaMail.root@elliptictech.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart6316602.foUSqU4aQs
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+On Sun, Jan 20, 2013 at 07:40:49PM -0500, Tom St Denis wrote:
+> If you guys can't appreciate that I should just bow out of the
+> discussion. I didn't come here looking for a fight I came here to seek
+> reason.
 
-On Friday 18 January 2013 09:36:35 Pedro Alves wrote:
-> On 01/18/2013 02:24 PM, YOSHIFUJI Hideaki wrote:
-> >>>> It's simple enough to move all of the __GLIBC__ uses into
-> >>>> libc-compat.h, then you control userspace libc coordination from one
-> >>>> file.
-> >>>=20
-> >>> How about just deciding on a single macro/symbol both the
-> >>> kernel and libc (any libc that needs this) define?  Something
-> >>> like both the kernel and userland doing:
-> >>>=20
-> >>> #ifndef __IPV6_BITS_DEFINED
-> >>> #define __IPV6_BITS_DEFINED
-> >>> ...
-> >>> define in6_addr, sockaddr_in6, ipv6_mreq, whatnot
-> >>> #endif
-> >=20
-> > Hmm, how should we handle future structs/enums then?
-> > For example, if I want to have in6_flowlabel_req{} defined in
-> > glibc, what should we do?
->=20
-> Include the glibc header first?  Or is this some other
-> use case?
->=20
-> The point wasn't that you'd have only one macro for all
-> structs/enums (you could split into __IPV6_IN6_ADDR_DEFINED,
-> __IPV6_SOCKADDR_IN6_DEFINED, etc.) but to have the kernel
-> and libc agree on guard macros, instead of having the kernel
-> do #ifdef __GLIBC__ and glibc doing #ifdef _NETINET_IN_H.
->=20
-> But as Carlos says, the devil is in the details, and
-> I sure am not qualified on the details here.
+Ok, I'm going to pretty much repeat what Steve said but I'm going to
+repeat it only once and if you don't want to understand it then, don't
+even bother replying.
 
-i shipped some kernel header versions in Gentoo where the linux network=20
-headers would include the C library's header (as defined by POSIX) so the=20
-structs that were the same would only come from glibc.  the only reported=20
-breakage was due to defines that the kernel provided but glibc did not.
-=2Dmike
+If you want to get your code in the kernel, simply do what the
+maintainer asks you and stop debating. He's not asking you to swallow
+knifes or walk on embers or some other crazy shit - he asks you
+reasonable stuff and he *knows* that code needs testing and that it
+takes a while but this is a price we all pay. Accept it.
 
---nextPart6316602.foUSqU4aQs
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+You're not the only one being asked to retest stuff and you're not going
+to be the last one so stop wasting your time and get something done
+instead.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
+-- 
+Regards/Gruss,
+    Boris.
 
-iQIcBAABAgAGBQJQ/JHaAAoJEEFjO5/oN/WBUr4QAILaTm3EUqS154DTDuZSjwq/
-RF5BF+k04XBwsbMudP0gb4pYLJNUxOdYcKN4HvmqIwOBDftKYt2D4EmCHMBDiMnN
-2/KMODXhoQHXk2cH3T0f3O64R95xyAoLTstN1yOf4daSJsj964nQ4k6s9PROWU81
-OApkodMcbVSuXCLiQpJC1zgbZp2z9klweZKdGEdIONjnChGhN8yAGfqKEtrQLIq3
-BujiVjDIDwYDCJeLed17n6okGnr71YELRcpJuk6hYwNa4HFJ+7lF/zaNEl/k/28J
-dYGDsGwnCkrAdgPYvm4lr3uajoR5F13wsAADuK3R7qzOlj3whiG+H2NcX8ERQX1B
-6PH5A5LPyueXBJ9GbSKakXxML3eGf+Z3kHwK8QL4ZU4PddBw6QbPXxfeiFleAfTg
-SDsRPDXxxISmOMDMdsqw/1CoErxf8/dND8r58wsHdBEVXeXNDAlo2M58Z0KTK+SV
-+u4/YAPhiq5hVmamdj7YlRqtkenVDuKTKQpnttPB+S7++iU2x9oFHuL9drcMhiuW
-X7q8KPpCtlzvbSZHMwtnyLCem8qEKaNPHYulPa1GGlNQ6VADxYL/p9rFK7oI7iSY
-tcqIk0wY4/faM70oiMO4kpmzIpnhJgoPv+1zhdyHyvuegBMWI7YI9Mmdz8GtiPoz
-eR+4W34f9I7rixpeblxG
-=NEGe
------END PGP SIGNATURE-----
-
---nextPart6316602.foUSqU4aQs--
+Sent from a fat crate under my desk. Formatting is fine.
+--
