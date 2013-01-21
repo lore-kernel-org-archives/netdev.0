@@ -1,94 +1,66 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 00/19] IPv6 NDISC Updates
-Date: Tue, 22 Jan 2013 01:47:40 +0900
-Message-ID: <50FD712C.1050703@linux-ipv6.org>
+Subject: [PATCH net-next 01/19] ndisc: Reduce number of arguments for ndisc_fill_addr_option().
+Date: Tue, 22 Jan 2013 01:47:50 +0900
+Message-ID: <50FD7136.2060703@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50327 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50330 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751610Ab3AUQro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 11:47:44 -0500
+	with ESMTP id S1752397Ab3AUQrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 11:47:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series of changes basically clean up NDISC logic,
-especially on sender side.
+Add pointer to struct net_device (dev) and remove
+data_len (= dev->addr_len) and addr_type (= dev->type).
 
-We originally do For NS/NA/RS:
- 1) build temporary ICMPv6 header
- 2) ndisc_build_skb() with temporary ICMPv6 header and rather
-    criptic arguments.
-    - Calculate total length and allocate sk_buff
-    - Build IPv6 header.
-    - copy ICMPv6 header, additional data and ND options.
-    - Fill-in ICMPv6 checksum.
-    Here, structures defined for message format was not used
-    at all, it is difficult to understand what is being sent,
-    and it was not generic.
- 3) __ndisc_send()
-    - Allocate temporary dst.
-    - Send it.
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/ndisc.c |   13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
 
-Several issues:
-- We could not defer decision if we should/can send some ND
-  option.
-- It is hard to see the packet format at a glance.
-- ICMPv6 header was built as temporary variable, and then
-  copied to the buffer.
-- Some code path for Redirect was not shared.
-
-With these patches, we do:
- 1) Calculate (or estimate) message length and option length.
- 2) Allocate skb (via new ndisc_skb_alloc()).
- 3) Fill-in ICMPv6 message directly using compound literals.
- 4) Fill-in ICMPv6 checksum
- 5) Build IPv6 header (including length)
- 6) Send the packet (via ndisc_send_skb()).
-    - allocate temporary dst and send it.
-
-- We can defer calculating real length of the packet.
-  For example, we can give up filling some option at when
-  filling in.
-- Message is built directly without temporary buffer.
-- Structures defined for message format is easier to understand
-  what is being built.
-- NS/NA/RS/Redirect share same logic.
-- Reduced code/data size:
-	   text	   data	    bss	    dec	    hex	filename
-	 265407	  14133	   3488	 283028	  45194	old/net/ipv6/ipv6.o
-	 264955	  14109	   3488	 282552	  44fb8	new/net/ipv6/ipv6.o
-
-YOSHIFUJI Hideaki (19):
-  ndisc: Reduce number of arguments for ndisc_fill_addr_option().
-  ndisc: Move ndisc_opt_addr_space() to include/net/ndisc.h.
-  ndisc: Use skb_linearize() instead of pskb_may_pull(skb, skb->len).
-  ndisc: Introduce ndisc_fill_redirect_hdr_option().
-  ndisc: Introduce ndisc_alloc_skb() helper.
-  ipv6: Unshare ip6_nd_hdr() and change return type to void.
-  ndisc: Simplify arguments for ip6_nd_hdr().
-  ndisc: Set skb->dev and skb->protocol inside ndisc_alloc_skb().
-  ndisc: Remove dev argument for ndisc_send_skb().
-  ndisc: Defer building IPv6 header.
-  ndisc: Reset skb->trasport_headner inside ndisc_alloc_send_skb().
-  ndisc: Calculate message body length and option length separately.
-  ndisc: Make ndisc_fill_xxx_option() for sk_buff.
-  ndisc: Remove icmp6h argument from ndisc_send_skb().
-  ndisc: Use ndisc_send_skb() for redirect.
-  ndisc: Fill in ICMPv6 checksum and IPv6 header in ndisc_send_skb().
-  ndisc: Break down __ndisc_send().
-  ndisc: Break down ndisc_build_skb() and build message directly.
-  ndisc: Use compound literals to build redirect message.
-
- include/net/ipv6.h    |    7 --
- include/net/ndisc.h   |    8 +-
- net/ipv6/ip6_output.c |   33 -----
- net/ipv6/mcast.c      |   29 ++++-
- net/ipv6/ndisc.c      |  331 +++++++++++++++++++++++++------------------------
- 5 files changed, 203 insertions(+), 205 deletions(-)
-
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 067a0d2..49dfc2a 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -148,10 +148,11 @@ static inline int ndisc_opt_addr_space(struct net_device *dev)
+ 	return NDISC_OPT_SPACE(dev->addr_len + ndisc_addr_option_pad(dev->type));
+ }
+ 
+-static u8 *ndisc_fill_addr_option(u8 *opt, int type, void *data, int data_len,
+-				  unsigned short addr_type)
++static u8 *ndisc_fill_addr_option(u8 *opt, int type, void *data,
++				  struct net_device *dev)
+ {
+-	int pad   = ndisc_addr_option_pad(addr_type);
++	int pad   = ndisc_addr_option_pad(dev->type);
++	int data_len = dev->addr_len;
+ 	int space = NDISC_OPT_SPACE(data_len + pad);
+ 
+ 	opt[0] = type;
+@@ -420,8 +421,7 @@ static struct sk_buff *ndisc_build_skb(struct net_device *dev,
+ 	}
+ 
+ 	if (llinfo)
+-		ndisc_fill_addr_option(opt, llinfo, dev->dev_addr,
+-				       dev->addr_len, dev->type);
++		ndisc_fill_addr_option(opt, llinfo, dev->dev_addr, dev);
+ 
+ 	hdr->icmp6_cksum = csum_ipv6_magic(saddr, daddr, len,
+ 					   IPPROTO_ICMPV6,
+@@ -1469,8 +1469,7 @@ void ndisc_send_redirect(struct sk_buff *skb, const struct in6_addr *target)
+ 	 */
+ 
+ 	if (ha)
+-		opt = ndisc_fill_addr_option(opt, ND_OPT_TARGET_LL_ADDR, ha,
+-					     dev->addr_len, dev->type);
++		opt = ndisc_fill_addr_option(opt, ND_OPT_TARGET_LL_ADDR, ha, dev);
+ 
+ 	/*
+ 	 *	build redirect option and copy skb over to the new packet.
 -- 
 1.7.9.5
