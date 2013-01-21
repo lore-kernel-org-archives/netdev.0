@@ -1,25 +1,38 @@
-From: Pau Koning <paukoning@gmail.com>
-Subject: Re: [B.A.T.M.A.N.] batman-adv: Unable to add interface in LXC
-Date: Mon, 21 Jan 2013 10:11:15 +0100
-Message-ID: <CANiGF99LSHAOsKiW=mwR9v3pvEXAV8_8BcBJYzxddZ2rzCQW5A@mail.gmail.com>
-References: <CANiGF9-dq-HrvWrgu9EMC94rP=1YdrmaFbCF2g1SZ9ocu77ysw@mail.gmail.com>
-	<201212311511.24877.lindner_marek@yahoo.de>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: IPsec AH use of ahash
+Date: Mon, 21 Jan 2013 04:18:01 -0500
+Message-ID: <1358759881.2595.15.camel@obelisk.thedillows.org>
+References: <861997288.94032.1358728848956.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: Marek Lindner <lindner_marek@yahoo.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:44021 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752479Ab3AUJLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 04:11:16 -0500
-Received: by mail-oa0-f52.google.com with SMTP id o6so5719682oag.39
-        for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 01:11:15 -0800 (PST)
-In-Reply-To: <201212311511.24877.lindner_marek@yahoo.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <861997288.94032.1358728848956.JavaMail.root@elliptictech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Did you check your kernel log messages ? I'd expect batman-adv to print
-> something there in case of an error.
+On Sun, 2013-01-20 at 19:40 -0500, Tom St Denis wrote:
+> The problem is for me to add the ()'s is a no brainer.
 
-No output at all
+It was more than just the ()'s. You completely botched the indentation
+in the parts of code you didn't copy from xcbc.c, among other issues.
+
+> For me to re-write complete statements for coding style reasons means
+> I have to actually go out and test it again.
+
+Well, for some of the code you submitted, that would be the first
+testing it got, even compile testing AFAICT. I don't doubt that you
+tested against your hardware, but it is obvious that you didn't run the
+algorithm tests you added, or even tried to compile them. You were
+missing a semicolon after your test data, and you were also missing a
+"\x" in there, so your test data was wrong.
+
+I know this, because I just spent the five minutes required to fix up
+the checkpatch warnings to prove to myself that you could have done it
+faster than sending one considered message to the list about how much we
+suck. Of course, that assumes you are trying to have a discussion
+instead of trolling; it's much easier to spew bile than to think before
+you post.
