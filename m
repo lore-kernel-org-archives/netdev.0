@@ -1,69 +1,57 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Rate Limitation of Router Reachability Probing for possible dead
- routers (is Re: ipv6: Do not depend on rt->n in rt6_probe().)
-Date: Tue, 22 Jan 2013 04:28:36 +0900
-Message-ID: <50FD96E4.1020607@linux-ipv6.org>
-References: <20130121182858.GA8808@elgon.mountain> <50FD8BC6.1030509@linux-ipv6.org>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: RE: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
+Date: Mon, 21 Jan 2013 20:42:11 +0100
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D99@EXDCVYMBSTM006.EQ1STM.local>
+References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
+ <20130121.142242.2240250911008731906.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"gsuarez@smithmicro.com" <gsuarez@smithmicro.com>,
+	"oneukum@suse.de" <oneukum@suse.de>,
+	Alexey Orishko <alexey.orishko@gmail.com>
+To: David Miller <davem@davemloft.net>, "bjorn@mork.no" <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50551 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756182Ab3AUT2i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 14:28:38 -0500
-In-Reply-To: <50FD8BC6.1030509@linux-ipv6.org>
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:33698 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751134Ab3AUTnL convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 14:43:11 -0500
+In-Reply-To: <20130121.142242.2240250911008731906.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2013=E5=B9=B401=E6=9C=8822=E6=97=A5 03:41), YOSHIFUJI Hideaki wrote:
-> (2013=E5=B9=B401=E6=9C=8822=E6=97=A5 03:28), Dan Carpenter wrote:
->> Hello YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E,
->>
->> This is a semi-automatic email about new static checker warnings.
->>
->> The patch 2152caea7196: "ipv6: Do not depend on rt->n in=20
->> rt6_probe()." from Jan 17, 2013, leads to the following Smatch=20
->> complaint:
->>
->> net/ipv6/route.c:495 rt6_probe()
->> 	 error: we previously assumed 'neigh' could be null (see line 490)
->>
->> net/ipv6/route.c
->>    489=09
->>    490		if (!neigh ||
->>                      ^^^^^
->> New test.
->>
->>    491		    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.=
-rtr_probe_interval)) {
->>    492			struct in6_addr mcaddr;
->>    493			struct in6_addr *target;
->>    494=09
->>    495			neigh->updated =3D jiffies;
->>                         ^^^^^^^^^^^^^^
->> Old dereference.
->>
->>    496=09
->>    497			if (neigh)
->>                             ^^^^^
->> Another new test.
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Monday, January 21, 2013 8:23 PM
+> To: bjorn@mork.no
+> Cc: netdev@vger.kernel.org; linux-usb@vger.kernel.org;
+> gsuarez@smithmicro.com; Alexey ORISHKO; oneukum@suse.de
+> Subject: Re: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
 >=20
-> Oh, right, I'll fix.  Thanks!
+> From: Bj=F8rn Mork <bjorn@mork.no>
+> Date: Mon, 21 Jan 2013 16:50:37 +0100
+>=20
+> > The 2 first patches in this series are required to make the Sierra
+> > Wireless MC7710 card work in MBIM mode.  They may also be required
+> for
+> > other Qualcomm firmware based MBIM devices.
+> >
+> > Patch #1 was previously posted as a standalone patch.  This version
+> is
+> > a replacement, removing a theoretical NULL pointer exception.
+> >
+> > Patch #3 fixes a bug I introduced in v3.7
+>=20
+> All applied, thanks.
 
-Ok, fix is easy, but in fact, we have broken router reachability
-probing.
+Hi David,
 
-Here rt->n was neighbour entry for (unreachable) router.
-The specification says, we SHOUDLD probe such router, but we
-should  have some rate limit (once per minute, or so).
+It was way too fast... I don't think we concluded on patch#2 since it
+will damage existing devices :-(
 
-We used "rt->n->updated" for this purpose, but now, if NS failed,
-we may immediately removes neighbour entry for it.  So,
-we might continue sending NS to dead router every 1 second.
-
-Any ideas?
-
---yoshfuji
+Regards,
+alexey
