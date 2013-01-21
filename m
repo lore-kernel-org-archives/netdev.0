@@ -1,46 +1,31 @@
-From: Peter =?iso-8859-1?q?H=FCwe?= <PeterHuewe@gmx.de>
-Subject: Sparse Warnings: net/ipv6/route.c:521:17: sparse: context imbalance in 'rt6_probe' - different lock contexts for basic block
-Date: Mon, 21 Jan 2013 21:03:17 +0100
-Message-ID: <201301212103.18066.PeterHuewe@gmx.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org
-To: "YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?="
-	<yoshfuji@linux-ipv6.org>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: [PATCH 0/2] dsa: bug fixes
+Date: Mon, 21 Jan 2013 20:58:49 +0100
+Message-ID: <1358798331-13055-1-git-send-email-florian@openwrt.org>
+Cc: buytenh@wantstofly.org, konszert@marvell.com, davem@davemloft.net,
+	Florian Fainelli <florian@openwrt.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:65274 "EHLO mout.gmx.net"
+Received: from zmc.proxad.net ([212.27.53.206]:43896 "EHLO zmc.proxad.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756205Ab3AUUAN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2013 15:00:13 -0500
-Received: from mailout-de.gmx.net ([10.1.76.30]) by mrigmx.server.lan
- (mrigmx002) with ESMTP (Nemesis) id 0Lm9rr-1TNlnu3Ep7-00Zjxl for
- <netdev@vger.kernel.org>; Mon, 21 Jan 2013 21:00:11 +0100
+	id S1756561Ab3AUUBi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 15:01:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi YOSHIFUJI,
+Hello David, Lennert,
 
-FYI, there are new sparse warnings show up in
+These two patches are non-critical bugfixes based on net-next which I
+stumbled upon while working on Device Tree bindings for DSA (will comme
+as a separate patch later).
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
-branch: master
-head:   887c95cc1da53f66a5890fdeab13414613010097
-commit: 2152caea719657579daa3a1a57a5425a3db6d612 [185/189] ipv6: Do not depend 
-on rt->n in rt6_probe().
+Florian Fainelli (2):
+  dsa: use an unique and non conflicting bus name for the slave MII bus
+  dsa: make dsa_switch_setup check for valid port names
 
->> net/ipv6/route.c:521:17: sparse: context imbalance in 'rt6_probe' - 
-different lock contexts for basic block
+ net/dsa/dsa.c   |    6 ++++++
+ net/dsa/slave.c |    4 ++--
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-On latest net-next/master it's
-net/ipv6/route.c:500:17: warning: context imbalance in 'rt6_probe' - different 
-lock contexts for basic block
-
-
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Reported-by: Peter Huewe <peterhuewe@gmx.de>
-
-
-Thanks,
-Peter
+-- 
+1.7.10.4
