@@ -1,95 +1,84 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 3/6] isdn/gigaset: beautify interface.c
-Date: Mon, 21 Jan 2013 22:57:20 +0100 (CET)
-Message-ID: <20130121-patch-isdn-03.tilman@imap.cc>
-References: <20130121-patch-isdn-00.tilman@imap.cc>
-Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
-	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	David Miller <davem@davemloft.net>
+From: Jon Mason <jon.mason@intel.com>
+Subject: Re: [PATCH 14/21] NTB: Fix Sparse Warnings
+Date: Mon, 21 Jan 2013 15:28:46 -0700
+Message-ID: <20130121222846.GK22208@jonmason-lab>
+References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
+ <1358586155-23322-15-git-send-email-jon.mason@intel.com>
+ <20130120234534.GD14196@kroah.com>
+ <20130121211350.GH22208@jonmason-lab>
+ <20130121213719.GA20506@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Dave Jiang <dave.jiang@intel.com>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130121-patch-isdn-00.tilman@imap.cc>
+Content-Disposition: inline
+In-Reply-To: <20130121213719.GA20506@kroah.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avoid forward declarations and remove a needless initialization.
+On Mon, Jan 21, 2013 at 01:37:19PM -0800, Greg KH wrote:
+> On Mon, Jan 21, 2013 at 02:13:50PM -0700, Jon Mason wrote:
+> > On Sun, Jan 20, 2013 at 03:45:34PM -0800, Greg KH wrote:
+> > > On Sat, Jan 19, 2013 at 02:02:28AM -0700, Jon Mason wrote:
+> > > > Address the sparse warnings and resulting fallout
+> > > > 
+> > > > Signed-off-by: Jon Mason <jon.mason@intel.com>
+> > > > ---
+> > > >  drivers/ntb/ntb_hw.c        |    7 ++++---
+> > > >  drivers/ntb/ntb_hw.h        |    4 ++--
+> > > >  drivers/ntb/ntb_transport.c |   32 ++++++++++++++++----------------
+> > > >  3 files changed, 22 insertions(+), 21 deletions(-)
+> > > > 
+> > > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+> > > > index 18cb5dc..b792ccd 100644
+> > > > --- a/drivers/ntb/ntb_hw.c
+> > > > +++ b/drivers/ntb/ntb_hw.c
+> > > > @@ -104,8 +104,9 @@ MODULE_DEVICE_TABLE(pci, ntb_pci_tbl);
+> > > >   *
+> > > >   * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+> > > >   */
+> > > > -int ntb_register_event_callback(struct ntb_device *ndev,
+> > > > -				void (*func)(void *handle, unsigned int event))
+> > > > +int
+> > > > +ntb_register_event_callback(struct ntb_device *ndev,
+> > > > +			    void (*func)(void *handle, enum ntb_hw_event event))
+> > > 
+> > > What is sparse complaining about here that moving the function name to
+> > > the start of the line fixes?  That shouldn't be necessary at all.  Ah,
+> > > the enum?  If so, why change the first line at all?
+> > 
+> > All an effort to get it to fit in under 80 chars.
+> 
+> The original lines were less than 80 characters :)
+> 
+> > > > --- a/drivers/ntb/ntb_transport.c
+> > > > +++ b/drivers/ntb/ntb_transport.c
+> > > > @@ -58,7 +58,7 @@
+> > > >  #include <linux/ntb.h>
+> > > >  #include "ntb_hw.h"
+> > > >  
+> > > > -#define NTB_TRANSPORT_VERSION	1
+> > > > +#define NTB_TRANSPORT_VERSION	2
+> > > 
+> > > How is this a sparse fix?
+> > 
+> > I changed the format of the header below.
+> 
+> Ah, ok.
+> 
+> Care to resend this without the first chunk?
 
-Signed-off-by: Tilman Schmidt <tilman@imap.cc>
----
- drivers/isdn/gigaset/interface.c |   46 ++++++++++++-------------------------
- 1 files changed, 15 insertions(+), 31 deletions(-)
+Works for me :)
 
-diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
-index 67abf3f..20b7e7a 100644
---- a/drivers/isdn/gigaset/interface.c
-+++ b/drivers/isdn/gigaset/interface.c
-@@ -112,36 +112,6 @@ static int if_config(struct cardstate *cs, int *arg)
- }
- 
- /*** the terminal driver ***/
--/* stolen from usbserial and some other tty drivers */
--
--static int  if_open(struct tty_struct *tty, struct file *filp);
--static void if_close(struct tty_struct *tty, struct file *filp);
--static int  if_ioctl(struct tty_struct *tty,
--		     unsigned int cmd, unsigned long arg);
--static int  if_write_room(struct tty_struct *tty);
--static int  if_chars_in_buffer(struct tty_struct *tty);
--static void if_throttle(struct tty_struct *tty);
--static void if_unthrottle(struct tty_struct *tty);
--static void if_set_termios(struct tty_struct *tty, struct ktermios *old);
--static int  if_tiocmget(struct tty_struct *tty);
--static int  if_tiocmset(struct tty_struct *tty,
--			unsigned int set, unsigned int clear);
--static int  if_write(struct tty_struct *tty,
--		     const unsigned char *buf, int count);
--
--static const struct tty_operations if_ops = {
--	.open =			if_open,
--	.close =		if_close,
--	.ioctl =		if_ioctl,
--	.write =		if_write,
--	.write_room =		if_write_room,
--	.chars_in_buffer =	if_chars_in_buffer,
--	.set_termios =		if_set_termios,
--	.throttle =		if_throttle,
--	.unthrottle =		if_unthrottle,
--	.tiocmget =		if_tiocmget,
--	.tiocmset =		if_tiocmset,
--};
- 
- static int if_open(struct tty_struct *tty, struct file *filp)
- {
-@@ -355,7 +325,7 @@ done:
- static int if_write_room(struct tty_struct *tty)
- {
- 	struct cardstate *cs = tty->driver_data;
--	int retval = -ENODEV;
-+	int retval;
- 
- 	gig_dbg(DEBUG_IF, "%u: %s()", cs->minor_index, __func__);
- 
-@@ -498,6 +468,20 @@ out:
- 	mutex_unlock(&cs->mutex);
- }
- 
-+static const struct tty_operations if_ops = {
-+	.open =			if_open,
-+	.close =		if_close,
-+	.ioctl =		if_ioctl,
-+	.write =		if_write,
-+	.write_room =		if_write_room,
-+	.chars_in_buffer =	if_chars_in_buffer,
-+	.set_termios =		if_set_termios,
-+	.throttle =		if_throttle,
-+	.unthrottle =		if_unthrottle,
-+	.tiocmget =		if_tiocmget,
-+	.tiocmset =		if_tiocmset,
-+};
-+
- 
- /* wakeup tasklet for the write operation */
- static void if_wake(unsigned long data)
--- 
-1.7.3.4
+Resending with the minor edit now.
+
+Thanks,
+Jon
+
+> 
+> thanks,
+> 
+> greg k-h
