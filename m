@@ -1,13 +1,12 @@
-From: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
 Subject: Re: [BUG] Bug in netprio_cgroup and netcls_cgroup ?
-Date: Mon, 21 Jan 2013 01:21:23 -0800
-Message-ID: <50FD0893.1050805@gmail.com>
+Date: Mon, 21 Jan 2013 10:27:25 +0100
+Message-ID: <50FD09FD.4010804@monom.org>
 References: <50FCDB5C.4050608@huawei.com> <50FD0144.1000401@monom.org> <50FD0402.6060400@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
 	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
 	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
 	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -18,7 +17,7 @@ In-Reply-To: <50FD0402.6060400-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/21/2013 01:01 AM, Li Zefan wrote:
+On 21.01.2013 10:01, Li Zefan wrote:
 > On 2013/1/21 16:50, Daniel Wagner wrote:
 >> Hi Li,
 >>
@@ -54,39 +53,13 @@ On 01/21/2013 01:01 AM, Li Zefan wrote:
 > cgroups with differnt configs, A's config won't take effect anymore.
 > 
 > Am I missing something?
-> 
-> 
 
-Hi Zefan,
+I don't know. I guess at one point the socket resources are shared and then
+one configuration is taking preference. As you can see I am far away of
+being
+an expert in this field. Hopefully someone who understands this bits
+can chip in.
 
-Neil and I discusses this here, http://patchwork.ozlabs.org/patch/172343/
-look towards the bottom of the thread. Quoted here.
-
->> I like the idea, but IIRC last time we tried this I think it caused problems
->> with processes that shared sockets.  That is to say, if you have a parent and
->> child process that dup an socket descriptior, and put them in separate cgroups,
->> you get unpredictable results, as the socket gets assigned a priority based on
->> the last processed that moved cgroups.
->>
->> Neil
->>
-> 
-> Shared sockets creates strange behavior as it exists today. If a dup
-> of the socket fd is created the private data is still shared right. So
-> in this case the sk_cgrp_prioidx value is going to get updated by both
-> threads and then it is a race to see what it happens to be set to in
-> the xmit path.
-> 
-> With this patch at least the behavior is deterministic. Without it
-> I can create the above scenario but have no way to determine what the
-> skb priority will actually be set to.
-> 
-
-Its unfortunate but I'm not sure how to fix it off hand with the shared
-value
-in the socket.
-
-.John
-
--- 
-John Fastabend         Intel Corporation
+BTW, isn't this a similar to what should happen with the block io cgroup?
+What is the behavior with a fd writing to a file in the scenario you
+describe above?
