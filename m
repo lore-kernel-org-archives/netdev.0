@@ -1,84 +1,189 @@
 From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH 14/21] NTB: Fix Sparse Warnings
-Date: Mon, 21 Jan 2013 15:28:46 -0700
-Message-ID: <20130121222846.GK22208@jonmason-lab>
-References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
- <1358586155-23322-15-git-send-email-jon.mason@intel.com>
- <20130120234534.GD14196@kroah.com>
- <20130121211350.GH22208@jonmason-lab>
- <20130121213719.GA20506@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Subject: [PATCH 2/2] NTB: Fix Sparse Warnings
+Date: Mon, 21 Jan 2013 15:28:52 -0700
+Message-ID: <1358807332-22782-2-git-send-email-jon.mason@intel.com>
+References: <1358807332-22782-1-git-send-email-jon.mason@intel.com>
 Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Jiang <dave.jiang@intel.com>,
 	Nicholas Bellinger <nab@linux-iscsi.org>
 To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130121213719.GA20506@kroah.com>
+In-Reply-To: <1358807332-22782-1-git-send-email-jon.mason@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 21, 2013 at 01:37:19PM -0800, Greg KH wrote:
-> On Mon, Jan 21, 2013 at 02:13:50PM -0700, Jon Mason wrote:
-> > On Sun, Jan 20, 2013 at 03:45:34PM -0800, Greg KH wrote:
-> > > On Sat, Jan 19, 2013 at 02:02:28AM -0700, Jon Mason wrote:
-> > > > Address the sparse warnings and resulting fallout
-> > > > 
-> > > > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > > > ---
-> > > >  drivers/ntb/ntb_hw.c        |    7 ++++---
-> > > >  drivers/ntb/ntb_hw.h        |    4 ++--
-> > > >  drivers/ntb/ntb_transport.c |   32 ++++++++++++++++----------------
-> > > >  3 files changed, 22 insertions(+), 21 deletions(-)
-> > > > 
-> > > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> > > > index 18cb5dc..b792ccd 100644
-> > > > --- a/drivers/ntb/ntb_hw.c
-> > > > +++ b/drivers/ntb/ntb_hw.c
-> > > > @@ -104,8 +104,9 @@ MODULE_DEVICE_TABLE(pci, ntb_pci_tbl);
-> > > >   *
-> > > >   * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
-> > > >   */
-> > > > -int ntb_register_event_callback(struct ntb_device *ndev,
-> > > > -				void (*func)(void *handle, unsigned int event))
-> > > > +int
-> > > > +ntb_register_event_callback(struct ntb_device *ndev,
-> > > > +			    void (*func)(void *handle, enum ntb_hw_event event))
-> > > 
-> > > What is sparse complaining about here that moving the function name to
-> > > the start of the line fixes?  That shouldn't be necessary at all.  Ah,
-> > > the enum?  If so, why change the first line at all?
-> > 
-> > All an effort to get it to fit in under 80 chars.
-> 
-> The original lines were less than 80 characters :)
-> 
-> > > > --- a/drivers/ntb/ntb_transport.c
-> > > > +++ b/drivers/ntb/ntb_transport.c
-> > > > @@ -58,7 +58,7 @@
-> > > >  #include <linux/ntb.h>
-> > > >  #include "ntb_hw.h"
-> > > >  
-> > > > -#define NTB_TRANSPORT_VERSION	1
-> > > > +#define NTB_TRANSPORT_VERSION	2
-> > > 
-> > > How is this a sparse fix?
-> > 
-> > I changed the format of the header below.
-> 
-> Ah, ok.
-> 
-> Care to resend this without the first chunk?
+Address the sparse warnings and resulting fallout
 
-Works for me :)
+Signed-off-by: Jon Mason <jon.mason@intel.com>
+---
+ drivers/ntb/ntb_hw.c        |    4 ++--
+ drivers/ntb/ntb_hw.h        |    4 ++--
+ drivers/ntb/ntb_transport.c |   32 ++++++++++++++++----------------
+ 3 files changed, 20 insertions(+), 20 deletions(-)
 
-Resending with the minor edit now.
-
-Thanks,
-Jon
-
-> 
-> thanks,
-> 
-> greg k-h
+diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
+index 6d8e937..f802e7c 100644
+--- a/drivers/ntb/ntb_hw.c
++++ b/drivers/ntb/ntb_hw.c
+@@ -104,7 +104,7 @@ MODULE_DEVICE_TABLE(pci, ntb_pci_tbl);
+  * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
+  */
+ int ntb_register_event_callback(struct ntb_device *ndev,
+-				void (*func)(void *handle, unsigned int event))
++			    void (*func)(void *handle, enum ntb_hw_event event))
+ {
+ 	if (ndev->event_cb)
+ 		return -EINVAL;
+@@ -343,7 +343,7 @@ int ntb_read_remote_spad(struct ntb_device *ndev, unsigned int idx, u32 *val)
+  *
+  * RETURNS: pointer to virtual address, or NULL on error.
+  */
+-void *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw)
++void __iomem *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw)
+ {
+ 	if (mw > NTB_NUM_MW)
+ 		return NULL;
+diff --git a/drivers/ntb/ntb_hw.h b/drivers/ntb/ntb_hw.h
+index 5e00951..3a3038c 100644
+--- a/drivers/ntb/ntb_hw.h
++++ b/drivers/ntb/ntb_hw.h
+@@ -165,14 +165,14 @@ int ntb_register_db_callback(struct ntb_device *ndev, unsigned int idx,
+ void ntb_unregister_db_callback(struct ntb_device *ndev, unsigned int idx);
+ int ntb_register_event_callback(struct ntb_device *ndev,
+ 				void (*event_cb_func) (void *handle,
+-						       unsigned int event));
++						      enum ntb_hw_event event));
+ void ntb_unregister_event_callback(struct ntb_device *ndev);
+ int ntb_get_max_spads(struct ntb_device *ndev);
+ int ntb_write_local_spad(struct ntb_device *ndev, unsigned int idx, u32 val);
+ int ntb_read_local_spad(struct ntb_device *ndev, unsigned int idx, u32 *val);
+ int ntb_write_remote_spad(struct ntb_device *ndev, unsigned int idx, u32 val);
+ int ntb_read_remote_spad(struct ntb_device *ndev, unsigned int idx, u32 *val);
+-void *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw);
++void __iomem *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw);
+ resource_size_t ntb_get_mw_size(struct ntb_device *ndev, unsigned int mw);
+ void ntb_ring_sdb(struct ntb_device *ndev, unsigned int idx);
+ void *ntb_find_transport(struct pci_dev *pdev);
+diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
+index b3afb24..e0bdfd7 100644
+--- a/drivers/ntb/ntb_transport.c
++++ b/drivers/ntb/ntb_transport.c
+@@ -58,7 +58,7 @@
+ #include <linux/ntb.h>
+ #include "ntb_hw.h"
+ 
+-#define NTB_TRANSPORT_VERSION	1
++#define NTB_TRANSPORT_VERSION	2
+ 
+ static unsigned int transport_mtu = 0x401E;
+ module_param(transport_mtu, uint, 0644);
+@@ -91,14 +91,14 @@ struct ntb_transport_qp {
+ 	bool qp_link;
+ 	u8 qp_num;	/* Only 64 QP's are allowed.  0-63 */
+ 
+-	struct ntb_rx_info *rx_info;
++	struct ntb_rx_info __iomem *rx_info;
+ 	struct ntb_rx_info *remote_rx_info;
+ 
+ 	void (*tx_handler) (struct ntb_transport_qp *qp, void *qp_data,
+ 			    void *data, int len);
+ 	struct list_head tx_free_q;
+ 	spinlock_t ntb_tx_free_q_lock;
+-	void *tx_mw;
++	void __iomem *tx_mw;
+ 	unsigned int tx_index;
+ 	unsigned int tx_max_entry;
+ 	unsigned int tx_max_frame;
+@@ -166,7 +166,7 @@ enum {
+ };
+ 
+ struct ntb_payload_header {
+-	u64 ver;
++	unsigned int ver;
+ 	unsigned int len;
+ 	unsigned int flags;
+ };
+@@ -474,7 +474,7 @@ static void ntb_transport_setup_qp_mw(struct ntb_transport *nt,
+ 	u8 mw_num = QP_TO_MW(qp_num);
+ 	unsigned int i;
+ 
+-	WARN_ON(nt->mw[mw_num].virt_addr == 0);
++	WARN_ON(nt->mw[mw_num].virt_addr == NULL);
+ 
+ 	if (nt->max_qps % NTB_NUM_MW && mw_num < nt->max_qps % NTB_NUM_MW)
+ 		num_qps_mw = nt->max_qps / NTB_NUM_MW + 1;
+@@ -933,7 +933,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
+ 	entry = ntb_list_rm(&qp->ntb_rx_pend_q_lock, &qp->rx_pend_q);
+ 	if (!entry) {
+ 		dev_dbg(&ntb_query_pdev(qp->ndev)->dev,
+-			"no buffer - HDR ver %llu, len %d, flags %x\n",
++			"no buffer - HDR ver %u, len %d, flags %x\n",
+ 			hdr->ver, hdr->len, hdr->flags);
+ 		qp->rx_err_no_buf++;
+ 		return -ENOMEM;
+@@ -946,9 +946,9 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
+ 		return -EAGAIN;
+ 	}
+ 
+-	if (hdr->ver != qp->rx_pkts) {
++	if (hdr->ver != (u32) qp->rx_pkts) {
+ 		dev_dbg(&ntb_query_pdev(qp->ndev)->dev,
+-			"qp %d: version mismatch, expected %llu - got %llu\n",
++			"qp %d: version mismatch, expected %llu - got %u\n",
+ 			qp->qp_num, qp->rx_pkts, hdr->ver);
+ 		ntb_list_add(&qp->ntb_rx_pend_q_lock, &entry->entry,
+ 			     &qp->rx_pend_q);
+@@ -965,7 +965,7 @@ static int ntb_process_rxc(struct ntb_transport_qp *qp)
+ 	}
+ 
+ 	dev_dbg(&ntb_query_pdev(qp->ndev)->dev,
+-		"rx offset %u, ver %llu - %d payload received, buf size %d\n",
++		"rx offset %u, ver %u - %d payload received, buf size %d\n",
+ 		qp->rx_index, hdr->ver, hdr->len, entry->len);
+ 
+ 	if (hdr->len <= entry->len) {
+@@ -988,7 +988,7 @@ out:
+ 	/* Ensure that the data is fully copied out before clearing the flag */
+ 	wmb();
+ 	hdr->flags = 0;
+-	qp->rx_info->entry = qp->rx_index;
++	iowrite32(qp->rx_index, &qp->rx_info->entry);
+ 
+ 	qp->rx_index++;
+ 	qp->rx_index %= qp->rx_max_entry;
+@@ -1018,19 +1018,19 @@ static void ntb_transport_rxc_db(void *data, int db_num)
+ 
+ static void ntb_tx_copy_task(struct ntb_transport_qp *qp,
+ 			     struct ntb_queue_entry *entry,
+-			     void *offset)
++			     void __iomem *offset)
+ {
+-	struct ntb_payload_header *hdr;
++	struct ntb_payload_header __iomem *hdr;
+ 
+ 	memcpy_toio(offset, entry->buf, entry->len);
+ 
+ 	hdr = offset + qp->tx_max_frame - sizeof(struct ntb_payload_header);
+-	hdr->len = entry->len;
+-	hdr->ver = qp->tx_pkts;
++	iowrite32(entry->len, &hdr->len);
++	iowrite32((u32) qp->tx_pkts, &hdr->ver);
+ 
+ 	/* Ensure that the data is fully copied out before setting the flag */
+ 	wmb();
+-	hdr->flags = entry->flags | DESC_DONE_FLAG;
++	iowrite32(entry->flags | DESC_DONE_FLAG, &hdr->flags);
+ 
+ 	ntb_ring_sdb(qp->ndev, qp->qp_num);
+ 
+@@ -1052,7 +1052,7 @@ static void ntb_tx_copy_task(struct ntb_transport_qp *qp,
+ static int ntb_process_tx(struct ntb_transport_qp *qp,
+ 			  struct ntb_queue_entry *entry)
+ {
+-	void *offset;
++	void __iomem *offset;
+ 
+ 	offset = qp->tx_mw + qp->tx_max_frame * qp->tx_index;
+ 
+-- 
+1.7.9.5
