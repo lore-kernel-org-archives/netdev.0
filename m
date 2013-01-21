@@ -1,27 +1,111 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [patch v3] doc: add nf_conntrack sysctl api documentation
-Date: Mon, 21 Jan 2013 12:52:02 +0100
-Message-ID: <20130121115202.GA5074@1984>
-References: <1358499908-1268-1-git-send-email-jiri@resnulli.us>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
+Date: Mon, 21 Jan 2013 12:56:53 +0100
+Message-ID: <20130121115653.GY1906@pengutronix.de>
+References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
+ <50FD02B8.8080401@grandegger.com>
+ <20130121100701.GX1906@pengutronix.de>
+ <50FD2172.2020608@grandegger.com>
+ <50FD22B4.5070307@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, rob@landley.net,
-	linux-doc@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org, fw@strlen.de,
-	Neal Murphy <neal.p.murphy@alum.wpi.edu>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <linux-doc-owner@vger.kernel.org>
+Cc: Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
+	davem@davemloft.net
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58295 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752403Ab3AUL46 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 06:56:58 -0500
 Content-Disposition: inline
-In-Reply-To: <1358499908-1268-1-git-send-email-jiri@resnulli.us>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <50FD22B4.5070307@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 18, 2013 at 10:05:08AM +0100, Jiri Pirko wrote:
-> I grepped through the code and picked bits about nf_conntrack sysctl api
-> and put that into one documentation file.
+On Mon, Jan 21, 2013 at 12:12:52PM +0100, Florian Fainelli wrote:
+> On 01/21/2013 12:07 PM, Wolfgang Grandegger wrote:
+> >On 01/21/2013 11:07 AM, Sascha Hauer wrote:
+> >>On Mon, Jan 21, 2013 at 09:56:24AM +0100, Wolfgang Grandegger wrote:
+> >>>On 01/21/2013 09:37 AM, Sascha Hauer wrote:
+> >>>>There may be multiple phys on an mdio bus. This series adds support
+> >>>>for this to the fec driver. I recently had a board which has a switch
+> >>>>connected to the fec's mdio bus, so I had to pick the correct phy.
+> >>>
+> >>>Pick one PHY from a switch port? Well, does a PHY-less (or fixed-link)
+> >>>configuration for a switch not make more sense?
+> >>
+> >>Yes, you're probably right.
+> >>
+> >>>Various ARM Ethernet
+> >>>contoller drivers do not support it. I recently needed a hack for an
+> >>>AT91 board.
+> >>
+> >>I wonder how we want to proceed. Should there be a devicetree property
+> >>'fixed-link' like done for fs_enet (and not recommended for new code,
+> >>stated in the comment above of_phy_connect_fixed_link)?
+> >
+> >Also the gianfar and ucc_geth drivers use this interface (via fixed
+> >link phy). I tried to use it for the AT91 macb driver but stopped
+> >quickly because the usage was not straight forward (too much code)...
+> >even if the idea of using a fake fixed-link phy is not bad.
+> >
+> >>Currently I have a property 'phy' in the fec binding which has a phandle
+> >>to a phy provided by the fec's mdio bus, but this could equally well
+> >
+> >But than the cable must be connected to the associated switch port.
+> >
+> >>point to a fixed dummy phy:
+> >>
+> >>	phy = &fixed-phy;
+> >
+> >The link speed, full/half duplex and maybe some mroe parameter should
+> >be configurable via device tree.
+> >
+> >>Currently there seems to be no common convention for the devicetree how
+> >>to handle such situations, or am I missing something?
+> >
+> >That's also may impression. There seem to be a few more related hacks:
+> >
+> >$ find . -name '*.c'| xargs grep -i "phy-less"
+> >./ethernet/amd/au1000_eth.c:			netdev_info(dev, "using PHY-less setup\n");
+> >./ethernet/amd/au1000_eth.c:	} else { /* PHY-less op, assume full-duplex */
+> >./ethernet/ibm/emac/core.c:	/* PHY-less configuration.
+> >./ethernet/ibm/emac/core.c:		/* PHY-less configuration.
+> >
+> >I would prefer to handle the "fixed-link" property of the ethernet dt
+> >node directly in the driver with a generic helper function.
+> 
+> Is not what of_phy_connect_fixed_link() offer? I am not sure there
+> can be much done by an helper than that.
 
-Applied, thanks a lot Jiri.
+The comment above this function states:
 
-I have also included some grammar improvements that Neil Murphy has
-proposed (he seems to have accidentally trimmed off the CC list).
+/**
+ * of_phy_connect_fixed_link - Parse fixed-link property and return a dummy phy
+ * @dev: pointer to net_device claiming the phy
+ * @hndlr: Link state callback for the network device
+ * @iface: PHY data interface type
+ *
+ * This function is a temporary stop-gap and will be removed soon.  It is
+ * only to support the fs_enet, ucc_geth and gianfar Ethernet drivers.  Do
+ * not call this function from new drivers.
+ */
+
+And the commit introducing it has:
+
+    Note: the dummy phy handling in arch/powerpc is a bit of a hack and
+    needs to be reworked.  This function is being added now to solve the
+    regression in the Ethernet drivers, but it should be considered a
+    temporary measure until the fixed link handling can be reworked.
+
+
+The 'temporary measure' exists for 3 1/2 years now ;)
+
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
