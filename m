@@ -1,45 +1,51 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
- specific ndisc information
-Date: Tue, 22 Jan 2013 04:57:43 +0900
-Message-ID: <50FD9DB7.60802@linux-ipv6.org>
-References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org> <50FC6068.3020302@gmail.com> <50FCA825.7070609@linux-ipv6.org> <50FCDF5D.3060300@gmail.com> <20130121083957.6e2c5a68@stein> <50FD962B.8020500@gmail.com>
+Subject: [PATCH net-next] ndisc: Do not try to update "updated" time if neighbour
+ has already gone.
+Date: Tue, 22 Jan 2013 04:58:50 +0900
+Message-ID: <50FD9DFA.6090001@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	netdev <netdev@vger.kernel.org>,
-	linux1394-devel@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
+Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50585 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50591 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752704Ab3AUT5p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 14:57:45 -0500
-In-Reply-To: <50FD962B.8020500@gmail.com>
+	with ESMTP id S1756544Ab3AUT6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 14:58:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan Gatzka wrote:
-> 
->> Two net_device instances on one 1394 card would be awkward:  They would
->> have to share one instance of isochronous reception context (for reception
->> of asynchronous 1394 streams; those are used for broadcasts and
->> multicasts).  Such a sharing is surely possible, but if double net_device
->> instantiation can be avoided, then avoid it.
->>
->> Not to mention the user interface problem of having two netifs, one which
->> only supports IPv4 and another one which only supports IPv6.  So far I
->> never had IPv6 configured into a Linux kernel, but I suppose that folks
->> are used to be able to use eth0 etc. for both protocols.
-> 
-> Full ack. And that's the reason why I feel very uncomfortable with a Yoshifujis hardware address extensions by fifo_addr, spd, and max_rec.
-> 
-> This seems possible with a single netdevice for IPv4/6 only if we _always_ use the same fifo address for both IPv4 and IPv6. Do we all agree on that?
+Commit 2152caea ("ipv6: Do not depend on rt->n in rt6_probe().")
+introduce a bug to try to update "updated" time in neighbour
+structure.
+Update the "updated" time only if neighbour is available.
 
-I do not understand what "that" and "this" mean here.
-Do you want to have different FIFO on single net_device? If yes, for what?
+Bug was found by Dan Carpenter <dan.carpenter@oracle.com>
 
---yoshfuji
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/route.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 2d94d5a..f3328bc 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -492,10 +492,10 @@ static void rt6_probe(struct rt6_info *rt)
+ 		struct in6_addr mcaddr;
+ 		struct in6_addr *target;
+ 
+-		neigh->updated = jiffies;
+-
+-		if (neigh)
++		if (neigh) {
++			neigh->updated = jiffies;
+ 			write_unlock(&neigh->lock);
++		}
+ 
+ 		target = (struct in6_addr *)&rt->rt6i_gateway;
+ 		addrconf_addr_solict_mult(target, &mcaddr);
+-- 
+1.7.9.5
