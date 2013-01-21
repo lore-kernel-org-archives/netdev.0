@@ -1,79 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 4/15] drivers/net/ethernet/sfc/ptp.c: adjust duplicate
- test
-Date: Mon, 21 Jan 2013 19:47:21 +0000
-Message-ID: <1358797641.3758.4.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1358773378-4700-1-git-send-email-Julia.Lawall@lip6.fr>
-	 <1358773378-4700-5-git-send-email-Julia.Lawall@lip6.fr>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
+ specific ndisc information
+Date: Tue, 22 Jan 2013 04:57:43 +0900
+Message-ID: <50FD9DB7.60802@linux-ipv6.org>
+References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org> <50FC6068.3020302@gmail.com> <50FCA825.7070609@linux-ipv6.org> <50FCDF5D.3060300@gmail.com> <20130121083957.6e2c5a68@stein> <50FD962B.8020500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	<kernel-janitors@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Julia Lawall <Julia.Lawall@lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358773378-4700-5-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	netdev <netdev@vger.kernel.org>,
+	linux1394-devel@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:50585 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752704Ab3AUT5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 14:57:45 -0500
+In-Reply-To: <50FD962B.8020500@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-21 at 14:02 +0100, Julia Lawall wrote:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
+Stephan Gatzka wrote:
 > 
-> Delete successive tests to the same location.  rc was previously tested and
-> not subsequently updated.  efx_phc_adjtime can return an error code, so the
-> call is updated so that is tested instead.
+>> Two net_device instances on one 1394 card would be awkward:  They would
+>> have to share one instance of isochronous reception context (for reception
+>> of asynchronous 1394 streams; those are used for broadcasts and
+>> multicasts).  Such a sharing is surely possible, but if double net_device
+>> instantiation can be avoided, then avoid it.
+>>
+>> Not to mention the user interface problem of having two netifs, one which
+>> only supports IPv4 and another one which only supports IPv6.  So far I
+>> never had IPv6 configured into a Linux kernel, but I suppose that folks
+>> are used to be able to use eth0 etc. for both protocols.
 > 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
+> Full ack. And that's the reason why I feel very uncomfortable with a Yoshifujis hardware address extensions by fifo_addr, spd, and max_rec.
 > 
-> // <smpl>
-> @s exists@
-> local idexpression y;
-> expression x,e;
-> @@
-> 
-> *if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
->  { ... when forall
->    return ...; }
-> ... when != \(y = e\|y += e\|y -= e\|y |= e\|y &= e\|y++\|y--\|&y\)
->     when != \(XT_GETPAGE(...,y)\|WMI_CMD_BUF(...)\)
-> *if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
->  { ... when forall
->    return ...; }
-> // </smpl>
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> This seems possible with a single netdevice for IPv4/6 only if we _always_ use the same fifo address for both IPv4 and IPv6. Do we all agree on that?
 
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
+I do not understand what "that" and "this" mean here.
+Do you want to have different FIFO on single net_device? If yes, for what?
 
-> ---
-> Not tested.  I'm not familiar with this function, so I don't know whether it
-> is desirable to test its result.
-
-Yes, the result should be tested.  Thanks.
-
-Ben.
-
->  drivers/net/ethernet/sfc/ptp.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
-> index 0767043..3f93624 100644
-> --- a/drivers/net/ethernet/sfc/ptp.c
-> +++ b/drivers/net/ethernet/sfc/ptp.c
-> @@ -1439,7 +1439,7 @@ static int efx_phc_settime(struct ptp_clock_info *ptp,
->  
->  	delta = timespec_sub(*e_ts, time_now);
->  
-> -	efx_phc_adjtime(ptp, timespec_to_ns(&delta));
-> +	rc = efx_phc_adjtime(ptp, timespec_to_ns(&delta));
->  	if (rc != 0)
->  		return rc;
->  
-> 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--yoshfuji
