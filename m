@@ -1,32 +1,33 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [RFC PATCH linux-next] et131x: Promote staging et131x driver to drivers/net
-Date: Mon, 21 Jan 2013 23:44:55 +0000
-Message-ID: <CANK3SE2p3C38YrvCxWqvoRRz7=q7oAYyE=b0c7+ppBd3yzVrpw@mail.gmail.com>
-References: <1358541648-29922-1-git-send-email-mark.einon@gmail.com>
- <20130118225706.GA22140@kroah.com> <20130119110328.GO4584@mwanda>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 doing more work than napi weight
+Date: Tue, 22 Jan 2013 00:42:05 +0100
+Message-ID: <20130121234205.GA12449@electric-eye.fr.zoreil.com>
+References: <20130121171241.2af52e12@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg KH <gregkh@linuxfoundation.org>, devel@driverdev.osuosl.org,
-	sfr@canb.auug.org.au, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130119110328.GO4584@mwanda>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57578 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541Ab3AVALL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 19:11:11 -0500
+Content-Disposition: inline
+In-Reply-To: <20130121171241.2af52e12@vostro>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 19 January 2013 11:03, Dan Carpenter <dan.carpenter@oracle.com> wrote:
-<snip>
->
-> et131x_get_regs() has endian bugs calling et131x_mii_read().
->
-</snip>
+Timo Teras <timo.teras@iki.fi> :
+[...]
+> Or just delete the whole block as obsolete. 'git log' says the problem
+> should have gone away by always using hardware Rx VLAN. See commit
+> 05af214 "r8169: fix Ethernet Hangup for RTL8110SC rev d".
 
-Hi Dan,
+Yes, this stuff looks really strange.
 
-Could you be a bit more descriptive about the issues you think there
-are with these calls?
+Turning the whole "(desc->opts2 & cpu_to_le32(0xfffe000)) && ... " test
+as a WARN_ON_ONCE in the RxRES branch seems a good trade-off from a
+coward's viewpoint.
 
-cheers,
-
-Mark
+-- 
+Ueimor
