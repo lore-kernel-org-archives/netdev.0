@@ -1,60 +1,66 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 1/2] dsa: use an unique and non conflicting bus name for the slave MII bus
-Date: Mon, 21 Jan 2013 20:58:50 +0100
-Message-ID: <1358798331-13055-2-git-send-email-florian@openwrt.org>
-References: <1358798331-13055-1-git-send-email-florian@openwrt.org>
-Cc: buytenh@wantstofly.org, konszert@marvell.com, davem@davemloft.net,
-	Florian Fainelli <florian@openwrt.org>
-To: netdev@vger.kernel.org
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: RE: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
+Date: Mon, 21 Jan 2013 21:16:46 +0100
+Message-ID: <f47edcc4-cda9-4349-9590-ee8572b139ca@email.android.com>
+References: <1358783440-11459-1-git-send-email-bjorn@mork.no> <20130121.142242.2240250911008731906.davem@davemloft.net> <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D99@EXDCVYMBSTM006.EQ1STM.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"gsuarez@smithmicro.com" <gsuarez@smithmicro.com>,
+	"oneukum@suse.de" <oneukum@suse.de>,
+	Alexey Orishko <alexey.orishko@gmail.com>
+To: Alexey ORISHKO <alexey.orishko@stericsson.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:43893 "EHLO zmc.proxad.net"
+Received: from canardo.mork.no ([148.122.252.1]:43071 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755583Ab3AUUBi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jan 2013 15:01:38 -0500
-In-Reply-To: <1358798331-13055-1-git-send-email-florian@openwrt.org>
+	id S1752847Ab3AUURv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 15:17:51 -0500
+In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D99@EXDCVYMBSTM006.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The slave MII bus registered by the DSA code is using the parent MII bus
-as part of its name (ds->master_mii_bus_id), in case the parent MII bus
-name is already 16 characters long (such as d0072004.mdio-mi) we will
-get the following WARN_ON in dsa_switch_setup() when calling
-mdiobus_register():
+Alexey ORISHKO <alexey.orishko@stericsson.com> wrote:
 
-[   79.088782] ------------[ cut here ]------------
-[   79.093448] WARNING: at fs/sysfs/dir.c:536 sysfs_add_one+0x80/0xa0()
-[   79.099831] sysfs: cannot create duplicate filename
-'/class/mdio_bus/d0072004.mdio-mi'
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Monday, January 21, 2013 8:23 PM
+>> To: bjorn@mork.no
+>> Cc: netdev@vger.kernel.org; linux-usb@vger.kernel.org;
+>> gsuarez@smithmicro.com; Alexey ORISHKO; oneukum@suse.de
+>> Subject: Re: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
+>>=20
+>> From: Bj=C3=B8rn Mork <bjorn@mork.no>
+>> Date: Mon, 21 Jan 2013 16:50:37 +0100
+>>=20
+>> > The 2 first patches in this series are required to make the Sierra
+>> > Wireless MC7710 card work in MBIM mode.  They may also be required
+>> for
+>> > other Qualcomm firmware based MBIM devices.
+>> >
+>> > Patch #1 was previously posted as a standalone patch.  This versio=
+n
+>> is
+>> > a replacement, removing a theoretical NULL pointer exception.
+>> >
+>> > Patch #3 fixes a bug I introduced in v3.7
+>>=20
+>> All applied, thanks.
+>
+>Hi David,
+>
+>It was way too fast... I don't think we concluded on patch#2 since it
+>will damage existing devices :-(
 
-This is a genuine warning, because the DSA slave MII bus will also be
-named d0072004.mdio-mi, and since MII_BUS_ID_SIZE is 17 characters long
-(with null-terminator) the following will truncate the slave MII bus id:
+Yes, that was even faster than expected. But it's no problem really. I'=
+ll prepare a fixup patch reducing it to be device specific.=20
 
-snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s-%d:%.2x",
-                        ds->master_mii_bus->id, ds->pd->sw_addr);
+There are still a couple of questions I am wondering about though. The =
+most important one: what is Windows 8 doing different from us? Does any=
+one know? I do not have a Windows 8 system myself and I wouldn't know h=
+ow to snoop on it either.=20
 
-Fix this by using dsa-<switch index->:<sw_add> which is guaranteed to be
-unique.
 
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- net/dsa/slave.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index f434558..6ebd8fb 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -41,8 +41,8 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
- 	ds->slave_mii_bus->name = "dsa slave smi";
- 	ds->slave_mii_bus->read = dsa_slave_phy_read;
- 	ds->slave_mii_bus->write = dsa_slave_phy_write;
--	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s:%.2x",
--			ds->master_mii_bus->id, ds->pd->sw_addr);
-+	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d:%.2x",
-+			ds->index, ds->pd->sw_addr);
- 	ds->slave_mii_bus->parent = &ds->master_mii_bus->dev;
- }
- 
--- 
-1.7.10.4
+Bj=C3=B8rn
