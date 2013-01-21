@@ -1,8 +1,9 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next V6 02/14] bridge: Add vlan filtering infrastructure
-Date: Sun, 20 Jan 2013 20:56:08 -0500
-Message-ID: <50FCA038.1010307@redhat.com>
-References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com> <1358360289-23249-3-git-send-email-vyasevic@redhat.com> <20130120233851.3f589fa4.shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next V6 03/14] bridge: Validate that vlan is permitted
+ on ingress
+Date: Sun, 20 Jan 2013 20:58:50 -0500
+Message-ID: <50FCA0DA.7000008@redhat.com>
+References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com> <1358360289-23249-4-git-send-email-vyasevic@redhat.com> <20130121002710.5189a959.shmulik.ladkani@gmail.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -11,106 +12,63 @@ Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
 	davem@davemloft.net, shemminger@vyatta.com, mst@redhat.com
 To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40773 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57994 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752590Ab3AUB4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Jan 2013 20:56:12 -0500
-In-Reply-To: <20130120233851.3f589fa4.shmulik.ladkani@gmail.com>
+	id S1752559Ab3AUB64 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jan 2013 20:58:56 -0500
+In-Reply-To: <20130121002710.5189a959.shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2013 04:38 PM, Shmulik Ladkani wrote:
+On 01/20/2013 05:27 PM, Shmulik Ladkani wrote:
 > Hi Vlad,
 >
-> On Wed, 16 Jan 2013 13:17:57 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
->> @@ -156,6 +183,7 @@ struct net_bridge_port
->>   #ifdef CONFIG_NET_POLL_CONTROLLER
->>   	struct netpoll			*np;
->>   #endif
->> +	struct net_port_vlans		vlan_info;
+> On Wed, 16 Jan 2013 13:17:58 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+>> @@ -45,6 +45,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+>>   	brstats->tx_bytes += skb->len;
+>>   	u64_stats_update_end(&brstats->syncp);
+>>
+>> +	if (!br_allowed_ingress(&br->vlan_info, skb))
+>> +		goto out;
+>> +
 >
-> (here and at 'struct net_bridge' as well)
+> Shouldn't you consume the 'skb' in case "not allowed"? the 'out' label
+> doesn't take care of that.
 >
-> Not sure what the policy is; Isn't it preferred to enclose the new
-> fields under CONFIG_BRIDGE_VLAN_FILTERING?
-
-Good catch.  Missed this one.
-
->
->> +static inline struct net_bridge *vlans_to_bridge(struct net_port_vlans *vlans)
+>> +bool br_allowed_ingress(struct net_port_vlans *v, struct sk_buff *skb)
 >> +{
->> +	struct net_bridge *br;
+>> +	struct net_port_vlan *pve;
+>> +	u16 vid;
 >> +
->> +	if (!vlans->port_idx)
->> +		br = container_of((vlans), struct net_bridge, vlan_info);
->> +	else
->> +		br = vlans_to_port(vlans)->br;
->> +
->> +	return br;
->> +}
+>> +	/* If there are no vlan in the permitted list, all packets are
+>> +	 * permitted.
+>> +	 */
+>> +	if (list_empty(&v->vlan_list))
+>> +		return true;
 >
-> Guess it would simplify things if the bridge "master port" had an 'nbp'
-> representation of its own ;-)
+> Rethinking this, after discussed at [1].
+> The above means the port having no vlans is actually a member of every
+> possible vlan.
+> IMO it might not be what users expect, and may complicate things.
+>
+> Maybe we should adapt a simpler approach:
+> If the bridge is a vlan enabled bridge, and the port is not a member of
+> the given vid, drop.
+> If the bridge is "vlan disabled", then all packets are permitted.
+>
 
-Yes that would simplify things for this case, but it will also add a lot 
-of state that's not necessary. I considered doing this, but the master 
-device doesn't really act as  port in on things, just some.
+this is hybrid configuration where some ports have vlan filtering 
+enabled while others do not.
 
->
->> +extern struct net_bridge_vlan *br_vlan_find(struct net_bridge *br, u16 vid);
->
-> Seems 'br_vlan_find' can be declared static within br_vlan.c.
+Currently the default is to act as a non-vlan bridge when there is no 
+configuration.  I'll consider adding a configuration nob to switch the 
+behavior so that strict filtering can be enforced.
 
-Will check.
-
->
->> +extern void br_vlan_flush(struct net_bridge *br);
->
-> According to your preference, consider s/br_vlan_flush/br_vlans_flush/
-> since it better suggest acting on all bridge's vlans.
->
->> +extern void nbp_vlan_flush(struct net_port_vlans *vlans);
->
-> According to your preference, consider s/nbp_vlan_flush/nbp_vlans_flush/
-> since it better suggest acting on all port's vlans.
->
->> +void br_vlan_flush(struct net_bridge *br)
->> +{
->> +	struct net_bridge_vlan *vlan;
->> +	struct hlist_node *node;
->> +	struct hlist_node *tmp;
->> +	int i;
->> +
->> +	nbp_vlan_flush(&br->vlan_info);
->> +
->> +	/* Make sure that there are no vlans left in the bridge after
->> +	* all the ports have been removed.
->> +	*/
->
-> Improper indent.
-
-will fix
-
->
->> +	for (i = 0; i < BR_VID_HASH_SIZE; i++) {
->> +		hlist_for_each_entry_safe(vlan, node, tmp,
->> +					  &br->vlan_hlist[i], hlist) {
->> +			br_vlan_del(vlan);
->
-> Can there be any vlans left at that point? Shouldn't del_nbp() on all
-> ports take care of that?
-
-I think this function might have been a leftover from prior series when
-bridge didn't have its vlan list.  With the new series, I don't this it 
-is needed.  I'll double-check.
-
-Thanks
 -vlad
 
-> Also, if there _were_ any vlans left (whose bitmap isn't cleared),
-> 'br_vlan_del' won't do a thing.
-> Am I missing something?
->
 > Regards,
 > Shmulik
+>
+> [1]
+> http://marc.info/?l=linux-netdev&m=135602065425514&w=2
 >
