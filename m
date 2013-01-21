@@ -1,38 +1,73 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: IPsec AH use of ahash
-Date: Mon, 21 Jan 2013 01:34:41 +0100
-Message-ID: <20130121003441.GA19447@pd.tnic>
-References: <1358705471.2494.51.camel@obelisk.thedillows.org>
- <391440283.93368.1358707621420.JavaMail.root@elliptictech.com>
- <20130120225407.GB5434@home.goodmis.org>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 0/5 v2]: soreuseport: Bind multiple sockets to the same
+ port
+Date: Sun, 20 Jan 2013 16:07:12 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1301201542540.32411@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Tom St Denis <tstdenis@elliptictech.com>,
-	David Dillow <dave@thedillows.org>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="296491395-234580187-1358726832=:32411"
+Cc: netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.skyhub.de ([78.46.96.112]:42086 "EHLO mail.skyhub.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752495Ab3AUAb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Jan 2013 19:31:57 -0500
-Content-Disposition: inline
-In-Reply-To: <20130120225407.GB5434@home.goodmis.org>
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:41422 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752495Ab3AUAfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 19:35:36 -0500
+Received: by mail-vc0-f202.google.com with SMTP id m8so460704vcd.1
+        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 16:35:35 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 20, 2013 at 05:54:07PM -0500, Steven Rostedt wrote:
-> My God, you sound like a 2 year old.
-> 
-> Suck it up, and do the fixes. It's not the time you are worried about,
-> as you most definitely spent more time bitching to everyone than it
-> would have taken you to clean up your work.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It's like you're reading my mind... :-)
+--296491395-234580187-1358726832=:32411
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
 
--- 
-Regards/Gruss,
-    Boris.
+Changes from previous version for fixing uid handling,
+build breakage with TF_PROXY, and indentation.
+----
+This patch implements so_reuseport (SO_REUSEPORT socket option) for
+TCP and UDP.  For TCP, so_reuseport allows multiple listener sockets
+to be bound to the same port.  In the case of UDP, so_reuseport allows
+multiple sockets to bind to the same port.  To prevent port hijacking
+all sockets bound to the same port using so_reuseport must have the
+same uid.  Received packets are distributed to multiple sockets bound
+to the same port using a 4-tuple hash.
 
-Sent from a fat crate under my desk. Formatting is fine.
---
+The motivating case for so_resuseport in TCP would be something like
+a web server binding to port 80 running with multiple threads, where
+each thread might have it's own listener socket.  This could be done
+as an alternative to other models: 1) have one listener thread which
+dispatches completed connections to workers. 2) accept on a single
+listener socket from multiple threads.  In case #1 the listener thread
+can easily become the bottleneck with high connection turn-over rate.
+In case #2, the proportion of connections accepted per thread tends
+to be uneven under high connection load (assuming simple event loop:
+while (1) { accept(); process() }, wakeup does not promote fairness
+among the sockets.  We have seen the  disproportion to be as high
+as 3:1 ratio between thread accepting most connections and the one
+accepting the fewest.  With so_reusport the distribution is
+uniform.
+
+The TCP implementation has a problem in that the request sockets for a
+listener are attached to a listener socket.  If a SYN is received, a
+listener socket is chosen and request structure is created (SYN-RECV
+state).  If the subsequent ack in 3WHS does not match the same port
+by so_reusport, the connection state is not found (reset) and the
+request structure is orphaned.  This scenario would occur when the
+number of listener sockets bound to a port changes (new ones are
+added, or old ones closed).  We are looking for a solution to this,
+maybe allow multiple sockets to share the same request table...
+
+The motivating case for so_reuseport in UDP would be something like a
+DNS server.  An alternative would be to recv on the same socket from
+multiple threads.  As in the case of TCP, the load across these threads
+tends to be disproportionate and we also see a lot of contection on
+the socket lock.  Note that SO_REUSEADDR already allows multiple UDP
+sockets to bind to the same port, however there is no provision to
+prevent hijacking and nothing to distribute packets across all the
+sockets sharing the same bound port.  This patch does not change the
+semantics of SO_REUSEADDR, but provides usable functionality of it
+for unicast.
+--296491395-234580187-1358726832=:32411--
