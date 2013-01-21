@@ -1,109 +1,70 @@
 From: Li Yu <raise.sail@gmail.com>
-Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
-Date: Mon, 21 Jan 2013 15:23:10 +0800
-Message-ID: <50FCECDE.7060200@gmail.com>
-References: <alpine.DEB.2.00.1301141138440.959@pokey.mtv.corp.google.com> <AE90C24D6B3A694183C094C60CF0A2F6026B710E@saturn3.aculab.com> <CA+mtBx-DRiSg4z5OUvp4=pJxZ=Ki4pt-vz716ubsJx1PHnD7Nw@mail.gmail.com>
+Subject: Re: v3 for tcp friends?
+Date: Mon, 21 Jan 2013 15:29:40 +0800
+Message-ID: <50FCEE64.80203@gmail.com>
+References: <20120903.154833.1547153833820955116.davem@davemloft.net> <CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com> <20120904.125841.2293649688957878987.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Laight <David.Laight@aculab.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, netdev@markandruth.co.uk,
-	eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
+Cc: brutus@google.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:46751 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887Ab3AUHXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 02:23:18 -0500
-Received: by mail-pa0-f49.google.com with SMTP id bi1so3241250pad.36
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 23:23:18 -0800 (PST)
-In-Reply-To: <CA+mtBx-DRiSg4z5OUvp4=pJxZ=Ki4pt-vz716ubsJx1PHnD7Nw@mail.gmail.com>
+Received: from mail-da0-f41.google.com ([209.85.210.41]:44183 "EHLO
+	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610Ab3AUH3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 02:29:49 -0500
+Received: by mail-da0-f41.google.com with SMTP id e20so2575904dak.14
+        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 23:29:49 -0800 (PST)
+In-Reply-To: <20120904.125841.2293649688957878987.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B401=E6=9C=8817=E6=97=A5 02:22, Tom Herbert =E5=86=
+=E4=BA=8E 2012=E5=B9=B409=E6=9C=8805=E6=97=A5 00:58, David Miller =E5=86=
 =99=E9=81=93:
->> Hmmm.... do you need that sort of fairness between the threads?
->>
-> Yes :-)
+> From: Bruce Curtis <brutus@google.com>
+> Date: Tue, 4 Sep 2012 08:10:23 -0700
 >
->> If one request takes longer than average to process, then you
->> don't want other requests to be delayed when there are other
->> idle worker processes.
->>
-> On a heavily loaded server processing thousands of requests/second,
-> law of large numbers hopefully applies where each connection
-> represents approximately same unit of work.
+>> Will do, issues addressed, I'll get the patch out later today or
+>> tomorrow at the latest.
 >
-
-It seem that these words are reasonable for some scenarios, we
-backported old version of SO_REUSEPORT patch into RHEL6 2.6.32-220.x
-kernel on CDN platform, and result in better balanced
-CPU utility among some haproxy instances.
-
-Also, we did a performance benchmark for old SO_REUSEPORT. It
-
-indeed bring significant improvement for short connections performance
-sometimes, but it also has some performance regression another
-sometimes. I think that problem is random selecting policy, the
-selected result may trigger extra CPU cache misses -- I tried to write
-a SO_BINDCPU patch to directly use RPS/RSS hashed result to select
-listen fd, the performance regression disappear then. but I have send
-it here since I did not implement load balance feature yet ...
-I will send the benchmark results soon.
-
->> Also having the same thread normally collect a request would
->> make it more likely that the required code/data be in the
->> cache of the cpu (assuming that the main reason for multiple
->> threads is to load balance over multiple cpus, and with the
->> threads tied to a single cpu).
->>
-> Right.  Multiple listener sockets also imply that the work on the
-> connected sockets will be in the same thread or at least dispatched t=
-o
-> thread which is close to the same CPU.  soreuseport moves the start o=
-f
-> siloed processing into kernel.
->
->> If there are a lot of processes sleeping in accept() (on the same
->> socket) it might be worth looking at which is actually woken
->> when a new connection arrives. If they are sleeping in poll/select
->> it is probably more difficult (but not impossible) to avoid waking
->> all the processes for every incoming connection.
->
-> We had considered solving this within accept.  The problem is that
-> there's no way to indicate how much work a thread should do via
-> accept.  For instance, an event loop usually would look like:
->
-> while (1) {
->      fd =3D accept();
->      process(fd);
-> }
->
-> With multiple threads, the number of accepted sockets in a particular
-> thread is non-deterministic.  It is even possible that one thread
-> could end up accepting all the connections, and the others are starve=
-d
-> (wake up but no connection to process.).  Since connections are the
-> unit of work, this creates imbalance among threads.  There was an
-> attempt to fix this in user space by sleeping for a while instead of
-> calling accept on threads for one that have already have a
-> disproportionate number of connections.  This was unpleasant-- it
-> needed shared state in user space and provided no granularity.
->
-
-I also have some thinks on this imbalance problem ...
-
-At Last, I assumed that every accept-thread holds same numbers of
-listen sockets, so we just can do load balance base on length of accept
-queue.
-
-Thanks for great SO_REUSEPORT work.
-
-> Tom
+> Thanks a lot Bruce.
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
+
+
+Hi, Bruce,
+
+	I tested the TCP friends, found a bug here:
+
+[  106.541372] Pid: 1765, comm: client Not tainted 3.7.0-rc1+ #25
+[  106.543121] Call Trace:
+[  106.543950]  [<ffffffff8133d212>] inet_sock_destruct+0x102/0x1f0
+[  106.545687]  [<ffffffff812c38ad>] __sk_free+0x1d/0x110
+[  106.547209]  [<ffffffff812c3a1c>] sk_free+0x1c/0x20
+[  106.548611]  [<ffffffff8131680c>] tcp_close+0x6c/0x3f0
+[  106.549863]  [<ffffffff8133caea>] inet_release+0xda/0xf0
+[  106.551134]  [<ffffffff8133ca30>] ? inet_release+0x20/0xf0
+[  106.552419]  [<ffffffff8137f3de>] ? mutex_unlock+0xe/0x10
+[  106.553658]  [<ffffffff812bf948>] sock_release+0x28/0xa0
+[  106.557366]  [<ffffffff812bfd69>] sock_close+0x29/0x30
+[  106.558831]  [<ffffffff81128972>] __fput+0x122/0x210
+[  106.560541]  [<ffffffff81128a6e>] ____fput+0xe/0x10
+[  106.562006]  [<ffffffff8105354e>] task_work_run+0x9e/0xd0
+[  106.563285]  [<ffffffff810027e1>] do_notify_resume+0x61/0x70
+[  106.564582]  [<ffffffff8138a908>] int_signal+0x12/0x17
+
+
+	I also backported and tested it on stable kernel 3.7.3/RHEL6
+kernel, this bug still exists. It seem that client may close listening
+sockets, may we need to add one reference count for listen socket
+before send its address to peer?
+
+	And, our TCP friends v4? :)
+
+	Thanks
+
+Yu
