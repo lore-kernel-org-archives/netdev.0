@@ -1,62 +1,51 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH 1/2] net: fec: refactor dt probing
-Date: Mon, 21 Jan 2013 19:27:00 +0100
-Message-ID: <20130121182700.GD1906@pengutronix.de>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
- <1358757475-21035-2-git-send-email-s.hauer@pengutronix.de>
- <20130121174824.GA27956@sapphire.tkos.co.il>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: re: ipv6: Do not depend on rt->n in rt6_probe().
+Date: Mon, 21 Jan 2013 21:28:58 +0300
+Message-ID: <20130121182858.GA8808@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shawn.guo@linaro.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org
-To: Baruch Siach <baruch@tkos.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kbuild@01.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59786 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751635Ab3AUS1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 13:27:03 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:39731 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751635Ab3AUS3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 13:29:06 -0500
 Content-Disposition: inline
-In-Reply-To: <20130121174824.GA27956@sapphire.tkos.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2013 at 07:48:26PM +0200, Baruch Siach wrote:
-> Hi Sascha,
-> 
-> On Mon, Jan 21, 2013 at 09:37:54AM +0100, Sascha Hauer wrote:
-> > For devicetree parsing only the fec_get_phy_mode_dt() is
-> > available. Rename it to fec_probe_dt() to be able to add more devicetree
-> > parsing to it.
-> > 
-> > Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-> > ---
-> 
-> [...]
-> 
-> > -static int fec_get_phy_mode_dt(struct platform_device *pdev)
-> > +static int fec_probe_dt(struct fec_enet_private *fep)
-> >  {
-> > -	struct device_node *np = pdev->dev.of_node;
-> > +	struct device_node *np = fep->pdev->dev.of_node;
-> >  
-> > -	if (np)
-> > -		return of_get_phy_mode(np);
-> > +	if (!np)
-> > +		return -ENODEV;
-> > +
-> > +	fep->phy_interface = of_get_phy_mode(np);
-> >  
-> >  	return -ENODEV;
-> 
-> Maybe return fep->phy_interface?
+Hello YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E,
 
-No, but indeed this should return successfully. I will rework this after
-it's clear how we want to proceed with this.
+This is a semi-automatic email about new static checker warnings.
 
-Sascha
+The patch 2152caea7196: "ipv6: Do not depend on rt->n in=20
+rt6_probe()." from Jan 17, 2013, leads to the following Smatch=20
+complaint:
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+net/ipv6/route.c:495 rt6_probe()
+	 error: we previously assumed 'neigh' could be null (see line 490)
+
+net/ipv6/route.c
+   489=09
+   490		if (!neigh ||
+                     ^^^^^
+New test.
+
+   491		    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr=
+_probe_interval)) {
+   492			struct in6_addr mcaddr;
+   493			struct in6_addr *target;
+   494=09
+   495			neigh->updated =3D jiffies;
+                        ^^^^^^^^^^^^^^
+Old dereference.
+
+   496=09
+   497			if (neigh)
+                            ^^^^^
+Another new test.
+
+regards,
+dan carpenter
