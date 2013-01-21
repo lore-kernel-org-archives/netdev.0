@@ -1,66 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH v3] net, wireless: overwrite default_ethtool_ops
-Date: Mon, 21 Jan 2013 12:52:43 -0800
-Message-ID: <CAB=NE6XjvupJ5XO0EN0HVwdy61ECWL=Ey0g1gsNm+v8Sen=nsQ@mail.gmail.com>
-References: <20130111091909.GA2347@redhat.com> <1357934432.2643.4.camel@bwh-desktop.uk.solarflarecom.com>
- <20130111.155936.1799008114956712424.davem@davemloft.net>
+From: Peter =?utf-8?q?H=C3=BCwe?= <PeterHuewe@gmx.de>
+Subject: Re: Sparse Warnings: net/ipv6/route.c:521:17: sparse: context imbalance in 'rt6_probe' - different lock contexts for basic block
+Date: Mon, 21 Jan 2013 21:56:57 +0100
+Message-ID: <201301212156.57931.PeterHuewe@gmx.de>
+References: <201301212103.18066.PeterHuewe@gmx.de> <20130121.154803.1415897555788515730.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	edumazet@google.com, greearb@candelatech.com, bjorn@mork.no,
-	linux-wireless@vger.kernel.org, mirqus@gmail.com,
-	johannes@sipsolutions.net, David Miller <davem@davemloft.net>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: yoshfuji@linux-ipv6.org, fengguang.wu@intel.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:65320 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074Ab3AUUxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 15:53:05 -0500
-In-Reply-To: <20130111.155936.1799008114956712424.davem@davemloft.net>
+Received: from mout.gmx.net ([212.227.15.19]:64586 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751965Ab3AUUxz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 15:53:55 -0500
+Received: from mailout-de.gmx.net ([10.1.76.19]) by mrigmx.server.lan
+ (mrigmx001) with ESMTP (Nemesis) id 0M38or-1T5hjC1prj-00svl5 for
+ <netdev@vger.kernel.org>; Mon, 21 Jan 2013 21:53:53 +0100
+In-Reply-To: <20130121.154803.1415897555788515730.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 11, 2013 at 3:59 PM, David Miller <davem@davemloft.net> wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Fri, 11 Jan 2013 20:00:32 +0000
->
->> On Fri, 2013-01-11 at 10:19 +0100, Stanislaw Gruszka wrote:
->>> Since:
->>>
->>> commit 2c60db037034d27f8c636403355d52872da92f81
->>> Author: Eric Dumazet <edumazet@google.com>
->>> Date:   Sun Sep 16 09:17:26 2012 +0000
->>>
->>>     net: provide a default dev->ethtool_ops
->>>
->>> wireless core does not correctly assign ethtool_ops.
->>>
->>> After alloc_netdev*() call, some cfg80211 drivers provide they own
->>> ethtool_ops, but some do not. For them, wireless core provide generic
->>> cfg80211_ethtool_ops, which is assigned in NETDEV_REGISTER notify call:
->>>
->>>         if (!dev->ethtool_ops)
->>>                 dev->ethtool_ops = &cfg80211_ethtool_ops;
->>>
->>> But after Eric's commit, dev->ethtool_ops is no longer NULL (on cfg80211
->>> drivers without custom ethtool_ops), but points to &default_ethtool_ops.
->>>
->>> In order to fix the problem, provide function which will overwrite
->>> default_ethtool_ops and use it by wireless core.
->>>
->>> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
->> [...]
->>
->> Acked-by: Ben Hutchings <bhutchings@solarflare.com>
->
-> Applied.
+Hi David,
+Am Montag, 21. Januar 2013, 21:48:03 schrieb David Miller:
+> From: Peter H=C3=BCwe <PeterHuewe@gmx.de>
+> Date: Mon, 21 Jan 2013 21:03:17 +0100
+>=20
+> > Hi YOSHIFUJI,
+> >=20
+> > FYI, there are new sparse warnings show up in
+> >=20
+> > tree:   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-nex=
+t.git
+> > branch: master
+> > head:   887c95cc1da53f66a5890fdeab13414613010097
+> > commit: 2152caea719657579daa3a1a57a5425a3db6d612 [185/189] ipv6: Do=
+ not
+> > depend on rt->n in rt6_probe().
+> >=20
+> >>> net/ipv6/route.c:521:17: sparse: context imbalance in 'rt6_probe'=
+ -
+> >=20
+> > different lock contexts for basic block
+> >=20
+> > On latest net-next/master it's
+> > net/ipv6/route.c:500:17: warning: context imbalance in 'rt6_probe' =
+-
+> > different lock contexts for basic block
+> >=20
+> >=20
+> > Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> > Reported-by: Peter Huewe <peterhuewe@gmx.de>
+>=20
+> This is fixed by:
+>=20
+> commit b820bb6b996966d93a5442b5fbf803ea58e7f487
+> Author: YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yos=
+hfuji@linux-ipv6.org>
+> Date:   Mon Jan 21 09:58:50 2013 +0000
 
-Stanislaw, I see Eric's patch went in on v3.7-rc1 as such I suspect
-this needs to be submitted as a stable fix for v3.7.5. Its already on
-v3.8-rc4.
+Great! Thanks.
+Wasn't online a few minutes ago when I checked, so sorry for the noise.
+Sparse warning is gone.
 
-mcgrof@frijol ~/linux-stable (git::linux-3.7.y)$ git describe
---contains 2c60db037034d27f8c636403355d52872da92f81
-v3.7-rc1~145^2~142
-
-  Luis
+Thanks
+PeterH
