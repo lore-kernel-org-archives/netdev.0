@@ -1,84 +1,48 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
-Date: Mon, 21 Jan 2013 13:06:02 +0100
-Message-ID: <20130121120602.GZ1906@pengutronix.de>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de>
- <50FD02B8.8080401@grandegger.com>
- <20130121100701.GX1906@pengutronix.de>
- <50FD2172.2020608@grandegger.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH 6/15] drivers/net/wireless/iwlegacy/4965-mac.c: adjust
+ duplicate test
+Date: Mon, 21 Jan 2013 13:07:20 +0100
+Message-ID: <20130121120719.GB5424@redhat.com>
+References: <1358773378-4700-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1358773378-4700-7-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	shawn.guo@linaro.org, davem@davemloft.net
-To: Wolfgang Grandegger <wg@grandegger.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58246 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753383Ab3AUMGE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 07:06:04 -0500
+Cc: kernel-janitors@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <50FD2172.2020608@grandegger.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1358773378-4700-7-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 21, 2013 at 12:07:30PM +0100, Wolfgang Grandegger wrote:
-> On 01/21/2013 11:07 AM, Sascha Hauer wrote:
-> > On Mon, Jan 21, 2013 at 09:56:24AM +0100, Wolfgang Grandegger wrote:
-> >> On 01/21/2013 09:37 AM, Sascha Hauer wrote:
-> >>> There may be multiple phys on an mdio bus. This series adds support
-> >>> for this to the fec driver. I recently had a board which has a switch
-> >>> connected to the fec's mdio bus, so I had to pick the correct phy.
-> >>
-> >> Pick one PHY from a switch port? Well, does a PHY-less (or fixed-link)
-> >> configuration for a switch not make more sense?
-> > 
-> > Yes, you're probably right.
-> > 
-> >> Various ARM Ethernet
-> >> contoller drivers do not support it. I recently needed a hack for an
-> >> AT91 board.
-> > 
-> > I wonder how we want to proceed. Should there be a devicetree property
-> > 'fixed-link' like done for fs_enet (and not recommended for new code,
-> > stated in the comment above of_phy_connect_fixed_link)?
+On Mon, Jan 21, 2013 at 02:02:50PM +0100, Julia Lawall wrote:
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> Also the gianfar and ucc_geth drivers use this interface (via fixed
-> link phy). I tried to use it for the AT91 macb driver but stopped
-> quickly because the usage was not straight forward (too much code)...
-> even if the idea of using a fake fixed-link phy is not bad.
+> Delete successive tests to the same location.  This looks like simple code
+> duplication.
 > 
-> > Currently I have a property 'phy' in the fec binding which has a phandle
-> > to a phy provided by the fec's mdio bus, but this could equally well
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
 > 
-> But than the cable must be connected to the associated switch port.
+> // <smpl>
+> @s exists@
+> local idexpression y;
+> expression x,e;
+> @@
 > 
-> > point to a fixed dummy phy:
-> > 
-> > 	phy = &fixed-phy;
+> *if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
+>  { ... when forall
+>    return ...; }
+> ... when != \(y = e\|y += e\|y -= e\|y |= e\|y &= e\|y++\|y--\|&y\)
+>     when != \(XT_GETPAGE(...,y)\|WMI_CMD_BUF(...)\)
+> *if ( \(x == NULL\|IS_ERR(x)\|y != 0\) )
+>  { ... when forall
+>    return ...; }
+> // </smpl>
 > 
-> The link speed, full/half duplex and maybe some mroe parameter should
-> be configurable via device tree.
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Well this could be done when the fixed phy driver could be registered
-with the devicetree, maybe like this:
-
-	fixed-phy: mdiophy {
-		compatible = "mdio-fixed-phy";
-		link = "100FD";
-	};
-
-The good thing about this would be that every ethernet driver could just
-use such a fixed phy, any external mdio phy (like on Marvell Armada) or
-just a phy connected to the internal mdio interface provided by the ethernet
-core.
-
-I probably should write a RFC to devicetree-discuss.
-
-Sascha
-
-
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+ACK
