@@ -1,78 +1,56 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 01/21] NTB: correct missing readq/writeq errors
-Date: Mon, 21 Jan 2013 12:47:41 -0800
-Message-ID: <20130121204741.GA10361@kroah.com>
-References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
- <1358586155-23322-2-git-send-email-jon.mason@intel.com>
- <20130120234005.GA14196@kroah.com>
- <20130121173818.GD22208@jonmason-lab>
- <20130121182345.GC5499@kroah.com>
- <1358800493.3758.10.camel@bwh-desktop.uk.solarflarecom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Sparse Warnings: net/ipv6/route.c:521:17: sparse: context
+ imbalance in 'rt6_probe' - different lock contexts for basic block
+Date: Mon, 21 Jan 2013 15:48:03 -0500 (EST)
+Message-ID: <20130121.154803.1415897555788515730.davem@davemloft.net>
+References: <201301212103.18066.PeterHuewe@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jon Mason <jon.mason@intel.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Dave Jiang <dave.jiang@intel.com>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: yoshfuji@linux-ipv6.org, fengguang.wu@intel.com,
+	netdev@vger.kernel.org
+To: PeterHuewe@gmx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f51.google.com ([209.85.210.51]:38668 "EHLO
-	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752308Ab3AUUrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 15:47:46 -0500
-Received: by mail-da0-f51.google.com with SMTP id i30so2872119dad.24
-        for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 12:47:45 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1358800493.3758.10.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42822 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754306Ab3AUUsF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 15:48:05 -0500
+In-Reply-To: <201301212103.18066.PeterHuewe@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2013 at 08:34:53PM +0000, Ben Hutchings wrote:
-> On Mon, 2013-01-21 at 10:23 -0800, Greg KH wrote:
-> > On Mon, Jan 21, 2013 at 10:38:18AM -0700, Jon Mason wrote:
-> > > On Sun, Jan 20, 2013 at 03:40:05PM -0800, Greg KH wrote:
-> > > > On Sat, Jan 19, 2013 at 02:02:15AM -0700, Jon Mason wrote:
-> > > > > Atomic readq and writeq do not exist by default on some 32bit
-> > > > > architectures, thus causing compile errors due to non-existent symbols.
-> > > > > In those cases, use the definitions of those symbols from
-> > > > > include/asm-generic/io-64-nonatomic-hi-lo.h
-> > > > > 
-> > > > > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > > > > ---
-> > > > >  drivers/ntb/ntb_hw.c |    1 +
-> > > > >  1 file changed, 1 insertion(+)
-> > > > > 
-> > > > > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> > > > > index 4c71b17..0b46fef 100644
-> > > > > --- a/drivers/ntb/ntb_hw.c
-> > > > > +++ b/drivers/ntb/ntb_hw.c
-> > > > > @@ -45,6 +45,7 @@
-> > > > >   * Contact Information:
-> > > > >   * Jon Mason <jon.mason@intel.com>
-> > > > >   */
-> > > > > +#include <asm-generic/io-64-nonatomic-hi-lo.h>
-> > > > 
-> > > > Really?  This seems really odd.  Usually we just don't build the code
-> > > > for any platform that doesn't have readq/writeq.  Otherwise, shouldn't
-> > > > those arches just include this file themselves to keep everything
-> > > > working?  Individual drivers shouldn't have to do this.
-> > > 
-> > > There is no readq/writeq for 32bit x86.  I was using this header file
-> > > to get around that.  I freely admit that I have done 0 testing on
-> > > 32bit, but it should work.  If you prefer I modify the Kconfig to only
-> > > enable this for x86_64 until such time as I test on x86_32, I will
-> > > happily submit that patch.
-> > 
-> > No, other drivers on 32bit x86 also use readq,
-> 
-> I don't think so, because it's not defined for CONFIG_X86_32.
-
-Ah, you are right, I was confused by drivers/char/hpet.c, which used
-readq, but only on 64bit processors.
-
-Jon, as you say you never tested this on 32bit processors, I'd recommend
-just making the Kconfig file enforce that and only build on x86-64 for
-now.
-
-thanks,
-
-greg k-h
+RnJvbTogUGV0ZXIgSMO8d2UgPFBldGVySHVld2VAZ214LmRlPg0KRGF0ZTogTW9uLCAyMSBKYW4g
+MjAxMyAyMTowMzoxNyArMDEwMA0KDQo+IEhpIFlPU0hJRlVKSSwNCj4gDQo+IEZZSSwgdGhlcmUg
+YXJlIG5ldyBzcGFyc2Ugd2FybmluZ3Mgc2hvdyB1cCBpbg0KPiANCj4gdHJlZTogICBnaXQ6Ly9n
+aXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0LW5leHQuZ2l0
+DQo+IGJyYW5jaDogbWFzdGVyDQo+IGhlYWQ6ICAgODg3Yzk1Y2MxZGE1M2Y2NmE1ODkwZmRlYWIx
+MzQxNDYxMzAxMDA5Nw0KPiBjb21taXQ6IDIxNTJjYWVhNzE5NjU3NTc5ZGFhM2ExYTU3YTU0MjVh
+M2RiNmQ2MTIgWzE4NS8xODldIGlwdjY6IERvIG5vdCBkZXBlbmQgDQo+IG9uIHJ0LT5uIGluIHJ0
+Nl9wcm9iZSgpLg0KPiANCj4+PiBuZXQvaXB2Ni9yb3V0ZS5jOjUyMToxNzogc3BhcnNlOiBjb250
+ZXh0IGltYmFsYW5jZSBpbiAncnQ2X3Byb2JlJyAtIA0KPiBkaWZmZXJlbnQgbG9jayBjb250ZXh0
+cyBmb3IgYmFzaWMgYmxvY2sNCj4gDQo+IE9uIGxhdGVzdCBuZXQtbmV4dC9tYXN0ZXIgaXQncw0K
+PiBuZXQvaXB2Ni9yb3V0ZS5jOjUwMDoxNzogd2FybmluZzogY29udGV4dCBpbWJhbGFuY2UgaW4g
+J3J0Nl9wcm9iZScgLSBkaWZmZXJlbnQgDQo+IGxvY2sgY29udGV4dHMgZm9yIGJhc2ljIGJsb2Nr
+DQo+IA0KPiANCj4gUmVwb3J0ZWQtYnk6IEZlbmdndWFuZyBXdSA8ZmVuZ2d1YW5nLnd1QGludGVs
+LmNvbT4NCj4gUmVwb3J0ZWQtYnk6IFBldGVyIEh1ZXdlIDxwZXRlcmh1ZXdlQGdteC5kZT4NCg0K
+VGhpcyBpcyBmaXhlZCBieToNCg0KY29tbWl0IGI4MjBiYjZiOTk2OTY2ZDkzYTU0NDJiNWZiZjgw
+M2VhNThlN2Y0ODcNCkF1dGhvcjogWU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4gPHlv
+c2hmdWppQGxpbnV4LWlwdjYub3JnPg0KRGF0ZTogICBNb24gSmFuIDIxIDA5OjU4OjUwIDIwMTMg
+KzAwMDANCg0KICAgIG5kaXNjOiBEbyBub3QgdHJ5IHRvIHVwZGF0ZSAidXBkYXRlZCIgdGltZSBp
+ZiBuZWlnaGJvdXIgaGFzIGFscmVhZHkgZ29uZS4NCiAgICANCiAgICBDb21taXQgMjE1MmNhZWEg
+KCJpcHY2OiBEbyBub3QgZGVwZW5kIG9uIHJ0LT5uIGluIHJ0Nl9wcm9iZSgpLiIpDQogICAgaW50
+cm9kdWNlIGEgYnVnIHRvIHRyeSB0byB1cGRhdGUgInVwZGF0ZWQiIHRpbWUgaW4gbmVpZ2hib3Vy
+DQogICAgc3RydWN0dXJlLg0KICAgIFVwZGF0ZSB0aGUgInVwZGF0ZWQiIHRpbWUgb25seSBpZiBu
+ZWlnaGJvdXIgaXMgYXZhaWxhYmxlLg0KICAgIA0KICAgIEJ1ZyB3YXMgZm91bmQgYnkgRGFuIENh
+cnBlbnRlciA8ZGFuLmNhcnBlbnRlckBvcmFjbGUuY29tPg0KICAgIA0KICAgIFNpZ25lZC1vZmYt
+Ynk6IFlPU0hJRlVKSSBIaWRlYWtpIDx5b3NoZnVqaUBsaW51eC1pcHY2Lm9yZz4NCiAgICBTaWdu
+ZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+DQoNCmRpZmYg
+LS1naXQgYS9uZXQvaXB2Ni9yb3V0ZS5jIGIvbmV0L2lwdjYvcm91dGUuYw0KaW5kZXggMmQ5NGQ1
+YS4uZjMzMjhiYyAxMDA2NDQNCi0tLSBhL25ldC9pcHY2L3JvdXRlLmMNCisrKyBiL25ldC9pcHY2
+L3JvdXRlLmMNCkBAIC00OTIsMTAgKzQ5MiwxMCBAQCBzdGF0aWMgdm9pZCBydDZfcHJvYmUoc3Ry
+dWN0IHJ0Nl9pbmZvICpydCkNCiAJCXN0cnVjdCBpbjZfYWRkciBtY2FkZHI7DQogCQlzdHJ1Y3Qg
+aW42X2FkZHIgKnRhcmdldDsNCiANCi0JCW5laWdoLT51cGRhdGVkID0gamlmZmllczsNCi0NCi0J
+CWlmIChuZWlnaCkNCisJCWlmIChuZWlnaCkgew0KKwkJCW5laWdoLT51cGRhdGVkID0gamlmZmll
+czsNCiAJCQl3cml0ZV91bmxvY2soJm5laWdoLT5sb2NrKTsNCisJCX0NCiANCiAJCXRhcmdldCA9
+IChzdHJ1Y3QgaW42X2FkZHIgKikmcnQtPnJ0NmlfZ2F0ZXdheTsNCiAJCWFkZHJjb25mX2FkZHJf
+c29saWN0X211bHQodGFyZ2V0LCAmbWNhZGRyKTsNCg==
