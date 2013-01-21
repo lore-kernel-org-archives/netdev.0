@@ -1,39 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ipv4: Invalidate the socket cached route on pmtu
- events if possible
-Date: Mon, 21 Jan 2013 14:18:07 -0500 (EST)
-Message-ID: <20130121.141807.1939155236333256972.davem@davemloft.net>
-References: <20130121115911.GE30530@secunet.com>
+Subject: Re: [PATCH net 0/3] cdc_ncm and cdc_mbim fixes for 3.8
+Date: Mon, 21 Jan 2013 14:22:42 -0500 (EST)
+Message-ID: <20130121.142242.2240250911008731906.davem@davemloft.net>
+References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Yurij.Plotnikov@oktetlabs.ru, ja@ssi.bg, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	gsuarez@smithmicro.com, alexey.orishko@stericsson.com,
+	oneukum@suse.de
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41338 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41402 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690Ab3AUTSK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 14:18:10 -0500
-In-Reply-To: <20130121115911.GE30530@secunet.com>
+	with ESMTP id S1752685Ab3AUTWo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 14:22:44 -0500
+In-Reply-To: <1358783440-11459-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Mon, 21 Jan 2013 12:59:11 +0100
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Mon, 21 Jan 2013 16:50:37 +0100
 
-> The route lookup in ipv4_sk_update_pmtu() might return a route
-> different from the route we cached at the socket. This is because
-> standart routes are per cpu, so each cpu has it's own struct rtable.
-> This means that we do not invalidate the socket cached route if the
-> NET_RX_SOFTIRQ is not served by the same cpu that the sending socket
-> uses. As a result, the cached route reused until we disconnect.
-> 
-> With this patch we invalidate the socket cached route if possible.
-> If the socket is owened by the user, we can't update the cached
-> route directly. A followup patch will implement socket release
-> callback functions for datagram sockets to handle this case.
-> 
-> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> The 2 first patches in this series are required to make the Sierra
+> Wireless MC7710 card work in MBIM mode.  They may also be
+> required for other Qualcomm firmware based MBIM devices.
+>=20
+> Patch #1 was previously posted as a standalone patch.  This version
+> is a replacement, removing a theoretical NULL pointer exception.=20
+>=20
+> Patch #3 fixes a bug I introduced in v3.7
 
-Applied.
+All applied, thanks.
