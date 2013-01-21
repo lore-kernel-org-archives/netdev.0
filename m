@@ -1,42 +1,46 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
- specific ndisc information
-Date: Mon, 21 Jan 2013 07:37:28 +0100
-Message-ID: <50FCE228.3090801@gmail.com>
-References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org>
-Reply-To: stephan.gatzka@gmail.com
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH 1/3] ipv4: Invalidate the socket cached route on pmtu
+ events if possible
+Date: Mon, 21 Jan 2013 07:43:26 +0100
+Message-ID: <20130121064326.GA30530@secunet.com>
+References: <50D1CECE.7090706@oktetlabs.ru>
+ <1355945864.2676.21.camel@bwh-desktop.uk.solarflarecom.com>
+ <20121220073445.GM18940@secunet.com>
+ <50D2F4E5.4050904@oktetlabs.ru>
+ <20121220123535.GN18940@secunet.com>
+ <20121221102253.GO18940@secunet.com>
+ <50F3C153.9030204@oktetlabs.ru>
+ <20130118081145.GB24987@secunet.com>
+ <20130118081419.GC24987@secunet.com>
+ <alpine.LFD.2.00.1301190031080.1803@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux1394-devel@lists.sourceforge.net,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org,
+	"Alexandra N. Kossovsky" <Alexandra.Kossovsky@oktetlabs.ru>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:51911 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751792Ab3AUGhc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 01:37:32 -0500
-Received: by mail-ee0-f51.google.com with SMTP id d17so2620451eek.10
-        for <netdev@vger.kernel.org>; Sun, 20 Jan 2013 22:37:30 -0800 (PST)
-In-Reply-To: <50FC3BB1.4070005@linux-ipv6.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:40951 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751811Ab3AUGn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 01:43:29 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1301190031080.1803@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> [ARP and NDISC]
-> - both can be handled in more natural way.
-> -- You will not need to mangle those packets when
->     sending/receiving.
+On Sat, Jan 19, 2013 at 02:54:04AM +0200, Julian Anastasov wrote:
+> > +
+> > +void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+> > +{
+> > +	const struct iphdr *iph = (const struct iphdr *) skb->data;
+> > +	struct flowi4 fl4;
+> > +	struct rtable *rt = (struct rtable *) __sk_dst_get(sk);
+> 
+> 	I guess __sk_dst_get should be called after
+> bh_lock_sock ?
 
-This is also true if we introduce a function pointer. My last 
-implementation does not mangle packets in the driver.
+Yes, absolutely. I'll fix it before I submit the patch.
 
-> -- You do not need to inspect ARP/NDISC packet.
->     By using netevent notification mechanism, you can
->     learn peer parameters.
-
-That is worth to investigate. Will I get notifications when a ARP/NDISC 
-will be send or only if the stack received ARP/NDISC packets? However, I 
-can't see how this will help to get the firewire specific information 
-into the ARP/NDISC packet. This has to be done either via the suggested 
-function pointer or your extension of the mac address.
+Thanks for your review!
