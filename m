@@ -1,7 +1,7 @@
 From: Tilman Schmidt <tilman@imap.cc>
-Subject: [PATCH 2/6] isdn/gigaset: leave DLE mode before hanging up
+Subject: [PATCH 3/6] isdn/gigaset: beautify interface.c
 Date: Mon, 21 Jan 2013 22:57:20 +0100 (CET)
-Message-ID: <20130121-patch-isdn-02.tilman@imap.cc>
+Message-ID: <20130121-patch-isdn-03.tilman@imap.cc>
 References: <20130121-patch-isdn-00.tilman@imap.cc>
 Cc: Hansjoerg Lipp <hjlipp@web.de>, Karsten Keil <keil@b1-systems.de>,
 	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
@@ -13,29 +13,83 @@ In-Reply-To: <20130121-patch-isdn-00.tilman@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Some firmware releases of Gigaset M105 do not accept AT+VLS=0 command
-in DLE mode, so always leave DLE mode before sending the command.
+Avoid forward declarations and remove a needless initialization.
 
 Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 ---
- drivers/isdn/gigaset/ev-layer.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ drivers/isdn/gigaset/interface.c |   46 ++++++++++++-------------------------
+ 1 files changed, 15 insertions(+), 31 deletions(-)
 
-diff --git a/drivers/isdn/gigaset/ev-layer.c b/drivers/isdn/gigaset/ev-layer.c
-index 2e6963d..e2383ec 100644
---- a/drivers/isdn/gigaset/ev-layer.c
-+++ b/drivers/isdn/gigaset/ev-layer.c
-@@ -1693,6 +1693,11 @@ static void process_command_flags(struct cardstate *cs)
- 	for (i = 0; i < cs->channels; ++i) {
- 		bcs = cs->bcs + i;
- 		if (bcs->at_state.pending_commands & PC_HUP) {
-+			if (cs->dle) {
-+				cs->curchannel = bcs->channel;
-+				schedule_sequence(cs, &cs->at_state, SEQ_DLE0);
-+				return;
-+			}
- 			bcs->at_state.pending_commands &= ~PC_HUP;
- 			if (bcs->at_state.pending_commands & PC_CID) {
- 				/* not yet dialing: PC_NOCID is sufficient */
+diff --git a/drivers/isdn/gigaset/interface.c b/drivers/isdn/gigaset/interface.c
+index 67abf3f..20b7e7a 100644
+--- a/drivers/isdn/gigaset/interface.c
++++ b/drivers/isdn/gigaset/interface.c
+@@ -112,36 +112,6 @@ static int if_config(struct cardstate *cs, int *arg)
+ }
+ 
+ /*** the terminal driver ***/
+-/* stolen from usbserial and some other tty drivers */
+-
+-static int  if_open(struct tty_struct *tty, struct file *filp);
+-static void if_close(struct tty_struct *tty, struct file *filp);
+-static int  if_ioctl(struct tty_struct *tty,
+-		     unsigned int cmd, unsigned long arg);
+-static int  if_write_room(struct tty_struct *tty);
+-static int  if_chars_in_buffer(struct tty_struct *tty);
+-static void if_throttle(struct tty_struct *tty);
+-static void if_unthrottle(struct tty_struct *tty);
+-static void if_set_termios(struct tty_struct *tty, struct ktermios *old);
+-static int  if_tiocmget(struct tty_struct *tty);
+-static int  if_tiocmset(struct tty_struct *tty,
+-			unsigned int set, unsigned int clear);
+-static int  if_write(struct tty_struct *tty,
+-		     const unsigned char *buf, int count);
+-
+-static const struct tty_operations if_ops = {
+-	.open =			if_open,
+-	.close =		if_close,
+-	.ioctl =		if_ioctl,
+-	.write =		if_write,
+-	.write_room =		if_write_room,
+-	.chars_in_buffer =	if_chars_in_buffer,
+-	.set_termios =		if_set_termios,
+-	.throttle =		if_throttle,
+-	.unthrottle =		if_unthrottle,
+-	.tiocmget =		if_tiocmget,
+-	.tiocmset =		if_tiocmset,
+-};
+ 
+ static int if_open(struct tty_struct *tty, struct file *filp)
+ {
+@@ -355,7 +325,7 @@ done:
+ static int if_write_room(struct tty_struct *tty)
+ {
+ 	struct cardstate *cs = tty->driver_data;
+-	int retval = -ENODEV;
++	int retval;
+ 
+ 	gig_dbg(DEBUG_IF, "%u: %s()", cs->minor_index, __func__);
+ 
+@@ -498,6 +468,20 @@ out:
+ 	mutex_unlock(&cs->mutex);
+ }
+ 
++static const struct tty_operations if_ops = {
++	.open =			if_open,
++	.close =		if_close,
++	.ioctl =		if_ioctl,
++	.write =		if_write,
++	.write_room =		if_write_room,
++	.chars_in_buffer =	if_chars_in_buffer,
++	.set_termios =		if_set_termios,
++	.throttle =		if_throttle,
++	.unthrottle =		if_unthrottle,
++	.tiocmget =		if_tiocmget,
++	.tiocmset =		if_tiocmset,
++};
++
+ 
+ /* wakeup tasklet for the write operation */
+ static void if_wake(unsigned long data)
 -- 
 1.7.3.4
