@@ -1,143 +1,140 @@
-From: Jon Mason <jon.mason@intel.com>
-Subject: Re: [PATCH 14/21] NTB: Fix Sparse Warnings
-Date: Mon, 21 Jan 2013 14:13:50 -0700
-Message-ID: <20130121211350.GH22208@jonmason-lab>
-References: <1358586155-23322-1-git-send-email-jon.mason@intel.com>
- <1358586155-23322-15-git-send-email-jon.mason@intel.com>
- <20130120234534.GD14196@kroah.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/2] ipv4: Invalidate the socket cached route on pmtu
+ events if possible
+Date: Mon, 21 Jan 2013 23:18:27 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1301212245170.1886@ja.ssi.bg>
+References: <20130121115911.GE30530@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Jiang <dave.jiang@intel.com>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130120234534.GD14196@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	"Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:46021 "EHLO ja.ssi.bg"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756809Ab3AUVPF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jan 2013 16:15:05 -0500
+In-Reply-To: <20130121115911.GE30530@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 20, 2013 at 03:45:34PM -0800, Greg KH wrote:
-> On Sat, Jan 19, 2013 at 02:02:28AM -0700, Jon Mason wrote:
-> > Address the sparse warnings and resulting fallout
-> > 
-> > Signed-off-by: Jon Mason <jon.mason@intel.com>
-> > ---
-> >  drivers/ntb/ntb_hw.c        |    7 ++++---
-> >  drivers/ntb/ntb_hw.h        |    4 ++--
-> >  drivers/ntb/ntb_transport.c |   32 ++++++++++++++++----------------
-> >  3 files changed, 22 insertions(+), 21 deletions(-)
-> > 
-> > diff --git a/drivers/ntb/ntb_hw.c b/drivers/ntb/ntb_hw.c
-> > index 18cb5dc..b792ccd 100644
-> > --- a/drivers/ntb/ntb_hw.c
-> > +++ b/drivers/ntb/ntb_hw.c
-> > @@ -104,8 +104,9 @@ MODULE_DEVICE_TABLE(pci, ntb_pci_tbl);
-> >   *
-> >   * RETURNS: An appropriate -ERRNO error value on error, or zero for success.
-> >   */
-> > -int ntb_register_event_callback(struct ntb_device *ndev,
-> > -				void (*func)(void *handle, unsigned int event))
-> > +int
-> > +ntb_register_event_callback(struct ntb_device *ndev,
-> > +			    void (*func)(void *handle, enum ntb_hw_event event))
-> 
-> What is sparse complaining about here that moving the function name to
-> the start of the line fixes?  That shouldn't be necessary at all.  Ah,
-> the enum?  If so, why change the first line at all?
 
-All an effort to get it to fit in under 80 chars.
+	Hello,
 
-> 
-> >  {
-> >  	if (ndev->event_cb)
-> >  		return -EINVAL;
-> > @@ -344,7 +345,7 @@ int ntb_read_remote_spad(struct ntb_device *ndev, unsigned int idx, u32 *val)
-> >   *
-> >   * RETURNS: pointer to virtual address, or NULL on error.
-> >   */
-> > -void *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw)
-> > +void __iomem *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw)
-> 
-> That makes sense to fix.
-> 
-> >  {
-> >  	if (mw > NTB_NUM_MW)
-> >  		return NULL;
-> > diff --git a/drivers/ntb/ntb_hw.h b/drivers/ntb/ntb_hw.h
-> > index 5e00951..3a3038c 100644
-> > --- a/drivers/ntb/ntb_hw.h
-> > +++ b/drivers/ntb/ntb_hw.h
-> > @@ -165,14 +165,14 @@ int ntb_register_db_callback(struct ntb_device *ndev, unsigned int idx,
-> >  void ntb_unregister_db_callback(struct ntb_device *ndev, unsigned int idx);
-> >  int ntb_register_event_callback(struct ntb_device *ndev,
-> >  				void (*event_cb_func) (void *handle,
-> > -						       unsigned int event));
-> > +						      enum ntb_hw_event event));
-> >  void ntb_unregister_event_callback(struct ntb_device *ndev);
-> >  int ntb_get_max_spads(struct ntb_device *ndev);
-> >  int ntb_write_local_spad(struct ntb_device *ndev, unsigned int idx, u32 val);
-> >  int ntb_read_local_spad(struct ntb_device *ndev, unsigned int idx, u32 *val);
-> >  int ntb_write_remote_spad(struct ntb_device *ndev, unsigned int idx, u32 val);
-> >  int ntb_read_remote_spad(struct ntb_device *ndev, unsigned int idx, u32 *val);
-> > -void *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw);
-> > +void __iomem *ntb_get_mw_vbase(struct ntb_device *ndev, unsigned int mw);
-> >  resource_size_t ntb_get_mw_size(struct ntb_device *ndev, unsigned int mw);
-> >  void ntb_ring_sdb(struct ntb_device *ndev, unsigned int idx);
-> >  void *ntb_find_transport(struct pci_dev *pdev);
-> > diff --git a/drivers/ntb/ntb_transport.c b/drivers/ntb/ntb_transport.c
-> > index b3afb24..e0bdfd7 100644
-> > --- a/drivers/ntb/ntb_transport.c
-> > +++ b/drivers/ntb/ntb_transport.c
-> > @@ -58,7 +58,7 @@
-> >  #include <linux/ntb.h>
-> >  #include "ntb_hw.h"
-> >  
-> > -#define NTB_TRANSPORT_VERSION	1
-> > +#define NTB_TRANSPORT_VERSION	2
-> 
-> How is this a sparse fix?
+On Mon, 21 Jan 2013, Steffen Klassert wrote:
 
-I changed the format of the header below.
-
+> The route lookup in ipv4_sk_update_pmtu() might return a route
+> different from the route we cached at the socket. This is because
+> standart routes are per cpu, so each cpu has it's own struct rtable.
+> This means that we do not invalidate the socket cached route if the
+> NET_RX_SOFTIRQ is not served by the same cpu that the sending socket
+> uses. As a result, the cached route reused until we disconnect.
 > 
-> >  static unsigned int transport_mtu = 0x401E;
-> >  module_param(transport_mtu, uint, 0644);
-> > @@ -91,14 +91,14 @@ struct ntb_transport_qp {
-> >  	bool qp_link;
-> >  	u8 qp_num;	/* Only 64 QP's are allowed.  0-63 */
-> >  
-> > -	struct ntb_rx_info *rx_info;
-> > +	struct ntb_rx_info __iomem *rx_info;
-> >  	struct ntb_rx_info *remote_rx_info;
-> >  
-> >  	void (*tx_handler) (struct ntb_transport_qp *qp, void *qp_data,
-> >  			    void *data, int len);
-> >  	struct list_head tx_free_q;
-> >  	spinlock_t ntb_tx_free_q_lock;
-> > -	void *tx_mw;
-> > +	void __iomem *tx_mw;
-> >  	unsigned int tx_index;
-> >  	unsigned int tx_max_entry;
-> >  	unsigned int tx_max_frame;
-> > @@ -166,7 +166,7 @@ enum {
-> >  };
-> >  
-> >  struct ntb_payload_header {
-> > -	u64 ver;
-> > +	unsigned int ver;
+> With this patch we invalidate the socket cached route if possible.
+> If the socket is owened by the user, we can't update the cached
+> route directly. A followup patch will implement socket release
+> callback functions for datagram sockets to handle this case.
 > 
-> why does sparse care about this?
-
-I am using the number of tx/rx packets transmitted as a sanity check
-on the data.  This is a 64bit counter.  There is no iowrite64, so I
-truncated this to 32bits.  I can rework this part of the patch to do 2
-iowrite32's and keep the value as 64bit.
-
-Thanks,
-Jon
-
+> Reported-by: Yurij M. Plotnikov <Yurij.Plotnikov@oktetlabs.ru>
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/ipv4/route.c |   42 +++++++++++++++++++++++++++++++++++++++++-
+>  1 file changed, 41 insertions(+), 1 deletion(-)
 > 
-> thanks,
-> 
-> greg k-h
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 259cbee..132737a 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -965,7 +965,7 @@ void ipv4_update_pmtu(struct sk_buff *skb, struct net *net, u32 mtu,
+>  }
+>  EXPORT_SYMBOL_GPL(ipv4_update_pmtu);
+>  
+> -void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+> +static void __ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+>  {
+>  	const struct iphdr *iph = (const struct iphdr *) skb->data;
+>  	struct flowi4 fl4;
+> @@ -978,6 +978,46 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+>  		ip_rt_put(rt);
+>  	}
+>  }
+> +
+> +void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+> +{
+> +	const struct iphdr *iph = (const struct iphdr *) skb->data;
+> +	struct flowi4 fl4;
+> +	struct rtable *rt;
+> +	struct dst_entry *dst;
+> +
+> +	bh_lock_sock(sk);
+> +	rt = (struct rtable *) __sk_dst_get(sk);
+
+	I just saw another problem, sorry that
+I missed it the first time. Here __sk_dst_get
+does not get reference...
+
+> +
+> +	if (sock_owned_by_user(sk) || !rt) {
+> +		__ipv4_sk_update_pmtu(skb, sk, mtu);
+> +		goto out;
+> +	}
+> +
+> +	__build_flow_key(&fl4, sk, iph, 0, 0, 0, 0, 0);
+> +
+> +	if (!__sk_dst_check(sk, 0)) {
+> +		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
+> +		if (IS_ERR(rt))
+> +			goto out;
+
+		but here rt->dst comes with reference.
+
+> +	}
+
+	May be here we can use 'else dst_hold(&rt->dst);' ?
+It is needed for __sk_dst_set.
+
+> +
+> +	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
+> +
+> +	dst = dst_check(&rt->dst, 0);
+> +	if (!dst) {
+
+		dst_release(&rt->dst);
+
+> +		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
+> +		if (IS_ERR(rt))
+> +			goto out;
+> +
+> +		dst = &rt->dst;
+
+		Remove above line...
+
+> +	}
+> +
+
+	and use here __sk_dst_set(sk, &rt->dst) instead:
+
+> +	 __sk_dst_set(sk, dst);
+
+	Another variant is to remember with flag 'new_rt'
+that we should call __sk_dst_set, eg. when rt comes from
+ip_route_output_flow. By this way we can avoid some of
+the dst_hold/dst_release calls if sk_dst_cache is not
+changed. IIRC, according to sk_dst_check, dst_check can
+not return different dst from the ->check method.
+
+> +
+> +out:
+> +	bh_unlock_sock(sk);
+> +}
+>  EXPORT_SYMBOL_GPL(ipv4_sk_update_pmtu);
+>  
+>  void ipv4_redirect(struct sk_buff *skb, struct net *net,
+> -- 
+> 1.7.9.5
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
