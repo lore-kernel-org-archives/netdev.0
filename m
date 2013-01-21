@@ -1,36 +1,45 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH net-next 0/2 v2] Add support of multicast static tree
-Date: Mon, 21 Jan 2013 17:00:24 +0100
-Message-ID: <1358784026-4071-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <OF894319C2.8EF01FDC-ON87257AFA.004BC5D6-85257AFA.004E0255@us.ibm.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	netdev-owner@vger.kernel.org
-To: dlstevens@us.ibm.com
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: [PATCH v4 2/3] net: split eth_mac_addr for better error handling
+Date: Mon, 21 Jan 2013 17:13:28 +0100
+Message-ID: <20130121161328.GE24473@stefanha-thinkpad.redhat.com>
+References: <1358649789-2338-1-git-send-email-akong@redhat.com>
+ <1358649789-2338-3-git-send-email-akong@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mst@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	qemu-devel@nongnu.org, virtualization@lists.linux-foundation.org,
+	davem@davemloft.net
+To: akong@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:51140 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859Ab3AUQIe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 11:08:34 -0500
-In-Reply-To: <OF894319C2.8EF01FDC-ON87257AFA.004BC5D6-85257AFA.004E0255@us.ibm.com>
+Received: from mail-bk0-f45.google.com ([209.85.214.45]:49072 "EHLO
+	mail-bk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751781Ab3AUQNc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 11:13:32 -0500
+Content-Disposition: inline
+In-Reply-To: <1358649789-2338-3-git-send-email-akong@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The goal of this serie is to add the support of proxy multicast, ie being able
-to build a static multicast tree. In other words, it adds the support of (*,G)
-mf[6]c entries.
+On Sun, Jan 20, 2013 at 10:43:08AM +0800, akong@redhat.com wrote:
+> From: Stefan Hajnoczi <stefanha@gmail.com>
+> 
+> When we set mac address, software mac address in system and hardware mac
+> address all need to be updated. Current eth_mac_addr() doesn't allow
+> callers to implement error handling nicely.
+> 
+> This patch split eth_mac_addr() to prepare part and real commit part,
+> then we can prepare first, and try to change hardware address, then do
+> the real commit if hardware address is set successfully.
+> 
+> Signed-off-by: Stefan Hajnoczi <stefanha@gmail.com>
+> Signed-off-by: Amos Kong <akong@redhat.com>
+> ---
+>  include/linux/etherdevice.h |  2 ++
+>  net/ethernet/eth.c          | 43 ++++++++++++++++++++++++++++++++++++-------
+>  2 files changed, 38 insertions(+), 7 deletions(-)
 
-v2: use INADDR_ANY instead of 0 for IPv4 addresses
+Feel free to make yourself author and put me just as Suggested-by:.  I
+posted pseudo-code but didn't write the patch or test it, so it's fair
+to say that credit goes to you. :)
 
- include/linux/mroute.h       |   2 +-
- include/linux/mroute6.h      |   2 +-
- include/uapi/linux/in6.h     |  15 ++----
- include/uapi/linux/mroute.h  |   3 ++
- include/uapi/linux/mroute6.h |   3 ++
- net/ipv4/ipmr.c              | 119 +++++++++++++++++++++++++++++++++++-----
- net/ipv6/ip6mr.c             | 126 ++++++++++++++++++++++++++++++++++++++-----
- 7 files changed, 231 insertions(+), 39 deletions(-)
-
-Comments are welcome.
-
-Regards,
-Nicolas
+Stefan
