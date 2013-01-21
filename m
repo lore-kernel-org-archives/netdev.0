@@ -1,41 +1,33 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/5 v2] soreuseport: TCP/IPv4 implementation
-Date: Mon, 21 Jan 2013 11:30:25 +0900
-Message-ID: <50FCA841.8020109@linux-ipv6.org>
-References: <alpine.DEB.2.00.1301201542510.834@pokey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/5] ADDRCONF/NDISC improvements
+Date: Sun, 20 Jan 2013 22:30:03 -0500 (EST)
+Message-ID: <20130120.223003.279991641417974881.davem@davemloft.net>
+References: <50FC2B97.7020601@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	netdev@markandruth.co.uk, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:49429 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752625Ab3AUCa0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 21:30:26 -0500
-In-Reply-To: <alpine.DEB.2.00.1301201542510.834@pokey.mtv.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33269 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752625Ab3AUDaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jan 2013 22:30:07 -0500
+In-Reply-To: <50FC2B97.7020601@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert wrote:
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Mon, 21 Jan 2013 02:38:31 +0900
 
-> +		} else if (score == hiscore && reuseport) {
-> +			matches++;
-> +			if (((u64)phash * matches) >> 32 == 0)
-> +				result = sk;
-> +			phash = next_pseudo_random32(phash);
->  		}
->  	}
->  	/*
+> These are for address comparison improvements and boolean conversion.
+> 
+> YOSHIFUJI Hideaki (5):
+>   ipv6: Make ipv6_addr_is_XXX() return boolean.
+>   ipv6: Introduce ipv6_addr_is_solict_mult() to check Solicited Node
+>     Multicast Addresses.
+>   ipv6: Optimize ipv6_addr_is_solict_mult().
+>   ipv6: Optimize ipv6_addr_is_ll_all_{nodes,routers}().
+>   ndisc: Make several arguments for ndisc_send_na() boolean.
 
-Well, honestly, this seems the most difficult part to understand
-at a glance.  Plus, there seems multiple ways to do this.
-Maybe, inline?
-
-static inline sock_true_1_in_n(u32 r, unsigned int n)
-{
-	/* return (r < ~0U / n); */
-	/* return (r % n == 0); */
-	return ((u64)r * n >> 32) == 0;
-}
+All applied, thanks.
