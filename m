@@ -1,61 +1,70 @@
-From: Daniel Wagner <wagi@monom.org>
-Subject: Re: [PATCH] net: net_cls: fd passed in SCM_RIGHTS datagram not set
- correctly
-Date: Mon, 21 Jan 2013 11:16:50 +0100
-Message-ID: <50FD1592.2000907@monom.org>
-References: <1358761102-7765-1-git-send-email-wagi@monom.org> <50FD1058.2000306@huawei.com>
+From: Tom St Denis <tstdenis@elliptictech.com>
+Subject: Re: IPsec AH use of ahash
+Date: Mon, 21 Jan 2013 05:20:27 -0500 (EST)
+Message-ID: <207592188.94267.1358763627877.JavaMail.root@elliptictech.com>
+References: <1358759881.2595.15.camel@obelisk.thedillows.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cgroups@vger.kernel.org,
-	Daniel Wagner <daniel.wagner@bmw-carit.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Li Zefan <lizefan@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hotel311.server4you.de ([85.25.146.15]:43987 "EHLO
-	hotel311.server4you.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753033Ab3AUKQx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 05:16:53 -0500
-In-Reply-To: <50FD1058.2000306@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>
+To: David Dillow <dave@thedillows.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358759881.2595.15.camel@obelisk.thedillows.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 21.01.2013 10:54, Li Zefan wrote:
-> On 2013/1/21 17:38, Daniel Wagner wrote:
->> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
->>
->> Commit 6a328d8c6f03501657ad580f6f98bf9a42583ff7 changed the update
->> logic for the socket but it does not update the SCM_RIGHTS update
->> as well. This patch is based on the net_prio fix commit
->>
->> 48a87cc26c13b68f6cce4e9d769fcb17a6b3e4b8
->>
->>      net: netprio: fd passed in SCM_RIGHTS datagram not set correctly
->>
->>      A socket fd passed in a SCM_RIGHTS datagram was not getting
->>      updated with the new tasks cgrp prioidx. This leaves IO on
->>      the socket tagged with the old tasks priority.
->>
->>      To fix this add a check in the scm recvmsg path to update the
->>      sock cgrp prioidx with the new tasks value.
->>
->> Let's apply the same fix for net_cls.
->>
->> Reported-by: Li Zefan <lizefan@huawei.com>
+
+
+----- Original Message -----
+> From: "David Dillow" <dave@thedillows.org>
+> To: "Tom St Denis" <tstdenis@elliptictech.com>
+> Cc: "Borislav Petkov" <bp@alien8.de>, linux-kernel@vger.kernel.org, netdev@vger.kernel.org, "Steven Rostedt"
+> <rostedt@goodmis.org>
+> Sent: Monday, 21 January, 2013 4:18:01 AM
+> Subject: Re: IPsec AH use of ahash
 > 
-> Acutally I didn't report this. 
+> On Sun, 2013-01-20 at 19:40 -0500, Tom St Denis wrote:
+> > The problem is for me to add the ()'s is a no brainer.
+> 
+> It was more than just the ()'s. You completely botched the
+> indentation
+> in the parts of code you didn't copy from xcbc.c, among other issues.
 
-You made me look into this, so you reported it at least in my eyes :)
+Leaving coding indentation aside [I assume you mean the use of braces because my tab stops should match given the patchset for the other files was minimal] that's not really a good use of time here.
+ 
+> > For me to re-write complete statements for coding style reasons
+> > means
+> > I have to actually go out and test it again.
+> 
+> Well, for some of the code you submitted, that would be the first
+> testing it got, even compile testing AFAICT. I don't doubt that you
+> tested against your hardware, but it is obvious that you didn't run
+> the
+> algorithm tests you added, or even tried to compile them. You were
+> missing a semicolon after your test data, and you were also missing a
+> "\x" in there, so your test data was wrong.
 
-> I was about to send exactly the same
-> patch and then I noticed the shared socket issue. ;)
+The missing semi-colon is in fact missing and for that I apologize.  This btw is the first legitimate gripe with the code thus far.
 
-I don't mind if you want your patch to be applied. I just felt
-responsible for the changes I did.
+Though I must say this code has "compiled" in 3.6, 3.6.7, 3.7, and 3.8 without error so it's not surprising it wasn't caught.  After having consulted the "documentation" I never really did figure out how to get testmgr to run so I took a bit of leap of faith there that everything was fine.  Not really an excuse but it is at least an observable hole in the build documentation.
 
-thanks,
-daniel
+I couldn't spot the missing \x but I don't doubt you.  That format for vector data is so backwards that it's easy to make that mistake.  After having worked on crypto code for 10+ years I've never seen anyone use that format and I've seen stupid formats before (NIST CAVP anyone?).
+
+Again all valid critiques of the code and valid reasons to do a re-spin.  I apologize for the oversight there.  Having "used the source" I found the build symbol required to activate the test manager so I should be good to go now.
+
+> I know this, because I just spent the five minutes required to fix up
+> the checkpatch warnings to prove to myself that you could have done
+> it
+> faster than sending one considered message to the list about how much
+> we
+> suck. Of course, that assumes you are trying to have a discussion
+> instead of trolling; it's much easier to spew bile than to think
+> before
+> you post.
+
+This wasn't about how you all suck.  Quite the contrary it was about how good people are missing perspective.  You all started this by harping on the coding style "problems" but as a new developer to the kernel (well at least a new submitter...) I used the source as a guide so that I wouldn't deviate from what I perceived as the norm.  I was legitimately frustrated because performing a re-spin solely to work past coding style problems is not something a business case could be made for.  I'd like to contribute properly but at the same time you can't throw red flags on the play each time someone plays the game like you do.
+
+At least the testmgr errors are something I can work on whenever without setting up a lab so likely that'll be something I can tackle today actually.
+
+Tom
