@@ -1,78 +1,106 @@
-From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH net] r8169: remove the obsolete and incorrect AMD workaround
-Date: Tue, 22 Jan 2013 10:30:35 +0200
-Message-ID: <1358843435-24719-1-git-send-email-timo.teras@iki.fi>
-References: <20130121234205.GA12449@electric-eye.fr.zoreil.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 1/2] ipv4: Invalidate the socket cached route on pmtu
+ events if possible
+Date: Tue, 22 Jan 2013 09:42:23 +0100
+Message-ID: <20130122084223.GC9147@secunet.com>
+References: <20130121115911.GE30530@secunet.com>
+ <alpine.LFD.2.00.1301212245170.1886@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-To: Francois Romieu <romieu@fr.zoreil.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	netdev@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:38272 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753288Ab3AVIaa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 03:30:30 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c41so3371105eek.13
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 00:30:29 -0800 (PST)
-In-Reply-To: <20130121234205.GA12449@electric-eye.fr.zoreil.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:33074 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752263Ab3AVIm0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 03:42:26 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1301212245170.1886@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was introduced in commit 6dccd16 "r8169: merge with version
-6.001.00 of Realtek's r8169 driver". I did not find the version
-6.001.00 online, but in 6.002.00 or any later r8169 from Realtek
-this hunk is no longer present.
+On Mon, Jan 21, 2013 at 11:18:27PM +0200, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Mon, 21 Jan 2013, Steffen Klassert wrote:
+> 
+> > +{
+> > +	const struct iphdr *iph = (const struct iphdr *) skb->data;
+> > +	struct flowi4 fl4;
+> > +	struct rtable *rt;
+> > +	struct dst_entry *dst;
+> > +
+> > +	bh_lock_sock(sk);
+> > +	rt = (struct rtable *) __sk_dst_get(sk);
+> 
+> 	I just saw another problem, sorry that
+> I missed it the first time. Here __sk_dst_get
+> does not get reference...
+> 
 
-Also commit 05af214 "r8169: fix Ethernet Hangup for RTL8110SC
-rev d" claims to have fixed this issue otherwise.
+Somehow I thought that I can reuse the the refcount
+from the socket, but __sk_dst_set() will release it
+when we continue to use the same route.
 
-The magic compare mask of 0xfffe000 is dubious as it masks
-parts of the Reserved part, and parts of the VLAN tag. But this
-does not make much sense as the VLAN tag parts are perfectly
-valid there. In matter of fact this seems to be triggered with
-any VLAN tagged packet as RxVlanTag bit is matched. I would
-suspect 0xfffe0000 was intended to test reserved part only.
+> > +
+> > +	if (sock_owned_by_user(sk) || !rt) {
+> > +		__ipv4_sk_update_pmtu(skb, sk, mtu);
+> > +		goto out;
+> > +	}
+> > +
+> > +	__build_flow_key(&fl4, sk, iph, 0, 0, 0, 0, 0);
+> > +
+> > +	if (!__sk_dst_check(sk, 0)) {
+> > +		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
+> > +		if (IS_ERR(rt))
+> > +			goto out;
+> 
+> 		but here rt->dst comes with reference.
+> 
+> > +	}
+> 
+> 	May be here we can use 'else dst_hold(&rt->dst);' ?
+> It is needed for __sk_dst_set.
+> 
+> > +
+> > +	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
+> > +
+> > +	dst = dst_check(&rt->dst, 0);
+> > +	if (!dst) {
+> 
+> 		dst_release(&rt->dst);
+> 
+> > +		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
+> > +		if (IS_ERR(rt))
+> > +			goto out;
+> > +
+> > +		dst = &rt->dst;
+> 
+> 		Remove above line...
+> 
+> > +	}
+> > +
+> 
+> 	and use here __sk_dst_set(sk, &rt->dst) instead:
+> 
+> > +	 __sk_dst_set(sk, dst);
+> 
+> 	Another variant is to remember with flag 'new_rt'
+> that we should call __sk_dst_set, eg. when rt comes from
+> ip_route_output_flow. By this way we can avoid some of
+> the dst_hold/dst_release calls if sk_dst_cache is not
+> changed. IIRC, according to sk_dst_check, dst_check can
+> not return different dst from the ->check method.
+> 
 
-=46inally, this hunk is evil as it can cause more packets to be
-handled than what was NAPI quota causing net/core/dev.c:
-net_rx_action(): WARN_ON_ONCE(work > weight) to trigger, and
-mess up the NAPI state causing device to hang.
+With this variant, we also need to check the new_rt flag
+before we call the dst_release() function you mentioned
+above, right?
 
-As result, any system using VLANs and having high receive
-traffic (so that NAPI poll budget limits rtl_rx) would result
-in device hang.
+I think we should avoid refcounts whenever we can,
+so I prefer this variant. I'll do a patch.
 
-Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
----
-I decided to suggest just removal without the suggested WARN_ON_ONCE.
-This is because the test is incorrect as explained above, and not
-present anywhere else either. Oh yeah, and I'm feeling brave today ;)
-
-If acceptable, this should go to -stable too. The hunk was introduced
-in v2.6.23-rc1 and the alternate fix went in to v2.6.32-rc6.
-
- drivers/net/ethernet/realtek/r8169.c | 7 -------
- 1 file changed, 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index ed96f30..c28bc31 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -6111,13 +6111,6 @@ process_pkt:
- 			tp->rx_stats.bytes +=3D pkt_size;
- 			u64_stats_update_end(&tp->rx_stats.syncp);
- 		}
--
--		/* Work around for AMD plateform. */
--		if ((desc->opts2 & cpu_to_le32(0xfffe000)) &&
--		    (tp->mac_version =3D=3D RTL_GIGA_MAC_VER_05)) {
--			desc->opts2 =3D 0;
--			cur_rx++;
--		}
- 	}
-=20
- 	count =3D cur_rx - tp->cur_rx;
---=20
-1.8.1
+Thanks!
