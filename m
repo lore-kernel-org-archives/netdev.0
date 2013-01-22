@@ -1,123 +1,161 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 05/15] drivers/net: delete the 3Com 3c505/3c507 intel i825xx support
-Date: Mon, 21 Jan 2013 20:46:12 -0500
-Message-ID: <1358819182-28032-6-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 04/15] drivers/net: delete old parallel port de600/de620 drivers
+Date: Mon, 21 Jan 2013 20:46:11 -0500
+Message-ID: <1358819182-28032-5-git-send-email-paul.gortmaker@windriver.com>
 References: <1358819182-28032-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:45333 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:45329 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752678Ab3AVBqh (ORCPT
+	with ESMTP id S1752365Ab3AVBqh (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 20:46:37 -0500
 In-Reply-To: <1358819182-28032-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For those of us who were around in the early to mid 1990's, we
-will remember that the i825xx ethernet support was not something
-that was considered sufficiently vetted for 24/7 use.
+The parallel port is largely replaced by USB, and even in the
+day where these drivers were current, the documented speed was
+less than 100kB/s.  Let us not pretend that anyone cares about
+these drivers anymore, or worse - pretend that anyone is using
+them on a modern kernel.
 
-Folks might be inclined to use *functional* ISA hardware on some
-near expired P3 ISA machines for dedicated workhorse applications,
-but the odds of using (and relying on) one of these old/experimental
-drivers is essentially nil.  So lets remove them.
+As a side bonus, this is the end of legacy parallel port ethernet,
+so we get to drop the whole chunk relating to that in the legacy
+Space.c file containing the non-PCI unified probe dispatch.
 
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/Space.c                  |    8 -
- drivers/net/ethernet/i825xx/3c505.c  | 1672 ----------------------------------
- drivers/net/ethernet/i825xx/3c505.h  |  292 ------
- drivers/net/ethernet/i825xx/3c507.c  |  939 -------------------
- drivers/net/ethernet/i825xx/Kconfig  |   23 -
- drivers/net/ethernet/i825xx/Makefile |    2 -
- 6 files changed, 2936 deletions(-)
- delete mode 100644 drivers/net/ethernet/i825xx/3c505.c
- delete mode 100644 drivers/net/ethernet/i825xx/3c505.h
- delete mode 100644 drivers/net/ethernet/i825xx/3c507.c
+ Documentation/networking/DLINK.txt  | 203 --------
+ drivers/net/Space.c                 |  13 +-
+ drivers/net/ethernet/dlink/Kconfig  |  32 +-
+ drivers/net/ethernet/dlink/Makefile |   2 -
+ drivers/net/ethernet/dlink/de600.c  | 529 -------------------
+ drivers/net/ethernet/dlink/de600.h  | 168 ------
+ drivers/net/ethernet/dlink/de620.c  | 987 ------------------------------------
+ drivers/net/ethernet/dlink/de620.h  | 117 -----
+ 8 files changed, 2 insertions(+), 2049 deletions(-)
+ delete mode 100644 Documentation/networking/DLINK.txt
+ delete mode 100644 drivers/net/ethernet/dlink/de600.c
+ delete mode 100644 drivers/net/ethernet/dlink/de600.h
+ delete mode 100644 drivers/net/ethernet/dlink/de620.c
+ delete mode 100644 drivers/net/ethernet/dlink/de620.h
 
+diff --git a/Documentation/networking/DLINK.txt b/Documentation/networking/DLINK.txt
+deleted file mode 100644
+index 55d2443..0000000
 diff --git a/drivers/net/Space.c b/drivers/net/Space.c
-index d487127..ac66a6a 100644
+index 64cd86e..d487127 100644
 --- a/drivers/net/Space.c
 +++ b/drivers/net/Space.c
-@@ -51,8 +51,6 @@ extern struct net_device *fmv18x_probe(int unit);
- extern struct net_device *eth16i_probe(int unit);
- extern struct net_device *i82596_probe(int unit);
- extern struct net_device *ewrk3_probe(int unit);
--extern struct net_device *el16_probe(int unit);
--extern struct net_device *elplus_probe(int unit);
- extern struct net_device *e2100_probe(int unit);
- extern struct net_device *ni5010_probe(int unit);
- extern struct net_device *ni52_probe(int unit);
-@@ -164,12 +162,6 @@ static struct devprobe2 isa_probes[] __initdata = {
- #if defined(CONFIG_MVME16x_NET) || defined(CONFIG_BVME6000_NET)	/* Intel I82596 */
- 	{i82596_probe, 0},
- #endif
--#ifdef CONFIG_EL16		/* 3c507 */
--	{el16_probe, 0},
--#endif
--#ifdef CONFIG_ELPLUS		/* 3c505 */
--	{elplus_probe, 0},
--#endif
- #ifdef CONFIG_NI5010
- 	{ni5010_probe, 0},
- #endif
-diff --git a/drivers/net/ethernet/i825xx/3c505.c b/drivers/net/ethernet/i825xx/3c505.c
-deleted file mode 100644
-index 6d000d6..0000000
-diff --git a/drivers/net/ethernet/i825xx/3c505.h b/drivers/net/ethernet/i825xx/3c505.h
-deleted file mode 100644
-index 04df2a9..0000000
-diff --git a/drivers/net/ethernet/i825xx/3c507.c b/drivers/net/ethernet/i825xx/3c507.c
-deleted file mode 100644
-index 13983ee..0000000
-diff --git a/drivers/net/ethernet/i825xx/Kconfig b/drivers/net/ethernet/i825xx/Kconfig
-index 46edb81..b800a94 100644
---- a/drivers/net/ethernet/i825xx/Kconfig
-+++ b/drivers/net/ethernet/i825xx/Kconfig
-@@ -20,29 +20,6 @@ config NET_VENDOR_I825XX
+@@ -73,9 +73,6 @@ extern struct net_device *mac89x0_probe(int unit);
+ extern struct net_device *cops_probe(int unit);
+ extern struct net_device *ltpc_probe(void);
  
- if NET_VENDOR_I825XX
+-/* Detachable devices ("pocket adaptors") */
+-extern struct net_device *de620_probe(int unit);
+-
+ /* Fibre Channel adapters */
+ extern int iph5526_probe(struct net_device *dev);
  
--config ELPLUS
--	tristate "3c505 \"EtherLink Plus\" support"
--	depends on ISA && ISA_DMA_API
+@@ -185,13 +182,6 @@ static struct devprobe2 isa_probes[] __initdata = {
+ 	{NULL, 0},
+ };
+ 
+-static struct devprobe2 parport_probes[] __initdata = {
+-#ifdef CONFIG_DE620		/* D-Link DE-620 adapter */
+-	{de620_probe, 0},
+-#endif
+-	{NULL, 0},
+-};
+-
+ static struct devprobe2 m68k_probes[] __initdata = {
+ #ifdef CONFIG_ATARILANCE	/* Lance-based Atari ethernet boards */
+ 	{atarilance_probe, 0},
+@@ -230,8 +220,7 @@ static void __init ethif_probe2(int unit)
+ 		return;
+ 
+ 	(void)(	probe_list2(unit, m68k_probes, base_addr == 0) &&
+-		probe_list2(unit, isa_probes, base_addr == 0) &&
+-		probe_list2(unit, parport_probes, base_addr == 0));
++		probe_list2(unit, isa_probes, base_addr == 0));
+ }
+ 
+ /*  Statically configured drivers -- order matters here. */
+diff --git a/drivers/net/ethernet/dlink/Kconfig b/drivers/net/ethernet/dlink/Kconfig
+index b5afe21..ee26ce7 100644
+--- a/drivers/net/ethernet/dlink/Kconfig
++++ b/drivers/net/ethernet/dlink/Kconfig
+@@ -5,7 +5,7 @@
+ config NET_VENDOR_DLINK
+ 	bool "D-Link devices"
+ 	default y
+-	depends on PCI || PARPORT
++	depends on PCI
+ 	---help---
+ 	  If you have a network (Ethernet) card belonging to this class, say Y
+ 	  and read the Ethernet-HOWTO, available from
+@@ -18,36 +18,6 @@ config NET_VENDOR_DLINK
+ 
+ if NET_VENDOR_DLINK
+ 
+-config DE600
+-	tristate "D-Link DE600 pocket adapter support"
+-	depends on PARPORT
 -	---help---
--	  Information about this network (Ethernet) card can be found in
--	  <file:Documentation/networking/3c505.txt>.  If you have a card of
--	  this type, say Y and read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This is a network (Ethernet) device which attaches to your parallel
+-	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>, if you want to use
+-	  this. It is possible to have several devices share a single parallel
+-	  port and it is safe to compile the corresponding drivers into the
+-	  kernel.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c505.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called de600.
 -
--config EL16
--	tristate "3c507 \"EtherLink 16\" support (EXPERIMENTAL)"
--	depends on ISA && EXPERIMENTAL
+-config DE620
+-	tristate "D-Link DE620 pocket adapter support"
+-	depends on PARPORT
 -	---help---
--	  If you have a network (Ethernet) card of this type, say Y and read
--	  the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
+-	  This is a network (Ethernet) device which attaches to your parallel
+-	  port. Read <file:Documentation/networking/DLINK.txt> as well as the
+-	  Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>, if you want to use
+-	  this. It is possible to have several devices share a single parallel
+-	  port and it is safe to compile the corresponding drivers into the
+-	  kernel.
 -
--	  To compile this driver as a module, choose M here. The module
--	  will be called 3c507.
+-	  To compile this driver as a module, choose M here: the module
+-	  will be called de620.
 -
- config ARM_ETHER1
- 	tristate "Acorn Ether1 support"
- 	depends on ARM && ARCH_ACORN
-diff --git a/drivers/net/ethernet/i825xx/Makefile b/drivers/net/ethernet/i825xx/Makefile
-index 4f01584..bc81e14 100644
---- a/drivers/net/ethernet/i825xx/Makefile
-+++ b/drivers/net/ethernet/i825xx/Makefile
-@@ -5,8 +5,6 @@
- obj-$(CONFIG_ARM_ETHER1) += ether1.o
- obj-$(CONFIG_EEXPRESS) += eexpress.o
- obj-$(CONFIG_EEXPRESS_PRO) += eepro.o
--obj-$(CONFIG_ELPLUS) += 3c505.o
--obj-$(CONFIG_EL16) += 3c507.o
- obj-$(CONFIG_NI52) += ni52.o
- obj-$(CONFIG_SUN3_82586) += sun3_82586.o
- obj-$(CONFIG_ZNET) += znet.o
+ config DL2K
+ 	tristate "DL2000/TC902x-based Gigabit Ethernet support"
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/dlink/Makefile b/drivers/net/ethernet/dlink/Makefile
+index c705eaa..40085f6 100644
+--- a/drivers/net/ethernet/dlink/Makefile
++++ b/drivers/net/ethernet/dlink/Makefile
+@@ -2,7 +2,5 @@
+ # Makefile for the D-Link network device drivers.
+ #
+ 
+-obj-$(CONFIG_DE600) += de600.o
+-obj-$(CONFIG_DE620) += de620.o
+ obj-$(CONFIG_DL2K) += dl2k.o
+ obj-$(CONFIG_SUNDANCE) += sundance.o
+diff --git a/drivers/net/ethernet/dlink/de600.c b/drivers/net/ethernet/dlink/de600.c
+deleted file mode 100644
+index 414f0ee..0000000
+diff --git a/drivers/net/ethernet/dlink/de600.h b/drivers/net/ethernet/dlink/de600.h
+deleted file mode 100644
+index e80ecba..0000000
+diff --git a/drivers/net/ethernet/dlink/de620.c b/drivers/net/ethernet/dlink/de620.c
+deleted file mode 100644
+index 2e2bc60..0000000
+diff --git a/drivers/net/ethernet/dlink/de620.h b/drivers/net/ethernet/dlink/de620.h
+deleted file mode 100644
+index e8d9a88..0000000
 -- 
 1.8.1
