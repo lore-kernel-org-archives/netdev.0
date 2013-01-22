@@ -1,33 +1,52 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH net 3/3] net: cdc_ncm: fix error path for single interface probing
-Date: Tue, 22 Jan 2013 09:58:05 +0100
-Message-ID: <2830395.rGXyQGCbQc@linux-5eaq.site>
-References: <1358783440-11459-1-git-send-email-bjorn@mork.no> <1358783440-11459-4-git-send-email-bjorn@mork.no>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/2] ipv4: Invalidate the socket cached route on pmtu
+ events if possible
+Date: Tue, 22 Jan 2013 11:04:10 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1301221059100.1675@ja.ssi.bg>
+References: <20130121115911.GE30530@secunet.com> <alpine.LFD.2.00.1301212245170.1886@ja.ssi.bg> <20130122084223.GC9147@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Greg Suarez <gsuarez@smithmicro.com>,
-	Alexey Orishko <alexey.orishko@stericsson.com>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	"Yurij M. Plotnikov" <Yurij.Plotnikov@oktetlabs.ru>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:37743 "EHLO mx2.suse.de"
+Received: from ja.ssi.bg ([178.16.129.10]:36224 "EHLO ja.ssi.bg"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753845Ab3AVI6C convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 03:58:02 -0500
-In-Reply-To: <1358783440-11459-4-git-send-email-bjorn@mork.no>
+	id S1752462Ab3AVJAp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 04:00:45 -0500
+In-Reply-To: <20130122084223.GC9147@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 21 January 2013 16:50:40 Bj=F8rn Mork wrote:
-> commit bbc8d92 (net: cdc_ncm: add Huawei devices) implemented
-> support for devices with a single combined control and data
-> interface. Fix up the error path so that we do not double
-> release such interfaces in case of probing failures.
 
-Hi Bj=F8rn,
+	Hello,
 
-this should go also into stable. Could you submit?
+On Tue, 22 Jan 2013, Steffen Klassert wrote:
 
-	Regards
-		Oliver
+> > 	Another variant is to remember with flag 'new_rt'
+> > that we should call __sk_dst_set, eg. when rt comes from
+> > ip_route_output_flow. By this way we can avoid some of
+> > the dst_hold/dst_release calls if sk_dst_cache is not
+> > changed. IIRC, according to sk_dst_check, dst_check can
+> > not return different dst from the ->check method.
+> > 
+> 
+> With this variant, we also need to check the new_rt flag
+> before we call the dst_release() function you mentioned
+> above, right?
+
+	Yes, also before the dst_release we add
+after the first ip_route_output_flow.
+
+> I think we should avoid refcounts whenever we can,
+> so I prefer this variant. I'll do a patch.
+
+	Yes, the flag is preferred because we should
+keep sk_dst_cache until we decide to replace it with
+__sk_dst_set.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
