@@ -1,49 +1,43 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: add ability to set a timestamp offset
-Date: Tue, 22 Jan 2013 16:18:04 -0500
-Message-ID: <CADVnQynxigC7wSW6D1WQNZwxoBd7fpySa8eGN0W4wrh7WtHV4Q@mail.gmail.com>
-References: <1358887953-28665-1-git-send-email-avagin@openvz.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Netdev <netdev@vger.kernel.org>, criu@openvz.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Dave Jones <davej@redhat.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Andrey Vagin <avagin@openvz.org>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH 1/2] IP_GRE: Fix kernel panic in IP_GRE with GRE csum.
+Date: Tue, 22 Jan 2013 13:20:36 -0800
+Message-ID: <1358889636-1651-1-git-send-email-pshelar@nicira.com>
+Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:35439 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752181Ab3AVVSG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:18:06 -0500
-Received: by mail-ee0-f44.google.com with SMTP id l10so3783648eei.3
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:18:04 -0800 (PST)
-In-Reply-To: <1358887953-28665-1-git-send-email-avagin@openvz.org>
+Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:52915 "HELO
+	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752136Ab3AVVTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:19:46 -0500
+Received: by mail-qa0-f70.google.com with SMTP id hg5so191716qab.9
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:19:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2013 at 3:52 PM, Andrey Vagin <avagin@openvz.org> wrote:
-> If a TCP socket will get live-migrated from one box to another the
-> timestamps (which are typically ON) will get screwed up -- the new
-> kernel will generate TS values that has nothing to do with what they
-> were on dump. The solution is to yet again fix the kernel and put a
-> "timestamp offset" on a socket.
+Due to GSO support, gre can recieve non linear skb which
+results in panic in case of GRE_CSUM.
+Following patch fixes it by using correct csum API.
 
-One serious issue with this patch is that outgoing timestamp values
-will no longer correspond to tcp_time_stamp, so echoed timestamp
-values will also no longer have a meaningful relationship to
-tcp_time_stamp. That violates assumptions made in several places in
-the code, which assumes that we can compare echoed timestamp values to
-tcp_time_stamp; for example, there are several places where we do
-things like subtracting:
-   tcp_time_stamp - tp->rx_opt.rcv_tsecr
-to find the estimated RTT for a segment.
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/ipv4/ip_gre.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-neal
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 303012a..7cdf1fe 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -964,7 +964,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 		}
+ 		if (tunnel->parms.o_flags&GRE_CSUM) {
+ 			*ptr = 0;
+-			*(__sum16 *)ptr = ip_compute_csum((void *)(iph+1), skb->len - sizeof(struct iphdr));
++			*(__sum16 *)ptr = csum_fold(skb_checksum(skb,
++						skb_transport_offset(skb),
++						skb->len - skb_transport_offset(skb),
++						0));
+ 		}
+ 	}
+ 
+-- 
+1.7.10
