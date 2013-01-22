@@ -1,72 +1,98 @@
-From: Wolfgang Grandegger <wg@grandegger.com>
-Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
-Date: Tue, 22 Jan 2013 16:26:10 +0100
-Message-ID: <50FEAF92.1090604@grandegger.com>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de> <50FD02B8.8080401@grandegger.com> <20130121100701.GX1906@pengutronix.de> <50FD2172.2020608@grandegger.com> <20130121120602.GZ1906@pengutronix.de> <50FE3E37.4010004@grandegger.com> <50FEA691.4050904@openwrt.org> <50FEAA28.1070003@grandegger.com> <50FEAE12.7090307@openwrt.org>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels >= 3.3 and <= 3.6
+Date: Tue, 22 Jan 2013 16:43:58 +0100
+Message-ID: <3172160.NCYvLW6RVJ@cpaasch-mac>
+References: <1659861.dHpGAGoXHj@cpaasch-mac> <1358862966.3464.3797.camel@edumazet-glaptop> <2166577.r0iRQtU7qE@cpaasch-mac>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
-	davem@davemloft.net
-To: Florian Fainelli <florian@openwrt.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ngcobalt02.manitu.net ([217.11.48.102]:40797 "EHLO
-	ngcobalt02.manitu.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753227Ab3AVP0T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:26:19 -0500
-In-Reply-To: <50FEAE12.7090307@openwrt.org>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:38846 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753248Ab3AVPoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:44:08 -0500
+Received: by mail-wi0-f170.google.com with SMTP id hq7so3489612wib.3
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 07:44:07 -0800 (PST)
+In-Reply-To: <2166577.r0iRQtU7qE@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2013 04:19 PM, Florian Fainelli wrote:
-> On 01/22/2013 04:03 PM, Wolfgang Grandegger wrote:
->> On 01/22/2013 03:47 PM, Florian Fainelli wrote:
->>> On 01/22/2013 08:22 AM, Wolfgang Grandegger wrote:
->>>>> Well this could be done when the fixed phy driver could be registered
->>>>> with the devicetree, maybe like this:
->>>>>
->>>>>      fixed-phy: mdiophy {
->>>>>          compatible = "mdio-fixed-phy";
->>>>>          link = "100FD";
->>>>>      };
->>>> I find that confusing. There is *no* phy but just a fixed link to the
->>>> switch...
->>>>
->>>>> The good thing about this would be that every ethernet driver could
->>>>> just
->>>>> use such a fixed phy, any external mdio phy (like on Marvell
->>>>> Armada) or
->>>>> just a phy connected to the internal mdio interface provided by the
->>>>> ethernet
->>>>> core.
->>>> What is wrong with the existing "fixed-link" property of the *ethernet*
->>>> node. The fixed-link handling should/could be done in the phy layer,
->>>> and
->>>> not in the driver as it currently is implemented. Maybe that's the
->>>> reason why the current code is regarded as hack!
->>> As far as I have used it with the CPMAC driver, the fixed PHY is a
->>> specific PHY device and there is no specific handling to be done by the
->>> Ethernet MAC driver but eventually changing its MII bus id so that it is
->>> named "fixed-0" to allow the fixed PHY driver to bind. Put differently,
->> There is special handling for the fixed link, e.g. here:
->>
->> http://lxr.linux.no/#linux+v3.7.4/drivers/net/ethernet/freescale/gianfar.c#L1462
->>
->>
->> This could be hidden in the PHY layer allowing all ethernet drivers
->> using the "fixed-link" property.
+In netxen_map_tx_skb() I think we also have to set nf->dma to 0ULL (like the 
+diff below).
+
+Otherwise, netxen_release_tx_buffer() may try to unmap something that has 
+already been unmapped.
+
+I'm not sure - I don't feel very comfortable in driver-code...
+
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c 
+b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 342b3a7..a1516a6 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -1959,10 +1959,12 @@ unwind:
+        while (--i >= 0) {
+                nf = &pbuf->frag_array[i+1];
+                pci_unmap_page(pdev, nf->dma, nf->length, PCI_DMA_TODEVICE);
++               nf->dma = 0ULL;
+        }
+ 
+        nf = &pbuf->frag_array[0];
+        pci_unmap_single(pdev, nf->dma, skb_headlen(skb), PCI_DMA_TODEVICE);
++       nf->dma = 0ULL;
+ 
+ out_err:
+        return -ENOMEM;
+
+
+
+On Tuesday 22 January 2013 16:03:59 Christoph Paasch wrote:
+> On Tuesday 22 January 2013 05:56:06 Eric Dumazet wrote:
+> > I guess netxen driver has a bug.
+> > 
+> > Please try the following patch :
+> > 
+> > diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+> > b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c index
+> > bc165f4..695667d 100644
+> > --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+> > +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+> > @@ -144,7 +144,7 @@ void netxen_release_tx_buffers(struct netxen_adapter
+> > *adapter) buffrag->length, PCI_DMA_TODEVICE); buffrag->dma = 0ULL;
+> > 
+> >                 }
+> > 
+> > -               for (j = 0; j < cmd_buf->frag_count; j++) {
+> > +               for (j = 1; j < cmd_buf->frag_count; j++) {
+> > 
+> >                         buffrag++;
+> >                         if (buffrag->dma) {
+> >                         
+> >                                 pci_unmap_page(adapter->pdev,
+> >                                 buffrag->dma,
 > 
-> Ok, so in the end you could have potentially an ethernet PHY node
-> containing the following properties:
-> - fixed-link
-> - fixed-speed
-> - fixed-duplex
+> Perfect, I tested it, and this fixes the bug.
 > 
-> and treat it as a fixed-phy. If so, this would be pretty handy.
-
-The "fixed-link" property already allows to specify speed, duplex, etc.:
-
-http://lxr.linux.no/#linux+v3.7.4/Documentation/devicetree/bindings/net/fsl-tsec-phy.txt#L48
-
-Wolfgang.
+> I should have found it on my own, I have been starring for too long at this
+> function... :)
+> 
+> Feel free to add
+> Tested-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> 
+> 
+> Thanks, Eric!
+> 
+> 
+> Christoph
+-- 
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
+UCLouvain
+--
