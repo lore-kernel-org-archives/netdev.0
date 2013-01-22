@@ -1,7 +1,7 @@
 From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v4 4/9] rdma/cm: Update port reservation to support AF_IB
-Date: Tue, 22 Jan 2013 13:56:32 -0800
-Message-ID: <1358891797-14625-5-git-send-email-sean.hefty@intel.com>
+Subject: [PATCH v4 1/9] rdma/cm: define native IB address
+Date: Tue, 22 Jan 2013 13:56:29 -0800
+Message-ID: <1358891797-14625-2-git-send-email-sean.hefty@intel.com>
 References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
 Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
@@ -12,184 +12,131 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-The AF_IB uses a 64-bit service id (SID), which the
-user can control through the use of a mask.  The rdma_cm
-will assign values to the unmasked portions of the SID
-based on the selected port space and port number.
-
-Because the IB spec divides the SID range into several regions,
-a SID/mask combination may fall into one of the existing
-port space ranges as defined by the RDMA CM IP Annex.  Map
-the AF_IB SID to the correct RDMA port space.
+Define AF_IB and sockaddr_ib to allow the rdma_cm to use native IB
+addressing.
 
 Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c |  107 +++++++++++++++++++++++++++++++++--------
- include/rdma/rdma_cm.h        |    5 ++
- 2 files changed, 91 insertions(+), 21 deletions(-)
+ include/linux/socket.h |    2 +
+ include/rdma/ib.h      |   89 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+), 0 deletions(-)
+ create mode 100644 include/rdma/ib.h
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index e08f830..7eed4ee 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -729,12 +729,22 @@ static int cma_addr_cmp(struct sockaddr *src, struct sockaddr *dst)
- 	}
- }
- 
--static inline __be16 cma_port(struct sockaddr *addr)
-+static __be16 cma_port(struct sockaddr *addr)
- {
--	if (addr->sa_family == AF_INET)
-+	struct sockaddr_ib *sib;
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 9a546ff..17a33f7 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -167,6 +167,7 @@ struct ucred {
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_IB		27	/* Native InfiniBand address	*/
+ #define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+@@ -210,6 +211,7 @@ struct ucred {
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_IB		AF_IB
+ #define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+diff --git a/include/rdma/ib.h b/include/rdma/ib.h
+new file mode 100644
+index 0000000..cf8f9e7
+--- /dev/null
++++ b/include/rdma/ib.h
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (c) 2010 Intel Corporation.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
 +
-+	switch (addr->sa_family) {
-+	case AF_INET:
- 		return ((struct sockaddr_in *) addr)->sin_port;
--	else
-+	case AF_INET6:
- 		return ((struct sockaddr_in6 *) addr)->sin6_port;
-+	case AF_IB:
-+		sib = (struct sockaddr_ib *) addr;
-+		return htons((u16) (be64_to_cpu(sib->sib_sid) &
-+				    be64_to_cpu(sib->sib_sid_mask)));
-+	default:
-+		return 0;
-+	}
- }
- 
- static inline int cma_any_port(struct sockaddr *addr)
-@@ -2139,10 +2149,29 @@ EXPORT_SYMBOL(rdma_set_afonly);
- static void cma_bind_port(struct rdma_bind_list *bind_list,
- 			  struct rdma_id_private *id_priv)
- {
--	struct sockaddr_in *sin;
-+	struct sockaddr *addr;
-+	struct sockaddr_ib *sib;
-+	u64 sid, mask;
-+	__be16 port;
- 
--	sin = (struct sockaddr_in *) &id_priv->id.route.addr.src_addr;
--	sin->sin_port = htons(bind_list->port);
-+	addr = (struct sockaddr *) &id_priv->id.route.addr.src_addr;
-+	port = htons(bind_list->port);
++#if !defined(_RDMA_IB_H)
++#define _RDMA_IB_H
 +
-+	switch (addr->sa_family) {
-+	case AF_INET:
-+		((struct sockaddr_in *) addr)->sin_port = port;
-+		break;
-+	case AF_INET6:
-+		((struct sockaddr_in6 *) addr)->sin6_port = port;
-+		break;
-+	case AF_IB:
-+		sib = (struct sockaddr_ib *) addr;
-+		sid = be64_to_cpu(sib->sib_sid);
-+		mask = be64_to_cpu(sib->sib_sid_mask);
-+		sib->sib_sid = cpu_to_be64((sid & mask) | (u64) ntohs(port));
-+		sib->sib_sid_mask = cpu_to_be64(~0ULL);
-+		break;
-+	}
- 	id_priv->bind_list = bind_list;
- 	hlist_add_head(&id_priv->node, &bind_list->owners);
- }
-@@ -2280,31 +2309,67 @@ static int cma_bind_listen(struct rdma_id_private *id_priv)
- 	return ret;
- }
- 
--static int cma_get_port(struct rdma_id_private *id_priv)
-+static struct idr *cma_select_inet_ps(struct rdma_id_private *id_priv)
- {
--	struct idr *ps;
--	int ret;
--
- 	switch (id_priv->id.ps) {
- 	case RDMA_PS_SDP:
--		ps = &sdp_ps;
--		break;
-+		return &sdp_ps;
- 	case RDMA_PS_TCP:
--		ps = &tcp_ps;
--		break;
-+		return &tcp_ps;
- 	case RDMA_PS_UDP:
--		ps = &udp_ps;
--		break;
-+		return &udp_ps;
- 	case RDMA_PS_IPOIB:
--		ps = &ipoib_ps;
--		break;
-+		return &ipoib_ps;
- 	case RDMA_PS_IB:
--		ps = &ib_ps;
--		break;
-+		return &ib_ps;
- 	default:
--		return -EPROTONOSUPPORT;
-+		return NULL;
-+	}
++#include <linux/types.h>
++
++struct ib_addr {
++	union {
++		__u8		uib_addr8[16];
++		__be16		uib_addr16[8];
++		__be32		uib_addr32[4];
++		__be64		uib_addr64[2];
++	} ib_u;
++#define sib_addr8		ib_u.uib_addr8
++#define sib_addr16		ib_u.uib_addr16
++#define sib_addr32		ib_u.uib_addr32
++#define sib_addr64		ib_u.uib_addr64
++#define sib_raw			ib_u.uib_addr8
++#define sib_subnet_prefix	ib_u.uib_addr64[0]
++#define sib_interface_id	ib_u.uib_addr64[1]
++};
++
++static inline int ib_addr_any(const struct ib_addr *a)
++{
++	return ((a->sib_addr64[0] | a->sib_addr64[1]) == 0);
 +}
 +
-+static struct idr *cma_select_ib_ps(struct rdma_id_private *id_priv)
++static inline int ib_addr_loopback(const struct ib_addr *a)
 +{
-+	struct idr *ps = NULL;
-+	struct sockaddr_ib *sib;
-+	u64 sid_ps, mask, sid;
-+
-+	sib = (struct sockaddr_ib *) &id_priv->id.route.addr.src_addr;
-+	mask = be64_to_cpu(sib->sib_sid_mask) & RDMA_IB_IP_PS_MASK;
-+	sid = be64_to_cpu(sib->sib_sid) & mask;
-+
-+	if ((id_priv->id.ps == RDMA_PS_IB) && (sid == (RDMA_IB_IP_PS_IB & mask))) {
-+		sid_ps = RDMA_IB_IP_PS_IB;
-+		ps = &ib_ps;
-+	} else if (((id_priv->id.ps == RDMA_PS_IB) || (id_priv->id.ps == RDMA_PS_TCP)) &&
-+		   (sid == (RDMA_IB_IP_PS_TCP & mask))) {
-+		sid_ps = RDMA_IB_IP_PS_TCP;
-+		ps = &tcp_ps;
-+	} else if (((id_priv->id.ps == RDMA_PS_IB) || (id_priv->id.ps == RDMA_PS_UDP)) &&
-+		   (sid == (RDMA_IB_IP_PS_UDP & mask))) {
-+		sid_ps = RDMA_IB_IP_PS_UDP;
-+		ps = &udp_ps;
- 	}
- 
-+	if (ps) {
-+		sib->sib_sid = cpu_to_be64(sid_ps | ntohs(cma_port((struct sockaddr *) sib)));
-+		sib->sib_sid_mask = cpu_to_be64(RDMA_IB_IP_PS_MASK |
-+						be64_to_cpu(sib->sib_sid_mask));
-+	}
-+	return ps;
++	return ((a->sib_addr32[0] | a->sib_addr32[1] |
++		 a->sib_addr32[2] | (a->sib_addr32[3] ^ htonl(1))) == 0);
 +}
 +
-+static int cma_get_port(struct rdma_id_private *id_priv)
++static inline void ib_addr_set(struct ib_addr *addr,
++			       __be32 w1, __be32 w2, __be32 w3, __be32 w4)
 +{
-+	struct idr *ps;
-+	int ret;
++	addr->sib_addr32[0] = w1;
++	addr->sib_addr32[1] = w2;
++	addr->sib_addr32[2] = w3;
++	addr->sib_addr32[3] = w4;
++}
 +
-+	if (id_priv->id.route.addr.src_addr.ss_family != AF_IB)
-+		ps = cma_select_inet_ps(id_priv);
-+	else
-+		ps = cma_select_ib_ps(id_priv);
-+	if (!ps)
-+		return -EPROTONOSUPPORT;
++static inline int ib_addr_cmp(const struct ib_addr *a1, const struct ib_addr *a2)
++{
++	return memcmp(a1, a2, sizeof(struct ib_addr));
++}
 +
- 	mutex_lock(&lock);
- 	if (cma_any_port((struct sockaddr *) &id_priv->id.route.addr.src_addr))
- 		ret = cma_alloc_any_port(ps, id_priv);
-diff --git a/include/rdma/rdma_cm.h b/include/rdma/rdma_cm.h
-index ad3a314..1e6c3c7 100644
---- a/include/rdma/rdma_cm.h
-+++ b/include/rdma/rdma_cm.h
-@@ -70,6 +70,11 @@ enum rdma_port_space {
- 	RDMA_PS_UDP   = 0x0111,
- };
- 
-+#define RDMA_IB_IP_PS_MASK   0xFFFFFFFFFFFF0000ULL
-+#define RDMA_IB_IP_PS_TCP    0x0000000001060000ULL
-+#define RDMA_IB_IP_PS_UDP    0x0000000001110000ULL
-+#define RDMA_IB_IP_PS_IB     0x00000000013F0000ULL
++struct sockaddr_ib {
++	unsigned short int	sib_family;	/* AF_IB */
++	__be16			sib_pkey;
++	__be32			sib_flowinfo;
++	struct ib_addr		sib_addr;
++	__be64			sib_sid;
++	__be64			sib_sid_mask;
++	__u64			sib_scope_id;
++};
 +
- struct rdma_addr {
- 	struct sockaddr_storage src_addr;
- 	struct sockaddr_storage dst_addr;
++#endif /* _RDMA_IB_H */
 -- 
 1.7.3
 
