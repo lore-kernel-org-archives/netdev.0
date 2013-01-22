@@ -1,43 +1,66 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH 1/2] IP_GRE: Fix kernel panic in IP_GRE with GRE csum.
-Date: Tue, 22 Jan 2013 13:20:36 -0800
-Message-ID: <1358889636-1651-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH 2/2] IP_GRE: Linearize skb before csum.
+Date: Tue, 22 Jan 2013 13:20:48 -0800
+Message-ID: <1358889648-1684-1-git-send-email-pshelar@nicira.com>
 Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog105.obsmtp.com ([74.125.149.75]:52915 "HELO
-	na3sys009aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752136Ab3AVVTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:19:46 -0500
-Received: by mail-qa0-f70.google.com with SMTP id hg5so191716qab.9
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:19:46 -0800 (PST)
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:32817 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752769Ab3AVVT6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:19:58 -0500
+Received: by mail-qc0-f197.google.com with SMTP id x40so7045671qcs.4
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:19:57 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to GSO support, gre can recieve non linear skb which
-results in panic in case of GRE_CSUM.
-Following patch fixes it by using correct csum API.
+Make copy of skb sharable data by linearizing skb. so that
+csum remain consistent when skb is actually transmitted.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/ipv4/ip_gre.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ net/ipv4/ip_gre.c |   22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 303012a..7cdf1fe 100644
+index 7cdf1fe..20d3d37 100644
 --- a/net/ipv4/ip_gre.c
 +++ b/net/ipv4/ip_gre.c
-@@ -964,7 +964,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 		}
- 		if (tunnel->parms.o_flags&GRE_CSUM) {
- 			*ptr = 0;
--			*(__sum16 *)ptr = ip_compute_csum((void *)(iph+1), skb->len - sizeof(struct iphdr));
-+			*(__sum16 *)ptr = csum_fold(skb_checksum(skb,
-+						skb_transport_offset(skb),
-+						skb->len - skb_transport_offset(skb),
-+						0));
- 		}
- 	}
+@@ -738,7 +738,7 @@ drop:
+ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+-	const struct iphdr  *old_iph = ip_hdr(skb);
++	const struct iphdr  *old_iph;
+ 	const struct iphdr  *tiph;
+ 	struct flowi4 fl4;
+ 	u8     tos;
+@@ -752,9 +752,23 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 	int    mtu;
+ 	u8     ttl;
  
+-	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+-	    skb_checksum_help(skb))
+-		goto tx_error;
++	if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		int err;
++
++		/* Pages aren't locked and could change at any time.
++		 * If this happens after we compute the checksum, the
++		 * checksum will be wrong.  We linearize now to avoid
++		 * this problem.
++		 */
++		err = __skb_linearize(skb);
++		if (unlikely(err))
++			goto tx_error;
++
++		err = skb_checksum_help(skb);
++		if (unlikely(err))
++			goto tx_error;
++	}
++	old_iph = ip_hdr(skb);
+ 
+ 	if (dev->type == ARPHRD_ETHER)
+ 		IPCB(skb)->flags = 0;
 -- 
 1.7.10
