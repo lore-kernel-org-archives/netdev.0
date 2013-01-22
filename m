@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Rate Limitation of Router Reachability Probing for possible
- dead routers (is Re: ipv6: Do not depend on rt->n in rt6_probe().)
-Date: Tue, 22 Jan 2013 00:49:39 -0500 (EST)
-Message-ID: <20130122.004939.407076325729804829.davem@davemloft.net>
-References: <50FD96E4.1020607@linux-ipv6.org>
-	<20130121.154425.239941234471254414.davem@davemloft.net>
-	<50FE0BDE.2080206@linux-ipv6.org>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Mon, 21 Jan 2013 21:57:43 -0800
+Message-ID: <50FE2A57.3040804@candelatech.com>
+References: <50FDADF4.3060601@candelatech.com>  <50FDDE35.7070806@candelatech.com> <1358829606.3464.3151.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47250 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082Ab3AVFtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 00:49:42 -0500
-In-Reply-To: <50FE0BDE.2080206@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1358829606.3464.3151.camel@edumazet-glaptop>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Tue, 22 Jan 2013 12:47:42 +0900
+On 01/21/2013 08:40 PM, Eric Dumazet wrote:
+> On Mon, 2013-01-21 at 16:32 -0800, Ben Greear wrote:
+>> On 01/21/2013 01:07 PM, Ben Greear wrote:
+>>> I posted about this a few days ago, but this time the patches applied
+>>> are minimal and there are no out-of-tree kernel modules loaded.
+>>
+>> Here's another crash, this time with SLUB memory debugging turned on.
+>>
+>> Seems much harder to hit this way...I've only managed this one.  I
+>> believe the RCX register might be interesting...that 6b is probably
+>> freed memory poisioning.  Maybe skb or skb_dest() is already freed?
+>>
+>> I have added a 'verify_mem_not_deleted(skb)' before the
+>> dst_input line in ip_rcv_finish..but so far, it hasn't
+>> hit the problem...
+>>
+>
+> There is no way skb is freed here.
+>
+> I would say macvlan is at fault here.
+>
+> It probably lacks a proper (dev->flags & IFF_UP) test.
 
-> It seems that we removed check for gc_thresh1 (number of
-> minimum entries) in neigh_alloc() during 2.3.x but I cannot
-> remember the reason (or just I do not know it).
+Thanks for the patch.  It's running OK so far, but I'll need to
+do a bunch more testing tomorrow to make sure I'm not just getting
+lucky!
 
-You seem to suggest that neigh_periodic_work() should check gc_thresh1
-and I agree with this idea.
+I'll let you know how it goes tomorrow.
 
-Considering how neighbour references work now, what it does currently
-doesn't make any sense.
+Thanks,
+Ben
 
-Right now it runs over and over again, unconditionally, and purges
-entries even if there are very few of them.
+
+
+-- 
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
