@@ -1,35 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: Fix route refcount on pmtu discovery
-Date: Tue, 22 Jan 2013 14:23:52 -0500 (EST)
-Message-ID: <20130122.142352.297304738389100208.davem@davemloft.net>
-References: <20130122100128.GD9147@secunet.com>
+Subject: Re: [PATCH net-next] ipmr: fix sparse warning when testing origin
+ or group
+Date: Tue, 22 Jan 2013 14:24:51 -0500 (EST)
+Message-ID: <20130122.142451.2203831994177622947.davem@davemloft.net>
+References: <50fe2be1.tv57lZmJcPMuyVta%fengguang.wu@intel.com>
+	<1358849883-10452-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: fengguang.wu@intel.com, netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55875 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55901 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752263Ab3AVTXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:23:54 -0500
-In-Reply-To: <20130122100128.GD9147@secunet.com>
+	with ESMTP id S1754370Ab3AVTYx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:24:53 -0500
+In-Reply-To: <1358849883-10452-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 22 Jan 2013 11:01:28 +0100
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 22 Jan 2013 11:18:03 +0100
 
-> git commit 9cb3a50c (ipv4: Invalidate the socket cached route on
-> pmtu events if possible) introduced a refcount problem. We don't
-> get a refcount on the route if we get it from__sk_dst_get(), but
-> we need one if we want to reuse this route because __sk_dst_set()
-> releases the refcount of the old route. This patch adds proper
-> refcount handling for that case. We introduce a 'new' flag to
-> indicate that we are going to use a new route and we release the
-> old route only if we replace it by a new one.
+> mfc_mcastgrp and mfc_origin are __be32, thus we need to convert INADDR_ANY.
+> Because INADDR_ANY is 0, this patch just fix sparse warnings.
 > 
-> Reported-by: Julian Anastasov <ja@ssi.bg>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
 Applied, thanks.
