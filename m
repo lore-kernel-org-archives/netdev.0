@@ -1,64 +1,74 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels >= 3.3 and <= 3.6
-Date: Tue, 22 Jan 2013 16:03:59 +0100
-Message-ID: <2166577.r0iRQtU7qE@cpaasch-mac>
-References: <1659861.dHpGAGoXHj@cpaasch-mac> <1358861524.3464.3768.camel@edumazet-glaptop> <1358862966.3464.3797.camel@edumazet-glaptop>
-Reply-To: christoph.paasch@uclouvain.be
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next] neigh: Keep neighbour cache entries if number of
+ them is small enough.
+Date: Wed, 23 Jan 2013 00:09:13 +0900
+Message-ID: <50FEAB99.5060408@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:48585 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753186Ab3AVPEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:04:04 -0500
-Received: by mail-wi0-f174.google.com with SMTP id hq4so8216211wib.13
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 07:04:02 -0800 (PST)
-In-Reply-To: <1358862966.3464.3797.camel@edumazet-glaptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51752 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753474Ab3AVPJP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:09:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 January 2013 05:56:06 Eric Dumazet wrote:
-> I guess netxen driver has a bug.
-> 
-> Please try the following patch :
-> 
-> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c index
-> bc165f4..695667d 100644
-> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
-> @@ -144,7 +144,7 @@ void netxen_release_tx_buffers(struct netxen_adapter
-> *adapter) buffrag->length, PCI_DMA_TODEVICE); buffrag->dma = 0ULL;
->                 }
-> -               for (j = 0; j < cmd_buf->frag_count; j++) {
-> +               for (j = 1; j < cmd_buf->frag_count; j++) {
->                         buffrag++;
->                         if (buffrag->dma) {
->                                 pci_unmap_page(adapter->pdev, buffrag->dma,
+Since we have removed NCE (Neighbour Cache Entry) reference from
+routing entries, the only refcnt holders of an NCE are timer (if run)
+and the entry's owner table.  As a result, neigh_periodic_timer()
+purges NCEs over and over even for gateways.
 
-Perfect, I tested it, and this fixes the bug.
+It does not make sense to purge NCEs even if number of them is
+very small.
 
-I should have found it on my own, I have been starring for too long at this 
-function... :)
+The number of entries can be specified by gc_thresh1.
 
-Feel free to add
-Tested-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ Documentation/networking/ip-sysctl.txt |    5 +++++
+ net/core/neighbour.c                   |    4 ++++
+ 2 files changed, 9 insertions(+)
 
-
-Thanks, Eric!
-
-
-Christoph
-
-
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 4976564..19ac180 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -26,6 +26,11 @@ route/max_size - INTEGER
+ 	Maximum number of routes allowed in the kernel.  Increase
+ 	this when using large numbers of interfaces and/or routes.
+ 
++neigh/default/gc_thresh1 - INTEGER
++	Minimum number of entries to keep.  Garbage collector will not
++	purge entries if there are fewer than this number.
++	Default: 256
++
+ neigh/default/gc_thresh3 - INTEGER
+ 	Maximum number of neighbor entries allowed.  Increase this
+ 	when using large numbers of interfaces and when communicating
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index c815f28..7bd0eed 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -778,6 +778,9 @@ static void neigh_periodic_work(struct work_struct *work)
+ 	nht = rcu_dereference_protected(tbl->nht,
+ 					lockdep_is_held(&tbl->lock));
+ 
++	if (atomic_read(&tbl->entries) < tbl->gc_thresh1)
++		goto out;
++
+ 	/*
+ 	 *	periodically recompute ReachableTime from random function
+ 	 */
+@@ -832,6 +835,7 @@ next_elt:
+ 		nht = rcu_dereference_protected(tbl->nht,
+ 						lockdep_is_held(&tbl->lock));
+ 	}
++out:
+ 	/* Cycle through all hash buckets every base_reachable_time/2 ticks.
+ 	 * ARP entry timeouts range from 1/2 base_reachable_time to 3/2
+ 	 * base_reachable_time.
 -- 
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://mptcp.info.ucl.ac.be
-UCLouvain
---
+1.7.9.5
