@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 38/45] parisc: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH v5 39/45] powerpc: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Tue, 22 Jan 2013 13:13:39 +0530
-Message-ID: <20130122074335.13822.41002.stgit@srivatsabhat.in.ibm.com>
+Date: Tue, 22 Jan 2013 13:13:47 +0530
+Message-ID: <20130122074344.13822.45560.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,9 +18,9 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-doc-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able to
@@ -30,31 +30,32 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
-Cc: linux-parisc@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linuxppc-dev@lists.ozlabs.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/parisc/kernel/smp.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ arch/powerpc/mm/mmu_context_nohash.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/parisc/kernel/smp.c b/arch/parisc/kernel/smp.c
-index 6266730..f7851b7 100644
---- a/arch/parisc/kernel/smp.c
-+++ b/arch/parisc/kernel/smp.c
-@@ -229,11 +229,13 @@ static inline void
- send_IPI_allbutself(enum ipi_message_type op)
- {
- 	int i;
--	
-+
+diff --git a/arch/powerpc/mm/mmu_context_nohash.c b/arch/powerpc/mm/mmu_context_nohash.c
+index e779642..29f58cf 100644
+--- a/arch/powerpc/mm/mmu_context_nohash.c
++++ b/arch/powerpc/mm/mmu_context_nohash.c
+@@ -196,6 +196,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
+ 
+ 	/* No lockless fast path .. yet */
+ 	raw_spin_lock(&context_lock);
 +	get_online_cpus_atomic();
- 	for_each_online_cpu(i) {
- 		if (i != smp_processor_id())
- 			send_IPI_single(i, op);
- 	}
+ 
+ 	pr_hard("[%d] activating context for mm @%p, active=%d, id=%d",
+ 		cpu, next, next->context.active, next->context.id);
+@@ -279,6 +280,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
+ 	/* Flick the MMU and release lock */
+ 	pr_hardcont(" -> %d\n", id);
+ 	set_context(id, next->pgd);
 +	put_online_cpus_atomic();
+ 	raw_spin_unlock(&context_lock);
  }
  
- 
-
