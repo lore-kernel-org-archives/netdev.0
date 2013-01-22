@@ -1,38 +1,28 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH ETHTOOL] Added dst-mac parameter for L3/L4 flow spec
- rules. This is usefull in vSwitch configurations.
-Date: Tue, 22 Jan 2013 20:27:42 +0000
-Message-ID: <1358886462.2892.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
-	 <1355227436-18383-4-git-send-email-amirv@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same
+ port
+Date: Tue, 22 Jan 2013 15:28:58 -0500 (EST)
+Message-ID: <20130122.152858.733964025451561267.davem@davemloft.net>
+References: <alpine.DEB.2.00.1301221142300.26333@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yan Burman <yanb@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, netdev@markandruth.co.uk,
+	eric.dumazet@gmail.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:48365 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752800Ab3AVU1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 15:27:46 -0500
-In-Reply-To: <1355227436-18383-4-git-send-email-amirv@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56564 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755813Ab3AVU3G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 15:29:06 -0500
+In-Reply-To: <alpine.DEB.2.00.1301221142300.26333@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2012-12-11 at 14:03 +0200, Amir Vadai wrote:
-> From: Yan Burman <yanb@mellanox.com>
-> 
-> Signed-off-by: Yan Burman <yanb@mellanox.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-[...]
+From: Tom Herbert <therbert@google.com>
+Date: Tue, 22 Jan 2013 11:49:46 -0800 (PST)
 
-Applied, thanks.  Sorry for the delay.
+> This series implements so_reuseport (SO_REUSEPORT socket option) for
+> TCP and UDP.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Series applied, thanks Tom.
