@@ -1,30 +1,27 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 20/33] net: Convert to devm_ioremap_resource()
-Date: Tue, 22 Jan 2013 13:17:54 +0000
-Message-ID: <201301221317.55097.arnd@arndb.de>
-References: <1358762966-20791-1-git-send-email-thierry.reding@avionic-design.de> <201301221303.06785.arnd@arndb.de> <20130122130957.GA18165@avionic-0098.adnet.avionic-design.de>
+From: "Paul" <haxophone@sbcglobal.net>
+Subject: Need A Personal Assistant
+Date: Tue, 22 Jan 2013 08:15:23 -0500
+Message-ID: <CDEC826FFBE5843130E6409922F3CD8356278425@ycs5047-2023>
+Reply-To: "Paul" <sarrison051@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
-	w.sang@pengutronix.de, netdev@vger.kernel.org
-To: Thierry Reding <thierry.reding@avionic-design.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130122130957.GA18165@avionic-0098.adnet.avionic-design.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm16.access.bullet.mail.mud.yahoo.com ([66.94.237.217]:47483
+	"EHLO nm16.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751748Ab3AVNUj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 08:20:39 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 January 2013, Thierry Reding wrote:
-> > I've had the same problem a couple of times. The best compromise seems
-> > to be to Cc only the top-level subsystem maintainers and mailing lists
-> > on the first email.
-> 
-> Even that would have been about 50 addresses IIRC. But perhaps that's
-> still the best compromise to avoid any confusion.
+We are seeking an upbeat, energetic and self-motivated individual to fill a part-time administrative assistant position.
+Successful candidate will be highly organized and possess exceptional people skills, excellent written and verbal skills,be good with numbers and have the ability to multi-task in a fast-paced environment.
+Computer proficiency required: MS Office Excel and Word. Must be able to work weekdays Mon-fri. 10:am-3:00pm
 
-Be careful though that the Cc list must not exceed 1024 characters or
-it will get rejected by some of the mailing list servers.
+Candidates should be able to start ASAP,
+Please submit resume with cover letter
+if interested for more details 
 
-	Arnd
+Smith Arrison
