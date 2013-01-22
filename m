@@ -1,74 +1,339 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 45/45] Documentation/cpu-hotplug: Remove references to
- stop_machine()
-Date: Tue, 22 Jan 2013 13:15:48 +0530
-Message-ID: <20130122074543.13822.44724.stgit@srivatsabhat.in.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH net-next 1/2] be2net: Modify GPL Marking in all source files.
+Date: Tue, 22 Jan 2013 13:44:08 +0530
+Message-ID: <d01bcb2c-5921-4324-a28a-fe0d0729bf49@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:30712 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752464Ab3AVINa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 03:13:30 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since stop_machine() is no longer used in the CPU offline path, we cannot
-disable CPU hotplug using preempt_disable()/local_irq_disable() etc. We
-need to use the newly introduced get/put_online_cpus_atomic() APIs.
-Reflect this in the documentation.
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-Cc: Rob Landley <rob@landley.net>
-Cc: linux-doc@vger.kernel.org
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 ---
+ drivers/net/ethernet/emulex/benet/be.h         |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_hw.h      |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_main.c    |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_roce.c    |   25 ++++++++++++++----------
+ drivers/net/ethernet/emulex/benet/be_roce.h    |   25 ++++++++++++++----------
+ 8 files changed, 120 insertions(+), 80 deletions(-)
 
- Documentation/cpu-hotplug.txt |   17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/Documentation/cpu-hotplug.txt b/Documentation/cpu-hotplug.txt
-index 9f40135..7f907ec 100644
---- a/Documentation/cpu-hotplug.txt
-+++ b/Documentation/cpu-hotplug.txt
-@@ -113,13 +113,15 @@ Never use anything other than cpumask_t to represent bitmap of CPUs.
- 	#include <linux/cpu.h>
- 	get_online_cpus() and put_online_cpus():
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 4eba17b..f27fe8e 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation.  The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
  
--The above calls are used to inhibit cpu hotplug operations. While the
-+The above calls are used to inhibit cpu hotplug operations, when invoked from
-+non-atomic context (because the above functions can sleep). While the
- cpu_hotplug.refcount is non zero, the cpu_online_mask will not change.
--If you merely need to avoid cpus going away, you could also use
--preempt_disable() and preempt_enable() for those sections.
--Just remember the critical section cannot call any
--function that can sleep or schedule this process away. The preempt_disable()
--will work as long as stop_machine_run() is used to take a cpu down.
-+
-+However, if you are executing in atomic context (ie., you can't afford to
-+sleep), and you merely need to avoid cpus going offline, you can use
-+get_online_cpus_atomic() and put_online_cpus_atomic() for those sections.
-+Just remember the critical section cannot call any function that can sleep or
-+schedule this process away.
+ #ifndef BE_H
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 8a250c3..d1222a4 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation.  The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
  
- CPU Hotplug - Frequently Asked Questions.
+ #include <linux/module.h>
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index d6552e1..9bd9aa5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation.  The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
  
-@@ -360,6 +362,9 @@ A: There are two ways.  If your code can be run in interrupt context, use
- 		return err;
- 	}
+ /*
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 76b302f..6ea33a0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation.  The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
  
-+   If my_func_on_cpu() itself cannot block, use get/put_online_cpus_atomic()
-+   instead of get/put_online_cpus() to prevent CPUs from going offline.
-+
- Q: How do we determine how many CPUs are available for hotplug.
- A: There is no clear spec defined way from ACPI that can give us that
-    information today. Based on some input from Natalie of Unisys,
+ #include "be.h"
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 541d453..e490f73 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation.  The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
+ 
+ /********* Mailbox door bell *************/
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 5c99570..b1cc3f2 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation.  The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
+ 
+ #include <linux/prefetch.h>
+diff --git a/drivers/net/ethernet/emulex/benet/be_roce.c b/drivers/net/ethernet/emulex/benet/be_roce.c
+index 55d32aa..ebc39a9 100644
+--- a/drivers/net/ethernet/emulex/benet/be_roce.c
++++ b/drivers/net/ethernet/emulex/benet/be_roce.c
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation. The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
+ 
+ #include <linux/mutex.h>
+diff --git a/drivers/net/ethernet/emulex/benet/be_roce.h b/drivers/net/ethernet/emulex/benet/be_roce.h
+index db4ea80..3b57976 100644
+--- a/drivers/net/ethernet/emulex/benet/be_roce.h
++++ b/drivers/net/ethernet/emulex/benet/be_roce.h
+@@ -1,18 +1,23 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
+- * All rights reserved.
++ * This file is part of the Linux NIC driver for Emulex OneConnect CNA.
+  *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public License version 2
+- * as published by the Free Software Foundation. The full GNU General
+- * Public License is included in this distribution in the file called COPYING.
++ * Copyright (C) 2005-2013 Emulex. All rights reserved.
+  *
+- * Contact Information:
++ * EMULEX and SLI are trademarks of Emulex.
++ * www.emulex.com
+  * linux-drivers@emulex.com
+  *
+- * Emulex
+- * 3333 Susan Street
+- * Costa Mesa, CA 92626
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of version 2 of the GNU General Public License as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful.
++ * ALL EXPRESS OR IMPLIED CONDITIONS, REPRESENTATIONS AND WARRANTIES,
++ * INCLUDING ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A
++ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT, ARE DISCLAIMED, EXCEPT TO THE
++ * EXTENT THAT SUCH DISCLAIMERS ARE HELD TO BE LEGALLY INVALID.
++ * See the GNU General Public License for more details, a copy of which
++ * can be found in the file COPYING included with this package
+  */
+ 
+ #ifndef BE_ROCE_H
+-- 
+1.7.9.5
