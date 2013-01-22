@@ -1,80 +1,67 @@
-From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Subject: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Tue, 22 Jan 2013 17:10:38 +0100
-Message-ID: <20130122161038.GG4608@sociomantic.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next V6 02/14] bridge: Add vlan filtering infrastructure
+Date: Tue, 22 Jan 2013 11:27:01 -0500
+Message-ID: <50FEBDD5.5030205@redhat.com>
+References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com> <1358360289-23249-3-git-send-email-vyasevic@redhat.com> <CAHXqBFKg6Vp5=dprDYKON2LmshhX+nSPF7KRHiQmOS68PrQq-A@mail.gmail.com> <50FC307A.5090003@redhat.com> <20130120113825.759b4a58@nehalam.linuxnetplumber.net> <50FC9F03.5000102@redhat.com> <20130121134534.78032a54.shmulik.ladkani@gmail.com> <50FEA2CF.4060406@redhat.com> <20130122175524.033c6f7f.shmulik.ladkani@gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	mst@redhat.com
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19826 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753383Ab3AVQ1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 11:27:07 -0500
+In-Reply-To: <20130122175524.033c6f7f.shmulik.ladkani@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, I'm having some problems with missing SYNs in a server with a high
-rate of incoming connections and, even when far from understanding the
-kernel,  I ended up looking at the kernel's source to try to understand
-better what's going on, because some stuff doesn't make a lot of sense
-to me.
+On 01/22/2013 10:55 AM, Shmulik Ladkani wrote:
+> Thanks Vlad,
+>
+> On Tue, 22 Jan 2013 09:31:43 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+>>> I guess this might simplify the data structures involved, avoiding the
+>>> refcounts, etc...
+>>>
+>>> The penaties are:
+>>>    - memory
+>>>    - aesthetics (?)
+>>>    - inefficient if query is "give me the entire list of VLANs port P is
+>>>      member of". But do we have such a query in bridge's code?
+>>
+>> Yes.  When a mac address is added to a port without an explicit vlan tag
+>> we try to add it for every vlan available on the port.
+>
+> I see.
+> Can't this be bypassed by adding a _single_ FDB entry whose VID value
+> denotes "member of ANY vlan" (value outside the valid 0-4095 range)?
+>
+>> Also, in the API, the user may request vlans configured on a port.
+>
+> Personally I'd pay the penalty implementing this specific user request
+> in an inefficeint way, to acheive overall simplicity in core bridge
+> code.
+> But that's just my humble opinion, maybe others might spot drawbacks
+> taking this approach.
+>
+> BTW, went through the ML, couldn't find the reason why dropped the
+> per-port vlan bitmap and replaced with a vlan list (after your RFC v2
+> patches). Care to explain what was your motivation?
 
-The path I followed is this (line numbers for Linux 3.7):
-net/socket.c[3]
-    SYSCALL_DEFINE2(listen, int, fd, int, backlog)
-        backlog is truncated to sysctl_somaxconn and
-        sock->ops->listen(sock, backlog) is called, which I guess it
-        calls to inet_listen().
+I wanted to reduce the memory footprint and make it a bit more 
+extensible so if priority was ever added, it would be very simple to do.
+I also had to play some ugly memory barrier games to make it less racy.
+I thought that the list/hash code was cleaner.
 
-net/ipv4/af_inet.c[4]
-    int inet_listen(struct socket *sock, int backlog)
-        the backlog is assigned to sk->sk_max_ack_backlog and
-        inet_csk_listen_start(sk, backlog) is called (if the socket
-        wans't already in TCP_LISTEN state)
+-vlad
 
-net/ipv4/inet_connection_sock.c[5]
-    int inet_csk_listen_start(struct sock *sk, const int nr_table_entries)
-        reqsk_queue_alloc(&icsk->icsk_accept_queue, nr_table_entries) is
-        called, which I guess it creates the actual queue
-
-net/core/request_sock.c[6]
-    int reqsk_queue_alloc(struct request_sock_queue *queue,
-                          unsigned int nr_table_entries)
-        nr_table_entries is first adjusted to satisfy:
-        8 <= nr_table_entries <= sysctl_max_syn_backlog
-        and then incremented by one and rounded up to the next power of
-        2.
-
-So here are a couple of questions:
-
-1. What's the relation between the socket backlog and the queue created
-   by reqsk_queue_alloc()? Because the backlog is only adjusted not to
-   be grater than sysctl_somaxconn, but the queue size can be quite
-   different.
-2. The comment just above the definition of reqsk_queue_alloc() about
-   sysctl_max_syn_backlog says "Maximum number of SYN_RECV sockets in
-   queue per LISTEN socket.". But then nr_table_entries is not only
-   rounded up to the next power of 2, is incremented by one before that,
-   so a backlog of, for example, 128, would end up with 256 table
-   entries even if sysctl_max_syn_backlog is 128.
-3. Why is there a nr_table_entries + 1 at all in there? Looking at the
-   commit that introduced this[1] I can't find any explanation and I've
-   read some big projects are using backlogs of 511 because of this[2].
-   (which BTW, ff the queue is really a hash table, looks like an awful
-   idea).
-4. I found some places sk->sk_ack_backlog is checked against
-   sk->sk_max_ack_backlog to see if new requests should be dropped, but
-   I also saw checks like inet_csk_reqsk_queue_young(sk) > 1 or
-   inet_csk_reqsk_queue_is_full(sk), so I guess the queue is used too.
-
-
-Thanks a lot.
-
-[1] http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=commitdiff;h=72a3effaf633bcae9034b7e176bdbd78d64a71db
-[2] http://blog.dubbelboer.com/2012/04/09/syn-cookies.html#a_reasonably_backlog_size
-[3] http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=blob;f=net/socket.c;h=2ca51c719ef984cdadef749008456cf7bd5e1ae4;hb=HEAD#l1544
-[4] http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=blob;f=net/ipv4/af_inet.c;h=24b384b7903ea7a59a11e7a4cbf06db996498924;hb=HEAD#l192
-[5] http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=blob;f=net/ipv4/inet_connection_sock.c;h=d0670f00d5243f95bec4536f60edf32fa2ded850;hb=HEAD#l729
-[6] http://git.kernel.org/?p=linux/kernel/git/stable/linux-stable.git;a=blob;f=net/core/request_sock.c;h=c31d9e8668c30346894adbf3be55eed4beeb1258;hb=HEAD#l23
-
--- 
-Leandro Lucarella
-sociomantic labs GmbH
-http://www.sociomantic.com
+>
+> Regards,
+> Shmulik
+>
