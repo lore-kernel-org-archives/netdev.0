@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 41/45] sparc: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH v5 42/45] tile: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Tue, 22 Jan 2013 13:14:25 +0530
-Message-ID: <20130122074419.13822.36082.stgit@srivatsabhat.in.ibm.com>
+Date: Tue, 22 Jan 2013 13:14:35 +0530
+Message-ID: <20130122074430.13822.27480.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,9 +18,9 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
 In-Reply-To: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able to
@@ -30,117 +30,36 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Sam Ravnborg <sam@ravnborg.org>
-Cc: sparclinux@vger.kernel.org
+Cc: Chris Metcalf <cmetcalf@tilera.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/sparc/kernel/leon_smp.c  |    2 ++
- arch/sparc/kernel/smp_64.c    |    9 +++++----
- arch/sparc/kernel/sun4d_smp.c |    2 ++
- arch/sparc/kernel/sun4m_smp.c |    3 +++
- 4 files changed, 12 insertions(+), 4 deletions(-)
+ arch/tile/kernel/smp.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/arch/sparc/kernel/leon_smp.c b/arch/sparc/kernel/leon_smp.c
-index 0f3fb6d..441d3ac 100644
---- a/arch/sparc/kernel/leon_smp.c
-+++ b/arch/sparc/kernel/leon_smp.c
-@@ -420,6 +420,7 @@ static void leon_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 		unsigned long flags;
+diff --git a/arch/tile/kernel/smp.c b/arch/tile/kernel/smp.c
+index cbc73a8..fb30624 100644
+--- a/arch/tile/kernel/smp.c
++++ b/arch/tile/kernel/smp.c
+@@ -15,6 +15,7 @@
+  */
  
- 		spin_lock_irqsave(&cross_call_lock, flags);
-+		get_online_cpus_atomic();
- 
- 		{
- 			/* If you make changes here, make sure gcc generates proper code... */
-@@ -476,6 +477,7 @@ static void leon_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 			} while (++i <= high);
- 		}
- 
-+		put_online_cpus_atomic();
- 		spin_unlock_irqrestore(&cross_call_lock, flags);
- 	}
- }
-diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
-index 537eb66..e1d7300 100644
---- a/arch/sparc/kernel/smp_64.c
-+++ b/arch/sparc/kernel/smp_64.c
-@@ -894,7 +894,8 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
- 	atomic_inc(&dcpage_flushes);
- #endif
- 
--	this_cpu = get_cpu();
-+	get_online_cpus_atomic();
-+	this_cpu = smp_processor_id();
- 
- 	if (cpu == this_cpu) {
- 		__local_flush_dcache_page(page);
-@@ -920,7 +921,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
- 		}
- 	}
- 
--	put_cpu();
-+	put_online_cpus_atomic();
- }
- 
- void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
-@@ -931,7 +932,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
- 	if (tlb_type == hypervisor)
- 		return;
- 
--	preempt_disable();
-+	get_online_cpus_atomic();
- 
- #ifdef CONFIG_DEBUG_DCFLUSH
- 	atomic_inc(&dcpage_flushes);
-@@ -956,7 +957,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
- 	}
- 	__local_flush_dcache_page(page);
- 
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- void __irq_entry smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
-diff --git a/arch/sparc/kernel/sun4d_smp.c b/arch/sparc/kernel/sun4d_smp.c
-index ddaea31..1fa7ff2 100644
---- a/arch/sparc/kernel/sun4d_smp.c
-+++ b/arch/sparc/kernel/sun4d_smp.c
-@@ -300,6 +300,7 @@ static void sun4d_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 		unsigned long flags;
- 
- 		spin_lock_irqsave(&cross_call_lock, flags);
-+		get_online_cpus_atomic();
- 
- 		{
- 			/*
-@@ -356,6 +357,7 @@ static void sun4d_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 			} while (++i <= high);
- 		}
- 
-+		put_online_cpus_atomic();
- 		spin_unlock_irqrestore(&cross_call_lock, flags);
- 	}
- }
-diff --git a/arch/sparc/kernel/sun4m_smp.c b/arch/sparc/kernel/sun4m_smp.c
-index 128af73..5599548 100644
---- a/arch/sparc/kernel/sun4m_smp.c
-+++ b/arch/sparc/kernel/sun4m_smp.c
-@@ -192,6 +192,7 @@ static void sun4m_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 		unsigned long flags;
- 
- 		spin_lock_irqsave(&cross_call_lock, flags);
-+		get_online_cpus_atomic();
- 
- 		/* Init function glue. */
- 		ccall_info.func = func;
-@@ -238,6 +239,8 @@ static void sun4m_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 					barrier();
- 			} while (++i < ncpus);
- 		}
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/interrupt.h>
+ #include <linux/io.h>
+ #include <linux/irq.h>
+@@ -82,9 +83,12 @@ void send_IPI_many(const struct cpumask *mask, int tag)
+ void send_IPI_allbutself(int tag)
+ {
+ 	struct cpumask mask;
 +
-+		put_online_cpus_atomic();
- 		spin_unlock_irqrestore(&cross_call_lock, flags);
++	get_online_cpus_atomic();
+ 	cpumask_copy(&mask, cpu_online_mask);
+ 	cpumask_clear_cpu(smp_processor_id(), &mask);
+ 	send_IPI_many(&mask, tag);
++	put_online_cpus_atomic();
  }
  
+ /*
+
