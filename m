@@ -1,55 +1,72 @@
-From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v4 9/9] rdma/cm: Verify that source and dest sa_family are the same
-Date: Tue, 22 Jan 2013 13:56:37 -0800
-Message-ID: <1358891797-14625-10-git-send-email-sean.hefty@intel.com>
-References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1358891797-14625-1-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Tue, 22 Jan 2013 14:01:09 -0800
+Message-ID: <50FF0C25.9000300@hp.com>
+References: <20130122161038.GG4608@sociomantic.com> <1358873142.3464.3964.camel@edumazet-glaptop> <20130122165929.GH4608@sociomantic.com> <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130122184245.GJ4608@sociomantic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+On 01/22/2013 10:42 AM, Leandro Lucarella wrote:
+> On Tue, Jan 22, 2013 at 10:17:50AM -0800, Rick Jones wrote:
+>>> What is important is the backlog, and I guess you didn't increase it
+>>> properly. The somaxconn default is quite low (128)
+>>
+>> Leandro -
+>>
+>> If that is being overflowed, I believe you should be seeing something like:
+>>
+>>      14 SYNs to LISTEN sockets dropped
+>>
+>> in the output of netstat -s on the system on which the server
+>> application is running.
+>
+> What is that value reporting exactly?
 
-Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
----
- drivers/infiniband/core/cma.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+Netstat is reporting the ListenDrops and/or ListenOverflows  which map 
+to LINUX_MIB_LISTENDROPS and LINUX_MIB_LISTENOVERFLOWS.  Those get 
+incremented in tcp_v4_syn_recv_sock() (and its v6 version etc)
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index e7409b4..64799ea 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -1849,14 +1849,9 @@ static int cma_resolve_iboe_route(struct rdma_id_private *id_priv)
- 	struct rdma_addr *addr = &route->addr;
- 	struct cma_work *work;
- 	int ret;
--	struct sockaddr_in *src_addr = (struct sockaddr_in *)&route->addr.src_addr;
--	struct sockaddr_in *dst_addr = (struct sockaddr_in *)&route->addr.dst_addr;
- 	struct net_device *ndev = NULL;
- 	u16 vid;
- 
--	if (src_addr->sin_family != dst_addr->sin_family)
--		return -EINVAL;
--
- 	work = kzalloc(sizeof *work, GFP_KERNEL);
- 	if (!work)
- 		return -ENOMEM;
-@@ -2132,6 +2127,9 @@ int rdma_resolve_addr(struct rdma_cm_id *id, struct sockaddr *src_addr,
- 			return ret;
- 	}
- 
-+	if (cma_family(id_priv) != dst_addr->sa_family)
-+		return -EINVAL;
-+
- 	if (!cma_comp_exch(id_priv, RDMA_CM_ADDR_BOUND, RDMA_CM_ADDR_QUERY))
- 		return -EINVAL;
- 
--- 
-1.7.3
+        if (sk_acceptq_is_full(sk))
+                 goto exit_overflow;
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Will increment both overflows and drops, and drops will increment on its 
+own in some additional cases.
+
+> Because we are using syncookies, and AFAIK with that enabled, all
+> SYNs are being replied, and what the listen backlog is really
+> limitting is the "completely established sockets waiting to be
+> accepted", according to listen(2). What I don't really know to be
+> honest, is what a "completely established socket" is, does it mean
+> that the SYN,ACK was sent, or the ACK was received back?
+
+I have always thought it meant that the ACK of the SYN|ACK has been 
+received.
+
+SyncookiesSent SyncookiesRecv SyncookiesFailed also appear in 
+/proc/net/netstat and presumably in netstat -s output.
+
+> Also, from the client side, when is the connect(2) call done? When the
+> SYN,ACK is received?
+
+That would be my assumption.
+
+
+In a previous message:
+
+> What I'm seeing are clients taking either useconds to connect, or 3
+> seconds, which suggest SYNs are getting lost, but the network doesn't
+> seem to be the problem. I'm still investigating this, so unfortunately
+> I'm not really sure.
+
+I recently ran into something like that, which turned-out to be an issue 
+with nf_conntrack and its table filling.
+
+rick
