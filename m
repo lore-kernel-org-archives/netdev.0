@@ -1,40 +1,40 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 16/20] drivers/net/wireless/p54: remove depends on
- CONFIG_EXPERIMENTAL
-Date: Tue, 22 Jan 2013 11:59:12 -0800
-Message-ID: <20130122195912.GA31151@kroah.com>
-References: <1358879444-25834-17-git-send-email-keescook@chromium.org>
- <201301221937.16916.chunkeey@googlemail.com>
- <CAGXu5jJCQshUntUk7MeZds59B2fa54GnonOz28dM1x2spEEGDg@mail.gmail.com>
- <20130122.141252.781223481145097577.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels
+ >= 3.3 and <= 3.6
+Date: Tue, 22 Jan 2013 11:59:42 -0800
+Message-ID: <1358884782.12374.8.camel@edumazet-glaptop>
+References: <1659861.dHpGAGoXHj@cpaasch-mac>
+	 <1358861524.3464.3768.camel@edumazet-glaptop>
+	 <1358862966.3464.3797.camel@edumazet-glaptop>
+	 <1358883411.2892.11.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: keescook@chromium.org, chunkeey@googlemail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linville@tuxdriver.com, kvalo@qca.qualcomm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130122.141252.781223481145097577.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: christoph.paasch@uclouvain.be,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:40965 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753643Ab3AVT7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:59:45 -0500
+Received: by mail-pa0-f43.google.com with SMTP id fb10so4272059pad.16
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 11:59:45 -0800 (PST)
+In-Reply-To: <1358883411.2892.11.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2013 at 02:12:52PM -0500, David Miller wrote:
-> From: Kees Cook <keescook@chromium.org>
-> Date: Tue, 22 Jan 2013 10:40:12 -0800
-> 
-> > On Tue, Jan 22, 2013 at 10:37 AM, Christian Lamparter
-> > <chunkeey@googlemail.com> wrote:
-> >> Aren't these patches going through wireless-next
-> >> or linux-next?
-> > 
-> > They can go however it makes things easiest. Greg has offered to carry
-> > them in driver-core if Dave doesn't want to carry them in netdev.
-> 
-> Greg can take these:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+On Tue, 2013-01-22 at 19:36 +0000, Ben Hutchings wrote:
 
-Thanks, I'll go do that now.
+> There's another bug right here, which is that 0 is a valid DMA address
+> in some systems.  The driver should be calling pci_dma_mapping_error()
+> to find out whether an address is valid or not.  But it also wants to be
+> able to assign an invalid address to netxen_skb_frag::dma, and
+> unfortunately there is no way to do that in the current DMA API.
+> 
 
-greg k-h
+I guess we should only test ->frag_count then, and set it to 0 in TX
+completion path.
