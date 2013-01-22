@@ -1,35 +1,37 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 0/4] Use IS_ERR_OR_NULL().
-Date: Wed, 23 Jan 2013 01:32:30 +0900
-Message-ID: <50FEBF1E.6070209@linux-ipv6.org>
+Subject: [PATCH net-next 1/4] net: Use IS_ERR_OR_NULL().
+Date: Wed, 23 Jan 2013 01:32:44 +0900
+Message-ID: <50FEBF2C.4070902@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51849 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51853 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753539Ab3AVQcb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 11:32:31 -0500
+	with ESMTP id S1754308Ab3AVQcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 11:32:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-YOSHIFUJI Hideaki (4):
-  net: Use IS_ERR_OR_NULL().
-  ipv4: Use IS_ERR_OR_NULL().
-  ipv6: Use IS_ERR_OR_NULL().
-  netfilter: Use IS_ERR_OR_NULL().
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/core/flow.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- net/core/flow.c                 |    2 +-
- net/ipv4/af_inet.c              |    2 +-
- net/ipv4/netfilter/arp_tables.c |   10 +++++-----
- net/ipv4/netfilter/ip_tables.c  |   10 +++++-----
- net/ipv4/tcp.c                  |    2 +-
- net/ipv4/udp.c                  |    2 +-
- net/ipv6/addrconf.c             |    4 ++--
- net/ipv6/netfilter/ip6_tables.c |   10 +++++-----
- 8 files changed, 21 insertions(+), 21 deletions(-)
-
+diff --git a/net/core/flow.c b/net/core/flow.c
+index b0901ee..43f7495 100644
+--- a/net/core/flow.c
++++ b/net/core/flow.c
+@@ -286,7 +286,7 @@ nocache:
+ 		else
+ 			fle->genid--;
+ 	} else {
+-		if (flo && !IS_ERR(flo))
++		if (!IS_ERR_OR_NULL(flo))
+ 			flo->ops->delete(flo);
+ 	}
+ ret_object:
 -- 
 1.7.9.5
