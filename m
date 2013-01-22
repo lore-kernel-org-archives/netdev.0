@@ -1,49 +1,74 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 01/15] drivers/net: delete 486 Apricot support
-Date: Tue, 22 Jan 2013 10:51:25 -0500
-Message-ID: <20130122155125.GA19259@windriver.com>
-References: <1358819182-28032-1-git-send-email-paul.gortmaker@windriver.com>
- <1358819182-28032-2-git-send-email-paul.gortmaker@windriver.com>
+From: Alexey ORISHKO <alexey.orishko@stericsson.com>
+Subject: RE: [PATCH net 2/3] net: cdc_mbim: send ZLP after max sized NTBs
+Date: Tue, 22 Jan 2013 16:51:24 +0100
+Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE18283@EXDCVYMBSTM006.EQ1STM.local>
+References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
+	<1358783440-11459-3-git-send-email-bjorn@mork.no>
+	<2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D57@EXDCVYMBSTM006.EQ1STM.local>
+ <87zk01a6gj.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Greg Suarez <gsuarez@smithmicro.com>,
+	Oliver Neukum <oneukum@suse.de>,
+	Alexey Orishko <alexey.orishko@gmail.com>
+To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:45424 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077Ab3AVPvQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:51:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1358819182-28032-2-git-send-email-paul.gortmaker@windriver.com>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:55586 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753549Ab3AVPwX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:52:23 -0500
+In-Reply-To: <87zk01a6gj.fsf@nemi.mork.no>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[[PATCH net-next 01/15] drivers/net: delete 486 Apricot support] On 21/01/2013 (Mon 20:46) Paul Gortmaker wrote:
-
-[...]
-
->  
-> -#elif defined(ENABLE_APRICOT)
-> -
-> -	{
-> -		u32 scp = virt_to_bus(&lp->scp);
-> -
-> -		/* change the scp address */
-> -		outw(0, ioaddr);
-> -		outw(0, ioaddr);
-> -		outb(4, ioaddr + 0xf);
-> -		outw(scp | 2, ioaddr);
-> -		outw(scp >> 16, ioaddr);
-> -	}
-> -#endif
-> -
-
-I deleted one too many lines here.  That last #endif needs
-to stay as the parent #if still remains.  Fengguang's 0-day
-testing found it in an m68k allyesconfig build.
-
-I've folded this in, build tested for m68k locally, and done
-a forced update on my legacy-isa-delete branch.
-
-Paul.
---
+SCBCasO4cm4sDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmrDuHJu
+IE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUdWVzZGF5LCBKYW51YXJ5IDIy
+LCAyMDEzIDEwOjU0IEFNDQo+IA0KPiA+IElmIHlvdSBhZGQgWkxQIGZvciBOVEJzIG9mIGR3TnRi
+T3V0TWF4U2l6ZSwgeW91IGFyZSBoZWF2aWx5IGFmZmVjdGluZw0KPiA+IENQVSBsb2FkLCBpbmNy
+ZWFzaW5nIGludGVycnVwdCBsb2FkIGJ5IGZhY3RvciBvZiAyIGluIGhpZ2ggbG9hZA0KPiA+IHRy
+YWZmaWMgc2NlbmFyaW8gYW5kIHBvc3NpYmx5IGRlY3JlYXNpbmcgdGhyb3VnaHB1dCBmb3IgYWxs
+IG90aGVyDQo+ID4gZGV2aWNlcyB3aGljaCBiZWhhdmVzIGNvcnJlY3RseS4NCj4gIA0KPiBUaGUg
+Y3VycmVudCBjZGNfbmNtL2NkY19tYmltIGRyaXZlcnMgd2lsbCBwYWQgYSBOVEIgdG8gdGhlIGZ1
+bGwNCj4gZHdOdGJPdXRNYXhTaXplIHdoZW5ldmVyIGl0IHJlYWNoZXMgYXQgbGVhc3QgNTEyIGJ5
+dGVzLiAgVGhlIHJlYXNvbiBpcw0KPiB0aGF0IHRoaXMgYWxsb3dzIG1vcmUgZWZmaWNpZW50IGRl
+dmljZSBETUEgb3BlcmF0aW9uLiAgVGhpcyBpcw0KPiBzb21ldGhpbmcgd2UgZG8gdG8gYWRhcHQg
+dG8gZGV2aWNlIGhhcmR3YXJlIHJlc3RyaWN0aW9ucyBldmVuIHRob3VnaA0KPiB0aGVyZSBpcyBu
+byBzdWNoIHJlY29tbWVuZGF0aW9ucyBpbiB0aGUgTkNNL01CSU0gc3BlY3MuICANCg0KVGhlcmUg
+YXJlIGEgbG90IG9mIHRoaW5ncyB3aGljaCB3ZXJlIGRpc2N1c3NlZCBkdXJpbmcgZGV2ZWxvcG1l
+bnQgb2YNCnNwZWNpZmljYXRpb25zLCBidXQgbm90IGVuZGVkIHVwIGluIHRoZSBmaW5hbCB2ZXJz
+aW9uIG9mIHRoZSBzcGVjIGR1ZSB0bw0KdmFyaW91cyByZWFzb25zLiBDb21wYW5pZXMgYXR0ZW5k
+aW5nIFVTQi1JRiBGMkYgbWVldGluZ3MgY2FuIGJlbmVmaXQNCmZyb20gZGlzY3Vzc2lvbnMgYmV0
+d2VlbiBtZW1iZXIgY29tcGFuaWVzIGFuZCBnZXQgYWNjZXNzIHRvIGFkZGl0aW9uYWwNCmluZm9y
+bWF0aW9uIG5vdCB2aXNpYmxlIG91dHNpZGUgb2YgVVNCLUlGLiANCg0KPiBUaGUgcGVuYWx0eSBv
+bg0KPiB0aGUgaG9zdCBhbmQgYnVzIHNob3VsZCBiZSBvYnZpb3VzOiBFdmVuIHdpdGggYSBxdWl0
+ZSBzbWFsbA0KPiBkd050Yk91dE1heFNpemUgb2YgNDA5Niwgd2UgZW5kIHVwIHNlbmRpbmcgOCB4
+IDUxMi1ieXRlIGRhdGEgcGFja2V0cw0KPiBpbnN0ZWFkIG9mIHRoZSAyIHdlIGNvdWxkIGhhdmUg
+bWFuYWdlZCB3aXRoLg0KDQpJdCB3YXMgaW50ZW50aW9uYWwgYW5kIGl0J3MgZGV2ZWxvcGVyIGNo
+b2ljZSAoc2VlIGFsc28gdGhlIGxhc3QgY29tbWVudCkuDQpJdCdzIGEgc3RyYWlnaHRmb3J3YXJk
+IGFwcHJvYWNoLCBidXQgdGhpcyBsaW1pdCBjb3VsZCBiZSBhIGR5bmFtaWMNCnZhbHVlIGJhc2Vk
+IG9uIHN0YXRpc3RpYyBhbmQgY3VycmVudCBsb2FkLg0KDQo+ICANCj4gTm93IHlvdSBjbGFpbSB0
+aGF0IHNlbmRpbmcgOSBwYWNrZXRzLCB3aGVyZSB0aGUgbGFzdCBvbmUgaXMgYSB6ZXJvDQo+IGxl
+bmd0aCBwYWNrZXQsIGluY3JlYXNlIHRoZSBpbnRlcnJ1cHQgbG9hZCBieSBmYWN0b3Igb2YgMj8g
+IEhvdyBpcw0KPiB0aGF0Pw0KDQpZb3Ugc2V0IHVwIERNQSBqb2IgdG8gcmVjZWl2ZSBmdWxsIE5U
+QiBhbmQgZ2V0IGEgc2luZ2xlIGludGVycnVwdA0Kd2hlbiBqb2IgaXMgZG9uZS4gSXQgbWVhbnMg
+d2hpbGUgRE1BIGlzIGNvbGxlY3RpbmcgZGF0YSwgQ1BVIGNhbiBkbw0Kc29tZXRoaW5nIGVsc2Ug
+KHNlbmQgZGF0YSB0byBOVyBzdGFjaykuDQoNCkluIG90aGVyIHByb3RvY29scyB5b3UgbmVlZCB0
+byBpbmRpY2F0ZSB0aGUgZW5kIG9mIGRhdGEsIGJ1dCBpbg0KTkNNL01CSU0gd2Uga25vdyBmb3Ig
+c3VyZSB0aGF0IGhvc3QgaXMgbm90IGFsbG93ZWQgdG8gc2VuZCBtb3JlDQp0aGFuIGR3TnRiT3V0
+TWF4U2l6ZSBieXRlcywgc28gWkxQIGlzIG5vdCBuZWVkZWQuDQoNCklmIGhvc3QgZGVjaWRlcyB0
+byBzZW5kIFpMUCBhZnRlciBmdWxsIE5UQiwgQ1BVIG11c3QgaGFuZGxlDQphZGRpdGlvbmFsIElO
+VCBwZXIgZXZlcnkgZnVsbCBOVEIgaW5zdGVhZCBvZiBkb2luZyB1c2VmdWwgd29yay4NCkZvciBG
+VFAgdHJhbnNmZXIgd2l0aCBjb25zdGFudGx5IGZ1bGwgTlRCcyB5b3UgZ2V0IHR3aWNlIGFtb3Vu
+dCBvZg0KSW50ZXJydXB0cy4NCg0KPiBXaHkgaXMgdGhlIGRldmljZSBETUEgcmVzdHJpY3Rpb25z
+IG5vdCBhIGZhdWx0LCB3aGlsZSB0aGUgZGV2aWNlIFpMUA0KPiByZXF1aXJlbWVudCBpcz8gIEJv
+dGggc2VlbSBsaWtlIHJlYXNvbmFibGUgZGV2aWNlIGhhcmR3YXJlL2Zpcm13YXJlDQo+IGltcGxl
+bWVudGF0aW9uIGltcG9zZWQgcmVzdHJpY3Rpb25zIHRvIG1lLiAgU29tZXRoaW5nIHdlJ2xsIGp1
+c3QgaGF2ZQ0KPiB0byBhY2NlcHQuDQoNCkJvdGggc3BlY2lmaWNhdGlvbnMgKE5DTS9NQklNKSB3
+ZXJlIHdyaXR0ZW4gZnJvbSB0aGUgcG9pbnQgb2YgaG9zdCAobW9zdA0KbGlrZWx5IFBDIHdpdGgg
+Mi80IGNvcmUgQ1BVKSBiZWluZyBtb3JlIHBvd2VyZnVsIHRoYW4gZGV2aWNlIGFuZCB3aXRoDQpy
+ZXF1aXJlbWVudCBmb3IgaG9zdCB0byBob25vciBkZXZpY2UgbGltaXRhdGlvbnMuDQoNClJlZ2Fy
+ZHMsDQpBbGV4ZXkNCg==
