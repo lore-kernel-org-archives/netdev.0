@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 26/45] perf/x86: Use get/put_online_cpus_atomic() to
+Subject: [PATCH v5 30/45] alpha/smp: Use get/put_online_cpus_atomic() to
  prevent CPU offline
-Date: Tue, 22 Jan 2013 13:09:52 +0530
-Message-ID: <20130122073948.13822.43399.stgit@srivatsabhat.in.ibm.com>
+Date: Tue, 22 Jan 2013 13:11:18 +0530
+Message-ID: <20130122074113.13822.3018.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -23,59 +23,111 @@ In-Reply-To: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CPU_DYING notifier modifies the per-cpu pointer pmu->box, and this can
-race with functions such as uncore_pmu_to_box() and uncore_pci_remove() when
-we remove stop_machine() from the CPU offline path. So protect them using
-get/put_online_cpus_atomic().
+Once stop_machine() is gone from the CPU offline path, we won't be able to
+depend on preempt_disable() or local_irq_disable() to prevent CPUs from
+going offline from under us.
 
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: x86@kernel.org
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
+while invoking from atomic context.
+
+Also, remove the non-ASCII character present in this file!
+
+Cc: linux-alpha@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/x86/kernel/cpu/perf_event_intel_uncore.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ arch/alpha/kernel/smp.c |   19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/arch/x86/kernel/cpu/perf_event_intel_uncore.c b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
-index b43200d..6faae53 100644
---- a/arch/x86/kernel/cpu/perf_event_intel_uncore.c
-+++ b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
-@@ -1,3 +1,4 @@
-+#include <linux/cpu.h>
- #include "perf_event_intel_uncore.h"
+diff --git a/arch/alpha/kernel/smp.c b/arch/alpha/kernel/smp.c
+index 9603bc2..9213d5d 100644
+--- a/arch/alpha/kernel/smp.c
++++ b/arch/alpha/kernel/smp.c
+@@ -498,7 +498,6 @@ smp_cpus_done(unsigned int max_cpus)
+ 	       ((bogosum + 2500) / (5000/HZ)) % 100);
+ }
  
- static struct intel_uncore_type *empty_uncore[] = { NULL, };
-@@ -1965,6 +1966,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
- 	if (box)
- 		return box;
- 
+-
+ void
+ smp_percpu_timer_interrupt(struct pt_regs *regs)
+ {
+@@ -682,7 +681,7 @@ ipi_flush_tlb_mm(void *x)
+ void
+ flush_tlb_mm(struct mm_struct *mm)
+ {
+-	preempt_disable();
 +	get_online_cpus_atomic();
- 	raw_spin_lock(&uncore_box_lock);
- 	list_for_each_entry(box, &pmu->box_list, list) {
- 		if (box->phys_id == topology_physical_package_id(cpu)) {
-@@ -1974,6 +1976,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
+ 
+ 	if (mm == current->active_mm) {
+ 		flush_tlb_current(mm);
+@@ -694,7 +693,7 @@ flush_tlb_mm(struct mm_struct *mm)
+ 				if (mm->context[cpu])
+ 					mm->context[cpu] = 0;
+ 			}
+-			preempt_enable();
++			put_online_cpus_atomic();
+ 			return;
  		}
  	}
- 	raw_spin_unlock(&uncore_box_lock);
-+	put_online_cpus_atomic();
+@@ -703,7 +702,7 @@ flush_tlb_mm(struct mm_struct *mm)
+ 		printk(KERN_CRIT "flush_tlb_mm: timed out\n");
+ 	}
  
- 	return *per_cpu_ptr(pmu->box, cpu);
+-	preempt_enable();
++	put_online_cpus_atomic();
  }
-@@ -2556,6 +2559,7 @@ static void uncore_pci_remove(struct pci_dev *pdev)
- 	if (WARN_ON_ONCE(phys_id != box->phys_id))
+ EXPORT_SYMBOL(flush_tlb_mm);
+ 
+@@ -731,7 +730,7 @@ flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
+ 	struct flush_tlb_page_struct data;
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	if (mm == current->active_mm) {
+ 		flush_tlb_current_page(mm, vma, addr);
+@@ -743,7 +742,7 @@ flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
+ 				if (mm->context[cpu])
+ 					mm->context[cpu] = 0;
+ 			}
+-			preempt_enable();
++			put_online_cpus_atomic();
+ 			return;
+ 		}
+ 	}
+@@ -756,7 +755,7 @@ flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
+ 		printk(KERN_CRIT "flush_tlb_page: timed out\n");
+ 	}
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ EXPORT_SYMBOL(flush_tlb_page);
+ 
+@@ -787,7 +786,7 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 	if ((vma->vm_flags & VM_EXEC) == 0)
  		return;
  
+-	preempt_disable();
 +	get_online_cpus_atomic();
- 	raw_spin_lock(&uncore_box_lock);
- 	list_del(&box->list);
- 	raw_spin_unlock(&uncore_box_lock);
-@@ -2569,6 +2573,7 @@ static void uncore_pci_remove(struct pci_dev *pdev)
  
- 	WARN_ON_ONCE(atomic_read(&box->refcnt) != 1);
- 	kfree(box);
+ 	if (mm == current->active_mm) {
+ 		__load_new_mm_context(mm);
+@@ -799,7 +798,7 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 				if (mm->context[cpu])
+ 					mm->context[cpu] = 0;
+ 			}
+-			preempt_enable();
++			put_online_cpus_atomic();
+ 			return;
+ 		}
+ 	}
+@@ -808,5 +807,5 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 		printk(KERN_CRIT "flush_icache_page: timed out\n");
+ 	}
+ 
+-	preempt_enable();
 +	put_online_cpus_atomic();
  }
- 
- static int uncore_pci_probe(struct pci_dev *pdev,
 
