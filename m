@@ -1,103 +1,80 @@
-From: sean.hefty@intel.com
-Subject: [PATCH v4 5/9] rdma/cm: Allow user to specify AF_IB when binding
-Date: Tue, 22 Jan 2013 13:56:33 -0800
-Message-ID: <1358891797-14625-6-git-send-email-sean.hefty@intel.com>
+From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Subject: [PATCH v4 8/9] rdma/cm: Restrict AF_IB loopback to binding to IB devices only
+Date: Tue, 22 Jan 2013 13:56:36 -0800
+Message-ID: <1358891797-14625-9-git-send-email-sean.hefty@intel.com>
 References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
-Cc: Sean Hefty <sean.hefty@intel.com>
-To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38397 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753868Ab3AVV5M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 16:57:12 -0500
-In-Reply-To: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1358891797-14625-1-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sean Hefty <sean.hefty@intel.com>
+From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-Modify rdma_bind_addr to allow the user to specify AF_IB when
-binding to a device.  AF_IB indicates that the user is not
-mapping an IP address to the native IB addressing.  (The mapping
-may have already been done, or is not needed.)
+If a user specifies AF_IB as the source address for a loopback
+connection, limit the resolution to IB devices only.
 
-Signed-off-by: Sean Hefty <sean.hefty@intel.com>
+Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c |   34 ++++++++++++++++++++++++++++------
- 1 files changed, 28 insertions(+), 6 deletions(-)
+ drivers/infiniband/core/cma.c |   28 ++++++++++++++++++++--------
+ 1 files changed, 20 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 7eed4ee..caea4ef3 100644
+index 0ebf123..e7409b4 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -359,6 +359,27 @@ static int find_gid_port(struct ib_device *device, union ib_gid *gid, u8 port_nu
- 	return -EADDRNOTAVAIL;
- }
+@@ -1981,26 +1981,38 @@ static void cma_set_loopback(struct sockaddr *addr)
  
-+static void cma_translate_ib(struct sockaddr_ib *sib, struct rdma_dev_addr *dev_addr)
-+{
-+	dev_addr->dev_type = ARPHRD_INFINIBAND;
-+	rdma_addr_set_sgid(dev_addr, (union ib_gid *) &sib->sib_addr);
-+	ib_addr_set_pkey(dev_addr, ntohs(sib->sib_pkey));
-+}
+ static int cma_bind_loopback(struct rdma_id_private *id_priv)
+ {
+-	struct cma_device *cma_dev;
++	struct cma_device *cma_dev, *cur_dev;
+ 	struct ib_port_attr port_attr;
+ 	union ib_gid gid;
+ 	u16 pkey;
+ 	int ret;
+ 	u8 p;
+ 
++	cma_dev = NULL;
+ 	mutex_lock(&lock);
+-	if (list_empty(&dev_list)) {
++	list_for_each_entry(cur_dev, &dev_list, list) {
++		if (cma_family(id_priv) == AF_IB &&
++		    rdma_node_get_transport(cur_dev->device->node_type) != RDMA_TRANSPORT_IB)
++			continue;
 +
-+static int cma_translate_addr(struct sockaddr *addr, struct rdma_dev_addr *dev_addr)
-+{
-+	int ret;
++		if (!cma_dev)
++			cma_dev = cur_dev;
 +
-+	if (addr->sa_family != AF_IB) {
-+		ret = rdma_translate_ip(addr, dev_addr);
-+	} else {
-+		cma_translate_ib((struct sockaddr_ib *) addr, dev_addr);
-+		ret = 0;
++		for (p = 1; p <= cur_dev->device->phys_port_cnt; ++p) {
++			if (!ib_query_port(cur_dev->device, p, &port_attr) &&
++			    port_attr.state == IB_PORT_ACTIVE) {
++				cma_dev = cur_dev;
++				goto port_found;
++			}
++		}
 +	}
 +
-+	return ret;
-+}
-+
- static int cma_acquire_dev(struct rdma_id_private *id_priv)
- {
- 	struct rdma_dev_addr *dev_addr = &id_priv->id.route.addr.dev_addr;
-@@ -1136,8 +1157,8 @@ static struct rdma_id_private *cma_new_conn_id(struct rdma_cm_id *listen_id,
- 		rdma_addr_set_sgid(&rt->addr.dev_addr, &rt->path_rec[0].sgid);
- 		ib_addr_set_pkey(&rt->addr.dev_addr, be16_to_cpu(rt->path_rec[0].pkey));
- 	} else {
--		ret = rdma_translate_ip((struct sockaddr *) &rt->addr.src_addr,
--					&rt->addr.dev_addr);
-+		ret = cma_translate_addr((struct sockaddr *) &rt->addr.src_addr,
-+					 &rt->addr.dev_addr);
- 		if (ret)
- 			goto err;
++	if (!cma_dev) {
+ 		ret = -ENODEV;
+ 		goto out;
  	}
-@@ -1176,8 +1197,8 @@ static struct rdma_id_private *cma_new_udp_id(struct rdma_cm_id *listen_id,
- 			  ip_ver, port, src, dst);
+-	list_for_each_entry(cma_dev, &dev_list, list)
+-		for (p = 1; p <= cma_dev->device->phys_port_cnt; ++p)
+-			if (!ib_query_port(cma_dev->device, p, &port_attr) &&
+-			    port_attr.state == IB_PORT_ACTIVE)
+-				goto port_found;
  
- 	if (!cma_any_addr((struct sockaddr *) &id->route.addr.src_addr)) {
--		ret = rdma_translate_ip((struct sockaddr *) &id->route.addr.src_addr,
--					&id->route.addr.dev_addr);
-+		ret = cma_translate_addr((struct sockaddr *) &id->route.addr.src_addr,
-+					 &id->route.addr.dev_addr);
- 		if (ret)
- 			goto err;
- 	}
-@@ -2454,7 +2475,8 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
- 	struct rdma_id_private *id_priv;
- 	int ret;
+ 	p = 1;
+-	cma_dev = list_entry(dev_list.next, struct cma_device, list);
  
--	if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6)
-+	if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6 &&
-+	    addr->sa_family != AF_IB)
- 		return -EAFNOSUPPORT;
- 
- 	id_priv = container_of(id, struct rdma_id_private, id);
-@@ -2466,7 +2488,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
- 		goto err1;
- 
- 	if (!cma_any_addr(addr)) {
--		ret = rdma_translate_ip(addr, &id->route.addr.dev_addr);
-+		ret = cma_translate_addr(addr, &id->route.addr.dev_addr);
- 		if (ret)
- 			goto err1;
- 
+ port_found:
+ 	ret = ib_get_cached_gid(cma_dev->device, p, 0, &gid);
 -- 
 1.7.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
