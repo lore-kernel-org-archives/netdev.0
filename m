@@ -1,64 +1,59 @@
-From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH net-next 2/2] be2net: Updating Module Author string and log message string to "Emulex Corporation"
-Date: Tue, 22 Jan 2013 13:44:09 +0530
-Message-ID: <b76032da-e075-4755-a5e0-9e5715b4fdd3@CMEXHTCAS1.ad.emulex.com>
-References: <1358842449-9021-1-git-send-email-sarveshwar.bandi@emulex.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Tue, 22 Jan 2013 09:20:28 +0100
+Message-ID: <20130122082028.GB7865@order.stressinduktion.org>
+References: <20130118200416.GB4795@order.stressinduktion.org> <50F9F875.30302@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:23641 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753906Ab3AVINf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 03:13:35 -0500
-In-Reply-To: <1358842449-9021-1-git-send-email-sarveshwar.bandi@emulex.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:43580 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751466Ab3AVIU3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 03:20:29 -0500
+Content-Disposition: inline
+In-Reply-To: <50F9F875.30302@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Hello!
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    8 ++++----
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
+On Sat, Jan 19, 2013 at 10:35:49AM +0900, YOSHIFUJI Hideaki wrote:
+> It seems this breaks 6rd receiving rules:
+> 
+> BR:
+> 	if (outer src ip4 != embedded src ip4)
+> 		drop();
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index f27fe8e..6b3b606 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -41,13 +41,13 @@
- 
- #define DRV_VER			"4.4.161.0u"
- #define DRV_NAME		"be2net"
--#define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
--#define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
--#define OC_NAME			"Emulex OneConnect 10Gbps NIC"
-+#define BE_NAME			"Emulex BladeEngine2"
-+#define BE3_NAME		"Emulex BladeEngine3"
-+#define OC_NAME			"Emulex OneConnect"
- #define OC_NAME_BE		OC_NAME	"(be3)"
- #define OC_NAME_LANCER		OC_NAME "(Lancer)"
- #define OC_NAME_SH		OC_NAME "(Skyhawk)"
--#define DRV_DESC		"ServerEngines BladeEngine 10Gbps NIC Driver"
-+#define DRV_DESC		"Emulex OneConnect 10Gbps NIC Driver"
- 
- #define BE_VENDOR_ID 		0x19a2
- #define EMULEX_VENDOR_ID	0x10df
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index b1cc3f2..6718339 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -30,7 +30,7 @@
- MODULE_VERSION(DRV_VER);
- MODULE_DEVICE_TABLE(pci, be_dev_ids);
- MODULE_DESCRIPTION(DRV_DESC " " DRV_VER);
--MODULE_AUTHOR("ServerEngines Corporation");
-+MODULE_AUTHOR("Emulex Corporation");
- MODULE_LICENSE("GPL");
- 
- static unsigned int num_vfs;
--- 
-1.7.9.5
+Of course, this would break 6rd as would it break 6to4. Note here, that
+I also check for the inner ipv6 prefix. This check is only done, if the
+inner ipv6 prefix matches a) the 6to4 prefix or b) the 6rd prefix. In 6rd,
+as in 6to4, communication between 6rd nodes should take place directly,
+without need for a relay. (Otherwise packets would get dropped, because
+both source and destination ipv6 address would be in the 6rd/6to4 prefix
+and the ipv4 addresses would not match, because one of them would be
+the relay address.)
+
+> CE:
+> 	if (outer src ip4 != embedded src ip4 ||
+> 	    inner dest ip6 != configured ip6 prefix)
+> 		drop();
+
+Dito, would also break 6to4. Every packet from non-6rd domain would
+violate this rule. I do also check the 6rd/6to4 prefix in this case.
+
+In general, if the inner ipv6 address, regardless of source or
+destination, does not match the 6rd/6to4 prefix, the packet will pass
+without further checks from my patch.
+
+> 
+> No?
+
+I think that the distinction between BR and CE would make thinks just
+more complicated. Also 6rd can be seen as a superset of 6to4 and should
+not make any changes to the receiving rules, except being more tight.
+
+Thanks,
+
+  Hannes
