@@ -1,50 +1,67 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: Re: [PATCH net-next 09/15] drivers/net: delete old 8 bit ISA Racal ni5010 support.
-Date: Tue, 22 Jan 2013 21:55:11 +0100
-Message-ID: <201301222155.11493.linux@rainbow-software.org>
-References: <1358819182-28032-1-git-send-email-paul.gortmaker@windriver.com> <1358819182-28032-10-git-send-email-paul.gortmaker@windriver.com> <50FEEF92.3000809@vanbest.org>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [PATCH] ethtool: Add version check for et131x regs
+Date: Tue, 22 Jan 2013 21:03:26 +0000
+Message-ID: <CANK3SE1EQAtzTj7Z9HEQmX49u8VaaUwJ--YtGaEt+Oi_KdE+fg@mail.gmail.com>
+References: <1357379851-5298-1-git-send-email-mark.einon@gmail.com> <1358887479.2892.22.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Andreas Mohr <andi@lisas.de>
-To: "Jan-Pascal van Best" <janpascal@vanbest.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-1.atlantis.sk ([80.94.52.57]:54590 "EHLO mail.atlantis.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751789Ab3AVVCk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 16:02:40 -0500
-In-Reply-To: <50FEEF92.3000809@vanbest.org>
-Content-Disposition: inline
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:52466 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751789Ab3AVVDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:03:42 -0500
+Received: by mail-ie0-f173.google.com with SMTP id e13so12500032iej.32
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:03:41 -0800 (PST)
+In-Reply-To: <1358887479.2892.22.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 January 2013 20:59:14 Jan-Pascal van Best wrote:
-> Hi Paul,
+On 22 January 2013 20:44, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> On Sat, 2013-01-05 at 09:57 +0000, Mark Einon wrote:
+>> Added a version check for the et131x reg dump, in case the dump format
+>> needs to be changed later.
+>>
+>> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+>> ---
+>>  et131x.c |    4 ++++
+>>  1 file changed, 4 insertions(+)
+>>
+>> diff --git a/et131x.c b/et131x.c
+>> index b36c184..8cdbec0 100644
+>> --- a/et131x.c
+>> +++ b/et131x.c
+>> @@ -4,8 +4,12 @@
+>>
+>>  int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+>>  {
+>> +     u8 version = (u8)(regs->version >> 24);
+>>       u32 *reg = (u32 *)regs->data;
+>>
+>> +     if(version != 1)
 >
-> Although for me personally it'll be a shock not be able to run the latest
-> kernel on my legacy system I keep up especially for this ISA card, Andreas
-> and I cannot seriously oppose removing this driver from the mainline
-> kernel. It's probably more than a decade and a half ago since anyone used
-> an NI5010 in production, which makes it time to move on...
+> Needs a space before the open-parentheis.
 >
-> By the way, Andreas promises to keep his stable  of NI5010 cards forever,
-> and still has a BNC network in active (if loathed!) service.
+> Ben.
 
-I have BNC network too and use it every day. It's mostly used for internet 
-access, with 3c509 and ne2000 cards (one of the machines has currently uptime 
-of 439 days, it runs kernel 3.1). I remember using HP pclan cards too and 
-they worked fine. Too bad they're going away :(
-Also got a nice 3c503 card a year ago or so. The driver worked fine after a 
-simple fix.
+You're right - I cut and pasted the code from another file without
+checking. I'll send a separate patch for fixing them, if you want this
+patch re-submitted as well, then just let me know.
 
-I really hate when a working driver is removed from Linux. New drivers are 
-either missing (alx) or problematic (various rtl8168/8169 variants, some of 
-which work and some don't). So you can't get any new machine and install 
-Linux. You also can't get any old machine and install Linux. If you're lucky 
-and the machine is somehow middle-aged, everything might work...
+cheers,
 
--- 
-Ondrej Zary
+Mark
+
+>
+>> +             return -1;
+>> +
+>>       fprintf(stdout, "PHY Registers\n");
+>>       fprintf(stdout, "0x0, Basic Control Reg          = 0x%04X\n", *reg++);
+>>       fprintf(stdout, "0x1, Basic Status Reg           = 0x%04X\n", *reg++);
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
