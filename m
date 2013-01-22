@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 39/45] powerpc: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Tue, 22 Jan 2013 13:13:47 +0530
-Message-ID: <20130122074344.13822.45560.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v5 40/45] sh: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Tue, 22 Jan 2013 13:14:13 +0530
+Message-ID: <20130122074409.13822.91528.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -30,32 +30,69 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: Paul Mundt <lethal@linux-sh.org>
+Cc: linux-sh@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/powerpc/mm/mmu_context_nohash.c |    2 ++
- 1 file changed, 2 insertions(+)
+ arch/sh/kernel/smp.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/powerpc/mm/mmu_context_nohash.c b/arch/powerpc/mm/mmu_context_nohash.c
-index e779642..29f58cf 100644
---- a/arch/powerpc/mm/mmu_context_nohash.c
-+++ b/arch/powerpc/mm/mmu_context_nohash.c
-@@ -196,6 +196,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
- 
- 	/* No lockless fast path .. yet */
- 	raw_spin_lock(&context_lock);
+diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
+index 2062aa8..232fabe 100644
+--- a/arch/sh/kernel/smp.c
++++ b/arch/sh/kernel/smp.c
+@@ -357,7 +357,7 @@ static void flush_tlb_mm_ipi(void *mm)
+  */
+ void flush_tlb_mm(struct mm_struct *mm)
+ {
+-	preempt_disable();
 +	get_online_cpus_atomic();
  
- 	pr_hard("[%d] activating context for mm @%p, active=%d, id=%d",
- 		cpu, next, next->context.active, next->context.id);
-@@ -279,6 +280,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
- 	/* Flick the MMU and release lock */
- 	pr_hardcont(" -> %d\n", id);
- 	set_context(id, next->pgd);
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		smp_call_function(flush_tlb_mm_ipi, (void *)mm, 1);
+@@ -369,7 +369,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ 	}
+ 	local_flush_tlb_mm(mm);
+ 
+-	preempt_enable();
 +	put_online_cpus_atomic();
- 	raw_spin_unlock(&context_lock);
  }
  
+ struct flush_tlb_data {
+@@ -390,7 +390,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		struct flush_tlb_data fd;
+ 
+@@ -405,7 +405,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ 				cpu_context(i, mm) = 0;
+ 	}
+ 	local_flush_tlb_range(vma, start, end);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_kernel_range_ipi(void *info)
+@@ -433,7 +433,7 @@ static void flush_tlb_page_ipi(void *info)
+ 
+ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&vma->vm_mm->mm_users) != 1) ||
+ 	    (current->mm != vma->vm_mm)) {
+ 		struct flush_tlb_data fd;
+@@ -448,7 +448,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ 				cpu_context(i, vma->vm_mm) = 0;
+ 	}
+ 	local_flush_tlb_page(vma, page);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_one_ipi(void *info)
