@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 40/45] sh: Use get/put_online_cpus_atomic() to prevent CPU
- offline
-Date: Tue, 22 Jan 2013 13:14:13 +0530
-Message-ID: <20130122074409.13822.91528.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v5 41/45] sparc: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Tue, 22 Jan 2013 13:14:25 +0530
+Message-ID: <20130122074419.13822.36082.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -30,69 +30,117 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: Paul Mundt <lethal@linux-sh.org>
-Cc: linux-sh@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: sparclinux@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/sh/kernel/smp.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ arch/sparc/kernel/leon_smp.c  |    2 ++
+ arch/sparc/kernel/smp_64.c    |    9 +++++----
+ arch/sparc/kernel/sun4d_smp.c |    2 ++
+ arch/sparc/kernel/sun4m_smp.c |    3 +++
+ 4 files changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
-index 2062aa8..232fabe 100644
---- a/arch/sh/kernel/smp.c
-+++ b/arch/sh/kernel/smp.c
-@@ -357,7 +357,7 @@ static void flush_tlb_mm_ipi(void *mm)
-  */
- void flush_tlb_mm(struct mm_struct *mm)
- {
+diff --git a/arch/sparc/kernel/leon_smp.c b/arch/sparc/kernel/leon_smp.c
+index 0f3fb6d..441d3ac 100644
+--- a/arch/sparc/kernel/leon_smp.c
++++ b/arch/sparc/kernel/leon_smp.c
+@@ -420,6 +420,7 @@ static void leon_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
+ 		unsigned long flags;
+ 
+ 		spin_lock_irqsave(&cross_call_lock, flags);
++		get_online_cpus_atomic();
+ 
+ 		{
+ 			/* If you make changes here, make sure gcc generates proper code... */
+@@ -476,6 +477,7 @@ static void leon_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
+ 			} while (++i <= high);
+ 		}
+ 
++		put_online_cpus_atomic();
+ 		spin_unlock_irqrestore(&cross_call_lock, flags);
+ 	}
+ }
+diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
+index 537eb66..e1d7300 100644
+--- a/arch/sparc/kernel/smp_64.c
++++ b/arch/sparc/kernel/smp_64.c
+@@ -894,7 +894,8 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
+ 	atomic_inc(&dcpage_flushes);
+ #endif
+ 
+-	this_cpu = get_cpu();
++	get_online_cpus_atomic();
++	this_cpu = smp_processor_id();
+ 
+ 	if (cpu == this_cpu) {
+ 		__local_flush_dcache_page(page);
+@@ -920,7 +921,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
+ 		}
+ 	}
+ 
+-	put_cpu();
++	put_online_cpus_atomic();
+ }
+ 
+ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+@@ -931,7 +932,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+ 	if (tlb_type == hypervisor)
+ 		return;
+ 
 -	preempt_disable();
 +	get_online_cpus_atomic();
  
- 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
- 		smp_call_function(flush_tlb_mm_ipi, (void *)mm, 1);
-@@ -369,7 +369,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ #ifdef CONFIG_DEBUG_DCFLUSH
+ 	atomic_inc(&dcpage_flushes);
+@@ -956,7 +957,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
  	}
- 	local_flush_tlb_mm(mm);
+ 	__local_flush_dcache_page(page);
  
 -	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- struct flush_tlb_data {
-@@ -390,7 +390,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
- {
- 	struct mm_struct *mm = vma->vm_mm;
+ void __irq_entry smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
+diff --git a/arch/sparc/kernel/sun4d_smp.c b/arch/sparc/kernel/sun4d_smp.c
+index ddaea31..1fa7ff2 100644
+--- a/arch/sparc/kernel/sun4d_smp.c
++++ b/arch/sparc/kernel/sun4d_smp.c
+@@ -300,6 +300,7 @@ static void sun4d_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
+ 		unsigned long flags;
  
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
- 		struct flush_tlb_data fd;
+ 		spin_lock_irqsave(&cross_call_lock, flags);
++		get_online_cpus_atomic();
  
-@@ -405,7 +405,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
- 				cpu_context(i, mm) = 0;
+ 		{
+ 			/*
+@@ -356,6 +357,7 @@ static void sun4d_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
+ 			} while (++i <= high);
+ 		}
+ 
++		put_online_cpus_atomic();
+ 		spin_unlock_irqrestore(&cross_call_lock, flags);
  	}
- 	local_flush_tlb_range(vma, start, end);
--	preempt_enable();
-+	put_online_cpus_atomic();
+ }
+diff --git a/arch/sparc/kernel/sun4m_smp.c b/arch/sparc/kernel/sun4m_smp.c
+index 128af73..5599548 100644
+--- a/arch/sparc/kernel/sun4m_smp.c
++++ b/arch/sparc/kernel/sun4m_smp.c
+@@ -192,6 +192,7 @@ static void sun4m_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
+ 		unsigned long flags;
+ 
+ 		spin_lock_irqsave(&cross_call_lock, flags);
++		get_online_cpus_atomic();
+ 
+ 		/* Init function glue. */
+ 		ccall_info.func = func;
+@@ -238,6 +239,8 @@ static void sun4m_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
+ 					barrier();
+ 			} while (++i < ncpus);
+ 		}
++
++		put_online_cpus_atomic();
+ 		spin_unlock_irqrestore(&cross_call_lock, flags);
  }
  
- static void flush_tlb_kernel_range_ipi(void *info)
-@@ -433,7 +433,7 @@ static void flush_tlb_page_ipi(void *info)
- 
- void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
- {
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	if ((atomic_read(&vma->vm_mm->mm_users) != 1) ||
- 	    (current->mm != vma->vm_mm)) {
- 		struct flush_tlb_data fd;
-@@ -448,7 +448,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
- 				cpu_context(i, vma->vm_mm) = 0;
- 	}
- 	local_flush_tlb_page(vma, page);
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- static void flush_tlb_one_ipi(void *info)
