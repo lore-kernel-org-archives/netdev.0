@@ -1,11 +1,14 @@
 From: Kees Cook <keescook@chromium.org>
-Subject: [PATCH 06/20] drivers/net/ethernet/stmicro/stmmac: remove depends on CONFIG_EXPERIMENTAL
-Date: Tue, 22 Jan 2013 10:30:30 -0800
-Message-ID: <1358879444-25834-7-git-send-email-keescook@chromium.org>
+Subject: [PATCH 20/20] drivers/net/wireless/rtlwifi: remove depends on CONFIG_EXPERIMENTAL
+Date: Tue, 22 Jan 2013 10:30:44 -0800
+Message-ID: <1358879444-25834-21-git-send-email-keescook@chromium.org>
 References: <1358879444-25834-1-git-send-email-keescook@chromium.org>
 Cc: netdev@vger.kernel.org, Kees Cook <keescook@chromium.org>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1358879444-25834-1-git-send-email-keescook@chromium.org>
@@ -16,28 +19,29 @@ The CONFIG_EXPERIMENTAL config item has not carried much meaning for a
 while now and is almost always enabled by default. As agreed during the
 Linux kernel summit, remove it from any "depends on" lines in Kconfigs.
 
-CC: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: NetDev <netdev@vger.kernel.org>
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/Kconfig |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/wireless/rtlwifi/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-index 1164930..c0ea838 100644
---- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-@@ -26,8 +26,8 @@ config STMMAC_PLATFORM
- 	  If unsure, say N.
+diff --git a/drivers/net/wireless/rtlwifi/Kconfig b/drivers/net/wireless/rtlwifi/Kconfig
+index 21b1bbb..a60a031 100644
+--- a/drivers/net/wireless/rtlwifi/Kconfig
++++ b/drivers/net/wireless/rtlwifi/Kconfig
+@@ -34,7 +34,7 @@ config RTL8192DE
  
- config STMMAC_PCI
--	bool "STMMAC PCI bus support (EXPERIMENTAL)"
--	depends on STMMAC_ETH && PCI && EXPERIMENTAL
-+	bool "STMMAC PCI bus support"
-+	depends on STMMAC_ETH && PCI
+ config RTL8723AE
+ 	tristate "Realtek RTL8723AE PCIe Wireless Network Adapter"
+-	depends on MAC80211 && PCI && EXPERIMENTAL
++	depends on MAC80211 && PCI
+ 	select FW_LOADER
+ 	select RTLWIFI
  	---help---
- 	  This is to select the Synopsys DWMAC available on PCI devices,
- 	  if you have a controller with this interface, say Y or M here.
 -- 
 1.7.9.5
