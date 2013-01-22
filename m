@@ -1,70 +1,60 @@
-From: Yannick Koehler <yannick@koehler.name>
-Subject: Unix Socket buffer attribution
-Date: Mon, 21 Jan 2013 21:01:53 -0500
-Message-ID: <CAJ4BwwFZo=ktoNBpw14yxyvR1QPQ_xVzKRs=R7qv03g1uwn8pg@mail.gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: Rate Limitation of Router Reachability Probing for possible dead
+ routers (is Re: ipv6: Do not depend on rt->n in rt6_probe().)
+Date: Tue, 22 Jan 2013 12:47:42 +0900
+Message-ID: <50FE0BDE.2080206@linux-ipv6.org>
+References: <20130121182858.GA8808@elgon.mountain> <50FD8BC6.1030509@linux-ipv6.org> <50FD96E4.1020607@linux-ipv6.org> <20130121.154425.239941234471254414.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:63158 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874Ab3AVCBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 21:01:54 -0500
-Received: by mail-we0-f177.google.com with SMTP id d7so498466wer.36
-        for <netdev@vger.kernel.org>; Mon, 21 Jan 2013 18:01:53 -0800 (PST)
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51066 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752656Ab3AVDro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jan 2013 22:47:44 -0500
+In-Reply-To: <20130121.154425.239941234471254414.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Hi, I got pointed to this list, I have this question about the unix
-socket domain buffer attribution system (sorry about the language,
-trying to do my best).
+David Miller wrote:
+> From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Date: Tue, 22 Jan 2013 04:28:36 +0900
+> 
+>> Ok, fix is easy, but in fact, we have broken router reachability
+>> probing.
+>>
+>> Here rt->n was neighbour entry for (unreachable) router.
+>> The specification says, we SHOUDLD probe such router, but we
+>> should  have some rate limit (once per minute, or so).
+>>
+>> We used "rt->n->updated" for this purpose, but now, if NS failed,
+>> we may immediately removes neighbour entry for it.  So,
+>> we might continue sending NS to dead router every 1 second.
+>>
+>> Any ideas?
+> 
+> I don't see exactly how looking up the neigh on demand is different
+> from using a cached one in this context.
+> 
+> In both cases there should be a neigh entry in nd_tbl, why would
+> there not be one?
 
-  I believe I have found a problem on how memory is associated with a
-given socket when using Unix Socket Domains in datagram mode, the
-problem is possibly also present in other mode but I have not checked.
- I am not that familiar with kernel debugging, and got to this level
-after attempting to understand a user-space application situation.
+Well, now, the almost only refcnt holder except table is timer.
+because each route does not have reference to neighbour (thus no
+refcnt) anymore.
 
-  I have a server socket, using a unix domain socket.  Many clients
-connect to this server.  If one of the client stop calling recvfrom()
-on the socket, all others clients stops receiving anymore events.
-This is pretty much a observer/subscriver model, where clients do not
-need to send stuff in order to receive.
+If n->nud_state become NUD_FAILED (or even in NUD_STALE),
+the entry does not have any refcnt holders other than table,
+and then, neigh_periodic_work() will purge such entries.
 
-  At the technical level, when my server try to send data to any of my
-clients, I get errno EAGAIN (11) on a sendto.  I would have expected
-that in such situation, I would get the EAGAIN when calling sendto()
-with the address of the particular client which stop calling
-recvfrom(), but I actually am getting EAGAIN on all clients, even
-those which properly behave and empty their receive buffer using
-recvfrom().
+> If necessary, you can decide to mark entries in such a way that
+> they would have a lower priority for neigh GC purging if that
+> is the issue.
 
-  I believe I tracked down in the kernel why this is occurring.  When
-sending, the af_unix.c uses sock_alloc_send_skb() and passes as the
-first parameter the sk variable that hold my server socket.  This
-increase the sk_wmem_alloc variable associated with the server socket.
- Then the code retrieve the socket associated with my destination and
-place it under the variable "other".
+It seems that we removed check for gc_thresh1 (number of
+minimum entries) in neigh_alloc() during 2.3.x but I cannot
+remember the reason (or just I do not know it).
 
-  It then validate that this "other" socket structure receive queue
-isn't full, and then add the newly created skb to that queue.  But,
-the memory cost is still accounted for under the server sk_rmem_alloc,
-and will only get cleared when the skb gets free using kfree_skb()
-which will invoke sock_wfree() and decrease the count.
-
-  Since one of the client isn't calling recvfrom(), the kfree_skb will
-never get invoked and therefore the count will only increase.  When
-the count exceed or reach the sk_sendrcv_size then the
-sock_alloc_send_skb() function always return EAGAIN, independently of
-which destination I am trying to reach.
-
-  I believe that the problem is that once we move the skb into the
-client's receive queue we need to decrease the sk_wmem_alloc variable
-of the server socket since that skb is no more tied to the server.
-The code should then account for this memory as part of the
-sk_rmem_alloc variable on the client's socket.  The function
-"skb_set_owner_r(skb,owner)" would seem to be the function to do that,
-so it would seem to me.
-
---
-Yannick Koehler
+--yoshfuji
