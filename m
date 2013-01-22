@@ -1,79 +1,47 @@
-From: Cong Ding <dinggnu@gmail.com>
-Subject: [PATCH] net/ceph/osdmap.c: fix undefined behavior when using snprintf()
-Date: Tue, 22 Jan 2013 19:20:29 +0000
-Message-ID: <1358882429-19066-1-git-send-email-dinggnu@gmail.com>
-Cc: Cong Ding <dinggnu@gmail.com>
-To: Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: ipsec 2013-01-22
+Date: Tue, 22 Jan 2013 14:21:23 -0500 (EST)
+Message-ID: <20130122.142123.1616754423891464190.davem@davemloft.net>
+References: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55856 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753472Ab3AVTV0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:21:26 -0500
+In-Reply-To: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The variable "str" is used as both the source and destination in function
-snprintf(), which is undefined behavior based on C11. The original description
-in C11 is:
-	"If copying takes place between objects that
-	overlap, the behavior is undefined."
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 22 Jan 2013 10:06:31 +0100
 
-And, the function of ceph_osdmap_state_str() is to return the osdmap state, so
-it should return "doesn't exist" when all the conditions are not satisfied. I
-fix it in this patch.
+> 1) The transport header did not point to the right place after
+>    esp/ah processing on tunnel mode in the receive path. As a
+>    result, the ECN field of the inner header was not set correctly,
+>    fixes from Li RongQing.
+> 
+> 2) We did a null check too late in one of the xfrm_replay advance
+>    functions. This can lead to a division by zero, fix from
+>    Nickolai Zeldovich.
+> 
+> 3) The size calculation of the hash table missed the muiltplication
+>    with the actual struct size when the hash table is freed.
+>    We might call the wrong free function, fix from Michal Kubecek.
+> 
+> 4) On IPsec pmtu events we can't access the transport headers of
+>    the original packet, so force a relookup for all routes
+>    to notify about the pmtu event.
+> 
+> Please pull or let me know if there are problems.
 
-Based on C11, snprintf() does nothing if n==0:
-	"If n is zero, nothing is written, and s may be a
-	null pointer. Otherwise, output characters beyond
-	the n-1st are discarded rather than being written to
-	the array, and a null character is written at the
-	end of the characters actually written into the
-	array."
-so I remove the unnecessary check of len (because it is not a busy path and
-saves a few lines of code).
+Pulled, thakns a lot.
 
-Signed-off-by: Cong Ding <dinggnu@gmail.com>
----
- net/ceph/osdmap.c |   27 ++++++++-------------------
- 1 file changed, 8 insertions(+), 19 deletions(-)
+Please be explicit in the future about what tree a set of changes are
+targetted at.
 
-diff --git a/net/ceph/osdmap.c b/net/ceph/osdmap.c
-index de73214..3131a99d3 100644
---- a/net/ceph/osdmap.c
-+++ b/net/ceph/osdmap.c
-@@ -13,26 +13,15 @@
- 
- char *ceph_osdmap_state_str(char *str, int len, int state)
- {
--	int flag = 0;
--
--	if (!len)
--		goto done;
--
--	*str = '\0';
--	if (state) {
--		if (state & CEPH_OSD_EXISTS) {
--			snprintf(str, len, "exists");
--			flag = 1;
--		}
--		if (state & CEPH_OSD_UP) {
--			snprintf(str, len, "%s%s%s", str, (flag ? ", " : ""),
--				 "up");
--			flag = 1;
--		}
--	} else {
-+	if ((state & CEPH_OSD_EXISTS) && (state & CEPH_OSD_UP))
-+		snprintf(str, len, "exists, up");
-+	else if (state & CEPH_OSD_EXISTS)
-+		snprintf(str, len, "exists");
-+	else if (state & CEPH_OSD_UP)
-+		snprintf(str, len, "up");
-+	else
- 		snprintf(str, len, "doesn't exist");
--	}
--done:
-+
- 	return str;
- }
- 
--- 
-1.7.10.4
+Thanks.
