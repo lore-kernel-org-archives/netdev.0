@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same
- port
-Date: Tue, 22 Jan 2013 15:28:58 -0500 (EST)
-Message-ID: <20130122.152858.733964025451561267.davem@davemloft.net>
-References: <alpine.DEB.2.00.1301221142300.26333@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH v2] xen-netback: allow changing the MAC address of the
+ interface
+Date: Tue, 22 Jan 2013 15:29:37 -0500 (EST)
+Message-ID: <20130122.152937.698328122484839991.davem@davemloft.net>
+References: <1358878105-7890-1-git-send-email-msw@amazon.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netdev@markandruth.co.uk,
-	eric.dumazet@gmail.com
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56564 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755813Ab3AVU3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 15:29:06 -0500
-In-Reply-To: <alpine.DEB.2.00.1301221142300.26333@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, ian.campbell@citrix.com,
+	netdev@vger.kernel.org, xen-devel@lists.xen.org,
+	konrad.wilk@oracle.com
+To: msw@amazon.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358878105-7890-1-git-send-email-msw@amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 22 Jan 2013 11:49:46 -0800 (PST)
+From: Matt Wilson <msw@amazon.com>
+Date: Tue, 22 Jan 2013 18:08:25 +0000
 
-> This series implements so_reuseport (SO_REUSEPORT socket option) for
-> TCP and UDP.
+> Sometimes it is useful to be able to change the MAC address of the
+> interface for netback devices. For example, when using ebtables it may
+> be useful to be able to distinguish traffic from different interfaces
+> without depending on the interface name.
+> 
+> Reported-by: Nikita Borzykh <sample.n@gmail.com>
+> Reported-by: Paul Harvey <stockingpaul@hotmail.com>
+> Cc: netdev@vger.kernel.org
+> Cc: xen-devel@lists.xen.org
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
+> Signed-off-by: Matt Wilson <msw@amazon.com>
 
-Series applied, thanks Tom.
+Applied to net-next, thanks.
