@@ -1,74 +1,66 @@
-From: Alexey ORISHKO <alexey.orishko@stericsson.com>
-Subject: RE: [PATCH net 2/3] net: cdc_mbim: send ZLP after max sized NTBs
-Date: Tue, 22 Jan 2013 16:51:24 +0100
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE18283@EXDCVYMBSTM006.EQ1STM.local>
-References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
-	<1358783440-11459-3-git-send-email-bjorn@mork.no>
-	<2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D57@EXDCVYMBSTM006.EQ1STM.local>
- <87zk01a6gj.fsf@nemi.mork.no>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next V6 02/14] bridge: Add vlan filtering
+ infrastructure
+Date: Tue, 22 Jan 2013 17:55:24 +0200
+Message-ID: <20130122175524.033c6f7f.shmulik.ladkani@gmail.com>
+References: <1358360289-23249-1-git-send-email-vyasevic@redhat.com>
+	<1358360289-23249-3-git-send-email-vyasevic@redhat.com>
+	<CAHXqBFKg6Vp5=dprDYKON2LmshhX+nSPF7KRHiQmOS68PrQq-A@mail.gmail.com>
+	<50FC307A.5090003@redhat.com>
+	<20130120113825.759b4a58@nehalam.linuxnetplumber.net>
+	<50FC9F03.5000102@redhat.com>
+	<20130121134534.78032a54.shmulik.ladkani@gmail.com>
+	<50FEA2CF.4060406@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	Greg Suarez <gsuarez@smithmicro.com>,
-	Oliver Neukum <oneukum@suse.de>,
-	Alexey Orishko <alexey.orishko@gmail.com>
-To: =?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net, shemminger@vyatta.com,
+	mst@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:55586 "EHLO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753549Ab3AVPwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:52:23 -0500
-In-Reply-To: <87zk01a6gj.fsf@nemi.mork.no>
-Content-Language: en-US
+Received: from mail-bk0-f54.google.com ([209.85.214.54]:48336 "EHLO
+	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754383Ab3AVPzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:55:38 -0500
+Received: by mail-bk0-f54.google.com with SMTP id w5so558519bku.13
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 07:55:36 -0800 (PST)
+In-Reply-To: <50FEA2CF.4060406@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SCBCasO4cm4sDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmrDuHJu
-IE1vcmsgW21haWx0bzpiam9ybkBtb3JrLm5vXQ0KPiBTZW50OiBUdWVzZGF5LCBKYW51YXJ5IDIy
-LCAyMDEzIDEwOjU0IEFNDQo+IA0KPiA+IElmIHlvdSBhZGQgWkxQIGZvciBOVEJzIG9mIGR3TnRi
-T3V0TWF4U2l6ZSwgeW91IGFyZSBoZWF2aWx5IGFmZmVjdGluZw0KPiA+IENQVSBsb2FkLCBpbmNy
-ZWFzaW5nIGludGVycnVwdCBsb2FkIGJ5IGZhY3RvciBvZiAyIGluIGhpZ2ggbG9hZA0KPiA+IHRy
-YWZmaWMgc2NlbmFyaW8gYW5kIHBvc3NpYmx5IGRlY3JlYXNpbmcgdGhyb3VnaHB1dCBmb3IgYWxs
-IG90aGVyDQo+ID4gZGV2aWNlcyB3aGljaCBiZWhhdmVzIGNvcnJlY3RseS4NCj4gIA0KPiBUaGUg
-Y3VycmVudCBjZGNfbmNtL2NkY19tYmltIGRyaXZlcnMgd2lsbCBwYWQgYSBOVEIgdG8gdGhlIGZ1
-bGwNCj4gZHdOdGJPdXRNYXhTaXplIHdoZW5ldmVyIGl0IHJlYWNoZXMgYXQgbGVhc3QgNTEyIGJ5
-dGVzLiAgVGhlIHJlYXNvbiBpcw0KPiB0aGF0IHRoaXMgYWxsb3dzIG1vcmUgZWZmaWNpZW50IGRl
-dmljZSBETUEgb3BlcmF0aW9uLiAgVGhpcyBpcw0KPiBzb21ldGhpbmcgd2UgZG8gdG8gYWRhcHQg
-dG8gZGV2aWNlIGhhcmR3YXJlIHJlc3RyaWN0aW9ucyBldmVuIHRob3VnaA0KPiB0aGVyZSBpcyBu
-byBzdWNoIHJlY29tbWVuZGF0aW9ucyBpbiB0aGUgTkNNL01CSU0gc3BlY3MuICANCg0KVGhlcmUg
-YXJlIGEgbG90IG9mIHRoaW5ncyB3aGljaCB3ZXJlIGRpc2N1c3NlZCBkdXJpbmcgZGV2ZWxvcG1l
-bnQgb2YNCnNwZWNpZmljYXRpb25zLCBidXQgbm90IGVuZGVkIHVwIGluIHRoZSBmaW5hbCB2ZXJz
-aW9uIG9mIHRoZSBzcGVjIGR1ZSB0bw0KdmFyaW91cyByZWFzb25zLiBDb21wYW5pZXMgYXR0ZW5k
-aW5nIFVTQi1JRiBGMkYgbWVldGluZ3MgY2FuIGJlbmVmaXQNCmZyb20gZGlzY3Vzc2lvbnMgYmV0
-d2VlbiBtZW1iZXIgY29tcGFuaWVzIGFuZCBnZXQgYWNjZXNzIHRvIGFkZGl0aW9uYWwNCmluZm9y
-bWF0aW9uIG5vdCB2aXNpYmxlIG91dHNpZGUgb2YgVVNCLUlGLiANCg0KPiBUaGUgcGVuYWx0eSBv
-bg0KPiB0aGUgaG9zdCBhbmQgYnVzIHNob3VsZCBiZSBvYnZpb3VzOiBFdmVuIHdpdGggYSBxdWl0
-ZSBzbWFsbA0KPiBkd050Yk91dE1heFNpemUgb2YgNDA5Niwgd2UgZW5kIHVwIHNlbmRpbmcgOCB4
-IDUxMi1ieXRlIGRhdGEgcGFja2V0cw0KPiBpbnN0ZWFkIG9mIHRoZSAyIHdlIGNvdWxkIGhhdmUg
-bWFuYWdlZCB3aXRoLg0KDQpJdCB3YXMgaW50ZW50aW9uYWwgYW5kIGl0J3MgZGV2ZWxvcGVyIGNo
-b2ljZSAoc2VlIGFsc28gdGhlIGxhc3QgY29tbWVudCkuDQpJdCdzIGEgc3RyYWlnaHRmb3J3YXJk
-IGFwcHJvYWNoLCBidXQgdGhpcyBsaW1pdCBjb3VsZCBiZSBhIGR5bmFtaWMNCnZhbHVlIGJhc2Vk
-IG9uIHN0YXRpc3RpYyBhbmQgY3VycmVudCBsb2FkLg0KDQo+ICANCj4gTm93IHlvdSBjbGFpbSB0
-aGF0IHNlbmRpbmcgOSBwYWNrZXRzLCB3aGVyZSB0aGUgbGFzdCBvbmUgaXMgYSB6ZXJvDQo+IGxl
-bmd0aCBwYWNrZXQsIGluY3JlYXNlIHRoZSBpbnRlcnJ1cHQgbG9hZCBieSBmYWN0b3Igb2YgMj8g
-IEhvdyBpcw0KPiB0aGF0Pw0KDQpZb3Ugc2V0IHVwIERNQSBqb2IgdG8gcmVjZWl2ZSBmdWxsIE5U
-QiBhbmQgZ2V0IGEgc2luZ2xlIGludGVycnVwdA0Kd2hlbiBqb2IgaXMgZG9uZS4gSXQgbWVhbnMg
-d2hpbGUgRE1BIGlzIGNvbGxlY3RpbmcgZGF0YSwgQ1BVIGNhbiBkbw0Kc29tZXRoaW5nIGVsc2Ug
-KHNlbmQgZGF0YSB0byBOVyBzdGFjaykuDQoNCkluIG90aGVyIHByb3RvY29scyB5b3UgbmVlZCB0
-byBpbmRpY2F0ZSB0aGUgZW5kIG9mIGRhdGEsIGJ1dCBpbg0KTkNNL01CSU0gd2Uga25vdyBmb3Ig
-c3VyZSB0aGF0IGhvc3QgaXMgbm90IGFsbG93ZWQgdG8gc2VuZCBtb3JlDQp0aGFuIGR3TnRiT3V0
-TWF4U2l6ZSBieXRlcywgc28gWkxQIGlzIG5vdCBuZWVkZWQuDQoNCklmIGhvc3QgZGVjaWRlcyB0
-byBzZW5kIFpMUCBhZnRlciBmdWxsIE5UQiwgQ1BVIG11c3QgaGFuZGxlDQphZGRpdGlvbmFsIElO
-VCBwZXIgZXZlcnkgZnVsbCBOVEIgaW5zdGVhZCBvZiBkb2luZyB1c2VmdWwgd29yay4NCkZvciBG
-VFAgdHJhbnNmZXIgd2l0aCBjb25zdGFudGx5IGZ1bGwgTlRCcyB5b3UgZ2V0IHR3aWNlIGFtb3Vu
-dCBvZg0KSW50ZXJydXB0cy4NCg0KPiBXaHkgaXMgdGhlIGRldmljZSBETUEgcmVzdHJpY3Rpb25z
-IG5vdCBhIGZhdWx0LCB3aGlsZSB0aGUgZGV2aWNlIFpMUA0KPiByZXF1aXJlbWVudCBpcz8gIEJv
-dGggc2VlbSBsaWtlIHJlYXNvbmFibGUgZGV2aWNlIGhhcmR3YXJlL2Zpcm13YXJlDQo+IGltcGxl
-bWVudGF0aW9uIGltcG9zZWQgcmVzdHJpY3Rpb25zIHRvIG1lLiAgU29tZXRoaW5nIHdlJ2xsIGp1
-c3QgaGF2ZQ0KPiB0byBhY2NlcHQuDQoNCkJvdGggc3BlY2lmaWNhdGlvbnMgKE5DTS9NQklNKSB3
-ZXJlIHdyaXR0ZW4gZnJvbSB0aGUgcG9pbnQgb2YgaG9zdCAobW9zdA0KbGlrZWx5IFBDIHdpdGgg
-Mi80IGNvcmUgQ1BVKSBiZWluZyBtb3JlIHBvd2VyZnVsIHRoYW4gZGV2aWNlIGFuZCB3aXRoDQpy
-ZXF1aXJlbWVudCBmb3IgaG9zdCB0byBob25vciBkZXZpY2UgbGltaXRhdGlvbnMuDQoNClJlZ2Fy
-ZHMsDQpBbGV4ZXkNCg==
+Thanks Vlad,
+
+On Tue, 22 Jan 2013 09:31:43 -0500 Vlad Yasevich <vyasevic@redhat.com> wrote:
+> > I guess this might simplify the data structures involved, avoiding the
+> > refcounts, etc...
+> >
+> > The penaties are:
+> >   - memory
+> >   - aesthetics (?)
+> >   - inefficient if query is "give me the entire list of VLANs port P is
+> >     member of". But do we have such a query in bridge's code?
+> 
+> Yes.  When a mac address is added to a port without an explicit vlan tag 
+> we try to add it for every vlan available on the port.
+
+I see.
+Can't this be bypassed by adding a _single_ FDB entry whose VID value
+denotes "member of ANY vlan" (value outside the valid 0-4095 range)?
+
+> Also, in the API, the user may request vlans configured on a port.
+
+Personally I'd pay the penalty implementing this specific user request
+in an inefficeint way, to acheive overall simplicity in core bridge
+code.
+But that's just my humble opinion, maybe others might spot drawbacks
+taking this approach.
+
+BTW, went through the ML, couldn't find the reason why dropped the
+per-port vlan bitmap and replaced with a vlan list (after your RFC v2
+patches). Care to explain what was your motivation?
+
+Regards,
+Shmulik
