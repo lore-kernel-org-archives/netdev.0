@@ -1,46 +1,40 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
-Date: Tue, 22 Jan 2013 11:35:48 +0100
-Message-ID: <87d2wxa4jf.fsf@nemi.mork.no>
-References: <1358519147-10073-1-git-send-email-bjorn@mork.no>
-	<2214944.HMNV73jJm5@linux-5eaq.site> <87ip6qy2q7.fsf@nemi.mork.no>
-	<6132136.Whp52cipJH@linux-5eaq.site>
+From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v3] net, wireless: overwrite default_ethtool_ops
+Date: Tue, 22 Jan 2013 11:56:19 +0100
+Message-ID: <20130122105618.GB2328@redhat.com>
+References: <1357934432.2643.4.camel@bwh-desktop.uk.solarflarecom.com>
+ <20130111.155936.1799008114956712424.davem@davemloft.net>
+ <CAB=NE6XjvupJ5XO0EN0HVwdy61ECWL=Ey0g1gsNm+v8Sen=nsQ@mail.gmail.com>
+ <20130121.160404.1007504714461228602.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexey Orishko <alexey.orishko@gmail.com>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, Greg Suarez <gsuarez@smithmicro.com>,
-	Alexey Orishko <alexey.orishko@stericsson.com>
-To: Oliver Neukum <oneukum@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:53923 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750723Ab3AVKgi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 05:36:38 -0500
-In-Reply-To: <6132136.Whp52cipJH@linux-5eaq.site> (Oliver Neukum's message of
-	"Tue, 22 Jan 2013 09:50:39 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
+	greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130121.160404.1007504714461228602.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oneukum@suse.de> writes:
-> On Monday 21 January 2013 16:28:48 Bj=C3=B8rn Mork wrote:
->
->> Agreed.  But I believe the condition should be=20
->>=20
->>  if (!(info->flags & FLAG_SEND_ZLP) && !(info->flags & FLAG_MULTI_PA=
-CKET)) {
->>      ..
->>  } else {
->>      urb->transfer_flags |=3D URB_ZERO_PACKET;
->>  }
->>=20
->> to ensure that we send the ZLP in this case.
->
-> Why? If a driver wants ZLP, it can set FLAG_SEND_ZLP. Your proposed c=
-hange
-> would take away an option from drivers without any gain.
+On Mon, Jan 21, 2013 at 04:04:04PM -0500, David Miller wrote:
+> 
+> It's queued up for -stable already as is clearly seen at:
+> 
+> http://patchwork.ozlabs.org/user/bundle/2566/?state=*
 
-OK.
+Hmm, this link does not work for me (need user/password).
 
+Anyway, I marked cc -stable in v2 patch, but forgot that in v3.
+Committed patch does not include the mark, so I'll post patch
+to stable just in case.
 
-Bj=C3=B8rn
+Thanks
+Stanislaw 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
