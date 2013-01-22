@@ -1,230 +1,40 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 3/5] soreuseport: UDP/IPv4 implementation
-Date: Tue, 22 Jan 2013 11:50:32 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1301221141470.26248@pokey.mtv.corp.google.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 16/20] drivers/net/wireless/p54: remove depends on
+ CONFIG_EXPERIMENTAL
+Date: Tue, 22 Jan 2013 11:59:12 -0800
+Message-ID: <20130122195912.GA31151@kroah.com>
+References: <1358879444-25834-17-git-send-email-keescook@chromium.org>
+ <201301221937.16916.chunkeey@googlemail.com>
+ <CAGXu5jJCQshUntUk7MeZds59B2fa54GnonOz28dM1x2spEEGDg@mail.gmail.com>
+ <20130122.141252.781223481145097577.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="296491395-1238615092-1358884232=:26248"
-Cc: netdev@markandruth.co.uk, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f202.google.com ([209.85.213.202]:42219 "EHLO
-	mail-ye0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755701Ab3AVT5V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:57:21 -0500
-Received: by mail-ye0-f202.google.com with SMTP id r9so849449yen.3
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 11:57:20 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: keescook@chromium.org, chunkeey@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linville@tuxdriver.com, kvalo@qca.qualcomm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130122.141252.781223481145097577.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Tue, Jan 22, 2013 at 02:12:52PM -0500, David Miller wrote:
+> From: Kees Cook <keescook@chromium.org>
+> Date: Tue, 22 Jan 2013 10:40:12 -0800
+> 
+> > On Tue, Jan 22, 2013 at 10:37 AM, Christian Lamparter
+> > <chunkeey@googlemail.com> wrote:
+> >> Aren't these patches going through wireless-next
+> >> or linux-next?
+> > 
+> > They can go however it makes things easiest. Greg has offered to carry
+> > them in driver-core if Dave doesn't want to carry them in netdev.
+> 
+> Greg can take these:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
---296491395-1238615092-1358884232=:26248
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+Thanks, I'll go do that now.
 
-Allow multiple UDP sockets to bind to the same port.
-
-Motivation soreuseport would be something like a DNS server.  An
-alternative would be to recv on the same socket from multiple threads.
-As in the case of TCP, the load across these threads tends to be
-disproportionate and we also see a lot of contection on the socketlock.
-Note that SO_REUSEADDR already allows multiple UDP sockets to bind to
-the same port, however there is no provision to prevent hijacking and
-nothing to distribute packets across all the sockets sharing the same
-bound port.  This patch does not change the semantics of SO_REUSEADDR,
-but provides usable functionality of it for unicast.
-
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/udp.c |   61 +++++++++++++++++++++++++++++++++++++++----------------
- 1 files changed, 43 insertions(+), 18 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 79c8dbe..b360b30 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -139,6 +139,7 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- {
- 	struct sock *sk2;
- 	struct hlist_nulls_node *node;
-+	kuid_t uid = sock_i_uid(sk);
- 
- 	sk_nulls_for_each(sk2, node, &hslot->head)
- 		if (net_eq(sock_net(sk2), net) &&
-@@ -147,6 +148,8 @@ static int udp_lib_lport_inuse(struct net *net, __u16 num,
- 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
-+		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
-+		      !uid_eq(uid, sock_i_uid(sk2))) &&
- 		    (*saddr_comp)(sk, sk2)) {
- 			if (bitmap)
- 				__set_bit(udp_sk(sk2)->udp_port_hash >> log,
-@@ -169,6 +172,7 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- {
- 	struct sock *sk2;
- 	struct hlist_nulls_node *node;
-+	kuid_t uid = sock_i_uid(sk);
- 	int res = 0;
- 
- 	spin_lock(&hslot2->lock);
-@@ -179,6 +183,8 @@ static int udp_lib_lport_inuse2(struct net *net, __u16 num,
- 		    (!sk2->sk_reuse || !sk->sk_reuse) &&
- 		    (!sk2->sk_bound_dev_if || !sk->sk_bound_dev_if ||
- 		     sk2->sk_bound_dev_if == sk->sk_bound_dev_if) &&
-+		    (!sk2->sk_reuseport || !sk->sk_reuseport ||
-+		      !uid_eq(uid, sock_i_uid(sk2))) &&
- 		    (*saddr_comp)(sk, sk2)) {
- 			res = 1;
- 			break;
-@@ -337,26 +343,26 @@ static inline int compute_score(struct sock *sk, struct net *net, __be32 saddr,
- 			!ipv6_only_sock(sk)) {
- 		struct inet_sock *inet = inet_sk(sk);
- 
--		score = (sk->sk_family == PF_INET ? 1 : 0);
-+		score = (sk->sk_family == PF_INET ? 2 : 1);
- 		if (inet->inet_rcv_saddr) {
- 			if (inet->inet_rcv_saddr != daddr)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 		if (inet->inet_daddr) {
- 			if (inet->inet_daddr != saddr)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 		if (inet->inet_dport) {
- 			if (inet->inet_dport != sport)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 		if (sk->sk_bound_dev_if) {
- 			if (sk->sk_bound_dev_if != dif)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 	}
- 	return score;
-@@ -365,7 +371,6 @@ static inline int compute_score(struct sock *sk, struct net *net, __be32 saddr,
- /*
-  * In this second variant, we check (daddr, dport) matches (inet_rcv_sadd, inet_num)
-  */
--#define SCORE2_MAX (1 + 2 + 2 + 2)
- static inline int compute_score2(struct sock *sk, struct net *net,
- 				 __be32 saddr, __be16 sport,
- 				 __be32 daddr, unsigned int hnum, int dif)
-@@ -380,21 +385,21 @@ static inline int compute_score2(struct sock *sk, struct net *net,
- 		if (inet->inet_num != hnum)
- 			return -1;
- 
--		score = (sk->sk_family == PF_INET ? 1 : 0);
-+		score = (sk->sk_family == PF_INET ? 2 : 1);
- 		if (inet->inet_daddr) {
- 			if (inet->inet_daddr != saddr)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 		if (inet->inet_dport) {
- 			if (inet->inet_dport != sport)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 		if (sk->sk_bound_dev_if) {
- 			if (sk->sk_bound_dev_if != dif)
- 				return -1;
--			score += 2;
-+			score += 4;
- 		}
- 	}
- 	return score;
-@@ -409,19 +414,29 @@ static struct sock *udp4_lib_lookup2(struct net *net,
- {
- 	struct sock *sk, *result;
- 	struct hlist_nulls_node *node;
--	int score, badness;
-+	int score, badness, matches = 0, reuseport = 0;
-+	u32 hash = 0;
- 
- begin:
- 	result = NULL;
--	badness = -1;
-+	badness = 0;
- 	udp_portaddr_for_each_entry_rcu(sk, node, &hslot2->head) {
- 		score = compute_score2(sk, net, saddr, sport,
- 				      daddr, hnum, dif);
- 		if (score > badness) {
- 			result = sk;
- 			badness = score;
--			if (score == SCORE2_MAX)
--				goto exact_match;
-+			reuseport = sk->sk_reuseport;
-+			if (reuseport) {
-+				hash = inet_ehashfn(net, daddr, hnum,
-+						    saddr, htons(sport));
-+				matches = 1;
-+			}
-+		} else if (score == badness && reuseport) {
-+			matches++;
-+			if (((u64)hash * matches) >> 32 == 0)
-+				result = sk;
-+			hash = next_pseudo_random32(hash);
- 		}
- 	}
- 	/*
-@@ -431,9 +446,7 @@ begin:
- 	 */
- 	if (get_nulls_value(node) != slot2)
- 		goto begin;
--
- 	if (result) {
--exact_match:
- 		if (unlikely(!atomic_inc_not_zero_hint(&result->sk_refcnt, 2)))
- 			result = NULL;
- 		else if (unlikely(compute_score2(result, net, saddr, sport,
-@@ -457,7 +470,8 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 	unsigned short hnum = ntohs(dport);
- 	unsigned int hash2, slot2, slot = udp_hashfn(net, hnum, udptable->mask);
- 	struct udp_hslot *hslot2, *hslot = &udptable->hash[slot];
--	int score, badness;
-+	int score, badness, matches = 0, reuseport = 0;
-+	u32 hash = 0;
- 
- 	rcu_read_lock();
- 	if (hslot->count > 10) {
-@@ -486,13 +500,24 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 	}
- begin:
- 	result = NULL;
--	badness = -1;
-+	badness = 0;
- 	sk_nulls_for_each_rcu(sk, node, &hslot->head) {
- 		score = compute_score(sk, net, saddr, hnum, sport,
- 				      daddr, dport, dif);
- 		if (score > badness) {
- 			result = sk;
- 			badness = score;
-+			reuseport = sk->sk_reuseport;
-+			if (reuseport) {
-+				hash = inet_ehashfn(net, daddr, hnum,
-+						    saddr, htons(sport));
-+				matches = 1;
-+			}
-+		} else if (score == badness && reuseport) {
-+			matches++;
-+			if (((u64)hash * matches) >> 32 == 0)
-+				result = sk;
-+			hash = next_pseudo_random32(hash);
- 		}
- 	}
- 	/*
--- 
-1.7.7.3
-
---296491395-1238615092-1358884232=:26248--
+greg k-h
