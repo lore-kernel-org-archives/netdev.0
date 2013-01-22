@@ -1,72 +1,81 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Tue, 22 Jan 2013 14:01:09 -0800
-Message-ID: <50FF0C25.9000300@hp.com>
-References: <20130122161038.GG4608@sociomantic.com> <1358873142.3464.3964.camel@edumazet-glaptop> <20130122165929.GH4608@sociomantic.com> <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] IP_GRE: Linearize skb before csum.
+Date: Tue, 22 Jan 2013 14:03:19 -0800
+Message-ID: <1358892199.12374.139.camel@edumazet-glaptop>
+References: <1358889648-1684-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130122184245.GJ4608@sociomantic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:63588 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751192Ab3AVWDV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 17:03:21 -0500
+Received: by mail-pa0-f47.google.com with SMTP id fa10so4319392pad.34
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 14:03:21 -0800 (PST)
+In-Reply-To: <1358889648-1684-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2013 10:42 AM, Leandro Lucarella wrote:
-> On Tue, Jan 22, 2013 at 10:17:50AM -0800, Rick Jones wrote:
->>> What is important is the backlog, and I guess you didn't increase it
->>> properly. The somaxconn default is quite low (128)
->>
->> Leandro -
->>
->> If that is being overflowed, I believe you should be seeing something like:
->>
->>      14 SYNs to LISTEN sockets dropped
->>
->> in the output of netstat -s on the system on which the server
->> application is running.
->
-> What is that value reporting exactly?
+On Tue, 2013-01-22 at 13:20 -0800, Pravin B Shelar wrote:
+> Make copy of skb sharable data by linearizing skb. so that
+> csum remain consistent when skb is actually transmitted.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+>  net/ipv4/ip_gre.c |   22 ++++++++++++++++++----
+>  1 file changed, 18 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index 7cdf1fe..20d3d37 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -738,7 +738,7 @@ drop:
+>  static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+>  	struct ip_tunnel *tunnel = netdev_priv(dev);
+> -	const struct iphdr  *old_iph = ip_hdr(skb);
+> +	const struct iphdr  *old_iph;
+>  	const struct iphdr  *tiph;
+>  	struct flowi4 fl4;
+>  	u8     tos;
+> @@ -752,9 +752,23 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+>  	int    mtu;
+>  	u8     ttl;
+>  
+> -	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+> -	    skb_checksum_help(skb))
+> -		goto tx_error;
+> +	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +		int err;
+> +
+> +		/* Pages aren't locked and could change at any time.
+> +		 * If this happens after we compute the checksum, the
+> +		 * checksum will be wrong.  We linearize now to avoid
+> +		 * this problem.
+> +		 */
+> +		err = __skb_linearize(skb);
+> +		if (unlikely(err))
+> +			goto tx_error;
+> +
+> +		err = skb_checksum_help(skb);
+> +		if (unlikely(err))
+> +			goto tx_error;
+> +	}
+> +	old_iph = ip_hdr(skb);
+>  
+>  	if (dev->type == ARPHRD_ETHER)
+>  		IPCB(skb)->flags = 0;
 
-Netstat is reporting the ListenDrops and/or ListenOverflows  which map 
-to LINUX_MIB_LISTENDROPS and LINUX_MIB_LISTENOVERFLOWS.  Those get 
-incremented in tcp_v4_syn_recv_sock() (and its v6 version etc)
+This sounds bogus to me.
 
-        if (sk_acceptq_is_full(sk))
-                 goto exit_overflow;
+If user cant cope with changes on sent data, just disable GSO on GRE
+device.
 
-Will increment both overflows and drops, and drops will increment on its 
-own in some additional cases.
+An application changing data provided on a sendfile() or vmsplice() cant
+really expect data integrity being respected, even if checksum are done
+by the NIC (TSO)
 
-> Because we are using syncookies, and AFAIK with that enabled, all
-> SYNs are being replied, and what the listen backlog is really
-> limitting is the "completely established sockets waiting to be
-> accepted", according to listen(2). What I don't really know to be
-> honest, is what a "completely established socket" is, does it mean
-> that the SYN,ACK was sent, or the ACK was received back?
-
-I have always thought it meant that the ACK of the SYN|ACK has been 
-received.
-
-SyncookiesSent SyncookiesRecv SyncookiesFailed also appear in 
-/proc/net/netstat and presumably in netstat -s output.
-
-> Also, from the client side, when is the connect(2) call done? When the
-> SYN,ACK is received?
-
-That would be my assumption.
-
-
-In a previous message:
-
-> What I'm seeing are clients taking either useconds to connect, or 3
-> seconds, which suggest SYNs are getting lost, but the network doesn't
-> seem to be the problem. I'm still investigating this, so unfortunately
-> I'm not really sure.
-
-I recently ran into something like that, which turned-out to be an issue 
-with nf_conntrack and its table filling.
-
-rick
+So if data integrity is not respected, just send a bogus TX checksum.
