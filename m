@@ -1,27 +1,39 @@
-From: "Paul" <mkosarek@sbcglobal.net>
-Subject: Need A Personal Assistant
-Date: Tue, 22 Jan 2013 07:33:09 -0500
-Message-ID: <B13CD9D1D9472B9649FBB02BA099A7A3F7E320D3@ycs5047-2023>
-Reply-To: "Paul" <sarrison051@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 20/33] net: Convert to devm_ioremap_resource()
+Date: Tue, 22 Jan 2013 13:03:06 +0000
+Message-ID: <201301221303.06785.arnd@arndb.de>
+References: <1358762966-20791-1-git-send-email-thierry.reding@avionic-design.de> <20130121.152913.1377695352860141642.davem@davemloft.net> <20130122065629.GA14523@avionic-0098.adnet.avionic-design.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
+	w.sang@pengutronix.de, netdev@vger.kernel.org
+To: Thierry Reding <thierry.reding@avionic-design.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm13.access.bullet.mail.mud.yahoo.com ([66.94.237.214]:27972
-	"EHLO nm13.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752480Ab3AVMjN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 07:39:13 -0500
+Received: from moutng.kundenserver.de ([212.227.17.10]:52259 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752132Ab3AVND0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 08:03:26 -0500
+In-Reply-To: <20130122065629.GA14523@avionic-0098.adnet.avionic-design.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are seeking an upbeat, energetic and self-motivated individual to fill a part-time administrative assistant position.
-Successful candidate will be highly organized and possess exceptional people skills, excellent written and verbal skills,be good with numbers and have the ability to multi-task in a fast-paced environment.
-Computer proficiency required: MS Office Excel and Word. Must be able to work weekdays Mon-fri. 10:am-3:00pm
+On Tuesday 22 January 2013, Thierry Reding wrote:
+> I planned to do so initially, but that yielded a Cc list of 156 people
+> and mailing lists, which I thought wasn't going to go down so well
+> either. In general I like Cc'ing everyone concerned on all patches of
+> the series, specifically for reasons of context. Some people have been
+> annoyed when I did so. Still, for small series where only a few dozen
+> people are concerned that seems to me to be the best way. But 156 email
+> addresses is a different story.
+> 
+> Either you add to many people or you don't add enough. Where do we draw
+> the line?
 
-Candidates should be able to start ASAP,
-Please submit resume with cover letter
-if interested for more details 
+I've had the same problem a couple of times. The best compromise seems
+to be to Cc only the top-level subsystem maintainers and mailing lists
+on the first email.
 
-Smith Arrison
+	Arnd
