@@ -1,67 +1,67 @@
 From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH] ethtool: Add version check for et131x regs
-Date: Tue, 22 Jan 2013 21:03:26 +0000
-Message-ID: <CANK3SE1EQAtzTj7Z9HEQmX49u8VaaUwJ--YtGaEt+Oi_KdE+fg@mail.gmail.com>
-References: <1357379851-5298-1-git-send-email-mark.einon@gmail.com> <1358887479.2892.22.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH] ethtool: Fix space-after-if checkpatch errors
+Date: Tue, 22 Jan 2013 21:04:50 +0000
+Message-ID: <1358888690-3140-1-git-send-email-mark.einon@gmail.com>
+Cc: netdev@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:52466 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751789Ab3AVVDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:03:42 -0500
-Received: by mail-ie0-f173.google.com with SMTP id e13so12500032iej.32
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:03:41 -0800 (PST)
-In-Reply-To: <1358887479.2892.22.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:56917 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751789Ab3AVVE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:04:56 -0500
+Received: by mail-wg0-f50.google.com with SMTP id es5so653630wgb.17
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:04:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 22 January 2013 20:44, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> On Sat, 2013-01-05 at 09:57 +0000, Mark Einon wrote:
->> Added a version check for the et131x reg dump, in case the dump format
->> needs to be changed later.
->>
->> Signed-off-by: Mark Einon <mark.einon@gmail.com>
->> ---
->>  et131x.c |    4 ++++
->>  1 file changed, 4 insertions(+)
->>
->> diff --git a/et131x.c b/et131x.c
->> index b36c184..8cdbec0 100644
->> --- a/et131x.c
->> +++ b/et131x.c
->> @@ -4,8 +4,12 @@
->>
->>  int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
->>  {
->> +     u8 version = (u8)(regs->version >> 24);
->>       u32 *reg = (u32 *)regs->data;
->>
->> +     if(version != 1)
->
-> Needs a space before the open-parentheis.
->
-> Ben.
+Some version check statements are lacking a space after the if ()
+statement. Add them in.
 
-You're right - I cut and pasted the code from another file without
-checking. I'll send a separate patch for fixing them, if you want this
-patch re-submitted as well, then just let me know.
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
+ e100.c   |    2 +-
+ e1000.c  |    2 +-
+ et131x.c |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-cheers,
-
-Mark
-
->
->> +             return -1;
->> +
->>       fprintf(stdout, "PHY Registers\n");
->>       fprintf(stdout, "0x0, Basic Control Reg          = 0x%04X\n", *reg++);
->>       fprintf(stdout, "0x1, Basic Status Reg           = 0x%04X\n", *reg++);
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
+diff --git a/e100.c b/e100.c
+index 65627ab..b982e79 100644
+--- a/e100.c
++++ b/e100.c
+@@ -46,7 +46,7 @@ e100_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 	u32 reg;
+ 	u16 scb_status, scb_cmd;
+ 
+-	if(version != 1)
++	if (version != 1)
+ 		return -1;
+ 
+ 	reg = regs_buff[0];
+diff --git a/e1000.c b/e1000.c
+index d1d3c73..dd47774 100644
+--- a/e1000.c
++++ b/e1000.c
+@@ -374,7 +374,7 @@ e1000_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 	enum e1000_mac_type mac_type;
+ 	u32 reg;
+ 
+-	if(version != 1)
++	if (version != 1)
+ 		return -1;
+ 
+ 	mac_type = e1000_get_mac_type(hw_device_id, hw_revision_id);
+diff --git a/et131x.c b/et131x.c
+index 8cdbec0..36abaa2 100644
+--- a/et131x.c
++++ b/et131x.c
+@@ -7,7 +7,7 @@ int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+ 	u8 version = (u8)(regs->version >> 24);
+ 	u32 *reg = (u32 *)regs->data;
+ 
+-	if(version != 1)
++	if (version != 1)
+ 		return -1;
+ 
+ 	fprintf(stdout, "PHY Registers\n");
+-- 
+1.7.10.4
