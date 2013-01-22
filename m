@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] xen-netback: allow changing the MAC address of the
- interface
-Date: Tue, 22 Jan 2013 15:29:37 -0500 (EST)
-Message-ID: <20130122.152937.698328122484839991.davem@davemloft.net>
-References: <1358878105-7890-1-git-send-email-msw@amazon.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH ethtool] rxclass: Show full 64 bits of user-data in
+ rxclass_print_nfc_spec_ext()
+Date: Tue, 22 Jan 2013 20:33:55 +0000
+Message-ID: <1358886835.2892.14.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	konrad.wilk@oracle.com
-To: msw@amazon.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358878105-7890-1-git-send-email-msw@amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:30841 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407Ab3AVUd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 15:33:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matt Wilson <msw@amazon.com>
-Date: Tue, 22 Jan 2013 18:08:25 +0000
+Previously only the lower 32 bits would be shown.
 
-> Sometimes it is useful to be able to change the MAC address of the
-> interface for netback devices. For example, when using ebtables it may
-> be useful to be able to distinguish traffic from different interfaces
-> without depending on the interface name.
-> 
-> Reported-by: Nikita Borzykh <sample.n@gmail.com>
-> Reported-by: Paul Harvey <stockingpaul@hotmail.com>
-> Cc: netdev@vger.kernel.org
-> Cc: xen-devel@lists.xen.org
-> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> Signed-off-by: Matt Wilson <msw@amazon.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+I just noticed this bug when applying Yan Burman's patch.  Untested
+since sfc doesn't support this field.
 
-Applied to net-next, thanks.
+Ben.
+
+ rxclass.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/rxclass.c b/rxclass.c
+index 1564b62..cd686a3 100644
+--- a/rxclass.c
++++ b/rxclass.c
+@@ -49,7 +49,7 @@ static void rxclass_print_nfc_spec_ext(struct ethtool_rx_flow_spec *fsp)
+ 		tci = ntohs(fsp->h_ext.vlan_tci);
+ 		tcim = ntohs(~fsp->m_ext.vlan_tci);
+ 		data = (u64)ntohl(fsp->h_ext.data[0]) << 32;
+-		data = (u64)ntohl(fsp->h_ext.data[1]);
++		data |= (u64)ntohl(fsp->h_ext.data[1]);
+ 		datam = (u64)ntohl(~fsp->m_ext.data[0]) << 32;
+ 		datam |= (u64)ntohl(~fsp->m_ext.data[1]);
+ 
+-- 
+1.7.7.6
+
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
