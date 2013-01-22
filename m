@@ -1,74 +1,53 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global reader-writer
- lock backend
-Date: Wed, 23 Jan 2013 01:28:21 +0530
-Message-ID: <50FEEF5D.6080302@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com> <1358883152.21576.55.camel@gandalf.local.home>
+From: Jan-Pascal van Best <janpascal@vanbest.org>
+Subject: Re: [PATCH net-next 09/15] drivers/net: delete old 8 bit ISA Racal
+ ni5010 support.
+Date: Tue, 22 Jan 2013 20:59:14 +0100
+Message-ID: <50FEEF92.3000809@vanbest.org>
+References: <1358819182-28032-1-git-send-email-paul.gortmaker@windriver.com> <1358819182-28032-10-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-doc@vger.kernel.org, peterz@infradead.org,
-	fweisbec@gmail.com, linux-kernel@vger.kernel.org, mingo@kernel.org,
-	linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
-	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
-	paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, rusty@rustcorp.com.au, rjw@sisk.pl,
-	namhyung@kernel.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <1358883152.21576.55.camel@gandalf.local.home>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Andreas Mohr <andi@lisas.de>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from strictvertrouwelijk.xs4all.nl ([83.163.6.54]:51072 "EHLO
+	nogrod.vanbest.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755048Ab3AVUIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 15:08:14 -0500
+In-Reply-To: <1358819182-28032-10-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2013 01:02 AM, Steven Rostedt wrote:
-> On Tue, 2013-01-22 at 13:03 +0530, Srivatsa S. Bhat wrote:
->> A straight-forward (and obvious) algorithm to implement Per-CPU Reader-Writer
->> locks can also lead to too many deadlock possibilities which can make it very
->> hard/impossible to use. This is explained in the example below, which helps
->> justify the need for a different algorithm to implement flexible Per-CPU
->> Reader-Writer locks.
->>
->> We can use global rwlocks as shown below safely, without fear of deadlocks:
->>
->> Readers:
->>
->>          CPU 0                                CPU 1
->>          ------                               ------
->>
->> 1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
->>
->>
->> 2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
->>
->>
->> Writer:
->>
->>          CPU 2:
->>          ------
->>
->>        write_lock(&my_rwlock);
->>
-> 
-> I thought global locks are now fair. That is, a reader will block if a
-> writer is waiting. Hence, the above should deadlock on the current
-> rwlock_t types.
-> 
 
-Oh is it? Last I checked, lockdep didn't complain about this ABBA scenario!
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
 
-> We need to fix those locations (or better yet, remove all rwlocks ;-)
-> 
+Hi Paul,
 
-:-)
+Although for me personally it'll be a shock not be able to run the latest
+kernel on my legacy system I keep up especially for this ISA card, Andreas
+and I cannot seriously oppose removing this driver from the mainline
+kernel. It's probably more than a decade and a half ago since anyone used
+an NI5010 in production, which makes it time to move on...
 
-The challenge with stop_machine() removal is that the replacement on the
-reader side must have the (locking) flexibility comparable to preempt_disable().
-Otherwise, that solution most likely won't be viable because we'll hit way
-too many locking problems and go crazy by the time we convert them over..(if
-we can, that is!)
+By the way, Andreas promises to keep his stable  of NI5010 cards forever,
+and still has a BNC network in active (if loathed!) service.
 
-Regards,
-Srivatsa S. Bhat
+Thanks for your work on keeping the kernel net drivers in good order!
+
+Jan-Pascal
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iQEcBAEBCAAGBQJQ/u+SAAoJEAD3KLeQ59brsAYH/0neYIXG2BLkghlc9rOakSYc
+1oLJposC5WhMlON57xHD0zFh9tYGRV910k0YLuwlUBAb78gsPasnWHqZJ/9bd666
+F/B7vi1uaLpT6lkem3xWx8FAkoiUb2i8RBccOseRiUPdrqqm0AKflygZ1RGhoZad
+fzr6evOcbd0M6E1/bUNO79oayCN69NLhkqf7thBx/bT5jgKXD0H4RC3MoFghhqS1
+dU0be/1Vc9VMc9UnLAO0BQOPzXJRLjAY1IFD4YZUgJYs/u6DnsRF0agxvsADf+Gx
+ubHij5R/d+PuMpNEejtE3sfm9AEDpvN+rq3UAnr9y1xeIPr/D/0cKUL94LSpnTU=
+=DBl6
+-----END PGP SIGNATURE-----
