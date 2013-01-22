@@ -1,61 +1,64 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global
- reader-writer lock backend
-Date: Tue, 22 Jan 2013 14:32:32 -0500
-Message-ID: <1358883152.21576.55.camel@gandalf.local.home>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-	 <20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels >=
+ 3.3 and <= 3.6
+Date: Tue, 22 Jan 2013 19:36:51 +0000
+Message-ID: <1358883411.2892.11.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1659861.dHpGAGoXHj@cpaasch-mac>
+	 <1358861524.3464.3768.camel@edumazet-glaptop>
+	 <1358862966.3464.3797.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	rjw@sisk.pl, sbw@mit.edu, fweisbec@gmail.com,
-	linux@arm.linux.org.uk, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <christoph.paasch@uclouvain.be>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:51650 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab3AVTgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:36:55 -0500
+In-Reply-To: <1358862966.3464.3797.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-22 at 13:03 +0530, Srivatsa S. Bhat wrote:
-> A straight-forward (and obvious) algorithm to implement Per-CPU Reader-Writer
-> locks can also lead to too many deadlock possibilities which can make it very
-> hard/impossible to use. This is explained in the example below, which helps
-> justify the need for a different algorithm to implement flexible Per-CPU
-> Reader-Writer locks.
+On Tue, 2013-01-22 at 05:56 -0800, Eric Dumazet wrote:
+> On Tue, 2013-01-22 at 05:32 -0800, Eric Dumazet wrote:
 > 
-> We can use global rwlocks as shown below safely, without fear of deadlocks:
+> > 
+> > Something doesn't properly test MAX_SKB_FRAGS, we should track it and
+> > fix.
 > 
-> Readers:
+> I guess netxen driver has a bug.
 > 
->          CPU 0                                CPU 1
->          ------                               ------
+> Please try the following patch :
 > 
-> 1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
-> 
-> 
-> 2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
-> 
-> 
-> Writer:
-> 
->          CPU 2:
->          ------
-> 
->        write_lock(&my_rwlock);
+> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+> index bc165f4..695667d 100644
+> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+> @@ -144,7 +144,7 @@ void netxen_release_tx_buffers(struct netxen_adapter *adapter)
+>  					 buffrag->length, PCI_DMA_TODEVICE);
+>  			buffrag->dma = 0ULL;
+>  		}
+> -		for (j = 0; j < cmd_buf->frag_count; j++) {
+> +		for (j = 1; j < cmd_buf->frag_count; j++) {
+>  			buffrag++;
+>  			if (buffrag->dma) {
+>  				pci_unmap_page(adapter->pdev, buffrag->dma,
 > 
 
-I thought global locks are now fair. That is, a reader will block if a
-writer is waiting. Hence, the above should deadlock on the current
-rwlock_t types.
+There's another bug right here, which is that 0 is a valid DMA address
+in some systems.  The driver should be calling pci_dma_mapping_error()
+to find out whether an address is valid or not.  But it also wants to be
+able to assign an invalid address to netxen_skb_frag::dma, and
+unfortunately there is no way to do that in the current DMA API.
 
-We need to fix those locations (or better yet, remove all rwlocks ;-)
+Ben.
 
--- Steve
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
