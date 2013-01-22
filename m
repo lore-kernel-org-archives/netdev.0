@@ -1,40 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels
- >= 3.3 and <= 3.6
-Date: Tue, 22 Jan 2013 11:59:42 -0800
-Message-ID: <1358884782.12374.8.camel@edumazet-glaptop>
-References: <1659861.dHpGAGoXHj@cpaasch-mac>
-	 <1358861524.3464.3768.camel@edumazet-glaptop>
-	 <1358862966.3464.3797.camel@edumazet-glaptop>
-	 <1358883411.2892.11.camel@bwh-desktop.uk.solarflarecom.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global reader-writer
+ lock backend
+Date: Wed, 23 Jan 2013 01:28:21 +0530
+Message-ID: <50FEEF5D.6080302@linux.vnet.ibm.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com> <1358883152.21576.55.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: christoph.paasch@uclouvain.be,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:40965 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753643Ab3AVT7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:59:45 -0500
-Received: by mail-pa0-f43.google.com with SMTP id fb10so4272059pad.16
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 11:59:45 -0800 (PST)
-In-Reply-To: <1358883411.2892.11.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-doc@vger.kernel.org, peterz@infradead.org,
+	fweisbec@gmail.com, linux-kernel@vger.kernel.org, mingo@kernel.org,
+	linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
+	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+	paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, rusty@rustcorp.com.au, rjw@sisk.pl,
+	namhyung@kernel.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
+	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1358883152.21576.55.camel@gandalf.local.home>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-01-22 at 19:36 +0000, Ben Hutchings wrote:
-
-> There's another bug right here, which is that 0 is a valid DMA address
-> in some systems.  The driver should be calling pci_dma_mapping_error()
-> to find out whether an address is valid or not.  But it also wants to be
-> able to assign an invalid address to netxen_skb_frag::dma, and
-> unfortunately there is no way to do that in the current DMA API.
+On 01/23/2013 01:02 AM, Steven Rostedt wrote:
+> On Tue, 2013-01-22 at 13:03 +0530, Srivatsa S. Bhat wrote:
+>> A straight-forward (and obvious) algorithm to implement Per-CPU Reader-Writer
+>> locks can also lead to too many deadlock possibilities which can make it very
+>> hard/impossible to use. This is explained in the example below, which helps
+>> justify the need for a different algorithm to implement flexible Per-CPU
+>> Reader-Writer locks.
+>>
+>> We can use global rwlocks as shown below safely, without fear of deadlocks:
+>>
+>> Readers:
+>>
+>>          CPU 0                                CPU 1
+>>          ------                               ------
+>>
+>> 1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
+>>
+>>
+>> 2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
+>>
+>>
+>> Writer:
+>>
+>>          CPU 2:
+>>          ------
+>>
+>>        write_lock(&my_rwlock);
+>>
+> 
+> I thought global locks are now fair. That is, a reader will block if a
+> writer is waiting. Hence, the above should deadlock on the current
+> rwlock_t types.
 > 
 
-I guess we should only test ->frag_count then, and set it to 0 in TX
-completion path.
+Oh is it? Last I checked, lockdep didn't complain about this ABBA scenario!
+
+> We need to fix those locations (or better yet, remove all rwlocks ;-)
+> 
+
+:-)
+
+The challenge with stop_machine() removal is that the replacement on the
+reader side must have the (locking) flexibility comparable to preempt_disable().
+Otherwise, that solution most likely won't be viable because we'll hit way
+too many locking problems and go crazy by the time we convert them over..(if
+we can, that is!)
+
+Regards,
+Srivatsa S. Bhat
