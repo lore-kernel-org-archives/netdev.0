@@ -1,60 +1,67 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC] State resolution packet queue for IPsec
-Date: Tue, 22 Jan 2013 12:10:29 +0100
-Message-ID: <20130122111029.GF9147@secunet.com>
-References: <20130121094847.GC30530@secunet.com>
- <20130121.161716.752461350033731834.davem@davemloft.net>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: 69b08f62 breaks ethernet on atl1c based Eee PC 1011px
+Date: Tue, 22 Jan 2013 13:31:23 +0100
+Message-ID: <20130122133123.57085db8@milhouse>
+References: <20130121222926.392f1244@milhouse>
+	<CANn89iK6kuLeg1TCobdHMKK5dYZuP0mRSb25v9C4pdP2F7MrLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/IiT2p0ctq3IX2qa0mW6VGra"; protocol="application/pgp-signature"
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:36479 "EHLO a.mx.secunet.com"
+Received: from bues.ch ([80.190.117.144]:55719 "EHLO bues.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751449Ab3AVLKc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 06:10:32 -0500
-Content-Disposition: inline
-In-Reply-To: <20130121.161716.752461350033731834.davem@davemloft.net>
+	id S1751861Ab3AVMbt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 07:31:49 -0500
+In-Reply-To: <CANn89iK6kuLeg1TCobdHMKK5dYZuP0mRSb25v9C4pdP2F7MrLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 21, 2013 at 04:17:16PM -0500, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Mon, 21 Jan 2013 10:48:48 +0100
-> 
-> > I did a implementation of a state resolution packet queue for IPsec.
-> > The original idea is described in git commit 14e50e57a
-> > ([XFRM]: Allow packet drops during larval state resolution.)
-> > 
-> > Since we don't have any notifiers for xfrm state resolution, I used
-> > a timer that does a relookup in given intervals. This is mainly to speed
-> > up the start of tcp connections, so I tried to do the relookup in a higher
-> > rate that tcp would resend the syn packet. However, the relookup intervals,
-> > the queue size and the timeout value are choosen by gut instincts, so
-> > could be suboptimal. If anyone has some insight on good choices of these
-> > values, please let me know. All other comment are welcome too, of course.
-> 
-> This is probably the best way to solve this problem without adding
-> xfrm_state resolution notifications.
-> 
-> But really why would notifications be so bad even if they would not
-> be fine grained?
-> 
-> Any time a state is resolved, any state, you run what you have put
-> currently into this new timer function.
-> 
+--Sig_/IiT2p0ctq3IX2qa0mW6VGra
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-When we use state resolution notifiers, we have two problems.
-First, we would probably not dequeue the packets on the same
-cpu we enqueued them, this can introduce packet reorder. The
-timer will at least try to run on the local cpu.
+On Mon, 21 Jan 2013 15:25:02 -0800
+Eric Dumazet <edumazet@google.com> wrote:
 
-Second, as you already mentioned, even with state resolution
-notifiers, we don't know if the inserted state is the one we
-need and if our state bundle is complete with this state.
-We would need to do a lookup whenever a state is inserted,
-so we hog the cpu that tries to insert the states we need.
+> I guess you should reproduce the bug using current Linus tree.
 
-With the timer, we don't have these two problems for the price
-that we have take a good choice on the relookup intervals.
-Not sure what's better here.
+
+The problem seems to be fixed in latest Linus tree.
+
+Any idea which commit fixed it, so we can backport it to 3.7.y?
+
+--=20
+Greetings, Michael.
+
+PGP: 908D8B0E
+
+--Sig_/IiT2p0ctq3IX2qa0mW6VGra
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJQ/oabAAoJEPUyvh2QjYsO334QAMHQ8b295l9zRYaEiyogvzq4
+k/s66OjekFWTXZgukD/jsKSD6cXGCTH69JdNIacEpty0pydBuCNTxCwzH3a6POgi
+UboX5mrkzpsRzXO6p4hquhwc/6wKVm3ln+zSBR10NwmoVFkCZQo9EqE52fNN89xC
+mrH8mKJXUnrOBf4AFh1WGMzALqPSEx/cfFUNEXf4EXAwo4wTQbWKIlQ5l7EkJE/q
+wqJsy/0+yq6oQCmX8jXDo3nnd7E03bNN9B2EQxZq/iRJr0KLHx2isBY6Du1FjL37
+eVP6Aikyl7wiIV/xdEc0pRrRfvRUrnkhdjVYtmXtAN3XMTkG2KnZFgWxd6Gpnenf
+fS3B5bz3cb0QH3EPh8J1qUulDSiZa763ja7yvEnqvGS/5389xqMLbZmX+L91njKN
+XJDQC9Y6+XMyKUjLEDaUopEeyQPqAfdWAyDcntpQ05te+keWtan62KoZUFe0TMiF
+86GXJOEWLKv62PGotoulAsV3lIA3Wn2ceFPBnmMyOchPzs0jmp7Hbr2ZU8mvRfkU
+frl5yc2MPPZOmKCMtLu92xCrpzOEKjwY+3wE4xZ52Rd8UYXBhbM4KctTzBxHYc7C
+h9UbHJL8Eb/phSV6Oovw+JJcVv+1QcKjOD8K+A2lXOXO6Awmow+GYl/Wbc7BJLHq
+j7ewmX6goFWVbqqauYT+
+=AkdG
+-----END PGP SIGNATURE-----
+
+--Sig_/IiT2p0ctq3IX2qa0mW6VGra--
