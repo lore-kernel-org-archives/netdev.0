@@ -1,59 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Tue, 22 Jan 2013 09:20:28 +0100
-Message-ID: <20130122082028.GB7865@order.stressinduktion.org>
-References: <20130118200416.GB4795@order.stressinduktion.org> <50F9F875.30302@linux-ipv6.org>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH 0/6] ISDN patches for net-next
+Date: Tue, 22 Jan 2013 09:23:46 +0100
+Message-ID: <50FE4C92.3060103@imap.cc>
+References: <20130121-patch-isdn-00.tilman@imap.cc> <20130121.173810.2229077237480842007.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:43580 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751466Ab3AVIU3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 03:20:29 -0500
-Content-Disposition: inline
-In-Reply-To: <50F9F875.30302@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: isdn@linux-pingi.de, hjlipp@web.de, keil@b1-systems.de,
+	i4ldeveloper@listserv.isdn4linux.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130121.173810.2229077237480842007.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+Am 21.01.2013 23:38, schrieb David Miller:
+> Patches 1-5 applied to net-next, patch 6 applied to 'net' and queued
+> up for -stable.
 
-On Sat, Jan 19, 2013 at 10:35:49AM +0900, YOSHIFUJI Hideaki wrote:
-> It seems this breaks 6rd receiving rules:
-> 
-> BR:
-> 	if (outer src ip4 != embedded src ip4)
-> 		drop();
+Thanks.
 
-Of course, this would break 6rd as would it break 6to4. Note here, that
-I also check for the inner ipv6 prefix. This check is only done, if the
-inner ipv6 prefix matches a) the 6to4 prefix or b) the 6rd prefix. In 6rd,
-as in 6to4, communication between 6rd nodes should take place directly,
-without need for a relay. (Otherwise packets would get dropped, because
-both source and destination ipv6 address would be in the 6rd/6to4 prefix
-and the ipv4 addresses would not match, because one of them would be
-the relay address.)
+> We don't have changes bypass 'net' and go into stable from net-next
+> like you intended.  We also don't use CC: stable for networking
+> patches, you ask me to queue them up into my -stable patch queue
+> for networking instead.
 
-> CE:
-> 	if (outer src ip4 != embedded src ip4 ||
-> 	    inner dest ip6 != configured ip6 prefix)
-> 		drop();
-
-Dito, would also break 6to4. Every packet from non-6rd domain would
-violate this rule. I do also check the 6rd/6to4 prefix in this case.
-
-In general, if the inner ipv6 address, regardless of source or
-destination, does not match the 6rd/6to4 prefix, the packet will pass
-without further checks from my patch.
-
-> 
-> No?
-
-I think that the distinction between BR and CE would make thinks just
-more complicated. Also 6rd can be seen as a superset of 6to4 and should
-not make any changes to the receiving rules, except being more tight.
+I see. Is there somewhere I can read up on the workflow for networking
+patches and how it fits in with the general plan of things?
 
 Thanks,
+Tilman
 
-  Hannes
+--=20
+Tilman Schmidt                    E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
