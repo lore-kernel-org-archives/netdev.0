@@ -1,71 +1,84 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: pull request: ipsec 2013-01-22
-Date: Tue, 22 Jan 2013 10:06:31 +0100
-Message-ID: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 2/5] ah6/esp6: set transport header correctly for IPsec tunnel mode.
+Date: Tue, 22 Jan 2013 10:06:33 +0100
+Message-ID: <1358845596-2066-3-git-send-email-steffen.klassert@secunet.com>
+References: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:33489 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:33503 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752462Ab3AVJG6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 04:06:58 -0500
+	id S1754210Ab3AVJHI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 04:07:08 -0500
+In-Reply-To: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-1) The transport header did not point to the right place after
-   esp/ah processing on tunnel mode in the receive path. As a
-   result, the ECN field of the inner header was not set correctly,
-   fixes from Li RongQing.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-2) We did a null check too late in one of the xfrm_replay advance
-   functions. This can lead to a division by zero, fix from
-   Nickolai Zeldovich.
+IPsec tunnel does not set ECN field to CE in inner header when
+the ECN field in the outer header is CE, and the ECN field in
+the inner header is ECT(0) or ECT(1).
 
-3) The size calculation of the hash table missed the muiltplication
-   with the actual struct size when the hash table is freed.
-   We might call the wrong free function, fix from Michal Kubecek.
+The cause is ipip6_hdr() does not return the correct address of
+inner header since skb->transport-header is not the inner header
+after esp6_input_done2(), or ah6_input().
 
-4) On IPsec pmtu events we can't access the transport headers of
-   the original packet, so force a relookup for all routes
-   to notify about the pmtu event.
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv6/ah6.c  |   11 +++++++++--
+ net/ipv6/esp6.c |    5 ++++-
+ 2 files changed, 13 insertions(+), 3 deletions(-)
 
-Please pull or let me know if there are problems.
-
-Thanks!
-
-The following changes since commit c7e2e1d72ed7707239d20525e0ebcad7e3303659:
-
-  ipv4: fix NULL checking in devinet_ioctl() (2013-01-06 21:11:18 -0800)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-
-for you to fetch changes up to 05ab86c55683410593720003442dde629782aaac:
-
-  xfrm4: Invalidate all ipv4 routes on IPsec pmtu events (2013-01-21 12:43:54 +0100)
-
-----------------------------------------------------------------
-Li RongQing (2):
-      ah4/esp4: set transport header correctly for IPsec tunnel mode.
-      ah6/esp6: set transport header correctly for IPsec tunnel mode.
-
-Michal Kubecek (1):
-      xfrm: fix freed block size calculation in xfrm_policy_fini()
-
-Nickolai Zeldovich (1):
-      net/xfrm/xfrm_replay: avoid division by zero
-
-Steffen Klassert (1):
-      xfrm4: Invalidate all ipv4 routes on IPsec pmtu events
-
- net/ipv4/ah4.c         |   18 ++++++++++++++----
- net/ipv4/esp4.c        |   12 +++++++++---
- net/ipv4/ipcomp.c      |    7 +++++--
- net/ipv6/ah6.c         |   11 +++++++++--
- net/ipv6/esp6.c        |    5 ++++-
- net/xfrm/xfrm_policy.c |    2 +-
- net/xfrm/xfrm_replay.c |    4 +++-
- 7 files changed, 45 insertions(+), 14 deletions(-)
+diff --git a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+index ecc35b9..3842331 100644
+--- a/net/ipv6/ah6.c
++++ b/net/ipv6/ah6.c
+@@ -472,7 +472,10 @@ static void ah6_input_done(struct crypto_async_request *base, int err)
+ 	skb->network_header += ah_hlen;
+ 	memcpy(skb_network_header(skb), work_iph, hdr_len);
+ 	__skb_pull(skb, ah_hlen + hdr_len);
+-	skb_set_transport_header(skb, -hdr_len);
++	if (x->props.mode == XFRM_MODE_TUNNEL)
++		skb_reset_transport_header(skb);
++	else
++		skb_set_transport_header(skb, -hdr_len);
+ out:
+ 	kfree(AH_SKB_CB(skb)->tmp);
+ 	xfrm_input_resume(skb, err);
+@@ -593,9 +596,13 @@ static int ah6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ 	skb->network_header += ah_hlen;
+ 	memcpy(skb_network_header(skb), work_iph, hdr_len);
+-	skb->transport_header = skb->network_header;
+ 	__skb_pull(skb, ah_hlen + hdr_len);
+ 
++	if (x->props.mode == XFRM_MODE_TUNNEL)
++		skb_reset_transport_header(skb);
++	else
++		skb_set_transport_header(skb, -hdr_len);
++
+ 	err = nexthdr;
+ 
+ out_free:
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 282f372..40ffd72 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -300,7 +300,10 @@ static int esp_input_done2(struct sk_buff *skb, int err)
+ 
+ 	pskb_trim(skb, skb->len - alen - padlen - 2);
+ 	__skb_pull(skb, hlen);
+-	skb_set_transport_header(skb, -hdr_len);
++	if (x->props.mode == XFRM_MODE_TUNNEL)
++		skb_reset_transport_header(skb);
++	else
++		skb_set_transport_header(skb, -hdr_len);
+ 
+ 	err = nexthdr[1];
+ 
+-- 
+1.7.9.5
