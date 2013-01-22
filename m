@@ -1,84 +1,76 @@
-From: Thierry Reding <thierry.reding@avionic-design.de>
-Subject: Re: [PATCH 20/33] net: Convert to devm_ioremap_resource()
-Date: Tue, 22 Jan 2013 07:56:29 +0100
-Message-ID: <20130122065629.GA14523@avionic-0098.adnet.avionic-design.de>
-References: <1358762966-20791-1-git-send-email-thierry.reding@avionic-design.de>
- <1358762966-20791-21-git-send-email-thierry.reding@avionic-design.de>
- <20130121.152913.1377695352860141642.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="xHFwDpU9dbj6ez1V"
-Cc: linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
-	dmitry.torokhov@gmail.com, arnd@arndb.de, w.sang@pengutronix.de,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130121.152913.1377695352860141642.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
+Subject: [PATCH v1] net: net_cls: fd passed in SCM_RIGHTS datagram not set correctly
+Date: Tue, 22 Jan 2013 08:09:00 +0100
+Message-ID: <1358838540-2910-1-git-send-email-wagi@monom.org>
+Cc: lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
 
---xHFwDpU9dbj6ez1V
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Commit 6a328d8c6f03501657ad580f6f98bf9a42583ff7 changed the update
+logic for the socket but it does not update the SCM_RIGHTS update
+as well. This patch is based on the net_prio fix commit
 
-On Mon, Jan 21, 2013 at 03:29:13PM -0500, David Miller wrote:
-> From: Thierry Reding <thierry.reding@avionic-design.de>
-> Date: Mon, 21 Jan 2013 11:09:13 +0100
->=20
-> > Convert all uses of devm_request_and_ioremap() to the newly introduced
-> > devm_ioremap_resource() which provides more consistent error handling.
-> >=20
-> > devm_ioremap_resource() provides its own error messages so all explicit
-> > error messages can be removed from the failure code paths.
-> >=20
-> > Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
->=20
-> This won't compile if I apply it.
->=20
-> You really have to be clear when you submit patches like this.
->=20
-> Since you only CC:'d the networking developers for this one
-> patch, there is _ZERO_ context for us to work with to understand
-> what's going on.
->=20
-> You have to also CC: us on the other relevant changes and your
-> "[PATCH 00/33]" posting that explains what is happening.
+48a87cc26c13b68f6cce4e9d769fcb17a6b3e4b8
 
-I planned to do so initially, but that yielded a Cc list of 156 people
-and mailing lists, which I thought wasn't going to go down so well
-either. In general I like Cc'ing everyone concerned on all patches of
-the series, specifically for reasons of context. Some people have been
-annoyed when I did so. Still, for small series where only a few dozen
-people are concerned that seems to me to be the best way. But 156 email
-addresses is a different story.
+    net: netprio: fd passed in SCM_RIGHTS datagram not set correctly
 
-Either you add to many people or you don't add enough. Where do we draw
-the line?
+    A socket fd passed in a SCM_RIGHTS datagram was not getting
+    updated with the new tasks cgrp prioidx. This leaves IO on
+    the socket tagged with the old tasks priority.
 
-Thierry
+    To fix this add a check in the scm recvmsg path to update the
+    sock cgrp prioidx with the new tasks value.
 
---xHFwDpU9dbj6ez1V
-Content-Type: application/pgp-signature
+Let's apply the same fix for net_cls.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
+Signed-off-by: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
+Reported-by: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Cc: Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Cc: John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+---
 
-iQIcBAEBAgAGBQJQ/jgdAAoJEN0jrNd/PrOhetQQAJ7YTGZWK9SThwX+tLwCJYm0
-HGCA0iqQHN3BQKWtthOweYlqi7cWiDvSabKuPzPAIpdGbIRMuhdL3eU9O0d6ixoD
-R6mPhbVBVIL/bGxAgfk6g+lZpzmuPnmw1Ey8DL/H4voOIrSK5tG05LZRUxTkVT4u
-2FidzNE8xIiVYrkH0kJSGVe8ZdalM5nGmVgd8vsAJNoSl26co7/rHTI7APQrdC3w
-4u+fkxqxgPsNzFzhzaHL88IhYTM7nKAo22w/QqM7puZg4sdtwKOwv4a4jzAmgLNs
-0xOcMXojDIlsSLAUlvAU3LrqPj7DC+M8wtjtBiJnb+bMOsoyvhWiC3LzOOi1moqx
-2lJge/7tV4EAj0HQgpYJtvSJMsz5wShgH8vFDgRCXPekvd7kHXmCfb6P5Rm4US/E
-pCoWA6Jgpb5kDL9Vid0f9DLeXOF4/hp8JkzedAiTivJgIsbhc7glL4ioxz7M6d/B
-tIXouLQ1nhBfGJ+8cZLQzD8C9GaArDIHbA0EArHdu394eP15gxqzbHhaVxf0nc2O
-hNAYykp0kzTToCp1v3bw6bLmHtqMv/7bGKEURRX1Go+SQA3Ew9KYozTXRxrlRJ0+
-negtlgcspRJnPHNf28d/pL6FpYr0jAn5RN4QrcPmw7HATT6XJ33yqwZXRN0dlPIi
-xiQwvgmsCxxuwpQ8yZ2W
-=gLke
------END PGP SIGNATURE-----
+v1: missing Sob added (d'oh)
 
---xHFwDpU9dbj6ez1V--
+ net/core/scm.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 57fb1ee..905dcc6 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -35,6 +35,7 @@
+ #include <net/sock.h>
+ #include <net/compat.h>
+ #include <net/scm.h>
++#include <net/cls_cgroup.h>
+ 
+ 
+ /*
+@@ -302,8 +303,10 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
+ 		}
+ 		/* Bump the usage count and install the file. */
+ 		sock = sock_from_file(fp[i], &err);
+-		if (sock)
++		if (sock) {
+ 			sock_update_netprioidx(sock->sk, current);
++			sock_update_classid(sock->sk, current);
++		}
+ 		fd_install(new_fd, get_file(fp[i]));
+ 	}
+ 
+-- 
+1.8.0.rc0
