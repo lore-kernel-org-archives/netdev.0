@@ -1,42 +1,34 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 16/20] drivers/net/wireless/p54: remove depends on
- CONFIG_EXPERIMENTAL
-Date: Tue, 22 Jan 2013 14:14:09 -0500
-Message-ID: <20130122191408.GC13719@tuxdriver.com>
-References: <1358879444-25834-17-git-send-email-keescook@chromium.org>
- <201301221937.16916.chunkeey@googlemail.com>
- <CAGXu5jJCQshUntUk7MeZds59B2fa54GnonOz28dM1x2spEEGDg@mail.gmail.com>
- <20130122.141252.781223481145097577.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] be2net: Modify GPL Marking in all source
+ files.
+Date: Tue, 22 Jan 2013 14:19:07 -0500 (EST)
+Message-ID: <20130122.141907.678245886715969611.davem@davemloft.net>
+References: <d01bcb2c-5921-4324-a28a-fe0d0729bf49@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: keescook@chromium.org, chunkeey@googlemail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, kvalo@qca.qualcomm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130122.141252.781223481145097577.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, vasundhara.volam@emulex.com
+To: sarveshwar.bandi@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55834 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753153Ab3AVTTJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:19:09 -0500
+In-Reply-To: <d01bcb2c-5921-4324-a28a-fe0d0729bf49@CMEXHTCAS1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2013 at 02:12:52PM -0500, David Miller wrote:
-> From: Kees Cook <keescook@chromium.org>
-> Date: Tue, 22 Jan 2013 10:40:12 -0800
-> 
-> > On Tue, Jan 22, 2013 at 10:37 AM, Christian Lamparter
-> > <chunkeey@googlemail.com> wrote:
-> >> Aren't these patches going through wireless-next
-> >> or linux-next?
-> > 
-> > They can go however it makes things easiest. Greg has offered to carry
-> > them in driver-core if Dave doesn't want to carry them in netdev.
-> 
-> Greg can take these:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+From: <sarveshwar.bandi@emulex.com>
+Date: Tue, 22 Jan 2013 13:44:08 +0530
 
-Acked-by: John W. Linville <linville@tuxdriver.com>
+> From: Vasundhara Volam <vasundhara.volam@emulex.com>
+> 
+> Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+> Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+> ---
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+You're going to have to say more than that in your commit message when
+you change something as delicate as copyright designations.
+
+"What are you doing" and more importantly exactly "Why" are you doing
+it.
