@@ -1,47 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels
- >= 3.3 and <= 3.6
-Date: Tue, 22 Jan 2013 14:15:19 -0500 (EST)
-Message-ID: <20130122.141519.767456896436365582.davem@davemloft.net>
-References: <2166577.r0iRQtU7qE@cpaasch-mac>
-	<3172160.NCYvLW6RVJ@cpaasch-mac>
-	<1358872385.3464.3940.camel@edumazet-glaptop>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 16/20] drivers/net/wireless/p54: remove depends on
+ CONFIG_EXPERIMENTAL
+Date: Tue, 22 Jan 2013 14:14:09 -0500
+Message-ID: <20130122191408.GC13719@tuxdriver.com>
+References: <1358879444-25834-17-git-send-email-keescook@chromium.org>
+ <201301221937.16916.chunkeey@googlemail.com>
+ <CAGXu5jJCQshUntUk7MeZds59B2fa54GnonOz28dM1x2spEEGDg@mail.gmail.com>
+ <20130122.141252.781223481145097577.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christoph.paasch@uclouvain.be, Ian.Campbell@citrix.com,
-	sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55794 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753478Ab3AVTPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:15:21 -0500
-In-Reply-To: <1358872385.3464.3940.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: keescook@chromium.org, chunkeey@googlemail.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gregkh@linuxfoundation.org, kvalo@qca.qualcomm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130122.141252.781223481145097577.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 22 Jan 2013 08:33:05 -0800
+On Tue, Jan 22, 2013 at 02:12:52PM -0500, David Miller wrote:
+> From: Kees Cook <keescook@chromium.org>
+> Date: Tue, 22 Jan 2013 10:40:12 -0800
+> 
+> > On Tue, Jan 22, 2013 at 10:37 AM, Christian Lamparter
+> > <chunkeey@googlemail.com> wrote:
+> >> Aren't these patches going through wireless-next
+> >> or linux-next?
+> > 
+> > They can go however it makes things easiest. Greg has offered to carry
+> > them in driver-core if Dave doesn't want to carry them in netdev.
+> 
+> Greg can take these:
+> 
+> Acked-by: David S. Miller <davem@davemloft.net>
 
-> From: Eric Dumazet <edumazet@google.com>
- ...
-> [PATCH] netxen: fix off by one bug in netxen_release_tx_buffer()
-> 
-> Christoph Paasch found netxen could trigger a BUG in its dismantle
-> phase, in netxen_release_tx_buffer(), using full size TSO packets.
-> 
-> cmd_buf->frag_count includes the skb->data part, so the loop must
-> start at index 1 instead of 0, or else we can make an out
-> of bound access to cmd_buff->frag_array[MAX_SKB_FRAGS + 2]
-> 
-> Christoph provided the fixes in netxen_map_tx_skb() function.
-> In case of a dma mapping error, its better to clear the dma fields
-> so that we don't try to unmap them again in netxen_release_tx_buffer()
-> 
-> Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Tested-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Acked-by: John W. Linville <linville@tuxdriver.com>
 
-Applied and queued up for -stable, thanks.
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
