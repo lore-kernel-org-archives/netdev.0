@@ -1,83 +1,71 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
-Date: Tue, 22 Jan 2013 16:19:46 +0100
-Message-ID: <50FEAE12.7090307@openwrt.org>
-References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de> <50FD02B8.8080401@grandegger.com> <20130121100701.GX1906@pengutronix.de> <50FD2172.2020608@grandegger.com> <20130121120602.GZ1906@pengutronix.de> <50FE3E37.4010004@grandegger.com> <50FEA691.4050904@openwrt.org> <50FEAA28.1070003@grandegger.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: 69b08f62 breaks ethernet on atl1c based Eee PC 1011px
+Date: Tue, 22 Jan 2013 16:25:16 +0100
+Message-ID: <20130122162516.0f7410ba@milhouse>
+References: <20130121222926.392f1244@milhouse>
+	<CANn89iK6kuLeg1TCobdHMKK5dYZuP0mRSb25v9C4pdP2F7MrLA@mail.gmail.com>
+	<20130122133123.57085db8@milhouse>
+	<CANn89iK5iEL5HnGxtRR2Gk_EEcV5wUmiAB9XgNwn9c-+c2M5gw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
-	davem@davemloft.net
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/HhN7UHX_T1r8FPW7F3TK6zy"; protocol="application/pgp-signature"
+Cc: linux-netdev <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Benjamin LaHaise <bcrl@kvack.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:46118 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754343Ab3AVPWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:22:31 -0500
-Received: by mail-lb0-f170.google.com with SMTP id ge1so1723349lbb.1
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 07:22:29 -0800 (PST)
-In-Reply-To: <50FEAA28.1070003@grandegger.com>
+Received: from bues.ch ([80.190.117.144]:55808 "EHLO bues.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754238Ab3AVPZj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 10:25:39 -0500
+In-Reply-To: <CANn89iK5iEL5HnGxtRR2Gk_EEcV5wUmiAB9XgNwn9c-+c2M5gw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2013 04:03 PM, Wolfgang Grandegger wrote:
-> On 01/22/2013 03:47 PM, Florian Fainelli wrote:
->> On 01/22/2013 08:22 AM, Wolfgang Grandegger wrote:
->>>> Well this could be done when the fixed phy driver could be registered
->>>> with the devicetree, maybe like this:
->>>>
->>>>      fixed-phy: mdiophy {
->>>>          compatible = "mdio-fixed-phy";
->>>>          link = "100FD";
->>>>      };
->>> I find that confusing. There is *no* phy but just a fixed link to the
->>> switch...
->>>
->>>> The good thing about this would be that every ethernet driver could just
->>>> use such a fixed phy, any external mdio phy (like on Marvell Armada) or
->>>> just a phy connected to the internal mdio interface provided by the
->>>> ethernet
->>>> core.
->>> What is wrong with the existing "fixed-link" property of the *ethernet*
->>> node. The fixed-link handling should/could be done in the phy layer, and
->>> not in the driver as it currently is implemented. Maybe that's the
->>> reason why the current code is regarded as hack!
->> As far as I have used it with the CPMAC driver, the fixed PHY is a
->> specific PHY device and there is no specific handling to be done by the
->> Ethernet MAC driver but eventually changing its MII bus id so that it is
->> named "fixed-0" to allow the fixed PHY driver to bind. Put differently,
-> There is special handling for the fixed link, e.g. here:
->
-> http://lxr.linux.no/#linux+v3.7.4/drivers/net/ethernet/freescale/gianfar.c#L1462
->
-> This could be hidden in the PHY layer allowing all ethernet drivers
-> using the "fixed-link" property.
+--Sig_/HhN7UHX_T1r8FPW7F3TK6zy
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Ok, so in the end you could have potentially an ethernet PHY node 
-containing the following properties:
-- fixed-link
-- fixed-speed
-- fixed-duplex
+On Tue, 22 Jan 2013 07:16:49 -0800
+Eric Dumazet <edumazet@google.com> wrote:
 
-and treat it as a fixed-phy. If so, this would be pretty handy.
+> Its probably a VM issue fixed by Mel Gorman in
+> commit 8fb74b9fb2b182d54beee592350d9ea1f325917a
+>=20
+> mm: compaction: partially revert capture of suitable high-order page
 
->
->> using the fixed PHY driver is a kind of "last" resort thing to cope with
->> situations like:
->>
->> - switch not providing a consistent PHY-like interface on the MDC/MDIO bus
->> - switches not connected to the MDC/MDIO bus of the Ethernet MAC they
->> forward to
->>
->> What exactly do you mean by "as it currently is implemented"? that you
->> do not like?
-> As Sascha pointed out, the implementation is labeled as "hack", which
-> should be fixed sooner than later. It's just not clear why ;).
->
-> Wolfgang.
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+That was already applied in 3.7.3 as e5e65a5233c3f368c442413cebe7de2a4580b5=
+64,
+so it doesn't fix the issue.
+
+--=20
+Greetings, Michael.
+
+PGP: 908D8B0E
+
+--Sig_/HhN7UHX_T1r8FPW7F3TK6zy
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJQ/q9cAAoJEPUyvh2QjYsOfCQP/013tYbrwsrhc8Dk6gfoVcHL
+c/rNg+pO9D/h0o8GA1pYfaEIEr3hh9NyjL0f0y9CPRVnw44WlWEvFFok88eClig8
+mtrzMb0Hyiicaac6hzrgDbNu82BE76+xxYV+aTa1MNmybpyruqvhFxzRw1K90uvu
+6zSfpHAEvp2C/Jtrr11VpMRW1FPYC9YPYI2GrUs7Y+BkXNbfq56M5LSLr1jQiH5r
+4/GVSz5DK2143IvDeH3sTfA5Syyym8l4uk6nUMnGT9IUlxBGJ+oVGgi7fes6e8T6
+J9Lrs6QTQ+UftzmONGm6dlF67iAT7SJt0ZhNIbQe/XO/DlTWWuBiEDAcu2oqvYfv
+FGB2APxDYqyp/TrnZc3nQvDPzS2zQwOqNP23/ZaU+B166+u64I0q5F4hFoqfrD4x
+tVgLYsrOKiVUuhgXsr2v1WqUk8aLnKEo/bORti4x1v8x3l7+5CDZfrZ1z91gEe26
++gazv1vo1H6TrOnUnvbaGbzWtq7WfxvpM0HVHLF23tSZ14Nty8bjdbsjif21YZTB
+q16bF5AOOo5aYrqtrM94BSD98kkXEFQkn2mGaqRmLsC3Fr/nV7CdxBPO8VHuWonf
+veax13GoJXbTv65CpXFwB1UjfW7fcFiF9fSaR4TZv9MBZKAn6tavUfgmWUrfpEJo
+jBS9CJSk799jKL3kdGtQ
+=SSi9
+-----END PGP SIGNATURE-----
+
+--Sig_/HhN7UHX_T1r8FPW7F3TK6zy--
