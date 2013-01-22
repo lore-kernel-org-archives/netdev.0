@@ -1,94 +1,75 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net 2/3] net: cdc_mbim: send ZLP after max sized NTBs
-Date: Tue, 22 Jan 2013 10:54:20 +0100
-Message-ID: <87zk01a6gj.fsf@nemi.mork.no>
-References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
-	<1358783440-11459-3-git-send-email-bjorn@mork.no>
-	<2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D57@EXDCVYMBSTM006.EQ1STM.local>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] ipv4: Fix route refcount on pmtu discovery
+Date: Tue, 22 Jan 2013 11:01:28 +0100
+Message-ID: <20130122100128.GD9147@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb\@vger.kernel.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Suarez <gsuarez-AKjrjAf1O7qe8kRwQpwjMg@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>,
-	Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D57-8ZTw5gFVCTjVH5byLeRTJxkTb7+GphCuwzqs5ZKRSiY@public.gmane.org>
-	(Alexey ORISHKO's message of "Mon, 21 Jan 2013 17:31:37 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:35048 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752898Ab3AVKBv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 05:01:51 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org> writes:
+git commit 9cb3a50c (ipv4: Invalidate the socket cached route on
+pmtu events if possible) introduced a refcount problem. We don't
+get a refcount on the route if we get it from__sk_dst_get(), but
+we need one if we want to reuse this route because __sk_dst_set()
+releases the refcount of the old route. This patch adds proper
+refcount handling for that case. We introduce a 'new' flag to
+indicate that we are going to use a new route and we release the
+old route only if we replace it by a new one.
 
-> If you add ZLP for NTBs of dwNtbOutMaxSize, you are heavily affecting=
- CPU
-> load, increasing interrupt load by factor of 2 in high load traffic
-> scenario and possibly decreasing throughput for all other devices
-> which behaves correctly.=20
+Reported-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+---
+ net/ipv4/route.c |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-Hello Alexey,
-
-Still trying to understand the mechanisms involved here. I must
-apologize for my lack of knowledge of the hardware restrictions
-involved.
-
-The current cdc_ncm/cdc_mbim drivers will pad a NTB to the full
-dwNtbOutMaxSize whenever it reaches at least 512 bytes.  The reason is
-that this allows more efficient device DMA operation.  This is somethin=
-g
-we do to adapt to device hardware restrictions even though there is no
-such recommendations in the NCM/MBIM specs.  The penalty on the host an=
-d
-bus should be obvious: Even with a quite small dwNtbOutMaxSize of 4096,
-we end up sending 8 x 512-byte data packets instead of the 2 we could
-have managed with.
-
-Now you claim that sending 9 packets, where the last one is a zero
-length packet, increaes the interrupt load by factor of 2?  How is that=
-?
-
-This is where my lack of hardware knowledge shows up, but I assumed
-based on the device DMA argument that the device USB engine would do th=
-e
-actual packet reception and assembly and DMA the complete 4096-byte dat=
-a
-transfer to the device memory. Won't the device USB engine also handle
-the ZLP?  Won't it just collect 9 packets instead of 8 and assemble the=
-m
-to the 4096-byte data transfer which is DMAed away the same way it woul=
-d
-if there were just 8 packets in the transfer?  The only differences
-being that the ZLP variant works even if the device stack for some
-reason requests more than dwNtbOutMaxSize bytes (which of course could
-be claimed to be stupid, but the spec allows it), and of course that we
-waste even more USB bus bandwidth.  But if USB bandwidth is a factor we
-consider here then I am going to question the padding to dwNtbOutMaxSiz=
-e
-based on some devices having DMA restrictions making that more efficien=
-t.
-
-Why is the device DMA restrictions not a fault, while the device ZLP
-requirement is?  Both seem like reasonable device hardware/firmware
-implementation imposed restrictions to me.  Something we'll just have t=
-o
-accept.
-
-Note that the problem with the ZLP on the Sierra devices is made much
-worse than necessary by the padding.  Without this we would rarely have
-hit the dwNtbOutMaxSize limit, and would have been able to work around
-it by simply using tx_max =3D dwNtbOutMaxSize - 1 if=20
-(dwNtbOutMaxSize % wMaxPacketSize =3D=3D 0).
-
-Maybe that is what Windows does?
-
-But we cannot do that due to other devices having issues with transfers
-less than dwNtbOutMaxSize..
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 132737a..a0fcc47 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -985,6 +985,7 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+ 	struct flowi4 fl4;
+ 	struct rtable *rt;
+ 	struct dst_entry *dst;
++	bool new = false;
+ 
+ 	bh_lock_sock(sk);
+ 	rt = (struct rtable *) __sk_dst_get(sk);
+@@ -1000,20 +1001,26 @@ void ipv4_sk_update_pmtu(struct sk_buff *skb, struct sock *sk, u32 mtu)
+ 		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
+ 		if (IS_ERR(rt))
+ 			goto out;
++
++		new = true;
+ 	}
+ 
+ 	__ip_rt_update_pmtu((struct rtable *) rt->dst.path, &fl4, mtu);
+ 
+ 	dst = dst_check(&rt->dst, 0);
+ 	if (!dst) {
++		if (new)
++			dst_release(&rt->dst);
++
+ 		rt = ip_route_output_flow(sock_net(sk), &fl4, sk);
+ 		if (IS_ERR(rt))
+ 			goto out;
+ 
+-		dst = &rt->dst;
++		new = true;
+ 	}
+ 
+-	 __sk_dst_set(sk, dst);
++	if (new)
++		__sk_dst_set(sk, &rt->dst);
+ 
+ out:
+ 	bh_unlock_sock(sk);
+-- 
+1.7.9.5
