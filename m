@@ -1,67 +1,51 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH] ethtool: Fix space-after-if checkpatch errors
-Date: Tue, 22 Jan 2013 21:04:50 +0000
-Message-ID: <1358888690-3140-1-git-send-email-mark.einon@gmail.com>
-Cc: netdev@vger.kernel.org, Mark Einon <mark.einon@gmail.com>
-To: bhutchings@solarflare.com
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH ethtool] rxclass: Show full 64 bits of user-data in rxclass_print_nfc_spec_ext()
+Date: Tue, 22 Jan 2013 13:07:27 -0800
+Message-ID: <50FEFF8F.40304@intel.com>
+References: <1358886835.2892.14.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:56917 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751789Ab3AVVE4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 16:04:56 -0500
-Received: by mail-wg0-f50.google.com with SMTP id es5so653630wgb.17
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 13:04:55 -0800 (PST)
+Received: from mga03.intel.com ([143.182.124.21]:39880 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752136Ab3AVVH2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 16:07:28 -0500
+In-Reply-To: <1358886835.2892.14.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some version check statements are lacking a space after the if ()
-statement. Add them in.
+On 01/22/2013 12:33 PM, Ben Hutchings wrote:
+> Previously only the lower 32 bits would be shown.
+> 
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+> I just noticed this bug when applying Yan Burman's patch.  Untested
+> since sfc doesn't support this field.
+> 
+> Ben.
+> 
+>  rxclass.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/rxclass.c b/rxclass.c
+> index 1564b62..cd686a3 100644
+> --- a/rxclass.c
+> +++ b/rxclass.c
+> @@ -49,7 +49,7 @@ static void rxclass_print_nfc_spec_ext(struct ethtool_rx_flow_spec *fsp)
+>  		tci = ntohs(fsp->h_ext.vlan_tci);
+>  		tcim = ntohs(~fsp->m_ext.vlan_tci);
+>  		data = (u64)ntohl(fsp->h_ext.data[0]) << 32;
+> -		data = (u64)ntohl(fsp->h_ext.data[1]);
+> +		data |= (u64)ntohl(fsp->h_ext.data[1]);
+>  		datam = (u64)ntohl(~fsp->m_ext.data[0]) << 32;
+>  		datam |= (u64)ntohl(~fsp->m_ext.data[1]);
+>  
+> 
 
-Signed-off-by: Mark Einon <mark.einon@gmail.com>
----
- e100.c   |    2 +-
- e1000.c  |    2 +-
- et131x.c |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+This looks fine to me.  We didn't use data[0] in ixgbe so we never
+noticed this either.
 
-diff --git a/e100.c b/e100.c
-index 65627ab..b982e79 100644
---- a/e100.c
-+++ b/e100.c
-@@ -46,7 +46,7 @@ e100_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 	u32 reg;
- 	u16 scb_status, scb_cmd;
- 
--	if(version != 1)
-+	if (version != 1)
- 		return -1;
- 
- 	reg = regs_buff[0];
-diff --git a/e1000.c b/e1000.c
-index d1d3c73..dd47774 100644
---- a/e1000.c
-+++ b/e1000.c
-@@ -374,7 +374,7 @@ e1000_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 	enum e1000_mac_type mac_type;
- 	u32 reg;
- 
--	if(version != 1)
-+	if (version != 1)
- 		return -1;
- 
- 	mac_type = e1000_get_mac_type(hw_device_id, hw_revision_id);
-diff --git a/et131x.c b/et131x.c
-index 8cdbec0..36abaa2 100644
---- a/et131x.c
-+++ b/et131x.c
-@@ -7,7 +7,7 @@ int et131x_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 	u8 version = (u8)(regs->version >> 24);
- 	u32 *reg = (u32 *)regs->data;
- 
--	if(version != 1)
-+	if (version != 1)
- 		return -1;
- 
- 	fprintf(stdout, "PHY Registers\n");
--- 
-1.7.10.4
+Acked-by: Alexander Duyck <alexander.h.duyck@intel.com>
