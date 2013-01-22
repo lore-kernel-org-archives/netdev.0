@@ -1,85 +1,29 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: BUG in netxen_release_tx_buffers when TSO enabled on kernels >=
- 3.3 and <= 3.6
-Date: Tue, 22 Jan 2013 18:46:41 +0000
-Message-ID: <C562D0E12CBDE44E8A0CCAB77060096705CE85@AVMB1.qlogic.org>
-References: <1659861.dHpGAGoXHj@cpaasch-mac>
-	 <1358862966.3464.3797.camel@edumazet-glaptop>
-	 <2166577.r0iRQtU7qE@cpaasch-mac>  <3172160.NCYvLW6RVJ@cpaasch-mac>
- <1358872385.3464.3940.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 20/33] net: Convert to devm_ioremap_resource()
+Date: Tue, 22 Jan 2013 13:58:47 -0500 (EST)
+Message-ID: <20130122.135847.466818986790360986.davem@davemloft.net>
+References: <1358762966-20791-21-git-send-email-thierry.reding@avionic-design.de>
+	<20130121.152913.1377695352860141642.davem@davemloft.net>
+	<20130122065629.GA14523@avionic-0098.adnet.avionic-design.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Ian Campbell <Ian.Campbell@citrix.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"christoph.paasch@uclouvain.be" <christoph.paasch@uclouvain.be>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:28900
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754731Ab3AVSrH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 13:47:07 -0500
-In-Reply-To: <1358872385.3464.3940.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org,
+	dmitry.torokhov@gmail.com, arnd@arndb.de, w.sang@pengutronix.de,
+	netdev@vger.kernel.org
+To: thierry.reding@avionic-design.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130122065629.GA14523@avionic-0098.adnet.avionic-design.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogRXJpYyBEdW1hemV0IFttYWlsdG86
-ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj5TZW50OiBUdWVzZGF5LCBKYW51YXJ5IDIyLCAyMDEz
-IDEwOjAzIFBNDQo+VG86IGNocmlzdG9waC5wYWFzY2hAdWNsb3V2YWluLmJlDQo+Q2M6IElhbiBD
-YW1wYmVsbDsgU29ueSBDaGFja287IFJhamVzaCBCb3J1bmRpYTsgRGF2aWQgTWlsbGVyOyBuZXRk
-ZXYNCj5TdWJqZWN0OiBSZTogQlVHIGluIG5ldHhlbl9yZWxlYXNlX3R4X2J1ZmZlcnMgd2hlbiBU
-U08gZW5hYmxlZCBvbg0KPmtlcm5lbHMgPj0gMy4zIGFuZCA8PSAzLjYNCj4NCj5Gcm9tOiBFcmlj
-IER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+DQo+T24gVHVlLCAyMDEzLTAxLTIyIGF0
-IDE2OjQzICswMTAwLCBDaHJpc3RvcGggUGFhc2NoIHdyb3RlOg0KPj4gSW4gbmV0eGVuX21hcF90
-eF9za2IoKSBJIHRoaW5rIHdlIGFsc28gaGF2ZSB0byBzZXQgbmYtPmRtYSB0byAwVUxMDQo+KGxp
-a2UgdGhlDQo+PiBkaWZmIGJlbG93KS4NCj4+DQo+PiBPdGhlcndpc2UsIG5ldHhlbl9yZWxlYXNl
-X3R4X2J1ZmZlcigpIG1heSB0cnkgdG8gdW5tYXAgc29tZXRoaW5nIHRoYXQNCj5oYXMNCj4+IGFs
-cmVhZHkgYmVlbiB1bm1hcHBlZC4NCj4+DQo+PiBJJ20gbm90IHN1cmUgLSBJIGRvbid0IGZlZWwg
-dmVyeSBjb21mb3J0YWJsZSBpbiBkcml2ZXItY29kZS4uLg0KPg0KPkl0IHNlZW1zIGZpbmUgdG8g
-bWUsIGhlcmUgaXMgdGhlIG9mZmljaWFsIGNvbWJpbmVkIHBhdGNoLCBmZWVsDQo+ZnJlZSB0byBh
-ZGQgeW91ciAnU2lnbmVkLW9mZi1ieScNCj4NCj5UaGFua3MgIQ0KPg0KPltQQVRDSF0gbmV0eGVu
-OiBmaXggb2ZmIGJ5IG9uZSBidWcgaW4gbmV0eGVuX3JlbGVhc2VfdHhfYnVmZmVyKCkNCj4NCj5D
-aHJpc3RvcGggUGFhc2NoIGZvdW5kIG5ldHhlbiBjb3VsZCB0cmlnZ2VyIGEgQlVHIGluIGl0cyBk
-aXNtYW50bGUNCj5waGFzZSwgaW4gbmV0eGVuX3JlbGVhc2VfdHhfYnVmZmVyKCksIHVzaW5nIGZ1
-bGwgc2l6ZSBUU08gcGFja2V0cy4NCj4NCj5jbWRfYnVmLT5mcmFnX2NvdW50IGluY2x1ZGVzIHRo
-ZSBza2ItPmRhdGEgcGFydCwgc28gdGhlIGxvb3AgbXVzdA0KPnN0YXJ0IGF0IGluZGV4IDEgaW5z
-dGVhZCBvZiAwLCBvciBlbHNlIHdlIGNhbiBtYWtlIGFuIG91dA0KPm9mIGJvdW5kIGFjY2VzcyB0
-byBjbWRfYnVmZi0+ZnJhZ19hcnJheVtNQVhfU0tCX0ZSQUdTICsgMl0NCj4NCj5DaHJpc3RvcGgg
-cHJvdmlkZWQgdGhlIGZpeGVzIGluIG5ldHhlbl9tYXBfdHhfc2tiKCkgZnVuY3Rpb24uDQo+SW4g
-Y2FzZSBvZiBhIGRtYSBtYXBwaW5nIGVycm9yLCBpdHMgYmV0dGVyIHRvIGNsZWFyIHRoZSBkbWEg
-ZmllbGRzDQo+c28gdGhhdCB3ZSBkb24ndCB0cnkgdG8gdW5tYXAgdGhlbSBhZ2FpbiBpbiBuZXR4
-ZW5fcmVsZWFzZV90eF9idWZmZXIoKQ0KPg0KPlJlcG9ydGVkLWJ5OiBDaHJpc3RvcGggUGFhc2No
-IDxjaHJpc3RvcGgucGFhc2NoQHVjbG91dmFpbi5iZT4NCj5TaWduZWQtb2ZmLWJ5OiBFcmljIER1
-bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+VGVzdGVkLWJ5OiBDaHJpc3RvcGggUGFhc2No
-IDxjaHJpc3RvcGgucGFhc2NoQHVjbG91dmFpbi5iZT4NCj5DYzogU29ueSBDaGFja28gPHNvbnku
-Y2hhY2tvQHFsb2dpYy5jb20+DQo+Q2M6IFJhamVzaCBCb3J1bmRpYSA8cmFqZXNoLmJvcnVuZGlh
-QHFsb2dpYy5jb20+DQo+LS0tDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4v
-bmV0eGVuX25pY19pbml0LmMgfCAgICAyICstDQo+IGRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dp
-Yy9uZXR4ZW4vbmV0eGVuX25pY19tYWluLmMgfCAgICAyICsrDQo+IDIgZmlsZXMgY2hhbmdlZCwg
-MyBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pDQo+DQo+ZGlmZiAtLWdpdCBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4vbmV0eGVuX25pY19pbml0LmMNCj5iL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4vbmV0eGVuX25pY19pbml0LmMNCj5pbmRleCBiYzE2
-NWY0Li42OTU2NjdkIDEwMDY0NA0KPi0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9u
-ZXR4ZW4vbmV0eGVuX25pY19pbml0LmMNCj4rKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9n
-aWMvbmV0eGVuL25ldHhlbl9uaWNfaW5pdC5jDQo+QEAgLTE0NCw3ICsxNDQsNyBAQCB2b2lkIG5l
-dHhlbl9yZWxlYXNlX3R4X2J1ZmZlcnMoc3RydWN0IG5ldHhlbl9hZGFwdGVyDQo+KmFkYXB0ZXIp
-DQo+IAkJCQkJIGJ1ZmZyYWctPmxlbmd0aCwgUENJX0RNQV9UT0RFVklDRSk7DQo+IAkJCWJ1ZmZy
-YWctPmRtYSA9IDBVTEw7DQo+IAkJfQ0KPi0JCWZvciAoaiA9IDA7IGogPCBjbWRfYnVmLT5mcmFn
-X2NvdW50OyBqKyspIHsNCj4rCQlmb3IgKGogPSAxOyBqIDwgY21kX2J1Zi0+ZnJhZ19jb3VudDsg
-aisrKSB7DQo+IAkJCWJ1ZmZyYWcrKzsNCj4gCQkJaWYgKGJ1ZmZyYWctPmRtYSkgew0KPiAJCQkJ
-cGNpX3VubWFwX3BhZ2UoYWRhcHRlci0+cGRldiwgYnVmZnJhZy0+ZG1hLA0KPmRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhlbl9uaWNfbWFpbi5jDQo+
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVuL25ldHhlbl9uaWNfbWFpbi5jDQo+
-aW5kZXggNjA5OGZkNGEuLjY5ZTMyMWEgMTAwNjQ0DQo+LS0tIGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvcWxvZ2ljL25ldHhlbi9uZXR4ZW5fbmljX21haW4uYw0KPisrKyBiL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L3Fsb2dpYy9uZXR4ZW4vbmV0eGVuX25pY19tYWluLmMNCj5AQCAtMTk2MywxMCArMTk2
-MywxMiBAQCB1bndpbmQ6DQo+IAl3aGlsZSAoLS1pID49IDApIHsNCj4gCQluZiA9ICZwYnVmLT5m
-cmFnX2FycmF5W2krMV07DQo+IAkJcGNpX3VubWFwX3BhZ2UocGRldiwgbmYtPmRtYSwgbmYtPmxl
-bmd0aCwgUENJX0RNQV9UT0RFVklDRSk7DQo+KwkJbmYtPmRtYSA9IDBVTEw7DQo+IAl9DQo+DQo+
-IAluZiA9ICZwYnVmLT5mcmFnX2FycmF5WzBdOw0KPiAJcGNpX3VubWFwX3NpbmdsZShwZGV2LCBu
-Zi0+ZG1hLCBza2JfaGVhZGxlbihza2IpLA0KPlBDSV9ETUFfVE9ERVZJQ0UpOw0KPisJbmYtPmRt
-YSA9IDBVTEw7DQo+DQo+IG91dF9lcnI6DQo+IAlyZXR1cm4gLUVOT01FTTsNCj4NCj4NCg0KQWNr
-ZWQtYnk6IFJhamVzaCBCb3J1bmRpYSA8cmFqZXNoLmJvcnVuZGlhQHFsb2dpYy5jb20NCg0K
+From: Thierry Reding <thierry.reding@avionic-design.de>
+Date: Tue, 22 Jan 2013 07:56:29 +0100
+
+> I planned to do so initially, but that yielded a Cc list of 156 people
+> and mailing lists,
+
+Just use mailing lists, the individuals are subscribed to the subsystem
+lists that cover what they maintain.
+
+Yes, CC:'ing 156 "people" is stupid.
