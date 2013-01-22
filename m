@@ -1,50 +1,43 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 4/5] xfrm: fix freed block size calculation in xfrm_policy_fini()
-Date: Tue, 22 Jan 2013 10:06:35 +0100
-Message-ID: <1358845596-2066-5-git-send-email-steffen.klassert@secunet.com>
-References: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH net] net: cdc_ncm: workaround for missing CDC Union
+Date: Tue, 22 Jan 2013 10:07:07 +0100
+Message-ID: <1621221.QORYF6fjNM@linux-5eaq.site>
+References: <1358519147-10073-1-git-send-email-bjorn@mork.no> <2214944.HMNV73jJm5@linux-5eaq.site> <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D8E@EXDCVYMBSTM006.EQ1STM.local>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	Alexey Orishko <alexey.orishko@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	Greg Suarez <gsuarez@smithmicro.com>
+To: Alexey ORISHKO <alexey.orishko@stericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:33532 "EHLO a.mx.secunet.com"
+Received: from cantor2.suse.de ([195.135.220.15]:38118 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752948Ab3AVJHT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 04:07:19 -0500
-In-Reply-To: <1358845596-2066-1-git-send-email-steffen.klassert@secunet.com>
+	id S1754064Ab3AVJHF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jan 2013 04:07:05 -0500
+In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520154A8EE17D8E@EXDCVYMBSTM006.EQ1STM.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
+On Monday 21 January 2013 18:59:05 Alexey ORISHKO wrote:
+> Specification says: 
+> NCM/MBIM shall not send ZLP if buffer size is dwNtbOutMaxSize.
+> 
+> The problem is: 
+> dwNtbOutMaxSize value is negotiated between host and device NCM/MBIM
+> entities and usbnet has no knowledge about it.
+> 
+> Adding one byte to make buffer looking like a short packet was most
+> simple approach instead of inventing a way to communicate 
+> dwNtbOutMaxSize to usbnet.
+> 
+> You could drop short packet approach if dwNtbOutMaxSize is provided
+> to usbnet and decision is made accordingly to NCM/MBIM spec (with
+> exception to faulty devices).
 
-Missing multiplication of block size by sizeof(struct hlist_head)
-can cause xfrm_hash_free() to be called with wrong second argument
-so that kfree() is called on a block allocated with vzalloc() or
-__get_free_pages() or free_pages() is called with wrong order when
-a namespace with enough policies is removed.
+We could do that. Feel free to send a patch. ;-)
 
-Bug introduced by commit a35f6c5d, i.e. versions >= 2.6.29 are
-affected.
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_policy.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 41eabc4..07c5857 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2656,7 +2656,7 @@ static void xfrm_policy_fini(struct net *net)
- 		WARN_ON(!hlist_empty(&net->xfrm.policy_inexact[dir]));
- 
- 		htab = &net->xfrm.policy_bydst[dir];
--		sz = (htab->hmask + 1);
-+		sz = (htab->hmask + 1) * sizeof(struct hlist_head);
- 		WARN_ON(!hlist_empty(htab->table));
- 		xfrm_hash_free(htab->table, sz);
- 	}
--- 
-1.7.9.5
+	Regards
+		Oliver
