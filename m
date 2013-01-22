@@ -1,58 +1,38 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [PATCH v2] xen-netback: allow changing the MAC address of the
- interface
-Date: Tue, 22 Jan 2013 15:21:29 -0500
-Message-ID: <20130122202129.GB11982@phenom.dumpdata.com>
-References: <1358878105-7890-1-git-send-email-msw@amazon.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH ETHTOOL] Added dst-mac parameter for L3/L4 flow spec
+ rules. This is usefull in vSwitch configurations.
+Date: Tue, 22 Jan 2013 20:27:42 +0000
+Message-ID: <1358886462.2892.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1355227436-18383-1-git-send-email-amirv@mellanox.com>
+	 <1355227436-18383-4-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org
-To: Matt Wilson <msw@amazon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1358878105-7890-1-git-send-email-msw@amazon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yan Burman <yanb@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:48365 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800Ab3AVU1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 15:27:46 -0500
+In-Reply-To: <1355227436-18383-4-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2013 at 06:08:25PM +0000, Matt Wilson wrote:
-> Sometimes it is useful to be able to change the MAC address of the
-> interface for netback devices. For example, when using ebtables it may
-> be useful to be able to distinguish traffic from different interfaces
-> without depending on the interface name.
+On Tue, 2012-12-11 at 14:03 +0200, Amir Vadai wrote:
+> From: Yan Burman <yanb@mellanox.com>
 > 
-> Reported-by: Nikita Borzykh <sample.n@gmail.com>
-> Reported-by: Paul Harvey <stockingpaul@hotmail.com>
-> Cc: netdev@vger.kernel.org
-> Cc: xen-devel@lists.xen.org
-> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+> Signed-off-by: Yan Burman <yanb@mellanox.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+[...]
 
-Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Applied, thanks.  Sorry for the delay.
 
-> Acked-by: Ian Campbell <ian.campbell@citrix.com>
-> Signed-off-by: Matt Wilson <msw@amazon.com>
-> 
-> ---
-> Changes since v1:
->  * No code changes, only updated commit message
-> ---
->  drivers/net/xen-netback/interface.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index b7d41f8..f733cae 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -238,6 +238,8 @@ static const struct net_device_ops xenvif_netdev_ops = {
->  	.ndo_stop	= xenvif_close,
->  	.ndo_change_mtu	= xenvif_change_mtu,
->  	.ndo_fix_features = xenvif_fix_features,
-> +	.ndo_set_mac_address = eth_mac_addr,
-> +	.ndo_validate_addr   = eth_validate_addr,
->  };
->  
->  struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
-> -- 
-> 1.7.4.5
-> 
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
