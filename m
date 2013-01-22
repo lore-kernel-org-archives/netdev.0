@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 06/45] percpu_rwlock: Allow writers to be readers,
- and add lockdep annotations
-Date: Tue, 22 Jan 2013 13:04:23 +0530
-Message-ID: <20130122073416.13822.96504.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v5 09/45] smp,
+ cpu hotplug: Fix smp_call_function_*() to prevent CPU offline properly
+Date: Tue, 22 Jan 2013 13:05:10 +0530
+Message-ID: <20130122073508.13822.12784.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -23,93 +23,155 @@ In-Reply-To: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CPU hotplug (which will be the first user of per-CPU rwlocks) has a special
-requirement with respect to locking: the writer, after acquiring the per-CPU
-rwlock for write, must be allowed to take the same lock for read, without
-deadlocking and without getting complaints from lockdep. In comparison, this
-is similar to what get_online_cpus()/put_online_cpus() does today: it allows
-a hotplug writer (who holds the cpu_hotplug.lock mutex) to invoke it without
-locking issues, because it silently returns if the caller is the hotplug
-writer itself.
+Once stop_machine() is gone from the CPU offline path, we won't be able to
+depend on preempt_disable() to prevent CPUs from going offline from under us.
 
-This can be easily achieved with per-CPU rwlocks as well (even without a
-"is this a writer?" check) by incrementing the per-CPU refcount of the writer
-immediately after taking the global rwlock for write, and then decrementing
-the per-CPU refcount before releasing the global rwlock.
-This ensures that any reader that comes along on that CPU while the writer is
-active (on that same CPU), notices the non-zero value of the nested counter
-and assumes that it is a nested read-side critical section and proceeds by
-just incrementing the refcount. Thus we prevent the reader from taking the
-global rwlock for read, which prevents the writer from deadlocking itself.
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
+while invoking from atomic context.
 
-Add that support and teach lockdep about this special locking scheme so
-that it knows that this sort of usage is valid. Also add the required lockdep
-annotations to enable it to detect common locking problems with per-CPU
-rwlocks.
-
-Cc: David Howells <dhowells@redhat.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- lib/percpu-rwlock.c |   21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+ kernel/smp.c |   40 ++++++++++++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 14 deletions(-)
 
-diff --git a/lib/percpu-rwlock.c b/lib/percpu-rwlock.c
-index a8d177a..054a50a 100644
---- a/lib/percpu-rwlock.c
-+++ b/lib/percpu-rwlock.c
-@@ -84,6 +84,10 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
+diff --git a/kernel/smp.c b/kernel/smp.c
+index 29dd40a..f421bcc 100644
+--- a/kernel/smp.c
++++ b/kernel/smp.c
+@@ -310,7 +310,8 @@ int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
+ 	 * prevent preemption and reschedule on another processor,
+ 	 * as well as CPU removal
+ 	 */
+-	this_cpu = get_cpu();
++	get_online_cpus_atomic();
++	this_cpu = smp_processor_id();
  
- 		if (likely(!writer_active(pcpu_rwlock))) {
- 			this_cpu_inc(*pcpu_rwlock->reader_refcnt);
-+
-+			/* Pretend that we take global_rwlock for lockdep */
-+			rwlock_acquire_read(&pcpu_rwlock->global_rwlock.dep_map,
-+					    0, 0, _RET_IP_);
- 		} else {
- 			/* Writer is active, so switch to global rwlock. */
- 
-@@ -108,6 +112,12 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
- 			if (!writer_active(pcpu_rwlock)) {
- 				this_cpu_inc(*pcpu_rwlock->reader_refcnt);
- 				read_unlock(&pcpu_rwlock->global_rwlock);
-+
-+				/*
-+				 * Pretend that we take global_rwlock for lockdep
-+				 */
-+				rwlock_acquire_read(&pcpu_rwlock->global_rwlock.dep_map,
-+						    0, 0, _RET_IP_);
- 			}
+ 	/*
+ 	 * Can deadlock when called with interrupts disabled.
+@@ -342,7 +343,7 @@ int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
  		}
  	}
-@@ -128,6 +138,14 @@ void percpu_read_unlock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
- 	if (reader_nested_percpu(pcpu_rwlock)) {
- 		this_cpu_dec(*pcpu_rwlock->reader_refcnt);
- 		smp_wmb(); /* Paired with smp_rmb() in sync_reader() */
-+
-+		/*
-+		 * If this is the last decrement, then it is time to pretend
-+		 * to lockdep that we are releasing the read lock.
-+		 */
-+		if (!reader_nested_percpu(pcpu_rwlock))
-+			rwlock_release(&pcpu_rwlock->global_rwlock.dep_map,
-+				       1, _RET_IP_);
- 	} else {
- 		read_unlock(&pcpu_rwlock->global_rwlock);
- 	}
-@@ -205,11 +223,14 @@ void percpu_write_lock_irqsave(struct percpu_rwlock *pcpu_rwlock,
- 	announce_writer_active(pcpu_rwlock);
- 	sync_all_readers(pcpu_rwlock);
- 	write_lock_irqsave(&pcpu_rwlock->global_rwlock, *flags);
-+	this_cpu_inc(*pcpu_rwlock->reader_refcnt);
- }
  
- void percpu_write_unlock_irqrestore(struct percpu_rwlock *pcpu_rwlock,
- 			 unsigned long *flags)
- {
-+	this_cpu_dec(*pcpu_rwlock->reader_refcnt);
+-	put_cpu();
++	put_online_cpus_atomic();
+ 
+ 	return err;
+ }
+@@ -371,8 +372,10 @@ int smp_call_function_any(const struct cpumask *mask,
+ 	const struct cpumask *nodemask;
+ 	int ret;
+ 
++	get_online_cpus_atomic();
+ 	/* Try for same CPU (cheapest) */
+-	cpu = get_cpu();
++	cpu = smp_processor_id();
++
+ 	if (cpumask_test_cpu(cpu, mask))
+ 		goto call;
+ 
+@@ -388,7 +391,7 @@ int smp_call_function_any(const struct cpumask *mask,
+ 	cpu = cpumask_any_and(mask, cpu_online_mask);
+ call:
+ 	ret = smp_call_function_single(cpu, func, info, wait);
+-	put_cpu();
++	put_online_cpus_atomic();
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(smp_call_function_any);
+@@ -409,25 +412,28 @@ void __smp_call_function_single(int cpu, struct call_single_data *data,
+ 	unsigned int this_cpu;
+ 	unsigned long flags;
+ 
+-	this_cpu = get_cpu();
++	get_online_cpus_atomic();
++
++	this_cpu = smp_processor_id();
 +
  	/*
- 	 * Inform all readers that we are done, so that they can switch back
- 	 * to their per-cpu refcounts. (We don't need to wait for them to
+ 	 * Can deadlock when called with interrupts disabled.
+ 	 * We allow cpu's that are not yet online though, as no one else can
+ 	 * send smp call function interrupt to this cpu and as such deadlocks
+ 	 * can't happen.
+ 	 */
+-	WARN_ON_ONCE(cpu_online(smp_processor_id()) && wait && irqs_disabled()
++	WARN_ON_ONCE(cpu_online(this_cpu) && wait && irqs_disabled()
+ 		     && !oops_in_progress);
+ 
+ 	if (cpu == this_cpu) {
+ 		local_irq_save(flags);
+ 		data->func(data->info);
+ 		local_irq_restore(flags);
+-	} else {
++	} else if ((unsigned)cpu < nr_cpu_ids && cpu_online(cpu)) {
+ 		csd_lock(data);
+ 		generic_exec_single(cpu, data, wait);
+ 	}
+-	put_cpu();
++	put_online_cpus_atomic();
+ }
+ 
+ /**
+@@ -451,6 +457,8 @@ void smp_call_function_many(const struct cpumask *mask,
+ 	unsigned long flags;
+ 	int refs, cpu, next_cpu, this_cpu = smp_processor_id();
+ 
++	get_online_cpus_atomic();
++
+ 	/*
+ 	 * Can deadlock when called with interrupts disabled.
+ 	 * We allow cpu's that are not yet online though, as no one else can
+@@ -467,17 +475,18 @@ void smp_call_function_many(const struct cpumask *mask,
+ 
+ 	/* No online cpus?  We're done. */
+ 	if (cpu >= nr_cpu_ids)
+-		return;
++		goto out_unlock;
+ 
+ 	/* Do we have another CPU which isn't us? */
+ 	next_cpu = cpumask_next_and(cpu, mask, cpu_online_mask);
+ 	if (next_cpu == this_cpu)
+-		next_cpu = cpumask_next_and(next_cpu, mask, cpu_online_mask);
++		next_cpu = cpumask_next_and(next_cpu, mask,
++						cpu_online_mask);
+ 
+ 	/* Fastpath: do that cpu by itself. */
+ 	if (next_cpu >= nr_cpu_ids) {
+ 		smp_call_function_single(cpu, func, info, wait);
+-		return;
++		goto out_unlock;
+ 	}
+ 
+ 	data = &__get_cpu_var(cfd_data);
+@@ -523,7 +532,7 @@ void smp_call_function_many(const struct cpumask *mask,
+ 	/* Some callers race with other cpus changing the passed mask */
+ 	if (unlikely(!refs)) {
+ 		csd_unlock(&data->csd);
+-		return;
++		goto out_unlock;
+ 	}
+ 
+ 	raw_spin_lock_irqsave(&call_function.lock, flags);
+@@ -554,6 +563,9 @@ void smp_call_function_many(const struct cpumask *mask,
+ 	/* Optionally wait for the CPUs to complete */
+ 	if (wait)
+ 		csd_lock_wait(&data->csd);
++
++out_unlock:
++	put_online_cpus_atomic();
+ }
+ EXPORT_SYMBOL(smp_call_function_many);
+ 
+@@ -574,9 +586,9 @@ EXPORT_SYMBOL(smp_call_function_many);
+  */
+ int smp_call_function(smp_call_func_t func, void *info, int wait)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	smp_call_function_many(cpu_online_mask, func, info, wait);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ 
+ 	return 0;
+ }
 
