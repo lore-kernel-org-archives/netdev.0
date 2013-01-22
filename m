@@ -1,59 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Tue, 22 Jan 2013 09:13:20 -0800
-Message-ID: <1358874800.3464.4002.camel@edumazet-glaptop>
-References: <20130122161038.GG4608@sociomantic.com>
-	 <1358873142.3464.3964.camel@edumazet-glaptop>
-	 <20130122165929.GH4608@sociomantic.com>
+From: Yauheni Kaliuta <yauheni@kaliuta.org>
+Subject: Re: [PATCH net 2/3] net: cdc_mbim: send ZLP after max sized NTBs
+Date: Tue, 22 Jan 2013 19:16:34 +0200
+Message-ID: <CAAzmmD4ebn6p_xojieGkk5dzyVfhDizfcneUAUL=ZUzucH2nww@mail.gmail.com>
+References: <1358783440-11459-1-git-send-email-bjorn@mork.no>
+	<1358783440-11459-3-git-send-email-bjorn@mork.no>
+	<87wqv64gr9.fsf@home.kaliuta.org>
+	<87hamab3fs.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130122165929.GH4608@sociomantic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Greg Suarez <gsuarez@smithmicro.com>,
+	Alexey Orishko <alexey.orishko@stericsson.com>,
+	Oliver Neukum <oneukum@suse.de>
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:50743 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753512Ab3AVRQg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 12:16:36 -0500
+In-Reply-To: <87hamab3fs.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-22 at 17:59 +0100, Leandro Lucarella wrote:
+Hi!
 
-> What I'm seeing are clients taking either useconds to connect, or 3
-> seconds, which suggest SYNs are getting lost, but the network doesn't
-> seem to be the problem. I'm still investigating this, so unfortunately
-> I'm not really sure.
-> 
+On Tue, Jan 22, 2013 at 12:01 AM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote=
+:
+> Yauheni Kaliuta <y.kaliuta@gmail.com> writes:
+>>>>>>> "BM" =3D=3D Bj=C3=B8rn Mork writes:
+>>
+>>  > We normally avoid sending ZLPs by padding NTBs with a zero byte
+>>  > if the NTB is shorter than dwNtbOutMaxSize, resulting in a short
+>>  > USB packet instead of a ZLP.  But in the case where the NTB lengt=
+h
+>>  > is exactly dwNtbOutMaxSize and this is an exact multiplum of
+>>  > wMaxPacketSize, then we must send a ZLP.
+>>
+>> The idea of NCM was to avoid extra ZLPs. If your transfer is exactly
+>> dwNtbOutMaxSize, it's known, you can submit such request on the rece=
+iver
+>> side and you do not need any EOT indicatation, so the frametime can =
+be
+>> used for useful data.
+>
+> Yes, that makes sense.  And I understand that both you and Alexey are=
+ of
+> this opinion.
+>
+> But this idea is by no means made clear (to me) in the spec.  I do no=
+t
+> think the current wording is precise enough to expect every implement=
+or
+> to understand any such intent.  The only place I find either "short
+> packet" or ZLP mentioned in the NCM spec is in tables 3-1 and 3-2,
+> describing the 16bit and 32bit NTH formats, in the description of the
+> (d)wBlockLength fields.  And even there it is only mentioned in the
+> context of the special (d)wBlockLength =3D 0x0000 handling.
 
-A SYN packet or a SYN-ACK packet can be lost in the network.
+I agree, it could be a bit unclear,
 
-> > A serious rewrite of LISTEN code is needed, because the current
-> > implementation doesn't scale :
-> > 
-> > The SYNACK retransmits are done by a single timer wheel, holding the
-> > socket lock for too long. So increasing the backlog to 2^16 or 2^17 is
-> > not really an option.
-> > 
-> > Hash table are nice, but if we have to scan them, holding a single lock,
-> > they are not so nice.
-> 
-> So, the queue is really a hash table, then? So using any (2^n)-1 would
-> be a bad idea because when the backlog is next to full, the hash table
-> will be really slow? Is that why the + 1 is there? Is assuming everyone
-> will use a power of 2 an thus having a load factor of 0.5 at most?
-> 
+"
+If exactly dwNtbInMaxSize or dwNtbOutMaxSize
+bytes are sent, and the size is a multiple of wMax-
+PacketSize for the given pipe, then no ZLP shall be
+sent.
+"
+is an independent clause.
 
-The kind of hash tables we use are power of two.
+>
+> If the intent was to prevent ZLPs, then it would have been wise to wr=
+ite
+> that in the NCM standard. As it stands you have to use a lot of
+> imagination to read that intent into the current spec.
 
-The size of hash table has little effect, its automatic, to try to get
-an average of one item per hash slot, or less. Even if we had 10 items
-per slot, it would not be a big deal.
-
-What is important is the backlog, and I guess you didn't increase it
-properly. The somaxconn default is quite low (128)
-
-# sysctl -w net/ipv4/tcp_max_syn_backlog=4096
-net.ipv4.tcp_max_syn_backlog = 4096
-# sysctl -w net.core.somaxconn=4096
-net.core.somaxconn = 4096
-
-Then make sure your server use a big enough listen(..., backlog)
-parameter.
+Well, I hope the guys took your complains into account and will fix
+the wording in the future spec versions.
