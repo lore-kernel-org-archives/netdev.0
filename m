@@ -1,74 +1,83 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next (v2, reword)] neigh: Keep neighbour cache entries
- if number of them is small enough.
-Date: Wed, 23 Jan 2013 00:20:05 +0900
-Message-ID: <50FEAE25.4040008@linux-ipv6.org>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH] net: fec: Add support for multiple phys on mdiobus
+Date: Tue, 22 Jan 2013 16:19:46 +0100
+Message-ID: <50FEAE12.7090307@openwrt.org>
+References: <1358757475-21035-1-git-send-email-s.hauer@pengutronix.de> <50FD02B8.8080401@grandegger.com> <20130121100701.GX1906@pengutronix.de> <50FD2172.2020608@grandegger.com> <20130121120602.GZ1906@pengutronix.de> <50FE3E37.4010004@grandegger.com> <50FEA691.4050904@openwrt.org> <50FEAA28.1070003@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, shawn.guo@linaro.org,
+	davem@davemloft.net
+To: Wolfgang Grandegger <wg@grandegger.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51771 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753599Ab3AVPUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:20:06 -0500
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:46118 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754343Ab3AVPWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 10:22:31 -0500
+Received: by mail-lb0-f170.google.com with SMTP id ge1so1723349lbb.1
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 07:22:29 -0800 (PST)
+In-Reply-To: <50FEAA28.1070003@grandegger.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we have removed NCE (Neighbour Cache Entry) reference from
-routing entries, the only refcnt holders of an NCE are its timer
-(if running) and its owner table, in usual cases.  As a result,
-neigh_periodic_work() purges NCEs over and over again even for
-gateways.
+On 01/22/2013 04:03 PM, Wolfgang Grandegger wrote:
+> On 01/22/2013 03:47 PM, Florian Fainelli wrote:
+>> On 01/22/2013 08:22 AM, Wolfgang Grandegger wrote:
+>>>> Well this could be done when the fixed phy driver could be registered
+>>>> with the devicetree, maybe like this:
+>>>>
+>>>>      fixed-phy: mdiophy {
+>>>>          compatible = "mdio-fixed-phy";
+>>>>          link = "100FD";
+>>>>      };
+>>> I find that confusing. There is *no* phy but just a fixed link to the
+>>> switch...
+>>>
+>>>> The good thing about this would be that every ethernet driver could just
+>>>> use such a fixed phy, any external mdio phy (like on Marvell Armada) or
+>>>> just a phy connected to the internal mdio interface provided by the
+>>>> ethernet
+>>>> core.
+>>> What is wrong with the existing "fixed-link" property of the *ethernet*
+>>> node. The fixed-link handling should/could be done in the phy layer, and
+>>> not in the driver as it currently is implemented. Maybe that's the
+>>> reason why the current code is regarded as hack!
+>> As far as I have used it with the CPMAC driver, the fixed PHY is a
+>> specific PHY device and there is no specific handling to be done by the
+>> Ethernet MAC driver but eventually changing its MII bus id so that it is
+>> named "fixed-0" to allow the fixed PHY driver to bind. Put differently,
+> There is special handling for the fixed link, e.g. here:
+>
+> http://lxr.linux.no/#linux+v3.7.4/drivers/net/ethernet/freescale/gianfar.c#L1462
+>
+> This could be hidden in the PHY layer allowing all ethernet drivers
+> using the "fixed-link" property.
 
-It does not make sense to purge entries, if number of them is
-very small, so keep them.  The minimum number of entries to keep
-is specified by gc_thresh1.
+Ok, so in the end you could have potentially an ethernet PHY node 
+containing the following properties:
+- fixed-link
+- fixed-speed
+- fixed-duplex
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- Documentation/networking/ip-sysctl.txt |    5 +++++
- net/core/neighbour.c                   |    4 ++++
- 2 files changed, 9 insertions(+)
+and treat it as a fixed-phy. If so, this would be pretty handy.
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 4976564..19ac180 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -26,6 +26,11 @@ route/max_size - INTEGER
- 	Maximum number of routes allowed in the kernel.  Increase
- 	this when using large numbers of interfaces and/or routes.
- 
-+neigh/default/gc_thresh1 - INTEGER
-+	Minimum number of entries to keep.  Garbage collector will not
-+	purge entries if there are fewer than this number.
-+	Default: 256
-+
- neigh/default/gc_thresh3 - INTEGER
- 	Maximum number of neighbor entries allowed.  Increase this
- 	when using large numbers of interfaces and when communicating
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index c815f28..7bd0eed 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -778,6 +778,9 @@ static void neigh_periodic_work(struct work_struct *work)
- 	nht = rcu_dereference_protected(tbl->nht,
- 					lockdep_is_held(&tbl->lock));
- 
-+	if (atomic_read(&tbl->entries) < tbl->gc_thresh1)
-+		goto out;
-+
- 	/*
- 	 *	periodically recompute ReachableTime from random function
- 	 */
-@@ -832,6 +835,7 @@ next_elt:
- 		nht = rcu_dereference_protected(tbl->nht,
- 						lockdep_is_held(&tbl->lock));
- 	}
-+out:
- 	/* Cycle through all hash buckets every base_reachable_time/2 ticks.
- 	 * ARP entry timeouts range from 1/2 base_reachable_time to 3/2
- 	 * base_reachable_time.
--- 
-1.7.9.5
+>
+>> using the fixed PHY driver is a kind of "last" resort thing to cope with
+>> situations like:
+>>
+>> - switch not providing a consistent PHY-like interface on the MDC/MDIO bus
+>> - switches not connected to the MDC/MDIO bus of the Ethernet MAC they
+>> forward to
+>>
+>> What exactly do you mean by "as it currently is implemented"? that you
+>> do not like?
+> As Sascha pointed out, the implementation is labeled as "hack", which
+> should be fixed sooner than later. It's just not clear why ;).
+>
+> Wolfgang.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
