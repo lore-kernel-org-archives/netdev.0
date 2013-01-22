@@ -1,63 +1,63 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v5 14/45] rcu,
- CPU hotplug: Fix comment referring to stop_machine()
-Date: Tue, 22 Jan 2013 13:06:34 +0530
-Message-ID: <20130122073630.13822.99359.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v5 08/45] CPU hotplug: Convert preprocessor macros to static
+ inline functions
+Date: Tue, 22 Jan 2013 13:05:02 +0530
+Message-ID: <20130122073500.13822.11469.stgit@srivatsabhat.in.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
+Cc: linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
+ nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org, fweisbec@gmail.com,
+ linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, rostedt@goodmis.org,
+ xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+ wangyun@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ linux-arm-kernel@lists.infradead.org
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com,
+ paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org,
+ akpm@linux-foundation.org, namhyung@kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Don't refer to stop_machine() in the CPU hotplug path, since we are going
-to get rid of it. Also, move the comment referring to callback adoption
-to the CPU_DEAD case, because that's where it happens now.
+On 12/05/2012 06:10 AM, Andrew Morton wrote:
+"static inline C functions would be preferred if possible.  Feel free to
+fix up the wrong crufty surrounding code as well ;-)"
+
+Convert the macros in the CPU hotplug code to static inline C functions.
 
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/rcutree.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+ include/linux/cpu.h |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/kernel/rcutree.c b/kernel/rcutree.c
-index e441b77..ac94474 100644
---- a/kernel/rcutree.c
-+++ b/kernel/rcutree.c
-@@ -2827,11 +2827,6 @@ static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
- 		break;
- 	case CPU_DYING:
- 	case CPU_DYING_FROZEN:
--		/*
--		 * The whole machine is "stopped" except this CPU, so we can
--		 * touch any data without introducing corruption. We send the
--		 * dying CPU's callbacks to an arbitrarily chosen online CPU.
--		 */
- 		for_each_rcu_flavor(rsp)
- 			rcu_cleanup_dying_cpu(rsp);
- 		rcu_cleanup_after_idle(cpu);
-@@ -2840,6 +2835,10 @@ static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
- 	case CPU_DEAD_FROZEN:
- 	case CPU_UP_CANCELED:
- 	case CPU_UP_CANCELED_FROZEN:
-+		/*
-+		 * We send the dead CPU's callbacks to an arbitrarily chosen
-+		 * online CPU.
-+		 */
- 		for_each_rcu_flavor(rsp)
- 			rcu_cleanup_dead_cpu(cpu, rsp);
- 		break;
-
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index cf24da1..eb79f47 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -198,10 +198,10 @@ static inline void cpu_hotplug_driver_unlock(void)
+ 
+ #else		/* CONFIG_HOTPLUG_CPU */
+ 
+-#define get_online_cpus()	do { } while (0)
+-#define put_online_cpus()	do { } while (0)
+-#define get_online_cpus_atomic()	do { } while (0)
+-#define put_online_cpus_atomic()	do { } while (0)
++static inline void get_online_cpus(void) {}
++static inline void put_online_cpus(void) {}
++static inline void get_online_cpus_atomic(void) {}
++static inline void put_online_cpus_atomic(void) {}
+ #define hotcpu_notifier(fn, pri)	do { (void)(fn); } while (0)
+ /* These aren't inline functions due to a GCC bug. */
+ #define register_hotcpu_notifier(nb)	({ (void)(nb); 0; })
