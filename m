@@ -1,173 +1,96 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next 4/4] netfilter: Use IS_ERR_OR_NULL().
-Date: Wed, 23 Jan 2013 01:33:09 +0900
-Message-ID: <50FEBF45.1000301@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: BUG in netxen_release_tx_buffers when TSO enabled on kernels
+ >= 3.3 and <= 3.6
+Date: Tue, 22 Jan 2013 08:33:05 -0800
+Message-ID: <1358872385.3464.3940.camel@edumazet-glaptop>
+References: <1659861.dHpGAGoXHj@cpaasch-mac>
+	 <1358862966.3464.3797.camel@edumazet-glaptop>
+	 <2166577.r0iRQtU7qE@cpaasch-mac>  <3172160.NCYvLW6RVJ@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: Ian Campbell <Ian.Campbell@citrix.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:51863 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754188Ab3AVQdK (ORCPT
+Received: from mail-da0-f51.google.com ([209.85.210.51]:37614 "EHLO
+	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754468Ab3AVQdK (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 11:33:10 -0500
+Received: by mail-da0-f51.google.com with SMTP id i30so3292933dad.38
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 08:33:10 -0800 (PST)
+In-Reply-To: <3172160.NCYvLW6RVJ@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv4/netfilter/arp_tables.c |   10 +++++-----
- net/ipv4/netfilter/ip_tables.c  |   10 +++++-----
- net/ipv6/netfilter/ip6_tables.c |   10 +++++-----
- 3 files changed, 15 insertions(+), 15 deletions(-)
+From: Eric Dumazet <edumazet@google.com>
 
-diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 3ea4127..7dc6a97 100644
---- a/net/ipv4/netfilter/arp_tables.c
-+++ b/net/ipv4/netfilter/arp_tables.c
-@@ -901,7 +901,7 @@ static int get_info(struct net *net, void __user *user,
- #endif
- 	t = try_then_request_module(xt_find_table_lock(net, NFPROTO_ARP, name),
- 				    "arptable_%s", name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		struct arpt_getinfo info;
- 		const struct xt_table_info *private = t->private;
- #ifdef CONFIG_COMPAT
-@@ -958,7 +958,7 @@ static int get_entries(struct net *net, struct arpt_get_entries __user *uptr,
+On Tue, 2013-01-22 at 16:43 +0100, Christoph Paasch wrote:
+> In netxen_map_tx_skb() I think we also have to set nf->dma to 0ULL (like the 
+> diff below).
+> 
+> Otherwise, netxen_release_tx_buffer() may try to unmap something that has 
+> already been unmapped.
+> 
+> I'm not sure - I don't feel very comfortable in driver-code...
+
+It seems fine to me, here is the official combined patch, feel
+free to add your 'Signed-off-by'
+
+Thanks !
+
+[PATCH] netxen: fix off by one bug in netxen_release_tx_buffer()
+
+Christoph Paasch found netxen could trigger a BUG in its dismantle
+phase, in netxen_release_tx_buffer(), using full size TSO packets.
+
+cmd_buf->frag_count includes the skb->data part, so the loop must
+start at index 1 instead of 0, or else we can make an out
+of bound access to cmd_buff->frag_array[MAX_SKB_FRAGS + 2]
+
+Christoph provided the fixes in netxen_map_tx_skb() function.
+In case of a dma mapping error, its better to clear the dma fields
+so that we don't try to unmap them again in netxen_release_tx_buffer()
+
+Reported-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Cc: Sony Chacko <sony.chacko@qlogic.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c |    2 +-
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+index bc165f4..695667d 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+@@ -144,7 +144,7 @@ void netxen_release_tx_buffers(struct netxen_adapter *adapter)
+ 					 buffrag->length, PCI_DMA_TODEVICE);
+ 			buffrag->dma = 0ULL;
+ 		}
+-		for (j = 0; j < cmd_buf->frag_count; j++) {
++		for (j = 1; j < cmd_buf->frag_count; j++) {
+ 			buffrag++;
+ 			if (buffrag->dma) {
+ 				pci_unmap_page(adapter->pdev, buffrag->dma,
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 6098fd4a..69e321a 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -1963,10 +1963,12 @@ unwind:
+ 	while (--i >= 0) {
+ 		nf = &pbuf->frag_array[i+1];
+ 		pci_unmap_page(pdev, nf->dma, nf->length, PCI_DMA_TODEVICE);
++		nf->dma = 0ULL;
  	}
  
- 	t = xt_find_table_lock(net, NFPROTO_ARP, get.name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		const struct xt_table_info *private = t->private;
+ 	nf = &pbuf->frag_array[0];
+ 	pci_unmap_single(pdev, nf->dma, skb_headlen(skb), PCI_DMA_TODEVICE);
++	nf->dma = 0ULL;
  
- 		duprintf("t->private->number = %u\n",
-@@ -1001,7 +1001,7 @@ static int __do_replace(struct net *net, const char *name,
- 
- 	t = try_then_request_module(xt_find_table_lock(net, NFPROTO_ARP, name),
- 				    "arptable_%s", name);
--	if (!t || IS_ERR(t)) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free_newinfo_counters_untrans;
- 	}
-@@ -1158,7 +1158,7 @@ static int do_add_counters(struct net *net, const void __user *user,
- 	}
- 
- 	t = xt_find_table_lock(net, NFPROTO_ARP, name);
--	if (!t || IS_ERR(t)) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free;
- 	}
-@@ -1646,7 +1646,7 @@ static int compat_get_entries(struct net *net,
- 
- 	xt_compat_lock(NFPROTO_ARP);
- 	t = xt_find_table_lock(net, NFPROTO_ARP, get.name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		const struct xt_table_info *private = t->private;
- 		struct xt_table_info info;
- 
-diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 17c5e06..3efcf87 100644
---- a/net/ipv4/netfilter/ip_tables.c
-+++ b/net/ipv4/netfilter/ip_tables.c
-@@ -1090,7 +1090,7 @@ static int get_info(struct net *net, void __user *user,
- #endif
- 	t = try_then_request_module(xt_find_table_lock(net, AF_INET, name),
- 				    "iptable_%s", name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		struct ipt_getinfo info;
- 		const struct xt_table_info *private = t->private;
- #ifdef CONFIG_COMPAT
-@@ -1149,7 +1149,7 @@ get_entries(struct net *net, struct ipt_get_entries __user *uptr,
- 	}
- 
- 	t = xt_find_table_lock(net, AF_INET, get.name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		const struct xt_table_info *private = t->private;
- 		duprintf("t->private->number = %u\n", private->number);
- 		if (get.size == private->size)
-@@ -1189,7 +1189,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
- 
- 	t = try_then_request_module(xt_find_table_lock(net, AF_INET, name),
- 				    "iptable_%s", name);
--	if (!t || IS_ERR(t)) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free_newinfo_counters_untrans;
- 	}
-@@ -1347,7 +1347,7 @@ do_add_counters(struct net *net, const void __user *user,
- 	}
- 
- 	t = xt_find_table_lock(net, AF_INET, name);
--	if (!t || IS_ERR(t)) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free;
- 	}
-@@ -1931,7 +1931,7 @@ compat_get_entries(struct net *net, struct compat_ipt_get_entries __user *uptr,
- 
- 	xt_compat_lock(AF_INET);
- 	t = xt_find_table_lock(net, AF_INET, get.name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		const struct xt_table_info *private = t->private;
- 		struct xt_table_info info;
- 		duprintf("t->private->number = %u\n", private->number);
-diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 125a90d..341b54a 100644
---- a/net/ipv6/netfilter/ip6_tables.c
-+++ b/net/ipv6/netfilter/ip6_tables.c
-@@ -1098,7 +1098,7 @@ static int get_info(struct net *net, void __user *user,
- #endif
- 	t = try_then_request_module(xt_find_table_lock(net, AF_INET6, name),
- 				    "ip6table_%s", name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		struct ip6t_getinfo info;
- 		const struct xt_table_info *private = t->private;
- #ifdef CONFIG_COMPAT
-@@ -1157,7 +1157,7 @@ get_entries(struct net *net, struct ip6t_get_entries __user *uptr,
- 	}
- 
- 	t = xt_find_table_lock(net, AF_INET6, get.name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		struct xt_table_info *private = t->private;
- 		duprintf("t->private->number = %u\n", private->number);
- 		if (get.size == private->size)
-@@ -1197,7 +1197,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
- 
- 	t = try_then_request_module(xt_find_table_lock(net, AF_INET6, name),
- 				    "ip6table_%s", name);
--	if (!t || IS_ERR(t)) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free_newinfo_counters_untrans;
- 	}
-@@ -1355,7 +1355,7 @@ do_add_counters(struct net *net, const void __user *user, unsigned int len,
- 	}
- 
- 	t = xt_find_table_lock(net, AF_INET6, name);
--	if (!t || IS_ERR(t)) {
-+	if (IS_ERR_OR_NULL(t)) {
- 		ret = t ? PTR_ERR(t) : -ENOENT;
- 		goto free;
- 	}
-@@ -1939,7 +1939,7 @@ compat_get_entries(struct net *net, struct compat_ip6t_get_entries __user *uptr,
- 
- 	xt_compat_lock(AF_INET6);
- 	t = xt_find_table_lock(net, AF_INET6, get.name);
--	if (t && !IS_ERR(t)) {
-+	if (!IS_ERR_OR_NULL(t)) {
- 		const struct xt_table_info *private = t->private;
- 		struct xt_table_info info;
- 		duprintf("t->private->number = %u\n", private->number);
--- 
-1.7.9.5
+ out_err:
+ 	return -ENOMEM;
