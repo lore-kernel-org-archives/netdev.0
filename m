@@ -1,311 +1,315 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 1/5] soreuseport: infrastructure
-Date: Tue, 22 Jan 2013 11:49:50 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1301221141100.26241@pokey.mtv.corp.google.com>
+Subject: [PATCH 2/5] soreuseport: TCP/IPv4 implementation
+Date: Tue, 22 Jan 2013 11:50:24 -0800 (PST)
+Message-ID: <alpine.DEB.2.00.1301221141310.26417@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@markandruth.co.uk, eric.dumazet@gmail.com
 To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:40357 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876Ab3AVTtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:49:51 -0500
-Received: by mail-qc0-f202.google.com with SMTP id s25so215168qcq.5
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 11:49:51 -0800 (PST)
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:64377 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755432Ab3AVTu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:50:26 -0500
+Received: by mail-qa0-f73.google.com with SMTP id a19so5919qad.2
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 11:50:25 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Definitions and macros for implementing soreusport.
+Allow multiple listener sockets to bind to the same port.
+
+Motivation for soresuseport would be something like a web server
+binding to port 80 running with multiple threads, where each thread
+might have it's own listener socket.  This could be done as an
+alternative to other models: 1) have one listener thread which
+dispatches completed connections to workers. 2) accept on a single
+listener socket from multiple threads.  In case #1 the listener thread
+can easily become the bottleneck with high connection turn-over rate.
+In case #2, the proportion of connections accepted per thread tends
+to be uneven under high connection load (assuming simple event loop:
+while (1) { accept(); process() }, wakeup does not promote fairness
+among the sockets.  We have seen the  disproportion to be as high
+as 3:1 ratio between thread accepting most connections and the one
+accepting the fewest.  With so_reusport the distribution is
+uniform.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- arch/alpha/include/uapi/asm/socket.h   |    2 +-
- arch/avr32/include/uapi/asm/socket.h   |    2 +-
- arch/cris/include/uapi/asm/socket.h    |    2 +-
- arch/frv/include/uapi/asm/socket.h     |    2 +-
- arch/h8300/include/uapi/asm/socket.h   |    2 +-
- arch/ia64/include/uapi/asm/socket.h    |    2 +-
- arch/m32r/include/uapi/asm/socket.h    |    2 +-
- arch/mips/include/uapi/asm/socket.h    |    3 +--
- arch/mn10300/include/uapi/asm/socket.h |    2 +-
- arch/parisc/include/uapi/asm/socket.h  |    2 +-
- arch/powerpc/include/uapi/asm/socket.h |    2 +-
- arch/s390/include/uapi/asm/socket.h    |    2 +-
- arch/sparc/include/uapi/asm/socket.h   |    2 +-
- arch/xtensa/include/uapi/asm/socket.h  |    2 +-
- include/linux/random.h                 |    6 ++++++
- include/net/sock.h                     |    5 ++++-
- include/uapi/asm-generic/socket.h      |    3 +--
- net/core/sock.c                        |    7 +++++++
- 18 files changed, 32 insertions(+), 18 deletions(-)
+ include/net/inet_hashtables.h          |   13 ++++++--
+ include/net/netfilter/nf_tproxy_core.h |    1 +
+ net/ipv4/inet_connection_sock.c        |   48 ++++++++++++++++++++++++-------
+ net/ipv4/inet_hashtables.c             |   28 ++++++++++++++----
+ net/ipv4/tcp_ipv4.c                    |    4 ++-
+ 5 files changed, 73 insertions(+), 21 deletions(-)
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index 755702e..c519552 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -19,7 +19,7 @@
- #define SO_BROADCAST	0x0020
- #define SO_LINGER	0x0080
- #define SO_OOBINLINE	0x0100
--/* To add :#define SO_REUSEPORT 0x0200 */
-+#define SO_REUSEPORT	0x0200
- 
- #define SO_TYPE		0x1008
- #define SO_ERROR	0x1007
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index f3f38a0..51c6401 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -22,7 +22,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
-index 406b583..50692b7 100644
---- a/arch/cris/include/uapi/asm/socket.h
-+++ b/arch/cris/include/uapi/asm/socket.h
-@@ -24,7 +24,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index d8e1132..595391f 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -22,7 +22,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/h8300/include/uapi/asm/socket.h b/arch/h8300/include/uapi/asm/socket.h
-index c8b87a8..43e3262 100644
---- a/arch/h8300/include/uapi/asm/socket.h
-+++ b/arch/h8300/include/uapi/asm/socket.h
-@@ -22,7 +22,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index f390896..c567adc 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -31,7 +31,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 6a89515..519afa2 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -22,7 +22,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 9d11a77..7e27236 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -28,8 +28,7 @@
- #define SO_LINGER	0x0080	/* Block on close of a reliable
- 				   socket to transmit pending data.  */
- #define SO_OOBINLINE 0x0100	/* Receive out-of-band data in-band.  */
--#if 0
--To add: #define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
-+#define SO_REUSEPORT 0x0200	/* Allow local address and port reuse.  */
+diff --git a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+index 67a8fa0..7b2ae9d 100644
+--- a/include/net/inet_hashtables.h
++++ b/include/net/inet_hashtables.h
+@@ -81,7 +81,9 @@ struct inet_bind_bucket {
+ 	struct net		*ib_net;
  #endif
+ 	unsigned short		port;
+-	signed short		fastreuse;
++	signed char		fastreuse;
++	signed char		fastreuseport;
++	kuid_t			fastuid;
+ 	int			num_owners;
+ 	struct hlist_node	node;
+ 	struct hlist_head	owners;
+@@ -257,15 +259,19 @@ extern void inet_unhash(struct sock *sk);
  
- #define SO_TYPE		0x1008	/* Compatible name for SO_STYLE.  */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index ab702c4..5c7c7c9 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -22,7 +22,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index da2c8d3..526e4b9 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -13,7 +13,7 @@
- #define SO_BROADCAST	0x0020
- #define SO_LINGER	0x0080
- #define SO_OOBINLINE	0x0100
--/* To add :#define SO_REUSEPORT 0x0200 */
-+#define SO_REUSEPORT	0x0200
- #define SO_SNDBUF	0x1001
- #define SO_RCVBUF	0x1002
- #define SO_SNDBUFFORCE	0x100a
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index e6ca318..a26dcae 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -29,7 +29,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_RCVLOWAT	16
- #define SO_SNDLOWAT	17
- #define SO_RCVTIMEO	18
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index 9ce60b6..f99eea7 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -28,7 +28,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index fbbba57..cbbad74 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -15,7 +15,7 @@
- #define SO_PEERCRED	0x0040
- #define SO_LINGER	0x0080
- #define SO_OOBINLINE	0x0100
--/* To add :#define SO_REUSEPORT 0x0200 */
-+#define SO_REUSEPORT	0x0200
- #define SO_BSDCOMPAT    0x0400
- #define SO_RCVLOWAT     0x0800
- #define SO_SNDLOWAT     0x1000
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index dbf3164..35905cb 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -32,7 +32,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
-+#define SO_REUSEPORT	15
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
- #define SO_RCVLOWAT	18
-diff --git a/include/linux/random.h b/include/linux/random.h
-index d984608..347ce55 100644
---- a/include/linux/random.h
-+++ b/include/linux/random.h
-@@ -74,4 +74,10 @@ static inline int arch_get_random_int(unsigned int *v)
+ extern struct sock *__inet_lookup_listener(struct net *net,
+ 					   struct inet_hashinfo *hashinfo,
++					   const __be32 saddr,
++					   const __be16 sport,
+ 					   const __be32 daddr,
+ 					   const unsigned short hnum,
+ 					   const int dif);
+ 
+ static inline struct sock *inet_lookup_listener(struct net *net,
+ 		struct inet_hashinfo *hashinfo,
++		__be32 saddr, __be16 sport,
+ 		__be32 daddr, __be16 dport, int dif)
+ {
+-	return __inet_lookup_listener(net, hashinfo, daddr, ntohs(dport), dif);
++	return __inet_lookup_listener(net, hashinfo, saddr, sport,
++				      daddr, ntohs(dport), dif);
  }
- #endif
  
-+/* Pseudo random number generator from numerical recipes. */
-+static inline u32 next_pseudo_random32(u32 seed)
-+{
-+	return seed * 1664525 + 1013904223;
-+}
-+
- #endif /* _LINUX_RANDOM_H */
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 5a34e2f..581dc6b 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -140,6 +140,7 @@ typedef __u64 __bitwise __addrpair;
-  *	@skc_family: network address family
-  *	@skc_state: Connection state
-  *	@skc_reuse: %SO_REUSEADDR setting
-+ *	@skc_reuseport: %SO_REUSEPORT setting
-  *	@skc_bound_dev_if: bound device index if != 0
-  *	@skc_bind_node: bind hash linkage for various protocol lookup tables
-  *	@skc_portaddr_node: second hash linkage for UDP/UDP-Lite protocol
-@@ -179,7 +180,8 @@ struct sock_common {
+ /* Socket demux engine toys. */
+@@ -358,7 +364,8 @@ static inline struct sock *__inet_lookup(struct net *net,
+ 	struct sock *sk = __inet_lookup_established(net, hashinfo,
+ 				saddr, sport, daddr, hnum, dif);
  
- 	unsigned short		skc_family;
- 	volatile unsigned char	skc_state;
--	unsigned char		skc_reuse;
-+	unsigned char		skc_reuse:4;
-+	unsigned char		skc_reuseport:4;
- 	int			skc_bound_dev_if;
- 	union {
- 		struct hlist_node	skc_bind_node;
-@@ -297,6 +299,7 @@ struct sock {
- #define sk_family		__sk_common.skc_family
- #define sk_state		__sk_common.skc_state
- #define sk_reuse		__sk_common.skc_reuse
-+#define sk_reuseport		__sk_common.skc_reuseport
- #define sk_bound_dev_if		__sk_common.skc_bound_dev_if
- #define sk_bind_node		__sk_common.skc_bind_node
- #define sk_prot			__sk_common.skc_prot
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 3f6a992..4ef3acb 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -22,8 +22,7 @@
- #define SO_PRIORITY	12
- #define SO_LINGER	13
- #define SO_BSDCOMPAT	14
--/* To add :#define SO_REUSEPORT 15 */
--
-+#define SO_REUSEPORT	15
- #ifndef SO_PASSCRED /* powerpc only differs in these */
- #define SO_PASSCRED	16
- #define SO_PEERCRED	17
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 8258fb7..235fb89 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -665,6 +665,9 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
- 	case SO_REUSEADDR:
- 		sk->sk_reuse = (valbool ? SK_CAN_REUSE : SK_NO_REUSE);
- 		break;
-+	case SO_REUSEPORT:
-+		sk->sk_reuseport = valbool;
-+		break;
- 	case SO_TYPE:
- 	case SO_PROTOCOL:
- 	case SO_DOMAIN:
-@@ -972,6 +975,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = sk->sk_reuse;
- 		break;
+-	return sk ? : __inet_lookup_listener(net, hashinfo, daddr, hnum, dif);
++	return sk ? : __inet_lookup_listener(net, hashinfo, saddr, sport,
++					     daddr, hnum, dif);
+ }
  
-+	case SO_REUSEPORT:
-+		v.val = sk->sk_reuseport;
-+		break;
-+
- 	case SO_KEEPALIVE:
- 		v.val = sock_flag(sk, SOCK_KEEPOPEN);
- 		break;
+ static inline struct sock *inet_lookup(struct net *net,
+diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
+index 75ca929..1937964 100644
+--- a/include/net/netfilter/nf_tproxy_core.h
++++ b/include/net/netfilter/nf_tproxy_core.h
+@@ -82,6 +82,7 @@ nf_tproxy_get_sock_v4(struct net *net, const u8 protocol,
+ 			break;
+ 		case NFT_LOOKUP_LISTENER:
+ 			sk = inet_lookup_listener(net, &tcp_hashinfo,
++						    saddr, sport,
+ 						    daddr, dport,
+ 						    in->ifindex);
+ 
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
+index d0670f0..8bb623d 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -59,6 +59,8 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 	struct sock *sk2;
+ 	struct hlist_node *node;
+ 	int reuse = sk->sk_reuse;
++	int reuseport = sk->sk_reuseport;
++	kuid_t uid = sock_i_uid((struct sock *)sk);
+ 
+ 	/*
+ 	 * Unlike other sk lookup places we do not check
+@@ -73,8 +75,11 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 		    (!sk->sk_bound_dev_if ||
+ 		     !sk2->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
+-			if (!reuse || !sk2->sk_reuse ||
+-			    sk2->sk_state == TCP_LISTEN) {
++			if ((!reuse || !sk2->sk_reuse ||
++			    sk2->sk_state == TCP_LISTEN) &&
++			    (!reuseport || !sk2->sk_reuseport ||
++			    (sk2->sk_state != TCP_TIME_WAIT &&
++			     !uid_eq(uid, sock_i_uid(sk2))))) {
+ 				const __be32 sk2_rcv_saddr = sk_rcv_saddr(sk2);
+ 				if (!sk2_rcv_saddr || !sk_rcv_saddr(sk) ||
+ 				    sk2_rcv_saddr == sk_rcv_saddr(sk))
+@@ -106,6 +111,7 @@ int inet_csk_get_port(struct sock *sk, unsigned short snum)
+ 	int ret, attempts = 5;
+ 	struct net *net = sock_net(sk);
+ 	int smallest_size = -1, smallest_rover;
++	kuid_t uid = sock_i_uid(sk);
+ 
+ 	local_bh_disable();
+ 	if (!snum) {
+@@ -125,9 +131,12 @@ again:
+ 			spin_lock(&head->lock);
+ 			inet_bind_bucket_for_each(tb, node, &head->chain)
+ 				if (net_eq(ib_net(tb), net) && tb->port == rover) {
+-					if (tb->fastreuse > 0 &&
+-					    sk->sk_reuse &&
+-					    sk->sk_state != TCP_LISTEN &&
++					if (((tb->fastreuse > 0 &&
++					      sk->sk_reuse &&
++					      sk->sk_state != TCP_LISTEN) ||
++					     (tb->fastreuseport > 0 &&
++					      sk->sk_reuseport &&
++					      uid_eq(tb->fastuid, uid))) &&
+ 					    (tb->num_owners < smallest_size || smallest_size == -1)) {
+ 						smallest_size = tb->num_owners;
+ 						smallest_rover = rover;
+@@ -185,14 +194,17 @@ tb_found:
+ 		if (sk->sk_reuse == SK_FORCE_REUSE)
+ 			goto success;
+ 
+-		if (tb->fastreuse > 0 &&
+-		    sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
++		if (((tb->fastreuse > 0 &&
++		      sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
++		     (tb->fastreuseport > 0 &&
++		      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
+ 		    smallest_size == -1) {
+ 			goto success;
+ 		} else {
+ 			ret = 1;
+ 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
+-				if (sk->sk_reuse && sk->sk_state != TCP_LISTEN &&
++				if (((sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
++				     (sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
+ 				    smallest_size != -1 && --attempts >= 0) {
+ 					spin_unlock(&head->lock);
+ 					goto again;
+@@ -212,9 +224,23 @@ tb_not_found:
+ 			tb->fastreuse = 1;
+ 		else
+ 			tb->fastreuse = 0;
+-	} else if (tb->fastreuse &&
+-		   (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
+-		tb->fastreuse = 0;
++		if (sk->sk_reuseport) {
++			tb->fastreuseport = 1;
++			tb->fastuid = uid;
++		} else {
++			tb->fastreuseport = 0;
++			tb->fastuid = 0;
++		}
++	} else {
++		if (tb->fastreuse &&
++		    (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
++			tb->fastreuse = 0;
++		if (tb->fastreuseport &&
++		    (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))) {
++			tb->fastreuseport = 0;
++			tb->fastuid = 0;
++		}
++	}
+ success:
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, snum);
+diff --git a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+index fa3ae81..0ce0595 100644
+--- a/net/ipv4/inet_hashtables.c
++++ b/net/ipv4/inet_hashtables.c
+@@ -39,6 +39,7 @@ struct inet_bind_bucket *inet_bind_bucket_create(struct kmem_cache *cachep,
+ 		write_pnet(&tb->ib_net, hold_net(net));
+ 		tb->port      = snum;
+ 		tb->fastreuse = 0;
++		tb->fastreuseport = 0;
+ 		tb->num_owners = 0;
+ 		INIT_HLIST_HEAD(&tb->owners);
+ 		hlist_add_head(&tb->node, &head->chain);
+@@ -151,16 +152,16 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ 	if (net_eq(sock_net(sk), net) && inet->inet_num == hnum &&
+ 			!ipv6_only_sock(sk)) {
+ 		__be32 rcv_saddr = inet->inet_rcv_saddr;
+-		score = sk->sk_family == PF_INET ? 1 : 0;
++		score = sk->sk_family == PF_INET ? 2 : 1;
+ 		if (rcv_saddr) {
+ 			if (rcv_saddr != daddr)
+ 				return -1;
+-			score += 2;
++			score += 4;
+ 		}
+ 		if (sk->sk_bound_dev_if) {
+ 			if (sk->sk_bound_dev_if != dif)
+ 				return -1;
+-			score += 2;
++			score += 4;
+ 		}
+ 	}
+ 	return score;
+@@ -176,6 +177,7 @@ static inline int compute_score(struct sock *sk, struct net *net,
+ 
+ struct sock *__inet_lookup_listener(struct net *net,
+ 				    struct inet_hashinfo *hashinfo,
++				    const __be32 saddr, __be16 sport,
+ 				    const __be32 daddr, const unsigned short hnum,
+ 				    const int dif)
+ {
+@@ -183,17 +185,29 @@ struct sock *__inet_lookup_listener(struct net *net,
+ 	struct hlist_nulls_node *node;
+ 	unsigned int hash = inet_lhashfn(net, hnum);
+ 	struct inet_listen_hashbucket *ilb = &hashinfo->listening_hash[hash];
+-	int score, hiscore;
++	int score, hiscore, matches = 0, reuseport = 0;
++	u32 phash = 0;
+ 
+ 	rcu_read_lock();
+ begin:
+ 	result = NULL;
+-	hiscore = -1;
++	hiscore = 0;
+ 	sk_nulls_for_each_rcu(sk, node, &ilb->head) {
+ 		score = compute_score(sk, net, hnum, daddr, dif);
+ 		if (score > hiscore) {
+ 			result = sk;
+ 			hiscore = score;
++			reuseport = sk->sk_reuseport;
++			if (reuseport) {
++				phash = inet_ehashfn(net, daddr, hnum,
++						     saddr, sport);
++				matches = 1;
++			}
++		} else if (score == hiscore && reuseport) {
++			matches++;
++			if (((u64)phash * matches) >> 32 == 0)
++				result = sk;
++			phash = next_pseudo_random32(phash);
+ 		}
+ 	}
+ 	/*
+@@ -501,7 +515,8 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 			inet_bind_bucket_for_each(tb, node, &head->chain) {
+ 				if (net_eq(ib_net(tb), net) &&
+ 				    tb->port == port) {
+-					if (tb->fastreuse >= 0)
++					if (tb->fastreuse >= 0 ||
++					    tb->fastreuseport >= 0)
+ 						goto next_port;
+ 					WARN_ON(hlist_empty(&tb->owners));
+ 					if (!check_established(death_row, sk,
+@@ -518,6 +533,7 @@ int __inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 				break;
+ 			}
+ 			tb->fastreuse = -1;
++			tb->fastreuseport = -1;
+ 			goto ok;
+ 
+ 		next_port:
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index c6ce9ca..bbbdcc5 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -657,7 +657,8 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
+ 		 * no RST generated if md5 hash doesn't match.
+ 		 */
+ 		sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
+-					     &tcp_hashinfo, ip_hdr(skb)->daddr,
++					     &tcp_hashinfo, ip_hdr(skb)->saddr,
++					     th->source, ip_hdr(skb)->daddr,
+ 					     ntohs(th->source), inet_iif(skb));
+ 		/* don't send rst if it can't find key */
+ 		if (!sk1)
+@@ -2074,6 +2075,7 @@ do_time_wait:
+ 	case TCP_TW_SYN: {
+ 		struct sock *sk2 = inet_lookup_listener(dev_net(skb->dev),
+ 							&tcp_hashinfo,
++							iph->saddr, th->source,
+ 							iph->daddr, th->dest,
+ 							inet_iif(skb));
+ 		if (sk2) {
 -- 
 1.7.7.3
