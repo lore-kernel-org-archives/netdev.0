@@ -1,44 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v3] net, wireless: overwrite default_ethtool_ops
-Date: Tue, 22 Jan 2013 14:06:23 -0500 (EST)
-Message-ID: <20130122.140623.481143614571024168.davem@davemloft.net>
-References: <CAB=NE6XjvupJ5XO0EN0HVwdy61ECWL=Ey0g1gsNm+v8Sen=nsQ@mail.gmail.com>
-	<20130121.160404.1007504714461228602.davem@davemloft.net>
-	<20130122105618.GB2328@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 20/33] net: Convert to devm_ioremap_resource()
+Date: Tue, 22 Jan 2013 14:08:03 -0500 (EST)
+Message-ID: <20130122.140803.575298725595555169.davem@davemloft.net>
+References: <20130121.152913.1377695352860141642.davem@davemloft.net>
+	<20130122065629.GA14523@avionic-0098.adnet.avionic-design.de>
+	<201301221303.06785.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org, bjorn-yOkvZcmFvRU@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mirqus-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
-To: sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130122105618.GB2328-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: thierry.reding@avionic-design.de, linux-kernel@vger.kernel.org,
+	gregkh@linuxfoundation.org, dmitry.torokhov@gmail.com,
+	w.sang@pengutronix.de, netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55725 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753899Ab3AVTIF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 14:08:05 -0500
+In-Reply-To: <201301221303.06785.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Tue, 22 Jan 2013 11:56:19 +0100
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 22 Jan 2013 13:03:06 +0000
 
-> On Mon, Jan 21, 2013 at 04:04:04PM -0500, David Miller wrote:
+> On Tuesday 22 January 2013, Thierry Reding wrote:
+>> I planned to do so initially, but that yielded a Cc list of 156 people
+>> and mailing lists, which I thought wasn't going to go down so well
+>> either. In general I like Cc'ing everyone concerned on all patches of
+>> the series, specifically for reasons of context. Some people have been
+>> annoyed when I did so. Still, for small series where only a few dozen
+>> people are concerned that seems to me to be the best way. But 156 email
+>> addresses is a different story.
 >> 
->> It's queued up for -stable already as is clearly seen at:
->> 
->> http://patchwork.ozlabs.org/user/bundle/2566/?state=*
+>> Either you add to many people or you don't add enough. Where do we draw
+>> the line?
 > 
-> Hmm, this link does not work for me (need user/password).
+> I've had the same problem a couple of times. The best compromise seems
+> to be to Cc only the top-level subsystem maintainers and mailing lists
+> on the first email.
 
-You just need to make a patchwork login, it's visible to any
-registered user.
-
-> Anyway, I marked cc -stable in v2 patch, but forgot that in v3.
-> Committed patch does not include the mark, so I'll post patch
-> to stable just in case.
-
-Do NOT DO THIS, I do the submissions myself, by hand.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+CC:'ing individuals is pointless, CC: only the subsystem lists in
+question, the maintainers had better be reading those lists.
