@@ -1,53 +1,49 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH 16/20] drivers/net/wireless/p54: remove depends on CONFIG_EXPERIMENTAL
-Date: Tue, 22 Jan 2013 10:40:12 -0800
-Message-ID: <CAGXu5jJCQshUntUk7MeZds59B2fa54GnonOz28dM1x2spEEGDg@mail.gmail.com>
-References: <1358879444-25834-1-git-send-email-keescook@chromium.org>
-	<1358879444-25834-17-git-send-email-keescook@chromium.org>
-	<201301221937.16916.chunkeey@googlemail.com>
+From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Tue, 22 Jan 2013 19:42:45 +0100
+Message-ID: <20130122184245.GJ4608@sociomantic.com>
+References: <20130122161038.GG4608@sociomantic.com>
+ <1358873142.3464.3964.camel@edumazet-glaptop>
+ <20130122165929.GH4608@sociomantic.com>
+ <1358874800.3464.4002.camel@edumazet-glaptop>
+ <50FED7CE.1030008@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Kalle Valo <kvalo@qca.qualcomm.com>
-To: Christian Lamparter <chunkeey@googlemail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201301221937.16916.chunkeey@googlemail.com>
+Content-Disposition: inline
+In-Reply-To: <50FED7CE.1030008@hp.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 22, 2013 at 10:37 AM, Christian Lamparter
-<chunkeey@googlemail.com> wrote:
-> Aren't these patches going through wireless-next
-> or linux-next?
+On Tue, Jan 22, 2013 at 10:17:50AM -0800, Rick Jones wrote:
+> >What is important is the backlog, and I guess you didn't increase it
+> >properly. The somaxconn default is quite low (128)
+> 
+> Leandro -
+> 
+> If that is being overflowed, I believe you should be seeing something like:
+> 
+>     14 SYNs to LISTEN sockets dropped
+> 
+> in the output of netstat -s on the system on which the server
+> application is running.
 
-They can go however it makes things easiest. Greg has offered to carry
-them in driver-core if Dave doesn't want to carry them in netdev.
+What is that value reporting exactly? Because we are using syncookies,
+and AFAIK with that enabled, all SYNs are being replied, and what the
+listen backlog is really limitting is the "completely  established
+sockets waiting to be accepted", according to listen(2). What I don't
+really know to be honest, is what a "completely established socket" is,
+does it mean that the SYN,ACK was sent, or the ACK was received back?
 
--Kees
+Also, from the client side, when is the connect(2) call done? When the
+SYN,ACK is received?
 
->
-> On Tuesday, January 22, 2013 07:30:40 PM Kees Cook wrote:
->> The CONFIG_EXPERIMENTAL config item has not carried much meaning for a
->> while now and is almost always enabled by default. As agreed during the
->> Linux kernel summit, remove it from any "depends on" lines in Kconfigs.
->>
->> CC: Christian Lamparter <chunkeey@googlemail.com>
->> CC: "John W. Linville" <linville@tuxdriver.com>
->> Cc: "David S. Miller" <davem@davemloft.net>
->> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
->> Cc: NetDev <netdev@vger.kernel.org>
->> Signed-off-by: Kees Cook <keescook@chromium.org>
-> Acked-by: Christian Lamparter <chunkeey@googlemail.com>
-> [Also ACK the carl9170, if necessary]
->
-> Regards,
->         Chr
+Thanks!
 
-
-
---
-Kees Cook
-Chrome OS Security
+-- 
+Leandro Lucarella
+sociomantic labs GmbH
+http://www.sociomantic.com
