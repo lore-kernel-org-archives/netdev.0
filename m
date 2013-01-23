@@ -1,131 +1,56 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/14] ixgbe: Inline Rx PTP descriptor handling
-Date: Wed, 23 Jan 2013 14:44:44 -0800
-Message-ID: <1358981090-5794-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/14] ixgbe: add missing supported filters to get_ts_info
+Date: Wed, 23 Jan 2013 14:44:38 -0800
+Message-ID: <1358981090-5794-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Jacob Keller <jacob.e.keller@intel.com>,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:52933 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:63042 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752531Ab3AWWpT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2013 17:45:19 -0500
+	id S1752415Ab3AWWpR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 17:45:17 -0500
 In-Reply-To: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This change is meant to inline the Rx PTP descriptor handling.  The main
-motivation is to avoid unnecessary jumps into function calls that we then
-immediately exit because we are not performing timestamps.
+This patch updates the filters for ethtool's get_ts_info to return support for
+all filters which can be supported by upscaling to ptp_v2_event. The intent
+behind this change is due to reasoning that we do in fact support the
+filters. (hwtstamp_ioctl returns success after setting the filter to the
+upscaled version). In this way we can remain consistent over which filters are
+supported via the get_ts_info ioctl and which filters are in practice actually
+supported.
 
-The net result of this change is that ixgbe_ptp_rx_tstamp drops from .5% CPU
-utilization in my performance runs to 0%, and the only value tested is the Rx
-descriptor which should already be warm in the cache if not stored in a
-register.
-
-Cc: Jacob Keller <jacob.e.keller@intel.com>
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Acked-by: Jacob Keller <Jacob.e.keller@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h     | 21 ++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 21 +++++----------------
- 2 files changed, 23 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 2618598..cd4c83b1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -755,9 +755,24 @@ extern void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_stop(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
--				  union ixgbe_adv_rx_desc *rx_desc,
--				  struct sk_buff *skb);
-+extern void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
-+				    struct sk_buff *skb);
-+static inline void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
-+					 union ixgbe_adv_rx_desc *rx_desc,
-+					 struct sk_buff *skb)
-+{
-+	if (unlikely(!ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_TS)))
-+		return;
-+
-+	__ixgbe_ptp_rx_hwtstamp(rx_ring->q_vector, skb);
-+
-+	/*
-+	 * Update the last_rx_timestamp timer in order to enable watchdog check
-+	 * for error case of latched timestamp on a dropped packet.
-+	 */
-+	rx_ring->last_rx_timestamp = jiffies;
-+}
-+
- extern int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
- 				    struct ifreq *ifr, int cmd);
- extern void ixgbe_ptp_start_cyclecounter(struct ixgbe_adapter *adapter);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index 6304616..53d2047 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -531,18 +531,16 @@ static void ixgbe_ptp_tx_hwtstamp_work(struct work_struct *work)
- }
- 
- /**
-- * ixgbe_ptp_rx_hwtstamp - utility function which checks for RX time stamp
-+ * __ixgbe_ptp_rx_hwtstamp - utility function which checks for RX time stamp
-  * @q_vector: structure containing interrupt and ring information
-- * @rx_desc: the rx descriptor
-  * @skb: particular skb to send timestamp with
-  *
-  * if the timestamp is valid, we convert it into the timecounter ns
-  * value, then store that result into the shhwtstamps structure which
-  * is passed up the network stack
-  */
--void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
--			   union ixgbe_adv_rx_desc *rx_desc,
--			   struct sk_buff *skb)
-+void __ixgbe_ptp_rx_hwtstamp(struct ixgbe_q_vector *q_vector,
-+			     struct sk_buff *skb)
- {
- 	struct ixgbe_adapter *adapter;
- 	struct ixgbe_hw *hw;
-@@ -552,15 +550,12 @@ void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
- 	unsigned long flags;
- 
- 	/* we cannot process timestamps on a ring without a q_vector */
--	if (!rx_ring->q_vector || !rx_ring->q_vector->adapter)
-+	if (!q_vector || !q_vector->adapter)
- 		return;
- 
--	adapter = rx_ring->q_vector->adapter;
-+	adapter = q_vector->adapter;
- 	hw = &adapter->hw;
- 
--	if (unlikely(!ixgbe_test_staterr(rx_desc, IXGBE_RXDADV_STAT_TS)))
--		return;
--
- 	/*
- 	 * Read the tsyncrxctl register afterwards in order to prevent taking an
- 	 * I/O hit on every packet.
-@@ -569,12 +564,6 @@ void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
- 	if (!(tsyncrxctl & IXGBE_TSYNCRXCTL_VALID))
- 		return;
- 
--	/*
--	 * Update the last_rx_timestamp timer in order to enable watchdog check
--	 * for error case of latched timestamp on a dropped packet.
--	 */
--	rx_ring->last_rx_timestamp = jiffies;
--
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_RXSTMPL);
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_RXSTMPH) << 32;
- 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 21bc72e..1513b10 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -2709,6 +2709,14 @@ static int ixgbe_get_ts_info(struct net_device *dev,
+ 			(1 << HWTSTAMP_FILTER_NONE) |
+ 			(1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
+ 			(1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
++			(1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
+ 			(1 << HWTSTAMP_FILTER_PTP_V2_EVENT);
+ 		break;
+ 	default:
 -- 
 1.7.11.7
