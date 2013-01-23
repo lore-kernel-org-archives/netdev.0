@@ -1,78 +1,131 @@
-From: Daniel Wagner <wagi-kQCPcA+X3s7YtjvyW6yDsg@public.gmane.org>
-Subject: Re: [BUG] Bug in netprio_cgroup and netcls_cgroup ?
-Date: Wed, 23 Jan 2013 10:24:31 +0100
-Message-ID: <50FFAC4F.6010602@monom.org>
-References: <50FCDB5C.4050608@huawei.com> <50FD0144.1000401@monom.org> <50FD0402.6060400@huawei.com> <50FD09FD.4010804@monom.org> <50FD1113.6010402@huawei.com> <50FD786E.4050108@gmail.com> <20130122100938.GA26820@candlejack.bmw-carit.intra> <50FF287C.70906@gmail.com>
+From: Li Yu <raise.sail@gmail.com>
+Subject: Re: v3 for tcp friends?
+Date: Wed, 23 Jan 2013 17:39:51 +0800
+Message-ID: <50FFAFE7.5030707@gmail.com>
+References: <20120903.154833.1547153833820955116.davem@davemloft.net>  <CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>  <20120904.125841.2293649688957878987.davem@davemloft.net>  <50FCEE64.80203@gmail.com> <50FCEEC5.9010404@gmail.com>  <CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>  <CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>  <50FF5592.60008@gmail.com>  <50FF7F64.2060902@gmail.com> <1358923606.12374.746.camel@edumazet-glaptop> <50FF8F75.4000903@gmail.com> <50FF9836.4060106@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Li Zefan <lizefan-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	John Fastabend <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Cgroups <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50FF287C.70906-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Bruce Curtis <brutus@google.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:62577 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439Ab3AWJkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 04:40:05 -0500
+Received: by mail-pa0-f44.google.com with SMTP id hz11so4648863pad.3
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 01:40:04 -0800 (PST)
+In-Reply-To: <50FF9836.4060106@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23.01.2013 01:02, John Fastabend wrote:
-> [...]
->
+=E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:58, Li Yu =E5=86=99=E9=
+=81=93:
+> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:21, Li Yu =E5=86=99=E9=
+=81=93:
+>> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 14:46, Eric Dumazet =E5=
+=86=99=E9=81=93:
+>>> On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
+>>>> Oops, this hang is not since TCP friends patch!
+>>>>
+>>>> sk_sndbuf_get() is broken by 32 bits integer overflow
+>>>> because of so large value in net.ipv4.tcp_{rmem,wmem}.
+>>>>
+>>>> but this hang also can be found in net-next.git
+>>>> (3.8.0-rc3+), if we run below commands, then all new
+>>>> TCP connections stop working!
+>>>>
+>>>> # when TCP friends is disabled
+>>>> sysctl -w net.ipv4.tcp_rmem=3D"4096 4294967296 4294967296" # 4GB
+>>>> sysctl -w net.ipv4.tcp_wmem=3D"4096 4294967296 4294967296"
 >>>
->>> OK, I guess we should do something similar in the netprio, netcls
->>> cgroups and
->>> yes document it as you noted in your last comment.
+>>> Right we need to make sure we dont overflow.
+>>>
+>>> Try the following fix :
+>>>
+>>> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.=
+c
+>>> index a25e1d2..1459145 100644
+>>> --- a/net/ipv4/sysctl_net_ipv4.c
+>>> +++ b/net/ipv4/sysctl_net_ipv4.c
+>>> @@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] =3D {
+>>>           .data        =3D &sysctl_tcp_wmem,
+>>>           .maxlen        =3D sizeof(sysctl_tcp_wmem),
+>>>           .mode        =3D 0644,
+>>> -        .proc_handler    =3D proc_dointvec
+>>> +        .extra1        =3D &zero,
+
+If we added below:
+
++static int one =3D 1;
++static int int_max =3D INT_MAX;
+=2E...
++               .extra1     =3D &one,
++		.extra2	    =3D &int_max,
+
+The bug is fixed without TCP friends.
+
+Maybe, TCP friends need to use long integer to record result
+of "sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf" ?
+
+BTW: This overflow problem also breaks UDP sockets.
+
+Thanks
+
+Yu
+
+>>> +        .proc_handler    =3D proc_dointvec_minmax
+>>>       },
+>>>       {
+>>>           .procname    =3D "tcp_rmem",
+>>>           .data        =3D &sysctl_tcp_rmem,
+>>>           .maxlen        =3D sizeof(sysctl_tcp_rmem),
+>>>           .mode        =3D 0644,
+>>> -        .proc_handler    =3D proc_dointvec
+>>> +        .extra1        =3D &zero,
+>>> +        .proc_handler    =3D proc_dointvec_minmax
+>>>       },
+>>>       {
+>>>           .procname    =3D "tcp_app_win",
+>>>
+>>>
+>>>
+>> Thanks for so quick reply, I will test it soon.
 >>
->> Here is my attempt to add such a check. I really don't know if this is
->> the
->> correct way to do so. To test this I have written a test program, which
->> seems to test the right thing. Please have a look and let me know if
->> it is correct: http://www.monom.org/misc/scm_rights.c
+>> however I suspect whether this patch could fix overflow if we merged=
+ TCP
+>> friends patch in future.
 >>
->> And here a dirty first version of the patch:
->>
->>
->>  From 49a78d907eaf31c16673025e7e3b4844e419e416 Mon Sep 17 00:00:00 2001
->> From: Daniel Wagner <daniel.wagner-98C5kh4wR6ohFhg+JK9F0w@public.gmane.org>
->> Date: Tue, 22 Jan 2013 11:08:22 +0100
->> Subject: [PATCH] net: net_prio: Block attach if a socket is shared
->>
->> ---
->>   net/core/netprio_cgroup.c | 30 ++++++++++++++++++++++++++++++
->>   1 file changed, 30 insertions(+)
->>
->> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
->> index 847c02b..de4e6c5 100644
->> --- a/net/core/netprio_cgroup.c
->> +++ b/net/core/netprio_cgroup.c
->> @@ -274,9 +274,39 @@ static struct cftype ss_files[] = {
->>       { }    /* terminate */
->>   };
->>
->> +static int check_cnt(const void *v, struct file *file, unsigned n)
->> +{
->> +    unsigned *flag = (unsigned *)v;
->> +    int err;
->> +
->> +    struct socket *sock = sock_from_file(file, &err);
->> +    if (sock && file_count(file) > 1)
->> +        *flag = 1;
->> +
 >
-> I think this check will catch a lot of cases that are not necessarily
-> sharing a socket across tasks though. For example iscsid passes a file
-> descriptor to the kernel which does a sockfd_lookup() incrementing
-> f_count. Similarly look at dup/clone/etc.
-
-Yep, I expected that this patch was too simple.
-
-> In many of these cases I believe it should be OK to move the task
-> around when the sockets are not shared between multiple tasks.
-
-Do you know of a different way to identify the shared sockets?
-
-thanks,
-daniel
+> Tested on 3.7.0-rc1+, but bug is still alive
+> with disabled TCP friends ...
+>
+> Thanks
+>
+> Yu
+>
+>> With TCP friends, we have source like below, or TCP friends should c=
+are
+>> this ?
+>>
+>> static inline int sk_sndbuf_get(const struct sock *sk)
+>> {
+>>          if (sk->sk_friend)
+>>                  return sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf;
+>>          else
+>>                  return sk->sk_sndbuf;
+>> }
+>>
+>> static inline bool sk_stream_memory_free(const struct sock *sk)
+>> {
+>>          return sk_wmem_queued_get(sk) < sk_sndbuf_get(sk);
+>> }
+>>
+>> So sk_sndbuf_get() still may be overflow when we have right value in
+>> net.ipv4.tcp_{rmem,wmem}.
+>>
+>> Thanks
+>
