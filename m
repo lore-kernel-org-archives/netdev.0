@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skb: add a comment to skb_csum_unnecessary to avoid
- miuse
-Date: Tue, 22 Jan 2013 23:13:53 -0500 (EST)
-Message-ID: <20130122.231353.2100388787067184936.davem@davemloft.net>
-References: <50FF2F18.1050408@jp.fujitsu.com>
-	<20130122.205346.633138554393148358.davem@davemloft.net>
-	<F6CB40852BC6EF489E0AA83EFF537F470876B9FD@G01JPEXMBYT04>
+Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0
+ to gigabit ethernet adapter driver
+Date: Tue, 22 Jan 2013 23:15:15 -0500 (EST)
+Message-ID: <20130122.231515.1276077448591402095.davem@davemloft.net>
+References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sanagi.koki@jp.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60327 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753021Ab3AWEN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:13:58 -0500
-In-Reply-To: <F6CB40852BC6EF489E0AA83EFF537F470876B9FD@G01JPEXMBYT04>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, louis@asix.com.tw
+To: freddy@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Sanagi, Koki" <sanagi.koki@jp.fujitsu.com>
-Date: Wed, 23 Jan 2013 02:32:52 +0000
+From: Freddy Xin <freddy@asix.com.tw>
+Date: Wed, 23 Jan 2013 10:32:17 +0800
 
->> From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
->> Date: Wed, 23 Jan 2013 09:30:16 +0900
->> 
->> > Due to its name and appearance, someone thinks this only checks if
->> > ip_summed is CHECKSUM_UNNECESARRY.  But actually, this returns true
->> > even if ip_summed is CHECKSUM_PARTIAL.  To avoid misuse, this patch a
->> > comment which specifies that CHECKSUM_PARTIAL is OK.
->> >
->> > Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
->> 
->> I'm not applying this, sorry.  It's a one line function and it's not so
->> non-obvious that it deserves an 8 line comment.
-> 
-> OK.  I just felt weird that CHECKSUM_* is not bit flag but this function handles
-> it as if it was bit flag.
+> Fixed coding style errors.
 
-The function name says what it does, it determines whether a checksum
-is necessary or not.  How that is implemented is another issue.
+There are still many style issues remaining, you have a lot more
+work to do, for example:
+
+> +	return fn(dev, cmd, USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+> +	       value, index, data, size);
+> +
+
+This empty line is unnecessary, get rid of it.
+
+Also this function call is not indented properly.  The first character
+on the second line of the fn() call should line up with the first
+column after the openning parenthesis of the first line of the call.
