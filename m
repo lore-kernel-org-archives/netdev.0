@@ -1,44 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request (net-next): ipsec-next 2013-01-23
-Date: Wed, 23 Jan 2013 14:00:58 -0500 (EST)
-Message-ID: <20130123.140058.1653306473705960117.davem@davemloft.net>
-References: <1358929144-17806-1-git-send-email-steffen.klassert@secunet.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
+ Implement basic statistics
+Date: Wed, 23 Jan 2013 11:09:54 -0800
+Message-ID: <1358968194.2107.37.camel@joe-AO722>
+References: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Doong, Ping" <Ping.Doong@Micrel.Com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: "Choi, David" <David.Choi@Micrel.Com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41200 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447Ab3AWTBB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 14:01:01 -0500
-In-Reply-To: <1358929144-17806-1-git-send-email-steffen.klassert@secunet.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:37591 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751729Ab3AWTJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 14:09:58 -0500
+In-Reply-To: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Wed, 23 Jan 2013 09:18:56 +0100
+On Wed, 2013-01-23 at 18:46 +0000, Choi, David wrote:
+> +++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-23 10:31:24.000000000 -0800
+> @@ -793,17 +793,35 @@ static void ks_rcv(struct ks_net *ks, st
+>  	frame_hdr = ks->frame_head_info;
+>  	while (ks->frame_cnt--) {
+>  		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
+> -		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
+> +		if (unlikely(!skb)) {
+> +			/* discard the packet from the device */
+> +			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
+> +			netdev->stats.rx_dropped++;
+> +		}
+> +
+> +		else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
 
-> 1) Add a statistic counter for invalid output states and
->    remove a superfluous state valid check, from Li RongQing.
-> 
-> 2) Probe for asynchronous block ciphers instead of synchronous block
->    ciphers to make the asynchronous variants available even if no
->    synchronous block ciphers are found, from Jussi Kivilinna.
-> 
-> 3) Make rfc3686 asynchronous block cipher and make use of
->    the new asynchronous variant, from Jussi Kivilinna.
-> 
-> 4) Replace some rwlocks by rcu, from Cong Wang.
-> 
-> 5) Remove some unused defines.
-> 
-> Please pull or let me know if there are problems.
+Couple of trivial comments:
 
-Pulled, thanks Steffen.
+it' be nicer if the close brace and else
+was on the same line
 
-I hope Herbert is ok with the small crypto bits going in this way,
-since they really are IPSEC specific.
+		} else if (likely(...
 
-Thanks.
+>  			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
+>  			skb_reserve(skb, 2);
+>  			/* read data block including CRC 4 bytes */
+>  			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
+> -			skb_put(skb, frame_hdr->len);
+> +
+> +			/* exclude the size of CRC */
+> +			skb_put(skb, frame_hdr->len - 4);
+>  			skb->protocol = eth_type_trans(skb, netdev);
+>  			netif_rx(skb);
+> +			netdev->stats.rx_packets++;
+> +
+> +			/* crc field */
+> +			netdev->stats.rx_bytes += frame_hdr->len - 4;
+>  		} else {
+> -			pr_err("%s: err:skb alloc\n", __func__);
+> -			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
+> +			/* discard the packet from the device */
+> +			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
+> +			netdev->stats.rx_dropped++;
+> +			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
+> +				netdev->stats.rx_length_errors++;
+> +			if (!(frame_hdr->sts & RXFSHR_RXFV))
+> +				netdev->stats.rx_frame_errors++;
+> +
+>  			if (skb)
+>  				dev_kfree_skb_irq(skb);
+
+You don't need to test skb here anymore.
