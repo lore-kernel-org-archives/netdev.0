@@ -1,49 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
- Implement basic statistics
-Date: Tue, 22 Jan 2013 23:17:54 -0500 (EST)
-Message-ID: <20130122.231754.2210645494690728329.davem@davemloft.net>
-References: <FD9AD8C5375B924CABC56D982DB3A802079D32D1@EXMB1.micrel.com>
-	<20130122.205132.2281610193783011537.davem@davemloft.net>
-	<1358913454.2107.16.camel@joe-AO722>
+Subject: Re: [PATCH 2/2] IP_GRE: Linearize skb before csum.
+Date: Tue, 22 Jan 2013 23:22:35 -0500 (EST)
+Message-ID: <20130122.232235.643904201225800004.davem@davemloft.net>
+References: <20130122.194143.1205292712415183747.davem@davemloft.net>
+	<1358903293.12374.492.camel@edumazet-glaptop>
+	<20130122.204629.607263597214211092.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David.Choi@Micrel.Com, netdev@vger.kernel.org,
-	Ping.Doong@Micrel.Com
-To: joe@perches.com
+Cc: jesse@nicira.com, pshelar@nicira.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60386 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60441 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752872Ab3AWER4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:17:56 -0500
-In-Reply-To: <1358913454.2107.16.camel@joe-AO722>
+	with ESMTP id S1753093Ab3AWEWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:22:37 -0500
+In-Reply-To: <20130122.204629.607263597214211092.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 22 Jan 2013 19:57:34 -0800
+From: David Miller <davem@davemloft.net>
+Date: Tue, 22 Jan 2013 20:46:29 -0500 (EST)
 
-> On Tue, 2013-01-22 at 20:51 -0500, David Miller wrote:
->> BTW it's inappropriate to log an SKB allocation failure as an error in
->> the kernel logs like this.  This can be completely normal on a heavily
->> loaded system.  People can look at the device statistics to learn about
->> this event, or use a more sophisticated tool like the drop monitor.
-> 
-> There are many of these still around, though
-> hardly any in modern drivers.
+> We can't emit bogus checksums on the wire when this is completely
+> under our control.
 
-Right.
+BTW consider a legitimate use case where an application has a shared
+memory page between threads that keeps track of statistic counters,
+and it uses sendfile() over an fd backing that mmap()'d area to
+send the statistics out remotely over TCP.
 
-> I get this file list in drivers/net/ of
-> alloc_skb failures followed by printks:
-> 
-> Almost all of these are pretty old and are
-> probably best described as "don't bother".
+That's completely legitimate.
 
-Be also careful to not match the ones that are done to
-do something like the initial RX ring filling during
-device open.
+As is an application constantly overwriting a page in the filesystem
+page cache, and another app doing sendfile() over TCP from that
+area.
 
-If such an allocation failure causes device open to fail,
-that's a legitimate situation in which to log.
+In such a situation everyone of your magic retransmits will have a
+bad checksum too.
+
+You can't say that this behavior is anything other than broken, and
+I don't want to be responsible for a system that's doing broken
+things like that.
+
+If your GSO over GRE tunnels stuff fundamentally depends upon this
+magic retransmit fantasy working, then yes we have to disable it
+completely.
