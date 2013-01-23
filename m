@@ -1,170 +1,97 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 04/45] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Thu, 24 Jan 2013 01:03:52 +0530
-Message-ID: <51003B20.2060506@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073347.13822.85876.stgit@srivatsabhat.in.ibm.com> <20130123185522.GG2373@mtj.dyndns.org>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: RE: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
+ Implement basic statistics
+Date: Wed, 23 Jan 2013 19:36:11 +0000
+Message-ID: <FD9AD8C5375B924CABC56D982DB3A802079D340B@EXMB1.micrel.com>
+References: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
+ <1358968194.2107.37.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, oleg@redhat.com,
-	paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130123185522.GG2373@mtj.dyndns.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Doong, Ping" <Ping.Doong@Micrel.Com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from p01c12o149.mxlogic.net ([208.65.145.72]:49133 "EHLO
+	p01c12o149.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751388Ab3AWTgR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 14:36:17 -0500
+In-Reply-To: <1358968194.2107.37.camel@joe-AO722>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/24/2013 12:25 AM, Tejun Heo wrote:
-> Hello, Srivatsa.
-> 
-> First of all, I'm not sure whether we need to be this step-by-step
-> when introducing something new.  It's not like we're transforming an
-> existing implementation and it doesn't seem to help understanding the
-> series that much either.
-> 
-
-Hmm.. I split it up into steps to help explain the reasoning behind
-the code sufficiently, rather than spring all of the intricacies at
-one go (which would make it very hard to write the changelog/comments
-also). The split made it easier for me to document it well in the
-changelog, because I could deal with reasonable chunks of code/complexity
-at a time. IMHO that helps people reading it for the first time to
-understand the logic easily.
-
-> On Tue, Jan 22, 2013 at 01:03:53PM +0530, Srivatsa S. Bhat wrote:
->> Using global rwlocks as the backend for per-CPU rwlocks helps us avoid many
->> lock-ordering related problems (unlike per-cpu locks). However, global
-> 
-> So, unfortunately, this already seems broken, right?  The problem here
-> seems to be that previously, say, read_lock() implied
-> preempt_disable() but as this series aims to move away from it, it
-> introduces the problem of locking order between such locks and the new
-> contruct.
->
-
-Not sure I got your point correctly. Are you referring to Steve's comment
-that rwlocks are probably fair now (and hence not really safe when used
-like this)? If yes, I haven't actually verified that yet, but yes, that
-will make this hard to use, since we need to take care of locking rules.
-
-But suppose rwlocks are unfair (as I had assumed them to be), then we
-have absolutely no problems and no lock-ordering to worry about.
+From: David J. Choi <david.choi@micrel.com>
  
-> The only two options are either punishing writers or identifying and
-> updating all such possible deadlocks.  percpu_rwsem does the former,
-> right?  I don't know how feasible the latter would be.
-
-I don't think we can avoid looking into all the possible deadlocks,
-as long as we use rwlocks inside get/put_online_cpus_atomic() (assuming
-rwlocks are fair). Even with Oleg's idea of using synchronize_sched()
-at the writer, we still need to take care of locking rules, because the
-synchronize_sched() only helps avoid the memory barriers at the reader,
-and doesn't help get rid of the rwlocks themselves.
-So in short, I don't see how we can punish the writers and thereby somehow
-avoid looking into possible deadlocks (if rwlocks are fair).
-
->  Srivatsa,
-> you've been looking at all the places which would require conversion,
-> how difficult would doing the latter be?
-> 
-
-The problem is that some APIs like smp_call_function() will need to use
-get/put_online_cpus_atomic(). That is when the locking becomes tricky
-in the subsystem which invokes these APIs with other (subsystem-specific,
-internal) locks held. So we could potentially use a convention such as
-"Make get/put_online_cpus_atomic() your outer-most calls, within which
-you nest the other locks" to rule out all ABBA deadlock possibilities...
-But we might still hit some hard-to-convert places.. 
-
-BTW, Steve, fair rwlocks doesn't mean the following scenario will result
-in a deadlock right?
-
-CPU 0                          CPU 1
-
-read_lock(&rwlock)
-
-                              write_lock(&rwlock) //spins, because CPU 0
-                              //has acquired the lock for read
-
-read_lock(&rwlock)
-   ^^^^^
-What happens here? Does CPU 0 start spinning (and hence deadlock) or will
-it continue realizing that it already holds the rwlock for read?
-
-If the above ends in a deadlock, then its next to impossible to convert
-all the places safely (because the above mentioned convention will simply
-fall apart).
-
->> +#define reader_uses_percpu_refcnt(pcpu_rwlock, cpu)			\
->> +		(ACCESS_ONCE(per_cpu(*((pcpu_rwlock)->reader_refcnt), cpu)))
->> +
->> +#define reader_nested_percpu(pcpu_rwlock)				\
->> +			(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) > 1)
->> +
->> +#define writer_active(pcpu_rwlock)					\
->> +			(__this_cpu_read(*((pcpu_rwlock)->writer_signal)))
-> 
-> Why are these in the public header file?  Are they gonna be used to
-> inline something?
->
-
-No, I can put it in the .c file itself. Will do.
+Summary of changes:
+  add codes to collect basic statistical information about Ethernet packets.
  
->> +static inline void raise_writer_signal(struct percpu_rwlock *pcpu_rwlock,
->> +				       unsigned int cpu)
->> +{
->> +	per_cpu(*pcpu_rwlock->writer_signal, cpu) = true;
->> +}
->> +
->> +static inline void drop_writer_signal(struct percpu_rwlock *pcpu_rwlock,
->> +				      unsigned int cpu)
->> +{
->> +	per_cpu(*pcpu_rwlock->writer_signal, cpu) = false;
->> +}
->> +
->> +static void announce_writer_active(struct percpu_rwlock *pcpu_rwlock)
->> +{
->> +	unsigned int cpu;
->> +
->> +	for_each_online_cpu(cpu)
->> +		raise_writer_signal(pcpu_rwlock, cpu);
->> +
->> +	smp_mb(); /* Paired with smp_rmb() in percpu_read_[un]lock() */
->> +}
->> +
->> +static void announce_writer_inactive(struct percpu_rwlock *pcpu_rwlock)
->> +{
->> +	unsigned int cpu;
->> +
->> +	drop_writer_signal(pcpu_rwlock, smp_processor_id());
->> +
->> +	for_each_online_cpu(cpu)
->> +		drop_writer_signal(pcpu_rwlock, cpu);
->> +
->> +	smp_mb(); /* Paired with smp_rmb() in percpu_read_[un]lock() */
->> +}
-> 
-> It could be just personal preference but I find the above one line
-> wrappers more obfuscating than anything else.  What's the point of
-> wrapping writer_signal = true/false into a separate function?  These
-> simple wrappers just add layers that people have to dig through to
-> figure out what's going on without adding anything of value.  I'd much
-> prefer collapsing these into the percpu_write_[un]lock().
->
+Signed-off-by: David J. Choi <david.choi@micrel.com>
 
-Sure, I see your point. I'll change that.
+---
 
-Thanks a lot for your feedback Tejun!
+--- net-next/drivers/net/ethernet/micrel/ks8851_mll.c.orig	2013-01-22 17:25:59.000000000 -0800
++++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-23 11:28:45.000000000 -0800
+@@ -793,19 +793,34 @@ static void ks_rcv(struct ks_net *ks, st
+ 	frame_hdr = ks->frame_head_info;
+ 	while (ks->frame_cnt--) {
+ 		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
+-		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
++		if (unlikely(!skb)) {
++			/* discard the packet from the device */
++			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
++			netdev->stats.rx_dropped++;
++		} else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
+ 			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
+ 			skb_reserve(skb, 2);
+ 			/* read data block including CRC 4 bytes */
+ 			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
+-			skb_put(skb, frame_hdr->len);
++
++			/* exclude the size of CRC */
++			skb_put(skb, frame_hdr->len - 4);
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 			netif_rx(skb);
++			netdev->stats.rx_packets++;
++
++			/* crc field */
++			netdev->stats.rx_bytes += frame_hdr->len - 4;
+ 		} else {
+-			pr_err("%s: err:skb alloc\n", __func__);
+-			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
+-			if (skb)
+-				dev_kfree_skb_irq(skb);
++			/* discard the packet from the device */
++			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
++			netdev->stats.rx_dropped++;
++			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
++				netdev->stats.rx_length_errors++;
++			if (!(frame_hdr->sts & RXFSHR_RXFV))
++				netdev->stats.rx_frame_errors++;
++
++			dev_kfree_skb_irq(skb);
+ 		}
+ 		frame_hdr++;
+ 	}
+@@ -876,6 +891,8 @@ static irqreturn_t ks_irq(int irq, void 
+ 		pmecr &= ~PMECR_WKEVT_MASK;
+ 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
+ 	}
++	if (unlikely(status & IRQ_RXOI))
++		ks->netdev->stats.rx_over_errors++;
+ 
+ 	/* this should be the last in IRQ handler*/
+ 	ks_restore_cmd_reg(ks);
+@@ -1015,6 +1032,8 @@ static int ks_start_xmit(struct sk_buff 
+ 
+ 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
+ 		ks_write_qmu(ks, skb->data, skb->len);
++		netdev->stats.tx_bytes += skb->len;
++		netdev->stats.tx_packets++;
+ 		dev_kfree_skb(skb);
+ 	} else
+ 		retv = NETDEV_TX_BUSY;
 
-Regards,
-Srivatsa S. Bhat
-
+---
