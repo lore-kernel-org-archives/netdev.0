@@ -1,69 +1,59 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [RFC PATCH v2 10/10] ixgbe: Add support for set_channels ethtool
- operation
-Date: Wed, 23 Jan 2013 14:31:49 -0800
-Message-ID: <510064D5.2020905@intel.com>
-References: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>  <20130110185846.29578.94872.stgit@ahduyck-cp1.jf.intel.com>  <1358353157.2923.18.camel@bwh-desktop.uk.solarflarecom.com>  <1358353807.29335.1.camel@ppwaskie-mobl2> <1358976045.2658.18.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"therbert@google.com" <therbert@google.com>,
-	"ycai@google.com" <ycai@google.com>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 23 Jan 2013 14:44:36 -0800
+Message-ID: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:30937 "EHLO mga01.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:52933 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751388Ab3AWWbu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2013 17:31:50 -0500
-In-Reply-To: <1358976045.2658.18.camel@bwh-desktop.uk.solarflarecom.com>
+	id S1752378Ab3AWWpQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 17:45:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2013 01:20 PM, Ben Hutchings wrote:
-> On Wed, 2013-01-16 at 16:30 +0000, Waskiewicz Jr, Peter P wrote:
->> On Wed, 2013-01-16 at 16:19 +0000, Ben Hutchings wrote:
->>> On Thu, 2013-01-10 at 10:58 -0800, Alexander Duyck wrote:
->>>> This change adds support for the ethtool set_channels operation.
->>>>
->>>> Since the ixgbe driver has to support DCB as well as the other modes the
->>>> assumption I made here is that the number of channels in DCB modes refers
->>>> to the number of queues per traffic class, not the number of queues total.
->>>>
->>>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->>> In DCB mode are there separate IRQs for the different classes?
->> Yes.  The Rx packet buffer is split into multiple packet buffers, one
->> for each online class.  After that, it's just queues assigned to the
->> packet buffers, and interrupts assigned however you want them to be.
-> Right, I think we've been through this before.  And I can see how it
-> would be more useful for users to specify number of RX queues per
-> priority level.  But that's not what was specified...
->
-> I'm afraid the 'channels' ethtool operations have turned into a mess...
-> I can't see how to get to a reasonable generic definition of what they
-> should do.
->
-> Ben.
+This series contains updates to ixgbe and ixgbevf.  Majority of the
+changes are against ixgbe PTP and SR-IOV.
 
-Actually it looks like most of the drivers (I looked at bnx, bnx2x, tg3,
-and qlcnic) are using the set_queues call in a similar way.  What they
-end up doing is using the value and plugging it into their TSS/RSS
-fields in their private structures.  From what I can tell in
-bnx2x_setup_tc they may do exactly the same thing we are currently doing
-for DCB since they use the BNX2X_NUM_ETH_QUEUES value that they set in
-their set_channels call to set the number of queues they use per traffic
-class.  I would say the usage is actually pretty consistent between
-bnx2x and ixgbe based on this, even if it isn't exactly correct.
+The following are changes since commit 93b9c1ddd3fb4a5b67d512e534b30070f9ecec28:
+  Merge branch 'testing' of git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-For now I would say all of the drivers are using the set_channels
-operation to specify the number of Tx/Rx queues, or queue pairs per
-traffic class.  So for non-DCB NICs this means it is setting exactly
-that number of queues, and for DCB capable nics it means num_tcs times
-the specified number of queues.
+Alexander Duyck (1):
+  ixgbe: Inline Rx PTP descriptor handling
 
-Thanks,
+Donald Dutile (1):
+  ixgbe: Limit number of reported VFs to device specific value
 
-Alex
+Greg Rose (4):
+  ixgbe: Make mailbox ops initialization unconditional
+  ixgbe: Modularize SR-IOV enablement code
+  ixgbe: Implement PCI SR-IOV sysfs callback operation
+  ixgbevf: Fix link speed message to support 100Mbps
+
+Jacob Keller (8):
+  ixgbe: ethtool ixgbe_diag_test cleanup
+  ixgbe: add missing supported filters to get_ts_info
+  ixgbe: Update ptp_overflow check comment and jiffies
+  ixgbe: Use watchdog check in favor of BPF for detecting latched
+    timestamp
+  ixgbe: Add ptp work item to poll for the Tx timestamp
+  ixgbe: add warning when scheduling reset
+  ixgbe: Fix overwriting of rx_mtrl in ixgbe_ptp_hwtstamp_ioctl
+  ixgbe: only compile ixgbe_debugfs.o when enabled
+
+ drivers/net/ethernet/intel/ixgbe/Makefile         |   3 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h          |  34 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c  |   5 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c  |  46 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |  62 +++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c      | 221 ++++++++++------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c    | 192 ++++++++++++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h    |   6 +-
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |  19 +-
+ 9 files changed, 375 insertions(+), 213 deletions(-)
+
+-- 
+1.7.11.7
