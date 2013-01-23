@@ -1,145 +1,143 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: v3 for tcp friends?
-Date: Wed, 23 Jan 2013 17:52:18 +0800
-Message-ID: <50FFB2D2.4050603@gmail.com>
-References: <20120903.154833.1547153833820955116.davem@davemloft.net>  <CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>  <20120904.125841.2293649688957878987.davem@davemloft.net>  <50FCEE64.80203@gmail.com> <50FCEEC5.9010404@gmail.com>  <CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>  <CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>  <50FF5592.60008@gmail.com>  <50FF7F64.2060902@gmail.com> <1358923606.12374.746.camel@edumazet-glaptop> <50FF8F75.4000903@gmail.com> <50FF9836.4060106@gmail.com> <50FFAFE7.5030707@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
+Date: Wed, 23 Jan 2013 12:03:12 +0200
+Message-ID: <20130123100312.GA8108@redhat.com>
+References: <50AE36E0.8000307@dlhnet.de>
+ <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
+ <E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de>
+ <20121123110146.GC7051@redhat.com>
+ <50FE5607.9020405@dlhnet.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Bruce Curtis <brutus@google.com>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stefan Hajnoczi <stefanha@gmail.com>, qemu-devel@nongnu.org,
+	netdev@vger.kernel.org
+To: Peter Lieven <pl@dlhnet.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:52866 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754670Ab3AWJwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 04:52:34 -0500
-Received: by mail-da0-f44.google.com with SMTP id z20so3726087dae.17
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 01:52:32 -0800 (PST)
-In-Reply-To: <50FFAFE7.5030707@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:31389 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754312Ab3AWJ7L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 04:59:11 -0500
+Content-Disposition: inline
+In-Reply-To: <50FE5607.9020405@dlhnet.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 17:39, Li Yu =E5=86=99=E9=
-=81=93:
-> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:58, Li Yu =E5=86=99=E9=
-=81=93:
->> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:21, Li Yu =E5=86=99=
-=E9=81=93:
->>> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 14:46, Eric Dumazet =E5=
-=86=99=E9=81=93:
->>>> On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
->>>>> Oops, this hang is not since TCP friends patch!
->>>>>
->>>>> sk_sndbuf_get() is broken by 32 bits integer overflow
->>>>> because of so large value in net.ipv4.tcp_{rmem,wmem}.
->>>>>
->>>>> but this hang also can be found in net-next.git
->>>>> (3.8.0-rc3+), if we run below commands, then all new
->>>>> TCP connections stop working!
->>>>>
->>>>> # when TCP friends is disabled
->>>>> sysctl -w net.ipv4.tcp_rmem=3D"4096 4294967296 4294967296" # 4GB
->>>>> sysctl -w net.ipv4.tcp_wmem=3D"4096 4294967296 4294967296"
->>>>
->>>> Right we need to make sure we dont overflow.
->>>>
->>>> Try the following fix :
->>>>
->>>> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4=
-=2Ec
->>>> index a25e1d2..1459145 100644
->>>> --- a/net/ipv4/sysctl_net_ipv4.c
->>>> +++ b/net/ipv4/sysctl_net_ipv4.c
->>>> @@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] =3D {
->>>>           .data        =3D &sysctl_tcp_wmem,
->>>>           .maxlen        =3D sizeof(sysctl_tcp_wmem),
->>>>           .mode        =3D 0644,
->>>> -        .proc_handler    =3D proc_dointvec
->>>> +        .extra1        =3D &zero,
->
-> If we added below:
->
-> +static int one =3D 1;
-> +static int int_max =3D INT_MAX;
-> ....
-> +               .extra1     =3D &one,
-> +        .extra2        =3D &int_max,
->
+On Tue, Jan 22, 2013 at 10:04:07AM +0100, Peter Lieven wrote:
+> On 23.11.2012 12:01, Michael S. Tsirkin wrote:
+> >On Fri, Nov 23, 2012 at 10:41:21AM +0100, Peter Lieven wrote:
+> >>
+> >>Am 23.11.2012 um 08:02 schrieb Stefan Hajnoczi:
+> >>
+> >>>On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
+> >>>>is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
+> >>>>a bridge from sending pakets to a tap device?
+> >>>>
+> >>>>My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
+> >>>>which is based on Linux 3.2.33.
+> >>>>
+> >>>>I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
+> >>>>the tap does not have any TX packets. RX is working fine. I see the packets coming in at
+> >>>>the physical interface on the host, but they are not forwarded to the tap interface.
+> >>>>The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
+> >>>>It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
+> >>>>It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
+> >>>>is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
+> >>>>bridge) again. Unfortunately it seems not to be reproducible.
+> >>>
+> >>>Not sure but this patch from Michael Tsirkin may help - it solves an
+> >>>issue with persistent tap devices:
+> >>>
+> >>>http://patchwork.ozlabs.org/patch/198598/
+> >>
+> >>Hi Stefan,
+> >>
+> >>thanks for the pointer. I have seen this patch, but I have neglected it because it was dealing
+> >>with persistent taps. But maybe the taps in the kernel are not deleted directly.
+> >>Can you remember what the syptomps of the above issue have been? Sorry for
+> >>being vague, but I currently have no clue whats going on.
+> >>
+> >>Can someone who has more internal knowledge of the bridging/tap code say if qemu can
+> >>be responsible at all if the tap device is not receiving packets from the bridge.
+> >>
+> >>If I have the following config. Lets say packets coming in via physical interface eth1.123,
+> >>and a bridge called br123.I further have a virtual machine with tap0. Both eth1.123
+> >>and tap0 are member of br123.
+> >>
+> >>If the issue occurs the vServer has no network connectivity inbound. If I sent a ping
+> >>from the vServer I see it on tap0 and leaving on eth1.123. I see further the arp reply coming
+> >>in via eth1.123, but the reply can't be seen on tap0.
+> >>
+> >>Peter
+> >
+> >If guest is not consuming packets, a TX queue in tap device
+> >will with time overrun (there's space for 1000 packets there).
+> >This is code from tun:
+> >
+> >         if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+> >                           >= dev->tx_queue_len / tun->numqueues){
+> >                 if (!(tun->flags & TUN_ONE_QUEUE)) {
+> >                         /* Normal queueing mode. */
+> >                         /* Packet scheduler handles dropping of further
+> >  * packets. */
+> >                         netif_stop_subqueue(dev, txq);
+> >
+> >                         /* We won't see all dropped packets
+> >  * individually, so overrun
+> >                          * error is more appropriate. */
+> >                         dev->stats.tx_fifo_errors++;
+> >
+> >
+> >So you can detect that this triggered by looking at fifo errors counter in device.
+> >
+> >Once this happens TX queue is stopped, then you hit this path:
+> >
+> >                         if (!netif_xmit_stopped(txq)) {
+> >                                 __this_cpu_inc(xmit_recursion);
+> >                                 rc = dev_hard_start_xmit(skb, dev, txq);
+> >                                 __this_cpu_dec(xmit_recursion);
+> >                                 if (dev_xmit_complete(rc)) {
+> >                                         HARD_TX_UNLOCK(dev, txq);
+> >                                         goto out;
+> >                                 }
+> >                         }
+> >
+> >so packets are not passed to device anymore.
+> >It will stay this way until guest consumes some packets and
+> >queue is restarted.
+> 
+> After some time I again have a vServer in this state. It seems not like there
+> are no TX errors.
+> 
+> # ifconfig tap10
+> tap10     Link encap:Ethernet  HWaddr 7a:59:20:6f:e7:e5
+>           inet6 addr: fe80::7859:20ff:fe6f:e7e5/64 Scope:Link
+>           UP BROADCAST RUNNING PROMISC MULTICAST  MTU:1500  Metric:1
+>           RX packets:197431 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:264309 errors:0 dropped:0 overruns:2 carrier:0
+>           collisions:0 txqueuelen:500
+>           RX bytes:13842063 (13.8 MB)  TX bytes:35092821 (35.0 MB)
+> 
+> It seems like the bridge is not forwarding any packets to the tap device anymore altough it has learnt
+> the MAC-Adresses and there are also broadcast packets coming in.
+> 
+> Any more ideas where I could debug?
+> 
+> Peter
+> 
+> >
+> >>>
+> >>>Stefan
 
-The "int_max" may be unnecessary here :)
+Hmm. So there are two overrun errors that triggered, so
+it's possible after the second one the queue got stuck in an xoff state.
+You'd have to use something like systemtap or kdb to poke at the
+queue state to see whether xoff flag is set and/or look
+at the receive queue length.
 
-> The bug is fixed without TCP friends.
->
-> Maybe, TCP friends need to use long integer to record result
-> of "sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf" ?
->
-> BTW: This overflow problem also breaks UDP sockets.
+For future, we can try to set TUN_ONE_QUEUE flag on the interface,
+or try applying this patch
+5d097109257c03a71845729f8db6b5770c4bbedc
+in kernel see if this helps.
 
-Unix domain sockets is broken too, and any other ?
-
-thanks
-
-Yu
-
->
-> Thanks
->
-> Yu
->
->>>> +        .proc_handler    =3D proc_dointvec_minmax
->>>>       },
->>>>       {
->>>>           .procname    =3D "tcp_rmem",
->>>>           .data        =3D &sysctl_tcp_rmem,
->>>>           .maxlen        =3D sizeof(sysctl_tcp_rmem),
->>>>           .mode        =3D 0644,
->>>> -        .proc_handler    =3D proc_dointvec
->>>> +        .extra1        =3D &zero,
->>>> +        .proc_handler    =3D proc_dointvec_minmax
->>>>       },
->>>>       {
->>>>           .procname    =3D "tcp_app_win",
->>>>
->>>>
->>>>
->>> Thanks for so quick reply, I will test it soon.
->>>
->>> however I suspect whether this patch could fix overflow if we merge=
-d TCP
->>> friends patch in future.
->>>
->>
->> Tested on 3.7.0-rc1+, but bug is still alive
->> with disabled TCP friends ...
->>
->> Thanks
->>
->> Yu
->>
->>> With TCP friends, we have source like below, or TCP friends should =
-care
->>> this ?
->>>
->>> static inline int sk_sndbuf_get(const struct sock *sk)
->>> {
->>>          if (sk->sk_friend)
->>>                  return sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf;
->>>          else
->>>                  return sk->sk_sndbuf;
->>> }
->>>
->>> static inline bool sk_stream_memory_free(const struct sock *sk)
->>> {
->>>          return sk_wmem_queued_get(sk) < sk_sndbuf_get(sk);
->>> }
->>>
->>> So sk_sndbuf_get() still may be overflow when we have right value i=
-n
->>> net.ipv4.tcp_{rmem,wmem}.
->>>
->>> Thanks
->>
->
+-- 
+MST
