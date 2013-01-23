@@ -1,47 +1,97 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH 2/2] tcp: add ability to set a timestamp offset (v2)
-Date: Wed, 23 Jan 2013 19:26:41 +0400
-Message-ID: <51000131.3070300@parallels.com>
-References: <1358953314-12979-1-git-send-email-avagin@openvz.org> <1358953314-12979-3-git-send-email-avagin@openvz.org>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues,
+ indent, and testmgr build issues
+Date: Wed, 23 Jan 2013 17:35:10 +0200
+Message-ID: <20130123173510.14986sla4qsstz8k@www.dalek.fi>
+References: <1776726593.108228.1358952383104.JavaMail.root@elliptictech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=ISO-8859-1;
+ DelSp="Yes";
+ format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, criu@openvz.org,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Dave Jones <davej@redhat.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358953314-12979-3-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	linux-crypto@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: Tom St Denis <tstdenis@elliptictech.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1776726593.108228.1358952383104.JavaMail.root@elliptictech.com>
+Content-Disposition: inline
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Quoting Tom St Denis <tstdenis@elliptictech.com>:
 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 086ceda..23f93d4 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -2704,6 +2704,10 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
->  		else
->  			err = -EINVAL;
->  		break;
-> +	case TCP_TIMESTAMP:
-> +		tp->tsoffset = 0;
-> +		tp->tsoffset = val - tcp_time_stamp(tp);
+> ----- Original Message -----
+>> From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+>> To: "Tom St Denis" <tstdenis@elliptictech.com>
+>> Cc: linux-kernel@vger.kernel.org, "Herbert Xu"  
+>> <herbert@gondor.apana.org.au>, "David Miller" <davem@davemloft.net>,
+>> linux-crypto@vger.kernel.org, "Steffen Klassert"  
+>> <steffen.klassert@secunet.com>, netdev@vger.kernel.org
+>> Sent: Wednesday, 23 January, 2013 9:36:44 AM
+>> Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch  
+>> issues, indent, and testmgr build issues
+>>
+>> Quoting Tom St Denis <tstdenis@elliptictech.com>:
+>>
+>> > Hey all,
+>> >
+>> > Here's an updated patch which addresses a couple of build issues
+>> > and
+>> > coding style complaints.
+>> >
+>> > I still can't get it to run via testmgr I get
+>> >
+>> > [  162.407807] alg: No test for cmac(aes) (cmac(aes-generic))
+>> >
+>> > Despite the fact I have an entry for cmac(aes) (much like
+>> > xcbc(aes)...).
+>> >
+>> > Here's the patch to bring 3.8-rc4 up with CMAC ...
+>> >
+>> > Signed-off-by: Tom St Denis <tstdenis@elliptictech.com>
+>> >
+>> <snip>
+>> > diff --git a/include/uapi/linux/pfkeyv2.h
+>> > b/include/uapi/linux/pfkeyv2.h
+>> > index 0b80c80..d61898e 100644
+>> > --- a/include/uapi/linux/pfkeyv2.h
+>> > +++ b/include/uapi/linux/pfkeyv2.h
+>> > @@ -296,6 +296,7 @@ struct sadb_x_kmaddress {
+>> >  #define SADB_X_AALG_SHA2_512HMAC	7
+>> >  #define SADB_X_AALG_RIPEMD160HMAC	8
+>> >  #define SADB_X_AALG_AES_XCBC_MAC	9
+>> > +#define SADB_X_AALG_AES_CMAC_MAC	10
+>> >  #define SADB_X_AALG_NULL		251	/* kame */
+>> >  #define SADB_AALG_MAX			251
+>>
+>> Should these values be based on IANA assigned IPSEC AH transform
+>> identifiers?
+>>
+>> https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xml#isakmp-registry-6
+>
+> There is no CMAC entry apparently ... despite the fact that CMAC is  
+> a proposed RFC standard for IPsec.
+>
+> It might be safer to move that to 14 since it's currently unassigned  
+> and then go through whatever channels are required to allocate it.   
+> Mostly this affects key setting.  So this means my patch would break  
+> AH_RSA setkey calls (which the kernel doesn't support anyways).
+>
 
-I believe we should check that the socket state is TCP_CLOSE.
-Otherwise tcp_time_stamp() readers might be surprised while
-reading the value.
+Problem seems to be that PFKEYv2 does not quite work with IKEv2, and  
+XFRM API should be used instead. There is new numbers assigned for  
+IKEv2:  
+https://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xml#ikev2-parameters-7
 
-> +		break;
->  	default:
->  		err = -ENOPROTOOPT;
->  		break;
+For new SADB_X_AALG_*, I'd think you should use value from "Reserved  
+for private use" range. Maybe 250?
+
+But maybe better solution might be to not make AES-CMAC (or other new  
+algorithms) available throught PFKEY API at all, just XFRM?
+
+-Jussi
