@@ -1,59 +1,92 @@
-From: Yannick Koehler <yannick@koehler.name>
-Subject: Re: Unix Socket buffer attribution
-Date: Wed, 23 Jan 2013 12:36:50 -0500
-Message-ID: <CAJ4BwwGhR_u6JrWanZ3WCPJtkXSPC4O2-boA4XxMw0U1CX+HSg@mail.gmail.com>
-References: <CAJ4BwwFZo=ktoNBpw14yxyvR1QPQ_xVzKRs=R7qv03g1uwn8pg@mail.gmail.com>
-	<kdoibl$978$1@ger.gmane.org>
-	<1358951180.12374.787.camel@edumazet-glaptop>
-	<CAJ4BwwG-fimMeSD_DSNZZz=Vjz3Qk_58qEnMGv_gmn0rTSeZAg@mail.gmail.com>
-	<1358960188.12374.830.camel@edumazet-glaptop>
-	<1358961185.12374.853.camel@edumazet-glaptop>
+From: Cong Ding <dinggnu@gmail.com>
+Subject: Re: [PATCH] net/ceph/osdmap.c: fix undefined behavior when using
+ snprintf()
+Date: Wed, 23 Jan 2013 12:41:50 -0500
+Message-ID: <20130123174150.GA26336@gmail.com>
+References: <1358882429-19066-1-git-send-email-dinggnu@gmail.com>
+ <51001447.3030600@inktank.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:59420 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756574Ab3AWRgw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 12:36:52 -0500
-Received: by mail-wi0-f176.google.com with SMTP id hm6so950434wib.3
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 09:36:50 -0800 (PST)
-In-Reply-To: <1358961185.12374.853.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sage Weil <sage@inktank.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alex Elder <elder@inktank.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51001447.3030600@inktank.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+On Wed, Jan 23, 2013 at 10:48:07AM -0600, Alex Elder wrote:
+> On 01/22/2013 01:20 PM, Cong Ding wrote:
+> > The variable "str" is used as both the source and destination in function
+> > snprintf(), which is undefined behavior based on C11. The original description
+> > in C11 is:
+> > 	"If copying takes place between objects that
+> > 	overlap, the behavior is undefined."
+> 
+> Yes, this was an ill-advised thing to do in this function.
+> 
+> In fact, the only place this function is used (in osdmap_show()),
+> the non-static buffer was not initialized before the call.  (It
+> might happen to work because the same stack space was getting
+> reused each time through the loop.  Eeeeew!)
+> 
+> This is just an awful couple of functions.
+> 
+> > And, the function of ceph_osdmap_state_str() is to return the osdmap state, so
+> > it should return "doesn't exist" when all the conditions are not satisfied. I
+> > fix it in this patch.
+> > 
+> > Based on C11, snprintf() does nothing if n==0:
+> > 	"If n is zero, nothing is written, and s may be a
+> > 	null pointer. Otherwise, output characters beyond
+> > 	the n-1st are discarded rather than being written to
+> > 	the array, and a null character is written at the
+> > 	end of the characters actually written into the
+> > 	array."
+> > so I remove the unnecessary check of len (because it is not a busy path and
+> > saves a few lines of code).
+> 
+> True.  But since you know it's not going to do anything why
+> not only make the call if len is non-zero?  I.e.:
+> 
+> 	else if (len)
+> 		snprintf(str, len, "doesn't exist");
+> 
+> With your permission I'll make this change and will commit
+> this for you.  OK?
+It's fine, thanks. But I think it's better to check len in the beginning
+because other conditions also call snprintf with parameter len. Like this:
 
-  I am not sure to follow you.  I am not changing how sockets works.
-I am actually making the af_unix socket works like others, by using
-the sndbuf/rcvbuf limits.  The code I added was took from netlink.c
-and sock.c (sock_queue_err_skb).  And actually, I am simply "adding" a
-limit check, not removing.  The only thing this may do as a negative
-side effect is allow more buffer at the same time in the system, but
-the global number of buffer remains checked, as it was, if it was,
-since I am not changing how buffer gets allocated, just accounted.
-Please check my patch.
+	if (!len)
+		return str;
 
-2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Wed, 2013-01-23 at 08:56 -0800, Eric Dumazet wrote:
->
->> You'll have to add proper limits (SO_RCVBUF), accounting the truesize of
->> all accumulated messages.
->
-> And if you claim being able to remove DOS attacks, you'll also have to
-> add global limits, at a very minimum.
->
-> (a la /proc/sys/net/ipv4/tcp_mem or /proc/sys/net/ipv4/udp_mem)
->
-> Its not an easy problem, unfortunately.
->
->
->
+	if ((state & CEPH_OSD_EXISTS) && (state & CEPH_OSD_UP))
+		snprintf(str, len, "exists, up");
+	else if (state & CEPH_OSD_EXISTS)
+		snprintf(str, len, "exists");
+	else if (state & CEPH_OSD_UP)
+		snprintf(str, len, "up");
+	else
+		snprintf(str, len, "doesn't exist");
 
+	return str;
 
+or like this:
 
--- 
-Yannick Koehler
-Courriel: yannick@koehler.name
-Blog: http://corbeillepensees.blogspot.com
+	if (len) {
+		if ((state & CEPH_OSD_EXISTS) && (state & CEPH_OSD_UP))
+			snprintf(str, len, "exists, up");
+		else if (state & CEPH_OSD_EXISTS)
+			snprintf(str, len, "exists");
+		else if (state & CEPH_OSD_UP)
+			snprintf(str, len, "up");
+		else
+			snprintf(str, len, "doesn't exist");
+	}
+	return str;
+
+Thanks,
+- cong
