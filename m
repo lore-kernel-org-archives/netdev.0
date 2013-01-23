@@ -1,75 +1,63 @@
-From: Johannes Naab <jn@stusta.de>
-Subject: [PATCH] iproute2: tc netem rate: allow negative packet/cell overhead
-Date: Wed, 23 Jan 2013 22:38:19 +0100
-Message-ID: <5100584B.6000108@stusta.de>
+From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Subject: Re: Linux 3.6.x kernel crash in tcp_slow_start / bictcp_cong_avoid
+ with wfica
+Date: Wed, 23 Jan 2013 23:51:51 +0200
+Message-ID: <20130123215151.GF8912@reaktio.net>
+References: <20130123161238.GE8912@reaktio.net>
+ <20130123214445.GA16641@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.stusta.mhn.de ([141.84.69.5]:52867 "EHLO
-	mail.stusta.mhn.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752314Ab3AWVqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 16:46:48 -0500
-Received: from [10.150.30.16] (r030016.stusta.swh.mhn.de [10.150.30.16])
-	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	(Authenticated sender: 004445)
-	by mail.stusta.mhn.de (Postfix) with ESMTPSA id BDAE5125F1
-	for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 22:38:19 +0100 (CET)
+Received: from smtp.tele.fi ([192.89.123.25]:44993 "EHLO smtp.tele.fi"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751143Ab3AWVvy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 16:51:54 -0500
+Received: from ydin.reaktio.net (reaktio.net [194.89.68.22])
+	by smtp.tele.fi (Postfix) with ESMTP id 3F6B42348
+	for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 23:51:51 +0200 (EET)
+Content-Disposition: inline
+In-Reply-To: <20130123214445.GA16641@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Naab <jn@stusta.de>
+On Wed, Jan 23, 2013 at 10:44:45PM +0100, Hannes Frederic Sowa wrote:
+> On Wed, Jan 23, 2013 at 06:12:38PM +0200, Pasi K=E4rkk=E4inen wrote:
+> > My laptop running Fedora 17 randomly crashes when using wfica (Citr=
+ix Receiver / ICA Client)=20
+> > proprietary closed source client for accessing remote desktop serve=
+r.=20
+> > wfica is running as a normal user, so it shouldn't be able to cause=
+ a kernel crash.=20
+> >=20
+> > Crashes seem to happen most often when I use either wlan- or 3G mob=
+ile data Internet connection.=20
+> > These kernel crashes happen ramdomly, often 1-2 times a week.=20
+> > What usually happens is that I notice the Internet connection has d=
+ied,=20
+> > and when I check the kernel dmesg I'm seeing the traceback.=20
+> > At this point I'm still able to use the gnome desktop for maybe 1-5=
+ minutes,=20
+> > but applications start to fail one by one, and finally everything j=
+ust halts=20
+> > and I need to power cycle the laptop.=20
+>=20
+> Would it be possible to capture a strace -e network, so we could see =
+which
+> setsockopt combinations are being applied to the socket. Is capturing=
+ ss -ioem
+> in such moments still possible?
+>=20
 
-by fixing the parsing of command-line tokens
+I don't think I'm able to strace or anything at that point..=20
+It took me at least 10 tries (=3Dcrashes) before I was able to "dmesg >=
+ log.txt" successfully ..=20
+(usually writing/redirecting to a file fails because the disk/fs is alr=
+eady unavailable..)
 
-Signed-off-by: Johannes Naab <jn@stusta.de>
----
+I can always try though!
 
-The packet or cell overhead used with the rate extension can be negative. The
-man page tc-netem(8) documents this. However, iproute2 currently does not
-detect negative numbers as valid token.
+Any other ideas?=20
 
-> $ tc qdisc add dev eth0 root netem rate 1024bps -14
-> What is "-14"?
-> Usage: ... netem [ limit PACKETS ]
-
-I developed this patch while doing a student project at
-http://www.nav.ei.tum.de/.
-
-
- tc/q_netem.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/tc/q_netem.c b/tc/q_netem.c
-index f8489e9..2583072 100644
---- a/tc/q_netem.c
-+++ b/tc/q_netem.c
-@@ -147,6 +147,8 @@ static int get_distribution(const char *type, __s16 *data, int maxdata)
- }
- 
- #define NEXT_IS_NUMBER() (NEXT_ARG_OK() && isdigit(argv[1][0]))
-+#define NEXT_IS_SIGNED_NUMBER() \
-+	(NEXT_ARG_OK() && (isdigit(argv[1][0]) || argv[1][0] == '-'))
- 
- /* Adjust for the fact that psched_ticks aren't always usecs
-    (based on kernel PSCHED_CLOCK configuration */
-@@ -393,7 +395,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 				explain1("rate");
- 				return -1;
- 			}
--			if (NEXT_IS_NUMBER()) {
-+			if (NEXT_IS_SIGNED_NUMBER()) {
- 				NEXT_ARG();
- 				if (get_s32(&rate.packet_overhead, *argv, 0)) {
- 					explain1("rate");
-@@ -407,7 +409,7 @@ static int netem_parse_opt(struct qdisc_util *qu, int argc, char **argv,
- 					return -1;
- 				}
- 			}
--			if (NEXT_IS_NUMBER()) {
-+			if (NEXT_IS_SIGNED_NUMBER()) {
- 				NEXT_ARG();
- 				if (get_s32(&rate.cell_overhead, *argv, 0)) {
- 					explain1("rate");
+-- Pasi
