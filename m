@@ -1,74 +1,41 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
- Implement basic statistics
-Date: Wed, 23 Jan 2013 11:09:54 -0800
-Message-ID: <1358968194.2107.37.camel@joe-AO722>
-References: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Wed, 23 Jan 2013 11:28:08 -0800
+Message-ID: <510039C8.7040401@hp.com>
+References: <20130122161038.GG4608@sociomantic.com> <1358873142.3464.3964.camel@edumazet-glaptop> <20130122165929.GH4608@sociomantic.com> <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com> <50FF0C25.9000300@hp.com> <20130123104736.GK4608@sociomantic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Doong, Ping" <Ping.Doong@Micrel.Com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: "Choi, David" <David.Choi@Micrel.Com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:37591 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751729Ab3AWTJ6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2013 14:09:58 -0500
-In-Reply-To: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:28800 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764Ab3AWT2K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 14:28:10 -0500
+In-Reply-To: <20130123104736.GK4608@sociomantic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 18:46 +0000, Choi, David wrote:
-> +++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-23 10:31:24.000000000 -0800
-> @@ -793,17 +793,35 @@ static void ks_rcv(struct ks_net *ks, st
->  	frame_hdr = ks->frame_head_info;
->  	while (ks->frame_cnt--) {
->  		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
-> -		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
-> +		if (unlikely(!skb)) {
-> +			/* discard the packet from the device */
-> +			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
-> +			netdev->stats.rx_dropped++;
-> +		}
-> +
-> +		else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
+On 01/23/2013 02:47 AM, Leandro Lucarella wrote:
+> Thanks for the info. I'm definitely dropping SYNs and sending cookies,
+> around 50/s. Is there any way to tell how many connections are queued in
+> a particular socket?
 
-Couple of trivial comments:
+I am not familiar with one.  Doesn't mean there isn't one, only that I 
+am not able to think of it.
 
-it' be nicer if the close brace and else
-was on the same line
+> Then if syncookies are enabled, the time spent in connect() shouldn't be
+> bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
 
-		} else if (likely(...
+Do you mean if "ESTABLISHED" connections are dropped because the listen 
+queue is full?  I don't think I would put that as "SYNs being dropped by 
+listen" - too easy to confuse that with an actual dropping of a SYN segment.
 
->  			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
->  			skb_reserve(skb, 2);
->  			/* read data block including CRC 4 bytes */
->  			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
-> -			skb_put(skb, frame_hdr->len);
-> +
-> +			/* exclude the size of CRC */
-> +			skb_put(skb, frame_hdr->len - 4);
->  			skb->protocol = eth_type_trans(skb, netdev);
->  			netif_rx(skb);
-> +			netdev->stats.rx_packets++;
-> +
-> +			/* crc field */
-> +			netdev->stats.rx_bytes += frame_hdr->len - 4;
->  		} else {
-> -			pr_err("%s: err:skb alloc\n", __func__);
-> -			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
-> +			/* discard the packet from the device */
-> +			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
-> +			netdev->stats.rx_dropped++;
-> +			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
-> +				netdev->stats.rx_length_errors++;
-> +			if (!(frame_hdr->sts & RXFSHR_RXFV))
-> +				netdev->stats.rx_frame_errors++;
-> +
->  			if (skb)
->  				dev_kfree_skb_irq(skb);
+But yes, I would not expect a connect() call to remain incomplete for 
+any longer than it took to receive an SYN|ACK from the other end.  That 
+would be 3 (,9, 21, etc...) seconds on a kernel with 3 seconds as the 
+initial retransmission timeout.
 
-You don't need to test skb here anymore.
+rick
