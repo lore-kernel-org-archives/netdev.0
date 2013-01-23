@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skb: add a comment to skb_csum_unnecessary to avoid
- miuse
-Date: Tue, 22 Jan 2013 20:53:46 -0500 (EST)
-Message-ID: <20130122.205346.633138554393148358.davem@davemloft.net>
-References: <50FF2F18.1050408@jp.fujitsu.com>
+Subject: Re: [PATCH v2] IP_GRE: Fix kernel panic in IP_GRE with GRE csum.
+Date: Tue, 22 Jan 2013 20:55:07 -0500 (EST)
+Message-ID: <20130122.205507.339713494072219737.davem@davemloft.net>
+References: <1358895398-2088-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sanagi.koki@jp.fujitsu.com
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59278 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59290 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752494Ab3AWBxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 20:53:47 -0500
-In-Reply-To: <50FF2F18.1050408@jp.fujitsu.com>
+	with ESMTP id S1752662Ab3AWBzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 20:55:08 -0500
+In-Reply-To: <1358895398-2088-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Date: Wed, 23 Jan 2013 09:30:16 +0900
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 22 Jan 2013 14:56:38 -0800
 
-> Due to its name and appearance, someone thinks this only checks if ip_summed is
-> CHECKSUM_UNNECESARRY.  But actually, this returns true even if ip_summed is
-> CHECKSUM_PARTIAL.  To avoid misuse, this patch a comment which specifies that
-> CHECKSUM_PARTIAL is OK.
+> Fixed code indentation according to comments from David Miller.
 > 
-> Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+> --8<--------------------------cut here-------------------------->8--
 
-I'm not applying this, sorry.  It's a one line function and it's not
-so non-obvious that it deserves an 8 line comment.
+This doesn't do what you think it does.  No automated tool is going
+to edit the commit message the way you think this will.
+
+You should instead put your "what is different in this revision"
+comments right after the "---" below.
+
+> Due to GSO support, GRE can recieve non linear skb which
+> results in panic in case of GRE_CSUM.
+> Following patch fixes it by using correct csum API.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+ ^^^
+
+Right after that line.
