@@ -1,61 +1,57 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Hung tasks related to do_filp_open in net-next (3.8.0-rc3+)
-Date: Wed, 23 Jan 2013 13:38:32 -0800
-Message-ID: <51005858.4040107@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Wed, 23 Jan 2013 13:43:28 -0800
+Message-ID: <1358977408.12374.1093.camel@edumazet-glaptop>
+References: <50FDADF4.3060601@candelatech.com>
+	 <50FDDE35.7070806@candelatech.com>
+	 <1358829606.3464.3151.camel@edumazet-glaptop>
+	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
+	 <1358875020.3464.4006.camel@edumazet-glaptop>
+	 <1358875607.3464.4020.camel@edumazet-glaptop>
+	 <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>
+	 <1358921493.12374.737.camel@edumazet-glaptop>
+	 <50FF8DEC.9070901@candelatech.com>
+	 <1358948110.12374.748.camel@edumazet-glaptop>
+	 <510028A7.1080902@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:48887 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752052Ab3AWVna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 16:43:30 -0500
+In-Reply-To: <510028A7.1080902@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2013-01-23 at 10:15 -0800, Ben Greear wrote:
+> On 01/23/2013 05:35 AM, Eric Dumazet wrote:
+> > On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
+> >
+> >> How are the non-ref-counted dst objects used safely?  Any chance
+> >> that tearing down the IP protocol on a device (or deleting a device)
+> >> could delete a dst that is referenced by an skb (and thus crashes as
+> >> I see)?
+> >
+> > There is probably a bug. Normally it should be RCU protected.
+> 
+> I'm building net-next, and will do some testing on it later today
+> if all goes well.
+> 
+> In the meantime, a few questions about RCU.
+> 
+> If the non-ref-counted dst is protected by RCU, does that mean
+> that from the time we acquire the pointer (ie, set it in the skb),
+> to the time we clear the pointer from the skb, we must be under
+> RCU read lock?
+> 
+> If so, that means that ip_rcv_finish must be called under RCU
+> read lock, etc?
 
-I cranked up my 3000 NFS mounts test case on today's net-next (3.8.0-rc3+)
-and about 8 of these splats.  There were around 780 mounts active
-when these occurred.
-
-Seems like the system continues OK, so not sure how important
-this is...
-
-INFO: task btserver:8756 blocked for more than 180 seconds.
-"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-btserver        D 0000000000000004     0  8756   5781 0x00000080
-  ffff880404ab1bf8 0000000000000046 0000000004ab1ba8 0000000000000432
-  ffff880404ab0010 ffff880402263f20 ffff880404ab1fd8 00000000000132c0
-  00000000000132c0 00000000000132c0 ffff880404ab1fd8 00000000000132c0
-Call Trace:
-  [<ffffffff815491ea>] schedule+0x5f/0x61
-  [<ffffffff815494fa>] schedule_preempt_disabled+0x13/0x1f
-  [<ffffffff81547ea8>] __mutex_lock_common+0x264/0x42d
-  [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
-  [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
-  [<ffffffff815480d0>] mutex_lock_nested+0x16/0x18
-  [<ffffffff8115fadb>] do_last+0x1db/0xa4e
-  [<ffffffff8115f3a5>] ? path_init+0xcd/0x2b6
-  [<ffffffff8116090b>] path_openat+0xcb/0x363
-  [<ffffffff810d0055>] ? __lock_acquire+0x1df/0x53d
-  [<ffffffff81160ca8>] do_filp_open+0x38/0x84
-  [<ffffffff8154a2db>] ? _raw_spin_unlock+0x45/0x52
-  [<ffffffff8116c203>] ? __alloc_fd+0x106/0x11a
-  [<ffffffff815490f9>] ? __schedule+0x561/0x5a3
-8021q: adding VLAN 0 to HW filter on device eth4#621
-  [<ffffffff81153bfc>] do_sys_open+0x6d/0xff
-8021q: adding VLAN 0 to HW filter on device eth3#612
-  [<ffffffff81153cbb>] sys_open+0x1c/0x1e
-  [<ffffffff8154f629>] system_call_fastpath+0x16/0x1b
-2 locks held by btserver/8756:
-  #0:  (sb_writers#10){......}, at: [<ffffffff81170013>] mnt_want_write+0x1f/0x48
-  #1:  (&type->i_mutex_dir_key#4){......}, at: [<ffffffff8115fadb>] do_last+0x1db/0xa4e
-
-
-
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Obviously yes.  Check skb_dst_force() for the rare cases we want to
+escape the RCU section.
