@@ -1,34 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0
- to gigabit ethernet adapter driver
-Date: Tue, 22 Jan 2013 23:15:15 -0500 (EST)
-Message-ID: <20130122.231515.1276077448591402095.davem@davemloft.net>
-References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
+Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
+ Implement basic statistics
+Date: Tue, 22 Jan 2013 23:17:54 -0500 (EST)
+Message-ID: <20130122.231754.2210645494690728329.davem@davemloft.net>
+References: <FD9AD8C5375B924CABC56D982DB3A802079D32D1@EXMB1.micrel.com>
+	<20130122.205132.2281610193783011537.davem@davemloft.net>
+	<1358913454.2107.16.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, louis@asix.com.tw
-To: freddy@asix.com.tw
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David.Choi@Micrel.Com, netdev@vger.kernel.org,
+	Ping.Doong@Micrel.Com
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60386 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752872Ab3AWER4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:17:56 -0500
+In-Reply-To: <1358913454.2107.16.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Freddy Xin <freddy@asix.com.tw>
-Date: Wed, 23 Jan 2013 10:32:17 +0800
+From: Joe Perches <joe@perches.com>
+Date: Tue, 22 Jan 2013 19:57:34 -0800
 
-> Fixed coding style errors.
+> On Tue, 2013-01-22 at 20:51 -0500, David Miller wrote:
+>> BTW it's inappropriate to log an SKB allocation failure as an error in
+>> the kernel logs like this.  This can be completely normal on a heavily
+>> loaded system.  People can look at the device statistics to learn about
+>> this event, or use a more sophisticated tool like the drop monitor.
+> 
+> There are many of these still around, though
+> hardly any in modern drivers.
 
-There are still many style issues remaining, you have a lot more
-work to do, for example:
+Right.
 
-> +	return fn(dev, cmd, USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-> +	       value, index, data, size);
-> +
+> I get this file list in drivers/net/ of
+> alloc_skb failures followed by printks:
+> 
+> Almost all of these are pretty old and are
+> probably best described as "don't bother".
 
-This empty line is unnecessary, get rid of it.
+Be also careful to not match the ones that are done to
+do something like the initial RX ring filling during
+device open.
 
-Also this function call is not indented properly.  The first character
-on the second line of the fn() call should line up with the first
-column after the openning parenthesis of the first line of the call.
+If such an allocation failure causes device open to fail,
+that's a legitimate situation in which to log.
