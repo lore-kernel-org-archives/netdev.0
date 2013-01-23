@@ -1,31 +1,35 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: Re: [Patch net-next] net: add RCU annotation to sk_dst_cache field
-Date: Tue, 22 Jan 2013 21:34:51 -0800
-Message-ID: <1358919291.12374.735.camel@edumazet-glaptop>
-References: <1358916229-19004-1-git-send-email-amwang@redhat.com>
-	 <1358916659.12374.684.camel@edumazet-glaptop>
-	 <1358917086.4235.12.camel@cr0>
-	 <1358917603.12374.713.camel@edumazet-glaptop>
-	 <1358919057.4235.17.camel@cr0>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] IP_GRE: Linearize skb before csum.
+Date: Wed, 23 Jan 2013 00:36:19 -0500 (EST)
+Message-ID: <20130123.003619.868819989744570920.davem@davemloft.net>
+References: <1358917373.12374.707.camel@edumazet-glaptop>
+	<20130123.001956.1988771856502410155.davem@davemloft.net>
+	<1358919050.12374.733.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: jesse@nicira.com, pshelar@nicira.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:47495 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750703Ab3AWFez (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 00:34:55 -0500
-Received: by mail-pa0-f48.google.com with SMTP id fa1so4548194pad.21
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 21:34:55 -0800 (PST)
-In-Reply-To: <1358919057.4235.17.camel@cr0>
+Received: from shards.monkeyblade.net ([149.20.54.216]:32794 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750703Ab3AWFga (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 00:36:30 -0500
+In-Reply-To: <1358919050.12374.733.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 13:30 +0800, Cong Wang wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 22 Jan 2013 21:30:50 -0800
 
+> We could add a new SKB_GSO_SHARED_FRAG bit for that, and force an extra
+> copy of frags, instead of a linearize call.
 > 
-> I expect most of them are from decnet, which is (partially) deprecated?
+> Basically, splice(pipe -> socket)/sendfile()/vmsplice() should set this
+> flag.
 
-How many answers to you want exactly from me ?
+Right.
+
+> Its a bit late here, I'll do that tomorrow.
+
+Thank you.
