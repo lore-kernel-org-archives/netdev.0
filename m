@@ -1,46 +1,74 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH v2] IP_GRE: Fix kernel panic in IP_GRE with GRE csum.
-Date: Tue, 22 Jan 2013 14:56:38 -0800
-Message-ID: <1358895398-2088-1-git-send-email-pshelar@nicira.com>
-Cc: jesse@nicira.com, Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:60516 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751765Ab3AVWzs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 17:55:48 -0500
-Received: by mail-ve0-f198.google.com with SMTP id ox1so1134385veb.9
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 14:55:47 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [BUG] Bug in netprio_cgroup and netcls_cgroup ?
+Date: Tue, 22 Jan 2013 16:02:04 -0800
+Message-ID: <50FF287C.70906@gmail.com>
+References: <50FCDB5C.4050608@huawei.com> <50FD0144.1000401@monom.org> <50FD0402.6060400@huawei.com> <50FD09FD.4010804@monom.org> <50FD1113.6010402@huawei.com> <50FD786E.4050108@gmail.com> <20130122100938.GA26820@candlejack.bmw-carit.intra>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Li Zefan <lizefan@huawei.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Daniel Wagner <daniel.wagner@bmw-carit.de>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	Cgroups <cgroups@vger.kernel.org>
+To: Daniel Wagner <wagi@monom.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130122100938.GA26820@candlejack.bmw-carit.intra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fixed code indentation according to comments from David Miller.
+[...]
 
---8<--------------------------cut here-------------------------->8--
-Due to GSO support, GRE can recieve non linear skb which
-results in panic in case of GRE_CSUM.
-Following patch fixes it by using correct csum API.
+>>
+>> OK, I guess we should do something similar in the netprio, netcls
+>> cgroups and
+>> yes document it as you noted in your last comment.
+>
+> Here is my attempt to add such a check. I really don't know if this is the
+> correct way to do so. To test this I have written a test program, which
+> seems to test the right thing. Please have a look and let me know if
+> it is correct: http://www.monom.org/misc/scm_rights.c
+>
+> And here a dirty first version of the patch:
+>
+>
+>  From 49a78d907eaf31c16673025e7e3b4844e419e416 Mon Sep 17 00:00:00 2001
+> From: Daniel Wagner <daniel.wagner@bmw-carit.de>
+> Date: Tue, 22 Jan 2013 11:08:22 +0100
+> Subject: [PATCH] net: net_prio: Block attach if a socket is shared
+>
+> ---
+>   net/core/netprio_cgroup.c | 30 ++++++++++++++++++++++++++++++
+>   1 file changed, 30 insertions(+)
+>
+> diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+> index 847c02b..de4e6c5 100644
+> --- a/net/core/netprio_cgroup.c
+> +++ b/net/core/netprio_cgroup.c
+> @@ -274,9 +274,39 @@ static struct cftype ss_files[] = {
+>   	{ }	/* terminate */
+>   };
+>
+> +static int check_cnt(const void *v, struct file *file, unsigned n)
+> +{
+> +	unsigned *flag = (unsigned *)v;
+> +	int err;
+> +
+> +	struct socket *sock = sock_from_file(file, &err);
+> +	if (sock && file_count(file) > 1)
+> +		*flag = 1;
+> +
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/ipv4/ip_gre.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+I think this check will catch a lot of cases that are not necessarily
+sharing a socket across tasks though. For example iscsid passes a file
+descriptor to the kernel which does a sockfd_lookup() incrementing
+f_count. Similarly look at dup/clone/etc.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 303012a..8179e066 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -964,7 +964,10 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 		}
- 		if (tunnel->parms.o_flags&GRE_CSUM) {
- 			*ptr = 0;
--			*(__sum16 *)ptr = ip_compute_csum((void *)(iph+1), skb->len - sizeof(struct iphdr));
-+			*(__sum16 *)ptr = csum_fold(skb_checksum(skb,
-+						    skb_transport_offset(skb),
-+						    skb->len - skb_transport_offset(skb),
-+						    0));
- 		}
- 	}
- 
+In many of these cases I believe it should be OK to move the task
+around when the sockets are not shared between multiple tasks.
+
+.John
+
 -- 
-1.7.10
+John Fastabend         Intel Corporation
