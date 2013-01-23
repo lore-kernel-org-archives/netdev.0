@@ -1,50 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: pull request (net-next): ipsec-next 2013-01-23
-Date: Thu, 24 Jan 2013 08:23:23 +1100
-Message-ID: <20130123212323.GA24698@gondor.apana.org.au>
-References: <1358929144-17806-1-git-send-email-steffen.klassert@secunet.com>
- <20130123.140058.1653306473705960117.davem@davemloft.net>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Hung tasks related to do_filp_open in net-next (3.8.0-rc3+)
+Date: Wed, 23 Jan 2013 13:38:32 -0800
+Message-ID: <51005858.4040107@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sting.hengli.com.au ([178.18.18.71]:53759 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751345Ab3AWVXa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 16:23:30 -0500
-Content-Disposition: inline
-In-Reply-To: <20130123.140058.1653306473705960117.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 02:00:58PM -0500, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Wed, 23 Jan 2013 09:18:56 +0100
-> 
-> > 1) Add a statistic counter for invalid output states and
-> >    remove a superfluous state valid check, from Li RongQing.
-> > 
-> > 2) Probe for asynchronous block ciphers instead of synchronous block
-> >    ciphers to make the asynchronous variants available even if no
-> >    synchronous block ciphers are found, from Jussi Kivilinna.
-> > 
-> > 3) Make rfc3686 asynchronous block cipher and make use of
-> >    the new asynchronous variant, from Jussi Kivilinna.
-> > 
-> > 4) Replace some rwlocks by rcu, from Cong Wang.
-> > 
-> > 5) Remove some unused defines.
-> > 
-> > Please pull or let me know if there are problems.
-> 
-> Pulled, thanks Steffen.
-> 
-> I hope Herbert is ok with the small crypto bits going in this way,
-> since they really are IPSEC specific.
 
-No problem at all :)
+I cranked up my 3000 NFS mounts test case on today's net-next (3.8.0-rc3+)
+and about 8 of these splats.  There were around 780 mounts active
+when these occurred.
+
+Seems like the system continues OK, so not sure how important
+this is...
+
+INFO: task btserver:8756 blocked for more than 180 seconds.
+"echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+btserver        D 0000000000000004     0  8756   5781 0x00000080
+  ffff880404ab1bf8 0000000000000046 0000000004ab1ba8 0000000000000432
+  ffff880404ab0010 ffff880402263f20 ffff880404ab1fd8 00000000000132c0
+  00000000000132c0 00000000000132c0 ffff880404ab1fd8 00000000000132c0
+Call Trace:
+  [<ffffffff815491ea>] schedule+0x5f/0x61
+  [<ffffffff815494fa>] schedule_preempt_disabled+0x13/0x1f
+  [<ffffffff81547ea8>] __mutex_lock_common+0x264/0x42d
+  [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
+  [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
+  [<ffffffff815480d0>] mutex_lock_nested+0x16/0x18
+  [<ffffffff8115fadb>] do_last+0x1db/0xa4e
+  [<ffffffff8115f3a5>] ? path_init+0xcd/0x2b6
+  [<ffffffff8116090b>] path_openat+0xcb/0x363
+  [<ffffffff810d0055>] ? __lock_acquire+0x1df/0x53d
+  [<ffffffff81160ca8>] do_filp_open+0x38/0x84
+  [<ffffffff8154a2db>] ? _raw_spin_unlock+0x45/0x52
+  [<ffffffff8116c203>] ? __alloc_fd+0x106/0x11a
+  [<ffffffff815490f9>] ? __schedule+0x561/0x5a3
+8021q: adding VLAN 0 to HW filter on device eth4#621
+  [<ffffffff81153bfc>] do_sys_open+0x6d/0xff
+8021q: adding VLAN 0 to HW filter on device eth3#612
+  [<ffffffff81153cbb>] sys_open+0x1c/0x1e
+  [<ffffffff8154f629>] system_call_fastpath+0x16/0x1b
+2 locks held by btserver/8756:
+  #0:  (sb_writers#10){......}, at: [<ffffffff81170013>] mnt_want_write+0x1f/0x48
+  #1:  (&type->i_mutex_dir_key#4){......}, at: [<ffffffff8115fadb>] do_last+0x1db/0xa4e
+
+
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
