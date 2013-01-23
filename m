@@ -1,90 +1,134 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2 net-next] net: fec: add napi support to improve
- proformance
-Date: Wed, 23 Jan 2013 05:49:14 -0800
-Message-ID: <1358948954.12374.758.camel@edumazet-glaptop>
-References: <1358914330-3768-1-git-send-email-Frank.Li@freescale.com>
-	 <1358922071.12374.743.camel@edumazet-glaptop>
-	 <CAHrpEqTqSfBCpoMZ9S81VoXWgVK1iOR+e2OasARgbTD8m_RRvw@mail.gmail.com>
+From: Felipe Balbi <balbi@ti.com>
+Subject: [PATCH] net: ks8851: convert to threaded IRQ
+Date: Wed, 23 Jan 2013 15:51:38 +0200
+Message-ID: <1358949098-17778-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org,
-	B38611@freescale.com, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, s.hauer@pengutronix.de
-To: Frank Li <lznuaa@gmail.com>
+Content-Type: text/plain
+Cc: <sboyd@codeaurora.org>, <mjr@cs.wisc.edu>,
+	<netdev@vger.kernel.org>, Felipe Balbi <balbi@ti.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:52885 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196Ab3AWNtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 08:49:17 -0500
-Received: by mail-da0-f44.google.com with SMTP id z20so3796881dae.31
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 05:49:17 -0800 (PST)
-In-Reply-To: <CAHrpEqTqSfBCpoMZ9S81VoXWgVK1iOR+e2OasARgbTD8m_RRvw@mail.gmail.com>
+Received: from bear.ext.ti.com ([192.94.94.41]:54014 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754381Ab3AWNv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 08:51:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 15:37 +0800, Frank Li wrote:
-> 2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
-> > On Wed, 2013-01-23 at 12:12 +0800, Frank Li wrote:
-> >> Add napi support
-> >>
-> >> Before this patch
-> >>
-> >>  iperf -s -i 1
-> >>  ------------------------------------------------------------
-> >>  Server listening on TCP port 5001
-> >>  TCP window size: 85.3 KByte (default)
-> >>  ------------------------------------------------------------
-> >>  [  4] local 10.192.242.153 port 5001 connected with 10.192.242.138 port 50004
-> >>  [ ID] Interval       Transfer     Bandwidth
-> >>  [  4]  0.0- 1.0 sec  41.2 MBytes   345 Mbits/sec
-> >>  [  4]  1.0- 2.0 sec  43.7 MBytes   367 Mbits/sec
-> >>  [  4]  2.0- 3.0 sec  42.8 MBytes   359 Mbits/sec
-> >>  [  4]  3.0- 4.0 sec  43.7 MBytes   367 Mbits/sec
-> >>  [  4]  4.0- 5.0 sec  42.7 MBytes   359 Mbits/sec
-> >>  [  4]  5.0- 6.0 sec  43.8 MBytes   367 Mbits/sec
-> >>  [  4]  6.0- 7.0 sec  43.0 MBytes   361 Mbits/sec
-> >>
-> >> After this patch
-> >>  [  4]  2.0- 3.0 sec  51.6 MBytes   433 Mbits/sec
-> >>  [  4]  3.0- 4.0 sec  51.8 MBytes   435 Mbits/sec
-> >>  [  4]  4.0- 5.0 sec  52.2 MBytes   438 Mbits/sec
-> >>  [  4]  5.0- 6.0 sec  52.1 MBytes   437 Mbits/sec
-> >>  [  4]  6.0- 7.0 sec  52.1 MBytes   437 Mbits/sec
-> >>  [  4]  7.0- 8.0 sec  52.3 MBytes   439 Mbits/sec
-> >
-> > Strange, as you still call netif_rx()
-> >
-> > NAPI should call netif_receive_skb() instead
-> >
-> 
-> Thank you point out.
-> After re-test, I found performance is almost no change if use netif_receive_skb.
-> I am not sure if it is my NAPI implement problem.
-> 
-> napi_gro_received is better than netif_receive_skb, but worse than netif_rx.
-> 
-> From performance point view,
-> 
-> netif_rx                    --- fastest
-> napi_gro_received   --- middle, near to netif_rx
-> netif_receive_skb    --- slowest, almost the same as original no-napi version.
-> 
-> Do you have any idea about this phenomena?
+just as it should have been. It also helps
+removing the, now unnecessary, workqueue.
 
-No idea, you'll have to find out using perf tool if available.
+Signed-off-by: Felipe Balbi <balbi@ti.com>
+---
+ drivers/net/ethernet/micrel/ks8851.c | 41 ++++++++++--------------------------
+ 1 file changed, 11 insertions(+), 30 deletions(-)
 
-Is your machine SMP, and the application running on another cpu than the
-softirq handler for your device ?
-
-A NAPI driver must call netif_receive_skb(), especially if
-the RX path does a full copy of the frame : Its hot in cpu cache and
-should be processed at once.
-
-Escaping to netif_rx() is only adding an extra softirq and risk of data
-being evicted from cpu caches.
-
-Here your performance increase only comes from hw_lock being not anymore
-locked in RX path.
+diff --git a/drivers/net/ethernet/micrel/ks8851.c b/drivers/net/ethernet/micrel/ks8851.c
+index 286816a..48ecb36 100644
+--- a/drivers/net/ethernet/micrel/ks8851.c
++++ b/drivers/net/ethernet/micrel/ks8851.c
+@@ -69,7 +69,6 @@ union ks8851_tx_hdr {
+  * @mii: The MII state information for the mii calls.
+  * @rxctrl: RX settings for @rxctrl_work.
+  * @tx_work: Work queue for tx packets
+- * @irq_work: Work queue for servicing interrupts
+  * @rxctrl_work: Work queue for updating RX mode and multicast lists
+  * @txq: Queue of packets for transmission.
+  * @spi_msg1: pre-setup SPI transfer with one message, @spi_xfer1.
+@@ -121,7 +120,6 @@ struct ks8851_net {
+ 	struct ks8851_rxctrl	rxctrl;
+ 
+ 	struct work_struct	tx_work;
+-	struct work_struct	irq_work;
+ 	struct work_struct	rxctrl_work;
+ 
+ 	struct sk_buff_head	txq;
+@@ -444,23 +442,6 @@ static void ks8851_init_mac(struct ks8851_net *ks)
+ }
+ 
+ /**
+- * ks8851_irq - device interrupt handler
+- * @irq: Interrupt number passed from the IRQ handler.
+- * @pw: The private word passed to register_irq(), our struct ks8851_net.
+- *
+- * Disable the interrupt from happening again until we've processed the
+- * current status by scheduling ks8851_irq_work().
+- */
+-static irqreturn_t ks8851_irq(int irq, void *pw)
+-{
+-	struct ks8851_net *ks = pw;
+-
+-	disable_irq_nosync(irq);
+-	schedule_work(&ks->irq_work);
+-	return IRQ_HANDLED;
+-}
+-
+-/**
+  * ks8851_rdfifo - read data from the receive fifo
+  * @ks: The device state.
+  * @buff: The buffer address
+@@ -595,19 +576,20 @@ static void ks8851_rx_pkts(struct ks8851_net *ks)
+ }
+ 
+ /**
+- * ks8851_irq_work - work queue handler for dealing with interrupt requests
+- * @work: The work structure that was scheduled by schedule_work()
++ * ks8851_irq - IRQ handler for dealing with interrupt requests
++ * @irq: IRQ number
++ * @_ks: cookie
+  *
+- * This is the handler invoked when the ks8851_irq() is called to find out
+- * what happened, as we cannot allow ourselves to sleep whilst waiting for
+- * anything other process has the chip's lock.
++ * This handler is invoked when the IRQ line asserts to find out what happened.
++ * As we cannot allow ourselves to sleep in HARDIRQ context, this handler runs
++ * in thread context.
+  *
+  * Read the interrupt status, work out what needs to be done and then clear
+  * any of the interrupts that are not needed.
+  */
+-static void ks8851_irq_work(struct work_struct *work)
++static irqreturn_t ks8851_irq(int irq, void *_ks)
+ {
+-	struct ks8851_net *ks = container_of(work, struct ks8851_net, irq_work);
++	struct ks8851_net *ks = _ks;
+ 	unsigned status;
+ 	unsigned handled = 0;
+ 
+@@ -688,7 +670,7 @@ static void ks8851_irq_work(struct work_struct *work)
+ 	if (status & IRQ_TXI)
+ 		netif_wake_queue(ks->netdev);
+ 
+-	enable_irq(ks->netdev->irq);
++	return IRQ_HANDLED;
+ }
+ 
+ /**
+@@ -896,7 +878,6 @@ static int ks8851_net_stop(struct net_device *dev)
+ 	mutex_unlock(&ks->lock);
+ 
+ 	/* stop any outstanding work */
+-	flush_work(&ks->irq_work);
+ 	flush_work(&ks->tx_work);
+ 	flush_work(&ks->rxctrl_work);
+ 
+@@ -1438,7 +1419,6 @@ static int ks8851_probe(struct spi_device *spi)
+ 	spin_lock_init(&ks->statelock);
+ 
+ 	INIT_WORK(&ks->tx_work, ks8851_tx_work);
+-	INIT_WORK(&ks->irq_work, ks8851_irq_work);
+ 	INIT_WORK(&ks->rxctrl_work, ks8851_rxctrl_work);
+ 
+ 	/* initialise pre-made spi transfer messages */
+@@ -1505,7 +1485,8 @@ static int ks8851_probe(struct spi_device *spi)
+ 	ks8851_read_selftest(ks);
+ 	ks8851_init_mac(ks);
+ 
+-	ret = request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
++	ret = request_threaded_irq(spi->irq, NULL, ks8851_irq,
++			IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+ 			  ndev->name, ks);
+ 	if (ret < 0) {
+ 		dev_err(&spi->dev, "failed to get irq\n");
+-- 
+1.8.1.rc1.5.g7e0651a
