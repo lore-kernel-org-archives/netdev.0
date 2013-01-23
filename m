@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] ixgbe: Add ptp work item to poll for the Tx timestamp
-Date: Wed, 23 Jan 2013 14:44:41 -0800
-Message-ID: <1358981090-5794-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] ixgbe: Fix overwriting of rx_mtrl in ixgbe_ptp_hwtstamp_ioctl
+Date: Wed, 23 Jan 2013 14:44:43 -0800
+Message-ID: <1358981090-5794-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:52933 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:63042 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752445Ab3AWWpS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752486Ab3AWWpS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 23 Jan 2013 17:45:18 -0500
 In-Reply-To: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,239 +18,34 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch copies the igb implementation of Tx timestamps, which uses a work
-item to poll for the Tx timestamp. In addition it adds a timeout value of 15
-seconds, after which it will stop polling.
+This patch corrects a bug introduced by commit f3444d8b. The rxmtrl value for
+the UDP port to timestamp on was moved above the switch statement, but was
+overwritten to 0 if the ioctl selected one of the V1 filters.
 
-This is necessary due to an issue with the descriptor being marked done before
-the Tx timestamp event has occurred. These two events don't correlate, so using
-the done bit on the descriptor as indication that the timestamp must already
-have been taken leads to potentially dropped Tx timestamps (especially under
-heavy packet load)
-
-Reported-by: Matthew Vick <matthew.vick@intel.com>
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |  5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 16 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c  | 78 ++++++++++++++++++---------
- 3 files changed, 65 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 2572e13..2618598 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -582,6 +582,9 @@ struct ixgbe_adapter {
- 
- 	struct ptp_clock *ptp_clock;
- 	struct ptp_clock_info ptp_caps;
-+	struct work_struct ptp_tx_work;
-+	struct sk_buff *ptp_tx_skb;
-+	unsigned long ptp_tx_start;
- 	unsigned long last_overflow_check;
- 	unsigned long last_rx_ptp_check;
- 	spinlock_t tmreg_lock;
-@@ -752,8 +755,6 @@ extern void ixgbe_ptp_init(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_stop(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter);
- extern void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter);
--extern void ixgbe_ptp_tx_hwtstamp(struct ixgbe_q_vector *q_vector,
--				  struct sk_buff *skb);
- extern void ixgbe_ptp_rx_hwtstamp(struct ixgbe_ring *rx_ring,
- 				  union ixgbe_adv_rx_desc *rx_desc,
- 				  struct sk_buff *skb);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ab43288..4c2e9d6 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -850,9 +850,6 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
- 		total_bytes += tx_buffer->bytecount;
- 		total_packets += tx_buffer->gso_segs;
- 
--		if (unlikely(tx_buffer->tx_flags & IXGBE_TX_FLAGS_TSTAMP))
--			ixgbe_ptp_tx_hwtstamp(q_vector, tx_buffer->skb);
--
- 		/* free the skb */
- 		dev_kfree_skb_any(tx_buffer->skb);
- 
-@@ -5880,7 +5877,6 @@ static void ixgbe_service_task(struct work_struct *work)
- 	struct ixgbe_adapter *adapter = container_of(work,
- 						     struct ixgbe_adapter,
- 						     service_task);
--
- 	ixgbe_reset_subtask(adapter);
- 	ixgbe_sfp_detection_subtask(adapter);
- 	ixgbe_sfp_link_config_subtask(adapter);
-@@ -5888,8 +5884,11 @@ static void ixgbe_service_task(struct work_struct *work)
- 	ixgbe_watchdog_subtask(adapter);
- 	ixgbe_fdir_reinit_subtask(adapter);
- 	ixgbe_check_hang_subtask(adapter);
--	ixgbe_ptp_overflow_check(adapter);
--	ixgbe_ptp_rx_hang(adapter);
-+
-+	if (adapter->flags2 & IXGBE_FLAG2_PTP_ENABLED) {
-+		ixgbe_ptp_overflow_check(adapter);
-+		ixgbe_ptp_rx_hang(adapter);
-+	}
- 
- 	ixgbe_service_event_complete(adapter);
- }
-@@ -6435,6 +6434,11 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		tx_flags |= IXGBE_TX_FLAGS_TSTAMP;
-+
-+		/* schedule check for Tx timestamp */
-+		adapter->ptp_tx_skb = skb_get(skb);
-+		adapter->ptp_tx_start = jiffies;
-+		schedule_work(&adapter->ptp_tx_work);
- 	}
- 
- #ifdef CONFIG_PCI_IOV
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-index dcc67e2..33cb8c6 100644
+index 33cb8c6..6304616 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c
-@@ -96,6 +96,7 @@
- #define IXGBE_MAX_TIMEADJ_VALUE  0x7FFFFFFFFFFFFFFFULL
- 
- #define IXGBE_OVERFLOW_PERIOD    (HZ * 30)
-+#define IXGBE_PTP_TX_TIMEOUT     (HZ * 15)
- 
- #ifndef NSECS_PER_SEC
- #define NSECS_PER_SEC 1000000000ULL
-@@ -401,7 +402,6 @@ void ixgbe_ptp_check_pps_event(struct ixgbe_adapter *adapter, u32 eicr)
- 	}
- }
- 
--
- /**
-  * ixgbe_ptp_overflow_check - watchdog task to detect SYSTIME overflow
-  * @adapter: private adapter struct
-@@ -416,8 +416,7 @@ void ixgbe_ptp_overflow_check(struct ixgbe_adapter *adapter)
- 					     IXGBE_OVERFLOW_PERIOD);
- 	struct timespec ts;
- 
--	if ((adapter->flags2 & IXGBE_FLAG2_PTP_ENABLED) &&
--	    (timeout)) {
-+	if (timeout) {
- 		ixgbe_ptp_gettime(&adapter->ptp_caps, &ts);
- 		adapter->last_overflow_check = jiffies;
- 	}
-@@ -467,48 +466,68 @@ void ixgbe_ptp_rx_hang(struct ixgbe_adapter *adapter)
- 
- /**
-  * ixgbe_ptp_tx_hwtstamp - utility function which checks for TX time stamp
-- * @q_vector: structure containing interrupt and ring information
-- * @skb: particular skb to send timestamp with
-+ * @adapter: the private adapter struct
-  *
-  * if the timestamp is valid, we convert it into the timecounter ns
-  * value, then store that result into the shhwtstamps structure which
-  * is passed up the network stack
-  */
--void ixgbe_ptp_tx_hwtstamp(struct ixgbe_q_vector *q_vector,
--			   struct sk_buff *skb)
-+static void ixgbe_ptp_tx_hwtstamp(struct ixgbe_adapter *adapter)
- {
--	struct ixgbe_adapter *adapter;
--	struct ixgbe_hw *hw;
-+	struct ixgbe_hw *hw = &adapter->hw;
- 	struct skb_shared_hwtstamps shhwtstamps;
- 	u64 regval = 0, ns;
--	u32 tsynctxctl;
- 	unsigned long flags;
- 
--	/* we cannot process timestamps on a ring without a q_vector */
--	if (!q_vector || !q_vector->adapter)
--		return;
--
--	adapter = q_vector->adapter;
--	hw = &adapter->hw;
--
--	tsynctxctl = IXGBE_READ_REG(hw, IXGBE_TSYNCTXCTL);
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_TXSTMPL);
- 	regval |= (u64)IXGBE_READ_REG(hw, IXGBE_TXSTMPH) << 32;
- 
--	/*
--	 * if TX timestamp is not valid, exit after clearing the
--	 * timestamp registers
--	 */
--	if (!(tsynctxctl & IXGBE_TSYNCTXCTL_VALID))
--		return;
--
- 	spin_lock_irqsave(&adapter->tmreg_lock, flags);
- 	ns = timecounter_cyc2time(&adapter->tc, regval);
- 	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
- 
- 	memset(&shhwtstamps, 0, sizeof(shhwtstamps));
- 	shhwtstamps.hwtstamp = ns_to_ktime(ns);
--	skb_tstamp_tx(skb, &shhwtstamps);
-+	skb_tstamp_tx(adapter->ptp_tx_skb, &shhwtstamps);
-+
-+	dev_kfree_skb_any(adapter->ptp_tx_skb);
-+	adapter->ptp_tx_skb = NULL;
-+}
-+
-+/**
-+ * ixgbe_ptp_tx_hwtstamp_work
-+ * @work: pointer to the work struct
-+ *
-+ * This work item polls TSYNCTXCTL valid bit to determine when a Tx hardware
-+ * timestamp has been taken for the current skb. It is necesary, because the
-+ * descriptor's "done" bit does not correlate with the timestamp event.
-+ */
-+static void ixgbe_ptp_tx_hwtstamp_work(struct work_struct *work)
-+{
-+	struct ixgbe_adapter *adapter = container_of(work, struct ixgbe_adapter,
-+						     ptp_tx_work);
-+	struct ixgbe_hw *hw = &adapter->hw;
-+	bool timeout = time_is_before_jiffies(adapter->ptp_tx_start +
-+					      IXGBE_PTP_TX_TIMEOUT);
-+	u32 tsynctxctl;
-+
-+	/* we have to have a valid skb */
-+	if (!adapter->ptp_tx_skb)
-+		return;
-+
-+	if (timeout) {
-+		dev_kfree_skb_any(adapter->ptp_tx_skb);
-+		adapter->ptp_tx_skb = NULL;
-+		e_warn(drv, "clearing Tx Timestamp hang");
-+		return;
-+	}
-+
-+	tsynctxctl = IXGBE_READ_REG(hw, IXGBE_TSYNCTXCTL);
-+	if (tsynctxctl & IXGBE_TSYNCTXCTL_VALID)
-+		ixgbe_ptp_tx_hwtstamp(adapter);
-+	else
-+		/* reschedule to keep checking if it's not available yet */
-+		schedule_work(&adapter->ptp_tx_work);
- }
- 
- /**
-@@ -865,6 +884,7 @@ void ixgbe_ptp_init(struct ixgbe_adapter *adapter)
- 	}
- 
- 	spin_lock_init(&adapter->tmreg_lock);
-+	INIT_WORK(&adapter->ptp_tx_work, ixgbe_ptp_tx_hwtstamp_work);
- 
- 	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_caps,
- 						&adapter->pdev->dev);
-@@ -896,6 +916,12 @@ void ixgbe_ptp_stop(struct ixgbe_adapter *adapter)
- 
- 	ixgbe_ptp_setup_sdp(adapter);
- 
-+	cancel_work_sync(&adapter->ptp_tx_work);
-+	if (adapter->ptp_tx_skb) {
-+		dev_kfree_skb_any(adapter->ptp_tx_skb);
-+		adapter->ptp_tx_skb = NULL;
-+	}
-+
- 	if (adapter->ptp_clock) {
- 		ptp_clock_unregister(adapter->ptp_clock);
- 		adapter->ptp_clock = NULL;
+@@ -644,11 +644,11 @@ int ixgbe_ptp_hwtstamp_ioctl(struct ixgbe_adapter *adapter,
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
+-		tsync_rx_mtrl = IXGBE_RXMTRL_V1_SYNC_MSG;
++		tsync_rx_mtrl |= IXGBE_RXMTRL_V1_SYNC_MSG;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
+ 		tsync_rx_ctl |= IXGBE_TSYNCRXCTL_TYPE_L4_V1;
+-		tsync_rx_mtrl = IXGBE_RXMTRL_V1_DELAY_REQ_MSG;
++		tsync_rx_mtrl |= IXGBE_RXMTRL_V1_DELAY_REQ_MSG;
+ 		break;
+ 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
+ 	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
 -- 
 1.7.11.7
