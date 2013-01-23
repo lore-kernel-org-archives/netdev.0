@@ -1,181 +1,50 @@
 From: Yannick Koehler <yannick@koehler.name>
 Subject: Re: Unix Socket buffer attribution
-Date: Wed, 23 Jan 2013 11:39:59 -0500
-Message-ID: <CAJ4BwwHrrSE9LRLdJaVu+3CvdSRNb6i_8tM7McrQ4R=toDZQFw@mail.gmail.com>
+Date: Wed, 23 Jan 2013 11:41:16 -0500
+Message-ID: <CAJ4BwwFYKYOJoP34cGqWyE_AzxMwDNqFG-XDjLB6ZdO4nQmY4w@mail.gmail.com>
 References: <CAJ4BwwFZo=ktoNBpw14yxyvR1QPQ_xVzKRs=R7qv03g1uwn8pg@mail.gmail.com>
-	<20130123095943.GA7317@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: Yannick Koehler <yannick@koehler.name>, netdev@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:65138 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754231Ab3AWQkB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 11:40:01 -0500
-Received: by mail-we0-f172.google.com with SMTP id x10so571485wey.31
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 08:39:59 -0800 (PST)
-In-Reply-To: <20130123095943.GA7317@order.stressinduktion.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38965 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752976Ab3AWQlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 11:41:17 -0500
+Received: by mail-wi0-f177.google.com with SMTP id hm2so907027wib.4
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 08:41:16 -0800 (PST)
+In-Reply-To: <CAJ4BwwFZo=ktoNBpw14yxyvR1QPQ_xVzKRs=R7qv03g1uwn8pg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch should fix an issue where unix socket buffer remains
-accounted as part of the socket sndbuf (sk_wmem_alloc) instead of
-being accounted as part of the receiving socket rcvbuf
-(sk_rmem_alloc), leading to a situation where if one of the receiving
-socket isn't calling recvfrom() the sending socket can no more send to
-any of its listeners, even those which properly behave.  This could
-create a DOS situation where the unix socket is reachable by many
-users on the same linux machine.
+I did some more research, I found out that netlink and
+sock_queue_err_skb does the same trick that I claim to be missing
+under the net/unix/af_unix.c.  After adding the code, I got a problem
+since af_unix.c "_recvmsg()" functions assume that the skb->sk is
+holding the peer socket not the current one related to the receive
+skb.  It extract the sun_path name from it.  Since with UDP each
+packet may have a different peer, the only solution I found was to use
+the skb control block to hold the peer name.  The problem is that this
+cb member is 48 bytes in length and sun_path is 108 bytes in size.  So
+I had to increase it from 48 to 160 bytes.
 
-diff -uprN -X linux-3.6-vanilla/Documentation/dontdiff
-linux-3.6-vanilla/include/net/af_unix.h
-linux-3.6/include/net/af_unix.h
---- linux-3.6-vanilla/include/net/af_unix.h 2012-09-30 19:47:46.000000000 -0400
-+++ linux-3.6/include/net/af_unix.h 2013-01-23 11:21:35.000000000 -0500
-@@ -34,6 +34,8 @@ struct unix_skb_parms {
- #ifdef CONFIG_SECURITY_NETWORK
-  u32 secid; /* Security ID */
- #endif
-+ char peer_name[UNIX_PATH_MAX];
-+ int peer_namelen;
- };
+This obviously increase the cost of an SKB struct, so I do not really
+like this solution. But at least it seems to prove my point and now,
+with this I can have my clients working except the one mis-behaving.
+I am attaching a patch.
 
- #define UNIXCB(skb) (*(struct unix_skb_parms *)&((skb)->cb))
-diff -uprN -X linux-3.6-vanilla/Documentation/dontdiff
-linux-3.6-vanilla/net/rxrpc/ar-internal.h
-linux-3.6/net/rxrpc/ar-internal.h
---- linux-3.6-vanilla/net/rxrpc/ar-internal.h 2012-09-30
-19:47:46.000000000 -0400
-+++ linux-3.6/net/rxrpc/ar-internal.h 2013-01-23 11:00:43.000000000 -0500
-@@ -77,7 +77,7 @@ struct rxrpc_sock {
+I also saw this thread that would be somehow related:
 
- /*
-  * RxRPC socket buffer private variables
-- * - max 48 bytes (struct sk_buff::cb)
-+ * - max 160 bytes (struct sk_buff::cb)
-  */
- struct rxrpc_skb_priv {
-  struct rxrpc_call *call; /* call with which associated */
-diff -uprN -X linux-3.6-vanilla/Documentation/dontdiff
-linux-3.6-vanilla/net/unix/af_unix.c linux-3.6/net/unix/af_unix.c
---- linux-3.6-vanilla/net/unix/af_unix.c 2012-09-30 19:47:46.000000000 -0400
-+++ linux-3.6/net/unix/af_unix.c 2013-01-23 11:26:00.000000000 -0500
-@@ -1425,6 +1425,19 @@ static void maybe_add_creds(struct sk_bu
-  }
- }
+http://www.mail-archive.com/netdev@vger.kernel.org/msg20195.html
 
-+static void unix_backup_addr(struct sk_buff *skb, struct sock *sk)
-+{
-+ struct unix_sock *u = unix_sk(sk);
-+
-+ if (u->addr) {
-+ memcpy(UNIXCB(skb).peer_name, u->addr->name, u->addr->len);
-+ UNIXCB(skb).peer_namelen = u->addr->len;
-+ } else {
-+ UNIXCB(skb).peer_name[0] = 0;
-+ UNIXCB(skb).peer_namelen = 0;
-+ }
-+}
-+
- /*
-  * Send AF_UNIX data.
-  */
-@@ -1579,9 +1592,19 @@ restart:
-  goto restart;
-  }
+Basically since we now count the buffer size into the socket who
+receives it we can safely use this check instead of looking at the
+receive queue size:
 
-+ if (atomic_read(&other->sk_rmem_alloc) + skb->truesize >=
-+    (unsigned)other->sk_rcvbuf) {
-+ err = -EAGAIN;
-+ goto out_unlock;
-+ }
-+
-+ /* Backup source address into sk_buff :: cb */
-+ unix_backup_addr(skb, sk);
-+
-  if (sock_flag(other, SOCK_RCVTSTAMP))
-  __net_timestamp(skb);
-  maybe_add_creds(skb, sock, other);
-+ skb_set_owner_r(skb, other);
-  skb_queue_tail(&other->sk_receive_queue, skb);
-  if (max_level > unix_sk(other)->recursion_level)
-  unix_sk(other)->recursion_level = max_level;
-@@ -1696,7 +1719,17 @@ static int unix_stream_sendmsg(struct ki
-     (other->sk_shutdown & RCV_SHUTDOWN))
-  goto pipe_err_free;
+   if (atomic_read(&other->sk_rmem_alloc) + skb->truesize >=
+(unsigned)other->sk_rcvbuf) {
 
-+ if (atomic_read(&other->sk_rmem_alloc) + skb->truesize >=
-+    (unsigned)other->sk_rcvbuf) {
-+ err = -EAGAIN;
-+ goto pipe_err_free;
-+ }
-+
-+ /* Backup source address into sk_buff :: cb */
-+ unix_backup_addr(skb, sk);
-+
-  maybe_add_creds(skb, sock, other);
-+ skb_set_owner_r(skb, other);
-  skb_queue_tail(&other->sk_receive_queue, skb);
-  if (max_level > unix_sk(other)->recursion_level)
-  unix_sk(other)->recursion_level = max_level;
-@@ -1754,15 +1787,10 @@ static int unix_seqpacket_recvmsg(struct
-  return unix_dgram_recvmsg(iocb, sock, msg, size, flags);
- }
+So anyway I sent my patch, and I am awaiting for comments on how to improve it.
 
--static void unix_copy_addr(struct msghdr *msg, struct sock *sk)
-+static void unix_restore_addr(struct msghdr *msg, struct unix_skb_parms *parms)
- {
-- struct unix_sock *u = unix_sk(sk);
--
-- msg->msg_namelen = 0;
-- if (u->addr) {
-- msg->msg_namelen = u->addr->len;
-- memcpy(msg->msg_name, u->addr->name, u->addr->len);
-- }
-+ msg->msg_namelen = parms->peer_namelen;
-+ memcpy(msg->msg_name, parms->peer_name, parms->peer_namelen);
- }
-
- static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
-@@ -1807,7 +1835,7 @@ static int unix_dgram_recvmsg(struct kio
-  POLLOUT | POLLWRNORM | POLLWRBAND);
-
-  if (msg->msg_name)
-- unix_copy_addr(msg, skb->sk);
-+ unix_restore_addr(msg, &(UNIXCB(skb)));
-
-  if (size > skb->len - skip)
-  size = skb->len - skip;
-@@ -2007,7 +2035,7 @@ again:
-
-  /* Copy address just once */
-  if (sunaddr) {
-- unix_copy_addr(msg, skb->sk);
-+ unix_restore_addr(msg, &(UNIXCB(skb)));
-  sunaddr = NULL;
-  }
-
-
-2013/1/23 Hannes Frederic Sowa <hannes@stressinduktion.org>:
-> On Mon, Jan 21, 2013 at 09:01:53PM -0500, Yannick Koehler wrote:
->>   I believe that the problem is that once we move the skb into the
->> client's receive queue we need to decrease the sk_wmem_alloc variable
->> of the server socket since that skb is no more tied to the server.
->> The code should then account for this memory as part of the
->> sk_rmem_alloc variable on the client's socket.  The function
->> "skb_set_owner_r(skb,owner)" would seem to be the function to do that,
->> so it would seem to me.
->
-> Your analysis does make sense. Could you cook a patch?
->
-> Thanks,
->
->   Hannes
->
-
-
-
--- 
+--
 Yannick Koehler
-Courriel: yannick@koehler.name
-Blog: http://corbeillepensees.blogspot.com
