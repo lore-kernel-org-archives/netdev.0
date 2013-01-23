@@ -1,56 +1,80 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
- and testmgr build issues
-Date: Thu, 24 Jan 2013 01:16:46 +0900
-Message-ID: <51000CEE.9060109@linux-ipv6.org>
-References: <1776726593.108228.1358952383104.JavaMail.root@elliptictech.com> <20130123173510.14986sla4qsstz8k@www.dalek.fi>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] via-rhine: add 64bit statistics.
+Date: Wed, 23 Jan 2013 08:17:18 -0800
+Message-ID: <1358957838.12374.805.camel@edumazet-glaptop>
+References: <50fff42d.094e640a.3ace.6ae4@mx.google.com>
+	 <1358951884.12374.790.camel@edumazet-glaptop>
+	 <510004a3.2444ec0a.1ba7.ffff98b3@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Tom St Denis <tstdenis@elliptictech.com>,
-	linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	linux-crypto@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20130123173510.14986sla4qsstz8k@www.dalek.fi>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jamie Gloudon <jamie.gloudon@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:45626 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756480Ab3AWQRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 11:17:22 -0500
+Received: by mail-pb0-f43.google.com with SMTP id jt11so3385446pbb.2
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 08:17:21 -0800 (PST)
+In-Reply-To: <510004a3.2444ec0a.1ba7.ffff98b3@mx.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jussi Kivilinna wrote:
-
->>> > diff --git a/include/uapi/linux/pfkeyv2.h
->>> > b/include/uapi/linux/pfkeyv2.h
->>> > index 0b80c80..d61898e 100644
->>> > --- a/include/uapi/linux/pfkeyv2.h
->>> > +++ b/include/uapi/linux/pfkeyv2.h
->>> > @@ -296,6 +296,7 @@ struct sadb_x_kmaddress {
->>> >  #define SADB_X_AALG_SHA2_512HMAC    7
->>> >  #define SADB_X_AALG_RIPEMD160HMAC    8
->>> >  #define SADB_X_AALG_AES_XCBC_MAC    9
->>> > +#define SADB_X_AALG_AES_CMAC_MAC    10
->>> >  #define SADB_X_AALG_NULL        251    /* kame */
->>> >  #define SADB_AALG_MAX            251
->>>
->>> Should these values be based on IANA assigned IPSEC AH transform
->>> identifiers?
->>>
->>> https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xml#isakmp-registry-6
->>
->> There is no CMAC entry apparently ... despite the fact that CMAC is a proposed RFC standard for IPsec.
->>
->> It might be safer to move that to 14 since it's currently unassigned and then go through whatever channels are required to allocate it.  Mostly this affects key setting.  So this means my patch would break AH_RSA setkey calls (which the kernel doesn't support anyways).
->>
+On Wed, 2013-01-23 at 11:41 -0400, Jamie Gloudon wrote:
+> On Wed, Jan 23, 2013 at 06:38:04AM -0800, Eric Dumazet wrote:
+> > On Wed, 2013-01-23 at 10:31 -0400, Jamie Gloudon wrote:
+> > > Switch to use ndo_get_stats64 to get 64bit statistics.
+> > > 
+> > > Signed-off-by: Jamie Gloudon <jamie.gloudon@gmail.com>
+> > > ---
+> > 
+> > > +
+> > > +	stats->rx_errors = dev->stats.rx_errors;
+> > > +	stats->tx_errors = dev->stats.tx_errors;
+> > > +	stats->rx_dropped = dev->stats.rx_dropped;
+> > > +	stats->tx_dropped = dev->stats.tx_dropped;
+> > > +	stats->collisions = dev->stats.collisions;
+> > > +
+> > > +	stats->rx_length_errors = dev->stats.rx_length_errors;
+> > > +	stats->rx_crc_errors = dev->stats.rx_crc_errors;
+> > > +	stats->rx_frame_errors = dev->stats.rx_frame_errors;
+> > > +	stats->rx_fifo_errors = dev->stats.rx_fifo_errors;
+> > > +	stats->rx_missed_errors = dev->stats.rx_missed_errors;
+> > > +
+> > > +	stats->tx_aborted_errors = dev->stats.tx_aborted_errors;
+> > > +	stats->tx_carrier_errors = dev->stats.tx_carrier_errors;
+> > > +	stats->tx_fifo_errors = dev->stats.tx_fifo_errors;
+> > > +	stats->tx_heartbeat_errors = dev->stats.tx_heartbeat_errors;
+> > > +	stats->tx_window_errors = dev->stats.tx_window_errors;
+> > > +
+> > > +	return stats;
+> > >  }
+> > >  
+> > 
+> > Hi Jamie
+> > 
+> > Please use netdev_stats_to_stats64() for this block
+> > 
+> > commit 77a1abf54f4b003ad6e59c535045b2ad89fedfeb
+> > Author: Eric Dumazet <eric.dumazet@gmail.com>
+> > Date:   Mon Mar 5 04:50:09 2012 +0000
+> > 
+> >     net: export netdev_stats_to_stats64
+> >     
+> >     Some drivers use internal netdev stats member to store part of their
+> >     stats, yet advertize ndo_get_stats64() to implement some 64bit fields.
+> >     
+> >     Allow them to use netdev_stats_to_stats64() helper to make the copy of
+> >     netdev stats before they compute their 64bit counters.
+> > 
+> >
 > 
-> Problem seems to be that PFKEYv2 does not quite work with IKEv2, and XFRM API should be used instead. There is new numbers assigned for IKEv2: https://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xml#ikev2-parameters-7
-> 
-> For new SADB_X_AALG_*, I'd think you should use value from "Reserved for private use" range. Maybe 250?
+> Definitely looks cleaner now. Thanks!
 
-We can choose any value unless we do not break existing
-binaries.  When IKE used, the daemon is responsible
-for translation.
+Well, no ;)
 
---yoshfuji
+Please read again the changelog I copied, and highlight the word
+_before_
+
+If you cant test the patch, please ask someone to do so.
