@@ -1,25 +1,28 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Linux 3.6.x kernel crash in tcp_slow_start / bictcp_cong_avoid with wfica
-Date: Wed, 23 Jan 2013 23:00:39 +0100
-Message-ID: <20130123220039.GB16641@order.stressinduktion.org>
-References: <20130123161238.GE8912@reaktio.net> <20130123214445.GA16641@order.stressinduktion.org> <20130123215151.GF8912@reaktio.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Linux 3.6.x kernel crash in tcp_slow_start / bictcp_cong_avoid
+ with wfica
+Date: Wed, 23 Jan 2013 14:25:44 -0800
+Message-ID: <1358979944.12374.1143.camel@edumazet-glaptop>
+References: <20130123161238.GE8912@reaktio.net>
+	 <20130123214445.GA16641@order.stressinduktion.org>
+	 <20130123215151.GF8912@reaktio.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: Pasi =?utf-8?B?S8Okcmtrw6RpbmVu?= <pasik@iki.fi>
+To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47291 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273Ab3AWWAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 17:00:40 -0500
-Content-Disposition: inline
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:39953 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718Ab3AWWZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 17:25:46 -0500
+Received: by mail-pb0-f51.google.com with SMTP id ro12so4971302pbb.10
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 14:25:46 -0800 (PST)
 In-Reply-To: <20130123215151.GF8912@reaktio.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 23, 2013 at 11:51:51PM +0200, Pasi K=C3=A4rkk=C3=A4inen wro=
-te:
+On Wed, 2013-01-23 at 23:51 +0200, Pasi K=C3=A4rkk=C3=A4inen wrote:
 > On Wed, Jan 23, 2013 at 10:44:45PM +0100, Hannes Frederic Sowa wrote:
 > > On Wed, Jan 23, 2013 at 06:12:38PM +0200, Pasi K=C3=A4rkk=C3=A4inen=
  wrote:
@@ -54,7 +57,9 @@ ng ss -ioem
  > log.txt" successfully ..=20
 > (usually writing/redirecting to a file fails because the disk/fs is a=
 lready unavailable..)
+>=20
+> I can always try though!
+>=20
+> Any other ideas?
 
-The strace can be done without the system going downhill. Instead of
--e network, "-e socket,connect,setsockopt,getsockopt,shutdown,close"
-can be used to reduce the output.
+Something sets tp->snd_cwnd to 0, and thats a bug.
