@@ -1,37 +1,60 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] net: add RCU annotation to sk_dst_cache field
-Date: Wed, 23 Jan 2013 12:43:49 +0800
-Message-ID: <1358916229-19004-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5931 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752955Ab3AWEn7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jan 2013 23:43:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net-next tree
+Date: Wed, 23 Jan 2013 15:45:25 +1100
+Message-ID: <20130123154525.9f1bd6652f13f2a7a8202bf6@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__23_Jan_2013_15_45_25_+1100_1cvGWpdGoxQQ58VX"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Fainelli <florian@openwrt.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Mark Einon <mark.einon@gmail.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
+--Signature=_Wed__23_Jan_2013_15_45_25_+1100_1cvGWpdGoxQQ58VX
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-sock->sk_dst_cache is protected by RCU.
+Hi Greg,
 
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Today's linux-next merge of the staging tree got a conflict in
+drivers/staging/et131x/et131x.c between commit f9a8f83b04e0 ("net: phy:
+remove flags argument from phy_{attach, connect, connect_direct}") from
+the net-next tree and commit 26ef1021c1c7 ("staging: et131x: Modify block
+comments to fit with networking style") from the staging tree.
 
----
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 5a34e2f..c4b64c6 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -337,7 +337,7 @@ struct sock {
- #endif
- 	unsigned long 		sk_flags;
- 	struct dst_entry	*sk_rx_dst;
--	struct dst_entry	*sk_dst_cache;
-+	struct dst_entry __rcu	*sk_dst_cache;
- 	spinlock_t		sk_dst_lock;
- 	atomic_t		sk_wmem_alloc;
- 	atomic_t		sk_omem_alloc;
+I fixed it up (the former adjusted the white space in the same was as the
+latter, so I used thet) and can carry the fix as necessary (no action is
+required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__23_Jan_2013_15_45_25_+1100_1cvGWpdGoxQQ58VX
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJQ/2rlAAoJEECxmPOUX5FElncP+gKO+mwU5C6EEhNCSsyR/3eX
+WsaWgJURBk8g5QHLSdLVy52Oju8n2KALsqlZn71nZnGc5XcgBC9lnSytTdcYUPFo
+c1K/zchfiAb9FgdycSI13SHWMY86Yb8NuMEvv/vN1RNiBo+/9a6erxVRTowpffOi
+y79C06CBmmN8ntiDgdyOZM7HOATD7FZYJvc/IgUPHTxvbgKsOh/v5KSmsWzdHphc
+gzsSx41/3uvZXkJL2kWPMVaIL5B/DyyoGeYqw391C2Im77wu3APBLBHrY8W8C+zy
+mpd089PWE6BOoB7/m/ie6xS4NZokCsPP21SupSkDa/gRdnHwJzBAupP4n3XD+Eyi
+mm1/D7NSOP1v8rJT+MxYdfbH/3SEqWDawfccbxwfiJNXQZ4lqOeJ2aSwNEfxb5HP
+5tlgnNUi6Nzpu3nr8crD/xjf7rPbWt15OuYCMUJfERVRLzNYjf//8K7TPRo13p86
+AS2LrW/p4scoS9y6jMo415/pqfYt0nMPcALUcfQsnNiffxvBv90vgCDF3Ay+xb6F
+/UL0rqcxXeLHpZkI1nk4w7CVObuJ3CwQnMsxDSrC+pqHkNQA4ifD56Cgz5gW+0i6
+xlEf8AfyXxrMH5uvAumKCgYZP965ChgtzBEZr4bYIY/tDD/7/ekUblWhY7F+J9ka
+l728JXTOfJVTvkJZEwKB
+=es5m
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__23_Jan_2013_15_45_25_+1100_1cvGWpdGoxQQ58VX--
