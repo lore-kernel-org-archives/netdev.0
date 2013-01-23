@@ -1,94 +1,243 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: v3 for tcp friends?
-Date: Wed, 23 Jan 2013 15:21:25 +0800
-Message-ID: <50FF8F75.4000903@gmail.com>
-References: <20120903.154833.1547153833820955116.davem@davemloft.net>  <CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>  <20120904.125841.2293649688957878987.davem@davemloft.net>  <50FCEE64.80203@gmail.com> <50FCEEC5.9010404@gmail.com>  <CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>  <CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>  <50FF5592.60008@gmail.com>  <50FF7F64.2060902@gmail.com> <1358923606.12374.746.camel@edumazet-glaptop>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH 1/2 net-next] net: fec: add napi support to improve
+ proformance
+Date: Wed, 23 Jan 2013 08:26:35 +0100
+Message-ID: <20130123072635.GO1906@pengutronix.de>
+References: <1358914330-3768-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
+	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, bhutchings@solarflare.com
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:54891 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754187Ab3AWHVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 02:21:36 -0500
-Received: by mail-pa0-f46.google.com with SMTP id kp14so3186279pab.19
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 23:21:35 -0800 (PST)
-In-Reply-To: <1358923606.12374.746.camel@edumazet-glaptop>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:34871 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753242Ab3AWH0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 02:26:44 -0500
+Content-Disposition: inline
+In-Reply-To: <1358914330-3768-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 14:46, Eric Dumazet =E5=86=
-=99=E9=81=93:
-> On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
->> Oops, this hang is not since TCP friends patch!
->>
->> sk_sndbuf_get() is broken by 32 bits integer overflow
->> because of so large value in net.ipv4.tcp_{rmem,wmem}.
->>
->> but this hang also can be found in net-next.git
->> (3.8.0-rc3+), if we run below commands, then all new
->> TCP connections stop working!
->>
->> # when TCP friends is disabled
->> sysctl -w net.ipv4.tcp_rmem=3D"4096 4294967296 4294967296" # 4GB
->> sysctl -w net.ipv4.tcp_wmem=3D"4096 4294967296 4294967296"
->
-> Right we need to make sure we dont overflow.
->
-> Try the following fix :
->
-> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-> index a25e1d2..1459145 100644
-> --- a/net/ipv4/sysctl_net_ipv4.c
-> +++ b/net/ipv4/sysctl_net_ipv4.c
-> @@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] =3D {
->   		.data		=3D &sysctl_tcp_wmem,
->   		.maxlen		=3D sizeof(sysctl_tcp_wmem),
->   		.mode		=3D 0644,
-> -		.proc_handler	=3D proc_dointvec
-> +		.extra1		=3D &zero,
-> +		.proc_handler	=3D proc_dointvec_minmax
->   	},
->   	{
->   		.procname	=3D "tcp_rmem",
->   		.data		=3D &sysctl_tcp_rmem,
->   		.maxlen		=3D sizeof(sysctl_tcp_rmem),
->   		.mode		=3D 0644,
-> -		.proc_handler	=3D proc_dointvec
-> +		.extra1		=3D &zero,
-> +		.proc_handler	=3D proc_dointvec_minmax
->   	},
->   	{
->   		.procname	=3D "tcp_app_win",
->
->
->
-Thanks for so quick reply, I will test it soon.
+On Wed, Jan 23, 2013 at 12:12:10PM +0800, Frank Li wrote:
+> Add napi support
+> 
+> Before this patch
+> 
+>  iperf -s -i 1
+>  ------------------------------------------------------------
+>  Server listening on TCP port 5001
+>  TCP window size: 85.3 KByte (default)
+>  ------------------------------------------------------------
+>  [  4] local 10.192.242.153 port 5001 connected with 10.192.242.138 port 50004
+>  [ ID] Interval       Transfer     Bandwidth
+>  [  4]  0.0- 1.0 sec  41.2 MBytes   345 Mbits/sec
+>  [  4]  1.0- 2.0 sec  43.7 MBytes   367 Mbits/sec
+>  [  4]  2.0- 3.0 sec  42.8 MBytes   359 Mbits/sec
+>  [  4]  3.0- 4.0 sec  43.7 MBytes   367 Mbits/sec
+>  [  4]  4.0- 5.0 sec  42.7 MBytes   359 Mbits/sec
+>  [  4]  5.0- 6.0 sec  43.8 MBytes   367 Mbits/sec
+>  [  4]  6.0- 7.0 sec  43.0 MBytes   361 Mbits/sec
+> 
+> After this patch
+>  [  4]  2.0- 3.0 sec  51.6 MBytes   433 Mbits/sec
+>  [  4]  3.0- 4.0 sec  51.8 MBytes   435 Mbits/sec
+>  [  4]  4.0- 5.0 sec  52.2 MBytes   438 Mbits/sec
+>  [  4]  5.0- 6.0 sec  52.1 MBytes   437 Mbits/sec
+>  [  4]  6.0- 7.0 sec  52.1 MBytes   437 Mbits/sec
+>  [  4]  7.0- 8.0 sec  52.3 MBytes   439 Mbits/sec
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> Signed-off-by: Fugang Duan <B38611@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |   68 ++++++++++++++++++++++++++++++---
+>  drivers/net/ethernet/freescale/fec.h |    4 ++
+>  2 files changed, 65 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> index f52ba33..8fa420c 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -67,6 +67,8 @@
+>  #endif
+>  
+>  #define DRIVER_NAME	"fec"
+> +#define FEC_NAPI_WEIGHT	64
+> +#define INT32_MAX	0x7FFFFFFF
+>  
+>  /* Pause frame feild and FIFO threshold */
+>  #define FEC_ENET_FCE	(1 << 5)
+> @@ -565,6 +567,20 @@ fec_timeout(struct net_device *ndev)
+>  }
+>  
+>  static void
+> +fec_enet_rx_int_is_enabled(struct net_device *ndev, bool enabled)
+> +{
+> +	struct fec_enet_private *fep = netdev_priv(ndev);
+> +	uint    int_events;
+> +
+> +	int_events = readl(fep->hwp + FEC_IMASK);
+> +	if (enabled)
+> +		int_events |= FEC_ENET_RXF;
+> +	else
+> +		int_events &= ~FEC_ENET_RXF;
+> +	writel(int_events, fep->hwp + FEC_IMASK);
+> +}
+> +
+> +static void
+>  fec_enet_tx(struct net_device *ndev)
+>  {
+>  	struct	fec_enet_private *fep;
+> @@ -656,8 +672,8 @@ fec_enet_tx(struct net_device *ndev)
+>   * not been given to the system, we just set the empty indicator,
+>   * effectively tossing the packet.
+>   */
+> -static void
+> -fec_enet_rx(struct net_device *ndev)
+> +static int
+> +fec_enet_rx(struct net_device *ndev, int budget)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	const struct platform_device_id *id_entry =
+> @@ -667,13 +683,12 @@ fec_enet_rx(struct net_device *ndev)
+>  	struct	sk_buff	*skb;
+>  	ushort	pkt_len;
+>  	__u8 *data;
+> +	int	pkt_received = 0;
+>  
+>  #ifdef CONFIG_M532x
+>  	flush_cache_all();
+>  #endif
+>  
+> -	spin_lock(&fep->hw_lock);
+> -
+>  	/* First, grab all of the stats for the incoming packet.
+>  	 * These get messed up if we get called due to a busy condition.
+>  	 */
+> @@ -681,6 +696,10 @@ fec_enet_rx(struct net_device *ndev)
+>  
+>  	while (!((status = bdp->cbd_sc) & BD_ENET_RX_EMPTY)) {
+>  
+> +		if (pkt_received >= budget)
+> +			break;
+> +		pkt_received++;
+> +
+>  		/* Since we have allocated space to hold a complete frame,
+>  		 * the last indicator should be set.
+>  		 */
+> @@ -796,7 +815,7 @@ rx_processing_done:
+>  	}
+>  	fep->cur_rx = bdp;
+>  
+> -	spin_unlock(&fep->hw_lock);
+> +	return pkt_received;
+>  }
+>  
+>  static irqreturn_t
+> @@ -805,6 +824,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  	struct net_device *ndev = dev_id;
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	uint int_events;
+> +	ulong flags;
+>  	irqreturn_t ret = IRQ_NONE;
+>  
+>  	do {
+> @@ -813,7 +833,18 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  
+>  		if (int_events & FEC_ENET_RXF) {
+>  			ret = IRQ_HANDLED;
+> -			fec_enet_rx(ndev);
+> +			spin_lock_irqsave(&fep->hw_lock, flags);
+> +
+> +			if (fep->use_napi) {
+> +				/* Disable the RX interrupt */
+> +				if (napi_schedule_prep(&fep->napi)) {
+> +					fec_enet_rx_int_is_enabled(ndev, false);
+> +					__napi_schedule(&fep->napi);
+> +				}
+> +			} else
+> +				fec_enet_rx(ndev, INT32_MAX);
+> +
+> +			spin_unlock_irqrestore(&fep->hw_lock, flags);
+>  		}
+>  
+>  		/* Transmit OK, or non-fatal error. Update the buffer
+> @@ -834,7 +865,16 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  	return ret;
+>  }
+>  
+> -
+> +static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
+> +{
+> +	struct net_device *ndev = napi->dev;
+> +	int pkgs = fec_enet_rx(ndev, budget);
+> +	if (pkgs < budget) {
+> +		napi_complete(napi);
+> +		fec_enet_rx_int_is_enabled(ndev, true);
+> +	}
+> +	return pkgs;
+> +}
+>  
+>  /* ------------------------------------------------------------------------- */
+>  static void fec_get_mac(struct net_device *ndev)
+> @@ -1392,6 +1432,9 @@ fec_enet_open(struct net_device *ndev)
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	int ret;
+>  
+> +	if (fep->use_napi)
+> +		napi_enable(&fep->napi);
+> +
+>  	/* I should reset the ring buffers here, but I don't yet know
+>  	 * a simple way to do that.
+>  	 */
+> @@ -1604,6 +1647,11 @@ static int fec_enet_init(struct net_device *ndev)
+>  	ndev->netdev_ops = &fec_netdev_ops;
+>  	ndev->ethtool_ops = &fec_enet_ethtool_ops;
+>  
+> +	if (fep->use_napi) {
+> +		fec_enet_rx_int_is_enabled(ndev, false);
+> +		netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, fep->napi_weight);
+> +	}
+> +
+>  	/* Initialize the receive buffer descriptors. */
+>  	bdp = fep->rx_bd_base;
+>  	for (i = 0; i < RX_RING_SIZE; i++) {
+> @@ -1698,6 +1746,7 @@ fec_probe(struct platform_device *pdev)
+>  	static int dev_id;
+>  	struct pinctrl *pinctrl;
+>  	struct regulator *reg_phy;
+> +	struct device_node *np = pdev->dev.of_node;
+>  
+>  	of_id = of_match_device(fec_dt_ids, &pdev->dev);
+>  	if (of_id)
+> @@ -1811,6 +1860,11 @@ fec_probe(struct platform_device *pdev)
+>  		}
+>  	}
+>  
+> +	fep->use_napi = !of_property_read_bool(np, "disable_napi");
+> +
+> +	if (of_property_read_u32(np, "napi_weight", &fep->napi_weight))
+> +		fep->napi_weight = FEC_NAPI_WEIGHT; /*using default value*/
 
-however I suspect whether this patch could fix overflow if we merged TC=
-P=20
-friends patch in future.
+This comment seems rather unnecessary. Also it should be
 
-With TCP friends, we have source like below, or TCP friends should care=
-=20
-this ?
+	/* space left and right /*
 
-static inline int sk_sndbuf_get(const struct sock *sk)
-{
-         if (sk->sk_friend)
-                 return sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf;
-         else
-                 return sk->sk_sndbuf;
-}
+devicetree bindings should use '-' instead of '_'. The binding
+Documentation should be in the patch adding the bindings. Also
+make sure the devicetree parsing is outside of the path for platform
+based probing.
 
-static inline bool sk_stream_memory_free(const struct sock *sk)
-{
-         return sk_wmem_queued_get(sk) < sk_sndbuf_get(sk);
-}
+With this particular binding I'm unsure it should exist anyway since
+it's configuration rather than hardware description. The devicetree
+normally is for hardware description only.
 
-So sk_sndbuf_get() still may be overflow when we have right value in=20
-net.ipv4.tcp_{rmem,wmem}.
+Sascha
 
-Thanks
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
