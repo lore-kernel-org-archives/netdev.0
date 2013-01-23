@@ -1,40 +1,29 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
- traffic.
-Date: Wed, 23 Jan 2013 05:35:10 -0800
-Message-ID: <1358948110.12374.748.camel@edumazet-glaptop>
-References: <50FDADF4.3060601@candelatech.com>
-	 <50FDDE35.7070806@candelatech.com>
-	 <1358829606.3464.3151.camel@edumazet-glaptop>
-	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
-	 <1358875020.3464.4006.camel@edumazet-glaptop>
-	 <1358875607.3464.4020.camel@edumazet-glaptop>
-	 <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>
-	 <1358921493.12374.737.camel@edumazet-glaptop>
-	 <50FF8DEC.9070901@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50FF8DEC.9070901-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jan Synacek <jsynacek@redhat.com>
+Subject: [PATCH 0/2] iputils: ninfod minor changes
+Date: Wed, 23 Jan 2013 14:37:43 +0100
+Message-ID: <1358948265-20867-1-git-send-email-jsynacek@redhat.com>
+Cc: netdev@vger.kernel.org, Jan Synacek <jsynacek@redhat.com>
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56679 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754530Ab3AWNhw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 08:37:52 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
+Functions limiting capabilities as well as opening a socket could have been
+called needlessly if ninfod was invoked with -h.
 
-> How are the non-ref-counted dst objects used safely?  Any chance
-> that tearing down the IP protocol on a device (or deleting a device)
-> could delete a dst that is referenced by an skb (and thus crashes as
-> I see)?
+Also, ninfod incorrectly kept running if invoked with -v.
 
-There is probably a bug. Normally it should be RCU protected.
+Jan Synacek (2):
+  ninfod: Call limit/drop_capabilities() and open_sock() after checking
+    for -h or -v.
+  ninfod: Make -v exit correctly.
 
+ ninfod/ninfod.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.8.1
