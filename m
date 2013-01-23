@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/12] bnx2x: patch series
-Date: Wed, 23 Jan 2013 13:58:49 -0500 (EST)
-Message-ID: <20130123.135849.2294045415963168772.davem@davemloft.net>
-References: <1358947314-3851-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: pull request (net-next): ipsec-next 2013-01-23
+Date: Wed, 23 Jan 2013 14:00:58 -0500 (EST)
+Message-ID: <20130123.140058.1653306473705960117.davem@davemloft.net>
+References: <1358929144-17806-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41108 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41200 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751158Ab3AWS6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 13:58:53 -0500
-In-Reply-To: <1358947314-3851-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1752447Ab3AWTBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 14:01:01 -0500
+In-Reply-To: <1358929144-17806-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Wed, 23 Jan 2013 15:21:42 +0200
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 23 Jan 2013 09:18:56 +0100
 
-> Hi Dave,
+> 1) Add a statistic counter for invalid output states and
+>    remove a superfluous state valid check, from Li RongQing.
 > 
-> This patch series contain several Semi-semantic patches (i.e., some are purely
-> semantic, such as correcting comments & typos, while others slightly change the
-> bnx2x code without effectively changing any flow), while other fix several small
-> issues, mostly either memory-related or missing segments from our recent SR-IOV
-> submission.
+> 2) Probe for asynchronous block ciphers instead of synchronous block
+>    ciphers to make the asynchronous variants available even if no
+>    synchronous block ciphers are found, from Jussi Kivilinna.
 > 
-> Please consider applying this patch-series to 'net-next'.
+> 3) Make rfc3686 asynchronous block cipher and make use of
+>    the new asynchronous variant, from Jussi Kivilinna.
+> 
+> 4) Replace some rwlocks by rcu, from Cong Wang.
+> 
+> 5) Remove some unused defines.
+> 
+> Please pull or let me know if there are problems.
 
-Series applied, thanks.
+Pulled, thanks Steffen.
+
+I hope Herbert is ok with the small crypto bits going in this way,
+since they really are IPSEC specific.
+
+Thanks.
