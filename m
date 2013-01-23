@@ -1,78 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Unix Socket buffer attribution
-Date: Wed, 23 Jan 2013 06:26:20 -0800
-Message-ID: <1358951180.12374.787.camel@edumazet-glaptop>
-References: <CAJ4BwwFZo=ktoNBpw14yxyvR1QPQ_xVzKRs=R7qv03g1uwn8pg@mail.gmail.com>
-	 <kdoibl$978$1@ger.gmane.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [RFC PATCH v3 linux-next] et131x: Promote staging et131x driver
+ to drivers/net
+Date: Wed, 23 Jan 2013 06:32:16 -0800
+Message-ID: <20130123143216.GA2050@kroah.com>
+References: <1358935859-29525-1-git-send-email-mark.einon@gmail.com>
+ <1358945130-3101-1-git-send-email-mark.einon@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:47740 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754500Ab3AWO0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 09:26:22 -0500
-Received: by mail-pa0-f44.google.com with SMTP id hz11so4788700pad.3
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 06:26:22 -0800 (PST)
-In-Reply-To: <kdoibl$978$1@ger.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, sfr@canb.auug.org.au,
+	devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dan.carpenter@oracle.com
+To: Mark Einon <mark.einon@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1358945130-3101-1-git-send-email-mark.einon@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-01-23 at 11:42 +0000, Cong Wang wrote:
-> On Tue, 22 Jan 2013 at 02:01 GMT, Yannick Koehler <yannick@koehler.name> wrote:
-> >
-> >   I believe that the problem is that once we move the skb into the
-> > client's receive queue we need to decrease the sk_wmem_alloc variable
-> > of the server socket since that skb is no more tied to the server.
-> > The code should then account for this memory as part of the
-> > sk_rmem_alloc variable on the client's socket.  The function
-> > "skb_set_owner_r(skb,owner)" would seem to be the function to do that,
-> > so it would seem to me.
+On Wed, Jan 23, 2013 at 12:45:30PM +0000, Mark Einon wrote:
+> This patch moves the et131x gigabit ethernet driver from drivers/staging
+> to drivers/net/ethernet/agere.
 > 
-> Something like below??
+> All the existing issues noted for this driver have been resolved, apart
+> from one performance issue where some fragmented packets suffer from
+> frame receive errors.
 > 
-> -------->
+> Signed-off-by: Mark Einon <mark.einon@gmail.com>
+> ---
 > 
-> diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-> index 0c61236..e273072 100644
-> --- a/net/unix/af_unix.c
-> +++ b/net/unix/af_unix.c
-> @@ -1205,6 +1205,7 @@ restart:
->  
->  	unix_state_unlock(sk);
->  
-> +	skb_set_owner_r(skb, other);
->  	/* take ten and and send info to listening sock */
->  	spin_lock(&other->sk_receive_queue.lock);
->  	__skb_queue_tail(&other->sk_receive_queue, skb);
-> @@ -1578,6 +1579,7 @@ restart:
->  
->  	if (sock_flag(other, SOCK_RCVTSTAMP))
->  		__net_timestamp(skb);
-> +	skb_set_owner_r(skb, other);
->  	maybe_add_creds(skb, sock, other);
->  	skb_queue_tail(&other->sk_receive_queue, skb);
->  	if (max_level > unix_sk(other)->recursion_level)
-> @@ -1693,6 +1695,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
->  		    (other->sk_shutdown & RCV_SHUTDOWN))
->  			goto pipe_err_free;
->  
-> +		skb_set_owner_r(skb, other);
->  		maybe_add_creds(skb, sock, other);
->  		skb_queue_tail(&other->sk_receive_queue, skb);
->  		if (max_level > unix_sk(other)->recursion_level)
+> Changes from V2 - vendor name changed from Atheros to Agere in drivers/net/ethernet/agere/Kconfig
 > 
+>  MAINTAINERS                                        |   11 ++++---
+>  drivers/net/ethernet/Kconfig                       |    1 +
+>  drivers/net/ethernet/Makefile                      |    1 +
+>  drivers/net/ethernet/agere/Kconfig                 |   32 ++++++++++++++++++++
+>  .../et131x => net/ethernet/agere}/Makefile         |    1 +
+>  .../et131x => net/ethernet/agere}/et131x.c         |    0
+>  .../et131x => net/ethernet/agere}/et131x.h         |    0
+>  drivers/staging/Kconfig                            |    2 --
+>  drivers/staging/Makefile                           |    1 -
+>  drivers/staging/et131x/Kconfig                     |   10 ------
+>  drivers/staging/et131x/README                      |   16 ----------
+>  11 files changed, 41 insertions(+), 34 deletions(-)
+>  create mode 100644 drivers/net/ethernet/agere/Kconfig
+>  rename drivers/{staging/et131x => net/ethernet/agere}/Makefile (98%)
+>  rename drivers/{staging/et131x => net/ethernet/agere}/et131x.c (100%)
+>  rename drivers/{staging/et131x => net/ethernet/agere}/et131x.h (100%)
+>  delete mode 100644 drivers/staging/et131x/Kconfig
+>  delete mode 100644 drivers/staging/et131x/README
 
-So what prevents a malicious program to DOS the machine ?
+Creating a patch this way is the correct way to do it, however it gives
+no clue to the network developers as to exactly what is in this driver
+at the moment :(
 
-Current behavior is on purpose. Limited, predictable, but less holes.
+I usually recommend just creating a new patch, that adds the driver to
+the proper place in the kernel, and sending that in.  If the subsystem
+maintainers accept it, then I can just delete the staging driver.
 
-Some applications might depend on the current flow control : Limiting
-the working set also permits to keep cpu caches hot.
+Yes, this looses the history of the code, but usually no one cares about
+that for staging drivers.
 
-If you want to change it, better do a full analysis, because hackers
-will do it.
+If that's not ok, I have no problem accepting this, if I get an ack from
+the subsystem maintainers that it's ok, but again, this patch makes it
+pretty hard for them to know that or not.
 
-Its probably doable, but with a "man unix" change.
+thanks,
+
+greg k-h
