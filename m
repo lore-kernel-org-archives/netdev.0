@@ -1,89 +1,60 @@
-From: Romain Francoise <romain@orebokech.com>
-Subject: [PATCH] vhost-net: fall back to vmalloc if high-order allocation fails
-Date: Wed, 23 Jan 2013 21:46:47 +0100
-Message-ID: <87k3r31vbc.fsf@silenus.orebokech.com>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Wed, 23 Jan 2013 12:48:58 -0800
+Message-ID: <CAGK4HS9qtB7uixResGpKuTXC5uUS-EZERhnfew-y7O5Ky791OQ@mail.gmail.com>
+References: <20130122161038.GG4608@sociomantic.com>
+	<1358873142.3464.3964.camel@edumazet-glaptop>
+	<20130122165929.GH4608@sociomantic.com>
+	<1358874800.3464.4002.camel@edumazet-glaptop>
+	<50FED7CE.1030008@hp.com>
+	<20130122184245.GJ4608@sociomantic.com>
+	<50FF0C25.9000300@hp.com>
+	<20130123104736.GK4608@sociomantic.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Sender: kvm-owner@vger.kernel.org
+To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130123104736.GK4608@sociomantic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Creating a vhost-net device allocates an object large enough (34320 bytes
-on x86-64) to trigger an order-4 allocation, which may fail if memory if
-fragmented:
+On 23 January 2013 02:47, Leandro Lucarella
+<leandro.lucarella@sociomantic.com> wrote:
+> On Tue, Jan 22, 2013 at 02:01:09PM -0800, Rick Jones wrote:
+>> >>If that is being overflowed, I believe you should be seeing something like:
+>> >>
+>> >>     14 SYNs to LISTEN sockets dropped
+>> >>
+>> >>in the output of netstat -s on the system on which the server
+>> >>application is running.
+>> >
+>> >What is that value reporting exactly?
+>>
+>> Netstat is reporting the ListenDrops and/or ListenOverflows  which
+>> map to LINUX_MIB_LISTENDROPS and LINUX_MIB_LISTENOVERFLOWS.  Those
+>> get incremented in tcp_v4_syn_recv_sock() (and its v6 version etc)
+>>
+>>        if (sk_acceptq_is_full(sk))
+>>                 goto exit_overflow;
+>>
+>> Will increment both overflows and drops, and drops will increment on
+>> its own in some additional cases.
 
- libvirtd: page allocation failure: order:4, mode:0x2000d0
- ...
- SLAB: Unable to allocate memory on node 0 (gfp=0xd0)
-   cache: size-65536, object size: 65536, order: 4
-   node 0: slabs: 8/8, objs: 8/8, free: 0
+Note that tcp_v4_conn_request() can also drop SYNs directly (start of
+TWHS) if acceptq is full and more than one young requests are queued
+up
+vim +1504 tcp_ipv4.c
 
-In that situation, rather than forcing the caller to use regular
-virtio-net, try to allocate the descriptor with vmalloc().
+       if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+                goto drop;
 
-Signed-off-by: Romain Francoise <romain@orebokech.com>
----
- drivers/vhost/net.c | 18 +++++++++++++++---
- 1 file changed, 15 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index ebd08b2..1ded79b 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -18,6 +18,7 @@
- #include <linux/rcupdate.h>
- #include <linux/file.h>
- #include <linux/slab.h>
-+#include <linux/vmalloc.h>
- 
- #include <linux/net.h>
- #include <linux/if_packet.h>
-@@ -603,12 +604,23 @@ static void handle_rx_net(struct vhost_work *work)
- 	handle_rx(net);
- }
- 
-+static void vhost_net_kvfree(void *addr)
-+{
-+	if (is_vmalloc_addr(addr))
-+		vfree(addr);
-+	else
-+		kfree(addr);
-+}
-+
- static int vhost_net_open(struct inode *inode, struct file *f)
- {
--	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
-+	struct vhost_net *n;
- 	struct vhost_dev *dev;
- 	int r;
- 
-+	n = kmalloc(sizeof *n, GFP_KERNEL | __GFP_NOWARN);
-+	if (!n)
-+		n = vmalloc(sizeof *n);
- 	if (!n)
- 		return -ENOMEM;
- 
-@@ -617,7 +629,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
- 	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
- 	r = vhost_dev_init(dev, n->vqs, VHOST_NET_VQ_MAX);
- 	if (r < 0) {
--		kfree(n);
-+		vhost_net_kvfree(n);
- 		return r;
- 	}
- 
-@@ -719,7 +731,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
- 	/* We do an extra flush before freeing memory,
- 	 * since jobs can re-queue themselves. */
- 	vhost_net_flush(n);
--	kfree(n);
-+	vhost_net_kvfree(n);
- 	return 0;
- }
- 
--- 
-1.8.1.1
+These drops do not seem to be tracked by any MIB variable and so will
+not show up in netstat
+(Also, newer nstat is preferred to netstat ).
+Maybe we need to track these drops too?
 
+Vijay
