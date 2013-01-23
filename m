@@ -1,35 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: tun mq failure
-Date: Wed, 23 Jan 2013 12:06:40 +0100
-Message-ID: <20130123110640.GC7005@order.stressinduktion.org>
-References: <20130123100516.GB8108@redhat.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [RFC PATCH v2 linux-next] et131x: Promote staging et131x driver
+ to drivers/net
+Date: Wed, 23 Jan 2013 11:31:16 +0000
+Message-ID: <CANK3SE2qxP5dkYrdpYnWBGqTT5b7HrW_gXS++e73Xr++h6Mokg@mail.gmail.com>
+References: <1358541648-29922-1-git-send-email-mark.einon@gmail.com>
+ <1358935859-29525-1-git-send-email-mark.einon@gmail.com> <20130123103108.GA4584@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46096 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754597Ab3AWLGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 06:06:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20130123100516.GB8108@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, gregkh@linuxfoundation.org,
+	sfr@canb.auug.org.au, devel@driverdev.osuosl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130123103108.GA4584@mwanda>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 12:05:16PM +0200, Michael S. Tsirkin wrote:
-> This is when trying to start a VPN using some old openvpn binary so MQ
-> is not set.
-> 
-> So
-> 1. I think we should limit allocation of MQ to when MQ flag is set in SETIFF.
-> 2. order 7 allocation is 2^^7 pages - about half a megabyte of contigious
->    memory. This is quite likely to fail.
->    Let's start with a small limit on number of queues, like 8?
->    Then we know it will succeed.
->    Longer term we might want to solve it differently.
+On 23 January 2013 10:31, Dan Carpenter <dan.carpenter@oracle.com> wrote:
+> On Wed, Jan 23, 2013 at 10:10:58AM +0000, Mark Einon wrote:
+>> diff --git a/drivers/net/ethernet/agere/Kconfig b/drivers/net/ethernet/agere/Kconfig
+>> new file mode 100644
+>> index 0000000..6854966
+>> --- /dev/null
+>> +++ b/drivers/net/ethernet/agere/Kconfig
+>> @@ -0,0 +1,32 @@
+>> +#
+>> +# Agere device configuration
+>> +#
+>> +
+>> +config NET_VENDOR_AGERE
+>> +       bool "Agere devices"
+>> +       default y
+>> +       depends on PCI
+>> +       ---help---
+>> +         If you have a network (Ethernet) card belonging to this class, say Y
+>> +         and read the Ethernet-HOWTO, available from
+>> +         <http://www.tldp.org/docs.html#howto>.
+>> +
+>> +         Note that the answer to this question doesn't directly affect the
+>> +         kernel: saying N will just cause the configurator to skip all
+>> +         the questions about Atheros devices. If you say Y, you will be asked
+>                                 ^^^^^^^
+> Agere?
 
-This has been come up before:
-http://thread.gmane.org/gmane.linux.network/255647/focus=255902
+Well spotted, thanks. I'll fix it asap.
 
-I think a solution to this problem is still outstanding.
+>
+>> +         for your specific card in the following questions.
+>> +
+>
+> I think you should just leave this block out entirely.  It doesn't
+> save time for anyone.
+
+It looks to be standard boilerplate for all the net/ethernet drivers
+having their own directory. I'm going to leave it in for now.
+If that's an issue that needs a change, it would also affect the other
+drivers and I think should be tackled as a separate thing.
+
+Cheers,
+
+Mark
