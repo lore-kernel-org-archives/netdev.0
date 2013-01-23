@@ -1,83 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/2] tuntap: reduce memory using of queues
-Date: Wed, 23 Jan 2013 17:16:27 +0200
-Message-ID: <20130123151627.GB1613@redhat.com>
-References: <1358949553-30309-1-git-send-email-jasowang@redhat.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH 2/2] tcp: add ability to set a timestamp offset (v2)
+Date: Wed, 23 Jan 2013 19:26:41 +0400
+Message-ID: <51000131.3070300@parallels.com>
+References: <1358953314-12979-1-git-send-email-avagin@openvz.org> <1358953314-12979-3-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, criu@openvz.org,
 	linux-kernel@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Woodhouse <dwmw2@infradead.org>
-To: Jason Wang <jasowang@redhat.com>
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Dave Jones <davej@redhat.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Andrey Vagin <avagin@openvz.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1358949553-30309-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1358953314-12979-3-git-send-email-avagin@openvz.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 09:59:12PM +0800, Jason Wang wrote:
-> A MAX_TAP_QUEUES(1024) queues of tuntap device is always allocated
-> unconditionally even userspace only requires a single queue device. This is
-> unnecessary and will lead a very high order of page allocation when has a high
-> possibility to fail. Solving this by creating a one queue net device when
-> userspace only use one queue and also reduce MAX_TAP_QUEUES to
-> DEFAULT_MAX_NUM_RSS_QUEUES which can guarantee the success of
-> the allocation.
-> 
-> Reported-by: Dirk Hohndel <dirk@hohndel.org>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David Woodhouse <dwmw2@infradead.org>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Note: this is a 3.8 patch, it fixes a regression.
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 086ceda..23f93d4 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2704,6 +2704,10 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+>  		else
+>  			err = -EINVAL;
+>  		break;
+> +	case TCP_TIMESTAMP:
+> +		tp->tsoffset = 0;
+> +		tp->tsoffset = val - tcp_time_stamp(tp);
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+I believe we should check that the socket state is TCP_CLOSE.
+Otherwise tcp_time_stamp() readers might be surprised while
+reading the value.
 
-> ---
->  drivers/net/tun.c |   15 ++++++++-------
->  1 files changed, 8 insertions(+), 7 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index c81680d..8939d21 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -109,11 +109,10 @@ struct tap_filter {
->  	unsigned char	addr[FLT_EXACT_COUNT][ETH_ALEN];
->  };
->  
-> -/* 1024 is probably a high enough limit: modern hypervisors seem to support on
-> - * the order of 100-200 CPUs so this leaves us some breathing space if we want
-> - * to match a queue per guest CPU.
-> - */
-> -#define MAX_TAP_QUEUES 1024
-> +/* DEFAULT_MAX_NUM_RSS_QUEUES were choosed to let the rx/tx queues allocated for
-> + * the netdevice to be fit in one page. So we can make sure the success of
-> + * memory allocation. TODO: increase the limit. */
-> +#define MAX_TAP_QUEUES DEFAULT_MAX_NUM_RSS_QUEUES
->  
->  #define TUN_FLOW_EXPIRE (3 * HZ)
->  
-> @@ -1583,6 +1582,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  	else {
->  		char *name;
->  		unsigned long flags = 0;
-> +		int queues = ifr->ifr_flags & IFF_MULTI_QUEUE ?
-> +			     MAX_TAP_QUEUES : 1;
->  
->  		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
->  			return -EPERM;
-> @@ -1606,8 +1607,8 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
->  			name = ifr->ifr_name;
->  
->  		dev = alloc_netdev_mqs(sizeof(struct tun_struct), name,
-> -				       tun_setup,
-> -				       MAX_TAP_QUEUES, MAX_TAP_QUEUES);
-> +				       tun_setup, queues, queues);
-> +
->  		if (!dev)
->  			return -ENOMEM;
->  
-> -- 
-> 1.7.1
+> +		break;
+>  	default:
+>  		err = -ENOPROTOOPT;
+>  		break;
