@@ -1,99 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost-net: fall back to vmalloc if high-order allocation
- fails
-Date: Wed, 23 Jan 2013 23:04:11 +0200
-Message-ID: <20130123210411.GA9055@redhat.com>
-References: <87k3r31vbc.fsf@silenus.orebokech.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Wed, 23 Jan 2013 13:53:45 -0800
+Message-ID: <51005BE9.7060705@candelatech.com>
+References: <50FDADF4.3060601@candelatech.com>  <50FDDE35.7070806@candelatech.com>  <1358829606.3464.3151.camel@edumazet-glaptop>  <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>  <1358875020.3464.4006.camel@edumazet-glaptop>  <1358875607.3464.4020.camel@edumazet-glaptop>  <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>  <1358921493.12374.737.camel@edumazet-glaptop>  <50FF8DEC.9070901@candelatech.com> <1358952122.12374.791.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Romain Francoise <romain@orebokech.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87k3r31vbc.fsf@silenus.orebokech.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1358952122.12374.791.camel@edumazet-glaptop>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 09:46:47PM +0100, Romain Francoise wrote:
-> Creating a vhost-net device allocates an object large enough (34320 bytes
-> on x86-64) to trigger an order-4 allocation, which may fail if memory if
-> fragmented:
-> 
->  libvirtd: page allocation failure: order:4, mode:0x2000d0
->  ...
->  SLAB: Unable to allocate memory on node 0 (gfp=0xd0)
->    cache: size-65536, object size: 65536, order: 4
->    node 0: slabs: 8/8, objs: 8/8, free: 0
-> 
-> In that situation, rather than forcing the caller to use regular
-> virtio-net, try to allocate the descriptor with vmalloc().
-> 
-> Signed-off-by: Romain Francoise <romain@orebokech.com>
+On 01/23/2013 06:42 AM, Eric Dumazet wrote:
+> On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
+>
+>> I suspect the bug goes back at least as far as 3.3.  And since
+>> I need the NFS patches for this test case, bisecting will be pure hell.
+>
+> Make sure the bug is still present in net-next.
+>
 
-Thanks for the patch.
-Hmm, I haven't seen this.
-Maybe we should try and reduce our memory usage,
-I will look into this.
+My test case isn't running well on net-next.  Seems most
+of the file-io processes are hung trying to open a file:
 
-> ---
->  drivers/vhost/net.c | 18 +++++++++++++++---
->  1 file changed, 15 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index ebd08b2..1ded79b 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -18,6 +18,7 @@
->  #include <linux/rcupdate.h>
->  #include <linux/file.h>
->  #include <linux/slab.h>
-> +#include <linux/vmalloc.h>
->  
->  #include <linux/net.h>
->  #include <linux/if_packet.h>
-> @@ -603,12 +604,23 @@ static void handle_rx_net(struct vhost_work *work)
->  	handle_rx(net);
->  }
->  
-> +static void vhost_net_kvfree(void *addr)
-> +{
-> +	if (is_vmalloc_addr(addr))
-> +		vfree(addr);
-> +	else
-> +		kfree(addr);
-> +}
-> +
->  static int vhost_net_open(struct inode *inode, struct file *f)
->  {
-> -	struct vhost_net *n = kmalloc(sizeof *n, GFP_KERNEL);
-> +	struct vhost_net *n;
->  	struct vhost_dev *dev;
->  	int r;
->  
-> +	n = kmalloc(sizeof *n, GFP_KERNEL | __GFP_NOWARN);
-> +	if (!n)
-> +		n = vmalloc(sizeof *n);
->  	if (!n)
->  		return -ENOMEM;
->  
-> @@ -617,7 +629,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
->  	n->vqs[VHOST_NET_VQ_RX].handle_kick = handle_rx_kick;
->  	r = vhost_dev_init(dev, n->vqs, VHOST_NET_VQ_MAX);
->  	if (r < 0) {
-> -		kfree(n);
-> +		vhost_net_kvfree(n);
->  		return r;
->  	}
->  
-> @@ -719,7 +731,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
->  	/* We do an extra flush before freeing memory,
->  	 * since jobs can re-queue themselves. */
->  	vhost_net_flush(n);
-> -	kfree(n);
-> +	vhost_net_kvfree(n);
->  	return 0;
->  }
->  
-> -- 
-> 1.8.1.1
+[root@lf1011-12060006 lanforge]# cat /proc/10612/stack
+[<ffffffff8115fadb>] do_last+0x1db/0xa4e
+[<ffffffff8116090b>] path_openat+0xcb/0x363
+[<ffffffff81160ca8>] do_filp_open+0x38/0x84
+[<ffffffff81153bfc>] do_sys_open+0x6d/0xff
+[<ffffffff81153cbb>] sys_open+0x1c/0x1e
+[<ffffffff8154f629>] system_call_fastpath+0x16/0x1b
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+
+I'm going back to 3.7.3 and will try to learn some more
+about what it's doing there.
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
