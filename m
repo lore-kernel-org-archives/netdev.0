@@ -1,93 +1,39 @@
-From: "Choi, David" <David.Choi@Micrel.Com>
-Subject: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll: Implement
- basic statistics
-Date: Wed, 23 Jan 2013 18:46:37 +0000
-Message-ID: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] tuntap: reduce memory using of queues
+Date: Wed, 23 Jan 2013 13:47:36 -0500 (EST)
+Message-ID: <20130123.134736.1854102244959594689.davem@davemloft.net>
+References: <1358949553-30309-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Doong, Ping" <Ping.Doong@Micrel.Com>,
-	"Choi, David" <David.Choi@Micrel.Com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"joe@perches.com" <joe@perches.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	dwmw2@infradead.org
+To: jasowang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from p01c12o145.mxlogic.net ([208.65.145.68]:47306 "EHLO
-	p01c12o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab3AWSqu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 13:46:50 -0500
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:40682 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839Ab3AWSrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 13:47:39 -0500
+In-Reply-To: <1358949553-30309-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David J. Choi <david.choi@micrel.com>
- 
-Summary of changes:
-  add codes to collect basic statistical information about Ethernet packets.
- 
-Signed-off-by: David J. Choi <david.choi@micrel.com>
----
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 23 Jan 2013 21:59:12 +0800
 
---- net-next/drivers/net/ethernet/micrel/ks8851_mll.c.orig	2013-01-22 17:25:59.000000000 -0800
-+++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-23 10:31:24.000000000 -0800
-@@ -793,17 +793,35 @@ static void ks_rcv(struct ks_net *ks, st
- 	frame_hdr = ks->frame_head_info;
- 	while (ks->frame_cnt--) {
- 		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
--		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
-+		if (unlikely(!skb)) {
-+			/* discard the packet from the device */
-+			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
-+			netdev->stats.rx_dropped++;
-+		}
-+
-+		else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
- 			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
- 			skb_reserve(skb, 2);
- 			/* read data block including CRC 4 bytes */
- 			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
--			skb_put(skb, frame_hdr->len);
-+
-+			/* exclude the size of CRC */
-+			skb_put(skb, frame_hdr->len - 4);
- 			skb->protocol = eth_type_trans(skb, netdev);
- 			netif_rx(skb);
-+			netdev->stats.rx_packets++;
-+
-+			/* crc field */
-+			netdev->stats.rx_bytes += frame_hdr->len - 4;
- 		} else {
--			pr_err("%s: err:skb alloc\n", __func__);
--			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
-+			/* discard the packet from the device */
-+			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
-+			netdev->stats.rx_dropped++;
-+			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
-+				netdev->stats.rx_length_errors++;
-+			if (!(frame_hdr->sts & RXFSHR_RXFV))
-+				netdev->stats.rx_frame_errors++;
-+
- 			if (skb)
- 				dev_kfree_skb_irq(skb);
- 		}
-@@ -876,6 +894,8 @@ static irqreturn_t ks_irq(int irq, void 
- 		pmecr &= ~PMECR_WKEVT_MASK;
- 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
- 	}
-+	if (unlikely(status & IRQ_RXOI))
-+		ks->netdev->stats.rx_over_errors++;
- 
- 	/* this should be the last in IRQ handler*/
- 	ks_restore_cmd_reg(ks);
-@@ -1015,6 +1035,8 @@ static int ks_start_xmit(struct sk_buff 
- 
- 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
- 		ks_write_qmu(ks, skb->data, skb->len);
-+		netdev->stats.tx_bytes += skb->len;
-+		netdev->stats.tx_packets++;
- 		dev_kfree_skb(skb);
- 	} else
- 		retv = NETDEV_TX_BUSY;
+> A MAX_TAP_QUEUES(1024) queues of tuntap device is always allocated
+> unconditionally even userspace only requires a single queue device. This is
+> unnecessary and will lead a very high order of page allocation when has a high
+> possibility to fail. Solving this by creating a one queue net device when
+> userspace only use one queue and also reduce MAX_TAP_QUEUES to
+> DEFAULT_MAX_NUM_RSS_QUEUES which can guarantee the success of
+> the allocation.
+> 
+> Reported-by: Dirk Hohndel <dirk@hohndel.org>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David Woodhouse <dwmw2@infradead.org>
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
----
+Applied.
