@@ -1,55 +1,47 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 0/4] Use IS_ERR_OR_NULL().
-Date: Tue, 22 Jan 2013 20:44:38 -0500
-Message-ID: <CAP=VYLpyEXcZ9N6jHSvnbL+ZyRY_eyRdesqn6Dpm-6P=BPDaBQ@mail.gmail.com>
-References: <50FEBF1E.6070209@linux-ipv6.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] IP_GRE: Linearize skb before csum.
+Date: Tue, 22 Jan 2013 20:46:29 -0500 (EST)
+Message-ID: <20130122.204629.607263597214211092.davem@davemloft.net>
+References: <1358894653.12374.201.camel@edumazet-glaptop>
+	<20130122.194143.1205292712415183747.davem@davemloft.net>
+	<1358903293.12374.492.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jesse@nicira.com, pshelar@nicira.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:52713 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752729Ab3AWBpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 20:45:11 -0500
-Received: by mail-wg0-f51.google.com with SMTP id 8so3081994wgl.6
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 17:45:09 -0800 (PST)
-In-Reply-To: <50FEBF1E.6070209@linux-ipv6.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59236 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752490Ab3AWBqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 20:46:36 -0500
+In-Reply-To: <1358903293.12374.492.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2013 at 11:32 AM, YOSHIFUJI Hideaki
-<yoshfuji@linux-ipv6.org> wrote:
-> YOSHIFUJI Hideaki (4):
->   net: Use IS_ERR_OR_NULL().
->   ipv4: Use IS_ERR_OR_NULL().
->   ipv6: Use IS_ERR_OR_NULL().
->   netfilter: Use IS_ERR_OR_NULL().
->
->  net/core/flow.c                 |    2 +-
->  net/ipv4/af_inet.c              |    2 +-
->  net/ipv4/netfilter/arp_tables.c |   10 +++++-----
->  net/ipv4/netfilter/ip_tables.c  |   10 +++++-----
->  net/ipv4/tcp.c                  |    2 +-
->  net/ipv4/udp.c                  |    2 +-
->  net/ipv6/addrconf.c             |    4 ++--
->  net/ipv6/netfilter/ip6_tables.c |   10 +++++-----
->  8 files changed, 21 insertions(+), 21 deletions(-)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 22 Jan 2013 17:08:13 -0800
 
-Just as a heads-up, there are discussions underway about
-whether the whole IS_ERR_OR_NULL interface is one that
-we want to be adding more users to:
+> On Tue, 2013-01-22 at 19:41 -0500, David Miller wrote:
+> 
+>> We don't emit crap onto the wire knowingly.  Jesse is right.
+>> 
+>> If you want to do software GSO in situations where we know that the
+>> paged data cannot be modified asynchronously, you'll have to
+>> explicitly support that.
+>> 
+>> I will not accept us saying that allowing the emission of bad
+>> checksums is OK.  It never is.  That's terrible behavior, and creates
+>> impossible to disagnose problems.
+> 
+> How is this related to GRE only ?
+> 
+> We have dozen of skb_checksum_help() calls that basically have the same
+> issue.
+> 
+> Am I missing some obvious thing ?
 
-https://patchwork.kernel.org/patch/1953271/
+Then all of them need fixing.
 
-Paul.
---
-
->
-> --
-> 1.7.9.5
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We can't emit bogus checksums on the wire when this is completely
+under our control.
