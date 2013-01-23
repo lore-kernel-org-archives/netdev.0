@@ -1,509 +1,222 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
-Subject: [PATCH v3] crypto: add support for the NIST CMAC hash
-Date: Wed, 23 Jan 2013 07:43:01 -0500 (EST)
-Message-ID: <1550166788.107475.1358944981220.JavaMail.root@elliptictech.com>
-References: <793795323.107470.1358944861780.JavaMail.root@elliptictech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: steffen klassert <steffen.klassert@secunet.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: [RFC PATCH v3 linux-next] et131x: Promote staging et131x driver to drivers/net
+Date: Wed, 23 Jan 2013 12:45:30 +0000
+Message-ID: <1358945130-3101-1-git-send-email-mark.einon@gmail.com>
+References: <1358935859-29525-1-git-send-email-mark.einon@gmail.com>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-kernel@vger.kernel.org, dan.carpenter@oracle.com,
+	Mark Einon <mark.einon@gmail.com>
+To: davem@davemloft.net, gregkh@linuxfoundation.org,
+	sfr@canb.auug.org.au
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <793795323.107470.1358944861780.JavaMail.root@elliptictech.com>
+In-Reply-To: <1358935859-29525-1-git-send-email-mark.einon@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Tom St Denis <tstdenis@elliptictech.com>
----
- crypto/Kconfig               |   9 ++
- crypto/Makefile              |   1 +
- crypto/cmac.c                | 317 +++++++++++++++++++++++++++++++++++++++++++
- crypto/testmgr.c             |   9 ++
- crypto/testmgr.h             |  52 +++++++
- include/uapi/linux/pfkeyv2.h |   1 +
- net/xfrm/xfrm_algo.c         |  17 +++
- 7 files changed, 406 insertions(+)
- create mode 100644 crypto/cmac.c
+This patch moves the et131x gigabit ethernet driver from drivers/staging
+to drivers/net/ethernet/agere.
 
-diff --git a/crypto/Kconfig b/crypto/Kconfig
-index 4641d95..7ab11a9 100644
---- a/crypto/Kconfig
-+++ b/crypto/Kconfig
-@@ -301,6 +301,15 @@ config CRYPTO_XCBC
- 		http://csrc.nist.gov/encryption/modes/proposedmodes/
- 		 xcbc-mac/xcbc-mac-spec.pdf
+All the existing issues noted for this driver have been resolved, apart
+from one performance issue where some fragmented packets suffer from
+frame receive errors.
+
+Signed-off-by: Mark Einon <mark.einon@gmail.com>
+---
+
+Changes from V2 - vendor name changed from Atheros to Agere in drivers/net/ethernet/agere/Kconfig
+
+ MAINTAINERS                                        |   11 ++++---
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/agere/Kconfig                 |   32 ++++++++++++++++++++
+ .../et131x => net/ethernet/agere}/Makefile         |    1 +
+ .../et131x => net/ethernet/agere}/et131x.c         |    0
+ .../et131x => net/ethernet/agere}/et131x.h         |    0
+ drivers/staging/Kconfig                            |    2 --
+ drivers/staging/Makefile                           |    1 -
+ drivers/staging/et131x/Kconfig                     |   10 ------
+ drivers/staging/et131x/README                      |   16 ----------
+ 11 files changed, 41 insertions(+), 34 deletions(-)
+ create mode 100644 drivers/net/ethernet/agere/Kconfig
+ rename drivers/{staging/et131x => net/ethernet/agere}/Makefile (98%)
+ rename drivers/{staging/et131x => net/ethernet/agere}/et131x.c (100%)
+ rename drivers/{staging/et131x => net/ethernet/agere}/et131x.h (100%)
+ delete mode 100644 drivers/staging/et131x/Kconfig
+ delete mode 100644 drivers/staging/et131x/README
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e80447a..cb09e9e 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3029,6 +3029,12 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/kristoffer/linux-hpc.git
+ F:	drivers/video/s1d13xxxfb.c
+ F:	include/video/s1d13xxxfb.h
  
-+config CRYPTO_CMAC
-+	tristate "CMAC support"
-+	select CRYPTO_HASH
-+	select CRYPTO_MANAGER
-+	help
-+	  NIST CMAC cipher based MAC algorithm
-+	  http://tools.ietf.org/rfc/rfc4494.txt
-+	  http://csrc.nist.gov/publications/nistpubs/800-38B/SP_800-38B.pdf
++ET131X NETWORK DRIVER
++M:	Mark Einon <mark.einon@gmail.com>
++L:	netdev@vger.kernel.org
++S:	Maintained
++F:	drivers/net/ethernet/agere
 +
- config CRYPTO_VMAC
- 	tristate "VMAC support"
- 	depends on EXPERIMENTAL
-diff --git a/crypto/Makefile b/crypto/Makefile
-index d59dec7..85a615d 100644
---- a/crypto/Makefile
-+++ b/crypto/Makefile
-@@ -35,6 +35,7 @@ obj-$(CONFIG_CRYPTO_USER) += crypto_user.o
- obj-$(CONFIG_CRYPTO_HMAC) += hmac.o
- obj-$(CONFIG_CRYPTO_VMAC) += vmac.o
- obj-$(CONFIG_CRYPTO_XCBC) += xcbc.o
-+obj-$(CONFIG_CRYPTO_CMAC) += cmac.o
- obj-$(CONFIG_CRYPTO_NULL) += crypto_null.o
- obj-$(CONFIG_CRYPTO_MD4) += md4.o
- obj-$(CONFIG_CRYPTO_MD5) += md5.o
-diff --git a/crypto/cmac.c b/crypto/cmac.c
+ ETHEREXPRESS-16 NETWORK DRIVER
+ M:	Philip Blundell <philb@gnu.org>
+ L:	netdev@vger.kernel.org
+@@ -7473,11 +7479,6 @@ M:	David Rowe <david@rowetel.com>
+ S:	Odd Fixes
+ F:	drivers/staging/echo/
+ 
+-STAGING - ET131X NETWORK DRIVER
+-M:	Mark Einon <mark.einon@gmail.com>
+-S:	Odd Fixes
+-F:	drivers/staging/et131x/
+-
+ STAGING - FLARION FT1000 DRIVERS
+ M:	Marek Belisko <marek.belisko@gmail.com>
+ S:	Odd Fixes
+diff --git a/drivers/net/ethernet/Kconfig b/drivers/net/ethernet/Kconfig
+index ed956e0..4b4edbb 100644
+--- a/drivers/net/ethernet/Kconfig
++++ b/drivers/net/ethernet/Kconfig
+@@ -20,6 +20,7 @@ config SUNGEM_PHY
+ source "drivers/net/ethernet/3com/Kconfig"
+ source "drivers/net/ethernet/adaptec/Kconfig"
+ source "drivers/net/ethernet/aeroflex/Kconfig"
++source "drivers/net/ethernet/agere/Kconfig"
+ source "drivers/net/ethernet/alteon/Kconfig"
+ source "drivers/net/ethernet/amd/Kconfig"
+ source "drivers/net/ethernet/apple/Kconfig"
+diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+index 8268d85..7a96adb 100644
+--- a/drivers/net/ethernet/Makefile
++++ b/drivers/net/ethernet/Makefile
+@@ -6,6 +6,7 @@ obj-$(CONFIG_NET_VENDOR_3COM) += 3com/
+ obj-$(CONFIG_NET_VENDOR_8390) += 8390/
+ obj-$(CONFIG_NET_VENDOR_ADAPTEC) += adaptec/
+ obj-$(CONFIG_GRETH) += aeroflex/
++obj-$(CONFIG_NET_VENDOR_AGERE) += agere/
+ obj-$(CONFIG_NET_VENDOR_ALTEON) += alteon/
+ obj-$(CONFIG_NET_VENDOR_AMD) += amd/
+ obj-$(CONFIG_NET_VENDOR_APPLE) += apple/
+diff --git a/drivers/net/ethernet/agere/Kconfig b/drivers/net/ethernet/agere/Kconfig
 new file mode 100644
-index 0000000..1ffeea7
+index 0000000..efe0b90
 --- /dev/null
-+++ b/crypto/cmac.c
-@@ -0,0 +1,317 @@
-+/*
-+ * Copyright (C)2006 USAGI/WIDE Project
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ * Author:
-+ *	 Tom St Denis <tstdenis@elliptictech.com>
-+ *
-+ * Derived from the XCBC code of:
-+ *	 Kazunori Miyazawa <miyazawa@linux-ipv6.org>
-+ */
++++ b/drivers/net/ethernet/agere/Kconfig
+@@ -0,0 +1,32 @@
++#
++# Agere device configuration
++#
 +
-+#include <crypto/internal/hash.h>
-+#include <linux/err.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
++config NET_VENDOR_AGERE
++       bool "Agere devices"
++       default y
++       depends on PCI
++       ---help---
++         If you have a network (Ethernet) card belonging to this class, say Y
++         and read the Ethernet-HOWTO, available from
++         <http://www.tldp.org/docs.html#howto>.
 +
-+/*
-+ * +------------------------
-+ * | <parent tfm>
-+ * +------------------------
-+ * | cmac_tfm_ctx
-+ * +------------------------
-+ * | consts (block size * 2)
-+ * +------------------------
-+ */
-+struct cmac_tfm_ctx {
-+	struct crypto_cipher *child;
-+	u8 ctx[];
-+};
++         Note that the answer to this question doesn't directly affect the
++         kernel: saying N will just cause the configurator to skip all
++         the questions about Agere devices. If you say Y, you will be asked
++         for your specific card in the following questions.
 +
-+/*
-+ * +------------------------
-+ * | <shash desc>
-+ * +------------------------
-+ * | cmac_desc_ctx
-+ * +------------------------
-+ * | odds (block size)
-+ * +------------------------
-+ * | prev (block size)
-+ * +------------------------
-+ */
-+struct cmac_desc_ctx {
-+	unsigned int len;
-+	u8 ctx[];
-+};
++if NET_VENDOR_AGERE
 +
-+static int crypto_cmac_digest_setkey(struct crypto_shash *parent,
-+					  const u8 *inkey, unsigned int keylen)
-+{
-+	unsigned long alignmask = crypto_shash_alignmask(parent);
-+	struct cmac_tfm_ctx *ctx = crypto_shash_ctx(parent);
-+	int bs = crypto_shash_blocksize(parent);
-+	u8 *consts = PTR_ALIGN(&ctx->ctx[0], alignmask + 1);
-+	int x, y, err = 0;
-+	u8 msb, mask;
++config ET131X
++       tristate "Agere ET-1310 Gigabit Ethernet support"
++       depends on PCI
++       select PHYLIB
++       ---help---
++         This driver supports Agere ET-1310 ethernet adapters.
 +
-+	switch (bs) {
-+	case 16:
-+		mask = 0x87;
-+		break;
-+	case 8:
-+		mask = 0x1B;
-+		break;
-+	default:
-+		return -EINVAL; /*  only support 64/128 bit block ciphers */
-+	}
++         To compile this driver as a module, choose M here. The module
++         will be called et131x.
 +
-+	err = crypto_cipher_setkey(ctx->child, inkey, keylen);
-+	if (err)
-+		return err;
++endif # NET_VENDOR_AGERE
 +
-+	/* encrypt the zero block */
-+	memset(consts, 0, bs);
-+	crypto_cipher_encrypt_one(ctx->child, consts, consts);
-+
-+	for (x = 0; x < 2; x++) {
-+		/* if msb(L * u^(x+1)) = 0 then just shift,
-+		otherwise shift and xor constant mask */
-+		msb = consts[x*bs + 0] >> 7;
-+
-+		/* shift left */
-+		for (y = 0; y < (bs - 1); y++)
-+			consts[x*bs + y] =
-+				((consts[x*bs + y] << 1) |
-+				(consts[x*bs + y+1] >> 7)) & 255;
-+
-+		consts[x*bs + bs - 1] =
-+			((consts[x*bs + bs - 1] << 1) ^
-+			(msb ? mask : 0)) & 255;
-+
-+		/* copy up as require */
-+		if (x == 0)
-+			memcpy(&consts[(x+1)*bs], &consts[x*bs], bs);
-+	}
-+	return 0;
-+}
-+
-+static int crypto_cmac_digest_init(struct shash_desc *pdesc)
-+{
-+	unsigned long alignmask = crypto_shash_alignmask(pdesc->tfm);
-+	struct cmac_desc_ctx *ctx = shash_desc_ctx(pdesc);
-+	int bs = crypto_shash_blocksize(pdesc->tfm);
-+	u8 *prev = PTR_ALIGN(&ctx->ctx[0], alignmask + 1) + bs;
-+
-+	ctx->len = 0;
-+	memset(prev, 0, bs);
-+
-+	return 0;
-+}
-+
-+static int crypto_cmac_digest_update(struct shash_desc *pdesc, const u8 *p,
-+					  unsigned int len)
-+{
-+	struct crypto_shash *parent = pdesc->tfm;
-+	unsigned long alignmask = crypto_shash_alignmask(parent);
-+	struct cmac_tfm_ctx *tctx = crypto_shash_ctx(parent);
-+	struct cmac_desc_ctx *ctx = shash_desc_ctx(pdesc);
-+	struct crypto_cipher *tfm = tctx->child;
-+	int bs = crypto_shash_blocksize(parent);
-+	u8 *odds = PTR_ALIGN(&ctx->ctx[0], alignmask + 1);
-+	u8 *prev = odds + bs;
-+
-+	/* checking the data can fill the block */
-+	if ((ctx->len + len) <= bs) {
-+		memcpy(odds + ctx->len, p, len);
-+		ctx->len += len;
-+		return 0;
-+	}
-+
-+	/* filling odds with new data and encrypting it */
-+	memcpy(odds + ctx->len, p, bs - ctx->len);
-+	len -= bs - ctx->len;
-+	p += bs - ctx->len;
-+
-+	crypto_xor(prev, odds, bs);
-+	crypto_cipher_encrypt_one(tfm, prev, prev);
-+
-+	/* clearing the length */
-+	ctx->len = 0;
-+
-+	/* encrypting the rest of data */
-+	while (len > bs) {
-+		crypto_xor(prev, p, bs);
-+		crypto_cipher_encrypt_one(tfm, prev, prev);
-+		p += bs;
-+		len -= bs;
-+	}
-+
-+	/* keeping the surplus of blocksize */
-+	if (len) {
-+		memcpy(odds, p, len);
-+		ctx->len = len;
-+	}
-+
-+	return 0;
-+}
-+
-+static int crypto_cmac_digest_final(struct shash_desc *pdesc, u8 *out)
-+{
-+	struct crypto_shash *parent = pdesc->tfm;
-+	unsigned long alignmask = crypto_shash_alignmask(parent);
-+	struct cmac_tfm_ctx *tctx = crypto_shash_ctx(parent);
-+	struct cmac_desc_ctx *ctx = shash_desc_ctx(pdesc);
-+	struct crypto_cipher *tfm = tctx->child;
-+	int bs = crypto_shash_blocksize(parent);
-+	u8 *consts = PTR_ALIGN(&tctx->ctx[0], alignmask + 1);
-+	u8 *odds = PTR_ALIGN(&ctx->ctx[0], alignmask + 1);
-+	u8 *prev = odds + bs;
-+	unsigned int offset = 0;
-+
-+	if (ctx->len != bs) {
-+		unsigned int rlen;
-+		u8 *p = odds + ctx->len;
-+
-+		*p = 0x80;
-+		p++;
-+
-+		rlen = bs - ctx->len - 1;
-+		if (rlen)
-+			memset(p, 0, rlen);
-+
-+		offset += bs;
-+	}
-+
-+	crypto_xor(prev, odds, bs);
-+	crypto_xor(prev, consts + offset, bs);
-+
-+	crypto_cipher_encrypt_one(tfm, out, prev);
-+
-+	return 0;
-+}
-+
-+static int cmac_init_tfm(struct crypto_tfm *tfm)
-+{
-+	struct crypto_cipher *cipher;
-+	struct crypto_instance *inst = (void *)tfm->__crt_alg;
-+	struct crypto_spawn *spawn = crypto_instance_ctx(inst);
-+	struct cmac_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
-+
-+	cipher = crypto_spawn_cipher(spawn);
-+	if (IS_ERR(cipher))
-+		return PTR_ERR(cipher);
-+
-+	ctx->child = cipher;
-+
-+	return 0;
-+};
-+
-+static void cmac_exit_tfm(struct crypto_tfm *tfm)
-+{
-+	struct cmac_tfm_ctx *ctx = crypto_tfm_ctx(tfm);
-+	crypto_free_cipher(ctx->child);
-+}
-+
-+static int cmac_create(struct crypto_template *tmpl, struct rtattr **tb)
-+{
-+	struct shash_instance *inst;
-+	struct crypto_alg *alg;
-+	unsigned long alignmask;
-+	int err;
-+
-+	err = crypto_check_attr_type(tb, CRYPTO_ALG_TYPE_SHASH);
-+	if (err)
-+		return err;
-+
-+	alg = crypto_get_attr_alg(tb, CRYPTO_ALG_TYPE_CIPHER,
-+				  CRYPTO_ALG_TYPE_MASK);
-+	if (IS_ERR(alg))
-+		return PTR_ERR(alg);
-+
-+	switch (alg->cra_blocksize) {
-+	case 16:
-+		break;
-+	default:
-+		goto out_put_alg;
-+	}
-+
-+	inst = shash_alloc_instance("cmac", alg);
-+	err = PTR_ERR(inst);
-+	if (IS_ERR(inst))
-+		goto out_put_alg;
-+
-+	err = crypto_init_spawn(shash_instance_ctx(inst), alg,
-+				shash_crypto_instance(inst),
-+				CRYPTO_ALG_TYPE_MASK);
-+	if (err)
-+		goto out_free_inst;
-+
-+	alignmask = alg->cra_alignmask | 3;
-+	inst->alg.base.cra_alignmask = alignmask;
-+	inst->alg.base.cra_priority = alg->cra_priority;
-+	inst->alg.base.cra_blocksize = alg->cra_blocksize;
-+
-+	inst->alg.digestsize = alg->cra_blocksize;
-+	inst->alg.descsize = ALIGN(sizeof(struct cmac_desc_ctx),
-+					crypto_tfm_ctx_alignment()) +
-+				  (alignmask &
-+					~(crypto_tfm_ctx_alignment() - 1)) +
-+				  alg->cra_blocksize * 2;
-+
-+	inst->alg.base.cra_ctxsize = ALIGN(sizeof(struct cmac_tfm_ctx),
-+						alignmask + 1) +
-+					  alg->cra_blocksize * 2;
-+	inst->alg.base.cra_init = cmac_init_tfm;
-+	inst->alg.base.cra_exit = cmac_exit_tfm;
-+
-+	inst->alg.init = crypto_cmac_digest_init;
-+	inst->alg.update = crypto_cmac_digest_update;
-+	inst->alg.final = crypto_cmac_digest_final;
-+	inst->alg.setkey = crypto_cmac_digest_setkey;
-+
-+	err = shash_register_instance(tmpl, inst);
-+	if (err) {
-+out_free_inst:
-+		shash_free_instance(shash_crypto_instance(inst));
-+	}
-+
-+out_put_alg:
-+	crypto_mod_put(alg);
-+	return err;
-+}
-+
-+static struct crypto_template crypto_cmac_tmpl = {
-+	.name = "cmac",
-+	.create = cmac_create,
-+	.free = shash_free_instance,
-+	.module = THIS_MODULE,
-+};
-+
-+static int __init crypto_cmac_module_init(void)
-+{
-+	return crypto_register_template(&crypto_cmac_tmpl);
-+}
-+
-+static void __exit crypto_cmac_module_exit(void)
-+{
-+	crypto_unregister_template(&crypto_cmac_tmpl);
-+}
-+
-+module_init(crypto_cmac_module_init);
-+module_exit(crypto_cmac_module_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("CMAC keyed hash algorithm");
-diff --git a/crypto/testmgr.c b/crypto/testmgr.c
-index edf4a08..6de7994 100644
---- a/crypto/testmgr.c
-+++ b/crypto/testmgr.c
-@@ -2859,6 +2859,15 @@ static const struct alg_test_desc alg_test_descs[] = {
- 			}
- 		}
- 	}, {
-+		.alg = "cmac(aes)",
-+		.test = alg_test_hash,
-+		.suite = {
-+			.hash = {
-+				.vecs = aes_cmac128_tv_template,
-+				.count = CMAC_AES_TEST_VECTORS
-+			}
-+		}
-+	}, {
- 		.alg = "xcbc(aes)",
- 		.test = alg_test_hash,
- 		.suite = {
-diff --git a/crypto/testmgr.h b/crypto/testmgr.h
-index b5721e0..9688bfe 100644
---- a/crypto/testmgr.h
-+++ b/crypto/testmgr.h
-@@ -1639,6 +1639,58 @@ static struct hash_testvec hmac_sha256_tv_template[] = {
- 	},
- };
+diff --git a/drivers/staging/et131x/Makefile b/drivers/net/ethernet/agere/Makefile
+similarity index 98%
+rename from drivers/staging/et131x/Makefile
+rename to drivers/net/ethernet/agere/Makefile
+index 027ff94..740f413 100644
+--- a/drivers/staging/et131x/Makefile
++++ b/drivers/net/ethernet/agere/Makefile
+@@ -3,3 +3,4 @@
+ #
  
-+#define CMAC_AES_TEST_VECTORS 4
+ obj-$(CONFIG_ET131X) += et131x.o
 +
-+static struct hash_testvec aes_cmac128_tv_template[] = {
-+	{
-+		.key  = "\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab"
-+		"\xf7\x15\x88\x09\xcf\x4f\x3c",
-+		.plaintext = zeroed_string,
-+		.digest = "\xbb\x1d\x69\x29\xe9\x59\x37\x28\x7f"
-+		"\xa3\x7d\x12\x9b\x75\x67\x46",
-+		.psize   = 0,
-+		.ksize   = 16,
-+	},
-+
-+	{
-+		.key       = "\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7"
-+		"\x15\x88\x09\xcf\x4f\x3c",
-+		.plaintext = "\x6b\xc1\xbe\xe2\x2e\x40\x9f\x96\xe9\x3d"
-+		"\x7e\x11\x73\x93\x17\x2a",
-+		.digest    = "\x07\x0a\x16\xb4\x6b\x4d\x41\x44\xf7\x9b"
-+		"\xdd\x9d\xd0\x4a\x28\x7c",
-+		.psize   = 16,
-+		.ksize   = 16,
-+	},
-+
-+	{
-+		.key  = "\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7"
-+		"\x15\x88\x09\xcf\x4f\x3c",
-+		.plaintext = "\x6b\xc1\xbe\xe2\x2e\x40\x9f\x96\xe9"
-+		"\x3d\x7e\x11\x73\x93\x17"
-+		"\x2a\xae\x2d\x8a\x57\x1e\x03\xac\x9c\x9e\xb7\x6f\xac\x45\xaf"
-+		"\x8e\x51\x30\xc8\x1c\x46\xa3\x5c\xe4\x11",
-+		.digest    = "\xdf\xa6\x67\x47\xde\x9a\xe6\x30\x30\xca\x32"
-+		"\x61\x14\x97\xc8\x27",
-+		.psize   = 40,
-+		.ksize   = 16,
-+	},
-+	{
-+		.key  = "\x2b\x7e\x15\x16\x28\xae\xd2\xa6\xab\xf7"
-+		"\x15\x88\x09\xcf\x4f\x3c",
-+		.plaintext = "\x6b\xc1\xbe\xe2\x2e\x40\x9f\x96\xe9"
-+		"\x3d\x7e\x11\x73\x93\x17"
-+		"\x2a\xae\x2d\x8a\x57\x1e\x03\xac\x9c\x9e\xb7\x6f\xac\x45\xaf"
-+		"\x8e\x51\x30\xc8\x1c\x46\xa3\x5c\xe4\x11\xe5\xfb\xc1\x19\x1a"
-+		"\x0a\x52\xef\xf6\x9f\x24\x45\xdf\x4f\x9b\x17\xad\x2b\x41\x7b"
-+		"\xe6\x6c\x37\x10",
-+		.digest    = "\x51\xf0\xbe\xbf\x7e\x3b\x9d\x92\xfc\x49\x74"
-+		"\x17\x79\x36\x3c\xfe",
-+		.psize   = 64,
-+		.ksize   = 16,
-+	},
-+};
-+
- #define XCBC_AES_TEST_VECTORS 6
+diff --git a/drivers/staging/et131x/et131x.c b/drivers/net/ethernet/agere/et131x.c
+similarity index 100%
+rename from drivers/staging/et131x/et131x.c
+rename to drivers/net/ethernet/agere/et131x.c
+diff --git a/drivers/staging/et131x/et131x.h b/drivers/net/ethernet/agere/et131x.h
+similarity index 100%
+rename from drivers/staging/et131x/et131x.h
+rename to drivers/net/ethernet/agere/et131x.h
+diff --git a/drivers/staging/Kconfig b/drivers/staging/Kconfig
+index 0b47a06..5dee726 100644
+--- a/drivers/staging/Kconfig
++++ b/drivers/staging/Kconfig
+@@ -24,8 +24,6 @@ menuconfig STAGING
  
- static struct hash_testvec aes_xcbc128_tv_template[] = {
-diff --git a/include/uapi/linux/pfkeyv2.h b/include/uapi/linux/pfkeyv2.h
-index 0b80c80..d61898e 100644
---- a/include/uapi/linux/pfkeyv2.h
-+++ b/include/uapi/linux/pfkeyv2.h
-@@ -296,6 +296,7 @@ struct sadb_x_kmaddress {
- #define SADB_X_AALG_SHA2_512HMAC	7
- #define SADB_X_AALG_RIPEMD160HMAC	8
- #define SADB_X_AALG_AES_XCBC_MAC	9
-+#define SADB_X_AALG_AES_CMAC_MAC	10
- #define SADB_X_AALG_NULL		251	/* kame */
- #define SADB_AALG_MAX			251
+ if STAGING
  
-diff --git a/net/xfrm/xfrm_algo.c b/net/xfrm/xfrm_algo.c
-index 4ce2d93..bd6f227 100644
---- a/net/xfrm/xfrm_algo.c
-+++ b/net/xfrm/xfrm_algo.c
-@@ -265,6 +265,23 @@ static struct xfrm_algo_desc aalg_list[] = {
- 	}
- },
- {
-+	.name = "cmac(aes)",
-+
-+	.uinfo = {
-+		.auth = {
-+			.icv_truncbits = 96,
-+			.icv_fullbits = 128,
-+		}
-+	},
-+
-+	.desc = {
-+		.sadb_alg_id = SADB_X_AALG_AES_CMAC_MAC,
-+		.sadb_alg_ivlen = 0,
-+		.sadb_alg_minbits = 128,
-+		.sadb_alg_maxbits = 128
-+	}
-+},
-+{
- 	.name = "xcbc(aes)",
+-source "drivers/staging/et131x/Kconfig"
+-
+ source "drivers/staging/slicoss/Kconfig"
  
- 	.uinfo = {
+ source "drivers/staging/usbip/Kconfig"
+diff --git a/drivers/staging/Makefile b/drivers/staging/Makefile
+index b026ea3..6983d77 100644
+--- a/drivers/staging/Makefile
++++ b/drivers/staging/Makefile
+@@ -5,7 +5,6 @@ obj-$(CONFIG_STAGING)		+= staging.o
+ 
+ obj-y				+= media/
+ obj-y				+= net/
+-obj-$(CONFIG_ET131X)		+= et131x/
+ obj-$(CONFIG_SLICOSS)		+= slicoss/
+ obj-$(CONFIG_USBIP_CORE)	+= usbip/
+ obj-$(CONFIG_W35UND)		+= winbond/
+diff --git a/drivers/staging/et131x/Kconfig b/drivers/staging/et131x/Kconfig
+deleted file mode 100644
+index 8190f2a..0000000
+--- a/drivers/staging/et131x/Kconfig
++++ /dev/null
+@@ -1,10 +0,0 @@
+-config ET131X
+-	tristate "Agere ET-1310 Gigabit Ethernet support"
+-	depends on PCI && NET && NETDEVICES
+-	select PHYLIB
+-	default n
+-	---help---
+-	  This driver supports Agere ET-1310 ethernet adapters.
+-
+-	  To compile this driver as a module, choose M here. The module
+-	  will be called et131x.
+diff --git a/drivers/staging/et131x/README b/drivers/staging/et131x/README
+deleted file mode 100644
+index 38537d4..0000000
+--- a/drivers/staging/et131x/README
++++ /dev/null
+@@ -1,16 +0,0 @@
+-This is a driver for the ET1310 network device.
+-
+-Based on the driver found at https://sourceforge.net/projects/et131x/
+-
+-Cleaned up immensely by Olaf Hartman and Christoph Hellwig <hch@infradead.org>
+-
+-Note, the powermanagement options were removed from the vendor provided
+-driver as they did not build properly at the time.
+-
+-TODO:
+-	- some rx packets have CRC/code/frame errors
+-
+-Please send patches to:
+-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+-	Mark Einon <mark.einon@gmail.com>
+-
 -- 
-1.8.1.rc2.6.g18499ba
+1.7.10.4
