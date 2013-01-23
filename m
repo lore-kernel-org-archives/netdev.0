@@ -1,65 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux 3.6.x kernel crash in tcp_slow_start / bictcp_cong_avoid
- with wfica
-Date: Wed, 23 Jan 2013 14:25:44 -0800
-Message-ID: <1358979944.12374.1143.camel@edumazet-glaptop>
-References: <20130123161238.GE8912@reaktio.net>
-	 <20130123214445.GA16641@order.stressinduktion.org>
-	 <20130123215151.GF8912@reaktio.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [RFC PATCH v2 10/10] ixgbe: Add support for set_channels ethtool
+ operation
+Date: Wed, 23 Jan 2013 14:31:49 -0800
+Message-ID: <510064D5.2020905@intel.com>
+References: <20130110184115.29578.85768.stgit@ahduyck-cp1.jf.intel.com>  <20130110185846.29578.94872.stgit@ahduyck-cp1.jf.intel.com>  <1358353157.2923.18.camel@bwh-desktop.uk.solarflarecom.com>  <1358353807.29335.1.camel@ppwaskie-mobl2> <1358976045.2658.18.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"therbert@google.com" <therbert@google.com>,
+	"ycai@google.com" <ycai@google.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:39953 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718Ab3AWWZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 17:25:46 -0500
-Received: by mail-pb0-f51.google.com with SMTP id ro12so4971302pbb.10
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 14:25:46 -0800 (PST)
-In-Reply-To: <20130123215151.GF8912@reaktio.net>
+Received: from mga01.intel.com ([192.55.52.88]:30937 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751388Ab3AWWbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 17:31:50 -0500
+In-Reply-To: <1358976045.2658.18.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 23:51 +0200, Pasi K=C3=A4rkk=C3=A4inen wrote:
-> On Wed, Jan 23, 2013 at 10:44:45PM +0100, Hannes Frederic Sowa wrote:
-> > On Wed, Jan 23, 2013 at 06:12:38PM +0200, Pasi K=C3=A4rkk=C3=A4inen=
- wrote:
-> > > My laptop running Fedora 17 randomly crashes when using wfica (Ci=
-trix Receiver / ICA Client)=20
-> > > proprietary closed source client for accessing remote desktop ser=
-ver.=20
-> > > wfica is running as a normal user, so it shouldn't be able to cau=
-se a kernel crash.=20
-> > >=20
-> > > Crashes seem to happen most often when I use either wlan- or 3G m=
-obile data Internet connection.=20
-> > > These kernel crashes happen ramdomly, often 1-2 times a week.=20
-> > > What usually happens is that I notice the Internet connection has=
- died,=20
-> > > and when I check the kernel dmesg I'm seeing the traceback.=20
-> > > At this point I'm still able to use the gnome desktop for maybe 1=
--5 minutes,=20
-> > > but applications start to fail one by one, and finally everything=
- just halts=20
-> > > and I need to power cycle the laptop.=20
-> >=20
-> > Would it be possible to capture a strace -e network, so we could se=
-e which
-> > setsockopt combinations are being applied to the socket. Is capturi=
-ng ss -ioem
-> > in such moments still possible?
-> >=20
->=20
-> I don't think I'm able to strace or anything at that point..=20
-> It took me at least 10 tries (=3Dcrashes) before I was able to "dmesg=
- > log.txt" successfully ..=20
-> (usually writing/redirecting to a file fails because the disk/fs is a=
-lready unavailable..)
->=20
-> I can always try though!
->=20
-> Any other ideas?
+On 01/23/2013 01:20 PM, Ben Hutchings wrote:
+> On Wed, 2013-01-16 at 16:30 +0000, Waskiewicz Jr, Peter P wrote:
+>> On Wed, 2013-01-16 at 16:19 +0000, Ben Hutchings wrote:
+>>> On Thu, 2013-01-10 at 10:58 -0800, Alexander Duyck wrote:
+>>>> This change adds support for the ethtool set_channels operation.
+>>>>
+>>>> Since the ixgbe driver has to support DCB as well as the other modes the
+>>>> assumption I made here is that the number of channels in DCB modes refers
+>>>> to the number of queues per traffic class, not the number of queues total.
+>>>>
+>>>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>>> In DCB mode are there separate IRQs for the different classes?
+>> Yes.  The Rx packet buffer is split into multiple packet buffers, one
+>> for each online class.  After that, it's just queues assigned to the
+>> packet buffers, and interrupts assigned however you want them to be.
+> Right, I think we've been through this before.  And I can see how it
+> would be more useful for users to specify number of RX queues per
+> priority level.  But that's not what was specified...
+>
+> I'm afraid the 'channels' ethtool operations have turned into a mess...
+> I can't see how to get to a reasonable generic definition of what they
+> should do.
+>
+> Ben.
 
-Something sets tp->snd_cwnd to 0, and thats a bug.
+Actually it looks like most of the drivers (I looked at bnx, bnx2x, tg3,
+and qlcnic) are using the set_queues call in a similar way.  What they
+end up doing is using the value and plugging it into their TSS/RSS
+fields in their private structures.  From what I can tell in
+bnx2x_setup_tc they may do exactly the same thing we are currently doing
+for DCB since they use the BNX2X_NUM_ETH_QUEUES value that they set in
+their set_channels call to set the number of queues they use per traffic
+class.  I would say the usage is actually pretty consistent between
+bnx2x and ixgbe based on this, even if it isn't exactly correct.
+
+For now I would say all of the drivers are using the set_channels
+operation to specify the number of Tx/Rx queues, or queue pairs per
+traffic class.  So for non-DCB NICs this means it is setting exactly
+that number of queues, and for DCB capable nics it means num_tcs times
+the specified number of queues.
+
+Thanks,
+
+Alex
