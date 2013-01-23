@@ -1,65 +1,37 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] via-rhine: add 64bit statistics.
-Date: Wed, 23 Jan 2013 06:38:04 -0800
-Message-ID: <1358951884.12374.790.camel@edumazet-glaptop>
-References: <50fff42d.094e640a.3ace.6ae4@mx.google.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Wed, 23 Jan 2013 06:42:02 -0800
+Message-ID: <1358952122.12374.791.camel@edumazet-glaptop>
+References: <50FDADF4.3060601@candelatech.com>
+	 <50FDDE35.7070806@candelatech.com>
+	 <1358829606.3464.3151.camel@edumazet-glaptop>
+	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
+	 <1358875020.3464.4006.camel@edumazet-glaptop>
+	 <1358875607.3464.4020.camel@edumazet-glaptop>
+	 <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>
+	 <1358921493.12374.737.camel@edumazet-glaptop>
+	 <50FF8DEC.9070901@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Jamie Gloudon <jamie.gloudon@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:63067 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750845Ab3AWOiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 09:38:08 -0500
-Received: by mail-da0-f53.google.com with SMTP id x6so3812387dac.26
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 06:38:07 -0800 (PST)
-In-Reply-To: <50fff42d.094e640a.3ace.6ae4@mx.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <50FF8DEC.9070901-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-01-23 at 10:31 -0400, Jamie Gloudon wrote:
-> Switch to use ndo_get_stats64 to get 64bit statistics.
-> 
-> Signed-off-by: Jamie Gloudon <jamie.gloudon@gmail.com>
-> ---
+On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
 
-> +
-> +	stats->rx_errors = dev->stats.rx_errors;
-> +	stats->tx_errors = dev->stats.tx_errors;
-> +	stats->rx_dropped = dev->stats.rx_dropped;
-> +	stats->tx_dropped = dev->stats.tx_dropped;
-> +	stats->collisions = dev->stats.collisions;
-> +
-> +	stats->rx_length_errors = dev->stats.rx_length_errors;
-> +	stats->rx_crc_errors = dev->stats.rx_crc_errors;
-> +	stats->rx_frame_errors = dev->stats.rx_frame_errors;
-> +	stats->rx_fifo_errors = dev->stats.rx_fifo_errors;
-> +	stats->rx_missed_errors = dev->stats.rx_missed_errors;
-> +
-> +	stats->tx_aborted_errors = dev->stats.tx_aborted_errors;
-> +	stats->tx_carrier_errors = dev->stats.tx_carrier_errors;
-> +	stats->tx_fifo_errors = dev->stats.tx_fifo_errors;
-> +	stats->tx_heartbeat_errors = dev->stats.tx_heartbeat_errors;
-> +	stats->tx_window_errors = dev->stats.tx_window_errors;
-> +
-> +	return stats;
->  }
->  
+> I suspect the bug goes back at least as far as 3.3.  And since
+> I need the NFS patches for this test case, bisecting will be pure hell.
 
-Hi Jamie
+Make sure the bug is still present in net-next.
 
-Please use netdev_stats_to_stats64() for this block
 
-commit 77a1abf54f4b003ad6e59c535045b2ad89fedfeb
-Author: Eric Dumazet <eric.dumazet@gmail.com>
-Date:   Mon Mar 5 04:50:09 2012 +0000
-
-    net: export netdev_stats_to_stats64
-    
-    Some drivers use internal netdev stats member to store part of their
-    stats, yet advertize ndo_get_stats64() to implement some 64bit fields.
-    
-    Allow them to use netdev_stats_to_stats64() helper to make the copy of
-    netdev stats before they compute their 64bit counters.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
