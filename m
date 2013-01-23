@@ -1,55 +1,30 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
- traffic.
-Date: Wed, 23 Jan 2013 10:15:03 -0800
-Message-ID: <510028A7.1080902@candelatech.com>
-References: <50FDADF4.3060601@candelatech.com>  <50FDDE35.7070806@candelatech.com>  <1358829606.3464.3151.camel@edumazet-glaptop>  <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>  <1358875020.3464.4006.camel@edumazet-glaptop>  <1358875607.3464.4020.camel@edumazet-glaptop>  <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>  <1358921493.12374.737.camel@edumazet-glaptop>  <50FF8DEC.9070901@candelatech.com> <1358948110.12374.748.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] via-rhine: add 64bit statistics.
+Date: Wed, 23 Jan 2013 13:25:10 -0500 (EST)
+Message-ID: <20130123.132510.2201341690951175104.davem@davemloft.net>
+References: <50fff42d.094e640a.3ace.6ae4@mx.google.com>
+	<1358951884.12374.790.camel@edumazet-glaptop>
+	<510004a3.2444ec0a.1ba7.ffff98b3@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1358948110.12374.748.camel@edumazet-glaptop>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-On 01/23/2013 05:35 AM, Eric Dumazet wrote:
-> On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
->
->> How are the non-ref-counted dst objects used safely?  Any chance
->> that tearing down the IP protocol on a device (or deleting a device)
->> could delete a dst that is referenced by an skb (and thus crashes as
->> I see)?
->
-> There is probably a bug. Normally it should be RCU protected.
-
-I'm building net-next, and will do some testing on it later today
-if all goes well.
-
-In the meantime, a few questions about RCU.
-
-If the non-ref-counted dst is protected by RCU, does that mean
-that from the time we acquire the pointer (ie, set it in the skb),
-to the time we clear the pointer from the skb, we must be under
-RCU read lock?
-
-If so, that means that ip_rcv_finish must be called under RCU
-read lock, etc?
-
-Btw, this seems non related to NFS, so I'm dropping them
-from CC after this email unless I hear a request otherwise.
-
-Thanks,
-Ben
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: jamie.gloudon@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39954 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754381Ab3AWSZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 13:25:12 -0500
+In-Reply-To: <510004a3.2444ec0a.1ba7.ffff98b3@mx.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
+Please don't submit new versions of patchs using a reply like this,
+that makes for a lot of work the subsystem maintainer has to do
+to edit the reply to get the commit message to come out right.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Instead, make a fresh new patch posting on the list so that everything
+comes out right and your intentions are %100 clear.
+
+Thanks.
