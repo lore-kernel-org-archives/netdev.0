@@ -1,39 +1,93 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Unix Socket buffer attribution
-Date: Wed, 23 Jan 2013 19:35:53 +0100
-Message-ID: <20130123183553.GA13433@order.stressinduktion.org>
-References: <CAJ4BwwFZo=ktoNBpw14yxyvR1QPQ_xVzKRs=R7qv03g1uwn8pg@mail.gmail.com> <CAJ4BwwFYKYOJoP34cGqWyE_AzxMwDNqFG-XDjLB6ZdO4nQmY4w@mail.gmail.com>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll: Implement
+ basic statistics
+Date: Wed, 23 Jan 2013 18:46:37 +0000
+Message-ID: <FD9AD8C5375B924CABC56D982DB3A802079D33CE@EXMB1.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org
-To: Yannick Koehler <yannick@koehler.name>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Doong, Ping" <Ping.Doong@Micrel.Com>,
+	"Choi, David" <David.Choi@Micrel.Com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"joe@perches.com" <joe@perches.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:46961 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750839Ab3AWSfy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 13:35:54 -0500
-Content-Disposition: inline
-In-Reply-To: <CAJ4BwwFYKYOJoP34cGqWyE_AzxMwDNqFG-XDjLB6ZdO4nQmY4w@mail.gmail.com>
+Received: from p01c12o145.mxlogic.net ([208.65.145.68]:47306 "EHLO
+	p01c12o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839Ab3AWSqu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 13:46:50 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 23, 2013 at 11:41:16AM -0500, Yannick Koehler wrote:
-> I did some more research, I found out that netlink and
-> sock_queue_err_skb does the same trick that I claim to be missing
-> under the net/unix/af_unix.c.  After adding the code, I got a problem
-> since af_unix.c "_recvmsg()" functions assume that the skb->sk is
-> holding the peer socket not the current one related to the receive
-> skb.  It extract the sun_path name from it.  Since with UDP each
-> packet may have a different peer, the only solution I found was to use
-> the skb control block to hold the peer name.  The problem is that this
-> cb member is 48 bytes in length and sun_path is 108 bytes in size.  So
-> I had to increase it from 48 to 160 bytes.
-> 
-> This obviously increase the cost of an SKB struct, so I do not really
-> like this solution. But at least it seems to prove my point and now,
-> with this I can have my clients working except the one mis-behaving.
-> I am attaching a patch.
+From: David J. Choi <david.choi@micrel.com>
+ 
+Summary of changes:
+  add codes to collect basic statistical information about Ethernet packets.
+ 
+Signed-off-by: David J. Choi <david.choi@micrel.com>
+---
 
-Yes, you cannot do that. I would try to place a refcounted pointer to the
-original sk in unix_skb_params. Perhaps a refcounted unix_address will dot the
-trick, too.
+--- net-next/drivers/net/ethernet/micrel/ks8851_mll.c.orig	2013-01-22 17:25:59.000000000 -0800
++++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-23 10:31:24.000000000 -0800
+@@ -793,17 +793,35 @@ static void ks_rcv(struct ks_net *ks, st
+ 	frame_hdr = ks->frame_head_info;
+ 	while (ks->frame_cnt--) {
+ 		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
+-		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
++		if (unlikely(!skb)) {
++			/* discard the packet from the device */
++			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
++			netdev->stats.rx_dropped++;
++		}
++
++		else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
+ 			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
+ 			skb_reserve(skb, 2);
+ 			/* read data block including CRC 4 bytes */
+ 			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
+-			skb_put(skb, frame_hdr->len);
++
++			/* exclude the size of CRC */
++			skb_put(skb, frame_hdr->len - 4);
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 			netif_rx(skb);
++			netdev->stats.rx_packets++;
++
++			/* crc field */
++			netdev->stats.rx_bytes += frame_hdr->len - 4;
+ 		} else {
+-			pr_err("%s: err:skb alloc\n", __func__);
+-			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
++			/* discard the packet from the device */
++			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
++			netdev->stats.rx_dropped++;
++			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
++				netdev->stats.rx_length_errors++;
++			if (!(frame_hdr->sts & RXFSHR_RXFV))
++				netdev->stats.rx_frame_errors++;
++
+ 			if (skb)
+ 				dev_kfree_skb_irq(skb);
+ 		}
+@@ -876,6 +894,8 @@ static irqreturn_t ks_irq(int irq, void 
+ 		pmecr &= ~PMECR_WKEVT_MASK;
+ 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
+ 	}
++	if (unlikely(status & IRQ_RXOI))
++		ks->netdev->stats.rx_over_errors++;
+ 
+ 	/* this should be the last in IRQ handler*/
+ 	ks_restore_cmd_reg(ks);
+@@ -1015,6 +1035,8 @@ static int ks_start_xmit(struct sk_buff 
+ 
+ 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
+ 		ks_write_qmu(ks, skb->data, skb->len);
++		netdev->stats.tx_bytes += skb->len;
++		netdev->stats.tx_packets++;
+ 		dev_kfree_skb(skb);
+ 	} else
+ 		retv = NETDEV_TX_BUSY;
+
+---
