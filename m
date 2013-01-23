@@ -1,48 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Patch net-next] net: add RCU annotation to sk_dst_cache field
-Date: Tue, 22 Jan 2013 20:50:59 -0800
-Message-ID: <1358916659.12374.684.camel@edumazet-glaptop>
-References: <1358916229-19004-1-git-send-email-amwang@redhat.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: manual merge of the staging tree with the net-next
+ tree
+Date: Tue, 22 Jan 2013 20:52:42 -0800
+Message-ID: <20130123045242.GA3309@kroah.com>
+References: <20130123154525.9f1bd6652f13f2a7a8202bf6@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:44584 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752872Ab3AWEvD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:51:03 -0500
-Received: by mail-pb0-f52.google.com with SMTP id ro2so4452708pbb.39
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 20:51:02 -0800 (PST)
-In-Reply-To: <1358916229-19004-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Fainelli <florian@openwrt.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Mark Einon <mark.einon@gmail.com>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130123154525.9f1bd6652f13f2a7a8202bf6@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-01-23 at 12:43 +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
+On Wed, Jan 23, 2013 at 03:45:25PM +1100, Stephen Rothwell wrote:
+> Hi Greg,
 > 
-> sock->sk_dst_cache is protected by RCU.
+> Today's linux-next merge of the staging tree got a conflict in
+> drivers/staging/et131x/et131x.c between commit f9a8f83b04e0 ("net: phy:
+> remove flags argument from phy_{attach, connect, connect_direct}") from
+> the net-next tree and commit 26ef1021c1c7 ("staging: et131x: Modify block
+> comments to fit with networking style") from the staging tree.
 > 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> ---
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 5a34e2f..c4b64c6 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -337,7 +337,7 @@ struct sock {
->  #endif
->  	unsigned long 		sk_flags;
->  	struct dst_entry	*sk_rx_dst;
-> -	struct dst_entry	*sk_dst_cache;
-> +	struct dst_entry __rcu	*sk_dst_cache;
->  	spinlock_t		sk_dst_lock;
->  	atomic_t		sk_wmem_alloc;
->  	atomic_t		sk_omem_alloc;
+> I fixed it up (the former adjusted the white space in the same was as the
+> latter, so I used thet) and can carry the fix as necessary (no action is
+> required).
 
-Thats not a complete patch.
+That sounds good to me, thanks.
 
-You'll have to fix the errors it brings.
+greg k-h
