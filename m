@@ -1,48 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] IP_GRE: Linearize skb before csum.
-Date: Tue, 22 Jan 2013 23:22:35 -0500 (EST)
-Message-ID: <20130122.232235.643904201225800004.davem@davemloft.net>
-References: <20130122.194143.1205292712415183747.davem@davemloft.net>
-	<1358903293.12374.492.camel@edumazet-glaptop>
-	<20130122.204629.607263597214211092.davem@davemloft.net>
+Subject: Re: [Patch net-next] ipv6: remove duplicated declaration of
+ ip6_fragment()
+Date: Tue, 22 Jan 2013 23:22:54 -0500 (EST)
+Message-ID: <20130122.232254.854177940537154867.davem@davemloft.net>
+References: <1358911327-12122-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, pshelar@nicira.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60441 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60456 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753093Ab3AWEWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:22:37 -0500
-In-Reply-To: <20130122.204629.607263597214211092.davem@davemloft.net>
+	with ESMTP id S1752926Ab3AWEWz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jan 2013 23:22:55 -0500
+In-Reply-To: <1358911327-12122-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 22 Jan 2013 20:46:29 -0500 (EST)
+From: Cong Wang <amwang@redhat.com>
+Date: Wed, 23 Jan 2013 11:22:07 +0800
 
-> We can't emit bogus checksums on the wire when this is completely
-> under our control.
+> From: Cong Wang <amwang@redhat.com>
+> 
+> It is declared in:
+> include/net/ip6_route.h:187:int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
+> 
+> and net/ip6_route.h is already included.
+> 
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-BTW consider a legitimate use case where an application has a shared
-memory page between threads that keeps track of statistic counters,
-and it uses sendfile() over an fd backing that mmap()'d area to
-send the statistics out remotely over TCP.
-
-That's completely legitimate.
-
-As is an application constantly overwriting a page in the filesystem
-page cache, and another app doing sendfile() over TCP from that
-area.
-
-In such a situation everyone of your magic retransmits will have a
-bad checksum too.
-
-You can't say that this behavior is anything other than broken, and
-I don't want to be responsible for a system that's doing broken
-things like that.
-
-If your GSO over GRE tunnels stuff fundamentally depends upon this
-magic retransmit fantasy working, then yes we have to disable it
-completely.
+Applied.
