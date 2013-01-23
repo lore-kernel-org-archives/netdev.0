@@ -1,131 +1,257 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: Re: v3 for tcp friends?
-Date: Wed, 23 Jan 2013 17:39:51 +0800
-Message-ID: <50FFAFE7.5030707@gmail.com>
-References: <20120903.154833.1547153833820955116.davem@davemloft.net>  <CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>  <20120904.125841.2293649688957878987.davem@davemloft.net>  <50FCEE64.80203@gmail.com> <50FCEEC5.9010404@gmail.com>  <CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>  <CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>  <50FF5592.60008@gmail.com>  <50FF7F64.2060902@gmail.com> <1358923606.12374.746.camel@edumazet-glaptop> <50FF8F75.4000903@gmail.com> <50FF9836.4060106@gmail.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next 1/3] net: stmmac: add gmac autoneg set for SGMII,
+ TBI, and RTBI
+Date: Wed, 23 Jan 2013 10:42:44 +0100
+Message-ID: <50FFB094.5000100@st.com>
+References: <00c001cdf369$9b25bdf0$d17139d0$@samsung.com> <50F6568D.3060703@st.com> <01e201cdf5a3$1f3e1890$5dba49b0$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Bruce Curtis <brutus@google.com>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:62577 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752439Ab3AWJkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 04:40:05 -0500
-Received: by mail-pa0-f44.google.com with SMTP id hz11so4648863pad.3
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 01:40:04 -0800 (PST)
-In-Reply-To: <50FF9836.4060106@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
+	kgene.kim@samsung.com, cpgs@samsung.com
+To: Byungho An <bh74.an@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <01e201cdf5a3$1f3e1890$5dba49b0$@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:58, Li Yu =E5=86=99=E9=
-=81=93:
-> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:21, Li Yu =E5=86=99=E9=
-=81=93:
->> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 14:46, Eric Dumazet =E5=
-=86=99=E9=81=93:
->>> On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
->>>> Oops, this hang is not since TCP friends patch!
->>>>
->>>> sk_sndbuf_get() is broken by 32 bits integer overflow
->>>> because of so large value in net.ipv4.tcp_{rmem,wmem}.
->>>>
->>>> but this hang also can be found in net-next.git
->>>> (3.8.0-rc3+), if we run below commands, then all new
->>>> TCP connections stop working!
->>>>
->>>> # when TCP friends is disabled
->>>> sysctl -w net.ipv4.tcp_rmem=3D"4096 4294967296 4294967296" # 4GB
->>>> sysctl -w net.ipv4.tcp_wmem=3D"4096 4294967296 4294967296"
->>>
->>> Right we need to make sure we dont overflow.
->>>
->>> Try the following fix :
->>>
->>> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.=
-c
->>> index a25e1d2..1459145 100644
->>> --- a/net/ipv4/sysctl_net_ipv4.c
->>> +++ b/net/ipv4/sysctl_net_ipv4.c
->>> @@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] =3D {
->>>           .data        =3D &sysctl_tcp_wmem,
->>>           .maxlen        =3D sizeof(sysctl_tcp_wmem),
->>>           .mode        =3D 0644,
->>> -        .proc_handler    =3D proc_dointvec
->>> +        .extra1        =3D &zero,
+Hello Byungho
 
-If we added below:
-
-+static int one =3D 1;
-+static int int_max =3D INT_MAX;
-=2E...
-+               .extra1     =3D &one,
-+		.extra2	    =3D &int_max,
-
-The bug is fixed without TCP friends.
-
-Maybe, TCP friends need to use long integer to record result
-of "sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf" ?
-
-BTW: This overflow problem also breaks UDP sockets.
-
-Thanks
-
-Yu
-
->>> +        .proc_handler    =3D proc_dointvec_minmax
->>>       },
->>>       {
->>>           .procname    =3D "tcp_rmem",
->>>           .data        =3D &sysctl_tcp_rmem,
->>>           .maxlen        =3D sizeof(sysctl_tcp_rmem),
->>>           .mode        =3D 0644,
->>> -        .proc_handler    =3D proc_dointvec
->>> +        .extra1        =3D &zero,
->>> +        .proc_handler    =3D proc_dointvec_minmax
->>>       },
->>>       {
->>>           .procname    =3D "tcp_app_win",
->>>
->>>
->>>
->> Thanks for so quick reply, I will test it soon.
->>
->> however I suspect whether this patch could fix overflow if we merged=
- TCP
->> friends patch in future.
->>
+On 1/18/2013 6:41 PM, Byungho An wrote:
+> Hello Peppe,
 >
-> Tested on 3.7.0-rc1+, but bug is still alive
-> with disabled TCP friends ...
+> On 1/15/2013 11:28 PM, Giuseppe CAVALLARO write:
+>> On 1/15/2013 10:45 PM, Byungho An wrote:
+>>>
+>>> This patch adds gmac autoneg set function for SGMII, TBI, or RTBI
+>>> interface. In case of PHY's autoneg is set, gmac's autoneg enable bit
+>>> should set. After checking phy's autoneg if phydev's autoneg is '1'
+>>> gmac's ANE bit set for those interface.
+>>
+>> Sorry I've some doubts about these patches.
+>>
+>> Firstly if the MAC is able to manage RGMII/SGMII etc this should be
+> verified
+>> by looking at the HW cap register: i.e. PCS bit.
+>>
+>>     (I have no HW that support this so I cannot do any tests).
+>>
+> I agree with you and actually I tried to use a PCS bit previously.
+> (PCS bit indicates TBI, SGMII, or RTBI PHY interface)
+> But I was confused which one I should use among PSC, ACTPHYIF or phydev to
+> recognize the interface.
+> At this time, I want to add auto-negotiation enable because sgmii interface
+> is not working without ANE using PCS bit(in H/W feature register).
 >
-> Thanks
+
+really strange, from the synopsys databook we should only look at the RO 
+bit in the HW cap reg just to understand if the feature is supported.
+
+>> In case of this feature is actually supported then the driver could manage
+>> everything bypassing the MDIO.
+>> IMO, we could not need to call the stmmac_phy_init and we should not use
+>> the PHYLIB.
+>> I mean if we have the PCS module we could have a minimal support to get
+>> link status, restart ANE etc w/o using at all the PHYLIB (so w/o touching
+> the
+>> PHY regs via the MDIO/MDC).
+>>
+> Yes. For example SGMII/RGMII/SMII Status Register is useful to know status
+> so we can use this register to manage status of SGMII/RGMII/SMII
 >
-> Yu
 >
->> With TCP friends, we have source like below, or TCP friends should c=
-are
->> this ?
+>>     It could also be useful to complete the support with the RGMII... no
+>>     extra effort should be needed while adding SGMII if you look at the
+>>     core registers.
+>>     If you add the RGMII on some platforms we could guarantee to manage
+>>     the fix_mac_speed (see stmmac doc).
 >>
->> static inline int sk_sndbuf_get(const struct sock *sk)
->> {
->>          if (sk->sk_friend)
->>                  return sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf;
->>          else
->>                  return sk->sk_sndbuf;
->> }
+> Unfortunately I have only the SGMII.
+
+no problem, I'll complete it by my hand later.
+
+>
+>> Looking at the other your patches, the ethtool support is not completed. I
+>> expected to restart ANE, get/set link property etc.
 >>
->> static inline bool sk_stream_memory_free(const struct sock *sk)
->> {
->>          return sk_wmem_queued_get(sk) < sk_sndbuf_get(sk);
->> }
+> What is link property? It means link up, speed and duplex mode.
+> Are there anything else?
+> I think get link property is already working using ethtool.
+> In case of SGMII/RGMII/SMII, I think we can use SGMII/RGMII/SMII Status
+> Register for link status.
+>
+> I have a question regarding it.
+> In the mainline code, there is hardcode interrupt mask in
+> dwmac1000_core_init function.
+> When I try to get interrupt for link change, interrupt is not occurred
+> because of this mask.
+> Can we modify that?
+
+yes you can. I had wrote an initial patch that started doing something.
+I have tested it on my boards and I can send it to the mailing list to 
+be reviewed. Maybe you can build your patch on top of it.
+
+>> Also pay attention to properly treat EEE. Maybe, as first stage we should
+>> disable the feature in this case. We will see it later.
+>> The question is that we could not be able to use some extra features that
+>> currently need to dialog more with the PHY device. I mean what we actually
+>> do by using PHYLIB.
+> OK. As I understood, using gmac register instead of phydev or phylib...
+> I agree. In my opinion gmac and phy communicate using mdio each other, after
+> that gmac can get updated status.
+
+yep, this is the point :-)
+
 >>
->> So sk_sndbuf_get() still may be overflow when we have right value in
->> net.ipv4.tcp_{rmem,wmem}.
+>>>
+>>> Signed-off-by: Byungho An <bh74.an@samsung.com>
+>>> ---
+>>>    drivers/net/ethernet/stmicro/stmmac/common.h         |    1 +
+>>>    drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c |   11
+>> +++++++++++
+>>>    drivers/net/ethernet/stmicro/stmmac/stmmac_main.c    |    9 +++++++++
+>>>    3 files changed, 21 insertions(+)
+>>>
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h
+>>> b/drivers/net/ethernet/stmicro/stmmac/common.h
+>>> index 186d148..72ba769 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/common.h
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+>>> @@ -344,6 +344,7 @@ struct stmmac_ops {
+>>>    	void (*reset_eee_mode) (void __iomem *ioaddr);
+>>>    	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
+>>>    	void (*set_eee_pls) (void __iomem *ioaddr, int link);
+>>> +	void (*set_autoneg) (void __iomem *ioaddr);
+>>>    };
+>>>
+>>>    struct mac_link {
+>>> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>> index bfe0226..a0737b39 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+>>> @@ -297,6 +297,16 @@ static void  dwmac1000_set_eee_timer(void
+>> __iomem
+>>> *ioaddr, int ls, int tw)
+>>>    	writel(value, ioaddr + LPI_TIMER_CTRL);
+>>>    }
+>>>
+>>> +static void dwmac1000_set_autoneg(void __iomem *ioaddr) {
+>>> +	u32 value;
+>>> +
+>>> +	value = readl(ioaddr + GMAC_AN_CTRL);
+>>> +	value |= 0x1000;
 >>
->> Thanks
+>> pls use define instead of raw values ... see below.
+>>
+>>> +	writel(value, ioaddr + GMAC_AN_CTRL); }
+>>> +
+>>> +
+>>>    static const struct stmmac_ops dwmac1000_ops = {
+>>>    	.core_init = dwmac1000_core_init,
+>>>    	.rx_ipc = dwmac1000_rx_ipc_enable,
+>>> @@ -311,6 +321,7 @@ static const struct stmmac_ops dwmac1000_ops = {
+>>>    	.reset_eee_mode =  dwmac1000_reset_eee_mode,
+>>>    	.set_eee_timer =  dwmac1000_set_eee_timer,
+>>>    	.set_eee_pls =  dwmac1000_set_eee_pls,
+>>> +	.set_autoneg =  dwmac1000_set_autoneg,
+>>>    };
+>>>
+>>>    struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr) diff
+>>> --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> index f07c061..3e28934 100644
+>>> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+>>> @@ -1007,6 +1007,7 @@ static int stmmac_open(struct net_device *dev)
+>>>    {
+>>>    	struct stmmac_priv *priv = netdev_priv(dev);
+>>>    	int ret;
+>>> +	int interface = priv->plat->interface;
+>>>
+>>>    	clk_prepare_enable(priv->stmmac_clk);
+>>>
+>>> @@ -1041,6 +1042,14 @@ static int stmmac_open(struct net_device *dev)
+>>>    	/* Initialize the MAC Core */
+>>>    	priv->hw->mac->core_init(priv->ioaddr);
+>>>
+>>> +	/* If phy autoneg is on, set gmac autoneg for SGMII, TBI and RTBI*/
+>>> +	if (interface == PHY_INTERFACE_MODE_SGMII ||
+>>> +	    interface == PHY_INTERFACE_MODE_TBI ||
+>>> +	    interface == PHY_INTERFACE_MODE_RTBI) {
+>>> +		if (priv->phydev->autoneg)
+>>> +			priv->hw->mac->set_autoneg(priv->ioaddr);
+>>> +	}
+>>
+>> we could use the following instead of priv->hw->mac->set_autoneg:
+>>
+>> static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart) {
+>>       int value = GMAC_CTRL_ANE_EN;
+>>
+>>       if (restart)
+>>           value |= GMAC_CTRL_ANE_RESTART;
+>>
+>>       writel(value, ioaddr +GMAC_AN_CTRL); }
+>>
+>> where we should defines all the missing macros for the registers 48, 49
+> ...
+> Actually I tested this code for restart autonegotiation, but even though I
+> changed link (1Gb -> 100Mb) phy's link is not changed.
+> For more detail, first time 1Gb I changed the link during system working and
+> then check speed using ethtool/mii-tool.
+> I think phy also should do autonegotiation (I'm not sure this is just for
+> the SGMII). Without phy auto negotiation  gmac is not working.
+>
+> OK, I'll try to check functionality and make macros.
+> Anyway as a first step, I want to complete to the code regarding ANE (ctrl
+> function, macros, ethtool support for link status etc..)
+> I'll send new code before making patch soon.
+
+thanks you
+
+>>
+>> /* RGMI/SGMII defines */
+>> #define GMAC_CTRL_ANE_SGMII_RAL (1 << 18)
+>> #define GMAC_CTRL_ANE_EN       (1 << 12)
+>> #define GMAC_CTRL_ANE_RESTART  (1 << 9)
+>>
+>> The handler should store the link status that will be used to pass the
+> info to
+>> the ethtool for example. We need to manage speed and duplex etc.
+>>
+>> What happens if you run "ethtool eth0" command?
+>> Or if you run mii-tool?
+>> I expect to get the right speed and duplex at least.
+> So far, I can get right data speed and duplex and autoneg.
+>
+>>
+>> Concerning the stmmac_set_pauseparam I'm also not sure you are doing the
+>> right thing. Note that you are not restarting the ANE at all ... (this is
+> what the
+>> phy_start_aneg does). If set the bit 12 then you are enabling the ane. To
+>> restart it, you need to set the bit 9 in the reg 48.
+>>
+>> I can support you on all the points above. Let me know.
+>>
+>> BR,
+>> peppe
+>>
+> OK, thank you and happy new year.
+
+Also to you :-)
+
+let me know for any progresses etc.
+
+Peppe
+
+> Byungho An
+>
+>>> +
+>>>    	/* Request the IRQ lines */
+>>>    	ret = request_irq(dev->irq, stmmac_interrupt,
+>>>    			 IRQF_SHARED, dev->name, dev);
+>>>
+>
+>
 >
