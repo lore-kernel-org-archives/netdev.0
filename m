@@ -1,55 +1,77 @@
-From: <xufengzhang.main@gmail.com>
-Subject: [PATCH] sctp: set association state to established in dupcook_a handler
-Date: Wed, 23 Jan 2013 15:38:40 +0800
-Message-ID: <1358926720-25557-1-git-send-email-xufengzhang.main@gmail.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH 1/2 net-next] net: fec: add napi support to improve proformance
+Date: Wed, 23 Jan 2013 15:37:43 +0800
+Message-ID: <CAHrpEqTqSfBCpoMZ9S81VoXWgVK1iOR+e2OasARgbTD8m_RRvw@mail.gmail.com>
+References: <1358914330-3768-1-git-send-email-Frank.Li@freescale.com>
+	<1358922071.12374.743.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: <vyasevich@gmail.com>, <sri@us.ibm.com>, <nhorman@tuxdriver.com>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org,
+	B38611@freescale.com, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	bhutchings@solarflare.com, s.hauer@pengutronix.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:36220 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753157Ab3AWHgN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 02:36:13 -0500
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:61009 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751094Ab3AWHhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 02:37:45 -0500
+Received: by mail-wi0-f170.google.com with SMTP id hq7so4115007wib.1
+        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 23:37:44 -0800 (PST)
+In-Reply-To: <1358922071.12374.743.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xufeng Zhang <xufeng.zhang@windriver.com>
+2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Wed, 2013-01-23 at 12:12 +0800, Frank Li wrote:
+>> Add napi support
+>>
+>> Before this patch
+>>
+>>  iperf -s -i 1
+>>  ------------------------------------------------------------
+>>  Server listening on TCP port 5001
+>>  TCP window size: 85.3 KByte (default)
+>>  ------------------------------------------------------------
+>>  [  4] local 10.192.242.153 port 5001 connected with 10.192.242.138 port 50004
+>>  [ ID] Interval       Transfer     Bandwidth
+>>  [  4]  0.0- 1.0 sec  41.2 MBytes   345 Mbits/sec
+>>  [  4]  1.0- 2.0 sec  43.7 MBytes   367 Mbits/sec
+>>  [  4]  2.0- 3.0 sec  42.8 MBytes   359 Mbits/sec
+>>  [  4]  3.0- 4.0 sec  43.7 MBytes   367 Mbits/sec
+>>  [  4]  4.0- 5.0 sec  42.7 MBytes   359 Mbits/sec
+>>  [  4]  5.0- 6.0 sec  43.8 MBytes   367 Mbits/sec
+>>  [  4]  6.0- 7.0 sec  43.0 MBytes   361 Mbits/sec
+>>
+>> After this patch
+>>  [  4]  2.0- 3.0 sec  51.6 MBytes   433 Mbits/sec
+>>  [  4]  3.0- 4.0 sec  51.8 MBytes   435 Mbits/sec
+>>  [  4]  4.0- 5.0 sec  52.2 MBytes   438 Mbits/sec
+>>  [  4]  5.0- 6.0 sec  52.1 MBytes   437 Mbits/sec
+>>  [  4]  6.0- 7.0 sec  52.1 MBytes   437 Mbits/sec
+>>  [  4]  7.0- 8.0 sec  52.3 MBytes   439 Mbits/sec
+>
+> Strange, as you still call netif_rx()
+>
+> NAPI should call netif_receive_skb() instead
+>
 
-While sctp handling a duplicate COOKIE-ECHO and the action is
-'Association restart', sctp_sf_do_dupcook_a() will processing
-the unexpected COOKIE-ECHO for peer restart, but it does not set
-the association state to SCTP_STATE_ESTABLISHED, so the association
-could stuck in SCTP_STATE_SHUTDOWN_PENDING state forever.
-This violates the sctp specification:
-  RFC 4960 5.2.4. Handle a COOKIE ECHO when a TCB Exists
-  Action
-  A) In this case, the peer may have restarted. .....
-     After this, the endpoint shall enter the ESTABLISHED state.
+Thank you point out.
+After re-test, I found performance is almost no change if use netif_receive_skb.
+I am not sure if it is my NAPI implement problem.
 
-Fix this problem by adding a SCTP_CMD_NEW_STATE cmd to the command
-list so as to set the restart association to SCTP_STATE_ESTABLISHED
-state properly.
+napi_gro_received is better than netif_receive_skb, but worse than netif_rx.
 
-Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
----
- net/sctp/sm_statefuns.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+>From performance point view,
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 618ec7e..528f1c8 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -1779,6 +1779,8 @@ static sctp_disposition_t sctp_sf_do_dupcook_a(struct net *net,
- 
- 	/* Update the content of current association. */
- 	sctp_add_cmd_sf(commands, SCTP_CMD_UPDATE_ASSOC, SCTP_ASOC(new_asoc));
-+	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
-+			SCTP_STATE(SCTP_STATE_ESTABLISHED));
- 	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
- 	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
- 	return SCTP_DISPOSITION_CONSUME;
--- 
-1.7.0.2
+netif_rx                    --- fastest
+napi_gro_received   --- middle, near to netif_rx
+netif_receive_skb    --- slowest, almost the same as original no-napi version.
+
+Do you have any idea about this phenomena?
+
+best regards
+Frank Li
+
+>
+>
