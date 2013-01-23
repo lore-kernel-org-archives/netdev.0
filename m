@@ -1,96 +1,55 @@
-From: Alex Elder <elder@inktank.com>
-Subject: Re: [PATCH] net/ceph/osdmap.c: fix undefined behavior when using
- snprintf()
-Date: Wed, 23 Jan 2013 11:47:54 -0600
-Message-ID: <5100224A.8010102@inktank.com>
-References: <1358882429-19066-1-git-send-email-dinggnu@gmail.com> <51001447.3030600@inktank.com> <20130123174150.GA26336@gmail.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Wed, 23 Jan 2013 10:15:03 -0800
+Message-ID: <510028A7.1080902@candelatech.com>
+References: <50FDADF4.3060601@candelatech.com>  <50FDDE35.7070806@candelatech.com>  <1358829606.3464.3151.camel@edumazet-glaptop>  <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>  <1358875020.3464.4006.camel@edumazet-glaptop>  <1358875607.3464.4020.camel@edumazet-glaptop>  <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>  <1358921493.12374.737.camel@edumazet-glaptop>  <50FF8DEC.9070901@candelatech.com> <1358948110.12374.748.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Sage Weil <sage@inktank.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	ceph-devel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Cong Ding <dinggnu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130123174150.GA26336@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1358948110.12374.748.camel@edumazet-glaptop>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/23/2013 11:41 AM, Cong Ding wrote:
-> On Wed, Jan 23, 2013 at 10:48:07AM -0600, Alex Elder wrote:
->> On 01/22/2013 01:20 PM, Cong Ding wrote:
->>> The variable "str" is used as both the source and destination in function
->>> snprintf(), which is undefined behavior based on C11. The original description
->>> in C11 is:
->>> 	"If copying takes place between objects that
->>> 	overlap, the behavior is undefined."
->>
->> Yes, this was an ill-advised thing to do in this function.
->>
->> In fact, the only place this function is used (in osdmap_show()),
->> the non-static buffer was not initialized before the call.  (It
->> might happen to work because the same stack space was getting
->> reused each time through the loop.  Eeeeew!)
->>
->> This is just an awful couple of functions.
->>
->>> And, the function of ceph_osdmap_state_str() is to return the osdmap state, so
->>> it should return "doesn't exist" when all the conditions are not satisfied. I
->>> fix it in this patch.
->>>
->>> Based on C11, snprintf() does nothing if n==0:
->>> 	"If n is zero, nothing is written, and s may be a
->>> 	null pointer. Otherwise, output characters beyond
->>> 	the n-1st are discarded rather than being written to
->>> 	the array, and a null character is written at the
->>> 	end of the characters actually written into the
->>> 	array."
->>> so I remove the unnecessary check of len (because it is not a busy path and
->>> saves a few lines of code).
->>
->> True.  But since you know it's not going to do anything why
->> not only make the call if len is non-zero?  I.e.:
->>
->> 	else if (len)
->> 		snprintf(str, len, "doesn't exist");
->>
->> With your permission I'll make this change and will commit
->> this for you.  OK?
-> It's fine, thanks. But I think it's better to check len in the beginning
-> because other conditions also call snprintf with parameter len. Like this:
+On 01/23/2013 05:35 AM, Eric Dumazet wrote:
+> On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
+>
+>> How are the non-ref-counted dst objects used safely?  Any chance
+>> that tearing down the IP protocol on a device (or deleting a device)
+>> could delete a dst that is referenced by an skb (and thus crashes as
+>> I see)?
+>
+> There is probably a bug. Normally it should be RCU protected.
 
-OK.  I'll do this.  Thank you.		-Alex
+I'm building net-next, and will do some testing on it later today
+if all goes well.
+
+In the meantime, a few questions about RCU.
+
+If the non-ref-counted dst is protected by RCU, does that mean
+that from the time we acquire the pointer (ie, set it in the skb),
+to the time we clear the pointer from the skb, we must be under
+RCU read lock?
+
+If so, that means that ip_rcv_finish must be called under RCU
+read lock, etc?
+
+Btw, this seems non related to NFS, so I'm dropping them
+from CC after this email unless I hear a request otherwise.
+
+Thanks,
+Ben
 
 
-> 	if (!len)
-> 		return str;
-> 
-> 	if ((state & CEPH_OSD_EXISTS) && (state & CEPH_OSD_UP))
-> 		snprintf(str, len, "exists, up");
-> 	else if (state & CEPH_OSD_EXISTS)
-> 		snprintf(str, len, "exists");
-> 	else if (state & CEPH_OSD_UP)
-> 		snprintf(str, len, "up");
-> 	else
-> 		snprintf(str, len, "doesn't exist");
-> 
-> 	return str;
-> 
-> or like this:
-> 
-> 	if (len) {
-> 		if ((state & CEPH_OSD_EXISTS) && (state & CEPH_OSD_UP))
-> 			snprintf(str, len, "exists, up");
-> 		else if (state & CEPH_OSD_EXISTS)
-> 			snprintf(str, len, "exists");
-> 		else if (state & CEPH_OSD_UP)
-> 			snprintf(str, len, "up");
-> 		else
-> 			snprintf(str, len, "doesn't exist");
-> 	}
-> 	return str;
-> 
-> Thanks,
-> - cong
-> 
+-- 
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
