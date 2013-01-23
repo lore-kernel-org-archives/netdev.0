@@ -1,54 +1,38 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
- traffic.
-Date: Wed, 23 Jan 2013 13:53:45 -0800
-Message-ID: <51005BE9.7060705@candelatech.com>
-References: <50FDADF4.3060601@candelatech.com>  <50FDDE35.7070806@candelatech.com>  <1358829606.3464.3151.camel@edumazet-glaptop>  <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>  <1358875020.3464.4006.camel@edumazet-glaptop>  <1358875607.3464.4020.camel@edumazet-glaptop>  <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>  <1358921493.12374.737.camel@edumazet-glaptop>  <50FF8DEC.9070901@candelatech.com> <1358952122.12374.791.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3] IP_GRE: Fix kernel panic in IP_GRE with GRE csum.
+Date: Wed, 23 Jan 2013 14:00:13 -0800
+Message-ID: <1358978413.12374.1114.camel@edumazet-glaptop>
+References: <1358977542-1627-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1358952122.12374.791.camel@edumazet-glaptop>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:33352 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899Ab3AWWAQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 17:00:16 -0500
+Received: by mail-pb0-f42.google.com with SMTP id rp2so4942951pbb.15
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 14:00:15 -0800 (PST)
+In-Reply-To: <1358977542-1627-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/23/2013 06:42 AM, Eric Dumazet wrote:
-> On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
->
->> I suspect the bug goes back at least as far as 3.3.  And since
->> I need the NFS patches for this test case, bisecting will be pure hell.
->
-> Make sure the bug is still present in net-next.
->
+On Wed, 2013-01-23 at 13:45 -0800, Pravin B Shelar wrote:
+> Due to IP_GRE GSO support, GRE can recieve non linear skb which
+> results in panic in case of GRE_CSUM.
+> Following patch fixes it by using correct csum API.
+> 
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+> v3: Coding style Fix.
 
-My test case isn't running well on net-next.  Seems most
-of the file-io processes are hung trying to open a file:
+More precisely, this comes from SG (Scatter Gather) support, not GSO.
 
-[root@lf1011-12060006 lanforge]# cat /proc/10612/stack
-[<ffffffff8115fadb>] do_last+0x1db/0xa4e
-[<ffffffff8116090b>] path_openat+0xcb/0x363
-[<ffffffff81160ca8>] do_filp_open+0x38/0x84
-[<ffffffff81153bfc>] do_sys_open+0x6d/0xff
-[<ffffffff81153cbb>] sys_open+0x1c/0x1e
-[<ffffffff8154f629>] system_call_fastpath+0x16/0x1b
-[<ffffffffffffffff>] 0xffffffffffffffff
+Bug introduced in commit 6b78f16e4bdde3936b
+(gre: add GSO support)
 
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-I'm going back to 3.7.3 and will try to learn some more
-about what it's doing there.
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks !
