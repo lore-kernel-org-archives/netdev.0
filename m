@@ -1,63 +1,72 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] unix: correct sk_rmem_alloc accounting
-Date: Wed, 23 Jan 2013 22:43:11 +0800
-Message-ID: <1358952191-3374-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Yannick Koehler <yannick@koehler.name>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f43.google.com ([209.85.210.43]:34302 "EHLO
-	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751225Ab3AWOna (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 09:43:30 -0500
-Received: by mail-da0-f43.google.com with SMTP id u36so3844639dak.30
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 06:43:29 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom St Denis <tstdenis@elliptictech.com>
+Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
+ and testmgr build issues
+Date: Wed, 23 Jan 2013 09:46:23 -0500 (EST)
+Message-ID: <1776726593.108228.1358952383104.JavaMail.root@elliptictech.com>
+References: <20130123163644.19511ochn6jcqobo@www.81.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	linux-crypto@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	netdev@vger.kernel.org
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20130123163644.19511ochn6jcqobo@www.81.fi>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
+----- Original Message -----
+> From: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+> To: "Tom St Denis" <tstdenis@elliptictech.com>
+> Cc: linux-kernel@vger.kernel.org, "Herbert Xu" <herbert@gondor.apana.org.au>, "David Miller" <davem@davemloft.net>,
+> linux-crypto@vger.kernel.org, "Steffen Klassert" <steffen.klassert@secunet.com>, netdev@vger.kernel.org
+> Sent: Wednesday, 23 January, 2013 9:36:44 AM
+> Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent, and testmgr build issues
+> 
+> Quoting Tom St Denis <tstdenis@elliptictech.com>:
+> 
+> > Hey all,
+> >
+> > Here's an updated patch which addresses a couple of build issues
+> > and
+> > coding style complaints.
+> >
+> > I still can't get it to run via testmgr I get
+> >
+> > [  162.407807] alg: No test for cmac(aes) (cmac(aes-generic))
+> >
+> > Despite the fact I have an entry for cmac(aes) (much like
+> > xcbc(aes)...).
+> >
+> > Here's the patch to bring 3.8-rc4 up with CMAC ...
+> >
+> > Signed-off-by: Tom St Denis <tstdenis@elliptictech.com>
+> >
+> <snip>
+> > diff --git a/include/uapi/linux/pfkeyv2.h
+> > b/include/uapi/linux/pfkeyv2.h
+> > index 0b80c80..d61898e 100644
+> > --- a/include/uapi/linux/pfkeyv2.h
+> > +++ b/include/uapi/linux/pfkeyv2.h
+> > @@ -296,6 +296,7 @@ struct sadb_x_kmaddress {
+> >  #define SADB_X_AALG_SHA2_512HMAC	7
+> >  #define SADB_X_AALG_RIPEMD160HMAC	8
+> >  #define SADB_X_AALG_AES_XCBC_MAC	9
+> > +#define SADB_X_AALG_AES_CMAC_MAC	10
+> >  #define SADB_X_AALG_NULL		251	/* kame */
+> >  #define SADB_AALG_MAX			251
+> 
+> Should these values be based on IANA assigned IPSEC AH transform
+> identifiers?
+> 
+> https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xml#isakmp-registry-6
 
-Yannick reported [1] we probably forgot to account ->sk_rmem_alloc
-before moving the skb to other->sk_receive_queue. I believe
-he is right. So, just call skb_set_owner_r() before every time
-we queuing skb into other->sk_receive_queue. 
+There is no CMAC entry apparently ... despite the fact that CMAC is a proposed RFC standard for IPsec.
 
-1. http://marc.info/?l=linux-netdev&m=135882012924930&w=2
+It might be safer to move that to 14 since it's currently unassigned and then go through whatever channels are required to allocate it.  Mostly this affects key setting.  So this means my patch would break AH_RSA setkey calls (which the kernel doesn't support anyways).
 
-Reported-by: Yannick Koehler <yannick@koehler.name>
-Cc: Yannick Koehler <yannick@koehler.name>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
----
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 5b5c876..7e9dba3 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1205,6 +1205,7 @@ restart:
- 
- 	unix_state_unlock(sk);
- 
-+	skb_set_owner_r(skb, other);
- 	/* take ten and and send info to listening sock */
- 	spin_lock(&other->sk_receive_queue.lock);
- 	__skb_queue_tail(&other->sk_receive_queue, skb);
-@@ -1579,6 +1580,7 @@ restart:
- 	if (sock_flag(other, SOCK_RCVTSTAMP))
- 		__net_timestamp(skb);
- 	maybe_add_creds(skb, sock, other);
-+	skb_set_owner_r(skb, other);
- 	skb_queue_tail(&other->sk_receive_queue, skb);
- 	if (max_level > unix_sk(other)->recursion_level)
- 		unix_sk(other)->recursion_level = max_level;
-@@ -1694,6 +1696,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 			goto pipe_err_free;
- 
- 		maybe_add_creds(skb, sock, other);
-+		skb_set_owner_r(skb, other);
- 		skb_queue_tail(&other->sk_receive_queue, skb);
- 		if (max_level > unix_sk(other)->recursion_level)
- 			unix_sk(other)->recursion_level = max_level;
+Tom
