@@ -1,48 +1,81 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] ixgbe: Limit number of reported VFs to device specific value
-Date: Wed, 23 Jan 2013 14:44:49 -0800
-Message-ID: <1358981090-5794-14-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Donald Dutile <ddutile@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net] r8169: remove the obsolete and incorrect AMD workaround
+Date: Wed, 23 Jan 2013 23:38:34 +0100
+Message-ID: <20130123223834.GA5124@electric-eye.fr.zoreil.com>
+References: <20130121234205.GA12449@electric-eye.fr.zoreil.com> <1358843435-24719-1-git-send-email-timo.teras@iki.fi> <20130123000541.GA9515@electric-eye.fr.zoreil.com> <20130123081408.2646fc4e@vostro>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:61771 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752421Ab3AWWpX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jan 2013 17:45:23 -0500
-In-Reply-To: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36219 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750899Ab3AWXHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 18:07:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20130123081408.2646fc4e@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Donald Dutile <ddutile@redhat.com>
+Timo Teras <timo.teras@iki.fi> :
+[...]
+> Actually, this sounds wrong. Why is rtl8169_rx_vlan_tag() which is
+> fiddling opts2 invoked *after* rtl8169_mark_to_asic() ? This means it
+> can overwrite the tag info if the queue is full.
 
-ixgbe claims it supports 64 VFs in its SRIOV capability
-structure, but the driver only supports 63.  Adjust it
-so sysfs sriov configuration checking will check with
-the proper totalvf value.
+Yes. It has been there for ages.
 
-Signed-off-by: Donald Dutile <ddutile@redhat.com>
-Acked-by: Greg Rose <gregory.v.rose@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
- 1 file changed, 1 insertion(+)
+What about something like the patch below ?
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 5e3ed33..5989b3f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7389,6 +7389,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	ixgbe_init_mbx_params_pf(hw);
- 	memcpy(&hw->mbx.ops, ii->mbx_ops, sizeof(hw->mbx.ops));
- 	ixgbe_enable_sriov(adapter);
-+	pci_sriov_set_totalvfs(pdev, 63);
- skip_sriov:
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index c28bc31..1170232 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -1826,8 +1826,6 @@ static void rtl8169_rx_vlan_tag(struct RxDesc *desc, struct sk_buff *skb)
  
- #endif
--- 
-1.7.11.7
+ 	if (opts2 & RxVlanTag)
+ 		__vlan_hwaccel_put_tag(skb, swab16(opts2 & 0xffff));
+-
+-	desc->opts2 = 0;
+ }
+ 
+ static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
+@@ -6064,8 +6062,6 @@ static int rtl_rx(struct net_device *dev, struct rtl8169_private *tp, u32 budget
+ 			    !(status & (RxRWT | RxFOVF)) &&
+ 			    (dev->features & NETIF_F_RXALL))
+ 				goto process_pkt;
+-
+-			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 		} else {
+ 			struct sk_buff *skb;
+ 			dma_addr_t addr;
+@@ -6086,16 +6082,14 @@ process_pkt:
+ 			if (unlikely(rtl8169_fragmented_frame(status))) {
+ 				dev->stats.rx_dropped++;
+ 				dev->stats.rx_length_errors++;
+-				rtl8169_mark_to_asic(desc, rx_buf_sz);
+-				continue;
++				goto release_descriptor;
+ 			}
+ 
+ 			skb = rtl8169_try_rx_copy(tp->Rx_databuff[entry],
+ 						  tp, pkt_size, addr);
+-			rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 			if (!skb) {
+ 				dev->stats.rx_dropped++;
+-				continue;
++				goto release_descriptor;
+ 			}
+ 
+ 			rtl8169_rx_csum(skb, status);
+@@ -6111,6 +6105,10 @@ process_pkt:
+ 			tp->rx_stats.bytes += pkt_size;
+ 			u64_stats_update_end(&tp->rx_stats.syncp);
+ 		}
++release_descriptor:
++		desc->opts2 = 0;
++		wmb();
++		rtl8169_mark_to_asic(desc, rx_buf_sz);
+ 	}
+ 
+ 	count = cur_rx - tp->cur_rx;
