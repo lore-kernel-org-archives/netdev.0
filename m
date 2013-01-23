@@ -1,37 +1,63 @@
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
- traffic.
-Date: Wed, 23 Jan 2013 06:42:02 -0800
-Message-ID: <1358952122.12374.791.camel@edumazet-glaptop>
-References: <50FDADF4.3060601@candelatech.com>
-	 <50FDDE35.7070806@candelatech.com>
-	 <1358829606.3464.3151.camel@edumazet-glaptop>
-	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
-	 <1358875020.3464.4006.camel@edumazet-glaptop>
-	 <1358875607.3464.4020.camel@edumazet-glaptop>
-	 <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>
-	 <1358921493.12374.737.camel@edumazet-glaptop>
-	 <50FF8DEC.9070901@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <50FF8DEC.9070901-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] unix: correct sk_rmem_alloc accounting
+Date: Wed, 23 Jan 2013 22:43:11 +0800
+Message-ID: <1358952191-3374-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Yannick Koehler <yannick@koehler.name>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f43.google.com ([209.85.210.43]:34302 "EHLO
+	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751225Ab3AWOna (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 09:43:30 -0500
+Received: by mail-da0-f43.google.com with SMTP id u36so3844639dak.30
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 06:43:29 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-22 at 23:14 -0800, Ben Greear wrote:
+From: Cong Wang <xiyou.wangcong@gmail.com>
 
-> I suspect the bug goes back at least as far as 3.3.  And since
-> I need the NFS patches for this test case, bisecting will be pure hell.
+Yannick reported [1] we probably forgot to account ->sk_rmem_alloc
+before moving the skb to other->sk_receive_queue. I believe
+he is right. So, just call skb_set_owner_r() before every time
+we queuing skb into other->sk_receive_queue. 
 
-Make sure the bug is still present in net-next.
+1. http://marc.info/?l=linux-netdev&m=135882012924930&w=2
 
+Reported-by: Yannick Koehler <yannick@koehler.name>
+Cc: Yannick Koehler <yannick@koehler.name>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+---
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 5b5c876..7e9dba3 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1205,6 +1205,7 @@ restart:
+ 
+ 	unix_state_unlock(sk);
+ 
++	skb_set_owner_r(skb, other);
+ 	/* take ten and and send info to listening sock */
+ 	spin_lock(&other->sk_receive_queue.lock);
+ 	__skb_queue_tail(&other->sk_receive_queue, skb);
+@@ -1579,6 +1580,7 @@ restart:
+ 	if (sock_flag(other, SOCK_RCVTSTAMP))
+ 		__net_timestamp(skb);
+ 	maybe_add_creds(skb, sock, other);
++	skb_set_owner_r(skb, other);
+ 	skb_queue_tail(&other->sk_receive_queue, skb);
+ 	if (max_level > unix_sk(other)->recursion_level)
+ 		unix_sk(other)->recursion_level = max_level;
+@@ -1694,6 +1696,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			goto pipe_err_free;
+ 
+ 		maybe_add_creds(skb, sock, other);
++		skb_set_owner_r(skb, other);
+ 		skb_queue_tail(&other->sk_receive_queue, skb);
+ 		if (max_level > unix_sk(other)->recursion_level)
+ 			unix_sk(other)->recursion_level = max_level;
