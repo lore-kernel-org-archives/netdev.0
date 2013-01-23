@@ -1,70 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: v3 for tcp friends?
-Date: Tue, 22 Jan 2013 22:46:46 -0800
-Message-ID: <1358923606.12374.746.camel@edumazet-glaptop>
-References: <20120903.154833.1547153833820955116.davem@davemloft.net>
-	 <CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>
-	 <20120904.125841.2293649688957878987.davem@davemloft.net>
-	 <50FCEE64.80203@gmail.com> <50FCEEC5.9010404@gmail.com>
-	 <CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>
-	 <CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>
-	 <50FF5592.60008@gmail.com>  <50FF7F64.2060902@gmail.com>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH v2 net-next 2/2] be2net: Updating Module Author string and log message string to "Emulex Corporation"
+Date: Wed, 23 Jan 2013 12:22:04 +0530
+Message-ID: <c347f26b-96cb-46e3-8e57-5c2b29c95a42@CMEXHTCAS2.ad.emulex.com>
+References: <1358923924-28902-1-git-send-email-sarveshwar.bandi@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Bruce Curtis <brutus@google.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Li Yu <raise.sail@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:42855 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750950Ab3AWGqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 01:46:49 -0500
-Received: by mail-pa0-f41.google.com with SMTP id bj3so4560664pad.14
-        for <netdev@vger.kernel.org>; Tue, 22 Jan 2013 22:46:49 -0800 (PST)
-In-Reply-To: <50FF7F64.2060902@gmail.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:2954 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950Ab3AWGvD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 01:51:03 -0500
+In-Reply-To: <1358923924-28902-1-git-send-email-sarveshwar.bandi@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
-> Oops, this hang is not since TCP friends patch!
-> 
-> sk_sndbuf_get() is broken by 32 bits integer overflow
-> because of so large value in net.ipv4.tcp_{rmem,wmem}.
-> 
-> but this hang also can be found in net-next.git
-> (3.8.0-rc3+), if we run below commands, then all new
-> TCP connections stop working!
-> 
-> # when TCP friends is disabled
-> sysctl -w net.ipv4.tcp_rmem="4096 4294967296 4294967296" # 4GB
-> sysctl -w net.ipv4.tcp_wmem="4096 4294967296 4294967296"
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-Right we need to make sure we dont overflow.
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    8 ++++----
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-Try the following fix :
-
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index a25e1d2..1459145 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] = {
- 		.data		= &sysctl_tcp_wmem,
- 		.maxlen		= sizeof(sysctl_tcp_wmem),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.extra1		= &zero,
-+		.proc_handler	= proc_dointvec_minmax
- 	},
- 	{
- 		.procname	= "tcp_rmem",
- 		.data		= &sysctl_tcp_rmem,
- 		.maxlen		= sizeof(sysctl_tcp_rmem),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.extra1		= &zero,
-+		.proc_handler	= proc_dointvec_minmax
- 	},
- 	{
- 		.procname	= "tcp_app_win",
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index f27fe8e..6b3b606 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -41,13 +41,13 @@
+ 
+ #define DRV_VER			"4.4.161.0u"
+ #define DRV_NAME		"be2net"
+-#define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
+-#define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
+-#define OC_NAME			"Emulex OneConnect 10Gbps NIC"
++#define BE_NAME			"Emulex BladeEngine2"
++#define BE3_NAME		"Emulex BladeEngine3"
++#define OC_NAME			"Emulex OneConnect"
+ #define OC_NAME_BE		OC_NAME	"(be3)"
+ #define OC_NAME_LANCER		OC_NAME "(Lancer)"
+ #define OC_NAME_SH		OC_NAME "(Skyhawk)"
+-#define DRV_DESC		"ServerEngines BladeEngine 10Gbps NIC Driver"
++#define DRV_DESC		"Emulex OneConnect 10Gbps NIC Driver"
+ 
+ #define BE_VENDOR_ID 		0x19a2
+ #define EMULEX_VENDOR_ID	0x10df
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index b1cc3f2..6718339 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -30,7 +30,7 @@
+ MODULE_VERSION(DRV_VER);
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
+ MODULE_DESCRIPTION(DRV_DESC " " DRV_VER);
+-MODULE_AUTHOR("ServerEngines Corporation");
++MODULE_AUTHOR("Emulex Corporation");
+ MODULE_LICENSE("GPL");
+ 
+ static unsigned int num_vfs;
+-- 
+1.7.9.5
