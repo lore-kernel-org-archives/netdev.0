@@ -1,58 +1,44 @@
-From: Ben Pfaff <blp@cs.stanford.edu>
-Subject: Re: [PATCH v2] IP_GRE: Fix kernel panic in IP_GRE with GRE csum.
-Date: Tue, 22 Jan 2013 21:08:33 -0800
-Message-ID: <877gn4iizy.fsf@blp.benpfaff.org>
-References: <1358895398-2088-1-git-send-email-pshelar@nicira.com>
-	<20130122.205507.339713494072219737.davem@davemloft.net>
-Reply-To: blp@cs.stanford.edu
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Tue, 22 Jan 2013 22:11:33 -0800
+Message-ID: <1358921493.12374.737.camel@edumazet-glaptop>
+References: <50FDADF4.3060601@candelatech.com>
+	 <50FDDE35.7070806@candelatech.com>
+	 <1358829606.3464.3151.camel@edumazet-glaptop>
+	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
+	 <1358875020.3464.4006.camel@edumazet-glaptop>
+	 <1358875607.3464.4020.camel@edumazet-glaptop>
+	 <50FF102F.2050008@candelatech.com>  <50FF4BC9.1060206@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cs-smtp-3.Stanford.EDU ([171.64.64.27]:53814 "EHLO
-	cs-smtp-3.Stanford.EDU" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315Ab3AWFpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 00:45:04 -0500
-In-Reply-To: <20130122.205507.339713494072219737.davem@davemloft.net> (David
-	Miller's message of "Tue, 22 Jan 2013 20:55:07 -0500 (EST)")
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:52793 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465Ab3AWGLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 01:11:36 -0500
+In-Reply-To: <50FF4BC9.1060206@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+On Tue, 2013-01-22 at 18:32 -0800, Ben Greear wrote:
 
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Tue, 22 Jan 2013 14:56:38 -0800
->
->> Fixed code indentation according to comments from David Miller.
->> 
->> --8<--------------------------cut here-------------------------->8--
->
-> This doesn't do what you think it does.  No automated tool is going
-> to edit the commit message the way you think this will.
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index ee6153e..234b168 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -245,6 +245,7 @@ again:
+>                  dst->ops->destroy(dst);
+>          if (dst->dev)
+>                  dev_put(dst->dev);
+> +       dst->input = dst->output = 0xdeadbeef;
+>          kmem_cache_free(dst->ops->kmem_cachep, dst);
 
-"git am" does if you run with --scissors, see git-am(1):
+Great !
 
-       -c, --scissors
-           Remove everything in body before a scissors line (see git-
-           mailinfo(1)).
-
-and git-mailinfo(1);
-
-       --scissors
-           Remove everything in body before a scissors line. A line that
-           mainly consists of scissors (either ">8" or "8<") and perforation
-           (dash "-") marks is called a scissors line, and is used to request
-           the reader to cut the message at that line. If such a line appears
-           in the body of the message before the patch, everything before it
-           (including the scissors line itself) is ignored when this option is
-           used.
-
-           This is useful if you want to begin your message in a discussion
-           thread with comments and suggestions on the message you are
-           responding to, and to conclude it with a patch submission,
-           separating the discussion and the beginning of the proposed commit
-           log message with a scissors line.
-
-           This can enabled by default with the configuration option
-           mailinfo.scissors.
+You could comment the kmem_cache_free() as well to get better chances to
+hit the bug, and maybe start a bisection to find the faulty commit ?
