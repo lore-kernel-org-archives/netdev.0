@@ -1,73 +1,156 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] ixgbe: only compile ixgbe_debugfs.o when enabled
-Date: Wed, 23 Jan 2013 14:44:45 -0800
-Message-ID: <1358981090-5794-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] ixgbe: Modularize SR-IOV enablement code
+Date: Wed, 23 Jan 2013 14:44:47 -0800
+Message-ID: <1358981090-5794-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Don Dutile <ddutile@redhat.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:63042 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:52933 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752390Ab3AWWpU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752546Ab3AWWpU (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 23 Jan 2013 17:45:20 -0500
 In-Reply-To: <1358981090-5794-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-This patch modifies ixgbe_debugfs.c and the Makefile for the ixgbe
-driver to only compile the file when the config is enabled. This means
-we can remove the #ifdef inside the ixgbe_debugfs.c file.
+In preparation for enable/disable of SR-IOV via the PCI sysfs interface
+move some core SR-IOV enablement code that would be common to module
+parameter usage or callback from the PCI bus driver to a separate
+function so that it can be used by either method.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+CC: Don Dutile <ddutile@redhat.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Tested-by: Sibai Li <Sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/Makefile        | 3 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c | 5 -----
- 2 files changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c | 94 +++++++++++++++-----------
+ 1 file changed, 54 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/Makefile b/drivers/net/ethernet/intel/ixgbe/Makefile
-index f3a632b..687c83d 100644
---- a/drivers/net/ethernet/intel/ixgbe/Makefile
-+++ b/drivers/net/ethernet/intel/ixgbe/Makefile
-@@ -32,7 +32,7 @@
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 029c863..8a284ac 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -44,49 +44,11 @@
+ #include "ixgbe_sriov.h"
  
- obj-$(CONFIG_IXGBE) += ixgbe.o
- 
--ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o ixgbe_debugfs.o\
-+ixgbe-objs := ixgbe_main.o ixgbe_common.o ixgbe_ethtool.o \
-               ixgbe_82599.o ixgbe_82598.o ixgbe_phy.o ixgbe_sriov.o \
-               ixgbe_mbx.o ixgbe_x540.o ixgbe_lib.o ixgbe_ptp.o
- 
-@@ -40,4 +40,5 @@ ixgbe-$(CONFIG_IXGBE_DCB) +=  ixgbe_dcb.o ixgbe_dcb_82598.o \
-                               ixgbe_dcb_82599.o ixgbe_dcb_nl.o
- 
- ixgbe-$(CONFIG_IXGBE_HWMON) += ixgbe_sysfs.o
-+ixgbe-$(CONFIG_DEBUG_FS) += ixgbe_debugfs.o
- ixgbe-$(CONFIG_FCOE:m=y) += ixgbe_fcoe.o
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
-index 50aa546..3504686 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c
-@@ -24,9 +24,6 @@
-   Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
- 
- *******************************************************************************/
--
--#ifdef CONFIG_DEBUG_FS
--
- #include <linux/debugfs.h>
- #include <linux/module.h>
- 
-@@ -277,5 +274,3 @@ void ixgbe_dbg_exit(void)
+ #ifdef CONFIG_PCI_IOV
+-void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
++static int __ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
  {
- 	debugfs_remove_recursive(ixgbe_dbg_root);
- }
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int num_vf_macvlans, i;
+ 	struct vf_macvlans *mv_list;
+-	int pre_existing_vfs = 0;
 -
--#endif /* CONFIG_DEBUG_FS */
+-	pre_existing_vfs = pci_num_vf(adapter->pdev);
+-	if (!pre_existing_vfs && !adapter->num_vfs)
+-		return;
+-
+-	/* If there are pre-existing VFs then we have to force
+-	 * use of that many because they were not deleted the last
+-	 * time someone removed the PF driver.  That would have
+-	 * been because they were allocated to guest VMs and can't
+-	 * be removed.  Go ahead and just re-enable the old amount.
+-	 * If the user wants to change the number of VFs they can
+-	 * use ethtool while making sure no VFs are allocated to
+-	 * guest VMs... i.e. the right way.
+-	 */
+-	if (pre_existing_vfs) {
+-		adapter->num_vfs = pre_existing_vfs;
+-		dev_warn(&adapter->pdev->dev, "Virtual Functions already "
+-			 "enabled for this device - Please reload all "
+-			 "VF drivers to avoid spoofed packet errors\n");
+-	} else {
+-		int err;
+-		/*
+-		 * The 82599 supports up to 64 VFs per physical function
+-		 * but this implementation limits allocation to 63 so that
+-		 * basic networking resources are still available to the
+-		 * physical function.  If the user requests greater thn
+-		 * 63 VFs then it is an error - reset to default of zero.
+-		 */
+-		adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, 63);
+-
+-		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
+-		if (err) {
+-			e_err(probe, "Failed to enable PCI sriov: %d\n", err);
+-			adapter->num_vfs = 0;
+-			return;
+-		}
+-	}
+ 
+ 	adapter->flags |= IXGBE_FLAG_SRIOV_ENABLED;
+ 	e_info(probe, "SR-IOV enabled with %d VFs\n", adapter->num_vfs);
+@@ -150,10 +112,62 @@ void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
+ 		/* enable spoof checking for all VFs */
+ 		for (i = 0; i < adapter->num_vfs; i++)
+ 			adapter->vfinfo[i].spoofchk_enabled = true;
++		return 0;
++	}
++
++	return -ENOMEM;
++}
++
++/* Note this function is called when the user wants to enable SR-IOV
++ * VFs using the now deprecated module parameter
++ */
++void ixgbe_enable_sriov(struct ixgbe_adapter *adapter)
++{
++	int pre_existing_vfs = 0;
++
++	pre_existing_vfs = pci_num_vf(adapter->pdev);
++	if (!pre_existing_vfs && !adapter->num_vfs)
+ 		return;
++
++	if (!pre_existing_vfs)
++		dev_warn(&adapter->pdev->dev,
++			 "Enabling SR-IOV VFs using the module parameter is deprecated - please use the pci sysfs interface.\n");
++
++	/* If there are pre-existing VFs then we have to force
++	 * use of that many - over ride any module parameter value.
++	 * This may result from the user unloading the PF driver
++	 * while VFs were assigned to guest VMs or because the VFs
++	 * have been created via the new PCI SR-IOV sysfs interface.
++	 */
++	if (pre_existing_vfs) {
++		adapter->num_vfs = pre_existing_vfs;
++		dev_warn(&adapter->pdev->dev,
++			 "Virtual Functions already enabled for this device - Please reload all VF drivers to avoid spoofed packet errors\n");
++	} else {
++		int err;
++		/*
++		 * The 82599 supports up to 64 VFs per physical function
++		 * but this implementation limits allocation to 63 so that
++		 * basic networking resources are still available to the
++		 * physical function.  If the user requests greater thn
++		 * 63 VFs then it is an error - reset to default of zero.
++		 */
++		adapter->num_vfs = min_t(unsigned int, adapter->num_vfs, 63);
++
++		err = pci_enable_sriov(adapter->pdev, adapter->num_vfs);
++		if (err) {
++			e_err(probe, "Failed to enable PCI sriov: %d\n", err);
++			adapter->num_vfs = 0;
++			return;
++		}
+ 	}
+ 
+-	/* Oh oh */
++	if (!__ixgbe_enable_sriov(adapter))
++		return;
++
++	/* If we have gotten to this point then there is no memory available
++	 * to manage the VF devices - print message and bail.
++	 */
+ 	e_err(probe, "Unable to allocate memory for VF Data Storage - "
+ 	      "SRIOV disabled\n");
+ 	ixgbe_disable_sriov(adapter);
 -- 
 1.7.11.7
