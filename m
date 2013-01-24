@@ -1,61 +1,40 @@
-From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Thu, 24 Jan 2013 13:22:23 +0100
-Message-ID: <20130124122223.GQ4608@sociomantic.com>
-References: <20130122161038.GG4608@sociomantic.com>
- <1358873142.3464.3964.camel@edumazet-glaptop>
- <20130122165929.GH4608@sociomantic.com>
- <1358874800.3464.4002.camel@edumazet-glaptop>
- <50FED7CE.1030008@hp.com>
- <20130122184245.GJ4608@sociomantic.com>
- <50FF0C25.9000300@hp.com>
- <20130123104736.GK4608@sociomantic.com>
- <510039C8.7040401@hp.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
+ and testmgr build issues
+Date: Thu, 24 Jan 2013 13:32:10 +0100
+Message-ID: <20130124123210.GK9147@secunet.com>
+References: <20130124094337.GJ9147@secunet.com>
+ <20130124112410.8535.75598.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:56365 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752979Ab3AXMWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:22:31 -0500
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
+	Tom St Denis <tstdenis@elliptictech.com>,
+	David Miller <davem@davemloft.net>
+To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Return-path: <linux-crypto-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <510039C8.7040401@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130124112410.8535.75598.stgit@localhost6.localdomain6>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 11:28:08AM -0800, Rick Jones wrote:
-> >Then if syncookies are enabled, the time spent in connect() shouldn't be
-> >bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
+On Thu, Jan 24, 2013 at 01:25:46PM +0200, Jussi Kivilinna wrote:
 > 
-> Do you mean if "ESTABLISHED" connections are dropped because the
-> listen queue is full?  I don't think I would put that as "SYNs being
-> dropped by listen" - too easy to confuse that with an actual
-> dropping of a SYN segment.
+> Maybe it would be cleaner to not mess with pfkeyv2.h at all, but instead mark algorithms that do not support pfkey with flag. See patch below.
+> 
 
-I was just kind of quoting the name given by netstat: "SYNs to LISTEN
-sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
-this stat anymore, or the name was changed). I still don't know if we
-are talking about the same thing.
+Yes, would be an option too. I would be fine with that,
+but let's here if someone else has an opinion on this.
+Anyway, we need a solution to integrate Tom's patch soon.
 
-> But yes, I would not expect a connect() call to remain incomplete
-> for any longer than it took to receive an SYN|ACK from the other
-> end.
+> Then I started looking up if sadb_alg_id is being used somewhere outside pfkey. Seems that its value is just being copied around.. but at "http://lxr.linux.no/linux+v3.7/net/xfrm/xfrm_policy.c#L1991" it's used as bit-index. So do larger values than 31 break some stuff? Can multiple algorithms have same sadb_alg_id value? Also in af_key.c, sadb_alg_id being used as bit-index.
+> 
 
-So the only reason to experience these high times spent in connect()
-should be because a SYN or SYN|ACK was actually loss in a lower layer,
-like an error in the network device or a transmission error?
+Herbert tried to address this already in git commit c5d18e984
+([IPSEC]: Fix catch-22 with algorithm IDs above 31) some years
+ago.
 
-> That would be 3 (,9, 21, etc...) seconds on a kernel with 3
-> seconds as the initial retransmission timeout.
-
-Which can't be changed without recompiling, right?
-
-Thanks!
-
--- 
-Leandro Lucarella
-sociomantic labs GmbH
-http://www.sociomantic.com
+But this looks still messy. If the aalgos, ealgos and calgos mask is ~0, 
+we allow all algorithms. If this is not the case, xfrm and pfkey check
+the aalgos mask against the algorithm ID, only pfkey checks the ealgo
+mask and noone checks the calgos mask.
