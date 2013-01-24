@@ -1,77 +1,297 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [RFC] net: usbnet: prevent buggy devices from killing us
-Date: Thu, 24 Jan 2013 11:25:52 +0100
-Message-ID: <1359023152-32576-1-git-send-email-bjorn@mork.no>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V6 3/3] tuntap: allow polling/writing/reading when
+ detached
+Date: Thu, 24 Jan 2013 12:37:25 +0200
+Message-ID: <20130124103725.GA9368@redhat.com>
+References: <1358351078-58915-1-git-send-email-jasowang@redhat.com>
+ <1358351078-58915-4-git-send-email-jasowang@redhat.com>
+ <20130116170356.GC4257@redhat.com>
+ <50F750E4.4040002@redhat.com>
+ <5101091C.90301@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-To: Oliver Neukum <oneukum@suse.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60676 "EHLO canardo.mork.no"
+Received: from mx1.redhat.com ([209.132.183.28]:58990 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753438Ab3AXK07 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2013 05:26:59 -0500
+	id S1752489Ab3AXKdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2013 05:33:17 -0500
+Content-Disposition: inline
+In-Reply-To: <5101091C.90301@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A device sending 0 length frames as fast as it can has been
-observed killing the host system due to the resulting memory
-pressure. We handle the done queue as fast as we can, so
-if this queue is filling up then that is an indication that we
-are under too heavy pressure.  Refusing further allocations
-until the done queue is handled prevents the buggy device
-from taking the system down.
+On Thu, Jan 24, 2013 at 06:12:44PM +0800, Jason Wang wrote:
+> On 01/17/2013 09:16 AM, Jason Wang wrote:
+> > On 01/17/2013 01:03 AM, Michael S. Tsirkin wrote:
+> >> On Wed, Jan 16, 2013 at 11:44:38PM +0800, Jason Wang wrote:
+> >>> We forbid polling, writing and reading when the file were detached, this may
+> >>> complex the user in several cases:
+> >>>
+> >>> - when guest pass some buffers to vhost/qemu and then disable some queues,
+> >>>   host/qemu needs to do its own cleanup on those buffers which is complex
+> >>>   sometimes. We can do this simply by allowing a user can still write to an
+> >>>   disabled queue. Write to an disabled queue will cause the packet pass to the
+> >>>   kernel and read will get nothing.
+> >>> - align the polling behavior with macvtap which never fails when the queue is
+> >>>   created. This can simplify the polling errors handling of its user (e.g vhost)
+> >>>
+> >>> In order to achieve this, tfile->tun were not assign to NULL when detached. And
+> >>> tfile->tun were converted to be RCU protected in order to let the data path can
+> >>> check whether the file is deated in a lockless manner. This will be used to
+> >>> prevent the flow caches from being updated for a detached queue.
+> >>>
+> >>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> >>> ---
+> >>>  drivers/net/tun.c |   45 ++++++++++++++++++++++++++-------------------
+> >>>  1 files changed, 26 insertions(+), 19 deletions(-)
+> >>>
+> >>> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> >>> index c81680d..ec539a9 100644
+> >>> --- a/drivers/net/tun.c
+> >>> +++ b/drivers/net/tun.c
+> >>> @@ -139,7 +139,7 @@ struct tun_file {
+> >>>  	unsigned int flags;
+> >>>  	u16 queue_index;
+> >>>  	struct list_head next;
+> >>> -	struct tun_struct *detached;
+> >>> +	struct tun_struct __rcu *detached;
+> >>>  };
+> >>>  
+> >>>  struct tun_flow_entry {
+> >>> @@ -295,11 +295,12 @@ static void tun_flow_cleanup(unsigned long data)
+> >>>  }
+> >>>  
+> >>>  static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+> >>> -			    u16 queue_index)
+> >>> +			    struct tun_file *tfile)
+> >>>  {
+> >>>  	struct hlist_head *head;
+> >>>  	struct tun_flow_entry *e;
+> >>>  	unsigned long delay = tun->ageing_time;
+> >>> +	u16 queue_index = tfile->queue_index;
+> >>>  
+> >>>  	if (!rxhash)
+> >>>  		return;
+> >>> @@ -308,7 +309,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+> >>>  
+> >>>  	rcu_read_lock();
+> >>>  
+> >>> -	if (tun->numqueues == 1)
+> >>> +	if (tun->numqueues == 1 || rcu_dereference(tfile->detached))
+> >>>  		goto unlock;
+> >>>  
+> >>>  	e = tun_flow_find(head, rxhash);
+> >> Sorry, still an issue with this one.
+> > No problem, thanks for the checking.
+> >>                 u16 index = tfile->queue_index;
+> >>                 BUG_ON(index >= tun->numqueues);
+> >>                 dev = tun->dev;
+> >>
+> >>                 rcu_assign_pointer(tun->tfiles[index],
+> >>                                    tun->tfiles[tun->numqueues - 1]);
+> >>                 rcu_assign_pointer(tfile->tun, NULL);
+> >>                 ntfile = rtnl_dereference(tun->tfiles[index]);
+> >>                 ntfile->queue_index = index;
+> >>
+> >>                 --tun->numqueues;
+> >>                 if (clean)
+> >>                         sock_put(&tfile->sk);
+> >>                 else
+> >>                         tun_disable_queue(tun, tfile);
+> >>
+> >> You should first disable queue then synchronize network
+> >> only then play with tfiles array.
+> >> As it is you might have removed file from array but
+> >> did not set detached flag yet, so queue_index
+> >> above is stable.
+> > I think the code is ok here. With this patch, before synchronize_net(), 
+> > the only thing we do for the tfile that will be detached is to set the
+> > tfile->detached (tun_disable_queue), and the queue_index is kept
+> > unchanged. So if the data path don't see the new value of detached, it
+> > still can treat the tfile is undetached and do the sending and receiving
+> > as usual. We only do the cleanup after the synchronization which all
+> > reader are guaranteed to see the new detached value.
+> >
+> > For the tfile that will be moved to the new place, some (should be very
+> > little) OOO will occur which I think is acceptable and can be optimized
+> > in the future.
+> 
+> Having a thought about this patch, looks like it's suboptimal since:
+> 
+> - If we can make sure no packets were sent to the disabled queue and
+> stop the vhost thread during switching (then it can flush). There's no
+> need for this patch.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-Hello Oliver,
+This assumes synchronization in userspace/vhost, this will make
+datapath slower without real need.
 
-The MBIM firmware for the Sierra Wireless MC7710 is a nice source
-of "interesting" device issues.  One of the uglier ones is that
-it under certain conditions will start flooding us with frames
-having length 0 as fast as it can.  And that is pretty fast...
+> - Allowing writing/polling to a detached fd
 
-My older laptop dies immediately under this.  It just cannot keep
-up with the infinite allocations usbnet will do when the done
-queue first starts growing beyond reason.
+It's not a detached fd - it's attached to tun.
+We just disabled receiving packets on it.
 
-I really do not have a clue how to handle this problem, but this
-patch seems to do the job for me without affecting normal devices.
-The queue limit is just a number which Works For Me, leaving the
-system running with the buggy device and not kicking in under
-normal load.
+> is strange and can hide the
+> bugs of userspace / guest driver.
 
-What do you think? Is there some other way this should be solved?
+That's a good thing, you don't want a fragile interface.
 
+> 
+> So looks like we'd better drop this patch?
 
+I actually think it's the right approach.
+And since you clarified I think the patch is allright.
 
-Bj=C3=B8rn
-
- drivers/net/usb/usbnet.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index f34b2eb..85c7ffd 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -380,6 +380,14 @@ static int rx_submit (struct usbnet *dev, struct u=
-rb *urb, gfp_t flags)
- 	unsigned long		lockflags;
- 	size_t			size =3D dev->rx_urb_size;
-=20
-+	/* Do not let a device flood us to death! */
-+	if (dev->done.qlen > 1024) {
-+		netif_dbg(dev, rx_err, dev->net, "done queue filling up (%u) - throt=
-tling\n", dev->done.qlen);
-+		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
-+		usb_free_urb (urb);
-+		return -ENOMEM;
-+	}
-+
- 	skb =3D __netdev_alloc_skb_ip_align(dev->net, size, flags);
- 	if (!skb) {
- 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
---=20
-1.7.2.5
+> >> On enable, clear detached last thing.
+> >>
+> >>> @@ -384,16 +385,16 @@ static void tun_set_real_num_queues(struct tun_struct *tun)
+> >>>  
+> >>>  static void tun_disable_queue(struct tun_struct *tun, struct tun_file *tfile)
+> >>>  {
+> >>> -	tfile->detached = tun;
+> >>> +	rcu_assign_pointer(tfile->detached, tun);
+> >>>  	list_add_tail(&tfile->next, &tun->disabled);
+> >>>  	++tun->numdisabled;
+> >>>  }
+> >>>  
+> >>>  static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
+> >>>  {
+> >>> -	struct tun_struct *tun = tfile->detached;
+> >>> +	struct tun_struct *tun = rtnl_dereference(tfile->detached);
+> >>>  
+> >>> -	tfile->detached = NULL;
+> >>> +	rcu_assign_pointer(tfile->detached, NULL);
+> >>>  	list_del_init(&tfile->next);
+> >>>  	--tun->numdisabled;
+> >>>  	return tun;
+> >>> @@ -402,26 +403,27 @@ static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
+> >>>  static void __tun_detach(struct tun_file *tfile, bool clean)
+> >>>  {
+> >>>  	struct tun_file *ntfile;
+> >>> -	struct tun_struct *tun;
+> >>> +	struct tun_struct *tun, *detached;
+> >>>  	struct net_device *dev;
+> >>>  
+> >>>  	tun = rtnl_dereference(tfile->tun);
+> >>> +	detached = rtnl_dereference(tfile->detached);
+> >>>  
+> >>> -	if (tun) {
+> >>> +	if (tun && !detached) {
+> >>>  		u16 index = tfile->queue_index;
+> >>>  		BUG_ON(index >= tun->numqueues);
+> >>>  		dev = tun->dev;
+> >>>  
+> >>>  		rcu_assign_pointer(tun->tfiles[index],
+> >>>  				   tun->tfiles[tun->numqueues - 1]);
+> >>> -		rcu_assign_pointer(tfile->tun, NULL);
+> >>>  		ntfile = rtnl_dereference(tun->tfiles[index]);
+> >>>  		ntfile->queue_index = index;
+> >>>  
+> >>>  		--tun->numqueues;
+> >>> -		if (clean)
+> >>> +		if (clean) {
+> >>> +			rcu_assign_pointer(tfile->tun, NULL);
+> >>>  			sock_put(&tfile->sk);
+> >>> -		else
+> >>> +		} else
+> >>>  			tun_disable_queue(tun, tfile);
+> >>>  
+> >>>  		synchronize_net();
+> >>> @@ -429,7 +431,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+> >>>  		/* Drop read queue */
+> >>>  		skb_queue_purge(&tfile->sk.sk_receive_queue);
+> >>>  		tun_set_real_num_queues(tun);
+> >>> -	} else if (tfile->detached && clean) {
+> >>> +	} else if (detached && clean) {
+> >>>  		tun = tun_enable_queue(tfile);
+> >>>  		sock_put(&tfile->sk);
+> >>>  	}
+> >>> @@ -466,6 +468,10 @@ static void tun_detach_all(struct net_device *dev)
+> >>>  		rcu_assign_pointer(tfile->tun, NULL);
+> >>>  		--tun->numqueues;
+> >>>  	}
+> >>> +	list_for_each_entry(tfile, &tun->disabled, next) {
+> >>> +		wake_up_all(&tfile->wq.wait);
+> >>> +		rcu_assign_pointer(tfile->tun, NULL);
+> >>> +	}
+> >>>  	BUG_ON(tun->numqueues != 0);
+> >>>  
+> >>>  	synchronize_net();
+> >>> @@ -496,7 +502,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+> >>>  		goto out;
+> >>>  
+> >>>  	err = -EINVAL;
+> >>> -	if (rtnl_dereference(tfile->tun))
+> >>> +	if (rtnl_dereference(tfile->tun) && !rtnl_dereference(tfile->detached))
+> >>>  		goto out;
+> >>>  
+> >>>  	err = -EBUSY;
+> >>> @@ -504,7 +510,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+> >>>  		goto out;
+> >>>  
+> >>>  	err = -E2BIG;
+> >>> -	if (!tfile->detached &&
+> >>> +	if (!rtnl_dereference(tfile->detached) &&
+> >>>  	    tun->numqueues + tun->numdisabled == MAX_TAP_QUEUES)
+> >>>  		goto out;
+> >>>  
+> >>> @@ -521,7 +527,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+> >>>  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
+> >>>  	tun->numqueues++;
+> >>>  
+> >>> -	if (tfile->detached)
+> >>> +	if (rtnl_dereference(tfile->detached))
+> >>>  		tun_enable_queue(tfile);
+> >>>  	else
+> >>>  		sock_hold(&tfile->sk);
+> >>> @@ -1195,7 +1201,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+> >>>  	tun->dev->stats.rx_packets++;
+> >>>  	tun->dev->stats.rx_bytes += len;
+> >>>  
+> >>> -	tun_flow_update(tun, rxhash, tfile->queue_index);
+> >>> +	tun_flow_update(tun, rxhash, tfile);
+> >>>  	return total_len;
+> >>>  }
+> >>>  
+> >>> @@ -1552,7 +1558,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+> >>>  	struct net_device *dev;
+> >>>  	int err;
+> >>>  
+> >>> -	if (tfile->detached)
+> >>> +	if (rtnl_dereference(tfile->detached))
+> >>>  		return -EINVAL;
+> >>>  
+> >>>  	dev = __dev_get_by_name(net, ifr->ifr_name);
+> >>> @@ -1796,7 +1802,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+> >>>  	rtnl_lock();
+> >>>  
+> >>>  	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
+> >>> -		tun = tfile->detached;
+> >>> +		tun = rtnl_dereference(tfile->detached);
+> >>>  		if (!tun) {
+> >>>  			ret = -EINVAL;
+> >>>  			goto unlock;
+> >>> @@ -1807,7 +1813,8 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+> >>>  		ret = tun_attach(tun, file);
+> >>>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+> >>>  		tun = rtnl_dereference(tfile->tun);
+> >>> -		if (!tun || !(tun->flags & TUN_TAP_MQ))
+> >>> +		if (!tun || !(tun->flags & TUN_TAP_MQ) ||
+> >>> +		    rtnl_dereference(tfile->detached))
+> >>>  			ret = -EINVAL;
+> >>>  		else
+> >>>  			__tun_detach(tfile, false);
+> >>> -- 
+> >>> 1.7.1
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >> Please read the FAQ at  http://www.tux.org/lkml/
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
