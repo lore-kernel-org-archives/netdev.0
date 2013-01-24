@@ -1,32 +1,40 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
+From: Tom St Denis <tstdenis@elliptictech.com>
 Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
  and testmgr build issues
-Date: Thu, 24 Jan 2013 13:52:34 +0100
-Message-ID: <20130124125234.GL9147@secunet.com>
-References: <20130124123210.GK9147@secunet.com>
- <909599053.113808.1359031070783.JavaMail.root@elliptictech.com>
+Date: Thu, 24 Jan 2013 08:00:08 -0500 (EST)
+Message-ID: <148213573.113844.1359032408032.JavaMail.root@elliptictech.com>
+References: <20130124125234.GL9147@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
 Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
 	David Miller <davem@davemloft.net>,
 	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-To: Tom St Denis <tstdenis@elliptictech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:47001 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752953Ab3AXMwg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:52:36 -0500
-Content-Disposition: inline
-In-Reply-To: <909599053.113808.1359031070783.JavaMail.root@elliptictech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20130124125234.GL9147@secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 24, 2013 at 07:37:50AM -0500, Tom St Denis wrote:
+----- Original Message -----
+> From: "Steffen Klassert" <steffen.klassert@secunet.com>
+> To: "Tom St Denis" <tstdenis@elliptictech.com>
+> Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+> linux-crypto@vger.kernel.org, "David Miller" <davem@davemloft.net>, "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
+> Sent: Thursday, 24 January, 2013 7:52:34 AM
+> Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent, and testmgr build issues
 > 
-> Also a question for the netdev folk, in order to be timely would it be acceptable to patch ah4 and then ah6 with the AEAD changes?  Or would the team require both to be patched simultaneously?
->  
+> On Thu, Jan 24, 2013 at 07:37:50AM -0500, Tom St Denis wrote:
+> > 
+> > Also a question for the netdev folk, in order to be timely would it
+> > be acceptable to patch ah4 and then ah6 with the AEAD changes?  Or
+> > would the team require both to be patched simultaneously?
+> >  
+> 
+> We would need patches for both, but the changes to ah4/ah6 should
+> e very similar.
 
-We would need patches for both, but the changes to ah4/ah6 should
-e very similar.
+I suspect, I just don't know how my time table will look like so I was trying to not block the submission of one by the other.  Fortunately, I don't need hardware to test these changes so I can probably skunkwork them from home.
+
+Tom
