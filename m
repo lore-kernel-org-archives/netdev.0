@@ -1,72 +1,61 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [B.A.T.M.A.N.] batman-adv: Unable to add interface in LXC
-Date: Thu, 24 Jan 2013 13:17:02 +0100
-Message-ID: <20130124121702.GA2507@ritirata.org>
-References: <CANiGF9-dq-HrvWrgu9EMC94rP=1YdrmaFbCF2g1SZ9ocu77ysw@mail.gmail.com>
- <201212311511.24877.lindner_marek@yahoo.de>
- <CANiGF99LSHAOsKiW=mwR9v3pvEXAV8_8BcBJYzxddZ2rzCQW5A@mail.gmail.com>
+From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Thu, 24 Jan 2013 13:22:23 +0100
+Message-ID: <20130124122223.GQ4608@sociomantic.com>
+References: <20130122161038.GG4608@sociomantic.com>
+ <1358873142.3464.3964.camel@edumazet-glaptop>
+ <20130122165929.GH4608@sociomantic.com>
+ <1358874800.3464.4002.camel@edumazet-glaptop>
+ <50FED7CE.1030008@hp.com>
+ <20130122184245.GJ4608@sociomantic.com>
+ <50FF0C25.9000300@hp.com>
+ <20130123104736.GK4608@sociomantic.com>
+ <510039C8.7040401@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="0F1p//8PRICkK4MW"
-Cc: Marek Lindner <lindner_marek@yahoo.de>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org
-To: Pau Koning <paukoning@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:33608 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754084Ab3AXMRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:17:52 -0500
+Received: from moutng.kundenserver.de ([212.227.126.186]:56365 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752979Ab3AXMWb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:22:31 -0500
 Content-Disposition: inline
-In-Reply-To: <CANiGF99LSHAOsKiW=mwR9v3pvEXAV8_8BcBJYzxddZ2rzCQW5A@mail.gmail.com>
+In-Reply-To: <510039C8.7040401@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Jan 23, 2013 at 11:28:08AM -0800, Rick Jones wrote:
+> >Then if syncookies are enabled, the time spent in connect() shouldn't be
+> >bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
+> 
+> Do you mean if "ESTABLISHED" connections are dropped because the
+> listen queue is full?  I don't think I would put that as "SYNs being
+> dropped by listen" - too easy to confuse that with an actual
+> dropping of a SYN segment.
 
---0F1p//8PRICkK4MW
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I was just kind of quoting the name given by netstat: "SYNs to LISTEN
+sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
+this stat anymore, or the name was changed). I still don't know if we
+are talking about the same thing.
 
-Hello Pau,
+> But yes, I would not expect a connect() call to remain incomplete
+> for any longer than it took to receive an SYN|ACK from the other
+> end.
 
-On Mon, Jan 21, 2013 at 10:11:15AM +0100, Pau Koning wrote:
-> > Did you check your kernel log messages ? I'd expect batman-adv to print
-> > something there in case of an error.
->=20
-> No output at all
+So the only reason to experience these high times spent in connect()
+should be because a SYN or SYN|ACK was actually loss in a lower layer,
+like an error in the network device or a transmission error?
 
-Sorry for the long delay. However batman-adv does not support lxc at the mo=
-ment.
-Therefore the error you are getting is likely to be related to this.
+> That would be 3 (,9, 21, etc...) seconds on a kernel with 3
+> seconds as the initial retransmission timeout.
 
+Which can't be changed without recompiling, right?
 
-Cheers,
+Thanks!
 
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---0F1p//8PRICkK4MW
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRASY+AAoJEADl0hg6qKeOFu4P/AlgX26a9cq1aOxAcP1JypYw
-KQ0gB8QIbAlFM7KWm32I6oil2q+tlFb0xKc55ZH6Yn/vxvuKxXmYZNnjHxesAxuk
-wlS9QS93e3bHZtvYyeDD6akMNLUSdmWLgRn/GOBnieTnBek+aK6nt9H+DABRytB0
-zYcBhYQamCa41AbbGi5VLrZ0UhmElzmrGs7U+WPEgi54iyRgGIgv5PWX6S2slyQ8
-95RMX/KoU49hcZ8Fn9EIuB+t4kbkNdAJG0RLZexZfUrhB+JmMdQYjTLXPxD4IJsS
-RMdcJn0b5OEKwToEalZsc9ZMONcUjWzSJfKD1q/AOOCr2ebWVWx0FWTw5lhJ1xxb
-3TILLgrzXE4Sm0dconpiQmPABCknb/hPYOatt0oLvfCMjEV23ZWTG7n+gZCPFmNY
-SLuhbIahLPCuXMn2F/0C1505iXvbrsA1yqKT4ckLk1aFeDN95VhaBexx5ySPq22B
-AxQHSDvq9FdShcOIqX6vfPSifaEpqpOONMKpBKJq4nzhm0LuAIQzQD6ZqMd0bra8
-kiROpUWANbqOMYvRtRlzin+GNseYttRF50lab4CXZqNtKXY35pdT1m48pgoTmoIE
-G3tXKqJGGqIOYQpRz0OyaLkh14QQppUTcxrYWpllOUbhk/q7zm+KxswHvVDkU2OX
-0YLXo3FZJwAbsxUN74U8
-=+e/c
------END PGP SIGNATURE-----
-
---0F1p//8PRICkK4MW--
+-- 
+Leandro Lucarella
+sociomantic labs GmbH
+http://www.sociomantic.com
