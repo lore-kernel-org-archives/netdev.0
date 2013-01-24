@@ -1,114 +1,136 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH RESEND] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Thu, 24 Jan 2013 12:59:30 +0900
-Message-ID: <5100B1A2.3000908@linux-ipv6.org>
-References: <20130123100248.GB7317@order.stressinduktion.org>
+From: Jamie Gloudon <jamie.gloudon@gmail.com>
+Subject: [PATCH v2 net-next] via-rhine: add 64bit statistics.
+Date: Thu, 24 Jan 2013 00:05:04 -0400
+Message-ID: <5100b2f8.1883650a.37e6.17b4@mx.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: netdev@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39292 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752923Ab3AXD7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 22:59:33 -0500
-In-Reply-To: <20130123100248.GB7317@order.stressinduktion.org>
+Received: from mail-yh0-f46.google.com ([209.85.213.46]:46071 "EHLO
+	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752961Ab3AXEFO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 23:05:14 -0500
+Received: by mail-yh0-f46.google.com with SMTP id q15so162878yhf.19
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 20:05:14 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2013=E5=B9=B401=E6=9C=8823=E6=97=A5 19:02), Hannes Frederic Sowa wrote=
-:
-> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-> checks which could easily be implemented with netfilter.
->=20
-> Specifically this patch adds following logic (based loosely on the
-> pseudocode in RFC3964 section 5.2):
->=20
-> if prefix (inner_src_v6) =3D=3D rd6_prefix (2002::/16 is the default)
->         and outer_src_v4 !=3D embedded_ipv4 (inner_src_v6)
->                 drop
-> if prefix (inner_dst_v6) =3D=3D rd6_prefix (or 2002::/16 is the defau=
-lt)
->         and outer_dst_v4 !=3D embedded_ipv4 (inner_dst_v6)
->                 drop
-> accept
->=20
-> To accomplish the specified security checks proposed by above RFCs,
-> it is still necessary to employ uRPF filters with netfilter. These ne=
-w
-> checks only kick in if the employed addresses are within the 2002::/1=
-6 or
-> another range specified by the 6rd-prefix (which defaults to 2002::/1=
-6).
->=20
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/sit.c | 29 +++++++++++++++++++++++++++--
->  1 file changed, 27 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-> index cfba99b..5a09f13 100644
-> --- a/net/ipv6/sit.c
-> +++ b/net/ipv6/sit.c
-> @@ -73,6 +73,8 @@ static int ipip6_tunnel_init(struct net_device *dev=
-);
->  static void ipip6_tunnel_setup(struct net_device *dev);
->  static void ipip6_dev_free(struct net_device *dev);
->  static struct rtnl_link_ops sit_link_ops __read_mostly;
-> +static inline __be32 try_6rd(const struct in6_addr *v6dst,
-> +			     struct ip_tunnel *tunnel);
-> =20
->  static int sit_net_id __read_mostly;
->  struct sit_net {
-> @@ -590,6 +592,22 @@ out:
->  	return err;
->  }
-> =20
-> +static int sit_chk_encap_addr(struct ip_tunnel *tunnel, const __be32=
- *addr,
-> +			      const struct in6_addr *addr6)
-> +{
-> +#ifdef CONFIG_IPV6_SIT_6RD
-> +	if (ipv6_prefix_equal(addr6, &tunnel->ip6rd.prefix,
-> +			      tunnel->ip6rd.prefixlen) &&
-> +	    *addr !=3D try_6rd(addr6, tunnel))
-> +		return 0;
-> +#else
-> +	if (addr6->s6_addr16[0] =3D=3D htons(0x2002) &&
-> +	    *addr !=3D try_6rd(addr6, tunnel))
-> +		return 0;
-> +#endif
-> +	return 1;
-> +}
-> +
+Switch to use ndo_get_stats64 to get 64bit statistics.
 
-I need to do more research.  I am still not convinced
-to have such destination check here because the standard
-seems silent about it, and we have several basic checks
-in standard input path and tunnel search.
+Signed-off-by: Jamie Gloudon <jamie.gloudon@gmail.com>
+Tested-by: Jamie Gloudon <jamie.gloudon@gmail.com> 
+---
+ drivers/net/ethernet/via/via-rhine.c | 47 ++++++++++++++++++++++++++++++------
+ 1 file changed, 39 insertions(+), 8 deletions(-)
 
-
-Anyway, try_6rd() can do check for prefix as well
-but we are doing slightly different thing.
-So I think we can introduce new __check_6rd() to
-return non-6rd/6to4 addresses.
-
-bool __check_6rd(struct ip_tunnel *tunnel,
-		 const struct in6_addr *v6dst,
-		 __be32 *v4dst);
-
-If prefix matches, fill *v4dst and return true.
-Otherwise, return false.
-
-__be32 __try_6rd()
-{
-	__be32 dst =3D 0;
-	__check_6rd(tunnel, v6dst, &dst);
-	return dst;
-}
-
---yoshfuji
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index eab63e1..ec4a5e1 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -417,6 +417,12 @@ enum chip_cmd_bits {
+ 	Cmd1NoTxPoll=0x08, Cmd1Reset=0x80,
+ };
+ 
++struct rhine_stats {
++	u64		packets;
++	u64		bytes;
++	struct u64_stats_sync syncp;
++};
++
+ struct rhine_private {
+ 	/* Bit mask for configured VLAN ids */
+ 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+@@ -458,6 +464,8 @@ struct rhine_private {
+ 	unsigned int cur_rx, dirty_rx;	/* Producer/consumer ring indices */
+ 	unsigned int cur_tx, dirty_tx;
+ 	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
++	struct rhine_stats rx_stats;
++	struct rhine_stats tx_stats;
+ 	u8 wolopts;
+ 
+ 	u8 tx_thresh, rx_thresh;
+@@ -495,7 +503,8 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance);
+ static void rhine_tx(struct net_device *dev);
+ static int rhine_rx(struct net_device *dev, int limit);
+ static void rhine_set_rx_mode(struct net_device *dev);
+-static struct net_device_stats *rhine_get_stats(struct net_device *dev);
++static struct rtnl_link_stats64 *rhine_get_stats64(struct net_device *dev,
++	       struct rtnl_link_stats64 *stats);
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static const struct ethtool_ops netdev_ethtool_ops;
+ static int  rhine_close(struct net_device *dev);
+@@ -842,7 +851,7 @@ static const struct net_device_ops rhine_netdev_ops = {
+ 	.ndo_open		 = rhine_open,
+ 	.ndo_stop		 = rhine_close,
+ 	.ndo_start_xmit		 = rhine_start_tx,
+-	.ndo_get_stats		 = rhine_get_stats,
++	.ndo_get_stats64	 = rhine_get_stats64,
+ 	.ndo_set_rx_mode	 = rhine_set_rx_mode,
+ 	.ndo_change_mtu		 = eth_change_mtu,
+ 	.ndo_validate_addr	 = eth_validate_addr,
+@@ -1790,8 +1799,11 @@ static void rhine_tx(struct net_device *dev)
+ 				dev->stats.collisions += txstatus & 0x0F;
+ 			netif_dbg(rp, tx_done, dev, "collisions: %1.1x:%1.1x\n",
+ 				  (txstatus >> 3) & 0xF, txstatus & 0xF);
+-			dev->stats.tx_bytes += rp->tx_skbuff[entry]->len;
+-			dev->stats.tx_packets++;
++
++			u64_stats_update_begin(&rp->tx_stats.syncp);
++			rp->tx_stats.bytes += rp->tx_skbuff[entry]->len;
++			rp->tx_stats.packets++;
++			u64_stats_update_end(&rp->tx_stats.syncp);
+ 		}
+ 		/* Free the original skb. */
+ 		if (rp->tx_skbuff_dma[entry]) {
+@@ -1923,8 +1935,11 @@ static int rhine_rx(struct net_device *dev, int limit)
+ 			if (unlikely(desc_length & DescTag))
+ 				__vlan_hwaccel_put_tag(skb, vlan_tci);
+ 			netif_receive_skb(skb);
+-			dev->stats.rx_bytes += pkt_len;
+-			dev->stats.rx_packets++;
++
++			u64_stats_update_begin(&rp->rx_stats.syncp);
++			rp->rx_stats.bytes += pkt_len;
++			rp->rx_stats.packets++;
++			u64_stats_update_end(&rp->rx_stats.syncp);
+ 		}
+ 		entry = (++rp->cur_rx) % RX_RING_SIZE;
+ 		rp->rx_head_desc = &rp->rx_ring[entry];
+@@ -2019,15 +2034,31 @@ out_unlock:
+ 	mutex_unlock(&rp->task_lock);
+ }
+ 
+-static struct net_device_stats *rhine_get_stats(struct net_device *dev)
++static struct rtnl_link_stats64 *
++rhine_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ {
+ 	struct rhine_private *rp = netdev_priv(dev);
++	unsigned int start;
+ 
+ 	spin_lock_bh(&rp->lock);
+ 	rhine_update_rx_crc_and_missed_errord(rp);
+ 	spin_unlock_bh(&rp->lock);
+ 
+-	return &dev->stats;
++	netdev_stats_to_stats64(stats, &dev->stats);
++
++	do {
++		start = u64_stats_fetch_begin_bh(&rp->rx_stats.syncp);
++		stats->rx_packets = rp->rx_stats.packets;
++		stats->rx_bytes = rp->rx_stats.bytes;
++	} while (u64_stats_fetch_retry_bh(&rp->rx_stats.syncp, start));
++
++	do {
++		start = u64_stats_fetch_begin_bh(&rp->tx_stats.syncp);
++		stats->tx_packets = rp->tx_stats.packets;
++		stats->tx_bytes = rp->tx_stats.bytes;
++	} while (u64_stats_fetch_retry_bh(&rp->tx_stats.syncp, start));
++
++	return stats;
+ }
+ 
+ static void rhine_set_rx_mode(struct net_device *dev)
+-- 
+1.7.12
