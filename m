@@ -1,145 +1,129 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] bond: have random dev address by default
- instead of zeroes
-Date: Thu, 24 Jan 2013 20:18:39 +0100
-Message-ID: <20130124191839.GA4177@minipsycho.orion>
-References: <1359022329-6919-1-git-send-email-jiri@resnulli.us>
- <7112.1359047569@death.nxdomain>
+From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Thu, 24 Jan 2013 20:21:26 +0100
+Message-ID: <20130124192125.GD4608@sociomantic.com>
+References: <1358873142.3464.3964.camel@edumazet-glaptop>
+ <20130122165929.GH4608@sociomantic.com>
+ <1358874800.3464.4002.camel@edumazet-glaptop>
+ <50FED7CE.1030008@hp.com>
+ <20130122184245.GJ4608@sociomantic.com>
+ <50FF0C25.9000300@hp.com>
+ <20130123104736.GK4608@sociomantic.com>
+ <510039C8.7040401@hp.com>
+ <20130124122223.GQ4608@sociomantic.com>
+ <51018110.1070403@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rick Jones <rick.jones2@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:57464 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751822Ab3AXTSn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 14:18:43 -0500
-Received: by mail-wi0-f178.google.com with SMTP id hn3so780908wib.17
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 11:18:42 -0800 (PST)
+Received: from moutng.kundenserver.de ([212.227.17.8]:55675 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753657Ab3AXTVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 14:21:32 -0500
 Content-Disposition: inline
-In-Reply-To: <7112.1359047569@death.nxdomain>
+In-Reply-To: <51018110.1070403@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 24, 2013 at 06:12:49PM CET, fubar@us.ibm.com wrote:
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->>Makes more sense to have randomly generated address by default than to
->>have all zeroes. It also allows user to for example put the bond into
->>bridge without need to have any slaves in it.
->>
->>Also, fix dev_assign_type values on the way.
->>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->	This patch appears to provide a random MAC, which is then
->replaced with the first slave's MAC at enslavement time.  A more in
->depth commit message would be helpful here; I presumed from the above
->that the bond's MAC was being set to a random MAC and the first slave
->behavior was changing, but inspection of the code suggests otherwise.
+On Thu, Jan 24, 2013 at 10:44:32AM -0800, Rick Jones wrote:
+> On 01/24/2013 04:22 AM, Leandro Lucarella wrote:
+> >On Wed, Jan 23, 2013 at 11:28:08AM -0800, Rick Jones wrote:
+> >>>Then if syncookies are enabled, the time spent in connect() shouldn't be
+> >>>bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
+> >>
+> >>Do you mean if "ESTABLISHED" connections are dropped because the
+> >>listen queue is full?  I don't think I would put that as "SYNs being
+> >>dropped by listen" - too easy to confuse that with an actual
+> >>dropping of a SYN segment.
+> >
+> >I was just kind of quoting the name given by netstat: "SYNs to LISTEN
+> >sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
+> >this stat anymore, or the name was changed). I still don't know if we
+> >are talking about the same thing.
+> 
+> Are you sure those stats are not present in 3.X kernels?  I just
+> looked at /proc/net/netstat on a 3.7 system and noticed both the
+> ListenMumble stats and the three cookie stats.  And I see the code
+> for them in the tree:
+> 
+> aj@tardy:~/net-next/net/ipv4$ grep MIB_LISTEN *.c
+> proc.c:	SNMP_MIB_ITEM("ListenOverflows", LINUX_MIB_LISTENOVERFLOWS),
+> proc.c:	SNMP_MIB_ITEM("ListenDrops", LINUX_MIB_LISTENDROPS),
+> tcp_ipv4.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
+> tcp_ipv4.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
+> 
+> raj@tardy:~/net-next/net/ipv4$ grep MIB_SYN *.c
+> proc.c:	SNMP_MIB_ITEM("SyncookiesSent", LINUX_MIB_SYNCOOKIESSENT),
+> proc.c:	SNMP_MIB_ITEM("SyncookiesRecv", LINUX_MIB_SYNCOOKIESRECV),
+> proc.c:	SNMP_MIB_ITEM("SyncookiesFailed", LINUX_MIB_SYNCOOKIESFAILED),
+> syncookies.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
+> syncookies.c:		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
+> syncookies.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESRECV);
+> 
+> I will sometimes be tripped-up by netstat's not showing a statistic
+> with a zero value...
 
-Sure, I will make sthi clear in commit message.
+This is what I'm talking about:
 
->
->	Does this have any practical change other than permitting
->enslavement to a bridge prior to the bond having any slaves?
+pc1 $ uname -a
+Linux labs09 3.5.0-18-generic #29~precise1-Ubuntu SMP Mon Oct 22 16:31:46 UTC 2012 x86_64 x86_64 x86_64 GNU/Linux
+pc1 $ netstat --version | head -n2
+net-tools 1.60
+netstat 1.42 (2001-04-15)
+pc1 $ netstat -s | grep -i syn
+    4 invalid SYN cookies received
 
-Nothing I can think of.
+pc2 $ uname -a
+Linux eu-21 3.0.0-19-server #33-Ubuntu SMP Thu Apr 19 20:32:48 UTC 2012 x86_64 x86_64 x86_64 GNU/Linux
+pc2 $ netstat --version | head -n2
+net-tools 1.60
+netstat 1.42 (2001-04-15)
+pc2 $ netstat -s | grep -i syn
+    1996450 SYN cookies sent
+    2899079 SYN cookies received
+    410573 invalid SYN cookies received
+    10012473 resets received for embryonic SYN_RECV sockets
+    5659740 SYNs to LISTEN sockets dropped
+    1 connections reset due to unexpected SYN
 
->
->	I also have one code comment, below.
->
->> drivers/net/bonding/bond_main.c | 28 ++++++++++++++++------------
->> 1 file changed, 16 insertions(+), 12 deletions(-)
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>index 564cf42..af3a777 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -1320,14 +1320,14 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
->>
->> /*---------------------------------- IOCTL ----------------------------------*/
->>
->>-static int bond_sethwaddr(struct net_device *bond_dev,
->>-			  struct net_device *slave_dev)
->>+static void bond_set_dev_addr(struct net_device *bond_dev,
->>+			      struct net_device *slave_dev)
->> {
->> 	pr_debug("bond_dev=%p\n", bond_dev);
->> 	pr_debug("slave_dev=%p\n", slave_dev);
->> 	pr_debug("slave_dev->addr_len=%d\n", slave_dev->addr_len);
->> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len);
->>-	return 0;
->>+	bond_dev->addr_assign_type |= NET_ADDR_SET;
->
->	This is a bitwise assignment, but addr_assign_type is not a
->bitmask.  If addr_assign_type is not 0 prior to this, this will create
->an illegal value in the field.
+I didn't take a look at the kernel or netstat sources about this, so I
+don't know exactly how are they connected.
 
-You are right. I'll correct this.
+> >>But yes, I would not expect a connect() call to remain incomplete
+> >>for any longer than it took to receive an SYN|ACK from the other
+> >>end.
+> >
+> >So the only reason to experience these high times spent in connect()
+> >should be because a SYN or SYN|ACK was actually loss in a lower layer,
+> >like an error in the network device or a transmission error?
+> 
+> Modulo the/some other drop-without-stat point such as Vijay
+> mentioned yesterday.
 
->
->	-J
->
->> }
->>
->> static netdev_features_t bond_fix_features(struct net_device *dev,
->>@@ -1628,10 +1628,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->>
->> 	/* If this is the first slave, then we need to set the master's hardware
->> 	 * address to be the same as the slave's. */
->>-	if (is_zero_ether_addr(bond->dev->dev_addr))
->>-		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
->>-		       slave_dev->addr_len);
->>-
->>+	if (bond->dev->addr_assign_type != NET_ADDR_SET)
->>+		bond_set_dev_addr(bond->dev, slave_dev);
->>
->> 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
->> 	if (!new_slave) {
->>@@ -2049,11 +2047,11 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
->> 	if (bond->slave_cnt == 0) {
->> 		bond_set_carrier(bond);
->>
->>-		/* if the last slave was removed, zero the mac address
->>-		 * of the master so it will be set by the application
->>-		 * to the mac address of the first slave
->>+		/* If the last slave was removed, set random mac address
->>+		 * of the master so it will be set by bond_enslave()
->>+		 * to the mac address of the first slave.
->> 		 */
->>-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->>+		eth_hw_addr_random(bond_dev);
->>
->> 		if (bond_vlan_used(bond)) {
->> 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
->>@@ -3708,7 +3706,8 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
->> 			break;
->> 		case BOND_SETHWADDR_OLD:
->> 		case SIOCBONDSETHWADDR:
->>-			res = bond_sethwaddr(bond_dev, slave_dev);
->>+			bond_set_dev_addr(bond_dev, slave_dev);
->>+			res = 0;
->> 			break;
->> 		case BOND_CHANGE_ACTIVE_OLD:
->> 		case SIOCBONDCHANGEACTIVE:
->>@@ -4858,6 +4857,11 @@ static int bond_init(struct net_device *bond_dev)
->>
->> 	bond_debug_register(bond);
->>
->>+	/* Ensure valid dev_addr */
->>+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
->>+	    bond_dev->addr_assign_type == NET_ADDR_PERM)
->>+		eth_hw_addr_random(bond_dev);
->>+
->> 	__hw_addr_init(&bond->mc_list);
->> 	return 0;
->> }
->>-- 
->>1.8.1
->>
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
+So, in this cases a syncookie is not sent back? I had the impression
+they were sent always...
+
+> You might consider taking some packet traces.  If you can I would
+> start with a trace taken on the system(s) on which the long
+> connect() calls are happening.   I think the tcpdump manpage has an
+> example of a tcpdump command with a filter expression that catches
+> just SYNchronize and FINished segments which I suppose you could
+> extend to include ReSeT segments.  Such a filter expression would be
+> missing the client's ACK of the SYN|ACK but unless you see
+> incrementing stats relating to say checksum failures or other drops
+> on the "client" side I suppose you could assume that the client
+> ACKed the server's SYN|ACK.
+
+Yes, I already did captures and we are definitely loosing packets
+(including SYNs), but it looks like the amount of SYNs I'm loosing is
+lower than the amount of long connect() times I observe. This is not
+confirmed yet, I'm still investigating.
+
+Thanks!
+
+-- 
+Leandro Lucarella
+sociomantic labs GmbH
+http://www.sociomantic.com
