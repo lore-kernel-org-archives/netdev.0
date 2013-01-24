@@ -1,89 +1,32 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH net-next] net neigh: Optimize neighbor entry size calculation.
-Date: Thu, 24 Jan 2013 19:44:23 +0900
-Message-ID: <51011087.1010801@linux-ipv6.org>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Subject: Re: [RFC] net: usbnet: prevent buggy devices from killing us
+Date: Thu, 24 Jan 2013 11:46:52 +0100
+Message-ID: <6505263.QGCG9bfoCC@linux-5eaq.site>
+References: <1359023152-32576-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:33756 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752270Ab3AXKo1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 05:44:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1359023152-32576-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When allocating memory for neighbour cache entry, if
-tbl->entry_size is not set, we always calculate
-sizeof(struct neighbour) + tbl->key_len, which is common
-in the same table.
+On Thursday 24 January 2013 11:25:52 Bj=F8rn Mork wrote:
+> The MBIM firmware for the Sierra Wireless MC7710 is a nice source
+> of "interesting" device issues.  One of the uglier ones is that
+> it under certain conditions will start flooding us with frames
+> having length 0 as fast as it can.  And that is pretty fast...
 
-With this change, set tbl->entry_size during the table
-initialization phase, if it was not set, and use it in
-neigh_alloc() and neighbour_priv().
+If you can tell that those frames are bogus, why not count them
+as opposed to generic qlen? Say, if you see 20 among the last 30
+are of this type, throttle.
 
-This change also allow us to have both of protocol private
-data and device priate data at tha same time.
+	Regards
+		Oliver
 
-Note that the only user of prototcol private is DECnet
-and the only user of device private is ATM CLIP.
-Since those are exclusive, we have not been facing issues
-here.
-
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- include/net/neighbour.h |    2 +-
- net/core/neighbour.c    |   16 +++++++---------
- 2 files changed, 8 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index 0dab173..629ee57 100644
---- a/include/net/neighbour.h
-+++ b/include/net/neighbour.h
-@@ -184,7 +184,7 @@ struct neigh_table {
- 
- static inline void *neighbour_priv(const struct neighbour *n)
- {
--	return (char *)n + ALIGN(sizeof(*n) + n->tbl->key_len, NEIGH_PRIV_ALIGN);
-+	return (char *)n + n->tbl->entry_size;
- }
- 
- /* flags for neigh_update() */
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 7bd0eed..3863b8f 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -290,15 +290,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl, struct net_device
- 			goto out_entries;
- 	}
- 
--	if (tbl->entry_size)
--		n = kzalloc(tbl->entry_size, GFP_ATOMIC);
--	else {
--		int sz = sizeof(*n) + tbl->key_len;
--
--		sz = ALIGN(sz, NEIGH_PRIV_ALIGN);
--		sz += dev->neigh_priv_len;
--		n = kzalloc(sz, GFP_ATOMIC);
--	}
-+	n = kzalloc(tbl->entry_size + dev->neigh_priv_len, GFP_ATOMIC);
- 	if (!n)
- 		goto out_entries;
- 
-@@ -1546,6 +1538,12 @@ static void neigh_table_init_no_netlink(struct neigh_table *tbl)
- 	if (!tbl->nht || !tbl->phash_buckets)
- 		panic("cannot allocate neighbour cache hashes");
- 
-+	if (!tbl->entry_size)
-+		tbl->entry_size = ALIGN(offsetof(struct neighbour, primary_key) +
-+					tbl->key_len, NEIGH_PRIV_ALIGN);
-+	else
-+		WARN_ON(tbl->entry_size % NEIGH_PRIV_ALIGN);
-+
- 	rwlock_init(&tbl->lock);
- 	INIT_DEFERRABLE_WORK(&tbl->gc_work, neigh_periodic_work);
- 	schedule_delayed_work(&tbl->gc_work, tbl->parms.reachable_time);
--- 
-1.7.9.5
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
