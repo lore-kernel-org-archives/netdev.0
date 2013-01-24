@@ -1,81 +1,80 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] SCTP: Free the per-net sysctl table on net exit.
-Date: Thu, 24 Jan 2013 11:44:39 -0500
-Message-ID: <20130124164439.GB20658@hmsreliant.think-freely.org>
-References: <51004F2D.9000405@fold.natur.cuni.cz>
- <1359043367-30180-1-git-send-email-vyasevich@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v3 1/1 net-next] net: fec: enable pause frame to improve
+ rx prefomance for 1G network
+Date: Thu, 24 Jan 2013 16:49:33 +0000
+Message-ID: <1359046173.2736.2.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1358391358-27977-1-git-send-email-Frank.Li@freescale.com>
+	 <1358973584.2658.14.camel@bwh-desktop.uk.solarflarecom.com>
+	 <CAHrpEqSzu97X2PUgUEh30EqkbjLUYyhCN28AEzJ6eLPXx0Qg1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, mmokrejs@fold.natur.cuni.cz,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Frank Li <Frank.Li@freescale.com>, <shawn.guo@linaro.org>,
+	<B38611@freescale.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<s.hauer@pengutronix.de>
+To: Frank Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53261 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751951Ab3AXQpC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 11:45:02 -0500
-Content-Disposition: inline
-In-Reply-To: <1359043367-30180-1-git-send-email-vyasevich@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:50975 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751141Ab3AXQtk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 11:49:40 -0500
+In-Reply-To: <CAHrpEqSzu97X2PUgUEh30EqkbjLUYyhCN28AEzJ6eLPXx0Qg1Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 24, 2013 at 11:02:47AM -0500, Vlad Yasevich wrote:
-> Per-net sysctl table needs to be explicitly freed at
-> net exit.  Otherwise we see the following with kmemleak:
+On Thu, 2013-01-24 at 10:16 +0800, Frank Li wrote:
+> 2013/1/24 Ben Hutchings <bhutchings@solarflare.com>:
+> > On Thu, 2013-01-17 at 10:55 +0800, Frank Li wrote:
+> >> The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
+> >> There will be many packages lost because FIFO over run.
+> >>
+> >> This patch enable pause frame flow control.
+> > [...]
+> >> --- a/drivers/net/ethernet/freescale/fec.c
+> >> +++ b/drivers/net/ethernet/freescale/fec.c
+> > [...]
+> >> +static int fec_enet_set_pauseparam(struct net_device *ndev,
+> >> +                                struct ethtool_pauseparam *pause)
+> >> +{
+> >> +     struct fec_enet_private *fep = netdev_priv(ndev);
+> >> +
+> >> +     if (pause->tx_pause != pause->rx_pause) {
+> >> +             netdev_info(ndev,
+> >> +                     "hardware only support enable/disable both tx and rx");
+> >> +             return -EINVAL;
+> >> +     }
+> >> +
+> >> +     fep->pause_flag = 0;
+> >> +
+> >> +     /* tx pause must be same as rx pause */
+> >> +     fep->pause_flag |= pause->rx_pause ? FEC_PAUSE_FLAG_ENABLE : 0;
+> >> +     fep->pause_flag |= pause->autoneg ? FEC_PAUSE_FLAG_AUTONEG : 0;
+> >> +
+> >> +     if (pause->rx_pause || pause->autoneg) {
+> >> +             fep->phy_dev->supported |= ADVERTISED_Pause;
+> >> +             fep->phy_dev->advertising |= ADVERTISED_Pause;
+> >> +     } else {
+> >> +             fep->phy_dev->supported &= ~ADVERTISED_Pause;
+> >> +             fep->phy_dev->advertising &= ~ADVERTISED_Pause;
+> >> +     }
+> > [...]
+> >
+> > Why is this changing the supported flags, i.e. device capabilities?  You
+> > need to leave those flags alone and reject an attempt to enable pause
+> > frames on a device that doesn't support them.
 > 
-> unreferenced object 0xffff880402d08000 (size 2048):
->   comm "chrome_sandbox", pid 18437, jiffies 4310887172 (age 9097.630s)
->   hex dump (first 32 bytes):
->     b2 68 89 81 ff ff ff ff 20 04 04 f8 01 88 ff ff  .h...... .......
->     04 00 00 00 a4 01 00 00 00 00 00 00 00 00 00 00  ................
->   backtrace:
->     [<ffffffff815b4aad>] kmemleak_alloc+0x21/0x3e
->     [<ffffffff81110352>] slab_post_alloc_hook+0x28/0x2a
->     [<ffffffff81113fad>] __kmalloc_track_caller+0xf1/0x104
->     [<ffffffff810f10c2>] kmemdup+0x1b/0x30
->     [<ffffffff81571e9f>] sctp_sysctl_net_register+0x1f/0x72
->     [<ffffffff8155d305>] sctp_net_init+0x100/0x39f
->     [<ffffffff814ad53c>] ops_init+0xc6/0xf5
->     [<ffffffff814ad5b7>] setup_net+0x4c/0xd0
->     [<ffffffff814ada5e>] copy_net_ns+0x6d/0xd6
->     [<ffffffff810938b1>] create_new_namespaces+0xd7/0x147
->     [<ffffffff810939f4>] copy_namespaces+0x63/0x99
->     [<ffffffff81076733>] copy_process+0xa65/0x1233
->     [<ffffffff81077030>] do_fork+0x10b/0x271
->     [<ffffffff8100a0e9>] sys_clone+0x23/0x25
->     [<ffffffff815dda73>] stub_clone+0x13/0x20
->     [<ffffffffffffffff>] 0xffffffffffffffff
-> 
-> Reported-by: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
-> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-> CC: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
->  net/sctp/sysctl.c |    4 ++++
->  1 files changed, 4 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-> index 043889a..cd5712f 100644
-> --- a/net/sctp/sysctl.c
-> +++ b/net/sctp/sysctl.c
-> @@ -366,7 +366,11 @@ int sctp_sysctl_net_register(struct net *net)
->  
->  void sctp_sysctl_net_unregister(struct net *net)
->  {
-> +	struct ctl_table *table;
-> +
-> +	table = net->sctp.sysctl_hdr->ctl_table_arg;
->  	unregister_net_sysctl_table(net->sctp.sysctl_header);
-> +	kfree(table);
->  }
->  
->  static struct ctl_table_header * sctp_sysctl_header;
-> -- 
-> 1.7.7.6
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> I go through phylib, I have not found good place set ADVERTISED_Pause
+> capabilities.
+> genphy_config_init never check Pause capabilities.
+
+I agree that phylib can't initialise pause capabilities because those
+depend on the MAC.  But look at which function I'm quoting: this is the
+ethtool operation, which shouldn't change capabilities.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
