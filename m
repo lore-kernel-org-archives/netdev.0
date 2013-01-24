@@ -1,47 +1,60 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH RESEND] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Thu, 24 Jan 2013 14:55:08 +0100
-Message-ID: <20130124135508.GE16641@order.stressinduktion.org>
-References: <20130123100248.GB7317@order.stressinduktion.org> <5100B1A2.3000908@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/1 net-next] net: fec: add napi support to improve
+ proformance
+Date: Thu, 24 Jan 2013 05:56:08 -0800
+Message-ID: <1359035768.12374.2083.camel@edumazet-glaptop>
+References: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
+	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, s.hauer@pengutronix.de
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:48600 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488Ab3AXNzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:55:09 -0500
-Content-Disposition: inline
-In-Reply-To: <5100B1A2.3000908@linux-ipv6.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:34913 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753488Ab3AXN4L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:56:11 -0500
+Received: by mail-da0-f46.google.com with SMTP id p5so4244800dak.5
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 05:56:11 -0800 (PST)
+In-Reply-To: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 24, 2013 at 12:59:30PM +0900, YOSHIFUJI Hideaki wrote:
-> I need to do more research.  I am still not convinced
-> to have such destination check here because the standard
-> seems silent about it, and we have several basic checks
-> in standard input path and tunnel search.
+On Thu, 2013-01-24 at 15:58 +0800, Frank Li wrote:
+>  
+>  static irqreturn_t
+> @@ -805,6 +823,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  	struct net_device *ndev = dev_id;
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  	uint int_events;
+> +	ulong flags;
+>  	irqreturn_t ret = IRQ_NONE;
+>  
+>  	do {
+> @@ -813,7 +832,14 @@ fec_enet_interrupt(int irq, void *dev_id)
+>  
+>  		if (int_events & FEC_ENET_RXF) {
+>  			ret = IRQ_HANDLED;
+> -			fec_enet_rx(ndev);
+> +
+> +			spin_lock_irqsave(&fep->hw_lock, flags);
 
-Thanks, looking forward to your conclusion.
+You already are in a irq safe context, spin_lock() should be ok
 
-> Anyway, try_6rd() can do check for prefix as well
-> but we are doing slightly different thing.
-> So I think we can introduce new __check_6rd() to
-> return non-6rd/6to4 addresses.
-> 
-> bool __check_6rd(struct ip_tunnel *tunnel,
-> 		 const struct in6_addr *v6dst,
-> 		 __be32 *v4dst);
-> 
-> If prefix matches, fill *v4dst and return true.
-> Otherwise, return false.
-> 
-> __be32 __try_6rd()
-> {
-> 	__be32 dst = 0;
-> 	__check_6rd(tunnel, v6dst, &dst);
-> 	return dst;
-> }
+> +			/* Disable the RX interrupt */
+> +			if (napi_schedule_prep(&fep->napi)) {
+> +				fec_enet_rx_int_is_enabled(ndev, false);
+> +				__napi_schedule(&fep->napi);
+> +			}
+> +			spin_unlock_irqrestore(&fep->hw_lock, flags);
 
-I'll update the patch and send it over for review, thanks.
+       spin_unlock();
+
+>  		}
+>  
+
+
+Same remark for the spin_lock_irqsave(&fep->tmreg_lock, flags) in
+fec_enet_tx()
