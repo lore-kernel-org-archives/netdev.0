@@ -1,73 +1,189 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: inaccurate packet scheduling
-Date: Thu, 24 Jan 2013 06:01:27 -0800
-Message-ID: <1359036087.12374.2088.camel@edumazet-glaptop>
-References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
-	 <1355849503.9380.37.camel@edumazet-glaptop>
-	 <20130102152601.GB1532@minipsycho.orion>
-	 <1357144482.21409.16876.camel@edumazet-glaptop>
-	 <20130108133038.GB1621@minipsycho.orion>
-	 <20130124080536.GA1598@minipsycho.orion>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH 0/6] net: frag performance tuning cachelines for
+	NUMA/SMP systems
+Date: Thu, 24 Jan 2013 15:04:00 +0100
+Message-ID: <20130124140343.14119.77712.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jhs@mojatatu.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Cong Wang <amwang@redhat.com>,
+	"Patrick McHardy" <kaber@trash.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:56481 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750780Ab3AXOBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 09:01:30 -0500
-Received: by mail-pb0-f49.google.com with SMTP id un15so5415076pbc.8
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 06:01:30 -0800 (PST)
-In-Reply-To: <20130124080536.GA1598@minipsycho.orion>
+Received: from mx1.redhat.com ([209.132.183.28]:20658 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751805Ab3AXOFB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2013 09:05:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-24 at 09:05 +0100, Jiri Pirko wrote:
-> Tue, Jan 08, 2013 at 02:30:38PM CET, jiri@resnulli.us wrote:
-> >Wed, Jan 02, 2013 at 05:34:42PM CET, eric.dumazet@gmail.com wrote:
-> >>On Wed, 2013-01-02 at 16:26 +0100, Jiri Pirko wrote:
-> >>> Tue, Dec 18, 2012 at 05:51:43PM CET, erdnetdev@gmail.com wrote:
-> >>> >On Tue, 2012-12-18 at 08:26 -0800, Stephen Hemminger wrote:
-> >>> >
-> >>> >> Check kernel log for messages about clock. It could be that on the
-> >>> >> machines with issues TSC is not usable for kernel clock.
-> >>> >> Also turn off TSO since it screws up any form of rate control.
-> >>> >
-> >>> >Yes, but we should fix it eventually. I'll take a look.
-> >>> 
-> >>> Hi Eric, did you have a chance to look at this? Or should I give it a try?
-> >>
-> >>I took a look, and TBF does :
-> >>
-> >>if (qdisc_pkt_len(skb) > q->max_size)
-> >>    return qdisc_reshape_fail(skb, sch);
-> >>
-> >>We have several choices :
-> >>
-> >>1) Add a one time warning
-> >>
-> >>2) cap dev->gso_max_size at Qdisc setup time
-> >>
-> >>3) Re-segment the packet instead of dropping it (if GSO packet), and
-> >>call the expensive qdisc_tree_decrease_qlen() function.
-> >>
-> >>4) remove max_size limitation 
-> >>
-> >
-> >To my untrained eye, 2) or 4) look like a way to go. Not sure though.
-> 
-> What do you think would be the best way Eric? Thanks.
+This patchset is a new partly respin of my fragmentation optimization
+patches: http://thread.gmane.org/gmane.linux.network/250914
 
-Capping gso_max_size is a bit difficult after commit
-1def9238d4aa2146924 (net_sched: more precise pkt_len computation)
+This is not the complete patchset, from previously. In this patchset,
+I primarily focus on adjusting cacheline for better SMP/NUMA
+performance.
 
-If MSS is really small, we can easily get a lot of overhead
+Once this patchset have been agreed upon, I will continue and respin
+the rest of my patches.
 
-qdisc_skb_cb(skb)->pkt_len > 2 * skb->len
 
-It looks like we need 4), maybe using same mechanism
-than the one used in commit 56b765b79e9a78d
-(htb: improved accuracy at high rates)
+This time around, I have created a frag DoS generator, via the tool
+trafgen (http://netsniff-ng.org/).  To create a stable DoS scenario
+(no longer relying on frame dropping due to disabled flow-control).
+
+Two 10G interfaces are under-test, and uses Ethernet flow-control.  A
+third interface is used for generating the DoS attack (this interface
+is also 10G, but it does not need to be, as 500Kpps DoS is enough).
+
+Test types summary (netperf):
+ Test-20G64K     == 2x10G with 65K fragments
+ Test-20G3F      == 2x10G with 3x fragments (3*1472 bytes)
+ Test-20G64K+DoS == Same as 20G64K with frag DoS
+ Test-20G3F+DoS  == Same as 20G3F  with frag DoS
+
+Patch list:
+ Patch-01 - net: cacheline adjust struct netns_frags for better frag performance
+ Patch-02 - net: cacheline adjust struct inet_frags for better frag performance
+ Patch-03 - net: cacheline adjust struct inet_frag_queue
+ Patch-04 - net: frag helper functions for mem limit tracking
+ Patch-05 - net: use lib/percpu_counter API for fragmentation mem accounting
+ Patch-06 - net: frag, move LRU list maintenance outside of rwlock
+
+Performance table summary:
+
+ Test-type:  Test-20G64K    Test-20G3F  20G64K+DoS   20G3F+DoS
+ ----------  -----------    ----------  ----------   ---------
+  net-next:  15114.5 Mbit/s   8954.21     2444.28     3918.01 Mbit/s
+  Patch-01:  16075.8 Mbit/s   8976.18     2621.49     4072.79 Mbit/s
+  Patch-02:  17806.9 Mbit/s   9280.32     2478.62     4274.59 Mbit/s
+  Patch-03:  17317.4 Mbit/s   9308.62     2546.05     4336.59 Mbit/s
+  Patch-04:  17635.9 Mbit/s   9256.16     2535.25     4327.63 Mbit/s
+  Patch-05:  18027.0 Mbit/s   9918.99     2492.62     3621.68 Mbit/s
+  Patch-06:  18486.7 Mbit/s  10723.20     3657.85     4560.64 Mbit/s
+
+ I cannot explain the under-DoS regression that patch-05/percpu_counter
+ introduces.  But patch-06/LRU-lock corrects the situation again.
+
+Below is a testlab setup description, with links to the trafgen DoS
+packet config used.
+
+---
+
+Jesper Dangaard Brouer (6):
+      net: frag, move LRU list maintenance outside of rwlock
+      net: use lib/percpu_counter API for fragmentation mem accounting
+      net: frag helper functions for mem limit tracking
+      net: cacheline adjust struct inet_frag_queue
+      net: cacheline adjust struct inet_frags for better frag performance
+      net: cacheline adjust struct netns_frags for better frag performance
+
+
+ include/linux/percpu_counter.h          |    2 -
+ include/net/inet_frag.h                 |   85 ++++++++++++++++++++++++++++---
+ include/net/ipv6.h                      |    2 -
+ net/ipv4/inet_fragment.c                |   39 ++++++++------
+ net/ipv4/ip_fragment.c                  |   28 ++++------
+ net/ipv6/netfilter/nf_conntrack_reasm.c |   11 ++--
+ net/ipv6/reassembly.c                   |   10 +---
+ 7 files changed, 120 insertions(+), 57 deletions(-)
+
+
+Testlab
+=======
+
+Server setup
+------------
+The machine acting as a server:
+ - 2x CPU (E5-2630)
+ - Thus a NUMA arch/machine
+ - 4x 10Gbit/s ports
+ - NICs 2x Intel Dual port 82599 based (driver ixgbe)
+
+Setup:
+ - Interfaces uses Ethernet flow control
+ - Flush all iptables
+ - Remove all iptables related module.
+ - Kill irqbalance
+ - Pin each 10G NIC port to a *single* CPU each
+
+Pinning can easily be done by command hacks::
+
+ for x in /proc/irq/*/eth8*/../smp_affinity_list ; do echo 1 > $x; done
+ for x in /proc/irq/*/eth9*/../smp_affinity_list ; do echo 3 > $x; done
+ for x in /proc/irq/*/eth31*/../smp_affinity_list; do echo 6 > $x; done
+ for x in /proc/irq/*/eth32*/../smp_affinity_list; do echo 8 > $x; done
+
+Notice NUMA setting: The CPU to NIC tying is carefully choosen
+according to the NUMA node setup.  Thus, NICs connected to a PCI-e
+slot that is connected to a physical CPU socket are tied together.
+
+Choosing only a single CPU per NIC (port) is just to ease provoking
+and debugging this performance issue. (In real setups, you can choose
+more CPU, just remember the NUMA node in the equation).
+
+Tools
+-----
+
+Netperf is used, with option -T to ensure CPU binding.
+The netserver processes, are NAPI pinned::
+
+ numactl -m0 -c0 netserver
+ numactl -m1 -c 1 netserver -p 1337
+
+I now have a frag DoS generator, created via the tool:
+  trafgen (see: http://netsniff-ng.org/)
+
+Trafgen packet config file:
+ http://people.netfilter.org/hawk/frag_work/trafgen/frag_packet03_small_frag.txf
+
+Notice, I'm using features of trafgen, recently developed by Daniel
+Borkmann, thus you need the latest git tree to use my trafgen packet
+config.
+
+ git://github.com/borkmann/netsniff-ng.git
+
+Command line:
+ trafgen --dev eth51 --conf frag_packet03_small_frag.txf -V -k 100 --cpus 2
+
+Tests types
+-----------
+
+Test(20G64K) UDP-64K 2x 10Gbit/s with no DoS traffic:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ export SIZE=$((65507)); export TIME=$((20)); export LOG=/tmp/netperf.log ;\
+ netperf -p 1337 -H 192.168.31.2 -T7,7 -t UDP_STREAM -l $TIME -- -m $SIZE >> ${LOG}.31 &\
+ netperf         -H 192.168.81.2 -T2,2 -t UDP_STREAM -l $TIME -- -m $SIZE >> ${LOG}.81 && \
+ wait $! && tail -n3 ${LOG}.* && \
+ tail -n3 ${LOG}.{31,81} | awk 'BEGIN{sum=0;} /212992        / {sum+=$4; print " +"$4} /==/ {print " file:"$2} END{print "sum:"sum" Mbit/s"}'
+
+
+Test(20G3F) UDP-3xfrags 2x 10Gbit/s with no DoS traffic:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ export SIZE=$((3*1472)); export TIME=$((20)); export LOG=/tmp/netperf.log ;\
+ netperf -p 1337 -H 192.168.31.2 -T7,7 -t UDP_STREAM -l $TIME -- -m $SIZE >> ${LOG}.31 &\
+ netperf         -H 192.168.81.2 -T2,2 -t UDP_STREAM -l $TIME -- -m $SIZE >> ${LOG}.81 && \
+ wait $! && tail -n3 ${LOG}.* && \
+tail -n3 ${LOG}.{31,81} | awk 'BEGIN{sum=0;} /212992        / {sum+=$4; print " +"$4} /==/ {print " file:"$2} END{print "sum:"sum" Mbit/s"}'
+
+
+Awk script for summming results:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+tail -n3 ${LOG}.{31,81} | awk 'BEGIN{sum=0;} /212992        / {sum+=$4; print " +"$4} /==/ {print " file:"$2} END{print "sum:"sum" Mbit/s"}'
+
+
+--
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
