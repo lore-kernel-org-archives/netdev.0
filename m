@@ -1,8 +1,7 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 2/6] net: cacheline adjust struct inet_frags for
-	better frag performance
-Date: Thu, 24 Jan 2013 15:04:20 +0100
-Message-ID: <20130124140417.14119.32738.stgit@dragon>
+Subject: [net-next PATCH 3/6] net: cacheline adjust struct inet_frag_queue
+Date: Thu, 24 Jan 2013 15:04:27 +0100
+Message-ID: <20130124140425.14119.15092.stgit@dragon>
 References: <20130124140343.14119.77712.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,57 +16,57 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11101 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54297 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753239Ab3AXOFP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2013 09:05:15 -0500
+	id S1751004Ab3AXOFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2013 09:05:21 -0500
 In-Reply-To: <20130124140343.14119.77712.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The globally shared rwlock, of struct inet_frags, shares
-cacheline with the 'rnd' number, which is used by the hash
-calculations.  Fix this, as this obviously is a bad idea, as
-unnecessary cache-misses will occur when accessing the 'rnd'
-number.
+Fragmentation code cacheline adjusting of struct inet_frag_queue.
 
-Also small note that, moving function ptr (*match) up in struct,
-is to avoid it lands on the next cacheline (on 64-bit).
+Take advantage of the size of struct timer_list, and move all but
+spinlock_t lock, below the timer struct.  On 64-bit 'lru_list',
+'list' and 'refcnt', fits exactly into the next cacheline, and a
+new cacheline starts at 'fragments'.
+
+The netns_frags *net pointer is moved to the end of the struct,
+because its used in a compare, with "next/close-by" elements of
+which this struct is embedded into.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- include/net/inet_frag.h |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+ include/net/inet_frag.h |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 91e7797..99eb4e0 100644
+index 99eb4e0..a530bf4 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -40,18 +40,22 @@ struct inet_frag_queue {
- 
- struct inet_frags {
- 	struct hlist_head	hash[INETFRAGS_HASHSZ];
--	rwlock_t		lock;
--	u32			rnd;
--	int			qsize;
-+	/* This rwlock is a global lock (seperate per IPv4, IPv6 and
-+	 * netfilter). Important to keep this on a seperate cacheline.
-+	 */
-+	rwlock_t		lock ____cacheline_aligned_in_smp;
- 	int			secret_interval;
- 	struct timer_list	secret_timer;
-+	/* --- read-mostly cacheline boundary (was 24 bytes ago) --- */
-+	u32			rnd;
-+	int			qsize;
- 
- 	unsigned int		(*hashfn)(struct inet_frag_queue *);
-+	bool			(*match)(struct inet_frag_queue *q, void *arg);
- 	void			(*constructor)(struct inet_frag_queue *q,
- 						void *arg);
- 	void			(*destructor)(struct inet_frag_queue *);
- 	void			(*skb_free)(struct sk_buff *);
--	bool			(*match)(struct inet_frag_queue *q, void *arg);
- 	void			(*frag_expire)(unsigned long data);
+@@ -16,12 +16,11 @@ struct netns_frags {
  };
  
+ struct inet_frag_queue {
+-	struct hlist_node	list;
+-	struct netns_frags	*net;
+-	struct list_head	lru_list;   /* lru list member */
+ 	spinlock_t		lock;
+-	atomic_t		refcnt;
+ 	struct timer_list	timer;      /* when will this queue expire? */
++	struct list_head	lru_list;   /* lru list member */
++	struct hlist_node	list;
++	atomic_t		refcnt;
+ 	struct sk_buff		*fragments; /* list of received fragments */
+ 	struct sk_buff		*fragments_tail;
+ 	ktime_t			stamp;
+@@ -34,6 +33,8 @@ struct inet_frag_queue {
+ #define INET_FRAG_LAST_IN	1
+ 
+ 	u16			max_size;
++
++	struct netns_frags	*net;
+ };
+ 
+ #define INETFRAGS_HASHSZ		64
