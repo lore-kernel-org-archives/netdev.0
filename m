@@ -1,50 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
- traffic.
-Date: Wed, 23 Jan 2013 21:39:21 -0800
-Message-ID: <1359005961.12374.1595.camel@edumazet-glaptop>
-References: <50FDADF4.3060601@candelatech.com>
-	 <50FDDE35.7070806@candelatech.com>
-	 <1358829606.3464.3151.camel@edumazet-glaptop>
-	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
-	 <1358875020.3464.4006.camel@edumazet-glaptop>
-	 <1358875607.3464.4020.camel@edumazet-glaptop>
-	 <50FF102F.2050008@candelatech.com> <50FF4BC9.1060206@candelatech.com>
-	 <5100785D.8040101@candelatech.com>
-	 <1358985688.12374.1247.camel@edumazet-glaptop>
-	 <51007CA8.2050105@candelatech.com>
-	 <1358987031.12374.1276.camel@edumazet-glaptop>
-	 <51008294.2010201@candelatech.com>
-	 <1358988358.12374.1303.camel@edumazet-glaptop>
-	 <51008598.4000603@candelatech.com>
-	 <1358989242.12374.1323.camel@edumazet-glaptop>
-	 <51008900.2010803@candelatech.com>
-	 <1358989843.12374.1334.camel@edumazet-glaptop>
-	 <1358991906.12374.1356.camel@edumazet-glaptop>
-	 <5100B7F4.2050505@candelatech.com>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [PATCH net] r8169: remove the obsolete and incorrect AMD
+ workaround
+Date: Thu, 24 Jan 2013 08:09:11 +0200
+Message-ID: <20130124080911.31d52da9@vostro>
+References: <20130121234205.GA12449@electric-eye.fr.zoreil.com>
+	<1358843435-24719-1-git-send-email-timo.teras@iki.fi>
+	<20130123000541.GA9515@electric-eye.fr.zoreil.com>
+	<20130123081408.2646fc4e@vostro>
+	<20130123223834.GA5124@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:52745 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653Ab3AXFjY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 00:39:24 -0500
-Received: by mail-pb0-f46.google.com with SMTP id wy7so5164242pbc.19
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 21:39:24 -0800 (PST)
-In-Reply-To: <5100B7F4.2050505@candelatech.com>
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:64761 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751004Ab3AXGJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 01:09:03 -0500
+Received: by mail-ee0-f52.google.com with SMTP id b15so4349326eek.39
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 22:09:01 -0800 (PST)
+In-Reply-To: <20130123223834.GA5124@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 20:26 -0800, Ben Greear wrote:
+On Wed, 23 Jan 2013 23:38:34 +0100 Francois Romieu
+<romieu@fr.zoreil.com> wrote:
 
-> I'll test this in the morning...one thing, maybe it's worth adding
-> a WARN_ON in netif_rx() in case there are other bugs of
-> this nature?
+> Timo Teras <timo.teras@iki.fi> :
+> [...]
+> > Actually, this sounds wrong. Why is rtl8169_rx_vlan_tag() which is
+> > fiddling opts2 invoked *after* rtl8169_mark_to_asic() ? This means
+> > it can overwrite the tag info if the queue is full.
+> 
+> Yes. It has been there for ages.
+> 
+> What about something like the patch below ?
 
-Quite frankly we should do the skb_dst_force() in netif_rx(), and remove
-it from callers. This will be a net-next patch.
-
-Thanks !
+Looks good as the minimum intrusion for stable branches. Though, I'm
+wondering if it'd be easy to refactor rtl_rx() so that it would
+not need that many goto labels.
