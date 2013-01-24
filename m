@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH 1/6] net: cacheline adjust struct netns_frags for
+Subject: [net-next PATCH 2/6] net: cacheline adjust struct inet_frags for
 	better frag performance
-Date: Thu, 24 Jan 2013 15:04:12 +0100
-Message-ID: <20130124140405.14119.49967.stgit@dragon>
+Date: Thu, 24 Jan 2013 15:04:20 +0100
+Message-ID: <20130124140417.14119.32738.stgit@dragon>
 References: <20130124140343.14119.77712.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,44 +17,57 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35716 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:11101 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753008Ab3AXOFI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2013 09:05:08 -0500
+	id S1753239Ab3AXOFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2013 09:05:15 -0500
 In-Reply-To: <20130124140343.14119.77712.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This small cacheline adjustment of struct netns_frags improves
-performance significantly for the fragmentation code.
+The globally shared rwlock, of struct inet_frags, shares
+cacheline with the 'rnd' number, which is used by the hash
+calculations.  Fix this, as this obviously is a bad idea, as
+unnecessary cache-misses will occur when accessing the 'rnd'
+number.
 
-Struct members 'lru_list' and 'mem' are both hot elements, and it
-hurts performance, due to cacheline bouncing at every call point,
-when they share a cacheline.  Also notice, how mem is placed
-together with 'high_thresh' and 'low_thresh', as they are used in
-the compare operations together.
+Also small note that, moving function ptr (*match) up in struct,
+is to avoid it lands on the next cacheline (on 64-bit).
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
 ---
 
- include/net/inet_frag.h |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ include/net/inet_frag.h |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 32786a0..91e7797 100644
+index 91e7797..99eb4e0 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -3,9 +3,12 @@
+@@ -40,18 +40,22 @@ struct inet_frag_queue {
  
- struct netns_frags {
- 	int			nqueues;
--	atomic_t		mem;
- 	struct list_head	lru_list;
- 
-+	/* Its important for performance to keep lru_list and mem on
-+	 * separate cachelines
+ struct inet_frags {
+ 	struct hlist_head	hash[INETFRAGS_HASHSZ];
+-	rwlock_t		lock;
+-	u32			rnd;
+-	int			qsize;
++	/* This rwlock is a global lock (seperate per IPv4, IPv6 and
++	 * netfilter). Important to keep this on a seperate cacheline.
 +	 */
-+	atomic_t		mem ____cacheline_aligned_in_smp;
- 	/* sysctls */
- 	int			timeout;
- 	int			high_thresh;
++	rwlock_t		lock ____cacheline_aligned_in_smp;
+ 	int			secret_interval;
+ 	struct timer_list	secret_timer;
++	/* --- read-mostly cacheline boundary (was 24 bytes ago) --- */
++	u32			rnd;
++	int			qsize;
+ 
+ 	unsigned int		(*hashfn)(struct inet_frag_queue *);
++	bool			(*match)(struct inet_frag_queue *q, void *arg);
+ 	void			(*constructor)(struct inet_frag_queue *q,
+ 						void *arg);
+ 	void			(*destructor)(struct inet_frag_queue *);
+ 	void			(*skb_free)(struct sk_buff *);
+-	bool			(*match)(struct inet_frag_queue *q, void *arg);
+ 	void			(*frag_expire)(unsigned long data);
+ };
+ 
