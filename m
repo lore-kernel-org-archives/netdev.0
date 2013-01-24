@@ -1,103 +1,92 @@
-From: Jamie Gloudon <jamie.gloudon@gmail.com>
-Subject: Re: [PATCH net-next] via-rhine: add 64bit statistics.
-Date: Wed, 23 Jan 2013 19:55:19 -0400
-Message-ID: <5100786f.04bc650a.65b3.fffffd3d@mx.google.com>
-References: <50fff42d.094e640a.3ace.6ae4@mx.google.com>
- <1358951884.12374.790.camel@edumazet-glaptop>
- <510004a3.2444ec0a.1ba7.ffff98b3@mx.google.com>
- <1358957838.12374.805.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Wed, 23 Jan 2013 16:01:28 -0800
+Message-ID: <1358985688.12374.1247.camel@edumazet-glaptop>
+References: <50FDADF4.3060601@candelatech.com>
+	 <50FDDE35.7070806@candelatech.com>
+	 <1358829606.3464.3151.camel@edumazet-glaptop>
+	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
+	 <1358875020.3464.4006.camel@edumazet-glaptop>
+	 <1358875607.3464.4020.camel@edumazet-glaptop>
+	 <50FF102F.2050008@candelatech.com> <50FF4BC9.1060206@candelatech.com>
+	 <5100785D.8040101@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f178.google.com ([209.85.161.178]:51650 "EHLO
-	mail-gg0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751127Ab3AXABD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 19:01:03 -0500
-Received: by mail-gg0-f178.google.com with SMTP id 21so338505ggh.23
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 16:01:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1358957838.12374.805.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5100785D.8040101-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 08:17:18AM -0800, Eric Dumazet wrote:
-> On Wed, 2013-01-23 at 11:41 -0400, Jamie Gloudon wrote:
-> > On Wed, Jan 23, 2013 at 06:38:04AM -0800, Eric Dumazet wrote:
-> > > On Wed, 2013-01-23 at 10:31 -0400, Jamie Gloudon wrote:
-> > > > Switch to use ndo_get_stats64 to get 64bit statistics.
-> > > > 
-> > > > Signed-off-by: Jamie Gloudon <jamie.gloudon@gmail.com>
-> > > > ---
-> > > 
-> > > > +
-> > > > +	stats->rx_errors = dev->stats.rx_errors;
-> > > > +	stats->tx_errors = dev->stats.tx_errors;
-> > > > +	stats->rx_dropped = dev->stats.rx_dropped;
-> > > > +	stats->tx_dropped = dev->stats.tx_dropped;
-> > > > +	stats->collisions = dev->stats.collisions;
-> > > > +
-> > > > +	stats->rx_length_errors = dev->stats.rx_length_errors;
-> > > > +	stats->rx_crc_errors = dev->stats.rx_crc_errors;
-> > > > +	stats->rx_frame_errors = dev->stats.rx_frame_errors;
-> > > > +	stats->rx_fifo_errors = dev->stats.rx_fifo_errors;
-> > > > +	stats->rx_missed_errors = dev->stats.rx_missed_errors;
-> > > > +
-> > > > +	stats->tx_aborted_errors = dev->stats.tx_aborted_errors;
-> > > > +	stats->tx_carrier_errors = dev->stats.tx_carrier_errors;
-> > > > +	stats->tx_fifo_errors = dev->stats.tx_fifo_errors;
-> > > > +	stats->tx_heartbeat_errors = dev->stats.tx_heartbeat_errors;
-> > > > +	stats->tx_window_errors = dev->stats.tx_window_errors;
-> > > > +
-> > > > +	return stats;
-> > > >  }
-> > > >  
-> > > 
-> > > Hi Jamie
-> > > 
-> > > Please use netdev_stats_to_stats64() for this block
-> > > 
-> > > commit 77a1abf54f4b003ad6e59c535045b2ad89fedfeb
-> > > Author: Eric Dumazet <eric.dumazet@gmail.com>
-> > > Date:   Mon Mar 5 04:50:09 2012 +0000
-> > > 
-> > >     net: export netdev_stats_to_stats64
-> > >     
-> > >     Some drivers use internal netdev stats member to store part of their
-> > >     stats, yet advertize ndo_get_stats64() to implement some 64bit fields.
-> > >     
-> > >     Allow them to use netdev_stats_to_stats64() helper to make the copy of
-> > >     netdev stats before they compute their 64bit counters.
-> > > 
-> > >
-> > 
-> > Definitely looks cleaner now. Thanks!
+On Wed, 2013-01-23 at 15:55 -0800, Ben Greear wrote:
+> On 01/22/2013 06:32 PM, Ben Greear wrote:
 > 
-> Well, no ;)
+> So, I'm slowly making some progress.  I've verified that the skb
+> has bogus dst (0xdeadbeef) at the top of the ip_rcv_finish
+> method.  I'm trying to track it backwards and figure out which
+> device it belongs to, etc....takes a while to reproduce though.
 > 
-> Please read again the changelog I copied, and highlight the word
-> _before_
+> One thing about this stack trace below...the dev_seq_stop() does
+> a rcu read-unlock.  Now, I can't figure out exactly how ip_rcv()
+> can cause dev_seq_stop() to run, but if this stack is legit,
+> then maybe by the time we enter the ip_rcv_finish() code we are
+> running without rcu_readlock() held?
 > 
-> If you cant test the patch, please ask someone to do so.
+> If so, that would probably explain the bug.
 > 
-> 
->
 
-Eric, do you mean like this below? If not, please illustrate.
+The whole thing is run under rcu_read_lock() done in
+__netif_receive_skb()
 
-+       netdev_stats_to_stats64(stats, &dev->stats);
-+
-+       do {
-+               start = u64_stats_fetch_begin_bh(&rp->rx_stats.syncp);
-+               stats->rx_packets = rp->rx_stats.packets;
-+               stats->rx_bytes = rp->rx_stats.bytes;
-+       } while (u64_stats_fetch_retry_bh(&rp->rx_stats.syncp, start));
-+
-+       do {
-+               start = u64_stats_fetch_begin_bh(&rp->tx_stats.syncp);
-+               stats->tx_packets = rp->tx_stats.packets;
-+               stats->tx_bytes = rp->tx_stats.bytes;
-+       } while (u64_stats_fetch_retry_bh(&rp->tx_stats.syncp, start));
-+
-+       return stats;
+My suspicion was that we called netif_rx() from macvlan leaving a
+not refcounted skb dst.
+
+But the patch I sent to you didnt solve the bug, so its something else.
+
+You could trace at which point the dst was released. (where you set
+dst->input/output to deadbeef)
+
+> > Call Trace:
+> >   [<ffffffff814a8b02>] ? ip_rcv_finish+0x2f0/0x308
+> >   [<ffffffff814a8812>] ? skb_dst+0x5a/0x5a
+> >   [<ffffffff814a8eb5>] NF_HOOK.clone.1+0x4c/0x54
+> >   [<ffffffff81472e61>] ? dev_seq_stop+0xb/0xb
+> >   [<ffffffff814a9142>] ip_rcv+0x237/0x269
+> >   [<ffffffff81473def>] __netif_receive_skb+0x487/0x530
+> >   [<ffffffff81473f91>] process_backlog+0xf9/0x1da
+> >   [<ffffffff8147639a>] net_rx_action+0xad/0x218
+> >   [<ffffffff8108d50a>] __do_softirq+0x9c/0x161
+> >   [<ffffffff8108d5f2>] run_ksoftirqd+0x23/0x42
+> >   [<ffffffff810a7ebe>] smpboot_thread_fn+0x253/0x259
+> >   [<ffffffff810a7c6b>] ? test_ti_thread_flag.clone.0+0x11/0x11
+> >   [<ffffffff810a0a6d>] kthread+0xc2/0xca
+> >   [<ffffffff810a09ab>] ? __init_kthread_worker+0x56/0x56
+> >   [<ffffffff81537b7c>] ret_from_fork+0x7c/0xb0
+> >   [<ffffffff810a09ab>] ? __init_kthread_worker+0x56/0x56
+> 
+> 
+> ## This is from a slightly different kernel image...but probably this part is legit.
+> 
+> 0xffffffff814a92b3 is in ip_rcv (/home/greearb/git/linux-3.7.dev.y/net/ipv4/ip_input.c:466).
+> 461		/* Our transport medium may have padded the buffer out. Now we know it
+> 462		 * is IP we can trim to the true length of the frame.
+> 463		 * Note this now means skb->len holds ntohs(iph->tot_len).
+> 464		 */
+> 465		if (pskb_trim_rcsum(skb, len)) {
+> 466			IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INDISCARDS);
+> 467			goto drop;
+> 468		}
+> 469	
+> 470		/* Remove any debris in the socket control block */
+> 
+> 
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
