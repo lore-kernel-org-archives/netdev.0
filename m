@@ -1,140 +1,202 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch net-next] bond: have random dev address by default instead of zeroes
-Date: Thu, 24 Jan 2013 09:12:49 -0800
-Message-ID: <7112.1359047569@death.nxdomain>
-References: <1359022329-6919-1-git-send-email-jiri@resnulli.us>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:35073 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751150Ab3AXRN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 12:13:58 -0500
-Received: from /spool/local
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 24 Jan 2013 10:13:57 -0700
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 5E4E83E4003E
-	for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 10:13:45 -0700 (MST)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r0OHDaNq083060
-	for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 10:13:41 -0700
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r0OHFLHA009372
-	for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 10:15:26 -0700
-In-reply-to: <1359022329-6919-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V6 1/3] virtio-net: fix the set affinity bug when CPU IDs
+	are not consecutive
+Date: Thu, 24 Jan 2013 19:19:04 +0200
+Message-ID: <20130124171904.GA11664@redhat.com>
+References: <1358767524-17934-1-git-send-email-gaowanlong@cn.fujitsu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <erdnetdev@gmail.com>
+To: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1358767524-17934-1-git-send-email-gaowanlong@cn.fujitsu.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Mon, Jan 21, 2013 at 07:25:22PM +0800, Wanlong Gao wrote:
+> As Michael mentioned, set affinity and select queue will not work very
+> well when CPU IDs are not consecutive, this can happen with hot unplug.
+> Fix this bug by traversal the online CPUs, and create a per cpu variable
+> to find the mapping from CPU to the preferable virtual-queue.
+> 
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Eric Dumazet <erdnetdev@gmail.com>
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
 
->Makes more sense to have randomly generated address by default than to
->have all zeroes. It also allows user to for example put the bond into
->bridge without need to have any slaves in it.
->
->Also, fix dev_assign_type values on the way.
->
->Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-	This patch appears to provide a random MAC, which is then
-replaced with the first slave's MAC at enslavement time.  A more in
-depth commit message would be helpful here; I presumed from the above
-that the bond's MAC was being set to a random MAC and the first slave
-behavior was changing, but inspection of the code suggests otherwise.
+For the series:
 
-	Does this have any practical change other than permitting
-enslavement to a bridge prior to the bond having any slaves?
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-	I also have one code comment, below.
-
-> drivers/net/bonding/bond_main.c | 28 ++++++++++++++++------------
-> 1 file changed, 16 insertions(+), 12 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 564cf42..af3a777 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1320,14 +1320,14 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
->
-> /*---------------------------------- IOCTL ----------------------------------*/
->
->-static int bond_sethwaddr(struct net_device *bond_dev,
->-			  struct net_device *slave_dev)
->+static void bond_set_dev_addr(struct net_device *bond_dev,
->+			      struct net_device *slave_dev)
-> {
-> 	pr_debug("bond_dev=%p\n", bond_dev);
-> 	pr_debug("slave_dev=%p\n", slave_dev);
-> 	pr_debug("slave_dev->addr_len=%d\n", slave_dev->addr_len);
-> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len);
->-	return 0;
->+	bond_dev->addr_assign_type |= NET_ADDR_SET;
-
-	This is a bitwise assignment, but addr_assign_type is not a
-bitmask.  If addr_assign_type is not 0 prior to this, this will create
-an illegal value in the field.
-
-	-J
-
-> }
->
-> static netdev_features_t bond_fix_features(struct net_device *dev,
->@@ -1628,10 +1628,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->
-> 	/* If this is the first slave, then we need to set the master's hardware
-> 	 * address to be the same as the slave's. */
->-	if (is_zero_ether_addr(bond->dev->dev_addr))
->-		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
->-		       slave_dev->addr_len);
->-
->+	if (bond->dev->addr_assign_type != NET_ADDR_SET)
->+		bond_set_dev_addr(bond->dev, slave_dev);
->
-> 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
-> 	if (!new_slave) {
->@@ -2049,11 +2047,11 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
-> 	if (bond->slave_cnt == 0) {
-> 		bond_set_carrier(bond);
->
->-		/* if the last slave was removed, zero the mac address
->-		 * of the master so it will be set by the application
->-		 * to the mac address of the first slave
->+		/* If the last slave was removed, set random mac address
->+		 * of the master so it will be set by bond_enslave()
->+		 * to the mac address of the first slave.
-> 		 */
->-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->+		eth_hw_addr_random(bond_dev);
->
-> 		if (bond_vlan_used(bond)) {
-> 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
->@@ -3708,7 +3706,8 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
-> 			break;
-> 		case BOND_SETHWADDR_OLD:
-> 		case SIOCBONDSETHWADDR:
->-			res = bond_sethwaddr(bond_dev, slave_dev);
->+			bond_set_dev_addr(bond_dev, slave_dev);
->+			res = 0;
-> 			break;
-> 		case BOND_CHANGE_ACTIVE_OLD:
-> 		case SIOCBONDCHANGEACTIVE:
->@@ -4858,6 +4857,11 @@ static int bond_init(struct net_device *bond_dev)
->
-> 	bond_debug_register(bond);
->
->+	/* Ensure valid dev_addr */
->+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
->+	    bond_dev->addr_assign_type == NET_ADDR_PERM)
->+		eth_hw_addr_random(bond_dev);
->+
-> 	__hw_addr_init(&bond->mc_list);
-> 	return 0;
-> }
->-- 
->1.8.1
->
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> ---
+> V5->V6:
+> 	remove {get|put}_online_cpus from virtnet_del_vqs (Jason)
+> V4->V5:
+> 	Add get/put_online_cpus to avoid CPUs go up and down during operations (Rusty)
+> 
+> V3->V4:
+> 	move vq_index into virtnet_info	(Jason)
+> 	change the mapping value when not setting affinity (Jason)
+> 	address the comments about select_queue (Rusty)
+> 
+>  drivers/net/virtio_net.c | 58 +++++++++++++++++++++++++++++++++++++++---------
+>  1 file changed, 47 insertions(+), 11 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index a6fcf15..70cd957 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -123,6 +123,9 @@ struct virtnet_info {
+>  
+>  	/* Does the affinity hint is set for virtqueues? */
+>  	bool affinity_hint_set;
+> +
+> +	/* Per-cpu variable to show the mapping from CPU to virtqueue */
+> +	int __percpu *vq_index;
+>  };
+>  
+>  struct skb_vnet_hdr {
+> @@ -1016,6 +1019,7 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+>  static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>  {
+>  	int i;
+> +	int cpu;
+>  
+>  	/* In multiqueue mode, when the number of cpu is equal to the number of
+>  	 * queue pairs, we let the queue pairs to be private to one cpu by
+> @@ -1029,16 +1033,29 @@ static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>  			return;
+>  	}
+>  
+> -	for (i = 0; i < vi->max_queue_pairs; i++) {
+> -		int cpu = set ? i : -1;
+> -		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+> -		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+> -	}
+> +	if (set) {
+> +		i = 0;
+> +		for_each_online_cpu(cpu) {
+> +			virtqueue_set_affinity(vi->rq[i].vq, cpu);
+> +			virtqueue_set_affinity(vi->sq[i].vq, cpu);
+> +			*per_cpu_ptr(vi->vq_index, cpu) = i;
+> +			i++;
+> +		}
+>  
+> -	if (set)
+>  		vi->affinity_hint_set = true;
+> -	else
+> +	} else {
+> +		for(i = 0; i < vi->max_queue_pairs; i++) {
+> +			virtqueue_set_affinity(vi->rq[i].vq, -1);
+> +			virtqueue_set_affinity(vi->sq[i].vq, -1);
+> +		}
+> +
+> +		i = 0;
+> +		for_each_online_cpu(cpu)
+> +			*per_cpu_ptr(vi->vq_index, cpu) =
+> +				++i % vi->curr_queue_pairs;
+> +
+>  		vi->affinity_hint_set = false;
+> +	}
+>  }
+>  
+>  static void virtnet_get_ringparam(struct net_device *dev,
+> @@ -1087,7 +1104,9 @@ static int virtnet_set_channels(struct net_device *dev,
+>  		netif_set_real_num_tx_queues(dev, queue_pairs);
+>  		netif_set_real_num_rx_queues(dev, queue_pairs);
+>  
+> +		get_online_cpus();
+>  		virtnet_set_affinity(vi, true);
+> +		put_online_cpus();
+>  	}
+>  
+>  	return err;
+> @@ -1127,12 +1146,19 @@ static int virtnet_change_mtu(struct net_device *dev, int new_mtu)
+>  
+>  /* To avoid contending a lock hold by a vcpu who would exit to host, select the
+>   * txq based on the processor id.
+> - * TODO: handle cpu hotplug.
+>   */
+>  static u16 virtnet_select_queue(struct net_device *dev, struct sk_buff *skb)
+>  {
+> -	int txq = skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) :
+> -		  smp_processor_id();
+> +	int txq;
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +
+> +	if (skb_rx_queue_recorded(skb)) {
+> +		txq = skb_get_rx_queue(skb);
+> +	} else {
+> +		txq = *__this_cpu_ptr(vi->vq_index);
+> +		if (txq == -1)
+> +			txq = 0;
+> +	}
+>  
+>  	while (unlikely(txq >= dev->real_num_tx_queues))
+>  		txq -= dev->real_num_tx_queues;
+> @@ -1371,7 +1397,10 @@ static int init_vqs(struct virtnet_info *vi)
+>  	if (ret)
+>  		goto err_free;
+>  
+> +	get_online_cpus();
+>  	virtnet_set_affinity(vi, true);
+> +	put_online_cpus();
+> +
+>  	return 0;
+>  
+>  err_free:
+> @@ -1453,6 +1482,10 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (vi->stats == NULL)
+>  		goto free;
+>  
+> +	vi->vq_index = alloc_percpu(int);
+> +	if (vi->vq_index == NULL)
+> +		goto free_stats;
+> +
+>  	mutex_init(&vi->config_lock);
+>  	vi->config_enable = true;
+>  	INIT_WORK(&vi->config_work, virtnet_config_changed_work);
+> @@ -1476,7 +1509,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	/* Allocate/initialize the rx/tx queues, and invoke find_vqs */
+>  	err = init_vqs(vi);
+>  	if (err)
+> -		goto free_stats;
+> +		goto free_index;
+>  
+>  	netif_set_real_num_tx_queues(dev, 1);
+>  	netif_set_real_num_rx_queues(dev, 1);
+> @@ -1520,6 +1553,8 @@ free_recv_bufs:
+>  free_vqs:
+>  	cancel_delayed_work_sync(&vi->refill);
+>  	virtnet_del_vqs(vi);
+> +free_index:
+> +	free_percpu(vi->vq_index);
+>  free_stats:
+>  	free_percpu(vi->stats);
+>  free:
+> @@ -1554,6 +1589,7 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  
+>  	flush_work(&vi->config_work);
+>  
+> +	free_percpu(vi->vq_index);
+>  	free_percpu(vi->stats);
+>  	free_netdev(vi->dev);
+>  }
+> -- 
+> 1.8.1
