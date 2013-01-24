@@ -1,60 +1,73 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 1/1 net-next] net: fec: add napi support to improve
- proformance
-Date: Thu, 24 Jan 2013 05:56:08 -0800
-Message-ID: <1359035768.12374.2083.camel@edumazet-glaptop>
-References: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: inaccurate packet scheduling
+Date: Thu, 24 Jan 2013 06:01:27 -0800
+Message-ID: <1359036087.12374.2088.camel@edumazet-glaptop>
+References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
+	 <1355849503.9380.37.camel@edumazet-glaptop>
+	 <20130102152601.GB1532@minipsycho.orion>
+	 <1357144482.21409.16876.camel@edumazet-glaptop>
+	 <20130108133038.GB1621@minipsycho.orion>
+	 <20130124080536.GA1598@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: Frank Li <Frank.Li@freescale.com>
+Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jhs@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:34913 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753488Ab3AXN4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:56:11 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so4244800dak.5
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 05:56:11 -0800 (PST)
-In-Reply-To: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:56481 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750780Ab3AXOBa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 09:01:30 -0500
+Received: by mail-pb0-f49.google.com with SMTP id un15so5415076pbc.8
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 06:01:30 -0800 (PST)
+In-Reply-To: <20130124080536.GA1598@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-24 at 15:58 +0800, Frank Li wrote:
->  
->  static irqreturn_t
-> @@ -805,6 +823,7 @@ fec_enet_interrupt(int irq, void *dev_id)
->  	struct net_device *ndev = dev_id;
->  	struct fec_enet_private *fep = netdev_priv(ndev);
->  	uint int_events;
-> +	ulong flags;
->  	irqreturn_t ret = IRQ_NONE;
->  
->  	do {
-> @@ -813,7 +832,14 @@ fec_enet_interrupt(int irq, void *dev_id)
->  
->  		if (int_events & FEC_ENET_RXF) {
->  			ret = IRQ_HANDLED;
-> -			fec_enet_rx(ndev);
-> +
-> +			spin_lock_irqsave(&fep->hw_lock, flags);
+On Thu, 2013-01-24 at 09:05 +0100, Jiri Pirko wrote:
+> Tue, Jan 08, 2013 at 02:30:38PM CET, jiri@resnulli.us wrote:
+> >Wed, Jan 02, 2013 at 05:34:42PM CET, eric.dumazet@gmail.com wrote:
+> >>On Wed, 2013-01-02 at 16:26 +0100, Jiri Pirko wrote:
+> >>> Tue, Dec 18, 2012 at 05:51:43PM CET, erdnetdev@gmail.com wrote:
+> >>> >On Tue, 2012-12-18 at 08:26 -0800, Stephen Hemminger wrote:
+> >>> >
+> >>> >> Check kernel log for messages about clock. It could be that on the
+> >>> >> machines with issues TSC is not usable for kernel clock.
+> >>> >> Also turn off TSO since it screws up any form of rate control.
+> >>> >
+> >>> >Yes, but we should fix it eventually. I'll take a look.
+> >>> 
+> >>> Hi Eric, did you have a chance to look at this? Or should I give it a try?
+> >>
+> >>I took a look, and TBF does :
+> >>
+> >>if (qdisc_pkt_len(skb) > q->max_size)
+> >>    return qdisc_reshape_fail(skb, sch);
+> >>
+> >>We have several choices :
+> >>
+> >>1) Add a one time warning
+> >>
+> >>2) cap dev->gso_max_size at Qdisc setup time
+> >>
+> >>3) Re-segment the packet instead of dropping it (if GSO packet), and
+> >>call the expensive qdisc_tree_decrease_qlen() function.
+> >>
+> >>4) remove max_size limitation 
+> >>
+> >
+> >To my untrained eye, 2) or 4) look like a way to go. Not sure though.
+> 
+> What do you think would be the best way Eric? Thanks.
 
-You already are in a irq safe context, spin_lock() should be ok
+Capping gso_max_size is a bit difficult after commit
+1def9238d4aa2146924 (net_sched: more precise pkt_len computation)
 
-> +			/* Disable the RX interrupt */
-> +			if (napi_schedule_prep(&fep->napi)) {
-> +				fec_enet_rx_int_is_enabled(ndev, false);
-> +				__napi_schedule(&fep->napi);
-> +			}
-> +			spin_unlock_irqrestore(&fep->hw_lock, flags);
+If MSS is really small, we can easily get a lot of overhead
 
-       spin_unlock();
+qdisc_skb_cb(skb)->pkt_len > 2 * skb->len
 
->  		}
->  
-
-
-Same remark for the spin_lock_irqsave(&fep->tmreg_lock, flags) in
-fec_enet_tx()
+It looks like we need 4), maybe using same mechanism
+than the one used in commit 56b765b79e9a78d
+(htb: improved accuracy at high rates)
