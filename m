@@ -1,95 +1,81 @@
-From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Subject: [PATCH/RFC 2/3] ethernet: add a PHY reset GPIO DT binding to sh_eth
-Date: Thu, 24 Jan 2013 17:07:32 +0100
-Message-ID: <1359043653-11374-3-git-send-email-g.liakhovetski@gmx.de>
-References: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de>
-Cc: Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>,
-	linux-arm-kernel@lists.infradead.org,
-	Guennadi Liakhovetski <g.liakhovetski@gmx.de>,
-	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org
-To: linux-sh@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH] SCTP: Free the per-net sysctl table on net exit.
+Date: Thu, 24 Jan 2013 11:44:39 -0500
+Message-ID: <20130124164439.GB20658@hmsreliant.think-freely.org>
+References: <51004F2D.9000405@fold.natur.cuni.cz>
+ <1359043367-30180-1-git-send-email-vyasevich@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, mmokrejs@fold.natur.cuni.cz,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53261 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751951Ab3AXQpC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 11:45:02 -0500
+Content-Disposition: inline
+In-Reply-To: <1359043367-30180-1-git-send-email-vyasevich@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If an ethernet PHY can be reset by a GPIO, it can be specified in DT. Add
-a binding and code to parse it, request the GPIO and take the PHY out of
-reset.
-
-Signed-off-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Cc: devicetree-discuss@lists.ozlabs.org
-Cc: netdev@vger.kernel.org
----
- Documentation/devicetree/bindings/net/sh_ether.txt |    2 ++
- drivers/net/ethernet/renesas/sh_eth.c              |    9 ++++++++-
- 2 files changed, 10 insertions(+), 1 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
-index c11e45d..edaf683 100644
---- a/Documentation/devicetree/bindings/net/sh_ether.txt
-+++ b/Documentation/devicetree/bindings/net/sh_ether.txt
-@@ -12,6 +12,7 @@ Required properties:
- - interrupts:                   Interrupt mapping for the sh_eth interrupt
-                                 sources (vector id).
- - phy-mode:              String, operation mode of the PHY interface.
-+- phy-reset-gpios:              PHY reset GPIO tuple
- - sh-eth,edmac-endian:          String, endian of sh_eth dmac.
- - sh-eth,register-type:         String, register type of sh_eth.
-                                 Please select "gigabit", "fast-sh4" or
-@@ -37,6 +38,7 @@ Example (armadillo800eva):
- 		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
- 		interrupts = <0x500>;
- 		phy-mode = "mii";
-+		phy-reset-gpios = <&gpio 18 0>;
- 		sh-eth,edmac-endian = "little";
- 		sh-eth,register-type = "gigabit";
- 		sh-eth,phy-id = <0>;
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 1f64848..06035a2 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -20,6 +20,7 @@
-  *  the file called "COPYING".
-  */
- 
-+#include <linux/gpio.h>
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
-@@ -33,6 +34,7 @@
- #include <linux/netdevice.h>
- #include <linux/of.h>
- #include <linux/of_device.h>
-+#include <linux/of_gpio.h>
- #include <linux/of_platform.h>
- #include <linux/of_address.h>
- #include <linux/of_irq.h>
-@@ -2376,10 +2378,11 @@ sh_eth_of_get_register_type(struct device_node *np)
- static struct sh_eth_plat_data *
- sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
- {
--	int ret;
-+	int ret, gpio;
- 	const char *of_str;
- 	struct device_node *np = dev->of_node;
- 	struct sh_eth_plat_data *pdata;
-+	enum of_gpio_flags flags;
- 
- 	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
- 					GFP_KERNEL);
-@@ -2420,6 +2423,10 @@ sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
- 	else
- 		pdata->needs_init = 0;
- 
-+	gpio = of_get_named_gpio_flags(np, "phy-reset-gpios", 0, &flags);
-+	if (gpio_is_valid(gpio) && !devm_gpio_request(dev, gpio, NULL))
-+		gpio_direction_output(gpio, !!(flags & OF_GPIO_ACTIVE_LOW));
-+
- #ifdef CONFIG_OF_NET
- 	if (!is_valid_ether_addr(ndev->dev_addr)) {
- 		const char *macaddr = of_get_mac_address(np);
--- 
-1.7.2.5
-
+On Thu, Jan 24, 2013 at 11:02:47AM -0500, Vlad Yasevich wrote:
+> Per-net sysctl table needs to be explicitly freed at
+> net exit.  Otherwise we see the following with kmemleak:
+> 
+> unreferenced object 0xffff880402d08000 (size 2048):
+>   comm "chrome_sandbox", pid 18437, jiffies 4310887172 (age 9097.630s)
+>   hex dump (first 32 bytes):
+>     b2 68 89 81 ff ff ff ff 20 04 04 f8 01 88 ff ff  .h...... .......
+>     04 00 00 00 a4 01 00 00 00 00 00 00 00 00 00 00  ................
+>   backtrace:
+>     [<ffffffff815b4aad>] kmemleak_alloc+0x21/0x3e
+>     [<ffffffff81110352>] slab_post_alloc_hook+0x28/0x2a
+>     [<ffffffff81113fad>] __kmalloc_track_caller+0xf1/0x104
+>     [<ffffffff810f10c2>] kmemdup+0x1b/0x30
+>     [<ffffffff81571e9f>] sctp_sysctl_net_register+0x1f/0x72
+>     [<ffffffff8155d305>] sctp_net_init+0x100/0x39f
+>     [<ffffffff814ad53c>] ops_init+0xc6/0xf5
+>     [<ffffffff814ad5b7>] setup_net+0x4c/0xd0
+>     [<ffffffff814ada5e>] copy_net_ns+0x6d/0xd6
+>     [<ffffffff810938b1>] create_new_namespaces+0xd7/0x147
+>     [<ffffffff810939f4>] copy_namespaces+0x63/0x99
+>     [<ffffffff81076733>] copy_process+0xa65/0x1233
+>     [<ffffffff81077030>] do_fork+0x10b/0x271
+>     [<ffffffff8100a0e9>] sys_clone+0x23/0x25
+>     [<ffffffff815dda73>] stub_clone+0x13/0x20
+>     [<ffffffffffffffff>] 0xffffffffffffffff
+> 
+> Reported-by: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
+> Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+> CC: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+>  net/sctp/sysctl.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+> index 043889a..cd5712f 100644
+> --- a/net/sctp/sysctl.c
+> +++ b/net/sctp/sysctl.c
+> @@ -366,7 +366,11 @@ int sctp_sysctl_net_register(struct net *net)
+>  
+>  void sctp_sysctl_net_unregister(struct net *net)
+>  {
+> +	struct ctl_table *table;
+> +
+> +	table = net->sctp.sysctl_hdr->ctl_table_arg;
+>  	unregister_net_sysctl_table(net->sctp.sysctl_header);
+> +	kfree(table);
+>  }
+>  
+>  static struct ctl_table_header * sctp_sysctl_header;
+> -- 
+> 1.7.7.6
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
