@@ -1,44 +1,47 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Linux 3.6.x kernel crash in tcp_slow_start / bictcp_cong_avoid with wfica
-Date: Thu, 24 Jan 2013 14:51:20 +0100
-Message-ID: <20130124135120.GD16641@order.stressinduktion.org>
-References: <20130123161238.GE8912@reaktio.net> <20130123214445.GA16641@order.stressinduktion.org> <20130123215151.GF8912@reaktio.net> <20130123152642.4a8389ba@nehalam.linuxnetplumber.net> <20130123234116.GC16641@order.stressinduktion.org> <1358984831.12374.1227.camel@edumazet-glaptop>
+Subject: Re: [PATCH RESEND] ipv6: add anti-spoofing checks for 6to4 and 6rd
+Date: Thu, 24 Jan 2013 14:55:08 +0100
+Message-ID: <20130124135508.GE16641@order.stressinduktion.org>
+References: <20130123100248.GB7317@order.stressinduktion.org> <5100B1A2.3000908@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Pasi =?utf-8?B?S8Okcmtrw6RpbmVu?= <pasik@iki.fi>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:48595 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:48600 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753286Ab3AXNvV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:51:21 -0500
+	with ESMTP id S1753488Ab3AXNzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:55:09 -0500
 Content-Disposition: inline
-In-Reply-To: <1358984831.12374.1227.camel@edumazet-glaptop>
+In-Reply-To: <5100B1A2.3000908@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 23, 2013 at 03:47:11PM -0800, Eric Dumazet wrote:
-> On Thu, 2013-01-24 at 00:41 +0100, Hannes Frederic Sowa wrote:
-> > On Wed, Jan 23, 2013 at 03:26:42PM -0800, Stephen Hemminger wrote:
-> > > I see no problems when using Citrix.
-> > > This is a normal strace of the program wifca (in idle loop)
-> > 
-> > Thanks, could you also have a look at setsockopts while socket creation and
-> > connection establishment?
-> 
-> As I said, tp->snd_cwnd is set to 0 by a bug in TCP stack.
+On Thu, Jan 24, 2013 at 12:59:30PM +0900, YOSHIFUJI Hideaki wrote:
+> I need to do more research.  I am still not convinced
+> to have such destination check here because the standard
+> seems silent about it, and we have several basic checks
+> in standard input path and tunnel search.
 
-I saw this, too, but hoped to see a reproduceable pattern of setsockopts
-(window clamping, switching of congestion control) that could make citrix in
-some way the special application which causes this. 
+Thanks, looking forward to your conclusion.
 
-> Probably a combination of changed sysctls, and a genuine bug.
+> Anyway, try_6rd() can do check for prefix as well
+> but we are doing slightly different thing.
+> So I think we can introduce new __check_6rd() to
+> return non-6rd/6to4 addresses.
 > 
-> Please give us /etc/sysctl.conf content.
+> bool __check_6rd(struct ip_tunnel *tunnel,
+> 		 const struct in6_addr *v6dst,
+> 		 __be32 *v4dst);
 > 
-> Adding some BUG_ON(!tp->snd_cwnd) on every writes to tp->snd_cwnd should
-> catch the bug.
+> If prefix matches, fill *v4dst and return true.
+> Otherwise, return false.
+> 
+> __be32 __try_6rd()
+> {
+> 	__be32 dst = 0;
+> 	__check_6rd(tunnel, v6dst, &dst);
+> 	return dst;
+> }
 
-But this is much more convenient, yes. :)
+I'll update the patch and send it over for review, thanks.
