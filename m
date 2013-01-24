@@ -1,99 +1,46 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 1/2 net-next] net: fec: add napi support to improve proformance
-Date: Thu, 24 Jan 2013 10:26:00 +0800
-Message-ID: <CAHrpEqSk8bs8552qQ6j_iP9=QNN98NSd1p+TQN=naRr-NUaxkw@mail.gmail.com>
-References: <1358914330-3768-1-git-send-email-Frank.Li@freescale.com>
-	<1358922071.12374.743.camel@edumazet-glaptop>
-	<CAHrpEqTqSfBCpoMZ9S81VoXWgVK1iOR+e2OasARgbTD8m_RRvw@mail.gmail.com>
-	<1358948954.12374.758.camel@edumazet-glaptop>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: Re: [PATCH V6 1/3] virtio-net: fix the set affinity bug when CPU
+ IDs are not consecutive
+Date: Thu, 24 Jan 2013 10:28:55 +0800
+Message-ID: <51009C67.3090809@cn.fujitsu.com>
+References: <1358767524-17934-1-git-send-email-gaowanlong@cn.fujitsu.com> <87hamavx4n.fsf@rustcorp.com.au>
+Reply-To: gaowanlong@cn.fujitsu.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org,
-	B38611@freescale.com, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	bhutchings@solarflare.com, s.hauer@pengutronix.de
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Transfer-Encoding: 7bit
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:39186 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753036Ab3AXC0C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 21:26:02 -0500
-Received: by mail-la0-f41.google.com with SMTP id fo12so4082498lab.28
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 18:26:00 -0800 (PST)
-In-Reply-To: <1358948954.12374.758.camel@edumazet-glaptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:2575 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752988Ab3AXCeA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jan 2013 21:34:00 -0500
+In-Reply-To: <87hamavx4n.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Wed, 2013-01-23 at 15:37 +0800, Frank Li wrote:
->> 2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
->> > On Wed, 2013-01-23 at 12:12 +0800, Frank Li wrote:
->> >> Add napi support
->> >>
->> >> Before this patch
->> >>
->> >>  iperf -s -i 1
->> >>  ------------------------------------------------------------
->> >>  Server listening on TCP port 5001
->> >>  TCP window size: 85.3 KByte (default)
->> >>  ------------------------------------------------------------
->> >>  [  4] local 10.192.242.153 port 5001 connected with 10.192.242.138 port 50004
->> >>  [ ID] Interval       Transfer     Bandwidth
->> >>  [  4]  0.0- 1.0 sec  41.2 MBytes   345 Mbits/sec
->> >>  [  4]  1.0- 2.0 sec  43.7 MBytes   367 Mbits/sec
->> >>  [  4]  2.0- 3.0 sec  42.8 MBytes   359 Mbits/sec
->> >>  [  4]  3.0- 4.0 sec  43.7 MBytes   367 Mbits/sec
->> >>  [  4]  4.0- 5.0 sec  42.7 MBytes   359 Mbits/sec
->> >>  [  4]  5.0- 6.0 sec  43.8 MBytes   367 Mbits/sec
->> >>  [  4]  6.0- 7.0 sec  43.0 MBytes   361 Mbits/sec
->> >>
->> >> After this patch
->> >>  [  4]  2.0- 3.0 sec  51.6 MBytes   433 Mbits/sec
->> >>  [  4]  3.0- 4.0 sec  51.8 MBytes   435 Mbits/sec
->> >>  [  4]  4.0- 5.0 sec  52.2 MBytes   438 Mbits/sec
->> >>  [  4]  5.0- 6.0 sec  52.1 MBytes   437 Mbits/sec
->> >>  [  4]  6.0- 7.0 sec  52.1 MBytes   437 Mbits/sec
->> >>  [  4]  7.0- 8.0 sec  52.3 MBytes   439 Mbits/sec
->> >
->> > Strange, as you still call netif_rx()
->> >
->> > NAPI should call netif_receive_skb() instead
->> >
->>
->> Thank you point out.
->> After re-test, I found performance is almost no change if use netif_receive_skb.
->> I am not sure if it is my NAPI implement problem.
->>
->> napi_gro_received is better than netif_receive_skb, but worse than netif_rx.
->>
->> From performance point view,
->>
->> netif_rx                    --- fastest
->> napi_gro_received   --- middle, near to netif_rx
->> netif_receive_skb    --- slowest, almost the same as original no-napi version.
->>
->> Do you have any idea about this phenomena?
->
-> No idea, you'll have to find out using perf tool if available.
->
-> Is your machine SMP, and the application running on another cpu than the
-> softirq handler for your device ?
+On 01/22/2013 09:12 AM, Rusty Russell wrote:
+> Wanlong Gao <gaowanlong@cn.fujitsu.com> writes:
+> 
+>> As Michael mentioned, set affinity and select queue will not work very
+>> well when CPU IDs are not consecutive, this can happen with hot unplug.
+>> Fix this bug by traversal the online CPUs, and create a per cpu variable
+>> to find the mapping from CPU to the preferable virtual-queue.
+> 
+> This series looks fairly sane at a glance, to me, but MST is the Ack you
+> need.
 
-Yes, we support SMP.  Possibly run on another cpu. I will check.
+Hi Michael,
 
->
-> A NAPI driver must call netif_receive_skb(), especially if
-> the RX path does a full copy of the frame : Its hot in cpu cache and
-> should be processed at once.
+Any comments?
 
-How about napi_gro_receive? is it correct function? I found many driver use it.
+Thanks,
+Wanlong Gao
 
->
-> Escaping to netif_rx() is only adding an extra softirq and risk of data
-> being evicted from cpu caches.
->
-> Here your performance increase only comes from hw_lock being not anymore
-> locked in RX path.
->
->
->
+> 
+> Thanks,
+> Rusty.
+> 
