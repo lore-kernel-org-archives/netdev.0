@@ -1,45 +1,62 @@
-From: Tom St Denis <tstdenis@elliptictech.com>
-Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
- and testmgr build issues
-Date: Thu, 24 Jan 2013 07:37:50 -0500 (EST)
-Message-ID: <909599053.113808.1359031070783.JavaMail.root@elliptictech.com>
-References: <20130124123210.GK9147@secunet.com>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [RFC] net: usbnet: prevent buggy devices from killing us
+Date: Thu, 24 Jan 2013 16:39:18 +0400
+Message-ID: <51012B76.1060600@mvista.com>
+References: <1359023152-32576-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20130124123210.GK9147@secunet.com>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oneukum@suse.de>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:39353 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753065Ab3AXMjh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:39:37 -0500
+Received: by mail-la0-f52.google.com with SMTP id fs12so2993447lab.25
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 04:39:35 -0800 (PST)
+In-Reply-To: <1359023152-32576-1-git-send-email-bjorn@mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
+On 24-01-2013 14:25, Bj=C3=B8rn Mork wrote:
 
------ Original Message -----
-> From: "Steffen Klassert" <steffen.klassert@secunet.com>
-> To: "Jussi Kivilinna" <jussi.kivilinna@mbnet.fi>
-> Cc: "Herbert Xu" <herbert@gondor.apana.org.au>, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-> linux-crypto@vger.kernel.org, "Tom St Denis" <tstdenis@elliptictech.com>, "David Miller" <davem@davemloft.net>
-> Sent: Thursday, 24 January, 2013 7:32:10 AM
-> Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent, and testmgr build issues
-> 
-> On Thu, Jan 24, 2013 at 01:25:46PM +0200, Jussi Kivilinna wrote:
-> > 
-> > Maybe it would be cleaner to not mess with pfkeyv2.h at all, but
-> > instead mark algorithms that do not support pfkey with flag. See
-> > patch below.
-> > 
-> 
-> Yes, would be an option too. I would be fine with that,
-> but let's here if someone else has an opinion on this.
-> Anyway, we need a solution to integrate Tom's patch soon.
+> A device sending 0 length frames as fast as it can has been
+> observed killing the host system due to the resulting memory
+> pressure. We handle the done queue as fast as we can, so
+> if this queue is filling up then that is an indication that we
+> are under too heavy pressure.  Refusing further allocations
+> until the done queue is handled prevents the buggy device
+> from taking the system down.
+>
+> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+[...]
 
-Has anyone addressed the testmgr issues too?  I wasn't able to run the self-tests so I don't even know if the vectors were copied correctly.
+>   drivers/net/usb/usbnet.c |    8 ++++++++
+>   1 files changed, 8 insertions(+), 0 deletions(-)
 
-Also a question for the netdev folk, in order to be timely would it be acceptable to patch ah4 and then ah6 with the AEAD changes?  Or would the team require both to be patched simultaneously?
- 
-Tom
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index f34b2eb..85c7ffd 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -380,6 +380,14 @@ static int rx_submit (struct usbnet *dev, struct=
+ urb *urb, gfp_t flags)
+>   	unsigned long		lockflags;
+>   	size_t			size =3D dev->rx_urb_size;
+>
+> +	/* Do not let a device flood us to death! */
+> +	if (dev->done.qlen > 1024) {
+> +		netif_dbg(dev, rx_err, dev->net, "done queue filling up (%u) - thr=
+ottling\n", dev->done.qlen);
+> +		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
+> +		usb_free_urb (urb);
+
+    Run your patch thru scripts/checkpatch.pl please -- spaces before p=
+arens=20
+are not allowed.
+
+WBR, Sergei
