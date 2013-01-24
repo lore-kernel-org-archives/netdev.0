@@ -1,56 +1,75 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: [PATCH v2 1/1 net-next] net: fec: add napi support to improve
- proformance
-Date: Thu, 24 Jan 2013 10:56:53 -0700
-Message-ID: <510175E5.4000306@boundarydevices.com>
-References: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
+From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Subject: Re: Hung tasks related to do_filp_open in net-next (3.8.0-rc3+)
+Date: Thu, 24 Jan 2013 10:42:11 -0800
+Message-ID: <51018083.1000304@candelatech.com>
+References: <51005858.4040107@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: Frank Li <Frank.Li@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:56594 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751658Ab3AXR44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 12:56:56 -0500
-Received: by mail-pa0-f52.google.com with SMTP id fb1so5690961pad.39
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 09:56:56 -0800 (PST)
-In-Reply-To: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <51005858.4040107-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 1/24/2013 12:58 AM, Frank Li wrote:
-> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-> index f52ba33..39be2ab 100644
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -67,6 +67,7 @@
->   #endif
->   
->   #define DRIVER_NAME	"fec"
-> +#define FEC_NAPI_WEIGHT	64
->   
->   /* Pause frame feild and FIFO threshold */
->   #define FEC_ENET_FCE	(1 << 5)
-> @@ -565,6 +566,20 @@ fec_timeout(struct net_device *ndev)
->   }
->   
->   static void
-> +fec_enet_rx_int_is_enabled(struct net_device *ndev, bool enabled)
-> +{
-> +	struct fec_enet_private *fep = netdev_priv(ndev);
-> +	uint    int_events;
-> +
-> +	int_events = readl(fep->hwp + FEC_IMASK);
-> +	if (enabled)
-> +		int_events |= FEC_ENET_RXF;
-> +	else
-> +		int_events &= ~FEC_ENET_RXF;
-> +	writel(int_events, fep->hwp + FEC_IMASK);
-> +}
+On 01/23/2013 01:38 PM, Ben Greear wrote:
+>
+> I cranked up my 3000 NFS mounts test case on today's net-next (3.8.0-rc3+)
+> and about 8 of these splats.  There were around 780 mounts active
+> when these occurred.
+>
+> Seems like the system continues OK, so not sure how important
+> this is...
 
-fec_enet_rx_int_is_enabled looks like a question.
-fec_enet_rx_int_enable would be a better name
+I'm seeing this occasionally on 3.7.3 (plus Eric's patch to fix
+the crashes I was seeing), so it's not a regression.
+
+Maybe it's just expected on a very overloaded system....
+
+Thanks,
+Ben
+
+>
+> INFO: task btserver:8756 blocked for more than 180 seconds.
+> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+> btserver        D 0000000000000004     0  8756   5781 0x00000080
+>   ffff880404ab1bf8 0000000000000046 0000000004ab1ba8 0000000000000432
+>   ffff880404ab0010 ffff880402263f20 ffff880404ab1fd8 00000000000132c0
+>   00000000000132c0 00000000000132c0 ffff880404ab1fd8 00000000000132c0
+> Call Trace:
+>   [<ffffffff815491ea>] schedule+0x5f/0x61
+>   [<ffffffff815494fa>] schedule_preempt_disabled+0x13/0x1f
+>   [<ffffffff81547ea8>] __mutex_lock_common+0x264/0x42d
+>   [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
+>   [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
+>   [<ffffffff815480d0>] mutex_lock_nested+0x16/0x18
+>   [<ffffffff8115fadb>] do_last+0x1db/0xa4e
+>   [<ffffffff8115f3a5>] ? path_init+0xcd/0x2b6
+>   [<ffffffff8116090b>] path_openat+0xcb/0x363
+>   [<ffffffff810d0055>] ? __lock_acquire+0x1df/0x53d
+>   [<ffffffff81160ca8>] do_filp_open+0x38/0x84
+>   [<ffffffff8154a2db>] ? _raw_spin_unlock+0x45/0x52
+>   [<ffffffff8116c203>] ? __alloc_fd+0x106/0x11a
+>   [<ffffffff815490f9>] ? __schedule+0x561/0x5a3
+> 8021q: adding VLAN 0 to HW filter on device eth4#621
+>   [<ffffffff81153bfc>] do_sys_open+0x6d/0xff
+> 8021q: adding VLAN 0 to HW filter on device eth3#612
+>   [<ffffffff81153cbb>] sys_open+0x1c/0x1e
+>   [<ffffffff8154f629>] system_call_fastpath+0x16/0x1b
+> 2 locks held by btserver/8756:
+>   #0:  (sb_writers#10){......}, at: [<ffffffff81170013>] mnt_want_write+0x1f/0x48
+>   #1:  (&type->i_mutex_dir_key#4){......}, at: [<ffffffff8115fadb>] do_last+0x1db/0xa4e
+>
+>
+>
+
+
+-- 
+Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
+Candela Technologies Inc  http://www.candelatech.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
