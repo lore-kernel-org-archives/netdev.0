@@ -1,69 +1,60 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: [PATCH] SCTP: Free the per-net sysctl table on net exit.
-Date: Thu, 24 Jan 2013 11:02:47 -0500
-Message-ID: <1359043367-30180-1-git-send-email-vyasevich@gmail.com>
-References: <51004F2D.9000405@fold.natur.cuni.cz>
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	mmokrejs@fold.natur.cuni.cz, Vlad Yasevich <vyasevich@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f43.google.com ([209.85.212.43]:63817 "EHLO
-	mail-vb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065Ab3AXQDY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 11:03:24 -0500
-In-Reply-To: <51004F2D.9000405@fold.natur.cuni.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global
+ reader-writer lock backend
+Date: Thu, 24 Jan 2013 16:58:40 +0100
+Message-ID: <20130124155840.GA10651@redhat.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+ <20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com>
+ <1358883152.21576.55.camel@gandalf.local.home>
+ <CANN689HOmiO-5714UiyuOcjrRYW2DkR4cPLgt96f5YeB9Ws3RQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, peterz@infradead.org, fweisbec@gmail.com,
+ mingo@kernel.org, linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
+ xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+ paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+ linux-pm@vger.kernel.org, rusty@rustcorp.com.au,
+ Steven Rostedt <rostedt@goodmis.org>, rjw@sisk.pl, namhyung@kernel.org,
+ tglx@linutronix.de, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org, sbw@mit.edu,
+ "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, tj@kernel.org,
+ akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+To: Michel Lespinasse <walken@google.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <CANN689HOmiO-5714UiyuOcjrRYW2DkR4cPLgt96f5YeB9Ws3RQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Per-net sysctl table needs to be explicitly freed at
-net exit.  Otherwise we see the following with kmemleak:
+On 01/23, Michel Lespinasse wrote:
+>
+> On Tue, Jan 22, 2013 at 11:32 AM, Steven Rostedt <rostedt@goodmis.org> wrote:
+> >
+> > I thought global locks are now fair. That is, a reader will block if a
+> > writer is waiting. Hence, the above should deadlock on the current
+> > rwlock_t types.
+>
+> I believe you are mistaken here. struct rw_semaphore is fair (and
+> blocking), but rwlock_t is unfair. The reason we can't easily make
+> rwlock_t fair is because tasklist_lock currently depends on the
+> rwlock_t unfairness - tasklist_lock readers typically don't disable
+> local interrupts, and tasklist_lock may be acquired again from within
+> an interrupt, which would deadlock if rwlock_t was fair and a writer
+> was queued by the time the interrupt is processed.
 
-unreferenced object 0xffff880402d08000 (size 2048):
-  comm "chrome_sandbox", pid 18437, jiffies 4310887172 (age 9097.630s)
-  hex dump (first 32 bytes):
-    b2 68 89 81 ff ff ff ff 20 04 04 f8 01 88 ff ff  .h...... .......
-    04 00 00 00 a4 01 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff815b4aad>] kmemleak_alloc+0x21/0x3e
-    [<ffffffff81110352>] slab_post_alloc_hook+0x28/0x2a
-    [<ffffffff81113fad>] __kmalloc_track_caller+0xf1/0x104
-    [<ffffffff810f10c2>] kmemdup+0x1b/0x30
-    [<ffffffff81571e9f>] sctp_sysctl_net_register+0x1f/0x72
-    [<ffffffff8155d305>] sctp_net_init+0x100/0x39f
-    [<ffffffff814ad53c>] ops_init+0xc6/0xf5
-    [<ffffffff814ad5b7>] setup_net+0x4c/0xd0
-    [<ffffffff814ada5e>] copy_net_ns+0x6d/0xd6
-    [<ffffffff810938b1>] create_new_namespaces+0xd7/0x147
-    [<ffffffff810939f4>] copy_namespaces+0x63/0x99
-    [<ffffffff81076733>] copy_process+0xa65/0x1233
-    [<ffffffff81077030>] do_fork+0x10b/0x271
-    [<ffffffff8100a0e9>] sys_clone+0x23/0x25
-    [<ffffffff815dda73>] stub_clone+0x13/0x20
-    [<ffffffffffffffff>] 0xffffffffffffffff
+Yes.
 
-Reported-by: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-CC: "Eric W. Biederman" <ebiederm@xmission.com>
----
- net/sctp/sysctl.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+And, iirc, it was even documented somewhere that while rwlock_t is not
+really nice, it is good to share the locking with interrupts. You do
+not need to disable irqs.
 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 043889a..cd5712f 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -366,7 +366,11 @@ int sctp_sysctl_net_register(struct net *net)
- 
- void sctp_sysctl_net_unregister(struct net *net)
- {
-+	struct ctl_table *table;
-+
-+	table = net->sctp.sysctl_hdr->ctl_table_arg;
- 	unregister_net_sysctl_table(net->sctp.sysctl_header);
-+	kfree(table);
- }
- 
- static struct ctl_table_header * sctp_sysctl_header;
--- 
-1.7.7.6
+Oleg.
