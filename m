@@ -1,39 +1,67 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+From: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
 Subject: Re: [RFC] net: usbnet: prevent buggy devices from killing us
-Date: Thu, 24 Jan 2013 05:01:09 -0800
-Message-ID: <1359032469.2704.7.camel@joe-AO722>
-References: <1359023152-32576-1-git-send-email-bjorn@mork.no>
-	 <51012B76.1060600@mvista.com>
+Date: Thu, 24 Jan 2013 14:12 +0100
+Message-ID: <2556579.vjYlY1iKn5@linux-5eaq.site>
+References: <1359023152-32576-1-git-send-email-bjorn@mork.no> <1809412.hrq33TVdWp@linux-5eaq.site> <87y5fig32r.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <51012B76.1060600-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <87y5fig32r.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-24 at 16:39 +0400, Sergei Shtylyov wrote:
-> On 24-01-2013 14:25, Bj=F8rn Mork wrote:
-> > A device sending 0 length frames as fast as it can has been
-> > observed killing the host system due to the resulting memory
-> > pressure.
-[]
-> > diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-[]
-> > +	/* Do not let a device flood us to death! */
-> > +	if (dev->done.qlen > 1024) {
-> > +		netif_dbg(dev, rx_err, dev->net, "done queue filling up (%u) - t=
-hrottling\n", dev->done.qlen);
-> > +		usbnet_defer_kevent (dev, EVENT_RX_MEMORY);
-> > +		usb_free_urb (urb);
->=20
->     Run your patch thru scripts/checkpatch.pl please
+On Thursday 24 January 2013 13:47:40 Bj=F8rn Mork wrote:
+> Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
+> > On Thursday 24 January 2013 12:22:54 Bj=F8rn Mork wrote:
+> >
+> >> Sorry for being daft, but how do I code the "20 among the last 30"=
+ part
+> >> there?
+> >
+> > Just by agreeing that you can live with false negatives but not fal=
+se positives
+> >
+> > if (++counter > 30) {
+> > 	counter =3D bogus =3D 0;
+> > } else {
+> > 	if (is_bogus(packet)
+> > 		bogus++;
+> > 	if (bogus > counter/2)
 
-And maybe ratelimit the netif_dbg
+Should probably be something like bogus > counter/2 + 10
+
+> > 		throttle();
+> > }
+>=20
+> So, add two new counters to struct usbnet for this?  That seems a lit=
+tle
+> overkill to me, but I don't see how else to implement anything like t=
+hat.
+
+Memory is cheap.
+=20
+> It is still not completely clear to me how the throttling/unthrottlin=
+g
+> should be done.  It tested with static counters (to avoid having to
+> rebuild everything for this test) and a new EVENT_RX_THROTTLE flag.
+> Still on top of my previous patch just for safety while testing, as I=
+ am
+> fed up of having to reboot all the time :-)
+>=20
+> Doing the flag test in rx_submit seems simpler than trying to track a=
+ll
+> the places this is called.  Still checking the dev->done.qlen to be a=
+ble
+> to unthrottle.
+
+Ideally we would do some error handling. Does the device keep spewing
+zero packets for all eternity?
+
+	Regards
+		Oliver
 
 --
 To unsubscribe from this list: send the line "unsubscribe linux-usb" in
