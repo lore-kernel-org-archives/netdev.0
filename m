@@ -1,136 +1,82 @@
-From: Jamie Gloudon <jamie.gloudon@gmail.com>
-Subject: [PATCH v2 net-next] via-rhine: add 64bit statistics.
-Date: Thu, 24 Jan 2013 00:05:04 -0400
-Message-ID: <5100b2f8.1883650a.37e6.17b4@mx.google.com>
+From: Michel Lespinasse <walken@google.com>
+Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global
+ reader-writer lock backend
+Date: Wed, 23 Jan 2013 20:14:56 -0800
+Message-ID: <CANN689HOmiO-5714UiyuOcjrRYW2DkR4cPLgt96f5YeB9Ws3RQ@mail.gmail.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+	<20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com>
+	<1358883152.21576.55.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	rjw@sisk.pl, sbw@mit.edu, fweisbec@gmail.com,
+	linux@arm.linux.org.uk, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:46071 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752961Ab3AXEFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 23:05:14 -0500
-Received: by mail-yh0-f46.google.com with SMTP id q15so162878yhf.19
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 20:05:14 -0800 (PST)
-Content-Disposition: inline
+Received: from mail-qa0-f52.google.com ([209.85.216.52]:43650 "EHLO
+	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753104Ab3AXEO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 23:14:57 -0500
+Received: by mail-qa0-f52.google.com with SMTP id d13so89755qak.11
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 20:14:57 -0800 (PST)
+In-Reply-To: <1358883152.21576.55.camel@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Switch to use ndo_get_stats64 to get 64bit statistics.
+On Tue, Jan 22, 2013 at 11:32 AM, Steven Rostedt <rostedt@goodmis.org> wrote:
+> On Tue, 2013-01-22 at 13:03 +0530, Srivatsa S. Bhat wrote:
+>> A straight-forward (and obvious) algorithm to implement Per-CPU Reader-Writer
+>> locks can also lead to too many deadlock possibilities which can make it very
+>> hard/impossible to use. This is explained in the example below, which helps
+>> justify the need for a different algorithm to implement flexible Per-CPU
+>> Reader-Writer locks.
+>>
+>> We can use global rwlocks as shown below safely, without fear of deadlocks:
+>>
+>> Readers:
+>>
+>>          CPU 0                                CPU 1
+>>          ------                               ------
+>>
+>> 1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
+>>
+>>
+>> 2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
+>>
+>>
+>> Writer:
+>>
+>>          CPU 2:
+>>          ------
+>>
+>>        write_lock(&my_rwlock);
+>>
+>
+> I thought global locks are now fair. That is, a reader will block if a
+> writer is waiting. Hence, the above should deadlock on the current
+> rwlock_t types.
 
-Signed-off-by: Jamie Gloudon <jamie.gloudon@gmail.com>
-Tested-by: Jamie Gloudon <jamie.gloudon@gmail.com> 
----
- drivers/net/ethernet/via/via-rhine.c | 47 ++++++++++++++++++++++++++++++------
- 1 file changed, 39 insertions(+), 8 deletions(-)
+I believe you are mistaken here. struct rw_semaphore is fair (and
+blocking), but rwlock_t is unfair. The reason we can't easily make
+rwlock_t fair is because tasklist_lock currently depends on the
+rwlock_t unfairness - tasklist_lock readers typically don't disable
+local interrupts, and tasklist_lock may be acquired again from within
+an interrupt, which would deadlock if rwlock_t was fair and a writer
+was queued by the time the interrupt is processed.
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
-index eab63e1..ec4a5e1 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -417,6 +417,12 @@ enum chip_cmd_bits {
- 	Cmd1NoTxPoll=0x08, Cmd1Reset=0x80,
- };
- 
-+struct rhine_stats {
-+	u64		packets;
-+	u64		bytes;
-+	struct u64_stats_sync syncp;
-+};
-+
- struct rhine_private {
- 	/* Bit mask for configured VLAN ids */
- 	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
-@@ -458,6 +464,8 @@ struct rhine_private {
- 	unsigned int cur_rx, dirty_rx;	/* Producer/consumer ring indices */
- 	unsigned int cur_tx, dirty_tx;
- 	unsigned int rx_buf_sz;		/* Based on MTU+slack. */
-+	struct rhine_stats rx_stats;
-+	struct rhine_stats tx_stats;
- 	u8 wolopts;
- 
- 	u8 tx_thresh, rx_thresh;
-@@ -495,7 +503,8 @@ static irqreturn_t rhine_interrupt(int irq, void *dev_instance);
- static void rhine_tx(struct net_device *dev);
- static int rhine_rx(struct net_device *dev, int limit);
- static void rhine_set_rx_mode(struct net_device *dev);
--static struct net_device_stats *rhine_get_stats(struct net_device *dev);
-+static struct rtnl_link_stats64 *rhine_get_stats64(struct net_device *dev,
-+	       struct rtnl_link_stats64 *stats);
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static const struct ethtool_ops netdev_ethtool_ops;
- static int  rhine_close(struct net_device *dev);
-@@ -842,7 +851,7 @@ static const struct net_device_ops rhine_netdev_ops = {
- 	.ndo_open		 = rhine_open,
- 	.ndo_stop		 = rhine_close,
- 	.ndo_start_xmit		 = rhine_start_tx,
--	.ndo_get_stats		 = rhine_get_stats,
-+	.ndo_get_stats64	 = rhine_get_stats64,
- 	.ndo_set_rx_mode	 = rhine_set_rx_mode,
- 	.ndo_change_mtu		 = eth_change_mtu,
- 	.ndo_validate_addr	 = eth_validate_addr,
-@@ -1790,8 +1799,11 @@ static void rhine_tx(struct net_device *dev)
- 				dev->stats.collisions += txstatus & 0x0F;
- 			netif_dbg(rp, tx_done, dev, "collisions: %1.1x:%1.1x\n",
- 				  (txstatus >> 3) & 0xF, txstatus & 0xF);
--			dev->stats.tx_bytes += rp->tx_skbuff[entry]->len;
--			dev->stats.tx_packets++;
-+
-+			u64_stats_update_begin(&rp->tx_stats.syncp);
-+			rp->tx_stats.bytes += rp->tx_skbuff[entry]->len;
-+			rp->tx_stats.packets++;
-+			u64_stats_update_end(&rp->tx_stats.syncp);
- 		}
- 		/* Free the original skb. */
- 		if (rp->tx_skbuff_dma[entry]) {
-@@ -1923,8 +1935,11 @@ static int rhine_rx(struct net_device *dev, int limit)
- 			if (unlikely(desc_length & DescTag))
- 				__vlan_hwaccel_put_tag(skb, vlan_tci);
- 			netif_receive_skb(skb);
--			dev->stats.rx_bytes += pkt_len;
--			dev->stats.rx_packets++;
-+
-+			u64_stats_update_begin(&rp->rx_stats.syncp);
-+			rp->rx_stats.bytes += pkt_len;
-+			rp->rx_stats.packets++;
-+			u64_stats_update_end(&rp->rx_stats.syncp);
- 		}
- 		entry = (++rp->cur_rx) % RX_RING_SIZE;
- 		rp->rx_head_desc = &rp->rx_ring[entry];
-@@ -2019,15 +2034,31 @@ out_unlock:
- 	mutex_unlock(&rp->task_lock);
- }
- 
--static struct net_device_stats *rhine_get_stats(struct net_device *dev)
-+static struct rtnl_link_stats64 *
-+rhine_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
-+	unsigned int start;
- 
- 	spin_lock_bh(&rp->lock);
- 	rhine_update_rx_crc_and_missed_errord(rp);
- 	spin_unlock_bh(&rp->lock);
- 
--	return &dev->stats;
-+	netdev_stats_to_stats64(stats, &dev->stats);
-+
-+	do {
-+		start = u64_stats_fetch_begin_bh(&rp->rx_stats.syncp);
-+		stats->rx_packets = rp->rx_stats.packets;
-+		stats->rx_bytes = rp->rx_stats.bytes;
-+	} while (u64_stats_fetch_retry_bh(&rp->rx_stats.syncp, start));
-+
-+	do {
-+		start = u64_stats_fetch_begin_bh(&rp->tx_stats.syncp);
-+		stats->tx_packets = rp->tx_stats.packets;
-+		stats->tx_bytes = rp->tx_stats.bytes;
-+	} while (u64_stats_fetch_retry_bh(&rp->tx_stats.syncp, start));
-+
-+	return stats;
- }
- 
- static void rhine_set_rx_mode(struct net_device *dev)
+> We need to fix those locations (or better yet, remove all rwlocks ;-)
+
+tasklist_lock is the main remaining user. I'm not sure about removing
+rwlock_t, but I would like to at least make it fair somehow :)
+
 -- 
-1.7.12
+Michel "Walken" Lespinasse
+A program is never fully debugged until the last user dies.
