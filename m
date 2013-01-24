@@ -1,106 +1,108 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: New trees - ipsec and ipsec-next
-Date: Fri, 25 Jan 2013 10:20:36 +1100
-Message-ID: <20130125102036.c04539e1b0beb2f44f8394cd@canb.auug.org.au>
-References: <20130124061315.GI9147@secunet.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] v2 GRE: Add segmentation offload for GRE
+Date: Thu, 24 Jan 2013 15:29:59 -0800
+Message-ID: <1359070199.12374.2557.camel@edumazet-glaptop>
+References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Fri__25_Jan_2013_10_20_36_+1100_/z8INOA_5h4.dzCH"
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from haggis.pcug.org.au ([203.10.76.10]:49990 "EHLO
-	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754818Ab3AXXUq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 18:20:46 -0500
-In-Reply-To: <20130124061315.GI9147@secunet.com>
+Received: from mail-da0-f49.google.com ([209.85.210.49]:62315 "EHLO
+	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751164Ab3AXXaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 18:30:03 -0500
+Received: by mail-da0-f49.google.com with SMTP id v40so4505676dad.36
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 15:30:02 -0800 (PST)
+In-Reply-To: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Fri__25_Jan_2013_10_20_36_+1100_/z8INOA_5h4.dzCH
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Thu, 2013-01-24 at 14:16 -0800, Pravin B Shelar wrote:
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+> Fixed according to comments from Jesse and Eric.
+>  - Factored a MAC layer handler out of skb_gso_segment().
+>  - Eliminated copy operation from gre_gso_segment().
+>  - Refresh header pointer after pskb_may_pull().
 
-Hi Steffen,
+Seems nice !
 
-On Thu, 24 Jan 2013 07:13:15 +0100 Steffen Klassert <steffen.klassert@secun=
-et.com> wrote:
->
-> could you please add the ipsec and ipsec-next tree to linux-next?
->=20
-> The ipsec tree is intended to cover fixes for the ipsec networking
-> subsystem and the ipsec-next tree to cover changes for ipsec with
-> linux-next as target.
->=20
-> The trees are located at:
->=20
-> git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec.git master
-> git://git.kernel.org/pub/scm/linux/kernel/git/klassert/ipsec-next.git mas=
-ter
->=20
-> The ipsec tree follows David Miller's net tree, the ipsec-next tree follo=
-ws
-> the net-next tree. So they should be merged after net and net-next.
+> +	if (skb_is_gso(skb)) {
+> +		err = skb_unclone(skb, GFP_ATOMIC);
+> +		if (unlikely(err))
+> +			goto error;
+> +		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+> +		return skb;
+> +	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> +		/* Pages aren't locked and could change at any time.
+> +		 * If this happens after we compute the checksum, the
+> +		 * checksum will be wrong.  We linearize now to avoid
+> +		 * this problem.
+> +		 */
+> +		if (skb_is_nonlinear(skb)) {
+> +			err = __skb_linearize(skb);
+> +			if (unlikely(err))
+> +				goto error;
+> +		}
+> +
+> +		err = skb_checksum_help(skb);
+> +		if (unlikely(err))
+> +			goto error;
+> +	}
+> +
 
-Added from today with just you as the contact.
+I really don't understand why you put chunk this in this patch.
 
-Thanks for adding your subsystem tree as a participant of linux-next.  As
-you may know, this is not a judgment of your code.  The purpose of
-linux-next is for integration testing and to lower the impact of
-conflicts between subsystems in the next merge window.=20
+Packet being GSO or not, the underlying problem still remains.
 
-You will need to ensure that the patches/commits in your tree/series have
-been:
-     * submitted under GPL v2 (or later) and include the Contributor's
-	Signed-off-by,
-     * posted to the relevant mailing list,
-     * reviewed by you (or another maintainer of your subsystem tree),
-     * successfully unit tested, and=20
-     * destined for the current or next Linux merge window.
+This must be addressed separately and at a different layer.
 
-Basically, this should be just what you would send to Linus (or ask him
-to fetch).  It is allowed to be rebased if you deem it necessary.
+(in skb_checksum_help() most probably)
 
---=20
-Cheers,
-Stephen Rothwell=20
-sfr@canb.auug.org.au
+If the packet is GSO and we compute checksum in software,
+then we also have to copy all frags that could potentially
+be overwritten.
 
-Legal Stuff:
-By participating in linux-next, your subsystem tree contributions are
-public and will be included in the linux-next trees.  You may be sent
-e-mail messages indicating errors or other issues when the
-patches/commits from your subsystem tree are merged and tested in
-linux-next.  These messages may also be cross-posted to the linux-next
-mailing list, the linux-kernel mailing list, etc.  The linux-next tree
-project and IBM (my employer) make no warranties regarding the linux-next
-project, the testing procedures, the results, the e-mails, etc.  If you
-don't agree to these ground rules, let me know and I'll remove your tree
-from participation in linux-next.
 
---Signature=_Fri__25_Jan_2013_10_20_36_+1100_/z8INOA_5h4.dzCH
-Content-Type: application/pgp-signature
+> +	skb->ip_summed = CHECKSUM_NONE;
+> +
+> +	return skb;
+> +
+> +error:
+> +	kfree_skb(skb);
+> +	return ERR_PTR(err);
+> +}
+> +
+>  static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+>  	struct ip_tunnel *tunnel = netdev_priv(dev);
+> @@ -751,10 +787,9 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+>  	__be32 dst;
+>  	int    mtu;
+>  	u8     ttl;
+> -
+> -	if (skb->ip_summed == CHECKSUM_PARTIAL &&
+> -	    skb_checksum_help(skb))
+> -		goto tx_error;
+> +	int pkt_len;
+> +	struct pcpu_tstats *tstats;
+> +	int err;
+>  
+>  	if (dev->type == ARPHRD_ETHER)
+>  		IPCB(skb)->flags = 0;
+> @@ -852,13 +887,6 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+>  
+>  	if (skb->protocol == htons(ETH_P_IP)) {
+>  		df |= (old_iph->frag_off&htons(IP_DF));
+> -
+> -		if ((old_iph->frag_off&htons(IP_DF)) &&
+> -		    mtu < ntohs(old_iph->tot_len)) {
+> -			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
+> -			ip_rt_put(rt);
+> -			goto tx_error;
+> -		}
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRAcHFAAoJEECxmPOUX5FESh4P/0xaWNcU9Ki3RPwxPjhIT9yJ
-JEKS5w0PTwPeqJnwqIWz/glB4jEC45Uskvwn/QFmXfFPcQVWBYuyDaHhKgq5hk+r
-K8wAT2zOhq1ZLouA42So6vt+pXtwImOMl7E1V0rSvxFzvQpBI+Vx2nPNQ3DkRwC2
-JtEF0rtqqM2rcsgWUkWhm1Rc37r8zuj9PbxipqX1dUlZ68yQpsObBxUwk02336Z6
-Br3WhK1zmYqwzJkVPf/PiY0L/3pp3clrr9PAIpWBJVy50pN8HkmUgaZjjPORU8r9
-DXvMwZc3UuaUcc/utTUwVEhCA5/UPvCkQ2AtWF9jhBEu7KUfF4KHiK8fNqacKn02
-657RVASjf1lsme3ukwB8MGtiGCWdeBKdNiPN8j03Z5PgyBAyW/BE2fyv1i7XUnS0
-sHj7sx/VUdHrW//mJWYx22xy9Vl3zN+nhTgT7IRD8IlvnCYqeDaSbatgyGg5UtZo
-48mPC9nxupQhFeTqbebWJrIF1XgIEocSc+P+xttbDceRFFQbZ+tkUQpMBaqsLZ2N
-JFayp0ByJUGHETJO5VibMlKVjyvns5JLAzm7xnv+6cNoOEecAdmU/tG3eRBb6P3U
-9CtlwZHGJ4VBLXaGN/l3t+ctlIG5E5wDjZvLTbiv8tyK2fqLNn8tBYATGxyMMThj
-JImb8I53N+v4Cd9gTwop
-=17vy
------END PGP SIGNATURE-----
-
---Signature=_Fri__25_Jan_2013_10_20_36_+1100_/z8INOA_5h4.dzCH--
+Not clear why this chunk can be safely removed, even for non GSO
+packet ?
