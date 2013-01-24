@@ -1,166 +1,77 @@
-From: Xiaotian Feng <xtfeng@gmail.com>
-Subject: Re: v3 for tcp friends?
-Date: Thu, 24 Jan 2013 10:04:16 +0800
-Message-ID: <CAJn8CcHF=HvYOre4_TgGw-YCL2U_jv4UMAh_dniHe=Qf22F97g@mail.gmail.com>
-References: <20120903.154833.1547153833820955116.davem@davemloft.net>
-	<CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>
-	<20120904.125841.2293649688957878987.davem@davemloft.net>
-	<50FCEE64.80203@gmail.com>
-	<50FCEEC5.9010404@gmail.com>
-	<CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>
-	<CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>
-	<50FF5592.60008@gmail.com>
-	<50FF7F64.2060902@gmail.com>
-	<1358923606.12374.746.camel@edumazet-glaptop>
-	<50FF8F75.4000903@gmail.com>
-	<50FF9836.4060106@gmail.com>
-	<50FFAFE7.5030707@gmail.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH v3 1/1 net-next] net: fec: enable pause frame to improve
+ rx prefomance for 1G network
+Date: Thu, 24 Jan 2013 10:16:33 +0800
+Message-ID: <CAHrpEqSzu97X2PUgUEh30EqkbjLUYyhCN28AEzJ6eLPXx0Qg1Q@mail.gmail.com>
+References: <1358391358-27977-1-git-send-email-Frank.Li@freescale.com>
+	<1358973584.2658.14.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Bruce Curtis <brutus@google.com>
-To: Li Yu <raise.sail@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org,
+	B38611@freescale.com, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:37159 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752888Ab3AXCLE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 21:11:04 -0500
-Received: by mail-qc0-f174.google.com with SMTP id z24so2615180qcq.33
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 18:11:03 -0800 (PST)
-In-Reply-To: <50FFAFE7.5030707@gmail.com>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:54725 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752954Ab3AXCQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 21:16:34 -0500
+Received: by mail-la0-f42.google.com with SMTP id fe20so9621606lab.29
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 18:16:33 -0800 (PST)
+In-Reply-To: <1358973584.2658.14.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 23, 2013 at 5:39 PM, Li Yu <raise.sail@gmail.com> wrote:
-> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:58, Li Yu =E5=86=99=E9=
-=81=93:
+2013/1/24 Ben Hutchings <bhutchings@solarflare.com>:
+> On Thu, 2013-01-17 at 10:55 +0800, Frank Li wrote:
+>> The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
+>> There will be many packages lost because FIFO over run.
+>>
+>> This patch enable pause frame flow control.
+> [...]
+>> --- a/drivers/net/ethernet/freescale/fec.c
+>> +++ b/drivers/net/ethernet/freescale/fec.c
+> [...]
+>> +static int fec_enet_set_pauseparam(struct net_device *ndev,
+>> +                                struct ethtool_pauseparam *pause)
+>> +{
+>> +     struct fec_enet_private *fep = netdev_priv(ndev);
+>> +
+>> +     if (pause->tx_pause != pause->rx_pause) {
+>> +             netdev_info(ndev,
+>> +                     "hardware only support enable/disable both tx and rx");
+>> +             return -EINVAL;
+>> +     }
+>> +
+>> +     fep->pause_flag = 0;
+>> +
+>> +     /* tx pause must be same as rx pause */
+>> +     fep->pause_flag |= pause->rx_pause ? FEC_PAUSE_FLAG_ENABLE : 0;
+>> +     fep->pause_flag |= pause->autoneg ? FEC_PAUSE_FLAG_AUTONEG : 0;
+>> +
+>> +     if (pause->rx_pause || pause->autoneg) {
+>> +             fep->phy_dev->supported |= ADVERTISED_Pause;
+>> +             fep->phy_dev->advertising |= ADVERTISED_Pause;
+>> +     } else {
+>> +             fep->phy_dev->supported &= ~ADVERTISED_Pause;
+>> +             fep->phy_dev->advertising &= ~ADVERTISED_Pause;
+>> +     }
+> [...]
 >
->> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:21, Li Yu =E5=86=99=
-=E9=81=93:
->>>
->>> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 14:46, Eric Dumazet =E5=
-=86=99=E9=81=93:
->>>>
->>>> On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
->>>>>
->>>>> Oops, this hang is not since TCP friends patch!
->>>>>
->>>>> sk_sndbuf_get() is broken by 32 bits integer overflow
->>>>> because of so large value in net.ipv4.tcp_{rmem,wmem}.
->>>>>
->>>>> but this hang also can be found in net-next.git
->>>>> (3.8.0-rc3+), if we run below commands, then all new
->>>>> TCP connections stop working!
->>>>>
->>>>> # when TCP friends is disabled
->>>>> sysctl -w net.ipv4.tcp_rmem=3D"4096 4294967296 4294967296" # 4GB
->>>>> sysctl -w net.ipv4.tcp_wmem=3D"4096 4294967296 4294967296"
->>>>
->>>>
->>>> Right we need to make sure we dont overflow.
->>>>
->>>> Try the following fix :
->>>>
->>>> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4=
-=2Ec
->>>> index a25e1d2..1459145 100644
->>>> --- a/net/ipv4/sysctl_net_ipv4.c
->>>> +++ b/net/ipv4/sysctl_net_ipv4.c
->>>> @@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] =3D {
->>>>           .data        =3D &sysctl_tcp_wmem,
->>>>           .maxlen        =3D sizeof(sysctl_tcp_wmem),
->>>>           .mode        =3D 0644,
->>>> -        .proc_handler    =3D proc_dointvec
->>>> +        .extra1        =3D &zero,
->
->
-> If we added below:
->
-> +static int one =3D 1;
+> Why is this changing the supported flags, i.e. device capabilities?  You
+> need to leave those flags alone and reject an attempt to enable pause
+> frames on a device that doesn't support them.
 
-one is defined in kernel/sysctl.c
-
-> +static int int_max =3D INT_MAX;
-> ....
-> +               .extra1     =3D &one,
-> +               .extra2     =3D &int_max,
-
-I believe INT_MAX does not have actual effect, because any value
-bigger than INT_MAX will be cast to negative value, which is prevented
-by extra1...
+I go through phylib, I have not found good place set ADVERTISED_Pause
+capabilities.
+genphy_config_init never check Pause capabilities.
 
 >
-> The bug is fixed without TCP friends.
->
-> Maybe, TCP friends need to use long integer to record result
-> of "sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf" ?
->
-> BTW: This overflow problem also breaks UDP sockets.
->
-> Thanks
->
-> Yu
->
->
->>>> +        .proc_handler    =3D proc_dointvec_minmax
->>>>       },
->>>>       {
->>>>           .procname    =3D "tcp_rmem",
->>>>           .data        =3D &sysctl_tcp_rmem,
->>>>           .maxlen        =3D sizeof(sysctl_tcp_rmem),
->>>>           .mode        =3D 0644,
->>>> -        .proc_handler    =3D proc_dointvec
->>>> +        .extra1        =3D &zero,
->>>> +        .proc_handler    =3D proc_dointvec_minmax
->>>>       },
->>>>       {
->>>>           .procname    =3D "tcp_app_win",
->>>>
->>>>
->>>>
->>> Thanks for so quick reply, I will test it soon.
->>>
->>> however I suspect whether this patch could fix overflow if we merge=
-d TCP
->>> friends patch in future.
->>>
->>
->> Tested on 3.7.0-rc1+, but bug is still alive
->> with disabled TCP friends ...
->>
->> Thanks
->>
->> Yu
->>
->>> With TCP friends, we have source like below, or TCP friends should =
-care
->>> this ?
->>>
->>> static inline int sk_sndbuf_get(const struct sock *sk)
->>> {
->>>          if (sk->sk_friend)
->>>                  return sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf;
->>>          else
->>>                  return sk->sk_sndbuf;
->>> }
->>>
->>> static inline bool sk_stream_memory_free(const struct sock *sk)
->>> {
->>>          return sk_wmem_queued_get(sk) < sk_sndbuf_get(sk);
->>> }
->>>
->>> So sk_sndbuf_get() still may be overflow when we have right value i=
-n
->>> net.ipv4.tcp_{rmem,wmem}.
->>>
->>> Thanks
->>
->>
+> Ben.
 >
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
