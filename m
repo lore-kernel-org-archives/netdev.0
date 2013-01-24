@@ -1,46 +1,83 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH v2 1/1 net-next] net: fec: add napi support to improve
- proformance
-Date: Thu, 24 Jan 2013 14:11:43 +0100
-Message-ID: <5101330F.3030702@openwrt.org>
-References: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [RFC] net: usbnet: prevent buggy devices from killing us
+Date: Thu, 24 Jan 2013 14:42:09 +0100
+Message-ID: <87txq6g0jy.fsf@nemi.mork.no>
+References: <1359023152-32576-1-git-send-email-bjorn@mork.no>
+	<1809412.hrq33TVdWp@linux-5eaq.site> <87y5fig32r.fsf@nemi.mork.no>
+	<2556579.vjYlY1iKn5@linux-5eaq.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: Frank Li <Frank.Li@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:60182 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750975Ab3AXNOa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:14:30 -0500
-Received: by mail-lb0-f177.google.com with SMTP id go11so3125239lbb.36
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 05:14:29 -0800 (PST)
-In-Reply-To: <1359014309-8636-1-git-send-email-Frank.Li@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2556579.vjYlY1iKn5-7ztolUikljGernLeA6q8OA@public.gmane.org> (Oliver Neukum's message of
+	"Thu, 24 Jan 2013 14:12 +0100")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/24/2013 08:58 AM, Frank Li wrote:
-65,6 +566,20 @@ fec_timeout(struct net_device *ndev)
->   }
+Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
+
+> On Thursday 24 January 2013 13:47:40 Bj=C3=B8rn Mork wrote:
+>> Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
+>> > On Thursday 24 January 2013 12:22:54 Bj=C3=B8rn Mork wrote:
+>> >
+>> >> Sorry for being daft, but how do I code the "20 among the last 30=
+" part
+>> >> there?
+>> >
+>> > Just by agreeing that you can live with false negatives but not fa=
+lse positives
+>> >
+>> > if (++counter > 30) {
+>> > 	counter =3D bogus =3D 0;
+>> > } else {
+>> > 	if (is_bogus(packet)
+>> > 		bogus++;
+>> > 	if (bogus > counter/2)
 >
->   static void
-> +fec_enet_rx_int_is_enabled(struct net_device *ndev, bool enabled)
-> +{
-> +	struct fec_enet_private *fep = netdev_priv(ndev);
-> +	uint    int_events;
-> +
-> +	int_events = readl(fep->hwp + FEC_IMASK);
-> +	if (enabled)
-> +		int_events |= FEC_ENET_RXF;
-> +	else
-> +		int_events &= ~FEC_ENET_RXF;
-> +	writel(int_events, fep->hwp + FEC_IMASK);
-> +}
+> Should probably be something like bogus > counter/2 + 10
 
-This function is badly named with respect to what it does. A better name 
-would be fec_enet_rx_interrupt_set() for instance.
+right
+
+>> > 		throttle();
+>> > }
+>>=20
+>> So, add two new counters to struct usbnet for this?  That seems a li=
+ttle
+>> overkill to me, but I don't see how else to implement anything like =
+that.
+>
+> Memory is cheap.
+
+OK
+
+>> It is still not completely clear to me how the throttling/unthrottli=
+ng
+>> should be done.  It tested with static counters (to avoid having to
+>> rebuild everything for this test) and a new EVENT_RX_THROTTLE flag.
+>> Still on top of my previous patch just for safety while testing, as =
+I am
+>> fed up of having to reboot all the time :-)
+>>=20
+>> Doing the flag test in rx_submit seems simpler than trying to track =
+all
+>> the places this is called.  Still checking the dev->done.qlen to be =
+able
+>> to unthrottle.
+>
+> Ideally we would do some error handling. Does the device keep spewing
+> zero packets for all eternity?
+
+Yes. The only way to get rid of the bug once it has triggered seems to
+be powering the device off/on.  So unthrottling is not important for
+this device.  But I guess it will be for other devices with more
+temporary problems.
+
+
+
+Bj=C3=B8rn
 --
-Florian
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
