@@ -1,68 +1,166 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
- traffic.
-Date: Wed, 23 Jan 2013 17:45:06 -0800
-Message-ID: <1358991906.12374.1356.camel@edumazet-glaptop>
-References: <50FDADF4.3060601@candelatech.com>
-	 <50FDDE35.7070806@candelatech.com>
-	 <1358829606.3464.3151.camel@edumazet-glaptop>
-	 <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>
-	 <1358875020.3464.4006.camel@edumazet-glaptop>
-	 <1358875607.3464.4020.camel@edumazet-glaptop>
-	 <50FF102F.2050008@candelatech.com> <50FF4BC9.1060206@candelatech.com>
-	 <5100785D.8040101@candelatech.com>
-	 <1358985688.12374.1247.camel@edumazet-glaptop>
-	 <51007CA8.2050105@candelatech.com>
-	 <1358987031.12374.1276.camel@edumazet-glaptop>
-	 <51008294.2010201@candelatech.com>
-	 <1358988358.12374.1303.camel@edumazet-glaptop>
-	 <51008598.4000603@candelatech.com>
-	 <1358989242.12374.1323.camel@edumazet-glaptop>
-	 <51008900.2010803@candelatech.com>
-	 <1358989843.12374.1334.camel@edumazet-glaptop>
+From: Xiaotian Feng <xtfeng@gmail.com>
+Subject: Re: v3 for tcp friends?
+Date: Thu, 24 Jan 2013 10:04:16 +0800
+Message-ID: <CAJn8CcHF=HvYOre4_TgGw-YCL2U_jv4UMAh_dniHe=Qf22F97g@mail.gmail.com>
+References: <20120903.154833.1547153833820955116.davem@davemloft.net>
+	<CAEkNxbGJ6OGy3HDSeToXO_cDt7azpRZvy_CbQH0_UJ_mCS2s3w@mail.gmail.com>
+	<20120904.125841.2293649688957878987.davem@davemloft.net>
+	<50FCEE64.80203@gmail.com>
+	<50FCEEC5.9010404@gmail.com>
+	<CA+WLrf8xuJ3UXK-tZQykuTPMXu67WsNKWNuNzBKk7MBAidW-CQ@mail.gmail.com>
+	<CAEkNxbH0MAAU9oiwwrFTbMJP1yzfNdxD5NDdZOqGnvhTLvodoQ@mail.gmail.com>
+	<50FF5592.60008@gmail.com>
+	<50FF7F64.2060902@gmail.com>
+	<1358923606.12374.746.camel@edumazet-glaptop>
+	<50FF8F75.4000903@gmail.com>
+	<50FF9836.4060106@gmail.com>
+	<50FFAFE7.5030707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Bruce Curtis <brutus@google.com>
+To: Li Yu <raise.sail@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:41572 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752531Ab3AXBpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 20:45:10 -0500
-Received: by mail-pb0-f47.google.com with SMTP id wz17so5070808pbc.6
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 17:45:10 -0800 (PST)
-In-Reply-To: <1358989843.12374.1334.camel@edumazet-glaptop>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:37159 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888Ab3AXCLE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 21:11:04 -0500
+Received: by mail-qc0-f174.google.com with SMTP id z24so2615180qcq.33
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 18:11:03 -0800 (PST)
+In-Reply-To: <50FFAFE7.5030707@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 17:10 -0800, Eric Dumazet wrote:
+On Wed, Jan 23, 2013 at 5:39 PM, Li Yu <raise.sail@gmail.com> wrote:
+> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:58, Li Yu =E5=86=99=E9=
+=81=93:
+>
+>> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 15:21, Li Yu =E5=86=99=
+=E9=81=93:
+>>>
+>>> =E4=BA=8E 2013=E5=B9=B401=E6=9C=8823=E6=97=A5 14:46, Eric Dumazet =E5=
+=86=99=E9=81=93:
+>>>>
+>>>> On Wed, 2013-01-23 at 14:12 +0800, Li Yu wrote:
+>>>>>
+>>>>> Oops, this hang is not since TCP friends patch!
+>>>>>
+>>>>> sk_sndbuf_get() is broken by 32 bits integer overflow
+>>>>> because of so large value in net.ipv4.tcp_{rmem,wmem}.
+>>>>>
+>>>>> but this hang also can be found in net-next.git
+>>>>> (3.8.0-rc3+), if we run below commands, then all new
+>>>>> TCP connections stop working!
+>>>>>
+>>>>> # when TCP friends is disabled
+>>>>> sysctl -w net.ipv4.tcp_rmem=3D"4096 4294967296 4294967296" # 4GB
+>>>>> sysctl -w net.ipv4.tcp_wmem=3D"4096 4294967296 4294967296"
+>>>>
+>>>>
+>>>> Right we need to make sure we dont overflow.
+>>>>
+>>>> Try the following fix :
+>>>>
+>>>> diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4=
+=2Ec
+>>>> index a25e1d2..1459145 100644
+>>>> --- a/net/ipv4/sysctl_net_ipv4.c
+>>>> +++ b/net/ipv4/sysctl_net_ipv4.c
+>>>> @@ -549,14 +549,16 @@ static struct ctl_table ipv4_table[] =3D {
+>>>>           .data        =3D &sysctl_tcp_wmem,
+>>>>           .maxlen        =3D sizeof(sysctl_tcp_wmem),
+>>>>           .mode        =3D 0644,
+>>>> -        .proc_handler    =3D proc_dointvec
+>>>> +        .extra1        =3D &zero,
+>
+>
+> If we added below:
+>
+> +static int one =3D 1;
 
-> Excellent, thats the bug.
-> 
-> I'll send a fix asap, thanks !
+one is defined in kernel/sysctl.c
 
-loopback device doesnt have a qdisc, and unsets IFF_XMIT_DST_RELEASE
+> +static int int_max =3D INT_MAX;
+> ....
+> +               .extra1     =3D &one,
+> +               .extra2     =3D &int_max,
 
-Its hard to believe such an old bug never hit us in the past.
+I believe INT_MAX does not have actual effect, because any value
+bigger than INT_MAX will be cast to negative value, which is prevented
+by extra1...
 
-Probably because most of the time, the packet given to netif_rx() is
-immediately processed (and loopback device is hard wired ?)
-
-
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 81f8f9e..fcbf680 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -77,6 +77,11 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
- 
- 	skb_orphan(skb);
- 
-+	/* Before queueing this packet to netif_rx(),
-+	 * make sure dst is refcounted.
-+	 */
-+	skb_dst_force(skb);
-+
- 	skb->protocol = eth_type_trans(skb, dev);
- 
- 	/* it's OK to use per_cpu_ptr() because BHs are off */
+>
+> The bug is fixed without TCP friends.
+>
+> Maybe, TCP friends need to use long integer to record result
+> of "sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf" ?
+>
+> BTW: This overflow problem also breaks UDP sockets.
+>
+> Thanks
+>
+> Yu
+>
+>
+>>>> +        .proc_handler    =3D proc_dointvec_minmax
+>>>>       },
+>>>>       {
+>>>>           .procname    =3D "tcp_rmem",
+>>>>           .data        =3D &sysctl_tcp_rmem,
+>>>>           .maxlen        =3D sizeof(sysctl_tcp_rmem),
+>>>>           .mode        =3D 0644,
+>>>> -        .proc_handler    =3D proc_dointvec
+>>>> +        .extra1        =3D &zero,
+>>>> +        .proc_handler    =3D proc_dointvec_minmax
+>>>>       },
+>>>>       {
+>>>>           .procname    =3D "tcp_app_win",
+>>>>
+>>>>
+>>>>
+>>> Thanks for so quick reply, I will test it soon.
+>>>
+>>> however I suspect whether this patch could fix overflow if we merge=
+d TCP
+>>> friends patch in future.
+>>>
+>>
+>> Tested on 3.7.0-rc1+, but bug is still alive
+>> with disabled TCP friends ...
+>>
+>> Thanks
+>>
+>> Yu
+>>
+>>> With TCP friends, we have source like below, or TCP friends should =
+care
+>>> this ?
+>>>
+>>> static inline int sk_sndbuf_get(const struct sock *sk)
+>>> {
+>>>          if (sk->sk_friend)
+>>>                  return sk->sk_sndbuf + sk->sk_friend->sk_rcvbuf;
+>>>          else
+>>>                  return sk->sk_sndbuf;
+>>> }
+>>>
+>>> static inline bool sk_stream_memory_free(const struct sock *sk)
+>>> {
+>>>          return sk_wmem_queued_get(sk) < sk_sndbuf_get(sk);
+>>> }
+>>>
+>>> So sk_sndbuf_get() still may be overflow when we have right value i=
+n
+>>> net.ipv4.tcp_{rmem,wmem}.
+>>>
+>>> Thanks
+>>
+>>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
