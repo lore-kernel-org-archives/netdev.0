@@ -1,77 +1,99 @@
 From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH v3 1/1 net-next] net: fec: enable pause frame to improve
- rx prefomance for 1G network
-Date: Thu, 24 Jan 2013 10:16:33 +0800
-Message-ID: <CAHrpEqSzu97X2PUgUEh30EqkbjLUYyhCN28AEzJ6eLPXx0Qg1Q@mail.gmail.com>
-References: <1358391358-27977-1-git-send-email-Frank.Li@freescale.com>
-	<1358973584.2658.14.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH 1/2 net-next] net: fec: add napi support to improve proformance
+Date: Thu, 24 Jan 2013 10:26:00 +0800
+Message-ID: <CAHrpEqSk8bs8552qQ6j_iP9=QNN98NSd1p+TQN=naRr-NUaxkw@mail.gmail.com>
+References: <1358914330-3768-1-git-send-email-Frank.Li@freescale.com>
+	<1358922071.12374.743.camel@edumazet-glaptop>
+	<CAHrpEqTqSfBCpoMZ9S81VoXWgVK1iOR+e2OasARgbTD8m_RRvw@mail.gmail.com>
+	<1358948954.12374.758.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: Frank Li <Frank.Li@freescale.com>, shawn.guo@linaro.org,
 	B38611@freescale.com, davem@davemloft.net,
 	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de
-To: Ben Hutchings <bhutchings@solarflare.com>
+	bhutchings@solarflare.com, s.hauer@pengutronix.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:54725 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752954Ab3AXCQe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 21:16:34 -0500
-Received: by mail-la0-f42.google.com with SMTP id fe20so9621606lab.29
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 18:16:33 -0800 (PST)
-In-Reply-To: <1358973584.2658.14.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:39186 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753036Ab3AXC0C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 21:26:02 -0500
+Received: by mail-la0-f41.google.com with SMTP id fo12so4082498lab.28
+        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 18:26:00 -0800 (PST)
+In-Reply-To: <1358948954.12374.758.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/1/24 Ben Hutchings <bhutchings@solarflare.com>:
-> On Thu, 2013-01-17 at 10:55 +0800, Frank Li wrote:
->> The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
->> There will be many packages lost because FIFO over run.
+2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Wed, 2013-01-23 at 15:37 +0800, Frank Li wrote:
+>> 2013/1/23 Eric Dumazet <eric.dumazet@gmail.com>:
+>> > On Wed, 2013-01-23 at 12:12 +0800, Frank Li wrote:
+>> >> Add napi support
+>> >>
+>> >> Before this patch
+>> >>
+>> >>  iperf -s -i 1
+>> >>  ------------------------------------------------------------
+>> >>  Server listening on TCP port 5001
+>> >>  TCP window size: 85.3 KByte (default)
+>> >>  ------------------------------------------------------------
+>> >>  [  4] local 10.192.242.153 port 5001 connected with 10.192.242.138 port 50004
+>> >>  [ ID] Interval       Transfer     Bandwidth
+>> >>  [  4]  0.0- 1.0 sec  41.2 MBytes   345 Mbits/sec
+>> >>  [  4]  1.0- 2.0 sec  43.7 MBytes   367 Mbits/sec
+>> >>  [  4]  2.0- 3.0 sec  42.8 MBytes   359 Mbits/sec
+>> >>  [  4]  3.0- 4.0 sec  43.7 MBytes   367 Mbits/sec
+>> >>  [  4]  4.0- 5.0 sec  42.7 MBytes   359 Mbits/sec
+>> >>  [  4]  5.0- 6.0 sec  43.8 MBytes   367 Mbits/sec
+>> >>  [  4]  6.0- 7.0 sec  43.0 MBytes   361 Mbits/sec
+>> >>
+>> >> After this patch
+>> >>  [  4]  2.0- 3.0 sec  51.6 MBytes   433 Mbits/sec
+>> >>  [  4]  3.0- 4.0 sec  51.8 MBytes   435 Mbits/sec
+>> >>  [  4]  4.0- 5.0 sec  52.2 MBytes   438 Mbits/sec
+>> >>  [  4]  5.0- 6.0 sec  52.1 MBytes   437 Mbits/sec
+>> >>  [  4]  6.0- 7.0 sec  52.1 MBytes   437 Mbits/sec
+>> >>  [  4]  7.0- 8.0 sec  52.3 MBytes   439 Mbits/sec
+>> >
+>> > Strange, as you still call netif_rx()
+>> >
+>> > NAPI should call netif_receive_skb() instead
+>> >
 >>
->> This patch enable pause frame flow control.
-> [...]
->> --- a/drivers/net/ethernet/freescale/fec.c
->> +++ b/drivers/net/ethernet/freescale/fec.c
-> [...]
->> +static int fec_enet_set_pauseparam(struct net_device *ndev,
->> +                                struct ethtool_pauseparam *pause)
->> +{
->> +     struct fec_enet_private *fep = netdev_priv(ndev);
->> +
->> +     if (pause->tx_pause != pause->rx_pause) {
->> +             netdev_info(ndev,
->> +                     "hardware only support enable/disable both tx and rx");
->> +             return -EINVAL;
->> +     }
->> +
->> +     fep->pause_flag = 0;
->> +
->> +     /* tx pause must be same as rx pause */
->> +     fep->pause_flag |= pause->rx_pause ? FEC_PAUSE_FLAG_ENABLE : 0;
->> +     fep->pause_flag |= pause->autoneg ? FEC_PAUSE_FLAG_AUTONEG : 0;
->> +
->> +     if (pause->rx_pause || pause->autoneg) {
->> +             fep->phy_dev->supported |= ADVERTISED_Pause;
->> +             fep->phy_dev->advertising |= ADVERTISED_Pause;
->> +     } else {
->> +             fep->phy_dev->supported &= ~ADVERTISED_Pause;
->> +             fep->phy_dev->advertising &= ~ADVERTISED_Pause;
->> +     }
-> [...]
+>> Thank you point out.
+>> After re-test, I found performance is almost no change if use netif_receive_skb.
+>> I am not sure if it is my NAPI implement problem.
+>>
+>> napi_gro_received is better than netif_receive_skb, but worse than netif_rx.
+>>
+>> From performance point view,
+>>
+>> netif_rx                    --- fastest
+>> napi_gro_received   --- middle, near to netif_rx
+>> netif_receive_skb    --- slowest, almost the same as original no-napi version.
+>>
+>> Do you have any idea about this phenomena?
 >
-> Why is this changing the supported flags, i.e. device capabilities?  You
-> need to leave those flags alone and reject an attempt to enable pause
-> frames on a device that doesn't support them.
+> No idea, you'll have to find out using perf tool if available.
+>
+> Is your machine SMP, and the application running on another cpu than the
+> softirq handler for your device ?
 
-I go through phylib, I have not found good place set ADVERTISED_Pause
-capabilities.
-genphy_config_init never check Pause capabilities.
+Yes, we support SMP.  Possibly run on another cpu. I will check.
 
 >
-> Ben.
+> A NAPI driver must call netif_receive_skb(), especially if
+> the RX path does a full copy of the frame : Its hot in cpu cache and
+> should be processed at once.
+
+How about napi_gro_receive? is it correct function? I found many driver use it.
+
 >
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
+> Escaping to netif_rx() is only adding an extra softirq and risk of data
+> being evicted from cpu caches.
+>
+> Here your performance increase only comes from hw_lock being not anymore
+> locked in RX path.
+>
+>
 >
