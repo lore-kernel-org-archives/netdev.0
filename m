@@ -1,38 +1,72 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH 2/2 net-next] doc: dt: fsl: fec: add napi optional properties
-Date: Thu, 24 Jan 2013 15:06:59 +0800
-Message-ID: <1359011219-8343-1-git-send-email-Frank.Li@freescale.com>
+From: Andrew Vagin <avagin@parallels.com>
+Subject: Re: [PATCH 1/2] tcp: make tcp_timestamp dependent on tcp_sock
+Date: Thu, 24 Jan 2013 11:46:02 +0400
+Message-ID: <20130124074602.GD8877@paralelels.com>
+References: <1358953314-12979-1-git-send-email-avagin@openvz.org>
+ <1358953314-12979-2-git-send-email-avagin@openvz.org>
+ <1358958317.12374.814.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <s.hauer@pengutronix.de>, Frank Li <Frank.Li@freescale.com>
-To: <lznuaa@gmail.com>, <shawn.guo@linaro.org>, <B38611@freescale.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<netdev@vger.kernel.org>, <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="koi8-r"
+Cc: Andrey Vagin <avagin@openvz.org>, <netdev@vger.kernel.org>,
+	<criu@openvz.org>, <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Dave Jones <davej@redhat.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe003.messaging.microsoft.com ([213.199.154.141]:33044
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752294Ab3AXHpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 02:45:16 -0500
+Received: from relay.parallels.com ([195.214.232.42]:40677 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752273Ab3AXHrE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 02:47:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1358958317.12374.814.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
- Documentation/devicetree/bindings/net/fsl-fec.txt |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+On Wed, Jan 23, 2013 at 08:25:17AM -0800, Eric Dumazet wrote:
+> > @@ -1142,9 +1145,11 @@ static inline void tcp_openreq_init(struct request_sock *req,
+> >  static inline void tcp_synack_rtt_meas(struct sock *sk,
+> >  				       struct request_sock *req)
+> >  {
+> > +	const struct tcp_sock *tp = tcp_sk(sk);
+> > +
+> >  	if (tcp_rsk(req)->snt_synack)
+> >  		tcp_valid_rtt_meas(sk,
+> > -		    tcp_time_stamp - tcp_rsk(req)->snt_synack);
+> > +		    tcp_time_stamp(tp) - tcp_rsk(req)->snt_synack);
+> >  }
+> >  
+> 
+> This first chunk looks not needed.
+> 
+> Can SYN_RECV sockets be live-migrated ? Probably not.
+> 
+> Quite frankly I am sure there is an issue for timewait (not real
+> sockets).
+> 
+> Have you really tested this patch, or is it an RFC ?
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Documentation/devicetree/bindings/net/fsl-fec.txt
-index d536392..4a94090 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -15,6 +15,8 @@ Optional properties:
-   only if property "phy-reset-gpios" is available.  Missing the property
-   will have the duration be 1 millisecond.  Numbers greater than 1000 are
-   invalid and 1 millisecond will be used instead.
-+- disable_napi : disable napi support
-+- napi_weight : napi weight number, default value is 64
- 
- Example:
- 
--- 
-1.7.1
+I set RFC, when I'm not sure, that this idea is right and want to get
+opinions and comments before spend a lot of time.
+
+I have tested this patch. I have a virtuall machine, where I test
+kernels. SSH is used for accessing this VM. My test dumps an outside
+TCP connection, then reboots the VM and restores the TCP connection.
+Without this patch the tcp connection are not restored correctly, but
+with this patch it works properly.
+
+A timestamp offset is zero by default, so I did not catch any bugs.
+I will test my patches more carefully.
+
+Thank you all for the comments and sorry for noise in the ML.
+
+> 
+> 
