@@ -1,73 +1,110 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2] sctp: set association state to established in
- dupcook_a handler
-Date: Thu, 24 Jan 2013 07:39:39 -0500
-Message-ID: <20130124123939.GA20658@hmsreliant.think-freely.org>
-References: <1358995474-28369-1-git-send-email-xufengzhang.main@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [RFC] net: usbnet: prevent buggy devices from killing us
+Date: Thu, 24 Jan 2013 13:47:40 +0100
+Message-ID: <87y5fig32r.fsf@nemi.mork.no>
+References: <1359023152-32576-1-git-send-email-bjorn@mork.no>
+	<2321910.EQLkSoxl50@linux-5eaq.site> <877gn2hlkh.fsf@nemi.mork.no>
+	<1809412.hrq33TVdWp@linux-5eaq.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vyasevich@gmail.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: xufengzhang.main@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Oliver Neukum <oneukum@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:49896 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753065Ab3AXMjz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:39:55 -0500
-Content-Disposition: inline
-In-Reply-To: <1358995474-28369-1-git-send-email-xufengzhang.main@gmail.com>
+Received: from canardo.mork.no ([148.122.252.1]:34193 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753865Ab3AXMsm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 07:48:42 -0500
+In-Reply-To: <1809412.hrq33TVdWp@linux-5eaq.site> (Oliver Neukum's message of
+	"Thu, 24 Jan 2013 12:31:08 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 24, 2013 at 10:44:34AM +0800, xufengzhang.main@gmail.com wrote:
-> From: Xufeng Zhang <xufeng.zhang@windriver.com>
-> 
-> While sctp handling a duplicate COOKIE-ECHO and the action is
-> 'Association restart', sctp_sf_do_dupcook_a() will processing
-> the unexpected COOKIE-ECHO for peer restart, but it does not set
-> the association state to SCTP_STATE_ESTABLISHED, so the association
-> could stuck in SCTP_STATE_SHUTDOWN_PENDING state forever.
-> This violates the sctp specification:
->   RFC 4960 5.2.4. Handle a COOKIE ECHO when a TCB Exists
->   Action
->   A) In this case, the peer may have restarted. .....
->      After this, the endpoint shall enter the ESTABLISHED state.
-> 
-> To resolve this problem, adding a SCTP_CMD_NEW_STATE cmd to the
-> command list before SCTP_CMD_REPLY cmd, this will set the restart
-> association to SCTP_STATE_ESTABLISHED state properly and also avoid
-> I-bit being set in the DATA chunk header when COOKIE_ACK is bundled
-> with DATA chunks.
-> 
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
-> ---
-> v2:
-> - Put the SCTP_CMD_NEW_STATE command before SCTP_CMD_REPLY and after SCTP_CMD_EVENT_ULP
->   suggested by Vlad and Neil
-> - Improve the last paragraph of the commit header
->  
->  net/sctp/sm_statefuns.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-> index 618ec7e..5131fcf 100644
-> --- a/net/sctp/sm_statefuns.c
-> +++ b/net/sctp/sm_statefuns.c
-> @@ -1779,8 +1779,10 @@ static sctp_disposition_t sctp_sf_do_dupcook_a(struct net *net,
->  
->  	/* Update the content of current association. */
->  	sctp_add_cmd_sf(commands, SCTP_CMD_UPDATE_ASSOC, SCTP_ASOC(new_asoc));
-> -	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
->  	sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP, SCTP_ULPEVENT(ev));
-> +	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
-> +			SCTP_STATE(SCTP_STATE_ESTABLISHED));
-> +	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(repl));
->  	return SCTP_DISPOSITION_CONSUME;
->  
->  nomem_ev:
-> -- 
-> 1.7.0.2
-> 
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Oliver Neukum <oneukum@suse.de> writes:
+> On Thursday 24 January 2013 12:22:54 Bj=C3=B8rn Mork wrote:
+>
+>> Sorry for being daft, but how do I code the "20 among the last 30" p=
+art
+>> there?
+>
+> Just by agreeing that you can live with false negatives but not false=
+ positives
+>
+> if (++counter > 30) {
+> 	counter =3D bogus =3D 0;
+> } else {
+> 	if (is_bogus(packet)
+> 		bogus++;
+> 	if (bogus > counter/2)
+> 		throttle();
+> }
+
+So, add two new counters to struct usbnet for this?  That seems a littl=
+e
+overkill to me, but I don't see how else to implement anything like tha=
+t.
+
+It is still not completely clear to me how the throttling/unthrottling
+should be done.  It tested with static counters (to avoid having to
+rebuild everything for this test) and a new EVENT_RX_THROTTLE flag.
+Still on top of my previous patch just for safety while testing, as I a=
+m
+fed up of having to reboot all the time :-)
+
+Doing the flag test in rx_submit seems simpler than trying to track all
+the places this is called.  Still checking the dev->done.qlen to be abl=
+e
+to unthrottle.
+
+Was this along the lines you thought?
+
+
+
+
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 85c7ffd..e3a1d63 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -380,6 +382,13 @@ static int rx_submit (struct usbnet *dev, struct u=
+rb *urb, gfp_t flags)
+ 	unsigned long		lockflags;
+ 	size_t			size =3D dev->rx_urb_size;
+=20
++
++	if (test_bit(EVENT_RX_THROTTLE, &dev->flags) && dev->done.qlen > 0) {
++		netif_dbg(dev, rx_err, dev->net, "%s: EVENT_RX_THROTTLE: (done.qlen=3D=
+%u)\n", __func__, dev->done.qlen);
++		usb_free_urb(urb);
++		return -ENOLINK;
++	}
++
+ 	/* Do not let a device flood us to death! */
+ 	if (dev->done.qlen > 1024) {
+ 		netif_dbg(dev, rx_err, dev->net, "done queue filling up (%u) - throt=
+tling\n", dev->done.qlen);
+@@ -482,6 +491,7 @@ static void rx_complete (struct urb *urb)
+ 	struct usbnet		*dev =3D entry->dev;
+ 	int			urb_status =3D urb->status;
+ 	enum skb_state		state;
++	static int counter, bogus;
+=20
+ 	skb_put (skb, urb->actual_length);
+ 	state =3D rx_done;
+@@ -547,6 +557,17 @@ block:
+ 		break;
+ 	}
+=20
++	/* keep track of bogus packet ratio */
++	if (++counter > 30) {
++		counter =3D bogus =3D 0;
++		clear_bit(EVENT_RX_THROTTLE, &dev->flags);
++	} else {
++		if (state =3D=3D rx_cleanup)
++			bogus++;
++		if (bogus > counter/2)
++			set_bit(EVENT_RX_THROTTLE, &dev->flags);
++	}
++
+ 	state =3D defer_bh(dev, skb, &dev->rxq, state);
+=20
+ 	if (urb) {
