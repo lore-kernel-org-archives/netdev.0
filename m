@@ -1,47 +1,50 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
- and testmgr build issues
-Date: Thu, 24 Jan 2013 10:43:37 +0100
-Message-ID: <20130124094337.GJ9147@secunet.com>
-References: <1776726593.108228.1358952383104.JavaMail.root@elliptictech.com>
- <20130123173510.14986sla4qsstz8k@www.dalek.fi>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] vhost-net: fall back to vmalloc if high-order allocation fails
+Date: Thu, 24 Jan 2013 09:45:50 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B711E@saturn3.aculab.com>
+References: <87k3r31vbc.fsf@silenus.orebokech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom St Denis <tstdenis@elliptictech.com>,
-	linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	linux-crypto@vger.kernel.org, netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130123173510.14986sla4qsstz8k@www.dalek.fi>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <kvm@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: "Romain Francoise" <romain@orebokech.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <87k3r31vbc.fsf@silenus.orebokech.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 05:35:10PM +0200, Jussi Kivilinna wrote:
-> 
-> Problem seems to be that PFKEYv2 does not quite work with IKEv2, and
-> XFRM API should be used instead. There is new numbers assigned for
-> IKEv2: https://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xml#ikev2-parameters-7
-> 
-> For new SADB_X_AALG_*, I'd think you should use value from "Reserved
-> for private use" range. Maybe 250?
+> +	n = kmalloc(sizeof *n, GFP_KERNEL | __GFP_NOWARN);
+> +	if (!n)
+> +		n = vmalloc(sizeof *n);
 
-This would be an option, but we have just a few slots for private
-algorithms.
+I'm slightly confused by this construct.
+I thought kmalloc(... GFP_KERNEL) would sleep waiting for
+memory (rather than return NULL).
 
-> 
-> But maybe better solution might be to not make AES-CMAC (or other
-> new algorithms) available throught PFKEY API at all, just XFRM?
-> 
+I realise that (for multi-page sizes) that kmalloc() and
+vmalloc() both need to find a contiguous block of kernel
+virtual addresses - in different address ranges, and
+that vmalloc() then has to find physical memory pages
+(which will not be contiguous).
 
-It is probably the best to make new algorithms unavailable for pfkey
-as long as they have no official ikev1 iana transform identifier.
+I think this means that kmalloc() is likely to be faster
+(if it doesn't have to sleep), but that vmalloc() is
+allocating from a much larger resource.
 
-But how to do that? Perhaps we can assign SADB_X_AALG_NOPFKEY to
-the private value 255 and return -EINVAL if pfkey tries to register
-such an algorithm. The netlink interface does not use these
-identifiers, everything should work as expected. So it should be
-possible to use these algoritms with iproute2 and the most modern
-ike deamons.
+This make me that that large allocations that are not
+temporary should probably be allocated with vmalloc().
+
+Is there a 'NO_SLEEP' flag to kmalloc()? is that all
+GFP_ATOMIC requests? If so you might try a non-sleeping
+kmalloc() with a vmalloc() if it fails.
+
+This all looks as though there should be a GFP_NONCONTIG
+flag (or similar) so that kmalloc() can make a decision itself.
+
+Of at least a wrapper - like the one for free().
+
+	David
