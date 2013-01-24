@@ -1,183 +1,222 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH V6 2/3] vhost_net: handle polling errors when setting
- backend
-Date: Thu, 24 Jan 2013 12:38:42 +0200
-Message-ID: <20130124103842.GD9368@redhat.com>
+Subject: Re: [PATCH V6 3/3] tuntap: allow polling/writing/reading when
+ detached
+Date: Thu, 24 Jan 2013 12:38:52 +0200
+Message-ID: <20130124103852.GE9368@redhat.com>
 References: <1358351078-58915-1-git-send-email-jasowang@redhat.com>
- <1358351078-58915-3-git-send-email-jasowang@redhat.com>
+ <1358351078-58915-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54826 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3046 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753483Ab3AXKee (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jan 2013 05:34:34 -0500
+	id S1753631Ab3AXKen (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2013 05:34:43 -0500
 Content-Disposition: inline
-In-Reply-To: <1358351078-58915-3-git-send-email-jasowang@redhat.com>
+In-Reply-To: <1358351078-58915-4-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 16, 2013 at 11:44:37PM +0800, Jason Wang wrote:
-> Currently, the polling errors were ignored, which can lead following issues:
+On Wed, Jan 16, 2013 at 11:44:38PM +0800, Jason Wang wrote:
+> We forbid polling, writing and reading when the file were detached, this may
+> complex the user in several cases:
 > 
-> - vhost remove itself unconditionally from waitqueue when stopping the poll,
->   this may crash the kernel since the previous attempt of starting may fail to
->   add itself to the waitqueue
-> - userspace may think the backend were successfully set even when the polling
->   failed.
+> - when guest pass some buffers to vhost/qemu and then disable some queues,
+>   host/qemu needs to do its own cleanup on those buffers which is complex
+>   sometimes. We can do this simply by allowing a user can still write to an
+>   disabled queue. Write to an disabled queue will cause the packet pass to the
+>   kernel and read will get nothing.
+> - align the polling behavior with macvtap which never fails when the queue is
+>   created. This can simplify the polling errors handling of its user (e.g vhost)
 > 
-> Solve this by:
-> 
-> - check poll->wqh before trying to remove from waitqueue
-> - report polling errors in vhost_poll_start(), tx_poll_start(), the return value
->   will be checked and returned when userspace want to set the backend
-> 
-> After this fix, there still could be a polling failure after backend is set, it
-> will addressed by the next patch.
+> In order to achieve this, tfile->tun were not assign to NULL when detached. And
+> tfile->tun were converted to be RCU protected in order to let the data path can
+> check whether the file is deated in a lockless manner. This will be used to
+> prevent the flow caches from being updated for a detached queue.
 > 
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 
 Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
 > ---
->  drivers/vhost/net.c   |   27 ++++++++++++++++++---------
->  drivers/vhost/vhost.c |   18 +++++++++++++++---
->  drivers/vhost/vhost.h |    2 +-
->  3 files changed, 34 insertions(+), 13 deletions(-)
+>  drivers/net/tun.c |   45 ++++++++++++++++++++++++++-------------------
+>  1 files changed, 26 insertions(+), 19 deletions(-)
 > 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index d10ad6f..959b1cd 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -165,12 +165,16 @@ static void tx_poll_stop(struct vhost_net *net)
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index c81680d..ec539a9 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -139,7 +139,7 @@ struct tun_file {
+>  	unsigned int flags;
+>  	u16 queue_index;
+>  	struct list_head next;
+> -	struct tun_struct *detached;
+> +	struct tun_struct __rcu *detached;
+>  };
+>  
+>  struct tun_flow_entry {
+> @@ -295,11 +295,12 @@ static void tun_flow_cleanup(unsigned long data)
 >  }
 >  
->  /* Caller must have TX VQ lock */
-> -static void tx_poll_start(struct vhost_net *net, struct socket *sock)
-> +static int tx_poll_start(struct vhost_net *net, struct socket *sock)
+>  static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
+> -			    u16 queue_index)
+> +			    struct tun_file *tfile)
 >  {
-> +	int ret;
-> +
->  	if (unlikely(net->tx_poll_state != VHOST_NET_POLL_STOPPED))
-> -		return;
-> -	vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
-> -	net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> +		return 0;
-> +	ret = vhost_poll_start(net->poll + VHOST_NET_VQ_TX, sock->file);
-> +	if (!ret)
-> +		net->tx_poll_state = VHOST_NET_POLL_STARTED;
-> +	return ret;
->  }
+>  	struct hlist_head *head;
+>  	struct tun_flow_entry *e;
+>  	unsigned long delay = tun->ageing_time;
+> +	u16 queue_index = tfile->queue_index;
 >  
->  /* In case of DMA done not in order in lower device driver for some reason.
-> @@ -642,20 +646,23 @@ static void vhost_net_disable_vq(struct vhost_net *n,
->  		vhost_poll_stop(n->poll + VHOST_NET_VQ_RX);
->  }
+>  	if (!rxhash)
+>  		return;
+> @@ -308,7 +309,7 @@ static void tun_flow_update(struct tun_struct *tun, u32 rxhash,
 >  
-> -static void vhost_net_enable_vq(struct vhost_net *n,
-> +static int vhost_net_enable_vq(struct vhost_net *n,
->  				struct vhost_virtqueue *vq)
+>  	rcu_read_lock();
+>  
+> -	if (tun->numqueues == 1)
+> +	if (tun->numqueues == 1 || rcu_dereference(tfile->detached))
+>  		goto unlock;
+>  
+>  	e = tun_flow_find(head, rxhash);
+> @@ -384,16 +385,16 @@ static void tun_set_real_num_queues(struct tun_struct *tun)
+>  
+>  static void tun_disable_queue(struct tun_struct *tun, struct tun_file *tfile)
 >  {
->  	struct socket *sock;
-> +	int ret;
->  
->  	sock = rcu_dereference_protected(vq->private_data,
->  					 lockdep_is_held(&vq->mutex));
->  	if (!sock)
-> -		return;
-> +		return 0;
->  	if (vq == n->vqs + VHOST_NET_VQ_TX) {
->  		n->tx_poll_state = VHOST_NET_POLL_STOPPED;
-> -		tx_poll_start(n, sock);
-> +		ret = tx_poll_start(n, sock);
->  	} else
-> -		vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +		ret = vhost_poll_start(n->poll + VHOST_NET_VQ_RX, sock->file);
-> +
-> +	return ret;
+> -	tfile->detached = tun;
+> +	rcu_assign_pointer(tfile->detached, tun);
+>  	list_add_tail(&tfile->next, &tun->disabled);
+>  	++tun->numdisabled;
 >  }
 >  
->  static struct socket *vhost_net_stop_vq(struct vhost_net *n,
-> @@ -833,7 +840,9 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
->  		r = vhost_init_used(vq);
->  		if (r)
->  			goto err_used;
-> -		vhost_net_enable_vq(n, vq);
-> +		r = vhost_net_enable_vq(n, vq);
-> +		if (r)
-> +			goto err_used;
->  
->  		oldubufs = vq->ubufs;
->  		vq->ubufs = ubufs;
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 34389f7..9759249 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -77,26 +77,38 @@ void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  	init_poll_funcptr(&poll->table, vhost_poll_func);
->  	poll->mask = mask;
->  	poll->dev = dev;
-> +	poll->wqh = NULL;
->  
->  	vhost_work_init(&poll->work, fn);
->  }
->  
->  /* Start polling a file. We add ourselves to file's wait queue. The caller must
->   * keep a reference to a file until after vhost_poll_stop is called. */
-> -void vhost_poll_start(struct vhost_poll *poll, struct file *file)
-> +int vhost_poll_start(struct vhost_poll *poll, struct file *file)
+>  static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
 >  {
->  	unsigned long mask;
-> +	int ret = 0;
+> -	struct tun_struct *tun = tfile->detached;
+> +	struct tun_struct *tun = rtnl_dereference(tfile->detached);
 >  
->  	mask = file->f_op->poll(file, &poll->table);
->  	if (mask)
->  		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-> +	if (mask & POLLERR) {
-> +		if (poll->wqh)
-> +			remove_wait_queue(poll->wqh, &poll->wait);
-> +		ret = -EINVAL;
+> -	tfile->detached = NULL;
+> +	rcu_assign_pointer(tfile->detached, NULL);
+>  	list_del_init(&tfile->next);
+>  	--tun->numdisabled;
+>  	return tun;
+> @@ -402,26 +403,27 @@ static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
+>  static void __tun_detach(struct tun_file *tfile, bool clean)
+>  {
+>  	struct tun_file *ntfile;
+> -	struct tun_struct *tun;
+> +	struct tun_struct *tun, *detached;
+>  	struct net_device *dev;
+>  
+>  	tun = rtnl_dereference(tfile->tun);
+> +	detached = rtnl_dereference(tfile->detached);
+>  
+> -	if (tun) {
+> +	if (tun && !detached) {
+>  		u16 index = tfile->queue_index;
+>  		BUG_ON(index >= tun->numqueues);
+>  		dev = tun->dev;
+>  
+>  		rcu_assign_pointer(tun->tfiles[index],
+>  				   tun->tfiles[tun->numqueues - 1]);
+> -		rcu_assign_pointer(tfile->tun, NULL);
+>  		ntfile = rtnl_dereference(tun->tfiles[index]);
+>  		ntfile->queue_index = index;
+>  
+>  		--tun->numqueues;
+> -		if (clean)
+> +		if (clean) {
+> +			rcu_assign_pointer(tfile->tun, NULL);
+>  			sock_put(&tfile->sk);
+> -		else
+> +		} else
+>  			tun_disable_queue(tun, tfile);
+>  
+>  		synchronize_net();
+> @@ -429,7 +431,7 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+>  		/* Drop read queue */
+>  		skb_queue_purge(&tfile->sk.sk_receive_queue);
+>  		tun_set_real_num_queues(tun);
+> -	} else if (tfile->detached && clean) {
+> +	} else if (detached && clean) {
+>  		tun = tun_enable_queue(tfile);
+>  		sock_put(&tfile->sk);
+>  	}
+> @@ -466,6 +468,10 @@ static void tun_detach_all(struct net_device *dev)
+>  		rcu_assign_pointer(tfile->tun, NULL);
+>  		--tun->numqueues;
+>  	}
+> +	list_for_each_entry(tfile, &tun->disabled, next) {
+> +		wake_up_all(&tfile->wq.wait);
+> +		rcu_assign_pointer(tfile->tun, NULL);
 > +	}
-> +
-> +	return ret;
+>  	BUG_ON(tun->numqueues != 0);
+>  
+>  	synchronize_net();
+> @@ -496,7 +502,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  		goto out;
+>  
+>  	err = -EINVAL;
+> -	if (rtnl_dereference(tfile->tun))
+> +	if (rtnl_dereference(tfile->tun) && !rtnl_dereference(tfile->detached))
+>  		goto out;
+>  
+>  	err = -EBUSY;
+> @@ -504,7 +510,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  		goto out;
+>  
+>  	err = -E2BIG;
+> -	if (!tfile->detached &&
+> +	if (!rtnl_dereference(tfile->detached) &&
+>  	    tun->numqueues + tun->numdisabled == MAX_TAP_QUEUES)
+>  		goto out;
+>  
+> @@ -521,7 +527,7 @@ static int tun_attach(struct tun_struct *tun, struct file *file)
+>  	rcu_assign_pointer(tun->tfiles[tun->numqueues], tfile);
+>  	tun->numqueues++;
+>  
+> -	if (tfile->detached)
+> +	if (rtnl_dereference(tfile->detached))
+>  		tun_enable_queue(tfile);
+>  	else
+>  		sock_hold(&tfile->sk);
+> @@ -1195,7 +1201,7 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+>  	tun->dev->stats.rx_packets++;
+>  	tun->dev->stats.rx_bytes += len;
+>  
+> -	tun_flow_update(tun, rxhash, tfile->queue_index);
+> +	tun_flow_update(tun, rxhash, tfile);
+>  	return total_len;
 >  }
 >  
->  /* Stop polling a file. After this function returns, it becomes safe to drop the
->   * file reference. You must also flush afterwards. */
->  void vhost_poll_stop(struct vhost_poll *poll)
->  {
-> -	remove_wait_queue(poll->wqh, &poll->wait);
-> +	if (poll->wqh) {
-> +		remove_wait_queue(poll->wqh, &poll->wait);
-> +		poll->wqh = NULL;
-> +	}
->  }
+> @@ -1552,7 +1558,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+>  	struct net_device *dev;
+>  	int err;
 >  
->  static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
-> @@ -792,7 +804,7 @@ long vhost_vring_ioctl(struct vhost_dev *d, int ioctl, void __user *argp)
->  		fput(filep);
+> -	if (tfile->detached)
+> +	if (rtnl_dereference(tfile->detached))
+>  		return -EINVAL;
 >  
->  	if (pollstart && vq->handle_kick)
-> -		vhost_poll_start(&vq->poll, vq->kick);
-> +		r = vhost_poll_start(&vq->poll, vq->kick);
+>  	dev = __dev_get_by_name(net, ifr->ifr_name);
+> @@ -1796,7 +1802,7 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  	rtnl_lock();
 >  
->  	mutex_unlock(&vq->mutex);
->  
-> diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> index 2639c58..17261e2 100644
-> --- a/drivers/vhost/vhost.h
-> +++ b/drivers/vhost/vhost.h
-> @@ -42,7 +42,7 @@ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work);
->  
->  void vhost_poll_init(struct vhost_poll *poll, vhost_work_fn_t fn,
->  		     unsigned long mask, struct vhost_dev *dev);
-> -void vhost_poll_start(struct vhost_poll *poll, struct file *file);
-> +int vhost_poll_start(struct vhost_poll *poll, struct file *file);
->  void vhost_poll_stop(struct vhost_poll *poll);
->  void vhost_poll_flush(struct vhost_poll *poll);
->  void vhost_poll_queue(struct vhost_poll *poll);
+>  	if (ifr->ifr_flags & IFF_ATTACH_QUEUE) {
+> -		tun = tfile->detached;
+> +		tun = rtnl_dereference(tfile->detached);
+>  		if (!tun) {
+>  			ret = -EINVAL;
+>  			goto unlock;
+> @@ -1807,7 +1813,8 @@ static int tun_set_queue(struct file *file, struct ifreq *ifr)
+>  		ret = tun_attach(tun, file);
+>  	} else if (ifr->ifr_flags & IFF_DETACH_QUEUE) {
+>  		tun = rtnl_dereference(tfile->tun);
+> -		if (!tun || !(tun->flags & TUN_TAP_MQ))
+> +		if (!tun || !(tun->flags & TUN_TAP_MQ) ||
+> +		    rtnl_dereference(tfile->detached))
+>  			ret = -EINVAL;
+>  		else
+>  			__tun_detach(tfile, false);
 > -- 
 > 1.7.1
