@@ -1,75 +1,82 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: Hung tasks related to do_filp_open in net-next (3.8.0-rc3+)
-Date: Thu, 24 Jan 2013 10:42:11 -0800
-Message-ID: <51018083.1000304@candelatech.com>
-References: <51005858.4040107@candelatech.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Thu, 24 Jan 2013 10:44:32 -0800
+Message-ID: <51018110.1070403@hp.com>
+References: <20130122161038.GG4608@sociomantic.com> <1358873142.3464.3964.camel@edumazet-glaptop> <20130122165929.GH4608@sociomantic.com> <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com> <50FF0C25.9000300@hp.com> <20130123104736.GK4608@sociomantic.com> <510039C8.7040401@hp.com> <20130124122223.GQ4608@sociomantic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <51005858.4040107-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130124122223.GQ4608@sociomantic.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/23/2013 01:38 PM, Ben Greear wrote:
+On 01/24/2013 04:22 AM, Leandro Lucarella wrote:
+> On Wed, Jan 23, 2013 at 11:28:08AM -0800, Rick Jones wrote:
+>>> Then if syncookies are enabled, the time spent in connect() shouldn't be
+>>> bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
+>>
+>> Do you mean if "ESTABLISHED" connections are dropped because the
+>> listen queue is full?  I don't think I would put that as "SYNs being
+>> dropped by listen" - too easy to confuse that with an actual
+>> dropping of a SYN segment.
 >
-> I cranked up my 3000 NFS mounts test case on today's net-next (3.8.0-rc3+)
-> and about 8 of these splats.  There were around 780 mounts active
-> when these occurred.
+> I was just kind of quoting the name given by netstat: "SYNs to LISTEN
+> sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
+> this stat anymore, or the name was changed). I still don't know if we
+> are talking about the same thing.
+
+Are you sure those stats are not present in 3.X kernels?  I just looked 
+at /proc/net/netstat on a 3.7 system and noticed both the ListenMumble 
+stats and the three cookie stats.  And I see the code for them in the tree:
+
+aj@tardy:~/net-next/net/ipv4$ grep MIB_LISTEN *.c
+proc.c:	SNMP_MIB_ITEM("ListenOverflows", LINUX_MIB_LISTENOVERFLOWS),
+proc.c:	SNMP_MIB_ITEM("ListenDrops", LINUX_MIB_LISTENDROPS),
+tcp_ipv4.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
+tcp_ipv4.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
+
+raj@tardy:~/net-next/net/ipv4$ grep MIB_SYN *.c
+proc.c:	SNMP_MIB_ITEM("SyncookiesSent", LINUX_MIB_SYNCOOKIESSENT),
+proc.c:	SNMP_MIB_ITEM("SyncookiesRecv", LINUX_MIB_SYNCOOKIESRECV),
+proc.c:	SNMP_MIB_ITEM("SyncookiesFailed", LINUX_MIB_SYNCOOKIESFAILED),
+syncookies.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
+syncookies.c:		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
+syncookies.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESRECV);
+
+
+I will sometimes be tripped-up by netstat's not showing a statistic with 
+a zero value...
+
+>> But yes, I would not expect a connect() call to remain incomplete
+>> for any longer than it took to receive an SYN|ACK from the other
+>> end.
 >
-> Seems like the system continues OK, so not sure how important
-> this is...
+> So the only reason to experience these high times spent in connect()
+> should be because a SYN or SYN|ACK was actually loss in a lower layer,
+> like an error in the network device or a transmission error?
 
-I'm seeing this occasionally on 3.7.3 (plus Eric's patch to fix
-the crashes I was seeing), so it's not a regression.
+Modulo the/some other drop-without-stat point such as Vijay mentioned 
+yesterday.
 
-Maybe it's just expected on a very overloaded system....
+You might consider taking some packet traces.  If you can I would start 
+with a trace taken on the system(s) on which the long connect() calls 
+are happening.   I think the tcpdump manpage has an example of a tcpdump 
+command with a filter expression that catches just SYNchronize and 
+FINished segments which I suppose you could extend to include ReSeT 
+segments.  Such a filter expression would be missing the client's ACK of 
+the SYN|ACK but unless you see incrementing stats relating to say 
+checksum failures or other drops on the "client" side I suppose you 
+could assume that the client ACKed the server's SYN|ACK.
 
-Thanks,
-Ben
-
+>> That would be 3 (,9, 21, etc...) seconds on a kernel with 3
+>> seconds as the initial retransmission timeout.
 >
-> INFO: task btserver:8756 blocked for more than 180 seconds.
-> "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-> btserver        D 0000000000000004     0  8756   5781 0x00000080
->   ffff880404ab1bf8 0000000000000046 0000000004ab1ba8 0000000000000432
->   ffff880404ab0010 ffff880402263f20 ffff880404ab1fd8 00000000000132c0
->   00000000000132c0 00000000000132c0 ffff880404ab1fd8 00000000000132c0
-> Call Trace:
->   [<ffffffff815491ea>] schedule+0x5f/0x61
->   [<ffffffff815494fa>] schedule_preempt_disabled+0x13/0x1f
->   [<ffffffff81547ea8>] __mutex_lock_common+0x264/0x42d
->   [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
->   [<ffffffff8115fadb>] ? do_last+0x1db/0xa4e
->   [<ffffffff815480d0>] mutex_lock_nested+0x16/0x18
->   [<ffffffff8115fadb>] do_last+0x1db/0xa4e
->   [<ffffffff8115f3a5>] ? path_init+0xcd/0x2b6
->   [<ffffffff8116090b>] path_openat+0xcb/0x363
->   [<ffffffff810d0055>] ? __lock_acquire+0x1df/0x53d
->   [<ffffffff81160ca8>] do_filp_open+0x38/0x84
->   [<ffffffff8154a2db>] ? _raw_spin_unlock+0x45/0x52
->   [<ffffffff8116c203>] ? __alloc_fd+0x106/0x11a
->   [<ffffffff815490f9>] ? __schedule+0x561/0x5a3
-> 8021q: adding VLAN 0 to HW filter on device eth4#621
->   [<ffffffff81153bfc>] do_sys_open+0x6d/0xff
-> 8021q: adding VLAN 0 to HW filter on device eth3#612
->   [<ffffffff81153cbb>] sys_open+0x1c/0x1e
->   [<ffffffff8154f629>] system_call_fastpath+0x16/0x1b
-> 2 locks held by btserver/8756:
->   #0:  (sb_writers#10){......}, at: [<ffffffff81170013>] mnt_want_write+0x1f/0x48
->   #1:  (&type->i_mutex_dir_key#4){......}, at: [<ffffffff8115fadb>] do_last+0x1db/0xa4e
->
->
->
+> Which can't be changed without recompiling, right?
 
+To the best of my knowledge.
 
--- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+rick jones
