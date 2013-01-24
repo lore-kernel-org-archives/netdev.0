@@ -1,82 +1,51 @@
-From: Michel Lespinasse <walken@google.com>
-Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global
- reader-writer lock backend
-Date: Wed, 23 Jan 2013 20:14:56 -0800
-Message-ID: <CANN689HOmiO-5714UiyuOcjrRYW2DkR4cPLgt96f5YeB9Ws3RQ@mail.gmail.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-	<20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com>
-	<1358883152.21576.55.camel@gandalf.local.home>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 3.7.3+:  Bad paging request in ip_rcv_finish while running NFS
+ traffic.
+Date: Wed, 23 Jan 2013 20:26:28 -0800
+Message-ID: <5100B7F4.2050505@candelatech.com>
+References: <50FDADF4.3060601@candelatech.com>  <50FDDE35.7070806@candelatech.com>  <1358829606.3464.3151.camel@edumazet-glaptop>  <50FE2A57.3040804@candelatech.com>  <50FEC796.5090404@candelatech.com>  <1358875020.3464.4006.camel@edumazet-glaptop>  <1358875607.3464.4020.camel@edumazet-glaptop>  <50FF102F.2050008@candelatech.com> <50FF4BC9.1060206@candelatech.com>  <5100785D.8040101@candelatech.com>  <1358985688.12374.1247.camel@edumazet-glaptop>  <51007CA8.2050105@candelatech.com>  <1358987031.12374.1276.camel@edumazet-glaptop>  <51008294.2010201@candelatech.com>  <1358988358.12374.1303.camel@edumazet-glaptop>  <51008598.4000603@candelatech.com>  <1358989242.12374.1323.camel@edumazet-glaptop>  <51008900.2010803@candelatech.com>  <1358989843.12374.1334.camel@edumazet-glaptop> <1358991906.1
+ 2374.1356.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	rjw@sisk.pl, sbw@mit.edu, fweisbec@gmail.com,
-	linux@arm.linux.org.uk, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f52.google.com ([209.85.216.52]:43650 "EHLO
-	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753104Ab3AXEO5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 23:14:57 -0500
-Received: by mail-qa0-f52.google.com with SMTP id d13so89755qak.11
-        for <netdev@vger.kernel.org>; Wed, 23 Jan 2013 20:14:57 -0800 (PST)
-In-Reply-To: <1358883152.21576.55.camel@gandalf.local.home>
+Received: from mail.candelatech.com ([208.74.158.172]:48816 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752884Ab3AXE0g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jan 2013 23:26:36 -0500
+In-Reply-To: <1358991906.12374.1356.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 22, 2013 at 11:32 AM, Steven Rostedt <rostedt@goodmis.org> wrote:
-> On Tue, 2013-01-22 at 13:03 +0530, Srivatsa S. Bhat wrote:
->> A straight-forward (and obvious) algorithm to implement Per-CPU Reader-Writer
->> locks can also lead to too many deadlock possibilities which can make it very
->> hard/impossible to use. This is explained in the example below, which helps
->> justify the need for a different algorithm to implement flexible Per-CPU
->> Reader-Writer locks.
->>
->> We can use global rwlocks as shown below safely, without fear of deadlocks:
->>
->> Readers:
->>
->>          CPU 0                                CPU 1
->>          ------                               ------
->>
->> 1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
->>
->>
->> 2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
->>
->>
->> Writer:
->>
->>          CPU 2:
->>          ------
->>
->>        write_lock(&my_rwlock);
->>
+On 01/23/2013 05:45 PM, Eric Dumazet wrote:
+> On Wed, 2013-01-23 at 17:10 -0800, Eric Dumazet wrote:
 >
-> I thought global locks are now fair. That is, a reader will block if a
-> writer is waiting. Hence, the above should deadlock on the current
-> rwlock_t types.
+>> Excellent, thats the bug.
+>>
+>> I'll send a fix asap, thanks !
+>
+> loopback device doesnt have a qdisc, and unsets IFF_XMIT_DST_RELEASE
+>
+> Its hard to believe such an old bug never hit us in the past.
+>
+> Probably because most of the time, the packet given to netif_rx() is
+> immediately processed (and loopback device is hard wired ?)
 
-I believe you are mistaken here. struct rw_semaphore is fair (and
-blocking), but rwlock_t is unfair. The reason we can't easily make
-rwlock_t fair is because tasklist_lock currently depends on the
-rwlock_t unfairness - tasklist_lock readers typically don't disable
-local interrupts, and tasklist_lock may be acquired again from within
-an interrupt, which would deadlock if rwlock_t was fair and a writer
-was queued by the time the interrupt is processed.
+I'll test this in the morning...one thing, maybe it's worth adding
+a WARN_ON in netif_rx() in case there are other bugs of
+this nature?
 
-> We need to fix those locations (or better yet, remove all rwlocks ;-)
+The dst objects are also garbage collected, so they have a fairly
+long valid-ish lifetime after they are logically freed.  That might
+be part of why it was so hard to reproduce the bug...
 
-tasklist_lock is the main remaining user. I'm not sure about removing
-rwlock_t, but I would like to at least make it fair somehow :)
+Thanks again for all the help on this bug!  Hopefully it will now
+be well and truly squashed.
+
+Ben
 
 -- 
-Michel "Walken" Lespinasse
-A program is never fully debugged until the last user dies.
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
