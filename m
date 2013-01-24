@@ -1,86 +1,74 @@
-From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues,
- indent, and testmgr build issues
-Date: Thu, 24 Jan 2013 10:45:18 +0200
-Message-ID: <20130124104518.13058kllaldbmoio@www.dalek.fi>
-References: <1776726593.108228.1358952383104.JavaMail.root@elliptictech.com>
- <20130123173510.14986sla4qsstz8k@www.dalek.fi>
- <51000CEE.9060109@linux-ipv6.org> <51000EEF.7090308@linux-ipv6.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] ip6mr: limit IPv6 MRT_TABLE identifiers
+Date: Thu, 24 Jan 2013 12:01:01 +0300
+Message-ID: <20130124090101.GC4584@mwanda>
+References: <20130124063834.GA5611@elgon.mountain>
+ <5100EF60.1080409@bfs.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Tom St Denis <tstdenis@elliptictech.com>,
-	linux-kernel@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>,
-	linux-crypto@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: walter harms <wharms@bfs.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sd-mail-sa-02.sanoma.fi ([158.127.18.162]:37637 "EHLO
-	sd-mail-sa-02.sanoma.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194Ab3AXIpW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 03:45:22 -0500
-In-Reply-To: <51000EEF.7090308@linux-ipv6.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25591 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752129Ab3AXJBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 04:01:51 -0500
 Content-Disposition: inline
+In-Reply-To: <5100EF60.1080409@bfs.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Quoting YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>:
+On Thu, Jan 24, 2013 at 09:22:56AM +0100, walter harms wrote:
+> 
+> 
+> Am 24.01.2013 07:38, schrieb Dan Carpenter:
+> > We did this for IPv4 in b49d3c1e1c "net: ipmr: limit MRT_TABLE
+> > identifiers" but we need to do it for IPv6 as well.  On IPv6 the name
+> > is "pim6reg" instead of "pimreg" so there is one less digit allowed.
+> > 
+> > The strcpy() is in ip6mr_reg_vif().
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > 
+> > diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+> > index acc3249..351ce98 100644
+> > --- a/net/ipv6/ip6mr.c
+> > +++ b/net/ipv6/ip6mr.c
+> > @@ -1766,6 +1766,9 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+> >  			return -EINVAL;
+> >  		if (get_user(v, (u32 __user *)optval))
+> >  			return -EFAULT;
+> > +		/* "pim6reg%u" should not exceed 16 bytes (IFNAMSIZ) */
+> > +		if (v != RT_TABLE_DEFAULT && v >= 100000000)
+> > +			return -EINVAL;
+> >  		if (sk == mrt->mroute6_sk)
+> >  			return -EBUSY;
+> >  
+> hi Dan,
+> that comment left me in a bit confused, i guess you men
+>   printf( "pim6reg%u",v) should not exceed IFNAMSIZ (16 bytes) ?
 
-> YOSHIFUJI Hideaki wrote:
->> Jussi Kivilinna wrote:
->>
->>>>>> diff --git a/include/uapi/linux/pfkeyv2.h
->>>>>> b/include/uapi/linux/pfkeyv2.h
->>>>>> index 0b80c80..d61898e 100644
->>>>>> --- a/include/uapi/linux/pfkeyv2.h
->>>>>> +++ b/include/uapi/linux/pfkeyv2.h
->>>>>> @@ -296,6 +296,7 @@ struct sadb_x_kmaddress {
->>>>>>  #define SADB_X_AALG_SHA2_512HMAC    7
->>>>>>  #define SADB_X_AALG_RIPEMD160HMAC    8
->>>>>>  #define SADB_X_AALG_AES_XCBC_MAC    9
->>>>>> +#define SADB_X_AALG_AES_CMAC_MAC    10
->>>>>>  #define SADB_X_AALG_NULL        251    /* kame */
->>>>>>  #define SADB_AALG_MAX            251
->>>>>
->>>>> Should these values be based on IANA assigned IPSEC AH transform
->>>>> identifiers?
->>>>>
->>>>> https://www.iana.org/assignments/isakmp-registry/isakmp-registry.xml#isakmp-registry-6
->>>>
->>>> There is no CMAC entry apparently ... despite the fact that CMAC  
->>>> is a proposed RFC standard for IPsec.
->>>>
->>>> It might be safer to move that to 14 since it's currently  
->>>> unassigned and then go through whatever channels are required to  
->>>> allocate it.  Mostly this affects key setting.  So this means my  
->>>> patch would break AH_RSA setkey calls (which the kernel doesn't  
->>>> support anyways).
->>>>
->>>
->>> Problem seems to be that PFKEYv2 does not quite work with IKEv2,  
->>> and XFRM API should be used instead. There is new numbers assigned  
->>> for IKEv2:  
->>> https://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xml#ikev2-parameters-7
->>>
->>> For new SADB_X_AALG_*, I'd think you should use value from  
->>> "Reserved for private use" range. Maybe 250?
->>
->> We can choose any value unless we do not break existing
->> binaries.  When IKE used, the daemon is responsible
->> for translation.
->
-> I meant, we can choose any values "if" we do not break ...
->
+Yes.
 
-Ok, so giving '10' to AES-CMAC is fine after all?
+> also the if is a bit strange, i assume that RT_TABLE_DEFAULT is const
+> so anything else is rejected than v==RT_TABLE_DEFAULT
+> (assuming that RT_TABLE_DEFAULT >= 100000000 ....)
 
-And if I'd want to add Camellia-CTR and Camellia-CCM support, I can  
-choose next free numbers from SADB_X_EALG_*?
+I don't understand what you are saying.
 
--Jussi
+The patch is basically copy and pasted from b49d3c1e1c "net: ipmr:
+limit MRT_TABLE identifiers".  RT6_TABLE_DFLT is allowed to be a
+high number because in ip6mr_reg_vif() we do:
+
+        if (mrt->id == RT6_TABLE_DFLT)
+                sprintf(name, "pim6reg");
+        else
+                sprintf(name, "pim6reg%u", mrt->id);
+
+regards,
+dan carpenter
