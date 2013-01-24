@@ -1,127 +1,145 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net] net: usbnet: prevent buggy devices from killing us
-Date: Thu, 24 Jan 2013 20:16:56 +0100
-Message-ID: <1359055016-13603-1-git-send-email-bjorn@mork.no>
-References: <2556579.vjYlY1iKn5@linux-5eaq.site>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] bond: have random dev address by default
+ instead of zeroes
+Date: Thu, 24 Jan 2013 20:18:39 +0100
+Message-ID: <20130124191839.GA4177@minipsycho.orion>
+References: <1359022329-6919-1-git-send-email-jiri@resnulli.us>
+ <7112.1359047569@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2556579.vjYlY1iKn5-7ztolUikljGernLeA6q8OA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	stephen@networkplumber.org
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:57464 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822Ab3AXTSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 14:18:43 -0500
+Received: by mail-wi0-f178.google.com with SMTP id hn3so780908wib.17
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 11:18:42 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <7112.1359047569@death.nxdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A device sending 0 length frames as fast as it can has been
-observed killing the host system due to the resulting memory
-pressure.
+Thu, Jan 24, 2013 at 06:12:49PM CET, fubar@us.ibm.com wrote:
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>>Makes more sense to have randomly generated address by default than to
+>>have all zeroes. It also allows user to for example put the bond into
+>>bridge without need to have any slaves in it.
+>>
+>>Also, fix dev_assign_type values on the way.
+>>
+>>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>
+>	This patch appears to provide a random MAC, which is then
+>replaced with the first slave's MAC at enslavement time.  A more in
+>depth commit message would be helpful here; I presumed from the above
+>that the bond's MAC was being set to a random MAC and the first slave
+>behavior was changing, but inspection of the code suggests otherwise.
 
-Temporarily disable RX skb allocation and URB submission when
-the current error ratio is high, preventing us from trying to
-allocate an infinite number of skbs.  Reenable as soon as we
-are finished processing the done queue, allowing the device
-to continue working after short error bursts.
+Sure, I will make sthi clear in commit message.
 
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
-So is this starting to look OK?
+>
+>	Does this have any practical change other than permitting
+>enslavement to a bridge prior to the bond having any slaves?
 
-usbnet already uses "throttle", "halt" and "stop" for other
-functions, so I decided to name the new flag "kill".  No other
-reason.
+Nothing I can think of.
 
-Didn't see any point in calculating the error limit.  A fixed
-number works just as well.
+>
+>	I also have one code comment, below.
+>
+>> drivers/net/bonding/bond_main.c | 28 ++++++++++++++++------------
+>> 1 file changed, 16 insertions(+), 12 deletions(-)
+>>
+>>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>index 564cf42..af3a777 100644
+>>--- a/drivers/net/bonding/bond_main.c
+>>+++ b/drivers/net/bonding/bond_main.c
+>>@@ -1320,14 +1320,14 @@ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+>>
+>> /*---------------------------------- IOCTL ----------------------------------*/
+>>
+>>-static int bond_sethwaddr(struct net_device *bond_dev,
+>>-			  struct net_device *slave_dev)
+>>+static void bond_set_dev_addr(struct net_device *bond_dev,
+>>+			      struct net_device *slave_dev)
+>> {
+>> 	pr_debug("bond_dev=%p\n", bond_dev);
+>> 	pr_debug("slave_dev=%p\n", slave_dev);
+>> 	pr_debug("slave_dev->addr_len=%d\n", slave_dev->addr_len);
+>> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len);
+>>-	return 0;
+>>+	bond_dev->addr_assign_type |= NET_ADDR_SET;
+>
+>	This is a bitwise assignment, but addr_assign_type is not a
+>bitmask.  If addr_assign_type is not 0 prior to this, this will create
+>an illegal value in the field.
 
-Restarting in usbnet_bh was a simple way to achieve what I
-wanted: enabling RX again when we know we can handle it.
+You are right. I'll correct this.
 
-
-Bj=C3=B8rn
-
- drivers/net/usb/usbnet.c   |   26 ++++++++++++++++++++++++++
- include/linux/usb/usbnet.h |    2 ++
- 2 files changed, 28 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index f34b2eb..64657d6 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -380,6 +380,12 @@ static int rx_submit (struct usbnet *dev, struct u=
-rb *urb, gfp_t flags)
- 	unsigned long		lockflags;
- 	size_t			size =3D dev->rx_urb_size;
-=20
-+	/* prevent rx skb allocation when error ratio is high */
-+	if (test_bit(EVENT_RX_KILL, &dev->flags)) {
-+		usb_free_urb(urb);
-+		return -ENOLINK;
-+	}
-+
- 	skb =3D __netdev_alloc_skb_ip_align(dev->net, size, flags);
- 	if (!skb) {
- 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
-@@ -539,6 +545,22 @@ block:
- 		break;
- 	}
-=20
-+	/* stop rx if packet error rate is high */
-+	if (++dev->pkt_cnt > 30) {
-+		dev->pkt_cnt =3D 0;
-+		dev->pkt_err =3D 0;
-+	} else {
-+		if (state =3D=3D rx_cleanup)
-+			dev->pkt_err++;
-+		if (dev->pkt_err > 20) {
-+			set_bit(EVENT_RX_KILL, &dev->flags);
-+			if (net_ratelimit())
-+				netif_dbg(dev, rx_err, dev->net,
-+					  "rx kill: high error rate\n");
-+			dev->pkt_err =3D 0;
-+		}
-+	}
-+
- 	state =3D defer_bh(dev, skb, &dev->rxq, state);
-=20
- 	if (urb) {
-@@ -1254,6 +1276,10 @@ static void usbnet_bh (unsigned long param)
- 		}
- 	}
-=20
-+	/* restart RX again after disabling due to high error rate */
-+	if (test_and_clear_bit(EVENT_RX_KILL, &dev->flags) && net_ratelimit()=
-)
-+		netif_dbg(dev, rx_err, dev->net, "rx kill: restarting\n");
-+
- 	// waiting for all pending urbs to complete?
- 	if (dev->wait) {
- 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) =3D=3D 0) {
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 5de7a22..0de078d 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -33,6 +33,7 @@ struct usbnet {
- 	wait_queue_head_t	*wait;
- 	struct mutex		phy_mutex;
- 	unsigned char		suspend_count;
-+	unsigned char		pkt_cnt, pkt_err;
-=20
- 	/* i/o info: pipes etc */
- 	unsigned		in, out;
-@@ -70,6 +71,7 @@ struct usbnet {
- #		define EVENT_DEV_OPEN	7
- #		define EVENT_DEVICE_REPORT_IDLE	8
- #		define EVENT_NO_RUNTIME_PM	9
-+#		define EVENT_RX_KILL	10
- };
-=20
- static inline struct usb_driver *driver_of(struct usb_interface *intf)
---=20
-1.7.2.5
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>	-J
+>
+>> }
+>>
+>> static netdev_features_t bond_fix_features(struct net_device *dev,
+>>@@ -1628,10 +1628,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>>
+>> 	/* If this is the first slave, then we need to set the master's hardware
+>> 	 * address to be the same as the slave's. */
+>>-	if (is_zero_ether_addr(bond->dev->dev_addr))
+>>-		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
+>>-		       slave_dev->addr_len);
+>>-
+>>+	if (bond->dev->addr_assign_type != NET_ADDR_SET)
+>>+		bond_set_dev_addr(bond->dev, slave_dev);
+>>
+>> 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
+>> 	if (!new_slave) {
+>>@@ -2049,11 +2047,11 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+>> 	if (bond->slave_cnt == 0) {
+>> 		bond_set_carrier(bond);
+>>
+>>-		/* if the last slave was removed, zero the mac address
+>>-		 * of the master so it will be set by the application
+>>-		 * to the mac address of the first slave
+>>+		/* If the last slave was removed, set random mac address
+>>+		 * of the master so it will be set by bond_enslave()
+>>+		 * to the mac address of the first slave.
+>> 		 */
+>>-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+>>+		eth_hw_addr_random(bond_dev);
+>>
+>> 		if (bond_vlan_used(bond)) {
+>> 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+>>@@ -3708,7 +3706,8 @@ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd
+>> 			break;
+>> 		case BOND_SETHWADDR_OLD:
+>> 		case SIOCBONDSETHWADDR:
+>>-			res = bond_sethwaddr(bond_dev, slave_dev);
+>>+			bond_set_dev_addr(bond_dev, slave_dev);
+>>+			res = 0;
+>> 			break;
+>> 		case BOND_CHANGE_ACTIVE_OLD:
+>> 		case SIOCBONDCHANGEACTIVE:
+>>@@ -4858,6 +4857,11 @@ static int bond_init(struct net_device *bond_dev)
+>>
+>> 	bond_debug_register(bond);
+>>
+>>+	/* Ensure valid dev_addr */
+>>+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
+>>+	    bond_dev->addr_assign_type == NET_ADDR_PERM)
+>>+		eth_hw_addr_random(bond_dev);
+>>+
+>> 	__hw_addr_init(&bond->mc_list);
+>> 	return 0;
+>> }
+>>-- 
+>>1.8.1
+>>
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
