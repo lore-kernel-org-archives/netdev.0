@@ -1,60 +1,67 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: inaccurate packet scheduling
-Date: Thu, 24 Jan 2013 09:05:36 +0100
-Message-ID: <20130124080536.GA1598@minipsycho.orion>
-References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
- <1355849503.9380.37.camel@edumazet-glaptop>
- <20130102152601.GB1532@minipsycho.orion>
- <1357144482.21409.16876.camel@edumazet-glaptop>
- <20130108133038.GB1621@minipsycho.orion>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [patch] ip6mr: limit IPv6 MRT_TABLE identifiers
+Date: Thu, 24 Jan 2013 09:22:56 +0100
+Message-ID: <5100EF60.1080409@bfs.de>
+References: <20130124063834.GA5611@elgon.mountain>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jhs@mojatatu.com, erdnetdev@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:64602 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450Ab3AXIFm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 03:05:42 -0500
-Received: by mail-wg0-f41.google.com with SMTP id ds1so161420wgb.0
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 00:05:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20130108133038.GB1621@minipsycho.orion>
+Received: from mx01.sz.bfs.de ([194.94.69.103]:26015 "EHLO mx01.sz.bfs.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751100Ab3AXI3G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jan 2013 03:29:06 -0500
+In-Reply-To: <20130124063834.GA5611@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jan 08, 2013 at 02:30:38PM CET, jiri@resnulli.us wrote:
->Wed, Jan 02, 2013 at 05:34:42PM CET, eric.dumazet@gmail.com wrote:
->>On Wed, 2013-01-02 at 16:26 +0100, Jiri Pirko wrote:
->>> Tue, Dec 18, 2012 at 05:51:43PM CET, erdnetdev@gmail.com wrote:
->>> >On Tue, 2012-12-18 at 08:26 -0800, Stephen Hemminger wrote:
->>> >
->>> >> Check kernel log for messages about clock. It could be that on the
->>> >> machines with issues TSC is not usable for kernel clock.
->>> >> Also turn off TSO since it screws up any form of rate control.
->>> >
->>> >Yes, but we should fix it eventually. I'll take a look.
->>> 
->>> Hi Eric, did you have a chance to look at this? Or should I give it a try?
->>
->>I took a look, and TBF does :
->>
->>if (qdisc_pkt_len(skb) > q->max_size)
->>    return qdisc_reshape_fail(skb, sch);
->>
->>We have several choices :
->>
->>1) Add a one time warning
->>
->>2) cap dev->gso_max_size at Qdisc setup time
->>
->>3) Re-segment the packet instead of dropping it (if GSO packet), and
->>call the expensive qdisc_tree_decrease_qlen() function.
->>
->>4) remove max_size limitation 
->>
->
->To my untrained eye, 2) or 4) look like a way to go. Not sure though.
 
-What do you think would be the best way Eric? Thanks.
+
+Am 24.01.2013 07:38, schrieb Dan Carpenter:
+> We did this for IPv4 in b49d3c1e1c "net: ipmr: limit MRT_TABLE
+> identifiers" but we need to do it for IPv6 as well.  On IPv6 the name
+> is "pim6reg" instead of "pimreg" so there is one less digit allowed.
+> 
+> The strcpy() is in ip6mr_reg_vif().
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+> index acc3249..351ce98 100644
+> --- a/net/ipv6/ip6mr.c
+> +++ b/net/ipv6/ip6mr.c
+> @@ -1766,6 +1766,9 @@ int ip6_mroute_setsockopt(struct sock *sk, int optname, char __user *optval, uns
+>  			return -EINVAL;
+>  		if (get_user(v, (u32 __user *)optval))
+>  			return -EFAULT;
+> +		/* "pim6reg%u" should not exceed 16 bytes (IFNAMSIZ) */
+> +		if (v != RT_TABLE_DEFAULT && v >= 100000000)
+> +			return -EINVAL;
+>  		if (sk == mrt->mroute6_sk)
+>  			return -EBUSY;
+>  
+hi Dan,
+that comment left me in a bit confused, i guess you men
+  printf( "pim6reg%u",v) should not exceed IFNAMSIZ (16 bytes) ?
+also the if is a bit strange, i assume that RT_TABLE_DEFAULT is const
+so anything else is rejected than v==RT_TABLE_DEFAULT
+(assuming that RT_TABLE_DEFAULT >= 100000000 ....)
+
+re,
+ wh
+
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe kernel-janitors" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
