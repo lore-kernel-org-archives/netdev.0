@@ -1,83 +1,44 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [RFC] net: usbnet: prevent buggy devices from killing us
-Date: Thu, 24 Jan 2013 14:42:09 +0100
-Message-ID: <87txq6g0jy.fsf@nemi.mork.no>
-References: <1359023152-32576-1-git-send-email-bjorn@mork.no>
-	<1809412.hrq33TVdWp@linux-5eaq.site> <87y5fig32r.fsf@nemi.mork.no>
-	<2556579.vjYlY1iKn5@linux-5eaq.site>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Linux 3.6.x kernel crash in tcp_slow_start / bictcp_cong_avoid with wfica
+Date: Thu, 24 Jan 2013 14:51:20 +0100
+Message-ID: <20130124135120.GD16641@order.stressinduktion.org>
+References: <20130123161238.GE8912@reaktio.net> <20130123214445.GA16641@order.stressinduktion.org> <20130123215151.GF8912@reaktio.net> <20130123152642.4a8389ba@nehalam.linuxnetplumber.net> <20130123234116.GC16641@order.stressinduktion.org> <1358984831.12374.1227.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2556579.vjYlY1iKn5-7ztolUikljGernLeA6q8OA@public.gmane.org> (Oliver Neukum's message of
-	"Thu, 24 Jan 2013 14:12 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Pasi =?utf-8?B?S8Okcmtrw6RpbmVu?= <pasik@iki.fi>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:48595 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753286Ab3AXNvV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 08:51:21 -0500
+Content-Disposition: inline
+In-Reply-To: <1358984831.12374.1227.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
+On Wed, Jan 23, 2013 at 03:47:11PM -0800, Eric Dumazet wrote:
+> On Thu, 2013-01-24 at 00:41 +0100, Hannes Frederic Sowa wrote:
+> > On Wed, Jan 23, 2013 at 03:26:42PM -0800, Stephen Hemminger wrote:
+> > > I see no problems when using Citrix.
+> > > This is a normal strace of the program wifca (in idle loop)
+> > 
+> > Thanks, could you also have a look at setsockopts while socket creation and
+> > connection establishment?
+> 
+> As I said, tp->snd_cwnd is set to 0 by a bug in TCP stack.
 
-> On Thursday 24 January 2013 13:47:40 Bj=C3=B8rn Mork wrote:
->> Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org> writes:
->> > On Thursday 24 January 2013 12:22:54 Bj=C3=B8rn Mork wrote:
->> >
->> >> Sorry for being daft, but how do I code the "20 among the last 30=
-" part
->> >> there?
->> >
->> > Just by agreeing that you can live with false negatives but not fa=
-lse positives
->> >
->> > if (++counter > 30) {
->> > 	counter =3D bogus =3D 0;
->> > } else {
->> > 	if (is_bogus(packet)
->> > 		bogus++;
->> > 	if (bogus > counter/2)
->
-> Should probably be something like bogus > counter/2 + 10
+I saw this, too, but hoped to see a reproduceable pattern of setsockopts
+(window clamping, switching of congestion control) that could make citrix in
+some way the special application which causes this. 
 
-right
+> Probably a combination of changed sysctls, and a genuine bug.
+> 
+> Please give us /etc/sysctl.conf content.
+> 
+> Adding some BUG_ON(!tp->snd_cwnd) on every writes to tp->snd_cwnd should
+> catch the bug.
 
->> > 		throttle();
->> > }
->>=20
->> So, add two new counters to struct usbnet for this?  That seems a li=
-ttle
->> overkill to me, but I don't see how else to implement anything like =
-that.
->
-> Memory is cheap.
-
-OK
-
->> It is still not completely clear to me how the throttling/unthrottli=
-ng
->> should be done.  It tested with static counters (to avoid having to
->> rebuild everything for this test) and a new EVENT_RX_THROTTLE flag.
->> Still on top of my previous patch just for safety while testing, as =
-I am
->> fed up of having to reboot all the time :-)
->>=20
->> Doing the flag test in rx_submit seems simpler than trying to track =
-all
->> the places this is called.  Still checking the dev->done.qlen to be =
-able
->> to unthrottle.
->
-> Ideally we would do some error handling. Does the device keep spewing
-> zero packets for all eternity?
-
-Yes. The only way to get rid of the bug once it has triggered seems to
-be powering the device off/on.  So unthrottling is not important for
-this device.  But I guess it will be for other devices with more
-temporary problems.
-
-
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But this is much more convenient, yes. :)
