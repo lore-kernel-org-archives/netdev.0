@@ -1,82 +1,127 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Thu, 24 Jan 2013 10:44:32 -0800
-Message-ID: <51018110.1070403@hp.com>
-References: <20130122161038.GG4608@sociomantic.com> <1358873142.3464.3964.camel@edumazet-glaptop> <20130122165929.GH4608@sociomantic.com> <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com> <50FF0C25.9000300@hp.com> <20130123104736.GK4608@sociomantic.com> <510039C8.7040401@hp.com> <20130124122223.GQ4608@sociomantic.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net] net: usbnet: prevent buggy devices from killing us
+Date: Thu, 24 Jan 2013 20:16:56 +0100
+Message-ID: <1359055016-13603-1-git-send-email-bjorn@mork.no>
+References: <2556579.vjYlY1iKn5@linux-5eaq.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130124122223.GQ4608@sociomantic.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: Oliver Neukum <oneukum-l3A5Bk7waGM@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2556579.vjYlY1iKn5-7ztolUikljGernLeA6q8OA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 01/24/2013 04:22 AM, Leandro Lucarella wrote:
-> On Wed, Jan 23, 2013 at 11:28:08AM -0800, Rick Jones wrote:
->>> Then if syncookies are enabled, the time spent in connect() shouldn't be
->>> bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
->>
->> Do you mean if "ESTABLISHED" connections are dropped because the
->> listen queue is full?  I don't think I would put that as "SYNs being
->> dropped by listen" - too easy to confuse that with an actual
->> dropping of a SYN segment.
->
-> I was just kind of quoting the name given by netstat: "SYNs to LISTEN
-> sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
-> this stat anymore, or the name was changed). I still don't know if we
-> are talking about the same thing.
+A device sending 0 length frames as fast as it can has been
+observed killing the host system due to the resulting memory
+pressure.
 
-Are you sure those stats are not present in 3.X kernels?  I just looked 
-at /proc/net/netstat on a 3.7 system and noticed both the ListenMumble 
-stats and the three cookie stats.  And I see the code for them in the tree:
+Temporarily disable RX skb allocation and URB submission when
+the current error ratio is high, preventing us from trying to
+allocate an infinite number of skbs.  Reenable as soon as we
+are finished processing the done queue, allowing the device
+to continue working after short error bursts.
 
-aj@tardy:~/net-next/net/ipv4$ grep MIB_LISTEN *.c
-proc.c:	SNMP_MIB_ITEM("ListenOverflows", LINUX_MIB_LISTENOVERFLOWS),
-proc.c:	SNMP_MIB_ITEM("ListenDrops", LINUX_MIB_LISTENDROPS),
-tcp_ipv4.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
-tcp_ipv4.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+So is this starting to look OK?
 
-raj@tardy:~/net-next/net/ipv4$ grep MIB_SYN *.c
-proc.c:	SNMP_MIB_ITEM("SyncookiesSent", LINUX_MIB_SYNCOOKIESSENT),
-proc.c:	SNMP_MIB_ITEM("SyncookiesRecv", LINUX_MIB_SYNCOOKIESRECV),
-proc.c:	SNMP_MIB_ITEM("SyncookiesFailed", LINUX_MIB_SYNCOOKIESFAILED),
-syncookies.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESSENT);
-syncookies.c:		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESFAILED);
-syncookies.c:	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_SYNCOOKIESRECV);
+usbnet already uses "throttle", "halt" and "stop" for other
+functions, so I decided to name the new flag "kill".  No other
+reason.
+
+Didn't see any point in calculating the error limit.  A fixed
+number works just as well.
+
+Restarting in usbnet_bh was a simple way to achieve what I
+wanted: enabling RX again when we know we can handle it.
 
 
-I will sometimes be tripped-up by netstat's not showing a statistic with 
-a zero value...
+Bj=C3=B8rn
 
->> But yes, I would not expect a connect() call to remain incomplete
->> for any longer than it took to receive an SYN|ACK from the other
->> end.
->
-> So the only reason to experience these high times spent in connect()
-> should be because a SYN or SYN|ACK was actually loss in a lower layer,
-> like an error in the network device or a transmission error?
+ drivers/net/usb/usbnet.c   |   26 ++++++++++++++++++++++++++
+ include/linux/usb/usbnet.h |    2 ++
+ 2 files changed, 28 insertions(+), 0 deletions(-)
 
-Modulo the/some other drop-without-stat point such as Vijay mentioned 
-yesterday.
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index f34b2eb..64657d6 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -380,6 +380,12 @@ static int rx_submit (struct usbnet *dev, struct u=
+rb *urb, gfp_t flags)
+ 	unsigned long		lockflags;
+ 	size_t			size =3D dev->rx_urb_size;
+=20
++	/* prevent rx skb allocation when error ratio is high */
++	if (test_bit(EVENT_RX_KILL, &dev->flags)) {
++		usb_free_urb(urb);
++		return -ENOLINK;
++	}
++
+ 	skb =3D __netdev_alloc_skb_ip_align(dev->net, size, flags);
+ 	if (!skb) {
+ 		netif_dbg(dev, rx_err, dev->net, "no rx skb\n");
+@@ -539,6 +545,22 @@ block:
+ 		break;
+ 	}
+=20
++	/* stop rx if packet error rate is high */
++	if (++dev->pkt_cnt > 30) {
++		dev->pkt_cnt =3D 0;
++		dev->pkt_err =3D 0;
++	} else {
++		if (state =3D=3D rx_cleanup)
++			dev->pkt_err++;
++		if (dev->pkt_err > 20) {
++			set_bit(EVENT_RX_KILL, &dev->flags);
++			if (net_ratelimit())
++				netif_dbg(dev, rx_err, dev->net,
++					  "rx kill: high error rate\n");
++			dev->pkt_err =3D 0;
++		}
++	}
++
+ 	state =3D defer_bh(dev, skb, &dev->rxq, state);
+=20
+ 	if (urb) {
+@@ -1254,6 +1276,10 @@ static void usbnet_bh (unsigned long param)
+ 		}
+ 	}
+=20
++	/* restart RX again after disabling due to high error rate */
++	if (test_and_clear_bit(EVENT_RX_KILL, &dev->flags) && net_ratelimit()=
+)
++		netif_dbg(dev, rx_err, dev->net, "rx kill: restarting\n");
++
+ 	// waiting for all pending urbs to complete?
+ 	if (dev->wait) {
+ 		if ((dev->txq.qlen + dev->rxq.qlen + dev->done.qlen) =3D=3D 0) {
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 5de7a22..0de078d 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -33,6 +33,7 @@ struct usbnet {
+ 	wait_queue_head_t	*wait;
+ 	struct mutex		phy_mutex;
+ 	unsigned char		suspend_count;
++	unsigned char		pkt_cnt, pkt_err;
+=20
+ 	/* i/o info: pipes etc */
+ 	unsigned		in, out;
+@@ -70,6 +71,7 @@ struct usbnet {
+ #		define EVENT_DEV_OPEN	7
+ #		define EVENT_DEVICE_REPORT_IDLE	8
+ #		define EVENT_NO_RUNTIME_PM	9
++#		define EVENT_RX_KILL	10
+ };
+=20
+ static inline struct usb_driver *driver_of(struct usb_interface *intf)
+--=20
+1.7.2.5
 
-You might consider taking some packet traces.  If you can I would start 
-with a trace taken on the system(s) on which the long connect() calls 
-are happening.   I think the tcpdump manpage has an example of a tcpdump 
-command with a filter expression that catches just SYNchronize and 
-FINished segments which I suppose you could extend to include ReSeT 
-segments.  Such a filter expression would be missing the client's ACK of 
-the SYN|ACK but unless you see incrementing stats relating to say 
-checksum failures or other drops on the "client" side I suppose you 
-could assume that the client ACKed the server's SYN|ACK.
-
->> That would be 3 (,9, 21, etc...) seconds on a kernel with 3
->> seconds as the initial retransmission timeout.
->
-> Which can't be changed without recompiling, right?
-
-To the best of my knowledge.
-
-rick jones
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
