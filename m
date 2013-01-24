@@ -1,80 +1,110 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 1/1 net-next] net: fec: enable pause frame to improve
- rx prefomance for 1G network
-Date: Thu, 24 Jan 2013 16:49:33 +0000
-Message-ID: <1359046173.2736.2.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1358391358-27977-1-git-send-email-Frank.Li@freescale.com>
-	 <1358973584.2658.14.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAHrpEqSzu97X2PUgUEh30EqkbjLUYyhCN28AEzJ6eLPXx0Qg1Q@mail.gmail.com>
+From: ATM VISA CARD <serviceinfo540@gmail.com>
+Subject: YOUR ATM VISA CARD IS READY FOR DELIVERY
+Date: Thu, 24 Jan 2013 08:53:33 -0800 (PST)
+Message-ID: <1359046413.68269.YahooMailRC@web5703.biz.mail.ne1.yahoo.com>
+Reply-To: ATM VISA CARD <agentdiplomatic100@ymail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Frank Li <Frank.Li@freescale.com>, <shawn.guo@linaro.org>,
-	<B38611@freescale.com>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<s.hauer@pengutronix.de>
-To: Frank Li <lznuaa@gmail.com>
+Content-Type: multipart/mixed; boundary="1588175011-209755348-1359046413=:68269"
+To: undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50975 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751141Ab3AXQtk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 11:49:40 -0500
-In-Reply-To: <CAHrpEqSzu97X2PUgUEh30EqkbjLUYyhCN28AEzJ6eLPXx0Qg1Q@mail.gmail.com>
+Received: from nm6-vm1.access.bullet.mail.mud.yahoo.com ([66.94.237.159]:44933
+	"EHLO nm6-vm1.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751141Ab3AXQ7Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 11:59:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-24 at 10:16 +0800, Frank Li wrote:
-> 2013/1/24 Ben Hutchings <bhutchings@solarflare.com>:
-> > On Thu, 2013-01-17 at 10:55 +0800, Frank Li wrote:
-> >> The limition of imx6 internal bus cause fec can't achieve 1G perfomance.
-> >> There will be many packages lost because FIFO over run.
-> >>
-> >> This patch enable pause frame flow control.
-> > [...]
-> >> --- a/drivers/net/ethernet/freescale/fec.c
-> >> +++ b/drivers/net/ethernet/freescale/fec.c
-> > [...]
-> >> +static int fec_enet_set_pauseparam(struct net_device *ndev,
-> >> +                                struct ethtool_pauseparam *pause)
-> >> +{
-> >> +     struct fec_enet_private *fep = netdev_priv(ndev);
-> >> +
-> >> +     if (pause->tx_pause != pause->rx_pause) {
-> >> +             netdev_info(ndev,
-> >> +                     "hardware only support enable/disable both tx and rx");
-> >> +             return -EINVAL;
-> >> +     }
-> >> +
-> >> +     fep->pause_flag = 0;
-> >> +
-> >> +     /* tx pause must be same as rx pause */
-> >> +     fep->pause_flag |= pause->rx_pause ? FEC_PAUSE_FLAG_ENABLE : 0;
-> >> +     fep->pause_flag |= pause->autoneg ? FEC_PAUSE_FLAG_AUTONEG : 0;
-> >> +
-> >> +     if (pause->rx_pause || pause->autoneg) {
-> >> +             fep->phy_dev->supported |= ADVERTISED_Pause;
-> >> +             fep->phy_dev->advertising |= ADVERTISED_Pause;
-> >> +     } else {
-> >> +             fep->phy_dev->supported &= ~ADVERTISED_Pause;
-> >> +             fep->phy_dev->advertising &= ~ADVERTISED_Pause;
-> >> +     }
-> > [...]
-> >
-> > Why is this changing the supported flags, i.e. device capabilities?  You
-> > need to leave those flags alone and reject an attempt to enable pause
-> > frames on a device that doesn't support them.
-> 
-> I go through phylib, I have not found good place set ADVERTISED_Pause
-> capabilities.
-> genphy_config_init never check Pause capabilities.
+--1588175011-209755348-1359046413=:68269
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-I agree that phylib can't initialise pause capabilities because those
-depend on the MAC.  But look at which function I'm quoting: this is the
-ethtool operation, which shouldn't change capabilities.
+=0A=0A=0A=0A=0AOPEN THE ATTACHED FILE FOR MORE DETAILS
+--1588175011-209755348-1359046413=:68269
+Content-Type: application/octet-stream; name="ATM_VISA_CARD_NOTIFICATION_LETTER-1.doc"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="ATM_VISA_CARD_NOTIFICATION_LETTER-1.doc"
 
-Ben.
+e1xydGYxXGFuc2lcYW5zaWNwZzEyNTJcZGVmZjBcZGVmbGFuZzEwMzN7XGZv
+bnR0Ymx7XGYwXGZyb21hblxmY2hhcnNldDAgVGltZXMgTmV3IFJvbWFuO317
+XGYxXGZzd2lzc1xmY2hhcnNldDAgQXJpYWw7fX0NCntcY29sb3J0YmwgO1xy
+ZWQwXGdyZWVuMFxibHVlMDt9DQp7XCpcZ2VuZXJhdG9yIE1zZnRlZGl0IDUu
+NDEuMTUuMTUwNzt9XHZpZXdraW5kNFx1YzFccGFyZFxjZjFcbGFuZzIwNTdc
+YlxmMFxmczIwIEhlbGxvIERlYXIsIFxiMFxmMVxsaW5lXGJcZjAgR3JlZXRp
+bmcgdG8geW91ciBmYW1pbHkgXGIwXGYxXHBhcg0KXHVsXGJcZjAgWU9VUiBB
+VE0gVklTQSBDQVJEIElTIFJFQURZXHVsbm9uZVxiMFxmMVxsaW5lXGJcZjBc
+flxiMFxmMVxsaW5lXGJcZjAgSSBoYXZlIGJlZW4gd2FpdGluZyBmb3IgeW91
+IHNpbmNlIHRvIGNvbnRhY3QgbWUgcmVnYXJkaW5nIHlvdSB3aW5uaW5nIGFt
+b3VudCBvZiAkMiwwMDAsMDAwLjAwIChUd28gTWlsbGlvbiBVbml0ZWQgU3Rh
+dGUgRG9sbGFycykgbG9hZGVkIG9uIHlvdXIgQVRNIHZpc2EgY2FyZCB3aGlj
+aCB3ZSBkaXNjdXNzZWQuIFdlIGFyZSBkdWx5IGludGVycmVkIHN3aXRjaGVk
+LiBUaGVyZWZvcmUgeW91IGNhbiBtYWtlIHdpdGhkcmF3YWwgaW4gYW55IGxv
+Y2F0aW9uIG9mIEFUTSBNYWNoaW5lIENlbnRyZVxpICBcaTAgQ2FzaCBwb2lu
+dCBvZiB5b3VyIGNob2ljZSBpbiBhbnkgcGFydCBvZiB0aGUgd29ybGQgYW5k
+IHRoZSBtYXhpbXVtIHlvdSBjYW4gd2l0aGRyYXcgYSBkYXkgaXMgJDIsMDAw
+IHVzIGRvbGxhcnMsIGJ1dCBJIGRpZCBub3QgaGVhciBmcm9tIHlvdSBzaW5j
+ZSB0aGF0IHRpbWUuIFRoZW4gSSB3ZW50IGFuZCBkZXBvc2l0ZWQgdGhlIHBh
+Y2thZ2UgQVRNIENBUkQgd2l0aCBFeHByZXNzIENvdXJpZXIgY29tcGFueSwg
+Sm9oYW5uZXNidXJnIFNvdXRoIEFmcmljYSBhcyBJIHRyYXZlbGxlZCBvdXQg
+b2YgdGhlIGNvdW50cnkgZm9yIGEgc2hvcnQgQ291cnNlIGFuZCBJIHdpbGwg
+bm90IGNvbWUgYmFjayB0aWxsIGVuZCBvZiBmaXJzdCBxdWFydGVyIG9mIHRo
+ZSB5ZWFyIDIwMTMuV2hhdCB5b3UgaGF2ZSB0byBkbyBub3cgaXMgdG8gY29u
+dGFjdCB0aGUgRXhwcmVzcyBDb3VyaWVyIFNlY3VyaXR5IGNvbXBhbnkgYXMg
+c29vbiBhcyBwb3NzaWJsZSB0byBrbm93IHdoZW4gdGhleSB3aWxsIGRlbGl2
+ZXIgeW91ciBwYWNrYWdlIHRvIHlvdSBiZWNhdXNlIG9mIHRoZSBleHBpcmlu
+ZyBkYXRlLlxiMFxmMVxsaW5lXGJcZjBcflxiMFxmMVxsaW5lXGJcZjAgRm9y
+IHlvdXIgaW5mb3JtYXRpb24sIEkgaGF2ZSBwYWlkIGZvciB0aGUgQ2xlYXJh
+bmNlIENlcnRpZmljYXRlIEZlZSBuZWl0aGVyIG9mIHRoZSBBVE0gQ0FSRCBz
+aG93aW5nIHRoYXQgaXQgaXMgbm90IGEgZHJ1ZyBNb25leSBub3IgdG8gc3Bv
+bnNvciBUZXJyb3Jpc3QgYXR0YWNrIGluIHlvdXIgQ291bnRyeS4gVGhlIG9u
+bHkgbW9uZXkgeW91IHdpbGwgcGF5IHRvIHRoZSBDb3VyaWVyIENvbXBhbnkg
+dG8gZGVsaXZlciB5b3VyIEFUTSBDQVJEIGRpcmVjdCB0byB5b3VyIHBvc3Rh
+bCBBZGRyZXNzIGluIHlvdXIgY291bnRyeSBpcyAoJDE4NSkgb25seSBiZWlu
+ZyB0aGVpciBTZWN1cml0eSBLZWVwaW5nIEZlZXMgb2YgdGhlIENvdXJpZXIg
+Q29tcGFueSBzbyBmYXIuXGIwXGYxXGxpbmVcYlxmMFx+XGIwXGYxXGxpbmVc
+YlxmMCBBZ2FpbiwgRG9uJ3QgYmUgZGVjZWl2ZSBieSBhbnlib2R5IHRvIHBh
+eSBhbnkgb3RoZXIgbW9uZXkgZXhjZXB0ICQxODUgVW5pdGVkIFN0YXRlcyAg
+SSB3b3VsZCBoYXZlIHBhaWQgdGhhdCBidXQgdGhleSBzYWlkIG5vLCBiZWNh
+dXNlIHRoZXkgZG9uJ3Qga25vdyB3aGVuIHlvdSB3aWxsIGNvbnRhY3QgdGhl
+bSBhbmQgaW4gY2FzZSBvZiBkZW11cnJhZ2UuIFlvdSBoYXZlIHRvIGNvbnRh
+Y3QgdGhlIEV4cHJlc3MgQ291cmllciBDb21wYW55IG1hbmFnZXIgZm9yIHRo
+ZSBkZWxpdmVyeSBvZiB5b3VyIEFUTSBDQVJEIHBhY2thZ2Ugd2l0aCB0aGlz
+IGluZm9ybWF0aW9uIGJlbG93IGltbWVkaWF0ZWx5LlxiMFxmMVxsaW5lXGJc
+ZjBcflxiMFxmMVxsaW5lXGJcZjAgSEVSRSBJUyBUSEUgQ09VUklFUiBDT01Q
+QU5ZIElORk9STUFUSU9OJ1MuXGIwXGYxXGxpbmVcYlxmMCBDT1VSSUVSIE5B
+TUU6IEVYUFJFU1MgRElQTE9NQVRJQyBDT1VSSUVSIENPTVBBTlkgTFREXGIw
+XGYxXGxpbmVcYlxmMCBDT05UQUNUIFBFUlNPTjogTXIuIFBldGVyIEFuZHJl
+dy5cYjBcZjFcbGluZVxiXGYwIFBPU0lUSU9OOiBGT1JFSUdOIERFTElWRVJZ
+IERFUEFSVE1FTlQuXHBhcg0KXHBhcg0KRS1NQUlMOyAgICAgYWdlbnRkaXBs
+b21hdGljMTAwQHltYWlsLmNvbSBcYjBcZjFcbGluZVxiXGYwXHBhcg0KIFRl
+bDogICAgICAgICAgICAgKzI3LTgzNy0xMzctNjgzXGIwXGYxXGxpbmVcYlxm
+MFx+IFxiMFxmMVxsaW5lXGJcZjAgZmluYWxseSBtYWtlcyBzdXJlIHRoYXQg
+eW91IHJlY29uZmlybSB5b3VyIGRldGFpbHMgYmVsb3cgdG8gdGhlbSB0byBh
+dm9pZCBhbnkgbWlzdGFrZXMgb24gdGhlIGRlbGl2ZXJ5XHBhcg0KXHBhcg0K
+WW91ciBGdWxsIG5hbWVccGFyDQpZb3VyIFBvc3RhbCBhZGRyZXNzIG9yIHlv
+dXIgaG9tZSBhZGRyZXNzXHBhcg0KWW91ciAgIGRpcmVjdCB0ZWxlcGhvbmUg
+bnVtYmVyXHBhcg0KWW91ciBjb3VudHJ5LVxwYXINClNlY3VyaXR5IENvZGUt
+XHBhcg0KXHBhcg0KYXNrIHRoZW0gdG8gZ2l2ZSB5b3UgdGhlIGluZm9ybWF0
+aW9uIG9uIGhvdyB0byBtYWtlIHRoZSBzZWN1cml0eSBrZWVwaW5nIGZlZXMg
+b2YgVVMkMTg1IERvbGxhcnMgd2hpY2ggeW91IGhhdmUgdG8gcGF5IHRvIHRo
+ZW0gYW5kIGFmdGVyIG1ha2luZyB0aGUgcGF5bWVudCB5b3UgYXNrIHRoZW0g
+Zm9yICB0aGUgdHJhY2tpbmcgbnVtYmVyIHRvIGVuYWJsZSB5b3UgdHJhY2sg
+eW91ciBwYWNrYWdlIG92ZXIgdGhlcmUgYW5kIGtub3cgd2hlbiBpdCB3aWxs
+IGdldCB0byB5b3VyIGFkZHJlc3MuIExldCBtZSByZXBlYXQgYWdhaW4sIHRy
+eSB0byBjb250YWN0IHRoZW0gYXMgc29vbiBhcyB5b3UgcmVjZWl2ZSB0aGlz
+IG1hc3NhZ2UgdG8gYXZvaWQgYW55IGZ1cnRoZXIgZGVsYXkgYW5kIHJlbWVt
+YmVyIHlvdSBhcmUgdG8gcGF5IHRoZW0gdGhlaXIgU2VjdXJpdHkga2VlcGlu
+ZyBmZWVzIG9mICQxODUgT05MWSBmb3IgdGhlaXIgaW1tZWRpYXRlIGFjdGlv
+bi5cYjBcZjFcbGluZVxiXGYwXH5cYjBcZjFcbGluZVxiXGYwIEFzIGEgbWF0
+dGVyIG9mIGZhY3RzLCBtYWtlIHN1cmUgYXMgdGhlIHJpZ2h0ZnVsIGJlbmVm
+aWNpYXJ5IG9mIHRoZSBBVE0gQ0FSRCBwYWNrYWdlIG9mICQyLDAwMCwwMDAu
+MDAgKFR3byBNaWxsaW9uIFVuaXRlZCBTdGF0ZSBEb2xsYXJzKSB5b3UgbXVz
+dCBjb250YWN0IHRoZW0gYnkgaW5kaWNhdGluZyB0aGUgY29kZSAoMjY2MTQy
+OCkgc28gdGhhdCB0aGV5IGNhbiBmaW5kIGl0IGFuZCBwaWNrIHVwIGltbWVk
+aWF0ZWx5IGFzIHRoZXkgaGF2ZSBpdCBpbiB0aGVpciByZWNvcmQuXGIwXGYx
+XGxpbmVcYlxmMFx+XGIwXGYxXGxpbmVcYlxmMCBZb3VycyBzaW5jZXJlbHlc
+YjBcZjFcbGluZVxiXGYwIERyLiBKb2huIE5rb3NpXGIwXGYxXGxpbmVcYlxm
+MCBBY3RpbmcgTWFuYWdlciBvZiBJbnRlcm5hdGlvbmFsIGNvbW1lcmNpYWwg
+QmFuayBMaW1pdGVkLCBTb3V0aCBBZnJpY2EgKEkuQy5CLikgXGIwXGYxXHBh
+cg0KXGNmMFxmMFxmczI0XHBhcg0KfQ0KAA==
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--1588175011-209755348-1359046413=:68269--
