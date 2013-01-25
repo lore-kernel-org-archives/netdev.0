@@ -1,58 +1,112 @@
-From: =?UTF-8?B?S2lyaWxsIEthcHJhbm92?= <kapranoff@inbox.ru>
-Subject: =?UTF-8?B?W1BBVENIXSBORVQvUEhZOiBFbGltaW5hdGUgdGhlIGFsZ29yaXRobSBvZiBm?=
- =?UTF-8?B?b3JjZWQgZXRoZXJuZXQgc3BlZWQgcmVkdWN0aW9u?=
-Date: Fri, 25 Jan 2013 14:10:07 +0400
-Message-ID: <1359108607.357711816@f237.mail.ru>
-Reply-To: =?UTF-8?B?S2lyaWxsIEthcHJhbm92?= <kapranoff@inbox.ru>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [PATCH/RFC 2/3] ethernet: add a PHY reset GPIO DT binding to sh_eth
+Date: Fri, 25 Jan 2013 11:21:12 +0100
+Message-ID: <7921225.sfO3PIeLVS@avalon>
+References: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de> <1359043653-11374-3-git-send-email-g.liakhovetski@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
+	Simon Horman <horms@verge.net.au>,
+	linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org
+To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1359043653-11374-3-git-send-email-g.liakhovetski@gmx.de>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TkVUL1BIWTogRWxpbWluYXRlIHRoZSBmb3JjZWQgc3BlZWQgcmVkdWN0aW9uIGFsZ29yaXRobS4K
-SW4gY2FzZSBvZiB0aGUgZml4ZWQgc3BlZWQgc2V0IHVwIGZvciBOSUMgCihlLmcuIGV0aHRvb2wg
-LXMgZXRoMCBhdXRvbmVnIG9mZiBzcGVlZCAxMDAgZHVwbGV4IGZ1bGwpCndpdGggZXRoZXJuZXQg
-Y2FibGUgcGx1Z2dlZCBvZmYsIG1lbnRpb25lZCBhbGdvcml0aG0Kc2xvd3MgZG93biBOSUMgc3Bl
-ZWQsIHNvIHRoZSBmdXJ0aGVyICJob29raW5nIHVwIiBnaXZlcwpubyByZXN1bHQuIEFGQUlLLCB0
-aGlzIGJlaGF2aW91ciBpcyBub3QgUkZDcycgcmVjb21tZW5kZWQuClRlc3RlZCBhdCAyLjYuMzgu
-NywgYXBwbGljYWJsZSB1cCB0byBmb3IgMy4wLjQuIApTaWduZWQtb2ZmLWJ5OiBLaXJpbGwgS2Fw
-cmFub3YgPGtra0BuaXRhLnJ1Piw8a2FwcmFub2ZmQGluYm94LnJ1PgotLS0gbGludXgvZHJpdmVy
-cy9uZXQvcGh5L3BoeS5jLm9yaWcgMjAxMS0wNS0yMiAwMjoxMzo1OS4wMDAwMDAwMDAgKzA0MDAK
-KysrIGxpbnV4L2RyaXZlcnMvbmV0L3BoeS9waHkuYyAyMDEyLTA0LTI4IDEyOjQ5OjM3LjAwMDAw
-MDAwMCArMDQwMApAQCAtNDU3LDM0ICs0NTcsNiBAQCB2b2lkIHBoeV9zdG9wX21hY2hpbmUoc3Ry
-dWN0IHBoeV9kZXZpY2UKfQoKLyoqCi0gKiBwaHlfZm9yY2VfcmVkdWN0aW9uIC0gcmVkdWNlIFBI
-WSBzcGVlZC9kdXBsZXggc2V0dGluZ3MgYnkgb25lIHN0ZXAKLSAqIEBwaHlkZXY6IHRhcmdldCBw
-aHlfZGV2aWNlIHN0cnVjdAotICoKLSAqIERlc2NyaXB0aW9uOiBSZWR1Y2VzIHRoZSBzcGVlZC9k
-dXBsZXggc2V0dGluZ3MgYnkgb25lIG5vdGNoLAotICogaW4gdGhpcyBvcmRlci0tCi0gKiAxMDAw
-L0ZVTEwsIDEwMDAvSEFMRiwgMTAwL0ZVTEwsIDEwMC9IQUxGLCAxMC9GVUxMLCAxMC9IQUxGLgot
-ICogVGhlIGZ1bmN0aW9uIGJvdHRvbXMgb3V0IGF0IDEwL0hBTEYuCi0gKi8KLXN0YXRpYyB2b2lk
-IHBoeV9mb3JjZV9yZWR1Y3Rpb24oc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikKLXsKLSBpbnQg
-aWR4OwotCi0gaWR4ID0gcGh5X2ZpbmRfc2V0dGluZyhwaHlkZXYtPnNwZWVkLCBwaHlkZXYtPmR1
-cGxleCk7Ci0gCi0gaWR4Kys7Ci0KLSBpZHggPSBwaHlfZmluZF92YWxpZChpZHgsIHBoeWRldi0+
-c3VwcG9ydGVkKTsKLQotIHBoeWRldi0+c3BlZWQgPSBzZXR0aW5nc1tpZHhdLnNwZWVkOwotIHBo
-eWRldi0+ZHVwbGV4ID0gc2V0dGluZ3NbaWR4XS5kdXBsZXg7Ci0KLSBwcl9pbmZvKCJUcnlpbmcg
-JWQvJXNcbiIsIHBoeWRldi0+c3BlZWQsCi0gRFVQTEVYX0ZVTEwgPT0gcGh5ZGV2LT5kdXBsZXgg
-PwotICJGVUxMIiA6ICJIQUxGIik7Ci19Ci0KLQotLyoqCiogcGh5X2Vycm9yIC0gZW50ZXIgSEFM
-VEVEIHN0YXRlIGZvciB0aGlzIFBIWSBkZXZpY2UKKiBAcGh5ZGV2OiB0YXJnZXQgcGh5X2Rldmlj
-ZSBzdHJ1Y3QKKgpAQCAtODE0LDMwICs3ODYsMTIgQEAgdm9pZCBwaHlfc3RhdGVfbWFjaGluZShz
-dHJ1Y3Qgd29ya19zdHJ1YwpwaHlkZXYtPmFkanVzdF9saW5rKHBoeWRldi0+YXR0YWNoZWRfZGV2
-KTsKCn0gZWxzZSBpZiAoMCA9PSBwaHlkZXYtPmxpbmtfdGltZW91dC0tKSB7Ci0gaW50IGlkeDsK
-Cm5lZWRzX2FuZWcgPSAxOwovKiBJZiB3ZSBoYXZlIHRoZSBtYWdpY19hbmVnIGJpdCwKKiB3ZSB0
-cnkgYWdhaW4gKi8KaWYgKHBoeWRldi0+ZHJ2LT5mbGFncyAmIFBIWV9IQVNfTUFHSUNBTkVHKQpi
-cmVhazsKLQotIC8qIFRoZSB0aW1lciBleHBpcmVkLCBhbmQgd2Ugc3RpbGwKLSAqIGRvbid0IGhh
-dmUgYSBzZXR0aW5nLCBzbyB3ZSB0cnkKLSAqIGZvcmNpbmcgaXQgdW50aWwgd2UgZmluZCBvbmUg
-dGhhdAotICogd29ya3MsIHN0YXJ0aW5nIGZyb20gdGhlIGZhc3Rlc3Qgc3BlZWQsCi0gKiBhbmQg
-d29ya2luZyBvdXIgd2F5IGRvd24gKi8KLSBpZHggPSBwaHlfZmluZF92YWxpZCgwLCBwaHlkZXYt
-PnN1cHBvcnRlZCk7Ci0KLSBwaHlkZXYtPnNwZWVkID0gc2V0dGluZ3NbaWR4XS5zcGVlZDsKLSBw
-aHlkZXYtPmR1cGxleCA9IHNldHRpbmdzW2lkeF0uZHVwbGV4OwotCi0gcGh5ZGV2LT5hdXRvbmVn
-ID0gQVVUT05FR19ESVNBQkxFOwotCi0gcHJfaW5mbygiVHJ5aW5nICVkLyVzXG4iLCBwaHlkZXYt
-PnNwZWVkLAotIERVUExFWF9GVUxMID09Ci0gcGh5ZGV2LT5kdXBsZXggPwotICJGVUxMIiA6ICJI
-QUxGIik7Cn0KYnJlYWs7CmNhc2UgUEhZX05PTElOSzoKQEAgLTg2Myw3ICs4MTcsNiBAQCB2b2lk
-IHBoeV9zdGF0ZV9tYWNoaW5lKHN0cnVjdCB3b3JrX3N0cnVjCm5ldGlmX2NhcnJpZXJfb24ocGh5
-ZGV2LT5hdHRhY2hlZF9kZXYpOwp9IGVsc2UgewppZiAoMCA9PSBwaHlkZXYtPmxpbmtfdGltZW91
-dC0tKSB7Ci0gcGh5X2ZvcmNlX3JlZHVjdGlvbihwaHlkZXYpOwpuZWVkc19hbmVnID0gMTsKfQp9
-CiAKLS0tLS0tLS0tLS0tLS0tLQo=
+Hi Guennadi,
+
+On Thursday 24 January 2013 17:07:32 Guennadi Liakhovetski wrote:
+> If an ethernet PHY can be reset by a GPIO, it can be specified in DT. Add
+> a binding and code to parse it, request the GPIO and take the PHY out of
+> reset.
+> 
+> Signed-off-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+> Cc: devicetree-discuss@lists.ozlabs.org
+> Cc: netdev@vger.kernel.org
+> ---
+>  Documentation/devicetree/bindings/net/sh_ether.txt |    2 ++
+>  drivers/net/ethernet/renesas/sh_eth.c              |    9 ++++++++-
+>  2 files changed, 10 insertions(+), 1 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt
+> b/Documentation/devicetree/bindings/net/sh_ether.txt index c11e45d..edaf683
+> 100644
+> --- a/Documentation/devicetree/bindings/net/sh_ether.txt
+> +++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+> @@ -12,6 +12,7 @@ Required properties:
+>  - interrupts:                   Interrupt mapping for the sh_eth interrupt
+>                                  sources (vector id).
+>  - phy-mode:              String, operation mode of the PHY interface.
+> +- phy-reset-gpios:              PHY reset GPIO tuple
+
+If you can't have more than one GPIO here, what about calling it phy-reset-
+gpio ?
+
+>  - sh-eth,edmac-endian:          String, endian of sh_eth dmac.
+>  - sh-eth,register-type:         String, register type of sh_eth.
+>                                  Please select "gigabit", "fast-sh4" or
+> @@ -37,6 +38,7 @@ Example (armadillo800eva):
+>  		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
+>  		interrupts = <0x500>;
+>  		phy-mode = "mii";
+> +		phy-reset-gpios = <&gpio 18 0>;
+>  		sh-eth,edmac-endian = "little";
+>  		sh-eth,register-type = "gigabit";
+>  		sh-eth,phy-id = <0>;
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c
+> b/drivers/net/ethernet/renesas/sh_eth.c index 1f64848..06035a2 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -20,6 +20,7 @@
+>   *  the file called "COPYING".
+>   */
+> 
+> +#include <linux/gpio.h>
+>  #include <linux/init.h>
+>  #include <linux/module.h>
+>  #include <linux/kernel.h>
+> @@ -33,6 +34,7 @@
+>  #include <linux/netdevice.h>
+>  #include <linux/of.h>
+>  #include <linux/of_device.h>
+> +#include <linux/of_gpio.h>
+>  #include <linux/of_platform.h>
+>  #include <linux/of_address.h>
+>  #include <linux/of_irq.h>
+> @@ -2376,10 +2378,11 @@ sh_eth_of_get_register_type(struct device_node *np)
+>  static struct sh_eth_plat_data *
+>  sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
+>  {
+> -	int ret;
+> +	int ret, gpio;
+>  	const char *of_str;
+>  	struct device_node *np = dev->of_node;
+>  	struct sh_eth_plat_data *pdata;
+> +	enum of_gpio_flags flags;
+> 
+>  	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
+>  					GFP_KERNEL);
+> @@ -2420,6 +2423,10 @@ sh_eth_parse_dt(struct device *dev, struct net_device
+> *ndev) else
+>  		pdata->needs_init = 0;
+> 
+> +	gpio = of_get_named_gpio_flags(np, "phy-reset-gpios", 0, &flags);
+> +	if (gpio_is_valid(gpio) && !devm_gpio_request(dev, gpio, NULL))
+> +		gpio_direction_output(gpio, !!(flags & OF_GPIO_ACTIVE_LOW));
+
+You could use devm_gpio_request_one() here.
+
+Is there no need to reset the phy at runtime ?
+
+> +
+>  #ifdef CONFIG_OF_NET
+>  	if (!is_valid_ether_addr(ndev->dev_addr)) {
+>  		const char *macaddr = of_get_mac_address(np);
+-- 
+Regards,
+
+Laurent Pinchart
+
