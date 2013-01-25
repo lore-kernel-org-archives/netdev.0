@@ -1,119 +1,130 @@
-From: Alex Bligh <alex@alex.org.uk>
-Subject: [RFC] [PATCH 2/7] net: only allow paged fragments with the same destructor to be coalesced.
-Date: Fri, 25 Jan 2013 14:27:02 +0000
-Message-ID: <1359124027-1170-3-git-send-email-alex@alex.org.uk>
-References: <1359124027-1170-1-git-send-email-alex@alex.org.uk>
+From: Yannick Koehler <yannick@koehler.name>
+Subject: [PATCH] Unix socket buffer attribution
+Date: Fri, 25 Jan 2013 10:32:22 -0500
+Message-ID: <CAJ4BwwEY6vc3_rxou6PMxAZCdzW0X5WtsRX3SLGkP3g9df209g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	Alex Bligh <alex@alex.org.uk>,
-	"Trond Myklebust" <Trond.Myklebust@netapp.com>,
-	Mel Gorman <mgorman@suse.de>
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.avalus.com ([89.16.176.221]:60116 "EHLO mail.avalus.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752670Ab3AYOh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 09:37:56 -0500
-In-Reply-To: <1359124027-1170-1-git-send-email-alex@alex.org.uk>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:40899 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757008Ab3AYPcY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 10:32:24 -0500
+Received: by mail-wi0-f172.google.com with SMTP id o1so1514121wic.5
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 07:32:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ian Campbell <ian.campbell at>
+This patch should fix an issue where unix socket buffer remains
+accounted as part of the socket sndbuf (sk_wmem_alloc) instead of
+being accounted as part of the receiving socket rcvbuf
+(sk_rmem_alloc), leading to a situation where if one of the receiving
+socket isn't calling recvfrom() the sending socket can no more send to
+any of its listeners, even those which properly behave.  This could
+create a DOS situation where the unix socket is reachable by many
+users on the same linux machine.
 
-Signed-off-by: Ian Campbell <ian.campbell <at> citrix.com>
-Cc: "David S. Miller" <davem <at> davemloft.net>
-Cc: Alexey Kuznetsov <kuznet <at> ms2.inr.ac.ru>
-Cc: "Pekka Savola (ipv6)" <pekkas <at> netcore.fi>
-Cc: James Morris <jmorris <at> namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji <at> linux-ipv6.org>
-Cc: Patrick McHardy <kaber <at> trash.net>
-Cc: Eric Dumazet <eric.dumazet <at> gmail.com>
-Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux <at> rere.qmqm.pl>
-Cc: netdev <at> vger.kernel.org
-Signed-off-by: Alex Bligh <alex@alex.org.uk>
----
- include/linux/skbuff.h |    7 +++++--
- net/core/skbuff.c      |    1 +
- net/ipv4/ip_output.c   |    2 +-
- net/ipv4/tcp.c         |    4 ++--
- 4 files changed, 9 insertions(+), 5 deletions(-)
+Signed-off-by: Yannick Koehler <yannick@koehler.name>
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 2619a61..8a8eecd 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1970,13 +1970,16 @@ static inline int skb_add_data(struct sk_buff *=
-skb,
+diff -uprN -X linux-3.6/Documentation/dontdiff
+linux-3.6-vanilla/include/net/af_unix.h
+linux-3.6/include/net/af_unix.h
+--- linux-3.6-vanilla/include/net/af_unix.h 2012-09-30 19:47:46.000000000 -0400
++++ linux-3.6/include/net/af_unix.h 2013-01-24 15:26:20.000000000 -0500
+@@ -34,6 +34,7 @@ struct unix_skb_parms {
+ #ifdef CONFIG_SECURITY_NETWORK
+  u32 secid; /* Security ID */
+ #endif
++ struct sock *peer; /* Skb's peer sk */
+ };
+
+ #define UNIXCB(skb) (*(struct unix_skb_parms *)&((skb)->cb))
+diff -uprN -X linux-3.6/Documentation/dontdiff
+linux-3.6-vanilla/net/unix/af_unix.c linux-3.6/net/unix/af_unix.c
+--- linux-3.6-vanilla/net/unix/af_unix.c 2012-09-30 19:47:46.000000000 -0400
++++ linux-3.6/net/unix/af_unix.c 2013-01-24 15:24:57.000000000 -0500
+@@ -1426,6 +1426,35 @@ static void maybe_add_creds(struct sk_bu
  }
-=20
- static inline int skb_can_coalesce(struct sk_buff *skb, int i,
--				   const struct page *page, int off)
-+				   const struct page *page,
-+				   const struct skb_frag_destructor *destroy,
-+				   int off)
- {
- 	if (i) {
- 		const struct skb_frag_struct *frag =3D &skb_shinfo(skb)->frags[i - 1=
-];
-=20
- 		return page =3D=3D skb_frag_page(frag) &&
--		       off =3D=3D frag->page_offset + skb_frag_size(frag);
-+		       off =3D=3D frag->page_offset + skb_frag_size(frag) &&=20
-+		       frag->page.destructor =3D=3D destroy;
- 	}
- 	return 0;
- }
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8b46cad..425cd5a 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2276,6 +2276,7 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff=
- *skb, int shiftlen)
- 	 */
- 	if (!to ||
- 	    !skb_can_coalesce(tgt, to, skb_frag_page(fragfrom),
-+			      fragfrom->page.destructor,
- 			      fragfrom->page_offset)) {
- 		merge =3D -1;
- 	} else {
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 0bc95f3..3252e06 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -1229,7 +1229,7 @@ ssize_t	ip_append_page(struct sock *sk, struct fl=
-owi4 *fl4, struct page *page,
- 		i =3D skb_shinfo(skb)->nr_frags;
- 		if (len > size)
- 			len =3D size;
--		if (skb_can_coalesce(skb, i, page, offset)) {
-+		if (skb_can_coalesce(skb, i, page, NULL, offset)) {
- 			skb_frag_size_add(&skb_shinfo(skb)->frags[i-1], len);
- 		} else if (i < MAX_SKB_FRAGS) {
- 			get_page(page);
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 34f5db1..018de0c 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -804,7 +804,7 @@ new_segment:
- 			copy =3D size;
-=20
- 		i =3D skb_shinfo(skb)->nr_frags;
--		can_coalesce =3D skb_can_coalesce(skb, i, page, offset);
-+		can_coalesce =3D skb_can_coalesce(skb, i, page, NULL, offset);
- 		if (!can_coalesce && i >=3D MAX_SKB_FRAGS) {
- 			tcp_mark_push(tp, skb);
- 			goto new_segment;
-@@ -1008,7 +1008,7 @@ new_segment:
- 				struct page *page =3D TCP_PAGE(sk);
- 				int off =3D TCP_OFF(sk);
-=20
--				if (skb_can_coalesce(skb, i, page, off) &&
-+				if (skb_can_coalesce(skb, i, page, NULL, off) &&
- 				    off !=3D PAGE_SIZE) {
- 					/* We can extend the last page
- 					 * fragment. */
---=20
-1.7.9.5
+
+ /*
++ * Reduce the refcount from sk_wmem_alloc on the peer sk.
++ * Then remove invoke sock_rfree to release the memory
++ * from the current sock sk_rmem_alloc.
++ */
++static void unix_sock_wrfree(struct sk_buff *skb)
++{
++ struct sock *sk = UNIXCB(skb).peer;
++
++ if (sk)
++ sk_free(sk);
++
++ sock_rfree(skb);
++}
++
++static inline void unix_set_owner_r(struct sk_buff *skb, struct sock *sk,
++     struct sock *other)
++{
++ /* This operation garantee the peer sk isn't freed. */
++ atomic_add(1, &sk->sk_wmem_alloc);
++
++ skb_orphan(skb);
++ skb->sk = other;
++ skb->destructor = unix_sock_wrfree;
++ atomic_add(skb->truesize, &other->sk_rmem_alloc);
++ sk_mem_charge(other, skb->truesize);
++ UNIXCB(skb).peer = sk;
++}
++
++/*
+  * Send AF_UNIX data.
+  */
+
+@@ -1579,9 +1607,16 @@ restart:
+  goto restart;
+  }
+
++ if (atomic_read(&other->sk_rmem_alloc) + skb->truesize >=
++    (unsigned)other->sk_rcvbuf) {
++ err = -EAGAIN;
++ goto out_unlock;
++ }
++
+  if (sock_flag(other, SOCK_RCVTSTAMP))
+  __net_timestamp(skb);
+  maybe_add_creds(skb, sock, other);
++ unix_set_owner_r(skb, sk, other);
+  skb_queue_tail(&other->sk_receive_queue, skb);
+  if (max_level > unix_sk(other)->recursion_level)
+  unix_sk(other)->recursion_level = max_level;
+@@ -1696,7 +1731,14 @@ static int unix_stream_sendmsg(struct ki
+     (other->sk_shutdown & RCV_SHUTDOWN))
+  goto pipe_err_free;
+
++ if (atomic_read(&other->sk_rmem_alloc) + skb->truesize >=
++    (unsigned)other->sk_rcvbuf) {
++ err = -EAGAIN;
++ goto pipe_err_free;
++ }
++
+  maybe_add_creds(skb, sock, other);
++ unix_set_owner_r(skb, sk, other);
+  skb_queue_tail(&other->sk_receive_queue, skb);
+  if (max_level > unix_sk(other)->recursion_level)
+  unix_sk(other)->recursion_level = max_level;
+@@ -1807,7 +1849,7 @@ static int unix_dgram_recvmsg(struct kio
+  POLLOUT | POLLWRNORM | POLLWRBAND);
+
+  if (msg->msg_name)
+- unix_copy_addr(msg, skb->sk);
++ unix_copy_addr(msg, UNIXCB(skb).peer);
+
+  if (size > skb->len - skip)
+  size = skb->len - skip;
+@@ -2007,7 +2049,7 @@ again:
+
+  /* Copy address just once */
+  if (sunaddr) {
+- unix_copy_addr(msg, skb->sk);
++ unix_copy_addr(msg, UNIXCB(skb).peer);
+  sunaddr = NULL;
+  }
