@@ -1,74 +1,92 @@
-From: Nivedita SInghvi <niveditasinghvi@gmail.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Thu, 24 Jan 2013 22:12:46 -0800
-Message-ID: <5102225E.2040506@gmail.com>
-References: <1358873142.3464.3964.camel@edumazet-glaptop> <20130122165929.GH4608@sociomantic.com> <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com> <50FF0C25.9000300@hp.com> <20130123104736.GK4608@sociomantic.com> <510039C8.7040401@hp.com> <20130124122223.GQ4608@sociomantic.com> <51018110.1070403@hp.com> <20130124192125.GD4608@sociomantic.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH 1/2] ARM: davinci: da850: add DT node for eth0.
+Date: Fri, 25 Jan 2013 11:53:38 +0530
+Message-ID: <510224EA.9080705@ti.com>
+References: <1358749759-20517-1-git-send-email-prabhakar.lad@ti.com> <1358749759-20517-2-git-send-email-prabhakar.lad@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Cc: LAK <linux-arm-kernel@lists.infradead.org>,
+	DLOS <davinci-linux-open-source@linux.davincidsp.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Lad, Prabhakar" <prabhakar.lad@ti.com>, <netdev@vger.kernel.org>,
+	<devicetree-discuss@lists.ozlabs.org>, Heiko Schocher <hs@denx.de>
+To: Prabhakar Lad <prabhakar.csengg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f171.google.com ([209.85.210.171]:37975 "EHLO
-	mail-ia0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751139Ab3AYGMz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 01:12:55 -0500
-In-Reply-To: <20130124192125.GD4608@sociomantic.com>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:42903 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751017Ab3AYGX4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 01:23:56 -0500
+In-Reply-To: <1358749759-20517-2-git-send-email-prabhakar.lad@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/24/2013 11:21 AM, Leandro Lucarella wrote:
-> On Thu, Jan 24, 2013 at 10:44:32AM -0800, Rick Jones wrote:
->> On 01/24/2013 04:22 AM, Leandro Lucarella wrote:
->>> On Wed, Jan 23, 2013 at 11:28:08AM -0800, Rick Jones wrote:
->>>>> Then if syncookies are enabled, the time spent in connect() shouldn't be
->>>>> bigger than 3 seconds even if SYNs are being "dropped" by listen, right?
->>>>
->>>> Do you mean if "ESTABLISHED" connections are dropped because the
->>>> listen queue is full?  I don't think I would put that as "SYNs being
->>>> dropped by listen" - too easy to confuse that with an actual
->>>> dropping of a SYN segment.
->>>
->>> I was just kind of quoting the name given by netstat: "SYNs to LISTEN
->>> sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
->>> this stat anymore, or the name was changed). I still don't know if we
->>> are talking about the same thing.
->>
-[snip]
->> I will sometimes be tripped-up by netstat's not showing a statistic
->> with a zero value...
+Prabhakar,
 
-Leandro, you should be able to do an nstat -z, it will print all counters even if zero. You should see something like so:
+On 1/21/2013 11:59 AM, Prabhakar Lad wrote:
+> From: Lad, Prabhakar <prabhakar.lad@ti.com>
+> 
+> Add eth0 device tree node information to da850 by
+> providing interrupt details and local mac address of eth0.
+> 
+> Signed-off-by: Lad, Prabhakar <prabhakar.lad@ti.com>
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: davinci-linux-open-source@linux.davincidsp.com
+> Cc: netdev@vger.kernel.org
+> Cc: devicetree-discuss@lists.ozlabs.org
+> Cc: Sekhar Nori <nsekhar@ti.com>
+> Cc: Heiko Schocher <hs@denx.de>
+> ---
+>  arch/arm/boot/dts/da850-evm.dts |    3 +++
+>  arch/arm/boot/dts/da850.dtsi    |   15 +++++++++++++++
 
-ipv4]> nstat -z
-#kernel
-IpInReceives                    2135               0.0
-IpInHdrErrors                   0                  0.0
-IpInAddrErrors                  202                0.0
-...
+Can you rebase this to apply to v3.9/dt branch of my tree?
 
-You might want to take a look at those (your pkts may not even be making it to tcp) and these in particular:
+>  2 files changed, 18 insertions(+), 0 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/da850-evm.dts b/arch/arm/boot/dts/da850-evm.dts
+> index 37dc5a3..a1d6e3e 100644
+> --- a/arch/arm/boot/dts/da850-evm.dts
+> +++ b/arch/arm/boot/dts/da850-evm.dts
+> @@ -24,5 +24,8 @@
+>  		serial2: serial@1d0d000 {
+>  			status = "okay";
+>  		};
+> +		eth0: emac@1e20000 {
+> +			status = "okay";
+> +		};
+>  	};
+>  };
+> diff --git a/arch/arm/boot/dts/da850.dtsi b/arch/arm/boot/dts/da850.dtsi
+> index 640ab75..309cc99 100644
+> --- a/arch/arm/boot/dts/da850.dtsi
+> +++ b/arch/arm/boot/dts/da850.dtsi
+> @@ -56,5 +56,20 @@
+>  			interrupt-parent = <&intc>;
+>  			status = "disabled";
+>  		};
+> +		eth0: emac@1e20000 {
+> +			compatible = "ti,davinci-dm6467-emac";
+> +			reg = <0x220000 0x4000>;
+> +			ti,davinci-ctrl-reg-offset = <0x3000>;
+> +			ti,davinci-ctrl-mod-reg-offset = <0x2000>;
+> +			ti,davinci-ctrl-ram-offset = <0>;
+> +			ti,davinci-ctrl-ram-size = <0x2000>;
+> +			local-mac-address = [ 00 00 00 00 00 00 ];
+> +			interrupts = <33
+> +					34
+> +					35
+> +					36
+> +					>;
+> +			interrupt-parent = <&intc>;
 
-TcpExtSyncookiesSent            0                  0.0
-TcpExtSyncookiesRecv            0                  0.0
-TcpExtSyncookiesFailed          0                  0.0
-TcpExtListenOverflows           0                  0.0
-TcpExtListenDrops               0                  0.0
-TcpExtTCPBacklogDrop            0                  0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
+instead of setting interrupt-parent for each node, this can be done once
+for soc and child nodes should inherit this property. This needs to be
+fixed for existing serial nodes too.
 
-If you don't have nstat on that version for some reason, download the latest iproute pkg. Looking at the counter names is a lot more helpful and precise than the netstat converstion to human consumption. 
+Also, can you take care of pinmux too? we should not be relying on
+u-boot to setup the pinmux for us.
 
-
-> Yes, I already did captures and we are definitely loosing packets
-> (including SYNs), but it looks like the amount of SYNs I'm loosing is
-> lower than the amount of long connect() times I observe. This is not
-> confirmed yet, I'm still investigating.
-
-Where did you narrow down the drop to? There are quite a few places in the networking stack we silently drop packets (such as the one pointed out earlier in this thread), although they should almost all be extremely low probability/NEVER type events. Do you want a patch to gap the most likely scenario? (I'll post that to netdev separately). 
-
-thanks,
-Nivedita
+Thanks,
+Sekhar
