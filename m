@@ -1,49 +1,42 @@
 From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [RFC PATCH 4/4] net: mvmdio: add getter and setter for PHY
- addresses
-Date: Fri, 25 Jan 2013 11:16:29 -0700
-Message-ID: <20130125181629.GA7393@obsidianresearch.com>
-References: <1359108409-4378-1-git-send-email-florian@openwrt.org>
- <1359108409-4378-5-git-send-email-florian@openwrt.org>
+Subject: Re: [PATCH/RFC 2/3] ethernet: add a PHY reset GPIO DT binding to
+ sh_eth
+Date: Fri, 25 Jan 2013 11:21:37 -0700
+Message-ID: <20130125182137.GB7393@obsidianresearch.com>
+References: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de>
+ <1359043653-11374-3-git-send-email-g.liakhovetski@gmx.de>
+ <7921225.sfO3PIeLVS@avalon>
+ <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, jason@lakedaemon.net,
- arnd@arndb.de, netdev@vger.kernel.org, gregory.clement@free-electrons.com,
- ian.molton@codethink.co.uk, linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+	linux-sh@vger.kernel.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Simon Horman <horms@verge.net.au>,
+	linux-arm-kernel@lists.infradead.org
+To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:50890 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932108Ab3AYSVl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 13:21:41 -0500
 Content-Disposition: inline
-In-Reply-To: <1359108409-4378-5-git-send-email-florian@openwrt.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 25, 2013 at 11:06:49AM +0100, Florian Fainelli wrote:
-> This patch adds orion_mdio_{set,get}_phy_addr(.., port_number, phy_addr)
-> which is a feature available in this MDIO driver to monitor a particular
-> PHY address. This brings mvmdio one step closer to what is used in
-> mv643x_eth.
+On Fri, Jan 25, 2013 at 11:34:55AM +0100, Guennadi Liakhovetski wrote:
 
-This seems really strange.
+> > Is there no need to reset the phy at runtime ?
+> 
+> No idea, I'm not developing the driver, I'm just porting one specific 
+> feature from one API to another with no functional changes (apart from 
+> postponing setting the GPIO).
 
-Are you sure this should be part of the MDIO driver? Based on my docs,
-this register is part of the ethernet controller HW, which
-autonomously reads from the phy via MDIO.
-
-It seems cleaner to set this register from the ethernet controller
-based on the phy it is using and keep the MDIO driver purely for MDIO
-bus access.
-
-It is acceptable to overlap the device address ranges, start the
-ethernet controller at 72000 and start the MDIO at 72004, the platform
-bus code automatically nests them.
+Generally Linux relies on resetting the phy via the inband MDIO method,
+which is what Linux does. It is pretty much never required to reset
+via the hard pin - but you do need to generate a robust reset edge on
+the reset pin once after power up.
 
 Jason
