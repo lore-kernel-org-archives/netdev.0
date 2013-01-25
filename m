@@ -1,134 +1,148 @@
 From: pablo@netfilter.org
-Subject: [PATCH 00/21] netfilter updates for net-next
-Date: Fri, 25 Jan 2013 14:54:32 +0100
-Message-ID: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 03/21] netfilter: ctnetlink: deliver labels to userspace
+Date: Fri, 25 Jan 2013 14:54:35 +0100
+Message-ID: <1359122093-3404-4-git-send-email-pablo@netfilter.org>
+References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Florian Westphal <fw@strlen.de>
 
-Hi David,
+Introduce CTA_LABELS attribute to send a bit-vector of currently active labels
+to userspace.
 
-This batch contains netfilter updates for you net-next tree, they are:
+Future patch will permit userspace to also set/delete active labels.
 
-* The new connlabel extension for x_tables, that allows us to attach
-  labels to each conntrack flow. The kernel implementation uses a
-  bitmask and there's a file in user-space that maps the bits with the
-  corresponding string for each existing label. By now, you can attach
-  up to 128 overlapping labels. From Florian Westphal.
-
-* A new round of improvements for the netns support for conntrack.
-  Gao feng has moved many of the initialization code of each module
-  of the netns init path. He also made several code refactoring, that
-  code looks cleaner to me now.
-
-* Added documentation for all possible tweaks for nf_conntrack via
-  sysctl, from Jiri Pirko.
-
-* Cisco 7941/7945 IP phone support for our SIP conntrack helper,
-  from Kevin Cernekee.
-
-* Missing header file in the snmp helper, from Stephen Hemminger.
-
-* Finally, a couple of fixes to resolve minor issues with these
-  changes, from myself.
-
-You can pull these changes from:
-
-git://1984.lsi.us.es/nf-next master
-
-Thanks!
-
-Florian Westphal (3):
-  netfilter: add connlabel conntrack extension
-  netfilter: ctnetlink: deliver labels to userspace
-  netfilter: ctnetlink: allow userspace to modify labels
-
-Gao feng (11):
-  netfilter: nf_conntrack: move initialization out of pernet operations
-  netfilter: nf_ct_expect: move initialization out of pernet_operations
-  netfilter: nf_ct_acct: move initialization out of pernet_operations
-  netfilter: nf_ct_tstamp: move initialization out of pernet_operations
-  netfilter: nf_ct_ecache: move initialization out of pernet_operations
-  netfilter: nf_ct_timeout: move initialization out of pernet_operations
-  netfilter: nf_ct_helper: move initialization out of pernet_operations
-  netfilter: nf_ct_labels: move initialization out of pernet_operations
-  netfilter: nf_ct_proto: move initialization out of pernet_operations
-  netfilter: nf_conntrack: refactor l3proto support for netns
-  netfilter: nf_conntrack: refactor l4proto support for netns
-
-Jiri Pirko (1):
-  netfilter: doc: add nf_conntrack sysctl api documentation
-
-Kevin Cernekee (1):
-  netfilter: nf_ct_sip: support Cisco 7941/7945 IP phones
-
-Pablo Neira Ayuso (3):
-  netfilter: add missing xt_bpf.h header in installation
-  netfilter: add missing xt_connlabel.h header in installation
-  netfilter: nf_conntrack: fix compilation if sysctl are disabled
-
-Willem de Bruijn (1):
-  netfilter: x_tables: add xt_bpf match
-
-stephen hemminger (1):
-  netfilter: nf_ct_snmp: add include file
-
- Documentation/networking/nf_conntrack-sysctl.txt   |  176 ++++++++++++++++++
- include/linux/netfilter/nf_conntrack_sip.h         |    3 +
- include/net/netfilter/nf_conntrack_acct.h          |    6 +-
- include/net/netfilter/nf_conntrack_core.h          |   15 +-
- include/net/netfilter/nf_conntrack_ecache.h        |   19 +-
- include/net/netfilter/nf_conntrack_expect.h        |    7 +-
- include/net/netfilter/nf_conntrack_extend.h        |    4 +
- include/net/netfilter/nf_conntrack_helper.h        |    7 +-
- include/net/netfilter/nf_conntrack_l3proto.h       |   11 +-
- include/net/netfilter/nf_conntrack_l4proto.h       |   10 +-
- include/net/netfilter/nf_conntrack_labels.h        |   58 ++++++
- include/net/netfilter/nf_conntrack_timeout.h       |    8 +-
- include/net/netfilter/nf_conntrack_timestamp.h     |   21 ++-
- include/net/netns/conntrack.h                      |    4 +
- include/uapi/linux/netfilter/Kbuild                |    2 +
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  include/uapi/linux/netfilter/nf_conntrack_common.h |    1 +
- include/uapi/linux/netfilter/nfnetlink_conntrack.h |    2 +
- include/uapi/linux/netfilter/xt_bpf.h              |   17 ++
- include/uapi/linux/netfilter/xt_connlabel.h        |   12 ++
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |   82 ++++++---
- net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |   86 ++++++---
- net/netfilter/Kconfig                              |   27 +++
- net/netfilter/Makefile                             |    3 +
- net/netfilter/nf_conntrack_acct.c                  |   36 ++--
- net/netfilter/nf_conntrack_core.c                  |  191 ++++++++++++--------
- net/netfilter/nf_conntrack_ecache.c                |   37 ++--
- net/netfilter/nf_conntrack_expect.c                |   53 +++---
- net/netfilter/nf_conntrack_helper.c                |   53 +++---
- net/netfilter/nf_conntrack_labels.c                |  112 ++++++++++++
- net/netfilter/nf_conntrack_netlink.c               |   88 +++++++++
- net/netfilter/nf_conntrack_proto.c                 |   92 ++++------
- net/netfilter/nf_conntrack_proto_dccp.c            |   43 +++--
- net/netfilter/nf_conntrack_proto_gre.c             |   23 ++-
- net/netfilter/nf_conntrack_proto_sctp.c            |   43 +++--
- net/netfilter/nf_conntrack_proto_udplite.c         |   40 +++-
- net/netfilter/nf_conntrack_sip.c                   |   17 ++
- net/netfilter/nf_conntrack_snmp.c                  |    1 +
- net/netfilter/nf_conntrack_standalone.c            |   63 ++++---
- net/netfilter/nf_conntrack_timeout.c               |   23 +--
- net/netfilter/nf_conntrack_timestamp.c             |   39 ++--
- net/netfilter/nf_nat_sip.c                         |   27 ++-
- net/netfilter/xt_bpf.c                             |   73 ++++++++
- net/netfilter/xt_connlabel.c                       |   99 ++++++++++
- 43 files changed, 1305 insertions(+), 429 deletions(-)
- create mode 100644 Documentation/networking/nf_conntrack-sysctl.txt
- create mode 100644 include/net/netfilter/nf_conntrack_labels.h
- create mode 100644 include/uapi/linux/netfilter/xt_bpf.h
- create mode 100644 include/uapi/linux/netfilter/xt_connlabel.h
- create mode 100644 net/netfilter/nf_conntrack_labels.c
- create mode 100644 net/netfilter/xt_bpf.c
- create mode 100644 net/netfilter/xt_connlabel.c
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |    1 +
+ net/netfilter/nf_conntrack_labels.c                |    2 +-
+ net/netfilter/nf_conntrack_netlink.c               |   41 ++++++++++++++++++++
+ 4 files changed, 44 insertions(+), 1 deletion(-)
 
+diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
+index 1644cdd..d69483f 100644
+--- a/include/uapi/linux/netfilter/nf_conntrack_common.h
++++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
+@@ -101,6 +101,7 @@ enum ip_conntrack_events {
+ 	IPCT_MARK,		/* new mark has been set */
+ 	IPCT_NATSEQADJ,		/* NAT is doing sequence adjustment */
+ 	IPCT_SECMARK,		/* new security mark has been set */
++	IPCT_LABEL,		/* new connlabel has been set */
+ };
+ 
+ enum ip_conntrack_expect_events {
+diff --git a/include/uapi/linux/netfilter/nfnetlink_conntrack.h b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
+index 86e930c..9e71e0c 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_conntrack.h
++++ b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
+@@ -49,6 +49,7 @@ enum ctattr_type {
+ 	CTA_SECCTX,
+ 	CTA_TIMESTAMP,
+ 	CTA_MARK_MASK,
++	CTA_LABELS,
+ 	__CTA_MAX
+ };
+ #define CTA_MAX (__CTA_MAX - 1)
+diff --git a/net/netfilter/nf_conntrack_labels.c b/net/netfilter/nf_conntrack_labels.c
+index 0c542f4..ac5d080 100644
+--- a/net/netfilter/nf_conntrack_labels.c
++++ b/net/netfilter/nf_conntrack_labels.c
+@@ -46,7 +46,7 @@ int nf_connlabel_set(struct nf_conn *ct, u16 bit)
+ 		return 0;
+ 
+ 	if (test_and_set_bit(bit, labels->bits))
+-		return 0;
++		nf_conntrack_event_cache(IPCT_LABEL, ct);
+ 
+ 	return 0;
+ }
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index e0b10ee..5f53863 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -324,6 +324,40 @@ nla_put_failure:
+ #define ctnetlink_dump_secctx(a, b) (0)
+ #endif
+ 
++#ifdef CONFIG_NF_CONNTRACK_LABELS
++static int ctnetlink_label_size(const struct nf_conn *ct)
++{
++	struct nf_conn_labels *labels = nf_ct_labels_find(ct);
++
++	if (!labels)
++		return 0;
++	return nla_total_size(labels->words * sizeof(long));
++}
++
++static int
++ctnetlink_dump_labels(struct sk_buff *skb, const struct nf_conn *ct)
++{
++	struct nf_conn_labels *labels = nf_ct_labels_find(ct);
++	unsigned int len, i;
++
++	if (!labels)
++		return 0;
++
++	len = labels->words * sizeof(long);
++	i = 0;
++	do {
++		if (labels->bits[i] != 0)
++			return nla_put(skb, CTA_LABELS, len, labels->bits);
++		i++;
++	} while (i < labels->words);
++
++	return 0;
++}
++#else
++#define ctnetlink_dump_labels(a, b) (0)
++#define ctnetlink_label_size(a)	(0)
++#endif
++
+ #define master_tuple(ct) &(ct->master->tuplehash[IP_CT_DIR_ORIGINAL].tuple)
+ 
+ static inline int
+@@ -464,6 +498,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 	    ctnetlink_dump_helpinfo(skb, ct) < 0 ||
+ 	    ctnetlink_dump_mark(skb, ct) < 0 ||
+ 	    ctnetlink_dump_secctx(skb, ct) < 0 ||
++	    ctnetlink_dump_labels(skb, ct) < 0 ||
+ 	    ctnetlink_dump_id(skb, ct) < 0 ||
+ 	    ctnetlink_dump_use(skb, ct) < 0 ||
+ 	    ctnetlink_dump_master(skb, ct) < 0 ||
+@@ -562,6 +597,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
+ 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_MARK */
+ #endif
+ 	       + ctnetlink_proto_size(ct)
++	       + ctnetlink_label_size(ct)
+ 	       ;
+ }
+ 
+@@ -663,6 +699,9 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
+ 		    && ctnetlink_dump_secctx(skb, ct) < 0)
+ 			goto nla_put_failure;
+ #endif
++		if (events & (1 << IPCT_LABEL) &&
++		     ctnetlink_dump_labels(skb, ct) < 0)
++			goto nla_put_failure;
+ 
+ 		if (events & (1 << IPCT_RELATED) &&
+ 		    ctnetlink_dump_master(skb, ct) < 0)
+@@ -1986,6 +2025,8 @@ ctnetlink_nfqueue_build(struct sk_buff *skb, struct nf_conn *ct)
+ 	if (ct->mark && ctnetlink_dump_mark(skb, ct) < 0)
+ 		goto nla_put_failure;
+ #endif
++	if (ctnetlink_dump_labels(skb, ct) < 0)
++		goto nla_put_failure;
+ 	rcu_read_unlock();
+ 	return 0;
+ 
 -- 
 1.7.10.4
 
