@@ -1,32 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] v2 GRE: Add segmentation offload for GRE
-Date: Fri, 25 Jan 2013 11:52:18 -0800
-Message-ID: <1359143538.12374.3379.camel@edumazet-glaptop>
-References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
-	 <1359070199.12374.2557.camel@edumazet-glaptop>
-	 <CALnjE+rbqCgRwxr1TtFH92vKSJoTRhBP50f+jQmgWB9LanQhYw@mail.gmail.com>
-	 <1359077664.12374.2887.camel@edumazet-glaptop>
-	 <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [Web10g-user] Web10g TCP statistics patch - mainlining into kernel?
+Date: Fri, 25 Jan 2013 14:56:24 -0500
+Message-ID: <23149.1359143784@turing-police.cc.vt.edu>
+References: <18855.1359138716@turing-police.cc.vt.edu>
+            <5102DE61.80804@psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/signed; boundary="==_Exmh_1359143784_1992P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:43472 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945Ab3AYTwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 14:52:21 -0500
-Received: by mail-pb0-f42.google.com with SMTP id rp2so402028pbb.1
-        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 11:52:20 -0800 (PST)
-In-Reply-To: <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, web10g-user@web10g.org,
+	linux-kernel@vger.kernel.org
+To: rapier <rapier@psc.edu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Fri, 25 Jan 2013 14:34:57 -0500."
+             <5102DE61.80804@psc.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-01-24 at 19:38 -0800, Pravin Shelar wrote:
+--==_Exmh_1359143784_1992P
+Content-Type: text/plain; charset=us-ascii
 
-> I thought you were working on the fix. If not I will post patch.
+On Fri, 25 Jan 2013 14:34:57 -0500, rapier said:
 
-I am working on a patch, will send it shortly.
+> My name is Chris Rapier and I'm on the Web10G dev team. We are
+> interested in moving this into consideration for the mainline Linux
+> kernel, in fact it's the primary goal of this project. We haven't
+> brought this to the linux kernel community as of yet as we've not
+> completed the quantification of performance/memory impact versus a
+> vanilla baseline as of yet.
 
-As it is a stable candidate, I did a short one.
+I already looked over the patch and it looks *fairly* sane.  Having said
+that, the best way to proceed for the performance side is probably to
+get some rough ballpark numbers and then get the patch into a state
+that's upstream-able before doing the final measurements (because there's
+actually a high likelihood that the final numbers will end up being
+dependent on the exact details of the patch, plus having more eyeballs on
+it from the netdev side may shake out better approaches).
+
+Sorry if you've already done all that - I didn't see much evidence of
+it from the web10g-user archives...
+
+--==_Exmh_1359143784_1992P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBUQLjZwdmEQWDXROgAQL6uA//Xlo5ukYgPkGVHsOghQ0kohti2lgtK7rn
+gJK5wYBBAbtSou71uf0wz7vwY5hmFnNNwG4hbGjHhkE5BsDOign0UF5STCd0i+bg
+g4rYfVlw94GqDopjWr4tp9yT3TmGVNykTV/33cxFIq0uyPrE9PG4s5P/ItfzQ3XO
+YkoMUb1Ww+Acr1t7tRNCymzgAZSzSWR4FOxbqg0r7u1xoKuxpRMRlSohZ7hopV5c
+jX596z6OGGfF8VprESV1EtFTbgmSuHXhVnt3wQ+pX2UrTwsMBHSnWWDChJ+oSTC1
+cDZ7T9ZJxmZcFuQZB8N5raBw3kH70PEnuVVpH6QGcLePtVZzSOOYtpiO5CGH6FrR
+xBBhhoCmLRXbonnX9osf2pDAJK+MOXOzbTOvW22Xwj/E3iPpTPgoD3zQrYHPet9z
+DoA7QN5i5Ql33PLwaLPc4m5X+JP8vn6AxqO9DHHDmWuROAL4kM85pHoTeEuJUoaS
+0H/iTGBOr+keRaM9gH+8gZO/Fx+s9rKOhcJpt68UAqeG/R2IThDYCQGraSDga1cu
+xs6kaSzQ6F/MHxye38aiCcRIJx2u6k6MA5sY1o+myhfBY4HHK4kJnS90iGsnw70O
+l5qRkpJ7AWp3XgwC2FlfFaudgUF4AP71qj3UeZcqw7D7ZxiEivT9gzmI2R7n6evd
+sZskFZVwuno=
+=b4x0
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1359143784_1992P--
