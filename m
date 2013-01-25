@@ -1,84 +1,195 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH [iputils] 4/6] doc: fix parallel build of html/man pages
-Date: Fri, 25 Jan 2013 00:24:13 -0500
-Message-ID: <1359091455-25380-4-git-send-email-vapier@gentoo.org>
-References: <1359091455-25380-1-git-send-email-vapier@gentoo.org>
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: Re: [PATCH V6 2/3] virtio-net: split out clean affinity function
+Date: Fri, 25 Jan 2013 13:40:11 +0800
+Message-ID: <51021ABB.8050508@cn.fujitsu.com>
+References: <1358767524-17934-1-git-send-email-gaowanlong@cn.fujitsu.com> <1358767524-17934-2-git-send-email-gaowanlong@cn.fujitsu.com> <5101FBE0.7040505@redhat.com> <51020800.4080900@cn.fujitsu.com> <5102145D.7030607@redhat.com>
+Reply-To: gaowanlong@cn.fujitsu.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Wanlong Gao <gaowanlong@cn.fujitsu.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:38489 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751316Ab3AYFYP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 00:24:15 -0500
-In-Reply-To: <1359091455-25380-1-git-send-email-vapier@gentoo.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:18672 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751227Ab3AYFkW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 00:40:22 -0500
+In-Reply-To: <5102145D.7030607@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The use of the same tempdir prevents building of these files in parallel.
-So build all of them in unique tempdirs so we can do them in parallel.
+On 01/25/2013 01:13 PM, Jason Wang wrote:
+> On 01/25/2013 12:20 PM, Wanlong Gao wrote:
+>> On 01/25/2013 11:28 AM, Jason Wang wrote:
+>>> On 01/21/2013 07:25 PM, Wanlong Gao wrote:
+>>>> Split out the clean affinity function to virtnet_clean_affinity().
+>>>>
+>>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>>>> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+>>>> Cc: Jason Wang <jasowang@redhat.com>
+>>>> Cc: Eric Dumazet <erdnetdev@gmail.com>
+>>>> Cc: virtualization@lists.linux-foundation.org
+>>>> Cc: netdev@vger.kernel.org
+>>>> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+>>>> ---
+>>>> V5->V6: NEW
+>>>>
+>>>>  drivers/net/virtio_net.c | 67 +++++++++++++++++++++++++++---------------------
+>>>>  1 file changed, 38 insertions(+), 29 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>>>> index 70cd957..1a35a8c 100644
+>>>> --- a/drivers/net/virtio_net.c
+>>>> +++ b/drivers/net/virtio_net.c
+>>>> @@ -1016,48 +1016,57 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+>>>>  	return 0;
+>>>>  }
+>>>>  
+>>>> -static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>>>> +static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
+>>>>  {
+>>>>  	int i;
+>>>>  	int cpu;
+>>>>  
+>>>> -	/* In multiqueue mode, when the number of cpu is equal to the number of
+>>>> -	 * queue pairs, we let the queue pairs to be private to one cpu by
+>>>> -	 * setting the affinity hint to eliminate the contention.
+>>>> -	 */
+>>>> -	if ((vi->curr_queue_pairs == 1 ||
+>>>> -	     vi->max_queue_pairs != num_online_cpus()) && set) {
+>>>> -		if (vi->affinity_hint_set)
+>>>> -			set = false;
+>>>> -		else
+>>>> -			return;
+>>>> -	}
+>>>> -
+>>>> -	if (set) {
+>>>> -		i = 0;
+>>>> -		for_each_online_cpu(cpu) {
+>>>> -			virtqueue_/set_affinity(vi->rq[i].vq, cpu);
+>>>> -			virtqueue_set_affinity(vi->sq[i].vq, cpu);
+>>>> -			*per_cpu_ptr(vi->vq_index, cpu) = i;
+>>>> -			i++;
+>>>> -		}
+>>>> -
+>>>> -		vi->affinity_hint_set = true;
+>>>> -	} else {
+>>>> -		for(i = 0; i < vi->max_queue_pairs; i++) {
+>>>> +	if (vi->affinity_hint_set) {
+>>>> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+>>>>  			virtqueue_set_affinity(vi->rq[i].vq, -1);
+>>>>  			virtqueue_set_affinity(vi->sq[i].vq, -1);
+>>>>  		}
+>>>>  
+>>>>  		i = 0;
+>>>> -		for_each_online_cpu(cpu)
+>>>> +		for_each_online_cpu(cpu) {
+>>>> +			if (cpu == hcpu)
+>>>> +				continue;
+>>>>  			*per_cpu_ptr(vi->vq_index, cpu) =
+>>>>  				++i % vi->curr_queue_pairs;
+>>>> +		}
+>>>>  
+>>> Some questions here:
+>>>
+>>> - Did we need reset the affinity of the queue here like the this?
+>>>
+>>> virtqueue_set_affinity(vi->sq[*per_cpu_ptr(vi->vq_index, hcpu)], -1);
+>>> virtqueue_set_affinity(vi->rq[*per_cpu_ptr(vi->vq_index, hcpu)], -1);
+>> I think no, we are going to unset the affinity of all the set queues,
+>> include hcpu.
+>>
+>>> - Looks like we need also reset the percpu index when
+>>> vi->affinity_hint_set is false.
+>> Yes, follow this and the comment on [1/3].
+>>
+>>> - Does this really need this reset? Consider we're going to reset the
+>>> percpu in CPU_DEAD?
+>> I think resetting when CPU_DOWN_PREPARE can avoid selecting the wrong queue
+>> on the dying CPU.
+> 
+> Didn't understand this. What does 'wrong queue' here mean? Looks like
+> you didn't change the preferable queue of the dying CPU and just change
+> all others.
 
-Signed-off-by: Mike Frysinger <vapier@gentoo.org>
----
- doc/Makefile | 37 ++++++++++++++++++++++++-------------
- 1 file changed, 24 insertions(+), 13 deletions(-)
+How about setting the vq index to -1 on hcpu when doing DOWN_PREPARE?
+So that let it select txq to 0 when the CPU is dying.
 
-diff --git a/doc/Makefile b/doc/Makefile
-index 7ec4f1c..a9c303e 100644
---- a/doc/Makefile
-+++ b/doc/Makefile
-@@ -12,29 +12,40 @@ man: $(MANFILES)
- # lots of some strange temporary junk directories and files.
- # So, scope it to a temporary dir and clean all after each run.
- 
--$(HTMLFILES): index.db
--	@-rm -rf tmp.db2html
--	@mkdir tmp.db2html
--	@set -e; cd tmp.db2html; docbook2html ../$< ; mv *.html ..
--	@-rm -rf tmp.db2html
-+SETUP_TMPDIR = \
-+	t="tmp.db2html.$@"; \
-+	rm -rf $$t; \
-+	mkdir $$t; \
-+	pushd $$t >/dev/null
-+CLEAN_TMPDIR = \
-+	popd >/dev/null; \
-+	rm -rf $$t
-+
-+MAKE_HTML = \
-+	@set -e; \
-+	$(SETUP_TMPDIR); \
-+	docbook2html ../$<; \
-+	mv *.html ..; \
-+	$(CLEAN_TMPDIR)
- 
-+$(HTMLFILES): index.db
-+	$(MAKE_HTML)
- iputils.html: iputils.db
--	@-rm -rf tmp.db2html
--	@mkdir tmp.db2html
--	@set -e; cd tmp.db2html; docbook2html -u -o html ../$< ; mv html/$@ ..
--	@-rm -rf tmp.db2html
-+	$(MAKE_HTML)
- 
- # docbook2man produces utterly ugly output and I did not find
- # any way to customize this but hacking backend perl script a little.
- # Well, hence...
- 
- $(MANFILES): index.db
--	@-mkdir tmp.db2man
--	@set -e; cd tmp.db2man; nsgmls ../$< | sgmlspl ../docbook2man-spec.pl ;	mv $@ ..
--	@-rm -rf tmp.db2man
-+	@set -e; \
-+	$(SETUP_TMPDIR); \
-+	nsgmls ../$< | sgmlspl ../docbook2man-spec.pl; \
-+	mv $@ ..; \
-+	$(CLEAN_TMPDIR)
- 
- clean:
--	@rm -rf $(MANFILES) $(HTMLFILES) iputils.html tmp.db2html tmp.db2man
-+	@rm -rf $(MANFILES) $(HTMLFILES) iputils.html tmp.db2html* tmp.db2man*
- 
- snapshot:
- 	@date "+%y%m%d" > snapshot.db
--- 
-1.8.0.2
+Thanks,
+Wanlong Gao
+
+>>
+>> Thanks,
+>> Wanlong Gao
+>>
+>>> Thanks
+>>>>  		vi->affinity_hint_set = false;
+>>>>  	}
+>>>>  }
+>>>>  
+>>>> +static void virtnet_set_affinity(struct virtnet_info *vi)
+>>>> +{
+>>>> +	int i;
+>>>> +	int cpu;
+>>>> +
+>>>> +	/* In multiqueue mode, when the number of cpu is equal to the number of
+>>>> +	 * queue pairs, we let the queue pairs to be private to one cpu by
+>>>> +	 * setting the affinity hint to eliminate the contention.
+>>>> +	 */
+>>>> +	if (vi->curr_queue_pairs == 1 ||
+>>>> +	    vi->max_queue_pairs != num_online_cpus()) {
+>>>> +		if (vi->affinity_hint_set)
+>>>> +			virtnet_clean_affinity(vi, -1);
+>>>> +		else
+>>>> +			return;
+>>>> +	}
+>>>> +
+>>>> +	i = 0;
+>>>> +	for_each_online_cpu(cpu) {
+>>>> +		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+>>>> +		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+>>>> +		*per_cpu_ptr(vi->vq_index, cpu) = i;
+>>>> +		i++;
+>>>> +	}
+>>>> +
+>>>> +	vi->affinity_hint_set = true;
+>>>> +}
+>>>> +
+>>>>  static void virtnet_get_ringparam(struct net_device *dev,
+>>>>  				struct ethtool_ringparam *ring)
+>>>>  {
+>>>> @@ -1105,7 +1114,7 @@ static int virtnet_set_channels(struct net_device *dev,
+>>>>  		netif_set_real_num_rx_queues(dev, queue_pairs);
+>>>>  
+>>>>  		get_online_cpus();
+>>>> -		virtnet_set_affinity(vi, true);
+>>>> +		virtnet_set_affinity(vi);
+>>>>  		put_online_cpus();
+>>>>  	}
+>>>>  
+>>>> @@ -1274,7 +1283,7 @@ static void virtnet_del_vqs(struct virtnet_info *vi)
+>>>>  {
+>>>>  	struct virtio_device *vdev = vi->vdev;
+>>>>  
+>>>> -	virtnet_set_affinity(vi, false);
+>>>> +	virtnet_clean_affinity(vi, -1);
+>>>>  
+>>>>  	vdev->config->del_vqs(vdev);
+>>>>  
+>>>> @@ -1398,7 +1407,7 @@ static int init_vqs(struct virtnet_info *vi)
+>>>>  		goto err_free;
+>>>>  
+>>>>  	get_online_cpus();
+>>>> -	virtnet_set_affinity(vi, true);
+>>>> +	virtnet_set_affinity(vi);
+>>>>  	put_online_cpus();
+>>>>  
+>>>>  	return 0;
+>>>
+> 
+> 
