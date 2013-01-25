@@ -1,65 +1,62 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] vhost-net: fall back to vmalloc if high-order allocation fails
-Date: Fri, 25 Jan 2013 13:15:51 +0800
-Message-ID: <4164122.3gtdQVSA24@jason-thinkpad-t430s>
-References: <87k3r31vbc.fsf@silenus.orebokech.com> <kdsslg$ddn$1@ger.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Subject: [PATCH [iputils] 3/6] start gitignore files
+Date: Fri, 25 Jan 2013 00:24:12 -0500
+Message-ID: <1359091455-25380-3-git-send-email-vapier@gentoo.org>
+References: <1359091455-25380-1-git-send-email-vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3764 "EHLO mx1.redhat.com"
+Received: from smtp.gentoo.org ([140.211.166.183]:38486 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750776Ab3AYFP4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 00:15:56 -0500
-In-Reply-To: <kdsslg$ddn$1@ger.gmane.org>
+	id S1751305Ab3AYFYO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 00:24:14 -0500
+In-Reply-To: <1359091455-25380-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, January 25, 2013 03:03:13 AM Cong Wang wrote:
-> ["Followup-To:" header set to gmane.linux.network.]
-> 
-> On Wed, 23 Jan 2013 at 20:46 GMT, Romain Francoise <romain@orebokech.com> 
-wrote:
-> > Creating a vhost-net device allocates an object large enough (34320 bytes
-> > on x86-64) to trigger an order-4 allocation, which may fail if memory if
-> > 
-> > fragmented:
-> >  libvirtd: page allocation failure: order:4, mode:0x2000d0
-> >  ...
-> >  SLAB: Unable to allocate memory on node 0 (gfp=0xd0)
-> >  
-> >    cache: size-65536, object size: 65536, order: 4
-> >    node 0: slabs: 8/8, objs: 8/8, free: 0
-> > 
-> > In that situation, rather than forcing the caller to use regular
-> > virtio-net, try to allocate the descriptor with vmalloc().
-> 
-> The real problem is vhost_net struct is really big, it
-> should be reduced rather than workarounded like this.
-> 
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
+---
+ .gitignore     | 22 ++++++++++++++++++++++
+ doc/.gitignore |  2 ++
+ 2 files changed, 24 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 doc/.gitignore
 
-Looks like iov in vhost_virtqueue is a little big:
-
-    struct iovec iov[UIO_MAXIOV];
-
-Maybe we can use pointer and allocate it like indirect in 
-vhost_dev_alloc_iovecs().
-
-> > +static void vhost_net_kvfree(void *addr)
-> > +{
-> > +	if (is_vmalloc_addr(addr))
-> > +		vfree(addr);
-> > +	else
-> > +		kfree(addr);
-> > +}
-> > +
-> 
-> This kind of stuff should really go to mm, not netdev.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..30ed00c
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,22 @@
++*~
++*.o
++
++*.diff
++*.orig
++*.patch
++*.rej
++
++core
++.gdb_history
++.gdbinit
++
++/arping
++/clockdiff
++/ping
++/ping6
++/rarpd
++/rdisc
++/tftpd
++/tracepath
++/tracepath6
++/traceroute6
+diff --git a/doc/.gitignore b/doc/.gitignore
+new file mode 100644
+index 0000000..085639f
+--- /dev/null
++++ b/doc/.gitignore
+@@ -0,0 +1,2 @@
++*.html
++*.8
+-- 
+1.8.0.2
