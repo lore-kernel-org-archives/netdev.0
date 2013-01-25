@@ -1,60 +1,68 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch] ipvs: freeing uninitialized pointer on error
-Date: Fri, 25 Jan 2013 22:56:11 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1301252244200.1872@ja.ssi.bg>
-References: <20130125154456.GB5908@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH] vmxnet3: set carrier state properly on probe
+Date: Fri, 25 Jan 2013 15:54:13 -0500
+Message-ID: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"VMware, Inc." <pv-drivers@vmware.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:54160 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752418Ab3AYUxr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 15:53:47 -0500
-In-Reply-To: <20130125154456.GB5908@elgon.mountain>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:45643 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372Ab3AYUyj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 15:54:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+vmxnet3 fails to set netif_carrier_off on probe, meaning that when an interface
+is opened the __LINK_STATE_NOCARRIER bit is already cleared, and so
+/sys/class/net/<ifname>/operstate remains in the unknown state.  Correct this by
+setting netif_carrier_off on probe, like other drivers do.
 
-	Hello,
+Also, while we're at it, lets remove the netif_carrier_ok checks from the
+link_state_update function, as that check is atomically contained within the
+netif_carrier_[on|off] functions anyway
 
-On Fri, 25 Jan 2013, Dan Carpenter wrote:
+Tested successfully by myself
 
-> If state != IP_VS_STATE_BACKUP then tinfo->buf is uninitialized.  If
-> kthread_run() fails then it means we free random memory resulting in an
-> oops.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: "VMware, Inc." <pv-drivers@vmware.com>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-	Good catch. Simon, please apply!
-
-	Problem is in 3.5+ caused by commit f73181c828
-(ipvs: add support for sync threads)
-
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index effa10c..44fd10c 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -1795,6 +1795,8 @@ int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid)
->  					     GFP_KERNEL);
->  			if (!tinfo->buf)
->  				goto outtinfo;
-> +		} else {
-> +			tinfo->buf = NULL;
->  		}
->  		tinfo->id = id;
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index b1c90f8..66c26a9 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -150,8 +150,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
+ 	if (ret & 1) { /* Link is up. */
+ 		netdev_info(adapter->netdev, "NIC Link is Up %d Mbps\n",
+ 			    adapter->link_speed);
+-		if (!netif_carrier_ok(adapter->netdev))
+-			netif_carrier_on(adapter->netdev);
++		netif_carrier_on(adapter->netdev);
+ 
+ 		if (affectTxQueue) {
+ 			for (i = 0; i < adapter->num_tx_queues; i++)
+@@ -160,8 +159,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
+ 		}
+ 	} else {
+ 		netdev_info(adapter->netdev, "NIC Link is Down\n");
+-		if (netif_carrier_ok(adapter->netdev))
+-			netif_carrier_off(adapter->netdev);
++		netif_carrier_off(adapter->netdev);
+ 
+ 		if (affectTxQueue) {
+ 			for (i = 0; i < adapter->num_tx_queues; i++)
+@@ -3067,6 +3065,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 		goto err_register;
+ 	}
+ 
++	netif_carrier_off(netdev);
+ 	vmxnet3_check_link(adapter, false);
+ 	return 0;
+ 
+-- 
+1.7.11.7
