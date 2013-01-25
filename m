@@ -1,64 +1,44 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH] mwifiex: don't return zero on failure paths in
- mwifiex_pcie_init()
-Date: Fri, 25 Jan 2013 13:03:30 -0800
-Message-ID: <477F20668A386D41ADCC57781B1F70430D1418CA15@SC-VEXCH1.marvell.com>
-References: <1359147363-9587-1-git-send-email-khoroshilov@ispras.ru>
+From: Andy King <acking@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
+Date: Fri, 25 Jan 2013 13:33:34 -0800 (PST)
+Message-ID: <362258122.36962636.1359149614436.JavaMail.root@vmware.com>
+References: <1426158581.24554896.1357785777229.JavaMail.root@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"ldv-project@linuxtesting.org" <ldv-project@linuxtesting.org>
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>
+To: Gerd Hoffmann <kraxel@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359147363-9587-1-git-send-email-khoroshilov@ispras.ru>
-Content-Language: en-US
+In-Reply-To: <1426158581.24554896.1357785777229.JavaMail.root@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexey,
-
-Thanks for the patch.
-
-> If pci_iomap() fails in mwifiex_pcie_init(), it breaks off initialization,
-> deallocates all resources, but returns zero.
-> The patch adds -EIO as return value in this case.
+> > > Our position is that VSOCK feature set is more complete and that
+> > > it
+> > > should be possible to use transports other than VMCI for VSOCK
+> > > traffic, should interested parties implement them,
+> > 
+> > Implementing other transports requires restructing vsock (and vmci)
+> > first as the current vsock code is not a hypervisor neutral
+> > service.
 > 
-> Found by Linux Driver Verification project (linuxtesting.org).
-> 
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+> I'm going to bite the bullet and spend the next couple of days doing
+> just that: factoring out the VMCI bits and hiding them behind a
+> transport layer.  It'll be a bit rough, but it'll be a start.  We'll
+> submit another patch series next week with that.  I'm hoping that'll
+> get us over this hump, since it should by hypervisor agnostic at
+> that point.  It'll be up to you guys to add virtio, though :)
 
-Acked-by: Bing Zhao <bzhao@marvell.com>
+I sent out a patch series this morning that splits out our code into a
+core part, containing the socket family/operations, and a VMCI-specific
+part.  The core makes callbacks via a new transport layer into VMCI.
+It's not perfect -- there's still some cruft in the core socket
+structure -- but it lays the foundation of a hypervisor-neutral channel,
+and hopefully we can build on this with your help.  It'd be great if
+you could take a look.
 
-Thanks,
-Bing
-
-> ---
->  drivers/net/wireless/mwifiex/pcie.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
-> index 13fbc4e..9d9349c 100644
-> --- a/drivers/net/wireless/mwifiex/pcie.c
-> +++ b/drivers/net/wireless/mwifiex/pcie.c
-> @@ -1739,6 +1739,7 @@ static int mwifiex_pcie_init(struct mwifiex_adapter *adapter)
->  	card->pci_mmap = pci_iomap(pdev, 0, 0);
->  	if (!card->pci_mmap) {
->  		dev_err(adapter->dev, "iomap(0) error\n");
-> +		ret = -EIO;
->  		goto err_iomap0;
->  	}
->  	ret = pci_request_region(pdev, 2, DRV_NAME);
-> @@ -1749,6 +1750,7 @@ static int mwifiex_pcie_init(struct mwifiex_adapter *adapter)
->  	card->pci_mmap1 = pci_iomap(pdev, 2, 0);
->  	if (!card->pci_mmap1) {
->  		dev_err(adapter->dev, "iomap(2) error\n");
-> +		ret = -EIO;
->  		goto err_iomap2;
->  	}
-> 
-> --
-> 1.7.9.5
+Thanks!
+- Andy
