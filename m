@@ -1,42 +1,61 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH/RFC 2/3] ethernet: add a PHY reset GPIO DT binding to
- sh_eth
-Date: Fri, 25 Jan 2013 11:21:37 -0700
-Message-ID: <20130125182137.GB7393@obsidianresearch.com>
-References: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de>
- <1359043653-11374-3-git-send-email-g.liakhovetski@gmx.de>
- <7921225.sfO3PIeLVS@avalon>
- <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	linux-sh@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>,
-	linux-arm-kernel@lists.infradead.org
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [patch net-next V2] bond: have random dev address by default instead of zeroes
+Date: Fri, 25 Jan 2013 10:31:32 -0800
+Message-ID: <22106.1359138692@death.nxdomain>
+References: <542237717.4200599.1359136587903.JavaMail.root@redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	stephen@networkplumber.org, dcbw@redhat.com,
+	Jiri Pirko <jiri@resnulli.us>
+To: Pavel Simerda <psimerda@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from quartz.orcorp.ca ([184.70.90.242]:50890 "EHLO quartz.orcorp.ca"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932108Ab3AYSVl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 13:21:41 -0500
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:36386 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752806Ab3AYSbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 13:31:42 -0500
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Fri, 25 Jan 2013 11:31:42 -0700
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 984DC3E40040
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 11:31:32 -0700 (MST)
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r0PIVckP026676
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 11:31:38 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r0PIVY4l013589
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 11:31:35 -0700
+In-reply-to: <542237717.4200599.1359136587903.JavaMail.root@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 25, 2013 at 11:34:55AM +0100, Guennadi Liakhovetski wrote:
+Pavel Simerda <psimerda@redhat.com> wrote:
 
-> > Is there no need to reset the phy at runtime ?
-> 
-> No idea, I'm not developing the driver, I'm just porting one specific 
-> feature from one API to another with no functional changes (apart from 
-> postponing setting the GPIO).
+>----- Original Message -----
+>> From: "Jay Vosburgh" <fubar@us.ibm.com>
+>> but I don't think it should be changed.
+>
+>Just a short question. Is there any reason for bonding interfaces to
+>behave differently from bridging interfaces in this respect?
 
-Generally Linux relies on resetting the phy via the inband MDIO method,
-which is what Linux does. It is pretty much never required to reset
-via the hard pin - but you do need to generate a robust reset edge on
-the reset pin once after power up.
+	To clarify, what I don't think should change is that a manually
+set MAC on the bonding master should override the automatic copy of the
+first slave's MAC to the bonding master.  The fail_over_mac active and
+follow settings are an exception to this, but those are special cases
+for unusual network hardware.
 
-Jason
+	As for the random MAC vs. zero MAC, I've always thought that the
+all zero MAC was a clear indicator that the device (the bonding master
+in this case) was not in a usable state (in the sense that it could not
+send or receive actual traffic).  It's not a really big deal, though, so
+if the trend these days is for everything to have a MAC all the time,
+that's fine, as long as doing so doesn't break anything.
+
+	I think the patch under discussion should be fine with the
+addition of the last notifier call previously discussed.  Some
+documentation updates would be nice, too.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
