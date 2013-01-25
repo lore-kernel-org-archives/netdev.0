@@ -1,11 +1,8 @@
 From: Alex Bligh <alex@alex.org.uk>
-Subject: [RFC] [PATCH 5/7] net: move skb frag kmap functions to skbuff.h
-Date: Fri, 25 Jan 2013 14:27:05 +0000
-Message-ID: <1359124027-1170-6-git-send-email-alex@alex.org.uk>
+Subject: [RFC] [PATCH 4/7] sunrpc: use SKB fragment destructors to delay completion until page is released by network stack.
+Date: Fri, 25 Jan 2013 14:27:04 +0000
+Message-ID: <1359124027-1170-5-git-send-email-alex@alex.org.uk>
 References: <1359124027-1170-1-git-send-email-alex@alex.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
 	Ian Campbell <Ian.Campbell@citrix.com>,
 	Alex Bligh <alex@alex.org.uk>,
@@ -13,301 +10,228 @@ Cc: Stefano Stabellini <stefano.stabellini@eu.citrix.com>,
 	Mel Gorman <mgorman@suse.de>
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.avalus.com ([89.16.176.221]:50398 "EHLO mail.avalus.com"
+Received: from mail.avalus.com ([89.16.176.221]:59004 "EHLO mail.avalus.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751536Ab3AYOhz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 09:37:55 -0500
+	id S1752830Ab3AYOh4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 09:37:56 -0500
 In-Reply-To: <1359124027-1170-1-git-send-email-alex@alex.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ian Campbell <ian.campbell@>
+From: Ian Campbell <ian.campbell at>
 
-The usage is open-coded in drivers/scsi/fcoe/fcoe.c and net/appletalk/d=
-dp.c
-uses an out-of-directory local include of "../core/kmap_skb.h".
-
-Rename functions k(un)map_skb_frag to skb_frag_k(un)map_atomic to avoid
-confusion with shortly to be introduced skb_frag_k(un)map.
+This prevents an issue where an ACK is delayed, a retransmit is queued (either
+at the RPC or TCP level) and the ACK arrives before the retransmission hits the
+wire. If this happens to an NFS WRITE RPC then the write() system call
+completes and the userspace process can continue, potentially modifying data
+referenced by the retransmission before the retransmission occurs.
 
 Signed-off-by: Ian Campbell <ian.campbell <at> citrix.com>
-Cc: Robert Love <robert.w.love <at> intel.com>
-Cc: "James E.J. Bottomley" <JBottomley <at> parallels.com>
-Cc: Arnaldo Carvalho de Melo <acme <at> ghostprotocols.net>
+Acked-by: Trond Myklebust <Trond.Myklebust <at> netapp.com>
 Cc: "David S. Miller" <davem <at> davemloft.net>
-Cc: Eric Dumazet <eric.dumazet <at> gmail.com>
-Cc: "Micha=C5=82 Miros=C5=82aw" <mirq-linux <at> rere.qmqm.pl>
-Cc: Tom Herbert <therbert <at> google.com>
-Cc: devel <at> open-fcoe.org
-Cc: linux-scsi <at> vger.kernel.org
-Cc: linux-kernel <at> vger.kernel.org
+Cc: Neil Brown <neilb <at> suse.de>
+Cc: "J. Bruce Fields" <bfields <at> fieldses.org>
+Cc: linux-nfs <at> vger.kernel.org
 Cc: netdev <at> vger.kernel.org
+[since v1:
+  Push down from NFS layer into RPM layer
+]
 Signed-off-by: Alex Bligh <alex@alex.org.uk>
 ---
- drivers/scsi/fcoe/fcoe.c |    7 +++----
- include/linux/skbuff.h   |   19 +++++++++++++++++++
- net/appletalk/ddp.c      |    5 ++---
- net/core/kmap_skb.h      |   19 -------------------
- net/core/skbuff.c        |   35 +++++++++++++++++------------------
- 5 files changed, 41 insertions(+), 44 deletions(-)
+ include/linux/sunrpc/xdr.h  |    2 ++
+ include/linux/sunrpc/xprt.h |    5 ++++-
+ net/sunrpc/clnt.c           |   27 ++++++++++++++++++++++-----
+ net/sunrpc/svcsock.c        |    3 ++-
+ net/sunrpc/xprt.c           |   13 +++++++++++++
+ net/sunrpc/xprtsock.c       |    3 ++-
+ 6 files changed, 45 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
-index 8d67467..70ab372 100644
---- a/drivers/scsi/fcoe/fcoe.c
-+++ b/drivers/scsi/fcoe/fcoe.c
-@@ -1458,6 +1458,7 @@ int fcoe_xmit(struct fc_lport *lport, struct fc_f=
-rame *fp)
- 	struct ethhdr *eh;
- 	struct fcoe_crc_eof *cp;
- 	struct sk_buff *skb;
-+	skb_frag_t *frag;
- 	struct fcoe_dev_stats *stats;
- 	struct fc_frame_header *fh;
- 	unsigned int hlen;		/* header length implies the version */
-@@ -1504,14 +1505,12 @@ int fcoe_xmit(struct fc_lport *lport, struct fc=
-_frame *fp)
-=20
- 	/* copy port crc and eof to the skb buff */
- 	if (skb_is_nonlinear(skb)) {
--		skb_frag_t *frag;
- 		if (fcoe_alloc_paged_crc_eof(skb, tlen)) {
- 			kfree_skb(skb);
- 			return -ENOMEM;
- 		}
- 		frag =3D &skb_shinfo(skb)->frags[skb_shinfo(skb)->nr_frags - 1];
--		cp =3D kmap_atomic(skb_frag_page(frag), KM_SKB_DATA_SOFTIRQ)
--			+ frag->page_offset;
-+		cp =3D skb_frag_kmap_atomic(frag) + frag->page_offset;
- 	} else {
- 		cp =3D (struct fcoe_crc_eof *)skb_put(skb, tlen);
- 	}
-@@ -1521,7 +1520,7 @@ int fcoe_xmit(struct fc_lport *lport, struct fc_f=
-rame *fp)
- 	cp->fcoe_crc32 =3D cpu_to_le32(~crc);
-=20
- 	if (skb_is_nonlinear(skb)) {
--		kunmap_atomic(cp, KM_SKB_DATA_SOFTIRQ);
-+		skb_frag_kunmap_atomic(frag);
- 		cp =3D NULL;
- 	}
-=20
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 8a8eecd..84a54d6 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -29,6 +29,7 @@
- #include <linux/rcupdate.h>
- #include <linux/dmaengine.h>
- #include <linux/hrtimer.h>
-+#include <linux/highmem.h>
- #include <linux/dma-mapping.h>
-=20
- /* Don't change this without changing skb_csum_unnecessary! */
-@@ -1848,6 +1849,24 @@ static inline void skb_frag_set_page(struct sk_b=
-uff *skb, int f,
- 	__skb_frag_set_page(&skb_shinfo(skb)->frags[f], page);
- }
-=20
-+static inline void *skb_frag_kmap_atomic(const skb_frag_t *frag)
-+{
-+#ifdef CONFIG_HIGHMEM
-+	BUG_ON(in_irq());
+diff --git a/include/linux/sunrpc/xdr.h b/include/linux/sunrpc/xdr.h
+index a20970e..172f81e 100644
+--- a/include/linux/sunrpc/xdr.h
++++ b/include/linux/sunrpc/xdr.h
+@@ -16,6 +16,7 @@
+ #include <asm/byteorder.h>
+ #include <asm/unaligned.h>
+ #include <linux/scatterlist.h>
++#include <linux/skbuff.h>
+ 
+ /*
+  * Buffer adjustment
+@@ -57,6 +58,7 @@ struct xdr_buf {
+ 			tail[1];	/* Appended after page data */
+ 
+ 	struct page **	pages;		/* Array of contiguous pages */
++	struct skb_frag_destructor *destructor;
+ 	unsigned int	page_base,	/* Start of page data */
+ 			page_len,	/* Length of page data */
+ 			flags;		/* Flags for data disposition */
+diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
+index 15518a1..75131eb 100644
+--- a/include/linux/sunrpc/xprt.h
++++ b/include/linux/sunrpc/xprt.h
+@@ -92,7 +92,10 @@ struct rpc_rqst {
+ 						/* A cookie used to track the
+ 						   state of the transport
+ 						   connection */
+-	
++	struct skb_frag_destructor destructor;	/* SKB paged fragment
++						 * destructor for
++						 * transmitted pages*/
 +
-+	local_bh_disable();
-+#endif
-+	return kmap_atomic(skb_frag_page(frag), KM_SKB_DATA_SOFTIRQ);
-+}
+ 	/*
+ 	 * Partial send handling
+ 	 */
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index f0268ea..06f363f 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -61,6 +61,7 @@ static void	call_reserve(struct rpc_task *task);
+ static void	call_reserveresult(struct rpc_task *task);
+ static void	call_allocate(struct rpc_task *task);
+ static void	call_decode(struct rpc_task *task);
++static void	call_complete(struct rpc_task *task);
+ static void	call_bind(struct rpc_task *task);
+ static void	call_bind_status(struct rpc_task *task);
+ static void	call_transmit(struct rpc_task *task);
+@@ -1115,6 +1116,8 @@ rpc_xdr_encode(struct rpc_task *task)
+ 			 (char *)req->rq_buffer + req->rq_callsize,
+ 			 req->rq_rcvsize);
+ 
++	req->rq_snd_buf.destructor = &req->destructor;
 +
-+static inline void skb_frag_kunmap_atomic(void *vaddr)
-+{
-+	kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
-+#ifdef CONFIG_HIGHMEM
-+	local_bh_enable();
-+#endif
-+}
-+
- /**
-  * skb_frag_dma_map - maps a paged fragment via the DMA API
-  * @dev: the device to map the fragment to
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index bfa9ab9..ecc6f63 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -63,7 +63,6 @@
- #include <net/tcp_states.h>
- #include <net/route.h>
- #include <linux/atalk.h>
--#include "../core/kmap_skb.h"
-=20
- struct datalink_proto *ddp_dl, *aarp_dl;
- static const struct proto_ops atalk_dgram_ops;
-@@ -960,10 +959,10 @@ static unsigned long atalk_sum_skb(const struct s=
-k_buff *skb, int offset,
-=20
- 			if (copy > len)
- 				copy =3D len;
--			vaddr =3D kmap_skb_frag(frag);
-+			vaddr =3D skb_frag_kmap_atomic(frag);
- 			sum =3D atalk_sum_partial(vaddr + frag->page_offset +
- 						  offset - start, copy, sum);
--			kunmap_skb_frag(vaddr);
-+			skb_frag_kunmap_atomic(vaddr);
-=20
- 			if (!(len -=3D copy))
- 				return sum;
-diff --git a/net/core/kmap_skb.h b/net/core/kmap_skb.h
-deleted file mode 100644
-index 81e1ed7..0000000
---- a/net/core/kmap_skb.h
-+++ /dev/null
-@@ -1,19 +0,0 @@
--#include <linux/highmem.h>
--
--static inline void *kmap_skb_frag(const skb_frag_t *frag)
--{
--#ifdef CONFIG_HIGHMEM
--	BUG_ON(in_irq());
--
--	local_bh_disable();
--#endif
--	return kmap_atomic(skb_frag_page(frag), KM_SKB_DATA_SOFTIRQ);
--}
--
--static inline void kunmap_skb_frag(void *vaddr)
--{
--	kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
--#ifdef CONFIG_HIGHMEM
--	local_bh_enable();
--#endif
--}
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 425cd5a..047f38f 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -69,8 +69,6 @@
- #include <asm/system.h>
- #include <trace/events/skb.h>
-=20
--#include "kmap_skb.h"
--
- static struct kmem_cache *skbuff_head_cache __read_mostly;
- static struct kmem_cache *skbuff_fclone_cache __read_mostly;
-=20
-@@ -676,10 +674,10 @@ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp=
-_mask)
- 			}
- 			return -ENOMEM;
- 		}
--		vaddr =3D kmap_skb_frag(&skb_shinfo(skb)->frags[i]);
-+		vaddr =3D skb_frag_kmap_atomic(&skb_shinfo(skb)->frags[i]);
- 		memcpy(page_address(page),
- 		       vaddr + f->page_offset, skb_frag_size(f));
--		kunmap_skb_frag(vaddr);
-+		skb_frag_kunmap_atomic(vaddr);
- 		page->private =3D (unsigned long)head;
- 		head =3D page;
- 	}
-@@ -1459,15 +1457,16 @@ int skb_copy_bits(const struct sk_buff *skb, in=
-t offset, void *to, int len)
- 		end =3D start + skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 		if ((copy =3D end - offset) > 0) {
- 			u8 *vaddr;
-+			skb_frag_t *frag =3D &skb_shinfo(skb)->frags[i];
-=20
- 			if (copy > len)
- 				copy =3D len;
-=20
--			vaddr =3D kmap_skb_frag(&skb_shinfo(skb)->frags[i]);
-+			vaddr =3D skb_frag_kmap_atomic(frag);
- 			memcpy(to,
--			       vaddr + skb_shinfo(skb)->frags[i].page_offset+
--			       offset - start, copy);
--			kunmap_skb_frag(vaddr);
-+			       vaddr + frag->page_offset + offset - start,
-+			       copy);
-+			skb_frag_kunmap_atomic(vaddr);
-=20
- 			if ((len -=3D copy) =3D=3D 0)
- 				return 0;
-@@ -1772,10 +1771,10 @@ int skb_store_bits(struct sk_buff *skb, int off=
-set, const void *from, int len)
- 			if (copy > len)
- 				copy =3D len;
-=20
--			vaddr =3D kmap_skb_frag(frag);
-+			vaddr =3D skb_frag_kmap_atomic(frag);
- 			memcpy(vaddr + frag->page_offset + offset - start,
- 			       from, copy);
--			kunmap_skb_frag(vaddr);
-+			skb_frag_kunmap_atomic(vaddr);
-=20
- 			if ((len -=3D copy) =3D=3D 0)
- 				return 0;
-@@ -1846,10 +1845,10 @@ __wsum skb_checksum(const struct sk_buff *skb, =
-int offset,
-=20
- 			if (copy > len)
- 				copy =3D len;
--			vaddr =3D kmap_skb_frag(frag);
-+			vaddr =3D skb_frag_kmap_atomic(frag);
- 			csum2 =3D csum_partial(vaddr + frag->page_offset +
- 					     offset - start, copy, 0);
--			kunmap_skb_frag(vaddr);
-+			skb_frag_kunmap_atomic(vaddr);
- 			csum =3D csum_block_add(csum, csum2, pos);
- 			if (!(len -=3D copy))
- 				return csum;
-@@ -1921,12 +1920,12 @@ __wsum skb_copy_and_csum_bits(const struct sk_b=
-uff *skb, int offset,
-=20
- 			if (copy > len)
- 				copy =3D len;
--			vaddr =3D kmap_skb_frag(frag);
-+			vaddr =3D skb_frag_kmap_atomic(frag);
- 			csum2 =3D csum_partial_copy_nocheck(vaddr +
- 							  frag->page_offset +
- 							  offset - start, to,
- 							  copy, 0);
--			kunmap_skb_frag(vaddr);
-+			skb_frag_kunmap_atomic(vaddr);
- 			csum =3D csum_block_add(csum, csum2, pos);
- 			if (!(len -=3D copy))
- 				return csum;
-@@ -2447,7 +2446,7 @@ next_skb:
-=20
- 		if (abs_offset < block_limit) {
- 			if (!st->frag_data)
--				st->frag_data =3D kmap_skb_frag(frag);
-+				st->frag_data =3D skb_frag_kmap_atomic(frag);
-=20
- 			*data =3D (u8 *) st->frag_data + frag->page_offset +
- 				(abs_offset - st->stepped_offset);
-@@ -2456,7 +2455,7 @@ next_skb:
- 		}
-=20
- 		if (st->frag_data) {
--			kunmap_skb_frag(st->frag_data);
-+			skb_frag_kunmap_atomic(st->frag_data);
- 			st->frag_data =3D NULL;
- 		}
-=20
-@@ -2465,7 +2464,7 @@ next_skb:
- 	}
-=20
- 	if (st->frag_data) {
--		kunmap_skb_frag(st->frag_data);
-+		skb_frag_kunmap_atomic(st->frag_data);
- 		st->frag_data =3D NULL;
- 	}
-=20
-@@ -2493,7 +2492,7 @@ EXPORT_SYMBOL(skb_seq_read);
- void skb_abort_seq_read(struct skb_seq_state *st)
+ 	p = rpc_encode_header(task);
+ 	if (p == NULL) {
+ 		printk(KERN_INFO "RPC: couldn't encode RPC header, exit EIO\n");
+@@ -1278,6 +1281,7 @@ call_connect_status(struct rpc_task *task)
+ static void
+ call_transmit(struct rpc_task *task)
  {
- 	if (st->frag_data)
--		kunmap_skb_frag(st->frag_data);
-+		skb_frag_kunmap_atomic(st->frag_data);
++	struct rpc_rqst *req = task->tk_rqstp;
+ 	dprint_status(task);
+ 
+ 	task->tk_action = call_status;
+@@ -1311,8 +1315,8 @@ call_transmit(struct rpc_task *task)
+ 	call_transmit_status(task);
+ 	if (rpc_reply_expected(task))
+ 		return;
+-	task->tk_action = rpc_exit_task;
+-	rpc_wake_up_queued_task(&task->tk_xprt->pending, task);
++	task->tk_action = call_complete;
++	skb_frag_destructor_unref(&req->destructor);
  }
- EXPORT_SYMBOL(skb_abort_seq_read);
-=20
---=20
+ 
+ /*
+@@ -1385,7 +1389,8 @@ call_bc_transmit(struct rpc_task *task)
+ 		return;
+ 	}
+ 
+-	task->tk_action = rpc_exit_task;
++	task->tk_action = call_complete;
++	skb_frag_destructor_unref(&req->destructor);
+ 	if (task->tk_status < 0) {
+ 		printk(KERN_NOTICE "RPC: Could not send backchannel reply "
+ 			"error: %d\n", task->tk_status);
+@@ -1425,7 +1430,6 @@ call_bc_transmit(struct rpc_task *task)
+ 			"error: %d\n", task->tk_status);
+ 		break;
+ 	}
+-	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
+ }
+ #endif /* CONFIG_SUNRPC_BACKCHANNEL */
+ 
+@@ -1591,12 +1595,14 @@ call_decode(struct rpc_task *task)
+ 		return;
+ 	}
+ 
+-	task->tk_action = rpc_exit_task;
++	task->tk_action = call_complete;
+ 
+ 	if (decode) {
+ 		task->tk_status = rpcauth_unwrap_resp(task, decode, req, p,
+ 						      task->tk_msg.rpc_resp);
+ 	}
++	rpc_sleep_on(&req->rq_xprt->pending, task, NULL);
++	skb_frag_destructor_unref(&req->destructor);
+ 	dprintk("RPC: %5u call_decode result %d\n", task->tk_pid,
+ 			task->tk_status);
+ 	return;
+@@ -1611,6 +1617,17 @@ out_retry:
+ 	}
+ }
+ 
++/*
++ * 8.	Wait for pages to be released by the network stack.
++ */
++static void
++call_complete(struct rpc_task *task)
++{
++	dprintk("RPC: %5u call_complete result %d\n",
++		task->tk_pid, task->tk_status);
++	task->tk_action = rpc_exit_task;
++}
++
+ static __be32 *
+ rpc_encode_header(struct rpc_task *task)
+ {
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index 8517cd3..3f31181 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -198,7 +198,8 @@ int svc_send_common(struct socket *sock, struct xdr_buf *xdr,
+ 	while (pglen > 0) {
+ 		if (slen == size)
+ 			flags = 0;
+-		result = kernel_sendpage(sock, *ppage, NULL, base, size, flags);
++		result = kernel_sendpage(sock, *ppage, xdr->destructor,
++					 base, size, flags);
+ 		if (result > 0)
+ 			len += result;
+ 		if (result != size)
+diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
+index c64c0ef..5f28bc7 100644
+--- a/net/sunrpc/xprt.c
++++ b/net/sunrpc/xprt.c
+@@ -1101,6 +1101,16 @@ static inline void xprt_init_xid(struct rpc_xprt *xprt)
+ 	xprt->xid = net_random();
+ }
+ 
++static int xprt_complete_skb_pages(void *calldata)
++{
++	struct rpc_task *task = calldata;
++	struct rpc_rqst	*req = task->tk_rqstp;
++
++	dprintk("RPC: %5u completing skb pages\n", task->tk_pid);
++	rpc_wake_up_queued_task(&req->rq_xprt->pending, task);
++	return 0;
++}
++
+ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+ {
+ 	struct rpc_rqst	*req = task->tk_rqstp;
+@@ -1113,6 +1123,9 @@ static void xprt_request_init(struct rpc_task *task, struct rpc_xprt *xprt)
+ 	req->rq_xid     = xprt_alloc_xid(xprt);
+ 	req->rq_release_snd_buf = NULL;
+ 	xprt_reset_majortimeo(req);
++	atomic_set(&req->destructor.ref, 1);
++	req->destructor.destroy = &xprt_complete_skb_pages;
++	req->destructor.data = task;
+ 	dprintk("RPC: %5u reserved req %p xid %08x\n", task->tk_pid,
+ 			req, ntohl(req->rq_xid));
+ }
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index 38b2fec..5406977 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -408,7 +408,8 @@ static int xs_send_pagedata(struct socket *sock, struct xdr_buf *xdr, unsigned i
+ 		remainder -= len;
+ 		if (remainder != 0 || more)
+ 			flags |= MSG_MORE;
+-		err = sock->ops->sendpage(sock, *ppage, NULL, base, len, flags);
++		err = sock->ops->sendpage(sock, *ppage, xdr->destructor,
++					  base, len, flags);
+ 		if (remainder == 0 || err != len)
+ 			break;
+ 		sent += err;
+-- 
 1.7.9.5
