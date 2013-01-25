@@ -1,172 +1,226 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next V2] bond: have random dev address by default
- instead of zeroes
-Date: Fri, 25 Jan 2013 07:37:13 +0100
-Message-ID: <20130125063713.GA1659@minipsycho.orion>
-References: <1359057684-6732-1-git-send-email-jiri@resnulli.us>
- <13906.1359077701@death.nxdomain>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] irda: buffer overflow in irnet_ctrl_read()
+Date: Fri, 25 Jan 2013 09:40:56 +0300
+Message-ID: <20130125064056.GA4882@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org, psimerda@redhat.com, dcbw@redhat.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Samuel Ortiz <samuel@sortiz.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:52783 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961Ab3AYGhR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 01:37:17 -0500
-Received: by mail-we0-f177.google.com with SMTP id d7so15294wer.36
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 22:37:16 -0800 (PST)
+Received: from userp1040.oracle.com ([156.151.31.81]:17492 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751108Ab3AYGlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 01:41:14 -0500
 Content-Disposition: inline
-In-Reply-To: <13906.1359077701@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46ri, Jan 25, 2013 at 02:35:01AM CET, fubar@us.ibm.com wrote:
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->>Makes more sense to have randomly generated address by default than t=
-o
->>have all zeroes. It also allows user to for example put the bond into
->>bridge without need to have any slaves in it.
->>
->>Also note that this changes only behaviour of bonds with no slaves. O=
-nce
->>the first slave device is enslaved, its address will be used (no chan=
-ge
->>here).
->>
->>Also, fix dev_assign_type values on the way.
->>
->>Reported-by: Pavel =C5=A0imerda <psimerda@redhat.com>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->	Maybe I don't see it, but this feels like a bit of a hack just
->to get a bond with no slaves into a bridge.  Am I missing something
->here?  I just have this feeling that down the road I'm going to get
->questions as to why the bond gets a MAC, and then, poof, it vanishes
->when a slave is added.  What's the point of the MAC address if it's on=
-ly
->used to fool the bridge code?
+The comments here say that the /* Max event is 61 char */ but in 2003 we
+changed the event format and now the max event size is 75.  The longest
+event is:
 
-I think that generally, the device should have valid mac address in
-every point of its lifetime. I believe that bond is the only device who
-behaves differently (bridge also uses random mac when no ports are
-there)
+	"Discovered %08x (%s) behind %08x {hints %02X-%02X}\n",
+         12345678901    23  456789012    34567890    1    2 3
+	            +8    +21        +8          +2   +2     +1
+         = 75 characters.
 
->
->	Also, when the bond's MAC changes from the random MAC to the
->first slave's MAC, does a notifier call need to happen?  There isn't o=
-ne
->now from the all zeroes to the first slave's, but that's from an inval=
-id
->MAC to a valid one.  There is already a notifier when the bond goes ba=
-ck
->to all zeroes, though.
+There was a check to return -EOVERFLOW if the user gave us a "count"
+value that was less than 64.  Raising it to 75 might break backwards
+compatability.  Instead I removed the check and now it returns a
+truncated string if "count" is too low.
 
-You are right, all_netdevice_notifiers(NETDEV_CHANGEADDR, bond->dev);
-should be called from bond_enslave() after calling bond_set_dev_addr()
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
->
->	-J
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
->>
->>v1->v2:
->>- fixed assign value of bond_dev->addr_assign_type in bond_set_dev_ad=
-dr()
->>- added note to patch description
->>
->> drivers/net/bonding/bond_main.c | 28 ++++++++++++++++------------
->> 1 file changed, 16 insertions(+), 12 deletions(-)
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
-nd_main.c
->>index 564cf42..1d56ac9 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -1320,14 +1320,14 @@ static void bond_netpoll_cleanup(struct net_d=
-evice *bond_dev)
->>
->> /*---------------------------------- IOCTL -------------------------=
----------*/
->>
->>-static int bond_sethwaddr(struct net_device *bond_dev,
->>-			  struct net_device *slave_dev)
->>+static void bond_set_dev_addr(struct net_device *bond_dev,
->>+			      struct net_device *slave_dev)
->> {
->> 	pr_debug("bond_dev=3D%p\n", bond_dev);
->> 	pr_debug("slave_dev=3D%p\n", slave_dev);
->> 	pr_debug("slave_dev->addr_len=3D%d\n", slave_dev->addr_len);
->> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len=
-);
->>-	return 0;
->>+	bond_dev->addr_assign_type =3D NET_ADDR_SET;
->> }
->>
->> static netdev_features_t bond_fix_features(struct net_device *dev,
->>@@ -1628,10 +1628,8 @@ int bond_enslave(struct net_device *bond_dev, =
-struct net_device *slave_dev)
->>
->> 	/* If this is the first slave, then we need to set the master's har=
-dware
->> 	 * address to be the same as the slave's. */
->>-	if (is_zero_ether_addr(bond->dev->dev_addr))
->>-		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
->>-		       slave_dev->addr_len);
->>-
->>+	if (bond->dev->addr_assign_type !=3D NET_ADDR_SET)
->>+		bond_set_dev_addr(bond->dev, slave_dev);
->>
->> 	new_slave =3D kzalloc(sizeof(struct slave), GFP_KERNEL);
->> 	if (!new_slave) {
->>@@ -2049,11 +2047,11 @@ int bond_release(struct net_device *bond_dev,=
- struct net_device *slave_dev)
->> 	if (bond->slave_cnt =3D=3D 0) {
->> 		bond_set_carrier(bond);
->>
->>-		/* if the last slave was removed, zero the mac address
->>-		 * of the master so it will be set by the application
->>-		 * to the mac address of the first slave
->>+		/* If the last slave was removed, set random mac address
->>+		 * of the master so it will be set by bond_enslave()
->>+		 * to the mac address of the first slave.
->> 		 */
->>-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->>+		eth_hw_addr_random(bond_dev);
->>
->> 		if (bond_vlan_used(bond)) {
->> 			pr_warning("%s: Warning: clearing HW address of %s while it still=
- has VLANs.\n",
->>@@ -3708,7 +3706,8 @@ static int bond_do_ioctl(struct net_device *bon=
-d_dev, struct ifreq *ifr, int cmd
->> 			break;
->> 		case BOND_SETHWADDR_OLD:
->> 		case SIOCBONDSETHWADDR:
->>-			res =3D bond_sethwaddr(bond_dev, slave_dev);
->>+			bond_set_dev_addr(bond_dev, slave_dev);
->>+			res =3D 0;
->> 			break;
->> 		case BOND_CHANGE_ACTIVE_OLD:
->> 		case SIOCBONDCHANGEACTIVE:
->>@@ -4858,6 +4857,11 @@ static int bond_init(struct net_device *bond_d=
-ev)
->>
->> 	bond_debug_register(bond);
->>
->>+	/* Ensure valid dev_addr */
->>+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
->>+	    bond_dev->addr_assign_type =3D=3D NET_ADDR_PERM)
->>+		eth_hw_addr_random(bond_dev);
->>+
->> 	__hw_addr_init(&bond->mc_list);
->> 	return 0;
->> }
->>--=20
->>1.8.1
->>
->
+diff --git a/net/irda/irnet/irnet_ppp.c b/net/irda/irnet/irnet_ppp.c
+index 2bb2beb..3c83a1e 100644
+--- a/net/irda/irnet/irnet_ppp.c
++++ b/net/irda/irnet/irnet_ppp.c
+@@ -214,8 +214,7 @@ irnet_get_discovery_log(irnet_socket *	ap)
+  * After reading :    discoveries = NULL ; disco_index = Y ; disco_number = -1
+  */
+ static inline int
+-irnet_read_discovery_log(irnet_socket *	ap,
+-			 char *		event)
++irnet_read_discovery_log(irnet_socket *ap, char *event, int buf_size)
+ {
+   int		done_event = 0;
+ 
+@@ -237,12 +236,13 @@ irnet_read_discovery_log(irnet_socket *	ap,
+   if(ap->disco_index < ap->disco_number)
+     {
+       /* Write an event */
+-      sprintf(event, "Found %08x (%s) behind %08x {hints %02X-%02X}\n",
+-	      ap->discoveries[ap->disco_index].daddr,
+-	      ap->discoveries[ap->disco_index].info,
+-	      ap->discoveries[ap->disco_index].saddr,
+-	      ap->discoveries[ap->disco_index].hints[0],
+-	      ap->discoveries[ap->disco_index].hints[1]);
++      snprintf(event, buf_size,
++	       "Found %08x (%s) behind %08x {hints %02X-%02X}\n",
++	       ap->discoveries[ap->disco_index].daddr,
++	       ap->discoveries[ap->disco_index].info,
++	       ap->discoveries[ap->disco_index].saddr,
++	       ap->discoveries[ap->disco_index].hints[0],
++	       ap->discoveries[ap->disco_index].hints[1]);
+       DEBUG(CTRL_INFO, "Writing discovery %d : %s\n",
+ 	    ap->disco_index, ap->discoveries[ap->disco_index].info);
+ 
+@@ -282,27 +282,24 @@ irnet_ctrl_read(irnet_socket *	ap,
+ 		size_t		count)
+ {
+   DECLARE_WAITQUEUE(wait, current);
+-  char		event[64];	/* Max event is 61 char */
++  char		event[75];
+   ssize_t	ret = 0;
+ 
+   DENTER(CTRL_TRACE, "(ap=0x%p, count=%Zd)\n", ap, count);
+ 
+-  /* Check if we can write an event out in one go */
+-  DABORT(count < sizeof(event), -EOVERFLOW, CTRL_ERROR, "Buffer to small.\n");
+-
+ #ifdef INITIAL_DISCOVERY
+   /* Check if we have read the log */
+-  if(irnet_read_discovery_log(ap, event))
++  if (irnet_read_discovery_log(ap, event, sizeof(event)))
+     {
+-      /* We have an event !!! Copy it to the user */
+-      if(copy_to_user(buf, event, strlen(event)))
++      count = min(strlen(event), count);
++      if (copy_to_user(buf, event, count))
+ 	{
+ 	  DERROR(CTRL_ERROR, "Invalid user space pointer.\n");
+ 	  return -EFAULT;
+ 	}
+ 
+       DEXIT(CTRL_TRACE, "\n");
+-      return strlen(event);
++      return count;
+     }
+ #endif /* INITIAL_DISCOVERY */
+ 
+@@ -339,79 +336,81 @@ irnet_ctrl_read(irnet_socket *	ap,
+   switch(irnet_events.log[ap->event_index].event)
+     {
+     case IRNET_DISCOVER:
+-      sprintf(event, "Discovered %08x (%s) behind %08x {hints %02X-%02X}\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].saddr,
+-	      irnet_events.log[ap->event_index].hints.byte[0],
+-	      irnet_events.log[ap->event_index].hints.byte[1]);
++      snprintf(event, sizeof(event),
++	       "Discovered %08x (%s) behind %08x {hints %02X-%02X}\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].saddr,
++	       irnet_events.log[ap->event_index].hints.byte[0],
++	       irnet_events.log[ap->event_index].hints.byte[1]);
+       break;
+     case IRNET_EXPIRE:
+-      sprintf(event, "Expired %08x (%s) behind %08x {hints %02X-%02X}\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].saddr,
+-	      irnet_events.log[ap->event_index].hints.byte[0],
+-	      irnet_events.log[ap->event_index].hints.byte[1]);
++      snprintf(event, sizeof(event),
++	       "Expired %08x (%s) behind %08x {hints %02X-%02X}\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].saddr,
++	       irnet_events.log[ap->event_index].hints.byte[0],
++	       irnet_events.log[ap->event_index].hints.byte[1]);
+       break;
+     case IRNET_CONNECT_TO:
+-      sprintf(event, "Connected to %08x (%s) on ppp%d\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].unit);
++      snprintf(event, sizeof(event), "Connected to %08x (%s) on ppp%d\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].unit);
+       break;
+     case IRNET_CONNECT_FROM:
+-      sprintf(event, "Connection from %08x (%s) on ppp%d\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].unit);
++      snprintf(event, sizeof(event), "Connection from %08x (%s) on ppp%d\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].unit);
+       break;
+     case IRNET_REQUEST_FROM:
+-      sprintf(event, "Request from %08x (%s) behind %08x\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].saddr);
++      snprintf(event, sizeof(event), "Request from %08x (%s) behind %08x\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].saddr);
+       break;
+     case IRNET_NOANSWER_FROM:
+-      sprintf(event, "No-answer from %08x (%s) on ppp%d\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].unit);
++      snprintf(event, sizeof(event), "No-answer from %08x (%s) on ppp%d\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].unit);
+       break;
+     case IRNET_BLOCKED_LINK:
+-      sprintf(event, "Blocked link with %08x (%s) on ppp%d\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].unit);
++      snprintf(event, sizeof(event), "Blocked link with %08x (%s) on ppp%d\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].unit);
+       break;
+     case IRNET_DISCONNECT_FROM:
+-      sprintf(event, "Disconnection from %08x (%s) on ppp%d\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name,
+-	      irnet_events.log[ap->event_index].unit);
++      snprintf(event, sizeof(event), "Disconnection from %08x (%s) on ppp%d\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name,
++	       irnet_events.log[ap->event_index].unit);
+       break;
+     case IRNET_DISCONNECT_TO:
+-      sprintf(event, "Disconnected to %08x (%s)\n",
+-	      irnet_events.log[ap->event_index].daddr,
+-	      irnet_events.log[ap->event_index].name);
++      snprintf(event, sizeof(event), "Disconnected to %08x (%s)\n",
++	       irnet_events.log[ap->event_index].daddr,
++	       irnet_events.log[ap->event_index].name);
+       break;
+     default:
+-      sprintf(event, "Bug\n");
++      snprintf(event, sizeof(event), "Bug\n");
+     }
+   /* Increment our event index */
+   ap->event_index = (ap->event_index + 1) % IRNET_MAX_EVENTS;
+ 
+   DEBUG(CTRL_INFO, "Event is :%s", event);
+ 
+-  /* Copy it to the user */
+-  if(copy_to_user(buf, event, strlen(event)))
++  count = min(strlen(event), count);
++  if (copy_to_user(buf, event, count))
+     {
+       DERROR(CTRL_ERROR, "Invalid user space pointer.\n");
+       return -EFAULT;
+     }
+ 
+   DEXIT(CTRL_TRACE, "\n");
+-  return strlen(event);
++  return count;
+ }
+ 
+ /*------------------------------------------------------------------*/
