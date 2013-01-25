@@ -1,68 +1,46 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] vmxnet3: set carrier state properly on probe
-Date: Fri, 25 Jan 2013 15:54:13 -0500
-Message-ID: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"VMware, Inc." <pv-drivers@vmware.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:45643 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751372Ab3AYUyj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 15:54:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Subject: [PATCH] mwifiex: don't return zero on failure paths in mwifiex_pcie_init()
+Date: Sat, 26 Jan 2013 00:56:03 +0400
+Message-ID: <1359147363-9587-1-git-send-email-khoroshilov@ispras.ru>
+Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Bing Zhao <bzhao@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-vmxnet3 fails to set netif_carrier_off on probe, meaning that when an interface
-is opened the __LINK_STATE_NOCARRIER bit is already cleared, and so
-/sys/class/net/<ifname>/operstate remains in the unknown state.  Correct this by
-setting netif_carrier_off on probe, like other drivers do.
+If pci_iomap() fails in mwifiex_pcie_init(), it breaks off initialization,
+deallocates all resources, but returns zero.
+The patch adds -EIO as return value in this case.
 
-Also, while we're at it, lets remove the netif_carrier_ok checks from the
-link_state_update function, as that check is atomically contained within the
-netif_carrier_[on|off] functions anyway
+Found by Linux Driver Verification project (linuxtesting.org).
 
-Tested successfully by myself
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: "VMware, Inc." <pv-drivers@vmware.com>
+Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/net/wireless/mwifiex/pcie.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index b1c90f8..66c26a9 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -150,8 +150,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
- 	if (ret & 1) { /* Link is up. */
- 		netdev_info(adapter->netdev, "NIC Link is Up %d Mbps\n",
- 			    adapter->link_speed);
--		if (!netif_carrier_ok(adapter->netdev))
--			netif_carrier_on(adapter->netdev);
-+		netif_carrier_on(adapter->netdev);
- 
- 		if (affectTxQueue) {
- 			for (i = 0; i < adapter->num_tx_queues; i++)
-@@ -160,8 +159,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool affectTxQueue)
- 		}
- 	} else {
- 		netdev_info(adapter->netdev, "NIC Link is Down\n");
--		if (netif_carrier_ok(adapter->netdev))
--			netif_carrier_off(adapter->netdev);
-+		netif_carrier_off(adapter->netdev);
- 
- 		if (affectTxQueue) {
- 			for (i = 0; i < adapter->num_tx_queues; i++)
-@@ -3067,6 +3065,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 		goto err_register;
+diff --git a/drivers/net/wireless/mwifiex/pcie.c b/drivers/net/wireless/mwifiex/pcie.c
+index 13fbc4e..9d9349c 100644
+--- a/drivers/net/wireless/mwifiex/pcie.c
++++ b/drivers/net/wireless/mwifiex/pcie.c
+@@ -1739,6 +1739,7 @@ static int mwifiex_pcie_init(struct mwifiex_adapter *adapter)
+ 	card->pci_mmap = pci_iomap(pdev, 0, 0);
+ 	if (!card->pci_mmap) {
+ 		dev_err(adapter->dev, "iomap(0) error\n");
++		ret = -EIO;
+ 		goto err_iomap0;
+ 	}
+ 	ret = pci_request_region(pdev, 2, DRV_NAME);
+@@ -1749,6 +1750,7 @@ static int mwifiex_pcie_init(struct mwifiex_adapter *adapter)
+ 	card->pci_mmap1 = pci_iomap(pdev, 2, 0);
+ 	if (!card->pci_mmap1) {
+ 		dev_err(adapter->dev, "iomap(2) error\n");
++		ret = -EIO;
+ 		goto err_iomap2;
  	}
  
-+	netif_carrier_off(netdev);
- 	vmxnet3_check_link(adapter, false);
- 	return 0;
- 
 -- 
-1.7.11.7
+1.7.9.5
