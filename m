@@ -1,86 +1,134 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH net] net: usbnet: prevent buggy devices from killing us
-Date: Fri, 25 Jan 2013 13:27:07 +0100
-Message-ID: <87obgde9d0.fsf@nemi.mork.no>
-References: <2556579.vjYlY1iKn5@linux-5eaq.site>
-	<1794053.fjSaMDVud2@linux-5eaq.site> <87ham5g2gk.fsf@nemi.mork.no>
-	<1659086.jLlTU1VIap@linux-5eaq.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1659086.jLlTU1VIap-7ztolUikljGernLeA6q8OA@public.gmane.org> (Oliver Neukum's message of
-	"Fri, 25 Jan 2013 13:02:38 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: pablo@netfilter.org
+Subject: [PATCH 00/21] netfilter updates for net-next
+Date: Fri, 25 Jan 2013 14:54:32 +0100
+Message-ID: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
-> On Friday 25 January 2013 08:13:15 Bj=C3=B8rn Mork wrote:
->> Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org> writes:
->> > On Thursday 24 January 2013 20:16:56 Bj=C3=B8rn Mork wrote:
->> >> A device sending 0 length frames as fast as it can has been
->> >> observed killing the host system due to the resulting memory
->> >> pressure.
->> >>=20
->> >> Temporarily disable RX skb allocation and URB submission when
->> >> the current error ratio is high, preventing us from trying to
->> >> allocate an infinite number of skbs.  Reenable as soon as we
->> >> are finished processing the done queue, allowing the device
->> >> to continue working after short error bursts.
->> >>=20
->> >> Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
->> >> ---
->> >> So is this starting to look OK?
->> >
->> > It seems to me that we at least need to try some error recovery.
->>=20
->> Won't the disabling code in usbnet_bh do? RX will only stay disabled
->> until the done queue is handled.
->
-> So will the burst of bogus packets stop by itself?
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-No, in the case I am looking at it won't.  So we end up switching this
-off/on endlessly.
+Hi David,
 
-But I believe that is fine. There is no way we can *know* that the
-errors won't stop unless we start receiving packets again.  Other
-devices may have similar temporary bugs, making them start working agai=
-n
-after a while. If we permanently disable RX then we will just make any
-such device fail for no good reason.
+This batch contains netfilter updates for you net-next tree, they are:
 
-My only wish for this patch is that it makes usbnet survive the buggy
-device without bringing the host down.  Not magically fix the device (o=
-f
-course impossible), or even hide the bug in any way.  A non-functional
-device will still appear as a non-functional device. Manual user
-intervention is required to make it work.  This might involve a firmwar=
-e
-upgrade for all we know...
+* The new connlabel extension for x_tables, that allows us to attach
+  labels to each conntrack flow. The kernel implementation uses a
+  bitmask and there's a file in user-space that maps the bits with the
+  corresponding string for each existing label. By now, you can attach
+  up to 128 overlapping labels. From Florian Westphal.
 
->> > How about resetting the device when it is no longer used?
->>=20
->> Yes, that we should do. I guess usbnet_open is the place to reset th=
-e
->> flag and counters? I'll send another version taking care of this and
->> Joes comment.
->
-> I was thinking about resetting the device, not just counters.
+* A new round of improvements for the netns support for conntrack.
+  Gao feng has moved many of the initialization code of each module
+  of the netns init path. He also made several code refactoring, that
+  code looks cleaner to me now.
 
-What's the point? We only risk making the issue worse if some device ha=
-s
-a similar temporary bug, fixing itself a while after reset.  I think we
-should leave any such actions to the user.
+* Added documentation for all possible tweaks for nf_conntrack via
+  sysctl, from Jiri Pirko.
 
-> But yes, open() needs to reset the counters, too.
+* Cisco 7941/7945 IP phone support for our SIP conntrack helper,
+  from Kevin Cernekee.
 
-OK, will add that.
+* Missing header file in the snmp helper, from Stephen Hemminger.
 
+* Finally, a couple of fixes to resolve minor issues with these
+  changes, from myself.
 
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You can pull these changes from:
+
+git://1984.lsi.us.es/nf-next master
+
+Thanks!
+
+Florian Westphal (3):
+  netfilter: add connlabel conntrack extension
+  netfilter: ctnetlink: deliver labels to userspace
+  netfilter: ctnetlink: allow userspace to modify labels
+
+Gao feng (11):
+  netfilter: nf_conntrack: move initialization out of pernet operations
+  netfilter: nf_ct_expect: move initialization out of pernet_operations
+  netfilter: nf_ct_acct: move initialization out of pernet_operations
+  netfilter: nf_ct_tstamp: move initialization out of pernet_operations
+  netfilter: nf_ct_ecache: move initialization out of pernet_operations
+  netfilter: nf_ct_timeout: move initialization out of pernet_operations
+  netfilter: nf_ct_helper: move initialization out of pernet_operations
+  netfilter: nf_ct_labels: move initialization out of pernet_operations
+  netfilter: nf_ct_proto: move initialization out of pernet_operations
+  netfilter: nf_conntrack: refactor l3proto support for netns
+  netfilter: nf_conntrack: refactor l4proto support for netns
+
+Jiri Pirko (1):
+  netfilter: doc: add nf_conntrack sysctl api documentation
+
+Kevin Cernekee (1):
+  netfilter: nf_ct_sip: support Cisco 7941/7945 IP phones
+
+Pablo Neira Ayuso (3):
+  netfilter: add missing xt_bpf.h header in installation
+  netfilter: add missing xt_connlabel.h header in installation
+  netfilter: nf_conntrack: fix compilation if sysctl are disabled
+
+Willem de Bruijn (1):
+  netfilter: x_tables: add xt_bpf match
+
+stephen hemminger (1):
+  netfilter: nf_ct_snmp: add include file
+
+ Documentation/networking/nf_conntrack-sysctl.txt   |  176 ++++++++++++++++++
+ include/linux/netfilter/nf_conntrack_sip.h         |    3 +
+ include/net/netfilter/nf_conntrack_acct.h          |    6 +-
+ include/net/netfilter/nf_conntrack_core.h          |   15 +-
+ include/net/netfilter/nf_conntrack_ecache.h        |   19 +-
+ include/net/netfilter/nf_conntrack_expect.h        |    7 +-
+ include/net/netfilter/nf_conntrack_extend.h        |    4 +
+ include/net/netfilter/nf_conntrack_helper.h        |    7 +-
+ include/net/netfilter/nf_conntrack_l3proto.h       |   11 +-
+ include/net/netfilter/nf_conntrack_l4proto.h       |   10 +-
+ include/net/netfilter/nf_conntrack_labels.h        |   58 ++++++
+ include/net/netfilter/nf_conntrack_timeout.h       |    8 +-
+ include/net/netfilter/nf_conntrack_timestamp.h     |   21 ++-
+ include/net/netns/conntrack.h                      |    4 +
+ include/uapi/linux/netfilter/Kbuild                |    2 +
+ include/uapi/linux/netfilter/nf_conntrack_common.h |    1 +
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |    2 +
+ include/uapi/linux/netfilter/xt_bpf.h              |   17 ++
+ include/uapi/linux/netfilter/xt_connlabel.h        |   12 ++
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c     |   82 ++++++---
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c     |   86 ++++++---
+ net/netfilter/Kconfig                              |   27 +++
+ net/netfilter/Makefile                             |    3 +
+ net/netfilter/nf_conntrack_acct.c                  |   36 ++--
+ net/netfilter/nf_conntrack_core.c                  |  191 ++++++++++++--------
+ net/netfilter/nf_conntrack_ecache.c                |   37 ++--
+ net/netfilter/nf_conntrack_expect.c                |   53 +++---
+ net/netfilter/nf_conntrack_helper.c                |   53 +++---
+ net/netfilter/nf_conntrack_labels.c                |  112 ++++++++++++
+ net/netfilter/nf_conntrack_netlink.c               |   88 +++++++++
+ net/netfilter/nf_conntrack_proto.c                 |   92 ++++------
+ net/netfilter/nf_conntrack_proto_dccp.c            |   43 +++--
+ net/netfilter/nf_conntrack_proto_gre.c             |   23 ++-
+ net/netfilter/nf_conntrack_proto_sctp.c            |   43 +++--
+ net/netfilter/nf_conntrack_proto_udplite.c         |   40 +++-
+ net/netfilter/nf_conntrack_sip.c                   |   17 ++
+ net/netfilter/nf_conntrack_snmp.c                  |    1 +
+ net/netfilter/nf_conntrack_standalone.c            |   63 ++++---
+ net/netfilter/nf_conntrack_timeout.c               |   23 +--
+ net/netfilter/nf_conntrack_timestamp.c             |   39 ++--
+ net/netfilter/nf_nat_sip.c                         |   27 ++-
+ net/netfilter/xt_bpf.c                             |   73 ++++++++
+ net/netfilter/xt_connlabel.c                       |   99 ++++++++++
+ 43 files changed, 1305 insertions(+), 429 deletions(-)
+ create mode 100644 Documentation/networking/nf_conntrack-sysctl.txt
+ create mode 100644 include/net/netfilter/nf_conntrack_labels.h
+ create mode 100644 include/uapi/linux/netfilter/xt_bpf.h
+ create mode 100644 include/uapi/linux/netfilter/xt_connlabel.h
+ create mode 100644 net/netfilter/nf_conntrack_labels.c
+ create mode 100644 net/netfilter/xt_bpf.c
+ create mode 100644 net/netfilter/xt_connlabel.c
+
+-- 
+1.7.10.4
+
