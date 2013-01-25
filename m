@@ -1,69 +1,32 @@
-From: Pavel Simerda <psimerda@redhat.com>
-Subject: Re: [patch net-next V2] bond: have random dev address by default
- instead of zeroes
-Date: Fri, 25 Jan 2013 14:42:01 -0500 (EST)
-Message-ID: <1136817119.4224160.1359142921330.JavaMail.root@redhat.com>
-References: <22106.1359138692@death.nxdomain>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] v2 GRE: Add segmentation offload for GRE
+Date: Fri, 25 Jan 2013 11:52:18 -0800
+Message-ID: <1359143538.12374.3379.camel@edumazet-glaptop>
+References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
+	 <1359070199.12374.2557.camel@edumazet-glaptop>
+	 <CALnjE+rbqCgRwxr1TtFH92vKSJoTRhBP50f+jQmgWB9LanQhYw@mail.gmail.com>
+	 <1359077664.12374.2887.camel@edumazet-glaptop>
+	 <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org, dcbw@redhat.com,
-	Jiri Pirko <jiri@resnulli.us>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:47435 "EHLO
-	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752284Ab3AYTnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 14:43:10 -0500
-In-Reply-To: <22106.1359138692@death.nxdomain>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:43472 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750945Ab3AYTwV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 14:52:21 -0500
+Received: by mail-pb0-f42.google.com with SMTP id rp2so402028pbb.1
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 11:52:20 -0800 (PST)
+In-Reply-To: <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
-> From: "Jay Vosburgh" <fubar@us.ibm.com>
-> To: "Pavel Simerda" <psimerda@redhat.com>
-> Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net, stephen@networkplumber.org, dcbw@redhat.com,
-> "Jiri Pirko" <jiri@resnulli.us>
-> Sent: Friday, January 25, 2013 7:31:32 PM
-> Subject: Re: [patch net-next V2] bond: have random dev address by default instead of zeroes
-> 
-> Pavel Simerda <psimerda@redhat.com> wrote:
-> 
-> >----- Original Message -----
-> >> From: "Jay Vosburgh" <fubar@us.ibm.com>
-> >> but I don't think it should be changed.
-> >
-> >Just a short question. Is there any reason for bonding interfaces to
-> >behave differently from bridging interfaces in this respect?
-> 
-> 	To clarify, what I don't think should change is that a manually
-> set MAC on the bonding master should override the automatic copy of
-> the
-> first slave's MAC to the bonding master.  The fail_over_mac active
-> and
-> follow settings are an exception to this, but those are special cases
-> for unusual network hardware.
-> 
-> 	As for the random MAC vs. zero MAC, I've always thought that the
-> all zero MAC was a clear indicator that the device (the bonding
-> master
-> in this case) was not in a usable state (in the sense that it could
-> not
-> send or receive actual traffic).  It's not a really big deal, though,
-> so
+On Thu, 2013-01-24 at 19:38 -0800, Pravin Shelar wrote:
 
-Thanks for clarification.
-> if the trend these days is for everything to have a MAC all the time,
-> that's fine, as long as doing so doesn't break anything.
-> 
-> 	I think the patch under discussion should be fine with the
-> addition of the last notifier call previously discussed.  Some
-> documentation updates would be nice, too.
-> 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
-> 
+> I thought you were working on the fix. If not I will post patch.
+
+I am working on a patch, will send it shortly.
+
+As it is a stable candidate, I did a short one.
