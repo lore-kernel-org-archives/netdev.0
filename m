@@ -1,192 +1,216 @@
 From: pablo@netfilter.org
-Subject: [PATCH 11/21] netfilter: nf_ct_expect: move initialization out of pernet_operations
-Date: Fri, 25 Jan 2013 14:54:43 +0100
-Message-ID: <1359122093-3404-12-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/21] netfilter: doc: add nf_conntrack sysctl api documentation
+Date: Fri, 25 Jan 2013 14:54:40 +0100
+Message-ID: <1359122093-3404-9-git-send-email-pablo@netfilter.org>
 References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60312 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:60296 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932405Ab3AYNzO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 08:55:14 -0500
+	id S1757141Ab3AYNzM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 08:55:12 -0500
 In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+From: Jiri Pirko <jiri@resnulli.us>
 
-Move the global initial codes to the module_init/exit context.
+I grepped through the code and picked bits about nf_conntrack sysctl api
+and put that into one documentation file.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+[ I have mangled this patch including comments from several grammar
+  improvements proposed by Neal Murphy <neal.p.murphy@alum.wpi.edu>,
+  any new grammar error is my mistake --pablo ]
+
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack_expect.h |    7 +++-
- net/netfilter/nf_conntrack_core.c           |   14 +++++--
- net/netfilter/nf_conntrack_expect.c         |   53 +++++++++++++--------------
- 3 files changed, 41 insertions(+), 33 deletions(-)
+ Documentation/networking/nf_conntrack-sysctl.txt |  176 ++++++++++++++++++++++
+ 1 file changed, 176 insertions(+)
+ create mode 100644 Documentation/networking/nf_conntrack-sysctl.txt
 
-diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
-index cc13f37..cbbae76 100644
---- a/include/net/netfilter/nf_conntrack_expect.h
-+++ b/include/net/netfilter/nf_conntrack_expect.h
-@@ -69,8 +69,11 @@ struct nf_conntrack_expect_policy {
- 
- #define NF_CT_EXPECT_CLASS_DEFAULT	0
- 
--int nf_conntrack_expect_init(struct net *net);
--void nf_conntrack_expect_fini(struct net *net);
-+int nf_conntrack_expect_pernet_init(struct net *net);
-+void nf_conntrack_expect_pernet_fini(struct net *net);
+diff --git a/Documentation/networking/nf_conntrack-sysctl.txt b/Documentation/networking/nf_conntrack-sysctl.txt
+new file mode 100644
+index 0000000..70da508
+--- /dev/null
++++ b/Documentation/networking/nf_conntrack-sysctl.txt
+@@ -0,0 +1,176 @@
++/proc/sys/net/netfilter/nf_conntrack_* Variables:
 +
-+int nf_conntrack_expect_init(void);
-+void nf_conntrack_expect_fini(void);
- 
- struct nf_conntrack_expect *
- __nf_ct_expect_find(struct net *net, u16 zone,
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index fb3e514..a3cca57 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1348,6 +1348,7 @@ void nf_conntrack_cleanup_end(void)
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	nf_ct_extend_unregister(&nf_ct_zone_extend);
- #endif
-+	nf_conntrack_expect_fini();
- }
- 
- /*
-@@ -1378,7 +1379,7 @@ void nf_conntrack_cleanup_net(struct net *net)
- 	nf_conntrack_ecache_fini(net);
- 	nf_conntrack_tstamp_fini(net);
- 	nf_conntrack_acct_fini(net);
--	nf_conntrack_expect_fini(net);
-+	nf_conntrack_expect_pernet_fini(net);
- 	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
- 	kfree(net->ct.slabname);
- 	free_percpu(net->ct.stat);
-@@ -1501,6 +1502,11 @@ int nf_conntrack_init_start(void)
- 	printk(KERN_INFO "nf_conntrack version %s (%u buckets, %d max)\n",
- 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
- 	       nf_conntrack_max);
++nf_conntrack_acct - BOOLEAN
++	0 - disabled (default)
++	not 0 - enabled
 +
-+	ret = nf_conntrack_expect_init();
-+	if (ret < 0)
-+		goto err_expect;
++	Enable connection tracking flow accounting. 64-bit byte and packet
++	counters per flow are added.
 +
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- 	ret = nf_ct_extend_register(&nf_ct_zone_extend);
- 	if (ret < 0)
-@@ -1518,7 +1524,9 @@ int nf_conntrack_init_start(void)
- 
- #ifdef CONFIG_NF_CONNTRACK_ZONES
- err_extend:
-+	nf_conntrack_expect_fini();
- #endif
-+err_expect:
- 	return ret;
- }
- 
-@@ -1575,7 +1583,7 @@ int nf_conntrack_init_net(struct net *net)
- 		printk(KERN_ERR "Unable to create nf_conntrack_hash\n");
- 		goto err_hash;
- 	}
--	ret = nf_conntrack_expect_init(net);
-+	ret = nf_conntrack_expect_pernet_init(net);
- 	if (ret < 0)
- 		goto err_expect;
- 	ret = nf_conntrack_acct_init(net);
-@@ -1616,7 +1624,7 @@ err_ecache:
- err_tstamp:
- 	nf_conntrack_acct_fini(net);
- err_acct:
--	nf_conntrack_expect_fini(net);
-+	nf_conntrack_expect_pernet_fini(net);
- err_expect:
- 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
- err_hash:
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 527651a..bdd3418 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -587,53 +587,50 @@ static void exp_proc_remove(struct net *net)
- 
- module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0400);
- 
--int nf_conntrack_expect_init(struct net *net)
-+int nf_conntrack_expect_pernet_init(struct net *net)
- {
- 	int err = -ENOMEM;
- 
--	if (net_eq(net, &init_net)) {
--		if (!nf_ct_expect_hsize) {
--			nf_ct_expect_hsize = net->ct.htable_size / 256;
--			if (!nf_ct_expect_hsize)
--				nf_ct_expect_hsize = 1;
--		}
--		nf_ct_expect_max = nf_ct_expect_hsize * 4;
--	}
--
- 	net->ct.expect_count = 0;
- 	net->ct.expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize, 0);
- 	if (net->ct.expect_hash == NULL)
- 		goto err1;
- 
--	if (net_eq(net, &init_net)) {
--		nf_ct_expect_cachep = kmem_cache_create("nf_conntrack_expect",
--					sizeof(struct nf_conntrack_expect),
--					0, 0, NULL);
--		if (!nf_ct_expect_cachep)
--			goto err2;
--	}
--
- 	err = exp_proc_init(net);
- 	if (err < 0)
--		goto err3;
-+		goto err2;
- 
- 	return 0;
--
--err3:
--	if (net_eq(net, &init_net))
--		kmem_cache_destroy(nf_ct_expect_cachep);
- err2:
- 	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
- err1:
- 	return err;
- }
- 
--void nf_conntrack_expect_fini(struct net *net)
-+void nf_conntrack_expect_pernet_fini(struct net *net)
- {
- 	exp_proc_remove(net);
--	if (net_eq(net, &init_net)) {
--		rcu_barrier(); /* Wait for call_rcu() before destroy */
--		kmem_cache_destroy(nf_ct_expect_cachep);
--	}
- 	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
- }
++nf_conntrack_buckets - INTEGER (read-only)
++	Size of hash table. If not specified as parameter during module
++	loading, the default size is calculated by dividing total memory
++	by 16384 to determine the number of buckets but the hash table will
++	never have fewer than 32 or more than 16384 buckets.
 +
-+int nf_conntrack_expect_init(void)
-+{
-+	if (!nf_ct_expect_hsize) {
-+		nf_ct_expect_hsize = nf_conntrack_htable_size / 256;
-+		if (!nf_ct_expect_hsize)
-+			nf_ct_expect_hsize = 1;
-+	}
-+	nf_ct_expect_max = nf_ct_expect_hsize * 4;
-+	nf_ct_expect_cachep = kmem_cache_create("nf_conntrack_expect",
-+				sizeof(struct nf_conntrack_expect),
-+				0, 0, NULL);
-+	if (!nf_ct_expect_cachep)
-+		return -ENOMEM;
-+	return 0;
-+}
++nf_conntrack_checksum - BOOLEAN
++	0 - disabled
++	not 0 - enabled (default)
 +
-+void nf_conntrack_expect_fini(void)
-+{
-+	rcu_barrier(); /* Wait for call_rcu() before destroy */
-+	kmem_cache_destroy(nf_ct_expect_cachep);
-+}
++	Verify checksum of incoming packets. Packets with bad checksums are
++	in INVALID state. If this is enabled, such packets will not be
++	considered for connection tracking.
++
++nf_conntrack_count - INTEGER (read-only)
++	Number of currently allocated flow entries.
++
++nf_conntrack_events - BOOLEAN
++	0 - disabled
++	not 0 - enabled (default)
++
++	If this option is enabled, the connection tracking code will
++	provide userspace with connection tracking events via ctnetlink.
++
++nf_conntrack_events_retry_timeout - INTEGER (seconds)
++	default 15
++
++	This option is only relevant when "reliable connection tracking
++	events" are used.  Normally, ctnetlink is "lossy", that is,
++	events are normally dropped when userspace listeners can't keep up.
++
++	Userspace can request "reliable event mode".  When this mode is
++	active, the conntrack will only be destroyed after the event was
++	delivered.  If event delivery fails, the kernel periodically
++	re-tries to send the event to userspace.
++
++	This is the maximum interval the kernel should use when re-trying
++	to deliver the destroy event.
++
++	A higher number means there will be fewer delivery retries and it
++	will take longer for a backlog to be processed.
++
++nf_conntrack_expect_max - INTEGER
++	Maximum size of expectation table.  Default value is
++	nf_conntrack_buckets / 256. Minimum is 1.
++
++nf_conntrack_frag6_high_thresh - INTEGER
++	default 262144
++
++	Maximum memory used to reassemble IPv6 fragments.  When
++	nf_conntrack_frag6_high_thresh bytes of memory is allocated for this
++	purpose, the fragment handler will toss packets until
++	nf_conntrack_frag6_low_thresh is reached.
++
++nf_conntrack_frag6_low_thresh - INTEGER
++	default 196608
++
++	See nf_conntrack_frag6_low_thresh
++
++nf_conntrack_frag6_timeout - INTEGER (seconds)
++	default 60
++
++	Time to keep an IPv6 fragment in memory.
++
++nf_conntrack_generic_timeout - INTEGER (seconds)
++	default 600
++
++	Default for generic timeout.  This refers to layer 4 unknown/unsupported
++	protocols.
++
++nf_conntrack_helper - BOOLEAN
++	0 - disabled
++	not 0 - enabled (default)
++
++	Enable automatic conntrack helper assignment.
++
++nf_conntrack_icmp_timeout - INTEGER (seconds)
++	default 30
++
++	Default for ICMP timeout.
++
++nf_conntrack_icmpv6_timeout - INTEGER (seconds)
++	default 30
++
++	Default for ICMP6 timeout.
++
++nf_conntrack_log_invalid - INTEGER
++	0   - disable (default)
++	1   - log ICMP packets
++	6   - log TCP packets
++	17  - log UDP packets
++	33  - log DCCP packets
++	41  - log ICMPv6 packets
++	136 - log UDPLITE packets
++	255 - log packets of any protocol
++
++	Log invalid packets of a type specified by value.
++
++nf_conntrack_max - INTEGER
++	Size of connection tracking table.  Default value is
++	nf_conntrack_buckets value * 4.
++
++nf_conntrack_tcp_be_liberal - BOOLEAN
++	0 - disabled (default)
++	not 0 - enabled
++
++	Be conservative in what you do, be liberal in what you accept from others.
++	If it's non-zero, we mark only out of window RST segments as INVALID.
++
++nf_conntrack_tcp_loose - BOOLEAN
++	0 - disabled
++	not 0 - enabled (default)
++
++	If it is set to zero, we disable picking up already established
++	connections.
++
++nf_conntrack_tcp_max_retrans - INTEGER
++	default 3
++
++	Maximum number of packets that can be retransmitted without
++	received an (acceptable) ACK from the destination. If this number
++	is reached, a shorter timer will be started.
++
++nf_conntrack_tcp_timeout_close - INTEGER (seconds)
++	default 10
++
++nf_conntrack_tcp_timeout_close_wait - INTEGER (seconds)
++	default 60
++
++nf_conntrack_tcp_timeout_established - INTEGER (seconds)
++	default 432000 (5 days)
++
++nf_conntrack_tcp_timeout_fin_wait - INTEGER (seconds)
++	default 120
++
++nf_conntrack_tcp_timeout_last_ack - INTEGER (seconds)
++	default 30
++
++nf_conntrack_tcp_timeout_max_retrans - INTEGER (seconds)
++	default 300
++
++nf_conntrack_tcp_timeout_syn_recv - INTEGER (seconds)
++	default 60
++
++nf_conntrack_tcp_timeout_syn_sent - INTEGER (seconds)
++	default 120
++
++nf_conntrack_tcp_timeout_time_wait - INTEGER (seconds)
++	default 120
++
++nf_conntrack_tcp_timeout_unacknowledged - INTEGER (seconds)
++	default 300
++
++nf_conntrack_timestamp - BOOLEAN
++	0 - disabled (default)
++	not 0 - enabled
++
++	Enable connection tracking flow timestamping.
++
++nf_conntrack_udp_timeout - INTEGER (seconds)
++	default 30
++
++nf_conntrack_udp_timeout_stream2 - INTEGER (seconds)
++	default 180
++
++	This extended timeout will be used in case there is an UDP stream
++	detected.
 -- 
 1.7.10.4
