@@ -1,259 +1,71 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [net-next PATCH 7/8] qlcnic: add support for FDB netdevice ops.
-Date: Fri, 25 Jan 2013 15:20:40 -0500
-Message-ID: <1359145241-5175-8-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [net-next PATCH 6/8] qlcnic: sleeping function called from invalid context
+Date: Fri, 25 Jan 2013 15:20:39 -0500
+Message-ID: <1359145241-5175-7-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1359145241-5175-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
 	Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:26332 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:26513 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1752621Ab3AYUl2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 15:41:28 -0500
+	id S1751372Ab3AYUl1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 15:41:27 -0500
 In-Reply-To: <1359145241-5175-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Providing communication channel between KVM and e-Switch so that it
-can be informed when hypervisor configures a MAC address and VLAN.
-
-qlcnic_mac_learn module param usage will be changed to:
-	0 = MAC learning is disable
-	1 = Driver learning is enable
-	2 = FDB learning is enable
+device eth0 entered promiscuous mode
+BUG: sleeping function called from invalid context at mm/slub.c:930
+in_atomic(): 1, irqs_disabled(): 0, pid: 5911, name: brctl
+INFO: lockdep is turned off.
+Pid: 5911, comm: brctl Tainted: GF       W  O 3.6.0-0.rc7.git1.4.fc18.x86_64 #1
+Call Trace:
+[<ffffffff810a29ca>] __might_sleep+0x18a/0x240
+[<ffffffff811b5d77>] __kmalloc+0x67/0x2d0
+[<ffffffffa00a61a9>] ? qlcnic_alloc_lb_filters_mem+0x59/0xa0 [qlcnic]
+[<ffffffffa00a61a9>] qlcnic_alloc_lb_filters_mem+0x59/0xa0 [qlcnic]
+[<ffffffffa009e1c1>] qlcnic_set_multi+0x81/0x100 [qlcnic]
+[<ffffffff8159cccf>] __dev_set_rx_mode+0x5f/0xb0
+[<ffffffff8159cd4f>] dev_set_rx_mode+0x2f/0x50
+[<ffffffff8159d00c>] dev_set_promiscuity+0x3c/0x50
+[<ffffffffa05ed728>] br_add_if+0x1e8/0x400 [bridge]
+[<ffffffffa05ee2df>] add_del_if+0x5f/0x90 [bridge]
+[<ffffffffa05eee0b>] br_dev_ioctl+0x4b/0x90 [bridge]
+[<ffffffff8159d613>] dev_ifsioc+0x373/0x3b0
+[<ffffffff8159d78f>] dev_ioctl+0x13f/0x860
+[<ffffffff812dd6e1>] ? avc_has_perm_flags+0x31/0x2c0
+[<ffffffff8157c18d>] sock_do_ioctl+0x5d/0x70
+[<ffffffff8157c21d>] sock_ioctl+0x7d/0x2c0
+[<ffffffff812df922>] ? inode_has_perm.isra.48.constprop.61+0x62/0xa0
+[<ffffffff811e4979>] do_vfs_ioctl+0x99/0x5a0
+[<ffffffff812df9f7>] ? file_has_perm+0x97/0xb0
+[<ffffffff810d716d>] ? trace_hardirqs_on+0xd/0x10
+[<ffffffff811e4f19>] sys_ioctl+0x99/0xa0
+[<ffffffff816e7369>] system_call_fastpath+0x16/0x1b
+br0: port 1(eth0) entered forwarding state
+br0: port 1(eth0) entered forwarding state
 
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |   10 +++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c   |   30 +++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c   |    2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   84 +++++++++++++++++++++-
- 4 files changed, 117 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 311d545..84c834d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -746,6 +746,11 @@ struct qlcnic_mac_list_s {
- 	uint8_t mac_addr[ETH_ALEN+2];
- };
- 
-+/* MAC Learn */
-+#define NO_MAC_LEARN		0
-+#define DRV_MAC_LEARN		1
-+#define FDB_MAC_LEARN		2
-+
- #define QLCNIC_HOST_REQUEST	0x13
- #define QLCNIC_REQUEST		0x14
- 
-@@ -981,7 +986,8 @@ struct qlcnic_adapter {
- 	u8 mac_addr[ETH_ALEN];
- 
- 	u64 dev_rst_time;
--	u8 mac_learn;
-+	bool drv_mac_learn;
-+	bool fdb_mac_learn;
- 	unsigned long vlans[BITS_TO_LONGS(VLAN_N_VID)];
- 	u8 flash_mfg_id;
- 	struct qlcnic_npar_info *npars;
-@@ -1421,6 +1427,8 @@ void qlcnic_post_rx_buffers(struct qlcnic_adapter *adapter,
- 		struct qlcnic_host_rds_ring *rds_ring, u8 ring_id);
- int qlcnic_process_rcv_ring(struct qlcnic_host_sds_ring *sds_ring, int max);
- void qlcnic_set_multi(struct net_device *netdev);
-+int qlcnic_nic_add_mac(struct qlcnic_adapter *, const u8 *);
-+int qlcnic_nic_del_mac(struct qlcnic_adapter *, const u8 *);
- void qlcnic_free_mac_list(struct qlcnic_adapter *adapter);
- 
- int qlcnic_fw_cmd_set_mtu(struct qlcnic_adapter *adapter, int mtu);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index 3d84c04..124a7e0 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -446,7 +446,29 @@ int qlcnic_82xx_sre_macaddr_change(struct qlcnic_adapter *adapter, u8 *addr,
- 	return qlcnic_send_cmd_descs(adapter, (struct cmd_desc_type0 *)&req, 1);
- }
- 
--static int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, const u8 *addr)
-+int qlcnic_nic_del_mac(struct qlcnic_adapter *adapter, const u8 *addr)
-+{
-+	struct list_head *head;
-+	struct qlcnic_mac_list_s *cur;
-+	int err = -EINVAL;
-+
-+	/* Delete MAC from the existing list */
-+	list_for_each(head, &adapter->mac_list) {
-+		cur = list_entry(head, struct qlcnic_mac_list_s, list);
-+		if (memcmp(addr, cur->mac_addr, ETH_ALEN) == 0) {
-+			err = qlcnic_sre_macaddr_change(adapter, cur->mac_addr,
-+							0, QLCNIC_MAC_DEL);
-+			if (err)
-+				return err;
-+			list_del(&cur->list);
-+			kfree(cur);
-+			return err;
-+		}
-+	}
-+	return err;
-+}
-+
-+int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, const u8 *addr)
- {
- 	struct list_head *head;
- 	struct qlcnic_mac_list_s *cur;
-@@ -510,11 +532,11 @@ void qlcnic_set_multi(struct net_device *netdev)
- 	}
- 
- send_fw_cmd:
--	if (mode == VPORT_MISS_MODE_ACCEPT_ALL) {
-+	if (mode == VPORT_MISS_MODE_ACCEPT_ALL && !adapter->fdb_mac_learn) {
- 		qlcnic_alloc_lb_filters_mem(adapter);
--		adapter->mac_learn = 1;
-+		adapter->drv_mac_learn = true;
- 	} else {
--		adapter->mac_learn = 0;
-+		adapter->drv_mac_learn = false;
- 	}
- 
- 	qlcnic_nic_set_promisc(adapter, mode);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 0033971..fdf3483 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -521,7 +521,7 @@ netdev_tx_t qlcnic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
- 	if (unlikely(qlcnic_tx_pkt(adapter, first_desc, skb)))
- 		goto unwind_buff;
- 
--	if (adapter->mac_learn)
-+	if (adapter->drv_mac_learn)
- 		qlcnic_send_filter(adapter, first_desc, skb);
- 
- 	adapter->stats.txbytes += skb->len;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 8b0f47a..e6b363a 100644
+index 5cbf8c6..8b0f47a 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -32,7 +32,8 @@ static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
+@@ -2142,7 +2142,7 @@ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter)
+ 	}
  
- static int qlcnic_mac_learn;
- module_param(qlcnic_mac_learn, int, 0444);
--MODULE_PARM_DESC(qlcnic_mac_learn, "Mac Filter (0=disabled, 1=enabled)");
-+MODULE_PARM_DESC(qlcnic_mac_learn,
-+		 "Mac Filter (0=learning is disabled, 1=Driver learning is enabled, 2=FDB learning is enabled)");
+ 	head = kcalloc(adapter->fhash.fbucket_size,
+-		       sizeof(struct hlist_head), GFP_KERNEL);
++		       sizeof(struct hlist_head), GFP_ATOMIC);
  
- int qlcnic_use_msi = 1;
- MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
-@@ -246,6 +247,77 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
- 	return 0;
- }
- 
-+static int qlcnic_fdb_del(struct ndmsg *ndm, struct net_device *netdev,
-+			const unsigned char *addr)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	int err = -EOPNOTSUPP;
-+
-+	if (!adapter->fdb_mac_learn) {
-+		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
-+			__func__);
-+		return err;
-+	}
-+
-+	if (adapter->flags & QLCNIC_ESWITCH_ENABLED) {
-+		if (is_unicast_ether_addr(addr))
-+			err = qlcnic_nic_del_mac(adapter, addr);
-+		else if (is_multicast_ether_addr(addr))
-+			err = dev_mc_del(netdev, addr);
-+		else
-+			err =  -EINVAL;
-+	}
-+	return err;
-+}
-+
-+static int qlcnic_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-+			struct net_device *netdev,
-+			const unsigned char *addr, u16 flags)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	int err = 0;
-+
-+	if (!adapter->fdb_mac_learn) {
-+		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
-+			__func__);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (!(adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
-+		pr_info("%s: FDB e-switch is not enabled\n", __func__);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (ether_addr_equal(addr, adapter->mac_addr))
-+		return err;
-+
-+	if (is_unicast_ether_addr(addr))
-+		err = qlcnic_nic_add_mac(adapter, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_add_excl(netdev, addr);
-+	else
-+		err = -EINVAL;
-+
-+	return err;
-+}
-+
-+static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
-+			struct net_device *netdev, int idx)
-+{
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+
-+	if (!adapter->fdb_mac_learn) {
-+		pr_info("%s: Driver mac learn is enabled, FDB operation not allowed\n",
-+			__func__);
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
-+		idx = ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
-+
-+	return idx;
-+}
-+
- static void qlcnic_82xx_cancel_idc_work(struct qlcnic_adapter *adapter)
- {
- 	while (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
-@@ -268,6 +340,9 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_tx_timeout	   = qlcnic_tx_timeout,
- 	.ndo_vlan_rx_add_vid	= qlcnic_vlan_rx_add,
- 	.ndo_vlan_rx_kill_vid	= qlcnic_vlan_rx_del,
-+	.ndo_fdb_add		= qlcnic_fdb_add,
-+	.ndo_fdb_del		= qlcnic_fdb_del,
-+	.ndo_fdb_dump		= qlcnic_fdb_dump,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
- #endif
-@@ -1802,7 +1877,10 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	adapter->dev_rst_time = jiffies;
- 	adapter->ahw->revision_id = pdev->revision;
--	adapter->mac_learn = qlcnic_mac_learn;
-+	if (qlcnic_mac_learn == FDB_MAC_LEARN)
-+		adapter->fdb_mac_learn = true;
-+	else if (qlcnic_mac_learn == DRV_MAC_LEARN)
-+		adapter->drv_mac_learn = true;
- 	adapter->max_drv_tx_rings = 1;
- 
- 	rwlock_init(&adapter->ahw->crb_lock);
-@@ -1893,7 +1971,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (qlcnic_get_act_pci_func(adapter))
- 		goto err_out_disable_mbx_intr;
- 
--	if (adapter->mac_learn)
-+	if (adapter->drv_mac_learn)
- 		qlcnic_alloc_lb_filters_mem(adapter);
- 
- 	qlcnic_add_sysfs(adapter);
+ 	if (!head)
+ 		return;
 -- 
 1.7.1
