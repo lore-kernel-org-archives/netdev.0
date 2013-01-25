@@ -1,47 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] net: Add skb_unclone() helper function.
-Date: Thu, 24 Jan 2013 17:13:20 -0800
-Message-ID: <1359076400.12374.2813.camel@edumazet-glaptop>
-References: <1359065787-1763-1-git-send-email-pshelar@nicira.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH 2/2] v2 GRE: Add segmentation offload for GRE
+Date: Fri, 25 Jan 2013 02:14:47 +0100
+Message-ID: <CAHXqBFLLdTO0cf1+sT96teh4AuHzbxygHQsbJ_8Vec6giYVNTw@mail.gmail.com>
+References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jesse@nicira.com, eric.dumazet@gmail.com
 To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:42394 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753775Ab3AYBNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 20:13:23 -0500
-Received: by mail-pb0-f49.google.com with SMTP id xa12so53589pbc.8
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 17:13:23 -0800 (PST)
-In-Reply-To: <1359065787-1763-1-git-send-email-pshelar@nicira.com>
+Received: from mail-oa0-f53.google.com ([209.85.219.53]:48170 "EHLO
+	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065Ab3AYBPI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 20:15:08 -0500
+Received: by mail-oa0-f53.google.com with SMTP id l20so2898105oag.40
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 17:15:08 -0800 (PST)
+In-Reply-To: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-01-24 at 14:16 -0800, Pravin B Shelar wrote:
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+2013/1/24 Pravin B Shelar <pshelar@nicira.com>:
+[...]
+> @@ -1374,6 +1421,10 @@ static int ipgre_tunnel_init(struct net_device=
+ *dev)
+>                 return err;
+>         }
+>
+> +       if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+> +               dev->features |=3D NETIF_F_GSO_SOFTWARE;
+> +               dev->hw_features |=3D NETIF_F_GSO_SOFTWARE;
+> +       }
+>         return 0;
+>  }
+>
 
+Can o_flags change after tunnel creation? If so, NETIF_F_GSO_SOFTWARE
+should be set in dev->hw_features always, and it should be forced zero
+in ndo_fix_features when GRE_SEQ is set. ipgre_netlink_parms() should
+call netdev_update_features() when o_flags changes.
 
->  
->  /**
-> + *	skb_unclone - creates separate copy if skb is cloned.
-> + */
+> @@ -1564,6 +1615,10 @@ static int ipgre_tap_init(struct net_device *d=
+ev)
+>         if (!dev->tstats)
+>                 return -ENOMEM;
+>
+> +       if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+> +               dev->features |=3D NETIF_F_GSO_SOFTWARE;
+> +               dev->hw_features |=3D NETIF_F_GSO_SOFTWARE;
+> +       }
+>         return 0;
+>  }
+>
 
-A proper kernel doc comment is not really needed, or must be complete
- * @skb: ...
- * @pri: ...
+Same here.
 
-> +static inline bool skb_unclone(struct sk_buff *skb, gfp_t pri)
-> +{
-> +	might_sleep_if(pri & __GFP_WAIT);
-> +
-> +	if (skb_cloned(skb))
-> +		return pskb_expand_head(skb, 0, 0, pri);
-> +
-> +	return 0;
-
-	return false;
-
-> +}
-> +
+Best Regards,
+Micha=B3 Miros=B3aw
