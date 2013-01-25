@@ -1,41 +1,218 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] qlcnic: silence false positive overflow warning
-Date: Fri, 25 Jan 2013 09:41:42 +0300
-Message-ID: <20130125064141.GB4882@elgon.mountain>
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Subject: Re: [PATCH V6 2/3] virtio-net: split out clean affinity function
+Date: Fri, 25 Jan 2013 14:42:30 +0800
+Message-ID: <51022956.3050406@cn.fujitsu.com>
+References: <1358767524-17934-1-git-send-email-gaowanlong@cn.fujitsu.com> <1358767524-17934-2-git-send-email-gaowanlong@cn.fujitsu.com> <5101FBE0.7040505@redhat.com> <51020800.4080900@cn.fujitsu.com> <5102145D.7030607@redhat.com> <51021ABB.8050508@cn.fujitsu.com> <5102224C.3050909@redhat.com>
+Reply-To: gaowanlong@cn.fujitsu.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	Wanlong Gao <gaowanlong@cn.fujitsu.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:17649 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab3AYGlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 01:41:50 -0500
-Content-Disposition: inline
+Received: from cn.fujitsu.com ([222.73.24.84]:31385 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751259Ab3AYGml (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 01:42:41 -0500
+In-Reply-To: <5102224C.3050909@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We actually store the MAC address as well as the board_name here.  The
-longest board_name is 75 characters so there is more than enough room
-to hold the 17 character MAC and the ": " divider.  But making this
-buffer larger silences a static checker warning.
+On 01/25/2013 02:12 PM, Jason Wang wrote:
+> On 01/25/2013 01:40 PM, Wanlong Gao wrote:
+>> On 01/25/2013 01:13 PM, Jason Wang wrote:
+>>> On 01/25/2013 12:20 PM, Wanlong Gao wrote:
+>>>> On 01/25/2013 11:28 AM, Jason Wang wrote:
+>>>>> On 01/21/2013 07:25 PM, Wanlong Gao wrote:
+>>>>>> Split out the clean affinity function to virtnet_clean_affinity().
+>>>>>>
+>>>>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>>>>>> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+>>>>>> Cc: Jason Wang <jasowang@redhat.com>
+>>>>>> Cc: Eric Dumazet <erdnetdev@gmail.com>
+>>>>>> Cc: virtualization@lists.linux-foundation.org
+>>>>>> Cc: netdev@vger.kernel.org
+>>>>>> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+>>>>>> ---
+>>>>>> V5->V6: NEW
+>>>>>>
+>>>>>>  drivers/net/virtio_net.c | 67 +++++++++++++++++++++++++++---------------------
+>>>>>>  1 file changed, 38 insertions(+), 29 deletions(-)
+>>>>>>
+>>>>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>>>>>> index 70cd957..1a35a8c 100644
+>>>>>> --- a/drivers/net/virtio_net.c
+>>>>>> +++ b/drivers/net/virtio_net.c
+>>>>>> @@ -1016,48 +1016,57 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
+>>>>>>  	return 0;
+>>>>>>  }
+>>>>>>  
+>>>>>> -static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
+>>>>>> +static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
+>>>>>>  {
+>>>>>>  	int i;
+>>>>>>  	int cpu;
+>>>>>>  
+>>>>>> -	/* In multiqueue mode, when the number of cpu is equal to the number of
+>>>>>> -	 * queue pairs, we let the queue pairs to be private to one cpu by
+>>>>>> -	 * setting the affinity hint to eliminate the contention.
+>>>>>> -	 */
+>>>>>> -	if ((vi->curr_queue_pairs == 1 ||
+>>>>>> -	     vi->max_queue_pairs != num_online_cpus()) && set) {
+>>>>>> -		if (vi->affinity_hint_set)
+>>>>>> -			set = false;
+>>>>>> -		else
+>>>>>> -			return;
+>>>>>> -	}
+>>>>>> -
+>>>>>> -	if (set) {
+>>>>>> -		i = 0;
+>>>>>> -		for_each_online_cpu(cpu) {
+>>>>>> -			virtqueue_/set_affinity(vi->rq[i].vq, cpu);
+>>>>>> -			virtqueue_set_affinity(vi->sq[i].vq, cpu);
+>>>>>> -			*per_cpu_ptr(vi->vq_index, cpu) = i;
+>>>>>> -			i++;
+>>>>>> -		}
+>>>>>> -
+>>>>>> -		vi->affinity_hint_set = true;
+>>>>>> -	} else {
+>>>>>> -		for(i = 0; i < vi->max_queue_pairs; i++) {
+>>>>>> +	if (vi->affinity_hint_set) {
+>>>>>> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+>>>>>>  			virtqueue_set_affinity(vi->rq[i].vq, -1);
+>>>>>>  			virtqueue_set_affinity(vi->sq[i].vq, -1);
+>>>>>>  		}
+>>>>>>  
+>>>>>>  		i = 0;
+>>>>>> -		for_each_online_cpu(cpu)
+>>>>>> +		for_each_online_cpu(cpu) {
+>>>>>> +			if (cpu == hcpu)
+>>>>>> +				continue;
+>>>>>>  			*per_cpu_ptr(vi->vq_index, cpu) =
+>>>>>>  				++i % vi->curr_queue_pairs;
+>>>>>> +		}
+>>>>>>  
+>>>>> Some questions here:
+>>>>>
+>>>>> - Did we need reset the affinity of the queue here like the this?
+>>>>>
+>>>>> virtqueue_set_affinity(vi->sq[*per_cpu_ptr(vi->vq_index, hcpu)], -1);
+>>>>> virtqueue_set_affinity(vi->rq[*per_cpu_ptr(vi->vq_index, hcpu)], -1);
+>>>> I think no, we are going to unset the affinity of all the set queues,
+>>>> include hcpu.
+>>>>
+>>>>> - Looks like we need also reset the percpu index when
+>>>>> vi->affinity_hint_set is false.
+>>>> Yes, follow this and the comment on [1/3].
+>>>>
+>>>>> - Does this really need this reset? Consider we're going to reset the
+>>>>> percpu in CPU_DEAD?
+>>>> I think resetting when CPU_DOWN_PREPARE can avoid selecting the wrong queue
+>>>> on the dying CPU.
+>>> Didn't understand this. What does 'wrong queue' here mean? Looks like
+>>> you didn't change the preferable queue of the dying CPU and just change
+>>> all others.
+>> How about setting the vq index to -1 on hcpu when doing DOWN_PREPARE?
+>> So that let it select txq to 0 when the CPU is dying.
+> 
+> Looks safe, so look like what you're going to solve here is the the race
+> between cpu hotplug and virtnet_set_channels(). A possible better
+> solution is to serialize them by protecting virtnet_set_queues() by
+> get_online_cpus() also. After this, we can make sure the number of
+> channels were not changed during cpu hotplug, and looks like there's no
+> need to reset the preferable queues in DOWN_PREPARE.
+> 
+> What's your opinion?
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-I'm not sure if this is worth sending.  Feel free to drop this if you
-want.
+IMHO, serialize every time will take lock and may slow down this path,
+but the hot unplug path will be more cold than it. So I prefer reset the
+preferable queues in DOWN_PREPARE but not serialize them. Agree?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 7f63b5f..09870d4 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1724,7 +1724,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct qlcnic_adapter *adapter = NULL;
- 	struct qlcnic_hardware_context *ahw;
- 	int err, pci_using_dac = -1;
--	char board_name[QLCNIC_MAX_BOARD_NAME_LEN];
-+	char board_name[QLCNIC_MAX_BOARD_NAME_LEN + 19]; /* MAC + ": " + name */
- 
- 	err = pci_enable_device(pdev);
- 	if (err)
+Thanks,
+Wanlong Gao
+
+> 
+> Thanks
+>>
+>> Thanks,
+>> Wanlong Gao
+>>
+>>>> Thanks,
+>>>> Wanlong Gao
+>>>>
+>>>>> Thanks
+>>>>>>  		vi->affinity_hint_set = false;
+>>>>>>  	}
+>>>>>>  }
+>>>>>>  
+>>>>>> +static void virtnet_set_affinity(struct virtnet_info *vi)
+>>>>>> +{
+>>>>>> +	int i;
+>>>>>> +	int cpu;
+>>>>>> +
+>>>>>> +	/* In multiqueue mode, when the number of cpu is equal to the number of
+>>>>>> +	 * queue pairs, we let the queue pairs to be private to one cpu by
+>>>>>> +	 * setting the affinity hint to eliminate the contention.
+>>>>>> +	 */
+>>>>>> +	if (vi->curr_queue_pairs == 1 ||
+>>>>>> +	    vi->max_queue_pairs != num_online_cpus()) {
+>>>>>> +		if (vi->affinity_hint_set)
+>>>>>> +			virtnet_clean_affinity(vi, -1);
+>>>>>> +		else
+>>>>>> +			return;
+>>>>>> +	}
+>>>>>> +
+>>>>>> +	i = 0;
+>>>>>> +	for_each_online_cpu(cpu) {
+>>>>>> +		virtqueue_set_affinity(vi->rq[i].vq, cpu);
+>>>>>> +		virtqueue_set_affinity(vi->sq[i].vq, cpu);
+>>>>>> +		*per_cpu_ptr(vi->vq_index, cpu) = i;
+>>>>>> +		i++;
+>>>>>> +	}
+>>>>>> +
+>>>>>> +	vi->affinity_hint_set = true;
+>>>>>> +}
+>>>>>> +
+>>>>>>  static void virtnet_get_ringparam(struct net_device *dev,
+>>>>>>  				struct ethtool_ringparam *ring)
+>>>>>>  {
+>>>>>> @@ -1105,7 +1114,7 @@ static int virtnet_set_channels(struct net_device *dev,
+>>>>>>  		netif_set_real_num_rx_queues(dev, queue_pairs);
+>>>>>>  
+>>>>>>  		get_online_cpus();
+>>>>>> -		virtnet_set_affinity(vi, true);
+>>>>>> +		virtnet_set_affinity(vi);
+>>>>>>  		put_online_cpus();
+>>>>>>  	}
+>>>>>>  
+>>>>>> @@ -1274,7 +1283,7 @@ static void virtnet_del_vqs(struct virtnet_info *vi)
+>>>>>>  {
+>>>>>>  	struct virtio_device *vdev = vi->vdev;
+>>>>>>  
+>>>>>> -	virtnet_set_affinity(vi, false);
+>>>>>> +	virtnet_clean_affinity(vi, -1);
+>>>>>>  
+>>>>>>  	vdev->config->del_vqs(vdev);
+>>>>>>  
+>>>>>> @@ -1398,7 +1407,7 @@ static int init_vqs(struct virtnet_info *vi)
+>>>>>>  		goto err_free;
+>>>>>>  
+>>>>>>  	get_online_cpus();
+>>>>>> -	virtnet_set_affinity(vi, true);
+>>>>>> +	virtnet_set_affinity(vi);
+>>>>>>  	put_online_cpus();
+>>>>>>  
+>>>>>>  	return 0;
+>>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+> 
+> 
