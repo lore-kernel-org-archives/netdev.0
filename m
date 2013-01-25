@@ -1,39 +1,61 @@
-From: Nivedita Singhvi <niveditasinghvi@gmail.com>
-Subject: Re: [PATCH] tcp: Increment of LINUX_MIB_LISTENOVERFLOWS in tcp_v4_conn_request()
-Date: Thu, 24 Jan 2013 23:41:54 -0800
-Message-ID: <51023742.2000908@gmail.com>
-References: <1359097408-9786-1-git-send-email-niv@us.ibm.com> <CAGK4HS8ABKqa8J1Sd1Q52P4p3=KcSokQQX0e90FWV6aZsVdP3A@mail.gmail.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH 2/5] soreuseport: TCP/IPv4 implementation
+Date: Fri, 25 Jan 2013 09:08:11 +0100
+Message-ID: <20130125080811.GM9147@secunet.com>
+References: <alpine.DEB.2.00.1301221141310.26417@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Leandro Lucarella <leandro.lucarella@sociomantic.com>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:48065 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175Ab3AYHmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 02:42:00 -0500
-Received: by mail-ie0-f182.google.com with SMTP id s9so11991iec.13
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 23:42:00 -0800 (PST)
-In-Reply-To: <CAGK4HS8ABKqa8J1Sd1Q52P4p3=KcSokQQX0e90FWV6aZsVdP3A@mail.gmail.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:58737 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751307Ab3AYIIO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 03:08:14 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1301221141310.26417@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/24/2013 11:29 PM, Vijay Subramanian wrote:
-> On 24 January 2013 23:03, Nivedita Singhvi <niveditasinghvi@gmail.com> wrote:
->> We drop a connection request if the accept backlog, syn queue are full when processing reaches tcp_v4_conn_request(). Increment the appropriate counter so this isn't silent, for accurate stats and help in debugging.
->>
-> 
-> Commit message seems misleading. syn queue is not really full at this
-> point. It just has more than enough entries.
+On Tue, Jan 22, 2013 at 11:50:24AM -0800, Tom Herbert wrote:
+> -	} else if (tb->fastreuse &&
+> -		   (!sk->sk_reuse || sk->sk_state =3D=3D TCP_LISTEN))
+> -		tb->fastreuse =3D 0;
+> +		if (sk->sk_reuseport) {
+> +			tb->fastreuseport =3D 1;
+> +			tb->fastuid =3D uid;
+> +		} else {
+> +			tb->fastreuseport =3D 0;
+> +			tb->fastuid =3D 0;
+> +		}
+> +	} else {
+> +		if (tb->fastreuse &&
+> +		    (!sk->sk_reuse || sk->sk_state =3D=3D TCP_LISTEN))
+> +			tb->fastreuse =3D 0;
+> +		if (tb->fastreuseport &&
+> +		    (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))) {
+> +			tb->fastreuseport =3D 0;
+> +			tb->fastuid =3D 0;
+> +		}
 
-Er, good point. I should have said "sufficiently full" or "warm 
-enough to warrant starting drops" - hope I'm not confusing 
-things further, am I? DaveM, would you like me to resend, if you're 
-picking this up? 
+I'm getting the following compile error due to the 0 assignment
+to tb->fastuid:
 
+net/ipv4/inet_connection_sock.c: In function =E2=80=98inet_csk_get_port=
+=E2=80=99:
+net/ipv4/inet_connection_sock.c:232:16: error: incompatible types when =
+assigning to type =E2=80=98kuid_t=E2=80=99 from type =E2=80=98int=E2=80=
+=99
+net/ipv4/inet_connection_sock.c:241:16: error: incompatible types when =
+assigning to type =E2=80=98kuid_t=E2=80=99 from type =E2=80=98int=E2=80=
+=99
+  CC      lib/show_mem.o
+  CC      net/ipv6/ipv6_sockglue.o
+make[3]: *** [net/ipv4/inet_connection_sock.o] Error 1
+make[2]: *** [net/ipv4] Error 2
 
-thanks,
-Nivedita
+I have not seen this reported so far what surprises me a bit.
+This is net-next from today complied with
+gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3
