@@ -1,216 +1,346 @@
 From: pablo@netfilter.org
-Subject: [PATCH 08/21] netfilter: doc: add nf_conntrack sysctl api documentation
-Date: Fri, 25 Jan 2013 14:54:40 +0100
-Message-ID: <1359122093-3404-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/21] netfilter: nf_conntrack: move initialization out of pernet operations
+Date: Fri, 25 Jan 2013 14:54:42 +0100
+Message-ID: <1359122093-3404-11-git-send-email-pablo@netfilter.org>
 References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60296 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:60304 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757141Ab3AYNzM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 08:55:12 -0500
+	id S932248Ab3AYNzN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 08:55:13 -0500
 In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-I grepped through the code and picked bits about nf_conntrack sysctl api
-and put that into one documentation file.
+nf_conntrack initialization and cleanup codes happens in pernet
+operations function. This task should be done in module_init/exit.
+We can't use init_net to identify if it's the right time to initialize
+or cleanup since we cannot make assumption on the order netns are
+created/destroyed.
 
-[ I have mangled this patch including comments from several grammar
-  improvements proposed by Neal Murphy <neal.p.murphy@alum.wpi.edu>,
-  any new grammar error is my mistake --pablo ]
-
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- Documentation/networking/nf_conntrack-sysctl.txt |  176 ++++++++++++++++++++++
- 1 file changed, 176 insertions(+)
- create mode 100644 Documentation/networking/nf_conntrack-sysctl.txt
+ include/net/netfilter/nf_conntrack_core.h |    8 ++-
+ net/netfilter/nf_conntrack_core.c         |   96 +++++++++++------------------
+ net/netfilter/nf_conntrack_standalone.c   |   56 ++++++++++-------
+ 3 files changed, 77 insertions(+), 83 deletions(-)
 
-diff --git a/Documentation/networking/nf_conntrack-sysctl.txt b/Documentation/networking/nf_conntrack-sysctl.txt
-new file mode 100644
-index 0000000..70da508
---- /dev/null
-+++ b/Documentation/networking/nf_conntrack-sysctl.txt
-@@ -0,0 +1,176 @@
-+/proc/sys/net/netfilter/nf_conntrack_* Variables:
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index e98aeb3..e05c1f6 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -25,12 +25,16 @@ extern unsigned int nf_conntrack_in(struct net *net,
+ 				    unsigned int hooknum,
+ 				    struct sk_buff *skb);
+ 
+-extern int nf_conntrack_init(struct net *net);
+-extern void nf_conntrack_cleanup(struct net *net);
++extern int nf_conntrack_init_net(struct net *net);
++extern void nf_conntrack_cleanup_net(struct net *net);
+ 
+ extern int nf_conntrack_proto_init(struct net *net);
+ extern void nf_conntrack_proto_fini(struct net *net);
+ 
++extern int nf_conntrack_init_start(void);
++extern void nf_conntrack_cleanup_start(void);
 +
-+nf_conntrack_acct - BOOLEAN
-+	0 - disabled (default)
-+	not 0 - enabled
++extern void nf_conntrack_init_end(void);
+ extern void nf_conntrack_cleanup_end(void);
+ 
+ extern bool
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 85aa4b7..fb3e514 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1334,8 +1334,14 @@ static int untrack_refs(void)
+ 	return cnt;
+ }
+ 
+-static void nf_conntrack_cleanup_init_net(void)
++void nf_conntrack_cleanup_start(void)
+ {
++	RCU_INIT_POINTER(ip_ct_attach, NULL);
++}
 +
-+	Enable connection tracking flow accounting. 64-bit byte and packet
-+	counters per flow are added.
++void nf_conntrack_cleanup_end(void)
++{
++	RCU_INIT_POINTER(nf_ct_destroy, NULL);
+ 	while (untrack_refs() > 0)
+ 		schedule();
+ 
+@@ -1344,8 +1350,18 @@ static void nf_conntrack_cleanup_init_net(void)
+ #endif
+ }
+ 
+-static void nf_conntrack_cleanup_net(struct net *net)
++/*
++ * Mishearing the voices in his head, our hero wonders how he's
++ * supposed to kill the mall.
++ */
++void nf_conntrack_cleanup_net(struct net *net)
+ {
++	/*
++	 * This makes sure all current packets have passed through
++	 *  netfilter framework.  Roll on, two-stage module
++	 *  delete...
++	 */
++	synchronize_net();
+  i_see_dead_people:
+ 	nf_ct_iterate_cleanup(net, kill_all, NULL);
+ 	nf_ct_release_dying_list(net);
+@@ -1355,6 +1371,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ 	}
+ 
+ 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
++	nf_conntrack_proto_fini(net);
+ 	nf_conntrack_labels_fini(net);
+ 	nf_conntrack_helper_fini(net);
+ 	nf_conntrack_timeout_fini(net);
+@@ -1367,27 +1384,6 @@ static void nf_conntrack_cleanup_net(struct net *net)
+ 	free_percpu(net->ct.stat);
+ }
+ 
+-/* Mishearing the voices in his head, our hero wonders how he's
+-   supposed to kill the mall. */
+-void nf_conntrack_cleanup(struct net *net)
+-{
+-	if (net_eq(net, &init_net))
+-		RCU_INIT_POINTER(ip_ct_attach, NULL);
+-
+-	/* This makes sure all current packets have passed through
+-	   netfilter framework.  Roll on, two-stage module
+-	   delete... */
+-	synchronize_net();
+-	nf_conntrack_proto_fini(net);
+-	nf_conntrack_cleanup_net(net);
+-}
+-
+-void nf_conntrack_cleanup_end(void)
+-{
+-	RCU_INIT_POINTER(nf_ct_destroy, NULL);
+-	nf_conntrack_cleanup_init_net();
+-}
+-
+ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
+ {
+ 	struct hlist_nulls_head *hash;
+@@ -1478,7 +1474,7 @@ void nf_ct_untracked_status_or(unsigned long bits)
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
+ 
+-static int nf_conntrack_init_init_net(void)
++int nf_conntrack_init_start(void)
+ {
+ 	int max_factor = 8;
+ 	int ret, cpu;
+@@ -1526,6 +1522,16 @@ err_extend:
+ 	return ret;
+ }
+ 
++void nf_conntrack_init_end(void)
++{
++	/* For use by REJECT target */
++	RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
++	RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
 +
-+nf_conntrack_buckets - INTEGER (read-only)
-+	Size of hash table. If not specified as parameter during module
-+	loading, the default size is calculated by dividing total memory
-+	by 16384 to determine the number of buckets but the hash table will
-+	never have fewer than 32 or more than 16384 buckets.
++	/* Howto get NAT offsets */
++	RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
++}
 +
-+nf_conntrack_checksum - BOOLEAN
-+	0 - disabled
-+	not 0 - enabled (default)
+ /*
+  * We need to use special "null" values, not used in hash table
+  */
+@@ -1533,7 +1539,7 @@ err_extend:
+ #define DYING_NULLS_VAL		((1<<30)+1)
+ #define TEMPLATE_NULLS_VAL	((1<<30)+2)
+ 
+-static int nf_conntrack_init_net(struct net *net)
++int nf_conntrack_init_net(struct net *net)
+ {
+ 	int ret;
+ 
+@@ -1592,8 +1598,13 @@ static int nf_conntrack_init_net(struct net *net)
+ 	if (ret < 0)
+ 		goto err_labels;
+ 
++	ret = nf_conntrack_proto_init(net);
++	if (ret < 0)
++		goto err_proto;
+ 	return 0;
+ 
++err_proto:
++	nf_conntrack_labels_fini(net);
+ err_labels:
+ 	nf_conntrack_helper_fini(net);
+ err_helper:
+@@ -1622,38 +1633,3 @@ s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
+ 			enum ip_conntrack_dir dir,
+ 			u32 seq);
+ EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
+-
+-int nf_conntrack_init(struct net *net)
+-{
+-	int ret;
+-
+-	if (net_eq(net, &init_net)) {
+-		ret = nf_conntrack_init_init_net();
+-		if (ret < 0)
+-			goto out_init_net;
+-	}
+-	ret = nf_conntrack_proto_init(net);
+-	if (ret < 0)
+-		goto out_proto;
+-	ret = nf_conntrack_init_net(net);
+-	if (ret < 0)
+-		goto out_net;
+-
+-	if (net_eq(net, &init_net)) {
+-		/* For use by REJECT target */
+-		RCU_INIT_POINTER(ip_ct_attach, nf_conntrack_attach);
+-		RCU_INIT_POINTER(nf_ct_destroy, destroy_conntrack);
+-
+-		/* Howto get NAT offsets */
+-		RCU_INIT_POINTER(nf_ct_nat_offset, NULL);
+-	}
+-	return 0;
+-
+-out_net:
+-	nf_conntrack_proto_fini(net);
+-out_proto:
+-	if (net_eq(net, &init_net))
+-		nf_conntrack_cleanup_init_net();
+-out_init_net:
+-	return ret;
+-}
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index e7185c6..725bf04 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -472,13 +472,6 @@ static int nf_conntrack_standalone_init_sysctl(struct net *net)
+ {
+ 	struct ctl_table *table;
+ 
+-	if (net_eq(net, &init_net)) {
+-		nf_ct_netfilter_header =
+-		       register_net_sysctl(&init_net, "net", nf_ct_netfilter_table);
+-		if (!nf_ct_netfilter_header)
+-			goto out;
+-	}
+-
+ 	table = kmemdup(nf_ct_sysctl_table, sizeof(nf_ct_sysctl_table),
+ 			GFP_KERNEL);
+ 	if (!table)
+@@ -502,10 +495,6 @@ static int nf_conntrack_standalone_init_sysctl(struct net *net)
+ out_unregister_netfilter:
+ 	kfree(table);
+ out_kmemdup:
+-	if (net_eq(net, &init_net))
+-		unregister_net_sysctl_table(nf_ct_netfilter_header);
+-out:
+-	printk(KERN_ERR "nf_conntrack: can't register to sysctl.\n");
+ 	return -ENOMEM;
+ }
+ 
+@@ -513,8 +502,6 @@ static void nf_conntrack_standalone_fini_sysctl(struct net *net)
+ {
+ 	struct ctl_table *table;
+ 
+-	if (net_eq(net, &init_net))
+-		unregister_net_sysctl_table(nf_ct_netfilter_header);
+ 	table = net->ct.sysctl_header->ctl_table_arg;
+ 	unregister_net_sysctl_table(net->ct.sysctl_header);
+ 	kfree(table);
+@@ -530,51 +517,78 @@ static void nf_conntrack_standalone_fini_sysctl(struct net *net)
+ }
+ #endif /* CONFIG_SYSCTL */
+ 
+-static int nf_conntrack_net_init(struct net *net)
++static int nf_conntrack_pernet_init(struct net *net)
+ {
+ 	int ret;
+ 
+-	ret = nf_conntrack_init(net);
++	ret = nf_conntrack_init_net(net);
+ 	if (ret < 0)
+ 		goto out_init;
 +
-+	Verify checksum of incoming packets. Packets with bad checksums are
-+	in INVALID state. If this is enabled, such packets will not be
-+	considered for connection tracking.
+ 	ret = nf_conntrack_standalone_init_proc(net);
+ 	if (ret < 0)
+ 		goto out_proc;
 +
-+nf_conntrack_count - INTEGER (read-only)
-+	Number of currently allocated flow entries.
+ 	net->ct.sysctl_checksum = 1;
+ 	net->ct.sysctl_log_invalid = 0;
+ 	ret = nf_conntrack_standalone_init_sysctl(net);
+ 	if (ret < 0)
+ 		goto out_sysctl;
 +
-+nf_conntrack_events - BOOLEAN
-+	0 - disabled
-+	not 0 - enabled (default)
+ 	return 0;
+ 
+ out_sysctl:
+ 	nf_conntrack_standalone_fini_proc(net);
+ out_proc:
+-	nf_conntrack_cleanup(net);
++	nf_conntrack_cleanup_net(net);
+ out_init:
+ 	return ret;
+ }
+ 
+-static void nf_conntrack_net_exit(struct net *net)
++static void nf_conntrack_pernet_exit(struct net *net)
+ {
+ 	nf_conntrack_standalone_fini_sysctl(net);
+ 	nf_conntrack_standalone_fini_proc(net);
+-	nf_conntrack_cleanup(net);
++	nf_conntrack_cleanup_net(net);
+ }
+ 
+ static struct pernet_operations nf_conntrack_net_ops = {
+-	.init = nf_conntrack_net_init,
+-	.exit = nf_conntrack_net_exit,
++	.init = nf_conntrack_pernet_init,
++	.exit = nf_conntrack_pernet_exit,
+ };
+ 
+ static int __init nf_conntrack_standalone_init(void)
+ {
+-	return register_pernet_subsys(&nf_conntrack_net_ops);
++	int ret = nf_conntrack_init_start();
++	if (ret < 0)
++		goto out_start;
 +
-+	If this option is enabled, the connection tracking code will
-+	provide userspace with connection tracking events via ctnetlink.
++	nf_ct_netfilter_header =
++		register_net_sysctl(&init_net, "net", nf_ct_netfilter_table);
++	if (!nf_ct_netfilter_header)
++		goto out_sysctl;
 +
-+nf_conntrack_events_retry_timeout - INTEGER (seconds)
-+	default 15
++	ret = register_pernet_subsys(&nf_conntrack_net_ops);
++	if (ret < 0)
++		goto out_pernet;
 +
-+	This option is only relevant when "reliable connection tracking
-+	events" are used.  Normally, ctnetlink is "lossy", that is,
-+	events are normally dropped when userspace listeners can't keep up.
++	nf_conntrack_init_end();
++	return 0;
 +
-+	Userspace can request "reliable event mode".  When this mode is
-+	active, the conntrack will only be destroyed after the event was
-+	delivered.  If event delivery fails, the kernel periodically
-+	re-tries to send the event to userspace.
-+
-+	This is the maximum interval the kernel should use when re-trying
-+	to deliver the destroy event.
-+
-+	A higher number means there will be fewer delivery retries and it
-+	will take longer for a backlog to be processed.
-+
-+nf_conntrack_expect_max - INTEGER
-+	Maximum size of expectation table.  Default value is
-+	nf_conntrack_buckets / 256. Minimum is 1.
-+
-+nf_conntrack_frag6_high_thresh - INTEGER
-+	default 262144
-+
-+	Maximum memory used to reassemble IPv6 fragments.  When
-+	nf_conntrack_frag6_high_thresh bytes of memory is allocated for this
-+	purpose, the fragment handler will toss packets until
-+	nf_conntrack_frag6_low_thresh is reached.
-+
-+nf_conntrack_frag6_low_thresh - INTEGER
-+	default 196608
-+
-+	See nf_conntrack_frag6_low_thresh
-+
-+nf_conntrack_frag6_timeout - INTEGER (seconds)
-+	default 60
-+
-+	Time to keep an IPv6 fragment in memory.
-+
-+nf_conntrack_generic_timeout - INTEGER (seconds)
-+	default 600
-+
-+	Default for generic timeout.  This refers to layer 4 unknown/unsupported
-+	protocols.
-+
-+nf_conntrack_helper - BOOLEAN
-+	0 - disabled
-+	not 0 - enabled (default)
-+
-+	Enable automatic conntrack helper assignment.
-+
-+nf_conntrack_icmp_timeout - INTEGER (seconds)
-+	default 30
-+
-+	Default for ICMP timeout.
-+
-+nf_conntrack_icmpv6_timeout - INTEGER (seconds)
-+	default 30
-+
-+	Default for ICMP6 timeout.
-+
-+nf_conntrack_log_invalid - INTEGER
-+	0   - disable (default)
-+	1   - log ICMP packets
-+	6   - log TCP packets
-+	17  - log UDP packets
-+	33  - log DCCP packets
-+	41  - log ICMPv6 packets
-+	136 - log UDPLITE packets
-+	255 - log packets of any protocol
-+
-+	Log invalid packets of a type specified by value.
-+
-+nf_conntrack_max - INTEGER
-+	Size of connection tracking table.  Default value is
-+	nf_conntrack_buckets value * 4.
-+
-+nf_conntrack_tcp_be_liberal - BOOLEAN
-+	0 - disabled (default)
-+	not 0 - enabled
-+
-+	Be conservative in what you do, be liberal in what you accept from others.
-+	If it's non-zero, we mark only out of window RST segments as INVALID.
-+
-+nf_conntrack_tcp_loose - BOOLEAN
-+	0 - disabled
-+	not 0 - enabled (default)
-+
-+	If it is set to zero, we disable picking up already established
-+	connections.
-+
-+nf_conntrack_tcp_max_retrans - INTEGER
-+	default 3
-+
-+	Maximum number of packets that can be retransmitted without
-+	received an (acceptable) ACK from the destination. If this number
-+	is reached, a shorter timer will be started.
-+
-+nf_conntrack_tcp_timeout_close - INTEGER (seconds)
-+	default 10
-+
-+nf_conntrack_tcp_timeout_close_wait - INTEGER (seconds)
-+	default 60
-+
-+nf_conntrack_tcp_timeout_established - INTEGER (seconds)
-+	default 432000 (5 days)
-+
-+nf_conntrack_tcp_timeout_fin_wait - INTEGER (seconds)
-+	default 120
-+
-+nf_conntrack_tcp_timeout_last_ack - INTEGER (seconds)
-+	default 30
-+
-+nf_conntrack_tcp_timeout_max_retrans - INTEGER (seconds)
-+	default 300
-+
-+nf_conntrack_tcp_timeout_syn_recv - INTEGER (seconds)
-+	default 60
-+
-+nf_conntrack_tcp_timeout_syn_sent - INTEGER (seconds)
-+	default 120
-+
-+nf_conntrack_tcp_timeout_time_wait - INTEGER (seconds)
-+	default 120
-+
-+nf_conntrack_tcp_timeout_unacknowledged - INTEGER (seconds)
-+	default 300
-+
-+nf_conntrack_timestamp - BOOLEAN
-+	0 - disabled (default)
-+	not 0 - enabled
-+
-+	Enable connection tracking flow timestamping.
-+
-+nf_conntrack_udp_timeout - INTEGER (seconds)
-+	default 30
-+
-+nf_conntrack_udp_timeout_stream2 - INTEGER (seconds)
-+	default 180
-+
-+	This extended timeout will be used in case there is an UDP stream
-+	detected.
++out_pernet:
++	unregister_net_sysctl_table(nf_ct_netfilter_header);
++out_sysctl:
++	pr_err("nf_conntrack: can't register to sysctl.\n");
++	nf_conntrack_cleanup_end();
++out_start:
++	return ret;
+ }
+ 
+ static void __exit nf_conntrack_standalone_fini(void)
+ {
++	nf_conntrack_cleanup_start();
+ 	unregister_pernet_subsys(&nf_conntrack_net_ops);
++	unregister_net_sysctl_table(nf_ct_netfilter_header);
+ 	nf_conntrack_cleanup_end();
+ }
+ 
 -- 
 1.7.10.4
