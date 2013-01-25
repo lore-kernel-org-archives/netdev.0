@@ -1,7 +1,7 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [RFC PATCH 1/4] net: mvmdio: rename base register cookie from smireg to regs
-Date: Fri, 25 Jan 2013 11:06:46 +0100
-Message-ID: <1359108409-4378-2-git-send-email-florian@openwrt.org>
+Subject: [RFC PATCH 4/4] net: mvmdio: add getter and setter for PHY addresses
+Date: Fri, 25 Jan 2013 11:06:49 +0100
+Message-ID: <1359108409-4378-5-git-send-email-florian@openwrt.org>
 References: <1359108409-4378-1-git-send-email-florian@openwrt.org>
 Cc: linux-arm-kernel@lists.infradead.org, ian.molton@codethink.co.uk,
 	jason@lakedaemon.net, andrew@lunn.ch, arnd@arndb.de,
@@ -10,89 +10,89 @@ Cc: linux-arm-kernel@lists.infradead.org, ian.molton@codethink.co.uk,
 	Florian Fainelli <florian@openwrt.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:40883 "EHLO zmc.proxad.net"
+Received: from zmc.proxad.net ([212.27.53.206]:40913 "EHLO zmc.proxad.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756213Ab3AYKJg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 05:09:36 -0500
+	id S1756128Ab3AYKJj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 05:09:39 -0500
 In-Reply-To: <1359108409-4378-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch renames the base register cookie in the mvmdio drive from
-"smireg" to "regs" since a subsequent patch is going to use an ioremap()
-cookie whose size is larger than a single register of 4 bytes. No
-functionnal code change introduced.
+This patch adds orion_mdio_{set,get}_phy_addr(.., port_number, phy_addr)
+which is a feature available in this MDIO driver to monitor a particular
+PHY address. This brings mvmdio one step closer to what is used in
+mv643x_eth.
 
 Signed-off-by: Florian Fainelli <florian@openwrt.org>
 ---
- drivers/net/ethernet/marvell/mvmdio.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/marvell/mvmdio.c |   29 +++++++++++++++++++++++++++++
+ include/linux/marvell_mvmdio.h        |   10 ++++++++++
+ 2 files changed, 39 insertions(+)
+ create mode 100644 include/linux/marvell_mvmdio.h
 
 diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index 74f1c15..e4a89b2 100644
+index bdd9047..09e2470 100644
 --- a/drivers/net/ethernet/marvell/mvmdio.c
 +++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -39,7 +39,7 @@
+@@ -32,7 +32,9 @@
+ #include <linux/delay.h>
+ #include <linux/sched.h>
+ #include <linux/wait.h>
++#include <linux/marvell_mvmdio.h>
  
- struct orion_mdio_dev {
- 	struct mutex lock;
--	void __iomem *smireg;
-+	void __iomem *regs;
- };
++#define MVMDIO_PHY_ADDR			   0x0000
+ #define MVMDIO_SMI_REG			   0x0004
+ #define MVMDIO_SMI_DATA_SHIFT              0
+ #define MVMDIO_SMI_PHY_ADDR_SHIFT          16
+@@ -188,6 +190,33 @@ static irqreturn_t orion_mdio_err_irq(int irq, void *dev_id)
+ 	return IRQ_NONE;
+ }
  
- /* Wait for the SMI unit to be ready for another operation
-@@ -52,7 +52,7 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
- 
- 	count = 0;
- 	while (1) {
--		val = readl(dev->smireg);
-+		val = readl(dev->regs);
- 		if (!(val & MVMDIO_SMI_BUSY))
- 			break;
- 
-@@ -87,12 +87,12 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
- 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
- 		MVMDIO_SMI_READ_OPERATION),
--	       dev->smireg);
-+	       dev->regs);
- 
- 	/* Wait for the value to become available */
- 	count = 0;
- 	while (1) {
--		val = readl(dev->smireg);
-+		val = readl(dev->regs);
- 		if (val & MVMDIO_SMI_READ_VALID)
- 			break;
- 
-@@ -129,7 +129,7 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
- 		MVMDIO_SMI_WRITE_OPERATION            |
- 		(value << MVMDIO_SMI_DATA_SHIFT)),
--	       dev->smireg);
-+	       dev->regs);
- 
- 	mutex_unlock(&dev->lock);
- 
-@@ -173,8 +173,8 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 		bus->irq[i] = PHY_POLL;
- 
- 	dev = bus->priv;
--	dev->smireg = of_iomap(pdev->dev.of_node, 0);
--	if (!dev->smireg) {
-+	dev->regs = of_iomap(pdev->dev.of_node, 0);
-+	if (!dev->regs) {
- 		dev_err(&pdev->dev, "No SMI register address given in DT\n");
- 		kfree(bus->irq);
- 		mdiobus_free(bus);
-@@ -186,7 +186,7 @@ static int orion_mdio_probe(struct platform_device *pdev)
- 	ret = of_mdiobus_register(bus, np);
- 	if (ret < 0) {
- 		dev_err(&pdev->dev, "Cannot register MDIO bus (%d)\n", ret);
--		iounmap(dev->smireg);
-+		iounmap(dev->regs);
- 		kfree(bus->irq);
- 		mdiobus_free(bus);
- 		return ret;
++void orion_mdio_phy_addr_set(struct platform_device *pdev,
++				int port_num, int phy_addr)
++{
++	struct orion_mdio_dev *dev =
++		platform_get_drvdata(pdev);
++	int addr_shift = 5 * port_num;
++	u32 data;
++
++	data = readl(dev->regs + MVMDIO_PHY_ADDR);
++	data &= ~(0x1f << addr_shift);
++	data |= (phy_addr & 0x1f) << addr_shift;
++	writel(data, dev->regs + MVMDIO_PHY_ADDR);
++}
++EXPORT_SYMBOL(orion_mdio_phy_addr_set);
++
++int orion_mdio_phy_addr_get(struct platform_device *pdev, int port_num)
++{
++	struct orion_mdio_dev *dev =
++		platform_get_drvdata(pdev);
++	unsigned int data;
++
++	data = readl(dev->regs + MVMDIO_PHY_ADDR);
++
++	return (data >> (5 * port_num)) & 0x1f;
++}
++EXPORT_SYMBOL(orion_mdio_phy_addr_get);
++
+ static int orion_mdio_probe(struct platform_device *pdev)
+ {
+ 	struct device_node *np = pdev->dev.of_node;
+diff --git a/include/linux/marvell_mvmdio.h b/include/linux/marvell_mvmdio.h
+new file mode 100644
+index 0000000..c2dfec4
+--- /dev/null
++++ b/include/linux/marvell_mvmdio.h
+@@ -0,0 +1,10 @@
++#ifndef _MARVELL_MVMDIO_H
++#define _MARVELL_MVMDIO_H
++
++#include <linux/platform_device.h>
++
++void orion_mdio_phy_addr_set(struct platform_device *pdev,
++				int port_num, int phy_addr);
++int orion_mdio_phy_addr_get(struct platform_device *pdev, int port_num);
++
++#endif /* _MARVELL_MVMDIO_H */
 -- 
 1.7.10.4
