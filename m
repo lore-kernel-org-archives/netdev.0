@@ -1,57 +1,69 @@
-From: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Subject: Web10g TCP statistics patch - mainlining into kernel?
-Date: Fri, 25 Jan 2013 13:31:56 -0500
-Message-ID: <18855.1359138716@turing-police.cc.vt.edu>
-Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1359138716_1992P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	web10g-user@web10g.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---==_Exmh_1359138716_1992P
+From: Milos Vyletel <milos.vyletel@sde.cz>
+Subject: [PATCH] bonding: unset primary slave via sysfs
+Date: Fri, 25 Jan 2013 13:41:49 -0500
+Message-ID: <47084655-E363-4D67-94B3-B6A3471B4D4E@sde.cz>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail4.sde.cz ([85.93.125.197]:37942 "EHLO sde.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755459Ab3AYSvQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 13:51:16 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by sde.cz (Postfix) with ESMTP id 821FC69F4081
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 19:41:53 +0100 (CET)
+Received: from sde.cz ([127.0.0.1])
+	by localhost (zimbra.sde [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id oine501MID0S for <netdev@vger.kernel.org>;
+	Fri, 25 Jan 2013 19:41:53 +0100 (CET)
+Received: from [172.16.99.4] (cpe-075-177-134-192.nc.res.rr.com [75.177.134.192])
+	by sde.cz (Postfix) with ESMTPSA id 960FF69F4081
+	for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 19:41:52 +0100 (CET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I had a user who's working on tuning high-performance network file systems what
-the chances of upstreaming the Web10G patch to provide the RFC4898 TCP Extended
-Statistics MIB via netlink.
+When bonding module is loaded with primary parameter and one decides to unset primary slave using sysfs these settings are not preserved during bond device restart.  Primary slave is only unset once and it's not remembered in bond->params structure. Below is example of recreation. Fix is simple one-liner
 
-Yes, it's a tad on the intrusive side, and there's performance costs attached -
-but so are a lot of *other* things that people use all the time for kernel
-debugging, and it's a zero-hit thing for people who don't choose to configure
-it into their kernel.  The added detailed status available from this will be
-useful for people who are doing tuning and development (consider how useful
-this would have been for the people who wrote the codel line discipline as part
-of the bufferbloat project).
+# grep OPTS /etc/sysconfig/network-scripts/ifcfg-bond0
+BONDING_OPTS="mode=active-backup miimon=100 primary=eth01"
+# grep "Primary Slave" /proc/net/bonding/bond0 
+Primary Slave: eth01 (primary_reselect always)
 
-I'm willing to do the not-so-heavy lifting of getting the existing patch
-cleaned up to upstream standards and sheparded through the process, if there's
-any interest at all....
+# echo "" > /sys/class/net/bond0/bonding/primary
+# grep "Primary Slave" /proc/net/bonding/bond0 
+Primary Slave: None
+
+# sed -i -e 's/primary=eth01//' /etc/sysconfig/network-scripts/ifcfg-bond0
+# grep OPTS /etc/sysconfig/network-scripts/ifcfg-bond 
+BONDING_OPTS="mode=active-backup miimon=100 "
+# ifdown bond0 && ifup bond0
+
+without patch:
+# grep "Primary Slave" /proc/net/bonding/bond0 
+Primary Slave: eth01 (primary_reselect always)
+
+with patch:
+# grep "Primary Slave" /proc/net/bonding/bond0 
+Primary Slave: None
 
 
---==_Exmh_1359138716_1992P
-Content-Type: application/pgp-signature
+---
+ drivers/net/bonding/bond_sysfs.c | 1 +
+ 1 file changed, 1 insertion(+)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBUQLPnAdmEQWDXROgAQLfRQ//XN6C0Bt03dDBuQsk0f9MnYMM4A6eziKc
-9qAgg2JDhgRAig2rjKp0StDdVa1tc8OfuKqlgUrMIdK92v8RqysOOaZezM2EcLaf
-DJT+eDeEiDBRdIxJVyGwR65pOpdsTaDyQlo6fGXHya5DEwKIxw8CUsCSxguhYmeW
-U2OORG2Pw2nbDIyk46nEbL9XT56x8PJYyNDdoN9wZoUMC9oTIg9x4Ux+KHq5l+PF
-Ss6CR6UXPaBP9wn5V12mrihgXKxx59axl54dOaWKtWxf03YiJ2r9U9aoTt3daMrp
-Ij1BOZaBOS8iaMmXJhVV+DMtMclytWGUP6mI3FiCKjS7uL3V7r0dLsGhFPsy4P3V
-w+11O1hJGhf3KdiZf4PcAGnLvAAwaBqPnjWNnPbdoxfHh51EJswiedKq5lygcWUz
-zJFvoWKBTV+vTZv1BFQVoYA1UNMhQyHnMDzrPtGfmO1XvEJvm1v7l51QAg3O1p3B
-CUG4tnAPR5uaFpg12xozjkCPwDDCEnqok78fHpaRnbOMFeEUlmuUN+m2G4/2la+X
-0XYLQq1vUkRxT1Jr4SKFD1yJGsSSI2dfTWtdiiMQ4BJhScBFR8ScEQ4Lomull4qQ
-1xoa54mN1P94vssPntMdxY1lC77fvN/rs4k/EHxNmGumTeJAgL2hYioQh7dASXdh
-8TEUzmlsQ+4=
-=cNxN
------END PGP SIGNATURE-----
-
---==_Exmh_1359138716_1992P--
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 1877ed7..50f7eef 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1053,6 +1053,7 @@ static ssize_t bonding_store_primary(struct device *d,
+                pr_info("%s: Setting primary slave to None.\n",
+                        bond->dev->name);
+                bond->primary_slave = NULL;
++               memset(bond->params.primary, '\0', sizeof(bond->params.primary));
+                bond_select_active_slave(bond);
+                goto out;
+        }
+-- 
+1.8.1
