@@ -1,64 +1,42 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next V2] bond: have random dev address by default
- instead of zeroes
-Date: Fri, 25 Jan 2013 21:00:28 +0100
-Message-ID: <20130125200028.GD1821@minipsycho.orion>
-References: <542237717.4200599.1359136587903.JavaMail.root@redhat.com>
- <22106.1359138692@death.nxdomain>
+From: rapier <rapier@psc.edu>
+Subject: Re: [Web10g-user] Web10g TCP statistics patch - mainlining into kernel?
+Date: Fri, 25 Jan 2013 15:08:30 -0500
+Message-ID: <5102E63E.1020508@psc.edu>
+References: <18855.1359138716@turing-police.cc.vt.edu>            <5102DE61.80804@psc.edu> <23149.1359143784@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Simerda <psimerda@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org, dcbw@redhat.com
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:50031 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab3AYUAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 15:00:32 -0500
-Received: by mail-ea0-f171.google.com with SMTP id c13so330822eaa.16
-        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 12:00:31 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <22106.1359138692@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, web10g-user@web10g.org,
+	linux-kernel@vger.kernel.org
+To: Valdis.Kletnieks@vt.edu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <23149.1359143784@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Jan 25, 2013 at 07:31:32PM CET, fubar@us.ibm.com wrote:
->Pavel Simerda <psimerda@redhat.com> wrote:
->
->>----- Original Message -----
->>> From: "Jay Vosburgh" <fubar@us.ibm.com>
->>> but I don't think it should be changed.
->>
->>Just a short question. Is there any reason for bonding interfaces to
->>behave differently from bridging interfaces in this respect?
->
->	To clarify, what I don't think should change is that a manually
->set MAC on the bonding master should override the automatic copy of the
->first slave's MAC to the bonding master.  The fail_over_mac active and
->follow settings are an exception to this, but those are special cases
->for unusual network hardware.
->
->	As for the random MAC vs. zero MAC, I've always thought that the
->all zero MAC was a clear indicator that the device (the bonding master
->in this case) was not in a usable state (in the sense that it could not
->send or receive actual traffic).  It's not a really big deal, though, so
->if the trend these days is for everything to have a MAC all the time,
->that's fine, as long as doing so doesn't break anything.
->
->	I think the patch under discussion should be fine with the
->addition of the last notifier call previously discussed.  Some
->documentation updates would be nice, too.
 
-Will do :)
 
->
->	-J
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 1/25/13 2:56 PM, Valdis.Kletnieks@vt.edu wrote:
+
+> I already looked over the patch and it looks *fairly* sane.  Having said
+> that, the best way to proceed for the performance side is probably to
+> get some rough ballpark numbers and then get the patch into a state
+> that's upstream-able before doing the final measurements (because there's
+> actually a high likelihood that the final numbers will end up being
+> dependent on the exact details of the patch, plus having more eyeballs on
+> it from the netdev side may shake out better approaches).
+ >
+> Sorry if you've already done all that - I didn't see much evidence of
+> it from the web10g-user archives...
+
+The user side of the list has been pretty quiet to be sure. Most of the 
+discussion happens internal to the team. The primary KIS developer is 
+out the office until next week but I'll try to make sure he addresses 
+this as soon as he can. I agree entirely with the more eyes approach and 
+none of us have a lot of ego sunk into the details of the code in and of 
+itself. As researchers, more than anything else, we want the concept 
+moved forward. We believe, strongly, that having these metrics in the 
+mainline can really do a lot to help the entire user community and spur 
+some really neat development.
+
+Chris
