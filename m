@@ -1,195 +1,71 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: Re: [PATCH V6 2/3] virtio-net: split out clean affinity function
-Date: Fri, 25 Jan 2013 13:40:11 +0800
-Message-ID: <51021ABB.8050508@cn.fujitsu.com>
-References: <1358767524-17934-1-git-send-email-gaowanlong@cn.fujitsu.com> <1358767524-17934-2-git-send-email-gaowanlong@cn.fujitsu.com> <5101FBE0.7040505@redhat.com> <51020800.4080900@cn.fujitsu.com> <5102145D.7030607@redhat.com>
-Reply-To: gaowanlong@cn.fujitsu.com
+From: Nick Jones <nick.jones@network-box.com>
+Subject: Re: [PATCH 0/5]: soreuseport: Bind multiple sockets to the same port
+Date: Fri, 25 Jan 2013 13:06:14 +0800
+Message-ID: <510212C6.6060303@network-box.com>
+References: <alpine.DEB.2.00.1301221142300.26333@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	Wanlong Gao <gaowanlong@cn.fujitsu.com>
-To: Jason Wang <jasowang@redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:18672 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751227Ab3AYFkW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 00:40:22 -0500
-In-Reply-To: <5102145D.7030607@redhat.com>
+Received: from erika.network-box.com ([202.52.42.180]:36130 "EHLO
+	nbmailscanhq1.network-box.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751502Ab3AYFl7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 00:41:59 -0500
+In-Reply-To: <alpine.DEB.2.00.1301221142300.26333@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/25/2013 01:13 PM, Jason Wang wrote:
-> On 01/25/2013 12:20 PM, Wanlong Gao wrote:
->> On 01/25/2013 11:28 AM, Jason Wang wrote:
->>> On 01/21/2013 07:25 PM, Wanlong Gao wrote:
->>>> Split out the clean affinity function to virtnet_clean_affinity().
->>>>
->>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
->>>> Cc: "Michael S. Tsirkin" <mst@redhat.com>
->>>> Cc: Jason Wang <jasowang@redhat.com>
->>>> Cc: Eric Dumazet <erdnetdev@gmail.com>
->>>> Cc: virtualization@lists.linux-foundation.org
->>>> Cc: netdev@vger.kernel.org
->>>> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
->>>> ---
->>>> V5->V6: NEW
->>>>
->>>>  drivers/net/virtio_net.c | 67 +++++++++++++++++++++++++++---------------------
->>>>  1 file changed, 38 insertions(+), 29 deletions(-)
->>>>
->>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>>> index 70cd957..1a35a8c 100644
->>>> --- a/drivers/net/virtio_net.c
->>>> +++ b/drivers/net/virtio_net.c
->>>> @@ -1016,48 +1016,57 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev, u16 vid)
->>>>  	return 0;
->>>>  }
->>>>  
->>>> -static void virtnet_set_affinity(struct virtnet_info *vi, bool set)
->>>> +static void virtnet_clean_affinity(struct virtnet_info *vi, long hcpu)
->>>>  {
->>>>  	int i;
->>>>  	int cpu;
->>>>  
->>>> -	/* In multiqueue mode, when the number of cpu is equal to the number of
->>>> -	 * queue pairs, we let the queue pairs to be private to one cpu by
->>>> -	 * setting the affinity hint to eliminate the contention.
->>>> -	 */
->>>> -	if ((vi->curr_queue_pairs == 1 ||
->>>> -	     vi->max_queue_pairs != num_online_cpus()) && set) {
->>>> -		if (vi->affinity_hint_set)
->>>> -			set = false;
->>>> -		else
->>>> -			return;
->>>> -	}
->>>> -
->>>> -	if (set) {
->>>> -		i = 0;
->>>> -		for_each_online_cpu(cpu) {
->>>> -			virtqueue_/set_affinity(vi->rq[i].vq, cpu);
->>>> -			virtqueue_set_affinity(vi->sq[i].vq, cpu);
->>>> -			*per_cpu_ptr(vi->vq_index, cpu) = i;
->>>> -			i++;
->>>> -		}
->>>> -
->>>> -		vi->affinity_hint_set = true;
->>>> -	} else {
->>>> -		for(i = 0; i < vi->max_queue_pairs; i++) {
->>>> +	if (vi->affinity_hint_set) {
->>>> +		for (i = 0; i < vi->max_queue_pairs; i++) {
->>>>  			virtqueue_set_affinity(vi->rq[i].vq, -1);
->>>>  			virtqueue_set_affinity(vi->sq[i].vq, -1);
->>>>  		}
->>>>  
->>>>  		i = 0;
->>>> -		for_each_online_cpu(cpu)
->>>> +		for_each_online_cpu(cpu) {
->>>> +			if (cpu == hcpu)
->>>> +				continue;
->>>>  			*per_cpu_ptr(vi->vq_index, cpu) =
->>>>  				++i % vi->curr_queue_pairs;
->>>> +		}
->>>>  
->>> Some questions here:
->>>
->>> - Did we need reset the affinity of the queue here like the this?
->>>
->>> virtqueue_set_affinity(vi->sq[*per_cpu_ptr(vi->vq_index, hcpu)], -1);
->>> virtqueue_set_affinity(vi->rq[*per_cpu_ptr(vi->vq_index, hcpu)], -1);
->> I think no, we are going to unset the affinity of all the set queues,
->> include hcpu.
->>
->>> - Looks like we need also reset the percpu index when
->>> vi->affinity_hint_set is false.
->> Yes, follow this and the comment on [1/3].
->>
->>> - Does this really need this reset? Consider we're going to reset the
->>> percpu in CPU_DEAD?
->> I think resetting when CPU_DOWN_PREPARE can avoid selecting the wrong queue
->> on the dying CPU.
-> 
-> Didn't understand this. What does 'wrong queue' here mean? Looks like
-> you didn't change the preferable queue of the dying CPU and just change
-> all others.
+On Wednesday, January 23, 2013 03:49 AM, Tom Herbert wrote:
+...
+>
+> The motivating case for so_resuseport in TCP would be something like
+> a web server binding to port 80 running with multiple threads, where
+> each thread might have it's own listener socket.  This could be done
+> as an alternative to other models: 1) have one listener thread which
+> dispatches completed connections to workers. 2) accept on a single
+> listener socket from multiple threads.  In case #1 the listener thread
+> can easily become the bottleneck with high connection turn-over rate.
+> In case #2, the proportion of connections accepted per thread tends
+> to be uneven under high connection load (assuming simple event loop:
+> while (1) { accept(); process() }, wakeup does not promote fairness
+> among the sockets.  We have seen the  disproportion to be as high
+> as 3:1 ratio between thread accepting most connections and the one
+> accepting the fewest.  With so_reusport the distribution is
+> uniform.
+>
 
-How about setting the vq index to -1 on hcpu when doing DOWN_PREPARE?
-So that let it select txq to 0 when the CPU is dying.
+There is another model for accepting connections in a multi threaded 
+application that I experimented with: dup the listener fd one time for 
+each thread, then each thread register the fd in its own epoll set, then 
+listen and accept independently.
 
-Thanks,
-Wanlong Gao
+Has anyone had experience with this strategy?  I'm sure that the 
+SO_REUSEPORT feature will lead to much better performance, I'm just 
+asking from the point of view of one who doesn't have that feature 
+available.  I wonder if this strategy is like a poor mans SO_REUSEPORT?
 
->>
->> Thanks,
->> Wanlong Gao
->>
->>> Thanks
->>>>  		vi->affinity_hint_set = false;
->>>>  	}
->>>>  }
->>>>  
->>>> +static void virtnet_set_affinity(struct virtnet_info *vi)
->>>> +{
->>>> +	int i;
->>>> +	int cpu;
->>>> +
->>>> +	/* In multiqueue mode, when the number of cpu is equal to the number of
->>>> +	 * queue pairs, we let the queue pairs to be private to one cpu by
->>>> +	 * setting the affinity hint to eliminate the contention.
->>>> +	 */
->>>> +	if (vi->curr_queue_pairs == 1 ||
->>>> +	    vi->max_queue_pairs != num_online_cpus()) {
->>>> +		if (vi->affinity_hint_set)
->>>> +			virtnet_clean_affinity(vi, -1);
->>>> +		else
->>>> +			return;
->>>> +	}
->>>> +
->>>> +	i = 0;
->>>> +	for_each_online_cpu(cpu) {
->>>> +		virtqueue_set_affinity(vi->rq[i].vq, cpu);
->>>> +		virtqueue_set_affinity(vi->sq[i].vq, cpu);
->>>> +		*per_cpu_ptr(vi->vq_index, cpu) = i;
->>>> +		i++;
->>>> +	}
->>>> +
->>>> +	vi->affinity_hint_set = true;
->>>> +}
->>>> +
->>>>  static void virtnet_get_ringparam(struct net_device *dev,
->>>>  				struct ethtool_ringparam *ring)
->>>>  {
->>>> @@ -1105,7 +1114,7 @@ static int virtnet_set_channels(struct net_device *dev,
->>>>  		netif_set_real_num_rx_queues(dev, queue_pairs);
->>>>  
->>>>  		get_online_cpus();
->>>> -		virtnet_set_affinity(vi, true);
->>>> +		virtnet_set_affinity(vi);
->>>>  		put_online_cpus();
->>>>  	}
->>>>  
->>>> @@ -1274,7 +1283,7 @@ static void virtnet_del_vqs(struct virtnet_info *vi)
->>>>  {
->>>>  	struct virtio_device *vdev = vi->vdev;
->>>>  
->>>> -	virtnet_set_affinity(vi, false);
->>>> +	virtnet_clean_affinity(vi, -1);
->>>>  
->>>>  	vdev->config->del_vqs(vdev);
->>>>  
->>>> @@ -1398,7 +1407,7 @@ static int init_vqs(struct virtnet_info *vi)
->>>>  		goto err_free;
->>>>  
->>>>  	get_online_cpus();
->>>> -	virtnet_set_affinity(vi, true);
->>>> +	virtnet_set_affinity(vi);
->>>>  	put_online_cpus();
->>>>  
->>>>  	return 0;
->>>
-> 
-> 
+The advantages of this approach were not fully proved in practise, I 
+didn't produce any hard figures, but in theory it was appealing:
+- no bottleneck of using a single thread for accepting then distributing 
+connections (in addition to latency of waiting for the job handling 
+thread to receive the event and start its work)
+- connections were used in the thread in which they were accepted, thus 
+locality was maintained (am I exaggerating this benefit?)
+- when a new connection was received, all threads woke up to activity on 
+their respective fd copies, and started accepting, I assume from the 
+same connection queue.  This was a disadvantage at low load levels as 
+threads would often wake and find nothing to do, but as loads got 
+higher, strace showed that less threads would awake to disappointment.
+- this approach was able to handle stress tests from a hardware packet 
+generator, which showed no dropped or unhandled connections.
+
+One disadvantage I imagined was that the single socket and all of its 
+duplicates may find themselves attached to one cpu core or hardware 
+queue on the network adapter, I don't know enough about the core net 
+internals to say for sure, but as a precaution the dup was done in the 
+context of the thread that would use the copy.
+
+Just sharing and seeking comments.
