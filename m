@@ -1,148 +1,179 @@
 From: pablo@netfilter.org
-Subject: [PATCH 03/21] netfilter: ctnetlink: deliver labels to userspace
-Date: Fri, 25 Jan 2013 14:54:35 +0100
-Message-ID: <1359122093-3404-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/21] netfilter: nf_ct_sip: support Cisco 7941/7945 IP phones
+Date: Fri, 25 Jan 2013 14:54:33 +0100
+Message-ID: <1359122093-3404-2-git-send-email-pablo@netfilter.org>
 References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60256 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932346Ab3AYNzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 08:55:09 -0500
 In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Westphal <fw@strlen.de>
+From: Kevin Cernekee <cernekee@gmail.com>
 
-Introduce CTA_LABELS attribute to send a bit-vector of currently active labels
-to userspace.
+Most SIP devices use a source port of 5060/udp on SIP requests, so the
+response automatically comes back to port 5060:
 
-Future patch will permit userspace to also set/delete active labels.
+    phone_ip:5060 -> proxy_ip:5060   REGISTER
+    proxy_ip:5060 -> phone_ip:5060   100 Trying
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+The newer Cisco IP phones, however, use a randomly chosen high source
+port for the SIP request but expect the response on port 5060:
+
+    phone_ip:49173 -> proxy_ip:5060  REGISTER
+    proxy_ip:5060 -> phone_ip:5060   100 Trying
+
+Standard Linux NAT, with or without nf_nat_sip, will send the reply back
+to port 49173, not 5060:
+
+    phone_ip:49173 -> proxy_ip:5060  REGISTER
+    proxy_ip:5060 -> phone_ip:49173  100 Trying
+
+But the phone is not listening on 49173, so it will never see the reply.
+
+This patch modifies nf_*_sip to work around this quirk by extracting
+the SIP response port from the Via: header, iff the source IP in the
+packet header matches the source IP in the SIP request.
+
+Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nf_conntrack_common.h |    1 +
- include/uapi/linux/netfilter/nfnetlink_conntrack.h |    1 +
- net/netfilter/nf_conntrack_labels.c                |    2 +-
- net/netfilter/nf_conntrack_netlink.c               |   41 ++++++++++++++++++++
- 4 files changed, 44 insertions(+), 1 deletion(-)
+ include/linux/netfilter/nf_conntrack_sip.h |    3 +++
+ net/netfilter/nf_conntrack_sip.c           |   17 +++++++++++++++++
+ net/netfilter/nf_nat_sip.c                 |   27 ++++++++++++++++++++++++---
+ 3 files changed, 44 insertions(+), 3 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nf_conntrack_common.h b/include/uapi/linux/netfilter/nf_conntrack_common.h
-index 1644cdd..d69483f 100644
---- a/include/uapi/linux/netfilter/nf_conntrack_common.h
-+++ b/include/uapi/linux/netfilter/nf_conntrack_common.h
-@@ -101,6 +101,7 @@ enum ip_conntrack_events {
- 	IPCT_MARK,		/* new mark has been set */
- 	IPCT_NATSEQADJ,		/* NAT is doing sequence adjustment */
- 	IPCT_SECMARK,		/* new security mark has been set */
-+	IPCT_LABEL,		/* new connlabel has been set */
+diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
+index 387bdd0..ba7f571 100644
+--- a/include/linux/netfilter/nf_conntrack_sip.h
++++ b/include/linux/netfilter/nf_conntrack_sip.h
+@@ -4,12 +4,15 @@
+ 
+ #include <net/netfilter/nf_conntrack_expect.h>
+ 
++#include <linux/types.h>
++
+ #define SIP_PORT	5060
+ #define SIP_TIMEOUT	3600
+ 
+ struct nf_ct_sip_master {
+ 	unsigned int	register_cseq;
+ 	unsigned int	invite_cseq;
++	__be16		forced_dport;
  };
  
- enum ip_conntrack_expect_events {
-diff --git a/include/uapi/linux/netfilter/nfnetlink_conntrack.h b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
-index 86e930c..9e71e0c 100644
---- a/include/uapi/linux/netfilter/nfnetlink_conntrack.h
-+++ b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
-@@ -49,6 +49,7 @@ enum ctattr_type {
- 	CTA_SECCTX,
- 	CTA_TIMESTAMP,
- 	CTA_MARK_MASK,
-+	CTA_LABELS,
- 	__CTA_MAX
- };
- #define CTA_MAX (__CTA_MAX - 1)
-diff --git a/net/netfilter/nf_conntrack_labels.c b/net/netfilter/nf_conntrack_labels.c
-index 0c542f4..ac5d080 100644
---- a/net/netfilter/nf_conntrack_labels.c
-+++ b/net/netfilter/nf_conntrack_labels.c
-@@ -46,7 +46,7 @@ int nf_connlabel_set(struct nf_conn *ct, u16 bit)
- 		return 0;
+ enum sip_expectation_classes {
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index df8f4f2..72a67bb 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1440,8 +1440,25 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
+ {
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
++	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
++	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+ 	unsigned int matchoff, matchlen;
+ 	unsigned int cseq, i;
++	union nf_inet_addr addr;
++	__be16 port;
++
++	/* Many Cisco IP phones use a high source port for SIP requests, but
++	 * listen for the response on port 5060.  If we are the local
++	 * router for one of these phones, save the port number from the
++	 * Via: header so that nf_nat_sip can redirect the responses to
++	 * the correct port.
++	 */
++	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen,
++				    SIP_HDR_VIA_UDP, NULL, &matchoff,
++				    &matchlen, &addr, &port) > 0 &&
++	    port != ct->tuplehash[dir].tuple.src.u.udp.port &&
++	    nf_inet_addr_cmp(&addr, &ct->tuplehash[dir].tuple.src.u3))
++		ct_sip_info->forced_dport = port;
  
- 	if (test_and_set_bit(bit, labels->bits))
--		return 0;
-+		nf_conntrack_event_cache(IPCT_LABEL, ct);
+ 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
+ 		const struct sip_handler *handler;
+diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
+index 16303c7..5951146e 100644
+--- a/net/netfilter/nf_nat_sip.c
++++ b/net/netfilter/nf_nat_sip.c
+@@ -95,6 +95,7 @@ static int map_addr(struct sk_buff *skb, unsigned int protoff,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
++	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
+ 	char buffer[INET6_ADDRSTRLEN + sizeof("[]:nnnnn")];
+ 	unsigned int buflen;
+ 	union nf_inet_addr newaddr;
+@@ -107,7 +108,8 @@ static int map_addr(struct sk_buff *skb, unsigned int protoff,
+ 	} else if (nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.dst.u3, addr) &&
+ 		   ct->tuplehash[dir].tuple.dst.u.udp.port == port) {
+ 		newaddr = ct->tuplehash[!dir].tuple.src.u3;
+-		newport = ct->tuplehash[!dir].tuple.src.u.udp.port;
++		newport = ct_sip_info->forced_dport ? :
++			  ct->tuplehash[!dir].tuple.src.u.udp.port;
+ 	} else
+ 		return 1;
  
- 	return 0;
- }
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index e0b10ee..5f53863 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -324,6 +324,40 @@ nla_put_failure:
- #define ctnetlink_dump_secctx(a, b) (0)
- #endif
+@@ -144,6 +146,7 @@ static unsigned int nf_nat_sip(struct sk_buff *skb, unsigned int protoff,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
++	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
+ 	unsigned int coff, matchoff, matchlen;
+ 	enum sip_header_types hdr;
+ 	union nf_inet_addr addr;
+@@ -258,6 +261,21 @@ next:
+ 	    !map_sip_addr(skb, protoff, dataoff, dptr, datalen, SIP_HDR_TO))
+ 		return NF_DROP;
  
-+#ifdef CONFIG_NF_CONNTRACK_LABELS
-+static int ctnetlink_label_size(const struct nf_conn *ct)
-+{
-+	struct nf_conn_labels *labels = nf_ct_labels_find(ct);
++	/* Mangle destination port for Cisco phones, then fix up checksums */
++	if (dir == IP_CT_DIR_REPLY && ct_sip_info->forced_dport) {
++		struct udphdr *uh;
 +
-+	if (!labels)
-+		return 0;
-+	return nla_total_size(labels->words * sizeof(long));
-+}
++		if (!skb_make_writable(skb, skb->len))
++			return NF_DROP;
 +
-+static int
-+ctnetlink_dump_labels(struct sk_buff *skb, const struct nf_conn *ct)
-+{
-+	struct nf_conn_labels *labels = nf_ct_labels_find(ct);
-+	unsigned int len, i;
++		uh = (void *)skb->data + protoff;
++		uh->dest = ct_sip_info->forced_dport;
 +
-+	if (!labels)
-+		return 0;
++		if (!nf_nat_mangle_udp_packet(skb, ct, ctinfo, protoff,
++					      0, 0, NULL, 0))
++			return NF_DROP;
++	}
 +
-+	len = labels->words * sizeof(long);
-+	i = 0;
-+	do {
-+		if (labels->bits[i] != 0)
-+			return nla_put(skb, CTA_LABELS, len, labels->bits);
-+		i++;
-+	} while (i < labels->words);
-+
-+	return 0;
-+}
-+#else
-+#define ctnetlink_dump_labels(a, b) (0)
-+#define ctnetlink_label_size(a)	(0)
-+#endif
-+
- #define master_tuple(ct) &(ct->master->tuplehash[IP_CT_DIR_ORIGINAL].tuple)
- 
- static inline int
-@@ -464,6 +498,7 @@ ctnetlink_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	    ctnetlink_dump_helpinfo(skb, ct) < 0 ||
- 	    ctnetlink_dump_mark(skb, ct) < 0 ||
- 	    ctnetlink_dump_secctx(skb, ct) < 0 ||
-+	    ctnetlink_dump_labels(skb, ct) < 0 ||
- 	    ctnetlink_dump_id(skb, ct) < 0 ||
- 	    ctnetlink_dump_use(skb, ct) < 0 ||
- 	    ctnetlink_dump_master(skb, ct) < 0 ||
-@@ -562,6 +597,7 @@ ctnetlink_nlmsg_size(const struct nf_conn *ct)
- 	       + nla_total_size(sizeof(u_int32_t)) /* CTA_MARK */
- #endif
- 	       + ctnetlink_proto_size(ct)
-+	       + ctnetlink_label_size(ct)
- 	       ;
+ 	return NF_ACCEPT;
  }
  
-@@ -663,6 +699,9 @@ ctnetlink_conntrack_event(unsigned int events, struct nf_ct_event *item)
- 		    && ctnetlink_dump_secctx(skb, ct) < 0)
- 			goto nla_put_failure;
- #endif
-+		if (events & (1 << IPCT_LABEL) &&
-+		     ctnetlink_dump_labels(skb, ct) < 0)
-+			goto nla_put_failure;
+@@ -311,8 +329,10 @@ static unsigned int nf_nat_sip_expect(struct sk_buff *skb, unsigned int protoff,
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
++	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
+ 	union nf_inet_addr newaddr;
+ 	u_int16_t port;
++	__be16 srcport;
+ 	char buffer[INET6_ADDRSTRLEN + sizeof("[]:nnnnn")];
+ 	unsigned int buflen;
  
- 		if (events & (1 << IPCT_RELATED) &&
- 		    ctnetlink_dump_master(skb, ct) < 0)
-@@ -1986,6 +2025,8 @@ ctnetlink_nfqueue_build(struct sk_buff *skb, struct nf_conn *ct)
- 	if (ct->mark && ctnetlink_dump_mark(skb, ct) < 0)
- 		goto nla_put_failure;
- #endif
-+	if (ctnetlink_dump_labels(skb, ct) < 0)
-+		goto nla_put_failure;
- 	rcu_read_unlock();
- 	return 0;
- 
+@@ -326,8 +346,9 @@ static unsigned int nf_nat_sip_expect(struct sk_buff *skb, unsigned int protoff,
+ 	/* If the signalling port matches the connection's source port in the
+ 	 * original direction, try to use the destination port in the opposite
+ 	 * direction. */
+-	if (exp->tuple.dst.u.udp.port ==
+-	    ct->tuplehash[dir].tuple.src.u.udp.port)
++	srcport = ct_sip_info->forced_dport ? :
++		  ct->tuplehash[dir].tuple.src.u.udp.port;
++	if (exp->tuple.dst.u.udp.port == srcport)
+ 		port = ntohs(ct->tuplehash[!dir].tuple.dst.u.udp.port);
+ 	else
+ 		port = ntohs(exp->tuple.dst.u.udp.port);
 -- 
 1.7.10.4
-
