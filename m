@@ -1,58 +1,65 @@
 From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 2/2] v2 GRE: Add segmentation offload for GRE
-Date: Fri, 25 Jan 2013 02:14:47 +0100
-Message-ID: <CAHXqBFLLdTO0cf1+sT96teh4AuHzbxygHQsbJ_8Vec6giYVNTw@mail.gmail.com>
-References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH 1/2] net: Add skb_unclone() helper function.
+Date: Fri, 25 Jan 2013 02:21:06 +0100
+Message-ID: <CAHXqBF+uHoGRXP3HdiL2Zm9RUhT-+7RsrRhAYZyEg-FjzH2-eQ@mail.gmail.com>
+References: <1359065787-1763-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, jesse@nicira.com, eric.dumazet@gmail.com
 To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:48170 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751065Ab3AYBPI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 20:15:08 -0500
-Received: by mail-oa0-f53.google.com with SMTP id l20so2898105oag.40
-        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 17:15:08 -0800 (PST)
-In-Reply-To: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:43232 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751065Ab3AYBV1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jan 2013 20:21:27 -0500
+Received: by mail-oa0-f47.google.com with SMTP id h1so10727885oag.6
+        for <netdev@vger.kernel.org>; Thu, 24 Jan 2013 17:21:26 -0800 (PST)
+In-Reply-To: <1359065787-1763-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 2013/1/24 Pravin B Shelar <pshelar@nicira.com>:
 [...]
-> @@ -1374,6 +1421,10 @@ static int ipgre_tunnel_init(struct net_device=
- *dev)
->                 return err;
->         }
->
-> +       if (!(tunnel->parms.o_flags & GRE_SEQ)) {
-> +               dev->features |=3D NETIF_F_GSO_SOFTWARE;
-> +               dev->hw_features |=3D NETIF_F_GSO_SOFTWARE;
-> +       }
->         return 0;
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -798,6 +798,19 @@ static inline int skb_cloned(const struct sk_buf=
+f *skb)
 >  }
 >
+>  /**
+> + *     skb_unclone - creates separate copy if skb is cloned.
+> + */
+> +static inline bool skb_unclone(struct sk_buff *skb, gfp_t pri)
+> +{
+> +       might_sleep_if(pri & __GFP_WAIT);
+> +
+> +       if (skb_cloned(skb))
+> +               return pskb_expand_head(skb, 0, 0, pri);
+> +
+> +       return 0;
+> +}
 
-Can o_flags change after tunnel creation? If so, NETIF_F_GSO_SOFTWARE
-should be set in dev->hw_features always, and it should be forced zero
-in ndo_fix_features when GRE_SEQ is set. ipgre_netlink_parms() should
-call netdev_update_features() when o_flags changes.
+This should return int. pskb_expand_head() returns 0 or -ENOMEM.
 
-> @@ -1564,6 +1615,10 @@ static int ipgre_tap_init(struct net_device *d=
-ev)
->         if (!dev->tstats)
->                 return -ENOMEM;
+[...]
+> diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunne=
+l.c
+> index ddee0a0..c1f00ef 100644
+> --- a/net/ipv4/xfrm4_mode_tunnel.c
+> +++ b/net/ipv4/xfrm4_mode_tunnel.c
+> @@ -142,8 +142,7 @@ static int xfrm4_mode_tunnel_input(struct xfrm_st=
+ate *x, struct sk_buff *skb)
+>         for_each_input_rcu(rcv_notify_handlers, handler)
+>                 handler->handler(skb);
 >
-> +       if (!(tunnel->parms.o_flags & GRE_SEQ)) {
-> +               dev->features |=3D NETIF_F_GSO_SOFTWARE;
-> +               dev->hw_features |=3D NETIF_F_GSO_SOFTWARE;
-> +       }
->         return 0;
->  }
->
+> -       if (skb_cloned(skb) &&
+> -           (err =3D pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
+> +       if (skb_unclone(skb, GFP_ATOMIC))
+>                 goto out;
 
-Same here.
+And here return -ENOMEM is replaced with return -EINVAL because of this=
+=2E
 
 Best Regards,
-Micha=B3 Miros=B3aw
+Micha=C5=82 Miros=C5=82aw
