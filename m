@@ -1,106 +1,58 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: [RFC PATCH 2/4] net: mvmdio: do not assume SMI reg is at offset 0 of the resource
-Date: Fri, 25 Jan 2013 11:06:47 +0100
-Message-ID: <1359108409-4378-3-git-send-email-florian@openwrt.org>
-References: <1359108409-4378-1-git-send-email-florian@openwrt.org>
-Cc: linux-arm-kernel@lists.infradead.org, ian.molton@codethink.co.uk,
-	jason@lakedaemon.net, andrew@lunn.ch, arnd@arndb.de,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com,
-	Florian Fainelli <florian@openwrt.org>
+From: =?UTF-8?B?S2lyaWxsIEthcHJhbm92?= <kapranoff@inbox.ru>
+Subject: =?UTF-8?B?W1BBVENIXSBORVQvUEhZOiBFbGltaW5hdGUgdGhlIGFsZ29yaXRobSBvZiBm?=
+ =?UTF-8?B?b3JjZWQgZXRoZXJuZXQgc3BlZWQgcmVkdWN0aW9u?=
+Date: Fri, 25 Jan 2013 14:10:07 +0400
+Message-ID: <1359108607.357711816@f237.mail.ru>
+Reply-To: =?UTF-8?B?S2lyaWxsIEthcHJhbm92?= <kapranoff@inbox.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zmc.proxad.net ([212.27.53.206]:40868 "EHLO zmc.proxad.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756156Ab3AYKJg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 05:09:36 -0500
-In-Reply-To: <1359108409-4378-1-git-send-email-florian@openwrt.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes the mvmdio driver not to assume that the
-MVMDIO_SMI_REG is at offset 0 of the resource we are being passed via
-Device Tree. This is actually required to reduce the differences between
-the mv643xx_eth SMI driver and mvmdio. The only user of the "orion-mdio"
-binding is updated accordingly.
-
-Signed-off-by: Florian Fainelli <florian@openwrt.org>
----
- Documentation/devicetree/bindings/net/marvell-orion-mdio.txt |    2 +-
- arch/arm/boot/dts/armada-370-xp.dtsi                         |    2 +-
- drivers/net/ethernet/marvell/mvmdio.c                        |    9 +++++----
- 3 files changed, 7 insertions(+), 6 deletions(-)
-
-diff --git a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-index 34e7aaf..3320d5c 100644
---- a/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/marvell-orion-mdio.txt
-@@ -19,7 +19,7 @@ mdio {
- 	#address-cells = <1>;
- 	#size-cells = <0>;
- 	compatible = "marvell,orion-mdio";
--	reg = <0xd0072004 0x4>;
-+	reg = <0xd0072000 0x8>;
- };
- 
- And at the board level:
-diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
-index 4c0abe8..0e7d880 100644
---- a/arch/arm/boot/dts/armada-370-xp.dtsi
-+++ b/arch/arm/boot/dts/armada-370-xp.dtsi
-@@ -91,7 +91,7 @@
- 			#address-cells = <1>;
- 			#size-cells = <0>;
- 			compatible = "marvell,orion-mdio";
--			reg = <0xd0072004 0x4>;
-+			reg = <0xd0072000 0x8>;
- 		};
- 
- 		ethernet@d0070000 {
-diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
-index e4a89b2..16be140 100644
---- a/drivers/net/ethernet/marvell/mvmdio.c
-+++ b/drivers/net/ethernet/marvell/mvmdio.c
-@@ -29,6 +29,7 @@
- #include <linux/platform_device.h>
- #include <linux/delay.h>
- 
-+#define MVMDIO_SMI_REG			   0x0004
- #define MVMDIO_SMI_DATA_SHIFT              0
- #define MVMDIO_SMI_PHY_ADDR_SHIFT          16
- #define MVMDIO_SMI_PHY_REG_SHIFT           21
-@@ -52,7 +53,7 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
- 
- 	count = 0;
- 	while (1) {
--		val = readl(dev->regs);
-+		val = readl(dev->regs + MVMDIO_SMI_REG);
- 		if (!(val & MVMDIO_SMI_BUSY))
- 			break;
- 
-@@ -87,12 +88,12 @@ static int orion_mdio_read(struct mii_bus *bus, int mii_id,
- 	writel(((mii_id << MVMDIO_SMI_PHY_ADDR_SHIFT) |
- 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
- 		MVMDIO_SMI_READ_OPERATION),
--	       dev->regs);
-+	       dev->regs + MVMDIO_SMI_REG);
- 
- 	/* Wait for the value to become available */
- 	count = 0;
- 	while (1) {
--		val = readl(dev->regs);
-+		val = readl(dev->regs + MVMDIO_SMI_REG);
- 		if (val & MVMDIO_SMI_READ_VALID)
- 			break;
- 
-@@ -129,7 +130,7 @@ static int orion_mdio_write(struct mii_bus *bus, int mii_id,
- 		(regnum << MVMDIO_SMI_PHY_REG_SHIFT)  |
- 		MVMDIO_SMI_WRITE_OPERATION            |
- 		(value << MVMDIO_SMI_DATA_SHIFT)),
--	       dev->regs);
-+	       dev->regs + MVMDIO_SMI_REG);
- 
- 	mutex_unlock(&dev->lock);
- 
--- 
-1.7.10.4
+TkVUL1BIWTogRWxpbWluYXRlIHRoZSBmb3JjZWQgc3BlZWQgcmVkdWN0aW9uIGFsZ29yaXRobS4K
+SW4gY2FzZSBvZiB0aGUgZml4ZWQgc3BlZWQgc2V0IHVwIGZvciBOSUMgCihlLmcuIGV0aHRvb2wg
+LXMgZXRoMCBhdXRvbmVnIG9mZiBzcGVlZCAxMDAgZHVwbGV4IGZ1bGwpCndpdGggZXRoZXJuZXQg
+Y2FibGUgcGx1Z2dlZCBvZmYsIG1lbnRpb25lZCBhbGdvcml0aG0Kc2xvd3MgZG93biBOSUMgc3Bl
+ZWQsIHNvIHRoZSBmdXJ0aGVyICJob29raW5nIHVwIiBnaXZlcwpubyByZXN1bHQuIEFGQUlLLCB0
+aGlzIGJlaGF2aW91ciBpcyBub3QgUkZDcycgcmVjb21tZW5kZWQuClRlc3RlZCBhdCAyLjYuMzgu
+NywgYXBwbGljYWJsZSB1cCB0byBmb3IgMy4wLjQuIApTaWduZWQtb2ZmLWJ5OiBLaXJpbGwgS2Fw
+cmFub3YgPGtra0BuaXRhLnJ1Piw8a2FwcmFub2ZmQGluYm94LnJ1PgotLS0gbGludXgvZHJpdmVy
+cy9uZXQvcGh5L3BoeS5jLm9yaWcgMjAxMS0wNS0yMiAwMjoxMzo1OS4wMDAwMDAwMDAgKzA0MDAK
+KysrIGxpbnV4L2RyaXZlcnMvbmV0L3BoeS9waHkuYyAyMDEyLTA0LTI4IDEyOjQ5OjM3LjAwMDAw
+MDAwMCArMDQwMApAQCAtNDU3LDM0ICs0NTcsNiBAQCB2b2lkIHBoeV9zdG9wX21hY2hpbmUoc3Ry
+dWN0IHBoeV9kZXZpY2UKfQoKLyoqCi0gKiBwaHlfZm9yY2VfcmVkdWN0aW9uIC0gcmVkdWNlIFBI
+WSBzcGVlZC9kdXBsZXggc2V0dGluZ3MgYnkgb25lIHN0ZXAKLSAqIEBwaHlkZXY6IHRhcmdldCBw
+aHlfZGV2aWNlIHN0cnVjdAotICoKLSAqIERlc2NyaXB0aW9uOiBSZWR1Y2VzIHRoZSBzcGVlZC9k
+dXBsZXggc2V0dGluZ3MgYnkgb25lIG5vdGNoLAotICogaW4gdGhpcyBvcmRlci0tCi0gKiAxMDAw
+L0ZVTEwsIDEwMDAvSEFMRiwgMTAwL0ZVTEwsIDEwMC9IQUxGLCAxMC9GVUxMLCAxMC9IQUxGLgot
+ICogVGhlIGZ1bmN0aW9uIGJvdHRvbXMgb3V0IGF0IDEwL0hBTEYuCi0gKi8KLXN0YXRpYyB2b2lk
+IHBoeV9mb3JjZV9yZWR1Y3Rpb24oc3RydWN0IHBoeV9kZXZpY2UgKnBoeWRldikKLXsKLSBpbnQg
+aWR4OwotCi0gaWR4ID0gcGh5X2ZpbmRfc2V0dGluZyhwaHlkZXYtPnNwZWVkLCBwaHlkZXYtPmR1
+cGxleCk7Ci0gCi0gaWR4Kys7Ci0KLSBpZHggPSBwaHlfZmluZF92YWxpZChpZHgsIHBoeWRldi0+
+c3VwcG9ydGVkKTsKLQotIHBoeWRldi0+c3BlZWQgPSBzZXR0aW5nc1tpZHhdLnNwZWVkOwotIHBo
+eWRldi0+ZHVwbGV4ID0gc2V0dGluZ3NbaWR4XS5kdXBsZXg7Ci0KLSBwcl9pbmZvKCJUcnlpbmcg
+JWQvJXNcbiIsIHBoeWRldi0+c3BlZWQsCi0gRFVQTEVYX0ZVTEwgPT0gcGh5ZGV2LT5kdXBsZXgg
+PwotICJGVUxMIiA6ICJIQUxGIik7Ci19Ci0KLQotLyoqCiogcGh5X2Vycm9yIC0gZW50ZXIgSEFM
+VEVEIHN0YXRlIGZvciB0aGlzIFBIWSBkZXZpY2UKKiBAcGh5ZGV2OiB0YXJnZXQgcGh5X2Rldmlj
+ZSBzdHJ1Y3QKKgpAQCAtODE0LDMwICs3ODYsMTIgQEAgdm9pZCBwaHlfc3RhdGVfbWFjaGluZShz
+dHJ1Y3Qgd29ya19zdHJ1YwpwaHlkZXYtPmFkanVzdF9saW5rKHBoeWRldi0+YXR0YWNoZWRfZGV2
+KTsKCn0gZWxzZSBpZiAoMCA9PSBwaHlkZXYtPmxpbmtfdGltZW91dC0tKSB7Ci0gaW50IGlkeDsK
+Cm5lZWRzX2FuZWcgPSAxOwovKiBJZiB3ZSBoYXZlIHRoZSBtYWdpY19hbmVnIGJpdCwKKiB3ZSB0
+cnkgYWdhaW4gKi8KaWYgKHBoeWRldi0+ZHJ2LT5mbGFncyAmIFBIWV9IQVNfTUFHSUNBTkVHKQpi
+cmVhazsKLQotIC8qIFRoZSB0aW1lciBleHBpcmVkLCBhbmQgd2Ugc3RpbGwKLSAqIGRvbid0IGhh
+dmUgYSBzZXR0aW5nLCBzbyB3ZSB0cnkKLSAqIGZvcmNpbmcgaXQgdW50aWwgd2UgZmluZCBvbmUg
+dGhhdAotICogd29ya3MsIHN0YXJ0aW5nIGZyb20gdGhlIGZhc3Rlc3Qgc3BlZWQsCi0gKiBhbmQg
+d29ya2luZyBvdXIgd2F5IGRvd24gKi8KLSBpZHggPSBwaHlfZmluZF92YWxpZCgwLCBwaHlkZXYt
+PnN1cHBvcnRlZCk7Ci0KLSBwaHlkZXYtPnNwZWVkID0gc2V0dGluZ3NbaWR4XS5zcGVlZDsKLSBw
+aHlkZXYtPmR1cGxleCA9IHNldHRpbmdzW2lkeF0uZHVwbGV4OwotCi0gcGh5ZGV2LT5hdXRvbmVn
+ID0gQVVUT05FR19ESVNBQkxFOwotCi0gcHJfaW5mbygiVHJ5aW5nICVkLyVzXG4iLCBwaHlkZXYt
+PnNwZWVkLAotIERVUExFWF9GVUxMID09Ci0gcGh5ZGV2LT5kdXBsZXggPwotICJGVUxMIiA6ICJI
+QUxGIik7Cn0KYnJlYWs7CmNhc2UgUEhZX05PTElOSzoKQEAgLTg2Myw3ICs4MTcsNiBAQCB2b2lk
+IHBoeV9zdGF0ZV9tYWNoaW5lKHN0cnVjdCB3b3JrX3N0cnVjCm5ldGlmX2NhcnJpZXJfb24ocGh5
+ZGV2LT5hdHRhY2hlZF9kZXYpOwp9IGVsc2UgewppZiAoMCA9PSBwaHlkZXYtPmxpbmtfdGltZW91
+dC0tKSB7Ci0gcGh5X2ZvcmNlX3JlZHVjdGlvbihwaHlkZXYpOwpuZWVkc19hbmVnID0gMTsKfQp9
+CiAKLS0tLS0tLS0tLS0tLS0tLQo=
