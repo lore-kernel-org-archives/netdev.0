@@ -1,179 +1,214 @@
 From: pablo@netfilter.org
-Subject: [PATCH 01/21] netfilter: nf_ct_sip: support Cisco 7941/7945 IP phones
-Date: Fri, 25 Jan 2013 14:54:33 +0100
-Message-ID: <1359122093-3404-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/21] netfilter: ctnetlink: allow userspace to modify labels
+Date: Fri, 25 Jan 2013 14:54:36 +0100
+Message-ID: <1359122093-3404-5-git-send-email-pablo@netfilter.org>
 References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60256 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932346Ab3AYNzJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jan 2013 08:55:09 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kevin Cernekee <cernekee@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-Most SIP devices use a source port of 5060/udp on SIP requests, so the
-response automatically comes back to port 5060:
+Add the ability to set/clear labels assigned to a conntrack
+via ctnetlink.
 
-    phone_ip:5060 -> proxy_ip:5060   REGISTER
-    proxy_ip:5060 -> phone_ip:5060   100 Trying
+To allow userspace to only alter specific bits, Pablo suggested to add
+a new CTA_LABELS_MASK attribute:
 
-The newer Cisco IP phones, however, use a randomly chosen high source
-port for the SIP request but expect the response on port 5060:
+The new set of active labels is then determined via
 
-    phone_ip:49173 -> proxy_ip:5060  REGISTER
-    proxy_ip:5060 -> phone_ip:5060   100 Trying
+active = (active & ~mask) ^ changeset
 
-Standard Linux NAT, with or without nf_nat_sip, will send the reply back
-to port 49173, not 5060:
+i.e., the mask selects those bits in the existing set that should be
+changed.
 
-    phone_ip:49173 -> proxy_ip:5060  REGISTER
-    proxy_ip:5060 -> phone_ip:49173  100 Trying
+This follows the same method already used by MARK and CONNMARK targets.
 
-But the phone is not listening on 49173, so it will never see the reply.
+Omitting CTA_LABELS_MASK is the same as setting all bits in CTA_LABELS_MASK
+to 1: The existing set is replaced by the one from userspace.
 
-This patch modifies nf_*_sip to work around this quirk by extracting
-the SIP response port from the Via: header, iff the source IP in the
-packet header matches the source IP in the SIP request.
-
-Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/nf_conntrack_sip.h |    3 +++
- net/netfilter/nf_conntrack_sip.c           |   17 +++++++++++++++++
- net/netfilter/nf_nat_sip.c                 |   27 ++++++++++++++++++++++++---
- 3 files changed, 44 insertions(+), 3 deletions(-)
+ include/net/netfilter/nf_conntrack_labels.h        |    3 ++
+ include/uapi/linux/netfilter/nfnetlink_conntrack.h |    1 +
+ net/netfilter/nf_conntrack_labels.c                |   43 +++++++++++++++++++
+ net/netfilter/nf_conntrack_netlink.c               |   44 ++++++++++++++++++++
+ 4 files changed, 91 insertions(+)
 
-diff --git a/include/linux/netfilter/nf_conntrack_sip.h b/include/linux/netfilter/nf_conntrack_sip.h
-index 387bdd0..ba7f571 100644
---- a/include/linux/netfilter/nf_conntrack_sip.h
-+++ b/include/linux/netfilter/nf_conntrack_sip.h
-@@ -4,12 +4,15 @@
+diff --git a/include/net/netfilter/nf_conntrack_labels.h b/include/net/netfilter/nf_conntrack_labels.h
+index b94fe31..a3ce5d0 100644
+--- a/include/net/netfilter/nf_conntrack_labels.h
++++ b/include/net/netfilter/nf_conntrack_labels.h
+@@ -46,6 +46,9 @@ static inline struct nf_conn_labels *nf_ct_labels_ext_add(struct nf_conn *ct)
+ bool nf_connlabel_match(const struct nf_conn *ct, u16 bit);
+ int nf_connlabel_set(struct nf_conn *ct, u16 bit);
  
- #include <net/netfilter/nf_conntrack_expect.h>
- 
-+#include <linux/types.h>
++int nf_connlabels_replace(struct nf_conn *ct,
++			  const u32 *data, const u32 *mask, unsigned int words);
 +
- #define SIP_PORT	5060
- #define SIP_TIMEOUT	3600
- 
- struct nf_ct_sip_master {
- 	unsigned int	register_cseq;
- 	unsigned int	invite_cseq;
-+	__be16		forced_dport;
+ #ifdef CONFIG_NF_CONNTRACK_LABELS
+ int nf_conntrack_labels_init(struct net *net);
+ void nf_conntrack_labels_fini(struct net *net);
+diff --git a/include/uapi/linux/netfilter/nfnetlink_conntrack.h b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
+index 9e71e0c..08fabc6 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_conntrack.h
++++ b/include/uapi/linux/netfilter/nfnetlink_conntrack.h
+@@ -50,6 +50,7 @@ enum ctattr_type {
+ 	CTA_TIMESTAMP,
+ 	CTA_MARK_MASK,
+ 	CTA_LABELS,
++	CTA_LABELS_MASK,
+ 	__CTA_MAX
  };
+ #define CTA_MAX (__CTA_MAX - 1)
+diff --git a/net/netfilter/nf_conntrack_labels.c b/net/netfilter/nf_conntrack_labels.c
+index ac5d080..e1d1eb8 100644
+--- a/net/netfilter/nf_conntrack_labels.c
++++ b/net/netfilter/nf_conntrack_labels.c
+@@ -52,6 +52,49 @@ int nf_connlabel_set(struct nf_conn *ct, u16 bit)
+ }
+ EXPORT_SYMBOL_GPL(nf_connlabel_set);
  
- enum sip_expectation_classes {
-diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index df8f4f2..72a67bb 100644
---- a/net/netfilter/nf_conntrack_sip.c
-+++ b/net/netfilter/nf_conntrack_sip.c
-@@ -1440,8 +1440,25 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
- {
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
-+	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
-+	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
- 	unsigned int matchoff, matchlen;
- 	unsigned int cseq, i;
-+	union nf_inet_addr addr;
-+	__be16 port;
++#if IS_ENABLED(CONFIG_NF_CT_NETLINK)
++static void replace_u32(u32 *address, u32 mask, u32 new)
++{
++	u32 old, tmp;
 +
-+	/* Many Cisco IP phones use a high source port for SIP requests, but
-+	 * listen for the response on port 5060.  If we are the local
-+	 * router for one of these phones, save the port number from the
-+	 * Via: header so that nf_nat_sip can redirect the responses to
-+	 * the correct port.
-+	 */
-+	if (ct_sip_parse_header_uri(ct, *dptr, NULL, *datalen,
-+				    SIP_HDR_VIA_UDP, NULL, &matchoff,
-+				    &matchlen, &addr, &port) > 0 &&
-+	    port != ct->tuplehash[dir].tuple.src.u.udp.port &&
-+	    nf_inet_addr_cmp(&addr, &ct->tuplehash[dir].tuple.src.u3))
-+		ct_sip_info->forced_dport = port;
- 
- 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
- 		const struct sip_handler *handler;
-diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
-index 16303c7..5951146e 100644
---- a/net/netfilter/nf_nat_sip.c
-+++ b/net/netfilter/nf_nat_sip.c
-@@ -95,6 +95,7 @@ static int map_addr(struct sk_buff *skb, unsigned int protoff,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
- 	char buffer[INET6_ADDRSTRLEN + sizeof("[]:nnnnn")];
- 	unsigned int buflen;
- 	union nf_inet_addr newaddr;
-@@ -107,7 +108,8 @@ static int map_addr(struct sk_buff *skb, unsigned int protoff,
- 	} else if (nf_inet_addr_cmp(&ct->tuplehash[dir].tuple.dst.u3, addr) &&
- 		   ct->tuplehash[dir].tuple.dst.u.udp.port == port) {
- 		newaddr = ct->tuplehash[!dir].tuple.src.u3;
--		newport = ct->tuplehash[!dir].tuple.src.u.udp.port;
-+		newport = ct_sip_info->forced_dport ? :
-+			  ct->tuplehash[!dir].tuple.src.u.udp.port;
- 	} else
- 		return 1;
- 
-@@ -144,6 +146,7 @@ static unsigned int nf_nat_sip(struct sk_buff *skb, unsigned int protoff,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
- 	unsigned int coff, matchoff, matchlen;
- 	enum sip_header_types hdr;
- 	union nf_inet_addr addr;
-@@ -258,6 +261,21 @@ next:
- 	    !map_sip_addr(skb, protoff, dataoff, dptr, datalen, SIP_HDR_TO))
- 		return NF_DROP;
- 
-+	/* Mangle destination port for Cisco phones, then fix up checksums */
-+	if (dir == IP_CT_DIR_REPLY && ct_sip_info->forced_dport) {
-+		struct udphdr *uh;
++	do {
++		old = *address;
++		tmp = (old & mask) ^ new;
++	} while (cmpxchg(address, old, tmp) != old);
++}
 +
-+		if (!skb_make_writable(skb, skb->len))
-+			return NF_DROP;
++int nf_connlabels_replace(struct nf_conn *ct,
++			  const u32 *data,
++			  const u32 *mask, unsigned int words32)
++{
++	struct nf_conn_labels *labels;
++	unsigned int size, i;
++	u32 *dst;
 +
-+		uh = (void *)skb->data + protoff;
-+		uh->dest = ct_sip_info->forced_dport;
++	labels = nf_ct_labels_find(ct);
++	if (!labels)
++		return -ENOSPC;
 +
-+		if (!nf_nat_mangle_udp_packet(skb, ct, ctinfo, protoff,
-+					      0, 0, NULL, 0))
-+			return NF_DROP;
++	size = labels->words * sizeof(long);
++	if (size < (words32 * sizeof(u32)))
++		words32 = size / sizeof(u32);
++
++	dst = (u32 *) labels->bits;
++	if (words32) {
++		for (i = 0; i < words32; i++)
++			replace_u32(&dst[i], mask ? ~mask[i] : 0, data[i]);
 +	}
 +
- 	return NF_ACCEPT;
++	size /= sizeof(u32);
++	for (i = words32; i < size; i++) /* pad */
++		replace_u32(&dst[i], 0, 0);
++
++	nf_conntrack_event_cache(IPCT_LABEL, ct);
++	return 0;
++}
++EXPORT_SYMBOL_GPL(nf_connlabels_replace);
++#endif
++
+ static struct nf_ct_ext_type labels_extend __read_mostly = {
+ 	.len    = sizeof(struct nf_conn_labels),
+ 	.align  = __alignof__(struct nf_conn_labels),
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 5f53863..2334cc5 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -961,6 +961,7 @@ ctnetlink_parse_help(const struct nlattr *attr, char **helper_name,
+ 	return 0;
  }
  
-@@ -311,8 +329,10 @@ static unsigned int nf_nat_sip_expect(struct sk_buff *skb, unsigned int protoff,
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
- 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
-+	struct nf_ct_sip_master *ct_sip_info = nfct_help_data(ct);
- 	union nf_inet_addr newaddr;
- 	u_int16_t port;
-+	__be16 srcport;
- 	char buffer[INET6_ADDRSTRLEN + sizeof("[]:nnnnn")];
- 	unsigned int buflen;
++#define __CTA_LABELS_MAX_LENGTH ((XT_CONNLABEL_MAXBIT + 1) / BITS_PER_BYTE)
+ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
+ 	[CTA_TUPLE_ORIG]	= { .type = NLA_NESTED },
+ 	[CTA_TUPLE_REPLY]	= { .type = NLA_NESTED },
+@@ -977,6 +978,10 @@ static const struct nla_policy ct_nla_policy[CTA_MAX+1] = {
+ 	[CTA_NAT_SEQ_ADJ_REPLY] = { .type = NLA_NESTED },
+ 	[CTA_ZONE]		= { .type = NLA_U16 },
+ 	[CTA_MARK_MASK]		= { .type = NLA_U32 },
++	[CTA_LABELS]		= { .type = NLA_BINARY,
++				    .len = __CTA_LABELS_MAX_LENGTH },
++	[CTA_LABELS_MASK]	= { .type = NLA_BINARY,
++				    .len = __CTA_LABELS_MAX_LENGTH },
+ };
  
-@@ -326,8 +346,9 @@ static unsigned int nf_nat_sip_expect(struct sk_buff *skb, unsigned int protoff,
- 	/* If the signalling port matches the connection's source port in the
- 	 * original direction, try to use the destination port in the opposite
- 	 * direction. */
--	if (exp->tuple.dst.u.udp.port ==
--	    ct->tuplehash[dir].tuple.src.u.udp.port)
-+	srcport = ct_sip_info->forced_dport ? :
-+		  ct->tuplehash[dir].tuple.src.u.udp.port;
-+	if (exp->tuple.dst.u.udp.port == srcport)
- 		port = ntohs(ct->tuplehash[!dir].tuple.dst.u.udp.port);
- 	else
- 		port = ntohs(exp->tuple.dst.u.udp.port);
+ static int
+@@ -1505,6 +1510,31 @@ ctnetlink_change_nat_seq_adj(struct nf_conn *ct,
+ #endif
+ 
+ static int
++ctnetlink_attach_labels(struct nf_conn *ct, const struct nlattr * const cda[])
++{
++#ifdef CONFIG_NF_CONNTRACK_LABELS
++	size_t len = nla_len(cda[CTA_LABELS]);
++	const void *mask = cda[CTA_LABELS_MASK];
++
++	if (len & (sizeof(u32)-1)) /* must be multiple of u32 */
++		return -EINVAL;
++
++	if (mask) {
++		if (nla_len(cda[CTA_LABELS_MASK]) == 0 ||
++		    nla_len(cda[CTA_LABELS_MASK]) != len)
++			return -EINVAL;
++		mask = nla_data(cda[CTA_LABELS_MASK]);
++	}
++
++	len /= sizeof(u32);
++
++	return nf_connlabels_replace(ct, nla_data(cda[CTA_LABELS]), mask, len);
++#else
++	return -EOPNOTSUPP;
++#endif
++}
++
++static int
+ ctnetlink_change_conntrack(struct nf_conn *ct,
+ 			   const struct nlattr * const cda[])
+ {
+@@ -1550,6 +1580,11 @@ ctnetlink_change_conntrack(struct nf_conn *ct,
+ 			return err;
+ 	}
+ #endif
++	if (cda[CTA_LABELS]) {
++		err = ctnetlink_attach_labels(ct, cda);
++		if (err < 0)
++			return err;
++	}
+ 
+ 	return 0;
+ }
+@@ -1758,6 +1793,10 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 			else
+ 				events = IPCT_NEW;
+ 
++			if (cda[CTA_LABELS] &&
++			    ctnetlink_attach_labels(ct, cda) == 0)
++				events |= (1 << IPCT_LABEL);
++
+ 			nf_conntrack_eventmask_report((1 << IPCT_REPLY) |
+ 						      (1 << IPCT_ASSURED) |
+ 						      (1 << IPCT_HELPER) |
+@@ -2055,6 +2094,11 @@ ctnetlink_nfqueue_parse_ct(const struct nlattr *cda[], struct nf_conn *ct)
+ 		if (err < 0)
+ 			return err;
+ 	}
++	if (cda[CTA_LABELS]) {
++		err = ctnetlink_attach_labels(ct, cda);
++		if (err < 0)
++			return err;
++	}
+ #if defined(CONFIG_NF_CONNTRACK_MARK)
+ 	if (cda[CTA_MARK])
+ 		ct->mark = ntohl(nla_get_be32(cda[CTA_MARK]));
 -- 
 1.7.10.4
+
