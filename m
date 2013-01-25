@@ -1,65 +1,58 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [Web10g-user] Web10g TCP statistics patch - mainlining into kernel?
-Date: Fri, 25 Jan 2013 14:56:24 -0500
-Message-ID: <23149.1359143784@turing-police.cc.vt.edu>
-References: <18855.1359138716@turing-police.cc.vt.edu>
-            <5102DE61.80804@psc.edu>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [RFC PATCH 4/4] net: mvmdio: add getter and setter for PHY addresses
+Date: Fri, 25 Jan 2013 20:58:51 +0100
+Message-ID: <5102E3FB.7030808@openwrt.org>
+References: <1359108409-4378-1-git-send-email-florian@openwrt.org> <1359108409-4378-5-git-send-email-florian@openwrt.org> <20130125181629.GA7393@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1359143784_1992P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, web10g-user@web10g.org,
-	linux-kernel@vger.kernel.org
-To: rapier <rapier@psc.edu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: Your message of "Fri, 25 Jan 2013 14:34:57 -0500."
-             <5102DE61.80804@psc.edu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch,
+	jason@lakedaemon.net, arnd@arndb.de, netdev@vger.kernel.org,
+	gregory.clement@free-electrons.com, ian.molton@codethink.co.uk,
+	linux-arm-kernel@lists.infradead.org
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:38140 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074Ab3AYT66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 14:58:58 -0500
+Received: by mail-bk0-f49.google.com with SMTP id w11so482745bku.8
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 11:58:56 -0800 (PST)
+In-Reply-To: <20130125181629.GA7393@obsidianresearch.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---==_Exmh_1359143784_1992P
-Content-Type: text/plain; charset=us-ascii
+Le 25/01/2013 19:16, Jason Gunthorpe a =E9crit :
+> On Fri, Jan 25, 2013 at 11:06:49AM +0100, Florian Fainelli wrote:
+>> This patch adds orion_mdio_{set,get}_phy_addr(.., port_number, phy_a=
+ddr)
+>> which is a feature available in this MDIO driver to monitor a partic=
+ular
+>> PHY address. This brings mvmdio one step closer to what is used in
+>> mv643x_eth.
+>
+> This seems really strange.
+>
+> Are you sure this should be part of the MDIO driver? Based on my docs=
+,
+> this register is part of the ethernet controller HW, which
+> autonomously reads from the phy via MDIO.
 
-On Fri, 25 Jan 2013 14:34:57 -0500, rapier said:
+My reading of the datasheets for 88F628x and Armada 370 says that it=20
+actually belongs to the MDIO part of the controller (it is just below=20
+the SMI registers).
 
-> My name is Chris Rapier and I'm on the Web10G dev team. We are
-> interested in moving this into consideration for the mainline Linux
-> kernel, in fact it's the primary goal of this project. We haven't
-> brought this to the linux kernel community as of yet as we've not
-> completed the quantification of performance/memory impact versus a
-> vanilla baseline as of yet.
+>
+> It seems cleaner to set this register from the ethernet controller
+> based on the phy it is using and keep the MDIO driver purely for MDIO
+> bus access.
+>
+> It is acceptable to overlap the device address ranges, start the
+> ethernet controller at 72000 and start the MDIO at 72004, the platfor=
+m
+> bus code automatically nests them.
 
-I already looked over the patch and it looks *fairly* sane.  Having said
-that, the best way to proceed for the performance side is probably to
-get some rough ballpark numbers and then get the patch into a state
-that's upstream-able before doing the final measurements (because there's
-actually a high likelihood that the final numbers will end up being
-dependent on the exact details of the patch, plus having more eyeballs on
-it from the netdev side may shake out better approaches).
-
-Sorry if you've already done all that - I didn't see much evidence of
-it from the web10g-user archives...
-
---==_Exmh_1359143784_1992P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iQIVAwUBUQLjZwdmEQWDXROgAQL6uA//Xlo5ukYgPkGVHsOghQ0kohti2lgtK7rn
-gJK5wYBBAbtSou71uf0wz7vwY5hmFnNNwG4hbGjHhkE5BsDOign0UF5STCd0i+bg
-g4rYfVlw94GqDopjWr4tp9yT3TmGVNykTV/33cxFIq0uyPrE9PG4s5P/ItfzQ3XO
-YkoMUb1Ww+Acr1t7tRNCymzgAZSzSWR4FOxbqg0r7u1xoKuxpRMRlSohZ7hopV5c
-jX596z6OGGfF8VprESV1EtFTbgmSuHXhVnt3wQ+pX2UrTwsMBHSnWWDChJ+oSTC1
-cDZ7T9ZJxmZcFuQZB8N5raBw3kH70PEnuVVpH6QGcLePtVZzSOOYtpiO5CGH6FrR
-xBBhhoCmLRXbonnX9osf2pDAJK+MOXOzbTOvW22Xwj/E3iPpTPgoD3zQrYHPet9z
-DoA7QN5i5Ql33PLwaLPc4m5X+JP8vn6AxqO9DHHDmWuROAL4kM85pHoTeEuJUoaS
-0H/iTGBOr+keRaM9gH+8gZO/Fx+s9rKOhcJpt68UAqeG/R2IThDYCQGraSDga1cu
-xs6kaSzQ6F/MHxye38aiCcRIJx2u6k6MA5sY1o+myhfBY4HHK4kJnS90iGsnw70O
-l5qRkpJ7AWp3XgwC2FlfFaudgUF4AP71qj3UeZcqw7D7ZxiEivT9gzmI2R7n6evd
-sZskFZVwuno=
-=b4x0
------END PGP SIGNATURE-----
-
---==_Exmh_1359143784_1992P--
+Ok I did not think this would work, but I kind of prefer that too.
+--
+=46lorian
