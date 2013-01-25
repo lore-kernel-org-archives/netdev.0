@@ -1,39 +1,192 @@
 From: pablo@netfilter.org
-Subject: [PATCH 09/21] netfilter: add missing xt_connlabel.h header in installation
-Date: Fri, 25 Jan 2013 14:54:41 +0100
-Message-ID: <1359122093-3404-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/21] netfilter: nf_ct_expect: move initialization out of pernet_operations
+Date: Fri, 25 Jan 2013 14:54:43 +0100
+Message-ID: <1359122093-3404-12-git-send-email-pablo@netfilter.org>
 References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:60312 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932405Ab3AYNzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jan 2013 08:55:14 -0500
 In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Gao feng <gaofeng@cn.fujitsu.com>
 
-In (c539f01 netfilter: add connlabel conntrack extension), it
-was missing the change to the Kbuild file to install the header
-in the system.
+Move the global initial codes to the module_init/exit context.
 
-Reported-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/Kbuild |    1 +
- 1 file changed, 1 insertion(+)
+ include/net/netfilter/nf_conntrack_expect.h |    7 +++-
+ net/netfilter/nf_conntrack_core.c           |   14 +++++--
+ net/netfilter/nf_conntrack_expect.c         |   53 +++++++++++++--------------
+ 3 files changed, 41 insertions(+), 33 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/Kbuild b/include/uapi/linux/netfilter/Kbuild
-index 8b4bd36..4111577 100644
---- a/include/uapi/linux/netfilter/Kbuild
-+++ b/include/uapi/linux/netfilter/Kbuild
-@@ -39,6 +39,7 @@ header-y += xt_bpf.h
- header-y += xt_cluster.h
- header-y += xt_comment.h
- header-y += xt_connbytes.h
-+header-y += xt_connlabel.h
- header-y += xt_connlimit.h
- header-y += xt_connmark.h
- header-y += xt_conntrack.h
+diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
+index cc13f37..cbbae76 100644
+--- a/include/net/netfilter/nf_conntrack_expect.h
++++ b/include/net/netfilter/nf_conntrack_expect.h
+@@ -69,8 +69,11 @@ struct nf_conntrack_expect_policy {
+ 
+ #define NF_CT_EXPECT_CLASS_DEFAULT	0
+ 
+-int nf_conntrack_expect_init(struct net *net);
+-void nf_conntrack_expect_fini(struct net *net);
++int nf_conntrack_expect_pernet_init(struct net *net);
++void nf_conntrack_expect_pernet_fini(struct net *net);
++
++int nf_conntrack_expect_init(void);
++void nf_conntrack_expect_fini(void);
+ 
+ struct nf_conntrack_expect *
+ __nf_ct_expect_find(struct net *net, u16 zone,
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index fb3e514..a3cca57 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1348,6 +1348,7 @@ void nf_conntrack_cleanup_end(void)
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+ 	nf_ct_extend_unregister(&nf_ct_zone_extend);
+ #endif
++	nf_conntrack_expect_fini();
+ }
+ 
+ /*
+@@ -1378,7 +1379,7 @@ void nf_conntrack_cleanup_net(struct net *net)
+ 	nf_conntrack_ecache_fini(net);
+ 	nf_conntrack_tstamp_fini(net);
+ 	nf_conntrack_acct_fini(net);
+-	nf_conntrack_expect_fini(net);
++	nf_conntrack_expect_pernet_fini(net);
+ 	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
+ 	kfree(net->ct.slabname);
+ 	free_percpu(net->ct.stat);
+@@ -1501,6 +1502,11 @@ int nf_conntrack_init_start(void)
+ 	printk(KERN_INFO "nf_conntrack version %s (%u buckets, %d max)\n",
+ 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
+ 	       nf_conntrack_max);
++
++	ret = nf_conntrack_expect_init();
++	if (ret < 0)
++		goto err_expect;
++
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+ 	ret = nf_ct_extend_register(&nf_ct_zone_extend);
+ 	if (ret < 0)
+@@ -1518,7 +1524,9 @@ int nf_conntrack_init_start(void)
+ 
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+ err_extend:
++	nf_conntrack_expect_fini();
+ #endif
++err_expect:
+ 	return ret;
+ }
+ 
+@@ -1575,7 +1583,7 @@ int nf_conntrack_init_net(struct net *net)
+ 		printk(KERN_ERR "Unable to create nf_conntrack_hash\n");
+ 		goto err_hash;
+ 	}
+-	ret = nf_conntrack_expect_init(net);
++	ret = nf_conntrack_expect_pernet_init(net);
+ 	if (ret < 0)
+ 		goto err_expect;
+ 	ret = nf_conntrack_acct_init(net);
+@@ -1616,7 +1624,7 @@ err_ecache:
+ err_tstamp:
+ 	nf_conntrack_acct_fini(net);
+ err_acct:
+-	nf_conntrack_expect_fini(net);
++	nf_conntrack_expect_pernet_fini(net);
+ err_expect:
+ 	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
+ err_hash:
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 527651a..bdd3418 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -587,53 +587,50 @@ static void exp_proc_remove(struct net *net)
+ 
+ module_param_named(expect_hashsize, nf_ct_expect_hsize, uint, 0400);
+ 
+-int nf_conntrack_expect_init(struct net *net)
++int nf_conntrack_expect_pernet_init(struct net *net)
+ {
+ 	int err = -ENOMEM;
+ 
+-	if (net_eq(net, &init_net)) {
+-		if (!nf_ct_expect_hsize) {
+-			nf_ct_expect_hsize = net->ct.htable_size / 256;
+-			if (!nf_ct_expect_hsize)
+-				nf_ct_expect_hsize = 1;
+-		}
+-		nf_ct_expect_max = nf_ct_expect_hsize * 4;
+-	}
+-
+ 	net->ct.expect_count = 0;
+ 	net->ct.expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize, 0);
+ 	if (net->ct.expect_hash == NULL)
+ 		goto err1;
+ 
+-	if (net_eq(net, &init_net)) {
+-		nf_ct_expect_cachep = kmem_cache_create("nf_conntrack_expect",
+-					sizeof(struct nf_conntrack_expect),
+-					0, 0, NULL);
+-		if (!nf_ct_expect_cachep)
+-			goto err2;
+-	}
+-
+ 	err = exp_proc_init(net);
+ 	if (err < 0)
+-		goto err3;
++		goto err2;
+ 
+ 	return 0;
+-
+-err3:
+-	if (net_eq(net, &init_net))
+-		kmem_cache_destroy(nf_ct_expect_cachep);
+ err2:
+ 	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
+ err1:
+ 	return err;
+ }
+ 
+-void nf_conntrack_expect_fini(struct net *net)
++void nf_conntrack_expect_pernet_fini(struct net *net)
+ {
+ 	exp_proc_remove(net);
+-	if (net_eq(net, &init_net)) {
+-		rcu_barrier(); /* Wait for call_rcu() before destroy */
+-		kmem_cache_destroy(nf_ct_expect_cachep);
+-	}
+ 	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
+ }
++
++int nf_conntrack_expect_init(void)
++{
++	if (!nf_ct_expect_hsize) {
++		nf_ct_expect_hsize = nf_conntrack_htable_size / 256;
++		if (!nf_ct_expect_hsize)
++			nf_ct_expect_hsize = 1;
++	}
++	nf_ct_expect_max = nf_ct_expect_hsize * 4;
++	nf_ct_expect_cachep = kmem_cache_create("nf_conntrack_expect",
++				sizeof(struct nf_conntrack_expect),
++				0, 0, NULL);
++	if (!nf_ct_expect_cachep)
++		return -ENOMEM;
++	return 0;
++}
++
++void nf_conntrack_expect_fini(void)
++{
++	rcu_barrier(); /* Wait for call_rcu() before destroy */
++	kmem_cache_destroy(nf_ct_expect_cachep);
++}
 -- 
 1.7.10.4
-
