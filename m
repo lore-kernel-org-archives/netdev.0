@@ -1,75 +1,51 @@
-From: Felipe Balbi <balbi-l0cyMroinI0@public.gmane.org>
-Subject: Re: brcm WARN() on v3.7.2
-Date: Sat, 26 Jan 2013 14:56:22 +0200
-Message-ID: <20130126125622.GA9542@arwen.pp.htv.fi>
-References: <20130125202355.GA4846@arwen.pp.htv.fi>
- <5103B595.8060805@broadcom.com>
-Reply-To: <balbi-l0cyMroinI0@public.gmane.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 15/19] sunrpc: don't warn for unused variable 'buf'
+Date: Sat, 26 Jan 2013 13:34:56 +0000
+Message-ID: <201301261334.56398.arnd@arndb.de>
+References: <1359123276-15833-1-git-send-email-arnd@arndb.de> <201301252345.25829.arnd@arndb.de> <20130126110321.GE23505@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cWoXeonUoKmBZSoM"
-Cc: <balbi-l0cyMroinI0@public.gmane.org>, Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5103B595.8060805-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: "Russell King - ARM Linux" <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130126110321.GE23505-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Saturday 26 January 2013, Russell King - ARM Linux wrote:
+> On Fri, Jan 25, 2013 at 11:45:25PM +0000, Arnd Bergmann wrote:
+> > On Friday 25 January 2013, Myklebust, Trond wrote:
+> > > > -----Original Message-----
+> > > > From: Arnd Bergmann [mailto:arnd-r2nGTMty4D4@public.gmane.org]
+> > > > Marking it as __maybe_unused avoids a harmless gcc warning.
+> > > 
+> > > Alternatively, just declare it using the RPC_IFDEBUG() macro.
+> > 
+> > Right, makes sense: that's more consistent with other functions
+> > doing the same thing. Thanks for taking a look.
+> 
+> NAK.
+> 
+> There is already a fix queued up as a result of a previous report I
+> sent, but for some reason (which I didn't question) it was decided
+> not to queue it for -rc.
+> 
+> See Bruce's reply on lkml: 20130108212816.GA24572-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org
 
-Hi,
+Ok, makes sense. Then again, if that fix is queued for 3.9, maybe
+it still makes sense to take the simpler fix into 3.8, and remove
+it in 3.9 along with the other instances of RPC_IFDEBUG.
 
-On Sat, Jan 26, 2013 at 11:53:09AM +0100, Arend van Spriel wrote:
-> On 01/25/2013 09:23 PM, Felipe Balbi wrote:
-> > Hi folks,
-> >=20
-> > I'm running Fedora 18 with v3.7.2 on her MacBookAir 11" and it
-> > turns out that brcm is acting out, see below full dmesg. Any tips ?
-> > Is this fixed already ?
->=20
-> Thanks, Felipe
->=20
-> The warning itself means flush timed out, ie. not all outstanding
-> packets could be transmitted. It does not necessarily mean the driver
-> is failing. So do you have any connectivity issues after the warning
-> has occurred?
-
-not really, just thought I'd mention it ;-)
-
---=20
-balbi
-
---cWoXeonUoKmBZSoM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRA9J1AAoJEIaOsuA1yqREa0QP/RSbSILVRzFoVIXaUIYP+CeO
-o1qHywxFhz5fGNYYCa0FTh1MPcIcHi5wMpBR5b4jBIL4EBl4whSY2ULWxl1RijZR
-YHQrs1Jz0ZTkP1VYWySV0GuC/Mz3slKc6l+b69koc5Z8sKvh8TFIIO3FPcJJbkrj
-vG0OKW5iRU+3zdE80HEQXkjS1FsvSdZfGYKyVR2jT9tAeS0/nOYa5Muy6tWWWt3l
-fAv0DHa2jHNBWV2860Gdqf8T/lTAEFHgFNR7yxYTDCEqIhpHCRmdUVkTda68hWOS
-H6V4JlxhMD1Y5xiFNY6pkBraRstpLU1g087ReF6ZP1Ga8WFfBHx+uXVsJwgzexrc
-6ftGu1gMQsO/Dn0jBVJspaPOcf0b6FV2TrJHfUQ+cdmb4enmqRhAbBb1Eedulbu2
-rsA9jYpW/Eum5/4O1CaracTGxNRpzoL+Of6H7t805LylWTvV7bqo9z26Cm2EmYwX
-Wr0OO1Ml8e90vBJlXzDQ6ssfzyGhpdlc9g3k8Xm0X+pg+E4Uhbw9Ha2ARude/1rq
-I6eyMObVWqHTJjfWDAiRHNouJkso0bokcjbxIew6bAlqt4BY72/34ysbIbsZlqem
-eBzNx7Dm1Wo9AyXj4v9e0TrRz046ntkdjxi1mRhurYtduZC70f3OMGBU7QnoA974
-OwOlXiJPTkSKBmvEQ7EW
-=Uac3
------END PGP SIGNATURE-----
-
---cWoXeonUoKmBZSoM--
+	Arnd
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
