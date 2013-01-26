@@ -1,48 +1,67 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 02/14] atm/nicstar: don't use idr_remove_all()
-Date: Fri, 25 Jan 2013 17:31:00 -0800
-Message-ID: <1359163872-1949-3-git-send-email-tj@kernel.org>
-References: <1359163872-1949-1-git-send-email-tj@kernel.org>
-Cc: rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
-	Tejun Heo <tj@kernel.org>,
-	Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 2/5] soreuseport: TCP/IPv4 implementation
+Date: Fri, 25 Jan 2013 19:40:10 -0800
+Message-ID: <CA+mtBx-pF=guzDH-eHtDJ213ettKoiJFm6G_vSoW0k3146a=Fw@mail.gmail.com>
+References: <alpine.DEB.2.00.1301221141310.26417@pokey.mtv.corp.google.com>
+	<20130125080811.GM9147@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netdev@markandruth.co.uk, eric.dumazet@gmail.com
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f52.google.com ([209.85.210.52]:40721 "EHLO
-	mail-da0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755040Ab3AZBbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 20:31:22 -0500
-In-Reply-To: <1359163872-1949-1-git-send-email-tj@kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:62655 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754740Ab3AZDkK convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 22:40:10 -0500
+Received: by mail-ie0-f176.google.com with SMTP id 13so261911iea.21
+        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 19:40:10 -0800 (PST)
+In-Reply-To: <20130125080811.GM9147@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-idr_destroy() can destroy idr by itself and idr_remove_all() is being
-deprecated.  Drop its usage.
+Thanks Steffen.  I'm looking at it.
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>
-Cc: netdev@vger.kernel.org
----
-This patch depends on an earlier idr patch and given the trivial
-nature of the patch, I think it would be best to route these together
-through -mm.  Please holler if there's any objection.
+Tom
 
-Thanks.
-
- drivers/atm/nicstar.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index ed1d2b7..628787e 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -251,7 +251,6 @@ static void nicstar_remove_one(struct pci_dev *pcidev)
- 		if (card->scd2vc[j] != NULL)
- 			free_scq(card, card->scd2vc[j]->scq, card->scd2vc[j]->tx_vcc);
- 	}
--	idr_remove_all(&card->idr);
- 	idr_destroy(&card->idr);
- 	pci_free_consistent(card->pcidev, NS_RSQSIZE + NS_RSQ_ALIGNMENT,
- 			    card->rsq.org, card->rsq.dma);
--- 
-1.8.1
+On Fri, Jan 25, 2013 at 12:08 AM, Steffen Klassert
+<steffen.klassert@secunet.com> wrote:
+> On Tue, Jan 22, 2013 at 11:50:24AM -0800, Tom Herbert wrote:
+>> -     } else if (tb->fastreuse &&
+>> -                (!sk->sk_reuse || sk->sk_state =3D=3D TCP_LISTEN))
+>> -             tb->fastreuse =3D 0;
+>> +             if (sk->sk_reuseport) {
+>> +                     tb->fastreuseport =3D 1;
+>> +                     tb->fastuid =3D uid;
+>> +             } else {
+>> +                     tb->fastreuseport =3D 0;
+>> +                     tb->fastuid =3D 0;
+>> +             }
+>> +     } else {
+>> +             if (tb->fastreuse &&
+>> +                 (!sk->sk_reuse || sk->sk_state =3D=3D TCP_LISTEN))
+>> +                     tb->fastreuse =3D 0;
+>> +             if (tb->fastreuseport &&
+>> +                 (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))) =
+{
+>> +                     tb->fastreuseport =3D 0;
+>> +                     tb->fastuid =3D 0;
+>> +             }
+>
+> I'm getting the following compile error due to the 0 assignment
+> to tb->fastuid:
+>
+> net/ipv4/inet_connection_sock.c: In function =91inet_csk_get_port=92:
+> net/ipv4/inet_connection_sock.c:232:16: error: incompatible types whe=
+n assigning to type =91kuid_t=92 from type =91int=92
+> net/ipv4/inet_connection_sock.c:241:16: error: incompatible types whe=
+n assigning to type =91kuid_t=92 from type =91int=92
+>   CC      lib/show_mem.o
+>   CC      net/ipv6/ipv6_sockglue.o
+> make[3]: *** [net/ipv4/inet_connection_sock.o] Error 1
+> make[2]: *** [net/ipv4] Error 2
+>
+> I have not seen this reported so far what surprises me a bit.
+> This is net-next from today complied with
+> gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3
