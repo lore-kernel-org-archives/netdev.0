@@ -1,51 +1,48 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 15/19] sunrpc: don't warn for unused variable 'buf'
-Date: Sat, 26 Jan 2013 13:34:56 +0000
-Message-ID: <201301261334.56398.arnd@arndb.de>
-References: <1359123276-15833-1-git-send-email-arnd@arndb.de> <201301252345.25829.arnd@arndb.de> <20130126110321.GE23505@n2100.arm.linux.org.uk>
+From: Luciano Coelho <coelho@ti.com>
+Subject: Re: brcm WARN() on v3.7.2
+Date: Sat, 26 Jan 2013 17:14:34 +0200
+Message-ID: <1359213274.6252.257.camel@cumari.coelho.fi>
+References: <20130125202355.GA4846@arwen.pp.htv.fi>
+	 <5103B595.8060805@broadcom.com> <20130126125622.GA9542@arwen.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Myklebust, Trond" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: "Russell King - ARM Linux" <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130126110321.GE23505-l+eeeJia6m9vn6HldHNs0ANdhmdF6hFW@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Arend van Spriel <arend@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>
+To: <balbi@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:49795 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750990Ab3AZPPe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jan 2013 10:15:34 -0500
+In-Reply-To: <20130126125622.GA9542@arwen.pp.htv.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 26 January 2013, Russell King - ARM Linux wrote:
-> On Fri, Jan 25, 2013 at 11:45:25PM +0000, Arnd Bergmann wrote:
-> > On Friday 25 January 2013, Myklebust, Trond wrote:
-> > > > -----Original Message-----
-> > > > From: Arnd Bergmann [mailto:arnd-r2nGTMty4D4@public.gmane.org]
-> > > > Marking it as __maybe_unused avoids a harmless gcc warning.
+On Sat, 2013-01-26 at 14:56 +0200, Felipe Balbi wrote:
+> Hi,
+> 
+> On Sat, Jan 26, 2013 at 11:53:09AM +0100, Arend van Spriel wrote:
+> > On 01/25/2013 09:23 PM, Felipe Balbi wrote:
+> > > Hi folks,
 > > > 
-> > > Alternatively, just declare it using the RPC_IFDEBUG() macro.
+> > > I'm running Fedora 18 with v3.7.2 on her MacBookAir 11" and it
+> > > turns out that brcm is acting out, see below full dmesg. Any tips ?
+> > > Is this fixed already ?
 > > 
-> > Right, makes sense: that's more consistent with other functions
-> > doing the same thing. Thanks for taking a look.
+> > Thanks, Felipe
+> > 
+> > The warning itself means flush timed out, ie. not all outstanding
+> > packets could be transmitted. It does not necessarily mean the driver
+> > is failing. So do you have any connectivity issues after the warning
+> > has occurred?
 > 
-> NAK.
-> 
-> There is already a fix queued up as a result of a previous report I
-> sent, but for some reason (which I didn't question) it was decided
-> not to queue it for -rc.
-> 
-> See Bruce's reply on lkml: 20130108212816.GA24572-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org
+> not really, just thought I'd mention it ;-)
 
-Ok, makes sense. Then again, if that fix is queued for 3.9, maybe
-it still makes sense to take the simpler fix into 3.8, and remove
-it in 3.9 along with the other instances of RPC_IFDEBUG.
+If the warning is benign, maybe it shouldn't be a warning at all?
 
-	Arnd
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Luca.
