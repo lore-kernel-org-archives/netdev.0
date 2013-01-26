@@ -1,32 +1,35 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next 2/2] netpoll: use the net namespace of current
- process instead of init_net
-Date: Sat, 26 Jan 2013 18:00:32 +0800
-Message-ID: <1359194432.2654.1.camel@cr0>
-References: <1358931731-17438-1-git-send-email-amwang@redhat.com>
-	 <1358931731-17438-2-git-send-email-amwang@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] NET/PHY: Eliminate the algorithm of forced ethernet speed reduction
+Date: Sat, 26 Jan 2013 10:59:53 +0100
+Message-ID: <20130126095953.GA9403@electric-eye.fr.zoreil.com>
+References: <1359108607.357711816@f237.mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kirill Kapranov <kapranoff@inbox.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16976 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753117Ab3AZKAp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jan 2013 05:00:45 -0500
-In-Reply-To: <1358931731-17438-2-git-send-email-amwang@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:44635 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753199Ab3AZK3Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2013 05:29:24 -0500
+Content-Disposition: inline
+In-Reply-To: <1359108607.357711816@f237.mail.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-23 at 17:02 +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> This will allow us to setup netconsole in a different namespace
-> rather than where init_net is.
-> 
+Kirill Kapranov <kapranoff@inbox.ru> :
+> NET/PHY: Eliminate the forced speed reduction algorithm.
+> In case of the fixed speed set up for NIC 
+> (e.g. ethtool -s eth0 autoneg off speed 100 duplex full)
+> with ethernet cable plugged off, mentioned algorithm
+> slows down NIC speed, so the further "hooking up" gives
+> no result. AFAIK, this behaviour is not RFCs' recommended.
+> Tested at 2.6.38.7, applicable up to for 3.0.4. 
 
-Hmm, I missed to put the netns in netpoll_cleanup()...
+(your mail user agent completely messed the patch. Please fix it.)
 
-Will send v2.
+I makes sense but which RFC (?) does state that said algorithm
+should not apply to the autonegotiated case as well ?
+
+-- 
+Ueimor
