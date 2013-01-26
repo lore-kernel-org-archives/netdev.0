@@ -1,24 +1,43 @@
-From: "Mrs. Anna Sanchez" <no-reply@mx2.4shared.com>
-Subject: Am dying of breast cancer
-Date: Fri, 25 Jan 2013 16:58:09 -0200
-Message-ID: <201301251856.r0PItnCG014056@correo.smiweb.com.uy>
-Reply-To: mrsannasanchez@1email.eu
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH 15/19] sunrpc: don't warn for unused variable 'buf'
+Date: Sat, 26 Jan 2013 11:03:21 +0000
+Message-ID: <20130126110321.GE23505@n2100.arm.linux.org.uk>
+References: <1359123276-15833-1-git-send-email-arnd@arndb.de> <1359153858-31992-16-git-send-email-arnd@arndb.de> <4FA345DA4F4AE44899BD2B03EEEC2FA91833C205@sacexcmbx05-prd.hq.netapp.com> <201301252345.25829.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <no-reply@mx2.4shared.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Myklebust, Trond" <Trond.Myklebust@netapp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	"J. Bruce Fields" <bfields@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correo.smiweb.com.uy ([200.40.51.130]:38951 "EHLO
-	correo.smiweb.com.uy" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996Ab3AZK73 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2013 05:59:29 -0500
-Content-Description: Mail message body
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:55729 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751372Ab3AZLDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2013 06:03:38 -0500
+Content-Disposition: inline
+In-Reply-To: <201301252345.25829.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, Jan 25, 2013 at 11:45:25PM +0000, Arnd Bergmann wrote:
+> On Friday 25 January 2013, Myklebust, Trond wrote:
+> > > -----Original Message-----
+> > > From: Arnd Bergmann [mailto:arnd@arndb.de]
+> > > Marking it as __maybe_unused avoids a harmless gcc warning.
+> > 
+> > Alternatively, just declare it using the RPC_IFDEBUG() macro.
+> 
+> Right, makes sense: that's more consistent with other functions
+> doing the same thing. Thanks for taking a look.
 
-Am dying of breast cancer and I need your assistance to help me carry out my dream charity work with my funds 2.8M Euros which i deposited with a Security firm, if you are interested please reach me for more details on this email: mrsannasanchez@1email.eu
+NAK.
 
-Yours Sincerely,
-Mrs. Anna Sanchez
+There is already a fix queued up as a result of a previous report I
+sent, but for some reason (which I didn't question) it was decided
+not to queue it for -rc.
+
+See Bruce's reply on lkml: 20130108212816.GA24572@fieldses.org
