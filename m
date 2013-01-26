@@ -1,68 +1,53 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] soreuseport: fix use of uid in tb->fastuid
-Date: Sat, 26 Jan 2013 09:50:54 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1301260944370.27231@pokey.mtv.corp.google.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Pv-drivers] [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Sat, 26 Jan 2013 13:41:58 -0500
+Message-ID: <20130126184158.GA1388@neilslaptop.think-freely.org>
+References: <1359135470-30677-1-git-send-email-acking@vmware.com>
+	<1359135470-30677-2-git-send-email-acking@vmware.com>
+	<20130125235953.GA4833@hmsreliant.think-freely.org>
+	<2312112.Fz0qTjDOJB@dtor-d630.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: steffen.klassert@secunet.com, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f201.google.com ([209.85.161.201]:54176 "EHLO
-	mail-gg0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284Ab3AZRu4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2013 12:50:56 -0500
-Received: by mail-gg0-f201.google.com with SMTP id l2so139447ggn.2
-        for <netdev@vger.kernel.org>; Sat, 26 Jan 2013 09:50:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: acking@vmware.com, pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: Dmitry Torokhov <dtor@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <2312112.Fz0qTjDOJB@dtor-d630.eng.vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Fix a reported compilation error where ia variable of type kuid_t
-was being set to zero.
+On Fri, Jan 25, 2013 at 04:15:19PM -0800, Dmitry Torokhov wrote:
+> Hi Neil,
+> 
+> On Friday, January 25, 2013 06:59:53 PM Neil Horman wrote:
+> > On Fri, Jan 25, 2013 at 09:37:50AM -0800, acking@vmware.com wrote:
+> > > +
+> > > +config VMWARE_VSOCK
+> > > +	tristate "Virtual Socket protocol"
+> > > +	depends on VMWARE_VMCI
+> > 
+> > What is CONFIG_VMWARE_VMCI?  I don't find that in any Kconfig in the tree?
+> > 
+> > I''m still looking over the rest, but I get build issues if I just remove
+> > the dependency.
+> 
+> VMCI is in linux-next at the moment.
+> 
+> Thanks,
+> Dmitry
+> 
 
-Eliminate two instances of setting tb->fastuid to zero.  tb->fastuid is 
-only used if tb->fastreuseport is set, so there should be no problem if 
-tb->fastuid is not initialized (when tb->fastreuesport is zero).
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/inet_connection_sock.c | 11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
-
-diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection_sock.c
-index 8bb623d..11cb497 100644
---- a/net/ipv4/inet_connection_sock.c
-+++ b/net/ipv4/inet_connection_sock.c
-@@ -204,7 +204,8 @@ tb_found:
- 			ret = 1;
- 			if (inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb, true)) {
- 				if (((sk->sk_reuse && sk->sk_state != TCP_LISTEN) ||
--				     (sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
-+				     (tb->fastreuseport > 0 &&
-+				      sk->sk_reuseport && uid_eq(tb->fastuid, uid))) &&
- 				    smallest_size != -1 && --attempts >= 0) {
- 					spin_unlock(&head->lock);
- 					goto again;
-@@ -227,19 +228,15 @@ tb_not_found:
- 		if (sk->sk_reuseport) {
- 			tb->fastreuseport = 1;
- 			tb->fastuid = uid;
--		} else {
-+		} else
- 			tb->fastreuseport = 0;
--			tb->fastuid = 0;
--		}
- 	} else {
- 		if (tb->fastreuse &&
- 		    (!sk->sk_reuse || sk->sk_state == TCP_LISTEN))
- 			tb->fastreuse = 0;
- 		if (tb->fastreuseport &&
--		    (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))) {
-+		    (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid)))
- 			tb->fastreuseport = 0;
--			tb->fastuid = 0;
--		}
- 	}
- success:
- 	if (!inet_csk(sk)->icsk_bind_hash)
--- 
-1.8.1
+Thanks, I'll pull that in.
+Neil
