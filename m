@@ -1,37 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] gro: Fix kcalloc argument order
-Date: Sat, 26 Jan 2013 11:24:19 -0800
-Message-ID: <1359228259.2079.30.camel@joe-AO722>
+From: "noreply@5gbfree.com" <noreply@5gbfree.com>
+Subject: Secret Shopper Recruitment
+Date: Sat, 26 Jan 2013 12:20:48 -0600
+Message-ID: <0MH800D8OWBALW20@proactive.priv>
+Reply-To: shawn.cll@aol.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <noreply@5gbfree.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from proactive.newcastle.edu.au ([134.148.4.12]:64909 "EHLO
+	proactive.newcastle.edu.au" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754484Ab3AZWpE convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jan 2013 17:45:04 -0500
+Received: from pmxchannel-daemon.proactive.priv by proactive.priv
+ (Sun Java System Messaging Server 6.2-3.04 (built Jul 15 2005))
+ id <0MH800IMRYMQOO20@proactive.priv> for netdev@vger.kernel.org; Sun,
+ 27 Jan 2013 06:11:23 +1100 (EST)
+Content-description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-First number, then size.
+Hello,
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/net/gro_cells.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+You have been selected for an assignment as a Detective Shopper in your=
+ area and you will earn $200 per Shopping/evaluation.
+Your part time employment package will include funds for the shopping.
 
-diff --git a/include/net/gro_cells.h b/include/net/gro_cells.h
-index e5062c9..734d9b5 100644
---- a/include/net/gro_cells.h
-+++ b/include/net/gro_cells.h
-@@ -73,8 +73,8 @@ static inline int gro_cells_init(struct gro_cells *gcells, struct net_device *de
- 	int i;
- 
- 	gcells->gro_cells_mask = roundup_pow_of_two(netif_get_num_default_rss_queues()) - 1;
--	gcells->cells = kcalloc(sizeof(struct gro_cell),
--				gcells->gro_cells_mask + 1,
-+	gcells->cells = kcalloc(gcells->gro_cells_mask + 1,
-+				sizeof(struct gro_cell),
- 				GFP_KERNEL);
- 	if (!gcells->cells)
- 		return -ENOMEM;
+A full job description will be sent to you before your assignment
+
+Only interested applicants should respond.
+
+if interested, send the information below to
+
+(1) Full Legal Name:
+(2) Address (No P.O. Box):
+(3) City:
+(4) State:
+(5) Zip Code
+(6) Home And Cell:
+(7) Age:
+(8) Alternative Email if any:
+
+
+Thank You
+
+Mystery Shopper Inc=A9
+5500 Feltl Road
+Minnetonka, MN 55343
+shawn.cll@aol.com
