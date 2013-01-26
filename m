@@ -1,72 +1,48 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH/RFC 2/3] ethernet: add a PHY reset GPIO DT binding to sh_eth
-Date: Sat, 26 Jan 2013 02:04:13 +0100
-Message-ID: <3496361.USCGuib0gY@avalon>
-References: <1359043653-11374-1-git-send-email-g.liakhovetski@gmx.de> <7921225.sfO3PIeLVS@avalon> <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-sh@vger.kernel.org, Magnus Damm <magnus.damm@gmail.com>,
-	Simon Horman <horms@verge.net.au>,
-	linux-arm-kernel@lists.infradead.org,
-	devicetree-discuss@lists.ozlabs.org, netdev@vger.kernel.org
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1301251127460.17518@axis700.grange>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH 02/14] atm/nicstar: don't use idr_remove_all()
+Date: Fri, 25 Jan 2013 17:31:00 -0800
+Message-ID: <1359163872-1949-3-git-send-email-tj@kernel.org>
+References: <1359163872-1949-1-git-send-email-tj@kernel.org>
+Cc: rusty@rustcorp.com.au, linux-kernel@vger.kernel.org,
+	Tejun Heo <tj@kernel.org>,
+	Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f52.google.com ([209.85.210.52]:40721 "EHLO
+	mail-da0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755040Ab3AZBbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 20:31:22 -0500
+In-Reply-To: <1359163872-1949-1-git-send-email-tj@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Guennadi,
+idr_destroy() can destroy idr by itself and idr_remove_all() is being
+deprecated.  Drop its usage.
 
-On Friday 25 January 2013 11:34:55 Guennadi Liakhovetski wrote:
-> On Fri, 25 Jan 2013, Laurent Pinchart wrote:
-> > On Thursday 24 January 2013 17:07:32 Guennadi Liakhovetski wrote:
-> > > If an ethernet PHY can be reset by a GPIO, it can be specified in DT.
-> > > Add a binding and code to parse it, request the GPIO and take the PHY
-> > > out of reset.
-> > > 
-> > > Signed-off-by: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-> > > Cc: devicetree-discuss@lists.ozlabs.org
-> > > Cc: netdev@vger.kernel.org
-> > > ---
-> > > 
-> > >  Documentation/devicetree/bindings/net/sh_ether.txt |    2 ++
-> > >  drivers/net/ethernet/renesas/sh_eth.c              |    9 ++++++++-
-> > >  2 files changed, 10 insertions(+), 1 deletions(-)
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+Cc: netdev@vger.kernel.org
+---
+This patch depends on an earlier idr patch and given the trivial
+nature of the patch, I think it would be best to route these together
+through -mm.  Please holler if there's any objection.
 
-[snip]
+Thanks.
 
-> > > diff --git a/drivers/net/ethernet/renesas/sh_eth.c
-> > > b/drivers/net/ethernet/renesas/sh_eth.c index 1f64848..06035a2 100644
-> > > --- a/drivers/net/ethernet/renesas/sh_eth.c
-> > > +++ b/drivers/net/ethernet/renesas/sh_eth.c
+ drivers/atm/nicstar.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-[snip]
-
-> > > @@ -2420,6 +2423,10 @@ sh_eth_parse_dt(struct device *dev, struct
-> > > net_device *ndev) else
-> > > 
-> > >  		pdata->needs_init = 0;
-> > > 
-> > > +	gpio = of_get_named_gpio_flags(np, "phy-reset-gpios", 0, &flags);
-> > > +	if (gpio_is_valid(gpio) && !devm_gpio_request(dev, gpio, NULL))
-> > > +		gpio_direction_output(gpio, !!(flags & OF_GPIO_ACTIVE_LOW));
-> > 
-> > You could use devm_gpio_request_one() here.
-> 
-> Yes, but then the flag would look uglier, something like
-> 
-> 		devm_gpio_request_one(dev, gpio, flags &
-> 			OF_GPIO_ACTIVE_LOW ? GPIOF_OUT_INIT_HIGH :
-> 			GPIOF_OUT_INIT_LOW);
-> 
-> Does it really look like an improvement? :)
-
-It's one less function call, so to me it does :-) Feel free to ignore that 
-though.
-
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index ed1d2b7..628787e 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -251,7 +251,6 @@ static void nicstar_remove_one(struct pci_dev *pcidev)
+ 		if (card->scd2vc[j] != NULL)
+ 			free_scq(card, card->scd2vc[j]->scq, card->scd2vc[j]->tx_vcc);
+ 	}
+-	idr_remove_all(&card->idr);
+ 	idr_destroy(&card->idr);
+ 	pci_free_consistent(card->pcidev, NS_RSQSIZE + NS_RSQ_ALIGNMENT,
+ 			    card->rsq.org, card->rsq.dma);
 -- 
-Regards,
-
-Laurent Pinchart
-
+1.8.1
