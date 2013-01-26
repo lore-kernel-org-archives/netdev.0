@@ -1,67 +1,37 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/5] soreuseport: TCP/IPv4 implementation
-Date: Fri, 25 Jan 2013 19:40:10 -0800
-Message-ID: <CA+mtBx-pF=guzDH-eHtDJ213ettKoiJFm6G_vSoW0k3146a=Fw@mail.gmail.com>
-References: <alpine.DEB.2.00.1301221141310.26417@pokey.mtv.corp.google.com>
-	<20130125080811.GM9147@secunet.com>
+From: Li Zefan <lizefan@huawei.com>
+Subject: [PATCH 3.4.y 0/3] netprio_cgroup: a few patches for stable tree
+Date: Sat, 26 Jan 2013 12:40:47 +0800
+Message-ID: <51035E4F.6030508@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	netdev@markandruth.co.uk, eric.dumazet@gmail.com
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset="GB2312"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Gao feng <gaofeng@cn.fujitsu.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:62655 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754740Ab3AZDkK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 22:40:10 -0500
-Received: by mail-ie0-f176.google.com with SMTP id 13so261911iea.21
-        for <netdev@vger.kernel.org>; Fri, 25 Jan 2013 19:40:10 -0800 (PST)
-In-Reply-To: <20130125080811.GM9147@secunet.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:38699 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751138Ab3AZElB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jan 2013 23:41:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Steffen.  I'm looking at it.
+Hi David,
 
-Tom
+Could you queue those patches for 3.4 stable tree?
 
-On Fri, Jan 25, 2013 at 12:08 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Tue, Jan 22, 2013 at 11:50:24AM -0800, Tom Herbert wrote:
->> -     } else if (tb->fastreuse &&
->> -                (!sk->sk_reuse || sk->sk_state =3D=3D TCP_LISTEN))
->> -             tb->fastreuse =3D 0;
->> +             if (sk->sk_reuseport) {
->> +                     tb->fastreuseport =3D 1;
->> +                     tb->fastuid =3D uid;
->> +             } else {
->> +                     tb->fastreuseport =3D 0;
->> +                     tb->fastuid =3D 0;
->> +             }
->> +     } else {
->> +             if (tb->fastreuse &&
->> +                 (!sk->sk_reuse || sk->sk_state =3D=3D TCP_LISTEN))
->> +                     tb->fastreuse =3D 0;
->> +             if (tb->fastreuseport &&
->> +                 (!sk->sk_reuseport || !uid_eq(tb->fastuid, uid))) =
-{
->> +                     tb->fastreuseport =3D 0;
->> +                     tb->fastuid =3D 0;
->> +             }
->
-> I'm getting the following compile error due to the 0 assignment
-> to tb->fastuid:
->
-> net/ipv4/inet_connection_sock.c: In function =91inet_csk_get_port=92:
-> net/ipv4/inet_connection_sock.c:232:16: error: incompatible types whe=
-n assigning to type =91kuid_t=92 from type =91int=92
-> net/ipv4/inet_connection_sock.c:241:16: error: incompatible types whe=
-n assigning to type =91kuid_t=92 from type =91int=92
->   CC      lib/show_mem.o
->   CC      net/ipv6/ipv6_sockglue.o
-> make[3]: *** [net/ipv4/inet_connection_sock.o] Error 1
-> make[2]: *** [net/ipv4] Error 2
->
-> I have not seen this reported so far what surprises me a bit.
-> This is net-next from today complied with
-> gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 4.6.3
+The first 2 bugs were fixed in 3.5, and the last one was fixed in 3.6.
+
+I've re-generated the last 2 patches, as the upstream commits can't be
+applied to 3.4 cleanly.
+
+Gao feng (2):
+      cgroup: fix panic in netprio_cgroup
+      net: cgroup: fix access the unallocated memory in netprio cgroup
+
+John Fastabend (1):
+      net: netprio: fix cgrp create and write priomap race
+
+ net/core/netprio_cgroup.c | 78 +++++++++++++++++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 57 insertions(+), 21 deletions(-)
