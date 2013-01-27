@@ -1,59 +1,55 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH] ip_gre: When TOS is inherited, use configured TOS value for non-IP packets
-Date: Sun, 27 Jan 2013 18:04:58 -0500
-Message-ID: <1359327899-8153-1-git-send-email-david.ward@ll.mit.edu>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: Potential problem in
+ drivers/net/wireless/rtlwifi/usb.c:_rtl_rx_pre_process()
+Date: Sun, 27 Jan 2013 15:52:03 -0800
+Message-ID: <20130127235203.GA24524@roeck-us.net>
+References: <20130127211811.GA6680@roeck-us.net>
+ <5105A627.5000208@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Timo Teras <timo.teras@iki.fi>, David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:51352 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753080Ab3A0Xjm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jan 2013 18:39:42 -0500
+Received: from mail.active-venture.com ([67.228.131.205]:54115 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754326Ab3A0Xvp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 18:51:45 -0500
+Content-Disposition: inline
+In-Reply-To: <5105A627.5000208@lwfinger.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A GRE tunnel can be configured so that outgoing tunnel packets inherit
-the value of the TOS field from the inner IP header. In doing so, when
-a non-IP packet is transmitted through the tunnel, the TOS field will
-always be set to 0.
+On Sun, Jan 27, 2013 at 04:11:51PM -0600, Larry Finger wrote:
+> On 01/27/2013 03:18 PM, Guenter Roeck wrote:
+> >Hi all,
+> >
+> >while browsing through 'warning: variable =E2=80=98...=E2=80=99 set =
+but not used' warnings, I
+> >found the following code in drivers/net/wireless/rtlwifi/usb.c:_rtl_=
+rx_pre_process().
+> >
+> >	while (!skb_queue_empty(&rx_queue)) {
+> >         	_skb =3D skb_dequeue(&rx_queue);
+> >		_rtl_usb_rx_process_agg(hw, skb);
+> >		ieee80211_rx_irqsafe(hw, skb);
+> >	}
+> >
+> >Question: Should the parameter to _rtl_usb_rx_process_agg() and
+> >ieee80211_rx_irqsafe() be '_skb' instead of 'skb' ?
+>=20
+> I think you are right and I will submit a patch to fix this.
+>=20
+> What compiler version reported this? I use "gcc (SUSE Linux) 4.7.2
+> 20130108 [gcc-4_7-branch revision 195012]" and I do not see this
+> warning.
+>=20
+Hi Larry,
 
-Instead, the user should be able to configure a different TOS value as
-the fallback to use for non-IP packets. This is helpful when the non-IP
-packets are all control packets and should be handled by routers outside
-the tunnel as having Internet Control precedence. One example of this is
-the NHRP packets that control a DMVPN-compatible mGRE tunnel; they are
-encapsulated directly by GRE and do not contain an inner IP header.
+I use "gcc (Ubuntu/Linaro 4.7.2-2ubuntu1) 4.7.2".
 
-Under the existing behavior, the IFLA_GRE_TOS parameter must be set to
-'1' for the TOS value to be inherited. Now, only the least significant
-bit of this parameter must be set to '1', and when a non-IP packet is
-sent through the tunnel, the upper 6 bits of this same parameter will be
-copied into the TOS field. (The ECN bits get masked off as before.)
+You'll see the warning if you build the kernel with W=3D1.
 
-This behavior is backwards-compatible with existing configurations and
-iproute2 versions.
-
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
----
- net/ipv4/ip_gre.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 303012a..e4c8817 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -818,8 +818,8 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 
- 	ttl = tiph->ttl;
- 	tos = tiph->tos;
--	if (tos == 1) {
--		tos = 0;
-+	if (tos & 0x1) {
-+		tos &= ~0x1;
- 		if (skb->protocol == htons(ETH_P_IP))
- 			tos = old_iph->tos;
- 		else if (skb->protocol == htons(ETH_P_IPV6))
--- 
-1.7.1
+Guenter
