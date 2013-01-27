@@ -1,226 +1,617 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] e1000e: enable ECC on I217/I218 to catch packet buffer memory errors
-Date: Sun, 27 Jan 2013 02:39:43 -0800
-Message-ID: <1359283193-2043-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/14] e1000e: add support for IEEE-1588 PTP
+Date: Sun, 27 Jan 2013 02:39:42 -0800
+Message-ID: <1359283193-2043-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Richard Cochran <richardcochran@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:35700 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:26342 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756452Ab3A0Kj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jan 2013 05:39:58 -0500
+	id S1756427Ab3A0Kj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2013 05:39:57 -0500
 In-Reply-To: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-In rare instances, memory errors have been detected in the internal packet
-buffer memory on I217/I218 when stressed under certain environmental
-conditions.  Enable Error Correcting Code (ECC) in hardware to catch both
-correctable and uncorrectable errors.  Correctable errors will be handled
-by the hardware.  Uncorrectable errors in the packet buffer will cause the
-packet to be received with an error indication in the buffer descriptor
-causing the packet to be discarded.  If the uncorrectable error is in the
-descriptor itself, the hardware will stop and interrupt the driver
-indicating the error.  The driver will then reset the hardware in order to
-clear the error and restart.
+Add PTP IEEE-1588 support and make accesible via the PHC subsystem.
 
-Both types of errors will be accounted for in statistics counters.
+v2: make e1000e_ptp_clock_info a static const struct per Stephen Hemminger
 
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Richard Cochran <richardcochran@gmail.com>
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Reviewed-by: Jacob Keller <Jacob.e.keller@intel.com>
+Acked-by: Richard Cochran <richardcochran@gmail.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |  9 ++++++
- drivers/net/ethernet/intel/e1000e/e1000.h   |  2 ++
- drivers/net/ethernet/intel/e1000e/ethtool.c |  2 ++
- drivers/net/ethernet/intel/e1000e/hw.h      |  1 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 11 +++++++
- drivers/net/ethernet/intel/e1000e/netdev.c  | 46 +++++++++++++++++++++++++++++
- 6 files changed, 71 insertions(+)
+ drivers/net/ethernet/intel/Kconfig          |   1 +
+ drivers/net/ethernet/intel/e1000e/Makefile  |   2 +-
+ drivers/net/ethernet/intel/e1000e/defines.h |  11 ++
+ drivers/net/ethernet/intel/e1000e/e1000.h   |   9 +-
+ drivers/net/ethernet/intel/e1000e/ethtool.c |  12 ++
+ drivers/net/ethernet/intel/e1000e/hw.h      |   2 +
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 107 ++++++++++-
+ drivers/net/ethernet/intel/e1000e/ptp.c     | 276 ++++++++++++++++++++++++++++
+ 8 files changed, 417 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/e1000e/ptp.c
 
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 21353f0..3d5f6d4 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -74,6 +74,7 @@ config E1000E
+ 	tristate "Intel(R) PRO/1000 PCI-Express Gigabit Ethernet support"
+ 	depends on PCI && (!SPARC32 || BROKEN)
+ 	select CRC32
++	select PTP_1588_CLOCK
+ 	---help---
+ 	  This driver supports the PCI-Express Intel(R) PRO/1000 gigabit
+ 	  ethernet family of adapters. For PCI or PCI-X e1000 adapters,
+diff --git a/drivers/net/ethernet/intel/e1000e/Makefile b/drivers/net/ethernet/intel/e1000e/Makefile
+index 591b713..1da0faac 100644
+--- a/drivers/net/ethernet/intel/e1000e/Makefile
++++ b/drivers/net/ethernet/intel/e1000e/Makefile
+@@ -34,5 +34,5 @@ obj-$(CONFIG_E1000E) += e1000e.o
+ 
+ e1000e-objs := 82571.o ich8lan.o 80003es2lan.o \
+ 	       mac.o manage.o nvm.o phy.o \
+-	       param.o ethtool.o netdev.o
++	       param.o ethtool.o netdev.o ptp.o
+ 
 diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 5cb7441..f045231 100644
+index 36f9fad..5cb7441 100644
 --- a/drivers/net/ethernet/intel/e1000e/defines.h
 +++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -233,6 +233,7 @@
- #define E1000_CTRL_FRCDPX   0x00001000  /* Force Duplex */
- #define E1000_CTRL_LANPHYPC_OVERRIDE 0x00010000 /* SW control of LANPHYPC */
- #define E1000_CTRL_LANPHYPC_VALUE    0x00020000 /* SW value of LANPHYPC */
-+#define E1000_CTRL_MEHE     0x00080000  /* Memory Error Handling Enable */
- #define E1000_CTRL_SWDPIN0  0x00040000  /* SWDPIN 0 value */
- #define E1000_CTRL_SWDPIN1  0x00080000  /* SWDPIN 1 value */
- #define E1000_CTRL_SWDPIO0  0x00400000  /* SWDPIN 0 Input or output */
-@@ -394,6 +395,12 @@
+@@ -544,9 +544,20 @@
  
- #define E1000_PBS_16K E1000_PBA_16K
+ #define E1000_TSYNCRXCTL_VALID		0x00000001 /* Rx timestamp valid */
+ #define E1000_TSYNCRXCTL_TYPE_MASK	0x0000000E /* Rx type mask */
++#define E1000_TSYNCRXCTL_TYPE_L2_V2	0x00
++#define E1000_TSYNCRXCTL_TYPE_L4_V1	0x02
++#define E1000_TSYNCRXCTL_TYPE_L2_L4_V2	0x04
++#define E1000_TSYNCRXCTL_TYPE_ALL	0x08
++#define E1000_TSYNCRXCTL_TYPE_EVENT_V2	0x0A
+ #define E1000_TSYNCRXCTL_ENABLED	0x00000010 /* enable Rx timestamping */
+ #define E1000_TSYNCRXCTL_SYSCFI		0x00000020 /* Sys clock frequency */
  
-+/* Uncorrectable/correctable ECC Error counts and enable bits */
-+#define E1000_PBECCSTS_CORR_ERR_CNT_MASK	0x000000FF
-+#define E1000_PBECCSTS_UNCORR_ERR_CNT_MASK	0x0000FF00
-+#define E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT	8
-+#define E1000_PBECCSTS_ECC_ENABLE		0x00010000
++#define E1000_RXMTRL_PTP_V1_SYNC_MESSAGE	0x00000000
++#define E1000_RXMTRL_PTP_V1_DELAY_REQ_MESSAGE	0x00010000
 +
- #define IFS_MAX       80
- #define IFS_MIN       40
- #define IFS_RATIO     4
-@@ -413,6 +420,7 @@
- #define E1000_ICR_RXSEQ         0x00000008 /* Rx sequence error */
- #define E1000_ICR_RXDMT0        0x00000010 /* Rx desc min. threshold (0) */
- #define E1000_ICR_RXT0          0x00000080 /* Rx timer intr (ring 0) */
-+#define E1000_ICR_ECCER         0x00400000 /* Uncorrectable ECC Error */
- #define E1000_ICR_INT_ASSERTED  0x80000000 /* If this bit asserted, the driver should claim the interrupt */
- #define E1000_ICR_RXQ0          0x00100000 /* Rx Queue 0 Interrupt */
- #define E1000_ICR_RXQ1          0x00200000 /* Rx Queue 1 Interrupt */
-@@ -448,6 +456,7 @@
- #define E1000_IMS_RXSEQ     E1000_ICR_RXSEQ     /* Rx sequence error */
- #define E1000_IMS_RXDMT0    E1000_ICR_RXDMT0    /* Rx desc min. threshold */
- #define E1000_IMS_RXT0      E1000_ICR_RXT0      /* Rx timer intr */
-+#define E1000_IMS_ECCER     E1000_ICR_ECCER     /* Uncorrectable ECC Error */
- #define E1000_IMS_RXQ0      E1000_ICR_RXQ0      /* Rx Queue 0 Interrupt */
- #define E1000_IMS_RXQ1      E1000_ICR_RXQ1      /* Rx Queue 1 Interrupt */
- #define E1000_IMS_TXQ0      E1000_ICR_TXQ0      /* Tx Queue 0 Interrupt */
++#define E1000_RXMTRL_PTP_V2_SYNC_MESSAGE	0x00000000
++#define E1000_RXMTRL_PTP_V2_DELAY_REQ_MESSAGE	0x01000000
++
+ #define E1000_TIMINCA_INCPERIOD_SHIFT	24
+ #define E1000_TIMINCA_INCVALUE_MASK	0x00FFFFFF
+ 
 diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index bd58761..c96e6fc 100644
+index dea9e55..bd58761 100644
 --- a/drivers/net/ethernet/intel/e1000e/e1000.h
 +++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -312,6 +312,8 @@ struct e1000_adapter {
+@@ -43,7 +43,8 @@
+ #include <linux/if_vlan.h>
+ #include <linux/clocksource.h>
+ #include <linux/net_tstamp.h>
+-
++#include <linux/ptp_clock_kernel.h>
++#include <linux/ptp_classify.h>
+ #include "hw.h"
  
- 	struct napi_struct napi;
- 
-+	unsigned int uncorr_errors;	/* uncorrectable ECC errors */
-+	unsigned int corr_errors;	/* correctable ECC errors */
- 	unsigned int restart_queue;
- 	u32 txd_cmd;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index e3855bb..124821b 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -109,6 +109,8 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
- 	E1000_STAT("rx_dma_failed", rx_dma_failed),
- 	E1000_STAT("tx_dma_failed", tx_dma_failed),
- 	E1000_STAT("rx_hwtstamp_cleared", rx_hwtstamp_cleared),
-+	E1000_STAT("uncorr_ecc_errors", uncorr_errors),
-+	E1000_STAT("corr_ecc_errors", corr_errors),
+ struct e1000_info;
+@@ -413,6 +414,8 @@ struct e1000_adapter {
+ 	spinlock_t systim_lock;	/* protects SYSTIML/H regsters */
+ 	struct cyclecounter cc;
+ 	struct timecounter tc;
++	struct ptp_clock *ptp_clock;
++	struct ptp_clock_info ptp_clock_info;
  };
  
- #define E1000_GLOBAL_STATS_LEN	ARRAY_SIZE(e1000_gstrings_stats)
+ struct e1000_info {
+@@ -427,6 +430,8 @@ struct e1000_info {
+ 	const struct e1000_nvm_operations *nvm_ops;
+ };
+ 
++s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca);
++
+ /* The system time is maintained by a 64-bit counter comprised of the 32-bit
+  * SYSTIMH and SYSTIML registers.  How the counter increments (and therefore
+  * its resolution) is based on the contents of the TIMINCA register - it
+@@ -704,6 +709,8 @@ extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
+ extern bool e1000_check_phy_82574(struct e1000_hw *hw);
+ extern s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data);
++extern void e1000e_ptp_init(struct e1000_adapter *adapter);
++extern void e1000e_ptp_remove(struct e1000_adapter *adapter);
+ 
+ static inline s32 e1000_phy_hw_reset(struct e1000_hw *hw)
+ {
+diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+index ceff1bf..e3855bb 100644
+--- a/drivers/net/ethernet/intel/e1000e/ethtool.c
++++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+@@ -2209,8 +2209,20 @@ static int e1000e_get_ts_info(struct net_device *netdev,
+ 	info->tx_types = (1 << HWTSTAMP_TX_OFF) | (1 << HWTSTAMP_TX_ON);
+ 
+ 	info->rx_filters = ((1 << HWTSTAMP_FILTER_NONE) |
++			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
++			    (1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
+ 			    (1 << HWTSTAMP_FILTER_ALL));
+ 
++	if (adapter->ptp_clock)
++		info->phc_index = ptp_clock_index(adapter->ptp_clock);
++
+ 	return 0;
+ }
+ 
 diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 84e6beb..4bd49be 100644
+index 8e7e803..84e6beb 100644
 --- a/drivers/net/ethernet/intel/e1000e/hw.h
 +++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -79,6 +79,7 @@ enum e1e_registers {
- #define E1000_POEMB	E1000_PHY_CTRL	/* PHY OEM Bits */
- 	E1000_PBA      = 0x01000, /* Packet Buffer Allocation - RW */
- 	E1000_PBS      = 0x01008, /* Packet Buffer Size */
-+	E1000_PBECCSTS = 0x0100C, /* Packet Buffer ECC Status - RW */
- 	E1000_EEMNGCTL = 0x01010, /* MNG EEprom Control */
- 	E1000_EEWR     = 0x0102C, /* EEPROM Write Register - RW */
- 	E1000_FLOP     = 0x0103C, /* FLASH Opcode Register */
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 50935ef..56cbfa7 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -3704,6 +3704,17 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
- 	if (hw->mac.type == e1000_ich8lan)
- 		reg |= (E1000_RFCTL_IPV6_EX_DIS | E1000_RFCTL_NEW_IPV6_EXT_DIS);
- 	ew32(RFCTL, reg);
-+
-+	/* Enable ECC on Lynxpoint */
-+	if (hw->mac.type == e1000_pch_lpt) {
-+		reg = er32(PBECCSTS);
-+		reg |= E1000_PBECCSTS_ECC_ENABLE;
-+		ew32(PBECCSTS, reg);
-+
-+		reg = er32(CTRL);
-+		reg |= E1000_CTRL_MEHE;
-+		ew32(CTRL, reg);
-+	}
- }
+@@ -251,6 +251,8 @@ enum e1e_registers {
+ 	E1000_TSYNCRXCTL = 0x0B620, /* Rx Time Sync Control register - RW */
+ 	E1000_RXSTMPL   = 0x0B624, /* Rx timestamp Low - RO */
+ 	E1000_RXSTMPH   = 0x0B628, /* Rx timestamp High - RO */
++	E1000_RXMTRL    = 0x0B634, /* Timesync Rx EtherType and Msg Type - RW */
++	E1000_RXUDP     = 0x0B638, /* Timesync Rx UDP Port - RW */
+ };
  
- /**
+ #define E1000_MAX_PHY_ADDR		4
 diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 34be756..4c7e9fe 100644
+index 8bb5d28..34be756 100644
 --- a/drivers/net/ethernet/intel/e1000e/netdev.c
 +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1780,6 +1780,23 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
- 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
+@@ -3413,7 +3413,7 @@ static void e1000e_setup_rss_hash(struct e1000_adapter *adapter)
+  * Get attributes for incrementing the System Time Register SYSTIML/H at
+  * the default base frequency, and set the cyclecounter shift value.
+  **/
+-static s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
++s32 e1000e_get_base_timinca(struct e1000_adapter *adapter, u32 *timinca)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	u32 incvalue, incperiod, shift;
+@@ -3485,6 +3485,10 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter)
+ 	struct hwtstamp_config *config = &adapter->hwtstamp_config;
+ 	u32 tsync_tx_ctl = E1000_TSYNCTXCTL_ENABLED;
+ 	u32 tsync_rx_ctl = E1000_TSYNCRXCTL_ENABLED;
++	u32 rxmtrl = 0;
++	u16 rxudp = 0;
++	bool is_l4 = false;
++	bool is_l2 = false;
+ 	u32 regval;
+ 	s32 ret_val;
+ 
+@@ -3509,7 +3513,69 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter)
+ 	case HWTSTAMP_FILTER_NONE:
+ 		tsync_rx_ctl = 0;
+ 		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_L4_V1;
++		rxmtrl = E1000_RXMTRL_PTP_V1_SYNC_MESSAGE;
++		is_l4 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_L4_V1;
++		rxmtrl = E1000_RXMTRL_PTP_V1_DELAY_REQ_MESSAGE;
++		is_l4 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++		/* Also time stamps V2 L2 Path Delay Request/Response */
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_L2_V2;
++		rxmtrl = E1000_RXMTRL_PTP_V2_SYNC_MESSAGE;
++		is_l2 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++		/* Also time stamps V2 L2 Path Delay Request/Response. */
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_L2_V2;
++		rxmtrl = E1000_RXMTRL_PTP_V2_DELAY_REQ_MESSAGE;
++		is_l2 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++		/* Hardware cannot filter just V2 L4 Sync messages;
++		 * fall-through to V2 (both L2 and L4) Sync.
++		 */
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++		/* Also time stamps V2 Path Delay Request/Response. */
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_L2_L4_V2;
++		rxmtrl = E1000_RXMTRL_PTP_V2_SYNC_MESSAGE;
++		is_l2 = true;
++		is_l4 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++		/* Hardware cannot filter just V2 L4 Delay Request messages;
++		 * fall-through to V2 (both L2 and L4) Delay Request.
++		 */
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		/* Also time stamps V2 Path Delay Request/Response. */
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_L2_L4_V2;
++		rxmtrl = E1000_RXMTRL_PTP_V2_DELAY_REQ_MESSAGE;
++		is_l2 = true;
++		is_l4 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V2_L4_EVENT:
++	case HWTSTAMP_FILTER_PTP_V2_L2_EVENT:
++		/* Hardware cannot filter just V2 L4 or L2 Event messages;
++		 * fall-through to all V2 (both L2 and L4) Events.
++		 */
++	case HWTSTAMP_FILTER_PTP_V2_EVENT:
++		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_EVENT_V2;
++		config->rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
++		is_l2 = true;
++		is_l4 = true;
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_EVENT:
++		/* For V1, the hardware can only filter Sync messages or
++		 * Delay Request messages but not both so fall-through to
++		 * time stamp all packets.
++		 */
+ 	case HWTSTAMP_FILTER_ALL:
++		is_l2 = true;
++		is_l4 = true;
+ 		tsync_rx_ctl |= E1000_TSYNCRXCTL_TYPE_ALL;
+ 		config->rx_filter = HWTSTAMP_FILTER_ALL;
+ 		break;
+@@ -3541,6 +3607,22 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter)
+ 		return -EAGAIN;
  	}
  
-+	/* Reset on uncorrectable ECC error */
-+	if ((icr & E1000_ICR_ECCER) && (hw->mac.type == e1000_pch_lpt)) {
-+		u32 pbeccsts = er32(PBECCSTS);
++	/* L2: define ethertype filter for time stamped packets */
++	if (is_l2)
++		rxmtrl |= ETH_P_1588;
 +
-+		adapter->corr_errors +=
-+		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
-+		adapter->uncorr_errors +=
-+		    (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>
-+		    E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
++	/* define which PTP packets get time stamped */
++	ew32(RXMTRL, rxmtrl);
 +
-+		/* Do the reset outside of interrupt context */
-+		schedule_work(&adapter->reset_task);
-+
-+		/* return immediately since reset is imminent */
-+		return IRQ_HANDLED;
++	/* Filter by destination port */
++	if (is_l4) {
++		rxudp = PTP_EV_PORT;
++		cpu_to_be16s(&rxudp);
 +	}
++	ew32(RXUDP, rxudp);
 +
- 	if (napi_schedule_prep(&adapter->napi)) {
- 		adapter->total_tx_bytes = 0;
- 		adapter->total_tx_packets = 0;
-@@ -1843,6 +1860,23 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
- 	}
++	e1e_flush();
++
+ 	/* Clear TSYNCRXCTL_VALID & TSYNCTXCTL_VALID bit */
+ 	regval = er32(RXSTMPH);
+ 	regval = er32(TXSTMPH);
+@@ -5665,6 +5747,24 @@ static int e1000e_hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr)
  
-+	/* Reset on uncorrectable ECC error */
-+	if ((icr & E1000_ICR_ECCER) && (hw->mac.type == e1000_pch_lpt)) {
-+		u32 pbeccsts = er32(PBECCSTS);
-+
-+		adapter->corr_errors +=
-+		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
-+		adapter->uncorr_errors +=
-+		    (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>
-+		    E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
-+
-+		/* Do the reset outside of interrupt context */
-+		schedule_work(&adapter->reset_task);
-+
-+		/* return immediately since reset is imminent */
-+		return IRQ_HANDLED;
+ 	config = adapter->hwtstamp_config;
+ 
++	switch (config.rx_filter) {
++	case HWTSTAMP_FILTER_PTP_V2_L4_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_SYNC:
++	case HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ:
++	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
++		/* With V2 type filters which specify a Sync or Delay Request,
++		 * Path Delay Request/Response messages are also time stamped
++		 * by hardware so notify the caller the requested packets plus
++		 * some others are time stamped.
++		 */
++		config.rx_filter = HWTSTAMP_FILTER_SOME;
++		break;
++	default:
++		break;
 +	}
 +
- 	if (napi_schedule_prep(&adapter->napi)) {
- 		adapter->total_tx_bytes = 0;
- 		adapter->total_tx_packets = 0;
-@@ -2206,6 +2240,8 @@ static void e1000_irq_enable(struct e1000_adapter *adapter)
- 	if (adapter->msix_entries) {
- 		ew32(EIAC_82574, adapter->eiac_mask & E1000_EIAC_MASK_82574);
- 		ew32(IMS, adapter->eiac_mask | E1000_IMS_OTHER | E1000_IMS_LSC);
-+	} else if (hw->mac.type == e1000_pch_lpt) {
-+		ew32(IMS, IMS_ENABLE_MASK | E1000_IMS_ECCER);
- 	} else {
- 		ew32(IMS, IMS_ENABLE_MASK);
- 	}
-@@ -4619,6 +4655,16 @@ static void e1000e_update_stats(struct e1000_adapter *adapter)
- 	adapter->stats.mgptc += er32(MGTPTC);
- 	adapter->stats.mgprc += er32(MGTPRC);
- 	adapter->stats.mgpdc += er32(MGTPDC);
-+
-+	/* Correctable ECC Errors */
-+	if (hw->mac.type == e1000_pch_lpt) {
-+		u32 pbeccsts = er32(PBECCSTS);
-+		adapter->corr_errors +=
-+		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
-+		adapter->uncorr_errors +=
-+		    (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>
-+		    E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
-+	}
+ 	return copy_to_user(ifr->ifr_data, &config,
+ 			    sizeof(config)) ? -EFAULT : 0;
  }
+@@ -6672,6 +6772,9 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* carrier off reporting is important to ethtool even BEFORE open */
+ 	netif_carrier_off(netdev);
  
- /**
++	/* init PTP hardware clock */
++	e1000e_ptp_init(adapter);
++
+ 	e1000_print_device_info(adapter);
+ 
+ 	if (pci_dev_run_wake(pdev))
+@@ -6720,6 +6823,8 @@ static void e1000_remove(struct pci_dev *pdev)
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
+ 	bool down = test_bit(__E1000_DOWN, &adapter->state);
+ 
++	e1000e_ptp_remove(adapter);
++
+ 	/* The timers may be rescheduled, so explicitly disable them
+ 	 * from being rescheduled.
+ 	 */
+diff --git a/drivers/net/ethernet/intel/e1000e/ptp.c b/drivers/net/ethernet/intel/e1000e/ptp.c
+new file mode 100644
+index 0000000..32da00c
+--- /dev/null
++++ b/drivers/net/ethernet/intel/e1000e/ptp.c
+@@ -0,0 +1,276 @@
++/*******************************************************************************
++
++  Intel PRO/1000 Linux driver
++  Copyright(c) 1999 - 2012 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++/* PTP 1588 Hardware Clock (PHC)
++ * Derived from PTP Hardware Clock driver for Intel 82576 and 82580 (igb)
++ * Copyright (C) 2011 Richard Cochran <richardcochran@gmail.com>
++ */
++
++#include "e1000.h"
++
++/**
++ * e1000e_phc_adjfreq - adjust the frequency of the hardware clock
++ * @ptp: ptp clock structure
++ * @delta: Desired frequency change in parts per billion
++ *
++ * Adjust the frequency of the PHC cycle counter by the indicated delta from
++ * the base frequency.
++ **/
++static int e1000e_phc_adjfreq(struct ptp_clock_info *ptp, s32 delta)
++{
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
++	struct e1000_hw *hw = &adapter->hw;
++	bool neg_adj = false;
++	u64 adjustment;
++	u32 timinca, incvalue;
++	s32 ret_val;
++
++	if ((delta > ptp->max_adj) || (delta <= -1000000000))
++		return -EINVAL;
++
++	if (delta < 0) {
++		neg_adj = true;
++		delta = -delta;
++	}
++
++	/* Get the System Time Register SYSTIM base frequency */
++	ret_val = e1000e_get_base_timinca(adapter, &timinca);
++	if (ret_val)
++		return ret_val;
++
++	incvalue = timinca & E1000_TIMINCA_INCVALUE_MASK;
++
++	adjustment = incvalue;
++	adjustment *= delta;
++	adjustment = div_u64(adjustment, 1000000000);
++
++	incvalue = neg_adj ? (incvalue - adjustment) : (incvalue + adjustment);
++
++	timinca &= ~E1000_TIMINCA_INCVALUE_MASK;
++	timinca |= incvalue;
++
++	ew32(TIMINCA, timinca);
++
++	return 0;
++}
++
++/**
++ * e1000e_phc_adjtime - Shift the time of the hardware clock
++ * @ptp: ptp clock structure
++ * @delta: Desired change in nanoseconds
++ *
++ * Adjust the timer by resetting the timecounter structure.
++ **/
++static int e1000e_phc_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
++	unsigned long flags;
++	s64 now;
++
++	spin_lock_irqsave(&adapter->systim_lock, flags);
++	now = timecounter_read(&adapter->tc);
++	now += delta;
++	timecounter_init(&adapter->tc, &adapter->cc, now);
++	spin_unlock_irqrestore(&adapter->systim_lock, flags);
++
++	return 0;
++}
++
++/**
++ * e1000e_phc_gettime - Reads the current time from the hardware clock
++ * @ptp: ptp clock structure
++ * @ts: timespec structure to hold the current time value
++ *
++ * Read the timecounter and return the correct value in ns after converting
++ * it into a struct timespec.
++ **/
++static int e1000e_phc_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++{
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
++	unsigned long flags;
++	u32 remainder;
++	u64 ns;
++
++	spin_lock_irqsave(&adapter->systim_lock, flags);
++	ns = timecounter_read(&adapter->tc);
++	spin_unlock_irqrestore(&adapter->systim_lock, flags);
++
++	ts->tv_sec = div_u64_rem(ns, NSEC_PER_SEC, &remainder);
++	ts->tv_nsec = remainder;
++
++	return 0;
++}
++
++/**
++ * e1000e_phc_settime - Set the current time on the hardware clock
++ * @ptp: ptp clock structure
++ * @ts: timespec containing the new time for the cycle counter
++ *
++ * Reset the timecounter to use a new base value instead of the kernel
++ * wall timer value.
++ **/
++static int e1000e_phc_settime(struct ptp_clock_info *ptp,
++			      const struct timespec *ts)
++{
++	struct e1000_adapter *adapter = container_of(ptp, struct e1000_adapter,
++						     ptp_clock_info);
++	unsigned long flags;
++	u64 ns;
++
++	ns = ts->tv_sec * NSEC_PER_SEC;
++	ns += ts->tv_nsec;
++
++	/* reset the timecounter */
++	spin_lock_irqsave(&adapter->systim_lock, flags);
++	timecounter_init(&adapter->tc, &adapter->cc, ns);
++	spin_unlock_irqrestore(&adapter->systim_lock, flags);
++
++	return 0;
++}
++
++/**
++ * e1000e_phc_enable - enable or disable an ancillary feature
++ * @ptp: ptp clock structure
++ * @request: Desired resource to enable or disable
++ * @on: Caller passes one to enable or zero to disable
++ *
++ * Enable (or disable) ancillary features of the PHC subsystem.
++ * Currently, no ancillary features are supported.
++ **/
++static int e1000e_phc_enable(struct ptp_clock_info *ptp,
++			     struct ptp_clock_request *request, int on)
++{
++	return -EOPNOTSUPP;
++}
++
++static void e1000e_systim_overflow_work(struct work_struct *work)
++{
++	struct e1000_adapter *adapter = container_of(work, struct e1000_adapter,
++						     systim_overflow_work.work);
++	struct e1000_hw *hw = &adapter->hw;
++	struct timespec ts;
++
++	adapter->ptp_clock_info.gettime(&adapter->ptp_clock_info, &ts);
++
++	e_dbg("SYSTIM overflow check at %ld.%09lu\n", ts.tv_sec, ts.tv_nsec);
++
++	schedule_delayed_work(&adapter->systim_overflow_work,
++			      E1000_SYSTIM_OVERFLOW_PERIOD);
++}
++
++static const struct ptp_clock_info e1000e_ptp_clock_info = {
++	.owner		= THIS_MODULE,
++	.n_alarm	= 0,
++	.n_ext_ts	= 0,
++	.n_per_out	= 0,
++	.pps		= 0,
++	.adjfreq	= e1000e_phc_adjfreq,
++	.adjtime	= e1000e_phc_adjtime,
++	.gettime	= e1000e_phc_gettime,
++	.settime	= e1000e_phc_settime,
++	.enable		= e1000e_phc_enable,
++};
++
++/**
++ * e1000e_ptp_init - initialize PTP for devices which support it
++ * @adapter: board private structure
++ *
++ * This function performs the required steps for enabling PTP support.
++ * If PTP support has already been loaded it simply calls the cyclecounter
++ * init routine and exits.
++ **/
++void e1000e_ptp_init(struct e1000_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++
++	adapter->ptp_clock = NULL;
++
++	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
++		return;
++
++	adapter->ptp_clock_info = e1000e_ptp_clock_info;
++
++	snprintf(adapter->ptp_clock_info.name,
++		 sizeof(adapter->ptp_clock_info.name), "%pm",
++		 adapter->netdev->perm_addr);
++
++	switch (hw->mac.type) {
++	case e1000_pch2lan:
++	case e1000_pch_lpt:
++		if ((hw->mac.type != e1000_pch_lpt) ||
++		    (er32(TSYNCRXCTL) & E1000_TSYNCRXCTL_SYSCFI)) {
++			adapter->ptp_clock_info.max_adj = 24000000 - 1;
++			break;
++		}
++		/* fall-through */
++	case e1000_82574:
++	case e1000_82583:
++		adapter->ptp_clock_info.max_adj = 600000000 - 1;
++		break;
++	default:
++		break;
++	}
++
++	INIT_DELAYED_WORK(&adapter->systim_overflow_work,
++			  e1000e_systim_overflow_work);
++
++	schedule_delayed_work(&adapter->systim_overflow_work,
++			      E1000_SYSTIM_OVERFLOW_PERIOD);
++
++	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_clock_info,
++						&adapter->pdev->dev);
++	if (IS_ERR(adapter->ptp_clock)) {
++		adapter->ptp_clock = NULL;
++		e_err("ptp_clock_register failed\n");
++	} else {
++		e_info("registered PHC clock\n");
++	}
++}
++
++/**
++ * e1000e_ptp_remove - disable PTP device and stop the overflow check
++ * @adapter: board private structure
++ *
++ * Stop the PTP support, and cancel the delayed work.
++ **/
++void e1000e_ptp_remove(struct e1000_adapter *adapter)
++{
++	if (!(adapter->flags & FLAG_HAS_HW_TIMESTAMP))
++		return;
++
++	cancel_delayed_work_sync(&adapter->systim_overflow_work);
++
++	if (adapter->ptp_clock) {
++		ptp_clock_unregister(adapter->ptp_clock);
++		adapter->ptp_clock = NULL;
++		e_info("removed PHC\n");
++	}
++}
 -- 
 1.7.11.7
