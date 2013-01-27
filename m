@@ -1,55 +1,38 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: Potential problem in
- drivers/net/wireless/rtlwifi/usb.c:_rtl_rx_pre_process()
-Date: Sun, 27 Jan 2013 15:52:03 -0800
-Message-ID: <20130127235203.GA24524@roeck-us.net>
-References: <20130127211811.GA6680@roeck-us.net>
- <5105A627.5000208@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] checkpatch.pl: Fix warnings on code comments
+Date: Sun, 27 Jan 2013 18:59:10 -0500 (EST)
+Message-ID: <20130127.185910.1743425400733006443.davem@davemloft.net>
+References: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: apw@canonical.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:54115 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754326Ab3A0Xvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 18:51:45 -0500
-Content-Disposition: inline
-In-Reply-To: <5105A627.5000208@lwfinger.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36519 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754409Ab3A0X7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 18:59:14 -0500
+In-Reply-To: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 27, 2013 at 04:11:51PM -0600, Larry Finger wrote:
-> On 01/27/2013 03:18 PM, Guenter Roeck wrote:
-> >Hi all,
-> >
-> >while browsing through 'warning: variable =E2=80=98...=E2=80=99 set =
-but not used' warnings, I
-> >found the following code in drivers/net/wireless/rtlwifi/usb.c:_rtl_=
-rx_pre_process().
-> >
-> >	while (!skb_queue_empty(&rx_queue)) {
-> >         	_skb =3D skb_dequeue(&rx_queue);
-> >		_rtl_usb_rx_process_agg(hw, skb);
-> >		ieee80211_rx_irqsafe(hw, skb);
-> >	}
-> >
-> >Question: Should the parameter to _rtl_usb_rx_process_agg() and
-> >ieee80211_rx_irqsafe() be '_skb' instead of 'skb' ?
->=20
-> I think you are right and I will submit a patch to fix this.
->=20
-> What compiler version reported this? I use "gcc (SUSE Linux) 4.7.2
-> 20130108 [gcc-4_7-branch revision 195012]" and I do not see this
-> warning.
->=20
-Hi Larry,
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Sun, 27 Jan 2013 03:35:39 -0800
 
-I use "gcc (Ubuntu/Linaro 4.7.2-2ubuntu1) 4.7.2".
+> Produces warnings on code comments which follow the Linux coding style
+> guide.  While the desired code comment style for networking my differ
+> from the rest of the kernel, both styles should be permitted.
 
-You'll see the warning if you build the kernel with W=3D1.
+I was actually going to mention to you guys that I've been lackadasical
+about enforcing the comment style I want with the Intel drivers.
 
-Guenter
+That was a mistake, I should have enforced it strictly, as I do for
+the other drivers and the core networking code, from the beginning.
+
+And it's clearly a mistake if you feel the need to take out the very
+checkpatch working that's meant to enforce this comment style in all
+of the networking drivers and core.
+
+Do not revert this, follow it's advice instead.
