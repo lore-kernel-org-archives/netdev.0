@@ -1,45 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/21] netfilter updates for net-next
-Date: Sun, 27 Jan 2013 00:56:45 -0500 (EST)
-Message-ID: <20130127.005645.1941744802495301026.davem@davemloft.net>
-References: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH net-next 0/8] qlcnic: bug fix and feature updates
+Date: Sun, 27 Jan 2013 01:00:19 -0500 (EST)
+Message-ID: <20130127.010019.579627913522925621.davem@davemloft.net>
+References: <1359145241-5175-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1359122093-3404-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com
+To: jitendra.kalsaria@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55212 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755816Ab3A0GAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 01:00:21 -0500
+In-Reply-To: <1359145241-5175-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: pablo@netfilter.org
-Date: Fri, 25 Jan 2013 14:54:32 +0100
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Date: Fri, 25 Jan 2013 15:20:33 -0500
 
-> * The new connlabel extension for x_tables, that allows us to attach
->   labels to each conntrack flow. The kernel implementation uses a
->   bitmask and there's a file in user-space that maps the bits with the
->   corresponding string for each existing label. By now, you can attach
->   up to 128 overlapping labels. From Florian Westphal.
+> From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 > 
-> * A new round of improvements for the netns support for conntrack.
->   Gao feng has moved many of the initialization code of each module
->   of the netns init path. He also made several code refactoring, that
->   code looks cleaner to me now.
-> 
-> * Added documentation for all possible tweaks for nf_conntrack via
->   sysctl, from Jiri Pirko.
-> 
-> * Cisco 7941/7945 IP phone support for our SIP conntrack helper,
->   from Kevin Cernekee.
-> 
-> * Missing header file in the snmp helper, from Stephen Hemminger.
-> 
-> * Finally, a couple of fixes to resolve minor issues with these
->   changes, from myself.
-> 
-> You can pull these changes from:
-> 
-> git://1984.lsi.us.es/nf-next master
+> Please apply it to net-next.
 
-Pulled, thanks Pablo.
+All applied, thanks.
