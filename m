@@ -1,233 +1,117 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] e1000e: cleanup: do not assign a variable a value when not necessary
-Date: Sun, 27 Jan 2013 02:39:53 -0800
-Message-ID: <1359283193-2043-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/14] e1000e: cleanup: remove unnecessary function prototypes
+Date: Sun, 27 Jan 2013 02:39:51 -0800
+Message-ID: <1359283193-2043-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:43564 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:26342 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754313Ab3A0KkK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jan 2013 05:40:10 -0500
+	id S1756540Ab3A0KkH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2013 05:40:07 -0500
 In-Reply-To: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Static analysis with cppcheck has shown a few instances of a variable
-being reassigned a value before the old one has been used.  None of these
-ever require the old value to be used so remove the old values.
+...and cleanup some whitespace in other prototypes.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |  8 ++++----
- drivers/net/ethernet/intel/e1000e/82571.c       |  6 +++---
- drivers/net/ethernet/intel/e1000e/ethtool.c     |  2 +-
- drivers/net/ethernet/intel/e1000e/ich8lan.c     | 10 +++++-----
- drivers/net/ethernet/intel/e1000e/mac.c         |  2 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |  6 +++---
- drivers/net/ethernet/intel/e1000e/phy.c         |  6 +++---
- 7 files changed, 20 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c | 9 ++++-----
+ drivers/net/ethernet/intel/e1000e/82571.c       | 2 --
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     | 5 +----
+ drivers/net/ethernet/intel/e1000e/phy.c         | 3 +--
+ 4 files changed, 6 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index aa5e4cf..ae96fac 100644
+index 97ff50e..a2b5b44 100644
 --- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -695,7 +695,7 @@ static s32 e1000_phy_force_speed_duplex_80003es2lan(struct e1000_hw *hw)
- static s32 e1000_get_cable_length_80003es2lan(struct e1000_hw *hw)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val = 0;
-+	s32 ret_val;
- 	u16 phy_data, index;
+@@ -111,11 +111,10 @@ static void e1000_initialize_hw_bits_80003es2lan(struct e1000_hw *hw);
+ static void e1000_clear_hw_cntrs_80003es2lan(struct e1000_hw *hw);
+ static s32 e1000_cfg_kmrn_1000_80003es2lan(struct e1000_hw *hw);
+ static s32 e1000_cfg_kmrn_10_100_80003es2lan(struct e1000_hw *hw, u16 duplex);
+-static s32 e1000_cfg_on_link_up_80003es2lan(struct e1000_hw *hw);
+-static s32  e1000_read_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
+-                                            u16 *data);
+-static s32  e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
+-                                             u16 data);
++static s32 e1000_read_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
++					   u16 *data);
++static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
++					    u16 data);
+ static void e1000_power_down_phy_copper_80003es2lan(struct e1000_hw *hw);
  
- 	ret_val = e1e_rphy(hw, GG82563_PHY_DSP_DISTANCE, &phy_data);
-@@ -1276,7 +1276,7 @@ static s32 e1000_read_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
- 					   u16 *data)
- {
- 	u32 kmrnctrlsta;
--	s32 ret_val = 0;
-+	s32 ret_val;
- 
- 	ret_val = e1000_acquire_mac_csr_80003es2lan(hw);
- 	if (ret_val)
-@@ -1311,7 +1311,7 @@ static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
- 					    u16 data)
- {
- 	u32 kmrnctrlsta;
--	s32 ret_val = 0;
-+	s32 ret_val;
- 
- 	ret_val = e1000_acquire_mac_csr_80003es2lan(hw);
- 	if (ret_val)
-@@ -1335,7 +1335,7 @@ static s32 e1000_write_kmrn_reg_80003es2lan(struct e1000_hw *hw, u32 offset,
-  **/
- static s32 e1000_read_mac_addr_80003es2lan(struct e1000_hw *hw)
- {
--	s32 ret_val = 0;
-+	s32 ret_val;
- 
- 	/* If there's an alternate MAC address place it in RAR0
- 	 * so that it will override the Si installed default perm
+ /**
 diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index d48143f..0f55d79 100644
+index e9d9bef..c2c23d2 100644
 --- a/drivers/net/ethernet/intel/e1000e/82571.c
 +++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1397,7 +1397,7 @@ bool e1000_check_phy_82574(struct e1000_hw *hw)
- {
- 	u16 status_1kbt = 0;
- 	u16 receive_errors = 0;
--	s32 ret_val = 0;
-+	s32 ret_val;
- 
- 	/* Read PHY Receive Error counter first, if its is max - all F's then
- 	 * read the Base1000T status register If both are max then PHY is hung.
-@@ -1542,7 +1542,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 
- 	ctrl = er32(CTRL);
- 	status = er32(STATUS);
--	rxcw = er32(RXCW);
-+	er32(RXCW);
- 	/* SYNCH bit and IV bit are sticky */
- 	udelay(10);
- 	rxcw = er32(RXCW);
-@@ -1812,7 +1812,7 @@ static s32 e1000_fix_nvm_checksum_82571(struct e1000_hw *hw)
- static s32 e1000_read_mac_addr_82571(struct e1000_hw *hw)
- {
- 	if (hw->mac.type == e1000_82571) {
--		s32 ret_val = 0;
-+		s32 ret_val;
- 
- 		/* If there's an alternate MAC address place it in RAR0
- 		 * so that it will override the Si installed default perm
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index 4262b4d..6ab949d 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -1405,7 +1405,7 @@ static int e1000_set_82571_fiber_loopback(struct e1000_adapter *adapter)
- {
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 ctrl = er32(CTRL);
--	int link = 0;
-+	int link;
- 
- 	/* special requirements for 82571/82572 fiber adapters */
- 
+@@ -67,9 +67,7 @@ static s32 e1000_write_nvm_eewr_82571(struct e1000_hw *hw, u16 offset,
+ 				      u16 words, u16 *data);
+ static s32 e1000_fix_nvm_checksum_82571(struct e1000_hw *hw);
+ static void e1000_initialize_hw_bits_82571(struct e1000_hw *hw);
+-static s32 e1000_setup_link_82571(struct e1000_hw *hw);
+ static void e1000_clear_hw_cntrs_82571(struct e1000_hw *hw);
+-static void e1000_clear_vfta_82571(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_82574(struct e1000_hw *hw);
+ static s32 e1000_led_on_82574(struct e1000_hw *hw);
+ static void e1000_put_hw_semaphore_82571(struct e1000_hw *hw);
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 13f8fa0..87676b6 100644
+index 3f3477f..3795ac6 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -485,7 +485,7 @@ out:
- static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
- {
- 	struct e1000_phy_info *phy = &hw->phy;
--	s32 ret_val = 0;
-+	s32 ret_val;
+@@ -237,7 +237,6 @@ union ich8_flash_protected_range {
+ 	u32 regval;
+ };
  
- 	phy->addr                     = 1;
- 	phy->reset_delay_us           = 100;
-@@ -783,7 +783,7 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
- static s32 __e1000_access_emi_reg_locked(struct e1000_hw *hw, u16 address,
- 					 u16 *data, bool read)
- {
--	s32 ret_val = 0;
-+	s32 ret_val;
- 
- 	ret_val = e1e_wphy_locked(hw, I82579_EMI_ADDR, address);
- 	if (ret_val)
-@@ -1387,7 +1387,7 @@ static s32 e1000_write_smbus_addr(struct e1000_hw *hw)
- 	u32 strap = er32(STRAP);
- 	u32 freq = (strap & E1000_STRAP_SMT_FREQ_MASK) >>
- 	    E1000_STRAP_SMT_FREQ_SHIFT;
--	s32 ret_val = 0;
-+	s32 ret_val;
- 
- 	strap &= E1000_STRAP_SMBUS_ADDRESS_MASK;
- 
-@@ -1623,7 +1623,7 @@ release:
-  **/
- s32 e1000_configure_k1_ich8lan(struct e1000_hw *hw, bool k1_enable)
- {
--	s32 ret_val = 0;
-+	s32 ret_val;
- 	u32 ctrl_reg = 0;
- 	u32 ctrl_ext = 0;
- 	u32 reg = 0;
-@@ -2284,7 +2284,7 @@ static s32 e1000_phy_hw_reset_ich8lan(struct e1000_hw *hw)
-  **/
- static s32 e1000_set_lplu_state_pchlan(struct e1000_hw *hw, bool active)
- {
--	s32 ret_val = 0;
-+	s32 ret_val;
- 	u16 oem_reg;
- 
- 	ret_val = e1e_rphy(hw, HV_OEM_BITS, &oem_reg);
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index d21f749..0709f49 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -165,7 +165,7 @@ void e1000e_init_rx_addrs(struct e1000_hw *hw, u16 rar_count)
- s32 e1000_check_alt_mac_addr_generic(struct e1000_hw *hw)
- {
- 	u32 i;
--	s32 ret_val = 0;
-+	s32 ret_val;
- 	u16 offset, nvm_alt_mac_addr_offset, nvm_data;
- 	u8 alt_mac_addr[ETH_ALEN];
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 12784e8..e386e95 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3660,8 +3660,8 @@ static int e1000e_config_hwtstamp(struct e1000_adapter *adapter)
- 	e1e_flush();
- 
- 	/* Clear TSYNCRXCTL_VALID & TSYNCTXCTL_VALID bit */
--	regval = er32(RXSTMPH);
--	regval = er32(TXSTMPH);
-+	er32(RXSTMPH);
-+	er32(TXSTMPH);
- 
- 	/* Get and set the System Time Register SYSTIM base frequency */
- 	ret_val = e1000e_get_base_timinca(adapter, &regval);
-@@ -5834,7 +5834,7 @@ static int e1000_init_phy_wakeup(struct e1000_adapter *adapter, u32 wufc)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 i, mac_reg;
- 	u16 phy_reg, wuc_enable;
--	int retval = 0;
-+	int retval;
- 
- 	/* copy MAC RARs to PHY RARs */
- 	e1000_copy_rx_addrs_to_phy_ich8lan(hw);
+-static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw);
+ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw);
+ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_erase_flash_bank_ich8lan(struct e1000_hw *hw, u32 bank);
+@@ -249,9 +248,7 @@ static s32 e1000_read_flash_word_ich8lan(struct e1000_hw *hw, u32 offset,
+ 					 u16 *data);
+ static s32 e1000_read_flash_data_ich8lan(struct e1000_hw *hw, u32 offset,
+ 					 u8 size, u16 *data);
+-static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw);
+-static s32 e1000_get_cfg_done_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_cleanup_led_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_led_on_ich8lan(struct e1000_hw *hw);
+ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw);
+@@ -263,7 +260,7 @@ static s32 e1000_led_off_pchlan(struct e1000_hw *hw);
+ static s32 e1000_set_lplu_state_pchlan(struct e1000_hw *hw, bool active);
+ static void e1000_power_down_phy_copper_ich8lan(struct e1000_hw *hw);
+ static void e1000_lan_init_done_ich8lan(struct e1000_hw *hw);
+-static s32  e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
++static s32 e1000_k1_gig_workaround_hv(struct e1000_hw *hw, bool link);
+ static s32 e1000_set_mdio_slow_mode_hv(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_ich8lan(struct e1000_hw *hw);
+ static bool e1000_check_mng_mode_pchlan(struct e1000_hw *hw);
 diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
-index b4aaf69..44fb432 100644
+index 70f7593..3b97121 100644
 --- a/drivers/net/ethernet/intel/e1000e/phy.c
 +++ b/drivers/net/ethernet/intel/e1000e/phy.c
-@@ -2671,7 +2671,7 @@ s32 e1000_enable_phy_wakeup_reg_access_bm(struct e1000_hw *hw, u16 *phy_reg)
-  **/
- s32 e1000_disable_phy_wakeup_reg_access_bm(struct e1000_hw *hw, u16 *phy_reg)
- {
--	s32 ret_val = 0;
-+	s32 ret_val;
+@@ -32,12 +32,11 @@ static s32 e1000_get_phy_cfg_done(struct e1000_hw *hw);
+ static s32 e1000_phy_force_speed_duplex(struct e1000_hw *hw);
+ static s32 e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active);
+ static s32 e1000_wait_autoneg(struct e1000_hw *hw);
+-static u32 e1000_get_phy_addr_for_bm_page(u32 page, u32 reg);
+ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 					  u16 *data, bool read, bool page_set);
+ static u32 e1000_get_phy_addr_for_hv_page(u32 page);
+ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
+-                                          u16 *data, bool read);
++					  u16 *data, bool read);
  
- 	/* Select Port Control Registers page */
- 	ret_val = e1000_set_page_igp(hw, (BM_PORT_CTRL_PAGE << IGP_PAGE_SHIFT));
-@@ -3103,8 +3103,8 @@ static s32 e1000_access_phy_debug_regs_hv(struct e1000_hw *hw, u32 offset,
-                                           u16 *data, bool read)
- {
- 	s32 ret_val;
--	u32 addr_reg = 0;
--	u32 data_reg = 0;
-+	u32 addr_reg;
-+	u32 data_reg;
- 
- 	/* This takes care of the difference with desktop vs mobile phy */
- 	addr_reg = (hw->phy.type == e1000_phy_82578) ?
+ /* Cable length tables */
+ static const u16 e1000_m88_cable_length_table[] = {
 -- 
 1.7.11.7
