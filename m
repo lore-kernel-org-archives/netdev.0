@@ -1,52 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: loopback: fix a dst refcounting issue
-Date: Sun, 27 Jan 2013 01:32:41 -0500 (EST)
-Message-ID: <20130127.013241.1524448507498580112.davem@davemloft.net>
-References: <1358989843.12374.1334.camel@edumazet-glaptop>
-	<1358991906.12374.1356.camel@edumazet-glaptop>
-	<1359135881.12374.3249.camel@edumazet-glaptop>
+Subject: Re: pull request: wireless 2013-01-23
+Date: Sun, 27 Jan 2013 01:39:28 -0500 (EST)
+Message-ID: <20130127.013928.1867901911175664439.davem@davemloft.net>
+References: <20130123201605.GC5221@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55435 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755925Ab3A0Gcm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 01:32:42 -0500
-In-Reply-To: <1359135881.12374.3249.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130123201605.GC5221@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 25 Jan 2013 09:44:41 -0800
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 23 Jan 2013 15:16:06 -0500
 
-> From: Eric Dumazet <edumazet@google.com>
+> This is a batch of fixes intende for the 3.8 stream.
 > 
-> Ben Greear reported crashes in ip_rcv_finish() on a stress
-> test involving many macvlans.
+> Regarding the iwlwifi bits, Johannes says this:
 > 
-> We tracked the bug to a dst use after free. ip_rcv_finish()
-> was calling dst->input() and got garbage for dst->input value.
+> "Please pull to get a single fix from Emmanuel for a bug I introduced due
+> to misunderstanding the code."
 > 
-> It appears the bug is in loopback driver, lacking
-> a skb_dst_force() before calling netif_rx().
+> Regarding the mac80211 bits, Johannes says this:
 > 
-> As a result, a non refcounted dst, normally protected by a
-> RCU read_lock section, was escaping this section and could
-> be freed before the packet being processed.
- ...
-> This bug was introduced in linux-2.6.35, in commit
-> 7fee226ad2397b (net: add a noref bit on skb dst)
+> "I have a few small fixes for you:
+>  * some mesh frames would cause encryption warnings -- fixes from Bob
+>  * scanning would pretty much break an association if we transmitted
+>    anything to the AP while scanning -- fix from Stanislaw
+>  * mode injection was broken by channel contexts -- fix from Felix
+>  * FT roaming was broken: hardware crypto would get disabled by it"
 > 
-> skb_dst_force() is enforced in dev_queue_xmit() for devices having a
-> qdisc. 
+> Along with that, a handful of other fixes confined to specific drivers.
 > 
-> Reported-by: Ben Greear <greearb@candelatech.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Tested-by: Ben Greear <greearb@candelatech.com>
+> Avinash Patil fixes a typo in a NULL check in mwifiex.
+> 
+> Larry Finger fixes a build warning in rtlwifi.  Seems safe...
+> 
+> Stanislaw Gruszka fixes iwlegacy to prevent microcode errors when
+> switching from IBSS mode to STA mode.
+> 
+> Felix Fietkau provides a trio of ath9k fixes related to proper tuning.
+> 
+> Please let me know if there are problems!
 
-Applied, I suspect we need to tree wide audit for other instances of
-this situation.  Probably greps for skb_orphan() would be a good
-start.
+Pulled, thanks John.
