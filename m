@@ -1,54 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] e1000e: fix PHY init workarounds for i217/i218
-Date: Sun, 27 Jan 2013 02:39:48 -0800
-Message-ID: <1359283193-2043-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/14] e1000e: prevent hardware from automatically configuring PHY on I217/I218
+Date: Sun, 27 Jan 2013 02:39:44 -0800
+Message-ID: <1359283193-2043-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:26342 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:43564 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756532Ab3A0KkD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jan 2013 05:40:03 -0500
+	id S1756479Ab3A0Kj6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2013 05:39:58 -0500
 In-Reply-To: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Toggling the LANPHYPC Value bit cycles the power on the PHY and sets it
-back to power-on defaults.  This includes setting it's MAC-PHY messaging
-mode to use the PCIe-like interconnect, so the MAC must also be set back
-from SMBus mode to PCIe mode otherwise the PHY can be inaccessible.
+As done with the previous generation managed 82579, prevent the PHY from
+being put into an unknown state by blocking the hardware from automatically
+configuring the PHY as done with the previous generation managed 82579.
+Instead, the driver should configure the PHY with contents of the EEPROM
+image.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index e0f41f0..3f3477f 100644
+index 56cbfa7..9a93223 100644
 --- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
 +++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -426,6 +426,15 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
- 		mac_reg |= E1000_FEXTNVM3_PHY_CFG_COUNTER_50MSEC;
- 		ew32(FEXTNVM3, mac_reg);
+@@ -363,10 +363,15 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 phy_reg;
  
-+		if (hw->mac.type == e1000_pch_lpt) {
-+			/* Toggling LANPHYPC brings the PHY out of SMBus mode
-+			 * So ensure that the MAC is also out of SMBus mode
-+			 */
-+			mac_reg = er32(CTRL_EXT);
-+			mac_reg &= ~E1000_CTRL_EXT_FORCE_SMBUS;
-+			ew32(CTRL_EXT, mac_reg);
-+		}
++	/* Gate automatic PHY configuration by hardware on managed and
++	 * non-managed 82579 and newer adapters.
++	 */
++	e1000_gate_hw_phy_config_ich8lan(hw, true);
 +
- 		/* Toggle LANPHYPC Value bit */
- 		mac_reg = er32(CTRL);
- 		mac_reg |= E1000_CTRL_LANPHYPC_OVERRIDE;
+ 	ret_val = hw->phy.ops.acquire(hw);
+ 	if (ret_val) {
+ 		e_dbg("Failed to initialize PHY flow\n");
+-		return ret_val;
++		goto out;
+ 	}
+ 
+ 	/* The MAC-PHY interconnect may be in SMBus mode.  If the PHY is
+@@ -387,13 +392,6 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
+ 
+ 		/* fall-through */
+ 	case e1000_pch2lan:
+-		/* Gate automatic PHY configuration by hardware on
+-		 * non-managed 82579
+-		 */
+-		if ((hw->mac.type == e1000_pch2lan) &&
+-		    !(fwsm & E1000_ICH_FWSM_FW_VALID))
+-			e1000_gate_hw_phy_config_ich8lan(hw, true);
+-
+ 		if (e1000_phy_is_accessible_pchlan(hw)) {
+ 			if (hw->mac.type == e1000_pch_lpt) {
+ 				/* Unforce SMBus mode in PHY */
+@@ -461,6 +459,7 @@ static s32 e1000_init_phy_workarounds_pchlan(struct e1000_hw *hw)
+ 	 */
+ 	ret_val = e1000e_phy_hw_reset_generic(hw);
+ 
++out:
+ 	/* Ungate automatic PHY configuration on non-managed 82579 */
+ 	if ((hw->mac.type == e1000_pch2lan) &&
+ 	    !(fwsm & E1000_ICH_FWSM_FW_VALID)) {
+@@ -763,13 +762,6 @@ static s32 e1000_init_mac_params_ich8lan(struct e1000_hw *hw)
+ 	if (mac->type == e1000_ich8lan)
+ 		e1000e_set_kmrn_lock_loss_workaround_ich8lan(hw, true);
+ 
+-	/* Gate automatic PHY configuration by hardware on managed
+-	 * 82579 and i217
+-	 */
+-	if ((mac->type == e1000_pch2lan || mac->type == e1000_pch_lpt) &&
+-	    (er32(FWSM) & E1000_ICH_FWSM_FW_VALID))
+-		e1000_gate_hw_phy_config_ich8lan(hw, true);
+-
+ 	return 0;
+ }
+ 
 -- 
 1.7.11.7
