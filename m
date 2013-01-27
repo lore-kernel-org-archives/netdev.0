@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] soreuseport: fix use of uid in tb->fastuid
-Date: Sun, 27 Jan 2013 01:02:05 -0500 (EST)
-Message-ID: <20130127.010205.590253560817104896.davem@davemloft.net>
-References: <alpine.DEB.2.00.1301260944370.27231@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH V8 1/3] virtio-net: fix the set affinity bug when CPU
+	IDs are not consecutive
+Date: Sun, 27 Jan 2013 01:23:56 -0500 (EST)
+Message-ID: <20130127.012356.186129078703210985.davem@davemloft.net>
+References: <1359107491-6749-1-git-send-email-gaowanlong@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	eric.dumazet@gmail.com
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55254 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755727Ab3A0GCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 01:02:07 -0500
-In-Reply-To: <alpine.DEB.2.00.1301260944370.27231@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, erdnetdev@gmail.com
+To: gaowanlong@cn.fujitsu.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1359107491-6749-1-git-send-email-gaowanlong@cn.fujitsu.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Sat, 26 Jan 2013 09:50:54 -0800 (PST)
+From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+Date: Fri, 25 Jan 2013 17:51:29 +0800
 
-> Fix a reported compilation error where ia variable of type kuid_t
-> was being set to zero.
+> As Michael mentioned, set affinity and select queue will not work very
+> well when CPU IDs are not consecutive, this can happen with hot unplug.
+> Fix this bug by traversal the online CPUs, and create a per cpu variable
+> to find the mapping from CPU to the preferable virtual-queue.
 > 
-> Eliminate two instances of setting tb->fastuid to zero.  tb->fastuid is 
-> only used if tb->fastreuseport is set, so there should be no problem if 
-> tb->fastuid is not initialized (when tb->fastreuesport is zero).
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Cc: Rusty Russell <rusty@rustcorp.com.au>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Cc: Eric Dumazet <erdnetdev@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: virtualization@lists.linux-foundation.org
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
 Applied.
