@@ -1,50 +1,45 @@
-From: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-Subject: [PATCH] net: iwlegacy: remove unused variable
-Date: Sun, 27 Jan 2013 10:55:41 -0800
-Message-ID: <1359312941-30661-1-git-send-email-linux@roeck-us.net>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill device
+ specific ndisc information
+Date: Mon, 28 Jan 2013 04:28:47 +0900
+Message-ID: <51057FEF.9090006@linux-ipv6.org>
+References: <50FC2EE4.3080705@gmail.com> <50FC3BB1.4070005@linux-ipv6.org> <50FC6068.3020302@gmail.com> <50FCA825.7070609@linux-ipv6.org> <50FCDF5D.3060300@gmail.com> <20130121083957.6e2c5a68@stein> <50FD962B.8020500@gmail.com> <50FD9DB7.60802@linux-ipv6.org> <50FDB039.2070604@gmail.com> <20130127154332.6b5730f9@stein> <5105621F.4040408@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-To: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	netdev <netdev@vger.kernel.org>,
+	linux1394-devel@lists.sourceforge.net,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:37139 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754616Ab3A0T2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 14:28:48 -0500
+In-Reply-To: <5105621F.4040408@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46ix:
+Stephan Gatzka wrote:
 
-drivers/net/wireless/iwlegacy/4965.c: In function =E2=80=98il4965_post_=
-associate=E2=80=99:
-drivers/net/wireless/iwlegacy/4965.c:1751:25: warning: variable =E2=80=98=
-conf=E2=80=99 set but
-not used [-Wunused-but-set-variable]
+>> I am not a contributor to net/, hence don't have a say over how the
+>> networking APIs should evolve.
+>>
+>> Any solution is fine with me, as long as net/ does not use any definitions
+>> or declarations from <linux/firewire.h>.
+> 
+> O.k. then I will go for Yoshifujis "extended hwaddress" approch.
+> 
+> I think I will divide all the stuff into two major pieces:
+> 
+> First I will rewrite the existing IPv4 over Firewire driver to use the notification mechanisms and also generate the RFC2734 ARP packets in the arp code.
+> 
+> Then I'll implement the IPv6 stuff based on that IPv4 solution.
 
-seen when building allmodconfig on x86_64 with W=3D1 by removing the un=
-used
-variable.
+I even think that we do not need to have event notification if we
+can just use max_rec, sspd and fifo embedded in the destination
+"MAC address" in the sending packet.
 
-Signed-off-by: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
----
- drivers/net/wireless/iwlegacy/4965.c |    3 ---
- 1 file changed, 3 deletions(-)
-
-diff --git a/drivers/net/wireless/iwlegacy/4965.c b/drivers/net/wireles=
-s/iwlegacy/4965.c
-index 5db1171..91eb2d0 100644
---- a/drivers/net/wireless/iwlegacy/4965.c
-+++ b/drivers/net/wireless/iwlegacy/4965.c
-@@ -1748,7 +1748,6 @@ static void
- il4965_post_associate(struct il_priv *il)
- {
- 	struct ieee80211_vif *vif =3D il->vif;
--	struct ieee80211_conf *conf =3D NULL;
- 	int ret =3D 0;
-=20
- 	if (!vif || !il->is_open)
-@@ -1759,8 +1758,6 @@ il4965_post_associate(struct il_priv *il)
-=20
- 	il_scan_cancel_timeout(il, 200);
-=20
--	conf =3D &il->hw->conf;
+--yosshfuji
