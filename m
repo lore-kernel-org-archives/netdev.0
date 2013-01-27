@@ -1,68 +1,55 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: Re: [RFC:] struct net_device_ops: Add function pointer to fill
- device specific ndisc information
-Date: Sun, 27 Jan 2013 15:43:32 +0100
-Message-ID: <20130127154332.6b5730f9@stein>
-References: <50FC2EE4.3080705@gmail.com>
-	<50FC3BB1.4070005@linux-ipv6.org>
-	<50FC6068.3020302@gmail.com>
-	<50FCA825.7070609@linux-ipv6.org>
-	<50FCDF5D.3060300@gmail.com>
-	<20130121083957.6e2c5a68@stein>
-	<50FD962B.8020500@gmail.com>
-	<50FD9DB7.60802@linux-ipv6.org>
-	<50FDB039.2070604@gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] checkpatch.pl: Fix warnings on (networking specific)
+ code comments
+Date: Sun, 27 Jan 2013 09:11:07 -0800
+Message-ID: <1359306667.14406.7.camel@joe-AO722>
+References: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux1394-devel@lists.sourceforge.net,
-	David Miller <davem@davemloft.net>
-To: stephan.gatzka@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:55878 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755650Ab3A0Onu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 09:43:50 -0500
-In-Reply-To: <50FDB039.2070604@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: apw@canonical.com, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Jan 21 Stephan Gatzka wrote:
-> 
-> >> Full ack. And that's the reason why I feel very uncomfortable with a Yoshifujis hardware address extensions by fifo_addr, spd, and max_rec.
-> >>
-> >> This seems possible with a single netdevice for IPv4/6 only if we _always_ use the same fifo address for both IPv4 and IPv6. Do we all agree on that?
-> >
-> > I do not understand what "that" and "this" mean here.
-> > Do you want to have different FIFO on single net_device? If yes, for what?
-> >
-> 
-> Oh, I'm sorry for being mixed-up. I meant that your proposal for 
-> enhancing the hardware address seems to be a feasible solution, if we 
-> _never_ want to have distinct fifo addresses for IPv4 and IPv6. This 
-> will be just impossible with a single netdevice.
-> 
-> But I have to admit that I have no good use case for different fifo 
-> addresses...
-> 
-> So overall, your proposal seems to be a possible solution. Nevertheless, 
-> I can't help that I find it a bit awkward to have speed, max_rec and 
-> fifo address in the hardware address of the network device. For me, 
-> that's just the GUID.
-> 
-> I want to have an ack from Stefan Richter before I'm going to implement 
-> your solution.
+On Sun, 2013-01-27 at 03:35 -0800, Jeff Kirsher wrote:
+> This patch reverts a portion of the commit to allow multi-line code
+> comments to use either style.
+[]
+> diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+[]
+> @@ -1878,13 +1878,6 @@ sub process {
+>  		}
+>  
+>  		if ($realfile =~ m@^(drivers/net/|net/)@ &&
+> -		    $rawline =~ /^\+[ \t]*\/\*[ \t]*$/ &&
+> -		    $prevrawline =~ /^\+[ \t]*$/) {
+> -			WARN("NETWORKING_BLOCK_COMMENT_STYLE",
+> -			     "networking block comments don't use an empty /* line, use /* Comment...\n" . $hereprev);
+> -		}
+> -
+> -		if ($realfile =~ m@^(drivers/net/|net/)@ &&
+>  		    $rawline !~ m@^\+[ \t]*\*/[ \t]*$@ &&	#trailing */
+>  		    $rawline !~ m@^\+.*/\*.*\*/[ \t]*$@ &&	#inline /*...*/
+>  		    $rawline !~ m@^\+.*\*{2,}/[ \t]*$@ &&	#trailing **/
 
-Sorry for my delayed response.
+Shrug.
 
-I am not a contributor to net/, hence don't have a say over how the
-networking APIs should evolve.
+Ignore things you don't agree with.
 
-Any solution is fine with me, as long as net/ does not use any definitions
-or declarations from <linux/firewire.h>.
--- 
-Stefan Richter
--=====-===-= ---= ==-==
-http://arcgraph.de/sr/
+David has written many, many emails
+requesting changes for this specific
+comment style.
+
+I think you and Intel should use
+--ignore=NETWORKING_BLOCK_COMMENT_STYLE
+to avoid seeing this if you don't agree
+with it.
+
+I also think expectations that everyone
+will agree with every checkpatch bleat
+are unrealistic.
