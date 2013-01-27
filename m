@@ -1,29 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: Increment of LINUX_MIB_LISTENOVERFLOWS in
- tcp_v4_conn_request()
-Date: Sun, 27 Jan 2013 01:41:04 -0500 (EST)
-Message-ID: <20130127.014104.483003490808493656.davem@davemloft.net>
-References: <1359097408-9786-1-git-send-email-niv@us.ibm.com>
+Subject: Re: [PATCH 02/14] atm/nicstar: don't use idr_remove_all()
+Date: Sun, 27 Jan 2013 01:43:32 -0500 (EST)
+Message-ID: <20130127.014332.1581803153001331935.davem@davemloft.net>
+References: <1359163872-1949-1-git-send-email-tj@kernel.org>
+	<1359163872-1949-3-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leandro.lucarella@sociomantic.com,
-	niv@us.ibm.com
-To: niveditasinghvi@gmail.com
+Cc: akpm@linux-foundation.org, rusty@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, chas@cmf.nrl.navy.mil,
+	netdev@vger.kernel.org
+To: tj@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55533 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55551 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756014Ab3A0GlG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 01:41:06 -0500
-In-Reply-To: <1359097408-9786-1-git-send-email-niv@us.ibm.com>
+	with ESMTP id S1756078Ab3A0Gng (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 01:43:36 -0500
+In-Reply-To: <1359163872-1949-3-git-send-email-tj@kernel.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nivedita Singhvi <niveditasinghvi@gmail.com>
-Date: Thu, 24 Jan 2013 23:03:28 -0800
+From: Tejun Heo <tj@kernel.org>
+Date: Fri, 25 Jan 2013 17:31:00 -0800
 
-> We drop a connection request if the accept backlog, syn queue are full when processing reaches tcp_v4_conn_request(). Increment the appropriate counter so this isn't silent, for accurate stats and help in debugging.
+> idr_destroy() can destroy idr by itself and idr_remove_all() is being
+> deprecated.  Drop its usage.
 > 
-> Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+> Cc: netdev@vger.kernel.org
+> ---
+> This patch depends on an earlier idr patch and given the trivial
+> nature of the patch, I think it would be best to route these together
+> through -mm.  Please holler if there's any objection.
 
-Please resend with the commit message changes suggested to you.
+Please do:
+
+Acked-by: David S. Miller <davem@davemloft.net>
