@@ -1,68 +1,58 @@
-From: Michael Leun <lkml20130126@newton.leun.net>
-Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0
- to gigabit ethernet adapter driver
-Date: Sun, 27 Jan 2013 00:13:47 +0100
-Message-ID: <20130127001347.584711b2@xenia>
-References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] net: wireless/ath: Fix compile error seen with W=1
+Date: Sat, 26 Jan 2013 18:26:08 -0800
+Message-ID: <1359253568-15762-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, louis@asix.com.tw,
-	davem@davemloft.net, Support@asix.com.tw
-To: Freddy Xin <freddy@asix.com.tw>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
+	netdev@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
+To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stator.leun.net ([85.214.203.199]:45817 "EHLO stator.leun.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754710Ab3AZXZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jan 2013 18:25:47 -0500
-In-Reply-To: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
+Received: from mail.active-venture.com ([67.228.131.205]:58047 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755128Ab3A0C0A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2013 21:26:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Jan 2013 10:32:17 +0800
-Freddy Xin <freddy@asix.com.tw> wrote:
+make W=3D1 for x86_64 fails with
 
-> This is a resubmission.
-> Fixed coding style errors.
-[...]
-> This patch adds a driver for ASIX's AX88179 family of USB 3.0/2.0
-> to gigabit ethernet adapters. It's based on the AX88xxx driver but
+drivers/net/wireless/ath/wil6210/txrx.c: In function =E2=80=98wil_rx_fi=
+ni=E2=80=99:
+drivers/net/wireless/ath/wil6210/txrx.c:550:7: error: variable =E2=80=98=
+rc=E2=80=99 set but not
+used [-Werror=3Dunused-but-set-variable]
 
-I hope, there is some error/mistake on my side, otherwise I fear I
-would have to say I find this driver to be total crap.
+=46ix by dropping the variable.
 
-I tried it with an Digitus DN-3023 identifying itself as idVendor=0b95,
-idProduct=1790 (some internet source claims it to be actually based on
-asix reference design).
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/net/wireless/ath/wil6210/txrx.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-If I plug the device in the interface comes up with an mtu of 1488 -
-this would be an very bad joke for any ethernet compliant device, even
-more for an gigabit device where you clearly want to see at least a bit
-of jumbo frames.
-
-If I set the mtu to 1500 (the driver does not even complain when I set
-the mtu to e.g. 2^31-1) and start to send bigger packets in some point
-of time the device stops to work - means, after that you cannot even
-send smaller packets, after some time you might get an kernel warning
-"NETDEV WATCHDOG: eth3 (ax88179_178a): transmit queue 0 timed out" and
-you have to unplug / replug the device to get it working again.
-
-Note: With the W$ driver and exactly the same hardware you get at least
-jumbo frames up to some 4000+X bytes - not great, but better than
-nothing.
-
-I would vote to not accept that driver for mainline as long as this
-issues are not fixed. 
-
-The vendor should not be able to claim "hooray, hooray, great device,
-we even have an driver in linux main line" when it is actually such an
-useless crap.
-
-Of course I'm offering to help with any information or testing, but
-unfortunately I do not have the knowhow to fix anything myself. 
-
--- 
-MfG,
-
-Michael Leun
+diff --git a/drivers/net/wireless/ath/wil6210/txrx.c b/drivers/net/wire=
+less/ath/wil6210/txrx.c
+index f29c294..b6e8042 100644
+--- a/drivers/net/wireless/ath/wil6210/txrx.c
++++ b/drivers/net/wireless/ath/wil6210/txrx.c
+@@ -547,7 +547,6 @@ void wil_rx_fini(struct wil6210_priv *wil)
+ 	struct vring *vring =3D &wil->vring_rx;
+=20
+ 	if (vring->va) {
+-		int rc;
+ 		struct wmi_cfg_rx_chain_cmd cmd =3D {
+ 			.action =3D cpu_to_le32(WMI_RX_CHAIN_DEL),
+ 			.rx_sw_ring =3D {
+@@ -559,7 +558,7 @@ void wil_rx_fini(struct wil6210_priv *wil)
+ 			struct wmi_cfg_rx_chain_done_event cfg;
+ 		} __packed wmi_rx_cfg_reply;
+=20
+-		rc =3D wmi_call(wil, WMI_CFG_RX_CHAIN_CMDID, &cmd, sizeof(cmd),
++		(void)wmi_call(wil, WMI_CFG_RX_CHAIN_CMDID, &cmd, sizeof(cmd),
+ 			      WMI_CFG_RX_CHAIN_DONE_EVENTID,
+ 			      &wmi_rx_cfg_reply, sizeof(wmi_rx_cfg_reply),
+ 			      100);
+--=20
+1.7.9.7
