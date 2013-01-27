@@ -1,58 +1,59 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH] net: wireless/ath: Fix compile error seen with W=1
-Date: Sat, 26 Jan 2013 18:26:08 -0800
-Message-ID: <1359253568-15762-1-git-send-email-linux@roeck-us.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [Patch net-next 2/2] netpoll: use the net namespace of current process instead of init_net
+Date: Sat, 26 Jan 2013 21:16:46 -0800
+Message-ID: <87k3qz6w8x.fsf@xmission.com>
+References: <1358931731-17438-1-git-send-email-amwang@redhat.com>
+	<1358931731-17438-2-git-send-email-amwang@redhat.com>
+	<1359194432.2654.1.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
-	netdev@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>
-To: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:58047 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755128Ab3A0C0A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jan 2013 21:26:00 -0500
+Received: from out02.mta.xmission.com ([166.70.13.232]:42509 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751034Ab3A0FRA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 00:17:00 -0500
+In-Reply-To: <1359194432.2654.1.camel@cr0> (Cong Wang's message of "Sat, 26
+	Jan 2013 18:00:32 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-make W=3D1 for x86_64 fails with
+Cong Wang <amwang@redhat.com> writes:
 
-drivers/net/wireless/ath/wil6210/txrx.c: In function =E2=80=98wil_rx_fi=
-ni=E2=80=99:
-drivers/net/wireless/ath/wil6210/txrx.c:550:7: error: variable =E2=80=98=
-rc=E2=80=99 set but not
-used [-Werror=3Dunused-but-set-variable]
+> On Wed, 2013-01-23 at 17:02 +0800, Cong Wang wrote:
+>> From: Cong Wang <amwang@redhat.com>
+>> 
+>> This will allow us to setup netconsole in a different namespace
+>> rather than where init_net is.
+>> 
+>
+> Hmm, I missed to put the netns in netpoll_cleanup()...
+>
+> Will send v2.
 
-=46ix by dropping the variable.
+Since you are working on it.  I forgot to mention that it doesn't
+look you were working with nsproxy properly.  The code just felt
+very different from every other nsproxy reference I have seen.
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- drivers/net/wireless/ath/wil6210/txrx.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Looking more closely since you are looking at current you don't need
+to test to see if nsproxy is NULL. You can just say.
 
-diff --git a/drivers/net/wireless/ath/wil6210/txrx.c b/drivers/net/wire=
-less/ath/wil6210/txrx.c
-index f29c294..b6e8042 100644
---- a/drivers/net/wireless/ath/wil6210/txrx.c
-+++ b/drivers/net/wireless/ath/wil6210/txrx.c
-@@ -547,7 +547,6 @@ void wil_rx_fini(struct wil6210_priv *wil)
- 	struct vring *vring =3D &wil->vring_rx;
-=20
- 	if (vring->va) {
--		int rc;
- 		struct wmi_cfg_rx_chain_cmd cmd =3D {
- 			.action =3D cpu_to_le32(WMI_RX_CHAIN_DEL),
- 			.rx_sw_ring =3D {
-@@ -559,7 +558,7 @@ void wil_rx_fini(struct wil6210_priv *wil)
- 			struct wmi_cfg_rx_chain_done_event cfg;
- 		} __packed wmi_rx_cfg_reply;
-=20
--		rc =3D wmi_call(wil, WMI_CFG_RX_CHAIN_CMDID, &cmd, sizeof(cmd),
-+		(void)wmi_call(wil, WMI_CFG_RX_CHAIN_CMDID, &cmd, sizeof(cmd),
- 			      WMI_CFG_RX_CHAIN_DONE_EVENTID,
- 			      &wmi_rx_cfg_reply, sizeof(wmi_rx_cfg_reply),
- 			      100);
---=20
-1.7.9.7
+-	if (np->dev_name)
+-		ndev = __dev_get_by_name(&init_net, np->dev_name);
++	if (np->dev_name) {
++		net = current->nsproxy->net_ns;
++		ndev = __dev_get_by_name(net, np->dev_name);
++	}
+
+task_nsproxy and get_net are needed when you are accessing another
+tasks nsproxy.  Since you are just accessing current the code
+can be much simpler.
+
+Which also means that you shouldn't need to get a reference to
+the network namespace or put the reference to the network namespace.
+Although you do need to handle things like network device hotplug
+in case the network device (or equivalently for most purposes) the
+network namespace goes away.
+
+Eric
