@@ -1,85 +1,156 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] SCTP: Free the per-net sysctl table on net exit. v2
-Date: Sun, 27 Jan 2013 19:25:11 -0800
-Message-ID: <87obgayoo8.fsf_-_@xmission.com>
-References: <51004F2D.9000405@fold.natur.cuni.cz>
-	<1359043367-30180-1-git-send-email-vyasevich@gmail.com>
-	<20130127.193511.2294954038548420781.davem@davemloft.net>
-	<87libe3w69.fsf@xmission.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, mmokrejs@fold.natur.cuni.cz
-To: David Miller <davem@davemloft.net>
+From: Barry Grussling <barry@grussling.com>
+Subject: [PATCH net-next] ethoc: Cleanup driver format
+Date: Sun, 27 Jan 2013 20:44:36 -0800
+Message-ID: <1359348276-15230-1-git-send-email-barry@grussling.com>
+Cc: Barry Grussling <barry@grussling.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:39012 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753064Ab3A1DZ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 22:25:26 -0500
-In-Reply-To: <87libe3w69.fsf@xmission.com> (Eric W. Biederman's message of
-	"Sun, 27 Jan 2013 17:58:54 -0800")
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:52740 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751767Ab3A1Eou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 23:44:50 -0500
+Received: by mail-pb0-f45.google.com with SMTP id rq13so1229978pbb.32
+        for <netdev@vger.kernel.org>; Sun, 27 Jan 2013 20:44:50 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevich@gmail.com>
-Date: Thu, 24 Jan 2013 11:02:47 -0500
+From: Barry Grussling <barry@grussling.com>
 
-Per-net sysctl table needs to be explicitly freed at
-net exit.  Otherwise we see the following with kmemleak:
+Cleanup the format of ethoc.c to meet network driver style as
+per checkpatch.pl.
 
-unreferenced object 0xffff880402d08000 (size 2048):
-  comm "chrome_sandbox", pid 18437, jiffies 4310887172 (age 9097.630s)
-  hex dump (first 32 bytes):
-    b2 68 89 81 ff ff ff ff 20 04 04 f8 01 88 ff ff  .h...... .......
-    04 00 00 00 a4 01 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff815b4aad>] kmemleak_alloc+0x21/0x3e
-    [<ffffffff81110352>] slab_post_alloc_hook+0x28/0x2a
-    [<ffffffff81113fad>] __kmalloc_track_caller+0xf1/0x104
-    [<ffffffff810f10c2>] kmemdup+0x1b/0x30
-    [<ffffffff81571e9f>] sctp_sysctl_net_register+0x1f/0x72
-    [<ffffffff8155d305>] sctp_net_init+0x100/0x39f
-    [<ffffffff814ad53c>] ops_init+0xc6/0xf5
-    [<ffffffff814ad5b7>] setup_net+0x4c/0xd0
-    [<ffffffff814ada5e>] copy_net_ns+0x6d/0xd6
-    [<ffffffff810938b1>] create_new_namespaces+0xd7/0x147
-    [<ffffffff810939f4>] copy_namespaces+0x63/0x99
-    [<ffffffff81076733>] copy_process+0xa65/0x1233
-    [<ffffffff81077030>] do_fork+0x10b/0x271
-    [<ffffffff8100a0e9>] sys_clone+0x23/0x25
-    [<ffffffff815dda73>] stub_clone+0x13/0x20
-    [<ffffffffffffffff>] 0xffffffffffffffff
-
-I fixed the spelling of sysctl_header so the code actually
-compiles. -- EWB.
-
-Reported-by: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
-Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Barry Grussling <barry@grussling.com>
 ---
+ drivers/net/ethernet/ethoc.c |   34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
-The typo is fixed in the patch this time in addition to my test
-tree.
-
- net/sctp/sysctl.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 043889a..bf3c6e8 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -366,7 +366,11 @@ int sctp_sysctl_net_register(struct net *net)
+diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+index 8db1c06..8504d2c 100644
+--- a/drivers/net/ethernet/ethoc.c
++++ b/drivers/net/ethernet/ethoc.c
+@@ -206,7 +206,7 @@ struct ethoc {
+ 	unsigned int num_rx;
+ 	unsigned int cur_rx;
  
- void sctp_sysctl_net_unregister(struct net *net)
+-	void** vma;
++	void **vma;
+ 
+ 	struct net_device *netdev;
+ 	struct napi_struct napi;
+@@ -292,7 +292,7 @@ static int ethoc_init_ring(struct ethoc *dev, unsigned long mem_start)
  {
-+	struct ctl_table *table;
-+
-+	table = net->sctp.sysctl_header->ctl_table_arg;
- 	unregister_net_sysctl_table(net->sctp.sysctl_header);
-+	kfree(table);
- }
+ 	struct ethoc_bd bd;
+ 	int i;
+-	void* vma;
++	void *vma;
  
- static struct ctl_table_header * sctp_sysctl_header;
+ 	dev->cur_tx = 0;
+ 	dev->dty_tx = 0;
+@@ -447,8 +447,8 @@ static int ethoc_rx(struct net_device *dev, int limit)
+ 				netif_receive_skb(skb);
+ 			} else {
+ 				if (net_ratelimit())
+-					dev_warn(&dev->dev, "low on memory - "
+-							"packet dropped\n");
++					dev_warn(&dev->dev,
++					    "low on memory - packet dropped\n");
+ 
+ 				dev->stats.rx_dropped++;
+ 				break;
+@@ -555,9 +555,8 @@ static irqreturn_t ethoc_interrupt(int irq, void *dev_id)
+ 	pending = ethoc_read(priv, INT_SOURCE);
+ 	pending &= mask;
+ 
+-	if (unlikely(pending == 0)) {
++	if (unlikely(pending == 0))
+ 		return IRQ_NONE;
+-	}
+ 
+ 	ethoc_ack_irq(priv, pending);
+ 
+@@ -620,7 +619,7 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ 	ethoc_write(priv, MIIADDRESS, MIIADDRESS_ADDR(phy, reg));
+ 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_READ);
+ 
+-	for (i=0; i < 5; i++) {
++	for (i = 0; i < 5; i++) {
+ 		u32 status = ethoc_read(priv, MIISTATUS);
+ 		if (!(status & MIISTATUS_BUSY)) {
+ 			u32 data = ethoc_read(priv, MIIRX_DATA);
+@@ -628,7 +627,7 @@ static int ethoc_mdio_read(struct mii_bus *bus, int phy, int reg)
+ 			ethoc_write(priv, MIICOMMAND, 0);
+ 			return data;
+ 		}
+-		usleep_range(100,200);
++		usleep_range(100, 200);
+ 	}
+ 
+ 	return -EBUSY;
+@@ -643,14 +642,14 @@ static int ethoc_mdio_write(struct mii_bus *bus, int phy, int reg, u16 val)
+ 	ethoc_write(priv, MIITX_DATA, val);
+ 	ethoc_write(priv, MIICOMMAND, MIICOMMAND_WRITE);
+ 
+-	for (i=0; i < 5; i++) {
++	for (i = 0; i < 5; i++) {
+ 		u32 stat = ethoc_read(priv, MIISTATUS);
+ 		if (!(stat & MIISTATUS_BUSY)) {
+ 			/* reset MII command register */
+ 			ethoc_write(priv, MIICOMMAND, 0);
+ 			return 0;
+ 		}
+-		usleep_range(100,200);
++		usleep_range(100, 200);
+ 	}
+ 
+ 	return -EBUSY;
+@@ -671,11 +670,10 @@ static int ethoc_mdio_probe(struct net_device *dev)
+ 	struct phy_device *phy;
+ 	int err;
+ 
+-	if (priv->phy_id != -1) {
++	if (priv->phy_id != -1)
+ 		phy = priv->mdio->phy_map[priv->phy_id];
+-	} else {
++	else
+ 		phy = phy_find_first(priv->mdio);
+-	}
+ 
+ 	if (!phy) {
+ 		dev_err(&dev->dev, "no PHY found\n");
+@@ -1022,7 +1020,7 @@ static int ethoc_probe(struct platform_device *pdev)
+ 	dev_dbg(&pdev->dev, "ethoc: num_tx: %d num_rx: %d\n",
+ 		priv->num_tx, priv->num_rx);
+ 
+-	priv->vma = devm_kzalloc(&pdev->dev, num_bd*sizeof(void*), GFP_KERNEL);
++	priv->vma = devm_kzalloc(&pdev->dev, num_bd*sizeof(void *), GFP_KERNEL);
+ 	if (!priv->vma) {
+ 		ret = -ENOMEM;
+ 		goto error;
+@@ -1038,7 +1036,7 @@ static int ethoc_probe(struct platform_device *pdev)
+ 
+ #ifdef CONFIG_OF
+ 		{
+-		const uint8_t* mac;
++		const uint8_t *mac;
+ 
+ 		mac = of_get_property(pdev->dev.of_node,
+ 				      "local-mac-address",
+@@ -1050,12 +1048,14 @@ static int ethoc_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/* Check that the given MAC address is valid. If it isn't, read the
+-	 * current MAC from the controller. */
++	 * current MAC from the controller.
++	 */
+ 	if (!is_valid_ether_addr(netdev->dev_addr))
+ 		ethoc_get_mac_address(netdev, netdev->dev_addr);
+ 
+ 	/* Check the MAC again for validity, if it still isn't choose and
+-	 * program a random one. */
++	 * program a random one.
++	 */
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+ 		eth_random_addr(netdev->dev_addr);
+ 		random_mac = true;
 -- 
-1.7.5.4
+1.7.9.5
