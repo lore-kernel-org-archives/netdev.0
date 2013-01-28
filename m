@@ -1,63 +1,150 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 4/7] net/mlx4_en: Set carrier to off when a port
- is stopped
-Date: Mon, 28 Jan 2013 14:07:19 +0200
-Message-ID: <510669F7.2090705@mellanox.com>
-References: <1358350935-3281-1-git-send-email-amirv@mellanox.com>  <1358350935-3281-5-git-send-email-amirv@mellanox.com> <1358352016.2923.15.camel@bwh-desktop.uk.solarflarecom.com>
+From: Gerd Hoffmann <kraxel@redhat.com>
+Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Mon, 28 Jan 2013 13:25:22 +0100
+Message-ID: <51066E32.2000209@redhat.com>
+References: <1359135470-30677-1-git-send-email-acking@vmware.com> <1359135470-30677-2-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Or Gerlitz" <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pv-drivers@vmware.com,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: acking@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:38469 "HELO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753090Ab3A1MGr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 07:06:47 -0500
-In-Reply-To: <1358352016.2923.15.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1228 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751895Ab3A1MZ3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 07:25:29 -0500
+In-Reply-To: <1359135470-30677-2-git-send-email-acking@vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16/01/2013 18:00, Ben Hutchings wrote:
-> On Wed, 2013-01-16 at 17:42 +0200, Amir Vadai wrote:
->> From: Eugenia Emantayev <eugenia@mellanox.com>
->>
->> Under heavy CPU load changing ring size/mtu/etc. could result in transmit
->> timeout, since stop-start port might take more than 10 sec. Set
->> netif_carrier_off to prevent tx queue transmit timeout.
->
-> A spurious link change can restart L3 auto-configuration (DHCP, SLAAC,
-> etc.)  netif_device_detach() also inhibits the watchdog and doesn't have
-> that problem.
->
-> Ben.
->
+  Hi,
 
-But after calling netif_device_detach(), device present bit is cleared 
-and therefore won't be able to access the device. This means, that after 
-'ifconfig down', won't be able to do 'ifconfig up'.
+> diff --git a/net/vmw_vsock/Kconfig b/net/vmw_vsock/Kconfig
+> new file mode 100644
+> index 0000000..95e2568
+> --- /dev/null
+> +++ b/net/vmw_vsock/Kconfig
+> @@ -0,0 +1,14 @@
+> +#
+> +# Vsock protocol
+> +#
+> +
+> +config VMWARE_VSOCK
+> +	tristate "Virtual Socket protocol"
+> +	depends on VMWARE_VMCI
 
-Amir
+I guess this is temporary?  Cover letter says *mostly* separated ...
 
+> +vmw_vsock-y += af_vsock.o vmci_transport.o vmci_transport_notify.o \
+> +	vmci_transport_notify_qstate.o vsock_addr.o
 
->> Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    1 +
->>   1 files changed, 1 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> index 805e242..108c4cf 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
->> @@ -1212,6 +1212,7 @@ void mlx4_en_stop_port(struct net_device *dev)
->>
->>   	/* Synchronize with tx routine */
->>   	netif_tx_lock_bh(dev);
->> +	netif_carrier_off(dev);
->>   	netif_tx_stop_all_queues(dev);
->>   	netif_tx_unlock_bh(dev);
->>
->
+Likewise, I expect with the final version vmci_transport is a separate
+module (or moves into the vmci driver), correct?
+
+> +static long vsock_dev_do_ioctl(struct file *filp,
+> +			       unsigned int cmd, void __user *ptr)
+> +{
+> +	static const u16 parts[4] = VSOCK_DRIVER_VERSION_PARTS;
+> +	u32 __user *p = ptr;
+> +	int retval = 0;
+> +	u32 version;
+> +
+> +	switch (cmd) {
+> +	case IOCTL_VMCI_SOCKETS_VERSION:
+> +		version = VMCI_SOCKETS_MAKE_VERSION(parts);
+> +		if (put_user(version, p) != 0)
+> +			retval = -EFAULT;
+> +		break;
+
+Still needed?
+
+> +	case IOCTL_VMCI_SOCKETS_GET_AF_VALUE:
+> +		if (put_user(AF_VSOCK, p) != 0)
+> +			retval = -EFAULT;
+> +
+> +		break;
+
+That can go away, with the upstream merge vsock will get a fixed AF_VSOCK.
+
+> +	case IOCTL_VMCI_SOCKETS_GET_LOCAL_CID:
+> +		if (put_user(vmci_get_context_id(), p) != 0)
+> +			retval = -EFAULT;
+
+What is this?
+
+> +static int __init vsock_init(void)
+> +{
+> +	int err;
+> +
+> +	vsock_init_tables();
+> +
+> +	err = misc_register(&vsock_device);
+> +	if (err) {
+> +		pr_err("Failed to register misc device\n");
+> +		return -ENOENT;
+> +	}
+> +
+> +	err = vmci_transport_register(&transport);
+> +	if (err) {
+> +		pr_err("Cannot register with VMCI device\n");
+> +		goto err_misc_deregister;
+> +	}
+
+Hmm?  There should be a vsock_(un)register_transport which the vmci
+transport code can call (and likewise virtio transport some day).
+
+> +struct vsock_sock {
+> +	/* sk must be the first member. */
+> +	struct sock sk;
+> +	struct sockaddr_vm local_addr;
+> +	struct sockaddr_vm remote_addr;
+
+> +	/* The rest is transport-specific: this is the stuff we need to pull
+> +	 * out to make it work with something other than VMCI.
+> +	 */
+> +	struct {
+> +		/* For DGRAMs. */
+> +		struct vmci_handle dg_handle;
+
+Yep, should be a pointer where transports can hook in their private data.
+
+> +/**** TRANSPORT ****/
+> +
+> +struct vsock_transport {
+> +	void (*init)(struct vsock_sock *, struct vsock_sock *);
+> +	void (*destruct)(struct vsock_sock *);
+> +	void (*release)(struct vsock_sock *);
+> +	int (*connect)(struct vsock_sock *);
+> +	int (*bind_dgram)(struct vsock_sock *, struct sockaddr_vm *);
+> +	int (*send_dgram)(struct vsock_sock *, struct sockaddr_vm *,
+> +			  struct iovec *, size_t len);
+> +	ssize_t (*recv_stream)(struct vsock_sock *, struct iovec *,
+> +			       size_t len, int flags);
+> +	ssize_t (*send_stream)(struct vsock_sock *, struct iovec *,
+> +			       size_t len);
+> +	s64 (*stream_has_data)(struct vsock_sock *);
+> +	s64 (*stream_has_space)(struct vsock_sock *);
+> +	int (*send_shutdown)(struct sock *sk, int mode);
+> +	void (*unregister)(void);
+> +};
+
+So that is the interface transports have to implement.  Looks reasonable
+to me.  Some documentation would be nice, although most of it is
+self-explaining.
+
+Where is recv_dgram?
+
+Also why bind_dgram?  I guess binding stream sockets doesn't make sense
+for the vsock family?
+
+I'd make the naming a bit more consistent, some stream callbacks are
+prefixed and some postfixed with "stream".
+
+I'd also name send_shutdown just shutdown (same name the system call has).
+
+What does unregister?
+
+cheers,
+  Gerd
