@@ -1,63 +1,81 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/14] e1000e: cleanup: remove comments which are no longer applicable
-Date: Mon, 28 Jan 2013 01:04:26 -0800
-Message-ID: <1359363869-32391-12-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:47947 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754532Ab3A1JEk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 04:04:40 -0500
-In-Reply-To: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
+Date: Mon, 28 Jan 2013 10:07:32 +0100
+Message-ID: <87zjztptez.fsf@nemi.mork.no>
+References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
+	<20130127001347.584711b2@xenia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Freddy Xin <freddy@asix.com.tw>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	louis@asix.com.tw, davem@davemloft.net, Support@asix.com.tw
+To: Michael Leun <lkml20130126@newton.leun.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130127001347.584711b2@xenia> (Michael Leun's message of "Sun,
+	27 Jan 2013 00:13:47 +0100")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Hello Michael,
 
-Code was removed but the applicable comments were not.
+Michael Leun <lkml20130126@newton.leun.net> writes:
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/defines.h | 7 -------
- 1 file changed, 7 deletions(-)
+> I would vote to not accept that driver for mainline as long as this
+> issues are not fixed.=20
+>
+> The vendor should not be able to claim "hooray, hooray, great device,
+> we even have an driver in linux main line" when it is actually such a=
+n
+> useless crap.
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index c458767..d29b2fd 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -261,8 +261,6 @@
- #define E1000_STATUS_PHYRA      0x00000400      /* PHY Reset Asserted */
- #define E1000_STATUS_GIO_MASTER_ENABLE 0x00080000 /* Status of Master requests. */
- 
--/* Constants used to interpret the masked PCI-X bus speed. */
--
- #define HALF_DUPLEX 1
- #define FULL_DUPLEX 2
- 
-@@ -330,8 +328,6 @@
- #define E1000_TCTL_RTLC   0x01000000    /* Re-transmit on late collision */
- #define E1000_TCTL_MULR   0x10000000    /* Multiple request support */
- 
--/* Transmit Arbitration Count */
--
- /* SerDes Control */
- #define E1000_SCTL_DISABLE_SERDES_LOOPBACK 0x0400
- 
-@@ -800,9 +796,6 @@
- #define M88E1000_PSCR_AUTO_X_1000T     0x0040
- /* Auto crossover enabled all speeds */
- #define M88E1000_PSCR_AUTO_X_MODE      0x0060
--/* 1=Enable Extended 10BASE-T distance (Lower 10BASE-T Rx Threshold)
-- * 0=Normal 10BASE-T Rx Threshold
-- */
- #define M88E1000_PSCR_ASSERT_CRS_ON_TX 0x0800 /* 1=Assert CRS on Transmit */
- 
- /* M88E1000 PHY Specific Status Register */
--- 
-1.7.11.7
+Well, that is fortunately not how these things work. The main goal is
+getting the devices supported in the kernel. Bugs can be fixed.  If a
+vendor can get any positive gain out of having a driver in mainline,
+then that is good for everyone, isn't it?  Of course, we can all agree
+that the effect of a *working* driver is more positive than a
+non-working driver...
+
+=46or now, the main focus should be fixing the issues which has been no=
+ted
+during review.  Your testing feedback is of course very useful, but you
+probably need to back them up with actual code change proposals if they
+are going to be dealt with at this stage.
+
+> Of course I'm offering to help with any information or testing, but
+> unfortunately I do not have the knowhow to fix anything myself.=20
+
+I believe this is where you are totally wrong.  You obviuously have the
+ability to create a few simple test cases for yourself and see if the
+driver behaves as you expect.  That is very useful.
+
+And you have a device.  That is also useful.
+
+Now, the driver source code is available.  And there is another Asix
+driver in the kernel which already has been cleaned up and can be used
+as an example. And maybe even partly used for the new devices as well,
+if the code is duplicated?  I have not looked at this in detail, but I
+suspect that much of the problem with the ax88179_178a driver is that i=
+t
+has completely ignored all the work that has gone into the asix driver
+after it was mainlined.  I find it unlikely that there is no reusable
+code in the asix_devices.c, asix_common.c and ax88172a.c files.  Trying
+to rewrite ax88179_178a to share as much code as possible seems like th=
+e
+best way to clean it up and fix bugs.
+
+You have documents like
+http://www.kernel.org/doc/Documentation/SubmittingPatches helping a lot
+with cleanup jobs like this, because it is mostly about just following
+that recipe.  If you do, then the code will be reviewable by the
+community because the size will be reduced and the style readable.  And
+the driver might even work, as the cleanup will quite possibly reveal a
+number of bugs...
+
+Please consider this option.  Reading and fixing up C code is not very
+difficult. Getting this driver into the kernel in a good shape is mostl=
+y
+just monkey work.  But some monkey has to do it :-)
+
+
+Bj=C3=B8rn
