@@ -1,111 +1,82 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/14] e1000e: adjust PM QoS request
-Date: Mon, 28 Jan 2013 01:04:23 -0800
-Message-ID: <1359363869-32391-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] igbvf: be sane about random MAC addresses
+Date: Mon, 28 Jan 2013 01:04:29 -0800
+Message-ID: <1359363869-32391-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch A Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Stefan Assmann <sassmann@kpanic.de>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32473 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:23510 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754251Ab3A1JEi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 04:04:38 -0500
+	id S1754710Ab3A1JEn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 04:04:43 -0500
 In-Reply-To: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Mitch A Williams <mitch.a.williams@intel.com>
 
-It has been found that devices other than 82579 (a.k.a. e1000_pch2lan)
-suffer from dropped transactions on platforms with deep C-states when
-jumbo frames are enabled.  For example, LOMs on ICH9- and ICH10-based
-platforms which recently had early-receive de-featured (for stability
-reasons) suffer from this.  To resolve this for all devices, when jumbo
-frames are enabled set the PM QoS DMA latency request based on the size
-of the receive packet buffer less one full frame.
+Tighten up some of the code surrounding MAC addresses. Since the PF is
+now giving all zeros instead of a random address, check for this case
+and generate a random address. This ensures that we always know when we
+have a random address and udev won't get upset about it.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Additionally, tighten up some of the log messages and clean up the
+formatting.
+
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: Stefan Assmann <sassmann@kpanic.de>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/defines.h |  2 ++
- drivers/net/ethernet/intel/e1000e/netdev.c  | 32 +++++++++++++++--------------
- 2 files changed, 19 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/igbvf/netdev.c | 24 ++++++++++--------------
+ 1 file changed, 10 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 3b99719..c458767 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -393,6 +393,8 @@
- #define E1000_PBA_8K  0x0008    /* 8KB */
- #define E1000_PBA_16K 0x0010    /* 16KB */
- 
-+#define E1000_PBA_RXA_MASK	0xFFFF
-+
- #define E1000_PBS_16K E1000_PBA_16K
- 
- /* Uncorrectable/correctable ECC Error counts and enable bits */
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index e386e95..46a38a4 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -3242,18 +3242,23 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
- 		rxcsum &= ~E1000_RXCSUM_TUOFL;
- 	ew32(RXCSUM, rxcsum);
- 
--	if (adapter->hw.mac.type == e1000_pch2lan) {
--		/* With jumbo frames, excessive C-state transition
--		 * latencies result in dropped transactions.
--		 */
--		if (adapter->netdev->mtu > ETH_DATA_LEN) {
-+	/* With jumbo frames, excessive C-state transition latencies result
-+	 * in dropped transactions.
-+	 */
-+	if (adapter->netdev->mtu > ETH_DATA_LEN) {
-+		u32 lat =
-+		    ((er32(PBA) & E1000_PBA_RXA_MASK) * 1024 -
-+		     adapter->max_frame_size) * 8 / 1000;
-+
-+		if (adapter->flags & FLAG_IS_ICH) {
- 			u32 rxdctl = er32(RXDCTL(0));
- 			ew32(RXDCTL(0), rxdctl | 0x3);
--			pm_qos_update_request(&adapter->netdev->pm_qos_req, 55);
--		} else {
--			pm_qos_update_request(&adapter->netdev->pm_qos_req,
--					      PM_QOS_DEFAULT_VALUE);
- 		}
-+
-+		pm_qos_update_request(&adapter->netdev->pm_qos_req, lat);
-+	} else {
-+		pm_qos_update_request(&adapter->netdev->pm_qos_req,
-+				      PM_QOS_DEFAULT_VALUE);
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 8f66d45..8224889 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -2735,26 +2735,22 @@ static int igbvf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	err = hw->mac.ops.reset_hw(hw);
+ 	if (err) {
+ 		dev_info(&pdev->dev,
+-			 "PF still in reset state, assigning new address."
+-			 " Is the PF interface up?\n");
+-		eth_hw_addr_random(netdev);
+-		memcpy(adapter->hw.mac.addr, netdev->dev_addr,
+-			netdev->addr_len);
++			 "PF still in reset state. Is the PF interface up?\n");
+ 	} else {
+ 		err = hw->mac.ops.read_mac_addr(hw);
+-		if (err) {
+-			dev_err(&pdev->dev, "Error reading MAC address\n");
+-			goto err_hw_init;
+-		}
++		if (err)
++			dev_info(&pdev->dev, "Error reading MAC address.\n");
++		else if (is_zero_ether_addr(adapter->hw.mac.addr))
++			dev_info(&pdev->dev, "MAC address not assigned by administrator.\n");
+ 		memcpy(netdev->dev_addr, adapter->hw.mac.addr,
+-			netdev->addr_len);
++		       netdev->addr_len);
  	}
  
- 	/* Enable Receives */
-@@ -4281,10 +4286,8 @@ static int e1000_open(struct net_device *netdev)
- 		e1000_update_mng_vlan(adapter);
+ 	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		dev_err(&pdev->dev, "Invalid MAC Address: %pM\n",
+-		        netdev->dev_addr);
+-		err = -EIO;
+-		goto err_hw_init;
++		dev_info(&pdev->dev, "Assigning random MAC address.\n");
++		eth_hw_addr_random(netdev);
++		memcpy(adapter->hw.mac.addr, netdev->dev_addr,
++			netdev->addr_len);
+ 	}
  
- 	/* DMA latency requirement to workaround jumbo issue */
--	if (adapter->hw.mac.type == e1000_pch2lan)
--		pm_qos_add_request(&adapter->netdev->pm_qos_req,
--				   PM_QOS_CPU_DMA_LATENCY,
--				   PM_QOS_DEFAULT_VALUE);
-+	pm_qos_add_request(&adapter->netdev->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
-+			   PM_QOS_DEFAULT_VALUE);
- 
- 	/* before we allocate an interrupt, we must be ready to handle it.
- 	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
-@@ -4392,8 +4395,7 @@ static int e1000_close(struct net_device *netdev)
- 	    !test_bit(__E1000_TESTING, &adapter->state))
- 		e1000e_release_hw_control(adapter);
- 
--	if (adapter->hw.mac.type == e1000_pch2lan)
--		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
-+	pm_qos_remove_request(&adapter->netdev->pm_qos_req);
- 
- 	pm_runtime_put_sync(&pdev->dev);
- 
+ 	setup_timer(&adapter->watchdog_timer, &igbvf_watchdog,
 -- 
 1.7.11.7
