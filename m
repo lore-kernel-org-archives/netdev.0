@@ -1,157 +1,75 @@
-From: Nivedita Singhvi <niveditasinghvi@gmail.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Sun, 27 Jan 2013 18:48:18 -0800
-Message-ID: <5105E6F2.2010805@gmail.com>
-References: <1358874800.3464.4002.camel@edumazet-glaptop> <50FED7CE.1030008@hp.com> <20130122184245.GJ4608@sociomantic.com> <50FF0C25.9000300@hp.com> <20130123104736.GK4608@sociomantic.com> <510039C8.7040401@hp.com> <20130124122223.GQ4608@sociomantic.com> <51018110.1070403@hp.com> <20130124192125.GD4608@sociomantic.com> <5102225E.2040506@gmail.com> <20130125100525.GE4608@sociomantic.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] checkpatch.pl: Fix warnings on code comments
+Date: Sun, 27 Jan 2013 18:56:45 -0800
+Message-ID: <1359341805.2255.56.camel@jtkirshe-mobl>
+References: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <20130127.185910.1743425400733006443.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jnZJKtJ0IFSVZHuFDFDq"
+Cc: apw@canonical.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130127.185910.1743425400733006443.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-jnZJKtJ0IFSVZHuFDFDq
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Sun, 2013-01-27 at 18:59 -0500, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Sun, 27 Jan 2013 03:35:39 -0800
+>=20
+> > Produces warnings on code comments which follow the Linux coding style
+> > guide.  While the desired code comment style for networking my differ
+> > from the rest of the kernel, both styles should be permitted.
+>=20
+> I was actually going to mention to you guys that I've been lackadasical
+> about enforcing the comment style I want with the Intel drivers.
+>=20
+> That was a mistake, I should have enforced it strictly, as I do for
+> the other drivers and the core networking code, from the beginning.
+>=20
+> And it's clearly a mistake if you feel the need to take out the very
+> checkpatch working that's meant to enforce this comment style in all
+> of the networking drivers and core.
+>=20
+> Do not revert this, follow it's advice instead.
+
+Ok, I am fine with that.  I just had not seen any emails/responses that
+this was direction you wanted to go.
+
+So will you be fine with cleanup patches which go through and convert
+all the existing code comments to the desired format?  If so, I will get
+started on patches to cleanup,convert the Intel drivers to the desired
+code comment style.
+
+--=-jnZJKtJ0IFSVZHuFDFDq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f176.google.com ([209.85.161.176]:44347 "EHLO
-	mail-gg0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886Ab3A1Csb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 21:48:31 -0500
-In-Reply-To: <20130125100525.GE4608@sociomantic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-On 01/25/2013 02:05 AM, Leandro Lucarella wrote:
-> On Thu, Jan 24, 2013 at 10:12:46PM -0800, Nivedita SInghvi wrote:
->>>>> I was just kind of quoting the name given by netstat: "SYNs to LISTEN
->>>>> sockets dropped" (for kernel 3.0, I noticed newer kernels don't have
->>>>> this stat anymore, or the name was changed). I still don't know if we
->>>>> are talking about the same thing.
->>>>
->> [snip]
->>>> I will sometimes be tripped-up by netstat's not showing a statistic
->>>> with a zero value...
->>
->> Leandro, you should be able to do an nstat -z, it will print all
->> counters even if zero. You should see something like so:
->>
->> ipv4]> nstat -z
->> #kernel
->> IpInReceives                    2135               0.0
->> IpInHdrErrors                   0                  0.0
->> IpInAddrErrors                  202                0.0
->> ...
->>
->> You might want to take a look at those (your pkts may not even be
->> making it to tcp) and these in particular:
->>
->> TcpExtSyncookiesSent            0                  0.0
->> TcpExtSyncookiesRecv            0                  0.0
->> TcpExtSyncookiesFailed          0                  0.0
->> TcpExtListenOverflows           0                  0.0
->> TcpExtListenDrops               0                  0.0
->> TcpExtTCPBacklogDrop            0                  0.0
->> TcpExtTCPMinTTLDrop             0                  0.0
->> TcpExtTCPDeferAcceptDrop        0                  0.0
->>
->> If you don't have nstat on that version for some reason, download the
->> latest iproute pkg. Looking at the counter names is a lot more helpful
->> and precise than the netstat converstion to human consumption. 
-> 
-> Thanks, but what about this?
-> 
-> pc2 $ nstat -z | grep -i drop
-> TcpExtLockDroppedIcmps          0                  0.0
-> TcpExtListenDrops               0                  0.0
-> TcpExtTCPPrequeueDropped        0                  0.0
-> TcpExtTCPBacklogDrop            0                  0.0
-> TcpExtTCPMinTTLDrop             0                  0.0
-> TcpExtTCPDeferAcceptDrop        0                  0.0
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
-That seems bogus. 
+iQIcBAABCgAGBQJRBejtAAoJEOVv75VaS+3OrUcP/iSx54sJ8HvI+s9DTU53nwa2
+fLPmNpZX/A60881vrHgzlM13HplijRcz3rmOsMc8xAgTVwEHoeKm/GXLJvU/nk6j
+QNHo8hbPowx0kxQ7BjAE6JNnfYCkreNM6v1jrzP5oMc7VO5slKX7ppotzbUQS99E
+oin6lzKnM+AzLgpmB4NbZ5rWgVjMRg63XtvKu7VJdZhpEl4m2xHn9aPIdUN2jr6N
+orChCUmWfiSWEsjKnGIHBYtZw1m5zlxFUqZIN3CF3Rha2nGrO2u/oaGiRbsLf2mI
+FnOaFBYDFcgNX5dZijr9LvXfFSEDFxjSRUiuzSGEZcWi59HexIJQnywXefiSxpi4
+XF+y3Bbz6oxh7uB3wUNbyQl2CRf72HnLmkYDVQEGca1fWdW3Itnthf0aeZhOYneV
+rgo+u+r4yakOIDyzJ6rpthiIBQNCCl0vHwGcOhoxSSy5v1PFJ6x9lmOav09e9n0i
+4uNmdCBl6aODzBan8l10QTVPP6HbHjBfOP9V50B4zHn+KwFQB+/cmBepQ3uvosp3
+FMSO0kALZn/wQ1ePIl++2KKys2Cto6NBIKdXCUAMq7PiIYaLChSBgQIkI7J7YGQY
+tOQ7QToQZIOO91MNWkIHZ7WPleEKdCthHfmP8HNRnUkpZHkECJVoo4L7sR+Eu7GD
+u7TjKOtiVoLhFQRf9paF
+=U86d
+-----END PGP SIGNATURE-----
 
-
-> pc2 $ netstat -s | grep -i drop
->     470 outgoing packets dropped
->     5659740 SYNs to LISTEN sockets dropped
-> 
-> Is this normal?
-
-That's a lot ofconnect requests dropped, but it depends on how 
-long you've been up and how much traffic you've seen. 
-
-Hmm...you were on an older Ubuntu, right? The netstat source 
-was patched to translate it as follows:
-
-+    { "ListenDrops", N_("%u SYNs to LISTEN sockets dropped"), opt_number },
-
-(see the file debian/patches/CVS-20081003-statistics.c_sync.patch 
- in the net-tools src)
-
-i.e., the netstat pkg is printing the value of the TCPEXT MIB counter
-that's counting TCPExtListenDrops. 
-
-Theoretically, that number should be the same as that printed by nstat,
-as they are getting it from the same kernel stats counter. I have not
-looked at nstat code (I actually almost always dump the counters from
-/proc/net/{netstat + snmp} via a simple prettyprint script (will send
-you that offline).  
-
-If the nstat and netstat counters don't match, something is fishy.
-That nstat output is broken.  
-
->>> Yes, I already did captures and we are definitely loosing packets
->>> (including SYNs), but it looks like the amount of SYNs I'm loosing is
->>> lower than the amount of long connect() times I observe. This is not
->>> confirmed yet, I'm still investigating.
->>
->> Where did you narrow down the drop to? There are quite a few places in
->> the networking stack we silently drop packets (such as the one pointed
->> out earlier in this thread), although they should almost all be
->> extremely low probability/NEVER type events. Do you want a patch to
->> gap the most likely scenario? (I'll post that to netdev separately). 
-> 
-> Even when that would be awesome, unfortunately there is no way I could
-> get permission to run a patched kernel (or even restart the servers for
-> that matter).
-> 
-> And I don't know how could I narrow down the drops in any way. What I
-> know is capturing traffic with tcpdump, I see some packets leaving one
-> server but never arriving to the new one.
-
-Hmm..do you have a switch between your two end points dropping pkts? 
-Could be.. Basically, by looking at the statistics kept by each layer, you 
-should be able to narrow it down a little bit at least. 
-
-It does still sound like some drops are occurring in TCP due to accept 
-backlog being full and you're overrunning TCP incoming processing (or 
-at least this contributing), going by that ListenDrops count. 
-
-> Also, the hardware is not great either, I'm not sure is not responsible
-> for the loss. There are some errors reported by ethtool, but I don't
-> know exactly what they mean:
-> 
-> # ethtool -S eth0
-> NIC statistics:
->      tx_packets: 336978308273
->      rx_packets: 384108075585
->      tx_errors: 0
->      rx_errors: 194
->      rx_missed: 1119
->      align_errors: 31731
->      tx_single_collisions: 0
->      tx_multi_collisions: 0
->      unicast: 384108023754
->      broadcast: 51825
->      multicast: 6
->      tx_aborted: 0
->      tx_underrun: 0
-> 
-> Thanks!
-> 
-
-You aren't suffering a lot of packet loss at the NIC.  
-
-Sorry, I'm on the road, travelling, and likely not online much this week. 
-
-
-thanks,
-Nivedita
+--=-jnZJKtJ0IFSVZHuFDFDq--
