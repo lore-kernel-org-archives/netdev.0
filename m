@@ -1,63 +1,51 @@
-From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Mon, 28 Jan 2013 15:40:06 +0100
-Message-ID: <20130128144006.GQ4608@sociomantic.com>
-References: <50FF0C25.9000300@hp.com>
- <20130123104736.GK4608@sociomantic.com>
- <510039C8.7040401@hp.com>
- <20130124122223.GQ4608@sociomantic.com>
- <51018110.1070403@hp.com>
- <20130124192125.GD4608@sociomantic.com>
- <5102225E.2040506@gmail.com>
- <20130125100525.GE4608@sociomantic.com>
- <5105E6F2.2010805@gmail.com>
- <CAGK4HS_2=b3gJmDeBTbSmFYk4PB2epMUQE6nkr1XMGfFgmfHvw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nivedita Singhvi <niveditasinghvi@gmail.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAGK4HS_2=b3gJmDeBTbSmFYk4PB2epMUQE6nkr1XMGfFgmfHvw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] iplink: display the value of IFLA_PROMISCUITY
+Date: Mon, 28 Jan 2013 15:38:18 +0100
+Message-ID: <1359383898-8047-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:57567 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757309Ab3A1Orz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 09:47:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 27, 2013 at 09:21:32PM -0800, Vijay Subramanian wrote:
-> > +    { "ListenDrops", N_("%u SYNs to LISTEN sockets dropped"), opt_number },
-> >
-> > (see the file debian/patches/CVS-20081003-statistics.c_sync.patch
-> >  in the net-tools src)
-> >
-> > i.e., the netstat pkg is printing the value of the TCPEXT MIB counter
-> > that's counting TCPExtListenDrops.
-> >
-> > Theoretically, that number should be the same as that printed by nstat,
-> > as they are getting it from the same kernel stats counter. I have not
-> > looked at nstat code (I actually almost always dump the counters from
-> > /proc/net/{netstat + snmp} via a simple prettyprint script (will send
-> > you that offline).
-> 
-> nstat pretty much does what you describe which is to parse the
-> /proc/net files(s) and print the contents. This is one advantage of
-> nstat over netstat. When you add a new MIB, you do not need to update
-> nstat.
+This is usefull to know the 'real' status of an interface (the flag IFF_PROMISC
+is exported by the kernel only when the user set it explicitly, for example it
+will not be exported when a tcpdump is running).
 
-Well, something seems to be broken in the nstat I have because using the
-script to parse the start instead I get the the same values as with
-netstat.
+Note that I add a space after qlen (instead of before promiscuity) to be
+coherent with the rest of the code.
 
-[2 minutes later, and after observing the values of nstat changed in the
-same server]
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ ip/ipaddress.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-OK, it looks like nstat is showing some transcient values, using nstat
--a I get the "absolute values of counters" (as stated in the man page).
-By default it seems to print the values for the last 60 seconds, so
-mistery solved.
-
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 5498f46..0d988ae 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -171,7 +171,7 @@ static void print_queuelen(FILE *f, struct rtattr *tb[IFLA_MAX + 1])
+ 		qlen = ifr.ifr_qlen;
+ 	}
+ 	if (qlen)
+-		fprintf(f, "qlen %d", qlen);
++		fprintf(f, "qlen %d ", qlen);
+ }
+ 
+ static const char *link_modes[] = {
+@@ -438,6 +438,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (filter.showqueue)
+ 		print_queuelen(fp, tb);
+ 
++	if (tb[IFLA_PROMISCUITY] && *(int*)RTA_DATA(tb[IFLA_PROMISCUITY]) > 0)
++		fprintf(fp, "promiscuity %u ", *(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
++
+ 	if (!filter.family || filter.family == AF_PACKET) {
+ 		SPRINT_BUF(b1);
+ 		fprintf(fp, "%s", _SL_);
 -- 
-Leandro Lucarella
-sociomantic labs GmbH
-http://www.sociomantic.com
+1.8.0.1
