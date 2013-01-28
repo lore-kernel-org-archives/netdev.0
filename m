@@ -1,58 +1,52 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [net] e1000e: enable ECC on I217/I218 to catch packet buffer
- memory errors
-Date: Mon, 28 Jan 2013 17:46:32 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1843ABC314B@ORSMSX102.amr.corp.intel.com>
-References: <1359369828-13663-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <CA+5PVA5i-jVrjtO1Lbm=DSWk0o+C6P87kqKUqNnbThafFF2o0A@mail.gmail.com>
- <1359377156.2255.74.camel@jtkirshe-mobl>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/2] v2 GRE: Add segmentation offload for GRE
+Date: Mon, 28 Jan 2013 18:28:13 +0000
+Message-ID: <1359397693.2721.8.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"stable@vger.kernel.org" <stable@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	Josh Boyer <jwboyer@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1359377156.2255.74.camel@jtkirshe-mobl>
-Content-Language: en-US
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <jesse@nicira.com>,
+	<eric.dumazet@gmail.com>
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:22874 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752519Ab3A1S2Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 13:28:16 -0500
+In-Reply-To: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBLaXJzaGVyLCBKZWZmcmV5IFQN
-Cj4gU2VudDogTW9uZGF5LCBKYW51YXJ5IDI4LCAyMDEzIDQ6NDYgQU0NCj4gVG86IEpvc2ggQm95
-ZXINCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IEFsbGFuLCBCcnVjZSBXOyBuZXRkZXZAdmdl
-ci5rZXJuZWwub3JnOw0KPiBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBz
-dGFibGVAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbbmV0XSBlMTAwMGU6IGVuYWJs
-ZSBFQ0Mgb24gSTIxNy9JMjE4IHRvIGNhdGNoIHBhY2tldCBidWZmZXINCj4gbWVtb3J5IGVycm9y
-cw0KPiANCj4gT24gTW9uLCAyMDEzLTAxLTI4IGF0IDA3OjM4IC0wNTAwLCBKb3NoIEJveWVyIHdy
-b3RlOg0KPiA+IE9uIE1vbiwgSmFuIDI4LCAyMDEzIGF0IDU6NDMgQU0sIEplZmYgS2lyc2hlcg0K
-PiA+IDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+IHdyb3RlOg0KPiA+ID4gRnJvbTogQnJ1
-Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5AaW50ZWwuY29tPg0KPiA+ID4NCj4gPiA+IEluIHJhcmUg
-aW5zdGFuY2VzLCBtZW1vcnkgZXJyb3JzIGhhdmUgYmVlbiBkZXRlY3RlZCBpbiB0aGUgaW50ZXJu
-YWwNCj4gcGFja2V0DQo+ID4gPiBidWZmZXIgbWVtb3J5IG9uIEkyMTcvSTIxOCB3aGVuIHN0cmVz
-c2VkIHVuZGVyIGNlcnRhaW4NCj4gZW52aXJvbm1lbnRhbA0KPiA+ID4gY29uZGl0aW9ucy4gIEVu
-YWJsZSBFcnJvciBDb3JyZWN0aW5nIENvZGUgKEVDQykgaW4gaGFyZHdhcmUgdG8gY2F0Y2gNCj4g
-Ym90aA0KPiA+ID4gY29ycmVjdGFibGUgYW5kIHVuY29ycmVjdGFibGUgZXJyb3JzLiAgQ29ycmVj
-dGFibGUgZXJyb3JzIHdpbGwgYmUgaGFuZGxlZA0KPiA+ID4gYnkgdGhlIGhhcmR3YXJlLiAgVW5j
-b3JyZWN0YWJsZSBlcnJvcnMgaW4gdGhlIHBhY2tldCBidWZmZXIgd2lsbCBjYXVzZQ0KPiB0aGUN
-Cj4gPiA+IHBhY2tldCB0byBiZSByZWNlaXZlZCB3aXRoIGFuIGVycm9yIGluZGljYXRpb24gaW4g
-dGhlIGJ1ZmZlciBkZXNjcmlwdG9yDQo+ID4gPiBjYXVzaW5nIHRoZSBwYWNrZXQgdG8gYmUgZGlz
-Y2FyZGVkLiAgSWYgdGhlIHVuY29ycmVjdGFibGUgZXJyb3IgaXMgaW4gdGhlDQo+ID4gPiBkZXNj
-cmlwdG9yIGl0c2VsZiwgdGhlIGhhcmR3YXJlIHdpbGwgc3RvcCBhbmQgaW50ZXJydXB0IHRoZSBk
-cml2ZXINCj4gPiA+IGluZGljYXRpbmcgdGhlIGVycm9yLiAgVGhlIGRyaXZlciB3aWxsIHRoZW4g
-cmVzZXQgdGhlIGhhcmR3YXJlIGluIG9yZGVyIHRvDQo+ID4gPiBjbGVhciB0aGUgZXJyb3IgYW5k
-IHJlc3RhcnQuDQo+ID4gPg0KPiA+ID4gQm90aCB0eXBlcyBvZiBlcnJvcnMgd2lsbCBiZSBhY2Nv
-dW50ZWQgZm9yIGluIHN0YXRpc3RpY3MgY291bnRlcnMuDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9m
-Zi1ieTogQnJ1Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5AaW50ZWwuY29tPg0KPiA+ID4gQ2M6IDxz
-dGFibGVAdmdlci5rZXJuZWwub3JnPiAjIDMuNS54ICYgMy42LngNCj4gPg0KPiA+IDMuNS54IGlz
-IG1haW50YWluZWQgYnkgQ2Fub25pY2FsLCBub3Qgb2ZmaWNpYWxseSBhcyBhIHN0YWJsZSBrZXJu
-ZWwgKEkNCj4gPiBoYXZlIG5vIGlkZWEgd2h5KS4gIDMuNi54IGlzbid0IG1haW50YWluZWQgYW55
-IGxvbmdlci4NCj4gPg0KPiA+IElzIHRoaXMgYXBwbGljYWJsZSB0byAzLjQueCBhbmQgMy43Lng/
-DQo+IA0KPiBJdCBpcyBhcHBsaWNhYmxlIHRvIDMuNy54LCBub3Qgc3VyZSBpZiBpdCBhcHBsaWNh
-YmxlIHRvIDMuNC54Lg0KDQpOb3QgYXBwbGljYWJsZSB0byAzLjQueCAobm8gc3VwcG9ydCBmb3Ig
-STIxNyBvciBJMjE4IHByaW9yIHRvIDMuNSB3aGljaCB3YXMgbm90IHlldCBFT0wnZWQNCndoZW4g
-SSBvcmlnaW5hbGx5IHdyb3RlIHRoaXMgcGF0Y2gpLg0KDQpCcnVjZS4NCg==
+On Thu, 2013-01-24 at 14:16 -0800, Pravin B Shelar wrote:
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+> Fixed according to comments from Jesse and Eric.
+>  - Factored a MAC layer handler out of skb_gso_segment().
+>  - Eliminated copy operation from gre_gso_segment().
+>  - Refresh header pointer after pskb_may_pull().
+[...]
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -307,6 +307,8 @@ enum {
+>  	SKB_GSO_TCPV6 = 1 << 4,
+>  
+>  	SKB_GSO_FCOE = 1 << 5,
+> +
+> +	SKB_GSO_GRE = 1 << 6,
+>  };
+>  
+>  #if BITS_PER_LONG > 32
+[...]
+
+I think each new GSO flag must have a corresponding net device feature
+flag.  In that case you'll need to replace NETIF_F_GSO_RESERVED1 in
+include/linux/netdev_features.h and add a name for the feature in
+net/core/ethtool.c.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
