@@ -1,224 +1,35 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] e1000e: enable ECC on I217/I218 to catch packet buffer memory errors
-Date: Mon, 28 Jan 2013 02:43:48 -0800
-Message-ID: <1359369828-13663-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com, stable@vger.kernel.org,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Parkin <tparkin@katalix.com>
+Subject: [PATCH 0/2] l2tp: fix ancilliary data handling in ip6 recv
+Date: Mon, 28 Jan 2013 10:48:52 +0000
+Message-ID: <1359370134-29875-1-git-send-email-tparkin@katalix.com>
+Cc: jchapman@katalix.com, celston@katalix.com,
+	Tom Parkin <tparkin@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:49840 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751448Ab3A1KtJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 05:49:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+l2tp_ip6 was using the IPv4 handler functions for ancilliary data, which meant
+that socket options such as e.g. IPV6_RECVPKTINFO are not correctly passed to
+userspace.
 
-In rare instances, memory errors have been detected in the internal packet
-buffer memory on I217/I218 when stressed under certain environmental
-conditions.  Enable Error Correcting Code (ECC) in hardware to catch both
-correctable and uncorrectable errors.  Correctable errors will be handled
-by the hardware.  Uncorrectable errors in the packet buffer will cause the
-packet to be received with an error indication in the buffer descriptor
-causing the packet to be discarded.  If the uncorrectable error is in the
-descriptor itself, the hardware will stop and interrupt the driver
-indicating the error.  The driver will then reset the hardware in order to
-clear the error and restart.
+This patchset:
 
-Both types of errors will be accounted for in statistics counters.
+	*  exports the IPv6 recv handler function datagram_recv_ctl so that
+	   modules may access it
+	*  updates l2tp_ip6 to use datagram_recv_ctl rather than ip_cmsg_recv
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Cc: <stable@vger.kernel.org> # 3.5.x & 3.6.x
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-This is the back-ported version of the patch in net-next which applies
-to David Miller's net tree.
----
- drivers/net/ethernet/intel/e1000e/defines.h |  9 ++++++
- drivers/net/ethernet/intel/e1000e/e1000.h   |  2 ++
- drivers/net/ethernet/intel/e1000e/ethtool.c |  2 ++
- drivers/net/ethernet/intel/e1000e/hw.h      |  1 +
- drivers/net/ethernet/intel/e1000e/ich8lan.c | 11 +++++++
- drivers/net/ethernet/intel/e1000e/netdev.c  | 46 +++++++++++++++++++++++++++++
- 6 files changed, 71 insertions(+)
+Tom Parkin (2):
+  ipv6: export symbol datagram_recv_ctl in datagram.c
+  l2tp: correctly handle ancilliary data for ip6 recv
 
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index 02a12b6..4dab6fc 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -232,6 +232,7 @@
- #define E1000_CTRL_FRCDPX   0x00001000  /* Force Duplex */
- #define E1000_CTRL_LANPHYPC_OVERRIDE 0x00010000 /* SW control of LANPHYPC */
- #define E1000_CTRL_LANPHYPC_VALUE    0x00020000 /* SW value of LANPHYPC */
-+#define E1000_CTRL_MEHE     0x00080000  /* Memory Error Handling Enable */
- #define E1000_CTRL_SWDPIN0  0x00040000  /* SWDPIN 0 value */
- #define E1000_CTRL_SWDPIN1  0x00080000  /* SWDPIN 1 value */
- #define E1000_CTRL_SWDPIO0  0x00400000  /* SWDPIN 0 Input or output */
-@@ -389,6 +390,12 @@
- 
- #define E1000_PBS_16K E1000_PBA_16K
- 
-+/* Uncorrectable/correctable ECC Error counts and enable bits */
-+#define E1000_PBECCSTS_CORR_ERR_CNT_MASK	0x000000FF
-+#define E1000_PBECCSTS_UNCORR_ERR_CNT_MASK	0x0000FF00
-+#define E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT	8
-+#define E1000_PBECCSTS_ECC_ENABLE		0x00010000
-+
- #define IFS_MAX       80
- #define IFS_MIN       40
- #define IFS_RATIO     4
-@@ -408,6 +415,7 @@
- #define E1000_ICR_RXSEQ         0x00000008 /* Rx sequence error */
- #define E1000_ICR_RXDMT0        0x00000010 /* Rx desc min. threshold (0) */
- #define E1000_ICR_RXT0          0x00000080 /* Rx timer intr (ring 0) */
-+#define E1000_ICR_ECCER         0x00400000 /* Uncorrectable ECC Error */
- #define E1000_ICR_INT_ASSERTED  0x80000000 /* If this bit asserted, the driver should claim the interrupt */
- #define E1000_ICR_RXQ0          0x00100000 /* Rx Queue 0 Interrupt */
- #define E1000_ICR_RXQ1          0x00200000 /* Rx Queue 1 Interrupt */
-@@ -443,6 +451,7 @@
- #define E1000_IMS_RXSEQ     E1000_ICR_RXSEQ     /* Rx sequence error */
- #define E1000_IMS_RXDMT0    E1000_ICR_RXDMT0    /* Rx desc min. threshold */
- #define E1000_IMS_RXT0      E1000_ICR_RXT0      /* Rx timer intr */
-+#define E1000_IMS_ECCER     E1000_ICR_ECCER     /* Uncorrectable ECC Error */
- #define E1000_IMS_RXQ0      E1000_ICR_RXQ0      /* Rx Queue 0 Interrupt */
- #define E1000_IMS_RXQ1      E1000_ICR_RXQ1      /* Rx Queue 1 Interrupt */
- #define E1000_IMS_TXQ0      E1000_ICR_TXQ0      /* Tx Queue 0 Interrupt */
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 6782a2e..7e95f22 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -309,6 +309,8 @@ struct e1000_adapter {
- 
- 	struct napi_struct napi;
- 
-+	unsigned int uncorr_errors;	/* uncorrectable ECC errors */
-+	unsigned int corr_errors;	/* correctable ECC errors */
- 	unsigned int restart_queue;
- 	u32 txd_cmd;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-index f95bc6e..fd4772a 100644
---- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-@@ -108,6 +108,8 @@ static const struct e1000_stats e1000_gstrings_stats[] = {
- 	E1000_STAT("dropped_smbus", stats.mgpdc),
- 	E1000_STAT("rx_dma_failed", rx_dma_failed),
- 	E1000_STAT("tx_dma_failed", tx_dma_failed),
-+	E1000_STAT("uncorr_ecc_errors", uncorr_errors),
-+	E1000_STAT("corr_ecc_errors", corr_errors),
- };
- 
- #define E1000_GLOBAL_STATS_LEN	ARRAY_SIZE(e1000_gstrings_stats)
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index cf21777..b88676f 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -77,6 +77,7 @@ enum e1e_registers {
- #define E1000_POEMB	E1000_PHY_CTRL	/* PHY OEM Bits */
- 	E1000_PBA      = 0x01000, /* Packet Buffer Allocation - RW */
- 	E1000_PBS      = 0x01008, /* Packet Buffer Size */
-+	E1000_PBECCSTS = 0x0100C, /* Packet Buffer ECC Status - RW */
- 	E1000_EEMNGCTL = 0x01010, /* MNG EEprom Control */
- 	E1000_EEWR     = 0x0102C, /* EEPROM Write Register - RW */
- 	E1000_FLOP     = 0x0103C, /* FLASH Opcode Register */
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 9763365..24d9f61 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -3624,6 +3624,17 @@ static void e1000_initialize_hw_bits_ich8lan(struct e1000_hw *hw)
- 	if (hw->mac.type == e1000_ich8lan)
- 		reg |= (E1000_RFCTL_IPV6_EX_DIS | E1000_RFCTL_NEW_IPV6_EXT_DIS);
- 	ew32(RFCTL, reg);
-+
-+	/* Enable ECC on Lynxpoint */
-+	if (hw->mac.type == e1000_pch_lpt) {
-+		reg = er32(PBECCSTS);
-+		reg |= E1000_PBECCSTS_ECC_ENABLE;
-+		ew32(PBECCSTS, reg);
-+
-+		reg = er32(CTRL);
-+		reg |= E1000_CTRL_MEHE;
-+		ew32(CTRL, reg);
-+	}
- }
- 
- /**
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index fbf75fd..643c883 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -1678,6 +1678,23 @@ static irqreturn_t e1000_intr_msi(int irq, void *data)
- 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
- 	}
- 
-+	/* Reset on uncorrectable ECC error */
-+	if ((icr & E1000_ICR_ECCER) && (hw->mac.type == e1000_pch_lpt)) {
-+		u32 pbeccsts = er32(PBECCSTS);
-+
-+		adapter->corr_errors +=
-+		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
-+		adapter->uncorr_errors +=
-+		    (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>
-+		    E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
-+
-+		/* Do the reset outside of interrupt context */
-+		schedule_work(&adapter->reset_task);
-+
-+		/* return immediately since reset is imminent */
-+		return IRQ_HANDLED;
-+	}
-+
- 	if (napi_schedule_prep(&adapter->napi)) {
- 		adapter->total_tx_bytes = 0;
- 		adapter->total_tx_packets = 0;
-@@ -1741,6 +1758,23 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 			mod_timer(&adapter->watchdog_timer, jiffies + 1);
- 	}
- 
-+	/* Reset on uncorrectable ECC error */
-+	if ((icr & E1000_ICR_ECCER) && (hw->mac.type == e1000_pch_lpt)) {
-+		u32 pbeccsts = er32(PBECCSTS);
-+
-+		adapter->corr_errors +=
-+		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
-+		adapter->uncorr_errors +=
-+		    (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>
-+		    E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
-+
-+		/* Do the reset outside of interrupt context */
-+		schedule_work(&adapter->reset_task);
-+
-+		/* return immediately since reset is imminent */
-+		return IRQ_HANDLED;
-+	}
-+
- 	if (napi_schedule_prep(&adapter->napi)) {
- 		adapter->total_tx_bytes = 0;
- 		adapter->total_tx_packets = 0;
-@@ -2104,6 +2138,8 @@ static void e1000_irq_enable(struct e1000_adapter *adapter)
- 	if (adapter->msix_entries) {
- 		ew32(EIAC_82574, adapter->eiac_mask & E1000_EIAC_MASK_82574);
- 		ew32(IMS, adapter->eiac_mask | E1000_IMS_OTHER | E1000_IMS_LSC);
-+	} else if (hw->mac.type == e1000_pch_lpt) {
-+		ew32(IMS, IMS_ENABLE_MASK | E1000_IMS_ECCER);
- 	} else {
- 		ew32(IMS, IMS_ENABLE_MASK);
- 	}
-@@ -4251,6 +4287,16 @@ static void e1000e_update_stats(struct e1000_adapter *adapter)
- 	adapter->stats.mgptc += er32(MGTPTC);
- 	adapter->stats.mgprc += er32(MGTPRC);
- 	adapter->stats.mgpdc += er32(MGTPDC);
-+
-+	/* Correctable ECC Errors */
-+	if (hw->mac.type == e1000_pch_lpt) {
-+		u32 pbeccsts = er32(PBECCSTS);
-+		adapter->corr_errors +=
-+		    pbeccsts & E1000_PBECCSTS_CORR_ERR_CNT_MASK;
-+		adapter->uncorr_errors +=
-+		    (pbeccsts & E1000_PBECCSTS_UNCORR_ERR_CNT_MASK) >>
-+		    E1000_PBECCSTS_UNCORR_ERR_CNT_SHIFT;
-+	}
- }
- 
- /**
+ net/ipv6/datagram.c |    1 +
+ net/l2tp/l2tp_ip6.c |    5 +++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
 -- 
-1.7.11.7
+1.7.9.5
