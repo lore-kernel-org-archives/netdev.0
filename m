@@ -1,79 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] checkpatch.pl: Fix warnings on code comments
-Date: Mon, 28 Jan 2013 12:56:13 -0800
-Message-ID: <1359406573.2099.11.camel@jtkirshe-mobl>
-References: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20130127.185910.1743425400733006443.davem@davemloft.net>
-	 <1359341805.2255.56.camel@jtkirshe-mobl>
-	 <20130127.220728.634216960903942581.davem@davemloft.net>
-	 <804857E1F29AAC47BF68C404FC60A1843ABC3058@ORSMSX102.amr.corp.intel.com>
-	 <1359394228.31480.7.camel@joe-AO722>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
+Subject: Re: [PATCH] SCTP: Free the per-net sysctl table on net exit. v2
+Date: Mon, 28 Jan 2013 22:17:09 +0100
+Message-ID: <5106EAD5.6000703@fold.natur.cuni.cz>
+References: <20130127.193511.2294954038548420781.davem@davemloft.net> <87libe3w69.fsf@xmission.com> <87obgayoo8.fsf_-_@xmission.com> <20130128.001125.1697434398997976656.davem@davemloft.net> <510637D8.9000305@fold.natur.cuni.cz> <877gmxtim7.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-dEpQe/sXXXdDwmwar9dI"
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359394228.31480.7.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---=-dEpQe/sXXXdDwmwar9dI
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2013-01-28 at 09:30 -0800, Joe Perches wrote:
-> On Mon, 2013-01-28 at 17:17 +0000, Allan, Bruce W wrote:
-> > David Miller Sent: Sunday, January 27, 2013 7:07 PM
-> > > From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > So will you be fine with cleanup patches which go through and
-> > > > convert all the existing code comments to the desired format?
-> > > Sure.
-> > Not all Intel drivers...e1000e already conforms to the comment style :-=
-)
->=20
-> In case anyone cares, here's a perl regex
-> to do network comment style conversion.
->=20
->         $text =3D~ s@/\*[ \t]*\n[ \t]*\*@/*@g;
->         $text =3D~ s@/\*([ \t]*)([^\n]+)\n[ \t]*\*/@/\*$1$2 \*/@g;
->=20
-> (assumes the entire file is in $text)
->=20
-> It creates a ~220KB diff for drivers/net/ethernet/intel/
-> that I won't post.
->=20
-
-Thanks Joe, I will get patches to take care of the Intel drivers (minus
-e1000e since Bruce has already completed that work).
-
---=-dEpQe/sXXXdDwmwar9dI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, vyasevich@gmail.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fold.natur.cuni.cz ([195.113.57.32]:33007 "HELO
+	fold.natur.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751155Ab3A1VRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 16:17:12 -0500
+In-Reply-To: <877gmxtim7.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
+Hi Eric,
 
-iQIcBAABCgAGBQJRBuXtAAoJEOVv75VaS+3OHf4P/j6s7EUM36/M/xrBVgHOq0RN
-4CY8rg85ocrvREv3JP0ojPn5zBjhlmmLvlNZTvjoG+EVilqTZJ9B2oxGo67t8Nx9
-0+NDDov2xFWF7Gxp82gSNNBITcytB3dxqKyrQQYzUJpym5epJUxMpz4Ws1f8Q6hB
-pYbaGsKnFVn5jwt7/hNVH17ocDH6Oa4nAnmoRpyJT4t0ZcwWcQtuHXfYkPU0U2fg
-o8xJgigBbArmApj48gGqBm4ewsNYKMLr+BGZpKbgaB++/wI6CiQoQ+XOpzKIRYE7
-DmfR8F2wfrpGZVTKoO+EbbFm0w1E9SG8TIBX5yrOdeuKuBqbTM4B/E1e9Ymqa9Sr
-qvHMGps1YHuYf+CPQGJG9umcX+gj4S9RLeHCzmgG6JkWdiNp0THwtoHBiD7N1EW/
-y8nTyjgAVH9RhKePio1xDSr8FvJG25lt4DBqWd9sZM48gYkJCyPA+7VbRGXi20Bd
-w1pnDCZ7yMEILpsihvxPn1uS1fZnA3uJd933cAQWDbj7/9pU4GKNznL8eO7vZACj
-VeXNXJpHEFpZr7Nylmo2OfKcfvIWv49mw0l/3vqB0k9SM0uPcYf/ZwYXK9Z5p9DZ
-fzjsWcqm+vsGQlbqSRLC1RZcyXJKeL3tietscXBa4d56CM8yXuE2xmDJ+BEpYAy8
-iHxtYA7liIf1ic91MwkU
-=4CId
------END PGP SIGNATURE-----
+Eric W. Biederman wrote:
+> Martin Mokrejs <mmokrejs@fold.natur.cuni.cz> writes:
+> 
+>> David Miller wrote:
+>>> From: ebiederm@xmission.com (Eric W. Biederman)
+>>> Date: Sun, 27 Jan 2013 19:25:11 -0800
+>>>
+>>>> The typo is fixed in the patch this time in addition to my test
+>>>> tree.
+>>>
+>>> Applied, thanks for fixing this up Eric.
+>>
+>> I did check now how come that I patched my 3.7.4 on Jan 24. Looks like
+>> -head or -next has different namings. For me, the original patch applied
+>> fine. So far I haven't hit the memleak although it happened only once to me
+>> before the patch.
+> 
+> The problem isn't that the patch doesn't apply the problem is that the
+> patch did not build.  The naming has not changed in the git history.
+> 
+>> But probably I can confirm say Tested-by:.
+>>
+>> #
+>> -rw-r--r-- 1 root root  8435 Jan 24 17:12 /usr/src/linux-3.7.4/net/sctp/sysctl.c
+>> -rw-rw-r-- 1 root root  8347 Jan 21 20:45 /usr/src/linux-3.7.4/net/sctp/sysctl.c.orig
+>> # ls -la /usr/src/linux-3.7.4/net/sctp/sysctl.o
+>> -rw-r--r-- 1 root root 246144 Jan 21 22:37 /usr/src/linux-3.7.4/net/sctp/sysctl.o
+>> # ls -la /usr/src/linux-3.7.4/arch/x86/boot/bzImage 
+>> -rw-r--r-- 1 root root 3794592 Jan 21 22:45 /usr/src/linux-3.7.4/arch/x86/boot/bzImage
+>> #
+> 
+> It doesn't look look like you rebuilt anything after you applied the
+> changes to net/sctp/sysctl.c.  sysctl.o and bzImage are both 3 days older.
 
---=-dEpQe/sXXXdDwmwar9dI--
+Ah, I must have been really blind. Thanks for pointing that out. I should
+really start to do:
+
+make bzImage && make modules && make modules_install && cp arch/x86_64/boot/bzImage /boot/vmlinuz-$ver
+
+echo "silly me, make(1) did not delete the old bzImage"
+
+
+So I haven't tested the patch yet. doh. Provided I am running 3 days without reproducing
+the original memleak on an unpatched kernel I doubt I can easily prove it after a reboot.
+:( Will probably stay untested. But compiles fine here. ;-)
+
+
+Thanks,
+Martin
