@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cdc_ncm: use IAD provided by the USB core
-Date: Sun, 27 Jan 2013 19:28:03 -0500 (EST)
-Message-ID: <20130127.192803.1807601748904442959.davem@davemloft.net>
-References: <1359193020-12873-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH net 1/1] r8169: fix vlan tag read ordering.
+Date: Sun, 27 Jan 2013 19:29:19 -0500 (EST)
+Message-ID: <20130127.192919.269296979659118968.davem@davemloft.net>
+References: <20130124233006.GA7511@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	oliver@neukum.org, gsuarez@smithmicro.com,
-	alexey.orishko@stericsson.com
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com, timo.teras@iki.fi
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36793 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36811 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753039Ab3A1A2F convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:28:05 -0500
-In-Reply-To: <1359193020-12873-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1753067Ab3A1A3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:29:20 -0500
+In-Reply-To: <20130124233006.GA7511@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Sat, 26 Jan 2013 10:36:59 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 25 Jan 2013 00:30:06 +0100
 
-> commit 9992c2e (net: cdc_ncm: workaround for missing CDC Union)
-> added code to lookup an IAD for the interface we are probing.
-> This is redundant.  The USB core has already done the lookup
-> and saved the result in the USB interface struct.  Use that
-> instead.
->=20
-> Cc: Greg Suarez <gsuarez@smithmicro.com>
-> Cc: Alexey Orishko <alexey.orishko@stericsson.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> Control of receive descriptor must not be returned to ethernet chipset
+> before vlan tag processing is done.
+> 
+> VLAN tag receive word is now reset both in normal and error path.
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+> Spotted-by: Timo Teras <timo.teras@iki.fi>
+> Cc: Hayes Wang <hayeswang@realtek.com>
 
-Applied to 'net'.
+Applied.
