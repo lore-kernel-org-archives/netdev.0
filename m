@@ -1,78 +1,52 @@
-From: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
-Subject: RE: [PATCH] be2net: Updating Module Author string and log message
- string to "Emulex Corporation"
-Date: Mon, 28 Jan 2013 14:23:42 +0000
-Message-ID: <9D1F9FE58F08ED47AA451ABB038550E91FEE3604@CMEXMB1.ad.emulex.com>
-References: <1359382621-16775-1-git-send-email-sarveshwar.bandi@emulex.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
+Date: Mon, 28 Jan 2013 15:24:34 +0100
+Message-ID: <878v7dpeql.fsf@nemi.mork.no>
+References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
+	<20130127001347.584711b2@xenia> <87zjztptez.fsf@nemi.mork.no>
+	<010f01cdfd5c$768d4240$63a7c6c0$@asix.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:6372 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756756Ab3A1OXo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 09:23:44 -0500
-In-Reply-To: <1359382621-16775-1-git-send-email-sarveshwar.bandi@emulex.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "'Michael Leun'" <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <Support-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+To: "Freddy" <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <010f01cdfd5c$768d4240$63a7c6c0$@asix.com.tw>
+	(freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org's message of "Mon, 28 Jan 2013 21:36:20 +0800")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dave,
-  Please apply this patch to net-next. Sorry I missed updating that info when sending the patch.
+"Freddy" <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org> writes:
 
-Thanks,
-Sarvesh
+> Bj=C3=B8rn, I am trying to reproduce the issue mentioned by Michael a=
+nd I
+> have a question about submitting this driver.
+>
+> Should I merge this driver into asix_devices.c and asix_common.c even
+> through the usb command, tx_fixup, and rx_fixup functions are totally
+> different?
 
------Original Message-----
-From: Bandi,Sarveshwar 
-Sent: Monday, January 28, 2013 7:47 PM
-To: davem@davemloft.net
-Cc: netdev@vger.kernel.org; Bandi,Sarveshwar
-Subject: [PATCH] be2net: Updating Module Author string and log message string to "Emulex Corporation"
+This is only my personal opinion and does not count as more than that,
+but I would have tried to identify as many common parts as possible in
+these drivers and reuse as much code as possible instead of creating
+slightly different copies.  That does not mean that there shouldn't be
+anything different.  If the framing is completely different, then it
+does of course not make any sense to share tx_fixup and rx_fixup.  But
+my impression from looking briefly on these drivers is that a lof of th=
+e
+code is very similar. I could of course be wrong...
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Please note that modifying asix_common.c in this process is perfectly O=
+K
+if that is necessary.  The only requirement is that you don't break
+anything that used to work.
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    8 ++++----
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
- 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 4eba17b..f1b3df1 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -36,13 +36,13 @@
- 
- #define DRV_VER			"4.4.161.0u"
- #define DRV_NAME		"be2net"
--#define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
--#define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
--#define OC_NAME			"Emulex OneConnect 10Gbps NIC"
-+#define BE_NAME			"Emulex BladeEngine2"
-+#define BE3_NAME		"Emulex BladeEngine3"
-+#define OC_NAME			"Emulex OneConnect"
- #define OC_NAME_BE		OC_NAME	"(be3)"
- #define OC_NAME_LANCER		OC_NAME "(Lancer)"
- #define OC_NAME_SH		OC_NAME "(Skyhawk)"
--#define DRV_DESC		"ServerEngines BladeEngine 10Gbps NIC Driver"
-+#define DRV_DESC		"Emulex OneConnect 10Gbps NIC Driver"
- 
- #define BE_VENDOR_ID 		0x19a2
- #define EMULEX_VENDOR_ID	0x10df
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5c99570..4d6f3c5 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -25,7 +25,7 @@
- MODULE_VERSION(DRV_VER);
- MODULE_DEVICE_TABLE(pci, be_dev_ids);
- MODULE_DESCRIPTION(DRV_DESC " " DRV_VER); -MODULE_AUTHOR("ServerEngines Corporation");
-+MODULE_AUTHOR("Emulex Corporation");
- MODULE_LICENSE("GPL");
- 
- static unsigned int num_vfs;
+Bj=C3=B8rn
 --
-1.7.9.5
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
