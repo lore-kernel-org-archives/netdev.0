@@ -1,45 +1,46 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] soreuseport: fix use of uid in tb->fastuid
-Date: Mon, 28 Jan 2013 08:47:07 +0100
-Message-ID: <20130128074707.GN9147@secunet.com>
-References: <alpine.DEB.2.00.1301260944370.27231@pokey.mtv.corp.google.com>
+From: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
+Subject: Re: [PATCH] SCTP: Free the per-net sysctl table on net exit. v2
+Date: Mon, 28 Jan 2013 09:33:28 +0100
+Message-ID: <510637D8.9000305@fold.natur.cuni.cz>
+References: <20130127.193511.2294954038548420781.davem@davemloft.net> <87libe3w69.fsf@xmission.com> <87obgayoo8.fsf_-_@xmission.com> <20130128.001125.1697434398997976656.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, eric.dumazet@gmail.com
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, vyasevich@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:55694 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753606Ab3A1HrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 02:47:09 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1301260944370.27231@pokey.mtv.corp.google.com>
+Received: from fold.natur.cuni.cz ([195.113.57.32]:57819 "HELO
+	fold.natur.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753671Ab3A1Idb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 03:33:31 -0500
+In-Reply-To: <20130128.001125.1697434398997976656.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 26, 2013 at 09:50:54AM -0800, Tom Herbert wrote:
-> Fix a reported compilation error where ia variable of type kuid_t
-> was being set to zero.
->=20
+David Miller wrote:
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Sun, 27 Jan 2013 19:25:11 -0800
+> 
+>> The typo is fixed in the patch this time in addition to my test
+>> tree.
+> 
+> Applied, thanks for fixing this up Eric.
 
-Thanks for fixing this.
-Unfortunately I get another compilation error now:
+I did check now how come that I patched my 3.7.4 on Jan 24. Looks like
+-head or -next has different namings. For me, the original patch applied
+fine. So far I haven't hit the memleak although it happened only once to me
+before the patch. But probably I can confirm say Tested-by:.
 
-net/ipv6/inet6_connection_sock.c: In function =E2=80=98inet6_csk_bind_c=
-onflict=E2=80=99:
-net/ipv6/inet6_connection_sock.c:37:12: error: incompatible types when =
-initializing type =E2=80=98int=E2=80=99 using type =E2=80=98kuid_t=E2=80=
-=99
-net/ipv6/inet6_connection_sock.c:54:30: error: incompatible type for ar=
-gument 1 of =E2=80=98uid_eq=E2=80=99
-include/linux/uidgid.h:70:20: note: expected =E2=80=98kuid_t=E2=80=99 b=
-ut argument is of type =E2=80=98int=E2=80=99
-make[3]: *** [net/ipv6/inet6_connection_sock.o] Error 1
+#
+-rw-r--r-- 1 root root  8435 Jan 24 17:12 /usr/src/linux-3.7.4/net/sctp/sysctl.c
+-rw-rw-r-- 1 root root  8347 Jan 21 20:45 /usr/src/linux-3.7.4/net/sctp/sysctl.c.orig
+# ls -la /usr/src/linux-3.7.4/net/sctp/sysctl.o
+-rw-r--r-- 1 root root 246144 Jan 21 22:37 /usr/src/linux-3.7.4/net/sctp/sysctl.o
+# ls -la /usr/src/linux-3.7.4/arch/x86/boot/bzImage 
+-rw-r--r-- 1 root root 3794592 Jan 21 22:45 /usr/src/linux-3.7.4/arch/x86/boot/bzImage
+#
 
-I wondered why noone else is seeing this, so I did some analysis.
-I'm getting this because of the UIDGID_STRICT_TYPE_CHECKS config option=
-=2E
-This is selected by USER_NS which in turn depends on UIDGID_CONVERTED.
-Most people can't enable USER_NS because they compile something like
-nfs or anything else that is not 'UIDGID_CONVERTED'.
+If 3.7 and earlier need the old patch (like I currently think) please make them aware
+of that.
+Martin
