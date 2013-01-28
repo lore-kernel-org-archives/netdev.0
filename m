@@ -1,81 +1,93 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
-Date: Mon, 28 Jan 2013 10:07:32 +0100
-Message-ID: <87zjztptez.fsf@nemi.mork.no>
-References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
-	<20130127001347.584711b2@xenia>
+From: Bob Liu <lliubbo@gmail.com>
+Subject: Re: [PATCH v5 31/45] blackfin/smp: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Mon, 28 Jan 2013 17:09:34 +0800
+Message-ID: <CAA_GA1fSLNKSDTGSzHoA+j-mur85BvoSRkARq+DMfORuwrrX4Q@mail.gmail.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+	<20130122074123.13822.39102.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Freddy Xin <freddy@asix.com.tw>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	louis@asix.com.tw, davem@davemloft.net, Support@asix.com.tw
-To: Michael Leun <lkml20130126@newton.leun.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130127001347.584711b2@xenia> (Michael Leun's message of "Sun,
-	27 Jan 2013 00:13:47 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130122074123.13822.39102.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello Michael,
-
-Michael Leun <lkml20130126@newton.leun.net> writes:
-
-> I would vote to not accept that driver for mainline as long as this
-> issues are not fixed.=20
+On Tue, Jan 22, 2013 at 3:41 PM, Srivatsa S. Bhat
+<srivatsa.bhat@linux.vnet.ibm.com> wrote:
+> Once stop_machine() is gone from the CPU offline path, we won't be able to
+> depend on preempt_disable() or local_irq_disable() to prevent CPUs from
+> going offline from under us.
 >
-> The vendor should not be able to claim "hooray, hooray, great device,
-> we even have an driver in linux main line" when it is actually such a=
-n
-> useless crap.
+> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
+> while invoking from atomic context.
+>
+> Cc: Mike Frysinger <vapier@gentoo.org>
+> Cc: Bob Liu <lliubbo@gmail.com>
+> Cc: Steven Miao <realmz6@gmail.com>
+> Cc: uclinux-dist-devel@blackfin.uclinux.org
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
-Well, that is fortunately not how these things work. The main goal is
-getting the devices supported in the kernel. Bugs can be fixed.  If a
-vendor can get any positive gain out of having a driver in mainline,
-then that is good for everyone, isn't it?  Of course, we can all agree
-that the effect of a *working* driver is more positive than a
-non-working driver...
+Thanks, will be applied to my blackfin arch tree.
 
-=46or now, the main focus should be fixing the issues which has been no=
-ted
-during review.  Your testing feedback is of course very useful, but you
-probably need to back them up with actual code change proposals if they
-are going to be dealt with at this stage.
+> ---
+>
+>  arch/blackfin/mach-common/smp.c |    6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+>
+> diff --git a/arch/blackfin/mach-common/smp.c b/arch/blackfin/mach-common/smp.c
+> index bb61ae4..6cc6d7a 100644
+> --- a/arch/blackfin/mach-common/smp.c
+> +++ b/arch/blackfin/mach-common/smp.c
+> @@ -194,6 +194,7 @@ void send_ipi(const struct cpumask *cpumask, enum ipi_message_type msg)
+>         struct ipi_data *bfin_ipi_data;
+>         unsigned long flags;
+>
+> +       get_online_cpus_atomic();
+>         local_irq_save(flags);
+>         smp_mb();
+>         for_each_cpu(cpu, cpumask) {
+> @@ -205,6 +206,7 @@ void send_ipi(const struct cpumask *cpumask, enum ipi_message_type msg)
+>         }
+>
+>         local_irq_restore(flags);
+> +       put_online_cpus_atomic();
+>  }
+>
+>  void arch_send_call_function_single_ipi(int cpu)
+> @@ -238,13 +240,13 @@ void smp_send_stop(void)
+>  {
+>         cpumask_t callmap;
+>
+> -       preempt_disable();
+> +       get_online_cpus_atomic();
+>         cpumask_copy(&callmap, cpu_online_mask);
+>         cpumask_clear_cpu(smp_processor_id(), &callmap);
+>         if (!cpumask_empty(&callmap))
+>                 send_ipi(&callmap, BFIN_IPI_CPU_STOP);
+>
+> -       preempt_enable();
+> +       put_online_cpus_atomic();
+>
+>         return;
+>  }
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-> Of course I'm offering to help with any information or testing, but
-> unfortunately I do not have the knowhow to fix anything myself.=20
-
-I believe this is where you are totally wrong.  You obviuously have the
-ability to create a few simple test cases for yourself and see if the
-driver behaves as you expect.  That is very useful.
-
-And you have a device.  That is also useful.
-
-Now, the driver source code is available.  And there is another Asix
-driver in the kernel which already has been cleaned up and can be used
-as an example. And maybe even partly used for the new devices as well,
-if the code is duplicated?  I have not looked at this in detail, but I
-suspect that much of the problem with the ax88179_178a driver is that i=
-t
-has completely ignored all the work that has gone into the asix driver
-after it was mainlined.  I find it unlikely that there is no reusable
-code in the asix_devices.c, asix_common.c and ax88172a.c files.  Trying
-to rewrite ax88179_178a to share as much code as possible seems like th=
-e
-best way to clean it up and fix bugs.
-
-You have documents like
-http://www.kernel.org/doc/Documentation/SubmittingPatches helping a lot
-with cleanup jobs like this, because it is mostly about just following
-that recipe.  If you do, then the code will be reviewable by the
-community because the size will be reduced and the style readable.  And
-the driver might even work, as the cleanup will quite possibly reveal a
-number of bugs...
-
-Please consider this option.  Reading and fixing up C code is not very
-difficult. Getting this driver into the kernel in a good shape is mostl=
-y
-just monkey work.  But some monkey has to do it :-)
-
-
-Bj=C3=B8rn
+-- 
+Regards,
+--Bob
