@@ -1,37 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vhost-net: fall back to vmalloc if high-order
- allocation fails
-Date: Sun, 27 Jan 2013 22:11:37 -0500 (EST)
-Message-ID: <20130127.221137.1761549497221263360.davem@davemloft.net>
-References: <87k3r31vbc.fsf@silenus.orebokech.com>
-	<20130123210411.GA9055@redhat.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] pktgen: use the net namespace of current
+ process instead of init_net
+Date: Mon, 28 Jan 2013 11:13:14 +0800
+Message-ID: <1359342794.20444.11.camel@cr0>
+References: <1359340387-18004-1-git-send-email-amwang@redhat.com>
+	 <87mwvu10rj.fsf@xmission.com> <1359341852.20444.10.camel@cr0>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: romain@orebokech.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130123210411.GA9055@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4381 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751380Ab3A1DNU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2013 22:13:20 -0500
+In-Reply-To: <1359341852.20444.10.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 23 Jan 2013 23:04:11 +0200
+On Mon, 2013-01-28 at 10:57 +0800, Cong Wang wrote:
+> 
+> Hmm, I didn't think much about this. You are right... we could probably
+> make these proc files per-net.
 
-> Maybe we should try and reduce our memory usage,
-> I will look into this.
-
-As has been pointed out, 32K of the size is from those iovecs in
-the queues.
-
-The size of this structure is frankly offensive, and even if you add
-some levels of indirection even just one iovec chunk is 16K on 64-bit
-which is in my opinion still unacceptably large.
-
-TCP sockets aren't even %25 the size of this beast. :-)
-
-I'm not going to apply this vmalloc patch, because if I apply it the
-fundamental problem here just gets swept under the carpet even longer.
-
-Sorry.
+Cooking a patch now.
