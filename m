@@ -1,77 +1,58 @@
-From: Vikram Narayanan <vikram186@gmail.com>
-Subject: i.Mx6Quad - eth0: tx queue full!
-Date: Mon, 28 Jan 2013 23:09:58 +0530
-Message-ID: <5106B7EE.3040603@gmail.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [net] e1000e: enable ECC on I217/I218 to catch packet buffer
+ memory errors
+Date: Mon, 28 Jan 2013 17:46:32 +0000
+Message-ID: <804857E1F29AAC47BF68C404FC60A1843ABC314B@ORSMSX102.amr.corp.intel.com>
+References: <1359369828-13663-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <CA+5PVA5i-jVrjtO1Lbm=DSWk0o+C6P87kqKUqNnbThafFF2o0A@mail.gmail.com>
+ <1359377156.2255.74.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: LAK <linux-arm-kernel@lists.infradead.org>, shawn.guo@linaro.org,
-	=?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>,
-	Greg Ungerer <gregungerer@westnet.com.au>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:34032 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756576Ab3A1RkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 12:40:07 -0500
-Received: by mail-pb0-f47.google.com with SMTP id rp8so835655pbb.34
-        for <netdev@vger.kernel.org>; Mon, 28 Jan 2013 09:40:07 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"stable@vger.kernel.org" <stable@vger.kernel.org>
+To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Josh Boyer <jwboyer@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1359377156.2255.74.camel@jtkirshe-mobl>
+Content-Language: en-US
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Running the latest head <linux-2.6.git> on an i.Mx6Quad based platform
-gives me the below error when flooded with ping requests.
-
-== Start log ==
-[ 2555.004031] ------------[ cut here ]------------
-[ 2555.009740] WARNING: at net/sched/sch_generic.c:254 dev_watchdog+0x298/0x2b8()
-[ 2555.018721] NETDEV WATCHDOG: eth0 (fec): transmit queue 0 timed out
-[ 2555.026733] Modules linked in:
-[ 2555.030598] Backtrace:
-[ 2555.034252] [<800119c8>] (dump_backtrace+0x0/0x10c) from [<803b8494>] (dump_stack+0x18/0x1c)
-[ 2555.044438]  r6:000000fe r5:80302f64 r4:80503dd0 r3:80510e80
-[ 2555.052019] [<803b847c>] (dump_stack+0x0/0x1c) from [<8001df08>] (warn_slowpath_common+0x54/0x6c)
-[ 2555.062679] [<8001deb4>] (warn_slowpath_common+0x0/0x6c) from [<8001dfc4>] (warn_slowpath_fmt+0x38/0x40)
-[ 2555.073936]  r8:8052ebf1 r7:805040c0 r6:00000000 r5:8f9771d4 r4:8f977000
-r3:00000009
-[ 2555.084816] [<8001df8c>] (warn_slowpath_fmt+0x0/0x40) from [<80302f64>] (dev_watchdog+0x298/0x2b8)
-[ 2555.095535]  r3:8f977000 r2:8049f6d4
-[ 2555.099868] [<80302ccc>] (dev_watchdog+0x0/0x2b8) from [<8002acf8>] (call_timer_fn.isra.33+0x2c/0x8c)
-[ 2555.110794] [<8002accc>] (call_timer_fn.isra.33+0x0/0x8c) from [<8002af48>] (run_timer_softirq+0x1f0/0x204)
-[ 2555.122240]  r7:80571114 r6:805040c0 r5:00000000 r4:80570900
-[ 2555.129894] [<8002ad58>] (run_timer_softirq+0x0/0x204) from [<80025750>] (__do_softirq+0xc8/0x180)
-[ 2555.140599] [<80025688>] (__do_softirq+0x0/0x180) from [<80025b40>] (irq_exit+0x88/0x90)
-[ 2555.150492] [<80025ab8>] (irq_exit+0x0/0x90) from [<8000ec58>] (handle_IRQ+0x44/0x98)
-[ 2555.160112]  r4:804ffde0 r3:00000220
-[ 2555.164848] [<8000ec14>] (handle_IRQ+0x0/0x98) from [<80008540>] (gic_handle_irq+0x30/0x64)
-[ 2555.174956]  r6:80503f28 r5:8050a518 r4:f400010c r3:00000000
-[ 2555.182694] [<80008510>] (gic_handle_irq+0x0/0x64) from [<8000df80>] (__irq_svc+0x40/0x50)
-[ 2555.192737] Exception stack(0x80503f28 to 0x80503f70)
-[ 2555.198639] 3f20:                   8052f150 a0000093 00000000 00000000 80502000 8052ed08
-[ 2555.208600] 3f40: 8050a4f4 803bfaec 8050df00 412fc09a 80502000 80503f7c 80503f80 80503f70
-[ 2555.218584] 3f60: 8000eee4 8000eee8 60000013 ffffffff
-[ 2555.224730]  r7:80503f5c r6:ffffffff r5:60000013 r4:8000eee8
-[ 2555.232292] [<8000eeb8>] (default_idle+0x0/0x38) from [<8000f0d8>] (cpu_idle+0xcc/0x114)
-[ 2555.242204] [<8000f00c>] (cpu_idle+0x0/0x114) from [<803b3718>] (rest_init+0x64/0x7c)
-[ 2555.251858] [<803b36b4>] (rest_init+0x0/0x7c) from [<804cc7dc>] (start_kernel+0x258/0x298)
-[ 2555.261963] [<804cc584>] (start_kernel+0x0/0x298) from [<10008078>] (0x10008078)
-[ 2555.271167] ---[ end trace 3d2ffb53e6fe41f3 ]---
-[ 2555.277270] eth0: tx queue full!.
-[ 2555.288776] eth0: tx queue full!.
-[ 2555.293594] eth0: tx queue full!.
-[ 2555.297944] eth0: tx queue full!.
-[ 2555.302229] eth0: tx queue full!.
-
-...... continues indefinitely and needs a reboot to recover the system.
-== End log ==
-
-i.Mx6Quad's MAC is connected to SMSC LAN88730 PHY via an MII interface.
-
-I found a similar thread [1], but that solution didn't work for me.
-Any ideas on why the fec driver is unhappy?
-
-Thanks,
-Vikram
-
-[1] https://community.freescale.com/thread/281457
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBLaXJzaGVyLCBKZWZmcmV5IFQN
+Cj4gU2VudDogTW9uZGF5LCBKYW51YXJ5IDI4LCAyMDEzIDQ6NDYgQU0NCj4gVG86IEpvc2ggQm95
+ZXINCj4gQ2M6IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IEFsbGFuLCBCcnVjZSBXOyBuZXRkZXZAdmdl
+ci5rZXJuZWwub3JnOw0KPiBnb3Nwb0ByZWRoYXQuY29tOyBzYXNzbWFubkByZWRoYXQuY29tOyBz
+dGFibGVAdmdlci5rZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBbbmV0XSBlMTAwMGU6IGVuYWJs
+ZSBFQ0Mgb24gSTIxNy9JMjE4IHRvIGNhdGNoIHBhY2tldCBidWZmZXINCj4gbWVtb3J5IGVycm9y
+cw0KPiANCj4gT24gTW9uLCAyMDEzLTAxLTI4IGF0IDA3OjM4IC0wNTAwLCBKb3NoIEJveWVyIHdy
+b3RlOg0KPiA+IE9uIE1vbiwgSmFuIDI4LCAyMDEzIGF0IDU6NDMgQU0sIEplZmYgS2lyc2hlcg0K
+PiA+IDxqZWZmcmV5LnQua2lyc2hlckBpbnRlbC5jb20+IHdyb3RlOg0KPiA+ID4gRnJvbTogQnJ1
+Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5AaW50ZWwuY29tPg0KPiA+ID4NCj4gPiA+IEluIHJhcmUg
+aW5zdGFuY2VzLCBtZW1vcnkgZXJyb3JzIGhhdmUgYmVlbiBkZXRlY3RlZCBpbiB0aGUgaW50ZXJu
+YWwNCj4gcGFja2V0DQo+ID4gPiBidWZmZXIgbWVtb3J5IG9uIEkyMTcvSTIxOCB3aGVuIHN0cmVz
+c2VkIHVuZGVyIGNlcnRhaW4NCj4gZW52aXJvbm1lbnRhbA0KPiA+ID4gY29uZGl0aW9ucy4gIEVu
+YWJsZSBFcnJvciBDb3JyZWN0aW5nIENvZGUgKEVDQykgaW4gaGFyZHdhcmUgdG8gY2F0Y2gNCj4g
+Ym90aA0KPiA+ID4gY29ycmVjdGFibGUgYW5kIHVuY29ycmVjdGFibGUgZXJyb3JzLiAgQ29ycmVj
+dGFibGUgZXJyb3JzIHdpbGwgYmUgaGFuZGxlZA0KPiA+ID4gYnkgdGhlIGhhcmR3YXJlLiAgVW5j
+b3JyZWN0YWJsZSBlcnJvcnMgaW4gdGhlIHBhY2tldCBidWZmZXIgd2lsbCBjYXVzZQ0KPiB0aGUN
+Cj4gPiA+IHBhY2tldCB0byBiZSByZWNlaXZlZCB3aXRoIGFuIGVycm9yIGluZGljYXRpb24gaW4g
+dGhlIGJ1ZmZlciBkZXNjcmlwdG9yDQo+ID4gPiBjYXVzaW5nIHRoZSBwYWNrZXQgdG8gYmUgZGlz
+Y2FyZGVkLiAgSWYgdGhlIHVuY29ycmVjdGFibGUgZXJyb3IgaXMgaW4gdGhlDQo+ID4gPiBkZXNj
+cmlwdG9yIGl0c2VsZiwgdGhlIGhhcmR3YXJlIHdpbGwgc3RvcCBhbmQgaW50ZXJydXB0IHRoZSBk
+cml2ZXINCj4gPiA+IGluZGljYXRpbmcgdGhlIGVycm9yLiAgVGhlIGRyaXZlciB3aWxsIHRoZW4g
+cmVzZXQgdGhlIGhhcmR3YXJlIGluIG9yZGVyIHRvDQo+ID4gPiBjbGVhciB0aGUgZXJyb3IgYW5k
+IHJlc3RhcnQuDQo+ID4gPg0KPiA+ID4gQm90aCB0eXBlcyBvZiBlcnJvcnMgd2lsbCBiZSBhY2Nv
+dW50ZWQgZm9yIGluIHN0YXRpc3RpY3MgY291bnRlcnMuDQo+ID4gPg0KPiA+ID4gU2lnbmVkLW9m
+Zi1ieTogQnJ1Y2UgQWxsYW4gPGJydWNlLncuYWxsYW5AaW50ZWwuY29tPg0KPiA+ID4gQ2M6IDxz
+dGFibGVAdmdlci5rZXJuZWwub3JnPiAjIDMuNS54ICYgMy42LngNCj4gPg0KPiA+IDMuNS54IGlz
+IG1haW50YWluZWQgYnkgQ2Fub25pY2FsLCBub3Qgb2ZmaWNpYWxseSBhcyBhIHN0YWJsZSBrZXJu
+ZWwgKEkNCj4gPiBoYXZlIG5vIGlkZWEgd2h5KS4gIDMuNi54IGlzbid0IG1haW50YWluZWQgYW55
+IGxvbmdlci4NCj4gPg0KPiA+IElzIHRoaXMgYXBwbGljYWJsZSB0byAzLjQueCBhbmQgMy43Lng/
+DQo+IA0KPiBJdCBpcyBhcHBsaWNhYmxlIHRvIDMuNy54LCBub3Qgc3VyZSBpZiBpdCBhcHBsaWNh
+YmxlIHRvIDMuNC54Lg0KDQpOb3QgYXBwbGljYWJsZSB0byAzLjQueCAobm8gc3VwcG9ydCBmb3Ig
+STIxNyBvciBJMjE4IHByaW9yIHRvIDMuNSB3aGljaCB3YXMgbm90IHlldCBFT0wnZWQNCndoZW4g
+SSBvcmlnaW5hbGx5IHdyb3RlIHRoaXMgcGF0Y2gpLg0KDQpCcnVjZS4NCg==
