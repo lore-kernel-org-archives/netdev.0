@@ -1,19 +1,36 @@
-From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH] be2net: Updating Module Author string and log message string to "Emulex Corporation"
-Date: Mon, 28 Jan 2013 19:47:01 +0530
-Message-ID: <744b8e73-1b6a-476d-b8ad-4a2004f3252c@CMEXHTCAS1.ad.emulex.com>
+From: "Bandi,Sarveshwar" <Sarveshwar.Bandi@Emulex.Com>
+Subject: RE: [PATCH] be2net: Updating Module Author string and log message
+ string to "Emulex Corporation"
+Date: Mon, 28 Jan 2013 14:23:42 +0000
+Message-ID: <9D1F9FE58F08ED47AA451ABB038550E91FEE3604@CMEXMB1.ad.emulex.com>
+References: <1359382621-16775-1-git-send-email-sarveshwar.bandi@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:57157 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756298Ab3A1OQC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 09:16:02 -0500
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:6372 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756756Ab3A1OXo convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 09:23:44 -0500
+In-Reply-To: <1359382621-16775-1-git-send-email-sarveshwar.bandi@emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Dave,
+  Please apply this patch to net-next. Sorry I missed updating that info when sending the patch.
+
+Thanks,
+Sarvesh
+
+-----Original Message-----
+From: Bandi,Sarveshwar 
+Sent: Monday, January 28, 2013 7:47 PM
+To: davem@davemloft.net
+Cc: netdev@vger.kernel.org; Bandi,Sarveshwar
+Subject: [PATCH] be2net: Updating Module Author string and log message string to "Emulex Corporation"
 
 From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
@@ -52,11 +69,10 @@ index 5c99570..4d6f3c5 100644
 @@ -25,7 +25,7 @@
  MODULE_VERSION(DRV_VER);
  MODULE_DEVICE_TABLE(pci, be_dev_ids);
- MODULE_DESCRIPTION(DRV_DESC " " DRV_VER);
--MODULE_AUTHOR("ServerEngines Corporation");
+ MODULE_DESCRIPTION(DRV_DESC " " DRV_VER); -MODULE_AUTHOR("ServerEngines Corporation");
 +MODULE_AUTHOR("Emulex Corporation");
  MODULE_LICENSE("GPL");
  
  static unsigned int num_vfs;
--- 
+--
 1.7.9.5
