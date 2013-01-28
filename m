@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] irda: buffer overflow in irnet_ctrl_read()
-Date: Sun, 27 Jan 2013 20:39:00 -0500 (EST)
-Message-ID: <20130127.203900.315969902013911354.davem@davemloft.net>
-References: <20130125064056.GA4882@elgon.mountain>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 2/2] net: sh-eth: Use pr_err instead of printk
+Date: Mon, 28 Jan 2013 10:41:57 +0900
+Message-ID: <20130128014157.GC27896@verge.net.au>
+References: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+ <1350350279-8693-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+ <20130128012640.GB27896@verge.net.au>
+ <20130127.202855.2183638663551956921.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset=us-ascii
+Cc: nobuhiro.iwamatsu.yj@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37395 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419Ab3A1BjC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:39:02 -0500
-In-Reply-To: <20130125064056.GA4882@elgon.mountain>
+Received: from kirsty.vergenet.net ([202.4.237.240]:48490 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756501Ab3A1BmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:42:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20130127.202855.2183638663551956921.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 25 Jan 2013 09:40:56 +0300
+On Sun, Jan 27, 2013 at 08:28:55PM -0500, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Mon, 28 Jan 2013 10:26:40 +0900
+> 
+> > [Cc David Miller, linux-sh]
+> > 
+> > On Tue, Oct 16, 2012 at 10:17:59AM +0900, Nobuhiro Iwamatsu wrote:
+> >> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> > 
+> > Acked-by: Simon Horman <horms+renesas@verge.net.au>
+> > 
+> > Dave, I know this is an oldie, but it appears to still be a goodie.
+> > Could you consider it for 3.8?
+> 
+> Why would I consider it for 3.8?  We're in critical-but-fix-only
+> state and this just modifies kernel log messages in what should
+> be rare error paths, so entirely not appropriate for 3.8
 
-> The comments here say that the /* Max event is 61 char */ but in 2003 we
-> changed the event format and now the max event size is 75.  The longest
-> event is:
-> 
-> 	"Discovered %08x (%s) behind %08x {hints %02X-%02X}\n",
->          12345678901    23  456789012    34567890    1    2 3
-> 	            +8    +21        +8          +2   +2     +1
->          = 75 characters.
-> 
-> There was a check to return -EOVERFLOW if the user gave us a "count"
-> value that was less than 64.  Raising it to 75 might break backwards
-> compatability.  Instead I removed the check and now it returns a
-> truncated string if "count" is too low.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Applied to net-next, thanks.
+Sorry, I'll repost it for 3.9 at a later date.
