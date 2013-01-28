@@ -1,49 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
- 2013.01.27
-Date: Sun, 27 Jan 2013 19:07:48 -0500 (EST)
-Message-ID: <20130127.190748.404517979856325333.davem@davemloft.net>
-References: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: pull request: batman-adv 2013-01-27
+Date: Sun, 27 Jan 2013 19:11:40 -0500 (EST)
+Message-ID: <20130127.191140.655904034749695176.davem@davemloft.net>
+References: <1359315839-24136-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	bruce.w.allan@intel.com
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36616 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36675 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754649Ab3A1AHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:07:49 -0500
-In-Reply-To: <1359283193-2043-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1753039Ab3A1ALl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:11:41 -0500
+In-Reply-To: <1359315839-24136-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 27 Jan 2013 02:39:39 -0800
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Sun, 27 Jan 2013 20:43:56 +0100
 
-> This series contains updates to e1000e only.  All the updates come
-> from Bruce Allan and most of the patch fix or enable features on
-> i217/i218.  Most notably is patch 03 "e1000e: add support for IEEE-1588
-> PTP", which is v2 of the patch based on feedback from Stephen Hemminger.
+> This is a small patchset intended for net/linux-3.8.
+> Here there are three small patches from Matthias Schiffer aimed to fix some
+> memory problems in the recently introduced D.A.T. component. One of them is
+> fixing an skb memleak, one is fixing the ARP filter routine by preventing DAT to
+> parse not useful messages (so reducing the amount of memory used by the local
+> cache) and one fixing again the ARP filter routine by preventing DAT to
+> overwrite correct entries with bogus ones in the local cache.
 > 
-> Also patch 04 "e1000e: enable ECC on I217/I218 to catch packet buffer
-> memory errors" should be queued up for stable (as well as net) trees, but
-> the patch does not apply cleanly to either of those trees currently.
-> So I will work with Bruce to provide a version of the patch which will
-> apply cleanly to net (and stable) and we can queue it up at that point
-> for stable 3.5 tree.
-> 
-> The remaining patches are general cleanups of the code.
+> Please pull or let me know if there is any problem.
 
-Thanks, please provide more commentary like this in future
-pull requests, it helps me a lot and it does get added to the
-merge commit I make when I pull from your tree.
-
-> 
-> The following are changes since commit 031554eab078705edb96e9a39665597e3fd22781:
->   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Pulled, thanks Jeff.
+Pulled, thanks Antonio.
