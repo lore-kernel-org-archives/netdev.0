@@ -1,71 +1,90 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 28 Jan 2013 01:04:15 -0800
-Message-ID: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 01/14] e1000e: cleanup: remove e1000_set_d0_lplu_state()
+Date: Mon, 28 Jan 2013 01:04:16 -0800
+Message-ID: <1359363869-32391-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:47947 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067Ab3A1JEd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 04:04:33 -0500
+	id S1751305Ab3A1JEe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 04:04:34 -0500
+In-Reply-To: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e1000e, ixgbevf, igb and igbvf.
-Majority of the patches are code cleanups of e1000e where code
-is removed (Yeah!).  The other two e1000e patches are fixes.  The
-first is to fix the maximum frame size for 82579 devices.  The second
-fix is to resolve an issue with devices other than 82579 that suffer
-from dropped transactions on platforms with deep C-states when
-jumbo frames are enabled.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The ixgbevf patch is to ensure that the driver fetches the correct,
-refreshed value for link status and speed when the values have changed.
+Replace the function e1000_set_d0_lplu_state() with the contents of it
+coded in place of the single call to the function.
 
-The igb and igbvf patches are a solution to an issue Stefan Assmann
-reported, where when the PF is up and igbvf is loaded, the MAC address
-is not generated using eth_hw_addr_random().
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/phy.c | 33 ++++++---------------------------
+ 1 file changed, 6 insertions(+), 27 deletions(-)
 
-The following are changes since commit a1b1add07fa794974573d93483d68e373edfe7bd:
-  gro: Fix kcalloc argument order
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Bruce Allan (11):
-  e1000e: cleanup: remove e1000_set_d0_lplu_state()
-  e1000e: cleanup: remove e1000_force_speed_duplex()
-  e1000e: cleanup: rename e1000_get_cfg_done()
-  e1000e: cleanup: remove e1000_get_phy_cfg_done()
-  e1000e: cleanup: remove e1000_get_cable_length()
-  e1000e: cleanup: remove e1000e_commit_phy()
-  e1000e: correct maximum frame size on 82579
-  e1000e: adjust PM QoS request
-  e1000e: cleanup: remove unused #define
-  e1000e: cleanup hw.h
-  e1000e: cleanup: remove comments which are no longer applicable
-
-Greg Rose (1):
-  ixgbevf: Make sure link status and speed are fetched
-
-Mitch A Williams (2):
-  igb: Don't give VFs random MAC addresses
-  igbvf: be sane about random MAC addresses
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c |   2 +-
- drivers/net/ethernet/intel/e1000e/82571.c       |   4 +-
- drivers/net/ethernet/intel/e1000e/defines.h     |   9 +-
- drivers/net/ethernet/intel/e1000e/e1000.h       |  12 +--
- drivers/net/ethernet/intel/e1000e/ethtool.c     |   5 +-
- drivers/net/ethernet/intel/e1000e/hw.h          |  25 +++---
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |   4 +-
- drivers/net/ethernet/intel/e1000e/netdev.c      |  32 +++----
- drivers/net/ethernet/intel/e1000e/phy.c         | 114 +++++-------------------
- drivers/net/ethernet/intel/igb/igb_main.c       |   6 +-
- drivers/net/ethernet/intel/igbvf/netdev.c       |  24 +++--
- drivers/net/ethernet/intel/ixgbevf/ethtool.c    |   1 +
- 12 files changed, 76 insertions(+), 162 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/e1000e/phy.c b/drivers/net/ethernet/intel/e1000e/phy.c
+index 44fb432..73d7813 100644
+--- a/drivers/net/ethernet/intel/e1000e/phy.c
++++ b/drivers/net/ethernet/intel/e1000e/phy.c
+@@ -30,7 +30,6 @@
+ 
+ static s32 e1000_get_phy_cfg_done(struct e1000_hw *hw);
+ static s32 e1000_phy_force_speed_duplex(struct e1000_hw *hw);
+-static s32 e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active);
+ static s32 e1000_wait_autoneg(struct e1000_hw *hw);
+ static s32 e1000_access_phy_wakeup_reg_bm(struct e1000_hw *hw, u32 offset,
+ 					  u16 *data, bool read, bool page_set);
+@@ -894,10 +893,12 @@ s32 e1000e_copper_link_setup_igp(struct e1000_hw *hw)
+ 	msleep(100);
+ 
+ 	/* disable lplu d0 during driver init */
+-	ret_val = e1000_set_d0_lplu_state(hw, false);
+-	if (ret_val) {
+-		e_dbg("Error Disabling LPLU D0\n");
+-		return ret_val;
++	if (hw->phy.ops.set_d0_lplu_state) {
++		ret_val = hw->phy.ops.set_d0_lplu_state(hw, false);
++		if (ret_val) {
++			e_dbg("Error Disabling LPLU D0\n");
++			return ret_val;
++		}
+ 	}
+ 	/* Configure mdi-mdix settings */
+ 	ret_val = e1e_rphy(hw, IGP01E1000_PHY_PORT_CTRL, &data);
+@@ -2820,28 +2821,6 @@ s32 e1000e_commit_phy(struct e1000_hw *hw)
+ }
+ 
+ /**
+- *  e1000_set_d0_lplu_state - Sets low power link up state for D0
+- *  @hw: pointer to the HW structure
+- *  @active: boolean used to enable/disable lplu
+- *
+- *  Success returns 0, Failure returns 1
+- *
+- *  The low power link up (lplu) state is set to the power management level D0
+- *  and SmartSpeed is disabled when active is true, else clear lplu for D0
+- *  and enable Smartspeed.  LPLU and Smartspeed are mutually exclusive.  LPLU
+- *  is used during Dx states where the power conservation is most important.
+- *  During driver activity, SmartSpeed should be enabled so performance is
+- *  maintained.  This is a function pointer entry point called by drivers.
+- **/
+-static s32 e1000_set_d0_lplu_state(struct e1000_hw *hw, bool active)
+-{
+-	if (hw->phy.ops.set_d0_lplu_state)
+-		return hw->phy.ops.set_d0_lplu_state(hw, active);
+-
+-	return 0;
+-}
+-
+-/**
+  *  __e1000_read_phy_reg_hv -  Read HV PHY register
+  *  @hw: pointer to the HW structure
+  *  @offset: register offset to be read
 -- 
 1.7.11.7
