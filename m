@@ -1,50 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: fix possible wrong checksum generation
-Date: Mon, 28 Jan 2013 00:28:01 -0500 (EST)
-Message-ID: <20130128.002801.200824996474874108.davem@davemloft.net>
-References: <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
-	<1359143538.12374.3379.camel@edumazet-glaptop>
-	<1359182077.5222.132.camel@edumazet-glaptop>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: pull-request: can-next 2013-01-26
+Date: Mon, 28 Jan 2013 06:58:29 +0100
+Message-ID: <51061385.9070108@hartkopp.net>
+References: <5103FFA3.5020507@pengutronix.de> <20130128.002455.638752456075920210.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39172 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751130Ab3A1F2C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 00:28:02 -0500
-In-Reply-To: <1359182077.5222.132.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mkl@pengutronix.de, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20130128.002455.638752456075920210.davem@davemloft.net>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 25 Jan 2013 22:34:37 -0800
+On 28.01.2013 06:24, David Miller wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> From: Marc Kleine-Budde <mkl@pengutronix.de>
+> Date: Sat, 26 Jan 2013 17:09:07 +0100
 > 
-> Pravin Shelar mentioned that GSO could potentially generate
-> wrong TX checksum if skb has fragments that are overwritten
-> by the user between the checksum computation and transmit.
+>> this is a pull-request for net-next/master. There is are 9 patches by 
+>> Fabio Baltieri and Kurt Van Dijck which add LED infrastructure and
+>> support for CAN devices. Bernd Krumboeck adds a driver for the USB CAN
+>> adapter from 8 devices. Oliver Hartkopp improves the CAN gateway
+>> functionality. There are 4 patches by me, which clean up the CAN's
+>> Kconfig.
 > 
-> He suggested to linearize skbs but this extra copy can be
-> avoided for normal tcp skbs cooked by tcp_sendmsg().
+> Pulled, although:
 > 
-> This patch introduces a new SKB_GSO_SHARED_FRAG flag, set
-> in skb_shinfo(skb)->gso_type if at least one frag can be
-> modified by the user.
-> 
-> Typical sources of such possible overwrites are {vm}splice(),
-> sendfile(), and macvtap/tun/virtio_net drivers.
-> 
-> Tested:
- ...
-> Performance of the SENDFILE is impacted by the extra allocation and
-> copy, and because we use order-0 pages, while the TCP_STREAM uses
-> bigger pages.
-> 
-> Reported-by: Pravin Shelar <pshelar@nicira.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 1) You need to create an accessor helper for that can_skb_priv
+>    thing, every access to it is that horrible cast expression.
 
-Applied, thanks Eric.
+
+Ok, will do.
+
+> 
+> 2) There is no reason to accomodate out of tree stuff, and for that
+>    reason I see no reason why you should need that headroom size
+>    check at all.
+> 
+>    Either the driver uses alloc_can_skb() or it does it's own SKB
+>    allocation and in-tree you've fixed that.
+> 
+>    You're just asking for trouble by trying to accomodate out of
+>    tree guys anyways, why if they create a headroom that happens
+>    to be the size of can_skb_priv.  See what a joke that test is?
+>    It's not really protecting fully against anything.
+
+
+I see.
+
+I'll remove the check and try to inform the few out of tree guys that i'm
+aware of.
+
+Thanks,
+Oliver
