@@ -1,36 +1,84 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: [PATCH] [PATCH] tcp: Increment of LINUX_MIB_LISTENOVERFLOWS in
- tcp_v4_conn_request() (updated)
-Date: Sun, 27 Jan 2013 18:01:35 -0800
-Message-ID: <CAGK4HS9_xZSWVHBQX3DwvR7swnGqqccdD8mvL-i20a2dnOvK1A@mail.gmail.com>
-References: <1359337550-3958-1-git-send-email-niveditasinghvi@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: Nivedita Singhvi <niveditasinghvi@gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] pktgen: use the net namespace of current process instead of init_net
+Date: Mon, 28 Jan 2013 10:33:07 +0800
+Message-ID: <1359340387-18004-1-git-send-email-amwang@redhat.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f45.google.com ([209.85.216.45]:65278 "EHLO
-	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757180Ab3A1CBg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 21:01:36 -0500
-Received: by mail-qa0-f45.google.com with SMTP id g10so681338qah.18
-        for <netdev@vger.kernel.org>; Sun, 27 Jan 2013 18:01:35 -0800 (PST)
-In-Reply-To: <1359337550-3958-1-git-send-email-niveditasinghvi@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:38154 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752364Ab3A1CdR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2013 21:33:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 27 January 2013 17:45, Nivedita Singhvi <niveditasinghvi@gmail.com> wrote:
-> From: Nivedita Singhvi <niv@us.ibm.com>
->
-> We drop a connection request if the accept backlog is full and there are
-> sufficient packets in the syn queue to warrant starting drops. Increment the
-> appropriate counter so this isn't silent, for accurate stats and help in
-> debugging.
->
-> Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
+From: Cong Wang <amwang@redhat.com>
 
-Acked-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+Use the net namespace of the current process loading
+pktgen module.
 
-Thanks,
-Vijay
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index b29dacf..db1f444 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -440,6 +440,7 @@ static int pg_count_d __read_mostly = 1000;
+ static int pg_delay_d __read_mostly;
+ static int pg_clone_skb_d  __read_mostly;
+ static int debug  __read_mostly;
++static struct net *pktgen_net __read_mostly;
+ 
+ static DEFINE_MUTEX(pktgen_thread_lock);
+ static LIST_HEAD(pktgen_threads);
+@@ -1910,7 +1911,7 @@ static int pktgen_device_event(struct notifier_block *unused,
+ {
+ 	struct net_device *dev = ptr;
+ 
+-	if (!net_eq(dev_net(dev), &init_net) || pktgen_exiting)
++	if (!net_eq(dev_net(dev), pktgen_net) || pktgen_exiting)
+ 		return NOTIFY_DONE;
+ 
+ 	/* It is OK that we do not hold the group lock right now,
+@@ -1944,7 +1945,7 @@ static struct net_device *pktgen_dev_get_by_name(struct pktgen_dev *pkt_dev,
+ 	}
+ 	b[i] = 0;
+ 
+-	return dev_get_by_name(&init_net, b);
++	return dev_get_by_name(pktgen_net, b);
+ }
+ 
+ 
+@@ -2205,7 +2206,7 @@ static void get_ipsec_sa(struct pktgen_dev *pkt_dev, int flow)
+ 	struct xfrm_state *x = pkt_dev->flows[flow].x;
+ 	if (!x) {
+ 		/*slow path: we dont already have xfrm_state*/
+-		x = xfrm_stateonly_find(&init_net, DUMMY_MARK,
++		x = xfrm_stateonly_find(pktgen_net, DUMMY_MARK,
+ 					(xfrm_address_t *)&pkt_dev->cur_daddr,
+ 					(xfrm_address_t *)&pkt_dev->cur_saddr,
+ 					AF_INET,
+@@ -3600,7 +3601,8 @@ static int __init pg_init(void)
+ 
+ 	pr_info("%s", version);
+ 
+-	pg_proc_dir = proc_mkdir(PG_PROC_DIR, init_net.proc_net);
++	pktgen_net = current->nsproxy->net_ns;
++	pg_proc_dir = proc_mkdir(PG_PROC_DIR, pktgen_net->proc_net);
+ 	if (!pg_proc_dir)
+ 		return -ENODEV;
+ 
+@@ -3634,7 +3636,7 @@ static int __init pg_init(void)
+ 	unregister_netdevice_notifier(&pktgen_notifier_block);
+ 	remove_proc_entry(PGCTRL, pg_proc_dir);
+  remove_dir:
+-	proc_net_remove(&init_net, PG_PROC_DIR);
++	proc_net_remove(pktgen_net, PG_PROC_DIR);
+ 	return ret;
+ }
+ 
