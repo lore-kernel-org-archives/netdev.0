@@ -1,27 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gro: Fix kcalloc argument order
-Date: Sun, 27 Jan 2013 19:13:41 -0500 (EST)
-Message-ID: <20130127.191341.444561143405489074.davem@davemloft.net>
-References: <1359228259.2079.30.camel@joe-AO722>
+Subject: Re: [PATCH] net: loopback: fix a dst refcounting issue
+Date: Sun, 27 Jan 2013 19:26:38 -0500 (EST)
+Message-ID: <20130127.192638.2227792070943381785.davem@davemloft.net>
+References: <1359135881.12374.3249.camel@edumazet-glaptop>
+	<20130127.013241.1524448507498580112.davem@davemloft.net>
+	<1359307508.5222.2226.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359228259.2079.30.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: greearb@candelatech.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36780 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753039Ab3A1A0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:26:39 -0500
+In-Reply-To: <1359307508.5222.2226.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 26 Jan 2013 11:24:19 -0800
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 27 Jan 2013 09:25:08 -0800
 
-> First number, then size.
+> On Sun, 2013-01-27 at 01:32 -0500, David Miller wrote:
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+>> Applied, I suspect we need to tree wide audit for other instances of
+>> this situation.  Probably greps for skb_orphan() would be a good
+>> start.
+> 
+> I highly suspect macvlan needs a skb_dst_drop(), but couldnt trigger
+> a case to trigger the fault.
 
-Good catch, since this bug doesn't cause any real functional problem
-I've applied the patch to net-next.
+I completely agree, when we hit the ->forward() or ->receive() method
+we are leaving the RCU safety zone for the cached dst.
+
+Even if you can't trigger it, this seems clear enough to me that we
+should put those skb_dst_drop() calls in, so please formally submit
+that patch you posted for Ben as an RFC last week.
 
 Thanks.
