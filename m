@@ -1,62 +1,111 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] igb: Don't give VFs random MAC addresses
-Date: Mon, 28 Jan 2013 01:04:28 -0800
-Message-ID: <1359363869-32391-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] e1000e: adjust PM QoS request
+Date: Mon, 28 Jan 2013 01:04:23 -0800
+Message-ID: <1359363869-32391-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Stefan Assmann <sassmann@kpanic.de>,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:23510 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:32473 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754702Ab3A1JEm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 04:04:42 -0500
+	id S1754251Ab3A1JEi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 04:04:38 -0500
 In-Reply-To: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch A Williams <mitch.a.williams@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-If the user has not assigned a MAC address to a VM, then don't give it a
-random one. Instead, just give it zeros and let it figure out what to do
-with them.
+It has been found that devices other than 82579 (a.k.a. e1000_pch2lan)
+suffer from dropped transactions on platforms with deep C-states when
+jumbo frames are enabled.  For example, LOMs on ICH9- and ICH10-based
+platforms which recently had early-receive de-featured (for stability
+reasons) suffer from this.  To resolve this for all devices, when jumbo
+frames are enabled set the PM QoS DMA latency request based on the size
+of the receive packet buffer less one full frame.
 
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: Stefan Assmann <sassmann@kpanic.de>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h |  2 ++
+ drivers/net/ethernet/intel/e1000e/netdev.c  | 32 +++++++++++++++--------------
+ 2 files changed, 19 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index b81a953..a59e630 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -5197,7 +5197,7 @@ static int igb_vf_configure(struct igb_adapter *adapter, int vf)
- {
- 	unsigned char mac_addr[ETH_ALEN];
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 3b99719..c458767 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -393,6 +393,8 @@
+ #define E1000_PBA_8K  0x0008    /* 8KB */
+ #define E1000_PBA_16K 0x0010    /* 16KB */
  
--	eth_random_addr(mac_addr);
-+	eth_zero_addr(mac_addr);
- 	igb_set_vf_mac(adapter, vf, mac_addr);
++#define E1000_PBA_RXA_MASK	0xFFFF
++
+ #define E1000_PBS_16K E1000_PBA_16K
  
- 	return 0;
-@@ -5550,9 +5550,9 @@ static void igb_vf_reset_event(struct igb_adapter *adapter, u32 vf)
- {
- 	unsigned char *vf_mac = adapter->vf_data[vf].vf_mac_addresses;
+ /* Uncorrectable/correctable ECC Error counts and enable bits */
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index e386e95..46a38a4 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -3242,18 +3242,23 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 		rxcsum &= ~E1000_RXCSUM_TUOFL;
+ 	ew32(RXCSUM, rxcsum);
  
--	/* generate a new mac address as we were hotplug removed/added */
-+	/* clear mac address as we were hotplug removed/added */
- 	if (!(adapter->vf_data[vf].flags & IGB_VF_FLAG_PF_SET_MAC))
--		eth_random_addr(vf_mac);
-+		eth_zero_addr(vf_mac);
+-	if (adapter->hw.mac.type == e1000_pch2lan) {
+-		/* With jumbo frames, excessive C-state transition
+-		 * latencies result in dropped transactions.
+-		 */
+-		if (adapter->netdev->mtu > ETH_DATA_LEN) {
++	/* With jumbo frames, excessive C-state transition latencies result
++	 * in dropped transactions.
++	 */
++	if (adapter->netdev->mtu > ETH_DATA_LEN) {
++		u32 lat =
++		    ((er32(PBA) & E1000_PBA_RXA_MASK) * 1024 -
++		     adapter->max_frame_size) * 8 / 1000;
++
++		if (adapter->flags & FLAG_IS_ICH) {
+ 			u32 rxdctl = er32(RXDCTL(0));
+ 			ew32(RXDCTL(0), rxdctl | 0x3);
+-			pm_qos_update_request(&adapter->netdev->pm_qos_req, 55);
+-		} else {
+-			pm_qos_update_request(&adapter->netdev->pm_qos_req,
+-					      PM_QOS_DEFAULT_VALUE);
+ 		}
++
++		pm_qos_update_request(&adapter->netdev->pm_qos_req, lat);
++	} else {
++		pm_qos_update_request(&adapter->netdev->pm_qos_req,
++				      PM_QOS_DEFAULT_VALUE);
+ 	}
  
- 	/* process remaining reset events */
- 	igb_vf_reset(adapter, vf);
+ 	/* Enable Receives */
+@@ -4281,10 +4286,8 @@ static int e1000_open(struct net_device *netdev)
+ 		e1000_update_mng_vlan(adapter);
+ 
+ 	/* DMA latency requirement to workaround jumbo issue */
+-	if (adapter->hw.mac.type == e1000_pch2lan)
+-		pm_qos_add_request(&adapter->netdev->pm_qos_req,
+-				   PM_QOS_CPU_DMA_LATENCY,
+-				   PM_QOS_DEFAULT_VALUE);
++	pm_qos_add_request(&adapter->netdev->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
++			   PM_QOS_DEFAULT_VALUE);
+ 
+ 	/* before we allocate an interrupt, we must be ready to handle it.
+ 	 * Setting DEBUG_SHIRQ in the kernel makes it fire an interrupt
+@@ -4392,8 +4395,7 @@ static int e1000_close(struct net_device *netdev)
+ 	    !test_bit(__E1000_TESTING, &adapter->state))
+ 		e1000e_release_hw_control(adapter);
+ 
+-	if (adapter->hw.mac.type == e1000_pch2lan)
+-		pm_qos_remove_request(&adapter->netdev->pm_qos_req);
++	pm_qos_remove_request(&adapter->netdev->pm_qos_req);
+ 
+ 	pm_runtime_put_sync(&pdev->dev);
+ 
 -- 
 1.7.11.7
