@@ -1,34 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: sh-eth: Use pr_err instead of printk
-Date: Sun, 27 Jan 2013 20:28:55 -0500 (EST)
-Message-ID: <20130127.202855.2183638663551956921.davem@davemloft.net>
-References: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-	<1350350279-8693-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-	<20130128012640.GB27896@verge.net.au>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next 2/2] netpoll: use the net namespace of current
+ process instead of init_net
+Date: Mon, 28 Jan 2013 09:36:00 +0800
+Message-ID: <1359336960.20444.7.camel@cr0>
+References: <1358931731-17438-1-git-send-email-amwang@redhat.com>
+	 <1358931731-17438-2-git-send-email-amwang@redhat.com>
+	 <1359194432.2654.1.camel@cr0> <87k3qz6w8x.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: horms@verge.net.au
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20130128012640.GB27896@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12384 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756419Ab3A1BgI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jan 2013 20:36:08 -0500
+In-Reply-To: <87k3qz6w8x.fsf@xmission.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 28 Jan 2013 10:26:40 +0900
+On Sat, 2013-01-26 at 21:16 -0800, Eric W. Biederman wrote:
+> Cong Wang <amwang@redhat.com> writes:
+> 
+> > On Wed, 2013-01-23 at 17:02 +0800, Cong Wang wrote:
+> >> From: Cong Wang <amwang@redhat.com>
+> >> 
+> >> This will allow us to setup netconsole in a different namespace
+> >> rather than where init_net is.
+> >> 
+> >
+> > Hmm, I missed to put the netns in netpoll_cleanup()...
+> >
+> > Will send v2.
+> 
+> Since you are working on it.  I forgot to mention that it doesn't
+> look you were working with nsproxy properly.  The code just felt
+> very different from every other nsproxy reference I have seen.
+> 
+> Looking more closely since you are looking at current you don't need
+> to test to see if nsproxy is NULL. You can just say.
+> 
+> -	if (np->dev_name)
+> -		ndev = __dev_get_by_name(&init_net, np->dev_name);
+> +	if (np->dev_name) {
+> +		net = current->nsproxy->net_ns;
+> +		ndev = __dev_get_by_name(net, np->dev_name);
+> +	}
+> 
+> task_nsproxy and get_net are needed when you are accessing another
+> tasks nsproxy.  Since you are just accessing current the code
+> can be much simpler.
 
-> [Cc David Miller, linux-sh]
-> 
-> On Tue, Oct 16, 2012 at 10:17:59AM +0900, Nobuhiro Iwamatsu wrote:
->> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> 
-> Acked-by: Simon Horman <horms+renesas@verge.net.au>
-> 
-> Dave, I know this is an oldie, but it appears to still be a goodie.
-> Could you consider it for 3.8?
+Ok.
 
-Why would I consider it for 3.8?  We're in critical-but-fix-only
-state and this just modifies kernel log messages in what should
-be rare error paths, so entirely not appropriate for 3.8
+> 
+> Which also means that you shouldn't need to get a reference to
+> the network namespace or put the reference to the network namespace.
+> Although you do need to handle things like network device hotplug
+> in case the network device (or equivalently for most purposes) the
+> network namespace goes away.
+
+I believe we already handle NETDEV_UNREGISTER.
+
+Thanks!
