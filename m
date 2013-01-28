@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] checkpatch.pl: Fix warnings on code comments
-Date: Sun, 27 Jan 2013 22:07:28 -0500 (EST)
-Message-ID: <20130127.220728.634216960903942581.davem@davemloft.net>
-References: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130127.185910.1743425400733006443.davem@davemloft.net>
-	<1359341805.2255.56.camel@jtkirshe-mobl>
+Subject: Re: [PATCH] vhost-net: fall back to vmalloc if high-order
+ allocation fails
+Date: Sun, 27 Jan 2013 22:11:37 -0500 (EST)
+Message-ID: <20130127.221137.1761549497221263360.davem@davemloft.net>
+References: <87k3r31vbc.fsf@silenus.orebokech.com>
+	<20130123210411.GA9055@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: apw@canonical.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38219 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752598Ab3A1DHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 22:07:32 -0500
-In-Reply-To: <1359341805.2255.56.camel@jtkirshe-mobl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: romain@orebokech.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130123210411.GA9055@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Sun, 27 Jan 2013 18:56:45 -0800
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 23 Jan 2013 23:04:11 +0200
 
-> So will you be fine with cleanup patches which go through and
-> convert all the existing code comments to the desired format?
+> Maybe we should try and reduce our memory usage,
+> I will look into this.
 
-Sure.
+As has been pointed out, 32K of the size is from those iovecs in
+the queues.
+
+The size of this structure is frankly offensive, and even if you add
+some levels of indirection even just one iovec chunk is 16K on 64-bit
+which is in my opinion still unacceptably large.
+
+TCP sockets aren't even %25 the size of this beast. :-)
+
+I'm not going to apply this vmalloc patch, because if I apply it the
+fundamental problem here just gets swept under the carpet even longer.
+
+Sorry.
