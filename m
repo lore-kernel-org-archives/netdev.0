@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: loopback: fix a dst refcounting issue
-Date: Sun, 27 Jan 2013 19:26:38 -0500 (EST)
-Message-ID: <20130127.192638.2227792070943381785.davem@davemloft.net>
-References: <1359135881.12374.3249.camel@edumazet-glaptop>
-	<20130127.013241.1524448507498580112.davem@davemloft.net>
-	<1359307508.5222.2226.camel@edumazet-glaptop>
+Subject: Re: [PATCH] net: cdc_ncm: use IAD provided by the USB core
+Date: Sun, 27 Jan 2013 19:28:03 -0500 (EST)
+Message-ID: <20130127.192803.1807601748904442959.davem@davemloft.net>
+References: <1359193020-12873-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	oliver@neukum.org, gsuarez@smithmicro.com,
+	alexey.orishko@stericsson.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36780 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36793 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753039Ab3A1A0j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:26:39 -0500
-In-Reply-To: <1359307508.5222.2226.camel@edumazet-glaptop>
+	with ESMTP id S1753039Ab3A1A2F convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:28:05 -0500
+In-Reply-To: <1359193020-12873-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 27 Jan 2013 09:25:08 -0800
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Sat, 26 Jan 2013 10:36:59 +0100
 
-> On Sun, 2013-01-27 at 01:32 -0500, David Miller wrote:
-> 
->> Applied, I suspect we need to tree wide audit for other instances of
->> this situation.  Probably greps for skb_orphan() would be a good
->> start.
-> 
-> I highly suspect macvlan needs a skb_dst_drop(), but couldnt trigger
-> a case to trigger the fault.
+> commit 9992c2e (net: cdc_ncm: workaround for missing CDC Union)
+> added code to lookup an IAD for the interface we are probing.
+> This is redundant.  The USB core has already done the lookup
+> and saved the result in the USB interface struct.  Use that
+> instead.
+>=20
+> Cc: Greg Suarez <gsuarez@smithmicro.com>
+> Cc: Alexey Orishko <alexey.orishko@stericsson.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-I completely agree, when we hit the ->forward() or ->receive() method
-we are leaving the RCU safety zone for the cached dst.
-
-Even if you can't trigger it, this seems clear enough to me that we
-should put those skb_dst_drop() calls in, so please formally submit
-that patch you posted for Ben as an RFC last week.
-
-Thanks.
+Applied to 'net'.
