@@ -1,32 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] qlcnic: silence false positive overflow warning
-Date: Sun, 27 Jan 2013 20:38:51 -0500 (EST)
-Message-ID: <20130127.203851.2157088853751625559.davem@davemloft.net>
-References: <20130125064141.GB4882@elgon.mountain>
+Subject: Re: [patch] irda: buffer overflow in irnet_ctrl_read()
+Date: Sun, 27 Jan 2013 20:39:00 -0500 (EST)
+Message-ID: <20130127.203900.315969902013911354.davem@davemloft.net>
+References: <20130125064056.GA4882@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
-	linux-driver@qlogic.com, netdev@vger.kernel.org,
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
 To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37386 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37395 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419Ab3A1Biy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:38:54 -0500
-In-Reply-To: <20130125064141.GB4882@elgon.mountain>
+	with ESMTP id S1756419Ab3A1BjC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:39:02 -0500
+In-Reply-To: <20130125064056.GA4882@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 25 Jan 2013 09:41:42 +0300
+Date: Fri, 25 Jan 2013 09:40:56 +0300
 
-> We actually store the MAC address as well as the board_name here.  The
-> longest board_name is 75 characters so there is more than enough room
-> to hold the 17 character MAC and the ": " divider.  But making this
-> buffer larger silences a static checker warning.
+> The comments here say that the /* Max event is 61 char */ but in 2003 we
+> changed the event format and now the max event size is 75.  The longest
+> event is:
+> 
+> 	"Discovered %08x (%s) behind %08x {hints %02X-%02X}\n",
+>          12345678901    23  456789012    34567890    1    2 3
+> 	            +8    +21        +8          +2   +2     +1
+>          = 75 characters.
+> 
+> There was a check to return -EOVERFLOW if the user gave us a "count"
+> value that was less than 64.  Raising it to 75 might break backwards
+> compatability.  Instead I removed the check and now it returns a
+> truncated string if "count" is too low.
 > 
 > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-This patch doesn't apply cleanly to any of my trees.
+Applied to net-next, thanks.
