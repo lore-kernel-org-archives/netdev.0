@@ -1,46 +1,39 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [PATCH] checkpatch.pl: Fix warnings on code comments
-Date: Mon, 28 Jan 2013 17:17:27 +0000
-Message-ID: <804857E1F29AAC47BF68C404FC60A1843ABC3058@ORSMSX102.amr.corp.intel.com>
-References: <1359286539-18395-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<20130127.185910.1743425400733006443.davem@davemloft.net>
-	<1359341805.2255.56.camel@jtkirshe-mobl>
- <20130127.220728.634216960903942581.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "apw@canonical.com" <apw@canonical.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+From: Milos Vyletel <milos.vyletel@sde.cz>
+Subject: [PATCH] bonding: unset primary slave via sysfs
+Date: Mon, 28 Jan 2013 12:20:52 -0500
+Message-ID: <1359393652-2804-1-git-send-email-milos.vyletel@sde.cz>
+Cc: fubar@us.ibm.com, andy@greyhouse.net,
+	Milos Vyletel <milos.vyletel@sde.cz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:53370 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756247Ab3A1RR3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 12:17:29 -0500
-In-Reply-To: <20130127.220728.634216960903942581.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail4.sde.cz ([85.93.125.197]:44972 "EHLO sde.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756247Ab3A1RVP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 12:21:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of David Miller
-> Sent: Sunday, January 27, 2013 7:07 PM
-> To: Kirsher, Jeffrey T
-> Cc: apw@canonical.com; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org
-> Subject: Re: [PATCH] checkpatch.pl: Fix warnings on code comments
-> 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Date: Sun, 27 Jan 2013 18:56:45 -0800
-> 
-> > So will you be fine with cleanup patches which go through and
-> > convert all the existing code comments to the desired format?
-> 
-> Sure.
+When bonding module is loaded with primary parameter and one decides to unset
+primary slave using sysfs these settings are not preserved during bond device
+restart. Primary slave is only unset once and it's not remembered in
+bond->params structure.
 
-Not all Intel drivers...e1000e already conforms to the comment style :-)
+Signed-off-by: Milos Vyletel <milos.vyletel@sde.cz>
+---
+ drivers/net/bonding/bond_sysfs.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Bruce.
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index ef8d2a0..155f3b4 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1067,6 +1067,7 @@ static ssize_t bonding_store_primary(struct device *d,
+ 		pr_info("%s: Setting primary slave to None.\n",
+ 			bond->dev->name);
+ 		bond->primary_slave = NULL;
++		memset(bond->params.primary, 0, sizeof(bond->params.primary));
+ 		bond_select_active_slave(bond);
+ 		goto out;
+ 	}
+-- 
+1.7.1
