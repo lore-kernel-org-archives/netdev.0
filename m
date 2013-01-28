@@ -1,88 +1,62 @@
-From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: [PATCH v2 6/6] ARM: davinci: da850: configure system configuration chip(CFGCHIP3) for emac
-Date: Mon, 28 Jan 2013 19:17:59 +0530
-Message-ID: <1359380879-26306-7-git-send-email-prabhakar.lad@ti.com>
-References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, Heiko Schocher <hs@denx.de>,
-	"Lad, Prabhakar" <prabhakar.lad@ti.com>
-To: Sekhar Nori <nsekhar@ti.com>, linux-arm-kernel@lists.infradead.org,
-	davinci-linux-open-source@linux.davincidsp.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH] be2net: Updating Module Author string and log message string to "Emulex Corporation"
+Date: Mon, 28 Jan 2013 19:47:01 +0530
+Message-ID: <744b8e73-1b6a-476d-b8ad-4a2004f3252c@CMEXHTCAS1.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:57157 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756298Ab3A1OQC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 09:16:02 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lad, Prabhakar <prabhakar.lad@ti.com>
+From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 
-The system configuration chip CFGCHIP3, controls the emac module.
-This patch appropriately configures this register for emac and
-sets DA850_MII_MDIO_CLKEN_PIN GPIO pin appropriately.
-
-Signed-off-by: Lad, Prabhakar <prabhakar.lad@ti.com>
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org
-Cc: davinci-linux-open-source@linux.davincidsp.com
-Cc: netdev@vger.kernel.org
-Cc: devicetree-discuss@lists.ozlabs.org
-Cc: Sekhar Nori <nsekhar@ti.com>
-Cc: Heiko Schocher <hs@denx.de>
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
 ---
- arch/arm/mach-davinci/da8xx-dt.c |   28 ++++++++++++++++++++++++++++
- 1 files changed, 28 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    8 ++++----
+ drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/mach-davinci/da8xx-dt.c b/arch/arm/mach-davinci/da8xx-dt.c
-index e533a0a..4a096e3 100644
---- a/arch/arm/mach-davinci/da8xx-dt.c
-+++ b/arch/arm/mach-davinci/da8xx-dt.c
-@@ -8,6 +8,7 @@
-  * published by the Free Software Foundation.
-  */
- #include <linux/io.h>
-+#include <linux/gpio.h>
- #include <linux/of_irq.h>
- #include <linux/of_platform.h>
- #include <linux/irqdomain.h>
-@@ -39,6 +40,32 @@ static void __init da8xx_init_irq(void)
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 4eba17b..f1b3df1 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -36,13 +36,13 @@
  
- #ifdef CONFIG_ARCH_DAVINCI_DA850
+ #define DRV_VER			"4.4.161.0u"
+ #define DRV_NAME		"be2net"
+-#define BE_NAME			"ServerEngines BladeEngine2 10Gbps NIC"
+-#define BE3_NAME		"ServerEngines BladeEngine3 10Gbps NIC"
+-#define OC_NAME			"Emulex OneConnect 10Gbps NIC"
++#define BE_NAME			"Emulex BladeEngine2"
++#define BE3_NAME		"Emulex BladeEngine3"
++#define OC_NAME			"Emulex OneConnect"
+ #define OC_NAME_BE		OC_NAME	"(be3)"
+ #define OC_NAME_LANCER		OC_NAME "(Lancer)"
+ #define OC_NAME_SH		OC_NAME "(Skyhawk)"
+-#define DRV_DESC		"ServerEngines BladeEngine 10Gbps NIC Driver"
++#define DRV_DESC		"Emulex OneConnect 10Gbps NIC Driver"
  
-+static void __init da8xx_config_emac(void)
-+{
-+#define DA850_MII_MDIO_CLKEN_PIN	GPIO_TO_PIN(2, 6)
-+#define DA850_EMAC_MODE_SELECT		BIT(8)
-+	void __iomem *cfg_chip3_base;
-+	int ret;
-+	u32 val;
-+
-+	cfg_chip3_base = DA8XX_SYSCFG0_VIRT(DA8XX_CFGCHIP3_REG);
-+
-+	val = __raw_readl(cfg_chip3_base);
-+	val &= ~DA850_EMAC_MODE_SELECT;
-+	/* configure the CFGCHIP3 register for MII */
-+	__raw_writel(val, cfg_chip3_base);
-+	pr_info("EMAC: MII PHY configured\n");
-+
-+	ret = gpio_request(DA850_MII_MDIO_CLKEN_PIN, "mdio_clk_en");
-+	if (ret) {
-+		pr_warn("Cannot open GPIO %d\n",
-+					DA850_MII_MDIO_CLKEN_PIN);
-+		return;
-+	}
-+	/* Enable/Disable MII MDIO clock */
-+	gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, 0);
-+}
-+
- struct of_dev_auxdata da8xx_auxdata[] __initdata = {
- 	OF_DEV_AUXDATA("ti,davinci_mdio", 0x01e24000, "davinci_mdio.0", NULL),
- 	OF_DEV_AUXDATA("ti,davinci-dm6467-emac", 0x01e20000, "davinci_emac.1",
-@@ -52,6 +79,7 @@ static void __init da850_init_machine(void)
- 			     da8xx_auxdata, NULL);
+ #define BE_VENDOR_ID 		0x19a2
+ #define EMULEX_VENDOR_ID	0x10df
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 5c99570..4d6f3c5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -25,7 +25,7 @@
+ MODULE_VERSION(DRV_VER);
+ MODULE_DEVICE_TABLE(pci, be_dev_ids);
+ MODULE_DESCRIPTION(DRV_DESC " " DRV_VER);
+-MODULE_AUTHOR("ServerEngines Corporation");
++MODULE_AUTHOR("Emulex Corporation");
+ MODULE_LICENSE("GPL");
  
- 	da8xx_uart_clk_enable();
-+	da8xx_config_emac();
- }
- 
- static const char *da850_boards_compat[] __initdata = {
+ static unsigned int num_vfs;
 -- 
-1.7.4.1
+1.7.9.5
