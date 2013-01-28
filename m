@@ -1,36 +1,33 @@
-From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH] net: iwlegacy: remove unused variable
-Date: Mon, 28 Jan 2013 10:56:41 +0100
-Message-ID: <20130128095640.GA2316@redhat.com>
-References: <1359312941-30661-1-git-send-email-linux@roeck-us.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [Patch net-next] af_key: remove a duplicated skb_orphan()
+Date: Mon, 28 Jan 2013 11:02:05 +0100
+Message-ID: <20130128100205.GP9147@secunet.com>
+References: <1358952747-3772-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:58889 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753226Ab3A1KCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 05:02:11 -0500
 Content-Disposition: inline
-In-Reply-To: <1359312941-30661-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1358952747-3772-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 27, 2013 at 10:55:41AM -0800, Guenter Roeck wrote:
-> drivers/net/wireless/iwlegacy/4965.c: In function =E2=80=98il4965_pos=
-t_associate=E2=80=99:
-> drivers/net/wireless/iwlegacy/4965.c:1751:25: warning: variable =E2=80=
-=98conf=E2=80=99 set but
-> not used [-Wunused-but-set-variable]
->=20
-> seen when building allmodconfig on x86_64 with W=3D1 by removing the =
-unused
-> variable.
->=20
-> Signed-off-by: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+On Wed, Jan 23, 2013 at 10:52:27PM +0800, Cong Wang wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> 
+> skb_set_owner_r() will call skb_orphan(), I don't
+> see any reason to call it twice.
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> 
 
-ACK
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to ipsec-next, thanks!
