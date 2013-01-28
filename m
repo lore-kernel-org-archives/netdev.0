@@ -1,191 +1,81 @@
-From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Mon, 28 Jan 2013 14:08:39 +0100
-Message-ID: <20130128130839.GO4608@sociomantic.com>
-References: <20130122184245.GJ4608@sociomantic.com>
- <50FF0C25.9000300@hp.com>
- <20130123104736.GK4608@sociomantic.com>
- <510039C8.7040401@hp.com>
- <20130124122223.GQ4608@sociomantic.com>
- <51018110.1070403@hp.com>
- <20130124192125.GD4608@sociomantic.com>
- <5102225E.2040506@gmail.com>
- <20130125100525.GE4608@sociomantic.com>
- <5105E6F2.2010805@gmail.com>
+From: "Freddy" <freddy@asix.com.tw>
+Subject: RE: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
+Date: Mon, 28 Jan 2013 21:36:20 +0800
+Message-ID: <010f01cdfd5c$768d4240$63a7c6c0$@asix.com.tw>
+References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>	<20130127001347.584711b2@xenia> <87zjztptez.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nivedita Singhvi <niveditasinghvi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5105E6F2.2010805@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <louis@asix.com.tw>,
+	<davem@davemloft.net>, <Support@asix.com.tw>
+To: "=?utf-8?Q?'Bj=C3=B8rn_Mork'?=" <bjorn@mork.no>,
+	"'Michael Leun'" <lkml20130126@newton.leun.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from asix.com.tw ([210.243.224.51]:51892 "EHLO asix.com.tw"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754287Ab3A1Ni3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 08:38:29 -0500
+In-Reply-To: <87zjztptez.fsf@nemi.mork.no>
+Content-Language: zh-tw
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 27, 2013 at 06:48:18PM -0800, Nivedita Singhvi wrote:
-[snip]
-> > Thanks, but what about this?
-> > 
-> > pc2 $ nstat -z | grep -i drop
-> > TcpExtLockDroppedIcmps          0                  0.0
-> > TcpExtListenDrops               0                  0.0
-> > TcpExtTCPPrequeueDropped        0                  0.0
-> > TcpExtTCPBacklogDrop            0                  0.0
-> > TcpExtTCPMinTTLDrop             0                  0.0
-> > TcpExtTCPDeferAcceptDrop        0                  0.0
-> 
-> That seems bogus. 
-> 
-> 
-> > pc2 $ netstat -s | grep -i drop
-> >     470 outgoing packets dropped
-> >     5659740 SYNs to LISTEN sockets dropped
-> > 
-> > Is this normal?
-> 
-> That's a lot ofconnect requests dropped, but it depends on how 
-> long you've been up and how much traffic you've seen. 
-> 
-> Hmm...you were on an older Ubuntu, right? The netstat source 
-> was patched to translate it as follows:
-> 
-> +    { "ListenDrops", N_("%u SYNs to LISTEN sockets dropped"), opt_number },
-> 
-> (see the file debian/patches/CVS-20081003-statistics.c_sync.patch 
->  in the net-tools src)
-
-I have ubuntu 11.10 in all the servers I'm checking except for one with
-12.04. Is weird, for the same ubuntu version (same kernel, same netstat,
-same nstat) I get different outputs. Some have some counters that
-coincide, some have more counters than other, some have different
-counters than other...
-
-pc121 # nstat -z | grep -i drop
-TcpExtLockDroppedIcmps          0                  0.0
-TcpExtListenDrops               0                  0.0
-TcpExtTCPPrequeueDropped        0                  0.0
-TcpExtTCPBacklogDrop            0                  0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
-pc121 # netstat -s | grep -i drop
-    470 outgoing packets dropped
-    5659762 SYNs to LISTEN sockets dropped
-
-Other are like this:
-pc126 # nstat -z | grep -i drop
-TcpExtLockDroppedIcmps          0                  0.0
-TcpExtListenDrops               2968982            0.0
-TcpExtTCPPrequeueDropped        0                  0.0
-TcpExtTCPBacklogDrop            0                  0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
-pc126 # netstat -s | grep -i drop
-    2968982 SYNs to LISTEN sockets dropped
-
-Other like this:
-pc127 # nstat -z | grep -i drop
-TcpExtLockDroppedIcmps          0                  0.0
-TcpExtListenDrops               0                  0.0
-TcpExtTCPPrequeueDropped        0                  0.0
-TcpExtTCPBacklogDrop            0                  0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
-pc127 # netstat -s | grep -i drop
-    1321958 SYNs to LISTEN sockets dropped
+> I would vote to not accept that driver for mainline as long as this=20
+> issues are not fixed.
 
 
-pc128 # nstat -z | grep -i drop
-TcpExtLockDroppedIcmps          0                  0.0
-TcpExtListenDrops               6455507            0.0
-TcpExtTCPPrequeueDropped        0                  0.0
-TcpExtTCPBacklogDrop            0                  0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
-pc128 # netstat -s | grep -i drop
-    6 ICMP packets dropped because they were out-of-window
-    6455507 SYNs to LISTEN sockets dropped
+Michael, could you give me more information about how do you test this =
+driver?=20
+I have tried to reproduce the issue by using "ifconfig ethX mtu 1500", =
+but I didn't confront the same issue.
+Thank you in advance for your help.
 
-pc130 # nstat -z | grep -i drop
-TcpExtLockDroppedIcmps          0                  0.0
-TcpExtListenDrops               0                  0.0
-TcpExtTCPPrequeueDropped        0                  0.0
-TcpExtTCPBacklogDrop            0                  0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
-pc130 # netstat -s | grep -i drop
-    3 ICMP packets dropped because they were out-of-window
-    6728909 SYNs to LISTEN sockets dropped
 
-And this is for the one with Ubuntu 12.04:
-pc106 # nstat -z | grep -i drop
-TcpExtLockDroppedIcmps          0                  0.0
-TcpExtListenDrops               2598140            0.0
-TcpExtTCPPrequeueDropped        0                  0.0
-TcpExtTCPBacklogDrop            1711               0.0
-TcpExtTCPMinTTLDrop             0                  0.0
-TcpExtTCPDeferAcceptDrop        0                  0.0
-TcpExtTCPReqQFullDrop           0                  0.0
-pc106 # netstat -s | grep -i drop
-    2598140 SYNs to LISTEN sockets dropped
-    TCPBacklogDrop: 1711
+> The vendor should not be able to claim "hooray, hooray, great device,=
+=20
+> we even have an driver in linux main line" when it is actually such a=
+n=20
+> useless crap.
 
-Are this counters hardware-dependant? Or there anything else why they
-might be different in different servers?
+> Well, that is fortunately not how these things work. The main goal is=
+ getting the devices supported in the kernel. Bugs can be fixed.  If a =
+vendor can get any positive gain out of having a driver in mainline, th=
+en that is good for everyone, isn't it?  Of course, we can all agree th=
+at the > > > effect of a *working* driver is more positive than a non-w=
+orking driver...
 
-> i.e., the netstat pkg iS printing the value of the TCPEXT MIB counter
-> that's counting TCPExtListenDrops. 
 
-Then why nstat show that counter in 0 and netstat with what I assume is
-the right value?
+> For now, the main focus should be fixing the issues which has been no=
+ted during review.  Your testing feedback is of course very useful, but=
+ you probably need to back them up with actual code change proposals if=
+ they are going to be dealt with at this stage.
 
-> Theoretically, that number should be the same as that printed by nstat,
-> as they are getting it from the same kernel stats counter. I have not
-> looked at nstat code (I actually almost always dump the counters from
-> /proc/net/{netstat + snmp} via a simple prettyprint script (will send
-> you that offline).  
+> Of course I'm offering to help with any information or testing, but=20
+> unfortunately I do not have the knowhow to fix anything myself.
 
-Mmm, ok, thanks!
+> I believe this is where you are totally wrong.  You obviuously have t=
+he ability to create a few simple test cases for yourself and see if th=
+e driver behaves as you expect.  That is very useful.
 
-> If the nstat and netstat counters don't match, something is fishy.
-> That nstat output is broken.  
+> And you have a device.  That is also useful.
 
-I using the one from iproute package 20110315-1build1 (except for the
-one with Ubuntu 12.04, which have 20111117-1ubuntu2). Any ideas on what
-could be wrong?
+> Now, the driver source code is available.  And there is another Asix =
+driver in the kernel which already has been cleaned up and can be used =
+as an example. And maybe even partly used for the new devices as well, =
+if the code is duplicated?  I have not looked at this in detail, but I =
+    > suspect that much of the problem with the ax88179_178a driver is =
+that it has completely ignored all the work that has gone into the asix=
+ driver after it was mainlined.  I find it unlikely that there is no re=
+usable code in the asix_devices.c, asix_common.c and ax88172a.c files. =
+ Trying to > rewrite ax88179_178a to share as much code as possible see=
+ms like the best way to clean it up and fix bugs.
 
-> > And I don't know how could I narrow down the drops in any way. What I
-> > know is capturing traffic with tcpdump, I see some packets leaving one
-> > server but never arriving to the new one.
+Bj=C3=B8rn, I am trying to reproduce the issue mentioned by Michael and=
+ I have a question about submitting this driver.
+Should I merge this driver into asix_devices.c and asix_common.c even t=
+hrough the usb command, tx_fixup, and rx_fixup functions are totally di=
+fferent?
+Thank you in advance for your reply.
 
-About this, tcpdump should get all the packets received by the NIC,
-before the kernel have any chance to drop anything, right?
-
-> Hmm..do you have a switch between your two end points dropping pkts? 
-
-I have no idea, I assume there is because the server have only one NIC
-and they are interconnected to several other servers, so there should be
-something in the middle, but we have the servers offsite, I can't do any
-sniffing myself in the middle of the endpoints.
-
-> Could be.. Basically, by looking at the statistics kept by each layer, you 
-> should be able to narrow it down a little bit at least. 
-
-You mean statistics provided by the switch?
-
-> It does still sound like some drops are occurring in TCP due to accept 
-> backlog being full and you're overrunning TCP incoming processing (or 
-> at least this contributing), going by that ListenDrops count. 
-
-If that's so, then I guess you're implying tcpdump don't get the packets
-before the kernel can drop them.
-
-> Sorry, I'm on the road, travelling, and likely not online much this week. 
-
-No worries! Thanks for the help, is very much appreciated.
-
--- 
-Leandro Lucarella
-sociomantic labs GmbH
-http://www.sociomantic.com
+=46reddy
