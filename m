@@ -1,45 +1,59 @@
-From: Stefan Assmann <sassmann@redhat.com>
-Subject: Re: [net-next 14/14] igbvf: be sane about random MAC addresses
-Date: Mon, 28 Jan 2013 12:11:22 +0100
-Message-ID: <51065CDA.90307@redhat.com>
-References: <1359363869-32391-1-git-send-email-jeffrey.t.kirsher@intel.com> <1359363869-32391-15-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Mitch A Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Stefan Assmann <sassmann@kpanic.de>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60181 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754205Ab3A1LL2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 06:11:28 -0500
-In-Reply-To: <1359363869-32391-15-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH V7 0/3] handle polling errors in vhost/vhost_net
+Date: Mon, 28 Jan 2013 19:05:16 +0800
+Message-ID: <1359371119-10208-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 28.01.2013 10:04, Jeff Kirsher wrote:
-> From: Mitch A Williams <mitch.a.williams@intel.com>
-> 
-> Tighten up some of the code surrounding MAC addresses. Since the PF is
-> now giving all zeros instead of a random address, check for this case
-> and generate a random address. This ensures that we always know when we
-> have a random address and udev won't get upset about it.
-> 
-> Additionally, tighten up some of the log messages and clean up the
-> formatting.
-> 
-> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: Stefan Assmann <sassmann@kpanic.de>
-> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+This is an update version of last version to fix the handling of polling errors
+in vhost/vhost_net.
 
-Tested-by: Stefan Assmann <sassmann@redhat.com>
+Currently, vhost and vhost_net ignore polling errors which can lead kernel
+crashing when it tries to remove itself from waitqueue after the polling
+failure. Fix this by:
 
-Thanks Mitch. This solves the problem of correctly setting
-addr_assign_type.
+- examing the POLLERR when setting backend and report erros to userspace
+- let tun always add to waitqueue in .poll() after the queue is created even if
+  it was detached.
 
-  Stefan
+Changes from V6:
+- don't use RCU to protect the tfile->detached.
+
+Changes from V5:
+- use rcu_dereference() instead of the wrong rtnl_dereference() in data path
+- test with CONFIG_PROVE_RCU
+
+Changes from V4:
+- check the detached state by tfile->detached and protect it by RCU
+
+Changes from V3:
+- make a smaller patch that doesn't touch the whole polling state and only check
+the polliner errors in backend setting.
+- add a patch that allows tuntap to do polling/reading/writing when detached
+which could simplify the work of its user.
+
+Changes from v2:
+- check poll->wqh instead of the wrong assumption about POLLERR and waitqueue
+- drop the whole tx polling state check since it was replaced by the wqh
+checking
+- drop the buggy tuntap patch
+
+Changes from v1:
+- restore the state before the ioctl when vhost_init_used() fails
+- log the error when meet polling errors in the data path
+- don't put into waitqueue when tun_chr_poll() return POLLERR
+
+Jason Wang (3):
+  vhost_net: correct error handling in vhost_net_set_backend()
+  vhost_net: handle polling errors when setting backend
+  tuntap: allow polling/writing/reading when detached
+
+ drivers/net/tun.c     |   25 ++++++++++++++++---------
+ drivers/vhost/net.c   |   41 ++++++++++++++++++++++++++++-------------
+ drivers/vhost/vhost.c |   18 +++++++++++++++---
+ drivers/vhost/vhost.h |    2 +-
+ 4 files changed, 60 insertions(+), 26 deletions(-)
