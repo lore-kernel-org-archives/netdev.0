@@ -1,52 +1,50 @@
-From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
-Date: Sun, 27 Jan 2013 21:21:32 -0800
-Message-ID: <CAGK4HS_2=b3gJmDeBTbSmFYk4PB2epMUQE6nkr1XMGfFgmfHvw@mail.gmail.com>
-References: <1358874800.3464.4002.camel@edumazet-glaptop>
-	<50FED7CE.1030008@hp.com>
-	<20130122184245.GJ4608@sociomantic.com>
-	<50FF0C25.9000300@hp.com>
-	<20130123104736.GK4608@sociomantic.com>
-	<510039C8.7040401@hp.com>
-	<20130124122223.GQ4608@sociomantic.com>
-	<51018110.1070403@hp.com>
-	<20130124192125.GD4608@sociomantic.com>
-	<5102225E.2040506@gmail.com>
-	<20130125100525.GE4608@sociomantic.com>
-	<5105E6F2.2010805@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: fix possible wrong checksum generation
+Date: Mon, 28 Jan 2013 00:28:01 -0500 (EST)
+Message-ID: <20130128.002801.200824996474874108.davem@davemloft.net>
+References: <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
+	<1359143538.12374.3379.camel@edumazet-glaptop>
+	<1359182077.5222.132.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Leandro Lucarella <leandro.lucarella@sociomantic.com>,
-	Rick Jones <rick.jones2@hp.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nivedita Singhvi <niveditasinghvi@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5105E6F2.2010805@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@nicira.com, netdev@vger.kernel.org, jesse@nicira.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39172 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751130Ab3A1F2C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 00:28:02 -0500
+In-Reply-To: <1359182077.5222.132.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> +    { "ListenDrops", N_("%u SYNs to LISTEN sockets dropped"), opt_number },
->
-> (see the file debian/patches/CVS-20081003-statistics.c_sync.patch
->  in the net-tools src)
->
-> i.e., the netstat pkg is printing the value of the TCPEXT MIB counter
-> that's counting TCPExtListenDrops.
->
-> Theoretically, that number should be the same as that printed by nstat,
-> as they are getting it from the same kernel stats counter. I have not
-> looked at nstat code (I actually almost always dump the counters from
-> /proc/net/{netstat + snmp} via a simple prettyprint script (will send
-> you that offline).
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 25 Jan 2013 22:34:37 -0800
 
-nstat pretty much does what you describe which is to parse the
-/proc/net files(s) and
-print the contents. This is one advantage of nstat over netstat. When
-you add a new MIB, you
-do not need to update nstat.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Pravin Shelar mentioned that GSO could potentially generate
+> wrong TX checksum if skb has fragments that are overwritten
+> by the user between the checksum computation and transmit.
+> 
+> He suggested to linearize skbs but this extra copy can be
+> avoided for normal tcp skbs cooked by tcp_sendmsg().
+> 
+> This patch introduces a new SKB_GSO_SHARED_FRAG flag, set
+> in skb_shinfo(skb)->gso_type if at least one frag can be
+> modified by the user.
+> 
+> Typical sources of such possible overwrites are {vm}splice(),
+> sendfile(), and macvtap/tun/virtio_net drivers.
+> 
+> Tested:
+ ...
+> Performance of the SENDFILE is impacted by the extra allocation and
+> copy, and because we use order-0 pages, while the TCP_STREAM uses
+> bigger pages.
+> 
+> Reported-by: Pravin Shelar <pshelar@nicira.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-> If the nstat and netstat counters don't match, something is fishy.
-> That nstat output is broken.
->
+Applied, thanks Eric.
