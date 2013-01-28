@@ -1,51 +1,85 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch net-next] pktgen: use the net namespace of current process instead of init_net
-Date: Sun, 27 Jan 2013 19:13:45 -0800
-Message-ID: <8738xm0zkm.fsf@xmission.com>
-References: <1359340387-18004-1-git-send-email-amwang@redhat.com>
-	<87mwvu10rj.fsf@xmission.com> <1359341852.20444.10.camel@cr0>
+Subject: [PATCH] SCTP: Free the per-net sysctl table on net exit. v2
+Date: Sun, 27 Jan 2013 19:25:11 -0800
+Message-ID: <87obgayoo8.fsf_-_@xmission.com>
+References: <51004F2D.9000405@fold.natur.cuni.cz>
+	<1359043367-30180-1-git-send-email-vyasevich@gmail.com>
+	<20130127.193511.2294954038548420781.davem@davemloft.net>
+	<87libe3w69.fsf@xmission.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, mmokrejs@fold.natur.cuni.cz
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:35136 "EHLO
+Received: from out03.mta.xmission.com ([166.70.13.233]:39012 "EHLO
 	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752139Ab3A1DN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 22:13:56 -0500
-In-Reply-To: <1359341852.20444.10.camel@cr0> (Cong Wang's message of "Mon, 28
-	Jan 2013 10:57:32 +0800")
+	with ESMTP id S1753064Ab3A1DZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 22:25:26 -0500
+In-Reply-To: <87libe3w69.fsf@xmission.com> (Eric W. Biederman's message of
+	"Sun, 27 Jan 2013 17:58:54 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <amwang@redhat.com> writes:
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Thu, 24 Jan 2013 11:02:47 -0500
 
-> On Sun, 2013-01-27 at 18:48 -0800, Eric W. Biederman wrote:
->> Cong Wang <amwang@redhat.com> writes:
->> 
->> > From: Cong Wang <amwang@redhat.com>
->> >
->> > Use the net namespace of the current process loading
->> > pktgen module.
->> 
->> Why not add proper support for multiple network namespaces?
->> 
->> It looks like the proc files could be created in each network namespace
->> and be controlled from there.
->
-> Hmm, I didn't think much about this. You are right... we could probably
-> make these proc files per-net.
+Per-net sysctl table needs to be explicitly freed at
+net exit.  Otherwise we see the following with kmemleak:
 
->> Your patch below looks like it could have some unintended effects
->> if pktgen was loaded automatically or compiled into the kernel.
->> 
->
-> In this case, 'current' should be the init process whose net namespace
-> is init_net, no?
+unreferenced object 0xffff880402d08000 (size 2048):
+  comm "chrome_sandbox", pid 18437, jiffies 4310887172 (age 9097.630s)
+  hex dump (first 32 bytes):
+    b2 68 89 81 ff ff ff ff 20 04 04 f8 01 88 ff ff  .h...... .......
+    04 00 00 00 a4 01 00 00 00 00 00 00 00 00 00 00  ................
+  backtrace:
+    [<ffffffff815b4aad>] kmemleak_alloc+0x21/0x3e
+    [<ffffffff81110352>] slab_post_alloc_hook+0x28/0x2a
+    [<ffffffff81113fad>] __kmalloc_track_caller+0xf1/0x104
+    [<ffffffff810f10c2>] kmemdup+0x1b/0x30
+    [<ffffffff81571e9f>] sctp_sysctl_net_register+0x1f/0x72
+    [<ffffffff8155d305>] sctp_net_init+0x100/0x39f
+    [<ffffffff814ad53c>] ops_init+0xc6/0xf5
+    [<ffffffff814ad5b7>] setup_net+0x4c/0xd0
+    [<ffffffff814ada5e>] copy_net_ns+0x6d/0xd6
+    [<ffffffff810938b1>] create_new_namespaces+0xd7/0x147
+    [<ffffffff810939f4>] copy_namespaces+0x63/0x99
+    [<ffffffff81076733>] copy_process+0xa65/0x1233
+    [<ffffffff81077030>] do_fork+0x10b/0x271
+    [<ffffffff8100a0e9>] sys_clone+0x23/0x25
+    [<ffffffff815dda73>] stub_clone+0x13/0x20
+    [<ffffffffffffffff>] 0xffffffffffffffff
 
-If it is a kernel thread that decided to load the module.  If it
-something else who knows.  To my knowledge there are no guarantees
-and I'm not particularly interested in having to worry about current
-making sense in a module.
+I fixed the spelling of sysctl_header so the code actually
+compiles. -- EWB.
 
-Eric
+Reported-by: Martin Mokrejs <mmokrejs@fold.natur.cuni.cz>
+Signed-off-by: Vlad Yasevich <vyasevich@gmail.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+
+The typo is fixed in the patch this time in addition to my test
+tree.
+
+ net/sctp/sysctl.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 043889a..bf3c6e8 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -366,7 +366,11 @@ int sctp_sysctl_net_register(struct net *net)
+ 
+ void sctp_sysctl_net_unregister(struct net *net)
+ {
++	struct ctl_table *table;
++
++	table = net->sctp.sysctl_header->ctl_table_arg;
+ 	unregister_net_sysctl_table(net->sctp.sysctl_header);
++	kfree(table);
+ }
+ 
+ static struct ctl_table_header * sctp_sysctl_header;
+-- 
+1.7.5.4
