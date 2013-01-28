@@ -1,43 +1,436 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL nf] IPVS
-Date: Mon, 28 Jan 2013 10:18:33 +0900
-Message-ID: <1359335914-27325-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: Re: [PATCH 1/2] net: sh_eth: Add support of device tree probe
+Date: Mon, 28 Jan 2013 10:21:55 +0900
+Message-ID: <20130128012155.GA27896@verge.net.au>
+References: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org
+To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45972 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756930Ab3A1BWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:22:03 -0500
+Content-Disposition: inline
+In-Reply-To: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Pablo,
+[Cc: linux-sh]
 
-please consider the following fix for IPVS patch for 3.8.
+On Tue, Oct 16, 2012 at 10:17:58AM +0900, Nobuhiro Iwamatsu wrote:
+> This adds support of device tree probe for Renesas sh-ether driver.
+> 
+> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-I believe that the problem was introduced in 3.4 and thus
-this fix is appropriate for 3.4, 3.5, 3.6 and 3.7 -stable.
+Hi Iwamatsu-san,
 
-----------------------------------------------------------------
-The following changes since commit 5b76c4948fe6977bead2359c2054f3e6a2dcf3d0:
+could you let me know what the status of this patch is?
 
-  netfilter: x_tables: print correct hook names for ARP (2013-01-13 12:54:12 +0100)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git master
-
-for you to fetch changes up to b425df4cdd953a400d814b4474c9d3ec04481858:
-
-  ipvs: freeing uninitialized pointer on error (2013-01-28 10:14:37 +0900)
-
-----------------------------------------------------------------
-Dan Carpenter (1):
-      ipvs: freeing uninitialized pointer on error
-
- net/netfilter/ipvs/ip_vs_sync.c |    2 ++
- 1 file changed, 2 insertions(+)
+> ---
+>  Documentation/devicetree/bindings/net/sh_ether.txt |   45 ++++
+>  drivers/net/ethernet/renesas/sh_eth.c              |  267 ++++++++++++++++----
+>  2 files changed, 268 insertions(+), 44 deletions(-)
+>  create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
+> new file mode 100644
+> index 0000000..2cec715
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+> @@ -0,0 +1,45 @@
+> +* Renesas Electronics SuperH EMAC
+> +
+> +This file provides information, what the device node
+> +for the sh_eth interface contains.
+> +
+> +Required properties:
+> +- compatible:                   "renesas,sh-eth";
+> +- interrupt-parent:             The phandle for the interrupt controller that
+> +                                services interrupts for this device.
+> +- reg:                          Offset and length of the register set for the
+> +                                device.
+> +- interrupts:                   Interrupt mapping for the sh_eth interrupt
+> +                                sources (vector id).
+> +- cell-index:                   Ether device index starts at 0.
+> +- phy-mode:              String, operation mode of the PHY interface.
+> +- sh-eth,edmac-endian:          String, endian of sh_eth dmac.
+> +- sh-eth,register-type:         String, register type of sh_eth.
+> +                                Please select "gigabit", "fast-sh4" or
+> +                                "fast-sh3-sh2".
+> +                                Please select "little" or "big".
+> +- sh-eth,endian:                String, endian of sh_eth dmac.
+> +- sh-eth,phy-id:                PHY id.
+> +
+> +Optional properties:
+> +- local-mac-address : 6 bytes, mac address
+> +- sh-eth,no-ether-link:         set link control by software. When device does
+> +                                not support ether-link, set.
+> +- sh-etn,ether-link-active-low: set link check method.
+> +                                When detection of link is treated as active-low,
+> +                                set.
+> +- sh-etn,needs-init:            Initialization flag.
+> +                                When initialize device in probing device, set.
+> +
+> +Example (armadillo800eva):
+> +	sh-eth@e9a00000 {
+> +		compatible = "renesas,sh-eth";
+> +		interrupt-parent = <&intca>;
+> +		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
+> +		interrupts = <0x500>;
+> +		cell-index = <0>;
+> +		phy-mode = "mii";
+> +		sh-eth,edmac-endian = "little";
+> +		sh-eth,register-type = "gigabit";
+> +		sh-eth,phy-id = <0>;
+> +	};
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> index c8bfea0..756d87e 100644
+> --- a/drivers/net/ethernet/renesas/sh_eth.c
+> +++ b/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -31,6 +31,12 @@
+>  #include <linux/platform_device.h>
+>  #include <linux/mdio-bitbang.h>
+>  #include <linux/netdevice.h>
+> +#include <linux/of.h>
+> +#include <linux/of_device.h>
+> +#include <linux/of_platform.h>
+> +#include <linux/of_address.h>
+> +#include <linux/of_irq.h>
+> +#include <linux/of_net.h>
+>  #include <linux/phy.h>
+>  #include <linux/cache.h>
+>  #include <linux/io.h>
+> @@ -2347,21 +2353,161 @@ static const struct net_device_ops sh_eth_netdev_ops = {
+>  	.ndo_change_mtu		= eth_change_mtu,
+>  };
+>  
+> +#ifdef CONFIG_OF
+> +
+> +static int
+> +sh_eth_of_get_register_type(struct device_node *np)
+> +{
+> +	const char *of_str;
+> +	int ret = of_property_read_string(np, "sh-eth,register-type", &of_str);
+> +	if (ret)
+> +		return ret;
+> +
+> +	if (of_str && !strcmp(of_str, "gigabit"))
+> +		return SH_ETH_REG_GIGABIT;
+> +	else if (of_str && !strcmp(of_str, "fast-sh4"))
+> +		return SH_ETH_REG_FAST_SH4;
+> +	else if (of_str && !strcmp(of_str, "fast-sh3-sh2"))
+> +		return SH_ETH_REG_FAST_SH3_SH2;
+> +	else
+> +		return -EINVAL;
+> +}
+> +
+> +static struct sh_eth_plat_data *
+> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev, int *devno)
+> +{
+> +	int ret;
+> +	struct sh_eth_private *mdp = NULL;
+> +	struct resource res;
+> +	const char *of_str;
+> +	struct device_node *np = dev->of_node;
+> +	struct sh_eth_plat_data *pdata;
+> +
+> +	mdp = netdev_priv(ndev);
+> +
+> +	ret = of_address_to_resource(np, 0, &res);
+> +	if (ret) {
+> +		dev_err(dev, "could not determine device base address\n");
+> +		return NULL;
+> +	}
+> +
+> +	ndev->base_addr = res.start;
+> +
+> +	ndev->irq = irq_of_parse_and_map(np, 0);
+> +	if (ndev->irq == NO_IRQ) {
+> +		dev_err(dev, "irq_of_parse_and_map failed\n");
+> +		return NULL;
+> +	}
+> +
+> +	mdp->addr = ioremap(res.start, resource_size(&res));
+> +	if (mdp->addr == NULL) {
+> +		dev_err(dev, "ioremap failed.\n");
+> +		return NULL;
+> +	}
+> +
+> +	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
+> +					GFP_KERNEL);
+> +	if (!pdata) {
+> +		dev_err(dev, "%s: failed to allocate config data\n", __func__);
+> +		goto out_release;
+> +	}
+> +
+> +	ret = of_property_read_u32(np, "cell-index", devno);
+> +
+> +	pdata->phy_interface = of_get_phy_mode(np);
+> +
+> +	of_property_read_u32(np, "sh-eth,phy-id", &pdata->phy);
+> +
+> +	of_property_read_string(np, "sh-eth,edmac-endian", &of_str);
+> +	if (of_str && !strcmp(of_str, "little"))
+> +		pdata->edmac_endian = EDMAC_LITTLE_ENDIAN;
+> +	else if (of_str && !strcmp(of_str, "big"))
+> +		pdata->edmac_endian = EDMAC_BIG_ENDIAN;
+> +	else
+> +		goto out_release;
+> +
+> +	if (of_find_property(np, "sh-eth,no-ether-link", NULL))
+> +		pdata->no_ether_link = 1;
+> +	else
+> +		pdata->no_ether_link = 0;
+> +
+> +	if (of_find_property(np, "sh-eth,ether-link-active-low", NULL))
+> +		pdata->ether_link_active_low = 1;
+> +	else
+> +		pdata->ether_link_active_low = 0;
+> +
+> +	ret = sh_eth_of_get_register_type(np);
+> +	if (ret < 0)
+> +		goto out_release;
+> +	pdata->register_type = ret;
+> +
+> +	if (of_find_property(np, "sh-eth,needs-init", NULL))
+> +		pdata->needs_init = 1;
+> +	else
+> +		pdata->needs_init = 0;
+> +
+> +#ifdef CONFIG_OF_NET
+> +	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> +		const char *macaddr = of_get_mac_address(np);
+> +		if (macaddr)
+> +			memcpy(pdata->mac_addr, macaddr, ETH_ALEN);
+> +	}
+> +#endif
+> +
+> +	return pdata;
+> +
+> +out_release:
+> +	iounmap(mdp->addr);
+> +	return NULL;
+> +}
+> +
+> +static int
+> +sh_eth_parse_dt_tmu(struct device *dev, struct net_device *ndev, int *devno)
+> +{
+> +	int ret;
+> +	struct sh_eth_private *mdp = NULL;
+> +	struct resource res;
+> +
+> +	mdp = netdev_priv(ndev);
+> +
+> +	ret = of_address_to_resource(dev->of_node, 1, &res);
+> +	if (ret) {
+> +		dev_err(dev, "could not determine device base address\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	mdp->tsu_addr = ioremap(res.start, resource_size(&res));
+> +	if (mdp->addr == NULL) {
+> +		dev_err(dev, "ioremap failed.\n");
+> +		return -ENOMEM;
+> +	}
+> +
+> +	mdp->port = (*devno) % 2;
+> +	ndev->features = NETIF_F_HW_VLAN_FILTER;
+> +
+> +	return 0;
+> +}
+> +#else
+> +static struct sh_eth_plat_data *
+> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev, int *devno)
+> +{
+> +	return NULL;
+> +}
+> +static int
+> +sh_eth_parse_dt_tmu(struct device *dev, struct net_device *ndev)
+> +{
+> +	return -ENOSYS;
+> +}
+> +#endif
+> +
+>  static int sh_eth_drv_probe(struct platform_device *pdev)
+>  {
+> -	int ret, devno = 0;
+> +	int ret = 0, devno = 0;
+>  	struct resource *res;
+>  	struct net_device *ndev = NULL;
+>  	struct sh_eth_private *mdp = NULL;
+>  	struct sh_eth_plat_data *pd;
+> -
+> -	/* get base addr */
+> -	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> -	if (unlikely(res == NULL)) {
+> -		dev_err(&pdev->dev, "invalid resource\n");
+> -		ret = -EINVAL;
+> -		goto out;
+> -	}
+> +	struct device_node *np = pdev->dev.of_node;
+>  
+>  	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
+>  	if (!ndev) {
+> @@ -2369,41 +2515,63 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>  		goto out;
+>  	}
+>  
+> -	/* The sh Ether-specific entries in the device structure. */
+> -	ndev->base_addr = res->start;
+> -	devno = pdev->id;
+> -	if (devno < 0)
+> -		devno = 0;
+> +	/* Fill in the fields of the device structure with ethernet values. */
+> +	ether_setup(ndev);
+>  
+> -	ndev->dma = -1;
+> -	ret = platform_get_irq(pdev, 0);
+> -	if (ret < 0) {
+> -		ret = -ENODEV;
+> -		goto out_release;
+> +	mdp = netdev_priv(ndev);
+> +
+> +	if (np && of_device_is_available(np)) {
+> +		pd = sh_eth_parse_dt(&pdev->dev, ndev, &devno);
+> +		if (!pd) {
+> +			dev_err(&pdev->dev, "no setup data defined\n");
+> +			ret = -EINVAL;
+> +			goto out_release;
+> +		}
+> +	} else {
+> +		/* get base addr */
+> +		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +		if (unlikely(res == NULL)) {
+> +			dev_err(&pdev->dev, "invalid resource\n");
+> +			ret = -EINVAL;
+> +			goto out_release;
+> +		}
+> +
+> +		/* The sh Ether-specific entries in the device structure. */
+> +		ndev->base_addr = res->start;
+> +		devno = pdev->id;
+> +		if (devno < 0)
+> +			devno = 0;
+> +
+> +		ndev->dma = -1;
+> +		ret = platform_get_irq(pdev, 0);
+> +		if (ret < 0) {
+> +			ret = -ENODEV;
+> +			goto out_release;
+> +		}
+> +		ndev->irq = ret;
+> +
+> +		mdp->addr = ioremap(res->start, resource_size(res));
+> +		if (mdp->addr == NULL) {
+> +			ret = -ENOMEM;
+> +			dev_err(&pdev->dev, "ioremap failed.\n");
+> +			goto out_release;
+> +		}
+> +
+> +		pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
+>  	}
+> -	ndev->irq = ret;
+>  
+> -	SET_NETDEV_DEV(ndev, &pdev->dev);
+> +	ndev->dma = -1;
+>  
+> -	/* Fill in the fields of the device structure with ethernet values. */
+> -	ether_setup(ndev);
+> +	SET_NETDEV_DEV(ndev, &pdev->dev);
+>  
+> -	mdp = netdev_priv(ndev);
+>  	mdp->num_tx_ring = TX_RING_SIZE;
+>  	mdp->num_rx_ring = RX_RING_SIZE;
+> -	mdp->addr = ioremap(res->start, resource_size(res));
+> -	if (mdp->addr == NULL) {
+> -		ret = -ENOMEM;
+> -		dev_err(&pdev->dev, "ioremap failed.\n");
+> -		goto out_release;
+> -	}
+>  
+>  	spin_lock_init(&mdp->lock);
+>  	mdp->pdev = pdev;
+>  	pm_runtime_enable(&pdev->dev);
+>  	pm_runtime_resume(&pdev->dev);
+>  
+> -	pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
+>  	/* get PHY ID */
+>  	mdp->phy_id = pd->phy;
+>  	mdp->phy_interface = pd->phy_interface;
+> @@ -2412,6 +2580,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>  	mdp->no_ether_link = pd->no_ether_link;
+>  	mdp->ether_link_active_low = pd->ether_link_active_low;
+>  	mdp->reg_offset = sh_eth_get_register_offset(pd->register_type);
+> +	/* read and set MAC address */
+> +	read_mac_address(ndev, pd->mac_addr);
+>  
+>  	/* set cpu data */
+>  #if defined(SH_ETH_HAS_BOTH_MODULES)
+> @@ -2429,22 +2599,24 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>  	/* debug message level */
+>  	mdp->msg_enable = SH_ETH_DEF_MSG_ENABLE;
+>  
+> -	/* read and set MAC address */
+> -	read_mac_address(ndev, pd->mac_addr);
+> -
+>  	/* ioremap the TSU registers */
+>  	if (mdp->cd->tsu) {
+> -		struct resource *rtsu;
+> -		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> -		if (!rtsu) {
+> -			dev_err(&pdev->dev, "Not found TSU resource\n");
+> -			ret = -ENODEV;
+> -			goto out_release;
+> -		}
+> -		mdp->tsu_addr = ioremap(rtsu->start,
+> +		if (np) {
+> +			ret = sh_eth_parse_dt_tmu(&pdev->dev, ndev, &devno);
+> +			if (ret)
+> +				goto out_release;
+> +		} else {
+> +			struct resource *rtsu;
+> +			rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> +			if (!rtsu) {
+> +				dev_err(&pdev->dev, "Not found TSU resource\n");
+> +				goto out_release;
+> +			}
+> +			mdp->tsu_addr = ioremap(rtsu->start,
+>  					resource_size(rtsu));
+> -		mdp->port = devno % 2;
+> -		ndev->features = NETIF_F_HW_VLAN_FILTER;
+> +			mdp->port = devno % 2;
+> +			ndev->features = NETIF_F_HW_VLAN_FILTER;
+> +		}
+>  	}
+>  
+>  	/* initialize first or needed device */
+> @@ -2527,12 +2699,19 @@ static struct dev_pm_ops sh_eth_dev_pm_ops = {
+>  	.runtime_resume = sh_eth_runtime_nop,
+>  };
+>  
+> +static struct of_device_id sh_eth_match[] = {
+> +	{ .compatible = "renesas,sh-eth",},
+> +	{},
+> +};
+> +MODULE_DEVICE_TABLE(of, sh_eth_match);
+> +
+>  static struct platform_driver sh_eth_driver = {
+>  	.probe = sh_eth_drv_probe,
+>  	.remove = sh_eth_drv_remove,
+>  	.driver = {
+>  		   .name = CARDNAME,
+>  		   .pm = &sh_eth_dev_pm_ops,
+> +		   .of_match_table = sh_eth_match,
+>  	},
+>  };
+>  
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
