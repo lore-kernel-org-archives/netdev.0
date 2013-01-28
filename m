@@ -1,39 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] dm9601: support dm9620 variant
-Date: Mon, 28 Jan 2013 00:18:47 -0500 (EST)
-Message-ID: <20130128.001847.110491728527295486.davem@davemloft.net>
-References: <1359326062-5042-1-git-send-email-jacmet@sunsite.dk>
+Subject: Re: pull-request: can-next 2013-01-26
+Date: Mon, 28 Jan 2013 00:24:55 -0500 (EST)
+Message-ID: <20130128.002455.638752456075920210.davem@davemloft.net>
+References: <5103FFA3.5020507@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, slawek@wernikowski.net
-To: jacmet@sunsite.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39112 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751114Ab3A1FSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 00:18:50 -0500
-In-Reply-To: <1359326062-5042-1-git-send-email-jacmet@sunsite.dk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <5103FFA3.5020507@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Peter Korsgaard <jacmet@sunsite.dk>
-Date: Sun, 27 Jan 2013 23:34:22 +0100
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Sat, 26 Jan 2013 17:09:07 +0100
 
-> dm9620 is a newer variant of dm9601 with more features (usb 2.0, chec=
-ksum
-> offload, ..), but it can also be put in a dm9601 compatible mode, all=
-owing
-> us to reuse the existing driver.
->=20
-> This does mean that the extended features like checksum offload canno=
-t be
-> used, but that's hardly critical on a 100mbps interface.
->=20
-> Thanks to S=A9=A9awek Wernikowski <slawek@wernikowski.net> for provid=
-ing me
-> with a dm9620 based device to test.
->=20
-> Signed-off-by: Peter Korsgaard <jacmet@sunsite.dk>
+> this is a pull-request for net-next/master. There is are 9 patches by 
+> Fabio Baltieri and Kurt Van Dijck which add LED infrastructure and
+> support for CAN devices. Bernd Krumboeck adds a driver for the USB CAN
+> adapter from 8 devices. Oliver Hartkopp improves the CAN gateway
+> functionality. There are 4 patches by me, which clean up the CAN's
+> Kconfig.
 
-Applied, thanks Peter.
+Pulled, although:
+
+1) You need to create an accessor helper for that can_skb_priv
+   thing, every access to it is that horrible cast expression.
+
+2) There is no reason to accomodate out of tree stuff, and for that
+   reason I see no reason why you should need that headroom size
+   check at all.
+
+   Either the driver uses alloc_can_skb() or it does it's own SKB
+   allocation and in-tree you've fixed that.
+
+   You're just asking for trouble by trying to accomodate out of
+   tree guys anyways, why if they create a headroom that happens
+   to be the size of can_skb_priv.  See what a joke that test is?
+   It's not really protecting fully against anything.
+
+Thanks.
