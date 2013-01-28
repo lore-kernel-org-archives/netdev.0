@@ -1,118 +1,62 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch net-next] pktgen: support net namespace
-Date: Sun, 27 Jan 2013 22:52:48 -0800
-Message-ID: <87d2wpyf27.fsf@xmission.com>
-References: <1359354775-28344-1-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net] pktgen: correctly handle failures when adding a device
+Date: Mon, 28 Jan 2013 15:14:08 +0800
+Message-ID: <1359357248-14863-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:34734 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752571Ab3A1Gw7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 01:52:59 -0500
-In-Reply-To: <1359354775-28344-1-git-send-email-amwang@redhat.com> (Cong
-	Wang's message of "Mon, 28 Jan 2013 14:32:55 +0800")
+Received: from mx1.redhat.com ([209.132.183.28]:54189 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751751Ab3A1HOQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jan 2013 02:14:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <amwang@redhat.com> writes:
+From: Cong Wang <amwang@redhat.com>
 
-> From: Cong Wang <amwang@redhat.com>
->
-> This patch add net namespace to pktgen, so that
-> we can use pktgen in different namespaces.
+The return value of pktgen_add_device() is not checked, so
+even if we fail to add some device, for example, non-exist one,
+we still see "OK:...". This patch fixes it.
 
-Skimming through this looks like a reasonable patch.
+After this patch, I got:
 
-I am not a fan of the number of threads, but that has nothing to do with
-correctness, and would certainly require a large change in logic to keep
-the number of threads down, which might not be a good idea.
+	# echo "add_device non-exist" > /proc/net/pktgen/kpktgend_0
+	-bash: echo: write error: No such device
+	# cat /proc/net/pktgen/kpktgend_0
+	Running: 
+	Stopped: 
+	Result: ERROR: can not add device non-exist
+	# echo "add_device eth0" > /proc/net/pktgen/kpktgend_0
+	# cat /proc/net/pktgen/kpktgend_0
+	Running: 
+	Stopped: eth0 
+	Result: OK: add_device=eth0
 
+(Candidate for -stable)
 
-One small nit below.
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Eric
-
-
-> @@ -3592,49 +3607,78 @@ static int pktgen_remove_device(struct pktgen_thread *t,
->  	return 0;
->  }
->  
-> -static int __init pg_init(void)
-> +static int __net_init pg_net_init(struct net *net)
->  {
-> -	int cpu;
-> -	struct proc_dir_entry *pe;
-> -	int ret = 0;
-> -
-> -	pr_info("%s", version);
-> +	struct pktgen_net *pn = net_generic(net, pg_net_id);
-> +	int cpu, ret = 0;
->  
-> -	pg_proc_dir = proc_mkdir(PG_PROC_DIR, init_net.proc_net);
-> -	if (!pg_proc_dir)
-> -		return -ENODEV;
-> +	pn->net = net;
-> +	if (!pn->proc_dir) {
-        ^^^^^^^^^^^^^^^^^^^^
-
-This test is pointless.  pn->proc_dir is allocated with kzalloc so it
-will be initially NULL and pg_net_init will be called exactly once
-per network namespace so pn->proc_dir will always be NULL here. 
-
-> +		struct proc_dir_entry *pe;
-> +		pn->proc_dir = proc_mkdir(PG_PROC_DIR, pn->net->proc_net);
-> +		if (!pn->proc_dir) {
-> +			pr_warn("cannot create /proc/net/%s\n", PG_PROC_DIR);
-> +			return -ENODEV;
-> +		}
-> +		pe = proc_create(PGCTRL, 0600, pn->proc_dir, &pktgen_fops);
-> +		if (pe == NULL) {
-> +			pr_err("cannot create %s procfs entry\n", PGCTRL);
-> +			ret = -EINVAL;
-> +			goto remove;
-> +		}
->  
-> -	pe = proc_create(PGCTRL, 0600, pg_proc_dir, &pktgen_fops);
-> -	if (pe == NULL) {
-> -		pr_err("ERROR: cannot create %s procfs entry\n", PGCTRL);
-> -		ret = -EINVAL;
-> -		goto remove_dir;
->  	}
->  
-> -	register_netdevice_notifier(&pktgen_notifier_block);
-> -
->  	for_each_online_cpu(cpu) {
->  		int err;
->  
-> -		err = pktgen_create_thread(cpu);
-> +		err = pktgen_create_thread(cpu, pn);
->  		if (err)
-> -			pr_warning("WARNING: Cannot create thread for cpu %d (%d)\n",
-> +			pr_warn("Cannot create thread for cpu %d (%d)\n",
->  				   cpu, err);
->  	}
->  
->  	if (list_empty(&pktgen_threads)) {
-> -		pr_err("ERROR: Initialization failed for all threads\n");
-> +		pr_err("Initialization failed for all threads\n");
->  		ret = -ENODEV;
-> -		goto unregister;
-> +		goto remove_entry;
->  	}
->  
->  	return 0;
->  
-> - unregister:
-> -	unregister_netdevice_notifier(&pktgen_notifier_block);
-> -	remove_proc_entry(PGCTRL, pg_proc_dir);
-> - remove_dir:
-> -	proc_net_remove(&init_net, PG_PROC_DIR);
-> +remove_entry:
-> +	remove_proc_entry(PGCTRL, pn->proc_dir);
-> +remove:
-> +	proc_net_remove(pn->net, PG_PROC_DIR);
-> +	return ret;
-> +}
+---
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index b29dacf..e6e1cbe 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -1781,10 +1781,13 @@ static ssize_t pktgen_thread_write(struct file *file,
+ 			return -EFAULT;
+ 		i += len;
+ 		mutex_lock(&pktgen_thread_lock);
+-		pktgen_add_device(t, f);
++		ret = pktgen_add_device(t, f);
+ 		mutex_unlock(&pktgen_thread_lock);
+-		ret = count;
+-		sprintf(pg_result, "OK: add_device=%s", f);
++		if (!ret) {
++			ret = count;
++			sprintf(pg_result, "OK: add_device=%s", f);
++		} else
++			sprintf(pg_result, "ERROR: can not add device %s", f);
+ 		goto out;
+ 	}
+ 
