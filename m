@@ -1,42 +1,47 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 2/2] net: sh-eth: Use pr_err instead of printk
-Date: Mon, 28 Jan 2013 10:41:57 +0900
-Message-ID: <20130128014157.GC27896@verge.net.au>
-References: <1350350279-8693-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <1350350279-8693-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <20130128012640.GB27896@verge.net.au>
- <20130127.202855.2183638663551956921.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nobuhiro.iwamatsu.yj@renesas.com, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Nivedita Singhvi <niveditasinghvi@gmail.com>
+Subject: [PATCH] [PATCH] tcp: Increment of LINUX_MIB_LISTENOVERFLOWS in tcp_v4_conn_request() (updated)
+Date: Sun, 27 Jan 2013 17:45:50 -0800
+Message-ID: <1359337550-3958-1-git-send-email-niveditasinghvi@gmail.com>
+Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
+	Nivedita Singhvi <niv@us.ibm.com>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:48490 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756501Ab3A1BmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:42:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20130127.202855.2183638663551956921.davem@davemloft.net>
+Received: from mail-gg0-f169.google.com ([209.85.161.169]:40067 "EHLO
+	mail-gg0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756371Ab3A1Bvi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 20:51:38 -0500
+Received: by mail-gg0-f169.google.com with SMTP id j5so330005ggn.28
+        for <netdev@vger.kernel.org>; Sun, 27 Jan 2013 17:51:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 27, 2013 at 08:28:55PM -0500, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Mon, 28 Jan 2013 10:26:40 +0900
-> 
-> > [Cc David Miller, linux-sh]
-> > 
-> > On Tue, Oct 16, 2012 at 10:17:59AM +0900, Nobuhiro Iwamatsu wrote:
-> >> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> > 
-> > Acked-by: Simon Horman <horms+renesas@verge.net.au>
-> > 
-> > Dave, I know this is an oldie, but it appears to still be a goodie.
-> > Could you consider it for 3.8?
-> 
-> Why would I consider it for 3.8?  We're in critical-but-fix-only
-> state and this just modifies kernel log messages in what should
-> be rare error paths, so entirely not appropriate for 3.8
+From: Nivedita Singhvi <niv@us.ibm.com>
 
-Sorry, I'll repost it for 3.9 at a later date.
+We drop a connection request if the accept backlog is full and there are
+sufficient packets in the syn queue to warrant starting drops. Increment the
+appropriate counter so this isn't silent, for accurate stats and help in
+debugging.
+
+Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
+---
+ net/ipv4/tcp_ipv4.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index bbbdcc5..49b4f50 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1502,8 +1502,10 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	 * clogging syn queue with openreqs with exponentially increasing
+ 	 * timeout.
+ 	 */
+-	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
++	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1) {
++		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
+ 		goto drop;
++	}
+ 
+ 	req = inet_reqsk_alloc(&tcp_request_sock_ops);
+ 	if (!req)
+-- 
+1.7.5.4
