@@ -1,53 +1,74 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net: fix possible wrong checksum generation
-Date: Mon, 28 Jan 2013 18:35:48 +0000
-Message-ID: <1359398148.2721.13.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1359065793-1796-1-git-send-email-pshelar@nicira.com>
-	 <1359070199.12374.2557.camel@edumazet-glaptop>
-	 <CALnjE+rbqCgRwxr1TtFH92vKSJoTRhBP50f+jQmgWB9LanQhYw@mail.gmail.com>
-	 <1359077664.12374.2887.camel@edumazet-glaptop>
-	 <CALnjE+p0m7E7vH20M9mXuNiFG4iUpAsoyjW7ugez3ch=RdkVcw@mail.gmail.com>
-	 <1359143538.12374.3379.camel@edumazet-glaptop>
-	 <1359182077.5222.132.camel@edumazet-glaptop>
+From: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH] mwifiex: avoid out of bounds access in
+ mwifiex_get_common_rates.
+Date: Mon, 28 Jan 2013 10:53:33 -0800
+Message-ID: <477F20668A386D41ADCC57781B1F70430D142545EE@SC-VEXCH1.marvell.com>
+References: <1359326568-17022-1-git-send-email-tipecaml@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<jesse@nicira.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23078 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751091Ab3A1Sfw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 13:35:52 -0500
-In-Reply-To: <1359182077.5222.132.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Cyril Roelandt <tipecaml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1359326568-17022-1-git-send-email-tipecaml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-01-25 at 22:34 -0800, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+Hi Cyril,
+
+Thanks for your patch.
+
+> Check that the array indexes are in-bounds before accessing the rate2 and tmp
+> arrays.
 > 
-> Pravin Shelar mentioned that GSO could potentially generate
-> wrong TX checksum if skb has fragments that are overwritten
-> by the user between the checksum computation and transmit.
+> Found with the following semantic patch:
 > 
-> He suggested to linearize skbs but this extra copy can be
-> avoided for normal tcp skbs cooked by tcp_sendmsg().
+> <smpl>
+> @@
+> identifier t;
+> identifier idx;
+> expression E;
+> statement S;
+> @@
+> * for (... ; <+... t[idx] ...+> && idx < E ; ...)
+> S
+> </smpl>
 > 
-> This patch introduces a new SKB_GSO_SHARED_FRAG flag, set
-> in skb_shinfo(skb)->gso_type if at least one frag can be
-> modified by the user.
-[...]
+> Signed-off-by: Cyril Roelandt <tipecaml-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Again, this needs a net device feature, doesn't it?  net_gso_ok() should
-allow hardware checksum/segmentation offload of such packets, and it
-won't if there is this new GSO flag with no corresponding net device
-feature.
+Acked-by: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
 
-Ben.
+Thanks,
+Bing
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> ---
+>  drivers/net/wireless/mwifiex/join.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/mwifiex/join.c b/drivers/net/wireless/mwifiex/join.c
+> index 893d809..f0a634d 100644
+> --- a/drivers/net/wireless/mwifiex/join.c
+> +++ b/drivers/net/wireless/mwifiex/join.c
+> @@ -157,8 +157,8 @@ static int mwifiex_get_common_rates(struct mwifiex_private *priv, u8 *rate1,
+> 
+>  	memset(rate1, 0, rate1_size);
+> 
+> -	for (i = 0; rate2[i] && i < rate2_size; i++) {
+> -		for (j = 0; tmp[j] && j < rate1_size; j++) {
+> +	for (i = 0; i < rate2_size && rate2[i]; i++) {
+> +		for (j = 0; j < rate1_size && tmp[j]; j++) {
+>  			/* Check common rate, excluding the bit for
+>  			   basic rate */
+>  			if ((rate2[i] & 0x7F) == (tmp[j] & 0x7F)) {
+> --
+> 1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
