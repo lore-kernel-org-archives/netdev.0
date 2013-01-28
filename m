@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] r8169: fix vlan tag read ordering.
-Date: Sun, 27 Jan 2013 19:29:19 -0500 (EST)
-Message-ID: <20130127.192919.269296979659118968.davem@davemloft.net>
-References: <20130124233006.GA7511@electric-eye.fr.zoreil.com>
+Subject: Re: [patch] ip6mr: limit IPv6 MRT_TABLE identifiers
+Date: Sun, 27 Jan 2013 19:31:28 -0500 (EST)
+Message-ID: <20130127.193128.794894878150200946.davem@davemloft.net>
+References: <20130124063834.GA5611@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com, timo.teras@iki.fi
-To: romieu@fr.zoreil.com
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36811 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36828 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753067Ab3A1A3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:29:20 -0500
-In-Reply-To: <20130124233006.GA7511@electric-eye.fr.zoreil.com>
+	with ESMTP id S1753067Ab3A1Aba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jan 2013 19:31:30 -0500
+In-Reply-To: <20130124063834.GA5611@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 25 Jan 2013 00:30:06 +0100
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 24 Jan 2013 09:38:34 +0300
 
-> Control of receive descriptor must not be returned to ethernet chipset
-> before vlan tag processing is done.
+> We did this for IPv4 in b49d3c1e1c "net: ipmr: limit MRT_TABLE
+> identifiers" but we need to do it for IPv6 as well.  On IPv6 the name
+> is "pim6reg" instead of "pimreg" so there is one less digit allowed.
 > 
-> VLAN tag receive word is now reset both in normal and error path.
+> The strcpy() is in ip6mr_reg_vif().
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Spotted-by: Timo Teras <timo.teras@iki.fi>
-> Cc: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied.
+Applied, thanks Dan.
