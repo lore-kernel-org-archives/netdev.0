@@ -1,52 +1,63 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0 to gigabit ethernet adapter driver
-Date: Mon, 28 Jan 2013 15:24:34 +0100
-Message-ID: <878v7dpeql.fsf@nemi.mork.no>
-References: <1358908337-13841-1-git-send-email-freddy@asix.com.tw>
-	<20130127001347.584711b2@xenia> <87zjztptez.fsf@nemi.mork.no>
-	<010f01cdfd5c$768d4240$63a7c6c0$@asix.com.tw>
+From: Leandro Lucarella <leandro.lucarella@sociomantic.com>
+Subject: Re: Doubts about listen backlog and tcp_max_syn_backlog
+Date: Mon, 28 Jan 2013 15:40:06 +0100
+Message-ID: <20130128144006.GQ4608@sociomantic.com>
+References: <50FF0C25.9000300@hp.com>
+ <20130123104736.GK4608@sociomantic.com>
+ <510039C8.7040401@hp.com>
+ <20130124122223.GQ4608@sociomantic.com>
+ <51018110.1070403@hp.com>
+ <20130124192125.GD4608@sociomantic.com>
+ <5102225E.2040506@gmail.com>
+ <20130125100525.GE4608@sociomantic.com>
+ <5105E6F2.2010805@gmail.com>
+ <CAGK4HS_2=b3gJmDeBTbSmFYk4PB2epMUQE6nkr1XMGfFgmfHvw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "'Michael Leun'" <lkml20130126-yS7QfQBdiAdyjo5WHAzKoQ@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <louis-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>,
-	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <Support-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-To: "Freddy" <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <010f01cdfd5c$768d4240$63a7c6c0$@asix.com.tw>
-	(freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org's message of "Mon, 28 Jan 2013 21:36:20 +0800")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Nivedita Singhvi <niveditasinghvi@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGK4HS_2=b3gJmDeBTbSmFYk4PB2epMUQE6nkr1XMGfFgmfHvw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Freddy" <freddy-knRN6Y/kmf1NUHwG+Fw1Kw@public.gmane.org> writes:
+On Sun, Jan 27, 2013 at 09:21:32PM -0800, Vijay Subramanian wrote:
+> > +    { "ListenDrops", N_("%u SYNs to LISTEN sockets dropped"), opt_number },
+> >
+> > (see the file debian/patches/CVS-20081003-statistics.c_sync.patch
+> >  in the net-tools src)
+> >
+> > i.e., the netstat pkg is printing the value of the TCPEXT MIB counter
+> > that's counting TCPExtListenDrops.
+> >
+> > Theoretically, that number should be the same as that printed by nstat,
+> > as they are getting it from the same kernel stats counter. I have not
+> > looked at nstat code (I actually almost always dump the counters from
+> > /proc/net/{netstat + snmp} via a simple prettyprint script (will send
+> > you that offline).
+> 
+> nstat pretty much does what you describe which is to parse the
+> /proc/net files(s) and print the contents. This is one advantage of
+> nstat over netstat. When you add a new MIB, you do not need to update
+> nstat.
 
-> Bj=C3=B8rn, I am trying to reproduce the issue mentioned by Michael a=
-nd I
-> have a question about submitting this driver.
->
-> Should I merge this driver into asix_devices.c and asix_common.c even
-> through the usb command, tx_fixup, and rx_fixup functions are totally
-> different?
+Well, something seems to be broken in the nstat I have because using the
+script to parse the start instead I get the the same values as with
+netstat.
 
-This is only my personal opinion and does not count as more than that,
-but I would have tried to identify as many common parts as possible in
-these drivers and reuse as much code as possible instead of creating
-slightly different copies.  That does not mean that there shouldn't be
-anything different.  If the framing is completely different, then it
-does of course not make any sense to share tx_fixup and rx_fixup.  But
-my impression from looking briefly on these drivers is that a lof of th=
-e
-code is very similar. I could of course be wrong...
+[2 minutes later, and after observing the values of nstat changed in the
+same server]
 
-Please note that modifying asix_common.c in this process is perfectly O=
-K
-if that is necessary.  The only requirement is that you don't break
-anything that used to work.
+OK, it looks like nstat is showing some transcient values, using nstat
+-a I get the "absolute values of counters" (as stated in the man page).
+By default it seems to print the values for the last 60 seconds, so
+mistery solved.
 
-
-Bj=C3=B8rn
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Leandro Lucarella
+sociomantic labs GmbH
+http://www.sociomantic.com
