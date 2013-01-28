@@ -1,29 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] SCTP: Free the per-net sysctl table on net exit. v2
-Date: Mon, 28 Jan 2013 00:11:25 -0500 (EST)
-Message-ID: <20130128.001125.1697434398997976656.davem@davemloft.net>
-References: <20130127.193511.2294954038548420781.davem@davemloft.net>
-	<87libe3w69.fsf@xmission.com>
-	<87obgayoo8.fsf_-_@xmission.com>
+Subject: Re: [PATCH net-next V2 0/6] Mellanox Ethernet driver updates
+ 2013-01-16
+Date: Mon, 28 Jan 2013 00:16:09 -0500 (EST)
+Message-ID: <20130128.001609.1170735653933358825.davem@davemloft.net>
+References: <1359028459-30961-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, mmokrejs@fold.natur.cuni.cz
-To: ebiederm@xmission.com
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39053 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39097 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785Ab3A1FL3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 00:11:29 -0500
-In-Reply-To: <87obgayoo8.fsf_-_@xmission.com>
+	with ESMTP id S1750728Ab3A1FQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 00:16:11 -0500
+In-Reply-To: <1359028459-30961-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sun, 27 Jan 2013 19:25:11 -0800
+From: Amir Vadai <amirv@mellanox.com>
+Date: Thu, 24 Jan 2013 13:54:13 +0200
 
-> The typo is fixed in the patch this time in addition to my test
-> tree.
+> These are all small bug fixes to the Mellanox mlx4 driver, patches done against
+> net-next commit d59577b "sk-filter: Add ability to lock a socket filter program"
 
-Applied, thanks for fixing this up Eric.
+All applied to net-next, thanks.
