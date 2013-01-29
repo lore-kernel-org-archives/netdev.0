@@ -1,69 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: No sysfs directory for openvswitch module when built-in
-Date: Tue, 29 Jan 2013 22:15:18 +0800
-Message-ID: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/3][net-next] gianfar: Pack struct gfar_priv_grp into three cachelines
+Date: Tue, 29 Jan 2013 14:35:13 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7124@saturn3.aculab.com>
+References: <1359467712-32079-1-git-send-email-claudiu.manoil@freescale.com> <1359467712-32079-2-git-send-email-claudiu.manoil@freescale.com> <1359467712-32079-3-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>,
-	Jesse Gross <jesse@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>
+To: "Claudiu Manoil" <claudiu.manoil@freescale.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f45.google.com ([209.85.212.45]:61153 "EHLO
-	mail-vb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628Ab3A2OPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 09:15:19 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:55935 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753595Ab3A2Ohz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 09:37:55 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24337-10 for <netdev@vger.kernel.org>;
+ Tue, 29 Jan 2013 14:37:49 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <1359467712-32079-3-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello, Rusty, Jesse,
+> * remove unused members(!): imask, ievent
+> * move space consuming interrupt name strings (int_name_* members) to
+> external structures, unessential for the driver's hot path
+> * keep high priority hot path data within the first 2 cache lines
+> 
+> This reduces struct gfar_priv_grp from 6 to 3 cache lines.
 
-I met an interesting problem when I compile openvswitch module as a
-built-in (actually I compile ALL kernel modules as built-in), there is
-no /sys/module/openvswitch/ directory created by the kernel in this
-case.
+Does it really matter where the message texts are allocated?
+Provided they aren't intermixed with the 'hot' data.
+Allocating them separately just seems over complicated.
 
-What's worse, the user-space init script thinks openvswitch module is
-not loaded by checking the exist of this directory, therefore refuses
-to start.
-
-After digging a little deeper, I found the cause of this problem is
-actually that the core kernel doesn't create directory for any kernel
-module without a module version or any module parameters when
-built-in. Openvswitch is exactly such a module!!
-
-I believe there is nothing wrong either in the user-space init script,
-or in the openvswitch kernel module. So, the question why core kernel
-doesn't create module directory for such modules?
-
->From the code:
-
-static int __init param_sysfs_init(void)
-{
-        module_kset = kset_create_and_add("module", &module_uevent_ops, NULL);
-        if (!module_kset) {
-                printk(KERN_WARNING "%s (%d): error creating kset\n",
-                        __FILE__, __LINE__);
-                return -ENOMEM;
-        }
-        module_sysfs_initialized = 1;
-
-        version_sysfs_builtin();
-        param_sysfs_builtin();
-
-        return 0;
-}
-
-it seems there is no way to get the name of the kernel module in such
-case, the above searches module name either in parameter or in version
-information. But I may miss something here...
-
-We can certainly workaround this issue by providing a (dummy) version
-in openvswitch module, but the more important question is can't we fix
-this in core kernel? It is perfectly valid to provide a kernel module
-without either a module version or any module parameter.
-
-What do you think?
-
-Thanks!
+	David
