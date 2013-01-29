@@ -1,465 +1,205 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 02/13] bridge: Add vlan filtering infrastructure
-Date: Tue, 29 Jan 2013 14:52:49 -0500
-Message-ID: <1359489180-10012-3-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 01/13] vlan: wrap hw-acceleration calls in separate functions.
+Date: Tue, 29 Jan 2013 14:52:48 -0500
+Message-ID: <1359489180-10012-2-git-send-email-vyasevic@redhat.com>
 References: <1359489180-10012-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
 	netdev@vger.kernel.org, shmulik.ladkani@gmail.com
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59672 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:28043 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751882Ab3A2TxI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751380Ab3A2TxI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 29 Jan 2013 14:53:08 -0500
 In-Reply-To: <1359489180-10012-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds an optional infrustructure component to bridge that would allow
-native vlan filtering in the bridge.  Each bridge port (as well
-as the bridge device) now get a VLAN bitmap.  Each bit in the bitmap
-is associated with a vlan id.  This way if the bit corresponding to
-the vid is set in the bitmap that the packet with vid is allowed to
-enter and exit the port.
-
-Write access the bitmap is protected by RTNL and read access
-protected by RCU.
-
-Vlan functionality is disabled by default.
+Wrap VLAN hardware acceleration calls into separate functions.  This way
+other code can re-use it.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- net/bridge/Kconfig       |   14 +++
- net/bridge/Makefile      |    2 +
- net/bridge/br_if.c       |    1 +
- net/bridge/br_private.h  |   55 +++++++++++
- net/bridge/br_sysfs_br.c |   21 ++++
- net/bridge/br_vlan.c     |  232 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 325 insertions(+), 0 deletions(-)
- create mode 100644 net/bridge/br_vlan.c
+ include/linux/if_vlan.h |   21 ++++++++++++
+ net/8021q/vlan.c        |    4 +--
+ net/8021q/vlan_core.c   |   81 +++++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 87 insertions(+), 19 deletions(-)
 
-diff --git a/net/bridge/Kconfig b/net/bridge/Kconfig
-index 6dee7bf..aa0d3b2 100644
---- a/net/bridge/Kconfig
-+++ b/net/bridge/Kconfig
-@@ -46,3 +46,17 @@ config BRIDGE_IGMP_SNOOPING
- 	  Say N to exclude this support and reduce the binary size.
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index d06cc5c..b658eda 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -93,6 +93,10 @@ extern u16 vlan_dev_vlan_id(const struct net_device *dev);
+ extern bool vlan_do_receive(struct sk_buff **skb);
+ extern struct sk_buff *vlan_untag(struct sk_buff *skb);
  
- 	  If unsure, say Y.
++extern bool vlan_hw_buggy(const struct net_device *dev);
++extern int vlan_vid_add_hw(struct net_device *dev, unsigned short vid);
++extern int vlan_vid_del_hw(struct net_device *dev, unsigned short vid);
 +
-+config BRIDGE_VLAN_FILTERING
-+	bool "VLAN filtering"
-+	depends on BRIDGE
-+	depends on VLAN_8021Q
-+	default n
-+	---help---
-+	  If you say Y here, then the Ethernet bridge will be able selectively
-+	  receive and forward traffic based on VLAN information in the packet
-+	  any VLAN information configured on the bridge port or bridge device.
-+
-+	  Say N to exclude this support and reduce the binary size.
-+
-+	  If unsure, say Y.
-diff --git a/net/bridge/Makefile b/net/bridge/Makefile
-index e859098..e85498b2f 100644
---- a/net/bridge/Makefile
-+++ b/net/bridge/Makefile
-@@ -14,4 +14,6 @@ bridge-$(CONFIG_BRIDGE_NETFILTER) += br_netfilter.o
+ extern int vlan_vid_add(struct net_device *dev, unsigned short vid);
+ extern void vlan_vid_del(struct net_device *dev, unsigned short vid);
  
- bridge-$(CONFIG_BRIDGE_IGMP_SNOOPING) += br_multicast.o br_mdb.o
- 
-+bridge-$(CONFIG_BRIDGE_VLAN_FILTERING) += br_vlan.o
-+
- obj-$(CONFIG_BRIDGE_NF_EBTABLES) += netfilter/
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 2148d47..af9d65a 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -139,6 +139,7 @@ static void del_nbp(struct net_bridge_port *p)
- 
- 	br_ifinfo_notify(RTM_DELLINK, p);
- 
-+	nbp_vlan_flush(p);
- 	br_fdb_delete_by_port(br, p, 1);
- 
- 	list_del_rcu(&p->list);
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 711094a..1c1b2f1 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -18,6 +18,7 @@
- #include <linux/netpoll.h>
- #include <linux/u64_stats_sync.h>
- #include <net/route.h>
-+#include <linux/if_vlan.h>
- 
- #define BR_HASH_BITS 8
- #define BR_HASH_SIZE (1 << BR_HASH_BITS)
-@@ -26,6 +27,8 @@
- 
- #define BR_PORT_BITS	10
- #define BR_MAX_PORTS	(1<<BR_PORT_BITS)
-+#define BR_VLAN_BITMAP_LEN	BITS_TO_LONGS(VLAN_N_VID)
-+#define BR_INVALID_VID	(1<<15)
- 
- #define BR_VERSION	"2.3"
- 
-@@ -63,6 +66,13 @@ struct br_ip
- 	__be16		proto;
- };
- 
-+struct net_port_vlans {
-+	u16				port_idx;
-+	void				*parent;
-+	struct rcu_head			rcu;
-+	unsigned long			vlan_bitmap[BR_VLAN_BITMAP_LEN];
-+};
-+
- struct net_bridge_fdb_entry
+@@ -155,6 +159,23 @@ static inline bool vlan_uses_dev(const struct net_device *dev)
  {
- 	struct hlist_node		hlist;
-@@ -156,6 +166,7 @@ struct net_bridge_port
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	struct netpoll			*np;
- #endif
-+	struct net_port_vlans __rcu	*vlan_info;
- };
- 
- #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
-@@ -260,6 +271,10 @@ struct net_bridge
- 	struct timer_list		topology_change_timer;
- 	struct timer_list		gc_timer;
- 	struct kobject			*ifobj;
-+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
-+	u8				vlan_enabled;
-+	struct net_port_vlans __rcu	*vlan_info;
-+#endif
- };
- 
- struct br_input_skb_cb {
-@@ -534,6 +549,46 @@ static inline void br_mdb_uninit(void)
+ 	return false;
  }
- #endif
- 
-+/* br_vlan.c */
-+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
-+extern int br_vlan_add(struct net_bridge *br, u16 vid);
-+extern int br_vlan_delete(struct net_bridge *br, u16 vid);
-+extern void br_vlan_flush(struct net_bridge *br);
-+extern int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
-+extern int nbp_vlan_add(struct net_bridge_port *port, u16 vid);
-+extern int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
-+extern void nbp_vlan_flush(struct net_bridge_port *port);
-+#else
-+static inline int br_vlan_add(struct net_bridge *br, u16 vid)
++
++static inline bool vlan_hw_buggy(const struct net_device *dev)
 +{
-+	return -EOPNOTSUPP;
++	return false;
 +}
 +
-+static inline int br_vlan_delete(struct net_bridge *br, u16 vid)
++static inline int vlan_vid_add_hw(struct net_device *dev,
++				  unsigned short vid)
 +{
-+	return -EOPNOTSUPP;
-+}
-+
-+static inline void br_vlan_flush(struct net_bridge *br)
-+{
-+}
-+
-+static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static inline int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
-+{
-+	return -EOPNOTSUPP;
-+}
-+
-+static inline void nbp_vlan_flush(struct net_bridge_port *port)
-+{
-+}
-+
-+#endif
-+
- /* br_netfilter.c */
- #ifdef CONFIG_BRIDGE_NETFILTER
- extern int br_netfilter_init(void);
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 5913a3a..8baa9c0 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -691,6 +691,24 @@ static ssize_t store_nf_call_arptables(
- static DEVICE_ATTR(nf_call_arptables, S_IRUGO | S_IWUSR,
- 		   show_nf_call_arptables, store_nf_call_arptables);
- #endif
-+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
-+static ssize_t show_vlan_filtering(struct device *d,
-+				   struct device_attribute *attr,
-+				   char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->vlan_enabled);
-+}
-+
-+static ssize_t store_vlan_filtering(struct device *d,
-+				    struct device_attribute *attr,
-+				    const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, br_vlan_filter_toggle);
-+}
-+static DEVICE_ATTR(vlan_filtering, S_IRUGO | S_IWUSR,
-+		   show_vlan_filtering, store_vlan_filtering);
-+#endif
- 
- static struct attribute *bridge_attrs[] = {
- 	&dev_attr_forward_delay.attr,
-@@ -732,6 +750,9 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_nf_call_ip6tables.attr,
- 	&dev_attr_nf_call_arptables.attr,
- #endif
-+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
-+	&dev_attr_vlan_filtering.attr,
-+#endif
- 	NULL
- };
- 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-new file mode 100644
-index 0000000..1c7ae56
---- /dev/null
-+++ b/net/bridge/br_vlan.c
-@@ -0,0 +1,232 @@
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/slab.h>
-+
-+#include "br_private.h"
-+
-+static inline struct net_bridge_port *vlans_to_port(struct net_port_vlans *vlans)
-+{
-+	struct net_bridge_port *p = NULL;
-+
-+	if (vlans->port_idx)
-+		p = (struct net_bridge_port *) vlans->parent;
-+
-+	return p;
-+}
-+
-+static inline struct net_bridge *vlans_to_bridge(struct net_port_vlans *vlans)
-+{
-+	struct net_bridge *br;
-+
-+	if (!vlans->port_idx)
-+		br = (struct net_bridge *)vlans->parent;
-+	else
-+		br = vlans_to_port(vlans)->br;
-+
-+	return br;
-+}
-+
-+static int __vlan_add(struct net_port_vlans *v, u16 vid)
-+{
-+	int err;
-+
-+	if (test_bit(vid, v->vlan_bitmap))
-+		return -EEXIST;
-+
-+	if (v->port_idx && vid) {
-+		struct net_device *dev = vlans_to_port(v)->dev;
-+
-+		/* Add VLAN to the device filter if it is supported.
-+		 * Stricly speaking, this is not necessary now, since devices
-+		 * are made promiscuous by the bridge, but if that ever changes
-+		 * this code will allow tagged traffic to enter the bridge.
-+		 */
-+		if (!vlan_hw_buggy(dev)) {
-+			err = vlan_vid_add_hw(dev, vid);
-+			if (err)
-+				return err;
-+		}
-+	}
-+
-+	set_bit(vid, v->vlan_bitmap);
 +	return 0;
 +}
 +
-+static int __vlan_del(struct net_port_vlans *v, u16 vid)
++static inline int vlan_vid_del_hw(struct net_device *dev,
++				  unsigned short vid)
 +{
-+	unsigned long first_bit;
-+	unsigned long last_bit;
-+
-+	if (!test_bit(vid, v->vlan_bitmap))
-+		return -EINVAL;
-+
-+	/* Check to see if any other vlans are in this table.  If this
-+	 * is the last vlan, delete the whole structure.  If this is not the
-+	 * last vlan, just clear the bit.
-+	 */
-+	first_bit = find_first_bit(v->vlan_bitmap, BR_VLAN_BITMAP_LEN);
-+	last_bit = find_last_bit(v->vlan_bitmap, BR_VLAN_BITMAP_LEN);
-+
-+	if (v->port_idx && vid) {
-+		struct net_device *dev = vlans_to_port(v)->dev;
-+		vlan_vid_del_hw(dev, vid);
-+	}
-+
-+	clear_bit(vid, v->vlan_bitmap);
-+	if (first_bit == last_bit) {
-+		if (v->port_idx) {
-+			struct net_bridge_port *p = vlans_to_port(v);
-+			rcu_assign_pointer(p->vlan_info, NULL);
-+		} else {
-+			struct net_bridge *br = vlans_to_bridge(v);
-+			rcu_assign_pointer(br->vlan_info, NULL);
-+		}
-+		kfree_rcu(v, rcu);
-+	}
 +	return 0;
 +}
-+
-+static void __vlan_flush(struct net_port_vlans *v)
+ #endif
+ 
+ /**
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index babfde9..540d759 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -117,15 +117,13 @@ void unregister_vlan_dev(struct net_device *dev, struct list_head *head)
+ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
+ {
+ 	const char *name = real_dev->name;
+-	const struct net_device_ops *ops = real_dev->netdev_ops;
+ 
+ 	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_info("VLANs not supported on %s\n", name);
+ 		return -EOPNOTSUPP;
+ 	}
+ 
+-	if ((real_dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid)) {
++	if (vlan_hw_buggy(real_dev)) {
+ 		pr_info("Device %s has buggy VLAN hw accel\n", name);
+ 		return -EOPNOTSUPP;
+ 	}
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 380440b..d044dd3 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -145,6 +145,63 @@ err_free:
+ 	return NULL;
+ }
+ 
++/**
++ * vlan_hw_buggy - Check to see if VLAN hw acceleration is supported.
++ * @dev: netdevice of the lowerdev/hw nic
++ *
++ * Checks to see if HW and driver report VLAN acceleration correctly.
++ */
++bool vlan_hw_buggy(const struct net_device *dev)
 +{
-+	bitmap_zero(v->vlan_bitmap, BR_VLAN_BITMAP_LEN);
-+	if (v->port_idx)
-+		rcu_assign_pointer(vlans_to_port(v)->vlan_info, NULL);
-+	else
-+		rcu_assign_pointer(vlans_to_bridge(v)->vlan_info, NULL);
-+	kfree_rcu(v, rcu);
++	const struct net_device_ops *ops = dev->netdev_ops;
++
++	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
++	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid))
++		return true;
++
++	return false;
 +}
++EXPORT_SYMBOL(vlan_hw_buggy);
 +
-+/* Must be protected by RTNL */
-+int br_vlan_add(struct net_bridge *br, u16 vid)
++/**
++ * vlan_vid_add_hw - Add the VLAN vid to the HW filter
++ * @dev: netdevice of the lowerdev/hw nic
++ * @vid: vlan id.
++ *
++ * Inserts the vid into the HW vlan filter table if hw supports it.
++ */
++int vlan_vid_add_hw(struct net_device *dev, unsigned short vid)
 +{
-+	struct net_port_vlans *pv = NULL;
-+	int err;
++	const struct net_device_ops *ops = dev->netdev_ops;
++	int err = 0;
 +
-+	ASSERT_RTNL();
++	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
++	    ops->ndo_vlan_rx_add_vid)
++		err = ops->ndo_vlan_rx_add_vid(dev, vid);
 +
-+	pv = rtnl_dereference(br->vlan_info);
-+	if (pv)
-+		return __vlan_add(pv, vid);
-+
-+	/* Create port vlan infomration
-+	 */
-+	pv = kzalloc(sizeof(*pv), GFP_KERNEL);
-+	if (!pv)
-+		return -ENOMEM;
-+
-+	pv->parent = br;
-+	err = __vlan_add(pv, vid);
-+	if (err)
-+		goto out;
-+
-+	rcu_assign_pointer(br->vlan_info, pv);
-+	return 0;
-+out:
-+	kfree(pv);
 +	return err;
 +}
++EXPORT_SYMBOL(vlan_vid_add_hw);
 +
-+/* Must be protected by RTNL */
-+int br_vlan_delete(struct net_bridge *br, u16 vid)
++/**
++ * vlan_vid_del_hw - Delete the VLAN vid from the HW filter
++ * @dev: netdevice of the lowerdev/hw nic
++ * @vid: vlan id.
++ *
++ * Delete the vid from the HW vlan filter table if hw supports it.
++ */
++int vlan_vid_del_hw(struct net_device *dev, unsigned short vid)
 +{
-+	struct net_port_vlans *pv;
++	const struct net_device_ops *ops = dev->netdev_ops;
++	int err = 0;
 +
-+	ASSERT_RTNL();
++	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
++	    ops->ndo_vlan_rx_kill_vid)
++		err = ops->ndo_vlan_rx_add_vid(dev, vid);
 +
-+	pv = rtnl_dereference(br->vlan_info);
-+	if (!pv)
-+		return -EINVAL;
-+
-+	__vlan_del(pv, vid);
-+	return 0;
-+}
-+
-+void br_vlan_flush(struct net_bridge *br)
-+{
-+	struct net_port_vlans *pv;
-+
-+	ASSERT_RTNL();
-+
-+	pv = rtnl_dereference(br->vlan_info);
-+	if (!pv)
-+		return;
-+
-+	__vlan_flush(pv);
-+}
-+
-+int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val)
-+{
-+	if (!rtnl_trylock())
-+		return restart_syscall();
-+
-+	if (br->vlan_enabled == val)
-+		goto unlock;
-+
-+	br->vlan_enabled = val;
-+
-+unlock:
-+	rtnl_unlock();
-+	return 0;
-+}
-+
-+/* Must be protected by RTNL */
-+int nbp_vlan_add(struct net_bridge_port *port, u16 vid)
-+{
-+	struct net_port_vlans *pv = NULL;
-+	int err;
-+
-+	ASSERT_RTNL();
-+
-+	pv = rtnl_dereference(port->vlan_info);
-+	if (pv)
-+		return __vlan_add(pv, vid);
-+
-+	/* Create port vlan infomration
-+	 */
-+	pv = kzalloc(sizeof(*pv), GFP_KERNEL);
-+	if (!pv) {
-+		err = -ENOMEM;
-+		goto clean_up;
-+	}
-+
-+	pv->port_idx = port->port_no;
-+	pv->parent = port;
-+	err = __vlan_add(pv, vid);
-+	if (err)
-+		goto clean_up;
-+
-+	rcu_assign_pointer(port->vlan_info, pv);
-+	return 0;
-+
-+clean_up:
-+	kfree(pv);
 +	return err;
 +}
-+
-+/* Must be protected by RTNL */
-+int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
-+{
-+	struct net_port_vlans *pv;
-+
-+	ASSERT_RTNL();
-+
-+	pv = rtnl_dereference(port->vlan_info);
-+	if (!pv)
-+		return -EINVAL;
-+
-+	return __vlan_del(pv, vid);
-+}
-+
-+void nbp_vlan_flush(struct net_bridge_port *port)
-+{
-+	struct net_port_vlans *pv;
-+
-+	ASSERT_RTNL();
-+
-+	pv = rtnl_dereference(port->vlan_info);
-+	if (!pv)
-+		return;
-+
-+	__vlan_flush(pv);
-+}
++EXPORT_SYMBOL(vlan_vid_del_hw);
+ 
+ /*
+  * vlan info and vid list
+@@ -216,7 +273,6 @@ static int __vlan_vid_add(struct vlan_info *vlan_info, unsigned short vid,
+ 			  struct vlan_vid_info **pvid_info)
+ {
+ 	struct net_device *dev = vlan_info->real_dev;
+-	const struct net_device_ops *ops = dev->netdev_ops;
+ 	struct vlan_vid_info *vid_info;
+ 	int err;
+ 
+@@ -224,13 +280,10 @@ static int __vlan_vid_add(struct vlan_info *vlan_info, unsigned short vid,
+ 	if (!vid_info)
+ 		return -ENOMEM;
+ 
+-	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	    ops->ndo_vlan_rx_add_vid) {
+-		err =  ops->ndo_vlan_rx_add_vid(dev, vid);
+-		if (err) {
+-			kfree(vid_info);
+-			return err;
+-		}
++	err = vlan_vid_add_hw(dev, vid);
++	if (err) {
++		kfree(vid_info);
++		return err;
+ 	}
+ 	list_add(&vid_info->list, &vlan_info->vid_list);
+ 	vlan_info->nr_vids++;
+@@ -278,17 +331,13 @@ static void __vlan_vid_del(struct vlan_info *vlan_info,
+ 			   struct vlan_vid_info *vid_info)
+ {
+ 	struct net_device *dev = vlan_info->real_dev;
+-	const struct net_device_ops *ops = dev->netdev_ops;
+ 	unsigned short vid = vid_info->vid;
+ 	int err;
+ 
+-	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	     ops->ndo_vlan_rx_kill_vid) {
+-		err = ops->ndo_vlan_rx_kill_vid(dev, vid);
+-		if (err) {
+-			pr_warn("failed to kill vid %d for device %s\n",
+-				vid, dev->name);
+-		}
++	err = vlan_vid_del_hw(dev, vid);
++	if (err) {
++		pr_warn("failed to kill vid %d for device %s\n",
++			vid, dev->name);
+ 	}
+ 	list_del(&vid_info->list);
+ 	kfree(vid_info);
 -- 
 1.7.7.6
