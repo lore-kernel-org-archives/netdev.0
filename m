@@ -1,48 +1,53 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: kmemleak complaints in ip6mr.c
-Date: Tue, 29 Jan 2013 13:59:06 -0500 (EST)
-Message-ID: <20130129.135906.1332264867631483230.davem@davemloft.net>
-References: <20130129185127.GA31811@raven>
+Subject: Re: [patch net-next] ipv4: introduce address lifetime
+Date: Tue, 29 Jan 2013 14:00:33 -0500 (EST)
+Message-ID: <20130129.140033.1738779666268159179.davem@davemloft.net>
+References: <1359056501-6752-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tparkin@katalix.com
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	psimerda@redhat.com, tgraf@suug.ch, nicolas.dichtel@6wind.com,
+	nhorman@tuxdriver.com, dcbw@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58976 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58986 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753029Ab3A2S7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 13:59:13 -0500
-In-Reply-To: <20130129185127.GA31811@raven>
+	with ESMTP id S1753724Ab3A2TAf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:00:35 -0500
+In-Reply-To: <1359056501-6752-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Parkin <tparkin@katalix.com>
-Date: Tue, 29 Jan 2013 18:51:27 +0000
+=46rom: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 24 Jan 2013 20:41:41 +0100
 
-> I've discovered what may be a memory leak in ip6mr when using network
-> namespaces.  Here's the kmemleak backtrace:
-> 
-> 
-> unreferenced object 0xf0d4a180 (size 96):
->   comm "ip", pid 6735, jiffies 4294949643 (age 73.268s)
->   hex dump (first 32 bytes):
->     68 a1 d4 f0 00 02 20 00 01 00 00 00 00 00 00 00  h..... .........
->     00 00 00 00 00 00 00 00 00 00 00 00 ff 7f 00 00  ................
->   backtrace:
->     [<c159b50c>] kmemleak_alloc+0x2c/0x60
->     [<c1139c23>] __kmalloc+0x1c3/0x240
->     [<c14e2627>] fib_default_rule_add+0x27/0x70
->     [<c157f8df>] ip6mr_net_init+0x6f/0x140
->     [<c14c4129>] ops_init+0x39/0x110
->     [<c14c425f>] setup_net+0x5f/0xf0
->     [<c14c46e4>] copy_net_ns+0x74/0xf0
->     [<c105fc81>] create_new_namespaces+0xd1/0x160
->     [<c105fedf>] unshare_nsproxy_namespaces+0x5f/0xa0
->     [<c1038a94>] sys_unshare+0x114/0x280
->     [<c15b7ecd>] sysenter_do_call+0x12/0x28
->     [<ffffffff>] 0xffffffff
+> There are some usecase when lifetime of ipv4 addresses might be helpf=
+ul.
+> For example:
+> 1) initramfs networkmanager uses a DHCP daemon to learn network
+> configuration parameters
+> 2) initramfs networkmanager addresses, routes and DNS configuration
+> 3) initramfs networkmanager is requested to stop
+> 4) initramfs networkmanager stops all daemons including dhclient
+> 5) there are addresses and routes configured but no daemon running. I=
+f
+> the system doesn't start networkmanager for some reason, addresses an=
+d
+> routes will be used forever, which violates RFC 2131.
+>=20
+> This patch is essentially a backport of ivp6 address lifetime mechani=
+sm
+> for ipv4 addresses.
+>=20
+> Current "ip" tool supports this without any patch (since it does not
+> distinguish between ipv4 and ipv6 addresses in this perspective.
+>=20
+> Also, this should be back-compatible with all current netlink users.
+>=20
+> Reported-by: Pavel =A6imerda <psimerda@redhat.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-How is this memory unreferenced?  fib_rule_default_add() adds
-the allocated object to the ops->rules_list as it's very last
-action.
+Seems reasonable, applied, thanks.
