@@ -1,243 +1,326 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 06/13] bridge: Add the ability to configure pvid
-Date: Tue, 29 Jan 2013 14:52:53 -0500
-Message-ID: <1359489180-10012-7-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH 11/13] bridge: Add vlan support for local fdb entries
+Date: Tue, 29 Jan 2013 14:52:58 -0500
+Message-ID: <1359489180-10012-12-git-send-email-vyasevic@redhat.com>
 References: <1359489180-10012-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
 	netdev@vger.kernel.org, shmulik.ladkani@gmail.com
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64279 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61187 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751380Ab3A2TxM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 14:53:12 -0500
+	id S1754325Ab3A2TxS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 14:53:18 -0500
 In-Reply-To: <1359489180-10012-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A user may designate a certain vlan as PVID.  This means that
-any ingress frame that does not contain a vlan tag is assigned to
-this vlan and any forwarding decisions are made with this vlan in mind.
+When VLAN is added to the port, a local fdb entry for that port
+(the entry with the mac address of the port) is added for that
+VLAN.  This way we can correctly determine if the traffic
+is for the bridge itself.  If the address of the port changes,
+we try to change all the local fdb entries we have for that port.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/uapi/linux/if_bridge.h |    1 +
- net/bridge/br_netlink.c        |    7 +++--
- net/bridge/br_private.h        |    9 ++++---
- net/bridge/br_vlan.c           |   49 +++++++++++++++++++++++++++++++--------
- 4 files changed, 49 insertions(+), 17 deletions(-)
+ net/bridge/br_fdb.c     |   61 +++++++++++++++++++++++++++++++++++-----------
+ net/bridge/br_if.c      |    2 +-
+ net/bridge/br_private.h |   10 +++++++-
+ net/bridge/br_vlan.c    |   55 ++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 111 insertions(+), 17 deletions(-)
 
-diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
-index 3ca9817..c6c30e2 100644
---- a/include/uapi/linux/if_bridge.h
-+++ b/include/uapi/linux/if_bridge.h
-@@ -120,6 +120,7 @@ enum {
- #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index e8c01ac..29b887a 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -28,7 +28,7 @@
  
- #define BRIDGE_VLAN_INFO_MASTER	(1<<0)	/* Operate on Bridge device as well */
-+#define BRIDGE_VLAN_INFO_PVID	(1<<1)	/* VLAN is PVID, ingress untagged */
+ static struct kmem_cache *br_fdb_cache __read_mostly;
+ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+-		      const unsigned char *addr);
++		      const unsigned char *addr, u16 vid);
+ static void fdb_notify(struct net_bridge *br,
+ 		       const struct net_bridge_fdb_entry *, int);
  
- struct bridge_vlan_info {
- 	u16 flags;
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 534a9f4..0089a3f 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -198,14 +198,15 @@ static int br_afspec(struct net_bridge *br,
- 		switch (cmd) {
- 		case RTM_SETLINK:
- 			if (p) {
--				err = nbp_vlan_add(p, vinfo->vid);
-+				err = nbp_vlan_add(p, vinfo->vid, vinfo->flags);
- 				if (err)
- 					break;
- 
- 				if (vinfo->flags & BRIDGE_VLAN_INFO_MASTER)
--					err = br_vlan_add(p->br, vinfo->vid);
-+					err = br_vlan_add(p->br, vinfo->vid,
-+							  vinfo->flags);
- 			} else
--				err = br_vlan_add(br, vinfo->vid);
-+				err = br_vlan_add(br, vinfo->vid, vinfo->flags);
- 
- 			if (err)
- 				break;
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 36821f0..108aeeb 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -68,6 +68,7 @@ struct br_ip
- 
- struct net_port_vlans {
- 	u16				port_idx;
-+	u16				pvid;
- 	void				*parent;
- 	struct rcu_head			rcu;
- 	unsigned long			vlan_bitmap[BR_VLAN_BITMAP_LEN];
-@@ -556,11 +557,11 @@ extern bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- extern bool br_allowed_egress(struct net_bridge *br,
- 			      const struct net_port_vlans *v,
- 			      const struct sk_buff *skb);
--extern int br_vlan_add(struct net_bridge *br, u16 vid);
-+extern int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags);
- extern int br_vlan_delete(struct net_bridge *br, u16 vid);
- extern void br_vlan_flush(struct net_bridge *br);
- extern int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
--extern int nbp_vlan_add(struct net_bridge_port *port, u16 vid);
-+extern int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
- extern int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- extern void nbp_vlan_flush(struct net_bridge_port *port);
- 
-@@ -602,7 +603,7 @@ static inline bool br_allowed_egress(struct net_bridge *br,
- 	return true;
- }
- 
--static inline int br_vlan_add(struct net_bridge *br, u16 vid)
-+static inline int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
+@@ -92,6 +92,7 @@ static void fdb_delete(struct net_bridge *br, struct net_bridge_fdb_entry *f)
+ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
  {
- 	return -EOPNOTSUPP;
- }
-@@ -616,7 +617,7 @@ static inline void br_vlan_flush(struct net_bridge *br)
- {
- }
+ 	struct net_bridge *br = p->br;
++	bool no_vlan = (nbp_get_vlan_info(p) == NULL) ? true : false;
+ 	int i;
  
--static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid)
-+static inline int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
- {
- 	return -EOPNOTSUPP;
- }
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index fd6d99e..de0fa62 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -27,12 +27,33 @@ static inline struct net_bridge *vlans_to_bridge(struct net_port_vlans *vlans)
- 	return br;
- }
+ 	spin_lock_bh(&br->hash_lock);
+@@ -106,10 +107,12 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
+ 			if (f->dst == p && f->is_local) {
+ 				/* maybe another port has same hw addr? */
+ 				struct net_bridge_port *op;
++				u16 vid = f->vlan_id;
+ 				list_for_each_entry(op, &br->port_list, list) {
+ 					if (op != p &&
+ 					    ether_addr_equal(op->dev->dev_addr,
+-							     f->addr.addr)) {
++							     f->addr.addr) &&
++					    nbp_vlan_find(op, vid)) {
+ 						f->dst = op;
+ 						goto insert;
+ 					}
+@@ -117,27 +120,55 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
  
--static int __vlan_add(struct net_port_vlans *v, u16 vid)
-+static void __vlan_add_pvid(struct net_port_vlans *v, u16 vid)
-+{
-+	if (v->pvid == vid)
-+		return;
+ 				/* delete old one */
+ 				fdb_delete(br, f);
+-				goto insert;
++insert:
++				/* insert new address,  may fail if invalid
++				 * address or dup.
++				 */
++				fdb_insert(br, p, newaddr, vid);
 +
-+	smp_wmb();
-+	v->pvid = vid;
-+}
-+
-+static void __vlan_delete_pvid(struct net_port_vlans *v, u16 vid)
-+{
-+	if (v->pvid != vid)
-+		return;
-+
-+	smp_wmb();
-+	v->pvid = BR_INVALID_VID;
-+}
-+
-+static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
- {
- 	int err;
- 
--	if (test_bit(vid, v->vlan_bitmap))
--		return -EEXIST;
-+	if (test_bit(vid, v->vlan_bitmap)) {
-+		if (flags & BRIDGE_VLAN_INFO_PVID)
-+			__vlan_add_pvid(v, vid);
-+		return 0;
-+	}
- 
- 	if (v->port_idx && vid) {
- 		struct net_device *dev = vlans_to_port(v)->dev;
-@@ -50,6 +71,9 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid)
++				/* if this port has no vlan information
++				 * configured, we can safely be done at
++				 * this point.
++				 */
++				if (no_vlan)
++					goto done;
+ 			}
+ 		}
  	}
+- insert:
+-	/* insert new address,  may fail if invalid address or dup. */
+-	fdb_insert(br, p, newaddr);
  
- 	set_bit(vid, v->vlan_bitmap);
-+	if (flags & BRIDGE_VLAN_INFO_PVID)
-+		__vlan_add_pvid(v, vid);
-+
- 	return 0;
++done:
+ 	spin_unlock_bh(&br->hash_lock);
  }
  
-@@ -61,6 +85,8 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
- 	if (!test_bit(vid, v->vlan_bitmap))
+ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
+ {
+ 	struct net_bridge_fdb_entry *f;
++	struct net_port_vlans *pv;
++	u16 vid = 0;
+ 
+ 	/* If old entry was unassociated with any port, then delete it. */
+ 	f = __br_fdb_get(br, br->dev->dev_addr, 0);
+ 	if (f && f->is_local && !f->dst)
+ 		fdb_delete(br, f);
+ 
+-	fdb_insert(br, NULL, newaddr);
++	fdb_insert(br, NULL, newaddr, 0);
++
++	/* Now remove and add entries for every VLAN configured on the
++	 * bridge.  This function runs under RTNL so the bitmap will not
++	 * change from under us.
++	 */
++	pv = br_get_vlan_info(br);
++	if (!pv)
++		return;
++
++	for (vid = find_next_bit(pv->vlan_bitmap, BR_VLAN_BITMAP_LEN, vid);
++	     vid < BR_VLAN_BITMAP_LEN;
++	     vid = find_next_bit(pv->vlan_bitmap, BR_VLAN_BITMAP_LEN, vid+1)) {
++		f = __br_fdb_get(br, br->dev->dev_addr, vid);
++		if (f && f->is_local && !f->dst)
++			fdb_delete(br, f);
++		fdb_insert(br, NULL, newaddr, vid);
++	}
+ }
+ 
+ void br_fdb_cleanup(unsigned long _data)
+@@ -380,15 +411,15 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ }
+ 
+ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+-		  const unsigned char *addr)
++		  const unsigned char *addr, u16 vid)
+ {
+-	struct hlist_head *head = &br->hash[br_mac_hash(addr, 0)];
++	struct hlist_head *head = &br->hash[br_mac_hash(addr, vid)];
+ 	struct net_bridge_fdb_entry *fdb;
+ 
+ 	if (!is_valid_ether_addr(addr))
  		return -EINVAL;
  
-+	__vlan_delete_pvid(v, vid);
-+
- 	/* Check to see if any other vlans are in this table.  If this
- 	 * is the last vlan, delete the whole structure.  If this is not the
- 	 * last vlan, just clear the bit.
-@@ -89,6 +115,8 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
+-	fdb = fdb_find(head, addr, 0);
++	fdb = fdb_find(head, addr, vid);
+ 	if (fdb) {
+ 		/* it is okay to have multiple ports with same
+ 		 * address, just use the first one.
+@@ -401,7 +432,7 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 		fdb_delete(br, fdb);
+ 	}
  
- static void __vlan_flush(struct net_port_vlans *v)
- {
-+	smp_wmb();
-+	v->pvid = BR_INVALID_VID;
- 	bitmap_zero(v->vlan_bitmap, BR_VLAN_BITMAP_LEN);
- 	if (v->port_idx)
- 		rcu_assign_pointer(vlans_to_port(v)->vlan_info, NULL);
-@@ -143,7 +171,7 @@ bool br_allowed_egress(struct net_bridge *br,
- }
- 
- /* Must be protected by RTNL */
--int br_vlan_add(struct net_bridge *br, u16 vid)
-+int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
- {
- 	struct net_port_vlans *pv = NULL;
- 	int err;
-@@ -152,7 +180,7 @@ int br_vlan_add(struct net_bridge *br, u16 vid)
- 
- 	pv = rtnl_dereference(br->vlan_info);
- 	if (pv)
--		return __vlan_add(pv, vid);
-+		return __vlan_add(pv, vid, flags);
- 
- 	/* Create port vlan infomration
- 	 */
-@@ -161,7 +189,8 @@ int br_vlan_add(struct net_bridge *br, u16 vid)
+-	fdb = fdb_create(head, source, addr, 0);
++	fdb = fdb_create(head, source, addr, vid);
+ 	if (!fdb)
  		return -ENOMEM;
  
- 	pv->parent = br;
--	err = __vlan_add(pv, vid);
-+	pv->pvid = BR_INVALID_VID;
-+	err = __vlan_add(pv, vid, flags);
+@@ -412,12 +443,12 @@ static int fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+ 
+ /* Add entry for local address of interface */
+ int br_fdb_insert(struct net_bridge *br, struct net_bridge_port *source,
+-		  const unsigned char *addr)
++		  const unsigned char *addr, u16 vid)
+ {
+ 	int ret;
+ 
+ 	spin_lock_bh(&br->hash_lock);
+-	ret = fdb_insert(br, source, addr);
++	ret = fdb_insert(br, source, addr, vid);
+ 	spin_unlock_bh(&br->hash_lock);
+ 	return ret;
+ }
+@@ -713,8 +744,8 @@ out:
+ 	return err;
+ }
+ 
+-static int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr,
+-			      u16 vlan)
++int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr,
++		       u16 vlan)
+ {
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr, vlan)];
+ 	struct net_bridge_fdb_entry *fdb;
+diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
+index 335c60c..ef1b914 100644
+--- a/net/bridge/br_if.c
++++ b/net/bridge/br_if.c
+@@ -397,7 +397,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ 
+ 	dev_set_mtu(br->dev, br_min_mtu(br));
+ 
+-	if (br_fdb_insert(br, p, dev->dev_addr))
++	if (br_fdb_insert(br, p, dev->dev_addr, 0))
+ 		netdev_err(dev, "failed insert local address bridge forwarding table\n");
+ 
+ 	kobject_uevent(&p->kobj, KOBJ_ADD);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index dcba510..57fb7e3 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -380,11 +380,13 @@ extern int br_fdb_fillbuf(struct net_bridge *br, void *buf,
+ 			  unsigned long count, unsigned long off);
+ extern int br_fdb_insert(struct net_bridge *br,
+ 			 struct net_bridge_port *source,
+-			 const unsigned char *addr);
++			 const unsigned char *addr,
++			 u16 vid);
+ extern void br_fdb_update(struct net_bridge *br,
+ 			  struct net_bridge_port *source,
+ 			  const unsigned char *addr,
+ 			  u16 vid);
++extern int fdb_delete_by_addr(struct net_bridge *br, const u8 *addr, u16 vid);
+ 
+ extern int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ 			 struct net_device *dev,
+@@ -571,6 +573,7 @@ extern int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+ extern int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags);
+ extern int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
+ extern void nbp_vlan_flush(struct net_bridge_port *port);
++extern bool nbp_vlan_find(struct net_bridge_port *port, u16 vid);
+ 
+ static inline struct net_port_vlans *br_get_vlan_info(
+ 						const struct net_bridge *br)
+@@ -660,6 +663,11 @@ static inline struct net_port_vlans *nbp_get_vlan_info(
+ 	return NULL;
+ }
+ 
++static inline bool nbp_vlan_find(struct net_bridge_port *port, u16 vid)
++{
++	return false;
++}
++
+ static inline u16 br_vlan_get_tag(const struct sk_buff *skb, u16 *tag)
+ {
+ 	return 0;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index b85212c..6a02519 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -273,6 +273,15 @@ int br_vlan_add(struct net_bridge *br, u16 vid, u16 flags)
  	if (err)
  		goto out;
  
-@@ -192,7 +221,6 @@ void br_vlan_flush(struct net_bridge *br)
- 	struct net_port_vlans *pv;
- 
- 	ASSERT_RTNL();
--
- 	pv = rtnl_dereference(br->vlan_info);
++	if (vid) {
++		err = br_fdb_insert(br, NULL, br->dev->dev_addr, vid);
++		if (err) {
++			br_err(br, "failed insert local address into bridge "
++			       "forwarding table\n");
++			goto out;
++		}
++	}
++
+ 	rcu_assign_pointer(br->vlan_info, pv);
+ 	return 0;
+ out:
+@@ -291,6 +300,15 @@ int br_vlan_delete(struct net_bridge *br, u16 vid)
  	if (!pv)
- 		return;
-@@ -216,7 +244,7 @@ unlock:
+ 		return -EINVAL;
+ 
++	if (vid) {
++		/* If the VID !=0 remove fdb for this vid. VID 0 is special
++		 * in that it's the default and is always there in the fdb.
++		 */
++		spin_lock_bh(&br->hash_lock);
++		fdb_delete_by_addr(br, br->dev->dev_addr, vid);
++		spin_unlock_bh(&br->hash_lock);
++	}
++
+ 	__vlan_del(pv, vid);
+ 	return 0;
  }
- 
- /* Must be protected by RTNL */
--int nbp_vlan_add(struct net_bridge_port *port, u16 vid)
-+int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
- {
- 	struct net_port_vlans *pv = NULL;
- 	int err;
-@@ -225,7 +253,7 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid)
- 
- 	pv = rtnl_dereference(port->vlan_info);
- 	if (pv)
--		return __vlan_add(pv, vid);
-+		return __vlan_add(pv, vid, flags);
- 
- 	/* Create port vlan infomration
- 	 */
-@@ -237,7 +265,8 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid)
- 
- 	pv->port_idx = port->port_no;
- 	pv->parent = port;
--	err = __vlan_add(pv, vid);
-+	pv->pvid = BR_INVALID_VID;
-+	err = __vlan_add(pv, vid, flags);
+@@ -349,6 +367,15 @@ int nbp_vlan_add(struct net_bridge_port *port, u16 vid, u16 flags)
  	if (err)
  		goto clean_up;
  
++	if (vid) {
++		err = br_fdb_insert(port->br, port, port->dev->dev_addr, vid);
++		if (err) {
++			br_err(port->br, "failed insert local address into "
++			       "bridge forwarding table\n");
++			goto clean_up;
++		}
++	}
++
+ 	rcu_assign_pointer(port->vlan_info, pv);
+ 	return 0;
+ 
+@@ -368,6 +395,15 @@ int nbp_vlan_delete(struct net_bridge_port *port, u16 vid)
+ 	if (!pv)
+ 		return -EINVAL;
+ 
++	if (vid) {
++		/* If the VID !=0 remove fdb for this vid. VID 0 is special
++		 * in that it's the default and is always there in the fdb.
++		 */
++		spin_lock_bh(&port->br->hash_lock);
++		fdb_delete_by_addr(port->br, port->dev->dev_addr, vid);
++		spin_unlock_bh(&port->br->hash_lock);
++	}
++
+ 	return __vlan_del(pv, vid);
+ }
+ 
+@@ -383,3 +419,22 @@ void nbp_vlan_flush(struct net_bridge_port *port)
+ 
+ 	__vlan_flush(pv);
+ }
++
++bool nbp_vlan_find(struct net_bridge_port *port, u16 vid)
++{
++	struct net_port_vlans *pv;
++	bool found = false;
++
++	rcu_read_lock();
++	pv = rcu_dereference(port->vlan_info);
++
++	if (!pv)
++		goto out;
++
++	if (test_bit(vid, pv->vlan_bitmap))
++		found = true;
++
++out:
++	rcu_read_unlock();
++	return found;
++}
 -- 
 1.7.7.6
