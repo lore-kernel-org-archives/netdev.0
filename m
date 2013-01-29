@@ -1,51 +1,118 @@
-From: Nivedita Singhvi <niveditasinghvi@gmail.com>
-Subject: [PATCH] tcp: Increment LISTENOVERFLOW and LISTENDROPS in tcp_v4_conn_request()
-Date: Mon, 28 Jan 2013 19:52:37 -0800
-Message-ID: <1359431557-4587-1-git-send-email-niveditasinghvi@gmail.com>
-Cc: Vijay Subramanian <subramanian.vijay@gmail.com>,
-	Nivedita Singhvi <niv@us.ibm.com>
-To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH v4 linux-next] et131x: Promote staging et131x
+ driver to drivers/net
+Date: Mon, 28 Jan 2013 23:10:57 -0500 (EST)
+Message-ID: <20130128.231057.57111832691623178.davem@davemloft.net>
+References: <1358945130-3101-1-git-send-email-mark.einon@gmail.com>
+	<1358958278-3207-1-git-send-email-mark.einon@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	linux-kernel@vger.kernel.org, dan.carpenter@oracle.com
+To: mark.einon@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f179.google.com ([209.85.161.179]:45829 "EHLO
-	mail-gg0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753058Ab3A2EAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 23:00:07 -0500
-Received: by mail-gg0-f179.google.com with SMTP id h4so209ggn.38
-        for <netdev@vger.kernel.org>; Mon, 28 Jan 2013 20:00:05 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:51642 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640Ab3A2ELA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 23:11:00 -0500
+In-Reply-To: <1358958278-3207-1-git-send-email-mark.einon@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Mark Einon <mark.einon@gmail.com>
+Date: Wed, 23 Jan 2013 16:24:38 +0000
 
-We drop a connection request if the accept backlog is full and there are
-sufficient packets in the syn queue to warrant starting drops. Increment the
-appropriate counters so this isn't silent, for accurate stats and help in
-debugging.
+> +endif # NET_VENDOR_AGERE
+> +
 
-This patch assumes LINUX_MIB_LISTENDROPS is a superset of/includes the
-counter LINUX_MIB_LISTENOVERFLOWS.
+Trailing empty line, delete it.
 
-Signed-off-by: Nivedita Singhvi <niv@us.ibm.com>
----
- net/ipv4/tcp_ipv4.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+> @@ -0,0 +1,6 @@
+> +#
+> +# Makefile for the Agere ET-131x ethernet driver
+> +#
+> +
+> +obj-$(CONFIG_ET131X) += et131x.o
+> +
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index bbbdcc5..df8ed59 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1502,8 +1502,11 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 	 * clogging syn queue with openreqs with exponentially increasing
- 	 * timeout.
- 	 */
--	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
-+	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1) {
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENDROPS);
- 		goto drop;
-+	}
- 
- 	req = inet_reqsk_alloc(&tcp_request_sock_ops);
- 	if (!req)
--- 
-1.7.5.4
+Likewise, get rid of this trailing empty line.
+
+> +	/* Spinlocks */
+> +	spinlock_t lock;
+> +
+> +	spinlock_t tcb_send_qlock;
+> +	spinlock_t tcb_ready_qlock;
+> +	spinlock_t send_hw_lock;
+> +
+> +	spinlock_t rcv_lock;
+> +	spinlock_t rcv_pend_lock;
+> +	spinlock_t fbr_lock;
+> +
+> +	spinlock_t phy_lock;
+
+Do you really need _8_ spinlocks in an ethernet driver?  To me that's
+way over the top and excessive.
+
+The most recent driver I've written, for the 10Gbit Sun NIU parts,
+has only one spinlock.
+
+> +	/* Determine if this is a multicast packet coming in */
+
+What in the world are you doing in this huge code block?
+
+Such much complexity, multicast list iteration, etc. just to get some
+statistics correct?  This stuff is going to run on every multicast
+packet receive.
+
+No other driver does crap like this, get rid of this stuff.
+
+> +	skb->dev = adapter->netdev;
+> +	skb->protocol = eth_type_trans(skb, adapter->netdev);
+
+eth_type_trans() sets skb->dev, you don't need to duplicate that.
+
+> +	netif_rx_ni(skb);
+
+Why isn't this driver supporting NAPI?  If you're going to put this
+much time into a driver, use the best interfaces for event processing
+rather than something that might have been appropriate in a new driver
+two decades ago.
+
+> +static int et131x_tx(struct sk_buff *skb, struct net_device *netdev)
+> +{
+> +	int status = 0;
+> +	struct et131x_adapter *adapter = netdev_priv(netdev);
+> +
+> +	/* stop the queue if it's getting full */
+> +	if (adapter->tx_ring.used >= NUM_TCB - 1 &&
+> +	    !netif_queue_stopped(netdev))
+> +		netif_stop_queue(netdev);
+> +
+> +	/* Save the timestamp for the TX timeout watchdog */
+> +	netdev->trans_start = jiffies;
+> +
+> +	/* Call the device-specific data Tx routine */
+> +	status = et131x_send_packets(skb, netdev);
+> +
+> +	/* Check status and manage the netif queue if necessary */
+> +	if (status != 0) {
+> +		if (status == -ENOMEM)
+> +			status = NETDEV_TX_BUSY;
+> +		else
+> +			status = NETDEV_TX_OK;
+> +	}
+> +	return status;
+> +}
+
+Returning NETDEV_TX_BUSY is an error, no driver should ever return
+that status under normal circumstances.  Some drivers return it
+when internal consistency checks fail, but that indicates a driver
+bug rather than a normal condition.
+
+Memory allocation erorrs do not denote NETDEV_TX_BUSY, simply drop
+the packet silently with kfree_skb() and return NETDEV_TX_OK.
+
+That's about enough for me, this driver still needs a lot of work
+and is far from being ready to move out of staging.
