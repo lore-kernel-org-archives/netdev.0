@@ -1,30 +1,51 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] CMAC support for CryptoAPI, fixed patch issues, indent,
- and testmgr build issues
-Date: Tue, 29 Jan 2013 10:33:31 +0100
-Message-ID: <20130129093331.GA23291@secunet.com>
-References: <20130124094337.GJ9147@secunet.com>
- <20130124112410.8535.75598.stgit@localhost6.localdomain6>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH 1/1] NET: qmi_wwan: add Telit LE920 support
+Date: Tue, 29 Jan 2013 10:35:50 +0100
+Message-ID: <87y5fcz5zd.fsf@nemi.mork.no>
+References: <1359387918-2791-1-git-send-email-dnlplm@gmail.com>
+	<87k3qxnt07.fsf@nemi.mork.no>
+	<CAGRyCJEThQaex9au5AbWT-hm1Vvj2jxiXuAfrgNTdTofqAYY3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-crypto@vger.kernel.org,
-	Tom St Denis <tstdenis@elliptictech.com>,
-	David Miller <davem@davemloft.net>
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130124112410.8535.75598.stgit@localhost6.localdomain6>
-Sender: linux-crypto-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGRyCJEThQaex9au5AbWT-hm1Vvj2jxiXuAfrgNTdTofqAYY3A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Daniele Palmas's message of "Tue, 29 Jan 2013 09:40:38 +0100")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 24, 2013 at 01:25:46PM +0200, Jussi Kivilinna wrote:
-> 
-> Maybe it would be cleaner to not mess with pfkeyv2.h at all, but instead mark algorithms that do not support pfkey with flag. See patch below.
-> 
+Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+> 2013/1/28 Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>:
+>
+>> Thanks for adding this device. But the patch doesn't apply to the
+>> current "net" tree.  Care to rebase it?
+>>
+>
+> Sure. Should I use the following git repository
+>
+> git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/net-next.git
+>
+> ?
 
-As nobody seems to have another opinion, we could go either with your
-approach, or we can invert the logic and mark all existing algorithms
-as pfkey supported. Then we would not need to bother about pfkey again.
+No, the correct tree to base device additions for drivers/net/usb is
 
-I'd be fine with both. Do you want to submit a patch?
+ git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git
+
+Note that this is different from most other USB devices.
+
+This wouldn't normally be such a big deal, but you were "lucky" and hit
+a timeslot when there were unmerged conflicting changes that tree. I am
+not trying to be difficult.  It just feels like it :-)
+
+Thanks again for doing this.
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
