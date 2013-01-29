@@ -1,30 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethoc: Cleanup driver format
-Date: Tue, 29 Jan 2013 14:07:18 -0500 (EST)
-Message-ID: <20130129.140718.445953349486757148.davem@davemloft.net>
-References: <1359348276-15230-1-git-send-email-barry@grussling.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
+ Implement basic statistics
+Date: Tue, 29 Jan 2013 11:09:18 -0800
+Message-ID: <1359486558.15135.29.camel@joe-AO722>
+References: <FD9AD8C5375B924CABC56D982DB3A802079D382B@EXMB1.micrel.com>
+	 <20130129.135523.2248566447781665296.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: barry@grussling.com
+Cc: David.Choi@Micrel.Com, netdev@vger.kernel.org,
+	Ping.Doong@Micrel.Com, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59078 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753994Ab3A2THT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:07:19 -0500
-In-Reply-To: <1359348276-15230-1-git-send-email-barry@grussling.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:39368 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754695Ab3A2TJU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 14:09:20 -0500
+In-Reply-To: <20130129.135523.2248566447781665296.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Barry Grussling <barry@grussling.com>
-Date: Sun, 27 Jan 2013 20:44:36 -0800
+On Tue, 2013-01-29 at 13:55 -0500, David Miller wrote:
+> Do not post new versions of patches as replies to other emails or
+> threads, always use fresh, new list postings to post a patch.
 
-> From: Barry Grussling <barry@grussling.com>
-> 
-> Cleanup the format of ethoc.c to meet network driver style as
-> per checkpatch.pl.
-> 
-> Signed-off-by: Barry Grussling <barry@grussling.com>
+I think replying with In-Reply-To: context is better
+than starting a new thread without that In-Reply-To.
 
-Applied, thanks.
+If the subject changes with version number, what
+difference does it make?
+
+Is there some case that patchwork doesn't handle well?
