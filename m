@@ -1,64 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netem: fix delay calculation in rate extension
-Date: Tue, 29 Jan 2013 16:03:08 -0500 (EST)
-Message-ID: <20130129.160308.2201480856831722159.davem@davemloft.net>
-References: <510057F3.80707@stusta.de>
+Subject: Re: [PATCH] l2tp: prevent l2tp_tunnel_delete racing with userspace
+ close
+Date: Tue, 29 Jan 2013 16:03:31 -0500 (EST)
+Message-ID: <20130129.160331.1697248531078003094.davem@davemloft.net>
+References: <1358867628-21217-1-git-send-email-tparkin@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hagen@jauu.net
-To: jn@stusta.de
+Cc: netdev@vger.kernel.org, celston@katalix.com, jchapman@katalix.com
+To: tparkin@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60305 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60312 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751522Ab3A2VDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 16:03:09 -0500
-In-Reply-To: <510057F3.80707@stusta.de>
+	with ESMTP id S1751342Ab3A2VDd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 16:03:33 -0500
+In-Reply-To: <1358867628-21217-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Naab <jn@stusta.de>
-Date: Wed, 23 Jan 2013 22:36:51 +0100
+From: Tom Parkin <tparkin@katalix.com>
+Date: Tue, 22 Jan 2013 15:13:48 +0000
 
-> From: Johannes Naab <jn@stusta.de>
+> If a tunnel socket is created by userspace, l2tp hooks the socket destructor
+> in order to clean up resources if userspace closes the socket or crashes.  It
+> also caches a pointer to the struct sock for use in the data path and in the
+> netlink interface.
 > 
-> The delay calculation with the rate extension introduces in v3.3 does
-> not properly work, if other packets are still queued for transmission.
-> For the delay calculation to work, both delay types (latency and delay
-> introduces by rate limitation) have to be handled differently. The
-> latency delay for a packet can overlap with the delay of other packets.
-> The delay introduced by the rate however is separate, and can only
-> start, once all other rate-introduced delays finished.
+> While it is safe to use the cached sock pointer in the data path, where the
+> skb references keep the socket alive, it is not safe to use it elsewhere as
+> such access introduces a race with userspace closing the socket.  In
+> particular, l2tp_tunnel_delete is prone to oopsing if a multithreaded
+> userspace application closes a socket at the same time as sending a netlink
+> delete command for the tunnel.
 > 
-> Latency delay is from same distribution for each packet, rate delay
-> depends on the packet size.
+> This patch fixes this oops by forcing l2tp_tunnel_delete to explicitly look up
+> a tunnel socket held by userspace using sockfd_lookup().
 > 
-> .: latency delay
-> -: rate delay
-> x: additional delay we have to wait since another packet is currently
->    transmitted
-> 
->   .....----                    Packet 1
->     .....xx------              Packet 2
->                .....------     Packet 3
->     ^^^^^
->     latency stacks
->          ^^
->          rate delay doesn't stack
->                ^^
->                latency stacks
->  
->   -----> time
-> 
-> When a packet is enqueued, we first consider the latency delay. If other
-> packets are already queued, we can reduce the latency delay until the
-> last packet in the queue is send, however the latency delay cannot be
-> <0, since this would mean that the rate is overcommitted.  The new
-> reference point is the time at which the last packet will be send. To
-> find the time, when the packet should be send, the rate introduces delay
-> has to be added on top of that.
-> 
-> Signed-off-by: Johannes Naab <jn@stusta.de>
-> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> Signed-off-by: Tom Parkin <tparkin@katalix.com>
+> Signed-off-by: James Chapman <jchapman@katalix.com>
 
-Applied, thanks.
+Applied.
