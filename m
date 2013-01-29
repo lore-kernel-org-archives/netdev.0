@@ -1,139 +1,90 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH 04/13] bridge: Verify that a vlan is allowed to egress on give port
-Date: Tue, 29 Jan 2013 14:52:51 -0500
-Message-ID: <1359489180-10012-5-git-send-email-vyasevic@redhat.com>
-References: <1359489180-10012-1-git-send-email-vyasevic@redhat.com>
-Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, shmulik.ladkani@gmail.com
-To: shemminger@vyatta.com
+From: Dmitry Torokhov <dtor@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH] vmxnet3: set carrier state properly on probe
+Date: Tue, 29 Jan 2013 11:53:57 -0800
+Message-ID: <5442446.qe2SbG26dU@dtor-d630.eng.vmware.com>
+References: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com> <20130129190952.GB14044@hmsreliant.think-freely.org> <1359487030.4144.10.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Neil Horman <nhorman@tuxdriver.com>, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26020 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753229Ab3A2TxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 14:53:09 -0500
-In-Reply-To: <1359489180-10012-1-git-send-email-vyasevic@redhat.com>
+Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:35467 "EHLO
+	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753229Ab3A2Tx6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:53:58 -0500
+In-Reply-To: <1359487030.4144.10.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When bridge forwards a frame, make sure that a frame is allowed
-to egress on that port.
+On Tuesday, January 29, 2013 07:17:10 PM Ben Hutchings wrote:
+> On Tue, 2013-01-29 at 14:09 -0500, Neil Horman wrote:
+> > On Tue, Jan 29, 2013 at 10:54:28AM -0800, Dmitry Torokhov wrote:
+> > > On Tuesday, January 29, 2013 05:54:11 PM Ben Hutchings wrote:
+> > > > On Fri, 2013-01-25 at 15:54 -0500, Neil Horman wrote:
+> > > > > vmxnet3 fails to set netif_carrier_off on probe, meaning that when
+> > > > > an
+> > > > > interface is opened the __LINK_STATE_NOCARRIER bit is already
+> > > > > cleared,
+> > > > > and so /sys/class/net/<ifname>/operstate remains in the unknown
+> > > > > state.
+> > > > > Correct this by setting netif_carrier_off on probe, like other
+> > > > > drivers
+> > > > > do.
+> > > > > 
+> > > > > Also, while we're at it, lets remove the netif_carrier_ok checks
+> > > > > from the
+> > > > > link_state_update function, as that check is atomically contained
+> > > > > within
+> > > > > the netif_carrier_[on|off] functions anyway
+> > > > > 
+> > > > > Tested successfully by myself
+> > > > > 
+> > > > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > > > > CC: "David S. Miller" <davem@davemloft.net>
+> > > > > CC: "VMware, Inc." <pv-drivers@vmware.com>
+> > > > > ---
+> > > > > 
+> > > > >  drivers/net/vmxnet3/vmxnet3_drv.c | 7 +++----
+> > > > >  1 file changed, 3 insertions(+), 4 deletions(-)
+> > > > > 
+> > > > > diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > > > > b/drivers/net/vmxnet3/vmxnet3_drv.c index b1c90f8..66c26a9 100644
+> > > > > --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > > > > +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> > > > 
+> > > > [...]
+> > > > 
+> > > > > @@ -3067,6 +3065,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+> > > > > 
+> > > > >  		goto err_register;
+> > > > >  	
+> > > > >  	}
+> > > > > 
+> > > > > +	netif_carrier_off(netdev);
+> > > > > 
+> > > > >  	vmxnet3_check_link(adapter, false);
+> > > > >  	return 0;
+> > > > 
+> > > > You should do this before calling register_netdev(), otherwise the
+> > > > link
+> > > > state change can race with vmxnet3_open().
+> > > 
+> > > Hmm, is it safe to do before the network device is registered? The rest
+> > > of the drivers (e1000, tg3, etc) seem to be doing netif_carrier_off()
+> > > in open() rather than probe() and then do link checks.
+> > 
+> > It appears to be safe to me, at least for the netif_carrier_off case, as
+> > theres a check to effecitvely just set the NOCARRIER bit if the device is
+> > in UNREGISTERED state.
+> 
+> Right, I made this work properly a little while ago (commit
+> 8f4cccbbd92f).  Previous best practice was to call netif_carrier_off()
+> after registration, but userland could still see the wrong operstate
+> because linkwatch updates it asynchronously.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_forward.c |    1 +
- net/bridge/br_input.c   |   10 ++++++++++
- net/bridge/br_private.h |   16 ++++++++++++++--
- net/bridge/br_vlan.c    |   20 ++++++++++++++++++++
- 4 files changed, 45 insertions(+), 2 deletions(-)
+Ah, OK I see. Thank you for the explanation.
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 02015a5..35b0671 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -31,6 +31,7 @@ static inline int should_deliver(const struct net_bridge_port *p,
- 				 const struct sk_buff *skb)
- {
- 	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
-+		br_allowed_egress(p->br, nbp_get_vlan_info(p), skb) &&
- 		p->state == BR_STATE_FORWARDING);
- }
- 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 4ef3f6b..787d7da 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -35,6 +35,16 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 	brstats->rx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
- 
-+	/* Bridge is just like any other port.  Make sure the
-+	 * packet is allowed except in promisc modue when someone
-+	 * may be running packet capture.
-+	 */
-+	if (!(brdev->flags & IFF_PROMISC) &&
-+	    !br_allowed_egress(br, br_get_vlan_info(br), skb)) {
-+		kfree_skb(skb);
-+		return NET_RX_DROP;
-+	}
-+
- 	indev = skb->dev;
- 	skb->dev = brdev;
- 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index be9ba73..f9ee32f 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -553,6 +553,9 @@ static inline void br_mdb_uninit(void)
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- extern bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 			       struct sk_buff *skb);
-+extern bool br_allowed_egress(struct net_bridge *br,
-+			      const struct net_port_vlans *v,
-+			      const struct sk_buff *skb);
- extern int br_vlan_add(struct net_bridge *br, u16 vid);
- extern int br_vlan_delete(struct net_bridge *br, u16 vid);
- extern void br_vlan_flush(struct net_bridge *br);
-@@ -561,12 +564,14 @@ extern int nbp_vlan_add(struct net_bridge_port *port, u16 vid);
- extern int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
- extern void nbp_vlan_flush(struct net_bridge_port *port);
- 
--static inline struct net_port_vlans *br_get_vlan_info(struct net_bridge *br)
-+static inline struct net_port_vlans *br_get_vlan_info(
-+						const struct net_bridge *br)
- {
- 	return rcu_dereference(br->vlan_info);
- }
- 
--static inline struct net_port_vlans *nbp_get_vlan_info(struct net_bridge_port *p)
-+static inline struct net_port_vlans *nbp_get_vlan_info(
-+						const struct net_bridge_port *p)
- {
- 	return rcu_dereference(p->vlan_info);
- }
-@@ -590,6 +595,13 @@ static inline bool br_allowed_ingress(struct net_bridge *br,
- 	return true;
- }
- 
-+static inline bool br_allowed_egress(struct net_bridge *br,
-+				     const struct net_port_vlans *v,
-+				     const struct sk_buff *skb)
-+{
-+	return true;
-+}
-+
- static inline int br_vlan_add(struct net_bridge *br, u16 vid)
- {
- 	return -EOPNOTSUPP;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index d8174e3..fd6d99e 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -122,6 +122,26 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	return false;
- }
- 
-+/* Called under RCU. */
-+bool br_allowed_egress(struct net_bridge *br,
-+		       const struct net_port_vlans *v,
-+		       const struct sk_buff *skb)
-+{
-+	u16 vid;
-+
-+	if (!br->vlan_enabled)
-+		return true;
-+
-+	if (!v)
-+		return false;
-+
-+	vid = br_vlan_get_tag(skb);
-+	if (test_bit(vid, v->vlan_bitmap))
-+		return true;
-+
-+	return false;
-+}
-+
- /* Must be protected by RTNL */
- int br_vlan_add(struct net_bridge *br, u16 vid)
- {
--- 
-1.7.7.6
+Thanks,
+Dmitry
