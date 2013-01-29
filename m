@@ -1,62 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] vmxnet3: set carrier state properly on probe
-Date: Tue, 29 Jan 2013 17:54:11 +0000
-Message-ID: <1359482051.4144.7.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch net-next V2] bond: have random dev address by default
+ instead of zeroes
+Date: Tue, 29 Jan 2013 11:54:22 -0600
+Message-ID: <1359482062.1635.17.camel@dcbw.foobar.com>
+References: <542237717.4200599.1359136587903.JavaMail.root@redhat.com>
+	 <22106.1359138692@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	"VMware, Inc." <pv-drivers@vmware.com>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: Pavel Simerda <psimerda@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, andy@greyhouse.net,
+	stephen@networkplumber.org, Jiri Pirko <jiri@resnulli.us>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:25133 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751586Ab3A2RyO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 12:54:14 -0500
-In-Reply-To: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:16866 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754398Ab3A2R4L (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 12:56:11 -0500
+In-Reply-To: <22106.1359138692@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-25 at 15:54 -0500, Neil Horman wrote:
-> vmxnet3 fails to set netif_carrier_off on probe, meaning that when an interface
-> is opened the __LINK_STATE_NOCARRIER bit is already cleared, and so
-> /sys/class/net/<ifname>/operstate remains in the unknown state.  Correct this by
-> setting netif_carrier_off on probe, like other drivers do.
+On Fri, 2013-01-25 at 10:31 -0800, Jay Vosburgh wrote:
+> Pavel Simerda <psimerda@redhat.com> wrote:
 > 
-> Also, while we're at it, lets remove the netif_carrier_ok checks from the
-> link_state_update function, as that check is atomically contained within the
-> netif_carrier_[on|off] functions anyway
+> >----- Original Message -----
+> >> From: "Jay Vosburgh" <fubar@us.ibm.com>
+> >> but I don't think it should be changed.
+> >
+> >Just a short question. Is there any reason for bonding interfaces to
+> >behave differently from bridging interfaces in this respect?
 > 
-> Tested successfully by myself
+> 	To clarify, what I don't think should change is that a manually
+> set MAC on the bonding master should override the automatic copy of the
+> first slave's MAC to the bonding master.  The fail_over_mac active and
+> follow settings are an exception to this, but those are special cases
+> for unusual network hardware.
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: "VMware, Inc." <pv-drivers@vmware.com>
+> 	As for the random MAC vs. zero MAC, I've always thought that the
+> all zero MAC was a clear indicator that the device (the bonding master
+> in this case) was not in a usable state (in the sense that it could not
+> send or receive actual traffic).  It's not a really big deal, though, so
+> if the trend these days is for everything to have a MAC all the time,
+> that's fine, as long as doing so doesn't break anything.
+
+Isn't that exactly what carrier means?  If the carrier bit is off,
+nothing should expect that traffic can pass.  The bond will only set its
+carrier ON if at least one slave exists and at least one slave has a
+carrier that's ON.  We have overrides for buggy driver carrier checking
+already.  Zero-MAC is somewhat redundant here as a mechanism for
+detecting that the bond is usable or not.
+
+Dan
+
+> 	I think the patch under discussion should be fine with the
+> addition of the last notifier call previously discussed.  Some
+> documentation updates would be nice, too.
+> 
+> 	-J
+> 
 > ---
->  drivers/net/vmxnet3/vmxnet3_drv.c | 7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 > 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index b1c90f8..66c26a9 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-[...]
-> @@ -3067,6 +3065,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
->  		goto err_register;
->  	}
->  
-> +	netif_carrier_off(netdev);
->  	vmxnet3_check_link(adapter, false);
->  	return 0;
->  
-
-You should do this before calling register_netdev(), otherwise the link
-state change can race with vmxnet3_open().
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
