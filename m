@@ -1,91 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: inaccurate packet scheduling
-Date: Tue, 29 Jan 2013 13:23:57 +0100
-Message-ID: <20130129122357.GC7571@minipsycho.orion>
-References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
- <1355849503.9380.37.camel@edumazet-glaptop>
- <20130102152601.GB1532@minipsycho.orion>
- <1357144482.21409.16876.camel@edumazet-glaptop>
- <20130108133038.GB1621@minipsycho.orion>
- <20130124080536.GA1598@minipsycho.orion>
- <1359036087.12374.2088.camel@edumazet-glaptop>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 2/2] drivers: net:ethernet: cpsw: add support for VLAN
+Date: Tue, 29 Jan 2013 18:03:13 +0530
+Message-ID: <5107C189.1050604@ti.com>
+References: <1359403945-28585-1-git-send-email-mugunthanvnm@ti.com> <1359403945-28585-3-git-send-email-mugunthanvnm@ti.com> <20130129073626.GB18272@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jhs@mojatatu.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:53631 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752165Ab3A2M3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 07:29:13 -0500
-Received: by mail-we0-f171.google.com with SMTP id u54so263091wey.30
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 04:29:11 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1359036087.12374.2088.camel@edumazet-glaptop>
+Received: from comal.ext.ti.com ([198.47.26.152]:33335 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753226Ab3A2Mek (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 07:34:40 -0500
+In-Reply-To: <20130129073626.GB18272@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Jan 24, 2013 at 03:01:27PM CET, eric.dumazet@gmail.com wrote:
->On Thu, 2013-01-24 at 09:05 +0100, Jiri Pirko wrote:
->> Tue, Jan 08, 2013 at 02:30:38PM CET, jiri@resnulli.us wrote:
->> >Wed, Jan 02, 2013 at 05:34:42PM CET, eric.dumazet@gmail.com wrote:
->> >>On Wed, 2013-01-02 at 16:26 +0100, Jiri Pirko wrote:
->> >>> Tue, Dec 18, 2012 at 05:51:43PM CET, erdnetdev@gmail.com wrote:
->> >>> >On Tue, 2012-12-18 at 08:26 -0800, Stephen Hemminger wrote:
->> >>> >
->> >>> >> Check kernel log for messages about clock. It could be that on the
->> >>> >> machines with issues TSC is not usable for kernel clock.
->> >>> >> Also turn off TSO since it screws up any form of rate control.
->> >>> >
->> >>> >Yes, but we should fix it eventually. I'll take a look.
->> >>> 
->> >>> Hi Eric, did you have a chance to look at this? Or should I give it a try?
->> >>
->> >>I took a look, and TBF does :
->> >>
->> >>if (qdisc_pkt_len(skb) > q->max_size)
->> >>    return qdisc_reshape_fail(skb, sch);
->> >>
->> >>We have several choices :
->> >>
->> >>1) Add a one time warning
->> >>
->> >>2) cap dev->gso_max_size at Qdisc setup time
->> >>
->> >>3) Re-segment the packet instead of dropping it (if GSO packet), and
->> >>call the expensive qdisc_tree_decrease_qlen() function.
->> >>
->> >>4) remove max_size limitation 
->> >>
->> >
->> >To my untrained eye, 2) or 4) look like a way to go. Not sure though.
->> 
->> What do you think would be the best way Eric? Thanks.
+On 1/29/2013 1:06 PM, Richard Cochran wrote:
+> On Tue, Jan 29, 2013 at 01:42:25AM +0530, Mugunthan V N wrote:
+>> @@ -947,6 +1042,10 @@ static const struct net_device_ops cpsw_netdev_ops = {
+>>   #ifdef CONFIG_NET_POLL_CONTROLLER
+>>   	.ndo_poll_controller	= cpsw_ndo_poll_controller,
+>>   #endif
+>> +#ifdef VLAN_SUPPORT
+>> +	.ndo_vlan_rx_add_vid	= cpsw_ndo_vlan_rx_add_vid,
+>> +	.ndo_vlan_rx_kill_vid	= cpsw_ndo_vlan_rx_kill_vid,
+>> +#endif
+> These are not compile time conditionals in net_device_ops, so I wonder
+> (after reading Felipe's comments) whether you can simply keep the VLAN
+> code always present.
 >
->Capping gso_max_size is a bit difficult after commit
->1def9238d4aa2146924 (net_sched: more precise pkt_len computation)
+> As long as the driver still compiles and loads, when VLAN is missing
+> from the stack, then I don't see why you can't just leave it in,
+> without all the ifdefs.
 >
->If MSS is really small, we can easily get a lot of overhead
->
->qdisc_skb_cb(skb)->pkt_len > 2 * skb->len
->
->It looks like we need 4), maybe using same mechanism
->than the one used in commit 56b765b79e9a78d
->(htb: improved accuracy at high rates)
+> Thanks,
+> Richard
+This idea seems to be good. I will update the patch in next version.
 
-part of the commit message says:
-<quote>
-The bits per second on the wire is still 5200Mb/s with new HTB
-because qdisc accounts for packet length using skb->len, which
-is smaller than total bytes on the wire if GSO is used.  But
-that is for another patch regardless of how time is accounted.	
-</quote>
-I believe that is a similar problem like ours. But looks like this
-"another patch" never got in.
-
-
->
->
->
->
+Regards
+Mugunthan V N
