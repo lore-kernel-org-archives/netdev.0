@@ -1,33 +1,72 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: i.Mx6Quad - eth0: tx queue full!
-Date: Tue, 29 Jan 2013 14:45:05 -0200
-Message-ID: <CAOMZO5Duqy6s9iB1Ju+zQc6Gr2mLiL+zOD6masSRszSwfmWw+Q@mail.gmail.com>
-References: <5106B7EE.3040603@gmail.com> <5106D5D4.2090200@boundarydevices.com>
- <5107F9DB.2000402@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 5/5] mv643xx_eth: convert to use the Marvell Orion MDIO
+ driver
+Date: Tue, 29 Jan 2013 17:46:09 +0100
+Message-ID: <20130129174609.6ff6fe03@skate>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+	<1359473048-26551-6-git-send-email-florian@openwrt.org>
+	<20130129170131.7964a110@skate>
+	<5107F88C.8030002@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Greg Ungerer <gregungerer@westnet.com.au>, netdev@vger.kernel.org,
- Troy Kisky <troy.kisky@boundarydevices.com>,
- =?UTF-8?Q?Uwe_Kleine=2DK=C3=B6nig?= <u.kleine-koenig@pengutronix.de>,
- shawn.guo@linaro.org, LAK <linux-arm-kernel@lists.infradead.org>
-To: Vikram Narayanan <vikram186@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <5107F9DB.2000402@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Rob Landley <rob@landley.net>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <linux@arm.linux.org.uk>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.free-electrons.com ([94.23.35.102]:35917 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753489Ab3A2QqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 11:46:16 -0500
+In-Reply-To: <5107F88C.8030002@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 29, 2013 at 2:33 PM, Vikram Narayanan <vikram186@gmail.com> wrote:
+Dear Florian Fainelli,
 
-> I tried with both the kernels. Freescale's and mainline results in the same
-> error.
+On Tue, 29 Jan 2013 17:27:56 +0100, Florian Fainelli wrote:
 
-Do you also see this issue with a 3.6 or 3.7 stable kernels?
+> It looks like I introduced two redundant mvmdio instances as ge01
+> refers to the ge00 smi bus (the same applies to ge11 and ge10).
+> Thanks for spotting this.
+
+Ok, good.
+
+> If you take a closer look at mv643xx_eth you will see that the
+> "shared" driver still handles the mconf bus window configuration,
+> which is not abstracted yet.
+
+Indeed, I've seen that. But I don't understand why it's done in the
+mv643xx_eth_shared_probe(). The mbus window configuration registers are
+per-network interface, so this call to mv643xx_eth_conf_mbus_windows()
+could presumably be done in mv643xx_eth_probe().
+
+At least in mvneta, we have the same registers, and we do their
+initialization in the driver normal (and only) ->probe() routine.
+
+> Besides that, I would rather do it step by step.
+
+Yes, agreed. But I think it would be good to have followed patches that
+progressively get rid of the shared driver thing, as it will help in
+bringing a proper DT binding in the mv643xx_eth driver. But it
+certainly doesn't need to be part of this specific patch.
+
+Thanks,
+
+Thomas
+-- 
+Thomas Petazzoni, Free Electrons
+Kernel, drivers, real-time and embedded Linux
+development, consulting, training and support.
+http://free-electrons.com
