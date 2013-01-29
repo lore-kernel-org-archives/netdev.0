@@ -1,8 +1,8 @@
 From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2 4/6] net: frag helper functions for mem limit
-	tracking
-Date: Tue, 29 Jan 2013 10:45:12 +0100
-Message-ID: <20130129094454.13513.67054.stgit@dragon>
+Subject: [net-next PATCH V2 5/6] net: use lib/percpu_counter API for
+	fragmentation mem accounting
+Date: Tue, 29 Jan 2013 10:45:33 +0100
+Message-ID: <20130129094517.13513.12103.stgit@dragon>
 References: <20130129094331.13513.28377.stgit@dragon>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -17,305 +17,121 @@ To: Eric Dumazet <eric.dumazet@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58396 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:24297 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753062Ab3A2Jlp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 04:41:45 -0500
+	id S1751129Ab3A2JmF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 04:42:05 -0500
 In-Reply-To: <20130129094331.13513.28377.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change is primarily a preparation to ease the extension of memory
-limit tracking.
+Replace the per network namespace shared atomic "mem" accounting
+variable, in the fragmentation code, with a lib/percpu_counter.
 
-The change does reduce the number atomic operation, during freeing of
-a frag queue.  This does introduce a some performance improvement, as
-these atomic operations are at the core of the performance problems
-seen on NUMA systems.
+Getting percpu_counter to scale to the fragmentation code usage
+requires some tweaks.
+
+At first view, percpu_counter looks superfast, but it does not
+scale on multi-CPU/NUMA machines, because the default batch size
+is too small, for frag code usage.  Thus, I have adjusted the
+batch size by using __percpu_counter_add() directly, instead of
+percpu_counter_sub() and percpu_counter_add().
+
+The batch size is increased to 130.000, based on the largest 64K
+fragment memory usage.  This does introduce some imprecise
+memory accounting, but its does not need to be strict for this
+use-case.
+
+It is also essential, that the percpu_counter, does not
+share cacheline with other writers, to make this scale.
 
 Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
----
 
- include/net/inet_frag.h                 |   27 +++++++++++++++++++++++++++
- include/net/ipv6.h                      |    2 +-
- net/ipv4/inet_fragment.c                |   25 ++++++++++++-------------
- net/ipv4/ip_fragment.c                  |   24 +++++++++++-------------
- net/ipv6/netfilter/nf_conntrack_reasm.c |    6 +++---
- net/ipv6/reassembly.c                   |    6 +++---
- 6 files changed, 57 insertions(+), 33 deletions(-)
+---
+V2:
+ - Remove unrelated change/comment in include/linux/percpu_counter.h
+
+ include/net/inet_frag.h  |   26 ++++++++++++++++++--------
+ net/ipv4/inet_fragment.c |    2 ++
+ 2 files changed, 20 insertions(+), 8 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 8e4c425..f2fabc2 100644
+index f2fabc2..e0eec74 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -79,4 +79,31 @@ static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f
- 		inet_frag_destroy(q, f, NULL);
- }
+@@ -1,14 +1,17 @@
+ #ifndef __NET_FRAG_H__
+ #define __NET_FRAG_H__
  
-+/* Memory Tracking Functions. */
++#include <linux/percpu_counter.h>
 +
-+static inline int frag_mem_limit(struct netns_frags *nf)
-+{
-+	return atomic_read(&nf->mem);
-+}
-+
-+static inline void sub_frag_mem_limit(struct inet_frag_queue *q, int i)
-+{
-+	atomic_sub(i, &q->net->mem);
-+}
-+
-+static inline void add_frag_mem_limit(struct inet_frag_queue *q, int i)
-+{
-+	atomic_add(i, &q->net->mem);
-+}
-+
-+static inline void init_frag_mem_limit(struct netns_frags *nf)
-+{
-+	atomic_set(&nf->mem, 0);
-+}
-+
-+static inline int sum_frag_mem_limit(struct netns_frags *nf)
-+{
-+	return atomic_read(&nf->mem);
-+}
-+
- #endif
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index c1878f7..dc30b60 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -288,7 +288,7 @@ static inline int ip6_frag_nqueues(struct net *net)
+ struct netns_frags {
+ 	int			nqueues;
+ 	struct list_head	lru_list;
  
- static inline int ip6_frag_mem(struct net *net)
+-	/* Its important for performance to keep lru_list and mem on
+-	 * separate cachelines
++	/* The percpu_counter "mem" need to be cacheline aligned.
++	 *  mem.count must not share cacheline with other writers
+ 	 */
+-	atomic_t		mem ____cacheline_aligned_in_smp;
++	struct percpu_counter   mem ____cacheline_aligned_in_smp;
++
+ 	/* sysctls */
+ 	int			timeout;
+ 	int			high_thresh;
+@@ -81,29 +84,36 @@ static inline void inet_frag_put(struct inet_frag_queue *q, struct inet_frags *f
+ 
+ /* Memory Tracking Functions. */
+ 
++/* The default percpu_counter batch size is not big enough to scale to
++ * fragmentation mem acct sizes.
++ * The mem size of a 64K fragment is approx:
++ *  (44 fragments * 2944 truesize) + frag_queue struct(200) = 129736 bytes
++ */
++static unsigned int frag_percpu_counter_batch = 130000;
++
+ static inline int frag_mem_limit(struct netns_frags *nf)
  {
--	return atomic_read(&net->ipv6.frags.mem);
-+	return sum_frag_mem_limit(&net->ipv6.frags);
+-	return atomic_read(&nf->mem);
++	return percpu_counter_read(&nf->mem);
  }
- #endif
  
+ static inline void sub_frag_mem_limit(struct inet_frag_queue *q, int i)
+ {
+-	atomic_sub(i, &q->net->mem);
++	__percpu_counter_add(&q->net->mem, -i, frag_percpu_counter_batch);
+ }
+ 
+ static inline void add_frag_mem_limit(struct inet_frag_queue *q, int i)
+ {
+-	atomic_add(i, &q->net->mem);
++	__percpu_counter_add(&q->net->mem, i, frag_percpu_counter_batch);
+ }
+ 
+ static inline void init_frag_mem_limit(struct netns_frags *nf)
+ {
+-	atomic_set(&nf->mem, 0);
++	percpu_counter_init(&nf->mem, 0);
+ }
+ 
+ static inline int sum_frag_mem_limit(struct netns_frags *nf)
+ {
+-	return atomic_read(&nf->mem);
++	return percpu_counter_sum_positive(&nf->mem);
+ }
+ 
+ #endif
 diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 4750d2b..e348c84 100644
+index e348c84..b825205 100644
 --- a/net/ipv4/inet_fragment.c
 +++ b/net/ipv4/inet_fragment.c
-@@ -73,7 +73,7 @@ EXPORT_SYMBOL(inet_frags_init);
- void inet_frags_init_net(struct netns_frags *nf)
- {
- 	nf->nqueues = 0;
--	atomic_set(&nf->mem, 0);
-+	init_frag_mem_limit(nf);
- 	INIT_LIST_HEAD(&nf->lru_list);
- }
- EXPORT_SYMBOL(inet_frags_init_net);
-@@ -117,12 +117,8 @@ void inet_frag_kill(struct inet_frag_queue *fq, struct inet_frags *f)
- EXPORT_SYMBOL(inet_frag_kill);
- 
- static inline void frag_kfree_skb(struct netns_frags *nf, struct inet_frags *f,
--		struct sk_buff *skb, int *work)
-+		struct sk_buff *skb)
- {
--	if (work)
--		*work -= skb->truesize;
--
--	atomic_sub(skb->truesize, &nf->mem);
- 	if (f->skb_free)
- 		f->skb_free(skb);
- 	kfree_skb(skb);
-@@ -133,6 +129,7 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
- {
- 	struct sk_buff *fp;
- 	struct netns_frags *nf;
-+	unsigned int sum, sum_truesize = 0;
- 
- 	WARN_ON(!(q->last_in & INET_FRAG_COMPLETE));
- 	WARN_ON(del_timer(&q->timer) != 0);
-@@ -143,13 +140,14 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
- 	while (fp) {
- 		struct sk_buff *xp = fp->next;
- 
--		frag_kfree_skb(nf, f, fp, work);
-+		sum_truesize += fp->truesize;
-+		frag_kfree_skb(nf, f, fp);
- 		fp = xp;
- 	}
--
-+	sum = sum_truesize + f->qsize;
- 	if (work)
--		*work -= f->qsize;
--	atomic_sub(f->qsize, &nf->mem);
-+		*work -= sum;
-+	sub_frag_mem_limit(q, sum);
- 
- 	if (f->destructor)
- 		f->destructor(q);
-@@ -164,11 +162,11 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
- 	int work, evicted = 0;
- 
- 	if (!force) {
--		if (atomic_read(&nf->mem) <= nf->high_thresh)
-+		if (frag_mem_limit(nf) <= nf->high_thresh)
- 			return 0;
- 	}
- 
--	work = atomic_read(&nf->mem) - nf->low_thresh;
-+	work = frag_mem_limit(nf) - nf->low_thresh;
- 	while (work > 0) {
- 		read_lock(&f->lock);
- 		if (list_empty(&nf->lru_list)) {
-@@ -250,7 +248,8 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 
- 	q->net = nf;
- 	f->constructor(q, arg);
--	atomic_add(f->qsize, &nf->mem);
-+	add_frag_mem_limit(q, f->qsize);
+@@ -91,6 +91,8 @@ void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f)
+ 	local_bh_disable();
+ 	inet_frag_evictor(nf, f, true);
+ 	local_bh_enable();
 +
- 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
- 	spin_lock_init(&q->lock);
- 	atomic_set(&q->refcnt, 1);
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index f55a4e6..927fe58 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -122,7 +122,7 @@ int ip_frag_nqueues(struct net *net)
- 
- int ip_frag_mem(struct net *net)
- {
--	return atomic_read(&net->ipv4.frags.mem);
-+	return sum_frag_mem_limit(&net->ipv4.frags);
++	percpu_counter_destroy(&nf->mem);
  }
+ EXPORT_SYMBOL(inet_frags_exit_net);
  
- static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
-@@ -161,13 +161,6 @@ static bool ip4_frag_match(struct inet_frag_queue *q, void *a)
- 		qp->user == arg->user;
- }
- 
--/* Memory Tracking Functions. */
--static void frag_kfree_skb(struct netns_frags *nf, struct sk_buff *skb)
--{
--	atomic_sub(skb->truesize, &nf->mem);
--	kfree_skb(skb);
--}
--
- static void ip4_frag_init(struct inet_frag_queue *q, void *a)
- {
- 	struct ipq *qp = container_of(q, struct ipq, q);
-@@ -340,6 +333,7 @@ static inline int ip_frag_too_far(struct ipq *qp)
- static int ip_frag_reinit(struct ipq *qp)
- {
- 	struct sk_buff *fp;
-+	unsigned int sum_truesize = 0;
- 
- 	if (!mod_timer(&qp->q.timer, jiffies + qp->q.net->timeout)) {
- 		atomic_inc(&qp->q.refcnt);
-@@ -349,9 +343,12 @@ static int ip_frag_reinit(struct ipq *qp)
- 	fp = qp->q.fragments;
- 	do {
- 		struct sk_buff *xp = fp->next;
--		frag_kfree_skb(qp->q.net, fp);
-+
-+		sum_truesize += fp->truesize;
-+		kfree_skb(fp);
- 		fp = xp;
- 	} while (fp);
-+	sub_frag_mem_limit(&qp->q, sum_truesize);
- 
- 	qp->q.last_in = 0;
- 	qp->q.len = 0;
-@@ -496,7 +493,8 @@ found:
- 				qp->q.fragments = next;
- 
- 			qp->q.meat -= free_it->len;
--			frag_kfree_skb(qp->q.net, free_it);
-+			sub_frag_mem_limit(&qp->q, free_it->truesize);
-+			kfree_skb(free_it);
- 		}
- 	}
- 
-@@ -519,7 +517,7 @@ found:
- 	qp->q.stamp = skb->tstamp;
- 	qp->q.meat += skb->len;
- 	qp->ecn |= ecn;
--	atomic_add(skb->truesize, &qp->q.net->mem);
-+	add_frag_mem_limit(&qp->q, skb->truesize);
- 	if (offset == 0)
- 		qp->q.last_in |= INET_FRAG_FIRST_IN;
- 
-@@ -617,7 +615,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 		head->len -= clone->len;
- 		clone->csum = 0;
- 		clone->ip_summed = head->ip_summed;
--		atomic_add(clone->truesize, &qp->q.net->mem);
-+		add_frag_mem_limit(&qp->q, clone->truesize);
- 	}
- 
- 	skb_push(head, head->data - skb_network_header(head));
-@@ -645,7 +643,7 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 		}
- 		fp = next;
- 	}
--	atomic_sub(sum_truesize, &qp->q.net->mem);
-+	sub_frag_mem_limit(&qp->q, sum_truesize);
- 
- 	head->next = NULL;
- 	head->dev = dev;
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 3dacecc..07ef294 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -319,7 +319,7 @@ found:
- 	fq->q.meat += skb->len;
- 	if (payload_len > fq->q.max_size)
- 		fq->q.max_size = payload_len;
--	atomic_add(skb->truesize, &fq->q.net->mem);
-+	add_frag_mem_limit(&fq->q, skb->truesize);
- 
- 	/* The first fragment.
- 	 * nhoffset is obtained from the first fragment, of course.
-@@ -398,7 +398,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
- 		clone->ip_summed = head->ip_summed;
- 
- 		NFCT_FRAG6_CB(clone)->orig = NULL;
--		atomic_add(clone->truesize, &fq->q.net->mem);
-+		add_frag_mem_limit(&fq->q, clone->truesize);
- 	}
- 
- 	/* We have to remove fragment header from datagram and to relocate
-@@ -422,7 +422,7 @@ nf_ct_frag6_reasm(struct frag_queue *fq, struct net_device *dev)
- 			head->csum = csum_add(head->csum, fp->csum);
- 		head->truesize += fp->truesize;
- 	}
--	atomic_sub(head->truesize, &fq->q.net->mem);
-+	sub_frag_mem_limit(&fq->q, head->truesize);
- 
- 	head->local_df = 1;
- 	head->next = NULL;
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index e5253ec..18cb8de 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -327,7 +327,7 @@ found:
- 	}
- 	fq->q.stamp = skb->tstamp;
- 	fq->q.meat += skb->len;
--	atomic_add(skb->truesize, &fq->q.net->mem);
-+	add_frag_mem_limit(&fq->q, skb->truesize);
- 
- 	/* The first fragment.
- 	 * nhoffset is obtained from the first fragment, of course.
-@@ -429,7 +429,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 		head->len -= clone->len;
- 		clone->csum = 0;
- 		clone->ip_summed = head->ip_summed;
--		atomic_add(clone->truesize, &fq->q.net->mem);
-+		add_frag_mem_limit(&fq->q, clone->truesize);
- 	}
- 
- 	/* We have to remove fragment header from datagram and to relocate
-@@ -467,7 +467,7 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
- 		}
- 		fp = next;
- 	}
--	atomic_sub(sum_truesize, &fq->q.net->mem);
-+	sub_frag_mem_limit(&fq->q, sum_truesize);
- 
- 	head->next = NULL;
- 	head->dev = dev;
