@@ -1,7 +1,7 @@
 From: Vikram Narayanan <vikram186@gmail.com>
 Subject: Re: i.Mx6Quad - eth0: tx queue full!
-Date: Tue, 29 Jan 2013 22:03:31 +0530
-Message-ID: <5107F9DB.2000402@gmail.com>
+Date: Tue, 29 Jan 2013 22:04:08 +0530
+Message-ID: <5107FA00.2010809@gmail.com>
 References: <5106B7EE.3040603@gmail.com> <5106D5D4.2090200@boundarydevices.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
@@ -12,12 +12,12 @@ Cc: netdev@vger.kernel.org, Greg Ungerer <gregungerer@westnet.com.au>,
 	<u.kleine-koenig@pengutronix.de>
 To: Troy Kisky <troy.kisky@boundarydevices.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:34678 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752357Ab3A2Qds (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 11:33:48 -0500
-Received: by mail-da0-f48.google.com with SMTP id k18so303983dae.7
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 08:33:47 -0800 (PST)
+Received: from mail-da0-f44.google.com ([209.85.210.44]:52425 "EHLO
+	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754947Ab3A2QeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 11:34:18 -0500
+Received: by mail-da0-f44.google.com with SMTP id z20so301394dae.17
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 08:34:17 -0800 (PST)
 In-Reply-To: <5106D5D4.2090200@boundarydevices.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
