@@ -1,64 +1,68 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [patch net-next V2] bond: have random dev address by default
- instead of zeroes
-Date: Tue, 29 Jan 2013 11:54:22 -0600
-Message-ID: <1359482062.1635.17.camel@dcbw.foobar.com>
-References: <542237717.4200599.1359136587903.JavaMail.root@redhat.com>
-	 <22106.1359138692@death.nxdomain>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 4/5] net: mvmdio: allow Device Tree and platform device
+ to coexist
+Date: Tue, 29 Jan 2013 10:59:12 -0700
+Message-ID: <20130129175912.GE25646@obsidianresearch.com>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
+ <1359473048-26551-5-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Simerda <psimerda@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org, Jiri Pirko <jiri@resnulli.us>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Russell King <linux@arm.linux.org.uk>,
+	Jason Cooper <jason@lakedaemon.net>, linux-doc@vger.kernel.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	Rob Herring <rob.herring@calxeda.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	linux-arm-kernel@lists.infradead.org,
+	Rob Landley <rob@landley.net>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linuxppc-dev@lists.ozlabs.org,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Florian Fainelli <florian@openwrt.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16866 "EHLO mx1.redhat.com"
+Received: from quartz.orcorp.ca ([184.70.90.242]:34095 "EHLO quartz.orcorp.ca"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754398Ab3A2R4L (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 12:56:11 -0500
-In-Reply-To: <22106.1359138692@death.nxdomain>
+	id S1751586Ab3A2R7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 12:59:25 -0500
+Content-Disposition: inline
+In-Reply-To: <1359473048-26551-5-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-25 at 10:31 -0800, Jay Vosburgh wrote:
-> Pavel Simerda <psimerda@redhat.com> wrote:
-> 
-> >----- Original Message -----
-> >> From: "Jay Vosburgh" <fubar@us.ibm.com>
-> >> but I don't think it should be changed.
-> >
-> >Just a short question. Is there any reason for bonding interfaces to
-> >behave differently from bridging interfaces in this respect?
-> 
-> 	To clarify, what I don't think should change is that a manually
-> set MAC on the bonding master should override the automatic copy of the
-> first slave's MAC to the bonding master.  The fail_over_mac active and
-> follow settings are an exception to this, but those are special cases
-> for unusual network hardware.
-> 
-> 	As for the random MAC vs. zero MAC, I've always thought that the
-> all zero MAC was a clear indicator that the device (the bonding master
-> in this case) was not in a usable state (in the sense that it could not
-> send or receive actual traffic).  It's not a really big deal, though, so
-> if the trend these days is for everything to have a MAC all the time,
-> that's fine, as long as doing so doesn't break anything.
+On Tue, Jan 29, 2013 at 04:24:07PM +0100, Florian Fainelli wrote:
+  
+> -	dev->err_interrupt = irq_of_parse_and_map(pdev->dev.of_node, 0);
+> +	if (pdev->dev.of_node) {
+> +		dev->regs = of_iomap(pdev->dev.of_node, 0);
+> +		if (!dev->regs) {
+> +			dev_err(&pdev->dev, "No SMI register address given in DT\n");
+> +			ret = -ENODEV;
+> +			goto out_free;
+> +		}
+> +
+> +		dev->err_interrupt = irq_of_parse_and_map(pdev->dev.of_node, 0);
+> +	} else {
+> +		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> +
+> +		dev->regs = ioremap(r->start, resource_size(r));
+> +		if (!dev->regs) {
+> +			dev_err(&pdev->dev, "No SMI register address given\n");
+> +			ret = -ENODEV;
+> +			goto out_free;
+> +		}
+> +
+> +		dev->err_interrupt = platform_get_irq(pdev, 0);
+> +	}
 
-Isn't that exactly what carrier means?  If the carrier bit is off,
-nothing should expect that traffic can pass.  The bond will only set its
-carrier ON if at least one slave exists and at least one slave has a
-carrier that's ON.  We have overrides for buggy driver carrier checking
-already.  Zero-MAC is somewhat redundant here as a mechanism for
-detecting that the bond is usable or not.
+Why do you have these different paths for OF and platform? AFAIK these
+days when a OF device is automatically converted into a platform
+device all the struct resources are created too, so you can't you just
+use platform_get_resource and devm_request_and_ioremap for both flows?
 
-Dan
+Ditto for the interrupt - platform_get_irq should work in both cases?
 
-> 	I think the patch under discussion should be fine with the
-> addition of the last notifier call previously discussed.  Some
-> documentation updates would be nice, too.
-> 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
+Jason
