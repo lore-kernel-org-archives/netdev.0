@@ -1,8 +1,8 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH 5/5] mv643xx_eth: convert to use the Marvell Orion MDIO driver
-Date: Tue, 29 Jan 2013 21:41:03 +0100
-Message-ID: <201301292141.03931.florian@openwrt.org>
-References: <1359473048-26551-1-git-send-email-florian@openwrt.org> <1359473048-26551-6-git-send-email-florian@openwrt.org> <20130129181306.GF25646@obsidianresearch.com>
+Subject: Re: [PATCH 4/5] net: mvmdio: allow Device Tree and platform device to coexist
+Date: Tue, 29 Jan 2013 21:41:45 +0100
+Message-ID: <201301292141.45931.florian@openwrt.org>
+References: <1359473048-26551-1-git-send-email-florian@openwrt.org> <1359473048-26551-5-git-send-email-florian@openwrt.org> <20130129175912.GE25646@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -23,66 +23,50 @@ Cc: davem@davemloft.net,
 	Lennert Buytenhek <buytenh@wantstofly.org>
 To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130129181306.GF25646@obsidianresearch.com>
+In-Reply-To: <20130129175912.GE25646@obsidianresearch.com>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 29 janvier 2013 19:13:06, Jason Gunthorpe a =E9crit :
-> On Tue, Jan 29, 2013 at 04:24:08PM +0100, Florian Fainelli wrote:
-> > This patch converts the Marvell MV643XX ethernet driver to use the
-> > Marvell Orion MDIO driver. As a result, PowerPC and ARM platforms
-> > registering the Marvell MV643XX ethernet driver are also updated to
-> > register a Marvell Orion MDIO driver. This driver voluntarily overl=
-aps
-> > with the Marvell Ethernet shared registers because it will use a su=
-bset
-> > of this shared register (shared_base + 0x4 - shared_base + 0x84). T=
-he
-> > Ethernet driver is also updated to look up for a PHY device using t=
-he
-> > Orion MDIO bus driver.
+Le mardi 29 janvier 2013 18:59:12, Jason Gunthorpe a =E9crit :
+> On Tue, Jan 29, 2013 at 04:24:07PM +0100, Florian Fainelli wrote:
+> > -	dev->err_interrupt =3D irq_of_parse_and_map(pdev->dev.of_node, 0)=
+;
+> > +	if (pdev->dev.of_node) {
+> > +		dev->regs =3D of_iomap(pdev->dev.of_node, 0);
+> > +		if (!dev->regs) {
+> > +			dev_err(&pdev->dev, "No SMI register address given in=20
+DT\n");
+> > +			ret =3D -ENODEV;
+> > +			goto out_free;
+> > +		}
+> > +
+> > +		dev->err_interrupt =3D irq_of_parse_and_map(pdev->dev.of_node, 0=
+);
+> > +	} else {
+> > +		r =3D platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> > +
+> > +		dev->regs =3D ioremap(r->start, resource_size(r));
+> > +		if (!dev->regs) {
+> > +			dev_err(&pdev->dev, "No SMI register address given\n");
+> > +			ret =3D -ENODEV;
+> > +			goto out_free;
+> > +		}
+> > +
+> > +		dev->err_interrupt =3D platform_get_irq(pdev, 0);
+> > +	}
 >=20
-> Can you finish off this job by making the mv643xx_eth driver accept
-> the standard phy-handle OF property instead of using a phy address?
+> Why do you have these different paths for OF and platform? AFAIK thes=
+e
+> days when a OF device is automatically converted into a platform
+> device all the struct resources are created too, so you can't you jus=
+t
+> use platform_get_resource and devm_request_and_ioremap for both flows=
+?
+>=20
+> Ditto for the interrupt - platform_get_irq should work in both cases?
 
-I can certainly do that, at the same time we need to continue supportin=
-g the=20
-"old" platform device style registration without breaking them (PowerPC=
- in=20
-particular, and the hopefully yet to be converted orion5x). So the phy_=
-scan()=20
-as I modified it will probably still be there.
-
->=20
-> Ie the end result should be something like:
->=20
->                 smi0: mdio@72000 {
->                         device_type =3D "mdio";
->                         compatible =3D "marvell,orion-mdio";
->                         reg =3D <0x72004 0x4>;
->=20
->                         #address-cells =3D <1>;
->                         #size-cells =3D <0>;
->                         PHY1: ethernet-phy@1 {
->                                 reg =3D <1>;
->                                 device_type =3D "ethernet-phy";
->                                 phy-id =3D <0x01410e90>;
->                         };
->                 };
->=20
->                 egiga0 {
->                         device_type =3D "network";
->                         compatible =3D "marvell,mv643xx-eth";
->                         reg =3D <0x72000 0x4000>;
->                         port_number =3D <0>;
->                         phy-handle =3D <&PHY1>;
->                         interrupts =3D <11>;
->                         local-mac-address =3D [000000000002];  /* Fil=
-led by
-> boot loader */ };
->=20
-> Regards,
-> Jason
-
+There was no particular reason and I updated the patchset to do that pr=
+ecisely=20
+in version 2.
 --=20
 =46lorian
