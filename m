@@ -1,33 +1,79 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
- Implement basic statistics
-Date: Tue, 29 Jan 2013 11:09:18 -0800
-Message-ID: <1359486558.15135.29.camel@joe-AO722>
-References: <FD9AD8C5375B924CABC56D982DB3A802079D382B@EXMB1.micrel.com>
-	 <20130129.135523.2248566447781665296.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [Pv-drivers] [PATCH] vmxnet3: set carrier state properly on probe
+Date: Tue, 29 Jan 2013 14:09:52 -0500
+Message-ID: <20130129190952.GB14044@hmsreliant.think-freely.org>
+References: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com>
+ <1359482051.4144.7.camel@bwh-desktop.uk.solarflarecom.com>
+ <14488768.c79P4XbKCv@dtor-d630.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David.Choi@Micrel.Com, netdev@vger.kernel.org,
-	Ping.Doong@Micrel.Com, bhutchings@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: pv-drivers@vmware.com, Ben Hutchings <bhutchings@solarflare.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Dmitry Torokhov <dtor@vmware.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:39368 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754695Ab3A2TJU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 14:09:20 -0500
-In-Reply-To: <20130129.135523.2248566447781665296.davem@davemloft.net>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:35458 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754350Ab3A2TKB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:10:01 -0500
+Content-Disposition: inline
+In-Reply-To: <14488768.c79P4XbKCv@dtor-d630.eng.vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-29 at 13:55 -0500, David Miller wrote:
-> Do not post new versions of patches as replies to other emails or
-> threads, always use fresh, new list postings to post a patch.
+On Tue, Jan 29, 2013 at 10:54:28AM -0800, Dmitry Torokhov wrote:
+> On Tuesday, January 29, 2013 05:54:11 PM Ben Hutchings wrote:
+> > On Fri, 2013-01-25 at 15:54 -0500, Neil Horman wrote:
+> > > vmxnet3 fails to set netif_carrier_off on probe, meaning that when an
+> > > interface is opened the __LINK_STATE_NOCARRIER bit is already cleared,
+> > > and so /sys/class/net/<ifname>/operstate remains in the unknown state. 
+> > > Correct this by setting netif_carrier_off on probe, like other drivers
+> > > do.
+> > > 
+> > > Also, while we're at it, lets remove the netif_carrier_ok checks from the
+> > > link_state_update function, as that check is atomically contained within
+> > > the netif_carrier_[on|off] functions anyway
+> > > 
+> > > Tested successfully by myself
+> > > 
+> > > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> > > CC: "David S. Miller" <davem@davemloft.net>
+> > > CC: "VMware, Inc." <pv-drivers@vmware.com>
+> > > ---
+> > > 
+> > >  drivers/net/vmxnet3/vmxnet3_drv.c | 7 +++----
+> > >  1 file changed, 3 insertions(+), 4 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > > b/drivers/net/vmxnet3/vmxnet3_drv.c index b1c90f8..66c26a9 100644
+> > > --- a/drivers/net/vmxnet3/vmxnet3_drv.c
+> > > +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+> > 
+> > [...]
+> > 
+> > > @@ -3067,6 +3065,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+> > > 
+> > >  		goto err_register;
+> > >  	
+> > >  	}
+> > > 
+> > > +	netif_carrier_off(netdev);
+> > > 
+> > >  	vmxnet3_check_link(adapter, false);
+> > >  	return 0;
+> > 
+> > You should do this before calling register_netdev(), otherwise the link
+> > state change can race with vmxnet3_open().
+> 
+> Hmm, is it safe to do before the network device is registered? The rest
+> of the drivers (e1000, tg3, etc) seem to be doing netif_carrier_off()
+> in open() rather than probe() and then do link checks.
+> 
+It appears to be safe to me, at least for the netif_carrier_off case, as theres
+a check to effecitvely just set the NOCARRIER bit if the device is in
+UNREGISTERED state.
+Neil
 
-I think replying with In-Reply-To: context is better
-than starting a new thread without that In-Reply-To.
-
-If the subject changes with version number, what
-difference does it make?
-
-Is there some case that patchwork doesn't handle well?
+> Thanks,
+> Dmitry
+> 
+> 
