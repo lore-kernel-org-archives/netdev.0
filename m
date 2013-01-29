@@ -1,123 +1,157 @@
-From: Vikram Narayanan <vikram186@gmail.com>
-Subject: Re: i.Mx6Quad - eth0: tx queue full!
-Date: Tue, 29 Jan 2013 22:04:08 +0530
-Message-ID: <5107FA00.2010809@gmail.com>
-References: <5106B7EE.3040603@gmail.com> <5106D5D4.2090200@boundarydevices.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [RFC PATCH 1/3] Avoid making inappropriate requests of
+ NETIF_F_V[46]_CSUM devices
+Date: Tue, 29 Jan 2013 16:35:26 +0000
+Message-ID: <1359477326.3529.151.camel@shinybook.infradead.org>
+References: <1358165431.27054.62.camel@shinybook.infradead.org>
+	 <20130116.155406.351676228334066120.davem@davemloft.net>
+	 <1358375658.2397.69.camel@shinybook.infradead.org>
+	 <20130116.180044.630688719598008373.davem@davemloft.net>
+	 <1358381029.2397.93.camel@shinybook.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Greg Ungerer <gregungerer@westnet.com.au>,
-	shawn.guo@linaro.org, LAK <linux-arm-kernel@lists.infradead.org>,
-	=?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-To: Troy Kisky <troy.kisky@boundarydevices.com>
+Content-Type: multipart/signed; micalg="sha1"; protocol="application/x-pkcs7-signature";
+	boundary="=-rG7+368lRIZBVo0fLynw"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:52425 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754947Ab3A2QeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 11:34:18 -0500
-Received: by mail-da0-f44.google.com with SMTP id z20so301394dae.17
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 08:34:17 -0800 (PST)
-In-Reply-To: <5106D5D4.2090200@boundarydevices.com>
+Received: from merlin.infradead.org ([205.233.59.134]:49376 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750809Ab3A2Qfg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 11:35:36 -0500
+In-Reply-To: <1358381029.2397.93.camel@shinybook.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/29/2013 1:17 AM, Troy Kisky wrote:
-> On 1/28/2013 10:39 AM, Vikram Narayanan wrote:
->> Running the latest head <linux-2.6.git> on an i.Mx6Quad based platform
->> gives me the below error when flooded with ping requests.
->>
->> == Start log ==
->> [ 2555.004031] ------------[ cut here ]------------
->> [ 2555.009740] WARNING: at net/sched/sch_generic.c:254
->> dev_watchdog+0x298/0x2b8()
->> [ 2555.018721] NETDEV WATCHDOG: eth0 (fec): transmit queue 0 timed out
->
-> I think the tx interrupt status bit was lost. The packets were
-> transmitted, but the interrupt never
-> happened. The controller should have been reset here, but perhaps a bug
-> with the reset code.
-> Are you using the mainline kernel, or a version Freescale's kernel.
 
-I tried with both the kernels. Freescale's and mainline results in the 
-same error.
+--=-rG7+368lRIZBVo0fLynw
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> mainline fec_restart does not reset tx_full
->
-> You can try adding
-> fep->tx_full = 0;
+On Thu, 2013-01-17 at 00:03 +0000, David Woodhouse wrote:
+> Um, SCTP *does* use CHECKSUM_PARTIAL. Am I missing something or does
+> that suffer the same problem?
 
-With this there was no improvement.
+Am I mistaken, or does SCTP end up sending un-checksummed packets
+because of the same 'bug' in harmonize_features()?
 
-> to fec_restart, though it would be better to call fec_enet_tx in
-> fec_timeout
-> and skip the call to fec_restart if it returns some packets.
+--=20
+dwmw2
 
-fec_enet_tx returns void, how do I check for the return packets.
-I'm sorry, I couldn't get your point here.
 
->
->> [ 2555.026733] Modules linked in:
->> [ 2555.030598] Backtrace:
->> [ 2555.034252] [<800119c8>] (dump_backtrace+0x0/0x10c) from
->> [<803b8494>] (dump_stack+0x18/0x1c)
->> [ 2555.044438]  r6:000000fe r5:80302f64 r4:80503dd0 r3:80510e80
->> [ 2555.052019] [<803b847c>] (dump_stack+0x0/0x1c) from [<8001df08>]
->> (warn_slowpath_common+0x54/0x6c)
->> [ 2555.062679] [<8001deb4>] (warn_slowpath_common+0x0/0x6c) from
->> [<8001dfc4>] (warn_slowpath_fmt+0x38/0x40)
->> [ 2555.073936]  r8:8052ebf1 r7:805040c0 r6:00000000 r5:8f9771d4
->> r4:8f977000
->> r3:00000009
->> [ 2555.084816] [<8001df8c>] (warn_slowpath_fmt+0x0/0x40) from
->> [<80302f64>] (dev_watchdog+0x298/0x2b8)
->> [ 2555.095535]  r3:8f977000 r2:8049f6d4
->> [ 2555.099868] [<80302ccc>] (dev_watchdog+0x0/0x2b8) from [<8002acf8>]
->> (call_timer_fn.isra.33+0x2c/0x8c)
->> [ 2555.110794] [<8002accc>] (call_timer_fn.isra.33+0x0/0x8c) from
->> [<8002af48>] (run_timer_softirq+0x1f0/0x204)
->> [ 2555.122240]  r7:80571114 r6:805040c0 r5:00000000 r4:80570900
->> [ 2555.129894] [<8002ad58>] (run_timer_softirq+0x0/0x204) from
->> [<80025750>] (__do_softirq+0xc8/0x180)
->> [ 2555.140599] [<80025688>] (__do_softirq+0x0/0x180) from [<80025b40>]
->> (irq_exit+0x88/0x90)
->> [ 2555.150492] [<80025ab8>] (irq_exit+0x0/0x90) from [<8000ec58>]
->> (handle_IRQ+0x44/0x98)
->> [ 2555.160112]  r4:804ffde0 r3:00000220
->> [ 2555.164848] [<8000ec14>] (handle_IRQ+0x0/0x98) from [<80008540>]
->> (gic_handle_irq+0x30/0x64)
->> [ 2555.174956]  r6:80503f28 r5:8050a518 r4:f400010c r3:00000000
->> [ 2555.182694] [<80008510>] (gic_handle_irq+0x0/0x64) from
->> [<8000df80>] (__irq_svc+0x40/0x50)
->> [ 2555.192737] Exception stack(0x80503f28 to 0x80503f70)
->> [ 2555.198639] 3f20:                   8052f150 a0000093 00000000
->> 00000000 80502000 8052ed08
->> [ 2555.208600] 3f40: 8050a4f4 803bfaec 8050df00 412fc09a 80502000
->> 80503f7c 80503f80 80503f70
->> [ 2555.218584] 3f60: 8000eee4 8000eee8 60000013 ffffffff
->> [ 2555.224730]  r7:80503f5c r6:ffffffff r5:60000013 r4:8000eee8
->> [ 2555.232292] [<8000eeb8>] (default_idle+0x0/0x38) from [<8000f0d8>]
->> (cpu_idle+0xcc/0x114)
->> [ 2555.242204] [<8000f00c>] (cpu_idle+0x0/0x114) from [<803b3718>]
->> (rest_init+0x64/0x7c)
->> [ 2555.251858] [<803b36b4>] (rest_init+0x0/0x7c) from [<804cc7dc>]
->> (start_kernel+0x258/0x298)
->> [ 2555.261963] [<804cc584>] (start_kernel+0x0/0x298) from [<10008078>]
->> (0x10008078)
->> [ 2555.271167] ---[ end trace 3d2ffb53e6fe41f3 ]---
->> [ 2555.277270] eth0: tx queue full!.
->> [ 2555.288776] eth0: tx queue full!.
->> [ 2555.293594] eth0: tx queue full!.
->> [ 2555.297944] eth0: tx queue full!.
->> [ 2555.302229] eth0: tx queue full!.
-> All the packet have been transmitted but the transmit queue is full, so
-> no more
-> tx interrupts can happen to replace the previously lost tx interrupt.
->
-> I've seen MII interrupts clear the TX interrupt status bit.
->
+--=-rG7+368lRIZBVo0fLynw
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Transfer-Encoding: base64
 
-Do you suspect the MAC <-> PHY interconnect? I'm having an MII interface.
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIUbjCCBjQw
+ggQcoAMCAQICAR4wDQYJKoZIhvcNAQEFBQAwfTELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0
+Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxKTAn
+BgNVBAMTIFN0YXJ0Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MB4XDTA3MTAyNDIxMDE1NVoX
+DTE3MTAyNDIxMDE1NVowgYwxCzAJBgNVBAYTAklMMRYwFAYDVQQKEw1TdGFydENvbSBMdGQuMSsw
+KQYDVQQLEyJTZWN1cmUgRGlnaXRhbCBDZXJ0aWZpY2F0ZSBTaWduaW5nMTgwNgYDVQQDEy9TdGFy
+dENvbSBDbGFzcyAxIFByaW1hcnkgSW50ZXJtZWRpYXRlIENsaWVudCBDQTCCASIwDQYJKoZIhvcN
+AQEBBQADggEPADCCAQoCggEBAMcJg8zOLdgasSmkLhOrlr6KMoOMpohBllVHrdRvEg/q6r8jR+EK
+75xCGhR8ToREoqe7zM9/UnC6TS2y9UKTpT1v7RSMzR0t6ndl0TWBuUr/UXBhPk+Kmy7bI4yW4urC
++y7P3/1/X7U8ocb8VpH/Clt+4iq7nirMcNh6qJR+xjOhV+VHzQMALuGYn5KZmc1NbJQYclsGkDxD
+z2UbFqE2+6vIZoL+jb9x4Pa5gNf1TwSDkOkikZB1xtB4ZqtXThaABSONdfmv/Z1pua3FYxnCFmdr
+/+N2JLKutIxMYqQOJebr/f/h5t95m4JgrM3Y/w7YX9d7YAL9jvN4SydHsU6n65cCAwEAAaOCAa0w
+ggGpMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRTcu2SnODaywFc
+fH6WNU7y1LhRgjAfBgNVHSMEGDAWgBROC+8apEBbpRdphzDKNGhD0EGu8jBmBggrBgEFBQcBAQRa
+MFgwJwYIKwYBBQUHMAGGG2h0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9jYTAtBggrBgEFBQcwAoYh
+aHR0cDovL3d3dy5zdGFydHNzbC5jb20vc2ZzY2EuY3J0MFsGA1UdHwRUMFIwJ6AloCOGIWh0dHA6
+Ly93d3cuc3RhcnRzc2wuY29tL3Nmc2NhLmNybDAnoCWgI4YhaHR0cDovL2NybC5zdGFydHNzbC5j
+b20vc2ZzY2EuY3JsMIGABgNVHSAEeTB3MHUGCysGAQQBgbU3AQIBMGYwLgYIKwYBBQUHAgEWImh0
+dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93d3cu
+c3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwDQYJKoZIhvcNAQEFBQADggIBAAqDCH14qywG
+XLhjjF6uHLkjd02hcdh9hrw+VUsv+q1eeQWB21jWj3kJ96AUlPCoEGZ/ynJNScWy6QMVQjbbMXlt
+UfO4n4bGGdKo3awPWp61tjAFgraLJgDk+DsSvUD6EowjMTNx25GQgyYJ5RPIzKKR9tQW8gGK+2+R
+HxkUCTbYFnL6kl8Ch507rUdPPipJ9CgJFws3kDS3gOS5WFMxcjO5DwKfKSETEPrHh7p5shuuNktv
+sv6hxHTLhiMKX893gxdT3XLS9OKmCv87vkINQcNEcIIoFWbP9HORz9v3vQwR4e3ksLc2JZOAFK+s
+sS5XMEoznzpihEP0PLc4dCBYjbvSD7kxgDwZ+Aj8Q9PkbvE9sIPP7ON0fz095HdThKjiVJe6vofq
++n6b1NBc8XdrQvBmunwxD5nvtTW4vtN6VY7mUCmxsCieuoBJ9OlqmsVWQvifIYf40dJPZkk9YgGT
+zWLpXDSfLSplbY2LL9C9U0ptvjcDjefLTvqSFc7tw1sEhF0n/qpA2r0GpvkLRDmcSwVyPvmjFBGq
+Up/pNy8ZuPGQmHwFi2/14+xeSUDG2bwnsYJQG2EdJCB6luQ57GEnTA/yKZSTKI8dDQa8Sd3zfXb1
+9mOgSF0bBdXbuKhEpuP9wirslFe6fQ1t5j5R0xi72MZ8ikMu1RQZKCyDbMwazlHiMIIHFzCCBf+g
+AwIBAgIDBCZ6MA0GCSqGSIb3DQEBBQUAMIGMMQswCQYDVQQGEwJJTDEWMBQGA1UEChMNU3RhcnRD
+b20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlmaWNhdGUgU2lnbmluZzE4MDYG
+A1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVkaWF0ZSBDbGllbnQgQ0EwHhcN
+MTIwNTAxMTI1ODI3WhcNMTMwNTAzMTEzNzIwWjBdMRkwFwYDVQQNExA4Y1VOSzUzMTc0ODRYRjk3
+MRwwGgYDVQQDDBNkd213MkBpbmZyYWRlYWQub3JnMSIwIAYJKoZIhvcNAQkBFhNkd213MkBpbmZy
+YWRlYWQub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyYe7wo6MrtrB4uIGGbrY
+4IifY/Xsq22pSv605yganL0+uyUdd8rCjrYlH6Q/ra5TVJCQFTgzaepkuqPQc79DC/Cxmzm6Qo+s
+wLZy868oFsccsVokL2bPAWIPaRXfNPJKkYR1FTWQfZpWJVQmT+sPf1XFUullVBAK+d9RztopyacI
+xWoZ/W/Cmv7mseQbttYTtGKJa0btX73nsQRWl6SgErWXo59zg9friCLTy1GXMXJYB8H+PtnuwX0w
+MrAvWDdX1ABgIlA17W3FraCn0eW15ZM46eyu0/amGzJZNtemCWF73P7BAijzeV1jNmiJFXdZ0DT0
+w+hmtMO9PxdDUyt78QIDAQABo4IDrjCCA6owCQYDVR0TBAIwADALBgNVHQ8EBAMCBLAwHQYDVR0l
+BBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMEMB0GA1UdDgQWBBTkfe5UOr3PcirsjApibyyUEfsyRzAf
+BgNVHSMEGDAWgBRTcu2SnODaywFcfH6WNU7y1LhRgjAeBgNVHREEFzAVgRNkd213MkBpbmZyYWRl
+YWQub3JnMIICIQYDVR0gBIICGDCCAhQwggIQBgsrBgEEAYG1NwECAjCCAf8wLgYIKwYBBQUHAgEW
+Imh0dHA6Ly93d3cuc3RhcnRzc2wuY29tL3BvbGljeS5wZGYwNAYIKwYBBQUHAgEWKGh0dHA6Ly93
+d3cuc3RhcnRzc2wuY29tL2ludGVybWVkaWF0ZS5wZGYwgfcGCCsGAQUFBwICMIHqMCcWIFN0YXJ0
+Q29tIENlcnRpZmljYXRpb24gQXV0aG9yaXR5MAMCAQEagb5UaGlzIGNlcnRpZmljYXRlIHdhcyBp
+c3N1ZWQgYWNjb3JkaW5nIHRvIHRoZSBDbGFzcyAxIFZhbGlkYXRpb24gcmVxdWlyZW1lbnRzIG9m
+IHRoZSBTdGFydENvbSBDQSBwb2xpY3ksIHJlbGlhbmNlIG9ubHkgZm9yIHRoZSBpbnRlbmRlZCBw
+dXJwb3NlIGluIGNvbXBsaWFuY2Ugb2YgdGhlIHJlbHlpbmcgcGFydHkgb2JsaWdhdGlvbnMuMIGc
+BggrBgEFBQcCAjCBjzAnFiBTdGFydENvbSBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgECGmRM
+aWFiaWxpdHkgYW5kIHdhcnJhbnRpZXMgYXJlIGxpbWl0ZWQhIFNlZSBzZWN0aW9uICJMZWdhbCBh
+bmQgTGltaXRhdGlvbnMiIG9mIHRoZSBTdGFydENvbSBDQSBwb2xpY3kuMDYGA1UdHwQvMC0wK6Ap
+oCeGJWh0dHA6Ly9jcmwuc3RhcnRzc2wuY29tL2NydHUxLWNybC5jcmwwgY4GCCsGAQUFBwEBBIGB
+MH8wOQYIKwYBBQUHMAGGLWh0dHA6Ly9vY3NwLnN0YXJ0c3NsLmNvbS9zdWIvY2xhc3MxL2NsaWVu
+dC9jYTBCBggrBgEFBQcwAoY2aHR0cDovL2FpYS5zdGFydHNzbC5jb20vY2VydHMvc3ViLmNsYXNz
+MS5jbGllbnQuY2EuY3J0MCMGA1UdEgQcMBqGGGh0dHA6Ly93d3cuc3RhcnRzc2wuY29tLzANBgkq
+hkiG9w0BAQUFAAOCAQEAqDU1FKifNtCFJbLnvOi1BLRfk7mut55PMtPSZLJ4/AnG7AjmJnbBI4U5
+DELwvVq3mIpwUpGqZUkqkZMEfBPIbfq517UZB3h4iANtqif+ULfTLhg5XgcK5eF8/T6EtX2c3epq
+ylARdleCbj/0FwiUDvPlTsA6PIN4SCekjRLgjKERrL3heFz+Hteq1rtMAvMkNuyL0/0ijyyg2y45
+NASAl2Afl9SLes/fnoh9nBwzfNQfb6qDYUFpnglfpGrq/0b1NtaOUb2z1SR+H1tKlb8bVJJIdvpu
+mEi27kSRIhzk3h30uTfKkKetgy++ouyldxZ7KZ0PuoLQrBy465EoQLosETCCBxcwggX/oAMCAQIC
+AwQmejANBgkqhkiG9w0BAQUFADCBjDELMAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0
+ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMT
+L1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBMB4XDTEyMDUw
+MTEyNTgyN1oXDTEzMDUwMzExMzcyMFowXTEZMBcGA1UEDRMQOGNVTks1MzE3NDg0WEY5NzEcMBoG
+A1UEAwwTZHdtdzJAaW5mcmFkZWFkLm9yZzEiMCAGCSqGSIb3DQEJARYTZHdtdzJAaW5mcmFkZWFk
+Lm9yZzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMmHu8KOjK7aweLiBhm62OCIn2P1
+7KttqUr+tOcoGpy9PrslHXfKwo62JR+kP62uU1SQkBU4M2nqZLqj0HO/QwvwsZs5ukKPrMC2cvOv
+KBbHHLFaJC9mzwFiD2kV3zTySpGEdRU1kH2aViVUJk/rD39VxVLpZVQQCvnfUc7aKcmnCMVqGf1v
+wpr+5rHkG7bWE7RiiWtG7V+957EEVpekoBK1l6Ofc4PX64gi08tRlzFyWAfB/j7Z7sF9MDKwL1g3
+V9QAYCJQNe1txa2gp9HlteWTOOnsrtP2phsyWTbXpglhe9z+wQIo83ldYzZoiRV3WdA09MPoZrTD
+vT8XQ1Mre/ECAwEAAaOCA64wggOqMAkGA1UdEwQCMAAwCwYDVR0PBAQDAgSwMB0GA1UdJQQWMBQG
+CCsGAQUFBwMCBggrBgEFBQcDBDAdBgNVHQ4EFgQU5H3uVDq9z3Iq7IwKYm8slBH7MkcwHwYDVR0j
+BBgwFoAUU3Ltkpzg2ssBXHx+ljVO8tS4UYIwHgYDVR0RBBcwFYETZHdtdzJAaW5mcmFkZWFkLm9y
+ZzCCAiEGA1UdIASCAhgwggIUMIICEAYLKwYBBAGBtTcBAgIwggH/MC4GCCsGAQUFBwIBFiJodHRw
+Oi8vd3d3LnN0YXJ0c3NsLmNvbS9wb2xpY3kucGRmMDQGCCsGAQUFBwIBFihodHRwOi8vd3d3LnN0
+YXJ0c3NsLmNvbS9pbnRlcm1lZGlhdGUucGRmMIH3BggrBgEFBQcCAjCB6jAnFiBTdGFydENvbSBD
+ZXJ0aWZpY2F0aW9uIEF1dGhvcml0eTADAgEBGoG+VGhpcyBjZXJ0aWZpY2F0ZSB3YXMgaXNzdWVk
+IGFjY29yZGluZyB0byB0aGUgQ2xhc3MgMSBWYWxpZGF0aW9uIHJlcXVpcmVtZW50cyBvZiB0aGUg
+U3RhcnRDb20gQ0EgcG9saWN5LCByZWxpYW5jZSBvbmx5IGZvciB0aGUgaW50ZW5kZWQgcHVycG9z
+ZSBpbiBjb21wbGlhbmNlIG9mIHRoZSByZWx5aW5nIHBhcnR5IG9ibGlnYXRpb25zLjCBnAYIKwYB
+BQUHAgIwgY8wJxYgU3RhcnRDb20gQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwAwIBAhpkTGlhYmls
+aXR5IGFuZCB3YXJyYW50aWVzIGFyZSBsaW1pdGVkISBTZWUgc2VjdGlvbiAiTGVnYWwgYW5kIExp
+bWl0YXRpb25zIiBvZiB0aGUgU3RhcnRDb20gQ0EgcG9saWN5LjA2BgNVHR8ELzAtMCugKaAnhiVo
+dHRwOi8vY3JsLnN0YXJ0c3NsLmNvbS9jcnR1MS1jcmwuY3JsMIGOBggrBgEFBQcBAQSBgTB/MDkG
+CCsGAQUFBzABhi1odHRwOi8vb2NzcC5zdGFydHNzbC5jb20vc3ViL2NsYXNzMS9jbGllbnQvY2Ew
+QgYIKwYBBQUHMAKGNmh0dHA6Ly9haWEuc3RhcnRzc2wuY29tL2NlcnRzL3N1Yi5jbGFzczEuY2xp
+ZW50LmNhLmNydDAjBgNVHRIEHDAahhhodHRwOi8vd3d3LnN0YXJ0c3NsLmNvbS8wDQYJKoZIhvcN
+AQEFBQADggEBAKg1NRSonzbQhSWy57zotQS0X5O5rreeTzLT0mSyePwJxuwI5iZ2wSOFOQxC8L1a
+t5iKcFKRqmVJKpGTBHwTyG36ude1GQd4eIgDbaon/lC30y4YOV4HCuXhfP0+hLV9nN3qaspQEXZX
+gm4/9BcIlA7z5U7AOjyDeEgnpI0S4IyhEay94Xhc/h7Xqta7TALzJDbsi9P9Io8soNsuOTQEgJdg
+H5fUi3rP356IfZwcM3zUH2+qg2FBaZ4JX6Rq6v9G9TbWjlG9s9Ukfh9bSpW/G1SSSHb6bphItu5E
+kSIc5N4d9Lk3ypCnrYMvvqLspXcWeymdD7qC0KwcuOuRKEC6LBExggNvMIIDawIBATCBlDCBjDEL
+MAkGA1UEBhMCSUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdp
+dGFsIENlcnRpZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFy
+eSBJbnRlcm1lZGlhdGUgQ2xpZW50IENBAgMEJnowCQYFKw4DAhoFAKCCAa8wGAYJKoZIhvcNAQkD
+MQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMTMwMTI5MTYzNTI2WjAjBgkqhkiG9w0BCQQx
+FgQU51m3JFn/FmHmTwsOjCjOJB4Pj3IwgaUGCSsGAQQBgjcQBDGBlzCBlDCBjDELMAkGA1UEBhMC
+SUwxFjAUBgNVBAoTDVN0YXJ0Q29tIEx0ZC4xKzApBgNVBAsTIlNlY3VyZSBEaWdpdGFsIENlcnRp
+ZmljYXRlIFNpZ25pbmcxODA2BgNVBAMTL1N0YXJ0Q29tIENsYXNzIDEgUHJpbWFyeSBJbnRlcm1l
+ZGlhdGUgQ2xpZW50IENBAgMEJnowgacGCyqGSIb3DQEJEAILMYGXoIGUMIGMMQswCQYDVQQGEwJJ
+TDEWMBQGA1UEChMNU3RhcnRDb20gTHRkLjErMCkGA1UECxMiU2VjdXJlIERpZ2l0YWwgQ2VydGlm
+aWNhdGUgU2lnbmluZzE4MDYGA1UEAxMvU3RhcnRDb20gQ2xhc3MgMSBQcmltYXJ5IEludGVybWVk
+aWF0ZSBDbGllbnQgQ0ECAwQmejANBgkqhkiG9w0BAQEFAASCAQCPe/uehzM+dsJ9Zi+QhXJ4yd8q
+VImhGIcOXbLVZmm1toEviN8GitXLvkwZgnKvbdIaMfpvtdTfyWmlj3Cq3C4gibyh3b5xvDojDMAH
+MuWRCUu4+ZQStIxDY+p6SeR8XyTc8sCp9CWcprMA47IfyXl7iER8tFQ4pHtUQJaSJbFy4/p7IOTZ
+R5F7X+kAEOAAeWXo6q9QoAf85wzvwMIDGgBnyX0PtIqQFqorQz5evnnz+HIFJKa2cXTogxHGTkuh
+xLe9EAmp2Sk5YgZbYka1YJezSopNmmr3ympot7XUJBYdC3P5pWlJRPK1ZH08Txe6TZQq1uWZOEVI
+YSzjOdm2m4JGAAAAAAAA
 
-Regards,
-Vikram
+
+--=-rG7+368lRIZBVo0fLynw--
