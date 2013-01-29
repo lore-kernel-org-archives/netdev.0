@@ -1,154 +1,94 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next (v3)] ipv6: add anti-spoofing checks for 6to4 and 6rd
-Date: Tue, 29 Jan 2013 19:24:25 +0100
-Message-ID: <20130129182425.GA30498@order.stressinduktion.org>
+From: "Choi, David" <David.Choi@Micrel.Com>
+Subject: RE: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
+ Implement basic statistics
+Date: Tue, 29 Jan 2013 18:24:57 +0000
+Message-ID: <FD9AD8C5375B924CABC56D982DB3A802079D382B@EXMB1.micrel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: yoshfuji@linux-ipv6.org, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Doong, Ping" <Ping.Doong@Micrel.Com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: "joe@perches.com" <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:58655 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751241Ab3A2SY1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 13:24:27 -0500
-Content-Disposition: inline
+Received: from p01c12o145.mxlogic.net ([208.65.145.68]:34012 "EHLO
+	p01c12o145.mxlogic.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751553Ab3A2SZJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 13:25:09 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-checks which could easily be implemented with netfilter.
-
-Specifically this patch adds following logic (based loosely on the
-pseudocode in RFC3964 section 5.2):
-
-if prefix (inner_src_v6) == rd6_prefix (2002::/16 is the default)
-        and outer_src_v4 != embedded_ipv4 (inner_src_v6)
-                drop
-if prefix (inner_dst_v6) == rd6_prefix (or 2002::/16 is the default)
-        and outer_dst_v4 != embedded_ipv4 (inner_dst_v6)
-                drop
-accept
-
-To accomplish the specified security checks proposed by above RFCs,
-it is still necessary to employ uRPF filters with netfilter. These new
-checks only kick in if the employed addresses are within the 2002::/16 or
-another range specified by the 6rd-prefix (which defaults to 2002::/16).
-
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: David J. Choi <david.choi@micrel.com>
+ 
+Implement to collect basic statistical information about Ethernet packets.
+ 
+Signed-off-by: David J. Choi <david.choi@micrel.com>
 ---
- net/ipv6/sit.c | 54 +++++++++++++++++++++++++++++++++++++++++-------------
- 1 file changed, 41 insertions(+), 13 deletions(-)
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 98fe536..02f96dc 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -72,6 +72,8 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
- static int ipip6_tunnel_init(struct net_device *dev);
- static void ipip6_tunnel_setup(struct net_device *dev);
- static void ipip6_dev_free(struct net_device *dev);
-+static bool check_6rd(struct ip_tunnel *tunnel, const struct in6_addr *v6dst,
-+		      __be32 *v4dst);
- static struct rtnl_link_ops sit_link_ops __read_mostly;
- 
- static int sit_net_id __read_mostly;
-@@ -590,6 +592,15 @@ out:
- 	return err;
- }
- 
-+static inline bool is_spoofed_6rd(struct ip_tunnel *tunnel, const __be32 v4addr,
-+				  const struct in6_addr *v6addr)
-+{
-+	__be32 v4embed = 0;
-+	if (check_6rd(tunnel, v6addr, &v4embed) && v4addr != v4embed)
-+		return true;
-+	return false;
-+}
+--- net-next/drivers/net/ethernet/micrel/ks8851_mll.c.orig	2013-01-22 17:25:59.000000000 -0800
++++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-29 10:06:09.000000000 -0800
+@@ -793,19 +793,35 @@ static void ks_rcv(struct ks_net *ks, st
+ 	frame_hdr = ks->frame_head_info;
+ 	while (ks->frame_cnt--) {
+ 		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
+-		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
+-			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
++		if (unlikely(!skb)) {
++			/* discard the packet from the device */
++			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
++			netdev->stats.rx_dropped++;
++		} else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
++				frame_hdr->len > 0 &&
++				frame_hdr->len <= RX_BUF_SIZE)) {
+ 			skb_reserve(skb, 2);
+ 			/* read data block including CRC 4 bytes */
+ 			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
+-			skb_put(skb, frame_hdr->len);
 +
- static int ipip6_rcv(struct sk_buff *skb)
- {
- 	const struct iphdr *iph = ip_hdr(skb);
-@@ -608,10 +619,19 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		skb->protocol = htons(ETH_P_IPV6);
- 		skb->pkt_type = PACKET_HOST;
- 
--		if ((tunnel->dev->priv_flags & IFF_ISATAP) &&
--		    !isatap_chksrc(skb, iph, tunnel)) {
--			tunnel->dev->stats.rx_errors++;
--			goto out;
-+		if (tunnel->dev->priv_flags & IFF_ISATAP) {
-+			if (!isatap_chksrc(skb, iph, tunnel)) {
-+				tunnel->dev->stats.rx_errors++;
-+				goto out;
-+			}
-+		} else {
-+			if (is_spoofed_6rd(tunnel, iph->saddr,
-+					   &ipv6_hdr(skb)->saddr) ||
-+			    is_spoofed_6rd(tunnel, iph->daddr,
-+					   &ipv6_hdr(skb)->daddr)) {
-+				tunnel->dev->stats.rx_errors++;
-+				goto out;
-+			}
++			/* exclude the size of CRC */
++			skb_put(skb, frame_hdr->len - 4);
+ 			skb->protocol = eth_type_trans(skb, netdev);
+ 			netif_rx(skb);
++			netdev->stats.rx_packets++;
++
++			/* crc field */
++			netdev->stats.rx_bytes += frame_hdr->len - 4;
+ 		} else {
+-			pr_err("%s: err:skb alloc\n", __func__);
+-			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
+-			if (skb)
+-				dev_kfree_skb_irq(skb);
++			/* discard the packet from the device */
++			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
++			netdev->stats.rx_dropped++;
++			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
++				netdev->stats.rx_length_errors++;
++			if (!(frame_hdr->sts & RXFSHR_RXFV))
++				netdev->stats.rx_frame_errors++;
++
++			dev_kfree_skb_irq(skb);
  		}
- 
- 		__skb_tunnel_rx(skb, tunnel->dev);
-@@ -645,14 +665,12 @@ out:
- }
- 
- /*
-- * Returns the embedded IPv4 address if the IPv6 address
-- * comes from 6rd / 6to4 (RFC 3056) addr space.
-+ * If the IPv6 address comes from 6rd / 6to4 (RFC 3056) addr space this function
-+ * stores the embedded IPv4 address in v4dst and returns true.
-  */
--static inline
--__be32 try_6rd(const struct in6_addr *v6dst, struct ip_tunnel *tunnel)
-+static bool check_6rd(struct ip_tunnel *tunnel, const struct in6_addr *v6dst,
-+		      __be32 *v4dst)
- {
--	__be32 dst = 0;
--
- #ifdef CONFIG_IPV6_SIT_6RD
- 	if (ipv6_prefix_equal(v6dst, &tunnel->ip6rd.prefix,
- 			      tunnel->ip6rd.prefixlen)) {
-@@ -671,14 +689,24 @@ __be32 try_6rd(const struct in6_addr *v6dst, struct ip_tunnel *tunnel)
- 			d |= ntohl(v6dst->s6_addr32[pbw0 + 1]) >>
- 			     (32 - pbi1);
- 
--		dst = tunnel->ip6rd.relay_prefix | htonl(d);
-+		*v4dst = tunnel->ip6rd.relay_prefix | htonl(d);
-+		return true;
+ 		frame_hdr++;
  	}
- #else
- 	if (v6dst->s6_addr16[0] == htons(0x2002)) {
- 		/* 6to4 v6 addr has 16 bits prefix, 32 v4addr, 16 SLA, ... */
--		memcpy(&dst, &v6dst->s6_addr16[1], 4);
-+		memcpy(v4dst, &v6dst->s6_addr16[1], 4);
-+		return true;
+@@ -876,6 +892,8 @@ static irqreturn_t ks_irq(int irq, void 
+ 		pmecr &= ~PMECR_WKEVT_MASK;
+ 		ks_wrreg16(ks, KS_PMECR, pmecr | PMECR_WKEVT_LINK);
  	}
- #endif
-+	return false;
-+}
-+
-+static inline __be32 try_6rd(struct ip_tunnel *tunnel,
-+			     const struct in6_addr *v6dst)
-+{
-+	__be32 dst = 0;
-+	check_6rd(tunnel, v6dst, &dst);
- 	return dst;
- }
++	if (unlikely(status & IRQ_RXOI))
++		ks->netdev->stats.rx_over_errors++;
  
-@@ -739,7 +767,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	}
+ 	/* this should be the last in IRQ handler*/
+ 	ks_restore_cmd_reg(ks);
+@@ -1015,6 +1033,8 @@ static int ks_start_xmit(struct sk_buff 
  
- 	if (!dst)
--		dst = try_6rd(&iph6->daddr, tunnel);
-+		dst = try_6rd(tunnel, &iph6->daddr);
- 
- 	if (!dst) {
- 		struct neighbour *neigh = NULL;
--- 
-1.8.1
+ 	if (likely(ks_tx_fifo_space(ks) >= skb->len + 12)) {
+ 		ks_write_qmu(ks, skb->data, skb->len);
++		netdev->stats.tx_bytes += skb->len;
++		netdev->stats.tx_packets++;
+ 		dev_kfree_skb(skb);
+ 	} else
+ 		retv = NETDEV_TX_BUSY;
+
+---
