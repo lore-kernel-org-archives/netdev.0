@@ -1,42 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] l2tp: prevent l2tp_tunnel_delete racing with userspace
- close
-Date: Tue, 29 Jan 2013 16:03:31 -0500 (EST)
-Message-ID: <20130129.160331.1697248531078003094.davem@davemloft.net>
-References: <1358867628-21217-1-git-send-email-tparkin@katalix.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2] vmxnet3: set carrier state properly on probe
+Date: Tue, 29 Jan 2013 16:08:25 -0500
+Message-ID: <20130129210825.GD14044@hmsreliant.think-freely.org>
+References: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com>
+ <1359484611-23860-1-git-send-email-nhorman@tuxdriver.com>
+ <20130129.154430.2272042048726099861.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, celston@katalix.com, jchapman@katalix.com
-To: tparkin@katalix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, pv-drivers@vmware.com,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60312 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751342Ab3A2VDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 16:03:33 -0500
-In-Reply-To: <1358867628-21217-1-git-send-email-tparkin@katalix.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37219 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750741Ab3A2VIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 16:08:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20130129.154430.2272042048726099861.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Parkin <tparkin@katalix.com>
-Date: Tue, 22 Jan 2013 15:13:48 +0000
+On Tue, Jan 29, 2013 at 03:44:30PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Tue, 29 Jan 2013 13:36:51 -0500
+> 
+> > vmxnet3 fails to set netif_carrier_off on probe, meaning that when an interface
+> > is opened the __LINK_STATE_NOCARRIER bit is already cleared, and so
+> > /sys/class/net/<ifname>/operstate remains in the unknown state.  Correct this by
+> > setting netif_carrier_off on probe, like other drivers do.
+> > 
+> > Also, while we're at it, lets remove the netif_carrier_ok checks from the
+> > link_state_update function, as that check is atomically contained within the
+> > netif_carrier_[on|off] functions anyway
+> > 
+> > Tested successfully by myself
+> > 
+> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> 
+> This doesn't apply to the current 'net' tree.  Please respin.
+I based it off net-next.  I'll respin for net
+Neil
 
-> If a tunnel socket is created by userspace, l2tp hooks the socket destructor
-> in order to clean up resources if userspace closes the socket or crashes.  It
-> also caches a pointer to the struct sock for use in the data path and in the
-> netlink interface.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> While it is safe to use the cached sock pointer in the data path, where the
-> skb references keep the socket alive, it is not safe to use it elsewhere as
-> such access introduces a race with userspace closing the socket.  In
-> particular, l2tp_tunnel_delete is prone to oopsing if a multithreaded
-> userspace application closes a socket at the same time as sending a netlink
-> delete command for the tunnel.
-> 
-> This patch fixes this oops by forcing l2tp_tunnel_delete to explicitly look up
-> a tunnel socket held by userspace using sockfd_lookup().
-> 
-> Signed-off-by: Tom Parkin <tparkin@katalix.com>
-> Signed-off-by: James Chapman <jchapman@katalix.com>
-
-Applied.
