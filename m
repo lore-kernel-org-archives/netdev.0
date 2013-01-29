@@ -1,80 +1,49 @@
-From: Wanlong Gao <gaowanlong@cn.fujitsu.com>
-Subject: Re: [PATCH V7 0/3] handle polling errors in vhost/vhost_net
-Date: Tue, 29 Jan 2013 15:03:41 +0800
-Message-ID: <5107744D.2090008@cn.fujitsu.com>
-References: <1359371119-10208-1-git-send-email-jasowang@redhat.com>
-Reply-To: gaowanlong@cn.fujitsu.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359371119-10208-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request: batman-adv 2013-01-29
+Date: Tue, 29 Jan 2013 08:07:59 +0100
+Message-ID: <1359443280-28835-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from contumacia.investici.org ([178.255.144.35]:61828 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751270Ab3A2HJG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 02:09:06 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/28/2013 07:05 PM, Jason Wang wrote:
-> This is an update version of last version to fix the handling of polling errors
-> in vhost/vhost_net.
-> 
-> Currently, vhost and vhost_net ignore polling errors which can lead kernel
-> crashing when it tries to remove itself from waitqueue after the polling
-> failure. Fix this by:
-> 
-> - examing the POLLERR when setting backend and report erros to userspace
-> - let tun always add to waitqueue in .poll() after the queue is created even if
->   it was detached.
+Hello David,
 
-Fixed my kernel oops here, thank you.
+here you have just a single patch which is fixing a pesky bug that I introduced
+within a patchset recently sent to net-next/linux-3.9.
+It is not big, but I think it is worth fixing the new behaviour before it
+gets released.
+
+Please pull or let me know if there is any problem.
+Thanks a lot,
+	Antonio
 
 
-Tested-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
 
+The following changes since commit cef401de7be8c4e155c6746bfccf721a4fa5fab9:
 
-> 
-> Changes from V6:
-> - don't use RCU to protect the tfile->detached.
-> 
-> Changes from V5:
-> - use rcu_dereference() instead of the wrong rtnl_dereference() in data path
-> - test with CONFIG_PROVE_RCU
-> 
-> Changes from V4:
-> - check the detached state by tfile->detached and protect it by RCU
-> 
-> Changes from V3:
-> - make a smaller patch that doesn't touch the whole polling state and only check
-> the polliner errors in backend setting.
-> - add a patch that allows tuntap to do polling/reading/writing when detached
-> which could simplify the work of its user.
-> 
-> Changes from v2:
-> - check poll->wqh instead of the wrong assumption about POLLERR and waitqueue
-> - drop the whole tx polling state check since it was replaced by the wqh
-> checking
-> - drop the buggy tuntap patch
-> 
-> Changes from v1:
-> - restore the state before the ioctl when vhost_init_used() fails
-> - log the error when meet polling errors in the data path
-> - don't put into waitqueue when tun_chr_poll() return POLLERR
-> 
-> Jason Wang (3):
->   vhost_net: correct error handling in vhost_net_set_backend()
->   vhost_net: handle polling errors when setting backend
->   tuntap: allow polling/writing/reading when detached
-> 
->  drivers/net/tun.c     |   25 ++++++++++++++++---------
->  drivers/vhost/net.c   |   41 ++++++++++++++++++++++++++++-------------
->  drivers/vhost/vhost.c |   18 +++++++++++++++---
->  drivers/vhost/vhost.h |    2 +-
->  4 files changed, 60 insertions(+), 26 deletions(-)
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+  net: fix possible wrong checksum generation (2013-01-28 00:27:15 -0500)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to a7966d908ae8472e8183496916b7baec5f65b3a6:
+
+  batman-adv: fix local translation table output (2013-01-28 20:46:03 +0100)
+
+----------------------------------------------------------------
+Included changes:
+- fix recently introduced output behaviour
+
+----------------------------------------------------------------
+Antonio Quartulli (1):
+      batman-adv: fix local translation table output
+
+ net/batman-adv/translation-table.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
