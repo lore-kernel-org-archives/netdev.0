@@ -1,48 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next (v3)] ipv6: add anti-spoofing checks for 6to4
- and 6rd
-Date: Tue, 29 Jan 2013 15:22:50 -0500 (EST)
-Message-ID: <20130129.152250.2087385771449417394.davem@davemloft.net>
-References: <20130129182425.GA30498@order.stressinduktion.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Can we replace the msleep(250) in dev.c  netdev_wait_allrefs?
+Date: Tue, 29 Jan 2013 12:24:19 -0800
+Message-ID: <51082FF3.4090805@candelatech.com>
+References: <51082A64.2090702@candelatech.com> <1359490897.30177.4.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59870 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753116Ab3A2UWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 15:22:51 -0500
-In-Reply-To: <20130129182425.GA30498@order.stressinduktion.org>
+Received: from mail.candelatech.com ([208.74.158.172]:38174 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751647Ab3A2UYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 15:24:20 -0500
+In-Reply-To: <1359490897.30177.4.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Tue, 29 Jan 2013 19:24:25 +0100
+On 01/29/2013 12:21 PM, Eric Dumazet wrote:
+> On Tue, 2013-01-29 at 12:00 -0800, Ben Greear wrote:
+>> I think there was a proposal to change it to schedule_timeout_uninterruptible(1);
+>> some time ago, but that change never made it upstream (at least not in 3.7.5)?
+>>
+>> Thanks,
+>> Ben
+>>
+>
+> Honestly we should fix the bug at this point, not hide it.
+>
+> We could use msleep(2500) to make sure people will complain ;)
 
-> This patch adds anti-spoofing checks in sit.c as specified in RFC3964
-> section 5.2 for 6to4 and RFC5969 section 12 for 6rd. I left out the
-> checks which could easily be implemented with netfilter.
-> 
-> Specifically this patch adds following logic (based loosely on the
-> pseudocode in RFC3964 section 5.2):
-> 
-> if prefix (inner_src_v6) == rd6_prefix (2002::/16 is the default)
->         and outer_src_v4 != embedded_ipv4 (inner_src_v6)
->                 drop
-> if prefix (inner_dst_v6) == rd6_prefix (or 2002::/16 is the default)
->         and outer_dst_v4 != embedded_ipv4 (inner_dst_v6)
->                 drop
-> accept
-> 
-> To accomplish the specified security checks proposed by above RFCs,
-> it is still necessary to employ uRPF filters with netfilter. These new
-> checks only kick in if the employed addresses are within the 2002::/16 or
-> another range specified by the 6rd-prefix (which defaults to 2002::/16).
-> 
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Well, few will notice that either, or at least are unlikely
+to know what to blame.
 
-Applied.
+If we should just never reach that code, maybe a WARN_ON_ONCE() when
+we do?
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
