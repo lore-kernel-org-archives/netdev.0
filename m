@@ -1,104 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next] drivers/net/ethernet/micrel/ks8851_mll:
- Implement basic statistics
-Date: Tue, 29 Jan 2013 10:42:19 -0800
-Message-ID: <1359484939.15135.19.camel@joe-AO722>
-References: <FD9AD8C5375B924CABC56D982DB3A802079D382B@EXMB1.micrel.com>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: i.Mx6Quad - eth0: tx queue full!
+Date: Tue, 29 Jan 2013 11:46:40 -0700
+Message-ID: <51081910.4030707@boundarydevices.com>
+References: <5106B7EE.3040603@gmail.com> <5106D5D4.2090200@boundarydevices.com> <5107FA00.2010809@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Doong, Ping" <Ping.Doong@Micrel.Com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>
-To: "Choi, David" <David.Choi@Micrel.Com>
+Cc: netdev@vger.kernel.org, Greg Ungerer <gregungerer@westnet.com.au>,
+	shawn.guo@linaro.org, LAK <linux-arm-kernel@lists.infradead.org>,
+	=?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>,
+	Fabio Estevam <festevam@gmail.com>
+To: Vikram Narayanan <vikram186@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:49084 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752032Ab3A2SmV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 13:42:21 -0500
-In-Reply-To: <FD9AD8C5375B924CABC56D982DB3A802079D382B@EXMB1.micrel.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:42529 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753281Ab3A2Sqq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 13:46:46 -0500
+Received: by mail-pa0-f54.google.com with SMTP id bi5so564067pad.41
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 10:46:45 -0800 (PST)
+In-Reply-To: <5107FA00.2010809@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-29 at 18:24 +0000, Choi, David wrote:
-> From: David J. Choi <david.choi@micrel.com>
+On 1/29/2013 9:34 AM, Vikram Narayanan wrote:
+> On 1/29/2013 1:17 AM, Troy Kisky wrote:
+>> On 1/28/2013 10:39 AM, Vikram Narayanan wrote:
+>>> Running the latest head <linux-2.6.git> on an i.Mx6Quad based platform
+>>> gives me the below error when flooded with ping requests.
+>>>
+>>> == Start log ==
+>>> [ 2555.004031] ------------[ cut here ]------------
+>>> [ 2555.009740] WARNING: at net/sched/sch_generic.c:254
+>>> dev_watchdog+0x298/0x2b8()
+>>> [ 2555.018721] NETDEV WATCHDOG: eth0 (fec): transmit queue 0 timed out
+>>
+>> I think the tx interrupt status bit was lost. The packets were
+>> transmitted, but the interrupt never
+>> happened. The controller should have been reset here, but perhaps a bug
+>> with the reset code.
+>> Are you using the mainline kernel, or a version Freescale's kernel.
+>
+> I tried with both the kernels. Freescale's and mainline results in the 
+> same error.
+>
+>> mainline fec_restart does not reset tx_full
+>>
+>> You can try adding
+>> fep->tx_full = 0;
+>
+> With this there was no improvement.
 
-Hello David.
+I have fixed this bug (and more) on Freescale's kernel 
+(imx-3.0.35_1.1.0). I created a branch you can try.
+Feel free to port to mainline.
 
-When you resubmit a patch, please use a different
-header for each resubmission.
+This is the patch that should fix your problem
+fec: clear TX_FULL in fec_restart
 
-This email subject line should have been
+git://github.com/boundarydevices/linux-imx6.git ethernet_test
 
-	[PATCH V3] ks8851_mll: Implement basic statistics
 
-Also, don't use the complete path in the subject.
-Read Documentation/SubmittingPatches Section 1, #15.
 
-Please use git format-patch and git-send-email.
-
-Please use a changelog describing what changes
-you've made for each version.  The changelog is
-generally placed after the --- separator that
-git format-email produces.
-
-More comments interspersed.
-
-> +++ net-next/drivers/net/ethernet/micrel/ks8851_mll.c	2013-01-29 10:06:09.000000000 -0800
-> @@ -793,19 +793,35 @@ static void ks_rcv(struct ks_net *ks, st
->  	frame_hdr = ks->frame_head_info;
->  	while (ks->frame_cnt--) {
->  		skb = netdev_alloc_skb(netdev, frame_hdr->len + 16);
-> -		if (likely(skb && (frame_hdr->sts & RXFSHR_RXFV) &&
-> -			(frame_hdr->len < RX_BUF_SIZE) && frame_hdr->len)) {
-> +		if (unlikely(!skb)) {
-> +			/* discard the packet from the device */
-> +			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
-> +			netdev->stats.rx_dropped++;
-> +		} else if (likely((frame_hdr->sts & RXFSHR_RXFV) &&
-> +				frame_hdr->len > 0 &&
-> +				frame_hdr->len <= RX_BUF_SIZE)) {
-
-OK, <= here
-
->  			skb_reserve(skb, 2);
->  			/* read data block including CRC 4 bytes */
->  			ks_read_qmu(ks, (u16 *)skb->data, frame_hdr->len);
-> -			skb_put(skb, frame_hdr->len);
-> +
-> +			/* exclude the size of CRC */
-> +			skb_put(skb, frame_hdr->len - 4);
->  			skb->protocol = eth_type_trans(skb, netdev);
->  			netif_rx(skb);
-> +			netdev->stats.rx_packets++;
-> +
-> +			/* crc field */
-> +			netdev->stats.rx_bytes += frame_hdr->len - 4;
->  		} else {
-> -			pr_err("%s: err:skb alloc\n", __func__);
-> -			ks_wrreg16(ks, KS_RXQCR, (ks->rc_rxqcr | RXQCR_RRXEF));
-> -			if (skb)
-> -				dev_kfree_skb_irq(skb);
-> +			/* discard the packet from the device */
-> +			ks_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr | RXQCR_RRXEF);
-> +			netdev->stats.rx_dropped++;
-> +			if (frame_hdr->len >= RX_BUF_SIZE || !frame_hdr->len)
-
-but >= here and !frame_hdr->len not frame_hdr-len == 0
-Please be consistent.
-
-> +				netdev->stats.rx_length_errors++;
-> +			if (!(frame_hdr->sts & RXFSHR_RXFV))
-> +				netdev->stats.rx_frame_errors++;
-> +
-> +			dev_kfree_skb_irq(skb);
->  		}
->  		frame_hdr++;
->  	}
-
-It seems that a 0 length frame or an over length
-frame is pretty unlikely and those should probably
-be tested and accounted for before the
-netdev_alloc_skb is done so that what seems an
-unnecessary alloc/free is avoided.
+Please let me know results.
+Thanks
+Troy
