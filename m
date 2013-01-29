@@ -1,54 +1,57 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: [RFC 0/3] arm: mxs: sanitize enet_out clock handling
-Date: Tue, 29 Jan 2013 15:46:10 +0100
-Message-ID: <1359470773-14290-1-git-send-email-w.sang@pengutronix.de>
-Cc: netdev@vger.kernel.org, Shawn Guo <shawn.guo@freescale.com>,
-	Wolfram Sang <w.sang@pengutronix.de>
-To: linux-arm-kernel@lists.infradead.org
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH 3/3][net-next] gianfar: Pack struct gfar_priv_grp into
+ three cachelines
+Date: Tue, 29 Jan 2013 17:19:47 +0200
+Message-ID: <5107E893.9030706@freescale.com>
+References: <1359467712-32079-1-git-send-email-claudiu.manoil@freescale.com> <1359467712-32079-2-git-send-email-claudiu.manoil@freescale.com> <1359467712-32079-3-git-send-email-claudiu.manoil@freescale.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7124@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59047 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756569Ab3A2Oq2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 09:46:28 -0500
+Received: from db3ehsobe002.messaging.microsoft.com ([213.199.154.140]:55330
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753858Ab3A2PUK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 10:20:10 -0500
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7124@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Handling enet_out on MX28 is cumbersome at the moment. Most boards need it
-enabled and for that, they have to add code to mach-mxs.c (see sps1 as an
-example). Since this is board specific, we better encode it in the devicetree,
-that is the reason it was made for.
+On 1/29/2013 4:35 PM, David Laight wrote:
+>> * remove unused members(!): imask, ievent
+>> * move space consuming interrupt name strings (int_name_* members) to
+>> external structures, unessential for the driver's hot path
+>> * keep high priority hot path data within the first 2 cache lines
+>>
+>> This reduces struct gfar_priv_grp from 6 to 3 cache lines.
+>
+> Does it really matter where the message texts are allocated?
+> Provided they aren't intermixed with the 'hot' data.
+> Allocating them separately just seems over complicated.
+>
+> 	David
+>
 
-My proposal will overwrite the generic "clock" and "clock-names" properties
-from imx28.dtsi in the board file. The original one has 2 entries, and boards
-needing enet_out will overload it with three entries. The network driver will
-enable the clock if it was specified. The old code enabling the clock will be
-backward compatible but print a WARN if the legacy mode needs to be used.
+Hello David,
 
-This will make adding new board easier, since we don't have to touch mach-mxs.c
-for this case. It scales much better.
+I think that the size of 'struct gfar_priv_grp' matters because we have
+struct gfar_private {
+	...
+	struct gfar_priv_grp gfargrp[2];
+	...
+}
+which in turn will be bloated by an unnecessarily large gfar_priv_grp.
+gfar_private also contains a fair number of runtime critical members
+(including gfargrp) and we want those members to fit into as few
+cachelines as possible too. Also, it would be wasteful to have memory
+holes inside struct gfar_priv_grp, in this context, and the current
+patch resolves those memory holes, by compacting this structure to
+exactly 96 bytes.
 
-Tested on a MX28EVK. Please review, comment, apply(?)
+I don't find this change over complicated, but I'm open to suggestions
+on where to move those message texts, outside of gfar_priv_grp (or
+other runtime critical structure).
 
 Thanks,
-
-   Wolfram
-
-
-Wolfram Sang (3):
-  net: freescale: fec: add support for optional enet_out clk
-  arm: mxs: add enet_out clock to devicetree
-  arm: mach-mxs: make enabling enet_out a legacy function
-
- arch/arm/boot/dts/imx28-apf28.dts      |    3 +++
- arch/arm/boot/dts/imx28-apx4devkit.dts |    3 +++
- arch/arm/boot/dts/imx28-cfa10049.dts   |    3 +++
- arch/arm/boot/dts/imx28-evk.dts        |    3 +++
- arch/arm/boot/dts/imx28-sps1.dts       |    3 +++
- arch/arm/boot/dts/imx28-tx28.dts       |    3 +++
- arch/arm/mach-mxs/mach-mxs.c           |   24 ++++++++++++++++--------
- drivers/net/ethernet/freescale/fec.c   |   10 ++++++++++
- drivers/net/ethernet/freescale/fec.h   |    1 +
- 9 files changed, 45 insertions(+), 8 deletions(-)
-
--- 
-1.7.10.4
+Claudiu
