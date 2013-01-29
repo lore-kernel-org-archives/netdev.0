@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] tun: fix carrier on/off status
-Date: Tue, 29 Jan 2013 15:45:00 -0500 (EST)
-Message-ID: <20130129.154500.1135013581072988248.davem@davemloft.net>
-References: <3592886.xagLc7Uij9@jason-thinkpad-t430s>
-	<20130128101111.GB5337@redhat.com>
-	<20130128103801.GA6648@redhat.com>
+Subject: Re: [PATCH V7 0/3] handle polling errors in vhost/vhost_net
+Date: Tue, 29 Jan 2013 15:45:23 -0500 (EST)
+Message-ID: <20130129.154523.725369676171401650.davem@davemloft.net>
+References: <1359371119-10208-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, toralf.foerster@gmx.de,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jasowang@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130128103801.GA6648@redhat.com>
+In-Reply-To: <1359371119-10208-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 28 Jan 2013 12:38:02 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 28 Jan 2013 19:05:16 +0800
 
-> Commit c8d68e6be1c3b242f1c598595830890b65cea64a removed carrier off call
-> from tun_detach since it's now called on queue disable and not only on
-> tun close.  This confuses userspace which used this flag to detect a
-> free tun. To fix, put this back but under if (clean).
+> This is an update version of last version to fix the handling of polling errors
+> in vhost/vhost_net.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Currently, vhost and vhost_net ignore polling errors which can lead kernel
+> crashing when it tries to remove itself from waitqueue after the polling
+> failure. Fix this by:
+> 
+> - examing the POLLERR when setting backend and report erros to userspace
+> - let tun always add to waitqueue in .poll() after the queue is created even if
+>   it was detached.
 
-Applied.
+Series applied, thanks.
