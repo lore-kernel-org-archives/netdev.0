@@ -1,46 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net] e1000e: enable ECC on I217/I218 to catch packet buffer
- memory errors
-Date: Tue, 29 Jan 2013 16:01:49 -0500 (EST)
-Message-ID: <20130129.160149.1063934767478304765.davem@davemloft.net>
-References: <1359369828-13663-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] netem: fix delay calculation in rate extension
+Date: Tue, 29 Jan 2013 16:03:08 -0500 (EST)
+Message-ID: <20130129.160308.2201480856831722159.davem@davemloft.net>
+References: <510057F3.80707@stusta.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bruce.w.allan@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com, stable@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Cc: netdev@vger.kernel.org, hagen@jauu.net
+To: jn@stusta.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60278 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60305 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734Ab3A2VBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 16:01:51 -0500
-In-Reply-To: <1359369828-13663-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1751522Ab3A2VDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 16:03:09 -0500
+In-Reply-To: <510057F3.80707@stusta.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 28 Jan 2013 02:43:48 -0800
+From: Johannes Naab <jn@stusta.de>
+Date: Wed, 23 Jan 2013 22:36:51 +0100
 
-> From: Bruce Allan <bruce.w.allan@intel.com>
+> From: Johannes Naab <jn@stusta.de>
 > 
-> In rare instances, memory errors have been detected in the internal packet
-> buffer memory on I217/I218 when stressed under certain environmental
-> conditions.  Enable Error Correcting Code (ECC) in hardware to catch both
-> correctable and uncorrectable errors.  Correctable errors will be handled
-> by the hardware.  Uncorrectable errors in the packet buffer will cause the
-> packet to be received with an error indication in the buffer descriptor
-> causing the packet to be discarded.  If the uncorrectable error is in the
-> descriptor itself, the hardware will stop and interrupt the driver
-> indicating the error.  The driver will then reset the hardware in order to
-> clear the error and restart.
+> The delay calculation with the rate extension introduces in v3.3 does
+> not properly work, if other packets are still queued for transmission.
+> For the delay calculation to work, both delay types (latency and delay
+> introduces by rate limitation) have to be handled differently. The
+> latency delay for a packet can overlap with the delay of other packets.
+> The delay introduced by the rate however is separate, and can only
+> start, once all other rate-introduced delays finished.
 > 
-> Both types of errors will be accounted for in statistics counters.
+> Latency delay is from same distribution for each packet, rate delay
+> depends on the packet size.
 > 
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: <stable@vger.kernel.org> # 3.5.x & 3.6.x
-> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
+> .: latency delay
+> -: rate delay
+> x: additional delay we have to wait since another packet is currently
+>    transmitted
+> 
+>   .....----                    Packet 1
+>     .....xx------              Packet 2
+>                .....------     Packet 3
+>     ^^^^^
+>     latency stacks
+>          ^^
+>          rate delay doesn't stack
+>                ^^
+>                latency stacks
+>  
+>   -----> time
+> 
+> When a packet is enqueued, we first consider the latency delay. If other
+> packets are already queued, we can reduce the latency delay until the
+> last packet in the queue is send, however the latency delay cannot be
+> <0, since this would mean that the rate is overcommitted.  The new
+> reference point is the time at which the last packet will be send. To
+> find the time, when the packet should be send, the rate introduces delay
+> has to be added on top of that.
+> 
+> Signed-off-by: Johannes Naab <jn@stusta.de>
+> Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
-Applied.
+Applied, thanks.
