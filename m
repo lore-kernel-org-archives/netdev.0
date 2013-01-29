@@ -1,43 +1,93 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net neigh: Optimize neighbor entry size
- calculation.
-Date: Tue, 29 Jan 2013 00:04:36 -0500 (EST)
-Message-ID: <20130129.000436.1681326851044319952.davem@davemloft.net>
-References: <51011087.1010801@linux-ipv6.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 2/2] drivers: net:ethernet: cpsw: add support for VLAN
+Date: Tue, 29 Jan 2013 10:35:05 +0530
+Message-ID: <51075881.4050200@ti.com>
+References: <1359403945-28585-1-git-send-email-mugunthanvnm@ti.com> <1359403945-28585-3-git-send-email-mugunthanvnm@ti.com> <20130128204446.GB5509@arwen.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51994 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751033Ab3A2FEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 00:04:39 -0500
-In-Reply-To: <51011087.1010801@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>
+To: <balbi@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20130128204446.GB5509@arwen.pp.htv.fi>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Thu, 24 Jan 2013 19:44:23 +0900
+On 1/29/2013 2:14 AM, Felipe Balbi wrote:
+> On Tue, Jan 29, 2013 at 01:42:25AM +0530, Mugunthan V N wrote:
+>> adding support for VLAN interface for cpsw.
+>>
+>> CPSW VLAN Capability
+>> * Can filter VLAN packets in Hardware
+>>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+>> ---
+>>   Documentation/devicetree/bindings/net/cpsw.txt |    2 +
+>>   drivers/net/ethernet/ti/cpsw.c                 |  108 +++++++++++++++++++++++-
+>>   include/linux/platform_data/cpsw.h             |    1 +
+>>   3 files changed, 110 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+>> index 6ddd028..99696bf 100644
+>> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+>> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+>> @@ -24,6 +24,8 @@ Required properties:
+>>   Optional properties:
+>>   - ti,hwmods		: Must be "cpgmac0"
+>>   - no_bd_ram		: Must be 0 or 1
+>> +- default_vlan		: Specifies Default VLAN for non tagged packets
+>> +			  ALE processing
+>>   
+>>   Note: "ti,hwmods" field is used to fetch the base address and irq
+>>   resources from TI, omap hwmod data base during device registration.
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index b35e6a7..dee6951 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -32,6 +32,7 @@
+>>   #include <linux/of.h>
+>>   #include <linux/of_net.h>
+>>   #include <linux/of_device.h>
+>> +#include <linux/if_vlan.h>
+>>   
+>>   #include <linux/platform_data/cpsw.h>
+>>   
+>> @@ -72,6 +73,11 @@ do {								\
+>>   		dev_notice(priv->dev, format, ## __VA_ARGS__);	\
+>>   } while (0)
+>>   
+>> +#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+> use IS_ENABLED() instead.
+Will change this in next patch version.
+>
+>> +#define VLAN_SUPPORT
+>> +#define CPSW_VLAN_AWARE_MODE
+>> +#endif
+>> +
+>>   #define ALE_ALL_PORTS		0x7
+>>   
+>>   #define CPSW_MAJOR_VERSION(reg)		(reg >> 8 & 0x7)
+>> @@ -118,6 +124,14 @@ do {								\
+>>   #define TX_PRIORITY_MAPPING	0x33221100
+>>   #define CPDMA_TX_PRIORITY_MAP	0x76543210
+>>   
+>> +#ifdef CPSW_VLAN_AWARE_MODE
+>> +#define CPSW_VLAN_AWARE		BIT(1)
+>> +#define CPSW_ALE_VLAN_AWARE	1
+>> +#else
+>> +#define CPSW_VLAN_AWARE		0x0
+>> +#define CPSW_ALE_VLAN_AWARE	0
+>> +#endif
+> you should really figure out a way of doing runtime detection for this.
+> Depending on driver recompilation just to enable/disable VLAN support
+> will be quite boring.
+I am not able to find a way to know whether stack is compiled with VLAN 
+support or not
+without using VLAN_SUPPORT compiler option. Only way is to hack 
+cpsw_ndo_vlan_rx_add_vid
+and know whether stack has VLAN capability or not which is not advisable.
 
-> When allocating memory for neighbour cache entry, if
-> tbl->entry_size is not set, we always calculate
-> sizeof(struct neighbour) + tbl->key_len, which is common
-> in the same table.
-> 
-> With this change, set tbl->entry_size during the table
-> initialization phase, if it was not set, and use it in
-> neigh_alloc() and neighbour_priv().
-> 
-> This change also allow us to have both of protocol private
-> data and device priate data at tha same time.
-> 
-> Note that the only user of prototcol private is DECnet
-> and the only user of device private is ATM CLIP.
-> Since those are exclusive, we have not been facing issues
-> here.
-> 
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
-Applied, thanks.
+Regards
+Mugunthan V N
