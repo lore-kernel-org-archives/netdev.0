@@ -1,53 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next] ipv4: introduce address lifetime
-Date: Tue, 29 Jan 2013 14:00:33 -0500 (EST)
-Message-ID: <20130129.140033.1738779666268159179.davem@davemloft.net>
-References: <1359056501-6752-1-git-send-email-jiri@resnulli.us>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: [PATCH] net: ks8851: convert to threaded IRQ
+Date: Tue, 29 Jan 2013 21:02:20 +0200
+Message-ID: <20130129190220.GA6223@arwen.pp.htv.fi>
+References: <20130128.223157.1855971357181002973.davem@davemloft.net>
+ <1359443790-8562-1-git-send-email-balbi@ti.com>
+ <51081A94.1090202@codeaurora.org>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	stephen@networkplumber.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	psimerda@redhat.com, tgraf@suug.ch, nicolas.dichtel@6wind.com,
-	nhorman@tuxdriver.com, dcbw@redhat.com
-To: jiri@resnulli.us
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="wRRV7LY7NUeQGEoC"
+Cc: Felipe Balbi <balbi@ti.com>, <davem@davemloft.net>,
+	<mjr@cs.wisc.edu>, <netdev@vger.kernel.org>
+To: Stephen Boyd <sboyd@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58986 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724Ab3A2TAf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:00:35 -0500
-In-Reply-To: <1359056501-6752-1-git-send-email-jiri@resnulli.us>
+Received: from comal.ext.ti.com ([198.47.26.152]:54696 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753701Ab3A2TCv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 14:02:51 -0500
+Content-Disposition: inline
+In-Reply-To: <51081A94.1090202@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jiri Pirko <jiri@resnulli.us>
-Date: Thu, 24 Jan 2013 20:41:41 +0100
+--wRRV7LY7NUeQGEoC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> There are some usecase when lifetime of ipv4 addresses might be helpf=
-ul.
-> For example:
-> 1) initramfs networkmanager uses a DHCP daemon to learn network
-> configuration parameters
-> 2) initramfs networkmanager addresses, routes and DNS configuration
-> 3) initramfs networkmanager is requested to stop
-> 4) initramfs networkmanager stops all daemons including dhclient
-> 5) there are addresses and routes configured but no daemon running. I=
-f
-> the system doesn't start networkmanager for some reason, addresses an=
-d
-> routes will be used forever, which violates RFC 2131.
+On Tue, Jan 29, 2013 at 10:53:08AM -0800, Stephen Boyd wrote:
+> On 01/28/13 23:16, Felipe Balbi wrote:
+> > just as it should have been. It also helps
+> > removing the, now unnecessary, workqueue.
 >=20
-> This patch is essentially a backport of ivp6 address lifetime mechani=
-sm
-> for ipv4 addresses.
+> Tested-by: Stephen Boyd <sboyd@codeaurora.org>
 >=20
-> Current "ip" tool supports this without any patch (since it does not
-> distinguish between ipv4 and ipv6 addresses in this perspective.
+> > Signed-off-by: Felipe Balbi <balbi@ti.com>
+> > ---
+> > @@ -1505,8 +1485,9 @@ static int ks8851_probe(struct spi_device *spi)
+> >  	ks8851_read_selftest(ks);
+> >  	ks8851_init_mac(ks);
+> > =20
+> > -	ret =3D request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
+> > -			  ndev->name, ks);
+> > +	ret =3D request_threaded_irq(spi->irq, NULL, ks8851_irq,
+> > +				   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+> > +				   ndev->name, ks);
 >=20
-> Also, this should be back-compatible with all current netlink users.
->=20
-> Reported-by: Pavel =A6imerda <psimerda@redhat.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> I did notice one thing here. The name of the thread is irq/378-eth%d
+> (where 378 is the irq number). It seems that ndev->name is not fully
+> formed until register_netdev() is called and so when the thread is
+> created, the malformed name is used for the thread name.
 
-Seems reasonable, applied, thanks.
+that would be a problem even before the conversion to threaded irq, the
+only difference is that 378- would be omitted.
+
+--=20
+balbi
+
+--wRRV7LY7NUeQGEoC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRCBy8AAoJEIaOsuA1yqRE4JgQAKSgeiDG6Bchyi49qkPRduAb
+KlD3e6J5sZp6VtyH7SDNX1qgFxgOktR/VE+nJ38DC/1WFgom6cUhoCCBHjEOpaLx
+sfPpvk2zEnIGivkqRpUmXo0P5ygtMvrg4JlkpjOCfrI9r6OIBnWBmx0o4GAa4DYY
+uphLZRY9WE+ssXU/JK4PVMLqk6hJIUZ1p1azSFGQs11bvLAwyuL950trappVBX9Z
+ALxQnqHXMIz3i/qoclcC4Non7aS7BgkVTuzGHu9WlDnCqWVqludRvEe0G+QDWs1O
+ERNDJ8Algy7Yz0IRrkVuukUwSOrJnPb9arCm2jF1WWM6baXIOcmhZG6n1THpOSsl
+ujHOk9wlOrXzMxW7gGJzcGZIhhYXEV6g5RYlZakNcG0BMgW1C1VEAhTdLQtjEMdF
+lpBajYritzB5pW05C2mmmn7mYLtN3BY8GJIXuJ/gxJ5FRqBcSNuGs1G4rtP3yBhk
+mOnZFgTgJSKLkzA6utjaui4p877KHCMn+kBzAFNO/7wE/LuhdP3uLxY5nYQ++bNY
+YCHdwXDjssWssWj2uCDzyjKJrmakdSoBJNDAUixSx7rBzkZYpGlijGVsnPbAt45x
+fGWtGASUbvOQhtkyfvKuPDJggPqJJLa2g2bYW4qoRPmfunbQbcx4l/0eZQMFnTwe
+YN8io/UV42ymPf6a3aEk
+=YPU5
+-----END PGP SIGNATURE-----
+
+--wRRV7LY7NUeQGEoC--
