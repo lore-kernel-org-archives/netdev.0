@@ -1,53 +1,39 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v2] pktgen: support net namespace
-Date: Tue, 29 Jan 2013 11:02:43 +0800
-Message-ID: <1359428563.20729.12.camel@cr0>
-References: <1359424389-21919-1-git-send-email-amwang@redhat.com>
-	 <874ni0k965.fsf@xmission.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ks8851: convert to threaded IRQ
+Date: Mon, 28 Jan 2013 22:31:57 -0500 (EST)
+Message-ID: <20130128.223157.1855971357181002973.davem@davemloft.net>
+References: <1358949098-17778-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: sboyd@codeaurora.org, mjr@cs.wisc.edu, netdev@vger.kernel.org
+To: balbi@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39238 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753845Ab3A2DCw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jan 2013 22:02:52 -0500
-In-Reply-To: <874ni0k965.fsf@xmission.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51350 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752326Ab3A2Db7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jan 2013 22:31:59 -0500
+In-Reply-To: <1358949098-17778-1-git-send-email-balbi@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-01-28 at 18:36 -0800, Eric W. Biederman wrote:
-> Cong Wang <amwang@redhat.com> writes:
-> 
-> > From: Cong Wang <amwang@redhat.com>
-> >
-> > v2: remove a useless check
-> >
-> > This patch add net namespace to pktgen, so that
-> > we can use pktgen in different namespaces.
-> >
-> > Cc: Eric W. Biederman <ebiederm@xmission.com>
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Signed-off-by: Cong Wang <amwang@redhat.com>
-> >
-> > ---
-> >  net/core/pktgen.c |  123 +++++++++++++++++++++++++++++++++++------------------
-> >  1 files changed, 81 insertions(+), 42 deletions(-)
-> 
-> Skiming through this again I have spotted what looks like a pretty
-> major bug.  You are limiting yourself to one network device per network
-> namespace when the actual limit is one network device per thread.
-> 
-> I think you can just kill the dev member of pktgen_net and the two or
-> three lines of code that touch it.
+From: Felipe Balbi <balbi@ti.com>
+Date: Wed, 23 Jan 2013 15:51:38 +0200
 
-Good point!
+> @@ -1505,7 +1485,8 @@ static int ks8851_probe(struct spi_device *spi)
+>  	ks8851_read_selftest(ks);
+>  	ks8851_init_mac(ks);
+>  
+> -	ret = request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
+> +	ret = request_threaded_irq(spi->irq, NULL, ks8851_irq,
+> +			IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+>  			  ndev->name, ks);
 
-It is used by pktgen_device_event() to check if the device generates the
-event is the one in our namespace.
+You need to indent the second and third line of this function call
+properly.  It should be:
 
-It is safe to continue the search even if it is not in our namespace,
-but it is not efficient. Probably we need to make pktgen_threads list
-per-namespace.
+	ret = function_call(arg1, arg2,
+			    arg3, arg4,
+			    arg5, arg6, etc.);
+
+not what you have there now which has every line indented differently.
