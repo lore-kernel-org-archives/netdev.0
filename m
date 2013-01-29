@@ -1,45 +1,37 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH 5/6] net: use lib/percpu_counter API for
- fragmentation mem accounting
-Date: Tue, 29 Jan 2013 08:31:30 +0100
-Message-ID: <1359444690.7119.10.camel@localhost>
-References: <20130124140343.14119.77712.stgit@dragon>
-	 <20130124140441.14119.1878.stgit@dragon>
-	 <20130128.232402.883917994065372213.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 2/2] drivers: net:ethernet: cpsw: add support for VLAN
+Date: Tue, 29 Jan 2013 08:36:26 +0100
+Message-ID: <20130129073626.GB18272@localhost.localdomain>
+References: <1359403945-28585-1-git-send-email-mugunthanvnm@ti.com>
+ <1359403945-28585-3-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, fw@strlen.de, netdev@vger.kernel.org,
-	pablo@netfilter.org, amwang@redhat.com, kaber@trash.net,
-	herbert@gondor.hengli.com.au, dborkman@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49380 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752480Ab3A2Hcg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 02:32:36 -0500
-In-Reply-To: <20130128.232402.883917994065372213.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1359403945-28585-3-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-01-28 at 23:24 -0500, David Miller wrote:
-> From: Jesper Dangaard Brouer <brouer@redhat.com>
-> Date: Thu, 24 Jan 2013 15:04:53 +0100
-> 
-> > diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
-> > index b9df9ed..eded1aa 100644
-> > --- a/include/linux/percpu_counter.h
-> > +++ b/include/linux/percpu_counter.h
-> > @@ -83,7 +83,7 @@ static inline int percpu_counter_initialized(struct percpu_counter *fbc)
-> >  	return (fbc->counters != NULL);
-> >  }
-> >  
-> > -#else
-> > +#else /* No CONFIG_SMP */
-> >  
-> >  struct percpu_counter {
-> >  	s64 count;
-> 
-> This is unrelated to your changes, please remove this from the patch.
+On Tue, Jan 29, 2013 at 01:42:25AM +0530, Mugunthan V N wrote:
+> @@ -947,6 +1042,10 @@ static const struct net_device_ops cpsw_netdev_ops = {
+>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>  	.ndo_poll_controller	= cpsw_ndo_poll_controller,
+>  #endif
+> +#ifdef VLAN_SUPPORT
+> +	.ndo_vlan_rx_add_vid	= cpsw_ndo_vlan_rx_add_vid,
+> +	.ndo_vlan_rx_kill_vid	= cpsw_ndo_vlan_rx_kill_vid,
+> +#endif
 
-Understood, thanks for noticing.
+These are not compile time conditionals in net_device_ops, so I wonder
+(after reading Felipe's comments) whether you can simply keep the VLAN
+code always present.
+
+As long as the driver still compiles and loads, when VLAN is missing
+from the stack, then I don't see why you can't just leave it in,
+without all the ifdefs.
+
+Thanks,
+Richard
