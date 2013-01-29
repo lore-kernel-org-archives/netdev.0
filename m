@@ -1,53 +1,89 @@
-From: Stephen Boyd <sboyd@codeaurora.org>
-Subject: Re: [PATCH] net: ks8851: convert to threaded IRQ
-Date: Tue, 29 Jan 2013 11:21:56 -0800
-Message-ID: <51082154.6010303@codeaurora.org>
-References: <20130128.223157.1855971357181002973.davem@davemloft.net> <1359443790-8562-1-git-send-email-balbi@ti.com> <51081A94.1090202@codeaurora.org> <20130129190220.GA6223@arwen.pp.htv.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mjr@cs.wisc.edu, netdev@vger.kernel.org
-To: balbi@ti.com
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: unset primary slave via sysfs
+Date: Tue, 29 Jan 2013 11:27:18 -0800
+Message-ID: <31742.1359487638@death.nxdomain>
+References: <269c3219-71dc-4802-81a4-562e61a1258c@zimbra>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: Milos Vyletel <milos.vyletel@sde.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine01.qualcomm.com ([199.106.114.254]:10734 "EHLO
-	wolverine01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753500Ab3A2TV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:21:57 -0500
-In-Reply-To: <20130129190220.GA6223@arwen.pp.htv.fi>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:54326 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754505Ab3A2T1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 14:27:33 -0500
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Tue, 29 Jan 2013 14:27:32 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 876C638C804F
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 14:27:28 -0500 (EST)
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r0TJRRoT295108
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 14:27:28 -0500
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r0TJRJYf009371
+	for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 12:27:20 -0700
+In-reply-to: <269c3219-71dc-4802-81a4-562e61a1258c@zimbra>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/29/13 11:02, Felipe Balbi wrote:
-> On Tue, Jan 29, 2013 at 10:53:08AM -0800, Stephen Boyd wrote:
->> On 01/28/13 23:16, Felipe Balbi wrote:
->>> just as it should have been. It also helps
->>> removing the, now unnecessary, workqueue.
->> Tested-by: Stephen Boyd <sboyd@codeaurora.org>
->>
->>> Signed-off-by: Felipe Balbi <balbi@ti.com>
->>> ---
->>> @@ -1505,8 +1485,9 @@ static int ks8851_probe(struct spi_device *spi)
->>>  	ks8851_read_selftest(ks);
->>>  	ks8851_init_mac(ks);
->>>  
->>> -	ret = request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
->>> -			  ndev->name, ks);
->>> +	ret = request_threaded_irq(spi->irq, NULL, ks8851_irq,
->>> +				   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
->>> +				   ndev->name, ks);
->> I did notice one thing here. The name of the thread is irq/378-eth%d
->> (where 378 is the irq number). It seems that ndev->name is not fully
->> formed until register_netdev() is called and so when the thread is
->> created, the malformed name is used for the thread name.
-> that would be a problem even before the conversion to threaded irq, the
-> only difference is that 378- would be omitted.
+Milos Vyletel <milos.vyletel@sde.cz> wrote:
+
+>----- Original Message -----
+>> Milos Vyletel <milos.vyletel@sde.cz> wrote:
+>> 
+>> >When bonding module is loaded with primary parameter and one decides
+>> >to unset
+>> >primary slave using sysfs these settings are not preserved during
+>> >bond device
+>> >restart. Primary slave is only unset once and it's not remembered in
+>> >bond->params structure.
+>> >
+>> >Signed-off-by: Milos Vyletel <milos.vyletel@sde.cz>
+>> 
+>> 	I think the patch is fine, although I did prefer the longer
+>> commit message from the initial version (the one that explained how
+>> to
+>> reproduce the problem).
+>> 
+>> 	-J
+>> 
+>> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+>> 
 >
+>Jay,
+>
+>just to be sure, do you want me to resend this patch again with the
+>original commit message? It's no problem for me, I just don't want
+>to spam this list when not necessary.
 
-It doesn't seem to be a problem in the non-threaded case presumably
-because the name is pointed to directly, instead of being copied, for
-the /proc/interrupts case. In other words, /proc/interrupts shows eth0
-instead of eth%d with and without this patch applied.
+	Yes.  Detailed commit messages are not spam.
 
--- 
-Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
-hosted by The Linux Foundation
+	-J
+
+>Milos
+>
+>> 
+>> >---
+>> > drivers/net/bonding/bond_sysfs.c |    1 +
+>> > 1 files changed, 1 insertions(+), 0 deletions(-)
+>> >
+>> >diff --git a/drivers/net/bonding/bond_sysfs.c
+>> >b/drivers/net/bonding/bond_sysfs.c
+>> >index ef8d2a0..155f3b4 100644
+>> >--- a/drivers/net/bonding/bond_sysfs.c
+>> >+++ b/drivers/net/bonding/bond_sysfs.c
+>> >@@ -1067,6 +1067,7 @@ static ssize_t bonding_store_primary(struct
+>> >device *d,
+>> > 		pr_info("%s: Setting primary slave to None.\n",
+>> > 			bond->dev->name);
+>> > 		bond->primary_slave = NULL;
+>> >+		memset(bond->params.primary, 0, sizeof(bond->params.primary));
+>> > 		bond_select_active_slave(bond);
+>> > 		goto out;
+>> > 	}
+>> >--
+>> >1.7.1
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
