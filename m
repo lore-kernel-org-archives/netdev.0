@@ -1,165 +1,38 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next V3] bond: have random dev address by default instead of zeroes
-Date: Tue, 29 Jan 2013 12:19:11 +0100
-Message-ID: <1359458351-6842-1-git-send-email-jiri@resnulli.us>
+From: shellie campbell <shellie.campbell@mgccc.edu>
+Subject: =?iso-8859-1?Q?PERSONAL_/_Student_/_fakulteten_{ANM=C4LAN}?=
+Date: Tue, 29 Jan 2013 11:30:13 +0000
+Message-ID: <7F16140F07F8B34FB6B62F5C8C80E2543BA826AE__24620.2854243622$1359459617$gmane$org@mgcccmail2010-2.mgccc.cc.ms.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, fubar@us.ibm.com, andy@greyhouse.net,
-	stephen@networkplumber.org, psimerda@redhat.com, dcbw@redhat.com
-To: netdev@vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f175.google.com ([74.125.82.175]:58497 "EHLO
-	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752052Ab3A2LTS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 06:19:18 -0500
-Received: by mail-we0-f175.google.com with SMTP id x8so216576wey.20
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 03:19:17 -0800 (PST)
+Received: from mail1.mgccc.edu ([216.79.147.173]:51805 "EHLO
+	ironport1.mgccc.cc.ms.us" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753067Ab3A2Ljw convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 06:39:52 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Makes more sense to have randomly generated address by default than to
-have all zeroes. It also allows user to for example put the bond into
-bridge without need to have any slaves in it.
 
-Also note that this changes only behaviour of bonds with no slaves. Onc=
-e
-the first slave device is enslaved, its address will be used (no change
-here).
 
-Also, fix dev_assign_type values on the way.
 
-Reported-by: Pavel =C5=A0imerda <psimerda@redhat.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
 
-v2->v3:
-- call_netdevice_notifiers is called after dev_addr change.
-- use bond->get_dev_addr_from_first_slave to know when to get addr from=
- the
-  first slave
-v1->v2:
-- fixed assign value of bond_dev->addr_assign_type in bond_set_dev_addr=
-()
-- added note to patch description
-
- drivers/net/bonding/bond_main.c | 38 +++++++++++++++++++--------------=
------
- drivers/net/bonding/bonding.h   |  1 +
- 2 files changed, 20 insertions(+), 19 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index 564cf42..8692df8 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1320,14 +1320,15 @@ static void bond_netpoll_cleanup(struct net_dev=
-ice *bond_dev)
-=20
- /*---------------------------------- IOCTL ---------------------------=
--------*/
-=20
--static int bond_sethwaddr(struct net_device *bond_dev,
--			  struct net_device *slave_dev)
-+static void bond_set_dev_addr(struct net_device *bond_dev,
-+			      struct net_device *slave_dev)
- {
- 	pr_debug("bond_dev=3D%p\n", bond_dev);
- 	pr_debug("slave_dev=3D%p\n", slave_dev);
- 	pr_debug("slave_dev->addr_len=3D%d\n", slave_dev->addr_len);
- 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len);
--	return 0;
-+	bond_dev->addr_assign_type =3D NET_ADDR_SET;
-+	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
- }
-=20
- static netdev_features_t bond_fix_features(struct net_device *dev,
-@@ -1628,10 +1629,8 @@ int bond_enslave(struct net_device *bond_dev, st=
-ruct net_device *slave_dev)
-=20
- 	/* If this is the first slave, then we need to set the master's hardw=
-are
- 	 * address to be the same as the slave's. */
--	if (is_zero_ether_addr(bond->dev->dev_addr))
--		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
--		       slave_dev->addr_len);
--
-+	if (bond->get_dev_addr_from_first_slave)
-+		bond_set_dev_addr(bond->dev, slave_dev);
-=20
- 	new_slave =3D kzalloc(sizeof(struct slave), GFP_KERNEL);
- 	if (!new_slave) {
-@@ -2048,12 +2047,8 @@ int bond_release(struct net_device *bond_dev, st=
-ruct net_device *slave_dev)
-=20
- 	if (bond->slave_cnt =3D=3D 0) {
- 		bond_set_carrier(bond);
--
--		/* if the last slave was removed, zero the mac address
--		 * of the master so it will be set by the application
--		 * to the mac address of the first slave
--		 */
--		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
-+		eth_hw_addr_random(bond_dev);
-+		bond->get_dev_addr_from_first_slave =3D true;
-=20
- 		if (bond_vlan_used(bond)) {
- 			pr_warning("%s: Warning: clearing HW address of %s while it still h=
-as VLANs.\n",
-@@ -2234,11 +2229,8 @@ static int bond_release_all(struct net_device *b=
-ond_dev)
- 		write_lock_bh(&bond->lock);
- 	}
-=20
--	/* zero the mac address of the master so it will be
--	 * set by the application to the mac address of the
--	 * first slave
--	 */
--	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
-+	eth_hw_addr_random(bond_dev);
-+	bond->get_dev_addr_from_first_slave =3D true;
-=20
- 	if (bond_vlan_used(bond)) {
- 		pr_warning("%s: Warning: clearing HW address of %s while it still ha=
-s VLANs.\n",
-@@ -3708,7 +3700,8 @@ static int bond_do_ioctl(struct net_device *bond_=
-dev, struct ifreq *ifr, int cmd
- 			break;
- 		case BOND_SETHWADDR_OLD:
- 		case SIOCBONDSETHWADDR:
--			res =3D bond_sethwaddr(bond_dev, slave_dev);
-+			bond_set_dev_addr(bond_dev, slave_dev);
-+			res =3D 0;
- 			break;
- 		case BOND_CHANGE_ACTIVE_OLD:
- 		case SIOCBONDCHANGEACTIVE:
-@@ -4858,6 +4851,13 @@ static int bond_init(struct net_device *bond_dev=
-)
-=20
- 	bond_debug_register(bond);
-=20
-+	/* Ensure valid dev_addr */
-+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
-+	    bond_dev->addr_assign_type =3D=3D NET_ADDR_PERM) {
-+		eth_hw_addr_random(bond_dev);
-+		bond->get_dev_addr_from_first_slave =3D true;
-+	}
-+
- 	__hw_addr_init(&bond->mc_list);
- 	return 0;
- }
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondin=
-g.h
-index 0d282d2..3200638 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -248,6 +248,7 @@ struct bonding {
- 	/* debugging support via debugfs */
- 	struct	 dentry *debug_dir;
- #endif /* CONFIG_DEBUG_FS */
-+	bool	get_dev_addr_from_first_slave;
- };
-=20
- static inline bool bond_vlan_used(struct bonding *bond)
---=20
-1.8.1
+Viuppleverkonstigaproblemp=E5v=E5r databas,om man intetardu kan f=F6rlo=
+ra dine-postkonto.Viberdig attverifieraditt kontosker inom f=F6ljande12=
+timmar,klickah=E4r<https://docs.google.com/spreadsheet/viewform?formkey=
+=3DdE5xMGNMOW5ZRlI2UnR3MWU5YkF1dHc6MQ> f=F6r att verifieraditt e-postko=
+ntof=F6r b=E4ttreservice.
+-----------------------------------------
+The information contained in this e-mail message is intended only for t=
+he personal and confidential use of the recipient(s) named above. This =
+message may be an attorney-client communication and/or work product and=
+ as such is privileged and confidential. If the reader of this message =
+is not the intended recipient or an agent responsible for delivering it=
+ to the intended recipient, you are hereby notified that you have recei=
+ved this document in error and that any review, dissemination, distribu=
+tion, or copying of this message is strictly prohibited. If you have re=
+ceived this communication in error, please notify us immediately by e-m=
+ail, and delete the original message.
