@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Web10g TCP statistics patch - mainlining into kernel?
-Date: Tue, 29 Jan 2013 13:52:22 -0500 (EST)
-Message-ID: <20130129.135222.864358079580838703.davem@davemloft.net>
-References: <18855.1359138716@turing-police.cc.vt.edu>
-	<1359481755.4144.4.camel@bwh-desktop.uk.solarflarecom.com>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Subject: Re: [PATCH] net: ks8851: convert to threaded IRQ
+Date: Tue, 29 Jan 2013 10:53:08 -0800
+Message-ID: <51081A94.1090202@codeaurora.org>
+References: <20130128.223157.1855971357181002973.davem@davemloft.net> <1359443790-8562-1-git-send-email-balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Valdis.Kletnieks@vt.edu, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, web10g-user@web10g.org
-To: bhutchings@solarflare.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359481755.4144.4.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, mjr@cs.wisc.edu, netdev@vger.kernel.org
+To: Felipe Balbi <balbi@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:60354 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752480Ab3A2SxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 13:53:09 -0500
+In-Reply-To: <1359443790-8562-1-git-send-email-balbi@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 29 Jan 2013 17:49:15 +0000
+On 01/28/13 23:16, Felipe Balbi wrote:
+> just as it should have been. It also helps
+> removing the, now unnecessary, workqueue.
 
-> On Fri, 2013-01-25 at 13:31 -0500, Valdis Kletnieks wrote:
-> [...]
->> it's a zero-hit thing for people who don't choose to configure
->> it into their kernel.
-> [...]
-> 
-> People with high-overhead changes always say this, but before long
-> distributions will be expected to enable it and then everyone pays the
-> price.  So I think you'll have to work on limiting the run-time overhead
-> when it's enabled at compile time but the user doesn't care about it.
-> Possibly it can be a run-time option?  (I haven't looked at the code and
-> don't expect to have time to do so.)
+Tested-by: Stephen Boyd <sboyd@codeaurora.org>
 
-+1
+> Signed-off-by: Felipe Balbi <balbi@ti.com>
+> ---
+> @@ -1505,8 +1485,9 @@ static int ks8851_probe(struct spi_device *spi)
+>  	ks8851_read_selftest(ks);
+>  	ks8851_init_mac(ks);
+>  
+> -	ret = request_irq(spi->irq, ks8851_irq, IRQF_TRIGGER_LOW,
+> -			  ndev->name, ks);
+> +	ret = request_threaded_irq(spi->irq, NULL, ks8851_irq,
+> +				   IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+> +				   ndev->name, ks);
 
-The run time overhead must be zero when the feature is configured into
-the kernel, and this requirement is non-negotiable.
+I did notice one thing here. The name of the thread is irq/378-eth%d
+(where 378 is the irq number). It seems that ndev->name is not fully
+formed until register_netdev() is called and so when the thread is
+created, the malformed name is used for the thread name.
+
+-- 
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+hosted by The Linux Foundation
