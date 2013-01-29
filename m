@@ -1,10 +1,10 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 3/5] net: mvmdio: enhance driver to support SMI
- error/done interrupts
-Date: Tue, 29 Jan 2013 16:39:57 +0100
-Message-ID: <20130129163957.79815ff7@skate>
+Subject: Re: [PATCH 4/5] net: mvmdio: allow Device Tree and platform device
+ to coexist
+Date: Tue, 29 Jan 2013 16:48:57 +0100
+Message-ID: <20130129164857.0ddcddf4@skate>
 References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
-	<1359473048-26551-4-git-send-email-florian@openwrt.org>
+	<1359473048-26551-5-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -23,129 +23,51 @@ Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
 	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
 To: Florian Fainelli <florian@openwrt.org>
 Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1359473048-26551-4-git-send-email-florian@openwrt.org>
+In-Reply-To: <1359473048-26551-5-git-send-email-florian@openwrt.org>
 Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Dear Florian Fainelli,
 
-On Tue, 29 Jan 2013 16:24:06 +0100, Florian Fainelli wrote:
+On Tue, 29 Jan 2013 16:24:07 +0100, Florian Fainelli wrote:
+> This patch changes the Marvell MDIO driver to be registered by using
+> both Device Tree and platform device methods. The driver voluntarily
+> does not use devm_ioremap() to share the same error path for Device Tree
+> and non-Device Tree cases.
 
->  #define MVMDIO_SMI_DATA_SHIFT              0
->  #define MVMDIO_SMI_PHY_ADDR_SHIFT          16
-> @@ -36,12 +40,28 @@
->  #define MVMDIO_SMI_WRITE_OPERATION         0
->  #define MVMDIO_SMI_READ_VALID              BIT(27)
->  #define MVMDIO_SMI_BUSY                    BIT(28)
-> +#define MVMDIO_ERR_INT_CAUSE		   0x007C
-> +#define  MVMDIO_ERR_INT_SMI_DONE	   0x00000010
-> +#define MVMDIO_ERR_INT_MASK		   0x0080
->  
->  struct orion_mdio_dev {
->  	struct mutex lock;
->  	void __iomem *regs;
-> +	/*
-> +	 * If we have access to the error interrupt pin (which is
-> +	 * somewhat misnamed as it not only reflects internal errors
-> +	 * but also reflects SMI completion), use that to wait for
-> +	 * SMI access completion instead of polling the SMI busy bit.
-> +	 */
-> +	int err_interrupt;
-> +	wait_queue_head_t smi_busy_wait;
->  };
->  
-> +static int orion_mdio_smi_is_done(struct orion_mdio_dev *dev)
-> +{
-> +	return !(readl(dev->regs) & MVMDIO_SMI_BUSY);
-> +}
-> +
->  /* Wait for the SMI unit to be ready for another operation
->   */
->  static int orion_mdio_wait_ready(struct mii_bus *bus)
-> @@ -50,19 +70,30 @@ static int orion_mdio_wait_ready(struct mii_bus *bus)
->  	int count;
->  	u32 val;
->  
-> -	count = 0;
-> -	while (1) {
-> -		val = readl(dev->regs);
-> -		if (!(val & MVMDIO_SMI_BUSY))
-> -			break;
-> -
-> -		if (count > 100) {
-> -			dev_err(bus->parent, "Timeout: SMI busy for too long\n");
-> -			return -ETIMEDOUT;
-> +	if (dev->err_interrupt == NO_IRQ) {
-> +		count = 0;
-> +		while (1) {
-> +			val = readl(dev->regs);
-> +			if (!(val & MVMDIO_SMI_BUSY))
-> +				break;
+Not sure why you think devm_ioremap() can't be used here. Maybe I'm
+missing something, but could you explain? If you use devm_ioremap(),
+then basically you don't need to do anything in the error path
+regarding to the I/O mapping... since it's the whole purpose of the
+devm_*() stuff to automagically undo things in the error case, and in
+the ->remove() code.
 
-What about using your new orion_mdio_smi_is_done() function here?
-
+> -	dev->err_interrupt = irq_of_parse_and_map(pdev->dev.of_node, 0);
+> +	if (pdev->dev.of_node) {
+> +		dev->regs = of_iomap(pdev->dev.of_node, 0);
+> +		if (!dev->regs) {
+> +			dev_err(&pdev->dev, "No SMI register address given in DT\n");
+> +			ret = -ENODEV;
+> +			goto out_free;
+> +		}
 > +
-> +			if (count > 100) {
-> +				dev_err(bus->parent,
-> +					"Timeout: SMI busy for too long\n");
-> +				return -ETIMEDOUT;
-> +			}
+> +		dev->err_interrupt = irq_of_parse_and_map(pdev->dev.of_node, 0);
+> +	} else {
+> +		r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 > +
-> +			udelay(10);
-> +			count++;
->  		}
+> +		dev->regs = ioremap(r->start, resource_size(r));
+> +		if (!dev->regs) {
+> +			dev_err(&pdev->dev, "No SMI register address given\n");
+> +			ret = -ENODEV;
+> +			goto out_free;
+> +		}
+> +
+> +		dev->err_interrupt = platform_get_irq(pdev, 0);
 > +	}
->  
-> -		udelay(10);
-> -		count++;
-> +	if (!orion_mdio_smi_is_done(dev)) {
 
-Maybe it should be in an else if block so that the waitqueue case is
-only considered if there is an IRQ registered? Of course practically
-speaking, it's OK because if there is no IRQ, we'll wait in the polling
-loop above, and either exit from the function on timeout, or continue
-on success. But it still would make the code a little bit clearer, I'd
-say.
-
->  static int orion_mdio_probe(struct platform_device *pdev)
->  {
->  	struct device_node *np = pdev->dev.of_node;
-> @@ -181,6 +227,19 @@ static int orion_mdio_probe(struct platform_device *pdev)
->  		return -ENODEV;
->  	}
->  
-> +	dev->err_interrupt = NO_IRQ;
-
-Not needed, you already do dev->err_interrupt = something() below.
-
-> +	init_waitqueue_head(&dev->smi_busy_wait);
-> +
-> +	dev->err_interrupt = irq_of_parse_and_map(pdev->dev.of_node, 0);
-> +	if (dev->err_interrupt != NO_IRQ) {
-> +		ret = devm_request_irq(&pdev->dev, dev->err_interrupt,
-> +					orion_mdio_err_irq,
-> +					IRQF_SHARED, pdev->name, dev);
-> +		if (!ret)
-> +			writel(MVMDIO_ERR_INT_SMI_DONE,
-> +					dev->regs + MVMDIO_ERR_INT_MASK);
-> +	}
-> +
->  	mutex_init(&dev->lock);
->  
->  	ret = of_mdiobus_register(bus, np);
-> @@ -202,6 +261,8 @@ static int orion_mdio_remove(struct platform_device *pdev)
->  	struct mii_bus *bus = platform_get_drvdata(pdev);
->  	struct orion_mdio_dev *dev = bus->priv;
->  
-> +	writel(0, dev->regs + MVMDIO_ERR_INT_MASK);
-> +	free_irq(dev->err_interrupt, dev);
-
-free_irq() not needed since the IRQ handler is registered with
-devm_request_irq().
-
->  	mdiobus_unregister(bus);
->  	kfree(bus->irq);
->  	mdiobus_free(bus);
+I think you can do a devm_ioremap() and a platform_get_irq() in both
+cases here, and therefore keep the code common between the DT case and
+the !DT case.
 
 Thanks,
 
