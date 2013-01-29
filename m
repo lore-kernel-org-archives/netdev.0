@@ -1,100 +1,54 @@
 From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: [RFC 1/3] net: freescale: fec: add support for optional enet_out clk
-Date: Tue, 29 Jan 2013 15:46:11 +0100
-Message-ID: <1359470773-14290-2-git-send-email-w.sang@pengutronix.de>
-References: <1359470773-14290-1-git-send-email-w.sang@pengutronix.de>
+Subject: [RFC 0/3] arm: mxs: sanitize enet_out clock handling
+Date: Tue, 29 Jan 2013 15:46:10 +0100
+Message-ID: <1359470773-14290-1-git-send-email-w.sang@pengutronix.de>
 Cc: netdev@vger.kernel.org, Shawn Guo <shawn.guo@freescale.com>,
 	Wolfram Sang <w.sang@pengutronix.de>
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59045 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:59047 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756926Ab3A2Oq2 (ORCPT
+	with ESMTP id S1756569Ab3A2Oq2 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 09:46:28 -0500
-In-Reply-To: <1359470773-14290-1-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some MX28 boards need the internal enet_out clock to be enabled. So, do
-this in the driver iff the clock was referenced via devicetree.
+Handling enet_out on MX28 is cumbersome at the moment. Most boards need it
+enabled and for that, they have to add code to mach-mxs.c (see sps1 as an
+example). Since this is board specific, we better encode it in the devicetree,
+that is the reason it was made for.
 
-Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
----
+My proposal will overwrite the generic "clock" and "clock-names" properties
+from imx28.dtsi in the board file. The original one has 2 entries, and boards
+needing enet_out will overload it with three entries. The network driver will
+enable the clock if it was specified. The old code enabling the clock will be
+backward compatible but print a WARN if the legacy mode needs to be used.
 
-davidm: Please don't apply before Shawn as the mxs-maintainer has given his ack
-on the general procedure. Or maybe he can merge it via his tree?
+This will make adding new board easier, since we don't have to touch mach-mxs.c
+for this case. It scales much better.
 
- drivers/net/ethernet/freescale/fec.c |   10 ++++++++++
- drivers/net/ethernet/freescale/fec.h |    1 +
- 2 files changed, 11 insertions(+)
+Tested on a MX28EVK. Please review, comment, apply(?)
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 0704bca..6573bd5 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1628,6 +1628,11 @@ fec_probe(struct platform_device *pdev)
- 		goto failed_clk;
- 	}
- 
-+	/* enet_out is optional, depends on board */
-+	fep->clk_enet_out = devm_clk_get(&pdev->dev, "enet_out");
-+	if (IS_ERR(fep->clk_enet_out))
-+		fep->clk_enet_out = NULL;
-+
- #ifdef CONFIG_FEC_PTP
- 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
- 	if (IS_ERR(fep->clk_ptp)) {
-@@ -1638,6 +1643,7 @@ fec_probe(struct platform_device *pdev)
- 
- 	clk_prepare_enable(fep->clk_ahb);
- 	clk_prepare_enable(fep->clk_ipg);
-+	clk_prepare_enable(fep->clk_enet_out);
- #ifdef CONFIG_FEC_PTP
- 	clk_prepare_enable(fep->clk_ptp);
- #endif
-@@ -1679,6 +1685,7 @@ failed_register:
- failed_mii_init:
- failed_init:
- failed_regulator:
-+	clk_disable_unprepare(fep->clk_enet_out);
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
- #ifdef CONFIG_FEC_PTP
-@@ -1722,6 +1729,7 @@ fec_drv_remove(struct platform_device *pdev)
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
- #endif
-+	clk_disable_unprepare(fep->clk_enet_out);
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
- 	iounmap(fep->hwp);
-@@ -1747,6 +1755,7 @@ fec_suspend(struct device *dev)
- 		fec_stop(ndev);
- 		netif_device_detach(ndev);
- 	}
-+	clk_disable_unprepare(fep->clk_enet_out);
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
- 
-@@ -1759,6 +1768,7 @@ fec_resume(struct device *dev)
- 	struct net_device *ndev = dev_get_drvdata(dev);
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
-+	clk_prepare_enable(fep->clk_enet_out);
- 	clk_prepare_enable(fep->clk_ahb);
- 	clk_prepare_enable(fep->clk_ipg);
- 	if (netif_running(ndev)) {
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index c5a3bc1..0648dbe 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -203,6 +203,7 @@ struct fec_enet_private {
- 
- 	struct clk *clk_ipg;
- 	struct clk *clk_ahb;
-+	struct clk *clk_enet_out;
- #ifdef CONFIG_FEC_PTP
- 	struct clk *clk_ptp;
- #endif
+Thanks,
+
+   Wolfram
+
+
+Wolfram Sang (3):
+  net: freescale: fec: add support for optional enet_out clk
+  arm: mxs: add enet_out clock to devicetree
+  arm: mach-mxs: make enabling enet_out a legacy function
+
+ arch/arm/boot/dts/imx28-apf28.dts      |    3 +++
+ arch/arm/boot/dts/imx28-apx4devkit.dts |    3 +++
+ arch/arm/boot/dts/imx28-cfa10049.dts   |    3 +++
+ arch/arm/boot/dts/imx28-evk.dts        |    3 +++
+ arch/arm/boot/dts/imx28-sps1.dts       |    3 +++
+ arch/arm/boot/dts/imx28-tx28.dts       |    3 +++
+ arch/arm/mach-mxs/mach-mxs.c           |   24 ++++++++++++++++--------
+ drivers/net/ethernet/freescale/fec.c   |   10 ++++++++++
+ drivers/net/ethernet/freescale/fec.h   |    1 +
+ 9 files changed, 45 insertions(+), 8 deletions(-)
+
 -- 
 1.7.10.4
