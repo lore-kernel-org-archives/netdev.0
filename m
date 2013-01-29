@@ -1,82 +1,65 @@
-From: Dmitry Torokhov <dtor@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH v2] vmxnet3: set carrier state properly on probe
-Date: Tue, 29 Jan 2013 11:54:43 -0800
-Message-ID: <1725516.hP8rSAnB3a@dtor-d630.eng.vmware.com>
-References: <1359147253-7204-1-git-send-email-nhorman@tuxdriver.com> <1359484611-23860-1-git-send-email-nhorman@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: pv-drivers@vmware.com
+From: Milos Vyletel <milos.vyletel@sde.cz>
+Subject: [PATCH v2] bonding: unset primary slave via sysfs
+Date: Tue, 29 Jan 2013 14:59:00 -0500
+Message-ID: <1359489540-14620-1-git-send-email-milos.vyletel@sde.cz>
+References: <1359393652-2804-1-git-send-email-milos.vyletel@sde.cz>
+Cc: fubar@us.ibm.com, andy@greyhouse.net,
+	Milos Vyletel <milos.vyletel@sde.cz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:35512 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753197Ab3A2Tyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 14:54:43 -0500
-In-Reply-To: <1359484611-23860-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail4.sde.cz ([85.93.125.197]:44610 "EHLO sde.cz"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751067Ab3A2T7v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 14:59:51 -0500
+In-Reply-To: <1359393652-2804-1-git-send-email-milos.vyletel@sde.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, January 29, 2013 01:36:51 PM Neil Horman wrote:
-> vmxnet3 fails to set netif_carrier_off on probe, meaning that when an
-> interface is opened the __LINK_STATE_NOCARRIER bit is already cleared, and
-> so /sys/class/net/<ifname>/operstate remains in the unknown state.  Correct
-> this by setting netif_carrier_off on probe, like other drivers do.
-> 
-> Also, while we're at it, lets remove the netif_carrier_ok checks from the
-> link_state_update function, as that check is atomically contained within the
-> netif_carrier_[on|off] functions anyway
-> 
-> Tested successfully by myself
-> 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: "VMware, Inc." <pv-drivers@vmware.com>
+When bonding module is loaded with primary parameter and one decides to unset
+primary slave using sysfs these settings are not preserved during bond device
+restart. Primary slave is only unset once and it's not remembered in
+bond->params structure. Below is example of recreation.
 
-Acked-by: Dmitry Torokhov <dtor@vmware.com>
+ grep OPTS /etc/sysconfig/network-scripts/ifcfg-bond0
+BONDING_OPTS="mode=active-backup miimon=100 primary=eth01"
+ grep "Primary Slave" /proc/net/bonding/bond0
+Primary Slave: eth01 (primary_reselect always)
 
-> CC: Ben Hutchings <bhutchings@solarflare.com>
-> 
-> ---
-> Change notes:
-> 
-> v2) Moved netif_carrier_off above register_netdev to prevent race with
-> dev_open as per Ben H.
-> ---
->  drivers/net/vmxnet3/vmxnet3_drv.c | 7 +++----
->  1 file changed, 3 insertions(+), 4 deletions(-)
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
-> b/drivers/net/vmxnet3/vmxnet3_drv.c index b1c90f8..ffb97b2 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -150,8 +150,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool
-> affectTxQueue) if (ret & 1) { /* Link is up. */
->  		netdev_info(adapter->netdev, "NIC Link is Up %d Mbps\n",
->  			    adapter->link_speed);
-> -		if (!netif_carrier_ok(adapter->netdev))
-> -			netif_carrier_on(adapter->netdev);
-> +		netif_carrier_on(adapter->netdev);
-> 
->  		if (affectTxQueue) {
->  			for (i = 0; i < adapter->num_tx_queues; i++)
-> @@ -160,8 +159,7 @@ vmxnet3_check_link(struct vmxnet3_adapter *adapter, bool
-> affectTxQueue) }
->  	} else {
->  		netdev_info(adapter->netdev, "NIC Link is Down\n");
-> -		if (netif_carrier_ok(adapter->netdev))
-> -			netif_carrier_off(adapter->netdev);
-> +		netif_carrier_off(adapter->netdev);
-> 
->  		if (affectTxQueue) {
->  			for (i = 0; i < adapter->num_tx_queues; i++)
-> @@ -3060,6 +3058,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
->  	netif_set_real_num_tx_queues(adapter->netdev, adapter->num_tx_queues);
->  	netif_set_real_num_rx_queues(adapter->netdev, adapter->num_rx_queues);
-> 
-> +	netif_carrier_off(netdev);
->  	err = register_netdev(netdev);
-> 
->  	if (err) {
+ echo "" > /sys/class/net/bond0/bonding/primary
+ grep "Primary Slave" /proc/net/bonding/bond0
+Primary Slave: None
+
+ sed -i -e 's/primary=eth01//' /etc/sysconfig/network-scripts/ifcfg-bond0
+ grep OPTS /etc/sysconfig/network-scripts/ifcfg-bond
+BONDING_OPTS="mode=active-backup miimon=100 "
+ ifdown bond0 && ifup bond0
+
+without patch:
+ grep "Primary Slave" /proc/net/bonding/bond0
+Primary Slave: eth01 (primary_reselect always)
+
+with patch:
+ grep "Primary Slave" /proc/net/bonding/bond0
+Primary Slave: None
+
+Reviewed-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: Milos Vyletel <milos.vyletel@sde.cz>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+---
+ drivers/net/bonding/bond_sysfs.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index ef8d2a0..155f3b4 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1067,6 +1067,7 @@ static ssize_t bonding_store_primary(struct device *d,
+ 		pr_info("%s: Setting primary slave to None.\n",
+ 			bond->dev->name);
+ 		bond->primary_slave = NULL;
++		memset(bond->params.primary, 0, sizeof(bond->params.primary));
+ 		bond_select_active_slave(bond);
+ 		goto out;
+ 	}
+-- 
+1.7.1
