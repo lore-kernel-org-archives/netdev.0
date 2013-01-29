@@ -1,75 +1,73 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 5/5] mv643xx_eth: convert to use the Marvell Orion MDIO
- driver
-Date: Tue, 29 Jan 2013 17:01:31 +0100
-Message-ID: <20130129170131.7964a110@skate>
-References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
-	<1359473048-26551-6-git-send-email-florian@openwrt.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: inaccurate packet scheduling
+Date: Tue, 29 Jan 2013 08:13:03 -0800
+Message-ID: <1359475983.30177.2.camel@edumazet-glaptop>
+References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
+	 <1355849503.9380.37.camel@edumazet-glaptop>
+	 <20130102152601.GB1532@minipsycho.orion>
+	 <1357144482.21409.16876.camel@edumazet-glaptop>
+	 <20130108133038.GB1621@minipsycho.orion>
+	 <20130124080536.GA1598@minipsycho.orion>
+	 <1359036087.12374.2088.camel@edumazet-glaptop>
+	 <20130129122357.GC7571@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Rob Landley <rob@landley.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Russell King <linux@arm.linux.org.uk>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1359473048-26551-6-git-send-email-florian@openwrt.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jhs@mojatatu.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f42.google.com ([209.85.210.42]:58035 "EHLO
+	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750809Ab3A2QNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 11:13:07 -0500
+Received: by mail-da0-f42.google.com with SMTP id z17so292051dal.29
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 08:13:06 -0800 (PST)
+In-Reply-To: <20130129122357.GC7571@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Florian Fainelli,
+On Tue, 2013-01-29 at 13:23 +0100, Jiri Pirko wrote:
 
-On Tue, 29 Jan 2013 16:24:08 +0100, Florian Fainelli wrote:
-> This patch converts the Marvell MV643XX ethernet driver to use the
-> Marvell Orion MDIO driver. As a result, PowerPC and ARM platforms
-> registering the Marvell MV643XX ethernet driver are also updated to
-> register a Marvell Orion MDIO driver. This driver voluntarily overlaps
-> with the Marvell Ethernet shared registers because it will use a subset
-> of this shared register (shared_base + 0x4 - shared_base + 0x84). The
-> Ethernet driver is also updated to look up for a PHY device using the
-> Orion MDIO bus driver.
+> part of the commit message says:
+> <quote>
+> The bits per second on the wire is still 5200Mb/s with new HTB
+> because qdisc accounts for packet length using skb->len, which
+> is smaller than total bytes on the wire if GSO is used.  But
+> that is for another patch regardless of how time is accounted.	
+> </quote>
+> I believe that is a similar problem like ours. But looks like this
+> "another patch" never got in.
 > 
-> Signed-off-by: Florian Fainelli <florian@openwrt.org>
-> ---
->  arch/arm/plat-orion/common.c               |   84 +++++++++++--
 
-In this file, there was one "MV643XX_ETH_SHARED_NAME" platform_device
-registered for each network interface. Why? If the driver is shared,
-isn't the whole idea to register it only once?
+Hmm, I thought I addressed this in 
 
-In any case, one of the idea of separating the mvmdio driver from the
-mvneta driver in the first place is that there should be only one
-instance of the mvmdio device, even if there are multiple network
-interfaces. The reason is that from a HW point of the view, the MDIO
-unit is shared between the network interfaces. If you look at
-armada-370-xp.dtsi, there is only one mvmdio device registered, and two
-network interfaces (using the mvneta driver) that are registered (and
-actually up to four network interfaces can exist, they are added by
-some other .dtsi files depending on the specific SoC).
+commit 1def9238d4aa2146924994aa4b7dc861f03b9362
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Jan 10 12:36:42 2013 +0000
 
-So I don't think there should be one instance of the mvmdio per network
-interface.
-
-Also, I am wondering what's left in this MV643XX_ETH_SHARED_NAME driver
-once the MDIO stuff has been pulled out in a separate driver? I think
-the whole point of this work should be to get rid of this
-MV643XX_ETH_SHARED_NAME driver, no?
-
-Thanks,
-
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+    net_sched: more precise pkt_len computation
+    
+    One long standing problem with TSO/GSO/GRO packets is that skb->len
+    doesn't represent a precise amount of bytes on wire.
+    
+    Headers are only accounted for the first segment.
+    For TCP, thats typically 66 bytes per 1448 bytes segment missing,
+    an error of 4.5 % for normal MSS value.
+    
+    As consequences :
+    
+    1) TBF/CBQ/HTB/NETEM/... can send more bytes than the assigned limits.
+    2) Device stats are slightly under estimated as well.
+    
+    Fix this by taking account of headers in qdisc_skb_cb(skb)->pkt_len
+    computation.
+    
+    Packet schedulers should use qdisc pkt_len instead of skb->len for their
+    bandwidth limitations, and TSO enabled devices drivers could use pkt_len
+    if their statistics are not hardware assisted, and if they don't scratch
+    skb->cb[] first word.
+    
+    Both egress and ingress paths work, thanks to commit fda55eca5a
+    (net: introduce skb_transport_header_was_set()) : If GRO built
+    a GSO packet, it also set the transport header for us.
