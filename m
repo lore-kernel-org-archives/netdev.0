@@ -1,37 +1,39 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH 2/2] drivers: net:ethernet: cpsw: add support for VLAN
-Date: Tue, 29 Jan 2013 08:36:26 +0100
-Message-ID: <20130129073626.GB18272@localhost.localdomain>
-References: <1359403945-28585-1-git-send-email-mugunthanvnm@ti.com>
- <1359403945-28585-3-git-send-email-mugunthanvnm@ti.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [PATCH] Doc: percpu_counter doc code for better readability
+Date: Tue, 29 Jan 2013 09:31:56 +0100
+Message-ID: <20130129083156.20701.33948.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1359403945-28585-3-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org
+To: joe@perches.com, linux-kernel@vger.kernel.org, tj@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:27484 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753190Ab3A2I1g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 03:27:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 29, 2013 at 01:42:25AM +0530, Mugunthan V N wrote:
-> @@ -947,6 +1042,10 @@ static const struct net_device_ops cpsw_netdev_ops = {
->  #ifdef CONFIG_NET_POLL_CONTROLLER
->  	.ndo_poll_controller	= cpsw_ndo_poll_controller,
->  #endif
-> +#ifdef VLAN_SUPPORT
-> +	.ndo_vlan_rx_add_vid	= cpsw_ndo_vlan_rx_add_vid,
-> +	.ndo_vlan_rx_kill_vid	= cpsw_ndo_vlan_rx_kill_vid,
-> +#endif
+Help people reading the percpu_counter code, to notice the ifdef
+else statement that seperates CONFIG_SMP.
 
-These are not compile time conditionals in net_device_ops, so I wonder
-(after reading Felipe's comments) whether you can simply keep the VLAN
-code always present.
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+---
 
-As long as the driver still compiles and loads, when VLAN is missing
-from the stack, then I don't see why you can't just leave it in,
-without all the ifdefs.
+ include/linux/percpu_counter.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks,
-Richard
+diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
+index b9df9ed..eded1aa 100644
+--- a/include/linux/percpu_counter.h
++++ b/include/linux/percpu_counter.h
+@@ -83,7 +83,7 @@ static inline int percpu_counter_initialized(struct percpu_counter *fbc)
+ 	return (fbc->counters != NULL);
+ }
+ 
+-#else
++#else /* No CONFIG_SMP */
+ 
+ struct percpu_counter {
+ 	s64 count;
