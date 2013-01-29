@@ -1,10 +1,10 @@
 From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 1/5] net: mvmdio: unmap base register address at driver
- removal
-Date: Tue, 29 Jan 2013 16:32:42 +0100
-Message-ID: <20130129163242.1df2caf5@skate>
+Subject: Re: [PATCH 2/5] net: mvmdio: rename base register cookie from
+ smireg to regs
+Date: Tue, 29 Jan 2013 16:34:05 +0100
+Message-ID: <20130129163405.15415166@skate>
 References: <1359473048-26551-1-git-send-email-florian@openwrt.org>
-	<1359473048-26551-2-git-send-email-florian@openwrt.org>
+	<1359473048-26551-3-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -22,29 +22,22 @@ Cc: davem@davemloft.net, Grant Likely <grant.likely@secretlab.ca>,
 	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
 To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <1359473048-26551-2-git-send-email-florian@openwrt.org>
-Sender: linux-doc-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1359473048-26551-3-git-send-email-florian@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Dear Florian Fainelli,
 
-On Tue, 29 Jan 2013 16:24:04 +0100, Florian Fainelli wrote:
-> Fix the driver remove callback to unmap the base register address and
-> not leak this mapping after the driver has been removed.
+On Tue, 29 Jan 2013 16:24:05 +0100, Florian Fainelli wrote:
+> This patch renames the base register cookie in the mvmdio drive from
+> "smireg" to "regs" since a subsequent patch is going to use an ioremap()
+> cookie whose size is larger than a single register of 4 bytes. No
+> functionnal code change introduced.
 > 
 > Signed-off-by: Florian Fainelli <florian@openwrt.org>
 
-What about using devm_request_and_ioremap() instead, in order to get
-automatic unmap on error and in the ->remove() path?
-
-But maybe it won't work because this memory range is claimed both by
-the MDIO driver and the Ethernet driver itself. In that case, you could
-use devm_ioremap().
-
-Best regards,
-
-Thomas
+Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 -- 
 Thomas Petazzoni, Free Electrons
 Kernel, drivers, real-time and embedded Linux
