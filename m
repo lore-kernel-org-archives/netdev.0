@@ -1,34 +1,68 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: Re: [PATCH v2] NET: qmi_wwan: add Telit LE920 support
-Date: Wed, 30 Jan 2013 14:50:46 +0100
-Message-ID: <8738xiok3t.fsf@nemi.mork.no>
-References: <1359550026-1879-1-git-send-email-dnlplm@gmail.com>
+From: "voncken" <cedric.voncken@acksys.fr>
+Subject: Gianfar : Drop a long frame
+Date: Wed, 30 Jan 2013 14:43:36 +0100
+Message-ID: <001a01cdfeef$cdc5bee0$69513ca0$@acksys.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1359550026-1879-1-git-send-email-dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Daniele
-	Palmas's message of "Wed, 30 Jan 2013 13:47:06 +0100")
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: "'Claudiu Manoil'" <claudiu.manoil@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out03.msg.oleane.net ([62.161.7.1]:44853 "EHLO
+	smtp-out03.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751082Ab3A3OEG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 09:04:06 -0500
+Received: from smtp02.msg.oleane.net (smtp02.mail.priv [172.17.20.111])
+	by smtp-out03.msg.oleane.net with ESMTP id r0UE42JM011065
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 15:04:03 +0100
+Content-Language: fr
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+	Hi Claudiu,=20
 
-> Add VID, PID and fixed interface for Telit LE920
->
-> Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> v2:
->  - rebased against net tree
+	I have a problem with the gianfar driver.
 
-Excellent! Thanks.  Looks like an interesting device BTW.
+	My test conditions are:
+		- Disable rxvlan hardware acceleration (ethtool -K ethx
+rxvlan off)
+		- Receive frame contains a VLAN tag and with a frame len set
+to the MTU (1500 bytes).
 
-Acked-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	In this condition, when I received a long frame the bdp->length is
+set to 1538 bytes.=20
+	I guess it is composed of:
+		1500 bytes: L3 data bytes
+		 + 14 bytes:  Ethernet header=20
+		 + 4 bytes:  Vlan Tag header=20
+		 + 8 bytes: FCB structure size GMAC_FCB_LEN
+		 + 8 bytes: eTSEC padding
+		 + 4 bytes: Frames CRC (FCS)
+
+	The Maximum frame len is set to 1536 because the function
+gfar_change_mtu does not integrate the FCS in the computed frame size.
+	In this condition this frame is dropped with the test line 2792
+function gfar_clean_rx_ring=20
+		if (unlikely(!(bdp->status & RXBD_ERR) &&
+				bdp->length > priv->rx_buffer_size))
+			bdp->status =3D RXBD_LARGE;
+=09
+	How I can receive this frame correctly?
+=09
+	Best regards
+
+Cedric Voncken | R&d Engineer
+-----------------------------------------------------------------------=
+-----
+------------------------------
+T : +33 1 30 56 46 52=20
+cedric.voncken@acksys.fr | www.acksys.fr
+-----------------------------------------------------------------------=
+-----
+------------------------------
+
+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=20
+ZA Val Joyeux - 10 rue des Entrepreneurs - 78450 VILLEPREUX - France
+-----------------------------------------------------------------------=
+-----
+----------
