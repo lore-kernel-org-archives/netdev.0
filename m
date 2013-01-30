@@ -1,93 +1,121 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 10/11] net/mlx4_en: Don't reassign port mac address on firmware that supports it
-Date: Wed, 30 Jan 2013 12:34:26 +0200
-Message-ID: <1359542067-10760-11-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 07/11] net/mlx4_en: Fix ethtool rules leftovers after module unloaded
+Date: Wed, 30 Jan 2013 12:34:23 +0200
+Message-ID: <1359542067-10760-8-git-send-email-amirv@mellanox.com>
 References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Matan Barak <matanb@mellanox.com>
+	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog101.obsmtp.com ([207.126.144.111]:38459 "HELO
-	eu1sys200aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754443Ab3A3Keu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:50 -0500
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:46425 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754352Ab3A3Ket (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:49 -0500
 In-Reply-To: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Mac reassignments should only be done when not supported by the firmware. To
-accomplish that, checking firmware capability bit to know whether we should
-reassign macs in the driver.
+As part of the driver unload flow, all steering rules must be deleted,
+make sure to remove the rules that were set through ethtool.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/fw.c        |    7 ++++++-
- include/linux/mlx4/device.h                    |    3 ++-
- 3 files changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    3 +++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   15 +++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    3 +++
+ 3 files changed, 21 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 6f8044d..738e95d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -915,6 +915,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+ 		loc_rule->id = 0;
+ 		memset(&loc_rule->flow_spec, 0,
+ 		       sizeof(struct ethtool_rx_flow_spec));
++		list_del(&loc_rule->list);
+ 	}
+ 	err = mlx4_flow_attach(priv->mdev->dev, &rule, &reg_id);
+ 	if (err) {
+@@ -925,6 +926,7 @@ static int mlx4_en_flow_replace(struct net_device *dev,
+ 	loc_rule->id = reg_id;
+ 	memcpy(&loc_rule->flow_spec, &cmd->fs,
+ 	       sizeof(struct ethtool_rx_flow_spec));
++	list_add_tail(&loc_rule->list, &priv->ethtool_list);
+ 
+ out_free_list:
+ 	list_for_each_entry_safe(spec, tmp_spec, &rule.list, list) {
+@@ -958,6 +960,7 @@ static int mlx4_en_flow_detach(struct net_device *dev,
+ 	}
+ 	rule->id = 0;
+ 	memset(&rule->flow_spec, 0, sizeof(struct ethtool_rx_flow_spec));
++	list_del(&rule->list);
+ out:
+ 	return err;
+ 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 616c3a3..9b78f61 100644
+index 9c42812..333a7a0 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1291,7 +1291,8 @@ void mlx4_en_stop_port(struct net_device *dev)
+@@ -1039,6 +1039,9 @@ int mlx4_en_start_port(struct net_device *dev)
  
- 	/* Unregister Mac address for the port */
- 	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
--	mdev->mac_removed[priv->port] = 1;
-+	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN))
-+		mdev->mac_removed[priv->port] = 1;
+ 	INIT_LIST_HEAD(&priv->mc_list);
+ 	INIT_LIST_HEAD(&priv->curr_list);
++	INIT_LIST_HEAD(&priv->ethtool_list);
++	memset(&priv->ethtool_rules[0], 0,
++	       sizeof(struct ethtool_flow_id) * MAX_NUM_OF_FS_RULES);
  
- 	/* Remove flow steering rules for the port*/
- 	if (mdev->dev->caps.steering_mode ==
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 91acf71..38b62c7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -127,7 +127,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[0] = "RSS support",
- 		[1] = "RSS Toeplitz Hash Function support",
- 		[2] = "RSS XOR Hash Function support",
--		[3] = "Device manage flow steering support"
-+		[3] = "Device manage flow steering support",
-+		[4] = "Automatic mac reassignment support"
- 	};
+ 	/* Calculate Rx buf size */
+ 	dev->mtu = min(dev->mtu, priv->max_mtu);
+@@ -1202,6 +1205,7 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_en_mc_list *mclist, *tmp;
++	struct ethtool_flow_id *flow, *tmp_flow;
  	int i;
+ 	u8 mc_list[16] = {0};
  
-@@ -478,6 +479,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- #define QUERY_DEV_CAP_BMME_FLAGS_OFFSET		0x94
- #define QUERY_DEV_CAP_RSVD_LKEY_OFFSET		0x98
- #define QUERY_DEV_CAP_MAX_ICM_SZ_OFFSET		0xa0
-+#define QUERY_DEV_CAP_FW_REASSIGN_MAC		0x9d
+@@ -1283,6 +1287,17 @@ void mlx4_en_stop_port(struct net_device *dev)
+ 	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
+ 	mdev->mac_removed[priv->port] = 1;
  
- 	dev_cap->flags2 = 0;
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
-@@ -637,6 +639,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		 QUERY_DEV_CAP_BMME_FLAGS_OFFSET);
- 	MLX4_GET(dev_cap->reserved_lkey, outbox,
- 		 QUERY_DEV_CAP_RSVD_LKEY_OFFSET);
-+	MLX4_GET(field, outbox, QUERY_DEV_CAP_FW_REASSIGN_MAC);
-+	if (field & 1<<6)
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN;
- 	MLX4_GET(dev_cap->max_icm_sz, outbox,
- 		 QUERY_DEV_CAP_MAX_ICM_SZ_OFFSET);
- 	if (dev_cap->flags & MLX4_DEV_CAP_FLAG_COUNTERS)
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index ae9741b..054aae4 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -150,7 +150,8 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_RSS			= 1LL <<  0,
- 	MLX4_DEV_CAP_FLAG2_RSS_TOP		= 1LL <<  1,
- 	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
--	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3
-+	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3,
-+	MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN	= 1LL <<  4
++	/* Remove flow steering rules for the port*/
++	if (mdev->dev->caps.steering_mode ==
++	    MLX4_STEERING_MODE_DEVICE_MANAGED) {
++		ASSERT_RTNL();
++		list_for_each_entry_safe(flow, tmp_flow,
++					 &priv->ethtool_list, list) {
++			mlx4_flow_detach(mdev->dev, flow->id);
++			list_del(&flow->list);
++		}
++	}
++
+ 	/* Free RX Rings */
+ 	for (i = 0; i < priv->rx_ring_num; i++) {
+ 		mlx4_en_deactivate_rx_ring(priv, &priv->rx_ring[i]);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 8d54412..4fb4a3e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -427,6 +427,7 @@ struct mlx4_en_frag_info {
+ #endif
+ 
+ struct ethtool_flow_id {
++	struct list_head list;
+ 	struct ethtool_rx_flow_spec flow_spec;
+ 	u64 id;
  };
+@@ -441,6 +442,8 @@ struct mlx4_en_priv {
+ 	struct mlx4_en_port_state port_state;
+ 	spinlock_t stats_lock;
+ 	struct ethtool_flow_id ethtool_rules[MAX_NUM_OF_FS_RULES];
++	/* To allow rules removal while port is going down */
++	struct list_head ethtool_list;
  
- enum {
+ 	unsigned long last_moder_packets[MAX_RX_RINGS];
+ 	unsigned long last_moder_tx_packets;
 -- 
 1.7.8.2
