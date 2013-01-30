@@ -1,41 +1,99 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [net-next PATCH 1/8] qlcnic: Fix sparse check endian warnings
-Date: Wed, 30 Jan 2013 17:47:12 -0500
-Message-ID: <1359586039-19051-2-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [net-next PATCH 4/8] qlcnic: driver LRO bug fix
+Date: Wed, 30 Jan 2013 17:47:15 -0500
+Message-ID: <1359586039-19051-5-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1359586039-19051-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
 	Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Manish chopra <manish.chopra@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:55867 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:18725 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932069Ab3A3XIQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 18:08:16 -0500
+	id S932069Ab3A3XIW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 18:08:22 -0500
 In-Reply-To: <1359586039-19051-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Manish chopra <manish.chopra@qlogic.com>
 
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+o ipv4 address was not getting programmed properly because of
+  improper byte order conversion
+
+Signed-off-by: Manish chopra <manish.chopra@qlogic.com>
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   18 +++++++++++++++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |    6 ++++--
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index fdf3483..d00f628 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -1018,7 +1018,7 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 1e81e94..65233c8 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -1399,7 +1399,7 @@ void qlcnic_83xx_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip,
+ 			       int mode)
+ {
+ 	int err;
+-	u32 temp;
++	u32 temp, temp_ip;
+ 	struct qlcnic_cmd_args cmd;
  
- 	skb->protocol = eth_type_trans(skb, netdev);
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIGURE_IP_ADDR);
+@@ -1410,8 +1410,17 @@ void qlcnic_83xx_config_ipaddr(struct qlcnic_adapter *adapter, __be32 ip,
+ 		temp = adapter->recv_ctx->context_id << 16;
+ 		cmd.req.arg[1] = 2 | temp;
+ 	}
+-	cmd.req.arg[2] = ntohl(ip);
  
--	if (htons(skb->protocol) == ETH_P_IPV6) {
-+	if (ntohs(skb->protocol) == ETH_P_IPV6) {
- 		ipv6h = (struct ipv6hdr *)skb->data;
- 		th = (struct tcphdr *)(skb->data + sizeof(struct ipv6hdr));
- 		length = (th->doff << 2) + lro_length;
++	/*
++	 * Adapter needs IP address in network byte order.
++	 * But hardware mailbox registers go through writel(), hence IP address
++	 * gets swapped on big endian architecture.
++	 * To negate swapping of writel() on big endian architecture
++	 * use swab32(value).
++	 */
++
++	temp_ip = swab32(ntohl(ip));
++	memcpy(&cmd.req.arg[2], &temp_ip, sizeof(u32));
+ 	err = qlcnic_issue_cmd(adapter, &cmd);
+ 	if (err != QLCNIC_RCODE_SUCCESS)
+ 		dev_err(&adapter->netdev->dev,
+@@ -1425,13 +1434,16 @@ int qlcnic_83xx_config_hw_lro(struct qlcnic_adapter *adapter, int mode)
+ 	int err;
+ 	u32 temp, arg1;
+ 	struct qlcnic_cmd_args cmd;
++	int lro_bit_mask;
++
++	lro_bit_mask = (mode ? (BIT_0 | BIT_1 | BIT_2 | BIT_3) : 0);
+ 
+ 	if (adapter->recv_ctx->state == QLCNIC_HOST_CTX_STATE_FREED)
+ 		return 0;
+ 
+ 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_CONFIGURE_HW_LRO);
+ 	temp = adapter->recv_ctx->context_id << 16;
+-	arg1 = (mode ? (BIT_0 | BIT_1 | BIT_3) : 0) | temp;
++	arg1 = lro_bit_mask | temp;
+ 	cmd.req.arg[1] = arg1;
+ 
+ 	err = qlcnic_issue_cmd(adapter, &cmd);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 6c6ecfc..4e4ebaf 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -958,8 +958,10 @@ int qlcnic_set_features(struct net_device *netdev, netdev_features_t features)
+ 	if (qlcnic_config_hw_lro(adapter, hw_lro))
+ 		return -EIO;
+ 
+-	if ((hw_lro == 0) && qlcnic_send_lro_cleanup(adapter))
+-		return -EIO;
++	if (!hw_lro && qlcnic_82xx_check(adapter)) {
++		if (qlcnic_send_lro_cleanup(adapter))
++			return -EIO;
++	}
+ 
+ 	return 0;
+ }
 -- 
 1.7.1
