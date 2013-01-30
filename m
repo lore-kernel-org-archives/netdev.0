@@ -1,50 +1,49 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: ixp4xx eth broken in 3.7.0/3.8-rc5?
-Date: Tue, 29 Jan 2013 19:32:23 -0500
-Message-ID: <51086A17.1090707@gmail.com>
-References: <20744.9777.937924.822371@pilspetsen.it.uu.se> <20744.25884.660535.514911@pilspetsen.it.uu.se>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [BUG] via-rhine: NOHZ: local_softirq_pending 08
+Date: Wed, 30 Jan 2013 01:04:32 +0100
+Message-ID: <20130130000432.GA28621@electric-eye.fr.zoreil.com>
+References: <51007b84.03ab640a.1cde.fffff62a@mx.google.com> <20130129.174702.196275387733819730.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Imre Kaloz <kaloz@openwrt.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org
-To: Mikael Pettersson <mikpe@it.uu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: jamie.gloudon@gmail.com, netdev@vger.kernel.org, rl@hellgate.ch
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f44.google.com ([209.85.212.44]:61309 "EHLO
-	mail-vb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415Ab3A3Ac1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 19:32:27 -0500
-Received: by mail-vb0-f44.google.com with SMTP id fc26so674255vbb.17
-        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 16:32:26 -0800 (PST)
-In-Reply-To: <20744.25884.660535.514911@pilspetsen.it.uu.se>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:54802 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415Ab3A3AeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 19:34:24 -0500
+Content-Disposition: inline
+In-Reply-To: <20130129.174702.196275387733819730.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/29/13 7:11 PM, Mikael Pettersson wrote:
-> A git bisect identified the following as the culprit:
+David Miller <davem@davemloft.net> :
+[...]
+> I don't think you can't keep using dev_kfree_skb_irq() there.
 > 
->   > From 1a4901177574083c35fafc24c4d151c2a7c7647c Mon Sep 17 00:00:00 2001
->   > From: Xi Wang <xi.wang@gmail.com>
->   > Date: Sat, 17 Nov 2012 20:25:09 +0000
->   > Subject: [PATCH] ixp4xx_eth: avoid calling dma_pool_create() with NULL dev
->   >
->   > Use &port->netdev->dev instead of NULL since dma_pool_create() doesn't
->   > allow NULL dev.
->   >
->   > Signed-off-by: Xi Wang <xi.wang@gmail.com>
->   > Cc: Andrew Morton <akpm@linux-foundation.org>
->   > Signed-off-by: David S. Miller <davem@davemloft.net>
->   > ---
->   >  drivers/net/ethernet/xscale/ixp4xx_eth.c |    8 +++++---
->   >  1 files changed, 5 insertions(+), 3 deletions(-)
-> 
-> Reverting this unbreaks ixp4xx_eth on my ixp4xx machine with kernels
-> 3.7.0 and 3.8-rc5.
+> Francois any objections to this patch?
 
-Thanks.  The problem was that in init_queues(), the dma_pool_create()
-call requires a non-null dev.
+None.
 
-  dma_pool = dma_pool_create(DRV_NAME, ??, ...);
+I have almost surely broken via-rhine with NOHZ as I broke the r8169
+driver before 7dbb491878a2c51d372a8890fa45a8ff80358af1. Something like
+the patch below could be needed as well (quick shot before bed time
+and ~24h delay if Jamie wants to try something now).
 
-What do you think would work here?
+diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/ethernet/via/via-rhine.c
+index 7992b3e..5c7e900 100644
+--- a/drivers/net/ethernet/via/via-rhine.c
++++ b/drivers/net/ethernet/via/via-rhine.c
+@@ -2010,11 +2010,7 @@ static void rhine_slow_event_task(struct work_struct *work)
+ 	if (intr_status & IntrPCIErr)
+ 		netif_warn(rp, hw, dev, "PCI error\n");
+ 
+-	napi_disable(&rp->napi);
+-	rhine_irq_disable(rp);
+-	/* Slow and safe. Consider __napi_schedule as a replacement ? */
+-	napi_enable(&rp->napi);
+-	napi_schedule(&rp->napi);
++	iowrite16(RHINE_EVENT & 0xffff, rp->base + IntrEnable);
+ 
+ out_unlock:
+ 	mutex_unlock(&rp->task_lock);
