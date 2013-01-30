@@ -1,60 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 3.7.5:  lockdep disabled, then crash in skb_queue_tail.
-Date: Tue, 29 Jan 2013 22:20:01 -0800
-Message-ID: <5108BB91.6070308@candelatech.com>
-References: <5108B11F.2080803@candelatech.com>
+From: Oliver Neukum <oliver@neukum.org>
+Subject: Re: [PATCH net v2] net: usbnet: prevent buggy devices from killing us
+Date: Wed, 30 Jan 2013 08:44:35 +0100
+Message-ID: <1784756.y7ETz6QMlb@linux-5eaq.site>
+References: <1359453088-12370-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Joe Perches <joe@perches.com>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:39205 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140Ab3A3GUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 01:20:07 -0500
-Received: from [50.54.140.2] (50-54-140-2.evrt.wa.frontiernet.net [50.54.140.2])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r0U6K66W000525
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 22:20:07 -0800
-In-Reply-To: <5108B11F.2080803@candelatech.com>
+Received: from smtp-out002.kontent.com ([81.88.40.216]:52312 "EHLO
+	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029Ab3A3Hof convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 02:44:35 -0500
+In-Reply-To: <1359453088-12370-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/29/2013 09:35 PM, Ben Greear wrote:
-> This is from a slightly modified 3.7.5 kernel.
->
-> Test case is 2 VAPs, 10 wifi stations, some 'veth' interfaces, etc.  This
-> appeared to happen during configuration of the interfaces, right after
-> system boot.
->
-> It seems impossible that the skb is null, but maybe it's some general
-> corrupted memory bug or something...gah!
+On Tuesday 29 January 2013 10:51:28 Bj=F8rn Mork wrote:
+> A device sending 0 length frames as fast as it can has been
+> observed killing the host system due to the resulting memory
+> pressure.
+>=20
+> Temporarily disable RX skb allocation and URB submission when
+> the current error ratio is high, preventing us from trying to
+> allocate an infinite number of skbs.  Reenable as soon as we
+> are finished processing the done queue, allowing the device
+> to continue working after short error bursts.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+Acked-by: Oliver Neukum <oneukum@suse.de>
 
-This was probably caused by the bug already fixed by the commit below.
-Seems this just hasn't quite made it to the -stable release yet....
+> ---
+> v2 changes:
+>  - reset counters in open to avoid starting in previous error state
+>  - remove superfluous debug logging.  Errors are logged per packet
+>    when debugging is on anyway.
+>=20
+> The removal of the debug logging should address your concerns, Joe?
+>=20
+> Note that I have not added any new device reset or the like, Oliver. =
+ It
+> does not seem to help for the device I am testing.  And being a compo=
+site
 
+Well, this is a very buggy firmware.
 
-commit 1adb2e2b5f85023d17eb4f95386a57029df27c88
-Author: Felix Fietkau <nbd@openwrt.org>
-Date:   Wed Jan 9 16:16:53 2013 +0100
+> device, where this bug only affects *one* function, I do not think it
+> would be appropriate even if it did help.  Note that the device may b=
+e
 
-     ath9k: fix double-free bug on beacon generate failure
+Reset is used by storage and HID whether the device is composite
+or not.
+But if reset doesn't actually work, the point is moot.
 
-     When the next beacon is sent, the ath_buf from the previous run is reused.
-     If getting a new beacon from mac80211 fails, bf->bf_mpdu is not reset, yet
-     the skb is freed, leading to a double-free on the next beacon tx attempt,
-     resulting in a system crash.
-
-     Cc: stable@vger.kernel.org
-     Signed-off-by: Felix Fietkau <nbd@openwrt.org>
-     Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-I've added this patch and will continue to test...
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+	Regards
+		Oliver
