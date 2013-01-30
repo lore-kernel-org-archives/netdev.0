@@ -1,51 +1,93 @@
-From: Troy Kisky <troy.kisky@boundarydevices.com>
-Subject: Re: i.Mx6Quad - eth0: tx queue full!
-Date: Wed, 30 Jan 2013 14:04:36 -0700
-Message-ID: <51098AE4.5030305@boundarydevices.com>
-References: <5106B7EE.3040603@gmail.com> <5106D5D4.2090200@boundarydevices.com> <5107FA00.2010809@gmail.com> <51081910.4030707@boundarydevices.com> <51093882.2060700@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] netpoll: protect napi_poll and poll_controller during
+ dev_[open|close]
+Date: Wed, 30 Jan 2013 21:07:22 +0000
+Message-ID: <1359580042.2789.53.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1359578665-29248-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LAK <linux-arm-kernel@lists.infradead.org>,
-	Fabio Estevam <festevam@gmail.com>
-To: Vikram Narayanan <vikram186@gmail.com>
+Cc: <netdev@vger.kernel.org>, Ivan Vecera <ivecera@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:63483 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753400Ab3A3VEj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 16:04:39 -0500
-Received: by mail-pa0-f54.google.com with SMTP id bi5so1306864pad.27
-        for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 13:04:39 -0800 (PST)
-In-Reply-To: <51093882.2060700@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:22732 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753400Ab3A3VH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 16:07:26 -0500
+In-Reply-To: <1359578665-29248-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/2013 8:13 AM, Vikram Narayanan wrote:
-> On 1/30/2013 12:16 AM, Troy Kisky wrote:
->> I have fixed this bug (and more) on Freescale's kernel
->> (imx-3.0.35_1.1.0). I created a branch you can try.
->> Feel free to port to mainline.
-> Thanks a lot for the branch. I saw a lot of differences between
-> your driver and the mainline. I should spend some time If I had
-> to port this to mainline.
->   
->> This is the patch that should fix your problem
->> fec: clear TX_FULL in fec_restart
->>
->>
->> Please let me know results.
-> When NAPI is disabled I saw a severe packet loss
-> (around 40% in a flood ping) which spitted out this,
->
-> [  470.390928] net eth0: missed rxf 2000000 1c000000 0
-> [  470.419098] net eth0: missed rxf 2000000 1c000000 0
-> [  470.443800] net eth0: missed rxf 2000000 1c000000 0
-> [  470.450315] net eth0: missed rxf 2000000 1c000000 0
->
-> When NAPI is enabled, it was working good. Though it
-> resulted in the same error, it recovered by itself,
-> which is perfectly fine for me. :)
->
+On Wed, 2013-01-30 at 15:44 -0500, Neil Horman wrote:
+> Ivan Vercera was recently backporting commit
+> 9c13cb8bb477a83b9a3c9e5a5478a4e21294a760 to a RHEL kernel, and I noticed that,
+> while this patch protects the tg3 driver from having its ndo_poll_controller
+> routine called during device initalization, it does nothing for the driver
+> during shutdown. I.e. it would be entirely possible to have the
+> ndo_poll_controller method (or subsequently the ndo_poll) routine called for a
+> driver in the netpoll path on CPU A while in parallel on CPU B, the ndo_close or
+> ndo_open routine could be called.  Given that the two latter routines tend to
+> initizlize and free many data structures that the former two rely on, the result
+> can easily be data corruption or various other crashes.  Furthermore, it seems
+> that this is potentially a problem with all net drivers that support netpoll,
+> and so this should ideally be fixed in a common path.
+> 
+> Fix it by creating a spinlock in the netpoll_info structure, and holding it on
+> netpoll_poll_dev, and in dev_close and dev_open.  That will prevent the driver
+> from getting torn down while we're using it in the netpoll path
+> 
+> I've done some testing on this, flooding a netconsole enabled system with
+> messages and ifup/downing the interface. No problems observed
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> CC: Ivan Vecera <ivecera@redhat.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> ---
+>  include/linux/netpoll.h |  1 +
+>  net/core/dev.c          | 16 ++++++++++++++++
+>  net/core/netpoll.c      |  3 +++
+>  3 files changed, 20 insertions(+)
+> 
+> diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
+> index f54c3bb..bb1d364 100644
+> --- a/include/linux/netpoll.h
+> +++ b/include/linux/netpoll.h
+> @@ -40,6 +40,7 @@ struct netpoll_info {
+>  
+>  	int rx_flags;
+>  	spinlock_t rx_lock;
+> +	spinlock_t napi_lock;
+>  	struct list_head rx_np; /* netpolls that registered an rx_hook */
+>  
+>  	struct sk_buff_head neigh_tx; /* list of neigh requests to reply to */
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index a87bc74..18f85e1 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1307,11 +1307,19 @@ static int __dev_open(struct net_device *dev)
+>  int dev_open(struct net_device *dev)
+>  {
+>  	int ret;
+> +	struct netpoll_info *ni;
+>  
+>  	if (dev->flags & IFF_UP)
+>  		return 0;
+>  
+> +	rcu_read_lock();
+> +	ni = rcu_dereference(dev->npinfo);
+> +	if (ni)
+> +		spin_lock(&ni->napi_lock);
+>  	ret = __dev_open(dev);
+> +	if (ni)
+> +		spin_unlock(&ni->napi_lock);
+[...]
 
-You'll also have better performance if you pass "enable_wait_mode=off" 
-in bootargs.
+No, you can't call ndo_open and ndo_stop in atomic context.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
