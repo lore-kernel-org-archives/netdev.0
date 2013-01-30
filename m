@@ -1,59 +1,38 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH net v2] net: usbnet: prevent buggy devices from killing us
-Date: Wed, 30 Jan 2013 08:44:35 +0100
-Message-ID: <1784756.y7ETz6QMlb@linux-5eaq.site>
-References: <1359453088-12370-1-git-send-email-bjorn@mork.no>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] nl80211: avoid "wdev_id may be used uninitialized"
+Date: Wed, 30 Jan 2013 08:57:59 +0100
+Message-ID: <1359532679.8010.1.camel@jlt4.sipsolutions.net>
+References: <1359504662-23561-1-git-send-email-swarren@wwwdotorg.org>
+	 (sfid-20130130_011118_335925_03B80596)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Joe Perches <joe@perches.com>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out002.kontent.com ([81.88.40.216]:52312 "EHLO
-	smtp-out002.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029Ab3A3Hof convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 02:44:35 -0500
-In-Reply-To: <1359453088-12370-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Stephen Warren <swarren@nvidia.com>
+To: Stephen Warren <swarren@wwwdotorg.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1359504662-23561-1-git-send-email-swarren@wwwdotorg.org> (sfid-20130130_011118_335925_03B80596)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 29 January 2013 10:51:28 Bj=F8rn Mork wrote:
-> A device sending 0 length frames as fast as it can has been
-> observed killing the host system due to the resulting memory
-> pressure.
->=20
-> Temporarily disable RX skb allocation and URB submission when
-> the current error ratio is high, preventing us from trying to
-> allocate an infinite number of skbs.  Reenable as soon as we
-> are finished processing the done queue, allowing the device
-> to continue working after short error bursts.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-Acked-by: Oliver Neukum <oneukum@suse.de>
+On Tue, 2013-01-29 at 17:11 -0700, Stephen Warren wrote:
+> From: Stephen Warren <swarren@nvidia.com>
+> 
+> Silence the following:
+> net/wireless/nl80211.c: In function '__cfg80211_wdev_from_attrs.clone.119':
+> net/wireless/nl80211.c:57:6: warning: 'wdev_id' may be used uninitialized in this function
+> 
+> ... by always initializing wdev_id to zero. I assume that wiphy_idx and
+> ifidx are set to -1 for similar reasons, so this change simply propagates
+> the same workaround.
+> 
+> In practice, this warning is false, since wdev_id is both set and used
+> under the condition if (have_wdev_id). However, at least my compiler
+> can't be coerced into realizing this; almost any code between the if
+> blocks that set and use the variable causes this warning.
 
-> ---
-> v2 changes:
->  - reset counters in open to avoid starting in previous error state
->  - remove superfluous debug logging.  Errors are logged per packet
->    when debugging is on anyway.
->=20
-> The removal of the debug logging should address your concerns, Joe?
->=20
-> Note that I have not added any new device reset or the like, Oliver. =
- It
-> does not seem to help for the device I am testing.  And being a compo=
-site
+I don't see this warning? What compiler are you using?
 
-Well, this is a very buggy firmware.
-
-> device, where this bug only affects *one* function, I do not think it
-> would be appropriate even if it did help.  Note that the device may b=
-e
-
-Reset is used by storage and HID whether the device is composite
-or not.
-But if reset doesn't actually work, the point is moot.
-
-	Regards
-		Oliver
+johannes
