@@ -1,95 +1,77 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/13] ixgbe: Reset the NIC if up2tc has changed
-Date: Wed, 30 Jan 2013 03:44:34 -0800
-Message-ID: <1359546286-18179-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/13] e1000e: cleanup defines.h
+Date: Wed, 30 Jan 2013 03:44:41 -0800
+Message-ID: <1359546286-18179-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15037 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:43883 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754504Ab3A3Loz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 06:44:55 -0500
+	id S1755457Ab3A3LpB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 06:45:01 -0500
 In-Reply-To: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Hanania <amir.hanania@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Check for up2tc change and call ixgbe_dcbnl_devreset() if the mapping has
-changed but the number of TC's in use has not changed.
+Remove redundant defines which are defined elsewhere.
 
-Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-Tested-by: Jack Morgan <jack.morgan@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/defines.h | 21 ---------------------
+ 1 file changed, 21 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 6718fb4..c261333 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -302,7 +302,6 @@ static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
- 	*setting = adapter->dcb_cfg.tc_config[priority].dcb_pfc;
- }
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index d29b2fd..acfe1fa 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -29,25 +29,6 @@
+ #ifndef _E1000_DEFINES_H_
+ #define _E1000_DEFINES_H_
  
--#ifdef IXGBE_FCOE
- static void ixgbe_dcbnl_devreset(struct net_device *dev)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
-@@ -321,7 +320,6 @@ static void ixgbe_dcbnl_devreset(struct net_device *dev)
+-#define E1000_TXD_POPTS_IXSM 0x01       /* Insert IP checksum */
+-#define E1000_TXD_POPTS_TXSM 0x02       /* Insert TCP/UDP checksum */
+-#define E1000_TXD_CMD_EOP    0x01000000 /* End of Packet */
+-#define E1000_TXD_CMD_IFCS   0x02000000 /* Insert FCS (Ethernet CRC) */
+-#define E1000_TXD_CMD_IC     0x04000000 /* Insert Checksum */
+-#define E1000_TXD_CMD_RS     0x08000000 /* Report Status */
+-#define E1000_TXD_CMD_RPS    0x10000000 /* Report Packet Sent */
+-#define E1000_TXD_CMD_DEXT   0x20000000 /* Descriptor extension (0 = legacy) */
+-#define E1000_TXD_CMD_VLE    0x40000000 /* Add VLAN tag */
+-#define E1000_TXD_CMD_IDE    0x80000000 /* Enable Tidv register */
+-#define E1000_TXD_STAT_DD    0x00000001 /* Descriptor Done */
+-#define E1000_TXD_STAT_EC    0x00000002 /* Excess Collisions */
+-#define E1000_TXD_STAT_LC    0x00000004 /* Late Collisions */
+-#define E1000_TXD_STAT_TU    0x00000008 /* Transmit underrun */
+-#define E1000_TXD_CMD_TCP    0x01000000 /* TCP packet */
+-#define E1000_TXD_CMD_IP     0x02000000 /* IP packet */
+-#define E1000_TXD_CMD_TSE    0x04000000 /* TCP Seg enable */
+-#define E1000_TXD_STAT_TC    0x00000004 /* Tx Underrun */
+-
+ /* Number of Transmit and Receive Descriptors must be a multiple of 8 */
+ #define REQ_TX_DESCRIPTOR_MULTIPLE  8
+ #define REQ_RX_DESCRIPTOR_MULTIPLE  8
+@@ -86,7 +67,6 @@
+ #define E1000_CTRL_EXT_EIAME          0x01000000
+ #define E1000_CTRL_EXT_DRV_LOAD       0x10000000 /* Driver loaded bit for FW */
+ #define E1000_CTRL_EXT_IAME           0x08000000 /* Interrupt acknowledge Auto-mask */
+-#define E1000_CTRL_EXT_INT_TIMER_CLR  0x20000000 /* Clear Interrupt timers after IMS clear */
+ #define E1000_CTRL_EXT_PBA_CLR        0x80000000 /* PBA Clear */
+ #define E1000_CTRL_EXT_LSECCK         0x00001000
+ #define E1000_CTRL_EXT_PHYPDEN        0x00100000
+@@ -546,7 +526,6 @@
+ #define E1000_RXCW_SYNCH      0x40000000        /* Receive config synch */
  
- 	clear_bit(__IXGBE_RESETTING, &adapter->state);
- }
--#endif
+ #define E1000_TSYNCTXCTL_VALID		0x00000001 /* Tx timestamp valid */
+-#define E1000_TSYNCRXCTL_TYPE_ALL	0x08
+ #define E1000_TSYNCTXCTL_ENABLED	0x00000010 /* enable Tx timestamping */
  
- static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- {
-@@ -542,6 +540,7 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
- 	int i, err = 0;
- 	__u8 max_tc = 0;
-+	__u8 map_chg = 0;
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
- 		return -EINVAL;
-@@ -551,15 +550,22 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 						  GFP_KERNEL);
- 		if (!adapter->ixgbe_ieee_ets)
- 			return -ENOMEM;
--	}
- 
--	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
-+		/* initialize UP2TC mappings to invalid value */
-+		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
-+			adapter->ixgbe_ieee_ets->prio_tc[i] =
-+				IEEE_8021QAZ_MAX_TCS;
-+	}
- 
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
- 		if (ets->prio_tc[i] > max_tc)
- 			max_tc = ets->prio_tc[i];
-+		if (ets->prio_tc[i] != adapter->ixgbe_ieee_ets->prio_tc[i])
-+			map_chg = 1;
- 	}
- 
-+	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
-+
- 	if (max_tc)
- 		max_tc++;
- 
-@@ -568,6 +574,8 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 
- 	if (max_tc != netdev_get_num_tc(dev))
- 		err = ixgbe_setup_tc(dev, max_tc);
-+	else if (map_chg)
-+		ixgbe_dcbnl_devreset(dev);
- 
- 	if (err)
- 		goto err_out;
+ #define E1000_TSYNCRXCTL_VALID		0x00000001 /* Rx timestamp valid */
 -- 
 1.7.11.7
