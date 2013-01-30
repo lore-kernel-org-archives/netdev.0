@@ -1,217 +1,187 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v2 2/2] drivers: net:ethernet: cpsw: add support for VLAN
-Date: Thu, 31 Jan 2013 00:37:35 +0530
-Message-ID: <1359572855-12344-3-git-send-email-mugunthanvnm@ti.com>
-References: <1359572855-12344-1-git-send-email-mugunthanvnm@ti.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [patch net-next V4] bond: have random dev address by default instead of zeroes
+Date: Wed, 30 Jan 2013 11:19:53 -0800
+Message-ID: <17070.1359573593@death.nxdomain>
+References: <1359540491-768-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
+	stephen@networkplumber.org, psimerda@redhat.com, dcbw@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:42185 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755596Ab3A3THt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 14:07:49 -0500
-In-Reply-To: <1359572855-12344-1-git-send-email-mugunthanvnm@ti.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:58883 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756745Ab3A3TUV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 14:20:21 -0500
+Received: from /spool/local
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Wed, 30 Jan 2013 12:20:21 -0700
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 82E4019D803E
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 12:20:15 -0700 (MST)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r0UJK1HL083134
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 12:20:02 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r0UJJuDJ031189
+	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 12:19:57 -0700
+In-reply-to: <1359540491-768-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-adding support for VLAN interface for cpsw.
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-CPSW VLAN Capability
-* Can filter VLAN packets in Hardware
+>Makes more sense to have randomly generated address by default than to
+>have all zeroes. It also allows user to for example put the bond into
+>bridge without need to have any slaves in it.
+>
+>Also note that this changes only behaviour of bonds with no slaves. On=
+ce
+>the first slave device is enslaved, its address will be used (no chang=
+e
+>here).
+>
+>Also, fix dev_assign_type values on the way.
+>
+>Reported-by: Pavel =C5=A0imerda <psimerda@redhat.com>
+>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- Documentation/devicetree/bindings/net/cpsw.txt |    2 +
- drivers/net/ethernet/ti/cpsw.c                 |   92 +++++++++++++++++++++++-
- include/linux/platform_data/cpsw.h             |    1 +
- 3 files changed, 93 insertions(+), 2 deletions(-)
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 6ddd028..99696bf 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -24,6 +24,8 @@ Required properties:
- Optional properties:
- - ti,hwmods		: Must be "cpgmac0"
- - no_bd_ram		: Must be 0 or 1
-+- default_vlan		: Specifies Default VLAN for non tagged packets
-+			  ALE processing
- 
- Note: "ti,hwmods" field is used to fetch the base address and irq
- resources from TI, omap hwmod data base during device registration.
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index a40750e..6c66f01 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -32,6 +32,7 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- #include <linux/of_device.h>
-+#include <linux/if_vlan.h>
- 
- #include <linux/platform_data/cpsw.h>
- 
-@@ -118,6 +119,9 @@ do {								\
- #define TX_PRIORITY_MAPPING	0x33221100
- #define CPDMA_TX_PRIORITY_MAP	0x76543210
- 
-+#define CPSW_VLAN_AWARE		BIT(1)
-+#define CPSW_ALE_VLAN_AWARE	1
-+
- #define cpsw_enable_irq(priv)	\
- 	do {			\
- 		u32 i;		\
-@@ -607,14 +611,41 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 	}
- }
- 
-+static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
-+{
-+	writel(priv->data.default_vlan, &priv->host_port_regs->port_vlan);
-+	if (priv->version == CPSW_VERSION_1) {
-+		slave_write(&priv->slaves[0], priv->data.default_vlan,
-+			    CPSW1_PORT_VLAN);
-+		slave_write(&priv->slaves[1], priv->data.default_vlan,
-+			    CPSW1_PORT_VLAN);
-+	} else {
-+		slave_write(&priv->slaves[0], priv->data.default_vlan,
-+			    CPSW2_PORT_VLAN);
-+		slave_write(&priv->slaves[1], priv->data.default_vlan,
-+			    CPSW2_PORT_VLAN);
-+	}
-+	cpsw_ale_add_vlan(priv->ale, priv->data.default_vlan,
-+			ALE_ALL_PORTS << priv->host_port,
-+			ALE_ALL_PORTS << priv->host_port,
-+			ALE_ALL_PORTS << priv->host_port,
-+			(BIT(1) | BIT(2)) << priv->host_port);
-+}
-+
- static void cpsw_init_host_port(struct cpsw_priv *priv)
- {
-+	u32 control_reg;
-+
- 	/* soft reset the controller and initialize ale */
- 	soft_reset("cpsw", &priv->regs->soft_reset);
- 	cpsw_ale_start(priv->ale);
- 
- 	/* switch to vlan unaware mode */
--	cpsw_ale_control_set(priv->ale, 0, ALE_VLAN_AWARE, 0);
-+	cpsw_ale_control_set(priv->ale, priv->host_port, ALE_VLAN_AWARE,
-+			     CPSW_ALE_VLAN_AWARE);
-+	control_reg = readl(&priv->regs->control);
-+	control_reg |= CPSW_VLAN_AWARE;
-+	writel(control_reg, &priv->regs->control);
- 
- 	/* setup host port priority mapping */
- 	__raw_writel(CPDMA_TX_PRIORITY_MAP,
-@@ -650,6 +681,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	cpsw_init_host_port(priv);
- 	for_each_slave(priv, cpsw_slave_open, priv);
- 
-+	/* Add default VLAN */
-+	cpsw_add_default_vlan(priv);
-+
- 	/* setup tx dma to fixed prio and zero offset */
- 	cpdma_control_set(priv->dma, CPDMA_TX_PRIO_FIXED, 1);
- 	cpdma_control_set(priv->dma, CPDMA_RX_BUFFER_OFFSET, 0);
-@@ -933,6 +967,55 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
- }
- #endif
- 
-+static inline void cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
-+				unsigned short vid)
-+{
-+	cpsw_ale_add_vlan(priv->ale, vid, ALE_ALL_PORTS << priv->host_port,
-+			0, ALE_ALL_PORTS << priv->host_port,
-+			(BIT(1) | BIT(2)) << priv->host_port);
-+	cpsw_ale_add_ucast(priv->ale, priv->mac_addr,
-+			priv->host_port, ALE_VLAN, vid);
-+	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
-+			ALE_ALL_PORTS << priv->host_port, ALE_VLAN, vid, 0);
-+}
-+
-+static int cpsw_ndo_vlan_rx_add_vid(struct net_device *ndev,
-+		unsigned short vid)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+
-+	if (vid == priv->data.default_vlan)
-+		return 0;
-+
-+	spin_lock(&priv->lock);
-+
-+	dev_info(priv->dev, "Adding vlanid %d to vlan filter\n", vid);
-+	cpsw_add_vlan_ale_entry(priv, vid);
-+
-+	spin_unlock(&priv->lock);
-+	return 0;
-+}
-+
-+static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
-+		unsigned short vid)
-+{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+
-+	if (vid == priv->data.default_vlan)
-+		return 0;
-+
-+	spin_lock(&priv->lock);
-+
-+	dev_info(priv->dev, "removing vlanid %d from vlan filter\n", vid);
-+	cpsw_ale_del_vlan(priv->ale, vid, 0);
-+	cpsw_ale_del_ucast(priv->ale, priv->mac_addr,
-+			   priv->host_port, ALE_VLAN, vid);
-+	cpsw_ale_del_mcast(priv->ale, priv->ndev->broadcast, 0, ALE_VLAN, vid);
-+
-+	spin_unlock(&priv->lock);
-+	return 0;
-+}
-+
- static const struct net_device_ops cpsw_netdev_ops = {
- 	.ndo_open		= cpsw_ndo_open,
- 	.ndo_stop		= cpsw_ndo_stop,
-@@ -947,6 +1030,8 @@ static const struct net_device_ops cpsw_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= cpsw_ndo_poll_controller,
- #endif
-+	.ndo_vlan_rx_add_vid	= cpsw_ndo_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid	= cpsw_ndo_vlan_rx_kill_vid,
- };
- 
- static void cpsw_get_drvinfo(struct net_device *ndev,
-@@ -1103,6 +1188,9 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->mac_control = prop;
- 
-+	if (!of_property_read_u32(node, "default_vlan", &prop))
-+		data->default_vlan = prop;
-+
- 	/*
- 	 * Populate all the child nodes here...
- 	 */
-@@ -1356,7 +1444,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		k++;
- 	}
- 
--	ndev->flags |= IFF_ALLMULTI;	/* see cpsw_ndo_change_rx_flags() */
-+	ndev->features |= NETIF_F_HW_VLAN_FILTER;
- 
- 	ndev->netdev_ops = &cpsw_netdev_ops;
- 	SET_ETHTOOL_OPS(ndev, &cpsw_ethtool_ops);
-diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
-index 24368a2..e962cfd 100644
---- a/include/linux/platform_data/cpsw.h
-+++ b/include/linux/platform_data/cpsw.h
-@@ -35,6 +35,7 @@ struct cpsw_platform_data {
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
- 	u32	rx_descs;	/* Number of Rx Descriptios */
- 	u32	mac_control;	/* Mac control register */
-+	u16	default_vlan;	/* Def VLAN for ALE lookup in VLAN aware mode*/
- };
- 
- #endif /* __CPSW_H__ */
--- 
-1.7.9.5
+>---
+>v3->v4:
+>- %s/get_dev_addr_from_first_slave/dev_addr_from_first/
+>v2->v3:
+>- call_netdevice_notifiers is called after dev_addr change.
+>- use bond->get_dev_addr_from_first_slave to know when to get addr fro=
+m the
+>  first slave
+>v1->v2:
+>- fixed assign value of bond_dev->addr_assign_type in bond_set_dev_add=
+r()
+>- added note to patch description
+>
+> drivers/net/bonding/bond_main.c | 38 +++++++++++++++++++-------------=
+------
+> drivers/net/bonding/bonding.h   |  1 +
+> 2 files changed, 20 insertions(+), 19 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bon=
+d_main.c
+>index 564cf42..b38c9bf 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -1320,14 +1320,15 @@ static void bond_netpoll_cleanup(struct net_de=
+vice *bond_dev)
+>
+> /*---------------------------------- IOCTL --------------------------=
+--------*/
+>
+>-static int bond_sethwaddr(struct net_device *bond_dev,
+>-			  struct net_device *slave_dev)
+>+static void bond_set_dev_addr(struct net_device *bond_dev,
+>+			      struct net_device *slave_dev)
+> {
+> 	pr_debug("bond_dev=3D%p\n", bond_dev);
+> 	pr_debug("slave_dev=3D%p\n", slave_dev);
+> 	pr_debug("slave_dev->addr_len=3D%d\n", slave_dev->addr_len);
+> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len)=
+;
+>-	return 0;
+>+	bond_dev->addr_assign_type =3D NET_ADDR_SET;
+>+	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
+> }
+>
+> static netdev_features_t bond_fix_features(struct net_device *dev,
+>@@ -1628,10 +1629,8 @@ int bond_enslave(struct net_device *bond_dev, s=
+truct net_device *slave_dev)
+>
+> 	/* If this is the first slave, then we need to set the master's hard=
+ware
+> 	 * address to be the same as the slave's. */
+>-	if (is_zero_ether_addr(bond->dev->dev_addr))
+>-		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
+>-		       slave_dev->addr_len);
+>-
+>+	if (bond->dev_addr_from_first)
+>+		bond_set_dev_addr(bond->dev, slave_dev);
+>
+> 	new_slave =3D kzalloc(sizeof(struct slave), GFP_KERNEL);
+> 	if (!new_slave) {
+>@@ -2048,12 +2047,8 @@ int bond_release(struct net_device *bond_dev, s=
+truct net_device *slave_dev)
+>
+> 	if (bond->slave_cnt =3D=3D 0) {
+> 		bond_set_carrier(bond);
+>-
+>-		/* if the last slave was removed, zero the mac address
+>-		 * of the master so it will be set by the application
+>-		 * to the mac address of the first slave
+>-		 */
+>-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+>+		eth_hw_addr_random(bond_dev);
+>+		bond->dev_addr_from_first =3D true;
+>
+> 		if (bond_vlan_used(bond)) {
+> 			pr_warning("%s: Warning: clearing HW address of %s while it still =
+has VLANs.\n",
+>@@ -2234,11 +2229,8 @@ static int bond_release_all(struct net_device *=
+bond_dev)
+> 		write_lock_bh(&bond->lock);
+> 	}
+>
+>-	/* zero the mac address of the master so it will be
+>-	 * set by the application to the mac address of the
+>-	 * first slave
+>-	 */
+>-	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
+>+	eth_hw_addr_random(bond_dev);
+>+	bond->dev_addr_from_first =3D true;
+>
+> 	if (bond_vlan_used(bond)) {
+> 		pr_warning("%s: Warning: clearing HW address of %s while it still h=
+as VLANs.\n",
+>@@ -3708,7 +3700,8 @@ static int bond_do_ioctl(struct net_device *bond=
+_dev, struct ifreq *ifr, int cmd
+> 			break;
+> 		case BOND_SETHWADDR_OLD:
+> 		case SIOCBONDSETHWADDR:
+>-			res =3D bond_sethwaddr(bond_dev, slave_dev);
+>+			bond_set_dev_addr(bond_dev, slave_dev);
+>+			res =3D 0;
+> 			break;
+> 		case BOND_CHANGE_ACTIVE_OLD:
+> 		case SIOCBONDCHANGEACTIVE:
+>@@ -4858,6 +4851,13 @@ static int bond_init(struct net_device *bond_de=
+v)
+>
+> 	bond_debug_register(bond);
+>
+>+	/* Ensure valid dev_addr */
+>+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
+>+	    bond_dev->addr_assign_type =3D=3D NET_ADDR_PERM) {
+>+		eth_hw_addr_random(bond_dev);
+>+		bond->dev_addr_from_first =3D true;
+>+	}
+>+
+> 	__hw_addr_init(&bond->mc_list);
+> 	return 0;
+> }
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondi=
+ng.h
+>index 0d282d2..2baec24 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -248,6 +248,7 @@ struct bonding {
+> 	/* debugging support via debugfs */
+> 	struct	 dentry *debug_dir;
+> #endif /* CONFIG_DEBUG_FS */
+>+	bool	dev_addr_from_first;
+> };
+>
+> static inline bool bond_vlan_used(struct bonding *bond)
+>--=20
+>1.8.1
+>
