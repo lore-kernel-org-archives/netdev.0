@@ -1,63 +1,84 @@
-From: Yan Burman <yanb@mellanox.com>
-Subject: [PATCH net-next] net/vxlan: Add ethtool drvinfo
-Date: Wed, 30 Jan 2013 11:43:07 +0200
-Message-ID: <1359538987-17659-1-git-send-email-yanb@mellanox.com>
-Cc: Yan Burman <yanb@mellanox.com>
-To: netdev@vger.kernel.org, shemminger@vyatta.com
+From: Tom Parkin <tparkin@katalix.com>
+Subject: Re: kmemleak complaints in ip6mr.c
+Date: Wed, 30 Jan 2013 09:49:28 +0000
+Message-ID: <20130130094928.GA2519@raven>
+References: <20130129185127.GA31811@raven>
+ <20130129.135906.1332264867631483230.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="3V7upXqbjpZ4EhLz"
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:56291 "HELO
-	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754183Ab3A3JnP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 04:43:15 -0500
+Received: from katalix.com ([82.103.140.233]:40073 "EHLO mail.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754437Ab3A3Jtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 04:49:36 -0500
+Content-Disposition: inline
+In-Reply-To: <20130129.135906.1332264867631483230.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement ethtool get_drvinfo.
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
----
- drivers/net/vxlan.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+--3V7upXqbjpZ4EhLz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 656230e..72485b9 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -29,6 +29,7 @@
- #include <linux/etherdevice.h>
- #include <linux/if_ether.h>
- #include <linux/hash.h>
-+#include <linux/ethtool.h>
- #include <net/arp.h>
- #include <net/ndisc.h>
- #include <net/ip.h>
-@@ -1271,6 +1272,18 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
- 	return 0;
- }
- 
-+static void vxlan_get_drvinfo(struct net_device *netdev,
-+			      struct ethtool_drvinfo *drvinfo)
-+{
-+	strlcpy(drvinfo->version, VXLAN_VERSION, sizeof(drvinfo->version));
-+	strlcpy(drvinfo->driver, "vxlan", sizeof(drvinfo->driver));
-+}
-+
-+static const struct ethtool_ops vxlan_ethtool_ops = {
-+	.get_drvinfo	= vxlan_get_drvinfo,
-+	.get_link	= ethtool_op_get_link,
-+};
-+
- static int vxlan_newlink(struct net *net, struct net_device *dev,
- 			 struct nlattr *tb[], struct nlattr *data[])
- {
-@@ -1348,6 +1361,8 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		vxlan->port_max = ntohs(p->high);
- 	}
- 
-+	SET_ETHTOOL_OPS(dev, &vxlan_ethtool_ops);
-+
- 	err = register_netdevice(dev);
- 	if (!err)
- 		hlist_add_head_rcu(&vxlan->hlist, vni_head(net, vxlan->vni));
--- 
-1.7.11.3
+On Tue, Jan 29, 2013 at 01:59:06PM -0500, David Miller wrote:
+> From: Tom Parkin <tparkin@katalix.com>
+> Date: Tue, 29 Jan 2013 18:51:27 +0000
+>=20
+> > I've discovered what may be a memory leak in ip6mr when using network
+> > namespaces.  Here's the kmemleak backtrace:
+> >=20
+> >=20
+> > unreferenced object 0xf0d4a180 (size 96):
+> >   comm "ip", pid 6735, jiffies 4294949643 (age 73.268s)
+> >   hex dump (first 32 bytes):
+> >     68 a1 d4 f0 00 02 20 00 01 00 00 00 00 00 00 00  h..... .........
+> >     00 00 00 00 00 00 00 00 00 00 00 00 ff 7f 00 00  ................
+> >   backtrace:
+> >     [<c159b50c>] kmemleak_alloc+0x2c/0x60
+> >     [<c1139c23>] __kmalloc+0x1c3/0x240
+> >     [<c14e2627>] fib_default_rule_add+0x27/0x70
+> >     [<c157f8df>] ip6mr_net_init+0x6f/0x140
+> >     [<c14c4129>] ops_init+0x39/0x110
+> >     [<c14c425f>] setup_net+0x5f/0xf0
+> >     [<c14c46e4>] copy_net_ns+0x74/0xf0
+> >     [<c105fc81>] create_new_namespaces+0xd1/0x160
+> >     [<c105fedf>] unshare_nsproxy_namespaces+0x5f/0xa0
+> >     [<c1038a94>] sys_unshare+0x114/0x280
+> >     [<c15b7ecd>] sysenter_do_call+0x12/0x28
+> >     [<ffffffff>] 0xffffffff
+>=20
+> How is this memory unreferenced?  fib_rule_default_add() adds
+> the allocated object to the ops->rules_list as it's very last
+> action.
+
+I think it should be freed by ip6mr_rules_exit() when the namespace is
+destroyed.  That function calls fib_rules_unregister() on the stashed
+ops pointer in net->ipv6.mr6_rules_ops.
+--=20
+Tom Parkin
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
+--3V7upXqbjpZ4EhLz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJRCOyoAAoJEJSMBmUKuovQ8JcIAMTC62gwAKPddSU9oZODDNaQ
+1L1/1TlFHjowO6fymiSXnwz0Ib2iEERGxD4STqY4wtO+T1ve0Le6B+uXLphUMrML
+9sT9G/4T5c7tfPHKk7fJDqcIzjEOpl33ue/jngVXejyFw9aoBEHu6EGhWhxH3U1r
+jcca4/fb0HWLf8VpAzURsdhNgtIDWjoAGnqsvlorgp1vuyjRGpFExA5hmAu6zwjj
+lA4fHGOcjlo6iw+4cnwBR2LRPjzVjYQydkvtOv1iYxOSU3RA+UHUeHOWWyqSenc6
+bohxcGxNo55zqY6IFy17DjFdt74OceZNCHTTDj7cWqXO56r7R2Ssn63J0ZQOUmM=
+=Jadv
+-----END PGP SIGNATURE-----
+
+--3V7upXqbjpZ4EhLz--
