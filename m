@@ -1,87 +1,107 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates 2013.01.30
-Date: Wed, 30 Jan 2013 03:44:33 -0800
-Message-ID: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 03/13] ixgbe: Add debug counters for Tx Encap CSUM
+Date: Wed, 30 Jan 2013 03:44:36 -0800
+Message-ID: <1359546286-18179-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:15037 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:10259 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754213Ab3A3Loz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 06:44:55 -0500
+	id S1755408Ab3A3Lo4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 06:44:56 -0500
+In-Reply-To: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and e1000e.  The ixgbe patches are
-a mix of fixes, cleanup and added functionality.  The first fix is for
-traffic classes, where if the mapping has changed reset the NIC.  The other
-ixgbe fix resolves an issue where the device lookup neglected to do a
-pci_dev_put() to decrement the device reference count.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-The ixgbe cleanup was done by Josh, where the auto-negotiation variables
-were renamed/cleaned up and refactored.
+This patch adds counters for debugging the vxlan Tx offloading implementation.
 
-Joseph added Tx encapsulation capability and Alex added the debug counters
-for the new feature.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         | 4 ++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    | 7 +++++++
+ 3 files changed, 13 insertions(+)
 
-The remaining patches are from Bruce to do additional cleanup on e1000e as
-well as bump the driver version.  Most notably is the cleanup to use the
-kernel IEEE MII definitions where possible instead of the local MII
-definitions.
-
-The following are changes since commit d2ed273d30c5ffd14f6b5ec7ecc751d960f832fc:
-  net: disallow drivers with buggy VLAN accel to register_netdevice()
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Alexander Duyck (1):
-  ixgbe: Add debug counters for Tx Encap CSUM
-
-Amir Hanania (1):
-  ixgbe: Reset the NIC if up2tc has changed
-
-Bruce Allan (6):
-  e1000e: cleanup defines.h
-  e1000e: cleanup: group OR'ed bit settings with parens
-  e1000e: cleanup some whitespace and indentation issues
-  e1000e: update driver version string
-  e1000e: resolve -Wunused-parameter compile warnings
-  e1000e: use generic IEEE MII definitions
-
-Greg Rose (1):
-  ixgbe: Fix device ref count bug
-
-Joseph Gasparakis (1):
-  ixgbe: Adding Tx encapsulation capability
-
-Josh Hay (3):
-  ixgbe: rename autoneg variables
-  ixgbe: removed unused variable from setup_link_speed
-  ixgbe: autoneg variable refactoring
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c  |  28 ++--
- drivers/net/ethernet/intel/e1000e/82571.c        |  17 ++-
- drivers/net/ethernet/intel/e1000e/defines.h      | 128 +++-------------
- drivers/net/ethernet/intel/e1000e/e1000.h        |   1 +
- drivers/net/ethernet/intel/e1000e/ethtool.c      |  40 ++---
- drivers/net/ethernet/intel/e1000e/ich8lan.c      |  18 +--
- drivers/net/ethernet/intel/e1000e/mac.c          |  35 +++--
- drivers/net/ethernet/intel/e1000e/netdev.c       |  66 ++++----
- drivers/net/ethernet/intel/e1000e/param.c        |   3 +-
- drivers/net/ethernet/intel/e1000e/phy.c          | 186 +++++++++++------------
- drivers/net/ethernet/intel/e1000e/ptp.c          |   5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   4 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  54 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |  16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  87 ++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   2 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |   1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |   7 +-
- 21 files changed, 333 insertions(+), 390 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 8371ae4..5d178ea 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -190,6 +190,8 @@ struct ixgbe_tx_queue_stats {
+ 	u64 restart_queue;
+ 	u64 tx_busy;
+ 	u64 tx_done_old;
++	u64 csum_encap_good;
++	u64 csum_good;
+ };
+ 
+ struct ixgbe_rx_queue_stats {
+@@ -548,6 +550,8 @@ struct ixgbe_adapter {
+ 	struct ixgbe_hw_stats stats;
+ 
+ 	u64 tx_busy;
++	u64 tx_csum_encap_good;
++	u64 tx_csum_good;
+ 	unsigned int tx_ring_count;
+ 	unsigned int rx_ring_count;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 1513b10..036c0a5 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -101,6 +101,8 @@ static const struct ixgbe_stats ixgbe_gstrings_stats[] = {
+ 	{"rx_flow_control_xon", IXGBE_STAT(stats.lxonrxc)},
+ 	{"tx_flow_control_xoff", IXGBE_STAT(stats.lxofftxc)},
+ 	{"rx_flow_control_xoff", IXGBE_STAT(stats.lxoffrxc)},
++	{"tx_csum_encap_good", IXGBE_STAT(tx_csum_encap_good)},
++	{"tx_csum_good", IXGBE_STAT(tx_csum_good)},
+ 	{"rx_csum_offload_errors", IXGBE_STAT(hw_csum_rx_error)},
+ 	{"alloc_rx_page_failed", IXGBE_STAT(alloc_rx_page_failed)},
+ 	{"alloc_rx_buff_failed", IXGBE_STAT(alloc_rx_buff_failed)},
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 3719f32..c6cf1a6 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5150,6 +5150,7 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 	u64 non_eop_descs = 0, restart_queue = 0, tx_busy = 0;
+ 	u64 alloc_rx_page_failed = 0, alloc_rx_buff_failed = 0;
+ 	u64 bytes = 0, packets = 0, hw_csum_rx_error = 0;
++	u64 tx_csum_good = 0, tx_csum_encap_good = 0;
+ 
+ 	if (test_bit(__IXGBE_DOWN, &adapter->state) ||
+ 	    test_bit(__IXGBE_RESETTING, &adapter->state))
+@@ -5191,9 +5192,13 @@ void ixgbe_update_stats(struct ixgbe_adapter *adapter)
+ 		tx_busy += tx_ring->tx_stats.tx_busy;
+ 		bytes += tx_ring->stats.bytes;
+ 		packets += tx_ring->stats.packets;
++		tx_csum_encap_good += tx_ring->tx_stats.csum_encap_good;
++		tx_csum_good += tx_ring->tx_stats.csum_good;
+ 	}
+ 	adapter->restart_queue = restart_queue;
+ 	adapter->tx_busy = tx_busy;
++	adapter->tx_csum_encap_good = tx_csum_encap_good;
++	adapter->tx_csum_good = tx_csum_good;
+ 	netdev->stats.tx_bytes = bytes;
+ 	netdev->stats.tx_packets = packets;
+ 
+@@ -5994,11 +5999,13 @@ static void ixgbe_tx_csum(struct ixgbe_ring *tx_ring,
+ 			transport_hdr.raw = skb_inner_transport_header(skb);
+ 			vlan_macip_lens |= skb_inner_network_offset(skb) <<
+ 					   IXGBE_ADVTXD_MACLEN_SHIFT;
++			tx_ring->tx_stats.csum_encap_good++;
+ 		} else {
+ 			network_hdr.raw = skb_network_header(skb);
+ 			transport_hdr.raw = skb_transport_header(skb);
+ 			vlan_macip_lens |= skb_network_offset(skb) <<
+ 					   IXGBE_ADVTXD_MACLEN_SHIFT;
++			tx_ring->tx_stats.csum_good++;
+ 		}
+ 
+ 		/* use first 4 bits to determine IP version */
 -- 
 1.7.11.7
