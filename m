@@ -1,61 +1,79 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: Re: [PATCH 0/2] l2tp: fix ancilliary data handling in ip6 recv
-Date: Wed, 30 Jan 2013 09:50:56 +0000
-Message-ID: <20130130095056.GB2519@raven>
-References: <1359370134-29875-1-git-send-email-tparkin@katalix.com>
- <20130129.141239.2228875361542418234.davem@davemloft.net>
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: Re: ixp4xx eth broken in 3.7.0/3.8-rc5?
+Date: Wed, 30 Jan 2013 11:11:57 +0100
+Message-ID: <20744.61933.566806.942439@pilspetsen.it.uu.se>
+References: <20744.9777.937924.822371@pilspetsen.it.uu.se>
+	<20744.25884.660535.514911@pilspetsen.it.uu.se>
+	<51086A17.1090707@gmail.com>
+	<1359509647.4144.36.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MW5yreqqjyrRcusr"
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, celston@katalix.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Xi Wang <xi.wang@gmail.com>, Mikael Pettersson <mikpe@it.uu.se>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Imre Kaloz <kaloz@openwrt.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>, <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:40076 "EHLO mail.katalix.com"
+Received: from smtp1.uu.se ([130.238.7.54]:35567 "EHLO smtp1.uu.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754396Ab3A3Ju7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 04:50:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20130129.141239.2228875361542418234.davem@davemloft.net>
+	id S1753688Ab3A3KND (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 05:13:03 -0500
+In-Reply-To: <1359509647.4144.36.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Ben Hutchings writes:
+ > On Tue, 2013-01-29 at 19:32 -0500, Xi Wang wrote:
+ > > On 1/29/13 7:11 PM, Mikael Pettersson wrote:
+ > > > A git bisect identified the following as the culprit:
+ > > > 
+ > > >   > From 1a4901177574083c35fafc24c4d151c2a7c7647c Mon Sep 17 00:00:00 2001
+ > > >   > From: Xi Wang <xi.wang@gmail.com>
+ > > >   > Date: Sat, 17 Nov 2012 20:25:09 +0000
+ > > >   > Subject: [PATCH] ixp4xx_eth: avoid calling dma_pool_create() with NULL dev
+ > > >   >
+ > > >   > Use &port->netdev->dev instead of NULL since dma_pool_create() doesn't
+ > > >   > allow NULL dev.
+ > > >   >
+ > > >   > Signed-off-by: Xi Wang <xi.wang@gmail.com>
+ > > >   > Cc: Andrew Morton <akpm@linux-foundation.org>
+ > > >   > Signed-off-by: David S. Miller <davem@davemloft.net>
+ > > >   > ---
+ > > >   >  drivers/net/ethernet/xscale/ixp4xx_eth.c |    8 +++++---
+ > > >   >  1 files changed, 5 insertions(+), 3 deletions(-)
+ > > > 
+ > > > Reverting this unbreaks ixp4xx_eth on my ixp4xx machine with kernels
+ > > > 3.7.0 and 3.8-rc5.
+ > > 
+ > > Thanks.  The problem was that in init_queues(), the dma_pool_create()
+ > > call requires a non-null dev.
+ > > 
+ > >   dma_pool = dma_pool_create(DRV_NAME, ??, ...);
 
---MW5yreqqjyrRcusr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I had a look around in the 3.8-rc5 kernel source.
 
-On Tue, Jan 29, 2013 at 02:12:39PM -0500, David Miller wrote:
-> Please rewrite this patch set, starting with a rename of both
-> datagram_recv_ctl() and datagram_send_ctl() such that you can
-> tell, by name, that they are ipv6 specific functions.
->=20
-> Please make sure to grep the entire tree and fix up all references,
-> they are references to the names in comments too.
+mm/dmapool.c:dma_pool_create() needs a non-NULL dev in the CONFIG_NUMA case,
+because it calls dev_to_node(dev) which dereferences dev if CONFIG_NUMA.
+But in the non-CONFIG_NUMA case there is no dereference of dev, and in fact
+there is an explicit check for dev being NULL or not towards the end of
+dma_pool_create().  So that explains why ixp4xx works without the change:
+it's not NUMA.
 
-Sure, will do.  Thanks, David.
+A quick grep found three calls to dma_pool_create() with a NULL dev parameter,
+two in drivers/usb/gadget/amd5536udc.c and one in arch/arm/mach-s3c64xx/dma.c.
+These would all be broken with CONFIG_NUMA but Ok otherwise.
 
-Tom
---=20
-Tom Parkin
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
+ > > 
+ > > What do you think would work here?
+ > 
+ > For DMA purposes I would expect the right device to be the parent bus
+ > device, i.e. port->netdev->dev.parent.  The driver might also need to
+ > set its DMA masks.
 
---MW5yreqqjyrRcusr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+At least on ixp4xx the DMA masks are normally set by the platform PCI init
+code (it has a 64MB PCI DMA window limitation).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+I can give the port->netdev->dev.parent variant a try later this evening.
 
-iQEcBAEBAgAGBQJRCO0AAAoJEJSMBmUKuovQaDgH/jkfrk2OtW8vSWlFnb/6ITqQ
-iid4mHKFhQE5lBX/2OKO7IFD3nm8d98bgoQRO+lQ1wI3AUHI13xLqYCzvxBFYvTP
-q5tYooNeZrZuGWmancYLfrkREwdlUAD6p3NrZe3iU/ulzji2YPXtFoLTFakvOq4X
-sKrRm76nwiXdRr/vZfRV0b2D7yEn3DDL6vvHDIAnhVJ8L41BCOnzFBcZeP/CXPye
-kbT3163/njss+I85bFR6q8ZsvZXQDQe+l6ZMLnSpBrv2aUgiSs7yJyxrTTaM72fs
-8bSK/WFim3Sy0F1fc0cp74RqsMMKJbFyMqYM+Bu8WB59IwKj5IVdHq0a32iAINw=
-=AyMC
------END PGP SIGNATURE-----
-
---MW5yreqqjyrRcusr--
+/Mikael
