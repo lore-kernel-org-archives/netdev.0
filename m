@@ -1,93 +1,85 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RFC net-next 4/4] ipv6 anycast: Convert ipv6_sk_ac_lock to spinlock.
-Date: Thu, 31 Jan 2013 04:27:58 +0900
-Message-ID: <5109743E.7070308@linux-ipv6.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH] libertas sdio: remove CMD_FUNC_INIT call
+Date: Wed, 30 Jan 2013 14:27:00 -0500
+Message-ID: <20130130192700.GF2167@tuxdriver.com>
+References: <1358493883-28433-1-git-send-email-lkundrak@v3.sk>
+ <477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56151 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756624Ab3A3T17 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 14:27:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lubomir Rintel <lkundrak@v3.sk>, Harro Haan <hrhaan@gmail.com>,
+	Dan Williams <dcbw@redhat.com>,
+	"libertas-dev@lists.infradead.org" <libertas-dev@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Bing Zhao <bzhao@marvell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since all users are write-lock, it does not make sense to use
-rwlock here.  Use simple spinlock.
+On Fri, Jan 18, 2013 at 12:28:17PM -0800, Bing Zhao wrote:
+> Hi Lubomir,
+> 
+> > It actually times out on a 8688 present in GuruPlug with sd8688.bin
+> > (md5=7233401e9687f8c880da547beed4324e) firmware (that's present in
+> > linux-firmware tree), but the adapter works fine.
+> > 
+> > For that firmware times out with libertas_uap [1] as well, though it succeeds
+> > with sd8688_ap.bin (md5=52cd8f8296b9a7e1d3835d57416256b2) that was originally
+> > shipped with GuruPlug. That firmware is not in linux-firmware tree and btmrvl
+> > driver might win the race programming the 8688 with sd8688.bin anyway.
+> > 
+> > [1] https://github.com/lkundrak/linux/tree/libertas_uap
+> > ---
+> >  drivers/net/wireless/libertas/if_sdio.c |   14 --------------
+> >  1 files changed, 0 insertions(+), 14 deletions(-)
+> > 
+> > diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
+> > index 2ecab49..3c4c555 100644
+> > --- a/drivers/net/wireless/libertas/if_sdio.c
+> > +++ b/drivers/net/wireless/libertas/if_sdio.c
+> > @@ -825,20 +825,6 @@ static void if_sdio_finish_power_on(struct if_sdio_card *card)
+> > 
+> >  	sdio_release_host(func);
+> > 
+> > -	/*
+> > -	 * FUNC_INIT is required for SD8688 WLAN/BT multiple functions
+> > -	 */
+> > -	if (card->model == MODEL_8688) {
+> > -		struct cmd_header cmd;
+> > -
+> > -		memset(&cmd, 0, sizeof(cmd));
+> > -
+> > -		lbs_deb_sdio("send function INIT command\n");
+> > -		if (__lbs_cmd(priv, CMD_FUNC_INIT, &cmd, sizeof(cmd),
+> > -				lbs_cmd_copyback, (unsigned long) &cmd))
+> > -			netdev_alert(priv->dev, "CMD_FUNC_INIT cmd failed\n");
+> > -	}
+> > -
+> 
+> Removing FUNC_INIT could break things in some scenarios.
+> Could you please test the following case?
+> 
+> 1. insmod liberates -> download firmware, send FUNC_INIT, ...
+> 2. rmmod libertas -> send FUNC_SHUTDOWN command to firmware; BT is still working.
+> 3. insmod libertas -> skip firmware downloading, send FUNC_INIT, ...
+> 
+> If FUNC_INIT is removed, I don't expect step 3 to work.
+> 
+> Thanks,
+> Bing
+> 
+> >  	priv->fw_ready = 1;
+> >  	wake_up(&card->pwron_waitq);
+> > 
+> > --
+> > 1.7.1
+> 
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- net/ipv6/anycast.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+Lubomir, any reply?  Should I drop this one?
 
-diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
-index 757a810..921b8b3 100644
---- a/net/ipv6/anycast.c
-+++ b/net/ipv6/anycast.c
-@@ -47,7 +47,7 @@
- static int ipv6_dev_ac_dec(struct net_device *dev, const struct in6_addr *addr);
- 
- /* Big ac list lock for all the sockets */
--static DEFINE_RWLOCK(ipv6_sk_ac_lock);
-+static DEFINE_SPINLOCK(ipv6_sk_ac_lock);
- 
- 
- /*
-@@ -128,10 +128,10 @@ int ipv6_sock_ac_join(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 
- 	err = ipv6_dev_ac_inc(dev, addr);
- 	if (!err) {
--		write_lock_bh(&ipv6_sk_ac_lock);
-+		spin_lock_bh(&ipv6_sk_ac_lock);
- 		pac->acl_next = np->ipv6_ac_list;
- 		np->ipv6_ac_list = pac;
--		write_unlock_bh(&ipv6_sk_ac_lock);
-+		spin_unlock_bh(&ipv6_sk_ac_lock);
- 		pac = NULL;
- 	}
- 
-@@ -152,7 +152,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	struct ipv6_ac_socklist *pac, *prev_pac;
- 	struct net *net = sock_net(sk);
- 
--	write_lock_bh(&ipv6_sk_ac_lock);
-+	spin_lock_bh(&ipv6_sk_ac_lock);
- 	prev_pac = NULL;
- 	for (pac = np->ipv6_ac_list; pac; pac = pac->acl_next) {
- 		if ((ifindex == 0 || pac->acl_ifindex == ifindex) &&
-@@ -161,7 +161,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 		prev_pac = pac;
- 	}
- 	if (!pac) {
--		write_unlock_bh(&ipv6_sk_ac_lock);
-+		spin_unlock_bh(&ipv6_sk_ac_lock);
- 		return -ENOENT;
- 	}
- 	if (prev_pac)
-@@ -169,7 +169,7 @@ int ipv6_sock_ac_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 	else
- 		np->ipv6_ac_list = pac->acl_next;
- 
--	write_unlock_bh(&ipv6_sk_ac_lock);
-+	spin_unlock_bh(&ipv6_sk_ac_lock);
- 
- 	rcu_read_lock();
- 	dev = dev_get_by_index_rcu(net, pac->acl_ifindex);
-@@ -192,10 +192,10 @@ void ipv6_sock_ac_close(struct sock *sk)
- 	if (!np->ipv6_ac_list)
- 		return;
- 
--	write_lock_bh(&ipv6_sk_ac_lock);
-+	spin_lock_bh(&ipv6_sk_ac_lock);
- 	pac = np->ipv6_ac_list;
- 	np->ipv6_ac_list = NULL;
--	write_unlock_bh(&ipv6_sk_ac_lock);
-+	spin_unlock_bh(&ipv6_sk_ac_lock);
- 
- 	prev_index = 0;
- 	rcu_read_lock();
 -- 
-1.7.9.5
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
