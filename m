@@ -1,70 +1,67 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 00/11] Mellanox Ethernet driver updates 2013-01-30
-Date: Wed, 30 Jan 2013 12:34:16 +0200
-Message-ID: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
-Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org
+Subject: [PATCH net-next 05/11] net/mlx4_en: Fix vlan mask for ethtool steering rules
+Date: Wed, 30 Jan 2013 12:34:21 +0200
+Message-ID: <1359542067-10760-6-git-send-email-amirv@mellanox.com>
+References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:36681 "HELO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753805Ab3A3Ket (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:49 -0500
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:39919 "HELO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754489Ab3A3Kev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:51 -0500
+In-Reply-To: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-This series contains updates to mlx4 driver.
-Majority of the patches are small bug fixes. Another patch is to expose through
-debugfs some HW resources to be used by external tools.
+The vlan mask field should be validated and assigned according to the field
+size which is 12 bits. Also replace the numeric 0xfff mask with existing kernel
+macro.
 
-Patches done against net-next commit d2ed273: "net: disallow drivers with buggy
-VLAN accel to register_netdevice()"
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-Thanks,
-Amir
-
-Amir Vadai (1):
-  net/mlx4_en: Fix transmit timeout when driver restarts port
-
-Hadar Hen Zion (8):
-  net/mlx4_core: Directly expose fields of HW flow steering rule
-    control segment
-  net/mlx4_core: Set correctly allow_loopback flag
-  net/mlx4_en: Fix ip/udp steering rules multicast mac when attached
-    via ethtool
-  net/mlx4_en: Validate VLAN IDs provided in ethtool flow steering
-    rules
-  net/mlx4_en: Fix vlan mask for ethtool steering rules
-  net/mlx4_en: Block insertion of ethtool steering rules while the
-    interface is down
-  net/mlx4_en: Fix ethtool rules leftovers after module unloaded
-  net/mlx4_core: Use firmware driven flow steering hash mode
-
-Matan Barak (1):
-  net/mlx4_en: Don't reassign port mac address on firmware that
-    supports it
-
-Shani Michaelli (1):
-  net/mlx4_en: Add debugfs support
-
- drivers/net/ethernet/mellanox/mlx4/Makefile        |    3 +
- drivers/net/ethernet/mellanox/mlx4/cq.c            |    3 +
- drivers/net/ethernet/mellanox/mlx4/en_debugfs.c    |  133 ++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  147 ++++++++++++++------
- drivers/net/ethernet/mellanox/mlx4/en_main.c       |    7 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |   38 +++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c         |    7 +-
- drivers/net/ethernet/mellanox/mlx4/fw.c            |   11 +-
- drivers/net/ethernet/mellanox/mlx4/fw.h            |    1 -
- drivers/net/ethernet/mellanox/mlx4/main.c          |   16 --
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |    4 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |   12 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h       |   14 ++-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    2 +-
- include/linux/mlx4/device.h                        |    5 +-
- 15 files changed, 319 insertions(+), 84 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx4/en_debugfs.c
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index f33049f..f36c219 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -666,12 +666,16 @@ static int mlx4_en_validate_flow(struct net_device *dev,
+ 
+ 	if ((cmd->fs.flow_type & FLOW_EXT)) {
+ 		if (cmd->fs.m_ext.vlan_etype ||
+-		    !(cmd->fs.m_ext.vlan_tci == 0 ||
+-		      cmd->fs.m_ext.vlan_tci == cpu_to_be16(0xfff)))
++		    !((cmd->fs.m_ext.vlan_tci & cpu_to_be16(VLAN_VID_MASK)) ==
++		      0 ||
++		      (cmd->fs.m_ext.vlan_tci & cpu_to_be16(VLAN_VID_MASK)) ==
++		      cpu_to_be16(VLAN_VID_MASK)))
+ 			return -EINVAL;
++
+ 		if (cmd->fs.m_ext.vlan_tci) {
+ 			if (be16_to_cpu(cmd->fs.h_ext.vlan_tci) >= VLAN_N_VID)
+ 				return -EINVAL;
++
+ 		}
+ 	}
+ 
+@@ -690,9 +694,10 @@ static int mlx4_en_ethtool_add_mac_rule(struct ethtool_rxnfc *cmd,
+ 	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
+ 	memcpy(spec_l2->eth.dst_mac, mac, ETH_ALEN);
+ 
+-	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
++	if ((cmd->fs.flow_type & FLOW_EXT) &&
++	    (cmd->fs.m_ext.vlan_tci & cpu_to_be16(VLAN_VID_MASK))) {
+ 		spec_l2->eth.vlan_id = cmd->fs.h_ext.vlan_tci;
+-		spec_l2->eth.vlan_id_msk = cpu_to_be16(0xfff);
++		spec_l2->eth.vlan_id_msk = cpu_to_be16(VLAN_VID_MASK);
+ 	}
+ 
+ 	list_add_tail(&spec_l2->list, rule_list_h);
 -- 
 1.7.8.2
