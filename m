@@ -1,64 +1,43 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH] net-bnx2x: Force link UP when the interface is in
- LOOPBACK mode
-Date: Wed, 30 Jan 2013 12:24:51 +0200
-Message-ID: <1359541491.26518.2.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1359510715-12099-1-git-send-email-maheshb@google.com>
-Reply-To: eilong@broadcom.com
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	"Yaniv Rosner" <yanivr@broadcom.com>
-To: "Mahesh Bandewar" <maheshb@google.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 02/11] net/mlx4_core: Set correctly allow_loopback flag
+Date: Wed, 30 Jan 2013 12:34:18 +0200
+Message-ID: <1359542067-10760-3-git-send-email-amirv@mellanox.com>
+References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1445 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753688Ab3A3KZ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 05:25:57 -0500
-In-Reply-To: <1359510715-12099-1-git-send-email-maheshb@google.com>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:36016 "HELO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754149Ab3A3Ket (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:49 -0500
+In-Reply-To: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-29 at 17:51 -0800, Mahesh Bandewar wrote:
-> When the interface does not have carrier but when it's put into
-> loopback mode (for tests), it does not make sense to not have
-> the carrier. So force it!
-> 
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Mahesh,
+The allow_loopback flag was wrongly set using arithmetic bit operation, change
+the code to use logical bit operation.
 
-What is the motivation for this change? During the test, the device is
-not really functional and cannot receive traffic to the loopback, so why
-would you like to indicate internally that the link is up?
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mcg.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-> index 859df751345e..91af55586bbc 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-> @@ -4748,6 +4748,11 @@ void bnx2x_link_status_update(struct link_params *params,
->  	vars->link_status = REG_RD(bp, params->shmem_base +
->  				   offsetof(struct shmem_region,
->  					    port_mb[port].link_status));
-> +
-> +	/* Force link UP in loopback mode */
-> +	if (bp->link_params.loopback_mode != LOOPBACK_NONE)
-
-The LOOPBACK_EXT requires an external loopback so we should not just
-force link up indication for that kind of loopback.
-
-> +		vars->link_status |= LINK_STATUS_LINK_UP;
-> +
->  	if (bnx2x_eee_has_cap(params))
->  		vars->eee_status = REG_RD(bp, params->shmem2_base +
->  					  offsetof(struct shmem2_region,
-
-Thanks,
-Eilon
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index d7c0704..5268552 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -1157,7 +1157,7 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+ 			.priority = MLX4_DOMAIN_NIC,
+ 		};
+ 
+-		rule.allow_loopback = ~block_mcast_loopback;
++		rule.allow_loopback = !block_mcast_loopback;
+ 		rule.port = port;
+ 		rule.qpn = qp->qpn;
+ 		INIT_LIST_HEAD(&rule.list);
+-- 
+1.7.8.2
