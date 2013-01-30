@@ -1,42 +1,48 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [net-next PATCH 8/8] qlcnic: Bump up the version to 5.1.33
-Date: Wed, 30 Jan 2013 17:47:19 -0500
-Message-ID: <1359586039-19051-9-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1359586039-19051-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: Update MIB counters for drops
+Date: Wed, 30 Jan 2013 15:31:15 -0800
+Message-ID: <1359588675.30177.15.camel@edumazet-glaptop>
+References: <1359586670-16072-1-git-send-email-subramanian.vijay@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	niveditasinghvi@gmail.com
+To: Vijay Subramanian <subramanian.vijay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:32834 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757241Ab3A3XId (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 18:08:33 -0500
-In-Reply-To: <1359586039-19051-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from mail-ye0-f177.google.com ([209.85.213.177]:53247 "EHLO
+	mail-ye0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756442Ab3A3XjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 18:39:14 -0500
+Received: by mail-ye0-f177.google.com with SMTP id m14so421863yen.36
+        for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 15:39:14 -0800 (PST)
+In-Reply-To: <1359586670-16072-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+On Wed, 2013-01-30 at 14:57 -0800, Vijay Subramanian wrote:
+> This patch updates LINUX_MIB_LISTENDROPS and LINUX_MIB_LISTENOVERFLOWS in
+> tcp_v4_conn_request() and tcp_v4_err(). tcp_v4_conn_request() in particular can
+> drop SYNs for various reasons which are not currently tracked.
+> 
+> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> ---
+> Ignored "line over 80 chars" warning for readability.
+> 
+>  net/ipv4/tcp_ipv4.c |    7 +++++--
+>  1 files changed, 5 insertions(+), 2 deletions(-)
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index f71aef5..457ca8e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 1
--#define _QLCNIC_LINUX_SUBVERSION 32
--#define QLCNIC_LINUX_VERSIONID  "5.1.32"
-+#define _QLCNIC_LINUX_SUBVERSION 33
-+#define QLCNIC_LINUX_VERSIONID  "5.1.33"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-1.7.1
+>  	case TCP_SYN_SENT:
+> @@ -1491,8 +1492,10 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+>  	 */
+>  	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
+>  		want_cookie = tcp_syn_flood_action(sk, skb, "TCP");
+> -		if (!want_cookie)
+> +		if (!want_cookie) {
+> +			NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_LISTENOVERFLOWS);
+>  			goto drop;
+> +		}
+
+This should be done in tcp_syn_flood_action() for IPv4/IPv6
+factorization.
