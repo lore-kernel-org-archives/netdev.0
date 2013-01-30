@@ -1,48 +1,51 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCHv1] net-bnx2x: Force link UP when the interface is in LOOPBACK mode
-Date: Wed, 30 Jan 2013 09:00:12 -0800
-Message-ID: <1359565212-11104-1-git-send-email-maheshb@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Eilon Greenstein <eilong@broadcom.com>,
-	Yaniv <yanivr@broadcom.com>, David Miller <davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 05/11] net/mlx4_en: Fix vlan mask for ethtool
+ steering rules
+Date: Wed, 30 Jan 2013 17:20:17 +0000
+Message-ID: <1359566417.2789.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
+	 <1359542067-10760-6-git-send-email-amirv@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:40980 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753737Ab3A3RAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 12:00:16 -0500
-Received: by mail-yh0-f74.google.com with SMTP id z6so170167yhz.3
-        for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 09:00:15 -0800 (PST)
+Received: from webmail.solarflare.com ([12.187.104.25]:6202 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756017Ab3A3RUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 12:20:21 -0500
+In-Reply-To: <1359542067-10760-6-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the interface does not have carrier but when it's put into
-loopback mode (for tests), it does not make sense to not have
-the carrier. So force it!
+On Wed, 2013-01-30 at 12:34 +0200, Amir Vadai wrote:
+> From: Hadar Hen Zion <hadarh@mellanox.com>
+> 
+> The vlan mask field should be validated and assigned according to the field
+> size which is 12 bits.
+[...]
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
----
-v1.0 : Added check to ensure it's not forced in LOOPBACK_EXT mode.
+My understanding is that ethtool_flow_ext::vlan_tci corresponds to the
+whole VLAN tag; a filter rule that matches only the VID must have a mask
+of htons(0xfff).
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+The original implementation of this extension was in ixgbe and it's now
+unclear to me whether it's programming hardware filters to match just
+the VID or the whole VLAN tag.  Alexander, can you answer this?
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-index 859df751345e..c6da77fa9d07 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
-@@ -4748,6 +4748,12 @@ void bnx2x_link_status_update(struct link_params *params,
- 	vars->link_status = REG_RD(bp, params->shmem_base +
- 				   offsetof(struct shmem_region,
- 					    port_mb[port].link_status));
-+
-+	/* Force link UP in non LOOPBACK_EXT loopback mode(s) */
-+	if (bp->link_params.loopback_mode != LOOPBACK_NONE &&
-+	    bp->link_params.loopback_mode != LOOPBACK_EXT)
-+		vars->link_status |= LINK_STATUS_LINK_UP;
-+
- 	if (bnx2x_eee_has_cap(params))
- 		vars->eee_status = REG_RD(bp, params->shmem2_base +
- 					  offsetof(struct shmem2_region,
+I was thinking about adding new keywords to ethtool -U ('vid', 'vtag'?)
+to make it easier to specify just the VID and clearer when you're
+specifying the full tag.  (The 'vlan' keyword would have to remain but
+could be removed from documentation.)  But if no-one really implements
+matching of the full tag then maybe we can pretend those 4 bits don't
+exist.
+
+Ben.
+
 -- 
-1.8.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
