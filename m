@@ -1,43 +1,40 @@
-From: Stephen Warren <swarren@wwwdotorg.org>
-Subject: Re: [PATCH] nl80211: avoid "wdev_id may be used uninitialized"
-Date: Wed, 30 Jan 2013 09:49:20 -0700
-Message-ID: <51094F10.60605@wwwdotorg.org>
-References: <1359504662-23561-1-git-send-email-swarren@wwwdotorg.org>  (sfid-20130130_011118_335925_03B80596) <1359532679.8010.1.camel@jlt4.sipsolutions.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 11/11] net/mlx4_en: Fix transmit timeout when
+ driver restarts port
+Date: Wed, 30 Jan 2013 16:50:12 +0000
+Message-ID: <1359564612.2789.5.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
+	 <1359542067-10760-12-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Stephen Warren <swarren@nvidia.com>
-To: Johannes Berg <johannes@sipsolutions.net>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from avon.wwwdotorg.org ([70.85.31.133]:47398 "EHLO
-	avon.wwwdotorg.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754368Ab3A3QtX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 11:49:23 -0500
-In-Reply-To: <1359532679.8010.1.camel@jlt4.sipsolutions.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:41974 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754368Ab3A3QuP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 11:50:15 -0500
+In-Reply-To: <1359542067-10760-12-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/30/2013 12:57 AM, Johannes Berg wrote:
-> On Tue, 2013-01-29 at 17:11 -0700, Stephen Warren wrote:
->> From: Stephen Warren <swarren@nvidia.com>
->>
->> Silence the following:
->> net/wireless/nl80211.c: In function '__cfg80211_wdev_from_attrs.clone.119':
->> net/wireless/nl80211.c:57:6: warning: 'wdev_id' may be used uninitialized in this function
->>
->> ... by always initializing wdev_id to zero. I assume that wiphy_idx and
->> ifidx are set to -1 for similar reasons, so this change simply propagates
->> the same workaround.
->>
->> In practice, this warning is false, since wdev_id is both set and used
->> under the condition if (have_wdev_id). However, at least my compiler
->> can't be coerced into realizing this; almost any code between the if
->> blocks that set and use the variable causes this warning.
-> 
-> I don't see this warning? What compiler are you using?
+On Wed, 2013-01-30 at 12:34 +0200, Amir Vadai wrote:
+> Under heavy CPU load, changing, ring size/mtu/etc. could result in transmit
+> timeout, since stop-start port might take more than 10 seconds.
+> Calling netif_detach_device to prevent tx queue transmit timeout.
+[...]
 
-I'm using gcc-4.5.3 for ARM. I checked with gcc-4.6.3 and gcc-4.7.2 and
-indeed I don't see the warning there.
+It's actually worse than that - the watchdog can fire instantly if it
+has been 10 seconds since the last packet was queued.
+
+Anyway, this looks very much like a pending fix for the same issue in
+sfc, so hopefully we both did it right. :-)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
