@@ -1,53 +1,61 @@
-From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
-Subject: [PATCH] nl80211: avoid "wdev_id may be used uninitialized"
-Date: Tue, 29 Jan 2013 17:11:02 -0700
-Message-ID: <1359504662-23561-1-git-send-email-swarren@wwwdotorg.org>
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Mikael Pettersson <mikpe@it.uu.se>
+Subject: Re: ixp4xx eth broken in 3.7.0/3.8-rc5?
+Date: Wed, 30 Jan 2013 01:11:08 +0100
+Message-ID: <20744.25884.660535.514911@pilspetsen.it.uu.se>
+References: <20744.9777.937924.822371@pilspetsen.it.uu.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Imre Kaloz <kaloz@openwrt.org>,
+ Xi Wang <xi.wang@gmail.com>, linux-arm-kernel@lists.infradead.org,
+ Krzysztof Halasa <khc@pm.waw.pl>
+To: Mikael Pettersson <mikpe@it.uu.se>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20744.9777.937924.822371@pilspetsen.it.uu.se>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+Mikael Pettersson writes:
+ > When I try to update my ixp4xx machine to a 3.8-rc5 kernel it boots
+ > Ok but the network (CONFIG_IXP4XX_ETH=y) fails to come up, with the
+ > following in the kernel log:
+ > 
+ > net eth0: coherent DMA mask is unset
+ > 
+ > With a 3.7.0 kernel the situation is similar, except that the "net
+ > eth0: coherent DMA mask is unset" message repeats itself endlessly
+ > and I can't even get in on the serial console.
+ > 
+ > With the 3.6.0 kernel everything works perfectly.
 
-Silence the following:
-net/wireless/nl80211.c: In function '__cfg80211_wdev_from_attrs.clone.119':
-net/wireless/nl80211.c:57:6: warning: 'wdev_id' may be used uninitialized in this function
+A git bisect identified the following as the culprit:
 
-... by always initializing wdev_id to zero. I assume that wiphy_idx and
-ifidx are set to -1 for similar reasons, so this change simply propagates
-the same workaround.
+ > From 1a4901177574083c35fafc24c4d151c2a7c7647c Mon Sep 17 00:00:00 2001
+ > From: Xi Wang <xi.wang@gmail.com>
+ > Date: Sat, 17 Nov 2012 20:25:09 +0000
+ > Subject: [PATCH] ixp4xx_eth: avoid calling dma_pool_create() with NULL dev
+ > 
+ > Use &port->netdev->dev instead of NULL since dma_pool_create() doesn't
+ > allow NULL dev.
+ > 
+ > Signed-off-by: Xi Wang <xi.wang@gmail.com>
+ > Cc: Andrew Morton <akpm@linux-foundation.org>
+ > Signed-off-by: David S. Miller <davem@davemloft.net>
+ > ---
+ >  drivers/net/ethernet/xscale/ixp4xx_eth.c |    8 +++++---
+ >  1 files changed, 5 insertions(+), 3 deletions(-)
 
-In practice, this warning is false, since wdev_id is both set and used
-under the condition if (have_wdev_id). However, at least my compiler
-can't be coerced into realizing this; almost any code between the if
-blocks that set and use the variable causes this warning.
+Reverting this unbreaks ixp4xx_eth on my ixp4xx machine with kernels
+3.7.0 and 3.8-rc5.
 
-Signed-off-by: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
----
- net/wireless/nl80211.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+(Added cc: author and netdev.)
 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index 33de803..389e62a 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -54,7 +54,7 @@ __cfg80211_wdev_from_attrs(struct net *netns, struct nlattr **attrs)
- 	struct wireless_dev *result = NULL;
- 	bool have_ifidx = attrs[NL80211_ATTR_IFINDEX];
- 	bool have_wdev_id = attrs[NL80211_ATTR_WDEV];
--	u64 wdev_id;
-+	u64 wdev_id = 0;
- 	int wiphy_idx = -1;
- 	int ifidx = -1;
- 
--- 
-1.7.10.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+/Mikael
