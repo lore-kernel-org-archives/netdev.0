@@ -1,255 +1,85 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/13] e1000e: cleanup some whitespace and indentation issues
-Date: Wed, 30 Jan 2013 03:44:43 -0800
-Message-ID: <1359546286-18179-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: inaccurate packet scheduling
+Date: Wed, 30 Jan 2013 13:14:47 +0100
+Message-ID: <20130130121447.GB1604@minipsycho.orion>
+References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
+ <1355849503.9380.37.camel@edumazet-glaptop>
+ <20130102152601.GB1532@minipsycho.orion>
+ <1357144482.21409.16876.camel@edumazet-glaptop>
+ <20130108133038.GB1621@minipsycho.orion>
+ <20130124080536.GA1598@minipsycho.orion>
+ <1359036087.12374.2088.camel@edumazet-glaptop>
+ <20130129122357.GC7571@minipsycho.orion>
+ <1359475983.30177.2.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jhs@mojatatu.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:33030 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755404Ab3A3LpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 06:45:01 -0500
-In-Reply-To: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-wg0-f42.google.com ([74.125.82.42]:64396 "EHLO
+	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753013Ab3A3MOw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 07:14:52 -0500
+Received: by mail-wg0-f42.google.com with SMTP id 12so2823120wgh.5
+        for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 04:14:51 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1359475983.30177.2.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+Tue, Jan 29, 2013 at 05:13:03PM CET, eric.dumazet@gmail.com wrote:
+>On Tue, 2013-01-29 at 13:23 +0100, Jiri Pirko wrote:
+>
+>> part of the commit message says:
+>> <quote>
+>> The bits per second on the wire is still 5200Mb/s with new HTB
+>> because qdisc accounts for packet length using skb->len, which
+>> is smaller than total bytes on the wire if GSO is used.  But
+>> that is for another patch regardless of how time is accounted.	
+>> </quote>
+>> I believe that is a similar problem like ours. But looks like this
+>> "another patch" never got in.
+>> 
+>
+>Hmm, I thought I addressed this in 
+>
+>commit 1def9238d4aa2146924994aa4b7dc861f03b9362
+>Author: Eric Dumazet <edumazet@google.com>
+>Date:   Thu Jan 10 12:36:42 2013 +0000
+>
+>    net_sched: more precise pkt_len computation
+>    
+>    One long standing problem with TSO/GSO/GRO packets is that skb->len
+>    doesn't represent a precise amount of bytes on wire.
+>    
+>    Headers are only accounted for the first segment.
+>    For TCP, thats typically 66 bytes per 1448 bytes segment missing,
+>    an error of 4.5 % for normal MSS value.
+>    
+>    As consequences :
+>    
+>    1) TBF/CBQ/HTB/NETEM/... can send more bytes than the assigned limits.
+>    2) Device stats are slightly under estimated as well.
+>    
+>    Fix this by taking account of headers in qdisc_skb_cb(skb)->pkt_len
+>    computation.
+>    
+>    Packet schedulers should use qdisc pkt_len instead of skb->len for their
+>    bandwidth limitations, and TSO enabled devices drivers could use pkt_len
+>    if their statistics are not hardware assisted, and if they don't scratch
+>    skb->cb[] first word.
+>    
+>    Both egress and ingress paths work, thanks to commit fda55eca5a
+>    (net: introduce skb_transport_header_was_set()) : If GRO built
+>    a GSO packet, it also set the transport header for us.
+>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/e1000e/80003es2lan.c | 22 ++++++------
- drivers/net/ethernet/intel/e1000e/82571.c       | 13 +++----
- drivers/net/ethernet/intel/e1000e/defines.h     | 47 +++++++++++++------------
- drivers/net/ethernet/intel/e1000e/ich8lan.c     |  4 +--
- drivers/net/ethernet/intel/e1000e/mac.c         |  4 +--
- drivers/net/ethernet/intel/e1000e/netdev.c      |  4 +--
- drivers/net/ethernet/intel/e1000e/param.c       |  3 +-
- 7 files changed, 49 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index 3f27546..765211a 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -1438,18 +1438,18 @@ static const struct e1000_phy_operations es2_phy_ops = {
- 	.acquire		= e1000_acquire_phy_80003es2lan,
- 	.check_polarity		= e1000_check_polarity_m88,
- 	.check_reset_block	= e1000e_check_reset_block_generic,
--	.commit		 	= e1000e_phy_sw_reset,
--	.force_speed_duplex 	= e1000_phy_force_speed_duplex_80003es2lan,
--	.get_cfg_done       	= e1000_get_cfg_done_80003es2lan,
--	.get_cable_length   	= e1000_get_cable_length_80003es2lan,
--	.get_info       	= e1000e_get_phy_info_m88,
--	.read_reg       	= e1000_read_phy_reg_gg82563_80003es2lan,
-+	.commit			= e1000e_phy_sw_reset,
-+	.force_speed_duplex	= e1000_phy_force_speed_duplex_80003es2lan,
-+	.get_cfg_done		= e1000_get_cfg_done_80003es2lan,
-+	.get_cable_length	= e1000_get_cable_length_80003es2lan,
-+	.get_info		= e1000e_get_phy_info_m88,
-+	.read_reg		= e1000_read_phy_reg_gg82563_80003es2lan,
- 	.release		= e1000_release_phy_80003es2lan,
--	.reset		  	= e1000e_phy_hw_reset_generic,
--	.set_d0_lplu_state  	= NULL,
--	.set_d3_lplu_state  	= e1000e_set_d3_lplu_state,
--	.write_reg      	= e1000_write_phy_reg_gg82563_80003es2lan,
--	.cfg_on_link_up      	= e1000_cfg_on_link_up_80003es2lan,
-+	.reset			= e1000e_phy_hw_reset_generic,
-+	.set_d0_lplu_state	= NULL,
-+	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
-+	.write_reg		= e1000_write_phy_reg_gg82563_80003es2lan,
-+	.cfg_on_link_up		= e1000_cfg_on_link_up_80003es2lan,
- };
- 
- static const struct e1000_nvm_operations es2_nvm_ops = {
-diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
-index 076938c..db364b6 100644
---- a/drivers/net/ethernet/intel/e1000e/82571.c
-+++ b/drivers/net/ethernet/intel/e1000e/82571.c
-@@ -1327,9 +1327,10 @@ static void e1000_clear_vfta_82571(struct e1000_hw *hw)
- 			 */
- 			vfta_offset = (hw->mng_cookie.vlan_id >>
- 				       E1000_VFTA_ENTRY_SHIFT) &
--				      E1000_VFTA_ENTRY_MASK;
--			vfta_bit_in_reg = 1 << (hw->mng_cookie.vlan_id &
--					       E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
-+			    E1000_VFTA_ENTRY_MASK;
-+			vfta_bit_in_reg =
-+			    1 << (hw->mng_cookie.vlan_id &
-+				  E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
- 		}
- 		break;
- 	default:
-@@ -1931,7 +1932,7 @@ static const struct e1000_phy_operations e82_phy_ops_igp = {
- 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
- 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
- 	.write_reg		= e1000e_write_phy_reg_igp,
--	.cfg_on_link_up      	= NULL,
-+	.cfg_on_link_up		= NULL,
- };
- 
- static const struct e1000_phy_operations e82_phy_ops_m88 = {
-@@ -1949,7 +1950,7 @@ static const struct e1000_phy_operations e82_phy_ops_m88 = {
- 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
- 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
- 	.write_reg		= e1000e_write_phy_reg_m88,
--	.cfg_on_link_up      	= NULL,
-+	.cfg_on_link_up		= NULL,
- };
- 
- static const struct e1000_phy_operations e82_phy_ops_bm = {
-@@ -1967,7 +1968,7 @@ static const struct e1000_phy_operations e82_phy_ops_bm = {
- 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
- 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
- 	.write_reg		= e1000e_write_phy_reg_bm2,
--	.cfg_on_link_up      	= NULL,
-+	.cfg_on_link_up		= NULL,
- };
- 
- static const struct e1000_nvm_operations e82571_nvm_ops = {
-diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
-index acfe1fa..1257f91 100644
---- a/drivers/net/ethernet/intel/e1000e/defines.h
-+++ b/drivers/net/ethernet/intel/e1000e/defines.h
-@@ -96,19 +96,19 @@
- 
- /* mask to determine if packets should be dropped due to frame errors */
- #define E1000_RXD_ERR_FRAME_ERR_MASK ( \
--    E1000_RXD_ERR_CE  |                \
--    E1000_RXD_ERR_SE  |                \
--    E1000_RXD_ERR_SEQ |                \
--    E1000_RXD_ERR_CXE |                \
--    E1000_RXD_ERR_RXE)
-+	E1000_RXD_ERR_CE  |		\
-+	E1000_RXD_ERR_SE  |		\
-+	E1000_RXD_ERR_SEQ |		\
-+	E1000_RXD_ERR_CXE |		\
-+	E1000_RXD_ERR_RXE)
- 
- /* Same mask, but for extended and packet split descriptors */
- #define E1000_RXDEXT_ERR_FRAME_ERR_MASK ( \
--    E1000_RXDEXT_STATERR_CE  |            \
--    E1000_RXDEXT_STATERR_SE  |            \
--    E1000_RXDEXT_STATERR_SEQ |            \
--    E1000_RXDEXT_STATERR_CXE |            \
--    E1000_RXDEXT_STATERR_RXE)
-+	E1000_RXDEXT_STATERR_CE  |	\
-+	E1000_RXDEXT_STATERR_SE  |	\
-+	E1000_RXDEXT_STATERR_SEQ |	\
-+	E1000_RXDEXT_STATERR_CXE |	\
-+	E1000_RXDEXT_STATERR_RXE)
- 
- #define E1000_MRQC_RSS_FIELD_MASK              0xFFFF0000
- #define E1000_MRQC_RSS_FIELD_IPV4_TCP          0x00010000
-@@ -253,14 +253,15 @@
- #define ADVERTISE_1000_FULL               0x0020
- 
- /* 1000/H is not supported, nor spec-compliant. */
--#define E1000_ALL_SPEED_DUPLEX ( ADVERTISE_10_HALF |   ADVERTISE_10_FULL | \
--				ADVERTISE_100_HALF |  ADVERTISE_100_FULL | \
--						     ADVERTISE_1000_FULL)
--#define E1000_ALL_NOT_GIG      ( ADVERTISE_10_HALF |   ADVERTISE_10_FULL | \
--				ADVERTISE_100_HALF |  ADVERTISE_100_FULL)
--#define E1000_ALL_100_SPEED    (ADVERTISE_100_HALF |  ADVERTISE_100_FULL)
--#define E1000_ALL_10_SPEED      (ADVERTISE_10_HALF |   ADVERTISE_10_FULL)
--#define E1000_ALL_HALF_DUPLEX   (ADVERTISE_10_HALF |  ADVERTISE_100_HALF)
-+#define E1000_ALL_SPEED_DUPLEX	( \
-+	ADVERTISE_10_HALF | ADVERTISE_10_FULL | ADVERTISE_100_HALF | \
-+	ADVERTISE_100_FULL | ADVERTISE_1000_FULL)
-+#define E1000_ALL_NOT_GIG	( \
-+	ADVERTISE_10_HALF | ADVERTISE_10_FULL | ADVERTISE_100_HALF | \
-+	ADVERTISE_100_FULL)
-+#define E1000_ALL_100_SPEED	(ADVERTISE_100_HALF | ADVERTISE_100_FULL)
-+#define E1000_ALL_10_SPEED	(ADVERTISE_10_HALF | ADVERTISE_10_FULL)
-+#define E1000_ALL_HALF_DUPLEX	(ADVERTISE_10_HALF | ADVERTISE_100_HALF)
- 
- #define AUTONEG_ADVERTISE_SPEED_DEFAULT   E1000_ALL_SPEED_DUPLEX
- 
-@@ -422,11 +423,11 @@
-  *   o LSC    = Link Status Change
-  */
- #define IMS_ENABLE_MASK ( \
--    E1000_IMS_RXT0   |    \
--    E1000_IMS_TXDW   |    \
--    E1000_IMS_RXDMT0 |    \
--    E1000_IMS_RXSEQ  |    \
--    E1000_IMS_LSC)
-+	E1000_IMS_RXT0   |    \
-+	E1000_IMS_TXDW   |    \
-+	E1000_IMS_RXDMT0 |    \
-+	E1000_IMS_RXSEQ  |    \
-+	E1000_IMS_LSC)
- 
- /* Interrupt Mask Set */
- #define E1000_IMS_TXDW      E1000_ICR_TXDW      /* Transmit desc written back */
-diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-index 58547b8..2ca6f2f 100644
---- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
-@@ -4507,7 +4507,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
- 	.reset_hw		= e1000_reset_hw_ich8lan,
- 	.init_hw		= e1000_init_hw_ich8lan,
- 	.setup_link		= e1000_setup_link_ich8lan,
--	.setup_physical_interface= e1000_setup_copper_link_ich8lan,
-+	.setup_physical_interface = e1000_setup_copper_link_ich8lan,
- 	/* id_led_init dependent on mac type */
- 	.config_collision_dist	= e1000e_config_collision_dist_generic,
- 	.rar_set		= e1000e_rar_set_generic,
-@@ -4529,7 +4529,7 @@ static const struct e1000_phy_operations ich8_phy_ops = {
- 
- static const struct e1000_nvm_operations ich8_nvm_ops = {
- 	.acquire		= e1000_acquire_nvm_ich8lan,
--	.read		 	= e1000_read_nvm_ich8lan,
-+	.read			= e1000_read_nvm_ich8lan,
- 	.release		= e1000_release_nvm_ich8lan,
- 	.reload			= e1000e_reload_nvm_generic,
- 	.update			= e1000_update_nvm_checksum_ich8lan,
-diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
-index 0709f49..5992eef 100644
---- a/drivers/net/ethernet/intel/e1000e/mac.c
-+++ b/drivers/net/ethernet/intel/e1000e/mac.c
-@@ -1074,8 +1074,8 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		ret_val = e1e_rphy(hw, PHY_AUTONEG_ADV, &mii_nway_adv_reg);
- 		if (ret_val)
- 			return ret_val;
--		ret_val =
--		    e1e_rphy(hw, PHY_LP_ABILITY, &mii_nway_lp_ability_reg);
-+		ret_val = e1e_rphy(hw, PHY_LP_ABILITY,
-+				   &mii_nway_lp_ability_reg);
- 		if (ret_val)
- 			return ret_val;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 46a38a4..e878dbf 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6571,8 +6571,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
- 
- 	err = pci_request_selected_regions_exclusive(pdev,
--	                                  pci_select_bars(pdev, IORESOURCE_MEM),
--	                                  e1000e_driver_name);
-+					  pci_select_bars(pdev, IORESOURCE_MEM),
-+					  e1000e_driver_name);
- 	if (err)
- 		goto err_pci_reg;
- 
-diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
-index 19c40d6..98da75d 100644
---- a/drivers/net/ethernet/intel/e1000e/param.c
-+++ b/drivers/net/ethernet/intel/e1000e/param.c
-@@ -53,8 +53,7 @@ MODULE_PARM_DESC(copybreak,
-  */
- #define E1000_PARAM_INIT { [0 ... E1000_MAX_NIC] = OPTION_UNSET }
- #define E1000_PARAM(X, desc)					\
--	static int X[E1000_MAX_NIC+1]		\
--		= E1000_PARAM_INIT;				\
-+	static int X[E1000_MAX_NIC+1] = E1000_PARAM_INIT;	\
- 	static unsigned int num_##X;				\
- 	module_param_array_named(X, X, int, &num_##X, 0);	\
- 	MODULE_PARM_DESC(X, desc);
--- 
-1.7.11.7
+I tried kernel with this patch in. I also ported
+56b765b79e9a78dc7d3f8850ba5e5567205a3ecd to tbf. I'm getting always the
+similar numbers with iperf. There must be something else needed :/
+
+Thanks
+
+Jiri
