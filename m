@@ -1,187 +1,51 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [patch net-next V4] bond: have random dev address by default instead of zeroes
-Date: Wed, 30 Jan 2013 11:19:53 -0800
-Message-ID: <17070.1359573593@death.nxdomain>
-References: <1359540491-768-1-git-send-email-jiri@resnulli.us>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [RFC net-next 1/4] ipv6 flowlabel: Ensure to take lock when modifying
+ np->ip6_sk_fl_list.
+Date: Thu, 31 Jan 2013 04:26:42 +0900
+Message-ID: <510973F2.3080400@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net,
-	stephen@networkplumber.org, psimerda@redhat.com, dcbw@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:58883 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756745Ab3A3TUV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 14:20:21 -0500
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 30 Jan 2013 12:20:21 -0700
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 82E4019D803E
-	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 12:20:15 -0700 (MST)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r0UJK1HL083134
-	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 12:20:02 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r0UJJuDJ031189
-	for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 12:19:57 -0700
-In-reply-to: <1359540491-768-1-git-send-email-jiri@resnulli.us>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56111 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755388Ab3A3T0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 14:26:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko <jiri@resnulli.us> wrote:
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/ip6_flowlabel.c |   13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
->Makes more sense to have randomly generated address by default than to
->have all zeroes. It also allows user to for example put the bond into
->bridge without need to have any slaves in it.
->
->Also note that this changes only behaviour of bonds with no slaves. On=
-ce
->the first slave device is enslaved, its address will be used (no chang=
-e
->here).
->
->Also, fix dev_assign_type values on the way.
->
->Reported-by: Pavel =C5=A0imerda <psimerda@redhat.com>
->Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
->---
->v3->v4:
->- %s/get_dev_addr_from_first_slave/dev_addr_from_first/
->v2->v3:
->- call_netdevice_notifiers is called after dev_addr change.
->- use bond->get_dev_addr_from_first_slave to know when to get addr fro=
-m the
->  first slave
->v1->v2:
->- fixed assign value of bond_dev->addr_assign_type in bond_set_dev_add=
-r()
->- added note to patch description
->
-> drivers/net/bonding/bond_main.c | 38 +++++++++++++++++++-------------=
-------
-> drivers/net/bonding/bonding.h   |  1 +
-> 2 files changed, 20 insertions(+), 19 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bon=
-d_main.c
->index 564cf42..b38c9bf 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1320,14 +1320,15 @@ static void bond_netpoll_cleanup(struct net_de=
-vice *bond_dev)
->
-> /*---------------------------------- IOCTL --------------------------=
---------*/
->
->-static int bond_sethwaddr(struct net_device *bond_dev,
->-			  struct net_device *slave_dev)
->+static void bond_set_dev_addr(struct net_device *bond_dev,
->+			      struct net_device *slave_dev)
-> {
-> 	pr_debug("bond_dev=3D%p\n", bond_dev);
-> 	pr_debug("slave_dev=3D%p\n", slave_dev);
-> 	pr_debug("slave_dev->addr_len=3D%d\n", slave_dev->addr_len);
-> 	memcpy(bond_dev->dev_addr, slave_dev->dev_addr, slave_dev->addr_len)=
-;
->-	return 0;
->+	bond_dev->addr_assign_type =3D NET_ADDR_SET;
->+	call_netdevice_notifiers(NETDEV_CHANGEADDR, bond_dev);
-> }
->
-> static netdev_features_t bond_fix_features(struct net_device *dev,
->@@ -1628,10 +1629,8 @@ int bond_enslave(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->
-> 	/* If this is the first slave, then we need to set the master's hard=
-ware
-> 	 * address to be the same as the slave's. */
->-	if (is_zero_ether_addr(bond->dev->dev_addr))
->-		memcpy(bond->dev->dev_addr, slave_dev->dev_addr,
->-		       slave_dev->addr_len);
->-
->+	if (bond->dev_addr_from_first)
->+		bond_set_dev_addr(bond->dev, slave_dev);
->
-> 	new_slave =3D kzalloc(sizeof(struct slave), GFP_KERNEL);
-> 	if (!new_slave) {
->@@ -2048,12 +2047,8 @@ int bond_release(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->
-> 	if (bond->slave_cnt =3D=3D 0) {
-> 		bond_set_carrier(bond);
->-
->-		/* if the last slave was removed, zero the mac address
->-		 * of the master so it will be set by the application
->-		 * to the mac address of the first slave
->-		 */
->-		memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->+		eth_hw_addr_random(bond_dev);
->+		bond->dev_addr_from_first =3D true;
->
-> 		if (bond_vlan_used(bond)) {
-> 			pr_warning("%s: Warning: clearing HW address of %s while it still =
-has VLANs.\n",
->@@ -2234,11 +2229,8 @@ static int bond_release_all(struct net_device *=
-bond_dev)
-> 		write_lock_bh(&bond->lock);
-> 	}
->
->-	/* zero the mac address of the master so it will be
->-	 * set by the application to the mac address of the
->-	 * first slave
->-	 */
->-	memset(bond_dev->dev_addr, 0, bond_dev->addr_len);
->+	eth_hw_addr_random(bond_dev);
->+	bond->dev_addr_from_first =3D true;
->
-> 	if (bond_vlan_used(bond)) {
-> 		pr_warning("%s: Warning: clearing HW address of %s while it still h=
-as VLANs.\n",
->@@ -3708,7 +3700,8 @@ static int bond_do_ioctl(struct net_device *bond=
-_dev, struct ifreq *ifr, int cmd
-> 			break;
-> 		case BOND_SETHWADDR_OLD:
-> 		case SIOCBONDSETHWADDR:
->-			res =3D bond_sethwaddr(bond_dev, slave_dev);
->+			bond_set_dev_addr(bond_dev, slave_dev);
->+			res =3D 0;
-> 			break;
-> 		case BOND_CHANGE_ACTIVE_OLD:
-> 		case SIOCBONDCHANGEACTIVE:
->@@ -4858,6 +4851,13 @@ static int bond_init(struct net_device *bond_de=
-v)
->
-> 	bond_debug_register(bond);
->
->+	/* Ensure valid dev_addr */
->+	if (is_zero_ether_addr(bond_dev->dev_addr) &&
->+	    bond_dev->addr_assign_type =3D=3D NET_ADDR_PERM) {
->+		eth_hw_addr_random(bond_dev);
->+		bond->dev_addr_from_first =3D true;
->+	}
->+
-> 	__hw_addr_init(&bond->mc_list);
-> 	return 0;
-> }
->diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bondi=
-ng.h
->index 0d282d2..2baec24 100644
->--- a/drivers/net/bonding/bonding.h
->+++ b/drivers/net/bonding/bonding.h
->@@ -248,6 +248,7 @@ struct bonding {
-> 	/* debugging support via debugfs */
-> 	struct	 dentry *debug_dir;
-> #endif /* CONFIG_DEBUG_FS */
->+	bool	dev_addr_from_first;
-> };
->
-> static inline bool bond_vlan_used(struct bonding *bond)
->--=20
->1.8.1
->
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+index 29124b7..5d767f1 100644
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -255,10 +255,19 @@ void fl6_free_socklist(struct sock *sk)
+ 	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct ipv6_fl_socklist *sfl;
+ 
+-	while ((sfl = np->ipv6_fl_list) != NULL) {
+-		np->ipv6_fl_list = sfl->next;
++	if (!np->ipv6_fl_list)
++		return;
++
++	write_lock_bh(&ipv6_sk_fl_lock);
++	sfl = np->ipv6_fl_list;
++	np->ipv6_fl_list = NULL;
++	write_unlock_bh(&ipv6_sk_fl_lock);
++
++	while (sfl) {
++		struct ipv6_fl_socklist *next = sfl->next;
+ 		fl_release(sfl->fl);
+ 		kfree(sfl);
++		sfl = next;
+ 	}
+ }
+ 
+-- 
+1.7.9.5
