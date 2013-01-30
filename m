@@ -1,322 +1,255 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/13] ixgbe: autoneg variable refactoring
-Date: Wed, 30 Jan 2013 03:44:40 -0800
-Message-ID: <1359546286-18179-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/13] e1000e: cleanup some whitespace and indentation issues
+Date: Wed, 30 Jan 2013 03:44:43 -0800
+Message-ID: <1359546286-18179-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Josh Hay <joshua.a.hay@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:33030 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755427Ab3A3LpA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 06:45:00 -0500
+	id S1755404Ab3A3LpB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 06:45:01 -0500
 In-Reply-To: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Josh Hay <joshua.a.hay@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Removes the autoneg parameter from the setup_link functions.
-Adds local variable autoneg to setup_link functions to be passed
-to get_link_capabilities functions if needed.
-
-Signed-off-by: Josh Hay <joshua.a.hay@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   | 10 +++------
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   | 27 +++++++-----------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |  6 +++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  4 ++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |  2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |  5 ++---
- 6 files changed, 19 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c | 22 ++++++------
+ drivers/net/ethernet/intel/e1000e/82571.c       | 13 +++----
+ drivers/net/ethernet/intel/e1000e/defines.h     | 47 +++++++++++++------------
+ drivers/net/ethernet/intel/e1000e/ich8lan.c     |  4 +--
+ drivers/net/ethernet/intel/e1000e/mac.c         |  4 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c      |  4 +--
+ drivers/net/ethernet/intel/e1000e/param.c       |  3 +-
+ 7 files changed, 49 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-index dd1f0cf..7fd3833 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -41,7 +41,6 @@
- 
- static s32 ixgbe_setup_copper_link_82598(struct ixgbe_hw *hw,
-                                          ixgbe_link_speed speed,
--                                         bool autoneg,
-                                          bool autoneg_wait_to_complete);
- static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_offset,
-                                        u8 *eeprom_data);
-@@ -633,15 +632,15 @@ out:
-  *  ixgbe_setup_mac_link_82598 - Set MAC link speed
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if auto-negotiation enabled
-  *  @autoneg_wait_to_complete: true when waiting for completion is needed
-  *
-  *  Set the link speed in the AUTOC register and restarts link.
-  **/
- static s32 ixgbe_setup_mac_link_82598(struct ixgbe_hw *hw,
--                                           ixgbe_link_speed speed, bool autoneg,
--                                           bool autoneg_wait_to_complete)
-+				      ixgbe_link_speed speed,
-+				      bool autoneg_wait_to_complete)
- {
-+	bool		 autoneg	   = false;
- 	s32              status            = 0;
- 	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
- 	u32              curr_autoc        = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-@@ -685,14 +684,12 @@ static s32 ixgbe_setup_mac_link_82598(struct ixgbe_hw *hw,
-  *  ixgbe_setup_copper_link_82598 - Set the PHY autoneg advertised field
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if autonegotiation enabled
-  *  @autoneg_wait_to_complete: true if waiting is needed to complete
-  *
-  *  Sets the link speed in the AUTOC register in the MAC and restarts link.
-  **/
- static s32 ixgbe_setup_copper_link_82598(struct ixgbe_hw *hw,
-                                                ixgbe_link_speed speed,
--                                               bool autoneg,
-                                                bool autoneg_wait_to_complete)
- {
- 	s32 status;
-@@ -1311,4 +1308,3 @@ struct ixgbe_info ixgbe_82598_info = {
- 	.eeprom_ops		= &eeprom_ops_82598,
- 	.phy_ops		= &phy_ops_82598,
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+index 3f27546..765211a 100644
+--- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+@@ -1438,18 +1438,18 @@ static const struct e1000_phy_operations es2_phy_ops = {
+ 	.acquire		= e1000_acquire_phy_80003es2lan,
+ 	.check_polarity		= e1000_check_polarity_m88,
+ 	.check_reset_block	= e1000e_check_reset_block_generic,
+-	.commit		 	= e1000e_phy_sw_reset,
+-	.force_speed_duplex 	= e1000_phy_force_speed_duplex_80003es2lan,
+-	.get_cfg_done       	= e1000_get_cfg_done_80003es2lan,
+-	.get_cable_length   	= e1000_get_cable_length_80003es2lan,
+-	.get_info       	= e1000e_get_phy_info_m88,
+-	.read_reg       	= e1000_read_phy_reg_gg82563_80003es2lan,
++	.commit			= e1000e_phy_sw_reset,
++	.force_speed_duplex	= e1000_phy_force_speed_duplex_80003es2lan,
++	.get_cfg_done		= e1000_get_cfg_done_80003es2lan,
++	.get_cable_length	= e1000_get_cable_length_80003es2lan,
++	.get_info		= e1000e_get_phy_info_m88,
++	.read_reg		= e1000_read_phy_reg_gg82563_80003es2lan,
+ 	.release		= e1000_release_phy_80003es2lan,
+-	.reset		  	= e1000e_phy_hw_reset_generic,
+-	.set_d0_lplu_state  	= NULL,
+-	.set_d3_lplu_state  	= e1000e_set_d3_lplu_state,
+-	.write_reg      	= e1000_write_phy_reg_gg82563_80003es2lan,
+-	.cfg_on_link_up      	= e1000_cfg_on_link_up_80003es2lan,
++	.reset			= e1000e_phy_hw_reset_generic,
++	.set_d0_lplu_state	= NULL,
++	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
++	.write_reg		= e1000_write_phy_reg_gg82563_80003es2lan,
++	.cfg_on_link_up		= e1000_cfg_on_link_up_80003es2lan,
  };
--
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 6ad82cb..3350461 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -45,21 +45,17 @@ static void ixgbe_enable_tx_laser_multispeed_fiber(struct ixgbe_hw *hw);
- static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw);
- static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 						 ixgbe_link_speed speed,
--						 bool autoneg,
- 						 bool autoneg_wait_to_complete);
- static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
-                                            ixgbe_link_speed speed,
--                                           bool autoneg,
-                                            bool autoneg_wait_to_complete);
- static s32 ixgbe_start_mac_link_82599(struct ixgbe_hw *hw,
- 				      bool autoneg_wait_to_complete);
- static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
-                                ixgbe_link_speed speed,
--                               bool autoneg,
-                                bool autoneg_wait_to_complete);
- static s32 ixgbe_setup_copper_link_82599(struct ixgbe_hw *hw,
-                                          ixgbe_link_speed speed,
--                                         bool autoneg,
-                                          bool autoneg_wait_to_complete);
- static s32 ixgbe_verify_fw_version_82599(struct ixgbe_hw *hw);
  
-@@ -510,14 +506,12 @@ static void ixgbe_flap_tx_laser_multispeed_fiber(struct ixgbe_hw *hw)
-  *  ixgbe_setup_mac_link_multispeed_fiber - Set MAC link speed
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if autonegotiation enabled
-  *  @autoneg_wait_to_complete: true when waiting for completion is needed
-  *
-  *  Set the link speed in the AUTOC register and restarts link.
-  **/
- static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
-                                           ixgbe_link_speed speed,
--                                          bool autoneg,
-                                           bool autoneg_wait_to_complete)
- {
- 	s32 status = 0;
-@@ -527,6 +521,7 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 	u32 esdp_reg = IXGBE_READ_REG(hw, IXGBE_ESDP);
- 	u32 i = 0;
- 	bool link_up = false;
-+	bool autoneg = false;
- 
- 	/* Mask off requested but non-supported speeds */
- 	status = hw->mac.ops.get_link_capabilities(hw, &link_speed,
-@@ -563,7 +558,6 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 
- 		status = ixgbe_setup_mac_link_82599(hw,
- 						    IXGBE_LINK_SPEED_10GB_FULL,
--						    autoneg,
- 						    autoneg_wait_to_complete);
- 		if (status != 0)
- 			return status;
-@@ -616,7 +610,6 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 
- 		status = ixgbe_setup_mac_link_82599(hw,
- 						    IXGBE_LINK_SPEED_1GB_FULL,
--						    autoneg,
- 						    autoneg_wait_to_complete);
- 		if (status != 0)
- 			return status;
-@@ -645,7 +638,6 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 	if (speedcnt > 1)
- 		status = ixgbe_setup_mac_link_multispeed_fiber(hw,
- 		                                               highest_link_speed,
--		                                               autoneg,
- 		                                               autoneg_wait_to_complete);
- 
- out:
-@@ -665,13 +657,12 @@ out:
-  *  ixgbe_setup_mac_link_smartspeed - Set MAC link speed using SmartSpeed
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if autonegotiation enabled
-  *  @autoneg_wait_to_complete: true when waiting for completion is needed
-  *
-  *  Implements the Intel SmartSpeed algorithm.
-  **/
- static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
--				     ixgbe_link_speed speed, bool autoneg,
-+				     ixgbe_link_speed speed,
- 				     bool autoneg_wait_to_complete)
- {
- 	s32 status = 0;
-@@ -702,7 +693,7 @@ static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
- 	/* First, try to get link with full advertisement */
- 	hw->phy.smart_speed_active = false;
- 	for (j = 0; j < IXGBE_SMARTSPEED_MAX_RETRIES; j++) {
--		status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
-+		status = ixgbe_setup_mac_link_82599(hw, speed,
- 						    autoneg_wait_to_complete);
- 		if (status != 0)
- 			goto out;
-@@ -737,7 +728,7 @@ static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
- 
- 	/* Turn SmartSpeed on to disable KR support */
- 	hw->phy.smart_speed_active = true;
--	status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
-+	status = ixgbe_setup_mac_link_82599(hw, speed,
- 					    autoneg_wait_to_complete);
- 	if (status != 0)
- 		goto out;
-@@ -763,7 +754,7 @@ static s32 ixgbe_setup_mac_link_smartspeed(struct ixgbe_hw *hw,
- 
- 	/* We didn't get link.  Turn SmartSpeed back off. */
- 	hw->phy.smart_speed_active = false;
--	status = ixgbe_setup_mac_link_82599(hw, speed, autoneg,
-+	status = ixgbe_setup_mac_link_82599(hw, speed,
- 					    autoneg_wait_to_complete);
- 
- out:
-@@ -777,14 +768,13 @@ out:
-  *  ixgbe_setup_mac_link_82599 - Set MAC link speed
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if autonegotiation enabled
-  *  @autoneg_wait_to_complete: true when waiting for completion is needed
-  *
-  *  Set the link speed in the AUTOC register and restarts link.
-  **/
- static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
--                               ixgbe_link_speed speed, bool autoneg,
--                               bool autoneg_wait_to_complete)
-+				      ixgbe_link_speed speed,
-+				      bool autoneg_wait_to_complete)
- {
- 	s32 status = 0;
- 	u32 autoc = IXGBE_READ_REG(hw, IXGBE_AUTOC);
-@@ -798,6 +788,7 @@ static s32 ixgbe_setup_mac_link_82599(struct ixgbe_hw *hw,
- 	u32 i;
- 	ixgbe_link_speed link_capabilities = IXGBE_LINK_SPEED_UNKNOWN;
- 	bool got_lock = false;
-+	bool autoneg = false;
- 
- 	/* Check to see if speed passed in is supported. */
- 	status = hw->mac.ops.get_link_capabilities(hw, &link_capabilities,
-@@ -910,14 +901,12 @@ out:
-  *  ixgbe_setup_copper_link_82599 - Set the PHY autoneg advertised field
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if autonegotiation enabled
-  *  @autoneg_wait_to_complete: true if waiting is needed to complete
-  *
-  *  Restarts link on PHY and MAC based on settings passed in.
-  **/
- static s32 ixgbe_setup_copper_link_82599(struct ixgbe_hw *hw,
-                                          ixgbe_link_speed speed,
--                                         bool autoneg,
-                                          bool autoneg_wait_to_complete)
- {
- 	s32 status;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index 036c0a5..4d763d1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -158,7 +158,7 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 	struct ixgbe_hw *hw = &adapter->hw;
- 	ixgbe_link_speed supported_link;
- 	u32 link_speed = 0;
--	bool autoneg;
-+	bool autoneg = false;
- 	bool link_up;
- 
- 	hw->mac.ops.get_link_capabilities(hw, &supported_link, &autoneg);
-@@ -335,10 +335,10 @@ static int ixgbe_set_settings(struct net_device *netdev,
- 			return err;
- 		/* this sets the link speed and restarts auto-neg */
- 		hw->mac.autotry_restart = true;
--		err = hw->mac.ops.setup_link(hw, advertised, true, true);
-+		err = hw->mac.ops.setup_link(hw, advertised, true);
- 		if (err) {
- 			e_info(probe, "setup link failed with code %d\n", err);
--			hw->mac.ops.setup_link(hw, old, true, true);
-+			hw->mac.ops.setup_link(hw, old, true);
+ static const struct e1000_nvm_operations es2_nvm_ops = {
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index 076938c..db364b6 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -1327,9 +1327,10 @@ static void e1000_clear_vfta_82571(struct e1000_hw *hw)
+ 			 */
+ 			vfta_offset = (hw->mng_cookie.vlan_id >>
+ 				       E1000_VFTA_ENTRY_SHIFT) &
+-				      E1000_VFTA_ENTRY_MASK;
+-			vfta_bit_in_reg = 1 << (hw->mng_cookie.vlan_id &
+-					       E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
++			    E1000_VFTA_ENTRY_MASK;
++			vfta_bit_in_reg =
++			    1 << (hw->mng_cookie.vlan_id &
++				  E1000_VFTA_ENTRY_BIT_SHIFT_MASK);
  		}
- 	} else {
- 		/* in this case we currently only support 10Gb/FULL */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 6c57cec..37155ab 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -4012,7 +4012,7 @@ static int ixgbe_non_sfp_link_config(struct ixgbe_hw *hw)
- 		goto link_cfg_out;
+ 		break;
+ 	default:
+@@ -1931,7 +1932,7 @@ static const struct e1000_phy_operations e82_phy_ops_igp = {
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
+ 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
+ 	.write_reg		= e1000e_write_phy_reg_igp,
+-	.cfg_on_link_up      	= NULL,
++	.cfg_on_link_up		= NULL,
+ };
  
- 	if (hw->mac.ops.setup_link)
--		ret = hw->mac.ops.setup_link(hw, speed, autoneg, link_up);
-+		ret = hw->mac.ops.setup_link(hw, speed, link_up);
- link_cfg_out:
- 	return ret;
- }
-@@ -5760,7 +5760,7 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
- 	if ((!speed) && (hw->mac.ops.get_link_capabilities))
- 		hw->mac.ops.get_link_capabilities(hw, &speed, &autoneg);
- 	if (hw->mac.ops.setup_link)
--		hw->mac.ops.setup_link(hw, speed, autoneg, true);
-+		hw->mac.ops.setup_link(hw, speed, true);
+ static const struct e1000_phy_operations e82_phy_ops_m88 = {
+@@ -1949,7 +1950,7 @@ static const struct e1000_phy_operations e82_phy_ops_m88 = {
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
+ 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
+ 	.write_reg		= e1000e_write_phy_reg_m88,
+-	.cfg_on_link_up      	= NULL,
++	.cfg_on_link_up		= NULL,
+ };
  
- 	adapter->flags |= IXGBE_FLAG_NEED_LINK_UPDATE;
- 	adapter->link_check_timeout = jiffies;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-index 85f76cc..0bdcc88 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2822,7 +2822,7 @@ struct ixgbe_mac_operations {
- 	void (*disable_tx_laser)(struct ixgbe_hw *);
- 	void (*enable_tx_laser)(struct ixgbe_hw *);
- 	void (*flap_tx_laser)(struct ixgbe_hw *);
--	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool, bool);
-+	s32 (*setup_link)(struct ixgbe_hw *, ixgbe_link_speed, bool);
- 	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *, bool);
- 	s32 (*get_link_capabilities)(struct ixgbe_hw *, ixgbe_link_speed *,
- 	                             bool *);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 4ec5019..2fa5843 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -72,12 +72,11 @@ static s32 ixgbe_get_invariants_X540(struct ixgbe_hw *hw)
-  *  ixgbe_setup_mac_link_X540 - Set the auto advertised capabilitires
-  *  @hw: pointer to hardware structure
-  *  @speed: new link speed
-- *  @autoneg: true if autonegotiation enabled
-  *  @autoneg_wait_to_complete: true when waiting for completion is needed
-  **/
- static s32 ixgbe_setup_mac_link_X540(struct ixgbe_hw *hw,
--                                     ixgbe_link_speed speed, bool autoneg,
--                                     bool autoneg_wait_to_complete)
-+				     ixgbe_link_speed speed,
-+				     bool autoneg_wait_to_complete)
- {
- 	return hw->phy.ops.setup_link_speed(hw, speed,
- 	                                    autoneg_wait_to_complete);
+ static const struct e1000_phy_operations e82_phy_ops_bm = {
+@@ -1967,7 +1968,7 @@ static const struct e1000_phy_operations e82_phy_ops_bm = {
+ 	.set_d0_lplu_state	= e1000_set_d0_lplu_state_82571,
+ 	.set_d3_lplu_state	= e1000e_set_d3_lplu_state,
+ 	.write_reg		= e1000e_write_phy_reg_bm2,
+-	.cfg_on_link_up      	= NULL,
++	.cfg_on_link_up		= NULL,
+ };
+ 
+ static const struct e1000_nvm_operations e82571_nvm_ops = {
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index acfe1fa..1257f91 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -96,19 +96,19 @@
+ 
+ /* mask to determine if packets should be dropped due to frame errors */
+ #define E1000_RXD_ERR_FRAME_ERR_MASK ( \
+-    E1000_RXD_ERR_CE  |                \
+-    E1000_RXD_ERR_SE  |                \
+-    E1000_RXD_ERR_SEQ |                \
+-    E1000_RXD_ERR_CXE |                \
+-    E1000_RXD_ERR_RXE)
++	E1000_RXD_ERR_CE  |		\
++	E1000_RXD_ERR_SE  |		\
++	E1000_RXD_ERR_SEQ |		\
++	E1000_RXD_ERR_CXE |		\
++	E1000_RXD_ERR_RXE)
+ 
+ /* Same mask, but for extended and packet split descriptors */
+ #define E1000_RXDEXT_ERR_FRAME_ERR_MASK ( \
+-    E1000_RXDEXT_STATERR_CE  |            \
+-    E1000_RXDEXT_STATERR_SE  |            \
+-    E1000_RXDEXT_STATERR_SEQ |            \
+-    E1000_RXDEXT_STATERR_CXE |            \
+-    E1000_RXDEXT_STATERR_RXE)
++	E1000_RXDEXT_STATERR_CE  |	\
++	E1000_RXDEXT_STATERR_SE  |	\
++	E1000_RXDEXT_STATERR_SEQ |	\
++	E1000_RXDEXT_STATERR_CXE |	\
++	E1000_RXDEXT_STATERR_RXE)
+ 
+ #define E1000_MRQC_RSS_FIELD_MASK              0xFFFF0000
+ #define E1000_MRQC_RSS_FIELD_IPV4_TCP          0x00010000
+@@ -253,14 +253,15 @@
+ #define ADVERTISE_1000_FULL               0x0020
+ 
+ /* 1000/H is not supported, nor spec-compliant. */
+-#define E1000_ALL_SPEED_DUPLEX ( ADVERTISE_10_HALF |   ADVERTISE_10_FULL | \
+-				ADVERTISE_100_HALF |  ADVERTISE_100_FULL | \
+-						     ADVERTISE_1000_FULL)
+-#define E1000_ALL_NOT_GIG      ( ADVERTISE_10_HALF |   ADVERTISE_10_FULL | \
+-				ADVERTISE_100_HALF |  ADVERTISE_100_FULL)
+-#define E1000_ALL_100_SPEED    (ADVERTISE_100_HALF |  ADVERTISE_100_FULL)
+-#define E1000_ALL_10_SPEED      (ADVERTISE_10_HALF |   ADVERTISE_10_FULL)
+-#define E1000_ALL_HALF_DUPLEX   (ADVERTISE_10_HALF |  ADVERTISE_100_HALF)
++#define E1000_ALL_SPEED_DUPLEX	( \
++	ADVERTISE_10_HALF | ADVERTISE_10_FULL | ADVERTISE_100_HALF | \
++	ADVERTISE_100_FULL | ADVERTISE_1000_FULL)
++#define E1000_ALL_NOT_GIG	( \
++	ADVERTISE_10_HALF | ADVERTISE_10_FULL | ADVERTISE_100_HALF | \
++	ADVERTISE_100_FULL)
++#define E1000_ALL_100_SPEED	(ADVERTISE_100_HALF | ADVERTISE_100_FULL)
++#define E1000_ALL_10_SPEED	(ADVERTISE_10_HALF | ADVERTISE_10_FULL)
++#define E1000_ALL_HALF_DUPLEX	(ADVERTISE_10_HALF | ADVERTISE_100_HALF)
+ 
+ #define AUTONEG_ADVERTISE_SPEED_DEFAULT   E1000_ALL_SPEED_DUPLEX
+ 
+@@ -422,11 +423,11 @@
+  *   o LSC    = Link Status Change
+  */
+ #define IMS_ENABLE_MASK ( \
+-    E1000_IMS_RXT0   |    \
+-    E1000_IMS_TXDW   |    \
+-    E1000_IMS_RXDMT0 |    \
+-    E1000_IMS_RXSEQ  |    \
+-    E1000_IMS_LSC)
++	E1000_IMS_RXT0   |    \
++	E1000_IMS_TXDW   |    \
++	E1000_IMS_RXDMT0 |    \
++	E1000_IMS_RXSEQ  |    \
++	E1000_IMS_LSC)
+ 
+ /* Interrupt Mask Set */
+ #define E1000_IMS_TXDW      E1000_ICR_TXDW      /* Transmit desc written back */
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 58547b8..2ca6f2f 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -4507,7 +4507,7 @@ static const struct e1000_mac_operations ich8_mac_ops = {
+ 	.reset_hw		= e1000_reset_hw_ich8lan,
+ 	.init_hw		= e1000_init_hw_ich8lan,
+ 	.setup_link		= e1000_setup_link_ich8lan,
+-	.setup_physical_interface= e1000_setup_copper_link_ich8lan,
++	.setup_physical_interface = e1000_setup_copper_link_ich8lan,
+ 	/* id_led_init dependent on mac type */
+ 	.config_collision_dist	= e1000e_config_collision_dist_generic,
+ 	.rar_set		= e1000e_rar_set_generic,
+@@ -4529,7 +4529,7 @@ static const struct e1000_phy_operations ich8_phy_ops = {
+ 
+ static const struct e1000_nvm_operations ich8_nvm_ops = {
+ 	.acquire		= e1000_acquire_nvm_ich8lan,
+-	.read		 	= e1000_read_nvm_ich8lan,
++	.read			= e1000_read_nvm_ich8lan,
+ 	.release		= e1000_release_nvm_ich8lan,
+ 	.reload			= e1000e_reload_nvm_generic,
+ 	.update			= e1000_update_nvm_checksum_ich8lan,
+diff --git a/drivers/net/ethernet/intel/e1000e/mac.c b/drivers/net/ethernet/intel/e1000e/mac.c
+index 0709f49..5992eef 100644
+--- a/drivers/net/ethernet/intel/e1000e/mac.c
++++ b/drivers/net/ethernet/intel/e1000e/mac.c
+@@ -1074,8 +1074,8 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
+ 		ret_val = e1e_rphy(hw, PHY_AUTONEG_ADV, &mii_nway_adv_reg);
+ 		if (ret_val)
+ 			return ret_val;
+-		ret_val =
+-		    e1e_rphy(hw, PHY_LP_ABILITY, &mii_nway_lp_ability_reg);
++		ret_val = e1e_rphy(hw, PHY_LP_ABILITY,
++				   &mii_nway_lp_ability_reg);
+ 		if (ret_val)
+ 			return ret_val;
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 46a38a4..e878dbf 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6571,8 +6571,8 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	err = pci_request_selected_regions_exclusive(pdev,
+-	                                  pci_select_bars(pdev, IORESOURCE_MEM),
+-	                                  e1000e_driver_name);
++					  pci_select_bars(pdev, IORESOURCE_MEM),
++					  e1000e_driver_name);
+ 	if (err)
+ 		goto err_pci_reg;
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/param.c b/drivers/net/ethernet/intel/e1000e/param.c
+index 19c40d6..98da75d 100644
+--- a/drivers/net/ethernet/intel/e1000e/param.c
++++ b/drivers/net/ethernet/intel/e1000e/param.c
+@@ -53,8 +53,7 @@ MODULE_PARM_DESC(copybreak,
+  */
+ #define E1000_PARAM_INIT { [0 ... E1000_MAX_NIC] = OPTION_UNSET }
+ #define E1000_PARAM(X, desc)					\
+-	static int X[E1000_MAX_NIC+1]		\
+-		= E1000_PARAM_INIT;				\
++	static int X[E1000_MAX_NIC+1] = E1000_PARAM_INIT;	\
+ 	static unsigned int num_##X;				\
+ 	module_param_array_named(X, X, int, &num_##X, 0);	\
+ 	MODULE_PARM_DESC(X, desc);
 -- 
 1.7.11.7
