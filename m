@@ -1,84 +1,42 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH 1/2] drivers: net: cpsw: Add helper functions for VLAN
- ALE implementation
-Date: Wed, 30 Jan 2013 09:47:11 +0530
-Message-ID: <51089EC7.5070205@ti.com>
-References: <1359403945-28585-1-git-send-email-mugunthanvnm@ti.com> <1359403945-28585-2-git-send-email-mugunthanvnm@ti.com> <51085D6C.4050102@ti.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [RFC 1/3] net: freescale: fec: add support for optional enet_out
+ clk
+Date: Wed, 30 Jan 2013 13:25:50 +0800
+Message-ID: <20130130052547.GA23670@S2100-06.ap.freescale.net>
+References: <1359470773-14290-1-git-send-email-w.sang@pengutronix.de>
+ <1359470773-14290-2-git-send-email-w.sang@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
-To: Cyril Chemparathy <cyril@ti.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	Shawn Guo <shawn.guo@freescale.com>
+To: Wolfram Sang <w.sang@pengutronix.de>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:40552 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753175Ab3A3ERr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jan 2013 23:17:47 -0500
-In-Reply-To: <51085D6C.4050102@ti.com>
+Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:3095
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753379Ab3A3E45 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 23:56:57 -0500
+Content-Disposition: inline
+In-Reply-To: <1359470773-14290-2-git-send-email-w.sang@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/2013 5:08 AM, Cyril Chemparathy wrote:
-> On 01/28/2013 03:12 PM, Mugunthan V N wrote:
->> Add helper functions for VLAN ALE implementations for Add, Delete
->> Dump VLAN related ALE entries
->>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->> ---
->>   drivers/net/ethernet/ti/cpsw_ale.c |  172 
->> ++++++++++++++++++++++++++++++++++--
->>   drivers/net/ethernet/ti/cpsw_ale.h |   11 +++
->>   2 files changed, 178 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/cpsw_ale.c 
->> b/drivers/net/ethernet/ti/cpsw_ale.c
->> index 0e9ccc2..0d7a60a 100644
->> --- a/drivers/net/ethernet/ti/cpsw_ale.c
->> +++ b/drivers/net/ethernet/ti/cpsw_ale.c
->
-> [...]
->
->> +int cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int 
->> untag,
->> +              int reg_mcast, int unreg_mcast)
->
-> [...]
->
->> +int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port)
->
-> [...]
->
->> +int cpsw_ale_vlan_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
->> +                int flags, u16 vid)
->
-> [...]
->
->> +int cpsw_ale_vlan_del_ucast(struct cpsw_ale *ale, u8 *addr, int 
->> port, u16 vid)
->
-> [...]
->
->> +int cpsw_ale_vlan_add_mcast(struct cpsw_ale *ale, u8 *addr,
->> +        int port_mask, u16 vid, int super, int mcast_state)
->
-> [...]
->
->> +int cpsw_ale_vlan_del_mcast(struct cpsw_ale *ale, u8 *addr,
->> +                int port_mask, u16 vid)
->
-> Are the VLAN and non-VLAN variants different enough to justify 
-> separate implementations for all these functions?  Could we collapse 
-> these by generalizing the original to take an optional vlan argument 
-> instead?
->
-> Thanks
-> -- Cyril.
-Since vid is u16, any value to vid is valid, so only i have proposed new 
-api for vlan.
-add vlan and delete vlan has to be seperate vlan since these are new 
-apis. Will merge
-other api to existing api with additional vlan parameter.
+Thanks for working on this, Wolfram.
 
-Regards
-Mugunthan V N
+On Tue, Jan 29, 2013 at 03:46:11PM +0100, Wolfram Sang wrote:
+> Some MX28 boards need the internal enet_out clock to be enabled. So, do
+> this in the driver iff the clock was referenced via devicetree.
+> 
+> Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+
+Acked-by: Shawn Guo <shawn.guo@linaro.org>
+
+> ---
+> 
+> davidm: Please don't apply before Shawn as the mxs-maintainer has given his ack
+> on the general procedure. Or maybe he can merge it via his tree?
+> 
+I prefer to have the patch go via net tree for 3.9, and then we clean
+up mxs platform code from 3.9-rc1.
+
+Shawn
