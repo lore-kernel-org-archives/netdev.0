@@ -1,142 +1,118 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/2] NET: ethernet/netlogic: Netlogic XLR/XLS GMAC driver
-Date: Wed, 30 Jan 2013 01:11:33 +0000
-Message-ID: <1359508293.4144.29.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1359450699-26141-1-git-send-email-ganesanr@broadcom.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH net-next] net: disallow drivers with buggy VLAN accel to
+ register_netdevice()
+Date: Wed, 30 Jan 2013 02:14:16 +0100 (CET)
+Message-ID: <c7fdfc32f69e7a4c3bfcaa8b2ee842aa9b286c91.1359507017.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>
-To: <ganesanr@broadcom.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Vlad Yasevich <vyasevic@redhat.com>, shemminger@vyatta.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:14395 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751818Ab3A3BLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 20:11:36 -0500
-In-Reply-To: <1359450699-26141-1-git-send-email-ganesanr@broadcom.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:47676 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751818Ab3A3BOT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jan 2013 20:14:19 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-29 at 14:41 +0530, ganesanr@broadcom.com wrote:
-> From: Ganesan Ramalingam <ganesanr@broadcom.com>
-> 
-> Add support for the Network Accelerator Engine on Netlogic XLR/XLS
-> MIPS SoCs. The XLR/XLS NAE blocks can be configured as one 10G
-> interface or four 1G interfaces. This driver supports blocks
-> with 1G ports.
-> 
-> Signed-off-by: Ganesan Ramalingam <ganesanr@broadcom.com>
-> ---
->  This patch has to be merged through netdev tree.
->  Please review and let me know if there are any comments or suggestions.
-> 
->  drivers/net/ethernet/Kconfig            |    1 +
->  drivers/net/ethernet/Makefile           |    1 +
->  drivers/net/ethernet/netlogic/Kconfig   |    8 +
->  drivers/net/ethernet/netlogic/Makefile  |    1 +
->  drivers/net/ethernet/netlogic/xlr_net.c | 1132 +++++++++++++++++++++++++++++++
->  drivers/net/ethernet/netlogic/xlr_net.h | 1098 ++++++++++++++++++++++++++++++
->  6 files changed, 2241 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/ethernet/netlogic/Kconfig
->  create mode 100644 drivers/net/ethernet/netlogic/Makefile
->  create mode 100644 drivers/net/ethernet/netlogic/xlr_net.c
->  create mode 100644 drivers/net/ethernet/netlogic/xlr_net.h
+Instead of jumping aroung bugs that are easily fixed just don't let the=
+m in:
+affected drivers should be either fixed or have NETIF_F_HW_VLAN_FILTER
+removed from advertised features.
 
-Why add a netlogic directory when the company is now a part of Broadcom?
+Quick grep in drivers/net shows two drivers that have NETIF_F_HW_VLAN_F=
+ILTER
+but not ndo_vlan_rx_add/kill_vid(), but those are false-positives (feat=
+ures
+are commented out).
 
-[...]
-> --- /dev/null
-> +++ b/drivers/net/ethernet/netlogic/xlr_net.c
-[...]
-> +/* Ethtool operation */
-> +static int xlr_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-> +{
-> +	return 0;
-> +}
-> +
-> +static int xlr_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-> +{
-> +	return 0;
-> +}
-> +
-> +static void xlr_get_drvinfo(struct net_device *ndev,
-> +		struct ethtool_drvinfo *drvinfo)
-> +{
-> +	return;
-> +}
-> +
-> +static u32 xlr_get_link(struct net_device *ndev)
-> +{
-> +	return 0;
-> +}
-> +
-> +static struct ethtool_ops xlr_ethtool_ops = {
-> +	.get_settings = xlr_get_settings,
-> +	.set_settings = xlr_set_settings,
-> +	.get_drvinfo = xlr_get_drvinfo,
-> +	.get_link = xlr_get_link,
-> +};
+OTOH two drivers have ndo_vlan_rx_add/kill_vid() implemented but don't
+advertise NETIF_F_HW_VLAN_FILTER. Those are:
 
-Either implement them or don't.  I'm guessing that phylib can handle
-get_settings and set_settings for you.
++ethernet/cisco/enic/enic_main.c
++ethernet/qlogic/qlcnic/qlcnic_main.c
 
-[...]
-> +static netdev_tx_t xlr_net_start_xmit(struct sk_buff *skb,
-> +               struct net_device *ndev)
-> +{
-> +       struct nlm_fmn_msg msg;
-> +       struct xlr_net_priv *priv = netdev_priv(ndev);
-> +       int ret;
-> +       u16 qmap;
-> +       u32 flags;
-> +
-> +       qmap = skb->queue_mapping;
-> +       xlr_make_tx_desc(&msg, virt_to_phys(skb->data), skb);
-> +       flags = nlm_cop2_enable();
-> +       ret = nlm_fmn_send(2, 0, priv->nd->tx_stnid, &msg);
-> +       nlm_cop2_restore(flags);
-> +       return NETDEV_TX_OK;
-> +}
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/8021q/vlan.c      |    7 -------
+ net/8021q/vlan_core.c |    6 ++----
+ net/core/dev.c        |    8 ++++++++
+ 3 files changed, 10 insertions(+), 11 deletions(-)
 
-If nlm_fmn_send() fails then you need to free the skbuff.
+Not run-tested. Survived make allmodconfig && make net/ drivers/net/
 
-[...]
-> +static void xlr_stats(struct net_device *ndev, struct net_device_stats *stats)
-> +{
-> +	struct xlr_net_priv *priv = netdev_priv(ndev);
-> +
-> +	stats->rx_packets = nlm_read_reg(priv->base_addr, RX_PACKET_COUNTER);
-> +	stats->tx_packets = nlm_read_reg(priv->base_addr, TX_PACKET_COUNTER);
-> +	stats->rx_bytes = nlm_read_reg(priv->base_addr, RX_BYTE_COUNTER);
-> +	stats->tx_bytes = nlm_read_reg(priv->base_addr, TX_BYTE_COUNTER);
-
-32-bit byte counters for a 1G/10G device?  Seriously?
-
-[...]
-> +struct net_device_stats *xlr_get_stats(struct net_device *ndev)
-> +{
-> +	struct net_device_stats *stats = &ndev->stats;
-> +
-> +	xlr_stats(ndev, stats);
-> +	return stats;
-> +}
-
-You should probably be implementing ndo_get_stats64 to provide 64-bit
-stats even on a 32-bit kernel.
-
-> +static int xlr_net_probe(struct platform_device *pdev)
-> +{
-[...]
-> +	ndev->watchdog_timeo = 1000 * HZ;
-[...]
-
-A watchdog timeout of 1000 seconds is ridiculous.  I guess someone just
-kept seeing the watchdog fire and increasing the timeout, and never
-thought about *why* this was happening.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index babfde9..addc578 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -117,19 +117,12 @@ void unregister_vlan_dev(struct net_device *dev, =
+struct list_head *head)
+ int vlan_check_real_dev(struct net_device *real_dev, u16 vlan_id)
+ {
+ 	const char *name =3D real_dev->name;
+-	const struct net_device_ops *ops =3D real_dev->netdev_ops;
+=20
+ 	if (real_dev->features & NETIF_F_VLAN_CHALLENGED) {
+ 		pr_info("VLANs not supported on %s\n", name);
+ 		return -EOPNOTSUPP;
+ 	}
+=20
+-	if ((real_dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	    (!ops->ndo_vlan_rx_add_vid || !ops->ndo_vlan_rx_kill_vid)) {
+-		pr_info("Device %s has buggy VLAN hw accel\n", name);
+-		return -EOPNOTSUPP;
+-	}
+-
+ 	if (vlan_find_dev(real_dev, vlan_id) !=3D NULL)
+ 		return -EEXIST;
+=20
+diff --git a/net/8021q/vlan_core.c b/net/8021q/vlan_core.c
+index 380440b..71b64fd 100644
+--- a/net/8021q/vlan_core.c
++++ b/net/8021q/vlan_core.c
+@@ -224,8 +224,7 @@ static int __vlan_vid_add(struct vlan_info *vlan_in=
+fo, unsigned short vid,
+ 	if (!vid_info)
+ 		return -ENOMEM;
+=20
+-	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	    ops->ndo_vlan_rx_add_vid) {
++	if (dev->features & NETIF_F_HW_VLAN_FILTER) {
+ 		err =3D  ops->ndo_vlan_rx_add_vid(dev, vid);
+ 		if (err) {
+ 			kfree(vid_info);
+@@ -282,8 +281,7 @@ static void __vlan_vid_del(struct vlan_info *vlan_i=
+nfo,
+ 	unsigned short vid =3D vid_info->vid;
+ 	int err;
+=20
+-	if ((dev->features & NETIF_F_HW_VLAN_FILTER) &&
+-	     ops->ndo_vlan_rx_kill_vid) {
++	if (dev->features & NETIF_F_HW_VLAN_FILTER) {
+ 		err =3D ops->ndo_vlan_rx_kill_vid(dev, vid);
+ 		if (err) {
+ 			pr_warn("failed to kill vid %d for device %s\n",
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a83375d..a87bc74 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6054,6 +6054,14 @@ int register_netdevice(struct net_device *dev)
+ 		}
+ 	}
+=20
++	if (((dev->hw_features | dev->features) & NETIF_F_HW_VLAN_FILTER) &&
++	    (!dev->netdev_ops->ndo_vlan_rx_add_vid ||
++	     !dev->netdev_ops->ndo_vlan_rx_kill_vid)) {
++		netdev_WARN(dev, "Buggy VLAN acceleration in driver!\n");
++		ret =3D -EINVAL;
++		goto err_uninit;
++	}
++
+ 	ret =3D -EBUSY;
+ 	if (!dev->ifindex)
+ 		dev->ifindex =3D dev_new_index(net);
+--=20
+1.7.10.4
