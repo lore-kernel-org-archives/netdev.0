@@ -1,78 +1,144 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 01/11] net/mlx4_core: Directly expose fields of HW flow steering rule control segment
-Date: Wed, 30 Jan 2013 12:34:17 +0200
-Message-ID: <1359542067-10760-2-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 11/11] net/mlx4_en: Fix transmit timeout when driver restarts port
+Date: Wed, 30 Jan 2013 12:34:27 +0200
+Message-ID: <1359542067-10760-12-git-send-email-amirv@mellanox.com>
 References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.com>
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:32921 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754209Ab3A3Ket (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:49 -0500
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:42893 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754449Ab3A3Kew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:52 -0500
 In-Reply-To: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+Under heavy CPU load, changing, ring size/mtu/etc. could result in transmit
+timeout, since stop-start port might take more than 10 seconds.
+Calling netif_detach_device to prevent tx queue transmit timeout.
 
-Some of the fields for struct mlx4_net_trans_rule_hw_ctrl were packed into u32
-and accessed through bit field operations. Expose and access them directly as
-u8.
+netif_detach_device() is not called under ndo_stop, because netif_carrier_off
+will prevent the timeout, and device should not be marked as not present, or
+else user won't be able to start it later on.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |    2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    7 +++++--
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    2 +-
- 3 files changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    6 +++---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   14 ++++++++++----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    2 +-
+ 3 files changed, 14 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 1ee4db3..d7c0704 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -664,7 +664,7 @@ static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
- 	dw |= ctrl->priority << 16;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 738e95d..911d488 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -496,7 +496,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		port_up = 1;
+-		mlx4_en_stop_port(dev);
++		mlx4_en_stop_port(dev, 1);
+ 	}
  
- 	hw->ctrl = cpu_to_be32(dw);
--	hw->vf_vep_port = cpu_to_be32(ctrl->port);
-+	hw->port = ctrl->port;
- 	hw->qpn = cpu_to_be32(ctrl->qpn);
+ 	mlx4_en_free_resources(priv);
+@@ -591,7 +591,7 @@ static int mlx4_en_set_rxfh_indir(struct net_device *dev,
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		port_up = 1;
+-		mlx4_en_stop_port(dev);
++		mlx4_en_stop_port(dev, 1);
+ 	}
+ 
+ 	priv->prof->rss_rings = rss_rings;
+@@ -1096,7 +1096,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		port_up = 1;
+-		mlx4_en_stop_port(dev);
++		mlx4_en_stop_port(dev, 1);
+ 	}
+ 
+ 	mlx4_en_free_resources(priv);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 9b78f61..21be6dc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1181,6 +1181,8 @@ int mlx4_en_start_port(struct net_device *dev)
+ #ifdef CONFIG_DEBUG_FS
+ 	mlx4_en_create_debug_files(priv);
+ #endif
++	netif_device_attach(dev);
++
+ 	return 0;
+ 
+ tx_err:
+@@ -1203,7 +1205,7 @@ cq_err:
  }
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 116c5c2..3263848 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -696,9 +696,12 @@ struct mlx4_steer {
  
- struct mlx4_net_trans_rule_hw_ctrl {
- 	__be32 ctrl;
--	__be32 vf_vep_port;
-+	u8 rsvd1;
-+	u8 funcid;
-+	u8 vep;
-+	u8 port;
- 	__be32 qpn;
--	__be32 reserved;
-+	__be32 rsvd2;
- };
+-void mlx4_en_stop_port(struct net_device *dev)
++void mlx4_en_stop_port(struct net_device *dev, int detach)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+@@ -1222,9 +1224,13 @@ void mlx4_en_stop_port(struct net_device *dev)
+ #endif
+ 	/* Synchronize with tx routine */
+ 	netif_tx_lock_bh(dev);
++	if (detach)
++		netif_device_detach(dev);
+ 	netif_tx_stop_all_queues(dev);
+ 	netif_tx_unlock_bh(dev);
  
- struct mlx4_net_trans_rule_hw_ib {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 561ed2a..5997adc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3018,7 +3018,7 @@ static int add_eth_header(struct mlx4_dev *dev, int slave,
- 	__be64 mac_msk = cpu_to_be64(MLX4_MAC_MASK << 16);
++	netif_tx_disable(dev);
++
+ 	/* Set port as not active */
+ 	priv->port_up = false;
  
- 	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)inbox->buf;
--	port = be32_to_cpu(ctrl->vf_vep_port) & 0xff;
-+	port = ctrl->port;
- 	eth_header = (struct mlx4_net_trans_rule_hw_eth *)(ctrl + 1);
+@@ -1329,7 +1335,7 @@ static void mlx4_en_restart(struct work_struct *work)
  
- 	/* Clear a space in the inbox for eth header */
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+-		mlx4_en_stop_port(dev);
++		mlx4_en_stop_port(dev, 1);
+ 		for (i = 0; i < priv->tx_ring_num; i++)
+ 			netdev_tx_reset_queue(priv->tx_ring[i].tx_queue);
+ 		if (mlx4_en_start_port(dev))
+@@ -1401,7 +1407,7 @@ static int mlx4_en_close(struct net_device *dev)
+ 
+ 	mutex_lock(&mdev->state_lock);
+ 
+-	mlx4_en_stop_port(dev);
++	mlx4_en_stop_port(dev, 0);
+ 	netif_carrier_off(dev);
+ 
+ 	mutex_unlock(&mdev->state_lock);
+@@ -1539,7 +1545,7 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+ 			 * the port */
+ 			en_dbg(DRV, priv, "Change MTU called with card down!?\n");
+ 		} else {
+-			mlx4_en_stop_port(dev);
++			mlx4_en_stop_port(dev, 1);
+ 			err = mlx4_en_start_port(dev);
+ 			if (err) {
+ 				en_err(priv, "Failed restarting port:%d\n",
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 8d7a3b2..6c25513 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -541,7 +541,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 			struct mlx4_en_port_profile *prof);
+ 
+ int mlx4_en_start_port(struct net_device *dev);
+-void mlx4_en_stop_port(struct net_device *dev);
++void mlx4_en_stop_port(struct net_device *dev, int detach);
+ 
+ void mlx4_en_free_resources(struct mlx4_en_priv *priv);
+ int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
 -- 
 1.7.8.2
