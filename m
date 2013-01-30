@@ -1,144 +1,87 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 11/11] net/mlx4_en: Fix transmit timeout when driver restarts port
-Date: Wed, 30 Jan 2013 12:34:27 +0200
-Message-ID: <1359542067-10760-12-git-send-email-amirv@mellanox.com>
-References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
-Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/13][pull request] Intel Wired LAN Driver Updates 2013.01.30
+Date: Wed, 30 Jan 2013 03:44:33 -0800
+Message-ID: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:42893 "HELO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754449Ab3A3Kew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 05:34:52 -0500
-In-Reply-To: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
+Received: from mga09.intel.com ([134.134.136.24]:15037 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754213Ab3A3Loz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 06:44:55 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Under heavy CPU load, changing, ring size/mtu/etc. could result in transmit
-timeout, since stop-start port might take more than 10 seconds.
-Calling netif_detach_device to prevent tx queue transmit timeout.
+This series contains updates to ixgbe and e1000e.  The ixgbe patches are
+a mix of fixes, cleanup and added functionality.  The first fix is for
+traffic classes, where if the mapping has changed reset the NIC.  The other
+ixgbe fix resolves an issue where the device lookup neglected to do a
+pci_dev_put() to decrement the device reference count.
 
-netif_detach_device() is not called under ndo_stop, because netif_carrier_off
-will prevent the timeout, and device should not be marked as not present, or
-else user won't be able to start it later on.
+The ixgbe cleanup was done by Josh, where the auto-negotiation variables
+were renamed/cleaned up and refactored.
 
-CC: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    6 +++---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   14 ++++++++++----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    2 +-
- 3 files changed, 14 insertions(+), 8 deletions(-)
+Joseph added Tx encapsulation capability and Alex added the debug counters
+for the new feature.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 738e95d..911d488 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -496,7 +496,7 @@ static int mlx4_en_set_ringparam(struct net_device *dev,
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		port_up = 1;
--		mlx4_en_stop_port(dev);
-+		mlx4_en_stop_port(dev, 1);
- 	}
- 
- 	mlx4_en_free_resources(priv);
-@@ -591,7 +591,7 @@ static int mlx4_en_set_rxfh_indir(struct net_device *dev,
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		port_up = 1;
--		mlx4_en_stop_port(dev);
-+		mlx4_en_stop_port(dev, 1);
- 	}
- 
- 	priv->prof->rss_rings = rss_rings;
-@@ -1096,7 +1096,7 @@ static int mlx4_en_set_channels(struct net_device *dev,
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		port_up = 1;
--		mlx4_en_stop_port(dev);
-+		mlx4_en_stop_port(dev, 1);
- 	}
- 
- 	mlx4_en_free_resources(priv);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 9b78f61..21be6dc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1181,6 +1181,8 @@ int mlx4_en_start_port(struct net_device *dev)
- #ifdef CONFIG_DEBUG_FS
- 	mlx4_en_create_debug_files(priv);
- #endif
-+	netif_device_attach(dev);
-+
- 	return 0;
- 
- tx_err:
-@@ -1203,7 +1205,7 @@ cq_err:
- }
- 
- 
--void mlx4_en_stop_port(struct net_device *dev)
-+void mlx4_en_stop_port(struct net_device *dev, int detach)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
-@@ -1222,9 +1224,13 @@ void mlx4_en_stop_port(struct net_device *dev)
- #endif
- 	/* Synchronize with tx routine */
- 	netif_tx_lock_bh(dev);
-+	if (detach)
-+		netif_device_detach(dev);
- 	netif_tx_stop_all_queues(dev);
- 	netif_tx_unlock_bh(dev);
- 
-+	netif_tx_disable(dev);
-+
- 	/* Set port as not active */
- 	priv->port_up = false;
- 
-@@ -1329,7 +1335,7 @@ static void mlx4_en_restart(struct work_struct *work)
- 
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
--		mlx4_en_stop_port(dev);
-+		mlx4_en_stop_port(dev, 1);
- 		for (i = 0; i < priv->tx_ring_num; i++)
- 			netdev_tx_reset_queue(priv->tx_ring[i].tx_queue);
- 		if (mlx4_en_start_port(dev))
-@@ -1401,7 +1407,7 @@ static int mlx4_en_close(struct net_device *dev)
- 
- 	mutex_lock(&mdev->state_lock);
- 
--	mlx4_en_stop_port(dev);
-+	mlx4_en_stop_port(dev, 0);
- 	netif_carrier_off(dev);
- 
- 	mutex_unlock(&mdev->state_lock);
-@@ -1539,7 +1545,7 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
- 			 * the port */
- 			en_dbg(DRV, priv, "Change MTU called with card down!?\n");
- 		} else {
--			mlx4_en_stop_port(dev);
-+			mlx4_en_stop_port(dev, 1);
- 			err = mlx4_en_start_port(dev);
- 			if (err) {
- 				en_err(priv, "Failed restarting port:%d\n",
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 8d7a3b2..6c25513 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -541,7 +541,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 			struct mlx4_en_port_profile *prof);
- 
- int mlx4_en_start_port(struct net_device *dev);
--void mlx4_en_stop_port(struct net_device *dev);
-+void mlx4_en_stop_port(struct net_device *dev, int detach);
- 
- void mlx4_en_free_resources(struct mlx4_en_priv *priv);
- int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
+The remaining patches are from Bruce to do additional cleanup on e1000e as
+well as bump the driver version.  Most notably is the cleanup to use the
+kernel IEEE MII definitions where possible instead of the local MII
+definitions.
+
+The following are changes since commit d2ed273d30c5ffd14f6b5ec7ecc751d960f832fc:
+  net: disallow drivers with buggy VLAN accel to register_netdevice()
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Alexander Duyck (1):
+  ixgbe: Add debug counters for Tx Encap CSUM
+
+Amir Hanania (1):
+  ixgbe: Reset the NIC if up2tc has changed
+
+Bruce Allan (6):
+  e1000e: cleanup defines.h
+  e1000e: cleanup: group OR'ed bit settings with parens
+  e1000e: cleanup some whitespace and indentation issues
+  e1000e: update driver version string
+  e1000e: resolve -Wunused-parameter compile warnings
+  e1000e: use generic IEEE MII definitions
+
+Greg Rose (1):
+  ixgbe: Fix device ref count bug
+
+Joseph Gasparakis (1):
+  ixgbe: Adding Tx encapsulation capability
+
+Josh Hay (3):
+  ixgbe: rename autoneg variables
+  ixgbe: removed unused variable from setup_link_speed
+  ixgbe: autoneg variable refactoring
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c  |  28 ++--
+ drivers/net/ethernet/intel/e1000e/82571.c        |  17 ++-
+ drivers/net/ethernet/intel/e1000e/defines.h      | 128 +++-------------
+ drivers/net/ethernet/intel/e1000e/e1000.h        |   1 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c      |  40 ++---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c      |  18 +--
+ drivers/net/ethernet/intel/e1000e/mac.c          |  35 +++--
+ drivers/net/ethernet/intel/e1000e/netdev.c       |  66 ++++----
+ drivers/net/ethernet/intel/e1000e/param.c        |   3 +-
+ drivers/net/ethernet/intel/e1000e/phy.c          | 186 +++++++++++------------
+ drivers/net/ethernet/intel/e1000e/ptp.c          |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   4 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  54 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |  16 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   8 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  87 ++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   2 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |   1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |   7 +-
+ 21 files changed, 333 insertions(+), 390 deletions(-)
+
 -- 
-1.7.8.2
+1.7.11.7
