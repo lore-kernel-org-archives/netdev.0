@@ -1,85 +1,51 @@
-From: Mikael Pettersson <mikpe@it.uu.se>
-Subject: Re: ixp4xx eth broken in 3.7.0/3.8-rc5?
-Date: Wed, 30 Jan 2013 21:50:13 +0100
-Message-ID: <20745.34693.504730.621596@pilspetsen.it.uu.se>
-References: <20744.9777.937924.822371@pilspetsen.it.uu.se>
-	<20744.25884.660535.514911@pilspetsen.it.uu.se>
-	<51086A17.1090707@gmail.com>
-	<1359509647.4144.36.camel@bwh-desktop.uk.solarflarecom.com>
-	<20744.61933.566806.942439@pilspetsen.it.uu.se>
+From: Troy Kisky <troy.kisky@boundarydevices.com>
+Subject: Re: i.Mx6Quad - eth0: tx queue full!
+Date: Wed, 30 Jan 2013 14:04:36 -0700
+Message-ID: <51098AE4.5030305@boundarydevices.com>
+References: <5106B7EE.3040603@gmail.com> <5106D5D4.2090200@boundarydevices.com> <5107FA00.2010809@gmail.com> <51081910.4030707@boundarydevices.com> <51093882.2060700@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Xi Wang <xi.wang@gmail.com>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Imre Kaloz <kaloz@openwrt.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, <netdev@vger.kernel.org>
-To: Mikael Pettersson <mikpe@it.uu.se>
+Cc: netdev@vger.kernel.org, LAK <linux-arm-kernel@lists.infradead.org>,
+	Fabio Estevam <festevam@gmail.com>
+To: Vikram Narayanan <vikram186@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.uu.se ([130.238.7.54]:44111 "EHLO smtp1.uu.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756889Ab3A3UvT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 15:51:19 -0500
-In-Reply-To: <20744.61933.566806.942439@pilspetsen.it.uu.se>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:63483 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753400Ab3A3VEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 16:04:39 -0500
+Received: by mail-pa0-f54.google.com with SMTP id bi5so1306864pad.27
+        for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 13:04:39 -0800 (PST)
+In-Reply-To: <51093882.2060700@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mikael Pettersson writes:
- > Ben Hutchings writes:
- >  > On Tue, 2013-01-29 at 19:32 -0500, Xi Wang wrote:
- >  > > On 1/29/13 7:11 PM, Mikael Pettersson wrote:
- >  > > > A git bisect identified the following as the culprit:
- >  > > > 
- >  > > >   > From 1a4901177574083c35fafc24c4d151c2a7c7647c Mon Sep 17 00:00:00 2001
- >  > > >   > From: Xi Wang <xi.wang@gmail.com>
- >  > > >   > Date: Sat, 17 Nov 2012 20:25:09 +0000
- >  > > >   > Subject: [PATCH] ixp4xx_eth: avoid calling dma_pool_create() with NULL dev
- >  > > >   >
- >  > > >   > Use &port->netdev->dev instead of NULL since dma_pool_create() doesn't
- >  > > >   > allow NULL dev.
- >  > > >   >
- >  > > >   > Signed-off-by: Xi Wang <xi.wang@gmail.com>
- >  > > >   > Cc: Andrew Morton <akpm@linux-foundation.org>
- >  > > >   > Signed-off-by: David S. Miller <davem@davemloft.net>
- >  > > >   > ---
- >  > > >   >  drivers/net/ethernet/xscale/ixp4xx_eth.c |    8 +++++---
- >  > > >   >  1 files changed, 5 insertions(+), 3 deletions(-)
- >  > > > 
- >  > > > Reverting this unbreaks ixp4xx_eth on my ixp4xx machine with kernels
- >  > > > 3.7.0 and 3.8-rc5.
- >  > > 
- >  > > Thanks.  The problem was that in init_queues(), the dma_pool_create()
- >  > > call requires a non-null dev.
- >  > > 
- >  > >   dma_pool = dma_pool_create(DRV_NAME, ??, ...);
- > 
- > I had a look around in the 3.8-rc5 kernel source.
- > 
- > mm/dmapool.c:dma_pool_create() needs a non-NULL dev in the CONFIG_NUMA case,
- > because it calls dev_to_node(dev) which dereferences dev if CONFIG_NUMA.
- > But in the non-CONFIG_NUMA case there is no dereference of dev, and in fact
- > there is an explicit check for dev being NULL or not towards the end of
- > dma_pool_create().  So that explains why ixp4xx works without the change:
- > it's not NUMA.
- > 
- > A quick grep found three calls to dma_pool_create() with a NULL dev parameter,
- > two in drivers/usb/gadget/amd5536udc.c and one in arch/arm/mach-s3c64xx/dma.c.
- > These would all be broken with CONFIG_NUMA but Ok otherwise.
- > 
- >  > > 
- >  > > What do you think would work here?
- >  > 
- >  > For DMA purposes I would expect the right device to be the parent bus
- >  > device, i.e. port->netdev->dev.parent.  The driver might also need to
- >  > set its DMA masks.
- > 
- > At least on ixp4xx the DMA masks are normally set by the platform PCI init
- > code (it has a 64MB PCI DMA window limitation).
- > 
- > I can give the port->netdev->dev.parent variant a try later this evening.
+On 1/30/2013 8:13 AM, Vikram Narayanan wrote:
+> On 1/30/2013 12:16 AM, Troy Kisky wrote:
+>> I have fixed this bug (and more) on Freescale's kernel
+>> (imx-3.0.35_1.1.0). I created a branch you can try.
+>> Feel free to port to mainline.
+> Thanks a lot for the branch. I saw a lot of differences between
+> your driver and the mainline. I should spend some time If I had
+> to port this to mainline.
+>   
+>> This is the patch that should fix your problem
+>> fec: clear TX_FULL in fec_restart
+>>
+>>
+>> Please let me know results.
+> When NAPI is disabled I saw a severe packet loss
+> (around 40% in a flood ping) which spitted out this,
+>
+> [  470.390928] net eth0: missed rxf 2000000 1c000000 0
+> [  470.419098] net eth0: missed rxf 2000000 1c000000 0
+> [  470.443800] net eth0: missed rxf 2000000 1c000000 0
+> [  470.450315] net eth0: missed rxf 2000000 1c000000 0
+>
+> When NAPI is enabled, it was working good. Though it
+> resulted in the same error, it recovered by itself,
+> which is perfectly fine for me. :)
+>
 
-No joy, s/&port->netdev->dev/port->netdev->dev.parent/ in init_queues' call
-to dma_pool_create made no difference, it still fails.
-
-/Mikael
+You'll also have better performance if you pass "enable_wait_mode=off" 
+in bootargs.
