@@ -1,85 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] libertas sdio: remove CMD_FUNC_INIT call
-Date: Wed, 30 Jan 2013 14:27:00 -0500
-Message-ID: <20130130192700.GF2167@tuxdriver.com>
-References: <1358493883-28433-1-git-send-email-lkundrak@v3.sk>
- <477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 1/1] drivers: net: davinci_cpdma: acknowledge interrupt properly
+Date: Thu, 31 Jan 2013 01:26:53 +0530
+Message-ID: <1359575813-15703-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lubomir Rintel <lkundrak@v3.sk>, Harro Haan <hrhaan@gmail.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"libertas-dev@lists.infradead.org" <libertas-dev@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bing Zhao <bzhao@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <panto@antoniou-consulting.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:58623 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756792Ab3A3T5k (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jan 2013 14:57:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 18, 2013 at 12:28:17PM -0800, Bing Zhao wrote:
-> Hi Lubomir,
-> 
-> > It actually times out on a 8688 present in GuruPlug with sd8688.bin
-> > (md5=7233401e9687f8c880da547beed4324e) firmware (that's present in
-> > linux-firmware tree), but the adapter works fine.
-> > 
-> > For that firmware times out with libertas_uap [1] as well, though it succeeds
-> > with sd8688_ap.bin (md5=52cd8f8296b9a7e1d3835d57416256b2) that was originally
-> > shipped with GuruPlug. That firmware is not in linux-firmware tree and btmrvl
-> > driver might win the race programming the 8688 with sd8688.bin anyway.
-> > 
-> > [1] https://github.com/lkundrak/linux/tree/libertas_uap
-> > ---
-> >  drivers/net/wireless/libertas/if_sdio.c |   14 --------------
-> >  1 files changed, 0 insertions(+), 14 deletions(-)
-> > 
-> > diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
-> > index 2ecab49..3c4c555 100644
-> > --- a/drivers/net/wireless/libertas/if_sdio.c
-> > +++ b/drivers/net/wireless/libertas/if_sdio.c
-> > @@ -825,20 +825,6 @@ static void if_sdio_finish_power_on(struct if_sdio_card *card)
-> > 
-> >  	sdio_release_host(func);
-> > 
-> > -	/*
-> > -	 * FUNC_INIT is required for SD8688 WLAN/BT multiple functions
-> > -	 */
-> > -	if (card->model == MODEL_8688) {
-> > -		struct cmd_header cmd;
-> > -
-> > -		memset(&cmd, 0, sizeof(cmd));
-> > -
-> > -		lbs_deb_sdio("send function INIT command\n");
-> > -		if (__lbs_cmd(priv, CMD_FUNC_INIT, &cmd, sizeof(cmd),
-> > -				lbs_cmd_copyback, (unsigned long) &cmd))
-> > -			netdev_alert(priv->dev, "CMD_FUNC_INIT cmd failed\n");
-> > -	}
-> > -
-> 
-> Removing FUNC_INIT could break things in some scenarios.
-> Could you please test the following case?
-> 
-> 1. insmod liberates -> download firmware, send FUNC_INIT, ...
-> 2. rmmod libertas -> send FUNC_SHUTDOWN command to firmware; BT is still working.
-> 3. insmod libertas -> skip firmware downloading, send FUNC_INIT, ...
-> 
-> If FUNC_INIT is removed, I don't expect step 3 to work.
-> 
-> Thanks,
-> Bing
-> 
-> >  	priv->fw_ready = 1;
-> >  	wake_up(&card->pwron_waitq);
-> > 
-> > --
-> > 1.7.1
-> 
+CPDMA interrupts are not properly acknowledged which leads to interrupt
+storm, only cpdma interrupt 0 is acknowledged in Davinci CPDMA driver.
+Changed cpdma_ctlr_eoi api to acknowledge 1 and 2 interrupts which are
+used for rx and tx respectively.
 
-Lubomir, any reply?  Should I drop this one?
+Reported-by: Pantelis Antoniou <panto@antoniou-consulting.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_cpdma.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index f862918..afe14a6 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -487,6 +487,8 @@ int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable)
+ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr)
+ {
+ 	dma_reg_write(ctlr, CPDMA_MACEOIVECTOR, 0);
++	dma_reg_write(ctlr, CPDMA_MACEOIVECTOR, 1);
++	dma_reg_write(ctlr, CPDMA_MACEOIVECTOR, 2);
+ }
+ 
+ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+1.7.9.5
