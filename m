@@ -1,63 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: ixp4xx eth broken in 3.7.0/3.8-rc5?
-Date: Wed, 30 Jan 2013 01:34:07 +0000
-Message-ID: <1359509647.4144.36.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20744.9777.937924.822371@pilspetsen.it.uu.se>
-	 <20744.25884.660535.514911@pilspetsen.it.uu.se>
-	 <51086A17.1090707@gmail.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH v4 1/1 net-next] net: fec: add napi support to improve proformance
+Date: Wed, 30 Jan 2013 09:55:03 +0800
+Message-ID: <CAHrpEqQXH+n7K4L1m5yRiamp3CG9MPWhX+tNBD+brzArJy5WoQ@mail.gmail.com>
+References: <1359433903-15605-1-git-send-email-Frank.Li@freescale.com>
+	<20130129.141800.2181207237672109119.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mikael Pettersson <mikpe@it.uu.se>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Imre Kaloz <kaloz@openwrt.org>,
-	Krzysztof Halasa <khc@pm.waw.pl>, <netdev@vger.kernel.org>
-To: Xi Wang <xi.wang@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Frank.Li@freescale.com, shawn.guo@linaro.org, B38611@freescale.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:64189 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751626Ab3A3BeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 20:34:10 -0500
-In-Reply-To: <51086A17.1090707@gmail.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:36616 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753241Ab3A3BzG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 20:55:06 -0500
+Received: by mail-wg0-f50.google.com with SMTP id es5so778339wgb.17
+        for <netdev@vger.kernel.org>; Tue, 29 Jan 2013 17:55:04 -0800 (PST)
+In-Reply-To: <20130129.141800.2181207237672109119.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-01-29 at 19:32 -0500, Xi Wang wrote:
-> On 1/29/13 7:11 PM, Mikael Pettersson wrote:
-> > A git bisect identified the following as the culprit:
-> > 
-> >   > From 1a4901177574083c35fafc24c4d151c2a7c7647c Mon Sep 17 00:00:00 2001
-> >   > From: Xi Wang <xi.wang@gmail.com>
-> >   > Date: Sat, 17 Nov 2012 20:25:09 +0000
-> >   > Subject: [PATCH] ixp4xx_eth: avoid calling dma_pool_create() with NULL dev
-> >   >
-> >   > Use &port->netdev->dev instead of NULL since dma_pool_create() doesn't
-> >   > allow NULL dev.
-> >   >
-> >   > Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> >   > Cc: Andrew Morton <akpm@linux-foundation.org>
-> >   > Signed-off-by: David S. Miller <davem@davemloft.net>
-> >   > ---
-> >   >  drivers/net/ethernet/xscale/ixp4xx_eth.c |    8 +++++---
-> >   >  1 files changed, 5 insertions(+), 3 deletions(-)
-> > 
-> > Reverting this unbreaks ixp4xx_eth on my ixp4xx machine with kernels
-> > 3.7.0 and 3.8-rc5.
-> 
-> Thanks.  The problem was that in init_queues(), the dma_pool_create()
-> call requires a non-null dev.
-> 
->   dma_pool = dma_pool_create(DRV_NAME, ??, ...);
-> 
-> What do you think would work here?
+2013/1/30 David Miller <davem@davemloft.net>:
+> it is recommended to also to TX reclaim processing
+> in the NAPI handler as well, in fact it's best to make the hardware
+> interrupt handler do nothing other than trigger NAPI and then
+> move everything that was in your hardware interrupt handler into
+> NAPI poll instead.
 
-For DMA purposes I would expect the right device to be the parent bus
-device, i.e. port->netdev->dev.parent.  The driver might also need to
-set its DMA masks.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Okay, I will work on this soon.
