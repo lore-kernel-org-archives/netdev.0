@@ -1,96 +1,63 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] openvswitch: adjust skb_gso_segment() for rx path
-Date: Wed, 30 Jan 2013 16:38:09 +0800
-Message-ID: <1359535089-18348-1-git-send-email-amwang@redhat.com>
-Cc: Jesse Gross <jesse@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Yan Burman <yanb@mellanox.com>
+Subject: [PATCH net-next] net/vxlan: Add ethtool drvinfo
+Date: Wed, 30 Jan 2013 11:43:07 +0200
+Message-ID: <1359538987-17659-1-git-send-email-yanb@mellanox.com>
+Cc: Yan Burman <yanb@mellanox.com>
+To: netdev@vger.kernel.org, shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55065 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752950Ab3A3Iic (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 03:38:32 -0500
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:56291 "HELO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754183Ab3A3JnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 04:43:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Implement ethtool get_drvinfo.
 
-skb_gso_segment() is almost always called in tx path,
-except for openvswitch. It calls this function when
-it receives the packet and tries to queue it to user-space.
-In this special case, the ->ip_summed check inside
-skb_gso_segment() is no longer true, as ->ip_summed value
-has different meanings on rx path.
-
-This patch adjusts skb_gso_segment() so that we can at least
-avoid such warnings on checksum.
-
-I am not very sure if this is a real fix or just a workaround,
-at least this patch works fine for me, the kernel warning inside
-skb_gso_segment() disappears and the traffic is normal too.
-
-(Note I only tested it on 2.6.32, but ->ip_summed has never
-been changed since then.)
-
-Cc: Jesse Gross <jesse@nicira.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Signed-off-by: Yan Burman <yanb@mellanox.com>
 ---
- net/core/dev.c             |   13 +++++++++++--
- net/openvswitch/datapath.c |    2 +-
- 2 files changed, 12 insertions(+), 3 deletions(-)
+ drivers/net/vxlan.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a87bc74..f6e7b3f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2302,6 +2302,15 @@ out:
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 656230e..72485b9 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -29,6 +29,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/if_ether.h>
+ #include <linux/hash.h>
++#include <linux/ethtool.h>
+ #include <net/arp.h>
+ #include <net/ndisc.h>
+ #include <net/ip.h>
+@@ -1271,6 +1272,18 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	return 0;
  }
- EXPORT_SYMBOL(skb_checksum_help);
  
-+/* openvswitch calls skb_gso_segment() on rx path, but ->ip_summed has
-+ * different meanings on rx path with tx path.
-+ */
-+static inline bool skb_needs_check(struct sk_buff *skb)
++static void vxlan_get_drvinfo(struct net_device *netdev,
++			      struct ethtool_drvinfo *drvinfo)
 +{
-+	return (!skb->skb_iif && skb->ip_summed != CHECKSUM_PARTIAL) ||
-+	       (skb->skb_iif && skb->ip_summed == CHECKSUM_NONE);
++	strlcpy(drvinfo->version, VXLAN_VERSION, sizeof(drvinfo->version));
++	strlcpy(drvinfo->driver, "vxlan", sizeof(drvinfo->driver));
 +}
 +
- /**
-  *	skb_gso_segment - Perform segmentation on skb.
-  *	@skb: buffer to segment
-@@ -2336,7 +2345,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb,
- 	skb->mac_len = skb->network_header - skb->mac_header;
- 	__skb_pull(skb, skb->mac_len);
++static const struct ethtool_ops vxlan_ethtool_ops = {
++	.get_drvinfo	= vxlan_get_drvinfo,
++	.get_link	= ethtool_op_get_link,
++};
++
+ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 			 struct nlattr *tb[], struct nlattr *data[])
+ {
+@@ -1348,6 +1361,8 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 		vxlan->port_max = ntohs(p->high);
+ 	}
  
--	if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
-+	if (unlikely(skb_needs_check(skb))) {
- 		skb_warn_bad_offload(skb);
- 
- 		if (skb_header_cloned(skb) &&
-@@ -2347,7 +2356,7 @@ struct sk_buff *skb_gso_segment(struct sk_buff *skb,
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ptype, &offload_base, list) {
- 		if (ptype->type == type && ptype->callbacks.gso_segment) {
--			if (unlikely(skb->ip_summed != CHECKSUM_PARTIAL)) {
-+			if (unlikely(skb_needs_check(skb))) {
- 				err = ptype->callbacks.gso_send_check(skb);
- 				segs = ERR_PTR(err);
- 				if (err || skb_gso_ok(skb, features))
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index d8c13a9..0b75964 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -302,7 +302,7 @@ static int queue_gso_packets(struct net *net, int dp_ifindex,
- 	int err;
- 
- 	segs = skb_gso_segment(skb, NETIF_F_SG | NETIF_F_HW_CSUM);
--	if (IS_ERR(segs))
-+	if (IS_ERR_OR_NULL(segs))
- 		return PTR_ERR(segs);
- 
- 	/* Queue all of the segments. */
++	SET_ETHTOOL_OPS(dev, &vxlan_ethtool_ops);
++
+ 	err = register_netdevice(dev);
+ 	if (!err)
+ 		hlist_add_head_rcu(&vxlan->hlist, vni_head(net, vxlan->vni));
 -- 
-1.7.7.6
+1.7.11.3
