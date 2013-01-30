@@ -1,51 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 05/11] net/mlx4_en: Fix vlan mask for ethtool
- steering rules
-Date: Wed, 30 Jan 2013 17:20:17 +0000
-Message-ID: <1359566417.2789.17.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
-	 <1359542067-10760-6-git-send-email-amirv@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next 02/13] ixgbe: Adding Tx encapsulation capability
+Date: Wed, 30 Jan 2013 09:48:23 -0800
+Message-ID: <1359568103.30177.13.camel@edumazet-glaptop>
+References: <1359546286-18179-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1359546286-18179-3-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <51095146.7030404@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:6202 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756017Ab3A3RUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 12:20:21 -0500
-In-Reply-To: <1359542067-10760-6-git-send-email-amirv@mellanox.com>
+Received: from mail-pb0-f53.google.com ([209.85.160.53]:48609 "EHLO
+	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756338Ab3A3RsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 12:48:25 -0500
+Received: by mail-pb0-f53.google.com with SMTP id un1so1093917pbc.12
+        for <netdev@vger.kernel.org>; Wed, 30 Jan 2013 09:48:25 -0800 (PST)
+In-Reply-To: <51095146.7030404@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-30 at 12:34 +0200, Amir Vadai wrote:
-> From: Hadar Hen Zion <hadarh@mellanox.com>
-> 
-> The vlan mask field should be validated and assigned according to the field
-> size which is 12 bits.
-[...]
+On Wed, 2013-01-30 at 08:58 -0800, Alexander Duyck wrote:
+> NAK, this is not a production patch.  This was just meant to be proof of
+> concept code.
 
-My understanding is that ethtool_flow_ext::vlan_tci corresponds to the
-whole VLAN tag; a filter rule that matches only the VID must have a mask
-of htons(0xfff).
+Well, this was the most interesting part of this serie for me ;)
 
-The original implementation of this extension was in ixgbe and it's now
-unclear to me whether it's programming hardware filters to match just
-the VID or the whole VLAN tag.  Alexander, can you answer this?
+What is missing to reach production level ?
 
-I was thinking about adding new keywords to ethtool -U ('vid', 'vtag'?)
-to make it easier to specify just the VID and clearer when you're
-specifying the full tag.  (The 'vlan' keyword would have to remain but
-could be removed from documentation.)  But if no-one really implements
-matching of the full tag then maybe we can pretend those 4 bits don't
-exist.
+hw_enc_features is in net-next with no user yet, I was eager to see
+the first implementation...
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+if (skb->encapsulation)
+	features &= dev->hw_enc_features;
