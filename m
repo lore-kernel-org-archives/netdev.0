@@ -1,70 +1,53 @@
-From: Cyril Chemparathy <cyril@ti.com>
-Subject: Re: [PATCH 1/2] drivers: net: cpsw: Add helper functions for VLAN
- ALE implementation
-Date: Tue, 29 Jan 2013 18:38:20 -0500
-Message-ID: <51085D6C.4050102@ti.com>
-References: <1359403945-28585-1-git-send-email-mugunthanvnm@ti.com> <1359403945-28585-2-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-omap@vger.kernel.org>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:57568 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751155Ab3A2XiP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jan 2013 18:38:15 -0500
-In-Reply-To: <1359403945-28585-2-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Warren <swarren-3lzwWm7+Weoh9ZMKESR00Q@public.gmane.org>
+Subject: [PATCH] nl80211: avoid "wdev_id may be used uninitialized"
+Date: Tue, 29 Jan 2013 17:11:02 -0700
+Message-ID: <1359504662-23561-1-git-send-email-swarren@wwwdotorg.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01/28/2013 03:12 PM, Mugunthan V N wrote:
-> Add helper functions for VLAN ALE implementations for Add, Delete
-> Dump VLAN related ALE entries
->
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
->   drivers/net/ethernet/ti/cpsw_ale.c |  172 ++++++++++++++++++++++++++++++++++--
->   drivers/net/ethernet/ti/cpsw_ale.h |   11 +++
->   2 files changed, 178 insertions(+), 5 deletions(-)
->
-> diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
-> index 0e9ccc2..0d7a60a 100644
-> --- a/drivers/net/ethernet/ti/cpsw_ale.c
-> +++ b/drivers/net/ethernet/ti/cpsw_ale.c
+From: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
 
-[...]
+Silence the following:
+net/wireless/nl80211.c: In function '__cfg80211_wdev_from_attrs.clone.119':
+net/wireless/nl80211.c:57:6: warning: 'wdev_id' may be used uninitialized in this function
 
-> +int cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
-> +		      int reg_mcast, int unreg_mcast)
+... by always initializing wdev_id to zero. I assume that wiphy_idx and
+ifidx are set to -1 for similar reasons, so this change simply propagates
+the same workaround.
 
-[...]
+In practice, this warning is false, since wdev_id is both set and used
+under the condition if (have_wdev_id). However, at least my compiler
+can't be coerced into realizing this; almost any code between the if
+blocks that set and use the variable causes this warning.
 
-> +int cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port)
+Signed-off-by: Stephen Warren <swarren-DDmLM1+adcrQT0dZR+AlfA@public.gmane.org>
+---
+ net/wireless/nl80211.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-[...]
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 33de803..389e62a 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -54,7 +54,7 @@ __cfg80211_wdev_from_attrs(struct net *netns, struct nlattr **attrs)
+ 	struct wireless_dev *result = NULL;
+ 	bool have_ifidx = attrs[NL80211_ATTR_IFINDEX];
+ 	bool have_wdev_id = attrs[NL80211_ATTR_WDEV];
+-	u64 wdev_id;
++	u64 wdev_id = 0;
+ 	int wiphy_idx = -1;
+ 	int ifidx = -1;
+ 
+-- 
+1.7.10.4
 
-> +int cpsw_ale_vlan_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
-> +				int flags, u16 vid)
-
-[...]
-
-> +int cpsw_ale_vlan_del_ucast(struct cpsw_ale *ale, u8 *addr, int port, u16 vid)
-
-[...]
-
-> +int cpsw_ale_vlan_add_mcast(struct cpsw_ale *ale, u8 *addr,
-> +		int port_mask, u16 vid, int super, int mcast_state)
-
-[...]
-
-> +int cpsw_ale_vlan_del_mcast(struct cpsw_ale *ale, u8 *addr,
-> +				int port_mask, u16 vid)
-
-Are the VLAN and non-VLAN variants different enough to justify separate 
-implementations for all these functions?  Could we collapse these by 
-generalizing the original to take an optional vlan argument instead?
-
-Thanks
--- Cyril.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
