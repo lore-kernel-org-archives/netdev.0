@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/3] l2tp: fix ancillary data handling in ipv6 recv
-Date: Thu, 31 Jan 2013 13:53:23 -0500 (EST)
-Message-ID: <20130131.135323.1045623088532919420.davem@davemloft.net>
-References: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
+Subject: Re: [PATCH] net/cadence: don't build by default
+Date: Thu, 31 Jan 2013 13:57:23 -0500 (EST)
+Message-ID: <20130131.135723.1501528815124767623.davem@davemloft.net>
+References: <1359656815-27919-1-git-send-email-riccardo.magliocchetti@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jchapman@katalix.com, celston@katalix.com
-To: tparkin@katalix.com
+Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org
+To: riccardo.magliocchetti@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56209 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56264 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751771Ab3AaSx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 13:53:26 -0500
-In-Reply-To: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
+	with ESMTP id S1755207Ab3AaS5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 13:57:25 -0500
+In-Reply-To: <1359656815-27919-1-git-send-email-riccardo.magliocchetti@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Parkin <tparkin@katalix.com>
-Date: Thu, 31 Jan 2013 11:02:23 +0000
+From: Riccardo Magliocchetti <riccardo.magliocchetti@gmail.com>
+Date: Thu, 31 Jan 2013 19:26:55 +0100
 
-> Resubmitting to fix up whitespace issues.
+> No need to build net/cadence driver by default.
 > 
-> This patchset:
-> 
->         * Renames the ipv6-specific datagram_send_ctl and datagram_recv_ctl
->           functions as ip6_datagram_*.  Since datagram_send_ctl is publicly
->           exported it should be named such that it's clearly IPv6-specific.
-> 
->         * Exports ip6_datagram_recv_ctl, so that modules may use it in their
->           receive paths.
-> 
->         * Changes l2tp_ip6 from using the IPv4-specific ip_cmsg_recv to use the
->           IPv6 version ip6_datagram_recv_ctl.
+> Signed-off-by: Riccardo Magliocchetti <riccardo.magliocchetti@gmail.com>
 
-Series applied, thanks a lot Tom.
+Vendor guards are set yes on purpose, because it mimicks for compatability
+the behavior that existed before the vendor guards were in place.
+
+These checks guard families of drivers from being offered, rather than
+the drivers themselves.
+
+I'm not applying this patch.
