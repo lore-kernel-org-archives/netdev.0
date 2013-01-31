@@ -1,31 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlink: add send and receive capability requirement
- and capability flags
-Date: Wed, 30 Jan 2013 22:43:22 -0500 (EST)
-Message-ID: <20130130.224322.2288389594490040572.davem@davemloft.net>
-References: <1358952744-29288-1-git-send-email-rbriggs@redhat.com>
-	<20130128.225524.472002600658532532.davem@davemloft.net>
-	<20130130185440.GC11492@shell.eng.rdu.redhat.com>
+Subject: Re: [Patch net-next] openvswitch: adjust skb_gso_segment() for rx
+ path
+Date: Wed, 30 Jan 2013 22:46:29 -0500 (EST)
+Message-ID: <20130130.224629.25122487947508141.davem@davemloft.net>
+References: <1359535089-18348-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rbriggs@redhat.com, netdev@vger.kernel.org, eparis@redhat.com,
-	sgrubb@redhat.com
-To: rgb@redhat.com
+Cc: netdev@vger.kernel.org, jesse@nicira.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48456 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48466 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756419Ab3AaDnY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 22:43:24 -0500
-In-Reply-To: <20130130185440.GC11492@shell.eng.rdu.redhat.com>
+	with ESMTP id S1756123Ab3AaDqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 22:46:31 -0500
+In-Reply-To: <1359535089-18348-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Wed, 30 Jan 2013 13:54:40 -0500
+From: Cong Wang <amwang@redhat.com>
+Date: Wed, 30 Jan 2013 16:38:09 +0800
 
-> Was there any facility that you can think of or point out that could
-> provide this functionality?
+> From: Cong Wang <amwang@redhat.com>
+> 
+> skb_gso_segment() is almost always called in tx path,
+> except for openvswitch. It calls this function when
+> it receives the packet and tries to queue it to user-space.
+> In this special case, the ->ip_summed check inside
+> skb_gso_segment() is no longer true, as ->ip_summed value
+> has different meanings on rx path.
+> 
+> This patch adjusts skb_gso_segment() so that we can at least
+> avoid such warnings on checksum.
+> 
+> I am not very sure if this is a real fix or just a workaround,
+> at least this patch works fine for me, the kernel warning inside
+> skb_gso_segment() disappears and the traffic is normal too.
+> 
+> (Note I only tested it on 2.6.32, but ->ip_summed has never
+> been changed since then.)
+> 
+> Cc: Jesse Gross <jesse@nicira.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-If you want to provide a pure event stream, why don't you just create
-a seperate genetlink instance just for this?
+Instead of having the crazy test, make the caller
+tell the context, TX or RX.
+
+struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+				  netdev_features_t features,
+				  bool tx_path);
+
+static inline struct sk_buff *
+skb_gso_segment(struct sk_buff *skb, netdev_features_t features)
+{
+	__skb_gso_segment(skb, features, true);
+}
