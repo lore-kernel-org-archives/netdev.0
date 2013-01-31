@@ -1,223 +1,295 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH v3 2/2] drivers: net:ethernet: cpsw: add support for VLAN
-Date: Fri, 1 Feb 2013 00:33:20 +0530
-Message-ID: <1359659000-25995-3-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH v3 1/2] drivers: net: cpsw: Add helper functions for VLAN ALE implementation
+Date: Fri, 1 Feb 2013 00:33:19 +0530
+Message-ID: <1359659000-25995-2-git-send-email-mugunthanvnm@ti.com>
 References: <1359659000-25995-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
 	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:43320 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752835Ab3AaTFW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2013 14:05:22 -0500
 In-Reply-To: <1359659000-25995-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-adding support for VLAN interface for cpsw.
-
-CPSW VLAN Capability
-* Can filter VLAN packets in Hardware
+Add helper functions for VLAN ALE implementations for Add, Delete
+Dump VLAN related ALE entries
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- Documentation/devicetree/bindings/net/cpsw.txt |    2 +
- drivers/net/ethernet/ti/cpsw.c                 |   85 +++++++++++++++++++++++-
- drivers/net/ethernet/ti/cpsw_ale.h             |    4 ++
- include/linux/platform_data/cpsw.h             |    1 +
- 4 files changed, 90 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c     |    8 +--
+ drivers/net/ethernet/ti/cpsw_ale.c |  105 +++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/ti/cpsw_ale.h |   20 ++++---
+ 3 files changed, 111 insertions(+), 22 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 6ddd028..99696bf 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -24,6 +24,8 @@ Required properties:
- Optional properties:
- - ti,hwmods		: Must be "cpgmac0"
- - no_bd_ram		: Must be 0 or 1
-+- default_vlan		: Specifies Default VLAN for non tagged packets
-+			  ALE processing
- 
- Note: "ti,hwmods" field is used to fetch the base address and irq
- resources from TI, omap hwmod data base during device registration.
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index a40750e..63b1563 100644
+index b35e6a7..a40750e 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -32,6 +32,7 @@
- #include <linux/of.h>
- #include <linux/of_net.h>
- #include <linux/of_device.h>
-+#include <linux/if_vlan.h>
- 
- #include <linux/platform_data/cpsw.h>
- 
-@@ -118,6 +119,9 @@ do {								\
- #define TX_PRIORITY_MAPPING	0x33221100
- #define CPDMA_TX_PRIORITY_MAP	0x76543210
- 
-+#define CPSW_VLAN_AWARE		BIT(1)
-+#define CPSW_ALE_VLAN_AWARE	1
-+
- #define cpsw_enable_irq(priv)	\
- 	do {			\
- 		u32 i;		\
-@@ -607,14 +611,40 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+@@ -345,7 +345,7 @@ static void cpsw_ndo_set_rx_mode(struct net_device *ndev)
+ 		/* program multicast address list into ALE register */
+ 		netdev_for_each_mc_addr(ha, ndev) {
+ 			cpsw_ale_add_mcast(priv->ale, (u8 *)ha->addr,
+-				ALE_ALL_PORTS << priv->host_port, 0, 0);
++				ALE_ALL_PORTS << priv->host_port, 0, 0, 0);
+ 		}
  	}
  }
+@@ -592,7 +592,7 @@ static void cpsw_slave_open(struct cpsw_slave *slave, struct cpsw_priv *priv)
+ 	slave_port = cpsw_get_slave_port(priv, slave->slave_num);
  
-+static inline void cpsw_add_default_vlan(struct cpsw_priv *priv)
-+{
-+	const int vlan = priv->data.default_vlan;
-+	const int port = priv->host_port;
-+	u32 reg;
-+	int i;
-+
-+	reg = (priv->version == CPSW_VERSION_1) ? CPSW1_PORT_VLAN :
-+	       CPSW2_PORT_VLAN;
-+
-+	writel(vlan, &priv->host_port_regs->port_vlan);
-+
-+	for (i = 0; i < 2; i++)
-+		slave_write(priv->slaves + i, vlan, reg);
-+
-+	cpsw_ale_add_vlan(priv->ale, vlan, ALE_ALL_PORTS << port,
-+			  ALE_ALL_PORTS << port, ALE_ALL_PORTS << port,
-+			  (ALE_PORT_1 | ALE_PORT_2) << port);
-+}
-+
- static void cpsw_init_host_port(struct cpsw_priv *priv)
+ 	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+-			   1 << slave_port, 0, ALE_MCAST_FWD_2);
++			   1 << slave_port, 0, 0, ALE_MCAST_FWD_2);
+ 
+ 	slave->phy = phy_connect(priv->ndev, slave->data->phy_id,
+ 				 &cpsw_adjust_link, slave->data->phy_if);
+@@ -624,9 +624,9 @@ static void cpsw_init_host_port(struct cpsw_priv *priv)
+ 	cpsw_ale_control_set(priv->ale, priv->host_port,
+ 			     ALE_PORT_STATE, ALE_PORT_STATE_FORWARD);
+ 
+-	cpsw_ale_add_ucast(priv->ale, priv->mac_addr, priv->host_port, 0);
++	cpsw_ale_add_ucast(priv->ale, priv->mac_addr, priv->host_port, 0, 0);
+ 	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
+-			   1 << priv->host_port, 0, ALE_MCAST_FWD_2);
++			   1 << priv->host_port, 0, 0, ALE_MCAST_FWD_2);
+ }
+ 
+ static int cpsw_ndo_open(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/ti/cpsw_ale.c b/drivers/net/ethernet/ti/cpsw_ale.c
+index 0e9ccc2..0354875 100644
+--- a/drivers/net/ethernet/ti/cpsw_ale.c
++++ b/drivers/net/ethernet/ti/cpsw_ale.c
+@@ -148,7 +148,7 @@ static int cpsw_ale_write(struct cpsw_ale *ale, int idx, u32 *ale_entry)
+ 	return idx;
+ }
+ 
+-static int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr)
++int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr, u16 vid)
  {
-+	u32 control_reg;
-+
- 	/* soft reset the controller and initialize ale */
- 	soft_reset("cpsw", &priv->regs->soft_reset);
- 	cpsw_ale_start(priv->ale);
- 
- 	/* switch to vlan unaware mode */
--	cpsw_ale_control_set(priv->ale, 0, ALE_VLAN_AWARE, 0);
-+	cpsw_ale_control_set(priv->ale, priv->host_port, ALE_VLAN_AWARE,
-+			     CPSW_ALE_VLAN_AWARE);
-+	control_reg = readl(&priv->regs->control);
-+	control_reg |= CPSW_VLAN_AWARE;
-+	writel(control_reg, &priv->regs->control);
- 
- 	/* setup host port priority mapping */
- 	__raw_writel(CPDMA_TX_PRIORITY_MAP,
-@@ -650,6 +680,9 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	cpsw_init_host_port(priv);
- 	for_each_slave(priv, cpsw_slave_open, priv);
- 
-+	/* Add default VLAN */
-+	cpsw_add_default_vlan(priv);
-+
- 	/* setup tx dma to fixed prio and zero offset */
- 	cpdma_control_set(priv->dma, CPDMA_TX_PRIO_FIXED, 1);
- 	cpdma_control_set(priv->dma, CPDMA_RX_BUFFER_OFFSET, 0);
-@@ -933,6 +966,49 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
+ 	u32 ale_entry[ALE_ENTRY_WORDS];
+ 	int type, idx;
+@@ -160,6 +160,8 @@ static int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr)
+ 		type = cpsw_ale_get_entry_type(ale_entry);
+ 		if (type != ALE_TYPE_ADDR && type != ALE_TYPE_VLAN_ADDR)
+ 			continue;
++		if (cpsw_ale_get_vlan_id(ale_entry) != vid)
++			continue;
+ 		cpsw_ale_get_addr(ale_entry, entry_addr);
+ 		if (memcmp(entry_addr, addr, 6) == 0)
+ 			return idx;
+@@ -167,6 +169,22 @@ static int cpsw_ale_match_addr(struct cpsw_ale *ale, u8 *addr)
+ 	return -ENOENT;
  }
- #endif
  
-+static inline void cpsw_add_vlan_ale_entry(struct cpsw_priv *priv,
-+				unsigned short vid)
++int cpsw_ale_match_vlan(struct cpsw_ale *ale, u16 vid)
 +{
-+	cpsw_ale_add_vlan(priv->ale, vid, ALE_ALL_PORTS << priv->host_port,
-+			0, ALE_ALL_PORTS << priv->host_port,
-+			(ALE_PORT_1 | ALE_PORT_2) << priv->host_port);
-+	cpsw_ale_add_ucast(priv->ale, priv->mac_addr,
-+			priv->host_port, ALE_VLAN, vid);
-+	cpsw_ale_add_mcast(priv->ale, priv->ndev->broadcast,
-+			ALE_ALL_PORTS << priv->host_port, ALE_VLAN, vid, 0);
++	u32 ale_entry[ALE_ENTRY_WORDS];
++	int type, idx;
++
++	for (idx = 0; idx < ale->params.ale_entries; idx++) {
++		cpsw_ale_read(ale, idx, ale_entry);
++		type = cpsw_ale_get_entry_type(ale_entry);
++		if (type != ALE_TYPE_VLAN)
++			continue;
++		if (cpsw_ale_get_vlan_id(ale_entry) == vid)
++			return idx;
++	}
++	return -ENOENT;
 +}
 +
-+static int cpsw_ndo_vlan_rx_add_vid(struct net_device *ndev,
-+		unsigned short vid)
+ static int cpsw_ale_match_free(struct cpsw_ale *ale)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS];
+@@ -274,19 +292,32 @@ int cpsw_ale_flush(struct cpsw_ale *ale, int port_mask)
+ 	return 0;
+ }
+ 
+-int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port, int flags)
++static inline void cpsw_ale_set_vlan_entry_type(u32 *ale_entry,
++						int flags, u16 vid)
 +{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
-+
-+	if (vid == priv->data.default_vlan)
-+		return 0;
-+
-+	dev_info(priv->dev, "Adding vlanid %d to vlan filter\n", vid);
-+	cpsw_add_vlan_ale_entry(priv, vid);
-+
-+	return 0;
++	if (flags & ALE_VLAN) {
++		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_VLAN_ADDR);
++		cpsw_ale_set_vlan_id(ale_entry, vid);
++	} else {
++		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_ADDR);
++	}
 +}
 +
-+static int cpsw_ndo_vlan_rx_kill_vid(struct net_device *ndev,
-+		unsigned short vid)
++int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
++		       int flags, u16 vid)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
+ 	int idx;
+ 
+-	cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_ADDR);
++	cpsw_ale_set_vlan_entry_type(ale_entry, flags, vid);
++
+ 	cpsw_ale_set_addr(ale_entry, addr);
+ 	cpsw_ale_set_ucast_type(ale_entry, ALE_UCAST_PERSISTANT);
+ 	cpsw_ale_set_secure(ale_entry, (flags & ALE_SECURE) ? 1 : 0);
+ 	cpsw_ale_set_blocked(ale_entry, (flags & ALE_BLOCKED) ? 1 : 0);
+ 	cpsw_ale_set_port_num(ale_entry, port);
+ 
+-	idx = cpsw_ale_match_addr(ale, addr);
++	idx = cpsw_ale_match_addr(ale, addr, (flags & ALE_VLAN) ? vid : 0);
+ 	if (idx < 0)
+ 		idx = cpsw_ale_match_free(ale);
+ 	if (idx < 0)
+@@ -298,12 +329,13 @@ int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port, int flags)
+ 	return 0;
+ }
+ 
+-int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port)
++int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port,
++		       int flags, u16 vid)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
+ 	int idx;
+ 
+-	idx = cpsw_ale_match_addr(ale, addr);
++	idx = cpsw_ale_match_addr(ale, addr, (flags & ALE_VLAN) ? vid : 0);
+ 	if (idx < 0)
+ 		return -ENOENT;
+ 
+@@ -313,18 +345,19 @@ int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port)
+ }
+ 
+ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
+-			int super, int mcast_state)
++		       int flags, u16 vid, int mcast_state)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
+ 	int idx, mask;
+ 
+-	idx = cpsw_ale_match_addr(ale, addr);
++	idx = cpsw_ale_match_addr(ale, addr, (flags & ALE_VLAN) ? vid : 0);
+ 	if (idx >= 0)
+ 		cpsw_ale_read(ale, idx, ale_entry);
+ 
+-	cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_ADDR);
++	cpsw_ale_set_vlan_entry_type(ale_entry, flags, vid);
++
+ 	cpsw_ale_set_addr(ale_entry, addr);
+-	cpsw_ale_set_super(ale_entry, super);
++	cpsw_ale_set_super(ale_entry, (flags & ALE_BLOCKED) ? 1 : 0);
+ 	cpsw_ale_set_mcast_state(ale_entry, mcast_state);
+ 
+ 	mask = cpsw_ale_get_port_mask(ale_entry);
+@@ -342,12 +375,13 @@ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
+ 	return 0;
+ }
+ 
+-int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask)
++int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
++		       int flags, u16 vid)
+ {
+ 	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
+ 	int idx;
+ 
+-	idx = cpsw_ale_match_addr(ale, addr);
++	idx = cpsw_ale_match_addr(ale, addr, (flags & ALE_VLAN) ? vid : 0);
+ 	if (idx < 0)
+ 		return -EINVAL;
+ 
+@@ -362,6 +396,53 @@ int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask)
+ 	return 0;
+ }
+ 
++void cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
++		      int reg_mcast, int unreg_mcast)
 +{
-+	struct cpsw_priv *priv = netdev_priv(ndev);
++	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
++	int idx;
 +
-+	if (vid == priv->data.default_vlan)
-+		return 0;
++	idx = cpsw_ale_match_vlan(ale, vid);
++	if (idx >= 0)
++		cpsw_ale_read(ale, idx, ale_entry);
 +
-+	dev_info(priv->dev, "removing vlanid %d from vlan filter\n", vid);
-+	cpsw_ale_del_vlan(priv->ale, vid, 0);
-+	cpsw_ale_del_ucast(priv->ale, priv->mac_addr,
-+			   priv->host_port, ALE_VLAN, vid);
-+	cpsw_ale_del_mcast(priv->ale, priv->ndev->broadcast, 0, ALE_VLAN, vid);
++	cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_VLAN);
++	cpsw_ale_set_vlan_id(ale_entry, vid);
 +
-+	return 0;
++	cpsw_ale_set_vlan_untag_force(ale_entry, untag);
++	cpsw_ale_set_vlan_reg_mcast(ale_entry, reg_mcast);
++	cpsw_ale_set_vlan_unreg_mcast(ale_entry, unreg_mcast);
++	cpsw_ale_set_vlan_member_list(ale_entry, port);
++
++	if (idx < 0)
++		idx = cpsw_ale_match_free(ale);
++	if (idx < 0)
++		idx = cpsw_ale_find_ageable(ale);
++	if (idx < 0)
++		return;
++
++	cpsw_ale_write(ale, idx, ale_entry);
 +}
 +
- static const struct net_device_ops cpsw_netdev_ops = {
- 	.ndo_open		= cpsw_ndo_open,
- 	.ndo_stop		= cpsw_ndo_stop,
-@@ -947,6 +1023,8 @@ static const struct net_device_ops cpsw_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= cpsw_ndo_poll_controller,
- #endif
-+	.ndo_vlan_rx_add_vid	= cpsw_ndo_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid	= cpsw_ndo_vlan_rx_kill_vid,
- };
- 
- static void cpsw_get_drvinfo(struct net_device *ndev,
-@@ -1103,6 +1181,9 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->mac_control = prop;
- 
-+	if (!of_property_read_u32(node, "default_vlan", &prop))
-+		data->default_vlan = prop;
++void cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port_mask)
++{
++	u32 ale_entry[ALE_ENTRY_WORDS] = {0, 0, 0};
++	int idx;
 +
- 	/*
- 	 * Populate all the child nodes here...
- 	 */
-@@ -1356,7 +1437,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		k++;
- 	}
- 
--	ndev->flags |= IFF_ALLMULTI;	/* see cpsw_ndo_change_rx_flags() */
-+	ndev->features |= NETIF_F_HW_VLAN_FILTER;
- 
- 	ndev->netdev_ops = &cpsw_netdev_ops;
- 	SET_ETHTOOL_OPS(ndev, &cpsw_ethtool_ops);
++	idx = cpsw_ale_match_vlan(ale, vid);
++	if (idx < 0)
++		return;
++
++	cpsw_ale_read(ale, idx, ale_entry);
++
++	if (port_mask)
++		cpsw_ale_set_vlan_member_list(ale_entry, port_mask);
++	else
++		cpsw_ale_set_entry_type(ale_entry, ALE_TYPE_FREE);
++
++	cpsw_ale_write(ale, idx, ale_entry);
++}
++
+ struct ale_control_info {
+ 	const char	*name;
+ 	int		offset, port_offset;
 diff --git a/drivers/net/ethernet/ti/cpsw_ale.h b/drivers/net/ethernet/ti/cpsw_ale.h
-index 74f6fe2..f554c05 100644
+index 2bd09cb..74f6fe2 100644
 --- a/drivers/net/ethernet/ti/cpsw_ale.h
 +++ b/drivers/net/ethernet/ti/cpsw_ale.h
-@@ -69,6 +69,10 @@ enum cpsw_ale_port_state {
- #define ALE_SUPER			BIT(2)
- #define ALE_VLAN			BIT(3)
- 
-+#define ALE_PORT_HOST			BUT(0)
-+#define ALE_PORT_1			BIT(1)
-+#define ALE_PORT_2			BIT(2)
-+
- #define ALE_MCAST_FWD			0
- #define ALE_MCAST_BLOCK_LEARN_FWD	1
- #define ALE_MCAST_FWD_LEARN		2
-diff --git a/include/linux/platform_data/cpsw.h b/include/linux/platform_data/cpsw.h
-index 24368a2..e962cfd 100644
---- a/include/linux/platform_data/cpsw.h
-+++ b/include/linux/platform_data/cpsw.h
-@@ -35,6 +35,7 @@ struct cpsw_platform_data {
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
- 	u32	rx_descs;	/* Number of Rx Descriptios */
- 	u32	mac_control;	/* Mac control register */
-+	u16	default_vlan;	/* Def VLAN for ALE lookup in VLAN aware mode*/
+@@ -64,8 +64,10 @@ enum cpsw_ale_port_state {
  };
  
- #endif /* __CPSW_H__ */
+ /* ALE unicast entry flags - passed into cpsw_ale_add_ucast() */
+-#define ALE_SECURE			1
+-#define ALE_BLOCKED			2
++#define ALE_SECURE			BIT(0)
++#define ALE_BLOCKED			BIT(1)
++#define ALE_SUPER			BIT(2)
++#define ALE_VLAN			BIT(3)
+ 
+ #define ALE_MCAST_FWD			0
+ #define ALE_MCAST_BLOCK_LEARN_FWD	1
+@@ -81,11 +83,17 @@ void cpsw_ale_stop(struct cpsw_ale *ale);
+ int cpsw_ale_set_ageout(struct cpsw_ale *ale, int ageout);
+ int cpsw_ale_flush(struct cpsw_ale *ale, int port_mask);
+ int cpsw_ale_flush_multicast(struct cpsw_ale *ale, int port_mask);
+-int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port, int flags);
+-int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port);
++int cpsw_ale_add_ucast(struct cpsw_ale *ale, u8 *addr, int port,
++		       int flags, u16 vid);
++int cpsw_ale_del_ucast(struct cpsw_ale *ale, u8 *addr, int port,
++		       int flags, u16 vid);
+ int cpsw_ale_add_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
+-			int super, int mcast_state);
+-int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask);
++		       int flags, u16 vid, int mcast_state);
++int cpsw_ale_del_mcast(struct cpsw_ale *ale, u8 *addr, int port_mask,
++		       int flags, u16 vid);
++void cpsw_ale_add_vlan(struct cpsw_ale *ale, u16 vid, int port, int untag,
++			int reg_mcast, int unreg_mcast);
++void cpsw_ale_del_vlan(struct cpsw_ale *ale, u16 vid, int port);
+ 
+ int cpsw_ale_control_get(struct cpsw_ale *ale, int port, int control);
+ int cpsw_ale_control_set(struct cpsw_ale *ale, int port,
 -- 
 1.7.9.5
-
