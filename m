@@ -1,32 +1,27 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCHv1] net-bnx2x: Force link UP when the interface is in
- LOOPBACK mode
-Date: Thu, 31 Jan 2013 09:48:44 +0200
-Message-ID: <1359618524.26518.3.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <1359565212-11104-1-git-send-email-maheshb@google.com>
-Reply-To: eilong@broadcom.com
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [iproute2] sock_diag support for tipc?
+Date: Thu, 31 Jan 2013 09:01:49 +0100
+Message-ID: <20130131080149.GB8351@eerihug-hybrid.ki.sw.ericsson.se>
+References: <20130117112628.GC27319@eerihug-hybrid.ki.sw.ericsson.se>
+ <alpine.LNX.2.01.1301302249270.11666@nerf07.vanv.qr>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Yaniv <yanivr@broadcom.com>, "David Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: "Mahesh Bandewar" <maheshb@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: shemminger@osdl.org, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@inai.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4285 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754824Ab3AaHtu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2013 02:49:50 -0500
-In-Reply-To: <1359565212-11104-1-git-send-email-maheshb@google.com>
+Received: from mailgw7.ericsson.se ([193.180.251.48]:49009 "EHLO
+	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755101Ab3AaIFM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 03:05:12 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.01.1301302249270.11666@nerf07.vanv.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-30 at 09:00 -0800, Mahesh Bandewar wrote:
-> When the interface does not have carrier but when it's put into
-> loopback mode (for tests), it does not make sense to not have
-> the carrier. So force it!
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> Why would it not be?
+I agree, but i still wanted to check before submitting any patches.
 
-Thanks Mahesh!
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
+On Thu, Jan 17, 2013 at 07:46:33AM -0800, Stephen Hemminger wrote:
+> Sure ss supports tcp and udp already
+
+//E
