@@ -1,52 +1,119 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] nl80211: avoid "wdev_id may be used uninitialized"
-Date: Thu, 31 Jan 2013 21:51:37 +0100
-Message-ID: <1359665497.8415.102.camel@jlt4.sipsolutions.net>
-References: <1359504662-23561-1-git-send-email-swarren@wwwdotorg.org>
-	  (sfid-20130130_011118_335925_03B80596) <1359532679.8010.1.camel@jlt4.sipsolutions.net>
-	 <51094F10.60605@wwwdotorg.org>
+From: Simon Barber <simon@superduper.net>
+Subject: Re: [Bridge] [PATCH v7 net-next 01/12] bridge: Add vlan filtering
+ infrastructure
+Date: Thu, 31 Jan 2013 13:46:27 -0800
+Message-ID: <510AE633.2060102@superduper.net>
+References: <1359601979-14942-1-git-send-email-vyasevic@redhat.com> <1359601979-14942-2-git-send-email-vyasevic@redhat.com> <CAHXqBFL88O=cSse5AdhoKMMMrvgvn7oYAhMxt0rw9ffv49Z7hw@mail.gmail.com> <510AD51D.6080506@superduper.net> <510AD571.6060309@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Stephen Warren <swarren@nvidia.com>
-To: Stephen Warren <swarren@wwwdotorg.org>
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
+	netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org, davem@davemloft.net,
+	shmulik.ladkani@gmail.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:56309 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751734Ab3AaUv0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 15:51:26 -0500
-In-Reply-To: <51094F10.60605@wwwdotorg.org>
+Received: from masada.superduper.net ([85.119.82.91]:38444 "EHLO
+	masada.superduper.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755266Ab3AaVqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 16:46:38 -0500
+In-Reply-To: <510AD571.6060309@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-01-30 at 09:49 -0700, Stephen Warren wrote:
-> On 01/30/2013 12:57 AM, Johannes Berg wrote:
-> > On Tue, 2013-01-29 at 17:11 -0700, Stephen Warren wrote:
-> >> From: Stephen Warren <swarren@nvidia.com>
-> >>
-> >> Silence the following:
-> >> net/wireless/nl80211.c: In function '__cfg80211_wdev_from_attrs.clone.119':
-> >> net/wireless/nl80211.c:57:6: warning: 'wdev_id' may be used uninitialized in this function
-> >>
-> >> ... by always initializing wdev_id to zero. I assume that wiphy_idx and
-> >> ifidx are set to -1 for similar reasons, so this change simply propagates
-> >> the same workaround.
-> >>
-> >> In practice, this warning is false, since wdev_id is both set and used
-> >> under the condition if (have_wdev_id). However, at least my compiler
-> >> can't be coerced into realizing this; almost any code between the if
-> >> blocks that set and use the variable causes this warning.
-> > 
-> > I don't see this warning? What compiler are you using?
-> 
-> I'm using gcc-4.5.3 for ARM. I checked with gcc-4.6.3 and gcc-4.7.2 and
-> indeed I don't see the warning there.
+Great - I look forward to seeing this functionality in the kernel - thi=
+s=20
+will be very useful. Are you releasing brctl patches too?
 
-Interesting. So should I keep it or remove it? I guess in this
-particular instance it doesn't matter all that much. In other cases I'd
-be more against changing it I guess.
+Simon
 
-johannes
+On 01/31/2013 12:34 PM, Vlad Yasevich wrote:
+> On 01/31/2013 03:33 PM, Simon Barber wrote:
+>> I wrote a similar patch a few years ago:
+>>
+>> https://lists.linux-foundation.org/pipermail/bridge/2006-September/0=
+05046.html
+>>
+>>
+>>
+>> This patch also added the possibility to define a native vlan for ea=
+ch
+>> port and for the bridge port itself - is there any interest in this
+>> feature as well as the filtering?
+>>
+>
+> See patch 5 and 6 and the series :)
+>
+> -vlad
+>
+>> Simon
+>>
+>>
+>> On 01/31/2013 11:57 AM, Micha=B3 Miros=B3aw wrote:
+>>> 2013/1/31 Vlad Yasevich <vyasevic@redhat.com>:
+>>>> Adds an optional infrustructure component to bridge that would all=
+ow
+>>>> native vlan filtering in the bridge.  Each bridge port (as well
+>>>> as the bridge device) now get a VLAN bitmap.  Each bit in the bitm=
+ap
+>>>> is associated with a vlan id.  This way if the bit corresponding t=
+o
+>>>> the vid is set in the bitmap that the packet with vid is allowed t=
+o
+>>>> enter and exit the port.
+>>>>
+>>>> Write access the bitmap is protected by RTNL and read access
+>>>> protected by RCU.
+>>> [...]
+>>>> +static int __vlan_del(struct net_port_vlans *v, u16 vid)
+>>>> +{
+>>>> +       unsigned long first_bit;
+>>>> +       unsigned long last_bit;
+>>>> +
+>>>> +       if (!test_bit(vid, v->vlan_bitmap))
+>>>> +               return -EINVAL;
+>>>> +
+>>>> +       /* Check to see if any other vlans are in this table.  If =
+this
+>>>> +        * is the last vlan, delete the whole structure.  If this =
+is
+>>>> not the
+>>>> +        * last vlan, just clear the bit.
+>>>> +        */
+>>>> +       first_bit =3D find_first_bit(v->vlan_bitmap, BR_VLAN_BITMA=
+P_LEN);
+>>>> +       last_bit =3D find_last_bit(v->vlan_bitmap, BR_VLAN_BITMAP_=
+LEN);
+>>>> +
+>>>> +       if (v->port_idx && vid) {
+>>>> +               struct net_device *dev =3D vlans_to_port(v)->dev;
+>>>> +
+>>>> +               if (dev->features & NETIF_F_HW_VLAN_FILTER)
+>>>> +                       dev->netdev_ops->ndo_vlan_rx_kill_vid(dev,
+>>>> vid);
+>>>> +       }
+>>>> +
+>>>> +       clear_bit(vid, v->vlan_bitmap);
+>>>> +       if (first_bit =3D=3D last_bit) {
+>>>
+>>> if (bitmap_empty(v->vlan_bitmap, BR_VLAN_BITMAP_LEN))
+>>>
+>>>> +               if (v->port_idx) {
+>>>> +                       struct net_bridge_port *p =3D vlans_to_por=
+t(v);
+>>>> +                       rcu_assign_pointer(p->vlan_info, NULL);
+>>>> +               } else {
+>>>> +                       struct net_bridge *br =3D vlans_to_bridge(=
+v);
+>>>> +                       rcu_assign_pointer(br->vlan_info, NULL);
+>>>> +               }
+>>>
+>>> You seem to use vlans_to_port/vlans_to_bridge only to get at
+>>> vlan_info. Maybe that could be abstracted to a single interface, or
+>>> even change v->parent to be a 'net_port_vlans **'?
+>>>
+>>> Best Regards,
+>>> Micha=B3 Miros=B3aw
+>>>
+>
