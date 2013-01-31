@@ -1,37 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] x86: bpf_jit_comp: add pkt_type support
-Date: Wed, 30 Jan 2013 22:39:02 -0500 (EST)
-Message-ID: <20130130.223902.318251097327343709.davem@davemloft.net>
-References: <1359597104.30177.24.camel@edumazet-glaptop>
+Subject: Re: [RFC net-next 1/4] ipv6 flowlabel: Ensure to take lock when
+ modifying np->ip6_sk_fl_list.
+Date: Wed, 30 Jan 2013 22:41:23 -0500 (EST)
+Message-ID: <20130130.224123.1804831027304940890.davem@davemloft.net>
+References: <510973F2.3080400@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maze@google.com, willemb@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48423 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48434 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310Ab3AaDjL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 22:39:11 -0500
-In-Reply-To: <1359597104.30177.24.camel@edumazet-glaptop>
+	with ESMTP id S1755496Ab3AaDlZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 22:41:25 -0500
+In-Reply-To: <510973F2.3080400@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Jan 2013 17:51:44 -0800
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Thu, 31 Jan 2013 04:26:42 +0900
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Supporting access to skb->pkt_type is a bit tricky if we want
-> to have a generic code, allowing pkt_type to be moved in struct sk_buff
-> 
-> pkt_type is a bit field, so compiler cannot really help us to find
-> its offset. Let's use a helper for this : It will throw a one time
-> message if pkt_type no longer starts at a byte boundary or is
-> no longer a 3bit field.
-> 
-> Reported-by: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Applied, although that's quite a hoop to jump through to accomplish
-this.
+Applied.
