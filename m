@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V1 00/10] Mellanox Ethernet driver updates
- 2013-01-30
-Date: Thu, 31 Jan 2013 13:51:58 -0500 (EST)
-Message-ID: <20130131.135158.206758800827480029.davem@davemloft.net>
-References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH v3 0/3] l2tp: fix ancillary data handling in ipv6 recv
+Date: Thu, 31 Jan 2013 13:53:23 -0500 (EST)
+Message-ID: <20130131.135323.1045623088532919420.davem@davemloft.net>
+References: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org, jchapman@katalix.com, celston@katalix.com
+To: tparkin@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56186 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56209 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755207Ab3AaSwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 13:52:03 -0500
-In-Reply-To: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1751771Ab3AaSx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 13:53:26 -0500
+In-Reply-To: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Thu, 31 Jan 2013 11:07:01 +0200
+From: Tom Parkin <tparkin@katalix.com>
+Date: Thu, 31 Jan 2013 11:02:23 +0000
 
-> Hi Dave,
+> Resubmitting to fix up whitespace issues.
 > 
-> This series contains updates to mlx4 driver.
-> Majority of the patches are small bug fixes. Another patch is to expose through
-> debugfs some HW resources to be used by external tools.
+> This patchset:
 > 
-> Patches done against net-next commit 1b13c97: "net/vxlan: Add ethtool drvinfo"
+>         * Renames the ipv6-specific datagram_send_ctl and datagram_recv_ctl
+>           functions as ip6_datagram_*.  Since datagram_send_ctl is publicly
+>           exported it should be named such that it's clearly IPv6-specific.
 > 
-> Changes from V0:
-> - Removed patch "net/mlx4_en: Add debugfs support". Need to find a standard way
->   to do it, and no need to delay the other patches.
+>         * Exports ip6_datagram_recv_ctl, so that modules may use it in their
+>           receive paths.
+> 
+>         * Changes l2tp_ip6 from using the IPv4-specific ip_cmsg_recv to use the
+>           IPv6 version ip6_datagram_recv_ctl.
 
-All applied, thanks.
+Series applied, thanks a lot Tom.
