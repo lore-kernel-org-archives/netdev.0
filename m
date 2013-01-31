@@ -1,43 +1,56 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch v2] qlcnic: silence false positive overflow warning
-Date: Thu, 31 Jan 2013 11:14:10 +0300
-Message-ID: <20130131081410.GA14542@elgon.mountain>
-References: <20130127.203851.2157088853751625559.davem@davemloft.net>
+Subject: [patch] NFC: llcp: integer underflow in nfc_llcp_set_remote_gb()
+Date: Thu, 31 Jan 2013 11:16:46 +0300
+Message-ID: <20130131081645.GA14812@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
+Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Thierry Escande <thierry.escande@linux.intel.com>,
+	Szymon Janc <szymon.janc@tieto.com>,
+	linux-wireless@vger.kernel.org, linux-nfc@ml01.01.org,
 	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40542 "EHLO
+Received: from userp1040.oracle.com ([156.151.31.81]:30426 "EHLO
 	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755241Ab3AaIOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 03:14:23 -0500
+	with ESMTP id S1754148Ab3AaIRc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 03:17:32 -0500
 Content-Disposition: inline
-In-Reply-To: <20130127.203851.2157088853751625559.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We actually store the MAC address as well as the board_name here.  The
-longest board_name is 75 characters so there is more than enough room
-to hold the 17 character MAC and the ": " divider.  But making this
-buffer larger silences a static checker warning.
+If gb_len is less than 3 it would cause an integer underflow and
+possibly memory corruption in nfc_llcp_parse_gb_tlv().
+
+I removed the old test for gb_len == 0.  I also removed the test for
+->remote_gb == NULL.  It's not possible for ->remote_gb to be NULL and
+we have already dereferenced ->remote_gb_len so it's too late to test.
+
+The old test return -ENODEV but my test returns -EINVAL.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Acked-By: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
-v2: Rebased on current net-next.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index f3deef0..6a59a11 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1813,7 +1813,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct qlcnic_hardware_context *ahw;
- 	int err, pci_using_dac = -1;
- 	u32 capab2;
--	char board_name[QLCNIC_MAX_BOARD_NAME_LEN];
-+	char board_name[QLCNIC_MAX_BOARD_NAME_LEN + 19]; /* MAC + ": " + name */
+diff --git a/net/nfc/llcp/llcp.c b/net/nfc/llcp/llcp.c
+index 85bc75c..746f5a2 100644
+--- a/net/nfc/llcp/llcp.c
++++ b/net/nfc/llcp/llcp.c
+@@ -549,14 +549,13 @@ int nfc_llcp_set_remote_gb(struct nfc_dev *dev, u8 *gb, u8 gb_len)
+ 		pr_err("No LLCP device\n");
+ 		return -ENODEV;
+ 	}
++	if (gb_len < 3)
++		return -EINVAL;
  
- 	err = pci_enable_device(pdev);
- 	if (err)
+ 	memset(local->remote_gb, 0, NFC_MAX_GT_LEN);
+ 	memcpy(local->remote_gb, gb, gb_len);
+ 	local->remote_gb_len = gb_len;
+ 
+-	if (local->remote_gb == NULL || local->remote_gb_len == 0)
+-		return -ENODEV;
+-
+ 	if (memcmp(local->remote_gb, llcp_magic, 3)) {
+ 		pr_err("MAC does not support LLCP\n");
+ 		return -EINVAL;
