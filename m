@@ -1,27 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net/vxlan: Add ethtool drvinfo
-Date: Wed, 30 Jan 2013 22:47:58 -0500 (EST)
-Message-ID: <20130130.224758.904502147888836748.davem@davemloft.net>
-References: <1359538987-17659-1-git-send-email-yanb@mellanox.com>
+From: "Eilon Greenstein" <eilong@broadcom.com>
+Subject: Re: [PATCHv1] net-bnx2x: Force link UP when the interface is in
+ LOOPBACK mode
+Date: Thu, 31 Jan 2013 09:48:44 +0200
+Message-ID: <1359618524.26518.3.camel@lb-tlvb-eilong.il.broadcom.com>
+References: <1359565212-11104-1-git-send-email-maheshb@google.com>
+Reply-To: eilong@broadcom.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+ charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: yanb@mellanox.com
+Cc: Yaniv <yanivr@broadcom.com>, "David Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: "Mahesh Bandewar" <maheshb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48495 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756123Ab3AaDsA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 22:48:00 -0500
-In-Reply-To: <1359538987-17659-1-git-send-email-yanb@mellanox.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:4285 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754824Ab3AaHtu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2013 02:49:50 -0500
+In-Reply-To: <1359565212-11104-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yan Burman <yanb@mellanox.com>
-Date: Wed, 30 Jan 2013 11:43:07 +0200
-
-> Implement ethtool get_drvinfo.
+On Wed, 2013-01-30 at 09:00 -0800, Mahesh Bandewar wrote:
+> When the interface does not have carrier but when it's put into
+> loopback mode (for tests), it does not make sense to not have
+> the carrier. So force it!
 > 
-> Signed-off-by: Yan Burman <yanb@mellanox.com>
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
 
-Applied, thanks.
+Thanks Mahesh!
+Acked-by: Eilon Greenstein <eilong@broadcom.com>
