@@ -1,39 +1,50 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] NET: qmi_wwan: add Telit LE920 support
-Date: Wed, 30 Jan 2013 20:28:20 -0500 (EST)
-Message-ID: <20130130.202820.1817113362136829250.davem@davemloft.net>
-References: <1359550026-1879-1-git-send-email-dnlplm@gmail.com>
-	<8738xiok3t.fsf@nemi.mork.no>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/3] l2tp: fix ancillary data handling in ipv6 recv
+Date: Wed, 30 Jan 2013 20:32:21 -0500 (EST)
+Message-ID: <20130130.203221.113672899098479942.davem@davemloft.net>
+References: <1359555686-21588-1-git-send-email-tparkin@katalix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: bjorn-yOkvZcmFvRU@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8738xiok3t.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jchapman@katalix.com, celston@katalix.com
+To: tparkin@katalix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47500 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751519Ab3AaBcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 20:32:23 -0500
+In-Reply-To: <1359555686-21588-1-git-send-email-tparkin@katalix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-Date: Wed, 30 Jan 2013 14:50:46 +0100
+From: Tom Parkin <tparkin@katalix.com>
+Date: Wed, 30 Jan 2013 14:21:23 +0000
 
-> Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
->=20
->> Add VID, PID and fixed interface for Telit LE920
->>
->> Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->> ---
->> v2:
->>  - rebased against net tree
->=20
-> Excellent! Thanks.  Looks like an interesting device BTW.
->=20
-> Acked-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+> Patch 0001 includes some minor whitespace change in order to comply with
+> checkpatch.pl's style recommendations.
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Those whitspace recommendations do not match what we use in the
+networking.
+
+A function call shall be indented like so:
+
+	ret = func(arg1, arg2, arg3,
+		   arg4, arg5, arg6);
+
+That is, the arguments on the second and subsequent lines shall
+be indented to the first column after the openning parenthesis
+of the first line.
+
+You must use whatever combination of TAB and space characters are
+necessary to achieve it.
+
+If you are indenting only using TAB characters, it is guarenteed
+that you are doing it wrong.
+
+You also need to reindent the arguments in function declarations in
+the header files that you modified.  The function name is longer on
+the first line, therefore the openning parenthesis appears deeper in
+the line, and therefore the second and further lines of the
+declaration have to be indent adjusted.
+
+Thanks.
