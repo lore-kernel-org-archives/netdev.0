@@ -1,27 +1,43 @@
-From: Erik Hugne <erik.hugne@ericsson.com>
-Subject: Re: [iproute2] sock_diag support for tipc?
-Date: Thu, 31 Jan 2013 09:01:49 +0100
-Message-ID: <20130131080149.GB8351@eerihug-hybrid.ki.sw.ericsson.se>
-References: <20130117112628.GC27319@eerihug-hybrid.ki.sw.ericsson.se>
- <alpine.LNX.2.01.1301302249270.11666@nerf07.vanv.qr>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] qlcnic: silence false positive overflow warning
+Date: Thu, 31 Jan 2013 11:14:10 +0300
+Message-ID: <20130131081410.GA14542@elgon.mountain>
+References: <20130127.203851.2157088853751625559.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: shemminger@osdl.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@inai.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw7.ericsson.se ([193.180.251.48]:49009 "EHLO
-	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755101Ab3AaIFM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 03:05:12 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:40542 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755241Ab3AaIOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 03:14:23 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1301302249270.11666@nerf07.vanv.qr>
+In-Reply-To: <20130127.203851.2157088853751625559.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Why would it not be?
-I agree, but i still wanted to check before submitting any patches.
+We actually store the MAC address as well as the board_name here.  The
+longest board_name is 75 characters so there is more than enough room
+to hold the 17 character MAC and the ": " divider.  But making this
+buffer larger silences a static checker warning.
 
-On Thu, Jan 17, 2013 at 07:46:33AM -0800, Stephen Hemminger wrote:
-> Sure ss supports tcp and udp already
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-By: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+---
+v2: Rebased on current net-next.
 
-//E
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index f3deef0..6a59a11 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -1813,7 +1813,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct qlcnic_hardware_context *ahw;
+ 	int err, pci_using_dac = -1;
+ 	u32 capab2;
+-	char board_name[QLCNIC_MAX_BOARD_NAME_LEN];
++	char board_name[QLCNIC_MAX_BOARD_NAME_LEN + 19]; /* MAC + ": " + name */
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err)
