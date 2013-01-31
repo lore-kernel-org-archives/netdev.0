@@ -1,46 +1,58 @@
 From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH v3 0/3] l2tp: fix ancillary data handling in ipv6 recv
-Date: Thu, 31 Jan 2013 11:02:23 +0000
-Message-ID: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
+Subject: [PATCH v3 3/3] l2tp: correctly handle ancillary data in the ip6 recv path
+Date: Thu, 31 Jan 2013 11:02:26 +0000
+Message-ID: <1359630146-8305-4-git-send-email-tparkin@katalix.com>
+References: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
 Cc: jchapman@katalix.com, celston@katalix.com,
 	Tom Parkin <tparkin@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:41546 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:41549 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750695Ab3AaLCr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2013 06:02:47 -0500
+	id S1750695Ab3AaLCx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jan 2013 06:02:53 -0500
+In-Reply-To: <1359630146-8305-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Resubmitting to fix up whitespace issues.
+l2tp_ip6 is incorrectly using the IPv4-specific ip_cmsg_recv to handle
+ancillary data.  This means that socket options such as IPV6_RECVPKTINFO are
+not honoured in userspace.
 
-This patchset:
+Convert l2tp_ip6 to use the IPv6-specific handler.
 
-        * Renames the ipv6-specific datagram_send_ctl and datagram_recv_ctl
-          functions as ip6_datagram_*.  Since datagram_send_ctl is publicly
-          exported it should be named such that it's clearly IPv6-specific.
+Ref: net/ipv6/udp.c
 
-        * Exports ip6_datagram_recv_ctl, so that modules may use it in their
-          receive paths.
+Signed-off-by: Tom Parkin <tparkin@katalix.com>
+Signed-off-by: James Chapman <jchapman@katalix.com>
+Signed-off-by: Chris Elston <celston@katalix.com>
+---
+ net/l2tp/l2tp_ip6.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-        * Changes l2tp_ip6 from using the IPv4-specific ip_cmsg_recv to use the
-          IPv6 version ip6_datagram_recv_ctl.
-
-Tom Parkin (3):
-  ipv6: rename datagram_send_ctl and datagram_recv_ctl
-  ipv6: export ip6_datagram_recv_ctl
-  l2tp: correctly handle ancillary data in the ip6 recv path
-
- include/net/transp_v6.h  |   22 +++++++++++-----------
- net/ipv6/datagram.c      |   16 +++++++++-------
- net/ipv6/ip6_flowlabel.c |    4 ++--
- net/ipv6/ipv6_sockglue.c |    6 +++---
- net/ipv6/raw.c           |    6 +++---
- net/ipv6/udp.c           |    6 +++---
- net/l2tp/l2tp_ip6.c      |   10 +++++-----
- net/sunrpc/svcsock.c     |    2 +-
- 8 files changed, 37 insertions(+), 35 deletions(-)
-
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index 2316947..8ee4a86 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -646,7 +646,7 @@ static int l2tp_ip6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 			    struct msghdr *msg, size_t len, int noblock,
+ 			    int flags, int *addr_len)
+ {
+-	struct inet_sock *inet = inet_sk(sk);
++	struct ipv6_pinfo *np = inet6_sk(sk);
+ 	struct sockaddr_l2tpip6 *lsa = (struct sockaddr_l2tpip6 *)msg->msg_name;
+ 	size_t copied = 0;
+ 	int err = -EOPNOTSUPP;
+@@ -688,8 +688,8 @@ static int l2tp_ip6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 			lsa->l2tp_scope_id = IP6CB(skb)->iif;
+ 	}
+ 
+-	if (inet->cmsg_flags)
+-		ip_cmsg_recv(msg, skb);
++	if (np->rxopt.all)
++		ip6_datagram_recv_ctl(sk, msg, skb);
+ 
+ 	if (flags & MSG_TRUNC)
+ 		copied = skb->len;
 -- 
 1.7.9.5
