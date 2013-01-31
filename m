@@ -1,104 +1,78 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: Gianfar : Drop a long frame
-Date: Thu, 31 Jan 2013 10:50:14 +0200
-Message-ID: <510A3046.2090406@freescale.com>
-References: <001a01cdfeef$cdc5bee0$69513ca0$@acksys.fr> <51094280.8060701@freescale.com> <001e01cdff06$ae4de6c0$0ae9b440$@acksys.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: voncken <cedric.voncken@acksys.fr>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V1 01/10] net/mlx4_core: Directly expose fields of HW flow steering rule control segment
+Date: Thu, 31 Jan 2013 11:07:02 +0200
+Message-ID: <1359623231-4491-2-git-send-email-amirv@mellanox.com>
+References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:46949
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751248Ab3AaIut convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2013 03:50:49 -0500
-In-Reply-To: <001e01cdff06$ae4de6c0$0ae9b440$@acksys.fr>
+Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:42986 "HELO
+	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751641Ab3AaJHg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 04:07:36 -0500
+In-Reply-To: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/30/2013 6:27 PM, voncken wrote:
-> -----Message d'origine-----
-> De : Claudiu Manoil [mailto:claudiu.manoil@freescale.com]
-> Envoy=E9 : mercredi 30 janvier 2013 16:56
-> =C0 : voncken
-> Cc : netdev@vger.kernel.org
-> Objet : Re: Gianfar : Drop a long frame
->
-> On 1/30/2013 3:43 PM, voncken wrote:
->> 	Hi Claudiu,
->>
->> 	I have a problem with the gianfar driver.
->>
->> 	My test conditions are:
->> 		- Disable rxvlan hardware acceleration (ethtool -K ethx
-> rxvlan off)
->> 		- Receive frame contains a VLAN tag and with a frame len set
-> to the
->> MTU (1500 bytes).
->>
->> 	In this condition, when I received a long frame the bdp->length is
->> set to 1538 bytes.
->> 	I guess it is composed of:
->> 		1500 bytes: L3 data bytes
->> 		 + 14 bytes:  Ethernet header
->> 		 + 4 bytes:  Vlan Tag header
->> 		 + 8 bytes: FCB structure size GMAC_FCB_LEN
->> 		 + 8 bytes: eTSEC padding
->> 		 + 4 bytes: Frames CRC (FCS)
->>
->> 	The Maximum frame len is set to 1536 because the function
->> gfar_change_mtu does not integrate the FCS in the computed frame siz=
-e.
->> 	In this condition this frame is dropped with the test line 2792
->> function gfar_clean_rx_ring
->> 		if (unlikely(!(bdp->status & RXBD_ERR) &&
->> 				bdp->length > priv->rx_buffer_size))
->> 			bdp->status =3D RXBD_LARGE;
->> =09
->> 	How I can receive this frame correctly?
->> =09
->> 	Best regards
->>
->> Cedric Voncken | R&d Engineer
->
-> Hi Cedric Voncken,
-> Is the 802.1Q support activated on the receiving host? (see
-> CONFIG_VLAN_8021Q)
->
-> Hi Claudiu,
->
-> YEs the CONFIG_VLAN_8021Q is enable on the receiving host, that work
-> correctly if RXVLAN is set to on (ethtool -K ethx rxvlan off)
-> I try with the linux kernel 3.3.8.
->
-> Regards.
->
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Ok, at fist glance it seems that the DEFAULT_RX_BUFFER_SIZE of 1536
-bytes is not enough to accommodate VLAN_HLEN.
-Apparently, the reason why it works with rxvlan 'on' and it doesn't
-when set to 'off' is because by changing the NETIF_F_HW_VLAN_* feature=20
-flags the gfar_change_mtu() gets called, which in turn has the followin=
-g
-issue:
-gfar_change_mtu():
-=2E..
-	if (gfar_is_vlan_on(priv))
-		frame_size +=3D VLAN_HLEN;
-=2E..
-where,
-gfar_is_vlan_on():
-{
-	return (priv->ndev->features & NETIF_F_HW_VLAN_RX) ||
-	       (priv->ndev->features & NETIF_F_HW_VLAN_TX);
-}
+Some of the fields for struct mlx4_net_trans_rule_hw_ctrl were packed into u32
+and accessed through bit field operations. Expose and access them directly as
+u8.
 
-and it's odd that the rx_buffer_size is conditioned by the HW VLAN=20
-acceleration feature being turned on or off.
-But I'll have to run some tests too to confirm this.
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/mcg.c           |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    7 +++++--
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    2 +-
+ 3 files changed, 7 insertions(+), 4 deletions(-)
 
-Regards,
-Claudiu
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+index 1ee4db3..d7c0704 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
++++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
+@@ -664,7 +664,7 @@ static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
+ 	dw |= ctrl->priority << 16;
+ 
+ 	hw->ctrl = cpu_to_be32(dw);
+-	hw->vf_vep_port = cpu_to_be32(ctrl->port);
++	hw->port = ctrl->port;
+ 	hw->qpn = cpu_to_be32(ctrl->qpn);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+index 116c5c2..3263848 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
+@@ -696,9 +696,12 @@ struct mlx4_steer {
+ 
+ struct mlx4_net_trans_rule_hw_ctrl {
+ 	__be32 ctrl;
+-	__be32 vf_vep_port;
++	u8 rsvd1;
++	u8 funcid;
++	u8 vep;
++	u8 port;
+ 	__be32 qpn;
+-	__be32 reserved;
++	__be32 rsvd2;
+ };
+ 
+ struct mlx4_net_trans_rule_hw_ib {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+index 561ed2a..5997adc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
++++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
+@@ -3018,7 +3018,7 @@ static int add_eth_header(struct mlx4_dev *dev, int slave,
+ 	__be64 mac_msk = cpu_to_be64(MLX4_MAC_MASK << 16);
+ 
+ 	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)inbox->buf;
+-	port = be32_to_cpu(ctrl->vf_vep_port) & 0xff;
++	port = ctrl->port;
+ 	eth_header = (struct mlx4_net_trans_rule_hw_eth *)(ctrl + 1);
+ 
+ 	/* Clear a space in the inbox for eth header */
+-- 
+1.7.8.2
