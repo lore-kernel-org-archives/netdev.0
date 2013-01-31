@@ -1,15 +1,15 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 01/10] net/mlx4_core: Directly expose fields of HW flow steering rule control segment
-Date: Thu, 31 Jan 2013 11:07:02 +0200
-Message-ID: <1359623231-4491-2-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 05/10] net/mlx4_en: Fix vlan mask for ethtool steering rules
+Date: Thu, 31 Jan 2013 11:07:06 +0200
+Message-ID: <1359623231-4491-6-git-send-email-amirv@mellanox.com>
 References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
 	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:42986 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751641Ab3AaJHg (ORCPT
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:43146 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751735Ab3AaJHg (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 04:07:36 -0500
 In-Reply-To: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -17,62 +17,51 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Some of the fields for struct mlx4_net_trans_rule_hw_ctrl were packed into u32
-and accessed through bit field operations. Expose and access them directly as
-u8.
+The vlan mask field should be validated and assigned according to the field
+size which is 12 bits. Also replace the numeric 0xfff mask with existing kernel
+macro.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |    2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |    7 +++++--
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  |    2 +-
- 3 files changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 1ee4db3..d7c0704 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -664,7 +664,7 @@ static void trans_rule_ctrl_to_hw(struct mlx4_net_trans_rule *ctrl,
- 	dw |= ctrl->priority << 16;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index f33049f..f36c219 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -666,12 +666,16 @@ static int mlx4_en_validate_flow(struct net_device *dev,
  
- 	hw->ctrl = cpu_to_be32(dw);
--	hw->vf_vep_port = cpu_to_be32(ctrl->port);
-+	hw->port = ctrl->port;
- 	hw->qpn = cpu_to_be32(ctrl->qpn);
- }
+ 	if ((cmd->fs.flow_type & FLOW_EXT)) {
+ 		if (cmd->fs.m_ext.vlan_etype ||
+-		    !(cmd->fs.m_ext.vlan_tci == 0 ||
+-		      cmd->fs.m_ext.vlan_tci == cpu_to_be16(0xfff)))
++		    !((cmd->fs.m_ext.vlan_tci & cpu_to_be16(VLAN_VID_MASK)) ==
++		      0 ||
++		      (cmd->fs.m_ext.vlan_tci & cpu_to_be16(VLAN_VID_MASK)) ==
++		      cpu_to_be16(VLAN_VID_MASK)))
+ 			return -EINVAL;
++
+ 		if (cmd->fs.m_ext.vlan_tci) {
+ 			if (be16_to_cpu(cmd->fs.h_ext.vlan_tci) >= VLAN_N_VID)
+ 				return -EINVAL;
++
+ 		}
+ 	}
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index 116c5c2..3263848 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -696,9 +696,12 @@ struct mlx4_steer {
+@@ -690,9 +694,10 @@ static int mlx4_en_ethtool_add_mac_rule(struct ethtool_rxnfc *cmd,
+ 	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
+ 	memcpy(spec_l2->eth.dst_mac, mac, ETH_ALEN);
  
- struct mlx4_net_trans_rule_hw_ctrl {
- 	__be32 ctrl;
--	__be32 vf_vep_port;
-+	u8 rsvd1;
-+	u8 funcid;
-+	u8 vep;
-+	u8 port;
- 	__be32 qpn;
--	__be32 reserved;
-+	__be32 rsvd2;
- };
+-	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
++	if ((cmd->fs.flow_type & FLOW_EXT) &&
++	    (cmd->fs.m_ext.vlan_tci & cpu_to_be16(VLAN_VID_MASK))) {
+ 		spec_l2->eth.vlan_id = cmd->fs.h_ext.vlan_tci;
+-		spec_l2->eth.vlan_id_msk = cpu_to_be16(0xfff);
++		spec_l2->eth.vlan_id_msk = cpu_to_be16(VLAN_VID_MASK);
+ 	}
  
- struct mlx4_net_trans_rule_hw_ib {
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 561ed2a..5997adc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -3018,7 +3018,7 @@ static int add_eth_header(struct mlx4_dev *dev, int slave,
- 	__be64 mac_msk = cpu_to_be64(MLX4_MAC_MASK << 16);
- 
- 	ctrl = (struct mlx4_net_trans_rule_hw_ctrl *)inbox->buf;
--	port = be32_to_cpu(ctrl->vf_vep_port) & 0xff;
-+	port = ctrl->port;
- 	eth_header = (struct mlx4_net_trans_rule_hw_eth *)(ctrl + 1);
- 
- 	/* Clear a space in the inbox for eth header */
+ 	list_add_tail(&spec_l2->list, rule_list_h);
 -- 
 1.7.8.2
