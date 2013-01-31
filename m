@@ -1,93 +1,217 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 09/10] net/mlx4_en: Don't reassign port mac address on firmware that supports it
-Date: Thu, 31 Jan 2013 11:07:10 +0200
-Message-ID: <1359623231-4491-10-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 03/10] net/mlx4_en: Fix ip/udp steering rules multicast mac when attached via ethtool
+Date: Thu, 31 Jan 2013 11:07:04 +0200
+Message-ID: <1359623231-4491-4-git-send-email-amirv@mellanox.com>
 References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Matan Barak <matanb@mellanox.com>
+	Hadar Hen Zion <hadarh@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:38250 "HELO
-	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752671Ab3AaJHg (ORCPT
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:58555 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751594Ab3AaJHg (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 04:07:36 -0500
 In-Reply-To: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matan Barak <matanb@mellanox.com>
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-Mac reassignments should only be done when not supported by the firmware. To
-accomplish that, checking firmware capability bit to know whether we should
-reassign macs in the driver.
+Destination mac is a mandatory specification for ip/udp steering rules.
+When attaching multicast steering rules via ethtool the unicast mac of the
+interface was added to the rule specification instead of the multicast mac.
+The following commit sets the corresponding multicast mac for the rule multicast ip.
 
-Signed-off-by: Matan Barak <matanb@mellanox.com>
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    3 ++-
- drivers/net/ethernet/mellanox/mlx4/fw.c        |    7 ++++++-
- include/linux/mlx4/device.h                    |    3 ++-
- 3 files changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  119 ++++++++++++++++-------
+ 1 files changed, 82 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 333a7a0..7b513e9 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1285,7 +1285,8 @@ void mlx4_en_stop_port(struct net_device *dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 03447da..86afb5b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -35,6 +35,8 @@
+ #include <linux/ethtool.h>
+ #include <linux/netdevice.h>
+ #include <linux/mlx4/driver.h>
++#include <linux/in.h>
++#include <net/ip.h>
  
- 	/* Unregister Mac address for the port */
- 	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
--	mdev->mac_removed[priv->port] = 1;
-+	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN))
-+		mdev->mac_removed[priv->port] = 1;
+ #include "mlx4_en.h"
+ #include "en_port.h"
+@@ -672,19 +674,71 @@ static int mlx4_en_validate_flow(struct net_device *dev,
+ 	return 0;
+ }
  
- 	/* Remove flow steering rules for the port*/
- 	if (mdev->dev->caps.steering_mode ==
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 91acf71..38b62c7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -127,7 +127,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[0] = "RSS support",
- 		[1] = "RSS Toeplitz Hash Function support",
- 		[2] = "RSS XOR Hash Function support",
--		[3] = "Device manage flow steering support"
-+		[3] = "Device manage flow steering support",
-+		[4] = "Automatic mac reassignment support"
- 	};
- 	int i;
++static int mlx4_en_ethtool_add_mac_rule(struct ethtool_rxnfc *cmd,
++					struct list_head *rule_list_h,
++					struct mlx4_spec_list *spec_l2,
++					unsigned char *mac)
++{
++	int err = 0;
++	__be64 mac_msk = cpu_to_be64(MLX4_MAC_MASK << 16);
++
++	spec_l2->id = MLX4_NET_TRANS_RULE_ID_ETH;
++	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
++	memcpy(spec_l2->eth.dst_mac, mac, ETH_ALEN);
++
++	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
++		spec_l2->eth.vlan_id = cmd->fs.h_ext.vlan_tci;
++		spec_l2->eth.vlan_id_msk = cpu_to_be16(0xfff);
++	}
++
++	list_add_tail(&spec_l2->list, rule_list_h);
++
++	return err;
++}
++
++static int mlx4_en_ethtool_add_mac_rule_by_ipv4(struct mlx4_en_priv *priv,
++						struct ethtool_rxnfc *cmd,
++						struct list_head *rule_list_h,
++						struct mlx4_spec_list *spec_l2,
++						__be32 ipv4_dst)
++{
++	__be64 be_mac = 0;
++	unsigned char mac[ETH_ALEN];
++
++	if (!ipv4_is_multicast(ipv4_dst)) {
++		if (cmd->fs.flow_type & FLOW_MAC_EXT) {
++			memcpy(&mac, cmd->fs.h_ext.h_dest, ETH_ALEN);
++		} else {
++			be_mac = cpu_to_be64((priv->mac & MLX4_MAC_MASK) << 16);
++			memcpy(&mac, &be_mac, ETH_ALEN);
++		}
++	} else {
++		ip_eth_mc_map(ipv4_dst, mac);
++	}
++
++	return mlx4_en_ethtool_add_mac_rule(cmd, rule_list_h, spec_l2, &mac[0]);
++}
++
+ static int add_ip_rule(struct mlx4_en_priv *priv,
+-			struct ethtool_rxnfc *cmd,
+-			struct list_head *list_h)
++		       struct ethtool_rxnfc *cmd,
++		       struct list_head *list_h)
+ {
+-	struct mlx4_spec_list *spec_l3;
++	struct mlx4_spec_list *spec_l2 = NULL;
++	struct mlx4_spec_list *spec_l3 = NULL;
+ 	struct ethtool_usrip4_spec *l3_mask = &cmd->fs.m_u.usr_ip4_spec;
  
-@@ -478,6 +479,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- #define QUERY_DEV_CAP_BMME_FLAGS_OFFSET		0x94
- #define QUERY_DEV_CAP_RSVD_LKEY_OFFSET		0x98
- #define QUERY_DEV_CAP_MAX_ICM_SZ_OFFSET		0xa0
-+#define QUERY_DEV_CAP_FW_REASSIGN_MAC		0x9d
+-	spec_l3 = kzalloc(sizeof *spec_l3, GFP_KERNEL);
+-	if (!spec_l3) {
++	spec_l3 = kzalloc(sizeof(*spec_l3), GFP_KERNEL);
++	spec_l2 = kzalloc(sizeof(*spec_l2), GFP_KERNEL);
++	if (!spec_l2 || !spec_l3) {
+ 		en_err(priv, "Fail to alloc ethtool rule.\n");
++		kfree(spec_l2);
++		kfree(spec_l3);
+ 		return -ENOMEM;
+ 	}
  
- 	dev_cap->flags2 = 0;
- 	mailbox = mlx4_alloc_cmd_mailbox(dev);
-@@ -637,6 +639,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 		 QUERY_DEV_CAP_BMME_FLAGS_OFFSET);
- 	MLX4_GET(dev_cap->reserved_lkey, outbox,
- 		 QUERY_DEV_CAP_RSVD_LKEY_OFFSET);
-+	MLX4_GET(field, outbox, QUERY_DEV_CAP_FW_REASSIGN_MAC);
-+	if (field & 1<<6)
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN;
- 	MLX4_GET(dev_cap->max_icm_sz, outbox,
- 		 QUERY_DEV_CAP_MAX_ICM_SZ_OFFSET);
- 	if (dev_cap->flags & MLX4_DEV_CAP_FLAG_COUNTERS)
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 20ea939..1883e8e 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -150,7 +150,8 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_RSS			= 1LL <<  0,
- 	MLX4_DEV_CAP_FLAG2_RSS_TOP		= 1LL <<  1,
- 	MLX4_DEV_CAP_FLAG2_RSS_XOR		= 1LL <<  2,
--	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3
-+	MLX4_DEV_CAP_FLAG2_FS_EN		= 1LL <<  3,
-+	MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN	= 1LL <<  4
- };
++	mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h, spec_l2,
++					     cmd->fs.h_u.
++					     usr_ip4_spec.ip4dst);
+ 	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
+ 	spec_l3->ipv4.src_ip = cmd->fs.h_u.usr_ip4_spec.ip4src;
+ 	if (l3_mask->ip4src)
+@@ -701,14 +755,17 @@ static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
+ 			     struct ethtool_rxnfc *cmd,
+ 			     struct list_head *list_h, int proto)
+ {
+-	struct mlx4_spec_list *spec_l3;
+-	struct mlx4_spec_list *spec_l4;
++	struct mlx4_spec_list *spec_l2 = NULL;
++	struct mlx4_spec_list *spec_l3 = NULL;
++	struct mlx4_spec_list *spec_l4 = NULL;
+ 	struct ethtool_tcpip4_spec *l4_mask = &cmd->fs.m_u.tcp_ip4_spec;
  
- enum {
+-	spec_l3 = kzalloc(sizeof *spec_l3, GFP_KERNEL);
+-	spec_l4 = kzalloc(sizeof *spec_l4, GFP_KERNEL);
+-	if (!spec_l4 || !spec_l3) {
++	spec_l2 = kzalloc(sizeof(*spec_l2), GFP_KERNEL);
++	spec_l3 = kzalloc(sizeof(*spec_l3), GFP_KERNEL);
++	spec_l4 = kzalloc(sizeof(*spec_l4), GFP_KERNEL);
++	if (!spec_l2 || !spec_l3 || !spec_l4) {
+ 		en_err(priv, "Fail to alloc ethtool rule.\n");
++		kfree(spec_l2);
+ 		kfree(spec_l3);
+ 		kfree(spec_l4);
+ 		return -ENOMEM;
+@@ -717,12 +774,20 @@ static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
+ 	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
+ 
+ 	if (proto == TCP_V4_FLOW) {
++		mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h,
++						     spec_l2,
++						     cmd->fs.h_u.
++						     tcp_ip4_spec.ip4dst);
+ 		spec_l4->id = MLX4_NET_TRANS_RULE_ID_TCP;
+ 		spec_l3->ipv4.src_ip = cmd->fs.h_u.tcp_ip4_spec.ip4src;
+ 		spec_l3->ipv4.dst_ip = cmd->fs.h_u.tcp_ip4_spec.ip4dst;
+ 		spec_l4->tcp_udp.src_port = cmd->fs.h_u.tcp_ip4_spec.psrc;
+ 		spec_l4->tcp_udp.dst_port = cmd->fs.h_u.tcp_ip4_spec.pdst;
+ 	} else {
++		mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h,
++						     spec_l2,
++						     cmd->fs.h_u.
++						     udp_ip4_spec.ip4dst);
+ 		spec_l4->id = MLX4_NET_TRANS_RULE_ID_UDP;
+ 		spec_l3->ipv4.src_ip = cmd->fs.h_u.udp_ip4_spec.ip4src;
+ 		spec_l3->ipv4.dst_ip = cmd->fs.h_u.udp_ip4_spec.ip4dst;
+@@ -751,43 +816,23 @@ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
+ 					     struct list_head *rule_list_h)
+ {
+ 	int err;
+-	__be64 be_mac;
+ 	struct ethhdr *eth_spec;
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_spec_list *spec_l2;
+-	__be64 mac_msk = cpu_to_be64(MLX4_MAC_MASK << 16);
++	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+ 	err = mlx4_en_validate_flow(dev, cmd);
+ 	if (err)
+ 		return err;
+ 
+-	spec_l2 = kzalloc(sizeof *spec_l2, GFP_KERNEL);
+-	if (!spec_l2)
+-		return -ENOMEM;
+-
+-	if (cmd->fs.flow_type & FLOW_MAC_EXT) {
+-		memcpy(&be_mac, cmd->fs.h_ext.h_dest, ETH_ALEN);
+-	} else {
+-		u64 mac = priv->mac & MLX4_MAC_MASK;
+-		be_mac = cpu_to_be64(mac << 16);
+-	}
+-
+-	spec_l2->id = MLX4_NET_TRANS_RULE_ID_ETH;
+-	memcpy(spec_l2->eth.dst_mac_msk, &mac_msk, ETH_ALEN);
+-	if ((cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) != ETHER_FLOW)
+-		memcpy(spec_l2->eth.dst_mac, &be_mac, ETH_ALEN);
+-
+-	if ((cmd->fs.flow_type & FLOW_EXT) && cmd->fs.m_ext.vlan_tci) {
+-		spec_l2->eth.vlan_id = cmd->fs.h_ext.vlan_tci;
+-		spec_l2->eth.vlan_id_msk = cpu_to_be16(0xfff);
+-	}
+-
+-	list_add_tail(&spec_l2->list, rule_list_h);
+-
+ 	switch (cmd->fs.flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+ 	case ETHER_FLOW:
++		spec_l2 = kzalloc(sizeof(*spec_l2), GFP_KERNEL);
++		if (!spec_l2)
++			return -ENOMEM;
++
+ 		eth_spec = &cmd->fs.h_u.ether_spec;
+-		memcpy(&spec_l2->eth.dst_mac, eth_spec->h_dest, ETH_ALEN);
++		mlx4_en_ethtool_add_mac_rule(cmd, rule_list_h, spec_l2,
++					     &eth_spec->h_dest[0]);
+ 		spec_l2->eth.ether_type = eth_spec->h_proto;
+ 		if (eth_spec->h_proto)
+ 			spec_l2->eth.ether_type_enable = 1;
 -- 
 1.7.8.2
