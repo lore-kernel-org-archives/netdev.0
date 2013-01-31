@@ -1,157 +1,113 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 2/2] cxgb4vf: Send Flush Work Request on a TX Queue
-Date: Thu, 31 Jan 2013 19:36:27 +0530
-Message-ID: <1359641187-17902-2-git-send-email-vipul@chelsio.com>
-References: <1359641187-17902-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	leedom@chelsio.com, abhishek@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>,
-	Jay Hernandez <jay@chelsio.com>
-To: netdev@vger.kernel.org
+From: "voncken" <cedric.voncken@acksys.fr>
+Subject: RE: Gianfar : Drop a long frame
+Date: Thu, 31 Jan 2013 15:13:36 +0100
+Message-ID: <007801cdffbd$293b8200$7bb28600$@acksys.fr>
+References: <001a01cdfeef$cdc5bee0$69513ca0$@acksys.fr> <51094280.8060701@freescale.com> <001e01cdff06$ae4de6c0$0ae9b440$@acksys.fr> <510A3046.2090406@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: "'Claudiu Manoil'" <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:9484 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753360Ab3AaOLm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 09:11:42 -0500
-In-Reply-To: <1359641187-17902-1-git-send-email-vipul@chelsio.com>
+Received: from smtp08.msg.oleane.net ([62.161.4.8]:59174 "EHLO
+	smtp08.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921Ab3AaONl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 09:13:41 -0500
+In-Reply-To: <510A3046.2090406@freescale.com>
+Content-Language: fr
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Send Flush Work Request on a TX Queue if it has unreclaimed TX Descriptors
-and the last time anything was sent on the associated net device was more than
-5 seconds in the past, issue a flush request on the TX Queue in order to get
-any stranded skb's off the TX Queue.
 
-Signed-off-by: Jay Hernandez <jay@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c |  104 ++++++++++++++++++++++++---
- 1 files changed, 92 insertions(+), 12 deletions(-)
+On 1/30/2013 6:27 PM, voncken wrote:
+> -----Message d'origine-----
+> De : Claudiu Manoil [mailto:claudiu.manoil@freescale.com]
+> Envoy=E9 : mercredi 30 janvier 2013 16:56 =C0 : voncken Cc :=20
+> netdev@vger.kernel.org Objet : Re: Gianfar : Drop a long frame
+>
+> On 1/30/2013 3:43 PM, voncken wrote:
+>> 	Hi Claudiu,
+>>
+>> 	I have a problem with the gianfar driver.
+>>
+>> 	My test conditions are:
+>> 		- Disable rxvlan hardware acceleration (ethtool -K ethx
+> rxvlan off)
+>> 		- Receive frame contains a VLAN tag and with a frame len set
+> to the
+>> MTU (1500 bytes).
+>>
+>> 	In this condition, when I received a long frame the bdp->length is=20
+>> set to 1538 bytes.
+>> 	I guess it is composed of:
+>> 		1500 bytes: L3 data bytes
+>> 		 + 14 bytes:  Ethernet header
+>> 		 + 4 bytes:  Vlan Tag header
+>> 		 + 8 bytes: FCB structure size GMAC_FCB_LEN
+>> 		 + 8 bytes: eTSEC padding
+>> 		 + 4 bytes: Frames CRC (FCS)
+>>
+>> 	The Maximum frame len is set to 1536 because the function=20
+>> gfar_change_mtu does not integrate the FCS in the computed frame siz=
+e.
+>> 	In this condition this frame is dropped with the test line 2792=20
+>> function gfar_clean_rx_ring
+>> 		if (unlikely(!(bdp->status & RXBD_ERR) &&
+>> 				bdp->length > priv->rx_buffer_size))
+>> 			bdp->status =3D RXBD_LARGE;
+>> =09
+>> 	How I can receive this frame correctly?
+>> =09
+>> 	Best regards
+>>
+>> Cedric Voncken | R&d Engineer
+>
+> Hi Cedric Voncken,
+> Is the 802.1Q support activated on the receiving host? (see
+> CONFIG_VLAN_8021Q)
+>
+> Hi Claudiu,
+>
+> YEs the CONFIG_VLAN_8021Q is enable on the receiving host, that work=20
+> correctly if RXVLAN is set to on (ethtool -K ethx rxvlan off) I try=20
+> with the linux kernel 3.3.8.
+>
+> Regards.
+>
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 92170d5..be6ef40 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1969,8 +1969,69 @@ static void sge_rx_timer_cb(unsigned long data)
- 	mod_timer(&s->rx_timer, jiffies + RX_QCHECK_PERIOD);
- }
- 
--/**
-- *	sge_tx_timer_cb - perform periodic maintenance of SGE Tx queues
-+/*	send_flush_wr - send a Flush Work Request on a TX Queue
-+ *	@adapter: the adapter
-+ *	@txq: TX Queue to flush
-+ *
-+ *	Send a Flush Work Request on the indicated TX Queue with a request to
-+ *	updated the Status Page of the TX Queue when the Flush Work Request
-+ *	is processed.  This will allow us to determine when all of the
-+ *	preceeding TX Requests have been processed.
-+ */
-+static void send_flush_wr(struct adapter *adapter, struct sge_eth_txq *txq)
-+{
-+	int  credits;
-+	unsigned int ndesc;
-+	struct fw_eq_flush_wr *fwr;
-+	struct sk_buff *skb;
-+	unsigned int len;
-+
-+	/* See if there's space in the TX Queue to fit the Flush Work Request.
-+	 * If not, we simply return.
-+	 */
-+	len = sizeof(*fwr);
-+	ndesc = DIV_ROUND_UP(len, sizeof(struct tx_desc));
-+	credits = txq_avail(&txq->q) - ndesc;
-+	if (unlikely(credits < 0))
-+		return;
-+
-+	/* Allocate an skb to hold the Flush Work Request and initialize it
-+	 * with the flush request.
-+	 */
-+	skb = alloc_skb(len, GFP_ATOMIC);
-+	if (unlikely(!skb))
-+		return;
-+	fwr = (struct fw_eq_flush_wr *)__skb_put(skb, len);
-+	memset(fwr, 0, sizeof(*fwr));
-+
-+	fwr->opcode = (__force __u8) htonl(FW_WR_OP(FW_EQ_FLUSH_WR));
-+	fwr->equiq_to_len16 = cpu_to_be32(FW_WR_EQUEQ |
-+					  FW_WR_LEN16(len / 16));
-+
-+	/* If the Flush Work Request fills up the TX Queue to the point where
-+	 * we don't have enough room for a maximum sized TX Request, then
-+	 * we need to stop further TX Requests and request that the firmware
-+	 * notify us with an interrupt when it processes this request.
-+	 */
-+	if (unlikely(credits < ETHTXQ_STOP_THRES)) {
-+		txq_stop(txq);
-+		fwr->equiq_to_len16 |= cpu_to_be32(FW_WR_EQUIQ);
-+	}
-+
-+	/* Copy the Flush Work Request into the TX Queue and notify the
-+	 * hardware that we've given it some more to do ...
-+	 */
-+	inline_tx_skb(skb, &txq->q, &txq->q.desc[txq->q.pidx]);
-+	txq_advance(&txq->q, ndesc);
-+	ring_tx_db(adapter, &txq->q, ndesc);
-+
-+	/* Free up the skb and return ...
-+	 */
-+	kfree_skb(skb);
-+	return;
-+}
-+
-+/*	sge_tx_timer_cb - perform periodic maintenance of SGE Tx queues
-  *	@data: the adapter
-  *
-  *	Runs periodically from a timer to perform maintenance of SGE TX queues.
-@@ -1991,19 +2052,38 @@ static void sge_tx_timer_cb(unsigned long data)
- 	do {
- 		struct sge_eth_txq *txq = &s->ethtxq[i];
- 
--		if (reclaimable(&txq->q) && __netif_tx_trylock(txq->txq)) {
--			int avail = reclaimable(&txq->q);
-+		if (__netif_tx_trylock(txq->txq)) {
- 
--			if (avail > budget)
--				avail = budget;
-+			if (reclaimable(&txq->q)) {
-+				int avail = reclaimable(&txq->q);
- 
--			free_tx_desc(adapter, &txq->q, avail, true);
--			txq->q.in_use -= avail;
--			__netif_tx_unlock(txq->txq);
-+				if (avail > budget)
-+					avail = budget;
-+
-+				free_tx_desc(adapter, &txq->q, avail, true);
-+				txq->q.in_use -= avail;
- 
--			budget -= avail;
--			if (!budget)
--				break;
-+				budget -= avail;
-+				if (!budget) {
-+					__netif_tx_unlock(txq->txq);
-+					break;
-+				}
-+			}
-+
-+			/* If the TX Queue has unreclaimed TX Descriptors and
-+			 * the last time anything was sent on the associated
-+			 * net device was more than 5 seconds in the past,
-+			 * issue a flush request on the TX Queue in order to
-+			 * get any stranded skb's off the TX Queue.
-+			 */
-+			if (txq->q.in_use > 0 &&
-+			    time_after(jiffies,
-+				       txq->txq->dev->trans_start + HZ * 5)) {
-+				local_bh_disable();
-+				send_flush_wr(adapter, txq);
-+				local_bh_enable();
-+			}
-+			__netif_tx_unlock(txq->txq);
- 		}
- 
- 		i++;
--- 
-1.7.1
+Ok, at fist glance it seems that the DEFAULT_RX_BUFFER_SIZE of 1536 byt=
+es is
+not enough to accommodate VLAN_HLEN.
+Apparently, the reason why it works with rxvlan 'on' and it doesn't whe=
+n set
+to 'off' is because by changing the NETIF_F_HW_VLAN_* feature flags the
+gfar_change_mtu() gets called, which in turn has the following
+issue:
+gfar_change_mtu():
+=2E..
+	if (gfar_is_vlan_on(priv))
+		frame_size +=3D VLAN_HLEN;
+=2E..
+where,
+gfar_is_vlan_on():
+{
+	return (priv->ndev->features & NETIF_F_HW_VLAN_RX) ||
+	       (priv->ndev->features & NETIF_F_HW_VLAN_TX); }
+
+and it's odd that the rx_buffer_size is conditioned by the HW VLAN
+acceleration feature being turned on or off.
+But I'll have to run some tests too to confirm this.
+
+Regards,
+Claudiu
+
+It's true. That work when rx is on, because the VLAN TAG is removed fro=
+m
+frame by eTSEC and the len frame is below 1536.=20
+In the mpc8315 Family reference manual rev 2, the table 19-160 indicate=
+s
+that if  L bit is set, the data length includes the CRC. It seems the
+gfar_change_mtu function must include the CRC length in frame len compu=
+te.
+
+Best regards
