@@ -1,39 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] ipv6: do not create neighbor entries for local
- delivery
-Date: Wed, 30 Jan 2013 20:26:39 -0500 (EST)
-Message-ID: <20130130.202639.978642110493467876.davem@davemloft.net>
-References: <20130130082608.GA1604@minipsycho.orion>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2] NET: qmi_wwan: add Telit LE920 support
+Date: Wed, 30 Jan 2013 20:28:20 -0500 (EST)
+Message-ID: <20130130.202820.1817113362136829250.davem@davemloft.net>
+References: <1359550026-1879-1-git-send-email-dnlplm@gmail.com>
+	<8738xiok3t.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, mleitner@redhat.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47454 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756012Ab3AaB0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 20:26:41 -0500
-In-Reply-To: <20130130082608.GA1604@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <8738xiok3t.fsf-lbf33ChDnrE/G1V5fR+Y7Q@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 30 Jan 2013 09:26:08 +0100
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Wed, 30 Jan 2013 14:50:46 +0100
 
-> From: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> 
-> They will be created at output, if ever needed. This avoids creating
-> empty neighbor entries when TPROXYing/Forwarding packets for addresses
-> that are not even directly reachable.
-> 
-> Note that IPv4 already handles it this way. No neighbor entries are
-> created for local input.
-> 
-> Tested by myself and customer.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>=20
+>> Add VID, PID and fixed interface for Telit LE920
+>>
+>> Signed-off-by: Daniele Palmas <dnlplm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>> ---
+>> v2:
+>>  - rebased against net tree
+>=20
+> Excellent! Thanks.  Looks like an interesting device BTW.
+>=20
+> Acked-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
