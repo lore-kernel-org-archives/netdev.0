@@ -1,25 +1,46 @@
-From: fatima mohammede <fatima.mohammede@suomi24.fi>
-Subject: Hallo liebe,
-Date: Thu, 31 Jan 2013 01:55:23 +0100 (CET)
-Message-ID: <33366959.175851359593723949.JavaMail.defaultUser@defaultHost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 09/11] net/mlx4_en: Add debugfs support
+Date: Wed, 30 Jan 2013 20:23:07 -0500 (EST)
+Message-ID: <20130130.202307.2012762623231158868.davem@davemloft.net>
+References: <1359542067-10760-1-git-send-email-amirv@mellanox.com>
+	<1359542067-10760-10-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, shanim@mellanox.com
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.suomi24.fi ([80.76.155.36]:56701 "EHLO
-	s24-maa02.sth.basefarm.net" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753809Ab3AaBB3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jan 2013 20:01:29 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:47434 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756737Ab3AaBXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jan 2013 20:23:11 -0500
+In-Reply-To: <1359542067-10760-10-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Amir Vadai <amirv@mellanox.com>
+Date: Wed, 30 Jan 2013 12:34:25 +0200
 
-Hallo liebe,
+> Add debugfs support to the mlx4_en driver such that users have the ability to access
+> kernel information which can be used by external tools e.g HW monitoring ones
+> 
+> The filesystem is set up in the following driver/interface hierarchy:
+> <debugfs>
 
-Ich sah Ihr Profil heute wurde an Ihnen interessiert
-bitte ich werde wie wenn du mir zur=FCck schreiben kann heute, so dass =
-ich Ihnen=20
-einige meiner Bilder zu mir wissen mehr, Danke
-fatima
+Sigh...
+
+This is a chronic problem.
+
+Every time some driver developer can't figure out a way, using existing
+well structured interfaces, to expose some information or statistic,
+they just throw their hands in the air and add some debugfs turd.
+
+Don't do this.
+
+Instead, use or extend existing, well structured and typed, interfaces
+to export your information.
+
+That way every driver can export similar information in a familiar way
+rather than with yet-another-debugfs-hack.
+
+I'm not applying this series, sorry.
