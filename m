@@ -1,696 +1,233 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/2] wanrouter: delete now orphaned header content, files/drivers
-Date: Fri,  1 Feb 2013 18:30:22 -0500
-Message-ID: <1359761422-27629-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 1/2] wanrouter: completely decouple obsolete code from kernel.
+Date: Fri,  1 Feb 2013 18:30:21 -0500
+Message-ID: <1359761422-27629-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1359761422-27629-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Joe Perches <joe@perches.com>,
 	Dan Carpenter <dan.carpenter@oracle.com>,
 	Arnaldo Carvalho de Melo <acme@redhat.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:40065 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:40058 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758044Ab3BAXaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 18:30:46 -0500
+	with ESMTP id S1758030Ab3BAXan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 18:30:43 -0500
 In-Reply-To: <1359761422-27629-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The wanrouter support was identified earlier as unused for years,
-and so the previous commit totally decoupled it from the kernel,
-leaving the related wanrouter files present, but totally inert.
+The original suggestion to delete wanrouter started earlier
+with the mainline commit f0d1b3c2bcc5de8a17af5f2274f7fcde8292b5fc
+("net/wanrouter: Deprecate and schedule for removal") in May 2012.
 
-Here we take the final step in that cleanup, by doing a wholesale
-removal of these files.  The two step process is used so that the
-large deletion is decoupled from the git history of files that we
-still care about.
+More importantly, Dan Carpenter found[1] that the driver had a
+fundamental breakage introduced back in 2008, with commit
+7be6065b39c3 ("netdevice wanrouter: Convert directly reference of
+netdev->priv").  So we know with certainty that the code hasn't been
+used by anyone willing to at least take the effort to send an e-mail
+report of breakage for at least 4 years.
 
-The drivers deleted here all were dependent on the Kconfig setting
-CONFIG_WAN_ROUTER_DRIVERS.
+This commit does a decouple of the wanrouter subsystem, by going
+after the Makefile/Kconfig and similar files, so that these mainline
+files that we are keeping do not have the big wanrouter file/driver
+deletion commit tied into their history.
 
-A stub wanrouter.h header (kernel & uapi) are left behind so that
-drivers/isdn/i4l/isdn_x25iface.c continues to compile, and so that
-we don't accidentally break userspace that expected these defines.
+Once this commit is in place, we then can remove the obsolete cyclomx
+drivers and similar that have a dependency on CONFIG_WAN_ROUTER_DRIVERS.
 
-Cc: Joe Perches <joe@perches.com>
+[1] http://www.spinics.net/lists/netdev/msg218670.html
+
+Originally-by: Joe Perches <joe@perches.com>
 Cc: Dan Carpenter <dan.carpenter@oracle.com>
 Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/wan/cycx_drv.c     |  569 --------------
- drivers/net/wan/cycx_main.c    |  346 ---------
- drivers/net/wan/cycx_x25.c     | 1602 ----------------------------------------
- include/linux/cyclomx.h        |   77 --
- include/linux/cycx_drv.h       |   64 --
- include/linux/wanrouter.h      |  127 +---
- include/uapi/linux/wanrouter.h |  443 +----------
- net/wanrouter/Kconfig          |   27 -
- net/wanrouter/Makefile         |    7 -
- net/wanrouter/patchlevel       |    1 -
- net/wanrouter/wanmain.c        |  782 --------------------
- net/wanrouter/wanproc.c        |  380 ----------
- 12 files changed, 8 insertions(+), 4417 deletions(-)
- delete mode 100644 drivers/net/wan/cycx_drv.c
- delete mode 100644 drivers/net/wan/cycx_main.c
- delete mode 100644 drivers/net/wan/cycx_x25.c
- delete mode 100644 include/linux/cyclomx.h
- delete mode 100644 include/linux/cycx_drv.h
- delete mode 100644 net/wanrouter/Kconfig
- delete mode 100644 net/wanrouter/Makefile
- delete mode 100644 net/wanrouter/patchlevel
- delete mode 100644 net/wanrouter/wanmain.c
- delete mode 100644 net/wanrouter/wanproc.c
+ Documentation/ioctl/ioctl-number.txt |  2 +-
+ Documentation/magic-number.txt       |  2 +-
+ Documentation/zh_CN/magic-number.txt |  2 +-
+ drivers/isdn/i4l/isdn_x25iface.h     |  1 -
+ drivers/net/wan/Kconfig              | 54 ------------------------------------
+ drivers/net/wan/Makefile             |  5 ----
+ net/Kconfig                          |  1 -
+ net/Makefile                         |  1 -
+ net/socket.c                         |  1 -
+ 9 files changed, 3 insertions(+), 66 deletions(-)
 
-diff --git a/drivers/net/wan/cycx_drv.c b/drivers/net/wan/cycx_drv.c
-deleted file mode 100644
-index 2a3ecae..0000000
-diff --git a/drivers/net/wan/cycx_main.c b/drivers/net/wan/cycx_main.c
-deleted file mode 100644
-index 81fbbad..0000000
-diff --git a/drivers/net/wan/cycx_x25.c b/drivers/net/wan/cycx_x25.c
-deleted file mode 100644
-index 06f3f63..0000000
-diff --git a/include/linux/cyclomx.h b/include/linux/cyclomx.h
-deleted file mode 100644
-index b88f7f4..0000000
-diff --git a/include/linux/cycx_drv.h b/include/linux/cycx_drv.h
-deleted file mode 100644
-index 12fe6b0..0000000
-diff --git a/include/linux/wanrouter.h b/include/linux/wanrouter.h
-index cec4b41..8198a63 100644
---- a/include/linux/wanrouter.h
-+++ b/include/linux/wanrouter.h
-@@ -1,129 +1,10 @@
--/*****************************************************************************
--* wanrouter.h	Definitions for the WAN Multiprotocol Router Module.
--*		This module provides API and common services for WAN Link
--*		Drivers and is completely hardware-independent.
--*
--* Author: 	Nenad Corbic <ncorbic@sangoma.com>
--*		Gideon Hack 	
--* Additions:	Arnaldo Melo
--*
--* Copyright:	(c) 1995-2000 Sangoma Technologies Inc.
--*
--*		This program is free software; you can redistribute it and/or
--*		modify it under the terms of the GNU General Public License
--*		as published by the Free Software Foundation; either version
--*		2 of the License, or (at your option) any later version.
--* ============================================================================
--* Jul 21, 2000  Nenad Corbic	Added WAN_FT1_READY State
--* Feb 24, 2000  Nenad Corbic    Added support for socket based x25api
--* Jan 28, 2000  Nenad Corbic    Added support for the ASYNC protocol.
--* Oct 04, 1999  Nenad Corbic 	Updated for 2.1.0 release
--* Jun 02, 1999  Gideon Hack	Added support for the S514 adapter.
--* May 23, 1999	Arnaldo Melo	Added local_addr to wanif_conf_t
--*				WAN_DISCONNECTING state added
--* Jul 20, 1998	David Fong	Added Inverse ARP options to 'wanif_conf_t'
--* Jun 12, 1998	David Fong	Added Cisco HDLC support.
--* Dec 16, 1997	Jaspreet Singh	Moved 'enable_IPX' and 'network_number' to
--*				'wanif_conf_t'
--* Dec 05, 1997	Jaspreet Singh	Added 'pap', 'chap' to 'wanif_conf_t'
--*				Added 'authenticator' to 'wan_ppp_conf_t'
--* Nov 06, 1997	Jaspreet Singh	Changed Router Driver version to 1.1 from 1.0
--* Oct 20, 1997	Jaspreet Singh	Added 'cir','bc','be' and 'mc' to 'wanif_conf_t'
--*				Added 'enable_IPX' and 'network_number' to 
--*				'wan_device_t'.  Also added defines for
--*				UDP PACKET TYPE, Interrupt test, critical values
--*				for RACE conditions.
--* Oct 05, 1997	Jaspreet Singh	Added 'dlci_num' and 'dlci[100]' to 
--*				'wan_fr_conf_t' to configure a list of dlci(s)
--*				for a NODE 
--* Jul 07, 1997	Jaspreet Singh	Added 'ttl' to 'wandev_conf_t' & 'wan_device_t'
--* May 29, 1997 	Jaspreet Singh	Added 'tx_int_enabled' to 'wan_device_t'
--* May 21, 1997	Jaspreet Singh	Added 'udp_port' to 'wan_device_t'
--* Apr 25, 1997  Farhan Thawar   Added 'udp_port' to 'wandev_conf_t'
--* Jan 16, 1997	Gene Kozin	router_devlist made public
--* Jan 02, 1997	Gene Kozin	Initial version (based on wanpipe.h).
--*****************************************************************************/
-+/*
-+ * wanrouter.h	Legacy declarations kept around until X25 is removed
-+ */
-+
- #ifndef	_ROUTER_H
- #define	_ROUTER_H
+diff --git a/Documentation/ioctl/ioctl-number.txt b/Documentation/ioctl/ioctl-number.txt
+index 2152b0e..3210540 100644
+--- a/Documentation/ioctl/ioctl-number.txt
++++ b/Documentation/ioctl/ioctl-number.txt
+@@ -179,7 +179,7 @@ Code  Seq#(hex)	Include File		Comments
+ 'V'	C0	media/davinci/vpfe_capture.h	conflict!
+ 'V'	C0	media/si4713.h		conflict!
+ 'W'	00-1F	linux/watchdog.h	conflict!
+-'W'	00-1F	linux/wanrouter.h	conflict!
++'W'	00-1F	linux/wanrouter.h	conflict!		(pre 3.9)
+ 'W'	00-3F	sound/asound.h		conflict!
+ 'X'	all	fs/xfs/xfs_fs.h		conflict!
+ 		and fs/xfs/linux-2.6/xfs_ioctl32.h
+diff --git a/Documentation/magic-number.txt b/Documentation/magic-number.txt
+index 82761a3..76d80a6 100644
+--- a/Documentation/magic-number.txt
++++ b/Documentation/magic-number.txt
+@@ -122,7 +122,7 @@ SLAB_C_MAGIC          0x4f17a36d  kmem_cache        mm/slab.c
+ COW_MAGIC             0x4f4f4f4d  cow_header_v1     arch/um/drivers/ubd_user.c
+ I810_CARD_MAGIC       0x5072696E  i810_card         sound/oss/i810_audio.c
+ TRIDENT_CARD_MAGIC    0x5072696E  trident_card      sound/oss/trident.c
+-ROUTER_MAGIC          0x524d4157  wan_device        include/linux/wanrouter.h
++ROUTER_MAGIC          0x524d4157  wan_device        [in wanrouter.h pre 3.9]
+ SCC_MAGIC             0x52696368  gs_port           drivers/char/scc.h
+ SAVEKMSG_MAGIC1       0x53415645  savekmsg          arch/*/amiga/config.c
+ GDA_MAGIC             0x58464552  gda               arch/mips/include/asm/sn/gda.h
+diff --git a/Documentation/zh_CN/magic-number.txt b/Documentation/zh_CN/magic-number.txt
+index 4263022..2ebe539 100644
+--- a/Documentation/zh_CN/magic-number.txt
++++ b/Documentation/zh_CN/magic-number.txt
+@@ -122,7 +122,7 @@ SLAB_C_MAGIC          0x4f17a36d  kmem_cache        mm/slab.c
+ COW_MAGIC             0x4f4f4f4d  cow_header_v1     arch/um/drivers/ubd_user.c
+ I810_CARD_MAGIC       0x5072696E  i810_card         sound/oss/i810_audio.c
+ TRIDENT_CARD_MAGIC    0x5072696E  trident_card      sound/oss/trident.c
+-ROUTER_MAGIC          0x524d4157  wan_device        include/linux/wanrouter.h
++ROUTER_MAGIC          0x524d4157  wan_device        [in wanrouter.h pre 3.9]
+ SCC_MAGIC             0x52696368  gs_port           drivers/char/scc.h
+ SAVEKMSG_MAGIC1       0x53415645  savekmsg          arch/*/amiga/config.c
+ GDA_MAGIC             0x58464552  gda               arch/mips/include/asm/sn/gda.h
+diff --git a/drivers/isdn/i4l/isdn_x25iface.h b/drivers/isdn/i4l/isdn_x25iface.h
+index 0b26e3b..ca08e08 100644
+--- a/drivers/isdn/i4l/isdn_x25iface.h
++++ b/drivers/isdn/i4l/isdn_x25iface.h
+@@ -19,7 +19,6 @@
+ #endif
  
- #include <uapi/linux/wanrouter.h>
+ #include <linux/skbuff.h>
+-#include <linux/wanrouter.h>
+ #include <linux/isdn.h>
+ #include <linux/concap.h>
  
--/****** Kernel Interface ****************************************************/
--
--#include <linux/fs.h>		/* support for device drivers */
--#include <linux/proc_fs.h>	/* proc filesystem pragmatics */
--#include <linux/netdevice.h>	/* support for network drivers */
--#include <linux/spinlock.h>     /* Support for SMP Locking */
--
--/*----------------------------------------------------------------------------
-- * WAN device data space.
-- */
--struct wan_device {
--	unsigned magic;			/* magic number */
--	char* name;			/* -> WAN device name (ASCIIZ) */
--	void* private;			/* -> driver private data */
--	unsigned config_id;		/* Configuration ID */
--					/****** hardware configuration ******/
--	unsigned ioport;		/* adapter I/O port base #1 */
--	char S514_cpu_no[1];		/* PCI CPU Number */
--	unsigned char S514_slot_no;	/* PCI Slot Number */
--	unsigned long maddr;		/* dual-port memory address */
--	unsigned msize;			/* dual-port memory size */
--	int irq;			/* interrupt request level */
--	int dma;			/* DMA request level */
--	unsigned bps;			/* data transfer rate */
--	unsigned mtu;			/* max physical transmit unit size */
--	unsigned udp_port;              /* UDP port for management */
--        unsigned char ttl;		/* Time To Live for UDP security */
--	unsigned enable_tx_int; 	/* Transmit Interrupt enabled or not */
--	char interface;			/* RS-232/V.35, etc. */
--	char clocking;			/* external/internal */
--	char line_coding;		/* NRZ/NRZI/FM0/FM1, etc. */
--	char station;			/* DTE/DCE, primary/secondary, etc. */
--	char connection;		/* permanent/switched/on-demand */
--	char signalling;		/* Signalling RS232 or V35 */
--	char read_mode;			/* read mode: Polling or interrupt */
--	char new_if_cnt;                /* Number of interfaces per wanpipe */ 
--	char del_if_cnt;		/* Number of times del_if() gets called */
--	unsigned char piggyback;        /* Piggibacking a port */
--	unsigned hw_opt[4];		/* other hardware options */
--					/****** status and statistics *******/
--	char state;			/* device state */
--	char api_status;		/* device api status */
--	struct net_device_stats stats; 	/* interface statistics */
--	unsigned reserved[16];		/* reserved for future use */
--	unsigned long critical;		/* critical section flag */
--	spinlock_t lock;                /* Support for SMP Locking */
--
--					/****** device management methods ***/
--	int (*setup) (struct wan_device *wandev, wandev_conf_t *conf);
--	int (*shutdown) (struct wan_device *wandev);
--	int (*update) (struct wan_device *wandev);
--	int (*ioctl) (struct wan_device *wandev, unsigned cmd,
--		unsigned long arg);
--	int (*new_if)(struct wan_device *wandev, struct net_device *dev,
--		      wanif_conf_t *conf);
--	int (*del_if)(struct wan_device *wandev, struct net_device *dev);
--					/****** maintained by the router ****/
--	struct wan_device* next;	/* -> next device */
--	struct net_device* dev;		/* list of network interfaces */
--	unsigned ndev;			/* number of interfaces */
--	struct proc_dir_entry *dent;	/* proc filesystem entry */
--};
--
--/* Public functions available for device drivers */
--extern int register_wan_device(struct wan_device *wandev);
--extern int unregister_wan_device(char *name);
--
--/* Proc interface functions. These must not be called by the drivers! */
--extern int wanrouter_proc_init(void);
--extern void wanrouter_proc_cleanup(void);
--extern int wanrouter_proc_add(struct wan_device *wandev);
--extern int wanrouter_proc_delete(struct wan_device *wandev);
--extern long wanrouter_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
--
--/* Public Data */
--/* list of registered devices */
--extern struct wan_device *wanrouter_router_devlist;
--
- #endif	/* _ROUTER_H */
-diff --git a/include/uapi/linux/wanrouter.h b/include/uapi/linux/wanrouter.h
-index 7617df2..498d6c1 100644
---- a/include/uapi/linux/wanrouter.h
-+++ b/include/uapi/linux/wanrouter.h
-@@ -1,363 +1,9 @@
--/*****************************************************************************
--* wanrouter.h	Definitions for the WAN Multiprotocol Router Module.
--*		This module provides API and common services for WAN Link
--*		Drivers and is completely hardware-independent.
--*
--* Author: 	Nenad Corbic <ncorbic@sangoma.com>
--*		Gideon Hack 	
--* Additions:	Arnaldo Melo
--*
--* Copyright:	(c) 1995-2000 Sangoma Technologies Inc.
--*
--*		This program is free software; you can redistribute it and/or
--*		modify it under the terms of the GNU General Public License
--*		as published by the Free Software Foundation; either version
--*		2 of the License, or (at your option) any later version.
--* ============================================================================
--* Jul 21, 2000  Nenad Corbic	Added WAN_FT1_READY State
--* Feb 24, 2000  Nenad Corbic    Added support for socket based x25api
--* Jan 28, 2000  Nenad Corbic    Added support for the ASYNC protocol.
--* Oct 04, 1999  Nenad Corbic 	Updated for 2.1.0 release
--* Jun 02, 1999  Gideon Hack	Added support for the S514 adapter.
--* May 23, 1999	Arnaldo Melo	Added local_addr to wanif_conf_t
--*				WAN_DISCONNECTING state added
--* Jul 20, 1998	David Fong	Added Inverse ARP options to 'wanif_conf_t'
--* Jun 12, 1998	David Fong	Added Cisco HDLC support.
--* Dec 16, 1997	Jaspreet Singh	Moved 'enable_IPX' and 'network_number' to
--*				'wanif_conf_t'
--* Dec 05, 1997	Jaspreet Singh	Added 'pap', 'chap' to 'wanif_conf_t'
--*				Added 'authenticator' to 'wan_ppp_conf_t'
--* Nov 06, 1997	Jaspreet Singh	Changed Router Driver version to 1.1 from 1.0
--* Oct 20, 1997	Jaspreet Singh	Added 'cir','bc','be' and 'mc' to 'wanif_conf_t'
--*				Added 'enable_IPX' and 'network_number' to 
--*				'wan_device_t'.  Also added defines for
--*				UDP PACKET TYPE, Interrupt test, critical values
--*				for RACE conditions.
--* Oct 05, 1997	Jaspreet Singh	Added 'dlci_num' and 'dlci[100]' to 
--*				'wan_fr_conf_t' to configure a list of dlci(s)
--*				for a NODE 
--* Jul 07, 1997	Jaspreet Singh	Added 'ttl' to 'wandev_conf_t' & 'wan_device_t'
--* May 29, 1997 	Jaspreet Singh	Added 'tx_int_enabled' to 'wan_device_t'
--* May 21, 1997	Jaspreet Singh	Added 'udp_port' to 'wan_device_t'
--* Apr 25, 1997  Farhan Thawar   Added 'udp_port' to 'wandev_conf_t'
--* Jan 16, 1997	Gene Kozin	router_devlist made public
--* Jan 02, 1997	Gene Kozin	Initial version (based on wanpipe.h).
--*****************************************************************************/
--
--#ifndef _UAPI_ROUTER_H
--#define _UAPI_ROUTER_H
--
--#define	ROUTER_NAME	"wanrouter"	/* in case we ever change it */
--#define	ROUTER_VERSION	1		/* version number */
--#define	ROUTER_RELEASE	1		/* release (minor version) number */
--#define	ROUTER_IOCTL	'W'		/* for IOCTL calls */
--#define	ROUTER_MAGIC	0x524D4157L	/* signature: 'WANR' reversed */
--
--/* IOCTL codes for /proc/router/<device> entries (up to 255) */
--enum router_ioctls
--{
--	ROUTER_SETUP	= ROUTER_IOCTL<<8,	/* configure device */
--	ROUTER_DOWN,				/* shut down device */
--	ROUTER_STAT,				/* get device status */
--	ROUTER_IFNEW,				/* add interface */
--	ROUTER_IFDEL,				/* delete interface */
--	ROUTER_IFSTAT,				/* get interface status */
--	ROUTER_USER	= (ROUTER_IOCTL<<8)+16,	/* driver-specific calls */
--	ROUTER_USER_MAX	= (ROUTER_IOCTL<<8)+31
--};
--
--/* identifiers for displaying proc file data for dual port adapters */
--#define PROC_DATA_PORT_0 0x8000	/* the data is for port 0 */
--#define PROC_DATA_PORT_1 0x8001	/* the data is for port 1 */
--
--/* NLPID for packet encapsulation (ISO/IEC TR 9577) */
--#define	NLPID_IP	0xCC	/* Internet Protocol Datagram */
--#define	NLPID_SNAP	0x80	/* IEEE Subnetwork Access Protocol */
--#define	NLPID_CLNP	0x81	/* ISO/IEC 8473 */
--#define	NLPID_ESIS	0x82	/* ISO/IEC 9542 */
--#define	NLPID_ISIS	0x83	/* ISO/IEC ISIS */
--#define	NLPID_Q933	0x08	/* CCITT Q.933 */
--
--/* Miscellaneous */
--#define	WAN_IFNAME_SZ	15	/* max length of the interface name */
--#define	WAN_DRVNAME_SZ	15	/* max length of the link driver name */
--#define	WAN_ADDRESS_SZ	31	/* max length of the WAN media address */
--#define USED_BY_FIELD	8	/* max length of the used by field */
--
--/* Defines for UDP PACKET TYPE */
--#define UDP_PTPIPE_TYPE 	0x01
--#define UDP_FPIPE_TYPE		0x02
--#define UDP_CPIPE_TYPE		0x03
--#define UDP_DRVSTATS_TYPE 	0x04
--#define UDP_INVALID_TYPE  	0x05
--
--/* Command return code */
--#define CMD_OK		0		/* normal firmware return code */
--#define CMD_TIMEOUT	0xFF		/* firmware command timed out */
--
--/* UDP Packet Management */
--#define UDP_PKT_FRM_STACK	0x00
--#define UDP_PKT_FRM_NETWORK	0x01
--
--/* Maximum interrupt test counter */
--#define MAX_INTR_TEST_COUNTER	100
--
--/* Critical Values for RACE conditions*/
--#define CRITICAL_IN_ISR		0xA1
--#define CRITICAL_INTR_HANDLED	0xB1
--
--/****** Data Types **********************************************************/
--
--/*----------------------------------------------------------------------------
-- * X.25-specific link-level configuration.
-- */
--typedef struct wan_x25_conf
--{
--	unsigned lo_pvc;	/* lowest permanent circuit number */
--	unsigned hi_pvc;	/* highest permanent circuit number */
--	unsigned lo_svc;	/* lowest switched circuit number */
--	unsigned hi_svc;	/* highest switched circuit number */
--	unsigned hdlc_window;	/* HDLC window size (1..7) */
--	unsigned pkt_window;	/* X.25 packet window size (1..7) */
--	unsigned t1;		/* HDLC timer T1, sec (1..30) */
--	unsigned t2;		/* HDLC timer T2, sec (0..29) */
--	unsigned t4;		/* HDLC supervisory frame timer = T4 * T1 */
--	unsigned n2;		/* HDLC retransmission limit (1..30) */
--	unsigned t10_t20;	/* X.25 RESTART timeout, sec (1..255) */
--	unsigned t11_t21;	/* X.25 CALL timeout, sec (1..255) */
--	unsigned t12_t22;	/* X.25 RESET timeout, sec (1..255) */
--	unsigned t13_t23;	/* X.25 CLEAR timeout, sec (1..255) */
--	unsigned t16_t26;	/* X.25 INTERRUPT timeout, sec (1..255) */
--	unsigned t28;		/* X.25 REGISTRATION timeout, sec (1..255) */
--	unsigned r10_r20;	/* RESTART retransmission limit (0..250) */
--	unsigned r12_r22;	/* RESET retransmission limit (0..250) */
--	unsigned r13_r23;	/* CLEAR retransmission limit (0..250) */
--	unsigned ccitt_compat;	/* compatibility mode: 1988/1984/1980 */
--	unsigned x25_conf_opt;   /* User defined x25 config optoins */
--	unsigned char LAPB_hdlc_only; /* Run in HDLC only mode */
--	unsigned char logging;   /* Control connection logging */  
--	unsigned char oob_on_modem; /* Whether to send modem status to the user app */
--} wan_x25_conf_t;
--
--/*----------------------------------------------------------------------------
-- * Frame relay specific link-level configuration.
-- */
--typedef struct wan_fr_conf
--{
--	unsigned signalling;	/* local in-channel signalling type */
--	unsigned t391;		/* link integrity verification timer */
--	unsigned t392;		/* polling verification timer */
--	unsigned n391;		/* full status polling cycle counter */
--	unsigned n392;		/* error threshold counter */
--	unsigned n393;		/* monitored events counter */
--	unsigned dlci_num;	/* number of DLCs (access node) */
--	unsigned  dlci[100];    /* List of all DLCIs */
--} wan_fr_conf_t;
--
--/*----------------------------------------------------------------------------
-- * PPP-specific link-level configuration.
-- */
--typedef struct wan_ppp_conf
--{
--	unsigned restart_tmr;	/* restart timer */
--	unsigned auth_rsrt_tmr;	/* authentication timer */
--	unsigned auth_wait_tmr;	/* authentication timer */
--	unsigned mdm_fail_tmr;	/* modem failure timer */
--	unsigned dtr_drop_tmr;	/* DTR drop timer */
--	unsigned connect_tmout;	/* connection timeout */
--	unsigned conf_retry;	/* max. retry */
--	unsigned term_retry;	/* max. retry */
--	unsigned fail_retry;	/* max. retry */
--	unsigned auth_retry;	/* max. retry */
--	unsigned auth_options;	/* authentication opt. */
--	unsigned ip_options;	/* IP options */
--	char	authenticator;	/* AUTHENTICATOR or not */
--	char	ip_mode;	/* Static/Host/Peer */
--} wan_ppp_conf_t;
--
--/*----------------------------------------------------------------------------
-- * CHDLC-specific link-level configuration.
-- */
--typedef struct wan_chdlc_conf
--{
--	unsigned char ignore_dcd;	/* Protocol options:		*/
--	unsigned char ignore_cts;	/*  Ignore these to determine	*/
--	unsigned char ignore_keepalive;	/*  link status (Yes or No)	*/
--	unsigned char hdlc_streaming;	/*  hdlc_streaming mode (Y/N) */
--	unsigned char receive_only;	/*  no transmit buffering (Y/N) */
--	unsigned keepalive_tx_tmr;	/* transmit keepalive timer */
--	unsigned keepalive_rx_tmr;	/* receive  keepalive timer */
--	unsigned keepalive_err_margin;	/* keepalive_error_tolerance */
--	unsigned slarp_timer;		/* SLARP request timer */
--} wan_chdlc_conf_t;
--
--
--/*----------------------------------------------------------------------------
-- * WAN device configuration. Passed to ROUTER_SETUP IOCTL.
-- */
--typedef struct wandev_conf
--{
--	unsigned magic;		/* magic number (for verification) */
--	unsigned config_id;	/* configuration structure identifier */
--				/****** hardware configuration ******/
--	unsigned ioport;	/* adapter I/O port base */
--	unsigned long maddr;	/* dual-port memory address */
--	unsigned msize;		/* dual-port memory size */
--	int irq;		/* interrupt request level */
--	int dma;		/* DMA request level */
--        char S514_CPU_no[1];	/* S514 PCI adapter CPU number ('A' or 'B') */
--        unsigned PCI_slot_no;	/* S514 PCI adapter slot number */
--	char auto_pci_cfg;	/* S515 PCI automatic slot detection */
--	char comm_port;		/* Communication Port (PRI=0, SEC=1) */ 
--	unsigned bps;		/* data transfer rate */
--	unsigned mtu;		/* maximum transmit unit size */
--        unsigned udp_port;      /* UDP port for management */
--	unsigned char ttl;	/* Time To Live for UDP security */
--	unsigned char ft1;	/* FT1 Configurator Option */
--        char interface;		/* RS-232/V.35, etc. */
--	char clocking;		/* external/internal */
--	char line_coding;	/* NRZ/NRZI/FM0/FM1, etc. */
--	char station;		/* DTE/DCE, primary/secondary, etc. */
--	char connection;	/* permanent/switched/on-demand */
--	char read_mode;		/* read mode: Polling or interrupt */
--	char receive_only;	/* disable tx buffers */
--	char tty;		/* Create a fake tty device */
--	unsigned tty_major;	/* Major number for wanpipe tty device */
--	unsigned tty_minor; 	/* Minor number for wanpipe tty device */
--	unsigned tty_mode;	/* TTY operation mode SYNC or ASYNC */
--	char backup;		/* Backup Mode */
--	unsigned hw_opt[4];	/* other hardware options */
--	unsigned reserved[4];
--				/****** arbitrary data ***************/
--	unsigned data_size;	/* data buffer size */
--	void* data;		/* data buffer, e.g. firmware */
--	union			/****** protocol-specific ************/
--	{
--		wan_x25_conf_t x25;	/* X.25 configuration */
--		wan_ppp_conf_t ppp;	/* PPP configuration */
--		wan_fr_conf_t fr;	/* frame relay configuration */
--		wan_chdlc_conf_t chdlc;	/* Cisco HDLC configuration */
--	} u;
--} wandev_conf_t;
--
--/* 'config_id' definitions */
--#define	WANCONFIG_X25	101	/* X.25 link */
--#define	WANCONFIG_FR	102	/* frame relay link */
--#define	WANCONFIG_PPP	103	/* synchronous PPP link */
--#define WANCONFIG_CHDLC	104	/* Cisco HDLC Link */
--#define WANCONFIG_BSC	105	/* BiSync Streaming */
--#define WANCONFIG_HDLC	106	/* HDLC Support */
--#define WANCONFIG_MPPP  107	/* Multi Port PPP over RAW CHDLC */
--
- /*
-- * Configuration options defines.
-+ * wanrouter.h	Legacy declarations kept around until X25 is removed
-  */
--/* general options */
--#define	WANOPT_OFF	0
--#define	WANOPT_ON	1
--#define	WANOPT_NO	0
--#define	WANOPT_YES	1
--
--/* intercace options */
--#define	WANOPT_RS232	0
--#define	WANOPT_V35	1
--
--/* data encoding options */
--#define	WANOPT_NRZ	0
--#define	WANOPT_NRZI	1
--#define	WANOPT_FM0	2
--#define	WANOPT_FM1	3
--
--/* link type options */
--#define	WANOPT_POINTTOPOINT	0	/* RTS always active */
--#define	WANOPT_MULTIDROP	1	/* RTS is active when transmitting */
--
--/* clocking options */
--#define	WANOPT_EXTERNAL	0
--#define	WANOPT_INTERNAL	1
--
--/* station options */
--#define	WANOPT_DTE		0
--#define	WANOPT_DCE		1
--#define	WANOPT_CPE		0
--#define	WANOPT_NODE		1
--#define	WANOPT_SECONDARY	0
--#define	WANOPT_PRIMARY		1
--
--/* connection options */
--#define	WANOPT_PERMANENT	0	/* DTR always active */
--#define	WANOPT_SWITCHED		1	/* use DTR to setup link (dial-up) */
--#define	WANOPT_ONDEMAND		2	/* activate DTR only before sending */
--
--/* frame relay in-channel signalling */
--#define	WANOPT_FR_ANSI		1	/* ANSI T1.617 Annex D */
--#define	WANOPT_FR_Q933		2	/* ITU Q.933A */
--#define	WANOPT_FR_LMI		3	/* LMI */
--
--/* PPP IP Mode Options */
--#define	WANOPT_PPP_STATIC	0
--#define	WANOPT_PPP_HOST		1
--#define	WANOPT_PPP_PEER		2
--
--/* ASY Mode Options */
--#define WANOPT_ONE 		1
--#define WANOPT_TWO		2
--#define WANOPT_ONE_AND_HALF	3
--
--#define WANOPT_NONE	0
--#define WANOPT_ODD      1
--#define WANOPT_EVEN	2
--
--/* CHDLC Protocol Options */
--/* DF Commented out for now.
--
--#define WANOPT_CHDLC_NO_DCD		IGNORE_DCD_FOR_LINK_STAT
--#define WANOPT_CHDLC_NO_CTS		IGNORE_CTS_FOR_LINK_STAT
--#define WANOPT_CHDLC_NO_KEEPALIVE	IGNORE_KPALV_FOR_LINK_STAT
--*/
--
--/* Port options */
--#define WANOPT_PRI 0
--#define WANOPT_SEC 1
--/* read mode */
--#define	WANOPT_INTR	0
--#define WANOPT_POLL	1
+diff --git a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
+index d58431e..0c077b0 100644
+--- a/drivers/net/wan/Kconfig
++++ b/drivers/net/wan/Kconfig
+@@ -356,60 +356,6 @@ config SDLA
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called sdla.
  
+-# Wan router core.
+-config WAN_ROUTER_DRIVERS
+-	tristate "WAN router drivers"
+-	depends on WAN_ROUTER
+-	---help---
+-	  Connect LAN to WAN via Linux box.
 -
--#define WANOPT_TTY_SYNC  0
--#define WANOPT_TTY_ASYNC 1
--/*----------------------------------------------------------------------------
-- * WAN Link Status Info (for ROUTER_STAT IOCTL).
-- */
--typedef struct wandev_stat
--{
--	unsigned state;		/* link state */
--	unsigned ndev;		/* number of configured interfaces */
+-	  Select driver your card and remember to say Y to "Wan Router."
+-	  You will need the wan-tools package which is available from
+-	  <ftp://ftp.sangoma.com/>.
 -
--	/* link/interface configuration */
--	unsigned connection;	/* permanent/switched/on-demand */
--	unsigned media_type;	/* Frame relay/PPP/X.25/SDLC, etc. */
--	unsigned mtu;		/* max. transmit unit for this device */
+-	  Note that the answer to this question won't directly affect the
+-	  kernel except for how subordinate drivers may be built:
+-	  saying N will just cause the configurator to skip all
+-	  the questions about WAN router drivers.
 -
--	/* physical level statistics */
--	unsigned modem_status;	/* modem status */
--	unsigned rx_frames;	/* received frames count */
--	unsigned rx_overruns;	/* receiver overrun error count */
--	unsigned rx_crc_err;	/* receive CRC error count */
--	unsigned rx_aborts;	/* received aborted frames count */
--	unsigned rx_bad_length;	/* unexpetedly long/short frames count */
--	unsigned rx_dropped;	/* frames discarded at device level */
--	unsigned tx_frames;	/* transmitted frames count */
--	unsigned tx_underruns;	/* aborted transmissions (underruns) count */
--	unsigned tx_timeouts;	/* transmission timeouts */
--	unsigned tx_rejects;	/* other transmit errors */
+-	  If unsure, say N.
 -
--	/* media level statistics */
--	unsigned rx_bad_format;	/* frames with invalid format */
--	unsigned rx_bad_addr;	/* frames with invalid media address */
--	unsigned tx_retries;	/* frames re-transmitted */
--	unsigned reserved[16];	/* reserved for future use */
--} wandev_stat_t;
-+#ifndef _UAPI_ROUTER_H
-+#define _UAPI_ROUTER_H
+-config CYCLADES_SYNC
+-	tristate "Cyclom 2X(tm) cards (EXPERIMENTAL)"
+-	depends on WAN_ROUTER_DRIVERS && (PCI || ISA)
+-	---help---
+-	  Cyclom 2X from Cyclades Corporation <http://www.avocent.com/> is an
+-	  intelligent multiprotocol WAN adapter with data transfer rates up to
+-	  512 Kbps. These cards support the X.25 and SNA related protocols.
+-
+-	  While no documentation is available at this time please grab the
+-	  wanconfig tarball in
+-	  <http://www.conectiva.com.br/~acme/cycsyn-devel/> (with minor changes
+-	  to make it compile with the current wanrouter include files; efforts
+-	  are being made to use the original package available at
+-	  <ftp://ftp.sangoma.com/>).
+-
+-	  Feel free to contact me or the cycsyn-devel mailing list at
+-	  <acme@conectiva.com.br> and <cycsyn-devel@bazar.conectiva.com.br> for
+-	  additional details, I hope to have documentation available as soon as
+-	  possible. (Cyclades Brazil is writing the Documentation).
+-
+-	  The next questions will ask you about the protocols you want the
+-	  driver to support (for now only X.25 is supported).
+-
+-	  If you have one or more of these cards, say Y to this option.
+-
+-	  To compile this driver as a module, choose M here: the
+-	  module will be called cyclomx.
+-
+-config CYCLOMX_X25
+-	bool "Cyclom 2X X.25 support (EXPERIMENTAL)"
+-	depends on CYCLADES_SYNC
+-	help
+-	  Connect a Cyclom 2X card to an X.25 network.
+-
+-	  Enabling X.25 support will enlarge your kernel by about 11 kB.
+-
+ # X.25 network drivers
+ config LAPBETHER
+ 	tristate "LAPB over Ethernet driver (EXPERIMENTAL)"
+diff --git a/drivers/net/wan/Makefile b/drivers/net/wan/Makefile
+index df70248..c135ef4 100644
+--- a/drivers/net/wan/Makefile
++++ b/drivers/net/wan/Makefile
+@@ -5,10 +5,6 @@
+ # Rewritten to use lists instead of if-statements.
+ #
  
- /* 'state' defines */
- enum wan_states
-@@ -365,88 +11,7 @@ enum wan_states
- 	WAN_UNCONFIGURED,	/* link/channel is not configured */
- 	WAN_DISCONNECTED,	/* link/channel is disconnected */
- 	WAN_CONNECTING,		/* connection is in progress */
--	WAN_CONNECTED,		/* link/channel is operational */
--	WAN_LIMIT,		/* for verification only */
--	WAN_DUALPORT,		/* for Dual Port cards */
--	WAN_DISCONNECTING,
--	WAN_FT1_READY		/* FT1 Configurator Ready */
-+	WAN_CONNECTED		/* link/channel is operational */
- };
+-cyclomx-y                       := cycx_main.o
+-cyclomx-$(CONFIG_CYCLOMX_X25)	+= cycx_x25.o
+-cyclomx-objs			:= $(cyclomx-y)  
+-
+ obj-$(CONFIG_HDLC)		+= hdlc.o
+ obj-$(CONFIG_HDLC_RAW)		+= hdlc_raw.o
+ obj-$(CONFIG_HDLC_RAW_ETH)	+= hdlc_raw_eth.o
+@@ -28,7 +24,6 @@ obj-$(CONFIG_LANMEDIA)		+= lmc/
  
--enum {
--	WAN_LOCAL_IP,
--	WAN_POINTOPOINT_IP,
--	WAN_NETMASK_IP,
--	WAN_BROADCAST_IP
--};
--
--/* 'modem_status' masks */
--#define	WAN_MODEM_CTS	0x0001	/* CTS line active */
--#define	WAN_MODEM_DCD	0x0002	/* DCD line active */
--#define	WAN_MODEM_DTR	0x0010	/* DTR line active */
--#define	WAN_MODEM_RTS	0x0020	/* RTS line active */
--
--/*----------------------------------------------------------------------------
-- * WAN interface (logical channel) configuration (for ROUTER_IFNEW IOCTL).
-- */
--typedef struct wanif_conf
--{
--	unsigned magic;			/* magic number */
--	unsigned config_id;		/* configuration identifier */
--	char name[WAN_IFNAME_SZ+1];	/* interface name, ASCIIZ */
--	char addr[WAN_ADDRESS_SZ+1];	/* media address, ASCIIZ */
--	char usedby[USED_BY_FIELD];	/* used by API or WANPIPE */
--	unsigned idle_timeout;		/* sec, before disconnecting */
--	unsigned hold_timeout;		/* sec, before re-connecting */
--	unsigned cir;			/* Committed Information Rate fwd,bwd*/
--	unsigned bc;			/* Committed Burst Size fwd, bwd */
--	unsigned be;			/* Excess Burst Size fwd, bwd */ 
--	unsigned char enable_IPX;	/* Enable or Disable IPX */
--	unsigned char inarp;		/* Send Inverse ARP requests Y/N */
--	unsigned inarp_interval;	/* sec, between InARP requests */
--	unsigned long network_number;	/* Network Number for IPX */
--	char mc;			/* Multicast on or off */
--	char local_addr[WAN_ADDRESS_SZ+1];/* local media address, ASCIIZ */
--	unsigned char port;		/* board port */
--	unsigned char protocol;		/* prococol used in this channel (TCPOX25 or X25) */
--	char pap;			/* PAP enabled or disabled */
--	char chap;			/* CHAP enabled or disabled */
--	unsigned char userid[511];	/* List of User Id */
--	unsigned char passwd[511];	/* List of passwords */
--	unsigned char sysname[31];	/* Name of the system */
--	unsigned char ignore_dcd;	/* Protocol options: */
--	unsigned char ignore_cts;	/*  Ignore these to determine */
--	unsigned char ignore_keepalive;	/*  link status (Yes or No) */
--	unsigned char hdlc_streaming;	/*  Hdlc streaming mode (Y/N) */
--	unsigned keepalive_tx_tmr;	/* transmit keepalive timer */
--	unsigned keepalive_rx_tmr;	/* receive  keepalive timer */
--	unsigned keepalive_err_margin;	/* keepalive_error_tolerance */
--	unsigned slarp_timer;		/* SLARP request timer */
--	unsigned char ttl;		/* Time To Live for UDP security */
--	char interface;			/* RS-232/V.35, etc. */
--	char clocking;			/* external/internal */
--	unsigned bps;			/* data transfer rate */
--	unsigned mtu;			/* maximum transmit unit size */
--	unsigned char if_down;		/* brind down interface when disconnected */
--	unsigned char gateway;		/* Is this interface a gateway */
--	unsigned char true_if_encoding;	/* Set the dev->type to true board protocol */
--
--	unsigned char asy_data_trans;     /* async API options */
--        unsigned char rts_hs_for_receive; /* async Protocol options */
--        unsigned char xon_xoff_hs_for_receive;
--	unsigned char xon_xoff_hs_for_transmit;
--	unsigned char dcd_hs_for_transmit;
--	unsigned char cts_hs_for_transmit;
--	unsigned char async_mode;
--	unsigned tx_bits_per_char;
--	unsigned rx_bits_per_char;
--	unsigned stop_bits;  
--	unsigned char parity;
-- 	unsigned break_timer;
--        unsigned inter_char_timer;
--	unsigned rx_complete_length;
--	unsigned xon_char;
--	unsigned xoff_char;
--	unsigned char receive_only;	/*  no transmit buffering (Y/N) */
--} wanif_conf_t;
--
- #endif /* _UAPI_ROUTER_H */
-diff --git a/net/wanrouter/Kconfig b/net/wanrouter/Kconfig
-deleted file mode 100644
-index a157a2e..0000000
-diff --git a/net/wanrouter/Makefile b/net/wanrouter/Makefile
-deleted file mode 100644
-index 4da14bc..0000000
-diff --git a/net/wanrouter/patchlevel b/net/wanrouter/patchlevel
-deleted file mode 100644
-index c043eea..0000000
-diff --git a/net/wanrouter/wanmain.c b/net/wanrouter/wanmain.c
-deleted file mode 100644
-index 2ab7850..0000000
-diff --git a/net/wanrouter/wanproc.c b/net/wanrouter/wanproc.c
-deleted file mode 100644
-index c43612e..0000000
+ obj-$(CONFIG_DLCI)		+= dlci.o 
+ obj-$(CONFIG_SDLA)		+= sdla.o
+-obj-$(CONFIG_CYCLADES_SYNC)	+= cycx_drv.o cyclomx.o
+ obj-$(CONFIG_LAPBETHER)		+= lapbether.o
+ obj-$(CONFIG_SBNI)		+= sbni.o
+ obj-$(CONFIG_N2)		+= n2.o
+diff --git a/net/Kconfig b/net/Kconfig
+index 3cc5be0..c31348e 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -209,7 +209,6 @@ source "net/ipx/Kconfig"
+ source "drivers/net/appletalk/Kconfig"
+ source "net/x25/Kconfig"
+ source "net/lapb/Kconfig"
+-source "net/wanrouter/Kconfig"
+ source "net/phonet/Kconfig"
+ source "net/ieee802154/Kconfig"
+ source "net/mac802154/Kconfig"
+diff --git a/net/Makefile b/net/Makefile
+index 4f4ee08..c5aa8b3 100644
+--- a/net/Makefile
++++ b/net/Makefile
+@@ -26,7 +26,6 @@ obj-$(CONFIG_BRIDGE)		+= bridge/
+ obj-$(CONFIG_NET_DSA)		+= dsa/
+ obj-$(CONFIG_IPX)		+= ipx/
+ obj-$(CONFIG_ATALK)		+= appletalk/
+-obj-$(CONFIG_WAN_ROUTER)	+= wanrouter/
+ obj-$(CONFIG_X25)		+= x25/
+ obj-$(CONFIG_LAPB)		+= lapb/
+ obj-$(CONFIG_NETROM)		+= netrom/
+diff --git a/net/socket.c b/net/socket.c
+index 2ca51c7..5c4d82c 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -69,7 +69,6 @@
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/mutex.h>
+-#include <linux/wanrouter.h>
+ #include <linux/if_bridge.h>
+ #include <linux/if_frad.h>
+ #include <linux/if_vlan.h>
 -- 
 1.8.1.2
