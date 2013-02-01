@@ -1,32 +1,39 @@
-From: "voncken" <cedric.voncken@acksys.fr>
-Subject: Gianfar : Q : Tx VLAN hardware accelaration
-Date: Fri, 1 Feb 2013 10:45:42 +0100
-Message-ID: <001401ce0060$e686afd0$b3940f70$@acksys.fr>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: "'Claudiu Manoil'" <claudiu.manoil@freescale.com>
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net-next] cxgb3: Update VLAN extraction stats in the GRO path
+Date: Fri,  1 Feb 2013 15:33:47 +0530
+Message-ID: <1359713027-31653-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	abhishek@chelsio.com, Vipul Pandya <vipul@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.msg.oleane.net ([62.161.4.2]:38686 "EHLO
-	smtp02.msg.oleane.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751243Ab3BAJpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 04:45:45 -0500
-Content-Language: fr
+Received: from stargate.chelsio.com ([67.207.112.58]:11975 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755317Ab3BAKJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 05:09:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hi Claudiu,
+Signed-off-by: Divy Le Ray <divy@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb3/sge.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-I would like to send on the same Ethernet interface (so the same eTSEC) a
-frame with VLAN tag and without VLAN tag.
-
-If I understand correctly mpc8315 Family reference manual rev 2, when TX
-VLAN hardware acceleration is enable, the eTSEC always add the VLAN TAG
--from FCB or from the default TAG register).
-
-Could you confirm is not possible to send frame without tag when Tx VLAN
-hardware acceleration is enable?
-
-Thanks
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index 9096dc0..9d67eb7 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -2130,8 +2130,10 @@ static void lro_add_page(struct adapter *adap, struct sge_qset *qs,
+ 
+ 	skb_record_rx_queue(skb, qs - &adap->sge.qs[pi->first_qset]);
+ 
+-	if (cpl->vlan_valid)
++	if (cpl->vlan_valid) {
++		qs->port_stats[SGE_PSTAT_VLANEX]++;
+ 		__vlan_hwaccel_put_tag(skb, ntohs(cpl->vlan));
++	}
+ 	napi_gro_frags(&qs->napi);
+ }
+ 
+-- 
+1.7.1
