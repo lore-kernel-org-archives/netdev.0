@@ -1,102 +1,80 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH 1/2 net-next] xfrm: count esp/ah header to lifetime
-Date: Fri, 1 Feb 2013 11:18:36 +0100
-Message-ID: <20130201101836.GA26962@secunet.com>
-References: <1359695836-5666-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+From: Phil Sutter <phil.sutter@viprinet.com>
+Subject: [PATCH] packet: fix leakage of tx_ring memory
+Date: Fri,  1 Feb 2013 14:57:12 +0100
+Message-ID: <1359727032-7999-1-git-send-email-phil.sutter@viprinet.com>
+Cc: netdev@vger.kernel.org, Johann Baudy <johann.baudy@gnu-log.net>,
+	stable@kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:37221 "EHLO a.mx.secunet.com"
+Received: from zimbra.vipri.net ([89.207.250.15]:33100 "EHLO zimbra.vipri.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754598Ab3BAKSj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 05:18:39 -0500
-Content-Disposition: inline
-In-Reply-To: <1359695836-5666-1-git-send-email-roy.qing.li@gmail.com>
+	id S1755961Ab3BAOGU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2013 09:06:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 01, 2013 at 01:17:15PM +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com> 
-> 
-> rfc4301 4.4.2 says:
-> 
-> (a) If byte count is used, then the implementation SHOULD count the
->     number of bytes to which the IPsec cryptographic algorithm is
->     applied.  For ESP, this is the encryption algorithm (including
->     Null encryption) and for AH, this is the authentication
->     algorithm.  This includes pad bytes, etc.
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
-> ---
->  net/xfrm/xfrm_input.c  |    4 +++-
->  net/xfrm/xfrm_output.c |    8 +++++---
->  2 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-> index ab2bb42..da156e9 100644
-> --- a/net/xfrm/xfrm_input.c
-> +++ b/net/xfrm/xfrm_input.c
-> @@ -114,6 +114,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
->  	unsigned int family;
->  	int decaps = 0;
->  	int async = 0;
-> +	int skb_len = 0;
->  
->  	/* A negative encap_type indicates async resumption. */
->  	if (encap_type < 0) {
-> @@ -192,6 +193,7 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
->  
->  		skb_dst_force(skb);
->  
-> +		skb_len = skb->len;
->  		nexthdr = x->type->input(x, skb);
->  
->  		if (nexthdr == -EINPROGRESS)
-> @@ -219,7 +221,7 @@ resume:
->  
->  		x->repl->advance(x, seq);
->  
-> -		x->curlft.bytes += skb->len;
-> +		x->curlft.bytes += skb_len;
+When releasing a packet socket, the routine packet_set_ring() is reused
+to free rings instead of allocating them. But when calling it for the
+first time, it fills req->tp_block_nr with the value of rb->pg_vec_len
+which in the second invocation makes it bail out since req->tp_block_nr
+is greater zero but req->tp_block_size is zero.
 
-Using a stack variable does not work with asynchronous ciphers.
-We would not count the lifebytes at all in this case.
+This patch solves the problem by passing a zeroed auto-variable to
+packet_set_ring() upon each invocation from packet_release().
 
->  		x->curlft.packets++;
->  
->  		spin_unlock(&x->lock);
-> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
-> index 3670526..2c5aa8d 100644
-> --- a/net/xfrm/xfrm_output.c
-> +++ b/net/xfrm/xfrm_output.c
-> @@ -79,9 +79,6 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
->  			goto error;
->  		}
->  
-> -		x->curlft.bytes += skb->len;
-> -		x->curlft.packets++;
-> -
->  		spin_unlock_bh(&x->lock);
->  
->  		skb_dst_force(skb);
-> @@ -90,6 +87,11 @@ static int xfrm_output_one(struct sk_buff *skb, int err)
->  		if (err == -EINPROGRESS)
->  			goto out_exit;
->  
-> +		spin_lock_bh(&x->lock);
-> +		x->curlft.bytes += skb->len;
-> +		x->curlft.packets++;
-> +		spin_unlock_bh(&x->lock);
-> +
+As far as I can tell, this issue exists even since 69e3c75 (net: TX_RING
+and packet mmap), i.e. the original inclusion of TX ring support into
+af_packet, but applies only to sockets with both RX and TX ring
+allocated, which is probably why this was unnoticed all the time.
 
-This is certainly not the right place to do this. It is after the exit on
-asynchronous crypto and before the resume from asynchronous crypto, so again
-we would not count the lifebytes.
+Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
+Cc: Johann Baudy <johann.baudy@gnu-log.net>
+Cc: stable@kernel.org
+---
+ net/packet/af_packet.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
->  resume:
->  		if (err) {
->  			XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEPROTOERROR);
-> -- 
-> 1.7.10.4
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index a91fd0b..d5f519a 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2328,6 +2328,13 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	return rc;
+ }
+ 
++static int packet_free_ring(struct sock *sk, int tx_ring)
++{
++	union tpacket_req_u req_u = { 0 };
++
++	return packet_set_ring(sk, &req_u, 1, tx_ring);
++}
++
+ /*
+  *	Close a PACKET socket. This is fairly simple. We immediately go
+  *	to 'closed' state and remove our protocol entry in the device list.
+@@ -2338,7 +2345,6 @@ static int packet_release(struct socket *sock)
+ 	struct sock *sk = sock->sk;
+ 	struct packet_sock *po;
+ 	struct net *net;
+-	union tpacket_req_u req_u;
+ 
+ 	if (!sk)
+ 		return 0;
+@@ -2364,13 +2370,11 @@ static int packet_release(struct socket *sock)
+ 
+ 	packet_flush_mclist(sk);
+ 
+-	memset(&req_u, 0, sizeof(req_u));
+-
+ 	if (po->rx_ring.pg_vec)
+-		packet_set_ring(sk, &req_u, 1, 0);
++		packet_free_ring(sk, 0);
+ 
+ 	if (po->tx_ring.pg_vec)
+-		packet_set_ring(sk, &req_u, 1, 1);
++		packet_free_ring(sk, 1);
+ 
+ 	fanout_release(sk);
+ 
+-- 
+1.7.12.3
