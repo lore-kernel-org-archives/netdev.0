@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/11] ixgbe: rename autoneg variables
-Date: Thu, 31 Jan 2013 23:53:23 -0800
-Message-ID: <1359705211-11342-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/11] ixgbe: removed unused variable from setup_link_speed
+Date: Thu, 31 Jan 2013 23:53:24 -0800
+Message-ID: <1359705211-11342-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Josh Hay <joshua.a.hay@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,205 +10,109 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:53335 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751098Ab3BAHyC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 02:54:02 -0500
+	id S1751098Ab3BAHyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2013 02:54:05 -0500
 In-Reply-To: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Josh Hay <joshua.a.hay@intel.com>
 
-Renames some autoneg/speed variables to be more consistent with check_link,
-get_link_capabilities, and setup_link function calls. Initializes instances
-of autoneg.
+Removes the autoneg parameter from the setup_link_speed functions.  These
+functions do nothing with this parameter.
 
 Signed-off-by: Josh Hay <joshua.a.hay@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 25 ++++++++++----------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 32 +++++++++++++-------------
- 2 files changed, 28 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c | 2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c | 2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 2 --
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   | 1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  | 3 +--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  | 2 +-
+ 6 files changed, 4 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+index 4253733..dd1f0cf 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
+@@ -698,7 +698,7 @@ static s32 ixgbe_setup_copper_link_82598(struct ixgbe_hw *hw,
+ 	s32 status;
+ 
+ 	/* Setup the PHY according to input speed */
+-	status = hw->phy.ops.setup_link_speed(hw, speed, autoneg,
++	status = hw->phy.ops.setup_link_speed(hw, speed,
+ 	                                      autoneg_wait_to_complete);
+ 	/* Set up MAC */
+ 	ixgbe_start_mac_link_82598(hw, autoneg_wait_to_complete);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-index 1073aea..29d6aa9 100644
+index 29d6aa9..6ad82cb 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -234,13 +234,13 @@ static s32 ixgbe_init_phy_ops_82599(struct ixgbe_hw *hw)
-  *  ixgbe_get_link_capabilities_82599 - Determines link capabilities
+@@ -923,7 +923,7 @@ static s32 ixgbe_setup_copper_link_82599(struct ixgbe_hw *hw,
+ 	s32 status;
+ 
+ 	/* Setup the PHY according to input speed */
+-	status = hw->phy.ops.setup_link_speed(hw, speed, autoneg,
++	status = hw->phy.ops.setup_link_speed(hw, speed,
+ 	                                      autoneg_wait_to_complete);
+ 	/* Set up MAC */
+ 	ixgbe_start_mac_link_82599(hw, autoneg_wait_to_complete);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+index 71659ed..f4b2c0d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
+@@ -494,11 +494,9 @@ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw)
+  *  ixgbe_setup_phy_link_speed_generic - Sets the auto advertised capabilities
   *  @hw: pointer to hardware structure
-  *  @speed: pointer to link speed
-- *  @negotiation: true when autoneg or autotry is enabled
-+ *  @autoneg: true when autoneg or autotry is enabled
-  *
-  *  Determines the link capabilities by reading the AUTOC register.
+  *  @speed: new link speed
+- *  @autoneg: true if autonegotiation enabled
   **/
- static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
-                                              ixgbe_link_speed *speed,
--                                             bool *negotiation)
-+					     bool *autoneg)
+ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
+                                        ixgbe_link_speed speed,
+-                                       bool autoneg,
+                                        bool autoneg_wait_to_complete)
  {
- 	s32 status = 0;
- 	u32 autoc = 0;
-@@ -251,7 +251,7 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
- 	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core0 ||
- 	    hw->phy.sfp_type == ixgbe_sfp_type_1g_sx_core1) {
- 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
--		*negotiation = true;
-+		*autoneg = true;
- 		goto out;
- 	}
  
-@@ -268,22 +268,22 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
- 	switch (autoc & IXGBE_AUTOC_LMS_MASK) {
- 	case IXGBE_AUTOC_LMS_1G_LINK_NO_AN:
- 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
--		*negotiation = false;
-+		*autoneg = false;
- 		break;
- 
- 	case IXGBE_AUTOC_LMS_10G_LINK_NO_AN:
- 		*speed = IXGBE_LINK_SPEED_10GB_FULL;
--		*negotiation = false;
-+		*autoneg = false;
- 		break;
- 
- 	case IXGBE_AUTOC_LMS_1G_AN:
- 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
--		*negotiation = true;
-+		*autoneg = true;
- 		break;
- 
- 	case IXGBE_AUTOC_LMS_10G_SERIAL:
- 		*speed = IXGBE_LINK_SPEED_10GB_FULL;
--		*negotiation = false;
-+		*autoneg = false;
- 		break;
- 
- 	case IXGBE_AUTOC_LMS_KX4_KX_KR:
-@@ -295,7 +295,7 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
- 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
- 		if (autoc & IXGBE_AUTOC_KX_SUPP)
- 			*speed |= IXGBE_LINK_SPEED_1GB_FULL;
--		*negotiation = true;
-+		*autoneg = true;
- 		break;
- 
- 	case IXGBE_AUTOC_LMS_KX4_KX_KR_SGMII:
-@@ -306,12 +306,12 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
- 			*speed |= IXGBE_LINK_SPEED_10GB_FULL;
- 		if (autoc & IXGBE_AUTOC_KX_SUPP)
- 			*speed |= IXGBE_LINK_SPEED_1GB_FULL;
--		*negotiation = true;
-+		*autoneg = true;
- 		break;
- 
- 	case IXGBE_AUTOC_LMS_SGMII_1G_100M:
- 		*speed = IXGBE_LINK_SPEED_1GB_FULL | IXGBE_LINK_SPEED_100_FULL;
--		*negotiation = false;
-+		*autoneg = false;
- 		break;
- 
- 	default:
-@@ -323,7 +323,7 @@ static s32 ixgbe_get_link_capabilities_82599(struct ixgbe_hw *hw,
- 	if (hw->phy.multispeed_fiber) {
- 		*speed |= IXGBE_LINK_SPEED_10GB_FULL |
- 		          IXGBE_LINK_SPEED_1GB_FULL;
--		*negotiation = true;
-+		*autoneg = true;
- 	}
- 
- out:
-@@ -527,11 +527,10 @@ static s32 ixgbe_setup_mac_link_multispeed_fiber(struct ixgbe_hw *hw,
- 	u32 esdp_reg = IXGBE_READ_REG(hw, IXGBE_ESDP);
- 	u32 i = 0;
- 	bool link_up = false;
--	bool negotiation;
- 
- 	/* Mask off requested but non-supported speeds */
- 	status = hw->mac.ops.get_link_capabilities(hw, &link_speed,
--						   &negotiation);
-+						   &autoneg);
- 	if (status != 0)
- 		return status;
- 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 1f53675..d914289 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2178,10 +2178,10 @@ static void ixgbe_check_overtemp_subtask(struct ixgbe_adapter *adapter)
- 			return;
- 
- 		if (!(eicr & IXGBE_EICR_LSC) && hw->mac.ops.check_link) {
--			u32 autoneg;
-+			u32 speed;
- 			bool link_up = false;
- 
--			hw->mac.ops.check_link(hw, &autoneg, &link_up, false);
-+			hw->mac.ops.check_link(hw, &speed, &link_up, false);
- 
- 			if (link_up)
- 				return;
-@@ -3994,25 +3994,25 @@ static void ixgbe_sfp_link_config(struct ixgbe_adapter *adapter)
-  **/
- static int ixgbe_non_sfp_link_config(struct ixgbe_hw *hw)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+index cc18165..51b0a91 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
+@@ -98,7 +98,6 @@ s32 ixgbe_write_phy_reg_generic(struct ixgbe_hw *hw, u32 reg_addr,
+ s32 ixgbe_setup_phy_link_generic(struct ixgbe_hw *hw);
+ s32 ixgbe_setup_phy_link_speed_generic(struct ixgbe_hw *hw,
+                                        ixgbe_link_speed speed,
+-                                       bool autoneg,
+                                        bool autoneg_wait_to_complete);
+ s32 ixgbe_get_copper_link_capabilities_generic(struct ixgbe_hw *hw,
+                                                ixgbe_link_speed *speed,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index 9cd8a13..85f76cc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -2869,8 +2869,7 @@ struct ixgbe_phy_operations {
+ 	s32 (*read_reg)(struct ixgbe_hw *, u32, u32, u16 *);
+ 	s32 (*write_reg)(struct ixgbe_hw *, u32, u32, u16);
+ 	s32 (*setup_link)(struct ixgbe_hw *);
+-	s32 (*setup_link_speed)(struct ixgbe_hw *, ixgbe_link_speed, bool,
+-	                        bool);
++	s32 (*setup_link_speed)(struct ixgbe_hw *, ixgbe_link_speed, bool);
+ 	s32 (*check_link)(struct ixgbe_hw *, ixgbe_link_speed *, bool *);
+ 	s32 (*get_firmware_version)(struct ixgbe_hw *, u16 *);
+ 	s32 (*read_i2c_byte)(struct ixgbe_hw *, u8, u8, u8 *);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+index c73b929..4ec5019 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
+@@ -79,7 +79,7 @@ static s32 ixgbe_setup_mac_link_X540(struct ixgbe_hw *hw,
+                                      ixgbe_link_speed speed, bool autoneg,
+                                      bool autoneg_wait_to_complete)
  {
--	u32 autoneg;
--	bool negotiation, link_up = false;
-+	u32 speed;
-+	bool autoneg, link_up = false;
- 	u32 ret = IXGBE_ERR_LINK_SETUP;
- 
- 	if (hw->mac.ops.check_link)
--		ret = hw->mac.ops.check_link(hw, &autoneg, &link_up, false);
-+		ret = hw->mac.ops.check_link(hw, &speed, &link_up, false);
- 
- 	if (ret)
- 		goto link_cfg_out;
- 
--	autoneg = hw->phy.autoneg_advertised;
--	if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
--		ret = hw->mac.ops.get_link_capabilities(hw, &autoneg,
--							&negotiation);
-+	speed = hw->phy.autoneg_advertised;
-+	if ((!speed) && (hw->mac.ops.get_link_capabilities))
-+		ret = hw->mac.ops.get_link_capabilities(hw, &speed,
-+							&autoneg);
- 	if (ret)
- 		goto link_cfg_out;
- 
- 	if (hw->mac.ops.setup_link)
--		ret = hw->mac.ops.setup_link(hw, autoneg, negotiation, link_up);
-+		ret = hw->mac.ops.setup_link(hw, speed, autoneg, link_up);
- link_cfg_out:
- 	return ret;
+-	return hw->phy.ops.setup_link_speed(hw, speed, autoneg,
++	return hw->phy.ops.setup_link_speed(hw, speed,
+ 	                                    autoneg_wait_to_complete);
  }
-@@ -5739,8 +5739,8 @@ sfp_out:
- static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	u32 autoneg;
--	bool negotiation;
-+	u32 speed;
-+	bool autoneg = false;
  
- 	if (!(adapter->flags & IXGBE_FLAG_NEED_LINK_CONFIG))
- 		return;
-@@ -5751,11 +5751,11 @@ static void ixgbe_sfp_link_config_subtask(struct ixgbe_adapter *adapter)
- 
- 	adapter->flags &= ~IXGBE_FLAG_NEED_LINK_CONFIG;
- 
--	autoneg = hw->phy.autoneg_advertised;
--	if ((!autoneg) && (hw->mac.ops.get_link_capabilities))
--		hw->mac.ops.get_link_capabilities(hw, &autoneg, &negotiation);
-+	speed = hw->phy.autoneg_advertised;
-+	if ((!speed) && (hw->mac.ops.get_link_capabilities))
-+		hw->mac.ops.get_link_capabilities(hw, &speed, &autoneg);
- 	if (hw->mac.ops.setup_link)
--		hw->mac.ops.setup_link(hw, autoneg, negotiation, true);
-+		hw->mac.ops.setup_link(hw, speed, autoneg, true);
- 
- 	adapter->flags |= IXGBE_FLAG_NEED_LINK_UPDATE;
- 	adapter->link_check_timeout = jiffies;
 -- 
 1.7.11.7
