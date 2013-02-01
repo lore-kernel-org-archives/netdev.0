@@ -1,45 +1,44 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 1/6] rtlwifi: Fix many compile warnings when using W=1
-Date: Fri,  1 Feb 2013 10:40:22 -0600
-Message-ID: <1359736827-30977-2-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 3/6] rtlwifi: rtl8192c: Fix W=1 warning
+Date: Fri,  1 Feb 2013 10:40:24 -0600
+Message-ID: <1359736827-30977-4-git-send-email-Larry.Finger@lwfinger.net>
 References: <1359736827-30977-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f54.google.com ([209.85.219.54]:56278 "EHLO
-	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757038Ab3BAQkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 11:40:45 -0500
-In-Reply-To: <1359736827-30977-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1359736827-30977-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Many warnings like the following arise from a build with W=1 on the
-make line:
+When this driver is built with "make W=1", the following warning occurs:
 
-warning: comparison of unsigned expression >= 0 is always true [-Wtype-limits]
+drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c:907:4: warning: comparison is always false due to limited range of data type [-Wtype-limits]
 
-Changing the overall debug level storage from unsigned to signed fixes these.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
- drivers/net/wireless/rtlwifi/wifi.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
-index 21a5f4f..f13258a 100644
---- a/drivers/net/wireless/rtlwifi/wifi.h
-+++ b/drivers/net/wireless/rtlwifi/wifi.h
-@@ -1702,7 +1702,7 @@ struct rtl_works {
- 
- struct rtl_debug {
- 	u32 dbgp_type[DBGP_TYPE_MAX];
--	u32 global_debuglevel;
-+	int global_debuglevel;
- 	u64 global_debugcomponents;
- 
- 	/* add for proc debug */
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+index 1cdf5a2..b793a65 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c
+@@ -669,7 +669,8 @@ static void rtl92c_dm_txpower_tracking_callback_thermalmeter(struct ieee80211_hw
+ 	u8 thermalvalue, delta, delta_lck, delta_iqk;
+ 	long ele_a, ele_d, temp_cck, val_x, value32;
+ 	long val_y, ele_c = 0;
+-	u8 ofdm_index[2], cck_index = 0, ofdm_index_old[2], cck_index_old = 0;
++	u8 ofdm_index[2], ofdm_index_old[2], cck_index_old = 0;
++	s8 cck_index = 0;
+ 	int i;
+ 	bool is2t = IS_92C_SERIAL(rtlhal->version);
+ 	s8 txpwr_level[2] = {0, 0};
 -- 
 1.8.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
