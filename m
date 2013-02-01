@@ -1,112 +1,71 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v7 net-next 01/12] bridge: Add vlan filtering infrastructure
-Date: Thu, 31 Jan 2013 21:50:21 -0500
-Message-ID: <510B2D6D.4050908@redhat.com>
-References: <1359601979-14942-1-git-send-email-vyasevic@redhat.com> <1359601979-14942-2-git-send-email-vyasevic@redhat.com> <CAHXqBFL88O=cSse5AdhoKMMMrvgvn7oYAhMxt0rw9ffv49Z7hw@mail.gmail.com> <510AD065.9010403@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Matt Helsley <matthltc@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next 3/4] netns: bridge: allow unprivileged users
+ add/delete mdb entry
+Date: Thu, 31 Jan 2013 19:46:29 -0800
+Message-ID: <20130201034629.GE8400@us.ibm.com>
+References: <1359685860-29636-1-git-send-email-gaofeng@cn.fujitsu.com>
+ <1359685860-29636-3-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
-	shemminger@vyatta.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	shmulik.ladkani@gmail.com
-To: vyasevic@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, amwang@redhat.com, netdev@vger.kernel.org,
+	containers@lists.linux-foundation.org, ebiederm@xmission.com,
+	pablo@netfilter.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12269 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752492Ab3BACua (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jan 2013 21:50:30 -0500
-In-Reply-To: <510AD065.9010403@redhat.com>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:60230 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570Ab3BADqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jan 2013 22:46:37 -0500
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <matthltc@linux.vnet.ibm.com>;
+	Thu, 31 Jan 2013 20:46:37 -0700
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 028881FF0038
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2013 20:46:34 -0700 (MST)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r113kYCH086014
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2013 20:46:34 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r113kWHP021473
+	for <netdev@vger.kernel.org>; Thu, 31 Jan 2013 20:46:34 -0700
+Content-Disposition: inline
+In-Reply-To: <1359685860-29636-3-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/31/2013 03:13 PM, Vlad Yasevich wrote:
-> On 01/31/2013 02:57 PM, Micha=B3 Miros=B3aw wrote:
->> 2013/1/31 Vlad Yasevich <vyasevic@redhat.com>:
->>> Adds an optional infrustructure component to bridge that would allo=
-w
->>> native vlan filtering in the bridge.  Each bridge port (as well
->>> as the bridge device) now get a VLAN bitmap.  Each bit in the bitma=
-p
->>> is associated with a vlan id.  This way if the bit corresponding to
->>> the vid is set in the bitmap that the packet with vid is allowed to
->>> enter and exit the port.
->>>
->>> Write access the bitmap is protected by RTNL and read access
->>> protected by RCU.
->> [...]
->>> +static int __vlan_del(struct net_port_vlans *v, u16 vid)
->>> +{
->>> +       unsigned long first_bit;
->>> +       unsigned long last_bit;
->>> +
->>> +       if (!test_bit(vid, v->vlan_bitmap))
->>> +               return -EINVAL;
->>> +
->>> +       /* Check to see if any other vlans are in this table.  If t=
-his
->>> +        * is the last vlan, delete the whole structure.  If this i=
-s
->>> not the
->>> +        * last vlan, just clear the bit.
->>> +        */
->>> +       first_bit =3D find_first_bit(v->vlan_bitmap, BR_VLAN_BITMAP=
-_LEN);
->>> +       last_bit =3D find_last_bit(v->vlan_bitmap, BR_VLAN_BITMAP_L=
-EN);
->>> +
->>> +       if (v->port_idx && vid) {
->>> +               struct net_device *dev =3D vlans_to_port(v)->dev;
->>> +
->>> +               if (dev->features & NETIF_F_HW_VLAN_FILTER)
->>> +                       dev->netdev_ops->ndo_vlan_rx_kill_vid(dev, =
-vid);
->>> +       }
->>> +
->>> +       clear_bit(vid, v->vlan_bitmap);
->>> +       if (first_bit =3D=3D last_bit) {
->>
->> if (bitmap_empty(v->vlan_bitmap, BR_VLAN_BITMAP_LEN))
->
-> Yeah.  I didn't have the clear_bit about before, but with it
-> bitmap_empty() is much better.
->
->>
->>> +               if (v->port_idx) {
->>> +                       struct net_bridge_port *p =3D vlans_to_port=
-(v);
->>> +                       rcu_assign_pointer(p->vlan_info, NULL);
->>> +               } else {
->>> +                       struct net_bridge *br =3D vlans_to_bridge(v=
-);
->>> +                       rcu_assign_pointer(br->vlan_info, NULL);
->>> +               }
->>
->> You seem to use vlans_to_port/vlans_to_bridge only to get at
->> vlan_info. Maybe that could be abstracted to a single interface, or
->> even change v->parent to be a 'net_port_vlans **'?
->
-> Hmm..  net_port_vlan** has appeal.  I'll see if I can make it work.
+On Fri, Feb 01, 2013 at 10:30:59AM +0800, Gao feng wrote:
+> since the mdb table is belong to bridge device,and the
+> bridge device can only be seen in one netns.
+> So it's safe to allow unprivileged user which is the
+> creator of userns and netns to modify the mdb table.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>  net/bridge/br_mdb.c | 3 ---
+>  1 file changed, 3 deletions(-)
+> 
+> diff --git a/net/bridge/br_mdb.c b/net/bridge/br_mdb.c
+> index acc9f4c..38991e0 100644
+> --- a/net/bridge/br_mdb.c
+> +++ b/net/bridge/br_mdb.c
+> @@ -272,9 +272,6 @@ static int br_mdb_parse(struct sk_buff *skb, struct nlmsghdr *nlh,
+>  	struct net_device *dev;
+>  	int err;
+> 
+> -	if (!capable(CAP_NET_ADMIN))
+> -		return -EPERM;
+> -
 
-So, I went about rewriting this only to realize that there is a bug in
-patch 10 and I need the conversion functions to fix it.
-I can't really abstract it to a single interface without adding the=20
-whole nbp/port layer on top of the bridge device and that's overkill.=20
-Changing to net_port_vlans** doesn't buy me anything other then obfusca=
-tion.
+I'm wondering why this doesn't follow the:
 
-So I think I am going to keep the much simpler parent pointer and=20
-conversion functions since I will need them later.
+...
+- if (!capable(CAP_NET_ADMIN))
++ if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
 
-Thanks
--vlad
->
-> Thanks
-> -vlad
->>
->> Best Regards,
->> Micha=B3 Miros=B3aw
->>
->
+pattern like the rest of the changes you provided. Perhaps I'm
+neglecting something but it looks wrong to remove the CAP_NET_ADMIN
+check entirely.
+
+Cheers,
+	-Matt Helsley
