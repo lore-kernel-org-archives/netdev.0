@@ -1,79 +1,95 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 00/11][pull request] Intel Wired LAN Driver Updates 2013.01.31
-Date: Thu, 31 Jan 2013 23:53:20 -0800
-Message-ID: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 01/11] ixgbe: Reset the NIC if up2tc has changed
+Date: Thu, 31 Jan 2013 23:53:21 -0800
+Message-ID: <1359705211-11342-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:37454 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:12706 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753942Ab3BAHxp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 02:53:45 -0500
+	id S1751098Ab3BAHxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2013 02:53:53 -0500
+In-Reply-To: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to ixgbe and e1000e.  The ixgbe patches are
-a mix of fixes, cleanup and added functionality.  The first fix is for
-traffic classes, where if the mapping has changed reset the NIC.  The other
-ixgbe fix resolves an issue where the device lookup neglected to do a
-pci_dev_put() to decrement the device reference count.
+From: Amir Hanania <amir.hanania@intel.com>
 
-The ixgbe cleanup was done by Josh, where the auto-negotiation variables
-were renamed/cleaned up and refactored.
+Check for up2tc change and call ixgbe_dcbnl_devreset() if the mapping has
+changed but the number of TC's in use has not changed.
 
-The remaining patches are from Bruce to do additional cleanup on e1000e as
-well as bump the driver version.  Most notably is the cleanup to use the
-kernel IEEE MII definitions where possible instead of the local MII
-definitions.
+Signed-off-by: Amir Hanania <amir.hanania@intel.com>
+Tested-by: Jack Morgan <jack.morgan@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-v2- Dropped the Tx encapsulation patches from the series
-
-The following are changes since commit 58d7553d5593292e1bdbfd6423b44caaca0799bd:
-  Merge branch 'mlx4'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Amir Hanania (1):
-  ixgbe: Reset the NIC if up2tc has changed
-
-Bruce Allan (6):
-  e1000e: cleanup defines.h
-  e1000e: cleanup: group OR'ed bit settings with parens
-  e1000e: cleanup some whitespace and indentation issues
-  e1000e: update driver version string
-  e1000e: resolve -Wunused-parameter compile warnings
-  e1000e: use generic IEEE MII definitions
-
-Greg Rose (1):
-  ixgbe: Fix device ref count bug
-
-Josh Hay (3):
-  ixgbe: rename autoneg variables
-  ixgbe: removed unused variable from setup_link_speed
-  ixgbe: autoneg variable refactoring
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c  |  28 ++--
- drivers/net/ethernet/intel/e1000e/82571.c        |  17 ++-
- drivers/net/ethernet/intel/e1000e/defines.h      | 128 +++-------------
- drivers/net/ethernet/intel/e1000e/e1000.h        |   1 +
- drivers/net/ethernet/intel/e1000e/ethtool.c      |  40 ++---
- drivers/net/ethernet/intel/e1000e/ich8lan.c      |  18 +--
- drivers/net/ethernet/intel/e1000e/mac.c          |  35 +++--
- drivers/net/ethernet/intel/e1000e/netdev.c       |  66 ++++----
- drivers/net/ethernet/intel/e1000e/param.c        |   3 +-
- drivers/net/ethernet/intel/e1000e/phy.c          | 186 +++++++++++------------
- drivers/net/ethernet/intel/e1000e/ptp.c          |   5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  12 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  54 +++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |  16 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   6 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  34 +++--
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   2 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |   1 -
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |   7 +-
- 20 files changed, 283 insertions(+), 381 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index 6718fb4..c261333 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -302,7 +302,6 @@ static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
+ 	*setting = adapter->dcb_cfg.tc_config[priority].dcb_pfc;
+ }
+ 
+-#ifdef IXGBE_FCOE
+ static void ixgbe_dcbnl_devreset(struct net_device *dev)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(dev);
+@@ -321,7 +320,6 @@ static void ixgbe_dcbnl_devreset(struct net_device *dev)
+ 
+ 	clear_bit(__IXGBE_RESETTING, &adapter->state);
+ }
+-#endif
+ 
+ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ {
+@@ -542,6 +540,7 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ 	int max_frame = dev->mtu + ETH_HLEN + ETH_FCS_LEN;
+ 	int i, err = 0;
+ 	__u8 max_tc = 0;
++	__u8 map_chg = 0;
+ 
+ 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_IEEE))
+ 		return -EINVAL;
+@@ -551,15 +550,22 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ 						  GFP_KERNEL);
+ 		if (!adapter->ixgbe_ieee_ets)
+ 			return -ENOMEM;
+-	}
+ 
+-	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
++		/* initialize UP2TC mappings to invalid value */
++		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
++			adapter->ixgbe_ieee_ets->prio_tc[i] =
++				IEEE_8021QAZ_MAX_TCS;
++	}
+ 
+ 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
+ 		if (ets->prio_tc[i] > max_tc)
+ 			max_tc = ets->prio_tc[i];
++		if (ets->prio_tc[i] != adapter->ixgbe_ieee_ets->prio_tc[i])
++			map_chg = 1;
+ 	}
+ 
++	memcpy(adapter->ixgbe_ieee_ets, ets, sizeof(*adapter->ixgbe_ieee_ets));
++
+ 	if (max_tc)
+ 		max_tc++;
+ 
+@@ -568,6 +574,8 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ 
+ 	if (max_tc != netdev_get_num_tc(dev))
+ 		err = ixgbe_setup_tc(dev, max_tc);
++	else if (map_chg)
++		ixgbe_dcbnl_devreset(dev);
+ 
+ 	if (err)
+ 		goto err_out;
 -- 
 1.7.11.7
