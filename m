@@ -1,80 +1,115 @@
-From: Phil Sutter <phil.sutter@viprinet.com>
-Subject: [PATCH] packet: fix leakage of tx_ring memory
-Date: Fri,  1 Feb 2013 14:57:12 +0100
-Message-ID: <1359727032-7999-1-git-send-email-phil.sutter@viprinet.com>
-Cc: netdev@vger.kernel.org, Johann Baudy <johann.baudy@gnu-log.net>,
-	stable@kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next v2] sctp: sctp_close: fix release of bindings for deferred call_rcu's
+Date: Fri,  1 Feb 2013 15:07:20 +0100
+Message-ID: <2e8cac1036ff146d5e4c609e9aecb3765f19b067.1359726681.git.dborkman@redhat.com>
+References: <cover.1359726681.git.dborkman@redhat.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.vipri.net ([89.207.250.15]:33100 "EHLO zimbra.vipri.net"
+Received: from mx1.redhat.com ([209.132.183.28]:1964 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755961Ab3BAOGU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 09:06:20 -0500
+	id S1756741Ab3BAOHd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2013 09:07:33 -0500
+In-Reply-To: <cover.1359726681.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When releasing a packet socket, the routine packet_set_ring() is reused
-to free rings instead of allocating them. But when calling it for the
-first time, it fills req->tp_block_nr with the value of rb->pg_vec_len
-which in the second invocation makes it bail out since req->tp_block_nr
-is greater zero but req->tp_block_size is zero.
+It seems due to RCU usage, i.e. within SCTP's address binding list,
+a, say, ``behavioral change'' was introduced which does actually
+not conform to the RFC anymore. In particular consider the following
+(fictional) scenario to demonstrate this:
 
-This patch solves the problem by passing a zeroed auto-variable to
-packet_set_ring() upon each invocation from packet_release().
+  do:
+    Two SOCK_SEQPACKET-style sockets are openend (S1, S2)
+    S1 is bound to 127.0.0.1, port 1024 [server]
+    S2 is bound to 127.0.0.1, port 1025 [client]
+    listen(2) is invoked on S1
+    From S2 we call one sendmsg(2) with msg.msg_name and
+       msg.msg_namelen parameters set to the server's
+       address
+    S1, S2 are closed
+    goto do
 
-As far as I can tell, this issue exists even since 69e3c75 (net: TX_RING
-and packet mmap), i.e. the original inclusion of TX ring support into
-af_packet, but applies only to sockets with both RX and TX ring
-allocated, which is probably why this was unnoticed all the time.
+The first pass of this loop passes sucessful, while the second round
+fails during binding of S1 (address still in use). What is happening?
+In the first round, the initial handshake is being done, and, at the
+time close(2) is called on S1, a nongraceful shutdown is performed via
+ABORT since in S1's receive queue an unprocessed packet is present,
+thus stating an error condition. This can be considered as a correct
+behavior.
 
-Signed-off-by: Phil Sutter <phil.sutter@viprinet.com>
-Cc: Johann Baudy <johann.baudy@gnu-log.net>
-Cc: stable@kernel.org
+During close also all bound addresses are freed, thus nothing *must*
+be active anymore. In reference to RFC2960:
+
+  After checking the Verification Tag, the receiving endpoint shall
+  remove the association from its record, and shall report the
+  termination to its upper layer. (9.1 Abort of an Association)
+
+Also, no half-open states are supported, thus after an ungraceful
+shutdown, we leave nothing behind. However, this seems not to be
+happening though. In a real-world scenario, this is exactly where
+it breaks the lksctp-tools functional test suite, *for instance*:
+
+  ./test_sockopt
+  test_sockopt.c  1 PASS : getsockopt(SCTP_STATUS) on a socket with no assoc
+  test_sockopt.c  2 PASS : getsockopt(SCTP_STATUS)
+  test_sockopt.c  3 PASS : getsockopt(SCTP_STATUS) with invalid associd
+  test_sockopt.c  4 PASS : getsockopt(SCTP_STATUS) with NULL associd
+  test_sockopt.c  5 BROK : bind: Address already in use
+
+The underlying problem is that sctp_endpoint_destroy() hasn't been
+triggered yet while the next bind attempt is being done. It will be
+triggered eventually (but too late) by sctp_transport_destroy_rcu()
+after one RCU grace period:
+
+  sctp_transport_destroy()
+    sctp_transport_destroy_rcu() ----.
+      sctp_association_put() [*]  <--+--> sctp_packet_free()
+        sctp_association_destroy()          [...]
+          sctp_endpoint_put()                 skb->destructor
+            sctp_endpoint_destroy()             sctp_wfree()
+              sctp_bind_addr_free()               sctp_association_put() [*]
+
+Thus, we move out the condition with sctp_association_put() as well as
+the sctp_packet_free() invokation and the issue can be solved.
+
+With this patch, the example above (which simulates a similar scenario
+as in the implementation of this test case) and therefore also the test
+suite run successfully through. Tested by myself.
+
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/packet/af_packet.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ net/sctp/transport.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index a91fd0b..d5f519a 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2328,6 +2328,13 @@ static int packet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	return rc;
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 4e45bb6..624edeb 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -168,10 +168,6 @@ static void sctp_transport_destroy_rcu(struct rcu_head *head)
+ 	struct sctp_transport *transport;
+ 
+ 	transport = container_of(head, struct sctp_transport, rcu);
+-	if (transport->asoc)
+-		sctp_association_put(transport->asoc);
+-
+-	sctp_packet_free(&transport->packet);
+ 
+ 	dst_release(transport->dst);
+ 	kfree(transport);
+@@ -186,6 +182,11 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
+ 	SCTP_ASSERT(transport->dead, "Transport is not dead", return);
+ 
+ 	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
++
++	if (transport->asoc)
++		sctp_association_put(transport->asoc);
++
++	sctp_packet_free(&transport->packet);
  }
  
-+static int packet_free_ring(struct sock *sk, int tx_ring)
-+{
-+	union tpacket_req_u req_u = { 0 };
-+
-+	return packet_set_ring(sk, &req_u, 1, tx_ring);
-+}
-+
- /*
-  *	Close a PACKET socket. This is fairly simple. We immediately go
-  *	to 'closed' state and remove our protocol entry in the device list.
-@@ -2338,7 +2345,6 @@ static int packet_release(struct socket *sock)
- 	struct sock *sk = sock->sk;
- 	struct packet_sock *po;
- 	struct net *net;
--	union tpacket_req_u req_u;
- 
- 	if (!sk)
- 		return 0;
-@@ -2364,13 +2370,11 @@ static int packet_release(struct socket *sock)
- 
- 	packet_flush_mclist(sk);
- 
--	memset(&req_u, 0, sizeof(req_u));
--
- 	if (po->rx_ring.pg_vec)
--		packet_set_ring(sk, &req_u, 1, 0);
-+		packet_free_ring(sk, 0);
- 
- 	if (po->tx_ring.pg_vec)
--		packet_set_ring(sk, &req_u, 1, 1);
-+		packet_free_ring(sk, 1);
- 
- 	fanout_release(sk);
- 
+ /* Start T3_rtx timer if it is not already running and update the heartbeat
 -- 
-1.7.12.3
+1.7.11.7
