@@ -1,48 +1,71 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH 0/6] Fix a number of warnings that show up when using "make W=1"
-Date: Fri,  1 Feb 2013 10:40:21 -0600
-Message-ID: <1359736827-30977-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 2/6] rtlwifi: Fix warnings in usb.c
+Date: Fri,  1 Feb 2013 10:40:23 -0600
+Message-ID: <1359736827-30977-3-git-send-email-Larry.Finger@lwfinger.net>
+References: <1359736827-30977-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:50823 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756115Ab3BAQkn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 11:40:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1359736827-30977-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Several of the rtlwifi family of drivers show warnings when W=1 is added to
-the make command. This set of patches fixes all ot them. None of them are
-serious and they may be applied to some future kernel.
+Building this driver with "make W=3D1" results in the following 2 warni=
+ngs:
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+drivers/net/wireless/rtlwifi/usb.c:829:21: warning: variable =E2=80=98u=
+rb_list=E2=80=99 set but not used [-Wunused-but-set-variable]
+drivers/net/wireless/rtlwifi/usb.c:828:23: warning: variable =E2=80=98s=
+kb_list=E2=80=99 set but not used [-Wunused-but-set-variable]
+
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 ---
+ drivers/net/wireless/rtlwifi/usb.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
-Larry Finger (6):
-  rtlwifi: Fix many compile warnings when using W=1
-  rtlwifi: Fix warnings in usb.c
-  rtlwifi: rtl8192c: Fix W=1 warning
-  rtlwifi: rtl8192cu: Fix W=1 build warning
-  rtlwifi: rtl8192de: Fix W=1 build warnings
-  rtlwifi: rtl8723ae: Fix W=1 compile warnings
-
- drivers/net/wireless/rtlwifi/rtl8192c/dm_common.c |  3 ++-
- drivers/net/wireless/rtlwifi/rtl8192cu/sw.c       |  2 +-
- drivers/net/wireless/rtlwifi/rtl8192de/dm.c       |  4 ++--
- drivers/net/wireless/rtlwifi/rtl8723ae/fw.c       |  2 --
- drivers/net/wireless/rtlwifi/rtl8723ae/hal_btc.c  |  2 --
- drivers/net/wireless/rtlwifi/rtl8723ae/hw.c       |  8 ++------
- drivers/net/wireless/rtlwifi/rtl8723ae/phy.c      | 20 ++------------------
- drivers/net/wireless/rtlwifi/rtl8723ae/trx.c      |  2 --
- drivers/net/wireless/rtlwifi/usb.c                |  4 ----
- drivers/net/wireless/rtlwifi/wifi.h               |  2 +-
- 10 files changed, 10 insertions(+), 39 deletions(-)
-
--- 
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/=
+rtlwifi/usb.c
+index 1535efd..d42bbe2 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -825,8 +825,6 @@ static void _rtl_usb_transmit(struct ieee80211_hw *=
+hw, struct sk_buff *skb,
+ 	u32 ep_num;
+ 	struct urb *_urb =3D NULL;
+ 	struct sk_buff *_skb =3D NULL;
+-	struct sk_buff_head *skb_list;
+-	struct usb_anchor *urb_list;
+=20
+ 	WARN_ON(NULL =3D=3D rtlusb->usb_tx_aggregate_hdl);
+ 	if (unlikely(IS_USB_STOP(rtlusb))) {
+@@ -836,7 +834,6 @@ static void _rtl_usb_transmit(struct ieee80211_hw *=
+hw, struct sk_buff *skb,
+ 		return;
+ 	}
+ 	ep_num =3D rtlusb->ep_map.ep_mapping[qnum];
+-	skb_list =3D &rtlusb->tx_skb_queue[ep_num];
+ 	_skb =3D skb;
+ 	_urb =3D _rtl_usb_tx_urb_setup(hw, _skb, ep_num);
+ 	if (unlikely(!_urb)) {
+@@ -844,7 +841,6 @@ static void _rtl_usb_transmit(struct ieee80211_hw *=
+hw, struct sk_buff *skb,
+ 			 "Can't allocate urb. Drop skb!\n");
+ 		return;
+ 	}
+-	urb_list =3D &rtlusb->tx_pending[ep_num];
+ 	_rtl_submit_tx_urb(hw, _urb);
+ }
+=20
+--=20
 1.8.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
