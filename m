@@ -1,58 +1,56 @@
 From: Tom Parkin <tparkin@katalix.com>
-Subject: [PATCH 3/4] l2tp: prevent tunnel creation on netns mismatch
-Date: Fri,  1 Feb 2013 09:43:02 +0000
-Message-ID: <1359711783-4379-4-git-send-email-tparkin@katalix.com>
-References: <1359711783-4379-1-git-send-email-tparkin@katalix.com>
+Subject: [PATCH 0/4] l2tp: fix namespace support in l2tp_core
+Date: Fri,  1 Feb 2013 09:42:59 +0000
+Message-ID: <1359711783-4379-1-git-send-email-tparkin@katalix.com>
 Cc: jchapman@katalix.com, celston@katalix.com,
 	Tom Parkin <tparkin@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:36157 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:36155 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756243Ab3BAJnN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755721Ab3BAJnN (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 1 Feb 2013 04:43:13 -0500
-In-Reply-To: <1359711783-4379-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_tunnel_create is passed a pointer to the network namespace for the
-tunnel, along with an optional file descriptor for the tunnel which may
-be passed in from userspace via. netlink.
+As previously reported on netdev, l2tp_core has a number of issues with network 
+namespaces which this patchset seeks to address:
 
-In the case where the file descriptor is defined, ensure that the namespace
-associated with that socket matches the namespace explicitly passed to
-l2tp_tunnel_create.
+	* Create unmanaged tunnel sockets[1] in the namespace passed to
+	  l2tp_tunnel_create, rather than defaulting to using the namespace
+	  of the current process.
 
-Signed-off-by: Tom Parkin <tparkin@katalix.com>
-Signed-off-by: James Chapman <jchapman@katalix.com>
----
- net/l2tp/l2tp_core.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+	* Drop namespace references for unmanaged tunnel sockets.  This is to
+	  prevent such a socket keeping an otherwise inaccessible namespace
+	  alive.  Unmanaged sockets are freed in a namespace net_exit
+	  callback.
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 73988c0..60a498a 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1593,11 +1593,18 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 		if (err < 0)
- 			goto err;
- 	} else {
--		err = -EBADF;
- 		sock = sockfd_lookup(fd, &err);
- 		if (!sock) {
--			pr_err("tunl %hu: sockfd_lookup(fd=%d) returned %d\n",
-+			pr_err("tunl %u: sockfd_lookup(fd=%d) returned %d\n",
- 			       tunnel_id, fd, err);
-+			err = -EBADF;
-+			goto err;
-+		}
-+
-+		/* Reject namespace mismatches */
-+		if (!net_eq(sock_net(sock->sk), net)) {
-+			pr_err("tunl %u: netns mismatch\n", tunnel_id);
-+			err = -EINVAL;
- 			goto err;
- 		}
- 	}
+	* Push tunnel socket release onto a workqueue to allow
+	  l2tp_tunnel_delete to be called from an atomic context.  This is to
+	  allow the l2tp net_exit callback to walk the tunnel list in an RCU
+	  critical section.
+
+There are also minor changes to sanity check namespaces for managed tunnel
+sockets, and to flag to netlink that l2tp can run in a namespace other than
+default.
+
+Tested on AMD64 and armv6l, under preempt and non-prempt configurations.
+
+[1]. An "unmanaged" tunnel socket is created by the kernel and not exposed to
+     userspace.  It is used to perform data encapsulation and de-encapsulation
+     at the kernel level without incurring the overhead of the L2TP control
+     protocol.  There is code in iproute2 to create unmanaged l2tp tunnels.
+
+Tom Parkin (4):
+  l2tp: put tunnel socket release on a workqueue
+  l2tp: set netnsok flag for netlink messages
+  l2tp: prevent tunnel creation on netns mismatch
+  l2tp: create tunnel sockets in the right namespace
+
+ net/l2tp/l2tp_core.c    |  179 +++++++++++++++++++++++++++++------------------
+ net/l2tp/l2tp_core.h    |    2 +
+ net/l2tp/l2tp_netlink.c |    1 +
+ 3 files changed, 114 insertions(+), 68 deletions(-)
+
 -- 
 1.7.9.5
