@@ -1,65 +1,40 @@
-From: Stefan Assmann <sassmann@kpanic.de>
-Subject: [PATCH net-next] igb: increase timeout for ethtool offline self-test
-Date: Fri,  1 Feb 2013 16:21:35 +0100
-Message-ID: <1359732095-17197-1-git-send-email-sassmann@kpanic.de>
-Cc: e1000-devel@lists.sourceforge.net, carolyn.wyborny@intel.com,
-	jeffrey.t.kirsher@intel.com, sassmann@kpanic.de
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] net: remove redundant checking for sock timer state
+Date: Fri, 01 Feb 2013 07:22:38 -0800
+Message-ID: <1359732158.30177.46.camel@edumazet-glaptop>
+References: <1359697980-28613-1-git-send-email-ying.xue@windriver.com>
+		 <20130201.010946.584437309593473452.davem@davemloft.net>
+	 <1359700003.30177.32.camel@edumazet-glaptop> <510B6B4B.8080205@gmail.com>
+	 <1359703264.30177.37.camel@edumazet-glaptop>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B712D@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Xue Ying <ying.xue0@gmail.com>, David Miller <davem@davemloft.net>,
+	ying.xue@windriver.com, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13963 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751506Ab3BAPWD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 10:22:03 -0500
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:59143 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754200Ab3BAPWt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 10:22:49 -0500
+Received: by mail-pb0-f47.google.com with SMTP id rp8so2186253pbb.20
+        for <netdev@vger.kernel.org>; Fri, 01 Feb 2013 07:22:48 -0800 (PST)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B712D@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On several machines with i350 adapters the ethtool offline self-test sometimes
-fails. This happens because link auto negotiation may take longer than the
-timeout of 4 seconds. Increasing the timeout by 1 seconds resolves the issue.
+On Fri, 2013-02-01 at 09:26 +0000, David Laight wrote:
 
-Output from a failing i350 offline self-test:
-while [ 1 ]; do ethtool -t eth2 offline; done
-The test result is PASS
-The test extra info:
-Register test  (offline)         0
-Eeprom test    (offline)         0
-Interrupt test (offline)         0
-Loopback test  (offline)         0
-Link test   (on/offline)         0
+> If timer_pending() is an inline function then the additional check
+> might be beneficial in very hot paths.
 
-The test result is FAIL
-The test extra info:
-Register test  (offline)         0
-Eeprom test    (offline)         0
-Interrupt test (offline)         0
-Loopback test  (offline)         0
-Link test   (on/offline)         1
+The 'If' word you use show you didn't even read the code, and you
+are talking to linux netdev mailing list. We already know these things.
 
-The test result is PASS
-The test extra info:
-Register test  (offline)         0
-Eeprom test    (offline)         0
-Interrupt test (offline)         0
-Loopback test  (offline)         0
-Link test   (on/offline)         0
+So what are these very hot paths you identified ?
 
-Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
----
- drivers/net/ethernet/intel/igb/igb_ethtool.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If this was a real concern, the right thing to do is to have a generic
+helper so that its real clear and self documented.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-index 40b5d56..a3830a8 100644
---- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
-@@ -1891,7 +1891,7 @@ static int igb_link_test(struct igb_adapter *adapter, u64 *data)
- 	} else {
- 		hw->mac.ops.check_for_link(&adapter->hw);
- 		if (hw->mac.autoneg)
--			msleep(4000);
-+			msleep(5000);
- 
- 		if (!(rd32(E1000_STATUS) & E1000_STATUS_LU))
- 			*data = 1;
--- 
-1.8.1
+BTW sk_stop_timer() could be inlined.
