@@ -1,80 +1,79 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH] net: remove redundant checking for sock timer state
-Date: Fri, 1 Feb 2013 15:25:46 +0800
-Message-ID: <510B6DFA.3050601@windriver.com>
-References: <1359697980-28613-1-git-send-email-ying.xue@windriver.com>		 <20130201.010946.584437309593473452.davem@davemloft.net>	 <1359700003.30177.32.camel@edumazet-glaptop> <510B6B4B.8080205@gmail.com> <1359703264.30177.37.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Xue Ying <ying.xue0@gmail.com>, David Miller <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/11][pull request] Intel Wired LAN Driver Updates 2013.01.31
+Date: Thu, 31 Jan 2013 23:53:20 -0800
+Message-ID: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:63038 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751098Ab3BAHZQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 02:25:16 -0500
-In-Reply-To: <1359703264.30177.37.camel@edumazet-glaptop>
+Received: from mga09.intel.com ([134.134.136.24]:37454 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753942Ab3BAHxp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2013 02:53:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet wrote:
-> On Fri, 2013-02-01 at 15:14 +0800, Xue Ying wrote:
->> Eric Dumazet wrote:
-> 
->>> I had the same reaction but maybe its not anymore a valid thing.
->>>
->>> Before commit 55c888d6d ([PATCH] timers fixes/improvements) there was
->>> indeed a significant cost calling del_timer() because of unconditional
->>> spinlock acquisition.
->>>
->>> But nowadays del_timer() doesn't blindly lock the spinlock.
->>>
->>> So I guess we could change all occurrences of :
->>>
->>> if (timer_pending(X))
->>>     del_timer(X);
->>>
->>> It would save some bytes of code.
->>>   
->> Eric, thanks for your explanation and suggestion.
->>
->> But I cannot understand why we should first call timer_pending() before 
->> del_timer() in your proposal.
->> By my understanding, we might get an unreal timer pending state out of 
->> timer base lock (ie, lock_timer_base()),
->> and the "unreal" is only for pending state, on the contrary, the value 
->> is real for inactive sate.
->> So calling timer_pending() out of timer base lock scope can make us 
->> avoid some unnecessary grabbing spin lock operations.
->> However, in del_timer() there already has placed a timer_pending() 
->> before lock_timer_base() is called. So why do we need
->> another before calling del_timer()?
->>
->> Please you explain more.
-> 
-> I think you misunderstood me.
-> 
-> I said that the old construct :
-> 
-> if (timer_pending(X))
->     del_timer(X);
-> 
-> could be changed to
-> 
-> del_timer(X);
-> 
-> Thats what your patch does.
-> 
-> But instead of changing sk_stop_timer(), I suggested you do a patch on
-> whole net tree.
-> 
+This series contains updates to ixgbe and e1000e.  The ixgbe patches are
+a mix of fixes, cleanup and added functionality.  The first fix is for
+traffic classes, where if the mapping has changed reset the NIC.  The other
+ixgbe fix resolves an issue where the device lookup neglected to do a
+pci_dev_put() to decrement the device reference count.
 
-Fine :) I will do.
+The ixgbe cleanup was done by Josh, where the auto-negotiation variables
+were renamed/cleaned up and refactored.
 
-Regards,
-Ying
+The remaining patches are from Bruce to do additional cleanup on e1000e as
+well as bump the driver version.  Most notably is the cleanup to use the
+kernel IEEE MII definitions where possible instead of the local MII
+definitions.
 
-> 
-> 
-> 
+v2- Dropped the Tx encapsulation patches from the series
+
+The following are changes since commit 58d7553d5593292e1bdbfd6423b44caaca0799bd:
+  Merge branch 'mlx4'
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Amir Hanania (1):
+  ixgbe: Reset the NIC if up2tc has changed
+
+Bruce Allan (6):
+  e1000e: cleanup defines.h
+  e1000e: cleanup: group OR'ed bit settings with parens
+  e1000e: cleanup some whitespace and indentation issues
+  e1000e: update driver version string
+  e1000e: resolve -Wunused-parameter compile warnings
+  e1000e: use generic IEEE MII definitions
+
+Greg Rose (1):
+  ixgbe: Fix device ref count bug
+
+Josh Hay (3):
+  ixgbe: rename autoneg variables
+  ixgbe: removed unused variable from setup_link_speed
+  ixgbe: autoneg variable refactoring
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c  |  28 ++--
+ drivers/net/ethernet/intel/e1000e/82571.c        |  17 ++-
+ drivers/net/ethernet/intel/e1000e/defines.h      | 128 +++-------------
+ drivers/net/ethernet/intel/e1000e/e1000.h        |   1 +
+ drivers/net/ethernet/intel/e1000e/ethtool.c      |  40 ++---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c      |  18 +--
+ drivers/net/ethernet/intel/e1000e/mac.c          |  35 +++--
+ drivers/net/ethernet/intel/e1000e/netdev.c       |  66 ++++----
+ drivers/net/ethernet/intel/e1000e/param.c        |   3 +-
+ drivers/net/ethernet/intel/e1000e/phy.c          | 186 +++++++++++------------
+ drivers/net/ethernet/intel/e1000e/ptp.c          |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c   |  12 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c   |  54 +++----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c  |  16 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   6 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |  34 +++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c     |   2 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h     |   1 -
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h    |   5 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c    |   7 +-
+ 20 files changed, 283 insertions(+), 381 deletions(-)
+
+-- 
+1.7.11.7
