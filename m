@@ -1,89 +1,96 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] sctp: sctp_close: fix release of bindings for
- deferred call_rcu's
-Date: Fri, 01 Feb 2013 09:04:21 +0100
-Message-ID: <510B7705.1030500@redhat.com>
-References: <cover.1359650254.git.dborkman@redhat.com> <13ea81dcf399f935bd8e048ce225411d8f29a792.1359650254.git.dborkman@redhat.com> <510ACAAF.8010902@gmail.com>
+From: Gerd Hoffmann <kraxel@redhat.com>
+Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Fri, 01 Feb 2013 09:12:22 +0100
+Message-ID: <510B78E6.3000602@redhat.com>
+References: <140410652.5634760.1359669990735.JavaMail.root@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38973 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753853Ab3BAIE2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 03:04:28 -0500
-In-Reply-To: <510ACAAF.8010902@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: Andy King <acking@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <140410652.5634760.1359669990735.JavaMail.root@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 01/31/2013 08:49 PM, Vlad Yasevich wrote:
-> On 01/31/2013 11:51 AM, Daniel Borkmann wrote:
->> It seems due to RCU usage, i.e. within SCTP's address binding list,
->> a, say, ``behavioral change'' was introduced which does actually
->> not conform to the RFC anymore. In particular consider the following
->> (fictional) scenario to demonstrate this:
->>
->>    do:
->>      Two SOCK_SEQPACKET-style sockets are openend (S1, S2)
->>      S1 is bound to 127.0.0.1, port 1024 [server]
->>      S2 is bound to 127.0.0.1, port 1025 [client]
->>      listen(2) is invoked on S1
->>      From S2 we call one sendmsg(2) with msg.msg_name and
->>         msg.msg_namelen parameters set to the server's
->>         address
->>      S1, S2 are closed
->>      goto do
->>
->> The first pass of this loop passes sucessful, while the second round
->> fails during binding of S1 (address still in use). What is happening?
->> In the first round, the initial handshake is being done, and, at the
->> time close(2) is called on S1, a nongraceful shutdown is performed via
->> ABORT since in S1's receive queue an unprocessed packet is present,
->> thus stating an error condition. This can be considered as a correct
->> behavior.
->>
->> During close also all bound addresses are freed, thus nothing *must*
->> be active anymore.
->>
->>    After checking the Verification Tag, the receiving endpoint shall
->>    remove the association from its record, and shall report the
->>    termination to its upper layer. (RFC2960, 9.1 Abort of an Association)
->>
->> Also, no half-open states are supported, thus after an ungraceful
->> shutdown, we leave nothing behind. However, this seems not to be
->> happening though. In a real-world scenario, this is exactly where
->> it breaks the lksctp-tools functional test suite, *for instance*:
->>
->>    ./test_sockopt
->>    test_sockopt.c  1 PASS : getsockopt(SCTP_STATUS) on a socket with no assoc
->>    test_sockopt.c  2 PASS : getsockopt(SCTP_STATUS)
->>    test_sockopt.c  3 PASS : getsockopt(SCTP_STATUS) with invalid associd
->>    test_sockopt.c  4 PASS : getsockopt(SCTP_STATUS) with NULL associd
->>    test_sockopt.c  5 BROK : bind: Address already in use
->>
->> With this patch, the example above (which simulates a similar scenario
->> as in the implementation of this test case) and therefore also this test
->> runs successfully through.
->>
->> If one wants to fix this issue, an RCU barrier needs to be introduced
->> within the sctp_close handler. One could argue that this is quite costly,
->> which is true, but on the other hand, if an application calls close on
->> its socket, it likely might be out of its critical path anyway.
->
-> The fact that we delay freeing bind_addr list due to rcu shouldn't change the endpoint destruction path.
->
-> The reason you'd get a EADDRINSUE would be that the sctp_endpoint_destroy() hasn't been triggered.  That means that something is still referencing the endpoint.  However, there doesn't
-> appear to be anything holding a reference to the association or the
-> endpoint from the bind address list.  So the fact that the entries might not have been kfreed yet shouldn't impact the binding of new sockets.
->
-> What is most likely happening instead is that we now have rcu delayed
-> transport destruction and in that path, we delay dropping the association refcount until after the rcu grace period.  That in turn causes delayed endpoint refcount drop, which in turn causes delayed removed of the socket from the port list.  This is the cause of the issue.
->
-> The right solution would be to see if we can drop the refcounts at delete instead of at destroy.  That should remove the delay.
+  Hi,
 
-Thanks for your feedback Vlad!
+>> Likewise, I expect with the final version vmci_transport is a
+>> separate module (or moves into the vmci driver), correct?
+> 
+> When you say final, do you mean something that we have to do before
+> acceptance into mainline or something we can refine over time?
 
-I'll do a rework of this patch and send a version 2.
+IMHO refining in-tree is fine.
+This is the purpose of staging after all.
+
+>From my side the minimum requirement is to have
+vsock_(un)register_transport calls available, so it is possible to write
+a virtio transport module without having to patch vsock code to hook it
+up.  Having the vsock bits in staging would actually make it a bit
+easier to add virtio.
+
+In the end it is Greg's / Dave's call though as those have to ack &
+merge the bits.
+
+>>> +	case IOCTL_VMCI_SOCKETS_GET_LOCAL_CID:
+>>> +		if (put_user(vmci_get_context_id(), p) != 0)
+>>> +			retval = -EFAULT;
+>>
+>> What is this?
+> 
+> A CID, or "context ID" is how we identify a VM.  It's also in
+> the address structure (svm_cid).  If you look at vm_sockets.h,
+> you'll see that we have definitions for various endpoints (the
+> host, anonymous and so forth).  It's sometimes useful for VMs
+> to be able to query their own ID, for example, to be able to
+> pass it out-of-band via INET to a peer.  So we'd like to keep
+> this, although I guess it should be transport-defined, i.e.,
+> we should ask the transport for this value.
+
+Yes, should be transport specific (and optional).  virtio will (at least
+initially) support guest <=> host only, so we don't need a context id.
+
+>>> +	struct {
+>>> +		/* For DGRAMs. */
+>>> +		struct vmci_handle dg_handle;
+>>
+>> Yep, should be a pointer where transports can hook in their private
+>> data.
+> 
+> I'm fixing this.
+
+Yes, please, that is needed too to get started with virtio support.
+
+>> Where is recv_dgram?
+> 
+> The transport just enqueues sk_buffs in the socket's buffer, so the
+> core socket code can just pull them off.  So there's no explicit
+> recv_dgram.
+
+Ok.
+
+>> Also why bind_dgram?  I guess binding stream sockets doesn't make
+>> sense for the vsock family?
+> 
+> Ah, for our transport, there's nothing special involved in binding a
+> STREAM, everything is handled by the core socket code.  So I didn't
+> add a transport callback.  This is something we can add when it
+> becomes necessary, if that's okay?
+
+Sure.  Was just wondering.  TCP can bind stream sockets to interfaces to
+listen -- for example -- on loopback only.  I can't see something
+simliar which makes sense for vsock.
+
+cheers,
+  Gerd
