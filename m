@@ -1,40 +1,52 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH v9 net-next 05/12] bridge: Add the ability to configure pvid
-Date: Sat, 2 Feb 2013 02:04:14 +0100
-Message-ID: <CAHXqBFKXEHjghyDe4UQs4inH55UzWcsz+eWAXR4qFiM7+4yVxw@mail.gmail.com>
-References: <1359748930-31475-1-git-send-email-vyasevic@redhat.com> <1359748930-31475-6-git-send-email-vyasevic@redhat.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] net: Fix inner_network_header assignment in skb-copy.
+Date: Fri, 1 Feb 2013 17:14:43 -0800
+Message-ID: <CALnjE+rpC8p3mZ4tdp+Ok792mvwSrMR-8YAH4vZyJSDVFevx1w@mail.gmail.com>
+References: <1359764763-1618-1-git-send-email-pshelar@nicira.com>
+	<CAP=VYLqYDLeLssrwizRGChygEPwLRSwXBh+YkSr4F7MW1XiGtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:52727 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757093Ab3BBBEf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 20:04:35 -0500
-Received: by mail-oa0-f53.google.com with SMTP id m1so4024824oag.12
-        for <netdev@vger.kernel.org>; Fri, 01 Feb 2013 17:04:34 -0800 (PST)
-In-Reply-To: <1359748930-31475-6-git-send-email-vyasevic@redhat.com>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:43014 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756660Ab3BBBOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 20:14:43 -0500
+Received: by mail-qa0-f69.google.com with SMTP id hy16so2040755qab.8
+        for <netdev@vger.kernel.org>; Fri, 01 Feb 2013 17:14:43 -0800 (PST)
+In-Reply-To: <CAP=VYLqYDLeLssrwizRGChygEPwLRSwXBh+YkSr4F7MW1XiGtw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/2/1 Vlad Yasevich <vyasevic@redhat.com>:
-> A user may designate a certain vlan as PVID.  This means that
-> any ingress frame that does not contain a vlan tag is assigned to
-> this vlan and any forwarding decisions are made with this vlan in min=
-d.
-[...]
->  struct net_port_vlans {
->         u16                             port_idx;
-> +       u16                             pvid;
+On Fri, Feb 1, 2013 at 4:57 PM, Paul Gortmaker
+<paul.gortmaker@windriver.com> wrote:
+> On Fri, Feb 1, 2013 at 7:26 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>
+> Hi Pravin,
+>
+> As a general rule of thumb, a commit log should cover these three
+> basic things:
+>
+> 1) What are the end user visible symptoms of this issue (i.e. does it panic,
+> does it hang, do applications segfault, etc etc).
+>
+> 2) Why does this happen?  i.e. explain where the logic error is in the
+> existing code base and so forth.
+>
+> 3) How do we best fix this?   i.e. explain what our options are to fix
+> the issue, and why your choice of fixes is technically the best choice.
+>
+> With no long log whatsoever, your change does not cover any of
+> the #1, #2 or #3.  And without that, it also makes review by the
+> maintainers more difficult, and reduces the chance that your
+> patch will be integrated into mainline.  Can you perhaps resend
+> with a more detailed commit log, given the above information?
+>
 
-I'm confused about the implementation. I would expect pvid field in
-net_bridge_port and adding a tag if it isn't there on ingress path.
-The rest would be just like without PVIDs. But here you pvid field to
-net_port_vlans, and don't do anything with it in receive nor transmit
-path. Does it work? What am I missing?
+Well its trivial change so I did not wrote commit msg. Anyways I will
+send patch with a commit msg.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Thanks,
+Pravin.
