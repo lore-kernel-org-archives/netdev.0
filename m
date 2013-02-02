@@ -1,49 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: invalid socket structure with ip_early_demux
-Date: Fri, 01 Feb 2013 18:16:10 -0800
-Message-ID: <1359771370.30177.50.camel@edumazet-glaptop>
-References: <510C752F.5010102@codeaurora.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v9 net-next 05/12] bridge: Add the ability to configure
+ pvid
+Date: Fri, 01 Feb 2013 21:22:38 -0500
+Message-ID: <510C786E.5040406@redhat.com>
+References: <1359748930-31475-1-git-send-email-vyasevic@redhat.com> <1359748930-31475-6-git-send-email-vyasevic@redhat.com> <CAHXqBFKXEHjghyDe4UQs4inH55UzWcsz+eWAXR4qFiM7+4yVxw@mail.gmail.com> <CAHXqBFJ3FutyBGNAXPueWLqJncvzNqd69nTJc0nLgUqzFMTWjw@mail.gmail.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org
-To: Steve Muckle <smuckle@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <510C752F.5010102@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8357 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756721Ab3BBCWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Feb 2013 21:22:43 -0500
+In-Reply-To: <CAHXqBFJ3FutyBGNAXPueWLqJncvzNqd69nTJc0nLgUqzFMTWjw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-02-01 at 18:08 -0800, Steve Muckle wrote:
-> Recently I've struggled with crashes in the xt_qtaguid netfilter module.
-> This module is written by Google and used with Android. The match
-> function in xt_qtaguid eventually tries to access
-> 
->   skb->sk->sk_socket->file
-> 
-> What I find is that the sk->sk_socket pointer is sometimes 0xAAAAAAAA,
-> or PAGE_POISON. In fact everything after the first 16 bytes of the
-> struct sock sk is PAGE_POISON. I've confirmed that if I change
-> PAGE_POISON, the values I see in the sk structure change as well.
-> 
-> I was curious how this structure was being allocated/initialized and
-> instrumented the sk_alloc, sk_free, and sk_clone_lock functions. When
-> xt_qtaguid encounters a bad struct sock, that sock does not show up as
-> ever having been allocated (or freed).
-> 
-> The struct sock is being assigned to the skb in tcb_v4_early_demux(). I
-> modified that function immediately after the sk is assigned from
-> __inet_lookup_established() to panic if the sk has a sk_socket pointer
-> of PAGE_POISON. I can reproduce that condition on my target by simply
-> attempting to mount an NFS volume. Initiating *and* aborting wget
-> operations also reproduces the issue - simply initiating a bunch of
-> wgets is not enough to trigger it.
-> 
-> I have not yet been able to reproduce the bad condition when disabling
-> ip_early_demux via the sysctl. Any possibility this is an actual issue
-> with that feature? My target is an MSM using the ks8851 ethernet module.
+On 02/01/2013 08:15 PM, Micha=B3 Miros=B3aw wrote:
+> 2013/2/2 Micha=B3 Miros=B3aw <mirqus@gmail.com>:
+>> 2013/2/1 Vlad Yasevich <vyasevic@redhat.com>:
+>>> A user may designate a certain vlan as PVID.  This means that
+>>> any ingress frame that does not contain a vlan tag is assigned to
+>>> this vlan and any forwarding decisions are made with this vlan in m=
+ind.
+>> [...]
+>>>   struct net_port_vlans {
+>>>          u16                             port_idx;
+>>> +       u16                             pvid;
+>>
+>> I'm confused about the implementation. I would expect pvid field in
+>> net_bridge_port and adding a tag if it isn't there on ingress path.
+>> The rest would be just like without PVIDs. But here you pvid field t=
+o
+>> net_port_vlans, and don't do anything with it in receive nor transmi=
+t
+>> path. Does it work? What am I missing?
+>
+> Found the answer in next patch (you should merge #5 and #6).
 
+It was split for incremental testing.  #5 added the ability to set and
+delete it without impacting anything.  #6 added the actual work that=20
+pvid does.
 
-skb->sk might be a TIMEWAIT socket.
+> Still,
+> the implementation looks overly complicated. If you force the packet
+> to canonical form on ingress (keeping outer tag in skb->vlan_tci, and
+> setting skb->vlan_tci =3D pvid if there is no tag) the code should ge=
+t
+> simpler.
 
-Therefore, you cant blindly use skb->sk->sk_socket
+What if there is no outer tag?  That's what the ingress code is doing.
+If there is no outer tag, pvid is written to vlan_tci.  If there was
+outer tag in vlan_tci, it's left alone.  This way at the end of ingress
+vlan_tci is always set.
+At egress, we grab that tag and compare it against pvid if any.  If it
+matches, it's stripped.  If it doesn't, we output with the tag thus
+adding the header.
+
+The only thing I can simplify is grab the tci directly at egress, but
+that's what the code will do anyway.
+
+-vlad
+
+>
+> Best Regards,
+> Micha=B3 Miros=B3aw
+>
