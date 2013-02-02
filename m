@@ -1,20 +1,26 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Sat, 2 Feb 2013 14:22:38 +1100
-Message-ID: <20130202142238.966d4a1e8a587313fe5e6a4f@canb.auug.org.au>
+Date: Sat, 2 Feb 2013 14:22:53 +1100
+Message-ID: <20130202142253.e31167bf695f000c0c78f4cc@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pgp-signature";
  micalg="PGP-SHA256";
- boundary="Signature=_Sat__2_Feb_2013_14_22_38_+1100_7jkS/LOaeRFwKXzI"
+ boundary="Signature=_Sat__2_Feb_2013_14_22_53_+1100_iAj=Jt9rSdQWnb0v"
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	=?UTF-8?B?IllPU0hJRlVKSSBIaWRlYWtpIC8g5ZCJ6Jek6Iux5piOIg==?=
+	<yoshfuji@linux-ipv6.org>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from haggis.pcug.org.au ([203.10.76.10]:39833 "EHLO
+	members.tip.net.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757590Ab3BBDW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Feb 2013 22:22:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Sat__2_Feb_2013_14_22_38_+1100_7jkS/LOaeRFwKXzI
+--Signature=_Sat__2_Feb_2013_14_22_53_+1100_iAj=Jt9rSdQWnb0v
 Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -22,69 +28,52 @@ Content-Transfer-Encoding: quoted-printable
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/vmxnet3/vmxnet3_drv.c between commit 6cdd20c380eb ("vmxnet3:
-set carrier state properly on probe") from the net tree and commit
-204a6e659439 ("vmxnet3: use netdev_ printk wrappers") from the net-next
-tree.
+net/ipv6/route.c between commit bd30e947207e ("ipv6: do not create
+neighbor entries for local delivery") from the net tree and commit
+c440f1609b65 ("ipv6: Do not depend on rt->n in ip6_pol_route()") from the
+net-next tree.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+I fixed it up (I think - see below) and can carry the fix as necessary
+(no action is required).
 
 --=20
 Cheers,
 Stephen Rothwell                    sfr@canb.auug.org.au
 
-diff --cc drivers/net/vmxnet3/vmxnet3_drv.c
-index 12c6440,b1c90f8..0000000
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@@ -152,9 -148,10 +148,9 @@@ vmxnet3_check_link(struct vmxnet3_adapt
+diff --cc net/ipv6/route.c
+index 363d8b7,f3328bc..0000000
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@@ -928,7 -884,7 +884,7 @@@ restart
+  	dst_hold(&rt->dst);
+  	read_unlock_bh(&table->tb6_lock);
  =20
-  	adapter->link_speed =3D ret >> 16;
-  	if (ret & 1) { /* Link is up. */
-- 		printk(KERN_INFO "%s: NIC Link is Up %d Mbps\n",
-- 		       adapter->netdev->name, adapter->link_speed);
-+ 		netdev_info(adapter->netdev, "NIC Link is Up %d Mbps\n",
-+ 			    adapter->link_speed);
- -		if (!netif_carrier_ok(adapter->netdev))
- -			netif_carrier_on(adapter->netdev);
- +		netif_carrier_on(adapter->netdev);
- =20
-  		if (affectTxQueue) {
-  			for (i =3D 0; i < adapter->num_tx_queues; i++)
-@@@ -162,9 -159,9 +158,8 @@@
-  						 adapter);
-  		}
-  	} else {
-- 		printk(KERN_INFO "%s: NIC Link is Down\n",
-- 		       adapter->netdev->name);
-+ 		netdev_info(adapter->netdev, "NIC Link is Down\n");
- -		if (netif_carrier_ok(adapter->netdev))
- -			netif_carrier_off(adapter->netdev);
- +		netif_carrier_off(adapter->netdev);
- =20
-  		if (affectTxQueue) {
-  			for (i =3D 0; i < adapter->num_tx_queues; i++)
+- 	if (!rt->n && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
+ -	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
+++	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL | RTF_GATEWAY)))
+  		nrt =3D rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
+  	else if (!(rt->dst.flags & DST_HOST))
+  		nrt =3D rt6_alloc_clone(rt, &fl6->daddr);
 
---Signature=_Sat__2_Feb_2013_14_22_38_+1100_7jkS/LOaeRFwKXzI
+--Signature=_Sat__2_Feb_2013_14_22_53_+1100_iAj=Jt9rSdQWnb0v
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBCAAGBQJRDIZ+AAoJEECxmPOUX5FE+p0P/0bQOWIbWT7wN3A64U2dpgAn
-MZLlwuaaqsFK7wX3Dx+NoDhxxyKwYUr7rWQPgbiVYvO28re1/Mfz/9fmTII5/v78
-66bpY/QQpB9ADQZIeaQL4GycWWO3gF1Eq1sTx3XhIdbCsY5ygCQTCJPdo9vg7kSd
-rdK22zb2mXZom1xxBl2fDvyOUzA8xr936m9cxNs/zD4AFN5ZjOVatntNQbxFar2p
-urc56yFW8aZW947fSgkE1cvdU0umkNO4f0eTDSDDxF5czfRC0ylP1y58md3Upmuk
-RI8rZA7EsX9w9oZHHa73xf6+4DApakhJeHBJeHPLJ2H45VKaCy9aPzP4jArc2TS0
-ISWzMw+CCMIPCAjvcQPRsK0tiXSvp4vPqDLbA1HRdOzEt0hmLjavt8oNOo+l/h75
-Edn6a6JPgWQDLbyb2Bp4eUvXtU8c6E4HK3JUOBSNLPbym6dXQuXZDVafIlpwXfPZ
-7LIV6wPn2/xRgB8maI7yQ55keXzZ+IQ7RAFyx25BDzOYhNv+LBlcpG83zuxRRmzr
-3+Xhu8HN+Kydjore6Fu9x8JRQnBIvNBklvza80SAXjCShswDA7vYO6qiw6Dxfu9y
-ZQDnkRzg8UPCmpggAICF8QOrVemGavh3ryvoUzCbuW3S+UfY2aLV7l2xqtWB8B/n
-AhvGhhK8QS8T9a36hkxc
-=fvSB
+iQIcBAEBCAAGBQJRDIaNAAoJEECxmPOUX5FEkQkP/igox+vuoIvcKiwo9HyG7XJU
+Vbeh1nVIrJmtOBREE3Ngnj/dXa/Dhvyi/rY5DQdJ11uGOPyWRCf3oWrrlZNl3JLH
+BvURxweh+bbHqRnOzpZvUwXjBYk3mB7/ycnj01Riywe4yR5tq4SH3pFRebctjMt2
+WDVg/eW8PDYlotvHwphaCvnjpnmIs225/YWXbUNO5Un4epjeYnxnRA2if2627VTB
+ugSQEzoFv3HNklN5ZP5xCgQKqlAxbAoE9iw8BwEoc5BWzsVqFWFkkeVw6NSP3e/x
+GlQLgdcOo2BC/Mg24f25HoGfebRKF+oqfFt3RynvcOJKOFCelAKjezOYKWBqoydl
+BaoAaXlhY7vnL746b+kk7jguEnwpbBsEvfIhn4W4PHV8X282PtqWJ1GHfhH/x/XR
+HszfIIJjybT+x2Tg8dn7Y99lgzlais9eXc6llYoiq11fwYBApKj9rzgnUakRPJOP
+SowNfYGTznbDhQN5TksH0N8xMv2rSGg2z1FG7r2/O4yBcgjr+cIs5pzTkOmAsHec
+44BgvkyMsRYLRWWDPguyyVCp/hqnozjN9e7p4lQPS/JXMBrI17b2nwtUQc8I1LXE
+57io3S7yvM6rpSJKw8PNfBqH7yd0xX8YMv5wtCLuRzCcN9uXFIEFejOiT8ZS2RzW
+WnYdi9lIY/61FLmYyuxo
+=g7Qb
 -----END PGP SIGNATURE-----
 
---Signature=_Sat__2_Feb_2013_14_22_38_+1100_7jkS/LOaeRFwKXzI--
+--Signature=_Sat__2_Feb_2013_14_22_53_+1100_iAj=Jt9rSdQWnb0v--
