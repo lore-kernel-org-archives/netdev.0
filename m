@@ -1,106 +1,63 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] inet: Get critical word in first 64bit of cache
- line
-Date: Sat, 02 Feb 2013 07:03:55 -0800
-Message-ID: <1359817435.30177.70.camel@edumazet-glaptop>
-References: <1353900555-5966-1-git-send-email-ling.ma.program@gmail.com>
+Subject: [PATCH] tcp: tcp_process_frto() should not set snd_cwnd to 0
+Date: Sat, 02 Feb 2013 07:14:35 -0800
+Message-ID: <1359818075.30177.78.camel@edumazet-glaptop>
+References: <20130123161238.GE8912@reaktio.net>
+	 <20130123214445.GA16641@order.stressinduktion.org>
+	 <20130123215151.GF8912@reaktio.net>
+	 <20130123152642.4a8389ba@nehalam.linuxnetplumber.net>
+	 <20130123234116.GC16641@order.stressinduktion.org>
+	 <1358984831.12374.1227.camel@edumazet-glaptop>
+	 <20130124135120.GD16641@order.stressinduktion.org>
+	 <1359777110.30177.58.camel@edumazet-glaptop>
+	 <20130202142832.GP8912@reaktio.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: ling.ma.program@gmail.com, David Miller <davem@davemloft.net>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33503 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757722Ab3BBPD6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 10:03:58 -0500
-Received: by mail-pa0-f42.google.com with SMTP id rl6so2684569pac.15
-        for <netdev@vger.kernel.org>; Sat, 02 Feb 2013 07:03:58 -0800 (PST)
-In-Reply-To: <1353900555-5966-1-git-send-email-ling.ma.program@gmail.com>
+Received: from mail-da0-f54.google.com ([209.85.210.54]:35672 "EHLO
+	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757722Ab3BBPOi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 10:14:38 -0500
+Received: by mail-da0-f54.google.com with SMTP id n2so2099109dad.27
+        for <netdev@vger.kernel.org>; Sat, 02 Feb 2013 07:14:37 -0800 (PST)
+In-Reply-To: <20130202142832.GP8912@reaktio.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ma Ling <ling.ma.program@gmail.com>
+=46rom: Eric Dumazet <edumazet@google.com>
 
-In order to reduce memory latency when last level cache miss occurs,
-modern CPUs i.e. x86 and arm introduced Critical Word First(CWF) or
-Early Restart(ER) to get data ASAP. For CWF if critical word is first
-member
-in cache line, memory feed CPU with critical word, then fill others
-data in cache line one by one, otherwise after critical word it must
-cost more cycle to fill the remaining cache line. For Early First CPU
-will restart until critical word in cache line reaches.
+snd_cwnd minimal value is 1, not 0, or tcp_slow_start()
+is broken : infinite loop since commit 9dc274151a548
+(tcp: fix ABC in tcp_slow_start())
 
-Hash value is critical word, so in this patch we place it as first
-member in cache line (sock address is cache-line aligned), and it is
-also good for Early Restart platform as well .
+A separate patch will make tcp_slow_start() more robust.
 
-[edumazet: respin on net-next after commit ce43b03e8889]
-
-Signed-off-by: Ma Ling <ling.ma.program@gmail.com>
+Reported-by: Pasi K=C3=A4rkk=C3=A4inen <pasik@iki.fi>
 Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
 ---
- include/net/sock.h |   26 ++++++++++++++------------
- 1 file changed, 14 insertions(+), 12 deletions(-)
+ net/ipv4/tcp_input.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index a340ab4..efabd9a 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -131,12 +131,12 @@ typedef __u64 __bitwise __addrpair;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8aca4ee..37760df 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3506,7 +3506,7 @@ static bool tcp_process_frto(struct sock *sk, int=
+ flag)
+ 		if (!(flag & FLAG_DATA_ACKED) && (tp->frto_counter =3D=3D 1)) {
+ 			/* Prevent sending of new data. */
+ 			tp->snd_cwnd =3D min(tp->snd_cwnd,
+-					   tcp_packets_in_flight(tp));
++					   max(tcp_packets_in_flight(tp), 1U));
+ 			return true;
+ 		}
 =20
- /**
-  *	struct sock_common - minimal network layer representation of socket=
-s
-- *	@skc_daddr: Foreign IPv4 addr
-- *	@skc_rcv_saddr: Bound local IPv4 addr
-  *	@skc_hash: hash value used with various protocol lookup tables
-  *	@skc_u16hashes: two u16 hash values used by UDP lookup tables
-  *	@skc_dport: placeholder for inet_dport/tw_dport
-  *	@skc_num: placeholder for inet_num/tw_num
-+ *	@skc_daddr: Foreign IPv4 addr
-+ *	@skc_rcv_saddr: Bound local IPv4 addr
-  *	@skc_family: network address family
-  *	@skc_state: Connection state
-  *	@skc_reuse: %SO_REUSEADDR setting
-@@ -153,18 +153,10 @@ typedef __u64 __bitwise __addrpair;
-  *
-  *	This is the minimal network layer representation of sockets, the he=
-ader
-  *	for struct sock and struct inet_timewait_sock.
-+ *	Order of first fields is critical for __inet_lookup_established() :
-+ *	skc_hash, skc_portpair, skc_addrpair
-  */
- struct sock_common {
--	/* skc_daddr and skc_rcv_saddr must be grouped on a 8 bytes aligned
--	 * address on 64bit arches : cf INET_MATCH() and INET_TW_MATCH()
--	 */
--	union {
--		__addrpair	skc_addrpair;
--		struct {
--			__be32	skc_daddr;
--			__be32	skc_rcv_saddr;
--		};
--	};
- 	union  {
- 		unsigned int	skc_hash;
- 		__u16		skc_u16hashes[2];
-@@ -178,6 +170,16 @@ struct sock_common {
- 		};
- 	};
-=20
-+	/* skc_daddr and skc_rcv_saddr must be grouped on a 8 bytes aligned
-+	 * address on 64bit arches : cf INET_MATCH() and INET_TW_MATCH()
-+	 */
-+	union {
-+		__addrpair	skc_addrpair;
-+		struct {
-+			__be32	skc_daddr;
-+			__be32	skc_rcv_saddr;
-+		};
-+	};
- 	unsigned short		skc_family;
- 	volatile unsigned char	skc_state;
- 	unsigned char		skc_reuse:4;
