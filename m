@@ -1,54 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Sat, 2 Feb 2013 11:05:06 +0100
-Message-ID: <20130202100506.GB1864@minipsycho.orion>
-References: <20130202142253.e31167bf695f000c0c78f4cc@canb.auug.org.au>
+From: =?UTF-8?B?VG9yYWxmIEbDtnJzdGVy?= <toralf.foerster@gmx.de>
+Subject: Re: [PATCHv2] tun: fix carrier on/off status
+Date: Sat, 02 Feb 2013 11:27:29 +0100
+Message-ID: <510CEA11.9060802@gmx.de>
+References: <5103B01D.5070303@gmx.de> <3592886.xagLc7Uij9@jason-thinkpad-t430s> <20130128101111.GB5337@redhat.com> <20130128103801.GA6648@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Marcelo Ricardo Leitner <mleitner@redhat.com>,
-	=?utf-8?B?IllPU0hJRlVKSSBIaWRlYWtpIC8g5ZCJ6Jek6Iux5piOIg==?=
-	<yoshfuji@linux-ipv6.org>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130202142253.e31167bf695f000c0c78f4cc@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:65514 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755475Ab3BBK1e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Feb 2013 05:27:34 -0500
+Received: from mailout-de.gmx.net ([10.1.76.4]) by mrigmx.server.lan
+ (mrigmx002) with ESMTP (Nemesis) id 0M3gid-1UsS5V0nWz-00rDTb for
+ <netdev@vger.kernel.org>; Sat, 02 Feb 2013 11:27:32 +0100
+In-Reply-To: <20130128103801.GA6648@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sat, Feb 02, 2013 at 04:22:53AM CET, sfr@canb.auug.org.au wrote:
->Hi all,
->
->Today's linux-next merge of the net-next tree got a conflict in
->net/ipv6/route.c between commit bd30e947207e ("ipv6: do not create
->neighbor entries for local delivery") from the net tree and commit
->c440f1609b65 ("ipv6: Do not depend on rt->n in ip6_pol_route()") from the
->net-next tree.
->
->I fixed it up (I think - see below) and can carry the fix as necessary
->(no action is required).
->
->-- 
->Cheers,
->Stephen Rothwell                    sfr@canb.auug.org.au
->
->diff --cc net/ipv6/route.c
->index 363d8b7,f3328bc..0000000
->--- a/net/ipv6/route.c
->+++ b/net/ipv6/route.c
->@@@ -928,7 -884,7 +884,7 @@@ restart
->  	dst_hold(&rt->dst);
->  	read_unlock_bh(&table->tb6_lock);
->  
->- 	if (!rt->n && !(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL)))
-> -	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_GATEWAY)))
->++	if (!(rt->rt6i_flags & (RTF_NONEXTHOP | RTF_LOCAL | RTF_GATEWAY)))
+Between v3.8.0-rc5+ and v3.8.0-rc6+ the following dmesg are new :
 
-I believe that no change here is correct to do. RTF_LOCAL here is needed
-only before Yoshifuji's "IPv6 rt->n removal"
-	
-	
->  		nrt = rt6_alloc_cow(rt, &fl6->daddr, &fl6->saddr);
->  	else if (!(rt->dst.flags & DST_HOST))
->  		nrt = rt6_alloc_clone(rt, &fl6->daddr);
+> br0: port 4(tap3) entered forwarding state
+> br0: port 4(tap3) entered forwarding state
+> br0: port 3(tap2) entered forwarding state
+> br0: port 3(tap2) entered forwarding state
+> br0: port 2(tap1) entered forwarding state
+> br0: port 2(tap1) entered forwarding state
+> br0: port 1(tap0) entered forwarding state
+> br0: port 1(tap0) entered forwarding state
+
+Is this related to the original mail too ?
+
+--=20
+MfG/Sincerely
+Toralf F=C3=B6rster
+pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
