@@ -1,54 +1,49 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v9 net-next 02/12] bridge: Validate that vlan is permitted
- on ingress
-Date: Fri, 01 Feb 2013 21:13:11 -0500
-Message-ID: <510C7637.7080102@redhat.com>
-References: <1359748930-31475-1-git-send-email-vyasevic@redhat.com> <1359748930-31475-3-git-send-email-vyasevic@redhat.com> <CAHXqBFLTaPbReQh-vgc_kbBbUtEWOFyE2oq85boWoHFD2+Tm9w@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: invalid socket structure with ip_early_demux
+Date: Fri, 01 Feb 2013 18:16:10 -0800
+Message-ID: <1359771370.30177.50.camel@edumazet-glaptop>
+References: <510C752F.5010102@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29191 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756721Ab3BBCNP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Feb 2013 21:13:15 -0500
-In-Reply-To: <CAHXqBFLTaPbReQh-vgc_kbBbUtEWOFyE2oq85boWoHFD2+Tm9w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org
+To: Steve Muckle <smuckle@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <510C752F.5010102@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/01/2013 08:04 PM, Micha=C5=82 Miros=C5=82aw wrote:
-> 2013/2/1 Vlad Yasevich <vyasevic@redhat.com>:
->> When a frame arrives on a port or transmitted by the bridge,
->> if we have VLANs configured, validate that a given VLAN is allowed
->> to enter the bridge.
-> [...]
->> +static inline struct net_port_vlans *br_get_vlan_info(
->> +                                               const struct net_bri=
-dge *br)
->> +{
->> +       return rcu_dereference(br->vlan_info);
->> +}
->> +
->> +static inline struct net_port_vlans *nbp_get_vlan_info(
->> +                                               const struct net_bri=
-dge_port *p)
->> +{
->> +       return rcu_dereference(p->vlan_info);
->> +}
->
-> Those should go to patch #1.
+On Fri, 2013-02-01 at 18:08 -0800, Steve Muckle wrote:
+> Recently I've struggled with crashes in the xt_qtaguid netfilter module.
+> This module is written by Google and used with Android. The match
+> function in xt_qtaguid eventually tries to access
+> 
+>   skb->sk->sk_socket->file
+> 
+> What I find is that the sk->sk_socket pointer is sometimes 0xAAAAAAAA,
+> or PAGE_POISON. In fact everything after the first 16 bytes of the
+> struct sock sk is PAGE_POISON. I've confirmed that if I change
+> PAGE_POISON, the values I see in the sk structure change as well.
+> 
+> I was curious how this structure was being allocated/initialized and
+> instrumented the sk_alloc, sk_free, and sk_clone_lock functions. When
+> xt_qtaguid encounters a bad struct sock, that sock does not show up as
+> ever having been allocated (or freed).
+> 
+> The struct sock is being assigned to the skb in tcb_v4_early_demux(). I
+> modified that function immediately after the sk is assigned from
+> __inet_lookup_established() to panic if the sk has a sk_socket pointer
+> of PAGE_POISON. I can reproduce that condition on my target by simply
+> attempting to mount an NFS volume. Initiating *and* aborting wget
+> operations also reproduces the issue - simply initiating a bunch of
+> wgets is not enough to trigger it.
+> 
+> I have not yet been able to reproduce the bad condition when disabling
+> ip_early_demux via the sysctl. Any possibility this is an actual issue
+> with that feature? My target is an MSM using the ks8851 ethernet module.
 
-They are not needed till here.  I thought it would read/review better i=
-f=20
-I kept it together.
 
--vlad
->
-> Best Regards,
-> Micha=C5=82 Miros=C5=82aw
->
+skb->sk might be a TIMEWAIT socket.
+
+Therefore, you cant blindly use skb->sk->sk_socket
