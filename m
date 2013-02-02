@@ -1,91 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: fix an infinite loop in tcp_slow_start()
-Date: Sat, 02 Feb 2013 07:23:16 -0800
-Message-ID: <1359818596.30177.84.camel@edumazet-glaptop>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH] tcp: tcp_process_frto() should not set snd_cwnd to 0
+Date: Sat, 2 Feb 2013 10:57:40 -0500
+Message-ID: <CADVnQykbufy-kQrEnJm0bbt=n7C8OfE1=Kr-2KfP7Mbu5Eq58w@mail.gmail.com>
 References: <20130123161238.GE8912@reaktio.net>
-	 <20130123214445.GA16641@order.stressinduktion.org>
-	 <20130123215151.GF8912@reaktio.net>
-	 <20130123152642.4a8389ba@nehalam.linuxnetplumber.net>
-	 <20130123234116.GC16641@order.stressinduktion.org>
-	 <1358984831.12374.1227.camel@edumazet-glaptop>
-	 <20130124135120.GD16641@order.stressinduktion.org>
-	 <1359777110.30177.58.camel@edumazet-glaptop>
-	 <20130202142832.GP8912@reaktio.net>
+	<20130123214445.GA16641@order.stressinduktion.org>
+	<20130123215151.GF8912@reaktio.net>
+	<20130123152642.4a8389ba@nehalam.linuxnetplumber.net>
+	<20130123234116.GC16641@order.stressinduktion.org>
+	<1358984831.12374.1227.camel@edumazet-glaptop>
+	<20130124135120.GD16641@order.stressinduktion.org>
+	<1359777110.30177.58.camel@edumazet-glaptop>
+	<20130202142832.GP8912@reaktio.net>
+	<1359818075.30177.78.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: =?ISO-8859-1?Q?Pasi_K=E4rkk=E4inen?= <pasik@iki.fi>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Netdev <netdev@vger.kernel.org>,
 	Yuchung Cheng <ycheng@google.com>
-To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
-	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:61439 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752730Ab3BBPXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 10:23:19 -0500
-Received: by mail-pa0-f44.google.com with SMTP id hz11so2674785pad.3
-        for <netdev@vger.kernel.org>; Sat, 02 Feb 2013 07:23:18 -0800 (PST)
-In-Reply-To: <20130202142832.GP8912@reaktio.net>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:36631 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757751Ab3BBP5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 10:57:41 -0500
+Received: by mail-ee0-f54.google.com with SMTP id c41so2545772eek.27
+        for <netdev@vger.kernel.org>; Sat, 02 Feb 2013 07:57:40 -0800 (PST)
+In-Reply-To: <1359818075.30177.78.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <edumazet@google.com>
+On Sat, Feb 2, 2013 at 10:14 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 8aca4ee..37760df 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3506,7 +3506,7 @@ static bool tcp_process_frto(struct sock *sk, int flag)
+>                 if (!(flag & FLAG_DATA_ACKED) && (tp->frto_counter == 1)) {
+>                         /* Prevent sending of new data. */
+>                         tp->snd_cwnd = min(tp->snd_cwnd,
+> -                                          tcp_packets_in_flight(tp));
+> +                                          max(tcp_packets_in_flight(tp), 1U));
+>                         return true;
+>                 }
 
-Since commit 9dc274151a548 (tcp: fix ABC in tcp_slow_start()),
-a nul snd_cwnd triggers an infinite loop in tcp_slow_start()
+This seems better than what we have now, but it seems to paper over a
+significant bug somewhere in FRTO. If we are at this spot and
+tcp_packets_in_flight() is zero, then this means that we have lost our
+chance to disambiguate whether this loss timeout was spurious, and we
+should assume it was a legit loss, so we should call:
+    tcp_enter_frto_loss(sk, 2, flag);
 
-Avoid this infinite loop and log a one time error for further
-analysis. FRTO code is suspected to cause this bug.
+One possible approach (please excuse the formatting for this informal proposal):
 
-Reported-by: Pasi K=C3=A4rkk=C3=A4inen <pasik@iki.fi>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_cong.c |   14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 0905997..66f7c32 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3482,7 +3482,8 @@ static bool tcp_process_frto(struct sock *sk, int flag)
+     ((tp->frto_counter >= 2) && (flag & FLAG_RETRANS_DATA_ACKED)))
+  tp->undo_marker = 0;
 
-diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 291f2ed..cdf2e70 100644
---- a/net/ipv4/tcp_cong.c
-+++ b/net/ipv4/tcp_cong.c
-@@ -310,6 +310,12 @@ void tcp_slow_start(struct tcp_sock *tp)
- {
- 	int cnt; /* increase in packets */
- 	unsigned int delta =3D 0;
-+	u32 snd_cwnd =3D tp->snd_cwnd;
-+
-+	if (unlikely(!snd_cwnd)) {
-+		pr_err_once("snd_cwnd is nul, please report this bug.\n");
-+		snd_cwnd =3D 1U;
-+	}
-=20
- 	/* RFC3465: ABC Slow start
- 	 * Increase only after a full MSS of bytes is acked
-@@ -324,7 +330,7 @@ void tcp_slow_start(struct tcp_sock *tp)
- 	if (sysctl_tcp_max_ssthresh > 0 && tp->snd_cwnd > sysctl_tcp_max_ssth=
-resh)
- 		cnt =3D sysctl_tcp_max_ssthresh >> 1;	/* limited slow start */
- 	else
--		cnt =3D tp->snd_cwnd;			/* exponential increase */
-+		cnt =3D snd_cwnd;				/* exponential increase */
-=20
- 	/* RFC3465: ABC
- 	 * We MAY increase by 2 if discovered delayed ack
-@@ -334,11 +340,11 @@ void tcp_slow_start(struct tcp_sock *tp)
- 	tp->bytes_acked =3D 0;
-=20
- 	tp->snd_cwnd_cnt +=3D cnt;
--	while (tp->snd_cwnd_cnt >=3D tp->snd_cwnd) {
--		tp->snd_cwnd_cnt -=3D tp->snd_cwnd;
-+	while (tp->snd_cwnd_cnt >=3D snd_cwnd) {
-+		tp->snd_cwnd_cnt -=3D snd_cwnd;
- 		delta++;
- 	}
--	tp->snd_cwnd =3D min(tp->snd_cwnd + delta, tp->snd_cwnd_clamp);
-+	tp->snd_cwnd =3D min(snd_cwnd + delta, tp->snd_cwnd_clamp);
- }
- EXPORT_SYMBOL_GPL(tcp_slow_start);
-=20
+- if (!before(tp->snd_una, tp->frto_highmark)) {
++ if (!before(tp->snd_una, tp->frto_highmark) ||
++    !tcp_packets_in_flight(tp)) {
+  tcp_enter_frto_loss(sk, (tp->frto_counter == 1 ? 2 : 3), flag);
+  return true;
+  }
+
+neal
