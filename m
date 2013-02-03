@@ -1,77 +1,74 @@
-From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
-Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit
- queue 0 timed out
-Date: Sun, 3 Feb 2013 16:34:30 +0100
-Message-ID: <CADDKRnACHgBOmw0qLE4zVzhq=Yw-1AYJ-JW0muxRCR3jZ=VoUQ@mail.gmail.com>
-References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
-	<20130105093718.GA938@electric-eye.fr.zoreil.com>
-	<CADDKRnBCrDz2X=5qpGE+r92ZFX5cA+jnSGt3wS8TR0RE8hi1HA@mail.gmail.com>
-	<20130105165735.GB4906@electric-eye.fr.zoreil.com>
-	<CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: frto should not set snd_cwnd to 0
+Date: Sun, 03 Feb 2013 11:13:05 -0800
+Message-ID: <1359918785.30177.111.camel@edumazet-glaptop>
+References: <20130123161238.GE8912@reaktio.net>
+	 <20130123214445.GA16641@order.stressinduktion.org>
+	 <20130123215151.GF8912@reaktio.net>
+	 <20130123152642.4a8389ba@nehalam.linuxnetplumber.net>
+	 <20130123234116.GC16641@order.stressinduktion.org>
+	 <1358984831.12374.1227.camel@edumazet-glaptop>
+	 <20130124135120.GD16641@order.stressinduktion.org>
+	 <1359777110.30177.58.camel@edumazet-glaptop>
+	 <20130202142832.GP8912@reaktio.net>
+	 <1359818075.30177.78.camel@edumazet-glaptop>
+	 <CADVnQykbufy-kQrEnJm0bbt=n7C8OfE1=Kr-2KfP7Mbu5Eq58w@mail.gmail.com>
+	 <1359826377.30177.86.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Neal Cardwell <ncardwell@google.com>,
+	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:63617 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753417Ab3BCTNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 14:13:08 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so2022420pad.24
+        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 11:13:08 -0800 (PST)
+In-Reply-To: <1359826377.30177.86.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/1/6 J=C3=B6rg Otte <jrg.otte@gmail.com>:
-> 2013/1/5 Francois Romieu <romieu@fr.zoreil.com>:
->> Can you check if things improve with v3.8-rc2 after removing :
->>
->> 1. 9ecb9aabaf634677c77af467f4e3028b09d7bcda
->>    r8169: workaround for missing extended GigaMAC registers
->> 2. d64ec841517a25f6d468bde9f67e5b4cffdc67c7
->>    r8169: enable internal ASPM and clock request settings
->
-> Doesn't help for this problem.
->
-> However this fixes a second issue for me:
-> In 3.7.1 at startup the link came up after 15 sec.:
-> grep r8169 dmesg.3.7.1
-> [    1.956842] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> [    1.957059] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
-> [    1.957161] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at..
-> [    1.957163] r8169 0000:02:00.0 eth0: jumbo features [frames..
-> [   13.575452] r8169 0000:02:00.0 eth0: link down
-> [   13.575475] r8169 0000:02:00.0 eth0: link down
-> [   15.181317] r8169 0000:02:00.0 eth0: link up
->
-> In 3.8rc the time increased to 24 seconds:
-> grep r8169 dmesg.3.8.0
-> [    1.852546] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> [    1.852765] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
-> [    1.852872] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
-> [    1.852874] r8169 0000:02:00.0 eth0: jumbo features [frames...
-> [   14.150212] r8169 0000:02:00.0 eth0: link down
-> [   14.150229] r8169 0000:02:00.0 eth0: link down
-> [   24.140263] r8169 0000:02:00.0 eth0: link up
->
-> But with this revert I get the old performance:
-> dmesg | grep r8169
-> [    1.816613] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> [    1.816832] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
-> [    1.816947] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
-> [    1.816948] r8169 0000:02:00.0 eth0: jumbo features [frames...
-> [   13.986401] r8169 0000:02:00.0 eth0: link down
-> [   13.986422] r8169 0000:02:00.0 eth0: link down
-> [   15.623631] r8169 0000:02:00.0 eth0: link up
->
-> Thus I recommend to revert this too.
->
->> 3. e0c075577965d1c01b30038d38bf637b027a1df3
->>    r8169: enable ALDPS for power saving
->
-> That's it! This fixes the problem for me!
->
+=46rom: Eric Dumazet <edumazet@google.com>
 
+Commit 9dc274151a548 (tcp: fix ABC in tcp_slow_start())
+uncovered a bug in FRTO code :
+tcp_process_frto() is setting snd_cwnd to 0 if the number
+of in flight packets is 0.
 
-We are closely before v3.8 and I didn't see a solution
-so far.
-What is the plan regarding this issue(s)?
+As Neal pointed out, if no packet is in flight we lost our
+chance to disambiguate whether a loss timeout was spurious.
 
-Thanks, J=C3=B6rg
+We should assume it was a proper loss.
+
+Reported-by: Pasi K=C3=A4rkk=C3=A4inen <pasik@iki.fi>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
+Cc: Yuchung Cheng <ycheng@google.com>
+---
+ net/ipv4/tcp_input.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 8aca4ee..680c422 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3484,7 +3484,8 @@ static bool tcp_process_frto(struct sock *sk, int=
+ flag)
+ 	    ((tp->frto_counter >=3D 2) && (flag & FLAG_RETRANS_DATA_ACKED)))
+ 		tp->undo_marker =3D 0;
+=20
+-	if (!before(tp->snd_una, tp->frto_highmark)) {
++	if (!before(tp->snd_una, tp->frto_highmark) ||
++	    !tcp_packets_in_flight(tp)) {
+ 		tcp_enter_frto_loss(sk, (tp->frto_counter =3D=3D 1 ? 2 : 3), flag);
+ 		return true;
+ 	}
