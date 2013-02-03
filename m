@@ -1,81 +1,40 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 09/62] atm/nicstar: convert to idr_alloc()
-Date: Sat,  2 Feb 2013 17:20:10 -0800
-Message-ID: <1359854463-2538-10-git-send-email-tj@kernel.org>
-References: <1359854463-2538-1-git-send-email-tj@kernel.org>
-Cc: linux-kernel@vger.kernel.org, rusty@rustcorp.com.au,
-	bfields@fieldses.org, skinsbursky@parallels.com,
-	ebiederm@xmission.com, jmorris@namei.org, axboe@kernel.dk,
-	Tejun Heo <tj@kernel.org>,
-	Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/11][pull request] Intel Wired LAN Driver
+ Updates 2013.01.31
+Date: Sat, 02 Feb 2013 22:55:50 -0500 (EST)
+Message-ID: <20130202.225550.577854925600607173.davem@davemloft.net>
+References: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:54519 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076Ab3BCBVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 20:21:36 -0500
-In-Reply-To: <1359854463-2538-1-git-send-email-tj@kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752993Ab3BCDzy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 22:55:54 -0500
+In-Reply-To: <1359705211-11342-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert to the much saner new idr interface.  The existing code looks
-buggy to me - ID 0 is treated as no-ID but allocation specifies 0 as
-lower limit and there's no error handling after parial success.  This
-conversion keeps the bugs unchanged.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Thu, 31 Jan 2013 23:53:20 -0800
 
-Only compile tested.
+> This series contains updates to ixgbe and e1000e.  The ixgbe patches are
+> a mix of fixes, cleanup and added functionality.  The first fix is for
+> traffic classes, where if the mapping has changed reset the NIC.  The other
+> ixgbe fix resolves an issue where the device lookup neglected to do a
+> pci_dev_put() to decrement the device reference count.
+> 
+> The ixgbe cleanup was done by Josh, where the auto-negotiation variables
+> were renamed/cleaned up and refactored.
+> 
+> The remaining patches are from Bruce to do additional cleanup on e1000e as
+> well as bump the driver version.  Most notably is the cleanup to use the
+> kernel IEEE MII definitions where possible instead of the local MII
+> definitions.
+> 
+> v2- Dropped the Tx encapsulation patches from the series
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>
-Cc: netdev@vger.kernel.org
----
-This patch depends on an earlier idr changes and I think it would be
-best to route these together through -mm.  Please holler if there's
-any objection.  Thanks.
-
- drivers/atm/nicstar.c | 27 ++++++++++++---------------
- 1 file changed, 12 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 628787e..7fd6834 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -1026,24 +1026,21 @@ static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
- 				card->lbfqc += 2;
- 		}
- 
--		do {
--			if (!idr_pre_get(&card->idr, GFP_ATOMIC)) {
--				printk(KERN_ERR
--				       "nicstar%d: no free memory for idr\n",
--				       card->index);
-+		if (!id1) {
-+			id1 = idr_alloc(&card->idr, handle1, 0, 0, GFP_ATOMIC);
-+			if (id1 < 0) {
-+				err = id1;
- 				goto out;
- 			}
-+		}
- 
--			if (!id1)
--				err = idr_get_new_above(&card->idr, handle1, 0, &id1);
--
--			if (!id2 && err == 0)
--				err = idr_get_new_above(&card->idr, handle2, 0, &id2);
--
--		} while (err == -EAGAIN);
--
--		if (err)
--			goto out;
-+		if (!id2) {
-+			id2 = idr_alloc(&card->idr, handle2, 0, 0, GFP_ATOMIC);
-+			if (id2 < 0) {
-+				err = id2;
-+				goto out;
-+			}
-+		}
- 
- 		spin_lock_irqsave(&card->res_lock, flags);
- 		while (CMD_BUSY(card)) ;
--- 
-1.8.1
+Pulled, thanks Jeff.
