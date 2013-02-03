@@ -1,26 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] Delete obsolete wanrouter support
-Date: Sat, 02 Feb 2013 23:13:40 -0500 (EST)
-Message-ID: <20130202.231340.2229896373303579319.davem@davemloft.net>
-References: <1359761422-27629-1-git-send-email-paul.gortmaker@windriver.com>
+From: =?UTF-8?B?RMOibmllbA==?= Fraga <fragabr@gmail.com>
+Subject: Annoying e1000e link up and down issue
+Date: Sun, 3 Feb 2013 02:02:23 -0200
+Message-ID: <kekr0s$kah$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com, joe@perches.com,
-	acme@redhat.com
-To: paul.gortmaker@windriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54733 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752506Ab3BCENm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 23:13:42 -0500
-In-Reply-To: <1359761422-27629-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from plane.gmane.org ([80.91.229.3]:58520 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750705Ab3BCFCf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Feb 2013 00:02:35 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1U1rjA-0006OF-GY
+	for netdev@vger.kernel.org; Sun, 03 Feb 2013 06:02:52 +0100
+Received: from 200-148-10-98.dsl.telesp.net.br ([200.148.10.98])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 06:02:52 +0100
+Received: from fragabr by 200-148-10-98.dsl.telesp.net.br with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 06:02:52 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri,  1 Feb 2013 18:30:20 -0500
+	Can someone take a look at this bug?
 
->   git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git delete-wanrouter
+https://bugzilla.kernel.org/show_bug.cgi?id=53291
 
-Looks good to me, pulled, thanks Paul.
+	There're many e1000e users dealing with this problem, so it
+seems to be a long time bug with this driver.
+
+	Thanks.
+
+-- 
+Linux 3.7.0: Terrified Chipmunk
+http://www.youtube.com/DanielFragaBR
+http://www.libertarios.org.br
