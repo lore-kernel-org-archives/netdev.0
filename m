@@ -1,74 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: frto should not set snd_cwnd to 0
-Date: Sun, 03 Feb 2013 11:13:05 -0800
-Message-ID: <1359918785.30177.111.camel@edumazet-glaptop>
-References: <20130123161238.GE8912@reaktio.net>
-	 <20130123214445.GA16641@order.stressinduktion.org>
-	 <20130123215151.GF8912@reaktio.net>
-	 <20130123152642.4a8389ba@nehalam.linuxnetplumber.net>
-	 <20130123234116.GC16641@order.stressinduktion.org>
-	 <1358984831.12374.1227.camel@edumazet-glaptop>
-	 <20130124135120.GD16641@order.stressinduktion.org>
-	 <1359777110.30177.58.camel@edumazet-glaptop>
-	 <20130202142832.GP8912@reaktio.net>
-	 <1359818075.30177.78.camel@edumazet-glaptop>
-	 <CADVnQykbufy-kQrEnJm0bbt=n7C8OfE1=Kr-2KfP7Mbu5Eq58w@mail.gmail.com>
-	 <1359826377.30177.86.camel@edumazet-glaptop>
+From: David Madore <david+ml@madore.org>
+Subject: assigning an entire subnet of addresses to an interface
+Date: Sun, 3 Feb 2013 21:51:24 +0100
+Message-ID: <20130203205124.GA13738@aldebaran.madore.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
-	David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Neal Cardwell <ncardwell@google.com>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
+To: Linux Netdev Mailing-List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:63617 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753417Ab3BCTNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 14:13:08 -0500
-Received: by mail-pa0-f51.google.com with SMTP id hz1so2022420pad.24
-        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 11:13:08 -0800 (PST)
-In-Reply-To: <1359826377.30177.86.camel@edumazet-glaptop>
+Received: from achernar.gro-tsen.net ([88.191.144.68]:41898 "EHLO
+	achernar.gro-tsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753589Ab3BCVAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 16:00:31 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <edumazet@google.com>
+Dear list,
 
-Commit 9dc274151a548 (tcp: fix ABC in tcp_slow_start())
-uncovered a bug in FRTO code :
-tcp_process_frto() is setting snd_cwnd to 0 if the number
-of in flight packets is 0.
+Is there a way to assign an entire subnet of (typically IPv6)
+addresses to an interface?  For example, I'd like to assign the entire
+2001:db8:f00f::/48 prefix to eth42 without actually running 2^80
+separate "ip addr add" commands.
 
-As Neal pointed out, if no packet is in flight we lost our
-chance to disambiguate whether a loss timeout was spurious.
+I'm aware that (with sufficiently recent kernels) one can do this:
 
-We should assume it was a proper loss.
+ip -6 route add local 2001:db8:f00f::/48 dev lo
 
-Reported-by: Pasi K=C3=A4rkk=C3=A4inen <pasik@iki.fi>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+- which will cause packets received for any address in this subnet to
+be handled locally.  But that doesn't really answer my question,
+because this does not allow local processes to bind to any desired
+address in the subnet (e.g., running "socat
+'TCP6-LISTEN:9876,bind=3D[2001:db8:f00f::3141:5926]'" fails with
+EADDRNOTAVAIL).
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 8aca4ee..680c422 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3484,7 +3484,8 @@ static bool tcp_process_frto(struct sock *sk, int=
- flag)
- 	    ((tp->frto_counter >=3D 2) && (flag & FLAG_RETRANS_DATA_ACKED)))
- 		tp->undo_marker =3D 0;
-=20
--	if (!before(tp->snd_una, tp->frto_highmark)) {
-+	if (!before(tp->snd_una, tp->frto_highmark) ||
-+	    !tcp_packets_in_flight(tp)) {
- 		tcp_enter_frto_loss(sk, (tp->frto_counter =3D=3D 1 ? 2 : 3), flag);
- 		return true;
- 	}
+Now apparently Linux _does_ have features which allow a process to
+bind to any desired address in a subnet, since this is the case for
+the IPv4 127.0.0.0/8 standard loopback (I can run "socat
+'TCP-LISTEN:9876,bind=3D[127.1.2.3]' -" without error).  In a na=EFve
+move, I tried to reproduce the output of ip addr show for the
+127.0.0.0/8 subnet as input, but failed (there's an extra word "lo" in
+the output that ip does not allow back as input).  Is this because
+this subnet is really magical to the kernel, or because ip input
+parsing is incomplete, or for some other reason?
+
+If the feature is not presently available in Linux, is there some hope
+that it eventually will be?  How hard would it be to add it?
+
+Thanks in advance,
+
+--=20
+     David A. Madore
+   ( http://www.madore.org/~david/ )
