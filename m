@@ -1,130 +1,77 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH v9 net-next 05/12] bridge: Add the ability to
-	configure pvid
-Date: Sun, 3 Feb 2013 16:20:24 +0100
-Message-ID: <CAHXqBFL3-H_HSwUvXqWEC6vgF5mtaciiwYXPZddrP5F8pPyE7g@mail.gmail.com>
-References: <1359748930-31475-1-git-send-email-vyasevic@redhat.com>
-	<1359748930-31475-6-git-send-email-vyasevic@redhat.com>
-	<CAHXqBFKXEHjghyDe4UQs4inH55UzWcsz+eWAXR4qFiM7+4yVxw@mail.gmail.com>
-	<CAHXqBFJ3FutyBGNAXPueWLqJncvzNqd69nTJc0nLgUqzFMTWjw@mail.gmail.com>
-	<510C786E.5040406@redhat.com>
-	<CAHXqBFKOpQUam4aPB0mqWFRYONsdAHSU-jxKx9AJqabvCwupNA@mail.gmail.com>
+From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
+Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit
+ queue 0 timed out
+Date: Sun, 3 Feb 2013 16:34:30 +0100
+Message-ID: <CADDKRnACHgBOmw0qLE4zVzhq=Yw-1AYJ-JW0muxRCR3jZ=VoUQ@mail.gmail.com>
+References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
+	<20130105093718.GA938@electric-eye.fr.zoreil.com>
+	<CADDKRnBCrDz2X=5qpGE+r92ZFX5cA+jnSGt3wS8TR0RE8hi1HA@mail.gmail.com>
+	<20130105165735.GB4906@electric-eye.fr.zoreil.com>
+	<CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAHXqBFKOpQUam4aPB0mqWFRYONsdAHSU-jxKx9AJqabvCwupNA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2013/2/3 Micha=B3 Miros=B3aw <mirqus@gmail.com>:
-> 2013/2/2 Vlad Yasevich <vyasevic@redhat.com>:
->> On 02/01/2013 08:15 PM, Micha=B3 Miros=B3aw wrote:
->>> 2013/2/2 Micha=B3 Miros=B3aw <mirqus@gmail.com>:
->>>> 2013/2/1 Vlad Yasevich <vyasevic@redhat.com>:
->>>>> A user may designate a certain vlan as PVID.  This means that
->>>>> any ingress frame that does not contain a vlan tag is assigned to
->>>>> this vlan and any forwarding decisions are made with this vlan in min=
-d.
->>>>
->>>> [...]
->>>>>
->>>>>   struct net_port_vlans {
->>>>>          u16                             port_idx;
->>>>> +       u16                             pvid;
->>>>
->>>>
->>>> I'm confused about the implementation. I would expect pvid field in
->>>> net_bridge_port and adding a tag if it isn't there on ingress path.
->>>> The rest would be just like without PVIDs. But here you pvid field to
->>>> net_port_vlans, and don't do anything with it in receive nor transmit
->>>> path. Does it work? What am I missing?
->>> Found the answer in next patch (you should merge #5 and #6).
->> It was split for incremental testing.  #5 added the ability to set and
->> delete it without impacting anything.  #6 added the actual work that pvi=
-d
->> does.
+2013/1/6 J=C3=B6rg Otte <jrg.otte@gmail.com>:
+> 2013/1/5 Francois Romieu <romieu@fr.zoreil.com>:
+>> Can you check if things improve with v3.8-rc2 after removing :
 >>
->>> Still,
->>> the implementation looks overly complicated. If you force the packet
->>> to canonical form on ingress (keeping outer tag in skb->vlan_tci, and
->>> setting skb->vlan_tci =3D pvid if there is no tag) the code should get
->>> simpler.
->>
->>
->> What if there is no outer tag?  That's what the ingress code is doing.
->> If there is no outer tag, pvid is written to vlan_tci.  If there was
->> outer tag in vlan_tci, it's left alone.  This way at the end of ingress
->> vlan_tci is always set.
->> At egress, we grab that tag and compare it against pvid if any.  If it
->> matches, it's stripped.  If it doesn't, we output with the tag thus
->> adding the header.
->>
->> The only thing I can simplify is grab the tci directly at egress, but
->> that's what the code will do anyway.
+>> 1. 9ecb9aabaf634677c77af467f4e3028b09d7bcda
+>>    r8169: workaround for missing extended GigaMAC registers
+>> 2. d64ec841517a25f6d468bde9f67e5b4cffdc67c7
+>>    r8169: enable internal ASPM and clock request settings
 >
-> ... br_allowed_input(..., struct sk_buff **pskb)
-> {
->   *pskb =3D vlan_untag(*pskb);
->   skb =3D *pskb;
->   if (!skb)
->     return 0;
+> Doesn't help for this problem.
 >
->   if (!skb->vlan_tci && (pvid & VLAN_TAG_PRESENT))
->     skb->vlan_tci =3D pvid;
->   return check_vlan_allowed(skb->vlan_tci);
-> }
+> However this fixes a second issue for me:
+> In 3.7.1 at startup the link came up after 15 sec.:
+> grep r8169 dmesg.3.7.1
+> [    1.956842] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> [    1.957059] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
+> [    1.957161] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at..
+> [    1.957163] r8169 0000:02:00.0 eth0: jumbo features [frames..
+> [   13.575452] r8169 0000:02:00.0 eth0: link down
+> [   13.575475] r8169 0000:02:00.0 eth0: link down
+> [   15.181317] r8169 0000:02:00.0 eth0: link up
+>
+> In 3.8rc the time increased to 24 seconds:
+> grep r8169 dmesg.3.8.0
+> [    1.852546] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> [    1.852765] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
+> [    1.852872] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
+> [    1.852874] r8169 0000:02:00.0 eth0: jumbo features [frames...
+> [   14.150212] r8169 0000:02:00.0 eth0: link down
+> [   14.150229] r8169 0000:02:00.0 eth0: link down
+> [   24.140263] r8169 0000:02:00.0 eth0: link up
+>
+> But with this revert I get the old performance:
+> dmesg | grep r8169
+> [    1.816613] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> [    1.816832] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
+> [    1.816947] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
+> [    1.816948] r8169 0000:02:00.0 eth0: jumbo features [frames...
+> [   13.986401] r8169 0000:02:00.0 eth0: link down
+> [   13.986422] r8169 0000:02:00.0 eth0: link down
+> [   15.623631] r8169 0000:02:00.0 eth0: link up
+>
+> Thus I recommend to revert this too.
+>
+>> 3. e0c075577965d1c01b30038d38bf637b027a1df3
+>>    r8169: enable ALDPS for power saving
+>
+> That's it! This fixes the problem for me!
+>
 
-Or maybe some cheating to save unconditional vlan_untag()ging: since
-vlan_tci is used only when vlan_tx_tag_present() returns true, we can
-cache VID there for the bridge code when VLANs are not HW-accelerated.
-I'm not sure of this one as I don't know if the netfilter part keeps
-vlan_tci intact (quick grep suggests it does).
 
-... br_allowed_input(..., struct sk_buff **pskb)
-{
-  skb =3D *pskb;
-  if (!vlan_tx_tag_present(skb)) {
-    if (!__vlan_get_tag(skb, &skb->vlan_tci))
-      skb->vlan_tci &=3D VLAN_VID_MASK;
-    else
-      skb->vlan_tci =3D 0;
-  }
-  if (!skb->vlan_tci && pvid & VLAN_TAG_PRESENT)  // FIXME:
-802.1p-tagged is put in VLAN 0
-    skb->vlan_tci =3D pvid;
-  return check_vlan_allowed(skb, skb->vlan_tci & VLAN_VID_MASK);
-}
+We are closely before v3.8 and I didn't see a solution
+so far.
+What is the plan regarding this issue(s)?
 
-struct sk_buff *br_handle_vlan(..., struct sk_buff *skb)
-{
-   /* we guaranteed in br_allowed_input() that all packets processed
-   /* in bridge code will be like received with NETIF_F_HW_VLAN_RX
-    * feature enabled or have VID cached in vlan_tci without
-    * VLAN_TAG_PRESENT bit set. */
-
-   if ((skb->vlan_tci & VLAN_VID_MASK) | VLAN_TAG_PRESENT !=3D pvid)
-     return skb;
-
-   if (!vlan_tx_tag_present(skb)) {
-      skb =3D vlan_untag(skb);
-      if (!skb)
-        return skb;
-   }
-   skb->vlan_tci =3D 0;  // FIXME: what about 802.1p?
-   return skb;
-}
-
-Best Regards,
-Micha=B3 Miros=B3aw
+Thanks, J=C3=B6rg
