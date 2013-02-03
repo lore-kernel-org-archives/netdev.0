@@ -1,84 +1,44 @@
-From: Lukas Tribus <luky-37@hotmail.com>
-Subject: RE: assigning an entire subnet of addresses to an interface
-Date: Sun, 3 Feb 2013 22:45:45 +0100
-Message-ID: <DUB107-W70CD0C5839AA44142F48CED020@phx.gbl>
+From: David Madore <david+ml@madore.org>
+Subject: Re: assigning an entire subnet of addresses to an interface
+Date: Sun, 3 Feb 2013 23:00:57 +0100
+Message-ID: <20130203220057.GA14363@achernar.madore.org>
 References: <20130203205124.GA13738@aldebaran.madore.org>
+ <DUB107-W70CD0C5839AA44142F48CED020@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: <david+ml@madore.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lukas Tribus <luky-37@hotmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dub0-omc4-s31.dub0.hotmail.com ([157.55.2.106]:24882 "EHLO
-	dub0-omc4-s31.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754048Ab3BCVwC convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Feb 2013 16:52:02 -0500
-In-Reply-To: <20130203205124.GA13738@aldebaran.madore.org>
+Received: from achernar.gro-tsen.net ([88.191.144.68]:41900 "EHLO
+	achernar.gro-tsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753670Ab3BCWBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 17:01:00 -0500
+Content-Disposition: inline
+In-Reply-To: <DUB107-W70CD0C5839AA44142F48CED020@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Feb 03, 2013 at 10:45:45PM +0100, Lukas Tribus wrote:
+> The feature you are looking for is called "Transparent proxy support" or
+> TPROXY, and is in the kernel since 2.6.28.
+> 
+> This allows an application to bind to any address and handle that traffic.
 
-The feature you are looking for is called "Transparent proxy support" o=
-r
-TPROXY, and is in the kernel since 2.6.28.
+This is indeed, interesting, and I'm glad you pointed out this
+possibility, because it had escaped my radar.  (Note that there are
+two slightly different things, though: the TPROXY iptables/ip6tables
+target which redirects packets to a local socket, and the IP-level
+IP_TRANSPARENT socket option which allows a user application to bind
+to an arbitrary address.  The latter is closer to what I was asking.)
 
-This allows an application to bind to any address and handle that traff=
-ic.
+However, this still does not really answer my question: to bind to
+127.1.2.3 one does not need to do a prior setsockopt(fd, SOL_IP,
+IP_TRANSPARENT, &1), so the kernel does seem to have a way to say "for
+this entire subnet, it will be possible to bind to any address without
+doing anything special".
 
-One of the applications supporting this feature is HAproxy:
-http://cbonte.github.com/haproxy-dconv/configuration-1.5.html#5-transpa=
-rent
+Happy hacking,
 
-
-
-
-
-> Date: Sun, 3 Feb 2013 21:51:24 +0100
-> From: david+ml@madore.org
-> To: netdev@vger.kernel.org
-> Subject: assigning an entire subnet of addresses to an interface
->=20
-> Dear list,
->=20
-> Is there a way to assign an entire subnet of (typically IPv6)
-> addresses to an interface?  For example, I'd like to assign the entir=
-e
-> 2001:db8:f00f::/48 prefix to eth42 without actually running 2^80
-> separate "ip addr add" commands.
->=20
-> I'm aware that (with sufficiently recent kernels) one can do this:
->=20
-> ip -6 route add local 2001:db8:f00f::/48 dev lo
->=20
-> - which will cause packets received for any address in this subnet to
-> be handled locally.  But that doesn't really answer my question,
-> because this does not allow local processes to bind to any desired
-> address in the subnet (e.g., running "socat
-> 'TCP6-LISTEN:9876,bind=3D[2001:db8:f00f::3141:5926]'" fails with
-> EADDRNOTAVAIL).
->=20
-> Now apparently Linux _does_ have features which allow a process to
-> bind to any desired address in a subnet, since this is the case for
-> the IPv4 127.0.0.0/8 standard loopback (I can run "socat
-> 'TCP-LISTEN:9876,bind=3D[127.1.2.3]' -" without error).  In a na=EFve
-> move, I tried to reproduce the output of ip addr show for the
-> 127.0.0.0/8 subnet as input, but failed (there's an extra word "lo" i=
-n
-> the output that ip does not allow back as input).  Is this because
-> this subnet is really magical to the kernel, or because ip input
-> parsing is incomplete, or for some other reason?
->=20
-> If the feature is not presently available in Linux, is there some hop=
-e
-> that it eventually will be?  How hard would it be to add it?
->=20
-> Thanks in advance,
->=20
-> --=20
->      David A. Madore
->    ( http://www.madore.org/~david/ )
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
- 		 	   		  
+-- 
+     David A. Madore
+   ( http://www.madore.org/~david/ )
