@@ -1,11 +1,9 @@
-From: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 1/6] ARM: davinci: da850: fix clock lookup for mdio
- device
-Date: Sun, 3 Feb 2013 17:08:37 +0530
-Message-ID: <CA+V-a8vJrx_x97VjHjAuVuY_+=uSq=vR00Z-rL-9Z_BcCE1sEw@mail.gmail.com>
+From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH v2 2/6] ARM: davinci: da850: add DT node for mdio device
+Date: Sun, 3 Feb 2013 17:23:28 +0530
+Message-ID: <510E4FB8.4050705@ti.com>
 References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
- <1359380879-26306-2-git-send-email-prabhakar.lad@ti.com>
- <510E469D.9020807@ti.com>
+ <1359380879-26306-3-git-send-email-prabhakar.lad@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,9 +11,9 @@ Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
  devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Lad,
  Prabhakar" <prabhakar.lad-l0cyMroinI0@public.gmane.org>, Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>,
  linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+To: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <510E469D.9020807-l0cyMroinI0@public.gmane.org>
+In-Reply-To: <1359380879-26306-3-git-send-email-prabhakar.lad-l0cyMroinI0@public.gmane.org>
 List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
  <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
@@ -28,68 +26,63 @@ Sender: "devicetree-discuss"
  <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Sekhar,
+On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
+> From: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
+> 
+> Add mdio device tree node information to da850 by
+> providing register details and bus frequency of mdio.
+> 
+> Signed-off-by: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
+> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
+> Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
+> ---
+>  arch/arm/boot/dts/da850-evm.dts |    3 +++
+>  arch/arm/boot/dts/da850.dtsi    |    7 +++++++
+>  2 files changed, 10 insertions(+), 0 deletions(-)
+> 
+> diff --git a/arch/arm/boot/dts/da850-evm.dts b/arch/arm/boot/dts/da850-evm.dts
+> index 98c1a48..a319491 100644
+> --- a/arch/arm/boot/dts/da850-evm.dts
+> +++ b/arch/arm/boot/dts/da850-evm.dts
+> @@ -27,6 +27,9 @@
+>  		serial2: serial@1d0d000 {
+>  			status = "okay";
+>  		};
+> +		mdio: davinci_mdio@1e24000 {
 
-On Sun, Feb 3, 2013 at 4:44 PM, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> wrote:
-> On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
->> From: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
->>
->> This patch removes the clock alias for mdio device and adds a entry
->> in clock lookup table, this entry can now be used by both DT and NON
->> DT case.
->>
->> Signed-off-by: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
->> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
->> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
->> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
->> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
->> Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
->> ---
->>  arch/arm/mach-davinci/da850.c         |    1 +
->>  arch/arm/mach-davinci/devices-da8xx.c |    8 ++------
->>  2 files changed, 3 insertions(+), 6 deletions(-)
->>
->> diff --git a/arch/arm/mach-davinci/da850.c b/arch/arm/mach-davinci/da850.c
->> index 86056ca..f74bfb6 100644
->> --- a/arch/arm/mach-davinci/da850.c
->> +++ b/arch/arm/mach-davinci/da850.c
->> @@ -402,6 +402,7 @@ static struct clk_lookup da850_clks[] = {
->>       CLK(NULL,               "arm",          &arm_clk),
->>       CLK(NULL,               "rmii",         &rmii_clk),
->>       CLK("davinci_emac.1",   NULL,           &emac_clk),
->> +     CLK("davinci_mdio.0",   "fck",          &emac_clk),
->>       CLK("davinci-mcasp.0",  NULL,           &mcasp_clk),
->>       CLK("da8xx_lcdc.0",     "fck",          &lcdc_clk),
->>       CLK("davinci_mmc.0",    NULL,           &mmcsd0_clk),
->> diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
->> index 2d5502d..52faa05 100644
->> --- a/arch/arm/mach-davinci/devices-da8xx.c
->> +++ b/arch/arm/mach-davinci/devices-da8xx.c
->> @@ -444,12 +444,8 @@ int __init da8xx_register_emac(void)
->>       ret = platform_device_register(&da8xx_mdio_device);
->>       if (ret < 0)
->>               return ret;
->> -     ret = platform_device_register(&da8xx_emac_device);
->> -     if (ret < 0)
->> -             return ret;
->> -     ret = clk_add_alias(NULL, dev_name(&da8xx_mdio_device.dev),
->> -                         NULL, &da8xx_emac_device.dev);
->> -     return ret;
->> +
->> +     return platform_device_register(&da8xx_emac_device);
->
-> You added the look-up only for DA850 which means after this patch da830
-> network will be broken. Did you test on DA830?
+This should just be:
 
-Ah yes my bad this will break network on da830, I'll fix it and respin
-this patch
-alone only, if there aren't any comments for the rest of the series.
+mdio: mdio@1e24000
 
-Regards,
---Prabhakar
+inline with how we avoid adding davinci prefix to each node name.
 
+> +			status = "okay";
+> +		};
+>  	};
+>  	nand_cs3@62000000 {
+>  		status = "okay";
+> diff --git a/arch/arm/boot/dts/da850.dtsi b/arch/arm/boot/dts/da850.dtsi
+> index 7c84822..ba28f2d 100644
+> --- a/arch/arm/boot/dts/da850.dtsi
+> +++ b/arch/arm/boot/dts/da850.dtsi
+> @@ -81,6 +81,13 @@
+>  			interrupts = <61>;
+>  			status = "disabled";
+>  		};
+> +		mdio: davinci_mdio@1e24000 {
+> +			compatible = "ti,davinci_mdio";
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			reg = <0x224000 0x1000>;
+> +			bus_freq = <2200000>;
 
-> Thanks,
-> Sekhar
+The bus frequency is board specific and it is better this is defined in
+da850-evm.dts
+
+Thanks,
+Sekhar
