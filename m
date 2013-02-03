@@ -1,83 +1,58 @@
-From: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH v2 1/6] ARM: davinci: da850: fix clock lookup for mdio
- device
-Date: Sun, 3 Feb 2013 16:44:37 +0530
-Message-ID: <510E469D.9020807@ti.com>
-References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
- <1359380879-26306-2-git-send-email-prabhakar.lad@ti.com>
+From: Lukas Tribus <luky-37@hotmail.com>
+Subject: RE: per route MTU settings
+Date: Sun, 3 Feb 2013 12:22:17 +0100
+Message-ID: <DUB107-W29F168D84D4238014B639ED020@phx.gbl>
+References: <DUB107-W269A7F1946A7B27212F3F8ED2D0@phx.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Lad,
- Prabhakar" <prabhakar.lad-l0cyMroinI0@public.gmane.org>, Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1359380879-26306-2-git-send-email-prabhakar.lad-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: <pupilla@libero.it>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dub0-omc1-s32.dub0.hotmail.com ([157.55.0.231]:37659 "EHLO
+	dub0-omc1-s32.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752099Ab3BCLWT convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Feb 2013 06:22:19 -0500
+In-Reply-To: <DUB107-W269A7F1946A7B27212F3F8ED2D0@phx.gbl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
-> From: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
-> 
-> This patch removes the clock alias for mdio device and adds a entry
-> in clock lookup table, this entry can now be used by both DT and NON
-> DT case.
-> 
-> Signed-off-by: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
-> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-> Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
-> ---
->  arch/arm/mach-davinci/da850.c         |    1 +
->  arch/arm/mach-davinci/devices-da8xx.c |    8 ++------
->  2 files changed, 3 insertions(+), 6 deletions(-)
-> 
-> diff --git a/arch/arm/mach-davinci/da850.c b/arch/arm/mach-davinci/da850.c
-> index 86056ca..f74bfb6 100644
-> --- a/arch/arm/mach-davinci/da850.c
-> +++ b/arch/arm/mach-davinci/da850.c
-> @@ -402,6 +402,7 @@ static struct clk_lookup da850_clks[] = {
->  	CLK(NULL,		"arm",		&arm_clk),
->  	CLK(NULL,		"rmii",		&rmii_clk),
->  	CLK("davinci_emac.1",	NULL,		&emac_clk),
-> +	CLK("davinci_mdio.0",	"fck",		&emac_clk),
->  	CLK("davinci-mcasp.0",	NULL,		&mcasp_clk),
->  	CLK("da8xx_lcdc.0",	"fck",		&lcdc_clk),
->  	CLK("davinci_mmc.0",	NULL,		&mmcsd0_clk),
-> diff --git a/arch/arm/mach-davinci/devices-da8xx.c b/arch/arm/mach-davinci/devices-da8xx.c
-> index 2d5502d..52faa05 100644
-> --- a/arch/arm/mach-davinci/devices-da8xx.c
-> +++ b/arch/arm/mach-davinci/devices-da8xx.c
-> @@ -444,12 +444,8 @@ int __init da8xx_register_emac(void)
->  	ret = platform_device_register(&da8xx_mdio_device);
->  	if (ret < 0)
->  		return ret;
-> -	ret = platform_device_register(&da8xx_emac_device);
-> -	if (ret < 0)
-> -		return ret;
-> -	ret = clk_add_alias(NULL, dev_name(&da8xx_mdio_device.dev),
-> -			    NULL, &da8xx_emac_device.dev);
-> -	return ret;
-> +
-> +	return platform_device_register(&da8xx_emac_device);
 
-You added the look-up only for DA850 which means after this patch da830
-network will be broken. Did you test on DA830?
+=46YI, Steffens fix is in 3.8-rc6 now and it works for me.
 
-Thanks,
-Sekhar
+
+root@ubuntuvm:~# cat /proc/version
+Linux version 3.8.0-030800rc6-generic (root@gomeisa) (gcc version 4.6.3=
+ (Ubuntu/Linaro 4.6.3-1ubuntu5) ) #201301312135 SMP Fri Feb 1 02:36:25 =
+UTC 2013
+root@ubuntuvm:~# echo 1 > /proc/sys/net/ipv4/ip_forward
+root@ubuntuvm:~# echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects
+root@ubuntuvm:~# echo 0 > /proc/sys/net/ipv4/conf/all/send_redirects
+root@ubuntuvm:~# ip route add 8.8.8.0/24 via 10.0.0.254 mtu lock 1200
+root@ubuntuvm:~# ip route add 8.8.4.0/24 via 10.0.0.254 mtu lock 1200
+root@ubuntuvm:~#
+root@ubuntuvm:~# tcpdump -nvvv icmp -i eth0
+tcpdump: listening on eth0, link-type EN10MB (Ethernet), capture size 6=
+5535 bytes
+12:17:19.085868 IP (tos 0x0, ttl 128, id 3161, offset 0, flags [DF], pr=
+oto ICMP (1), length 1428)
+=A0=A0=A0 10.0.0.3 > 8.8.4.4: ICMP echo request, id 1, seq 38744, lengt=
+h 1408
+12:17:19.085910 IP (tos 0xc0, ttl 64, id 53508, offset 0, flags [none],=
+ proto ICMP (1), length 576)
+=A0=A0=A0 10.0.0.55 > 10.0.0.3: ICMP 8.8.4.4 unreachable - need to frag=
+ (mtu 1200), length 556
+=A0=A0=A0=A0=A0=A0=A0 IP (tos 0x0, ttl 128, id 3161, offset 0, flags [D=
+=46], proto ICMP (1), length 1428)
+=A0=A0=A0 10.0.0.3 > 8.8.4.4: ICMP echo request, id 1, seq 38744, lengt=
+h 1408
+^C
+2 packets captured
+2 packets received by filter
+0 packets dropped by kernel
+root@ubuntuvm:~#
+
+
+
+ 		 	   		  
