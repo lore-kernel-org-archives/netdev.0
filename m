@@ -1,53 +1,50 @@
-From: David Madore <david+ml@madore.org>
-Subject: assigning an entire subnet of addresses to an interface
-Date: Sun, 3 Feb 2013 21:51:24 +0100
-Message-ID: <20130203205124.GA13738@aldebaran.madore.org>
+From: saeed bishara <saeed.bishara@gmail.com>
+Subject: Re: [PATCH v2 net-next] inet: Get critical word in first 64bit of
+ cache line
+Date: Sun, 3 Feb 2013 23:00:30 +0200
+Message-ID: <CAMAG_eeeQrvyKizbHb2hkRMV+MiV7u-G+LvSAs3C3NDdGzT4Eg@mail.gmail.com>
+References: <1353900555-5966-1-git-send-email-ling.ma.program@gmail.com> <1359817435.30177.70.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Linux Netdev Mailing-List <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: ling.ma.program@gmail.com, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from achernar.gro-tsen.net ([88.191.144.68]:41898 "EHLO
-	achernar.gro-tsen.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753589Ab3BCVAb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 16:00:31 -0500
-Content-Disposition: inline
+Received: from mail-la0-f51.google.com ([209.85.215.51]:37997 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753595Ab3BCVAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 16:00:52 -0500
+Received: by mail-la0-f51.google.com with SMTP id fo13so3974614lab.24
+        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 13:00:50 -0800 (PST)
+In-Reply-To: <1359817435.30177.70.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear list,
+On Sat, Feb 2, 2013 at 5:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Ma Ling <ling.ma.program@gmail.com>
+>
+> In order to reduce memory latency when last level cache miss occurs,
+> modern CPUs i.e. x86 and arm introduced Critical Word First(CWF) or
+> Early Restart(ER) to get data ASAP. For CWF if critical word is first
+> member
+> in cache line, memory feed CPU with critical word, then fill others
+> data in cache line one by one, otherwise after critical word it must
+> cost more cycle to fill the remaining cache line. For Early First CPU
+> will restart until critical word in cache line reaches.
+>
+> Hash value is critical word, so in this patch we place it as first
+> member in cache line (sock address is cache-line aligned), and it is
+> also good for Early Restart platform as well .
+I think the description of this patch doen't make sense. the purpose
+of CWF hardware feature is to release the sw from moving critical word
+as first member of the cache.
+that's ofcourse depends on how you define the CWF, but at least
+according to http://lwn.net/Articles/252125/ and here
+https://github.com/jamie-allen/cpu_caches/blob/master/preso/presentation.md
+the CWF means the hw will do the job.
+so I think the patch maybe usefull (1) for system that doesn't have
+CWF, (2) CWF may not totaly eliminate the additional latency. this is
+of course a prediction as you see.
 
-Is there a way to assign an entire subnet of (typically IPv6)
-addresses to an interface?  For example, I'd like to assign the entire
-2001:db8:f00f::/48 prefix to eth42 without actually running 2^80
-separate "ip addr add" commands.
-
-I'm aware that (with sufficiently recent kernels) one can do this:
-
-ip -6 route add local 2001:db8:f00f::/48 dev lo
-
-- which will cause packets received for any address in this subnet to
-be handled locally.  But that doesn't really answer my question,
-because this does not allow local processes to bind to any desired
-address in the subnet (e.g., running "socat
-'TCP6-LISTEN:9876,bind=3D[2001:db8:f00f::3141:5926]'" fails with
-EADDRNOTAVAIL).
-
-Now apparently Linux _does_ have features which allow a process to
-bind to any desired address in a subnet, since this is the case for
-the IPv4 127.0.0.0/8 standard loopback (I can run "socat
-'TCP-LISTEN:9876,bind=3D[127.1.2.3]' -" without error).  In a na=EFve
-move, I tried to reproduce the output of ip addr show for the
-127.0.0.0/8 subnet as input, but failed (there's an extra word "lo" in
-the output that ip does not allow back as input).  Is this because
-this subnet is really magical to the kernel, or because ip input
-parsing is incomplete, or for some other reason?
-
-If the feature is not presently available in Linux, is there some hope
-that it eventually will be?  How hard would it be to add it?
-
-Thanks in advance,
-
---=20
-     David A. Madore
-   ( http://www.madore.org/~david/ )
+saeed
