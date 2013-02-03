@@ -1,47 +1,69 @@
-From: =?UTF-8?B?RMOibmllbA==?= Fraga <fragabr@gmail.com>
-Subject: Re: Annoying e1000e link up and down issue (workaround)
-Date: Sun, 3 Feb 2013 04:34:09 -0200
-Message-ID: <kel0d0$qps$1@ger.gmane.org>
-References: <kekr0s$kah$1@ger.gmane.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] mlx4_en: Change BQL reset TX queue call point
+Date: Sun, 3 Feb 2013 08:39:22 +0200
+Message-ID: <510E061A.2070401@mellanox.com>
+References: <alpine.DEB.2.00.1302011659200.14247@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <yevgenyp@mellanox.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:43359 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751363Ab3BCGeZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 01:34:25 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1U1t9z-0000u3-W6
-	for netdev@vger.kernel.org; Sun, 03 Feb 2013 07:34:40 +0100
-Received: from 189-69-194-65.dial-up.telesp.net.br ([189.69.194.65])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 07:34:39 +0100
-Received: from fragabr by 189-69-194-65.dial-up.telesp.net.br with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 07:34:39 +0100
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:45728 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751381Ab3BCGjb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 01:39:31 -0500
+In-Reply-To: <alpine.DEB.2.00.1302011659200.14247@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 3 Feb 2013 02:02:23 -0200
-D=C3=A2niel Fraga <fragabr@gmail.com> wrote:
+On 02/02/2013 03:02, Tom Herbert wrote:
+> Fix issue in Mellanox driver related to BQL.  netdev_tx_reset_queue
+> was not being called in certain situations where the device was
+> being start and stopped.  Moved netdev_tx_reset_queue from the reset
+> device path to mlx4_en_free_tx_buf which is where the rings are
+> cleaned in a reset (specifically from device being stopped).
+>
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 3 ---
+>   drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 2 ++
+>   2 files changed, 2 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index b467513..075fdff 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -1284,15 +1284,12 @@ static void mlx4_en_restart(struct work_struct *work)
+>   						 watchdog_task);
+>   	struct mlx4_en_dev *mdev = priv->mdev;
+>   	struct net_device *dev = priv->dev;
+> -	int i;
+>
+>   	en_dbg(DRV, priv, "Watchdog task called for port %d\n", priv->port);
+>
+>   	mutex_lock(&mdev->state_lock);
+>   	if (priv->port_up) {
+>   		mlx4_en_stop_port(dev);
+> -		for (i = 0; i < priv->tx_ring_num; i++)
+> -			netdev_tx_reset_queue(priv->tx_ring[i].tx_queue);
+>   		if (mlx4_en_start_port(dev))
+>   			en_err(priv, "Failed restarting port %d\n", priv->port);
+>   	}
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index c579311..3c17732 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -294,6 +294,8 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
+>   		cnt++;
+>   	}
+>
+> +	netdev_tx_reset_queue(ring->tx_queue);
+> +
+>   	if (cnt)
+>   		en_dbg(DRV, priv, "Freed %d uncompleted tx descriptors\n", cnt);
+>
+>
 
-> 	Can someone take a look at this bug?
->=20
-> https://bugzilla.kernel.org/show_bug.cgi?id=3D53291
-
-	Well, my workaround is to turn off (unplug from AC power) the
-TP-Link WDR4300, wait a few minutes and turn it on. Then e1000e will
-autonegotiate 1000 Mbps correctly.
-
-	The question is: the problem is with the router or with the
-e1000e driver? Since many users are having the same problem, couldn't
-e1000e deal with it in a better way?
-
---=20
-Linux 3.7.0: Terrified Chipmunk
-http://www.youtube.com/DanielFragaBR
-http://www.libertarios.org.br
+Acked-by: Amir Vadai <amirv@mellanox.com>
