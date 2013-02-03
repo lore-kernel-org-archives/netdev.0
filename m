@@ -1,99 +1,157 @@
-From: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v2 2/6] ARM: davinci: da850: add DT node for mdio device
-Date: Sun, 3 Feb 2013 17:47:53 +0530
-Message-ID: <CA+V-a8uMeG-=hTgTSOMRJ-Cr9mXwidu4mQaT5eQ+U7wiWj8MuQ@mail.gmail.com>
-References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
- <1359380879-26306-3-git-send-email-prabhakar.lad@ti.com>
- <510E4FB8.4050705@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Lad,
- Prabhakar" <prabhakar.lad-l0cyMroinI0@public.gmane.org>, Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <510E4FB8.4050705-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH] net/mlx4_en: Fixed compilation error when CONFIG_INET isn't defined
+Date: Sun,  3 Feb 2013 14:33:39 +0200
+Message-ID: <1359894819-18794-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:34413 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751721Ab3BCMeA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 07:34:00 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sekhar,
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
-On Sun, Feb 3, 2013 at 5:23 PM, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org> wrote:
-> On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
->> From: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
->>
->> Add mdio device tree node information to da850 by
->> providing register details and bus frequency of mdio.
->>
->> Signed-off-by: Lad, Prabhakar <prabhakar.lad-l0cyMroinI0@public.gmane.org>
->> Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
->> Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> Cc: davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
->> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
->> Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>
->> Cc: Heiko Schocher <hs-ynQEQJNshbs@public.gmane.org>
->> ---
->>  arch/arm/boot/dts/da850-evm.dts |    3 +++
->>  arch/arm/boot/dts/da850.dtsi    |    7 +++++++
->>  2 files changed, 10 insertions(+), 0 deletions(-)
->>
->> diff --git a/arch/arm/boot/dts/da850-evm.dts b/arch/arm/boot/dts/da850-evm.dts
->> index 98c1a48..a319491 100644
->> --- a/arch/arm/boot/dts/da850-evm.dts
->> +++ b/arch/arm/boot/dts/da850-evm.dts
->> @@ -27,6 +27,9 @@
->>               serial2: serial@1d0d000 {
->>                       status = "okay";
->>               };
->> +             mdio: davinci_mdio@1e24000 {
->
-> This should just be:
->
-> mdio: mdio@1e24000
->
-> inline with how we avoid adding davinci prefix to each node name.
->
-Ok
+ip_eth_mc_map function can't be used when CONFIG_INET isn't defined.
+Fixed compilation error by adding CONFIG_INET define check before using the
+function.
 
->> +                     status = "okay";
->> +             };
->>       };
->>       nand_cs3@62000000 {
->>               status = "okay";
->> diff --git a/arch/arm/boot/dts/da850.dtsi b/arch/arm/boot/dts/da850.dtsi
->> index 7c84822..ba28f2d 100644
->> --- a/arch/arm/boot/dts/da850.dtsi
->> +++ b/arch/arm/boot/dts/da850.dtsi
->> @@ -81,6 +81,13 @@
->>                       interrupts = <61>;
->>                       status = "disabled";
->>               };
->> +             mdio: davinci_mdio@1e24000 {
->> +                     compatible = "ti,davinci_mdio";
->> +                     #address-cells = <1>;
->> +                     #size-cells = <0>;
->> +                     reg = <0x224000 0x1000>;
->> +                     bus_freq = <2200000>;
->
-> The bus frequency is board specific and it is better this is defined in
-> da850-evm.dts
->
-Ok I'll move this to dts file.
+Change-Id: I50a95f283548b0d782def2d49077e35f91fe1c2e
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |   56 +++++++++++++++-------
+ 1 files changed, 38 insertions(+), 18 deletions(-)
 
-Regards,
---Prabhakar
-
-> Thanks,
-> Sekhar
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 911d488..f523f02 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -711,6 +711,7 @@ static int mlx4_en_ethtool_add_mac_rule_by_ipv4(struct mlx4_en_priv *priv,
+ 						struct mlx4_spec_list *spec_l2,
+ 						__be32 ipv4_dst)
+ {
++#ifdef CONFIG_INET
+ 	__be64 be_mac = 0;
+ 	unsigned char mac[ETH_ALEN];
+ 
+@@ -726,12 +727,16 @@ static int mlx4_en_ethtool_add_mac_rule_by_ipv4(struct mlx4_en_priv *priv,
+ 	}
+ 
+ 	return mlx4_en_ethtool_add_mac_rule(cmd, rule_list_h, spec_l2, &mac[0]);
++#else
++	return -EINVAL;
++#endif
+ }
+ 
+ static int add_ip_rule(struct mlx4_en_priv *priv,
+ 		       struct ethtool_rxnfc *cmd,
+ 		       struct list_head *list_h)
+ {
++	int err;
+ 	struct mlx4_spec_list *spec_l2 = NULL;
+ 	struct mlx4_spec_list *spec_l3 = NULL;
+ 	struct ethtool_usrip4_spec *l3_mask = &cmd->fs.m_u.usr_ip4_spec;
+@@ -740,14 +745,15 @@ static int add_ip_rule(struct mlx4_en_priv *priv,
+ 	spec_l2 = kzalloc(sizeof(*spec_l2), GFP_KERNEL);
+ 	if (!spec_l2 || !spec_l3) {
+ 		en_err(priv, "Fail to alloc ethtool rule.\n");
+-		kfree(spec_l2);
+-		kfree(spec_l3);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto free_spec;
+ 	}
+ 
+-	mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h, spec_l2,
+-					     cmd->fs.h_u.
+-					     usr_ip4_spec.ip4dst);
++	err = mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h, spec_l2,
++						   cmd->fs.h_u.
++						   usr_ip4_spec.ip4dst);
++	if (err)
++		goto free_spec;
+ 	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
+ 	spec_l3->ipv4.src_ip = cmd->fs.h_u.usr_ip4_spec.ip4src;
+ 	if (l3_mask->ip4src)
+@@ -758,12 +764,18 @@ static int add_ip_rule(struct mlx4_en_priv *priv,
+ 	list_add_tail(&spec_l3->list, list_h);
+ 
+ 	return 0;
++
++free_spec:
++	kfree(spec_l2);
++	kfree(spec_l3);
++	return err;
+ }
+ 
+ static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
+ 			     struct ethtool_rxnfc *cmd,
+ 			     struct list_head *list_h, int proto)
+ {
++	int err;
+ 	struct mlx4_spec_list *spec_l2 = NULL;
+ 	struct mlx4_spec_list *spec_l3 = NULL;
+ 	struct mlx4_spec_list *spec_l4 = NULL;
+@@ -774,29 +786,31 @@ static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
+ 	spec_l4 = kzalloc(sizeof(*spec_l4), GFP_KERNEL);
+ 	if (!spec_l2 || !spec_l3 || !spec_l4) {
+ 		en_err(priv, "Fail to alloc ethtool rule.\n");
+-		kfree(spec_l2);
+-		kfree(spec_l3);
+-		kfree(spec_l4);
+-		return -ENOMEM;
++		err = -ENOMEM;
++		goto free_spec;
+ 	}
+ 
+ 	spec_l3->id = MLX4_NET_TRANS_RULE_ID_IPV4;
+ 
+ 	if (proto == TCP_V4_FLOW) {
+-		mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h,
+-						     spec_l2,
+-						     cmd->fs.h_u.
+-						     tcp_ip4_spec.ip4dst);
++		err = mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h,
++							   spec_l2,
++							   cmd->fs.h_u.
++							   tcp_ip4_spec.ip4dst);
++		if (err)
++			goto free_spec;
+ 		spec_l4->id = MLX4_NET_TRANS_RULE_ID_TCP;
+ 		spec_l3->ipv4.src_ip = cmd->fs.h_u.tcp_ip4_spec.ip4src;
+ 		spec_l3->ipv4.dst_ip = cmd->fs.h_u.tcp_ip4_spec.ip4dst;
+ 		spec_l4->tcp_udp.src_port = cmd->fs.h_u.tcp_ip4_spec.psrc;
+ 		spec_l4->tcp_udp.dst_port = cmd->fs.h_u.tcp_ip4_spec.pdst;
+ 	} else {
+-		mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h,
+-						     spec_l2,
+-						     cmd->fs.h_u.
+-						     udp_ip4_spec.ip4dst);
++		err = mlx4_en_ethtool_add_mac_rule_by_ipv4(priv, cmd, list_h,
++							   spec_l2,
++							   cmd->fs.h_u.
++							   udp_ip4_spec.ip4dst);
++		if (err)
++			goto free_spec;
+ 		spec_l4->id = MLX4_NET_TRANS_RULE_ID_UDP;
+ 		spec_l3->ipv4.src_ip = cmd->fs.h_u.udp_ip4_spec.ip4src;
+ 		spec_l3->ipv4.dst_ip = cmd->fs.h_u.udp_ip4_spec.ip4dst;
+@@ -818,6 +832,12 @@ static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
+ 	list_add_tail(&spec_l4->list, list_h);
+ 
+ 	return 0;
++
++free_spec:
++	kfree(spec_l2);
++	kfree(spec_l3);
++	kfree(spec_l4);
++	return err;
+ }
+ 
+ static int mlx4_en_ethtool_to_net_trans_rule(struct net_device *dev,
+-- 
+1.7.6.4
