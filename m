@@ -1,24 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2013-02-01
-Date: Sat, 02 Feb 2013 23:10:34 -0500 (EST)
-Message-ID: <20130202.231034.2185119506799907924.davem@davemloft.net>
-References: <1359710714-1565-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH net-next 0/2] Delete obsolete wanrouter support
+Date: Sat, 02 Feb 2013 23:13:40 -0500 (EST)
+Message-ID: <20130202.231340.2229896373303579319.davem@davemloft.net>
+References: <1359761422-27629-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1359710714-1565-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com, joe@perches.com,
+	acme@redhat.com
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54733 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752506Ab3BCENm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Feb 2013 23:13:42 -0500
+In-Reply-To: <1359761422-27629-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri,  1 Feb 2013 10:25:13 +0100
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Fri,  1 Feb 2013 18:30:20 -0500
 
-> here's a patch for net for the v3.8 release cycle. Alexander Stein
-> noticed that the c_can hardware has a fixed bit in the IFx_MASK2
-> register. His patch fixes writing of this register by always setting
-> this bit.
+>   git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git delete-wanrouter
 
-Pulled, thanks Marc.
+Looks good to me, pulled, thanks Paul.
