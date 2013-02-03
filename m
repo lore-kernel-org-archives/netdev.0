@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4_en: Change BQL reset TX queue call point
-Date: Sun, 03 Feb 2013 16:13:29 -0500 (EST)
-Message-ID: <20130203.161329.867394389053130890.davem@davemloft.net>
-References: <alpine.DEB.2.00.1302011659200.14247@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH] stmmac: don't return zero on failure path in
+ stmmac_pci_probe()
+Date: Sun, 03 Feb 2013 16:14:30 -0500 (EST)
+Message-ID: <20130203.161430.1661232701671861013.davem@davemloft.net>
+References: <1359756559-20211-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yevgenyp@mellanox.com, netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34520 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753600Ab3BCVNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 16:13:31 -0500
-In-Reply-To: <alpine.DEB.2.00.1302011659200.14247@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1359756559-20211-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Fri, 1 Feb 2013 17:02:50 -0800 (PST)
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Sat,  2 Feb 2013 02:09:19 +0400
 
-> Fix issue in Mellanox driver related to BQL.  netdev_tx_reset_queue
-> was not being called in certain situations where the device was
-> being start and stopped.  Moved netdev_tx_reset_queue from the reset
-> device path to mlx4_en_free_tx_buf which is where the rings are
-> cleaned in a reset (specifically from device being stopped).
+> If stmmac_dvr_probe() fails in stmmac_pci_probe(), it breaks off initialization,
+> deallocates all resources, but returns zero.
+> The patch adds -ENODEV as return value in this case.
 > 
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-This doesn't apply to net-next, please respin.
+Applied to net-next, thanks.
