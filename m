@@ -1,84 +1,88 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 09/62] atm/nicstar: convert to idr_alloc()
-Date: Mon, 4 Feb 2013 09:04:10 -0500
-Message-ID: <20130204090410.2942f8cc@thirdoffive.cmf.nrl.navy.mil>
-References: <1359854463-2538-1-git-send-email-tj@kernel.org>
-	<1359854463-2538-10-git-send-email-tj@kernel.org>
+From: Emmanuel Jeanvoine <emmanuel.jeanvoine@inria.fr>
+Subject: Poor TCP bandwidth between network namespaces
+Date: Mon, 4 Feb 2013 15:43:20 +0100
+Message-ID: <20130204144320.GG1353@tostaky>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	rusty@rustcorp.com.au, bfields@fieldses.org,
-	skinsbursky@parallels.com, ebiederm@xmission.com,
-	jmorris@namei.org, axboe@kernel.dk, netdev@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1359854463-2538-10-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:47091 "EHLO
+	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753188Ab3BDOvY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 09:51:24 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-I don't quite understand your comment.  idr_pre_get() returns 0 in the
-case of failure.
+Hello,
 
-On Sat,  2 Feb 2013 17:20:10 -0800
-Tejun Heo <tj@kernel.org> wrote:
+I'm trying to understand some performance issues when transferring 
+data over TCP between two Linux network namespaces (with veth 
+interfaces) on the same host.
 
-> Convert to the much saner new idr interface.  The existing code looks
-> buggy to me - ID 0 is treated as no-ID but allocation specifies 0 as
-> lower limit and there's no error handling after parial success.  This
-> conversion keeps the bugs unchanged.
-> 
-> Only compile tested.
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Chas Williams <chas@cmf.nrl.navy.mil>
-> Cc: netdev@vger.kernel.org
-> ---
-> This patch depends on an earlier idr changes and I think it would be
-> best to route these together through -mm.  Please holler if there's
-> any objection.  Thanks.
-> 
->  drivers/atm/nicstar.c | 27 ++++++++++++---------------
->  1 file changed, 12 insertions(+), 15 deletions(-)
-> 
-> diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-> index 628787e..7fd6834 100644
-> --- a/drivers/atm/nicstar.c
-> +++ b/drivers/atm/nicstar.c
-> @@ -1026,24 +1026,21 @@ static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
->  				card->lbfqc += 2;
->  		}
->  
-> -		do {
-> -			if (!idr_pre_get(&card->idr, GFP_ATOMIC)) {
-> -				printk(KERN_ERR
-> -				       "nicstar%d: no free memory for idr\n",
-> -				       card->index);
-> +		if (!id1) {
-> +			id1 = idr_alloc(&card->idr, handle1, 0, 0, GFP_ATOMIC);
-> +			if (id1 < 0) {
-> +				err = id1;
->  				goto out;
->  			}
-> +		}
->  
-> -			if (!id1)
-> -				err = idr_get_new_above(&card->idr, handle1, 0, &id1);
-> -
-> -			if (!id2 && err == 0)
-> -				err = idr_get_new_above(&card->idr, handle2, 0, &id2);
-> -
-> -		} while (err == -EAGAIN);
-> -
-> -		if (err)
-> -			goto out;
-> +		if (!id2) {
-> +			id2 = idr_alloc(&card->idr, handle2, 0, 0, GFP_ATOMIC);
-> +			if (id2 < 0) {
-> +				err = id2;
-> +				goto out;
-> +			}
-> +		}
->  
->  		spin_lock_irqsave(&card->res_lock, flags);
->  		while (CMD_BUSY(card)) ;
+Here is my approach:
+I'm measuring the network performance thanks to netpipe-tcp (debian 
+wheezy package) in two situations:
+- using the loopback interface (i.e. launching netpipe client and 
+server on the same node)
+- using netpipe server inside a netns ans netpipe client inside 
+another one, but both netns are on the same node.
+
+This has been scripted in order to ease the reproducibility. This 
+require to have an 'ip' utility that supports 'netns' argument and 
+netpipe-tcp installed. Furthermore, this is using the 192.168.64/24 
+network but this can changed if required. Here is the script:
+#!/bin/sh
+#This script has to be launched as root
+#
+###Reference measurement
+echo "### Iperf execution without netns (localhost)"
+NPtcp &
+NPtcp -h localhost -o np-local
+echo
+###Netns measurement
+#Prepare bridge and netns vnodes
+brctl addbr br0
+ip addr add 192.168.64.1/24 dev br0
+ip link set br0 up
+#First virtual node creation
+ip link add name ext0 type veth peer name int0
+ip link set ext0 up
+brctl addif br0 ext0
+ip netns add vnode0
+ip link set dev int0 netns vnode0
+ip netns exec vnode0 ip addr add 192.168.64.2/24 dev int0 
+ip netns exec vnode0 ip link set dev int0 up
+#Second virtual node creation
+ip link add name ext1 type veth peer name int0
+ip link set ext1 up
+brctl addif br0 ext1
+ip netns add vnode1
+ip link set dev int0 netns vnode1
+ip netns exec vnode1 ip addr add 192.168.64.3/24 dev int0
+ip netns exec vnode1 ip link set dev int0 up
+echo "### Iperf execution inside netns"
+ip netns exec vnode0 NPtcp &
+sleep 1
+ip netns exec vnode1 NPtcp -h 192.168.64.2 -o np-netns
+# Cleaning everything
+ifconfig br0 down
+brctl delbr br0
+ip netns delete vnode0
+ip netns delete vnode1
+
+
+This experiment has been performed with 3.2 and 3.7 kernels, and here 
+are the results:
+- on a 3.2 kernel: 
+http://www.loria.fr/~ejeanvoi/pub/netns-kernel-3.2.png
+- on a 3.7 kernel: 
+http://www.loria.fr/~ejeanvoi/pub/netns-kernel-3.7.png
+
+I'm wondering why the overhead is so high when performing TCP 
+transfers between two network namespaces. Do you have any idea about 
+this issue? And possibly, how to increase the bandwidth (without 
+modifying the MTU on the veths) between network namespaces?
+
+Thanks in advance,
+Emmanuel Jeanvoine.
