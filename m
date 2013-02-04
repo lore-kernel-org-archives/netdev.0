@@ -1,10 +1,9 @@
 From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: Re: [PATCH v2 6/6] ARM: davinci: da850: configure system
- configuration chip(CFGCHIP3) for emac
-Date: Mon, 4 Feb 2013 10:33:15 +0530
-Message-ID: <CA+V-a8uE6jymk5Z14ydCmuoCAkcLM-ZJKpwp2-0CRXWQtXvTSA@mail.gmail.com>
+Subject: Re: [PATCH v2 4/6] ARM: davinci: da850: add DT node for eth0.
+Date: Mon, 4 Feb 2013 10:37:32 +0530
+Message-ID: <CA+V-a8uT-iF_TdWQwvnc1PfcQ9z3WBuZ2MYS1X_u3wO0_p=T0w@mail.gmail.com>
 References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com>
- <1359380879-26306-7-git-send-email-prabhakar.lad@ti.com> <510E5BCF.9080006@ti.com>
+ <1359380879-26306-5-git-send-email-prabhakar.lad@ti.com> <510E51FF.8090005@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: linux-arm-kernel@lists.infradead.org,
@@ -14,19 +13,18 @@ Cc: linux-arm-kernel@lists.infradead.org,
 	"Lad, Prabhakar" <prabhakar.lad@ti.com>
 To: Sekhar Nori <nsekhar@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <510E5BCF.9080006@ti.com>
+In-Reply-To: <510E51FF.8090005@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Sekhar ,
 
-On Sun, Feb 3, 2013 at 6:15 PM, Sekhar Nori <nsekhar@ti.com> wrote:
+On Sun, Feb 3, 2013 at 5:33 PM, Sekhar Nori <nsekhar@ti.com> wrote:
 > On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
 >> From: Lad, Prabhakar <prabhakar.lad@ti.com>
 >>
->> The system configuration chip CFGCHIP3, controls the emac module.
->> This patch appropriately configures this register for emac and
->> sets DA850_MII_MDIO_CLKEN_PIN GPIO pin appropriately.
+>> Add eth0 device tree node information and pinmux for mii to da850 by
+>> providing interrupt details and local mac address of eth0.
 >>
 >> Signed-off-by: Lad, Prabhakar <prabhakar.lad@ti.com>
 >> Cc: linux-arm-kernel@lists.infradead.org
@@ -37,92 +35,97 @@ On Sun, Feb 3, 2013 at 6:15 PM, Sekhar Nori <nsekhar@ti.com> wrote:
 >> Cc: Sekhar Nori <nsekhar@ti.com>
 >> Cc: Heiko Schocher <hs@denx.de>
 >> ---
->>  arch/arm/mach-davinci/da8xx-dt.c |   28 ++++++++++++++++++++++++++++
->>  1 files changed, 28 insertions(+), 0 deletions(-)
+>>  arch/arm/boot/dts/da850-evm.dts |    5 +++++
+>>  arch/arm/boot/dts/da850.dtsi    |   35 +++++++++++++++++++++++++++++++++++
+>>  2 files changed, 40 insertions(+), 0 deletions(-)
 >>
->> diff --git a/arch/arm/mach-davinci/da8xx-dt.c b/arch/arm/mach-davinci/da8xx-dt.c
->> index e533a0a..4a096e3 100644
->> --- a/arch/arm/mach-davinci/da8xx-dt.c
->> +++ b/arch/arm/mach-davinci/da8xx-dt.c
->> @@ -8,6 +8,7 @@
->>   * published by the Free Software Foundation.
->>   */
->>  #include <linux/io.h>
->> +#include <linux/gpio.h>
->>  #include <linux/of_irq.h>
->>  #include <linux/of_platform.h>
->>  #include <linux/irqdomain.h>
->> @@ -39,6 +40,32 @@ static void __init da8xx_init_irq(void)
->>
->>  #ifdef CONFIG_ARCH_DAVINCI_DA850
->>
->> +static void __init da8xx_config_emac(void)
->> +{
->> +#define DA850_MII_MDIO_CLKEN_PIN     GPIO_TO_PIN(2, 6)
->> +#define DA850_EMAC_MODE_SELECT               BIT(8)
->> +     void __iomem *cfg_chip3_base;
->> +     int ret;
->> +     u32 val;
->> +
->> +     cfg_chip3_base = DA8XX_SYSCFG0_VIRT(DA8XX_CFGCHIP3_REG);
->> +
->> +     val = __raw_readl(cfg_chip3_base);
->> +     val &= ~DA850_EMAC_MODE_SELECT;
->> +     /* configure the CFGCHIP3 register for MII */
->> +     __raw_writel(val, cfg_chip3_base);
+>> diff --git a/arch/arm/boot/dts/da850-evm.dts b/arch/arm/boot/dts/da850-evm.dts
+>> index a319491..19aa2b3 100644
+>> --- a/arch/arm/boot/dts/da850-evm.dts
+>> +++ b/arch/arm/boot/dts/da850-evm.dts
+>> @@ -30,6 +30,11 @@
+>>               mdio: davinci_mdio@1e24000 {
+>>                       status = "okay";
+>>               };
+>> +             eth0: emac@1e20000 {
+>> +                     status = "okay";
+>> +                     pinctrl-names = "default";
+>> +                     pinctrl-0 = <&mii_pins>;
+>> +             };
+>>       };
+>>       nand_cs3@62000000 {
+>>               status = "okay";
+>> diff --git a/arch/arm/boot/dts/da850.dtsi b/arch/arm/boot/dts/da850.dtsi
+>> index ba28f2d..76905f3 100644
+>> --- a/arch/arm/boot/dts/da850.dtsi
+>> +++ b/arch/arm/boot/dts/da850.dtsi
+>> @@ -56,6 +56,26 @@
+>>                                       0x30 0x01100000  0x0ff00000
+>>                               >;
+>>                       };
+>> +                     mii_pins: pinmux_mii_pins {
+>> +                             pinctrl-single,bits = <
+>> +                                     /*
+>> +                                      * MII_TXEN, MII_TXCLK, MII_COL
+>> +                                      * MII_TXD_3, MII_TXD_2, MII_TXD_1
+>> +                                      * MII_TXD_0
+>> +                                      */
+>> +                                     0x8 0x88888880 0xfffffff0
+>> +                                     /*
+>> +                                      * MII_RXER, MII_CRS, MII_RXCLK
+>> +                                      * MII_RXDV, MII_RXD_3, MII_RXD_2
+>> +                                      * MII_RXD_1, MII_RXD_0
+>> +                                      */
+>> +                                     0xc 0x88888888 0xffffffff
+>> +                                     /* MDIO_CLK, MDIO_D */
 >
-> Use readl/writel instead.
+> You call this mii_pins, but include mdio pins in there as well. Can you
+> separate them out? Then some board which uses rmii can simply reuse the
+> entry.
 >
-Ok.
+Ok makes sense.
 
->> +     pr_info("EMAC: MII PHY configured\n");
->> +
->> +     ret = gpio_request(DA850_MII_MDIO_CLKEN_PIN, "mdio_clk_en");
->> +     if (ret) {
->> +             pr_warn("Cannot open GPIO %d\n",
->> +                                     DA850_MII_MDIO_CLKEN_PIN);
->> +             return;
->> +     }
->> +     /* Enable/Disable MII MDIO clock */
->> +     gpio_direction_output(DA850_MII_MDIO_CLKEN_PIN, 0);
->> +}
->> +
->>  struct of_dev_auxdata da8xx_auxdata[] __initdata = {
->>       OF_DEV_AUXDATA("ti,davinci_mdio", 0x01e24000, "davinci_mdio.0", NULL),
->>       OF_DEV_AUXDATA("ti,davinci-dm6467-emac", 0x01e20000, "davinci_emac.1",
->> @@ -52,6 +79,7 @@ static void __init da850_init_machine(void)
->>                            da8xx_auxdata, NULL);
->>
->>       da8xx_uart_clk_enable();
->> +     da8xx_config_emac();
+>> +                                     0x10 0x00222288 0x00ffffff
+>> +                                     /* GPIO2_6 */
+>> +                                     0x18 0x00000080 0x000000f0
 >
-> There are couple of issues with this implementation.
+> This is SoC specific pin list. Such board specific pins should not make
+> it here.
 >
-> 1) da8xx_config_emac() is specific to DA850 EVM, but masquerades as
->    generic for da8xx. Looks like you need two functions, one for soc
->    specific configuration and one board specific.
-Ok.
+Ok, so this should be set up using GPIO API's ?
 
-> 2) da8xx_config_emac() goes through all the time, whether the
->    particular board has emac module or not. Shouldn't
->    da8xx_config_emac() check if emac is actually enabled in the passed
->    dtb and only the do the configuration?
-
-Ok. Can you give some pointers how we can access the dtb in board files.
-
-> 3) The function assumes mii is used always, you can use the rmii_en dt
->    property to check if rmii/mii is enabled and configure the soc/board
->    accordingly.
-
-Ok.
-
-> 4) If the same function can work both for da850 and da830, then it can
->    be implemented outside of CONFIG_ARCH_DAVINCI_DA850.
+>> +                             >;
+>> +                     };
+>>               };
+>>               serial0: serial@1c42000 {
+>>                       compatible = "ns16550a";
+>> @@ -88,6 +108,21 @@
+>>                       reg = <0x224000 0x1000>;
+>>                       bus_freq = <2200000>;
+>>               };
+>> +             eth0: emac@1e20000 {
+>> +                     compatible = "ti,davinci-dm6467-emac";
+>> +                     reg = <0x220000 0x4000>;
+>> +                     ti,davinci-ctrl-reg-offset = <0x3000>;
+>> +                     ti,davinci-ctrl-mod-reg-offset = <0x2000>;
+>> +                     ti,davinci-ctrl-ram-offset = <0>;
+>> +                     ti,davinci-ctrl-ram-size = <0x2000>;
+>> +                     local-mac-address = [ 00 00 00 00 00 00 ];
+>> +                     interrupts = <33
+>> +                                     34
+>> +                                     35
+>> +                                     36
+>> +                                     >;
+>> +                     phy-handle = <&mdio>;
 >
-Ok.
+> I doubt this is required. This property is to pass a handle to the phy,
+> not mdio bus.
+>
+Ok I'll check on this.
 
 Regards,
 --Prabhakar
+
 
 > Thanks,
 > Sekhar
