@@ -1,40 +1,30 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [TRIVIAL PATCH V2] Doc: percpu_counter doc code for better readability
-Date: Mon, 04 Feb 2013 23:14:12 +0100
-Message-ID: <20130204221356.29548.35746.stgit@dragon>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [TRIVIAL PATCH V2] Doc: percpu_counter doc code for better readability
+Date: Mon, 4 Feb 2013 14:10:03 -0800
+Message-ID: <CAOS58YO1VSsbisxSqzcW6n=a+XwcM4F0uHN40OKB9Ok6DSMW7A@mail.gmail.com>
 References: <20130204214952.GJ27963@mtj.dyndns.org>
+	<20130204221356.29548.35746.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>, netdev@vger.kernel.org,
-	joe@perches.com
-To: Jiri Kosina <trivial@kernel.org>, Tejun Heo <tj@kernel.org>,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jiri Kosina <trivial@kernel.org>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, joe@perches.com
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130204214952.GJ27963@mtj.dyndns.org>
+In-Reply-To: <20130204221356.29548.35746.stgit@dragon>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Help people reading the percpu_counter code, to notice the ifdef
-else statement that seperates CONFIG_SMP.
+On Mon, Feb 4, 2013 at 2:14 PM, Jesper Dangaard Brouer
+<brouer@redhat.com> wrote:
+> Help people reading the percpu_counter code, to notice the ifdef
+> else statement that seperates CONFIG_SMP.
+>
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> Acked-by: Tejun Heo <tj@kernel.org>
 
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-Acked-by: Tejun Heo <tj@kernel.org>
----
+Jiri, can you please take this?
 
- include/linux/percpu_counter.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Thank you.
 
-diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
-index b9df9ed..d5dd465 100644
---- a/include/linux/percpu_counter.h
-+++ b/include/linux/percpu_counter.h
-@@ -83,7 +83,7 @@ static inline int percpu_counter_initialized(struct percpu_counter *fbc)
- 	return (fbc->counters != NULL);
- }
- 
--#else
-+#else /* !CONFIG_SMP */
- 
- struct percpu_counter {
- 	s64 count;
+-- 
+tejun
