@@ -1,50 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH net-next] ipcomp: Mark as netns_ok.
-Date: Mon, 04 Feb 2013 15:48:12 -0500 (EST)
-Message-ID: <20130204.154812.1991513835460386879.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] cfg80211: Fix memory leak
+Date: Mon,  4 Feb 2013 15:33:44 -0600
+Message-ID: <1360013624-4973-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>
+To: linville@tuxdriver.com, johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45261 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001Ab3BDUsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 15:48:16 -0500
-Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 9890F585AF5
-	for <netdev@vger.kernel.org>; Mon,  4 Feb 2013 12:48:19 -0800 (PST)
+Received: from mail-oa0-f53.google.com ([209.85.219.53]:55447 "EHLO
+	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754161Ab3BDVeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 16:34:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Johannes Berg <johannes@sipsolutions.net>
 
-This module is namespace aware, netns_ok was just disabled by default
-for sanity.
+When a driver requests a specific regulatory domain after cfg80211 already
+has one, a struct ieee80211_regdomain is leaked.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Reported-by: Larry Finger <Larry.Finger@lwfinger.net>
+Tested-by: Larry Finger <Larry.Finger@lwfinger.net>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
 ---
 
-l2tp is the only net_protocol not marked as namespace aware, and
-there are patches coming for that.  After that's taken care of
-we can demand that any protocol that gets registers in ipv4 be
-netns_ok, and therefore we can eliminate the "init_net only"
-checks in various locations, such as IP local deliver.
+Johannes,
 
- net/ipv4/ipcomp.c | 1 +
- 1 file changed, 1 insertion(+)
+I added a From: for you as the content of this patch is yours.
 
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index 9a46dae..f01d1b1 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -163,6 +163,7 @@ static const struct net_protocol ipcomp4_protocol = {
- 	.handler	=	xfrm4_rcv,
- 	.err_handler	=	ipcomp4_err,
- 	.no_policy	=	1,
-+	.netns_ok	=	1,
- };
+Larry
+---
+
+ net/wireless/reg.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/wireless/reg.c b/net/wireless/reg.c
+index de02d63..558f524 100644
+--- a/net/wireless/reg.c
++++ b/net/wireless/reg.c
+@@ -2189,10 +2189,14 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
+ 		 * However if a driver requested this specific regulatory
+ 		 * domain we keep it for its private use
+ 		 */
+-		if (lr->initiator == NL80211_REGDOM_SET_BY_DRIVER)
++		if (lr->initiator == NL80211_REGDOM_SET_BY_DRIVER) {
++			const struct ieee80211_regdomain *tmp =
++						get_wiphy_regdom(request_wiphy);
+ 			rcu_assign_pointer(request_wiphy->regd, rd);
+-		else
++			rcu_free_regdom(tmp);
++		} else {
+ 			kfree(rd);
++		}
  
- static int __init ipcomp4_init(void)
+ 		rd = NULL;
+ 
 -- 
-1.7.11.7
+1.8.1
