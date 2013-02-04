@@ -1,120 +1,126 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next v3] sctp: sctp_close: fix release of bindings
- for deferred call_rcu's
-Date: Mon, 4 Feb 2013 07:10:19 -0500
-Message-ID: <20130204121019.GA19661@hmsreliant.think-freely.org>
-References: <1359729463-11833-1-git-send-email-dborkman@redhat.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: frto should not set snd_cwnd to 0
+Date: Mon, 4 Feb 2013 14:14:25 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1302041327210.4561@wel-95.cs.helsinki.fi>
+References: <20130123161238.GE8912@reaktio.net>  <20130123214445.GA16641@order.stressinduktion.org>  <20130123215151.GF8912@reaktio.net>  <20130123152642.4a8389ba@nehalam.linuxnetplumber.net>  <20130123234116.GC16641@order.stressinduktion.org>
+ <1358984831.12374.1227.camel@edumazet-glaptop>  <20130124135120.GD16641@order.stressinduktion.org>  <1359777110.30177.58.camel@edumazet-glaptop>  <20130202142832.GP8912@reaktio.net>  <1359818075.30177.78.camel@edumazet-glaptop>
+ <CADVnQykbufy-kQrEnJm0bbt=n7C8OfE1=Kr-2KfP7Mbu5Eq58w@mail.gmail.com>  <1359826377.30177.86.camel@edumazet-glaptop> <1359918785.30177.111.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: MULTIPART/MIXED; boundary="8323329-296175798-1359979150=:4561"
+Cc: Neal Cardwell <ncardwell@google.com>,
+	"=?ISO-8859-15?Q?Pasi_K=E4rkk=E4inen?=" <pasik@iki.fi>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46470 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754460Ab3BDMKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 07:10:36 -0500
-Content-Disposition: inline
-In-Reply-To: <1359729463-11833-1-git-send-email-dborkman@redhat.com>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:42706 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753854Ab3BDMTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 07:19:33 -0500
+In-Reply-To: <1359918785.30177.111.camel@edumazet-glaptop>
+Content-ID: <alpine.DEB.2.00.1302041406440.4561@wel-95.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 01, 2013 at 03:37:43PM +0100, Daniel Borkmann wrote:
-> It seems due to RCU usage, i.e. within SCTP's address binding list,
-> a, say, ``behavioral change'' was introduced which does actually
-> not conform to the RFC anymore. In particular consider the following
-> (fictional) scenario to demonstrate this:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+--8323329-296175798-1359979150=:4561
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: 8BIT
+Content-ID: <alpine.DEB.2.00.1302041406441.4561@wel-95.cs.helsinki.fi>
+
+On Sun, 3 Feb 2013, Eric Dumazet wrote:
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
->   do:
->     Two SOCK_SEQPACKET-style sockets are opened (S1, S2)
->     S1 is bound to 127.0.0.1, port 1024 [server]
->     S2 is bound to 127.0.0.1, port 1025 [client]
->     listen(2) is invoked on S1
->     From S2 we call one sendmsg(2) with msg.msg_name and
->        msg.msg_namelen parameters set to the server's
->        address
->     S1, S2 are closed
->     goto do
+> Commit 9dc274151a548 (tcp: fix ABC in tcp_slow_start())
+> uncovered a bug in FRTO code :
+> tcp_process_frto() is setting snd_cwnd to 0 if the number
+> of in flight packets is 0.
 > 
-> The first pass of this loop passes successful, while the second round
-> fails during binding of S1 (address still in use). What is happening?
-> In the first round, the initial handshake is being done, and, at the
-> time close(2) is called on S1, a non-graceful shutdown is performed via
-> ABORT since in S1's receive queue an unprocessed packet is present,
-> thus stating an error condition. This can be considered as a correct
-> behavior.
+> As Neal pointed out, if no packet is in flight we lost our
+> chance to disambiguate whether a loss timeout was spurious.
 > 
-> During close also all bound addresses are freed, thus nothing *must*
-> be active anymore. In reference to RFC2960:
+> We should assume it was a proper loss.
 > 
->   After checking the Verification Tag, the receiving endpoint shall
->   remove the association from its record, and shall report the
->   termination to its upper layer. (9.1 Abort of an Association)
-> 
-> Also, no half-open states are supported, thus after an ungraceful
-> shutdown, we leave nothing behind. However, this seems not to be
-> happening though. In a real-world scenario, this is exactly where
-> it breaks the lksctp-tools functional test suite, *for instance*:
-> 
->   ./test_sockopt
->   test_sockopt.c  1 PASS : getsockopt(SCTP_STATUS) on a socket with no assoc
->   test_sockopt.c  2 PASS : getsockopt(SCTP_STATUS)
->   test_sockopt.c  3 PASS : getsockopt(SCTP_STATUS) with invalid associd
->   test_sockopt.c  4 PASS : getsockopt(SCTP_STATUS) with NULL associd
->   test_sockopt.c  5 BROK : bind: Address already in use
-> 
-> The underlying problem is that sctp_endpoint_destroy() hasn't been
-> triggered yet while the next bind attempt is being done. It will be
-> triggered eventually (but too late) by sctp_transport_destroy_rcu()
-> after one RCU grace period:
-> 
->   sctp_transport_destroy()
->     sctp_transport_destroy_rcu() ----.
->       sctp_association_put() [*]  <--+--> sctp_packet_free()
->         sctp_association_destroy()          [...]
->           sctp_endpoint_put()                 skb->destructor
->             sctp_endpoint_destroy()             sctp_wfree()
->               sctp_bind_addr_free()               sctp_association_put() [*]
-> 
-> Thus, we move out the condition with sctp_association_put() as well as
-> the sctp_packet_free() invocation and the issue can be solved. We also
-> better free the SCTP chunks first before putting the ref of the association.
-> 
-> With this patch, the example above (which simulates a similar scenario
-> as in the implementation of this test case) and therefore also the test
-> suite run successfully through. Tested by myself.
-> 
-> Cc: Vlad Yasevich <vyasevich@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Reported-by: Pasi Kärkkäinen <pasik@iki.fi>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+> Cc: Yuchung Cheng <ycheng@google.com>
 > ---
->  net/sctp/transport.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
+>  net/ipv4/tcp_input.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
 > 
-> diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-> index 4e45bb6..ca5331c 100644
-> --- a/net/sctp/transport.c
-> +++ b/net/sctp/transport.c
-> @@ -168,10 +168,6 @@ static void sctp_transport_destroy_rcu(struct rcu_head *head)
->  	struct sctp_transport *transport;
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 8aca4ee..680c422 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3484,7 +3484,8 @@ static bool tcp_process_frto(struct sock *sk, int flag)
+>  	    ((tp->frto_counter >= 2) && (flag & FLAG_RETRANS_DATA_ACKED)))
+>  		tp->undo_marker = 0;
 >  
->  	transport = container_of(head, struct sctp_transport, rcu);
-> -	if (transport->asoc)
-> -		sctp_association_put(transport->asoc);
-> -
-> -	sctp_packet_free(&transport->packet);
->  
->  	dst_release(transport->dst);
->  	kfree(transport);
-> @@ -186,6 +182,11 @@ static void sctp_transport_destroy(struct sctp_transport *transport)
->  	SCTP_ASSERT(transport->dead, "Transport is not dead", return);
->  
->  	call_rcu(&transport->rcu, sctp_transport_destroy_rcu);
-> +
-> +	sctp_packet_free(&transport->packet);
-> +
-> +	if (transport->asoc)
-> +		sctp_association_put(transport->asoc);
->  }
->  
-Yup, this looks good, thanks!
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> -	if (!before(tp->snd_una, tp->frto_highmark)) {
+> +	if (!before(tp->snd_una, tp->frto_highmark) ||
+> +	    !tcp_packets_in_flight(tp)) {
+
+I think this condition becomes now too broad because there is transient
+during FRTO. I think the patch below would be enough to resolve this,
+what do you think?
+
+--
+[PATCH 1/1] tcp: fix for zero packets_in_flight was too broad
+
+There are transients during normal FRTO procedure during which
+the packets_in_flight can go to zero between write_queue state
+updates and firing the resulting segments out. As FRTO processing
+occurs during that window the check must be more precise to
+not match "spuriously" :-). More specificly, e.g., when
+packets_in_flight is zero but FLAG_DATA_ACKED is true the problematic
+branch that set cwnd into zero would not be taken and new segments
+might be sent out later.
+
+Only compile tested.
+
+Signed-off-by: Ilpo Järvinen <ilpo.jarvinen@helsinki.fi>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Pasi Kärkkäinen <pasik@iki.fi>
+---
+ net/ipv4/tcp_input.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 680c422..500c2da 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3484,8 +3484,7 @@ static bool tcp_process_frto(struct sock *sk, int flag)
+ 	    ((tp->frto_counter >= 2) && (flag & FLAG_RETRANS_DATA_ACKED)))
+ 		tp->undo_marker = 0;
+ 
+-	if (!before(tp->snd_una, tp->frto_highmark) ||
+-	    !tcp_packets_in_flight(tp)) {
++	if (!before(tp->snd_una, tp->frto_highmark)) {
+ 		tcp_enter_frto_loss(sk, (tp->frto_counter == 1 ? 2 : 3), flag);
+ 		return true;
+ 	}
+@@ -3505,6 +3504,11 @@ static bool tcp_process_frto(struct sock *sk, int flag)
+ 		}
+ 	} else {
+ 		if (!(flag & FLAG_DATA_ACKED) && (tp->frto_counter == 1)) {
++			if (!tcp_packets_in_flight(tp)) {
++				tcp_enter_frto_loss(sk, 2, flag);
++				return true;
++			}
++				
+ 			/* Prevent sending of new data. */
+ 			tp->snd_cwnd = min(tp->snd_cwnd,
+ 					   tcp_packets_in_flight(tp));
+-- 
+1.7.0.4
+
+--8323329-296175798-1359979150=:4561--
