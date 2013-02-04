@@ -1,47 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: usbnet: fix tx_dropped statistics
-Date: Mon, 04 Feb 2013 13:07:41 -0500 (EST)
-Message-ID: <20130204.130741.1626636131644599032.davem@davemloft.net>
-References: <1359657365-2879-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH v3 2/2] drivers: net:ethernet: cpsw: add support for
+ VLAN
+Date: Mon, 04 Feb 2013 13:09:51 -0500 (EST)
+Message-ID: <20130204.130951.535741806527607249.davem@davemloft.net>
+References: <1359659000-25995-1-git-send-email-mugunthanvnm@ti.com>
+	<1359659000-25995-3-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	oliver@neukum.org, alexey.orishko@gmail.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43729 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755041Ab3BDSHn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 13:07:43 -0500
-In-Reply-To: <1359657365-2879-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org
+To: mugunthanvnm@ti.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1359659000-25995-3-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Thu, 31 Jan 2013 19:36:05 +0100
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Fri, 1 Feb 2013 00:33:20 +0530
 
-> It is normal for minidrivers accumulating frames to return NULL
-> from their tx_fixup function. We do not want to count this as a
-> drop, or log any debug messages.  A different exit path is
-> therefore chosen for such drivers, skipping the debug message
-> and the tx_dropped increment.
->=20
-> The test for accumulating drivers was however completely bogus,
-> making the exit path selection depend on whether the user had
-> enabled tx_err logging or not. This would arbitrarily mess up
-> accounting for both accumulating and non-accumulating minidrivers,
-> and would result in unwanted debug messages for the accumulating
-> drivers.
->=20
-> Fix by testing for FLAG_MULTI_PACKET instead, which probably was
-> the intention from the beginning.  This usage match the documented
-> behaviour of this flag:
->=20
->  Indicates to usbnet, that USB driver accumulates multiple IP packets=
-=2E
->  Affects statistic (counters) and short packet handling.
->=20
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
+> index 6ddd028..99696bf 100644
+> --- a/Documentation/devicetree/bindings/net/cpsw.txt
+> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
+> @@ -24,6 +24,8 @@ Required properties:
+>  Optional properties:
+>  - ti,hwmods		: Must be "cpgmac0"
+>  - no_bd_ram		: Must be 0 or 1
+> +- default_vlan		: Specifies Default VLAN for non tagged packets
+> +			  ALE processing
+>  
+>  Note: "ti,hwmods" field is used to fetch the base address and irq
+>  resources from TI, omap hwmod data base during device registration.
 
-Applied.
+You guys have to get away from this idea that you can basically pepper
+devicetree bindings with all sorts of random behavioral knobs like
+this, it's terrible.
+
+Make this an ethtool configurable entity or similar, and don't even
+think about adding a module parameter.
