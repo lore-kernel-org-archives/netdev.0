@@ -1,9 +1,10 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 1/4]netns: fdb: allow unprivileged users to
-	add/del fdb entries
-Date: Mon, 04 Feb 2013 13:12:42 -0500 (EST)
-Message-ID: <20130204.131242.1865522780766899022.davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/4] netns: ebtable: allow unprivileged users
+	to operate ebtables
+Date: Mon, 04 Feb 2013 13:12:49 -0500 (EST)
+Message-ID: <20130204.131249.2107106406591037190.davem@davemloft.net>
 References: <1359685860-29636-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<1359685860-29636-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +13,7 @@ Cc: amwang-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHX
 	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org
 To: gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org
 Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1359685860-29636-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+In-Reply-To: <1359685860-29636-2-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
 	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
@@ -25,15 +26,11 @@ Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public
 List-Id: netdev.vger.kernel.org
 
 From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Date: Fri, 1 Feb 2013 10:30:57 +0800
+Date: Fri, 1 Feb 2013 10:30:58 +0800
 
-> Right now,only ixgdb,macvlan,vxlan and bridge implement
-> fdb_add/fdb_del operations.
-> 
-> these operations only operate the private data of net
-> device. So allowing the unprivileged users who creates
-> the userns and netns to add/del fdb entries will do no
-> harm to other netns.
+> ebt_table is a private resource of netns, operating ebtables
+> in one netns will not affect other netns, we can allow the
+> creator user of userns and netns to change the ebtables.
 > 
 > Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 
