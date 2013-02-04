@@ -1,54 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] Kernel recieves DNS reply, but doesn't deliver it to a
- waiting application
-Date: Mon, 04 Feb 2013 07:21:07 -0800
-Message-ID: <1359991267.30177.143.camel@edumazet-glaptop>
-References: <20121003232548.eb6b6b22.bircoph@gmail.com>
-	 <20121013163639.87abca00.bircoph@gmail.com>
-	 <1350135860.21172.14606.camel@edumazet-glaptop>
-	 <20121014031119.a60263d6.bircoph@gmail.com>
-	 <20121021032543.09d1844f.bircoph@gmail.com>
-	 <1350823941.13333.2167.camel@edumazet-glaptop>
-	 <20121022073636.98462bc6.bircoph@gmail.com>
-	 <1350888489.8609.322.camel@edumazet-glaptop>
-	 <20121023012759.ca7f91d6.bircoph@gmail.com>
-	 <20121212122716.1e71f644.bircoph@gmail.com>
-	 <20121223150627.d7ebcf6a.bircoph@gmail.com>
-	 <1356718263.21409.430.camel@edumazet-glaptop>
-	 <20130116203644.8eb2a16f.bircoph@gmail.com>
-	 <20130204173932.bad780bc.bircoph@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch net-next v2 1/3] team: handle sending port list in the
+ same way option list is sent
+Date: Mon, 4 Feb 2013 17:03:04 +0100
+Message-ID: <20130204160303.GA22732@localhost>
+References: <1359742646-1485-1-git-send-email-jiri@resnulli.us>
+ <1359742646-1485-2-git-send-email-jiri@resnulli.us>
+ <20130201183045.GA5822@localhost>
+ <20130201190026.GA1627@minipsycho.brq.redhat.com>
+ <20130201204310.GA3793@localhost>
+ <20130201233147.GB1627@minipsycho.brq.redhat.com>
+ <20130202012927.GA4425@localhost>
+ <20130202090422.GA1864@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Andrew Savchenko <bircoph@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fbl@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:49240 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753506Ab3BDPVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 10:21:10 -0500
-Received: by mail-pa0-f51.google.com with SMTP id hz1so2440173pad.38
-        for <netdev@vger.kernel.org>; Mon, 04 Feb 2013 07:21:09 -0800 (PST)
-In-Reply-To: <20130204173932.bad780bc.bircoph@gmail.com>
+Received: from slan-550-85.anhosting.com ([174.127.110.175]:58683 "EHLO
+	slan-550-85.anhosting.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755984Ab3BDQDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 11:03:10 -0500
+Content-Disposition: inline
+In-Reply-To: <20130202090422.GA1864@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-02-04 at 17:39 +0400, Andrew Savchenko wrote:
+On Sat, Feb 02, 2013 at 10:04:22AM +0100, Jiri Pirko wrote:
+> Sat, Feb 02, 2013 at 02:29:28AM CET, pablo@netfilter.org wrote:
+> >On Sat, Feb 02, 2013 at 12:31:47AM +0100, Jiri Pirko wrote:
+> >> Fri, Feb 01, 2013 at 09:43:10PM CET, pablo@netfilter.org wrote:
+> >> >On Fri, Feb 01, 2013 at 08:00:26PM +0100, Jiri Pirko wrote:
+> >> >> >> +send_done:
+> >> >> >> +	nlh = nlmsg_put(skb, portid, seq, NLMSG_DONE, 0, flags | NLM_F_MULTI);
+> >> >> >> +	if (!nlh) {
+> >> >> >> +		err = __send_and_alloc_skb(&skb, team, portid, send_func);
+> >> >> >> +		if (err)
+> >> >> >> +			goto errout;
+> >> >> >> +		goto send_done;
+> >> >> >> +	}
+> >> >> >
+> >> >> >I'd suggest to use netlink_dump_start for this, so you don't need to
+> >> >> >manually create the NLMSG_DONE message.
+> >> >> 
+> >> >> I believe that is not possible for genl
+> >> >
+> >> >By looking at net/netlink/genetlink.c, you can make it by means of the
+> >> >.dumpit callback in struct genl_ops. You have to pass NLM_F_DUMP from
+> >> >user-space to hit that code.
+> >> 
+> >> Correct. But I need to do unsolicited multicast messages as well. And
+> >> that can't be resolved by dumpit.
+> >
+> >Interesting. Why do you need multi-part multicast event messages?
+> 
+> Messages are too big to fit one GENLMSG_DEFAULT_SIZE message.
 
-> With 16-days uptime system works fine.
-> 
-> Also I was able to reproduce this bug on another box: an embedded
-> system running openwrt with 3.7.5 kernel with openl2tpd client and
-> dnsmasq server. Due to limited memory resources this bug happened to
-> be easily reproducible: several thousands of dns queries were
-> sufficient to reproduce this bug. Full debug on embedded box was not
-> possible due to constrained resources, but bug appearance was the same
-> and /proc/net/udp is apparently broken (see attached log).
-> 
-> I applied your patch on openwrt's 3.7.5 kernel and it fixed the bug
-> on this box too.
-> 
-> So we've found a solution and I'm looking forward for it in the main
-> kernel :)
+nfnetlink_log may use bigger messages than 1 memory page to deliver
+multicast events if configured to include the entire packet
+(NFULNL_COPY_PACKET).
 
-Thanks a lot for testing, I'll send the official patch asap.
+I'd suggest to calculate the message size in run-time and allocate
+memory you need according to that, several netfilter subsystem are
+doing so.
