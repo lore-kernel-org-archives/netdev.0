@@ -1,53 +1,45 @@
-From: Cong Ding <dinggnu@gmail.com>
-Subject: [PATCH] net: wireless/rtlwifi: fix uninitialized variable issue
-Date: Mon,  4 Feb 2013 22:43:22 +0100
-Message-ID: <1360014206-6138-1-git-send-email-dinggnu@gmail.com>
-Cc: Cong Ding <dinggnu@gmail.com>
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] Doc: percpu_counter doc code for better readability
+Date: Mon, 4 Feb 2013 13:49:52 -0800
+Message-ID: <20130204214952.GJ27963@mtj.dyndns.org>
+References: <20130129083156.20701.33948.stgit@dragon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: joe@perches.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130129083156.20701.33948.stgit@dragon>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The use of variable packet_beacon might be uninitialized in the two files,
-which is same as this patch:
-https://patchwork.kernel.org/patch/2006711/
+On Tue, Jan 29, 2013 at 09:31:56AM +0100, Jesper Dangaard Brouer wrote:
+> Help people reading the percpu_counter code, to notice the ifdef
+> else statement that seperates CONFIG_SMP.
+> 
+> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> ---
+> 
+>  include/linux/percpu_counter.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
+> index b9df9ed..eded1aa 100644
+> --- a/include/linux/percpu_counter.h
+> +++ b/include/linux/percpu_counter.h
+> @@ -83,7 +83,7 @@ static inline int percpu_counter_initialized(struct percpu_counter *fbc)
+>  	return (fbc->counters != NULL);
+>  }
+>  
+> -#else
+> +#else /* No CONFIG_SMP */
 
-Signed-off-by: Cong Ding <dinggnu@gmail.com>
----
- drivers/net/wireless/rtlwifi/rtl8192ce/trx.c |    2 +-
- drivers/net/wireless/rtlwifi/rtl8192cu/mac.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+"#else /* !CONFIG_SMP */" would be more conventional.  Can you please
+change that and repost it w/ my Acked-by and [TRIVIAL] tag added and
+Jiri Kosina <trivial@kernel.org> cc'd?
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-index c31795e..da0e902 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192ce/trx.c
-@@ -488,7 +488,7 @@ static void _rtl92ce_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 	u8 *praddr;
- 	__le16 fc;
- 	u16 type, c_fc;
--	bool packet_matchbssid, packet_toself, packet_beacon;
-+	bool packet_matchbssid, packet_toself, packet_beacon = false;
- 
- 	tmp_buf = skb->data + pstats->rx_drvinfo_size + pstats->rx_bufshift;
- 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c b/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
-index 32ff959..85b6bdb 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
-@@ -1084,7 +1084,7 @@ void rtl92c_translate_rx_signal_stuff(struct ieee80211_hw *hw,
- 	u8 *praddr;
- 	__le16 fc;
- 	u16 type, cpu_fc;
--	bool packet_matchbssid, packet_toself, packet_beacon;
-+	bool packet_matchbssid, packet_toself, packet_beacon = false;
- 
- 	tmp_buf = skb->data + pstats->rx_drvinfo_size + pstats->rx_bufshift;
- 	hdr = (struct ieee80211_hdr *)tmp_buf;
+Thanks.
+
 -- 
-1.7.9.5
+tejun
