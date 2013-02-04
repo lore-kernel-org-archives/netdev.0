@@ -1,22 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 7/8] wireless: Remove unnecessary alloc/OOM messages, alloc cleanups
-Date: Sun,  3 Feb 2013 19:28:14 -0800
-Message-ID: <2ca85734ebca68ba90b331355ada00df48ad0724.1359939013.git.joe@perches.com>
+Subject: [PATCH 3/8] ethernet: Remove unnecessary alloc/OOM messages, alloc cleanups
+Date: Sun,  3 Feb 2013 19:43:58 -0800
+Message-ID: <eb20393605c0c25abaf4e4051eefa017f2150d64.1359939013.git.joe@perches.com>
 References: <cover.1359939012.git.joe@perches.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	Jouni Malinen <jouni@qca.qualcomm.com>,
-	Vasanthakumar Thiagarajan <vthiagar@qca.qualcomm.com>,
-	Senthil Balasubramanian <senthilb@qca.qualcomm.com>,
-	Simon Kelley <simon@thekelleys.org.uk>,
-	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Dan Williams <dcbw@redhat.com>, Bing Zhao <bzhao@marvell.com>,
-	Christian Lamparter <chunkeey@googlemail.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Luciano Coelho <coelho@ti.com>, Daniel Drake <dsd@gentoo.org>,
-	Ulrich Kunitz <kune@deine-taler.de>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, libertas-dev@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1359939012.git.joe@perches.com>
@@ -28,602 +15,926 @@ messages and a dump_stack.
 
 Convert kzalloc's with multiplies to kcalloc.
 Convert kmalloc's with multiplies to kmalloc_array.
-Remove now unused variables.
-Remove unnecessary memset after kzalloc->kcalloc.
-Whitespace cleanups for these changes.
+Fix a few whitespace defects.
+Convert a constant 6 to ETH_ALEN.
+Use parentheses around sizeof.
+Convert vmalloc/memset to vzalloc.
+Remove now unused size variables.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wireless/airo_cs.c                     |  5 ++--
- drivers/net/wireless/at76c50x-usb.c                |  4 +---
- .../net/wireless/ath/ath9k/dfs_pattern_detector.c  |  6 ++---
- drivers/net/wireless/atmel_cs.c                    |  5 ++--
- drivers/net/wireless/ipw2x00/ipw2100.c             |  9 +++-----
- drivers/net/wireless/libertas/cfg.c                |  4 +---
- drivers/net/wireless/mwifiex/11n.c                 |  5 +---
- drivers/net/wireless/mwifiex/11n_rxreorder.c       |  5 +---
- drivers/net/wireless/mwifiex/cfg80211.c            |  4 +---
- drivers/net/wireless/mwifiex/cmdevt.c              | 11 +++------
- drivers/net/wireless/mwifiex/init.c                |  5 +---
- drivers/net/wireless/mwifiex/scan.c                | 27 +++++++---------------
- drivers/net/wireless/mwifiex/sdio.c                | 11 ++-------
- drivers/net/wireless/mwifiex/sta_ioctl.c           | 11 +++------
- drivers/net/wireless/mwifiex/wmm.c                 |  7 ++----
- drivers/net/wireless/orinoco/main.c                | 16 ++++---------
- drivers/net/wireless/p54/p54usb.c                  | 10 ++------
- drivers/net/wireless/prism54/islpci_mgt.c          | 14 ++++-------
- drivers/net/wireless/rndis_wlan.c                  |  5 +---
- drivers/net/wireless/ti/wlcore/sdio.c              |  4 +---
- drivers/net/wireless/ti/wlcore/spi.c               | 14 +++--------
- drivers/net/wireless/zd1211rw/zd_usb.c             |  1 -
- 22 files changed, 50 insertions(+), 133 deletions(-)
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c    |  6 ++---
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c    |  2 --
+ drivers/net/ethernet/broadcom/b44.c                |  4 +---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c       |  6 ++---
+ drivers/net/ethernet/broadcom/cnic.c               |  6 ++---
+ drivers/net/ethernet/broadcom/tg3.c                |  4 +---
+ drivers/net/ethernet/freescale/gianfar_ethtool.c   |  9 ++++----
+ drivers/net/ethernet/ibm/ehea/ehea_main.c          |  4 +---
+ drivers/net/ethernet/ibm/ehea/ehea_qmr.c           | 19 +++++----------
+ drivers/net/ethernet/ibm/emac/mal.c                |  7 ++----
+ drivers/net/ethernet/ibm/ibmveth.c                 |  1 -
+ drivers/net/ethernet/intel/igb/igb_main.c          |  5 ++--
+ drivers/net/ethernet/intel/igbvf/netdev.c          |  8 +++----
+ drivers/net/ethernet/marvell/mv643xx_eth.c         |  8 +++----
+ drivers/net/ethernet/marvell/mvmdio.c              |  1 -
+ drivers/net/ethernet/marvell/skge.c                |  5 ++--
+ drivers/net/ethernet/marvell/sky2.c                |  4 +---
+ drivers/net/ethernet/mellanox/mlx4/en_main.c       |  4 +---
+ drivers/net/ethernet/mellanox/mlx4/main.c          |  4 +---
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c   |  5 ++--
+ .../net/ethernet/qlogic/netxen/netxen_nic_ctx.c    |  5 +---
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c | 18 ++++-----------
+ .../net/ethernet/qlogic/netxen/netxen_nic_init.c   | 27 ++++++++--------------
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |  5 +---
+ drivers/net/ethernet/qlogic/qla3xxx.c              | 10 ++++----
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  | 14 ++++-------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |  6 ++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c   | 26 +++++++--------------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   | 19 +++++----------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  7 ++----
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c       |  1 -
+ drivers/net/ethernet/rdc/r6040.c                   |  3 +--
+ drivers/net/ethernet/renesas/sh_eth.c              | 10 ++++----
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  | 11 +++++----
+ drivers/net/ethernet/sun/niu.c                     |  2 +-
+ drivers/net/ethernet/ti/cpsw.c                     |  8 +++----
+ drivers/net/ethernet/ti/davinci_mdio.c             |  4 +---
+ drivers/net/ethernet/xilinx/ll_temac_main.c        |  6 ++---
+ 38 files changed, 97 insertions(+), 197 deletions(-)
 
-diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/airo_cs.c
-index 630577d..956024a 100644
---- a/drivers/net/wireless/airo_cs.c
-+++ b/drivers/net/wireless/airo_cs.c
-@@ -69,10 +69,9 @@ static int airo_probe(struct pcmcia_device *p_dev)
- 
- 	/* Allocate space for private device-specific data */
- 	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
--	if (!local) {
--		printk(KERN_ERR "airo_cs: no memory for new device\n");
-+	if (!local)
- 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 8df02ba..571b514 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -982,11 +982,9 @@ static int atl1c_setup_ring_resources(struct atl1c_adapter *adapter)
+ 	size = sizeof(struct atl1c_buffer) * (tpd_ring->count * 2 +
+ 		rfd_ring->count);
+ 	tpd_ring->buffer_info = kzalloc(size, GFP_KERNEL);
+-	if (unlikely(!tpd_ring->buffer_info)) {
+-		dev_err(&pdev->dev, "kzalloc failed, size = %d\n",
+-			size);
++	if (unlikely(!tpd_ring->buffer_info))
+ 		goto err_nomem;
 -	}
 +
- 	p_dev->priv = local;
- 
- 	return airo_config(p_dev);
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
-index 77fa428..5ac5f7a 100644
---- a/drivers/net/wireless/at76c50x-usb.c
-+++ b/drivers/net/wireless/at76c50x-usb.c
-@@ -2164,10 +2164,8 @@ static int at76_alloc_urbs(struct at76_priv *priv,
- 
- 	buffer_size = sizeof(struct at76_tx_buffer) + MAX_PADDING_SIZE;
- 	priv->bulk_out_buffer = kmalloc(buffer_size, GFP_KERNEL);
--	if (!priv->bulk_out_buffer) {
--		dev_err(&interface->dev, "cannot allocate output buffer\n");
-+	if (!priv->bulk_out_buffer)
- 		return -ENOMEM;
--	}
- 
- 	at76_dbg(DBG_PROC_ENTRY, "%s: EXIT", __func__);
- 
-diff --git a/drivers/net/wireless/ath/ath9k/dfs_pattern_detector.c b/drivers/net/wireless/ath/ath9k/dfs_pattern_detector.c
-index 24877b0..467b600 100644
---- a/drivers/net/wireless/ath/ath9k/dfs_pattern_detector.c
-+++ b/drivers/net/wireless/ath/ath9k/dfs_pattern_detector.c
-@@ -288,11 +288,11 @@ struct dfs_pattern_detector *
- dfs_pattern_detector_init(enum nl80211_dfs_regions region)
- {
- 	struct dfs_pattern_detector *dpd;
-+
- 	dpd = kmalloc(sizeof(*dpd), GFP_KERNEL);
--	if (dpd == NULL) {
--		pr_err("allocation of dfs_pattern_detector failed\n");
-+	if (dpd == NULL)
- 		return NULL;
--	}
-+
- 	*dpd = default_dpd;
- 	INIT_LIST_HEAD(&dpd->channel_detectors);
- 
-diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
-index ded03d2..b42930f 100644
---- a/drivers/net/wireless/atmel_cs.c
-+++ b/drivers/net/wireless/atmel_cs.c
-@@ -79,10 +79,9 @@ static int atmel_probe(struct pcmcia_device *p_dev)
- 
- 	/* Allocate space for private device-specific data */
- 	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
--	if (!local) {
--		printk(KERN_ERR "atmel_cs: no memory for new device\n");
-+	if (!local)
- 		return -ENOMEM;
--	}
-+
- 	p_dev->priv = local;
- 
- 	return atmel_config(p_dev);
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index d92b21a..04d5e64 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -4478,13 +4478,10 @@ static int ipw2100_tx_allocate(struct ipw2100_priv *priv)
- 		return err;
+ 	for (i = 0; i < AT_MAX_TRANSMIT_QUEUE; i++) {
+ 		tpd_ring[i].buffer_info =
+ 			(tpd_ring->buffer_info + count);
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index cf79d93..92f4734 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -819,8 +819,6 @@ static int atl1e_setup_ring_resources(struct atl1e_adapter *adapter)
+ 	size = sizeof(struct atl1e_tx_buffer) * (tx_ring->count);
+ 	tx_ring->tx_buffer = kzalloc(size, GFP_KERNEL);
+ 	if (tx_ring->tx_buffer == NULL) {
+-		netdev_err(adapter->netdev, "kzalloc failed, size = D%d\n",
+-			   size);
+ 		err = -ENOMEM;
+ 		goto failed;
  	}
+diff --git a/drivers/net/ethernet/broadcom/b44.c b/drivers/net/ethernet/broadcom/b44.c
+index 3ba6be6..c030274 100644
+--- a/drivers/net/ethernet/broadcom/b44.c
++++ b/drivers/net/ethernet/broadcom/b44.c
+@@ -1518,10 +1518,8 @@ static void b44_setup_pseudo_magicp(struct b44 *bp)
+ 	u8 pwol_mask[B44_PMASK_SIZE];
  
--	priv->tx_buffers =
--	    kmalloc(TX_PENDED_QUEUE_LENGTH * sizeof(struct ipw2100_tx_packet),
--		    GFP_ATOMIC);
-+	priv->tx_buffers = kmalloc_array(TX_PENDED_QUEUE_LENGTH,
-+					 sizeof(struct ipw2100_tx_packet),
-+					 GFP_ATOMIC);
- 	if (!priv->tx_buffers) {
--		printk(KERN_ERR DRV_NAME
--		       ": %s: alloc failed form tx buffers.\n",
--		       priv->net_dev->name);
- 		bd_queue_free(priv, &priv->tx_queue);
- 		return -ENOMEM;
- 	}
-diff --git a/drivers/net/wireless/libertas/cfg.c b/drivers/net/wireless/libertas/cfg.c
-index 230f8eb..a7dcb2e 100644
---- a/drivers/net/wireless/libertas/cfg.c
-+++ b/drivers/net/wireless/libertas/cfg.c
-@@ -2081,10 +2081,8 @@ struct wireless_dev *lbs_cfg_alloc(struct device *dev)
- 	lbs_deb_enter(LBS_DEB_CFG80211);
- 
- 	wdev = kzalloc(sizeof(struct wireless_dev), GFP_KERNEL);
--	if (!wdev) {
--		dev_err(dev, "cannot allocate wireless device\n");
-+	if (!wdev)
- 		return ERR_PTR(-ENOMEM);
--	}
- 
- 	wdev->wiphy = wiphy_new(&lbs_cfg80211_ops, sizeof(struct lbs_private));
- 	if (!wdev->wiphy) {
-diff --git a/drivers/net/wireless/mwifiex/11n.c b/drivers/net/wireless/mwifiex/11n.c
-index 48cc46b..25596ab 100644
---- a/drivers/net/wireless/mwifiex/11n.c
-+++ b/drivers/net/wireless/mwifiex/11n.c
-@@ -494,11 +494,8 @@ void mwifiex_create_ba_tbl(struct mwifiex_private *priv, u8 *ra, int tid,
- 	if (!mwifiex_get_ba_tbl(priv, tid, ra)) {
- 		new_node = kzalloc(sizeof(struct mwifiex_tx_ba_stream_tbl),
- 				   GFP_ATOMIC);
--		if (!new_node) {
--			dev_err(priv->adapter->dev,
--				"%s: failed to alloc new_node\n", __func__);
-+		if (!new_node)
- 			return;
--		}
- 
- 		INIT_LIST_HEAD(&new_node->list);
- 
-diff --git a/drivers/net/wireless/mwifiex/11n_rxreorder.c b/drivers/net/wireless/mwifiex/11n_rxreorder.c
-index 4a97acd..5e796f8 100644
---- a/drivers/net/wireless/mwifiex/11n_rxreorder.c
-+++ b/drivers/net/wireless/mwifiex/11n_rxreorder.c
-@@ -272,11 +272,8 @@ mwifiex_11n_create_rx_reorder_tbl(struct mwifiex_private *priv, u8 *ta,
- 	}
- 	/* if !tbl then create one */
- 	new_node = kzalloc(sizeof(struct mwifiex_rx_reorder_tbl), GFP_KERNEL);
--	if (!new_node) {
--		dev_err(priv->adapter->dev, "%s: failed to alloc new_node\n",
--			__func__);
-+	if (!new_node)
+ 	pwol_pattern = kzalloc(B44_PATTERN_SIZE, GFP_KERNEL);
+-	if (!pwol_pattern) {
+-		pr_err("Memory not available for WOL\n");
++	if (!pwol_pattern)
  		return;
 -	}
  
- 	INIT_LIST_HEAD(&new_node->list);
- 	new_node->tid = tid;
-diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
-index ab92e79..8ba4819 100644
---- a/drivers/net/wireless/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/mwifiex/cfg80211.c
-@@ -1820,10 +1820,8 @@ mwifiex_cfg80211_scan(struct wiphy *wiphy,
+ 	/* Ipv4 magic packet pattern - pattern 0.*/
+ 	memset(pwol_mask, 0, B44_PMASK_SIZE);
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index f5b6b47..7d81e05 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -886,10 +886,9 @@ static int bcm_enet_open(struct net_device *dev)
+ 	priv->tx_desc_alloc_size = size;
+ 	priv->tx_desc_cpu = p;
  
- 	priv->user_scan_cfg = kzalloc(sizeof(struct mwifiex_user_scan_cfg),
- 				      GFP_KERNEL);
--	if (!priv->user_scan_cfg) {
--		dev_err(priv->adapter->dev, "failed to alloc scan_req\n");
-+	if (!priv->user_scan_cfg)
- 		return -ENOMEM;
--	}
- 
- 	priv->scan_request = request;
- 
-diff --git a/drivers/net/wireless/mwifiex/cmdevt.c b/drivers/net/wireless/mwifiex/cmdevt.c
-index 5f438e6..2b125be 100644
---- a/drivers/net/wireless/mwifiex/cmdevt.c
-+++ b/drivers/net/wireless/mwifiex/cmdevt.c
-@@ -334,20 +334,15 @@ static int mwifiex_dnld_sleep_confirm_cmd(struct mwifiex_adapter *adapter)
- int mwifiex_alloc_cmd_buffer(struct mwifiex_adapter *adapter)
- {
- 	struct cmd_ctrl_node *cmd_array;
--	u32 buf_size;
- 	u32 i;
- 
- 	/* Allocate and initialize struct cmd_ctrl_node */
--	buf_size = sizeof(struct cmd_ctrl_node) * MWIFIEX_NUM_OF_CMD_BUFFER;
--	cmd_array = kzalloc(buf_size, GFP_KERNEL);
--	if (!cmd_array) {
--		dev_err(adapter->dev, "%s: failed to alloc cmd_array\n",
--			__func__);
-+	cmd_array = kcalloc(MWIFIEX_NUM_OF_CMD_BUFFER,
-+			    sizeof(struct cmd_ctrl_node), GFP_KERNEL);
-+	if (!cmd_array)
- 		return -ENOMEM;
--	}
- 
- 	adapter->cmd_pool = cmd_array;
--	memset(adapter->cmd_pool, 0, buf_size);
- 
- 	/* Allocate and initialize command buffers */
- 	for (i = 0; i < MWIFIEX_NUM_OF_CMD_BUFFER; i++) {
-diff --git a/drivers/net/wireless/mwifiex/init.c b/drivers/net/wireless/mwifiex/init.c
-index 820a19c..e38aa9b 100644
---- a/drivers/net/wireless/mwifiex/init.c
-+++ b/drivers/net/wireless/mwifiex/init.c
-@@ -39,11 +39,8 @@ static int mwifiex_add_bss_prio_tbl(struct mwifiex_private *priv)
- 	unsigned long flags;
- 
- 	bss_prio = kzalloc(sizeof(struct mwifiex_bss_prio_node), GFP_KERNEL);
--	if (!bss_prio) {
--		dev_err(adapter->dev, "%s: failed to alloc bss_prio\n",
--			__func__);
-+	if (!bss_prio)
- 		return -ENOMEM;
--	}
- 
- 	bss_prio->priv = priv;
- 	INIT_LIST_HEAD(&bss_prio->list);
-diff --git a/drivers/net/wireless/mwifiex/scan.c b/drivers/net/wireless/mwifiex/scan.c
-index 973a9d9..d41f0e6 100644
---- a/drivers/net/wireless/mwifiex/scan.c
-+++ b/drivers/net/wireless/mwifiex/scan.c
-@@ -1309,7 +1309,6 @@ int mwifiex_scan_networks(struct mwifiex_private *priv,
- 	struct cmd_ctrl_node *cmd_node;
- 	union mwifiex_scan_cmd_config_tlv *scan_cfg_out;
- 	struct mwifiex_ie_types_chan_list_param_set *chan_list_out;
--	u32 buf_size;
- 	struct mwifiex_chan_scan_param_set *scan_chan_list;
- 	u8 filtered_scan;
- 	u8 scan_current_chan_only;
-@@ -1332,18 +1331,16 @@ int mwifiex_scan_networks(struct mwifiex_private *priv,
- 	spin_unlock_irqrestore(&adapter->mwifiex_cmd_lock, flags);
- 
- 	scan_cfg_out = kzalloc(sizeof(union mwifiex_scan_cmd_config_tlv),
--								GFP_KERNEL);
-+			       GFP_KERNEL);
- 	if (!scan_cfg_out) {
--		dev_err(adapter->dev, "failed to alloc scan_cfg_out\n");
+-	priv->tx_skb = kzalloc(sizeof(struct sk_buff *) * priv->tx_ring_size,
++	priv->tx_skb = kcalloc(priv->tx_ring_size, sizeof(struct sk_buff *),
+ 			       GFP_KERNEL);
+ 	if (!priv->tx_skb) {
+-		dev_err(kdev, "cannot allocate rx skb queue\n");
  		ret = -ENOMEM;
- 		goto done;
+ 		goto out_free_tx_ring;
+ 	}
+@@ -900,10 +899,9 @@ static int bcm_enet_open(struct net_device *dev)
+ 	spin_lock_init(&priv->tx_lock);
+ 
+ 	/* init & fill rx ring with skbs */
+-	priv->rx_skb = kzalloc(sizeof(struct sk_buff *) * priv->rx_ring_size,
++	priv->rx_skb = kcalloc(priv->rx_ring_size, sizeof(struct sk_buff *),
+ 			       GFP_KERNEL);
+ 	if (!priv->rx_skb) {
+-		dev_err(kdev, "cannot allocate rx skb queue\n");
+ 		ret = -ENOMEM;
+ 		goto out_free_tx_skb;
+ 	}
+diff --git a/drivers/net/ethernet/broadcom/cnic.c b/drivers/net/ethernet/broadcom/cnic.c
+index 1c4dadc..149a3a0 100644
+--- a/drivers/net/ethernet/broadcom/cnic.c
++++ b/drivers/net/ethernet/broadcom/cnic.c
+@@ -5425,11 +5425,9 @@ static struct cnic_dev *cnic_alloc_dev(struct net_device *dev,
+ 
+ 	alloc_size = sizeof(struct cnic_dev) + sizeof(struct cnic_local);
+ 
+-	cdev = kzalloc(alloc_size , GFP_KERNEL);
+-	if (cdev == NULL) {
+-		netdev_err(dev, "allocate dev struct failure\n");
++	cdev = kzalloc(alloc_size, GFP_KERNEL);
++	if (cdev == NULL)
+ 		return NULL;
+-	}
+ 
+ 	cdev->netdev = dev;
+ 	cdev->cnic_priv = (char *)cdev + sizeof(struct cnic_dev);
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index ab07026..90195e3 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -5793,10 +5793,8 @@ static void tg3_dump_state(struct tg3 *tp)
+ 	u32 *regs;
+ 
+ 	regs = kzalloc(TG3_REG_BLK_SIZE, GFP_ATOMIC);
+-	if (!regs) {
+-		netdev_err(tp->dev, "Failed allocating register dump buffer\n");
++	if (!regs)
+ 		return;
+-	}
+ 
+ 	if (tg3_flag(tp, PCI_EXPRESS)) {
+ 		/* Read up to but not including private PCI registers */
+diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+index d0fe53c..45e59d5 100644
+--- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
++++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+@@ -716,12 +716,11 @@ static int gfar_ethflow_to_filer_table(struct gfar_private *priv, u64 ethflow,
+ 	int j = MAX_FILER_IDX, l = 0x0;
+ 	int ret = 1;
+ 
+-	local_rqfpr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
+-			      GFP_KERNEL);
+-	local_rqfcr = kmalloc(sizeof(unsigned int) * (MAX_FILER_IDX + 1),
+-			      GFP_KERNEL);
++	local_rqfpr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
++				    GFP_KERNEL);
++	local_rqfcr = kmalloc_array(MAX_FILER_IDX + 1, sizeof(unsigned int),
++				    GFP_KERNEL);
+ 	if (!local_rqfpr || !local_rqfcr) {
+-		pr_err("Out of memory\n");
+ 		ret = 0;
+ 		goto err;
+ 	}
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_main.c b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+index 19b64de..91977d9 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_main.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_main.c
+@@ -1921,10 +1921,8 @@ static void ehea_add_multicast_entry(struct ehea_port *port, u8 *mc_mac_addr)
+ 	u64 hret;
+ 
+ 	ehea_mcl_entry = kzalloc(sizeof(*ehea_mcl_entry), GFP_ATOMIC);
+-	if (!ehea_mcl_entry) {
+-		pr_err("no mem for mcl_entry\n");
++	if (!ehea_mcl_entry)
+ 		return;
+-	}
+ 
+ 	INIT_LIST_HEAD(&ehea_mcl_entry->list);
+ 
+diff --git a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+index 27f8817..9b03033 100644
+--- a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
++++ b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+@@ -64,11 +64,10 @@ static int hw_queue_ctor(struct hw_queue *queue, const u32 nr_of_pages,
  	}
  
--	buf_size = sizeof(struct mwifiex_chan_scan_param_set) *
--						MWIFIEX_USER_SCAN_CHAN_MAX;
--	scan_chan_list = kzalloc(buf_size, GFP_KERNEL);
-+	scan_chan_list = kcalloc(MWIFIEX_USER_SCAN_CHAN_MAX,
-+				 sizeof(struct mwifiex_chan_scan_param_set),
-+				 GFP_KERNEL);
- 	if (!scan_chan_list) {
--		dev_err(adapter->dev, "failed to alloc scan_chan_list\n");
- 		kfree(scan_cfg_out);
- 		ret = -ENOMEM;
- 		goto done;
-@@ -1461,12 +1458,9 @@ static int mwifiex_update_curr_bss_params(struct mwifiex_private *priv,
- 	unsigned long flags;
- 
- 	/* Allocate and fill new bss descriptor */
--	bss_desc = kzalloc(sizeof(struct mwifiex_bssdescriptor),
--			GFP_KERNEL);
--	if (!bss_desc) {
--		dev_err(priv->adapter->dev, " failed to alloc bss_desc\n");
-+	bss_desc = kzalloc(sizeof(struct mwifiex_bssdescriptor), GFP_KERNEL);
-+	if (!bss_desc)
+ 	queue->queue_length = nr_of_pages * pagesize;
+-	queue->queue_pages = kmalloc(nr_of_pages * sizeof(void *), GFP_KERNEL);
+-	if (!queue->queue_pages) {
+-		pr_err("no mem for queue_pages\n");
++	queue->queue_pages = kmalloc_array(nr_of_pages, sizeof(void *),
++					   GFP_KERNEL);
++	if (!queue->queue_pages)
  		return -ENOMEM;
 -	}
  
- 	ret = mwifiex_fill_new_bss_desc(priv, bss, bss_desc);
- 	if (ret)
-@@ -1880,10 +1874,8 @@ static int mwifiex_scan_specific_ssid(struct mwifiex_private *priv,
+ 	/*
+ 	 * allocate pages for queue:
+@@ -129,10 +128,8 @@ struct ehea_cq *ehea_create_cq(struct ehea_adapter *adapter,
+ 	void *vpage;
+ 
+ 	cq = kzalloc(sizeof(*cq), GFP_KERNEL);
+-	if (!cq) {
+-		pr_err("no mem for cq\n");
++	if (!cq)
+ 		goto out_nomem;
+-	}
+ 
+ 	cq->attr.max_nr_of_cqes = nr_of_cqe;
+ 	cq->attr.cq_token = cq_token;
+@@ -257,10 +254,8 @@ struct ehea_eq *ehea_create_eq(struct ehea_adapter *adapter,
+ 	struct ehea_eq *eq;
+ 
+ 	eq = kzalloc(sizeof(*eq), GFP_KERNEL);
+-	if (!eq) {
+-		pr_err("no mem for eq\n");
++	if (!eq)
+ 		return NULL;
+-	}
+ 
+ 	eq->adapter = adapter;
+ 	eq->attr.type = type;
+@@ -428,10 +423,8 @@ struct ehea_qp *ehea_create_qp(struct ehea_adapter *adapter,
+ 
+ 
+ 	qp = kzalloc(sizeof(*qp), GFP_KERNEL);
+-	if (!qp) {
+-		pr_err("no mem for qp\n");
++	if (!qp)
+ 		return NULL;
+-	}
+ 
+ 	qp->adapter = adapter;
+ 
+diff --git a/drivers/net/ethernet/ibm/emac/mal.c b/drivers/net/ethernet/ibm/emac/mal.c
+index 50ea12b..1f7ecf5 100644
+--- a/drivers/net/ethernet/ibm/emac/mal.c
++++ b/drivers/net/ethernet/ibm/emac/mal.c
+@@ -528,12 +528,9 @@ static int mal_probe(struct platform_device *ofdev)
+ 	irq_handler_t hdlr_serr, hdlr_txde, hdlr_rxde;
+ 
+ 	mal = kzalloc(sizeof(struct mal_instance), GFP_KERNEL);
+-	if (!mal) {
+-		printk(KERN_ERR
+-		       "mal%d: out of memory allocating MAL structure!\n",
+-		       index);
++	if (!mal)
+ 		return -ENOMEM;
+-	}
++
+ 	mal->index = index;
+ 	mal->ofdev = ofdev;
+ 	mal->version = of_device_is_compatible(ofdev->dev.of_node, "ibm,mcmal2") ? 2 : 1;
+diff --git a/drivers/net/ethernet/ibm/ibmveth.c b/drivers/net/ethernet/ibm/ibmveth.c
+index 4181f6e..c859771 100644
+--- a/drivers/net/ethernet/ibm/ibmveth.c
++++ b/drivers/net/ethernet/ibm/ibmveth.c
+@@ -637,7 +637,6 @@ static int ibmveth_open(struct net_device *netdev)
+ 	adapter->bounce_buffer =
+ 	    kmalloc(netdev->mtu + IBMVETH_BUFF_OH, GFP_KERNEL);
+ 	if (!adapter->bounce_buffer) {
+-		netdev_err(netdev, "unable to allocate bounce buffer\n");
+ 		rc = -ENOMEM;
+ 		goto err_out_free_irq;
  	}
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index a59e630..1aaf193 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2671,9 +2671,8 @@ static int igb_sw_init(struct igb_adapter *adapter)
+ 	igb_init_queue_configuration(adapter);
  
- 	scan_cfg = kzalloc(sizeof(struct mwifiex_user_scan_cfg), GFP_KERNEL);
--	if (!scan_cfg) {
--		dev_err(adapter->dev, "failed to alloc scan_cfg\n");
-+	if (!scan_cfg)
- 		return -ENOMEM;
--	}
+ 	/* Setup and initialize a copy of the hw vlan table array */
+-	adapter->shadow_vfta = kzalloc(sizeof(u32) *
+-				E1000_VLAN_FILTER_TBL_SIZE,
+-				GFP_ATOMIC);
++	adapter->shadow_vfta = kcalloc(E1000_VLAN_FILTER_TBL_SIZE, sizeof(u32),
++				       GFP_ATOMIC);
  
- 	scan_cfg->ssid_list = req_ssid;
- 	scan_cfg->num_ssids = 1;
-@@ -1997,11 +1989,8 @@ mwifiex_save_curr_bcn(struct mwifiex_private *priv)
- 		kfree(priv->curr_bcn_buf);
- 		priv->curr_bcn_buf = kmalloc(curr_bss->beacon_buf_size,
- 					     GFP_ATOMIC);
--		if (!priv->curr_bcn_buf) {
--			dev_err(priv->adapter->dev,
--				"failed to alloc curr_bcn_buf\n");
-+		if (!priv->curr_bcn_buf)
+ 	/* This call may decrease the number of queues */
+ 	if (igb_init_interrupt_scheme(adapter, true)) {
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 8224889..f53f713 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1399,12 +1399,10 @@ static void igbvf_set_multi(struct net_device *netdev)
+ 	int i;
+ 
+ 	if (!netdev_mc_empty(netdev)) {
+-		mta_list = kmalloc(netdev_mc_count(netdev) * 6, GFP_ATOMIC);
+-		if (!mta_list) {
+-			dev_err(&adapter->pdev->dev,
+-			        "failed to allocate multicast filter list\n");
++		mta_list = kmalloc_array(netdev_mc_count(netdev), ETH_ALEN,
++					 GFP_ATOMIC);
++		if (!mta_list)
  			return;
 -		}
  	}
  
- 	memcpy(priv->curr_bcn_buf, curr_bss->beacon_buf,
-diff --git a/drivers/net/wireless/mwifiex/sdio.c b/drivers/net/wireless/mwifiex/sdio.c
-index 6ada6a8c..e63f646 100644
---- a/drivers/net/wireless/mwifiex/sdio.c
-+++ b/drivers/net/wireless/mwifiex/sdio.c
-@@ -716,11 +716,8 @@ static int mwifiex_prog_fw_w_helper(struct mwifiex_adapter *adapter,
+ 	/* prepare a packed array of only addresses. */
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index c27b23d8..2914050 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -1879,12 +1879,10 @@ static int rxq_init(struct mv643xx_eth_private *mp, int index)
+ 	memset(rxq->rx_desc_area, 0, size);
  
- 	/* Assume that the allocated buffer is 8-byte aligned */
- 	fwbuf = kzalloc(MWIFIEX_UPLD_SIZE, GFP_KERNEL);
--	if (!fwbuf) {
--		dev_err(adapter->dev,
--			"unable to alloc buffer for FW. Terminating dnld\n");
-+	if (!fwbuf)
+ 	rxq->rx_desc_area_size = size;
+-	rxq->rx_skb = kmalloc(rxq->rx_ring_size * sizeof(*rxq->rx_skb),
+-								GFP_KERNEL);
+-	if (rxq->rx_skb == NULL) {
+-		netdev_err(mp->dev, "can't allocate rx skb ring\n");
++	rxq->rx_skb = kmalloc_array(rxq->rx_ring_size, sizeof(*rxq->rx_skb),
++				    GFP_KERNEL);
++	if (rxq->rx_skb == NULL)
+ 		goto out_free;
+-	}
+ 
+ 	rx_desc = rxq->rx_desc_area;
+ 	for (i = 0; i < rxq->rx_ring_size; i++) {
+diff --git a/drivers/net/ethernet/marvell/mvmdio.c b/drivers/net/ethernet/marvell/mvmdio.c
+index 74f1c15..77b7c80 100644
+--- a/drivers/net/ethernet/marvell/mvmdio.c
++++ b/drivers/net/ethernet/marvell/mvmdio.c
+@@ -164,7 +164,6 @@ static int orion_mdio_probe(struct platform_device *pdev)
+ 
+ 	bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
+ 	if (!bus->irq) {
+-		dev_err(&pdev->dev, "Cannot allocate PHY IRQ array\n");
+ 		mdiobus_free(bus);
+ 		return -ENOMEM;
+ 	}
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 8b08bc4..171f4b3 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -3916,10 +3916,9 @@ static int skge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* space for skge@pci:0000:04:00.0 */
+ 	hw = kzalloc(sizeof(*hw) + strlen(DRV_NAME "@pci:")
+ 		     + strlen(pci_name(pdev)) + 1, GFP_KERNEL);
+-	if (!hw) {
+-		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
++	if (!hw)
+ 		goto err_out_free_regions;
+-	}
++
+ 	sprintf(hw->irq_name, DRV_NAME "@pci:%s", pci_name(pdev));
+ 
+ 	hw->pdev = pdev;
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 366a12a..fc07ca3 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -4969,10 +4969,8 @@ static int sky2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	hw = kzalloc(sizeof(*hw) + strlen(DRV_NAME "@pci:")
+ 		     + strlen(pci_name(pdev)) + 1, GFP_KERNEL);
+-	if (!hw) {
+-		dev_err(&pdev->dev, "cannot allocate hardware struct\n");
++	if (!hw)
+ 		goto err_out_free_regions;
+-	}
+ 
+ 	hw->pdev = pdev;
+ 	sprintf(hw->irq_name, DRV_NAME "@pci:%s", pci_name(pdev));
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+index 8611c89..e375fad 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
+@@ -191,10 +191,8 @@ static void *mlx4_en_add(struct mlx4_dev *dev)
+ 
+ 	printk_once(KERN_INFO "%s", mlx4_en_version);
+ 
+-	mdev = kzalloc(sizeof *mdev, GFP_KERNEL);
++	mdev = kzalloc(sizeof(*mdev), GFP_KERNEL);
+ 	if (!mdev) {
+-		dev_err(&dev->pdev->dev, "Device struct alloc failed, "
+-			"aborting.\n");
+ 		err = -ENOMEM;
+ 		goto err_free_res;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 9df5644..9aeeab1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -2054,10 +2054,8 @@ static int __mlx4_init_one(struct pci_dev *pdev, int pci_dev_data)
+ 	/* Allow large DMA segments, up to the firmware limit of 1 GB */
+ 	dma_set_max_seg_size(&pdev->dev, 1024 * 1024 * 1024);
+ 
+-	priv = kzalloc(sizeof *priv, GFP_KERNEL);
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+ 	if (!priv) {
+-		dev_err(&pdev->dev, "Device struct alloc failed, "
+-			"aborting.\n");
+ 		err = -ENOMEM;
+ 		goto err_release_regions;
+ 	}
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index f8408d6..4f9937e 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -664,10 +664,9 @@ static int myri10ge_adopt_running_firmware(struct myri10ge_priv *mgp)
+ 	/* copy header of running firmware from SRAM to host memory to
+ 	 * validate firmware */
+ 	hdr = kmalloc(bytes, GFP_KERNEL);
+-	if (hdr == NULL) {
+-		dev_err(dev, "could not malloc firmware hdr\n");
++	if (hdr == NULL)
+ 		return -ENOMEM;
+-	}
++
+ 	memcpy_fromio(hdr, mgp->sram + hdr_offset, bytes);
+ 	status = myri10ge_validate_firmware(mgp, hdr);
+ 	kfree(hdr);
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
+index 7f556a8..1bcaf45 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
+@@ -201,11 +201,8 @@ netxen_setup_minidump(struct netxen_adapter *adapter)
+ 	adapter->mdump.md_template =
+ 		kmalloc(adapter->mdump.md_template_size, GFP_KERNEL);
+ 
+-	if (!adapter->mdump.md_template) {
+-		dev_err(&adapter->pdev->dev, "Unable to allocate memory "
+-			"for minidump template.\n");
++	if (!adapter->mdump.md_template)
  		return -ENOMEM;
 -	}
  
- 	/* Perform firmware data transfer */
- 	do {
-@@ -1518,7 +1515,6 @@ static int mwifiex_alloc_sdio_mpa_buffers(struct mwifiex_adapter *adapter,
- 
- 	card->mpa_tx.buf = kzalloc(mpa_tx_buf_size, GFP_KERNEL);
- 	if (!card->mpa_tx.buf) {
--		dev_err(adapter->dev, "could not alloc buffer for MP-A TX\n");
- 		ret = -1;
- 		goto error;
+ 	err = netxen_get_minidump_template(adapter);
+ 	if (err) {
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+index 946160f..9fbb1cd 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_hw.c
+@@ -670,11 +670,9 @@ static int nx_p3_nic_add_mac(struct netxen_adapter *adapter,
  	}
-@@ -1527,7 +1523,6 @@ static int mwifiex_alloc_sdio_mpa_buffers(struct mwifiex_adapter *adapter,
  
- 	card->mpa_rx.buf = kzalloc(mpa_rx_buf_size, GFP_KERNEL);
- 	if (!card->mpa_rx.buf) {
--		dev_err(adapter->dev, "could not alloc buffer for MP-A RX\n");
- 		ret = -1;
- 		goto error;
- 	}
-@@ -1680,10 +1675,8 @@ static int mwifiex_init_sdio(struct mwifiex_adapter *adapter)
+ 	cur = kzalloc(sizeof(nx_mac_list_t), GFP_ATOMIC);
+-	if (cur == NULL) {
+-		printk(KERN_ERR "%s: failed to add mac address filter\n",
+-				adapter->netdev->name);
++	if (cur == NULL)
+ 		return -ENOMEM;
+-	}
++
+ 	memcpy(cur->mac_addr, addr, ETH_ALEN);
+ 	list_add_tail(&cur->list, &adapter->mac_list);
+ 	return nx_p3_sre_macaddr_change(adapter,
+@@ -2568,16 +2566,10 @@ netxen_dump_fw(struct netxen_adapter *adapter)
+ 					adapter->mdump.md_capture_size;
+ 	if (!adapter->mdump.md_capture_buff) {
+ 		adapter->mdump.md_capture_buff =
+-				vmalloc(adapter->mdump.md_dump_size);
+-		if (!adapter->mdump.md_capture_buff) {
+-			dev_info(&adapter->pdev->dev,
+-				"Unable to allocate memory for minidump "
+-				"capture_buffer(%d bytes).\n",
+-					adapter->mdump.md_dump_size);
++				vzalloc(adapter->mdump.md_dump_size);
++		if (!adapter->mdump.md_capture_buff)
+ 			return;
+-		}
+-		memset(adapter->mdump.md_capture_buff, 0,
+-				adapter->mdump.md_dump_size);
++
+ 		if (netxen_collect_minidump(adapter)) {
+ 			adapter->mdump.has_valid_dump = 0;
+ 			adapter->mdump.md_dump_size = 0;
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+index 695667d..db50598 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_init.c
+@@ -197,41 +197,34 @@ int netxen_alloc_sw_resources(struct netxen_adapter *adapter)
+ 	struct nx_host_sds_ring *sds_ring;
+ 	struct nx_host_tx_ring *tx_ring;
+ 	struct netxen_rx_buffer *rx_buf;
+-	int ring, i, size;
++	int ring, i;
  
- 	/* Allocate buffers for SDIO MP-A */
- 	card->mp_regs = kzalloc(MAX_MP_REGS, GFP_KERNEL);
--	if (!card->mp_regs) {
--		dev_err(adapter->dev, "failed to alloc mp_regs\n");
-+	if (!card->mp_regs)
+ 	struct netxen_cmd_buffer *cmd_buf_arr;
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct pci_dev *pdev = adapter->pdev;
+ 
+-	size = sizeof(struct nx_host_tx_ring);
+-	tx_ring = kzalloc(size, GFP_KERNEL);
+-	if (tx_ring == NULL) {
+-		dev_err(&pdev->dev, "%s: failed to allocate tx ring struct\n",
+-		       netdev->name);
++	tx_ring = kzalloc(sizeof(struct nx_host_tx_ring), GFP_KERNEL);
++	if (tx_ring == NULL)
+ 		return -ENOMEM;
+-	}
++
+ 	adapter->tx_ring = tx_ring;
+ 
+ 	tx_ring->num_desc = adapter->num_txd;
+ 	tx_ring->txq = netdev_get_tx_queue(netdev, 0);
+ 
+ 	cmd_buf_arr = vzalloc(TX_BUFF_RINGSIZE(tx_ring));
+-	if (cmd_buf_arr == NULL) {
+-		dev_err(&pdev->dev, "%s: failed to allocate cmd buffer ring\n",
+-		       netdev->name);
++	if (cmd_buf_arr == NULL)
+ 		goto err_out;
+-	}
++
+ 	tx_ring->cmd_buf_arr = cmd_buf_arr;
+ 
+ 	recv_ctx = &adapter->recv_ctx;
+ 
+-	size = adapter->max_rds_rings * sizeof (struct nx_host_rds_ring);
+-	rds_ring = kzalloc(size, GFP_KERNEL);
+-	if (rds_ring == NULL) {
+-		dev_err(&pdev->dev, "%s: failed to allocate rds ring struct\n",
+-		       netdev->name);
++	rds_ring = kcalloc(adapter->max_rds_rings,
++			   sizeof(struct nx_host_rds_ring), GFP_KERNEL);
++	if (rds_ring == NULL)
+ 		goto err_out;
+-	}
++
+ 	recv_ctx->rds_rings = rds_ring;
+ 
+ 	for (ring = 0; ring < adapter->max_rds_rings; ring++) {
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 7a849fc..501f492 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -3176,11 +3176,8 @@ netxen_list_config_vlan_ip(struct netxen_adapter *adapter,
+ 		}
+ 
+ 		cur = kzalloc(sizeof(struct nx_vlan_ip_list), GFP_ATOMIC);
+-		if (cur == NULL) {
+-			printk(KERN_ERR "%s: failed to add vlan ip to list\n",
+-					adapter->netdev->name);
++		if (cur == NULL)
+ 			return;
+-		}
+ 
+ 		cur->ip_addr = ifa->ifa_address;
+ 		list_add_tail(&cur->list, &adapter->vlan_ip_list);
+diff --git a/drivers/net/ethernet/qlogic/qla3xxx.c b/drivers/net/ethernet/qlogic/qla3xxx.c
+index c0ed12d..8fd38cb6 100644
+--- a/drivers/net/ethernet/qlogic/qla3xxx.c
++++ b/drivers/net/ethernet/qlogic/qla3xxx.c
+@@ -2591,13 +2591,11 @@ static int ql_alloc_buffer_queues(struct ql3_adapter *qdev)
+ 	else
+ 		qdev->lrg_buf_q_alloc_size = qdev->lrg_buf_q_size * 2;
+ 
+-	qdev->lrg_buf =
+-		kmalloc(qdev->num_large_buffers * sizeof(struct ql_rcv_buf_cb),
+-			GFP_KERNEL);
+-	if (qdev->lrg_buf == NULL) {
+-		netdev_err(qdev->ndev, "qdev->lrg_buf alloc failed\n");
++	qdev->lrg_buf = kmalloc_array(qdev->num_large_buffers,
++				      sizeof(struct ql_rcv_buf_cb),
++				      GFP_KERNEL);
++	if (qdev->lrg_buf == NULL)
  		return -ENOMEM;
 -	}
  
- 	ret = mwifiex_alloc_sdio_mpa_buffers(adapter,
- 					     SDIO_MP_TX_AGGR_DEF_BUF_SIZE,
-diff --git a/drivers/net/wireless/mwifiex/sta_ioctl.c b/drivers/net/wireless/mwifiex/sta_ioctl.c
-index f542bb8..b8fa76a 100644
---- a/drivers/net/wireless/mwifiex/sta_ioctl.c
-+++ b/drivers/net/wireless/mwifiex/sta_ioctl.c
-@@ -266,11 +266,9 @@ int mwifiex_bss_start(struct mwifiex_private *priv, struct cfg80211_bss *bss,
+ 	qdev->lrg_buf_q_alloc_virt_addr =
+ 		pci_alloc_consistent(qdev->pdev,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index c9e24a8..8163e5b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -1171,12 +1171,9 @@ static int qlcnic_83xx_copy_bootloader(struct qlcnic_adapter *adapter)
+ 		size = (size + 16) & ~0xF;
  
- 		/* Allocate and fill new bss descriptor */
- 		bss_desc = kzalloc(sizeof(struct mwifiex_bssdescriptor),
--				GFP_KERNEL);
--		if (!bss_desc) {
--			dev_err(priv->adapter->dev, " failed to alloc bss_desc\n");
-+				   GFP_KERNEL);
-+		if (!bss_desc)
+ 	p_cache = kzalloc(size, GFP_KERNEL);
+-
+-	if (p_cache == NULL) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to allocate memory for boot loader cache\n");
++	if (p_cache == NULL)
+ 		return -ENOMEM;
+-	}
++
+ 	ret = qlcnic_83xx_lockless_flash_read32(adapter, src, p_cache,
+ 						size / sizeof(u32));
+ 	if (ret) {
+@@ -1487,12 +1484,9 @@ int qlcnic_83xx_get_reset_instruction_template(struct qlcnic_adapter *p_dev)
+ 
+ 	ahw->reset.seq_error = 0;
+ 	ahw->reset.buff = kzalloc(QLC_83XX_RESTART_TEMPLATE_SIZE, GFP_KERNEL);
+-
+-	if (p_dev->ahw->reset.buff == NULL) {
+-		dev_err(&p_dev->pdev->dev,
+-			"%s: resource allocation failed\n", __func__);
++	if (p_dev->ahw->reset.buff == NULL)
+ 		return -ENOMEM;
+-	}
++
+ 	p_buff = p_dev->ahw->reset.buff;
+ 	addr = QLC_83XX_RESET_TEMPLATE_ADDR;
+ 	count = sizeof(struct qlc_83xx_reset_hdr) / sizeof(u32);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 88a2330..4ee92b2 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -481,11 +481,9 @@ int qlcnic_nic_add_mac(struct qlcnic_adapter *adapter, const u8 *addr)
+ 	}
+ 
+ 	cur = kzalloc(sizeof(struct qlcnic_mac_list_s), GFP_ATOMIC);
+-	if (cur == NULL) {
+-		dev_err(&adapter->netdev->dev,
+-			"failed to add mac address filter\n");
++	if (cur == NULL)
+ 		return -ENOMEM;
+-	}
++
+ 	memcpy(cur->mac_addr, addr, ETH_ALEN);
+ 
+ 	if (qlcnic_sre_macaddr_change(adapter,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+index aa71eba..10ad25d 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_init.c
+@@ -184,18 +184,15 @@ int qlcnic_alloc_sw_resources(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_host_rds_ring *rds_ring;
+ 	struct qlcnic_host_sds_ring *sds_ring;
+ 	struct qlcnic_rx_buffer *rx_buf;
+-	int ring, i, size;
+-
+-	struct net_device *netdev = adapter->netdev;
++	int ring, i;
+ 
+ 	recv_ctx = adapter->recv_ctx;
+ 
+-	size = adapter->max_rds_rings * sizeof(struct qlcnic_host_rds_ring);
+-	rds_ring = kzalloc(size, GFP_KERNEL);
+-	if (rds_ring == NULL) {
+-		dev_err(&netdev->dev, "failed to allocate rds ring struct\n");
++	rds_ring = kcalloc(adapter->max_rds_rings,
++			   sizeof(struct qlcnic_host_rds_ring), GFP_KERNEL);
++	if (rds_ring == NULL)
+ 		goto err_out;
+-	}
++
+ 	recv_ctx->rds_rings = rds_ring;
+ 
+ 	for (ring = 0; ring < adapter->max_rds_rings; ring++) {
+@@ -221,11 +218,8 @@ int qlcnic_alloc_sw_resources(struct qlcnic_adapter *adapter)
+ 			break;
+ 		}
+ 		rds_ring->rx_buf_arr = vzalloc(RCV_BUFF_RINGSIZE(rds_ring));
+-		if (rds_ring->rx_buf_arr == NULL) {
+-			dev_err(&netdev->dev,
+-				"Failed to allocate rx buffer ring %d\n", ring);
++		if (rds_ring->rx_buf_arr == NULL)
+ 			goto err_out;
+-		}
+ 
+ 		INIT_LIST_HEAD(&rds_ring->free_list);
+ 		/*
+@@ -448,10 +442,8 @@ int qlcnic_pinit_from_rom(struct qlcnic_adapter *adapter)
+ 	}
+ 
+ 	buf = kcalloc(n, sizeof(struct crb_addr_pair), GFP_KERNEL);
+-	if (buf == NULL) {
+-		dev_err(&pdev->dev, "Unable to calloc memory for rom read.\n");
++	if (buf == NULL)
+ 		return -ENOMEM;
+-	}
+ 
+ 	for (i = 0; i < n; i++) {
+ 		if (qlcnic_rom_fast_read(adapter, 8*i + 4*offset, &val) != 0 ||
+@@ -657,10 +649,8 @@ static int qlcnic_get_flt_entry(struct qlcnic_adapter *adapter, u8 region,
+ 
+ 	entry_size = flt_hdr.len - sizeof(struct qlcnic_flt_header);
+ 	flt_entry = vzalloc(entry_size);
+-	if (flt_entry == NULL) {
+-		dev_warn(&adapter->pdev->dev, "error allocating memory\n");
++	if (flt_entry == NULL)
+ 		return -EIO;
+-	}
+ 
+ 	ret = qlcnic_rom_fast_read_words(adapter, QLCNIC_FLT_LOCATION +
+ 					 sizeof(struct qlcnic_flt_header),
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index e315e97..557b167 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -414,10 +414,8 @@ int qlcnic_enable_msix(struct qlcnic_adapter *adapter, u32 num_msix)
+ 		adapter->msix_entries = kcalloc(num_msix,
+ 						sizeof(struct msix_entry),
+ 						GFP_KERNEL);
+-		if (!adapter->msix_entries) {
+-			dev_err(&pdev->dev, "failed allocating msix_entries\n");
++		if (!adapter->msix_entries)
  			return -ENOMEM;
 -		}
- 
- 		ret = mwifiex_fill_new_bss_desc(priv, bss, bss_desc);
- 		if (ret)
-@@ -636,11 +634,8 @@ int mwifiex_set_tx_power(struct mwifiex_private *priv,
- 		}
  	}
- 	buf = kzalloc(MWIFIEX_SIZE_OF_CMD_BUFFER, GFP_KERNEL);
--	if (!buf) {
--		dev_err(priv->adapter->dev, "%s: failed to alloc cmd buffer\n",
--			__func__);
-+	if (!buf)
+ 
+ 	adapter->max_sds_rings = 1;
+@@ -1536,8 +1534,6 @@ static int qlcnic_alloc_adapter_resources(struct qlcnic_adapter *adapter)
+ 	adapter->recv_ctx = kzalloc(sizeof(struct qlcnic_recv_context),
+ 				GFP_KERNEL);
+ 	if (!adapter->recv_ctx) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to allocate recv ctx resources for adapter\n");
+ 		err = -ENOMEM;
+ 		goto err_out;
+ 	}
+@@ -1764,16 +1760,15 @@ void qlcnic_free_tx_rings(struct qlcnic_adapter *adapter)
+ int qlcnic_alloc_tx_rings(struct qlcnic_adapter *adapter,
+ 			  struct net_device *netdev)
+ {
+-	int ring, size, vector, index;
++	int ring, vector, index;
+ 	struct qlcnic_host_tx_ring *tx_ring;
+ 	struct qlcnic_cmd_buffer *cmd_buf_arr;
+ 
+-	size = adapter->max_drv_tx_rings * sizeof(struct qlcnic_host_tx_ring);
+-	tx_ring = kzalloc(size, GFP_KERNEL);
+-	if (tx_ring == NULL) {
+-		dev_err(&netdev->dev, "failed to allocate tx rings\n");
++	tx_ring = kcalloc(adapter->max_drv_tx_rings,
++			  sizeof(struct qlcnic_host_tx_ring), GFP_KERNEL);
++	if (tx_ring == NULL)
  		return -ENOMEM;
 -	}
- 
- 	txp_cfg = (struct host_cmd_ds_txpwr_cfg *) buf;
- 	txp_cfg->action = cpu_to_le16(HostCmd_ACT_GEN_SET);
-diff --git a/drivers/net/wireless/mwifiex/wmm.c b/drivers/net/wireless/mwifiex/wmm.c
-index 135d96d..32adc87 100644
---- a/drivers/net/wireless/mwifiex/wmm.c
-+++ b/drivers/net/wireless/mwifiex/wmm.c
-@@ -109,12 +109,9 @@ mwifiex_wmm_allocate_ralist_node(struct mwifiex_adapter *adapter, u8 *ra)
- 	struct mwifiex_ra_list_tbl *ra_list;
- 
- 	ra_list = kzalloc(sizeof(struct mwifiex_ra_list_tbl), GFP_ATOMIC);
--
--	if (!ra_list) {
--		dev_err(adapter->dev, "%s: failed to alloc ra_list\n",
--			__func__);
-+	if (!ra_list)
- 		return NULL;
--	}
 +
- 	INIT_LIST_HEAD(&ra_list->list);
- 	skb_queue_head_init(&ra_list->skb_head);
+ 	adapter->tx_ring = tx_ring;
  
-diff --git a/drivers/net/wireless/orinoco/main.c b/drivers/net/wireless/orinoco/main.c
-index 1e802f8..38ec8d1 100644
---- a/drivers/net/wireless/orinoco/main.c
-+++ b/drivers/net/wireless/orinoco/main.c
-@@ -853,12 +853,8 @@ void __orinoco_ev_rx(struct net_device *dev, struct hermes *hw)
- 	int err;
- 
- 	desc = kmalloc(sizeof(*desc), GFP_ATOMIC);
--	if (!desc) {
--		printk(KERN_WARNING
--		       "%s: Can't allocate space for RX descriptor\n",
--		       dev->name);
-+	if (!desc)
- 		goto update_stats;
--	}
- 
- 	rxfid = hermes_read_regn(hw, RXFID);
- 
-@@ -1336,10 +1332,9 @@ static void qbuf_scan(struct orinoco_private *priv, void *buf,
- 	unsigned long flags;
- 
- 	sd = kmalloc(sizeof(*sd), GFP_ATOMIC);
--	if (!sd) {
--		printk(KERN_ERR "%s: failed to alloc memory\n", __func__);
-+	if (!sd)
- 		return;
--	}
-+
- 	sd->buf = buf;
- 	sd->len = len;
- 	sd->type = type;
-@@ -1357,10 +1352,9 @@ static void qabort_scan(struct orinoco_private *priv)
- 	unsigned long flags;
- 
- 	sd = kmalloc(sizeof(*sd), GFP_ATOMIC);
--	if (!sd) {
--		printk(KERN_ERR "%s: failed to alloc memory\n", __func__);
-+	if (!sd)
- 		return;
--	}
-+
- 	sd->len = -1; /* Abort */
- 
- 	spin_lock_irqsave(&priv->scan_lock, flags);
-diff --git a/drivers/net/wireless/p54/p54usb.c b/drivers/net/wireless/p54/p54usb.c
-index 800a165..62ac607 100644
---- a/drivers/net/wireless/p54/p54usb.c
-+++ b/drivers/net/wireless/p54/p54usb.c
-@@ -510,11 +510,8 @@ static int p54u_upload_firmware_3887(struct ieee80211_hw *dev)
- 		return err;
- 
- 	tmp = buf = kmalloc(P54U_FW_BLOCK, GFP_KERNEL);
--	if (!buf) {
--		dev_err(&priv->udev->dev, "(p54usb) cannot allocate firmware"
--					  "upload buffer!\n");
-+	if (!buf)
- 		return -ENOMEM;
--	}
- 
- 	left = block_size = min((size_t)P54U_FW_BLOCK, priv->fw->size);
- 	strcpy(buf, p54u_firmware_upload_3887);
-@@ -637,11 +634,8 @@ static int p54u_upload_firmware_net2280(struct ieee80211_hw *dev)
- 	const u8 *data;
- 
- 	buf = kmalloc(512, GFP_KERNEL);
--	if (!buf) {
--		dev_err(&priv->udev->dev, "(p54usb) firmware buffer "
--					  "alloc failed!\n");
-+	if (!buf)
- 		return -ENOMEM;
--	}
- 
- #define P54U_WRITE(type, addr, data) \
- 	do {\
-diff --git a/drivers/net/wireless/prism54/islpci_mgt.c b/drivers/net/wireless/prism54/islpci_mgt.c
-index c5404cb..9f19cce 100644
---- a/drivers/net/wireless/prism54/islpci_mgt.c
-+++ b/drivers/net/wireless/prism54/islpci_mgt.c
-@@ -123,11 +123,8 @@ islpci_mgmt_rx_fill(struct net_device *ndev)
- 
- 		if (buf->mem == NULL) {
- 			buf->mem = kmalloc(MGMT_FRAME_SIZE, GFP_ATOMIC);
--			if (!buf->mem) {
--				printk(KERN_WARNING
--				       "Error allocating management frame.\n");
-+			if (!buf->mem)
- 				return -ENOMEM;
--			}
- 			buf->size = MGMT_FRAME_SIZE;
+ 	for (ring = 0; ring < adapter->max_drv_tx_rings; ring++) {
+@@ -1782,8 +1777,6 @@ int qlcnic_alloc_tx_rings(struct qlcnic_adapter *adapter,
+ 		tx_ring->txq = netdev_get_tx_queue(netdev, ring);
+ 		cmd_buf_arr = vzalloc(TX_BUFF_RINGSIZE(tx_ring));
+ 		if (cmd_buf_arr == NULL) {
+-			dev_err(&netdev->dev,
+-				"failed to allocate cmd buffer ring\n");
+ 			qlcnic_free_tx_rings(adapter);
+ 			return -ENOMEM;
  		}
- 		if (buf->pci_addr == 0) {
-@@ -356,14 +353,11 @@ islpci_mgt_receive(struct net_device *ndev)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+index 6281cbd..8dbc8e7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
+@@ -931,12 +931,9 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
+ 		return -EIO;
  
- 		/* Determine frame size, skipping OID_INL_TUNNEL headers. */
- 		size = PIMFOR_HEADER_SIZE + header->length;
--		frame = kmalloc(sizeof (struct islpci_mgmtframe) + size,
-+		frame = kmalloc(sizeof(struct islpci_mgmtframe) + size,
- 				GFP_ATOMIC);
--		if (!frame) {
--			printk(KERN_WARNING
--			       "%s: Out of memory, cannot handle oid 0x%08x\n",
--			       ndev->name, header->oid);
-+		if (!frame)
- 			continue;
--		}
+ 	fw_dump->data = vzalloc(dump_size);
+-	if (!fw_dump->data) {
+-		dev_info(&adapter->pdev->dev,
+-			 "Unable to allocate (%d KB) for fw dump\n",
+-			 dump_size / 1024);
++	if (!fw_dump->data)
+ 		return -ENOMEM;
+-	}
 +
- 		frame->ndev = ndev;
- 		memcpy(&frame->buf, header, size);
- 		frame->header = (pimfor_header_t *) frame->buf;
-diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
-index abe1d03..9bb3f22 100644
---- a/drivers/net/wireless/rndis_wlan.c
-+++ b/drivers/net/wireless/rndis_wlan.c
-@@ -1621,11 +1621,8 @@ static void set_multicast_list(struct usbnet *usbdev)
- 	} else if (mc_count) {
- 		int i = 0;
- 
--		mc_addrs = kmalloc(mc_count * ETH_ALEN, GFP_ATOMIC);
-+		mc_addrs = kmalloc_array(mc_count, ETH_ALEN, GFP_ATOMIC);
- 		if (!mc_addrs) {
--			netdev_warn(usbdev->net,
--				    "couldn't alloc %d bytes of memory\n",
--				    mc_count * ETH_ALEN);
- 			netif_addr_unlock_bh(usbdev->net);
- 			return;
+ 	buffer = fw_dump->data;
+ 	fw_dump->size = dump_size;
+ 	no_entries = tmpl_hdr->num_entries;
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index e938158..325627e 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -4572,7 +4572,6 @@ static int ql_init_device(struct pci_dev *pdev, struct net_device *ndev,
+ 		qdev->mpi_coredump =
+ 			vmalloc(sizeof(struct ql_mpi_coredump));
+ 		if (qdev->mpi_coredump == NULL) {
+-			dev_err(&pdev->dev, "Coredump alloc failed.\n");
+ 			err = -ENOMEM;
+ 			goto err_out2;
  		}
-diff --git a/drivers/net/wireless/ti/wlcore/sdio.c b/drivers/net/wireless/ti/wlcore/sdio.c
-index d4f184e..75622f6 100644
---- a/drivers/net/wireless/ti/wlcore/sdio.c
-+++ b/drivers/net/wireless/ti/wlcore/sdio.c
-@@ -229,10 +229,8 @@ static int wl1271_probe(struct sdio_func *func,
- 		return -ENODEV;
+diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+index 34f76e9..5b4103d 100644
+--- a/drivers/net/ethernet/rdc/r6040.c
++++ b/drivers/net/ethernet/rdc/r6040.c
+@@ -1192,9 +1192,8 @@ static int r6040_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	lp->mii_bus->name = "r6040_eth_mii";
+ 	snprintf(lp->mii_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+ 		dev_name(&pdev->dev), card_idx);
+-	lp->mii_bus->irq = kmalloc(sizeof(int)*PHY_MAX_ADDR, GFP_KERNEL);
++	lp->mii_bus->irq = kmalloc_array(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
+ 	if (!lp->mii_bus->irq) {
+-		dev_err(&pdev->dev, "mii_bus irq allocation failed\n");
+ 		err = -ENOMEM;
+ 		goto err_out_mdio;
+ 	}
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index e195c1e..33e9617 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -891,18 +891,16 @@ static int sh_eth_ring_init(struct net_device *ndev)
+ 		mdp->rx_buf_sz += NET_IP_ALIGN;
  
- 	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
--	if (!glue) {
--		dev_err(&func->dev, "can't allocate glue\n");
-+	if (!glue)
+ 	/* Allocate RX and TX skb rings */
+-	mdp->rx_skbuff = kmalloc(sizeof(*mdp->rx_skbuff) * mdp->num_rx_ring,
+-				GFP_KERNEL);
++	mdp->rx_skbuff = kmalloc_array(mdp->num_rx_ring,
++				       sizeof(*mdp->rx_skbuff), GFP_KERNEL);
+ 	if (!mdp->rx_skbuff) {
+-		dev_err(&ndev->dev, "Cannot allocate Rx skb\n");
+ 		ret = -ENOMEM;
+ 		return ret;
+ 	}
+ 
+-	mdp->tx_skbuff = kmalloc(sizeof(*mdp->tx_skbuff) * mdp->num_tx_ring,
+-				GFP_KERNEL);
++	mdp->tx_skbuff = kmalloc_array(mdp->num_tx_ring,
++				       sizeof(*mdp->tx_skbuff), GFP_KERNEL);
+ 	if (!mdp->tx_skbuff) {
+-		dev_err(&ndev->dev, "Cannot allocate Tx skb\n");
+ 		ret = -ENOMEM;
+ 		goto skb_ring_free;
+ 	}
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 8c65729..fd4d659 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -530,17 +530,18 @@ static void init_dma_desc_rings(struct net_device *dev)
+ 	DBG(probe, INFO, "stmmac: txsize %d, rxsize %d, bfsize %d\n",
+ 	    txsize, rxsize, bfsize);
+ 
+-	priv->rx_skbuff_dma = kmalloc(rxsize * sizeof(dma_addr_t), GFP_KERNEL);
+-	priv->rx_skbuff =
+-	    kmalloc(sizeof(struct sk_buff *) * rxsize, GFP_KERNEL);
++	priv->rx_skbuff_dma = kmalloc_array(rxsize, sizeof(dma_addr_t),
++					    GFP_KERNEL);
++	priv->rx_skbuff = kmalloc_array(rxsize, sizeof(struct sk_buff *),
++					GFP_KERNEL);
+ 	priv->dma_rx =
+ 	    (struct dma_desc *)dma_alloc_coherent(priv->device,
+ 						  rxsize *
+ 						  sizeof(struct dma_desc),
+ 						  &priv->dma_rx_phy,
+ 						  GFP_KERNEL);
+-	priv->tx_skbuff = kmalloc(sizeof(struct sk_buff *) * txsize,
+-				       GFP_KERNEL);
++	priv->tx_skbuff = kmalloc_array(txsize, sizeof(struct sk_buff *),
++					GFP_KERNEL);
+ 	priv->dma_tx =
+ 	    (struct dma_desc *)dma_alloc_coherent(priv->device,
+ 						  txsize *
+diff --git a/drivers/net/ethernet/sun/niu.c b/drivers/net/ethernet/sun/niu.c
+index c8c4915..e4c1c88 100644
+--- a/drivers/net/ethernet/sun/niu.c
++++ b/drivers/net/ethernet/sun/niu.c
+@@ -4342,7 +4342,7 @@ static int niu_alloc_rx_ring_info(struct niu *np,
+ {
+ 	BUILD_BUG_ON(sizeof(struct rxdma_mailbox) != 64);
+ 
+-	rp->rxhash = kzalloc(MAX_RBR_RING_SIZE * sizeof(struct page *),
++	rp->rxhash = kcalloc(MAX_RBR_RING_SIZE, sizeof(struct page *),
+ 			     GFP_KERNEL);
+ 	if (!rp->rxhash)
+ 		return -ENOMEM;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index b35e6a7..9e63bff 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1061,12 +1061,10 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
+ 	}
+ 	data->cpts_clock_shift = prop;
+ 
+-	data->slave_data = kzalloc(sizeof(struct cpsw_slave_data) *
+-				   data->slaves, GFP_KERNEL);
+-	if (!data->slave_data) {
+-		pr_err("Could not allocate slave memory.\n");
++	data->slave_data = kcalloc(data->slaves, sizeof(struct cpsw_slave_data),
++				   GFP_KERNEL);
++	if (!data->slave_data)
+ 		return -EINVAL;
+-	}
+ 
+ 	if (of_property_read_u32(node, "cpdma_channels", &prop)) {
+ 		pr_err("Missing cpdma_channels property in the DT.\n");
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index cca2550..d04a622 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -320,10 +320,8 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	int ret, addr;
+ 
+ 	data = kzalloc(sizeof(*data), GFP_KERNEL);
+-	if (!data) {
+-		dev_err(dev, "failed to alloc device data\n");
++	if (!data)
+ 		return -ENOMEM;
+-	}
+ 
+ 	data->bus = mdiobus_alloc();
+ 	if (!data->bus) {
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
+index 5022093..9fc2ada 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -238,11 +238,9 @@ static int temac_dma_bd_init(struct net_device *ndev)
+ 	int i;
+ 
+ 	lp->rx_skb = kcalloc(RX_BD_NUM, sizeof(*lp->rx_skb), GFP_KERNEL);
+-	if (!lp->rx_skb) {
+-		dev_err(&ndev->dev,
+-				"can't allocate memory for DMA RX buffer\n");
++	if (!lp->rx_skb)
  		goto out;
 -	}
- 
- 	glue->dev = &func->dev;
- 
-diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
-index 2d700b7..53790d1 100644
---- a/drivers/net/wireless/ti/wlcore/spi.c
-+++ b/drivers/net/wireless/ti/wlcore/spi.c
-@@ -87,11 +87,8 @@ static void wl12xx_spi_reset(struct device *child)
- 	struct spi_message m;
- 
- 	cmd = kzalloc(WSPI_INIT_CMD_LEN, GFP_KERNEL);
--	if (!cmd) {
--		dev_err(child->parent,
--			"could not allocate cmd for spi reset\n");
-+	if (!cmd)
- 		return;
--	}
- 
- 	memset(&t, 0, sizeof(t));
- 	spi_message_init(&m);
-@@ -115,11 +112,8 @@ static void wl12xx_spi_init(struct device *child)
- 	struct spi_message m;
- 
- 	cmd = kzalloc(WSPI_INIT_CMD_LEN, GFP_KERNEL);
--	if (!cmd) {
--		dev_err(child->parent,
--			"could not allocate cmd for spi init\n");
-+	if (!cmd)
- 		return;
--	}
- 
- 	memset(crc, 0, sizeof(crc));
- 	memset(&t, 0, sizeof(t));
-@@ -340,10 +334,8 @@ static int wl1271_probe(struct spi_device *spi)
- 	pdata->ops = &spi_ops;
- 
- 	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
--	if (!glue) {
--		dev_err(&spi->dev, "can't allocate glue\n");
-+	if (!glue)
- 		goto out;
--	}
- 
- 	glue->dev = &spi->dev;
- 
-diff --git a/drivers/net/wireless/zd1211rw/zd_usb.c b/drivers/net/wireless/zd1211rw/zd_usb.c
-index ef2b171..7ef0b4a 100644
---- a/drivers/net/wireless/zd1211rw/zd_usb.c
-+++ b/drivers/net/wireless/zd1211rw/zd_usb.c
-@@ -155,7 +155,6 @@ static int upload_code(struct usb_device *udev,
- 	 */
- 	p = kmalloc(MAX_TRANSFER_SIZE, GFP_KERNEL);
- 	if (!p) {
--		dev_err(&udev->dev, "out of memory\n");
- 		r = -ENOMEM;
- 		goto error;
- 	}
++
+ 	/* allocate the tx and rx ring buffer descriptors. */
+ 	/* returns a virtual address and a physical address. */
+ 	lp->tx_bd_v = dma_alloc_coherent(ndev->dev.parent,
 -- 
 1.8.0.dirty
