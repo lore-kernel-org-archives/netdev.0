@@ -1,36 +1,34 @@
-From: Nicholas Thomas <nick@bytemark.co.uk>
-Subject: Re: [PATCH] Break up the single NBD lock into one per NBD device
-Date: Mon, 04 Feb 2013 15:55:43 +0000
-Message-ID: <1359993343.18869.14.camel@eboracum.office.bytemark.co.uk>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: No sysfs directory for openvswitch module when built-in
+Date: Mon, 4 Feb 2013 08:19:20 -0800
+Message-ID: <20130204081920.00e9f22e@nehalam.linuxnetplumber.net>
+References: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hkchu@google.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bacon.sh.bytemark.co.uk ([212.110.161.169]:35233 "EHLO
-	bacon.sh.bytemark.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756382Ab3BDQTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 11:19:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>,
+	Jesse Gross <jesse@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 29 Jan 2013 22:15:18 +0800
+Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-I was wondering if there was any chance of resurrecting this patch: 
+> Hello, Rusty, Jesse,
+> 
+> I met an interesting problem when I compile openvswitch module as a
+> built-in (actually I compile ALL kernel modules as built-in), there is
+> no /sys/module/openvswitch/ directory created by the kernel in this
+> case.
+> 
+> What's worse, the user-space init script thinks openvswitch module is
+> not loaded by checking the exist of this directory, therefore refuses
+> to start.
 
-http://comments.gmane.org/gmane.linux.network/207233
-
-My use case is a Linux kernel connecting to up to 6,144 NBD devices (in
-practice, probably < 1,000 almost all the time) simultaneously - our
-current deployment has a userspace implementation of NBD, and I came
-across this patch while investigating potential scalability issues.
-
-I've not performed any benchmarks yet, but I assume the issues Jerry Chu
-mentions would affect my case too, and the asked-for changes to get it
-accepted seemed minimal.
-
-Regards,
--- 
-Nick Thomas
-Bytemark Computing
+Shouldn't the OVS init script be testing for some other API.
