@@ -1,84 +1,44 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH v3 09/62] atm/nicstar: convert to idr_alloc()
-Date: Mon, 4 Feb 2013 10:37:56 -0800
-Message-ID: <20130204183756.GV27963@mtj.dyndns.org>
-References: <1359854463-2538-1-git-send-email-tj@kernel.org>
- <1359854463-2538-10-git-send-email-tj@kernel.org>
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH v4 1/1 net-next] net: fec: add napi support to improve proformance
+Date: Mon, 4 Feb 2013 19:33:04 +0000 (UTC)
+Message-ID: <loom.20130204T203257-683@post.gmane.org>
+References: <1359433903-15605-1-git-send-email-Frank.Li@freescale.com> <20130129.141800.2181207237672109119.davem@davemloft.net> <CAHrpEqQXH+n7K4L1m5yRiamp3CG9MPWhX+tNBD+brzArJy5WoQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, rusty@rustcorp.com.au,
-	bfields@fieldses.org, skinsbursky@parallels.com,
-	ebiederm@xmission.com, jmorris@namei.org, axboe@kernel.dk,
-	Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org
-To: akpm@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1359854463-2538-10-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:54366 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753653Ab3BDTdV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2013 14:33:21 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1U2RnN-0001fh-TB
+	for netdev@vger.kernel.org; Mon, 04 Feb 2013 20:33:37 +0100
+Received: from jimbax.plus.com ([81.174.248.107])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 04 Feb 2013 20:33:37 +0100
+Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 04 Feb 2013 20:33:37 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Convert to the much saner new idr interface.  The existing code looks
-buggy to me - ID 0 is treated as no-ID but allocation specifies 0 as
-lower limit and there's no error handling after partial success.  This
-conversion keeps the bugs unchanged.
+Frank Li <lznuaa <at> gmail.com> writes:
 
-Only compile tested.
+> 
+> 2013/1/30 David Miller <davem <at> davemloft.net>:
+> > it is recommended to also to TX reclaim processing
+> > in the NAPI handler as well, in fact it's best to make the hardware
+> > interrupt handler do nothing other than trigger NAPI and then
+> > move everything that was in your hardware interrupt handler into
+> > NAPI poll instead.
+> 
+> Okay, I will work on this soon.
+> 
 
-v2: id1 and id2 are now directly used for -errno return and thus
-    should be signed.  Make them int instead of u32.  This was spotted
-    by kbuild test robot.
 
-v3: Further simplify as suggested by Chas Williams.
-
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Cc: netdev@vger.kernel.org
----
- drivers/atm/nicstar.c |   24 ++++++------------------
- 1 file changed, 6 insertions(+), 18 deletions(-)
-
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -949,11 +949,10 @@ static void free_scq(ns_dev *card, scq_i
- static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
- {
- 	struct sk_buff *handle1, *handle2;
--	u32 id1 = 0, id2 = 0;
-+	int id1, id2;
- 	u32 addr1, addr2;
- 	u32 stat;
- 	unsigned long flags;
--	int err;
- 
- 	/* *BARF* */
- 	handle2 = NULL;
-@@ -1026,23 +1025,12 @@ static void push_rxbufs(ns_dev * card, s
- 				card->lbfqc += 2;
- 		}
- 
--		do {
--			if (!idr_pre_get(&card->idr, GFP_ATOMIC)) {
--				printk(KERN_ERR
--				       "nicstar%d: no free memory for idr\n",
--				       card->index);
--				goto out;
--			}
--
--			if (!id1)
--				err = idr_get_new_above(&card->idr, handle1, 0, &id1);
--
--			if (!id2 && err == 0)
--				err = idr_get_new_above(&card->idr, handle2, 0, &id2);
--
--		} while (err == -EAGAIN);
-+		id1 = idr_alloc(&card->idr, handle1, 0, 0, GFP_ATOMIC);
-+		if (id1 < 0)
-+			goto out;
- 
--		if (err)
-+		id2 = idr_alloc(&card->idr, handle2, 0, 0, GFP_ATOMIC);
-+		if (id2 < 0)
- 			goto out;
- 
- 		spin_lock_irqsave(&card->res_lock, flags);
+This might be related but I have found on the Sabre AI Revision TO1.1 that the 
+NAPI patch causes a 10% reduction in speed, is this expected?
