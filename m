@@ -1,38 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Mon, 04 Feb 2013 15:03:59 -0500 (EST)
-Message-ID: <20130204.150359.599088894678143987.davem@davemloft.net>
-References: <CAHrpEqSLx-J-1SYC6OapqidY+U3acnTmNyOj8UrNRZwYZRXCoQ@mail.gmail.com>
-	<20130204.002410.508273179967651174.davem@davemloft.net>
-	<CAHrpEqQwmAN8fBVQKOJzw5uD0WTfu9zR-gP1SPmq+JxocxjFSA@mail.gmail.com>
+Subject: [PATCH net-next] ipcomp: Mark as netns_ok.
+Date: Mon, 04 Feb 2013 15:48:12 -0500 (EST)
+Message-ID: <20130204.154812.1991513835460386879.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, shawn.guo@linaro.org, B38611@freescale.com,
-	s.hauer@pengutronix.de
-To: lznuaa@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44907 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45261 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753687Ab3BDUEC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 15:04:02 -0500
-In-Reply-To: <CAHrpEqQwmAN8fBVQKOJzw5uD0WTfu9zR-gP1SPmq+JxocxjFSA@mail.gmail.com>
+	with ESMTP id S1754001Ab3BDUsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 15:48:16 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 9890F585AF5
+	for <netdev@vger.kernel.org>; Mon,  4 Feb 2013 12:48:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <lznuaa@gmail.com>
-Date: Mon, 4 Feb 2013 14:31:52 +0800
 
->>>> This breaks the build, tmreg_lock is only present in certain
->>>> configurations.
->>>
->>> No, FEC have changed to check dramatically instead of static config.
->>> You can look fec.h.  tmreg_lock is always defined.
->>
->> Not in the 'net' tree or you don't want this bug fixed there at all?
-> 
-> Sorry, I forget mask tree.
-> This patch is for net-next.
+This module is namespace aware, netns_ok was just disabled by default
+for sanity.
 
-Ok, applied to net-next.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+l2tp is the only net_protocol not marked as namespace aware, and
+there are patches coming for that.  After that's taken care of
+we can demand that any protocol that gets registers in ipv4 be
+netns_ok, and therefore we can eliminate the "init_net only"
+checks in various locations, such as IP local deliver.
+
+ net/ipv4/ipcomp.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index 9a46dae..f01d1b1 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -163,6 +163,7 @@ static const struct net_protocol ipcomp4_protocol = {
+ 	.handler	=	xfrm4_rcv,
+ 	.err_handler	=	ipcomp4_err,
+ 	.no_policy	=	1,
++	.netns_ok	=	1,
+ };
+ 
+ static int __init ipcomp4_init(void)
+-- 
+1.7.11.7
