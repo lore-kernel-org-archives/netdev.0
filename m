@@ -1,42 +1,56 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v4] netpoll: protect napi_poll and poll_controller during
- dev_[open|close]
-Date: Sun, 3 Feb 2013 19:32:57 -0500
-Message-ID: <20130204003257.GA4985@neilslaptop.think-freely.org>
-References: <1359578665-29248-1-git-send-email-nhorman@tuxdriver.com>
- <1359831076-32476-1-git-send-email-nhorman@tuxdriver.com>
- <20130203.160558.164595629505218847.davem@davemloft.net>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
+Date: Mon, 4 Feb 2013 10:22:23 +0800
+Message-ID: <CAHrpEqSLx-J-1SYC6OapqidY+U3acnTmNyOj8UrNRZwYZRXCoQ@mail.gmail.com>
+References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com>
+	<20130202.230851.809969826800130930.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ivecera@redhat.com,
-	bhutchings@solarflare.com, romieu@fr.zoreil.com,
-	eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Frank.Li@freescale.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, shawn.guo@linaro.org, B38611@freescale.com,
+	s.hauer@pengutronix.de
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:41246 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754093Ab3BDAdK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 19:33:10 -0500
-Content-Disposition: inline
-In-Reply-To: <20130203.160558.164595629505218847.davem@davemloft.net>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:46647 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753730Ab3BDCWZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Feb 2013 21:22:25 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ez12so2386811wid.12
+        for <netdev@vger.kernel.org>; Sun, 03 Feb 2013 18:22:23 -0800 (PST)
+In-Reply-To: <20130202.230851.809969826800130930.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 03, 2013 at 04:05:58PM -0500, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Sat,  2 Feb 2013 13:51:16 -0500
-> 
-> > I can't say Im a huge fan of returning -EBUSY in open/close, but I
-> > like it better than busy waiting while the poll path completes.
-> 
-> Sorry Neil, this is a show stopper for me.
-> 
-> There is no reason why, just because of bad timing, a device open or
-> close that would normally succeed, should fail.  And this situation is
-> only being created because the mutual exclusion and context handling
-> is "hard", well that's too bad :-)
-> 
+2013/2/3 David Miller <davem@davemloft.net>:
+> From: Frank Li <Frank.Li@freescale.com>
+> Date: Fri, 1 Feb 2013 16:56:26 +0800
+>
+>> @@ -1607,6 +1607,7 @@ static int fec_enet_init(struct net_device *ndev)
+>>       }
+>>
+>>       spin_lock_init(&fep->hw_lock);
+>> +     spin_lock_init(&fep->tmreg_lock);
+>
+> This breaks the build, tmreg_lock is only present in certain
+> configurations.
 
-Alright, fair enough Dave.  I'll either covert this to a busy wait, or use a
-mutex to do this.
-Neil
+No, FEC have changed to check dramatically instead of static config.
+You can look fec.h.  tmreg_lock is always defined.
+
+        struct  napi_struct napi;
+
+        struct ptp_clock *ptp_clock;
+        struct ptp_clock_info ptp_caps;
+        unsigned long last_overflow_check;
+        spinlock_t tmreg_lock;
+        struct cyclecounter cc;
+        struct timecounter tc;
+        int rx_hwtstamp_filter;
+        u32 base_incval;
+        u32 cycle_speed;
+        int hwts_rx_en;
+        int hwts_tx_en;
+        struct timer_list time_keep;
+
+best regards
+Frank Li
