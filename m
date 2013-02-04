@@ -1,30 +1,29 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [TRIVIAL PATCH V2] Doc: percpu_counter doc code for better readability
-Date: Mon, 4 Feb 2013 14:10:03 -0800
-Message-ID: <CAOS58YO1VSsbisxSqzcW6n=a+XwcM4F0uHN40OKB9Ok6DSMW7A@mail.gmail.com>
-References: <20130204214952.GJ27963@mtj.dyndns.org>
-	<20130204221356.29548.35746.stgit@dragon>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: Poor TCP bandwidth between network namespaces
+Date: Mon, 4 Feb 2013 23:52:27 +0100
+Message-ID: <20130204225227.GC6898@order.stressinduktion.org>
+References: <20130204144320.GG1353@tostaky>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jiri Kosina <trivial@kernel.org>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, joe@perches.com
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130204221356.29548.35746.stgit@dragon>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: Emmanuel Jeanvoine <emmanuel.jeanvoine@inria.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:43613 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756060Ab3BDWw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 17:52:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20130204144320.GG1353@tostaky>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 4, 2013 at 2:14 PM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> Help people reading the percpu_counter code, to notice the ifdef
-> else statement that seperates CONFIG_SMP.
->
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Acked-by: Tejun Heo <tj@kernel.org>
+On Mon, Feb 04, 2013 at 03:43:20PM +0100, Emmanuel Jeanvoine wrote:
+> I'm wondering why the overhead is so high when performing TCP 
+> transfers between two network namespaces. Do you have any idea about 
+> this issue? And possibly, how to increase the bandwidth (without 
+> modifying the MTU on the veths) between network namespaces?
 
-Jiri, can you please take this?
+You could try Eric's patch (already in net-next) and have a look at the rest
+of the discussion:
 
-Thank you.
-
--- 
-tejun
+http://article.gmane.org/gmane.linux.network/253589
