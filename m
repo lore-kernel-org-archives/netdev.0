@@ -1,43 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Mon, 04 Feb 2013 00:24:10 -0500 (EST)
-Message-ID: <20130204.002410.508273179967651174.davem@davemloft.net>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com>
-	<20130202.230851.809969826800130930.davem@davemloft.net>
-	<CAHrpEqSLx-J-1SYC6OapqidY+U3acnTmNyOj8UrNRZwYZRXCoQ@mail.gmail.com>
+From: Sekhar Nori <nsekhar@ti.com>
+Subject: Re: [PATCH v2 6/6] ARM: davinci: da850: configure system configuration
+ chip(CFGCHIP3) for emac
+Date: Mon, 4 Feb 2013 10:58:46 +0530
+Message-ID: <510F470E.5040205@ti.com>
+References: <1359380879-26306-1-git-send-email-prabhakar.lad@ti.com> <1359380879-26306-7-git-send-email-prabhakar.lad@ti.com> <510E5BCF.9080006@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, shawn.guo@linaro.org, B38611@freescale.com,
-	s.hauer@pengutronix.de
-To: lznuaa@gmail.com
+Cc: Prabhakar Lad <prabhakar.csengg@gmail.com>,
+	<davinci-linux-open-source@linux.davincidsp.com>,
+	<netdev@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>,
+	<linux-kernel@vger.kernel.org>, Heiko Schocher <hs@denx.de>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Sekhar Nori <nsekhar@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36950 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866Ab3BDFYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 00:24:14 -0500
-In-Reply-To: <CAHrpEqSLx-J-1SYC6OapqidY+U3acnTmNyOj8UrNRZwYZRXCoQ@mail.gmail.com>
+Received: from devils.ext.ti.com ([198.47.26.153]:55346 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714Ab3BDF3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 00:29:05 -0500
+In-Reply-To: <510E5BCF.9080006@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <lznuaa@gmail.com>
-Date: Mon, 4 Feb 2013 10:22:23 +0800
+On 2/3/2013 6:15 PM, Sekhar Nori wrote:
+> On 1/28/2013 7:17 PM, Prabhakar Lad wrote:
+>> From: Lad, Prabhakar <prabhakar.lad@ti.com>
 
-> 2013/2/3 David Miller <davem@davemloft.net>:
->> From: Frank Li <Frank.Li@freescale.com>
->> Date: Fri, 1 Feb 2013 16:56:26 +0800
->>
->>> @@ -1607,6 +1607,7 @@ static int fec_enet_init(struct net_device *ndev)
->>>       }
->>>
->>>       spin_lock_init(&fep->hw_lock);
->>> +     spin_lock_init(&fep->tmreg_lock);
->>
->> This breaks the build, tmreg_lock is only present in certain
->> configurations.
+> There are couple of issues with this implementation.
 > 
-> No, FEC have changed to check dramatically instead of static config.
-> You can look fec.h.  tmreg_lock is always defined.
+> 1) da8xx_config_emac() is specific to DA850 EVM, but masquerades as
+>    generic for da8xx. Looks like you need two functions, one for soc
+>    specific configuration and one board specific.
+> 2) da8xx_config_emac() goes through all the time, whether the
+>    particular board has emac module or not. Shouldn't
+>    da8xx_config_emac() check if emac is actually enabled in the passed
+>    dtb and only the do the configuration?
+> 3) The function assumes mii is used always, you can use the rmii_en dt
+>    property to check if rmii/mii is enabled and configure the soc/board
+>    accordingly.
+> 4) If the same function can work both for da850 and da830, then it can
+>    be implemented outside of CONFIG_ARCH_DAVINCI_DA850.
 
-Not in the 'net' tree or you don't want this bug fixed there at all?
+Another thing I forgot to mention:
+
+5) This patch replicates a lot of code form board-da850-evm.c. This
+needs to be avoided. May be create function to configure emac in
+da850.c. This can then be called in board-da850-evm.c as well as in the
+dt case.
+
+Thanks,
+Sekhar
