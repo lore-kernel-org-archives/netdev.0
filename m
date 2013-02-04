@@ -1,78 +1,88 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 6/8] wimax: Remove unnecessary alloc/OOM messages, alloc cleanups
-Date: Sun,  3 Feb 2013 19:28:13 -0800
-Message-ID: <77a7656d109fba0ad4f55e0adafe770d38d588c9.1359939013.git.joe@perches.com>
+Subject: [PATCH 8/8] drivers:net:misc: Remove unnecessary alloc/OOM messages
+Date: Sun,  3 Feb 2013 19:28:15 -0800
+Message-ID: <a729555c8acf2cc3ef4c80531757b37a948c4e55.1359939013.git.joe@perches.com>
 References: <cover.1359939012.git.joe@perches.com>
-Cc: Inaky Perez-Gonzalez <inaky.perez-gonzalez@intel.com>,
-	linux-wimax@intel.com, wimax@linuxwimax.org,
-	linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	linux-hams@vger.kernel.org, Joerg Reuter <jreuter@yaina.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:37948 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753872Ab3BDD3u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Feb 2013 22:29:50 -0500
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <cover.1359939012.git.joe@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
 alloc failures already get standardized OOM
 messages and a dump_stack.
 
-Convert kzalloc's with multiplies to kcalloc.
-Remove now unused size variables.
-
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/wimax/i2400m/rx.c        | 16 +++++-----------
- drivers/net/wimax/i2400m/usb-notif.c |  1 -
- 2 files changed, 5 insertions(+), 12 deletions(-)
+ drivers/net/hamradio/dmascc.c | 7 +------
+ drivers/net/phy/spi_ks8995.c  | 4 +---
+ drivers/net/virtio_net.c      | 4 +---
+ 3 files changed, 3 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/wimax/i2400m/rx.c b/drivers/net/wimax/i2400m/rx.c
-index 37becfc..8077e6e 100644
---- a/drivers/net/wimax/i2400m/rx.c
-+++ b/drivers/net/wimax/i2400m/rx.c
-@@ -1351,24 +1351,18 @@ int i2400m_rx_setup(struct i2400m *i2400m)
- 	i2400m->rx_reorder = i2400m_rx_reorder_disabled? 0 : 1;
- 	if (i2400m->rx_reorder) {
- 		unsigned itr;
--		size_t size;
- 		struct i2400m_roq_log *rd;
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+index ce555d9..6636022 100644
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -463,13 +463,8 @@ static int __init setup_adapter(int card_base, int type, int n)
  
- 		result = -ENOMEM;
+ 	/* Initialize what is necessary for write_scc and write_scc_data */
+ 	info = kzalloc(sizeof(struct scc_info), GFP_KERNEL | GFP_DMA);
+-	if (!info) {
+-		printk(KERN_ERR "dmascc: "
+-		       "could not allocate memory for %s at %#3x\n",
+-		       hw[type].name, card_base);
++	if (!info)
+ 		goto out;
+-	}
+-
  
--		size = sizeof(i2400m->rx_roq[0]) * (I2400M_RO_CIN + 1);
--		i2400m->rx_roq = kzalloc(size, GFP_KERNEL);
--		if (i2400m->rx_roq == NULL) {
--			dev_err(dev, "RX: cannot allocate %zu bytes for "
--				"reorder queues\n", size);
-+		i2400m->rx_roq = kcalloc(I2400M_RO_CIN + 1,
-+					 sizeof(i2400m->rx_roq[0]), GFP_KERNEL);
-+		if (i2400m->rx_roq == NULL)
- 			goto error_roq_alloc;
--		}
+ 	info->dev[0] = alloc_netdev(0, "", dev_setup);
+ 	if (!info->dev[0]) {
+diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
+index 41eb8ff..5c87eef 100644
+--- a/drivers/net/phy/spi_ks8995.c
++++ b/drivers/net/phy/spi_ks8995.c
+@@ -275,10 +275,8 @@ static int ks8995_probe(struct spi_device *spi)
+ 	pdata = spi->dev.platform_data;
  
--		size = sizeof(*i2400m->rx_roq[0].log) * (I2400M_RO_CIN + 1);
--		rd = kzalloc(size, GFP_KERNEL);
-+		rd = kcalloc(I2400M_RO_CIN + 1, sizeof(*i2400m->rx_roq[0].log),
-+			     GFP_KERNEL);
- 		if (rd == NULL) {
--			dev_err(dev, "RX: cannot allocate %zu bytes for "
--				"reorder queues log areas\n", size);
- 			result = -ENOMEM;
- 			goto error_roq_log_alloc;
- 		}
-diff --git a/drivers/net/wimax/i2400m/usb-notif.c b/drivers/net/wimax/i2400m/usb-notif.c
-index d44b545..fc1355d 100644
---- a/drivers/net/wimax/i2400m/usb-notif.c
-+++ b/drivers/net/wimax/i2400m/usb-notif.c
-@@ -199,7 +199,6 @@ int i2400mu_notification_setup(struct i2400mu *i2400mu)
- 	d_fnstart(4, dev, "(i2400m %p)\n", i2400mu);
- 	buf = kmalloc(I2400MU_MAX_NOTIFICATION_LEN, GFP_KERNEL | GFP_DMA);
- 	if (buf == NULL) {
--		dev_err(dev, "notification: buffer allocation failed\n");
- 		ret = -ENOMEM;
- 		goto error_buf_alloc;
- 	}
+ 	ks = kzalloc(sizeof(*ks), GFP_KERNEL);
+-	if (!ks) {
+-		dev_err(&spi->dev, "no memory for private data\n");
++	if (!ks)
+ 		return -ENOMEM;
+-	}
+ 
+ 	mutex_init(&ks->lock);
+ 	ks->pdata = pdata;
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index eda2042..381a2d8 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -976,10 +976,8 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	buf = kzalloc(((uc_count + mc_count) * ETH_ALEN) +
+ 		      (2 * sizeof(mac_data->entries)), GFP_ATOMIC);
+ 	mac_data = buf;
+-	if (!buf) {
+-		dev_warn(&dev->dev, "No memory for MAC address buffer\n");
++	if (!buf)
+ 		return;
+-	}
+ 
+ 	sg_init_table(sg, 2);
+ 
 -- 
 1.8.0.dirty
