@@ -1,386 +1,271 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 1/2] be2net: fix re-loaded PF driver to re-gain control of its VFs
-Date: Mon, 4 Feb 2013 12:00:11 +0530
-Message-ID: <2712f366-e279-42de-9b23-974c8c9b188c@CMEXHTCAS1.ad.emulex.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next v2] net: remove redundant check for timer pending state before del_timer
+Date: Mon, 4 Feb 2013 14:32:57 +0800
+Message-ID: <1359959577-31525-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sathya Perla <sathya.perla@emulex.com>
-To: <netdev@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>
+To: <eric.dumazet@gmail.com>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:21494 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058Ab3BDG1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 01:27:39 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:33300 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751814Ab3BDGaG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 01:30:06 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, when the PF driver is unloaded and re-loaded while VFs are attached
-to VMs, it loses control of its VFs.
+As in del_timer() there has already placed a timer_pending() function
+to check whether the timer to be deleted is pending or not, it's
+unnecessary to check timer pending state again before del_timer() is
+called.
 
-The PF driver now uses the newly defined/created GET_IFACE_LIST cmd
-(available in FW ver >= 4.6) to query the if_id of the VFs
-(enabled in its previous life). The PF driver then uses the if_id for
-further VF configuration.
-
-The GET_IFACE_MAC_LIST cmd has also implemented in BE3 FW for PF to
-query pmac-ids used by its VFs.
-
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Cc: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   33 ++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h |   20 ++++
- drivers/net/ethernet/emulex/benet/be_main.c |  164 ++++++++++++++++-----------
- 3 files changed, 153 insertions(+), 64 deletions(-)
+v1 -> v2:
+ * Remove all redundant timer pending checks for the whole net tree
+   instead of only removing timer_pending() in sk_stop_timer().
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 8a250c3..8b04880 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3138,6 +3138,39 @@ err:
- 	return status;
+ net/bluetooth/rfcomm/core.c     |    4 ++--
+ net/bridge/netfilter/ebt_ulog.c |    6 ++----
+ net/core/sock.c                 |    2 +-
+ net/ipv4/netfilter/ipt_ULOG.c   |   12 ++++--------
+ net/irda/af_irda.c              |    3 +--
+ net/netfilter/ipvs/ip_vs_conn.c |    3 +--
+ net/sctp/associola.c            |    5 ++---
+ net/sctp/input.c                |    3 +--
+ net/sctp/outqueue.c             |    4 +---
+ net/sctp/sm_sideeffect.c        |    6 ++----
+ net/sctp/transport.c            |   11 ++++-------
+ 11 files changed, 21 insertions(+), 38 deletions(-)
+
+diff --git a/net/bluetooth/rfcomm/core.c b/net/bluetooth/rfcomm/core.c
+index 201fdf7..b23e271 100644
+--- a/net/bluetooth/rfcomm/core.c
++++ b/net/bluetooth/rfcomm/core.c
+@@ -257,7 +257,7 @@ static void rfcomm_session_clear_timer(struct rfcomm_session *s)
+ {
+ 	BT_DBG("session %p state %ld", s, s->state);
+ 
+-	if (timer_pending(&s->timer) && del_timer(&s->timer))
++	if (del_timer(&s->timer))
+ 		rfcomm_session_put(s);
  }
  
-+int be_cmd_get_if_id(struct be_adapter *adapter, struct be_vf_cfg *vf_cfg,
-+		     int vf_num)
-+{
-+	struct be_mcc_wrb *wrb;
-+	struct be_cmd_req_get_iface_list *req;
-+	struct be_cmd_resp_get_iface_list *resp;
-+	int status;
-+
-+	spin_lock_bh(&adapter->mcc_lock);
-+
-+	wrb = wrb_from_mccq(adapter);
-+	if (!wrb) {
-+		status = -EBUSY;
-+		goto err;
-+	}
-+	req = embedded_payload(wrb);
-+
-+	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
-+			       OPCODE_COMMON_GET_IFACE_LIST, sizeof(*resp),
-+			       wrb, NULL);
-+	req->hdr.domain = vf_num + 1;
-+
-+	status = be_mcc_notify_wait(adapter);
-+	if (!status) {
-+		resp = (struct be_cmd_resp_get_iface_list *)req;
-+		vf_cfg->if_handle = le32_to_cpu(resp->if_desc.if_id);
-+	}
-+
-+err:
-+	spin_unlock_bh(&adapter->mcc_lock);
-+	return status;
-+}
-+
- /* Uses sync mcc */
- int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain)
+@@ -285,7 +285,7 @@ static void rfcomm_dlc_clear_timer(struct rfcomm_dlc *d)
  {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index d6552e1..9697086 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -203,6 +203,7 @@ struct be_mcc_mailbox {
- #define OPCODE_COMMON_GET_FN_PRIVILEGES			170
- #define OPCODE_COMMON_READ_OBJECT			171
- #define OPCODE_COMMON_WRITE_OBJECT			172
-+#define OPCODE_COMMON_GET_IFACE_LIST			194
- #define OPCODE_COMMON_ENABLE_DISABLE_VF			196
+ 	BT_DBG("dlc %p state %ld", d, d->state);
  
- #define OPCODE_ETH_RSS_CONFIG				1
-@@ -1795,6 +1796,23 @@ static inline bool check_privilege(struct be_adapter *adapter, u32 flags)
- 	return flags & adapter->cmd_privileges ? true : false;
+-	if (timer_pending(&d->timer) && del_timer(&d->timer))
++	if (del_timer(&d->timer))
+ 		rfcomm_dlc_put(d);
  }
  
-+/************** Get IFACE LIST *******************/
-+struct be_if_desc {
-+	u32 if_id;
-+	u32 cap_flags;
-+	u32 en_flags;
-+};
-+
-+struct be_cmd_req_get_iface_list {
-+	struct be_cmd_req_hdr hdr;
-+};
-+
-+struct be_cmd_resp_get_iface_list {
-+	struct be_cmd_req_hdr hdr;
-+	u32 if_cnt;
-+	struct be_if_desc if_desc;
-+};
-+
- extern int be_pci_fnum_get(struct be_adapter *adapter);
- extern int be_fw_wait_ready(struct be_adapter *adapter);
- extern int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
-@@ -1917,4 +1935,6 @@ extern int be_cmd_get_profile_config(struct be_adapter *adapter, u32 *cap_flags,
- 
- extern int be_cmd_set_profile_config(struct be_adapter *adapter, u32 bps,
- 				     u8 domain);
-+extern int be_cmd_get_if_id(struct be_adapter *adapter,
-+			    struct be_vf_cfg *vf_cfg, int vf_num);
- extern int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain);
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5c99570..7d53481 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2597,7 +2597,7 @@ static int be_setup_wol(struct be_adapter *adapter, bool enable)
-  * These addresses are programmed in the ASIC by the PF and the VF driver
-  * queries for the MAC address during its probe.
-  */
--static inline int be_vf_eth_addr_config(struct be_adapter *adapter)
-+static int be_vf_eth_addr_config(struct be_adapter *adapter)
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index 3476ec4..3bf43f7 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -70,8 +70,7 @@ static void ulog_send(unsigned int nlgroup)
  {
- 	u32 vf;
- 	int status = 0;
-@@ -2626,13 +2626,34 @@ static inline int be_vf_eth_addr_config(struct be_adapter *adapter)
- 	return status;
+ 	ebt_ulog_buff_t *ub = &ulog_buffers[nlgroup];
+ 
+-	if (timer_pending(&ub->timer))
+-		del_timer(&ub->timer);
++	del_timer(&ub->timer);
+ 
+ 	if (!ub->skb)
+ 		return;
+@@ -319,8 +318,7 @@ static void __exit ebt_ulog_fini(void)
+ 	xt_unregister_target(&ebt_ulog_tg_reg);
+ 	for (i = 0; i < EBT_ULOG_MAXNLGROUPS; i++) {
+ 		ub = &ulog_buffers[i];
+-		if (timer_pending(&ub->timer))
+-			del_timer(&ub->timer);
++		del_timer(&ub->timer);
+ 		spin_lock_bh(&ub->lock);
+ 		if (ub->skb) {
+ 			kfree_skb(ub->skb);
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 235fb89..f1e14e2 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -2230,7 +2230,7 @@ EXPORT_SYMBOL(sk_reset_timer);
+ 
+ void sk_stop_timer(struct sock *sk, struct timer_list* timer)
+ {
+-	if (timer_pending(timer) && del_timer(timer))
++	if (del_timer(timer))
+ 		__sock_put(sk);
  }
- 
-+static int be_vfs_mac_query(struct be_adapter *adapter)
-+{
-+	int status, vf;
-+	u8 mac[ETH_ALEN];
-+	struct be_vf_cfg *vf_cfg;
-+	bool active;
-+
-+	for_all_vfs(adapter, vf_cfg, vf) {
-+		be_cmd_get_mac_from_list(adapter, mac, &active,
-+					 &vf_cfg->pmac_id, 0);
-+
-+		status = be_cmd_mac_addr_query(adapter, mac, false,
-+					       vf_cfg->if_handle, 0);
-+		if (status)
-+			return status;
-+		memcpy(vf_cfg->mac_addr, mac, ETH_ALEN);
-+	}
-+	return 0;
-+}
-+
- static void be_vf_clear(struct be_adapter *adapter)
+ EXPORT_SYMBOL(sk_stop_timer);
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+index b5ef3cb..7d168dc 100644
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -88,10 +88,8 @@ static void ulog_send(unsigned int nlgroupnum)
  {
- 	struct be_vf_cfg *vf_cfg;
- 	u32 vf;
+ 	ulog_buff_t *ub = &ulog_buffers[nlgroupnum];
  
- 	if (be_find_vfs(adapter, ASSIGNED)) {
--		dev_warn(&adapter->pdev->dev, "VFs are assigned to VMs\n");
-+		dev_warn(&adapter->pdev->dev,
-+			 "VFs are assigned to VMs: not disabling VFs\n");
- 		goto done;
+-	if (timer_pending(&ub->timer)) {
+-		pr_debug("ulog_send: timer was pending, deleting\n");
+-		del_timer(&ub->timer);
+-	}
++	pr_debug("ulog_send: timer is deleting\n");
++	del_timer(&ub->timer);
+ 
+ 	if (!ub->skb) {
+ 		pr_debug("ulog_send: nothing to send\n");
+@@ -426,10 +424,8 @@ static void __exit ulog_tg_exit(void)
+ 	/* remove pending timers and free allocated skb's */
+ 	for (i = 0; i < ULOG_MAXNLGROUPS; i++) {
+ 		ub = &ulog_buffers[i];
+-		if (timer_pending(&ub->timer)) {
+-			pr_debug("timer was pending, deleting\n");
+-			del_timer(&ub->timer);
+-		}
++		pr_debug("timer is deleting\n");
++		del_timer(&ub->timer);
+ 
+ 		if (ub->skb) {
+ 			kfree_skb(ub->skb);
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index b833677..d07e3a6 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -2567,8 +2567,7 @@ bed:
+ 						   err);
+ 
+ 			/* If watchdog is still activated, kill it! */
+-			if(timer_pending(&(self->watchdog)))
+-				del_timer(&(self->watchdog));
++			del_timer(&(self->watchdog));
+ 
+ 			IRDA_DEBUG(1, "%s(), ...waking up !\n", __func__);
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 30e764a..68e368a 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -796,8 +796,7 @@ static void ip_vs_conn_expire(unsigned long data)
+ 	 */
+ 	if (likely(atomic_read(&cp->refcnt) == 1)) {
+ 		/* delete the timer if it is activated by other users */
+-		if (timer_pending(&cp->timer))
+-			del_timer(&cp->timer);
++		del_timer(&cp->timer);
+ 
+ 		/* does anybody control me? */
+ 		if (cp->control)
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index b45ed1f..2f95f5a 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -434,8 +434,7 @@ void sctp_association_free(struct sctp_association *asoc)
+ 	 * on our state.
+ 	 */
+ 	for (i = SCTP_EVENT_TIMEOUT_NONE; i < SCTP_NUM_TIMEOUT_TYPES; ++i) {
+-		if (timer_pending(&asoc->timers[i]) &&
+-		    del_timer(&asoc->timers[i]))
++		if (del_timer(&asoc->timers[i]))
+ 			sctp_association_put(asoc);
  	}
  
-@@ -2681,21 +2702,29 @@ static int be_clear(struct be_adapter *adapter)
- 	return 0;
- }
+@@ -1497,7 +1496,7 @@ void sctp_assoc_rwnd_increase(struct sctp_association *asoc, unsigned int len)
  
--static void be_get_vf_if_cap_flags(struct be_adapter *adapter,
--				   u32 *cap_flags, u8 domain)
-+static int be_vfs_if_create(struct be_adapter *adapter)
- {
--	bool profile_present = false;
-+	struct be_vf_cfg *vf_cfg;
-+	u32 cap_flags, en_flags, vf;
- 	int status;
- 
--	if (lancer_chip(adapter)) {
--		status = be_cmd_get_profile_config(adapter, cap_flags, domain);
--		if (!status)
--			profile_present = true;
-+	cap_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
-+		    BE_IF_FLAGS_MULTICAST;
-+
-+	for_all_vfs(adapter, vf_cfg, vf) {
-+		if (!BE3_chip(adapter))
-+			be_cmd_get_profile_config(adapter, &cap_flags, vf + 1);
-+
-+		/* If a FW profile exists, then cap_flags are updated */
-+		en_flags = cap_flags & (BE_IF_FLAGS_UNTAGGED |
-+			   BE_IF_FLAGS_BROADCAST | BE_IF_FLAGS_MULTICAST);
-+		status = be_cmd_if_create(adapter, cap_flags, en_flags,
-+					  &vf_cfg->if_handle, vf + 1);
-+		if (status)
-+			goto err;
+ 		/* Stop the SACK timer.  */
+ 		timer = &asoc->timers[SCTP_EVENT_TIMEOUT_SACK];
+-		if (timer_pending(timer) && del_timer(timer))
++		if (del_timer(timer))
+ 			sctp_association_put(asoc);
  	}
--
--	if (!profile_present)
--		*cap_flags = BE_IF_FLAGS_UNTAGGED | BE_IF_FLAGS_BROADCAST |
--			     BE_IF_FLAGS_MULTICAST;
-+err:
-+	return status;
  }
- 
- static int be_vf_setup_init(struct be_adapter *adapter)
-@@ -2718,65 +2747,70 @@ static int be_vf_setup_init(struct be_adapter *adapter)
- static int be_vf_setup(struct be_adapter *adapter)
- {
- 	struct be_vf_cfg *vf_cfg;
--	struct device *dev = &adapter->pdev->dev;
--	u32 cap_flags, en_flags, vf;
- 	u16 def_vlan, lnk_speed;
--	int status, enabled_vfs;
-+	int status, old_vfs, vf;
-+	struct device *dev = &adapter->pdev->dev;
- 
--	enabled_vfs = be_find_vfs(adapter, ENABLED);
--	if (enabled_vfs) {
--		dev_warn(dev, "%d VFs are already enabled\n", enabled_vfs);
--		dev_warn(dev, "Ignoring num_vfs=%d setting\n", num_vfs);
--		return 0;
--	}
--
--	if (num_vfs > adapter->dev_num_vfs) {
--		dev_warn(dev, "Device supports %d VFs and not %d\n",
--			 adapter->dev_num_vfs, num_vfs);
--		num_vfs = adapter->dev_num_vfs;
--	}
--
--	status = pci_enable_sriov(adapter->pdev, num_vfs);
--	if (!status) {
--		adapter->num_vfs = num_vfs;
-+	old_vfs = be_find_vfs(adapter, ENABLED);
-+	if (old_vfs) {
-+		dev_info(dev, "%d VFs are already enabled\n", old_vfs);
-+		if (old_vfs != num_vfs)
-+			dev_warn(dev, "Ignoring num_vfs=%d setting\n", num_vfs);
-+		adapter->num_vfs = old_vfs;
+diff --git a/net/sctp/input.c b/net/sctp/input.c
+index 8bd3c27..965bbbb 100644
+--- a/net/sctp/input.c
++++ b/net/sctp/input.c
+@@ -468,8 +468,7 @@ void sctp_icmp_proto_unreachable(struct sock *sk,
  	} else {
--		/* Platform doesn't support SRIOV though device supports it */
--		dev_warn(dev, "SRIOV enable failed\n");
--		return 0;
-+		if (num_vfs > adapter->dev_num_vfs)
-+			dev_info(dev, "Device supports %d VFs and not %d\n",
-+				 adapter->dev_num_vfs, num_vfs);
-+		adapter->num_vfs = min_t(u16, num_vfs, adapter->dev_num_vfs);
-+
-+		status = pci_enable_sriov(adapter->pdev, num_vfs);
-+		if (status) {
-+			dev_err(dev, "SRIOV enable failed\n");
-+			adapter->num_vfs = 0;
-+			return 0;
-+		}
+ 		struct net *net = sock_net(sk);
+ 
+-		if (timer_pending(&t->proto_unreach_timer) &&
+-		    del_timer(&t->proto_unreach_timer))
++		if (del_timer(&t->proto_unreach_timer))
+ 			sctp_association_put(asoc);
+ 
+ 		sctp_do_sm(net, SCTP_EVENT_T_OTHER,
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 9bcdbd0..01dca75 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -1700,10 +1700,8 @@ static void sctp_check_transmitted(struct sctp_outq *q,
+ 		 * address.
+ 		 */
+ 		if (!transport->flight_size) {
+-			if (timer_pending(&transport->T3_rtx_timer) &&
+-			    del_timer(&transport->T3_rtx_timer)) {
++			if (del_timer(&transport->T3_rtx_timer))
+ 				sctp_transport_put(transport);
+-			}
+ 		} else if (restart_timer) {
+ 			if (!mod_timer(&transport->T3_rtx_timer,
+ 				       jiffies + transport->rto))
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index c957775..8aab894 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -674,10 +674,8 @@ static void sctp_cmd_t3_rtx_timers_stop(sctp_cmd_seq_t *cmds,
+ 
+ 	list_for_each_entry(t, &asoc->peer.transport_addr_list,
+ 			transports) {
+-		if (timer_pending(&t->T3_rtx_timer) &&
+-		    del_timer(&t->T3_rtx_timer)) {
++		if (del_timer(&t->T3_rtx_timer))
+ 			sctp_transport_put(t);
+-		}
  	}
- 
- 	status = be_vf_setup_init(adapter);
- 	if (status)
- 		goto err;
- 
--	for_all_vfs(adapter, vf_cfg, vf) {
--		be_get_vf_if_cap_flags(adapter, &cap_flags, vf + 1);
--
--		en_flags = cap_flags & (BE_IF_FLAGS_UNTAGGED |
--					BE_IF_FLAGS_BROADCAST |
--					BE_IF_FLAGS_MULTICAST);
--
--		status = be_cmd_if_create(adapter, cap_flags, en_flags,
--					  &vf_cfg->if_handle, vf + 1);
-+	if (old_vfs) {
-+		for_all_vfs(adapter, vf_cfg, vf) {
-+			status = be_cmd_get_if_id(adapter, vf_cfg, vf);
-+			if (status)
-+				goto err;
-+		}
-+	} else {
-+		status = be_vfs_if_create(adapter);
- 		if (status)
- 			goto err;
- 	}
- 
--	if (!enabled_vfs) {
-+	if (old_vfs) {
-+		status = be_vfs_mac_query(adapter);
-+		if (status)
-+			goto err;
-+	} else {
- 		status = be_vf_eth_addr_config(adapter);
- 		if (status)
- 			goto err;
- 	}
- 
- 	for_all_vfs(adapter, vf_cfg, vf) {
--		lnk_speed = 1000;
--		status = be_cmd_set_qos(adapter, lnk_speed, vf + 1);
--		if (status)
--			goto err;
--		vf_cfg->tx_rate = lnk_speed * 10;
-+		/* BE3 FW, by default, caps VF TX-rate to 100mbps.
-+		 * Allow full available bandwidth
-+		 */
-+		if (BE3_chip(adapter) && !old_vfs)
-+			be_cmd_set_qos(adapter, 1000, vf+1);
-+
-+		status = be_cmd_link_status_query(adapter, &lnk_speed,
-+						  NULL, vf + 1);
-+		if (!status)
-+			vf_cfg->tx_rate = lnk_speed;
- 
- 		status = be_cmd_get_hsw_config(adapter, &def_vlan,
--				vf + 1, vf_cfg->if_handle);
-+					       vf + 1, vf_cfg->if_handle);
- 		if (status)
- 			goto err;
- 		vf_cfg->def_vid = def_vlan;
-@@ -2785,6 +2819,8 @@ static int be_vf_setup(struct be_adapter *adapter)
- 	}
- 	return 0;
- err:
-+	dev_err(dev, "VF setup failed\n");
-+	be_vf_clear(adapter);
- 	return status;
  }
  
-@@ -2838,12 +2874,12 @@ static int be_get_mac_addr(struct be_adapter *adapter, u8 *mac, u32 if_handle,
+@@ -1517,7 +1515,7 @@ static int sctp_cmd_interpreter(sctp_event_t event_type,
  
- static void be_get_resources(struct be_adapter *adapter)
+ 		case SCTP_CMD_TIMER_STOP:
+ 			timer = &asoc->timers[cmd->obj.to];
+-			if (timer_pending(timer) && del_timer(timer))
++			if (del_timer(timer))
+ 				sctp_association_put(asoc);
+ 			break;
+ 
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 4e45bb6..9555a6f 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -151,13 +151,11 @@ void sctp_transport_free(struct sctp_transport *transport)
+ 	 * structure hang around in memory since we know
+ 	 * the tranport is going away.
+ 	 */
+-	if (timer_pending(&transport->T3_rtx_timer) &&
+-	    del_timer(&transport->T3_rtx_timer))
++	if (del_timer(&transport->T3_rtx_timer))
+ 		sctp_transport_put(transport);
+ 
+ 	/* Delete the ICMP proto unreachable timer if it's active. */
+-	if (timer_pending(&transport->proto_unreach_timer) &&
+-	    del_timer(&transport->proto_unreach_timer))
++	if (del_timer(&transport->proto_unreach_timer))
+ 		sctp_association_put(transport->asoc);
+ 
+ 	sctp_transport_put(transport);
+@@ -654,10 +652,9 @@ void sctp_transport_reset(struct sctp_transport *t)
+ void sctp_transport_immediate_rtx(struct sctp_transport *t)
  {
--	int status;
-+	u16 dev_num_vfs;
-+	int pos, status;
- 	bool profile_present = false;
- 
--	if (lancer_chip(adapter)) {
-+	if (!BEx_chip(adapter)) {
- 		status = be_cmd_get_func_config(adapter);
--
- 		if (!status)
- 			profile_present = true;
- 	}
-@@ -2899,13 +2935,21 @@ static void be_get_resources(struct be_adapter *adapter)
- 		if (adapter->function_caps & BE_FUNCTION_CAPS_RSS)
- 			adapter->if_cap_flags |= BE_IF_FLAGS_RSS;
- 	}
-+
-+	pos = pci_find_ext_capability(adapter->pdev, PCI_EXT_CAP_ID_SRIOV);
-+	if (pos) {
-+		pci_read_config_word(adapter->pdev, pos + PCI_SRIOV_TOTAL_VF,
-+				     &dev_num_vfs);
-+		if (BE3_chip(adapter))
-+			dev_num_vfs = min_t(u16, dev_num_vfs, MAX_VFS);
-+		adapter->dev_num_vfs = dev_num_vfs;
-+	}
- }
- 
- /* Routine to query per function resource limits */
- static int be_get_config(struct be_adapter *adapter)
- {
--	int pos, status;
--	u16 dev_num_vfs;
-+	int status;
- 
- 	status = be_cmd_query_fw_cfg(adapter, &adapter->port_num,
- 				     &adapter->function_mode,
-@@ -2923,14 +2967,6 @@ static int be_get_config(struct be_adapter *adapter)
- 		goto err;
- 	}
- 
--	pos = pci_find_ext_capability(adapter->pdev, PCI_EXT_CAP_ID_SRIOV);
--	if (pos) {
--		pci_read_config_word(adapter->pdev, pos + PCI_SRIOV_TOTAL_VF,
--				     &dev_num_vfs);
--		if (!lancer_chip(adapter))
--			dev_num_vfs = min_t(u16, dev_num_vfs, MAX_VFS);
--		adapter->dev_num_vfs = dev_num_vfs;
+ 	/* Stop pending T3_rtx_timer */
+-	if (timer_pending(&t->T3_rtx_timer)) {
+-		(void)del_timer(&t->T3_rtx_timer);
++	if (del_timer(&t->T3_rtx_timer))
+ 		sctp_transport_put(t);
 -	}
- err:
- 	return status;
- }
++
+ 	sctp_retransmit(&t->asoc->outqueue, t, SCTP_RTXR_T3_RTX);
+ 	if (!timer_pending(&t->T3_rtx_timer)) {
+ 		if (!mod_timer(&t->T3_rtx_timer, jiffies + t->rto))
 -- 
 1.7.1
