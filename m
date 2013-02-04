@@ -1,30 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mcast: do not check 'rv' twice in a row
-Date: Mon, 04 Feb 2013 13:33:50 -0500 (EST)
-Message-ID: <20130204.133350.467438047415006272.davem@davemloft.net>
-References: <1359963250-7729-1-git-send-email-sakiwit@gmail.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 02/14] atm/nicstar: don't use idr_remove_all()
+Date: Mon, 4 Feb 2013 10:35:08 -0800
+Message-ID: <20130204183508.GU27963@mtj.dyndns.org>
+References: <1359163872-1949-1-git-send-email-tj@kernel.org>
+ <1359163872-1949-3-git-send-email-tj@kernel.org>
+ <20130204175210.GQ27963@mtj.dyndns.org>
+ <20130204131034.5bea17c4@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sakiwit@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44134 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754500Ab3BDSdy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 13:33:54 -0500
-In-Reply-To: <1359963250-7729-1-git-send-email-sakiwit@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@linux-foundation.org, rusty@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130204131034.5bea17c4@thirdoffive.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Sacren <sakiwit@gmail.com>
-Date: Mon,  4 Feb 2013 00:34:10 -0700
+Hey,
 
-> With the loop, don't check 'rv' twice in a row. Without the loop, 'rv'
-> doesn't even need to be checked.
+On Mon, Feb 04, 2013 at 01:10:34PM -0500, chas williams - CONTRACTOR wrote:
+> you assign id1 to 0, so this never happens i think.  i don't think the
+> reason to preassign id1/id2 exists anymore once the do loop is removed.
 > 
-> Make the comment more grammar-friendly.
+> > +			id1 = idr_alloc(&card->idr, handle1, 0, 0, GFP_ATOMIC);
+> > +			if (id1 < 0) {
+> > +				err = id1;
 > 
-> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> you dont need to assign err since it isn't returned.
 
-Applied.
+Heh, I put v2 under the wrong thread.  I'll do v3 and post it under
+v1.
+
+Thanks.
+
+-- 
+tejun
