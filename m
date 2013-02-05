@@ -1,72 +1,426 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: Linux Networking IRC Channel
-Date: Tue, 05 Feb 2013 02:15:38 -0800
-Message-ID: <5110DBCA.6040600@gmail.com>
-References: <CAEnQRZBODF9bUS4tovO_x+Byf-n4wihUh+2SxdJM3-LiAvDuhw@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
+Date: Tue, 5 Feb 2013 10:18:15 +0000 (UTC)
+Message-ID: <loom.20130205T111507-687@post.gmane.org>
+References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com> <loom.20130204T174808-896@post.gmane.org> <CAHrpEqSXhEBQpnR60mjP67gbVWNemfa3tTuoDTKipej_6QQ62g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="------------enigCEED99FEA95782AE86A6773B"
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Daniel Baluta <dbaluta@ixiacom.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:15058 "EHLO mga03.intel.com"
+Received: from plane.gmane.org ([80.91.229.3]:56043 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750932Ab3BEKPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 05:15:39 -0500
-In-Reply-To: <CAEnQRZBODF9bUS4tovO_x+Byf-n4wihUh+2SxdJM3-LiAvDuhw@mail.gmail.com>
+	id S1751437Ab3BEKSc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 05:18:32 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1U2fc0-0000yg-LN
+	for netdev@vger.kernel.org; Tue, 05 Feb 2013 11:18:48 +0100
+Received: from jimbax.plus.com ([81.174.248.107])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 11:18:48 +0100
+Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 11:18:48 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigCEED99FEA95782AE86A6773B
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Frank Li <lznuaa <at> gmail.com> writes:
 
-On 02/05/2013 02:06 AM, Daniel Baluta wrote:
-> Hi David,
->
-> I have searched around for an IRC channel related to Linux networking
-> development but I couldn't find any, so I have just registered one [1].=
+> 
+> 2013/2/5 Jim Baxter <jim_baxter <at> mentor.com>:
+> > Frank Li <Frank.Li <at> freescale.com> writes:
+> >
+> >>
+> >> BUG: spinlock bad magic on CPU#1, swapper/0/1
+> >> lock: 0xbfae0f8c, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+> >> Backtrace:
+> >>  [<80011d54>] (dump_backtrace+0x0/0x10c) from [<804e7800>]
+> > (dump_stack+0x18/0x1c)
+> >>  r6:bfae0000 r5:bfae0f8c r4:00000000 r3:806c1310
+> >>  [<804e77e8>] (dump_stack+0x0/0x1c) from [<804e9f20>] (spin_dump+0x80/0x94)
+> >>  [<804e9ea0>] (spin_dump+0x0/0x94) from [<804e9f60>] (spin_bug+0x2c/0x30)
+> >>  r5:805f6f8c r4:bfae0f8c
+> >>  [<804e9f34>] (spin_bug+0x0/0x30) from [<80257984>]
+> > (do_raw_spin_lock+0x170/0x1b0                                         )
+> >>  r5:806b4950 r4:bfae0f8c
+> >>  [<80257814>] (do_raw_spin_lock+0x0/0x1b0) from [<804ed15c>]
+> > (_raw_spin_lock_irqs                                         ave+0x18/0x20)
+> >>  [<804ed144>] (_raw_spin_lock_irqsave+0x0/0x20) from [<8033c694>]
+> > (fec_ptp_start_                                         
+cyclecounter+0x3c/0x120)
+> >>  r4:bfae0f8c r3:00000002
+> >>  [<8033c658>] (fec_ptp_start_cyclecounter+0x0/0x120) from [<80339e08>]
+> > (fec_resta                                         rt+0x56c/0x5f8)
+> >>  r8:00000000 r7:806e6f48 r6:00000112 r5:806b4950 r4:bfae0000
+> >>  [<8033989c>] (fec_restart+0x0/0x5f8) from [<8033b9e4>]
+> > (fec_probe+0x508/0xa48)
+> >>
+> >> Signed-off-by: Frank Li <Frank.Li <at> freescale.com>
+> >> ---
+> >>  drivers/net/ethernet/freescale/fec.c |    1 +
+> >>  1 files changed, 1 insertions(+), 0 deletions(-)
+> >>
+> >> diff --git a/drivers/net/ethernet/freescale/fec.c
+> > b/drivers/net/ethernet/freescale/fec.c
+> >> index 69b16b9..f900ae4 100644
+> >> --- a/drivers/net/ethernet/freescale/fec.c
+> >> +++ b/drivers/net/ethernet/freescale/fec.c
+> >> @@ -1607,6 +1607,7 @@ static int fec_enet_init(struct net_device *ndev)
+> >>       }
+> >>
+> >>       spin_lock_init(&fep->hw_lock);
+> >> +     spin_lock_init(&fep->tmreg_lock);
+> >>
+> >>       fep->netdev = ndev;
+> >>
+> >
+> >
+> >
+> > I still get spinlock errors when booting with this patch as shown below:
+> >
+> >
+> > [    9.903511] =========================================================
+> > [    9.909959] [ INFO: possible irq lock inversion dependency detected ]
+> > [    9.916411] 3.5.7.3-01268-g6696bd7-dirty #1 Not tainted
+> > [    9.921643] ---------------------------------------------------------
+> > [    9.928089] swapper/0/0 just changed the state of lock:
+> > [    9.933320]  (&(&fep->hw_lock)->rlock){-.....}, at: [<8029d154>]
+> > fec_enet_interrupt+0x74/0x600
+> > [    9.942026] but this lock took another, HARDIRQ-unsafe lock in the past:
+> > [    9.948731]  (prepare_lock){+.+...}
+> >
+> > and interrupts could create inverse lock ordering between them.
+> >
+> > [    9.958266]
+> > [    9.958266] other info that might help us debug this:
+> > [    9.964802]  Possible interrupt unsafe locking scenario:
+> > [    9.964802]
+> > [    9.971598]        CPU0                    CPU1
+> > [    9.976133]        ----                    ----
+> > [    9.980668]   lock(prepare_lock);
+> > [    9.984021]                                local_irq_disable();
+> > [    9.989945]                                lock(&(&fep->hw_lock)->rlock);
+> > [    9.996769]                                lock(prepare_lock);
+> > [   10.002637]   <Interrupt>
+> > [   10.005262]     lock(&(&fep->hw_lock)->rlock);
+> > [   10.009742]
+> > [   10.009742]  *** DEADLOCK ***
+> > [   10.009742]
+> > [   10.015673] no locks held by swapper/0/0.
+> > [   10.019689]
+> > [   10.019689] the shortest dependencies between 2nd lock and 1st lock:
+> > [   10.027528]  -> (prepare_lock){+.+...} ops: 272 {
+> > [   10.032321]     HARDIRQ-ON-W at:
+> > [   10.035570]                       [<800688d8>] mark_lock+0x290/0x628
+> > [   10.041963]                       [<80069320>] 
+__lock_acquire+0x6b0/0x1998
+> > [   10.048866]                       [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.055506]                       [<803dc02c>] 
+mutex_lock_nested+0x54/0x37c
+> > [   10.062499]                       [<802f5d34>] clk_prepare+0x20/0x40
+> > [   10.068882]                       [<803d8094>] twd_timer_setup+0x48/0x250
+> > [   10.075696]                       [<803d7dcc>] 
+percpu_timer_setup+0x64/0xbc
+> > [   10.082682]                       [<80551864>] smp_prepare_cpus+0x4c/0x64
+> > [   10.089504]                       [<8054e8dc>] kernel_init+0x5c/0x1d0
+> > [   10.095970]                       [<80026970>] do_exit+0x0/0x780
+> > [   10.102009]     SOFTIRQ-ON-W at:
+> > [   10.105258]                       [<800688d8>] mark_lock+0x290/0x628
+> > [   10.111637]                       [<80069344>] 
+__lock_acquire+0x6d4/0x1998
+> > [   10.118537]                       [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.125177]                       [<803dc02c>] 
+mutex_lock_nested+0x54/0x37c
+> > [   10.132164]                       [<802f5d34>] clk_prepare+0x20/0x40
+> > [   10.138543]                       [<803d8094>] twd_timer_setup+0x48/0x250
+> > [   10.145355]                       [<803d7dcc>] 
+percpu_timer_setup+0x64/0xbc
+> > [   10.152341]                       [<80551864>] smp_prepare_cpus+0x4c/0x64
+> > [   10.159154]                       [<8054e8dc>] kernel_init+0x5c/0x1d0
+> > [   10.165619]                       [<80026970>] do_exit+0x0/0x780
+> > [   10.171652]     INITIAL USE at:
+> > [   10.174814]                      [<800688d8>] mark_lock+0x290/0x628
+> > [   10.181108]                      [<800693a8>] __lock_acquire+0x738/0x1998
+> > [   10.187922]                      [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.194474]                      [<803dc02c>] 
+mutex_lock_nested+0x54/0x37c
+> > [   10.201373]                      [<802f60f4>] __clk_init+0x28/0x360
+> > [   10.207664]                      [<802f656c>] clk_register+0x140/0x1a4
+> > [   10.214217]                      [<802f677c>]
+> > clk_register_fixed_rate+0xb0/0xe0
+> > [   10.221552]                      [<80554e84>] 
+mx6q_clocks_init+0x2c/0x2bd4
+> > [   10.228457]                      [<80557a3c>] imx6q_timer_init+0x10/0x50
+> > [   10.235184]                      [<80551668>] time_init+0x28/0x38
+> > [   10.241303]                      [<8054e728>] start_kernel+0x1b4/0x30c
+> > [   10.247855]                      [<10008044>] 0x10008044
+> > [   10.253192]   }
+> > [   10.254950]   ... key      at: [<805c2b40>] prepare_lock+0x3c/0x4c
+> > [   10.261172]   ... acquired at:
+> > [   10.264232]    [<8006a0e0>] __lock_acquire+0x1470/0x1998
+> > [   10.269570]    [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.274560]    [<803dc02c>] mutex_lock_nested+0x54/0x37c
+> > [   10.279897]    [<802f59bc>] clk_get_rate+0x20/0x40
+> > [   10.284712]    [<8029d9d8>] fec_ptp_start_cyclecounter+0x24/0x114
+> > [   10.290832]    [<8029c2b4>] fec_restart+0x4b4/0x4f8
+> > [   10.295734]    [<8029cb64>] fec_enet_adjust_link+0x78/0xdc
+> > [   10.301244]    [<802993e4>] phy_state_machine+0x438/0x4a0
+> > [   10.306684]    [<8003da60>] process_one_work+0x2e4/0x508
+> > [   10.312027]    [<8003e184>] worker_thread+0x1b4/0x2cc
+> > [   10.317104]    [<8004271c>] kthread+0x94/0xa0
+> > [   10.321494]    [<80026970>] do_exit+0x0/0x780
+> > [   10.325877]
+> > [   10.327374] -> (&(&fep->hw_lock)->rlock){-.....} ops: 2 {
+> > [   10.332860]    IN-HARDIRQ-W at:
+> > [   10.336021]                     [<800688d8>] mark_lock+0x290/0x628
+> > [   10.342228]                     [<8006928c>] __lock_acquire+0x61c/0x1998
+> > [   10.348955]                     [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.355421]                     [<803de31c>] _raw_spin_lock+0x40/0x50
+> > [   10.361892]                     [<8029d154>] 
+fec_enet_interrupt+0x74/0x600
+> > [   10.368791]                     [<800812f0>]
+> > handle_irq_event_percpu+0xbc/0x2a8
+> > [   10.376132]                     [<80081520>] handle_irq_event+0x44/0x64
+> > [   10.382771]                     [<800842f8>] 
+handle_fasteoi_irq+0xd0/0x11c
+> > [   10.389675]                     [<80080be8>] generic_handle_irq+0x28/0x38
+> > [   10.396489]                     [<8000e298>] handle_IRQ+0x80/0xc0
+> > [   10.402618]                     [<8000850c>] gic_handle_irq+0x40/0x64
+> > [   10.409084]                     [<803deec4>] __irq_svc+0x44/0x78
+> > [   10.415118]                     [<8000e748>] cpu_idle+0xb0/0x110
+> > [   10.421151]                     [<803cba2c>] rest_init+0xac/0xd4
+> > [   10.427192]                     [<8054e830>] start_kernel+0x2bc/0x30c
+> > [   10.433658]                     [<10008044>] 0x10008044
+> > [   10.438907]    INITIAL USE at:
+> > [   10.441982]                    [<800688d8>] mark_lock+0x290/0x628
+> > [   10.448102]                    [<800693a8>] __lock_acquire+0x738/0x1998
+> > [   10.454742]                    [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.461121]                    [<803de434>] 
+_raw_spin_lock_irqsave+0x4c/0x60
+> > [   10.468195]                    [<8029cb10>] 
+fec_enet_adjust_link+0x24/0xdc
+> > [   10.475096]                    [<802993e4>] phy_state_machine+0x438/0x4a0
+> > [   10.481912]                    [<8003da60>] process_one_work+0x2e4/0x508
+> > [   10.488639]                    [<8003e184>] worker_thread+0x1b4/0x2cc
+> > [   10.495104]                    [<8004271c>] kthread+0x94/0xa0
+> > [   10.500878]                    [<80026970>] do_exit+0x0/0x780
+> > [   10.506651]  }
+> > [   10.508321]  ... key      at: [<80b36b74>] __key.33768+0x0/0x8
+> > [   10.514191]  ... acquired at:
+> > [   10.517164]    [<80067a1c>] print_irq_inversion_bug+0x184/0x1e8
+> > [   10.523110]    [<80067b5c>] check_usage_forwards+0xdc/0xfc
+> > [   10.528621]    [<800689c4>] mark_lock+0x37c/0x628
+> > [   10.533349]    [<8006928c>] __lock_acquire+0x61c/0x1998
+> > [   10.538600]    [<8006ac20>] lock_acquire+0x124/0x148
+> > [   10.543590]    [<803de31c>] _raw_spin_lock+0x40/0x50
+> > [   10.548580]    [<8029d154>] fec_enet_interrupt+0x74/0x600
+> > [   10.554005]    [<800812f0>] handle_irq_event_percpu+0xbc/0x2a8
+> > [   10.559864]    [<80081520>] handle_irq_event+0x44/0x64
+> > [   10.565027]    [<800842f8>] handle_fasteoi_irq+0xd0/0x11c
+> > [   10.570451]    [<80080be8>] generic_handle_irq+0x28/0x38
+> > [   10.575787]    [<8000e298>] handle_IRQ+0x80/0xc0
+> > [   10.580432]    [<8000850c>] gic_handle_irq+0x40/0x64
+> > [   10.585421]    [<803deec4>] __irq_svc+0x44/0x78
+> > [   10.589977]    [<8000e748>] cpu_idle+0xb0/0x110
+> > [   10.594533]    [<803cba2c>] rest_init+0xac/0xd4
+> > [   10.599091]    [<8054e830>] start_kernel+0x2bc/0x30c
+> > [   10.604080]    [<10008044>] 0x10008044
+> > [   10.607852]
+> > [   10.609350]
+> > [   10.609350] stack backtrace:
+> > [   10.613715] Backtrace:
+> > [   10.616201] [<80011a58>] (dump_backtrace+0x0/0x10c) from [<803da960>]
+> > (dump_stack+0x18/0x1c)
+> > [   10.624645]  r6:805896d8 r5:8061fbf4 r4:8057fca0 r3:805896d8
+> > [   10.630388] [<803da948>] (dump_stack+0x0/0x1c) from [<80067a3c>]
+> > (print_irq_inversion_bug+0x1a4/0x1e8)
+> > [   10.639711] [<80067898>] (print_irq_inversion_bug+0x0/0x1e8) from
+> > [<80067b5c>] (check_usage_forwards+0xdc/0xfc)
+> > [   10.649815] [<80067a80>] (check_usage_forwards+0x0/0xfc) from 
+[<800689c4>]
+> > (mark_lock+0x37c/0x628)
+> > [   10.658789] [<80068648>] (mark_lock+0x0/0x628) from [<8006928c>]
+> > (__lock_acquire+0x61c/0x1998)
+> > [   10.667416] [<80068c70>] (__lock_acquire+0x0/0x1998) from [<8006ac20>]
+> > (lock_acquire+0x124/0x148)
+> > [   10.676304] [<8006aafc>] (lock_acquire+0x0/0x148) from [<803de31c>]
+> > (_raw_spin_lock+0x40/0x50)
+> > [   10.684931] [<803de2dc>] (_raw_spin_lock+0x0/0x50) from [<8029d154>]
+> > (fec_enet_interrupt+0x74/0x600)
+> > [   10.694068]  r5:ac74a500 r4:ac74a000
+> > [   10.697694] [<8029d0e0>] (fec_enet_interrupt+0x0/0x600) from [<800812f0>]
+> > (handle_irq_event_percpu+0xbc/0x2a8)
+> > [   10.707711] [<80081234>] (handle_irq_event_percpu+0x0/0x2a8) from
+> > [<80081520>] (handle_irq_event+0x44/0x64)
+> > [   10.717467] [<800814dc>] (handle_irq_event+0x0/0x64) from [<800842f8>]
+> > (handle_fasteoi_irq+0xd0/0x11c)
+> > [   10.726778]  r6:ffffffff r5:ac012290 r4:ac012240 r3:00000000
+> > [   10.732522] [<80084228>] (handle_fasteoi_irq+0x0/0x11c) from [<80080be8>]
+> > (generic_handle_irq+0x28/0x38)
+> > [   10.742008]  r5:00000000 r4:00000096
+> > [   10.745635] [<80080bc0>] (generic_handle_irq+0x0/0x38) from [<8000e298>]
+> > (handle_IRQ+0x80/0xc0)
+> > [   10.754339]  r4:00000096 r3:00000220
+> > [   10.757964] [<8000e218>] (handle_IRQ+0x0/0xc0) from [<8000850c>]
+> > (gic_handle_irq+0x40/0x64)
+> > [   10.766321]  r5:8057ff28 r4:f4000100
+> > [   10.769945] [<800084cc>] (gic_handle_irq+0x0/0x64) from [<803deec4>]
+> > (__irq_svc+0x44/0x78)
+> > [   10.778216] Exception stack(0x8057ff28 to 0x8057ff70)
+> > [   10.783279] ff20:                   00000001 00000004 00000000 00000000
+> > 00000001 00000002
+> > [   10.791469] ff40: ffffffff 80571fe4 81354b80 412fc09a 00000000 8057ff7c
+> > 8057ff40 8057ff70
+> > [   10.799655] ff60: 8006b574 8000e514 20000013 ffffffff
+> > [   10.804713]  r5:20000013 r4:8000e514
+> > [   10.808339] [<8000e4e4>] (default_idle+0x0/0x38) from [<8000e748>]
+> > (cpu_idle+0xb0/0x110)
+> > [   10.816447] [<8000e698>] (cpu_idle+0x0/0x110) from [<803cba2c>]
+> > (rest_init+0xac/0xd4)
+> > [   10.824293] [<803cb980>] (rest_init+0x0/0xd4) from [<8054e830>]
+> > (start_kernel+0x2bc/0x30c)
+> > [   10.832562]  r5:805ce340 r4:80586df0
+> > [   10.836185] [<8054e574>] (start_kernel+0x0/0x30c) from [<10008044>]
+> > (0x10008044)
+> > INIT: version 2.86 booting
+> >
+> >
+> > Have you seen this?
+> > I am using the following configs:
+> > CONFIG_KALLSYMS_ALL=y
+> > CONFIG_DEBUG_SPINLOCK=y
+> > CONFIG_DEBUG_MUTEXES=y
+> > CONFIG_DEBUG_LOCK_ALLOC=y
+> > CONFIG_PROVE_LOCKING=y
+> > CONFIG_LOCKDEP=y
+> > # CONFIG_DEBUG_LOCKDEP is not set
+> > CONFIG_TRACE_IRQFLAGS=y
+> >
+> >
+> 
+> Thank you for you tested my patch.
+> Can you try my new patch?
+> 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo <at> vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
->
-> Let me know if this is ok with you.
->
-> The channel should be used for quick answers to simple problems related=
 
-> to networking stuff, more like a landing point for newbies.
->
-> thanks,
-> Daniel.
->
-> [1] channel name: #netdev, server: irc.oftc.net
-There is already a #netdev on zeniv.linux.org.uk where most of us hang ou=
-t.
+Thank you, I have tried your new patch, it fixes the boot deadlock but when I 
+run the ptp4l command I get another dead lock:
+
+On client running "./ptp4l -S -i eth0 -s -m"
 
 
---------------enigCEED99FEA95782AE86A6773B
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+On the i.MX6:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
-
-iQIcBAEBCgAGBQJRENvKAAoJEOVv75VaS+3OS08P/R0oybZQXWCL68SMhMiGX/Kn
-fmEVd6QB/NMsb+TOU/s9tCY7L3roKSXmU+2egYrRuNB+1QEOSKoLwvgXCWgY0eQ9
-YjKw/Q1MKNF7yTl4kvis/ySx7oE4ZoXcRxEQS14wV2E3MpQJCDxsOyf842aYpewV
-sg7jJRfrTiQntgM7n174aNDYgsZJbgkXXniO2PIqXcRaljgVLszJle5NdQAW061u
-kqAKN/rKFZ658eZNh3swwqU0mYf/dEbIuXP6uNdhB+uZffnhrlA3sk3Motmgh1lB
-8L0H+qFYc9XWkdva3xCMT2RoFj9CqPtHMSTaE13c4Qx1/J3SfEvW1ZYsJ9M5w+15
-+Ey4Qe0SANY/865yqzWl4gf51M21rlL3ZdrpDwCM1tudcX9NxKv2UrdYeo0pwhkH
-0iOG71KqeyzBI6XmMg3EmY4bjw8Ob/jzH3SMm+JMHMWwS3wIanSvvFcgclQir+5/
-uFCbXE63hhdZWBhX3urIDPSHwyUisImbTX5V/p3ko6DrqFaamQjtkc30uOL+5ANo
-ztHzhVeyk1g/WKXDXiL7t1OQH00m13yOrwVNtKSnLHgeDs75xzw0d7f0VULH2JQt
-0MnIro7EyISfuyc0nEcfjaSqdVIjrPpmPJqiTAym38Yqe4OyJ7ge9YZuX4hgv3Lx
-DKYWQKi+Q//s3JG3Fm5J
-=mJNj
------END PGP SIGNATURE-----
-
---------------enigCEED99FEA95782AE86A6773B--
+root@mx6q35:~# ptp4l -H -m -i eth0 -p /dev/ptp0
+ptp4l[98.894]: selected /dev/ptp0 as PTP clock
+ptp4l[98.896]: failed to read out the clock frequency adjustment: Operation not 
+supported
+ptp4l[98.900]: driver changed our HWTSTAMP options
+ptp4l[98.900]: tx_type   1 not 1
+ptp4l[98.900]: rx_filter 1 not 12
+ptp4l[98.901]: port 1: INITIALIZING to LISTENING on INITIALIZE
+ptp4l[98.902]: port 0: INITIALIZING to LISTENING on INITIALIZE
+ptp4l[104.901]: port 1: LISTENING to MASTER on ANNOUNCE_RECEIPT_TIMEOUT_EXPIRES
+[  111.161885] =================================
+[  111.166249] [ INFO: inconsistent lock state ]
+[  111.170616] 3.5.7.3-01268-g6696bd7-dirty #2 Not tainted
+[  111.175848] ---------------------------------
+[  111.180213] inconsistent {HARDIRQ-ON-W} -> {IN-HARDIRQ-W} usage.
+[  111.186230] ptp4l/335 [HC1[1]:SC0[0]:HE0:SE1] takes:
+[  111.191200]  (&(&list->lock)->rlock#4){?.-...}, at: [<80328590>] 
+skb_queue_tail+0x20/0x50
+[  111.199484] {HARDIRQ-ON-W} state was registered at:
+[  111.204367]   [<800688d8>] mark_lock+0x290/0x628
+[  111.209024]   [<80069320>] __lock_acquire+0x6b0/0x1998
+[  111.214189]   [<8006ac20>] lock_acquire+0x124/0x148
+[  111.219092]   [<803de5c4>] _raw_spin_lock_bh+0x44/0x54
+[  111.224265]   [<803a9eec>] packet_poll+0x24/0xdc
+[  111.228918]   [<8032037c>] sock_poll+0x20/0x24
+[  111.233395]   [<800fc4b4>] do_select+0x2ec/0x494
+[  111.238040]   [<800fc8e0>] core_sys_select+0x284/0x354
+[  111.243203]   [<800fca8c>] sys_select+0xdc/0x10c
+[  111.247844]   [<8000d940>] ret_fast_syscall+0x0/0x3c
+[  111.252844] irq event stamp: 4858
+[  111.256165] hardirqs last  enabled at (4857): [<80029a70>] 
+local_bh_enable+0xcc/0x100
+[  111.264032] hardirqs last disabled at (4858): [<8000d94c>] 
+ret_fast_syscall+0xc/0x3c
+[  111.271801] softirqs last  enabled at (4856): [<80336768>] 
+dev_queue_xmit+0x73c/0x7c4
+[  111.279659] softirqs last disabled at (4852): [<80336048>] 
+dev_queue_xmit+0x1c/0x7c4
+[  111.287427] 
+[  111.287427] other info that might help us debug this:
+[  111.293963]  Possible unsafe locking scenario:
+[  111.293963] 
+[  111.299889]        CPU0
+[  111.302341]        ----
+[  111.304792]   lock(&(&list->lock)->rlock#4);
+[  111.309116]   <Interrupt>
+[  111.311741]     lock(&(&list->lock)->rlock#4);
+[  111.316238] 
+[  111.316238]  *** DEADLOCK ***
+[  111.316238] 
+[  111.322170] 1 lock held by ptp4l/335:
+[  111.325838]  #0:  (&(&fep->hw_lock)->rlock){-.-...}, at: [<8029d470>] 
+fec_enet_interrupt+0x390/0x600
+[  111.335068] 
+[  111.335068] stack backtrace:
+[  111.339433] Backtrace: 
+[  111.341922] [<80011a58>] (dump_backtrace+0x0/0x10c) from [<803da940>] 
+(dump_stack+0x18/0x1c)
+[  111.350366]  r6:806cfaa0 r5:806cfaa0 r4:acb62e40 r3:acb62e40
+[  111.356111] [<803da928>] (dump_stack+0x0/0x1c) from [<800685e0>] 
+(print_usage_bug+0x250/0x2b8)
+[  111.364739] [<80068390>] (print_usage_bug+0x0/0x2b8) from [<8006899c>] 
+(mark_lock+0x354/0x628)
+[  111.373365] [<80068648>] (mark_lock+0x0/0x628) from [<8006928c>] 
+(__lock_acquire+0x61c/0x1998)
+[  111.381993] [<80068c70>] (__lock_acquire+0x0/0x1998) from [<8006ac20>] 
+(lock_acquire+0x124/0x148)
+[  111.390882] [<8006aafc>] (lock_acquire+0x0/0x148) from [<803de414>] 
+(_raw_spin_lock_irqsave+0x4c/0x60)
+[  111.400203] [<803de3c8>] (_raw_spin_lock_irqsave+0x0/0x60) from [<80328590>] 
+(skb_queue_tail+0x20/0x50)
+[  111.409601]  r6:acc54198 r5:ac9ebb40 r4:acc5418c
+[  111.414285] [<80328570>] (skb_queue_tail+0x0/0x50) from [<803286d8>] 
+(sock_queue_err_skb+0x118/0x164)
+[  111.423509]  r6:00000056 r5:ac9ebb40 r4:acc54000 r3:00000000
+[  111.429254] [<803285c0>] (sock_queue_err_skb+0x0/0x164) from [<8032ac4c>] 
+(skb_tstamp_tx+0x84/0x9c)
+[  111.438305]  r7:b0042280 r6:ac9ebb58 r5:acc54000 r4:ac9ebb40
+[  111.444049] [<8032abc8>] (skb_tstamp_tx+0x0/0x9c) from [<8029d5e4>] 
+(fec_enet_interrupt+0x504/0x600)
+[  111.453187]  r6:00001c00 r5:ac780500 r4:ac780000
+[  111.457878] [<8029d0e0>] (fec_enet_interrupt+0x0/0x600) from [<800812f0>] 
+(handle_irq_event_percpu+0xbc/0x2a8)
+[  111.467894] [<80081234>] (handle_irq_event_percpu+0x0/0x2a8) from 
+[<80081520>] (handle_irq_event+0x44/0x64)
+[  111.477654] [<800814dc>] (handle_irq_event+0x0/0x64) from [<800842f8>] 
+(handle_fasteoi_irq+0xd0/0x11c)
+[  111.486965]  r6:ffffffff r5:ac012290 r4:ac012240 r3:00000000
+[  111.492709] [<80084228>] (handle_fasteoi_irq+0x0/0x11c) from [<80080be8>] 
+(generic_handle_irq+0x28/0x38)
+[  111.502194]  r5:00000000 r4:00000096
+[  111.505820] [<80080bc0>] (generic_handle_irq+0x0/0x38) from [<8000e298>] 
+(handle_IRQ+0x80/0xc0)
+[  111.514524]  r4:00000096 r3:00000220
+[  111.518149] [<8000e218>] (handle_IRQ+0x0/0xc0) from [<8000850c>] 
+(gic_handle_irq+0x40/0x64)
+[  111.526505]  r5:acc09fb0 r4:f4000100
+[  111.530132] [<800084cc>] (gic_handle_irq+0x0/0x64) from [<803df060>] 
+(__irq_usr+0x40/0x60)
+[  111.538404] Exception stack(0xacc09fb0 to 0xacc09ff8)
+[  111.543466] 9fa0:                                     00000018 00000269 
+00000000 00000000
+[  111.551656] 9fc0: 00000001 76f615f0 3e09c05c 00000007 00000000 76f62650 
+76f63dc8 01f04e02
+[  111.559843] 9fe0: 00000002 7ef6c218 76f4c55c 76f45aec 60000010 ffffffff
+[  111.566463]  r5:60000010 r4:76f45aec
