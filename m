@@ -1,65 +1,74 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v5] netpoll: protect napi_poll and poll_controller during
- dev_[open|close]
-Date: Tue, 5 Feb 2013 10:07:13 -0500
-Message-ID: <20130205150713.GB4511@hmsreliant.think-freely.org>
-References: <1359578665-29248-1-git-send-email-nhorman@tuxdriver.com>
- <1359999644-24872-1-git-send-email-nhorman@tuxdriver.com>
- <20130204.210642.1455120579037699868.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, ivecera@redhat.com,
-	bhutchings@solarflare.com, romieu@fr.zoreil.com,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH] wpan: use GFP_ATOMIC instead of GFP_KERNEL
+Date: Tue,  5 Feb 2013 16:34:34 +0100
+Message-ID: <1360078474-24362-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36151 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755138Ab3BEPHZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 10:07:25 -0500
-Content-Disposition: inline
-In-Reply-To: <20130204.210642.1455120579037699868.davem@davemloft.net>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:61797 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754742Ab3BEPdz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 10:33:55 -0500
+Received: by mail-ee0-f54.google.com with SMTP id c41so182160eek.41
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 07:33:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 04, 2013 at 09:06:42PM -0500, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Mon,  4 Feb 2013 12:40:44 -0500
-> 
-> > +	/*
-> > +	 * Block netpoll from trying to do any rx path servicing.
-> > +	 * If we don't do this there is a chance ndo_poll_controller
-> > +	 * or ndo_poll may be running while we open the device
-> > +	 */
-> 
-> Please format comments:
-> 
-> 	/* Like
-> 	 * this.
-> 	 */
-> 
-> > +	/*
-> > +	 * Don't do any rx activity if the dev_lock mutex is held 
-> > +	 * the dev_open/close paths use this to block netpoll activity
-> > +	 * while changing device state
-> > +	 */
-> 
-> Same here.
-> 
-> > +int netpoll_rx_disable(struct net_device *dev)
-> > +{
-> > +        struct netpoll_info *ni;
-> > +	int idx;
-> > +        might_sleep();
-> > +        idx = srcu_read_lock(&netpoll_srcu);
-> > +        ni = srcu_dereference(dev->npinfo, &netpoll_srcu);
-> 
-> A lot of interesting indentation going on here.
-Apologies, Dave, I rushed and forgot to run checkpatch.  I'll resend shortly.
-Neil
+I got this message at runtime:
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+[   48.847347] BUG: scheduling while atomic: swapper/0/0/0x40000100
+[   48.853870] Modules linked in: autofs4
+[   48.857891] [<c0013db8>] (unwind_backtrace+0x0/0x11c) from [<c04cfb84>] (__schedule_bug+0x48/0x5c)
+[   48.867342] [<c04cfb84>] (__schedule_bug+0x48/0x5c) from [<c04e0f4c>] (__schedule+0x68/0x5bc)
+[   48.876357] [<c04e0f4c>] (__schedule+0x68/0x5bc) from [<c0063f0c>] (__cond_resched+0x24/0x34)
+[   48.885368] [<c0063f0c>] (__cond_resched+0x24/0x34) from [<c04e152c>] (_cond_resched+0x34/0x44)
+[   48.894559] [<c04e152c>] (_cond_resched+0x34/0x44) from [<c00e9b28>] (kmem_cache_alloc_trace+0x2c/0x158)
+[   48.904578] [<c00e9b28>] (kmem_cache_alloc_trace+0x2c/0x158) from [<c04baa3c>] (mac802154_header_create+0x44/0x2)
+[   48.915594] [<c04baa3c>] (mac802154_header_create+0x44/0x24c) from [<c04b8e50>] (lowpan_header_create.part.3+0x7)
+[   48.927157] [<c04b8e50>] (lowpan_header_create.part.3+0x734/0x79c) from [<c03ebc04>] (neigh_connected_output+0x9)
+[   48.938542] [<c03ebc04>] (neigh_connected_output+0x98/0xd0) from [<c0467d5c>] (ip6_finish_output2+0x374/0x45c)
+[   48.949102] [<c0467d5c>] (ip6_finish_output2+0x374/0x45c) from [<c0479bcc>] (ndisc_send_skb+0x174/0x22c)
+[   48.959101] [<c0479bcc>] (ndisc_send_skb+0x174/0x22c) from [<c047b138>] (ndisc_send_rs+0x3c/0x44)
+[   48.968473] [<c047b138>] (ndisc_send_rs+0x3c/0x44) from [<c046e3f0>] (addrconf_rs_timer+0xbc/0x16c)
+[   48.978032] [<c046e3f0>] (addrconf_rs_timer+0xbc/0x16c) from [<c00451fc>] (call_timer_fn+0x74/0x134)
+[   48.987675] [<c00451fc>] (call_timer_fn+0x74/0x134) from [<c0046984>] (run_timer_softirq+0x258/0x2d4)
+[   48.997417] [<c0046984>] (run_timer_softirq+0x258/0x2d4) from [<c003fb84>] (__do_softirq+0x118/0x248)
+[   49.007156] [<c003fb84>] (__do_softirq+0x118/0x248) from [<c003ff64>] (irq_exit+0x44/0x84)
+[   49.015890] [<c003ff64>] (irq_exit+0x44/0x84) from [<c000e780>] (handle_IRQ+0x7c/0xb8)
+[   49.024249] [<c000e780>] (handle_IRQ+0x7c/0xb8) from [<c000857c>] (omap3_intc_handle_irq+0x54/0x68)
+[   49.033801] [<c000857c>] (omap3_intc_handle_irq+0x54/0x68) from [<c04e2900>] (__irq_svc+0x40/0x50)
+[   49.043239] Exception stack(0xc074bf68 to 0xc074bfb0)
+[   49.048576] bf60:                   ffffffed 00000000 002f8000 00000000 c074a000 c07b6608
+[   49.057199] bf80: c04ec10c c0757618 80004059 413fc082 00000000 00000000 00000000 c074bfb0
+[   49.065821] bfa0: c000e904 c000e908 60000013 ffffffff
+[   49.071162] [<c04e2900>] (__irq_svc+0x40/0x50) from [<c000e908>] (default_idle+0x24/0x2c)
+[   49.079789] [<c000e908>] (default_idle+0x24/0x2c) from [<c000ea7c>] (cpu_idle+0x9c/0xf0)
+[   49.088328] [<c000ea7c>] (cpu_idle+0x9c/0xf0) from [<c06ff7dc>] (start_kernel+0x258/0x2a4)
+
+It seems that mac802154_header_create is calling from a irq context.
+So kzalloc need GFP_ATOMIC flag.
+
+This patch will fix it.
+
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+---
+ net/mac802154/wpan.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 98c867b..0d9e110 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -143,7 +143,7 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	if (!daddr)
+ 		return -EINVAL;
+ 
+-	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_KERNEL);
++	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_ATOMIC);
+ 	if (head == NULL)
+ 		return -ENOMEM;
+ 
+-- 
+1.8.1.2
