@@ -1,33 +1,29 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: How to enable Adaptive RX on
-Date: Tue, 5 Feb 2013 19:20:01 +0000
-Message-ID: <1360092001.2857.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <CAJzooYfqO64TgrswgrpHw5VmzeO_XveGUDy7tPQ0s4+zsnKO0A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [MERGE] net into net-next
+Date: Tue, 05 Feb 2013 14:20:16 -0500 (EST)
+Message-ID: <20130205.142016.1293426562457111667.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Dhanasekaran Anbalagan <bugcy013@gmail.com>
+Cc: linville@tuxdriver.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:39154 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754785Ab3BETUH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 14:20:07 -0500
-In-Reply-To: <CAJzooYfqO64TgrswgrpHw5VmzeO_XveGUDy7tPQ0s4+zsnKO0A@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58162 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754785Ab3BETUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 14:20:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-05 at 14:02 -0500, Dhanasekaran Anbalagan wrote:
-> Hi,
-> 
-> We are trying to set Adative RX on, But we unable to set.
 
-Which driver is this ('ethtool -i eth0' will tell you)?
+I just merged net into net-next.
 
-Ben.
+Most of the conflicts were trivial, except perhaps the iwlwifi one
+which is dealing with a revert that happened on the 'net' side.
 
+John please double-check my work.  It's ironic that this happened
+because you did a wireless mainline merge the last time you asked me
+to pull into net-next exactly to avoid conflicts in this piece of code
+:-)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks.
