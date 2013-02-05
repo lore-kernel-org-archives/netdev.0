@@ -1,48 +1,45 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH 0/6] VSOCK for Linux upstreaming
-Date: Mon, 4 Feb 2013 20:42:21 -0800 (PST)
-Message-ID: <1979127675.2501555.1360039341169.JavaMail.root@vmware.com>
-References: <20130108.174601.1788895671912734725.davem@davemloft.net>
+From: Ben Pfaff <blp@cs.stanford.edu>
+Subject: Re: No sysfs directory for openvswitch module when built-in
+Date: Mon, 04 Feb 2013 22:08:13 -0800
+Message-ID: <87lib3gunm.fsf@blp.benpfaff.org>
+References: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
+	<20130204081920.00e9f22e@nehalam.linuxnetplumber.net>
+Reply-To: blp@cs.stanford.edu
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dtor@vmware.com, pv-drivers@vmware.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130108.174601.1788895671912734725.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Jesse Gross <jesse@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cs-smtp-2.Stanford.EDU ([171.64.64.26]:52414 "EHLO
+	cs-smtp-2.Stanford.EDU" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750786Ab3BEGIT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 01:08:19 -0500
+In-Reply-To: <20130204081920.00e9f22e@nehalam.linuxnetplumber.net> (Stephen
+	Hemminger's message of "Mon, 4 Feb 2013 08:19:20 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Stephen Hemminger <stephen@networkplumber.org> writes:
 
-> >> Instead, what I remember doing was deferring to the feedback these
-> >> folks received, stating that ideas that the virtio people had
-> >> mentioned should be considered instead.
-> >> 
-> >> http://marc.info/?l=linux-netdev&m=135301515818462&w=2
-> > 
-> > I believe Andy replied to Anthony's AF_VMCHANNEL post and the
-> > differences between the proposed solutions.
-> 
-> I'd much rather see a hypervisor neutral solution than a hypervisor
-> specific one which this certainly is.
+> On Tue, 29 Jan 2013 22:15:18 +0800
+> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>
+>> Hello, Rusty, Jesse,
+>> 
+>> I met an interesting problem when I compile openvswitch module as a
+>> built-in (actually I compile ALL kernel modules as built-in), there is
+>> no /sys/module/openvswitch/ directory created by the kernel in this
+>> case.
+>> 
+>> What's worse, the user-space init script thinks openvswitch module is
+>> not loaded by checking the exist of this directory, therefore refuses
+>> to start.
+>
+> Shouldn't the OVS init script be testing for some other API.
 
-We've addressed this with the latest patch series, which I sent earlier
-today.  vSockets now has support for pluggable transports, of which VMCI
-happens to be the first; all transport code is separated out into its
-own module.  So the core is now hypervisor neutral.  Given that, would
-you be willing to re-consider it, please?  If at all possible, we'd like
-to make the current merge window.
-
-Thanks so much!
-- Andy
+I agree that's a bug in the OVS init script.  I will fix it.
