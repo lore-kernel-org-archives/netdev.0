@@ -1,32 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] wpan: use GFP_ATOMIC instead of GFP_KERNEL
-Date: Tue, 05 Feb 2013 10:21:31 -0800
-Message-ID: <1360088491.28557.7.camel@edumazet-glaptop>
-References: <1360078474-24362-1-git-send-email-alex.aring@gmail.com>
-	 <1360080597.28557.5.camel@edumazet-glaptop>
-	 <20130205180057.GA1124@x61s.8.8.8.8> <20130205181310.GB1124@x61s.8.8.8.8>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH v4 0/2] Add CPSW VLAN Support
+Date: Tue, 5 Feb 2013 23:56:46 +0530
+Message-ID: <1360088808-8971-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:51781 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753934Ab3BESVd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 13:21:33 -0500
-Received: by mail-pa0-f42.google.com with SMTP id kq12so287043pab.29
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 10:21:33 -0800 (PST)
-In-Reply-To: <20130205181310.GB1124@x61s.8.8.8.8>
+Received: from bear.ext.ti.com ([192.94.94.41]:44970 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754795Ab3BES1F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 13:27:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-05 at 19:13 +0100, Alexander Aring wrote:
+CPSW is capable of filtering VLAN packets in hardware. This patch series
+implements VLAN support to CPSW driver.
+This patch series is tested on net-next with AM335x EVM with ping test.
 
-> Ahh, you mean to put it on the stack. :-)
-> 
-> Sorry about that.
+Changes from initial version
+* added vlan support to existing add/delete unicast/multicast apis
+* Made driver as default VLAN enabled so that drivers need to be recompiled
+  when stack is compiled with VLAN
 
-No problem ;)
+Changes from V2
+* Moved repeated code to static inline function
+* Made vlan add/delete function return type to void as it is not used in
+  the current driver implementation
+* Modified cpsw_add_default_vlan for better readability
+* changed BIT(1) port representation to defines
+
+Changes from V3
+* Dropped default VLAN id passing from DT, will find a way to pass it through
+  ethtool or similar interface and submit the patch.
+
+Mugunthan V N (2):
+  drivers: net: cpsw: Add helper functions for VLAN ALE implementation
+  drivers: net:ethernet: cpsw: add support for VLAN
+
+ drivers/net/ethernet/ti/cpsw.c     |  114 ++++++++++++++++++++++++++++++++++--
+ drivers/net/ethernet/ti/cpsw_ale.c |  107 +++++++++++++++++++++++++++++----
+ drivers/net/ethernet/ti/cpsw_ale.h |   24 ++++++--
+ include/linux/platform_data/cpsw.h |    1 +
+ 4 files changed, 222 insertions(+), 24 deletions(-)
+
+-- 
+1.7.9.5
