@@ -1,42 +1,114 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: remove Appropriate Byte Count support
-Date: Tue, 05 Feb 2013 14:46:35 -0500 (EST)
-Message-ID: <20130205.144635.1648371589019378147.davem@davemloft.net>
-References: <20130205092517.58d11171@nehalam.linuxnetplumber.net>
-	<CAK6E8=dCgNgGpQK=oMBz3c0c8Scj4nwi5OS7r4QWrrxhiJsXFw@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 1/2] NET: ethernet/netlogic: Netlogic XLR/XLS GMAC
+ driver
+Date: Tue, 5 Feb 2013 19:48:16 +0000
+Message-ID: <1360093696.2857.18.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1360063819-17555-1-git-send-email-ganesanr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: <linux-mips@linux-mips.org>, <netdev@vger.kernel.org>
+To: <ganesanr@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58397 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754111Ab3BETqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 14:46:36 -0500
-In-Reply-To: <CAK6E8=dCgNgGpQK=oMBz3c0c8Scj4nwi5OS7r4QWrrxhiJsXFw@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:17755 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756689Ab3BETsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 14:48:20 -0500
+In-Reply-To: <1360063819-17555-1-git-send-email-ganesanr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Tue, 5 Feb 2013 09:47:59 -0800
-
-> On Tue, Feb 5, 2013 at 9:25 AM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> TCP Appropriate Byte Count was added by me, but later disabled.
->> There is no point in maintaining it since it is a potential source
->> of bugs and Linux already implements other better window protection
->> heuristics.
-> +1
+On Tue, 2013-02-05 at 17:00 +0530, ganesanr@broadcom.com wrote:
+> From: Ganesan Ramalingam <ganesanr@broadcom.com>
 > 
->>
->> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> Add support for the Network Accelerator Engine on Netlogic XLR/XLS
+> MIPS SoCs. The XLR/XLS NAE blocks can be configured as one 10G
+> interface or four 1G interfaces. This driver supports blocks
+> with 1G ports.
+> 
+> Signed-off-by: Ganesan Ramalingam <ganesanr@broadcom.com>
+> ---
+>  This patch has to be merged through netdev tree.
+> 
+>  Changes since v1:
+>  * Implementing ethtool using phylib
+>  * Free skb buf incase of nlm_fmn_send() fail
+>  * Use of ndo_get_stats64 instead of ndo_get_stats
+>  * Watchdog timeo fix
+[...]
+> +static void xlr_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+> +{
+> +	struct xlr_net_priv *priv = netdev_priv(ndev);
+> +
+> +	stats->rx_packets = xlr_nae_rdreg(priv->base_addr, RX_PACKET_COUNTER);
+> +	stats->tx_packets = xlr_nae_rdreg(priv->base_addr, TX_PACKET_COUNTER);
+> +	stats->rx_bytes = xlr_nae_rdreg(priv->base_addr, RX_BYTE_COUNTER);
+> +	stats->tx_bytes = xlr_nae_rdreg(priv->base_addr, TX_BYTE_COUNTER);
+> +	stats->tx_errors = xlr_nae_rdreg(priv->base_addr, TX_FCS_ERROR_COUNTER);
+> +	stats->rx_dropped = xlr_nae_rdreg(priv->base_addr,
+> +			RX_DROP_PACKET_COUNTER);
+> +	stats->tx_dropped = xlr_nae_rdreg(priv->base_addr,
+> +			TX_DROP_FRAME_COUNTER);
+[...]
 
-Applied, and:
+But these are still 32-bit counters in hardware, yes?  So I think you
+need to arrange to poll at least the byte counters every few seconds and
+maintain the higher bits in software e.g.:
 
->>         tp->bytes_acked = 0;
-> Is bytes_acked still needed?
+struct xlr_stats {
+	spinlock_t lock;
+	struct timer timer;
+	u64 rx_bytes;
+	u64 tx_bytes;
+	...
+};
 
-I took care of this when I committed Stephen's patch.
+static void xlr_poll_stats(struct xlr_net_priv *priv)
+{
+	struct xlr_stats = &priv->stats;
+	u32 counter;
 
-Thanks.
+	spin_lock_bh(&stats->lock);
+	counter = xlr_nae_rdreg(priv->base_addr, RX_BYTE_COUNTER);
+	stats->rx_bytes += (u32)(counter - stats->rx_bytes);
+	counter = xlr_nae_rdreg(priv->base_addr, TX_BYTE_COUNTER);
+	stats->tx_bytes += (u32)(counter - stats->tx_bytes);
+	...
+	spin_unlock_bh(&stats->lock);
+}
+
+static void xlr_poll_stats_timer(void *data)
+{
+	struct xlr_net_priv *priv = data;
+
+	xlr_poll_stats(priv);
+	mod_timer(&priv->stats.timer, jiffies + 2 * HZ);
+}
+
+static void xlr_stats(struct net_device *ndev, struct rtnl_link_stats64 *stats)
+{
+	struct xlr_net_priv *priv = netdev_priv(ndev);
+
+	xlr_poll_stats(priv);
+	...
+}
+
+static int xlr_net_probe(struct platform_device *pdev)
+{
+	...
+	spin_lock_init(&priv->stats.lock);
+	setup_timer(&priv->stats.timer, xlr_poll_stats_timer, priv);
+	...
+}
+
+Plus add_timer() and del_timer_sync() when starting/stopping the
+interface.  Also you need to clear the software stats if you have to
+reset the hardware.  All of which is a fair amount of work but you can't
+avoid it if the hardware counters just aren't wide enough.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
