@@ -1,55 +1,54 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH] xfrm: fix handling of XFRM policies mark and mask.
-Date: Tue, 5 Feb 2013 09:12:32 +0100
-Message-ID: <20130205081232.GF23291@secunet.com>
-References: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	herbert@gondor.apana.org.au,
-	Emmanuel THIERRY <emmanuel.thierry@telecom-bretagne.eu>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: Romain KUNTZ <r.kuntz@ipflavors.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2 v2] iplink: display the value of IFLA_PROMISCUITY
+Date: Tue,  5 Feb 2013 09:28:01 +0100
+Message-ID: <1360052881-17935-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20130204095636.64b57bd0@nehalam.linuxnetplumber.net>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37505 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754117Ab3BEIid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 03:38:33 -0500
+In-Reply-To: <20130204095636.64b57bd0@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cc Jamal, he introduced the xfrm_mark framework and knows it
-probably the best.
+This is useful to know the 'real' status of an interface (the flag IFF_PROMISC
+is exported by the kernel only when the user set it explicitly, for example it
+will not be exported when a tcpdump is running).
 
-On Sat, Feb 02, 2013 at 06:27:03PM +0100, Romain KUNTZ wrote:
-> The current algorithm to insert XFRM policies with a mark and a mask
-> allows the insertion of more generic policies, but fails when trying
-> to install more specific policies.
-> 
+This information will be displayed when '-details' is provided by the user.
 
-Hm, I think we will not match always the right policy if we allow both
-orders. Lets take your example and assume we have a flow with mark 1.
-The policy lookup is a linear search, so we use the first matching
-policy. xfrm_policy_match() does the following check on the mark:
+Example:
+$ ip -d l l tun10
+6: tun10: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1480 qdisc noqueue state UNKNOWN mode DEFAULT
+    link/sit 10.16.0.249 peer 10.16.0.121
+    sit remote 10.16.0.121 local 10.16.0.249 ttl inherit pmtudisc 6rd-prefix 2002::/16
+    promiscuity 2
 
-if (... || (fl->flowi_mark & pol->mark.m) != pol->mark.v || ...)
-	return -ESRCH
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+v2: because IFLA_PROMISCUITY is read only, display it only when '-details' is
+    provided (and even if the value is zero)
 
-> For example, executing the below commands in that order succeed:
->  ip -6 xfrm policy flush
->  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out mark 1 mask 0xffffffff
->  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out
+ ip/ipaddress.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-The policy with mark 1 is the first we find. The policy passes the
-mark check and if the flow matches the selectors, we use this policy.
-
-> 
-> But it fails in the reverse order:
->  ip -6 xfrm policy flush
->  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out
->  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out mark 1 mask 0xffffffff
->  RTNETLINK answers: File exists
-
-With this scenario, we would find the policy with mark and mask 0 first.
-This policy passes the mark check too. So we would use this policy if the
-flow matches the selectors, but the flow asked for a policy with mark 1.
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 2eb1a0a..e8cab40 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -464,6 +464,10 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	if (do_link && tb[IFLA_LINKINFO] && show_details)
+ 		print_linktype(fp, tb[IFLA_LINKINFO]);
+ 
++	if (do_link && tb[IFLA_PROMISCUITY] && show_details)
++		fprintf(fp, "\n    promiscuity %u ",
++			*(int*)RTA_DATA(tb[IFLA_PROMISCUITY]));
++
+ 	if (do_link && tb[IFLA_IFALIAS])
+ 		fprintf(fp,"\n    alias %s", 
+ 			rta_getattr_str(tb[IFLA_IFALIAS]));
+-- 
+1.8.0.1
