@@ -1,238 +1,392 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 7/9] net/mlx4_en: Manage hash of MAC addresses per port
-Date: Tue,  5 Feb 2013 13:28:34 +0200
-Message-ID: <1360063716-13415-8-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 5/9] net/mlx4_en: Re-arrange ndo_set_rx_mode related code
+Date: Tue,  5 Feb 2013 13:28:32 +0200
+Message-ID: <1360063716-13415-6-git-send-email-amirv@mellanox.com>
 References: <1360063716-13415-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yan Burman <yanb@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:42850 "HELO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751662Ab3BEL3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 06:29:01 -0500
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:51895 "HELO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751507Ab3BEL3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 06:29:03 -0500
 In-Reply-To: <1360063716-13415-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yan Burman <yanb@mellanox.com>
 
-As a preparation step for supporting multiple unicast addresses, store MAC addresses in hash table.
-Remove the radix tree for MAC addresses per QP, as it's not in use.
+Currently, mlx4_en_do_set_multicast serves as the ndo_set_rx_mode entry for mlx4_en,
+doing all related work. Split it to few calls, one per required functionality
+(e.g multicast, promiscuous, etc) and rename some structures and calls
+to use rx_mode notation instead of multicast.
 
 Signed-off-by: Yan Burman <yanb@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   89 +++++++++++++++---------
- drivers/net/ethernet/mellanox/mlx4/en_rx.c     |   23 +++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    6 ++-
- 3 files changed, 80 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  271 +++++++++++++-----------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 +-
+ 2 files changed, 145 insertions(+), 128 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 72a3fe5..f402b20 100644
+index 63a1ef3..80067d5 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -545,13 +545,10 @@ static int mlx4_en_get_qp(struct mlx4_en_priv *priv)
- 	memcpy(entry->mac, priv->dev->dev_addr, sizeof(entry->mac));
- 	entry->reg_id = reg_id;
- 
--	err = radix_tree_insert(&priv->mac_tree, *qpn, entry);
--	if (err)
--		goto insert_err;
--	return 0;
-+	hlist_add_head_rcu(&entry->hlist,
-+			   &priv->mac_hash[entry->mac[MLX4_EN_MAC_HASH_IDX]]);
- 
--insert_err:
--	kfree(entry);
-+	return 0;
- 
- alloc_err:
- 	mlx4_en_uc_steer_release(priv, priv->dev->dev_addr, *qpn, reg_id);
-@@ -568,7 +565,6 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_dev *dev = mdev->dev;
--	struct mlx4_mac_entry *entry;
- 	int qpn = priv->base_qpn;
- 	u64 mac = mlx4_en_mac_to_u64(priv->dev->dev_addr);
- 
-@@ -577,15 +573,27 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
- 	mlx4_unregister_mac(dev, priv->port, mac);
- 
- 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
--		entry = radix_tree_lookup(&priv->mac_tree, qpn);
--		if (entry) {
--			en_dbg(DRV, priv, "Releasing qp: port %d, MAC %pM, qpn %d\n",
--			       priv->port, entry->mac, qpn);
--			mlx4_en_uc_steer_release(priv, entry->mac,
--						 qpn, entry->reg_id);
--			mlx4_qp_release_range(dev, qpn, 1);
--			radix_tree_delete(&priv->mac_tree, qpn);
--			kfree(entry);
-+		struct mlx4_mac_entry *entry;
-+		struct hlist_node *n, *tmp;
-+		struct hlist_head *bucket;
-+		unsigned int mac_hash;
-+
-+		mac_hash = priv->dev->dev_addr[MLX4_EN_MAC_HASH_IDX];
-+		bucket = &priv->mac_hash[mac_hash];
-+		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
-+			if (ether_addr_equal_64bits(entry->mac,
-+						    priv->dev->dev_addr)) {
-+				en_dbg(DRV, priv, "Releasing qp: port %d, MAC %pM, qpn %d\n",
-+				       priv->port, priv->dev->dev_addr, qpn);
-+				mlx4_en_uc_steer_release(priv, entry->mac,
-+							 qpn, entry->reg_id);
-+				mlx4_qp_release_range(dev, qpn, 1);
-+
-+				hlist_del_rcu(&entry->hlist);
-+				synchronize_rcu();
-+				kfree(entry);
-+				break;
-+			}
- 		}
+@@ -747,165 +747,142 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
  	}
  }
-@@ -595,26 +603,39 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
+ 
+-static void mlx4_en_set_multicast(struct net_device *dev)
++static void mlx4_en_set_rx_mode(struct net_device *dev)
  {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_dev *dev = mdev->dev;
--	struct mlx4_mac_entry *entry;
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+ 	if (!priv->port_up)
+ 		return;
+ 
+-	queue_work(priv->mdev->workqueue, &priv->mcast_task);
++	queue_work(priv->mdev->workqueue, &priv->rx_mode_task);
+ }
+ 
+-static void mlx4_en_do_set_multicast(struct work_struct *work)
++static void mlx4_en_set_promisc_mode(struct mlx4_en_priv *priv,
++				     struct mlx4_en_dev *mdev)
+ {
+-	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
+-						 mcast_task);
+-	struct mlx4_en_dev *mdev = priv->mdev;
+-	struct net_device *dev = priv->dev;
+-	struct mlx4_en_mc_list *mclist, *tmp;
+-	u64 mcast_addr = 0;
+-	u8 mc_list[16] = {0};
  	int err = 0;
- 	u64 new_mac_u64 = mlx4_en_mac_to_u64(new_mac);
  
- 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
--		u64 prev_mac_u64;
+-	mutex_lock(&mdev->state_lock);
+-	if (!mdev->device_up) {
+-		en_dbg(HW, priv, "Card is not up, ignoring multicast change.\n");
+-		goto out;
+-	}
+-	if (!priv->port_up) {
+-		en_dbg(HW, priv, "Port is down, ignoring  multicast change.\n");
+-		goto out;
+-	}
 -
--		entry = radix_tree_lookup(&priv->mac_tree, qpn);
--		if (!entry)
--			return -EINVAL;
--		prev_mac_u64 = mlx4_en_mac_to_u64(entry->mac);
--		mlx4_en_uc_steer_release(priv, entry->mac,
--					 qpn, entry->reg_id);
--		mlx4_unregister_mac(dev, priv->port, prev_mac_u64);
--		memcpy(entry->mac, new_mac, ETH_ALEN);
--		entry->reg_id = 0;
--		mlx4_register_mac(dev, priv->port, new_mac_u64);
--		err = mlx4_en_uc_steer_add(priv, new_mac,
--					   &qpn, &entry->reg_id);
--		return err;
-+		struct hlist_head *bucket;
-+		unsigned int mac_hash;
-+		struct mlx4_mac_entry *entry;
-+		struct hlist_node *n, *tmp;
-+		u64 prev_mac_u64 = mlx4_en_mac_to_u64(prev_mac);
+-	if (!netif_carrier_ok(dev)) {
+-		if (!mlx4_en_QUERY_PORT(mdev, priv->port)) {
+-			if (priv->port_state.link_state) {
+-				priv->last_link_state = MLX4_DEV_EVENT_PORT_UP;
+-				netif_carrier_on(dev);
+-				en_dbg(LINK, priv, "Link Up\n");
+-			}
+-		}
+-	}
+-
+-	/*
+-	 * Promsicuous mode: disable all filters
+-	 */
+-
+-	if (dev->flags & IFF_PROMISC) {
+-		if (!(priv->flags & MLX4_EN_FLAG_PROMISC)) {
+-			if (netif_msg_rx_status(priv))
+-				en_warn(priv, "Entering promiscuous mode\n");
+-			priv->flags |= MLX4_EN_FLAG_PROMISC;
+-
+-			/* Enable promiscouos mode */
+-			switch (mdev->dev->caps.steering_mode) {
+-			case MLX4_STEERING_MODE_DEVICE_MANAGED:
+-				err = mlx4_flow_steer_promisc_add(mdev->dev,
+-								  priv->port,
+-								  priv->base_qpn,
+-								  MLX4_FS_PROMISC_UPLINK);
+-				if (err)
+-					en_err(priv, "Failed enabling promiscuous mode\n");
+-				priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
+-				break;
+-
+-			case MLX4_STEERING_MODE_B0:
+-				err = mlx4_unicast_promisc_add(mdev->dev,
+-							       priv->base_qpn,
+-							       priv->port);
+-				if (err)
+-					en_err(priv, "Failed enabling unicast promiscuous mode\n");
+-
+-				/* Add the default qp number as multicast
+-				 * promisc
+-				 */
+-				if (!(priv->flags & MLX4_EN_FLAG_MC_PROMISC)) {
+-					err = mlx4_multicast_promisc_add(mdev->dev,
+-									 priv->base_qpn,
+-									 priv->port);
+-					if (err)
+-						en_err(priv, "Failed enabling multicast promiscuous mode\n");
+-					priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
+-				}
+-				break;
+-
+-			case MLX4_STEERING_MODE_A0:
+-				err = mlx4_SET_PORT_qpn_calc(mdev->dev,
+-							     priv->port,
+-							     priv->base_qpn,
+-							     1);
+-				if (err)
+-					en_err(priv, "Failed enabling promiscuous mode\n");
+-				break;
+-			}
+-
+-			/* Disable port multicast filter (unconditionally) */
+-			err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
+-						  0, MLX4_MCAST_DISABLE);
+-			if (err)
+-				en_err(priv, "Failed disabling multicast filter\n");
+-
+-			/* Disable port VLAN filter */
+-			err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
+-			if (err)
+-				en_err(priv, "Failed disabling VLAN filter\n");
+-		}
+-		goto out;
+-	}
+-
+-	/*
+-	 * Not in promiscuous mode
+-	 */
+-
+-	if (priv->flags & MLX4_EN_FLAG_PROMISC) {
++	if (!(priv->flags & MLX4_EN_FLAG_PROMISC)) {
+ 		if (netif_msg_rx_status(priv))
+-			en_warn(priv, "Leaving promiscuous mode\n");
+-		priv->flags &= ~MLX4_EN_FLAG_PROMISC;
++			en_warn(priv, "Entering promiscuous mode\n");
++		priv->flags |= MLX4_EN_FLAG_PROMISC;
+ 
+-		/* Disable promiscouos mode */
++		/* Enable promiscouos mode */
+ 		switch (mdev->dev->caps.steering_mode) {
+ 		case MLX4_STEERING_MODE_DEVICE_MANAGED:
+-			err = mlx4_flow_steer_promisc_remove(mdev->dev,
+-							     priv->port,
+-							     MLX4_FS_PROMISC_UPLINK);
++			err = mlx4_flow_steer_promisc_add(mdev->dev,
++							  priv->port,
++							  priv->base_qpn,
++							  MLX4_FS_PROMISC_UPLINK);
+ 			if (err)
+-				en_err(priv, "Failed disabling promiscuous mode\n");
+-			priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
++				en_err(priv, "Failed enabling promiscuous mode\n");
++			priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
+ 			break;
+ 
+ 		case MLX4_STEERING_MODE_B0:
+-			err = mlx4_unicast_promisc_remove(mdev->dev,
+-							  priv->base_qpn,
+-							  priv->port);
++			err = mlx4_unicast_promisc_add(mdev->dev,
++						       priv->base_qpn,
++						       priv->port);
+ 			if (err)
+-				en_err(priv, "Failed disabling unicast promiscuous mode\n");
+-			/* Disable Multicast promisc */
+-			if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
+-				err = mlx4_multicast_promisc_remove(mdev->dev,
+-								    priv->base_qpn,
+-								    priv->port);
++				en_err(priv, "Failed enabling unicast promiscuous mode\n");
 +
-+		bucket = &priv->mac_hash[prev_mac[MLX4_EN_MAC_HASH_IDX]];
-+		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
-+			if (ether_addr_equal_64bits(entry->mac, prev_mac)) {
-+				mlx4_en_uc_steer_release(priv, entry->mac,
-+							 qpn, entry->reg_id);
-+				mlx4_unregister_mac(dev, priv->port,
-+						    prev_mac_u64);
-+				hlist_del_rcu(&entry->hlist);
-+				synchronize_rcu();
-+				memcpy(entry->mac, new_mac, ETH_ALEN);
-+				entry->reg_id = 0;
-+				mac_hash = new_mac[MLX4_EN_MAC_HASH_IDX];
-+				hlist_add_head_rcu(&entry->hlist,
-+						   &priv->mac_hash[mac_hash]);
-+				synchronize_rcu();
-+				mlx4_register_mac(dev, priv->port, new_mac_u64);
-+				err = mlx4_en_uc_steer_add(priv, new_mac,
-+							   &qpn,
-+							   &entry->reg_id);
-+				return err;
-+			}
-+		}
-+		return -EINVAL;
- 	}
++			/* Add the default qp number as multicast
++			 * promisc
++			 */
++			if (!(priv->flags & MLX4_EN_FLAG_MC_PROMISC)) {
++				err = mlx4_multicast_promisc_add(mdev->dev,
++								 priv->base_qpn,
++								 priv->port);
+ 				if (err)
+-					en_err(priv, "Failed disabling multicast promiscuous mode\n");
+-				priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
++					en_err(priv, "Failed enabling multicast promiscuous mode\n");
++				priv->flags |= MLX4_EN_FLAG_MC_PROMISC;
+ 			}
+ 			break;
  
- 	return __mlx4_replace_mac(dev, priv->port, qpn, new_mac_u64);
-@@ -1816,6 +1837,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- {
- 	struct net_device *dev;
- 	struct mlx4_en_priv *priv;
-+	int i;
- 	int err;
- 
- 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
-@@ -1874,7 +1896,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 		dev->dcbnl_ops = &mlx4_en_dcbnl_ops;
- #endif
- 
--	INIT_RADIX_TREE(&priv->mac_tree, GFP_KERNEL);
-+	for (i = 0; i < MLX4_EN_MAC_HASH_SIZE; ++i)
-+		INIT_HLIST_HEAD(&priv->mac_hash[i]);
- 
- 	/* Query for default mac and max mtu */
- 	priv->max_mtu = mdev->dev->caps.eth_mtu_cap[priv->port];
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 2e7f5bb..91bb8e1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -615,10 +615,25 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			ethh = (struct ethhdr *)(page_address(frags[0].page) +
- 						 frags[0].offset);
- 
--			/* Drop the packet, since HW loopback-ed it */
--			if (ether_addr_equal_64bits(dev->dev_addr,
--						    ethh->h_source))
--				goto next;
-+			if (is_multicast_ether_addr(ethh->h_dest)) {
-+				struct mlx4_mac_entry *entry;
-+				struct hlist_node *n;
-+				struct hlist_head *bucket;
-+				unsigned int mac_hash;
-+
-+				/* Drop the packet, since HW loopback-ed it */
-+				mac_hash = ethh->h_source[MLX4_EN_MAC_HASH_IDX];
-+				bucket = &priv->mac_hash[mac_hash];
-+				rcu_read_lock();
-+				hlist_for_each_entry_rcu(entry, n, bucket, hlist) {
-+					if (ether_addr_equal_64bits(entry->mac,
-+								    ethh->h_source)) {
-+						rcu_read_unlock();
-+						goto next;
-+					}
-+				}
-+				rcu_read_unlock();
-+			}
+ 		case MLX4_STEERING_MODE_A0:
+ 			err = mlx4_SET_PORT_qpn_calc(mdev->dev,
+ 						     priv->port,
+-						     priv->base_qpn, 0);
++						     priv->base_qpn,
++						     1);
+ 			if (err)
+-				en_err(priv, "Failed disabling promiscuous mode\n");
++				en_err(priv, "Failed enabling promiscuous mode\n");
+ 			break;
  		}
  
- 		/*
+-		/* Enable port VLAN filter */
++		/* Disable port multicast filter (unconditionally) */
++		err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
++					  0, MLX4_MCAST_DISABLE);
++		if (err)
++			en_err(priv, "Failed disabling multicast filter\n");
++
++		/* Disable port VLAN filter */
+ 		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
+ 		if (err)
+-			en_err(priv, "Failed enabling VLAN filter\n");
++			en_err(priv, "Failed disabling VLAN filter\n");
++	}
++}
++
++static void mlx4_en_clear_promisc_mode(struct mlx4_en_priv *priv,
++				       struct mlx4_en_dev *mdev)
++{
++	int err = 0;
++
++	if (netif_msg_rx_status(priv))
++		en_warn(priv, "Leaving promiscuous mode\n");
++	priv->flags &= ~MLX4_EN_FLAG_PROMISC;
++
++	/* Disable promiscouos mode */
++	switch (mdev->dev->caps.steering_mode) {
++	case MLX4_STEERING_MODE_DEVICE_MANAGED:
++		err = mlx4_flow_steer_promisc_remove(mdev->dev,
++						     priv->port,
++						     MLX4_FS_PROMISC_UPLINK);
++		if (err)
++			en_err(priv, "Failed disabling promiscuous mode\n");
++		priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
++		break;
++
++	case MLX4_STEERING_MODE_B0:
++		err = mlx4_unicast_promisc_remove(mdev->dev,
++						  priv->base_qpn,
++						  priv->port);
++		if (err)
++			en_err(priv, "Failed disabling unicast promiscuous mode\n");
++		/* Disable Multicast promisc */
++		if (priv->flags & MLX4_EN_FLAG_MC_PROMISC) {
++			err = mlx4_multicast_promisc_remove(mdev->dev,
++							    priv->base_qpn,
++							    priv->port);
++			if (err)
++				en_err(priv, "Failed disabling multicast promiscuous mode\n");
++			priv->flags &= ~MLX4_EN_FLAG_MC_PROMISC;
++		}
++		break;
++
++	case MLX4_STEERING_MODE_A0:
++		err = mlx4_SET_PORT_qpn_calc(mdev->dev,
++					     priv->port,
++					     priv->base_qpn, 0);
++		if (err)
++			en_err(priv, "Failed disabling promiscuous mode\n");
++		break;
+ 	}
+ 
++	/* Enable port VLAN filter */
++	err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
++	if (err)
++		en_err(priv, "Failed enabling VLAN filter\n");
++}
++
++static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
++				 struct net_device *dev,
++				 struct mlx4_en_dev *mdev)
++{
++	struct mlx4_en_mc_list *mclist, *tmp;
++	u64 mcast_addr = 0;
++	u8 mc_list[16] = {0};
++	int err = 0;
++
+ 	/* Enable/disable the multicast filter according to IFF_ALLMULTI */
+ 	if (dev->flags & IFF_ALLMULTI) {
+ 		err = mlx4_SET_MCAST_FLTR(mdev->dev, priv->port, 0,
+@@ -1018,6 +995,46 @@ static void mlx4_en_do_set_multicast(struct work_struct *work)
+ 			}
+ 		}
+ 	}
++}
++
++static void mlx4_en_do_set_rx_mode(struct work_struct *work)
++{
++	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
++						 rx_mode_task);
++	struct mlx4_en_dev *mdev = priv->mdev;
++	struct net_device *dev = priv->dev;
++
++	mutex_lock(&mdev->state_lock);
++	if (!mdev->device_up) {
++		en_dbg(HW, priv, "Card is not up, ignoring rx mode change.\n");
++		goto out;
++	}
++	if (!priv->port_up) {
++		en_dbg(HW, priv, "Port is down, ignoring rx mode change.\n");
++		goto out;
++	}
++
++	if (!netif_carrier_ok(dev)) {
++		if (!mlx4_en_QUERY_PORT(mdev, priv->port)) {
++			if (priv->port_state.link_state) {
++				priv->last_link_state = MLX4_DEV_EVENT_PORT_UP;
++				netif_carrier_on(dev);
++				en_dbg(LINK, priv, "Link Up\n");
++			}
++		}
++	}
++
++	/* Promsicuous mode: disable all filters */
++	if (dev->flags & IFF_PROMISC) {
++		mlx4_en_set_promisc_mode(priv, mdev);
++		goto out;
++	}
++
++	/* Not in promiscuous mode */
++	if (priv->flags & MLX4_EN_FLAG_PROMISC)
++		mlx4_en_clear_promisc_mode(priv, mdev);
++
++	mlx4_en_do_multicast(priv, dev, mdev);
+ out:
+ 	mutex_unlock(&mdev->state_lock);
+ }
+@@ -1374,7 +1391,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	priv->flags &= ~(MLX4_EN_FLAG_PROMISC | MLX4_EN_FLAG_MC_PROMISC);
+ 
+ 	/* Schedule multicast task to populate multicast list */
+-	queue_work(mdev->workqueue, &priv->mcast_task);
++	queue_work(mdev->workqueue, &priv->rx_mode_task);
+ 
+ 	mlx4_set_stats_bitmap(mdev->dev, &priv->stats_bitmap);
+ 
+@@ -1777,7 +1794,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_start_xmit		= mlx4_en_xmit,
+ 	.ndo_select_queue	= mlx4_en_select_queue,
+ 	.ndo_get_stats		= mlx4_en_get_stats,
+-	.ndo_set_rx_mode	= mlx4_en_set_multicast,
++	.ndo_set_rx_mode	= mlx4_en_set_rx_mode,
+ 	.ndo_set_mac_address	= mlx4_en_set_mac,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_change_mtu		= mlx4_en_change_mtu,
+@@ -1847,7 +1864,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	priv->mac_index = -1;
+ 	priv->msg_enable = MLX4_EN_MSG_LEVEL;
+ 	spin_lock_init(&priv->stats_lock);
+-	INIT_WORK(&priv->mcast_task, mlx4_en_do_set_multicast);
++	INIT_WORK(&priv->rx_mode_task, mlx4_en_do_set_rx_mode);
+ 	INIT_WORK(&priv->mac_task, mlx4_en_do_set_mac);
+ 	INIT_WORK(&priv->watchdog_task, mlx4_en_restart);
+ 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
 diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 47c9876..c99521f 100644
+index 84ed3285..47c9876 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
 +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -442,6 +442,9 @@ enum {
- 	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3)
- };
- 
-+#define MLX4_EN_MAC_HASH_SIZE (1 << BITS_PER_BYTE)
-+#define MLX4_EN_MAC_HASH_IDX 5
-+
- struct mlx4_en_priv {
- 	struct mlx4_en_dev *mdev;
- 	struct mlx4_en_port_profile *prof;
-@@ -521,7 +524,7 @@ struct mlx4_en_priv {
- 	bool wol;
- 	struct device *ddev;
- 	int base_tx_qpn;
--	struct radix_tree_root mac_tree;
-+	struct hlist_head mac_hash[MLX4_EN_MAC_HASH_SIZE];
- 
- #ifdef CONFIG_MLX4_EN_DCB
- 	struct ieee_ets ets;
-@@ -542,6 +545,7 @@ enum mlx4_en_wol {
- };
- 
- struct mlx4_mac_entry {
-+	struct hlist_node hlist;
- 	unsigned char mac[ETH_ALEN + 2];
- 	u64 reg_id;
- };
+@@ -504,7 +504,7 @@ struct mlx4_en_priv {
+ 	struct mlx4_en_cq *tx_cq;
+ 	struct mlx4_en_cq rx_cq[MAX_RX_RINGS];
+ 	struct mlx4_qp drop_qp;
+-	struct work_struct mcast_task;
++	struct work_struct rx_mode_task;
+ 	struct work_struct mac_task;
+ 	struct work_struct watchdog_task;
+ 	struct work_struct linkstate_task;
 -- 
 1.7.6.4
