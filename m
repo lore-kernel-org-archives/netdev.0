@@ -1,56 +1,31 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] cfg80211: Fix memory leak
-Date: Tue, 05 Feb 2013 11:06:06 +0100
-Message-ID: <1360058766.8376.3.camel@jlt4.sipsolutions.net>
-References: <1360013624-4973-1-git-send-email-Larry.Finger@lwfinger.net>
-	 (sfid-20130204_223416_570378_EE2CC644)
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Linux Networking IRC Channel
+Date: Tue, 5 Feb 2013 12:06:43 +0200
+Message-ID: <CAEnQRZBODF9bUS4tovO_x+Byf-n4wihUh+2SxdJM3-LiAvDuhw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1360013624-4973-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> (sfid-20130204_223416_570378_EE2CC644)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:57975 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753695Ab3BEKGo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 05:06:44 -0500
+Received: by mail-we0-f177.google.com with SMTP id d7so5588044wer.8
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 02:06:43 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-02-04 at 15:33 -0600, Larry Finger wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> 
-> When a driver requests a specific regulatory domain after cfg80211 already
-> has one, a struct ieee80211_regdomain is leaked.
+Hi David,
 
-Thanks Larry!
+I have searched around for an IRC channel related to Linux networking
+development but I couldn't find any, so I have just registered one [1].
 
-> Johannes,
-> 
-> I added a From: for you as the content of this patch is yours.
+Let me know if this is ok with you.
 
-I changed it back, it's really your patch, I only suggested a bit of the
-code :-)
+The channel should be used for quick answers to simple problems related
+to networking stuff, more like a landing point for newbies.
 
-> --- a/net/wireless/reg.c
-> +++ b/net/wireless/reg.c
-> @@ -2189,10 +2189,14 @@ static int __set_regdom(const struct ieee80211_regdomain *rd)
->  		 * However if a driver requested this specific regulatory
->  		 * domain we keep it for its private use
->  		 */
-> -		if (lr->initiator == NL80211_REGDOM_SET_BY_DRIVER)
-> +		if (lr->initiator == NL80211_REGDOM_SET_BY_DRIVER) {
-> +			const struct ieee80211_regdomain *tmp =
-> +						get_wiphy_regdom(request_wiphy);
->  			rcu_assign_pointer(request_wiphy->regd, rd);
-> -		else
-> +			rcu_free_regdom(tmp);
+thanks,
+Daniel.
 
-Luis, when you get back can you please audit the other places? I'm not
-convinced that there aren't more places that need to free the regdom,
-but I don't really want to dig into the code right now.
-
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[1] channel name: #netdev, server: irc.oftc.net
