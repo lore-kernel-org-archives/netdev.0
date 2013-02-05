@@ -1,175 +1,238 @@
-From: "Ganesan Ramalignam" <ganesanr@broadcom.com>
-Subject: Re: [PATCH 1/2] NET: ethernet/netlogic: Netlogic XLR/XLS GMAC
- driver
-Date: Tue, 5 Feb 2013 16:59:00 +0530
-Message-ID: <20130205112859.GA17465@ganesanr.netlogicmircro.com>
-References: <1359450699-26141-1-git-send-email-ganesanr@broadcom.com>
- <1359508293.4144.29.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: "Ben Hutchings" <bhutchings@solarflare.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1359508293.4144.29.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Disposition: inline
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 7/9] net/mlx4_en: Manage hash of MAC addresses per port
+Date: Tue,  5 Feb 2013 13:28:34 +0200
+Message-ID: <1360063716-13415-8-git-send-email-amirv@mellanox.com>
+References: <1360063716-13415-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yan Burman <yanb@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:42850 "HELO
+	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751662Ab3BEL3B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 06:29:01 -0500
+In-Reply-To: <1360063716-13415-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben, Thank you for your comments, will submit the driver with fixes.
-Reply inline.
+From: Yan Burman <yanb@mellanox.com>
 
-On Wed, Jan 30, 2013 at 01:11:33AM +0000, Ben Hutchings wrote:
-> On Tue, 2013-01-29 at 14:41 +0530, ganesanr@broadcom.com wrote:
-> > From: Ganesan Ramalingam <ganesanr@broadcom.com>
-> > 
-> > Add support for the Network Accelerator Engine on Netlogic XLR/XLS
-> > MIPS SoCs. The XLR/XLS NAE blocks can be configured as one 10G
-> > interface or four 1G interfaces. This driver supports blocks
-> > with 1G ports.
-> > 
-> > Signed-off-by: Ganesan Ramalingam <ganesanr@broadcom.com>
-> > ---
-> >  This patch has to be merged through netdev tree.
-> >  Please review and let me know if there are any comments or suggestions.
-> > 
-> >  drivers/net/ethernet/Kconfig            |    1 +
-> >  drivers/net/ethernet/Makefile           |    1 +
-> >  drivers/net/ethernet/netlogic/Kconfig   |    8 +
-> >  drivers/net/ethernet/netlogic/Makefile  |    1 +
-> >  drivers/net/ethernet/netlogic/xlr_net.c | 1132 +++++++++++++++++++++++++++++++
-> >  drivers/net/ethernet/netlogic/xlr_net.h | 1098 ++++++++++++++++++++++++++++++
-> >  6 files changed, 2241 insertions(+), 0 deletions(-)
-> >  create mode 100644 drivers/net/ethernet/netlogic/Kconfig
-> >  create mode 100644 drivers/net/ethernet/netlogic/Makefile
-> >  create mode 100644 drivers/net/ethernet/netlogic/xlr_net.c
-> >  create mode 100644 drivers/net/ethernet/netlogic/xlr_net.h
-> 
-> Why add a netlogic directory when the company is now a part of Broadcom?
-> 
-> [...]
+As a preparation step for supporting multiple unicast addresses, store MAC addresses in hash table.
+Remove the radix tree for MAC addresses per QP, as it's not in use.
 
-All our submissions are still following the Netlogic convention, look at
-arch/mips/netlogic/, this will be changed in future with BRCM wrapper.
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   89 +++++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     |   23 +++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    6 ++-
+ 3 files changed, 80 insertions(+), 38 deletions(-)
 
-> > --- /dev/null
-> > +++ b/drivers/net/ethernet/netlogic/xlr_net.c
-> [...]
-> > +/* Ethtool operation */
-> > +static int xlr_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-> > +{
-> > +	return 0;
-> > +}
-> > +
-> > +static int xlr_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
-> > +{
-> > +	return 0;
-> > +}
-> > +
-> > +static void xlr_get_drvinfo(struct net_device *ndev,
-> > +		struct ethtool_drvinfo *drvinfo)
-> > +{
-> > +	return;
-> > +}
-> > +
-> > +static u32 xlr_get_link(struct net_device *ndev)
-> > +{
-> > +	return 0;
-> > +}
-> > +
-> > +static struct ethtool_ops xlr_ethtool_ops = {
-> > +	.get_settings = xlr_get_settings,
-> > +	.set_settings = xlr_set_settings,
-> > +	.get_drvinfo = xlr_get_drvinfo,
-> > +	.get_link = xlr_get_link,
-> > +};
-> 
-> Either implement them or don't.  I'm guessing that phylib can handle
-> get_settings and set_settings for you.
-> 
-> [...]
-
-Fixed
-
-> > +static netdev_tx_t xlr_net_start_xmit(struct sk_buff *skb,
-> > +               struct net_device *ndev)
-> > +{
-> > +       struct nlm_fmn_msg msg;
-> > +       struct xlr_net_priv *priv = netdev_priv(ndev);
-> > +       int ret;
-> > +       u16 qmap;
-> > +       u32 flags;
-> > +
-> > +       qmap = skb->queue_mapping;
-> > +       xlr_make_tx_desc(&msg, virt_to_phys(skb->data), skb);
-> > +       flags = nlm_cop2_enable();
-> > +       ret = nlm_fmn_send(2, 0, priv->nd->tx_stnid, &msg);
-> > +       nlm_cop2_restore(flags);
-> > +       return NETDEV_TX_OK;
-> > +}
-> 
-> If nlm_fmn_send() fails then you need to free the skbuff.
-> 
-> [...]
-
-Fixed
-
-> > +static void xlr_stats(struct net_device *ndev, struct net_device_stats *stats)
-> > +{
-> > +	struct xlr_net_priv *priv = netdev_priv(ndev);
-> > +
-> > +	stats->rx_packets = nlm_read_reg(priv->base_addr, RX_PACKET_COUNTER);
-> > +	stats->tx_packets = nlm_read_reg(priv->base_addr, TX_PACKET_COUNTER);
-> > +	stats->rx_bytes = nlm_read_reg(priv->base_addr, RX_BYTE_COUNTER);
-> > +	stats->tx_bytes = nlm_read_reg(priv->base_addr, TX_BYTE_COUNTER);
-> 
-> 32-bit byte counters for a 1G/10G device?  Seriously?
-> 
-> [...]
-
-Yes, all are 32-bit byte counters
-
-> > +struct net_device_stats *xlr_get_stats(struct net_device *ndev)
-> > +{
-> > +	struct net_device_stats *stats = &ndev->stats;
-> > +
-> > +	xlr_stats(ndev, stats);
-> > +	return stats;
-> > +}
-> 
-> You should probably be implementing ndo_get_stats64 to provide 64-bit
-> stats even on a 32-bit kernel.
-> 
-
-Fixed
-
-> > +static int xlr_net_probe(struct platform_device *pdev)
-> > +{
-> [...]
-> > +	ndev->watchdog_timeo = 1000 * HZ;
-> [...]
-> 
-
-Fixed
-
-> A watchdog timeout of 1000 seconds is ridiculous.  I guess someone just
-> kept seeing the watchdog fire and increasing the timeout, and never
-> thought about *why* this was happening.
-> 
-> Ben.
-> 
-> -- 
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
-> 
-> 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 72a3fe5..f402b20 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -545,13 +545,10 @@ static int mlx4_en_get_qp(struct mlx4_en_priv *priv)
+ 	memcpy(entry->mac, priv->dev->dev_addr, sizeof(entry->mac));
+ 	entry->reg_id = reg_id;
+ 
+-	err = radix_tree_insert(&priv->mac_tree, *qpn, entry);
+-	if (err)
+-		goto insert_err;
+-	return 0;
++	hlist_add_head_rcu(&entry->hlist,
++			   &priv->mac_hash[entry->mac[MLX4_EN_MAC_HASH_IDX]]);
+ 
+-insert_err:
+-	kfree(entry);
++	return 0;
+ 
+ alloc_err:
+ 	mlx4_en_uc_steer_release(priv, priv->dev->dev_addr, *qpn, reg_id);
+@@ -568,7 +565,6 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_dev *dev = mdev->dev;
+-	struct mlx4_mac_entry *entry;
+ 	int qpn = priv->base_qpn;
+ 	u64 mac = mlx4_en_mac_to_u64(priv->dev->dev_addr);
+ 
+@@ -577,15 +573,27 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
+ 	mlx4_unregister_mac(dev, priv->port, mac);
+ 
+ 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
+-		entry = radix_tree_lookup(&priv->mac_tree, qpn);
+-		if (entry) {
+-			en_dbg(DRV, priv, "Releasing qp: port %d, MAC %pM, qpn %d\n",
+-			       priv->port, entry->mac, qpn);
+-			mlx4_en_uc_steer_release(priv, entry->mac,
+-						 qpn, entry->reg_id);
+-			mlx4_qp_release_range(dev, qpn, 1);
+-			radix_tree_delete(&priv->mac_tree, qpn);
+-			kfree(entry);
++		struct mlx4_mac_entry *entry;
++		struct hlist_node *n, *tmp;
++		struct hlist_head *bucket;
++		unsigned int mac_hash;
++
++		mac_hash = priv->dev->dev_addr[MLX4_EN_MAC_HASH_IDX];
++		bucket = &priv->mac_hash[mac_hash];
++		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
++			if (ether_addr_equal_64bits(entry->mac,
++						    priv->dev->dev_addr)) {
++				en_dbg(DRV, priv, "Releasing qp: port %d, MAC %pM, qpn %d\n",
++				       priv->port, priv->dev->dev_addr, qpn);
++				mlx4_en_uc_steer_release(priv, entry->mac,
++							 qpn, entry->reg_id);
++				mlx4_qp_release_range(dev, qpn, 1);
++
++				hlist_del_rcu(&entry->hlist);
++				synchronize_rcu();
++				kfree(entry);
++				break;
++			}
+ 		}
+ 	}
+ }
+@@ -595,26 +603,39 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
+ {
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct mlx4_dev *dev = mdev->dev;
+-	struct mlx4_mac_entry *entry;
+ 	int err = 0;
+ 	u64 new_mac_u64 = mlx4_en_mac_to_u64(new_mac);
+ 
+ 	if (dev->caps.steering_mode != MLX4_STEERING_MODE_A0) {
+-		u64 prev_mac_u64;
+-
+-		entry = radix_tree_lookup(&priv->mac_tree, qpn);
+-		if (!entry)
+-			return -EINVAL;
+-		prev_mac_u64 = mlx4_en_mac_to_u64(entry->mac);
+-		mlx4_en_uc_steer_release(priv, entry->mac,
+-					 qpn, entry->reg_id);
+-		mlx4_unregister_mac(dev, priv->port, prev_mac_u64);
+-		memcpy(entry->mac, new_mac, ETH_ALEN);
+-		entry->reg_id = 0;
+-		mlx4_register_mac(dev, priv->port, new_mac_u64);
+-		err = mlx4_en_uc_steer_add(priv, new_mac,
+-					   &qpn, &entry->reg_id);
+-		return err;
++		struct hlist_head *bucket;
++		unsigned int mac_hash;
++		struct mlx4_mac_entry *entry;
++		struct hlist_node *n, *tmp;
++		u64 prev_mac_u64 = mlx4_en_mac_to_u64(prev_mac);
++
++		bucket = &priv->mac_hash[prev_mac[MLX4_EN_MAC_HASH_IDX]];
++		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
++			if (ether_addr_equal_64bits(entry->mac, prev_mac)) {
++				mlx4_en_uc_steer_release(priv, entry->mac,
++							 qpn, entry->reg_id);
++				mlx4_unregister_mac(dev, priv->port,
++						    prev_mac_u64);
++				hlist_del_rcu(&entry->hlist);
++				synchronize_rcu();
++				memcpy(entry->mac, new_mac, ETH_ALEN);
++				entry->reg_id = 0;
++				mac_hash = new_mac[MLX4_EN_MAC_HASH_IDX];
++				hlist_add_head_rcu(&entry->hlist,
++						   &priv->mac_hash[mac_hash]);
++				synchronize_rcu();
++				mlx4_register_mac(dev, priv->port, new_mac_u64);
++				err = mlx4_en_uc_steer_add(priv, new_mac,
++							   &qpn,
++							   &entry->reg_id);
++				return err;
++			}
++		}
++		return -EINVAL;
+ 	}
+ 
+ 	return __mlx4_replace_mac(dev, priv->port, qpn, new_mac_u64);
+@@ -1816,6 +1837,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ {
+ 	struct net_device *dev;
+ 	struct mlx4_en_priv *priv;
++	int i;
+ 	int err;
+ 
+ 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
+@@ -1874,7 +1896,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 		dev->dcbnl_ops = &mlx4_en_dcbnl_ops;
+ #endif
+ 
+-	INIT_RADIX_TREE(&priv->mac_tree, GFP_KERNEL);
++	for (i = 0; i < MLX4_EN_MAC_HASH_SIZE; ++i)
++		INIT_HLIST_HEAD(&priv->mac_hash[i]);
+ 
+ 	/* Query for default mac and max mtu */
+ 	priv->max_mtu = mdev->dev->caps.eth_mtu_cap[priv->port];
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 2e7f5bb..91bb8e1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -615,10 +615,25 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 			ethh = (struct ethhdr *)(page_address(frags[0].page) +
+ 						 frags[0].offset);
+ 
+-			/* Drop the packet, since HW loopback-ed it */
+-			if (ether_addr_equal_64bits(dev->dev_addr,
+-						    ethh->h_source))
+-				goto next;
++			if (is_multicast_ether_addr(ethh->h_dest)) {
++				struct mlx4_mac_entry *entry;
++				struct hlist_node *n;
++				struct hlist_head *bucket;
++				unsigned int mac_hash;
++
++				/* Drop the packet, since HW loopback-ed it */
++				mac_hash = ethh->h_source[MLX4_EN_MAC_HASH_IDX];
++				bucket = &priv->mac_hash[mac_hash];
++				rcu_read_lock();
++				hlist_for_each_entry_rcu(entry, n, bucket, hlist) {
++					if (ether_addr_equal_64bits(entry->mac,
++								    ethh->h_source)) {
++						rcu_read_unlock();
++						goto next;
++					}
++				}
++				rcu_read_unlock();
++			}
+ 		}
+ 
+ 		/*
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 47c9876..c99521f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -442,6 +442,9 @@ enum {
+ 	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3)
+ };
+ 
++#define MLX4_EN_MAC_HASH_SIZE (1 << BITS_PER_BYTE)
++#define MLX4_EN_MAC_HASH_IDX 5
++
+ struct mlx4_en_priv {
+ 	struct mlx4_en_dev *mdev;
+ 	struct mlx4_en_port_profile *prof;
+@@ -521,7 +524,7 @@ struct mlx4_en_priv {
+ 	bool wol;
+ 	struct device *ddev;
+ 	int base_tx_qpn;
+-	struct radix_tree_root mac_tree;
++	struct hlist_head mac_hash[MLX4_EN_MAC_HASH_SIZE];
+ 
+ #ifdef CONFIG_MLX4_EN_DCB
+ 	struct ieee_ets ets;
+@@ -542,6 +545,7 @@ enum mlx4_en_wol {
+ };
+ 
+ struct mlx4_mac_entry {
++	struct hlist_node hlist;
+ 	unsigned char mac[ETH_ALEN + 2];
+ 	u64 reg_id;
+ };
+-- 
+1.7.6.4
