@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] e1000e: cosmetic move of #defines to the new 80003es2lan.h
-Date: Tue,  5 Feb 2013 02:02:15 -0800
-Message-ID: <1360058548-18158-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/15] e1000e: cosmetic move of #defines and prototypes to the new 82571.h
+Date: Tue,  5 Feb 2013 02:02:14 -0800
+Message-ID: <1360058548-18158-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19489 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50769 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751643Ab3BEKCs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751618Ab3BEKCs (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 5 Feb 2013 05:02:48 -0500
 In-Reply-To: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,101 +18,59 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-Move #defines specific to the ESB2/82563 family of devices to the new
-80003es2lan.h header file.  These defines can be used by other files in the
-driver and moving them to the 80003es2lan-family-specific file makes it
-clearer to which devices they are applicable.
+Move #defines and function prototypes specific to the 8257x family of
+devices (82571, 82572, 82573, 82574, 82583) to the new 82571.h header file
+(the convention for Intel wired ethernet drivers is to use the name of the
+first device in the family for related file and function names).  These
+defines and function prototypes can be used by other files in the driver
+and moving them to the 8257x-family-specific file makes it clearer to which
+devices they are applicable.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/80003es2lan.c | 63 ----------------
- drivers/net/ethernet/intel/e1000e/80003es2lan.h | 95 +++++++++++++++++++++++++
- drivers/net/ethernet/intel/e1000e/hw.h          |  1 +
- 3 files changed, 96 insertions(+), 63 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/e1000e/80003es2lan.h
+ drivers/net/ethernet/intel/e1000e/82571.c   | 15 --------
+ drivers/net/ethernet/intel/e1000e/82571.h   | 58 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/defines.h |  2 -
+ drivers/net/ethernet/intel/e1000e/e1000.h   |  4 --
+ drivers/net/ethernet/intel/e1000e/hw.h      |  5 +--
+ drivers/net/ethernet/intel/e1000e/netdev.c  |  1 -
+ 6 files changed, 60 insertions(+), 25 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/e1000e/82571.h
 
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-index a00457a..e099138 100644
---- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
-@@ -32,69 +32,6 @@
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.c b/drivers/net/ethernet/intel/e1000e/82571.c
+index cf86090..1db7e3d 100644
+--- a/drivers/net/ethernet/intel/e1000e/82571.c
++++ b/drivers/net/ethernet/intel/e1000e/82571.c
+@@ -44,21 +44,6 @@
  
  #include "e1000.h"
  
--#define E1000_KMRNCTRLSTA_OFFSET_FIFO_CTRL	 0x00
--#define E1000_KMRNCTRLSTA_OFFSET_INB_CTRL	 0x02
--#define E1000_KMRNCTRLSTA_OFFSET_HD_CTRL	 0x10
--#define E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE	 0x1F
+-#define ID_LED_RESERVED_F746 0xF746
+-#define ID_LED_DEFAULT_82573 ((ID_LED_DEF1_DEF2 << 12) | \
+-			      (ID_LED_OFF1_ON2  <<  8) | \
+-			      (ID_LED_DEF1_DEF2 <<  4) | \
+-			      (ID_LED_DEF1_DEF2))
 -
--#define E1000_KMRNCTRLSTA_FIFO_CTRL_RX_BYPASS	 0x0008
--#define E1000_KMRNCTRLSTA_FIFO_CTRL_TX_BYPASS	 0x0800
--#define E1000_KMRNCTRLSTA_INB_CTRL_DIS_PADDING	 0x0010
+-#define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
+-#define AN_RETRY_COUNT          5 /* Autoneg Retry Count value */
+-#define E1000_BASE1000T_STATUS          10
+-#define E1000_IDLE_ERROR_COUNT_MASK     0xFF
+-#define E1000_RECEIVE_ERROR_COUNTER     21
+-#define E1000_RECEIVE_ERROR_MAX         0xFFFF
 -
--#define E1000_KMRNCTRLSTA_HD_CTRL_10_100_DEFAULT 0x0004
--#define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	 0x0000
--#define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		 0x2000
+-#define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
 -
--#define E1000_KMRNCTRLSTA_OPMODE_MASK		 0x000C
--#define E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO	 0x0004
--
--#define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00 /* Gigabit Carry Extend Padding */
--#define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	 0x00010000
--
--#define DEFAULT_TIPG_IPGT_1000_80003ES2LAN	 0x8
--#define DEFAULT_TIPG_IPGT_10_100_80003ES2LAN	 0x9
--
--/* GG82563 PHY Specific Status Register (Page 0, Register 16 */
--#define GG82563_PSCR_POLARITY_REVERSAL_DISABLE	 0x0002 /* 1=Reversal Disab. */
--#define GG82563_PSCR_CROSSOVER_MODE_MASK	 0x0060
--#define GG82563_PSCR_CROSSOVER_MODE_MDI		 0x0000 /* 00=Manual MDI */
--#define GG82563_PSCR_CROSSOVER_MODE_MDIX	 0x0020 /* 01=Manual MDIX */
--#define GG82563_PSCR_CROSSOVER_MODE_AUTO	 0x0060 /* 11=Auto crossover */
--
--/* PHY Specific Control Register 2 (Page 0, Register 26) */
--#define GG82563_PSCR2_REVERSE_AUTO_NEG		 0x2000
--						/* 1=Reverse Auto-Negotiation */
--
--/* MAC Specific Control Register (Page 2, Register 21) */
--/* Tx clock speed for Link Down and 1000BASE-T for the following speeds */
--#define GG82563_MSCR_TX_CLK_MASK		 0x0007
--#define GG82563_MSCR_TX_CLK_10MBPS_2_5		 0x0004
--#define GG82563_MSCR_TX_CLK_100MBPS_25		 0x0005
--#define GG82563_MSCR_TX_CLK_1000MBPS_25		 0x0007
--
--#define GG82563_MSCR_ASSERT_CRS_ON_TX		 0x0010 /* 1=Assert */
--
--/* DSP Distance Register (Page 5, Register 26) */
--#define GG82563_DSPD_CABLE_LENGTH		 0x0007 /* 0 = <50M
--							   1 = 50-80M
--							   2 = 80-110M
--							   3 = 110-140M
--							   4 = >140M
--							*/
--
--/* Kumeran Mode Control Register (Page 193, Register 16) */
--#define GG82563_KMCR_PASS_FALSE_CARRIER		 0x0800
--
--/* Max number of times Kumeran read/write should be validated */
--#define GG82563_MAX_KMRN_RETRY  0x5
--
--/* Power Management Control Register (Page 193, Register 20) */
--#define GG82563_PMCR_ENABLE_ELECTRICAL_IDLE	 0x0001
--					   /* 1=Enable SERDES Electrical Idle */
--
--/* In-Band Control Register (Page 194, Register 18) */
--#define GG82563_ICR_DIS_PADDING			 0x0010 /* Disable Padding */
--
- /* A table for the GG82563 cable length where the range is defined
-  * with a lower bound at "index" and the upper bound at
-  * "index + 5".
-diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.h b/drivers/net/ethernet/intel/e1000e/80003es2lan.h
+ static s32 e1000_get_phy_id_82571(struct e1000_hw *hw);
+ static s32 e1000_setup_copper_link_82571(struct e1000_hw *hw);
+ static s32 e1000_setup_fiber_serdes_link_82571(struct e1000_hw *hw);
+diff --git a/drivers/net/ethernet/intel/e1000e/82571.h b/drivers/net/ethernet/intel/e1000e/82571.h
 new file mode 100644
-index 0000000..90d363b
+index 0000000..85cb1a3
 --- /dev/null
-+++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.h
-@@ -0,0 +1,95 @@
++++ b/drivers/net/ethernet/intel/e1000e/82571.h
+@@ -0,0 +1,58 @@
 +/*******************************************************************************
 +
 +  Intel PRO/1000 Linux driver
@@ -141,83 +99,106 @@ index 0000000..90d363b
 +
 +*******************************************************************************/
 +
-+#ifndef _E1000E_80003ES2LAN_H_
-+#define _E1000E_80003ES2LAN_H_
++#ifndef _E1000E_82571_H_
++#define _E1000E_82571_H_
 +
-+#define E1000_KMRNCTRLSTA_OFFSET_FIFO_CTRL	0x00
-+#define E1000_KMRNCTRLSTA_OFFSET_INB_CTRL	0x02
-+#define E1000_KMRNCTRLSTA_OFFSET_HD_CTRL	0x10
-+#define E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE	0x1F
++#define ID_LED_RESERVED_F746	0xF746
++#define ID_LED_DEFAULT_82573	((ID_LED_DEF1_DEF2 << 12) | \
++				 (ID_LED_OFF1_ON2  <<  8) | \
++				 (ID_LED_DEF1_DEF2 <<  4) | \
++				 (ID_LED_DEF1_DEF2))
 +
-+#define E1000_KMRNCTRLSTA_FIFO_CTRL_RX_BYPASS	0x0008
-+#define E1000_KMRNCTRLSTA_FIFO_CTRL_TX_BYPASS	0x0800
-+#define E1000_KMRNCTRLSTA_INB_CTRL_DIS_PADDING	0x0010
++#define E1000_GCR_L1_ACT_WITHOUT_L0S_RX	0x08000000
++#define AN_RETRY_COUNT		5	/* Autoneg Retry Count value */
 +
-+#define E1000_KMRNCTRLSTA_HD_CTRL_10_100_DEFAULT 0x0004
-+#define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	0x0000
-+#define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		0x2000
++/* Intr Throttling - RW */
++#define E1000_EITR_82574(_n)	(0x000E8 + (0x4 * (_n)))
 +
-+#define E1000_KMRNCTRLSTA_OPMODE_MASK		0x000C
-+#define E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO	0x0004
++#define E1000_EIAC_82574	0x000DC	/* Ext. Interrupt Auto Clear - RW */
++#define E1000_EIAC_MASK_82574	0x01F00000
 +
-+#define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00	/* Gig Carry Extend Padding */
-+#define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	0x00010000
++/* Manageability Operation Mode mask */
++#define E1000_NVM_INIT_CTRL2_MNGM	0x6000
 +
-+#define DEFAULT_TIPG_IPGT_1000_80003ES2LAN	0x8
-+#define DEFAULT_TIPG_IPGT_10_100_80003ES2LAN	0x9
-+
-+/* GG82563 PHY Specific Status Register (Page 0, Register 16 */
-+#define GG82563_PSCR_POLARITY_REVERSAL_DISABLE	0x0002	/* 1=Reversal Dis */
-+#define GG82563_PSCR_CROSSOVER_MODE_MASK	0x0060
-+#define GG82563_PSCR_CROSSOVER_MODE_MDI		0x0000	/* 00=Manual MDI */
-+#define GG82563_PSCR_CROSSOVER_MODE_MDIX	0x0020	/* 01=Manual MDIX */
-+#define GG82563_PSCR_CROSSOVER_MODE_AUTO	0x0060	/* 11=Auto crossover */
-+
-+/* PHY Specific Control Register 2 (Page 0, Register 26) */
-+#define GG82563_PSCR2_REVERSE_AUTO_NEG		0x2000	/* 1=Reverse Auto-Neg */
-+
-+/* MAC Specific Control Register (Page 2, Register 21) */
-+/* Tx clock speed for Link Down and 1000BASE-T for the following speeds */
-+#define GG82563_MSCR_TX_CLK_MASK		0x0007
-+#define GG82563_MSCR_TX_CLK_10MBPS_2_5		0x0004
-+#define GG82563_MSCR_TX_CLK_100MBPS_25		0x0005
-+#define GG82563_MSCR_TX_CLK_1000MBPS_25		0x0007
-+
-+#define GG82563_MSCR_ASSERT_CRS_ON_TX		0x0010	/* 1=Assert */
-+
-+/* DSP Distance Register (Page 5, Register 26)
-+ * 0 = <50M
-+ * 1 = 50-80M
-+ * 2 = 80-100M
-+ * 3 = 110-140M
-+ * 4 = >140M
-+ */
-+#define GG82563_DSPD_CABLE_LENGTH		0x0007
-+
-+/* Kumeran Mode Control Register (Page 193, Register 16) */
-+#define GG82563_KMCR_PASS_FALSE_CARRIER		0x0800
-+
-+/* Max number of times Kumeran read/write should be validated */
-+#define GG82563_MAX_KMRN_RETRY			0x5
-+
-+/* Power Management Control Register (Page 193, Register 20) */
-+/* 1=Enable SERDES Electrical Idle */
-+#define GG82563_PMCR_ENABLE_ELECTRICAL_IDLE	0x0001
-+
-+/* In-Band Control Register (Page 194, Register 18) */
-+#define GG82563_ICR_DIS_PADDING			0x0010	/* Disable Padding */
++#define E1000_BASE1000T_STATUS		10
++#define E1000_IDLE_ERROR_COUNT_MASK	0xFF
++#define E1000_RECEIVE_ERROR_COUNTER	21
++#define E1000_RECEIVE_ERROR_MAX		0xFFFF
++bool e1000_check_phy_82574(struct e1000_hw *hw);
++bool e1000e_get_laa_state_82571(struct e1000_hw *hw);
++void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state);
 +
 +#endif
+diff --git a/drivers/net/ethernet/intel/e1000e/defines.h b/drivers/net/ethernet/intel/e1000e/defines.h
+index 615b900..b425544 100644
+--- a/drivers/net/ethernet/intel/e1000e/defines.h
++++ b/drivers/net/ethernet/intel/e1000e/defines.h
+@@ -606,8 +606,6 @@
+ #define NVM_ALT_MAC_ADDR_PTR       0x0037
+ #define NVM_CHECKSUM_REG           0x003F
+ 
+-#define E1000_NVM_INIT_CTRL2_MNGM 0x6000 /* Manageability Operation Mode mask */
+-
+ #define E1000_NVM_CFG_DONE_PORT_0  0x40000 /* MNG config cycle done */
+ #define E1000_NVM_CFG_DONE_PORT_1  0x80000 /* ...for second port */
+ 
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 4b0bd9c..12c5d40 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -579,9 +579,6 @@ extern s32 e1000_read_pba_string_generic(struct e1000_hw *hw, u8 *pba_num,
+ 
+ extern bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
+ 
+-extern bool e1000e_get_laa_state_82571(struct e1000_hw *hw);
+-extern void e1000e_set_laa_state_82571(struct e1000_hw *hw, bool state);
+-
+ extern void e1000e_write_protect_nvm_ich8lan(struct e1000_hw *hw);
+ extern void e1000e_set_kmrn_lock_loss_workaround_ich8lan(struct e1000_hw *hw,
+ 						 bool state);
+@@ -703,7 +700,6 @@ extern s32 e1000_get_phy_info_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_ife(struct e1000_hw *hw);
+ extern s32 e1000_phy_force_speed_duplex_ife(struct e1000_hw *hw);
+ extern s32 e1000_check_polarity_igp(struct e1000_hw *hw);
+-extern bool e1000_check_phy_82574(struct e1000_hw *hw);
+ extern s32 e1000_read_emi_reg_locked(struct e1000_hw *hw, u16 addr, u16 *data);
+ extern void e1000e_ptp_init(struct e1000_adapter *adapter);
+ extern void e1000e_ptp_remove(struct e1000_adapter *adapter);
 diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 6f94437..8a145f4 100644
+index f32b19a..6f94437 100644
 --- a/drivers/net/ethernet/intel/e1000e/hw.h
 +++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -1003,5 +1003,6 @@ struct e1000_hw {
+@@ -54,12 +54,9 @@ enum e1e_registers {
+ 	E1000_ICS      = 0x000C8, /* Interrupt Cause Set - WO */
+ 	E1000_IMS      = 0x000D0, /* Interrupt Mask Set - RW */
+ 	E1000_IMC      = 0x000D8, /* Interrupt Mask Clear - WO */
+-	E1000_EIAC_82574 = 0x000DC, /* Ext. Interrupt Auto Clear - RW */
+ 	E1000_IAM      = 0x000E0, /* Interrupt Acknowledge Auto Mask */
+ 	E1000_IVAR     = 0x000E4, /* Interrupt Vector Allocation - RW */
+ 	E1000_FEXTNVM7  = 0x000E4, /* Future Extended NVM 7 - RW */
+-	E1000_EITR_82574_BASE = 0x000E8, /* Interrupt Throttling - RW */
+-#define E1000_EITR_82574(_n) (E1000_EITR_82574_BASE + (_n << 2))
+ 	E1000_LPIC     = 0x000FC, /* Low Power Idle Control - RW */
+ 	E1000_RCTL     = 0x00100, /* Rx Control - RW */
+ 	E1000_FCTTV    = 0x00170, /* Flow Control Transmit Timer Value - RW */
+@@ -1005,4 +1002,6 @@ struct e1000_hw {
+ 	} dev_spec;
  };
  
- #include "82571.h"
-+#include "80003es2lan.h"
- 
++#include "82571.h"
++
  #endif
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index e0eb5dd..6fcf9e8 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -2024,7 +2024,6 @@ static void e1000_configure_msix(struct e1000_adapter *adapter)
+ 	ctrl_ext |= E1000_CTRL_EXT_PBA_CLR;
+ 
+ 	/* Auto-Mask Other interrupts upon ICR read */
+-#define E1000_EIAC_MASK_82574   0x01F00000
+ 	ew32(IAM, ~E1000_EIAC_MASK_82574 | E1000_IMS_OTHER);
+ 	ctrl_ext |= E1000_CTRL_EXT_EIAME;
+ 	ew32(CTRL_EXT, ctrl_ext);
 -- 
 1.7.11.7
