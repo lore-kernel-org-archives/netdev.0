@@ -1,44 +1,77 @@
-From: Daniel Baluta <dbaluta@ixiacom.com>
-Subject: Re: Linux Networking IRC Channel
-Date: Tue, 5 Feb 2013 20:14:01 +0200
-Message-ID: <CAEnQRZCxuDqOkb2TKgS5upXATT7wqyb1ogtKNaaxyx5qdyFJbw@mail.gmail.com>
-References: <CAEnQRZBODF9bUS4tovO_x+Byf-n4wihUh+2SxdJM3-LiAvDuhw@mail.gmail.com>
-	<5110DBCA.6040600@gmail.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] wpan: use GFP_ATOMIC instead of
+	GFP_KERNEL
+Date: Tue, 05 Feb 2013 10:20:03 -0800
+Message-ID: <1360088403.28557.6.camel@edumazet-glaptop>
+References: <1360078474-24362-1-git-send-email-alex.aring@gmail.com>
+	<1360080597.28557.5.camel@edumazet-glaptop>
+	<20130205180057.GA1124@x61s.8.8.8.8>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:48253 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754070Ab3BESOD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 13:14:03 -0500
-Received: by mail-wg0-f49.google.com with SMTP id 15so387391wgd.16
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 10:14:01 -0800 (PST)
-In-Reply-To: <5110DBCA.6040600@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20130205180057.GA1124-P4zwP3w+81Pu/k754drY8A@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 5, 2013 at 12:15 PM, Jeff Kirsher <tarbal@gmail.com> wrote:
-> On 02/05/2013 02:06 AM, Daniel Baluta wrote:
->> Hi David,
->>
->> I have searched around for an IRC channel related to Linux networking
->> development but I couldn't find any, so I have just registered one [1].
->>
->> Let me know if this is ok with you.
->>
->> The channel should be used for quick answers to simple problems related
->> to networking stuff, more like a landing point for newbies.
->>
->> thanks,
->> Daniel.
->>
->> [1] channel name: #netdev, server: irc.oftc.net
-> There is already a #netdev on zeniv.linux.org.uk where most of us hang out.
->
+On Tue, 2013-02-05 at 19:00 +0100, Alexander Aring wrote:
 
-Thanks Jeff. I didn't know about this. I will keep the channel on irc.oft.net
-with a topic that redirects users to zeniv.linux.org.uk.
+> I don't know how I can do that. head is a temp buffer.
+> At the end of this function stands:
+> 
+> memcpy(skb_push(skb, pos), head, pos)
+> 
+> and 'pos' is determined at runtime. skb_push will add data to the
+> start of buffer, so head buffer will be at the start of skb. I don't
+> know where I should manipulate the skb buffer at beginning of this function.
 
-Daniel.
+Please try :
+
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 199b922..d18f2ac 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -137,16 +137,12 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	struct ieee802154_addr dev_addr;
+ 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
+ 	int pos = 2;
+-	u8 *head;
++	u8 head[MAC802154_FRAME_HARD_HEADER_LEN];
+ 	u16 fc;
+ 
+ 	if (!daddr)
+ 		return -EINVAL;
+ 
+-	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_KERNEL);
+-	if (head == NULL)
+-		return -ENOMEM;
+-
+ 	head[pos++] = mac_cb(skb)->seq; /* DSN/BSN */
+ 	fc = mac_cb_type(skb);
+ 
+@@ -210,7 +206,6 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	head[1] = fc >> 8;
+ 
+ 	memcpy(skb_push(skb, pos), head, pos);
+-	kfree(head);
+ 
+ 	return pos;
+ }
+
+
+
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
