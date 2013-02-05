@@ -1,45 +1,43 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH v3] crypto: add support for the NIST CMAC hash
-Date: Tue, 5 Feb 2013 11:47:32 +0100
-Message-ID: <20130205104732.GG23291@secunet.com>
-References: <793795323.107470.1358944861780.JavaMail.root@elliptictech.com>
- <1550166788.107475.1358944981220.JavaMail.root@elliptictech.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: No sysfs directory for openvswitch module when built-in
+Date: Tue, 5 Feb 2013 18:49:45 +0800
+Message-ID: <CAM_iQpXSv7ddFtF53JGu=QdaNgY7c4O9Wuq4PmVRczTBiE_rSg@mail.gmail.com>
+References: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
+	<20130204081920.00e9f22e@nehalam.linuxnetplumber.net>
+	<87lib3gunm.fsf@blp.benpfaff.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	David Miller <davem@davemloft.net>
-To: Tom St Denis <tstdenis@elliptictech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:54372 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754058Ab3BEKrf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 05:47:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1550166788.107475.1358944981220.JavaMail.root@elliptictech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Jesse Gross <jesse@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: blp@cs.stanford.edu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87lib3gunm.fsf@blp.benpfaff.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 23, 2013 at 07:43:01AM -0500, Tom St Denis wrote:
-> Signed-off-by: Tom St Denis <tstdenis@elliptictech.com>
-> diff --git a/include/uapi/linux/pfkeyv2.h b/include/uapi/linux/pfkeyv2.h
-> index 0b80c80..d61898e 100644
-> --- a/include/uapi/linux/pfkeyv2.h
-> +++ b/include/uapi/linux/pfkeyv2.h
-> @@ -296,6 +296,7 @@ struct sadb_x_kmaddress {
->  #define SADB_X_AALG_SHA2_512HMAC	7
->  #define SADB_X_AALG_RIPEMD160HMAC	8
->  #define SADB_X_AALG_AES_XCBC_MAC	9
-> +#define SADB_X_AALG_AES_CMAC_MAC	10
+On Tue, Feb 5, 2013 at 2:08 PM, Ben Pfaff <blp@cs.stanford.edu> wrote:
+> Stephen Hemminger <stephen@networkplumber.org> writes:
+>
+>> On Tue, 29 Jan 2013 22:15:18 +0800
+>> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>
+>>> Hello, Rusty, Jesse,
+>>>
+>>> I met an interesting problem when I compile openvswitch module as a
+>>> built-in (actually I compile ALL kernel modules as built-in), there is
+>>> no /sys/module/openvswitch/ directory created by the kernel in this
+>>> case.
+>>>
+>>> What's worse, the user-space init script thinks openvswitch module is
+>>> not loaded by checking the exist of this directory, therefore refuses
+>>> to start.
+>>
+>> Shouldn't the OVS init script be testing for some other API.
+>
+> I agree that's a bug in the OVS init script.  I will fix it.
 
-We added the infrastructure to use non pfkey algorithms in the
-ipsec-next tree, so we don't need to add a SADB id for pfkey.
-
-The cmac algorithm is then available if the netlink interface
-is used to add the cmac SA. We can add pfkey support later
-if cmac gets an official ikev1 iana transform identifier. 
-
-Please remove this pfkey stuff and rebase your patch to
-ipsec-next/master to ensure that your patch applies cleanly.
-
-Thanks!
+Thanks for taking care of it, Ben!
