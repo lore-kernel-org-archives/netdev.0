@@ -1,54 +1,99 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next V1 00/10] Mellanox Ethernet driver updates
- 2013-01-30
-Date: Tue, 5 Feb 2013 20:08:19 +0000
-Message-ID: <1360094899.2857.30.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
-	 <20130131.135158.206758800827480029.davem@davemloft.net>
+From: Dhanasekaran Anbalagan <bugcy013@gmail.com>
+Subject: Re: How to enable Adaptive RX on
+Date: Tue, 5 Feb 2013 15:14:08 -0500
+Message-ID: <CAJzooYdDQ4hHEpeJ+XV=+QvpqBST5r53RuY8R-4Y9=1xyAGwmw@mail.gmail.com>
+References: <CAJzooYfqO64TgrswgrpHw5VmzeO_XveGUDy7tPQ0s4+zsnKO0A@mail.gmail.com>
+	<1360092001.2857.3.camel@bwh-desktop.uk.solarflarecom.com>
+	<CAJzooYfgPcpakMigNH8hk1OavzTe0SiHxpM=_6FL--Rm0HmfBg@mail.gmail.com>
+	<1360094065.2857.20.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed; boundary="===============5494808597038093352=="
+Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1360094065.2857.20.camel@bwh-desktop.uk.solarflarecom.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+--===============5494808597038093352==
+Content-Type: multipart/alternative; boundary=f46d043d64b360a20804d4ffdb76
+
+--f46d043d64b360a20804d4ffdb76
+Content-Type: text/plain; charset=UTF-8
+
+Hi Bean,
+
+Is there any specific modules here, we need enable the coalescing,  with
+our kernel so the Adaptive RX turn on.
+
+please guide me.
+
+-Dhanasekaran.
+
+Did I learn something today? If not, I wasted it.
+
+
+On Tue, Feb 5, 2013 at 2:54 PM, Ben Hutchings <bhutchings@solarflare.com>wrote:
+
+> On Tue, 2013-02-05 at 14:23 -0500, Dhanasekaran Anbalagan wrote:
+> > Hi we have the following
+> >
+> > root@dvcl150:~# ethtool -i eth0
+> > driver: igb
+> > version: 3.2.10-k
+> > firmware-version: 1.6-1
+> > bus-info: 0000:04:00.0
+> > supports-statistics: yes
+> > supports-test: yes
+> > supports-eeprom-access: yes
+> > supports-register-dump: yes
+>
+> This driver doesn't support adaptive RX IRQ coalescing.  It should
+> report an error when you try to enable it, but currently just ignores
+> that setting.
+>
+> Ben.
+>
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+>
+
+--f46d043d64b360a20804d4ffdb76--
+
+
+--===============5494808597038093352==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: <amirv@mellanox.com>, <netdev@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:42401 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755204Ab3BEUIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 15:08:22 -0500
-In-Reply-To: <20130131.135158.206758800827480029.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On Thu, 2013-01-31 at 13:51 -0500, David Miller wrote:
-> From: Amir Vadai <amirv@mellanox.com>
-> Date: Thu, 31 Jan 2013 11:07:01 +0200
-> 
-> > Hi Dave,
-> > 
-> > This series contains updates to mlx4 driver.
-> > Majority of the patches are small bug fixes. Another patch is to expose through
-> > debugfs some HW resources to be used by external tools.
-> > 
-> > Patches done against net-next commit 1b13c97: "net/vxlan: Add ethtool drvinfo"
-> > 
-> > Changes from V0:
-> > - Removed patch "net/mlx4_en: Add debugfs support". Need to find a standard way
-> >   to do it, and no need to delay the other patches.
-> 
-> All applied, thanks.
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+--===============5494808597038093352==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-The first time this series was posted (this is actually v2) I raised an
-issue with the changes to interpretation of the VLAN tag in ethtool RX
-NFC commands: <http://article.gmane.org/gmane.linux.network/257392/>.
-The semantics are now definitely inconsistent between sfc and mlx4_en.
-I asked Alexander what ixgbe (first implementation) does with the upper
-4 bits, with the aim that all three implementations should be
-consistent, but I haven't had an answer to that yet.
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--===============5494808597038093352==--
