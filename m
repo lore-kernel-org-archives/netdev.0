@@ -1,207 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] e1000e: cosmetic move of #defines and prototypes to the new manage.h
-Date: Tue,  5 Feb 2013 02:02:20 -0800
-Message-ID: <1360058548-18158-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 15/15] ixgbe: Fix SR-IOV MTU warning
+Date: Tue,  5 Feb 2013 02:02:28 -0800
+Message-ID: <1360058548-18158-16-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38716 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:19489 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753917Ab3BEKCx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 05:02:53 -0500
+	id S1753930Ab3BEKDA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 05:03:00 -0500
 In-Reply-To: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Move #defines, function prototypes and data types which are applicable to
-all/most devices supported by the driver but are specific to the
-manageability component of each device to the new manage.h header file.
-These #defines, function prototypes and data types can be used by other
-files in the driver and moving them to the manageability-specific file
-makes it clearer to which component they are applicable.
+This change corrects the fact that we were using 1522 to test for the
+max frame size in ixgbe_change_mtu and 1518 in ixgbe_set_vf_lpe.  The
+difference was the addition of VLAN_HLEN which we only need to add in the case
+of computing a buffer size, but not a filter size.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Sibai Li <Sibai.li@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h  |  6 ---
- drivers/net/ethernet/intel/e1000e/hw.h     | 23 +---------
- drivers/net/ethernet/intel/e1000e/manage.c | 13 ------
- drivers/net/ethernet/intel/e1000e/manage.h | 72 ++++++++++++++++++++++++++++++
- 4 files changed, 73 insertions(+), 41 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/e1000e/manage.h
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 2 --
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 2 files changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 00c2e84..fcc7581 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -510,8 +510,6 @@ extern const struct e1000_info e1000_pch2_info;
- extern const struct e1000_info e1000_pch_lpt_info;
- extern const struct e1000_info e1000_es2_info;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 2a61889..d268c7b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -92,8 +92,6 @@
+  */
+ #define IXGBE_RX_HDR_SIZE IXGBE_RXBUFFER_256
  
--extern bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
+-#define MAXIMUM_ETHERNET_VLAN_SIZE (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
 -
- extern void e1000e_ptp_init(struct e1000_adapter *adapter);
- extern void e1000e_ptp_remove(struct e1000_adapter *adapter);
+ /* How many Rx Buffers do we bundle into one write to the hardware ? */
+ #define IXGBE_RX_BUFFER_WRITE	16	/* Must be power of 2 */
  
-@@ -575,10 +573,6 @@ static inline s32 e1000_get_phy_info(struct e1000_hw *hw)
- 	return hw->phy.ops.get_info(hw);
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index ef9cb0a..396e280 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4869,7 +4869,7 @@ static int ixgbe_change_mtu(struct net_device *netdev, int new_mtu)
+ 	 */
+ 	if ((adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) &&
+ 	    (adapter->hw.mac.type == ixgbe_mac_82599EB) &&
+-	    (max_frame > MAXIMUM_ETHERNET_VLAN_SIZE))
++	    (max_frame > (ETH_FRAME_LEN + ETH_FCS_LEN)))
+ 		e_warn(probe, "Setting MTU > 1500 will disable legacy VFs\n");
  
--extern bool e1000e_check_mng_mode_generic(struct e1000_hw *hw);
--extern bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw);
--extern s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length);
--
- static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
- {
- 	return readl(hw->hw_addr + reg);
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 97b8746..de876bd 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -244,28 +244,6 @@ enum e1e_registers {
- 	E1000_RXUDP     = 0x0B638, /* Timesync Rx UDP Port - RW */
- };
- 
--/* manage.c */
--#define E1000_VFTA_ENTRY_SHIFT		5
--#define E1000_VFTA_ENTRY_MASK		0x7F
--#define E1000_VFTA_ENTRY_BIT_SHIFT_MASK	0x1F
--
--#define E1000_HICR_EN			0x01  /* Enable bit - RO */
--/* Driver sets this bit when done to put command in RAM */
--#define E1000_HICR_C			0x02
--#define E1000_HICR_FW_RESET_ENABLE	0x40
--#define E1000_HICR_FW_RESET		0x80
--
--#define E1000_FWSM_MODE_MASK		0xE
--#define E1000_FWSM_MODE_SHIFT		1
--
--#define E1000_MNG_IAMT_MODE		0x3
--#define E1000_MNG_DHCP_COOKIE_LENGTH	0x10
--#define E1000_MNG_DHCP_COOKIE_OFFSET	0x6F0
--#define E1000_MNG_DHCP_COMMAND_TIMEOUT	10
--#define E1000_MNG_DHCP_TX_PAYLOAD_CMD	64
--#define E1000_MNG_DHCP_COOKIE_STATUS_PARSING	0x1
--#define E1000_MNG_DHCP_COOKIE_STATUS_VLAN	0x2
--
- #define E1000_DEV_ID_82571EB_COPPER		0x105E
- #define E1000_DEV_ID_82571EB_FIBER		0x105F
- #define E1000_DEV_ID_82571EB_SERDES		0x1060
-@@ -675,6 +653,7 @@ struct e1000_host_mng_command_info {
- #include "mac.h"
- #include "phy.h"
- #include "nvm.h"
-+#include "manage.h"
- 
- /* Function pointers for the MAC. */
- struct e1000_mac_operations {
-diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
-index 4dae0db..e4b0f1e 100644
---- a/drivers/net/ethernet/intel/e1000e/manage.c
-+++ b/drivers/net/ethernet/intel/e1000e/manage.c
-@@ -28,19 +28,6 @@
- 
- #include "e1000.h"
- 
--enum e1000_mng_mode {
--	e1000_mng_mode_none = 0,
--	e1000_mng_mode_asf,
--	e1000_mng_mode_pt,
--	e1000_mng_mode_ipmi,
--	e1000_mng_mode_host_if_only
--};
--
--#define E1000_FACTPS_MNGCG		0x20000000
--
--/* Intel(R) Active Management Technology signature */
--#define E1000_IAMT_SIGNATURE		0x544D4149
--
- /**
-  *  e1000_calculate_checksum - Calculate checksum for buffer
-  *  @buffer: pointer to EEPROM
-diff --git a/drivers/net/ethernet/intel/e1000e/manage.h b/drivers/net/ethernet/intel/e1000e/manage.h
-new file mode 100644
-index 0000000..326897c
---- /dev/null
-+++ b/drivers/net/ethernet/intel/e1000e/manage.h
-@@ -0,0 +1,72 @@
-+/*******************************************************************************
-+
-+  Intel PRO/1000 Linux driver
-+  Copyright(c) 1999 - 2013 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  Linux NICS <linux.nics@intel.com>
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+#ifndef _E1000E_MANAGE_H_
-+#define _E1000E_MANAGE_H_
-+
-+bool e1000e_check_mng_mode_generic(struct e1000_hw *hw);
-+bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw);
-+s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length);
-+bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
-+
-+enum e1000_mng_mode {
-+	e1000_mng_mode_none = 0,
-+	e1000_mng_mode_asf,
-+	e1000_mng_mode_pt,
-+	e1000_mng_mode_ipmi,
-+	e1000_mng_mode_host_if_only
-+};
-+
-+#define E1000_FACTPS_MNGCG			0x20000000
-+
-+#define E1000_FWSM_MODE_MASK			0xE
-+#define E1000_FWSM_MODE_SHIFT			1
-+
-+#define E1000_MNG_IAMT_MODE			0x3
-+#define E1000_MNG_DHCP_COOKIE_LENGTH		0x10
-+#define E1000_MNG_DHCP_COOKIE_OFFSET		0x6F0
-+#define E1000_MNG_DHCP_COMMAND_TIMEOUT		10
-+#define E1000_MNG_DHCP_TX_PAYLOAD_CMD		64
-+#define E1000_MNG_DHCP_COOKIE_STATUS_PARSING	0x1
-+#define E1000_MNG_DHCP_COOKIE_STATUS_VLAN	0x2
-+
-+#define E1000_VFTA_ENTRY_SHIFT			5
-+#define E1000_VFTA_ENTRY_MASK			0x7F
-+#define E1000_VFTA_ENTRY_BIT_SHIFT_MASK		0x1F
-+
-+#define E1000_HICR_EN			0x01	/* Enable bit - RO */
-+/* Driver sets this bit when done to put command in RAM */
-+#define E1000_HICR_C			0x02
-+#define E1000_HICR_SV			0x04	/* Status Validity */
-+#define E1000_HICR_FW_RESET_ENABLE	0x40
-+#define E1000_HICR_FW_RESET		0x80
-+
-+/* Intel(R) Active Management Technology signature */
-+#define E1000_IAMT_SIGNATURE		0x544D4149
-+
-+#endif
+ 	e_info(probe, "changing MTU from %d to %d\n", netdev->mtu, new_mtu);
 -- 
 1.7.11.7
