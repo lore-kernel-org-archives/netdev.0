@@ -1,125 +1,171 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Information needed on the kernel version which
-	supports ----
-Date: Mon, 14 Jan 2013 22:10:28 -0800
-Message-ID: <CAOaVG14kSDTcgMHcHu54iCqtEzwP35KmNN_d1KPD0_VecJvf-w@mail.gmail.com>
-References: <50F3D5FD.6090608@tataelxsi.co.in>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: remove Appropriate Byte Count support
+Date: Tue, 5 Feb 2013 09:47:59 -0800
+Message-ID: <CAK6E8=dCgNgGpQK=oMBz3c0c8Scj4nwi5OS7r4QWrrxhiJsXFw@mail.gmail.com>
+References: <20130205092517.58d11171@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=047d7b45070e507e1b04d34d9e5b
-Cc: vyasevic@redhat.com, mst@redhat.com, netdev@vger.kernel.org,
-	stephen@redhat.com, bridge@lists.linux-foundation.org,
-	shmulik.ladkani@gmail.com, shemminger@vyatta.com, davem@davemloft.net
-To: sandeepacs@tataelxsi.co.in
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <50F3D5FD.6090608@tataelxsi.co.in>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
---047d7b45070e507e1b04d34d9e5b
 Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f52.google.com ([209.85.215.52]:58451 "EHLO
+	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753984Ab3BERsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 12:48:21 -0500
+Received: by mail-la0-f52.google.com with SMTP id fs12so467538lab.11
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 09:48:19 -0800 (PST)
+In-Reply-To: <20130205092517.58d11171@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-1. VLAN filtering in bridge is still under review, changes are requested.
-Please see netdev patchwork to check for state of upcoming stuff.
+On Tue, Feb 5, 2013 at 9:25 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> TCP Appropriate Byte Count was added by me, but later disabled.
+> There is no point in maintaining it since it is a potential source
+> of bugs and Linux already implements other better window protection
+> heuristics.
++1
 
-2. I don't remember IGMP snooping is part of that work.
-
-
-
-On Mon, Jan 14, 2013 at 1:55 AM, Sandeepa C S <sandeepacs@tataelxsi.co.in>wrote:
-
-> Dear All,
 >
-> We are trying to add vlan support for the IGMP snooping feature in the
-> kernel version 2.6.39
-> But from the below thread discussion we understood that vlan support is
-> already in the bridge.
-> http://www.spinics.net/lists/**netdev/msg221800.html<http://www.spinics.net/lists/netdev/msg221800.html>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 >
-> Could you please let us know the below informations,
-> 1) On what kernel version the VLAN support for multicast groups is being
-> done
-> 2)On what flavors it is supported, is it available with Debian
-> 3)How can we get/download the supported patch files for reference.
+> --- a/Documentation/networking/ip-sysctl.txt    2013-02-05 09:22:44.379791669 -0800
+> +++ b/Documentation/networking/ip-sysctl.txt    2013-02-05 09:23:13.035421064 -0800
+> @@ -130,17 +130,6 @@ somaxconn - INTEGER
+>         Defaults to 128.  See also tcp_max_syn_backlog for additional tuning
+>         for TCP sockets.
 >
-> --
-> Thanks & Regards,
-> Sandeepa cs.
+> -tcp_abc - INTEGER
+> -       Controls Appropriate Byte Count (ABC) defined in RFC3465.
+> -       ABC is a way of increasing congestion window (cwnd) more slowly
+> -       in response to partial acknowledgments.
+> -       Possible values are:
+> -               0 increase cwnd once per acknowledgment (no ABC)
+> -               1 increase cwnd once per acknowledgment of full sized segment
+> -               2 allow increase cwnd by two if acknowledgment is
+> -                 of two segments to compensate for delayed acknowledgments.
+> -       Default: 0 (off)
+> -
+>  tcp_abort_on_overflow - BOOLEAN
+>         If listening service is too slow to accept new connections,
+>         reset them. Default state is FALSE. It means that if overflow
+> --- a/include/net/tcp.h 2013-02-05 09:22:44.379791669 -0800
+> +++ b/include/net/tcp.h 2013-02-05 09:23:13.035421064 -0800
+> @@ -279,7 +279,6 @@ extern int sysctl_tcp_dma_copybreak;
+>  extern int sysctl_tcp_nometrics_save;
+>  extern int sysctl_tcp_moderate_rcvbuf;
+>  extern int sysctl_tcp_tso_win_divisor;
+> -extern int sysctl_tcp_abc;
+>  extern int sysctl_tcp_mtu_probing;
+>  extern int sysctl_tcp_base_mss;
+>  extern int sysctl_tcp_workaround_signed_windows;
+> --- a/kernel/sysctl_binary.c    2013-02-05 09:22:44.379791669 -0800
+> +++ b/kernel/sysctl_binary.c    2013-02-05 09:23:13.035421064 -0800
+> @@ -387,7 +387,6 @@ static const struct bin_table bin_net_ip
+>         { CTL_INT,      NET_TCP_MODERATE_RCVBUF,                "tcp_moderate_rcvbuf" },
+>         { CTL_INT,      NET_TCP_TSO_WIN_DIVISOR,                "tcp_tso_win_divisor" },
+>         { CTL_STR,      NET_TCP_CONG_CONTROL,                   "tcp_congestion_control" },
+> -       { CTL_INT,      NET_TCP_ABC,                            "tcp_abc" },
+>         { CTL_INT,      NET_TCP_MTU_PROBING,                    "tcp_mtu_probing" },
+>         { CTL_INT,      NET_TCP_BASE_MSS,                       "tcp_base_mss" },
+>         { CTL_INT,      NET_IPV4_TCP_WORKAROUND_SIGNED_WINDOWS, "tcp_workaround_signed_windows" },
+> --- a/net/ipv4/sysctl_net_ipv4.c        2013-02-05 09:22:49.035731453 -0800
+> +++ b/net/ipv4/sysctl_net_ipv4.c        2013-02-05 09:23:13.035421064 -0800
+> @@ -633,13 +633,6 @@ static struct ctl_table ipv4_table[] = {
+>                 .proc_handler   = proc_tcp_congestion_control,
+>         },
+>         {
+> -               .procname       = "tcp_abc",
+> -               .data           = &sysctl_tcp_abc,
+> -               .maxlen         = sizeof(int),
+> -               .mode           = 0644,
+> -               .proc_handler   = proc_dointvec,
+> -       },
+> -       {
+>                 .procname       = "tcp_mtu_probing",
+>                 .data           = &sysctl_tcp_mtu_probing,
+>                 .maxlen         = sizeof(int),
+> --- a/net/ipv4/tcp_cong.c       2013-02-05 09:22:44.379791669 -0800
+> +++ b/net/ipv4/tcp_cong.c       2013-02-05 09:23:13.035421064 -0800
+> @@ -311,26 +311,10 @@ void tcp_slow_start(struct tcp_sock *tp)
+>         int cnt; /* increase in packets */
+>         unsigned int delta = 0;
 >
-> Notice: The information contained in this e-mail message and/or
-> attachments to it may contain confidential or privileged information. If
-> you are not the intended recipient, any dissemination, use, review,
-> distribution, printing or copying of the information contained in this
-> e-mail message and/or attachments to it are strictly prohibited. If you
-> have received this communication in error, please notify us by reply e-mail
-> or telephone and immediately and permanently delete the message and any
-> attachments. Thank you
+> -       /* RFC3465: ABC Slow start
+> -        * Increase only after a full MSS of bytes is acked
+> -        *
+> -        * TCP sender SHOULD increase cwnd by the number of
+> -        * previously unacknowledged bytes ACKed by each incoming
+> -        * acknowledgment, provided the increase is not more than L
+> -        */
+> -       if (sysctl_tcp_abc && tp->bytes_acked < tp->mss_cache)
+> -               return;
+> -
+>         if (sysctl_tcp_max_ssthresh > 0 && tp->snd_cwnd > sysctl_tcp_max_ssthresh)
+>                 cnt = sysctl_tcp_max_ssthresh >> 1;     /* limited slow start */
+>         else
+>                 cnt = tp->snd_cwnd;                     /* exponential increase */
+> -
+> -       /* RFC3465: ABC
+> -        * We MAY increase by 2 if discovered delayed ack
+> -        */
+> -       if (sysctl_tcp_abc > 1 && tp->bytes_acked >= 2*tp->mss_cache)
+> -               cnt <<= 1;
+>         tp->bytes_acked = 0;
+Is bytes_acked still needed?
+
+
 >
+>         tp->snd_cwnd_cnt += cnt;
+> @@ -372,20 +356,9 @@ void tcp_reno_cong_avoid(struct sock *sk
+>         /* In "safe" area, increase. */
+>         if (tp->snd_cwnd <= tp->snd_ssthresh)
+>                 tcp_slow_start(tp);
+> -
+>         /* In dangerous area, increase slowly. */
+> -       else if (sysctl_tcp_abc) {
+> -               /* RFC3465: Appropriate Byte Count
+> -                * increase once for each full cwnd acked
+> -                */
+> -               if (tp->bytes_acked >= tp->snd_cwnd*tp->mss_cache) {
+> -                       tp->bytes_acked -= tp->snd_cwnd*tp->mss_cache;
+> -                       if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+> -                               tp->snd_cwnd++;
+> -               }
+> -       } else {
+> +       else
+>                 tcp_cong_avoid_ai(tp, tp->snd_cwnd);
+> -       }
+>  }
+>  EXPORT_SYMBOL_GPL(tcp_reno_cong_avoid);
+>
+> --- a/net/ipv4/tcp_input.c      2013-02-05 09:22:49.035731453 -0800
+> +++ b/net/ipv4/tcp_input.c      2013-02-05 09:23:13.039421013 -0800
+> @@ -98,7 +98,6 @@ int sysctl_tcp_frto_response __read_most
+>  int sysctl_tcp_thin_dupack __read_mostly;
+>
+>  int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+> -int sysctl_tcp_abc __read_mostly;
+>  int sysctl_tcp_early_retrans __read_mostly = 2;
+>
+>  #define FLAG_DATA              0x01 /* Incoming frame contained data.          */
+> @@ -3608,15 +3607,6 @@ static int tcp_ack(struct sock *sk, cons
+>         if (after(ack, prior_snd_una))
+>                 flag |= FLAG_SND_UNA_ADVANCED;
+>
+> -       if (sysctl_tcp_abc) {
+> -               if (icsk->icsk_ca_state < TCP_CA_CWR)
+> -                       tp->bytes_acked += ack - prior_snd_una;
+> -               else if (icsk->icsk_ca_state == TCP_CA_Loss)
+> -                       /* we assume just one segment left network */
+> -                       tp->bytes_acked += min(ack - prior_snd_una,
+> -                                              tp->mss_cache);
+> -       }
+> -
+>         prior_fackets = tp->fackets_out;
+>         prior_in_flight = tcp_packets_in_flight(tp);
 >
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/**majordomo-info.html<http://vger.kernel.org/majordomo-info.html>
->
-
---047d7b45070e507e1b04d34d9e5b
-Content-Type: text/html; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr">1. VLAN filtering in bridge is still under review, changes=
- are requested. Please see netdev patchwork to check for state of upcoming =
-stuff.<div><br></div><div style>2. I don&#39;t remember IGMP snooping is pa=
-rt of that work.=A0</div>
-<div style><br></div></div><div class=3D"gmail_extra"><br><br><div class=3D=
-"gmail_quote">On Mon, Jan 14, 2013 at 1:55 AM, Sandeepa C S <span dir=3D"lt=
-r">&lt;<a href=3D"mailto:sandeepacs@tataelxsi.co.in" target=3D"_blank">sand=
-eepacs@tataelxsi.co.in</a>&gt;</span> wrote:<br>
-<blockquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1p=
-x #ccc solid;padding-left:1ex">Dear All,<br>
-<br>
-We are trying to add vlan support for the IGMP snooping feature in the<br>
-kernel version 2.6.39<br>
-But from the below thread discussion we understood that vlan support is<br>
-already in the bridge.<br>
-<a href=3D"http://www.spinics.net/lists/netdev/msg221800.html" target=3D"_b=
-lank">http://www.spinics.net/lists/<u></u>netdev/msg221800.html</a><br>
-<br>
-Could you please let us know the below informations,<br>
-1) On what kernel version the VLAN support for multicast groups is being<br=
->
-done<br>
-2)On what flavors it is supported, is it available with Debian<br>
-3)How can we get/download the supported patch files for reference.<br>
-<br>
---<br>
-Thanks &amp; Regards,<br>
-Sandeepa cs.<br>
-<br>
-Notice: The information contained in this e-mail message and/or attachments=
- to it may contain confidential or privileged information. If you are not t=
-he intended recipient, any dissemination, use, review, distribution, printi=
-ng or copying of the information contained in this e-mail message and/or at=
-tachments to it are strictly prohibited. If you have received this communic=
-ation in error, please notify us by reply e-mail or telephone and immediate=
-ly and permanently delete the message and any attachments. Thank you<br>
-
-<br>
-<br>
---<br>
-To unsubscribe from this list: send the line &quot;unsubscribe netdev&quot;=
- in<br>
-the body of a message to <a href=3D"mailto:majordomo@vger.kernel.org" targe=
-t=3D"_blank">majordomo@vger.kernel.org</a><br>
-More majordomo info at =A0<a href=3D"http://vger.kernel.org/majordomo-info.=
-html" target=3D"_blank">http://vger.kernel.org/<u></u>majordomo-info.html</=
-a><br>
-</blockquote></div><br></div>
-
---047d7b45070e507e1b04d34d9e5b--
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
