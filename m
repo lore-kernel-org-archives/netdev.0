@@ -1,56 +1,90 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [patch net-next v2 1/3] team: handle sending port list in the
- same way option list is sent
-Date: Tue, 5 Feb 2013 01:28:43 +0100
-Message-ID: <20130205002842.GA11589@localhost>
-References: <1359742646-1485-1-git-send-email-jiri@resnulli.us>
- <1359742646-1485-2-git-send-email-jiri@resnulli.us>
- <20130201183045.GA5822@localhost>
- <20130201190026.GA1627@minipsycho.brq.redhat.com>
- <20130201204310.GA3793@localhost>
- <20130201233147.GB1627@minipsycho.brq.redhat.com>
- <20130202012927.GA4425@localhost>
- <20130202090422.GA1864@minipsycho.orion>
- <20130204160303.GA22732@localhost>
- <20130204162806.GA1544@minipsycho.orion>
+From: Carl Baldwin <carl@ecbaldwin.net>
+Subject: PMTU discovery is updating route's MTU with per-route mtu lock
+Date: Mon, 4 Feb 2013 17:59:06 -0700
+Message-ID: <CALiLy7oUyxZ=DbXcZvHg141eQ3-WYJrsoRBwaZDVxDfsUufctQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fbl@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slan-550-85.anhosting.com ([174.127.110.175]:13247 "EHLO
-	slan-550-85.anhosting.com" rhost-flags-OK-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754431Ab3BEA2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 19:28:50 -0500
-Content-Disposition: inline
-In-Reply-To: <20130204162806.GA1544@minipsycho.orion>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:43068 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755590Ab3BEA71 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 19:59:27 -0500
+Received: by mail-qc0-f174.google.com with SMTP id z24so2915136qcq.33
+        for <netdev@vger.kernel.org>; Mon, 04 Feb 2013 16:59:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 04, 2013 at 05:28:06PM +0100, Jiri Pirko wrote:
-> Mon, Feb 04, 2013 at 05:03:04PM CET, pablo@netfilter.org wrote:
-> >On Sat, Feb 02, 2013 at 10:04:22AM +0100, Jiri Pirko wrote:
-[...]
-> >> Messages are too big to fit one GENLMSG_DEFAULT_SIZE message.
-> >
-> >nfnetlink_log may use bigger messages than 1 memory page to deliver
-> >multicast events if configured to include the entire packet
-> >(NFULNL_COPY_PACKET).
-> >
-> >I'd suggest to calculate the message size in run-time and allocate
-> >memory you need according to that, several netfilter subsystem are
-> >doing so.
-> 
-> I recall I had some issues with longer messages on the userspace part,
-> I'm not sure what that was exactly.
+Greetings,
 
-Hm, it should be OK.
+Let me lay down a little context.  I am using the 3.2.0 kernel on
+Ubuntu 12.04 64 bit.  I have repeated the issue with 3.5.0 on 12.10 as
+well.  My eth0 has mtu set to 9000 so that a vlan interface,
+vlan331@eth0 can have mtu set at 9000.
 
-> I decided to do this in multipart messages and in order to do not
-> break userspace I would like to continue to do so.
+# ip addr show eth0 | head -n 1
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9000 qdisc pfifo_fast
+state UP qlen 1000
 
-It was just a suggestion.
+I have attempted to set the mtu on the link local route through eth0
+to 1500 using the "mtu lock 1500" option to "ip route."
 
-Note that fitting the message in one single skb should also simplify
-the handling in case you hit ENOBUFS from user-space. But you know
-better your needs for the team driver, I leave this up to you.
+# ip route show dev eth0
+default via 192.168.122.1  metric 100
+192.168.122.0/24  proto kernel  scope link  src 192.168.122.160  mtu lock 1500
+
+At first, this appears to work as shown by this output:
+
+# ping -c 2 -s $((9000-28)) -M do 192.168.122.251
+PING 192.168.122.251 (192.168.122.251) 8972(9000) bytes of data.
+>From 192.168.122.160 icmp_seq=1 Frag needed and DF set (mtu = 1500)
+>From 192.168.122.160 icmp_seq=1 Frag needed and DF set (mtu = 1500)
+
+However, after some time, usually 10-15 minutes, it seems that PMTU
+discovery updates the MTU on this route and the ICMP packets from the
+command above is allowed through.  "ip route show" still shows the mtu
+lock option is set on the route.  My understanding from the ip command
+documentation is that PMTUD shouldn't touch this route because I have
+used the lock keyword.
+
+Any help or insight would be greatly appreciated.  Is there something
+that I'm missing?  Is my expectation incorrect?
+
+Cheers,
+Carl
+
+
+
+PS  Here are a few things that I've tried:
+
+I disabled path mtu discovery by setting the sysctl
+"net.ipv4.ip_no_pmtu_disc=1."  This appears to prevent the updating of
+the mtu on the route even after waiting some time.  I did this mostly
+to prove to myself that it was, in fact, pmtu discovery running that
+is starting the problem.  However, I do not fully understand the
+implications of disabling PMTU entirely and I am reluctant to pursue
+that course.
+
+I found a very recent commit to Linus's tree:  commit
+fa1e492aa3cbafba9f8fc6d05e5b08a3091daf4a.  This appeared to be
+targeting this very problem.  I tried an admittedly naive backport of
+this fix to my 3.2.0 kernel and built and installed it.  It did not
+fix the problem for me.  My constraints are such that I cannot use the
+most recent kernel.  I will need to figure out how to properly
+backport this fix to 3.2.0.  Here was my naive backport:
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 94cdbc5..6fd8af2 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1760,6 +1760,9 @@ static void ip_rt_update_pmtu(struct dst_entry
+*dst, u32 mtu)
+  struct rtable *rt = (struct rtable *) dst;
+  struct inet_peer *peer;
+
++ if (dst_metric_locked(dst, RTAX_MTU))
++ return;
++
+  dst_confirm(dst);
+
+  if (!rt->peer)
