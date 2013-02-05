@@ -1,47 +1,62 @@
-From: Paul Clements <paul.clements@us.sios.com>
-Subject: Re: [PATCH] NBD: Move from a global spinlock to one lock per NBD device
-Date: Tue, 5 Feb 2013 16:31:16 -0500
-Message-ID: <CAECXXi6CLm=tOKGfq1pu5s5dSsXQc8BCpnzx-fSAaFGsUauqUg@mail.gmail.com>
-References: <1359993343.18869.14.camel@eboracum.office.bytemark.co.uk>
-	<CAPshTCir48mTze-pEayg5TDxcH0Tyi4=NoH-FBhnM4rgrxekfQ@mail.gmail.com>
-	<1360080867.18869.30.camel@eboracum.office.bytemark.co.uk>
-	<20130205162248.GG20842@kvack.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: No sysfs directory for openvswitch module when built-in
+Date: Tue, 5 Feb 2013 14:11:39 -0800
+Message-ID: <20130205141139.0189f159@nehalam.linuxnetplumber.net>
+References: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
+	<20130204081920.00e9f22e@nehalam.linuxnetplumber.net>
+	<87lib3gunm.fsf@blp.benpfaff.org>
+	<CAM_iQpXSv7ddFtF53JGu=QdaNgY7c4O9Wuq4PmVRczTBiE_rSg@mail.gmail.com>
+	<20130205191554.GA7573@blp.benpfaff.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Nicholas Thomas <nick@bytemark.co.uk>, jaxboe@fusionio.com,
-	netdev@vger.kernel.org, hkchu@google.com, davem@davemloft.net,
-	eric.dumazet@gmail.com
-To: Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Jesse Gross <jesse@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Ben Pfaff <blp@cs.stanford.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:56093 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756819Ab3BEVhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 16:37:48 -0500
-Received: by mail-vc0-f176.google.com with SMTP id fy27so390612vcb.21
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 13:37:47 -0800 (PST)
-In-Reply-To: <20130205162248.GG20842@kvack.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36142 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757834Ab3BEWLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 17:11:53 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so386058pad.38
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 14:11:52 -0800 (PST)
+In-Reply-To: <20130205191554.GA7573@blp.benpfaff.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 5, 2013 at 11:22 AM, Benjamin LaHaise <bcrl@kvack.org> wrote:
-> On Tue, Feb 05, 2013 at 04:14:27PM +0000, Nicholas Thomas wrote:
->> This patch is entirely based on a submission by Jerry Chu, incorporating
->> suggestions from Eric Dumazet. Modern, faster NICs make the original comment
->> on why a single lock is preferable incorrect; moving to one lock per NBD
->> device removes a performance bottleneck.
->>
->> Original patch: http://permalink.gmane.org/gmane.linux.network/207233
-> ...
->> +static spinlock_t *nbd_locks __read_mostly;
-> ...
->
-> This is about the worst way to split up a lock possible.  Most (all?) of the
-> spinlocks across nbd devices are on the same cacheline, so performance will
-> be limited by the rate of cacheline bounces for the lock.  It would be far
-> better to embed the spinlock in the data structures that it will be
-> protecting to avoid this expensive false-sharing.
+On Tue, 5 Feb 2013 11:15:54 -0800
+Ben Pfaff <blp@cs.stanford.edu> wrote:
 
-Yes, embedding this in the nbd_device would be much better, no?
+> On Tue, Feb 05, 2013 at 06:49:45PM +0800, Cong Wang wrote:
+> > On Tue, Feb 5, 2013 at 2:08 PM, Ben Pfaff <blp@cs.stanford.edu> wrote:
+> > > Stephen Hemminger <stephen@networkplumber.org> writes:
+> > >
+> > >> On Tue, 29 Jan 2013 22:15:18 +0800
+> > >> Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > >>
+> > >>> Hello, Rusty, Jesse,
+> > >>>
+> > >>> I met an interesting problem when I compile openvswitch module as a
+> > >>> built-in (actually I compile ALL kernel modules as built-in), there is
+> > >>> no /sys/module/openvswitch/ directory created by the kernel in this
+> > >>> case.
+> > >>>
+> > >>> What's worse, the user-space init script thinks openvswitch module is
+> > >>> not loaded by checking the exist of this directory, therefore refuses
+> > >>> to start.
+> > >>
+> > >> Shouldn't the OVS init script be testing for some other API.
+> > >
+> > > I agree that's a bug in the OVS init script.  I will fix it.
+> > 
+> > Thanks for taking care of it, Ben!
+> 
+> I posted a patch to ovs-dev for review:
+>         http://openvswitch.org/pipermail/dev/2013-February/025128.html
 
---
-Paul
+Good. The ovsctl test is actually more reliable than the /sys/module
+because it means that there isn't some other part broken in the API.
