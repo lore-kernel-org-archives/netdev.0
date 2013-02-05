@@ -1,274 +1,207 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] ixgbe: allow reading of SFF-8472 data over i2c
-Date: Tue,  5 Feb 2013 02:02:23 -0800
-Message-ID: <1360058548-18158-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/15] e1000e: cosmetic move of #defines and prototypes to the new manage.h
+Date: Tue,  5 Feb 2013 02:02:20 -0800
+Message-ID: <1360058548-18158-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
-	=?UTF-8?q?Aur=C3=A9lien=20Guillaume?= <footplus@gmail.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:38716 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753932Ab3BEKDA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 05:03:00 -0500
+	id S1753917Ab3BEKCx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 05:02:53 -0500
 In-Reply-To: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-This patch adds functions needed for reading SFF-8472 diagnostic data
-from SFP modules.
+Move #defines, function prototypes and data types which are applicable to
+all/most devices supported by the driver but are specific to the
+manageability component of each device to the new manage.h header file.
+These #defines, function prototypes and data types can be used by other
+files in the driver and moving them to the manageability-specific file
+makes it clearer to which component they are applicable.
 
-Based on original patch from Aur=C3=A9lien Guillaume <footplus@gmail.co=
-m>
-
-CC: Aur=C3=A9lien Guillaume <footplus@gmail.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c | 45 ++++++++++++++++++=
-++++----
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c   | 16 +++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h   |  9 ++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h  |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c  |  1 +
- 6 files changed, 66 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/e1000e/e1000.h  |  6 ---
+ drivers/net/ethernet/intel/e1000e/hw.h     | 23 +---------
+ drivers/net/ethernet/intel/e1000e/manage.c | 13 ------
+ drivers/net/ethernet/intel/e1000e/manage.h | 72 ++++++++++++++++++++++++++++++
+ 4 files changed, 73 insertions(+), 41 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/e1000e/manage.h
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c b/drivers/n=
-et/ethernet/intel/ixgbe/ixgbe_82598.c
-index 7fd3833..6030de5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c
-@@ -1003,15 +1003,16 @@ static s32 ixgbe_write_analog_reg8_82598(struct=
- ixgbe_hw *hw, u32 reg, u8 val)
+diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
+index 00c2e84..fcc7581 100644
+--- a/drivers/net/ethernet/intel/e1000e/e1000.h
++++ b/drivers/net/ethernet/intel/e1000e/e1000.h
+@@ -510,8 +510,6 @@ extern const struct e1000_info e1000_pch2_info;
+ extern const struct e1000_info e1000_pch_lpt_info;
+ extern const struct e1000_info e1000_es2_info;
+ 
+-extern bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
+-
+ extern void e1000e_ptp_init(struct e1000_adapter *adapter);
+ extern void e1000e_ptp_remove(struct e1000_adapter *adapter);
+ 
+@@ -575,10 +573,6 @@ static inline s32 e1000_get_phy_info(struct e1000_hw *hw)
+ 	return hw->phy.ops.get_info(hw);
  }
-=20
- /**
-- *  ixgbe_read_i2c_eeprom_82598 - Reads 8 bit word over I2C interface.
-+ *  ixgbe_read_i2c_phy_82598 - Reads 8 bit word over I2C interface.
-  *  @hw: pointer to hardware structure
-- *  @byte_offset: EEPROM byte offset to read
-+ *  @dev_addr: address to read from
-+ *  @byte_offset: byte offset to read from dev_addr
-  *  @eeprom_data: value read
-  *
-- *  Performs 8 byte read operation to SFP module's EEPROM over I2C int=
-erface.
-+ *  Performs 8 byte read operation to SFP module's data over I2C inter=
-face.
-  **/
--static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_of=
-fset,
--				       u8 *eeprom_data)
-+static s32 ixgbe_read_i2c_phy_82598(struct ixgbe_hw *hw, u8 dev_addr,
-+				    u8 byte_offset, u8 *eeprom_data)
+ 
+-extern bool e1000e_check_mng_mode_generic(struct e1000_hw *hw);
+-extern bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw);
+-extern s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length);
+-
+ static inline u32 __er32(struct e1000_hw *hw, unsigned long reg)
  {
- 	s32 status =3D 0;
- 	u16 sfp_addr =3D 0;
-@@ -1025,7 +1026,7 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixg=
-be_hw *hw, u8 byte_offset,
- 		 * 0xC30D.  These registers are used to talk to the SFP+
- 		 * module's EEPROM through the SDA/SCL (I2C) interface.
- 		 */
--		sfp_addr =3D (IXGBE_I2C_EEPROM_DEV_ADDR << 8) + byte_offset;
-+		sfp_addr =3D (dev_addr << 8) + byte_offset;
- 		sfp_addr =3D (sfp_addr | IXGBE_I2C_EEPROM_READ_MASK);
- 		hw->phy.ops.write_reg(hw,
- 		                      IXGBE_MDIO_PMA_PMD_SDA_SCL_ADDR,
-@@ -1057,7 +1058,6 @@ static s32 ixgbe_read_i2c_eeprom_82598(struct ixg=
-be_hw *hw, u8 byte_offset,
- 		*eeprom_data =3D (u8)(sfp_data >> 8);
- 	} else {
- 		status =3D IXGBE_ERR_PHY;
--		goto out;
- 	}
-=20
- out:
-@@ -1065,6 +1065,36 @@ out:
- }
-=20
- /**
-+ *  ixgbe_read_i2c_eeprom_82598 - Reads 8 bit word over I2C interface.
-+ *  @hw: pointer to hardware structure
-+ *  @byte_offset: EEPROM byte offset to read
-+ *  @eeprom_data: value read
-+ *
-+ *  Performs 8 byte read operation to SFP module's EEPROM over I2C int=
-erface.
-+ **/
-+static s32 ixgbe_read_i2c_eeprom_82598(struct ixgbe_hw *hw, u8 byte_of=
-fset,
-+				       u8 *eeprom_data)
-+{
-+	return ixgbe_read_i2c_phy_82598(hw, IXGBE_I2C_EEPROM_DEV_ADDR,
-+					byte_offset, eeprom_data);
-+}
-+
-+/**
-+ *  ixgbe_read_i2c_sff8472_82598 - Reads 8 bit word over I2C interface=
-=2E
-+ *  @hw: pointer to hardware structure
-+ *  @byte_offset: byte offset at address 0xA2
-+ *  @eeprom_data: value read
-+ *
-+ *  Performs 8 byte read operation to SFP module's SFF-8472 data over =
-I2C
-+ **/
-+static s32 ixgbe_read_i2c_sff8472_82598(struct ixgbe_hw *hw, u8 byte_o=
-ffset,
-+				       u8 *sff8472_data)
-+{
-+	return ixgbe_read_i2c_phy_82598(hw, IXGBE_I2C_EEPROM_DEV_ADDR2,
-+					byte_offset, sff8472_data);
-+}
-+
-+/**
-  *  ixgbe_get_supported_physical_layer_82598 - Returns physical layer =
-type
-  *  @hw: pointer to hardware structure
-  *
-@@ -1297,6 +1327,7 @@ static struct ixgbe_phy_operations phy_ops_82598 =
-=3D {
- 	.write_reg		=3D &ixgbe_write_phy_reg_generic,
- 	.setup_link		=3D &ixgbe_setup_phy_link_generic,
- 	.setup_link_speed	=3D &ixgbe_setup_phy_link_speed_generic,
-+	.read_i2c_sff8472	=3D &ixgbe_read_i2c_sff8472_82598,
- 	.read_i2c_eeprom	=3D &ixgbe_read_i2c_eeprom_82598,
- 	.check_overtemp   =3D &ixgbe_tn_check_overtemp,
+ 	return readl(hw->hw_addr + reg);
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 97b8746..de876bd 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -244,28 +244,6 @@ enum e1e_registers {
+ 	E1000_RXUDP     = 0x0B638, /* Timesync Rx UDP Port - RW */
  };
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c b/drivers/n=
-et/ethernet/intel/ixgbe/ixgbe_82599.c
-index 3350461..d1f4d45 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c
-@@ -2241,6 +2241,7 @@ static struct ixgbe_phy_operations phy_ops_82599 =
-=3D {
- 	.setup_link_speed	=3D &ixgbe_setup_phy_link_speed_generic,
- 	.read_i2c_byte		=3D &ixgbe_read_i2c_byte_generic,
- 	.write_i2c_byte		=3D &ixgbe_write_i2c_byte_generic,
-+	.read_i2c_sff8472	=3D &ixgbe_read_i2c_sff8472_generic,
- 	.read_i2c_eeprom	=3D &ixgbe_read_i2c_eeprom_generic,
- 	.write_i2c_eeprom	=3D &ixgbe_write_i2c_eeprom_generic,
- 	.check_overtemp		=3D &ixgbe_tn_check_overtemp,
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net=
-/ethernet/intel/ixgbe/ixgbe_phy.c
-index f4b2c0d..d034cc5 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -1204,6 +1204,22 @@ s32 ixgbe_read_i2c_eeprom_generic(struct ixgbe_h=
-w *hw, u8 byte_offset,
- }
-=20
+ 
+-/* manage.c */
+-#define E1000_VFTA_ENTRY_SHIFT		5
+-#define E1000_VFTA_ENTRY_MASK		0x7F
+-#define E1000_VFTA_ENTRY_BIT_SHIFT_MASK	0x1F
+-
+-#define E1000_HICR_EN			0x01  /* Enable bit - RO */
+-/* Driver sets this bit when done to put command in RAM */
+-#define E1000_HICR_C			0x02
+-#define E1000_HICR_FW_RESET_ENABLE	0x40
+-#define E1000_HICR_FW_RESET		0x80
+-
+-#define E1000_FWSM_MODE_MASK		0xE
+-#define E1000_FWSM_MODE_SHIFT		1
+-
+-#define E1000_MNG_IAMT_MODE		0x3
+-#define E1000_MNG_DHCP_COOKIE_LENGTH	0x10
+-#define E1000_MNG_DHCP_COOKIE_OFFSET	0x6F0
+-#define E1000_MNG_DHCP_COMMAND_TIMEOUT	10
+-#define E1000_MNG_DHCP_TX_PAYLOAD_CMD	64
+-#define E1000_MNG_DHCP_COOKIE_STATUS_PARSING	0x1
+-#define E1000_MNG_DHCP_COOKIE_STATUS_VLAN	0x2
+-
+ #define E1000_DEV_ID_82571EB_COPPER		0x105E
+ #define E1000_DEV_ID_82571EB_FIBER		0x105F
+ #define E1000_DEV_ID_82571EB_SERDES		0x1060
+@@ -675,6 +653,7 @@ struct e1000_host_mng_command_info {
+ #include "mac.h"
+ #include "phy.h"
+ #include "nvm.h"
++#include "manage.h"
+ 
+ /* Function pointers for the MAC. */
+ struct e1000_mac_operations {
+diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
+index 4dae0db..e4b0f1e 100644
+--- a/drivers/net/ethernet/intel/e1000e/manage.c
++++ b/drivers/net/ethernet/intel/e1000e/manage.c
+@@ -28,19 +28,6 @@
+ 
+ #include "e1000.h"
+ 
+-enum e1000_mng_mode {
+-	e1000_mng_mode_none = 0,
+-	e1000_mng_mode_asf,
+-	e1000_mng_mode_pt,
+-	e1000_mng_mode_ipmi,
+-	e1000_mng_mode_host_if_only
+-};
+-
+-#define E1000_FACTPS_MNGCG		0x20000000
+-
+-/* Intel(R) Active Management Technology signature */
+-#define E1000_IAMT_SIGNATURE		0x544D4149
+-
  /**
-+ *  ixgbe_read_i2c_sff8472_generic - Reads 8 bit word over I2C interfa=
-ce
-+ *  @hw: pointer to hardware structure
-+ *  @byte_offset: byte offset at address 0xA2
-+ *  @eeprom_data: value read
-+ *
-+ *  Performs byte read operation to SFP module's SFF-8472 data over I2=
-C
-+ **/
-+s32 ixgbe_read_i2c_sff8472_generic(struct ixgbe_hw *hw, u8 byte_offset=
-,
-+				   u8 *sff8472_data)
-+{
-+	return hw->phy.ops.read_i2c_byte(hw, byte_offset,
-+					 IXGBE_I2C_EEPROM_DEV_ADDR2,
-+					 sff8472_data);
-+}
+  *  e1000_calculate_checksum - Calculate checksum for buffer
+  *  @buffer: pointer to EEPROM
+diff --git a/drivers/net/ethernet/intel/e1000e/manage.h b/drivers/net/ethernet/intel/e1000e/manage.h
+new file mode 100644
+index 0000000..326897c
+--- /dev/null
++++ b/drivers/net/ethernet/intel/e1000e/manage.h
+@@ -0,0 +1,72 @@
++/*******************************************************************************
 +
-+/**
-  *  ixgbe_write_i2c_eeprom_generic - Writes 8 bit EEPROM word over I2C=
- interface
-  *  @hw: pointer to hardware structure
-  *  @byte_offset: EEPROM byte offset to write
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h b/drivers/net=
-/ethernet/intel/ixgbe/ixgbe_phy.h
-index 51b0a91..bbfe55c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h
-@@ -30,6 +30,7 @@
-=20
- #include "ixgbe_type.h"
- #define IXGBE_I2C_EEPROM_DEV_ADDR    0xA0
-+#define IXGBE_I2C_EEPROM_DEV_ADDR2   0xA2
-=20
- /* EEPROM byte offsets */
- #define IXGBE_SFF_IDENTIFIER         0x0
-@@ -41,6 +42,8 @@
- #define IXGBE_SFF_10GBE_COMP_CODES   0x3
- #define IXGBE_SFF_CABLE_TECHNOLOGY   0x8
- #define IXGBE_SFF_CABLE_SPEC_COMP    0x3C
-+#define IXGBE_SFF_SFF_8472_SWAP      0x5C
-+#define IXGBE_SFF_SFF_8472_COMP      0x5E
-=20
- /* Bitmasks */
- #define IXGBE_SFF_DA_PASSIVE_CABLE           0x4
-@@ -51,6 +54,7 @@
- #define IXGBE_SFF_1GBASET_CAPABLE            0x8
- #define IXGBE_SFF_10GBASESR_CAPABLE          0x10
- #define IXGBE_SFF_10GBASELR_CAPABLE          0x20
-+#define IXGBE_SFF_ADDRESSING_MODE	     0x4
- #define IXGBE_I2C_EEPROM_READ_MASK           0x100
- #define IXGBE_I2C_EEPROM_STATUS_MASK         0x3
- #define IXGBE_I2C_EEPROM_STATUS_NO_OPERATION 0x0
-@@ -88,6 +92,9 @@
- #define IXGBE_TN_LASI_STATUS_REG        0x9005
- #define IXGBE_TN_LASI_STATUS_TEMP_ALARM 0x0008
-=20
-+/* SFP+ SFF-8472 Compliance code */
-+#define IXGBE_SFF_SFF_8472_UNSUP      0x00
++  Intel PRO/1000 Linux driver
++  Copyright(c) 1999 - 2013 Intel Corporation.
 +
- s32 ixgbe_init_phy_ops_generic(struct ixgbe_hw *hw);
- s32 ixgbe_identify_phy_generic(struct ixgbe_hw *hw);
- s32 ixgbe_reset_phy_generic(struct ixgbe_hw *hw);
-@@ -125,6 +132,8 @@ s32 ixgbe_write_i2c_byte_generic(struct ixgbe_hw *h=
-w, u8 byte_offset,
-                                  u8 dev_addr, u8 data);
- s32 ixgbe_read_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset,
-                                   u8 *eeprom_data);
-+s32 ixgbe_read_i2c_sff8472_generic(struct ixgbe_hw *hw, u8 byte_offset=
-,
-+				   u8 *sff8472_data);
- s32 ixgbe_write_i2c_eeprom_generic(struct ixgbe_hw *hw, u8 byte_offset=
-,
-                                    u8 eeprom_data);
- #endif /* _IXGBE_PHY_H_ */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/ne=
-t/ethernet/intel/ixgbe/ixgbe_type.h
-index 0bdcc88..1af6289 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
-@@ -2874,6 +2874,7 @@ struct ixgbe_phy_operations {
- 	s32 (*get_firmware_version)(struct ixgbe_hw *, u16 *);
- 	s32 (*read_i2c_byte)(struct ixgbe_hw *, u8, u8, u8 *);
- 	s32 (*write_i2c_byte)(struct ixgbe_hw *, u8, u8, u8);
-+	s32 (*read_i2c_sff8472)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*read_i2c_eeprom)(struct ixgbe_hw *, u8 , u8 *);
- 	s32 (*write_i2c_eeprom)(struct ixgbe_hw *, u8, u8);
- 	s32 (*check_overtemp)(struct ixgbe_hw *);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/ne=
-t/ethernet/intel/ixgbe/ixgbe_x540.c
-index 2fa5843..4dc3725 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -878,6 +878,7 @@ static struct ixgbe_phy_operations phy_ops_X540 =3D=
- {
- 	.setup_link_speed       =3D &ixgbe_setup_phy_link_speed_generic,
- 	.read_i2c_byte          =3D &ixgbe_read_i2c_byte_generic,
- 	.write_i2c_byte         =3D &ixgbe_write_i2c_byte_generic,
-+	.read_i2c_sff8472	=3D &ixgbe_read_i2c_sff8472_generic,
- 	.read_i2c_eeprom        =3D &ixgbe_read_i2c_eeprom_generic,
- 	.write_i2c_eeprom       =3D &ixgbe_write_i2c_eeprom_generic,
- 	.check_overtemp         =3D &ixgbe_tn_check_overtemp,
---=20
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#ifndef _E1000E_MANAGE_H_
++#define _E1000E_MANAGE_H_
++
++bool e1000e_check_mng_mode_generic(struct e1000_hw *hw);
++bool e1000e_enable_tx_pkt_filtering(struct e1000_hw *hw);
++s32 e1000e_mng_write_dhcp_info(struct e1000_hw *hw, u8 *buffer, u16 length);
++bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
++
++enum e1000_mng_mode {
++	e1000_mng_mode_none = 0,
++	e1000_mng_mode_asf,
++	e1000_mng_mode_pt,
++	e1000_mng_mode_ipmi,
++	e1000_mng_mode_host_if_only
++};
++
++#define E1000_FACTPS_MNGCG			0x20000000
++
++#define E1000_FWSM_MODE_MASK			0xE
++#define E1000_FWSM_MODE_SHIFT			1
++
++#define E1000_MNG_IAMT_MODE			0x3
++#define E1000_MNG_DHCP_COOKIE_LENGTH		0x10
++#define E1000_MNG_DHCP_COOKIE_OFFSET		0x6F0
++#define E1000_MNG_DHCP_COMMAND_TIMEOUT		10
++#define E1000_MNG_DHCP_TX_PAYLOAD_CMD		64
++#define E1000_MNG_DHCP_COOKIE_STATUS_PARSING	0x1
++#define E1000_MNG_DHCP_COOKIE_STATUS_VLAN	0x2
++
++#define E1000_VFTA_ENTRY_SHIFT			5
++#define E1000_VFTA_ENTRY_MASK			0x7F
++#define E1000_VFTA_ENTRY_BIT_SHIFT_MASK		0x1F
++
++#define E1000_HICR_EN			0x01	/* Enable bit - RO */
++/* Driver sets this bit when done to put command in RAM */
++#define E1000_HICR_C			0x02
++#define E1000_HICR_SV			0x04	/* Status Validity */
++#define E1000_HICR_FW_RESET_ENABLE	0x40
++#define E1000_HICR_FW_RESET		0x80
++
++/* Intel(R) Active Management Technology signature */
++#define E1000_IAMT_SIGNATURE		0x544D4149
++
++#endif
+-- 
 1.7.11.7
