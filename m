@@ -1,109 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Disallow non-namespace aware protocols to register.
-Date: Tue, 05 Feb 2013 14:43:02 -0500 (EST)
-Message-ID: <20130205.144302.2065386693901345213.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: frto should not set snd_cwnd to 0
+Date: Tue, 05 Feb 2013 11:44:40 -0800
+Message-ID: <1360093480.28557.8.camel@edumazet-glaptop>
+References: <20130123161238.GE8912@reaktio.net>
+	 <20130123214445.GA16641@order.stressinduktion.org>
+	 <20130123215151.GF8912@reaktio.net>
+	 <20130123152642.4a8389ba@nehalam.linuxnetplumber.net>
+	 <20130123234116.GC16641@order.stressinduktion.org>
+	 <1358984831.12374.1227.camel@edumazet-glaptop>
+	 <20130124135120.GD16641@order.stressinduktion.org>
+	 <1359777110.30177.58.camel@edumazet-glaptop>
+	 <20130202142832.GP8912@reaktio.net>
+	 <1359818075.30177.78.camel@edumazet-glaptop>
+	 <CADVnQykbufy-kQrEnJm0bbt=n7C8OfE1=Kr-2KfP7Mbu5Eq58w@mail.gmail.com>
+	 <1359826377.30177.86.camel@edumazet-glaptop>
+	 <1359918785.30177.111.camel@edumazet-glaptop>
+	 <alpine.DEB.2.00.1302041327210.4561@wel-95.cs.helsinki.fi>
+	 <1359990461.30177.142.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Neal Cardwell <ncardwell@google.com>,
+	Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>,
+	David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58354 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755421Ab3BETnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 14:43:03 -0500
-Received: from localhost (cpe-66-108-118-205.nyc.res.rr.com [66.108.118.205])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id B1E9D58102B
-	for <netdev@vger.kernel.org>; Tue,  5 Feb 2013 11:43:06 -0800 (PST)
+Received: from mail-da0-f43.google.com ([209.85.210.43]:41451 "EHLO
+	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755421Ab3BETon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 14:44:43 -0500
+Received: by mail-da0-f43.google.com with SMTP id u36so212169dak.30
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 11:44:43 -0800 (PST)
+In-Reply-To: <1359990461.30177.142.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2013-02-04 at 07:07 -0800, Eric Dumazet wrote:
 
-All in-tree ipv4 protocol implementations are now namespace
-aware.  Therefore all the run-time checks are superfluous.
+> Thanks Ilpo.
+> 
+> I'll be able to test your patch under load only in ~8 hours.
 
-Reject registry of any non-namespace aware ipv4 protocol.
-Eventually we'll remove prot->netns_ok and this registry
-time check as well.
+Sorry for the delay.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/af_inet.c  | 19 -------------------
- net/ipv4/ip_input.c |  7 -------
- net/ipv4/protocol.c |  6 ++++++
- 3 files changed, 6 insertions(+), 26 deletions(-)
+The patch survived my tests ;)
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 49ddca3..1aec92b 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -263,21 +263,6 @@ void build_ehash_secret(void)
- }
- EXPORT_SYMBOL(build_ehash_secret);
- 
--static inline int inet_netns_ok(struct net *net, __u8 protocol)
--{
--	const struct net_protocol *ipprot;
--
--	if (net_eq(net, &init_net))
--		return 1;
--
--	ipprot = rcu_dereference(inet_protos[protocol]);
--	if (ipprot == NULL) {
--		/* raw IP is OK */
--		return 1;
--	}
--	return ipprot->netns_ok;
--}
--
- /*
-  *	Create an inet socket.
-  */
-@@ -350,10 +335,6 @@ lookup_protocol:
- 	    !ns_capable(net->user_ns, CAP_NET_RAW))
- 		goto out_rcu_unlock;
- 
--	err = -EAFNOSUPPORT;
--	if (!inet_netns_ok(net, protocol))
--		goto out_rcu_unlock;
--
- 	sock->ops = answer->ops;
- 	answer_prot = answer->prot;
- 	answer_no_check = answer->no_check;
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index f1395a6..87abd3e 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -208,13 +208,6 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
- 		if (ipprot != NULL) {
- 			int ret;
- 
--			if (!net_eq(net, &init_net) && !ipprot->netns_ok) {
--				net_info_ratelimited("%s: proto %d isn't netns-ready\n",
--						     __func__, protocol);
--				kfree_skb(skb);
--				goto out;
--			}
--
- 			if (!ipprot->no_policy) {
- 				if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
- 					kfree_skb(skb);
-diff --git a/net/ipv4/protocol.c b/net/ipv4/protocol.c
-index 0f9d09f..ce84846 100644
---- a/net/ipv4/protocol.c
-+++ b/net/ipv4/protocol.c
-@@ -37,6 +37,12 @@ const struct net_offload __rcu *inet_offloads[MAX_INET_PROTOS] __read_mostly;
- 
- int inet_add_protocol(const struct net_protocol *prot, unsigned char protocol)
- {
-+	if (!prot->netns_ok) {
-+		pr_err("Protocol %u is not namespace aware, cannot register.\n",
-+			protocol);
-+		return -EINVAL;
-+	}
-+
- 	return !cmpxchg((const struct net_protocol **)&inet_protos[protocol],
- 			NULL, prot) ? 0 : -1;
- }
--- 
-1.7.11.7
+Tested-by: Eric Dumazet <edumazet@google.com>
