@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/2] 6lowpan: use stack buffer instead
-	of heap
-Date: Tue,  5 Feb 2013 21:23:43 +0100
-Message-ID: <1360095824-12538-2-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH 2/2] wpan: use stack buffer instead of
+	heap
+Date: Tue,  5 Feb 2013 21:23:44 +0100
+Message-ID: <1360095824-12538-3-git-send-email-alex.aring@gmail.com>
 References: <1360095824-12538-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -22,51 +22,44 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-head buffer is only temporary available in lowpan_header_create.
+head buffer is only temporary available in mac802154_header_create.
 So it's not necessary to put it on the heap.
-
-Also fixed a comment codestyle issue.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- net/ieee802154/6lowpan.c | 13 ++++---------
- 1 file changed, 4 insertions(+), 9 deletions(-)
+ net/mac802154/wpan.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index f651da6..2bc5e8f 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -377,17 +377,14 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	struct ipv6hdr *hdr;
- 	const u8 *saddr = _saddr;
- 	const u8 *daddr = _daddr;
+diff --git a/net/mac802154/wpan.c b/net/mac802154/wpan.c
+index 98c867b..d20c6d3 100644
+--- a/net/mac802154/wpan.c
++++ b/net/mac802154/wpan.c
+@@ -137,16 +137,12 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	struct ieee802154_addr dev_addr;
+ 	struct mac802154_sub_if_data *priv = netdev_priv(dev);
+ 	int pos = 2;
 -	u8 *head;
-+	u8 head[100];
- 	struct ieee802154_addr sa, da;
++	u8 head[MAC802154_FRAME_HARD_HEADER_LEN];
+ 	u16 fc;
  
-+	/* TODO:
-+	 * if this package isn't ipv6 one, where should it be routed?
-+	 */
- 	if (type != ETH_P_IPV6)
- 		return 0;
--		/* TODO:
--		 * if this package isn't ipv6 one, where should it be routed?
--		 */
--	head = kzalloc(100, GFP_KERNEL);
+ 	if (!daddr)
+ 		return -EINVAL;
+ 
+-	head = kzalloc(MAC802154_FRAME_HARD_HEADER_LEN, GFP_KERNEL);
 -	if (head == NULL)
 -		return -ENOMEM;
- 
- 	hdr = ipv6_hdr(skb);
- 	hc06_ptr = head + 2;
-@@ -561,8 +558,6 @@ static int lowpan_header_create(struct sk_buff *skb,
- 	skb_pull(skb, sizeof(struct ipv6hdr));
- 	memcpy(skb_push(skb, hc06_ptr - head), head, hc06_ptr - head);
- 
--	kfree(head);
 -
- 	lowpan_raw_dump_table(__func__, "raw skb data dump", skb->data,
- 				skb->len);
+ 	head[pos++] = mac_cb(skb)->seq; /* DSN/BSN */
+ 	fc = mac_cb_type(skb);
  
+@@ -210,7 +206,6 @@ static int mac802154_header_create(struct sk_buff *skb,
+ 	head[1] = fc >> 8;
+ 
+ 	memcpy(skb_push(skb, pos), head, pos);
+-	kfree(head);
+ 
+ 	return pos;
+ }
 -- 
 1.8.1.2
 
