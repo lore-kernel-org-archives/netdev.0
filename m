@@ -1,59 +1,56 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Mon, 4 Feb 2013 15:41:35 -0800 (PST)
-Message-ID: <1910061949.2175231.1360021295545.JavaMail.root@vmware.com>
-References: <510B78E6.3000602@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch net-next v2 1/3] team: handle sending port list in the
+ same way option list is sent
+Date: Tue, 5 Feb 2013 01:28:43 +0100
+Message-ID: <20130205002842.GA11589@localhost>
+References: <1359742646-1485-1-git-send-email-jiri@resnulli.us>
+ <1359742646-1485-2-git-send-email-jiri@resnulli.us>
+ <20130201183045.GA5822@localhost>
+ <20130201190026.GA1627@minipsycho.brq.redhat.com>
+ <20130201204310.GA3793@localhost>
+ <20130201233147.GB1627@minipsycho.brq.redhat.com>
+ <20130202012927.GA4425@localhost>
+ <20130202090422.GA1864@minipsycho.orion>
+ <20130204160303.GA22732@localhost>
+ <20130204162806.GA1544@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Gerd Hoffmann <kraxel@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <510B78E6.3000602@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, fbl@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slan-550-85.anhosting.com ([174.127.110.175]:13247 "EHLO
+	slan-550-85.anhosting.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754431Ab3BEA2u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 19:28:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20130204162806.GA1544@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gerd,
-
-> From my side the minimum requirement is to have
-> vsock_(un)register_transport calls available, so it is possible to
-> write a virtio transport module without having to patch vsock code
-> to hook it up.
-
-We've done exactly that.  It's now split into two separate modules,
-with the core module offering precisely the calls you've requested.
-All transport code is now its own module.  So now you should be
-able to add a vsock_transport_virtio module, which can register
-with the core.
-
-> >>> +	struct {
-> >>> +		/* For DGRAMs. */
-> >>> +		struct vmci_handle dg_handle;
-> >>
-> >> Yep, should be a pointer where transports can hook in their
-> >> private
-> >> data.
-> > 
-> > I'm fixing this.
+On Mon, Feb 04, 2013 at 05:28:06PM +0100, Jiri Pirko wrote:
+> Mon, Feb 04, 2013 at 05:03:04PM CET, pablo@netfilter.org wrote:
+> >On Sat, Feb 02, 2013 at 10:04:22AM +0100, Jiri Pirko wrote:
+[...]
+> >> Messages are too big to fit one GENLMSG_DEFAULT_SIZE message.
+> >
+> >nfnetlink_log may use bigger messages than 1 memory page to deliver
+> >multicast events if configured to include the entire packet
+> >(NFULNL_COPY_PACKET).
+> >
+> >I'd suggest to calculate the message size in run-time and allocate
+> >memory you need according to that, several netfilter subsystem are
+> >doing so.
 > 
-> Yes, please, that is needed too to get started with virtio support.
+> I recall I had some issues with longer messages on the userspace part,
+> I'm not sure what that was exactly.
 
-Fixed: it's now a void * in the core socket structure.
+Hm, it should be OK.
 
-I believe it's now at the point where you can start working on the
-virtio transport, and we'll address API issues as they arise and
-refine it as necessary.  So please take one last look and let us
-know what you think; hopefully we can make the current merge window :)
+> I decided to do this in multipart messages and in order to do not
+> break userspace I would like to continue to do so.
 
-Thanks!
-- Andy
+It was just a suggestion.
+
+Note that fitting the message in one single skb should also simplify
+the handling in case you hit ENOBUFS from user-space. But you know
+better your needs for the team driver, I leave this up to you.
