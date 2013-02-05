@@ -1,7 +1,8 @@
 From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH v2 1/2 net-next] net: fec: fix miss init spinlock
-Date: Tue, 5 Feb 2013 14:26:16 +0800
-Message-ID: <1360045577-6266-1-git-send-email-Frank.Li@freescale.com>
+Subject: [PATCH v2 2/2 net-next] net: fec: fix spin_lock dead lock
+Date: Tue, 5 Feb 2013 14:26:17 +0800
+Message-ID: <1360045577-6266-2-git-send-email-Frank.Li@freescale.com>
+References: <1360045577-6266-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <B38611@freescale.com>,
@@ -9,61 +10,66 @@ Cc: <shawn.guo@linaro.org>, <B38611@freescale.com>,
 To: <lznuaa@gmail.com>, <davem@davemloft.net>,
 	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:8577
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750841Ab3BEHDz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 02:03:55 -0500
+Received: from db3ehsobe003.messaging.microsoft.com ([213.199.154.141]:42688
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751070Ab3BEHD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 02:03:57 -0500
+In-Reply-To: <1360045577-6266-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-BUG: spinlock bad magic on CPU#1, swapper/0/1
-lock: 0xbfae0f8c, .magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
-Backtrace:
- [<80011d54>] (dump_backtrace+0x0/0x10c) from [<804e7800>] (dump_stack+0x18/0x1c)
- r6:bfae0000 r5:bfae0f8c r4:00000000 r3:806c1310
- [<804e77e8>] (dump_stack+0x0/0x1c) from [<804e9f20>] (spin_dump+0x80/0x94)
- [<804e9ea0>] (spin_dump+0x0/0x94) from [<804e9f60>] (spin_bug+0x2c/0x30)
- r5:805f6f8c r4:bfae0f8c
- [<804e9f34>] (spin_bug+0x0/0x30) from [<80257984>] (do_raw_spin_lock+0x170/0x1b0                                         )
- r5:806b4950 r4:bfae0f8c
- [<80257814>] (do_raw_spin_lock+0x0/0x1b0) from [<804ed15c>] (_raw_spin_lock_irqs                                         ave+0x18/0x20)
- [<804ed144>] (_raw_spin_lock_irqsave+0x0/0x20) from [<8033c694>] (fec_ptp_start_                                         cyclecounter+0x3c/0x120)
- r4:bfae0f8c r3:00000002
- [<8033c658>] (fec_ptp_start_cyclecounter+0x0/0x120) from [<80339e08>] (fec_resta                                         rt+0x56c/0x5f8)
- r8:00000000 r7:806e6f48 r6:00000112 r5:806b4950 r4:bfae0000
- [<8033989c>] (fec_restart+0x0/0x5f8) from [<8033b9e4>] (fec_probe+0x508/0xa48)
+=========================================================
+[ INFO: possible irq lock inversion dependency detected ]
+3.8.0-rc5+ #82 Not tainted
+---------------------------------------------------------
+swapper/0/0 just changed the state of lock:
+ (&(&fep->hw_lock)->rlock){..-...}, at: [<8034e2f8>] fec_enet_start_xmit+0x48/0x                      2cc
+but this lock took another, SOFTIRQ-unsafe lock in the past:
+(prepare_lock){+.+.+.}
+
+and interrupts could create inverse lock ordering between them.
+other info that might help us debug this:
+Possible interrupt unsafe locking scenario:
+
+CPU0				CPU1
+----				----
+lock(prepare_lock);
+				local_irq_disable()
+				lock(&(&fep->hw_lock)->rlock);
+				lock(prepare_lock);
+<Interrupt>
+lock(&(&fep->hw_lock)->rlock);
+
+*** DEADLOCK ***
 
 Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
-Change from v1 to v2
- - avoid reinit hwreg_lock twice
+ * fix new problem report by Jim
 
- drivers/net/ethernet/freescale/fec.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/freescale/fec_ptp.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 0287675..0fe68c4 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1840,6 +1840,9 @@ fec_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index c40526c..1f17ca0 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -104,7 +104,7 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev)
+ 	unsigned long flags;
+ 	int inc;
  
- 	fec_reset_phy(pdev);
+-	inc = 1000000000 / clk_get_rate(fep->clk_ptp);
++	inc = 1000000000 / fep->cycle_speed;
  
-+	if (fep->bufdesc_ex)
-+		fec_ptp_init(ndev, pdev);
+ 	/* grab the ptp lock */
+ 	spin_lock_irqsave(&fep->tmreg_lock, flags);
+@@ -363,6 +363,8 @@ void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev)
+ 	fep->ptp_caps.settime = fec_ptp_settime;
+ 	fep->ptp_caps.enable = fec_ptp_enable;
+ 
++	fep->cycle_speed = clk_get_rate(fep->clk_ptp);
 +
- 	ret = fec_enet_init(ndev);
- 	if (ret)
- 		goto failed_init;
-@@ -1855,9 +1858,6 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_register;
+ 	spin_lock_init(&fep->tmreg_lock);
  
--	if (fep->bufdesc_ex)
--		fec_ptp_init(ndev, pdev);
--
- 	return 0;
- 
- failed_register:
+ 	fec_ptp_start_cyclecounter(ndev);
 -- 
 1.7.1
