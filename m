@@ -1,146 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/15] e1000e: cosmetic move of #defines and function prototypes to the new nvm.h
-Date: Tue,  5 Feb 2013 02:02:19 -0800
-Message-ID: <1360058548-18158-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/15] ixgbe: Replace rmb in Tx cleanup with read_barrier_depends
+Date: Tue,  5 Feb 2013 02:02:27 -0800
+Message-ID: <1360058548-18158-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:39963 "EHLO mga02.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:25253 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751542Ab3BEKCu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 05:02:50 -0500
+	id S1753718Ab3BEKDE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 05:03:04 -0500
 In-Reply-To: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Move #defines and function prototypes which are applicable to all/most
-devices supported by the driver and are specific to the NVM component of
-each device to the new nvm.h header file.  These #defines and function
-prototypes can be used by other files in the driver and moving them to the
-NVM-specific file makes it clearer to which component they are applicable.
+The rmb in the Tx cleanup path is a much stronger barrier than we really need.
+All that is really needed is a read_barrier_depends since the location of the
+EOP descriptor is dependent on the eop_desc value.
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h | 12 --------
- drivers/net/ethernet/intel/e1000e/hw.h    |  4 +--
- drivers/net/ethernet/intel/e1000e/nvm.h   | 47 +++++++++++++++++++++++++++++++
- 3 files changed, 48 insertions(+), 15 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/e1000e/nvm.h
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index 0573e15..00c2e84 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -510,12 +510,8 @@ extern const struct e1000_info e1000_pch2_info;
- extern const struct e1000_info e1000_pch_lpt_info;
- extern const struct e1000_info e1000_es2_info;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 88500dd..ef9cb0a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -838,7 +838,7 @@ static bool ixgbe_clean_tx_irq(struct ixgbe_q_vector *q_vector,
+ 			break;
  
--extern s32 e1000_read_pba_string_generic(struct e1000_hw *hw, u8 *pba_num,
--					 u32 pba_num_size);
--
- extern bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw);
+ 		/* prevent any other reads prior to eop_desc */
+-		rmb();
++		read_barrier_depends();
  
--extern s32 e1000e_valid_led_default(struct e1000_hw *hw, u16 *data);
- extern void e1000e_ptp_init(struct e1000_adapter *adapter);
- extern void e1000e_ptp_remove(struct e1000_adapter *adapter);
- 
-@@ -544,15 +540,7 @@ static inline s32 e1e_wphy_locked(struct e1000_hw *hw, u32 offset, u16 data)
- 	return hw->phy.ops.write_reg_locked(hw, offset, data);
- }
- 
--extern s32 e1000e_acquire_nvm(struct e1000_hw *hw);
--extern s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
--extern s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw);
--extern s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
--extern s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
--extern s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
--extern void e1000e_release_nvm(struct e1000_hw *hw);
- extern void e1000e_reload_nvm_generic(struct e1000_hw *hw);
--extern s32 e1000_read_mac_addr_generic(struct e1000_hw *hw);
- 
- static inline s32 e1000e_read_mac_addr(struct e1000_hw *hw)
- {
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 5779ac4..97b8746 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -266,9 +266,6 @@ enum e1e_registers {
- #define E1000_MNG_DHCP_COOKIE_STATUS_PARSING	0x1
- #define E1000_MNG_DHCP_COOKIE_STATUS_VLAN	0x2
- 
--/* nvm.c */
--#define E1000_STM_OPCODE  0xDB00
--
- #define E1000_DEV_ID_82571EB_COPPER		0x105E
- #define E1000_DEV_ID_82571EB_FIBER		0x105F
- #define E1000_DEV_ID_82571EB_SERDES		0x1060
-@@ -677,6 +674,7 @@ struct e1000_host_mng_command_info {
- 
- #include "mac.h"
- #include "phy.h"
-+#include "nvm.h"
- 
- /* Function pointers for the MAC. */
- struct e1000_mac_operations {
-diff --git a/drivers/net/ethernet/intel/e1000e/nvm.h b/drivers/net/ethernet/intel/e1000e/nvm.h
-new file mode 100644
-index 0000000..45fc695
---- /dev/null
-+++ b/drivers/net/ethernet/intel/e1000e/nvm.h
-@@ -0,0 +1,47 @@
-+/*******************************************************************************
-+
-+  Intel PRO/1000 Linux driver
-+  Copyright(c) 1999 - 2013 Intel Corporation.
-+
-+  This program is free software; you can redistribute it and/or modify it
-+  under the terms and conditions of the GNU General Public License,
-+  version 2, as published by the Free Software Foundation.
-+
-+  This program is distributed in the hope it will be useful, but WITHOUT
-+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+  more details.
-+
-+  You should have received a copy of the GNU General Public License along with
-+  this program; if not, write to the Free Software Foundation, Inc.,
-+  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
-+
-+  The full GNU General Public License is included in this distribution in
-+  the file called "COPYING".
-+
-+  Contact Information:
-+  Linux NICS <linux.nics@intel.com>
-+  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
-+
-+*******************************************************************************/
-+
-+#ifndef _E1000E_NVM_H_
-+#define _E1000E_NVM_H_
-+
-+s32 e1000e_acquire_nvm(struct e1000_hw *hw);
-+
-+s32 e1000e_poll_eerd_eewr_done(struct e1000_hw *hw, int ee_reg);
-+s32 e1000_read_mac_addr_generic(struct e1000_hw *hw);
-+s32 e1000_read_pba_string_generic(struct e1000_hw *hw, u8 *pba_num,
-+				  u32 pba_num_size);
-+s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
-+s32 e1000e_valid_led_default(struct e1000_hw *hw, u16 *data);
-+s32 e1000e_validate_nvm_checksum_generic(struct e1000_hw *hw);
-+s32 e1000e_write_nvm_spi(struct e1000_hw *hw, u16 offset, u16 words, u16 *data);
-+s32 e1000e_update_nvm_checksum_generic(struct e1000_hw *hw);
-+void e1000e_release_nvm(struct e1000_hw *hw);
-+
-+#define E1000_STM_OPCODE	0xDB00
-+
-+#endif
+ 		/* if DD is not set pending work has not been completed */
+ 		if (!(eop_desc->wb.status & cpu_to_le32(IXGBE_TXD_STAT_DD)))
 -- 
 1.7.11.7
