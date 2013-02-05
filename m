@@ -1,38 +1,51 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: No sysfs directory for openvswitch module when built-in
-Date: Tue, 5 Feb 2013 22:28:27 +0800
-Message-ID: <CAM_iQpWOKTrG2_8NVTd73AvLt3mcYGLisSTdHprStQ=dABSVgQ@mail.gmail.com>
-References: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
-	<87boc0liug.fsf@rustcorp.com.au>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] Break up the single NBD lock into one per NBD device
+Date: Tue, 5 Feb 2013 22:51:04 +0800
+Message-ID: <CAPshTCir48mTze-pEayg5TDxcH0Tyi4=NoH-FBhnM4rgrxekfQ@mail.gmail.com>
+References: <1359993343.18869.14.camel@eboracum.office.bytemark.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, Greg KH <greg@kroah.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87boc0liug.fsf@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nicholas Thomas <nick@bytemark.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:33973 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755684Ab3BEOvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 09:51:06 -0500
+Received: by mail-la0-f46.google.com with SMTP id fq12so238167lab.33
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 06:51:04 -0800 (PST)
+In-Reply-To: <1359993343.18869.14.camel@eboracum.office.bytemark.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 4, 2013 at 1:59 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
-> Cong Wang <xiyou.wangcong@gmail.com> writes:
->> Hello, Rusty, Jesse,
->>
->> I met an interesting problem when I compile openvswitch module as a
->> built-in (actually I compile ALL kernel modules as built-in), there is
->> no /sys/module/openvswitch/ directory created by the kernel in this
->> case.
-> ...
->> What's worse, the user-space init script thinks openvswitch module is
->> not loaded by checking the exist of this directory, therefore refuses
->> to start.
+The change was straightforward but according to David Miller it should go to
+"Jens Axboe's block layer tree". You are welcome to make and submit the change
+there. (I did not follow nor do I know where that tree is.)
+
+Jerry
+
+On Mon, Feb 4, 2013 at 11:55 PM, Nicholas Thomas <nick@bytemark.co.uk> wrote:
+> Hi,
 >
-> We only know built-in "modules" exist if we see a parameter or version
-> which mention them.  Looking for /sys/module/openvswitch/ is almost as
-> flawed as looking in /proc/modules.
-
-You are right. Ben will fix the openvswitch init script.
-
-Thanks for your reply!
+> I was wondering if there was any chance of resurrecting this patch:
+>
+> http://comments.gmane.org/gmane.linux.network/207233
+>
+> My use case is a Linux kernel connecting to up to 6,144 NBD devices (in
+> practice, probably < 1,000 almost all the time) simultaneously - our
+> current deployment has a userspace implementation of NBD, and I came
+> across this patch while investigating potential scalability issues.
+>
+> I've not performed any benchmarks yet, but I assume the issues Jerry Chu
+> mentions would affect my case too, and the asked-for changes to get it
+> accepted seemed minimal.
+>
+> Regards,
+> --
+> Nick Thomas
+> Bytemark Computing
+>
+>
+>
+>
+>
