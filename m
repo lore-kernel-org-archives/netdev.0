@@ -1,89 +1,87 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Tue, 5 Feb 2013 10:40:03 +0800
-Message-ID: <CAHrpEqQMZNmzRrNQK60hokR2r5S=U65YdC-5h6aHHHzAVdEWKw@mail.gmail.com>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com>
-	<kepftg$f3c$1@ger.gmane.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] net: core: Remove unnecessary alloc/OOM messages
+Date: Mon, 04 Feb 2013 18:48:16 -0800
+Message-ID: <1360032496.4849.2.camel@joe-AO722>
+References: <cover.1359939012.git.joe@perches.com>
+	 <20130204.132335.1757403310770538446.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f54.google.com ([74.125.82.54]:63831 "EHLO
-	mail-wg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753641Ab3BECkG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Feb 2013 21:40:06 -0500
-Received: by mail-wg0-f54.google.com with SMTP id fm10so5171538wgb.21
-        for <netdev@vger.kernel.org>; Mon, 04 Feb 2013 18:40:04 -0800 (PST)
-In-Reply-To: <kepftg$f3c$1@ger.gmane.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:35064 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753882Ab3BECsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Feb 2013 21:48:18 -0500
+In-Reply-To: <20130204.132335.1757403310770538446.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/2/5 Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>:
-> On Fri, 01 Feb 2013 16:56:26 +0800, Frank Li wrote:
->
->> BUG: spinlock bad magic on CPU#1, swapper/0/1 lock: 0xbfae0f8c, .magic:
->> 00000000, .owner: <none>/-1, .owner_cpu: 0 Backtrace:
->>  [<80011d54>] (dump_backtrace+0x0/0x10c) from [<804e7800>]
->>  (dump_stack+0x18/0x1c)
->>  r6:bfae0000 r5:bfae0f8c r4:00000000 r3:806c1310 [<804e77e8>]
->>  (dump_stack+0x0/0x1c) from [<804e9f20>] (spin_dump+0x80/0x94)
->>  [<804e9ea0>] (spin_dump+0x0/0x94) from [<804e9f60>]
->>  (spin_bug+0x2c/0x30)
->>  r5:805f6f8c r4:bfae0f8c [<804e9f34>] (spin_bug+0x0/0x30) from
->>  [<80257984>] (do_raw_spin_lock+0x170/0x1b0
->>             )
->>  r5:806b4950 r4:bfae0f8c [<80257814>] (do_raw_spin_lock+0x0/0x1b0) from
->>  [<804ed15c>] (_raw_spin_lock_irqs
->>    ave+0x18/0x20) [<804ed144>] (_raw_spin_lock_irqsave+0x0/0x20) from
->>  [<8033c694>] (fec_ptp_start_
->>  cyclecounter+0x3c/0x120)
->>  r4:bfae0f8c r3:00000002 [<8033c658>]
->>  (fec_ptp_start_cyclecounter+0x0/0x120) from [<80339e08>] (fec_resta
->>                                      rt+0x56c/0x5f8) r8:00000000
->>  r7:806e6f48 r6:00000112 r5:806b4950 r4:bfae0000 [<8033989c>]
->>  (fec_restart+0x0/0x5f8) from [<8033b9e4>] (fec_probe+0x508/0xa48)
->>
->> Signed-off-by: Frank Li <Frank.Li@freescale.com>
->> ---
->>  drivers/net/ethernet/freescale/fec.c |    1 +
->>  1 files changed, 1 insertions(+), 0 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/freescale/fec.c
->> b/drivers/net/ethernet/freescale/fec.c index 69b16b9..f900ae4 100644 ---
->> a/drivers/net/ethernet/freescale/fec.c +++
->> b/drivers/net/ethernet/freescale/fec.c @@ -1607,6 +1607,7 @@ static int
->> fec_enet_init(struct net_device *ndev)
->>       }
->>
->>       spin_lock_init(&fep->hw_lock);
->> +     spin_lock_init(&fep->tmreg_lock);
->>
->>       fep->netdev = ndev;
->
-> Please excuse me, if I'm wrong. I would consider this as a very wrong
-> solution:
->
-> First, then the spin lock is initialised twice (first time in
-> fec_enet_init(), second time in fec_ptp_init()).
->
-> Then this patch actually hides the fact that PTP part of fec
-> is accessed from fec_ptp_start_cyclecounter() way before
-> than fec_ptp_init() is called to initialize PTP).
->
-> In my opinion the right patch should either move fec_ptp_init() call
-> before fec_restart(), or make fec_restart intelelctual about calling
-> fec_ptp_init()/fec_ptp_startcyclecounter() at proper time.
+alloc failures already get standardized OOM
+messages and a dump_stack.
 
-Yes, you are right.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ net/core/dev.c            | 14 +++++---------
+ net/core/netprio_cgroup.c |  4 +---
+ 2 files changed, 6 insertions(+), 12 deletions(-)
 
->
-> --
-> With best wishes
-> Dmitry
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a87bc74..e04bfdc 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5958,10 +5958,9 @@ static int netif_alloc_rx_queues(struct net_device *dev)
+ 	BUG_ON(count < 1);
+ 
+ 	rx = kcalloc(count, sizeof(struct netdev_rx_queue), GFP_KERNEL);
+-	if (!rx) {
+-		pr_err("netdev: Unable to allocate %u rx queues\n", count);
++	if (!rx)
+ 		return -ENOMEM;
+-	}
++
+ 	dev->_rx = rx;
+ 
+ 	for (i = 0; i < count; i++)
+@@ -5992,10 +5991,9 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
+ 	BUG_ON(count < 1);
+ 
+ 	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
+-	if (!tx) {
+-		pr_err("netdev: Unable to allocate %u tx queues\n", count);
++	if (!tx)
+ 		return -ENOMEM;
+-	}
++
+ 	dev->_tx = tx;
+ 
+ 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+@@ -6482,10 +6480,8 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	alloc_size += NETDEV_ALIGN - 1;
+ 
+ 	p = kzalloc(alloc_size, GFP_KERNEL);
+-	if (!p) {
+-		pr_err("alloc_netdev: Unable to allocate device\n");
++	if (!p)
+ 		return NULL;
+-	}
+ 
+ 	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+ 	dev->padded = (char *)dev - (char *)p;
+diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
+index 5e67def..0777d0a 100644
+--- a/net/core/netprio_cgroup.c
++++ b/net/core/netprio_cgroup.c
+@@ -69,10 +69,8 @@ static int extend_netdev_table(struct net_device *dev, u32 target_idx)
+ 
+ 	/* allocate & copy */
+ 	new = kzalloc(new_sz, GFP_KERNEL);
+-	if (!new) {
+-		pr_warn("Unable to alloc new priomap!\n");
++	if (!new)
+ 		return -ENOMEM;
+-	}
+ 
+ 	if (old)
+ 		memcpy(new->priomap, old->priomap,
