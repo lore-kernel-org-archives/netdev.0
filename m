@@ -1,51 +1,65 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH] Break up the single NBD lock into one per NBD device
-Date: Tue, 5 Feb 2013 22:51:04 +0800
-Message-ID: <CAPshTCir48mTze-pEayg5TDxcH0Tyi4=NoH-FBhnM4rgrxekfQ@mail.gmail.com>
-References: <1359993343.18869.14.camel@eboracum.office.bytemark.co.uk>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v5] netpoll: protect napi_poll and poll_controller during
+ dev_[open|close]
+Date: Tue, 5 Feb 2013 10:07:13 -0500
+Message-ID: <20130205150713.GB4511@hmsreliant.think-freely.org>
+References: <1359578665-29248-1-git-send-email-nhorman@tuxdriver.com>
+ <1359999644-24872-1-git-send-email-nhorman@tuxdriver.com>
+ <20130204.210642.1455120579037699868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nicholas Thomas <nick@bytemark.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, ivecera@redhat.com,
+	bhutchings@solarflare.com, romieu@fr.zoreil.com,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f46.google.com ([209.85.215.46]:33973 "EHLO
-	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755684Ab3BEOvG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 09:51:06 -0500
-Received: by mail-la0-f46.google.com with SMTP id fq12so238167lab.33
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 06:51:04 -0800 (PST)
-In-Reply-To: <1359993343.18869.14.camel@eboracum.office.bytemark.co.uk>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:36151 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755138Ab3BEPHZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 10:07:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20130204.210642.1455120579037699868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The change was straightforward but according to David Miller it should go to
-"Jens Axboe's block layer tree". You are welcome to make and submit the change
-there. (I did not follow nor do I know where that tree is.)
+On Mon, Feb 04, 2013 at 09:06:42PM -0500, David Miller wrote:
+> From: Neil Horman <nhorman@tuxdriver.com>
+> Date: Mon,  4 Feb 2013 12:40:44 -0500
+> 
+> > +	/*
+> > +	 * Block netpoll from trying to do any rx path servicing.
+> > +	 * If we don't do this there is a chance ndo_poll_controller
+> > +	 * or ndo_poll may be running while we open the device
+> > +	 */
+> 
+> Please format comments:
+> 
+> 	/* Like
+> 	 * this.
+> 	 */
+> 
+> > +	/*
+> > +	 * Don't do any rx activity if the dev_lock mutex is held 
+> > +	 * the dev_open/close paths use this to block netpoll activity
+> > +	 * while changing device state
+> > +	 */
+> 
+> Same here.
+> 
+> > +int netpoll_rx_disable(struct net_device *dev)
+> > +{
+> > +        struct netpoll_info *ni;
+> > +	int idx;
+> > +        might_sleep();
+> > +        idx = srcu_read_lock(&netpoll_srcu);
+> > +        ni = srcu_dereference(dev->npinfo, &netpoll_srcu);
+> 
+> A lot of interesting indentation going on here.
+Apologies, Dave, I rushed and forgot to run checkpatch.  I'll resend shortly.
+Neil
 
-Jerry
-
-On Mon, Feb 4, 2013 at 11:55 PM, Nicholas Thomas <nick@bytemark.co.uk> wrote:
-> Hi,
->
-> I was wondering if there was any chance of resurrecting this patch:
->
-> http://comments.gmane.org/gmane.linux.network/207233
->
-> My use case is a Linux kernel connecting to up to 6,144 NBD devices (in
-> practice, probably < 1,000 almost all the time) simultaneously - our
-> current deployment has a userspace implementation of NBD, and I came
-> across this patch while investigating potential scalability issues.
->
-> I've not performed any benchmarks yet, but I assume the issues Jerry Chu
-> mentions would affect my case too, and the asked-for changes to get it
-> accepted seemed minimal.
->
-> Regards,
 > --
-> Nick Thomas
-> Bytemark Computing
->
->
->
->
->
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
