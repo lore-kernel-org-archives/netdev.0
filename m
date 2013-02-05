@@ -1,142 +1,223 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/15][pull request] Intel Wired LAN Driver Updates 2013.02.05
-Date: Tue,  5 Feb 2013 02:02:13 -0800
-Message-ID: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 02/15] e1000e: cosmetic move of #defines to the new 80003es2lan.h
+Date: Tue,  5 Feb 2013 02:02:15 -0800
+Message-ID: <1360058548-18158-3-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:19489 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751542Ab3BEKCr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 05:02:47 -0500
+	id S1751643Ab3BEKCs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 05:02:48 -0500
+In-Reply-To: <1360058548-18158-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to e1000e and ixgbe.  Majority of the patc=
-hes
-are against e1000e, where Bruce makes several cosmetic #define moves in=
-to
-header files.  In addition, Bruce does a cleanup of braces to resolve
-checkpatch warnings (when using the strict option).
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Ixgbe patches contain several fixes as well as updating the copyright. =
- The
-fixes from Josh Hay, resolved a possible NULL pointer dereference and
-resolved Smatch warnings by fixing return values and memcpy parameters.
-Alex provides 2 fixes, the first is to replace rmb() with
-read_barrier_depends() in the Tx cleanup.  The second fixes an MTU
-warning when using SR-IOV which corrects the fact that we were using 15=
-22
-to test for the max frame size in ixgbe_change_mtu and 1518 in
-ixgbe_set_vf_lpe.  The difference was the addition of VLAN_HLEN, which =
-we
-only need to add in the case of computing a buffer size, but not a filt=
-er
-size.  Lastly, a patch from Emil which is based on a community patch fr=
-om
-Aur=C3=A9lien Guillaume which adds functions needed for reading SFF-847=
-2
-diagnostic data from SFP modules.
+Move #defines specific to the ESB2/82563 family of devices to the new
+80003es2lan.h header file.  These defines can be used by other files in the
+driver and moving them to the 80003es2lan-family-specific file makes it
+clearer to which devices they are applicable.
 
-The following are changes since commit 27000929ef0f137b34ba219eb04b05e7=
-72eff2b1:
-  ipcomp: Mark as netns_ok.
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next maste=
-r
-
-Alexander Duyck (2):
-  ixgbe: Replace rmb in Tx cleanup with read_barrier_depends
-  ixgbe: Fix SR-IOV MTU warning
-
-Bruce Allan (9):
-  e1000e: cosmetic move of #defines and prototypes to the new 82571.h
-  e1000e: cosmetic move of #defines to the new 80003es2lan.h
-  e1000e: cosmetic move of #defines and prototypes to the new ich8lan.h
-  e1000e: cosmetic move of function prototypes to the new mac.h
-  e1000e: cosmetic move of #defines and function prototypes to the new
-    phy.h
-  e1000e: cosmetic move of #defines and function prototypes to the new
-    nvm.h
-  e1000e: cosmetic move of #defines and prototypes to the new manage.h
-  e1000e: convert enums of register offsets and move #defines to regs.h
-  e1000e: cleanup checkpatch braces checks
-
-Don Skidmore (1):
-  ixgbe: update date to 2013
-
-Emil Tantilov (1):
-  ixgbe: allow reading of SFF-8472 data over i2c
-
-Josh Hay (2):
-  ixgbe: fix potential null dereference
-  ixgbe: fix return values and memcpy parameters to eliminate Smatch
-    warnings
-
- drivers/net/ethernet/intel/e1000e/80003es2lan.c    |  63 ----
- drivers/net/ethernet/intel/e1000e/80003es2lan.h    |  95 ++++++
- drivers/net/ethernet/intel/e1000e/82571.c          |  16 -
- drivers/net/ethernet/intel/e1000e/82571.h          |  58 ++++
- drivers/net/ethernet/intel/e1000e/defines.h        |  38 ---
- drivers/net/ethernet/intel/e1000e/e1000.h          | 207 ------------
- drivers/net/ethernet/intel/e1000e/ethtool.c        |   6 +-
- drivers/net/ethernet/intel/e1000e/hw.h             | 347 +------------=
---------
- drivers/net/ethernet/intel/e1000e/ich8lan.c        | 127 --------
- drivers/net/ethernet/intel/e1000e/ich8lan.h        | 268 +++++++++++++=
-+++
- drivers/net/ethernet/intel/e1000e/mac.h            |  74 +++++
- drivers/net/ethernet/intel/e1000e/manage.c         |  13 -
- drivers/net/ethernet/intel/e1000e/manage.h         |  72 +++++
- drivers/net/ethernet/intel/e1000e/netdev.c         |  15 -
- drivers/net/ethernet/intel/e1000e/nvm.h            |  47 +++
- drivers/net/ethernet/intel/e1000e/phy.c            |  43 ---
- drivers/net/ethernet/intel/e1000e/phy.h            | 242 +++++++++++++=
-+
- drivers/net/ethernet/intel/e1000e/regs.h           | 252 +++++++++++++=
-++
- drivers/net/ethernet/intel/ixgbe/Makefile          |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h           |   4 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82598.c     |  47 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_82599.c     |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.c    |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_common.h    |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.c |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82598.h |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.c |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   9 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_debugfs.c   |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c   |  11 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.h      |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c       |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c      |   8 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c       |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.h       |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c       |  18 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.h       |  11 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sysfs.c     |   2 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_type.h      |   3 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c      |   3 +-
- 47 files changed, 1228 insertions(+), 910 deletions(-)
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c | 63 ----------------
+ drivers/net/ethernet/intel/e1000e/80003es2lan.h | 95 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/e1000e/hw.h          |  1 +
+ 3 files changed, 96 insertions(+), 63 deletions(-)
  create mode 100644 drivers/net/ethernet/intel/e1000e/80003es2lan.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/82571.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/ich8lan.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/mac.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/manage.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/nvm.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/phy.h
- create mode 100644 drivers/net/ethernet/intel/e1000e/regs.h
 
---=20
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.c b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+index a00457a..e099138 100644
+--- a/drivers/net/ethernet/intel/e1000e/80003es2lan.c
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.c
+@@ -32,69 +32,6 @@
+ 
+ #include "e1000.h"
+ 
+-#define E1000_KMRNCTRLSTA_OFFSET_FIFO_CTRL	 0x00
+-#define E1000_KMRNCTRLSTA_OFFSET_INB_CTRL	 0x02
+-#define E1000_KMRNCTRLSTA_OFFSET_HD_CTRL	 0x10
+-#define E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE	 0x1F
+-
+-#define E1000_KMRNCTRLSTA_FIFO_CTRL_RX_BYPASS	 0x0008
+-#define E1000_KMRNCTRLSTA_FIFO_CTRL_TX_BYPASS	 0x0800
+-#define E1000_KMRNCTRLSTA_INB_CTRL_DIS_PADDING	 0x0010
+-
+-#define E1000_KMRNCTRLSTA_HD_CTRL_10_100_DEFAULT 0x0004
+-#define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	 0x0000
+-#define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		 0x2000
+-
+-#define E1000_KMRNCTRLSTA_OPMODE_MASK		 0x000C
+-#define E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO	 0x0004
+-
+-#define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00 /* Gigabit Carry Extend Padding */
+-#define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	 0x00010000
+-
+-#define DEFAULT_TIPG_IPGT_1000_80003ES2LAN	 0x8
+-#define DEFAULT_TIPG_IPGT_10_100_80003ES2LAN	 0x9
+-
+-/* GG82563 PHY Specific Status Register (Page 0, Register 16 */
+-#define GG82563_PSCR_POLARITY_REVERSAL_DISABLE	 0x0002 /* 1=Reversal Disab. */
+-#define GG82563_PSCR_CROSSOVER_MODE_MASK	 0x0060
+-#define GG82563_PSCR_CROSSOVER_MODE_MDI		 0x0000 /* 00=Manual MDI */
+-#define GG82563_PSCR_CROSSOVER_MODE_MDIX	 0x0020 /* 01=Manual MDIX */
+-#define GG82563_PSCR_CROSSOVER_MODE_AUTO	 0x0060 /* 11=Auto crossover */
+-
+-/* PHY Specific Control Register 2 (Page 0, Register 26) */
+-#define GG82563_PSCR2_REVERSE_AUTO_NEG		 0x2000
+-						/* 1=Reverse Auto-Negotiation */
+-
+-/* MAC Specific Control Register (Page 2, Register 21) */
+-/* Tx clock speed for Link Down and 1000BASE-T for the following speeds */
+-#define GG82563_MSCR_TX_CLK_MASK		 0x0007
+-#define GG82563_MSCR_TX_CLK_10MBPS_2_5		 0x0004
+-#define GG82563_MSCR_TX_CLK_100MBPS_25		 0x0005
+-#define GG82563_MSCR_TX_CLK_1000MBPS_25		 0x0007
+-
+-#define GG82563_MSCR_ASSERT_CRS_ON_TX		 0x0010 /* 1=Assert */
+-
+-/* DSP Distance Register (Page 5, Register 26) */
+-#define GG82563_DSPD_CABLE_LENGTH		 0x0007 /* 0 = <50M
+-							   1 = 50-80M
+-							   2 = 80-110M
+-							   3 = 110-140M
+-							   4 = >140M
+-							*/
+-
+-/* Kumeran Mode Control Register (Page 193, Register 16) */
+-#define GG82563_KMCR_PASS_FALSE_CARRIER		 0x0800
+-
+-/* Max number of times Kumeran read/write should be validated */
+-#define GG82563_MAX_KMRN_RETRY  0x5
+-
+-/* Power Management Control Register (Page 193, Register 20) */
+-#define GG82563_PMCR_ENABLE_ELECTRICAL_IDLE	 0x0001
+-					   /* 1=Enable SERDES Electrical Idle */
+-
+-/* In-Band Control Register (Page 194, Register 18) */
+-#define GG82563_ICR_DIS_PADDING			 0x0010 /* Disable Padding */
+-
+ /* A table for the GG82563 cable length where the range is defined
+  * with a lower bound at "index" and the upper bound at
+  * "index + 5".
+diff --git a/drivers/net/ethernet/intel/e1000e/80003es2lan.h b/drivers/net/ethernet/intel/e1000e/80003es2lan.h
+new file mode 100644
+index 0000000..90d363b
+--- /dev/null
++++ b/drivers/net/ethernet/intel/e1000e/80003es2lan.h
+@@ -0,0 +1,95 @@
++/*******************************************************************************
++
++  Intel PRO/1000 Linux driver
++  Copyright(c) 1999 - 2013 Intel Corporation.
++
++  This program is free software; you can redistribute it and/or modify it
++  under the terms and conditions of the GNU General Public License,
++  version 2, as published by the Free Software Foundation.
++
++  This program is distributed in the hope it will be useful, but WITHOUT
++  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++  more details.
++
++  You should have received a copy of the GNU General Public License along with
++  this program; if not, write to the Free Software Foundation, Inc.,
++  51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
++
++  The full GNU General Public License is included in this distribution in
++  the file called "COPYING".
++
++  Contact Information:
++  Linux NICS <linux.nics@intel.com>
++  e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
++  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
++
++*******************************************************************************/
++
++#ifndef _E1000E_80003ES2LAN_H_
++#define _E1000E_80003ES2LAN_H_
++
++#define E1000_KMRNCTRLSTA_OFFSET_FIFO_CTRL	0x00
++#define E1000_KMRNCTRLSTA_OFFSET_INB_CTRL	0x02
++#define E1000_KMRNCTRLSTA_OFFSET_HD_CTRL	0x10
++#define E1000_KMRNCTRLSTA_OFFSET_MAC2PHY_OPMODE	0x1F
++
++#define E1000_KMRNCTRLSTA_FIFO_CTRL_RX_BYPASS	0x0008
++#define E1000_KMRNCTRLSTA_FIFO_CTRL_TX_BYPASS	0x0800
++#define E1000_KMRNCTRLSTA_INB_CTRL_DIS_PADDING	0x0010
++
++#define E1000_KMRNCTRLSTA_HD_CTRL_10_100_DEFAULT 0x0004
++#define E1000_KMRNCTRLSTA_HD_CTRL_1000_DEFAULT	0x0000
++#define E1000_KMRNCTRLSTA_OPMODE_E_IDLE		0x2000
++
++#define E1000_KMRNCTRLSTA_OPMODE_MASK		0x000C
++#define E1000_KMRNCTRLSTA_OPMODE_INBAND_MDIO	0x0004
++
++#define E1000_TCTL_EXT_GCEX_MASK 0x000FFC00	/* Gig Carry Extend Padding */
++#define DEFAULT_TCTL_EXT_GCEX_80003ES2LAN	0x00010000
++
++#define DEFAULT_TIPG_IPGT_1000_80003ES2LAN	0x8
++#define DEFAULT_TIPG_IPGT_10_100_80003ES2LAN	0x9
++
++/* GG82563 PHY Specific Status Register (Page 0, Register 16 */
++#define GG82563_PSCR_POLARITY_REVERSAL_DISABLE	0x0002	/* 1=Reversal Dis */
++#define GG82563_PSCR_CROSSOVER_MODE_MASK	0x0060
++#define GG82563_PSCR_CROSSOVER_MODE_MDI		0x0000	/* 00=Manual MDI */
++#define GG82563_PSCR_CROSSOVER_MODE_MDIX	0x0020	/* 01=Manual MDIX */
++#define GG82563_PSCR_CROSSOVER_MODE_AUTO	0x0060	/* 11=Auto crossover */
++
++/* PHY Specific Control Register 2 (Page 0, Register 26) */
++#define GG82563_PSCR2_REVERSE_AUTO_NEG		0x2000	/* 1=Reverse Auto-Neg */
++
++/* MAC Specific Control Register (Page 2, Register 21) */
++/* Tx clock speed for Link Down and 1000BASE-T for the following speeds */
++#define GG82563_MSCR_TX_CLK_MASK		0x0007
++#define GG82563_MSCR_TX_CLK_10MBPS_2_5		0x0004
++#define GG82563_MSCR_TX_CLK_100MBPS_25		0x0005
++#define GG82563_MSCR_TX_CLK_1000MBPS_25		0x0007
++
++#define GG82563_MSCR_ASSERT_CRS_ON_TX		0x0010	/* 1=Assert */
++
++/* DSP Distance Register (Page 5, Register 26)
++ * 0 = <50M
++ * 1 = 50-80M
++ * 2 = 80-100M
++ * 3 = 110-140M
++ * 4 = >140M
++ */
++#define GG82563_DSPD_CABLE_LENGTH		0x0007
++
++/* Kumeran Mode Control Register (Page 193, Register 16) */
++#define GG82563_KMCR_PASS_FALSE_CARRIER		0x0800
++
++/* Max number of times Kumeran read/write should be validated */
++#define GG82563_MAX_KMRN_RETRY			0x5
++
++/* Power Management Control Register (Page 193, Register 20) */
++/* 1=Enable SERDES Electrical Idle */
++#define GG82563_PMCR_ENABLE_ELECTRICAL_IDLE	0x0001
++
++/* In-Band Control Register (Page 194, Register 18) */
++#define GG82563_ICR_DIS_PADDING			0x0010	/* Disable Padding */
++
++#endif
+diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
+index 6f94437..8a145f4 100644
+--- a/drivers/net/ethernet/intel/e1000e/hw.h
++++ b/drivers/net/ethernet/intel/e1000e/hw.h
+@@ -1003,5 +1003,6 @@ struct e1000_hw {
+ };
+ 
+ #include "82571.h"
++#include "80003es2lan.h"
+ 
+ #endif
+-- 
 1.7.11.7
