@@ -1,43 +1,54 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 0/2] use stack instead of heap
-Date: Tue,  5 Feb 2013 21:23:42 +0100
-Message-ID: <1360095824-12538-1-git-send-email-alex.aring@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V1 00/10] Mellanox Ethernet driver updates
+ 2013-01-30
+Date: Tue, 05 Feb 2013 15:30:27 -0500 (EST)
+Message-ID: <20130205.153027.1413530222577302952.davem@davemloft.net>
+References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
+	<20130131.135158.206758800827480029.davem@davemloft.net>
+	<1360094899.2857.30.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: amirv@mellanox.com, netdev@vger.kernel.org,
+	alexander.h.duyck@intel.com
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58860 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754626Ab3BEUab (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 15:30:31 -0500
+In-Reply-To: <1360094899.2857.30.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In 6lowpan and mac802154 implemenation is a allocated
-temp heap buffer, which can also on the stack.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 5 Feb 2013 20:08:19 +0000
 
-I hope 100 bytes in 6lowpan are fine.
+> On Thu, 2013-01-31 at 13:51 -0500, David Miller wrote:
+>> From: Amir Vadai <amirv@mellanox.com>
+>> Date: Thu, 31 Jan 2013 11:07:01 +0200
+>> 
+>> > Hi Dave,
+>> > 
+>> > This series contains updates to mlx4 driver.
+>> > Majority of the patches are small bug fixes. Another patch is to expose through
+>> > debugfs some HW resources to be used by external tools.
+>> > 
+>> > Patches done against net-next commit 1b13c97: "net/vxlan: Add ethtool drvinfo"
+>> > 
+>> > Changes from V0:
+>> > - Removed patch "net/mlx4_en: Add debugfs support". Need to find a standard way
+>> >   to do it, and no need to delay the other patches.
+>> 
+>> All applied, thanks.
+> 
+> The first time this series was posted (this is actually v2) I raised an
+> issue with the changes to interpretation of the VLAN tag in ethtool RX
+> NFC commands: <http://article.gmane.org/gmane.linux.network/257392/>.
+> The semantics are now definitely inconsistent between sfc and mlx4_en.
+> I asked Alexander what ixgbe (first implementation) does with the upper
+> 4 bits, with the aim that all three implementations should be
+> consistent, but I haven't had an answer to that yet.
 
-Alexander Aring (2):
-  6lowpan: use stack buffer instead of heap
-  wpan: use stack buffer instead of heap
-
- net/ieee802154/6lowpan.c | 13 ++++---------
- net/mac802154/wpan.c     |  7 +------
- 2 files changed, 5 insertions(+), 15 deletions(-)
-
--- 
-1.8.1.2
-
-
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
+I was hoping you guys would resolve this and post follow-on fixes
+if necessary.
