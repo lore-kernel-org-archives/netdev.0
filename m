@@ -1,99 +1,78 @@
-From: Dhanasekaran Anbalagan <bugcy013@gmail.com>
-Subject: Re: How to enable Adaptive RX on
-Date: Tue, 5 Feb 2013 15:14:08 -0500
-Message-ID: <CAJzooYdDQ4hHEpeJ+XV=+QvpqBST5r53RuY8R-4Y9=1xyAGwmw@mail.gmail.com>
-References: <CAJzooYfqO64TgrswgrpHw5VmzeO_XveGUDy7tPQ0s4+zsnKO0A@mail.gmail.com>
-	<1360092001.2857.3.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAJzooYfgPcpakMigNH8hk1OavzTe0SiHxpM=_6FL--Rm0HmfBg@mail.gmail.com>
-	<1360094065.2857.20.camel@bwh-desktop.uk.solarflarecom.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/2] 6lowpan: use stack buffer instead
+	of heap
+Date: Tue,  5 Feb 2013 21:23:43 +0100
+Message-ID: <1360095824-12538-2-git-send-email-alex.aring@gmail.com>
+References: <1360095824-12538-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5494808597038093352=="
-Cc: e1000-devel <e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1360094065.2857.20.camel@bwh-desktop.uk.solarflarecom.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1360095824-12538-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---===============5494808597038093352==
-Content-Type: multipart/alternative; boundary=f46d043d64b360a20804d4ffdb76
+head buffer is only temporary available in lowpan_header_create.
+So it's not necessary to put it on the heap.
 
---f46d043d64b360a20804d4ffdb76
-Content-Type: text/plain; charset=UTF-8
+Also fixed a comment codestyle issue.
 
-Hi Bean,
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/ieee802154/6lowpan.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
 
-Is there any specific modules here, we need enable the coalescing,  with
-our kernel so the Adaptive RX turn on.
+diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
+index f651da6..2bc5e8f 100644
+--- a/net/ieee802154/6lowpan.c
++++ b/net/ieee802154/6lowpan.c
+@@ -377,17 +377,14 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	struct ipv6hdr *hdr;
+ 	const u8 *saddr = _saddr;
+ 	const u8 *daddr = _daddr;
+-	u8 *head;
++	u8 head[100];
+ 	struct ieee802154_addr sa, da;
+ 
++	/* TODO:
++	 * if this package isn't ipv6 one, where should it be routed?
++	 */
+ 	if (type != ETH_P_IPV6)
+ 		return 0;
+-		/* TODO:
+-		 * if this package isn't ipv6 one, where should it be routed?
+-		 */
+-	head = kzalloc(100, GFP_KERNEL);
+-	if (head == NULL)
+-		return -ENOMEM;
+ 
+ 	hdr = ipv6_hdr(skb);
+ 	hc06_ptr = head + 2;
+@@ -561,8 +558,6 @@ static int lowpan_header_create(struct sk_buff *skb,
+ 	skb_pull(skb, sizeof(struct ipv6hdr));
+ 	memcpy(skb_push(skb, hc06_ptr - head), head, hc06_ptr - head);
+ 
+-	kfree(head);
+-
+ 	lowpan_raw_dump_table(__func__, "raw skb data dump", skb->data,
+ 				skb->len);
+ 
+-- 
+1.8.1.2
 
-please guide me.
-
--Dhanasekaran.
-
-Did I learn something today? If not, I wasted it.
-
-
-On Tue, Feb 5, 2013 at 2:54 PM, Ben Hutchings <bhutchings@solarflare.com>wrote:
-
-> On Tue, 2013-02-05 at 14:23 -0500, Dhanasekaran Anbalagan wrote:
-> > Hi we have the following
-> >
-> > root@dvcl150:~# ethtool -i eth0
-> > driver: igb
-> > version: 3.2.10-k
-> > firmware-version: 1.6-1
-> > bus-info: 0000:04:00.0
-> > supports-statistics: yes
-> > supports-test: yes
-> > supports-eeprom-access: yes
-> > supports-register-dump: yes
->
-> This driver doesn't support adaptive RX IRQ coalescing.  It should
-> report an error when you try to enable it, but currently just ignores
-> that setting.
->
-> Ben.
->
->
-> --
-> Ben Hutchings, Staff Engineer, Solarflare
-> Not speaking for my employer; that's the marketing department's job.
-> They asked us to note that Solarflare product names are trademarked.
->
->
-
---f46d043d64b360a20804d4ffdb76--
-
-
---===============5494808597038093352==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
 ------------------------------------------------------------------------------
 Free Next-Gen Firewall Hardware Offer
 Buy your Sophos next-gen firewall before the end March 2013 
 and get the hardware for free! Learn more.
 http://p.sf.net/sfu/sophos-d2d-feb
---===============5494808597038093352==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============5494808597038093352==--
