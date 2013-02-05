@@ -1,208 +1,75 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH ipsec-next] xfrm: make gc_thresh configurable in all namespaces
-Date: Tue, 5 Feb 2013 14:09:41 +0100
-Message-ID: <20130205131928.D2233C4E4A@unicorn.suse.cz>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:49659 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751780Ab3BENTc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 08:19:32 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH] driver-core: constify data for class_find_device()
+Date: Tue, 05 Feb 2013 13:36:38 +0000
+Message-ID: <20130205133638.9ED2F3E0E27@localhost>
+References: <4cba0646c55f8beb9e290492e499be209ca6f20d.1359746656.git.mirq-linux@rere.qmqm.pl>
+Content-Type: multipart/mixed; boundary="===============3106524905348920757=="
+Cc: rtc-linux-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	Benny Halevy <bhalevy-4/WYdZTkCtzQT0dZR+AlfA@public.gmane.org>, osd-dev-yNzVSZO3znNg9hUCZPvPmw@public.gmane.org,
+	Boaz Harrosh <bharrosh-C4P08NqkoRlBDgjK7y7TUQ@public.gmane.org>, linux-nfc-hn68Rpc1hR1g9hUCZPvPmw@public.gmane.org,
+	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	open-iscsi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org, linux-pm-u79uwXL29TavoUN+ObpdWA@public.gmane.org
+To: Michał Mirosław <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>, Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <4cba0646c55f8beb9e290492e499be209ca6f20d.1359746656.git.mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
+	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
+List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
+	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The xfrm gc threshold can be configured via xfrm{4,6}_gc_thresh
-sysctl but currently only in init_net, other namespaces always
-use the default value. This can substantially limit the number
-of IPsec tunnels that can be effectively used.
+--===============3106524905348920757==
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- include/net/netns/ipv4.h |    1 +
- include/net/netns/ipv6.h |    1 +
- net/ipv4/xfrm4_policy.c  |   52 +++++++++++++++++++++++++++++++++++++++++-----
- net/ipv6/xfrm6_policy.c  |   52 +++++++++++++++++++++++++++++++++++++++++-----
- 4 files changed, 96 insertions(+), 10 deletions(-)
+On Fri,  1 Feb 2013 20:40:17 +0100 (CET), Michał Mirosław <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org> wrote:
+> All in-kernel users of class_find_device() don't really need mutable
+> data for match callback.
+> 
+> In two places (kernel/power/suspend_test.c, drivers/scsi/osd/osd_uld.c)
+> this patch changes match callbacks to use const search data.
+> 
+> The const is propagated to rtc_class_open() and power_supply_get_by_name()
+> parameters.
+> 
+> Note that there's a dev reference leak in suspend_test.c that's not
+> touched in this patch.
+> 
+> Signed-off-by: Michał Mirosław <mirq-linux-CoA6ZxLDdyEEUmgCuDUIdw@public.gmane.org>
+> ---
+> 
+> patch against https://github.com/torvalds/linux.git master
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 9b78862..2ba9de8 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -22,6 +22,7 @@ struct netns_ipv4 {
- 	struct ctl_table_header	*frags_hdr;
- 	struct ctl_table_header	*ipv4_hdr;
- 	struct ctl_table_header *route_hdr;
-+	struct ctl_table_header *xfrm4_hdr;
- #endif
- 	struct ipv4_devconf	*devconf_all;
- 	struct ipv4_devconf	*devconf_dflt;
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 214cb0a..1242f37 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -16,6 +16,7 @@ struct netns_sysctl_ipv6 {
- 	struct ctl_table_header *route_hdr;
- 	struct ctl_table_header *icmp_hdr;
- 	struct ctl_table_header *frags_hdr;
-+	struct ctl_table_header *xfrm6_hdr;
- #endif
- 	int bindv6only;
- 	int flush_delay;
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 3be0ac2..20f5ed6 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -262,7 +262,51 @@ static struct ctl_table xfrm4_policy_table[] = {
- 	{ }
- };
- 
--static struct ctl_table_header *sysctl_hdr;
-+static int __net_init xfrm4_net_init(struct net *net)
-+{
-+	struct ctl_table *table;
-+	struct ctl_table_header *hdr;
-+
-+	table = xfrm4_policy_table;
-+	if (!net_eq(net, &init_net)) {
-+		table = kmemdup(table, sizeof(xfrm4_policy_table), GFP_KERNEL);
-+		if (!table)
-+			goto err_alloc;
-+
-+		table[0].data = &net->xfrm.xfrm4_dst_ops.gc_thresh;
-+	}
-+
-+	hdr = register_net_sysctl(net, "net/ipv4", table);
-+	if (!hdr)
-+		goto err_reg;
-+
-+	net->ipv4.xfrm4_hdr = hdr;
-+	return 0;
-+
-+err_reg:
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
-+}
-+
-+static void __net_exit xfrm4_net_exit(struct net *net)
-+{
-+	struct ctl_table *table;
-+
-+	if (net->ipv4.xfrm4_hdr == NULL)
-+		return;
-+
-+	table = net->ipv4.xfrm4_hdr->ctl_table_arg;
-+	unregister_net_sysctl_table(net->ipv4.xfrm4_hdr);
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+}
-+
-+static struct pernet_operations __net_initdata xfrm4_net_ops = {
-+	.init	= xfrm4_net_init,
-+	.exit	= xfrm4_net_exit,
-+};
- #endif
- 
- static void __init xfrm4_policy_init(void)
-@@ -273,8 +317,7 @@ static void __init xfrm4_policy_init(void)
- static void __exit xfrm4_policy_fini(void)
- {
- #ifdef CONFIG_SYSCTL
--	if (sysctl_hdr)
--		unregister_net_sysctl_table(sysctl_hdr);
-+	unregister_pernet_subsys(&xfrm4_net_ops);
- #endif
- 	xfrm_policy_unregister_afinfo(&xfrm4_policy_afinfo);
- }
-@@ -286,8 +329,7 @@ void __init xfrm4_init(void)
- 	xfrm4_state_init();
- 	xfrm4_policy_init();
- #ifdef CONFIG_SYSCTL
--	sysctl_hdr = register_net_sysctl(&init_net, "net/ipv4",
--					 xfrm4_policy_table);
-+	register_pernet_subsys(&xfrm4_net_ops);
- #endif
- }
- 
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 1282737..46cabfa 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -320,7 +320,51 @@ static struct ctl_table xfrm6_policy_table[] = {
- 	{ }
- };
- 
--static struct ctl_table_header *sysctl_hdr;
-+static int __net_init xfrm6_net_init(struct net *net)
-+{
-+	struct ctl_table *table;
-+	struct ctl_table_header *hdr;
-+
-+	table = xfrm6_policy_table;
-+	if (!net_eq(net, &init_net)) {
-+		table = kmemdup(table, sizeof(xfrm6_policy_table), GFP_KERNEL);
-+		if (!table)
-+			goto err_alloc;
-+
-+		table[0].data = &net->xfrm.xfrm6_dst_ops.gc_thresh;
-+	}
-+
-+	hdr = register_net_sysctl(net, "net/ipv6", table);
-+	if (!hdr)
-+		goto err_reg;
-+
-+	net->ipv6.sysctl.xfrm6_hdr = hdr;
-+	return 0;
-+
-+err_reg:
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
-+}
-+
-+static void __net_exit xfrm6_net_exit(struct net *net)
-+{
-+	struct ctl_table *table;
-+
-+	if (net->ipv6.sysctl.xfrm6_hdr == NULL)
-+		return;
-+
-+	table = net->ipv6.sysctl.xfrm6_hdr->ctl_table_arg;
-+	unregister_net_sysctl_table(net->ipv6.sysctl.xfrm6_hdr);
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+}
-+
-+static struct pernet_operations __net_initdata xfrm6_net_ops = {
-+	.init	= xfrm6_net_init,
-+	.exit	= xfrm6_net_exit,
-+};
- #endif
- 
- int __init xfrm6_init(void)
-@@ -339,8 +383,7 @@ int __init xfrm6_init(void)
- 		goto out_policy;
- 
- #ifdef CONFIG_SYSCTL
--	sysctl_hdr = register_net_sysctl(&init_net, "net/ipv6",
--					 xfrm6_policy_table);
-+	register_pernet_subsys(&xfrm6_net_ops);
- #endif
- out:
- 	return ret;
-@@ -352,8 +395,7 @@ out_policy:
- void xfrm6_fini(void)
- {
- #ifdef CONFIG_SYSCTL
--	if (sysctl_hdr)
--		unregister_net_sysctl_table(sysctl_hdr);
-+	unregister_pernet_subsys(&xfrm6_net_ops);
- #endif
- 	xfrm6_policy_fini();
- 	xfrm6_state_fini();
--- 
-1.7.10.4
+Acked-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org> for the GPIO and SPI
+bits.
+
+
+
+--===============3106524905348920757==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+--===============3106524905348920757==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+spi-devel-general mailing list
+spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+https://lists.sourceforge.net/lists/listinfo/spi-devel-general
+
+--===============3106524905348920757==--
