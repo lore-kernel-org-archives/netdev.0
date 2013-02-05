@@ -1,228 +1,175 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 1/9] net/mlx4_en: Optimize loopback related checks in data path
-Date: Tue,  5 Feb 2013 13:28:28 +0200
-Message-ID: <1360063716-13415-2-git-send-email-amirv@mellanox.com>
-References: <1360063716-13415-1-git-send-email-amirv@mellanox.com>
-Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yan Burman <yanb@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:44484 "HELO
-	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753986Ab3BEL3N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 06:29:13 -0500
-In-Reply-To: <1360063716-13415-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Ganesan Ramalignam" <ganesanr@broadcom.com>
+Subject: Re: [PATCH 1/2] NET: ethernet/netlogic: Netlogic XLR/XLS GMAC
+ driver
+Date: Tue, 5 Feb 2013 16:59:00 +0530
+Message-ID: <20130205112859.GA17465@ganesanr.netlogicmircro.com>
+References: <1359450699-26141-1-git-send-email-ganesanr@broadcom.com>
+ <1359508293.4144.29.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
+To: "Ben Hutchings" <bhutchings@solarflare.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <1359508293.4144.29.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Disposition: inline
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
+List-Id: netdev.vger.kernel.org
 
-From: Yan Burman <yanb@mellanox.com>
+Ben, Thank you for your comments, will submit the driver with fixes.
+Reply inline.
 
-Currently there are relatively complex conditional checks in the fast path,
-for TX loopback enabling and resulting RX filter logic.
-Move elaborate if's out of data path, replace them with a single flag
-for each state and update that state from appropriate places.
-Also, in native (non SRIOV) mode and not in loopback or in selftest,
-there is no need to try and filter out packets that HW loopback-ed,
-as in native mode we do not loopback packets anymore.
+On Wed, Jan 30, 2013 at 01:11:33AM +0000, Ben Hutchings wrote:
+> On Tue, 2013-01-29 at 14:41 +0530, ganesanr@broadcom.com wrote:
+> > From: Ganesan Ramalingam <ganesanr@broadcom.com>
+> > 
+> > Add support for the Network Accelerator Engine on Netlogic XLR/XLS
+> > MIPS SoCs. The XLR/XLS NAE blocks can be configured as one 10G
+> > interface or four 1G interfaces. This driver supports blocks
+> > with 1G ports.
+> > 
+> > Signed-off-by: Ganesan Ramalingam <ganesanr@broadcom.com>
+> > ---
+> >  This patch has to be merged through netdev tree.
+> >  Please review and let me know if there are any comments or suggestions.
+> > 
+> >  drivers/net/ethernet/Kconfig            |    1 +
+> >  drivers/net/ethernet/Makefile           |    1 +
+> >  drivers/net/ethernet/netlogic/Kconfig   |    8 +
+> >  drivers/net/ethernet/netlogic/Makefile  |    1 +
+> >  drivers/net/ethernet/netlogic/xlr_net.c | 1132 +++++++++++++++++++++++++++++++
+> >  drivers/net/ethernet/netlogic/xlr_net.h | 1098 ++++++++++++++++++++++++++++++
+> >  6 files changed, 2241 insertions(+), 0 deletions(-)
+> >  create mode 100644 drivers/net/ethernet/netlogic/Kconfig
+> >  create mode 100644 drivers/net/ethernet/netlogic/Makefile
+> >  create mode 100644 drivers/net/ethernet/netlogic/xlr_net.c
+> >  create mode 100644 drivers/net/ethernet/netlogic/xlr_net.h
+> 
+> Why add a netlogic directory when the company is now a part of Broadcom?
+> 
+> [...]
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_main.c     |   22 ++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    4 ++
- drivers/net/ethernet/mellanox/mlx4/en_rx.c       |   39 ++++++++++++----------
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |    3 ++
- drivers/net/ethernet/mellanox/mlx4/en_tx.c       |    2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |   16 ++++++++-
- 6 files changed, 65 insertions(+), 21 deletions(-)
+All our submissions are still following the Netlogic convention, look at
+arch/mips/netlogic/, this will be changed in future with BRCM wrapper.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index f3c7961..e3c3d12 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -95,6 +95,28 @@ int en_print(const char *level, const struct mlx4_en_priv *priv,
- 	return i;
- }
- 
-+void mlx4_en_update_loopback_state(struct net_device *dev,
-+				   netdev_features_t features)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+
-+	priv->flags &= ~(MLX4_EN_FLAG_RX_FILTER_NEEDED|
-+			MLX4_EN_FLAG_ENABLE_HW_LOOPBACK);
-+
-+	/* Drop the packet if SRIOV is not enabled
-+	 * and not performing the selftest or flb disabled
-+	 */
-+	if (mlx4_is_mfunc(priv->mdev->dev) &&
-+	    !(features & NETIF_F_LOOPBACK) && !priv->validate_loopback)
-+		priv->flags |= MLX4_EN_FLAG_RX_FILTER_NEEDED;
-+
-+	/* Set dmac in Tx WQE if we are in SRIOV mode or if loopback selftest
-+	 * is requested
-+	 */
-+	if (mlx4_is_mfunc(priv->mdev->dev) || priv->validate_loopback)
-+		priv->flags |= MLX4_EN_FLAG_ENABLE_HW_LOOPBACK;
-+}
-+
- static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- {
- 	struct mlx4_en_profile *params = &mdev->profile;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index ac1c14f..551ef68 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1563,6 +1563,8 @@ static int mlx4_en_set_features(struct net_device *netdev,
- 		priv->ctrl_flags &=
- 			cpu_to_be32(~MLX4_WQE_CTRL_FORCE_LOOPBACK);
- 
-+	mlx4_en_update_loopback_state(netdev, features);
-+
- 	return 0;
- 
- }
-@@ -1731,6 +1733,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	en_warn(priv, "Using %d TX rings\n", prof->tx_ring_num);
- 	en_warn(priv, "Using %d RX rings\n", prof->rx_ring_num);
- 
-+	mlx4_en_update_loopback_state(priv->dev, priv->dev->features);
-+
- 	/* Configure port */
- 	mlx4_en_calc_rx_buf(dev);
- 	err = mlx4_SET_PORT_general(mdev->dev, priv->port,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index fed26d8..ed214d0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -563,9 +563,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 	unsigned int length;
- 	int polled = 0;
- 	int ip_summed;
--	struct ethhdr *ethh;
--	dma_addr_t dma;
--	u64 s_mac;
- 	int factor = priv->cqe_factor;
- 
- 	if (!priv->port_up)
-@@ -603,21 +600,27 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 			goto next;
- 		}
- 
--		/* Get pointer to first fragment since we haven't skb yet and
--		 * cast it to ethhdr struct */
--		dma = be64_to_cpu(rx_desc->data[0].addr);
--		dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
--					DMA_FROM_DEVICE);
--		ethh = (struct ethhdr *)(page_address(frags[0].page) +
--					 frags[0].offset);
--		s_mac = mlx4_en_mac_to_u64(ethh->h_source);
--
--		/* If source MAC is equal to our own MAC and not performing
--		 * the selftest or flb disabled - drop the packet */
--		if (s_mac == priv->mac &&
--		    !((dev->features & NETIF_F_LOOPBACK) ||
--		      priv->validate_loopback))
--			goto next;
-+		/* Check if we need to drop the packet if SRIOV is not enabled
-+		 * and not performing the selftest or flb disabled
-+		 */
-+		if (priv->flags & MLX4_EN_FLAG_RX_FILTER_NEEDED) {
-+			struct ethhdr *ethh;
-+			dma_addr_t dma;
-+			u64 s_mac;
-+			/* Get pointer to first fragment since we haven't
-+			 * skb yet and cast it to ethhdr struct
-+			 */
-+			dma = be64_to_cpu(rx_desc->data[0].addr);
-+			dma_sync_single_for_cpu(priv->ddev, dma, sizeof(*ethh),
-+						DMA_FROM_DEVICE);
-+			ethh = (struct ethhdr *)(page_address(frags[0].page) +
-+						 frags[0].offset);
-+
-+			/* Drop the packet, since HW loopback-ed it */
-+			s_mac = mlx4_en_mac_to_u64(ethh->h_source);
-+			if (s_mac == priv->mac)
-+				goto next;
-+		}
- 
- 		/*
- 		 * Packet is OK - process it.
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-index bf2e5d3..3488c6d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_selftest.c
-@@ -87,6 +87,8 @@ static int mlx4_en_test_loopback(struct mlx4_en_priv *priv)
-         priv->loopback_ok = 0;
- 	priv->validate_loopback = 1;
- 
-+	mlx4_en_update_loopback_state(priv->dev, priv->dev->features);
-+
- 	/* xmit */
- 	if (mlx4_en_test_loopback_xmit(priv)) {
- 		en_err(priv, "Transmitting loopback packet failed\n");
-@@ -107,6 +109,7 @@ static int mlx4_en_test_loopback(struct mlx4_en_priv *priv)
- mlx4_en_test_loopback_exit:
- 
- 	priv->validate_loopback = 0;
-+	mlx4_en_update_loopback_state(priv->dev, priv->dev->features);
- 	return !loopback_ok;
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 30724d8..3b28e16 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -640,7 +640,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
- 		ring->tx_csum++;
- 	}
- 
--	if (mlx4_is_mfunc(mdev->dev) || priv->validate_loopback) {
-+	if (priv->flags & MLX4_EN_FLAG_ENABLE_HW_LOOPBACK) {
- 		/* Copy dst mac address to wqe. This allows loopback in eSwitch,
- 		 * so that VFs and PF can communicate with each other
- 		 */
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 43f0165..696dcf3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -432,6 +432,17 @@ struct ethtool_flow_id {
- 	u64 id;
- };
- 
-+enum {
-+	MLX4_EN_FLAG_PROMISC		= (1 << 0),
-+	MLX4_EN_FLAG_MC_PROMISC		= (1 << 1),
-+	/* whether we need to enable hardware loopback by putting dmac
-+	 * in Tx WQE
-+	 */
-+	MLX4_EN_FLAG_ENABLE_HW_LOOPBACK	= (1 << 2),
-+	/* whether we need to drop packets that hardware loopback-ed */
-+	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3)
-+};
-+
- struct mlx4_en_priv {
- 	struct mlx4_en_dev *mdev;
- 	struct mlx4_en_port_profile *prof;
-@@ -481,8 +492,6 @@ struct mlx4_en_priv {
- 	struct mlx4_en_rss_map rss_map;
- 	__be32 ctrl_flags;
- 	u32 flags;
--#define MLX4_EN_FLAG_PROMISC	0x1
--#define MLX4_EN_FLAG_MC_PROMISC	0x2
- 	u8 num_tx_rings_p_up;
- 	u32 tx_ring_num;
- 	u32 rx_ring_num;
-@@ -534,6 +543,9 @@ enum mlx4_en_wol {
- 
- #define MLX4_EN_WOL_DO_MODIFY (1ULL << 63)
- 
-+void mlx4_en_update_loopback_state(struct net_device *dev,
-+				   netdev_features_t features);
-+
- void mlx4_en_destroy_netdev(struct net_device *dev);
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 			struct mlx4_en_port_profile *prof);
--- 
-1.7.6.4
+> > --- /dev/null
+> > +++ b/drivers/net/ethernet/netlogic/xlr_net.c
+> [...]
+> > +/* Ethtool operation */
+> > +static int xlr_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static int xlr_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static void xlr_get_drvinfo(struct net_device *ndev,
+> > +		struct ethtool_drvinfo *drvinfo)
+> > +{
+> > +	return;
+> > +}
+> > +
+> > +static u32 xlr_get_link(struct net_device *ndev)
+> > +{
+> > +	return 0;
+> > +}
+> > +
+> > +static struct ethtool_ops xlr_ethtool_ops = {
+> > +	.get_settings = xlr_get_settings,
+> > +	.set_settings = xlr_set_settings,
+> > +	.get_drvinfo = xlr_get_drvinfo,
+> > +	.get_link = xlr_get_link,
+> > +};
+> 
+> Either implement them or don't.  I'm guessing that phylib can handle
+> get_settings and set_settings for you.
+> 
+> [...]
+
+Fixed
+
+> > +static netdev_tx_t xlr_net_start_xmit(struct sk_buff *skb,
+> > +               struct net_device *ndev)
+> > +{
+> > +       struct nlm_fmn_msg msg;
+> > +       struct xlr_net_priv *priv = netdev_priv(ndev);
+> > +       int ret;
+> > +       u16 qmap;
+> > +       u32 flags;
+> > +
+> > +       qmap = skb->queue_mapping;
+> > +       xlr_make_tx_desc(&msg, virt_to_phys(skb->data), skb);
+> > +       flags = nlm_cop2_enable();
+> > +       ret = nlm_fmn_send(2, 0, priv->nd->tx_stnid, &msg);
+> > +       nlm_cop2_restore(flags);
+> > +       return NETDEV_TX_OK;
+> > +}
+> 
+> If nlm_fmn_send() fails then you need to free the skbuff.
+> 
+> [...]
+
+Fixed
+
+> > +static void xlr_stats(struct net_device *ndev, struct net_device_stats *stats)
+> > +{
+> > +	struct xlr_net_priv *priv = netdev_priv(ndev);
+> > +
+> > +	stats->rx_packets = nlm_read_reg(priv->base_addr, RX_PACKET_COUNTER);
+> > +	stats->tx_packets = nlm_read_reg(priv->base_addr, TX_PACKET_COUNTER);
+> > +	stats->rx_bytes = nlm_read_reg(priv->base_addr, RX_BYTE_COUNTER);
+> > +	stats->tx_bytes = nlm_read_reg(priv->base_addr, TX_BYTE_COUNTER);
+> 
+> 32-bit byte counters for a 1G/10G device?  Seriously?
+> 
+> [...]
+
+Yes, all are 32-bit byte counters
+
+> > +struct net_device_stats *xlr_get_stats(struct net_device *ndev)
+> > +{
+> > +	struct net_device_stats *stats = &ndev->stats;
+> > +
+> > +	xlr_stats(ndev, stats);
+> > +	return stats;
+> > +}
+> 
+> You should probably be implementing ndo_get_stats64 to provide 64-bit
+> stats even on a 32-bit kernel.
+> 
+
+Fixed
+
+> > +static int xlr_net_probe(struct platform_device *pdev)
+> > +{
+> [...]
+> > +	ndev->watchdog_timeo = 1000 * HZ;
+> [...]
+> 
+
+Fixed
+
+> A watchdog timeout of 1000 seconds is ridiculous.  I guess someone just
+> kept seeing the watchdog fire and increasing the timeout, and never
+> thought about *why* this was happening.
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+> 
+> 
