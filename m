@@ -1,113 +1,88 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [PATCH] batman-adv: Remove unused variable
-Date: Wed, 6 Feb 2013 20:55:57 +0100
-Message-ID: <20130206195557.GC6008@ritirata.org>
-References: <1360168661-16871-1-git-send-email-emilgoode@gmail.com>
- <20130206172234.GB6008@ritirata.org>
- <1360173353.22154.4.camel@debian>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Wed, 6 Feb 2013 19:58:21 +0000
+Message-ID: <1360180701.2659.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130206114321.GA13497@redhat.com>
+	 <1360156059.28557.28.camel@edumazet-glaptop>
+	 <20130206155049.GB14735@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="+nBD6E3TurpgldQp"
-Cc: lindner_marek@yahoo.de, siwu@hrz.tu-chemnitz.de,
-	davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Emil Goode <emilgoode@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	<alexander.h.duyck@intel.com>, <stephen.s.ko@intel.com>,
+	<jeffrey.t.kirsher@intel.com>, David Miller <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
+	<mchan@broadcom.com>, <jitendra.kalsaria@qlogic.com>,
+	<eilong@broadcom.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:24749 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758107Ab3BFT4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 14:56:51 -0500
-Content-Disposition: inline
-In-Reply-To: <1360173353.22154.4.camel@debian>
+Received: from webmail.solarflare.com ([12.187.104.25]:46414 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758068Ab3BFT6n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 14:58:43 -0500
+In-Reply-To: <20130206155049.GB14735@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
+> On Wed, Feb 06, 2013 at 05:07:39AM -0800, Eric Dumazet wrote:
+> > On Wed, 2013-02-06 at 13:43 +0200, Michael S. Tsirkin wrote:
+> > > It seems that starting with kernel 3.3 ixgbe sets gso_size for
+> > > incoming frames. It seems that this might result in gso_size
+> > > being set even when gso_type is 0.
+> > > This in turn leads to a crash at macvtap_skb_to_vnet_hdr
+> > > drivers/net/macvtap.c:628
+> > > which has this code:
+> > > 
+> > >        if (skb_is_gso(skb)) {
+> > >                 struct skb_shared_info *sinfo = skb_shinfo(skb);
+> > > 
+> > >                 /* This is a hint as to how much should be linear. */
+> > >                 vnet_hdr->hdr_len = skb_headlen(skb);
+> > >                 vnet_hdr->gso_size = sinfo->gso_size;
+> > >                 if (sinfo->gso_type & SKB_GSO_TCPV4)
+> > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+> > >                 else if (sinfo->gso_type & SKB_GSO_TCPV6)
+> > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+> > >                 else if (sinfo->gso_type & SKB_GSO_UDP)
+> > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+> > >                 else
+> > >                         BUG();
+> > >                 if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+> > >                         vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
+> > >         } else
+> > >                 vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+> > > 
+> > > 
+> > > Since skb_is_gso tests gso_size.
+> > > 
+> > > What's the right way to handle this? Should skb_is_gso be
+> > > changed to test gso_type != 0?
+> > > 
+> > 
+> > Or fix ixgbe to set gso_type in ixgbe_get_headlen(), as it does all the
+> > dissection.
+> 
+> 
+> Hmm, ixgbe_get_headlen isn't run on linear skbs though.
+> 
+> Also, I'm not sure I understand when should drivers set gso size
+> for incoming messages and what is a reasonable value.
+> Commit log talks about improved performance for lossy connections,
+> in this case, isn't this something net core should set?
+[...]
 
---+nBD6E3TurpgldQp
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+It should be set to the segment size on the wire, so TCP gets a correct
+picture of packet loss.  The networking core has no idea what hardware/
+firmware LRO did.
 
-Hi Emil,
+I've previously raised this issue of macvlan vs LRO (which is the same
+issue we previously had with IP forwarding and with bridging):
+     http://thread.gmane.org/gmane.linux.network/221695
 
-On Wed, Feb 06, 2013 at 06:55:53 +0100, Emil Goode wrote:
-> Hi Antonio,
->=20
-> The commit ed242d01 is in the linux-next tree and my patch depends on
-> that commit.
->=20
+Ben.
 
-Yes, you are right. I was not aware of this commit, because the author
-did not CC us (neither netdev) even if he changed the code we maintain.
-
-As far as I can see that commit is in linux-next only.
-Therefore it must be applied there.
-
-However, I'd like you to change the commit message and write the full hash =
-of
-the commit you are referring to and its subject ("LIKE THIS"). This would m=
-ake
-it easier to find it.
-
-
-Regards,
-
-> Best regards, Emil
->=20
-> On Wed, 2013-02-06 at 18:22 +0100, Antonio Quartulli wrote:
-> > Hi Emil,
-> >=20
-> > On Wed, Feb 06, 2013 at 05:37:41 +0100, Emil Goode wrote:
-> > > The commit ed242d01 removed a node parameter from iterators.
-> > > This patch removes a hlist_node struct that is no longer used.
-> > >=20
-> > > Sparse gives a warning:
-> > >=20
-> > > net/batman-adv/originator.c:411:21: warning:
-> > > 	unused variable =E2=80=98node_tmp=E2=80=99 [-Wunused-variable]
-> > >=20
-> > > Signed-off-by: Emil Goode <emilgoode@gmail.com>
-> >=20
-> > On which tree did you base your patch?
-> > I cannot find the commit you are referring to (ed242d01) and the patch =
-does not
-> > apply (neither on net nor net-next).
-> >=20
-> > Other than that the variable is used a couple of lines below (in the co=
-de we
-> > have)...
-> >=20
-> > Regards,
-> >=20
->=20
->=20
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---+nBD6E3TurpgldQp
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRErVNAAoJEADl0hg6qKeO70sP+QGBVPOnKtLXmv6oTINvN3d/
-4v0tQwBtISlvGb5LUOy/bvXX/sQOk/T6XfRSC617pIvF5Xp4+2eZpPV9JfXTw5Mg
-FSG7PDHuWURSkTnQGsgQnEdBa4aVPYTDmKtGMdSe8QXnUGEwPdgZONTq1wxTrHyB
-E0ii2G63BRZKmnwFbuga71whoKNfaf0O6kU8EmSQeVPml3TB5Qg0meqBFgBU73TL
-KrAHbMlOWjska+VrPE/yEpfAdRJclvwxPn9ELhMPyf2jbAbik2cWHXLQTjJWkzpb
-2S2R0YomgsYflIZo0NJkpnCXQOI4yqzlfufn494SiOcc65AB3J8uCTPgTLfnUhYz
-QVquuy3lfQzoaoB/eGfjZUWXnrkiK5Sf+zEBMfobZMP5OS5+Lhx0dmr3BE1km6GV
-ZNvoJcl04ANF4snVBpGHz8e4T0ihbThJMBmjTlBnBuIo6gzp7McGWmc7rj2u2PNV
-Al1nXQTws0I2eDgldIKVJiUM3J0+F89N4axS52GyxtrU8ROcx9cBVAfe19Up+S8L
-gAq95umyJZhO/OVbk94Zjf2BpU5JLIH/j/nysLfbQkfcvkidtb1r+B47RcL957ty
-AjaIhIurwX+Ji+5NnoSvt/Cqmjk6kpFMyWdB9ahja3+bT8VfUGcV1MoiQjEJENkW
-r/zeYtay3MWysE/8PbuE
-=Qz3Y
------END PGP SIGNATURE-----
-
---+nBD6E3TurpgldQp--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
