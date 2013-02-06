@@ -1,60 +1,60 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART messages and interrupt pipe setup
-Date: Wed, 06 Feb 2013 22:11:51 +0100
-Message-ID: <87ip655eqw.fsf@nemi.mork.no>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	<1357318096.5370.15.camel@dcbw.foobar.com>
-	<1357318289.5370.19.camel@dcbw.foobar.com>
-	<1360176176.11742.16.camel@dcbw.foobar.com>
+From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Subject: Re: [PATCH] tcp: frto should not set snd_cwnd to 0
+Date: Wed, 6 Feb 2013 23:13:43 +0200
+Message-ID: <20130206211343.GW8912@reaktio.net>
+References: <1359918785.30177.111.camel@edumazet-glaptop>
+ <alpine.DEB.2.00.1302041327210.4561@wel-95.cs.helsinki.fi>
+ <CADVnQymufg8YFCg3cBQzTW-WbYRYpG=FVqtd-A5tLUU=Uex_eg@mail.gmail.com>
+ <20130206.155504.1553906005129825120.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Dan Williams <dcbw@redhat.com>
+Cc: ncardwell@google.com, ilpo.jarvinen@helsinki.fi,
+	eric.dumazet@gmail.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org, netdev@vger.kernel.org,
+	ycheng@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:58549 "EHLO canardo.mork.no"
+Received: from smtp.tele.fi ([192.89.123.25]:61321 "EHLO smtp.tele.fi"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758462Ab3BFVMG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 16:12:06 -0500
-In-Reply-To: <1360176176.11742.16.camel@dcbw.foobar.com> (Dan Williams's
-	message of "Wed, 06 Feb 2013 12:42:56 -0600")
+	id S1755670Ab3BFVNs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 16:13:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20130206.155504.1553906005129825120.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Williams <dcbw@redhat.com> writes:
-
-> As part of the initialization sequence, the driver sends a SYNC messa=
-ge
-> via the control pipe to the firmware, which appears to request a
-> firmware restart.  The firmware responds with an indication via the
-> interrupt pipe set up by usbnet.  If the driver does not receive a
-> RESTART indication within a certain amount of time, it will periodica=
-lly
-> send additional SYNC messages until it receives the RESTART indicatio=
-n.
+On Wed, Feb 06, 2013 at 03:55:04PM -0500, David Miller wrote:
+> From: Neal Cardwell <ncardwell@google.com>
+> Date: Tue, 5 Feb 2013 14:49:04 -0500
+>=20
+> > On Mon, Feb 4, 2013 at 7:14 AM, Ilpo J=E4rvinen <ilpo.jarvinen@hels=
+inki.fi> wrote:
+> >> [PATCH 1/1] tcp: fix for zero packets_in_flight was too broad
+> >>
+> >> There are transients during normal FRTO procedure during which
+> >> the packets_in_flight can go to zero between write_queue state
+> >> updates and firing the resulting segments out. As FRTO processing
+> >> occurs during that window the check must be more precise to
+> >> not match "spuriously" :-). More specificly, e.g., when
+> >> packets_in_flight is zero but FLAG_DATA_ACKED is true the problema=
+tic
+> >> branch that set cwnd into zero would not be taken and new segments
+> >> might be sent out later.
+> >>
+> >> Only compile tested.
+> >>
+> >> Signed-off-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>  ...
+> > Acked-by: Neal Cardwell <ncardwell@google.com>
+>=20
+> Applied, thanks everyone.
 >
-> Unfortunately, the interrupt URB is only submitted while the netdev
-> is open, which is usually not the case during initialization, and thu=
-s
-> the firmware's RESTART indication is lost.  So the driver continues
-> sending SYNC messages, and eventually the firmware crashes when it
-> receives too many.  This leads to a wedged netdev.
->
-> To ensure the firmware's RESTART indications can be received by the
-> driver, request that usbnet keep the interrupt URB active via
-> FLAG_INTR_ALWAYS.
->
-> Second, move the code that sends the SYNC message out of the
-> bind() hook and after usbnet_probe() to ensure the interrupt URB
-> is set up before trying to use it.
 
-Given this description I am wondering if you couldn't just move the
-whole SYNC thing to a new reset() hook, using some private flag to make
-sure it only runs once?  Does it really need to start at probe time?
+Hmm.. are we missing CC stable@kernel.org in these patches?=20
+I guess 3.6.x is already EOL, but it'd be nice to get this bug fixed al=
+so in 3.7.x ..
 
+Thanks,
 
-Bj=C3=B8rn
+-- Pasi
