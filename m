@@ -1,50 +1,158 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: rtl8192cu: Fix NULL dereference BUG when using
- new_id
-Date: Wed, 06 Feb 2013 10:01:17 +0100
-Message-ID: <1360141277.7910.9.camel@jlt4.sipsolutions.net>
-References: <1360108823-5141-1-git-send-email-Larry.Finger@lwfinger.net>
-	 <1360109904.2857.36.camel@bwh-desktop.uk.solarflarecom.com>
-	 <5111A766.70006@lwfinger.net>
-	 <1360113382.2857.48.camel@bwh-desktop.uk.solarflarecom.com>
-	 (sfid-20130206_021632_180510_96D16282)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Hutchings <bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1360113382.2857.48.camel-/LGg1Z1CJKReKY3V0RtoKmatzQS1i7+A3tAM5lWOD0I@public.gmane.org> (sfid-20130206_021632_180510_96D16282)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next v1 8/9] net/mlx4_en: Add unicast MAC filtering
+Date: Wed,  6 Feb 2013 11:13:54 +0200
+Message-ID: <1360142035-13228-9-git-send-email-amirv@mellanox.com>
+References: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog107.obsmtp.com ([207.126.144.123]:51806 "HELO
+	eu1sys200aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752210Ab3BFJOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 04:14:17 -0500
+In-Reply-To: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-06 at 01:16 +0000, Ben Hutchings wrote:
+From: Yan Burman <yanb@mellanox.com>
 
-> > I don't know why USB differs from PCI, but we do need the dynamic ID here as 
-> > there are always new IDs being issued. One of the criteria for adding the ID to 
-> > the table is that it works OK with dynamic addition. These devices are 
-> > frequently reported by users that do not have the skills to build their own kernel.
-> 
-> But since there is no way to set the driver_info for a new USB ID
-> (again, unlike PCI), your change will reject all dynamic IDs.  (And in
-> any case, if the USB core were changed to allow setting driver_info,
-> userland would have difficulty providing a valid pointer!)
-> 
-> It looks like the driver_info is really driver-specific data used to
-> share a probe function between multiple drivers.  But you could add
-> per-driver probe functions that pass the correct rtl_hal_cfg as an extra
-> argument to rtl_usb_probe(), and then dynamic IDs should work.
+Implement and advertise unicast MAC filtering, such that setting macvlan
+instance over mlx4_en interfaces will not require the networking core
+to put mlx4_en devices in promiscuous mode.
 
-Some (PCI?) drivers had/have numbers instead of pointers, so userland
-can provide a number and it then looks up the pointer in an array.
-That's only slightly indirected but makes new_id more useful in that
-case.
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  102 ++++++++++++++++++++++++
+ 1 files changed, 102 insertions(+), 0 deletions(-)
 
-johannes
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 8eb24ee..5da293b 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1016,6 +1016,102 @@ static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
+ 	}
+ }
+ 
++static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
++				 struct net_device *dev,
++				 struct mlx4_en_dev *mdev)
++{
++	struct netdev_hw_addr *ha;
++	struct mlx4_mac_entry *entry;
++	struct hlist_node *n, *tmp;
++	bool found;
++	u64 mac;
++	int err = 0;
++	struct hlist_head *bucket;
++	unsigned int i;
++
++	/* Note that we do not need to protect our mac_hash traversal with rcu,
++	 * since all modification code is protected by mdev->state_lock
++	 */
++
++	/* find what to add */
++	netdev_for_each_uc_addr(ha, dev) {
++		found = false;
++		bucket = &priv->mac_hash[ha->addr[MLX4_EN_MAC_HASH_IDX]];
++		hlist_for_each_entry(entry, n, bucket, hlist) {
++			if (ether_addr_equal_64bits(entry->mac, ha->addr)) {
++				found = true;
++				break;
++			}
++		}
++
++		if (!found) {
++			entry = kmalloc(sizeof(*entry), GFP_KERNEL);
++			if (!entry) {
++				en_err(priv, "Failed adding MAC %pM on port:%d (out of memory)\n",
++				       ha->addr, priv->port);
++				return;
++			}
++			mac = mlx4_en_mac_to_u64(ha->addr);
++			memcpy(entry->mac, ha->addr, ETH_ALEN);
++			err = mlx4_register_mac(mdev->dev, priv->port, mac);
++			if (err < 0) {
++				en_err(priv, "Failed registering MAC %pM on port %d: %d\n",
++				       ha->addr, priv->port, err);
++				kfree(entry);
++				continue;
++			}
++			err = mlx4_en_uc_steer_add(priv, ha->addr,
++						   &priv->base_qpn,
++						   &entry->reg_id);
++			if (err) {
++				en_err(priv, "Failed adding MAC %pM on port:%d\n",
++				       ha->addr, priv->port);
++				mlx4_unregister_mac(mdev->dev, priv->port, mac);
++				kfree(entry);
++			} else {
++				unsigned int mac_hash;
++				en_dbg(DRV, priv, "Added MAC %pM on port:%d\n",
++				       ha->addr, priv->port);
++				mac_hash = ha->addr[MLX4_EN_MAC_HASH_IDX];
++				bucket = &priv->mac_hash[mac_hash];
++				hlist_add_head_rcu(&entry->hlist, bucket);
++			}
++		}
++	}
++
++	/* find what to remove */
++	for (i = 0; i < MLX4_EN_MAC_HASH_SIZE; ++i) {
++		bucket = &priv->mac_hash[i];
++		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
++			found = false;
++			netdev_for_each_uc_addr(ha, dev) {
++				if (ether_addr_equal_64bits(entry->mac,
++							    ha->addr)) {
++					found = true;
++					break;
++				}
++			}
++
++			/* MAC address of the port is not in uc list */
++			if (ether_addr_equal_64bits(entry->mac, dev->dev_addr))
++				found = true;
++
++			if (!found) {
++				mac = mlx4_en_mac_to_u64(entry->mac);
++				mlx4_en_uc_steer_release(priv, entry->mac,
++							 priv->base_qpn,
++							 entry->reg_id);
++				mlx4_unregister_mac(mdev->dev, priv->port, mac);
++
++				hlist_del_rcu(&entry->hlist);
++				kfree_rcu(entry, rcu);
++				en_dbg(DRV, priv, "Removed MAC %pM on port:%d\n",
++				       entry->mac, priv->port);
++			}
++		}
++	}
++}
++
+ static void mlx4_en_do_set_rx_mode(struct work_struct *work)
+ {
+ 	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
+@@ -1043,6 +1139,9 @@ static void mlx4_en_do_set_rx_mode(struct work_struct *work)
+ 		}
+ 	}
+ 
++	if (dev->priv_flags & IFF_UNICAST_FLT)
++		mlx4_en_do_uc_filter(priv, dev, mdev);
++
+ 	/* Promsicuous mode: disable all filters */
+ 	if (dev->flags & IFF_PROMISC) {
+ 		mlx4_en_set_promisc_mode(priv, mdev);
+@@ -1961,6 +2060,9 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+ 		dev->hw_features |= NETIF_F_NTUPLE;
+ 
++	if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_A0)
++		dev->priv_flags |= IFF_UNICAST_FLT;
++
+ 	mdev->pndev[port] = dev;
+ 
+ 	netif_carrier_off(dev);
+-- 
+1.7.8.2
