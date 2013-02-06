@@ -1,44 +1,33 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH] bgmac: validate MAC addr
-Date: Wed,  6 Feb 2013 10:37:32 +0100
-Message-ID: <1360143452-29183-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH ipsec-next v2 0/2] xfrm: make gc_thresh configurable in all
+ namespaces
+Date: Wed,  6 Feb 2013 10:46:13 +0100 (CET)
+Message-ID: <cover.1360143430.git.mkubecek@suse.cz>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:46573 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961Ab3BFJhm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 04:37:42 -0500
-Received: by mail-ea0-f171.google.com with SMTP id c13so473361eaa.30
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 01:37:41 -0800 (PST)
+Received: from cantor2.suse.de ([195.135.220.15]:58496 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751291Ab3BFJqP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 04:46:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Changes from original version:
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
- drivers/net/ethernet/broadcom/bgmac.c |    5 +++++
- 1 file changed, 5 insertions(+)
+- remove unused xfrm4_fini() to avoid section mismatch
+- don't mark xfrm6_net_ops as __net_initdata to avoid section mismatch
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index af149a3..9f95089 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -1290,6 +1290,11 @@ static int bgmac_probe(struct bcma_device *core)
- 		return -ENOTSUPP;
- 	}
-=20
-+	if (!is_valid_ether_addr(mac)) {
-+		dev_err(&core->dev, "Invalid MAC addr: %pM\n", mac);
-+		return -EADDRNOTAVAIL;
-+	}
-+
- 	/* Allocation and references */
- 	net_dev =3D alloc_etherdev(sizeof(*bgmac));
- 	if (!net_dev)
---=20
+Michal Kubecek (2):
+  xfrm: remove unused xfrm4_policy_fini()
+  xfrm: make gc_thresh configurable in all namespaces
+
+ include/net/netns/ipv4.h |    1 +
+ include/net/netns/ipv6.h |    1 +
+ net/ipv4/xfrm4_policy.c  |   58 ++++++++++++++++++++++++++++++++++++----------
+ net/ipv6/xfrm6_policy.c  |   52 +++++++++++++++++++++++++++++++++++++----
+ 4 files changed, 95 insertions(+), 17 deletions(-)
+
+-- 
 1.7.10.4
