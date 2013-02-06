@@ -1,62 +1,51 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: No sysfs directory for openvswitch module when built-in
-Date: Tue, 5 Feb 2013 14:11:39 -0800
-Message-ID: <20130205141139.0189f159@nehalam.linuxnetplumber.net>
-References: <CAM_iQpVgEchb8UsxUP=w6OMbYx=zuP2yv=QwFhe8rPCbNBreVg@mail.gmail.com>
-	<20130204081920.00e9f22e@nehalam.linuxnetplumber.net>
-	<87lib3gunm.fsf@blp.benpfaff.org>
-	<CAM_iQpXSv7ddFtF53JGu=QdaNgY7c4O9Wuq4PmVRczTBiE_rSg@mail.gmail.com>
-	<20130205191554.GA7573@blp.benpfaff.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Jesse Gross <jesse@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Ben Pfaff <blp@cs.stanford.edu>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: rtl8192cu: Fix NULL dereference BUG when using new_id
+Date: Tue,  5 Feb 2013 18:00:23 -0600
+Message-ID: <1360108823-5141-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:36142 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757834Ab3BEWLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 17:11:53 -0500
-Received: by mail-pa0-f51.google.com with SMTP id hz1so386058pad.38
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 14:11:52 -0800 (PST)
-In-Reply-To: <20130205191554.GA7573@blp.benpfaff.org>
+Received: from mail-oa0-f42.google.com ([209.85.219.42]:43244 "EHLO
+	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751053Ab3BFAAw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 19:00:52 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 5 Feb 2013 11:15:54 -0800
-Ben Pfaff <blp@cs.stanford.edu> wrote:
+When the new_id entry is used for a foreign USB device, rtlwifi BUGS with
+a NULL pointer dereference.
 
-> On Tue, Feb 05, 2013 at 06:49:45PM +0800, Cong Wang wrote:
-> > On Tue, Feb 5, 2013 at 2:08 PM, Ben Pfaff <blp@cs.stanford.edu> wrote:
-> > > Stephen Hemminger <stephen@networkplumber.org> writes:
-> > >
-> > >> On Tue, 29 Jan 2013 22:15:18 +0800
-> > >> Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> > >>
-> > >>> Hello, Rusty, Jesse,
-> > >>>
-> > >>> I met an interesting problem when I compile openvswitch module as a
-> > >>> built-in (actually I compile ALL kernel modules as built-in), there is
-> > >>> no /sys/module/openvswitch/ directory created by the kernel in this
-> > >>> case.
-> > >>>
-> > >>> What's worse, the user-space init script thinks openvswitch module is
-> > >>> not loaded by checking the exist of this directory, therefore refuses
-> > >>> to start.
-> > >>
-> > >> Shouldn't the OVS init script be testing for some other API.
-> > >
-> > > I agree that's a bug in the OVS init script.  I will fix it.
-> > 
-> > Thanks for taking care of it, Ben!
-> 
-> I posted a patch to ovs-dev for review:
->         http://openvswitch.org/pipermail/dev/2013-February/025128.html
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org>
+---
 
-Good. The ovsctl test is actually more reliable than the /sys/module
-because it means that there isn't some other part broken in the API.
+John,
+
+Although this patch should be backported to stable kernels, the new_id
+feature is rarely used, thus the patch should not have any particular
+priority.
+
+Larry
+---
+
+ drivers/net/wireless/rtlwifi/usb.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
+index d42bbe2..77a7517 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -977,6 +977,9 @@ int rtl_usb_probe(struct usb_interface *intf,
+ 	rtl_dbgp_flag_init(hw);
+ 	/* Init IO handler */
+ 	_rtl_usb_io_handler_init(&udev->dev, hw);
++	if (!rtlpriv->cfg || !rtlpriv->cfg->ops ||
++	    !rtlpriv->cfg->ops->read_chip_version)
++		return -ENODEV;
+ 	rtlpriv->cfg->ops->read_chip_version(hw);
+ 	/*like read eeprom and so on */
+ 	rtlpriv->cfg->ops->read_eeprom_info(hw);
+-- 
+1.8.1
