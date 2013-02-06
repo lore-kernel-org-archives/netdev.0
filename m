@@ -1,66 +1,77 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Wed, 6 Feb 2013 14:49:50 +0100
-Message-ID: <20130206134950.GD10290@order.stressinduktion.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Erik Hugne <erik.hugne@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47460 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032Ab3BFNtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 08:49:51 -0500
-Content-Disposition: inline
-In-Reply-To: <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Emmanuel Thierry <emmanuel.thierry@telecom-bretagne.eu>
+Subject: Re: [RFC PATCH] xfrm: fix handling of XFRM policies mark and mask.
+Date: Wed, 6 Feb 2013 14:53:48 +0100
+Message-ID: <D4563759-CEC5-4F33-BF0A-9FA10716F8DF@telecom-bretagne.eu>
+References: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com> <20130205081232.GF23291@secunet.com> <51125744.3030905@gmail.com>
+Mime-Version: 1.0 (Apple Message framework v1085)
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Romain KUNTZ <r.kuntz@ipflavors.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	herbert@gondor.apana.org.au,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>
+To: jamal <j.hadi123@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51125744.3030905@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 06, 2013 at 02:07:39PM +0100, Erik Hugne wrote:
-> On Wed, Feb 06, 2013 at 01:12:48PM +0100, Hannes Frederic Sowa wrote:
-> > Fixing the output path should be relatively straightforward, please test
-> > the following patch.
-> 
-> Tested OK.
-> 
-> > Looking at the input path, I think there is also no input protection
-> > for ff01::/16 addresses from the wire if you bind such an address.
-> 
-> Yes, this needs to be filtered on the input side aswell.
 
-This patch should do the trick. Perhaps you could also take it for a test
-drive? Thanks!
+Hello,
 
-[PATCH net-next] ipv6: don't accept node local multicast traffic from the wire
+Le 6 f=E9vr. 2013 =E0 14:14, jamal a =E9crit :
 
-Cc: Erik Hugne <erik.hugne@ericsson.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/ip6_input.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+>=20
+> On 13-02-05 03:12 AM, Steffen Klassert wrote:
+>>> For example, executing the below commands in that order succeed:
+>>>  ip -6 xfrm policy flush
+>>>  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out mark=
+ 1 mask 0xffffffff
+>>>  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out
+>> The policy with mark 1 is the first we find. The policy passes the
+>> mark check and if the flow matches the selectors, we use this policy=
+=2E
+>>=20
+>>> But it fails in the reverse order:
+>>>  ip -6 xfrm policy flush
+>>>  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out
+>>>  ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out mark=
+ 1 mask 0xffffffff
+>>>  RTNETLINK answers: File exists
+>> With this scenario, we would find the policy with mark and mask 0 fi=
+rst.
+>> This policy passes the mark check too. So we would use this policy i=
+f the
+>> flow matches the selectors, but the flow asked for a policy with mar=
+k 1.
+>=20
+> I think the intent Romain is expressing is reasonable and should reso=
+lved at
+> insertion time(xfrm_policy_insert()).
+> i.e even though the policy (such as mark=3D1) is inserted afterwards,=
+ at
+> insertion time if it proves it is more specific and not duplicate, it=
+ should be
+> inserted ahead of the mark=3D0.
+> The runtime check will work then.
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 4ac5bf3..a2f71d2 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	if (ipv6_addr_is_multicast(&hdr->saddr))
- 		goto err;
- 
-+	/*
-+	 * RFC4291 2.7
-+	 * Interface-Local scope spans only a single interface on a node
-+         * and is useful only for loopback transmission of multicast.
-+	 */
-+	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-+	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) <= IPV6_ADDR_SCOPE_NODELOCAL &&
-+	    skb->pkt_type != PACKET_LOOPBACK)
-+		goto err;
-+
- 	skb->transport_header = skb->network_header + sizeof(*hdr);
- 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
- 
--- 
-1.8.1
+Actually, we didn't think about this problem since we work with priorit=
+ies, putting the default policy (without a mark) at a minor priority th=
+an the marked one.
+Your remark makes clearer the ideas behind the design of XFRM, but this=
+ leads to an interesting concern. If on policy insertion, the policy we=
+re inserted depending on the accuracy of the mark (the more the mask is=
+ specific, the more the mark must be put at the beginning of the list),=
+ how would we decide which is the more specific between these ones ?
+
+ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out mark 0x00=
+000001 mask 0x00000005
+
+ip -6 xfrm policy add src fd00::1/128 dst fd00::2/128 dir out mark 0x00=
+000001 mask 0x00000003
+
+Best regards
+Emmanuel Thierry
