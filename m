@@ -1,51 +1,38 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: rtl8192cu: Fix NULL dereference BUG when using new_id
-Date: Tue,  5 Feb 2013 18:00:23 -0600
-Message-ID: <1360108823-5141-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH v4 1/1 net-next] net: fec: add napi support to improve proformance
+Date: Wed, 6 Feb 2013 00:16:33 +0000 (UTC)
+Message-ID: <loom.20130206T011451-752@post.gmane.org>
+References: <1359433903-15605-1-git-send-email-Frank.Li@freescale.com> <20130129.141800.2181207237672109119.davem@davemloft.net> <CAHrpEqQXH+n7K4L1m5yRiamp3CG9MPWhX+tNBD+brzArJy5WoQ@mail.gmail.com> <loom.20130204T203257-683@post.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:43244 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751053Ab3BFAAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 19:00:52 -0500
+Received: from plane.gmane.org ([80.91.229.3]:60432 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753729Ab3BFARB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Feb 2013 19:17:01 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1U2shR-0005Cn-6v
+	for netdev@vger.kernel.org; Wed, 06 Feb 2013 01:17:17 +0100
+Received: from jimbax.plus.com ([81.174.248.107])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 01:17:17 +0100
+Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 01:17:17 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the new_id entry is used for a foreign USB device, rtlwifi BUGS with
-a NULL pointer dereference.
+Jim Baxter <jim_baxter <at> mentor.com> writes:
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>
----
+> 
+> This might be related but I have found on the Sabre AI Revision TO1.1 that the 
+> NAPI patch causes a 10% reduction in speed, is this expected?
+> 
+> 
 
-John,
-
-Although this patch should be backported to stable kernels, the new_id
-feature is rarely used, thus the patch should not have any particular
-priority.
-
-Larry
----
-
- drivers/net/wireless/rtlwifi/usb.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
-index d42bbe2..77a7517 100644
---- a/drivers/net/wireless/rtlwifi/usb.c
-+++ b/drivers/net/wireless/rtlwifi/usb.c
-@@ -977,6 +977,9 @@ int rtl_usb_probe(struct usb_interface *intf,
- 	rtl_dbgp_flag_init(hw);
- 	/* Init IO handler */
- 	_rtl_usb_io_handler_init(&udev->dev, hw);
-+	if (!rtlpriv->cfg || !rtlpriv->cfg->ops ||
-+	    !rtlpriv->cfg->ops->read_chip_version)
-+		return -ENODEV;
- 	rtlpriv->cfg->ops->read_chip_version(hw);
- 	/*like read eeprom and so on */
- 	rtlpriv->cfg->ops->read_eeprom_info(hw);
--- 
-1.8.1
+Hi, after some investigation I have found that there is a speed up.
+Sorry for my mistake.
