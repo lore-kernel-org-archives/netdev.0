@@ -1,38 +1,34 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH v4 1/1 net-next] net: fec: add napi support to improve proformance
-Date: Wed, 6 Feb 2013 00:16:33 +0000 (UTC)
-Message-ID: <loom.20130206T011451-752@post.gmane.org>
-References: <1359433903-15605-1-git-send-email-Frank.Li@freescale.com> <20130129.141800.2181207237672109119.davem@davemloft.net> <CAHrpEqQXH+n7K4L1m5yRiamp3CG9MPWhX+tNBD+brzArJy5WoQ@mail.gmail.com> <loom.20130204T203257-683@post.gmane.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] rtlwifi: rtl8192cu: Fix NULL dereference BUG when using
+ new_id
+Date: Wed, 6 Feb 2013 00:18:24 +0000
+Message-ID: <1360109904.2857.36.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1360108823-5141-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:60432 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753729Ab3BFARB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Feb 2013 19:17:01 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1U2shR-0005Cn-6v
-	for netdev@vger.kernel.org; Wed, 06 Feb 2013 01:17:17 +0100
-Received: from jimbax.plus.com ([81.174.248.107])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 01:17:17 +0100
-Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 01:17:17 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linville@tuxdriver.com>, <linux-wireless@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Stable <stable@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1360108823-5141-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jim Baxter <jim_baxter <at> mentor.com> writes:
+On Tue, 2013-02-05 at 18:00 -0600, Larry Finger wrote:
+> When the new_id entry is used for a foreign USB device, rtlwifi BUGS with
+> a NULL pointer dereference.
+[...]
 
-> 
-> This might be related but I have found on the Sabre AI Revision TO1.1 that the 
-> NAPI patch causes a 10% reduction in speed, is this expected?
-> 
-> 
+So set no_dynamic_id in the usb_driver structures.
 
-Hi, after some investigation I have found that there is a speed up.
-Sorry for my mistake.
+(But I wonder why USB behaves differently from PCI, which requires that
+the dynamic ID's driver_data value (defaulting to 0) matches a value
+used in a static ID entry.)
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
