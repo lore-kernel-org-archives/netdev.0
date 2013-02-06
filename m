@@ -1,126 +1,59 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v1 9/9] net/mlx4_en: Implement ndo fdb functionality
-Date: Wed,  6 Feb 2013 11:13:55 +0200
-Message-ID: <1360142035-13228-10-git-send-email-amirv@mellanox.com>
-References: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next v1 0/9] net/mlx4_en: Add support for unicast MAC filtering and FDB operations
+Date: Wed,  6 Feb 2013 11:13:46 +0200
+Message-ID: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:49818 "HELO
-	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752238Ab3BFJOR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 04:14:17 -0500
-In-Reply-To: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:52963 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752197Ab3BFJOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 04:14:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yan Burman <yanb@mellanox.com>
+This series from Yan Burman adds support for unicast MAC address filtering and
+ndo FDB operations.  It also includes some optimizations to loopback related
+decisions and checks in the TX/RX fast path and one cleanup, all in separate
+patches.
 
-Add support for setting embedded switch fdb in case of SRIOV, by
-implementing ndo_fdb_{add, del, dump}. This will allow to use
-bridged configuration with multi-function. In order to add VM MAC
-to the eSwitch fdb, the following command may be used over the relevant function interface:
-bridge fdb add <MAC> permanent self dev <IFACE>
+Today, when adding macvlan devices, the NIC goes into promiscuous mode, since
+unicast MAC filtering is not supported. With these changes, macvlan devices can
+be added without the penalty of promiscuous mode. Also, now it is possible to
+have bridge under multi-function configuration that include PF and VFs.  In
+order to use bridge over PF/VFs, VM MAC fdb entries must be added e.g. using
+'bridge fdb add' command.
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   75 ++++++++++++++++++++++++
- 1 files changed, 75 insertions(+), 0 deletions(-)
+Changes from v0 based on comments from Eric Dumazet:
+* Removed unneeded synchronize_rcu()
+* Use kfree_rcu() instead of synchronize_rcu() + kfree()
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 5da293b..9002048 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1906,6 +1906,78 @@ static int mlx4_en_set_features(struct net_device *netdev,
- 
- }
- 
-+static int mlx4_en_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
-+			   struct net_device *dev,
-+			   const unsigned char *addr, u16 flags)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_dev *mdev = priv->mdev->dev;
-+	int err;
-+
-+	if (!mlx4_is_mfunc(mdev))
-+		return -EOPNOTSUPP;
-+
-+	/* Hardware does not support aging addresses, allow only
-+	 * permanent addresses if ndm_state is given
-+	 */
-+	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
-+		en_info(priv, "Add FDB only supports static addresses\n");
-+		return -EINVAL;
-+	}
-+
-+	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
-+		err = dev_uc_add_excl(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_add_excl(dev, addr);
-+	else
-+		err = -EINVAL;
-+
-+	/* Only return duplicate errors if NLM_F_EXCL is set */
-+	if (err == -EEXIST && !(flags & NLM_F_EXCL))
-+		err = 0;
-+
-+	return err;
-+}
-+
-+static int mlx4_en_fdb_del(struct ndmsg *ndm,
-+			   struct net_device *dev,
-+			   const unsigned char *addr)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_dev *mdev = priv->mdev->dev;
-+	int err;
-+
-+	if (!mlx4_is_mfunc(mdev))
-+		return -EOPNOTSUPP;
-+
-+	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
-+		en_info(priv, "Del FDB only supports static addresses\n");
-+		return -EINVAL;
-+	}
-+
-+	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
-+		err = dev_uc_del(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_del(dev, addr);
-+	else
-+		err = -EINVAL;
-+
-+	return err;
-+}
-+
-+static int mlx4_en_fdb_dump(struct sk_buff *skb,
-+			    struct netlink_callback *cb,
-+			    struct net_device *dev, int idx)
-+{
-+	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_dev *mdev = priv->mdev->dev;
-+
-+	if (mlx4_is_mfunc(mdev))
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
-+
-+	return idx;
-+}
-+
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
-@@ -1927,6 +1999,9 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
-+	.ndo_fdb_add		= mlx4_en_fdb_add,
-+	.ndo_fdb_del		= mlx4_en_fdb_del,
-+	.ndo_fdb_dump		= mlx4_en_fdb_dump,
- };
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+Yan Burman (9):
+  net/mlx4_en: Optimize loopback related checks in data path
+  net/mlx4_en: Optimize Rx fast path filter checks
+  net/mlx4_en: Cleanup multiline strings
+  net/mlx4: Move Ethernet related functionality from mlx4_core to
+    mlx4_en
+  net/mlx4_en: Re-arrange ndo_set_rx_mode related code
+  net/mlx4_en: Save previous MAC address of the port so we can replace
+    it later
+  net/mlx4_en: Manage hash of MAC addresses per port
+  net/mlx4_en: Add unicast MAC filtering
+  net/mlx4_en: Implement ndo fdb functionality
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c  |    9 +-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c     |   22 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  740 +++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c       |   53 +-
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c |    3 +
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c       |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c        |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h        |    7 -
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |   32 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c        |  193 +------
+ include/linux/mlx4/device.h                      |    5 +-
+ 11 files changed, 683 insertions(+), 388 deletions(-)
+
 -- 
 1.7.8.2
