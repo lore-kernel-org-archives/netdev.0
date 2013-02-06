@@ -1,36 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: linux-next: manual merge of the crypto tree with the net-next
- tree
-Date: Wed, 6 Feb 2013 13:45:57 +0800
-Message-ID: <20130206054557.GA3815@gondor.apana.org.au>
-References: <20130206132011.9084f982f783cd9d298f187d@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next 1/2] net: reset mac header in dev_start_xmit()
+Date: Tue, 05 Feb 2013 22:22:20 -0800
+Message-ID: <1360131740.28557.25.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Julia Lawall <Julia.Lawall@lip6.fr>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130206132011.9084f982f783cd9d298f187d@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:60870 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751933Ab3BFGWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 01:22:23 -0500
+Received: by mail-pa0-f48.google.com with SMTP id hz10so625813pad.7
+        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 22:22:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2013 at 01:20:11PM +1100, Stephen Rothwell wrote:
-> Hi Herbert,
-> 
-> Today's linux-next merge of the crypto tree got a conflict in
-> crypto/ctr.c between commit 69d3150cfc20 ("crypto: ctr - make rfc3686
-> asynchronous block cipher") from the net-next tree and commit
-> 3e8afe35c36f ("crypto: use ERR_CAST") from the crypto tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
+From: Eric Dumazet <edumazet@google.com>
 
-Looks good.  Thanks Stephen!
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+On 64 bit arches :
+
+There is a off-by-one error in qdisc_pkt_len_init() because
+mac_header is not set in xmit path.
+
+skb_mac_header() returns an out of bound value that was
+harmless because hdr_len is an 'unsigned int'
+
+On 32bit arches, the error is abysmal.
+
+This patch is also a prereq for "macvlan: add multicast filter"
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ben Greear <greearb@candelatech.com>
+---
+ net/core/dev.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a87bc74..0b888b5 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2799,6 +2799,8 @@ int dev_queue_xmit(struct sk_buff *skb)
+ 	struct Qdisc *q;
+ 	int rc = -ENOMEM;
+ 
++	skb_reset_mac_header(skb);
++
+ 	/* Disable soft irqs for various locks below. Also
+ 	 * stops preemption for RCU.
+ 	 */
