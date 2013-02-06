@@ -1,101 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
-Date: Wed, 6 Feb 2013 20:05:37 +0200
-Message-ID: <20130206180537.GA17228@redhat.com>
-References: <20130206114321.GA13497@redhat.com>
- <1360156059.28557.28.camel@edumazet-glaptop>
- <20130206155049.GB14735@redhat.com>
- <1360167332.28557.36.camel@edumazet-glaptop>
- <20130206174228.GA16991@redhat.com>
- <1360172565.28557.44.camel@edumazet-glaptop>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] qmi_wwan, cdc-ether: add ADU960S
+Date: Wed, 06 Feb 2013 12:05:04 -0600
+Message-ID: <1360173904.11742.8.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
-	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
-	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26757 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:30457 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754819Ab3BFSBU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 13:01:20 -0500
-Content-Disposition: inline
-In-Reply-To: <1360172565.28557.44.camel@edumazet-glaptop>
+	id S1755389Ab3BFSEu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 13:04:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2013 at 09:42:45AM -0800, Eric Dumazet wrote:
-> On Wed, 2013-02-06 at 19:42 +0200, Michael S. Tsirkin wrote:
-> > On Wed, Feb 06, 2013 at 08:15:32AM -0800, Eric Dumazet wrote:
-> > > On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
-> > > 
-> > > > Also, I'm not sure I understand when should drivers set gso size
-> > > > for incoming messages and what is a reasonable value.
-> > > > Commit log talks about improved performance for lossy connections,
-> > > > in this case, isn't this something net core should set?
-> > > > 
-> > > > I see 3 in-tree drivers that do this:
-> > > > 
-> > > > drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:                skb_shinfo(skb)->gso_size = bnx2x
-> > > 
-> > > bnx2x is fine, take a look at lines 464
-> > 
-> > Is this what you mean?
-> > 
-> >         /* This is needed in order to enable forwarding support */
-> >         if (frag_size) {
-> >                 skb_shinfo(skb)->gso_size = bnx2x_set_lro_mss(bp,
-> >                                         tpa_info->parsing_flags, len_on_bd);
-> > 
-> >                 /* set for GRO */
-> >                 if (fp->mode == TPA_MODE_GRO)
-> >                         skb_shinfo(skb)->gso_type =
-> >                             (GET_FLAG(tpa_info->parsing_flags,
-> >                                       PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
-> >                                                 PRS_FLAG_OVERETH_IPV6) ?
-> >                                 SKB_GSO_TCPV6 : SKB_GSO_TCPV4;
-> >         }
-> > 
-> > 
-> > I see it sets gso_type but apparently only if mode is GRO?
-> > Will this still break if mode is set to LRO?
-> > 
-> > 
-> 
-> 
-> In net-next tree, line 464 looks like :
-> 
-> static void bnx2x_set_gro_params(struct sk_buff *skb, u16 parsing_flags,
->                                  u16 len_on_bd, unsigned int pkt_len)
-> {
->         /* TPA aggregation won't have either IP options or TCP options
->          * other than timestamp or IPv6 extension headers.
->          */
->         u16 hdrs_len = ETH_HLEN + sizeof(struct tcphdr);
-> 
->         if (GET_FLAG(parsing_flags, PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
->             PRS_FLAG_OVERETH_IPV6) {
->                 hdrs_len += sizeof(struct ipv6hdr);
-> <HERE>          skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
->         } else {
->                 hdrs_len += sizeof(struct iphdr);
-> <HERE>          skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
->         }
-> 
->         /* Check if there was a TCP timestamp, if there is it's will
->          * always be 12 bytes length: nop nop kind length echo val.
->          *
->          * Otherwise FW would close the aggregation.
->          */
->         if (parsing_flags & PARSING_FLAGS_TIME_STAMP_EXIST_FLAG)
->                 hdrs_len += TPA_TSTAMP_OPT_LEN;
-> 
->         skb_shinfo(skb)->gso_size = len_on_bd - hdrs_len;
-> ...
+It advertises a standard CDC-ETHER interface, which actually should be
+driven by qmi_wwan.
 
-OK this means cbf1de72324a8105ddcc3d9ce9acbc613faea17e might be needed
-in 3.8 and maybe -stable, otherwise macvtap crashes when LRO is set.
-
--- 
-MST
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+---
+diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
+index 3f3d12d..cc6d0c1 100644
+--- a/drivers/net/usb/cdc_ether.c
++++ b/drivers/net/usb/cdc_ether.c
+@@ -615,6 +615,13 @@ static const struct usb_device_id	products [] = {
+ 	.driver_info = 0,
+ },
+ 
++/* AnyDATA ADU960S - handled by qmi_wwan */
++{
++	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
++			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
++	.driver_info = 0,
++},
++
+ /*
+  * WHITELIST!!!
+  *
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index 6a1ca50..2b5ea32 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -459,6 +459,7 @@ static const struct usb_device_id products[] = {
+ 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QMI mode */
+ 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
+ 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Alcatel One Touch L100V LTE) */
++	{QMI_FIXED_INTF(0x16d5, 0x650a, 8)},	/* AnyDATA ADU960S */
+ 
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
