@@ -1,29 +1,66 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Wed, 06 Feb 2013 05:48:24 -0800
-Message-ID: <51125F28.4000409@intel.com>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com> <loom.20130204T174808-896@post.gmane.org> <CAHrpEqSXhEBQpnR60mjP67gbVWNemfa3tTuoDTKipej_6QQ62g@mail.gmail.com> <loom.20130205T111507-687@post.gmane.org> <CAHrpEqTsUjWjxY3_C4kGL_S0pgpYawgBaSip3DEnZd3CY1hn0A@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Wed, 6 Feb 2013 14:49:50 +0100
+Message-ID: <20130206134950.GD10290@order.stressinduktion.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jim Baxter <jim_baxter@mentor.com>, netdev@vger.kernel.org
-To: Frank Li <lznuaa@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:8837 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751032Ab3BFNs0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 08:48:26 -0500
-In-Reply-To: <CAHrpEqTsUjWjxY3_C4kGL_S0pgpYawgBaSip3DEnZd3CY1hn0A@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:47460 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032Ab3BFNtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 08:49:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/6/2013 1:50 AM, Frank Li wrote:
->
-> It is not easy to fix. Need put tx to NAPI poll function.
-> I will work on that after China New year holiday
+On Wed, Feb 06, 2013 at 02:07:39PM +0100, Erik Hugne wrote:
+> On Wed, Feb 06, 2013 at 01:12:48PM +0100, Hannes Frederic Sowa wrote:
+> > Fixing the output path should be relatively straightforward, please test
+> > the following patch.
+> 
+> Tested OK.
+> 
+> > Looking at the input path, I think there is also no input protection
+> > for ff01::/16 addresses from the wire if you bind such an address.
+> 
+> Yes, this needs to be filtered on the input side aswell.
 
-Converting Tx to NAPI is the best solution, but you can put a temporary 
-fix in.  Don't take a spin_lock() in fec_enet_tx(), rather take a 
-spin_lock_irqsave() since you're still in HARDIRQ context.
+This patch should do the trick. Perhaps you could also take it for a test
+drive? Thanks!
 
--PJ
+[PATCH net-next] ipv6: don't accept node local multicast traffic from the wire
+
+Cc: Erik Hugne <erik.hugne@ericsson.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/ip6_input.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 4ac5bf3..a2f71d2 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	if (ipv6_addr_is_multicast(&hdr->saddr))
+ 		goto err;
+ 
++	/*
++	 * RFC4291 2.7
++	 * Interface-Local scope spans only a single interface on a node
++         * and is useful only for loopback transmission of multicast.
++	 */
++	if (ipv6_addr_is_multicast(&hdr->daddr) &&
++	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) <= IPV6_ADDR_SCOPE_NODELOCAL &&
++	    skb->pkt_type != PACKET_LOOPBACK)
++		goto err;
++
+ 	skb->transport_header = skb->network_header + sizeof(*hdr);
+ 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
+ 
+-- 
+1.8.1
