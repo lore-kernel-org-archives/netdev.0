@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 2/2] qlcnic: set gso_type
-Date: Thu, 7 Feb 2013 01:02:59 +0200
-Message-ID: <f262d9330d22447ed8fd487ad7b28d668efbf333.1360191528.git.mst@redhat.com>
+Subject: [PATCH 1/2] ixgbe: fix gso type
+Date: Thu, 7 Feb 2013 01:02:50 +0200
+Message-ID: <76c44c70077f42302d7b079b29fd414205747af5.1360191528.git.mst@redhat.com>
 References: <cover.1360191528.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,37 +30,54 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-qlcnic set gso_size but not gso type. This leads to crashes
-in macvtap.
+ixgbe set gso_size but not gso_type. This leads to
+crashes in macvtap.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
-This one I only compiled - don't have qlogic hardware.
 
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+I tested that this fixes the crash for me.  I am told on ixgbe LRO only
+triggers with TCP so checking protocol should be enough?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index bb4311e..370049c 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -1043,8 +1043,13 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
- 	th->seq = htonl(seq_number);
- 	length = skb->len;
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 396e280..9d01673 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1399,6 +1399,10 @@ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
+ 	/* set gso_size to avoid messing up TCP MSS */
+ 	skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->len - hdr_len),
+ 						 IXGBE_CB(skb)->append_cnt);
++	if (skb->protocol == ETH_P_IPV6)
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++	else
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+ }
  
--	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
-+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP) {
- 		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
-+		if (skb->protocol == ETH_P_IPV6)
-+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+		else
-+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+	}
+ static void ixgbe_update_rsc_stats(struct ixgbe_ring *rx_ring,
+@@ -1433,6 +1437,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ {
+ 	struct net_device *dev = rx_ring->netdev;
  
- 	if (vid != 0xffff)
- 		__vlan_hwaccel_put_tag(skb, vid);
++	skb->protocol = eth_type_trans(skb, dev);
++
+ 	ixgbe_update_rsc_stats(rx_ring, skb);
+ 
+ 	ixgbe_rx_hash(rx_ring, rx_desc, skb);
+@@ -1448,8 +1454,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ 	}
+ 
+ 	skb_record_rx_queue(skb, rx_ring->queue_index);
+-
+-	skb->protocol = eth_type_trans(skb, dev);
+ }
+ 
+ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
 -- 
 MST
+
 
 ------------------------------------------------------------------------------
 Free Next-Gen Firewall Hardware Offer
