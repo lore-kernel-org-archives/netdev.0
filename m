@@ -1,45 +1,44 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
-Date: Wed, 06 Feb 2013 08:15:32 -0800
-Message-ID: <1360167332.28557.36.camel@edumazet-glaptop>
-References: <20130206114321.GA13497@redhat.com>
-	 <1360156059.28557.28.camel@edumazet-glaptop>
-	 <20130206155049.GB14735@redhat.com>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Wed, 06 Feb 2013 08:18:47 -0800
+Message-ID: <1360167527.28557.38.camel@edumazet-glaptop>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se>
+	 <20130206121248.GC10290@order.stressinduktion.org>
+	 <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se>
+	 <20130206134950.GD10290@order.stressinduktion.org>
+	 <51127781.2000504@linux-ipv6.org>
+	 <20130206160409.GB18040@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
-	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
-	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f45.google.com ([209.85.210.45]:33154 "EHLO
-	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754029Ab3BFQPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:15:37 -0500
-Received: by mail-da0-f45.google.com with SMTP id w4so724649dam.4
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 08:15:35 -0800 (PST)
-In-Reply-To: <20130206155049.GB14735@redhat.com>
+Received: from mail-da0-f47.google.com ([209.85.210.47]:56595 "EHLO
+	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757526Ab3BFQSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:18:50 -0500
+Received: by mail-da0-f47.google.com with SMTP id s35so725169dak.6
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 08:18:49 -0800 (PST)
+In-Reply-To: <20130206160409.GB18040@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
+On Wed, 2013-02-06 at 17:04 +0100, Hannes Frederic Sowa wrote:
+> On Thu, Feb 07, 2013 at 12:32:17AM +0900, YOSHIFUJI Hideaki wrote:
 
-> Also, I'm not sure I understand when should drivers set gso size
-> for incoming messages and what is a reasonable value.
-> Commit log talks about improved performance for lossy connections,
-> in this case, isn't this something net core should set?
+> > Well, do you have relevant RFC?
+> > RFC4291 says that we should drop ff00::/16, but not ff01::/16.
 > 
-> I see 3 in-tree drivers that do this:
-> 
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:                skb_shinfo(skb)->gso_size = bnx2x
+> I know what you mean, the RFC does not state it directly. Hm, the BSDs seem to
+> drop such destination addresses, too, if they don't originate from a loopback
+> interface. Or did you mean that there is a flaw in the skb->pkt_type !=
+> PACKET_LOOPBACK condition?
 
-bnx2x is fine, take a look at lines 464
+RFC 4291 states on page 13 :
 
-> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:  skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->le
-> drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:         skb_shinfo(skb)->gso_size = qlcnic_get_lr
-> 
-> It seems likely the same issue applies there?
+ Interface-Local scope spans only a single interface on a node
+ and is useful only for loopback transmission of multicast.
 
-Yes
+ff01::/16 are Interface-Local, or am I missing something ?
