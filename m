@@ -1,183 +1,111 @@
-From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
-Subject: Re: [PATCH] ip_gre: When TOS is inherited, use configured TOS value
- for non-IP packets
-Date: Wed, 6 Feb 2013 16:23:48 -0500
-Message-ID: <5112C9E4.6010708@ll.mit.edu>
-References: <1359327899-8153-1-git-send-email-david.ward@ll.mit.edu>
- <20130129.140631.1784920486633961681.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Wed, 6 Feb 2013 21:55:47 +0000
+Message-ID: <1360187747.2659.35.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130206114321.GA13497@redhat.com>
+	 <1360156059.28557.28.camel@edumazet-glaptop>
+	 <20130206155049.GB14735@redhat.com>
+	 <1360180701.2659.12.camel@bwh-desktop.uk.solarflarecom.com>
+	 <20130206214544.GA19139@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms000501080805020706070206"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"timo.teras@iki.fi" <timo.teras@iki.fi>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	<alexander.h.duyck@intel.com>, <stephen.s.ko@intel.com>,
+	<jeffrey.t.kirsher@intel.com>, David Miller <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
+	<mchan@broadcom.com>, <jitendra.kalsaria@qlogic.com>,
+	<eilong@broadcom.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:46595 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756368Ab3BFVmY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 16:42:24 -0500
-In-Reply-To: <20130129.140631.1784920486633961681.davem@davemloft.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:24304 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758046Ab3BFV4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 16:56:10 -0500
+In-Reply-To: <20130206214544.GA19139@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms000501080805020706070206
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2013-02-06 at 23:45 +0200, Michael S. Tsirkin wrote:
+> On Wed, Feb 06, 2013 at 07:58:21PM +0000, Ben Hutchings wrote:
+> > On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
+> > > On Wed, Feb 06, 2013 at 05:07:39AM -0800, Eric Dumazet wrote:
+> > > > On Wed, 2013-02-06 at 13:43 +0200, Michael S. Tsirkin wrote:
+> > > > > It seems that starting with kernel 3.3 ixgbe sets gso_size for
+> > > > > incoming frames. It seems that this might result in gso_size
+> > > > > being set even when gso_type is 0.
+> > > > > This in turn leads to a crash at macvtap_skb_to_vnet_hdr
+> > > > > drivers/net/macvtap.c:628
+> > > > > which has this code:
+> > > > > 
+> > > > >        if (skb_is_gso(skb)) {
+> > > > >                 struct skb_shared_info *sinfo = skb_shinfo(skb);
+> > > > > 
+> > > > >                 /* This is a hint as to how much should be linear. */
+> > > > >                 vnet_hdr->hdr_len = skb_headlen(skb);
+> > > > >                 vnet_hdr->gso_size = sinfo->gso_size;
+> > > > >                 if (sinfo->gso_type & SKB_GSO_TCPV4)
+> > > > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+> > > > >                 else if (sinfo->gso_type & SKB_GSO_TCPV6)
+> > > > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+> > > > >                 else if (sinfo->gso_type & SKB_GSO_UDP)
+> > > > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+> > > > >                 else
+> > > > >                         BUG();
+> > > > >                 if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+> > > > >                         vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
+> > > > >         } else
+> > > > >                 vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+> > > > > 
+> > > > > 
+> > > > > Since skb_is_gso tests gso_size.
+> > > > > 
+> > > > > What's the right way to handle this? Should skb_is_gso be
+> > > > > changed to test gso_type != 0?
+> > > > > 
+> > > > 
+> > > > Or fix ixgbe to set gso_type in ixgbe_get_headlen(), as it does all the
+> > > > dissection.
+> > > 
+> > > 
+> > > Hmm, ixgbe_get_headlen isn't run on linear skbs though.
+> > > 
+> > > Also, I'm not sure I understand when should drivers set gso size
+> > > for incoming messages and what is a reasonable value.
+> > > Commit log talks about improved performance for lossy connections,
+> > > in this case, isn't this something net core should set?
+> > [...]
+> > 
+> > It should be set to the segment size on the wire, so TCP gets a correct
+> > picture of packet loss.  The networking core has no idea what hardware/
+> > firmware LRO did.
+> > 
+> > I've previously raised this issue of macvlan vs LRO (which is the same
+> > issue we previously had with IP forwarding and with bridging):
+> >      http://thread.gmane.org/gmane.linux.network/221695
+> > 
+> > Ben.
+> 
+> I see, you proposed disabling LRO the moment a macvlan is attached.
+> If I understand correctly, the difference as compared to bridge is that
+> bridge normally consumes all incoming packets, macvlan is often used in
+> parallel with the underlying interface.
 
-On 01/29/2013 02:06 PM, David Miller wrote:
->
-> From: David Ward <david.ward@ll.mit.edu>
-> Date: Sun, 27 Jan 2013 18:04:58 -0500
->
-> > A GRE tunnel can be configured so that outgoing tunnel packets inheri=
-t
-> > the value of the TOS field from the inner IP header. In doing so, whe=
-n
-> > a non-IP packet is transmitted through the tunnel, the TOS field will=
+Not so different from IP forwarding, though, in that a single interface
+can both forward packets and deliver them locally.
 
-> > always be set to 0.
-> >
-> > Instead, the user should be able to configure a different TOS value a=
-s
-> > the fallback to use for non-IP packets. This is helpful when the non-=
-IP
-> > packets are all control packets and should be handled by routers outs=
-ide
-> > the tunnel as having Internet Control precedence. One example of this=
- is
-> > the NHRP packets that control a DMVPN-compatible mGRE tunnel; they ar=
-e
-> > encapsulated directly by GRE and do not contain an inner IP header.
-> >
-> > Under the existing behavior, the IFLA_GRE_TOS parameter must be set t=
-o
-> > '1' for the TOS value to be inherited. Now, only the least significan=
-t
-> > bit of this parameter must be set to '1', and when a non-IP packet is=
+> BTW are there other issues with forwarding/bridging and LRO? If everyone
+> sets gso_type in packets it seems we can leave LRO set even with
+> bridging?
 
-> > sent through the tunnel, the upper 6 bits of this same parameter will=
- be
-> > copied into the TOS field. (The ECN bits get masked off as before.)
-> >
-> > This behavior is backwards-compatible with existing configurations an=
-d
-> > iproute2 versions.
-> >
-> > Signed-off-by: David Ward <david.ward@ll.mit.edu>
->
-> Seems reasonable, applied.  Thanks.
->
-> I worry though about the case where tiph comes from skb->data rather
-> than the tunnel parameter block, can you describe why this new behavior=
+Some implementations of LRO violate the end-to-end principle by merging
+segments with varying lengths and TCP timestamps.  GRO is very careful
+to ensure that the original packets can be recovered from the skbs it
+produces.
 
-> is OK in that situation too.
->
+Ben.
 
-Sorry for the late reply, I have not been well for the past few days.
-
-The case you mentioned will occur when dev->header_ops has been set (to=20
-ipgre_header_ops).  In that case, ipgre_header() is called before=20
-ipgre_tunnel_xmit().  It pushes the outer IP header onto the SKB ahead=20
-of time, copying the contents from the IP header in the tunnel parameter =
-
-block.
-
-So even in this case, the TOS value that we check is taken from the=20
-tunnel parameter block, not the inner IP header.
-
-David
-
-
-
---------------ms000501080805020706070206
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-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
---------------ms000501080805020706070206--
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
