@@ -1,37 +1,46 @@
-From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
-Subject: Re: ethtool occationally fails to communicate with with ucc_geth
-Date: Wed, 6 Feb 2013 17:24:38 -0500
-Message-ID: <20130206222438.GK30788@csclub.uwaterloo.ca>
-References: <20130206200504.GJ30788@csclub.uwaterloo.ca>
- <1360184912.2659.27.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1360184912.2659.27.camel@bwh-desktop.uk.solarflarecom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH v3 0/3] tg3: add support for Ethernet core in BCM4785
+Date: Wed,  6 Feb 2013 23:46:05 +0100
+Message-ID: <1360190768-390-1-git-send-email-hauke@hauke-m.de>
+Cc: mcarlson@broadcom.com, mchan@broadcom.com, nsujir@broadcom.com,
+	netdev@vger.kernel.org, m@bues.ch,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:36055 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755294Ab3BFWqX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 17:46:23 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2013 at 09:08:32PM +0000, Ben Hutchings wrote:
-> This seems to be a workaround for a bug in phylib: phy_state_machine()
-> calls netif_carrier_on() before adjust_link(), so the TX scheduler can
-> start immediately even though the MAC has not been configured.
-> 
-> A better workaround would be to use netif_carrier_{off,on}() in
-> ugeth_{quiesce,activate}() respectively instead of
-> netif_device_{detach,attach}().  But I think phylib really ought to be
-> fixed.
+These patches are adding support for the Ethernet core found in the 
+BCM4705/BCM4785 SoC.
 
-I am willing to try things, but this is certainly in parts of the network
-stack I don't normally poke around in and hence don't know how works.
+This is based on current master of davem/net-next.git.
 
-I just managed to track it down this far. :)
+v3:
+ * combined first two patches into one patch
 
-I can try the carrier_off/on in place of the detach/attach and see if
-it works.
+v2:
+ * use of struct sprom in ssb_gige_get_macaddr() instead of accessing 
+   the nvram directly
+ * add return value to ssb_gige_get_macaddr()
+ * try to read the mac address from ssb core before accessing the own 
+   registers.
+ * fix two checkpatch warnings
+
+
+Hauke Mehrtens (3):
+  ssb: get mac address from sprom struct for gige driver
+  tg3: make it possible to provide phy_id in ioctl
+  tg3: add support for Ethernet core in bcm4785
+
+ drivers/net/ethernet/broadcom/tg3.c |  144 +++++++++++++++++++++++++++++++----
+ drivers/net/ethernet/broadcom/tg3.h |    5 ++
+ include/linux/pci_ids.h             |    1 +
+ include/linux/ssb/ssb_driver_gige.h |   23 +++---
+ 4 files changed, 148 insertions(+), 25 deletions(-)
 
 -- 
-Len Sorensen
+1.7.10.4
