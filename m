@@ -1,71 +1,82 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Thu, 07 Feb 2013 00:32:17 +0900
-Message-ID: <51127781.2000504@linux-ipv6.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next V1 00/10] Mellanox Ethernet driver updates
+ 2013-01-30
+Date: Wed, 6 Feb 2013 15:46:58 +0000
+Message-ID: <1360165618.2659.5.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>
+	  <20130131.135158.206758800827480029.davem@davemloft.net>
+	 <1360094899.2857.30.camel@bwh-desktop.uk.solarflarecom.com>
+	 <51120547.7090608@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38449 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754496Ab3BFPcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 10:32:18 -0500
-In-Reply-To: <20130206134950.GD10290@order.stressinduktion.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:45236 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751551Ab3BFPrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 10:47:22 -0500
+In-Reply-To: <51120547.7090608@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> On Wed, Feb 06, 2013 at 02:07:39PM +0100, Erik Hugne wrote:
->> On Wed, Feb 06, 2013 at 01:12:48PM +0100, Hannes Frederic Sowa wrote:
->>> Fixing the output path should be relatively straightforward, please test
->>> the following patch.
->>
->> Tested OK.
->>
->>> Looking at the input path, I think there is also no input protection
->>> for ff01::/16 addresses from the wire if you bind such an address.
->>
->> Yes, this needs to be filtered on the input side aswell.
+On Wed, 2013-02-06 at 09:24 +0200, Amir Vadai wrote:
+> On 05/02/2013 22:08, Ben Hutchings wrote:
+> > On Thu, 2013-01-31 at 13:51 -0500, David Miller wrote:
+> >> From: Amir Vadai <amirv@mellanox.com>
+> >> Date: Thu, 31 Jan 2013 11:07:01 +0200
+> >>
+> >>> Hi Dave,
+> >>>
+> >>> This series contains updates to mlx4 driver.
+> >>> Majority of the patches are small bug fixes. Another patch is to expose through
+> >>> debugfs some HW resources to be used by external tools.
+> >>>
+> >>> Patches done against net-next commit 1b13c97: "net/vxlan: Add ethtool drvinfo"
+> >>>
+> >>> Changes from V0:
+> >>> - Removed patch "net/mlx4_en: Add debugfs support". Need to find a standard way
+> >>>    to do it, and no need to delay the other patches.
+> >>
+> >> All applied, thanks.
+> >
+> > The first time this series was posted (this is actually v2) I raised an
+> > issue with the changes to interpretation of the VLAN tag in ethtool RX
+> > NFC commands: <http://article.gmane.org/gmane.linux.network/257392/>.
+> > The semantics are now definitely inconsistent between sfc and mlx4_en.
+> > I asked Alexander what ixgbe (first implementation) does with the upper
+> > 4 bits, with the aim that all three implementations should be
+> > consistent, but I haven't had an answer to that yet.
+> >
+> > Ben.
+> >
 > 
-> This patch should do the trick. Perhaps you could also take it for a test
-> drive? Thanks!
+> I'm not sure I understand the problem here.
 > 
-> [PATCH net-next] ipv6: don't accept node local multicast traffic from the wire
+> mlx4_en implementation is exactly like what you describe and what 
+> ethtool documentation is describing.
 > 
-> Cc: Erik Hugne <erik.hugne@ericsson.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_input.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-> index 4ac5bf3..a2f71d2 100644
-> --- a/net/ipv6/ip6_input.c
-> +++ b/net/ipv6/ip6_input.c
-> @@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
->  	if (ipv6_addr_is_multicast(&hdr->saddr))
->  		goto err;
->  
-> +	/*
-> +	 * RFC4291 2.7
-> +	 * Interface-Local scope spans only a single interface on a node
-> +         * and is useful only for loopback transmission of multicast.
-> +	 */
-> +	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-> +	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) <= IPV6_ADDR_SCOPE_NODELOCAL &&
-> +	    skb->pkt_type != PACKET_LOOPBACK)
-> +		goto err;
-> +
->  	skb->transport_header = skb->network_header + sizeof(*hdr);
->  	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
+> We handle vlan_tci as the whole VLAN tag. Since we're only interested in 
+> the VID in our flow steering, we check that the mask sets only the 12 
+> bits of VID and use it.
+>
+>  From looking at sfc driver - it is exactly same there.
+>
+> Did I miss something?
 
-NAK.
+sfc verifies that the mask (cmd->fs.m_ext.vlan_tci) is either 0 or 0xfff
+(big-endian).  If any of the top 4 bits are set we reject the flow spec
+as unsupported.  If I read correctly, mlx4_en was also doing that
+initially, but 'net/mlx4_en: Fix vlan mask for ethtool steering rules'
+changed it to ignore the top 4 bits of the mask.
 
-Well, do you have relevant RFC?
-RFC4291 says that we should drop ff00::/16, but not ff01::/16.
+Ben.
 
---yoshfuji
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
