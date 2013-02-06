@@ -1,144 +1,115 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [PATCH] batman-adv: Remove unused variable
-Date: Wed, 6 Feb 2013 23:10:22 +0100
-Message-ID: <20130206221022.GF6008@ritirata.org>
-References: <1360168661-16871-1-git-send-email-emilgoode@gmail.com>
- <20130206172234.GB6008@ritirata.org>
- <1360173353.22154.4.camel@debian>
- <20130206195557.GC6008@ritirata.org>
- <1360187945.25903.5.camel@debian>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Thu, 7 Feb 2013 00:26:54 +0200
+Message-ID: <20130206222654.GA6195@redhat.com>
+References: <20130206114321.GA13497@redhat.com>
+ <1360156059.28557.28.camel@edumazet-glaptop>
+ <20130206155049.GB14735@redhat.com>
+ <1360180701.2659.12.camel@bwh-desktop.uk.solarflarecom.com>
+ <20130206214544.GA19139@redhat.com>
+ <1360187747.2659.35.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="QNDPHrPUIc00TOLW"
-Cc: lindner_marek@yahoo.de, siwu@hrz.tu-chemnitz.de,
-	davem@davemloft.net, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Emil Goode <emilgoode@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, alexander.h.duyck@intel.com,
+	stephen.s.ko@intel.com, jeffrey.t.kirsher@intel.com,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	sony.chacko@qlogic.com, mchan@broadcom.com,
+	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:30695 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757205Ab3BFWLQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 17:11:16 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:56550 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932108Ab3BFWWk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 17:22:40 -0500
 Content-Disposition: inline
-In-Reply-To: <1360187945.25903.5.camel@debian>
+In-Reply-To: <1360187747.2659.35.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, Feb 06, 2013 at 09:55:47PM +0000, Ben Hutchings wrote:
+> On Wed, 2013-02-06 at 23:45 +0200, Michael S. Tsirkin wrote:
+> > On Wed, Feb 06, 2013 at 07:58:21PM +0000, Ben Hutchings wrote:
+> > > On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
+> > > > On Wed, Feb 06, 2013 at 05:07:39AM -0800, Eric Dumazet wrote:
+> > > > > On Wed, 2013-02-06 at 13:43 +0200, Michael S. Tsirkin wrote:
+> > > > > > It seems that starting with kernel 3.3 ixgbe sets gso_size for
+> > > > > > incoming frames. It seems that this might result in gso_size
+> > > > > > being set even when gso_type is 0.
+> > > > > > This in turn leads to a crash at macvtap_skb_to_vnet_hdr
+> > > > > > drivers/net/macvtap.c:628
+> > > > > > which has this code:
+> > > > > > 
+> > > > > >        if (skb_is_gso(skb)) {
+> > > > > >                 struct skb_shared_info *sinfo = skb_shinfo(skb);
+> > > > > > 
+> > > > > >                 /* This is a hint as to how much should be linear. */
+> > > > > >                 vnet_hdr->hdr_len = skb_headlen(skb);
+> > > > > >                 vnet_hdr->gso_size = sinfo->gso_size;
+> > > > > >                 if (sinfo->gso_type & SKB_GSO_TCPV4)
+> > > > > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+> > > > > >                 else if (sinfo->gso_type & SKB_GSO_TCPV6)
+> > > > > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+> > > > > >                 else if (sinfo->gso_type & SKB_GSO_UDP)
+> > > > > >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+> > > > > >                 else
+> > > > > >                         BUG();
+> > > > > >                 if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+> > > > > >                         vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
+> > > > > >         } else
+> > > > > >                 vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+> > > > > > 
+> > > > > > 
+> > > > > > Since skb_is_gso tests gso_size.
+> > > > > > 
+> > > > > > What's the right way to handle this? Should skb_is_gso be
+> > > > > > changed to test gso_type != 0?
+> > > > > > 
+> > > > > 
+> > > > > Or fix ixgbe to set gso_type in ixgbe_get_headlen(), as it does all the
+> > > > > dissection.
+> > > > 
+> > > > 
+> > > > Hmm, ixgbe_get_headlen isn't run on linear skbs though.
+> > > > 
+> > > > Also, I'm not sure I understand when should drivers set gso size
+> > > > for incoming messages and what is a reasonable value.
+> > > > Commit log talks about improved performance for lossy connections,
+> > > > in this case, isn't this something net core should set?
+> > > [...]
+> > > 
+> > > It should be set to the segment size on the wire, so TCP gets a correct
+> > > picture of packet loss.  The networking core has no idea what hardware/
+> > > firmware LRO did.
+> > > 
+> > > I've previously raised this issue of macvlan vs LRO (which is the same
+> > > issue we previously had with IP forwarding and with bridging):
+> > >      http://thread.gmane.org/gmane.linux.network/221695
+> > > 
+> > > Ben.
+> > 
+> > I see, you proposed disabling LRO the moment a macvlan is attached.
+> > If I understand correctly, the difference as compared to bridge is that
+> > bridge normally consumes all incoming packets, macvlan is often used in
+> > parallel with the underlying interface.
+> 
+> Not so different from IP forwarding, though, in that a single interface
+> can both forward packets and deliver them locally.
 
---QNDPHrPUIc00TOLW
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hmm, for ip forwarding we don't try do disable LRO on the device, do we?
+What's the solution there?
 
-Hi Emil,=20
-
-On Wed, Feb 06, 2013 at 10:59:05 +0100, Emil Goode wrote:
-> Hi Antonio,
->=20
-> If it is easier I can keep an eye on when the commit lands in the
-> net-next tree and then resend a modified version of the patch.
-> Or do you want me to resend it now?
->=20
-
-Well, that commit should be merged in net-next after the next merge window.
-
-You can resend it now, but be sure to CC Stephen Rothwell
-<sfr@canb.auug.org.au> (the linux-next maintainer) and to clearly state tha=
-t the
-patch is for linux-next.
-
-Thanks.
-Cheers,
-
-
-p.s. try to do not top-post please :-)
-
-> Best regards, Emil
->=20
-> On Wed, 2013-02-06 at 20:55 +0100, Antonio Quartulli wrote:
-> > Hi Emil,
-> >=20
-> > On Wed, Feb 06, 2013 at 06:55:53 +0100, Emil Goode wrote:
-> > > Hi Antonio,
-> > >=20
-> > > The commit ed242d01 is in the linux-next tree and my patch depends on
-> > > that commit.
-> > >=20
-> >=20
-> > Yes, you are right. I was not aware of this commit, because the author
-> > did not CC us (neither netdev) even if he changed the code we maintain.
-> >=20
-> > As far as I can see that commit is in linux-next only.
-> > Therefore it must be applied there.
-> >=20
-> > However, I'd like you to change the commit message and write the full h=
-ash of
-> > the commit you are referring to and its subject ("LIKE THIS"). This wou=
-ld make
-> > it easier to find it.
-> >=20
-> >=20
-> > Regards,
-> >=20
-> > > Best regards, Emil
-> > >=20
-> > > On Wed, 2013-02-06 at 18:22 +0100, Antonio Quartulli wrote:
-> > > > Hi Emil,
-> > > >=20
-> > > > On Wed, Feb 06, 2013 at 05:37:41 +0100, Emil Goode wrote:
-> > > > > The commit ed242d01 removed a node parameter from iterators.
-> > > > > This patch removes a hlist_node struct that is no longer used.
-> > > > >=20
-> > > > > Sparse gives a warning:
-> > > > >=20
-> > > > > net/batman-adv/originator.c:411:21: warning:
-> > > > > 	unused variable =E2=80=98node_tmp=E2=80=99 [-Wunused-variable]
-> > > > >=20
-> > > > > Signed-off-by: Emil Goode <emilgoode@gmail.com>
-> > > >=20
-> > > > On which tree did you base your patch?
-> > > > I cannot find the commit you are referring to (ed242d01) and the pa=
-tch does not
-> > > > apply (neither on net nor net-next).
-> > > >=20
-> > > > Other than that the variable is used a couple of lines below (in th=
-e code we
-> > > > have)...
-> > > >=20
-> > > > Regards,
-> > > >=20
-> > >=20
-> > >=20
-> >=20
->=20
->=20
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---QNDPHrPUIc00TOLW
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJREtTOAAoJEADl0hg6qKeOyaQP/jCQKa02ncoLM0iB/GbxpB8k
-jK9e8IQkHYDQyix2uV8Pd0xrfx9gSstWImOS8arXPJ3cqa/aKraNTVISnyg0ZHRM
-7+qBs+bDa2b9gUsS1RztYDefovYxK2lsU4djo1cW+MgDR3JR0x8e0/U1ZLRpDZhh
-2Hm/ZfKPunYGUtbGkKlvBrzuglKTJyxPAs316w3RHTB34KXAN3jP+zYMPqtv4dIu
-nNvpBEKPNYsIGYg3BsnVA6JmFQCPMymBUYkkD7LpXG9c2e/1ESd9Eh8UGbyx/fox
-odOVWxO8EWO71Flsha0bMyqL98K8M071XfyCmDyCC4L8uc+EyZ4O9VYii7GEUZ7J
-3V/dnyU0TI132zgOGY/WX9T8T8iVaV1uRUfriaqd+pVq2lFDPg8SBhJQmBNt1KeB
-ZVWsyl4yeJ43XED3fvTVIbHKZk7B7YXul3Ht0+DwEpsNECfuLd+BiXOT1nPwXuqw
-5sFi14nO+0I8m9oPstfoQO5TVCLIAE+IifyxUTSgUJXbdRsKJ8DrlSDXguoozafB
-o+NOHCrqO39PnagfjSglWoxJbTGwdQOpw4jNUvuBBcRl0PeP1N3jBgaBIsvQBHME
-ci1SUgJGdw2TibztP0+CpkImEHqlrMUz2cOSxbYRe/ObdZQmAdgvBUzPQ1Djysjc
-Pjyt7DMlji9BsmSNrVgm
-=wQjA
------END PGP SIGNATURE-----
-
---QNDPHrPUIc00TOLW--
+> > BTW are there other issues with forwarding/bridging and LRO? If everyone
+> > sets gso_type in packets it seems we can leave LRO set even with
+> > bridging?
+> 
+> Some implementations of LRO violate the end-to-end principle by merging
+> segments with varying lengths and TCP timestamps.  GRO is very careful
+> to ensure that the original packets can be recovered from the skbs it
+> produces.
+> 
+> Ben.
+> 
+> -- 
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
