@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: Don't send packet to big messages to
- self
-Date: Wed, 06 Feb 2013 15:13:13 -0500 (EST)
-Message-ID: <20130206.151313.500975643010954565.davem@davemloft.net>
-References: <20130205114804.GH23291@secunet.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jbohac@suse.cz, netdev@vger.kernel.org
-To: steffen.klassert@secunet.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43188 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757046Ab3BFUNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 15:13:15 -0500
-In-Reply-To: <20130205114804.GH23291@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tejun Heo <tj@kernel.org>
+Subject: [PATCH 03/77] atm/nicstar: don't use idr_remove_all()
+Date: Wed,  6 Feb 2013 11:39:35 -0800
+Message-ID: <1360179649-22465-4-git-send-email-tj@kernel.org>
+References: <1360179649-22465-1-git-send-email-tj@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
+	Chas Williams <chas@cmf.nrl.navy.mil>, netdev@vger.kernel.org
+To: akpm@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1360179649-22465-1-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Date: Tue, 5 Feb 2013 12:48:05 +0100
+idr_destroy() can destroy idr by itself and idr_remove_all() is being
+deprecated.  Drop its usage.
 
-> Calling icmpv6_send() on a local message size error leads to an
-> incorrect update of the path mtu in the case when IPsec is used.
-> So use ipv6_local_error() instead to notify the socket about the
-> error.
-> 
-> Reported-by: Jiri Bohac <jbohac@suse.cz>
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>
+Cc: netdev@vger.kernel.org
+---
+ drivers/atm/nicstar.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Applied, thanks a lot.
+diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+index ed1d2b7..628787e 100644
+--- a/drivers/atm/nicstar.c
++++ b/drivers/atm/nicstar.c
+@@ -251,7 +251,6 @@ static void nicstar_remove_one(struct pci_dev *pcidev)
+ 		if (card->scd2vc[j] != NULL)
+ 			free_scq(card, card->scd2vc[j]->scq, card->scd2vc[j]->tx_vcc);
+ 	}
+-	idr_remove_all(&card->idr);
+ 	idr_destroy(&card->idr);
+ 	pci_free_consistent(card->pcidev, NS_RSQSIZE + NS_RSQ_ALIGNMENT,
+ 			    card->rsq.org, card->rsq.dma);
+-- 
+1.8.1
