@@ -1,74 +1,80 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH v2 4/4] bgmac: add ndo_set_rx_mode netdev ops
-Date: Wed,  6 Feb 2013 16:51:49 +0100
-Message-ID: <1360165909-5910-1-git-send-email-hauke@hauke-m.de>
-References: <1360161900-2330-5-git-send-email-hauke@hauke-m.de>
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Wed, 6 Feb 2013 17:50:49 +0200
+Message-ID: <20130206155049.GB14735@redhat.com>
+References: <20130206114321.GA13497@redhat.com>
+ <1360156059.28557.28.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
+	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
+	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:34941 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751551Ab3BFPwI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 10:52:08 -0500
-In-Reply-To: <1360161900-2330-5-git-send-email-hauke@hauke-m.de>
+Received: from mx1.redhat.com ([209.132.183.28]:40651 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754896Ab3BFQDa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 11:03:30 -0500
+Content-Disposition: inline
+In-Reply-To: <1360156059.28557.28.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When changing the device from or to promisc mode this only affects the
-device after the device is bought up the next time. For bridging it is
-needed to change the device to promisc mode while it is up, which is
-possible with this patch.
+On Wed, Feb 06, 2013 at 05:07:39AM -0800, Eric Dumazet wrote:
+> On Wed, 2013-02-06 at 13:43 +0200, Michael S. Tsirkin wrote:
+> > It seems that starting with kernel 3.3 ixgbe sets gso_size for
+> > incoming frames. It seems that this might result in gso_size
+> > being set even when gso_type is 0.
+> > This in turn leads to a crash at macvtap_skb_to_vnet_hdr
+> > drivers/net/macvtap.c:628
+> > which has this code:
+> > 
+> >        if (skb_is_gso(skb)) {
+> >                 struct skb_shared_info *sinfo = skb_shinfo(skb);
+> > 
+> >                 /* This is a hint as to how much should be linear. */
+> >                 vnet_hdr->hdr_len = skb_headlen(skb);
+> >                 vnet_hdr->gso_size = sinfo->gso_size;
+> >                 if (sinfo->gso_type & SKB_GSO_TCPV4)
+> >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+> >                 else if (sinfo->gso_type & SKB_GSO_TCPV6)
+> >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+> >                 else if (sinfo->gso_type & SKB_GSO_UDP)
+> >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+> >                 else
+> >                         BUG();
+> >                 if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+> >                         vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
+> >         } else
+> >                 vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+> > 
+> > 
+> > Since skb_is_gso tests gso_size.
+> > 
+> > What's the right way to handle this? Should skb_is_gso be
+> > changed to test gso_type != 0?
+> > 
+> 
+> Or fix ixgbe to set gso_type in ixgbe_get_headlen(), as it does all the
+> dissection.
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
 
-v2:
-  * Improved comit message
+Hmm, ixgbe_get_headlen isn't run on linear skbs though.
 
- drivers/net/ethernet/broadcom/bgmac.c |   16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+Also, I'm not sure I understand when should drivers set gso size
+for incoming messages and what is a reasonable value.
+Commit log talks about improved performance for lossy connections,
+in this case, isn't this something net core should set?
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index e0775c4..23c8d4a 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -771,6 +771,16 @@ static void bgmac_write_mac_address(struct bgmac *bgmac, u8 *addr)
- 	bgmac_write(bgmac, BGMAC_MACADDR_LOW, tmp);
- }
- 
-+static void bgmac_set_rx_mode(struct net_device *net_dev)
-+{
-+	struct bgmac *bgmac = netdev_priv(net_dev);
-+
-+	if (net_dev->flags & IFF_PROMISC)
-+		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
-+	else
-+		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
-+}
-+
- #if 0 /* We don't use that regs yet */
- static void bgmac_chip_stats_update(struct bgmac *bgmac)
- {
-@@ -1024,10 +1034,7 @@ static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
- 	/* Enable 802.3x tx flow control (honor received PAUSE frames) */
- 	bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_RPI, 0, true);
- 
--	if (bgmac->net_dev->flags & IFF_PROMISC)
--		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
--	else
--		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
-+	bgmac_set_rx_mode(bgmac->net_dev);
- 
- 	bgmac_write_mac_address(bgmac, bgmac->net_dev->dev_addr);
- 
-@@ -1209,6 +1216,7 @@ static const struct net_device_ops bgmac_netdev_ops = {
- 	.ndo_open		= bgmac_open,
- 	.ndo_stop		= bgmac_stop,
- 	.ndo_start_xmit		= bgmac_start_xmit,
-+	.ndo_set_rx_mode	= bgmac_set_rx_mode,
- 	.ndo_set_mac_address	= bgmac_set_mac_address,
- 	.ndo_validate_addr	= eth_validate_addr,
- 	.ndo_do_ioctl           = bgmac_ioctl,
+I see 3 in-tree drivers that do this:
+
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:                skb_shinfo(skb)->gso_size = bnx2x
+drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:  skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->le
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:         skb_shinfo(skb)->gso_size = qlcnic_get_lr
+
+It seems likely the same issue applies there?
+
+
 -- 
-1.7.10.4
+MST
