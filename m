@@ -1,65 +1,50 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2] mlx4_en: Fix BQL reset TX queue call point
-Date: Wed, 6 Feb 2013 09:58:41 -0800 (PST)
-Message-ID: <alpine.DEB.2.00.1302060955490.26438@pokey.mtv.corp.google.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] net: mac80211/cfg.c: fix error using of sizeof()
+Date: Wed, 06 Feb 2013 09:59:46 -0800
+Message-ID: <51129A12.6020101@candelatech.com>
+References: <1360167826-29265-1-git-send-email-dinggnu@gmail.com>  (sfid-20130206_172354_765098_665D60D0) <1360168022.7910.22.camel@jlt4.sipsolutions.net> <511298E8.7090801@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, yevgenyp@mellanox.com, netdev@vger.kernel.org,
-	amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:47001 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932067Ab3BFR6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 12:58:43 -0500
-Received: by mail-vc0-f202.google.com with SMTP id m8so174853vcd.1
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 09:58:42 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Cong Ding <dinggnu@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <511298E8.7090801@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix issue in Mellanox driver related to BQL.  netdev_tx_reset_queue
-was not being called in certain situations where the device was
-being start and stopped.  Moved netdev_tx_reset_queue from the reset
-device path to mlx4_en_free_tx_buf which is where the rings are
-cleaned in a reset (specifically from device being stopped).
+On 02/06/2013 09:54 AM, Ben Greear wrote:
+> On 02/06/2013 08:27 AM, Johannes Berg wrote:
+>> On Wed, 2013-02-06 at 17:23 +0100, Cong Ding wrote:
+>>> Using 'sizeof' on array given as function argument returns size of a pointer
+>>> rather than the size of array.
+>>
+>> Oops, yeah, Stephen Hemminger pointed this out a month or so ago and I
+>> forgot to change it, thanks.
+>
+> This needs to be back-ported for 3.7 stable?  Perhaps the code below
+> corresponds (from copy_mesh_setup)?
+>
+>
+>      /* mcast rate setting in Mesh Node */
+>      memcpy(sdata->vif.bss_conf.mcast_rate, setup->mcast_rate,
+>                          sizeof(setup->mcast_rate));
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 3 ---
- drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 2 ++
- 2 files changed, 2 insertions(+), 3 deletions(-)
+Nevermind..I think I'm wrong about that..the sizeof probably works fine
+here.  Sorry for the noise.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index ac1c14f..94042f6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1323,15 +1323,12 @@ static void mlx4_en_restart(struct work_struct *work)
- 						 watchdog_task);
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct net_device *dev = priv->dev;
--	int i;
- 
- 	en_dbg(DRV, priv, "Watchdog task called for port %d\n", priv->port);
- 
- 	mutex_lock(&mdev->state_lock);
- 	if (priv->port_up) {
- 		mlx4_en_stop_port(dev, 1);
--		for (i = 0; i < priv->tx_ring_num; i++)
--			netdev_tx_reset_queue(priv->tx_ring[i].tx_queue);
- 		if (mlx4_en_start_port(dev))
- 			en_err(priv, "Failed restarting port %d\n", priv->port);
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-index 30724d8..e06fce7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-@@ -294,6 +294,8 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
- 		cnt++;
- 	}
- 
-+	netdev_tx_reset_queue(ring->tx_queue);
-+
- 	if (cnt)
- 		en_dbg(DRV, priv, "Freed %d uncompleted tx descriptors\n", cnt);
- 
+Ben
+
+>
+> Thanks,
+> Ben
+>
+
+
 -- 
-1.8.1
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
