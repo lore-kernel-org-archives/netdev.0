@@ -1,59 +1,50 @@
-From: Petr Malat <oss@malat.biz>
-Subject: [PATCH]: fix phy_device_free memory leak
-Date: Thu, 7 Feb 2013 00:07:57 +0100
-Message-ID: <201302070007.57434.oss@malat.biz>
+From: Emil Goode <emilgoode@gmail.com>
+Subject: [PATCH v2] batman-adv: Remove unused variable
+Date: Thu,  7 Feb 2013 00:32:37 +0100
+Message-ID: <1360193557-27554-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: oss@malat.biz
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:32819 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755489Ab3BFXHS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 18:07:18 -0500
-Received: by mail-ee0-f42.google.com with SMTP id b47so1020338eek.15
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 15:07:17 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sasha.levin@oracle.com, b.a.t.m.a.n@lists.open-mesh.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, Emil Goode <emilgoode@gmail.com>
+To: akpm@linux-foundation.org, lindner_marek@yahoo.de,
+	siwu@hrz.tu-chemnitz.de, ordex@autistici.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-there is a memory leak in phy_device handling:
-phy_device_create() sets name of kobject using dev_set_name(), which allocates 
-memory using kvasprintf(), but this memory isn't freed if the underlying 
-device isn't registered properly, because kobject_cleanup() is not called in 
-that case. This can happen (and actually is happening on our machines) if 
-phy_device_register(), called by mdiobus_scan(), fails. I fixed this by the 
-attached patch, so far it's working fine.
+The below commit removed one node parameter from iterators.
+ed242d01bbe22ea0877472db49b2752d866c921c
+(hlist: drop the node parameter from iterators)
 
-Patch description:
-Name is freed by phy_device_free(). In the case a device is released trough 
-kobject_cleanup()->device_release()->phy_device_release(), the name is set to 
-NULL and it is not freed by phy_device_free(), because it will be freed later 
-by kobject_cleanup().
+This patch removes a hlist_node struct that is no longer used.
 
-Please put me on CC, I'm not signed into the mailing list.
+Sparse gives a warning:
 
-   Petr
+net/batman-adv/originator.c:411:21: warning:
+	unused variable =E2=80=98node_tmp=E2=80=99 [-Wunused-variable]
 
+Signed-off-by: Emil Goode <emilgoode@gmail.com>
+---
+This patch applies to the linux-next tree.
+v2: Added complete hash and message of dependant commit.
 
---- a/drivers/net/phy/phy_device.c	2013-02-06 19:44:11.000000000 +0100
-+++ b/drivers/net/phy/phy_device.c	2013-02-06 20:56:57.000000000 +0100
-@@ -41,12 +41,16 @@ MODULE_LICENSE("GPL");
- 
- void phy_device_free(struct phy_device *phydev)
- {
-+	kfree(phydev->dev.kobj.name);
- 	kfree(phydev);
- }
- EXPORT_SYMBOL(phy_device_free);
- 
- static void phy_device_release(struct device *dev)
- {
-+	/* Name will be freed by kobject_cleanup() */
-+	dev->kobj.name = NULL; 
-+
- 	phy_device_free(to_phy_device(dev));
- }
+ net/batman-adv/originator.c |    1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
+index 43d0f89..96fb80b 100644
+--- a/net/batman-adv/originator.c
++++ b/net/batman-adv/originator.c
+@@ -408,7 +408,6 @@ int batadv_orig_seq_print_text(struct seq_file *seq=
+, void *offset)
+ 	struct net_device *net_dev =3D (struct net_device *)seq->private;
+ 	struct batadv_priv *bat_priv =3D netdev_priv(net_dev);
+ 	struct batadv_hashtable *hash =3D bat_priv->orig_hash;
+-	struct hlist_node *node_tmp;
+ 	struct hlist_head *head;
+ 	struct batadv_hard_iface *primary_if;
+ 	struct batadv_orig_node *orig_node;
+--=20
+1.7.10.4
