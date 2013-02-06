@@ -1,42 +1,78 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 2/4] bgmac: write mac address to hardware in ndo_set_mac_address
-Date: Wed, 6 Feb 2013 15:57:42 +0100
-Message-ID: <CACna6rxjOU9URdV5C0M8fGcCh9sT-s2uoM9reUgigOTLz_qUYA@mail.gmail.com>
-References: <1360161900-2330-1-git-send-email-hauke@hauke-m.de>
-	<1360161900-2330-3-git-send-email-hauke@hauke-m.de>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH 4/4] bgmac: add ndo_set_rx_mode netdev ops
+Date: Wed, 06 Feb 2013 15:58:10 +0100
+Message-ID: <51126F82.2030605@openwrt.org>
+References: <1360161900-2330-1-git-send-email-hauke@hauke-m.de> <1360161900-2330-5-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org
 To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:52146 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755341Ab3BFO5n convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 09:57:43 -0500
-Received: by mail-oa0-f50.google.com with SMTP id l20so1570610oag.37
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 06:57:42 -0800 (PST)
-In-Reply-To: <1360161900-2330-3-git-send-email-hauke@hauke-m.de>
+Received: from mail-bk0-f43.google.com ([209.85.214.43]:36559 "EHLO
+	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755350Ab3BFPBJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 10:01:09 -0500
+Received: by mail-bk0-f43.google.com with SMTP id jm19so678750bkc.16
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 07:01:07 -0800 (PST)
+In-Reply-To: <1360161900-2330-5-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/2/6 Hauke Mehrtens <hauke@hauke-m.de>:
-> The generic implementation just changes the netdev struct and does no=
-t
-> write the new mac address to the hardware or issues some command to d=
-o
-> so.
+Hello Hauke,
 
-That's because generic "eth_mac_addr" allows changing MAC only when
-interface is down. And we "upload" MAC address during bringing
-interface up. So there wasn't any bug, it was just working that way :)
+On 02/06/2013 03:45 PM, Hauke Mehrtens wrote:
+> Currently it is only possible to activate or deactivate promisc mode
+> while the device is up.
 
-One question: how you tested if changing MAC with keeping interface up
-works correctly? I just don't know if simple writes to
-BGMAC_MACADDR_HIGH and BGMAC_MACADDR_LOW are enough.
+This is required for bridging to work, so it is definitively a good fix 
+to have.
 
-If it works for you (changing MAC without stopping interface), I'm OK w=
-ith that.
-
---=20
-Rafa=C5=82
+>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+>   drivers/net/ethernet/broadcom/bgmac.c |   16 ++++++++++++----
+>   1 file changed, 12 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index e0775c4..23c8d4a 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -771,6 +771,16 @@ static void bgmac_write_mac_address(struct bgmac *bgmac, u8 *addr)
+>   	bgmac_write(bgmac, BGMAC_MACADDR_LOW, tmp);
+>   }
+>
+> +static void bgmac_set_rx_mode(struct net_device *net_dev)
+> +{
+> +	struct bgmac *bgmac = netdev_priv(net_dev);
+> +
+> +	if (net_dev->flags & IFF_PROMISC)
+> +		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
+> +	else
+> +		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
+> +}
+> +
+>   #if 0 /* We don't use that regs yet */
+>   static void bgmac_chip_stats_update(struct bgmac *bgmac)
+>   {
+> @@ -1024,10 +1034,7 @@ static void bgmac_chip_init(struct bgmac *bgmac, bool full_init)
+>   	/* Enable 802.3x tx flow control (honor received PAUSE frames) */
+>   	bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_RPI, 0, true);
+>
+> -	if (bgmac->net_dev->flags & IFF_PROMISC)
+> -		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
+> -	else
+> -		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
+> +	bgmac_set_rx_mode(bgmac->net_dev);
+>
+>   	bgmac_write_mac_address(bgmac, bgmac->net_dev->dev_addr);
+>
+> @@ -1209,6 +1216,7 @@ static const struct net_device_ops bgmac_netdev_ops = {
+>   	.ndo_open		= bgmac_open,
+>   	.ndo_stop		= bgmac_stop,
+>   	.ndo_start_xmit		= bgmac_start_xmit,
+> +	.ndo_set_rx_mode	= bgmac_set_rx_mode,
+>   	.ndo_set_mac_address	= bgmac_set_mac_address,
+>   	.ndo_validate_addr	= eth_validate_addr,
+>   	.ndo_do_ioctl           = bgmac_ioctl,
+>
