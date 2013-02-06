@@ -1,69 +1,71 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Thu, 07 Feb 2013 00:24:14 +0900
-Message-ID: <5112759E.90104@linux-ipv6.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org>
+Date: Thu, 07 Feb 2013 00:32:17 +0900
+Message-ID: <51127781.2000504@linux-ipv6.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 To: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	erik.hugne@ericsson.com
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38253 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38449 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755448Ab3BFPYQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 10:24:16 -0500
-In-Reply-To: <20130206121248.GC10290@order.stressinduktion.org>
+	with ESMTP id S1754496Ab3BFPcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 10:32:18 -0500
+In-Reply-To: <20130206134950.GD10290@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hannes Frederic Sowa wrote:
-> On Wed, Feb 06, 2013 at 09:49:49AM +0100, Erik Hugne wrote:
->> It seems that packets sent to interface-local scoped multicast
->> addresses (ff01::/16) escape out on the network.
->> According to RFC4291 (section 2.7):
->>     Interface-Local scope spans only a single interface on a node
->>     and is useful only for loopback transmission of multicast.
+> On Wed, Feb 06, 2013 at 02:07:39PM +0100, Erik Hugne wrote:
+>> On Wed, Feb 06, 2013 at 01:12:48PM +0100, Hannes Frederic Sowa wrote:
+>>> Fixing the output path should be relatively straightforward, please test
+>>> the following patch.
 >>
->> Example program here:
->> https://gist.github.com/Hugne/4721151
+>> Tested OK.
+>>
+>>> Looking at the input path, I think there is also no input protection
+>>> for ff01::/16 addresses from the wire if you bind such an address.
+>>
+>> Yes, this needs to be filtered on the input side aswell.
 > 
-> Fixing the output path should be relatively straightforward, please test
-> the following patch.
+> This patch should do the trick. Perhaps you could also take it for a test
+> drive? Thanks!
 > 
-> Looking at the input path, I think there is also no input protection
-> for ff01::/16 addresses from the wire if you bind such an address.
+> [PATCH net-next] ipv6: don't accept node local multicast traffic from the wire
 > 
-> [PATCH net-next] ipv6: don't let node/interface scoped multicast traffic escape on the wire
-> 
-> Reported-by: Erik Hugne <erik.hugne@ericsson.com>
 > Cc: Erik Hugne <erik.hugne@ericsson.com>
 > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 > ---
->  net/ipv6/ip6_output.c | 6 ++++++
->  1 file changed, 6 insertions(+)
+>  net/ipv6/ip6_input.c | 10 ++++++++++
+>  1 file changed, 10 insertions(+)
 > 
-> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-> index 906b7e6..b21ff3d 100644
-> --- a/net/ipv6/ip6_output.c
-> +++ b/net/ipv6/ip6_output.c
-> @@ -118,6 +118,12 @@ static int ip6_finish_output2(struct sk_buff *skb)
->  			}
->  		}
+> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> index 4ac5bf3..a2f71d2 100644
+> --- a/net/ipv6/ip6_input.c
+> +++ b/net/ipv6/ip6_input.c
+> @@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+>  	if (ipv6_addr_is_multicast(&hdr->saddr))
+>  		goto err;
 >  
-> +		if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
-> +		    IPV6_ADDR_SCOPE_NODELOCAL) {
-> +			kfree_skb(skb);
-> +			return 0;
-> +		}
+> +	/*
+> +	 * RFC4291 2.7
+> +	 * Interface-Local scope spans only a single interface on a node
+> +         * and is useful only for loopback transmission of multicast.
+> +	 */
+> +	if (ipv6_addr_is_multicast(&hdr->daddr) &&
+> +	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) <= IPV6_ADDR_SCOPE_NODELOCAL &&
+> +	    skb->pkt_type != PACKET_LOOPBACK)
+> +		goto err;
 > +
->  		IP6_UPD_PO_STATS(dev_net(dev), idev, IPSTATS_MIB_OUTMCAST,
->  				skb->len);
->  	}
-> 
+>  	skb->transport_header = skb->network_header + sizeof(*hdr);
+>  	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
 
-NAK.  I think we should select routes via loopback device here.
+NAK.
+
+Well, do you have relevant RFC?
+RFC4291 says that we should drop ff00::/16, but not ff01::/16.
 
 --yoshfuji
