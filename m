@@ -1,80 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
-Date: Wed, 6 Feb 2013 17:50:49 +0200
-Message-ID: <20130206155049.GB14735@redhat.com>
-References: <20130206114321.GA13497@redhat.com>
- <1360156059.28557.28.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Wed, 6 Feb 2013 17:04:09 +0100
+Message-ID: <20130206160409.GB18040@order.stressinduktion.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org> <51127781.2000504@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
-	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
-	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40651 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754896Ab3BFQDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 11:03:30 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:47756 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755083Ab3BFQEK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:04:10 -0500
 Content-Disposition: inline
-In-Reply-To: <1360156059.28557.28.camel@edumazet-glaptop>
+In-Reply-To: <51127781.2000504@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2013 at 05:07:39AM -0800, Eric Dumazet wrote:
-> On Wed, 2013-02-06 at 13:43 +0200, Michael S. Tsirkin wrote:
-> > It seems that starting with kernel 3.3 ixgbe sets gso_size for
-> > incoming frames. It seems that this might result in gso_size
-> > being set even when gso_type is 0.
-> > This in turn leads to a crash at macvtap_skb_to_vnet_hdr
-> > drivers/net/macvtap.c:628
-> > which has this code:
+On Thu, Feb 07, 2013 at 12:32:17AM +0900, YOSHIFUJI Hideaki wrote:
+> Hannes Frederic Sowa wrote:
+> > On Wed, Feb 06, 2013 at 02:07:39PM +0100, Erik Hugne wrote:
+> >> On Wed, Feb 06, 2013 at 01:12:48PM +0100, Hannes Frederic Sowa wrote:
+> >>> Fixing the output path should be relatively straightforward, please test
+> >>> the following patch.
+> >>
+> >> Tested OK.
+> >>
+> >>> Looking at the input path, I think there is also no input protection
+> >>> for ff01::/16 addresses from the wire if you bind such an address.
+> >>
+> >> Yes, this needs to be filtered on the input side aswell.
 > > 
-> >        if (skb_is_gso(skb)) {
-> >                 struct skb_shared_info *sinfo = skb_shinfo(skb);
+> > This patch should do the trick. Perhaps you could also take it for a test
+> > drive? Thanks!
 > > 
-> >                 /* This is a hint as to how much should be linear. */
-> >                 vnet_hdr->hdr_len = skb_headlen(skb);
-> >                 vnet_hdr->gso_size = sinfo->gso_size;
-> >                 if (sinfo->gso_type & SKB_GSO_TCPV4)
-> >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
-> >                 else if (sinfo->gso_type & SKB_GSO_TCPV6)
-> >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
-> >                 else if (sinfo->gso_type & SKB_GSO_UDP)
-> >                         vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
-> >                 else
-> >                         BUG();
-> >                 if (sinfo->gso_type & SKB_GSO_TCP_ECN)
-> >                         vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
-> >         } else
-> >                 vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+> > [PATCH net-next] ipv6: don't accept node local multicast traffic from the wire
 > > 
+> > Cc: Erik Hugne <erik.hugne@ericsson.com>
+> > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> >  net/ipv6/ip6_input.c | 10 ++++++++++
+> >  1 file changed, 10 insertions(+)
 > > 
-> > Since skb_is_gso tests gso_size.
-> > 
-> > What's the right way to handle this? Should skb_is_gso be
-> > changed to test gso_type != 0?
-> > 
+> > diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> > index 4ac5bf3..a2f71d2 100644
+> > --- a/net/ipv6/ip6_input.c
+> > +++ b/net/ipv6/ip6_input.c
+> > @@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+> >  	if (ipv6_addr_is_multicast(&hdr->saddr))
+> >  		goto err;
+> >  
+> > +	/*
+> > +	 * RFC4291 2.7
+> > +	 * Interface-Local scope spans only a single interface on a node
+> > +         * and is useful only for loopback transmission of multicast.
+> > +	 */
+> > +	if (ipv6_addr_is_multicast(&hdr->daddr) &&
+> > +	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) <= IPV6_ADDR_SCOPE_NODELOCAL &&
+> > +	    skb->pkt_type != PACKET_LOOPBACK)
+> > +		goto err;
+> > +
+> >  	skb->transport_header = skb->network_header + sizeof(*hdr);
+> >  	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
 > 
-> Or fix ixgbe to set gso_type in ixgbe_get_headlen(), as it does all the
-> dissection.
+> NAK.
+> 
+> Well, do you have relevant RFC?
+> RFC4291 says that we should drop ff00::/16, but not ff01::/16.
 
-
-Hmm, ixgbe_get_headlen isn't run on linear skbs though.
-
-Also, I'm not sure I understand when should drivers set gso size
-for incoming messages and what is a reasonable value.
-Commit log talks about improved performance for lossy connections,
-in this case, isn't this something net core should set?
-
-I see 3 in-tree drivers that do this:
-
-drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:                skb_shinfo(skb)->gso_size = bnx2x
-drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:  skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->le
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:         skb_shinfo(skb)->gso_size = qlcnic_get_lr
-
-It seems likely the same issue applies there?
-
-
--- 
-MST
+I know what you mean, the RFC does not state it directly. Hm, the BSDs seem to
+drop such destination addresses, too, if they don't originate from a loopback
+interface. Or did you mean that there is a flaw in the skb->pkt_type !=
+PACKET_LOOPBACK condition?
