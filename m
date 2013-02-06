@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 0/2] fix kernel crash with macvtap on top of
-	LRO
-Date: Thu, 7 Feb 2013 01:02:38 +0200
-Message-ID: <cover.1360191528.git.mst@redhat.com>
+Subject: [PATCH 2/2] qlcnic: set gso_type
+Date: Thu, 7 Feb 2013 01:02:59 +0200
+Message-ID: <f262d9330d22447ed8fd487ad7b28d668efbf333.1360191528.git.mst@redhat.com>
+References: <cover.1360191528.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,6 +19,7 @@ Cc: "David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
 To: netdev@vger.kernel.org
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
+In-Reply-To: <cover.1360191528.git.mst@redhat.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -29,29 +30,35 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-At the moment, macvtap crashes are observed if macvtap is attached
-to an interface with LRO enabled.
-The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
-This happens because several drivers set gso_size but not gso_type
-in incoming skbs.
-The following patches fix this for
-Additionally, cbf1de72324a8105ddcc3d9ce9acbc613faea17e is required
-to fix this for broadcom - would it make sense to cherry-pick
-this patch into 3.8?
+qlcnic set gso_size but not gso type. This leads to crashes
+in macvtap.
 
-I tested that the patch fixes the crash for ixgbe but
-don't have qlogic hardware to fix.  I also only tested TCP.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+This one I only compiled - don't have qlogic hardware.
 
-Feedback wellcome.
-
-Michael S. Tsirkin (2):
-  ixgbe: fix gso type
-  qlcnic: set gso_type
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 8 ++++++--
  drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 7 ++++++-
- 2 files changed, 12 insertions(+), 3 deletions(-)
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index bb4311e..370049c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -1043,8 +1043,13 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+ 	th->seq = htonl(seq_number);
+ 	length = skb->len;
+ 
+-	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
++	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP) {
+ 		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
++		if (skb->protocol == ETH_P_IPV6)
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++		else
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++	}
+ 
+ 	if (vid != 0xffff)
+ 		__vlan_hwaccel_put_tag(skb, vid);
 -- 
 MST
 
