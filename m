@@ -1,146 +1,265 @@
 From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH 2/4] xen/netback: don't leak pages on failure in xen_netbk_tx_check_gop.
-Date: Wed, 6 Feb 2013 17:18:16 +0000
-Message-ID: <1360171098-1240-2-git-send-email-ian.campbell@citrix.com>
+Subject: [PATCH 1/4] xen/netback: shutdown the ring if it contains garbage.
+Date: Wed, 6 Feb 2013 17:18:15 +0000
+Message-ID: <1360171098-1240-1-git-send-email-ian.campbell@citrix.com>
 References: <1360171081.32479.20.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <xen-devel@lists.xen.org>, Matthew Daley <mattjd@gmail.com>
+Cc: <xen-devel@lists.xen.org>, Ian Campbell <ian.campbell@citrix.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.citrix.com ([66.165.176.89]:46083 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756080Ab3BFRSV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 12:18:21 -0500
+	id S1752024Ab3BFRSW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 12:18:22 -0500
 In-Reply-To: <1360171081.32479.20.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Daley <mattjd@gmail.com>
+A buggy or malicious frontend should not be able to confuse netback.
+If we spot anything which is not as it should be then shutdown the
+device and don't try to continue with the ring in a potentially
+hostile state. Well behaved and non-hostile frontends will not be
+penalised.
 
-Signed-off-by: Matthew Daley <mattjd@gmail.com>
+As well as making the existing checks for such errors fatal also add a
+new check that ensures that there isn't an insane number of requests
+on the ring (i.e. more than would fit in the ring). If the ring
+contains garbage then previously is was possible to loop over this
+insane number, getting an error each time and therefore not generating
+any more pending requests and therefore not exiting the loop in
+xen_netbk_tx_build_gops for an externded period.
+
+Also turn various netdev_dbg calls which no precipitate a fatal error
+into netdev_err, they are rate limited because the device is shutdown
+afterwards.
+
+This fixes at least one known DoS/softlockup of the backend domain.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Acked-by: Ian Campbell <ian.campbell@citrix.com>
 Acked-by: Jan Beulich <JBeulich@suse.com>
 ---
- drivers/net/xen-netback/netback.c |   38 ++++++++++++------------------------
- 1 files changed, 13 insertions(+), 25 deletions(-)
+ drivers/net/xen-netback/common.h    |    3 ++
+ drivers/net/xen-netback/interface.c |   23 ++++++++-----
+ drivers/net/xen-netback/netback.c   |   63 +++++++++++++++++++++++++---------
+ 3 files changed, 63 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 1a449f9..975241e 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -147,7 +147,8 @@ void xen_netbk_remove_xenvif(struct xenvif *vif)
- 	atomic_dec(&netbk->netfront_count);
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 94b79c3..9d7f172 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -151,6 +151,9 @@ void xen_netbk_queue_tx_skb(struct xenvif *vif, struct sk_buff *skb);
+ /* Notify xenvif that ring now has space to send an skb to the frontend */
+ void xenvif_notify_tx_completion(struct xenvif *vif);
+ 
++/* Prevent the device from generating any further traffic. */
++void xenvif_carrier_off(struct xenvif *vif);
++
+ /* Returns number of ring slots required to send an skb to the frontend */
+ unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb);
+ 
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index b7d41f8..b8c5193 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -343,17 +343,22 @@ err:
+ 	return err;
  }
  
--static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx);
-+static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx,
-+				  u8 status);
- static void make_tx_response(struct xenvif *vif,
- 			     struct xen_netif_tx_request *txp,
- 			     s8       st);
-@@ -1007,30 +1008,20 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
+-void xenvif_disconnect(struct xenvif *vif)
++void xenvif_carrier_off(struct xenvif *vif)
  {
- 	struct gnttab_copy *gop = *gopp;
- 	u16 pending_idx = *((u16 *)skb->data);
--	struct pending_tx_info *pending_tx_info = netbk->pending_tx_info;
--	struct xenvif *vif = pending_tx_info[pending_idx].vif;
--	struct xen_netif_tx_request *txp;
- 	struct skb_shared_info *shinfo = skb_shinfo(skb);
- 	int nr_frags = shinfo->nr_frags;
- 	int i, err, start;
- 
- 	/* Check status of header. */
- 	err = gop->status;
--	if (unlikely(err)) {
--		pending_ring_idx_t index;
--		index = pending_index(netbk->pending_prod++);
--		txp = &pending_tx_info[pending_idx].req;
--		make_tx_response(vif, txp, XEN_NETIF_RSP_ERROR);
--		netbk->pending_ring[index] = pending_idx;
+ 	struct net_device *dev = vif->dev;
+-	if (netif_carrier_ok(dev)) {
+-		rtnl_lock();
+-		netif_carrier_off(dev); /* discard queued packets */
+-		if (netif_running(dev))
+-			xenvif_down(vif);
+-		rtnl_unlock();
 -		xenvif_put(vif);
 -	}
-+	if (unlikely(err))
-+		xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_ERROR);
++
++	rtnl_lock();
++	netif_carrier_off(dev); /* discard queued packets */
++	if (netif_running(dev))
++		xenvif_down(vif);
++	rtnl_unlock();
++	xenvif_put(vif);
++}
++
++void xenvif_disconnect(struct xenvif *vif)
++{
++	if (netif_carrier_ok(vif->dev))
++		xenvif_carrier_off(vif);
  
- 	/* Skip first skb fragment if it is on same page as header fragment. */
- 	start = (frag_get_pending_idx(&shinfo->frags[0]) == pending_idx);
+ 	atomic_dec(&vif->refcnt);
+ 	wait_event(vif->waiting_to_free, atomic_read(&vif->refcnt) == 0);
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index f2d6b78..1a449f9 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -888,6 +888,13 @@ static void netbk_tx_err(struct xenvif *vif,
+ 	xenvif_put(vif);
+ }
  
- 	for (i = start; i < nr_frags; i++) {
- 		int j, newerr;
--		pending_ring_idx_t index;
++static void netbk_fatal_tx_err(struct xenvif *vif)
++{
++	netdev_err(vif->dev, "fatal error; disabling device\n");
++	xenvif_carrier_off(vif);
++	xenvif_put(vif);
++}
++
+ static int netbk_count_requests(struct xenvif *vif,
+ 				struct xen_netif_tx_request *first,
+ 				struct xen_netif_tx_request *txp,
+@@ -901,19 +908,22 @@ static int netbk_count_requests(struct xenvif *vif,
  
- 		pending_idx = frag_get_pending_idx(&shinfo->frags[i]);
+ 	do {
+ 		if (frags >= work_to_do) {
+-			netdev_dbg(vif->dev, "Need more frags\n");
++			netdev_err(vif->dev, "Need more frags\n");
++			netbk_fatal_tx_err(vif);
+ 			return -frags;
+ 		}
  
-@@ -1039,16 +1030,12 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
- 		if (likely(!newerr)) {
- 			/* Had a previous error? Invalidate this fragment. */
- 			if (unlikely(err))
--				xen_netbk_idx_release(netbk, pending_idx);
-+				xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_OKAY);
+ 		if (unlikely(frags >= MAX_SKB_FRAGS)) {
+-			netdev_dbg(vif->dev, "Too many frags\n");
++			netdev_err(vif->dev, "Too many frags\n");
++			netbk_fatal_tx_err(vif);
+ 			return -frags;
+ 		}
+ 
+ 		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+ 		       sizeof(*txp));
+ 		if (txp->size > first->size) {
+-			netdev_dbg(vif->dev, "Frags galore\n");
++			netdev_err(vif->dev, "Frag is bigger than frame.\n");
++			netbk_fatal_tx_err(vif);
+ 			return -frags;
+ 		}
+ 
+@@ -921,8 +931,9 @@ static int netbk_count_requests(struct xenvif *vif,
+ 		frags++;
+ 
+ 		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
+-			netdev_dbg(vif->dev, "txp->offset: %x, size: %u\n",
++			netdev_err(vif->dev, "txp->offset: %x, size: %u\n",
+ 				 txp->offset, txp->size);
++			netbk_fatal_tx_err(vif);
+ 			return -frags;
+ 		}
+ 	} while ((txp++)->flags & XEN_NETTXF_more_data);
+@@ -1095,7 +1106,8 @@ static int xen_netbk_get_extras(struct xenvif *vif,
+ 
+ 	do {
+ 		if (unlikely(work_to_do-- <= 0)) {
+-			netdev_dbg(vif->dev, "Missing extra info\n");
++			netdev_err(vif->dev, "Missing extra info\n");
++			netbk_fatal_tx_err(vif);
+ 			return -EBADR;
+ 		}
+ 
+@@ -1104,8 +1116,9 @@ static int xen_netbk_get_extras(struct xenvif *vif,
+ 		if (unlikely(!extra.type ||
+ 			     extra.type >= XEN_NETIF_EXTRA_TYPE_MAX)) {
+ 			vif->tx.req_cons = ++cons;
+-			netdev_dbg(vif->dev,
++			netdev_err(vif->dev,
+ 				   "Invalid extra type: %d\n", extra.type);
++			netbk_fatal_tx_err(vif);
+ 			return -EINVAL;
+ 		}
+ 
+@@ -1121,13 +1134,15 @@ static int netbk_set_skb_gso(struct xenvif *vif,
+ 			     struct xen_netif_extra_info *gso)
+ {
+ 	if (!gso->u.gso.size) {
+-		netdev_dbg(vif->dev, "GSO size must not be zero.\n");
++		netdev_err(vif->dev, "GSO size must not be zero.\n");
++		netbk_fatal_tx_err(vif);
+ 		return -EINVAL;
+ 	}
+ 
+ 	/* Currently only TCPv4 S.O. is supported. */
+ 	if (gso->u.gso.type != XEN_NETIF_GSO_TYPE_TCPV4) {
+-		netdev_dbg(vif->dev, "Bad GSO type %d.\n", gso->u.gso.type);
++		netdev_err(vif->dev, "Bad GSO type %d.\n", gso->u.gso.type);
++		netbk_fatal_tx_err(vif);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1264,9 +1279,26 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 
+ 		/* Get a netif from the list with work to do. */
+ 		vif = poll_net_schedule_list(netbk);
++		/*
++		 * This can sometimes happen because the test of
++		 * list_empty(net_schedule_list) at the top of the
++		 * loop is unlocked.  Just go back and have another
++		 * look.
++		 */
+ 		if (!vif)
+ 			continue;
+ 
++		if (vif->tx.sring->req_prod - vif->tx.req_cons >
++		    XEN_NETIF_TX_RING_SIZE) {
++			netdev_err(vif->dev,
++				   "Impossible number of requests. "
++				   "req_prod %d, req_cons %d, size %ld\n",
++				   vif->tx.sring->req_prod, vif->tx.req_cons,
++				   XEN_NETIF_TX_RING_SIZE);
++			netbk_fatal_tx_err(vif);
++			continue;
++		}
++
+ 		RING_FINAL_CHECK_FOR_REQUESTS(&vif->tx, work_to_do);
+ 		if (!work_to_do) {
+ 			xenvif_put(vif);
+@@ -1294,17 +1326,14 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 			work_to_do = xen_netbk_get_extras(vif, extras,
+ 							  work_to_do);
+ 			idx = vif->tx.req_cons;
+-			if (unlikely(work_to_do < 0)) {
+-				netbk_tx_err(vif, &txreq, idx);
++			if (unlikely(work_to_do < 0))
+ 				continue;
+-			}
+ 		}
+ 
+ 		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
+-		if (unlikely(ret < 0)) {
+-			netbk_tx_err(vif, &txreq, idx - ret);
++		if (unlikely(ret < 0))
+ 			continue;
+-		}
++
+ 		idx += ret;
+ 
+ 		if (unlikely(txreq.size < ETH_HLEN)) {
+@@ -1316,11 +1345,11 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 
+ 		/* No crossing a page as the payload mustn't fragment. */
+ 		if (unlikely((txreq.offset + txreq.size) > PAGE_SIZE)) {
+-			netdev_dbg(vif->dev,
++			netdev_err(vif->dev,
+ 				   "txreq.offset: %x, size: %u, end: %lu\n",
+ 				   txreq.offset, txreq.size,
+ 				   (txreq.offset&~PAGE_MASK) + txreq.size);
+-			netbk_tx_err(vif, &txreq, idx);
++			netbk_fatal_tx_err(vif);
  			continue;
  		}
  
- 		/* Error on this fragment: respond to client with an error. */
--		txp = &netbk->pending_tx_info[pending_idx].req;
--		make_tx_response(vif, txp, XEN_NETIF_RSP_ERROR);
--		index = pending_index(netbk->pending_prod++);
--		netbk->pending_ring[index] = pending_idx;
--		xenvif_put(vif);
-+		xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_ERROR);
+@@ -1348,8 +1377,8 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
+ 			gso = &extras[XEN_NETIF_EXTRA_TYPE_GSO - 1];
  
- 		/* Not the first error? Preceding frags already invalidated. */
- 		if (err)
-@@ -1056,10 +1043,10 @@ static int xen_netbk_tx_check_gop(struct xen_netbk *netbk,
- 
- 		/* First error: invalidate header and preceding fragments. */
- 		pending_idx = *((u16 *)skb->data);
--		xen_netbk_idx_release(netbk, pending_idx);
-+		xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_OKAY);
- 		for (j = start; j < i; j++) {
- 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
--			xen_netbk_idx_release(netbk, pending_idx);
-+			xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_OKAY);
+ 			if (netbk_set_skb_gso(vif, skb, gso)) {
++				/* Failure in netbk_set_skb_gso is fatal. */
+ 				kfree_skb(skb);
+-				netbk_tx_err(vif, &txreq, idx);
+ 				continue;
+ 			}
  		}
- 
- 		/* Remember the error: invalidate all subsequent fragments. */
-@@ -1093,7 +1080,7 @@ static void xen_netbk_fill_frags(struct xen_netbk *netbk, struct sk_buff *skb)
- 
- 		/* Take an extra reference to offset xen_netbk_idx_release */
- 		get_page(netbk->mmap_pages[pending_idx]);
--		xen_netbk_idx_release(netbk, pending_idx);
-+		xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_OKAY);
- 	}
- }
- 
-@@ -1477,7 +1464,7 @@ static void xen_netbk_tx_submit(struct xen_netbk *netbk)
- 			txp->size -= data_len;
- 		} else {
- 			/* Schedule a response immediately. */
--			xen_netbk_idx_release(netbk, pending_idx);
-+			xen_netbk_idx_release(netbk, pending_idx, XEN_NETIF_RSP_OKAY);
- 		}
- 
- 		if (txp->flags & XEN_NETTXF_csum_blank)
-@@ -1529,7 +1516,8 @@ static void xen_netbk_tx_action(struct xen_netbk *netbk)
- 	xen_netbk_tx_submit(netbk);
- }
- 
--static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx)
-+static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx,
-+				  u8 status)
- {
- 	struct xenvif *vif;
- 	struct pending_tx_info *pending_tx_info;
-@@ -1543,7 +1531,7 @@ static void xen_netbk_idx_release(struct xen_netbk *netbk, u16 pending_idx)
- 
- 	vif = pending_tx_info->vif;
- 
--	make_tx_response(vif, &pending_tx_info->req, XEN_NETIF_RSP_OKAY);
-+	make_tx_response(vif, &pending_tx_info->req, status);
- 
- 	index = pending_index(netbk->pending_prod++);
- 	netbk->pending_ring[index] = pending_idx;
 -- 
 1.7.2.5
