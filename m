@@ -1,74 +1,324 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: BQL support in gianfar causes network hickup
-Date: Tue, 5 Feb 2013 20:55:39 -0500
-Message-ID: <CAP=VYLrbFz4UBMthg+FOqc4g0jW_4=etE+jJK6YE_EaSj8cNLA@mail.gmail.com>
-References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
- <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
- <1353800616.2590.4562.camel@edumazet-glaptop> <20121126100111.GA3728@mac.home>
- <1353947677.7553.2.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
- <1353950255.7553.6.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de>
- <1354019816.7553.1585.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de>
- <1354023162.7553.1708.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BB@Exchange1.lawo.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tino Keitel <tino.keitel@tikei.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Keitel, Tino (ALC NetworX GmbH)" <Tino.Keitel@alcnetworx.de>
+From: Simon Horman <horms+renesas@verge.net.au>
+Subject: [PATCH] net: sh_eth: Add support of device tree probe
+Date: Wed,  6 Feb 2013 11:00:19 +0900
+Message-ID: <1360116019-8870-1-git-send-email-horms+renesas@verge.net.au>
+Cc: Magnus Damm <magnus.damm@gmail.com>,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:51574 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754619Ab3BFB4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 20:56:11 -0500
-Received: by mail-wg0-f48.google.com with SMTP id 16so686005wgi.3
-        for <netdev@vger.kernel.org>; Tue, 05 Feb 2013 17:56:09 -0800 (PST)
-In-Reply-To: <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BB@Exchange1.lawo.de>
+Received: from kirsty.vergenet.net ([202.4.237.240]:51805 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754619Ab3BFCAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Feb 2013 21:00:43 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 5, 2013 at 8:00 AM, Keitel, Tino (ALC NetworX GmbH)
-<Tino.Keitel@alcnetworx.de> wrote:
-> On Di, 2012-11-27 at 05:32 -0800, Eric Dumazet wrote:
->> On Tue, 2012-11-27 at 13:42 +0100, Keitel, Tino (ALC NetworX GmbH)
->> wrote:
->> > On Di, 2012-11-27 at 04:36 -0800, Eric Dumazet wrote:
->> > >
->> > > Can you reproduce the problem using a single cpu ?
->> >
->> > Yes, it is a single-CPU system.
->>
->> Can you reproduce the problem without PTP running, or disabled in the
->> driver ?
->>
->> (comment the "priv->hwts_tx_en = 1;" line)
->
-> I can't reproduce it with that line commented. However, so far I was
-> only able to reproduce it when starting the ptp2 client, so maybe this
-> is connected.
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-How critical is ptp2 for this?  And/or the platform details?  I can
-try and reproduce it on an mpc8349 system and/or an mpc8548
-system (and even an mpc8641D system) but I'd rather know that
-was a meaningful chase and not a snipe hunt before going there.
+This adds support of device tree probe for Renesas sh-ether driver.
 
-So, in that respect, a "If you run this, you will get this" type of
-error message would be good.   I understand that may be too
-idealistic, though.
+Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-Thanks,
-Paul.
---
+---
+ Documentation/devicetree/bindings/net/sh_ether.txt |   43 ++++++
+ drivers/net/ethernet/renesas/sh_eth.c              |  156 +++++++++++++++++---
+ 2 files changed, 177 insertions(+), 22 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
 
->
->> By the way are any errata flagged in gfar_detect_errata() ?
->
-> This is from dmesg:
->
-> fsl-gianfar e0024000.ethernet: enabled errata workarounds, flags: 0x7
->
-> 0x7 would be GFAR_ERRATA_74, GFAR_ERRATA_76 and GFAR_ERRATA_A002
-> according to drivers/net/ethernet/freescale/gianfar.h.
->
-> Regards,
-> Tino
->
+[Simon Horman]
+I am re-posting this patch with devicetree-discuss@lists.ozlabs.org CCed
+for review of the proposed device tree bindings.
+
+diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
+new file mode 100644
+index 0000000..c11e45d
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+@@ -0,0 +1,43 @@
++* Renesas Electronics SuperH EMAC
++
++This file provides information, what the device node
++for the sh_eth interface contains.
++
++Required properties:
++- compatible:                   "renesas,sh-eth";
++- interrupt-parent:             The phandle for the interrupt controller that
++                                services interrupts for this device.
++- reg:                          Offset and length of the register set for the
++                                device.
++- interrupts:                   Interrupt mapping for the sh_eth interrupt
++                                sources (vector id).
++- phy-mode:              String, operation mode of the PHY interface.
++- sh-eth,edmac-endian:          String, endian of sh_eth dmac.
++- sh-eth,register-type:         String, register type of sh_eth.
++                                Please select "gigabit", "fast-sh4" or
++                                "fast-sh3-sh2".
++                                Please select "little" or "big".
++- sh-eth,endian:                String, endian of sh_eth dmac.
++- sh-eth,phy-id:                PHY id.
++
++Optional properties:
++- local-mac-address : 6 bytes, mac address
++- sh-eth,no-ether-link:         set link control by software. When device does
++                                not support ether-link, set.
++- sh-etn,ether-link-active-low: set link check method.
++                                When detection of link is treated as active-low,
++                                set.
++- sh-etn,needs-init:            Initialization flag.
++                                When initialize device in probing device, set.
++
++Example (armadillo800eva):
++	sh-eth@e9a00000 {
++		compatible = "renesas,sh-eth";
++		interrupt-parent = <&intca>;
++		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
++		interrupts = <0x500>;
++		phy-mode = "mii";
++		sh-eth,edmac-endian = "little";
++		sh-eth,register-type = "gigabit";
++		sh-eth,phy-id = <0>;
++	};
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 3d70586..1f64848 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -31,6 +31,12 @@
+ #include <linux/platform_device.h>
+ #include <linux/mdio-bitbang.h>
+ #include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_net.h>
+ #include <linux/phy.h>
+ #include <linux/cache.h>
+ #include <linux/io.h>
+@@ -2347,26 +2353,120 @@ static const struct net_device_ops sh_eth_netdev_ops = {
+ 	.ndo_change_mtu		= eth_change_mtu,
+ };
+ 
++#ifdef CONFIG_OF
++
++static int
++sh_eth_of_get_register_type(struct device_node *np)
++{
++	const char *of_str;
++	int ret = of_property_read_string(np, "sh-eth,register-type", &of_str);
++	if (ret)
++		return ret;
++
++	if (of_str && !strcmp(of_str, "gigabit"))
++		return SH_ETH_REG_GIGABIT;
++	else if (of_str && !strcmp(of_str, "fast-sh4"))
++		return SH_ETH_REG_FAST_SH4;
++	else if (of_str && !strcmp(of_str, "fast-sh3-sh2"))
++		return SH_ETH_REG_FAST_SH3_SH2;
++	else
++		return -EINVAL;
++}
++
++static struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
++{
++	int ret;
++	const char *of_str;
++	struct device_node *np = dev->of_node;
++	struct sh_eth_plat_data *pdata;
++
++	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
++					GFP_KERNEL);
++	if (!pdata) {
++		dev_err(dev, "%s: failed to allocate config data\n", __func__);
++		return NULL;
++	}
++
++	pdata->phy_interface = of_get_phy_mode(np);
++
++	of_property_read_u32(np, "sh-eth,phy-id", &pdata->phy);
++
++	of_property_read_string(np, "sh-eth,edmac-endian", &of_str);
++	if (of_str && !strcmp(of_str, "little"))
++		pdata->edmac_endian = EDMAC_LITTLE_ENDIAN;
++	else if (of_str && !strcmp(of_str, "big"))
++		pdata->edmac_endian = EDMAC_BIG_ENDIAN;
++	else
++		goto error;
++
++	if (of_find_property(np, "sh-eth,no-ether-link", NULL))
++		pdata->no_ether_link = 1;
++	else
++		pdata->no_ether_link = 0;
++
++	if (of_find_property(np, "sh-eth,ether-link-active-low", NULL))
++		pdata->ether_link_active_low = 1;
++	else
++		pdata->ether_link_active_low = 0;
++
++	ret = sh_eth_of_get_register_type(np);
++	if (ret < 0)
++		goto error;
++	pdata->register_type = ret;
++
++	if (of_find_property(np, "sh-eth,needs-init", NULL))
++		pdata->needs_init = 1;
++	else
++		pdata->needs_init = 0;
++
++#ifdef CONFIG_OF_NET
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		const char *macaddr = of_get_mac_address(np);
++		if (macaddr)
++			memcpy(pdata->mac_addr, macaddr, ETH_ALEN);
++	}
++#endif
++
++	return pdata;
++
++error:
++	devm_kfree(dev, pdata);
++	return NULL;
++}
++#else
++static struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
++{
++	return NULL;
++}
++#endif
++
+ static int sh_eth_drv_probe(struct platform_device *pdev)
+ {
+-	int ret, devno = 0;
++	int ret = 0, devno = 0;
+ 	struct resource *res;
+ 	struct net_device *ndev = NULL;
+ 	struct sh_eth_private *mdp = NULL;
+ 	struct sh_eth_plat_data *pd;
++	struct device_node *np = pdev->dev.of_node;
++
++	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
++	if (!ndev) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	/* Fill in the fields of the device structure with ethernet values. */
++	ether_setup(ndev);
+ 
++	mdp = netdev_priv(ndev);
+ 	/* get base addr */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (unlikely(res == NULL)) {
+ 		dev_err(&pdev->dev, "invalid resource\n");
+ 		ret = -EINVAL;
+-		goto out;
+-	}
+-
+-	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
+-	if (!ndev) {
+-		ret = -ENOMEM;
+-		goto out;
++		goto out_release;
+ 	}
+ 
+ 	/* The sh Ether-specific entries in the device structure. */
+@@ -2383,14 +2483,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	}
+ 	ndev->irq = ret;
+ 
+-	SET_NETDEV_DEV(ndev, &pdev->dev);
+-
+-	/* Fill in the fields of the device structure with ethernet values. */
+-	ether_setup(ndev);
+-
+-	mdp = netdev_priv(ndev);
+-	mdp->num_tx_ring = TX_RING_SIZE;
+-	mdp->num_rx_ring = RX_RING_SIZE;
+ 	mdp->addr = ioremap(res->start, resource_size(res));
+ 	if (mdp->addr == NULL) {
+ 		ret = -ENOMEM;
+@@ -2398,12 +2490,27 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 		goto out_release;
+ 	}
+ 
++	if (np && of_device_is_available(np))
++		pd = sh_eth_parse_dt(&pdev->dev, ndev);
++	else
++		pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
++
++	if (!pd) {
++		dev_err(&pdev->dev, "no setup data defined\n");
++		ret = -EINVAL;
++		goto out_release;
++	}
++
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++
++	mdp->num_tx_ring = TX_RING_SIZE;
++	mdp->num_rx_ring = RX_RING_SIZE;
++
+ 	spin_lock_init(&mdp->lock);
+ 	mdp->pdev = pdev;
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_resume(&pdev->dev);
+ 
+-	pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
+ 	/* get PHY ID */
+ 	mdp->phy_id = pd->phy;
+ 	mdp->phy_interface = pd->phy_interface;
+@@ -2412,6 +2519,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	mdp->no_ether_link = pd->no_ether_link;
+ 	mdp->ether_link_active_low = pd->ether_link_active_low;
+ 	mdp->reg_offset = sh_eth_get_register_offset(pd->register_type);
++	/* read and set MAC address */
++	read_mac_address(ndev, pd->mac_addr);
+ 
+ 	/* set cpu data */
+ #if defined(SH_ETH_HAS_BOTH_MODULES)
+@@ -2429,20 +2538,16 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	/* debug message level */
+ 	mdp->msg_enable = SH_ETH_DEF_MSG_ENABLE;
+ 
+-	/* read and set MAC address */
+-	read_mac_address(ndev, pd->mac_addr);
+-
+ 	/* ioremap the TSU registers */
+ 	if (mdp->cd->tsu) {
+ 		struct resource *rtsu;
+ 		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 		if (!rtsu) {
+ 			dev_err(&pdev->dev, "Not found TSU resource\n");
+-			ret = -ENODEV;
+ 			goto out_release;
+ 		}
+ 		mdp->tsu_addr = ioremap(rtsu->start,
+-					resource_size(rtsu));
++				resource_size(rtsu));
+ 		mdp->port = devno % 2;
+ 		ndev->features = NETIF_F_HW_VLAN_FILTER;
+ 	}
+@@ -2527,12 +2632,19 @@ static struct dev_pm_ops sh_eth_dev_pm_ops = {
+ 	.runtime_resume = sh_eth_runtime_nop,
+ };
+ 
++static struct of_device_id sh_eth_match[] = {
++	{ .compatible = "renesas,sh-eth",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, sh_eth_match);
++
+ static struct platform_driver sh_eth_driver = {
+ 	.probe = sh_eth_drv_probe,
+ 	.remove = sh_eth_drv_remove,
+ 	.driver = {
+ 		   .name = CARDNAME,
+ 		   .pm = &sh_eth_dev_pm_ops,
++		   .of_match_table = sh_eth_match,
+ 	},
+ };
+ 
+-- 
+1.7.10.4
