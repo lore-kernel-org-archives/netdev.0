@@ -1,50 +1,101 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] net: mac80211/cfg.c: fix error using of sizeof()
-Date: Wed, 06 Feb 2013 09:59:46 -0800
-Message-ID: <51129A12.6020101@candelatech.com>
-References: <1360167826-29265-1-git-send-email-dinggnu@gmail.com>  (sfid-20130206_172354_765098_665D60D0) <1360168022.7910.22.camel@jlt4.sipsolutions.net> <511298E8.7090801@candelatech.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Wed, 6 Feb 2013 20:05:37 +0200
+Message-ID: <20130206180537.GA17228@redhat.com>
+References: <20130206114321.GA13497@redhat.com>
+ <1360156059.28557.28.camel@edumazet-glaptop>
+ <20130206155049.GB14735@redhat.com>
+ <1360167332.28557.36.camel@edumazet-glaptop>
+ <20130206174228.GA16991@redhat.com>
+ <1360172565.28557.44.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Cong Ding <dinggnu@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <511298E8.7090801@candelatech.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
+	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
+	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:26757 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754819Ab3BFSBU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 13:01:20 -0500
+Content-Disposition: inline
+In-Reply-To: <1360172565.28557.44.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/06/2013 09:54 AM, Ben Greear wrote:
-> On 02/06/2013 08:27 AM, Johannes Berg wrote:
->> On Wed, 2013-02-06 at 17:23 +0100, Cong Ding wrote:
->>> Using 'sizeof' on array given as function argument returns size of a pointer
->>> rather than the size of array.
->>
->> Oops, yeah, Stephen Hemminger pointed this out a month or so ago and I
->> forgot to change it, thanks.
->
-> This needs to be back-ported for 3.7 stable?  Perhaps the code below
-> corresponds (from copy_mesh_setup)?
->
->
->      /* mcast rate setting in Mesh Node */
->      memcpy(sdata->vif.bss_conf.mcast_rate, setup->mcast_rate,
->                          sizeof(setup->mcast_rate));
+On Wed, Feb 06, 2013 at 09:42:45AM -0800, Eric Dumazet wrote:
+> On Wed, 2013-02-06 at 19:42 +0200, Michael S. Tsirkin wrote:
+> > On Wed, Feb 06, 2013 at 08:15:32AM -0800, Eric Dumazet wrote:
+> > > On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
+> > > 
+> > > > Also, I'm not sure I understand when should drivers set gso size
+> > > > for incoming messages and what is a reasonable value.
+> > > > Commit log talks about improved performance for lossy connections,
+> > > > in this case, isn't this something net core should set?
+> > > > 
+> > > > I see 3 in-tree drivers that do this:
+> > > > 
+> > > > drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:                skb_shinfo(skb)->gso_size = bnx2x
+> > > 
+> > > bnx2x is fine, take a look at lines 464
+> > 
+> > Is this what you mean?
+> > 
+> >         /* This is needed in order to enable forwarding support */
+> >         if (frag_size) {
+> >                 skb_shinfo(skb)->gso_size = bnx2x_set_lro_mss(bp,
+> >                                         tpa_info->parsing_flags, len_on_bd);
+> > 
+> >                 /* set for GRO */
+> >                 if (fp->mode == TPA_MODE_GRO)
+> >                         skb_shinfo(skb)->gso_type =
+> >                             (GET_FLAG(tpa_info->parsing_flags,
+> >                                       PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
+> >                                                 PRS_FLAG_OVERETH_IPV6) ?
+> >                                 SKB_GSO_TCPV6 : SKB_GSO_TCPV4;
+> >         }
+> > 
+> > 
+> > I see it sets gso_type but apparently only if mode is GRO?
+> > Will this still break if mode is set to LRO?
+> > 
+> > 
+> 
+> 
+> In net-next tree, line 464 looks like :
+> 
+> static void bnx2x_set_gro_params(struct sk_buff *skb, u16 parsing_flags,
+>                                  u16 len_on_bd, unsigned int pkt_len)
+> {
+>         /* TPA aggregation won't have either IP options or TCP options
+>          * other than timestamp or IPv6 extension headers.
+>          */
+>         u16 hdrs_len = ETH_HLEN + sizeof(struct tcphdr);
+> 
+>         if (GET_FLAG(parsing_flags, PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
+>             PRS_FLAG_OVERETH_IPV6) {
+>                 hdrs_len += sizeof(struct ipv6hdr);
+> <HERE>          skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+>         } else {
+>                 hdrs_len += sizeof(struct iphdr);
+> <HERE>          skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+>         }
+> 
+>         /* Check if there was a TCP timestamp, if there is it's will
+>          * always be 12 bytes length: nop nop kind length echo val.
+>          *
+>          * Otherwise FW would close the aggregation.
+>          */
+>         if (parsing_flags & PARSING_FLAGS_TIME_STAMP_EXIST_FLAG)
+>                 hdrs_len += TPA_TSTAMP_OPT_LEN;
+> 
+>         skb_shinfo(skb)->gso_size = len_on_bd - hdrs_len;
+> ...
 
-Nevermind..I think I'm wrong about that..the sizeof probably works fine
-here.  Sorry for the noise.
-
-Ben
-
->
-> Thanks,
-> Ben
->
-
+OK this means cbf1de72324a8105ddcc3d9ce9acbc613faea17e might be needed
+in 3.8 and maybe -stable, otherwise macvtap crashes when LRO is set.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+MST
