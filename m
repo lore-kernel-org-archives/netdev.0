@@ -1,98 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/2] NET: ethernet/netlogic: Netlogic XLR/XLS GMAC
- driver
-Date: Wed, 06 Feb 2013 15:11:36 -0500 (EST)
-Message-ID: <20130206.151136.28894146016087360.davem@davemloft.net>
-References: <1360063819-17555-1-git-send-email-ganesanr@broadcom.com>
+From: "Lennart Sorensen" <lsorense@csclub.uwaterloo.ca>
+Subject: ethtool occationally fails to communicate with with ucc_geth
+Date: Wed, 6 Feb 2013 15:05:04 -0500
+Message-ID: <20130206200504.GJ30788@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, netdev@vger.kernel.org
-To: ganesanr@broadcom.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	Len Sorensen <lsorense@csclub.uwaterloo.ca>,
+	linux-kernel@vger.kernel.org
+To: Li Yang <leoli@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43161 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758168Ab3BFULi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 15:11:38 -0500
-In-Reply-To: <1360063819-17555-1-git-send-email-ganesanr@broadcom.com>
+Received: from mail.csclub.uwaterloo.ca ([129.97.134.52]:53654 "EHLO
+	mail.csclub.uwaterloo.ca" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758104Ab3BFUMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 15:12:37 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ganesanr@broadcom.com
-Date: Tue, 5 Feb 2013 17:00:19 +0530
+We are occationally seeing ethtool fail to communicate with ucc_geth.
+I think I have tracked down why it happens, but I don't see a good way
+to fix it.
 
-> +config NETLOGIC_XLR_NET
-> +	tristate "Netlogic XLR/XLS network device"
-> +	default y
-> +	select PHYLIB
-> +	depends on CPU_XLR
-> +	---help---
-> +	This driver support Netlogic XLR/XLS on chip gigabit
-> +	Ethernet.
+When the phy state changes, adjust_link() checks if the state has changed
+and if the link is up.  If it is it does:
 
-No individual device driver should default to 'y'.   Vendor guards, yes, can
-default to 'y', but not individual drivers.
+                if (new_state) {
+                        /*
+                         * To change the MAC configuration we need to disable
+                         * the controller. To do so, we have to either grab
+                         * ugeth->lock, which is a bad idea since 'graceful
+                         * stop' commands might take quite a while, or we can
+                         * quiesce driver's activity.
+                         */
+                        ugeth_quiesce(ugeth);
+                        ugeth_disable(ugeth, COMM_DIR_RX_AND_TX);
 
-> +/*
-> + * The readl/writel implementation byteswaps on XLR/XLS, so
-> + * we need to use __raw_ IO to read the NAE registers
-> + * because they are in the big-endian MMIO area on the SoC.
-> + */
+                        out_be32(&ug_regs->maccfg2, tempval);
+                        out_be32(&uf_regs->upsmr, upsmr);
 
-Comments in the networking are to be formatted:
+                        ugeth_enable(ugeth, COMM_DIR_RX_AND_TX);
+                        ugeth_activate(ugeth);
+                }
 
-	/* Like
-	 * this.
-	 */
+The problem I believe is that ugeth_quiesce() does netif_device_detach
+which clears __LINK_STATE_PRESENT, and hence makes dev_ethtool fail
+due to:
 
-Please fix this up in your entire driver.
+        if (!dev || !netif_device_present(dev))
+                return -ENODEV;
 
-> +/*
-> + * Table of net_device pointers indexed by port, this will be used to
-> + * lookup the net_device corresponding to a port by the message ring handler.
-> + *
-> + * Maximum ports in XLR/XLS is 8(8 GMAC on XLS, 4 GMAC + 2 XGMAC on XLR)
-> + */
-> +static struct net_device *mac_to_ndev[8];
+So if ethtool happens to be run between ugeth_quiesce() and
+ugeth_activate(), it fails as if the device simply doesn't exist, which
+is of course not true, it's just temporarily disabled.
 
-Make this a dynamic data structure, a parent device that the individual
-netdevs are hung off of, it can still be an array.  That way you can have
-a bonafide struct device instance and associated hierarchy of devices in
-the kernel device list.
+I don't see any obvious way to make the ethtool requests block while the
+adjust_link does it's business.  It seems that that making the device
+disappear is the wrong thing to do though.
 
-Also avoid this strange and non-standard usage of "MAC" as an integer
-port index.  The canonical meaning of MAC is the link-layer address of
-the device.
+I am able to make it happen if I do:
 
-> +
-> +static inline struct sk_buff *mac_get_skb_back_ptr(void *addr)
-> +{
-> +	struct sk_buff **back_ptr;
-> +
-> +	/* this function should be used only for newly allocated packets.
-> +	 * It assumes the first cacheline is for the back pointer related
-> +	 * book keeping info.
-> +	 */
-> +	back_ptr = (struct sk_buff **)(addr - MAC_SKB_BACK_PTR_SIZE);
-> +	return *back_ptr;
-> +}
+'while ethtool ifname; do :; done' while plugging and unplugging the
+cable for a few minutes.
 
-Use the skb->cb[] control block rather than mis-using the skb data area
-for storing internal driver state.
+Any suggestions?
 
-> +	paddr = virt_to_bus(addr);
-
-virt_to_bus() is verboten, use the proper DMA APIs.  I don't care if
-this is a specialized driver for a special platform.
-
-> +		addr = bus_to_virt(msg->msg0 & 0xffffffffffULL);
-
-bus_to_virt() is verbotten, use the proper DMA APIs and store correct
-references to packets in a translation data structure in your per-netdev
-software state.
-
-> +static void __maybe_unused xlr_wakeup_queue(unsigned long dev)
-
-This is really unused, just delete it.
-
-That's enough for me, this driver needs a lot of work.
+-- 
+len Sorensen
