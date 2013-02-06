@@ -1,75 +1,45 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Wed, 6 Feb 2013 17:04:09 +0100
-Message-ID: <20130206160409.GB18040@order.stressinduktion.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org> <51127781.2000504@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Wed, 06 Feb 2013 08:15:32 -0800
+Message-ID: <1360167332.28557.36.camel@edumazet-glaptop>
+References: <20130206114321.GA13497@redhat.com>
+	 <1360156059.28557.28.camel@edumazet-glaptop>
+	 <20130206155049.GB14735@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
+	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
+	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:47756 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755083Ab3BFQEK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:04:10 -0500
-Content-Disposition: inline
-In-Reply-To: <51127781.2000504@linux-ipv6.org>
+Received: from mail-da0-f45.google.com ([209.85.210.45]:33154 "EHLO
+	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754029Ab3BFQPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:15:37 -0500
+Received: by mail-da0-f45.google.com with SMTP id w4so724649dam.4
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 08:15:35 -0800 (PST)
+In-Reply-To: <20130206155049.GB14735@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 07, 2013 at 12:32:17AM +0900, YOSHIFUJI Hideaki wrote:
-> Hannes Frederic Sowa wrote:
-> > On Wed, Feb 06, 2013 at 02:07:39PM +0100, Erik Hugne wrote:
-> >> On Wed, Feb 06, 2013 at 01:12:48PM +0100, Hannes Frederic Sowa wrote:
-> >>> Fixing the output path should be relatively straightforward, please test
-> >>> the following patch.
-> >>
-> >> Tested OK.
-> >>
-> >>> Looking at the input path, I think there is also no input protection
-> >>> for ff01::/16 addresses from the wire if you bind such an address.
-> >>
-> >> Yes, this needs to be filtered on the input side aswell.
-> > 
-> > This patch should do the trick. Perhaps you could also take it for a test
-> > drive? Thanks!
-> > 
-> > [PATCH net-next] ipv6: don't accept node local multicast traffic from the wire
-> > 
-> > Cc: Erik Hugne <erik.hugne@ericsson.com>
-> > Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
-> >  net/ipv6/ip6_input.c | 10 ++++++++++
-> >  1 file changed, 10 insertions(+)
-> > 
-> > diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-> > index 4ac5bf3..a2f71d2 100644
-> > --- a/net/ipv6/ip6_input.c
-> > +++ b/net/ipv6/ip6_input.c
-> > @@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
-> >  	if (ipv6_addr_is_multicast(&hdr->saddr))
-> >  		goto err;
-> >  
-> > +	/*
-> > +	 * RFC4291 2.7
-> > +	 * Interface-Local scope spans only a single interface on a node
-> > +         * and is useful only for loopback transmission of multicast.
-> > +	 */
-> > +	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-> > +	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) <= IPV6_ADDR_SCOPE_NODELOCAL &&
-> > +	    skb->pkt_type != PACKET_LOOPBACK)
-> > +		goto err;
-> > +
-> >  	skb->transport_header = skb->network_header + sizeof(*hdr);
-> >  	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
-> 
-> NAK.
-> 
-> Well, do you have relevant RFC?
-> RFC4291 says that we should drop ff00::/16, but not ff01::/16.
+On Wed, 2013-02-06 at 17:50 +0200, Michael S. Tsirkin wrote:
 
-I know what you mean, the RFC does not state it directly. Hm, the BSDs seem to
-drop such destination addresses, too, if they don't originate from a loopback
-interface. Or did you mean that there is a flaw in the skb->pkt_type !=
-PACKET_LOOPBACK condition?
+> Also, I'm not sure I understand when should drivers set gso size
+> for incoming messages and what is a reasonable value.
+> Commit log talks about improved performance for lossy connections,
+> in this case, isn't this something net core should set?
+> 
+> I see 3 in-tree drivers that do this:
+> 
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c:                skb_shinfo(skb)->gso_size = bnx2x
+
+bnx2x is fine, take a look at lines 464
+
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c:  skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->le
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:         skb_shinfo(skb)->gso_size = qlcnic_get_lr
+> 
+> It seems likely the same issue applies there?
+
+Yes
