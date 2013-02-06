@@ -1,121 +1,60 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH 2/5] r8169: Update PHY settings of RTL8111G
-Date: Wed, 6 Feb 2013 22:46:24 +0800
-Message-ID: <1360161987-3268-2-git-send-email-hayeswang@realtek.com>
-References: <1360161987-3268-1-git-send-email-hayeswang@realtek.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH 1/4] bgmac: implement missing code for BCM53572
+Date: Wed, 6 Feb 2013 15:54:13 +0100
+Message-ID: <CACna6rxrQYYs7rM53Bt6mL7zeJWzrYJKh1CYgPDO3TGwJVCyhg@mail.gmail.com>
+References: <1360161900-2330-1-git-send-email-hauke@hauke-m.de>
+	<1360161900-2330-2-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1360161987-3268-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:52200 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751294Ab3BFOyO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 09:54:14 -0500
+Received: by mail-ob0-f179.google.com with SMTP id un3so1506768obb.38
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 06:54:14 -0800 (PST)
+In-Reply-To: <1360161900-2330-2-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-- Replace the current settings with rtl_writephy and rtl_readphy.
-  For the hardware, the settings are same with previous ones. This
-  make the setting method like the previous chips.
-- Add new PHY settings.
+2013/2/6 Hauke Mehrtens <hauke@hauke-m.de>:
+>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c |    6 ++++--
+>  drivers/net/ethernet/broadcom/bgmac.h |    2 +-
+>  2 files changed, 5 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
+rnet/broadcom/bgmac.c
+> index 9bd33db..58e0c70 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -889,8 +889,10 @@ static void bgmac_chip_reset(struct bgmac *bgmac=
+)
+>                         sw_type =3D et_swtype;
+>                 } else if (ci->id =3D=3D BCMA_CHIP_ID_BCM5357 && ci->=
+pkg =3D=3D 9) {
+>                         sw_type =3D BGMAC_CHIPCTL_1_SW_TYPE_EPHYRMII;
+> -               } else if (0) {
+> -                       /* TODO */
+> +               } else if ((ci->id !=3D BCMA_CHIP_ID_BCM53572 && ci->=
+pkg =3D=3D 10) ||
+> +                          (ci->id =3D=3D BCMA_CHIP_ID_BCM53572 && ci=
+->pkg =3D=3D 9)) {
+> +                       sw_type =3D BGMAC_CHIPCTL_1_IF_TYPE_RGMII |
+> +                                 BGMAC_CHIPCTL_1_SW_TYPE_RGMII;
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/ethernet/realtek/r8169.c | 72 +++++++++++++++++++++++++-----------
- 1 file changed, 51 insertions(+), 21 deletions(-)
+Check "chippkg is 10" looked too generous for me, that's why I didn't
+implement this part. "ci->id !=3D BCMA_CHIP_ID_BCM53572" doesn't make i=
+t
+much better, but OK, if that's the way it is... ;)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index e811ab5..d1bee4c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -1029,14 +1029,6 @@ static u16 r8168_phy_ocp_read(struct rtl8169_private *tp, u32 reg)
- 		(RTL_R32(GPHY_OCP) & 0xffff) : ~0;
- }
- 
--static void rtl_w1w0_phy_ocp(struct rtl8169_private *tp, int reg, int p, int m)
--{
--	int val;
--
--	val = r8168_phy_ocp_read(tp, reg);
--	r8168_phy_ocp_write(tp, reg, (val | p) & ~m);
--}
--
- static void r8168_mac_ocp_write(struct rtl8169_private *tp, u32 reg, u32 data)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
-@@ -3410,23 +3402,61 @@ static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
- {
- 	rtl_apply_firmware(tp);
- 
--	if (r8168_phy_ocp_read(tp, 0xa460) & 0x0100)
--		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x0000, 0x8000);
--	else
--		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x8000, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0a46);
-+	if (rtl_readphy(tp, 0x10) & 0x0100) {
-+		rtl_writephy(tp, 0x1f, 0x0bcc);
-+		rtl_w1w0_phy(tp, 0x12, 0x0000, 0x8000);
-+	} else {
-+		rtl_writephy(tp, 0x1f, 0x0bcc);
-+		rtl_w1w0_phy(tp, 0x12, 0x8000, 0x0000);
-+	}
- 
--	if (r8168_phy_ocp_read(tp, 0xa466) & 0x0100)
--		rtl_w1w0_phy_ocp(tp, 0xc41a, 0x0002, 0x0000);
--	else
--		rtl_w1w0_phy_ocp(tp, 0xbcc4, 0x0000, 0x0002);
-+	rtl_writephy(tp, 0x1f, 0x0a46);
-+	if (rtl_readphy(tp, 0x13) & 0x0100) {
-+		rtl_writephy(tp, 0x1f, 0x0c41);
-+		rtl_w1w0_phy(tp, 0x15, 0x0002, 0x0000);
-+	} else {
-+		rtl_writephy(tp, 0x1f, 0x0c41);
-+		rtl_w1w0_phy(tp, 0x15, 0x0000, 0x0002);
-+	}
- 
--	rtl_w1w0_phy_ocp(tp, 0xa442, 0x000c, 0x0000);
--	rtl_w1w0_phy_ocp(tp, 0xa4b2, 0x0004, 0x0000);
-+	/* Enable PHY auto speed down */
-+	rtl_writephy(tp, 0x1f, 0x0a44);
-+	rtl_w1w0_phy(tp, 0x11, 0x000c, 0x0000);
-+
-+	rtl_writephy(tp, 0x1f, 0x0bcc);
-+	rtl_w1w0_phy(tp, 0x14, 0x0100, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0a44);
-+	rtl_w1w0_phy(tp, 0x11, 0x00c0, 0x0000);
-+	rtl_writephy(tp, 0x1f, 0x0a43);
-+	rtl_writephy(tp, 0x13, 0x8084);
-+	rtl_w1w0_phy(tp, 0x14, 0x0000, 0x6000);
-+	rtl_w1w0_phy(tp, 0x10, 0x1003, 0x0000);
-+
-+	/* EEE auto-fallback function */
-+	rtl_writephy(tp, 0x1f, 0x0a4b);
-+	rtl_w1w0_phy(tp, 0x11, 0x0004, 0x0000);
-+
-+	/* Enable UC LPF tune function */
-+	rtl_writephy(tp, 0x1f, 0x0a43);
-+	rtl_writephy(tp, 0x13, 0x8012);
-+	rtl_w1w0_phy(tp, 0x14, 0x8000, 0x0000);
-+
-+	rtl_writephy(tp, 0x1f, 0x0c42);
-+	rtl_w1w0_phy(tp, 0x11, 0x4000, 0x2000);
- 
--	r8168_phy_ocp_write(tp, 0xa436, 0x8012);
--	rtl_w1w0_phy_ocp(tp, 0xa438, 0x8000, 0x0000);
-+	/* Improve SWR Efficiency */
-+	rtl_writephy(tp, 0x1f, 0x0bcd);
-+	rtl_writephy(tp, 0x14, 0x5065);
-+	rtl_writephy(tp, 0x14, 0xd065);
-+	rtl_writephy(tp, 0x1f, 0x0bc8);
-+	rtl_writephy(tp, 0x11, 0x5655);
-+	rtl_writephy(tp, 0x1f, 0x0bcd);
-+	rtl_writephy(tp, 0x14, 0x1065);
-+	rtl_writephy(tp, 0x14, 0x9065);
-+	rtl_writephy(tp, 0x14, 0x1065);
- 
--	rtl_w1w0_phy_ocp(tp, 0xc422, 0x4000, 0x2000);
-+	rtl_writephy(tp, 0x1f, 0x0000);
- }
- 
- static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
--- 
-1.8.1
+Could you update specs?
+http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipreset
+
+--=20
+Rafa=C5=82
