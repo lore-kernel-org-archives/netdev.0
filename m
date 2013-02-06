@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/4] xen/netback: free already allocated memory on
- failure in xen_netbk_get_requests
-Date: Wed, 06 Feb 2013 13:47:37 -0500 (EST)
-Message-ID: <20130206.134737.967342633025530520.davem@davemloft.net>
-References: <1360171081.32479.20.camel@zakaz.uk.xensource.com>
-	<1360171098-1240-3-git-send-email-ian.campbell@citrix.com>
-	<87ehgtgxhv.fsf@blp.benpfaff.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, netdev@vger.kernel.org,
-	xen-devel@lists.xen.org
-To: blp@cs.stanford.edu
+From: greearb@candelatech.com
+Subject: [PATCH] lockdep:  Print more info when MAX_LOCK_DEPTH is exceeded.
+Date: Wed,  6 Feb 2013 10:52:42 -0800
+Message-ID: <1360176762-4321-1-git-send-email-greearb@candelatech.com>
+Cc: peterz@infradead.org, rostedt@goodmis.org, mingo@kernel.org,
+	Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42335 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757915Ab3BFSrj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 13:47:39 -0500
-In-Reply-To: <87ehgtgxhv.fsf@blp.benpfaff.org>
+Received: from mail.candelatech.com ([208.74.158.172]:37701 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754094Ab3BFSxH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 13:53:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Pfaff <blp@cs.stanford.edu>
-Date: Wed, 06 Feb 2013 09:31:24 -0800
+From: Ben Greear <greearb@candelatech.com>
 
-> Ian Campbell <ian.campbell@citrix.com> writes:
-> 
->> +	/*
->> +	 * Unwind, freeing all pages and sending error
->> +	 * reponses.
->> +	 */
-> 
-> s/reponses/responses/
+This helps debug cases where a lock is acquired over and
+over without being released.
 
-Also please format your comments in the standard networking form
-which is:
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ kernel/lockdep.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-	/* Like
-	 * this.
-	 */
-
-Patch #1 has the same problem, thanks Ian.
+diff --git a/kernel/lockdep.c b/kernel/lockdep.c
+index 7981e5b..7e76b69 100644
+--- a/kernel/lockdep.c
++++ b/kernel/lockdep.c
+@@ -3189,8 +3189,12 @@ static int __lock_acquire(struct lockdep_map *lock, unsigned int subclass,
+ 		return 0;
+ #endif
+ 	if (unlikely(curr->lockdep_depth >= MAX_LOCK_DEPTH)) {
++		debug_show_all_locks();
++		lockdep_print_held_locks(current);
++
+ 		debug_locks_off();
+-		printk("BUG: MAX_LOCK_DEPTH too low!\n");
++		printk("BUG: MAX_LOCK_DEPTH too low, depth: %i  max: %lu!\n",
++		       curr->lockdep_depth, MAX_LOCK_DEPTH);
+ 		printk("turning off the locking correctness validator.\n");
+ 		dump_stack();
+ 		return 0;
+-- 
+1.7.3.4
