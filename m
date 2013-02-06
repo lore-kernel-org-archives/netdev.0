@@ -1,82 +1,46 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 24/77] atm/nicstar: convert to idr_alloc()
-Date: Wed,  6 Feb 2013 11:39:56 -0800
-Message-ID: <1360179649-22465-25-git-send-email-tj@kernel.org>
-References: <1360179649-22465-1-git-send-email-tj@kernel.org>
-Cc: linux-kernel@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org
-To: akpm@linux-foundation.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2013-02-06
+Date: Wed, 06 Feb 2013 14:53:20 -0500 (EST)
+Message-ID: <20130206.145320.721522259467415518.davem@davemloft.net>
+References: <20130206193423.GI2148@tuxdriver.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1360179649-22465-1-git-send-email-tj@kernel.org>
+In-Reply-To: <20130206193423.GI2148@tuxdriver.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Convert to the much saner new idr interface.  The existing code looks
-buggy to me - ID 0 is treated as no-ID but allocation specifies 0 as
-lower limit and there's no error handling after partial success.  This
-conversion keeps the bugs unchanged.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 6 Feb 2013 14:34:23 -0500
 
-Only compile tested.
+> Please consider this pull request for the 3.8 stream...
+> 
+> Included is a bluetooth pull.  Gustavo says:
+> 
+> "Two simple fixes for 3.8. One of the patches fixes a situation
+> where the connection wasn't terminated if a timeout ocurrs for LE
+> an SCO connections.  The other fixes prevent NULL dereference in the
+> SMP code, it is a security fix as well."
+> 
+> Along with those...
+> 
+> Hauke Mehrtens provides a couple of ssb and bcma bus fixes that
+> prevent oopses when unloading those modules.
+> 
+> Larry Finger provides and rtlwifi fix to avoid a "scheduling while
+> atomic" bug.
+> 
+> Last but certainly not least, Arend van Spriel bring a brcmsmac fix that
+> reworks the mac80211 .flush() callback in order to avoid the dreaded
+> brcms_c_wait_for_tx_completion warnings.  This one looks a little
+> large, but I think it is safe and isolated to brcmsmac in any case.
+> 
+> Please let me know if there are problems!
 
-v2: id1 and id2 are now directly used for -errno return and thus
-    should be signed.  Make them int instead of u32.  This was spotted
-    by kbuild test robot.
-
-v3: Further simplify as suggested by Chas Williams.
-
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Cc: netdev@vger.kernel.org
----
- drivers/atm/nicstar.c | 24 ++++++------------------
- 1 file changed, 6 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
-index 628787e..6587dc2 100644
---- a/drivers/atm/nicstar.c
-+++ b/drivers/atm/nicstar.c
-@@ -949,11 +949,10 @@ static void free_scq(ns_dev *card, scq_info *scq, struct atm_vcc *vcc)
- static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
- {
- 	struct sk_buff *handle1, *handle2;
--	u32 id1 = 0, id2 = 0;
-+	int id1, id2;
- 	u32 addr1, addr2;
- 	u32 stat;
- 	unsigned long flags;
--	int err;
- 
- 	/* *BARF* */
- 	handle2 = NULL;
-@@ -1026,23 +1025,12 @@ static void push_rxbufs(ns_dev * card, struct sk_buff *skb)
- 				card->lbfqc += 2;
- 		}
- 
--		do {
--			if (!idr_pre_get(&card->idr, GFP_ATOMIC)) {
--				printk(KERN_ERR
--				       "nicstar%d: no free memory for idr\n",
--				       card->index);
--				goto out;
--			}
--
--			if (!id1)
--				err = idr_get_new_above(&card->idr, handle1, 0, &id1);
--
--			if (!id2 && err == 0)
--				err = idr_get_new_above(&card->idr, handle2, 0, &id2);
--
--		} while (err == -EAGAIN);
-+		id1 = idr_alloc(&card->idr, handle1, 0, 0, GFP_ATOMIC);
-+		if (id1 < 0)
-+			goto out;
- 
--		if (err)
-+		id2 = idr_alloc(&card->idr, handle2, 0, 0, GFP_ATOMIC);
-+		if (id2 < 0)
- 			goto out;
- 
- 		spin_lock_irqsave(&card->res_lock, flags);
--- 
-1.8.1
+Pulled, even though the comments weren't styled correctly
+in the bluetooth fixes.  Please fix that when this stuff
+propagates into net-next, thanks.
