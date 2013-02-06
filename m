@@ -1,52 +1,39 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH] qmi_wwan, cdc-ether: add ADU960S
-Date: Wed, 06 Feb 2013 12:05:04 -0600
-Message-ID: <1360173904.11742.8.camel@dcbw.foobar.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: regression caused by 1d2024f61ec14bdb0c57a97a3fe73685abc2d198?
+Date: Wed, 06 Feb 2013 10:09:54 -0800
+Message-ID: <1360174194.28557.46.camel@edumazet-glaptop>
+References: <20130206114321.GA13497@redhat.com>
+	 <1360156059.28557.28.camel@edumazet-glaptop>
+	 <20130206155049.GB14735@redhat.com>
+	 <1360167332.28557.36.camel@edumazet-glaptop>
+	 <20130206174228.GA16991@redhat.com>
+	 <1360172565.28557.44.camel@edumazet-glaptop>
+	 <20130206180537.GA17228@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Cc: alexander.h.duyck@intel.com, stephen.s.ko@intel.com,
+	jeffrey.t.kirsher@intel.com, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org, sony.chacko@qlogic.com, mchan@broadcom.com,
+	jitendra.kalsaria@qlogic.com, eilong@broadcom.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30457 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755389Ab3BFSEu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 13:04:50 -0500
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33416 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753825Ab3BFSJ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 13:09:57 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so936510pad.38
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 10:09:57 -0800 (PST)
+In-Reply-To: <20130206180537.GA17228@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It advertises a standard CDC-ETHER interface, which actually should be
-driven by qmi_wwan.
+On Wed, 2013-02-06 at 20:05 +0200, Michael S. Tsirkin wrote:
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
----
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 3f3d12d..cc6d0c1 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -615,6 +615,13 @@ static const struct usb_device_id	products [] = {
- 	.driver_info = 0,
- },
- 
-+/* AnyDATA ADU960S - handled by qmi_wwan */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = 0,
-+},
-+
- /*
-  * WHITELIST!!!
-  *
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 6a1ca50..2b5ea32 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -459,6 +459,7 @@ static const struct usb_device_id products[] = {
- 	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 in QMI mode */
- 	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700 */
- 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Alcatel One Touch L100V LTE) */
-+	{QMI_FIXED_INTF(0x16d5, 0x650a, 8)},	/* AnyDATA ADU960S */
- 
- 	/* 4. Gobi 1000 devices */
- 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
+> 
+> OK this means cbf1de72324a8105ddcc3d9ce9acbc613faea17e might be needed
+> in 3.8 and maybe -stable, otherwise macvtap crashes when LRO is set.
+> 
+
+You may be right : My issue was an accounting error in a rarely used
+path (qdisc on ingress). Yours is definitely more serious ;)
