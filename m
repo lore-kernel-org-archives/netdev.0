@@ -1,91 +1,59 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH 1/2] ixgbe: fix gso type
-Date: Thu, 7 Feb 2013 01:02:50 +0200
-Message-ID: <76c44c70077f42302d7b079b29fd414205747af5.1360191528.git.mst@redhat.com>
-References: <cover.1360191528.git.mst@redhat.com>
+From: Petr Malat <oss@malat.biz>
+Subject: [PATCH]: fix phy_device_free memory leak
+Date: Thu, 7 Feb 2013 00:07:57 +0100
+Message-ID: <201302070007.57434.oss@malat.biz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	Jacob Keller <jacob.e.keller@intel.com>
+Cc: oss@malat.biz
 To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:32819 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755489Ab3BFXHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 18:07:18 -0500
+Received: by mail-ee0-f42.google.com with SMTP id b47so1020338eek.15
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 15:07:17 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <cover.1360191528.git.mst@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-ixgbe set gso_size but not gso_type. This leads to
-crashes in macvtap.
+Hi,
+there is a memory leak in phy_device handling:
+phy_device_create() sets name of kobject using dev_set_name(), which allocates 
+memory using kvasprintf(), but this memory isn't freed if the underlying 
+device isn't registered properly, because kobject_cleanup() is not called in 
+that case. This can happen (and actually is happening on our machines) if 
+phy_device_register(), called by mdiobus_scan(), fails. I fixed this by the 
+attached patch, so far it's working fine.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+Patch description:
+Name is freed by phy_device_free(). In the case a device is released trough 
+kobject_cleanup()->device_release()->phy_device_release(), the name is set to 
+NULL and it is not freed by phy_device_free(), because it will be freed later 
+by kobject_cleanup().
 
-I tested that this fixes the crash for me.  I am told on ixgbe LRO only
-triggers with TCP so checking protocol should be enough?
+Please put me on CC, I'm not signed into the mailing list.
 
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+   Petr
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 396e280..9d01673 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1399,6 +1399,10 @@ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
- 	/* set gso_size to avoid messing up TCP MSS */
- 	skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->len - hdr_len),
- 						 IXGBE_CB(skb)->append_cnt);
-+	if (skb->protocol == ETH_P_IPV6)
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+	else
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- }
+
+--- a/drivers/net/phy/phy_device.c	2013-02-06 19:44:11.000000000 +0100
++++ b/drivers/net/phy/phy_device.c	2013-02-06 20:56:57.000000000 +0100
+@@ -41,12 +41,16 @@ MODULE_LICENSE("GPL");
  
- static void ixgbe_update_rsc_stats(struct ixgbe_ring *rx_ring,
-@@ -1433,6 +1437,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ void phy_device_free(struct phy_device *phydev)
  {
- 	struct net_device *dev = rx_ring->netdev;
- 
-+	skb->protocol = eth_type_trans(skb, dev);
-+
- 	ixgbe_update_rsc_stats(rx_ring, skb);
- 
- 	ixgbe_rx_hash(rx_ring, rx_desc, skb);
-@@ -1448,8 +1454,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 	}
- 
- 	skb_record_rx_queue(skb, rx_ring->queue_index);
--
--	skb->protocol = eth_type_trans(skb, dev);
++	kfree(phydev->dev.kobj.name);
+ 	kfree(phydev);
  }
+ EXPORT_SYMBOL(phy_device_free);
  
- static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
--- 
-MST
-
-
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+ static void phy_device_release(struct device *dev)
+ {
++	/* Name will be freed by kobject_cleanup() */
++	dev->kobj.name = NULL; 
++
+ 	phy_device_free(to_phy_device(dev));
+ }
