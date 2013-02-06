@@ -1,101 +1,85 @@
-From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
-Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit
- queue 0 timed out
-Date: Wed, 6 Feb 2013 17:55:28 +0100
-Message-ID: <CADDKRnAHJAZBittLCFxjgWa1AWKxD7a4hn4v=xvax=ergkKjxA@mail.gmail.com>
-References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com>
-	<20130105093718.GA938@electric-eye.fr.zoreil.com>
-	<CADDKRnBCrDz2X=5qpGE+r92ZFX5cA+jnSGt3wS8TR0RE8hi1HA@mail.gmail.com>
-	<20130105165735.GB4906@electric-eye.fr.zoreil.com>
-	<CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com>
-	<CADDKRnACHgBOmw0qLE4zVzhq=Yw-1AYJ-JW0muxRCR3jZ=VoUQ@mail.gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next V1 00/10] Mellanox Ethernet driver updates 2013-01-30
+Date: Wed, 6 Feb 2013 18:58:12 +0200
+Message-ID: <51128BA4.1010802@mellanox.com>
+References: <1359623231-4491-1-git-send-email-amirv@mellanox.com>   <20130131.135158.206758800827480029.davem@davemloft.net>  <1360094899.2857.30.camel@bwh-desktop.uk.solarflarecom.com>  <51120547.7090608@mellanox.com> <1360165618.2659.5.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Alexander Duyck" <alexander.h.duyck@intel.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	"Or Gerlitz" <ogerlitz@mellanox.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:44312 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753123Ab3BFQza convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:55:30 -0500
-In-Reply-To: <CADDKRnACHgBOmw0qLE4zVzhq=Yw-1AYJ-JW0muxRCR3jZ=VoUQ@mail.gmail.com>
+Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:47921 "HELO
+	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754627Ab3BFQ6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 11:58:20 -0500
+In-Reply-To: <1360165618.2659.5.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/2/3 J=C3=B6rg Otte <jrg.otte@gmail.com>:
-> 2013/1/6 J=C3=B6rg Otte <jrg.otte@gmail.com>:
->> 2013/1/5 Francois Romieu <romieu@fr.zoreil.com>:
->>> Can you check if things improve with v3.8-rc2 after removing :
+On 06/02/2013 17:46, Ben Hutchings wrote:
+> On Wed, 2013-02-06 at 09:24 +0200, Amir Vadai wrote:
+>> On 05/02/2013 22:08, Ben Hutchings wrote:
+>>> On Thu, 2013-01-31 at 13:51 -0500, David Miller wrote:
+>>>> From: Amir Vadai <amirv@mellanox.com>
+>>>> Date: Thu, 31 Jan 2013 11:07:01 +0200
+>>>>
+>>>>> Hi Dave,
+>>>>>
+>>>>> This series contains updates to mlx4 driver.
+>>>>> Majority of the patches are small bug fixes. Another patch is to expose through
+>>>>> debugfs some HW resources to be used by external tools.
+>>>>>
+>>>>> Patches done against net-next commit 1b13c97: "net/vxlan: Add ethtool drvinfo"
+>>>>>
+>>>>> Changes from V0:
+>>>>> - Removed patch "net/mlx4_en: Add debugfs support". Need to find a standard way
+>>>>>    to do it, and no need to delay the other patches.
+>>>>
+>>>> All applied, thanks.
 >>>
->>> 2. d64ec841517a25f6d468bde9f67e5b4cffdc67c7
->>>    r8169: enable internal ASPM and clock request settings
+>>> The first time this series was posted (this is actually v2) I raised an
+>>> issue with the changes to interpretation of the VLAN tag in ethtool RX
+>>> NFC commands: <http://article.gmane.org/gmane.linux.network/257392/>.
+>>> The semantics are now definitely inconsistent between sfc and mlx4_en.
+>>> I asked Alexander what ixgbe (first implementation) does with the upper
+>>> 4 bits, with the aim that all three implementations should be
+>>> consistent, but I haven't had an answer to that yet.
+>>>
+>>> Ben.
+>>>
 >>
->> this fixes a second issue for me:
->> In 3.7.1 at startup the link came up after 15 sec.:
->> grep r8169 dmesg.3.7.1
->> [    1.956842] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->> [    1.957059] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
->> [    1.957161] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at..
->> [    1.957163] r8169 0000:02:00.0 eth0: jumbo features [frames..
->> [   13.575452] r8169 0000:02:00.0 eth0: link down
->> [   13.575475] r8169 0000:02:00.0 eth0: link down
->> [   15.181317] r8169 0000:02:00.0 eth0: link up
+>> I'm not sure I understand the problem here.
 >>
->> In 3.8rc the time increased to 24 seconds:
->> grep r8169 dmesg.3.8.0
->> [    1.852546] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->> [    1.852765] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
->> [    1.852872] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
->> [    1.852874] r8169 0000:02:00.0 eth0: jumbo features [frames...
->> [   14.150212] r8169 0000:02:00.0 eth0: link down
->> [   14.150229] r8169 0000:02:00.0 eth0: link down
->> [   24.140263] r8169 0000:02:00.0 eth0: link up
+>> mlx4_en implementation is exactly like what you describe and what 
+>> ethtool documentation is describing.
 >>
->> But with this revert I get the old performance:
->> dmesg | grep r8169
->> [    1.816613] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->> [    1.816832] r8169 0000:02:00.0: irq 42 for MSI/MSI-X
->> [    1.816947] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at...
->> [    1.816948] r8169 0000:02:00.0 eth0: jumbo features [frames...
->> [   13.986401] r8169 0000:02:00.0 eth0: link down
->> [   13.986422] r8169 0000:02:00.0 eth0: link down
->> [   15.623631] r8169 0000:02:00.0 eth0: link up
+>> We handle vlan_tci as the whole VLAN tag. Since we're only interested in 
+>> the VID in our flow steering, we check that the mask sets only the 12 
+>> bits of VID and use it.
 >>
+>>  From looking at sfc driver - it is exactly same there.
 >>
->>> 3. e0c075577965d1c01b30038d38bf637b027a1df3
->>>    r8169: enable ALDPS for power saving
->>
->> That's it! This fixes the problem for me!
->>
->> Thanks, J=C3=B6rg
->
->
-> We are closely before v3.8 and I didn't see a solution
-> so far.
-> What is the plan regarding this issue(s)?
->
-> Thanks, J=C3=B6rg
+>> Did I miss something?
+> 
+> sfc verifies that the mask (cmd->fs.m_ext.vlan_tci) is either 0 or 0xfff
+> (big-endian).  If any of the top 4 bits are set we reject the flow spec
+> as unsupported.  If I read correctly, mlx4_en was also doing that
+> initially, but 'net/mlx4_en: Fix vlan mask for ethtool steering rules'
+> changed it to ignore the top 4 bits of the mask.
+> 
+> Ben.
+> 
 
-No response, so I Cc to Linus:
+Ok - now I see.
 
-To Summarize: Two net-regressions where introduced in v3.8 (driver r816=
-9):
+This patch should be reverted - mlx4_en should also reject setting of
+the top 4 bits in the mask.
 
-1) NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-was introduced by commit
-e0c075577965d1c01b30038d38bf637b027a1df3
-("r8169: enable ALDPS for power saving")
+I will send a fix soon.
 
-2) Boot-time increased from 15sec (V3.7) to 24sec (V3.8)
-by commit:
-d64ec841517a25f6d468bde9f67e5b4cffdc67c7
-("r8169: enable internal ASPM and clock request settings")
-
-Reverting the commits resolve the problems entirely.
-
-As long as the issues are not fixed the commits should be reverted.
-
-Thanks, J=C3=B6rg
+Thanks,
+Amir
