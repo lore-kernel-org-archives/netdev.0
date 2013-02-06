@@ -1,39 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] tg3: add support for Ethernet core in BCM4785
-Date: Wed, 06 Feb 2013 15:01:11 -0500 (EST)
-Message-ID: <20130206.150111.1099392598722136056.davem@davemloft.net>
-References: <1360170854-32029-1-git-send-email-hauke@hauke-m.de>
+Subject: Re: [PATCH] net: core: Remove unnecessary alloc/OOM messages
+Date: Wed, 06 Feb 2013 15:02:52 -0500 (EST)
+Message-ID: <20130206.150252.1851469063501774626.davem@davemloft.net>
+References: <cover.1359939012.git.joe@perches.com>
+	<20130204.132335.1757403310770538446.davem@davemloft.net>
+	<1360032496.4849.2.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, mchan@broadcom.com, nsujir@broadcom.com,
-	netdev@vger.kernel.org, m@bues.ch
-To: hauke@hauke-m.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43042 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757962Ab3BFUBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 15:01:14 -0500
-In-Reply-To: <1360170854-32029-1-git-send-email-hauke@hauke-m.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: joe@perches.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1360032496.4849.2.camel@joe-AO722>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Wed,  6 Feb 2013 18:14:10 +0100
+From: Joe Perches <joe@perches.com>
+Date: Mon, 04 Feb 2013 18:48:16 -0800
 
-> These patches are adding support for the Ethernet core found in the 
-> BCM4705/BCM4785 SoC.
+> alloc failures already get standardized OOM
+> messages and a dump_stack.
 > 
-> This is based on current master of davem/net-next.git.
-> 
-> v2:
->  * use of struct sprom in ssb_gige_get_macaddr() instead of accessing 
->    the nvram directly
->  * add return value to ssb_gige_get_macaddr()
->  * try to read the mac address from ssb core before accessing the own 
->    registers.
->  * fix two checkpatch warnings
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-You should combine the first two patches into one patch.
-
-Please do so and respin this series, thanks.
+Applied.
