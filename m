@@ -1,151 +1,134 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH 1/2 v2] usbnet: allow status interrupt URB to always be
- active
-Date: Wed, 06 Feb 2013 12:36:38 -0600
-Message-ID: <1360175798.11742.12.camel@dcbw.foobar.com>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART messages
+ and interrupt pipe setup
+Date: Wed, 06 Feb 2013 12:42:56 -0600
+Message-ID: <1360176176.11742.16.camel@dcbw.foobar.com>
 References: <20110727141246.GC29616@orbit.nwl.cc>
 	 <1357318096.5370.15.camel@dcbw.foobar.com>
+	 <1357318289.5370.19.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Elina Pasheva <epasheva@sierrawireless.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Oliver Neukum <oliver@neukum.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50459 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755038Ab3BFSg1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 13:36:27 -0500
-In-Reply-To: <1357318096.5370.15.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Elina Pasheva <epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Rory Filer <rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org>,
+	Phil Sutter <phil-ydcDiazATMQ@public.gmane.org>
+To: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1357318289.5370.19.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Some drivers (ex sierra_net) need the status interrupt URB
-active even when the device is closed, because they receive
-custom indications from firmware.  Allow sub-drivers to set
-a flag that submits the status interrupt URB on probe and
-keeps the URB alive over device open/close.  The URB is still
-killed/re-submitted for suspend/resume, as before.
+As part of the initialization sequence, the driver sends a SYNC message
+via the control pipe to the firmware, which appears to request a
+firmware restart.  The firmware responds with an indication via the
+interrupt pipe set up by usbnet.  If the driver does not receive a
+RESTART indication within a certain amount of time, it will periodically
+send additional SYNC messages until it receives the RESTART indication.
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
+Unfortunately, the interrupt URB is only submitted while the netdev
+is open, which is usually not the case during initialization, and thus
+the firmware's RESTART indication is lost.  So the driver continues
+sending SYNC messages, and eventually the firmware crashes when it
+receives too many.  This leads to a wedged netdev.
+
+To ensure the firmware's RESTART indications can be received by the
+driver, request that usbnet keep the interrupt URB active via
+FLAG_INTR_ALWAYS.
+
+Second, move the code that sends the SYNC message out of the
+bind() hook and after usbnet_probe() to ensure the interrupt URB
+is set up before trying to use it.
+
+Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 ---
-Note: unchanged from previous version, but rebased.
+ drivers/net/usb/sierra_net.c | 33 ++++++++++++++++++++++++++-------
+ 1 file changed, 26 insertions(+), 7 deletions(-)
 
- drivers/net/usb/usbnet.c   | 43 +++++++++++++++++++++++++++++++------------
- include/linux/usb/usbnet.h |  3 +++
- 2 files changed, 34 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 5e33606..5019cc7 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -206,13 +206,13 @@ static void intr_complete (struct urb *urb)
- 		break;
- 	}
+diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
+index 18dd425..185ffec 100644
+--- a/drivers/net/usb/sierra_net.c
++++ b/drivers/net/usb/sierra_net.c
+@@ -427,6 +427,13 @@ static void sierra_net_dosync(struct usbnet *dev)
  
--	if (!netif_running (dev->net))
--		return;
--
--	status = usb_submit_urb (urb, GFP_ATOMIC);
--	if (status != 0)
--		netif_err(dev, timer, dev->net,
--			  "intr resubmit --> %d\n", status);
-+	if (dev->driver_info->flags & FLAG_INTR_ALWAYS ||
-+			netif_running(dev->net)) {
-+		status = usb_submit_urb(urb, GFP_ATOMIC);
-+		if (status != 0)
-+			netif_err(dev, timer, dev->net,
-+				  "intr resubmit --> %d\n", status);
-+	}
- }
+ 	dev_dbg(&dev->udev->dev, "%s", __func__);
  
- static int init_status (struct usbnet *dev, struct usb_interface *intf)
-@@ -725,7 +725,8 @@ int usbnet_stop (struct net_device *net)
- 	if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
- 		usbnet_terminate_urbs(dev);
- 
--	usb_kill_urb(dev->interrupt);
-+	if (!(info->flags & FLAG_INTR_ALWAYS))
-+		usb_kill_urb(dev->interrupt);
- 
- 	usbnet_purge_paused_rxq(dev);
- 
-@@ -786,7 +787,7 @@ int usbnet_open (struct net_device *net)
- 	}
- 
- 	/* start any status interrupt transfer */
--	if (dev->interrupt) {
-+	if (dev->interrupt && !(info->flags & FLAG_INTR_ALWAYS)) {
- 		retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
- 		if (retval < 0) {
- 			netif_err(dev, ifup, dev->net,
-@@ -1496,6 +1497,15 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
- 	if (status < 0)
- 		goto out3;
- 
-+	/* Submit status interrupt URB immediately if sub-driver wants */
-+	if (dev->interrupt && (info->flags & FLAG_INTR_ALWAYS)) {
-+		status = usb_submit_urb(dev->interrupt, GFP_KERNEL);
-+		if (status < 0) {
-+			dev_err(&udev->dev, "intr submit %d\n", status);
-+			goto out4;
-+		}
-+	}
++	/* The SIERRA_NET_HIP_MSYNC_ID command appears to request that the
++	 * firmware restart itself.  After restarting, the modem will respond
++	 * with the SIERRA_NET_HIP_RESTART_ID indication.  The driver continues
++	 * sending MSYNC commands every few seconds until it receives the
++	 * RESTART event from the firmware
++	 */
 +
- 	if (!dev->rx_urb_size)
- 		dev->rx_urb_size = dev->hard_mtu;
- 	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
-@@ -1507,7 +1517,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+ 	/* tell modem we are ready */
+ 	status = sierra_net_send_sync(dev);
+ 	if (status < 0)
+@@ -709,6 +716,9 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	/* set context index initially to 0 - prepares tx hdr template */
+ 	sierra_net_set_ctx_index(priv, 0);
  
- 	status = register_netdev (net);
- 	if (status)
--		goto out4;
-+		goto out5;
- 	netif_info(dev, probe, dev->net,
- 		   "register '%s' at usb-%s-%s, %s, %pM\n",
- 		   udev->dev.driver->name,
-@@ -1525,6 +1535,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
++	/* prepare sync message template */
++	memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
++
+ 	/* decrease the rx_urb_size and max_tx_size to 4k on USB 1.1 */
+ 	dev->rx_urb_size  = SIERRA_NET_RX_URB_SIZE;
+ 	if (dev->udev->speed != USB_SPEED_HIGH)
+@@ -744,11 +754,6 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
+ 		kfree(priv);
+ 		return -ENODEV;
+ 	}
+-	/* prepare sync message from template */
+-	memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
+-
+-	/* initiate the sync sequence */
+-	sierra_net_dosync(dev);
  
  	return 0;
+ }
+@@ -905,7 +910,7 @@ static struct sk_buff *sierra_net_tx_fixup(struct usbnet *dev,
  
-+out5:
-+	usb_kill_urb(dev->interrupt);
- out4:
- 	usb_free_urb(dev->interrupt);
- out3:
-@@ -1586,8 +1598,15 @@ int usbnet_resume (struct usb_interface *intf)
+ static const struct driver_info sierra_net_info_direct_ip = {
+ 	.description = "Sierra Wireless USB-to-WWAN Modem",
+-	.flags = FLAG_WWAN | FLAG_SEND_ZLP,
++	.flags = FLAG_WWAN | FLAG_SEND_ZLP | FLAG_INTR_ALWAYS,
+ 	.bind = sierra_net_bind,
+ 	.unbind = sierra_net_unbind,
+ 	.status = sierra_net_status,
+@@ -913,6 +918,20 @@ static const struct driver_info sierra_net_info_direct_ip = {
+ 	.tx_fixup = sierra_net_tx_fixup,
+ };
  
- 	if (!--dev->suspend_count) {
- 		/* resume interrupt URBs */
--		if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
--			usb_submit_urb(dev->interrupt, GFP_NOIO);
-+		if (dev->interrupt &&
-+			(dev->driver_info->flags & FLAG_INTR_ALWAYS ||
-+				test_bit(EVENT_DEV_OPEN, &dev->flags))) {
-+			retval = usb_submit_urb(dev->interrupt, GFP_NOIO);
-+			if (retval < 0) {
-+				netif_err(dev, ifup, dev->net,
-+					  "intr submit %d\n", retval);
-+			}
-+		}
- 
- 		spin_lock_irq(&dev->txq.lock);
- 		while ((res = usb_get_from_anchor(&dev->deferred))) {
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 0de078d..b0f17f6 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -111,6 +111,9 @@ struct driver_info {
- #define FLAG_MULTI_PACKET	0x2000
- #define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
- 
-+/* Indicates that the interrupt URB should not depend on netdev open/close */
-+#define FLAG_INTR_ALWAYS	0x8000
++static int
++sierra_net_probe (struct usb_interface *udev, const struct usb_device_id *prod)
++{
++	int ret;
 +
- 	/* init device ... can sleep, or cause probe() failure */
- 	int	(*bind)(struct usbnet *, struct usb_interface *);
- 
++	ret = usbnet_probe (udev, prod);
++	if (ret == 0) {
++		/* Interrupt URB now set up; initiate sync sequence */
++		sierra_net_dosync(usb_get_intfdata(udev));
++	}
++
++	return ret;
++}
++
+ #define DIRECT_IP_DEVICE(vend, prod) \
+ 	{USB_DEVICE_INTERFACE_NUMBER(vend, prod, 7), \
+ 	.driver_info = (unsigned long)&sierra_net_info_direct_ip}, \
+@@ -935,7 +954,7 @@ MODULE_DEVICE_TABLE(usb, products);
+ static struct usb_driver sierra_net_driver = {
+ 	.name = "sierra_net",
+ 	.id_table = products,
+-	.probe = usbnet_probe,
++	.probe = sierra_net_probe,
+ 	.disconnect = usbnet_disconnect,
+ 	.suspend = usbnet_suspend,
+ 	.resume = usbnet_resume,
 -- 
 1.7.11.7
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
