@@ -1,53 +1,126 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v1 6/9] net/mlx4_en: Save previous MAC address of the port so we can replace it later
-Date: Wed,  6 Feb 2013 11:13:52 +0200
-Message-ID: <1360142035-13228-7-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next v1 9/9] net/mlx4_en: Implement ndo fdb functionality
+Date: Wed,  6 Feb 2013 11:13:55 +0200
+Message-ID: <1360142035-13228-10-git-send-email-amirv@mellanox.com>
 References: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog113.obsmtp.com ([207.126.144.135]:38349 "HELO
-	eu1sys200aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752209Ab3BFJOU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 04:14:20 -0500
+Received: from eu1sys200aog105.obsmtp.com ([207.126.144.119]:49818 "HELO
+	eu1sys200aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752238Ab3BFJOR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 04:14:17 -0500
 In-Reply-To: <1360142035-13228-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yan Burman <yanb@mellanox.com>
 
-In preparation to having more than one unicast MAC per port, we need to keep track
-of the previous MAC address in the flow of ndo_set_mac_address,
-so that mlx4_en_replace_mac will know what to replace.
+Add support for setting embedded switch fdb in case of SRIOV, by
+implementing ndo_fdb_{add, del, dump}. This will allow to use
+bridged configuration with multi-function. In order to add VM MAC
+to the eSwitch fdb, the following command may be used over the relevant function interface:
+bridge fdb add <MAC> permanent self dev <IFACE>
 
 Signed-off-by: Yan Burman <yanb@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   75 ++++++++++++++++++++++++
+ 1 files changed, 75 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 80067d5..72a3fe5 100644
+index 5da293b..9002048 100644
 --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
 +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -591,7 +591,7 @@ static void mlx4_en_put_qp(struct mlx4_en_priv *priv)
+@@ -1906,6 +1906,78 @@ static int mlx4_en_set_features(struct net_device *netdev,
+ 
  }
  
- static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
--			       unsigned char *new_mac)
-+			       unsigned char *new_mac, unsigned char *prev_mac)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_dev *dev = mdev->dev;
-@@ -657,7 +657,7 @@ static void mlx4_en_do_set_mac(struct work_struct *work)
- 	if (priv->port_up) {
- 		/* Remove old MAC and insert the new one */
- 		err = mlx4_en_replace_mac(priv, priv->base_qpn,
--					  priv->dev->dev_addr);
-+					  priv->dev->dev_addr, priv->prev_mac);
- 		if (err)
- 			en_err(priv, "Failed changing HW MAC address\n");
- 		memcpy(priv->prev_mac, priv->dev->dev_addr,
++static int mlx4_en_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
++			   struct net_device *dev,
++			   const unsigned char *addr, u16 flags)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_dev *mdev = priv->mdev->dev;
++	int err;
++
++	if (!mlx4_is_mfunc(mdev))
++		return -EOPNOTSUPP;
++
++	/* Hardware does not support aging addresses, allow only
++	 * permanent addresses if ndm_state is given
++	 */
++	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
++		en_info(priv, "Add FDB only supports static addresses\n");
++		return -EINVAL;
++	}
++
++	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
++		err = dev_uc_add_excl(dev, addr);
++	else if (is_multicast_ether_addr(addr))
++		err = dev_mc_add_excl(dev, addr);
++	else
++		err = -EINVAL;
++
++	/* Only return duplicate errors if NLM_F_EXCL is set */
++	if (err == -EEXIST && !(flags & NLM_F_EXCL))
++		err = 0;
++
++	return err;
++}
++
++static int mlx4_en_fdb_del(struct ndmsg *ndm,
++			   struct net_device *dev,
++			   const unsigned char *addr)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_dev *mdev = priv->mdev->dev;
++	int err;
++
++	if (!mlx4_is_mfunc(mdev))
++		return -EOPNOTSUPP;
++
++	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
++		en_info(priv, "Del FDB only supports static addresses\n");
++		return -EINVAL;
++	}
++
++	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
++		err = dev_uc_del(dev, addr);
++	else if (is_multicast_ether_addr(addr))
++		err = dev_mc_del(dev, addr);
++	else
++		err = -EINVAL;
++
++	return err;
++}
++
++static int mlx4_en_fdb_dump(struct sk_buff *skb,
++			    struct netlink_callback *cb,
++			    struct net_device *dev, int idx)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct mlx4_dev *mdev = priv->mdev->dev;
++
++	if (mlx4_is_mfunc(mdev))
++		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++
++	return idx;
++}
++
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -1927,6 +1999,9 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
++	.ndo_fdb_add		= mlx4_en_fdb_add,
++	.ndo_fdb_del		= mlx4_en_fdb_del,
++	.ndo_fdb_dump		= mlx4_en_fdb_dump,
+ };
+ 
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 -- 
 1.7.8.2
