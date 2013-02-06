@@ -1,50 +1,69 @@
-From: Emil Goode <emilgoode@gmail.com>
-Subject: [PATCH v2] batman-adv: Remove unused variable
-Date: Thu,  7 Feb 2013 00:32:37 +0100
-Message-ID: <1360193557-27554-1-git-send-email-emilgoode@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top
+	of LRO
+Date: Wed, 6 Feb 2013 23:34:20 +0000
+Message-ID: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
+References: <cover.1360191528.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: sasha.levin@oracle.com, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, Emil Goode <emilgoode@gmail.com>
-To: akpm@linux-foundation.org, lindner_marek@yahoo.de,
-	siwu@hrz.tu-chemnitz.de, ordex@autistici.org, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jacob Keller <jacob.e.keller@intel.com>, Tushar,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>, Carolyn, Jeff,
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	John Ronciak <john.ronciak@intel.com>, linux-driver@qlogic.com, Peter
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1360191528.git.mst@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The below commit removed one node parameter from iterators.
-ed242d01bbe22ea0877472db49b2752d866c921c
-(hlist: drop the node parameter from iterators)
+On Thu, 2013-02-07 at 01:02 +0200, Michael S. Tsirkin wrote:
+> At the moment, macvtap crashes are observed if macvtap is attached
+> to an interface with LRO enabled.
+> The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
+> This happens because several drivers set gso_size but not gso_type
+> in incoming skbs.
+> The following patches fix this for
+> Additionally, cbf1de72324a8105ddcc3d9ce9acbc613faea17e is required
+> to fix this for broadcom - would it make sense to cherry-pick
+> this patch into 3.8?
+> 
+> I tested that the patch fixes the crash for ixgbe but
+> don't have qlogic hardware to fix.  I also only tested TCP.
+> 
+> Feedback wellcome.
 
-This patch removes a hlist_node struct that is no longer used.
+If we want to allow forwarding from LRO then net/ipv4/inet_lro.c also
+needs to set gso_type.
 
-Sparse gives a warning:
+Ben.
 
-net/batman-adv/originator.c:411:21: warning:
-	unused variable =E2=80=98node_tmp=E2=80=99 [-Wunused-variable]
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Signed-off-by: Emil Goode <emilgoode@gmail.com>
----
-This patch applies to the linux-next tree.
-v2: Added complete hash and message of dependant commit.
 
- net/batman-adv/originator.c |    1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 43d0f89..96fb80b 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -408,7 +408,6 @@ int batadv_orig_seq_print_text(struct seq_file *seq=
-, void *offset)
- 	struct net_device *net_dev =3D (struct net_device *)seq->private;
- 	struct batadv_priv *bat_priv =3D netdev_priv(net_dev);
- 	struct batadv_hashtable *hash =3D bat_priv->orig_hash;
--	struct hlist_node *node_tmp;
- 	struct hlist_head *head;
- 	struct batadv_hard_iface *primary_if;
- 	struct batadv_orig_node *orig_node;
---=20
-1.7.10.4
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
