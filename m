@@ -1,32 +1,90 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH v4 2/3] tg3: make it possible to provide phy_id in
- ioctl
-Date: Thu, 7 Feb 2013 08:10:36 -0800
-Message-ID: <1360253436.796.58.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1360251459-32384-1-git-send-email-hauke@hauke-m.de>
- <1360251459-32384-3-git-send-email-hauke@hauke-m.de>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: inaccurate packet scheduling
+Date: Thu, 7 Feb 2013 17:13:27 +0100
+Message-ID: <20130207161327.GA1619@minipsycho.brq.redhat.com>
+References: <e2f71dc7-bee5-41ca-bd64-f4569fa953da@tahiti.vyatta.com>
+ <1355849503.9380.37.camel@edumazet-glaptop>
+ <20130102152601.GB1532@minipsycho.orion>
+ <1357144482.21409.16876.camel@edumazet-glaptop>
+ <20130108133038.GB1621@minipsycho.orion>
+ <20130124080536.GA1598@minipsycho.orion>
+ <1359036087.12374.2088.camel@edumazet-glaptop>
+ <20130129122357.GC7571@minipsycho.orion>
+ <1359475983.30177.2.camel@edumazet-glaptop>
+ <20130130121447.GB1604@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mcarlson@broadcom.com, nsujir@broadcom.com,
-	netdev@vger.kernel.org, m@bues.ch
-To: "Hauke Mehrtens" <hauke@hauke-m.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jhs@mojatatu.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3757 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754583Ab3BGQLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 11:11:49 -0500
-In-Reply-To: <1360251459-32384-3-git-send-email-hauke@hauke-m.de>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:64769 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754325Ab3BGQNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 11:13:33 -0500
+Received: by mail-wg0-f45.google.com with SMTP id dq12so2218867wgb.24
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 08:13:31 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20130130121447.GB1604@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-07 at 16:37 +0100, Hauke Mehrtens wrote:
-> In OpenWrt we currently use a switch driver which uses the ioctls to
-> configure the switch in the phy. We have to provide the phy_id to do
-> so, but without this patch this is not possible.
-> 
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de> 
+Wed, Jan 30, 2013 at 01:14:47PM CET, jiri@resnulli.us wrote:
+>Tue, Jan 29, 2013 at 05:13:03PM CET, eric.dumazet@gmail.com wrote:
+>>On Tue, 2013-01-29 at 13:23 +0100, Jiri Pirko wrote:
+>>
+>>> part of the commit message says:
+>>> <quote>
+>>> The bits per second on the wire is still 5200Mb/s with new HTB
+>>> because qdisc accounts for packet length using skb->len, which
+>>> is smaller than total bytes on the wire if GSO is used.  But
+>>> that is for another patch regardless of how time is accounted.	
+>>> </quote>
+>>> I believe that is a similar problem like ours. But looks like this
+>>> "another patch" never got in.
+>>> 
+>>
+>>Hmm, I thought I addressed this in 
+>>
+>>commit 1def9238d4aa2146924994aa4b7dc861f03b9362
+>>Author: Eric Dumazet <edumazet@google.com>
+>>Date:   Thu Jan 10 12:36:42 2013 +0000
+>>
+>>    net_sched: more precise pkt_len computation
+>>    
+>>    One long standing problem with TSO/GSO/GRO packets is that skb->len
+>>    doesn't represent a precise amount of bytes on wire.
+>>    
+>>    Headers are only accounted for the first segment.
+>>    For TCP, thats typically 66 bytes per 1448 bytes segment missing,
+>>    an error of 4.5 % for normal MSS value.
+>>    
+>>    As consequences :
+>>    
+>>    1) TBF/CBQ/HTB/NETEM/... can send more bytes than the assigned limits.
+>>    2) Device stats are slightly under estimated as well.
+>>    
+>>    Fix this by taking account of headers in qdisc_skb_cb(skb)->pkt_len
+>>    computation.
+>>    
+>>    Packet schedulers should use qdisc pkt_len instead of skb->len for their
+>>    bandwidth limitations, and TSO enabled devices drivers could use pkt_len
+>>    if their statistics are not hardware assisted, and if they don't scratch
+>>    skb->cb[] first word.
+>>    
+>>    Both egress and ingress paths work, thanks to commit fda55eca5a
+>>    (net: introduce skb_transport_header_was_set()) : If GRO built
+>>    a GSO packet, it also set the transport header for us.
+>>
+>
+>
+>I tried kernel with this patch in. I also ported
+>56b765b79e9a78dc7d3f8850ba5e5567205a3ecd to tbf. I'm getting always the
+>similar numbers with iperf. There must be something else needed :/
 
-Looks good.
-Acked-by: Michael Chan <mchan@broadcom.com>
+Any other ideas?
+							
+>
+>Thanks
+>
+>Jiri
