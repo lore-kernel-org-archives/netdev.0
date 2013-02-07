@@ -1,206 +1,68 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v2 8/9] net/mlx4_en: Add unicast MAC filtering
-Date: Thu,  7 Feb 2013 14:25:26 +0200
-Message-ID: <1360239927-758-9-git-send-email-amirv@mellanox.com>
-References: <1360239927-758-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next v2 0/9] net/mlx4_en: Add support for unicast MAC filtering and FDB operations
+Date: Thu,  7 Feb 2013 14:25:18 +0200
+Message-ID: <1360239927-758-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yan Burman <yanb@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:41216 "HELO
-	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758263Ab3BGMZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 07:25:48 -0500
-In-Reply-To: <1360239927-758-1-git-send-email-amirv@mellanox.com>
+Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:32987 "HELO
+	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758155Ab3BGMZt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 07:25:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yan Burman <yanb@mellanox.com>
+This series from Yan Burman adds support for unicast MAC address filtering and
+ndo FDB operations.  It also includes some optimizations to loopback related
+decisions and checks in the TX/RX fast path and one cleanup, all in separate
+patches.
 
-Implement and advertise unicast MAC filtering, such that setting macvlan
-instance over mlx4_en interfaces will not require the networking core
-to put mlx4_en devices in promiscuous mode.
+Today, when adding macvlan devices, the NIC goes into promiscuous mode, since
+unicast MAC filtering is not supported. With these changes, macvlan devices can
+be added without the penalty of promiscuous mode.
 
 If for some reason adding a unicast address filter fails e.g as of missing space in
 the HW mac table, the device forces itself into promiscuous mode (and out of this
 forced state when enough space is available).
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  129 +++++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    3 +-
- 2 files changed, 130 insertions(+), 2 deletions(-)
+Also, now it is possible to have bridge under multi-function configuration that include
+PF and VFs.  In order to use bridge over PF/VFs, VM MAC fdb entries must be added e.g.
+using 'bridge fdb add' command.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 8eb24ee..2c19dab 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1016,6 +1016,126 @@ static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
- 	}
- }
- 
-+static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
-+				 struct net_device *dev,
-+				 struct mlx4_en_dev *mdev)
-+{
-+	struct netdev_hw_addr *ha;
-+	struct mlx4_mac_entry *entry;
-+	struct hlist_node *n, *tmp;
-+	bool found;
-+	u64 mac;
-+	int err = 0;
-+	struct hlist_head *bucket;
-+	unsigned int i;
-+	int removed = 0;
-+	u32 prev_flags;
-+
-+	/* Note that we do not need to protect our mac_hash traversal with rcu,
-+	 * since all modification code is protected by mdev->state_lock
-+	 */
-+
-+	/* find what to remove */
-+	for (i = 0; i < MLX4_EN_MAC_HASH_SIZE; ++i) {
-+		bucket = &priv->mac_hash[i];
-+		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
-+			found = false;
-+			netdev_for_each_uc_addr(ha, dev) {
-+				if (ether_addr_equal_64bits(entry->mac,
-+							    ha->addr)) {
-+					found = true;
-+					break;
-+				}
-+			}
-+
-+			/* MAC address of the port is not in uc list */
-+			if (ether_addr_equal_64bits(entry->mac, dev->dev_addr))
-+				found = true;
-+
-+			if (!found) {
-+				mac = mlx4_en_mac_to_u64(entry->mac);
-+				mlx4_en_uc_steer_release(priv, entry->mac,
-+							 priv->base_qpn,
-+							 entry->reg_id);
-+				mlx4_unregister_mac(mdev->dev, priv->port, mac);
-+
-+				hlist_del_rcu(&entry->hlist);
-+				kfree_rcu(entry, rcu);
-+				en_dbg(DRV, priv, "Removed MAC %pM on port:%d\n",
-+				       entry->mac, priv->port);
-+				++removed;
-+			}
-+		}
-+	}
-+
-+	/* if we didn't remove anything, there is no use in trying to add
-+	 * again once we are in a forced promisc mode state
-+	 */
-+	if ((priv->flags & MLX4_EN_FLAG_FORCE_PROMISC) && 0 == removed)
-+		return;
-+
-+	prev_flags = priv->flags;
-+	priv->flags &= ~MLX4_EN_FLAG_FORCE_PROMISC;
-+
-+	/* find what to add */
-+	netdev_for_each_uc_addr(ha, dev) {
-+		found = false;
-+		bucket = &priv->mac_hash[ha->addr[MLX4_EN_MAC_HASH_IDX]];
-+		hlist_for_each_entry(entry, n, bucket, hlist) {
-+			if (ether_addr_equal_64bits(entry->mac, ha->addr)) {
-+				found = true;
-+				break;
-+			}
-+		}
-+
-+		if (!found) {
-+			entry = kmalloc(sizeof(*entry), GFP_KERNEL);
-+			if (!entry) {
-+				en_err(priv, "Failed adding MAC %pM on port:%d (out of memory)\n",
-+				       ha->addr, priv->port);
-+				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
-+				break;
-+			}
-+			mac = mlx4_en_mac_to_u64(ha->addr);
-+			memcpy(entry->mac, ha->addr, ETH_ALEN);
-+			err = mlx4_register_mac(mdev->dev, priv->port, mac);
-+			if (err < 0) {
-+				en_err(priv, "Failed registering MAC %pM on port %d: %d\n",
-+				       ha->addr, priv->port, err);
-+				kfree(entry);
-+				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
-+				break;
-+			}
-+			err = mlx4_en_uc_steer_add(priv, ha->addr,
-+						   &priv->base_qpn,
-+						   &entry->reg_id);
-+			if (err) {
-+				en_err(priv, "Failed adding MAC %pM on port %d: %d\n",
-+				       ha->addr, priv->port, err);
-+				mlx4_unregister_mac(mdev->dev, priv->port, mac);
-+				kfree(entry);
-+				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
-+				break;
-+			} else {
-+				unsigned int mac_hash;
-+				en_dbg(DRV, priv, "Added MAC %pM on port:%d\n",
-+				       ha->addr, priv->port);
-+				mac_hash = ha->addr[MLX4_EN_MAC_HASH_IDX];
-+				bucket = &priv->mac_hash[mac_hash];
-+				hlist_add_head_rcu(&entry->hlist, bucket);
-+			}
-+		}
-+	}
-+
-+	if (priv->flags & MLX4_EN_FLAG_FORCE_PROMISC) {
-+		en_warn(priv, "Forcing promiscuous mode on port:%d\n",
-+			priv->port);
-+	} else if (prev_flags & MLX4_EN_FLAG_FORCE_PROMISC) {
-+		en_warn(priv, "Stop forcing promiscuous mode on port:%d\n",
-+			priv->port);
-+	}
-+}
-+
- static void mlx4_en_do_set_rx_mode(struct work_struct *work)
- {
- 	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
-@@ -1043,8 +1163,12 @@ static void mlx4_en_do_set_rx_mode(struct work_struct *work)
- 		}
- 	}
- 
-+	if (dev->priv_flags & IFF_UNICAST_FLT)
-+		mlx4_en_do_uc_filter(priv, dev, mdev);
-+
- 	/* Promsicuous mode: disable all filters */
--	if (dev->flags & IFF_PROMISC) {
-+	if ((dev->flags & IFF_PROMISC) ||
-+	    (priv->flags & MLX4_EN_FLAG_FORCE_PROMISC)) {
- 		mlx4_en_set_promisc_mode(priv, mdev);
- 		goto out;
- 	}
-@@ -1961,6 +2085,9 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
- 		dev->hw_features |= NETIF_F_NTUPLE;
- 
-+	if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_A0)
-+		dev->priv_flags |= IFF_UNICAST_FLT;
-+
- 	mdev->pndev[port] = dev;
- 
- 	netif_carrier_off(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 0ff99e0..c313d7e 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -439,7 +439,8 @@ enum {
- 	 */
- 	MLX4_EN_FLAG_ENABLE_HW_LOOPBACK	= (1 << 2),
- 	/* whether we need to drop packets that hardware loopback-ed */
--	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3)
-+	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3),
-+	MLX4_EN_FLAG_FORCE_PROMISC	= (1 << 4)
- };
- 
- #define MLX4_EN_MAC_HASH_SIZE (1 << BITS_PER_BYTE)
+Changes from v1 - based on more comments from Eric Dumazet:
+* added failure handling when adding unicast address filter
+
+Changes from v0 - based on comments from Eric Dumazet:
+* Removed unneeded synchronize_rcu()
+* Use kfree_rcu() instead of synchronize_rcu() + kfree()
+
+Yan Burman (9):
+  net/mlx4_en: Optimize loopback related checks in data path
+  net/mlx4_en: Optimize Rx fast path filter checks
+  net/mlx4_en: Cleanup multiline strings
+  net/mlx4: Move Ethernet related functionality from mlx4_core to
+    mlx4_en
+  net/mlx4_en: Re-arrange ndo_set_rx_mode related code
+  net/mlx4_en: Save previous MAC address of the port so we can replace
+    it later
+  net/mlx4_en: Manage hash of MAC addresses per port
+  net/mlx4_en: Add unicast MAC filtering
+  net/mlx4_en: Implement ndo fdb functionality
+
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c  |    9 +-
+ drivers/net/ethernet/mellanox/mlx4/en_main.c     |   22 +
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  765 +++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c       |   53 +-
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c |    3 +
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c       |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/main.c        |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h        |    7 -
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |   33 +-
+ drivers/net/ethernet/mellanox/mlx4/port.c        |  193 +------
+ include/linux/mlx4/device.h                      |    5 +-
+ 11 files changed, 709 insertions(+), 388 deletions(-)
+
 -- 
 1.7.8.2
