@@ -1,37 +1,69 @@
-From: Freddy <freddy@asix.com.tw>
-Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0
- to gigabit ethernet adapter driver
-Date: Thu, 07 Feb 2013 14:50:09 +0800
-Message-ID: <51134EA1.7000403@asix.com.tw>
-References: <1360211794-4737-1-git-send-email-freddy@asix.com.tw> <20130206214603.72524632@nehalam.linuxnetplumber.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH v2] mlx4_en: Fix BQL reset TX queue call point
+Date: Thu, 7 Feb 2013 08:52:35 +0200
+Message-ID: <51134F33.1030007@mellanox.com>
+References: <alpine.DEB.2.00.1302060955490.26438@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130206214603.72524632@nehalam.linuxnetplumber.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <davem@davemloft.net>, <yevgenyp@mellanox.com>,
+	<netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:45902 "HELO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751162Ab3BGGwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 01:52:41 -0500
+In-Reply-To: <alpine.DEB.2.00.1302060955490.26438@pokey.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2013 01:46 PM, Stephen Hemminger wrote:
-> On Thu,  7 Feb 2013 12:36:34 +0800
-> Freddy Xin <freddy@asix.com.tw> wrote:
->
->> +static struct ethtool_ops ax88179_ethtool_ops = {
->> +	.get_link		= ethtool_op_get_link,
->> +	.get_msglevel		= usbnet_get_msglevel,
->> +	.set_msglevel		= usbnet_set_msglevel,
->> +	.get_wol		= ax88179_get_wol,
->> +	.set_wol		= ax88179_set_wol,
->> +	.get_eeprom_len		= ax88179_get_eeprom_len,
->> +	.get_eeprom		= ax88179_get_eeprom,
->> +	.get_settings		= ax88179_get_settings,
->> +	.set_settings		= ax88179_set_settings,
->> +	.nway_reset		= usbnet_nway_reset,
->> +};
->> +
-> ethtool_ops should always be const
->
-Thank you, Stephen. I will fix these errors.
+On 06/02/2013 19:58, Tom Herbert wrote:
+> Fix issue in Mellanox driver related to BQL.  netdev_tx_reset_queue
+> was not being called in certain situations where the device was
+> being start and stopped.  Moved netdev_tx_reset_queue from the reset
+> device path to mlx4_en_free_tx_buf which is where the rings are
+> cleaned in a reset (specifically from device being stopped).
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 3 ---
+>  drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 2 ++
+>  2 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> index ac1c14f..94042f6 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> @@ -1323,15 +1323,12 @@ static void mlx4_en_restart(struct work_struct *work)
+>  						 watchdog_task);
+>  	struct mlx4_en_dev *mdev = priv->mdev;
+>  	struct net_device *dev = priv->dev;
+> -	int i;
+>  
+>  	en_dbg(DRV, priv, "Watchdog task called for port %d\n", priv->port);
+>  
+>  	mutex_lock(&mdev->state_lock);
+>  	if (priv->port_up) {
+>  		mlx4_en_stop_port(dev, 1);
+> -		for (i = 0; i < priv->tx_ring_num; i++)
+> -			netdev_tx_reset_queue(priv->tx_ring[i].tx_queue);
+>  		if (mlx4_en_start_port(dev))
+>  			en_err(priv, "Failed restarting port %d\n", priv->port);
+>  	}
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> index 30724d8..e06fce7 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+> @@ -294,6 +294,8 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
+>  		cnt++;
+>  	}
+>  
+> +	netdev_tx_reset_queue(ring->tx_queue);
+> +
+>  	if (cnt)
+>  		en_dbg(DRV, priv, "Freed %d uncompleted tx descriptors\n", cnt);
+>  
+> 
+
+Acked-By: Amir Vadai <amirv@mellanox.com>
