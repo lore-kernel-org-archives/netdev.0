@@ -1,44 +1,81 @@
-From: Andy Grover <agrover@redhat.com>
-Subject: IP_FREEBIND and binding to in-use addr:ports
-Date: Wed, 06 Feb 2013 16:47:20 -0800
-Message-ID: <5112F998.8050605@redhat.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCH] net: sh_eth: Add support of device tree probe
+Date: Thu, 7 Feb 2013 09:48:09 +0900
+Message-ID: <CABMQnV+JyRcNdEgWHebqo+U=MOJoiC6jn4ea6v9_ag-65ZLrRA@mail.gmail.com>
+References: <1360116019-8870-1-git-send-email-horms+renesas@verge.net.au> <CANqRtoQm1X=g6jfu36=tucFkwsvQ3LNmZyiVO5yZWhbZFhjmeQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: target-devel <target-devel@vger.kernel.org>
-Return-path: <target-devel-owner@vger.kernel.org>
-Sender: target-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: Magnus Damm <magnus.damm@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CANqRtoQm1X=g6jfu36=tucFkwsvQ3LNmZyiVO5yZWhbZFhjmeQ@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-OK, this is weird:
+Hi,
 
-https://bugzilla.redhat.com/show_bug.cgi?id=908368
+On Wed, Feb 6, 2013 at 5:26 PM, Magnus Damm <magnus.damm@gmail.com> wrote:
+> Hey Simon, Iwamatsu-san,
+>
+> On Wed, Feb 6, 2013 at 11:00 AM, Simon Horman
+> <horms+renesas@verge.net.au> wrote:
+>> From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+>>
+>> This adds support of device tree probe for Renesas sh-ether driver.
+>>
+>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+>
+> Thanks for your work on this
+>
+>> +++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+>> @@ -0,0 +1,43 @@
+>> +* Renesas Electronics SuperH EMAC
+>> +
+>> +This file provides information, what the device node
+>> +for the sh_eth interface contains.
+>> +
+>> +Required properties:
+>> +- compatible:                   "renesas,sh-eth";
+>> +- interrupt-parent:             The phandle for the interrupt controller that
+>> +                                services interrupts for this device.
+>> +- reg:                          Offset and length of the register set for the
+>> +                                device.
+>> +- interrupts:                   Interrupt mapping for the sh_eth interrupt
+>> +                                sources (vector id).
+>> +- phy-mode:              String, operation mode of the PHY interface.
+>> +- sh-eth,edmac-endian:          String, endian of sh_eth dmac.
+>> +- sh-eth,register-type:         String, register type of sh_eth.
+>> +                                Please select "gigabit", "fast-sh4" or
+>> +                                "fast-sh3-sh2".
+>> +                                Please select "little" or "big".
+>> +- sh-eth,endian:                String, endian of sh_eth dmac.
+>> +- sh-eth,phy-id:                PHY id.
+>> +
+>> +Optional properties:
+>> +- local-mac-address : 6 bytes, mac address
+>
+>
+>> +- sh-eth,no-ether-link:         set link control by software. When device does
+>> +                                not support ether-link, set.
+>> +- sh-etn,ether-link-active-low: set link check method.
+>> +                                When detection of link is treated as active-low,
+>> +                                set.
+>> +- sh-etn,needs-init:            Initialization flag.
+>> +                                When initialize device in probing device, set.
+>
+> I believe there is a spelling mistake here with "sh-etn" instead of "sh-eth".
 
-It appears you can listen on the same address:port if you do it from a 
-different iscsi target, or even a different tpg (so there are no 
-configfs name collisions). I believe this is because we are setting 
-IP_FREEBIND sockopt, so we can configure listening on iscsi portals (aka 
-ip:port) before the IP is assigned.
+Thanks, I will fix this typo.
 
-from ip(7):
-IP_FREEBIND (since Linux 2.4)
-If enabled, this boolean option allows binding to an IP address that is
-nonlocal or does not (yet) exist.  This permits listening on a socket,
-without requiring the underlying network interface or the specified
-dynamic IP address to be up at the time that the application is trying
-to bind to it.  This option is the per-socket equivalent of the
-ip_nonlocal_bind /proc interface described below.
+>
+> Also, I am happy when DT is used to describe hardware information, but
+> in the case of "needs-init" it more looks like software policy.
 
-This doesn't say anything about if the address:port is already in use. 
-Dave/netdev, should the network stack be returning an error when 
-attempting to bind to an address:port already in use even if IP_FREEBIND 
-is set, or should the caller be checking for this before trying to 
-kernel_bind()?
+You are right. I will remove this flag from DT infomation.
 
-Or is something else the issue?
+Best regards,
+  Nobuhiro
 
-Thanks -- Regards -- Andy
-
-p.s. see drivers/target/iscsi/iscsi_target_login.c line ~846 for caller 
-code.
+-- 
+Nobuhiro Iwamatsu
