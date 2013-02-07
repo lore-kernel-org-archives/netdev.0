@@ -1,61 +1,82 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] tcp: sysctl to disable TCP simultaneous connect
-Date: Thu, 7 Feb 2013 10:44:02 -0800
-Message-ID: <CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com>
-References: <20130207175240.GA12520@www.outflux.net>
-	<20130207103950.662698ea@nehalam.linuxnetplumber.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: inaccurate packet scheduling
+Date: Thu, 7 Feb 2013 19:56:18 +0100
+Message-ID: <20130207185618.GB1651@minipsycho.orion>
+References: <20130108133038.GB1621@minipsycho.orion>
+ <20130124080536.GA1598@minipsycho.orion>
+ <1359036087.12374.2088.camel@edumazet-glaptop>
+ <20130129122357.GC7571@minipsycho.orion>
+ <1359475983.30177.2.camel@edumazet-glaptop>
+ <20130130121447.GB1604@minipsycho.orion>
+ <20130207161327.GA1619@minipsycho.brq.redhat.com>
+ <1360255175.28557.55.camel@edumazet-glaptop>
+ <20130207173909.GA1651@minipsycho.orion>
+ <1360259258.28557.57.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel@vger.kernel.org>, Rob Landley <rob@landley.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Shan Wei <davidshan@tencent.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130207103950.662698ea@nehalam.linuxnetplumber.net>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: edumazet@google.com, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jhs@mojatatu.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:37175 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161017Ab3BGS4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 13:56:23 -0500
+Received: by mail-ea0-f169.google.com with SMTP id d13so1365294eaa.28
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 10:56:22 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1360259258.28557.57.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 7, 2013 at 10:39 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Thu, 7 Feb 2013 09:52:40 -0800
-> Kees Cook <keescook@chromium.org> wrote:
+Thu, Feb 07, 2013 at 06:47:38PM CET, eric.dumazet@gmail.com wrote:
+>On Thu, 2013-02-07 at 18:39 +0100, Jiri Pirko wrote:
+>> Thu, Feb 07, 2013 at 05:39:35PM CET, eric.dumazet@gmail.com wrote:
+>> >On Thu, 2013-02-07 at 17:13 +0100, Jiri Pirko wrote:
+>> >
+>> >> >I tried kernel with this patch in. I also ported
+>> >> >56b765b79e9a78dc7d3f8850ba5e5567205a3ecd to tbf. I'm getting always the
+>> >> >similar numbers with iperf. There must be something else needed :/
+>> >> 
+>> >> Any other ideas?
+>> >
+>> >You didn't post any patch, how can I comment on them ?
+>> 
+>> Okay, sorry, here it is. But as I said, it did not help.
+>> 
+>> Subject: [patch net-next RFC] tbf: improved accuracy at high rates
+>> 
+>> Current TBF uses rate table computed by the "tc" userspace program,
+>> which has the following issue:
+>> 
+>> The rate table has 256 entries to map packet lengths to
+>> token (time units).  With TSO sized packets, the 256 entry granularity
+>> leads to loss/gain of rate, making the token bucket inaccurate.
+>> 
+>> Thus, instead of relying on rate table, this patch explicitly computes
+>> the time and accounts for packet transmission times with nanosecond
+>> granularity.
+>> 
+>> This is a followup to 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
 >
->> This is based on Willy Tarreau's patch from 2008[1]. The goal is to
->> close a corner-case of TCP that isn't used and poses a small DoS risk.
->> For systems that do not want to take any risk at all, this is a desirable
->> configuration knob.
->>
->> It is possible for two clients to connect with crossed SYNs without
->> checking sequence numbers. As such, it might be possible to guess a source
->> port number to block a system from making connections to well-known
->> ports and IP addresses (e.g. auto-update checks) without requiring a
->> MiTM position.
->>
+>This patch doesnt change  q->max_size
 >
-> This patch probably also breaks TCP STUNT that is used by some applications for NAT
-> traversal.
+>So you hit this :
+>
+>if (qdisc_pkt_len(skb) > q->max_size)
+>    return qdisc_reshape_fail(skb, sch);
+>
+>I thought this point was already mentioned in my previous mails.
 
-The patch would not break it -- it defaults the sysctl to staying enabled.
+Right. I think I get it now. the RFC patch I posted enables possibility
+to remove the max_size limitation, right?
 
-If you mean the documentation should be updated, sure, that's easy to do.
+I'm not really familliar in this area so I had to stare at the code for
+a while.
 
-David: I know you aren't a fan of this patch, but I'd like to try to
-convince you. :) This leaves the feature enabled and add a toggle for
-systems (like Chrome OS) that don't want to risk this DoS at all.
-There are so very many other toggle, I don't see why this one would be
-a problem to add.
-
--Kees
-
---
-Kees Cook
-Chrome OS Security
+>
+>
+>
