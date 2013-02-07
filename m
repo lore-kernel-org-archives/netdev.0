@@ -1,40 +1,32 @@
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 Subject: Re: [PATCH] net: sh_eth: Add support of device tree probe
-Date: Thu, 7 Feb 2013 09:48:09 +0900
-Message-ID: <CABMQnV+JyRcNdEgWHebqo+U=MOJoiC6jn4ea6v9_ag-65ZLrRA@mail.gmail.com>
-References: <1360116019-8870-1-git-send-email-horms+renesas@verge.net.au> <CANqRtoQm1X=g6jfu36=tucFkwsvQ3LNmZyiVO5yZWhbZFhjmeQ@mail.gmail.com>
+Date: Thu, 7 Feb 2013 09:58:58 +0900
+Message-ID: <CABMQnVLr9WqMWC6z3BuYyBvNSXM491VwrZ+DcKd3qGu0UN-G3Q@mail.gmail.com>
+References: <1360116019-8870-1-git-send-email-horms+renesas@verge.net.au> <87pq0dg7ot.wl%kuninori.morimoto.gx@renesas.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Cc: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CANqRtoQm1X=g6jfu36=tucFkwsvQ3LNmZyiVO5yZWhbZFhjmeQ@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	linux-sh@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:53300 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab3BGA7a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 19:59:30 -0500
+Received: by mail-wg0-f49.google.com with SMTP id 15so1567769wgd.4
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 16:59:29 -0800 (PST)
+In-Reply-To: <87pq0dg7ot.wl%kuninori.morimoto.gx@renesas.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-On Wed, Feb 6, 2013 at 5:26 PM, Magnus Damm <magnus.damm@gmail.com> wrote:
-> Hey Simon, Iwamatsu-san,
+On Wed, Feb 6, 2013 at 5:36 PM, Kuninori Morimoto
+<kuninori.morimoto.gx@renesas.com> wrote:
 >
-> On Wed, Feb 6, 2013 at 11:00 AM, Simon Horman
-> <horms+renesas@verge.net.au> wrote:
->> From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
->>
->> This adds support of device tree probe for Renesas sh-ether driver.
->>
->> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> Hi Simon, Iwamatsu-san
 >
-> Thanks for your work on this
->
->> +++ b/Documentation/devicetree/bindings/net/sh_ether.txt
->> @@ -0,0 +1,43 @@
->> +* Renesas Electronics SuperH EMAC
->> +
->> +This file provides information, what the device node
->> +for the sh_eth interface contains.
->> +
 >> +Required properties:
 >> +- compatible:                   "renesas,sh-eth";
 >> +- interrupt-parent:             The phandle for the interrupt controller that
@@ -45,34 +37,23 @@ On Wed, Feb 6, 2013 at 5:26 PM, Magnus Damm <magnus.damm@gmail.com> wrote:
 >> +                                sources (vector id).
 >> +- phy-mode:              String, operation mode of the PHY interface.
 >> +- sh-eth,edmac-endian:          String, endian of sh_eth dmac.
->> +- sh-eth,register-type:         String, register type of sh_eth.
->> +                                Please select "gigabit", "fast-sh4" or
->> +                                "fast-sh3-sh2".
->> +                                Please select "little" or "big".
+>
+> I believe endian is only little/big.
+> It can be "bool" settings, not "string" ?
+>
+
+If we use bool , we may use this as "sh-eth,edmac-endian-big" or
+sh-eth,edmac-endian-little.
+Or we define big-endian, and when using big-endian, we specify this.
+Either way is okay.
+
 >> +- sh-eth,endian:                String, endian of sh_eth dmac.
->> +- sh-eth,phy-id:                PHY id.
->> +
->> +Optional properties:
->> +- local-mac-address : 6 bytes, mac address
 >
+> Is this really used it in this driver ?
 >
->> +- sh-eth,no-ether-link:         set link control by software. When device does
->> +                                not support ether-link, set.
->> +- sh-etn,ether-link-active-low: set link check method.
->> +                                When detection of link is treated as active-low,
->> +                                set.
->> +- sh-etn,needs-init:            Initialization flag.
->> +                                When initialize device in probing device, set.
->
-> I believe there is a spelling mistake here with "sh-etn" instead of "sh-eth".
 
-Thanks, I will fix this typo.
-
->
-> Also, I am happy when DT is used to describe hardware information, but
-> in the case of "needs-init" it more looks like software policy.
-
-You are right. I will remove this flag from DT infomation.
+Yes. In many cases, this uses little-endian, but user may specify
+big-endian, I think.
 
 Best regards,
   Nobuhiro
