@@ -1,54 +1,66 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top
-	of LRO
-Date: Wed, 06 Feb 2013 19:18:31 -0800
-Message-ID: <1360207111.28557.47.camel@edumazet-glaptop>
+Subject: Re: [PATCH 2/2] qlcnic: set gso_type
+Date: Wed, 06 Feb 2013 19:20:37 -0800
+Message-ID: <1360207237.28557.48.camel@edumazet-glaptop>
 References: <cover.1360191528.git.mst@redhat.com>
-	<1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
+	 <f262d9330d22447ed8fd487ad7b28d668efbf333.1360191528.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, Greenstein <eilong@broadcom.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	e1000-devel@lists.sourceforge.net,
+Cc: netdev@vger.kernel.org, Eilon Greenstein <eilong@broadcom.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Tushar Dave <tushar.n.dave@intel.com>,
 	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
-	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	John Ronciak <john.ronciak@intel.com>, Eilon,
-	linux-driver@qlogic.com, Peter
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+	Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	bhutchings@solarflare.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <f262d9330d22447ed8fd487ad7b28d668efbf333.1360191528.git.mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-06 at 23:34 +0000, Ben Hutchings wrote:
+On Thu, 2013-02-07 at 01:02 +0200, Michael S. Tsirkin wrote:
+> qlcnic set gso_size but not gso type. This leads to crashes
+> in macvtap.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> This one I only compiled - don't have qlogic hardware.
+> 
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> index bb4311e..370049c 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+> @@ -1043,8 +1043,13 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+>  	th->seq = htonl(seq_number);
+>  	length = skb->len;
+>  
+> -	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
+> +	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP) {
+>  		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
+> +		if (skb->protocol == ETH_P_IPV6)
 
-> If we want to allow forwarding from LRO then net/ipv4/inet_lro.c also
-> needs to set gso_type.
+Are you sure its not skb->protocol == htons(ETH_P_IPV6) ?
 
-Then, what is dev_disable_lro() purpose ?
-
-
-
-
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> +			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+> +		else
+> +			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+> +	}
+>  
+>  	if (vid != 0xffff)
+>  		__vlan_hwaccel_put_tag(skb, vid);
