@@ -1,45 +1,38 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Thu, 7 Feb 2013 09:42:40 +0800
-Message-ID: <CAHrpEqR9u5t8fZOYRq4k_vTsEORVsNwa2C_rLaxesmusY5e9-Q@mail.gmail.com>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com>
-	<loom.20130204T174808-896@post.gmane.org>
-	<CAHrpEqSXhEBQpnR60mjP67gbVWNemfa3tTuoDTKipej_6QQ62g@mail.gmail.com>
-	<loom.20130205T111507-687@post.gmane.org>
-	<CAHrpEqTsUjWjxY3_C4kGL_S0pgpYawgBaSip3DEnZd3CY1hn0A@mail.gmail.com>
-	<51125F28.4000409@intel.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH v3 3/3] tg3: add support for Ethernet core in
+ bcm4785
+Date: Wed, 6 Feb 2013 18:06:08 -0800
+Message-ID: <1360202768.796.6.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1360190768-390-1-git-send-email-hauke@hauke-m.de>
+ <1360190768-390-4-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jim Baxter <jim_baxter@mentor.com>, netdev@vger.kernel.org
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mcarlson@broadcom.com, nsujir@broadcom.com,
+	netdev@vger.kernel.org, m@bues.ch
+To: "Hauke Mehrtens" <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:55953 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757493Ab3BGBml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 20:42:41 -0500
-Received: by mail-wi0-f172.google.com with SMTP id ez12so6291055wid.11
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 17:42:40 -0800 (PST)
-In-Reply-To: <51125F28.4000409@intel.com>
+Received: from mms3.broadcom.com ([216.31.210.19]:1642 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751835Ab3BGCGq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Feb 2013 21:06:46 -0500
+In-Reply-To: <1360190768-390-4-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/2/6 Waskiewicz Jr, Peter P <peter.p.waskiewicz.jr@intel.com>:
-> On 2/6/2013 1:50 AM, Frank Li wrote:
->>
->>
->> It is not easy to fix. Need put tx to NAPI poll function.
->> I will work on that after China New year holiday
->
->
-> Converting Tx to NAPI is the best solution, but you can put a temporary fix
-> in.  Don't take a spin_lock() in fec_enet_tx(), rather take a
-> spin_lock_irqsave() since you're still in HARDIRQ context.
->
+On Wed, 2013-02-06 at 23:46 +0100, Hauke Mehrtens wrote: 
+> @@ -16165,7 +16256,8 @@ static int tg3_test_dma(struct tg3 *tp)
+>                         if (tg3_flag(tp, 40BIT_DMA_BUG) &&
+>                             GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704)
+>                                 tp->dma_rwctrl |= 0x8000;
+> -                       else if (ccval == 0x6 || ccval == 0x7)
+> +                       else if ((ccval == 0x6 || ccval == 0x7) ||
+> +                                tg3_flag(tp, ONE_DMA_AT_ONCE))
 
-That's not help.
-skb_tx_timestamp function call some function using lock, which lock
-used at the other place, just call spinlock_bh.
+This code path is only for the older 5703 and 5704.  So it won't be
+applicable for this ethernet core, right?
 
-skb_tx_timestamp seem be called only in softirq context, not irq context.
-
-> -PJ
+>                                 tp->dma_rwctrl |= DMA_RWCTRL_ONE_DMA;
+>  
+>                         if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703) 
