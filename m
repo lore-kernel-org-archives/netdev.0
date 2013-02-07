@@ -1,68 +1,259 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next v2 0/9] net/mlx4_en: Add support for unicast MAC filtering and FDB operations
-Date: Thu,  7 Feb 2013 14:25:18 +0200
-Message-ID: <1360239927-758-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next v2 2/9] net/mlx4_en: Optimize Rx fast path filter checks
+Date: Thu,  7 Feb 2013 14:25:20 +0200
+Message-ID: <1360239927-758-3-git-send-email-amirv@mellanox.com>
+References: <1360239927-758-1-git-send-email-amirv@mellanox.com>
 Cc: Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yan Burman <yanb@mellanox.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog108.obsmtp.com ([207.126.144.125]:32987 "HELO
-	eu1sys200aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758155Ab3BGMZt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 07:25:49 -0500
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:50721 "HELO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1757844Ab3BGMZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 07:25:48 -0500
+In-Reply-To: <1360239927-758-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series from Yan Burman adds support for unicast MAC address filtering and
-ndo FDB operations.  It also includes some optimizations to loopback related
-decisions and checks in the TX/RX fast path and one cleanup, all in separate
-patches.
+From: Yan Burman <yanb@mellanox.com>
 
-Today, when adding macvlan devices, the NIC goes into promiscuous mode, since
-unicast MAC filtering is not supported. With these changes, macvlan devices can
-be added without the penalty of promiscuous mode.
+Currently, RX path code that does RX filtering is not optimized
+and does an expensive conversion. In order to use ether_addr_equal_64bits
+which is optimized for such cases, we need the MAC address kept by the device
+to be in the form of unsigned char array instead of u64. Store the MAC address
+as unsigned char array and convert to/from u64 out of the fast path when needed.
+Side effect of this is that we no longer need priv->mac, since it's the same
+as dev->dev_addr.
 
-If for some reason adding a unicast address filter fails e.g as of missing space in
-the HW mac table, the device forces itself into promiscuous mode (and out of this
-forced state when enough space is available).
+This optimization was suggested by Eric Dumazet <eric.dumazet@gmail.com>
 
-Also, now it is possible to have bridge under multi-function configuration that include
-PF and VFs.  In order to use bridge over PF/VFs, VM MAC fdb entries must be added e.g.
-using 'bridge fdb add' command.
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |    9 +---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |   48 ++++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c      |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |    3 +-
+ 4 files changed, 35 insertions(+), 30 deletions(-)
 
-Changes from v1 - based on more comments from Eric Dumazet:
-* added failure handling when adding unicast address filter
-
-Changes from v0 - based on comments from Eric Dumazet:
-* Removed unneeded synchronize_rcu()
-* Use kfree_rcu() instead of synchronize_rcu() + kfree()
-
-Yan Burman (9):
-  net/mlx4_en: Optimize loopback related checks in data path
-  net/mlx4_en: Optimize Rx fast path filter checks
-  net/mlx4_en: Cleanup multiline strings
-  net/mlx4: Move Ethernet related functionality from mlx4_core to
-    mlx4_en
-  net/mlx4_en: Re-arrange ndo_set_rx_mode related code
-  net/mlx4_en: Save previous MAC address of the port so we can replace
-    it later
-  net/mlx4_en: Manage hash of MAC addresses per port
-  net/mlx4_en: Add unicast MAC filtering
-  net/mlx4_en: Implement ndo fdb functionality
-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c  |    9 +-
- drivers/net/ethernet/mellanox/mlx4/en_main.c     |   22 +
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |  765 +++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx4/en_rx.c       |   53 +-
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |    3 +
- drivers/net/ethernet/mellanox/mlx4/en_tx.c       |    2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c        |    5 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h        |    7 -
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |   33 +-
- drivers/net/ethernet/mellanox/mlx4/port.c        |  193 +------
- include/linux/mlx4/device.h                      |    5 +-
- 11 files changed, 709 insertions(+), 388 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index f523f02..8a08c5e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -712,16 +712,13 @@ static int mlx4_en_ethtool_add_mac_rule_by_ipv4(struct mlx4_en_priv *priv,
+ 						__be32 ipv4_dst)
+ {
+ #ifdef CONFIG_INET
+-	__be64 be_mac = 0;
+ 	unsigned char mac[ETH_ALEN];
+ 
+ 	if (!ipv4_is_multicast(ipv4_dst)) {
+-		if (cmd->fs.flow_type & FLOW_MAC_EXT) {
++		if (cmd->fs.flow_type & FLOW_MAC_EXT)
+ 			memcpy(&mac, cmd->fs.h_ext.h_dest, ETH_ALEN);
+-		} else {
+-			be_mac = cpu_to_be64((priv->mac & MLX4_MAC_MASK) << 16);
+-			memcpy(&mac, &be_mac, ETH_ALEN);
+-		}
++		else
++			memcpy(&mac, priv->dev->dev_addr, ETH_ALEN);
+ 	} else {
+ 		ip_eth_mc_map(ipv4_dst, mac);
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 551ef68..f7338cb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -132,17 +132,14 @@ static void mlx4_en_filter_work(struct work_struct *work)
+ 		.priority = MLX4_DOMAIN_RFS,
+ 	};
+ 	int rc;
+-	__be64 mac;
+ 	__be64 mac_mask = cpu_to_be64(MLX4_MAC_MASK << 16);
+ 
+ 	list_add_tail(&spec_eth.list, &rule.list);
+ 	list_add_tail(&spec_ip.list, &rule.list);
+ 	list_add_tail(&spec_tcp.list, &rule.list);
+ 
+-	mac = cpu_to_be64((priv->mac & MLX4_MAC_MASK) << 16);
+-
+ 	rule.qpn = priv->rss_map.qps[filter->rxq_index].qpn;
+-	memcpy(spec_eth.eth.dst_mac, &mac, ETH_ALEN);
++	memcpy(spec_eth.eth.dst_mac, priv->dev->dev_addr, ETH_ALEN);
+ 	memcpy(spec_eth.eth.dst_mac_msk, &mac_mask, ETH_ALEN);
+ 
+ 	filter->activated = 0;
+@@ -413,6 +410,16 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
+ 	return 0;
+ }
+ 
++static void mlx4_en_u64_to_mac(unsigned char dst_mac[ETH_ALEN + 2], u64 src_mac)
++{
++	unsigned int i;
++	for (i = ETH_ALEN - 1; i; --i) {
++		dst_mac[i] = src_mac & 0xff;
++		src_mac >>= 8;
++	}
++	memset(&dst_mac[ETH_ALEN], 0, 2);
++}
++
+ u64 mlx4_en_mac_to_u64(u8 *addr)
+ {
+ 	u64 mac = 0;
+@@ -435,7 +442,6 @@ static int mlx4_en_set_mac(struct net_device *dev, void *addr)
+ 		return -EADDRNOTAVAIL;
+ 
+ 	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+-	priv->mac = mlx4_en_mac_to_u64(dev->dev_addr);
+ 	queue_work(mdev->workqueue, &priv->mac_task);
+ 	return 0;
+ }
+@@ -450,10 +456,13 @@ static void mlx4_en_do_set_mac(struct work_struct *work)
+ 	mutex_lock(&mdev->state_lock);
+ 	if (priv->port_up) {
+ 		/* Remove old MAC and insert the new one */
++		u64 mac = mlx4_en_mac_to_u64(priv->dev->dev_addr);
+ 		err = mlx4_replace_mac(mdev->dev, priv->port,
+-				       priv->base_qpn, priv->mac);
++				       priv->base_qpn, mac);
+ 		if (err)
+ 			en_err(priv, "Failed changing HW MAC address\n");
++		memcpy(priv->prev_mac, priv->dev->dev_addr,
++		       sizeof(priv->prev_mac));
+ 	} else
+ 		en_dbg(HW, priv, "Port is down while "
+ 				 "registering mac, exiting...\n");
+@@ -1031,6 +1040,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	int i;
+ 	int j;
+ 	u8 mc_list[16] = {0};
++	u64 mac = mlx4_en_mac_to_u64(dev->dev_addr);
+ 
+ 	if (priv->port_up) {
+ 		en_dbg(DRV, priv, "start port called while port already up\n");
+@@ -1078,7 +1088,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	/* Set qp number */
+ 	en_dbg(DRV, priv, "Getting qp number for port %d\n", priv->port);
+ 	err = mlx4_get_eth_qp(mdev->dev, priv->port,
+-				priv->mac, &priv->base_qpn);
++			      mac, &priv->base_qpn);
+ 	if (err) {
+ 		en_err(priv, "Failed getting eth qp\n");
+ 		goto cq_err;
+@@ -1191,7 +1201,7 @@ tx_err:
+ rss_err:
+ 	mlx4_en_release_rss_steer(priv);
+ mac_err:
+-	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
++	mlx4_put_eth_qp(mdev->dev, priv->port, mac, priv->base_qpn);
+ cq_err:
+ 	while (rx_index--)
+ 		mlx4_en_deactivate_cq(priv, &priv->rx_cq[rx_index]);
+@@ -1210,6 +1220,7 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+ 	struct ethtool_flow_id *flow, *tmp_flow;
+ 	int i;
+ 	u8 mc_list[16] = {0};
++	u64 mac = mlx4_en_mac_to_u64(dev->dev_addr);
+ 
+ 	if (!priv->port_up) {
+ 		en_dbg(DRV, priv, "stop port called while port already down\n");
+@@ -1290,7 +1301,7 @@ void mlx4_en_stop_port(struct net_device *dev, int detach)
+ 	mlx4_en_release_rss_steer(priv);
+ 
+ 	/* Unregister Mac address for the port */
+-	mlx4_put_eth_qp(mdev->dev, priv->port, priv->mac, priv->base_qpn);
++	mlx4_put_eth_qp(mdev->dev, priv->port, mac, priv->base_qpn);
+ 	if (!(mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAGS2_REASSIGN_MAC_EN))
+ 		mdev->mac_removed[priv->port] = 1;
+ 
+@@ -1597,7 +1608,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ {
+ 	struct net_device *dev;
+ 	struct mlx4_en_priv *priv;
+-	int i;
+ 	int err;
+ 
+ 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
+@@ -1658,14 +1668,19 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	/* Query for default mac and max mtu */
+ 	priv->max_mtu = mdev->dev->caps.eth_mtu_cap[priv->port];
+-	priv->mac = mdev->dev->caps.def_mac[priv->port];
+-	if (ILLEGAL_MAC(priv->mac)) {
+-		en_err(priv, "Port: %d, invalid mac burned: 0x%llx, quiting\n",
+-			 priv->port, priv->mac);
++
++	/* Set default MAC */
++	dev->addr_len = ETH_ALEN;
++	mlx4_en_u64_to_mac(dev->dev_addr, mdev->dev->caps.def_mac[priv->port]);
++	if (!is_valid_ether_addr(dev->dev_addr)) {
++		en_err(priv, "Port: %d, invalid mac burned: %pM, quiting\n",
++		       priv->port, dev->dev_addr);
+ 		err = -EINVAL;
+ 		goto out;
+ 	}
+ 
++	memcpy(priv->prev_mac, dev->dev_addr, sizeof(priv->prev_mac));
++
+ 	priv->stride = roundup_pow_of_two(sizeof(struct mlx4_en_rx_desc) +
+ 					  DS_SIZE * MLX4_EN_MAX_RX_FRAGS);
+ 	err = mlx4_en_alloc_resources(priv);
+@@ -1696,11 +1711,6 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 
+ 	SET_ETHTOOL_OPS(dev, &mlx4_en_ethtool_ops);
+ 
+-	/* Set defualt MAC */
+-	dev->addr_len = ETH_ALEN;
+-	for (i = 0; i < ETH_ALEN; i++)
+-		dev->dev_addr[ETH_ALEN - 1 - i] = (u8) (priv->mac >> (8 * i));
+-
+ 	/*
+ 	 * Set driver features
+ 	 */
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index ed214d0..2e7f5bb 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -606,7 +606,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		if (priv->flags & MLX4_EN_FLAG_RX_FILTER_NEEDED) {
+ 			struct ethhdr *ethh;
+ 			dma_addr_t dma;
+-			u64 s_mac;
+ 			/* Get pointer to first fragment since we haven't
+ 			 * skb yet and cast it to ethhdr struct
+ 			 */
+@@ -617,8 +616,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 						 frags[0].offset);
+ 
+ 			/* Drop the packet, since HW loopback-ed it */
+-			s_mac = mlx4_en_mac_to_u64(ethh->h_source);
+-			if (s_mac == priv->mac)
++			if (ether_addr_equal_64bits(dev->dev_addr,
++						    ethh->h_source))
+ 				goto next;
+ 		}
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 696dcf3..9d0105d 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -198,7 +198,6 @@ enum cq_type {
+  */
+ #define ROUNDUP_LOG2(x)		ilog2(roundup_pow_of_two(x))
+ #define XNOR(x, y)		(!(x) == !(y))
+-#define ILLEGAL_MAC(addr)	(addr == 0xffffffffffffULL || addr == 0x0)
+ 
+ 
+ struct mlx4_en_tx_info {
+@@ -483,7 +482,7 @@ struct mlx4_en_priv {
+ 	int registered;
+ 	int allocated;
+ 	int stride;
+-	u64 mac;
++	unsigned char prev_mac[ETH_ALEN + 2];
+ 	int mac_index;
+ 	unsigned max_mtu;
+ 	int base_qpn;
 -- 
 1.7.8.2
