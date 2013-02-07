@@ -1,68 +1,43 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH V2] bgmac: fix "cmdcfg" calls for promisc and loopback modes
-Date: Thu,  7 Feb 2013 16:40:38 +0100
-Message-ID: <1360251638-20925-1-git-send-email-zajec5@gmail.com>
-References: <1360232591-25789-1-git-send-email-zajec5@gmail.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Fri, 08 Feb 2013 00:41:12 +0900
+Message-ID: <5113CB18.1080300@linux-ipv6.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org> <51127781.2000504@linux-ipv6.org> <20130206160409.GB18040@order.stressinduktion.org> <51128985.2010701@linux-ipv6.org> <20130207010010.GD19537@order.stressinduktion.org> <20130207072857.GA27969@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nathan Hintz <nlhintz@hotmail.com>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:60769 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057Ab3BGPk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:40:57 -0500
-Received: by mail-wi0-f172.google.com with SMTP id ez12so7064398wid.17
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 07:40:56 -0800 (PST)
-In-Reply-To: <1360232591-25789-1-git-send-email-zajec5@gmail.com>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45000 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753869Ab3BGPlU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:41:20 -0500
+In-Reply-To: <20130207072857.GA27969@eerihug-hybrid.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The last (bool) parameter in bgmac_cmdcfg_maskset says if the write
-should be made, even if value didn't change. Currently driver doesn't
-match the specs about (not) forcing some changes. This makes it follow
-them.
+Erik Hugne wrote:
+> On Thu, Feb 07, 2013 at 02:00:10AM +0100, Hannes Frederic Sowa wrote:
+>> RFC4541 3. IPv6 Considerations:
+>>
+>>    MLD messages are also not sent regarding groups with addresses in the
+>>    range FF00::/15 (which encompasses both the reserved FF00::/16 and
+>>    node-local FF01::/16 IPv6 address spaces).  These addresses should
+>>    never appear in packets on the link.
+>>
+>> It gives a strong indication that we should drop these packets. What do you
+>> think?
+> 
+> That was my understanding aswell. I asked for some clarifications on the ietf list:
+>     <quote>
+>     > The key is that the packets should be dropped without generating
+>     > any errors or traffic.
+>     Yep, you are right - I assumed that implicitly, but
+>     I should have mentioned that explicitly :-)
+>     </quote>
+> http://www.ietf.org/mail-archive/web/ipv6/current/msg17126.html
 
-Reported-by: Nathan Hintz <nlhintz@hotmail.com>
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
----
-V2: commit message
----
- drivers/net/ethernet/broadcom/bgmac.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+Please file errata on RFC4291.  Thanks.
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
-et/broadcom/bgmac.c
-index f90d1dc..8cf5e39 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -776,9 +776,9 @@ static void bgmac_set_rx_mode(struct net_device *ne=
-t_dev)
- 	struct bgmac *bgmac =3D netdev_priv(net_dev);
-=20
- 	if (net_dev->flags & IFF_PROMISC)
--		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
-+		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, true);
- 	else
--		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
-+		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, true);
- }
-=20
- #if 0 /* We don't use that regs yet */
-@@ -1039,9 +1039,9 @@ static void bgmac_chip_init(struct bgmac *bgmac, =
-bool full_init)
- 	bgmac_write_mac_address(bgmac, bgmac->net_dev->dev_addr);
-=20
- 	if (bgmac->loopback)
--		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_ML, true);
-+		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_ML, false);
- 	else
--		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_ML, 0, true);
-+		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_ML, 0, false);
-=20
- 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
-=20
---=20
-1.7.10.4
+--yoshfuji
