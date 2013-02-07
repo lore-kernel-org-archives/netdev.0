@@ -1,54 +1,70 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: net: rcu warnings in ip6fl_get_first
-Date: Thu, 07 Feb 2013 14:32:36 -0500
-Message-ID: <51140154.9040901@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>, yoshfuji@linux-ipv6.org
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH wireless-next] brcmsmac: fix u16 overflow warning
+Date: Thu,  7 Feb 2013 12:35:35 -0700
+Message-ID: <1360265735-42450-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi guys,
+DOT11_MIN_BEACON_PERIOD and DOT11_MAX_BEACON_PERIOD are
+superfluous. The only invalid beacon period is 0. Comparing
+a 16 bit quantity to 0xffff also causes a compile warning:
 
-I got the following while fuzzing with trinity inside a KVM tools guest:
+drivers/net/wireless/brcm80211/brcmsmac/main.c:5560 brcms_c_set_beacon_period()
+ warn: impossible condition '(period > 65535) => (0-65535 > 65535)'
 
-[   51.680236] ===============================
-[   51.681914] [ INFO: suspicious RCU usage. ]
-[   51.683610] 3.8.0-rc6-next-20130206-sasha-00028-g83214f7-dirty #276 Tainted: G        W
-[   51.686703] -------------------------------
-[   51.688281] net/ipv6/ip6_flowlabel.c:671 suspicious rcu_dereference_check() usage!
-[   51.691345]
-[   51.691345] other info that might help us debug this:
-[   51.691345]
-[   51.694479]
-[   51.694479] rcu_scheduler_active = 1, debug_locks = 1
-[   51.697650] 2 locks held by trinity/7421:
-[   51.701271]  #0:  (&p->lock){+.+.+.}, at: [<ffffffff812b049a>] seq_read+0x3a/0x3d0
-[   51.704292]  #1:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8397cde0>] ip6fl_seq_start+0x0/0xe0
-[   51.707845]
-[   51.707845] stack backtrace:
-[   51.709678] Pid: 7421, comm: trinity Tainted: G        W    3.8.0-rc6-next-20130206-sasha-00028-g83214f7-dirty #276
-[   51.713495] Call Trace:
-[   51.714370]  [<ffffffff81181fdb>] lockdep_rcu_suspicious+0x10b/0x120
-[   51.716560]  [<ffffffff8397caca>] ip6fl_get_first+0x8a/0x140
-[   51.718755]  [<ffffffff8397cdb7>] ip6fl_seq_next+0x17/0x40
-[   51.720963]  [<ffffffff812b0711>] seq_read+0x2b1/0x3d0
-[   51.723056]  [<ffffffff812b0460>] ? seq_lseek+0x110/0x110
-[   51.725238]  [<ffffffff812f9c0c>] proc_reg_read+0x9c/0xd0
-[   51.727266]  [<ffffffff812f9b70>] ? proc_reg_write+0xd0/0xd0
-[   51.729337]  [<ffffffff8128b2eb>] do_loop_readv_writev+0x4b/0x90
-[   51.731846]  [<ffffffff8128b566>] do_readv_writev+0xf6/0x1d0
-[   51.734092]  [<ffffffff8128b6de>] vfs_readv+0x3e/0x60
-[   51.736015]  [<ffffffff8128b750>] sys_readv+0x50/0xd0
-[   51.737930]  [<ffffffff83d73d98>] tracesys+0xe1/0xe6
+Observed from smatch analysis.
 
-This is the result of commit "ipv6 flowlabel: Convert hash list to RCU." which
-mixes between regular and _bh() locking.
+Cc: Brett Rudley <brudley@broadcom.com>
+Cc: Arend van Spriel <arend@broadcom.com>
+Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+Cc: Hante Meuleman <meuleman@broadcom.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+Cc: Seth Forshee <seth.forshee@canonical.com>
+Cc: Hauke Mehrtens <hauke@hauke-m.de>
+Cc: linux-wireless@vger.kernel.org
+Cc: brcm80211-dev-list@broadcom.com
+Cc: netdev@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
+ drivers/net/wireless/brcm80211/brcmsmac/main.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-
-Thanks,
-Sasha
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+index c26992a..080b54d 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -101,8 +101,6 @@
+ #define DOT11_RTS_LEN			16
+ #define DOT11_CTS_LEN			10
+ #define DOT11_BA_BITMAP_LEN		128
+-#define DOT11_MIN_BEACON_PERIOD		1
+-#define DOT11_MAX_BEACON_PERIOD		0xFFFF
+ #define DOT11_MAXNUMFRAGS		16
+ #define DOT11_MAX_FRAG_LEN		2346
+ 
+@@ -5555,8 +5553,7 @@ int brcms_c_set_rateset(struct brcms_c_info *wlc, struct brcm_rateset *rs)
+ 
+ int brcms_c_set_beacon_period(struct brcms_c_info *wlc, u16 period)
+ {
+-	if (period < DOT11_MIN_BEACON_PERIOD ||
+-	    period > DOT11_MAX_BEACON_PERIOD)
++	if (period == 0)
+ 		return -EINVAL;
+ 
+ 	wlc->default_bss->beacon_period = period;
+-- 
+1.7.9.5
