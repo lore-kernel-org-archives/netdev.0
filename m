@@ -1,73 +1,204 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: sctp: sctp_auth_make_key_vector: remove duplicate ntohs calls
-Date: Thu,  7 Feb 2013 12:41:39 +0100
-Message-ID: <c029f55f4d0bde790f77f62d623f4d1e387c4c0b.1360237025.git.dborkman@redhat.com>
-References: <cover.1360237025.git.dborkman@redhat.com>
-Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21733 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754294Ab3BGLln (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 06:41:43 -0500
-In-Reply-To: <cover.1360237025.git.dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: Problem with GVRP on eth while having a bridge
+Date: Thu, 07 Feb 2013 12:58:01 +0100
+Message-ID: <511396C9.2080106@profihost.ag>
+References: <51138866.8000802@profihost.ag> <20130207112227.GE13989@macbook.localnet>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030608040308060707030707"
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexandre DERUMIER <aderumier@odiso.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130207112227.GE13989@macbook.localnet>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Instead of calling 3 times ntohs(random->param_hdr.length), 2 times
-ntohs(hmacs->param_hdr.length), and 3 times ntohs(chunks->param_hdr.length)
-within the same function, we only call each once and store it in a
-variable.
+This is a multi-part message in MIME format.
+--------------030608040308060707030707
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/auth.c | 21 ++++++++++++---------
- 1 file changed, 12 insertions(+), 9 deletions(-)
+Hi Patrick,
 
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 159b9bc..94a12de 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -200,10 +200,14 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
- 	struct sctp_auth_bytes *new;
- 	__u32	len;
- 	__u32	offset = 0;
-+	__u16	random_len, hmacs_len, chunks_len = 0;
- 
--	len = ntohs(random->param_hdr.length) + ntohs(hmacs->param_hdr.length);
--        if (chunks)
--		len += ntohs(chunks->param_hdr.length);
-+	random_len = ntohs(random->param_hdr.length);
-+	hmacs_len = ntohs(hmacs->param_hdr.length);
-+	if (chunks)
-+		chunks_len = ntohs(chunks->param_hdr.length);
-+
-+	len = random_len + hmacs_len + chunks_len;
- 
- 	new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
- 	if (!new)
-@@ -211,16 +215,15 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
- 
- 	new->len = len;
- 
--	memcpy(new->data, random, ntohs(random->param_hdr.length));
--	offset += ntohs(random->param_hdr.length);
-+	memcpy(new->data, random, random_len);
-+	offset += random_len;
- 
- 	if (chunks) {
--		memcpy(new->data + offset, chunks,
--			ntohs(chunks->param_hdr.length));
--		offset += ntohs(chunks->param_hdr.length);
-+		memcpy(new->data + offset, chunks, chunks_len);
-+		offset += chunks_len;
- 	}
- 
--	memcpy(new->data + offset, hmacs, ntohs(hmacs->param_hdr.length));
-+	memcpy(new->data + offset, hmacs, hmacs_len);
- 
- 	return new;
- }
--- 
-1.7.11.7
+thanks for your fast response.
+
+> So please describe the entire GVRP message exchange that's going
+> on.
+I've attached two small pcap files.
+
+has_bridge.pcap: is where eth1 has a bridge and the dynamic vlan
+disappears after a few seconds.
+
+no_bridge.pcap: no bridge is assigned to eth1 - the dynamic vlan stays
+as long as i remove it
+
+> Also you probably want to add the VLAN device on top of the bridge
+> device, otherwise it will get passed to the bridge after untagging,
+> which might not work, depending on the MAC addresses used.
+
+That's working fine in vanilla kernel 3.7.6 but it does not with RHEL 6.
+Also i looks more complicated as i need another bridge on top of the
+vlan to assign the needed tap devices. I looked at ovirt for the network
+setup:
+http://www.ovirt.org/Vdsm_Network
+
+and they also add the vlan directly on top of the nic and then the
+bridge on top of the VLANs.
+
+Greets,
+Stefan
+
+Am 07.02.2013 12:22, schrieb Patrick McHardy:
+> On Thu, Feb 07, 2013 at 11:56:38AM +0100, Stefan Priebe - Profihost AG wrote:
+>> Hello list,
+>>
+>> this was tested using vanilla 3.7.6 kernel.
+>>
+>> When i add a vlan to an ethernet device supporting gvrp everything is
+>> fine until this ethernet device also had a bridge.
+>>
+>> This works fine as long as eth1 is not attached to a bridge.
+>>
+>> # ip link add link eth1 name eth1.99 type vlan id 99 gvrp on
+>> # ip link set eth1.99 up
+>>
+>> The dynamic VLAN stays up at the switch - no problems.
+>>
+>> If eth1 has a bridge the dynamic vlan is created at the switch so the
+>> initial packet was send but it disappears after a few seconds.
+>>
+>> Wireshark shows that the kernel has stopped sending GVRP packets. After
+>> adding a bridge to eth1.
+> 
+> Well, there's no reason why it should continue sending packets after
+> the switch has been updated unless it receives a message indicating
+> that the switch is about to remove it from it's tables again. So
+> please describe the entire GVRP message exchange that's going on.
+> 
+> Also you probably want to add the VLAN device on top of the bridge
+> device, otherwise it will get passed to the bridge after untagging,
+> which might not work, depending on the MAC addresses used.
+> 
+
+--------------030608040308060707030707
+Content-Type: application/vnd.tcpdump.pcap;
+ name="no_bridge.pcap"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="no_bridge.pcap"
+
+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
+--------------030608040308060707030707
+Content-Type: application/vnd.tcpdump.pcap;
+ name="has_bridge.pcap"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="has_bridge.pcap"
+
+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
+--------------030608040308060707030707--
