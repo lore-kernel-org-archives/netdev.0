@@ -1,74 +1,49 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: [PATCH wireless-next V2] brcmsmac: avoid 512 byte stack variable
-Date: Thu,  7 Feb 2013 13:28:09 -0700
-Message-ID: <1360268889-52985-1-git-send-email-tim.gardner@canonical.com>
-References: <51140CFB.1060100@broadcom.com>
-Cc: Tim Gardner <tim.gardner@canonical.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51140CFB.1060100@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] mwl8k: Remove unnecessary alloc/OOM messages
+Date: Thu, 07 Feb 2013 12:37:47 -0800
+Message-ID: <1360269467.27863.9.camel@joe-AO722>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Lennert Buytenhek <buytenh-OLH4Qvv75CYX/NnBR394Jw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Dynamically allocate the probe response template which
-avoids potential stack corruption. Observed with smatch:
+alloc failures already get standardized OOM
+messages and a dump_stack.
 
-drivers/net/wireless/brcm80211/brcmsmac/main.c:7412 brcms_c_bss_update_probe_resp()
- warn: 'prb_resp' puts 512 bytes on stack
-
-Cc: Brett Rudley <brudley@broadcom.com>
-Cc: Arend van Spriel <arend@broadcom.com>
-Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-Cc: Hante Meuleman <meuleman@broadcom.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: Seth Forshee <seth.forshee@canonical.com>
-Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
-Cc: Hauke Mehrtens <hauke@hauke-m.de>
-Cc: linux-wireless@vger.kernel.org
-Cc: brcm80211-dev-list@broadcom.com
-Cc: netdev@vger.kernel.org
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/wireless/brcm80211/brcmsmac/main.c |    8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/wireless/mwl8k.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-index c26992a..ea88abe 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-@@ -7408,9 +7408,13 @@ brcms_c_bss_update_probe_resp(struct brcms_c_info *wlc,
- 			      struct brcms_bss_cfg *cfg,
- 			      bool suspend)
- {
--	u16 prb_resp[BCN_TMPL_LEN / 2];
-+	u16 *prb_resp;
- 	int len = BCN_TMPL_LEN;
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index 224cf91..e31f779 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -1146,7 +1146,6 @@ static int mwl8k_rxq_init(struct ieee80211_hw *hw, int index)
  
-+	prb_resp = kmalloc(BCN_TMPL_LEN, GFP_ATOMIC);
-+	if (!prb_resp)
-+		return;
-+
- 	/*
- 	 * write the probe response to hardware, or save in
- 	 * the config structure
-@@ -7444,6 +7448,8 @@ brcms_c_bss_update_probe_resp(struct brcms_c_info *wlc,
+ 	rxq->buf = kcalloc(MWL8K_RX_DESCS, sizeof(*rxq->buf), GFP_KERNEL);
+ 	if (rxq->buf == NULL) {
+-		wiphy_err(hw->wiphy, "failed to alloc RX skbuff list\n");
+ 		pci_free_consistent(priv->pdev, size, rxq->rxd, rxq->rxd_dma);
+ 		return -ENOMEM;
+ 	}
+@@ -1439,7 +1438,6 @@ static int mwl8k_txq_init(struct ieee80211_hw *hw, int index)
  
- 	if (suspend)
- 		brcms_c_enable_mac(wlc);
-+
-+	kfree(prb_resp);
- }
- 
- void brcms_c_update_probe_resp(struct brcms_c_info *wlc, bool suspend)
--- 
-1.7.9.5
+ 	txq->skb = kcalloc(MWL8K_TX_DESCS, sizeof(*txq->skb), GFP_KERNEL);
+ 	if (txq->skb == NULL) {
+-		wiphy_err(hw->wiphy, "failed to alloc TX skbuff list\n");
+ 		pci_free_consistent(priv->pdev, size, txq->txd, txq->txd_dma);
+ 		return -ENOMEM;
+ 	}
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
