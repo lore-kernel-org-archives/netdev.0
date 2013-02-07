@@ -1,48 +1,68 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Thu, 7 Feb 2013 02:00:10 +0100
-Message-ID: <20130207010010.GD19537@order.stressinduktion.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org> <51127781.2000504@linux-ipv6.org> <20130206160409.GB18040@order.stressinduktion.org> <51128985.2010701@linux-ipv6.org>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: Re: [PATCH iproute-3.8 0/6] ip netns bug fixes and enhancements
+Date: Wed, 6 Feb 2013 16:56:27 -0800
+Message-ID: <CAGK4HS_nZ-fk5628wgHke0491ESLaZumSj1ALqDamd4bzBYfBg@mail.gmail.com>
+References: <87a9u4q7k9.fsf@xmission.com>
+	<1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
+	<87622v5ngt.fsf_-_@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	"Serge E. Hallyn" <serge@hallyn.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:48907 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219Ab3BGBAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 20:00:11 -0500
-Content-Disposition: inline
-In-Reply-To: <51128985.2010701@linux-ipv6.org>
+Received: from mail-qa0-f48.google.com ([209.85.216.48]:64905 "EHLO
+	mail-qa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755302Ab3BGBBx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 20:01:53 -0500
+Received: by mail-qa0-f48.google.com with SMTP id j8so947873qah.0
+        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 17:01:52 -0800 (PST)
+In-Reply-To: <87622v5ngt.fsf_-_@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 07, 2013 at 01:49:09AM +0900, YOSHIFUJI Hideaki wrote:
-> >>
-> >> NAK.
-> >>
-> >> Well, do you have relevant RFC?
-> >> RFC4291 says that we should drop ff00::/16, but not ff01::/16.
-> > 
-> > I know what you mean, the RFC does not state it directly. Hm, the BSDs seem to
-> > drop such destination addresses, too, if they don't originate from a loopback
-> > interface. Or did you mean that there is a flaw in the skb->pkt_type !=
-> > PACKET_LOOPBACK condition?
-> 
-> We do not drop ff01::/16, because RFC is silent about it.
+>
+> Eric W. Biederman (6):
+>       iproute2: Don't propogate mounts out of ip netns exec.
+>       iproute2: Normalize return codes in "ip netns"
+>       iproute2: Improve "ip netns add" failure error message
+>       iproute2: Make "ip netns delete" more likely to succeed
+>       iproute2: Fill in the ip-netns.8 manpage
+>       iproute2: Add "ip netns pids" and "ip netns identify"
+>
 
-I just did a little bit of research on this topic and found this:
 
-RFC4541 3. IPv6 Considerations:
+Eric,
+With these patches applied, I am getting the following errors:
 
-   MLD messages are also not sent regarding groups with addresses in the
-   range FF00::/15 (which encompasses both the reserved FF00::/16 and
-   node-local FF01::/16 IPv6 address spaces).  These addresses should
-   never appear in packets on the link.
 
-It gives a strong indication that we should drop these packets. What do you
-think?
+make[1]: Entering directory `/root/tools/iproute2/ip'
+gcc -Wall -Wstrict-prototypes -Werror -O2 -I../include
+-DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2=
+\"
+-D_GNU_SOURCE   -c -o ipaddress.o ipaddress.c
+gcc -Wall -Wstrict-prototypes -Werror -O2 -I../include
+-DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iproute2=
+\"
+-D_GNU_SOURCE   -c -o ipnetns.o ipnetns.c
+ipnetns.c: In function =91netns_exec=92:
+ipnetns.c:156: error: =91MS_SLAVE=92 undeclared (first use in this func=
+tion)
+ipnetns.c:156: error: (Each undeclared identifier is reported only once
+ipnetns.c:156: error: for each function it appears in.)
+ipnetns.c:156: error: =91MS_REC=92 undeclared (first use in this functi=
+on)
+ipnetns.c: In function =91netns_add=92:
+ipnetns.c:372: error: =91MS_SHARED=92 undeclared (first use in this fun=
+ction)
+ipnetns.c:372: error: =91MS_REC=92 undeclared (first use in this functi=
+on)
+make[1]: *** [ipnetns.o] Error 1
+make[1]: Leaving directory `/root/tools/iproute2/ip'
+make: *** [all] Error 2
+
 
 Thanks,
-
-  Hannes
+Vijay
