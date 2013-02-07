@@ -1,204 +1,206 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: Problem with GVRP on eth while having a bridge
-Date: Thu, 07 Feb 2013 12:58:01 +0100
-Message-ID: <511396C9.2080106@profihost.ag>
-References: <51138866.8000802@profihost.ag> <20130207112227.GE13989@macbook.localnet>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030608040308060707030707"
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexandre DERUMIER <aderumier@odiso.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130207112227.GE13989@macbook.localnet>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next v2 8/9] net/mlx4_en: Add unicast MAC filtering
+Date: Thu,  7 Feb 2013 14:25:26 +0200
+Message-ID: <1360239927-758-9-git-send-email-amirv@mellanox.com>
+References: <1360239927-758-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yan Burman <yanb@mellanox.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:41216 "HELO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758263Ab3BGMZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 07:25:48 -0500
+In-Reply-To: <1360239927-758-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030608040308060707030707
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+From: Yan Burman <yanb@mellanox.com>
 
-Hi Patrick,
+Implement and advertise unicast MAC filtering, such that setting macvlan
+instance over mlx4_en interfaces will not require the networking core
+to put mlx4_en devices in promiscuous mode.
 
-thanks for your fast response.
+If for some reason adding a unicast address filter fails e.g as of missing space in
+the HW mac table, the device forces itself into promiscuous mode (and out of this
+forced state when enough space is available).
 
-> So please describe the entire GVRP message exchange that's going
-> on.
-I've attached two small pcap files.
+Signed-off-by: Yan Burman <yanb@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  129 +++++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    3 +-
+ 2 files changed, 130 insertions(+), 2 deletions(-)
 
-has_bridge.pcap: is where eth1 has a bridge and the dynamic vlan
-disappears after a few seconds.
-
-no_bridge.pcap: no bridge is assigned to eth1 - the dynamic vlan stays
-as long as i remove it
-
-> Also you probably want to add the VLAN device on top of the bridge
-> device, otherwise it will get passed to the bridge after untagging,
-> which might not work, depending on the MAC addresses used.
-
-That's working fine in vanilla kernel 3.7.6 but it does not with RHEL 6.
-Also i looks more complicated as i need another bridge on top of the
-vlan to assign the needed tap devices. I looked at ovirt for the network
-setup:
-http://www.ovirt.org/Vdsm_Network
-
-and they also add the vlan directly on top of the nic and then the
-bridge on top of the VLANs.
-
-Greets,
-Stefan
-
-Am 07.02.2013 12:22, schrieb Patrick McHardy:
-> On Thu, Feb 07, 2013 at 11:56:38AM +0100, Stefan Priebe - Profihost AG wrote:
->> Hello list,
->>
->> this was tested using vanilla 3.7.6 kernel.
->>
->> When i add a vlan to an ethernet device supporting gvrp everything is
->> fine until this ethernet device also had a bridge.
->>
->> This works fine as long as eth1 is not attached to a bridge.
->>
->> # ip link add link eth1 name eth1.99 type vlan id 99 gvrp on
->> # ip link set eth1.99 up
->>
->> The dynamic VLAN stays up at the switch - no problems.
->>
->> If eth1 has a bridge the dynamic vlan is created at the switch so the
->> initial packet was send but it disappears after a few seconds.
->>
->> Wireshark shows that the kernel has stopped sending GVRP packets. After
->> adding a bridge to eth1.
-> 
-> Well, there's no reason why it should continue sending packets after
-> the switch has been updated unless it receives a message indicating
-> that the switch is about to remove it from it's tables again. So
-> please describe the entire GVRP message exchange that's going on.
-> 
-> Also you probably want to add the VLAN device on top of the bridge
-> device, otherwise it will get passed to the bridge after untagging,
-> which might not work, depending on the MAC addresses used.
-> 
-
---------------030608040308060707030707
-Content-Type: application/vnd.tcpdump.pcap;
- name="no_bridge.pcap"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="no_bridge.pcap"
-
-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
---------------030608040308060707030707
-Content-Type: application/vnd.tcpdump.pcap;
- name="has_bridge.pcap"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="has_bridge.pcap"
-
-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
---------------030608040308060707030707--
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 8eb24ee..2c19dab 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1016,6 +1016,126 @@ static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
+ 	}
+ }
+ 
++static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
++				 struct net_device *dev,
++				 struct mlx4_en_dev *mdev)
++{
++	struct netdev_hw_addr *ha;
++	struct mlx4_mac_entry *entry;
++	struct hlist_node *n, *tmp;
++	bool found;
++	u64 mac;
++	int err = 0;
++	struct hlist_head *bucket;
++	unsigned int i;
++	int removed = 0;
++	u32 prev_flags;
++
++	/* Note that we do not need to protect our mac_hash traversal with rcu,
++	 * since all modification code is protected by mdev->state_lock
++	 */
++
++	/* find what to remove */
++	for (i = 0; i < MLX4_EN_MAC_HASH_SIZE; ++i) {
++		bucket = &priv->mac_hash[i];
++		hlist_for_each_entry_safe(entry, n, tmp, bucket, hlist) {
++			found = false;
++			netdev_for_each_uc_addr(ha, dev) {
++				if (ether_addr_equal_64bits(entry->mac,
++							    ha->addr)) {
++					found = true;
++					break;
++				}
++			}
++
++			/* MAC address of the port is not in uc list */
++			if (ether_addr_equal_64bits(entry->mac, dev->dev_addr))
++				found = true;
++
++			if (!found) {
++				mac = mlx4_en_mac_to_u64(entry->mac);
++				mlx4_en_uc_steer_release(priv, entry->mac,
++							 priv->base_qpn,
++							 entry->reg_id);
++				mlx4_unregister_mac(mdev->dev, priv->port, mac);
++
++				hlist_del_rcu(&entry->hlist);
++				kfree_rcu(entry, rcu);
++				en_dbg(DRV, priv, "Removed MAC %pM on port:%d\n",
++				       entry->mac, priv->port);
++				++removed;
++			}
++		}
++	}
++
++	/* if we didn't remove anything, there is no use in trying to add
++	 * again once we are in a forced promisc mode state
++	 */
++	if ((priv->flags & MLX4_EN_FLAG_FORCE_PROMISC) && 0 == removed)
++		return;
++
++	prev_flags = priv->flags;
++	priv->flags &= ~MLX4_EN_FLAG_FORCE_PROMISC;
++
++	/* find what to add */
++	netdev_for_each_uc_addr(ha, dev) {
++		found = false;
++		bucket = &priv->mac_hash[ha->addr[MLX4_EN_MAC_HASH_IDX]];
++		hlist_for_each_entry(entry, n, bucket, hlist) {
++			if (ether_addr_equal_64bits(entry->mac, ha->addr)) {
++				found = true;
++				break;
++			}
++		}
++
++		if (!found) {
++			entry = kmalloc(sizeof(*entry), GFP_KERNEL);
++			if (!entry) {
++				en_err(priv, "Failed adding MAC %pM on port:%d (out of memory)\n",
++				       ha->addr, priv->port);
++				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
++				break;
++			}
++			mac = mlx4_en_mac_to_u64(ha->addr);
++			memcpy(entry->mac, ha->addr, ETH_ALEN);
++			err = mlx4_register_mac(mdev->dev, priv->port, mac);
++			if (err < 0) {
++				en_err(priv, "Failed registering MAC %pM on port %d: %d\n",
++				       ha->addr, priv->port, err);
++				kfree(entry);
++				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
++				break;
++			}
++			err = mlx4_en_uc_steer_add(priv, ha->addr,
++						   &priv->base_qpn,
++						   &entry->reg_id);
++			if (err) {
++				en_err(priv, "Failed adding MAC %pM on port %d: %d\n",
++				       ha->addr, priv->port, err);
++				mlx4_unregister_mac(mdev->dev, priv->port, mac);
++				kfree(entry);
++				priv->flags |= MLX4_EN_FLAG_FORCE_PROMISC;
++				break;
++			} else {
++				unsigned int mac_hash;
++				en_dbg(DRV, priv, "Added MAC %pM on port:%d\n",
++				       ha->addr, priv->port);
++				mac_hash = ha->addr[MLX4_EN_MAC_HASH_IDX];
++				bucket = &priv->mac_hash[mac_hash];
++				hlist_add_head_rcu(&entry->hlist, bucket);
++			}
++		}
++	}
++
++	if (priv->flags & MLX4_EN_FLAG_FORCE_PROMISC) {
++		en_warn(priv, "Forcing promiscuous mode on port:%d\n",
++			priv->port);
++	} else if (prev_flags & MLX4_EN_FLAG_FORCE_PROMISC) {
++		en_warn(priv, "Stop forcing promiscuous mode on port:%d\n",
++			priv->port);
++	}
++}
++
+ static void mlx4_en_do_set_rx_mode(struct work_struct *work)
+ {
+ 	struct mlx4_en_priv *priv = container_of(work, struct mlx4_en_priv,
+@@ -1043,8 +1163,12 @@ static void mlx4_en_do_set_rx_mode(struct work_struct *work)
+ 		}
+ 	}
+ 
++	if (dev->priv_flags & IFF_UNICAST_FLT)
++		mlx4_en_do_uc_filter(priv, dev, mdev);
++
+ 	/* Promsicuous mode: disable all filters */
+-	if (dev->flags & IFF_PROMISC) {
++	if ((dev->flags & IFF_PROMISC) ||
++	    (priv->flags & MLX4_EN_FLAG_FORCE_PROMISC)) {
+ 		mlx4_en_set_promisc_mode(priv, mdev);
+ 		goto out;
+ 	}
+@@ -1961,6 +2085,9 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	    MLX4_STEERING_MODE_DEVICE_MANAGED)
+ 		dev->hw_features |= NETIF_F_NTUPLE;
+ 
++	if (mdev->dev->caps.steering_mode != MLX4_STEERING_MODE_A0)
++		dev->priv_flags |= IFF_UNICAST_FLT;
++
+ 	mdev->pndev[port] = dev;
+ 
+ 	netif_carrier_off(dev);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 0ff99e0..c313d7e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -439,7 +439,8 @@ enum {
+ 	 */
+ 	MLX4_EN_FLAG_ENABLE_HW_LOOPBACK	= (1 << 2),
+ 	/* whether we need to drop packets that hardware loopback-ed */
+-	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3)
++	MLX4_EN_FLAG_RX_FILTER_NEEDED	= (1 << 3),
++	MLX4_EN_FLAG_FORCE_PROMISC	= (1 << 4)
+ };
+ 
+ #define MLX4_EN_MAC_HASH_SIZE (1 << BITS_PER_BYTE)
+-- 
+1.7.8.2
