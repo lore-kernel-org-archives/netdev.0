@@ -1,80 +1,74 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART
- messages and interrupt pipe setup
-Date: Thu, 07 Feb 2013 11:06:33 -0600
-Message-ID: <1360256793.2382.27.camel@dcbw.foobar.com>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	 <1357318096.5370.15.camel@dcbw.foobar.com>
-	 <1357318289.5370.19.camel@dcbw.foobar.com>
-	 <1360176176.11742.16.camel@dcbw.foobar.com> <87ip655eqw.fsf@nemi.mork.no>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCHv2-net-3.8 2/3] qlcnic: set gso_type
+Date: Thu, 7 Feb 2013 17:08:29 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E2AB64B@avmb2.qlogic.org>
+References: <50a60e1293901965901edb46ae49e52da1d469d5.1360236441.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54857 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759058Ab3BGRGR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 12:06:17 -0500
-In-Reply-To: <87ip655eqw.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Tushar Dave <tushar.n.dave@intel.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	David Miller <davem@davemloft.net>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"eric.dumazet@gma
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50a60e1293901965901edb46ae49e52da1d469d5.1360236441.git.mst@redhat.com>
+Content-Language: en-US
+Content-ID: <D8C730CC2BC9DA4E9BA5BDBA2DAE5D76@qlogic.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-06 at 22:11 +0100, Bj=C3=B8rn Mork wrote:
-> Dan Williams <dcbw@redhat.com> writes:
->=20
-> > As part of the initialization sequence, the driver sends a SYNC mes=
-sage
-> > via the control pipe to the firmware, which appears to request a
-> > firmware restart.  The firmware responds with an indication via the
-> > interrupt pipe set up by usbnet.  If the driver does not receive a
-> > RESTART indication within a certain amount of time, it will periodi=
-cally
-> > send additional SYNC messages until it receives the RESTART indicat=
-ion.
-> >
-> > Unfortunately, the interrupt URB is only submitted while the netdev
-> > is open, which is usually not the case during initialization, and t=
-hus
-> > the firmware's RESTART indication is lost.  So the driver continues
-> > sending SYNC messages, and eventually the firmware crashes when it
-> > receives too many.  This leads to a wedged netdev.
-> >
-> > To ensure the firmware's RESTART indications can be received by the
-> > driver, request that usbnet keep the interrupt URB active via
-> > FLAG_INTR_ALWAYS.
-> >
-> > Second, move the code that sends the SYNC message out of the
-> > bind() hook and after usbnet_probe() to ensure the interrupt URB
-> > is set up before trying to use it.
->=20
-> Given this description I am wondering if you couldn't just move the
-> whole SYNC thing to a new reset() hook, using some private flag to ma=
-ke
-> sure it only runs once?  Does it really need to start at probe time?
+On 2/7/13 5:13 AM, "Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-It doesn't need to run exactly at probe, but it appears to need to be
-the first thing the driver does when communicating with the firmware to
-ensure clear state and whatnot.  Possibly like the QMI SYNC message tha=
-t
-clears all the client IDs and resets the internal stack.  (the driver
-also sends a "shutdown" message to the firmware when unbinding).
+>qlcnic set gso_size but not gso type. This leads to crashes
+>in macvtap.
+>
+>Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>---
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 7 ++++++-
+> 1 file changed, 6 insertions(+), 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+>index 6f82812..09aa310 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+>@@ -986,8 +986,13 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+> 	th->seq = htonl(seq_number);
+> 	length = skb->len;
+> 
+>-	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP)
+>+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP) {
+> 		skb_shinfo(skb)->gso_size = qlcnic_get_lro_sts_mss(sts_data1);
+>+		if (skb->protocol == htons(ETH_P_IPV6))
+>+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
+>+		else
+>+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+>+	}
+> 
+> 	if (vid != 0xffff)
+> 		__vlan_hwaccel_put_tag(skb, vid);
+>-- 
+>MST
 
-So I do think that somewhere around probe() is the best time to do this=
-,
-because it's best to initialize the device when the driver binds to it
-and react to errors as soon as possible, rather than trying to set
-everything up on open/IFF_UP and then fail right before you want to
-actually use the device.  Late-fail is quite unhelpful for applications=
-=2E
+Thanks!
 
-I don't really care if it happens in probe() or somewhere else right
-after the driver is bound to the device, but it should be part of the
-initialization process.
-
-Dan
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
