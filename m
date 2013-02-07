@@ -1,53 +1,44 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Thu, 07 Feb 2013 11:41:34 +0530
-Message-ID: <51134596.4080106@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <510FBC01.2030405@linux.vnet.ibm.com> <87haloiwv0.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, mingo@kernel.org,
-	linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	fweisbec@gmail.com, linux-doc@vger.kernel.org,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	wangyun@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	namhyung@kernel.org, akpm@linux-foundation.org, walken@google.com,
-	linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <87haloiwv0.fsf@rustcorp.com.au>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git) 1/2] stmmac: fix macro  used for debugging the xmit
+Date: Thu,  7 Feb 2013 07:47:51 +0100
+Message-ID: <1360219672-27980-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog106.obsmtp.com ([207.126.144.121]:41996 "EHLO
+	eu1sys200aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750821Ab3BGGsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 01:48:11 -0500
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 126A1F7
+	for <netdev@vger.kernel.org>; Thu,  7 Feb 2013 06:48:00 +0000 (GMT)
+Received: from mail7.sgp.st.com (unknown [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id A0CA924AB
+	for <netdev@vger.kernel.org>; Thu,  7 Feb 2013 06:48:00 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2013 09:44 AM, Rusty Russell wrote:
-> "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com> writes:
->> On 01/22/2013 01:03 PM, Srivatsa S. Bhat wrote:
->>                  Avg. latency of 1 CPU offline (ms) [stop-cpu/stop-m/c latency]
->>
->> # online CPUs    Mainline (with stop-m/c)       This patchset (no stop-m/c)
->>
->>       8                 17.04                          7.73
->>
->>      16                 18.05                          6.44
->>
->>      32                 17.31                          7.39
->>
->>      64                 32.40                          9.28
->>
->>     128                 98.23                          7.35
-> 
-> Nice!
+This patch fixes the name of the macro used for
+debugging the transmit process. I used STMMAC_TX_DEBUG
+instead of STMMAC_XMIT_DEBUG.
 
-Thank you :-)
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->  I wonder how the ARM guys feel with their quad-cpu systems...
-> 
-
-That would be definitely interesting to know :-)
-
-Regards,
-Srivatsa S. Bhat
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index f07c061..b75f4b2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -69,7 +69,7 @@
+ 
+ #undef STMMAC_XMIT_DEBUG
+ /*#define STMMAC_XMIT_DEBUG*/
+-#ifdef STMMAC_TX_DEBUG
++#ifdef STMMAC_XMIT_DEBUG
+ #define TX_DBG(fmt, args...)  printk(fmt, ## args)
+ #else
+ #define TX_DBG(fmt, args...)  do { } while (0)
+-- 
+1.7.4.4
