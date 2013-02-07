@@ -1,56 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH, resubmit] ax88179_178a: ASIX AX88179_178A USB 3.0/2.0
- to gigabit ethernet adapter driver
-Date: Thu, 07 Feb 2013 15:05:35 -0500 (EST)
-Message-ID: <20130207.150535.343442812598571927.davem@davemloft.net>
-References: <1360244360-2700-1-git-send-email-freddy@asix.com.tw>
-	<1360267375.3605.32.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: freddy@asix.com.tw, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bhutchings@solarflare.com
+From: Tim Gardner <tim.gardner@canonical.com>
+Subject: [PATCH wireless-next] brcmsmac: avoid 512 byte stack variable
+Date: Thu,  7 Feb 2013 13:13:52 -0700
+Message-ID: <1360268032-52414-1-git-send-email-tim.gardner@canonical.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1360267375.3605.32.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 7 Feb 2013 20:02:55 +0000
+Dynamically allocate the probe response template which
+avoids potential stack corruption. Observed with smatch:
 
-> On Thu, 2013-02-07 at 21:39 +0800, Freddy Xin wrote:
->> From: Freddy Xin <freddy@asix.com.tw>
->> 
->> This is a resubmission.
->> Added "const" to ethtool_ops structure and fixed the coding style of AX88179_BULKIN_SIZE array.
->> Fixed the issue that the default MTU is not 1500.
->> Added ax88179_change_mtu function and enabled the hardware jumbo frame function to support an
->> MTU higher than 1500.
->> Fixed indentation and empty line coding style errors.
->> The _nopm version usb functions were added to access register in suspend and resume functions.
->> Serveral variables allocted dynamically were removed and replaced by stack variables.
->> ax88179_get_eeprom were modified from asix_get_eeprom in asix_common.
->> 
->> This patch adds a driver for ASIX's AX88179 family of USB 3.0/2.0
->> to gigabit ethernet adapters. It's based on the AX88xxx driver but
->> the usb commands used to access registers for AX88179 are completely different.
->> This driver had been verified on x86 system with AX88179/AX88178A and
->> Sitcomm LN-032 USB dongles.
->> 
->> Signed-off-by: Freddy Xin <freddy@asix.com.tw>
-> [...]
->> --- /dev/null
->> +++ b/drivers/net/usb/ax88179_178a.c
-> [...]
->> +struct ax88179_data {
->> +       u16 rxctl;
->> +};
-> 
-> Should also be declared __packed, as on some architectures it may be
-> padded to 4 bytes.
+drivers/net/wireless/brcm80211/brcmsmac/main.c:7412 brcms_c_bss_update_probe_resp()
+ warn: 'prb_resp' puts 512 bytes on stack
 
-Packed is evil and should be avoid everywhere that it is possible to
-do so.  It's going to use byte loads on this u16 on RISC cpus simply
-because __packed makes it so that the compiler cannot assume data
-alignment any longer.
+Cc: Brett Rudley <brudley@broadcom.com>
+Cc: Arend van Spriel <arend@broadcom.com>
+Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+Cc: Hante Meuleman <meuleman@broadcom.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Seth Forshee <seth.forshee@canonical.com>
+Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+Cc: Hauke Mehrtens <hauke@hauke-m.de>
+Cc: linux-wireless@vger.kernel.org
+Cc: brcm80211-dev-list@broadcom.com
+Cc: netdev@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+---
+ drivers/net/wireless/brcm80211/brcmsmac/main.c |   11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+index c26992a..e392e76 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -7408,9 +7408,16 @@ brcms_c_bss_update_probe_resp(struct brcms_c_info *wlc,
+ 			      struct brcms_bss_cfg *cfg,
+ 			      bool suspend)
+ {
+-	u16 prb_resp[BCN_TMPL_LEN / 2];
++	u16 *prb_resp;
+ 	int len = BCN_TMPL_LEN;
+ 
++	prb_resp = kmalloc(BCN_TMPL_LEN, GFP_ATOMIC);
++	if (!prb_resp) {
++		wiphy_err(wlc->wiphy, "wl: %s: failed to alloc %u bytes\n",
++			__func__, BCN_TMPL_LEN);
++		return;
++	}
++
+ 	/*
+ 	 * write the probe response to hardware, or save in
+ 	 * the config structure
+@@ -7444,6 +7451,8 @@ brcms_c_bss_update_probe_resp(struct brcms_c_info *wlc,
+ 
+ 	if (suspend)
+ 		brcms_c_enable_mac(wlc);
++
++	kfree(prb_resp);
+ }
+ 
+ void brcms_c_update_probe_resp(struct brcms_c_info *wlc, bool suspend)
+-- 
+1.7.9.5
