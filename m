@@ -1,32 +1,26 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec-next v2 0/2] xfrm: make gc_thresh configurable in
- all namespaces
-Date: Thu, 7 Feb 2013 11:52:15 +0100
-Message-ID: <20130207105215.GB17794@secunet.com>
-References: <cover.1360143430.git.mkubecek@suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net 0/2] fixes for net/sctp/auth.c
+Date: Thu,  7 Feb 2013 11:55:35 +0100
+Message-ID: <cover.1360231701.git.dborkman@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: vyasevich@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:35383 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13526 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757693Ab3BGKwV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 05:52:21 -0500
-Content-Disposition: inline
-In-Reply-To: <cover.1360143430.git.mkubecek@suse.cz>
+	id S1757884Ab3BGKzl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 05:55:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 06, 2013 at 10:46:13AM +0100, Michal Kubecek wrote:
-> Changes from original version:
-> 
-> - remove unused xfrm4_fini() to avoid section mismatch
-> - don't mark xfrm6_net_ops as __net_initdata to avoid section mismatch
-> 
-> Michal Kubecek (2):
->   xfrm: remove unused xfrm4_policy_fini()
->   xfrm: make gc_thresh configurable in all namespaces
+This set fixes two issues in the net/sctp/auth.c implementation.
 
-Applied to ipsec-next, thanks!
+Daniel Borkmann (2):
+  net: sctp: sctp_auth_make_key_vector: fix undefined ref-count behaviour
+  net: sctp: sctp_auth_key_put: use kzfree instead of kfree
+
+ net/sctp/auth.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+-- 
+1.7.11.7
