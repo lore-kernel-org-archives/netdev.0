@@ -1,69 +1,74 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH v2] mlx4_en: Fix BQL reset TX queue call point
-Date: Thu, 7 Feb 2013 08:52:35 +0200
-Message-ID: <51134F33.1030007@mellanox.com>
-References: <alpine.DEB.2.00.1302060955490.26438@pokey.mtv.corp.google.com>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: Re: [PATCH v2] batman-adv: Remove unused variable
+Date: Thu, 7 Feb 2013 08:13:05 +0100
+Message-ID: <20130207071305.GG6008@ritirata.org>
+References: <1360193557-27554-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <yevgenyp@mellanox.com>,
-	<netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:45902 "HELO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751162Ab3BGGwl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 01:52:41 -0500
-In-Reply-To: <alpine.DEB.2.00.1302060955490.26438@pokey.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="QWpDgw58+k1mSFBj"
+Cc: akpm@linux-foundation.org, lindner_marek@yahoo.de,
+	siwu@hrz.tu-chemnitz.de, davem@davemloft.net,
+	sasha.levin@oracle.com, b.a.t.m.a.n@lists.open-mesh.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Emil Goode <emilgoode@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1360193557-27554-1-git-send-email-emilgoode@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/02/2013 19:58, Tom Herbert wrote:
-> Fix issue in Mellanox driver related to BQL.  netdev_tx_reset_queue
-> was not being called in certain situations where the device was
-> being start and stopped.  Moved netdev_tx_reset_queue from the reset
-> device path to mlx4_en_free_tx_buf which is where the rings are
-> cleaned in a reset (specifically from device being stopped).
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 3 ---
->  drivers/net/ethernet/mellanox/mlx4/en_tx.c     | 2 ++
->  2 files changed, 2 insertions(+), 3 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> index ac1c14f..94042f6 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-> @@ -1323,15 +1323,12 @@ static void mlx4_en_restart(struct work_struct *work)
->  						 watchdog_task);
->  	struct mlx4_en_dev *mdev = priv->mdev;
->  	struct net_device *dev = priv->dev;
-> -	int i;
->  
->  	en_dbg(DRV, priv, "Watchdog task called for port %d\n", priv->port);
->  
->  	mutex_lock(&mdev->state_lock);
->  	if (priv->port_up) {
->  		mlx4_en_stop_port(dev, 1);
-> -		for (i = 0; i < priv->tx_ring_num; i++)
-> -			netdev_tx_reset_queue(priv->tx_ring[i].tx_queue);
->  		if (mlx4_en_start_port(dev))
->  			en_err(priv, "Failed restarting port %d\n", priv->port);
->  	}
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> index 30724d8..e06fce7 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
-> @@ -294,6 +294,8 @@ int mlx4_en_free_tx_buf(struct net_device *dev, struct mlx4_en_tx_ring *ring)
->  		cnt++;
->  	}
->  
-> +	netdev_tx_reset_queue(ring->tx_queue);
-> +
->  	if (cnt)
->  		en_dbg(DRV, priv, "Freed %d uncompleted tx descriptors\n", cnt);
->  
-> 
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+--QWpDgw58+k1mSFBj
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, Feb 07, 2013 at 12:32:37AM +0100, Emil Goode wrote:
+> The below commit removed one node parameter from iterators.
+> ed242d01bbe22ea0877472db49b2752d866c921c
+> (hlist: drop the node parameter from iterators)
+>=20
+> This patch removes a hlist_node struct that is no longer used.
+>=20
+> Sparse gives a warning:
+>=20
+> net/batman-adv/originator.c:411:21: warning:
+> 	unused variable =E2=80=98node_tmp=E2=80=99 [-Wunused-variable]
+>=20
+> Signed-off-by: Emil Goode <emilgoode@gmail.com>
+
+Acked-by: Antonio Quartulli <ordex@autistici.org>
+
+Thanks Emil
+
+Cheers,
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--QWpDgw58+k1mSFBj
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRE1QBAAoJEADl0hg6qKeOIbQP/0619SbVBdH3FJ7s6Z7LFgI/
+wo3N/zUqxX4oIzR4lSfKRmFks7JoEnXneAK/tEr5YRzGFdeC9y9/ua7VQ3PCL7t8
+ivsB+qJ/be2ZyOn9QLY72e1sR5zn48HZLNdqGNGgoDY+C8H1qCZBNt3DY2sbpRpS
+Ojxp1jhl/PsFvqY2WXq6Vwvv0l85+ZY11fHACKAFrsDnKfJSuFxniQ09ir/Y/kHA
+L9CDGVHOTnkVFQitAs5y0fnIH3wwU8CSMF1DHGuNK0h/WBwuAQoXceO10bqKijcH
+guFY2kfJp0wyFsJmVIw/5CbdMBiYKgSlu7YynI9XbF/vahZUrcblW7qd9zzVABge
+t3SrtU3/oPWsSgMcpsZqHQbiPCg2z1zt7On46ExEpIqh3K7EcmvCyhLXNbQXR5H/
+DBV5/aY8yHEyq+njhenht4wteRHaFOF7n60MEuf2tr8d5A7dQUGVi+/gS4p1Ul91
+Rda4dV+2bcuMVNLPYuuxeY8HLm+ahvbPSdMsvxK+yyZ1z0fpiK+fPljB0gUBoDHp
+MWc2AFQ9WXQmjkhzW1m63C1ZwQ/z4Af8FOfM0k8JAhLc0fKAz7QgMp0RekisZ9NG
+AK2ZAxflxoI+wbZOI7uRvs/rzQqARhxf4AfzY4fNYeQDHsOWwgljazCTXEMblXX4
+UgowgwUjnmI8dHLfQv7D
+=SB6i
+-----END PGP SIGNATURE-----
+
+--QWpDgw58+k1mSFBj--
