@@ -1,35 +1,32 @@
-From: "Administrator" <info@mail.com>
-Subject: Dear Email User;
-Date: Thu, 7 Feb 2013 19:43:12 +0100 (CET)
-Message-ID: <2232.88.216.164.225.1360262592.squirrel@webmail.fidal.it>
-Reply-To: info@mail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: sysctl to disable TCP simultaneous connect
+Date: Thu, 07 Feb 2013 14:29:11 -0500 (EST)
+Message-ID: <20130207.142911.101451648518406435.davem@davemloft.net>
+References: <20130207175240.GA12520@www.outflux.net>
+	<20130207103950.662698ea@nehalam.linuxnetplumber.net>
+	<CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.fidal.it ([94.88.95.180]:54428 "EHLO server1.fidal.it"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030244Ab3BGTXw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 14:23:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, linux-kernel@vger.kernel.org,
+	rob@landley.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, edumazet@google.com,
+	nhorman@tuxdriver.com, ycheng@google.com, davidshan@tencent.com,
+	linux-doc@vger.kernel.org, netdev@vger.kernel.org, w@1wt.eu
+To: keescook@chromium.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Kees Cook <keescook@chromium.org>
+Date: Thu, 7 Feb 2013 10:44:02 -0800
 
-Dear Email User;
+> David: I know you aren't a fan of this patch, but I'd like to try to
+> convince you. :) This leaves the feature enabled and add a toggle for
+> systems (like Chrome OS) that don't want to risk this DoS at all.
+> There are so very many other toggle, I don't see why this one would be
+> a problem to add.
 
-You have exceeded the limit of 23432 storage on your mailbox set by your
-WEB IT-SERVICE Administrator, and you will be having problems in sending
-and receiving mails Until You Re-Validate. You have to update by clicking
-on the below link and fill out the information to validate your account.
-
-Please Click the link Below or copy paste to your browser To Validate Your
-Mailbox
-
-http://andreadc.com/unetekaivalya/use/tuks/form1.html
-
-Warning!!!
-
-Failure to do this, will result in limited access to your mailbox. failure
-to update your account within Three days of this update notification, your
-account will be closed permanently.
+We're not in the business of allowing the changing of the TCP state
+machine behavior like this.  Sorry.
