@@ -1,71 +1,61 @@
-From: Szymon Janc <szymon.janc-++hxYGjEMp0AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [patch] NFC: llcp: integer underflow in nfc_llcp_set_remote_gb()
-Date: Thu, 7 Feb 2013 11:16:01 +0100
-Message-ID: <2148581.S8tzak9aE2@uw000953>
-References: <20130131081645.GA14812@elgon.mountain>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCH V2] bgmac: validate MAC addr
+Date: Thu, 07 Feb 2013 11:19:54 +0100
+Message-ID: <51137FCA.5090203@openwrt.org>
+References: <1360143452-29183-1-git-send-email-zajec5@gmail.com> <1360232078-21872-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
-	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Thierry Escande <thierry.escande-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-nfc-y27Ovi1pjclAfugRpC6u6w@public.gmane.org" <linux-nfc-y27Ovi1pjclAfugRpC6u6w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20130131081645.GA14812-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:51852 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755390Ab3BGKXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 05:23:01 -0500
+Received: by mail-wi0-f177.google.com with SMTP id hm14so2659833wib.4
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 02:23:00 -0800 (PST)
+In-Reply-To: <1360232078-21872-1-git-send-email-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dan,
+On 02/07/2013 11:14 AM, Rafa=C5=82 Mi=C5=82ecki wrote:
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-On Thursday 31 of January 2013 10:16:46 Dan Carpenter wrote:
-> If gb_len is less than 3 it would cause an integer underflow and
-> possibly memory corruption in nfc_llcp_parse_gb_tlv().
-> 
-> I removed the old test for gb_len == 0.  I also removed the test for
-> ->remote_gb == NULL.  It's not possible for ->remote_gb to be NULL and
-> we have already dereferenced ->remote_gb_len so it's too late to test.
-> 
-> The old test return -ENODEV but my test returns -EINVAL.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> 
-> diff --git a/net/nfc/llcp/llcp.c b/net/nfc/llcp/llcp.c
-> index 85bc75c..746f5a2 100644
-> --- a/net/nfc/llcp/llcp.c
-> +++ b/net/nfc/llcp/llcp.c
-> @@ -549,14 +549,13 @@ int nfc_llcp_set_remote_gb(struct nfc_dev *dev, u8 *gb, u8 gb_len)
->  		pr_err("No LLCP device\n");
->  		return -ENODEV;
->  	}
-> +	if (gb_len < 3)
-> +		return -EINVAL;
+This is looking good, however some commit message is desirable,=20
+especially as you are no longer just validating the ethernet MAC=20
+address, but also generating a new one. Something along those lines=20
+would probably be enough:
 
-Maybe define NFC_MIN_GT_LEN and test it together with NFC_MAX_GT_LEN in
-nfc_set_remote_general_bytes() ?
+"This patch changes bgmac_probe() to check for a valid Ethernet MAC=20
+address and in case it is not, will generate a valid random one, such=20
+that the adapter is still usable."
 
->  
->  	memset(local->remote_gb, 0, NFC_MAX_GT_LEN);
->  	memcpy(local->remote_gb, gb, gb_len);
->  	local->remote_gb_len = gb_len;
->  
-> -	if (local->remote_gb == NULL || local->remote_gb_len == 0)
-> -		return -ENODEV;
-> -
->  	if (memcmp(local->remote_gb, llcp_magic, 3)) {
->  		pr_err("MAC does not support LLCP\n");
->  		return -EINVAL;
+Thanks!
 
--- 
-BR
-Szymon Janc
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+> V2: generate random addr
+> ---
+>   drivers/net/ethernet/broadcom/bgmac.c |    6 ++++++
+>   1 file changed, 6 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
+rnet/broadcom/bgmac.c
+> index d08a4af..f90d1dc 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -1318,6 +1318,12 @@ static int bgmac_probe(struct bcma_device *cor=
+e)
+>   		return -ENOTSUPP;
+>   	}
+>  =20
+> +	if (!is_valid_ether_addr(mac)) {
+> +		dev_err(&core->dev, "Invalid MAC addr: %pM\n", mac);
+> +		eth_random_addr(mac);
+> +		dev_warn(&core->dev, "Using random MAC: %pM\n", mac);
+> +	}
+> +
+>   	/* Allocation and references */
+>   	net_dev =3D alloc_etherdev(sizeof(*bgmac));
+>   	if (!net_dev)
