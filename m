@@ -1,74 +1,46 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [PATCH v2] batman-adv: Remove unused variable
-Date: Thu, 7 Feb 2013 08:13:05 +0100
-Message-ID: <20130207071305.GG6008@ritirata.org>
-References: <1360193557-27554-1-git-send-email-emilgoode@gmail.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Thu, 7 Feb 2013 08:28:57 +0100
+Message-ID: <20130207072857.GA27969@eerihug-hybrid.ki.sw.ericsson.se>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se>
+ <20130206121248.GC10290@order.stressinduktion.org>
+ <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se>
+ <20130206134950.GD10290@order.stressinduktion.org>
+ <51127781.2000504@linux-ipv6.org>
+ <20130206160409.GB18040@order.stressinduktion.org>
+ <51128985.2010701@linux-ipv6.org>
+ <20130207010010.GD19537@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="QWpDgw58+k1mSFBj"
-Cc: akpm@linux-foundation.org, lindner_marek@yahoo.de,
-	siwu@hrz.tu-chemnitz.de, davem@davemloft.net,
-	sasha.levin@oracle.com, b.a.t.m.a.n@lists.open-mesh.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Emil Goode <emilgoode@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailgw7.ericsson.se ([193.180.251.48]:65244 "EHLO
+	mailgw7.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751402Ab3BGHby (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 02:31:54 -0500
 Content-Disposition: inline
-In-Reply-To: <1360193557-27554-1-git-send-email-emilgoode@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130207010010.GD19537@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 07, 2013 at 02:00:10AM +0100, Hannes Frederic Sowa wrote:
+> RFC4541 3. IPv6 Considerations:
+> 
+>    MLD messages are also not sent regarding groups with addresses in the
+>    range FF00::/15 (which encompasses both the reserved FF00::/16 and
+>    node-local FF01::/16 IPv6 address spaces).  These addresses should
+>    never appear in packets on the link.
+> 
+> It gives a strong indication that we should drop these packets. What do you
+> think?
 
---QWpDgw58+k1mSFBj
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+That was my understanding aswell. I asked for some clarifications on the ietf list:
+    <quote>
+    > The key is that the packets should be dropped without generating
+    > any errors or traffic.
+    Yep, you are right - I assumed that implicitly, but
+    I should have mentioned that explicitly :-)
+    </quote>
+http://www.ietf.org/mail-archive/web/ipv6/current/msg17126.html
 
-On Thu, Feb 07, 2013 at 12:32:37AM +0100, Emil Goode wrote:
-> The below commit removed one node parameter from iterators.
-> ed242d01bbe22ea0877472db49b2752d866c921c
-> (hlist: drop the node parameter from iterators)
->=20
-> This patch removes a hlist_node struct that is no longer used.
->=20
-> Sparse gives a warning:
->=20
-> net/batman-adv/originator.c:411:21: warning:
-> 	unused variable =E2=80=98node_tmp=E2=80=99 [-Wunused-variable]
->=20
-> Signed-off-by: Emil Goode <emilgoode@gmail.com>
-
-Acked-by: Antonio Quartulli <ordex@autistici.org>
-
-Thanks Emil
-
-Cheers,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---QWpDgw58+k1mSFBj
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRE1QBAAoJEADl0hg6qKeOIbQP/0619SbVBdH3FJ7s6Z7LFgI/
-wo3N/zUqxX4oIzR4lSfKRmFks7JoEnXneAK/tEr5YRzGFdeC9y9/ua7VQ3PCL7t8
-ivsB+qJ/be2ZyOn9QLY72e1sR5zn48HZLNdqGNGgoDY+C8H1qCZBNt3DY2sbpRpS
-Ojxp1jhl/PsFvqY2WXq6Vwvv0l85+ZY11fHACKAFrsDnKfJSuFxniQ09ir/Y/kHA
-L9CDGVHOTnkVFQitAs5y0fnIH3wwU8CSMF1DHGuNK0h/WBwuAQoXceO10bqKijcH
-guFY2kfJp0wyFsJmVIw/5CbdMBiYKgSlu7YynI9XbF/vahZUrcblW7qd9zzVABge
-t3SrtU3/oPWsSgMcpsZqHQbiPCg2z1zt7On46ExEpIqh3K7EcmvCyhLXNbQXR5H/
-DBV5/aY8yHEyq+njhenht4wteRHaFOF7n60MEuf2tr8d5A7dQUGVi+/gS4p1Ul91
-Rda4dV+2bcuMVNLPYuuxeY8HLm+ahvbPSdMsvxK+yyZ1z0fpiK+fPljB0gUBoDHp
-MWc2AFQ9WXQmjkhzW1m63C1ZwQ/z4Af8FOfM0k8JAhLc0fKAz7QgMp0RekisZ9NG
-AK2ZAxflxoI+wbZOI7uRvs/rzQqARhxf4AfzY4fNYeQDHsOWwgljazCTXEMblXX4
-UgowgwUjnmI8dHLfQv7D
-=SB6i
------END PGP SIGNATURE-----
-
---QWpDgw58+k1mSFBj--
+//E 
