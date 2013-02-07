@@ -1,81 +1,48 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net 1/2] net: sctp: sctp_auth_make_key_vector: fix undefined
- ref-count behaviour
-Date: Thu, 07 Feb 2013 16:24:53 +0100
-Message-ID: <5113C745.10103@redhat.com>
-References: <cover.1360231701.git.dborkman@redhat.com> <5eff11271160e84c7fc2d97b81161b1ae7be4a6e.1360231701.git.dborkman@redhat.com> <5113C28C.2050607@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH v4 0/3] tg3: add support for Ethernet core in BCM4785
+Date: Thu,  7 Feb 2013 16:37:36 +0100
+Message-ID: <1360251459-32384-1-git-send-email-hauke@hauke-m.de>
+Cc: mcarlson@broadcom.com, mchan@broadcom.com, nsujir@broadcom.com,
+	netdev@vger.kernel.org, m@bues.ch,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61330 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751057Ab3BGPY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 10:24:58 -0500
-In-Reply-To: <5113C28C.2050607@gmail.com>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:37885 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751057Ab3BGPhx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 10:37:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2013 04:04 PM, Vlad Yasevich wrote:
-> On 02/07/2013 05:55 AM, Daniel Borkmann wrote:
->> In sctp_auth_make_key_vector(), a sctp_auth_bytes structure is being
->> allocated, but without setting its object reference count, thus it's
->> initialized with a random value from the memory, which can lead to
->> i) premature free's of this object when being put (with possible
->> subsequent kernel panics), or ii) memory leaks when refcount has a
->> high value.
->>
->> Fix this by using the appropriate sctp_auth_create_key() allocator,
->> which performs sanity checks, sets length and the refcount, as similar
->> done in sctp_auth_asoc_set_secret() and others. This bug seems to be
->> present since 2007 (1f485649f529: Implement SCTP-AUTH internals).
->
-> Not strictly a bug.  The vectors are temporary and directly freed by the caller.   They are only used by sctp_auth_asoc_create_secret() which builds the association secret key.  The vectors are destroyed at the end of that function using kfree() thus noone really cares about
-> the refcount on them and there are no leaks.
->
-> If you are going to convert to using sctp_auth_create_key() then you
-> need to convert the callers to user to use sctp_auth_key_put(). Otherwise you are leaking object counts.
+These patches are adding support for the Ethernet core found in the 
+BCM4705/BCM4785 SoC.
 
-Thanks for your feedback!
+This is based on current master of davem/net-next.git.
 
-If Dave is okay with this, then:
+v4:
+ * move setting of DMA_RWCTRL_ONE_DMA
 
-  - [PATCH net 2/2] net: sctp: sctp_auth_key_put: use kzfree instead of kfree
-  - [PATCH net-next] net: sctp: sctp_auth_make_key_vector: remove duplicate ntohs calls
+v3:
+ * combined first two patches into one patch
 
-can be applied as is. (If necessary, I could send the first one _unchanged_ as a
-single patch again, since it was part of a patchset. However, it will apply
-cleanly as we have it right here.)
+v2:
+ * use of struct sprom in ssb_gige_get_macaddr() instead of accessing 
+   the nvram directly
+ * add return value to ssb_gige_get_macaddr()
+ * try to read the mac address from ssb core before accessing the own 
+   registers.
+ * fix two checkpatch warnings
 
-Then, to avoid any future confusion and to stay consistent, I'll convert this
-to sctp_auth_create_key() API as well and make use of the sctp_auth_key_put()
-in a later possible patch *after* those two have been applied.
+Hauke Mehrtens (3):
+  ssb: get mac address from sprom struct for gige driver
+  tg3: make it possible to provide phy_id in ioctl
+  tg3: add support for Ethernet core in bcm4785
 
->> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
->> ---
->>   net/sctp/auth.c | 4 +---
->>   1 file changed, 1 insertion(+), 3 deletions(-)
->>
->> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
->> index 159b9bc..55f1b06 100644
->> --- a/net/sctp/auth.c
->> +++ b/net/sctp/auth.c
->> @@ -205,12 +205,10 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
->>           if (chunks)
->>           len += ntohs(chunks->param_hdr.length);
->>
->> -    new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
->> +    new = sctp_auth_create_key(len, gfp);
->>       if (!new)
->>           return NULL;
->>
->> -    new->len = len;
->> -
->>       memcpy(new->data, random, ntohs(random->param_hdr.length));
->>       offset += ntohs(random->param_hdr.length);
->>
->>
->
+ drivers/net/ethernet/broadcom/tg3.c |  143 ++++++++++++++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/tg3.h |    5 ++
+ include/linux/pci_ids.h             |    1 +
+ include/linux/ssb/ssb_driver_gige.h |   23 +++---
+ 4 files changed, 148 insertions(+), 24 deletions(-)
+
+-- 
+1.7.10.4
