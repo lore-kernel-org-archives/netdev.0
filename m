@@ -1,38 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] netpoll: cleanup sparse warnings
-Date: Thu, 07 Feb 2013 07:52:56 -0800
-Message-ID: <1360252376.28557.52.camel@edumazet-glaptop>
-References: <1360248961-30721-1-git-send-email-nhorman@tuxdriver.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH v4 3/3] tg3: add support for Ethernet core in
+ bcm4785
+Date: Thu, 7 Feb 2013 08:07:39 -0800
+Message-ID: <1360253259.796.54.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1360251459-32384-1-git-send-email-hauke@hauke-m.de>
+ <1360251459-32384-4-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
-	David Miller <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: davem@davemloft.net, mcarlson@broadcom.com, nsujir@broadcom.com,
+	netdev@vger.kernel.org, m@bues.ch
+To: "Hauke Mehrtens" <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:63833 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758292Ab3BGPxA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:53:00 -0500
-Received: by mail-pa0-f53.google.com with SMTP id bg4so1464164pad.12
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 07:53:00 -0800 (PST)
-In-Reply-To: <1360248961-30721-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3660 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757440Ab3BGQHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 11:07:48 -0500
+In-Reply-To: <1360251459-32384-4-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-07 at 09:56 -0500, Neil Horman wrote:
-> With my recent commit I introduced two sparse warnings.  Looking closer there
-> were a few more in the same file, so I fixed them all up.  Basic rcu pointer
-> dereferencing suff
+On Thu, 2013-02-07 at 16:37 +0100, Hauke Mehrtens wrote: 
+> The BCM4785 or sometimes named BMC4705 is a Broadcom SoC which a
+> Gigabit 5750 Ethernet core. The core is connected via PCI with the rest
+> of the SoC, but it uses some extension.
+> 
+> This core does not use a firmware or an eeprom.
+> 
+> Some devices only have a switch which supports 100MBit/s, this
+> currently does not work with this driver.
+> 
+> This patch was original written by Michael Buesch <m@bues.ch> and is in
+> OpenWrt for some years now.
+> 
+> This was tested on a Linksys WRT610N V1 and older versions of this patch
+> were tested by other people on different devices.
+> 
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de> 
 
-> -	npinfo = np->dev->npinfo;
-> +	/* rtnl_dereference would be preferable here but
-> +	 * rcu_cleanup_netpoll path can put us in here safely without
-> +	 * holding the rtnl, so plain rcu_dereference it is
-> +	 */
-> +	npinfo = rcu_dereference(np->dev->npinfo);
->  	if (!npinfo)
->  		return;
->  
-
-Are you sure it wont trigger a LOCKDEP complain (CONFIG_PROVE_RCU=y) ?
+Looks good.
+Acked-by: Michael Chan <mchan@broadcom.com>
