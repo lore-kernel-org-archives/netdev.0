@@ -1,91 +1,54 @@
-From: syrine tlili <syrine.tl@gmail.com>
-Subject: Null pointers linux3.8-rc6
-Date: Thu, 7 Feb 2013 20:32:11 +0100
-Message-ID: <CAETb2JPm9rL=ParaVWhhpxE0gEzgw3+4ishf6sHOfm-Khwcw4Q@mail.gmail.com>
-Reply-To: syrine.tl@gmail.com
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: net: rcu warnings in ip6fl_get_first
+Date: Thu, 07 Feb 2013 14:32:36 -0500
+Message-ID: <51140154.9040901@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jesper Juhl <jj@chaosbits.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f180.google.com ([209.85.216.180]:57677 "EHLO
-	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756283Ab3BGTcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 14:32:13 -0500
-Received: by mail-qc0-f180.google.com with SMTP id v28so1116480qcm.39
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 11:32:12 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Dave Jones <davej@redhat.com>, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>, yoshfuji@linux-ipv6.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi:
+Hi guys,
 
-I would like to report some errors related to the usage of unchecked
-null pointers.
-I also suggest a set of patches to fix the detected errors.
+I got the following while fuzzing with trinity inside a KVM tools guest:
 
-Syrine
+[   51.680236] ===============================
+[   51.681914] [ INFO: suspicious RCU usage. ]
+[   51.683610] 3.8.0-rc6-next-20130206-sasha-00028-g83214f7-dirty #276 Tainted: G        W
+[   51.686703] -------------------------------
+[   51.688281] net/ipv6/ip6_flowlabel.c:671 suspicious rcu_dereference_check() usage!
+[   51.691345]
+[   51.691345] other info that might help us debug this:
+[   51.691345]
+[   51.694479]
+[   51.694479] rcu_scheduler_active = 1, debug_locks = 1
+[   51.697650] 2 locks held by trinity/7421:
+[   51.701271]  #0:  (&p->lock){+.+.+.}, at: [<ffffffff812b049a>] seq_read+0x3a/0x3d0
+[   51.704292]  #1:  (rcu_read_lock_bh){.+....}, at: [<ffffffff8397cde0>] ip6fl_seq_start+0x0/0xe0
+[   51.707845]
+[   51.707845] stack backtrace:
+[   51.709678] Pid: 7421, comm: trinity Tainted: G        W    3.8.0-rc6-next-20130206-sasha-00028-g83214f7-dirty #276
+[   51.713495] Call Trace:
+[   51.714370]  [<ffffffff81181fdb>] lockdep_rcu_suspicious+0x10b/0x120
+[   51.716560]  [<ffffffff8397caca>] ip6fl_get_first+0x8a/0x140
+[   51.718755]  [<ffffffff8397cdb7>] ip6fl_seq_next+0x17/0x40
+[   51.720963]  [<ffffffff812b0711>] seq_read+0x2b1/0x3d0
+[   51.723056]  [<ffffffff812b0460>] ? seq_lseek+0x110/0x110
+[   51.725238]  [<ffffffff812f9c0c>] proc_reg_read+0x9c/0xd0
+[   51.727266]  [<ffffffff812f9b70>] ? proc_reg_write+0xd0/0xd0
+[   51.729337]  [<ffffffff8128b2eb>] do_loop_readv_writev+0x4b/0x90
+[   51.731846]  [<ffffffff8128b566>] do_readv_writev+0xf6/0x1d0
+[   51.734092]  [<ffffffff8128b6de>] vfs_readv+0x3e/0x60
+[   51.736015]  [<ffffffff8128b750>] sys_readv+0x50/0xd0
+[   51.737930]  [<ffffffff83d73d98>] tracesys+0xe1/0xe6
 
-diff --git a/a/arch/x86/platform/efi/efi.c b/b/arch/x86/platform/efi/efi.c
-index 77cf009..e64c3f4 100644
---- a/a/arch/x86/platform/efi/efi.c
-+++ b/b/arch/x86/platform/efi/efi.c
-@@ -924,6 +924,8 @@ void __init efi_enter_virtual_mode(void)
-  new_memmap = krealloc(new_memmap,
-       (count + 1) * memmap.desc_size,
-       GFP_KERNEL);
-+ if (!new_memmap)
-+ return -ENOMEM;
-  memcpy(new_memmap + (count * memmap.desc_size), md,
-        memmap.desc_size);
-  count++;
-diff --git a/a/fs/ceph/mdsmap.c b/b/fs/ceph/mdsmap.c
-index 73b7d44..d04ab8b 100644
---- a/a/fs/ceph/mdsmap.c
-+++ b/b/fs/ceph/mdsmap.c
-@@ -132,6 +132,8 @@ struct ceph_mdsmap *ceph_mdsmap_decode(void **p, void *end)
-  m->m_info[mds].export_targets =
-  kcalloc(num_export_targets, sizeof(u32),
-  GFP_NOFS);
-+ if (m->m_info[mds].export_targets == NULL)
-+ goto badmem;
-  for (j = 0; j < num_export_targets; j++)
-  m->m_info[mds].export_targets[j] =
-        ceph_decode_32(&pexport_targets);
-diff --git a/a/drivers/isdn/mISDN/fsm.c b/b/drivers/isdn/mISDN/fsm.c
-index 26477d4..07040b2 100644
---- a/a/drivers/isdn/mISDN/fsm.c
-+++ b/b/drivers/isdn/mISDN/fsm.c
-@@ -34,6 +34,8 @@ mISDN_FsmNew(struct Fsm *fsm,
+This is the result of commit "ipv6 flowlabel: Convert hash list to RCU." which
+mixes between regular and _bh() locking.
 
-  fsm->jumpmatrix = kzalloc(sizeof(FSMFNPTR) * fsm->state_count *
-   fsm->event_count, GFP_KERNEL);
-+ if (!fsm->jumpmatrix)
-+ return -ENOMEM;
 
-  for (i = 0; i < fncount; i++)
-  if ((fnlist[i].state >= fsm->state_count) ||
-diff --git a/a/drivers/scsi/megaraid.c b/b/drivers/scsi/megaraid.c
-index 9504ec0..37b915f 100644
---- a/a/drivers/scsi/megaraid.c
-+++ b/b/drivers/scsi/megaraid.c
-@@ -4437,6 +4437,8 @@ mega_internal_command(adapter_t *adapter,
-megacmd_t *mc, mega_passthru *pthru)
-  memset(scb, 0, sizeof(scb_t));
-
-  sdev = kzalloc(sizeof(struct scsi_device), GFP_KERNEL);
-+ if (!sdev)
-+ goto err_out;
-  scmd->device = sdev;
-
-  memset(adapter->int_cdb, 0, sizeof(adapter->int_cdb));
-@@ -4482,6 +4484,11 @@ mega_internal_command(adapter_t *adapter,
-megacmd_t *mc, mega_passthru *pthru)
-  scsi_free_command(GFP_KERNEL, scmd);
-
-  return rval;
-+
-+err_out:
-+ mutex_unlock(&adapter->int_mtx);
-+ scsi_free_command(GFP_KERNEL, scmd);
-+ return -ENOMEM;
- }
+Thanks,
+Sasha
