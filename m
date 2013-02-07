@@ -1,49 +1,37 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] tg3: Convert chip type macros to inline functions
-Date: Wed, 06 Feb 2013 17:05:38 -0800
-Message-ID: <1360199138.12464.37.camel@joe-AO722>
-References: <1360194298.12464.35.camel@joe-AO722>
-	 <1360197671.796.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [3.8-rc] regression: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Date: Thu, 7 Feb 2013 01:46:35 +0100
+Message-ID: <20130207004635.GA4025@electric-eye.fr.zoreil.com>
+References: <CADDKRnBqxSwC7HUP_aN1QELrv2+7jnncXj7EP0Pqv8E8FFTpPw@mail.gmail.com> <20130105093718.GA938@electric-eye.fr.zoreil.com> <CADDKRnBCrDz2X=5qpGE+r92ZFX5cA+jnSGt3wS8TR0RE8hi1HA@mail.gmail.com> <20130105165735.GB4906@electric-eye.fr.zoreil.com> <CADDKRnCkDS5rMSSi12ti5PV_RSP6s3S15YOJz8b98ehcsyKaOA@mail.gmail.com> <CADDKRnACHgBOmw0qLE4zVzhq=Yw-1AYJ-JW0muxRCR3jZ=VoUQ@mail.gmail.com> <CADDKRnAHJAZBittLCFxjgWa1AWKxD7a4hn4v=xvax=ergkKjxA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Hauke Mehrtens <hauke@hauke-m.de>,
-	mcarlson@broadcom.com, nsujir@broadcom.com
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:44015 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755435Ab3BGBFl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Feb 2013 20:05:41 -0500
-In-Reply-To: <1360197671.796.3.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: =?utf-8?B?SsO2cmc=?= Otte <jrg.otte@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CADDKRnAHJAZBittLCFxjgWa1AWKxD7a4hn4v=xvax=ergkKjxA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-06 at 16:41 -0800, Michael Chan wrote:
-> On Wed, 2013-02-06 at 15:44 -0800, Joe Perches wrote:
-> > There are several macros that are used for
-> > chip identification.
-> > 
-> > Perhaps it'd be better to use static inlines
-> > instead of these macros as the code becomes a
-> > bit more readable with less uppercase use.
-[]
-> > #define GET_ASIC_REV(CHIP_REV_ID)       ((CHIP_REV_ID) >> 12)
-> > 
-> > becomes:
-> > 
-> > static inline u32 tg3_asic_rev(const struct tg3 *tp)
-> > {
-> >         return tp->pci_chip_rev_id >> 12;
-> > }
+J=C3=B6rg Otte <jrg.otte@gmail.com> :
+[...]
+> To Summarize: Two net-regressions where introduced in v3.8 (driver r8=
+169):
+>=20
+> 1) NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+> was introduced by commit
+> e0c075577965d1c01b30038d38bf637b027a1df3
+> ("r8169: enable ALDPS for power saving")
 
-[]
+Hayes Wang <hayeswang@realtek.com> authored it. You should ask him
+why commit e0c075577965d1c01b30038d38bf637b027a1df3 sometimes chokes
+with the 8168evl.=20
 
-> I think these don't have to be inline.  there is only one call in the
-> fast path that I can see (tg3_start_xmit), and we can easily change that
-> to test for a flag instead.  I wonder if that will make it smaller.
+And you can ask him if there is a chance that the non-8168evl that are
+handled by the patch (mis-)behave the same too.
 
-Nope.
-
-Even if you make it static in tg3.c,
-gcc inlines it anyway.
+--=20
+Ueimor
