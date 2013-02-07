@@ -1,42 +1,85 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH 06/10] netfilter: ipt_ulog: add net namespace support
- for ipt_ulog
-Date: Thu, 07 Feb 2013 15:57:50 +0800
-Message-ID: <51135E7E.9020301@cn.fujitsu.com>
-References: <1360223390-15589-1-git-send-email-gaofeng@cn.fujitsu.com> <1360223390-15589-6-git-send-email-gaofeng@cn.fujitsu.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top
+	of LRO
+Date: Thu, 7 Feb 2013 10:15:29 +0200
+Message-ID: <20130207081529.GA9126@redhat.com>
+References: <cover.1360191528.git.mst@redhat.com> <51131E99.8080400@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Gao feng <gaofeng@cn.fujitsu.com>, netfilter-devel@vger.kernel.org,
-	containers@lists.linux-foundation.org, ebiederm@xmission.com,
-	netdev@vger.kernel.org, lve@guap.ru
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1360223390-15589-6-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Sony Chacko <sony.chacko@qlogic.com>, bhutchings@solarflare.com,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>, linux-driver@qlogic.com,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <51131E99.8080400@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Pablo,
-
-On 2013/02/07 15:49, Gao feng wrote:
-> Add pernet_operations for ipt_ulog, in pernet_ops,
-> we call nf_log_set/unset to set/unset nf_loggers
-> of per net.
+On Thu, Feb 07, 2013 at 11:25:13AM +0800, Cong Wang wrote:
+> On 02/07/2013 07:02 AM, Michael S. Tsirkin wrote:
+> >At the moment, macvtap crashes are observed if macvtap is attached
+> >to an interface with LRO enabled.
+> >The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
+> >This happens because several drivers set gso_size but not gso_type
+> >in incoming skbs.
+> >The following patches fix this for
+> >Additionally, cbf1de72324a8105ddcc3d9ce9acbc613faea17e is required
+> >to fix this for broadcom - would it make sense to cherry-pick
+> >this patch into 3.8?
 > 
-> This patch also make ulog_buffers and netlink socket
-> nflognl per netns.
 > 
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Doesn't macvtap need to call skb_warn_if_lro() too like bridge and
+> openvswitch? Something like...
 
-Please take care this patch,it's base on the prev two patches
-"ulog: add protection when remove ipt_ULOG" and
-"netfilter: ipt_ULOG: make spinlock per nlgroup" which I send on
-2013/02/05.
+This is what Ben proposed a year ago
+http://thread.gmane.org/gmane.linux.network/221695
+but apparently people really want LRO to work with macvtap.
 
-If you think this patchset is ok and intend to apply it,you should
-apply the prev two patches before apply this patchset.
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index b181dfb..b2c6227 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -253,6 +253,9 @@ static int macvtap_forward(struct net_device
+> *dev, struct sk_buff *skb)
+>         if (!q)
+>                 goto drop;
+> 
+> +       if (unlikely(skb_warn_if_lro(skb)))
+> +               goto drop;
+> +
+>         if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
+>                 goto drop;
+> 
+> 
+> I am not saying these drivers don't need to fix, I am just saying if
+> we need to fix LRO case.
+> 
+> Thanks.
 
-BTW,I will out of office until 2/18,I will response your comments
-as soon as I come back.
-
-Thanks!
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
