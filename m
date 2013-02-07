@@ -1,61 +1,61 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH V2] bgmac: validate MAC addr
-Date: Thu, 07 Feb 2013 11:19:54 +0100
-Message-ID: <51137FCA.5090203@openwrt.org>
-References: <1360143452-29183-1-git-send-email-zajec5@gmail.com> <1360232078-21872-1-git-send-email-zajec5@gmail.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] bgmac: fix "cmdcfg" calls for promisc and loopback modes
+Date: Thu,  7 Feb 2013 11:23:11 +0100
+Message-ID: <1360232591-25789-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Cc: Nathan Hintz <nlhintz@hotmail.com>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:51852 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755390Ab3BGKXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 05:23:01 -0500
-Received: by mail-wi0-f177.google.com with SMTP id hm14so2659833wib.4
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 02:23:00 -0800 (PST)
-In-Reply-To: <1360232078-21872-1-git-send-email-zajec5@gmail.com>
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:60479 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755151Ab3BGKXT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 05:23:19 -0500
+Received: by mail-ea0-f179.google.com with SMTP id d12so1099932eaa.10
+        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 02:23:17 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2013 11:14 AM, Rafa=C5=82 Mi=C5=82ecki wrote:
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+This makes code match the specs.
 
-This is looking good, however some commit message is desirable,=20
-especially as you are no longer just validating the ethernet MAC=20
-address, but also generating a new one. Something along those lines=20
-would probably be enough:
+Reported-by: Nathan Hintz <nlhintz@hotmail.com>
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-"This patch changes bgmac_probe() to check for a valid Ethernet MAC=20
-address and in case it is not, will generate a valid random one, such=20
-that the adapter is still usable."
-
-Thanks!
-
-> ---
-> V2: generate random addr
-> ---
->   drivers/net/ethernet/broadcom/bgmac.c |    6 ++++++
->   1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
-rnet/broadcom/bgmac.c
-> index d08a4af..f90d1dc 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -1318,6 +1318,12 @@ static int bgmac_probe(struct bcma_device *cor=
-e)
->   		return -ENOTSUPP;
->   	}
->  =20
-> +	if (!is_valid_ether_addr(mac)) {
-> +		dev_err(&core->dev, "Invalid MAC addr: %pM\n", mac);
-> +		eth_random_addr(mac);
-> +		dev_warn(&core->dev, "Using random MAC: %pM\n", mac);
-> +	}
-> +
->   	/* Allocation and references */
->   	net_dev =3D alloc_etherdev(sizeof(*bgmac));
->   	if (!net_dev)
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethern=
+et/broadcom/bgmac.c
+index f90d1dc..8cf5e39 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -776,9 +776,9 @@ static void bgmac_set_rx_mode(struct net_device *ne=
+t_dev)
+ 	struct bgmac *bgmac =3D netdev_priv(net_dev);
+=20
+ 	if (net_dev->flags & IFF_PROMISC)
+-		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
++		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, true);
+ 	else
+-		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
++		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, true);
+ }
+=20
+ #if 0 /* We don't use that regs yet */
+@@ -1039,9 +1039,9 @@ static void bgmac_chip_init(struct bgmac *bgmac, =
+bool full_init)
+ 	bgmac_write_mac_address(bgmac, bgmac->net_dev->dev_addr);
+=20
+ 	if (bgmac->loopback)
+-		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_ML, true);
++		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_ML, false);
+ 	else
+-		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_ML, 0, true);
++		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_ML, 0, false);
+=20
+ 	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
+=20
+--=20
+1.7.10.4
