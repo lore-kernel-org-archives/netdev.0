@@ -1,67 +1,616 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top
-	of LRO
-Date: Thu, 7 Feb 2013 23:33:15 +0200
-Message-ID: <20130207213315.GB5064@redhat.com>
-References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
-	<1360207111.28557.47.camel@edumazet-glaptop>
-	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<20130207.131420.1211188723341167971.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH] drivers: net: Remove remaining alloc/OOM messages
+Date: Thu, 07 Feb 2013 13:46:27 -0800
+Message-ID: <1360273587.27863.15.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, linux-driver@qlogic.com,
-	netdev@vger.kernel.org, jitendra.kalsaria@qlogic.com,
-	bruce.w.allan@intel.com, jesse.brandeburg@intel.com,
-	eilong@broadcom.com, john.r.fastabend@intel.com,
-	john.ronciak@intel.com, sony.chacko@qlogic.com,
-	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
-	jacob.e.keller@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20130207.131420.1211188723341167971.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linux-can@vger.kernel.org, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, linux-usb@vger.kernel.org,
+	linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
+	wil6210@qca.qualcomm.com, brcm80211-dev-list@broadcom.com,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Thu, 7 Feb 2013 16:20:46 +0000
-> 
-> > If the consensus is still that we must preserve packets exactly (aside
-> > from the usual modifications by IP routers) then LRO should be disabled
-> > on all devices for which forwarding is enabled.
-> 
-> I believe this is still undoubtedly the consensus.
+alloc failures already get standardized OOM
+messages and a dump_stack.
 
-But we don't need to preserve the packets when passing them to macvtap
-(which discards all this info smashing the packet into a single buffer anyway),
-correct?
-If true LRO with macvtap might be useful and so the patchset is probably
-still the right thing to do to fix the macvtap crash. Makes sense?
+For the affected mallocs around these OOM messages:
 
-We might want to add code to forward LRO status from macvlan
-(not macvtap) back to the lowerdev, so that setting up forwarding
-from macvlan disables LRO on the lowerdev, but that seems like another
-issue.
+Converted kmallocs with multiplies to kmalloc_array.
+Converted a kmalloc/memcpy to kmemdup.
+Removed now unused stack variables.
+Removed unnecessary parentheses.
+Neatened alignment.
 
--- 
-MST
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+Let me know if you want multiple small patches instead.
 
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+ drivers/net/can/usb/ems_usb.c                      |  4 +-
+ drivers/net/ethernet/amd/pcnet32.c                 | 47 +++++++---------------
+ drivers/net/ethernet/freescale/gianfar.c           | 25 +++++-------
+ drivers/net/ethernet/intel/e1000/e1000_main.c      | 14 ++-----
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c        | 10 +----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c      |  4 +-
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c    |  2 -
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     | 11 ++---
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c         |  6 +--
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c       | 22 ++++------
+ drivers/net/ethernet/smsc/smsc9420.c               |  9 ++---
+ drivers/net/usb/pegasus.c                          |  6 +--
+ drivers/net/wireless/ath/ath9k/htc_drv_txrx.c      | 11 ++---
+ drivers/net/wireless/ath/ath9k/hw.c                |  7 +---
+ drivers/net/wireless/ath/ath9k/rc.c                | 12 +-----
+ drivers/net/wireless/ath/wil6210/txrx.c            |  2 -
+ drivers/net/wireless/ath/wil6210/wmi.c             | 10 ++---
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |  5 +--
+ drivers/net/wireless/brcm80211/brcmfmac/usb.c      |  7 ++--
+ drivers/net/wireless/mwl8k.c                       |  2 -
+ 20 files changed, 66 insertions(+), 150 deletions(-)
+
+diff --git a/drivers/net/can/usb/ems_usb.c b/drivers/net/can/usb/ems_usb.c
+index 0e7bde7..5f9a7ad 100644
+--- a/drivers/net/can/usb/ems_usb.c
++++ b/drivers/net/can/usb/ems_usb.c
+@@ -1019,10 +1019,8 @@ static int ems_usb_probe(struct usb_interface *intf,
+ 
+ 	dev->tx_msg_buffer = kzalloc(CPC_HEADER_SIZE +
+ 				     sizeof(struct ems_cpc_msg), GFP_KERNEL);
+-	if (!dev->tx_msg_buffer) {
+-		dev_err(&intf->dev, "Couldn't alloc Tx buffer\n");
++	if (!dev->tx_msg_buffer)
+ 		goto cleanup_intr_in_buffer;
+-	}
+ 
+ 	usb_set_intfdata(intf, dev);
+ 
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index 74cfc01..797f847 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -494,19 +494,15 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
+ 	}
+ 	memset(new_tx_ring, 0, sizeof(struct pcnet32_tx_head) * (1 << size));
+ 
+-	new_dma_addr_list = kcalloc((1 << size), sizeof(dma_addr_t),
+-				GFP_ATOMIC);
+-	if (!new_dma_addr_list) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t),
++				    GFP_ATOMIC);
++	if (!new_dma_addr_list)
+ 		goto free_new_tx_ring;
+-	}
+ 
+-	new_skb_list = kcalloc((1 << size), sizeof(struct sk_buff *),
+-				GFP_ATOMIC);
+-	if (!new_skb_list) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	new_skb_list = kcalloc(1 << size, sizeof(struct sk_buff *),
++			       GFP_ATOMIC);
++	if (!new_skb_list)
+ 		goto free_new_lists;
+-	}
+ 
+ 	kfree(lp->tx_skbuff);
+ 	kfree(lp->tx_dma_addr);
+@@ -564,19 +560,14 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 	}
+ 	memset(new_rx_ring, 0, sizeof(struct pcnet32_rx_head) * (1 << size));
+ 
+-	new_dma_addr_list = kcalloc((1 << size), sizeof(dma_addr_t),
+-				GFP_ATOMIC);
+-	if (!new_dma_addr_list) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t), GFP_ATOMIC);
++	if (!new_dma_addr_list)
+ 		goto free_new_rx_ring;
+-	}
+ 
+-	new_skb_list = kcalloc((1 << size), sizeof(struct sk_buff *),
+-				GFP_ATOMIC);
+-	if (!new_skb_list) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	new_skb_list = kcalloc(1 << size, sizeof(struct sk_buff *),
++			       GFP_ATOMIC);
++	if (!new_skb_list)
+ 		goto free_new_lists;
+-	}
+ 
+ 	/* first copy the current receive buffers */
+ 	overlap = min(size, lp->rx_ring_size);
+@@ -1933,31 +1924,23 @@ static int pcnet32_alloc_ring(struct net_device *dev, const char *name)
+ 
+ 	lp->tx_dma_addr = kcalloc(lp->tx_ring_size, sizeof(dma_addr_t),
+ 				  GFP_ATOMIC);
+-	if (!lp->tx_dma_addr) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	if (!lp->tx_dma_addr)
+ 		return -ENOMEM;
+-	}
+ 
+ 	lp->rx_dma_addr = kcalloc(lp->rx_ring_size, sizeof(dma_addr_t),
+ 				  GFP_ATOMIC);
+-	if (!lp->rx_dma_addr) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	if (!lp->rx_dma_addr)
+ 		return -ENOMEM;
+-	}
+ 
+ 	lp->tx_skbuff = kcalloc(lp->tx_ring_size, sizeof(struct sk_buff *),
+ 				GFP_ATOMIC);
+-	if (!lp->tx_skbuff) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	if (!lp->tx_skbuff)
+ 		return -ENOMEM;
+-	}
+ 
+ 	lp->rx_skbuff = kcalloc(lp->rx_ring_size, sizeof(struct sk_buff *),
+ 				GFP_ATOMIC);
+-	if (!lp->rx_skbuff) {
+-		netif_err(lp, drv, dev, "Memory allocation failed\n");
++	if (!lp->rx_skbuff)
+ 		return -ENOMEM;
+-	}
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 75734bf..ab32bd0 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -277,14 +277,12 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+ 	/* Setup the skbuff rings */
+ 	for (i = 0; i < priv->num_tx_queues; i++) {
+ 		tx_queue = priv->tx_queue[i];
+-		tx_queue->tx_skbuff = kmalloc(sizeof(*tx_queue->tx_skbuff) *
+-					      tx_queue->tx_ring_size,
+-					      GFP_KERNEL);
+-		if (!tx_queue->tx_skbuff) {
+-			netif_err(priv, ifup, ndev,
+-				  "Could not allocate tx_skbuff\n");
++		tx_queue->tx_skbuff =
++			kmalloc_array(tx_queue->tx_ring_size,
++				      sizeof(*tx_queue->tx_skbuff),
++				      GFP_KERNEL);
++		if (!tx_queue->tx_skbuff)
+ 			goto cleanup;
+-		}
+ 
+ 		for (k = 0; k < tx_queue->tx_ring_size; k++)
+ 			tx_queue->tx_skbuff[k] = NULL;
+@@ -292,15 +290,12 @@ static int gfar_alloc_skb_resources(struct net_device *ndev)
+ 
+ 	for (i = 0; i < priv->num_rx_queues; i++) {
+ 		rx_queue = priv->rx_queue[i];
+-		rx_queue->rx_skbuff = kmalloc(sizeof(*rx_queue->rx_skbuff) *
+-					      rx_queue->rx_ring_size,
+-					      GFP_KERNEL);
+-
+-		if (!rx_queue->rx_skbuff) {
+-			netif_err(priv, ifup, ndev,
+-				  "Could not allocate rx_skbuff\n");
++		rx_queue->rx_skbuff =
++			kmalloc_array(rx_queue->rx_ring_size,
++				      sizeof(*rx_queue->rx_skbuff),
++				      GFP_KERNEL);
++		if (!rx_queue->rx_skbuff)
+ 			goto cleanup;
+-		}
+ 
+ 		for (j = 0; j < rx_queue->rx_ring_size; j++)
+ 			rx_queue->rx_skbuff[j] = NULL;
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index b20fff1..d947e3a 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -1509,11 +1509,8 @@ static int e1000_setup_tx_resources(struct e1000_adapter *adapter,
+ 
+ 	size = sizeof(struct e1000_buffer) * txdr->count;
+ 	txdr->buffer_info = vzalloc(size);
+-	if (!txdr->buffer_info) {
+-		e_err(probe, "Unable to allocate memory for the Tx descriptor "
+-		      "ring\n");
++	if (!txdr->buffer_info)
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* round up to nearest 4K */
+ 
+@@ -1704,11 +1701,8 @@ static int e1000_setup_rx_resources(struct e1000_adapter *adapter,
+ 
+ 	size = sizeof(struct e1000_buffer) * rxdr->count;
+ 	rxdr->buffer_info = vzalloc(size);
+-	if (!rxdr->buffer_info) {
+-		e_err(probe, "Unable to allocate memory for the Rx descriptor "
+-		      "ring\n");
++	if (!rxdr->buffer_info)
+ 		return -ENOMEM;
+-	}
+ 
+ 	desc_len = sizeof(struct e1000_rx_desc);
+ 
+@@ -2252,10 +2246,8 @@ static void e1000_set_rx_mode(struct net_device *netdev)
+ 	int mta_reg_count = E1000_NUM_MTA_REGISTERS;
+ 	u32 *mcarray = kcalloc(mta_reg_count, sizeof(u32), GFP_ATOMIC);
+ 
+-	if (!mcarray) {
+-		e_err(probe, "memory allocation failed\n");
++	if (!mcarray)
+ 		return;
+-	}
+ 
+ 	/* Check for Promiscuous and All Multicast modes */
+ 
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index c756412..ea48083 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -708,11 +708,8 @@ ixgb_setup_tx_resources(struct ixgb_adapter *adapter)
+ 
+ 	size = sizeof(struct ixgb_buffer) * txdr->count;
+ 	txdr->buffer_info = vzalloc(size);
+-	if (!txdr->buffer_info) {
+-		netif_err(adapter, probe, adapter->netdev,
+-			  "Unable to allocate transmit descriptor ring memory\n");
++	if (!txdr->buffer_info)
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* round up to nearest 4K */
+ 
+@@ -797,11 +794,8 @@ ixgb_setup_rx_resources(struct ixgb_adapter *adapter)
+ 
+ 	size = sizeof(struct ixgb_buffer) * rxdr->count;
+ 	rxdr->buffer_info = vzalloc(size);
+-	if (!rxdr->buffer_info) {
+-		netif_err(adapter, probe, adapter->netdev,
+-			  "Unable to allocate receive descriptor ring\n");
++	if (!rxdr->buffer_info)
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* Round up to nearest 4K */
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+index c116884..f58db45 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_fcoe.c
+@@ -716,10 +716,8 @@ int ixgbe_setup_fcoe_ddp_resources(struct ixgbe_adapter *adapter)
+ 
+ 	/* Extra buffer to be shared by all DDPs for HW work around */
+ 	buffer = kmalloc(IXGBE_FCBUFF_MIN, GFP_ATOMIC);
+-	if (!buffer) {
+-		e_err(drv, "failed to allocate extra DDP buffer\n");
++	if (!buffer)
+ 		return -ENOMEM;
+-	}
+ 
+ 	dma = dma_map_single(dev, buffer, IXGBE_FCBUFF_MIN, DMA_FROM_DEVICE);
+ 	if (dma_mapping_error(dev, dma)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index f523f02..1dc924a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -744,7 +744,6 @@ static int add_ip_rule(struct mlx4_en_priv *priv,
+ 	spec_l3 = kzalloc(sizeof(*spec_l3), GFP_KERNEL);
+ 	spec_l2 = kzalloc(sizeof(*spec_l2), GFP_KERNEL);
+ 	if (!spec_l2 || !spec_l3) {
+-		en_err(priv, "Fail to alloc ethtool rule.\n");
+ 		err = -ENOMEM;
+ 		goto free_spec;
+ 	}
+@@ -785,7 +784,6 @@ static int add_tcp_udp_rule(struct mlx4_en_priv *priv,
+ 	spec_l3 = kzalloc(sizeof(*spec_l3), GFP_KERNEL);
+ 	spec_l4 = kzalloc(sizeof(*spec_l4), GFP_KERNEL);
+ 	if (!spec_l2 || !spec_l3 || !spec_l4) {
+-		en_err(priv, "Fail to alloc ethtool rule.\n");
+ 		err = -ENOMEM;
+ 		goto free_spec;
+ 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index ac1c14f..1db3b22 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -482,7 +482,6 @@ static void mlx4_en_cache_mclist(struct net_device *dev)
+ 	netdev_for_each_mc_addr(ha, dev) {
+ 		tmp = kzalloc(sizeof(struct mlx4_en_mc_list), GFP_ATOMIC);
+ 		if (!tmp) {
+-			en_err(priv, "failed to allocate multicast list\n");
+ 			mlx4_en_clear_list(dev);
+ 			return;
+ 		}
+@@ -526,14 +525,12 @@ static void update_mclist_flags(struct mlx4_en_priv *priv,
+ 			}
+ 		}
+ 		if (!found) {
+-			new_mc = kmalloc(sizeof(struct mlx4_en_mc_list),
++			new_mc = kmemdup(src_tmp,
++					 sizeof(struct mlx4_en_mc_list),
+ 					 GFP_KERNEL);
+-			if (!new_mc) {
+-				en_err(priv, "Failed to allocate current multicast list\n");
++			if (!new_mc)
+ 				return;
+-			}
+-			memcpy(new_mc, src_tmp,
+-			       sizeof(struct mlx4_en_mc_list));
++
+ 			new_mc->action = MCLIST_ADD;
+ 			list_add_tail(&new_mc->list, dst);
+ 		}
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index fed26d8..06c3121 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -835,11 +835,9 @@ static int mlx4_en_config_rss_qp(struct mlx4_en_priv *priv, int qpn,
+ 	struct mlx4_qp_context *context;
+ 	int err = 0;
+ 
+-	context = kmalloc(sizeof *context , GFP_KERNEL);
+-	if (!context) {
+-		en_err(priv, "Failed to allocate qp context\n");
++	context = kmalloc(sizeof(*context), GFP_KERNEL);
++	if (!context)
+ 		return -ENOMEM;
+-	}
+ 
+ 	err = mlx4_qp_alloc(mdev->dev, qpn, qp);
+ 	if (err) {
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 325627e..b13ab54 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -2920,14 +2920,11 @@ static int ql_alloc_rx_resources(struct ql_adapter *qdev,
+ 		/*
+ 		 * Allocate small buffer queue control blocks.
+ 		 */
+-		rx_ring->sbq =
+-		    kmalloc(rx_ring->sbq_len * sizeof(struct bq_desc),
+-			    GFP_KERNEL);
+-		if (rx_ring->sbq == NULL) {
+-			netif_err(qdev, ifup, qdev->ndev,
+-				  "Small buffer queue control block allocation failed.\n");
++		rx_ring->sbq = kmalloc_array(rx_ring->sbq_len,
++					     sizeof(struct bq_desc),
++					     GFP_KERNEL);
++		if (rx_ring->sbq == NULL)
+ 			goto err_mem;
+-		}
+ 
+ 		ql_init_sbq_ring(qdev, rx_ring);
+ 	}
+@@ -2948,14 +2945,11 @@ static int ql_alloc_rx_resources(struct ql_adapter *qdev,
+ 		/*
+ 		 * Allocate large buffer queue control blocks.
+ 		 */
+-		rx_ring->lbq =
+-		    kmalloc(rx_ring->lbq_len * sizeof(struct bq_desc),
+-			    GFP_KERNEL);
+-		if (rx_ring->lbq == NULL) {
+-			netif_err(qdev, ifup, qdev->ndev,
+-				  "Large buffer queue control block allocation failed.\n");
++		rx_ring->lbq = kmalloc_array(rx_ring->lbq_len,
++					     sizeof(struct bq_desc),
++					     GFP_KERNEL);
++		if (rx_ring->lbq == NULL)
+ 			goto err_mem;
+-		}
+ 
+ 		ql_init_lbq_ring(qdev, rx_ring);
+ 	}
+diff --git a/drivers/net/ethernet/smsc/smsc9420.c b/drivers/net/ethernet/smsc/smsc9420.c
+index ecfb436..d457fa2 100644
+--- a/drivers/net/ethernet/smsc/smsc9420.c
++++ b/drivers/net/ethernet/smsc/smsc9420.c
+@@ -1250,12 +1250,11 @@ static int smsc9420_alloc_tx_ring(struct smsc9420_pdata *pd)
+ 
+ 	BUG_ON(!pd->tx_ring);
+ 
+-	pd->tx_buffers = kmalloc((sizeof(struct smsc9420_ring_info) *
+-		TX_RING_SIZE), GFP_KERNEL);
+-	if (!pd->tx_buffers) {
+-		smsc_warn(IFUP, "Failed to allocated tx_buffers");
++	pd->tx_buffers = kmalloc_array(TX_RING_SIZE,
++				       sizeof(struct smsc9420_ring_info),
++				       GFP_KERNEL);
++	if (!pd->tx_buffers)
+ 		return -ENOMEM;
+-	}
+ 
+ 	/* Initialize the TX Ring */
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index 8ee5ab0..73051d1 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -149,11 +149,9 @@ static int get_registers(pegasus_t *pegasus, __u16 indx, __u16 size,
+ 	DECLARE_WAITQUEUE(wait, current);
+ 
+ 	buffer = kmalloc(size, GFP_KERNEL);
+-	if (!buffer) {
+-		netif_warn(pegasus, drv, pegasus->net,
+-			   "out of memory in %s\n", __func__);
++	if (!buffer)
+ 		return -ENOMEM;
+-	}
++
+ 	add_wait_queue(&pegasus->ctrl_wait, &wait);
+ 	set_current_state(TASK_UNINTERRUPTIBLE);
+ 	while (pegasus->flags & ETH_REGS_CHANGED)
+diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+index b6a5a08..3ad1fd0 100644
+--- a/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
++++ b/drivers/net/wireless/ath/ath9k/htc_drv_txrx.c
+@@ -1196,20 +1196,17 @@ void ath9k_rx_cleanup(struct ath9k_htc_priv *priv)
+ 
+ int ath9k_rx_init(struct ath9k_htc_priv *priv)
+ {
+-	struct ath_hw *ah = priv->ah;
+-	struct ath_common *common = ath9k_hw_common(ah);
+-	struct ath9k_htc_rxbuf *rxbuf;
+ 	int i = 0;
+ 
+ 	INIT_LIST_HEAD(&priv->rx.rxbuf);
+ 	spin_lock_init(&priv->rx.rxbuflock);
+ 
+ 	for (i = 0; i < ATH9K_HTC_RXBUF; i++) {
+-		rxbuf = kzalloc(sizeof(struct ath9k_htc_rxbuf), GFP_KERNEL);
+-		if (rxbuf == NULL) {
+-			ath_err(common, "Unable to allocate RX buffers\n");
++		struct ath9k_htc_rxbuf *rxbuf =
++			kzalloc(sizeof(struct ath9k_htc_rxbuf), GFP_KERNEL);
++		if (rxbuf == NULL)
+ 			goto err;
+-		}
++
+ 		list_add_tail(&rxbuf->list, &priv->rx.rxbuf);
+ 	}
+ 
+diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/ath/ath9k/hw.c
+index 42cf3c7..2a2ae40 100644
+--- a/drivers/net/wireless/ath/ath9k/hw.c
++++ b/drivers/net/wireless/ath/ath9k/hw.c
+@@ -2981,13 +2981,8 @@ struct ath_gen_timer *ath_gen_timer_alloc(struct ath_hw *ah,
+ 	struct ath_gen_timer *timer;
+ 
+ 	timer = kzalloc(sizeof(struct ath_gen_timer), GFP_KERNEL);
+-
+-	if (timer == NULL) {
+-		ath_err(ath9k_hw_common(ah),
+-			"Failed to allocate memory for hw timer[%d]\n",
+-			timer_index);
++	if (timer == NULL)
+ 		return NULL;
+-	}
+ 
+ 	/* allocate a hardware generic timer slot */
+ 	timer_table->timers[timer_index] = timer;
+diff --git a/drivers/net/wireless/ath/ath9k/rc.c b/drivers/net/wireless/ath/ath9k/rc.c
+index 714558d..faa752b 100644
+--- a/drivers/net/wireless/ath/ath9k/rc.c
++++ b/drivers/net/wireless/ath/ath9k/rc.c
+@@ -1452,17 +1452,7 @@ static void ath_rate_free(void *priv)
+ 
+ static void *ath_rate_alloc_sta(void *priv, struct ieee80211_sta *sta, gfp_t gfp)
+ {
+-	struct ath_softc *sc = priv;
+-	struct ath_rate_priv *rate_priv;
+-
+-	rate_priv = kzalloc(sizeof(struct ath_rate_priv), gfp);
+-	if (!rate_priv) {
+-		ath_err(ath9k_hw_common(sc->sc_ah),
+-			"Unable to allocate private rc structure\n");
+-		return NULL;
+-	}
+-
+-	return rate_priv;
++	return kzalloc(sizeof(struct ath_rate_priv), gfp);
+ }
+ 
+ static void ath_rate_free_sta(void *priv, struct ieee80211_sta *sta,
+diff --git a/drivers/net/wireless/ath/wil6210/txrx.c b/drivers/net/wireless/ath/wil6210/txrx.c
+index f29c294..23b1afc 100644
+--- a/drivers/net/wireless/ath/wil6210/txrx.c
++++ b/drivers/net/wireless/ath/wil6210/txrx.c
+@@ -74,8 +74,6 @@ static int wil_vring_alloc(struct wil6210_priv *wil, struct vring *vring)
+ 	vring->swtail = 0;
+ 	vring->ctx = kzalloc(vring->size * sizeof(vring->ctx[0]), GFP_KERNEL);
+ 	if (!vring->ctx) {
+-		wil_err(wil, "vring_alloc [%d] failed to alloc ctx mem\n",
+-			vring->size);
+ 		vring->va = NULL;
+ 		return -ENOMEM;
+ 	}
+diff --git a/drivers/net/wireless/ath/wil6210/wmi.c b/drivers/net/wireless/ath/wil6210/wmi.c
+index 12915f6..5fb960e 100644
+--- a/drivers/net/wireless/ath/wil6210/wmi.c
++++ b/drivers/net/wireless/ath/wil6210/wmi.c
+@@ -587,11 +587,9 @@ void wmi_recv_cmd(struct wil6210_priv *wil)
+ 		evt = kmalloc(ALIGN(offsetof(struct pending_wmi_event,
+ 					     event.wmi) + len, 4),
+ 			      GFP_KERNEL);
+-		if (!evt) {
+-			wil_err(wil, "kmalloc for WMI event (%d) failed\n",
+-				len);
++		if (!evt)
+ 			return;
+-		}
++
+ 		evt->event.hdr = hdr;
+ 		cmd = (void *)&evt->event.wmi;
+ 		wil_memcpy_fromio_32(cmd, src, len);
+@@ -838,10 +836,8 @@ int wmi_set_ie(struct wil6210_priv *wil, u8 type, u16 ie_len, const void *ie)
+ 	int rc;
+ 	u16 len = sizeof(struct wmi_set_appie_cmd) + ie_len;
+ 	struct wmi_set_appie_cmd *cmd = kzalloc(len, GFP_KERNEL);
+-	if (!cmd) {
+-		wil_err(wil, "kmalloc(%d) failed\n", len);
++	if (!cmd)
+ 		return -ENOMEM;
+-	}
+ 
+ 	cmd->mgmt_frm_type = type;
+ 	/* BUG: FW API define ieLen as u8. Will fix FW */
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+index 7fef9b5..6d786a2 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+@@ -1445,10 +1445,9 @@ brcmf_sdbrcm_read_control(struct brcmf_sdio *bus, u8 *hdr, uint len, uint doff)
+ 
+ 	if (bus->rxblen)
+ 		buf = vzalloc(bus->rxblen);
+-	if (!buf) {
+-		brcmf_err("no memory for control frame\n");
++	if (!buf)
+ 		goto done;
+-	}
++
+ 	rbuf = bus->rxbuf;
+ 	pad = ((unsigned long)rbuf % BRCMF_SDALIGN);
+ 	if (pad)
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/usb.c b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+index e15630c..bc5a042 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/usb.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/usb.c
+@@ -354,11 +354,10 @@ brcmf_usbdev_qinit(struct list_head *q, int qsize)
+ 	int i;
+ 	struct brcmf_usbreq *req, *reqs;
+ 
+-	reqs = kzalloc(sizeof(struct brcmf_usbreq) * qsize, GFP_ATOMIC);
+-	if (reqs == NULL) {
+-		brcmf_err("fail to allocate memory!\n");
++	reqs = kcalloc(qsize, sizeof(struct brcmf_usbreq), GFP_ATOMIC);
++	if (reqs == NULL)
+ 		return NULL;
+-	}
++
+ 	req = reqs;
+ 
+ 	for (i = 0; i < qsize; i++) {
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index 224cf91..e31f779 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -1146,7 +1146,6 @@ static int mwl8k_rxq_init(struct ieee80211_hw *hw, int index)
+ 
+ 	rxq->buf = kcalloc(MWL8K_RX_DESCS, sizeof(*rxq->buf), GFP_KERNEL);
+ 	if (rxq->buf == NULL) {
+-		wiphy_err(hw->wiphy, "failed to alloc RX skbuff list\n");
+ 		pci_free_consistent(priv->pdev, size, rxq->rxd, rxq->rxd_dma);
+ 		return -ENOMEM;
+ 	}
+@@ -1439,7 +1438,6 @@ static int mwl8k_txq_init(struct ieee80211_hw *hw, int index)
+ 
+ 	txq->skb = kcalloc(MWL8K_TX_DESCS, sizeof(*txq->skb), GFP_KERNEL);
+ 	if (txq->skb == NULL) {
+-		wiphy_err(hw->wiphy, "failed to alloc TX skbuff list\n");
+ 		pci_free_consistent(priv->pdev, size, txq->txd, txq->txd_dma);
+ 		return -ENOMEM;
+ 	}
+
+
