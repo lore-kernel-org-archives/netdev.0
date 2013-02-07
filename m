@@ -1,45 +1,40 @@
 From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Thu, 07 Feb 2013 14:44:27 +1030
-Message-ID: <87haloiwv0.fsf@rustcorp.com.au>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <510FBC01.2030405@linux.vnet.ibm.com>
+Subject: Re: [PATCH 8/8] drivers:net:misc: Remove unnecessary alloc/OOM
+	messages
+Date: Thu, 07 Feb 2013 14:38:52 +1030
+Message-ID: <87lib0ix4b.fsf@rustcorp.com.au>
+References: <cover.1359939012.git.joe@perches.com>
+	<a729555c8acf2cc3ef4c80531757b37a948c4e55.1359939013.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	walken@google.com
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, mingo@kernel.org
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <510FBC01.2030405@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-hams@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, Joerg Reuter <jreuter@yaina.de>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Joe Perches <joe@perches.com>, netdev@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <a729555c8acf2cc3ef4c80531757b37a948c4e55.1359939013.git.joe@perches.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com> writes:
-> On 01/22/2013 01:03 PM, Srivatsa S. Bhat wrote:
->                  Avg. latency of 1 CPU offline (ms) [stop-cpu/stop-m/c latency]
->
-> # online CPUs    Mainline (with stop-m/c)       This patchset (no stop-m/c)
->
->       8                 17.04                          7.73
->
->      16                 18.05                          6.44
->
->      32                 17.31                          7.39
->
->      64                 32.40                          9.28
->
->     128                 98.23                          7.35
+Joe Perches <joe@perches.com> writes:
 
-Nice!  I wonder how the ARM guys feel with their quad-cpu systems...
+> alloc failures already get standardized OOM
+> messages and a dump_stack.
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Thanks!
+Why not, less code is always good.
+
+Acked-by: Rusty Russell <rusty@rustcorp.com.au> (virtio_net)
+
+Cheers,
 Rusty.
