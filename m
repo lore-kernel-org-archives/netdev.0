@@ -1,60 +1,87 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Problem with GVRP on eth while having a bridge
-Date: Thu, 7 Feb 2013 14:02:30 +0100
-Message-ID: <20130207130227.GF13989@macbook.localnet>
-References: <51138866.8000802@profihost.ag>
- <20130207112227.GE13989@macbook.localnet>
- <511396C9.2080106@profihost.ag>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv2-net-3.8 1/3] ixgbe: fix gso type
+Date: Thu, 7 Feb 2013 15:13:05 +0200
+Message-ID: <e1e4fe6d356c2766cd6a962a3ef6439bfd94a985.1360236441.git.mst@redhat.com>
+References: <cover.1360236441.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexandre DERUMIER <aderumier@odiso.com>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Sony Chacko <sony.chacko@qlogic.com>, linux-driver@qlogic.com,
+	bhutchings@solarflare.com, linux-kernel@vger.kernel.org,
+	Jacob Keller <jacob.e.keller@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <511396C9.2080106@profihost.ag>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <cover.1360236441.git.mst@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 07, 2013 at 12:58:01PM +0100, Stefan Priebe - Profihost AG wrote:
-> Hi Patrick,
-> 
-> thanks for your fast response.
-> 
-> > So please describe the entire GVRP message exchange that's going
-> > on.
-> I've attached two small pcap files.
-> 
-> has_bridge.pcap: is where eth1 has a bridge and the dynamic vlan
-> disappears after a few seconds.
-> 
-> no_bridge.pcap: no bridge is assigned to eth1 - the dynamic vlan stays
-> as long as i remove it
-> 
-> > Also you probably want to add the VLAN device on top of the bridge
-> > device, otherwise it will get passed to the bridge after untagging,
-> > which might not work, depending on the MAC addresses used.
-> 
-> That's working fine in vanilla kernel 3.7.6 but it does not with RHEL 6.
-> Also i looks more complicated as i need another bridge on top of the
-> vlan to assign the needed tap devices. I looked at ovirt for the network
-> setup:
-> http://www.ovirt.org/Vdsm_Network
-> 
-> and they also add the vlan directly on top of the nic and then the
-> bridge on top of the VLANs.
+ixgbe set gso_size but not gso_type. This leads to
+crashes in macvtap.
 
-What seems to be happening is that the switch is constantly requesting
-GVRP updates. Once eth0 is added to the bridge, the bridge has preference
-over local protocol (LLC) delivery. Since the packet has a link local
-destination and your bridge doesn't seem to have STP enabled, the
-bridge decides to forward the packet. Since its a multicast destination,
-the packet is finally passed up to LLC, but the receiving device is
-the bridge, not eth0. When the packet reaches the GARP input handler,
-no garp_port is associated to the device and the packet is dropped.
-This result is that the GARP protocol doesn't notice that the switch
-expects an update and the switch finally removes the VLAN.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-So the solution is: put the VLAN on the bridge device.
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 20a5af6..e1b2d22 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1401,6 +1401,10 @@ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
+ 	/* set gso_size to avoid messing up TCP MSS */
+ 	skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->len - hdr_len),
+ 						 IXGBE_CB(skb)->append_cnt);
++	if (skb->protocol == __constant_htons(ETH_P_IPV6))
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
++	else
++		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+ }
+ 
+ static void ixgbe_update_rsc_stats(struct ixgbe_ring *rx_ring,
+@@ -1435,6 +1439,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ {
+ 	struct net_device *dev = rx_ring->netdev;
+ 
++	skb->protocol = eth_type_trans(skb, dev);
++
+ 	ixgbe_update_rsc_stats(rx_ring, skb);
+ 
+ 	ixgbe_rx_hash(rx_ring, rx_desc, skb);
+@@ -1450,8 +1456,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ 	}
+ 
+ 	skb_record_rx_queue(skb, rx_ring->queue_index);
+-
+-	skb->protocol = eth_type_trans(skb, dev);
+ }
+ 
+ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+-- 
+MST
+
+
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
