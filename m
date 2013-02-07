@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2-net-3.8 0/3] fix kernel crash with macvtap
-	on top of LRO
-Date: Thu, 7 Feb 2013 15:12:56 +0200
-Message-ID: <cover.1360236441.git.mst@redhat.com>
+Subject: [PATCHv2-net-3.8 3/3] bnx2x: set gso_type
+Date: Thu, 7 Feb 2013 15:13:22 +0200
+Message-ID: <b9413cd3577c7b544cd522a6eb8ae6b037b20da6.1360236441.git.mst@redhat.com>
+References: <cover.1360236441.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,6 +19,7 @@ Cc: "David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
 To: netdev@vger.kernel.org
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
+In-Reply-To: <cover.1360236441.git.mst@redhat.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -29,37 +30,40 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-At the moment, macvtap crashes are observed if macvtap is attached
-to an interface with LRO enabled.
-The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
-This happens because several drivers set gso_size but not gso_type
-in incoming skbs.
-This didn't use to be the case: with intel cards on 3.2 and older
-kernels, with qlogic - on 3.4 and older kernels, so it's a regression if
-not a recent one.
-The following patches fix this for qlogic, broadcom and intel drivers.
+In LRO mode, bnx2x set gso_size but not gso type.
+This leads to crashes in macvtap.
+Commit cbf1de72324a8105ddcc3d9ce9acbc613faea17e
+queued for 3.9 includes a more complete fix.
+This is a minimal patch to avoid the crash, for 3.8.
 
-I tested that the patch fixes the crash for ixgbe but
-don't have qlogic/broadcom hardware to test.
-I also only tested TCPv4.
-
-Please review, and consider for 3.8.
-
-Changes from v1:
-	- added missing htons as suggested by Eric
-	- backported the relevant bits from
-	  cbf1de72324a8105ddcc3d9ce9acbc613faea17e for bnx2x
-
-Michael S. Tsirkin (3):
-  ixgbe: fix gso type
-  qlcnic: set gso_type
-  bnx2x: set gso_type
-
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 12 +++++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  8 ++++++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c  |  7 ++++++-
- 3 files changed, 17 insertions(+), 10 deletions(-)
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index f771ddf..a5edac8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -504,13 +504,11 @@ static int bnx2x_fill_frag_skb(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 		skb_shinfo(skb)->gso_size = bnx2x_set_lro_mss(bp,
+ 					tpa_info->parsing_flags, len_on_bd);
+ 
+-		/* set for GRO */
+-		if (fp->mode == TPA_MODE_GRO)
+-			skb_shinfo(skb)->gso_type =
+-			    (GET_FLAG(tpa_info->parsing_flags,
+-				      PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
+-						PRS_FLAG_OVERETH_IPV6) ?
+-				SKB_GSO_TCPV6 : SKB_GSO_TCPV4;
++		skb_shinfo(skb)->gso_type =
++			(GET_FLAG(tpa_info->parsing_flags,
++				  PARSING_FLAGS_OVER_ETHERNET_PROTOCOL) ==
++			 PRS_FLAG_OVERETH_IPV6) ?
++			SKB_GSO_TCPV6 : SKB_GSO_TCPV4;
+ 	}
+ 
+ 
 -- 
 MST
 
