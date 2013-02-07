@@ -1,82 +1,81 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next] net: sctp: sctp_auth_make_key_vector: remove
- duplicate ntohs calls
-Date: Thu, 07 Feb 2013 10:06:37 -0500
-Message-ID: <5113C2FD.4060103@gmail.com>
-References: <cover.1360237025.git.dborkman@redhat.com> <c029f55f4d0bde790f77f62d623f4d1e387c4c0b.1360237025.git.dborkman@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net 1/2] net: sctp: sctp_auth_make_key_vector: fix undefined
+ ref-count behaviour
+Date: Thu, 07 Feb 2013 16:24:53 +0100
+Message-ID: <5113C745.10103@redhat.com>
+References: <cover.1360231701.git.dborkman@redhat.com> <5eff11271160e84c7fc2d97b81161b1ae7be4a6e.1360231701.git.dborkman@redhat.com> <5113C28C.2050607@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f51.google.com ([209.85.212.51]:38093 "EHLO
-	mail-vb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758377Ab3BGPGl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:06:41 -0500
-In-Reply-To: <c029f55f4d0bde790f77f62d623f4d1e387c4c0b.1360237025.git.dborkman@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:61330 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751057Ab3BGPY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 10:24:58 -0500
+In-Reply-To: <5113C28C.2050607@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/2013 06:41 AM, Daniel Borkmann wrote:
-> Instead of calling 3 times ntohs(random->param_hdr.length), 2 times
-> ntohs(hmacs->param_hdr.length), and 3 times ntohs(chunks->param_hdr.length)
-> within the same function, we only call each once and store it in a
-> variable.
+On 02/07/2013 04:04 PM, Vlad Yasevich wrote:
+> On 02/07/2013 05:55 AM, Daniel Borkmann wrote:
+>> In sctp_auth_make_key_vector(), a sctp_auth_bytes structure is being
+>> allocated, but without setting its object reference count, thus it's
+>> initialized with a random value from the memory, which can lead to
+>> i) premature free's of this object when being put (with possible
+>> subsequent kernel panics), or ii) memory leaks when refcount has a
+>> high value.
+>>
+>> Fix this by using the appropriate sctp_auth_create_key() allocator,
+>> which performs sanity checks, sets length and the refcount, as similar
+>> done in sctp_auth_asoc_set_secret() and others. This bug seems to be
+>> present since 2007 (1f485649f529: Implement SCTP-AUTH internals).
 >
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Not strictly a bug.  The vectors are temporary and directly freed by the caller.   They are only used by sctp_auth_asoc_create_secret() which builds the association secret key.  The vectors are destroyed at the end of that function using kfree() thus noone really cares about
+> the refcount on them and there are no leaks.
+>
+> If you are going to convert to using sctp_auth_create_key() then you
+> need to convert the callers to user to use sctp_auth_key_put(). Otherwise you are leaking object counts.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Thanks for your feedback!
 
--vlad
+If Dave is okay with this, then:
 
-> ---
->   net/sctp/auth.c | 21 ++++++++++++---------
->   1 file changed, 12 insertions(+), 9 deletions(-)
->
-> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-> index 159b9bc..94a12de 100644
-> --- a/net/sctp/auth.c
-> +++ b/net/sctp/auth.c
-> @@ -200,10 +200,14 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
->   	struct sctp_auth_bytes *new;
->   	__u32	len;
->   	__u32	offset = 0;
-> +	__u16	random_len, hmacs_len, chunks_len = 0;
->
-> -	len = ntohs(random->param_hdr.length) + ntohs(hmacs->param_hdr.length);
-> -        if (chunks)
-> -		len += ntohs(chunks->param_hdr.length);
-> +	random_len = ntohs(random->param_hdr.length);
-> +	hmacs_len = ntohs(hmacs->param_hdr.length);
-> +	if (chunks)
-> +		chunks_len = ntohs(chunks->param_hdr.length);
-> +
-> +	len = random_len + hmacs_len + chunks_len;
->
->   	new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
->   	if (!new)
-> @@ -211,16 +215,15 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
->
->   	new->len = len;
->
-> -	memcpy(new->data, random, ntohs(random->param_hdr.length));
-> -	offset += ntohs(random->param_hdr.length);
-> +	memcpy(new->data, random, random_len);
-> +	offset += random_len;
->
->   	if (chunks) {
-> -		memcpy(new->data + offset, chunks,
-> -			ntohs(chunks->param_hdr.length));
-> -		offset += ntohs(chunks->param_hdr.length);
-> +		memcpy(new->data + offset, chunks, chunks_len);
-> +		offset += chunks_len;
->   	}
->
-> -	memcpy(new->data + offset, hmacs, ntohs(hmacs->param_hdr.length));
-> +	memcpy(new->data + offset, hmacs, hmacs_len);
->
->   	return new;
->   }
+  - [PATCH net 2/2] net: sctp: sctp_auth_key_put: use kzfree instead of kfree
+  - [PATCH net-next] net: sctp: sctp_auth_make_key_vector: remove duplicate ntohs calls
+
+can be applied as is. (If necessary, I could send the first one _unchanged_ as a
+single patch again, since it was part of a patchset. However, it will apply
+cleanly as we have it right here.)
+
+Then, to avoid any future confusion and to stay consistent, I'll convert this
+to sctp_auth_create_key() API as well and make use of the sctp_auth_key_put()
+in a later possible patch *after* those two have been applied.
+
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   net/sctp/auth.c | 4 +---
+>>   1 file changed, 1 insertion(+), 3 deletions(-)
+>>
+>> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+>> index 159b9bc..55f1b06 100644
+>> --- a/net/sctp/auth.c
+>> +++ b/net/sctp/auth.c
+>> @@ -205,12 +205,10 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
+>>           if (chunks)
+>>           len += ntohs(chunks->param_hdr.length);
+>>
+>> -    new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
+>> +    new = sctp_auth_create_key(len, gfp);
+>>       if (!new)
+>>           return NULL;
+>>
+>> -    new->len = len;
+>> -
+>>       memcpy(new->data, random, ntohs(random->param_hdr.length));
+>>       offset += ntohs(random->param_hdr.length);
+>>
+>>
 >
