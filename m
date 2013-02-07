@@ -1,43 +1,100 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Fri, 08 Feb 2013 00:41:12 +0900
-Message-ID: <5113CB18.1080300@linux-ipv6.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org> <51127781.2000504@linux-ipv6.org> <20130206160409.GB18040@order.stressinduktion.org> <51128985.2010701@linux-ipv6.org> <20130207010010.GD19537@order.stressinduktion.org> <20130207072857.GA27969@eerihug-hybrid.ki.sw.ericsson.se>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net 1/2] net: sctp: sctp_auth_make_key_vector: fix undefined
+ ref-count behaviour
+Date: Thu, 07 Feb 2013 10:45:08 -0500
+Message-ID: <5113CC04.40600@gmail.com>
+References: <cover.1360231701.git.dborkman@redhat.com> <5eff11271160e84c7fc2d97b81161b1ae7be4a6e.1360231701.git.dborkman@redhat.com> <5113C28C.2050607@gmail.com> <5113C745.10103@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Erik Hugne <erik.hugne@ericsson.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:45000 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753869Ab3BGPlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:41:20 -0500
-In-Reply-To: <20130207072857.GA27969@eerihug-hybrid.ki.sw.ericsson.se>
+Received: from mail-vb0-f51.google.com ([209.85.212.51]:40461 "EHLO
+	mail-vb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751057Ab3BGPpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:45:11 -0500
+In-Reply-To: <5113C745.10103@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Erik Hugne wrote:
-> On Thu, Feb 07, 2013 at 02:00:10AM +0100, Hannes Frederic Sowa wrote:
->> RFC4541 3. IPv6 Considerations:
+On 02/07/2013 10:24 AM, Daniel Borkmann wrote:
+> On 02/07/2013 04:04 PM, Vlad Yasevich wrote:
+>> On 02/07/2013 05:55 AM, Daniel Borkmann wrote:
+>>> In sctp_auth_make_key_vector(), a sctp_auth_bytes structure is being
+>>> allocated, but without setting its object reference count, thus it's
+>>> initialized with a random value from the memory, which can lead to
+>>> i) premature free's of this object when being put (with possible
+>>> subsequent kernel panics), or ii) memory leaks when refcount has a
+>>> high value.
+>>>
+>>> Fix this by using the appropriate sctp_auth_create_key() allocator,
+>>> which performs sanity checks, sets length and the refcount, as similar
+>>> done in sctp_auth_asoc_set_secret() and others. This bug seems to be
+>>> present since 2007 (1f485649f529: Implement SCTP-AUTH internals).
 >>
->>    MLD messages are also not sent regarding groups with addresses in the
->>    range FF00::/15 (which encompasses both the reserved FF00::/16 and
->>    node-local FF01::/16 IPv6 address spaces).  These addresses should
->>    never appear in packets on the link.
+>> Not strictly a bug.  The vectors are temporary and directly freed by
+>> the caller.   They are only used by sctp_auth_asoc_create_secret()
+>> which builds the association secret key.  The vectors are destroyed at
+>> the end of that function using kfree() thus noone really cares about
+>> the refcount on them and there are no leaks.
 >>
->> It gives a strong indication that we should drop these packets. What do you
->> think?
-> 
-> That was my understanding aswell. I asked for some clarifications on the ietf list:
->     <quote>
->     > The key is that the packets should be dropped without generating
->     > any errors or traffic.
->     Yep, you are right - I assumed that implicitly, but
->     I should have mentioned that explicitly :-)
->     </quote>
-> http://www.ietf.org/mail-archive/web/ipv6/current/msg17126.html
+>> If you are going to convert to using sctp_auth_create_key() then you
+>> need to convert the callers to user to use sctp_auth_key_put().
+>> Otherwise you are leaking object counts.
+>
+> Thanks for your feedback!
+>
+> If Dave is okay with this, then:
+>
+>   - [PATCH net 2/2] net: sctp: sctp_auth_key_put: use kzfree instead of
+> kfree
+>   - [PATCH net-next] net: sctp: sctp_auth_make_key_vector: remove
+> duplicate ntohs calls
+>
+> can be applied as is. (If necessary, I could send the first one
+> _unchanged_ as a
+> single patch again, since it was part of a patchset. However, it will apply
+> cleanly as we have it right here.)
+>
 
-Please file errata on RFC4291.  Thanks.
+That's fine. Those 2 patches are ok.
 
---yoshfuji
+> Then, to avoid any future confusion and to stay consistent, I'll convert
+> this
+> to sctp_auth_create_key() API as well and make use of the
+> sctp_auth_key_put()
+> in a later possible patch *after* those two have been applied.
+
+Fine by me.
+
+-vlad
+
+>
+>>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>>> ---
+>>>   net/sctp/auth.c | 4 +---
+>>>   1 file changed, 1 insertion(+), 3 deletions(-)
+>>>
+>>> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+>>> index 159b9bc..55f1b06 100644
+>>> --- a/net/sctp/auth.c
+>>> +++ b/net/sctp/auth.c
+>>> @@ -205,12 +205,10 @@ static struct sctp_auth_bytes
+>>> *sctp_auth_make_key_vector(
+>>>           if (chunks)
+>>>           len += ntohs(chunks->param_hdr.length);
+>>>
+>>> -    new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
+>>> +    new = sctp_auth_create_key(len, gfp);
+>>>       if (!new)
+>>>           return NULL;
+>>>
+>>> -    new->len = len;
+>>> -
+>>>       memcpy(new->data, random, ntohs(random->param_hdr.length));
+>>>       offset += ntohs(random->param_hdr.length);
+>>>
+>>>
+>>
