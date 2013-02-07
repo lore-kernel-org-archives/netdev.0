@@ -1,78 +1,80 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv2-net-3.8 0/3] fix kernel crash with
- macvtap on top of LRO
-Date: Thu, 7 Feb 2013 17:05:16 +0000
-Message-ID: <1360256716.3605.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <cover.1360236441.git.mst@redhat.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART
+ messages and interrupt pipe setup
+Date: Thu, 07 Feb 2013 11:06:33 -0600
+Message-ID: <1360256793.2382.27.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	 <1357318096.5370.15.camel@dcbw.foobar.com>
+	 <1357318289.5370.19.camel@dcbw.foobar.com>
+	 <1360176176.11742.16.camel@dcbw.foobar.com> <87ip655eqw.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Eilon Greenstein <eilong@broadcom.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>, Jacob,
-	Keller <jacob.e.keller@intel.com>, Tushar,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>, Carolyn, Jeff,
-	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
-	linux-kernel@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>, linux-driver@qlogic.com, Peter
-To: "Michael S. Tsirkin" <mst@redhat.com>, "David S. Miller"
-	<davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <cover.1360236441.git.mst@redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.org>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54857 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759058Ab3BGRGR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 12:06:17 -0500
+In-Reply-To: <87ip655eqw.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-07 at 15:12 +0200, Michael S. Tsirkin wrote:
-> At the moment, macvtap crashes are observed if macvtap is attached
-> to an interface with LRO enabled.
-> The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
-> This happens because several drivers set gso_size but not gso_type
-> in incoming skbs.
-> This didn't use to be the case: with intel cards on 3.2 and older
-> kernels, with qlogic - on 3.4 and older kernels, so it's a regression if
-> not a recent one.
-> The following patches fix this for qlogic, broadcom and intel drivers.
-> 
-> I tested that the patch fixes the crash for ixgbe but
-> don't have qlogic/broadcom hardware to test.
-> I also only tested TCPv4.
-> 
-> Please review, and consider for 3.8.
-> 
-> Changes from v1:
-> 	- added missing htons as suggested by Eric
-> 	- backported the relevant bits from
-> 	  cbf1de72324a8105ddcc3d9ce9acbc613faea17e for bnx2x
+On Wed, 2013-02-06 at 22:11 +0100, Bj=C3=B8rn Mork wrote:
+> Dan Williams <dcbw@redhat.com> writes:
+>=20
+> > As part of the initialization sequence, the driver sends a SYNC mes=
+sage
+> > via the control pipe to the firmware, which appears to request a
+> > firmware restart.  The firmware responds with an indication via the
+> > interrupt pipe set up by usbnet.  If the driver does not receive a
+> > RESTART indication within a certain amount of time, it will periodi=
+cally
+> > send additional SYNC messages until it receives the RESTART indicat=
+ion.
+> >
+> > Unfortunately, the interrupt URB is only submitted while the netdev
+> > is open, which is usually not the case during initialization, and t=
+hus
+> > the firmware's RESTART indication is lost.  So the driver continues
+> > sending SYNC messages, and eventually the firmware crashes when it
+> > receives too many.  This leads to a wedged netdev.
+> >
+> > To ensure the firmware's RESTART indications can be received by the
+> > driver, request that usbnet keep the interrupt URB active via
+> > FLAG_INTR_ALWAYS.
+> >
+> > Second, move the code that sends the SYNC message out of the
+> > bind() hook and after usbnet_probe() to ensure the interrupt URB
+> > is set up before trying to use it.
+>=20
+> Given this description I am wondering if you couldn't just move the
+> whole SYNC thing to a new reset() hook, using some private flag to ma=
+ke
+> sure it only runs once?  Does it really need to start at probe time?
 
-I still don't think macvtap should behave inconsistently with forwarding
-and the bridge device.  We need a consensus as to whether transformation
-by LRO is allowable before making changes one way or the other.  If
-we're going to allow it then inet_lro also needs this fix.
+It doesn't need to run exactly at probe, but it appears to need to be
+the first thing the driver does when communicating with the firmware to
+ensure clear state and whatnot.  Possibly like the QMI SYNC message tha=
+t
+clears all the client IDs and resets the internal stack.  (the driver
+also sends a "shutdown" message to the firmware when unbinding).
 
-Ben.
+So I do think that somewhere around probe() is the best time to do this=
+,
+because it's best to initialize the device when the driver binds to it
+and react to errors as soon as possible, rather than trying to set
+everything up on open/IFF_UP and then fail right before you want to
+actually use the device.  Late-fail is quite unhelpful for applications=
+=2E
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I don't really care if it happens in probe() or somewhere else right
+after the driver is bound to the device, but it should be part of the
+initialization process.
 
-
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Dan
