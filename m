@@ -1,75 +1,76 @@
-From: Tim Gardner <tim.gardner@canonical.com>
-Subject: [PATCH wireless-next] brcmsmac: avoid 512 byte stack variable
-Date: Thu,  7 Feb 2013 13:13:52 -0700
-Message-ID: <1360268032-52414-1-git-send-email-tim.gardner@canonical.com>
-Cc: Tim Gardner <tim.gardner@canonical.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: [PATCH wireless-next] brcmsmac: fix u16 overflow warning
+Date: Thu, 7 Feb 2013 21:18:23 +0100
+Message-ID: <51140C0F.5070209@broadcom.com>
+References: <1360265735-42450-1-git-send-email-tim.gardner@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	"Brett Rudley" <brudley@broadcom.com>,
 	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
+	"Hante Meuleman" <meuleman@broadcom.com>,
 	"John W. Linville" <linville@tuxdriver.com>,
-	Seth Forshee <seth.forshee@canonical.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
+	"Pieter-Paul Giesberts" <pieterpg@broadcom.com>,
+	"Seth Forshee" <seth.forshee@canonical.com>,
+	"Hauke Mehrtens" <hauke@hauke-m.de>,
 	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
 	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+To: "Tim Gardner" <tim.gardner@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1360265735-42450-1-git-send-email-tim.gardner@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dynamically allocate the probe response template which
-avoids potential stack corruption. Observed with smatch:
+On 02/07/2013 08:35 PM, Tim Gardner wrote:
+> DOT11_MIN_BEACON_PERIOD and DOT11_MAX_BEACON_PERIOD are
+> superfluous. The only invalid beacon period is 0. Comparing
+> a 16 bit quantity to 0xffff also causes a compile warning:
+> 
+> drivers/net/wireless/brcm80211/brcmsmac/main.c:5560 brcms_c_set_beacon_period()
+>  warn: impossible condition '(period > 65535) => (0-65535 > 65535)'
+> 
+> Observed from smatch analysis.
+> 
+> Cc: Brett Rudley <brudley@broadcom.com>
+> Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+> Cc: Hante Meuleman <meuleman@broadcom.com>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+> Cc: Seth Forshee <seth.forshee@canonical.com>
+> Cc: Hauke Mehrtens <hauke@hauke-m.de>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: brcm80211-dev-list@broadcom.com
+> Cc: netdev@vger.kernel.org
 
-drivers/net/wireless/brcm80211/brcmsmac/main.c:7412 brcms_c_bss_update_probe_resp()
- warn: 'prb_resp' puts 512 bytes on stack
-
-Cc: Brett Rudley <brudley@broadcom.com>
-Cc: Arend van Spriel <arend@broadcom.com>
-Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
-Cc: Hante Meuleman <meuleman@broadcom.com>
-Cc: "John W. Linville" <linville@tuxdriver.com>
-Cc: Seth Forshee <seth.forshee@canonical.com>
-Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
-Cc: Hauke Mehrtens <hauke@hauke-m.de>
-Cc: linux-wireless@vger.kernel.org
-Cc: brcm80211-dev-list@broadcom.com
-Cc: netdev@vger.kernel.org
-Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
----
- drivers/net/wireless/brcm80211/brcmsmac/main.c |   11 ++++++++++-
- 1 file changed, 10 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-index c26992a..e392e76 100644
---- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
-+++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
-@@ -7408,9 +7408,16 @@ brcms_c_bss_update_probe_resp(struct brcms_c_info *wlc,
- 			      struct brcms_bss_cfg *cfg,
- 			      bool suspend)
- {
--	u16 prb_resp[BCN_TMPL_LEN / 2];
-+	u16 *prb_resp;
- 	int len = BCN_TMPL_LEN;
- 
-+	prb_resp = kmalloc(BCN_TMPL_LEN, GFP_ATOMIC);
-+	if (!prb_resp) {
-+		wiphy_err(wlc->wiphy, "wl: %s: failed to alloc %u bytes\n",
-+			__func__, BCN_TMPL_LEN);
-+		return;
-+	}
-+
- 	/*
- 	 * write the probe response to hardware, or save in
- 	 * the config structure
-@@ -7444,6 +7451,8 @@ brcms_c_bss_update_probe_resp(struct brcms_c_info *wlc,
- 
- 	if (suspend)
- 		brcms_c_enable_mac(wlc);
-+
-+	kfree(prb_resp);
- }
- 
- void brcms_c_update_probe_resp(struct brcms_c_info *wlc, bool suspend)
--- 
-1.7.9.5
+Acked-by: Arend van Spriel <arend@broadcom.com>
+> Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+> ---
+>  drivers/net/wireless/brcm80211/brcmsmac/main.c |    5 +----
+>  1 file changed, 1 insertion(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> index c26992a..080b54d 100644
+> --- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> +++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+> @@ -101,8 +101,6 @@
+>  #define DOT11_RTS_LEN			16
+>  #define DOT11_CTS_LEN			10
+>  #define DOT11_BA_BITMAP_LEN		128
+> -#define DOT11_MIN_BEACON_PERIOD		1
+> -#define DOT11_MAX_BEACON_PERIOD		0xFFFF
+>  #define DOT11_MAXNUMFRAGS		16
+>  #define DOT11_MAX_FRAG_LEN		2346
+>  
+> @@ -5555,8 +5553,7 @@ int brcms_c_set_rateset(struct brcms_c_info *wlc, struct brcm_rateset *rs)
+>  
+>  int brcms_c_set_beacon_period(struct brcms_c_info *wlc, u16 period)
+>  {
+> -	if (period < DOT11_MIN_BEACON_PERIOD ||
+> -	    period > DOT11_MAX_BEACON_PERIOD)
+> +	if (period == 0)
+>  		return -EINVAL;
+>  
+>  	wlc->default_bss->beacon_period = period;
+> 
