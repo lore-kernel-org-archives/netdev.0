@@ -1,56 +1,41 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net 1/2] net: sctp: sctp_auth_make_key_vector: fix undefined ref-count behaviour
-Date: Thu,  7 Feb 2013 11:55:36 +0100
-Message-ID: <5eff11271160e84c7fc2d97b81161b1ae7be4a6e.1360231701.git.dborkman@redhat.com>
-References: <cover.1360231701.git.dborkman@redhat.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: vyasevich@gmail.com
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Problem with GVRP on eth while having a bridge
+Date: Thu, 07 Feb 2013 11:56:38 +0100
+Message-ID: <51138866.8000802@profihost.ag>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexandre DERUMIER <aderumier@odiso.com>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59041 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757949Ab3BGKzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 05:55:41 -0500
-In-Reply-To: <cover.1360231701.git.dborkman@redhat.com>
-In-Reply-To: <cover.1360231701.git.dborkman@redhat.com>
-References: <cover.1360231701.git.dborkman@redhat.com>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:53213 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755815Ab3BGLDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 06:03:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In sctp_auth_make_key_vector(), a sctp_auth_bytes structure is being
-allocated, but without setting its object reference count, thus it's
-initialized with a random value from the memory, which can lead to
-i) premature free's of this object when being put (with possible
-subsequent kernel panics), or ii) memory leaks when refcount has a
-high value.
+Hello list,
 
-Fix this by using the appropriate sctp_auth_create_key() allocator,
-which performs sanity checks, sets length and the refcount, as similar
-done in sctp_auth_asoc_set_secret() and others. This bug seems to be
-present since 2007 (1f485649f529: Implement SCTP-AUTH internals).
+this was tested using vanilla 3.7.6 kernel.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/auth.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+When i add a vlan to an ethernet device supporting gvrp everything is
+fine until this ethernet device also had a bridge.
 
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 159b9bc..55f1b06 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -205,12 +205,10 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
-         if (chunks)
- 		len += ntohs(chunks->param_hdr.length);
- 
--	new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
-+	new = sctp_auth_create_key(len, gfp);
- 	if (!new)
- 		return NULL;
- 
--	new->len = len;
--
- 	memcpy(new->data, random, ntohs(random->param_hdr.length));
- 	offset += ntohs(random->param_hdr.length);
- 
--- 
-1.7.11.7
+This works fine as long as eth1 is not attached to a bridge.
+
+# ip link add link eth1 name eth1.99 type vlan id 99 gvrp on
+# ip link set eth1.99 up
+
+The dynamic VLAN stays up at the switch - no problems.
+
+If eth1 has a bridge the dynamic vlan is created at the switch so the
+initial packet was send but it disappears after a few seconds.
+
+Wireshark shows that the kernel has stopped sending GVRP packets. After
+adding a bridge to eth1.
+
+Greets,
+Stefan
