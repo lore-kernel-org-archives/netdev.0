@@ -1,74 +1,71 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCH] bgmac: fix "cmdcfg" calls for promisc and loopback modes
-Date: Thu, 07 Feb 2013 15:55:08 +0100
-Message-ID: <5113C04C.60100@openwrt.org>
-References: <1360232591-25789-1-git-send-email-zajec5@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net 1/2] net: sctp: sctp_auth_make_key_vector: fix undefined
+ ref-count behaviour
+Date: Thu, 07 Feb 2013 10:04:44 -0500
+Message-ID: <5113C28C.2050607@gmail.com>
+References: <cover.1360231701.git.dborkman@redhat.com> <5eff11271160e84c7fc2d97b81161b1ae7be4a6e.1360231701.git.dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Nathan Hintz <nlhintz@hotmail.com>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:39905 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755589Ab3BGO6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 09:58:08 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c41so1521558eek.13
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 06:58:07 -0800 (PST)
-In-Reply-To: <1360232591-25789-1-git-send-email-zajec5@gmail.com>
+Received: from mail-vb0-f47.google.com ([209.85.212.47]:45466 "EHLO
+	mail-vb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753390Ab3BGPEy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 10:04:54 -0500
+In-Reply-To: <5eff11271160e84c7fc2d97b81161b1ae7be4a6e.1360231701.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Rafal,
+On 02/07/2013 05:55 AM, Daniel Borkmann wrote:
+> In sctp_auth_make_key_vector(), a sctp_auth_bytes structure is being
+> allocated, but without setting its object reference count, thus it's
+> initialized with a random value from the memory, which can lead to
+> i) premature free's of this object when being put (with possible
+> subsequent kernel panics), or ii) memory leaks when refcount has a
+> high value.
+>
+> Fix this by using the appropriate sctp_auth_create_key() allocator,
+> which performs sanity checks, sets length and the refcount, as similar
+> done in sctp_auth_asoc_set_secret() and others. This bug seems to be
+> present since 2007 (1f485649f529: Implement SCTP-AUTH internals).
 
-On 02/07/2013 11:23 AM, Rafa=C5=82 Mi=C5=82ecki wrote:
-> This makes code match the specs.
+Not strictly a bug.  The vectors are temporary and directly freed by the 
+caller.   They are only used by sctp_auth_asoc_create_secret() which 
+builds the association secret key.  The vectors are destroyed at the end 
+of that function using kfree() thus noone really cares about
+the refcount on them and there are no leaks.
 
-And this probably deserves a better commit message too. Especially as=20
-you are inverting booleans, without the actual consumer of that boolean=
-=20
-parameter being in the context of the patch.
+If you are going to convert to using sctp_auth_create_key() then you
+need to convert the callers to user to use sctp_auth_key_put(). 
+Otherwise you are leaking object counts.
 
-Thanks!
+-vlad
 
 >
-> Reported-by: Nathan Hintz <nlhintz@hotmail.com>
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 > ---
->   drivers/net/ethernet/broadcom/bgmac.c |    8 ++++----
->   1 file changed, 4 insertions(+), 4 deletions(-)
+>   net/sctp/auth.c | 4 +---
+>   1 file changed, 1 insertion(+), 3 deletions(-)
 >
-> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
-rnet/broadcom/bgmac.c
-> index f90d1dc..8cf5e39 100644
-> --- a/drivers/net/ethernet/broadcom/bgmac.c
-> +++ b/drivers/net/ethernet/broadcom/bgmac.c
-> @@ -776,9 +776,9 @@ static void bgmac_set_rx_mode(struct net_device *=
-net_dev)
->   	struct bgmac *bgmac =3D netdev_priv(net_dev);
+> diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+> index 159b9bc..55f1b06 100644
+> --- a/net/sctp/auth.c
+> +++ b/net/sctp/auth.c
+> @@ -205,12 +205,10 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
+>           if (chunks)
+>   		len += ntohs(chunks->param_hdr.length);
 >
->   	if (net_dev->flags & IFF_PROMISC)
-> -		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, false);
-> +		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_PROM, true);
->   	else
-> -		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, false);
-> +		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_PROM, 0, true);
->   }
+> -	new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
+> +	new = sctp_auth_create_key(len, gfp);
+>   	if (!new)
+>   		return NULL;
 >
->   #if 0 /* We don't use that regs yet */
-> @@ -1039,9 +1039,9 @@ static void bgmac_chip_init(struct bgmac *bgmac=
-, bool full_init)
->   	bgmac_write_mac_address(bgmac, bgmac->net_dev->dev_addr);
->
->   	if (bgmac->loopback)
-> -		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_ML, true);
-> +		bgmac_cmdcfg_maskset(bgmac, ~0, BGMAC_CMDCFG_ML, false);
->   	else
-> -		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_ML, 0, true);
-> +		bgmac_cmdcfg_maskset(bgmac, ~BGMAC_CMDCFG_ML, 0, false);
->
->   	bgmac_write(bgmac, BGMAC_RXMAX_LENGTH, 32 + ETHER_MAX_LEN);
+> -	new->len = len;
+> -
+>   	memcpy(new->data, random, ntohs(random->param_hdr.length));
+>   	offset += ntohs(random->param_hdr.length);
 >
 >
