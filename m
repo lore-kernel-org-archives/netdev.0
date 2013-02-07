@@ -1,8 +1,8 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2-net-3.8 1/3] ixgbe: fix gso type
-Date: Thu, 7 Feb 2013 15:13:05 +0200
-Message-ID: <e1e4fe6d356c2766cd6a962a3ef6439bfd94a985.1360236441.git.mst@redhat.com>
-References: <cover.1360236441.git.mst@redhat.com>
+Subject: [PATCHv2-net-3.8 0/3] fix kernel crash with macvtap
+	on top of LRO
+Date: Thu, 7 Feb 2013 15:12:56 +0200
+Message-ID: <cover.1360236441.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +19,6 @@ Cc: "David S. Miller" <davem@davemloft.net>, e1000-devel@lists.sourceforge.net,
 To: netdev@vger.kernel.org
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <cover.1360236441.git.mst@redhat.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -30,50 +29,39 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-ixgbe set gso_size but not gso_type. This leads to
-crashes in macvtap.
+At the moment, macvtap crashes are observed if macvtap is attached
+to an interface with LRO enabled.
+The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
+This happens because several drivers set gso_size but not gso_type
+in incoming skbs.
+This didn't use to be the case: with intel cards on 3.2 and older
+kernels, with qlogic - on 3.4 and older kernels, so it's a regression if
+not a recent one.
+The following patches fix this for qlogic, broadcom and intel drivers.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+I tested that the patch fixes the crash for ixgbe but
+don't have qlogic/broadcom hardware to test.
+I also only tested TCPv4.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 20a5af6..e1b2d22 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1401,6 +1401,10 @@ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
- 	/* set gso_size to avoid messing up TCP MSS */
- 	skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->len - hdr_len),
- 						 IXGBE_CB(skb)->append_cnt);
-+	if (skb->protocol == __constant_htons(ETH_P_IPV6))
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+	else
-+		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- }
- 
- static void ixgbe_update_rsc_stats(struct ixgbe_ring *rx_ring,
-@@ -1435,6 +1439,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- {
- 	struct net_device *dev = rx_ring->netdev;
- 
-+	skb->protocol = eth_type_trans(skb, dev);
-+
- 	ixgbe_update_rsc_stats(rx_ring, skb);
- 
- 	ixgbe_rx_hash(rx_ring, rx_desc, skb);
-@@ -1450,8 +1456,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
- 	}
- 
- 	skb_record_rx_queue(skb, rx_ring->queue_index);
--
--	skb->protocol = eth_type_trans(skb, dev);
- }
- 
- static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+Please review, and consider for 3.8.
+
+Changes from v1:
+	- added missing htons as suggested by Eric
+	- backported the relevant bits from
+	  cbf1de72324a8105ddcc3d9ce9acbc613faea17e for bnx2x
+
+Michael S. Tsirkin (3):
+  ixgbe: fix gso type
+  qlcnic: set gso_type
+  bnx2x: set gso_type
+
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 12 +++++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c   |  8 ++++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c  |  7 ++++++-
+ 3 files changed, 17 insertions(+), 10 deletions(-)
+
 -- 
 MST
-
 
 ------------------------------------------------------------------------------
 Free Next-Gen Firewall Hardware Offer
