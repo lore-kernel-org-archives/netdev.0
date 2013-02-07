@@ -1,43 +1,60 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [RFC PATCH] xfrm: fix handling of XFRM policies mark and mask.
-Date: Thu, 7 Feb 2013 13:54:37 +0100
-Message-ID: <20130207125437.GC17794@secunet.com>
-References: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com>
- <20130205081232.GF23291@secunet.com>
- <51125744.3030905@gmail.com>
- <D4563759-CEC5-4F33-BF0A-9FA10716F8DF@telecom-bretagne.eu>
- <20130207104908.GA17794@secunet.com>
- <2BEAF521-7218-415B-98ED-EC0812903479@telecom-bretagne.eu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Problem with GVRP on eth while having a bridge
+Date: Thu, 7 Feb 2013 14:02:30 +0100
+Message-ID: <20130207130227.GF13989@macbook.localnet>
+References: <51138866.8000802@profihost.ag>
+ <20130207112227.GE13989@macbook.localnet>
+ <511396C9.2080106@profihost.ag>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jamal <j.hadi123@gmail.com>, Romain KUNTZ <r.kuntz@ipflavors.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	herbert@gondor.apana.org.au,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jamal Hadi Salim <hadi@cyberus.ca>
-To: Emmanuel Thierry <emmanuel.thierry@telecom-bretagne.eu>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Alexandre DERUMIER <aderumier@odiso.com>
+To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <2BEAF521-7218-415B-98ED-EC0812903479@telecom-bretagne.eu>
+In-Reply-To: <511396C9.2080106@profihost.ag>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 07, 2013 at 12:08:22PM +0100, Emmanuel Thierry wrote:
+On Thu, Feb 07, 2013 at 12:58:01PM +0100, Stefan Priebe - Profihost AG wrote:
+> Hi Patrick,
 > 
-> This is a nice idea, however you keep the insertion asymmetric. The usage of xfrm marks in non-conflicting cases will be made possible, but it stays disturbing for a user as the initial example will still have the same behavior:
-> * Inserting the marked one then the unmarked will succeed
-> * Inserting the unmarked then the marked one will fail
-> This gives to the user the feeling of an indeterministic behavior of the xfrm module.
+> thanks for your fast response.
+> 
+> > So please describe the entire GVRP message exchange that's going
+> > on.
+> I've attached two small pcap files.
+> 
+> has_bridge.pcap: is where eth1 has a bridge and the dynamic vlan
+> disappears after a few seconds.
+> 
+> no_bridge.pcap: no bridge is assigned to eth1 - the dynamic vlan stays
+> as long as i remove it
+> 
+> > Also you probably want to add the VLAN device on top of the bridge
+> > device, otherwise it will get passed to the bridge after untagging,
+> > which might not work, depending on the MAC addresses used.
+> 
+> That's working fine in vanilla kernel 3.7.6 but it does not with RHEL 6.
+> Also i looks more complicated as i need another bridge on top of the
+> vlan to assign the needed tap devices. I looked at ovirt for the network
+> setup:
+> http://www.ovirt.org/Vdsm_Network
+> 
+> and they also add the vlan directly on top of the nic and then the
+> bridge on top of the VLANs.
 
-This was intended. Inserting the marked one then the unmarked
-is a working scenario. Some users might rely on it, so we can't
-change this as you proposed.
+What seems to be happening is that the switch is constantly requesting
+GVRP updates. Once eth0 is added to the bridge, the bridge has preference
+over local protocol (LLC) delivery. Since the packet has a link local
+destination and your bridge doesn't seem to have STP enabled, the
+bridge decides to forward the packet. Since its a multicast destination,
+the packet is finally passed up to LLC, but the receiving device is
+the bridge, not eth0. When the packet reaches the GARP input handler,
+no garp_port is associated to the device and the packet is dropped.
+This result is that the GARP protocol doesn't notice that the switch
+expects an update and the switch finally removes the VLAN.
 
-On the other hand, inserting the unmarked one then the marked
-might result in a wrong policy lookup, so we can't allow this.
-The only possibility we have, is inserting with different
-priorites and that's what I'm proposing.
-
-I fear we have to live with that asymmetric behaviour if
-both policies have the same priority.
+So the solution is: put the VLAN on the bridge device.
