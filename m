@@ -1,80 +1,67 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: BQL support in gianfar causes network hickup
-Date: Thu, 7 Feb 2013 16:05:02 -0500
-Message-ID: <511416FE.9000906@windriver.com>
-References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de> <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org> <1353800616.2590.4562.camel@edumazet-glaptop> <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de> <1353950255.7553.6.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de> <1354019816.7553.1585.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de> <1354023162.7553.1708.camel@edumazet-glaptop> <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BB@Exchange1.lawo.de>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART
+ messages and interrupt pipe setup
+Date: Thu, 07 Feb 2013 15:09:41 -0600
+Message-ID: <1360271381.2382.42.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	 <1357318289.5370.19.camel@dcbw.foobar.com>
+	 <1360176176.11742.16.camel@dcbw.foobar.com>
+	 <2485224.kk5J89zEMM@linux-5eaq.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tino Keitel <tino.keitel@tikei.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Keitel, Tino (ALC NetworX GmbH)" <Tino.Keitel@alcnetworx.de>
+Cc: Elina Pasheva <epasheva@sierrawireless.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Oliver Neukum <oliver@neukum.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61568 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030217Ab3BGVEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 16:04:46 -0500
-In-Reply-To: <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BB@Exchange1.lawo.de>
+Received: from mx1.redhat.com ([209.132.183.28]:32130 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759027Ab3BGVJY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 16:09:24 -0500
+In-Reply-To: <2485224.kk5J89zEMM@linux-5eaq.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-02-05 08:00 AM, Keitel, Tino (ALC NetworX GmbH) wrote:
-> On Di, 2012-11-27 at 05:32 -0800, Eric Dumazet wrote:
->> On Tue, 2012-11-27 at 13:42 +0100, Keitel, Tino (ALC NetworX GmbH)
->> wrote:
->>> On Di, 2012-11-27 at 04:36 -0800, Eric Dumazet wrote:
->>>>
->>>> Can you reproduce the problem using a single cpu ?
->>>
->>> Yes, it is a single-CPU system.
->>
->> Can you reproduce the problem without PTP running, or disabled in the
->> driver ?
->>
->> (comment the "priv->hwts_tx_en = 1;" line)
+On Wed, 2013-02-06 at 21:17 +0100, Oliver Neukum wrote:
+> On Wednesday 06 February 2013 12:42:56 Dan Williams wrote:
+> > As part of the initialization sequence, the driver sends a SYNC message
+> > via the control pipe to the firmware, which appears to request a
+> > firmware restart.  The firmware responds with an indication via the
+> > interrupt pipe set up by usbnet.  If the driver does not receive a
+> > RESTART indication within a certain amount of time, it will periodically
+> > send additional SYNC messages until it receives the RESTART indication.
+> > 
+> > Unfortunately, the interrupt URB is only submitted while the netdev
+> > is open, which is usually not the case during initialization, and thus
+> > the firmware's RESTART indication is lost.  So the driver continues
+> > sending SYNC messages, and eventually the firmware crashes when it
+> > receives too many.  This leads to a wedged netdev.
 > 
-> I can't reproduce it with that line commented. However, so far I was
-> only able to reproduce it when starting the ptp2 client, so maybe this
-> is connected.
+> If I understand this correctly we should stop the interrupt pipe once
+> RESTART has been recieved. I am afraid this patch is a bit inefficient.
 
-I found an mpc8315erdb, and built the default yocto build (v3.4.20,
-which should have the issue based on your earlier reports.)
+The firmware may send other indications to the host over the interrupt
+pipe at any time, apparently.  However, I have not seen firmware send
+these indications in practice, so maybe we can ignore this and do as you
+suggest.
 
-> 
->> By the way are any errata flagged in gfar_detect_errata() ?
-> 
-> This is from dmesg:
-> 
-> fsl-gianfar e0024000.ethernet: enabled errata workarounds, flags: 0x7
-> 
-> 0x7 would be GFAR_ERRATA_74, GFAR_ERRATA_76 and GFAR_ERRATA_A002
-> according to drivers/net/ethernet/freescale/gianfar.h.
+So how would you suggest to handle this given the constraints?
 
-The MPC8315ECE.pdf lists the 8315 as having 76 and A002 (amongst
-a lot of others.)  However the driver only does errata checks
-for the 8313 it seems.  I also then manually forced the driver
-to enable the errata and confirmed I saw 0x7 flag in dmesg.
+Basically, we need to allow sierra_net to submit dev->interrupt at
+probe/bind and then after a period of time kill it when it's no longer
+needed.  The problem is that if the interface is set IFF_UP right after
+bind but before sierra_net has finished its SYNC/Restart dance, we need
+to ensure that sierra_net doesn't kill the URB unconditionally.
 
-Finally I added the meta-networking layer to the yocto build to
-get a ptpd2 (2.2.0-r1)
+One way to do this would be a new usbnet function to subdrivers could
+call to submit the URB which would be a NOP if the URB was already
+submitted.  It would be paired with a function to kill the URB which
+would be a NOP if (URB already killed || (IFF_UP and subdriver has
+status() hook)).  Kinda like refcounting the interrupt URB submission
+but not.
 
-On another board, I ran a server as:
-    ptpd2 -G -C -c -b eth0
+Does that sound like a worthwhile approach?
 
-On the 8315, I ran the client as:
-    ptpd2 -g -C -c -b eth0
-
-In neither case (errata off, and errata manually enabled) I did not
-manage to get the tx timeout that you got.
-
-There must be something more specific to your environment, your
-ptpd client (and args) and perhaps the board itself.
-
-Paul.
---
-
-> 
-> Regards,
-> Tino
-> 
+Dan
