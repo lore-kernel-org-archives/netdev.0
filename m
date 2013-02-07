@@ -1,62 +1,48 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH] net: sh_eth: Add support of device tree probe
-Date: Thu, 7 Feb 2013 09:58:58 +0900
-Message-ID: <CABMQnVLr9WqMWC6z3BuYyBvNSXM491VwrZ+DcKd3qGu0UN-G3Q@mail.gmail.com>
-References: <1360116019-8870-1-git-send-email-horms+renesas@verge.net.au> <87pq0dg7ot.wl%kuninori.morimoto.gx@renesas.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Thu, 7 Feb 2013 02:00:10 +0100
+Message-ID: <20130207010010.GD19537@order.stressinduktion.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <20130206130739.GA1305@eerihug-hybrid.ki.sw.ericsson.se> <20130206134950.GD10290@order.stressinduktion.org> <51127781.2000504@linux-ipv6.org> <20130206160409.GB18040@order.stressinduktion.org> <51128985.2010701@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Simon Horman <horms+renesas@verge.net.au>, netdev@vger.kernel.org,
-	linux-sh@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:53300 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219Ab3BGA7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 19:59:30 -0500
-Received: by mail-wg0-f49.google.com with SMTP id 15so1567769wgd.4
-        for <netdev@vger.kernel.org>; Wed, 06 Feb 2013 16:59:29 -0800 (PST)
-In-Reply-To: <87pq0dg7ot.wl%kuninori.morimoto.gx@renesas.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:48907 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752219Ab3BGBAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Feb 2013 20:00:11 -0500
+Content-Disposition: inline
+In-Reply-To: <51128985.2010701@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Thu, Feb 07, 2013 at 01:49:09AM +0900, YOSHIFUJI Hideaki wrote:
+> >>
+> >> NAK.
+> >>
+> >> Well, do you have relevant RFC?
+> >> RFC4291 says that we should drop ff00::/16, but not ff01::/16.
+> > 
+> > I know what you mean, the RFC does not state it directly. Hm, the BSDs seem to
+> > drop such destination addresses, too, if they don't originate from a loopback
+> > interface. Or did you mean that there is a flaw in the skb->pkt_type !=
+> > PACKET_LOOPBACK condition?
+> 
+> We do not drop ff01::/16, because RFC is silent about it.
 
-On Wed, Feb 6, 2013 at 5:36 PM, Kuninori Morimoto
-<kuninori.morimoto.gx@renesas.com> wrote:
->
-> Hi Simon, Iwamatsu-san
->
->> +Required properties:
->> +- compatible:                   "renesas,sh-eth";
->> +- interrupt-parent:             The phandle for the interrupt controller that
->> +                                services interrupts for this device.
->> +- reg:                          Offset and length of the register set for the
->> +                                device.
->> +- interrupts:                   Interrupt mapping for the sh_eth interrupt
->> +                                sources (vector id).
->> +- phy-mode:              String, operation mode of the PHY interface.
->> +- sh-eth,edmac-endian:          String, endian of sh_eth dmac.
->
-> I believe endian is only little/big.
-> It can be "bool" settings, not "string" ?
->
+I just did a little bit of research on this topic and found this:
 
-If we use bool , we may use this as "sh-eth,edmac-endian-big" or
-sh-eth,edmac-endian-little.
-Or we define big-endian, and when using big-endian, we specify this.
-Either way is okay.
+RFC4541 3. IPv6 Considerations:
 
->> +- sh-eth,endian:                String, endian of sh_eth dmac.
->
-> Is this really used it in this driver ?
->
+   MLD messages are also not sent regarding groups with addresses in the
+   range FF00::/15 (which encompasses both the reserved FF00::/16 and
+   node-local FF01::/16 IPv6 address spaces).  These addresses should
+   never appear in packets on the link.
 
-Yes. In many cases, this uses little-endian, but user may specify
-big-endian, I think.
+It gives a strong indication that we should drop these packets. What do you
+think?
 
-Best regards,
-  Nobuhiro
+Thanks,
 
--- 
-Nobuhiro Iwamatsu
+  Hannes
