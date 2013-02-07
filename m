@@ -1,47 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Problem with GVRP on eth while having a bridge
-Date: Thu, 7 Feb 2013 12:22:27 +0100
-Message-ID: <20130207112227.GE13989@macbook.localnet>
-References: <51138866.8000802@profihost.ag>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Alexandre DERUMIER <aderumier@odiso.com>
-To: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51138866.8000802@profihost.ag>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sctp: sctp_auth_make_key_vector: remove duplicate ntohs calls
+Date: Thu,  7 Feb 2013 12:41:39 +0100
+Message-ID: <c029f55f4d0bde790f77f62d623f4d1e387c4c0b.1360237025.git.dborkman@redhat.com>
+References: <cover.1360237025.git.dborkman@redhat.com>
+Cc: vyasevich@gmail.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21733 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754294Ab3BGLln (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Feb 2013 06:41:43 -0500
+In-Reply-To: <cover.1360237025.git.dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 07, 2013 at 11:56:38AM +0100, Stefan Priebe - Profihost AG wrote:
-> Hello list,
-> 
-> this was tested using vanilla 3.7.6 kernel.
-> 
-> When i add a vlan to an ethernet device supporting gvrp everything is
-> fine until this ethernet device also had a bridge.
-> 
-> This works fine as long as eth1 is not attached to a bridge.
-> 
-> # ip link add link eth1 name eth1.99 type vlan id 99 gvrp on
-> # ip link set eth1.99 up
-> 
-> The dynamic VLAN stays up at the switch - no problems.
-> 
-> If eth1 has a bridge the dynamic vlan is created at the switch so the
-> initial packet was send but it disappears after a few seconds.
-> 
-> Wireshark shows that the kernel has stopped sending GVRP packets. After
-> adding a bridge to eth1.
+Instead of calling 3 times ntohs(random->param_hdr.length), 2 times
+ntohs(hmacs->param_hdr.length), and 3 times ntohs(chunks->param_hdr.length)
+within the same function, we only call each once and store it in a
+variable.
 
-Well, there's no reason why it should continue sending packets after
-the switch has been updated unless it receives a message indicating
-that the switch is about to remove it from it's tables again. So
-please describe the entire GVRP message exchange that's going on.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/auth.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-Also you probably want to add the VLAN device on top of the bridge
-device, otherwise it will get passed to the bridge after untagging,
-which might not work, depending on the MAC addresses used.
+diff --git a/net/sctp/auth.c b/net/sctp/auth.c
+index 159b9bc..94a12de 100644
+--- a/net/sctp/auth.c
++++ b/net/sctp/auth.c
+@@ -200,10 +200,14 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
+ 	struct sctp_auth_bytes *new;
+ 	__u32	len;
+ 	__u32	offset = 0;
++	__u16	random_len, hmacs_len, chunks_len = 0;
+ 
+-	len = ntohs(random->param_hdr.length) + ntohs(hmacs->param_hdr.length);
+-        if (chunks)
+-		len += ntohs(chunks->param_hdr.length);
++	random_len = ntohs(random->param_hdr.length);
++	hmacs_len = ntohs(hmacs->param_hdr.length);
++	if (chunks)
++		chunks_len = ntohs(chunks->param_hdr.length);
++
++	len = random_len + hmacs_len + chunks_len;
+ 
+ 	new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
+ 	if (!new)
+@@ -211,16 +215,15 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
+ 
+ 	new->len = len;
+ 
+-	memcpy(new->data, random, ntohs(random->param_hdr.length));
+-	offset += ntohs(random->param_hdr.length);
++	memcpy(new->data, random, random_len);
++	offset += random_len;
+ 
+ 	if (chunks) {
+-		memcpy(new->data + offset, chunks,
+-			ntohs(chunks->param_hdr.length));
+-		offset += ntohs(chunks->param_hdr.length);
++		memcpy(new->data + offset, chunks, chunks_len);
++		offset += chunks_len;
+ 	}
+ 
+-	memcpy(new->data + offset, hmacs, ntohs(hmacs->param_hdr.length));
++	memcpy(new->data + offset, hmacs, hmacs_len);
+ 
+ 	return new;
+ }
+-- 
+1.7.11.7
