@@ -1,98 +1,78 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] qmi_wwan, cdc-ether: add ADU960S
-Date: Thu, 07 Feb 2013 10:53:10 -0600
-Message-ID: <1360255990.2382.17.camel@dcbw.foobar.com>
-References: <1360173904.11742.8.camel@dcbw.foobar.com>
-	 <874nhp6x1o.fsf@nemi.mork.no>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv2-net-3.8 0/3] fix kernel crash with
+ macvtap on top of LRO
+Date: Thu, 7 Feb 2013 17:05:16 +0000
+Message-ID: <1360256716.3605.12.camel@bwh-desktop.uk.solarflarecom.com>
+References: <cover.1360236441.git.mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16723 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758830Ab3BGQws (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Feb 2013 11:52:48 -0500
-In-Reply-To: <874nhp6x1o.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>, Jacob,
+	Keller <jacob.e.keller@intel.com>, Tushar,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>, Carolyn, Jeff,
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	linux-kernel@vger.kernel.org,
+	John Ronciak <john.ronciak@intel.com>, linux-driver@qlogic.com, Peter
+To: "Michael S. Tsirkin" <mst@redhat.com>, "David S. Miller"
+	<davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <cover.1360236441.git.mst@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-06 at 20:51 +0100, Bj=C3=B8rn Mork wrote:
-> Dan Williams <dcbw@redhat.com> writes:
->=20
-> > It advertises a standard CDC-ETHER interface, which actually should=
- be
-> > driven by qmi_wwan.
-> >
-> > Signed-off-by: Dan Williams <dcbw@redhat.com>
-> > ---
-> > diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ethe=
-r.c
-> > index 3f3d12d..cc6d0c1 100644
-> > --- a/drivers/net/usb/cdc_ether.c
-> > +++ b/drivers/net/usb/cdc_ether.c
-> > @@ -615,6 +615,13 @@ static const struct usb_device_id	products [] =
-=3D {
-> >  	.driver_info =3D 0,
-> >  },
-> > =20
-> > +/* AnyDATA ADU960S - handled by qmi_wwan */
-> > +{
-> > +	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
-> > +			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-> > +	.driver_info =3D 0,
-> > +},
-> > +
-> >  /*
-> >   * WHITELIST!!!
-> >   *
-> > diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.=
-c
-> > index 6a1ca50..2b5ea32 100644
-> > --- a/drivers/net/usb/qmi_wwan.c
-> > +++ b/drivers/net/usb/qmi_wwan.c
-> > @@ -459,6 +459,7 @@ static const struct usb_device_id products[] =3D=
- {
-> >  	{QMI_FIXED_INTF(0x1199, 0x68a2, 19)},	/* Sierra Wireless MC7710 i=
-n QMI mode */
-> >  	{QMI_FIXED_INTF(0x1199, 0x901c, 8)},    /* Sierra Wireless EM7700=
- */
-> >  	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II=
- (Alcatel One Touch L100V LTE) */
-> > +	{QMI_FIXED_INTF(0x16d5, 0x650a, 8)},	/* AnyDATA ADU960S */
-> > =20
-> >  	/* 4. Gobi 1000 devices */
-> >  	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
->=20
->=20
-> Just thinking....
->=20
-> Maybe we should use USB_DEVICE_AND_INTERFACE_INFO() in qmi_wwan as we=
-ll
-> for these devices?  The only reason we match on interface number for
-> most devices in that driver is because those devices use ff/ff/ff for
-> multiple different functions.  When the function is uniquely identifi=
-ed
-> using class/subclass/protocol as here, then I believe it makes more
-> sense to use those values. And it creates a symmetry between the
-> cdc_ether and the qmi_wwan entries, making the connection between the=
-m
-> clearer.
+On Thu, 2013-02-07 at 15:12 +0200, Michael S. Tsirkin wrote:
+> At the moment, macvtap crashes are observed if macvtap is attached
+> to an interface with LRO enabled.
+> The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
+> This happens because several drivers set gso_size but not gso_type
+> in incoming skbs.
+> This didn't use to be the case: with intel cards on 3.2 and older
+> kernels, with qlogic - on 3.4 and older kernels, so it's a regression if
+> not a recent one.
+> The following patches fix this for qlogic, broadcom and intel drivers.
+> 
+> I tested that the patch fixes the crash for ixgbe but
+> don't have qlogic/broadcom hardware to test.
+> I also only tested TCPv4.
+> 
+> Please review, and consider for 3.8.
+> 
+> Changes from v1:
+> 	- added missing htons as suggested by Eric
+> 	- backported the relevant bits from
+> 	  cbf1de72324a8105ddcc3d9ce9acbc613faea17e for bnx2x
 
-Ok, I'll resubmit with DEVICE_AND_INTERFACE_INFO in qmi_wwan.
+I still don't think macvtap should behave inconsistently with forwarding
+and the bridge device.  We need a consensus as to whether transformation
+by LRO is allowable before making changes one way or the other.  If
+we're going to allow it then inet_lro also needs this fix.
 
-Dan
+Ben.
 
-> Not to mention that such symmetry prevents us from ending up with no
-> driver supporting the device if some firmware upgrade happened to cha=
-nge
-> the interface number..
->=20
->=20
-> Bj=C3=B8rn
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-usb" =
-in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
+
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
