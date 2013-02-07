@@ -1,80 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH iproute-3.8 0/6] ip netns bug fixes and enhancements
-Date: Thu, 07 Feb 2013 00:57:56 -0800
-Message-ID: <87obfw5wmj.fsf@xmission.com>
-References: <87a9u4q7k9.fsf@xmission.com>
-	<1354039239.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<87622v5ngt.fsf_-_@xmission.com>
-	<CAGK4HS_nZ-fk5628wgHke0491ESLaZumSj1ALqDamd4bzBYfBg@mail.gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 3/4] xen/netback: free already allocated memory on
+ failure in xen_netbk_get_requests
+Date: Thu, 7 Feb 2013 09:40:08 +0000
+Message-ID: <1360230008.32479.40.camel@zakaz.uk.xensource.com>
+References: <1360171081.32479.20.camel@zakaz.uk.xensource.com>
+	 <1360171098-1240-3-git-send-email-ian.campbell@citrix.com>
+	 <87ehgtgxhv.fsf@blp.benpfaff.org>
+	 <20130206.134737.967342633025530520.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "blp@cs.stanford.edu" <blp@cs.stanford.edu>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:54833 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754130Ab3BGI6L convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 03:58:11 -0500
-In-Reply-To: <CAGK4HS_nZ-fk5628wgHke0491ESLaZumSj1ALqDamd4bzBYfBg@mail.gmail.com>
-	(Vijay Subramanian's message of "Wed, 6 Feb 2013 16:56:27 -0800")
+Received: from smtp.eu.citrix.com ([46.33.159.39]:23558 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755820Ab3BGJkK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 04:40:10 -0500
+In-Reply-To: <20130206.134737.967342633025530520.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vijay Subramanian <subramanian.vijay@gmail.com> writes:
+On Wed, 2013-02-06 at 18:47 +0000, David Miller wrote:
+> From: Ben Pfaff <blp@cs.stanford.edu>
+> Date: Wed, 06 Feb 2013 09:31:24 -0800
+> 
+> > Ian Campbell <ian.campbell@citrix.com> writes:
+> > 
+> >> +	/*
+> >> +	 * Unwind, freeing all pages and sending error
+> >> +	 * reponses.
+> >> +	 */
+> > 
+> > s/reponses/responses/
 
->>
->> Eric W. Biederman (6):
->>       iproute2: Don't propogate mounts out of ip netns exec.
->>       iproute2: Normalize return codes in "ip netns"
->>       iproute2: Improve "ip netns add" failure error message
->>       iproute2: Make "ip netns delete" more likely to succeed
->>       iproute2: Fill in the ip-netns.8 manpage
->>       iproute2: Add "ip netns pids" and "ip netns identify"
->>
->
->
-> Eric,
-> With these patches applied, I am getting the following errors:
->
->
-> make[1]: Entering directory `/root/tools/iproute2/ip'
-> gcc -Wall -Wstrict-prototypes -Werror -O2 -I../include
-> -DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iprout=
-e2\"
-> -D_GNU_SOURCE   -c -o ipaddress.o ipaddress.c
-> gcc -Wall -Wstrict-prototypes -Werror -O2 -I../include
-> -DRESOLVE_HOSTNAMES -DLIBDIR=3D\"/usr/lib\" -DCONFDIR=3D\"/etc/iprout=
-e2\"
-> -D_GNU_SOURCE   -c -o ipnetns.o ipnetns.c
-> ipnetns.c: In function =E2=80=98netns_exec=E2=80=99:
-> ipnetns.c:156: error: =E2=80=98MS_SLAVE=E2=80=99 undeclared (first us=
-e in this function)
-> ipnetns.c:156: error: (Each undeclared identifier is reported only on=
-ce
-> ipnetns.c:156: error: for each function it appears in.)
-> ipnetns.c:156: error: =E2=80=98MS_REC=E2=80=99 undeclared (first use =
-in this function)
-> ipnetns.c: In function =E2=80=98netns_add=E2=80=99:
-> ipnetns.c:372: error: =E2=80=98MS_SHARED=E2=80=99 undeclared (first u=
-se in this function)
-> ipnetns.c:372: error: =E2=80=98MS_REC=E2=80=99 undeclared (first use =
-in this function)
-> make[1]: *** [ipnetns.o] Error 1
-> make[1]: Leaving directory `/root/tools/iproute2/ip'
-> make: *** [all] Error 2
+Fixed, thanks!
 
-On my system those defines are coming out of sys/mount.h and date back
-to 2.6.5 or so.  You should have them available on your system.
+> Also please format your comments in the standard networking form
+> which is:
+> 
+> 	/* Like
+> 	 * this.
+> 	 */
+> 
+> Patch #1 has the same problem, thanks Ian.
 
-What weird system are you on that doesn't export those?
+I fixed this up, actually this particular one fits on a single line just
+fine.
 
-I don't have a clue on where to start at a practical level.  It wouldn'=
-t
-be hard to provide some #ifndef compat glue but I can't imagine why tha=
-t
-would be needed.
+I'll resend shortly with the addition of the stable cc which I forgot
+last time.
 
-Eric
+Thanks,
+Ian.
