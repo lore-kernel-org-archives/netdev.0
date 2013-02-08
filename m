@@ -1,122 +1,202 @@
-From: sl reddy <slreddyforneobux@gmail.com>
-Subject: Re: Wifi basics documents
-Date: Fri, 8 Feb 2013 15:23:17 +0530
-Message-ID: <CAGmqTTSovcse3k4kv5o=+K6adAb672O5nJ=nXfZmc=d36gMSJw@mail.gmail.com>
-References: <CAHT=_ri0JBrbPfWJrzjYR4eNDDW9ygMkJSDU4vJXEfh_STLK9g@mail.gmail.com>
-	<5114B881.9000100@broadcom.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: [PATCH] atm/iphase: rename fregt_t -> ffreg_t
+Date: Fri, 8 Feb 2013 11:19:11 +0100
+Message-ID: <20130208101911.GA12195@osiris>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7141140055359322760=="
-Cc: brcm80211-dev-list@broadcom.com, Onteddu Slreddy <slreddy88@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>,
-	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-can@vger.kernel.org,
-	wil6210@qca.qualcomm.com, ath9k-devel@lists.ath9k.org
-To: Arend van Spriel <arend@broadcom.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <5114B881.9000100@broadcom.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============7141140055359322760==
-Content-Type: multipart/alternative; boundary=047d7bdc1a865f785104d5338747
+We have conflicting type qualifiers for "freg_t" in s390's ptrace.h and the
+iphase atm device driver, which causes the compile error below.
+Unfortunately the s390 typedef can't be renamed, since it's a user visible api,
+nor can I change the include order in s390 code to avoid the conflict.
 
---047d7bdc1a865f785104d5338747
-Content-Type: text/plain; charset=ISO-8859-1
+So simply rename the iphase typedef to a new name. Fixes this compile error:
 
-Hi
+In file included from drivers/atm/iphase.c:66:0:
+drivers/atm/iphase.h:639:25: error: conflicting type qualifiers for 'freg_t'
+In file included from next/arch/s390/include/asm/ptrace.h:9:0,
+                 from next/arch/s390/include/asm/lowcore.h:12,
+                 from next/arch/s390/include/asm/thread_info.h:30,
+                 from include/linux/thread_info.h:54,
+                 from include/linux/preempt.h:9,
+                 from include/linux/spinlock.h:50,
+                 from include/linux/seqlock.h:29,
+                 from include/linux/time.h:5,
+                 from include/linux/stat.h:18,
+                 from include/linux/module.h:10,
+                 from drivers/atm/iphase.c:43:
+next/arch/s390/include/uapi/asm/ptrace.h:197:3: note: previous declaration of 'freg_t' was here
 
+Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+---
+ drivers/atm/iphase.h | 146 +++++++++++++++++++++++++--------------------------
+ 1 file changed, 73 insertions(+), 73 deletions(-)
 
-Thanks for reply i referred  that site (wireless.kernel.org) as you said
-there is   lot of information
-but i am bit confused in getting right information because i am not
-interested much about hardware architecture as of now
-I need clear picture of software architecture
-but in the website there is lot of information so bit confused where to
-start
-
-any successions will be helpful for me
-
-
-Thanks & Regards
-
-O S L Reddy
-slreddy88@gmail.com
-
-
-On Fri, Feb 8, 2013 at 2:04 PM, Arend van Spriel <arend@broadcom.com> wrote:
-
-> On 02/08/2013 07:55 AM, Onteddu Slreddy wrote:
-> > Hello All,
-> >
-> >
-> > I recently joined this group the group.
-> >
-> > Can anybody suggest me places where I can get Documents which will
-> explain
-> > wifi  Architecture in brief i would like to know details like
-> >
-> > In Linux for embedded systems:
-> >         What is the software architecture for wifi
-> >         What are each folders in kernel/net and kernel/drivers/net refer
-> to
-> >         What is wpa_supplicant how to know which version I have to use
-> >         How to get  familiar with words like nl802.11, mac802.11, wext,
-> > copat-wireless, compatwireless-openmac
-> >         If I have to add a new chip driver what are the checklist points
-> i
-> > have to see
-> >
-> > My Quesitions may be basic kindly bare with me
-> > If any body have self prepared documents that will be great help for me
->
-> 802.11 is a IEEE standard that is freely available for download.
-> Regarding Linux architecture and infrastructure there is a lot of
-> information to be found on wireless.kernel.org.
->
-> Regards,
-> Arend
->
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless"
-> in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
---047d7bdc1a865f785104d5338747--
-
-
---===============7141140055359322760==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
---===============7141140055359322760==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============7141140055359322760==--
+diff --git a/drivers/atm/iphase.h b/drivers/atm/iphase.h
+index 6a0955e..53ecac5 100644
+--- a/drivers/atm/iphase.h
++++ b/drivers/atm/iphase.h
+@@ -636,82 +636,82 @@ struct rx_buf_desc {
+ #define SEG_BASE IPHASE5575_FRAG_CONTROL_REG_BASE  
+ #define REASS_BASE IPHASE5575_REASS_CONTROL_REG_BASE  
+ 
+-typedef volatile u_int  freg_t;
++typedef volatile u_int	ffreg_t;
+ typedef u_int   rreg_t;
+ 
+ typedef struct _ffredn_t {
+-        freg_t  idlehead_high;  /* Idle cell header (high)              */
+-        freg_t  idlehead_low;   /* Idle cell header (low)               */
+-        freg_t  maxrate;        /* Maximum rate                         */
+-        freg_t  stparms;        /* Traffic Management Parameters        */
+-        freg_t  abrubr_abr;     /* ABRUBR Priority Byte 1, TCR Byte 0   */
+-        freg_t  rm_type;        /*                                      */
+-        u_int   filler5[0x17 - 0x06];
+-        freg_t  cmd_reg;        /* Command register                     */
+-        u_int   filler18[0x20 - 0x18];
+-        freg_t  cbr_base;       /* CBR Pointer Base                     */
+-        freg_t  vbr_base;       /* VBR Pointer Base                     */
+-        freg_t  abr_base;       /* ABR Pointer Base                     */
+-        freg_t  ubr_base;       /* UBR Pointer Base                     */
+-        u_int   filler24;
+-        freg_t  vbrwq_base;     /* VBR Wait Queue Base                  */
+-        freg_t  abrwq_base;     /* ABR Wait Queue Base                  */
+-        freg_t  ubrwq_base;     /* UBR Wait Queue Base                  */
+-        freg_t  vct_base;       /* Main VC Table Base                   */
+-        freg_t  vcte_base;      /* Extended Main VC Table Base          */
+-        u_int   filler2a[0x2C - 0x2A];
+-        freg_t  cbr_tab_beg;    /* CBR Table Begin                      */
+-        freg_t  cbr_tab_end;    /* CBR Table End                        */
+-        freg_t  cbr_pointer;    /* CBR Pointer                          */
+-        u_int   filler2f[0x30 - 0x2F];
+-        freg_t  prq_st_adr;     /* Packet Ready Queue Start Address     */
+-        freg_t  prq_ed_adr;     /* Packet Ready Queue End Address       */
+-        freg_t  prq_rd_ptr;     /* Packet Ready Queue read pointer      */
+-        freg_t  prq_wr_ptr;     /* Packet Ready Queue write pointer     */
+-        freg_t  tcq_st_adr;     /* Transmit Complete Queue Start Address*/
+-        freg_t  tcq_ed_adr;     /* Transmit Complete Queue End Address  */
+-        freg_t  tcq_rd_ptr;     /* Transmit Complete Queue read pointer */
+-        freg_t  tcq_wr_ptr;     /* Transmit Complete Queue write pointer*/
+-        u_int   filler38[0x40 - 0x38];
+-        freg_t  queue_base;     /* Base address for PRQ and TCQ         */
+-        freg_t  desc_base;      /* Base address of descriptor table     */
+-        u_int   filler42[0x45 - 0x42];
+-        freg_t  mode_reg_0;     /* Mode register 0                      */
+-        freg_t  mode_reg_1;     /* Mode register 1                      */
+-        freg_t  intr_status_reg;/* Interrupt Status register            */
+-        freg_t  mask_reg;       /* Mask Register                        */
+-        freg_t  cell_ctr_high1; /* Total cell transfer count (high)     */
+-        freg_t  cell_ctr_lo1;   /* Total cell transfer count (low)      */
+-        freg_t  state_reg;      /* Status register                      */
+-        u_int   filler4c[0x58 - 0x4c];
+-        freg_t  curr_desc_num;  /* Contains the current descriptor num  */
+-        freg_t  next_desc;      /* Next descriptor                      */
+-        freg_t  next_vc;        /* Next VC                              */
+-        u_int   filler5b[0x5d - 0x5b];
+-        freg_t  present_slot_cnt;/* Present slot count                  */
+-        u_int   filler5e[0x6a - 0x5e];
+-        freg_t  new_desc_num;   /* New descriptor number                */
+-        freg_t  new_vc;         /* New VC                               */
+-        freg_t  sched_tbl_ptr;  /* Schedule table pointer               */
+-        freg_t  vbrwq_wptr;     /* VBR wait queue write pointer         */
+-        freg_t  vbrwq_rptr;     /* VBR wait queue read pointer          */
+-        freg_t  abrwq_wptr;     /* ABR wait queue write pointer         */
+-        freg_t  abrwq_rptr;     /* ABR wait queue read pointer          */
+-        freg_t  ubrwq_wptr;     /* UBR wait queue write pointer         */
+-        freg_t  ubrwq_rptr;     /* UBR wait queue read pointer          */
+-        freg_t  cbr_vc;         /* CBR VC                               */
+-        freg_t  vbr_sb_vc;      /* VBR SB VC                            */
+-        freg_t  abr_sb_vc;      /* ABR SB VC                            */
+-        freg_t  ubr_sb_vc;      /* UBR SB VC                            */
+-        freg_t  vbr_next_link;  /* VBR next link                        */
+-        freg_t  abr_next_link;  /* ABR next link                        */
+-        freg_t  ubr_next_link;  /* UBR next link                        */
+-        u_int   filler7a[0x7c-0x7a];
+-        freg_t  out_rate_head;  /* Out of rate head                     */
+-        u_int   filler7d[0xca-0x7d]; /* pad out to full address space   */
+-        freg_t  cell_ctr_high1_nc;/* Total cell transfer count (high)   */
+-        freg_t  cell_ctr_lo1_nc;/* Total cell transfer count (low)      */
+-        u_int   fillercc[0x100-0xcc]; /* pad out to full address space   */
++	ffreg_t	idlehead_high;	/* Idle cell header (high)		*/
++	ffreg_t	idlehead_low;	/* Idle cell header (low)		*/
++	ffreg_t	maxrate;	/* Maximum rate				*/
++	ffreg_t	stparms;	/* Traffic Management Parameters	*/
++	ffreg_t	abrubr_abr;	/* ABRUBR Priority Byte 1, TCR Byte 0	*/
++	ffreg_t	rm_type;	/*					*/
++	u_int	filler5[0x17 - 0x06];
++	ffreg_t	cmd_reg;	/* Command register			*/
++	u_int	filler18[0x20 - 0x18];
++	ffreg_t	cbr_base;	/* CBR Pointer Base			*/
++	ffreg_t	vbr_base;	/* VBR Pointer Base			*/
++	ffreg_t	abr_base;	/* ABR Pointer Base			*/
++	ffreg_t	ubr_base;	/* UBR Pointer Base			*/
++	u_int	filler24;
++	ffreg_t	vbrwq_base;	/* VBR Wait Queue Base			*/
++	ffreg_t	abrwq_base;	/* ABR Wait Queue Base			*/
++	ffreg_t	ubrwq_base;	/* UBR Wait Queue Base			*/
++	ffreg_t	vct_base;	/* Main VC Table Base			*/
++	ffreg_t	vcte_base;	/* Extended Main VC Table Base		*/
++	u_int	filler2a[0x2C - 0x2A];
++	ffreg_t	cbr_tab_beg;	/* CBR Table Begin			*/
++	ffreg_t	cbr_tab_end;	/* CBR Table End			*/
++	ffreg_t	cbr_pointer;	/* CBR Pointer				*/
++	u_int	filler2f[0x30 - 0x2F];
++	ffreg_t	prq_st_adr;	/* Packet Ready Queue Start Address	*/
++	ffreg_t	prq_ed_adr;	/* Packet Ready Queue End Address	*/
++	ffreg_t	prq_rd_ptr;	/* Packet Ready Queue read pointer	*/
++	ffreg_t	prq_wr_ptr;	/* Packet Ready Queue write pointer	*/
++	ffreg_t	tcq_st_adr;	/* Transmit Complete Queue Start Address*/
++	ffreg_t	tcq_ed_adr;	/* Transmit Complete Queue End Address	*/
++	ffreg_t	tcq_rd_ptr;	/* Transmit Complete Queue read pointer */
++	ffreg_t	tcq_wr_ptr;	/* Transmit Complete Queue write pointer*/
++	u_int	filler38[0x40 - 0x38];
++	ffreg_t	queue_base;	/* Base address for PRQ and TCQ		*/
++	ffreg_t	desc_base;	/* Base address of descriptor table	*/
++	u_int	filler42[0x45 - 0x42];
++	ffreg_t	mode_reg_0;	/* Mode register 0			*/
++	ffreg_t	mode_reg_1;	/* Mode register 1			*/
++	ffreg_t	intr_status_reg;/* Interrupt Status register		*/
++	ffreg_t	mask_reg;	/* Mask Register			*/
++	ffreg_t	cell_ctr_high1; /* Total cell transfer count (high)	*/
++	ffreg_t	cell_ctr_lo1;	/* Total cell transfer count (low)	*/
++	ffreg_t	state_reg;	/* Status register			*/
++	u_int	filler4c[0x58 - 0x4c];
++	ffreg_t	curr_desc_num;	/* Contains the current descriptor num	*/
++	ffreg_t	next_desc;	/* Next descriptor			*/
++	ffreg_t	next_vc;	/* Next VC				*/
++	u_int	filler5b[0x5d - 0x5b];
++	ffreg_t	present_slot_cnt;/* Present slot count			*/
++	u_int	filler5e[0x6a - 0x5e];
++	ffreg_t	new_desc_num;	/* New descriptor number		*/
++	ffreg_t	new_vc;		/* New VC				*/
++	ffreg_t	sched_tbl_ptr;	/* Schedule table pointer		*/
++	ffreg_t	vbrwq_wptr;	/* VBR wait queue write pointer		*/
++	ffreg_t	vbrwq_rptr;	/* VBR wait queue read pointer		*/
++	ffreg_t	abrwq_wptr;	/* ABR wait queue write pointer		*/
++	ffreg_t	abrwq_rptr;	/* ABR wait queue read pointer		*/
++	ffreg_t	ubrwq_wptr;	/* UBR wait queue write pointer		*/
++	ffreg_t	ubrwq_rptr;	/* UBR wait queue read pointer		*/
++	ffreg_t	cbr_vc;		/* CBR VC				*/
++	ffreg_t	vbr_sb_vc;	/* VBR SB VC				*/
++	ffreg_t	abr_sb_vc;	/* ABR SB VC				*/
++	ffreg_t	ubr_sb_vc;	/* UBR SB VC				*/
++	ffreg_t	vbr_next_link;	/* VBR next link			*/
++	ffreg_t	abr_next_link;	/* ABR next link			*/
++	ffreg_t	ubr_next_link;	/* UBR next link			*/
++	u_int	filler7a[0x7c-0x7a];
++	ffreg_t	out_rate_head;	/* Out of rate head			*/
++	u_int	filler7d[0xca-0x7d]; /* pad out to full address space	*/
++	ffreg_t	cell_ctr_high1_nc;/* Total cell transfer count (high)	*/
++	ffreg_t	cell_ctr_lo1_nc;/* Total cell transfer count (low)	*/
++	u_int	fillercc[0x100-0xcc]; /* pad out to full address space	 */
+ } ffredn_t;
+ 
+ typedef struct _rfredn_t {
+-- 
+1.7.12.4
