@@ -1,45 +1,37 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
-Date: Fri, 8 Feb 2013 22:21:07 +0000
-Message-ID: <20130208222107.GA4762@dcvr.yhbt.net>
-References: <1360219292-19754-1-git-send-email-sustrik@250bpm.com>
- <20130207144433.527ef024.akpm@linux-foundation.org>
- <5114F2D8.5020300@250bpm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] skbuff: Move definition of NETDEV_FRAG_PAGE_MAX_SIZE
+Date: Fri, 08 Feb 2013 17:34:26 -0500 (EST)
+Message-ID: <20130208.173426.995535263950174099.davem@davemloft.net>
+References: <20130208201710.27890.52546.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Sha Zhengju <handai.szj@taobao.com>,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Martin Sustrik <sustrik@250bpm.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5114F2D8.5020300@250bpm.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	jeffrey.t.kirsher@intel.com
+To: alexander.h.duyck@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37939 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758163Ab3BHWea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 17:34:30 -0500
+In-Reply-To: <20130208201710.27890.52546.stgit@ahduyck-cp1.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Martin Sustrik <sustrik@250bpm.com> wrote:
-> On 07/02/13 23:44, Andrew Morton wrote:
-> >That's a nice changelog but it omitted a critical thing: why do you
-> >think the kernel needs this feature?  What's the value and use case for
-> >being able to poll these descriptors?
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 08 Feb 2013 12:17:15 -0800
+
+> In order to address the fact that some devices cannot support the full 32K
+> frag size we need to have the value accessible somewhere so that we can use it
+> to do comparisons against what the device can support.  As such I am moving
+> the values out of skbuff.c and into skbuff.h.
 > 
-> To address the question, I've written down detailed description of
-> the challenges of the network protocol development in user space and
-> how the proposed feature addresses the problems.
-> 
-> It's too long to fit into ChangeLog, but it may be worth reading
-> when trying to judge the merit of the patch.
-> 
-> It can be found here: http://www.250bpm.com/blog:16
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Using one eventfd per userspace socket still seems a bit wasteful.
+Applied, thanks.
 
-Couldn't you use a single pipe for all sockets and write the efd_mask to
-the pipe for each socket?
+Although it was obvious to me due to context, please annotate your
+subject lines with the target GIT tree as in "[PATCH net-next]: ..."
+in the future.
 
-A read from the pipe would behave like epoll_wait.
-
-You might need to use one-shot semantics; but that's probably
-the easiest thing in multithreaded apps anyways.
+Thanks.
