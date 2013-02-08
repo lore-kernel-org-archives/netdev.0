@@ -1,333 +1,259 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 8 Feb 2013 23:50:26 +0100
-Message-ID: <20130208225026.GA24672@electric-eye.fr.zoreil.com>
-References: <20130208.151713.1708597749091717933.davem@davemloft.net> <CA+55aFx81-GGEEXx+MqJvwJsDoBMMqSN80=J8LmN-Ufu4+kKcw@mail.gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 05/45] percpu_rwlock: Make percpu-rwlocks IRQ-safe,
+ optimally
+Date: Fri, 8 Feb 2013 15:44:03 -0800
+Message-ID: <20130208234403.GL2666@linux.vnet.ibm.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+ <20130122073400.13822.52336.stgit@srivatsabhat.in.ibm.com>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>,
-	=?utf-8?B?SsO2cmc=?= Otte <jrg.otte@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
+	akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <CA+55aFx81-GGEEXx+MqJvwJsDoBMMqSN80=J8LmN-Ufu4+kKcw@mail.gmail.com>
+In-Reply-To: <20130122073400.13822.52336.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@linux-foundation.org> :
-[...]
-> However, there's still the r8169 regressions (see the emails with the
-> subject "regression: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0
-> timed out"). It's bisected, and a revert is reported to fix things.
-> It's not in this pull request. Comments ?
+On Tue, Jan 22, 2013 at 01:04:11PM +0530, Srivatsa S. Bhat wrote:
+> If interrupt handlers can also be readers, then one of the ways to make
+> per-CPU rwlocks safe, is to disable interrupts at the reader side before
+> trying to acquire the per-CPU rwlock and keep it disabled throughout the
+> duration of the read-side critical section.
+> 
+> The goal is to avoid cases such as:
+> 
+>   1. writer is active and it holds the global rwlock for write
+> 
+>   2. a regular reader comes in and marks itself as present (by incrementing
+>      its per-CPU refcount) before checking whether writer is active.
+> 
+>   3. an interrupt hits the reader;
+>      [If it had not hit, the reader would have noticed that the writer is
+>       active and would have decremented its refcount and would have tried
+>       to acquire the global rwlock for read].
+>      Since the interrupt handler also happens to be a reader, it notices
+>      the non-zero refcount (which was due to the reader who got interrupted)
+>      and thinks that this is a nested read-side critical section and
+>      proceeds to take the fastpath, which is wrong. The interrupt handler
+>      should have noticed that the writer is active and taken the rwlock
+>      for read.
+> 
+> So, disabling interrupts can help avoid this problem (at the cost of keeping
+> the interrupts disabled for quite long).
+> 
+> But Oleg had a brilliant idea by which we can do much better than that:
+> we can manage with disabling interrupts _just_ during the updates (writes to
+> per-CPU refcounts) to safe-guard against races with interrupt handlers.
+> Beyond that, we can keep the interrupts enabled and still be safe w.r.t
+> interrupt handlers that can act as readers.
+> 
+> Basically the idea is that we differentiate between the *part* of the
+> per-CPU refcount that we use for reference counting vs the part that we use
+> merely to make the writer wait for us to switch over to the right
+> synchronization scheme.
+> 
+> The scheme involves splitting the per-CPU refcounts into 2 parts:
+> eg: the lower 16 bits are used to track the nesting depth of the reader
+> (a "nested-counter"), and the remaining (upper) bits are used to merely mark
+> the presence of the reader.
+> 
+> As long as the overall reader_refcnt is non-zero, the writer waits for the
+> reader (assuming that the reader is still actively using per-CPU refcounts for
+> synchronization).
+> 
+> The reader first sets one of the higher bits to mark its presence, and then
+> uses the lower 16 bits to manage the nesting depth. So, an interrupt handler
+> coming in as illustrated above will be able to distinguish between "this is
+> a nested read-side critical section" vs "we have merely marked our presence
+> to make the writer wait for us to switch" by looking at the same refcount.
+> Thus, it makes it unnecessary to keep interrupts disabled throughout the
+> read-side critical section, despite having the possibility of interrupt
+> handlers being readers themselves.
+> 
+> 
+> Implement this logic and rename the locking functions appropriately, to
+> reflect what they do.
 
-J=C3=B6rg asked Hayes. Hayes suggested to revert. Francois reverts, fix=
-es a
-pair of rejects, builds, boot. Anyone should be able to pull from
-branch 'davem.r8169' in repository
+One nit below.  The issues called out in the previous patch still seem
+to me to apply.
 
-git://violet.fr.zoreil.com/romieu/linux davem.r8169
+							Thanx, Paul
 
-to get the changes below :
+> Based-on-idea-by: Oleg Nesterov <oleg@redhat.com>
+> Cc: David Howells <dhowells@redhat.com>
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> ---
+> 
+>  include/linux/percpu-rwlock.h |   15 ++++++++++-----
+>  lib/percpu-rwlock.c           |   41 +++++++++++++++++++++++++++--------------
+>  2 files changed, 37 insertions(+), 19 deletions(-)
+> 
+> diff --git a/include/linux/percpu-rwlock.h b/include/linux/percpu-rwlock.h
+> index 6819bb8..856ba6b 100644
+> --- a/include/linux/percpu-rwlock.h
+> +++ b/include/linux/percpu-rwlock.h
+> @@ -34,11 +34,13 @@ struct percpu_rwlock {
+>  	rwlock_t		global_rwlock;
+>  };
+> 
+> -extern void percpu_read_lock(struct percpu_rwlock *);
+> -extern void percpu_read_unlock(struct percpu_rwlock *);
+> +extern void percpu_read_lock_irqsafe(struct percpu_rwlock *);
+> +extern void percpu_read_unlock_irqsafe(struct percpu_rwlock *);
+> 
+> -extern void percpu_write_lock(struct percpu_rwlock *);
+> -extern void percpu_write_unlock(struct percpu_rwlock *);
+> +extern void percpu_write_lock_irqsave(struct percpu_rwlock *,
+> +				      unsigned long *flags);
+> +extern void percpu_write_unlock_irqrestore(struct percpu_rwlock *,
+> +					   unsigned long *flags);
+> 
+>  extern int __percpu_init_rwlock(struct percpu_rwlock *,
+>  				const char *, struct lock_class_key *);
+> @@ -68,11 +70,14 @@ extern void percpu_free_rwlock(struct percpu_rwlock *);
+>  	__percpu_init_rwlock(pcpu_rwlock, #pcpu_rwlock, &rwlock_key);	\
+>  })
+> 
+> +#define READER_PRESENT		(1UL << 16)
+> +#define READER_REFCNT_MASK	(READER_PRESENT - 1)
+> +
+>  #define reader_uses_percpu_refcnt(pcpu_rwlock, cpu)			\
+>  		(ACCESS_ONCE(per_cpu(*((pcpu_rwlock)->reader_refcnt), cpu)))
+> 
+>  #define reader_nested_percpu(pcpu_rwlock)				\
+> -			(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) > 1)
+> +	(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) & READER_REFCNT_MASK)
+> 
+>  #define writer_active(pcpu_rwlock)					\
+>  			(__this_cpu_read(*((pcpu_rwlock)->writer_signal)))
+> diff --git a/lib/percpu-rwlock.c b/lib/percpu-rwlock.c
+> index 992da5c..a8d177a 100644
+> --- a/lib/percpu-rwlock.c
+> +++ b/lib/percpu-rwlock.c
+> @@ -62,19 +62,19 @@ void percpu_free_rwlock(struct percpu_rwlock *pcpu_rwlock)
+>  	pcpu_rwlock->writer_signal = NULL;
+>  }
+> 
+> -void percpu_read_lock(struct percpu_rwlock *pcpu_rwlock)
+> +void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
+>  {
+>  	preempt_disable();
+> 
+>  	/* First and foremost, let the writer know that a reader is active */
+> -	this_cpu_inc(*pcpu_rwlock->reader_refcnt);
+> +	this_cpu_add(*pcpu_rwlock->reader_refcnt, READER_PRESENT);
+> 
+>  	/*
+>  	 * If we are already using per-cpu refcounts, it is not safe to switch
+>  	 * the synchronization scheme. So continue using the refcounts.
+>  	 */
+>  	if (reader_nested_percpu(pcpu_rwlock)) {
+> -		goto out;
+> +		this_cpu_inc(*pcpu_rwlock->reader_refcnt);
 
-Distance from 'davem' (a1c83b054ebe1264ed9ae9d5c286f9eae68e60ea)
-----------------------------------------------------------------
+Hmmm...  If the reader is nested, it -doesn't- need the memory barrier at
+the end of this function.  If there is lots of nesting, it might be
+worth getting rid of it.
 
-4521e1a94279ce610d3f9b7945c17d581f804242
-eef63cc1c6ecf4898a973f870aec95d6e923ea77
-
-Diffstat
---------
-
- drivers/net/ethernet/realtek/r8169.c | 86 ++++++++--------------------=
---------
- 1 file changed, 19 insertions(+), 67 deletions(-)
-
-Shortlog
---------
-
-=46rancois Romieu (2):
-      Revert "r8169: enable ALDPS for power saving".
-      Revert "r8169: enable internal ASPM and clock request settings".
-
-Patch
------
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index 1170232..998974f 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -450,7 +450,6 @@ enum rtl8168_registers {
- #define PWM_EN				(1 << 22)
- #define RXDV_GATED_EN			(1 << 19)
- #define EARLY_TALLY_EN			(1 << 16)
--#define FORCE_CLK			(1 << 15) /* force clock request */
- };
-=20
- enum rtl_register_content {
-@@ -514,7 +513,6 @@ enum rtl_register_content {
- 	PMEnable	=3D (1 << 0),	/* Power Management Enable */
-=20
- 	/* Config2 register p. 25 */
--	ClkReqEn	=3D (1 << 7),	/* Clock Request Enable */
- 	MSIEnable	=3D (1 << 5),	/* 8169 only. Reserved in the 8168. */
- 	PCI_Clock_66MHz =3D 0x01,
- 	PCI_Clock_33MHz =3D 0x00,
-@@ -535,7 +533,6 @@ enum rtl_register_content {
- 	Spi_en		=3D (1 << 3),
- 	LanWake		=3D (1 << 1),	/* LanWake enable/disable */
- 	PMEStatus	=3D (1 << 0),	/* PME status can be reset by PCI RST# */
--	ASPM_en		=3D (1 << 0),	/* ASPM enable */
-=20
- 	/* TBICSR p.28 */
- 	TBIReset	=3D 0x80000000,
-@@ -684,7 +681,6 @@ enum features {
- 	RTL_FEATURE_WOL		=3D (1 << 0),
- 	RTL_FEATURE_MSI		=3D (1 << 1),
- 	RTL_FEATURE_GMII	=3D (1 << 2),
--	RTL_FEATURE_FW_LOADED	=3D (1 << 3),
- };
-=20
- struct rtl8169_counters {
-@@ -2389,10 +2385,8 @@ static void rtl_apply_firmware(struct rtl8169_pr=
-ivate *tp)
- 	struct rtl_fw *rtl_fw =3D tp->rtl_fw;
-=20
- 	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
--	if (!IS_ERR_OR_NULL(rtl_fw)) {
-+	if (!IS_ERR_OR_NULL(rtl_fw))
- 		rtl_phy_write_fw(tp, rtl_fw);
--		tp->features |=3D RTL_FEATURE_FW_LOADED;
--	}
- }
-=20
- static void rtl_apply_firmware_cond(struct rtl8169_private *tp, u8 reg=
-, u16 val)
-@@ -2403,31 +2397,6 @@ static void rtl_apply_firmware_cond(struct rtl81=
-69_private *tp, u8 reg, u16 val)
- 		rtl_apply_firmware(tp);
- }
-=20
--static void r810x_aldps_disable(struct rtl8169_private *tp)
--{
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_writephy(tp, 0x18, 0x0310);
--	msleep(100);
--}
--
--static void r810x_aldps_enable(struct rtl8169_private *tp)
--{
--	if (!(tp->features & RTL_FEATURE_FW_LOADED))
--		return;
--
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_writephy(tp, 0x18, 0x8310);
--}
--
--static void r8168_aldps_enable_1(struct rtl8169_private *tp)
--{
--	if (!(tp->features & RTL_FEATURE_FW_LOADED))
--		return;
--
--	rtl_writephy(tp, 0x1f, 0x0000);
--	rtl_w1w0_phy(tp, 0x15, 0x1000, 0x0000);
--}
--
- static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
- {
- 	static const struct phy_reg phy_reg_init[] =3D {
-@@ -3218,8 +3187,6 @@ static void rtl8168e_2_hw_phy_config(struct rtl81=
-69_private *tp)
- 	rtl_w1w0_phy(tp, 0x10, 0x0000, 0x0400);
- 	rtl_writephy(tp, 0x1f, 0x0000);
-=20
--	r8168_aldps_enable_1(tp);
--
- 	/* Broken BIOS workaround: feed GigaMAC registers with MAC address. *=
-/
- 	rtl_rar_exgmac_set(tp, tp->dev->dev_addr);
- }
-@@ -3294,8 +3261,6 @@ static void rtl8168f_1_hw_phy_config(struct rtl81=
-69_private *tp)
- 	rtl_writephy(tp, 0x05, 0x8b85);
- 	rtl_w1w0_phy(tp, 0x06, 0x4000, 0x0000);
- 	rtl_writephy(tp, 0x1f, 0x0000);
--
--	r8168_aldps_enable_1(tp);
- }
-=20
- static void rtl8168f_2_hw_phy_config(struct rtl8169_private *tp)
-@@ -3303,8 +3268,6 @@ static void rtl8168f_2_hw_phy_config(struct rtl81=
-69_private *tp)
- 	rtl_apply_firmware(tp);
-=20
- 	rtl8168f_hw_phy_config(tp);
--
--	r8168_aldps_enable_1(tp);
- }
-=20
- static void rtl8411_hw_phy_config(struct rtl8169_private *tp)
-@@ -3402,8 +3365,6 @@ static void rtl8411_hw_phy_config(struct rtl8169_=
-private *tp)
- 	rtl_w1w0_phy(tp, 0x19, 0x0000, 0x0001);
- 	rtl_w1w0_phy(tp, 0x10, 0x0000, 0x0400);
- 	rtl_writephy(tp, 0x1f, 0x0000);
--
--	r8168_aldps_enable_1(tp);
- }
-=20
- static void rtl8168g_1_hw_phy_config(struct rtl8169_private *tp)
-@@ -3489,19 +3450,21 @@ static void rtl8105e_hw_phy_config(struct rtl81=
-69_private *tp)
- 	};
-=20
- 	/* Disable ALDPS before ram code */
--	r810x_aldps_disable(tp);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_writephy(tp, 0x18, 0x0310);
-+	msleep(100);
-=20
- 	rtl_apply_firmware(tp);
-=20
- 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
--
--	r810x_aldps_enable(tp);
- }
-=20
- static void rtl8402_hw_phy_config(struct rtl8169_private *tp)
- {
- 	/* Disable ALDPS before setting firmware */
--	r810x_aldps_disable(tp);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_writephy(tp, 0x18, 0x0310);
-+	msleep(20);
-=20
- 	rtl_apply_firmware(tp);
-=20
-@@ -3511,8 +3474,6 @@ static void rtl8402_hw_phy_config(struct rtl8169_=
-private *tp)
- 	rtl_writephy(tp, 0x10, 0x401f);
- 	rtl_writephy(tp, 0x19, 0x7030);
- 	rtl_writephy(tp, 0x1f, 0x0000);
--
--	r810x_aldps_enable(tp);
- }
-=20
- static void rtl8106e_hw_phy_config(struct rtl8169_private *tp)
-@@ -3525,7 +3486,9 @@ static void rtl8106e_hw_phy_config(struct rtl8169=
-_private *tp)
- 	};
-=20
- 	/* Disable ALDPS before ram code */
--	r810x_aldps_disable(tp);
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_writephy(tp, 0x18, 0x0310);
-+	msleep(100);
-=20
- 	rtl_apply_firmware(tp);
-=20
-@@ -3533,8 +3496,6 @@ static void rtl8106e_hw_phy_config(struct rtl8169=
-_private *tp)
- 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-=20
- 	rtl_eri_write(tp, 0x1d0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
--
--	r810x_aldps_enable(tp);
- }
-=20
- static void rtl_hw_phy_config(struct net_device *dev)
-@@ -5051,6 +5012,8 @@ static void rtl_hw_start_8168e_2(struct rtl8169_p=
-rivate *tp)
-=20
- 	RTL_W8(MaxTxPacketSize, EarlySize);
-=20
-+	rtl_disable_clock_request(pdev);
-+
- 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
- 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
-=20
-@@ -5059,8 +5022,7 @@ static void rtl_hw_start_8168e_2(struct rtl8169_p=
-rivate *tp)
-=20
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
- 	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
--	RTL_W8(Config5, (RTL_R8(Config5) & ~Spi_en) | ASPM_en);
--	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
-+	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
- }
-=20
- static void rtl_hw_start_8168f(struct rtl8169_private *tp)
-@@ -5085,12 +5047,13 @@ static void rtl_hw_start_8168f(struct rtl8169_p=
-rivate *tp)
-=20
- 	RTL_W8(MaxTxPacketSize, EarlySize);
-=20
-+	rtl_disable_clock_request(pdev);
-+
- 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
- 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
--	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN | FORCE_CLK);
--	RTL_W8(Config5, (RTL_R8(Config5) & ~Spi_en) | ASPM_en);
--	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
-+	RTL_W32(MISC, RTL_R32(MISC) | PWM_EN);
-+	RTL_W8(Config5, RTL_R8(Config5) & ~Spi_en);
- }
-=20
- static void rtl_hw_start_8168f_1(struct rtl8169_private *tp)
-@@ -5147,10 +5110,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_=
-private *tp)
- 	rtl_w1w0_eri(tp, 0xdc, ERIAR_MASK_0001, 0x01, 0x00, ERIAR_EXGMAC);
-=20
- 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
--	RTL_W32(MISC, (RTL_R32(MISC) | FORCE_CLK) & ~RXDV_GATED_EN);
-+	RTL_W32(MISC, RTL_R32(MISC) & ~RXDV_GATED_EN);
- 	RTL_W8(MaxTxPacketSize, EarlySize);
--	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
--	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
-=20
- 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
- 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
-@@ -5366,9 +5327,6 @@ static void rtl_hw_start_8105e_1(struct rtl8169_p=
-rivate *tp)
-=20
- 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
--	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
--	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
--	RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
-=20
- 	rtl_ephy_init(tp, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
- }
-@@ -5394,9 +5352,6 @@ static void rtl_hw_start_8402(struct rtl8169_priv=
-ate *tp)
-=20
- 	RTL_W32(TxConfig, RTL_R32(TxConfig) | TXCFG_AUTO_FIFO);
- 	RTL_W8(MCU, RTL_R8(MCU) & ~NOW_IS_OOB);
--	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
--	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
--	RTL_W32(MISC, RTL_R32(MISC) | FORCE_CLK);
-=20
- 	rtl_ephy_init(tp, e_info_8402, ARRAY_SIZE(e_info_8402));
-=20
-@@ -5418,10 +5373,7 @@ static void rtl_hw_start_8106(struct rtl8169_pri=
-vate *tp)
- 	/* Force LAN exit from ASPM if Rx/Tx are not idle */
- 	RTL_W32(FuncEvent, RTL_R32(FuncEvent) | 0x002800);
-=20
--	RTL_W32(MISC,
--		(RTL_R32(MISC) | DISABLE_LAN_EN | FORCE_CLK) & ~EARLY_TALLY_EN);
--	RTL_W8(Config5, RTL_R8(Config5) | ASPM_en);
--	RTL_W8(Config2, RTL_R8(Config2) | ClkReqEn);
-+	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
- 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
- }
---=20
-Ueimor
+>  	} else {
+>  		/*
+>  		 * The write to 'reader_refcnt' must be visible before we
+> @@ -83,9 +83,19 @@ void percpu_read_lock(struct percpu_rwlock *pcpu_rwlock)
+>  		smp_mb(); /* Paired with smp_rmb() in sync_reader() */
+> 
+>  		if (likely(!writer_active(pcpu_rwlock))) {
+> -			goto out;
+> +			this_cpu_inc(*pcpu_rwlock->reader_refcnt);
+>  		} else {
+>  			/* Writer is active, so switch to global rwlock. */
+> +
+> +			/*
+> +			 * While we are spinning on ->global_rwlock, an
+> +			 * interrupt can hit us, and the interrupt handler
+> +			 * might call this function. The distinction between
+> +			 * READER_PRESENT and the refcnt helps ensure that the
+> +			 * interrupt handler also takes this branch and spins
+> +			 * on the ->global_rwlock, as long as the writer is
+> +			 * active.
+> +			 */
+>  			read_lock(&pcpu_rwlock->global_rwlock);
+> 
+>  			/*
+> @@ -95,26 +105,27 @@ void percpu_read_lock(struct percpu_rwlock *pcpu_rwlock)
+>  			 * back to per-cpu refcounts. (This also helps avoid
+>  			 * heterogeneous nesting of readers).
+>  			 */
+> -			if (writer_active(pcpu_rwlock))
+> -				this_cpu_dec(*pcpu_rwlock->reader_refcnt);
+> -			else
+> +			if (!writer_active(pcpu_rwlock)) {
+> +				this_cpu_inc(*pcpu_rwlock->reader_refcnt);
+>  				read_unlock(&pcpu_rwlock->global_rwlock);
+> +			}
+>  		}
+>  	}
+> 
+> -out:
+> +	this_cpu_sub(*pcpu_rwlock->reader_refcnt, READER_PRESENT);
+> +
+>  	/* Prevent reordering of any subsequent reads */
+>  	smp_rmb();
+>  }
+> 
+> -void percpu_read_unlock(struct percpu_rwlock *pcpu_rwlock)
+> +void percpu_read_unlock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
+>  {
+>  	/*
+>  	 * We never allow heterogeneous nesting of readers. So it is trivial
+>  	 * to find out the kind of reader we are, and undo the operation
+>  	 * done by our corresponding percpu_read_lock().
+>  	 */
+> -	if (__this_cpu_read(*pcpu_rwlock->reader_refcnt)) {
+> +	if (reader_nested_percpu(pcpu_rwlock)) {
+>  		this_cpu_dec(*pcpu_rwlock->reader_refcnt);
+>  		smp_wmb(); /* Paired with smp_rmb() in sync_reader() */
+>  	} else {
+> @@ -184,7 +195,8 @@ static void sync_all_readers(struct percpu_rwlock *pcpu_rwlock)
+>  		sync_reader(pcpu_rwlock, cpu);
+>  }
+> 
+> -void percpu_write_lock(struct percpu_rwlock *pcpu_rwlock)
+> +void percpu_write_lock_irqsave(struct percpu_rwlock *pcpu_rwlock,
+> +			       unsigned long *flags)
+>  {
+>  	/*
+>  	 * Tell all readers that a writer is becoming active, so that they
+> @@ -192,10 +204,11 @@ void percpu_write_lock(struct percpu_rwlock *pcpu_rwlock)
+>  	 */
+>  	announce_writer_active(pcpu_rwlock);
+>  	sync_all_readers(pcpu_rwlock);
+> -	write_lock(&pcpu_rwlock->global_rwlock);
+> +	write_lock_irqsave(&pcpu_rwlock->global_rwlock, *flags);
+>  }
+> 
+> -void percpu_write_unlock(struct percpu_rwlock *pcpu_rwlock)
+> +void percpu_write_unlock_irqrestore(struct percpu_rwlock *pcpu_rwlock,
+> +			 unsigned long *flags)
+>  {
+>  	/*
+>  	 * Inform all readers that we are done, so that they can switch back
+> @@ -203,6 +216,6 @@ void percpu_write_unlock(struct percpu_rwlock *pcpu_rwlock)
+>  	 * see it).
+>  	 */
+>  	announce_writer_inactive(pcpu_rwlock);
+> -	write_unlock(&pcpu_rwlock->global_rwlock);
+> +	write_unlock_irqrestore(&pcpu_rwlock->global_rwlock, *flags);
+>  }
+> 
+> 
