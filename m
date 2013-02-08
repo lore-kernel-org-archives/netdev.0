@@ -1,48 +1,83 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: usb: fix regression from
- 6509141f9c2ba74df6cc72ec35cd1865276ae3a4
-Date: Fri, 08 Feb 2013 01:52:45 -0500 (EST)
-Message-ID: <20130208.015245.1813436587925276241.davem@davemloft.net>
-References: <1360289919-20409-1-git-send-email-dev@lynxeye.de>
+From: Onteddu Slreddy <slreddy88@gmail.com>
+Subject: Wifi basics documents
+Date: Fri, 8 Feb 2013 12:25:31 +0530
+Message-ID: <CAHT=_ri0JBrbPfWJrzjYR4eNDDW9ygMkJSDU4vJXEfh_STLK9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="===============3985181019086890401=="
+To: netdev <netdev@vger.kernel.org>, linux-can@vger.kernel.org,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, wil6210@qca.qualcomm.com,
+	brcm80211-dev-list@broadcom.com,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+--===============3985181019086890401==
+Content-Type: multipart/alternative; boundary=bcaec54c52529d3ade04d5310b0d
+
+--bcaec54c52529d3ade04d5310b0d
+Content-Type: text/plain; charset=ISO-8859-1
+
+Hello All,
+
+
+I recently joined this group the group.
+
+Can anybody suggest me places where I can get Documents which will explain
+wifi  Architecture in brief i would like to know details like
+
+In Linux for embedded systems:
+        What is the software architecture for wifi
+        What are each folders in kernel/net and kernel/drivers/net refer to
+        What is wpa_supplicant how to know which version I have to use
+        How to get  familiar with words like nl802.11, mac802.11, wext,
+copat-wireless, compatwireless-openmac
+        If I have to add a new chip driver what are the checklist points i
+have to see
+
+My Quesitions may be basic kindly bare with me
+If any body have self prepared documents that will be great help for me
+
+
+
+Thanks & Regards
+
+O S L Reddy
+slreddy88@gmail.com
+
+--bcaec54c52529d3ade04d5310b0d--
+
+
+--===============3985181019086890401==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, cpuwolf@gmail.com
-To: dev@lynxeye.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57610 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753031Ab3BHGwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 01:52:46 -0500
-In-Reply-To: <1360289919-20409-1-git-send-email-dev@lynxeye.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-From: Lucas Stach <dev@lynxeye.de>
-Date: Fri,  8 Feb 2013 03:18:39 +0100
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+--===============3985181019086890401==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> The newly added flag NOARP was using an already defined value, which
-> broke drivers using flag MULTI_PACKET.
-> 
-> Signed-off-by: Lucas Stach <dev@lynxeye.de>
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-Applied, but I reworked your commit message like so:
-
-    net: usb: fix regression from FLAG_NOARP code
-    
-    In commit 6509141f9c2ba74df6cc72ec35cd1865276ae3a4 ("usbnet: add new
-    flag FLAG_NOARP for usb net devices"), the newly added flag NOARP was
-    using an already defined value, which broke drivers using flag
-    MULTI_PACKET.
-    
-    Signed-off-by: Lucas Stach <dev@lynxeye.de>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-References to commit IDs are ambiguous because a change can go
-into multiple GIT trees.  Therefore we don't reference them in
-commit header lines, and when we reference them in the commit
-body we postfix them with the commit header line of the
-referenced commit (in parenthesis and quotes) in order to
-eliminate the ambiguity.
-
-Thanks.
+--===============3985181019086890401==--
