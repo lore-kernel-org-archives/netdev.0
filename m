@@ -1,31 +1,125 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Fri, 08 Feb 2013 16:57:48 -0500 (EST)
-Message-ID: <20130208.165748.1764406121592777701.davem@davemloft.net>
-References: <20130208.151713.1708597749091717933.davem@davemloft.net>
-	<CA+55aFx81-GGEEXx+MqJvwJsDoBMMqSN80=J8LmN-Ufu4+kKcw@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 10/11] act_police: improved accuracy at high
+ rates
+Date: Fri, 8 Feb 2013 23:16:08 +0100
+Message-ID: <20130208221608.GA1516@minipsycho.orion>
+References: <1360349981-27801-1-git-send-email-jiri@resnulli.us>
+ <1360349981-27801-11-git-send-email-jiri@resnulli.us>
+ <1360350755.28557.108.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, romieu@fr.zoreil.com,
-	nic_swsd@realtek.com
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFx81-GGEEXx+MqJvwJsDoBMMqSN80=J8LmN-Ufu4+kKcw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:46818 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1947059Ab3BHWQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 17:16:13 -0500
+Received: by mail-ee0-f42.google.com with SMTP id b47so2208811eek.1
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 14:16:12 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1360350755.28557.108.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sat, 9 Feb 2013 08:00:39 +1100
+Fri, Feb 08, 2013 at 08:12:35PM CET, eric.dumazet@gmail.com wrote:
+>On Fri, 2013-02-08 at 19:59 +0100, Jiri Pirko wrote:
+>> Current act_police uses rate table computed by the "tc" userspace program,
+>> which has the following issue:
+>> 
+>> The rate table has 256 entries to map packet lengths to
+>> token (time units).  With TSO sized packets, the 256 entry granularity
+>> leads to loss/gain of rate, making the token bucket inaccurate.
+>> 
+>> Thus, instead of relying on rate table, this patch explicitly computes
+>> the time and accounts for packet transmission times with nanosecond
+>> granularity.
+>> 
+>> This is a followup to 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  net/sched/act_police.c | 119 +++++++++++++++++++++++--------------------------
+>>  1 file changed, 57 insertions(+), 62 deletions(-)
+>> 
+>> diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+>> index 378a649..8723183 100644
+>> --- a/net/sched/act_police.c
+>> +++ b/net/sched/act_police.c
+>> @@ -26,20 +26,19 @@ struct tcf_police {
+>>  	struct tcf_common	common;
+>>  	int			tcfp_result;
+>>  	u32			tcfp_ewma_rate;
+>> -	u32			tcfp_burst;
+>> +	s64			tcfp_burst;
+>>  	u32			tcfp_mtu;
+>> -	u32			tcfp_toks;
+>> -	u32			tcfp_ptoks;
+>> +	s64			tcfp_toks;
+>> +	s64			tcfp_ptoks;
+>>  	psched_time_t		tcfp_t_c;
+>> -	struct qdisc_rate_table	*tcfp_R_tab;
+>> -	struct qdisc_rate_table	*tcfp_P_tab;
+>> +	struct psched_ratecfg	rate;
+>> +	bool			rate_present;
+>> +	struct psched_ratecfg	peak;
+>> +	bool			peak_present;
+>>  };
+>>  #define to_police(pc)	\
+>>  	container_of(pc, struct tcf_police, common)
+>>  
+>> -#define L2T(p, L)   qdisc_l2t((p)->tcfp_R_tab, L)
+>> -#define L2T_P(p, L) qdisc_l2t((p)->tcfp_P_tab, L)
+>> -
+>>  #define POL_TAB_MASK     15
+>>  static struct tcf_common *tcf_police_ht[POL_TAB_MASK + 1];
+>>  static u32 police_idx_gen;
+>> @@ -123,10 +122,6 @@ static void tcf_police_destroy(struct tcf_police *p)
+>>  			write_unlock_bh(&police_lock);
+>>  			gen_kill_estimator(&p->tcf_bstats,
+>>  					   &p->tcf_rate_est);
+>> -			if (p->tcfp_R_tab)
+>> -				qdisc_put_rtab(p->tcfp_R_tab);
+>> -			if (p->tcfp_P_tab)
+>> -				qdisc_put_rtab(p->tcfp_P_tab);
+>>  			/*
+>>  			 * gen_estimator est_timer() might access p->tcf_lock
+>>  			 * or bstats, wait a RCU grace period before freeing p
+>> @@ -154,7 +149,6 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+>>  	struct nlattr *tb[TCA_POLICE_MAX + 1];
+>>  	struct tc_police *parm;
+>>  	struct tcf_police *police;
+>> -	struct qdisc_rate_table *R_tab = NULL, *P_tab = NULL;
+>>  	int size;
+>>  
+>>  	if (nla == NULL)
+>> @@ -197,21 +191,37 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+>>  	if (bind)
+>>  		police->tcf_bindcnt = 1;
+>>  override:
+>> +	spin_lock_bh(&police->tcf_lock);
+>> +	police->tcfp_mtu = parm->mtu;
+>> +	police->rate_present = false;
+>> +	police->peak_present = false;
+>>  	if (parm->rate.rate) {
+>> +		struct qdisc_rate_table *tab;
+>> +
+>>  		err = -ENOMEM;
+>> -		R_tab = qdisc_get_rtab(&parm->rate, tb[TCA_POLICE_RATE]);
+>> -		if (R_tab == NULL)
+>> -			goto failure;
+>> +		tab = qdisc_get_rtab(&parm->rate, tb[TCA_POLICE_RATE]);
+>
+>This patch was not tested, it cannot possibly work
+>
+>spin_lock_bh();
+>rtab = kmalloc(sizeof(*rtab), GFP_KERNEL);
+>
+>should crash or complain loudly.
 
-> However, there's still the r8169 regressions (see the emails with the
-> subject "regression: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0
-> timed out"). It's bisected, and a revert is reported to fix things.
-> It's not in this pull request. Comments?
 
-We're waiting for Hayes Wang, the author and the person most
-knowledgable about those changes, to respond.
+Thanks, you are right, I had this debug option disabled. Will repost.
 
-If I don't hear anything by next Weds I'll simply revert the
-suspect changes.
+>
+>
