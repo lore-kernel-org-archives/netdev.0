@@ -1,39 +1,32 @@
-From: Javier Domingo <javierdo1@gmail.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: Softirqs without captured packets
-Date: Fri, 8 Feb 2013 21:02:41 +0100
-Message-ID: <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
-References: <CALZVap=wdDnTndwa+Q+MLCufj9YpY-m+wATFiKSTX2bXX-9DVw@mail.gmail.com>
- <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com> <20130208.145728.1110053781319882182.davem@davemloft.net>
+Date: Fri, 08 Feb 2013 15:15:23 -0500 (EST)
+Message-ID: <20130208.151523.798634382725569230.davem@davemloft.net>
+References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
+	<20130208.145728.1110053781319882182.davem@davemloft.net>
+	<CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: javierdo1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f46.google.com ([209.85.212.46]:63174 "EHLO
-	mail-vb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932068Ab3BHUK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 15:10:57 -0500
-Received: by mail-vb0-f46.google.com with SMTP id b13so2524587vby.19
-        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 12:10:56 -0800 (PST)
-In-Reply-To: <20130208.145728.1110053781319882182.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36778 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932068Ab3BHUPZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 15:15:25 -0500
+In-Reply-To: <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry, I think I misexplained,
+From: Javier Domingo <javierdo1@gmail.com>
+Date: Fri, 8 Feb 2013 21:02:41 +0100
 
-I wanted to say net's receive softirq: net_rx_action, not softirqs in general.
+> Sorry, I think I misexplained,
+> 
+> I wanted to say net's receive softirq: net_rx_action, not softirqs in general.
 
-Javier Domingo
+If you don't show us your code we have to guess all sorts of things
+like this.
 
-
-2013/2/8 David Miller <davem@davemloft.net>:
-> From: Javier Domingo <javierdo1@gmail.com>
-> Date: Fri, 8 Feb 2013 20:54:14 +0100
->
->> Just realized I didn't put the file:
->
-> Softirqs happen for TX packet reclaim, other miscelanneous networking
-> device events (link status changes, hw statistic overflows, etc.),
-> timers, etc.
->
-> They are not exclusively triggered for receive packets.
+Don't expect much help until you post your tracer module.
