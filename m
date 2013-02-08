@@ -1,60 +1,122 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] net: sctp: sctp_auth_make_key_vector: use sctp_auth_create_key
-Date: Fri,  8 Feb 2013 10:22:58 +0100
-Message-ID: <783e1129996c3f09c7da121f5dd91c8ac7ba5baa.1360314390.git.dborkman@redhat.com>
-References: <cover.1360314390.git.dborkman@redhat.com>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9735 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946153Ab3BHJXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2013 04:23:01 -0500
-In-Reply-To: <cover.1360314390.git.dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sl reddy <slreddyforneobux@gmail.com>
+Subject: Re: Wifi basics documents
+Date: Fri, 8 Feb 2013 15:23:17 +0530
+Message-ID: <CAGmqTTSovcse3k4kv5o=+K6adAb672O5nJ=nXfZmc=d36gMSJw@mail.gmail.com>
+References: <CAHT=_ri0JBrbPfWJrzjYR4eNDDW9ygMkJSDU4vJXEfh_STLK9g@mail.gmail.com>
+	<5114B881.9000100@broadcom.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============7141140055359322760=="
+Cc: brcm80211-dev-list@broadcom.com, Onteddu Slreddy <slreddy88@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev <netdev@vger.kernel.org>,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-can@vger.kernel.org,
+	wil6210@qca.qualcomm.com, ath9k-devel@lists.ath9k.org
+To: Arend van Spriel <arend@broadcom.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <5114B881.9000100@broadcom.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-In sctp_auth_make_key_vector, we allocate a temporary sctp_auth_bytes
-structure with kmalloc instead of the sctp_auth_create_key allocator.
-Change this to sctp_auth_create_key as it is the case everywhere else,
-so that we also can properly free it via sctp_auth_key_put. This makes
-it easier for future code changes in the structure and allocator itself,
-since a single API is consistently used for this purpose. Also, by
-using sctp_auth_create_key we're doing sanity checks over the arguments.
+--===============7141140055359322760==
+Content-Type: multipart/alternative; boundary=047d7bdc1a865f785104d5338747
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/auth.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+--047d7bdc1a865f785104d5338747
+Content-Type: text/plain; charset=ISO-8859-1
 
-diff --git a/net/sctp/auth.c b/net/sctp/auth.c
-index 94a12de..5ec7509 100644
---- a/net/sctp/auth.c
-+++ b/net/sctp/auth.c
-@@ -209,12 +209,10 @@ static struct sctp_auth_bytes *sctp_auth_make_key_vector(
- 
- 	len = random_len + hmacs_len + chunks_len;
- 
--	new = kmalloc(sizeof(struct sctp_auth_bytes) + len, gfp);
-+	new = sctp_auth_create_key(len, gfp);
- 	if (!new)
- 		return NULL;
- 
--	new->len = len;
--
- 	memcpy(new->data, random, random_len);
- 	offset += random_len;
- 
-@@ -353,8 +351,8 @@ static struct sctp_auth_bytes *sctp_auth_asoc_create_secret(
- 	secret = sctp_auth_asoc_set_secret(ep_key, first_vector, last_vector,
- 					    gfp);
- out:
--	kfree(local_key_vector);
--	kfree(peer_key_vector);
-+	sctp_auth_key_put(local_key_vector);
-+	sctp_auth_key_put(peer_key_vector);
- 
- 	return secret;
- }
--- 
-1.7.11.7
+Hi
+
+
+Thanks for reply i referred  that site (wireless.kernel.org) as you said
+there is   lot of information
+but i am bit confused in getting right information because i am not
+interested much about hardware architecture as of now
+I need clear picture of software architecture
+but in the website there is lot of information so bit confused where to
+start
+
+any successions will be helpful for me
+
+
+Thanks & Regards
+
+O S L Reddy
+slreddy88@gmail.com
+
+
+On Fri, Feb 8, 2013 at 2:04 PM, Arend van Spriel <arend@broadcom.com> wrote:
+
+> On 02/08/2013 07:55 AM, Onteddu Slreddy wrote:
+> > Hello All,
+> >
+> >
+> > I recently joined this group the group.
+> >
+> > Can anybody suggest me places where I can get Documents which will
+> explain
+> > wifi  Architecture in brief i would like to know details like
+> >
+> > In Linux for embedded systems:
+> >         What is the software architecture for wifi
+> >         What are each folders in kernel/net and kernel/drivers/net refer
+> to
+> >         What is wpa_supplicant how to know which version I have to use
+> >         How to get  familiar with words like nl802.11, mac802.11, wext,
+> > copat-wireless, compatwireless-openmac
+> >         If I have to add a new chip driver what are the checklist points
+> i
+> > have to see
+> >
+> > My Quesitions may be basic kindly bare with me
+> > If any body have self prepared documents that will be great help for me
+>
+> 802.11 is a IEEE standard that is freely available for download.
+> Regarding Linux architecture and infrastructure there is a lot of
+> information to be found on wireless.kernel.org.
+>
+> Regards,
+> Arend
+>
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless"
+> in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+--047d7bdc1a865f785104d5338747--
+
+
+--===============7141140055359322760==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Free Next-Gen Firewall Hardware Offer
+Buy your Sophos next-gen firewall before the end March 2013 
+and get the hardware for free! Learn more.
+http://p.sf.net/sfu/sophos-d2d-feb
+--===============7141140055359322760==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============7141140055359322760==--
