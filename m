@@ -1,83 +1,36 @@
-From: Onteddu Slreddy <slreddy88@gmail.com>
-Subject: Wifi basics documents
-Date: Fri, 8 Feb 2013 12:25:31 +0530
-Message-ID: <CAHT=_ri0JBrbPfWJrzjYR4eNDDW9ygMkJSDU4vJXEfh_STLK9g@mail.gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH v2 0/4] XSA-39 CVE-2013-021[67]: Linux netback DoS via
+ malicious guest ring.
+Date: Fri, 8 Feb 2013 07:54:08 +0000
+Message-ID: <1360310048.9063.47.camel@dagon.hellion.org.uk>
+References: <1360230078.32479.41.camel@zakaz.uk.xensource.com>
+	 <20130207.233107.1094455509765442729.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3985181019086890401=="
-To: netdev <netdev@vger.kernel.org>, linux-can@vger.kernel.org,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, wil6210@qca.qualcomm.com,
-	brcm80211-dev-list@broadcom.com,
-	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
---===============3985181019086890401==
-Content-Type: multipart/alternative; boundary=bcaec54c52529d3ade04d5310b0d
-
---bcaec54c52529d3ade04d5310b0d
-Content-Type: text/plain; charset=ISO-8859-1
-
-Hello All,
-
-
-I recently joined this group the group.
-
-Can anybody suggest me places where I can get Documents which will explain
-wifi  Architecture in brief i would like to know details like
-
-In Linux for embedded systems:
-        What is the software architecture for wifi
-        What are each folders in kernel/net and kernel/drivers/net refer to
-        What is wpa_supplicant how to know which version I have to use
-        How to get  familiar with words like nl802.11, mac802.11, wext,
-copat-wireless, compatwireless-openmac
-        If I have to add a new chip driver what are the checklist points i
-have to see
-
-My Quesitions may be basic kindly bare with me
-If any body have self prepared documents that will be great help for me
-
-
-
-Thanks & Regards
-
-O S L Reddy
-slreddy88@gmail.com
-
---bcaec54c52529d3ade04d5310b0d--
-
-
---===============3985181019086890401==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:59488 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752699Ab3BHHyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 02:54:10 -0500
+In-Reply-To: <20130207.233107.1094455509765442729.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
---===============3985181019086890401==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Fri, 2013-02-08 at 04:31 +0000, David Miller wrote:
 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> Applied, please don't add stable CC:'s to networking patches, instead
+> ask me to queue it up to my -stable todo pile instead.
 
---===============3985181019086890401==--
+Thanks & Ack.
+
+> I don't like it when patches instantly be submitted to -stable when
+> they hit Linus's tree, I'd rather it soak upstream for a week or two
+> instead.  That's why I do it this way.
+
+Very reasonable.
+
+Ian.
