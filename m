@@ -1,137 +1,91 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next 05/10] igb: Update igb to use a path similar to ixgbe
- to determine when to stop Tx
-Date: Fri, 08 Feb 2013 09:11:10 -0800
-Message-ID: <511531AE.8030807@intel.com>
-References: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>  <1360319958-10497-6-git-send-email-jeffrey.t.kirsher@intel.com> <1360326369.28557.95.camel@edumazet-glaptop>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
+Date: Fri, 08 Feb 2013 23:39:54 +0530
+Message-ID: <51153F72.1060005@linux.vnet.ibm.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <510FBC01.2030405@linux.vnet.ibm.com> <87haloiwv0.fsf@rustcorp.com.au> <51134596.4080106@linux.vnet.ibm.com> <20130208154113.GV17833@n2100.arm.linux.org.uk> <51152B81.2050501@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:14356 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946671Ab3BHRLj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2013 12:11:39 -0500
-In-Reply-To: <1360326369.28557.95.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-doc@vger.kernel.org, peterz@infradead.org,
+	fweisbec@gmail.com, linux-kernel@vger.kernel.org,
+	walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
+	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+	paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	rostedt@goodmis.org, rjw@sisk.pl, namhyung@kernel.org,
+	tglx@linutronix.de, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, oleg@redhat.com, sbw@mit.edu,
+	tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org, vincent.guittot@linaro.org
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51152B81.2050501@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2/8/2013 4:26 AM, Eric Dumazet wrote:
-> On Fri, 2013-02-08 at 02:39 -0800, Jeff Kirsher wrote:
->> From: Alexander Duyck <alexander.h.duyck@intel.com>
+On 02/08/2013 10:14 PM, Srivatsa S. Bhat wrote:
+> On 02/08/2013 09:11 PM, Russell King - ARM Linux wrote:
+>> On Thu, Feb 07, 2013 at 11:41:34AM +0530, Srivatsa S. Bhat wrote:
+>>> On 02/07/2013 09:44 AM, Rusty Russell wrote:
+>>>> "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com> writes:
+>>>>> On 01/22/2013 01:03 PM, Srivatsa S. Bhat wrote:
+>>>>>                  Avg. latency of 1 CPU offline (ms) [stop-cpu/stop-m/c latency]
+>>>>>
+>>>>> # online CPUs    Mainline (with stop-m/c)       This patchset (no stop-m/c)
+>>>>>
+>>>>>       8                 17.04                          7.73
+>>>>>
+>>>>>      16                 18.05                          6.44
+>>>>>
+>>>>>      32                 17.31                          7.39
+>>>>>
+>>>>>      64                 32.40                          9.28
+>>>>>
+>>>>>     128                 98.23                          7.35
+>>>>
+>>>> Nice!
+>>>
+>>> Thank you :-)
+>>>
+>>>>  I wonder how the ARM guys feel with their quad-cpu systems...
+>>>>
+>>>
+>>> That would be definitely interesting to know :-)
 >>
->> After reviewing the igb and ixgbe code I realized there are a few issues in
->> how the code is structured.  Specifically we are not checking the size of the
->> buffers being used in transmits and we are not using the same value to
->> determine when to stop or start a Tx queue.  As such the code is prone to be
->> buggy.
+>> That depends what exactly you'd like tested (and how) and whether you'd
+>> like it to be a test-chip based quad core, or an OMAP dual-core SoC.
 >>
->> This patch makes it so that we have one value DESC_NEEDED that we will use for
->> starting and stopping the queue.  In addition we will check the size of
->> buffers being used when setting up a transmit so as to avoid a possible buffer
->> overrun if we were to receive a frame with a block of data larger than 32K in
->> skb->data.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Tested-by: Aaron Brown <aaron.f.brown@intel.com>
->> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> ---
->>   drivers/net/ethernet/intel/igb/igb.h      | 13 +++++++++++--
->>   drivers/net/ethernet/intel/igb/igb_main.c | 32 ++++++++++++++++++-------------
->>   2 files changed, 30 insertions(+), 15 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
->> index afdb8bb..d27edbc 100644
->> --- a/drivers/net/ethernet/intel/igb/igb.h
->> +++ b/drivers/net/ethernet/intel/igb/igb.h
->> @@ -139,8 +139,6 @@ struct vf_data_storage {
->>   #define IGB_RX_HDR_LEN		IGB_RXBUFFER_256
->>   #define IGB_RX_BUFSZ		IGB_RXBUFFER_2048
->>   
->> -/* How many Tx Descriptors do we need to call netif_wake_queue ? */
->> -#define IGB_TX_QUEUE_WAKE	16
->>   /* How many Rx Buffers do we bundle into one write to the hardware ? */
->>   #define IGB_RX_BUFFER_WRITE	16	/* Must be power of 2 */
->>   
->> @@ -169,6 +167,17 @@ enum igb_tx_flags {
->>   #define IGB_TX_FLAGS_VLAN_MASK		0xffff0000
->>   #define IGB_TX_FLAGS_VLAN_SHIFT	16
->>   
->> +/*
->> + * The largest size we can write to the descriptor is 65535.  In order to
->> + * maintain a power of two alignment we have to limit ourselves to 32K.
->> + */
->> +#define IGB_MAX_TXD_PWR	15
->> +#define IGB_MAX_DATA_PER_TXD	(1 << IGB_MAX_TXD_PWR)
->> +
->> +/* Tx Descriptors needed, worst case */
->> +#define TXD_USE_COUNT(S) DIV_ROUND_UP((S), IGB_MAX_DATA_PER_TXD)
->> +#define DESC_NEEDED (MAX_SKB_FRAGS + 4)
->> +
->>   /* wrapper around a pointer to a socket buffer,
->>    * so a DMA handle can be stored along with the buffer */
->>   struct igb_tx_buffer {
->> diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
->> index ebf8384..e69dd4f 100644
->> --- a/drivers/net/ethernet/intel/igb/igb_main.c
->> +++ b/drivers/net/ethernet/intel/igb/igb_main.c
->> @@ -4434,13 +4434,6 @@ static void igb_tx_olinfo_status(struct igb_ring *tx_ring,
->>   	tx_desc->read.olinfo_status = cpu_to_le32(olinfo_status);
->>   }
->>   
->> -/*
->> - * The largest size we can write to the descriptor is 65535.  In order to
->> - * maintain a power of two alignment we have to limit ourselves to 32K.
->> - */
->> -#define IGB_MAX_TXD_PWR	15
->> -#define IGB_MAX_DATA_PER_TXD	(1<<IGB_MAX_TXD_PWR)
->> -
->>   static void igb_tx_map(struct igb_ring *tx_ring,
->>   		       struct igb_tx_buffer *first,
->>   		       const u8 hdr_len)
->> @@ -4609,15 +4602,27 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
->>   	struct igb_tx_buffer *first;
->>   	int tso;
->>   	u32 tx_flags = 0;
->> +#if PAGE_SIZE > IGB_MAX_DATA_PER_TXD
->> +	unsigned short f;
->> +#endif
->> +	u16 count = TXD_USE_COUNT(skb_headlen(skb));
->>   	__be16 protocol = vlan_get_protocol(skb);
->>   	u8 hdr_len = 0;
->>   
->> -	/* need: 1 descriptor per page,
->> +	/*
->> +	 * need: 1 descriptor per page * PAGE_SIZE/IGB_MAX_DATA_PER_TXD,
->> +	 *       + 1 desc for skb_headlen/IGB_MAX_DATA_PER_TXD,
->>   	 *       + 2 desc gap to keep tail from touching head,
->> -	 *       + 1 desc for skb->data,
->>   	 *       + 1 desc for context descriptor,
->> -	 * otherwise try next time */
->> -	if (igb_maybe_stop_tx(tx_ring, skb_shinfo(skb)->nr_frags + 4)) {
->> +	 * otherwise try next time
->> +	 */
->> +#if PAGE_SIZE > IGB_MAX_DATA_PER_TXD
-> This code assumes a frag is at most PAGE_SIZE, but its not true.
->
->> +	for (f = 0; f < skb_shinfo(skb)->nr_frags; f++)
->> +		count += TXD_USE_COUNT(skb_shinfo(skb)->frags[f].size);
->> +#else
->> +	count += skb_shinfo(skb)->nr_frags;
->> +#endif
-> Current practical limit is 32768 bytes on x86
+> 
+> The effect of stop_machine() doesn't really depend on the CPU architecture
+> used underneath or the platform. It depends only on the _number_ of
+> _logical_ CPUs used.
+> 
+> And stop_machine() has 2 noticeable drawbacks:
+> 1. It makes the hotplug operation itself slow
+> 2. and it causes disruptions to the workloads running on the other
+> CPUs by hijacking the entire machine for significant amounts of time.
+> 
+> In my experiments (mentioned above), I tried to measure how my patchset
+> improves (reduces) the duration of hotplug (CPU offline) itself. Which is
+> also slightly indicative of the impact it has on the rest of the system.
+> 
+> But what would be nice to test, is a setup where the workloads running on
+> the rest of the system are latency-sensitive, and measure the impact of
+> CPU offline on them, with this patchset applied. That would tell us how
+> far is this useful in making CPU hotplug less disruptive on the system.
+> 
+> Of course, it would be nice to also see whether we observe any reduction
+> in hotplug duration itself (point 1 above) on ARM platforms with lot
+> of CPUs. [This could potentially speed up suspend/resume, which is used
+> rather heavily on ARM platforms].
+> 
+> The benefits from this patchset over mainline (both in terms of points
+> 1 and 2 above) is expected to increase, with increasing number of CPUs in
+> the system.
+> 
 
-For igb the IGB_MAX_DATA_PER_TXD is 32K as well.  So if I am not 
-mistaken we should be fine.  The only time we risk exceeding that is if 
-we have 64K page size.  It sounds like we may need to work in the ixgbe 
-driver though since I believe the limit for it is only 16K per descriptor.
+Adding Vincent to CC, who had previously evaluated the performance and
+latency implications of CPU hotplug on ARM platforms, IIRC.
 
-I will also submit an update for this patch that replaces PAGE_SIZE with 
-NETDEV_FRAG_PAGE_MAX_SIZE in order to keep the two in sync.
-
-Thanks,
-
-Alex
+Regards,
+Srivatsa S. Bhat
