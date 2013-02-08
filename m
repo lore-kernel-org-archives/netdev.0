@@ -1,40 +1,34 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next] cxgb4vf: Fix extraction of cpl_rx_pkt from the response queue descriptor
-Date: Fri,  8 Feb 2013 18:19:51 +0530
-Message-ID: <1360327791-21704-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	leedom@chelsio.com, abhishek@chelsio.com,
-	Vipul Pandya <vipul@chelsio.com>,
-	Jay Hernandez <jay@chelsio.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/7] couple of net/sched fixes+improvements
+Date: Fri,  8 Feb 2013 13:58:40 +0100
+Message-ID: <1360328327-7144-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
+	kuznet@ms2.inr.ac.ru
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:29496 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946422Ab3BHMzJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 07:55:09 -0500
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:51532 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946441Ab3BHM6w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 07:58:52 -0500
+Received: by mail-ee0-f43.google.com with SMTP id c50so2022105eek.16
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 04:58:51 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was preventing GRO and RxCheckSum offload to happen.
+Jiri Pirko (7):
+  htb: use PSCHED_TICKS2NS()
+  htb: fix values in opt dump
+  htb: remove pointless first initialization of buffer and cbuffer
+  htb: initialize cl->tokens and cl->ctokens correctly
+  sch: make htb_rate_cfg and functions around that generic
+  tbf: improved accuracy at high rates
+  tbf: ignore max_size check for gso skbs
 
-Signed-off-by: Jay Hernandez <jay@chelsio.com>
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4vf/sge.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/sch_generic.h | 18 +++++++++++
+ net/sched/sch_generic.c   | 37 ++++++++++++++++++++++
+ net/sched/sch_htb.c       | 80 +++++++++--------------------------------------
+ net/sched/sch_tbf.c       | 62 ++++++++++++++++++------------------
+ 4 files changed, 100 insertions(+), 97 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-index 92170d5..9e8841e 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
-@@ -1501,7 +1501,7 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 		       const struct pkt_gl *gl)
- {
- 	struct sk_buff *skb;
--	const struct cpl_rx_pkt *pkt = (void *)&rsp[1];
-+	const struct cpl_rx_pkt *pkt = (void *)rsp;
- 	bool csum_ok = pkt->csum_calc && !pkt->err_vec;
- 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
- 
 -- 
-1.7.1
+1.8.1.2
