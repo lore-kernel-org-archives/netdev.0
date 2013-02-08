@@ -1,322 +1,103 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/10] igb: Support using build_skb in the case that jumbo frames are disabled
-Date: Fri,  8 Feb 2013 02:39:09 -0800
-Message-ID: <1360319958-10497-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/10] igb: Intialize MAC function pointers
+Date: Fri,  8 Feb 2013 02:39:16 -0800
+Message-ID: <1360319958-10497-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38916 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:57761 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964774Ab3BHKja (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2013 05:39:30 -0500
+	id S1946211Ab3BHKjg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2013 05:39:36 -0500
 In-Reply-To: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-This change makes it so that we can enable the use of build_skb for cases
-where jumbo frames are disabled.  The advantage to this is that we do not
-have to perform a memcpy to populate the header and as a result we see a
-significant performance improvement.
+This patch initializes MAC function pointers for device configuration.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      |   8 ++
- drivers/net/ethernet/intel/igb/igb_main.c | 187 ++++++++++++++++++++++++------
- 2 files changed, 161 insertions(+), 34 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 61 ++++++++++++++++++++++++++++
+ 1 file changed, 61 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 4b78053..afdb8bb 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -275,10 +275,18 @@ struct igb_q_vector {
- enum e1000_ring_flags_t {
- 	IGB_RING_FLAG_RX_SCTP_CSUM,
- 	IGB_RING_FLAG_RX_LB_VLAN_BSWAP,
-+	IGB_RING_FLAG_RX_BUILD_SKB_ENABLED,
- 	IGB_RING_FLAG_TX_CTX_IDX,
- 	IGB_RING_FLAG_TX_DETECT_HANG
- };
- 
-+#define ring_uses_build_skb(ring) \
-+	test_bit(IGB_RING_FLAG_RX_BUILD_SKB_ENABLED, &(ring)->flags)
-+#define set_ring_build_skb_enabled(ring) \
-+	set_bit(IGB_RING_FLAG_RX_BUILD_SKB_ENABLED, &(ring)->flags)
-+#define clear_ring_build_skb_enabled(ring) \
-+	clear_bit(IGB_RING_FLAG_RX_BUILD_SKB_ENABLED, &(ring)->flags)
-+
- #define IGB_TXD_DCMD (E1000_ADVTXD_DCMD_EOP | E1000_ADVTXD_DCMD_RS)
- 
- #define IGB_RX_DESC(R, i)	    \
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 1aaf193..b070a97 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -3354,6 +3354,20 @@ void igb_configure_rx_ring(struct igb_adapter *adapter,
- 	wr32(E1000_RXDCTL(reg_idx), rxdctl);
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index e59fc9b..8604013 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -332,6 +332,67 @@ s32 igb_init_nvm_params_82575(struct e1000_hw *hw)
+ 	return 0;
  }
  
-+static void igb_set_rx_buffer_len(struct igb_adapter *adapter,
-+				  struct igb_ring *rx_ring)
++/**
++ *  igb_init_mac_params_82575 - Init MAC func ptrs.
++ *  @hw: pointer to the HW structure
++ **/
++static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
 +{
-+#define IGB_MAX_BUILD_SKB_SIZE \
-+	(SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) - \
-+	 (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HDR_LEN))
++	struct e1000_mac_info *mac = &hw->mac;
++	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
 +
-+	/* set build_skb flag */
-+	if (adapter->max_frame_size <= IGB_MAX_BUILD_SKB_SIZE)
-+		set_ring_build_skb_enabled(rx_ring);
++	/* Set mta register count */
++	mac->mta_reg_count = 128;
++	/* Set rar entry count */
++	switch (mac->type) {
++	case e1000_82576:
++		mac->rar_entry_count = E1000_RAR_ENTRIES_82576;
++		break;
++	case e1000_82580:
++		mac->rar_entry_count = E1000_RAR_ENTRIES_82580;
++		break;
++	case e1000_i350:
++		mac->rar_entry_count = E1000_RAR_ENTRIES_I350;
++		break;
++	default:
++		mac->rar_entry_count = E1000_RAR_ENTRIES_82575;
++		break;
++	}
++	/* reset */
++	if (mac->type >= e1000_82580)
++		mac->ops.reset_hw = igb_reset_hw_82580;
 +	else
-+		clear_ring_build_skb_enabled(rx_ring);
-+}
++		mac->ops.reset_hw = igb_reset_hw_82575;
 +
- /**
-  * igb_configure_rx - Configure receive Unit after Reset
-  * @adapter: board private structure
-@@ -3373,8 +3387,11 @@ static void igb_configure_rx(struct igb_adapter *adapter)
- 
- 	/* Setup the HW Rx Head and Tail Descriptor Pointers and
- 	 * the Base and Length of the Rx Descriptor Ring */
--	for (i = 0; i < adapter->num_rx_queues; i++)
--		igb_configure_rx_ring(adapter, adapter->rx_ring[i]);
-+	for (i = 0; i < adapter->num_rx_queues; i++) {
-+		struct igb_ring *rx_ring = adapter->rx_ring[i];
-+		igb_set_rx_buffer_len(adapter, rx_ring);
-+		igb_configure_rx_ring(adapter, rx_ring);
-+	}
- }
- 
- /**
-@@ -6097,6 +6114,41 @@ static void igb_reuse_rx_page(struct igb_ring *rx_ring,
- 					 DMA_FROM_DEVICE);
- }
- 
-+static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
-+				  struct page *page,
-+				  unsigned int truesize)
-+{
-+	/* avoid re-using remote pages */
-+	if (unlikely(page_to_nid(page) != numa_node_id()))
-+		return false;
++	if (mac->type >= e1000_i210) {
++		mac->ops.acquire_swfw_sync = igb_acquire_swfw_sync_i210;
++		mac->ops.release_swfw_sync = igb_release_swfw_sync_i210;
 +
-+#if (PAGE_SIZE < 8192)
-+	/* if we are only owner of page we can reuse it */
-+	if (unlikely(page_count(page) != 1))
-+		return false;
-+
-+	/* flip page offset to other buffer */
-+	rx_buffer->page_offset ^= IGB_RX_BUFSZ;
-+
-+	/* since we are the only owner of the page and we need to
-+	 * increment it, just set the value to 2 in order to avoid
-+	 * an unnecessary locked operation
-+	 */
-+	atomic_set(&page->_count, 2);
-+#else
-+	/* move offset up to the next cache line */
-+	rx_buffer->page_offset += truesize;
-+
-+	if (rx_buffer->page_offset > (PAGE_SIZE - IGB_RX_BUFSZ))
-+		return false;
-+
-+	/* bump ref count on page before it is given to the stack */
-+	get_page(page);
-+#endif
-+
-+	return true;
-+}
-+
- /**
-  * igb_add_rx_frag - Add contents of Rx buffer to sk_buff
-  * @rx_ring: rx descriptor ring to transact packets on
-@@ -6119,6 +6171,11 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
- {
- 	struct page *page = rx_buffer->page;
- 	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
-+#if (PAGE_SIZE < 8192)
-+	unsigned int truesize = IGB_RX_BUFSZ;
-+#else
-+	unsigned int truesize = ALIGN(size, L1_CACHE_BYTES);
-+#endif
- 
- 	if ((size <= IGB_RX_HDR_LEN) && !skb_is_nonlinear(skb)) {
- 		unsigned char *va = page_address(page) + rx_buffer->page_offset;
-@@ -6141,38 +6198,88 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
- 	}
- 
- 	skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
--			rx_buffer->page_offset, size, IGB_RX_BUFSZ);
-+			rx_buffer->page_offset, size, truesize);
- 
--	/* avoid re-using remote pages */
--	if (unlikely(page_to_nid(page) != numa_node_id()))
--		return false;
-+	return igb_can_reuse_rx_page(rx_buffer, page, truesize);
-+}
- 
-+static struct sk_buff *igb_build_rx_buffer(struct igb_ring *rx_ring,
-+					   union e1000_adv_rx_desc *rx_desc)
-+{
-+	struct igb_rx_buffer *rx_buffer;
-+	struct sk_buff *skb;
-+	struct page *page;
-+	void *page_addr;
-+	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
- #if (PAGE_SIZE < 8192)
--	/* if we are only owner of page we can reuse it */
--	if (unlikely(page_count(page) != 1))
--		return false;
-+	unsigned int truesize = IGB_RX_BUFSZ;
-+#else
-+	unsigned int truesize = SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) +
-+				SKB_DATA_ALIGN(NET_SKB_PAD +
-+					       NET_IP_ALIGN +
-+					       size);
-+#endif
- 
--	/* flip page offset to other buffer */
--	rx_buffer->page_offset ^= IGB_RX_BUFSZ;
-+	/* If we spanned a buffer we have a huge mess so test for it */
-+	BUG_ON(unlikely(!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP)));
- 
--	/*
--	 * since we are the only owner of the page and we need to
--	 * increment it, just set the value to 2 in order to avoid
--	 * an unnecessary locked operation
--	 */
--	atomic_set(&page->_count, 2);
--#else
--	/* move offset up to the next cache line */
--	rx_buffer->page_offset += SKB_DATA_ALIGN(size);
-+	/* Guarantee this function can be used by verifying buffer sizes */
-+	BUILD_BUG_ON(SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD +
-+							NET_IP_ALIGN +
-+							IGB_TS_HDR_LEN +
-+							ETH_FRAME_LEN +
-+							ETH_FCS_LEN));
- 
--	if (rx_buffer->page_offset > (PAGE_SIZE - IGB_RX_BUFSZ))
--		return false;
-+	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
-+	page = rx_buffer->page;
-+	prefetchw(page);
- 
--	/* bump ref count on page before it is given to the stack */
--	get_page(page);
-+	page_addr = page_address(page) + rx_buffer->page_offset;
-+
-+	/* prefetch first cache line of first page */
-+	prefetch(page_addr + NET_SKB_PAD + NET_IP_ALIGN);
-+#if L1_CACHE_BYTES < 128
-+	prefetch(page_addr + L1_CACHE_BYTES + NET_SKB_PAD + NET_IP_ALIGN);
- #endif
- 
--	return true;
-+	/* build an skb to around the page buffer */
-+	skb = build_skb(page_addr, truesize);
-+	if (unlikely(!skb)) {
-+		rx_ring->rx_stats.alloc_failed++;
-+		return NULL;
-+	}
-+
-+	/* we are reusing so sync this buffer for CPU use */
-+	dma_sync_single_range_for_cpu(rx_ring->dev,
-+				      rx_buffer->dma,
-+				      rx_buffer->page_offset,
-+				      IGB_RX_BUFSZ,
-+				      DMA_FROM_DEVICE);
-+
-+	/* update pointers within the skb to store the data */
-+	skb_reserve(skb, NET_IP_ALIGN + NET_SKB_PAD);
-+	__skb_put(skb, size);
-+
-+	/* pull timestamp out of packet data */
-+	if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP)) {
-+		igb_ptp_rx_pktstamp(rx_ring->q_vector, skb->data, skb);
-+		__skb_pull(skb, IGB_TS_HDR_LEN);
-+	}
-+
-+	if (igb_can_reuse_rx_page(rx_buffer, page, truesize)) {
-+		/* hand second half of page back to the ring */
-+		igb_reuse_rx_page(rx_ring, rx_buffer);
 +	} else {
-+		/* we are not reusing the buffer so unmap it */
-+		dma_unmap_page(rx_ring->dev, rx_buffer->dma,
-+			       PAGE_SIZE, DMA_FROM_DEVICE);
++		mac->ops.acquire_swfw_sync = igb_acquire_swfw_sync_82575;
++		mac->ops.release_swfw_sync = igb_release_swfw_sync_82575;
 +	}
 +
-+	/* clear contents of buffer_info */
-+	rx_buffer->dma = 0;
-+	rx_buffer->page = NULL;
-+
-+	return skb;
- }
- 
- static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
-@@ -6184,13 +6291,6 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 
- 	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
- 
--	/*
--	 * This memory barrier is needed to keep us from reading
--	 * any other fields out of the rx_desc until we know the
--	 * RXD_STAT_DD bit is set
--	 */
--	rmb();
--
- 	page = rx_buffer->page;
- 	prefetchw(page);
- 
-@@ -6590,8 +6690,17 @@ static bool igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)
- 		if (!igb_test_staterr(rx_desc, E1000_RXD_STAT_DD))
- 			break;
- 
-+		/* This memory barrier is needed to keep us from reading
-+		 * any other fields out of the rx_desc until we know the
-+		 * RXD_STAT_DD bit is set
-+		 */
-+		rmb();
-+
- 		/* retrieve a buffer from the ring */
--		skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
-+		if (ring_uses_build_skb(rx_ring))
-+			skb = igb_build_rx_buffer(rx_ring, rx_desc);
-+		else
-+			skb = igb_fetch_rx_buffer(rx_ring, rx_desc, skb);
- 
- 		/* exit if we failed to retrieve a buffer */
- 		if (!skb)
-@@ -6678,6 +6787,14 @@ static bool igb_alloc_mapped_page(struct igb_ring *rx_ring,
- 	return true;
- }
- 
-+static inline unsigned int igb_rx_offset(struct igb_ring *rx_ring)
-+{
-+	if (ring_uses_build_skb(rx_ring))
-+		return NET_SKB_PAD + NET_IP_ALIGN;
++	/* Set if part includes ASF firmware */
++	mac->asf_firmware_present = true;
++	/* Set if manageability features are enabled. */
++	mac->arc_subsystem_valid =
++		(rd32(E1000_FWSM) & E1000_FWSM_MODE_MASK)
++			? true : false;
++	/* enable EEE on i350 parts and later parts */
++	if (mac->type >= e1000_i350)
++		dev_spec->eee_disable = false;
 +	else
-+		return 0;
++		dev_spec->eee_disable = true;
++	/* physical interface link setup */
++	mac->ops.setup_physical_interface =
++		(hw->phy.media_type == e1000_media_type_copper)
++			? igb_setup_copper_link_82575
++			: igb_setup_serdes_link_82575;
++
++	return 0;
 +}
 +
- /**
-  * igb_alloc_rx_buffers - Replace used receive buffers; packet split
-  * @adapter: address of board private structure
-@@ -6704,7 +6821,9 @@ void igb_alloc_rx_buffers(struct igb_ring *rx_ring, u16 cleaned_count)
- 		 * Refresh the desc even if buffer_addrs didn't change
- 		 * because each write-back erases this info.
- 		 */
--		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma + bi->page_offset);
-+		rx_desc->read.pkt_addr = cpu_to_le64(bi->dma +
-+						     bi->page_offset +
-+						     igb_rx_offset(rx_ring));
- 
- 		rx_desc++;
- 		bi++;
+ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ {
+ 	struct e1000_phy_info *phy = &hw->phy;
 -- 
 1.7.11.7
