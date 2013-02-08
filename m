@@ -1,34 +1,40 @@
-From: Martin Sustrik <sustrik@250bpm.com>
-Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
-Date: Fri, 08 Feb 2013 13:43:04 +0100
-Message-ID: <5114F2D8.5020300@250bpm.com>
-References: <1360219292-19754-1-git-send-email-sustrik@250bpm.com> <20130207144433.527ef024.akpm@linux-foundation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
-	Sha Zhengju <handai.szj@taobao.com>,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130207144433.527ef024.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH net-next] cxgb4vf: Fix extraction of cpl_rx_pkt from the response queue descriptor
+Date: Fri,  8 Feb 2013 18:19:51 +0530
+Message-ID: <1360327791-21704-1-git-send-email-vipul@chelsio.com>
+Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
+	leedom@chelsio.com, abhishek@chelsio.com,
+	Vipul Pandya <vipul@chelsio.com>,
+	Jay Hernandez <jay@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:29496 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946422Ab3BHMzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 07:55:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/02/13 23:44, Andrew Morton wrote:
+This was preventing GRO and RxCheckSum offload to happen.
 
-> That's a nice changelog but it omitted a critical thing: why do you
-> think the kernel needs this feature?  What's the value and use case for
-> being able to poll these descriptors?
+Signed-off-by: Jay Hernandez <jay@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4vf/sge.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-To address the question, I've written down detailed description of the 
-challenges of the network protocol development in user space and how the 
-proposed feature addresses the problems.
-
-It's too long to fit into ChangeLog, but it may be worth reading when 
-trying to judge the merit of the patch.
-
-It can be found here: http://www.250bpm.com/blog:16
-
-Martin
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+index 92170d5..9e8841e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/sge.c
+@@ -1501,7 +1501,7 @@ int t4vf_ethrx_handler(struct sge_rspq *rspq, const __be64 *rsp,
+ 		       const struct pkt_gl *gl)
+ {
+ 	struct sk_buff *skb;
+-	const struct cpl_rx_pkt *pkt = (void *)&rsp[1];
++	const struct cpl_rx_pkt *pkt = (void *)rsp;
+ 	bool csum_ok = pkt->csum_calc && !pkt->err_vec;
+ 	struct sge_eth_rxq *rxq = container_of(rspq, struct sge_eth_rxq, rspq);
+ 
+-- 
+1.7.1
