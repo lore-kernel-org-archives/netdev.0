@@ -1,31 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/2] two small fixes for sctp key usage
-Date: Fri, 08 Feb 2013 14:55:35 -0500 (EST)
-Message-ID: <20130208.145535.2028003181646685456.davem@davemloft.net>
-References: <cover.1360327229.git.dborkman@redhat.com>
+Subject: Re: Softirqs without captured packets
+Date: Fri, 08 Feb 2013 14:57:28 -0500 (EST)
+Message-ID: <20130208.145728.1110053781319882182.davem@davemloft.net>
+References: <CALZVap=wdDnTndwa+Q+MLCufj9YpY-m+wATFiKSTX2bXX-9DVw@mail.gmail.com>
+	<CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: javierdo1@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36605 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36615 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946795Ab3BHTzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 14:55:37 -0500
-In-Reply-To: <cover.1360327229.git.dborkman@redhat.com>
+	with ESMTP id S1946882Ab3BHT53 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 14:57:29 -0500
+In-Reply-To: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri,  8 Feb 2013 14:04:33 +0100
+From: Javier Domingo <javierdo1@gmail.com>
+Date: Fri, 8 Feb 2013 20:54:14 +0100
 
-> Cryptographically used keys should be zeroed out when our session
-> ends resp. memory is freed, thus do not leave them somewhere in the
-> memory.
-> 
-> Daniel Borkmann (2):
->   net: sctp: sctp_setsockopt_auth_key: use kzfree instead of kfree
->   net: sctp: sctp_endpoint_free: zero out secret key data
+> Just realized I didn't put the file:
 
-Applied and queued up for -stable, thanks.
+Softirqs happen for TX packet reclaim, other miscelanneous networking
+device events (link status changes, hw statistic overflows, etc.),
+timers, etc.
+
+They are not exclusively triggered for receive packets.
