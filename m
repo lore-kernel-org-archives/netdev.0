@@ -1,48 +1,36 @@
-From: Lucas Stach <dev@lynxeye.de>
-Subject: [PATCH] net: usb: fix regression from 6509141f9c2ba74df6cc72ec35cd1865276ae3a4
-Date: Fri,  8 Feb 2013 03:18:39 +0100
-Message-ID: <1360289919-20409-1-git-send-email-dev@lynxeye.de>
-Cc: Wei Shuai <cpuwolf@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.km20343-01.keymachine.de ([84.19.182.79]:57051 "EHLO
-	km20343-01.keymachine.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1757513Ab3BHCSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 21:18:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Wong <normalperson@yhbt.net>
+Subject: Re: splice() giving unexpected EOF in 3.7.3 and 3.8-rc4+
+Date: Fri, 8 Feb 2013 02:39:46 +0000
+Message-ID: <20130208023946.GA23197@dcvr.yhbt.net>
+References: <20130119044957.GA25395@dcvr.yhbt.net>
+ <1358574847.3464.422.camel@edumazet-glaptop>
+ <1358575996.3464.447.camel@edumazet-glaptop>
+ <20130120.232122.1798689273842981732.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-fsdevel@vger.kernel.org, w@1wt.eu
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130120.232122.1798689273842981732.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The newly added flag NOARP was using an already defined value, which
-broke drivers using flag MULTI_PACKET.
+David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 18 Jan 2013 22:13:16 -0800
+> 
+> > On Fri, 2013-01-18 at 21:54 -0800, Eric Dumazet wrote:
+> > 
+> >> 
+> >> Hmm, this might be already fixed in net-next tree, could you try it ?
+> >> 
+> > 
+> > Yes, running your program on net-next seems OK.
+> > 
+> > David, we need the two following commits.
+> 
+> Tossed into 'net' and queued up for -stable, thanks.
 
-Signed-off-by: Lucas Stach <dev@lynxeye.de>
----
-As the regressing patch went in with v3.8-rc5, this fix should go to
-mainline ASAP.
----
- include/linux/usb/usbnet.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index 5de7a22..2cb5fb6 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -100,7 +100,6 @@ struct driver_info {
- #define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
- 
- #define FLAG_POINTTOPOINT 0x1000	/* possibly use "usb%d" names */
--#define FLAG_NOARP	0x2000		/* device can't do ARP */
- 
- /*
-  * Indicates to usbnet, that USB driver accumulates multiple IP packets.
-@@ -108,6 +107,7 @@ struct driver_info {
-  */
- #define FLAG_MULTI_PACKET	0x2000
- #define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
-+#define FLAG_NOARP		0x8000	/* device can't do ARP */
- 
- 	/* init device ... can sleep, or cause probe() failure */
- 	int	(*bind)(struct usbnet *, struct usb_interface *);
--- 
-1.8.1
+Hi David, any update on getting these into -stable?  Thanks.
