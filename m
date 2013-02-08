@@ -1,34 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] bgmac: fix "cmdcfg" calls for promisc and loopback
- modes
-Date: Fri, 08 Feb 2013 17:44:12 -0500 (EST)
-Message-ID: <20130208.174412.315468738266815908.davem@davemloft.net>
-References: <1360232591-25789-1-git-send-email-zajec5@gmail.com>
-	<1360251638-20925-1-git-send-email-zajec5@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] drivers: net: Remove remaining alloc/OOM messages
+Date: Fri, 08 Feb 2013 17:45:00 -0500 (EST)
+Message-ID: <20130208.174500.1518593039138341685.davem@davemloft.net>
+References: <1360273587.27863.15.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, nlhintz@hotmail.com
-To: zajec5@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37993 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760362Ab3BHWoN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 17:44:13 -0500
-In-Reply-To: <1360251638-20925-1-git-send-email-zajec5@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-can-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org, wil6210-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org,
+	brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1360273587.27863.15.camel@joe-AO722>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Thu,  7 Feb 2013 16:40:38 +0100
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Date: Thu, 07 Feb 2013 13:46:27 -0800
 
-> The last (bool) parameter in bgmac_cmdcfg_maskset says if the write
-> should be made, even if value didn't change. Currently driver doesn't
-> match the specs about (not) forcing some changes. This makes it follo=
-w
-> them.
->=20
-> Reported-by: Nathan Hintz <nlhintz@hotmail.com>
-> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+> alloc failures already get standardized OOM
+> messages and a dump_stack.
+> 
+> For the affected mallocs around these OOM messages:
+> 
+> Converted kmallocs with multiplies to kmalloc_array.
+> Converted a kmalloc/memcpy to kmemdup.
+> Removed now unused stack variables.
+> Removed unnecessary parentheses.
+> Neatened alignment.
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-Applied.
+Applied, thanks Joe.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
