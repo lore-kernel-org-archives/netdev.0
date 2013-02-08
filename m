@@ -1,54 +1,48 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-Subject: Re: [PATCH net-next] macvlan: broadcast addr should be part of mc_filter
-Date: Thu, 7 Feb 2013 18:05:17 -0800
-Message-ID: <CANP3RGeJFMZY_5cmFPg+ZWcNWoH_y0Je0tzaGsomt+xoCP+mWw@mail.gmail.com>
-References: <1360288977.28557.77.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <erdnetdev@gmail.com>
+From: Lucas Stach <dev@lynxeye.de>
+Subject: [PATCH] net: usb: fix regression from 6509141f9c2ba74df6cc72ec35cd1865276ae3a4
+Date: Fri,  8 Feb 2013 03:18:39 +0100
+Message-ID: <1360289919-20409-1-git-send-email-dev@lynxeye.de>
+Cc: Wei Shuai <cpuwolf@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:61993 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757378Ab3BHCFS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 21:05:18 -0500
-Received: by mail-ob0-f176.google.com with SMTP id v19so3418505obq.21
-        for <netdev@vger.kernel.org>; Thu, 07 Feb 2013 18:05:18 -0800 (PST)
-In-Reply-To: <1360288977.28557.77.camel@edumazet-glaptop>
+Received: from ns.km20343-01.keymachine.de ([84.19.182.79]:57051 "EHLO
+	km20343-01.keymachine.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1757513Ab3BHCSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 21:18:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SIgned-off-by: Maciej =C5=BBenczykowski <maze@google.com>
+The newly added flag NOARP was using an already defined value, which
+broke drivers using flag MULTI_PACKET.
 
-On Thu, Feb 7, 2013 at 6:02 PM, Eric Dumazet <erdnetdev@gmail.com> wrot=
-e:
-> From: Eric Dumazet <edumazet@google.com>
->
-> commit cd431e738509e (macvlan: add multicast filter) forgot
-> the broadcast case.
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Maciej =C5=BBenczykowski <maze@google.com>
-> ---
->  drivers/net/macvlan.c |    3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index f494da8..ce7c926 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -426,6 +426,9 @@ static void macvlan_set_mac_lists(struct net_devi=
-ce *dev)
->                 netdev_for_each_mc_addr(ha, dev) {
->                         __set_bit(mc_hash(ha->addr), filter);
->                 }
-> +
-> +               __set_bit(mc_hash(dev->broadcast), filter);
-> +
->                 bitmap_copy(vlan->mc_filter, filter, MACVLAN_MC_FILTE=
-R_SZ);
->         }
->         dev_uc_sync(vlan->lowerdev, dev);
->
->
+Signed-off-by: Lucas Stach <dev@lynxeye.de>
+---
+As the regressing patch went in with v3.8-rc5, this fix should go to
+mainline ASAP.
+---
+ include/linux/usb/usbnet.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 5de7a22..2cb5fb6 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -100,7 +100,6 @@ struct driver_info {
+ #define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
+ 
+ #define FLAG_POINTTOPOINT 0x1000	/* possibly use "usb%d" names */
+-#define FLAG_NOARP	0x2000		/* device can't do ARP */
+ 
+ /*
+  * Indicates to usbnet, that USB driver accumulates multiple IP packets.
+@@ -108,6 +107,7 @@ struct driver_info {
+  */
+ #define FLAG_MULTI_PACKET	0x2000
+ #define FLAG_RX_ASSEMBLE	0x4000	/* rx packets may span >1 frames */
++#define FLAG_NOARP		0x8000	/* device can't do ARP */
+ 
+ 	/* init device ... can sleep, or cause probe() failure */
+ 	int	(*bind)(struct usbnet *, struct usb_interface *);
+-- 
+1.8.1
