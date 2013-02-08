@@ -1,39 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 05/10] igb: Update igb to use a path similar to
- ixgbe to determine when to stop Tx
-Date: Fri, 08 Feb 2013 14:18:54 -0500 (EST)
-Message-ID: <20130208.141854.2122874496462368419.davem@davemloft.net>
-References: <1360319958-10497-6-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1360326369.28557.95.camel@edumazet-glaptop>
-	<511531AE.8030807@intel.com>
+Subject: Re: [PATCH] atm/iphase: rename fregt_t -> ffreg_t
+Date: Fri, 08 Feb 2013 14:22:19 -0500 (EST)
+Message-ID: <20130208.142219.278011265881366578.davem@davemloft.net>
+References: <20130208101911.GA12195@osiris>
+	<20130208095842.7df1a25e@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: alexander.h.duyck@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36256 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946826Ab3BHTS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 14:18:56 -0500
-In-Reply-To: <511531AE.8030807@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: heiko.carstens@de.ibm.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: chas@cmf.nrl.navy.mil
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130208095842.7df1a25e@thirdoffive.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Date: Fri, 08 Feb 2013 09:11:10 -0800
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Date: Fri, 8 Feb 2013 09:58:42 -0500
 
-> For igb the IGB_MAX_DATA_PER_TXD is 32K as well.  So if I am not
-> mistaken we should be fine.  The only time we risk exceeding that is
-> if we have 64K page size.  It sounds like we may need to work in the
-> ixgbe driver though since I believe the limit for it is only 16K per
-> descriptor.
+> On Fri, 8 Feb 2013 11:19:11 +0100
+> Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
 > 
-> I will also submit an update for this patch that replaces PAGE_SIZE
-> with NETDEV_FRAG_PAGE_MAX_SIZE in order to keep the two in sync.
+>> We have conflicting type qualifiers for "freg_t" in s390's ptrace.h and the
+>> iphase atm device driver, which causes the compile error below.
+>> Unfortunately the s390 typedef can't be renamed, since it's a user visible api,
+>> nor can I change the include order in s390 code to avoid the conflict.
+>> 
+>> So simply rename the iphase typedef to a new name. Fixes this compile error:
+>> 
+>> In file included from drivers/atm/iphase.c:66:0:
+>> drivers/atm/iphase.h:639:25: error: conflicting type qualifiers for 'freg_t'
+>> In file included from next/arch/s390/include/asm/ptrace.h:9:0,
+>>                  from next/arch/s390/include/asm/lowcore.h:12,
+>>                  from next/arch/s390/include/asm/thread_info.h:30,
+>>                  from include/linux/thread_info.h:54,
+>>                  from include/linux/preempt.h:9,
+>>                  from include/linux/spinlock.h:50,
+>>                  from include/linux/seqlock.h:29,
+>>                  from include/linux/time.h:5,
+>>                  from include/linux/stat.h:18,
+>>                  from include/linux/module.h:10,
+>>                  from drivers/atm/iphase.c:43:
+>> next/arch/s390/include/uapi/asm/ptrace.h:197:3: note: previous declaration of 'freg_t' was here
+>> 
+>> Signed-off-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> 
+> seems like a fine idea.
+> 
+> Acked-by: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 
-I therefore expect a respin of this series from Jeff once the
-update of this patch is resolved.
-
-Thanks.
+Applied, thanks.
