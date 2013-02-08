@@ -1,41 +1,48 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH] drivers: net: Remove remaining alloc/OOM messages
-Date: Fri, 8 Feb 2013 11:19:19 -0500
-Message-ID: <20130208161918.GD2116@tuxdriver.com>
-References: <1360273587.27863.15.camel@joe-AO722>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next 3/7] htb: remove pointless first initialization
+ of buffer and cbuffer
+Date: Fri, 08 Feb 2013 08:35:14 -0800
+Message-ID: <1360341314.28557.99.camel@edumazet-glaptop>
+References: <1360328327-7144-1-git-send-email-jiri@resnulli.us>
+	 <1360328327-7144-4-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>, linux-can@vger.kernel.org,
-	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	ath9k-devel@venema.h4ckr.net, wil6210@qca.qualcomm.com,
-	brcm80211-dev-list@broadcom.com,
-	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1360273587.27863.15.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:57295 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946533Ab3BHQfS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 11:35:18 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fa10so2188796pad.41
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 08:35:17 -0800 (PST)
+In-Reply-To: <1360328327-7144-4-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 07, 2013 at 01:46:27PM -0800, Joe Perches wrote:
-> alloc failures already get standardized OOM
-> messages and a dump_stack.
+On Fri, 2013-02-08 at 13:58 +0100, Jiri Pirko wrote:
+> these are initialized correctly couple of lines later in the function.
 > 
-> For the affected mallocs around these OOM messages:
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  net/sched/sch_htb.c | 3 ---
+>  1 file changed, 3 deletions(-)
 > 
-> Converted kmallocs with multiplies to kmalloc_array.
-> Converted a kmalloc/memcpy to kmemdup.
-> Removed now unused stack variables.
-> Removed unnecessary parentheses.
-> Neatened alignment.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+> index 14a83dc..547912e9 100644
+> --- a/net/sched/sch_htb.c
+> +++ b/net/sched/sch_htb.c
+> @@ -1503,9 +1503,6 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+>  			cl->prio = TC_HTB_NUMPRIO - 1;
+>  	}
+>  
+> -	cl->buffer = hopt->buffer;
+> -	cl->cbuffer = hopt->cbuffer;
+> -
+>  	cl->rate.rate_bps = (u64)hopt->rate.rate << 3;
+>  	cl->ceil.rate_bps = (u64)hopt->ceil.rate << 3;
+>  
 
-No objection...
-
-Acked-by: John W. Linville <linville@tuxdriver.com>
-
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Acked-by: Eric Dumazet <edumazet@google.com>
