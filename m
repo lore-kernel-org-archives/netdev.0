@@ -1,31 +1,32 @@
 From: Kees van Reeuwijk <kees.van.reeuwijk@gmail.com>
-Subject: [PATCH v2 5/5] iproute2: improved error messages
+Subject: [PATCH v2 4/5] iproute2: clarification of various man8 pages
 Date: Fri, 08 Feb 2013 14:32:36 +0100
-Message-ID: <E1U3o4C-0000c3-OZ@babylon.few.vu.nl>
+Message-ID: <E1U3o4C-0000c1-OV@babylon.few.vu.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:62547 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946022Ab3BHNek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 08:34:40 -0500
-Received: by mail-wg0-f46.google.com with SMTP id fg15so2898714wgb.13
-        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 05:34:38 -0800 (PST)
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:56150 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946075Ab3BHNel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 08:34:41 -0500
+Received: by mail-wi0-f172.google.com with SMTP id ez12so846761wid.11
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 05:34:40 -0800 (PST)
 Received: from reeuwijk by babylon.few.vu.nl with local (Exim 4.72)
 	(envelope-from <reeuwijk@few.vu.nl>)
-	id 1U3o4C-0000c3-OZ
+	id 1U3o4C-0000c1-OV
 	for netdev@vger.kernel.org; Fri, 08 Feb 2013 14:32:36 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kees van Reeuwijk <reeuwijk@few.vu.nl>
 
-This patch improves many error messages as follows:
-- For incorrect parameters, show the value of the offending parameter, rather than just say that it is incorrect
-- Rephrased messages for clarity
-- Rephrased to more `mainstream' english
+Rephrasing for clarity.
+
+Note that in ip-rule.8 I rephrased a sentence to "The RPDB is scanned
+in order of decreasing priority." The original version talked about
+*in*creasing priority, but from the context that didn't make sense.
 
 
 Signed-off-by: Kees van Reeuwijk <reeuwijk@few.vu.nl>
@@ -33,763 +34,464 @@ Signed-off-by: Kees van Reeuwijk <reeuwijk@few.vu.nl>
 ---
 
 
- ip6tunnel.c      |    8 ++++----
- ipaddress.c      |    2 +-
- ipl2tp.c         |    2 +-
- iplink.c         |   28 ++++++++++++++--------------
- iplink_can.c     |    6 +++---
- iplink_ipoib.c   |    2 +-
- iplink_macvlan.c |    2 +-
- iplink_macvtap.c |    8 ++++----
- iplink_vlan.c    |   12 ++++++------
- iplink_vxlan.c   |    2 +-
- ipnetns.c        |   20 ++++++++++----------
- ipprefix.c       |    2 +-
- iproute.c        |    4 ++--
- iptunnel.c       |   30 +++++++++++++++---------------
- iptuntap.c       |    2 +-
- ipxfrm.c         |    2 +-
- link_gre.c       |    8 ++++----
- link_vti.c       |   10 +++++-----
- tcp_metrics.c    |    2 +-
- tunnel.c         |    6 +++---
- 20 files changed, 79 insertions(+), 79 deletions(-)
+ arpd.8         |   38 +++++++++++++++++++-------------------
+ bridge.8       |   10 +++++-----
+ ip-addrlabel.8 |   16 ++++++++--------
+ ip-maddress.8  |   10 +++++-----
+ ip-monitor.8   |   25 ++++++++++++++++---------
+ ip-mroute.8    |    4 ++--
+ ip-neighbour.8 |    2 +-
+ ip-netconf.8   |    6 +++---
+ ip-netns.8     |    4 ++--
+ ip-rule.8      |    6 +++---
+ ip.8           |   20 ++++++++++----------
+ tc.8           |    6 +++---
+ 12 files changed, 77 insertions(+), 70 deletions(-)
 
-diff --git a/ip/ip6tunnel.c b/ip/ip6tunnel.c
-index fcc9f33..216e982 100644
---- a/ip/ip6tunnel.c
-+++ b/ip/ip6tunnel.c
-@@ -128,7 +128,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm *p)
- 				 strcmp(*argv, "any") == 0)
- 				p->proto = 0;
- 			else {
--                                fprintf(stderr,"Cannot guess tunnel mode.\n");
-+                                fprintf(stderr,"Unknown tunnel mode \"%s\"\n", *argv);
-                                 exit(-1);
-                         }
-                 } else if (strcmp(*argv, "remote") == 0) {
-@@ -293,7 +293,7 @@ static int do_tunnels_list(struct ip6_tnl_parm *p)
- 		buf[sizeof(buf) - 1] = '\0';
- 		if ((ptr = strchr(buf, ':')) == NULL ||
- 		    (*ptr++ = 0, sscanf(buf, "%s", name) != 1)) {
--			fprintf(stderr, "Wrong format of /proc/net/dev. Sorry.\n");
-+			fprintf(stderr, "Wrong format for /proc/net/dev. Giving up.\n");
- 			goto end;
- 		}
- 		if (sscanf(ptr, "%ld%ld%ld%ld%ld%ld%ld%*d%ld%ld%ld%ld%ld%ld%ld",
-@@ -309,7 +309,7 @@ static int do_tunnels_list(struct ip6_tnl_parm *p)
- 			continue;
- 		type = ll_index_to_type(index);
- 		if (type == -1) {
--			fprintf(stderr, "Failed to get type of [%s]\n", name);
-+			fprintf(stderr, "Failed to get type of \"%s\"\n", name);
- 			continue;
- 		}
- 		if (type != ARPHRD_TUNNEL6)
-@@ -402,7 +402,7 @@ int do_ip6tunnel(int argc, char **argv)
- 	case AF_INET6:
- 		break;
- 	default:
--		fprintf(stderr, "Unsupported family:%d\n", preferred_family);
-+		fprintf(stderr, "Unsupported protocol family: %d\n", preferred_family);
- 		exit(-1);
- 	}
+diff --git a/man/man8/arpd.8 b/man/man8/arpd.8
+index a14044b..6b9a43a 100644
+--- a/man/man8/arpd.8
++++ b/man/man8/arpd.8
+@@ -4,12 +4,12 @@
+ arpd \- userspace arp daemon.
  
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 297506d..0bd8a76 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -785,7 +785,7 @@ static int ipadd_save_prep(void)
- 	int ret;
+ .SH SYNOPSIS
+-Usage: arpd [ -lkh? ] [ -a N ] [ -b dbase ] [ -B number ] [ -f file ] [-p interval ] [ -n time ] [ -R rate ] [ interfaces ]
++Usage: arpd [ -lkh? ] [ -a N ] [ -b dbase ] [ -B number ] [ -f file ] [-p interval ] [ -n time ] [ -R rate ] [ <INTERFACES> ]
  
- 	if (isatty(STDOUT_FILENO)) {
--		fprintf(stderr, "Not sending binary stream to stdout\n");
-+		fprintf(stderr, "Not sending a binary stream to stdout\n");
- 		return -1;
- 	}
+ .SH DESCRIPTION
+ The
+ .B arpd
+-daemon collects gratuitous ARP information, saving it on local disk and feeding it to kernel on demand to avoid redundant broadcasting due to limited size of kernel ARP cache.
++daemon collects gratuitous ARP information, saving it on local disk and feeding it to the kernel on demand to avoid redundant broadcasting due to limited size of the kernel ARP cache.
  
-diff --git a/ip/ipl2tp.c b/ip/ipl2tp.c
-index f6e264a..2d22317 100644
---- a/ip/ipl2tp.c
-+++ b/ip/ipl2tp.c
-@@ -494,7 +494,7 @@ static int parse_args(int argc, char **argv, int cmd, struct l2tp_parm *p)
- 			} else if (strcmp(*argv, "udp") == 0) {
- 				p->encap = L2TP_ENCAPTYPE_UDP;
- 			} else {
--				fprintf(stderr, "Unknown tunnel encapsulation.\n");
-+				fprintf(stderr, "Unknown tunnel encapsulation \"%s\"\n", *argv);
- 				exit(-1);
- 			}
- 		} else if (strcmp(*argv, "name") == 0) {
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 5ff8f85..c24f0ce 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -94,9 +94,9 @@ static void usage(void)
- 	iplink_usage();
- }
+ .SH OPTIONS
+ .TP
+@@ -17,41 +17,41 @@ daemon collects gratuitous ARP information, saving it on local disk and feeding
+ Print help
+ .TP
+ -l
+-Dump arpd database to stdout and exit. Output consists of three columns: interface index, IP address and MAC address. Negative entries for dead hosts are also shown, in this case MAC address is replaced by word FAILED followed by colon and time when the fact that host is dead was proven the last time.
++Dump the arpd database to stdout and exit. The output consists of three columns: the interface index, the IP address of the interface, and the MAC address of the interface. Negative entries for dead hosts are also shown, in this case the MAC address is replaced by the word FAILED followed by a colon and the most recent time when the fact that the host is dead was proven.
+ .TP
+ -f <FILE>
+-Read and load arpd database from FILE in text format similar dumped by option -l. Exit after load, probably listing resulting database, if option -l is also given. If FILE is -, stdin is read to get ARP table.
++Read and load an arpd database from FILE in a text format similar to that dumped by option -l. Exit after load, possibly listing resulting database, if option -l is also given. If FILE is -, stdin is read to get the ARP table.
+ .TP
+ -b <DATABASE>
+-location of database file. Default location is /var/lib/arpd/arpd.db
++the location of the database file. The default location is /var/lib/arpd/arpd.db
+ .TP
+ -a <NUMBER>
+-arpd not only passively listens ARP on wire, but also send brodcast queries itself. NUMBER is number of such queries to make before destination is considered as dead. When arpd is started as kernel helper (i.e. with app_solicit enabled in sysctl or even with option -k) without this option and still did not learn enough information, you can observe 1 second gaps in service. Not fatal, but not good.
++With this option, arpd not only passively listens for ARP packets on the interface, but also sends brodcast queries itself. NUMBER is the number of such queries to make before a destination is considered dead. When arpd is started as kernel helper (i.e. with app_solicit enabled in sysctl or even with option -k) without this option and still did not learn enough information, you can observe 1 second gaps in service. Not fatal, but not good.
+ .TP
+ -k
+-Suppress sending broadcast queries by kernel. It takes sense together with option -a.
++Suppress sending broadcast queries by the kernel. This option only makes sense together with option -a.
+ .TP
+ -n <TIME>
+-Timeout of negative cache. When resolution fails arpd suppresses further attempts to resolve for this period. It makes sense only together with option -k This timeout should not be too much longer than boot time of a typical host not supporting gratuitous ARP. Default value is 60 seconds.
++Specifies the timeout of the negative cache. When resolution fails, arpd suppresses further attempts to resolve for this period. This option only makes sense together with option '-k'. This timeout should not be too much longer than the boot time of a typical host not supporting gratuitous ARP. Default value is 60 seconds.
+ .TP
+ -p <TIME>
+-Time to wait in seconds between polling attempts to the kernel ARP table. TIME may be a floating point number.  The default value is 30.
++The time to wait in seconds between polling attempts to the kernel ARP table. TIME may be a floating point number.  The default value is 30.
+ .TP
+ -R <RATE>
+ Maximal steady rate of broadcasts sent by arpd in packets per second. Default value is 1.
+ .TP
+ -B <NUMBER>
+-Number of broadcasts sent by <tt/arpd/ back to back. Default value is 3. Together with option <tt/-R/ this option allows to police broadcasting not to exceed B+R*T over any interval of time T.
++The number of broadcasts sent by arpd back to back. Default value is 3. Together with the -R option, this option ensures that the number of ARP queries that are broadcast does not exceed B+R*T over any interval of time T.
+ .P
+-<INTERFACE> is the name of networking interface to watch. If no interfaces given, arpd monitors all the interfaces. In this case arpd does not adjust sysctl parameters, it is supposed user does this himself after arpd is started.
++<INTERFACES> is a list of names of networking interfaces to watch. If no interfaces are given, arpd monitors all the interfaces. In this case arpd does not adjust sysctl parameters, it is assumed that the user does this himself after arpd is started.
+ .P
+-Signals
+-.br
+-arpd exits gracefully syncing database and restoring adjusted sysctl parameters, when receives SIGINT or SIGTERM. SIGHUP syncs database to disk. SIGUSR1 sends some statistics to syslog. Effect of another signals is undefined, they may corrupt database and leave sysctl praameters in an unpredictable state.
++.SH SIGNALS
++.TP
++When arpd receives a SIGINT or SIGTERM signal, it exits gracefully, syncing the database and restoring adjusted sysctl parameters. On a SIGHUP it syncs the database to disk. With SIGUSR1 it sends some statistics to syslog. The effect of any other signals is undefined. In particular, they may corrupt the database and leave the sysctl parameters in an unpredictable state.
+ .P
+-Note
+-.br
+-In order for arpd to be able to serve as ARP resolver, kernel must be compiled with the option CONFIG_ARPD and, in the case when interface list in not given on command line, variable app_solicit on interfaces of interest should be in /proc/sys/net/ipv4/neigh/*. If this is not made arpd still collects gratuitous ARP information in its database.
++.SH NOTE
++.TP
++In order for arpd to be able to serve as ARP resolver, the kernel must be compiled with the option CONFIG_ARPD and, in the case when interface list in not given on command line, variable app_solicit on interfaces of interest should be in /proc/sys/net/ipv4/neigh/*. If this is not made arpd still collects gratuitous ARP information in its database.
+ .SH EXAMPLES
+ .TP
+ arpd -b /var/tmp/arpd.db
+@@ -64,6 +64,6 @@ arpd -b /var/tmp/arpd.db -a 1 eth0 eth1
+ Enable kernel helper, leaving leading role to kernel.
+ .TP
+ arpd -b /var/tmp/arpd.db -a 3 -k eth0 eth1
+-Completely replace kernel resolution on interfaces eth0 and eth1. In this case kernel still does unicast probing to validate entries, but all the broadcast activity is suppressed and made under authority of arpd.
++Completely replace kernel resolution on interfaces eth0 and eth1. In this case the kernel still does unicast probing to validate entries, but all the broadcast activity is suppressed and made under authority of arpd.
+ .PP
+-This is mode which arpd is supposed to work normally. It is not default just to prevent occasional enabling of too aggressive mode occasionally.
++This is the mode in which arpd normally is supposed to work. It is not the default to prevent occasional enabling of too aggressive a mode.
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 5ce8219..fd91618 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -47,8 +47,8 @@ utility and exit.
  
--static int on_off(char *msg)
-+static int on_off(const char *msg, const char *realval)
- {
--	fprintf(stderr, "Error: argument of \"%s\" must be \"on\" or \"off\"\n", msg);
-+	fprintf(stderr, "Error: argument of \"%s\" must be \"on\" or \"off\", not \"%s\"\n", msg, realval);
- 	return -1;
- }
+ .TP
+ .BR "\-s" , " \-stats", " \-statistics"
+-output more information.  If the option
+-appears twice or more, the amount of information increases.
++output more information.  If this option
++is given multiple times, the amount of information increases.
+ As a rule, the information is statistics or some time values.
  
-@@ -348,7 +348,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			} else if (strcmp(*argv, "off") == 0) {
- 				req->i.ifi_flags &= ~IFF_MULTICAST;
- 			} else
--				return on_off("multicast");
-+				return on_off("multicast", *argv);
- 		} else if (strcmp(*argv, "allmulticast") == 0) {
- 			NEXT_ARG();
- 			req->i.ifi_change |= IFF_ALLMULTI;
-@@ -357,7 +357,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			} else if (strcmp(*argv, "off") == 0) {
- 				req->i.ifi_flags &= ~IFF_ALLMULTI;
- 			} else
--				return on_off("allmulticast");
-+				return on_off("allmulticast", *argv);
- 		} else if (strcmp(*argv, "promisc") == 0) {
- 			NEXT_ARG();
- 			req->i.ifi_change |= IFF_PROMISC;
-@@ -366,7 +366,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			} else if (strcmp(*argv, "off") == 0) {
- 				req->i.ifi_flags &= ~IFF_PROMISC;
- 			} else
--				return on_off("promisc");
-+				return on_off("promisc", *argv);
- 		} else if (strcmp(*argv, "trailers") == 0) {
- 			NEXT_ARG();
- 			req->i.ifi_change |= IFF_NOTRAILERS;
-@@ -375,7 +375,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			} else if (strcmp(*argv, "on") == 0) {
- 				req->i.ifi_flags &= ~IFF_NOTRAILERS;
- 			} else
--				return on_off("trailers");
-+				return on_off("trailers", *argv);
- 		} else if (strcmp(*argv, "arp") == 0) {
- 			NEXT_ARG();
- 			req->i.ifi_change |= IFF_NOARP;
-@@ -384,7 +384,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			} else if (strcmp(*argv, "off") == 0) {
- 				req->i.ifi_flags |= IFF_NOARP;
- 			} else
--				return on_off("noarp");
-+				return on_off("noarp", *argv);
- 		} else if (strcmp(*argv, "vf") == 0) {
- 			struct rtattr *vflist;
- 			NEXT_ARG();
-@@ -417,7 +417,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			} else if (strcmp(*argv, "off") == 0) {
- 				req->i.ifi_flags &= ~IFF_DYNAMIC;
- 			} else
--				return on_off("dynamic");
-+				return on_off("dynamic", *argv);
- 		} else if (matches(*argv, "type") == 0) {
- 			NEXT_ARG();
- 			*type = *argv;
-@@ -852,7 +852,7 @@ static int do_set(int argc, char **argv)
- 			} else if (strcmp(*argv, "off") == 0) {
- 				flags &= ~IFF_MULTICAST;
- 			} else
--				return on_off("multicast");
-+				return on_off("multicast", *argv);
- 		} else if (strcmp(*argv, "allmulticast") == 0) {
- 			NEXT_ARG();
- 			mask |= IFF_ALLMULTI;
-@@ -861,7 +861,7 @@ static int do_set(int argc, char **argv)
- 			} else if (strcmp(*argv, "off") == 0) {
- 				flags &= ~IFF_ALLMULTI;
- 			} else
--				return on_off("allmulticast");
-+				return on_off("allmulticast", *argv);
- 		} else if (strcmp(*argv, "promisc") == 0) {
- 			NEXT_ARG();
- 			mask |= IFF_PROMISC;
-@@ -870,7 +870,7 @@ static int do_set(int argc, char **argv)
- 			} else if (strcmp(*argv, "off") == 0) {
- 				flags &= ~IFF_PROMISC;
- 			} else
--				return on_off("promisc");
-+				return on_off("promisc", *argv);
- 		} else if (strcmp(*argv, "trailers") == 0) {
- 			NEXT_ARG();
- 			mask |= IFF_NOTRAILERS;
-@@ -879,7 +879,7 @@ static int do_set(int argc, char **argv)
- 			} else if (strcmp(*argv, "on") == 0) {
- 				flags &= ~IFF_NOTRAILERS;
- 			} else
--				return on_off("trailers");
-+				return on_off("trailers", *argv);
- 		} else if (strcmp(*argv, "arp") == 0) {
- 			NEXT_ARG();
- 			mask |= IFF_NOARP;
-@@ -888,7 +888,7 @@ static int do_set(int argc, char **argv)
- 			} else if (strcmp(*argv, "off") == 0) {
- 				flags |= IFF_NOARP;
- 			} else
--				return on_off("noarp");
-+				return on_off("noarp", *argv);
- 		} else if (matches(*argv, "dynamic") == 0) {
- 			NEXT_ARG();
- 			mask |= IFF_DYNAMIC;
-@@ -897,7 +897,7 @@ static int do_set(int argc, char **argv)
- 			} else if (strcmp(*argv, "off") == 0) {
- 				flags &= ~IFF_DYNAMIC;
- 			} else
--				return on_off("dynamic");
-+				return on_off("dynamic", *argv);
- 		} else {
-                         if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
-diff --git a/ip/iplink_can.c b/ip/iplink_can.c
-index c8af4bc..5674358 100644
---- a/ip/iplink_can.c
-+++ b/ip/iplink_can.c
-@@ -68,8 +68,8 @@ static void set_ctrlmode(char* name, char *arg,
- 		cm->flags |= flags;
- 	} else if (strcmp(arg, "off") != 0) {
- 		fprintf(stderr,
--			"Error: argument of \"%s\" must be \"on\" or \"off\"\n",
--			name);
-+			"Error: argument of \"%s\" must be \"on\" or \"off\", not \"%s\"\n",
-+			name, arg);
- 		exit(-1);
- 	}
- 	cm->mask |= flags;
-@@ -169,7 +169,7 @@ static int can_parse_opt(struct link_util *lu, int argc, char **argv,
- 			usage();
- 			return -1;
- 		} else {
--			fprintf(stderr, "can: what is \"%s\"?\n", *argv);
-+			fprintf(stderr, "can: unknown option \"%s\"\n", *argv);
- 			usage();
- 			return -1;
- 		}
-diff --git a/ip/iplink_ipoib.c b/ip/iplink_ipoib.c
-index ae372bc..5c1c68c 100644
---- a/ip/iplink_ipoib.c
-+++ b/ip/iplink_ipoib.c
-@@ -66,7 +66,7 @@ static int ipoib_parse_opt(struct link_util *lu, int argc, char **argv,
- 			explain();
- 			return -1;
- 		} else {
--			fprintf(stderr, "ipoib: what is \"%s\"?\n", *argv);
-+			fprintf(stderr, "ipoib: unknown option \"%s\"?\n", *argv);
- 			explain();
- 			return -1;
- 		}
-diff --git a/ip/iplink_macvlan.c b/ip/iplink_macvlan.c
-index ed0e34b..5b4b868 100644
---- a/ip/iplink_macvlan.c
-+++ b/ip/iplink_macvlan.c
-@@ -58,7 +58,7 @@ static int macvlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			explain();
- 			return -1;
- 		} else {
--			fprintf(stderr, "macvlan: what is \"%s\"?\n", *argv);
-+			fprintf(stderr, "macvlan: unknown option \"%s\"?\n", *argv);
- 			explain();
- 			return -1;
- 		}
-diff --git a/ip/iplink_macvtap.c b/ip/iplink_macvtap.c
-index 6c7fe1f..bea9f0c 100644
---- a/ip/iplink_macvtap.c
-+++ b/ip/iplink_macvtap.c
-@@ -24,10 +24,10 @@ static void explain(void)
- 	);
- }
  
--static int mode_arg(void)
-+static int mode_arg(const char *arg)
- {
-         fprintf(stderr, "Error: argument of \"mode\" must be \"private\", "
--		"\"vepa\", \"bridge\" or \"passthru\" \n");
-+		"\"vepa\", \"bridge\" or \"passthru\", not \"%s\"\n", arg);
-         return -1;
- }
+@@ -135,7 +135,7 @@ The arguments are the same as with
  
-@@ -48,14 +48,14 @@ static int macvtap_parse_opt(struct link_util *lu, int argc, char **argv,
- 			else if (strcmp(*argv, "passthru") == 0)
- 				mode = MACVLAN_MODE_PASSTHRU;
- 			else
--				return mode_arg();
-+				return mode_arg(*argv);
+ .SS bridge fdb show - list forwarding entries.
  
- 			addattr32(n, 1024, IFLA_MACVLAN_MODE, mode);
- 		} else if (matches(*argv, "help") == 0) {
- 			explain();
- 			return -1;
- 		} else {
--			fprintf(stderr, "macvtap: what is \"%s\"?\n", *argv);
-+			fprintf(stderr, "macvtap: unknown command \"%s\"?\n", *argv);
- 			explain();
- 			return -1;
- 		}
-diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
-index 97af8d6..26ceb8d 100644
---- a/ip/iplink_vlan.c
-+++ b/ip/iplink_vlan.c
-@@ -33,9 +33,9 @@ static void explain(void)
- 	);
- }
+-This commands displays current forwarding table.
++This command displays the current forwarding table.
  
--static int on_off(char *msg)
-+static int on_off(const char *msg, const char *arg)
- {
--	fprintf(stderr, "Error: argument of \"%s\" must be \"on\" or \"off\"\n", msg);
-+	fprintf(stderr, "Error: argument of \"%s\" must be \"on\" or \"off\", not \"%s\"\n", msg, arg);
- 	return -1;
- }
+ .PP
+ With the
+@@ -154,7 +154,7 @@ Namely, the
+ command is the first in the command line and then the object list follows:
  
-@@ -93,7 +93,7 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			else if (strcmp(*argv, "off") == 0)
- 				flags.flags &= ~VLAN_FLAG_REORDER_HDR;
- 			else
--				return on_off("reorder_hdr");
-+				return on_off("reorder_hdr", *argv);
- 		} else if (matches(*argv, "gvrp") == 0) {
- 			NEXT_ARG();
- 			flags.mask |= VLAN_FLAG_GVRP;
-@@ -102,7 +102,7 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			else if (strcmp(*argv, "off") == 0)
- 				flags.flags &= ~VLAN_FLAG_GVRP;
- 			else
--				return on_off("gvrp");
-+				return on_off("gvrp", *argv);
- 		} else if (matches(*argv, "loose_binding") == 0) {
- 			NEXT_ARG();
- 			flags.mask |= VLAN_FLAG_LOOSE_BINDING;
-@@ -111,7 +111,7 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			else if (strcmp(*argv, "off") == 0)
- 				flags.flags &= ~VLAN_FLAG_LOOSE_BINDING;
- 			else
--				return on_off("loose_binding");
-+				return on_off("loose_binding", *argv);
- 		} else if (matches(*argv, "ingress-qos-map") == 0) {
- 			NEXT_ARG();
- 			if (vlan_parse_qos_map(&argc, &argv, n,
-@@ -128,7 +128,7 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			explain();
- 			return -1;
- 		} else {
--			fprintf(stderr, "vlan: what is \"%s\"?\n", *argv);
-+			fprintf(stderr, "vlan: unknown command \"%s\"?\n", *argv);
- 			explain();
- 			return -1;
- 		}
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index 4b72361..1025326 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -149,7 +149,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 			explain();
- 			return -1;
- 		} else {
--			fprintf(stderr, "vxlan: what is \"%s\"?\n", *argv);
-+			fprintf(stderr, "vxlan: unknown command \"%s\"?\n", *argv);
- 			explain();
- 			return -1;
- 		}
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 51b1c5e..b047b97 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -130,7 +130,7 @@ static int netns_exec(int argc, char **argv)
- 		return EXIT_FAILURE;
- 	}
- 	if (argc < 2) {
--		fprintf(stderr, "No cmd specified\n");
-+		fprintf(stderr, "No command specified\n");
- 		return EXIT_FAILURE;
- 	}
- 	name = argv[0];
-@@ -138,13 +138,13 @@ static int netns_exec(int argc, char **argv)
- 	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
- 	netns = open(net_path, O_RDONLY);
- 	if (netns < 0) {
--		fprintf(stderr, "Cannot open network namespace %s: %s\n",
-+		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
- 			name, strerror(errno));
- 		return EXIT_FAILURE;
- 	}
- 	if (setns(netns, CLONE_NEWNET) < 0) {
--		fprintf(stderr, "seting the network namespace failed: %s\n",
--			strerror(errno));
-+		fprintf(stderr, "seting the network namespace \"%s\" failed: %s\n",
-+			name, strerror(errno));
- 		return EXIT_FAILURE;
- 	}
+ .BR "bridge monitor" " [ " all " |"
+-.IR LISTofOBJECTS " ]"
++.IR OBJECT-LIST " ]"
  
-@@ -154,7 +154,7 @@ static int netns_exec(int argc, char **argv)
- 	}
- 	/* Don't let any mounts propogate back to the parent */
- 	if (mount("", "/", "none", MS_SLAVE | MS_REC, NULL)) {
--		fprintf(stderr, "mount --make-rslave / failed: %s\n",
-+		fprintf(stderr, "\"mount --make-rslave /\" failed: %s\n",
- 			strerror(errno));
- 		return EXIT_FAILURE;
- 	}
-@@ -172,7 +172,7 @@ static int netns_exec(int argc, char **argv)
- 	bind_etc(name);
+ .I OBJECT-LIST
+ is the list of object types that we want to monitor.
+@@ -186,7 +186,7 @@ based on the bridge to which the coresponding ethernet device is attached.
  
- 	if (execvp(cmd, argv + 1)  < 0)
--		fprintf(stderr, "exec of %s failed: %s\n",
-+		fprintf(stderr, "exec of \"%s\" failed: %s\n",
- 			cmd, strerror(errno));
- 	return EXIT_FAILURE;
- }
-@@ -330,7 +330,7 @@ static int netns_delete(int argc, char **argv)
- 	snprintf(netns_path, sizeof(netns_path), "%s/%s", NETNS_RUN_DIR, name);
- 	umount2(netns_path, MNT_DETACH);
- 	if (unlink(netns_path) < 0) {
--		fprintf(stderr, "Cannot remove %s: %s\n",
-+		fprintf(stderr, "Cannot remove namespace file \"%s\": %s\n",
- 			netns_path, strerror(errno));
- 		return EXIT_FAILURE;
- 	}
-@@ -389,14 +389,14 @@ static int netns_add(int argc, char **argv)
- 	/* Create the filesystem state */
- 	fd = open(netns_path, O_RDONLY|O_CREAT|O_EXCL, 0);
- 	if (fd < 0) {
--		fprintf(stderr, "Could not create %s: %s\n",
-+		fprintf(stderr, "Cannot not create namespace file \"%s\": %s\n",
- 			netns_path, strerror(errno));
- 		return EXIT_FAILURE;
- 	}
- 	close(fd);
- 	if (unshare(CLONE_NEWNET) < 0) {
--		fprintf(stderr, "Failed to create a new network namespace: %s\n",
--			strerror(errno));
-+		fprintf(stderr, "Failed to create a new network namespace \"%s\": %s\n",
-+			name, strerror(errno));
- 		goto out_delete;
- 	}
+ .SH SEE ALSO
+ .BR ip (8)
+-.br
++.SH BUGS
+ .RB "Please direct bugreports and patches to: " <netdev@vger.kernel.org>
  
-diff --git a/ip/ipprefix.c b/ip/ipprefix.c
-index ee276b3..cf68f89 100644
---- a/ip/ipprefix.c
-+++ b/ip/ipprefix.c
-@@ -60,7 +60,7 @@ int print_prefix(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 		return 0;
+ .SH AUTHOR
+diff --git a/man/man8/ip-addrlabel.8 b/man/man8/ip-addrlabel.8
+index 3252bd2..fefc3ef 100644
+--- a/man/man8/ip-addrlabel.8
++++ b/man/man8/ip-addrlabel.8
+@@ -34,12 +34,12 @@ ip-addrlabel \- protocol address label management
+ .BR "ip addrlabel" " { " list " | " flush " }"
  
- 	if (prefix->prefix_family != AF_INET6) {
--		fprintf(stderr, "wrong family %d\n", prefix->prefix_family);
-+		fprintf(stderr, "incorrect protocol family: %d\n", prefix->prefix_family);
- 		return 0;
- 	}
- 	if (prefix->prefix_type != ND_OPT_PREFIX_INFORMATION) {
-diff --git a/ip/iproute.c b/ip/iproute.c
-index c60156f..309cc87 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -1099,7 +1099,7 @@ static int save_route_prep(void)
- 	int ret;
+ .SH "DESCRIPTION"
+-IPv6 address label is used for address selection
+-described in RFC 3484.  Precedence is managed by userspace,
+-and only label is stored in kernel.
++IPv6 address labels are used for address selection;
++they are described in RFC 3484.  Precedence is managed by userspace,
++and only the label itself is stored in the kernel.
  
- 	if (isatty(STDOUT_FILENO)) {
--		fprintf(stderr, "Not sending binary stream to stdout\n");
-+		fprintf(stderr, "Not sending a binary stream to stdout\n");
- 		return -1;
- 	}
+ .SS ip addrlabel add - add an address label
+-the command adds an address label entry to the kernel.
++add an address label entry to the kernel.
+ .TP
+ .BI prefix " PREFIX"
+ .TP
+@@ -50,15 +50,15 @@ the outgoing interface.
+ the label for the prefix.
+ 0xffffffff is reserved.
+ .SS ip addrlabel del - delete an address label
+-the command deletes an address label entry in the kernel.
++delete an address label entry from the kernel.
+ .B Arguments:
+ coincide with the arguments of
+ .B ip addrlabel add
+-but label is not required.
++but the label is not required.
+ .SS ip addrlabel list - list address labels
+-the command show contents of address labels.
++list the current address label entries in the kernel.
+ .SS ip addrlabel flush - flush address labels
+-the command flushes the contents of address labels and it does not restore default settings.
++flush all address labels in the kernel. This does not restore any default settings.
  
-@@ -1445,7 +1445,7 @@ int iproute_get(int argc, char **argv)
- 	}
+ .SH SEE ALSO
+ .br
+diff --git a/man/man8/ip-maddress.8 b/man/man8/ip-maddress.8
+index afae551..e0bad47 100644
+--- a/man/man8/ip-maddress.8
++++ b/man/man8/ip-maddress.8
+@@ -15,11 +15,11 @@ ip-maddress \- multicast addresses management
+ .ti -8
  
- 	if (req.r.rtm_dst_len == 0) {
--		fprintf(stderr, "need at least destination address\n");
-+		fprintf(stderr, "need at least a destination address\n");
- 		exit(1);
- 	}
+ .BR "ip maddress" " [ " add " | " del " ]"
+-.IB MULTIADDR " dev " STRING
++.IB MULTIADDR " dev " NAME
  
-diff --git a/ip/iptunnel.c b/ip/iptunnel.c
-index f8b91ba..4275f26 100644
---- a/ip/iptunnel.c
-+++ b/ip/iptunnel.c
-@@ -102,7 +102,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 				p->iph.protocol = IPPROTO_IPIP;
- 				p->i_flags |= VTI_ISVTI;
- 			} else {
--				fprintf(stderr,"Cannot guess tunnel mode.\n");
-+				fprintf(stderr,"Unknown tunnel mode \"%s\"\n", *argv);
- 				exit(-1);
- 			}
- 		} else if (strcmp(*argv, "key") == 0) {
-@@ -114,7 +114,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 				p->i_key = p->o_key = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0)<0) {
--					fprintf(stderr, "invalid value of \"key\"\n");
-+					fprintf(stderr, "invalid value for \"key\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				p->i_key = p->o_key = htonl(uval);
-@@ -127,7 +127,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 				p->i_key = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0)<0) {
--					fprintf(stderr, "invalid value of \"ikey\"\n");
-+					fprintf(stderr, "invalid value for \"ikey\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				p->i_key = htonl(uval);
-@@ -140,7 +140,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 				p->o_key = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0)<0) {
--					fprintf(stderr, "invalid value of \"okey\"\n");
-+					fprintf(stderr, "invalid value for \"okey\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				p->o_key = htonl(uval);
-@@ -242,7 +242,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
+ .ti -8
+ .BR "ip maddress show" " [ " dev
+-.IR STRING " ]"
++.IR NAME " ]"
  
- 	if (p->iph.protocol == IPPROTO_IPIP || p->iph.protocol == IPPROTO_IPV6) {
- 		if ((p->i_flags & GRE_KEY) || (p->o_flags & GRE_KEY)) {
--			fprintf(stderr, "Keys are not allowed with ipip and sit.\n");
-+			fprintf(stderr, "Keys are not allowed with ipip and sit tunnels\n");
- 			return -1;
- 		}
- 	}
-@@ -262,7 +262,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
- 		p->o_flags |= GRE_KEY;
- 	}
- 	if (IN_MULTICAST(ntohl(p->iph.daddr)) && !p->iph.saddr) {
--		fprintf(stderr, "Broadcast tunnel requires a source address.\n");
-+		fprintf(stderr, "A broadcast tunnel requires a source address\n");
- 		return -1;
- 	}
- 	if (isatap)
-@@ -444,7 +444,7 @@ static int do_tunnels_list(struct ip_tunnel_parm *p)
- 		buf[sizeof(buf) - 1] = 0;
- 		if ((ptr = strchr(buf, ':')) == NULL ||
- 		    (*ptr++ = 0, sscanf(buf, "%s", name) != 1)) {
--			fprintf(stderr, "Wrong format of /proc/net/dev. Sorry.\n");
-+			fprintf(stderr, "Wrong format for /proc/net/dev. Giving up.\n");
- 			fclose(fp);
- 			return -1;
- 		}
-@@ -461,7 +461,7 @@ static int do_tunnels_list(struct ip_tunnel_parm *p)
- 			continue;
- 		type = ll_index_to_type(index);
- 		if (type == -1) {
--			fprintf(stderr, "Failed to get type of [%s]\n", name);
-+			fprintf(stderr, "Failed to get type of \"%s\"\n", name);
- 			continue;
- 		}
- 		if (type != ARPHRD_TUNNEL && type != ARPHRD_IPGRE && type != ARPHRD_SIT)
-@@ -558,17 +558,17 @@ static int do_prl(int argc, char **argv)
- 			strncpy(medium, *argv, IFNAMSIZ-1);
- 			devname++;
- 		} else {
--			fprintf(stderr,"%s: Invalid PRL parameter.\n", *argv);
-+			fprintf(stderr,"Invalid PRL parameter \"%s\"\n", *argv);
- 			exit(-1);
- 		}
- 		if (count > 1) {
--			fprintf(stderr,"One PRL entry at a time.\n");
-+			fprintf(stderr,"One PRL entry at a time\n");
- 			exit(-1);
- 		}
- 		argc--; argv++;
- 	}
- 	if (devname == 0) {
--		fprintf(stderr, "Must specify dev.\n");
-+		fprintf(stderr, "Must specify device\n");
- 		exit(-1);
- 	}
+ .SH DESCRIPTION
+ .B maddress
+@@ -33,14 +33,14 @@ the device name.
  
-@@ -608,13 +608,13 @@ static int do_6rd(int argc, char **argv)
- 			strncpy(medium, *argv, IFNAMSIZ-1);
- 			devname++;
- 		} else {
--			fprintf(stderr,"%s: Invalid 6RD parameter.\n", *argv);
-+			fprintf(stderr,"Invalid 6RD parameter \"%s\"\n", *argv);
- 			exit(-1);
- 		}
- 		argc--; argv++;
- 	}
- 	if (devname == 0) {
--		fprintf(stderr, "Must specify dev.\n");
-+		fprintf(stderr, "Must specify device\n");
- 		exit(-1);
- 	}
+ .SS ip maddress add - add a multicast address
+ .SS ip maddress delete - delete a multicast address
+-these commands attach/detach a static link layer multicast address
++these commands attach/detach a static link-layer multicast address
+ to listen on the interface.
+ Note that it is impossible to join protocol multicast groups
+-statically.  This command only manages link layer addresses.
++statically.  This command only manages link-layer addresses.
  
-@@ -637,7 +637,7 @@ int do_iptunnel(int argc, char **argv)
- 	case AF_INET6:
- 		return do_ip6tunnel(argc, argv);
- 	default:
--		fprintf(stderr, "Unsupported family:%d\n", preferred_family);
-+		fprintf(stderr, "Unsupported protocol family: %d\n", preferred_family);
- 		exit(-1);
- 	}
+ .TP
+ .BI address " LLADDRESS " (default)
+-the link layer multicast address.
++the link-layer multicast address.
  
-@@ -661,6 +661,6 @@ int do_iptunnel(int argc, char **argv)
- 	} else
- 		return do_show(0, NULL);
+ .TP
+ .BI dev " NAME"
+diff --git a/man/man8/ip-monitor.8 b/man/man8/ip-monitor.8
+index b07cb0e..b6e8d1d 100644
+--- a/man/man8/ip-monitor.8
++++ b/man/man8/ip-monitor.8
+@@ -6,8 +6,12 @@ ip-monitor, rtmon \- state monitoring
+ .ad l
+ .in +8
+ .ti -8
+-.BR "ip " " [ ip-OPTIONS ] " "monitor" " [ " all " |"
+-.IR LISTofOBJECTS " ] [ file " FILENAME " ]
++.BR "ip " " [ "
++.IR ip-OPTIONS " ]"
++.BR  "monitor" " [ " all " |"
++.IR OBJECT-LIST " ] ["
++.BI file " FILENAME "
++]
+ .sp
  
--	fprintf(stderr, "Command \"%s\" is unknown, try \"ip tunnel help\".\n", *argv);
-+	fprintf(stderr, "Command \"%s\" is unknown, try \"ip tunnel help\"\n", *argv);
- 	exit(-1);
- }
-diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-index 20914e1..3d9ad7d 100644
---- a/ip/iptuntap.c
-+++ b/ip/iptuntap.c
-@@ -128,7 +128,7 @@ static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_
- 				}
- 				ifr->ifr_flags |= IFF_TAP;
- 			} else {
--				fprintf(stderr,"Cannot guess tunnel mode.\n");
-+				fprintf(stderr,"Unknown tunnel mode \"%s\"\n", *argv);
- 				exit(-1);
- 			}
- 		} else if (uid && matches(*argv, "user") == 0) {
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index dda4a7a..5a0f215 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -1231,7 +1231,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
- 				uval = htonl(get_addr32(*argv));
- 			else {
- 				if (get_unsigned(&uval, *argv, 0)<0) {
--					fprintf(stderr, "invalid value of \"key\"\n");
-+					fprintf(stderr, "invalid value for \"key\"; it should be an unsigned integer\n");
- 					exit(-1);
- 				}
- 			}
-diff --git a/ip/link_gre.c b/ip/link_gre.c
-index 839fb29..7e0b896 100644
---- a/ip/link_gre.c
-+++ b/ip/link_gre.c
-@@ -141,7 +141,7 @@ get_failed:
- 			else {
- 				if (get_unsigned(&uval, *argv, 0) < 0) {
- 					fprintf(stderr,
--						"Invalid value for \"key\"\n");
-+						"Invalid value for \"key\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				uval = htonl(uval);
-@@ -157,7 +157,7 @@ get_failed:
- 				uval = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0)<0) {
--					fprintf(stderr, "invalid value of \"ikey\"\n");
-+					fprintf(stderr, "invalid value for \"ikey\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				uval = htonl(uval);
-@@ -172,7 +172,7 @@ get_failed:
- 				uval = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0)<0) {
--					fprintf(stderr, "invalid value of \"okey\"\n");
-+					fprintf(stderr, "invalid value for \"okey\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				uval = htonl(uval);
-@@ -247,7 +247,7 @@ get_failed:
- 		oflags |= GRE_KEY;
- 	}
- 	if (IN_MULTICAST(ntohl(daddr)) && !saddr) {
--		fprintf(stderr, "Broadcast tunnel requires a source address.\n");
-+		fprintf(stderr, "A broadcast tunnel requires a source address.\n");
- 		return -1;
- 	}
+ .SH DESCRIPTION
+@@ -20,7 +24,9 @@ Namely, the
+ command is the first in the command line and then the object list follows:
  
-diff --git a/ip/link_vti.c b/ip/link_vti.c
-index 385f435..77a7482 100644
---- a/ip/link_vti.c
-+++ b/ip/link_vti.c
-@@ -117,7 +117,7 @@ get_failed:
- 			else {
- 				if (get_unsigned(&uval, *argv, 0) < 0) {
- 					fprintf(stderr,
--						"Invalid value for \"key\"\n");
-+						"Invalid value for \"key\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				uval = htonl(uval);
-@@ -132,7 +132,7 @@ get_failed:
- 				uval = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0) < 0) {
--					fprintf(stderr, "invalid value of \"ikey\"\n");
-+					fprintf(stderr, "invalid value for \"ikey\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				uval = htonl(uval);
-@@ -146,7 +146,7 @@ get_failed:
- 				uval = get_addr32(*argv);
- 			else {
- 				if (get_unsigned(&uval, *argv, 0) < 0) {
--					fprintf(stderr, "invalid value of \"okey\"\n");
-+					fprintf(stderr, "invalid value for \"okey\": \"%s\"; it should be an unsigned integer\n", *argv);
- 					exit(-1);
- 				}
- 				uval = htonl(uval);
-@@ -155,7 +155,7 @@ get_failed:
- 		} else if (!matches(*argv, "remote")) {
- 			NEXT_ARG();
- 			if (!strcmp(*argv, "any")) {
--				fprintf(stderr, "invalid value of \"remote\"\n");
-+				fprintf(stderr, "invalid value for \"remote\": \"%s\"\n", *argv);
- 				exit(-1);
- 			} else {
- 				daddr = get_addr32(*argv);
-@@ -163,7 +163,7 @@ get_failed:
- 		} else if (!matches(*argv, "local")) {
- 			NEXT_ARG();
- 			if (!strcmp(*argv, "any")) {
--				fprintf(stderr, "invalid value of \"local\"\n");
-+				fprintf(stderr, "invalid value for \"local\": \"%s\"\n", *argv);
- 				exit(-1);
- 			} else {
- 				saddr = get_addr32(*argv);
-diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
-index 34e1d8e..a01e1fb 100644
---- a/ip/tcp_metrics.c
-+++ b/ip/tcp_metrics.c
-@@ -268,7 +268,7 @@ static int tcpm_do_cmd(int cmd, int argc, char **argv)
- 	case AF_INET6:
- 		break;
- 	default:
--		fprintf(stderr, "Unsupported family:%d\n", preferred_family);
-+		fprintf(stderr, "Unsupported protocol family: %d\n", preferred_family);
- 		return -1;
- 	}
+ .BR "ip monitor" " [ " all " |"
+-.IR LISTofOBJECTS " ] [ file " FILENAME " ]
++.IR OBJECT-LIST " ] ["
++.BI file " FILENAME "
++]
  
-diff --git a/ip/tunnel.c b/ip/tunnel.c
-index b176d3f..a6a2846 100644
---- a/ip/tunnel.c
-+++ b/ip/tunnel.c
-@@ -74,7 +74,7 @@ int tnl_get_ioctl(const char *basedev, void *p)
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
- 	err = ioctl(fd, SIOCGETTUNNEL, &ifr);
- 	if (err)
--		fprintf(stderr, "get tunnel %s failed: %s\n", basedev, 
-+		fprintf(stderr, "get tunnel \"%s\" failed: %s\n", basedev,
- 			strerror(errno));
+ .I OBJECT-LIST
+ is the list of object types that we want to monitor.
+@@ -35,11 +41,12 @@ opens RTNETLINK, listens on it and dumps state changes in the format
+ described in previous sections.
  
- 	close(fd);
-@@ -95,7 +95,7 @@ int tnl_add_ioctl(int cmd, const char *basedev, const char *name, void *p)
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
- 	err = ioctl(fd, cmd, &ifr);
- 	if (err)
--		fprintf(stderr, "add tunnel %s failed: %s\n", ifr.ifr_name,
-+		fprintf(stderr, "add tunnel \"%s\" failed: %s\n", ifr.ifr_name,
- 			strerror(errno));
- 	close(fd);
- 	return err;
-@@ -116,7 +116,7 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
- 	fd = socket(preferred_family, SOCK_DGRAM, 0);
- 	err = ioctl(fd, SIOCDELTUNNEL, &ifr);
- 	if (err)
--		fprintf(stderr, "delete tunnel %s failed: %s\n",
-+		fprintf(stderr, "delete tunnel \"%s\" failed: %s\n",
- 			ifr.ifr_name, strerror(errno));
- 	close(fd);
- 	return err;
+ .P
+-If a
+-.I FILENAME
+-is given, it does not listen on RTNETLINK,
+-but opens the file containing RTNETLINK messages saved in binary format
+-and dumps them.  Such a history file can be generated with the
++If the
++.BI file
++option is given, the program does not listen on RTNETLINK,
++but opens the given file, and dumps its contents. The file
++should contain RTNETLINK messages saved in binary format.
++Such a file can be generated with the
+ .B rtmon
+ utility.  This utility has a command line syntax similar to
+ .BR "ip monitor" .
+@@ -56,7 +63,7 @@ in a startup script, you will be able to view the full history
+ later.
+ 
+ .P
+-Certainly, it is possible to start
++Nevertheless, it is possible to start
+ .B rtmon
+ at any time.
+ It prepends the history with the state snapshot dumped at the moment
+diff --git a/man/man8/ip-mroute.8 b/man/man8/ip-mroute.8
+index 870df5e..3b708cf 100644
+--- a/man/man8/ip-mroute.8
++++ b/man/man8/ip-mroute.8
+@@ -18,7 +18,7 @@ ip-mroute \- multicast routing cache management
+ 
+ .SH DESCRIPTION
+ .B mroute
+-objects are multicast routing cache entries created by a user level
++objects are multicast routing cache entries created by a user-level
+ mrouting daemon (f.e.
+ .B pimd
+ or
+@@ -28,7 +28,7 @@ or
+ Due to the limitations of the current interface to the multicast routing
+ engine, it is impossible to change
+ .B mroute
+-objects administratively, so we may only display them.  This limitation
++objects administratively, so we can only display them.  This limitation
+ will be removed in the future.
+ 
+ .SS ip mroute show - list mroute cache entries
+diff --git a/man/man8/ip-neighbour.8 b/man/man8/ip-neighbour.8
+index 34980c5..5d9768f 100644
+--- a/man/man8/ip-neighbour.8
++++ b/man/man8/ip-neighbour.8
+@@ -40,7 +40,7 @@ command manipulates
+ objects that establish bindings between protocol addresses and
+ link layer addresses for hosts sharing the same link.
+ Neighbour entries are organized into tables. The IPv4 neighbour table
+-is known by another name - the ARP table.
++is also known by another name - the ARP table.
+ 
+ .P
+ The corresponding commands display neighbour bindings
+diff --git a/man/man8/ip-netconf.8 b/man/man8/ip-netconf.8
+index 8041ea2..2718258 100644
+--- a/man/man8/ip-netconf.8
++++ b/man/man8/ip-netconf.8
+@@ -8,7 +8,7 @@ ip-netconf \- network configuration monitoring
+ .ti -8
+ .BR "ip " " [ ip-OPTIONS ] " "netconf show" " [ "
+ .B dev
+-.IR STRING " ]"
++.IR NAME " ]"
+ 
+ .SH DESCRIPTION
+ The
+@@ -25,8 +25,8 @@ is displayed.
+ .SS ip netconf show - display network parameters
+ 
+ .TP
+-.BI dev " STRING"
+-the name of the device to display network parameters.
++.BI dev " NAME"
++the name of the device to display network parameters for.
+ 
+ .SH SEE ALSO
+ .br
+diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
+index d06ccef..87534be 100644
+--- a/man/man8/ip-netns.8
++++ b/man/man8/ip-netns.8
+@@ -48,8 +48,8 @@ descriptor can be used with the
+ .B setns(2)
+ system call to change the network namespace associated with a task.
+ 
+-The convention for network namespace aware applications is to look
+-for global network configuration files first in
++For applications that are aware of network namespaces, the convention
++is to look for global network configuration files first in
+ .BR "/etc/netns/" NAME "/"
+ then in
+ .BR "/etc/".
+diff --git a/man/man8/ip-rule.8 b/man/man8/ip-rule.8
+index 0f62a53..36f461b 100644
+--- a/man/man8/ip-rule.8
++++ b/man/man8/ip-rule.8
+@@ -75,16 +75,16 @@ Each policy routing rule consists of a
+ .B selector
+ and an
+ .B action predicate.
+-The RPDB is scanned in the order of increasing priority. The selector
++The RPDB is scanned in order of decreasing priority. The selector
+ of each rule is applied to {source address, destination address, incoming
+ interface, tos, fwmark} and, if the selector matches the packet,
+ the action is performed.  The action predicate may return with success.
+ In this case, it will either give a route or failure indication
+ and the RPDB lookup is terminated. Otherwise, the RPDB program
+-continues on the next rule.
++continues with the next rule.
+ 
+ .P
+-Semantically, natural action is to select the nexthop and the output device.
++Semantically, the natural action is to select the nexthop and the output device.
+ 
+ .P
+ At startup time the kernel configures the default RPDB consisting of three
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index 9063049..881e1ff 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -36,24 +36,24 @@ print the version of the
+ utility and exit.
+ 
+ .TP
+-.BR "\-s" , " \-stats", " \-statistics"
++.BR "\-s" , " \-stats" , " \-statistics"
+ output more information.  If the option
+ appears twice or more, the amount of information increases.
+ As a rule, the information is statistics or some time values.
+ 
+ .TP
+-.BR "\-l" , " \-loops"
++.BR "\-l" , " \-loops " <COUNT>
+ Specify maximum number of loops the 'ip addr flush' logic
+ will attempt before giving up.  The default is 10.
+ Zero (0) means loop until all addresses are removed.
+ 
+ .TP
+-.BR "\-f" , " \-family"
+-followed by protocol family identifier:
+-.BR "inet" , " inet6" , "bridge" , "ipx" , "dnet"
++.BR "\-f" , " \-family " <FAMILY>
++Specifies the protocol family to use. The protocol family identifier can be one of
++.BR "inet" , " inet6" , " bridge" , " ipx" , " dnet"
+ or
+-.BR link ,
+-enforce the protocol family to use.  If the option is not present,
++.BR link .
++If this option is not present,
+ the protocol family is guessed from other arguments.  If the rest
+ of the command line does not give enough information to guess the
+ family,
+@@ -178,9 +178,9 @@ host addresses.
+ 
+ .PP
+ The names of all objects may be written in full or
+-abbreviated form, f.e.
++abbreviated form, for exampe
+ .B address
+-is abbreviated as
++can be abbreviated as
+ .B addr
+ or just
+ .B a.
+@@ -230,7 +230,7 @@ was written by Alexey N. Kuznetsov and added in Linux 2.2.
+ .br
+ .RB "IP Command reference " ip-cref.ps
+ .SH REPORTING BUGS
+-Report bug to the Network Developers mailing list
++Report any bugs to the Network Developers mailing list
+ .B <netdev@vger.kernel.org>
+ where the development and maintenance is primarily done.
+ You do not have to be subscribed to the list to send a message there.
+diff --git a/man/man8/tc.8 b/man/man8/tc.8
+index e9a7229..bbc6790 100644
+--- a/man/man8/tc.8
++++ b/man/man8/tc.8
+@@ -75,7 +75,7 @@ is also called prioritizing, and happens only on egress.
+ 
+ .TP
+ POLICING
+-Where shaping deals with transmission of traffic, policing pertains to traffic
++Whereas shaping deals with transmission of traffic, policing pertains to traffic
+ arriving. Policing thus occurs on ingress.
+ 
+ .TP
+@@ -203,7 +203,7 @@ Furthermore, each class contains a
+ .B leaf qdisc
+ which by default has
+ .B pfifo
+-behaviour though another qdisc can be attached in place. This qdisc may again
++behaviour, although another qdisc can be attached in place. This qdisc may again
+ contain classes, but each class can have only one leaf qdisc.
+ 
+ When a packet enters a classful qdisc it can be
+@@ -233,7 +233,7 @@ attached to that class. Check qdisc specific manpages for details, however.
+ All qdiscs, classes and filters have IDs, which can either be specified
+ or be automatically assigned.
+ 
+-ID's consist of a major number and a minor number, separated by a colon.
++IDs consist of a major number and a minor number, separated by a colon.
+ Both major and minor number are limited to 16 bits. There are two special
+ values: root is signified by major and minor of all ones, and unspecified
+ is all zeros.
