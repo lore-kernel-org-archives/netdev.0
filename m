@@ -1,45 +1,61 @@
-From: Kees van Reeuwijk <kees.van.reeuwijk@gmail.com>
-Subject: [PATCH v2 1/5] iproute2: add a missing return statement
-Date: Fri, 08 Feb 2013 14:32:36 +0100
-Message-ID: <E1U3o4C-0000bv-O3@babylon.few.vu.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:58588 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1946070Ab3BHNel (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 08:34:41 -0500
-Received: by mail-wi0-f173.google.com with SMTP id hq4so845913wib.12
-        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 05:34:39 -0800 (PST)
-Received: from reeuwijk by babylon.few.vu.nl with local (Exim 4.72)
-	(envelope-from <reeuwijk@few.vu.nl>)
-	id 1U3o4C-0000bv-O3
-	for netdev@vger.kernel.org; Fri, 08 Feb 2013 14:32:36 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Emmanuel Thierry <emmanuel.thierry@telecom-bretagne.eu>
+Subject: Re: [RFC PATCH] xfrm: fix handling of XFRM policies mark and mask.
+Date: Fri, 8 Feb 2013 15:16:45 +0100
+Message-ID: <1854603B-3AD1-4245-A8BA-53D841BCEA63@telecom-bretagne.eu>
+References: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com> <20130205081232.GF23291@secunet.com> <51125744.3030905@gmail.com> <D4563759-CEC5-4F33-BF0A-9FA10716F8DF@telecom-bretagne.eu> <20130207104908.GA17794@secunet.com> <2BEAF521-7218-415B-98ED-EC0812903479@telecom-bretagne.eu> <20130207125437.GC17794@secunet.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jamal <j.hadi123@gmail.com>, Romain KUNTZ <r.kuntz@ipflavors.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	herbert@gondor.apana.org.au,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>
+To: Steffen Klassert <steffen.klassert@secunet.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130207125437.GC17794@secunet.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kees van Reeuwijk <reeuwijk@few.vu.nl>
+Hello,
 
-Since do_help() has to return an int to fit in the table of commands,
-it should actually return an int. This patch lets it do so.
+Le 7 f=E9vr. 2013 =E0 13:54, Steffen Klassert <steffen.klassert@secunet=
+=2Ecom> a =E9crit :
 
-Signed-off-by: Kees van Reeuwijk <reeuwijk@few.vu.nl>
+> On Thu, Feb 07, 2013 at 12:08:22PM +0100, Emmanuel Thierry wrote:
+>>=20
+>> This is a nice idea, however you keep the insertion asymmetric. The =
+usage of xfrm marks in non-conflicting cases will be made possible, but=
+ it stays disturbing for a user as the initial example will still have =
+the same behavior:
+>> * Inserting the marked one then the unmarked will succeed
+>> * Inserting the unmarked then the marked one will fail
+>> This gives to the user the feeling of an indeterministic behavior of=
+ the xfrm module.
+>=20
+> This was intended. Inserting the marked one then the unmarked
+> is a working scenario. Some users might rely on it, so we can't
+> change this as you proposed.
+>=20
+> On the other hand, inserting the unmarked one then the marked
+> might result in a wrong policy lookup, so we can't allow this.
+> The only possibility we have, is inserting with different
+> priorites and that's what I'm proposing.
+>=20
+> I fear we have to live with that asymmetric behaviour if
+> both policies have the same priority.
+>=20
 
----
+Ok, actually i understand the concern of backward compatibility you exp=
+ose. It is true that users might be disturbed if we change such a behav=
+ior they would rely on.
+Anyway, i'm ok with your patch.
 
-
- ip.c             |    1 +
-diff --git a/ip/ip.c b/ip/ip.c
-index 632d271..c3ff627 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -57,6 +57,7 @@ static void usage(void)
- static int do_help(int argc, char **argv)
- {
- 	usage();
-+        return 0;
- }
- 
- static const struct cmd {
+Best regards
+Emmanuel Thierry--
+To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
+ in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
