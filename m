@@ -1,52 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 2/2 net-next] net: fec: fix spin_lock dead lock
-Date: Thu, 07 Feb 2013 23:37:08 -0500 (EST)
-Message-ID: <20130207.233708.2170335376726433338.davem@davemloft.net>
-References: <1360198799-25173-1-git-send-email-Frank.Li@freescale.com>
-	<1360198799-25173-2-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [GIT net] Open vSwitch
+Date: Thu, 07 Feb 2013 23:39:11 -0500 (EST)
+Message-ID: <20130207.233911.544373388611159694.davem@davemloft.net>
+References: <1360206896-43022-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, shawn.guo@linaro.org, B38611@freescale.com,
-	s.hauer@pengutronix.de
-To: Frank.Li@freescale.com
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56698 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56724 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759781Ab3BHEhK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 23:37:10 -0500
-In-Reply-To: <1360198799-25173-2-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1756979Ab3BHEjM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Feb 2013 23:39:12 -0500
+In-Reply-To: <1360206896-43022-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Thu, 7 Feb 2013 08:59:59 +0800
+From: Jesse Gross <jesse@nicira.com>
+Date: Wed,  6 Feb 2013 19:14:55 -0800
 
-> =========================================================
-> [ INFO: possible irq lock inversion dependency detected ]
-> 3.8.0-rc5+ #82 Not tainted
-> ---------------------------------------------------------
-> swapper/0/0 just changed the state of lock:
->  (&(&fep->hw_lock)->rlock){..-...}, at: [<8034e2f8>] fec_enet_start_xmit+0x48/0x                      2cc
-> but this lock took another, SOFTIRQ-unsafe lock in the past:
-> (prepare_lock){+.+.+.}
+> One bug fix for net/3.8 for a long standing problem that was reported a few
+> times recently.
 > 
-> and interrupts could create inverse lock ordering between them.
-> other info that might help us debug this:
-> Possible interrupt unsafe locking scenario:
+> The following changes since commit a49f0d1ea3ec94fc7cf33a7c36a16343b74bd565:
 > 
-> CPU0				CPU1
-> ----				----
-> lock(prepare_lock);
-> 				local_irq_disable()
-> 				lock(&(&fep->hw_lock)->rlock);
-> 				lock(prepare_lock);
-> <Interrupt>
-> lock(&(&fep->hw_lock)->rlock);
+>   Linux 3.8-rc1 (2012-12-21 17:19:00 -0800)
 > 
-> *** DEADLOCK ***
+> are available in the git repository at:
 > 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jesse/openvswitch.git fixes
 
-Applied.
+Pulled, thanks Jesse.
