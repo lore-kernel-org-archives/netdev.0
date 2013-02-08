@@ -1,126 +1,39 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 04/45] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Fri, 8 Feb 2013 14:47:42 -0800
-Message-ID: <20130208224742.GJ2666@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
- <20130122073347.13822.85876.stgit@srivatsabhat.in.ibm.com>
- <20130123185522.GG2373@mtj.dyndns.org>
- <51003B20.2060506@linux.vnet.ibm.com>
- <20130123195740.GI2373@mtj.dyndns.org>
- <5100B8CC.4080406@linux.vnet.ibm.com>
- <87ip6gutsq.fsf@sejong.aot.lge.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] ipv6: fix a RCU warning in
+ net/ipv6/ip6_flowlabel.c
+Date: Fri, 08 Feb 2013 17:57:19 -0500 (EST)
+Message-ID: <20130208.175719.570595882555864927.davem@davemloft.net>
+References: <1360288360-20385-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Tejun Heo <tj@kernel.org>, tglx@linutronix.de,
-	peterz@infradead.org, oleg@redhat.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	rjw@sisk.pl, sbw@mit.edu, fweisbec@gmail.com,
-	linux@arm.linux.org.uk, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	walken@google.com
-To: Namhyung Kim <namhyung@kernel.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <87ip6gutsq.fsf@sejong.aot.lge.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38094 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757385Ab3BHW5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 17:57:21 -0500
+In-Reply-To: <1360288360-20385-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 29, 2013 at 08:12:37PM +0900, Namhyung Kim wrote:
-> On Thu, 24 Jan 2013 10:00:04 +0530, Srivatsa S. Bhat wrote:
-> > On 01/24/2013 01:27 AM, Tejun Heo wrote:
-> >> On Thu, Jan 24, 2013 at 01:03:52AM +0530, Srivatsa S. Bhat wrote:
-> >>> CPU 0                          CPU 1
-> >>>
-> >>> read_lock(&rwlock)
-> >>>
-> >>>                               write_lock(&rwlock) //spins, because CPU 0
-> >>>                               //has acquired the lock for read
-> >>>
-> >>> read_lock(&rwlock)
-> >>>    ^^^^^
-> >>> What happens here? Does CPU 0 start spinning (and hence deadlock) or will
-> >>> it continue realizing that it already holds the rwlock for read?
-> >> 
-> >> I don't think rwlock allows nesting write lock inside read lock.
-> >> read_lock(); write_lock() will always deadlock.
-> >> 
-> >
-> > Sure, I understand that :-) My question was, what happens when *two* CPUs
-> > are involved, as in, the read_lock() is invoked only on CPU 0 whereas the
-> > write_lock() is invoked on CPU 1.
-> >
-> > For example, the same scenario shown above, but with slightly different
-> > timing, will NOT result in a deadlock:
-> >
-> > Scenario 2:
-> >   CPU 0                                CPU 1
-> >
-> > read_lock(&rwlock)
-> >
-> >
-> > read_lock(&rwlock) //doesn't spin
-> >
-> >                                     write_lock(&rwlock) //spins, because CPU 0
-> >                                     //has acquired the lock for read
-> >
-> >
-> > So I was wondering whether the "fairness" logic of rwlocks would cause
-> > the second read_lock() to spin (in the first scenario shown above) because
-> > a writer is already waiting (and hence new readers should spin) and thus
-> > cause a deadlock.
-> 
-> In my understanding, current x86 rwlock does basically this (of course,
-> in an atomic fashion):
-> 
-> 
-> #define RW_LOCK_BIAS 0x10000
-> 
-> rwlock_init(rwlock)
-> {
-> 	rwlock->lock = RW_LOCK_BIAS;
-> }
-> 
-> arch_read_lock(rwlock)
-> {
-> retry:
-> 	if (--rwlock->lock >= 0)
-> 		return;
-> 
->         rwlock->lock++;
->         while (rwlock->lock < 1)
->         	continue;
-> 
->         goto retry;
-> }
-> 
-> arch_write_lock(rwlock)
-> {
-> retry:
-> 	if ((rwlock->lock -= RW_LOCK_BIAS) == 0)
->         	return;
-> 
->         rwlock->lock += RW_LOCK_BIAS;
-> 	while (rwlock->lock != RW_LOCK_BIAS)
-> 		continue;
-> 
->         goto retry;
-> }
-> 
-> 
-> So I can't find where the 'fairness' logic comes from..
+From: Cong Wang <amwang@redhat.com>
+Date: Fri,  8 Feb 2013 09:52:40 +0800
 
-I looked through several of the rwlock implementations, and in all of
-them the writer backs off if it sees readers -- or refrains from asserting
-ownership of the lock to begin with.
+> This patch fixes the following RCU warning:
+> 
+> [   51.680236] ===============================
+> [   51.681914] [ INFO: suspicious RCU usage. ]
+> [   51.683610] 3.8.0-rc6-next-20130206-sasha-00028-g83214f7-dirty #276 Tainted: G        W
+> [   51.686703] -------------------------------
+> [   51.688281] net/ipv6/ip6_flowlabel.c:671 suspicious rcu_dereference_check() usage!
+> 
+> we should use rcu_dereference_bh() when we hold rcu_read_lock_bh().
+> 
+> Reported-by: Sasha Levin <sasha.levin@oracle.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-So it should be OK to use rwlock as shown in the underlying patch.
-
-							Thanx, Paul
-
+Applied.
