@@ -1,10 +1,10 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 06/45] percpu_rwlock: Allow writers to be readers, and
- add lockdep annotations
-Date: Fri, 8 Feb 2013 15:47:54 -0800
-Message-ID: <20130208234754.GM2666@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 07/45] CPU hotplug: Provide APIs to prevent CPU
+ offline from atomic context
+Date: Fri, 8 Feb 2013 15:50:44 -0800
+Message-ID: <20130208235044.GN2666@linux.vnet.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
- <20130122073416.13822.96504.stgit@srivatsabhat.in.ibm.com>
+ <20130122073446.13822.39253.stgit@srivatsabhat.in.ibm.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -21,110 +21,374 @@ Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 Return-path: <linux-pm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130122073416.13822.96504.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20130122073446.13822.39253.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 22, 2013 at 01:04:23PM +0530, Srivatsa S. Bhat wrote:
-> CPU hotplug (which will be the first user of per-CPU rwlocks) has a special
-> requirement with respect to locking: the writer, after acquiring the per-CPU
-> rwlock for write, must be allowed to take the same lock for read, without
-> deadlocking and without getting complaints from lockdep. In comparison, this
-> is similar to what get_online_cpus()/put_online_cpus() does today: it allows
-> a hotplug writer (who holds the cpu_hotplug.lock mutex) to invoke it without
-> locking issues, because it silently returns if the caller is the hotplug
-> writer itself.
+On Tue, Jan 22, 2013 at 01:04:54PM +0530, Srivatsa S. Bhat wrote:
+> There are places where preempt_disable() or local_irq_disable() are used
+> to prevent any CPU from going offline during the critical section. Let us
+> call them as "atomic hotplug readers" ("atomic" because they run in atomic,
+> non-preemptible contexts).
 > 
-> This can be easily achieved with per-CPU rwlocks as well (even without a
-> "is this a writer?" check) by incrementing the per-CPU refcount of the writer
-> immediately after taking the global rwlock for write, and then decrementing
-> the per-CPU refcount before releasing the global rwlock.
-> This ensures that any reader that comes along on that CPU while the writer is
-> active (on that same CPU), notices the non-zero value of the nested counter
-> and assumes that it is a nested read-side critical section and proceeds by
-> just incrementing the refcount. Thus we prevent the reader from taking the
-> global rwlock for read, which prevents the writer from deadlocking itself.
+> Today, preempt_disable() or its equivalent works because the hotplug writer
+> uses stop_machine() to take CPUs offline. But once stop_machine() is gone
+> from the CPU hotplug offline path, the readers won't be able to prevent
+> CPUs from going offline using preempt_disable().
 > 
-> Add that support and teach lockdep about this special locking scheme so
-> that it knows that this sort of usage is valid. Also add the required lockdep
-> annotations to enable it to detect common locking problems with per-CPU
-> rwlocks.
-
-Very nice!  The write-side interrupt disabling ensures that the task
-stays on CPU, as required.
-
-One request: Could we please have a comment explaining the reasons for
-the writer incrementing and decrementing the reader reference count?
-
-It looked really really strange to me until I came back and read the
-commit log.  ;-)
-
-							Thanx, Paul
-
+> So the intent here is to provide synchronization APIs for such atomic hotplug
+> readers, to prevent (any) CPUs from going offline, without depending on
+> stop_machine() at the writer-side. The new APIs will look something like
+> this:  get_online_cpus_atomic() and put_online_cpus_atomic()
+> 
+> Some important design requirements and considerations:
+> -----------------------------------------------------
+> 
+> 1. Scalable synchronization at the reader-side, especially in the fast-path
+> 
+>    Any synchronization at the atomic hotplug readers side must be highly
+>    scalable - avoid global single-holder locks/counters etc. Because, these
+>    paths currently use the extremely fast preempt_disable(); our replacement
+>    to preempt_disable() should not become ridiculously costly and also should
+>    not serialize the readers among themselves needlessly.
+> 
+>    At a minimum, the new APIs must be extremely fast at the reader side
+>    atleast in the fast-path, when no CPU offline writers are active.
+> 
+> 2. preempt_disable() was recursive. The replacement should also be recursive.
+> 
+> 3. No (new) lock-ordering restrictions
+> 
+>    preempt_disable() was super-flexible. It didn't impose any ordering
+>    restrictions or rules for nesting. Our replacement should also be equally
+>    flexible and usable.
+> 
+> 4. No deadlock possibilities
+> 
+>    Regular per-cpu locking is not the way to go if we want to have relaxed
+>    rules for lock-ordering. Because, we can end up in circular-locking
+>    dependencies as explained in https://lkml.org/lkml/2012/12/6/290
+> 
+>    So, avoid the usual per-cpu locking schemes (per-cpu locks/per-cpu atomic
+>    counters with spin-on-contention etc) as much as possible, to avoid
+>    numerous deadlock possibilities from creeping in.
+> 
+> 
+> Implementation of the design:
+> ----------------------------
+> 
+> We use per-CPU reader-writer locks for synchronization because:
+> 
+>   a. They are quite fast and scalable in the fast-path (when no writers are
+>      active), since they use fast per-cpu counters in those paths.
+> 
+>   b. They are recursive at the reader side.
+> 
+>   c. They provide a good amount of safety against deadlocks; they don't
+>      spring new deadlock possibilities on us from out of nowhere. As a
+>      result, they have relaxed locking rules and are quite flexible, and
+>      thus are best suited for replacing usages of preempt_disable() or
+>      local_irq_disable() at the reader side.
+> 
+> Together, these satisfy all the requirements mentioned above.
+> 
+> I'm indebted to Michael Wang and Xiao Guangrong for their numerous thoughtful
+> suggestions and ideas, which inspired and influenced many of the decisions in
+> this as well as previous designs. Thanks a lot Michael and Xiao!
+> 
+> Cc: Russell King <linux@arm.linux.org.uk>
+> Cc: Mike Frysinger <vapier@gentoo.org>
+> Cc: Tony Luck <tony.luck@intel.com>
+> Cc: Ralf Baechle <ralf@linux-mips.org>
 > Cc: David Howells <dhowells@redhat.com>
+> Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Paul Mundt <lethal@linux-sh.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: "H. Peter Anvin" <hpa@zytor.com>
+> Cc: x86@kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: uclinux-dist-devel@blackfin.uclinux.org
+> Cc: linux-ia64@vger.kernel.org
+> Cc: linux-mips@linux-mips.org
+> Cc: linux-am33-list@redhat.com
+> Cc: linux-parisc@vger.kernel.org
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Cc: linux-s390@vger.kernel.org
+> Cc: linux-sh@vger.kernel.org
+> Cc: sparclinux@vger.kernel.org
 > Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+
+With the change suggested by Namhyung:
+
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+
 > ---
 > 
->  lib/percpu-rwlock.c |   21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
+>  arch/arm/Kconfig      |    1 +
+>  arch/blackfin/Kconfig |    1 +
+>  arch/ia64/Kconfig     |    1 +
+>  arch/mips/Kconfig     |    1 +
+>  arch/mn10300/Kconfig  |    1 +
+>  arch/parisc/Kconfig   |    1 +
+>  arch/powerpc/Kconfig  |    1 +
+>  arch/s390/Kconfig     |    1 +
+>  arch/sh/Kconfig       |    1 +
+>  arch/sparc/Kconfig    |    1 +
+>  arch/x86/Kconfig      |    1 +
+>  include/linux/cpu.h   |    4 +++
+>  kernel/cpu.c          |   57 ++++++++++++++++++++++++++++++++++++++++++++++---
+>  13 files changed, 69 insertions(+), 3 deletions(-)
 > 
-> diff --git a/lib/percpu-rwlock.c b/lib/percpu-rwlock.c
-> index a8d177a..054a50a 100644
-> --- a/lib/percpu-rwlock.c
-> +++ b/lib/percpu-rwlock.c
-> @@ -84,6 +84,10 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
+> diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+> index 67874b8..cb6b94b 100644
+> --- a/arch/arm/Kconfig
+> +++ b/arch/arm/Kconfig
+> @@ -1616,6 +1616,7 @@ config NR_CPUS
+>  config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs"
+>  	depends on SMP && HOTPLUG
+> +	select PERCPU_RWLOCK
+>  	help
+>  	  Say Y here to experiment with turning CPUs off and on.  CPUs
+>  	  can be controlled through /sys/devices/system/cpu.
+> diff --git a/arch/blackfin/Kconfig b/arch/blackfin/Kconfig
+> index b6f3ad5..83d9882 100644
+> --- a/arch/blackfin/Kconfig
+> +++ b/arch/blackfin/Kconfig
+> @@ -261,6 +261,7 @@ config NR_CPUS
+>  config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs"
+>  	depends on SMP && HOTPLUG
+> +	select PERCPU_RWLOCK
+>  	default y
 > 
->  		if (likely(!writer_active(pcpu_rwlock))) {
->  			this_cpu_inc(*pcpu_rwlock->reader_refcnt);
-> +
-> +			/* Pretend that we take global_rwlock for lockdep */
-> +			rwlock_acquire_read(&pcpu_rwlock->global_rwlock.dep_map,
-> +					    0, 0, _RET_IP_);
->  		} else {
->  			/* Writer is active, so switch to global rwlock. */
+>  config BF_REV_MIN
+> diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+> index 3279646..c246772 100644
+> --- a/arch/ia64/Kconfig
+> +++ b/arch/ia64/Kconfig
+> @@ -378,6 +378,7 @@ config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs (EXPERIMENTAL)"
+>  	depends on SMP && EXPERIMENTAL
+>  	select HOTPLUG
+> +	select PERCPU_RWLOCK
+>  	default n
+>  	---help---
+>  	  Say Y here to experiment with turning CPUs off and on.  CPUs
+> diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+> index 2ac626a..f97c479 100644
+> --- a/arch/mips/Kconfig
+> +++ b/arch/mips/Kconfig
+> @@ -956,6 +956,7 @@ config SYS_HAS_EARLY_PRINTK
+>  config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs"
+>  	depends on SMP && HOTPLUG && SYS_SUPPORTS_HOTPLUG_CPU
+> +	select PERCPU_RWLOCK
+>  	help
+>  	  Say Y here to allow turning CPUs off and on. CPUs can be
+>  	  controlled through /sys/devices/system/cpu.
+> diff --git a/arch/mn10300/Kconfig b/arch/mn10300/Kconfig
+> index e70001c..a64e488 100644
+> --- a/arch/mn10300/Kconfig
+> +++ b/arch/mn10300/Kconfig
+> @@ -60,6 +60,7 @@ config ARCH_HAS_ILOG2_U32
 > 
-> @@ -108,6 +112,12 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
->  			if (!writer_active(pcpu_rwlock)) {
->  				this_cpu_inc(*pcpu_rwlock->reader_refcnt);
->  				read_unlock(&pcpu_rwlock->global_rwlock);
-> +
-> +				/*
-> +				 * Pretend that we take global_rwlock for lockdep
-> +				 */
-> +				rwlock_acquire_read(&pcpu_rwlock->global_rwlock.dep_map,
-> +						    0, 0, _RET_IP_);
->  			}
->  		}
->  	}
-> @@ -128,6 +138,14 @@ void percpu_read_unlock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
->  	if (reader_nested_percpu(pcpu_rwlock)) {
->  		this_cpu_dec(*pcpu_rwlock->reader_refcnt);
->  		smp_wmb(); /* Paired with smp_rmb() in sync_reader() */
-> +
-> +		/*
-> +		 * If this is the last decrement, then it is time to pretend
-> +		 * to lockdep that we are releasing the read lock.
-> +		 */
-> +		if (!reader_nested_percpu(pcpu_rwlock))
-> +			rwlock_release(&pcpu_rwlock->global_rwlock.dep_map,
-> +				       1, _RET_IP_);
->  	} else {
->  		read_unlock(&pcpu_rwlock->global_rwlock);
->  	}
-> @@ -205,11 +223,14 @@ void percpu_write_lock_irqsave(struct percpu_rwlock *pcpu_rwlock,
->  	announce_writer_active(pcpu_rwlock);
->  	sync_all_readers(pcpu_rwlock);
->  	write_lock_irqsave(&pcpu_rwlock->global_rwlock, *flags);
-> +	this_cpu_inc(*pcpu_rwlock->reader_refcnt);
+>  config HOTPLUG_CPU
+>  	def_bool n
+> +	select PERCPU_RWLOCK
+> 
+>  source "init/Kconfig"
+> 
+> diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+> index b77feff..6f55cd4 100644
+> --- a/arch/parisc/Kconfig
+> +++ b/arch/parisc/Kconfig
+> @@ -226,6 +226,7 @@ config HOTPLUG_CPU
+>  	bool
+>  	default y if SMP
+>  	select HOTPLUG
+> +	select PERCPU_RWLOCK
+> 
+>  config ARCH_SELECT_MEMORY_MODEL
+>  	def_bool y
+> diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+> index 17903f1..56b1f15 100644
+> --- a/arch/powerpc/Kconfig
+> +++ b/arch/powerpc/Kconfig
+> @@ -336,6 +336,7 @@ config HOTPLUG_CPU
+>  	bool "Support for enabling/disabling CPUs"
+>  	depends on SMP && HOTPLUG && EXPERIMENTAL && (PPC_PSERIES || \
+>  	PPC_PMAC || PPC_POWERNV || (PPC_85xx && !PPC_E500MC))
+> +	select PERCPU_RWLOCK
+>  	---help---
+>  	  Say Y here to be able to disable and re-enable individual
+>  	  CPUs at runtime on SMP machines.
+> diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+> index b5ea38c..a9aafb4 100644
+> --- a/arch/s390/Kconfig
+> +++ b/arch/s390/Kconfig
+> @@ -299,6 +299,7 @@ config HOTPLUG_CPU
+>  	prompt "Support for hot-pluggable CPUs"
+>  	depends on SMP
+>  	select HOTPLUG
+> +	select PERCPU_RWLOCK
+>  	help
+>  	  Say Y here to be able to turn CPUs off and on. CPUs
+>  	  can be controlled through /sys/devices/system/cpu/cpu#.
+> diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+> index babc2b8..8c92eef 100644
+> --- a/arch/sh/Kconfig
+> +++ b/arch/sh/Kconfig
+> @@ -765,6 +765,7 @@ config NR_CPUS
+>  config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs (EXPERIMENTAL)"
+>  	depends on SMP && HOTPLUG && EXPERIMENTAL
+> +	select PERCPU_RWLOCK
+>  	help
+>  	  Say Y here to experiment with turning CPUs off and on.  CPUs
+>  	  can be controlled through /sys/devices/system/cpu.
+> diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+> index 9f2edb5..e2bd573 100644
+> --- a/arch/sparc/Kconfig
+> +++ b/arch/sparc/Kconfig
+> @@ -253,6 +253,7 @@ config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs"
+>  	depends on SPARC64 && SMP
+>  	select HOTPLUG
+> +	select PERCPU_RWLOCK
+>  	help
+>  	  Say Y here to experiment with turning CPUs off and on.  CPUs
+>  	  can be controlled through /sys/devices/system/cpu/cpu#.
+> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+> index 79795af..a225d12 100644
+> --- a/arch/x86/Kconfig
+> +++ b/arch/x86/Kconfig
+> @@ -1689,6 +1689,7 @@ config PHYSICAL_ALIGN
+>  config HOTPLUG_CPU
+>  	bool "Support for hot-pluggable CPUs"
+>  	depends on SMP && HOTPLUG
+> +	select PERCPU_RWLOCK
+>  	---help---
+>  	  Say Y here to allow turning CPUs off and on. CPUs can be
+>  	  controlled through /sys/devices/system/cpu.
+> diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+> index ce7a074..cf24da1 100644
+> --- a/include/linux/cpu.h
+> +++ b/include/linux/cpu.h
+> @@ -175,6 +175,8 @@ extern struct bus_type cpu_subsys;
+> 
+>  extern void get_online_cpus(void);
+>  extern void put_online_cpus(void);
+> +extern void get_online_cpus_atomic(void);
+> +extern void put_online_cpus_atomic(void);
+>  #define hotcpu_notifier(fn, pri)	cpu_notifier(fn, pri)
+>  #define register_hotcpu_notifier(nb)	register_cpu_notifier(nb)
+>  #define unregister_hotcpu_notifier(nb)	unregister_cpu_notifier(nb)
+> @@ -198,6 +200,8 @@ static inline void cpu_hotplug_driver_unlock(void)
+> 
+>  #define get_online_cpus()	do { } while (0)
+>  #define put_online_cpus()	do { } while (0)
+> +#define get_online_cpus_atomic()	do { } while (0)
+> +#define put_online_cpus_atomic()	do { } while (0)
+>  #define hotcpu_notifier(fn, pri)	do { (void)(fn); } while (0)
+>  /* These aren't inline functions due to a GCC bug. */
+>  #define register_hotcpu_notifier(nb)	({ (void)(nb); 0; })
+> diff --git a/kernel/cpu.c b/kernel/cpu.c
+> index 3046a50..1c84138 100644
+> --- a/kernel/cpu.c
+> +++ b/kernel/cpu.c
+> @@ -1,6 +1,18 @@
+>  /* CPU control.
+>   * (C) 2001, 2002, 2003, 2004 Rusty Russell
+>   *
+> + * Rework of the CPU hotplug offline mechanism to remove its dependence on
+> + * the heavy-weight stop_machine() primitive, by Srivatsa S. Bhat and
+> + * Paul E. McKenney.
+> + *
+> + * Copyright (C) IBM Corporation, 2012-2013
+> + * Authors: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> + *          Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+> + *
+> + * With lots of invaluable suggestions from:
+> + *	    Oleg Nesterov <oleg@redhat.com>
+> + *	    Tejun Heo <tj@kernel.org>
+> + *
+>   * This code is licenced under the GPL.
+>   */
+>  #include <linux/proc_fs.h>
+> @@ -19,6 +31,7 @@
+>  #include <linux/mutex.h>
+>  #include <linux/gfp.h>
+>  #include <linux/suspend.h>
+> +#include <linux/percpu-rwlock.h>
+> 
+>  #include "smpboot.h"
+> 
+> @@ -133,6 +146,38 @@ static void cpu_hotplug_done(void)
+>  	mutex_unlock(&cpu_hotplug.lock);
 >  }
 > 
->  void percpu_write_unlock_irqrestore(struct percpu_rwlock *pcpu_rwlock,
->  			 unsigned long *flags)
->  {
-> +	this_cpu_dec(*pcpu_rwlock->reader_refcnt);
+> +/*
+> + * Per-CPU Reader-Writer lock to synchronize between atomic hotplug
+> + * readers and the CPU offline hotplug writer.
+> + */
+> +DEFINE_STATIC_PERCPU_RWLOCK(hotplug_pcpu_rwlock);
 > +
->  	/*
->  	 * Inform all readers that we are done, so that they can switch back
->  	 * to their per-cpu refcounts. (We don't need to wait for them to
+> +/*
+> + * Invoked by atomic hotplug reader (a task which wants to prevent
+> + * CPU offline, but which can't afford to sleep), to prevent CPUs from
+> + * going offline. So, you can call this function from atomic contexts
+> + * (including interrupt handlers).
+> + *
+> + * Note: This does NOT prevent CPUs from coming online! It only prevents
+> + * CPUs from going offline.
+> + *
+> + * You can call this function recursively.
+> + *
+> + * Returns with preemption disabled (but interrupts remain as they are;
+> + * they are not disabled).
+> + */
+> +void get_online_cpus_atomic(void)
+> +{
+> +	percpu_read_lock_irqsafe(&hotplug_pcpu_rwlock);
+> +}
+> +EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
+> +
+> +void put_online_cpus_atomic(void)
+> +{
+> +	percpu_read_unlock_irqsafe(&hotplug_pcpu_rwlock);
+> +}
+> +EXPORT_SYMBOL_GPL(put_online_cpus_atomic);
+> +
+>  #else /* #if CONFIG_HOTPLUG_CPU */
+>  static void cpu_hotplug_begin(void) {}
+>  static void cpu_hotplug_done(void) {}
+> @@ -246,15 +291,21 @@ struct take_cpu_down_param {
+>  static int __ref take_cpu_down(void *_param)
+>  {
+>  	struct take_cpu_down_param *param = _param;
+> -	int err;
+> +	unsigned long flags;
+> +	int err = 0;
+> +
+> +	percpu_write_lock_irqsave(&hotplug_pcpu_rwlock, &flags);
+> 
+>  	/* Ensure this CPU doesn't handle any more interrupts. */
+>  	err = __cpu_disable();
+>  	if (err < 0)
+> -		return err;
+> +		goto out;
+> 
+>  	cpu_notify(CPU_DYING | param->mod, param->hcpu);
+> -	return 0;
+> +
+> +out:
+> +	percpu_write_unlock_irqrestore(&hotplug_pcpu_rwlock, &flags);
+> +	return err;
+>  }
+> 
+>  /* Requires cpu_add_remove_lock to be held */
 > 
 
