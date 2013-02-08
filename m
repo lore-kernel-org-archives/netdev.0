@@ -1,45 +1,66 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net 1/2] net: sctp: sctp_setsockopt_auth_key: use kzfree instead of kfree
-Date: Fri,  8 Feb 2013 14:04:34 +0100
-Message-ID: <696cf7a140197488ab830222890fe5b803de6952.1360327229.git.dborkman@redhat.com>
-References: <cover.1360327229.git.dborkman@redhat.com>
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Kees van Reeuwijk <kees.van.reeuwijk@gmail.com>
+Subject: [PATCH v2 2/5] iproute2: clarifications in the libnetlink.3 man
+ page
+Date: Fri, 08 Feb 2013 14:32:36 +0100
+Message-ID: <E1U3o4C-0000bx-O4@babylon.few.vu.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39634 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946566Ab3BHNEj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Feb 2013 08:04:39 -0500
-In-Reply-To: <cover.1360327229.git.dborkman@redhat.com>
-In-Reply-To: <cover.1360327229.git.dborkman@redhat.com>
-References: <cover.1360327229.git.dborkman@redhat.com>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:33887 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1946057Ab3BHNek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 08:34:40 -0500
+Received: by mail-we0-f173.google.com with SMTP id r5so3018045wey.18
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 05:34:38 -0800 (PST)
+Received: from reeuwijk by babylon.few.vu.nl with local (Exim 4.72)
+	(envelope-from <reeuwijk@few.vu.nl>)
+	id 1U3o4C-0000bx-O4
+	for netdev@vger.kernel.org; Fri, 08 Feb 2013 14:32:36 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In sctp_setsockopt_auth_key, we create a temporary copy of the user
-passed shared auth key for the endpoint or association and after
-internal setup, we free it right away. Since it's sensitive data, we
-should zero out the key before returning the memory back to the
-allocator. Thus, use kzfree instead of kfree, just as we do in
-sctp_auth_key_put().
+From: Kees van Reeuwijk <reeuwijk@few.vu.nl>
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/socket.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Rephrasing for clarity.
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9e65758..cedd9bf 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3390,7 +3390,7 @@ static int sctp_setsockopt_auth_key(struct sock *sk,
+
+Signed-off-by: Kees van Reeuwijk <reeuwijk@few.vu.nl>
+
+ ---
+
+ libnetlink.3 |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/man/man3/libnetlink.3 b/man/man3/libnetlink.3
+index d114169..e999bd6 100644
+--- a/man/man3/libnetlink.3
++++ b/man/man3/libnetlink.3
+@@ -100,7 +100,7 @@ in case of error. NULL for
+ means to not use a filter.
+ .B junk
+ is used to filter messages not destined to the local socket.
+-Only one message bundle is received. Unless there is no message 
++Only one message bundle is received. If there is a message
+ pending, this function does not block.
  
- 	ret = sctp_auth_set_key(sctp_sk(sk)->ep, asoc, authkey);
- out:
--	kfree(authkey);
-+	kzfree(authkey);
- 	return ret;
- }
+ .TP
+@@ -112,7 +112,7 @@ is a callback that gets the message source address, the message itself,
+ and the
+ .B jarg
+ cookie as arguments. It will get called for all received messages.
+-Only one message bundle is received. Unless there is no message 
++Only one message bundle is received. If there is a message
+ pending this function does not block.
  
--- 
-1.7.11.7
+ .TP
+@@ -123,7 +123,7 @@ but reads a netlink message bundle from the file
+ .B file
+ and passes the messages to
+ .B handler
+-for parsing. The file contains raw data as received from a rtnetlink socket.
++for parsing. The file should contain raw data as received from a rtnetlink socket.
+ .PP
+ The following functions are useful to construct custom rtnetlink messages. For
+ simple database dumping with filtering it is better to use the higher level
