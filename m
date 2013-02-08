@@ -1,80 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH RFC v2 1/2] net/802: Implement Multiple Registration
- Protocol (MRP)
-Date: Fri, 8 Feb 2013 09:37:56 +0100
-Message-ID: <20130208083750.GA6802@macbook.localnet>
-References: <1360295457-5245-1-git-send-email-david.ward@ll.mit.edu>
- <1360295457-5245-2-git-send-email-david.ward@ll.mit.edu>
+From: "Arend van Spriel" <arend@broadcom.com>
+Subject: Re: Wifi basics documents
+Date: Fri, 8 Feb 2013 09:34:09 +0100
+Message-ID: <5114B881.9000100@broadcom.com>
+References: <CAHT=_ri0JBrbPfWJrzjYR4eNDDW9ygMkJSDU4vJXEfh_STLK9g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: David Ward <david.ward@ll.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64792 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758129Ab3BHIiD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 03:38:03 -0500
-Content-Disposition: inline
-In-Reply-To: <1360295457-5245-2-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, linux-can@vger.kernel.org,
+	linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, wil6210@qca.qualcomm.com,
+	brcm80211-dev-list@broadcom.com,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>
+To: "Onteddu Slreddy" <slreddy88@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <CAHT=_ri0JBrbPfWJrzjYR4eNDDW9ygMkJSDU4vJXEfh_STLK9g@mail.gmail.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 07, 2013 at 10:50:55PM -0500, David Ward wrote:
-> Initial implementation of the Multiple Registration Protocol (MRP)
-> from IEEE 802.1Q-2011, based on the existing implementation of the
-> Generic Attribute Registration Protocol (GARP).
+On 02/08/2013 07:55 AM, Onteddu Slreddy wrote:
+> Hello All,
 > 
-> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> 
+> I recently joined this group the group.
+> 
+> Can anybody suggest me places where I can get Documents which will explain
+> wifi  Architecture in brief i would like to know details like
+> 
+> In Linux for embedded systems:
+>         What is the software architecture for wifi
+>         What are each folders in kernel/net and kernel/drivers/net refer to
+>         What is wpa_supplicant how to know which version I have to use
+>         How to get  familiar with words like nl802.11, mac802.11, wext,
+> copat-wireless, compatwireless-openmac
+>         If I have to add a new chip driver what are the checklist points i
+> have to see
+> 
+> My Quesitions may be basic kindly bare with me
+> If any body have self prepared documents that will be great help for me
 
-> +enum mrp_vecattr_event {
-> +	MRP_NEW,
-> +	MRP_JOIN_IN,
-> +	MRP_IN,
-> +	MRP_JOIN_MT,
-> +	MRP_MT,
-> +	MRP_LV,
-> +};
+802.11 is a IEEE standard that is freely available for download.
+Regarding Linux architecture and infrastructure there is a lot of
+information to be found on wireless.kernel.org.
 
-> +static int mrp_pdu_append_event(struct mrp_applicant *app,
-> +				const struct mrp_attr *attr,
-> +				enum mrp_vecattr_event event)
-> +{
-...
-> +	switch (pos) {
-> +	case 0:
-> +		*events = event * 36;
-> +		break;
-> +	case 1:
-> +		*events += event * 6;
-> +		break;
-> +	case 2:
-> +		*events += event;
-> +		break;
-> +	default:
-> +		WARN_ON(1);
-> +	}
+Regards,
+Arend
 
-Could you define a MRT_VAEVENT_MAX or something and use that instead of the
-magic values? Took me a bit to figure out their meaning.
 
-> +static int mrp_pdu_parse_vecattr(struct mrp_applicant *app,
-> +				 struct sk_buff *skb, int *offset)
-> +{
-...
-> +	while (valen > 0) {
-> +		if (skb_copy_bits(skb, *offset, &vaevents,
-> +				  sizeof(vaevents)) < 0)
-> +			return -1;
-> +		*offset += sizeof(vaevents);
-> +
-> +		/* Extract and process the first event. */
-> +		vaevent = vaevents / 36;
-> +		if (vaevent >= 6) {
 
-Same here.
-
-Other than that:
-
-Acked-by: Patrick McHardy <kaber@trash.net>
-
-for all patches.
