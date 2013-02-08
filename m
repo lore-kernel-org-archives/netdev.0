@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/10] igb: Initialize NVM function pointers
-Date: Fri,  8 Feb 2013 02:39:15 -0800
-Message-ID: <1360319958-10497-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/10] igb: Initialize PHY function pointers
+Date: Fri,  8 Feb 2013 02:39:14 -0800
+Message-ID: <1360319958-10497-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:38916 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:13075 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1946199Ab3BHKjf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1946204Ab3BHKjf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 8 Feb 2013 05:39:35 -0500
 In-Reply-To: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,130 +18,133 @@ List-ID: <netdev.vger.kernel.org>
 
 From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-This patch initializes NVM function pointers for device configuration.
+This patch initializes PHY function pointers for device configuration.
 
 Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 109 +++++++++++++++++++++++++++
- 1 file changed, 109 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 112 +++++++++++++++++++++++++++
+ 1 file changed, 112 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index fc69414..e59fc9b 100644
+index 54a7c20..fc69414 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_82575.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -223,6 +223,115 @@ out:
- 	return ret_val;
+@@ -111,6 +111,118 @@ static bool igb_sgmii_uses_mdio_82575(struct e1000_hw *hw)
+ 	return ext_mdio;
  }
  
 +/**
-+ *  igb_init_nvm_params_82575 - Init NVM func ptrs.
++ *  igb_init_phy_params_82575 - Init PHY func ptrs.
 + *  @hw: pointer to the HW structure
 + **/
-+s32 igb_init_nvm_params_82575(struct e1000_hw *hw)
++static s32 igb_init_phy_params_82575(struct e1000_hw *hw)
 +{
-+	struct e1000_nvm_info *nvm = &hw->nvm;
-+	u32 eecd = rd32(E1000_EECD);
-+	u16 size;
++	struct e1000_phy_info *phy = &hw->phy;
++	s32 ret_val = 0;
++	u32 ctrl_ext;
 +
-+	size = (u16)((eecd & E1000_EECD_SIZE_EX_MASK) >>
-+		     E1000_EECD_SIZE_EX_SHIFT);
-+	/* Added to a constant, "size" becomes the left-shift value
-+	 * for setting word_size.
-+	 */
-+	size += NVM_WORD_SIZE_BASE_SHIFT;
++	if (hw->phy.media_type != e1000_media_type_copper) {
++		phy->type = e1000_phy_none;
++		goto out;
++	}
 +
-+	/* Just in case size is out of range, cap it to the largest
-+	 * EEPROM size supported
-+	 */
-+	if (size > 15)
-+		size = 15;
++	phy->autoneg_mask	= AUTONEG_ADVERTISE_SPEED_DEFAULT;
++	phy->reset_delay_us	= 100;
 +
-+	nvm->word_size = 1 << size;
-+	if (hw->mac.type < e1000_i210) {
-+		nvm->opcode_bits = 8;
-+		nvm->delay_usec = 1;
++	ctrl_ext = rd32(E1000_CTRL_EXT);
 +
-+		switch (nvm->override) {
-+		case e1000_nvm_override_spi_large:
-+			nvm->page_size = 32;
-+			nvm->address_bits = 16;
++	if (igb_sgmii_active_82575(hw)) {
++		phy->ops.reset = igb_phy_hw_reset_sgmii_82575;
++		ctrl_ext |= E1000_CTRL_I2C_ENA;
++	} else {
++		phy->ops.reset = igb_phy_hw_reset;
++		ctrl_ext &= ~E1000_CTRL_I2C_ENA;
++	}
++
++	wr32(E1000_CTRL_EXT, ctrl_ext);
++	igb_reset_mdicnfg_82580(hw);
++
++	if (igb_sgmii_active_82575(hw) && !igb_sgmii_uses_mdio_82575(hw)) {
++		phy->ops.read_reg = igb_read_phy_reg_sgmii_82575;
++		phy->ops.write_reg = igb_write_phy_reg_sgmii_82575;
++	} else {
++		switch (hw->mac.type) {
++		case e1000_82580:
++		case e1000_i350:
++			phy->ops.read_reg = igb_read_phy_reg_82580;
++			phy->ops.write_reg = igb_write_phy_reg_82580;
 +			break;
-+		case e1000_nvm_override_spi_small:
-+			nvm->page_size = 8;
-+			nvm->address_bits = 8;
++		case e1000_i210:
++		case e1000_i211:
++			phy->ops.read_reg = igb_read_phy_reg_gs40g;
++			phy->ops.write_reg = igb_write_phy_reg_gs40g;
 +			break;
 +		default:
-+			nvm->page_size = eecd & E1000_EECD_ADDR_BITS ? 32 : 8;
-+			nvm->address_bits = eecd & E1000_EECD_ADDR_BITS ?
-+					    16 : 8;
-+			break;
++			phy->ops.read_reg = igb_read_phy_reg_igp;
++			phy->ops.write_reg = igb_write_phy_reg_igp;
 +		}
-+		if (nvm->word_size == (1 << 15))
-+			nvm->page_size = 128;
-+
-+		nvm->type = e1000_nvm_eeprom_spi;
-+	} else {
-+		nvm->type = e1000_nvm_flash_hw;
 +	}
 +
-+	/* NVM Function Pointers */
-+	switch (hw->mac.type) {
-+	case e1000_82580:
-+		nvm->ops.validate = igb_validate_nvm_checksum_82580;
-+		nvm->ops.update = igb_update_nvm_checksum_82580;
-+		nvm->ops.acquire = igb_acquire_nvm_82575;
-+		nvm->ops.release = igb_release_nvm_82575;
-+		if (nvm->word_size < (1 << 15))
-+			nvm->ops.read = igb_read_nvm_eerd;
++	/* set lan id */
++	hw->bus.func = (rd32(E1000_STATUS) & E1000_STATUS_FUNC_MASK) >>
++			E1000_STATUS_FUNC_SHIFT;
++
++	/* Set phy->phy_addr and phy->id. */
++	ret_val = igb_get_phy_id_82575(hw);
++	if (ret_val)
++		return ret_val;
++
++	/* Verify phy id and set remaining function pointers */
++	switch (phy->id) {
++	case I347AT4_E_PHY_ID:
++	case M88E1112_E_PHY_ID:
++	case M88E1111_I_PHY_ID:
++		phy->type		= e1000_phy_m88;
++		phy->ops.get_phy_info	= igb_get_phy_info_m88;
++		if (phy->id == I347AT4_E_PHY_ID ||
++		    phy->id == M88E1112_E_PHY_ID)
++			phy->ops.get_cable_length =
++					 igb_get_cable_length_m88_gen2;
 +		else
-+			nvm->ops.read = igb_read_nvm_spi;
-+		nvm->ops.write = igb_write_nvm_spi;
++			phy->ops.get_cable_length = igb_get_cable_length_m88;
++		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_m88;
 +		break;
-+	case e1000_i350:
-+		nvm->ops.validate = igb_validate_nvm_checksum_i350;
-+		nvm->ops.update = igb_update_nvm_checksum_i350;
-+		nvm->ops.acquire = igb_acquire_nvm_82575;
-+		nvm->ops.release = igb_release_nvm_82575;
-+		if (nvm->word_size < (1 << 15))
-+			nvm->ops.read = igb_read_nvm_eerd;
-+		else
-+			nvm->ops.read = igb_read_nvm_spi;
-+		nvm->ops.write = igb_write_nvm_spi;
++	case IGP03E1000_E_PHY_ID:
++		phy->type = e1000_phy_igp_3;
++		phy->ops.get_phy_info = igb_get_phy_info_igp;
++		phy->ops.get_cable_length = igb_get_cable_length_igp_2;
++		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_igp;
++		phy->ops.set_d0_lplu_state = igb_set_d0_lplu_state_82575;
++		phy->ops.set_d3_lplu_state = igb_set_d3_lplu_state;
 +		break;
-+	case e1000_i210:
-+		nvm->ops.validate = igb_validate_nvm_checksum_i210;
-+		nvm->ops.update   = igb_update_nvm_checksum_i210;
-+		nvm->ops.acquire = igb_acquire_nvm_i210;
-+		nvm->ops.release = igb_release_nvm_i210;
-+		nvm->ops.read    = igb_read_nvm_srrd_i210;
-+		nvm->ops.write   = igb_write_nvm_srwr_i210;
-+		nvm->ops.valid_led_default = igb_valid_led_default_i210;
++	case I82580_I_PHY_ID:
++	case I350_I_PHY_ID:
++		phy->type = e1000_phy_82580;
++		phy->ops.force_speed_duplex =
++					 igb_phy_force_speed_duplex_82580;
++		phy->ops.get_cable_length = igb_get_cable_length_82580;
++		phy->ops.get_phy_info = igb_get_phy_info_82580;
++		phy->ops.set_d0_lplu_state = igb_set_d0_lplu_state_82580;
++		phy->ops.set_d3_lplu_state = igb_set_d3_lplu_state_82580;
 +		break;
-+	case e1000_i211:
-+		nvm->ops.acquire  = igb_acquire_nvm_i210;
-+		nvm->ops.release  = igb_release_nvm_i210;
-+		nvm->ops.read     = igb_read_nvm_i211;
-+		nvm->ops.valid_led_default = igb_valid_led_default_i210;
-+		nvm->ops.validate = NULL;
-+		nvm->ops.update   = NULL;
-+		nvm->ops.write    = NULL;
++	case I210_I_PHY_ID:
++		phy->type		= e1000_phy_i210;
++		phy->ops.check_polarity	= igb_check_polarity_m88;
++		phy->ops.get_phy_info	= igb_get_phy_info_m88;
++		phy->ops.get_cable_length = igb_get_cable_length_m88_gen2;
++		phy->ops.set_d0_lplu_state = igb_set_d0_lplu_state_82580;
++		phy->ops.set_d3_lplu_state = igb_set_d3_lplu_state_82580;
++		phy->ops.force_speed_duplex = igb_phy_force_speed_duplex_m88;
 +		break;
 +	default:
-+		nvm->ops.validate = igb_validate_nvm_checksum;
-+		nvm->ops.update = igb_update_nvm_checksum;
-+		nvm->ops.acquire = igb_acquire_nvm_82575;
-+		nvm->ops.release = igb_release_nvm_82575;
-+		if (nvm->word_size < (1 << 15))
-+			nvm->ops.read = igb_read_nvm_eerd;
-+		else
-+			nvm->ops.read = igb_read_nvm_spi;
-+		nvm->ops.write = igb_write_nvm_spi;
-+		break;
++		ret_val = -E1000_ERR_PHY;
++		goto out;
 +	}
 +
-+	return 0;
++out:
++	return ret_val;
 +}
 +
  static s32 igb_get_invariants_82575(struct e1000_hw *hw)
