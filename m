@@ -1,135 +1,75 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [net-next PATCH 8/8] qlcnic: fix mailbox response handling
-Date: Sat,  9 Feb 2013 14:29:55 -0500
-Message-ID: <1360438195-12667-9-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1360438195-12667-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:22982 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932529Ab3BITv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Feb 2013 14:51:26 -0500
-In-Reply-To: <1360438195-12667-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Richard Hartmann <richih.mailinglist@gmail.com>
+Subject: Re: drivers/net/wireless/iwlwifi/dvm/tx.c and arch/x86/kernel/apic/ipi.c:
+ Kernel trace when roaming between different Access Points with the same ESSID
+Date: Sat, 9 Feb 2013 20:57:36 +0100
+Message-ID: <CAD77+gTFDbNopgJjMv+BGJCbueR-k8Uiyq41DfOeF_t1oJm7EA@mail.gmail.com>
+References: <CAD77+gQFfNvz02=0FWDq+KUGk5QO_MywWw=NBMk6YaFGNQ4+kA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: Johannes Berg <johannes.berg@intel.com>,
+	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com,
+	hpa@zytor.com, x86@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAD77+gQFfNvz02=0FWDq+KUGk5QO_MywWw=NBMk6YaFGNQ4+kA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Yet another one, this time during high USB i/o load.
 
-o Do not read mailbox registers on timeout
-o Add a helper function to handle mailbox response
+Could this be a hardware issue as well?
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   66 ++++++++++++--------
- 1 files changed, 40 insertions(+), 26 deletions(-)
+Does it still make sense to send these reports to anyone?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 51b4340..f7b39d1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -664,6 +664,21 @@ static void qlcnic_dump_mbx(struct qlcnic_adapter *adapter,
- 	pr_info("\n");
- }
- 
-+/* Mailbox response for mac rcode */
-+static u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *adapter)
-+{
-+	u32 fw_data;
-+	u8 mac_cmd_rcode;
-+
-+	fw_data = readl(QLCNIC_MBX_FW(adapter->ahw, 2));
-+	mac_cmd_rcode = (u8)fw_data;
-+	if (mac_cmd_rcode == QLC_83XX_NO_NIC_RESOURCE ||
-+	    mac_cmd_rcode == QLC_83XX_MAC_PRESENT ||
-+	    mac_cmd_rcode == QLC_83XX_MAC_ABSENT)
-+		return QLCNIC_RCODE_SUCCESS;
-+	return 1;
-+}
-+
- static u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *adapter)
- {
- 	u32 data;
-@@ -686,7 +701,7 @@ int qlcnic_83xx_mbx_op(struct qlcnic_adapter *adapter,
- {
- 	int i;
- 	u16 opcode;
--	u8 mbx_err_code, mac_cmd_rcode;
-+	u8 mbx_err_code;
- 	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 
-@@ -722,45 +737,44 @@ int qlcnic_83xx_mbx_op(struct qlcnic_adapter *adapter,
- 	QLCWRX(ahw, QLCNIC_HOST_MBX_CTRL, QLCNIC_SET_OWNER);
- poll:
- 	rsp = qlcnic_83xx_mbx_poll(adapter);
--	/* Get the FW response data */
--	fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
--	mbx_err_code = QLCNIC_MBX_STATUS(fw_data);
--	rsp_num = QLCNIC_MBX_NUM_REGS(fw_data);
--	opcode = QLCNIC_MBX_RSP(fw_data);
--
- 	if (rsp != QLCNIC_RCODE_TIMEOUT) {
-+		/* Get the FW response data */
-+		fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
- 		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
- 			qlcnic_83xx_process_aen(adapter);
- 			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
- 			if (mbx_val)
- 				goto poll;
--		} else if ((mbx_err_code == QLCNIC_MBX_RSP_OK) ||
--			   (mbx_err_code == QLCNIC_MBX_PORT_RSP_OK)) {
--			qlcnic_83xx_get_mbx_data(adapter, cmd);
-+		}
-+		mbx_err_code = QLCNIC_MBX_STATUS(fw_data);
-+		rsp_num = QLCNIC_MBX_NUM_REGS(fw_data);
-+		opcode = QLCNIC_MBX_RSP(fw_data);
-+		qlcnic_83xx_get_mbx_data(adapter, cmd);
-+
-+		switch (mbx_err_code) {
-+		case QLCNIC_MBX_RSP_OK:
-+		case QLCNIC_MBX_PORT_RSP_OK:
- 			rsp = QLCNIC_RCODE_SUCCESS;
--		} else {
--			qlcnic_83xx_get_mbx_data(adapter, cmd);
-+			break;
-+		default:
- 			if (opcode == QLCNIC_CMD_CONFIG_MAC_VLAN) {
--				fw_data = readl(QLCNIC_MBX_FW(ahw, 2));
--				mac_cmd_rcode = (u8)fw_data;
--				if (mac_cmd_rcode == QLC_83XX_NO_NIC_RESOURCE ||
--				    mac_cmd_rcode == QLC_83XX_MAC_PRESENT ||
--				    mac_cmd_rcode == QLC_83XX_MAC_ABSENT) {
--					rsp = QLCNIC_RCODE_SUCCESS;
-+				rsp = qlcnic_83xx_mac_rcode(adapter);
-+				if (!rsp)
- 					goto out;
--				}
- 			}
--			dev_info(&adapter->pdev->dev,
--				 "MBX command 0x%x failed with err:0x%x\n",
--				 opcode, mbx_err_code);
-+			dev_err(&adapter->pdev->dev,
-+				"MBX command 0x%x failed with err:0x%x\n",
-+				opcode, mbx_err_code);
- 			rsp = mbx_err_code;
- 			qlcnic_dump_mbx(adapter, cmd);
-+			break;
- 		}
--	} else {
--		dev_info(&adapter->pdev->dev,
--			 "MBX command 0x%x timed out\n", opcode);
--		qlcnic_dump_mbx(adapter, cmd);
-+		goto out;
- 	}
-+
-+	dev_err(&adapter->pdev->dev, "MBX command 0x%x timed out\n",
-+		QLCNIC_MBX_RSP(mbx_cmd));
-+	rsp = QLCNIC_RCODE_TIMEOUT;
- out:
- 	/* clear fw mbx control register */
- 	QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
+
+[95553.449219] ------------[ cut here ]------------
+[95553.449257] WARNING: at
+/build/buildd-linux_3.7.1-1~experimental.1-i386-Au6THQ/linux-3.7.1/drivers/net/wireless/iwlwifi/dvm/tx.c:1189
+iwlagn_rx_reply_tx+0x288/0x6e2 [iwldvm]()
+[95553.449262] Hardware name: 4286CTO
+[95553.449265] Modules linked in: nls_utf8 nls_cp437 vfat fat
+mmc_block usb_storage parport_pc ppdev rfcomm lp parport bnep
+cpufreq_userspace cpufreq_stats cpufreq_powersave cpufreq_conservative
+uinput nfsd auth_rpcgss nfs_acl nfs lockd dns_resolver fscache sunrpc
+ext4 jbd2 mbcache loop fuse snd_hda_codec_hdmi snd_hda_codec_conexant
+arc4 coretemp iwldvm mac80211 kvm_intel snd_hda_intel thinkpad_acpi
+snd_hda_codec nvram snd_hwdep snd_pcm snd_page_alloc kvm i915
+drm_kms_helper crc32c_intel joydev drm i2c_algo_bit snd_seq btusb
+bluetooth iTCO_wdt snd_seq_device snd_timer aesni_intel aes_i586 crc16
+iwlwifi iTCO_vendor_support xts lrw i2c_i801 pcspkr snd gf128mul
+i2c_core ablk_helper cryptd soundcore lpc_ich mfd_core cfg80211
+psmouse serio_raw acpi_cpufreq mperf mei rfkill ac wmi battery tpm_tis
+tpm evdev processor tpm_bios button video xfs sg sd_mod crc_t10dif
+xhci_hcd ahci libahci libata microcode scsi_mod ehci_hcd sdhci_pci
+sdhci mmc_core usbcore usb_common e1000e thermal thermal_sys
+[95553.449427] Pid: 0, comm: swapper/0 Tainted: G        W
+3.7-trunk-686-pae #1 Debian 3.7.1-1~experimental.1
+[95553.449431] Call Trace:
+[95553.449446]  [<c10310c5>] ? warn_slowpath_common+0x68/0x79
+[95553.449464]  [<f87291e2>] ? iwlagn_rx_reply_tx+0x288/0x6e2 [iwldvm]
+[95553.449472]  [<c10310e3>] ? warn_slowpath_null+0xd/0x10
+[95553.449487]  [<f87291e2>] ? iwlagn_rx_reply_tx+0x288/0x6e2 [iwldvm]
+[95553.449502]  [<f859008b>] ? check_event_type_and_length+0x37/0x4b [snd_seq]
+[95553.449520]  [<f872e344>] ? iwl_rx_dispatch+0x57/0x63 [iwldvm]
+[95553.449537]  [<f859fd14>] ? iwl_irq_tasklet+0x39c/0x698 [iwlwifi]
+[95553.449546]  [<c1037457>] ? tasklet_action+0x62/0xa5
+[95553.449552]  [<c103711b>] ? __do_softirq+0x90/0x192
+[95553.449559]  [<c103708b>] ? perf_trace_irq_handler_entry+0xd7/0xd7
+[95553.449563]  <IRQ>  [<c10372cb>] ? irq_exit+0x32/0x7d
+[95553.449577]  [<c100d070>] ? do_IRQ+0x65/0x76
+[95553.449586]  [<c12ed2f3>] ? common_interrupt+0x33/0x38
+[95553.449593]  [<c10300d8>] ? copy_process.part.33+0x8a8/0xf0c
+[95553.449602]  [<c11b1c03>] ? intel_idle+0xc4/0xec
+[95553.449612]  [<c122ea2e>] ? cpuidle_enter+0xb/0xe
+[95553.449619]  [<c122edb9>] ? cpuidle_enter_state+0x9/0x33
+[95553.449626]  [<c122ee8e>] ? cpuidle_idle_call+0xab/0x146
+[95553.449634]  [<c10114d7>] ? cpu_idle+0x88/0xac
+[95553.449641]  [<c1464966>] ? start_kernel+0x334/0x339
+[95553.449646] ---[ end trace e2ce8294be2c8dca ]---
+
 -- 
-1.7.1
+Richard
