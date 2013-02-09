@@ -1,62 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Pv-drivers] [PATCH 0/1] VM Sockets for Linux upstreaming
-Date: Fri, 08 Feb 2013 21:59:15 -0500 (EST)
-Message-ID: <20130208.215915.822365427361761741.davem@davemloft.net>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<20130209012044.GB5194@dtor-ws.eng.vmware.com>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCH 0/2] Multiple VLAN Registration Protocol (IEEE 802.1Q-2011)
+Date: Fri, 8 Feb 2013 22:17:05 -0500
+Message-ID: <1360379828-16302-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: acking@vmware.com, pv-drivers@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org
-To: dtor@vmware.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130209012044.GB5194@dtor-ws.eng.vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: David Ward <david.ward@ll.mit.edu>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:45157 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760513Ab3BIDk6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Feb 2013 22:40:58 -0500
+Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id r193HB4R006498 for <netdev@vger.kernel.org>; Fri, 8 Feb 2013 22:17:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Torokhov <dtor@vmware.com>
-Date: Fri, 8 Feb 2013 17:20:44 -0800
+The Linux kernel currently implements the GARP VLAN Registration
+Protocol (GVRP) from IEEE 802.1Q-1998 (applicant-only participant).
+When the GVRP flag is set for a VLAN interface on a Linux host, the
+host advertises its membership in the VLAN to the attached bridge/
+switch, so that it is not necessary to manually configure the bridge/
+switch port to participate in the VLAN.
 
-> Hi David,
-> 
-> On Wed, Feb 06, 2013 at 04:23:55PM -0800, Andy King wrote:
->> In an effort to improve the out-of-the-box experience with Linux kernels for
->> VMware users, VMware is working on readying the VM Sockets (VSOCK, formerly
->> VMCI Sockets) (vsock) kernel module for inclusion in the Linux kernel. The
->> purpose of this post is to acquire feedback on the vsock kernel module.
->> 
->> Unlike previous submissions, where the new socket family was entirely reliant
->> on VMware's VMCI PCI device (and thus VMware's hypervisor), VM Sockets is now
->> completely[1] separated out into two parts, each in its own module:
->> 
->> o Core socket code, which is transport-neutral and invokes transport
->>   callbacks to communicate with the hypervisor.  This is vsock.ko.
->> o A VMCI transport, which communicates over VMCI with the VMware hypervisor.
->>   This is vmw_vsock_vmci_transport.ko, and it registers with the core module
->>   as a transport.
->> 
->> This should provide a path to introducing additional transports, for example
->> virtio, with the ultimate goal being to make this new socket family
->> hypervisor-neutral.
-> 
-> As Andy mentioned in another e-mail, we would like very much to get
-> vsock in 3.9 release, so now that it is split into hypervisor neutral
-> and transport parts is there any high level issues that we need to
-> resolve before the code can be accepted?
+GVRP has been superseded by the Multiple VLAN Registration Protocol
+(MVRP) in IEEE 802.1Q-2011, which addresses scalability concerns about
+the earlier protocol.  The following patches add support for MVRP to
+the Linux kernel and iproute2 utility. They are based largely off of
+the existing implementation of GVRP, but have been modified for the
+new PDU structure and state machine.
 
-I have no idea, I haven't gotten to reviewing your changes yet, and
-I will do so at a time of my own choosing.  Pressing me about the matter
-is unlikely to make me review things any faster, and in fact will have
-the opposite effect.
+This implementation was tested with two Juniper EX4200 switches.
 
-Therefore, just be patient like everyone else is.
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+Acked-by: Patrick McHardy <kaber@trash.net>
+
+David Ward (2):
+  net/802: Implement Multiple Registration Protocol (MRP)
+  net/8021q: Implement Multiple VLAN Registration Protocol (MVRP)
+
+ include/linux/netdevice.h     |    2 +
+ include/net/mrp.h             |  143 +++++++
+ include/uapi/linux/if_ether.h |    1 +
+ include/uapi/linux/if_vlan.h  |    1 +
+ net/802/Kconfig               |    3 +
+ net/802/Makefile              |    1 +
+ net/802/mrp.c                 |  895 +++++++++++++++++++++++++++++++++++++++++
+ net/8021q/Kconfig             |   11 +
+ net/8021q/Makefile            |    1 +
+ net/8021q/vlan.c              |   27 +-
+ net/8021q/vlan.h              |   16 +
+ net/8021q/vlan_dev.c          |   12 +-
+ net/8021q/vlan_mvrp.c         |   72 ++++
+ net/8021q/vlan_netlink.c      |    2 +-
+ 14 files changed, 1180 insertions(+), 7 deletions(-)
+ create mode 100644 include/net/mrp.h
+ create mode 100644 net/802/mrp.c
+ create mode 100644 net/8021q/vlan_mvrp.c
