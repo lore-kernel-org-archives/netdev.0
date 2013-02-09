@@ -1,41 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Poor TCP bandwidth between network namespaces
-Date: Fri, 08 Feb 2013 18:17:10 -0800
-Message-ID: <1360376230.6696.7.camel@edumazet-glaptop>
-References: <20130204144320.GG1353@tostaky>
-	 <20130204225227.GC6898@order.stressinduktion.org>
-	 <1360373618.6696.2.camel@edumazet-glaptop>
+From: Martin Sustrik <sustrik@250bpm.com>
+Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
+Date: Sat, 09 Feb 2013 03:40:32 +0100
+Message-ID: <5115B720.2080207@250bpm.com>
+References: <1360219292-19754-1-git-send-email-sustrik@250bpm.com> <20130207144433.527ef024.akpm@linux-foundation.org> <5114F2D8.5020300@250bpm.com> <20130208222107.GA4762@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Emmanuel Jeanvoine <emmanuel.jeanvoine@inria.fr>,
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Sha Zhengju <handai.szj@taobao.com>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:36304 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760521Ab3BICRN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 21:17:13 -0500
-Received: by mail-pa0-f45.google.com with SMTP id kl14so2364744pab.4
-        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 18:17:12 -0800 (PST)
-In-Reply-To: <1360373618.6696.2.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Eric Wong <normalperson@yhbt.net>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <20130208222107.GA4762@dcvr.yhbt.net>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-02-08 at 17:33 -0800, Eric Dumazet wrote:
+Hi Eric,
 
-> Another thing to consider is the default MTU value :
-> 
-> 65536 for lo, and 1500 for veth
-> 
-> It easily explains half performance for veth
-> 
-> One another thing is the tx-nocache-copy setting, this can explain some
-> extra percents.
+On 08/02/13 23:21, Eric Wong wrote:
+> Martin Sustrik<sustrik@250bpm.com>  wrote:
+>> On 07/02/13 23:44, Andrew Morton wrote:
+>>> That's a nice changelog but it omitted a critical thing: why do you
+>>> think the kernel needs this feature?  What's the value and use case for
+>>> being able to poll these descriptors?
+>>
+>> To address the question, I've written down detailed description of
+>> the challenges of the network protocol development in user space and
+>> how the proposed feature addresses the problems.
+>>
+>> It's too long to fit into ChangeLog, but it may be worth reading
+>> when trying to judge the merit of the patch.
+>>
+>> It can be found here: http://www.250bpm.com/blog:16
+>
+> Using one eventfd per userspace socket still seems a bit wasteful.
 
-By the way I get crashes when doing :
+Wasteful in what sense? Occupying a slot in file descriptor table? 
+That's the price for having the socket uniquely identified by the fd.
 
-# ip link add name veth1 type veth peer name veth0
-# rmmod veth
+> Couldn't you use a single pipe for all sockets and write the efd_mask to
+> the pipe for each socket?
+>
+> A read from the pipe would behave like epoll_wait.
+>
+> You might need to use one-shot semantics; but that's probably
+> the easiest thing in multithreaded apps anyways.
 
-I'll submit a patch.
+Having multiple sockets represented by a single eventfd. how would you 
+distinguish where did individual events came from?
+
+   struct pollfd pfd;
+   ...
+   poll (pfd, 1, -1);
+   if (pfd.revents & POLLIN) /* Incoming data on which socket? */
+     ...
+
+Martin
