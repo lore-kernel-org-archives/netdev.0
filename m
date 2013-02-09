@@ -1,8 +1,11 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/5] ipvs: sctp: fix checksumming on snat and dnat handlers
-Date: Sat,  9 Feb 2013 13:03:57 +0100
-Message-ID: <1360411440-6526-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/5] netfilter: ip6t_NPT: Fix prefix mangling
+Date: Sat,  9 Feb 2013 13:03:59 +0100
+Message-ID: <1360411440-6526-5-git-send-email-pablo@netfilter.org>
 References: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
@@ -10,106 +13,37 @@ In-Reply-To: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
+=46rom: YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshf=
+uji@linux-ipv6.org>
 
-In our test lab, we have a simple SCTP client connecting to a SCTP
-server via an IPVS load balancer. On some machines, load balancing
-works, but on others the initial handshake just fails, thus no
-SCTP connection whatsoever can be established!
+Make sure only the bits that are part of the prefix are mangled.
 
-We observed that the SCTP INIT-ACK handshake reply from the IPVS
-machine to the client had a correct IP checksum, but corrupt SCTP
-checksum when forwarded, thus on the client-side the packet was
-dropped and an intial handshake retriggered until all attempts
-run into the void.
-
-To fix this issue, this patch i) adds a missing CHECKSUM_UNNECESSARY
-after the full checksum (re-)calculation (as done in IPVS TCP and UDP
-code as well), ii) calculates the checksum in little-endian format
-(as fixed with the SCTP code in commit 4458f04c: sctp: Clean up sctp
-checksumming code) and iii) refactors duplicate checksum code into a
-common function. Tested by myself.
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_proto_sctp.c |   35 ++++++++++++++++-----------------
- 1 file changed, 17 insertions(+), 18 deletions(-)
+ net/ipv6/netfilter/ip6t_NPT.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index 746048b..ae8ec6f 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -61,14 +61,27 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_proto_data *pd,
- 	return 1;
- }
- 
-+static void sctp_nat_csum(struct sk_buff *skb, sctp_sctphdr_t *sctph,
-+			  unsigned int sctphoff)
-+{
-+	__u32 crc32;
-+	struct sk_buff *iter;
-+
-+	crc32 = sctp_start_cksum((__u8 *)sctph, skb_headlen(skb) - sctphoff);
-+	skb_walk_frags(skb, iter)
-+		crc32 = sctp_update_cksum((u8 *) iter->data,
-+					  skb_headlen(iter), crc32);
-+	sctph->checksum = sctp_end_cksum(crc32);
-+
-+	skb->ip_summed = CHECKSUM_UNNECESSARY;
-+}
-+
- static int
- sctp_snat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- 		  struct ip_vs_conn *cp, struct ip_vs_iphdr *iph)
- {
- 	sctp_sctphdr_t *sctph;
- 	unsigned int sctphoff = iph->len;
--	struct sk_buff *iter;
--	__be32 crc32;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6 && iph->fragoffs)
-@@ -92,13 +105,7 @@ sctp_snat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- 	sctph = (void *) skb_network_header(skb) + sctphoff;
- 	sctph->source = cp->vport;
- 
--	/* Calculate the checksum */
--	crc32 = sctp_start_cksum((u8 *) sctph, skb_headlen(skb) - sctphoff);
--	skb_walk_frags(skb, iter)
--		crc32 = sctp_update_cksum((u8 *) iter->data, skb_headlen(iter),
--				          crc32);
--	crc32 = sctp_end_cksum(crc32);
--	sctph->checksum = crc32;
-+	sctp_nat_csum(skb, sctph, sctphoff);
- 
- 	return 1;
- }
-@@ -109,8 +116,6 @@ sctp_dnat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- {
- 	sctp_sctphdr_t *sctph;
- 	unsigned int sctphoff = iph->len;
--	struct sk_buff *iter;
--	__be32 crc32;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	if (cp->af == AF_INET6 && iph->fragoffs)
-@@ -134,13 +139,7 @@ sctp_dnat_handler(struct sk_buff *skb, struct ip_vs_protocol *pp,
- 	sctph = (void *) skb_network_header(skb) + sctphoff;
- 	sctph->dest = cp->dport;
- 
--	/* Calculate the checksum */
--	crc32 = sctp_start_cksum((u8 *) sctph, skb_headlen(skb) - sctphoff);
--	skb_walk_frags(skb, iter)
--		crc32 = sctp_update_cksum((u8 *) iter->data, skb_headlen(iter),
--					  crc32);
--	crc32 = sctp_end_cksum(crc32);
--	sctph->checksum = crc32;
-+	sctp_nat_csum(skb, sctph, sctphoff);
- 
- 	return 1;
- }
--- 
+diff --git a/net/ipv6/netfilter/ip6t_NPT.c b/net/ipv6/netfilter/ip6t_NP=
+T.c
+index 68788c8..87b759c 100644
+--- a/net/ipv6/netfilter/ip6t_NPT.c
++++ b/net/ipv6/netfilter/ip6t_NPT.c
+@@ -51,7 +51,7 @@ static bool ip6t_npt_map_pfx(const struct ip6t_npt_tg=
+info *npt,
+=20
+ 		idx =3D i / 32;
+ 		addr->s6_addr32[idx] &=3D mask;
+-		addr->s6_addr32[idx] |=3D npt->dst_pfx.in6.s6_addr32[idx];
++		addr->s6_addr32[idx] |=3D ~mask & npt->dst_pfx.in6.s6_addr32[idx];
+ 	}
+=20
+ 	if (pfx_len <=3D 48)
+--=20
 1.7.10.4
 
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
