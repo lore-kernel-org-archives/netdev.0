@@ -1,40 +1,55 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: Other alloc/OOM message question
-Date: Fri, 8 Feb 2013 16:46:44 -0800
-Message-ID: <20130209004644.GC31290@kroah.com>
-References: <1360273587.27863.15.camel@joe-AO722>
- <20130208.174500.1518593039138341685.davem@davemloft.net>
- <1360369799.13487.5.camel@joe-AO722>
+From: Dmitry Torokhov <dtor@vmware.com>
+Subject: Re: [Pv-drivers] [PATCH 0/1] VM Sockets for Linux upstreaming
+Date: Fri, 8 Feb 2013 17:20:44 -0800
+Message-ID: <20130209012044.GB5194@dtor-ws.eng.vmware.com>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andy King <acking@vmware.com>, pv-drivers@vmware.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <1360369799.13487.5.camel@joe-AO722>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <1360196636-9357-1-git-send-email-acking@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 08, 2013 at 04:29:59PM -0800, Joe Perches wrote:
-> On Fri, 2013-02-08 at 17:45 -0500, David Miller wrote:
-> > From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-> > Date: Thu, 07 Feb 2013 13:46:27 -0800
-> > > alloc failures already get standardized OOM
-> > > messages and a dump_stack.
+Hi David,
+
+On Wed, Feb 06, 2013 at 04:23:55PM -0800, Andy King wrote:
+> In an effort to improve the out-of-the-box experience with Linux kernels for
+> VMware users, VMware is working on readying the VM Sockets (VSOCK, formerly
+> VMCI Sockets) (vsock) kernel module for inclusion in the Linux kernel. The
+> purpose of this post is to acquire feedback on the vsock kernel module.
 > 
-> Does anyone know if all the other alloc's like
-> dma_alloc_coherent, dma_alloc_noncoherent,
-> pci_alloc_consistent always produce OOM messages
-> via page_alloc/warn_alloc_failed for all arches?
+> Unlike previous submissions, where the new socket family was entirely reliant
+> on VMware's VMCI PCI device (and thus VMware's hypervisor), VM Sockets is now
+> completely[1] separated out into two parts, each in its own module:
+> 
+> o Core socket code, which is transport-neutral and invokes transport
+>   callbacks to communicate with the hypervisor.  This is vsock.ko.
+> o A VMCI transport, which communicates over VMCI with the VMware hypervisor.
+>   This is vmw_vsock_vmci_transport.ko, and it registers with the core module
+>   as a transport.
+> 
+> This should provide a path to introducing additional transports, for example
+> virtio, with the ultimate goal being to make this new socket family
+> hypervisor-neutral.
 
-If not, they should, to allow this type of cleanups.
+As Andy mentioned in another e-mail, we would like very much to get
+vsock in 3.9 release, so now that it is split into hypervisor neutral
+and transport parts is there any high level issues that we need to
+resolve before the code can be accepted?
 
-thanks,
-
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Dmitry
