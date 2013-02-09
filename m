@@ -1,211 +1,237 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 10/11] act_police: improved accuracy at high rates
-Date: Sat,  9 Feb 2013 17:45:11 +0100
-Message-ID: <1360428312-1277-11-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 05/11] sch: make htb_rate_cfg and functions around that generic
+Date: Sat,  9 Feb 2013 17:45:06 +0100
+Message-ID: <1360428312-1277-6-git-send-email-jiri@resnulli.us>
 References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
 	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f44.google.com ([74.125.83.44]:39006 "EHLO
-	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932453Ab3BIQpp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 11:45:45 -0500
-Received: by mail-ee0-f44.google.com with SMTP id l10so2559672eei.17
-        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 08:45:44 -0800 (PST)
+Received: from mail-ea0-f174.google.com ([209.85.215.174]:53628 "EHLO
+	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932432Ab3BIQpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 11:45:34 -0500
+Received: by mail-ea0-f174.google.com with SMTP id 1so2114082eaa.19
+        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 08:45:32 -0800 (PST)
 In-Reply-To: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current act_police uses rate table computed by the "tc" userspace program,
-which has the following issue:
-
-The rate table has 256 entries to map packet lengths to
-token (time units).  With TSO sized packets, the 256 entry granularity
-leads to loss/gain of rate, making the token bucket inaccurate.
-
-Thus, instead of relying on rate table, this patch explicitly computes
-the time and accounts for packet transmission times with nanosecond
-granularity.
-
-This is a followup to 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
+As it is going to be used in tbf as well, push these to generic code.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- net/sched/act_police.c | 96 +++++++++++++++++++++++++++-----------------------
- 1 file changed, 51 insertions(+), 45 deletions(-)
+ include/net/sch_generic.h | 19 ++++++++++++++
+ net/sched/sch_generic.c   | 37 +++++++++++++++++++++++++++
+ net/sched/sch_htb.c       | 65 +++++++----------------------------------------
+ 3 files changed, 65 insertions(+), 56 deletions(-)
 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 378a649..3821508 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -26,20 +26,19 @@ struct tcf_police {
- 	struct tcf_common	common;
- 	int			tcfp_result;
- 	u32			tcfp_ewma_rate;
--	u32			tcfp_burst;
-+	s64			tcfp_burst;
- 	u32			tcfp_mtu;
--	u32			tcfp_toks;
--	u32			tcfp_ptoks;
-+	s64			tcfp_toks;
-+	s64			tcfp_ptoks;
- 	psched_time_t		tcfp_t_c;
--	struct qdisc_rate_table	*tcfp_R_tab;
--	struct qdisc_rate_table	*tcfp_P_tab;
-+	struct psched_ratecfg	rate;
-+	bool			rate_present;
-+	struct psched_ratecfg	peak;
-+	bool			peak_present;
- };
- #define to_police(pc)	\
- 	container_of(pc, struct tcf_police, common)
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 2d06c2a..2761c90 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -679,4 +679,23 @@ static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask,
+ }
+ #endif
  
--#define L2T(p, L)   qdisc_l2t((p)->tcfp_R_tab, L)
--#define L2T_P(p, L) qdisc_l2t((p)->tcfp_P_tab, L)
--
- #define POL_TAB_MASK     15
- static struct tcf_common *tcf_police_ht[POL_TAB_MASK + 1];
- static u32 police_idx_gen;
-@@ -123,10 +122,6 @@ static void tcf_police_destroy(struct tcf_police *p)
- 			write_unlock_bh(&police_lock);
- 			gen_kill_estimator(&p->tcf_bstats,
- 					   &p->tcf_rate_est);
--			if (p->tcfp_R_tab)
--				qdisc_put_rtab(p->tcfp_R_tab);
--			if (p->tcfp_P_tab)
--				qdisc_put_rtab(p->tcfp_P_tab);
- 			/*
- 			 * gen_estimator est_timer() might access p->tcf_lock
- 			 * or bstats, wait a RCU grace period before freeing p
-@@ -227,26 +222,34 @@ override:
- 	}
++struct psched_ratecfg {
++	u64 rate_bps;
++	u32 mult;
++	u32 shift;
++};
++
++static inline u64 psched_l2t_ns(const struct psched_ratecfg *r,
++				unsigned int len)
++{
++	return ((u64)len * r->mult) >> r->shift;
++}
++
++extern void psched_ratecfg_precompute(struct psched_ratecfg *r, u32 rate);
++
++static inline u32 psched_ratecfg_getrate(const struct psched_ratecfg *r)
++{
++	return r->rate_bps >> 3;
++}
++
+ #endif
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 5d81a44..ffad481 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -25,6 +25,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
++#include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
+ #include <net/dst.h>
  
- 	/* No failure allowed after this point */
--	if (R_tab != NULL) {
--		qdisc_put_rtab(police->tcfp_R_tab);
--		police->tcfp_R_tab = R_tab;
-+	police->tcfp_mtu = parm->mtu;
-+	if (police->tcfp_mtu == 0) {
-+		police->tcfp_mtu = ~0;
-+		if (R_tab)
-+			police->tcfp_mtu = 255 << R_tab->rate.cell_log;
- 	}
--	if (P_tab != NULL) {
--		qdisc_put_rtab(police->tcfp_P_tab);
--		police->tcfp_P_tab = P_tab;
-+	if (R_tab) {
-+		police->rate_present = true;
-+		psched_ratecfg_precompute(&police->rate, R_tab->rate.rate);
-+		qdisc_put_rtab(R_tab);
-+	} else {
-+		police->rate_present = false;
+@@ -896,3 +897,39 @@ void dev_shutdown(struct net_device *dev)
+ 
+ 	WARN_ON(timer_pending(&dev->watchdog_timer));
+ }
++
++void psched_ratecfg_precompute(struct psched_ratecfg *r, u32 rate)
++{
++	u64 factor;
++	u64 mult;
++	int shift;
++
++	r->rate_bps = rate << 3;
++	r->shift = 0;
++	r->mult = 1;
++	/*
++	 * Calibrate mult, shift so that token counting is accurate
++	 * for smallest packet size (64 bytes).  Token (time in ns) is
++	 * computed as (bytes * 8) * NSEC_PER_SEC / rate_bps.  It will
++	 * work as long as the smallest packet transfer time can be
++	 * accurately represented in nanosec.
++	 */
++	if (r->rate_bps > 0) {
++		/*
++		 * Higher shift gives better accuracy.  Find the largest
++		 * shift such that mult fits in 32 bits.
++		 */
++		for (shift = 0; shift < 16; shift++) {
++			r->shift = shift;
++			factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
++			mult = div64_u64(factor, r->rate_bps);
++			if (mult > UINT_MAX)
++				break;
++		}
++
++		r->shift = shift - 1;
++		factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
++		r->mult = div64_u64(factor, r->rate_bps);
 +	}
-+	if (P_tab) {
-+		police->peak_present = true;
-+		psched_ratecfg_precompute(&police->peak, P_tab->rate.rate);
-+		qdisc_put_rtab(P_tab);
-+	} else {
-+		police->peak_present = false;
- 	}
++}
++EXPORT_SYMBOL(psched_ratecfg_precompute);
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 2b22544..03c2692 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -38,6 +38,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/slab.h>
+ #include <net/netlink.h>
++#include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
  
- 	if (tb[TCA_POLICE_RESULT])
- 		police->tcfp_result = nla_get_u32(tb[TCA_POLICE_RESULT]);
--	police->tcfp_toks = police->tcfp_burst = parm->burst;
--	police->tcfp_mtu = parm->mtu;
--	if (police->tcfp_mtu == 0) {
--		police->tcfp_mtu = ~0;
--		if (police->tcfp_R_tab)
--			police->tcfp_mtu = 255<<police->tcfp_R_tab->rate.cell_log;
+ /* HTB algorithm.
+@@ -71,12 +72,6 @@ enum htb_cmode {
+ 	HTB_CAN_SEND		/* class can send */
+ };
+ 
+-struct htb_rate_cfg {
+-	u64 rate_bps;
+-	u32 mult;
+-	u32 shift;
+-};
+-
+ /* interior & leaf nodes; props specific to leaves are marked L: */
+ struct htb_class {
+ 	struct Qdisc_class_common common;
+@@ -124,8 +119,8 @@ struct htb_class {
+ 	int filter_cnt;
+ 
+ 	/* token bucket parameters */
+-	struct htb_rate_cfg rate;
+-	struct htb_rate_cfg ceil;
++	struct psched_ratecfg rate;
++	struct psched_ratecfg ceil;
+ 	s64 buffer, cbuffer;	/* token bucket depth/rate */
+ 	psched_tdiff_t mbuffer;	/* max wait time */
+ 	s64 tokens, ctokens;	/* current number of tokens */
+@@ -168,45 +163,6 @@ struct htb_sched {
+ 	struct work_struct work;
+ };
+ 
+-static u64 l2t_ns(struct htb_rate_cfg *r, unsigned int len)
+-{
+-	return ((u64)len * r->mult) >> r->shift;
+-}
+-
+-static void htb_precompute_ratedata(struct htb_rate_cfg *r)
+-{
+-	u64 factor;
+-	u64 mult;
+-	int shift;
+-
+-	r->shift = 0;
+-	r->mult = 1;
+-	/*
+-	 * Calibrate mult, shift so that token counting is accurate
+-	 * for smallest packet size (64 bytes).  Token (time in ns) is
+-	 * computed as (bytes * 8) * NSEC_PER_SEC / rate_bps.  It will
+-	 * work as long as the smallest packet transfer time can be
+-	 * accurately represented in nanosec.
+-	 */
+-	if (r->rate_bps > 0) {
+-		/*
+-		 * Higher shift gives better accuracy.  Find the largest
+-		 * shift such that mult fits in 32 bits.
+-		 */
+-		for (shift = 0; shift < 16; shift++) {
+-			r->shift = shift;
+-			factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
+-			mult = div64_u64(factor, r->rate_bps);
+-			if (mult > UINT_MAX)
+-				break;
+-		}
+-
+-		r->shift = shift - 1;
+-		factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
+-		r->mult = div64_u64(factor, r->rate_bps);
 -	}
--	if (police->tcfp_P_tab)
--		police->tcfp_ptoks = L2T_P(police, police->tcfp_mtu);
-+	police->tcfp_burst = PSCHED_TICKS2NS(parm->burst);
-+	police->tcfp_toks = police->tcfp_burst;
-+	if (police->peak_present)
-+		police->tcfp_ptoks = (s64) psched_l2t_ns(&police->peak,
-+							 police->tcfp_mtu);
- 	police->tcf_action = parm->action;
- 
- 	if (tb[TCA_POLICE_AVRATE])
-@@ -256,7 +259,7 @@ override:
- 	if (ret != ACT_P_CREATED)
- 		return ret;
- 
--	police->tcfp_t_c = psched_get_time();
-+	police->tcfp_t_c = ktime_to_ns(ktime_get());
- 	police->tcf_index = parm->index ? parm->index :
- 		tcf_hash_new_index(&police_idx_gen, &police_hash_info);
- 	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
-@@ -303,8 +306,8 @@ static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
+-}
+-
+ /* find class in global hash table using given handle */
+ static inline struct htb_class *htb_find(u32 handle, struct Qdisc *sch)
  {
- 	struct tcf_police *police = a->priv;
- 	psched_time_t now;
--	long toks;
--	long ptoks = 0;
-+	s64 toks;
-+	s64 ptoks = 0;
+@@ -632,7 +588,7 @@ static inline void htb_accnt_tokens(struct htb_class *cl, int bytes, s64 diff)
  
- 	spin_lock(&police->tcf_lock);
+ 	if (toks > cl->buffer)
+ 		toks = cl->buffer;
+-	toks -= (s64) l2t_ns(&cl->rate, bytes);
++	toks -= (s64) psched_l2t_ns(&cl->rate, bytes);
+ 	if (toks <= -cl->mbuffer)
+ 		toks = 1 - cl->mbuffer;
  
-@@ -320,24 +323,27 @@ static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
+@@ -645,7 +601,7 @@ static inline void htb_accnt_ctokens(struct htb_class *cl, int bytes, s64 diff)
+ 
+ 	if (toks > cl->cbuffer)
+ 		toks = cl->cbuffer;
+-	toks -= (s64) l2t_ns(&cl->ceil, bytes);
++	toks -= (s64) psched_l2t_ns(&cl->ceil, bytes);
+ 	if (toks <= -cl->mbuffer)
+ 		toks = 1 - cl->mbuffer;
+ 
+@@ -1134,9 +1090,9 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 
+ 	memset(&opt, 0, sizeof(opt));
+ 
+-	opt.rate.rate = cl->rate.rate_bps >> 3;
++	opt.rate.rate = psched_ratecfg_getrate(&cl->rate);
+ 	opt.buffer = PSCHED_NS2TICKS(cl->buffer);
+-	opt.ceil.rate = cl->ceil.rate_bps >> 3;
++	opt.ceil.rate = psched_ratecfg_getrate(&cl->ceil);
+ 	opt.cbuffer = PSCHED_NS2TICKS(cl->cbuffer);
+ 	opt.quantum = cl->quantum;
+ 	opt.prio = cl->prio;
+@@ -1503,11 +1459,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 			cl->prio = TC_HTB_NUMPRIO - 1;
  	}
  
- 	if (qdisc_pkt_len(skb) <= police->tcfp_mtu) {
--		if (police->tcfp_R_tab == NULL) {
-+		if (!police->rate_present) {
- 			spin_unlock(&police->tcf_lock);
- 			return police->tcfp_result;
- 		}
+-	cl->rate.rate_bps = (u64)hopt->rate.rate << 3;
+-	cl->ceil.rate_bps = (u64)hopt->ceil.rate << 3;
+-
+-	htb_precompute_ratedata(&cl->rate);
+-	htb_precompute_ratedata(&cl->ceil);
++	psched_ratecfg_precompute(&cl->rate, hopt->rate.rate);
++	psched_ratecfg_precompute(&cl->ceil, hopt->ceil.rate);
  
--		now = psched_get_time();
--		toks = psched_tdiff_bounded(now, police->tcfp_t_c,
--					    police->tcfp_burst);
--		if (police->tcfp_P_tab) {
-+		now = ktime_to_ns(ktime_get());
-+		toks = min_t(s64, now - police->tcfp_t_c,
-+			     police->tcfp_burst);
-+		if (police->peak_present) {
- 			ptoks = toks + police->tcfp_ptoks;
--			if (ptoks > (long)L2T_P(police, police->tcfp_mtu))
--				ptoks = (long)L2T_P(police, police->tcfp_mtu);
--			ptoks -= L2T_P(police, qdisc_pkt_len(skb));
-+			if (ptoks > (s64) psched_l2t_ns(&police->peak,
-+							police->tcfp_mtu))
-+				ptoks = (s64) psched_l2t_ns(&police->peak,
-+							    police->tcfp_mtu);
-+			ptoks -= (s64) psched_l2t_ns(&police->peak,
-+						     qdisc_pkt_len(skb));
- 		}
- 		toks += police->tcfp_toks;
--		if (toks > (long)police->tcfp_burst)
-+		if (toks > police->tcfp_burst)
- 			toks = police->tcfp_burst;
--		toks -= L2T(police, qdisc_pkt_len(skb));
-+		toks -= (s64) psched_l2t_ns(&police->rate, qdisc_pkt_len(skb));
- 		if ((toks|ptoks) >= 0) {
- 			police->tcfp_t_c = now;
- 			police->tcfp_toks = toks;
-@@ -363,15 +369,15 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
- 		.index = police->tcf_index,
- 		.action = police->tcf_action,
- 		.mtu = police->tcfp_mtu,
--		.burst = police->tcfp_burst,
-+		.burst = PSCHED_NS2TICKS(police->tcfp_burst),
- 		.refcnt = police->tcf_refcnt - ref,
- 		.bindcnt = police->tcf_bindcnt - bind,
- 	};
- 
--	if (police->tcfp_R_tab)
--		opt.rate = police->tcfp_R_tab->rate;
--	if (police->tcfp_P_tab)
--		opt.peakrate = police->tcfp_P_tab->rate;
-+	if (police->rate_present)
-+		opt.rate.rate = psched_ratecfg_getrate(&police->rate);
-+	if (police->peak_present)
-+		opt.peakrate.rate = psched_ratecfg_getrate(&police->peak);
- 	if (nla_put(skb, TCA_POLICE_TBF, sizeof(opt), &opt))
- 		goto nla_put_failure;
- 	if (police->tcfp_result &&
+ 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
+ 	cl->cbuffer = PSCHED_TICKS2NS(hopt->buffer);
 -- 
 1.8.1.2
