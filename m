@@ -1,16 +1,16 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [net-next PATCH 5/8] qlcnic: refactor 83xx diagnostic IRQ test
-Date: Sat,  9 Feb 2013 14:29:52 -0500
-Message-ID: <1360438195-12667-6-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [net-next PATCH 6/8] qlcnic: fix async event handling during diagnostic loopback test
+Date: Sat,  9 Feb 2013 14:29:53 -0500
+Message-ID: <1360438195-12667-7-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1360438195-12667-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
 	Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:39356 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:7544 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932518Ab3BITvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S932525Ab3BITvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 9 Feb 2013 14:51:25 -0500
 In-Reply-To: <1360438195-12667-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,157 +18,46 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Cleanly separate 83xx diagnostic IRQ test from 82xx
+o Handle async events during diagnostic loopback test
+o Clear loopback mode on failure to receive async events
 
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   48 +++++++++++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    3 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   24 +++++-----
- 3 files changed, 48 insertions(+), 27 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 3d48131..36c1474 100644
+index 36c1474..51b4340 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -2744,25 +2744,37 @@ int qlcnic_83xx_get_registers(struct qlcnic_adapter *adapter, u32 *regs_buff)
- 	return i;
- }
+@@ -1436,13 +1436,15 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 		return status;
+ 	}
  
--int qlcnic_83xx_interrupt_test(struct qlcnic_adapter *adapter,
--			       struct qlcnic_cmd_args *cmd)
-+int qlcnic_83xx_interrupt_test(struct net_device *netdev)
- {
--	u8 val;
--	int ret;
-+	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlcnic_cmd_args cmd;
- 	u32 data;
- 	u16 intrpt_id, id;
-+	u8 val;
-+	int ret, max_sds_rings = adapter->max_sds_rings;
-+
-+	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
-+		return -EIO;
-+
-+	ret = qlcnic_83xx_diag_alloc_res(netdev, QLCNIC_INTERRUPT_TEST);
-+	if (ret)
-+		goto fail_diag_irq;
-+
-+	ahw->diag_cnt = 0;
-+	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_INTRPT_TEST);
+-	/* Wait until firmware send IDC Completion AEN */
++	/* Wait for Link and IDC Completion AEN */
+ 	do {
+ 		msleep(300);
++		qlcnic_83xx_process_aen(adapter);
+ 		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
+ 			dev_err(&adapter->pdev->dev,
+ 				"FW did not generate IDC completion AEN\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
++			qlcnic_83xx_clear_lb_mode(adapter, mode);
+ 			return -EIO;
+ 		}
+ 	} while (test_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status));
+@@ -1474,9 +1476,10 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 		return status;
+ 	}
  
- 	if (adapter->flags & QLCNIC_MSIX_ENABLED)
--		intrpt_id = adapter->ahw->intr_tbl[0].id;
-+		intrpt_id = ahw->intr_tbl[0].id;
- 	else
--		intrpt_id = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_ID);
-+		intrpt_id = QLCRDX(ahw, QLCNIC_DEF_INT_ID);
- 
--	cmd->req.arg[1] = 1;
--	cmd->req.arg[2] = intrpt_id;
--	cmd->req.arg[3] = BIT_0;
-+	cmd.req.arg[1] = 1;
-+	cmd.req.arg[2] = intrpt_id;
-+	cmd.req.arg[3] = BIT_0;
- 
--	ret = qlcnic_issue_cmd(adapter, cmd);
--	data = cmd->rsp.arg[2];
-+	ret = qlcnic_issue_cmd(adapter, &cmd);
-+	data = cmd.rsp.arg[2];
- 	id = LSW(data);
- 	val = LSB(MSW(data));
- 	if (id != intrpt_id)
-@@ -2770,9 +2782,21 @@ int qlcnic_83xx_interrupt_test(struct qlcnic_adapter *adapter,
- 			 "Interrupt generated: 0x%x, requested:0x%x\n",
- 			 id, intrpt_id);
- 	if (val)
--		dev_info(&adapter->pdev->dev,
-+		dev_err(&adapter->pdev->dev,
- 			 "Interrupt test error: 0x%x\n", val);
-+	if (ret)
-+		goto done;
-+
-+	msleep(20);
-+	ret = !ahw->diag_cnt;
- 
-+done:
-+	qlcnic_free_mbx_args(&cmd);
-+	qlcnic_83xx_diag_free_res(netdev, max_sds_rings);
-+
-+fail_diag_irq:
-+	adapter->max_sds_rings = max_sds_rings;
-+	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 	return ret;
- }
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 87f2e08..f60e28a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -429,7 +429,6 @@ int qlcnic_83xx_reg_test(struct qlcnic_adapter *);
- int qlcnic_83xx_get_regs_len(struct qlcnic_adapter *);
- int qlcnic_83xx_get_registers(struct qlcnic_adapter *, u32 *);
- int qlcnic_83xx_loopback_test(struct net_device *, u8);
--int qlcnic_83xx_interrupt_test(struct qlcnic_adapter *,
--			       struct qlcnic_cmd_args *);
-+int qlcnic_83xx_interrupt_test(struct net_device *);
- int qlcnic_83xx_flash_test(struct qlcnic_adapter *);
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-index 58e2554..5641f8e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
-@@ -823,38 +823,36 @@ static int qlcnic_get_sset_count(struct net_device *dev, int sset)
- static int qlcnic_irq_test(struct net_device *netdev)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
--	int max_sds_rings = adapter->max_sds_rings;
--	int ret;
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	struct qlcnic_cmd_args cmd;
-+	int ret, max_sds_rings = adapter->max_sds_rings;
-+
-+	if (qlcnic_83xx_check(adapter))
-+		return qlcnic_83xx_interrupt_test(netdev);
- 
- 	if (test_and_set_bit(__QLCNIC_RESETTING, &adapter->state))
- 		return -EIO;
- 
- 	ret = qlcnic_diag_alloc_res(netdev, QLCNIC_INTERRUPT_TEST);
- 	if (ret)
--		goto clear_it;
-+		goto clear_diag_irq;
- 
--	adapter->ahw->diag_cnt = 0;
-+	ahw->diag_cnt = 0;
- 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_INTRPT_TEST);
- 
--	if (qlcnic_83xx_check(adapter)) {
--		ret = qlcnic_83xx_interrupt_test(adapter, &cmd);
--	} else {
--		cmd.req.arg[1] = adapter->ahw->pci_func;
--		ret = qlcnic_issue_cmd(adapter, &cmd);
--	}
--
-+	cmd.req.arg[1] = ahw->pci_func;
-+	ret = qlcnic_issue_cmd(adapter, &cmd);
- 	if (ret)
- 		goto done;
- 
- 	usleep_range(1000, 12000);
--	ret = !adapter->ahw->diag_cnt;
-+	ret = !ahw->diag_cnt;
- 
- done:
- 	qlcnic_free_mbx_args(&cmd);
- 	qlcnic_diag_free_res(netdev, max_sds_rings);
- 
--clear_it:
-+clear_diag_irq:
- 	adapter->max_sds_rings = max_sds_rings;
- 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 	return ret;
+-	/* Wait until firmware send IDC Completion AEN */
++	/* Wait for Link and IDC Completion AEN */
+ 	do {
+ 		msleep(300);
++		qlcnic_83xx_process_aen(adapter);
+ 		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
+ 			dev_err(&adapter->pdev->dev,
+ 				"Firmware didn't sent IDC completion AEN\n");
 -- 
 1.7.1
