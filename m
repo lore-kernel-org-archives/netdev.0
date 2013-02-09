@@ -1,58 +1,43 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: [PATCH net-next] veth: fix NULL dereference in veth_dellink()
-Date: Fri, 08 Feb 2013 22:10:49 -0800
-Message-ID: <1360390249.6696.22.camel@edumazet-glaptop>
+From: Martin Sustrik <sustrik@250bpm.com>
+Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
+Date: Sat, 09 Feb 2013 08:36:10 +0100
+Message-ID: <5115FC6A.8000603@250bpm.com>
+References: <1360219292-19754-1-git-send-email-sustrik@250bpm.com> <20130207144433.527ef024.akpm@linux-foundation.org> <5114F2D8.5020300@250bpm.com> <20130208222107.GA4762@dcvr.yhbt.net> <5115B720.2080207@250bpm.com> <20130209035431.GA28448@dcvr.yhbt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:56574 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751213Ab3BIGKx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 01:10:53 -0500
-Received: by mail-pa0-f47.google.com with SMTP id bj3so2387706pad.20
-        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 22:10:53 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Alexander Viro <viro@zeniv.linux.org.uk>,
+	Sha Zhengju <handai.szj@taobao.com>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Eric Wong <normalperson@yhbt.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130209035431.GA28448@dcvr.yhbt.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 09/02/13 04:54, Eric Wong wrote:
 
-commit d0e2c55e7c940 (veth: avoid a NULL deref in veth_stats_one)
-added another NULL deref in veth_dellink().
+>>> Using one eventfd per userspace socket still seems a bit wasteful.
+>>
+>> Wasteful in what sense? Occupying a slot in file descriptor table?
+>> That's the price for having the socket uniquely identified by the
+>> fd.
+>
+> Yes.  I realize eventfd is small, but I don't think eventfd is needed
+> at all, here.  Just one pipe.
 
-# ip link add name veth1 type veth peer name veth0
-# rmmod veth
+Ah. Got you! You mean not to change the kernel, just use pipe for the 
+purpose.
 
-We crash because veth_dellink() is called twice, so we must
-take care of NULL peer.
+However, the convoluted pipe-style design is the problem I am trying to 
+solve rather than the solution. It leads to convoluted APIs with 
+convoluted semantics as described in the article. I've been using that 
+kind of design for past 8 years and every time I have to deal with it I 
+swear that one day I will implement a proper in-kernel solution to get 
+rid of the hack.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- drivers/net/veth.c |   11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+And now I have finally done so.
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index e1da42a..07a4af0 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -426,12 +426,13 @@ static void veth_dellink(struct net_device *dev, struct list_head *head)
- 	 * not being freed before one RCU grace period.
- 	 */
- 	RCU_INIT_POINTER(priv->peer, NULL);
--
--	priv = netdev_priv(peer);
--	RCU_INIT_POINTER(priv->peer, NULL);
--
- 	unregister_netdevice_queue(dev, head);
--	unregister_netdevice_queue(peer, head);
-+
-+	if (peer) {
-+		priv = netdev_priv(peer);
-+		RCU_INIT_POINTER(priv->peer, NULL);
-+		unregister_netdevice_queue(peer, head);
-+	}
- }
- 
- static const struct nla_policy veth_policy[VETH_INFO_MAX + 1] = {
+Martin
