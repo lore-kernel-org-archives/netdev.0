@@ -1,42 +1,60 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 11/11] act_police: remove <=mtu check for gso skbs
-Date: Sat,  9 Feb 2013 17:45:12 +0100
-Message-ID: <1360428312-1277-12-git-send-email-jiri@resnulli.us>
-References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
-	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f182.google.com ([209.85.215.182]:35943 "EHLO
-	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932461Ab3BIQps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 11:45:48 -0500
-Received: by mail-ea0-f182.google.com with SMTP id a12so2064510eaa.27
-        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 08:45:46 -0800 (PST)
-In-Reply-To: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [PATCH net-next] net neighbour,decnet: Ensure to align device private
+ data on preferred alignment.
+Date: Sun, 10 Feb 2013 02:00:59 +0900
+Message-ID: <511680CB.9010502@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: fengguang.wu@intel.com, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This check made bigger packets incorrectly dropped. Remove this
-limitation for gso skbs.
+To allow both of protocol-specific data and device-specific data
+attached with neighbour entry, and to eliminate size calculation
+cost when allocating entry, sizeof protocol-speicic data must be
+multiple of NEIGH_PRIV_ALIGN.  On 64bit archs,
+sizeof(struct dn_neigh) is multiple of NEIGH_PRIV_ALIGN, but on
+32bit archs, it was not.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Introduce NEIGH_ENTRY_SPACE() macro to ensure that protocol-specific
+entry-size meets our requirement.
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/sched/act_police.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/net/neighbour.h |    1 +
+ net/decnet/dn_neigh.c   |    2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 3821508..e6f480b 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -322,7 +322,7 @@ static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
- 		return police->tcf_action;
- 	}
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+index 629ee57..7e748ad 100644
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -181,6 +181,7 @@ struct neigh_table {
+ };
  
--	if (qdisc_pkt_len(skb) <= police->tcfp_mtu) {
-+	if (qdisc_pkt_len(skb) <= police->tcfp_mtu || skb_is_gso(skb)) {
- 		if (!police->rate_present) {
- 			spin_unlock(&police->tcf_lock);
- 			return police->tcfp_result;
+ #define NEIGH_PRIV_ALIGN	sizeof(long long)
++#define NEIGH_ENTRY_SIZE(size)	ALIGN((size), NEIGH_PRIV_ALIGN)
+ 
+ static inline void *neighbour_priv(const struct neighbour *n)
+ {
+diff --git a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+index 3aede1b..856636a 100644
+--- a/net/decnet/dn_neigh.c
++++ b/net/decnet/dn_neigh.c
+@@ -95,7 +95,7 @@ static u32 dn_neigh_hash(const void *pkey,
+ 
+ struct neigh_table dn_neigh_table = {
+ 	.family =			PF_DECnet,
+-	.entry_size =			sizeof(struct dn_neigh),
++	.entry_size =			NEIGH_ENTRY_SIZE(sizeof(struct dn_neigh)),
+ 	.key_len =			sizeof(__le16),
+ 	.hash =				dn_neigh_hash,
+ 	.constructor =			dn_neigh_construct,
 -- 
-1.8.1.2
+1.7.9.5
