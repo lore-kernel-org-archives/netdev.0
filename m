@@ -1,69 +1,41 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/5] Netfilter/IPVS fixes for 3.8-rc7
-Date: Sat,  9 Feb 2013 13:03:55 +0100
-Message-ID: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH 1/5] ipvs: freeing uninitialized pointer on error
+Date: Sat,  9 Feb 2013 13:03:56 +0100
+Message-ID: <1360411440-6526-2-git-send-email-pablo@netfilter.org>
+References: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
 
-Hi David,
+If state != IP_VS_STATE_BACKUP then tinfo->buf is uninitialized.  If
+kthread_run() fails then it means we free random memory resulting in an
+oops.
 
-The following patchset contains Netfilter/IPVS fixes for 3.8-rc7, they =
-are:
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-* Fix oops in IPVS state-sync due to releasing a random memory area due
-  to unitialized pointer, from Dan Carpenter.
-
-* Fix SCTP flow establishment due to bad checksumming mangling in IPVS,
-  from Daniel Borkmann.
-
-* Three fixes for the recently added IPv6 NPT, all from YOSHIFUJI Hidea=
-ki,
-  with an amendment collapsed into those patches from Ulrich Weber. The=
-y
-  fiix adjustment calculation, fix prefix mangling and ensure LSB of
-  prefixes are zeroes (as required by RFC).
-
-Specifically, it took me a while to validate the 1's complement arithme=
-tics/
-checksumming approach in the IPv6 NPT code.
-
-It's fairly late stage, so let me know if you can still pull these from=
-:
-
-git://1984.lsi.us.es/nf master
-
-Thanks!
-
-Dan Carpenter (1):
-  ipvs: freeing uninitialized pointer on error
-
-Daniel Borkmann (1):
-  ipvs: sctp: fix checksumming on snat and dnat handlers
-
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E (3):
-  netfilter: ip6t_NPT: Fix adjustment calculation
-  netfilter: ip6t_NPT: Fix prefix mangling
-  netfilter: ip6t_NPT: Ensure to check lower part of prefixes are zero
-
- net/ipv6/netfilter/ip6t_NPT.c         |   18 +++++++++++++----
- net/netfilter/ipvs/ip_vs_proto_sctp.c |   35 ++++++++++++++++---------=
---------
- net/netfilter/ipvs/ip_vs_sync.c       |    2 ++
- 3 files changed, 33 insertions(+), 22 deletions(-)
-
---=20
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index effa10c..44fd10c 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1795,6 +1795,8 @@ int start_sync_thread(struct net *net, int state, char *mcast_ifn, __u8 syncid)
+ 					     GFP_KERNEL);
+ 			if (!tinfo->buf)
+ 				goto outtinfo;
++		} else {
++			tinfo->buf = NULL;
+ 		}
+ 		tinfo->id = id;
+ 
+-- 
 1.7.10.4
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
