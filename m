@@ -1,75 +1,63 @@
-From: Richard Hartmann <richih.mailinglist@gmail.com>
-Subject: Re: drivers/net/wireless/iwlwifi/dvm/tx.c and arch/x86/kernel/apic/ipi.c:
- Kernel trace when roaming between different Access Points with the same ESSID
-Date: Sat, 9 Feb 2013 20:57:36 +0100
-Message-ID: <CAD77+gTFDbNopgJjMv+BGJCbueR-k8Uiyq41DfOeF_t1oJm7EA@mail.gmail.com>
-References: <CAD77+gQFfNvz02=0FWDq+KUGk5QO_MywWw=NBMk6YaFGNQ4+kA@mail.gmail.com>
+From: Javier Domingo <javierdo1@gmail.com>
+Subject: Re: Softirqs without captured packets
+Date: Sat, 9 Feb 2013 21:27:30 +0100
+Message-ID: <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
+References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
+ <20130208.145728.1110053781319882182.davem@davemloft.net> <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
+ <20130208.151523.798634382725569230.davem@davemloft.net> <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-To: Johannes Berg <johannes.berg@intel.com>,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com,
-	hpa@zytor.com, x86@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAD77+gQFfNvz02=0FWDq+KUGk5QO_MywWw=NBMk6YaFGNQ4+kA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f179.google.com ([209.85.128.179]:51741 "EHLO
+	mail-ve0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932527Ab3BIU1v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 15:27:51 -0500
+Received: by mail-ve0-f179.google.com with SMTP id da11so4301498veb.10
+        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 12:27:50 -0800 (PST)
+In-Reply-To: <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Yet another one, this time during high USB i/o load.
+Can you tell me something about the traces I introduced?
 
-Could this be a hardware issue as well?
+I tried to insert the trace the cleanest way possible. I patched
+dev.c, in the measurement places and tried to make the module the more
+independent I could. It makes the measure with sched_clock() and in
+each round, it sums up the work done.
 
-Does it still make sense to send these reports to anyone?
+I have supposed that that softirq is just for capturing packets, so
+that is why I asked my first question,
+
+Waiting your reply,
+
+Javier Domingo
 
 
-[95553.449219] ------------[ cut here ]------------
-[95553.449257] WARNING: at
-/build/buildd-linux_3.7.1-1~experimental.1-i386-Au6THQ/linux-3.7.1/drivers/net/wireless/iwlwifi/dvm/tx.c:1189
-iwlagn_rx_reply_tx+0x288/0x6e2 [iwldvm]()
-[95553.449262] Hardware name: 4286CTO
-[95553.449265] Modules linked in: nls_utf8 nls_cp437 vfat fat
-mmc_block usb_storage parport_pc ppdev rfcomm lp parport bnep
-cpufreq_userspace cpufreq_stats cpufreq_powersave cpufreq_conservative
-uinput nfsd auth_rpcgss nfs_acl nfs lockd dns_resolver fscache sunrpc
-ext4 jbd2 mbcache loop fuse snd_hda_codec_hdmi snd_hda_codec_conexant
-arc4 coretemp iwldvm mac80211 kvm_intel snd_hda_intel thinkpad_acpi
-snd_hda_codec nvram snd_hwdep snd_pcm snd_page_alloc kvm i915
-drm_kms_helper crc32c_intel joydev drm i2c_algo_bit snd_seq btusb
-bluetooth iTCO_wdt snd_seq_device snd_timer aesni_intel aes_i586 crc16
-iwlwifi iTCO_vendor_support xts lrw i2c_i801 pcspkr snd gf128mul
-i2c_core ablk_helper cryptd soundcore lpc_ich mfd_core cfg80211
-psmouse serio_raw acpi_cpufreq mperf mei rfkill ac wmi battery tpm_tis
-tpm evdev processor tpm_bios button video xfs sg sd_mod crc_t10dif
-xhci_hcd ahci libahci libata microcode scsi_mod ehci_hcd sdhci_pci
-sdhci mmc_core usbcore usb_common e1000e thermal thermal_sys
-[95553.449427] Pid: 0, comm: swapper/0 Tainted: G        W
-3.7-trunk-686-pae #1 Debian 3.7.1-1~experimental.1
-[95553.449431] Call Trace:
-[95553.449446]  [<c10310c5>] ? warn_slowpath_common+0x68/0x79
-[95553.449464]  [<f87291e2>] ? iwlagn_rx_reply_tx+0x288/0x6e2 [iwldvm]
-[95553.449472]  [<c10310e3>] ? warn_slowpath_null+0xd/0x10
-[95553.449487]  [<f87291e2>] ? iwlagn_rx_reply_tx+0x288/0x6e2 [iwldvm]
-[95553.449502]  [<f859008b>] ? check_event_type_and_length+0x37/0x4b [snd_seq]
-[95553.449520]  [<f872e344>] ? iwl_rx_dispatch+0x57/0x63 [iwldvm]
-[95553.449537]  [<f859fd14>] ? iwl_irq_tasklet+0x39c/0x698 [iwlwifi]
-[95553.449546]  [<c1037457>] ? tasklet_action+0x62/0xa5
-[95553.449552]  [<c103711b>] ? __do_softirq+0x90/0x192
-[95553.449559]  [<c103708b>] ? perf_trace_irq_handler_entry+0xd7/0xd7
-[95553.449563]  <IRQ>  [<c10372cb>] ? irq_exit+0x32/0x7d
-[95553.449577]  [<c100d070>] ? do_IRQ+0x65/0x76
-[95553.449586]  [<c12ed2f3>] ? common_interrupt+0x33/0x38
-[95553.449593]  [<c10300d8>] ? copy_process.part.33+0x8a8/0xf0c
-[95553.449602]  [<c11b1c03>] ? intel_idle+0xc4/0xec
-[95553.449612]  [<c122ea2e>] ? cpuidle_enter+0xb/0xe
-[95553.449619]  [<c122edb9>] ? cpuidle_enter_state+0x9/0x33
-[95553.449626]  [<c122ee8e>] ? cpuidle_idle_call+0xab/0x146
-[95553.449634]  [<c10114d7>] ? cpu_idle+0x88/0xac
-[95553.449641]  [<c1464966>] ? start_kernel+0x334/0x339
-[95553.449646] ---[ end trace e2ce8294be2c8dca ]---
-
--- 
-Richard
+2013/2/8 Javier Domingo <javierdo1@gmail.com>:
+> This is the patch to enable the tracer module, programed for version
+> v3.6 in the mainline.
+>
+> It is part of a bigger project I am trying to release, but I am not
+> still authorized to release other's source code. The sourcecode
+> contained here is just mine, and I release it under GPLv3.
+>
+> Hope it works without any modification! git apply worked for me.
+>
+> Cheers and thank you for your attention,
+> Javier Domingo
+>
+>
+> 2013/2/8 David Miller <davem@davemloft.net>:
+>> From: Javier Domingo <javierdo1@gmail.com>
+>> Date: Fri, 8 Feb 2013 21:02:41 +0100
+>>
+>>> Sorry, I think I misexplained,
+>>>
+>>> I wanted to say net's receive softirq: net_rx_action, not softirqs in general.
+>>
+>> If you don't show us your code we have to guess all sorts of things
+>> like this.
+>>
+>> Don't expect much help until you post your tracer module.
