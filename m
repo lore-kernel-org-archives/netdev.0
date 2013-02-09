@@ -1,238 +1,63 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [net-next PATCH 3/8] qlcnic: helper routine to handle async events
-Date: Sat,  9 Feb 2013 14:29:50 -0500
-Message-ID: <1360438195-12667-4-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [net-next PATCH 2/8] qlcnic: fix firmware based IDC participation
+Date: Sat,  9 Feb 2013 14:29:49 -0500
+Message-ID: <1360438195-12667-3-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1360438195-12667-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
 	Dept_NX_Linux_NIC_Driver@qlogic.com,
 	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:4900 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:14783 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S932485Ab3BITvT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Feb 2013 14:51:19 -0500
+	id S932485Ab3BITvS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Feb 2013 14:51:18 -0500
 In-Reply-To: <1360438195-12667-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Create a helper routine to handle async events, as it is being called
-from multiple places
+Driver needs to stop participating in firmware based Inter Driver
+Communication (IDC) while unloading driver
 
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   79 +++++---------------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    9 ++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   20 +++++-
- 4 files changed, 45 insertions(+), 64 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index d23372e..3d628c6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -12,13 +12,6 @@
- #include <linux/interrupt.h>
- 
- #define QLCNIC_MAX_TX_QUEUES		1
--
--#define QLCNIC_MBX_RSP(reg)		LSW(reg)
--#define QLCNIC_MBX_NUM_REGS(reg)	(MSW(reg) & 0x1FF)
--#define QLCNIC_MBX_STATUS(reg)		(((reg) >> 25) & 0x7F)
--#define QLCNIC_MBX_HOST(ahw, i)	((ahw)->pci_base0 + ((i) * 4))
--#define QLCNIC_MBX_FW(ahw, i)		((ahw)->pci_base0 + 0x800 + ((i) * 4))
--
- #define RSS_HASHTYPE_IP_TCP		0x3
- 
- /* status descriptor mailbox data
-@@ -696,7 +689,7 @@ int qlcnic_83xx_mbx_op(struct qlcnic_adapter *adapter,
- 	int i;
- 	u16 opcode;
- 	u8 mbx_err_code, mac_cmd_rcode;
--	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd, temp, fw[8];
-+	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 
- 	opcode = LSW(cmd->req.arg[0]);
-@@ -738,42 +731,8 @@ poll:
- 	opcode = QLCNIC_MBX_RSP(fw_data);
- 
- 	if (rsp != QLCNIC_RCODE_TIMEOUT) {
--		if (opcode == QLCNIC_MBX_LINK_EVENT) {
--			for (i = 0; i < rsp_num; i++) {
--				temp = readl(QLCNIC_MBX_FW(ahw, i));
--				fw[i] = temp;
--			}
--			qlcnic_83xx_handle_link_aen(adapter, fw);
--			/* clear fw mbx control register */
--			QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
--			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
--			if (mbx_val)
--				goto poll;
--		} else if (opcode == QLCNIC_MBX_COMP_EVENT) {
--			for (i = 0; i < rsp_num; i++) {
--				temp = readl(QLCNIC_MBX_FW(ahw, i));
--				fw[i] = temp;
--			}
--			qlcnic_83xx_handle_idc_comp_aen(adapter, fw);
--			/* clear fw mbx control register */
--			QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
--			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
--			if (mbx_val)
--				goto poll;
--		} else if (opcode == QLCNIC_MBX_REQUEST_EVENT) {
--			/* IDC Request Notification */
--			for (i = 0; i < rsp_num; i++) {
--				temp = readl(QLCNIC_MBX_FW(ahw, i));
--				fw[i] = temp;
--			}
--			for (i = 0; i < QLC_83XX_MBX_AEN_CNT; i++) {
--				temp = QLCNIC_MBX_RSP(fw[i]);
--				adapter->ahw->mbox_aen[i] = temp;
--			}
--			queue_delayed_work(adapter->qlcnic_wq,
--					   &adapter->idc_aen_work, 0);
--			/* clear fw mbx control register */
--			QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
-+		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
-+			qlcnic_83xx_process_aen(adapter);
- 			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
- 			if (mbx_val)
- 				goto poll;
-@@ -875,20 +834,10 @@ static void qlcnic_83xx_handle_idc_comp_aen(struct qlcnic_adapter *adapter,
- 
- void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
- {
--	u32 mask, resp, event[QLC_83XX_MBX_AEN_CNT];
-+	u32 event[QLC_83XX_MBX_AEN_CNT];
- 	int i;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 
--	if (!spin_trylock(&ahw->mbx_lock)) {
--		mask = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_MASK);
--		writel(0, adapter->ahw->pci_base0 + mask);
--		return;
--	}
--	resp = QLCRDX(ahw, QLCNIC_FW_MBX_CTRL);
--
--	if (!(resp & QLCNIC_SET_OWNER))
--		goto out;
--
- 	for (i = 0; i < QLC_83XX_MBX_AEN_CNT; i++)
- 		event[i] = readl(QLCNIC_MBX_FW(ahw, i));
- 
-@@ -923,10 +872,6 @@ void qlcnic_83xx_process_aen(struct qlcnic_adapter *adapter)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 714124a..dcb990d 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2023,6 +2023,8 @@ static void qlcnic_remove(struct pci_dev *pdev)
+ 		if (adapter->flags & QLCNIC_MSIX_ENABLED)
+ 			qlcnic_83xx_config_intrpt(adapter, 0);
+ 		qlcnic_83xx_free_mbx_intr(adapter);
++		qlcnic_83xx_register_nic_idc_func(adapter, 0);
++		cancel_delayed_work_sync(&adapter->idc_aen_work);
  	}
  
- 	QLCWRX(ahw, QLCNIC_FW_MBX_CTRL, QLCNIC_CLR_OWNER);
--out:
--	mask = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_MASK);
--	writel(0, adapter->ahw->pci_base0 + mask);
--	spin_unlock(&ahw->mbx_lock);
+ 	qlcnic_detach(adapter);
+@@ -2180,10 +2182,6 @@ static int qlcnic_close(struct net_device *netdev)
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 
+ 	__qlcnic_down(adapter, netdev);
+-	if (qlcnic_83xx_check(adapter)) {
+-		qlcnic_83xx_register_nic_idc_func(adapter, 0);
+-		cancel_delayed_work_sync(&adapter->idc_aen_work);
+-	}
+ 
+ 	return 0;
  }
+@@ -3117,6 +3115,8 @@ static pci_ers_result_t qlcnic_io_error_detected(struct pci_dev *pdev,
+ 		if (adapter->flags & QLCNIC_MSIX_ENABLED)
+ 			qlcnic_83xx_config_intrpt(adapter, 0);
+ 		qlcnic_83xx_free_mbx_intr(adapter);
++		qlcnic_83xx_register_nic_idc_func(adapter, 0);
++		cancel_delayed_work_sync(&adapter->idc_aen_work);
+ 	}
  
- static int qlcnic_83xx_add_rings(struct qlcnic_adapter *adapter)
-@@ -1620,7 +1565,21 @@ static void qlcnic_83xx_handle_link_aen(struct qlcnic_adapter *adapter,
- irqreturn_t qlcnic_83xx_handle_aen(int irq, void *data)
- {
- 	struct qlcnic_adapter *adapter = data;
--	qlcnic_83xx_process_aen(adapter);
-+	unsigned long flags;
-+	u32 mask, resp, event;
-+
-+	spin_lock_irqsave(&adapter->ahw->mbx_lock, flags);
-+	resp = QLCRDX(adapter->ahw, QLCNIC_FW_MBX_CTRL);
-+	if (!(resp & QLCNIC_SET_OWNER))
-+		goto out;
-+	event = readl(QLCNIC_MBX_FW(adapter->ahw, 0));
-+	if (event &  QLCNIC_MBX_ASYNC_EVENT)
-+		qlcnic_83xx_process_aen(adapter);
-+out:
-+	mask = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_MASK);
-+	writel(0, adapter->ahw->pci_base0 + mask);
-+	spin_unlock_irqrestore(&adapter->ahw->mbx_lock, flags);
-+
- 	return IRQ_HANDLED;
- }
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index b62017b..16c5df6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -137,9 +137,6 @@ struct qlc_83xx_reset {
- #define QLC_83XX_IDC_MINOR_VERSION			0
- #define QLC_83XX_IDC_FLASH_PARAM_ADDR			0x3e8020
- 
--/* Mailbox process AEN count */
--#define QLC_83XX_MBX_AEN_CNT 5
--
- struct qlcnic_adapter;
- struct qlc_83xx_idc {
- 	int (*state_entry) (struct qlcnic_adapter *);
-@@ -156,6 +153,12 @@ struct qlc_83xx_idc {
- 	char		**name;
- };
- 
-+#define QLCNIC_MBX_RSP(reg)		LSW(reg)
-+#define QLCNIC_MBX_NUM_REGS(reg)	(MSW(reg) & 0x1FF)
-+#define QLCNIC_MBX_STATUS(reg)		(((reg) >> 25) & 0x7F)
-+#define QLCNIC_MBX_HOST(ahw, i)	((ahw)->pci_base0 + ((i) * 4))
-+#define QLCNIC_MBX_FW(ahw, i)		((ahw)->pci_base0 + 0x800 + ((i) * 4))
-+
- /* Mailbox process AEN count */
- #define QLC_83XX_IDC_COMP_AEN			3
- #define QLC_83XX_MBX_AEN_CNT			5
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index ed52b9c..5b8749e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -135,6 +135,7 @@ struct qlcnic_mailbox_metadata {
- 
- #define QLCNIC_MBX_RSP_OK	1
- #define QLCNIC_MBX_PORT_RSP_OK	0x1a
-+#define QLCNIC_MBX_ASYNC_EVENT	BIT_15
- 
- struct qlcnic_pci_info;
- struct qlcnic_info;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index bb4311e..bc38eaf 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -1553,6 +1553,24 @@ skip:
- 	return count;
- }
- 
-+static void qlcnic_83xx_poll_process_aen(struct qlcnic_adapter *adapter)
-+{
-+	unsigned long flags;
-+	u32 mask, resp, event;
-+
-+	spin_lock_irqsave(&adapter->ahw->mbx_lock, flags);
-+	resp = QLCRDX(adapter->ahw, QLCNIC_FW_MBX_CTRL);
-+	if (!(resp & QLCNIC_SET_OWNER))
-+		goto out;
-+	event = readl(QLCNIC_MBX_FW(adapter->ahw, 0));
-+	if (event &  QLCNIC_MBX_ASYNC_EVENT)
-+		qlcnic_83xx_process_aen(adapter);
-+out:
-+	mask = QLCRDX(adapter->ahw, QLCNIC_DEF_INT_MASK);
-+	writel(0, adapter->ahw->pci_base0 + mask);
-+	spin_unlock_irqrestore(&adapter->ahw->mbx_lock, flags);
-+}
-+
- static int qlcnic_83xx_poll(struct napi_struct *napi, int budget)
- {
- 	int tx_complete;
-@@ -1567,7 +1585,7 @@ static int qlcnic_83xx_poll(struct napi_struct *napi, int budget)
- 	tx_ring = adapter->tx_ring;
- 
- 	if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
--		qlcnic_83xx_process_aen(adapter);
-+		qlcnic_83xx_poll_process_aen(adapter);
- 
- 	tx_complete = qlcnic_process_cmd_ring(adapter, tx_ring, budget);
- 	work_done = qlcnic_83xx_process_rcv_ring(sds_ring, budget);
+ 	qlcnic_detach(adapter);
 -- 
 1.7.1
