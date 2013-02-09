@@ -1,7 +1,7 @@
 From: pablo@netfilter.org
-Subject: [PATCH 3/5] netfilter: ip6t_NPT: Fix adjustment calculation
-Date: Sat,  9 Feb 2013 13:03:58 +0100
-Message-ID: <1360411440-6526-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/5] netfilter: ip6t_NPT: Ensure to check lower part of prefixes are zero
+Date: Sat,  9 Feb 2013 13:04:00 +0100
+Message-ID: <1360411440-6526-6-git-send-email-pablo@netfilter.org>
 References: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -16,50 +16,50 @@ List-Id: netdev.vger.kernel.org
 =46rom: YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <yoshf=
 uji@linux-ipv6.org>
 
-Cast __wsum from/to __sum16 is wrong.  Instead, apply appropriate
-conversion function: csum_unfold() or csum_fold().
-
-[ The original patch has been modified to undo the final ~ that
-  csum_fold returns. We only need to fold the 32-bit word that
-  results from the checksum calculation into a 16-bit to ensure
-  that the original subnet is restored appropriately. Spotted by
-  Ulrich Weber. ]
+RFC 6296 points that address bits that are not part of the prefix
+has to be zeroed.
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv6/netfilter/ip6t_NPT.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/ipv6/netfilter/ip6t_NPT.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
 diff --git a/net/ipv6/netfilter/ip6t_NPT.c b/net/ipv6/netfilter/ip6t_NP=
 T.c
-index 7302b0b..68788c8 100644
+index 87b759c..83acc14 100644
 --- a/net/ipv6/netfilter/ip6t_NPT.c
 +++ b/net/ipv6/netfilter/ip6t_NPT.c
-@@ -30,7 +30,7 @@ static int ip6t_npt_checkentry(const struct xt_tgchk_=
-param *par)
- 				(__force __wsum)npt->dst_pfx.in6.s6_addr16[i]);
- 	}
+@@ -9,6 +9,7 @@
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
+ #include <linux/ipv6.h>
++#include <net/ipv6.h>
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter_ipv6/ip6t_NPT.h>
+@@ -18,11 +19,20 @@ static int ip6t_npt_checkentry(const struct xt_tgch=
+k_param *par)
+ {
+ 	struct ip6t_npt_tginfo *npt =3D par->targinfo;
+ 	__wsum src_sum =3D 0, dst_sum =3D 0;
++	struct in6_addr pfx;
+ 	unsigned int i;
 =20
--	npt->adjustment =3D (__force __sum16) csum_sub(src_sum, dst_sum);
-+	npt->adjustment =3D ~csum_fold(csum_sub(src_sum, dst_sum));
- 	return 0;
- }
+ 	if (npt->src_pfx_len > 64 || npt->dst_pfx_len > 64)
+ 		return -EINVAL;
 =20
-@@ -66,8 +66,8 @@ static bool ip6t_npt_map_pfx(const struct ip6t_npt_tg=
-info *npt,
- 			return false;
- 	}
-=20
--	sum =3D (__force __sum16) csum_add((__force __wsum)addr->s6_addr16[id=
-x],
--			 npt->adjustment);
-+	sum =3D ~csum_fold(csum_add(csum_unfold((__force __sum16)addr->s6_add=
-r16[idx]),
-+				  csum_unfold(npt->adjustment)));
- 	if (sum =3D=3D CSUM_MANGLED_0)
- 		sum =3D 0;
- 	*(__force __sum16 *)&addr->s6_addr16[idx] =3D sum;
++	/* Ensure that LSB of prefix is zero */
++	ipv6_addr_prefix(&pfx, &npt->src_pfx.in6, npt->src_pfx_len);
++	if (!ipv6_addr_equal(&pfx, &npt->src_pfx.in6))
++		return -EINVAL;
++	ipv6_addr_prefix(&pfx, &npt->dst_pfx.in6, npt->dst_pfx_len);
++	if (!ipv6_addr_equal(&pfx, &npt->dst_pfx.in6))
++		return -EINVAL;
++
+ 	for (i =3D 0; i < ARRAY_SIZE(npt->src_pfx.in6.s6_addr16); i++) {
+ 		src_sum =3D csum_add(src_sum,
+ 				(__force __wsum)npt->src_pfx.in6.s6_addr16[i]);
 --=20
 1.7.10.4
 
