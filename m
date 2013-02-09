@@ -1,60 +1,62 @@
-From: Martin Sustrik <sustrik@250bpm.com>
-Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
-Date: Sat, 09 Feb 2013 03:40:32 +0100
-Message-ID: <5115B720.2080207@250bpm.com>
-References: <1360219292-19754-1-git-send-email-sustrik@250bpm.com> <20130207144433.527ef024.akpm@linux-foundation.org> <5114F2D8.5020300@250bpm.com> <20130208222107.GA4762@dcvr.yhbt.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Pv-drivers] [PATCH 0/1] VM Sockets for Linux upstreaming
+Date: Fri, 08 Feb 2013 21:59:15 -0500 (EST)
+Message-ID: <20130208.215915.822365427361761741.davem@davemloft.net>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
+	<20130209012044.GB5194@dtor-ws.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Sha Zhengju <handai.szj@taobao.com>,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Eric Wong <normalperson@yhbt.net>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <20130208222107.GA4762@dcvr.yhbt.net>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Cc: acking@vmware.com, pv-drivers@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org
+To: dtor@vmware.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130209012044.GB5194@dtor-ws.eng.vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Eric,
+From: Dmitry Torokhov <dtor@vmware.com>
+Date: Fri, 8 Feb 2013 17:20:44 -0800
 
-On 08/02/13 23:21, Eric Wong wrote:
-> Martin Sustrik<sustrik@250bpm.com>  wrote:
->> On 07/02/13 23:44, Andrew Morton wrote:
->>> That's a nice changelog but it omitted a critical thing: why do you
->>> think the kernel needs this feature?  What's the value and use case for
->>> being able to poll these descriptors?
->>
->> To address the question, I've written down detailed description of
->> the challenges of the network protocol development in user space and
->> how the proposed feature addresses the problems.
->>
->> It's too long to fit into ChangeLog, but it may be worth reading
->> when trying to judge the merit of the patch.
->>
->> It can be found here: http://www.250bpm.com/blog:16
->
-> Using one eventfd per userspace socket still seems a bit wasteful.
+> Hi David,
+> 
+> On Wed, Feb 06, 2013 at 04:23:55PM -0800, Andy King wrote:
+>> In an effort to improve the out-of-the-box experience with Linux kernels for
+>> VMware users, VMware is working on readying the VM Sockets (VSOCK, formerly
+>> VMCI Sockets) (vsock) kernel module for inclusion in the Linux kernel. The
+>> purpose of this post is to acquire feedback on the vsock kernel module.
+>> 
+>> Unlike previous submissions, where the new socket family was entirely reliant
+>> on VMware's VMCI PCI device (and thus VMware's hypervisor), VM Sockets is now
+>> completely[1] separated out into two parts, each in its own module:
+>> 
+>> o Core socket code, which is transport-neutral and invokes transport
+>>   callbacks to communicate with the hypervisor.  This is vsock.ko.
+>> o A VMCI transport, which communicates over VMCI with the VMware hypervisor.
+>>   This is vmw_vsock_vmci_transport.ko, and it registers with the core module
+>>   as a transport.
+>> 
+>> This should provide a path to introducing additional transports, for example
+>> virtio, with the ultimate goal being to make this new socket family
+>> hypervisor-neutral.
+> 
+> As Andy mentioned in another e-mail, we would like very much to get
+> vsock in 3.9 release, so now that it is split into hypervisor neutral
+> and transport parts is there any high level issues that we need to
+> resolve before the code can be accepted?
 
-Wasteful in what sense? Occupying a slot in file descriptor table? 
-That's the price for having the socket uniquely identified by the fd.
+I have no idea, I haven't gotten to reviewing your changes yet, and
+I will do so at a time of my own choosing.  Pressing me about the matter
+is unlikely to make me review things any faster, and in fact will have
+the opposite effect.
 
-> Couldn't you use a single pipe for all sockets and write the efd_mask to
-> the pipe for each socket?
->
-> A read from the pipe would behave like epoll_wait.
->
-> You might need to use one-shot semantics; but that's probably
-> the easiest thing in multithreaded apps anyways.
-
-Having multiple sockets represented by a single eventfd. how would you 
-distinguish where did individual events came from?
-
-   struct pollfd pfd;
-   ...
-   poll (pfd, 1, -1);
-   if (pfd.revents & POLLIN) /* Incoming data on which socket? */
-     ...
-
-Martin
+Therefore, just be patient like everyone else is.
