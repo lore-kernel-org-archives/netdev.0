@@ -1,129 +1,69 @@
-From: Eric Wong <normalperson@yhbt.net>
-Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
-Date: Sat, 9 Feb 2013 03:54:31 +0000
-Message-ID: <20130209035431.GA28448@dcvr.yhbt.net>
-References: <1360219292-19754-1-git-send-email-sustrik@250bpm.com>
- <20130207144433.527ef024.akpm@linux-foundation.org>
- <5114F2D8.5020300@250bpm.com>
- <20130208222107.GA4762@dcvr.yhbt.net>
- <5115B720.2080207@250bpm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] arp: fix possible crash in arp_rcv()
+Date: Fri, 08 Feb 2013 20:48:21 -0800
+Message-ID: <1360385301.6696.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Alexander Viro <viro@zeniv.linux.org.uk>,
-	Sha Zhengju <handai.szj@taobao.com>,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Martin Sustrik <sustrik@250bpm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5115B720.2080207@250bpm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f49.google.com ([209.85.210.49]:53017 "EHLO
+	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760649Ab3BIEsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Feb 2013 23:48:24 -0500
+Received: by mail-da0-f49.google.com with SMTP id t11so2087221daj.8
+        for <netdev@vger.kernel.org>; Fri, 08 Feb 2013 20:48:24 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Martin Sustrik <sustrik@250bpm.com> wrote:
-> On 08/02/13 23:21, Eric Wong wrote:
-> >Martin Sustrik<sustrik@250bpm.com>  wrote:
-> >>To address the question, I've written down detailed description of
-> >>the challenges of the network protocol development in user space and
-> >>how the proposed feature addresses the problems.
-> >>
-> >>It can be found here: http://www.250bpm.com/blog:16
-> >
-> >Using one eventfd per userspace socket still seems a bit wasteful.
-> 
-> Wasteful in what sense? Occupying a slot in file descriptor table?
-> That's the price for having the socket uniquely identified by the
-> fd.
+From: Eric Dumazet <edumazet@google.com>
 
-Yes.  I realize eventfd is small, but I don't think eventfd is needed
-at all, here.  Just one pipe.
+We should call skb_share_check() before pskb_may_pull(), or we
+can crash in pskb_expand_head()
 
-> >Couldn't you use a single pipe for all sockets and write the efd_mask to
-> >the pipe for each socket?
-> >
-> >A read from the pipe would behave like epoll_wait.
-> >
-> >You might need to use one-shot semantics; but that's probably
-> >the easiest thing in multithreaded apps anyways.
-> 
-> Having multiple sockets represented by a single eventfd. how would
-> you distinguish where did individual events came from?
-> 
->   struct pollfd pfd;
->   ...
->   poll (pfd, 1, -1);
->   if (pfd.revents & POLLIN) /* Incoming data on which socket? */
->     ...
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/arp.c |   21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
 
-No eventfd, you write just write struct to the pipe, and consume the
-struct to a fixed size buffer:
-
-/* trigger readiness notification for sock,
- * this probably needs a lock around it
- */
-void sock_trigger(struct my_sock *sock, int events)
-{
-	struct efd_mask mask;
-
-	/* check if the triggeered event is something sock wants: */
-	events &= sock->watched_events;
-
-	if (!events)
-		return;
-
-	mask.events = events;
-	mask.ptr = sock;
-
-	/*
-	 * preventing sock from being in the pipe multiple times
-	 * is probably required (or just a good idea).  Which is
-	 * why I mentioned oneshot semantics are probably required.
-	 */
-	if (oneshot)
-		sock->watched_events = 0;
-
-	/*
-	 * This is analogous to:
-	 *   list_add_tail(&epi->rdllink, &ep->rdllist);
-	 * in fs/eventpoll.c
-	 *
-	 * This may block, but that's why consumer_loop runs in different
-	 * threads.  Or run some iteration of consumer_loop here if
-	 * it blocks (beware of stack depth from recursion, though)
-	 */
-	write(pipe_wr, &mask, sizeof(mask));
-}
-
-/* in another thread (or several threads) */
-void consumer_loop(int pipe_rd)
-{
-	struct efd_mask mask;
-	struct my_sock *sock;
-
-	for (;;) {
-		/*
-		 * analogous to:
-		 *    epoll_wait(.., maxevents=1, ...);
-		 *
-		 * You can read several masks at once if have one thread,
-		 * but I usually use maxevents=1 (+several threads) to
-		 * distribute traffic between threads
-		 */
-		read(pipe_rd, &mask, sizeof(mask));
-		sock = mask.ptr;
-		if (mask.events & POLLIN)
-			sock_read(sock);
-		else if (mask.events & POLLOUT)
-			sock_write(sock);
-		...
-
-		/* analogous to epoll_ctl() */
-		if (sock->write_buffered)
-			sock->watched_events |= POLLOUT;
-		if (sock->wants_more_data)
-			sock->watched_events |= POLLIN;
-
-		/* onto the next ready event */
-	}
-}
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 9547a273..ded146b 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -928,24 +928,25 @@ static void parp_redo(struct sk_buff *skb)
+ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		   struct packet_type *pt, struct net_device *orig_dev)
+ {
+-	struct arphdr *arp;
++	const struct arphdr *arp;
++
++	if (dev->flags & IFF_NOARP ||
++	    skb->pkt_type == PACKET_OTHERHOST ||
++	    skb->pkt_type == PACKET_LOOPBACK)
++		goto freeskb;
++
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (!skb)
++		goto out_of_mem;
+ 
+ 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
+ 	if (!pskb_may_pull(skb, arp_hdr_len(dev)))
+ 		goto freeskb;
+ 
+ 	arp = arp_hdr(skb);
+-	if (arp->ar_hln != dev->addr_len ||
+-	    dev->flags & IFF_NOARP ||
+-	    skb->pkt_type == PACKET_OTHERHOST ||
+-	    skb->pkt_type == PACKET_LOOPBACK ||
+-	    arp->ar_pln != 4)
++	if (arp->ar_hln != dev->addr_len || arp->ar_pln != 4)
+ 		goto freeskb;
+ 
+-	skb = skb_share_check(skb, GFP_ATOMIC);
+-	if (skb == NULL)
+-		goto out_of_mem;
+-
+ 	memset(NEIGH_CB(skb), 0, sizeof(struct neighbour_cb));
+ 
+ 	return NF_HOOK(NFPROTO_ARP, NF_ARP_IN, skb, dev, NULL, arp_process);
