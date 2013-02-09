@@ -1,72 +1,83 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 44/45] CPU hotplug, stop_machine: Decouple CPU hotplug
- from stop_machine() in Kconfig
-Date: Fri, 8 Feb 2013 16:15:54 -0800
-Message-ID: <20130209001554.GR2666@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 14/45] rcu, CPU hotplug: Fix comment referring to
+ stop_machine()
+Date: Fri, 8 Feb 2013 16:14:39 -0800
+Message-ID: <20130209001439.GQ2666@linux.vnet.ibm.com>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
- <20130122074518.13822.86992.stgit@srivatsabhat.in.ibm.com>
+ <20130122073630.13822.99359.stgit@srivatsabhat.in.ibm.com>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
-	akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, peterz@infradead.org, fweisbec@gmail.com,
+ linux-kernel@vger.kernel.org, mingo@kernel.org, linux-arch@vger.kernel.org,
+ linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
+ wangyun@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+ linux-pm@vger.kernel.org, rusty@rustcorp.com.au, rostedt@goodmis.org,
+ rjw@sisk.pl, namhyung@kernel.org, tglx@linutronix.de,
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org, oleg@redhat.com,
+ sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
+ linuxppc-dev@lists.ozlabs.org
 To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20130122074518.13822.86992.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
+In-Reply-To: <20130122073630.13822.99359.stgit@srivatsabhat.in.ibm.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 22, 2013 at 01:15:22PM +0530, Srivatsa S. Bhat wrote:
-> ... and also cleanup a comment that refers to CPU hotplug being dependent on
-> stop_machine().
+On Tue, Jan 22, 2013 at 01:06:34PM +0530, Srivatsa S. Bhat wrote:
+> Don't refer to stop_machine() in the CPU hotplug path, since we are going
+> to get rid of it. Also, move the comment referring to callback adoption
+> to the CPU_DEAD case, because that's where it happens now.
 > 
-> Cc: David Howells <dhowells@redhat.com>
 > Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Ouch!  That comment is indeed obsolete and must die.
 
-(Hey, I thought I owed myself an easy one!)
+I queued this to -rcu with your Signed-off-by.  However, I omitted
+the added comment, as it is imcomplete -- it is easy to look at
+rcu_cleanup_dead_cpu() to see what it does.
+
+							Thanx, Paul
 
 > ---
 > 
->  include/linux/stop_machine.h |    2 +-
->  init/Kconfig                 |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
+>  kernel/rcutree.c |    9 ++++-----
+>  1 file changed, 4 insertions(+), 5 deletions(-)
 > 
-> diff --git a/include/linux/stop_machine.h b/include/linux/stop_machine.h
-> index 3b5e910..ce2d3c4 100644
-> --- a/include/linux/stop_machine.h
-> +++ b/include/linux/stop_machine.h
-> @@ -120,7 +120,7 @@ int stop_machine(int (*fn)(void *), void *data, const struct cpumask *cpus);
->   * @cpus: the cpus to run the @fn() on (NULL = any online cpu)
->   *
->   * Description: This is a special version of the above, which assumes cpus
-> - * won't come or go while it's being called.  Used by hotplug cpu.
-> + * won't come or go while it's being called.
->   */
->  int __stop_machine(int (*fn)(void *), void *data, const struct cpumask *cpus);
+> diff --git a/kernel/rcutree.c b/kernel/rcutree.c
+> index e441b77..ac94474 100644
+> --- a/kernel/rcutree.c
+> +++ b/kernel/rcutree.c
+> @@ -2827,11 +2827,6 @@ static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
+>  		break;
+>  	case CPU_DYING:
+>  	case CPU_DYING_FROZEN:
+> -		/*
+> -		 * The whole machine is "stopped" except this CPU, so we can
+> -		 * touch any data without introducing corruption. We send the
+> -		 * dying CPU's callbacks to an arbitrarily chosen online CPU.
+> -		 */
+>  		for_each_rcu_flavor(rsp)
+>  			rcu_cleanup_dying_cpu(rsp);
+>  		rcu_cleanup_after_idle(cpu);
+> @@ -2840,6 +2835,10 @@ static int __cpuinit rcu_cpu_notify(struct notifier_block *self,
+>  	case CPU_DEAD_FROZEN:
+>  	case CPU_UP_CANCELED:
+>  	case CPU_UP_CANCELED_FROZEN:
+> +		/*
+> +		 * We send the dead CPU's callbacks to an arbitrarily chosen
+> +		 * online CPU.
+> +		 */
+>  		for_each_rcu_flavor(rsp)
+>  			rcu_cleanup_dead_cpu(cpu, rsp);
+>  		break;
 > 
-> diff --git a/init/Kconfig b/init/Kconfig
-> index be8b7f5..048a0c5 100644
-> --- a/init/Kconfig
-> +++ b/init/Kconfig
-> @@ -1711,7 +1711,7 @@ config INIT_ALL_POSSIBLE
->  config STOP_MACHINE
->  	bool
->  	default y
-> -	depends on (SMP && MODULE_UNLOAD) || HOTPLUG_CPU
-> +	depends on (SMP && MODULE_UNLOAD)
->  	help
->  	  Need stop_machine() primitive.
-> 
-> 
-
