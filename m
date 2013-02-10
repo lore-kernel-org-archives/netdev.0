@@ -1,47 +1,52 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Sun, 10 Feb 2013 19:57:57 +0900
-Message-ID: <51177D35.8030209@linux-ipv6.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org> <20130210095954.GA23548@order.stressinduktion.org>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCH vringh 0/2] Introduce CAIF Virtio driver
+Date: Sun, 10 Feb 2013 12:04:31 +0100
+Message-ID: <1360494273-27889-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@wide.ad.jp>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:57236 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751179Ab3BJK57 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:57:59 -0500
-In-Reply-To: <20130210095954.GA23548@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>, sjur@brendeland.net,
+	Linus Walleij <linus.walleij@linaro.org>, linux-kernel@vger.kernel.org,
+	Erwan Yvin <erwan.yvin@stericsson.com>,
+	virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, Ido Yariv <ido@wizery.com>,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	"David S. Miller" <davem@davemloft.net>, Ohad Ben-Cohen <ohad@wizery.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa wrote:
-> On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
->> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
->> If so, your original patch seems better.  My bad, sorry.
->>
->> Would you update original one, with minor modification that defers
->> kfree_skb() after incrementing MIB, please?
-> 
-> I would add another constraint to the if "&& !(dev->flags & IFF_LOOPBACK)", so
-> it becomes:
-> 
->                 if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
->                     IPV6_ADDR_SCOPE_NODELOCAL &&
->                     !(dev->flags & IFF_LOOPBACK))
->                         kfree_skb(skb);
->                         return 0;
->                 }
-> 
-> 
-> Otherwise ff01::/16%lo would not work because the multicast mirroring through
-> dev_loopback_xmit won't be taken and the packet would be dropped after that.
-> 
-> Can you confirm? Thanks.
-
-Ack.
-
---yoshfuji
+RnJvbTogU2p1ciBCcsOmbmRlbGFuZCA8c2p1ci5icmFuZGVsYW5kQHN0ZXJpY3Nzb24uY29tPgoK
+VGhpcyBwYXRjaC1zZXQgaW50cm9kdWNlcyB0aGUgQ0FJRiBWaXJ0aW8gTGluayBsYXllciBkcml2
+ZXIuCgpUaGlzIGRyaXZlciBkZXBlbmRzIG9uIFJ1c3R5J3MgbmV3IGhvc3QgdmlydGlvIHJpbmcg
+aW1wbGVtZW50YXRpb24sCnNvIHRoaXMgcGF0Y2gtc2V0IGlzIGJhc2VkIG9uIHRoZSB2cmluZ2gg
+YnJhbmNoIGluIFJ1c3R5J3MgZ2l0LgoKUmVnYXJkcywKU2p1cgoKY2M6IFJ1c3R5IFJ1c3NlbGwg
+PHJ1c3R5QHJ1c3Rjb3JwLmNvbS5hdT4KY2M6IE9oYWQgQmVuLUNvaGVuIDxvaGFkQHdpemVyeS5j
+b20+CmNjOiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+CmNjOiBJZG8gWWFy
+aXYgPGlkb0B3aXplcnkuY29tPgpjYzogRXJ3YW4gWXZpbiA8ZXJ3YW4ueXZpbkBzdGVyaWNzc29u
+LmNvbT4KClNqdXIgQnLDpm5kZWxhbmQgKDEpOgogIHJlbW90ZXByb2M6IEFkZCBzdXBwb3J0IGZv
+ciB2cmluZ2ggKEhvc3QgdnJpbmdzKQoKVmlrcmFtIEFSViAoMSk6CiAgY2FpZl92aXJ0aW86IElu
+dHJvZHVjZSBjYWlmIG92ZXIgdmlydGlvCgogZHJpdmVycy9uZXQvY2FpZi9LY29uZmlnICAgICAg
+ICAgICAgICAgfCAgICA4ICsKIGRyaXZlcnMvbmV0L2NhaWYvTWFrZWZpbGUgICAgICAgICAgICAg
+IHwgICAgMyArCiBkcml2ZXJzL25ldC9jYWlmL2NhaWZfdmlydGlvLmMgICAgICAgICB8ICA1Njgg
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKIGRyaXZlcnMvcmVtb3RlcHJvYy9LY29u
+ZmlnICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL3JlbW90ZXByb2MvcmVtb3RlcHJvY192
+aXJ0aW8uYyB8ICAxMjcgKysrKysrKy0KIGluY2x1ZGUvbGludXgvcmVtb3RlcHJvYy5oICAgICAg
+ICAgICAgIHwgICAxNCArCiBpbmNsdWRlL2xpbnV4L3ZpcnRpb19jYWlmLmggICAgICAgICAgICB8
+ICAgMjQgKysKIGluY2x1ZGUvdWFwaS9saW51eC92aXJ0aW9faWRzLmggICAgICAgIHwgICAgMSAr
+CiA4IGZpbGVzIGNoYW5nZWQsIDc0MSBpbnNlcnRpb25zKCspLCA3IGRlbGV0aW9ucygtKQogY3Jl
+YXRlIG1vZGUgMTAwNjQ0IGRyaXZlcnMvbmV0L2NhaWYvY2FpZl92aXJ0aW8uYwogY3JlYXRlIG1v
+ZGUgMTAwNjQ0IGluY2x1ZGUvbGludXgvdmlydGlvX2NhaWYuaAoKLS0gCjEuNy41LjQKCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9u
+IG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpo
+dHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFs
+aXphdGlvbg==
