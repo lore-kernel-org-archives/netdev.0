@@ -1,56 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next v3 08/11] tbf: fix value set for q->ptokens
-Date: Sun, 10 Feb 2013 10:00:08 -0800
-Message-ID: <1360519208.20362.19.camel@edumazet-glaptop>
-References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
-	 <1360428312-1277-9-git-send-email-jiri@resnulli.us>
-	 <1360459846.20362.2.camel@edumazet-glaptop>
-	 <20130210081824.GA1570@minipsycho.orion>
-	 <1360484498.20362.12.camel@edumazet-glaptop>
-	 <20130210085155.GB1570@minipsycho.orion>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH v2] ipv6: don't accept multicast traffic with scop 0
+Date: Mon, 11 Feb 2013 03:09:23 +0900
+Message-ID: <5117E253.5040704@linux-ipv6.org>
+References: <20130210153522.GA20897@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:48758 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754355Ab3BJSAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 13:00:11 -0500
-Received: by mail-pb0-f50.google.com with SMTP id up1so397099pbc.23
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 10:00:10 -0800 (PST)
-In-Reply-To: <20130210085155.GB1570@minipsycho.orion>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39423 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756201Ab3BJSJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 13:09:25 -0500
+In-Reply-To: <20130210153522.GA20897@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-02-10 at 09:51 +0100, Jiri Pirko wrote:
-> Sun, Feb 10, 2013 at 09:21:38AM CET, eric.dumazet@gmail.com wrote:
-> >On Sun, 2013-02-10 at 09:18 +0100, Jiri Pirko wrote:
-> >> Sun, Feb 10, 2013 at 02:30:46AM CET, eric.dumazet@gmail.com wrote:
-> >> >On Sat, 2013-02-09 at 17:45 +0100, Jiri Pirko wrote:
-> >> >> q->ptokens is in ns and we are assigning q->mtu directly to it. That is
-> >> >> wrong. psched_l2t_ns() should be used to compute correct value.
-> >> >> 
-> >> >
-> >> >
-> >> >Not clear why its a separate patch, and not folded in the 6th
-> >> 
-> >> This is independent on 6th. Would be needed even if 6th wouldn't be
-> >> there.
-> >
-> >When was this bug introduced then ?
+Hannes Frederic Sowa wrote:
+> v2:
+> a) moved before multicast source address check
+> b) changed comment to netdev style
 > 
-> This has been present since the beginning of git. I'm unable to find bk
-> repo right now to tell you bk commit :/
+> Cc: Erik Hugne <erik.hugne@ericsson.com>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/ip6_input.c | 9 +++++++++
+>  1 file changed, 9 insertions(+)
+> 
+> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+> index 4ac5bf3..521d9fd 100644
+> --- a/net/ipv6/ip6_input.c
+> +++ b/net/ipv6/ip6_input.c
+> @@ -118,6 +118,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+>  	    ipv6_addr_loopback(&hdr->daddr))
+>  		goto err;
+>  
+> +	/* RFC4291 2.7
+> +	 * Nodes must not originate a packet to a multicast address whose scop
+> +	 * field contains the reserved value 0; if such a packet is received, it
+> +	 * must be silently dropped.
+> +	 */
+> +	if (ipv6_addr_is_multicast(&hdr->daddr) &&
+> +	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 0)
+> +		goto err;
+> +
+>  	/*
+>  	 * RFC4291 2.7
+>  	 * Multicast addresses must not be used as source addresses in IPv6
+> 
 
-Current code doesnt store ptokens in ns, your patch is very confusing.
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-q->mtu is properly setup by tc command.
-
-Its not dev->mtu at all.
-
-I claim you fix a bug added in 6th patch.
-
-It makes no sense to me to introduce a bug in 6th and fix it in 8th.
+--yoshfuji
