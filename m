@@ -1,54 +1,52 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
-Date: Mon, 11 Feb 2013 00:05:32 +0900
-Message-ID: <5117B73C.10600@linux-ipv6.org>
-References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com>
+Subject: Re: [PATCH] ipv6: don't let node/interface scoped multicast traffic
+ escape on the wire
+Date: Mon, 11 Feb 2013 00:31:39 +0900
+Message-ID: <5117BD5B.2020900@linux-ipv6.org>
+References: <20130210123335.GA18219@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	davem@davemloft.net, stefanr@s5r6.in-berlin.de,
+Cc: netdev@vger.kernel.org, erik.hugne@ericsson.com,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:34954 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:35587 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755649Ab3BJPFe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 10:05:34 -0500
-In-Reply-To: <51179714.6010706@gmail.com>
+	with ESMTP id S1755138Ab3BJPbl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 10:31:41 -0500
+In-Reply-To: <20130210123335.GA18219@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Stephan Gatzka wrote:
+> Reported-by: Erik Hugne <erik.hugne@ericsson.com>
+> Cc: Erik Hugne <erik.hugne@ericsson.com>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/ip6_output.c | 7 +++++++
+>  1 file changed, 7 insertions(+)
 > 
->> I have tested against MacOS X 10.5.8.
->>
->> ARP and ping works but unfortunately NDP does not seem to work.
->>
->> If I assign static NDP entry on Linux, ping6 ff02::1%fw0 from MacOS
->> works well.icmp
->>
->> I checked tcpdump on both side, and I guess this is because MacOS is
->> broken; - tcpdump on Linux side complains that ICMP checksum is
->> incorrect. - tcpdump on MacOS side says that length of Link-layer
->> address option is 2 (16) instead of 3 (24).
+> diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+> index c953825..155eccf 100644
+> --- a/net/ipv6/ip6_output.c
+> +++ b/net/ipv6/ip6_output.c
+> @@ -120,6 +120,13 @@ static int ip6_finish_output2(struct sk_buff *skb)
+>  
+>  		IP6_UPD_PO_STATS(dev_net(dev), idev, IPSTATS_MIB_OUTMCAST,
+>  				skb->len);
+> +
+> +		if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
+> +		    IPV6_ADDR_SCOPE_NODELOCAL &&
+> +		    !(dev->flags & IFF_LOOPBACK)) {
+> +			kfree_skb(skb);
+> +			return 0;
+> +		}
+>  	}
+>  
+>  	rcu_read_lock_bh();
 > 
-> Than I would assume that there is a bug in your new implementation.
-> RFC3146 section 8 states that the link layer option is of length 3. In
-> addition, my proof of concept implementation also worked with MacOS X
-> and I double checked the ndisc packets directly on the firewire line
-> using a firewire sniffing device (firespy).
 
-Can I have you code?
-
-I meant, on MacOS X, it reports its originating lladdr option of 16bytes.
-Then Linux side receives lladdr option of 24bytes, in ICMPv6 with incorrect
-checksum.  I guess that lladdr option is 16byte long at bpf layer,
-and then, it is mangled in the driver, but ICMPv6 checksum was not modified.
-
-In reverse, on Linux side, it sends lladdr option of 24 bytes long
-with correct checksum, but it is ignored by MacOS.
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
 --yoshfuji
