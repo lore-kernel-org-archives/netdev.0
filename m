@@ -1,57 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Sun, 10 Feb 2013 00:08:06 +0100
-Message-ID: <20130209230806.GA16640@order.stressinduktion.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Softirqs without captured packets
+Date: Sat, 09 Feb 2013 17:16:02 -0800
+Message-ID: <1360458962.6696.38.camel@edumazet-glaptop>
+References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
+	 <20130208.145728.1110053781319882182.davem@davemloft.net>
+	 <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
+	 <20130208.151523.798634382725569230.davem@davemloft.net>
+	 <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
+	 <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@wide.ad.jp>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Javier Domingo <javierdo1@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:54641 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756349Ab3BIXIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 18:08:07 -0500
-Content-Disposition: inline
-In-Reply-To: <5116595E.2080601@linux-ipv6.org>
+Received: from mail-da0-f53.google.com ([209.85.210.53]:36590 "EHLO
+	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760894Ab3BJBQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 20:16:07 -0500
+Received: by mail-da0-f53.google.com with SMTP id w3so22748dad.40
+        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 17:16:05 -0800 (PST)
+In-Reply-To: <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
-> Hi,
+On Sat, 2013-02-09 at 21:27 +0100, Javier Domingo wrote:
+> Can you tell me something about the traces I introduced?
 > 
-> Hannes Frederic Sowa wrote:
-> > On Wed, Feb 06, 2013 at 05:54:15PM +0100, Hannes Frederic Sowa wrote:
-> >> On Thu, Feb 07, 2013 at 12:24:14AM +0900, YOSHIFUJI Hideaki wrote:
-> >>> NAK.  I think we should select routes via loopback device here.
-> >>
-> >> Will try your idea, thanks.
-> > 
-> > Does this patch look reasonable? Btw. i am pleased to see this kind of
-> > things work out as expected most of the time (addrtype checking etc. all
-> > in place). :)
-> > 
+> I tried to insert the trace the cleanest way possible. I patched
+> dev.c, in the measurement places and tried to make the module the more
+> independent I could. It makes the measure with sched_clock() and in
+> each round, it sums up the work done.
 > 
-> Well, I rethink of what "interface-local" means.
-> 
-> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
-> If so, your original patch seems better.  My bad, sorry.
+> I have supposed that that softirq is just for capturing packets, so
+> that is why I asked my first question,
 
-No problem, will do. I have not checked carefully, but this would mean we have
-to do changes to glibc to have a correct behaving getaddrinfo?
+Seems pretty easy to understand to me.
 
-> Would you update original one, with minor modification that defers
-> kfree_skb() after incrementing MIB, please?
+A network device receives and transmits packets.
 
-Yes. Will send the patch tomorrow at the latest.
-> 
-> If you think we should join ff01::{1,2} by default, you can send another
-> patch for it.  (BTW, why don't we join ff05::2, then? ;-))
+n->poll() call done in net_rx_action() can both :
 
-Ok, I'll split it up. You are right about ff05::2, seems like the right thing
-to do, somehow. I hope this won't impact any multicast routing daemons. 
+- Receive packets
+- Perform the TX completion for most devices (some of them still
+  use a hard IRQ driven TX completion path)
 
-Thanks,
+The return value is only about receive part.
 
-  Hannes
+(The TX completion is not limited by a per round quota)
