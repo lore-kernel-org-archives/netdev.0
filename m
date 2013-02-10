@@ -1,265 +1,56 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [RFC net-next (TAKE 3) 6/6] ipv6: IPv6 over Firewire (RFC3146) support.
-Date: Mon, 11 Feb 2013 02:47:20 +0900
-Message-ID: <5117DD28.8070708@linux-ipv6.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next v3 08/11] tbf: fix value set for q->ptokens
+Date: Sun, 10 Feb 2013 10:00:08 -0800
+Message-ID: <1360519208.20362.19.camel@edumazet-glaptop>
+References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
+	 <1360428312-1277-9-git-send-email-jiri@resnulli.us>
+	 <1360459846.20362.2.camel@edumazet-glaptop>
+	 <20130210081824.GA1570@minipsycho.orion>
+	 <1360484498.20362.12.camel@edumazet-glaptop>
+	 <20130210085155.GB1570@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephan.gatzka@gmail.com, davem@davemloft.net,
-	stefanr@s5r6.in-berlin.de, yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38889 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756054Ab3BJRrV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 12:47:21 -0500
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:48758 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754355Ab3BJSAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 13:00:11 -0500
+Received: by mail-pb0-f50.google.com with SMTP id up1so397099pbc.23
+        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 10:00:10 -0800 (PST)
+In-Reply-To: <20130210085155.GB1570@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
----
- drivers/firewire/Kconfig |    6 ++--
- drivers/firewire/net.c   |   85 +++++++++++++++++++++++++++++++++++++++++-----
- net/ipv6/addrconf.c      |   20 ++++++++++-
- 3 files changed, 98 insertions(+), 13 deletions(-)
+On Sun, 2013-02-10 at 09:51 +0100, Jiri Pirko wrote:
+> Sun, Feb 10, 2013 at 09:21:38AM CET, eric.dumazet@gmail.com wrote:
+> >On Sun, 2013-02-10 at 09:18 +0100, Jiri Pirko wrote:
+> >> Sun, Feb 10, 2013 at 02:30:46AM CET, eric.dumazet@gmail.com wrote:
+> >> >On Sat, 2013-02-09 at 17:45 +0100, Jiri Pirko wrote:
+> >> >> q->ptokens is in ns and we are assigning q->mtu directly to it. That is
+> >> >> wrong. psched_l2t_ns() should be used to compute correct value.
+> >> >> 
+> >> >
+> >> >
+> >> >Not clear why its a separate patch, and not folded in the 6th
+> >> 
+> >> This is independent on 6th. Would be needed even if 6th wouldn't be
+> >> there.
+> >
+> >When was this bug introduced then ?
+> 
+> This has been present since the beginning of git. I'm unable to find bk
+> repo right now to tell you bk commit :/
 
-diff --git a/drivers/firewire/Kconfig b/drivers/firewire/Kconfig
-index 7224533..ad8d16c 100644
---- a/drivers/firewire/Kconfig
-+++ b/drivers/firewire/Kconfig
-@@ -47,9 +47,9 @@ config FIREWIRE_NET
- 	tristate "IP networking over 1394"
- 	depends on FIREWIRE && INET
- 	help
--	  This enables IPv4 over IEEE 1394, providing IP connectivity with
--	  other implementations of RFC 2734 as found on several operating
--	  systems.  Multicast support is currently limited.
-+	  This enables IPv4/IPv6 over IEEE 1394, providing IP connectivity
-+	  with other implementations of RFC 2734/RFC3146 as found on
-+	  several operating systems.  Multicast support is currently limited.
- 
- 	  To compile this driver as a module, say M here:  The module will be
- 	  called firewire-net.
-diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index 177a092..a3c922d 100644
---- a/drivers/firewire/net.c
-+++ b/drivers/firewire/net.c
-@@ -1,5 +1,6 @@
- /*
-  * IPv4 over IEEE 1394, per RFC 2734
-+ * IPv6 over IEEE 1394, per RFC 3146
-  *
-  * Copyright (C) 2009 Jay Fenlason <fenlason@redhat.com>
-  *
-@@ -46,6 +47,7 @@
- 
- #define IANA_SPECIFIER_ID		0x00005eU
- #define RFC2734_SW_VERSION		0x000001U
-+#define RFC3146_SW_VERSION		0x000002U
- 
- #define IEEE1394_GASP_HDR_SIZE	8
- 
-@@ -505,6 +507,9 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
- 	switch (ether_type) {
- 	case ETH_P_ARP:
- 	case ETH_P_IP:
-+#if IS_ENABLED(CONFIG_IPV6)
-+	case ETH_P_IPV6:
-+#endif
- 		break;
- 	default:
- 		goto err;
-@@ -768,11 +773,18 @@ static void fwnet_receive_broadcast(struct fw_iso_context *context,
- 	ver = be32_to_cpu(buf_ptr[1]) & 0xffffff;
- 	source_node_id = be32_to_cpu(buf_ptr[0]) >> 16;
- 
--	if (specifier_id == IANA_SPECIFIER_ID && ver == RFC2734_SW_VERSION) {
--		buf_ptr += 2;
--		length -= IEEE1394_GASP_HDR_SIZE;
--		fwnet_incoming_packet(dev, buf_ptr, length, source_node_id,
--				      context->card->generation, true);
-+	if (specifier_id == IANA_SPECIFIER_ID) {
-+		switch (ver) {
-+		case RFC2734_SW_VERSION:
-+#if IS_ENABLED(CONFIG_IPV6)
-+		case RFC3146_SW_VERSION:
-+#endif
-+			buf_ptr += 2;
-+			length -= IEEE1394_GASP_HDR_SIZE;
-+			fwnet_incoming_packet(dev, buf_ptr, length,
-+					      source_node_id,
-+					      context->card->generation, true);
-+		}
- 	}
- 
- 	packet.payload_length = dev->rcv_buffer_size;
-@@ -979,8 +991,18 @@ static int fwnet_send_packet(struct fwnet_packet_task *ptask)
- 
- 		p = skb_push(ptask->skb, IEEE1394_GASP_HDR_SIZE);
- 		put_unaligned_be32(node_id << 16 | IANA_SPECIFIER_ID >> 8, p);
--		put_unaligned_be32((IANA_SPECIFIER_ID & 0xff) << 24
--						| RFC2734_SW_VERSION, &p[4]);
-+
-+		switch (ptask->skb->protocol) {
-+		default:
-+			put_unaligned_be32((IANA_SPECIFIER_ID & 0xff) << 24
-+							| RFC2734_SW_VERSION, &p[4]);
-+			break;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		case htons(ETH_P_IPV6):
-+			put_unaligned_be32((IANA_SPECIFIER_ID & 0xff) << 24
-+							| RFC3146_SW_VERSION, &p[4]);
-+#endif
-+		}
- 
- 		/* We should not transmit if broadcast_channel.valid == 0. */
- 		fw_send_request(dev->card, &ptask->transaction,
-@@ -1200,6 +1222,9 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
- 	switch (proto) {
- 	case htons(ETH_P_ARP):
- 	case htons(ETH_P_IP):
-+#if IS_ENABLED(CONFIG_IPV6)
-+	case htons(ETH_P_IPV6):
-+#endif
- 		break;
- 	default:
- 		goto fail;
-@@ -1545,6 +1570,14 @@ static const struct ieee1394_device_id fwnet_id_table[] = {
- 		.specifier_id = IANA_SPECIFIER_ID,
- 		.version      = RFC2734_SW_VERSION,
- 	},
-+#if IS_ENABLED(CONFIG_IPV6)
-+	{
-+		.match_flags  = IEEE1394_MATCH_SPECIFIER_ID |
-+				IEEE1394_MATCH_VERSION,
-+		.specifier_id = IANA_SPECIFIER_ID,
-+		.version      = RFC3146_SW_VERSION,
-+	},
-+#endif
- 	{ }
- };
- 
-@@ -1582,6 +1615,30 @@ static struct fw_descriptor rfc2374_unit_directory = {
- 	.data   = rfc2374_unit_directory_data
- };
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+static const u32 rfc3146_unit_directory_data[] = {
-+	0x00040000,	/* directory_length		*/
-+	0x1200005e,	/* unit_specifier_id: IANA	*/
-+	0x81000003,	/* textual descriptor offset	*/
-+	0x13000002,	/* unit_sw_version: RFC 3146	*/
-+	0x81000005,	/* textual descriptor offset	*/
-+	0x00030000,	/* descriptor_length		*/
-+	0x00000000,	/* text				*/
-+	0x00000000,	/* minimal ASCII, en		*/
-+	0x49414e41,	/* I A N A			*/
-+	0x00030000,	/* descriptor_length		*/
-+	0x00000000,	/* text				*/
-+	0x00000000,	/* minimal ASCII, en		*/
-+	0x49507636,	/* I P v 6			*/
-+};
-+
-+static struct fw_descriptor rfc3146_unit_directory = {
-+	.length = ARRAY_SIZE(rfc3146_unit_directory_data),
-+	.key    = (CSR_DIRECTORY | CSR_UNIT) << 24,
-+	.data   = rfc3146_unit_directory_data
-+};
-+#endif
-+
- static int __init fwnet_init(void)
- {
- 	int err;
-@@ -1590,11 +1647,17 @@ static int __init fwnet_init(void)
- 	if (err)
- 		return err;
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+	err = fw_core_add_descriptor(&rfc3146_unit_directory);
-+	if (err)
-+		goto out;
-+#endif
-+
- 	fwnet_packet_task_cache = kmem_cache_create("packet_task",
- 			sizeof(struct fwnet_packet_task), 0, 0, NULL);
- 	if (!fwnet_packet_task_cache) {
- 		err = -ENOMEM;
--		goto out;
-+		goto out2;
- 	}
- 
- 	err = driver_register(&fwnet_driver.driver);
-@@ -1602,7 +1665,11 @@ static int __init fwnet_init(void)
- 		return 0;
- 
- 	kmem_cache_destroy(fwnet_packet_task_cache);
-+out2:
-+#if IS_ENABLED(CONFIG_IPV6)
-+	fw_core_remove_descriptor(&rfc3146_unit_directory);
- out:
-+#endif
- 	fw_core_remove_descriptor(&rfc2374_unit_directory);
- 
- 	return err;
-@@ -1618,6 +1685,6 @@ static void __exit fwnet_cleanup(void)
- module_exit(fwnet_cleanup);
- 
- MODULE_AUTHOR("Jay Fenlason <fenlason@redhat.com>");
--MODULE_DESCRIPTION("IPv4 over IEEE1394 as per RFC 2734");
-+MODULE_DESCRIPTION("IP over IEEE1394 as per RFC 2734/3146");
- MODULE_LICENSE("GPL");
- MODULE_DEVICE_TABLE(ieee1394, fwnet_id_table);
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index bd9f936..060a08a 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -70,6 +70,7 @@
- #include <net/snmp.h>
- 
- #include <net/af_ieee802154.h>
-+#include <net/firewire.h>
- #include <net/ipv6.h>
- #include <net/protocol.h>
- #include <net/ndisc.h>
-@@ -1660,6 +1661,20 @@ static int addrconf_ifid_eui64(u8 *eui, struct net_device *dev)
- 	return 0;
- }
- 
-+static int addrconf_ifid_ieee1394(u8 *eui, struct net_device *dev)
-+{
-+	union fwnet_hwaddr *ha;
-+
-+	if (dev->addr_len != FWNET_ALEN)
-+		return -1;
-+
-+	ha = (union fwnet_hwaddr *)dev->dev_addr;
-+
-+	memcpy(eui, &ha->uc.uniq_id, sizeof(ha->uc.uniq_id));
-+	eui[0] ^= 2;
-+	return 0;
-+}
-+
- static int addrconf_ifid_arcnet(u8 *eui, struct net_device *dev)
- {
- 	/* XXX: inherit EUI-64 from other interface -- yoshfuji */
-@@ -1724,6 +1739,8 @@ static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
- 		return addrconf_ifid_gre(eui, dev);
- 	case ARPHRD_IEEE802154:
- 		return addrconf_ifid_eui64(eui, dev);
-+	case ARPHRD_IEEE1394:
-+		return addrconf_ifid_ieee1394(eui, dev);
- 	}
- 	return -1;
- }
-@@ -2565,7 +2582,8 @@ static void addrconf_dev_config(struct net_device *dev)
- 	    (dev->type != ARPHRD_FDDI) &&
- 	    (dev->type != ARPHRD_ARCNET) &&
- 	    (dev->type != ARPHRD_INFINIBAND) &&
--	    (dev->type != ARPHRD_IEEE802154)) {
-+	    (dev->type != ARPHRD_IEEE802154) &&
-+	    (dev->type != ARPHRD_IEEE1394)) {
- 		/* Alas, we support only Ethernet autoconfiguration. */
- 		return;
- 	}
--- 
-1.7.9.5
+Current code doesnt store ptokens in ns, your patch is very confusing.
+
+q->mtu is properly setup by tc command.
+
+Its not dev->mtu at all.
+
+I claim you fix a bug added in 6th patch.
+
+It makes no sense to me to introduce a bug in 6th and fix it in 8th.
