@@ -1,73 +1,46 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Mon, 11 Feb 2013 03:42:53 +0900
-Message-ID: <5117EA2D.1020106@linux-ipv6.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org> <20130210153230.GA21377@order.stressinduktion.org>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v5 05/45] percpu_rwlock: Make percpu-rwlocks IRQ-safe,
+	optimally
+Date: Sun, 10 Feb 2013 19:42:09 +0100
+Message-ID: <20130210184209.GA3041@redhat.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073400.13822.52336.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:40230 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754843Ab3BJSmy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 13:42:54 -0500
-In-Reply-To: <20130210153230.GA21377@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130122073400.13822.52336.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hannes Frederic Sowa wrote:
-> On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
->> Hi,
->>
->> Hannes Frederic Sowa wrote:
->>> On Wed, Feb 06, 2013 at 05:54:15PM +0100, Hannes Frederic Sowa wrote:
->>>> On Thu, Feb 07, 2013 at 12:24:14AM +0900, YOSHIFUJI Hideaki wrote:
->>>>> NAK.  I think we should select routes via loopback device here.
->>>>
->>>> Will try your idea, thanks.
->>>
->>> Does this patch look reasonable? Btw. i am pleased to see this kind of
->>> things work out as expected most of the time (addrtype checking etc. all
->>> in place). :)
->>>
->>
->> Well, I rethink of what "interface-local" means.
->>
->> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
->> If so, your original patch seems better.  My bad, sorry.
-> 
-> I was looking at getpeername et. al. where we should report the scope
-> back to the user. A common pattern is:
-> 
->                         if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
->                                 sin->sin6_scope_id = IP6CB(skb)->iif;
-> 
-> I propose to introduce something like 'bool ipv6_addr_intf_scoped(in6_addr)'
-> and let it check for ll addresses and interface scoped addresses.
+only one cosmetic nit...
 
-Hmm, maybe, we might want to say:
+On 01/22, Srivatsa S. Bhat wrote:
+>
+> +#define READER_PRESENT		(1UL << 16)
+> +#define READER_REFCNT_MASK	(READER_PRESENT - 1)
+> +
+>  #define reader_uses_percpu_refcnt(pcpu_rwlock, cpu)			\
+>  		(ACCESS_ONCE(per_cpu(*((pcpu_rwlock)->reader_refcnt), cpu)))
+>
+>  #define reader_nested_percpu(pcpu_rwlock)				\
+> -			(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) > 1)
+> +	(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) & READER_REFCNT_MASK)
+>
+>  #define writer_active(pcpu_rwlock)					\
+>  			(__this_cpu_read(*((pcpu_rwlock)->writer_signal)))
 
-__u32 __ipv6_iface_scope_id(int type, unsigned int iface)
-{
-	if (type == IPV6_ADDR_ANY ||
-	    type & IPV6_ADDR_LOOPBACK ||
-	    __ipv6_addr_src_scope(type) > IPV6_ADDR_SCOPE_LINKLOCAL)
-		return 0;
-	return iface;
-}
+I think this all can go to lib/percpu-rwlock.c. Nobody needs to know
+these implementation details.
 
-__u32 ipv6_iface_scope_id(const struct in6_addr *addr, unsigned int iface)
-{
-	return __ipv6_iface_scope_id(__ipv6_addr_type(addr), iface);
-}
-
-And then,
-	sin->sin6_scope_id = __ipv6_iface_scope_id(__ipv6_addr_type(&sin->sin6_addr),
-						   IP6CB(skb)->iif);
-or
-	sin->sin6_scope_id = ipv6_iface_scope_id(&sin->sin6_addr, IP6CB(skb)->iif);
-
---yoshfuji
+Oleg.
