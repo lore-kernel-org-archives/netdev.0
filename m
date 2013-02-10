@@ -1,81 +1,76 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 09/11] act_police: move struct tcf_police to act_police.c
-Date: Sun, 10 Feb 2013 11:52:17 +0100
-Message-ID: <1360493539-14868-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 08/11] tbf: fix value set for q->ptokens
+Date: Sun, 10 Feb 2013 11:52:16 +0100
+Message-ID: <1360493539-14868-9-git-send-email-jiri@resnulli.us>
 References: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
 	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:39562 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754685Ab3BJKxD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:53:03 -0500
-Received: by mail-ee0-f45.google.com with SMTP id b57so2697174eek.18
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 02:53:02 -0800 (PST)
+Received: from mail-ea0-f177.google.com ([209.85.215.177]:33281 "EHLO
+	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754762Ab3BJKxB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:53:01 -0500
+Received: by mail-ea0-f177.google.com with SMTP id n13so2205246eaa.22
+        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 02:52:59 -0800 (PST)
 In-Reply-To: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's not used anywhere else, so move it.
+q->ptokens is in ns and we are assigning q->mtu directly to it. That is
+wrong. psched_l2t_ns() should be used to compute correct value.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/act_api.h  | 15 ---------------
- net/sched/act_police.c | 15 +++++++++++++++
- 2 files changed, 15 insertions(+), 15 deletions(-)
+ net/sched/sch_tbf.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 112c25c..06ef7e9 100644
---- a/include/net/act_api.h
-+++ b/include/net/act_api.h
-@@ -35,21 +35,6 @@ struct tcf_common {
- #define tcf_lock	common.tcfc_lock
- #define tcf_rcu		common.tcfc_rcu
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index dc562a8..0ac6224 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -111,6 +111,7 @@ struct tbf_sched_data {
+ /* Variables */
+ 	s64	tokens;			/* Current number of B tokens */
+ 	s64	ptokens;		/* Current number of P tokens */
++	s64	mtu_ptokens;
+ 	psched_time_t	t_c;		/* Time check-point */
+ 	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+ 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
+@@ -165,8 +166,8 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
  
--struct tcf_police {
--	struct tcf_common	common;
--	int			tcfp_result;
--	u32			tcfp_ewma_rate;
--	u32			tcfp_burst;
--	u32			tcfp_mtu;
--	u32			tcfp_toks;
--	u32			tcfp_ptoks;
--	psched_time_t		tcfp_t_c;
--	struct qdisc_rate_table	*tcfp_R_tab;
--	struct qdisc_rate_table	*tcfp_P_tab;
--};
--#define to_police(pc)	\
--	container_of(pc, struct tcf_police, common)
--
- struct tcf_hashinfo {
- 	struct tcf_common	**htab;
- 	unsigned int		hmask;
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 8dbd695..378a649 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -22,6 +22,21 @@
- #include <net/act_api.h>
- #include <net/netlink.h>
+ 		if (q->peak_present) {
+ 			ptoks = toks + q->ptokens;
+-			if (ptoks > (long)q->mtu)
+-				ptoks = q->mtu;
++			if (ptoks > q->mtu_ptokens)
++				ptoks = q->mtu_ptokens;
+ 			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
+ 		}
+ 		toks += q->tokens;
+@@ -215,7 +216,8 @@ static void tbf_reset(struct Qdisc *sch)
+ 	sch->q.qlen = 0;
+ 	q->t_c = ktime_to_ns(ktime_get());
+ 	q->tokens = q->buffer;
+-	q->ptokens = q->mtu;
++	if (q->peak_present)
++		q->ptokens = q->mtu_ptokens;
+ 	qdisc_watchdog_cancel(&q->watchdog);
+ }
  
-+struct tcf_police {
-+	struct tcf_common	common;
-+	int			tcfp_result;
-+	u32			tcfp_ewma_rate;
-+	u32			tcfp_burst;
-+	u32			tcfp_mtu;
-+	u32			tcfp_toks;
-+	u32			tcfp_ptoks;
-+	psched_time_t		tcfp_t_c;
-+	struct qdisc_rate_table	*tcfp_R_tab;
-+	struct qdisc_rate_table	*tcfp_P_tab;
-+};
-+#define to_police(pc)	\
-+	container_of(pc, struct tcf_police, common)
-+
- #define L2T(p, L)   qdisc_l2t((p)->tcfp_R_tab, L)
- #define L2T_P(p, L) qdisc_l2t((p)->tcfp_P_tab, L)
+@@ -296,11 +298,12 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	q->max_size = max_size;
+ 	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+ 	q->tokens = q->buffer;
+-	q->ptokens = q->mtu;
  
+ 	psched_ratecfg_precompute(&q->rate, rtab->rate.rate);
+ 	if (ptab) {
+ 		psched_ratecfg_precompute(&q->peak, ptab->rate.rate);
++		q->mtu_ptokens = (s64) psched_l2t_ns(&q->peak, q->mtu);
++		q->ptokens = q->mtu_ptokens;
+ 		q->peak_present = true;
+ 	} else {
+ 		q->peak_present = false;
 -- 
 1.8.1.2
