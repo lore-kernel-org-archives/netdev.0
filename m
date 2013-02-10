@@ -1,43 +1,47 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 07/11] tbf: ignore max_size check for gso skbs
-Date: Sun, 10 Feb 2013 11:52:15 +0100
-Message-ID: <1360493539-14868-8-git-send-email-jiri@resnulli.us>
-References: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
-	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: netdev@vger.kernel.org
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Sun, 10 Feb 2013 19:57:57 +0900
+Message-ID: <51177D35.8030209@linux-ipv6.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org> <20130210095954.GA23548@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@wide.ad.jp>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:37353 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754685Ab3BJKw5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:52:57 -0500
-Received: by mail-ee0-f51.google.com with SMTP id d17so2559312eek.38
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 02:52:56 -0800 (PST)
-In-Reply-To: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:57236 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751179Ab3BJK57 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:57:59 -0500
+In-Reply-To: <20130210095954.GA23548@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This check made bigger packets incorrectly dropped. Remove this
-limitation for gso skbs.
+Hannes Frederic Sowa wrote:
+> On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
+>> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
+>> If so, your original patch seems better.  My bad, sorry.
+>>
+>> Would you update original one, with minor modification that defers
+>> kfree_skb() after incrementing MIB, please?
+> 
+> I would add another constraint to the if "&& !(dev->flags & IFF_LOOPBACK)", so
+> it becomes:
+> 
+>                 if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
+>                     IPV6_ADDR_SCOPE_NODELOCAL &&
+>                     !(dev->flags & IFF_LOOPBACK))
+>                         kfree_skb(skb);
+>                         return 0;
+>                 }
+> 
+> 
+> Otherwise ff01::/16%lo would not work because the multicast mirroring through
+> dev_loopback_xmit won't be taken and the packet would be dropped after that.
+> 
+> Can you confirm? Thanks.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-Acked-by: Eric Dumazet <edumazet@google.com>
----
- net/sched/sch_tbf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ack.
 
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index e05710a..dc562a8 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -121,7 +121,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	struct tbf_sched_data *q = qdisc_priv(sch);
- 	int ret;
- 
--	if (qdisc_pkt_len(skb) > q->max_size)
-+	if (qdisc_pkt_len(skb) > q->max_size && !skb_is_gso(skb))
- 		return qdisc_reshape_fail(skb, sch);
- 
- 	ret = qdisc_enqueue(skb, q->qdisc);
--- 
-1.8.1.2
+--yoshfuji
