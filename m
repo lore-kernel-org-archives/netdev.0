@@ -1,50 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH v2] ipv6: don't accept multicast traffic with scop 0
-Date: Sun, 10 Feb 2013 16:35:22 +0100
-Message-ID: <20130210153522.GA20897@order.stressinduktion.org>
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH 1/2] net: calexdaxgmac: fix printing of hardware version
+Date: Sun, 10 Feb 2013 15:38:40 +0000
+Message-ID: <1360510721-17860-2-git-send-email-ben.dooks@codethink.co.uk>
+References: <1360510721-17860-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-arm-kernel@lists.infradead.org, Ben Dooks <ben.dooks@codethink.co.uk>,
+ "David S. Miller" <davem@davemloft.net>, Rob Herring <rob.herring@calxeda.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:55542 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755745Ab3BJPf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 10:35:28 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1360510721-17860-1-git-send-email-ben.dooks@codethink.co.uk>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-v2:
-a) moved before multicast source address check
-b) changed comment to netdev style
+The current driver attempts to print netdev_info() before registering the
+network device and allowing the name to be set. Change this print to be
+after the network deviec has been registered, and thus has been allocated
+a network device name.
 
-Cc: Erik Hugne <erik.hugne@ericsson.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Fix the following issue:
+
+calxedaxgmac fff50000.ethernet (unregistered net_device): h/w version is 0x1012
+
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 ---
- net/ipv6/ip6_input.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/ethernet/calxeda/xgmac.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 4ac5bf3..521d9fd 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -118,6 +118,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
- 	    ipv6_addr_loopback(&hdr->daddr))
- 		goto err;
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index f7f0290..f91d9b2 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -1715,9 +1715,6 @@ static int xgmac_probe(struct platform_device *pdev)
+ 		goto err_io;
+ 	}
  
-+	/* RFC4291 2.7
-+	 * Nodes must not originate a packet to a multicast address whose scop
-+	 * field contains the reserved value 0; if such a packet is received, it
-+	 * must be silently dropped.
-+	 */
-+	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-+	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 0)
-+		goto err;
+-	uid = readl(priv->base + XGMAC_VERSION);
+-	netdev_info(ndev, "h/w version is 0x%x\n", uid);
+-
+ 	writel(0, priv->base + XGMAC_DMA_INTR_ENA);
+ 	ndev->irq = platform_get_irq(pdev, 0);
+ 	if (ndev->irq == -ENXIO) {
+@@ -1771,6 +1768,9 @@ static int xgmac_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto err_reg;
+ 
++	uid = readl(priv->base + XGMAC_VERSION);
++	netdev_info(ndev, "h/w version is 0x%x\n", uid);
 +
- 	/*
- 	 * RFC4291 2.7
- 	 * Multicast addresses must not be used as source addresses in IPv6
+ 	return 0;
+ 
+ err_reg:
 -- 
-1.8.1.2
+1.7.10.4
