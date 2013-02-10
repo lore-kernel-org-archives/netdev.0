@@ -1,237 +1,184 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 05/11] sch: make htb_rate_cfg and functions around that generic
-Date: Sun, 10 Feb 2013 11:52:13 +0100
-Message-ID: <1360493539-14868-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v4 06/11] tbf: improved accuracy at high rates
+Date: Sun, 10 Feb 2013 11:52:14 +0100
+Message-ID: <1360493539-14868-7-git-send-email-jiri@resnulli.us>
 References: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
 	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:57868 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754685Ab3BJKwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:52:53 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e49so2715151eek.19
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 02:52:51 -0800 (PST)
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:56951 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754088Ab3BJKwz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:52:55 -0500
+Received: by mail-ea0-f170.google.com with SMTP id a11so2227656eaa.15
+        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 02:52:54 -0800 (PST)
 In-Reply-To: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As it is going to be used in tbf as well, push these to generic code.
+Current TBF uses rate table computed by the "tc" userspace program,
+which has the following issue:
+
+The rate table has 256 entries to map packet lengths to
+token (time units).  With TSO sized packets, the 256 entry granularity
+leads to loss/gain of rate, making the token bucket inaccurate.
+
+Thus, instead of relying on rate table, this patch explicitly computes
+the time and accounts for packet transmission times with nanosecond
+granularity.
+
+This is a followup to 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 Acked-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/sch_generic.h | 19 ++++++++++++++
- net/sched/sch_generic.c   | 37 +++++++++++++++++++++++++++
- net/sched/sch_htb.c       | 65 +++++++----------------------------------------
- 3 files changed, 65 insertions(+), 56 deletions(-)
+ net/sched/sch_tbf.c | 60 ++++++++++++++++++++++++++---------------------------
+ 1 file changed, 29 insertions(+), 31 deletions(-)
 
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 2d06c2a..2761c90 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -679,4 +679,23 @@ static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask,
- }
- #endif
- 
-+struct psched_ratecfg {
-+	u64 rate_bps;
-+	u32 mult;
-+	u32 shift;
-+};
-+
-+static inline u64 psched_l2t_ns(const struct psched_ratecfg *r,
-+				unsigned int len)
-+{
-+	return ((u64)len * r->mult) >> r->shift;
-+}
-+
-+extern void psched_ratecfg_precompute(struct psched_ratecfg *r, u32 rate);
-+
-+static inline u32 psched_ratecfg_getrate(const struct psched_ratecfg *r)
-+{
-+	return r->rate_bps >> 3;
-+}
-+
- #endif
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 5d81a44..ffad481 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -25,6 +25,7 @@
- #include <linux/rcupdate.h>
- #include <linux/list.h>
- #include <linux/slab.h>
-+#include <net/sch_generic.h>
- #include <net/pkt_sched.h>
- #include <net/dst.h>
- 
-@@ -896,3 +897,39 @@ void dev_shutdown(struct net_device *dev)
- 
- 	WARN_ON(timer_pending(&dev->watchdog_timer));
- }
-+
-+void psched_ratecfg_precompute(struct psched_ratecfg *r, u32 rate)
-+{
-+	u64 factor;
-+	u64 mult;
-+	int shift;
-+
-+	r->rate_bps = rate << 3;
-+	r->shift = 0;
-+	r->mult = 1;
-+	/*
-+	 * Calibrate mult, shift so that token counting is accurate
-+	 * for smallest packet size (64 bytes).  Token (time in ns) is
-+	 * computed as (bytes * 8) * NSEC_PER_SEC / rate_bps.  It will
-+	 * work as long as the smallest packet transfer time can be
-+	 * accurately represented in nanosec.
-+	 */
-+	if (r->rate_bps > 0) {
-+		/*
-+		 * Higher shift gives better accuracy.  Find the largest
-+		 * shift such that mult fits in 32 bits.
-+		 */
-+		for (shift = 0; shift < 16; shift++) {
-+			r->shift = shift;
-+			factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
-+			mult = div64_u64(factor, r->rate_bps);
-+			if (mult > UINT_MAX)
-+				break;
-+		}
-+
-+		r->shift = shift - 1;
-+		factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
-+		r->mult = div64_u64(factor, r->rate_bps);
-+	}
-+}
-+EXPORT_SYMBOL(psched_ratecfg_precompute);
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 2b22544..03c2692 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -38,6 +38,7 @@
- #include <linux/workqueue.h>
- #include <linux/slab.h>
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 4b056c15..e05710a 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -19,6 +19,7 @@
+ #include <linux/errno.h>
+ #include <linux/skbuff.h>
  #include <net/netlink.h>
 +#include <net/sch_generic.h>
  #include <net/pkt_sched.h>
  
- /* HTB algorithm.
-@@ -71,12 +72,6 @@ enum htb_cmode {
- 	HTB_CAN_SEND		/* class can send */
- };
  
--struct htb_rate_cfg {
--	u64 rate_bps;
--	u32 mult;
--	u32 shift;
--};
--
- /* interior & leaf nodes; props specific to leaves are marked L: */
- struct htb_class {
- 	struct Qdisc_class_common common;
-@@ -124,8 +119,8 @@ struct htb_class {
- 	int filter_cnt;
- 
- 	/* token bucket parameters */
--	struct htb_rate_cfg rate;
--	struct htb_rate_cfg ceil;
+@@ -100,23 +101,21 @@
+ struct tbf_sched_data {
+ /* Parameters */
+ 	u32		limit;		/* Maximal length of backlog: bytes */
+-	u32		buffer;		/* Token bucket depth/rate: MUST BE >= MTU/B */
++	s64		buffer;		/* Token bucket depth/rate: MUST BE >= MTU/B */
+ 	u32		mtu;
+ 	u32		max_size;
+-	struct qdisc_rate_table	*R_tab;
+-	struct qdisc_rate_table	*P_tab;
 +	struct psched_ratecfg rate;
-+	struct psched_ratecfg ceil;
- 	s64 buffer, cbuffer;	/* token bucket depth/rate */
- 	psched_tdiff_t mbuffer;	/* max wait time */
- 	s64 tokens, ctokens;	/* current number of tokens */
-@@ -168,45 +163,6 @@ struct htb_sched {
- 	struct work_struct work;
++	struct psched_ratecfg peak;
++	bool peak_present;
+ 
+ /* Variables */
+-	long	tokens;			/* Current number of B tokens */
+-	long	ptokens;		/* Current number of P tokens */
++	s64	tokens;			/* Current number of B tokens */
++	s64	ptokens;		/* Current number of P tokens */
+ 	psched_time_t	t_c;		/* Time check-point */
+ 	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+ 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
  };
  
--static u64 l2t_ns(struct htb_rate_cfg *r, unsigned int len)
--{
--	return ((u64)len * r->mult) >> r->shift;
--}
+-#define L2T(q, L)   qdisc_l2t((q)->R_tab, L)
+-#define L2T_P(q, L) qdisc_l2t((q)->P_tab, L)
 -
--static void htb_precompute_ratedata(struct htb_rate_cfg *r)
--{
--	u64 factor;
--	u64 mult;
--	int shift;
--
--	r->shift = 0;
--	r->mult = 1;
--	/*
--	 * Calibrate mult, shift so that token counting is accurate
--	 * for smallest packet size (64 bytes).  Token (time in ns) is
--	 * computed as (bytes * 8) * NSEC_PER_SEC / rate_bps.  It will
--	 * work as long as the smallest packet transfer time can be
--	 * accurately represented in nanosec.
--	 */
--	if (r->rate_bps > 0) {
--		/*
--		 * Higher shift gives better accuracy.  Find the largest
--		 * shift such that mult fits in 32 bits.
--		 */
--		for (shift = 0; shift < 16; shift++) {
--			r->shift = shift;
--			factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
--			mult = div64_u64(factor, r->rate_bps);
--			if (mult > UINT_MAX)
--				break;
--		}
--
--		r->shift = shift - 1;
--		factor = 8LLU * NSEC_PER_SEC * (1 << r->shift);
--		r->mult = div64_u64(factor, r->rate_bps);
--	}
--}
--
- /* find class in global hash table using given handle */
- static inline struct htb_class *htb_find(u32 handle, struct Qdisc *sch)
+ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  {
-@@ -632,7 +588,7 @@ static inline void htb_accnt_tokens(struct htb_class *cl, int bytes, s64 diff)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+@@ -157,23 +156,23 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
  
- 	if (toks > cl->buffer)
- 		toks = cl->buffer;
--	toks -= (s64) l2t_ns(&cl->rate, bytes);
-+	toks -= (s64) psched_l2t_ns(&cl->rate, bytes);
- 	if (toks <= -cl->mbuffer)
- 		toks = 1 - cl->mbuffer;
+ 	if (skb) {
+ 		psched_time_t now;
+-		long toks;
+-		long ptoks = 0;
++		s64 toks;
++		s64 ptoks = 0;
+ 		unsigned int len = qdisc_pkt_len(skb);
  
-@@ -645,7 +601,7 @@ static inline void htb_accnt_ctokens(struct htb_class *cl, int bytes, s64 diff)
+-		now = psched_get_time();
+-		toks = psched_tdiff_bounded(now, q->t_c, q->buffer);
++		now = ktime_to_ns(ktime_get());
++		toks = min_t(s64, now - q->t_c, q->buffer);
  
- 	if (toks > cl->cbuffer)
- 		toks = cl->cbuffer;
--	toks -= (s64) l2t_ns(&cl->ceil, bytes);
-+	toks -= (s64) psched_l2t_ns(&cl->ceil, bytes);
- 	if (toks <= -cl->mbuffer)
- 		toks = 1 - cl->mbuffer;
+-		if (q->P_tab) {
++		if (q->peak_present) {
+ 			ptoks = toks + q->ptokens;
+ 			if (ptoks > (long)q->mtu)
+ 				ptoks = q->mtu;
+-			ptoks -= L2T_P(q, len);
++			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
+ 		}
+ 		toks += q->tokens;
+-		if (toks > (long)q->buffer)
++		if (toks > q->buffer)
+ 			toks = q->buffer;
+-		toks -= L2T(q, len);
++		toks -= (s64) psched_l2t_ns(&q->rate, len);
  
-@@ -1134,9 +1090,9 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 		if ((toks|ptoks) >= 0) {
+ 			skb = qdisc_dequeue_peeked(q->qdisc);
+@@ -214,7 +213,7 @@ static void tbf_reset(struct Qdisc *sch)
  
- 	memset(&opt, 0, sizeof(opt));
+ 	qdisc_reset(q->qdisc);
+ 	sch->q.qlen = 0;
+-	q->t_c = psched_get_time();
++	q->t_c = ktime_to_ns(ktime_get());
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 	qdisc_watchdog_cancel(&q->watchdog);
+@@ -295,12 +294,17 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 	q->limit = qopt->limit;
+ 	q->mtu = qopt->mtu;
+ 	q->max_size = max_size;
+-	q->buffer = qopt->buffer;
++	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
  
--	opt.rate.rate = cl->rate.rate_bps >> 3;
-+	opt.rate.rate = psched_ratecfg_getrate(&cl->rate);
- 	opt.buffer = PSCHED_NS2TICKS(cl->buffer);
--	opt.ceil.rate = cl->ceil.rate_bps >> 3;
-+	opt.ceil.rate = psched_ratecfg_getrate(&cl->ceil);
- 	opt.cbuffer = PSCHED_NS2TICKS(cl->cbuffer);
- 	opt.quantum = cl->quantum;
- 	opt.prio = cl->prio;
-@@ -1503,11 +1459,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
- 			cl->prio = TC_HTB_NUMPRIO - 1;
- 	}
+-	swap(q->R_tab, rtab);
+-	swap(q->P_tab, ptab);
++	psched_ratecfg_precompute(&q->rate, rtab->rate.rate);
++	if (ptab) {
++		psched_ratecfg_precompute(&q->peak, ptab->rate.rate);
++		q->peak_present = true;
++	} else {
++		q->peak_present = false;
++	}
  
--	cl->rate.rate_bps = (u64)hopt->rate.rate << 3;
--	cl->ceil.rate_bps = (u64)hopt->ceil.rate << 3;
+ 	sch_tree_unlock(sch);
+ 	err = 0;
+@@ -319,7 +323,7 @@ static int tbf_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	q->t_c = psched_get_time();
++	q->t_c = ktime_to_ns(ktime_get());
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 	q->qdisc = &noop_qdisc;
+ 
+@@ -331,12 +335,6 @@ static void tbf_destroy(struct Qdisc *sch)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 
+ 	qdisc_watchdog_cancel(&q->watchdog);
 -
--	htb_precompute_ratedata(&cl->rate);
--	htb_precompute_ratedata(&cl->ceil);
-+	psched_ratecfg_precompute(&cl->rate, hopt->rate.rate);
-+	psched_ratecfg_precompute(&cl->ceil, hopt->ceil.rate);
+-	if (q->P_tab)
+-		qdisc_put_rtab(q->P_tab);
+-	if (q->R_tab)
+-		qdisc_put_rtab(q->R_tab);
+-
+ 	qdisc_destroy(q->qdisc);
+ }
  
- 	cl->buffer = PSCHED_TICKS2NS(hopt->buffer);
- 	cl->cbuffer = PSCHED_TICKS2NS(hopt->buffer);
+@@ -352,13 +350,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 		goto nla_put_failure;
+ 
+ 	opt.limit = q->limit;
+-	opt.rate = q->R_tab->rate;
+-	if (q->P_tab)
+-		opt.peakrate = q->P_tab->rate;
++	opt.rate.rate = psched_ratecfg_getrate(&q->rate);
++	if (q->peak_present)
++		opt.peakrate.rate = psched_ratecfg_getrate(&q->peak);
+ 	else
+ 		memset(&opt.peakrate, 0, sizeof(opt.peakrate));
+ 	opt.mtu = q->mtu;
+-	opt.buffer = q->buffer;
++	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+ 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
+ 
 -- 
 1.8.1.2
