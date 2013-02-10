@@ -1,50 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Softirqs without captured packets
-Date: Sat, 09 Feb 2013 17:16:02 -0800
-Message-ID: <1360458962.6696.38.camel@edumazet-glaptop>
-References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
-	 <20130208.145728.1110053781319882182.davem@davemloft.net>
-	 <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
-	 <20130208.151523.798634382725569230.davem@davemloft.net>
-	 <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
-	 <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
+Subject: Re: [patch net-next v3 10/11] act_police: improved accuracy at high
+ rates
+Date: Sat, 09 Feb 2013 17:33:47 -0800
+Message-ID: <1360460027.20362.4.camel@edumazet-glaptop>
+References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
+	 <1360428312-1277-11-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Javier Domingo <javierdo1@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:36590 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760894Ab3BJBQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 20:16:07 -0500
-Received: by mail-da0-f53.google.com with SMTP id w3so22748dad.40
-        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 17:16:05 -0800 (PST)
-In-Reply-To: <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:39479 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760905Ab3BJBdu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 20:33:50 -0500
+Received: by mail-pb0-f50.google.com with SMTP id up1so253314pbc.9
+        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 17:33:50 -0800 (PST)
+In-Reply-To: <1360428312-1277-11-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-02-09 at 21:27 +0100, Javier Domingo wrote:
-> Can you tell me something about the traces I introduced?
+On Sat, 2013-02-09 at 17:45 +0100, Jiri Pirko wrote:
+> Current act_police uses rate table computed by the "tc" userspace program,
+> which has the following issue:
 > 
-> I tried to insert the trace the cleanest way possible. I patched
-> dev.c, in the measurement places and tried to make the module the more
-> independent I could. It makes the measure with sched_clock() and in
-> each round, it sums up the work done.
+> The rate table has 256 entries to map packet lengths to
+> token (time units).  With TSO sized packets, the 256 entry granularity
+> leads to loss/gain of rate, making the token bucket inaccurate.
 > 
-> I have supposed that that softirq is just for capturing packets, so
-> that is why I asked my first question,
+> Thus, instead of relying on rate table, this patch explicitly computes
+> the time and accounts for packet transmission times with nanosecond
+> granularity.
+> 
 
-Seems pretty easy to understand to me.
+...
 
-A network device receives and transmits packets.
 
-n->poll() call done in net_rx_action() can both :
+> -			ptoks -= L2T_P(police, qdisc_pkt_len(skb));
+> +			if (ptoks > (s64) psched_l2t_ns(&police->peak,
+> +							police->tcfp_mtu))
+> +				ptoks = (s64) psched_l2t_ns(&police->peak,
+> +							    police->tcfp_mtu);
 
-- Receive packets
-- Perform the TX completion for most devices (some of them still
-  use a hard IRQ driven TX completion path)
+Same remark here, this should be in a cached variable.
 
-The return value is only about receive part.
-
-(The TX completion is not limited by a per round quota)
+> +			ptoks -= (s64) psched_l2t_ns(&police->peak,
+> +						     qdisc_pkt_len(skb));
+>  		}
