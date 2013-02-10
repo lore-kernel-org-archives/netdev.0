@@ -1,46 +1,39 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v3 08/11] tbf: fix value set for q->ptokens
-Date: Sun, 10 Feb 2013 09:51:55 +0100
-Message-ID: <20130210085155.GB1570@minipsycho.orion>
-References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
- <1360428312-1277-9-git-send-email-jiri@resnulli.us>
- <1360459846.20362.2.camel@edumazet-glaptop>
- <20130210081824.GA1570@minipsycho.orion>
- <1360484498.20362.12.camel@edumazet-glaptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Sun, 10 Feb 2013 18:02:02 +0900
+Message-ID: <5117620A.4050005@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: stephan.gatzka@gmail.com, davem@davemloft.net,
+	stefanr@s5r6.in-berlin.de, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:61643 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752918Ab3BJIwA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 03:52:00 -0500
-Received: by mail-ee0-f53.google.com with SMTP id e53so2643758eek.26
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 00:51:59 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1360484498.20362.12.camel@edumazet-glaptop>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:54419 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754040Ab3BJJCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 04:02:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sun, Feb 10, 2013 at 09:21:38AM CET, eric.dumazet@gmail.com wrote:
->On Sun, 2013-02-10 at 09:18 +0100, Jiri Pirko wrote:
->> Sun, Feb 10, 2013 at 02:30:46AM CET, eric.dumazet@gmail.com wrote:
->> >On Sat, 2013-02-09 at 17:45 +0100, Jiri Pirko wrote:
->> >> q->ptokens is in ns and we are assigning q->mtu directly to it. That is
->> >> wrong. psched_l2t_ns() should be used to compute correct value.
->> >> 
->> >
->> >
->> >Not clear why its a separate patch, and not folded in the 6th
->> 
->> This is independent on 6th. Would be needed even if 6th wouldn't be
->> there.
->
->When was this bug introduced then ?
+This is TAKE 2 of IPv6 over IEEE1394(Firewire) (RFC3146) support
+by extended MAC approach.
 
-This has been present since the beginning of git. I'm unable to find bk
-repo right now to tell you bk commit :/
->
->
+YOSHIFUJI Hideaki (4):
+  firewire net: Accept IPv4 and ARP only.
+  firewire net: Send L2 multicast via GASP.
+  firewire net, ipv4 arp: Extend hardware address and remove
+    driver-level packet inspection.
+  ipv6: IPv6 over Firewire (RFC3146) support.
+
+ drivers/firewire/Kconfig |    6 +-
+ drivers/firewire/net.c   |  329 +++++++++++++++++++++-------------------------
+ include/linux/if_arp.h   |   12 +-
+ include/net/firewire.h   |   25 ++++
+ net/ipv4/arp.c           |   18 ++-
+ net/ipv6/addrconf.c      |   20 ++-
+ 6 files changed, 222 insertions(+), 188 deletions(-)
+ create mode 100644 include/net/firewire.h
+
+-- 
+1.7.9.5
