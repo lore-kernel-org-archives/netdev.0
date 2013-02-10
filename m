@@ -1,113 +1,90 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 04/45] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Sun, 10 Feb 2013 14:13:57 -0800
-Message-ID: <20130210221357.GN2666@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
- <20130122073347.13822.85876.stgit@srivatsabhat.in.ibm.com>
- <20130208231017.GK2666@linux.vnet.ibm.com>
- <20130210180607.GA1375@redhat.com>
- <5117F403.1050300@linux.vnet.ibm.com>
- <20130210195042.GA6236@redhat.com>
- <5117FE74.4020000@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH 2/2] net: calexdaxgmac: fixup endian issues after __raw
+ IO function change
+Date: Sun, 10 Feb 2013 16:32:32 -0600
+Message-ID: <51182000.7090004@gmail.com>
+References: <1360510721-17860-1-git-send-email-ben.dooks@codethink.co.uk> <1360510721-17860-3-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Oleg Nesterov <oleg@redhat.com>, tglx@linutronix.de,
-	peterz@infradead.org, tj@kernel.org, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5117FE74.4020000@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Dooks <ben.dooks@codethink.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:44613 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756854Ab3BJWch (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 17:32:37 -0500
+Received: by mail-ob0-f179.google.com with SMTP id un3so5502066obb.24
+        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 14:32:36 -0800 (PST)
+In-Reply-To: <1360510721-17860-3-git-send-email-ben.dooks@codethink.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 11, 2013 at 01:39:24AM +0530, Srivatsa S. Bhat wrote:
-> On 02/11/2013 01:20 AM, Oleg Nesterov wrote:
-> > On 02/11, Srivatsa S. Bhat wrote:
-> >>
-> >> On 02/10/2013 11:36 PM, Oleg Nesterov wrote:
-> >>>>> +static void announce_writer_inactive(struct percpu_rwlock *pcpu_rwlock)
-> >>>>> +{
-> >>>>> +   unsigned int cpu;
-> >>>>> +
-> >>>>> +   drop_writer_signal(pcpu_rwlock, smp_processor_id());
-> >>>>
-> >>>> Why do we drop ourselves twice?  More to the point, why is it important to
-> >>>> drop ourselves first?
-> >>>
-> >>> And don't we need mb() _before_ we clear ->writer_signal ?
-> >>>
-> >>
-> >> Oh, right! Or, how about moving announce_writer_inactive() to _after_
-> >> write_unlock()?
-> > 
-> > Not sure this will help... but, either way it seems we have another
-> > problem...
-> > 
-> > percpu_rwlock tries to be "generic". This means we should "ignore" its
-> > usage in hotplug, and _write_lock should not race with _write_unlock.
-> > 
+On 02/10/2013 09:38 AM, Ben Dooks wrote:
+> When changing to __raw acccessors in 0ec6d343f7bcf9e0944aa9ff65287b987ec00c0f
+> ("net: calxedaxgmac: use raw i/o accessors in rx and tx paths"), the driver
+> is now broken on big endian systems as the readl/writel have an implict
+> endian swap in them.
 > 
-> Yes, good point!
-> 
-> > IOW. Suppose that _write_unlock clears ->writer_signal. We need to ensure
-> > that this can't race with another write which wants to set this flag.
-> > Perhaps it should be counter as well, and it should be protected by
-> > the same ->global_rwlock, but _write_lock() should drop it before
-> > sync_all_readers() and then take it again?
-> 
-> Hmm, or we could just add an extra mb() like you suggested, and keep it
-> simple...
-> 
-> > 
-> >>>>> +static inline void sync_reader(struct percpu_rwlock *pcpu_rwlock,
-> >>>>> +			       unsigned int cpu)
-> >>>>> +{
-> >>>>> +	smp_rmb(); /* Paired with smp_[w]mb() in percpu_read_[un]lock() */
-> >>>>
-> >>>> As I understand it, the purpose of this memory barrier is to ensure
-> >>>> that the stores in drop_writer_signal() happen before the reads from
-> >>>> ->reader_refcnt in reader_uses_percpu_refcnt(), thus preventing the
-> >>>> race between a new reader attempting to use the fastpath and this writer
-> >>>> acquiring the lock.  Unless I am confused, this must be smp_mb() rather
-> >>>> than smp_rmb().
-> >>>
-> >>> And note that before sync_reader() we call announce_writer_active() which
-> >>> already adds mb() before sync_all_readers/sync_reader, so this rmb() looks
-> >>> unneeded.
-> >>>
-> >>
-> >> My intention was to help the writer see the ->reader_refcnt drop to zero
-> >> ASAP; hence I used smp_wmb() at reader and smp_rmb() here at the writer.
-> > 
-> > Hmm, interesting... Not sure, but can't really comment. However I can
-> > answer your next question:
-> 
-> Paul told me in another mail that I was expecting too much out of memory
-> barriers, like increasing the speed of electrons and what not ;-)
-> [ It would have been cool though, if it had such magical powers :P ]
+> Change all the places where the __raw calls are used to correctly convert
+> the constants in big endian format to the little endian data that the
+> peripheral expects to see.
 
-"But because you have used the special mb_tachyonic instruction, the
-speed of light is 600,000 km/s for the next five clock cycles"...  ;-)
+This is a bit ugly. The correct fix is really to enable the _relaxed
+accessors on more arches.
 
-							Thanx, Paul
+Perhaps a local definition of readl_relaxed and writel_relaxed would be
+a cleaner temporary solution.
 
-> >> Please correct me if my understanding of memory barriers is wrong here..
-> > 
-> > Who? Me??? No we have paulmck for that ;)
-> >
+Rob
+
 > 
-> Haha ;-)
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> ---
+>  drivers/net/ethernet/calxeda/xgmac.c |   10 +++++++---
+>  1 file changed, 7 insertions(+), 3 deletions(-)
 > 
-> Regards,
-> Srivatsa S. Bhat
+> diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+> index f91d9b2..96fd538 100644
+> --- a/drivers/net/ethernet/calxeda/xgmac.c
+> +++ b/drivers/net/ethernet/calxeda/xgmac.c
+> @@ -1202,7 +1202,8 @@ static int xgmac_poll(struct napi_struct *napi, int budget)
+>  
+>  	if (work_done < budget) {
+>  		napi_complete(napi);
+> -		__raw_writel(DMA_INTR_DEFAULT_MASK, priv->base + XGMAC_DMA_INTR_ENA);
+> +		__raw_writel(le32_to_cpu((__force __le32)DMA_INTR_DEFAULT_MASK),
+> +			     priv->base + XGMAC_DMA_INTR_ENA);
+>  	}
+>  	return work_done;
+>  }
+> @@ -1348,7 +1349,7 @@ static irqreturn_t xgmac_pmt_interrupt(int irq, void *dev_id)
+>  	void __iomem *ioaddr = priv->base;
+>  
+>  	intr_status = __raw_readl(ioaddr + XGMAC_INT_STAT);
+> -	if (intr_status & XGMAC_INT_STAT_PMT) {
+> +	if (intr_status & le32_to_cpu((__force __le32)XGMAC_INT_STAT_PMT)) {
+>  		netdev_dbg(priv->dev, "received Magic frame\n");
+>  		/* clear the PMT bits 5 and 6 by reading the PMT */
+>  		readl(ioaddr + XGMAC_PMT);
+> @@ -1369,6 +1370,8 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
+>  	intr_status &= __raw_readl(priv->base + XGMAC_DMA_INTR_ENA);
+>  	__raw_writel(intr_status, priv->base + XGMAC_DMA_STATUS);
+>  
+> +	intr_status = (__force u32)cpu_to_le32(intr_status);
+> +
+>  	/* It displays the DMA process states (CSR5 register) */
+>  	/* ABNORMAL interrupts */
+>  	if (unlikely(intr_status & DMA_STATUS_AIS)) {
+> @@ -1403,7 +1406,8 @@ static irqreturn_t xgmac_interrupt(int irq, void *dev_id)
+>  
+>  	/* TX/RX NORMAL interrupts */
+>  	if (intr_status & (DMA_STATUS_RI | DMA_STATUS_TU | DMA_STATUS_TI)) {
+> -		__raw_writel(DMA_INTR_ABNORMAL, priv->base + XGMAC_DMA_INTR_ENA);
+> +		__raw_writel(le32_to_cpu((__force __le32)DMA_INTR_ABNORMAL),
+> +			     priv->base + XGMAC_DMA_INTR_ENA);
+>  		napi_schedule(&priv->napi);
+>  	}
+>  
 > 
