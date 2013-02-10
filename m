@@ -1,40 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: by default join ff01::1 and in case of forwarding ff01::2 and ff05:2
-Date: Sun, 10 Feb 2013 15:59:22 +0100
-Message-ID: <20130210145922.GG18219@order.stressinduktion.org>
-References: <20130210133431.GD18219@order.stressinduktion.org> <5117B306.4070402@yoshifuji.org>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Mon, 11 Feb 2013 00:05:32 +0900
+Message-ID: <5117B73C.10600@linux-ipv6.org>
+References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	davem@davemloft.net, stefanr@s5r6.in-berlin.de,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: stephan.gatzka@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:55498 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755618Ab3BJO7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 09:59:23 -0500
-Content-Disposition: inline
-In-Reply-To: <5117B306.4070402@yoshifuji.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:34954 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1755649Ab3BJPFe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 10:05:34 -0500
+In-Reply-To: <51179714.6010706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 10, 2013 at 11:47:34PM +0900, YOSHIFUJI Hideaki wrote:
-> > @@ -611,10 +617,15 @@ static void dev_forward_change(struct inet6_dev *idev)
-> >  	if (idev->cnf.forwarding)
-> >  		dev_disable_lro(dev);
-> >  	if (dev->flags & IFF_MULTICAST) {
-> > -		if (idev->cnf.forwarding)
-> > +		if (idev->cnf.forwarding) {
-> >  			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
-> > -		else
-> > +			ipv6_dev_mc_inc(dev, &in6addr_interfacelocal_allrouters);
-> > +			ipv6_dev_mc_inc(dev, &in6addr_sitelocal_allrouters);
-> > +		} else {
-> >  			ipv6_dev_mc_dec(dev, &in6addr_linklocal_allrouters);
-> > +			ipv6_dev_mc_dec(dev, &in6addr_interfacelocal_allrouters);
-> > +			ipv6_dev_mc_inc(dev, &in6addr_sitelocal_allrouters);
->                                     ~~~dec?
-> > +		}
-> >  	}
+Hi,
 
-Yes, that was the broken part. I fixed it locally and then send out the old
-patch file.
+Stephan Gatzka wrote:
+> 
+>> I have tested against MacOS X 10.5.8.
+>>
+>> ARP and ping works but unfortunately NDP does not seem to work.
+>>
+>> If I assign static NDP entry on Linux, ping6 ff02::1%fw0 from MacOS
+>> works well.icmp
+>>
+>> I checked tcpdump on both side, and I guess this is because MacOS is
+>> broken; - tcpdump on Linux side complains that ICMP checksum is
+>> incorrect. - tcpdump on MacOS side says that length of Link-layer
+>> address option is 2 (16) instead of 3 (24).
+> 
+> Than I would assume that there is a bug in your new implementation.
+> RFC3146 section 8 states that the link layer option is of length 3. In
+> addition, my proof of concept implementation also worked with MacOS X
+> and I double checked the ndisc packets directly on the firewire line
+> using a firewire sniffing device (firespy).
+
+Can I have you code?
+
+I meant, on MacOS X, it reports its originating lladdr option of 16bytes.
+Then Linux side receives lladdr option of 24bytes, in ICMPv6 with incorrect
+checksum.  I guess that lladdr option is 16byte long at bpf layer,
+and then, it is mangled in the driver, but ICMPv6 checksum was not modified.
+
+In reverse, on Linux side, it sends lladdr option of 24 bytes long
+with correct checksum, but it is ignored by MacOS.
+
+--yoshfuji
