@@ -1,69 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Softirqs without captured packets
-Date: Sun, 10 Feb 2013 00:16:28 -0800
-Message-ID: <1360484188.20362.11.camel@edumazet-glaptop>
-References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
-	 <20130208.145728.1110053781319882182.davem@davemloft.net>
-	 <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
-	 <20130208.151523.798634382725569230.davem@davemloft.net>
-	 <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
-	 <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
-	 <1360458962.6696.38.camel@edumazet-glaptop>
-	 <CALZVap=_x_nvnH55n7SGMxFGCR9XPKkNzSrt0J1dp41g-HUAqQ@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v3 08/11] tbf: fix value set for q->ptokens
+Date: Sun, 10 Feb 2013 09:18:24 +0100
+Message-ID: <20130210081824.GA1570@minipsycho.orion>
+References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
+ <1360428312-1277-9-git-send-email-jiri@resnulli.us>
+ <1360459846.20362.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Javier Domingo <javierdo1@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:48677 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752461Ab3BJIQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 03:16:31 -0500
-Received: by mail-pa0-f48.google.com with SMTP id hz10so2639736pad.35
-        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 00:16:31 -0800 (PST)
-In-Reply-To: <CALZVap=_x_nvnH55n7SGMxFGCR9XPKkNzSrt0J1dp41g-HUAqQ@mail.gmail.com>
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:44323 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752461Ab3BJIS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 03:18:28 -0500
+Received: by mail-ea0-f175.google.com with SMTP id d1so2224531eab.20
+        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 00:18:27 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1360459846.20362.2.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please do not top post on netdev
+Sun, Feb 10, 2013 at 02:30:46AM CET, eric.dumazet@gmail.com wrote:
+>On Sat, 2013-02-09 at 17:45 +0100, Jiri Pirko wrote:
+>> q->ptokens is in ns and we are assigning q->mtu directly to it. That is
+>> wrong. psched_l2t_ns() should be used to compute correct value.
+>> 
+>
+>
+>Not clear why its a separate patch, and not folded in the 6th
 
-On Sun, 2013-02-10 at 04:02 +0100, Javier Domingo wrote:
-> Well, that explains why the 0 :D. I was getting nut. Any way, does
-> that happen in e1000e or tg3 drivers? If not, then there is still
-> without explanation.
-> 
+This is independent on 6th. Would be needed even if 6th wouldn't be
+there.
 
+>
+>
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  net/sched/sch_tbf.c | 9 +++++----
+>>  1 file changed, 5 insertions(+), 4 deletions(-)
+>> 
+>> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+>> index dc562a8..6e8b670 100644
+>> --- a/net/sched/sch_tbf.c
+>> +++ b/net/sched/sch_tbf.c
+>> @@ -165,8 +165,8 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+>>  
+>>  		if (q->peak_present) {
+>>  			ptoks = toks + q->ptokens;
+>> -			if (ptoks > (long)q->mtu)
+>> -				ptoks = q->mtu;
+>> +			if (ptoks > (s64) psched_l2t_ns(&q->peak, q->mtu))
+>> +				ptoks = (s64) psched_l2t_ns(&q->peak, q->mtu);
+>
+>It seems a bit expensive to perform this in fast path.
+>
+>Please add a variable to cache psched_l2t_ns(&q->peak, q->mtu)
 
-The answer is yes.
+Okay, I did not think that this is necessary, but sure, I will do that.
 
-> Respecting the low numbers, I will do some futher stress tests, but
-> this measures where done pinging the computer at 0.001 interval:
-> 
-> ping -i 0.0001 <computer ip>
-> 
-> And received packets where at much, 3 per softirq. Also, I tried
-> opening an ftp download session but didn't get much high numbers
-> (1Gbps link).
-> 
+Thanks!
 
-Machine is fast enough, thats all.
-
-> When I tried this with the injection done by a dag (hardware injector)
-> there were strange results because thought the 0s where explained, the
-> were appearing thought the rest of softirqs where about 280+-50.
-
-Have you read this part of net_rx_action() ?
-
-unsigned long time_limit = jiffies + 2;
-
-                /* If softirq window is exhuasted then punt.
-                 * Allow this to run for 2 jiffies since which will allow
-                 * an average latency of 1.5/HZ.
-                 */
-                if (unlikely(budget <= 0 || time_after(jiffies, time_limit)))
-                        goto softnet_break;
-
-This means your machine handles 280+50 packets per 1.5/HZ
-
-(Plus the hidden TX completions...)
+>
+>
+>>  			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
+>>  		}
+>>  		toks += q->tokens;
+>> @@ -215,7 +215,8 @@ static void tbf_reset(struct Qdisc *sch)
+>>  	sch->q.qlen = 0;
+>>  	q->t_c = ktime_to_ns(ktime_get());
+>>  	q->tokens = q->buffer;
+>> -	q->ptokens = q->mtu;
+>> +	if (q->peak_present)
+>> +		q->ptokens = (s64) psched_l2t_ns(&q->peak, q->mtu);
+>>  	qdisc_watchdog_cancel(&q->watchdog);
+>>  }
+>>  
+>> @@ -296,11 +297,11 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+>>  	q->max_size = max_size;
+>>  	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+>>  	q->tokens = q->buffer;
+>> -	q->ptokens = q->mtu;
+>>  
+>>  	psched_ratecfg_precompute(&q->rate, rtab->rate.rate);
+>>  	if (ptab) {
+>>  		psched_ratecfg_precompute(&q->peak, ptab->rate.rate);
+>> +		q->ptokens = (s64) psched_l2t_ns(&q->peak, q->mtu);
+>
+>Here probably.
+>
+>
+>
