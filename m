@@ -1,94 +1,44 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [net-next (TAKE 2) 3/4] firewire net, ipv4 arp: Extend hardware
- address and remove driver-level packet inspection.
-Date: Mon, 11 Feb 2013 01:32:48 +0900
-Message-ID: <5117CBB0.3030000@linux-ipv6.org>
-References: <51176223.8090305@linux-ipv6.org> <20130210151056.3e6e9f53@stein>
+Subject: [RFC net-next (TAKE 3) 0/6] IPv6 over Firewire
+Date: Mon, 11 Feb 2013 02:46:41 +0900
+Message-ID: <5117DD01.5080008@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	davem@davemloft.net, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: stephan.gatzka@gmail.com, davem@davemloft.net,
+	stefanr@s5r6.in-berlin.de, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:37059 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38840 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754516Ab3BJQct (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 11:32:49 -0500
-In-Reply-To: <20130210151056.3e6e9f53@stein>
+	with ESMTP id S1754742Ab3BJRqo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 12:46:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2013=E5=B9=B402=E6=9C=8810=E6=97=A5 23:10), Stefan Richter wrote:
-> On Feb 10 YOSHIFUJI Hideaki wrote:
->> @@ -1140,18 +1051,6 @@ static int fwnet_broadcast_start(struct fwnet=
-_device *dev)
->>  	unsigned long offset;
->>  	unsigned u;
->> =20
->> -	if (dev->local_fifo =3D=3D FWNET_NO_FIFO_ADDR) {
->> -		dev->handler.length =3D 4096;
->> -		dev->handler.address_callback =3D fwnet_receive_packet;
->> -		dev->handler.callback_data =3D dev;
->> -
->> -		retval =3D fw_core_add_address_handler(&dev->handler,
->> -					&fw_high_memory_region);
->> -		if (retval < 0)
->> -			goto failed_initial;
->> -
->> -		dev->local_fifo =3D dev->handler.offset;
->> -	}
->> =20
->>  	max_receive =3D 1U << (dev->card->max_receive + 1);
->>  	num_packets =3D (FWNET_ISO_PAGE_COUNT * PAGE_SIZE) / max_receive;
->> @@ -1234,8 +1133,6 @@ static int fwnet_broadcast_start(struct fwnet_=
-device *dev)
->>  	dev->broadcast_rcv_context =3D NULL;
->>   failed_context_create:
->>  	fw_core_remove_address_handler(&dev->handler);
->> - failed_initial:
->> -	dev->local_fifo =3D FWNET_NO_FIFO_ADDR;
->> =20
->>  	return retval;
->>  }
->=20
-> [...]
->=20
->> @@ -1546,12 +1421,21 @@ static int fwnet_probe(struct device *_dev)
->>  	dev->broadcast_rcv_context =3D NULL;
->>  	dev->broadcast_xmt_max_payload =3D 0;
->>  	dev->broadcast_xmt_datagramlabel =3D 0;
->> -	dev->local_fifo =3D FWNET_NO_FIFO_ADDR;
->>  	dev->queued_datagrams =3D 0;
->>  	INIT_LIST_HEAD(&dev->peer_list);
->>  	dev->card =3D card;
->>  	dev->netdev =3D net;
->> =20
->> +	dev->handler.length =3D 4096;
->> +	dev->handler.address_callback =3D fwnet_receive_packet;
->> +	dev->handler.callback_data =3D dev;
->> +
->> +	ret =3D fw_core_add_address_handler(&dev->handler, &fw_high_memory=
-_region);
->> +	if (ret < 0)
->> +		goto out;
->> +
->> +	dev->local_fifo =3D dev->handler.offset;
->> +
->>  	/*
->>  	 * Use the RFC 2734 default 1500 octets or the maximum payload
->>  	 * as initial MTU
->=20
-> If at all possible, please put changes of this kind into a separate
-> patch.
->=20
-> I get a distinct feeling that the error handling paths in
-> fwnet_broadcast_start() and in fwnet_probe() respectively became bugg=
-y now.
-> This would be easier to verify if shifting this code was done in a se=
-parate
-> change.
+This is take3 of IPv6 over Firewire.
+- Ignore spd and max_payload in ARP/NDP.
+- Separate patch for address handler related change
+  with some fixes.
+- Fix minor typoes.
 
-Will do.
+YOSHIFUJI Hideaki (6):
+  firewire net: Ignore spd and max_payload advertised by ARP.
+  firewire net: Accept IPv4 and ARP only.
+  firewire net: Send L2 multicast via GASP.
+  firewire net: Allocate address handler before registering net_device.
+  firewire net, ipv4 arp: Extend hardware address and remove
+    driver-level packet inspection.
+  ipv6: IPv6 over Firewire (RFC3146) support.
 
---yoshfuji
+ drivers/firewire/Kconfig |    6 +-
+ drivers/firewire/net.c   |  322 +++++++++++++++++++++-------------------------
+ include/linux/if_arp.h   |   12 +-
+ include/net/firewire.h   |   25 ++++
+ net/ipv4/arp.c           |   18 ++-
+ net/ipv6/addrconf.c      |   20 ++-
+ 6 files changed, 214 insertions(+), 189 deletions(-)
+ create mode 100644 include/net/firewire.h
+
+-- 
+1.7.9.5
