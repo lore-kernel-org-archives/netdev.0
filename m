@@ -1,56 +1,40 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] ipv6: don't accept multicast traffic with scop 0
-Date: Sun, 10 Feb 2013 23:56:02 +0900
-Message-ID: <5117B502.3020001@linux-ipv6.org>
-References: <20130210124851.GB18219@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: by default join ff01::1 and in case of forwarding ff01::2 and ff05:2
+Date: Sun, 10 Feb 2013 15:59:22 +0100
+Message-ID: <20130210145922.GG18219@order.stressinduktion.org>
+References: <20130210133431.GD18219@order.stressinduktion.org> <5117B306.4070402@yoshifuji.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, erik.hugne@ericsson.com,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:34722 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755665Ab3BJO4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 09:56:03 -0500
-In-Reply-To: <20130210124851.GB18219@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:55498 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755618Ab3BJO7X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 09:59:23 -0500
+Content-Disposition: inline
+In-Reply-To: <5117B306.4070402@yoshifuji.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> Cc: Erik Hugne <erik.hugne@ericsson.com>
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_input.c | 10 ++++++++++
->  1 file changed, 10 insertions(+)
-> 
-> diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-> index 4ac5bf3..34ddebd 100644
-> --- a/net/ipv6/ip6_input.c
-> +++ b/net/ipv6/ip6_input.c
-> @@ -126,6 +126,16 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
->  	if (ipv6_addr_is_multicast(&hdr->saddr))
->  		goto err;
->  
-> +	/*
-> +	 * RFC4291 2.7
-> +	 * Nodes must not originate a packet to a multicast address whose scop
-> +	 * field contains the reserved value 0; if such a packet is received, it
-> +	 * must be silently dropped.
-> +	 */
-> +	if (ipv6_addr_is_multicast(&hdr->daddr) &&
-> +	    IPV6_ADDR_MC_SCOPE(&hdr->daddr) == 0)
-> +		goto err;
-> +
->  	skb->transport_header = skb->network_header + sizeof(*hdr);
->  	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
->  
-> 
+On Sun, Feb 10, 2013 at 11:47:34PM +0900, YOSHIFUJI Hideaki wrote:
+> > @@ -611,10 +617,15 @@ static void dev_forward_change(struct inet6_dev *idev)
+> >  	if (idev->cnf.forwarding)
+> >  		dev_disable_lro(dev);
+> >  	if (dev->flags & IFF_MULTICAST) {
+> > -		if (idev->cnf.forwarding)
+> > +		if (idev->cnf.forwarding) {
+> >  			ipv6_dev_mc_inc(dev, &in6addr_linklocal_allrouters);
+> > -		else
+> > +			ipv6_dev_mc_inc(dev, &in6addr_interfacelocal_allrouters);
+> > +			ipv6_dev_mc_inc(dev, &in6addr_sitelocal_allrouters);
+> > +		} else {
+> >  			ipv6_dev_mc_dec(dev, &in6addr_linklocal_allrouters);
+> > +			ipv6_dev_mc_dec(dev, &in6addr_interfacelocal_allrouters);
+> > +			ipv6_dev_mc_inc(dev, &in6addr_sitelocal_allrouters);
+>                                     ~~~dec?
+> > +		}
+> >  	}
 
-Would you place this before saddr check, just after loopback check, please?
-Otherwise,
-
-Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-
---yoshfuji
+Yes, that was the broken part. I fixed it locally and then send out the old
+patch file.
