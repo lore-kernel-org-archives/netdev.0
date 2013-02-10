@@ -1,48 +1,46 @@
-From: Jean Sacren <sakiwit@gmail.com>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [PATCH] skbuff: create skb_panic() to let caller specify panic
-Date: Sat, 9 Feb 2013 23:40:24 -0700
-Message-ID: <20130210064024.GC2496@mail.gmail.com>
+Date: Sat, 09 Feb 2013 22:52:31 -0800
+Message-ID: <1360479151.26127.5.camel@joe-AO722>
 References: <1360471749-6177-1-git-send-email-sakiwit@gmail.com>
- <1360473061.26127.1.camel@joe-AO722>
- <20130210055629.GB2496@mail.gmail.com>
- <1360476173.26127.3.camel@joe-AO722>
+	 <1360473061.26127.1.camel@joe-AO722> <20130210055629.GB2496@mail.gmail.com>
+	 <1360476173.26127.3.camel@joe-AO722> <20130210064024.GC2496@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+To: Jean Sacren <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:50424 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751567Ab3BJGlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 01:41:04 -0500
-Received: by mail-pb0-f51.google.com with SMTP id un15so297845pbc.24
-        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 22:41:03 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1360476173.26127.3.camel@joe-AO722>
+Received: from perches-mx.perches.com ([206.117.179.246]:33975 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751273Ab3BJGwc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Feb 2013 01:52:32 -0500
+In-Reply-To: <20130210064024.GC2496@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 09 Feb 2013 22:02:53 -0800
->
-> On Sat, 2013-02-09 at 22:56 -0700, Jean Sacren wrote:
-> > From: Joe Perches <joe@perches.com>
-> > > Don't split the format across multiple lines please.
-> []
-> > Honestly I didn't want to split the whole string, but I was in the
-> > dilemma of accommodating 80-column convention. I'm ready to respin if
-> > the consensus favors one long string. But how long is too long?
+On Sat, 2013-02-09 at 23:40 -0700, Jean Sacren wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Sat, 09 Feb 2013 22:02:53 -0800
+> >
+> > On Sat, 2013-02-09 at 22:56 -0700, Jean Sacren wrote:
+> > > From: Joe Perches <joe@perches.com>
+> > > > Don't split the format across multiple lines please.
+> > []
+> > > Honestly I didn't want to split the whole string, but I was in the
+> > > dilemma of accommodating 80-column convention. I'm ready to respin if
+> > > the consensus favors one long string. But how long is too long?
+> > 
+> > Documentation/CodingStyle
+> > 
+> > 		Chapter 2: Breaking long lines and strings
+> > ...
+> > never break user-visible strings such as printk messages,
+> > because that breaks the ability to grep for them
 > 
-> Documentation/CodingStyle
-> 
-> 		Chapter 2: Breaking long lines and strings
-> ...
-> never break user-visible strings such as printk messages,
-> because that breaks the ability to grep for them
+> I appreciate you for sharing this document with me, but this scenario is
+> unique, as it concerns panic. Under this circumstance, are we able to
+> grep?
 
-I appreciate you for sharing this document with me, but this scenario is
-unique, as it concerns panic. Under this circumstance, are we able to
-grep?
-
--- 
-Jean Sacren
+On another machine?  In a vm?  I don't see why not.
+Does it matter?  Probably not.
