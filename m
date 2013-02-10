@@ -1,65 +1,42 @@
-From: =?UTF-8?Q?J=C3=B6rg_Otte?= <jrg.otte@gmail.com>
-Subject: Re: [GIT] Networking
-Date: Sun, 10 Feb 2013 10:17:13 +0100
-Message-ID: <CADDKRnB9dNkE4gL3de+F7bU5H3wQ47+3V3DH7Zeg-wjbOCB5ww@mail.gmail.com>
-References: <20130208.151713.1708597749091717933.davem@davemloft.net>
-	<CA+55aFx81-GGEEXx+MqJvwJsDoBMMqSN80=J8LmN-Ufu4+kKcw@mail.gmail.com>
-	<20130208225026.GA24672@electric-eye.fr.zoreil.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Sun, 10 Feb 2013 10:59:54 +0100
+Message-ID: <20130210095954.GA23548@order.stressinduktion.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130208225026.GA24672@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@wide.ad.jp>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:55066 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480Ab3BJJ7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 04:59:55 -0500
+Content-Disposition: inline
+In-Reply-To: <5116595E.2080601@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/2/8 Francois Romieu <romieu@fr.zoreil.com>:
-> Linus Torvalds <torvalds@linux-foundation.org> :
-> [...]
->> However, there's still the r8169 regressions (see the emails with th=
-e
->> subject "regression: NETDEV WATCHDOG: eth0 (r8169): transmit queue 0
->> timed out"). It's bisected, and a revert is reported to fix things.
->> It's not in this pull request. Comments ?
->
-> J=C3=B6rg asked Hayes. Hayes suggested to revert. Francois reverts, f=
-ixes a
-> pair of rejects, builds, boot. Anyone should be able to pull from
-> branch 'davem.r8169' in repository
->
-> git://violet.fr.zoreil.com/romieu/linux davem.r8169
->
-> to get the changes below :
->
-> Distance from 'davem' (a1c83b054ebe1264ed9ae9d5c286f9eae68e60ea)
-> ----------------------------------------------------------------
->
-> 4521e1a94279ce610d3f9b7945c17d581f804242
-> eef63cc1c6ecf4898a973f870aec95d6e923ea77
->
-> Diffstat
-> --------
->
->  drivers/net/ethernet/realtek/r8169.c | 86 ++++++++------------------=
-----------
->  1 file changed, 19 insertions(+), 67 deletions(-)
->
-> Shortlog
-> --------
->
-> Francois Romieu (2):
->       Revert "r8169: enable ALDPS for power saving".
->       Revert "r8169: enable internal ASPM and clock request settings"=
-=2E
->
+On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
+> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
+> If so, your original patch seems better.  My bad, sorry.
+> 
+> Would you update original one, with minor modification that defers
+> kfree_skb() after incrementing MIB, please?
 
-Applied that patch on top of v3.8-rc7. Works well for me.
+I would add another constraint to the if "&& !(dev->flags & IFF_LOOPBACK)", so
+it becomes:
 
-Thanks, J=C3=B6rg
+                if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
+                    IPV6_ADDR_SCOPE_NODELOCAL &&
+                    !(dev->flags & IFF_LOOPBACK))
+                        kfree_skb(skb);
+                        return 0;
+                }
+
+
+Otherwise ff01::/16%lo would not work because the multicast mirroring through
+dev_loopback_xmit won't be taken and the packet would be dropped after that.
+
+Can you confirm? Thanks.
