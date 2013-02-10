@@ -1,15 +1,15 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 05/45] percpu_rwlock: Make percpu-rwlocks IRQ-safe,
- optimally
-Date: Mon, 11 Feb 2013 01:00:02 +0530
-Message-ID: <5117F53A.20307@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073400.13822.52336.stgit@srivatsabhat.in.ibm.com> <20130210184209.GA3041@redhat.com>
+Subject: Re: [PATCH v5 06/45] percpu_rwlock: Allow writers to be readers,
+ and add lockdep annotations
+Date: Mon, 11 Feb 2013 01:02:05 +0530
+Message-ID: <5117F5B5.6090701@linux.vnet.ibm.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073416.13822.96504.stgit@srivatsabhat.in.ibm.com> <20130208234754.GM2666@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
+	akpm@linux-foundation.org, namhyung@kernel.org,
 	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
 	fweisbec@gmail.com, linux@arm.linux.org.uk,
@@ -17,35 +17,50 @@ Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
 	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130210184209.GA3041@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <20130208234754.GM2666@linux.vnet.ibm.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/11/2013 12:12 AM, Oleg Nesterov wrote:
-> only one cosmetic nit...
+On 02/09/2013 05:17 AM, Paul E. McKenney wrote:
+> On Tue, Jan 22, 2013 at 01:04:23PM +0530, Srivatsa S. Bhat wrote:
+>> CPU hotplug (which will be the first user of per-CPU rwlocks) has a special
+>> requirement with respect to locking: the writer, after acquiring the per-CPU
+>> rwlock for write, must be allowed to take the same lock for read, without
+>> deadlocking and without getting complaints from lockdep. In comparison, this
+>> is similar to what get_online_cpus()/put_online_cpus() does today: it allows
+>> a hotplug writer (who holds the cpu_hotplug.lock mutex) to invoke it without
+>> locking issues, because it silently returns if the caller is the hotplug
+>> writer itself.
+>>
+>> This can be easily achieved with per-CPU rwlocks as well (even without a
+>> "is this a writer?" check) by incrementing the per-CPU refcount of the writer
+>> immediately after taking the global rwlock for write, and then decrementing
+>> the per-CPU refcount before releasing the global rwlock.
+>> This ensures that any reader that comes along on that CPU while the writer is
+>> active (on that same CPU), notices the non-zero value of the nested counter
+>> and assumes that it is a nested read-side critical section and proceeds by
+>> just incrementing the refcount. Thus we prevent the reader from taking the
+>> global rwlock for read, which prevents the writer from deadlocking itself.
+>>
+>> Add that support and teach lockdep about this special locking scheme so
+>> that it knows that this sort of usage is valid. Also add the required lockdep
+>> annotations to enable it to detect common locking problems with per-CPU
+>> rwlocks.
 > 
-> On 01/22, Srivatsa S. Bhat wrote:
->>
->> +#define READER_PRESENT		(1UL << 16)
->> +#define READER_REFCNT_MASK	(READER_PRESENT - 1)
->> +
->>  #define reader_uses_percpu_refcnt(pcpu_rwlock, cpu)			\
->>  		(ACCESS_ONCE(per_cpu(*((pcpu_rwlock)->reader_refcnt), cpu)))
->>
->>  #define reader_nested_percpu(pcpu_rwlock)				\
->> -			(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) > 1)
->> +	(__this_cpu_read(*((pcpu_rwlock)->reader_refcnt)) & READER_REFCNT_MASK)
->>
->>  #define writer_active(pcpu_rwlock)					\
->>  			(__this_cpu_read(*((pcpu_rwlock)->writer_signal)))
+> Very nice!  The write-side interrupt disabling ensures that the task
+> stays on CPU, as required.
 > 
-> I think this all can go to lib/percpu-rwlock.c. Nobody needs to know
-> these implementation details.
+> One request: Could we please have a comment explaining the reasons for
+> the writer incrementing and decrementing the reader reference count?
+> 
+> It looked really really strange to me until I came back and read the
+> commit log.  ;-)
 > 
 
-Ok, will move them.
- 
+Sure :-)
+
 Regards,
 Srivatsa S. Bhat
+
