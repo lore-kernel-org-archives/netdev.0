@@ -1,125 +1,73 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 04/45] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Mon, 11 Feb 2013 00:08:36 +0530
-Message-ID: <5117E92C.3050207@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122073347.13822.85876.stgit@srivatsabhat.in.ibm.com> <20130123185522.GG2373@mtj.dyndns.org> <51003B20.2060506@linux.vnet.ibm.com> <20130123195740.GI2373@mtj.dyndns.org> <5100B8CC.4080406@linux.vnet.ibm.com> <87ip6gutsq.fsf@sejong.aot.lge.com> <20130208224742.GJ2666@linux.vnet.ibm.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [IPv6] interface-local multicast escapes the local node
+Date: Mon, 11 Feb 2013 03:42:53 +0900
+Message-ID: <5117EA2D.1020106@linux-ipv6.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org> <20130210153230.GA21377@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Namhyung Kim <namhyung@kernel.org>, Tejun Heo <tj@kernel.org>,
-	tglx@linutronix.de, peterz@infradead.org, oleg@redhat.com,
-	rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	walken@google.com
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20130208224742.GJ2666@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:40230 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754843Ab3BJSmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 13:42:54 -0500
+In-Reply-To: <20130210153230.GA21377@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/09/2013 04:17 AM, Paul E. McKenney wrote:
-> On Tue, Jan 29, 2013 at 08:12:37PM +0900, Namhyung Kim wrote:
->> On Thu, 24 Jan 2013 10:00:04 +0530, Srivatsa S. Bhat wrote:
->>> On 01/24/2013 01:27 AM, Tejun Heo wrote:
->>>> On Thu, Jan 24, 2013 at 01:03:52AM +0530, Srivatsa S. Bhat wrote:
->>>>> CPU 0                          CPU 1
->>>>>
->>>>> read_lock(&rwlock)
->>>>>
->>>>>                               write_lock(&rwlock) //spins, because CPU 0
->>>>>                               //has acquired the lock for read
->>>>>
->>>>> read_lock(&rwlock)
->>>>>    ^^^^^
->>>>> What happens here? Does CPU 0 start spinning (and hence deadlock) or will
->>>>> it continue realizing that it already holds the rwlock for read?
+Hannes Frederic Sowa wrote:
+> On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
+>> Hi,
+>>
+>> Hannes Frederic Sowa wrote:
+>>> On Wed, Feb 06, 2013 at 05:54:15PM +0100, Hannes Frederic Sowa wrote:
+>>>> On Thu, Feb 07, 2013 at 12:24:14AM +0900, YOSHIFUJI Hideaki wrote:
+>>>>> NAK.  I think we should select routes via loopback device here.
 >>>>
->>>> I don't think rwlock allows nesting write lock inside read lock.
->>>> read_lock(); write_lock() will always deadlock.
->>>>
+>>>> Will try your idea, thanks.
 >>>
->>> Sure, I understand that :-) My question was, what happens when *two* CPUs
->>> are involved, as in, the read_lock() is invoked only on CPU 0 whereas the
->>> write_lock() is invoked on CPU 1.
+>>> Does this patch look reasonable? Btw. i am pleased to see this kind of
+>>> things work out as expected most of the time (addrtype checking etc. all
+>>> in place). :)
 >>>
->>> For example, the same scenario shown above, but with slightly different
->>> timing, will NOT result in a deadlock:
->>>
->>> Scenario 2:
->>>   CPU 0                                CPU 1
->>>
->>> read_lock(&rwlock)
->>>
->>>
->>> read_lock(&rwlock) //doesn't spin
->>>
->>>                                     write_lock(&rwlock) //spins, because CPU 0
->>>                                     //has acquired the lock for read
->>>
->>>
->>> So I was wondering whether the "fairness" logic of rwlocks would cause
->>> the second read_lock() to spin (in the first scenario shown above) because
->>> a writer is already waiting (and hence new readers should spin) and thus
->>> cause a deadlock.
 >>
->> In my understanding, current x86 rwlock does basically this (of course,
->> in an atomic fashion):
+>> Well, I rethink of what "interface-local" means.
 >>
->>
->> #define RW_LOCK_BIAS 0x10000
->>
->> rwlock_init(rwlock)
->> {
->> 	rwlock->lock = RW_LOCK_BIAS;
->> }
->>
->> arch_read_lock(rwlock)
->> {
->> retry:
->> 	if (--rwlock->lock >= 0)
->> 		return;
->>
->>         rwlock->lock++;
->>         while (rwlock->lock < 1)
->>         	continue;
->>
->>         goto retry;
->> }
->>
->> arch_write_lock(rwlock)
->> {
->> retry:
->> 	if ((rwlock->lock -= RW_LOCK_BIAS) == 0)
->>         	return;
->>
->>         rwlock->lock += RW_LOCK_BIAS;
->> 	while (rwlock->lock != RW_LOCK_BIAS)
->> 		continue;
->>
->>         goto retry;
->> }
->>
->>
->> So I can't find where the 'fairness' logic comes from..
+>> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
+>> If so, your original patch seems better.  My bad, sorry.
 > 
-> I looked through several of the rwlock implementations, and in all of
-> them the writer backs off if it sees readers -- or refrains from asserting
-> ownership of the lock to begin with.
+> I was looking at getpeername et. al. where we should report the scope
+> back to the user. A common pattern is:
 > 
-> So it should be OK to use rwlock as shown in the underlying patch.
+>                         if (ipv6_addr_type(&sin->sin6_addr) & IPV6_ADDR_LINKLOCAL)
+>                                 sin->sin6_scope_id = IP6CB(skb)->iif;
 > 
+> I propose to introduce something like 'bool ipv6_addr_intf_scoped(in6_addr)'
+> and let it check for ll addresses and interface scoped addresses.
 
-Thanks a lot for confirming that Paul! So I guess we can use rwlocks
-as it is, since its behaviour suits our needs perfectly. So I won't tinker
-with atomic counters for a while, atleast not until someone starts making
-rwlocks fair.. ;-)
+Hmm, maybe, we might want to say:
 
-Regards,
-Srivatsa S. Bhat
+__u32 __ipv6_iface_scope_id(int type, unsigned int iface)
+{
+	if (type == IPV6_ADDR_ANY ||
+	    type & IPV6_ADDR_LOOPBACK ||
+	    __ipv6_addr_src_scope(type) > IPV6_ADDR_SCOPE_LINKLOCAL)
+		return 0;
+	return iface;
+}
+
+__u32 ipv6_iface_scope_id(const struct in6_addr *addr, unsigned int iface)
+{
+	return __ipv6_iface_scope_id(__ipv6_addr_type(addr), iface);
+}
+
+And then,
+	sin->sin6_scope_id = __ipv6_iface_scope_id(__ipv6_addr_type(&sin->sin6_addr),
+						   IP6CB(skb)->iif);
+or
+	sin->sin6_scope_id = ipv6_iface_scope_id(&sin->sin6_addr, IP6CB(skb)->iif);
+
+--yoshfuji
