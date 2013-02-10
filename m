@@ -1,46 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] skbuff: create skb_panic() to let caller specify panic
-Date: Sat, 09 Feb 2013 22:52:31 -0800
-Message-ID: <1360479151.26127.5.camel@joe-AO722>
-References: <1360471749-6177-1-git-send-email-sakiwit@gmail.com>
-	 <1360473061.26127.1.camel@joe-AO722> <20130210055629.GB2496@mail.gmail.com>
-	 <1360476173.26127.3.camel@joe-AO722> <20130210064024.GC2496@mail.gmail.com>
+From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+Subject: Re: [PATCH] drivers: net: Remove remaining alloc/OOM messages
+Date: Sun, 10 Feb 2013 09:57:54 +0200
+Message-ID: <1877379.y4GS62BPgg@lx-vladimir>
+References: <1360273587.27863.15.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jean Sacren <sakiwit@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:33975 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751273Ab3BJGwc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Feb 2013 01:52:32 -0500
-In-Reply-To: <20130210064024.GC2496@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev <netdev@vger.kernel.org>, <linux-can@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<e1000-devel@lists.sourceforge.net>, <linux-usb@vger.kernel.org>,
+	<linux-wireless@vger.kernel.org>, <ath9k-devel@lists.ath9k.org>,
+	<wil6210@qca.qualcomm.com>, <brcm80211-dev-list@broadcom.com>,
+	devicetree-discuss <devicetree-discuss@lists.ozlabs.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1360273587.27863.15.camel@joe-AO722>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-02-09 at 23:40 -0700, Jean Sacren wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Sat, 09 Feb 2013 22:02:53 -0800
-> >
-> > On Sat, 2013-02-09 at 22:56 -0700, Jean Sacren wrote:
-> > > From: Joe Perches <joe@perches.com>
-> > > > Don't split the format across multiple lines please.
-> > []
-> > > Honestly I didn't want to split the whole string, but I was in the
-> > > dilemma of accommodating 80-column convention. I'm ready to respin if
-> > > the consensus favors one long string. But how long is too long?
-> > 
-> > Documentation/CodingStyle
-> > 
-> > 		Chapter 2: Breaking long lines and strings
-> > ...
-> > never break user-visible strings such as printk messages,
-> > because that breaks the ability to grep for them
+On Thursday, February 07, 2013 01:46:27 PM Joe Perches wrote:
+> alloc failures already get standardized OOM
+> messages and a dump_stack.
 > 
-> I appreciate you for sharing this document with me, but this scenario is
-> unique, as it concerns panic. Under this circumstance, are we able to
-> grep?
+> For the affected mallocs around these OOM messages:
+> 
+> Converted kmallocs with multiplies to kmalloc_array.
+> Converted a kmalloc/memcpy to kmemdup.
+> Removed now unused stack variables.
+> Removed unnecessary parentheses.
+> Neatened alignment.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
+> 
 
-On another machine?  In a vm?  I don't see why not.
-Does it matter?  Probably not.
+For wil6210:
+
+Acked--by: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+
+Thanks, Vladimir
