@@ -1,42 +1,35 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [IPv6] interface-local multicast escapes the local node
-Date: Sun, 10 Feb 2013 10:59:54 +0100
-Message-ID: <20130210095954.GA23548@order.stressinduktion.org>
-References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Sun, 10 Feb 2013 11:29:29 +0100
+Message-ID: <51177689.4070904@gmail.com>
+References: <5117620A.4050005@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@wide.ad.jp>
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	davem@davemloft.net, stefanr@s5r6.in-berlin.de
 To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:55066 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480Ab3BJJ7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 04:59:55 -0500
-Content-Disposition: inline
-In-Reply-To: <5116595E.2080601@linux-ipv6.org>
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:45145 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826Ab3BJK3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 05:29:33 -0500
+Received: by mail-ea0-f182.google.com with SMTP id a12so2399051eaa.41
+        for <netdev@vger.kernel.org>; Sun, 10 Feb 2013 02:29:32 -0800 (PST)
+In-Reply-To: <5117620A.4050005@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 09, 2013 at 11:12:46PM +0900, YOSHIFUJI Hideaki wrote:
-> It seems applications will join ff01::/16%eth0 instead of ff01::/16%lo.
-> If so, your original patch seems better.  My bad, sorry.
-> 
-> Would you update original one, with minor modification that defers
-> kfree_skb() after incrementing MIB, please?
+Hi Yoshifuji!
 
-I would add another constraint to the if "&& !(dev->flags & IFF_LOOPBACK)", so
-it becomes:
+thanks for your submission. The first glance looks good to me but I need
+to look over your patch set more thoroughly.
 
-                if (IPV6_ADDR_MC_SCOPE(&ipv6_hdr(skb)->daddr) <=
-                    IPV6_ADDR_SCOPE_NODELOCAL &&
-                    !(dev->flags & IFF_LOOPBACK))
-                        kfree_skb(skb);
-                        return 0;
-                }
+Were you able to test your changes against different IP over firewire
+implementations? If not, I will test against the existing Linux
+implementation, MacOSX and Windows.
 
+Regards,
 
-Otherwise ff01::/16%lo would not work because the multicast mirroring through
-dev_loopback_xmit won't be taken and the packet would be dropped after that.
-
-Can you confirm? Thanks.
+Stephan
