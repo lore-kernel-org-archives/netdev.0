@@ -1,80 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next v3 08/11] tbf: fix value set for q->ptokens
-Date: Sat, 09 Feb 2013 17:30:46 -0800
-Message-ID: <1360459846.20362.2.camel@edumazet-glaptop>
-References: <1360428312-1277-1-git-send-email-jiri@resnulli.us>
-	 <1360428312-1277-9-git-send-email-jiri@resnulli.us>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Subject: Re: [PATCH] ip.7: Improve explanation about calling listen or connect
+Date: Sun, 10 Feb 2013 03:00:03 +0100
+Message-ID: <CAKgNAkjq3xwO7ZDH5twZdW-Onbwoim5asETPV-Zs6x73twSd7g@mail.gmail.com>
+References: <1336566636-14713-1-git-send-email-fbl@redhat.com>
+ <4FBF66D8.7060007@redhat.com> <20120606114426.0595fbac@asterix.rh>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Peter Schiffer <pschiffe@redhat.com>, linux-man@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f47.google.com ([209.85.210.47]:34486 "EHLO
-	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760897Ab3BJBau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 20:30:50 -0500
-Received: by mail-da0-f47.google.com with SMTP id s35so2289242dak.6
-        for <netdev@vger.kernel.org>; Sat, 09 Feb 2013 17:30:49 -0800 (PST)
-In-Reply-To: <1360428312-1277-9-git-send-email-jiri@resnulli.us>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:48562 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760926Ab3BJCAY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Feb 2013 21:00:24 -0500
+In-Reply-To: <20120606114426.0595fbac@asterix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-02-09 at 17:45 +0100, Jiri Pirko wrote:
-> q->ptokens is in ns and we are assigning q->mtu directly to it. That is
-> wrong. psched_l2t_ns() should be used to compute correct value.
-> 
+On Wed, Jun 6, 2012 at 4:44 PM, Flavio Leitner <fbl@redhat.com> wrote:
+>
+> Hi,
+>
+> Could someone tell me what's the patch current state?
+> It has been a month already with no feedback.
+> thanks,
+> fbl
+
+Following up, long after the fact.
+
+Flavio, I had no time pack then to review this patch... One problem
+is, you never gave any rationle for the change ("Improve explanation
+of..." is not a rationale -- I need to know *why* you think the
+changes are needed.)
+
+Thanks,
+
+Michael
 
 
-Not clear why its a separate patch, and not folded in the 6th
+> On Fri, 25 May 2012 13:02:48 +0200
+> Peter Schiffer <pschiffe@redhat.com> wrote:
+>
+>> Hi Michael,
+>>
+>> do you have any comments for this update? Or do you need some supporting
+>> info?
+>>
+>> peter
+>>
+>> On 05/09/2012 02:30 PM, Flavio Leitner wrote:
+>> > Signed-off-by: Flavio Leitner<fbl@redhat.com>
+>> > ---
+>> >   man7/ip.7 |   15 +++++++++------
+>> >   1 files changed, 9 insertions(+), 6 deletions(-)
+>> >
+>> > diff --git a/man7/ip.7 b/man7/ip.7
+>> > index 9f560df..84fe32d 100644
+>> > --- a/man7/ip.7
+>> > +++ b/man7/ip.7
+>> > @@ -69,12 +69,11 @@ For
+>> >   you may specify a valid IANA IP protocol defined in
+>> >   RFC\ 1700 assigned numbers.
+>> >   .PP
+>> > -.\" FIXME ip current does an autobind in listen, but I'm not sure
+>> > -.\" if that should be documented.
+>> >   When a process wants to receive new incoming packets or connections, it
+>> >   should bind a socket to a local interface address using
+>> >   .BR bind (2).
+>> > -Only one IP socket may be bound to any given local (address, port) pair.
+>> > +In this case, only one IP socket may be bound to any given local
+>> > +(address, port) pair.
+>> >   When
+>> >   .B INADDR_ANY
+>> >   is specified in the bind call, the socket will be bound to
+>> > @@ -82,10 +81,14 @@ is specified in the bind call, the socket will be bound to
+>> >   local interfaces.
+>> >   When
+>> >   .BR listen (2)
+>> > -or
+>> > +is called on an unbound socket, the socket is automatically bound
+>> > +to a random free port with the local address set to
+>> > +.BR INADDR_ANY .
+>> > +When
+>> >   .BR connect (2)
+>> > -are called on an unbound socket, it is automatically bound to a
+>> > -random free port with the local address set to
+>> > +is called on an unbound socket, the socket is automatically bound
+>> > +to a random free port or an usable shared port with the local address
+>> > +set to
+>> >   .BR INADDR_ANY .
+>> >
+>> >   A TCP local socket address that has been bound is unavailable for
+>
 
 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  net/sched/sch_tbf.c | 9 +++++----
->  1 file changed, 5 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-> index dc562a8..6e8b670 100644
-> --- a/net/sched/sch_tbf.c
-> +++ b/net/sched/sch_tbf.c
-> @@ -165,8 +165,8 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
->  
->  		if (q->peak_present) {
->  			ptoks = toks + q->ptokens;
-> -			if (ptoks > (long)q->mtu)
-> -				ptoks = q->mtu;
-> +			if (ptoks > (s64) psched_l2t_ns(&q->peak, q->mtu))
-> +				ptoks = (s64) psched_l2t_ns(&q->peak, q->mtu);
 
-It seems a bit expensive to perform this in fast path.
-
-Please add a variable to cache psched_l2t_ns(&q->peak, q->mtu)
-
-
->  			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
->  		}
->  		toks += q->tokens;
-> @@ -215,7 +215,8 @@ static void tbf_reset(struct Qdisc *sch)
->  	sch->q.qlen = 0;
->  	q->t_c = ktime_to_ns(ktime_get());
->  	q->tokens = q->buffer;
-> -	q->ptokens = q->mtu;
-> +	if (q->peak_present)
-> +		q->ptokens = (s64) psched_l2t_ns(&q->peak, q->mtu);
->  	qdisc_watchdog_cancel(&q->watchdog);
->  }
->  
-> @@ -296,11 +297,11 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
->  	q->max_size = max_size;
->  	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
->  	q->tokens = q->buffer;
-> -	q->ptokens = q->mtu;
->  
->  	psched_ratecfg_precompute(&q->rate, rtab->rate.rate);
->  	if (ptab) {
->  		psched_ratecfg_precompute(&q->peak, ptab->rate.rate);
-> +		q->ptokens = (s64) psched_l2t_ns(&q->peak, q->mtu);
-
-Here probably.
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
