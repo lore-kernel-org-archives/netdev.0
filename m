@@ -1,82 +1,65 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [net-next (TAKE 2) 1/4] firewire net: Accept IPv4 and ARP only.
-Date: Sun, 10 Feb 2013 18:02:10 +0900
-Message-ID: <51176212.7080907@linux-ipv6.org>
+Subject: [net-next (TAKE 2) 2/4] firewire net: Send L2 multicast via GASP.
+Date: Sun, 10 Feb 2013 18:02:18 +0900
+Message-ID: <5117621A.8030907@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, stefanr@s5r6.in-berlin.de, davem@davemloft.net
+Cc: stephan.gatzka@gmail.com, davem@davemloft.net,
+	stefanr@s5r6.in-berlin.de, yoshfuji@linux-ipv6.org
 To: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:54440 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754218Ab3BJJCU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 04:02:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Send L2 multicast packet via GASP, not by seeing upper-layer
+protocol type/address.
 
 Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- drivers/firewire/net.c |   21 +++++++++++++++++++--
- 1 file changed, 19 insertions(+), 2 deletions(-)
+ drivers/firewire/net.c |   12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/firewire/net.c b/drivers/firewire/net.c
-index 2b27bff..a748790 100644
+index a748790..a251379 100644
 --- a/drivers/firewire/net.c
 +++ b/drivers/firewire/net.c
-@@ -517,6 +517,14 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
- 	int status;
- 	__be64 guid;
+@@ -84,6 +84,11 @@ struct fwnet_header {
+ 	__be16 h_proto;		/* packet type ID field */
+ } __packed;
  
-+	switch (ether_type) {
-+	case ETH_P_ARP:
-+	case ETH_P_IP:
-+		break;
-+	default:
-+		goto err;
-+	}
++static bool fwnet_hwaddr_is_multicast(u8 *ha)
++{
++	return !!(*ha & 1);
++}
 +
- 	dev = netdev_priv(net);
- 	/* Write metadata, and then pass to the receive level */
- 	skb->dev = net;
-@@ -653,6 +661,7 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
- 	return 0;
- 
-  no_peer:
-+ err:
- 	net->stats.rx_errors++;
- 	net->stats.rx_dropped++;
- 
-@@ -1299,9 +1308,17 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
- 	 * We might need to rebuild the header on tx failure.
+ /* IPv4 and IPv6 encapsulation header */
+ struct rfc2734_header {
+ 	u32 w0;
+@@ -626,7 +631,7 @@ static int fwnet_finish_incoming_packet(struct net_device *net,
+ 		skb_reset_mac_header(skb);
+ 		skb_pull(skb, sizeof(*eth));
+ 		eth = (struct fwnet_header *)skb_mac_header(skb);
+-		if (*eth->h_dest & 1) {
++		if (fwnet_hwaddr_is_multicast(eth->h_dest)) {
+ 			if (memcmp(eth->h_dest, net->broadcast,
+ 				   net->addr_len) == 0)
+ 				skb->pkt_type = PACKET_BROADCAST;
+@@ -1325,10 +1330,7 @@ static netdev_tx_t fwnet_tx(struct sk_buff *skb, struct net_device *net)
+ 	 * Set the transmission type for the packet.  ARP packets and IP
+ 	 * broadcast packets are sent via GASP.
  	 */
- 	memcpy(&hdr_buf, skb->data, sizeof(hdr_buf));
--	skb_pull(skb, sizeof(hdr_buf));
--
- 	proto = hdr_buf.h_proto;
-+
-+	switch (proto) {
-+	case htons(ETH_P_ARP):
-+	case htons(ETH_P_IP):
-+		break;
-+	default:
-+		goto fail;
-+	}
-+
-+	skb_pull(skb, sizeof(hdr_buf));
- 	dg_size = skb->len;
+-	if (memcmp(hdr_buf.h_dest, net->broadcast, FWNET_ALEN) == 0
+-	    || proto == htons(ETH_P_ARP)
+-	    || (proto == htons(ETH_P_IP)
+-		&& IN_MULTICAST(ntohl(ip_hdr(skb)->daddr)))) {
++	if (fwnet_hwaddr_is_multicast(hdr_buf.h_dest)) {
+ 		max_payload        = dev->broadcast_xmt_max_payload;
+ 		datagram_label_ptr = &dev->broadcast_xmt_datagramlabel;
  
- 	/*
 -- 
 1.7.9.5
-
-
-
-------------------------------------------------------------------------------
-Free Next-Gen Firewall Hardware Offer
-Buy your Sophos next-gen firewall before the end March 2013 
-and get the hardware for free! Learn more.
-http://p.sf.net/sfu/sophos-d2d-feb
