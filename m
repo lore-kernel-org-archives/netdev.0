@@ -1,48 +1,54 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH 1/2] net: calexdaxgmac: fix printing of hardware version
-Date: Mon, 11 Feb 2013 10:59:53 +0000
-Message-ID: <5118CF29.3040205@codethink.co.uk>
-References: <1360510721-17860-1-git-send-email-ben.dooks@codethink.co.uk> <1360510721-17860-2-git-send-email-ben.dooks@codethink.co.uk> <5118208C.7010109@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH RFC 1/2] ipv6: introdcue __ipv6_addr_needs_scope_id and ipv6_iface_scope_id helper functions
+Date: Mon, 11 Feb 2013 12:13:03 +0100
+Message-ID: <20130211111303.GA23991@order.stressinduktion.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org> <20130210153230.GA21377@order.stressinduktion.org> <5117EA2D.1020106@linux-ipv6.org> <20130210184918.GB20897@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=utf-8
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:42032 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754366Ab3BKK7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 05:59:55 -0500
-In-Reply-To: <5118208C.7010109@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:56721 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755237Ab3BKLNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 06:13:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20130210184918.GB20897@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/02/13 22:34, Rob Herring wrote:
-> On 02/10/2013 09:38 AM, Ben Dooks wrote:
->> The current driver attempts to print netdev_info() before registering the
->> network device and allowing the name to be set. Change this print to be
->> after the network deviec has been registered, and thus has been allocated
->
-> You missed the typo pointed out on the first version sent to lakml.
+This strictly a RFC only (I also left out my signed-off). This patch
+introduces helper functions to set and check for the need of scope ids.
 
-Oops, sorry.
+Suggested-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ include/net/ipv6.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
->> a network device name.
->>
->> Fix the following issue:
->>
->> calxedaxgmac fff50000.ethernet (unregistered net_device): h/w version is 0x1012
->>
->> Signed-off-by: Ben Dooks<ben.dooks@codethink.co.uk>
->
-> Otherwise,
->
-> Acked-by: Rob Herring<rob.herring@calxeda.com>
-
-Thanks.
-
-
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 851d541..1f61dc9 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -319,6 +319,19 @@ static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
+ 	return __ipv6_addr_src_scope(__ipv6_addr_type(addr));
+ }
+ 
++static inline bool __ipv6_addr_needs_scope_id(int type)
++{
++	return type != IPV6_ADDR_ANY &&
++	       !(type & IPV6_ADDR_LOOPBACK && type & IPV6_ADDR_UNICAST) &&
++	       __ipv6_addr_src_scope(type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
++}
++
++static inline __u32 ipv6_iface_scope_id(const struct in6_addr *addr,
++					unsigned int iface)
++{
++	return __ipv6_addr_needs_scope_id(__ipv6_addr_type(addr)) ? iface : 0;
++}
++
+ static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+ {
+ 	return memcmp(a1, a2, sizeof(struct in6_addr));
 -- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+1.8.1.2
