@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mrp: make mrp_rcv static
-Date: Mon, 11 Feb 2013 14:18:27 -0500 (EST)
-Message-ID: <20130211.141827.1781037011859336886.davem@davemloft.net>
-References: <20130211082524.5fb3a976@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] bridge: set priority of STP packets
+Date: Mon, 11 Feb 2013 14:18:40 -0500 (EST)
+Message-ID: <20130211.141840.1018332289184968428.davem@davemloft.net>
+References: <20130211102222.37743b22@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: david.ward@ll.mit.edu, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41318 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41326 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759270Ab3BKTSa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 14:18:30 -0500
-In-Reply-To: <20130211082524.5fb3a976@nehalam.linuxnetplumber.net>
+	with ESMTP id S1758803Ab3BKTSn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 14:18:43 -0500
+In-Reply-To: <20130211102222.37743b22@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 11 Feb 2013 08:25:24 -0800
+Date: Mon, 11 Feb 2013 10:22:22 -0800
 
-> Sparse spotted local function that could be static.
+> Spanning Tree Protocol packets should have always been marked as
+> control packets, this causes them to get queued in the high prirority
+> FIFO. As Radia Perlman mentioned in her LCA talk, STP dies if bridge
+> gets overloaded and can't communicate. This is a long-standing bug back
+> to the first versions of Linux bridge.
 > 
 > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied.
+Applied and queued up for -stable, thanks.
