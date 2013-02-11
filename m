@@ -1,32 +1,60 @@
 From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
-Date: Mon, 11 Feb 2013 22:13:28 +0900
-Message-ID: <5118EE78.5000508@linux-ipv6.org>
-References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org> <5118C8B3.7080803@gmail.com>
+Subject: Re: [PATCH RFC 1/2] ipv6: introdcue __ipv6_addr_needs_scope_id and
+ ipv6_iface_scope_id helper functions
+Date: Mon, 11 Feb 2013 22:36:35 +0900
+Message-ID: <5118F3E3.2080808@linux-ipv6.org>
+References: <20130206084949.GA11193@eerihug-hybrid.ki.sw.ericsson.se> <20130206121248.GC10290@order.stressinduktion.org> <5112759E.90104@linux-ipv6.org> <20130206165415.GB19537@order.stressinduktion.org> <20130209121005.GB23281@order.stressinduktion.org> <5116595E.2080601@linux-ipv6.org> <20130210153230.GA21377@order.stressinduktion.org> <5117EA2D.1020106@linux-ipv6.org> <20130210184918.GB20897@order.stressinduktion.org> <20130211111303.GA23991@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	davem@davemloft.net, stefanr@s5r6.in-berlin.de,
+Cc: Erik Hugne <erik.hugne@ericsson.com>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: stephan.gatzka@gmail.com
+To: netdev@vger.kernel.org, hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:38656 "EHLO
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:39212 "EHLO
 	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757086Ab3BKNNc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 08:13:32 -0500
-In-Reply-To: <5118C8B3.7080803@gmail.com>
+	with ESMTP id S1757218Ab3BKNgh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 08:36:37 -0500
+In-Reply-To: <20130211111303.GA23991@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephan Gatzka wrote:
-> Hi!
+Hannes Frederic Sowa wrote:
+> This strictly a RFC only (I also left out my signed-off). This patch
+> introduces helper functions to set and check for the need of scope ids.
 > 
->> Can I have you code?
-> I meant the test patch I sent to the 1394 mailing list:
+> Suggested-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> ---
+>  include/net/ipv6.h | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
 > 
-> http://article.gmane.org/gmane.linux.kernel.firewire.devel/15900
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 851d541..1f61dc9 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -319,6 +319,19 @@ static inline int ipv6_addr_src_scope(const struct in6_addr *addr)
+>  	return __ipv6_addr_src_scope(__ipv6_addr_type(addr));
+>  }
+>  
+> +static inline bool __ipv6_addr_needs_scope_id(int type)
+> +{
+> +	return type != IPV6_ADDR_ANY &&
+> +	       !(type & IPV6_ADDR_LOOPBACK && type & IPV6_ADDR_UNICAST) &&
+> +	       __ipv6_addr_src_scope(type) <= IPV6_ADDR_SCOPE_LINKLOCAL;
+> +}
+> +
+> +static inline __u32 ipv6_iface_scope_id(const struct in6_addr *addr,
+> +					unsigned int iface)
+> +{
+> +	return __ipv6_addr_needs_scope_id(__ipv6_addr_type(addr)) ? iface : 0;
+> +}
+> +
+>  static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+>  {
+>  	return memcmp(a1, a2, sizeof(struct in6_addr));
+> 
 
-Have you tried after skb->ip_summed = CHECKSUM_NONE change?
+Yes, something like that.    
 
 --yoshfuji
