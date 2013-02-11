@@ -1,32 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH (net.git) 2/2] stmmac: mdio register has to fail if the
- phy is not found
-Date: Sun, 10 Feb 2013 20:12:42 -0500 (EST)
-Message-ID: <20130210.201242.868180034936117006.davem@davemloft.net>
-References: <1360219672-27980-1-git-send-email-peppe.cavallaro@st.com>
-	<1360219672-27980-2-git-send-email-peppe.cavallaro@st.com>
+Subject: Re: [PATCHv2-net-3.8 0/3] fix kernel crash with macvtap on top of
+ LRO
+Date: Sun, 10 Feb 2013 20:15:12 -0500 (EST)
+Message-ID: <20130210.201512.326994514517897067.davem@davemloft.net>
+References: <cover.1360236441.git.mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60522 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751358Ab3BKBMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 20:12:43 -0500
-In-Reply-To: <1360219672-27980-2-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, eilong@broadcom.com,
+	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
+	peter.p.waskiewicz.jr@intel.com, alexander.h.duyck@intel.com,
+	john.ronciak@intel.com, tushar.n.dave@intel.com,
+	jitendra.kalsaria@qlogic.com, sony.chacko@qlogic.com,
+	linux-driver@qlogic.com, john.r.fastabend@intel.com,
+	jacob.e.keller@intel.com, linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1360236441.git.mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Thu,  7 Feb 2013 07:47:52 +0100
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 7 Feb 2013 15:12:56 +0200
 
-> With this patch the stmmac fails in case of the phy device
-> is not found; w/o this fix the mdio can be register twice when
-> do down/up the iface and this is not correct.
+> At the moment, macvtap crashes are observed if macvtap is attached
+> to an interface with LRO enabled.
+> The crash in question is BUG() in macvtap_skb_to_vnet_hdr.
+> This happens because several drivers set gso_size but not gso_type
+> in incoming skbs.
+> This didn't use to be the case: with intel cards on 3.2 and older
+> kernels, with qlogic - on 3.4 and older kernels, so it's a regression if
+> not a recent one.
+> The following patches fix this for qlogic, broadcom and intel drivers.
 > 
-> Reported-by: Stas <stsp@list.ru>
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> I tested that the patch fixes the crash for ixgbe but
+> don't have qlogic/broadcom hardware to test.
+> I also only tested TCPv4.
+> 
+> Please review, and consider for 3.8.
+> 
+> Changes from v1:
+> 	- added missing htons as suggested by Eric
+> 	- backported the relevant bits from
+> 	  cbf1de72324a8105ddcc3d9ce9acbc613faea17e for bnx2x
 
-Applied.
+Applied to 'net', thanks.
