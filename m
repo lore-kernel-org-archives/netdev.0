@@ -1,60 +1,114 @@
-From: Luciano Coelho <coelho@ti.com>
-Subject: Re: linux-next: manual merge of the wireless-next tree with the
- net-next tree
-Date: Mon, 11 Feb 2013 08:47:54 +0200
-Message-ID: <1360565274.12803.45.camel@cumari.coelho.fi>
-References: <20130211133350.5f510bbb28759960a19a98af@canb.auug.org.au>
-	 <1360551527.2028.10.camel@joe-AO722>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH vringh 2/2] caif_virtio: Introduce caif over virtio
+Date: Mon, 11 Feb 2013 17:27:43 +1030
+Message-ID: <87vc9zfic8.fsf@rustcorp.com.au>
+References: <1360494273-27889-1-git-send-email-sjur.brandeland@stericsson.com> <1360494273-27889-3-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <1360551527.2028.10.camel@joe-AO722>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: sjur@brendeland.net, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org,
+	Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Erwan Yvin <erwan.yvin@stericsson.com>,
+	Vikram ARV <vikram.arv@stericsson.com>,
+	Sjur =?utf-8?Q?Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>,
+	Ido Yariv <ido@wizery.com>
+To: sjur.brandeland@stericsson.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Ohad Ben-Cohen <ohad@wizery.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1360494273-27889-3-git-send-email-sjur.brandeland@stericsson.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-02-10 at 18:58 -0800, Joe Perches wrote:
-> On Mon, 2013-02-11 at 13:33 +1100, Stephen Rothwell wrote:
-> > Hi John,
-> > 
-> > Today's linux-next merge of the wireless-next tree got conflicts in
-> > drivers/net/wireless/ti/wlcore/sdio.c and
-> > drivers/net/wireless/ti/wlcore/spi.c between commit 0d2e7a5c6080
-> > ("wireless: Remove unnecessary alloc/OOM messages, alloc cleanups") from
-> > the net-next tree and commit afb43e6d88e5 ("wlcore: remove if_ops from
-> > platform_data") from the wireless-next tree.
-> > 
-> > I fixed it up (see below) and can carry the fix as necessary (no action
-> > is required).
-> > 
+sjur.brandeland@stericsson.com writes:
+> From: Vikram ARV <vikram.arv@stericsson.com>
+>
+> Add the the Virtio shared memory driver for STE Modems.
+> caif_virtio is implemented utilizing the virtio framework
+> for data transport and is managed with the remoteproc frameworks.
+>
+> The Virtio queue is used for transmitting data to the modem, and
+> the new vringh implementation is receiving data over the vring.
 
-The fix up looks good.  Thanks!
+OK, let's refine vringh now we can see another user:
 
+> + * @head: Last descriptor ID we received from vringh_getdesc_kern.
+> + *	  We use this to put descriptor back on the used ring. USHRT_MAX is
+> + *	  used to indicate invalid head-id.
 
-> Thanks Stephen.
-> 
-> Can you remove just the dev_err below too please.
-> 
-> +       pdev_data = kzalloc(sizeof(*pdev_data), GFP_KERNEL);
-> +       if (!pdev_data) {
-> +               dev_err(&func->dev, "can't allocate platdev_data\n");
-> +               goto out;
-> +       }
+> + */
+> +struct cfv_napi_context {
+> +	struct vringh_kiov riov;
+> +	unsigned short head;
+> +};
 
-Yes, and there's also another one in
-drivers/net/wireless/ti/wlcore/spi.c:
+Usually we use an int, and -1.  I imagine it'll take no more space,
+due to padding.
 
-+       pdev_data = kzalloc(sizeof(*pdev_data), GFP_KERNEL);
-+       if (!pdev_data) {
-+               dev_err(&spi->dev, "can't allocate platdev_data\n");
-+               goto out;
-+       }
+> +static inline void ctx_prep_iov(struct cfv_napi_context *ctx)
+> +{
+> +	if (ctx->riov.allocated) {
+> +		kfree(ctx->riov.iov);
+> +		ctx->riov.iov = NULL;
+> +		ctx->riov.allocated = false;
+> +	}
+> +	ctx->riov.iov = NULL;
+> +	ctx->riov.i = 0;
+> +	ctx->riov.max = 0;
+> +}
 
---
-Cheers,
-Luca.
+Hmm, we should probably make sure you don't have to do this: that if
+allocated once, you can simply reuse it by setting i = 0.
+
+(This requires some care in the error handling paths, so we don't
+free it from under you)...
+
+And you probably want to free this up in cfv_remove() instead?
+
+I'll create and test a patch now.
+
+> +		if (riov->i == riov->max) {
+> +			if (cfv->ctx.head != USHRT_MAX) {
+> +				vringh_complete_kern(cfv->vr_rx,
+> +						     cfv->ctx.head,
+> +						     0);
+> +				cfv->ctx.head = USHRT_MAX;
+> +			}
+> +
+> +			ctx_prep_iov(&cfv->ctx);
+> +			err = vringh_getdesc_kern(
+> +				cfv->vr_rx,
+> +				riov,
+> +				&wiov,
+> +				&cfv->ctx.head,
+> +				GFP_ATOMIC);
+> +
+> +			if (err <= 0)
+> +				goto out;
+> +
+> +			if (wiov.max != 0) {
+> +				/* CAIF does not use write descriptors */
+> +				err = -EPROTO;
+> +				goto out;
+> +			}
+
+This is probably a common case, so we should generate this error inside
+vringh_getdesc (if wiov is NULL).
+
+I'll do that too...
+
+> +module_driver(caif_virtio_driver, register_virtio_driver,
+> +	      unregister_virtio_driver);
+> +MODULE_DEVICE_TABLE(virtio, id_table);
+
+The comment on module_driver says:
+
+ * Use this macro to construct bus specific macros for registering
+ * drivers, and do not use it on its own.
+
+Want to send me a patch to define module_virtio_driver?
+
+Thanks!
+Rusty.
