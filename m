@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] veth: fix NULL dereference in veth_dellink()
-Date: Sun, 10 Feb 2013 20:43:09 -0500 (EST)
-Message-ID: <20130210.204309.469190125028462852.davem@davemloft.net>
-References: <1360390249.6696.22.camel@edumazet-glaptop>
+Subject: Re: [PATCH 0/5] Netfilter/IPVS fixes for 3.8-rc7
+Date: Sun, 10 Feb 2013 20:44:33 -0500 (EST)
+Message-ID: <20130210.204433.2226777707133667878.davem@davemloft.net>
+References: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: erdnetdev@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60762 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779Ab3BKBnL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 20:43:11 -0500
-In-Reply-To: <1360390249.6696.22.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1360411440-6526-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <erdnetdev@gmail.com>
-Date: Fri, 08 Feb 2013 22:10:49 -0800
+From: pablo@netfilter.org
+Date: Sat,  9 Feb 2013 13:03:55 +0100
 
-> From: Eric Dumazet <edumazet@google.com>
+> The following patchset contains Netfilter/IPVS fixes for 3.8-rc7, they are:
 > 
-> commit d0e2c55e7c940 (veth: avoid a NULL deref in veth_stats_one)
-> added another NULL deref in veth_dellink().
+> * Fix oops in IPVS state-sync due to releasing a random memory area due
+>   to unitialized pointer, from Dan Carpenter.
 > 
-> # ip link add name veth1 type veth peer name veth0
-> # rmmod veth
+> * Fix SCTP flow establishment due to bad checksumming mangling in IPVS,
+>   from Daniel Borkmann.
 > 
-> We crash because veth_dellink() is called twice, so we must
-> take care of NULL peer.
+> * Three fixes for the recently added IPv6 NPT, all from YOSHIFUJI Hideaki,
+>   with an amendment collapsed into those patches from Ulrich Weber. They
+>   fiix adjustment calculation, fix prefix mangling and ensure LSB of
+>   prefixes are zeroes (as required by RFC).
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Specifically, it took me a while to validate the 1's complement arithmetics/
+> checksumming approach in the IPv6 NPT code.
+> 
+> It's fairly late stage, so let me know if you can still pull these from:
+> 
+> git://1984.lsi.us.es/nf master
 
-Applied, thanks Eric.
+Pulled, thanks Pablo.
