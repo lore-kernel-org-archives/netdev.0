@@ -1,42 +1,38 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH v2 0/2] netpoll: Cleanup netpoll locking and sparse
- warnings
-Date: Mon, 11 Feb 2013 16:51:44 -0500
-Message-ID: <20130211215144.GA2116@hmsreliant.think-freely.org>
-References: <1360248961-30721-1-git-send-email-nhorman@tuxdriver.com>
- <1360614331-29247-1-git-send-email-nhorman@tuxdriver.com>
- <20130211.161135.580650334150981029.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: bridge interface initial carrier state
+Date: Mon, 11 Feb 2013 13:58:36 -0800
+Message-ID: <20130211135836.2220ca68@nehalam.linuxnetplumber.net>
+References: <1360612915.8633.6.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
-	eric.dumazet@gmail.com, amwang@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36424 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932522Ab3BKVv4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:51:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20130211.161135.580650334150981029.davem@davemloft.net>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:37910 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932691Ab3BKV6x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:58:53 -0500
+Received: by mail-pa0-f45.google.com with SMTP id kl14so3259965pab.18
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 13:58:52 -0800 (PST)
+In-Reply-To: <1360612915.8633.6.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 11, 2013 at 04:11:35PM -0500, David Miller wrote:
-> From: Neil Horman <nhorman@tuxdriver.com>
-> Date: Mon, 11 Feb 2013 15:25:29 -0500
+On Mon, 11 Feb 2013 14:01:55 -0600
+Dan Williams <dcbw@redhat.com> wrote:
+
+> Hi,
 > 
-> > I was fixing some sparse warnings in netpoll from a previous commit, and it was
-> > pointed out to me that one of the rcu_dereferences that I fixed up in 
-> > __netpoll_cleanup might not have been correct.  On investigation I found that 
-> > rtnl_dereference should have been the correct macro to use, but we had a path in
-> > which we weren't properly holding the rtnl lock.  This patch series fixes up the
-> > locking in the __netpoll_free_rcu path, and then properly corrects the sparse 
-> > warnings in the netpoll.c file that I previously introduced.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> I'm wondering if the initial carrier state of 'on' is intentional for a
+> bridge without ports; immediately after adding ports, the carrier is
+> recalculated and depends on the combined state of each port's carrier
+> and STP forwarding state.  So a userspace program attempting to decide
+> whether the bridge was usable or not has to look at both (a) how many
+> ports are available and (b) bridge carrier state, instead of just
+> looking at the bridge carrier state.
 > 
-> I happen to know that this is meant for net-next, but you really need
-> to state that clearly in your patch submissions.
-> 
-Understood, sorry Dave.
-Neil
+> Dan
+
+It really should be off when no ports are present, but some initial startup
+scripts broke when it was that way.
