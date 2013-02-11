@@ -1,38 +1,49 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: bridge interface initial carrier state
-Date: Mon, 11 Feb 2013 13:59:30 -0800
-Message-ID: <20130211135930.4cdad83c@nehalam.linuxnetplumber.net>
-References: <1360612915.8633.6.camel@dcbw.foobar.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ipv6: don't accept multicast traffic with scop 0
+Date: Mon, 11 Feb 2013 22:21:11 +0000
+Message-ID: <1360621271.2701.20.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130210124851.GB18219@order.stressinduktion.org>
+	 <20130211194835.GD23991@order.stressinduktion.org>
+	 <20130211.145252.603354702530166412.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dan Williams <dcbw@redhat.com>
+Cc: <hannes@stressinduktion.org>, <netdev@vger.kernel.org>,
+	<yoshfuji@linux-ipv6.org>, <erik.hugne@ericsson.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f52.google.com ([209.85.210.52]:64774 "EHLO
-	mail-da0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932691Ab3BKV7p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:59:45 -0500
-Received: by mail-da0-f52.google.com with SMTP id f10so2861783dak.11
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 13:59:44 -0800 (PST)
-In-Reply-To: <1360612915.8633.6.camel@dcbw.foobar.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:31101 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932253Ab3BKWVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 17:21:32 -0500
+In-Reply-To: <20130211.145252.603354702530166412.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Feb 2013 14:01:55 -0600
-Dan Williams <dcbw@redhat.com> wrote:
-
-> Hi,
+On Mon, 2013-02-11 at 14:52 -0500, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Mon, 11 Feb 2013 20:48:35 +0100
 > 
-> I'm wondering if the initial carrier state of 'on' is intentional for a
-> bridge without ports; immediately after adding ports, the carrier is
-> recalculated and depends on the combined state of each port's carrier
-> and STP forwarding state.  So a userspace program attempting to decide
-> whether the bridge was usable or not has to look at both (a) how many
-> ports are available and (b) bridge carrier state, instead of just
-> looking at the bridge carrier state.
+> > On Sun, Feb 10, 2013 at 01:48:51PM +0100, Hannes Frederic Sowa wrote:
+> >> +	/*
+> >> +	 * RFC4291 2.7
+> >> +	 * Nodes must not originate a packet to a multicast address whose scop
+> >> +	 * field contains the reserved value 0; if such a packet is received, it
+> >> +	 * must be silently dropped.
+> > 
+> > Just nit-picking: The field is actually called scop without e, as pointed out
+> > by three erratas to RFC4291. :)
 > 
-> Dan
+> That's funny because I added the 'e' to your patches while applying
+> them, it just looks completely stupid to refer to this things as
+> 'scop'.
 
-Perhaps a future enhancement of bridge would be to use operstate flags
-to indicate lower layer down if there are no ports.
+It seems to be a long Unix tradition to creat names with trailing silent
+vowels removed; this is hardly uniq.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
