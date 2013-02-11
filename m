@@ -1,31 +1,57 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH v2 0/2] netpoll: Cleanup netpoll locking and sparse warnings
-Date: Mon, 11 Feb 2013 15:25:29 -0500
-Message-ID: <1360614331-29247-1-git-send-email-nhorman@tuxdriver.com>
-References: <1360248961-30721-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, fengguang.wu@intel.com,
-	eric.dumazet@gmail.com, Cong Wang <amwang@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 07/11] tbf: ignore max_size check for gso skbs
+Date: Mon, 11 Feb 2013 22:02:20 +0100
+Message-ID: <20130211210220.GA1560@minipsycho.orion>
+References: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
+ <1360493539-14868-8-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
+	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35202 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758813Ab3BKU0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 15:26:20 -0500
-In-Reply-To: <1360248961-30721-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:53289 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759563Ab3BKVC0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:02:26 -0500
+Received: by mail-ea0-f182.google.com with SMTP id a12so3051698eaa.41
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 13:02:24 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1360493539-14868-8-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was fixing some sparse warnings in netpoll from a previous commit, and it was
-pointed out to me that one of the rcu_dereferences that I fixed up in 
-__netpoll_cleanup might not have been correct.  On investigation I found that 
-rtnl_dereference should have been the correct macro to use, but we had a path in
-which we weren't properly holding the rtnl lock.  This patch series fixes up the
-locking in the __netpoll_free_rcu path, and then properly corrects the sparse 
-warnings in the netpoll.c file that I previously introduced.
+Hmm. I think that this approach might not be correct after all. This
+might break existing setups when user is taking gso into account and
+adjust mtu and burst accordingly. After more thorough study, I'm under
+impression that gso skbs should not be handled in any different way.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: David Miller <davem@davemloft.net>
-CC: fengguang.wu@intel.com
-CC: eric.dumazet@gmail.com
-CC: Cong Wang <amwang@redhat.com>
+Thoughts?
+
+
+Sun, Feb 10, 2013 at 11:52:15AM CET, jiri@resnulli.us wrote:
+>This check made bigger packets incorrectly dropped. Remove this
+>limitation for gso skbs.
+>
+>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>Acked-by: Eric Dumazet <edumazet@google.com>
+>---
+> net/sched/sch_tbf.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+>index e05710a..dc562a8 100644
+>--- a/net/sched/sch_tbf.c
+>+++ b/net/sched/sch_tbf.c
+>@@ -121,7 +121,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+> 	struct tbf_sched_data *q = qdisc_priv(sch);
+> 	int ret;
+> 
+>-	if (qdisc_pkt_len(skb) > q->max_size)
+>+	if (qdisc_pkt_len(skb) > q->max_size && !skb_is_gso(skb))
+> 		return qdisc_reshape_fail(skb, sch);
+> 
+> 	ret = qdisc_enqueue(skb, q->qdisc);
+>-- 
+>1.8.1.2
+>
