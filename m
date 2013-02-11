@@ -1,44 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: linux-next: manual merge of the wireless-next tree with the
- net-next tree
-Date: Sun, 10 Feb 2013 18:58:47 -0800
-Message-ID: <1360551527.2028.10.camel@joe-AO722>
-References: <20130211133350.5f510bbb28759960a19a98af@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6 mcast: Do not join device multicast for
+ interface-local multicasts.
+Date: Mon, 11 Feb 2013 00:22:34 -0500 (EST)
+Message-ID: <20130211.002234.826976152851108644.davem@davemloft.net>
+References: <51165D66.5090200@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Luciano Coelho <coelho@ti.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130211133350.5f510bbb28759960a19a98af@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: yoshfuji@linux-ipv6.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33822 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717Ab3BKFWp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 00:22:45 -0500
+In-Reply-To: <51165D66.5090200@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-02-11 at 13:33 +1100, Stephen Rothwell wrote:
-> Hi John,
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Date: Sat, 09 Feb 2013 23:29:58 +0900
+
+> RFC4291 (IPv6 addressing architecture) says that interface-Local scope
+> spans only a single interface on a node.  We should not join L2 device
+> multicast list for addresses in interface-local (or smaller) scope.
 > 
-> Today's linux-next merge of the wireless-next tree got conflicts in
-> drivers/net/wireless/ti/wlcore/sdio.c and
-> drivers/net/wireless/ti/wlcore/spi.c between commit 0d2e7a5c6080
-> ("wireless: Remove unnecessary alloc/OOM messages, alloc cleanups") from
-> the net-next tree and commit afb43e6d88e5 ("wlcore: remove if_ops from
-> platform_data") from the wireless-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
-> 
+> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 
-Thanks Stephen.
-
-Can you remove just the dev_err below too please.
-
-+       pdev_data = kzalloc(sizeof(*pdev_data), GFP_KERNEL);
-+       if (!pdev_data) {
-+               dev_err(&func->dev, "can't allocate platdev_data\n");
-+               goto out;
-+       }
-
-Joe
+Applied.
