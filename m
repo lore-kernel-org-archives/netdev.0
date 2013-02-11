@@ -1,67 +1,36 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Mon, 11 Feb 2013 11:08:52 -0800
-Message-ID: <20130211190852.GA5695@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
- <510FBC01.2030405@linux.vnet.ibm.com>
- <87haloiwv0.fsf@rustcorp.com.au>
- <51134596.4080106@linux.vnet.ibm.com>
- <20130208154113.GV17833@n2100.arm.linux.org.uk>
- <51152B81.2050501@linux.vnet.ibm.com>
- <51153F72.1060005@linux.vnet.ibm.com>
- <CAKfTPtCe+cD7LLkb+D6pqG1SwG2V08ws=4XO3ttHEHV2qgmqPg@mail.gmail.com>
- <5118E2CD.90401@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: atl1c DMA-API mapping errors in 3.8-rc6+
+Date: Mon, 11 Feb 2013 14:48:10 -0500
+Message-ID: <20130211194810.GB21501@hansolo.jdub.homelinux.org>
+References: <20130211130812.GA21501@hansolo.jdub.homelinux.org>
+ <157393863283F442885425D2C4542856489C67E4@nasanexd02f.na.qualcomm.com>
+ <157393863283F442885425D2C4542856489C6811@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vincent Guittot <vincent.guittot@linaro.org>,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	linux-doc@vger.kernel.org, peterz@infradead.org,
-	fweisbec@gmail.com, linux-kernel@vger.kernel.org,
-	walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
-	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>, rostedt@goodmis.org,
-	rjw@sisk.pl, namhyung@kernel.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
+Cc: Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"sgruszka@redhat.com" <sgruszka@redhat.com>,
+	nic-devel <nic-devel@qca.qualcomm.com>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53655 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758904Ab3BKTsR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2013 14:48:17 -0500
 Content-Disposition: inline
-In-Reply-To: <5118E2CD.90401@linux.vnet.ibm.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <157393863283F442885425D2C4542856489C6811@nasanexd02f.na.qualcomm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 11, 2013 at 05:53:41PM +0530, Srivatsa S. Bhat wrote:
-> On 02/11/2013 05:28 PM, Vincent Guittot wrote:
-> > On 8 February 2013 19:09, Srivatsa S. Bhat
-> > <srivatsa.bhat@linux.vnet.ibm.com> wrote:
-
-[ . . . ]
-
-> >> Adding Vincent to CC, who had previously evaluated the performance and
-> >> latency implications of CPU hotplug on ARM platforms, IIRC.
-> >>
-> >
-> > Hi Srivatsa,
-> > 
-> > I can try to run some of our stress tests on your patches.
+On Mon, Feb 11, 2013 at 06:03:53PM +0000, Huang, Xiong wrote:
+> Josh
 > 
-> Great!
-> 
-> > Have you
-> > got a git tree that i can pull ?
-> > 
-> 
-> Unfortunately, no, none at the moment..  :-(
+>      Would you pls confirm if my patch fix this issue ? I have no platform on hand now and the office is closed due to CNY .
 
-You do need to create an externally visible git tree.  In the meantime,
-I have added your series at rcu/bhat.2013.01.21a on -rcu:
+I'd be happy to build a kernel with a patch for the users to test with.
+However, I don't see a patch here or on netdev.  Did you forget to
+include it or send it out, or did I miss it somewhere?
 
-git://git.kernel.org/pub/scm/linux/kernel/git/paulmck/linux-rcu.git
-
-This should appear soon on a kernel.org mirror near you.  ;-)
-
-							Thanx, Paul
-
+josh
