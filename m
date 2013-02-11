@@ -1,35 +1,28 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: IPv6 Address Resolution in Linux 2.6.27
-Date: Mon, 11 Feb 2013 17:13:05 +0000
-Message-ID: <1360602785.2701.7.camel@bwh-desktop.uk.solarflarecom.com>
-References: <9142206A0C5BF24CB22755C8EC422E45384AEC24@AZ-US1EXMB03.global.avaya.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] iplink_vlan: Add flag for Multiple VLAN
+ Registration Protocol (MVRP)
+Date: Mon, 11 Feb 2013 09:18:35 -0800
+Message-ID: <20130211091835.0829f17d@nehalam.linuxnetplumber.net>
+References: <1360379828-16302-1-git-send-email-david.ward@ll.mit.edu>
+	<1360379828-16302-4-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Mudric, Dusan (Dusan)" <dmudric@avaya.com>
+Cc: <netdev@vger.kernel.org>
+To: David Ward <david.ward@ll.mit.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32872 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757740Ab3BKRNO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 12:13:14 -0500
-In-Reply-To: <9142206A0C5BF24CB22755C8EC422E45384AEC24@AZ-US1EXMB03.global.avaya.com>
+Received: from mail-da0-f44.google.com ([209.85.210.44]:35661 "EHLO
+	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757838Ab3BKRSu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 12:18:50 -0500
+Received: by mail-da0-f44.google.com with SMTP id z20so2786958dae.3
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 09:18:49 -0800 (PST)
+In-Reply-To: <1360379828-16302-4-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-02-08 at 20:23 +0000, Mudric, Dusan (Dusan) wrote:
-> Hi,
-> 
-> I experience Address Resolution problem while using Linux 2.6.27.
-[...]
+The current iproute2 repository is open form 3.8 related features
+changes at this time.
 
-This is quite an old version.  You should re-test on a current version
-or, if this is a distribution kernel, use the distribution's support
-channels.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Please resubmit during 3.9 merge window, because I may forget this
+patch otherwise.
