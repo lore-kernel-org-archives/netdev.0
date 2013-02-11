@@ -1,122 +1,147 @@
-From: Gerd Hoffmann <kraxel@redhat.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Mon, 11 Feb 2013 15:22:33 +0100
-Message-ID: <5118FEA9.2080201@redhat.com>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<1360196636-9357-2-git-send-email-acking@vmware.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Andy King <acking@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1360196636-9357-2-git-send-email-acking@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sctp: remove unused multiple cookie keys
+Date: Mon, 11 Feb 2013 15:50:07 +0100
+Message-ID: <c1d3c108e6dc72f14e6251543b9ff826f56f5f78.1360593589.git.dborkman@redhat.com>
+References: <cover.1360593589.git.dborkman@redhat.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10295 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756510Ab3BKOuW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2013 09:50:22 -0500
+In-Reply-To: <cover.1360593589.git.dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/07/13 01:23, Andy King wrote:
-> +struct vsock_transport_recv_notify_data {
-> +	u64 data1; /* Transport-defined. */
-> +	u64 data2; /* Transport-defined. */
-> +	bool notify_on_block;
-> +};
-> +
-> +struct vsock_transport_send_notify_data {
-> +	u64 data1; /* Transport-defined. */
-> +	u64 data2; /* Transport-defined. */
-> +};
-> +
-> +struct vsock_transport {
-> +	/* Initialize/tear-down socket. */
-> +	int (*init)(struct vsock_sock *, struct vsock_sock *);
-> +	void (*destruct)(struct vsock_sock *);
-> +	void (*release)(struct vsock_sock *);
-> +
-> +	/* Connections. */
-> +	int (*connect)(struct vsock_sock *);
-> +
-> +	/* DGRAM. */
-> +	int (*dgram_bind)(struct vsock_sock *, struct sockaddr_vm *);
-> +	int (*dgram_dequeue)(struct kiocb *kiocb, struct vsock_sock *vsk,
-> +			     struct msghdr *msg, size_t len, int flags);
-> +	int (*dgram_enqueue)(struct vsock_sock *, struct sockaddr_vm *,
-> +			     struct iovec *, size_t len);
-> +	bool (*dgram_allow)(u32 cid, u32 port);
-> +
-> +	/* STREAM. */
-> +	/* TODO: stream_bind() */
-> +	ssize_t (*stream_dequeue)(struct vsock_sock *, struct iovec *,
-> +				  size_t len, int flags);
-> +	ssize_t (*stream_enqueue)(struct vsock_sock *, struct iovec *,
-> +				  size_t len);
-> +	s64 (*stream_has_data)(struct vsock_sock *);
-> +	s64 (*stream_has_space)(struct vsock_sock *);
-> +	u64 (*stream_rcvhiwat)(struct vsock_sock *);
-> +	bool (*stream_is_active)(struct vsock_sock *);
-> +	bool (*stream_allow)(u32 cid, u32 port);
-> +
-> +	/* Notification. */
-> +	int (*notify_poll_in)(struct vsock_sock *, size_t, bool *);
-> +	int (*notify_poll_out)(struct vsock_sock *, size_t, bool *);
-> +	int (*notify_recv_init)(struct vsock_sock *, size_t,
-> +		struct vsock_transport_recv_notify_data *);
-> +	int (*notify_recv_pre_block)(struct vsock_sock *, size_t,
-> +		struct vsock_transport_recv_notify_data *);
-> +	int (*notify_recv_pre_dequeue)(struct vsock_sock *, size_t,
-> +		struct vsock_transport_recv_notify_data *);
-> +	int (*notify_recv_post_dequeue)(struct vsock_sock *, size_t,
-> +		ssize_t, bool, struct vsock_transport_recv_notify_data *);
-> +	int (*notify_send_init)(struct vsock_sock *,
-> +		struct vsock_transport_send_notify_data *);
-> +	int (*notify_send_pre_block)(struct vsock_sock *,
-> +		struct vsock_transport_send_notify_data *);
-> +	int (*notify_send_pre_enqueue)(struct vsock_sock *,
-> +		struct vsock_transport_send_notify_data *);
-> +	int (*notify_send_post_enqueue)(struct vsock_sock *, ssize_t,
-> +		struct vsock_transport_send_notify_data *);
-> +
-> +	/* Shutdown. */
-> +	int (*shutdown)(struct vsock_sock *, int);
-> +
-> +	/* Buffer sizes. */
-> +	void (*set_buffer_size)(struct vsock_sock *, u64);
-> +	void (*set_min_buffer_size)(struct vsock_sock *, u64);
-> +	void (*set_max_buffer_size)(struct vsock_sock *, u64);
-> +	u64 (*get_buffer_size)(struct vsock_sock *);
-> +	u64 (*get_min_buffer_size)(struct vsock_sock *);
-> +	u64 (*get_max_buffer_size)(struct vsock_sock *);
-> +
-> +	/* Addressing. */
-> +	u32 (*get_local_cid)(void);
-> +};
-> +
+Vlad says: The whole multiple cookie keys code is completely unused
+and has been all this time. Noone uses anything other then the
+secret_key[0] since there is no changeover support anywhere.
 
-Whoa.  This has grown *alot*.  Care to explain this please?  Patch
-creating a Documentation/virtual/vsock.txt would be cool.
+Thus, for now clean up its left-over fragments.
 
-*_enqueue + *_dequeue is sending/receiving data, ok.
+Cc: Vlad Yasevich <vyasevic@redhat.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/net/sctp/constants.h |  2 +-
+ include/net/sctp/structs.h   |  5 +----
+ net/sctp/endpointola.c       |  9 ++-------
+ net/sctp/sm_make_chunk.c     | 24 ++++++------------------
+ 4 files changed, 10 insertions(+), 30 deletions(-)
 
-stream_has_data + stream_has_space + stream_rcvhiwat look like they are
-needed for buffer management.  Details please (especially for
-stream_rcvhiwat).
-
-What is stream_is_active?
-What is *_allow?
-
-What are all those notify_* calls?
-
-Why do you need vsock_transport_{send,recv}_notify_data structs?
-Can't this live in vsock_sock->trans?
-
-thanks,
-  Gerd
+diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
+index c29707d..a7dd5c5 100644
+--- a/include/net/sctp/constants.h
++++ b/include/net/sctp/constants.h
+@@ -303,7 +303,7 @@ enum { SCTP_MAX_GABS = 16 };
+                                          * to which we will raise the P-MTU.
+ 					 */
+ #define SCTP_DEFAULT_MINSEGMENT 512	/* MTU size ... if no mtu disc */
+-#define SCTP_HOW_MANY_SECRETS 2		/* How many secrets I keep */
++
+ #define SCTP_SECRET_SIZE 32		/* Number of octets in a 256 bits. */
+ 
+ #define SCTP_SIGNATURE_SIZE 20	        /* size of a SLA-1 signature */
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index fdeb85a..0e0f9d2 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1236,10 +1236,7 @@ struct sctp_endpoint {
+ 	 *	      Discussion in [RFC1750] can be helpful in
+ 	 *	      selection of the key.
+ 	 */
+-	__u8 secret_key[SCTP_HOW_MANY_SECRETS][SCTP_SECRET_SIZE];
+-	int current_key;
+-	int last_key;
+-	int key_changed_at;
++	__u8 secret_key[SCTP_SECRET_SIZE];
+ 
+  	/* digest:  This is a digest of the sctp cookie.  This field is
+  	 * 	    only used on the receive path when we try to validate
+diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+index 1a9c5fb..73aad3d 100644
+--- a/net/sctp/endpointola.c
++++ b/net/sctp/endpointola.c
+@@ -151,9 +151,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
+ 	ep->rcvbuf_policy = net->sctp.rcvbuf_policy;
+ 
+ 	/* Initialize the secret key used with cookie. */
+-	get_random_bytes(&ep->secret_key[0], SCTP_SECRET_SIZE);
+-	ep->last_key = ep->current_key = 0;
+-	ep->key_changed_at = jiffies;
++	get_random_bytes(ep->secret_key, sizeof(ep->secret_key));
+ 
+ 	/* SCTP-AUTH extensions*/
+ 	INIT_LIST_HEAD(&ep->endpoint_shared_keys);
+@@ -249,8 +247,6 @@ void sctp_endpoint_free(struct sctp_endpoint *ep)
+ /* Final destructor for endpoint.  */
+ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+ {
+-	int i;
+-
+ 	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
+ 
+ 	/* Free up the HMAC transform. */
+@@ -273,8 +269,7 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+ 	sctp_inq_free(&ep->base.inqueue);
+ 	sctp_bind_addr_free(&ep->base.bind_addr);
+ 
+-	for (i = 0; i < SCTP_HOW_MANY_SECRETS; ++i)
+-		memset(&ep->secret_key[i], 0, SCTP_SECRET_SIZE);
++	memset(ep->secret_key, 0, sizeof(ep->secret_key));
+ 
+ 	/* Remove and free the port */
+ 	if (sctp_sk(ep->base.sk)->bind_hash)
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index e1c5fc2..1063b83 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1650,8 +1650,8 @@ static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
+ 
+ 		/* Sign the message.  */
+ 		sg_init_one(&sg, &cookie->c, bodysize);
+-		keylen = SCTP_SECRET_SIZE;
+-		key = (char *)ep->secret_key[ep->current_key];
++		keylen = sizeof(ep->secret_key);
++		key = (char *) ep->secret_key;
+ 		desc.tfm = sctp_sk(ep->base.sk)->hmac;
+ 		desc.flags = 0;
+ 
+@@ -1718,9 +1718,9 @@ struct sctp_association *sctp_unpack_cookie(
+ 		goto no_hmac;
+ 
+ 	/* Check the signature.  */
+-	keylen = SCTP_SECRET_SIZE;
+ 	sg_init_one(&sg, bear_cookie, bodysize);
+-	key = (char *)ep->secret_key[ep->current_key];
++	keylen = sizeof(ep->secret_key);
++	key = (char *) ep->secret_key;
+ 	desc.tfm = sctp_sk(ep->base.sk)->hmac;
+ 	desc.flags = 0;
+ 
+@@ -1732,20 +1732,8 @@ struct sctp_association *sctp_unpack_cookie(
+ 	}
+ 
+ 	if (memcmp(digest, cookie->signature, SCTP_SIGNATURE_SIZE)) {
+-		/* Try the previous key. */
+-		key = (char *)ep->secret_key[ep->last_key];
+-		memset(digest, 0x00, SCTP_SIGNATURE_SIZE);
+-		if (crypto_hash_setkey(desc.tfm, key, keylen) ||
+-		    crypto_hash_digest(&desc, &sg, bodysize, digest)) {
+-			*error = -SCTP_IERROR_NOMEM;
+-			goto fail;
+-		}
+-
+-		if (memcmp(digest, cookie->signature, SCTP_SIGNATURE_SIZE)) {
+-			/* Yikes!  Still bad signature! */
+-			*error = -SCTP_IERROR_BAD_SIG;
+-			goto fail;
+-		}
++		*error = -SCTP_IERROR_BAD_SIG;
++		goto fail;
+ 	}
+ 
+ no_hmac:
+-- 
+1.7.11.7
