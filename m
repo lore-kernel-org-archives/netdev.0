@@ -1,78 +1,43 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] tg3: Convert chip type macros to inline functions
-Date: Sun, 10 Feb 2013 17:34:05 -0800
-Message-ID: <1360546445.2028.8.camel@joe-AO722>
-References: <1360194298.12464.35.camel@joe-AO722>
-	 <20130210.193927.632140014473940921.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/2] Multiple VLAN Registration Protocol (IEEE
+ 802.1Q-2011)
+Date: Sun, 10 Feb 2013 20:40:12 -0500 (EST)
+Message-ID: <20130210.204012.215447544627085371.davem@davemloft.net>
+References: <1360379828-16302-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, mcarlson@broadcom.com,
-	mchan@broadcom.com, nsujir@broadcom.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: david.ward@ll.mit.edu
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:43116 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751779Ab3BKBeH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Feb 2013 20:34:07 -0500
-In-Reply-To: <20130210.193927.632140014473940921.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60731 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751497Ab3BKBkO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 20:40:14 -0500
+In-Reply-To: <1360379828-16302-1-git-send-email-david.ward@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-02-10 at 19:39 -0500, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Wed, 06 Feb 2013 15:44:58 -0800
-> 
-> > To me the negative to these conversions is at
-> > least for gcc 4.7.2, the overall code size
-> > increases
-> > 
-> > $ size drivers/net/ethernet/broadcom/tg3.o*
-> >    text          data     bss     dec     hex filename
-> >  203426         13446   55744  272616   428e8 drivers/net/ethernet/broadcom/tg3.o.new
-> >  202135         13446   55144  270725   42185 drivers/net/ethernet/broadcom/tg3.o.old
-> > 
-> > I'm not sure why gcc doesn't do the optimization
-> > and code generation the same way.
-> 
-> Out of curiosity I looked at the assembler difference on sparc
-> and one thing stood out.
-> 
-> You're changing how the values are evaluated, specifically you
-> now are forcing the compiler to work with unsigned ID numbers
-> whereas before it was working with signed values.
-> 
-> So, looking at one example, the ASIC revision test in __tg3_set_mac_addr():
-> 
->         if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
->             GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
->         ...
->         }
-> 
-> 
-> The compiler previously turned the two tests into one:
-> 
->         asic_id -= 1;
->         if (asic_id <= 1) {
->         ...
->         }
-> 
-> But this construct isn't valid for unsigned quantities, so now with
-> your patch this expands to two tests:
-> 
->         if (asic_id == 1 ||
->             asic_id == 2) {
->         ...
->         }
-> 
-> The assembler is hard to compare manually, because the inlining
-> changes how hard registers are allocated, and issues like the above
-> will change all of the branch and file offsets as well. :-/
+From: David Ward <david.ward@ll.mit.edu>
+Date: Fri, 8 Feb 2013 22:17:05 -0500
 
-Well maybe.
+> The Linux kernel currently implements the GARP VLAN Registration
+> Protocol (GVRP) from IEEE 802.1Q-1998 (applicant-only participant).
+> When the GVRP flag is set for a VLAN interface on a Linux host, the
+> host advertises its membership in the VLAN to the attached bridge/
+> switch, so that it is not necessary to manually configure the bridge/
+> switch port to participate in the VLAN.
+> 
+> GVRP has been superseded by the Multiple VLAN Registration Protocol
+> (MVRP) in IEEE 802.1Q-2011, which addresses scalability concerns about
+> the earlier protocol.  The following patches add support for MVRP to
+> the Linux kernel and iproute2 utility. They are based largely off of
+> the existing implementation of GVRP, but have been modified for the
+> new PDU structure and state machine.
+> 
+> This implementation was tested with two Juniper EX4200 switches.
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
+> Acked-by: Patrick McHardy <kaber@trash.net>
 
-If the inlines return int instead of u32, x86 objects
-do change trivially (using 2 jg vs ja) , but the size
-is unchanged from u32 to int (still bigger).
-
-Perhaps the gcc optimizer could be improved.
+Applied to net-next, thanks David.
