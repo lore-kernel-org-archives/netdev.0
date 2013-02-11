@@ -1,35 +1,35 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [flow_cache_new_hashrnd] WARNING: at kernel/smp.c:328
- smp_call_function_single()
-Date: Mon, 11 Feb 2013 17:10:46 +0800
-Message-ID: <20130211091046.GA12094@localhost>
-References: <20130211085600.GB10857@localhost>
- <20130211090309.GA23932@gmail.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: WARNING: at net/core/neighbour.c:1545 neigh_table_init()
+Date: Mon, 11 Feb 2013 10:26:00 +0100
+Message-ID: <20130211092600.GB23932@gmail.com>
+References: <20130209123937.GA23420@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chuansheng Liu <chuansheng.liu@intel.com>,
-	netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Steven Rostedt <rostedt@goodmis.org>
-To: Ingo Molnar <mingo@kernel.org>
+Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
+	linux-kernel@vger.kernel.org
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130211090309.GA23932@gmail.com>
+In-Reply-To: <20130209123937.GA23420@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 11, 2013 at 10:03:09AM +0100, Ingo Molnar wrote:
-> 
-> * Fengguang Wu <fengguang.wu@intel.com> wrote:
-> 
-> > Greetings,
-> > 
-> > I got the below oops and the first bad commit is
-> 
-> It's a one-time warning, not an actual crash, right?
 
-Yes, it is.
+* Fengguang Wu <fengguang.wu@intel.com> wrote:
+
+> Greetings,
+> 
+> I got the below oops in linux-next and the first bad commit is
+> 
+> commit 455e987c0c2eb2c9045dc854559474cf41509965
+> Merge: 7c17e48 fd6da69
+> Author: Linus Torvalds <torvalds@linux-foundation.org>
+> Date:   Sat Dec 1 13:07:48 2012 -0800
+> 
+>     Merge branch 'perf-urgent-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+
+This bisection result is probably spurious?
 
 Thanks,
-Fengguang
+
+	Ingo
