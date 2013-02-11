@@ -1,90 +1,96 @@
-From: syrine.tl@gmail.com
-Subject: [PATCH] Fixes missing Null Check
-Date: Mon, 11 Feb 2013 14:02:40 +0100
-Message-ID: <1360587760-6211-1-git-send-email-syrine.tlili@gmail.com>
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Syrine Tlili <syrine.tl@gmail.com>
-To: matt.fleming@intel.com, sage@inktank.com, isdn@linux-pingi.de,
-	megaraidlinux@lsi.com
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RFC PATCH] xfrm: fix handling of XFRM policies mark and mask.
+Date: Mon, 11 Feb 2013 14:04:47 +0100
+Message-ID: <20130211130447.GE17794@secunet.com>
+References: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com>
+ <20130205081232.GF23291@secunet.com>
+ <51125744.3030905@gmail.com>
+ <D4563759-CEC5-4F33-BF0A-9FA10716F8DF@telecom-bretagne.eu>
+ <20130207104908.GA17794@secunet.com>
+ <2BEAF521-7218-415B-98ED-EC0812903479@telecom-bretagne.eu>
+ <20130207125437.GC17794@secunet.com>
+ <1854603B-3AD1-4245-A8BA-53D841BCEA63@telecom-bretagne.eu>
+ <9EFD8AF1-2EDC-4361-A6CA-52FD5D42ED9E@ipflavors.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <j.hadi123@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, herbert@gondor.apana.org.au,
+	Emmanuel THIERRY <emmanuel.thierry@telecom-bretagne.eu>,
+	linux-kernel@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
+To: Romain KUNTZ <r.kuntz@ipflavors.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9EFD8AF1-2EDC-4361-A6CA-52FD5D42ED9E@ipflavors.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Syrine Tlili <syrine.tl@gmail.com>
+On Mon, Feb 11, 2013 at 01:57:59PM +0100, Romain KUNTZ wrote:
+> Hi Steffen,
+> 
+> Do you plan to resubmit a patch to the mailing list or shall we take care of that?
+> 
 
-This patch fixes missing null check of memory allocation functions return values.
+I'm testing with the patch below. If it shows no regression,
+I'll apply it to the ipsec-next tree.
 
-Signed-off-by: Syrine Tlili <syrine.tl@gmail.com>
+Subject: [PATCH] xfrm: Allow inserting policies with matching mark and
+ different priorities
+
+We currently can not insert policies with mark and mask
+such that some flows would be matched from both policies.
+We make this possible when the priority of these policies
+are different. If both policies match a flow, the one with
+the higher priority is used.
+
+Reported-by: Emmanuel Thierry <emmanuel.thierry@telecom-bretagne.eu>
+Reported-by: Romain Kuntz <r.kuntz@ipflavors.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- arch/x86/platform/efi/efi.c | 2 ++
- drivers/isdn/mISDN/fsm.c    | 2 ++
- drivers/scsi/megaraid.c     | 7 +++++++
- fs/ceph/mdsmap.c            | 2 ++
- 4 files changed, 13 insertions(+)
+ net/xfrm/xfrm_policy.c |   18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
-index 77cf009..88b60e0 100644
---- a/arch/x86/platform/efi/efi.c
-+++ b/arch/x86/platform/efi/efi.c
-@@ -924,6 +924,8 @@ void __init efi_enter_virtual_mode(void)
- 		new_memmap = krealloc(new_memmap,
- 				      (count + 1) * memmap.desc_size,
- 				      GFP_KERNEL);
-+		if (!new_memmap)
-+			return -ENOMEM;
- 		memcpy(new_memmap + (count * memmap.desc_size), md,
- 		       memmap.desc_size);
- 		count++;
-diff --git a/drivers/isdn/mISDN/fsm.c b/drivers/isdn/mISDN/fsm.c
-index 26477d4..09000dd 100644
---- a/drivers/isdn/mISDN/fsm.c
-+++ b/drivers/isdn/mISDN/fsm.c
-@@ -34,6 +34,8 @@ mISDN_FsmNew(struct Fsm *fsm,
- 
- 	fsm->jumpmatrix = kzalloc(sizeof(FSMFNPTR) * fsm->state_count *
- 				  fsm->event_count, GFP_KERNEL);
-+	if (!fsm->jumpmatrix)
-+		return -ENOMEM;
- 
- 	for (i = 0; i < fncount; i++)
- 		if ((fnlist[i].state >= fsm->state_count) ||
-diff --git a/drivers/scsi/megaraid.c b/drivers/scsi/megaraid.c
-index 9504ec0..e6d1822 100644
---- a/drivers/scsi/megaraid.c
-+++ b/drivers/scsi/megaraid.c
-@@ -4437,6 +4437,8 @@ mega_internal_command(adapter_t *adapter, megacmd_t *mc, mega_passthru *pthru)
- 	memset(scb, 0, sizeof(scb_t));
- 
- 	sdev = kzalloc(sizeof(struct scsi_device), GFP_KERNEL);
-+	if (!sdev)
-+		goto err_out;
- 	scmd->device = sdev;
- 
- 	memset(adapter->int_cdb, 0, sizeof(adapter->int_cdb));
-@@ -4482,6 +4484,11 @@ mega_internal_command(adapter_t *adapter, megacmd_t *mc, mega_passthru *pthru)
- 	scsi_free_command(GFP_KERNEL, scmd);
- 
- 	return rval;
-+
-+err_out:
-+	mutex_unlock(&adapter->int_mtx);
-+	scsi_free_command(GFP_KERNEL, scmd);
-+	return -ENOMEM;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 456b11b..257dfb1 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -607,6 +607,21 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
+ 	spin_unlock_bh(&pq->hold_queue.lock);
  }
  
++static bool xfrm_policy_mark_match(struct xfrm_policy *policy,
++				   struct xfrm_policy *pol)
++{
++	u32 mark = policy->mark.v & policy->mark.m;
++
++	if (policy->mark.v == pol->mark.v && policy->mark.m == pol->mark.m)
++		return true;
++
++	if ((mark & pol->mark.m) == pol->mark.v &&
++	    policy->priority == pol->priority)
++		return true;
++
++	return false;
++}
++
+ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ {
+ 	struct net *net = xp_net(policy);
+@@ -614,7 +629,6 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 	struct xfrm_policy *delpol;
+ 	struct hlist_head *chain;
+ 	struct hlist_node *entry, *newpos;
+-	u32 mark = policy->mark.v & policy->mark.m;
  
-diff --git a/fs/ceph/mdsmap.c b/fs/ceph/mdsmap.c
-index 73b7d44..d04ab8b 100644
---- a/fs/ceph/mdsmap.c
-+++ b/fs/ceph/mdsmap.c
-@@ -132,6 +132,8 @@ struct ceph_mdsmap *ceph_mdsmap_decode(void **p, void *end)
- 				m->m_info[mds].export_targets =
- 					kcalloc(num_export_targets, sizeof(u32),
- 						GFP_NOFS);
-+				if (m->m_info[mds].export_targets == NULL)
-+					goto badmem;
- 				for (j = 0; j < num_export_targets; j++)
- 					m->m_info[mds].export_targets[j] =
- 					       ceph_decode_32(&pexport_targets);
+ 	write_lock_bh(&xfrm_policy_lock);
+ 	chain = policy_hash_bysel(net, &policy->selector, policy->family, dir);
+@@ -623,7 +637,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		if (pol->type == policy->type &&
+ 		    !selector_cmp(&pol->selector, &policy->selector) &&
+-		    (mark & pol->mark.m) == pol->mark.v &&
++		    xfrm_policy_mark_match(policy, pol) &&
+ 		    xfrm_sec_ctx_match(pol->security, policy->security) &&
+ 		    !WARN_ON(delpol)) {
+ 			if (excl) {
 -- 
-1.7.11.7
+1.7.9.5
