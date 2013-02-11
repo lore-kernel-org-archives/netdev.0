@@ -1,71 +1,62 @@
-From: Romain KUNTZ <r.kuntz@ipflavors.com>
-Subject: Re: [RFC PATCH] xfrm: fix handling of XFRM policies mark and mask.
-Date: Mon, 11 Feb 2013 13:57:59 +0100
-Message-ID: <9EFD8AF1-2EDC-4361-A6CA-52FD5D42ED9E@ipflavors.com>
-References: <9E57ADA1-5770-47A8-8EBF-7FC262EEF1C7@ipflavors.com> <20130205081232.GF23291@secunet.com> <51125744.3030905@gmail.com> <D4563759-CEC5-4F33-BF0A-9FA10716F8DF@telecom-bretagne.eu> <20130207104908.GA17794@secunet.com> <2BEAF521-7218-415B-98ED-EC0812903479@telecom-bretagne.eu> <20130207125437.GC17794@secunet.com> <1854603B-3AD1-4245-A8BA-53D841BCEA63@telecom-bretagne.eu>
-Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jamal <j.hadi123@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, herbert@gondor.apana.org.au,
-	Emmanuel THIERRY <emmanuel.thierry@telecom-bretagne.eu>,
-	linux-kernel@vger.kernel.org, Jamal Hadi Salim <hadi@cyberus.ca>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 01/45] percpu_rwlock: Introduce the global reader-writer
+ lock backend
+Date: Mon, 11 Feb 2013 18:26:10 +0530
+Message-ID: <5118EA6A.9040002@linux.vnet.ibm.com>
+References: <20130122073315.13822.27093.stgit@srivatsabhat.in.ibm.com> <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <30708.1360586491@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1854603B-3AD1-4245-A8BA-53D841BCEA63@telecom-bretagne.eu>
+In-Reply-To: <30708.1360586491@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Steffen,
+On 02/11/2013 06:11 PM, David Howells wrote:
+> Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com> wrote:
+> 
+>> We can use global rwlocks as shown below safely, without fear of deadlocks:
+>>
+>> Readers:
+>>
+>>          CPU 0                                CPU 1
+>>          ------                               ------
+>>
+>> 1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
+>>
+>>
+>> 2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
+> 
+> The lock order on CPU 0 is unsafe if CPU2 can do:
+> 
+> 	write_lock(&my_rwlock);
+> 	spin_lock(&random_lock);
+> 
+> and on CPU 1 if CPU2 can do:
+> 
+> 	spin_lock(&random_lock);
+> 	write_lock(&my_rwlock);
+> 
 
-Do you plan to resubmit a patch to the mailing list or shall we take ca=
-re of that?
+Right..
 
-Thank you,
-Romain
+> I presume you were specifically excluding these situations?
+>
 
-On Feb 8, 2013, at 15:16 , Emmanuel Thierry <emmanuel.thierry@telecom-b=
-retagne.eu> wrote:
+Yes.. Those cases are simple to find out and fix (by changing the
+lock ordering). My main problem was with CPU 0 and CPU 1 as shown above..
+... and using a global rwlock helps ease that part out.
 
-> Hello,
->=20
-> Le 7 f=E9vr. 2013 =E0 13:54, Steffen Klassert <steffen.klassert@secun=
-et.com> a =E9crit :
->=20
->> On Thu, Feb 07, 2013 at 12:08:22PM +0100, Emmanuel Thierry wrote:
->>>=20
->>> This is a nice idea, however you keep the insertion asymmetric. The=
- usage of xfrm marks in non-conflicting cases will be made possible, bu=
-t it stays disturbing for a user as the initial example will still have=
- the same behavior:
->>> * Inserting the marked one then the unmarked will succeed
->>> * Inserting the unmarked then the marked one will fail
->>> This gives to the user the feeling of an indeterministic behavior o=
-f the xfrm module.
->>=20
->> This was intended. Inserting the marked one then the unmarked
->> is a working scenario. Some users might rely on it, so we can't
->> change this as you proposed.
->>=20
->> On the other hand, inserting the unmarked one then the marked
->> might result in a wrong policy lookup, so we can't allow this.
->> The only possibility we have, is inserting with different
->> priorites and that's what I'm proposing.
->>=20
->> I fear we have to live with that asymmetric behaviour if
->> both policies have the same priority.
->>=20
->=20
-> Ok, actually i understand the concern of backward compatibility you e=
-xpose. It is true that users might be disturbed if we change such a beh=
-avior they would rely on.
-> Anyway, i'm ok with your patch.
->=20
-> Best regards
-> Emmanuel Thierry
-
---=20
-Romain KUNTZ
-IP flavors | http://www.ipflavors.com
-+33 (0)6 61 29 50 52
-r.kuntz@ipflavors.com
+Regards,
+Srivatsa S. Bhat
