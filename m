@@ -1,28 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: don't accept multicast traffic with scop 0
-Date: Mon, 11 Feb 2013 20:48:35 +0100
-Message-ID: <20130211194835.GD23991@order.stressinduktion.org>
-References: <20130210124851.GB18219@order.stressinduktion.org>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [PATCH 0/3] Dual EMAC mode implementation of CPSW
+Date: Tue, 12 Feb 2013 01:22:17 +0530
+Message-ID: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
-	erik.hugne@ericsson.com
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:57727 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758904Ab3BKTsh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 14:48:37 -0500
-Content-Disposition: inline
-In-Reply-To: <20130210124851.GB18219@order.stressinduktion.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:42616 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759348Ab3BKTwv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Feb 2013 14:52:51 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 10, 2013 at 01:48:51PM +0100, Hannes Frederic Sowa wrote:
-> +	/*
-> +	 * RFC4291 2.7
-> +	 * Nodes must not originate a packet to a multicast address whose scop
-> +	 * field contains the reserved value 0; if such a packet is received, it
-> +	 * must be silently dropped.
+This patch series implements Dual EMAC mode implementation of CPSW
+which acts as two standalone EMAC by segregating the switch using VIDs
+and port VLAN
 
-Just nit-picking: The field is actually called scop without e, as pointed out
-by three erratas to RFC4291. :)
+Mugunthan V N (3):
+  driver: net: ethernet: davinci_cpdma: add support for directed packet
+    and source port detection
+  driver: net: ethernet: cpsw: make cpts as pointer
+  driver: net: ethernet: cpsw: dual emac interface implementation
+
+ Documentation/devicetree/bindings/net/cpsw.txt |    2 +
+ drivers/net/ethernet/ti/cpsw.c                 |  387 +++++++++++++++++++-----
+ drivers/net/ethernet/ti/davinci_cpdma.c        |   17 +-
+ drivers/net/ethernet/ti/davinci_cpdma.h        |    4 +-
+ drivers/net/ethernet/ti/davinci_emac.c         |    6 +-
+ include/linux/platform_data/cpsw.h             |    3 +
+ 6 files changed, 338 insertions(+), 81 deletions(-)
+
+-- 
+1.7.9.5
