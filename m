@@ -1,35 +1,33 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: WARNING: at net/core/neighbour.c:1545 neigh_table_init()
-Date: Mon, 11 Feb 2013 10:26:00 +0100
-Message-ID: <20130211092600.GB23932@gmail.com>
-References: <20130209123937.GA23420@localhost>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Mon, 11 Feb 2013 11:32:19 +0100
+Message-ID: <5118C8B3.7080803@gmail.com>
+References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	linux-kernel@vger.kernel.org
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130209123937.GA23420@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	davem@davemloft.net, stefanr@s5r6.in-berlin.de
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:34085 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755180Ab3BKKcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 05:32:23 -0500
+Received: by mail-ea0-f182.google.com with SMTP id a12so2719754eaa.13
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 02:32:21 -0800 (PST)
+In-Reply-To: <5117B73C.10600@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi!
 
-* Fengguang Wu <fengguang.wu@intel.com> wrote:
+> Can I have you code?
+I meant the test patch I sent to the 1394 mailing list:
 
-> Greetings,
-> 
-> I got the below oops in linux-next and the first bad commit is
-> 
-> commit 455e987c0c2eb2c9045dc854559474cf41509965
-> Merge: 7c17e48 fd6da69
-> Author: Linus Torvalds <torvalds@linux-foundation.org>
-> Date:   Sat Dec 1 13:07:48 2012 -0800
-> 
->     Merge branch 'perf-urgent-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+http://article.gmane.org/gmane.linux.kernel.firewire.devel/15900
 
-This bisection result is probably spurious?
+Regards,
 
-Thanks,
-
-	Ingo
+Stephan
