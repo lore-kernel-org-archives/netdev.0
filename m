@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: bridge interface initial carrier state
-Date: Mon, 11 Feb 2013 13:58:36 -0800
-Message-ID: <20130211135836.2220ca68@nehalam.linuxnetplumber.net>
+Date: Mon, 11 Feb 2013 13:59:30 -0800
+Message-ID: <20130211135930.4cdad83c@nehalam.linuxnetplumber.net>
 References: <1360612915.8633.6.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -9,12 +9,12 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:37910 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932691Ab3BKV6x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:58:53 -0500
-Received: by mail-pa0-f45.google.com with SMTP id kl14so3259965pab.18
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 13:58:52 -0800 (PST)
+Received: from mail-da0-f52.google.com ([209.85.210.52]:64774 "EHLO
+	mail-da0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932691Ab3BKV7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:59:45 -0500
+Received: by mail-da0-f52.google.com with SMTP id f10so2861783dak.11
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 13:59:44 -0800 (PST)
 In-Reply-To: <1360612915.8633.6.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -34,5 +34,5 @@ Dan Williams <dcbw@redhat.com> wrote:
 > 
 > Dan
 
-It really should be off when no ports are present, but some initial startup
-scripts broke when it was that way.
+Perhaps a future enhancement of bridge would be to use operstate flags
+to indicate lower layer down if there are no ports.
