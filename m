@@ -1,28 +1,77 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] iplink_vlan: Add flag for Multiple VLAN
- Registration Protocol (MVRP)
-Date: Mon, 11 Feb 2013 09:18:35 -0800
-Message-ID: <20130211091835.0829f17d@nehalam.linuxnetplumber.net>
-References: <1360379828-16302-1-git-send-email-david.ward@ll.mit.edu>
-	<1360379828-16302-4-git-send-email-david.ward@ll.mit.edu>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] ethtool: fix sparse warning
+Date: Mon, 11 Feb 2013 17:21:59 +0000
+Message-ID: <1360603319.2701.8.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130211082228.1f1d7f88@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Ward <david.ward@ll.mit.edu>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:35661 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757838Ab3BKRSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 12:18:50 -0500
-Received: by mail-da0-f44.google.com with SMTP id z20so2786958dae.3
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 09:18:49 -0800 (PST)
-In-Reply-To: <1360379828-16302-4-git-send-email-david.ward@ll.mit.edu>
+Received: from webmail.solarflare.com ([12.187.104.25]:33074 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757838Ab3BKRWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 12:22:21 -0500
+In-Reply-To: <20130211082228.1f1d7f88@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The current iproute2 repository is open form 3.8 related features
-changes at this time.
+On Mon, 2013-02-11 at 08:22 -0800, Stephen Hemminger wrote:
+> Fixes sparse complaints about dropping __user in casts.
+>  warning: cast removes address space of expression
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 
-Please resubmit during 3.9 merge window, because I may forget this
-patch otherwise.
+> 
+> --- a/net/socket.c	2013-02-11 08:17:45.081011548 -0800
+> +++ b/net/socket.c	2013-02-11 08:19:52.743355382 -0800
+> @@ -2837,7 +2837,7 @@ static int ethtool_ioctl(struct net *net
+>  	}
+>  
+>  	ifr = compat_alloc_user_space(buf_size);
+> -	rxnfc = (void *)ifr + ALIGN(sizeof(struct ifreq), 8);
+> +	rxnfc = (void __user *)ifr + ALIGN(sizeof(struct ifreq), 8);
+>  
+>  	if (copy_in_user(&ifr->ifr_name, &ifr32->ifr_name, IFNAMSIZ))
+>  		return -EFAULT;
+> @@ -2861,12 +2861,12 @@ static int ethtool_ioctl(struct net *net
+>  			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
+>  
+>  		if (copy_in_user(rxnfc, compat_rxnfc,
+> -				 (void *)(&rxnfc->fs.m_ext + 1) -
+> -				 (void *)rxnfc) ||
+> +				 (void __user *)(&rxnfc->fs.m_ext + 1) -
+> +				 (void __user *)rxnfc) ||
+>  		    copy_in_user(&rxnfc->fs.ring_cookie,
+>  				 &compat_rxnfc->fs.ring_cookie,
+> -				 (void *)(&rxnfc->fs.location + 1) -
+> -				 (void *)&rxnfc->fs.ring_cookie) ||
+> +				 (void __user *)(&rxnfc->fs.location + 1) -
+> +				 (void __user *)&rxnfc->fs.ring_cookie) ||
+>  		    copy_in_user(&rxnfc->rule_cnt, &compat_rxnfc->rule_cnt,
+>  				 sizeof(rxnfc->rule_cnt)))
+>  			return -EFAULT;
+> @@ -2878,12 +2878,12 @@ static int ethtool_ioctl(struct net *net
+>  
+>  	if (convert_out) {
+>  		if (copy_in_user(compat_rxnfc, rxnfc,
+> -				 (const void *)(&rxnfc->fs.m_ext + 1) -
+> -				 (const void *)rxnfc) ||
+> +				 (const void __user *)(&rxnfc->fs.m_ext + 1) -
+> +				 (const void __user *)rxnfc) ||
+>  		    copy_in_user(&compat_rxnfc->fs.ring_cookie,
+>  				 &rxnfc->fs.ring_cookie,
+> -				 (const void *)(&rxnfc->fs.location + 1) -
+> -				 (const void *)&rxnfc->fs.ring_cookie) ||
+> +				 (const void __user *)(&rxnfc->fs.location + 1) -
+> +				 (const void __user *)&rxnfc->fs.ring_cookie) ||
+>  		    copy_in_user(&compat_rxnfc->rule_cnt, &rxnfc->rule_cnt,
+>  				 sizeof(rxnfc->rule_cnt)))
+>  			return -EFAULT;
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
