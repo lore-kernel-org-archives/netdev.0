@@ -1,70 +1,110 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: linux-next: build failure after merge of the akpm tree
-Date: Mon, 11 Feb 2013 14:04:18 +0200
-Message-ID: <5118DE42.7040902@mellanox.com>
-References: <20130211181332.ecf1cad33b04b3872b685620@canb.auug.org.au>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
+Date: Mon, 11 Feb 2013 17:53:41 +0530
+Message-ID: <5118E2CD.90401@linux.vnet.ibm.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <510FBC01.2030405@linux.vnet.ibm.com>	<87haloiwv0.fsf@rustcorp.com.au> <51134596.4080106@linux.vnet.ibm.com> <20130208154113.GV17833@n2100.arm.linux.org.uk> <51152B81.2050501@linux.vnet.ibm.com>	<51153F72.1060005@linux.vnet.ibm.com> <CAKfTPtCe+cD7LLkb+D6pqG1SwG2V08ws=4XO3ttHEHV2qgmqPg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Yan Burman <yanb@mellanox.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Sasha Levin <sasha.levin@oracle.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130211181332.ecf1cad33b04b3872b685620@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	linux-doc@vger.kernel.org, peterz@infradead.org,
+	fweisbec@gmail.com, linux-kernel@vger.kernel.org,
+	walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
+	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+	paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
+	rostedt@goodmis.org, rjw@sisk.pl, namhyung@kernel.org,
+	tglx@linutronix.de, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, oleg@redhat.com, sbw@mit.edu,
+	tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Vincent Guittot <vincent.guittot@linaro.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAKfTPtCe+cD7LLkb+D6pqG1SwG2V08ws=4XO3ttHEHV2qgmqPg@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/02/2013 09:13, Stephen Rothwell wrote:
-> Hi Andrew,
+On 02/11/2013 05:28 PM, Vincent Guittot wrote:
+> On 8 February 2013 19:09, Srivatsa S. Bhat
+> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
+>> On 02/08/2013 10:14 PM, Srivatsa S. Bhat wrote:
+>>> On 02/08/2013 09:11 PM, Russell King - ARM Linux wrote:
+>>>> On Thu, Feb 07, 2013 at 11:41:34AM +0530, Srivatsa S. Bhat wrote:
+>>>>> On 02/07/2013 09:44 AM, Rusty Russell wrote:
+>>>>>> "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com> writes:
+>>>>>>> On 01/22/2013 01:03 PM, Srivatsa S. Bhat wrote:
+>>>>>>>                  Avg. latency of 1 CPU offline (ms) [stop-cpu/stop-m/c latency]
+>>>>>>>
+>>>>>>> # online CPUs    Mainline (with stop-m/c)       This patchset (no stop-m/c)
+>>>>>>>
+>>>>>>>       8                 17.04                          7.73
+>>>>>>>
+>>>>>>>      16                 18.05                          6.44
+>>>>>>>
+>>>>>>>      32                 17.31                          7.39
+>>>>>>>
+>>>>>>>      64                 32.40                          9.28
+>>>>>>>
+>>>>>>>     128                 98.23                          7.35
+>>>>>>
+>>>>>> Nice!
+>>>>>
+>>>>> Thank you :-)
+>>>>>
+>>>>>>  I wonder how the ARM guys feel with their quad-cpu systems...
+>>>>>>
+>>>>>
+>>>>> That would be definitely interesting to know :-)
+>>>>
+>>>> That depends what exactly you'd like tested (and how) and whether you'd
+>>>> like it to be a test-chip based quad core, or an OMAP dual-core SoC.
+>>>>
+>>>
+>>> The effect of stop_machine() doesn't really depend on the CPU architecture
+>>> used underneath or the platform. It depends only on the _number_ of
+>>> _logical_ CPUs used.
+>>>
+>>> And stop_machine() has 2 noticeable drawbacks:
+>>> 1. It makes the hotplug operation itself slow
+>>> 2. and it causes disruptions to the workloads running on the other
+>>> CPUs by hijacking the entire machine for significant amounts of time.
+>>>
+>>> In my experiments (mentioned above), I tried to measure how my patchset
+>>> improves (reduces) the duration of hotplug (CPU offline) itself. Which is
+>>> also slightly indicative of the impact it has on the rest of the system.
+>>>
+>>> But what would be nice to test, is a setup where the workloads running on
+>>> the rest of the system are latency-sensitive, and measure the impact of
+>>> CPU offline on them, with this patchset applied. That would tell us how
+>>> far is this useful in making CPU hotplug less disruptive on the system.
+>>>
+>>> Of course, it would be nice to also see whether we observe any reduction
+>>> in hotplug duration itself (point 1 above) on ARM platforms with lot
+>>> of CPUs. [This could potentially speed up suspend/resume, which is used
+>>> rather heavily on ARM platforms].
+>>>
+>>> The benefits from this patchset over mainline (both in terms of points
+>>> 1 and 2 above) is expected to increase, with increasing number of CPUs in
+>>> the system.
+>>>
+>>
+>> Adding Vincent to CC, who had previously evaluated the performance and
+>> latency implications of CPU hotplug on ARM platforms, IIRC.
+>>
+>
+> Hi Srivatsa,
 > 
-> After merging the akpm tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
-> 
-> drivers/net/ethernet/mellanox/mlx4/en_rx.c: In function 'mlx4_en_process_rx_cq':
-> drivers/net/ethernet/mellanox/mlx4/en_rx.c:628:53: error: macro "hlist_for_each_entry_rcu" passed 4 arguments, but takes just 3
-> drivers/net/ethernet/mellanox/mlx4/en_rx.c:628:5: error: 'hlist_for_each_entry_rcu' undeclared (first use in this function)
-> drivers/net/ethernet/mellanox/mlx4/en_rx.c:628:55: error: expected ';' before '{' token
-> 
-> Caused by commit c07cb4b0ab78 ("net/mlx4_en: Manage hash of MAC addresses
-> per port") from the net-next tree interacting with commit "hlist: drop
-> the node parameter from iterators" from the akpm tree.
-> 
-> I applied the following merge fix patch for today:
-> 
-> From 7a10f5e7e8d1232d618307d568ea9a78dc4680bb Mon Sep 17 00:00:00 2001
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Mon, 11 Feb 2013 18:01:23 +1100
-> Subject: [PATCH] net/mlx4_en: fix up for hlist_for_each_entry_rcu API change
-> 
-> Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index ce38654..19a9c05 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -617,7 +617,6 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  
->  			if (is_multicast_ether_addr(ethh->h_dest)) {
->  				struct mlx4_mac_entry *entry;
-> -				struct hlist_node *n;
->  				struct hlist_head *bucket;
->  				unsigned int mac_hash;
->  
-> @@ -625,7 +624,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
->  				mac_hash = ethh->h_source[MLX4_EN_MAC_HASH_IDX];
->  				bucket = &priv->mac_hash[mac_hash];
->  				rcu_read_lock();
-> -				hlist_for_each_entry_rcu(entry, n, bucket, hlist) {
-> +				hlist_for_each_entry_rcu(entry, bucket, hlist) {
->  					if (ether_addr_equal_64bits(entry->mac,
->  								    ethh->h_source)) {
->  						rcu_read_unlock();
+> I can try to run some of our stress tests on your patches.
+
+Great!
+
+> Have you
+> got a git tree that i can pull ?
 > 
 
-Acked-By: Amir Vadai <amirv@mellanox.com>
+Unfortunately, no, none at the moment..  :-(
+
+Regards,
+Srivatsa S. Bhat
+
+
