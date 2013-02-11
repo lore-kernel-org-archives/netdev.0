@@ -1,36 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] skbuff: create skb_panic() to let caller
- specify panic
-Date: Mon, 11 Feb 2013 13:52:27 -0500 (EST)
-Message-ID: <20130211.135227.648991997734970671.davem@davemloft.net>
-References: <1360484610-11432-1-git-send-email-sakiwit@gmail.com>
-	<20130210182451.GA1602@minipsycho.orion>
-	<20130210234651.GD2496@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net-next] bridge: use dev->addr_assign_type to see if
+ user change mac
+Date: Mon, 11 Feb 2013 10:54:08 -0800
+Message-ID: <20130211105408.5e79f5bc@nehalam.linuxnetplumber.net>
+References: <1360532461-21003-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org
-To: sakiwit@gmail.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40997 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759586Ab3BKSwa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 13:52:30 -0500
-In-Reply-To: <20130210234651.GD2496@mail.gmail.com>
+Received: from mail-da0-f47.google.com ([209.85.210.47]:64741 "EHLO
+	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932104Ab3BKSyX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 13:54:23 -0500
+Received: by mail-da0-f47.google.com with SMTP id s35so2870202dak.34
+        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 10:54:22 -0800 (PST)
+In-Reply-To: <1360532461-21003-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Sacren <sakiwit@gmail.com>
-Date: Sun, 10 Feb 2013 16:46:52 -0700
+On Sun, 10 Feb 2013 22:41:01 +0100
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Sun, 10 Feb 2013 19:24:51 +0100
->>
->> How about to leave skb_under_panic() and skb_over_panic() wrapping
->> functions there just to wrap "skb_panic(skb, sz, addr, __func__);" call?
->> 
->> Seems nice that to state the name in str...
+> And remove no longer used br->flags.
 > 
-> That's really a good idea. If David drops again, I'll implement it.
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I like Jiri's idea, please implement it.
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
