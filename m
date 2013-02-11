@@ -1,68 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] tg3: Convert chip type macros to inline functions
-Date: Sun, 10 Feb 2013 19:39:27 -0500 (EST)
-Message-ID: <20130210.193927.632140014473940921.davem@davemloft.net>
-References: <1360194298.12464.35.camel@joe-AO722>
+Subject: Re: [PATCH 0/1] VM Sockets for Linux upstreaming
+Date: Sun, 10 Feb 2013 20:10:35 -0500 (EST)
+Message-ID: <20130210.201035.2234938856222663233.davem@davemloft.net>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, mcarlson@broadcom.com,
-	mchan@broadcom.com, nsujir@broadcom.com
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157Ab3BKAjb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Feb 2013 19:39:31 -0500
-In-Reply-To: <1360194298.12464.35.camel@joe-AO722>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, gregkh@linuxfoundation.org
+To: acking@vmware.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1360196636-9357-1-git-send-email-acking@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Wed, 06 Feb 2013 15:44:58 -0800
+From: Andy King <acking@vmware.com>
+Date: Wed,  6 Feb 2013 16:23:55 -0800
 
-> To me the negative to these conversions is at
-> least for gcc 4.7.2, the overall code size
-> increases
+> In an effort to improve the out-of-the-box experience with Linux kernels for
+> VMware users, VMware is working on readying the VM Sockets (VSOCK, formerly
+> VMCI Sockets) (vsock) kernel module for inclusion in the Linux kernel. The
+> purpose of this post is to acquire feedback on the vsock kernel module.
 > 
-> $ size drivers/net/ethernet/broadcom/tg3.o*
->    text	   data	    bss	    dec	    hex	filename
->  203426	  13446	  55744	 272616	  428e8	drivers/net/ethernet/broadcom/tg3.o.new
->  202135	  13446	  55144	 270725	  42185	drivers/net/ethernet/broadcom/tg3.o.old
+> Unlike previous submissions, where the new socket family was entirely reliant
+> on VMware's VMCI PCI device (and thus VMware's hypervisor), VM Sockets is now
+> completely[1] separated out into two parts, each in its own module:
 > 
-> I'm not sure why gcc doesn't do the optimization
-> and code generation the same way.
+> o Core socket code, which is transport-neutral and invokes transport
+>   callbacks to communicate with the hypervisor.  This is vsock.ko.
+> o A VMCI transport, which communicates over VMCI with the VMware hypervisor.
+>   This is vmw_vsock_vmci_transport.ko, and it registers with the core module
+>   as a transport.
+> 
+> This should provide a path to introducing additional transports, for example
+> virtio, with the ultimate goal being to make this new socket family
+> hypervisor-neutral.
 
-Out of curiosity I looked at the assembler difference on sparc
-and one thing stood out.
-
-You're changing how the values are evaluated, specifically you
-now are forcing the compiler to work with unsigned ID numbers
-whereas before it was working with signed values.
-
-So, looking at one example, the ASIC revision test in __tg3_set_mac_addr():
-
-	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5703 ||
-	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704) {
-	...
-	}
-
-
-The compiler previously turned the two tests into one:
-
-	asic_id -= 1;
-	if (asic_id <= 1) {
-	...
-	}
-
-But this construct isn't valid for unsigned quantities, so now with
-your patch this expands to two tests:
-
-	if (asic_id == 1 ||
-	    asic_id == 2) {
-	...
-	}
-
-The assembler is hard to compare manually, because the inlining
-changes how hard registers are allocated, and issues like the above
-will change all of the branch and file offsets as well. :-/
+Applied, thanks.
