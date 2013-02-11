@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 2/3] driver: net: ethernet: cpsw: make cpts as pointer
-Date: Tue, 12 Feb 2013 01:22:19 +0530
-Message-ID: <1360612340-9266-3-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH 1/3] driver: net: ethernet: davinci_cpdma: add support for directed packet and source port detection
+Date: Tue, 12 Feb 2013 01:22:18 +0530
+Message-ID: <1360612340-9266-2-git-send-email-mugunthanvnm@ti.com>
 References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,156 +13,157 @@ In-Reply-To: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com>
 Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As CPTS is common module for both EMAC in Dual EMAC mode so making cpts as
-pointer.
+* Introduced parameter to add port number for directed packet in cpdma_chan_submit
+* Source port detection macro with DMA descriptor status
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |   36 +++++++++++++++++++++---------------
- 1 file changed, 21 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c          |    6 +++---
+ drivers/net/ethernet/ti/davinci_cpdma.c |   17 +++++++++++++++--
+ drivers/net/ethernet/ti/davinci_cpdma.h |    4 +++-
+ drivers/net/ethernet/ti/davinci_emac.c  |    6 +++---
+ 4 files changed, 24 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 8ac60c7..4b964bb 100644
+index 888708c..8ac60c7 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -319,7 +319,7 @@ struct cpsw_priv {
- 	/* snapshot of IRQ numbers */
- 	u32 irqs_table[4];
- 	u32 num_irqs;
--	struct cpts cpts;
-+	struct cpts *cpts;
- };
+@@ -424,7 +424,7 @@ void cpsw_rx_handler(void *token, int len, int status)
+ 			return;
  
- #define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
-@@ -383,7 +383,7 @@ void cpsw_tx_handler(void *token, int len, int status)
- 	 */
- 	if (unlikely(netif_queue_stopped(ndev)))
- 		netif_start_queue(ndev);
--	cpts_tx_timestamp(&priv->cpts, skb);
-+	cpts_tx_timestamp(priv->cpts, skb);
- 	priv->stats.tx_packets++;
- 	priv->stats.tx_bytes += len;
- 	dev_kfree_skb_any(skb);
-@@ -404,7 +404,7 @@ void cpsw_rx_handler(void *token, int len, int status)
+ 		ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
+-					skb_tailroom(skb), GFP_KERNEL);
++					skb_tailroom(skb), 0, GFP_KERNEL);
  	}
- 	if (likely(status >= 0)) {
- 		skb_put(skb, len);
--		cpts_rx_timestamp(&priv->cpts, skb);
-+		cpts_rx_timestamp(priv->cpts, skb);
- 		skb->protocol = eth_type_trans(skb, ndev);
- 		netif_receive_skb(skb);
- 		priv->stats.rx_bytes += len;
-@@ -760,7 +760,8 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
- 		return NETDEV_TX_OK;
+ 	WARN_ON(ret < 0);
+ }
+@@ -705,7 +705,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 		if (!skb)
+ 			break;
+ 		ret = cpdma_chan_submit(priv->rxch, skb, skb->data,
+-					skb_tailroom(skb), GFP_KERNEL);
++					skb_tailroom(skb), 0, GFP_KERNEL);
+ 		if (WARN_ON(ret < 0))
+ 			break;
  	}
- 
--	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP && priv->cpts.tx_enable)
-+	if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP &&
-+				priv->cpts->tx_enable)
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 
+@@ -766,7 +766,7 @@ static netdev_tx_t cpsw_ndo_start_xmit(struct sk_buff *skb,
  	skb_tx_timestamp(skb);
-@@ -815,7 +816,7 @@ static void cpsw_hwtstamp_v1(struct cpsw_priv *priv)
- 	struct cpsw_slave *slave = &priv->slaves[priv->data.cpts_active_slave];
- 	u32 ts_en, seq_id;
  
--	if (!priv->cpts.tx_enable && !priv->cpts.rx_enable) {
-+	if (!priv->cpts->tx_enable && !priv->cpts->rx_enable) {
- 		slave_write(slave, 0, CPSW1_TS_CTL);
- 		return;
- 	}
-@@ -823,10 +824,10 @@ static void cpsw_hwtstamp_v1(struct cpsw_priv *priv)
- 	seq_id = (30 << CPSW_V1_SEQ_ID_OFS_SHIFT) | ETH_P_1588;
- 	ts_en = EVENT_MSG_BITS << CPSW_V1_MSG_TYPE_OFS;
+ 	ret = cpdma_chan_submit(priv->txch, skb, skb->data,
+-				skb->len, GFP_KERNEL);
++				skb->len, 0, GFP_KERNEL);
+ 	if (unlikely(ret != 0)) {
+ 		cpsw_err(priv, tx_err, "desc submit failed\n");
+ 		goto fail;
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index afe14a6..ca25cc8 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -60,6 +60,9 @@
+ #define CPDMA_DESC_EOQ		BIT(28)
+ #define CPDMA_DESC_TD_COMPLETE	BIT(27)
+ #define CPDMA_DESC_PASS_CRC	BIT(26)
++#define CPDMA_DESC_TO_PORT_EN	BIT(20)
++#define CPDMA_TO_PORT_SHIFT	16
++#define CPDMA_DESC_PORT_MASK	(BIT(18) | BIT(17) | BIT(16))
  
--	if (priv->cpts.tx_enable)
-+	if (priv->cpts->tx_enable)
- 		ts_en |= CPSW_V1_TS_TX_EN;
+ #define CPDMA_TEARDOWN_VALUE	0xfffffffc
  
--	if (priv->cpts.rx_enable)
-+	if (priv->cpts->rx_enable)
- 		ts_en |= CPSW_V1_TS_RX_EN;
+@@ -132,6 +135,14 @@ struct cpdma_chan {
+ #define chan_write(chan, fld, v)	__raw_writel(v, (chan)->fld)
+ #define desc_write(desc, fld, v)	__raw_writel((u32)(v), &(desc)->fld)
  
- 	slave_write(slave, ts_en, CPSW1_TS_CTL);
-@@ -841,10 +842,10 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
- 	ctrl = slave_read(slave, CPSW2_CONTROL);
- 	ctrl &= ~CTRL_ALL_TS_MASK;
++#define cpdma_desc_to_port(chan, mode, directed)			\
++	do {								\
++		if (!is_rx_chan(chan) && ((directed == 1) ||		\
++					  (directed == 2)))		\
++			mode |= (CPDMA_DESC_TO_PORT_EN |		\
++				 (directed << CPDMA_TO_PORT_SHIFT));	\
++	} while (0)
++
+ /*
+  * Utility constructs for a cpdma descriptor pool.  Some devices (e.g. davinci
+  * emac) have dedicated on-chip memory for these descriptors.  Some other
+@@ -664,7 +675,7 @@ static void __cpdma_chan_submit(struct cpdma_chan *chan,
+ }
  
--	if (priv->cpts.tx_enable)
-+	if (priv->cpts->tx_enable)
- 		ctrl |= CTRL_TX_TS_BITS;
- 
--	if (priv->cpts.rx_enable)
-+	if (priv->cpts->rx_enable)
- 		ctrl |= CTRL_RX_TS_BITS;
- 
- 	mtype = (30 << TS_SEQ_ID_OFFSET_SHIFT) | EVENT_MSG_BITS;
-@@ -857,7 +858,7 @@ static void cpsw_hwtstamp_v2(struct cpsw_priv *priv)
- static int cpsw_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
+ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+-		      int len, gfp_t gfp_mask)
++		      int len, int directed, gfp_t gfp_mask)
  {
- 	struct cpsw_priv *priv = netdev_priv(dev);
--	struct cpts *cpts = &priv->cpts;
-+	struct cpts *cpts = priv->cpts;
- 	struct hwtstamp_config cfg;
+ 	struct cpdma_ctlr		*ctlr = chan->ctlr;
+ 	struct cpdma_desc __iomem	*desc;
+@@ -694,6 +705,7 @@ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
  
- 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
-@@ -1086,7 +1087,7 @@ static int cpsw_get_ts_info(struct net_device *ndev,
- 		SOF_TIMESTAMPING_RX_SOFTWARE |
- 		SOF_TIMESTAMPING_SOFTWARE |
- 		SOF_TIMESTAMPING_RAW_HARDWARE;
--	info->phc_index = priv->cpts.phc_index;
-+	info->phc_index = priv->cpts->phc_index;
- 	info->tx_types =
- 		(1 << HWTSTAMP_TX_OFF) |
- 		(1 << HWTSTAMP_TX_ON);
-@@ -1272,6 +1273,11 @@ static int cpsw_probe(struct platform_device *pdev)
- 	priv->dev  = &ndev->dev;
- 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
- 	priv->rx_packet_max = max(rx_packet_max, 128);
-+	priv->cpts = devm_kzalloc(&pdev->dev, sizeof(struct cpts), GFP_KERNEL);
-+	if (!ndev) {
-+		pr_err("error allocating cpts\n");
-+		goto clean_ndev_ret;
-+	}
+ 	buffer = dma_map_single(ctlr->dev, data, len, chan->dir);
+ 	mode = CPDMA_DESC_OWNER | CPDMA_DESC_SOP | CPDMA_DESC_EOP;
++	cpdma_desc_to_port(chan, mode, directed);
  
- 	/*
- 	 * This may be required here for child devices.
-@@ -1358,7 +1364,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 	switch (priv->version) {
- 	case CPSW_VERSION_1:
- 		priv->host_port_regs = ss_regs + CPSW1_HOST_PORT_OFFSET;
--		priv->cpts.reg       = ss_regs + CPSW1_CPTS_OFFSET;
-+		priv->cpts->reg       = ss_regs + CPSW1_CPTS_OFFSET;
- 		dma_params.dmaregs   = ss_regs + CPSW1_CPDMA_OFFSET;
- 		dma_params.txhdp     = ss_regs + CPSW1_STATERAM_OFFSET;
- 		ale_params.ale_regs  = ss_regs + CPSW1_ALE_OFFSET;
-@@ -1369,7 +1375,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		break;
- 	case CPSW_VERSION_2:
- 		priv->host_port_regs = ss_regs + CPSW2_HOST_PORT_OFFSET;
--		priv->cpts.reg       = ss_regs + CPSW2_CPTS_OFFSET;
-+		priv->cpts->reg       = ss_regs + CPSW2_CPTS_OFFSET;
- 		dma_params.dmaregs   = ss_regs + CPSW2_CPDMA_OFFSET;
- 		dma_params.txhdp     = ss_regs + CPSW2_STATERAM_OFFSET;
- 		ale_params.ale_regs  = ss_regs + CPSW2_ALE_OFFSET;
-@@ -1471,7 +1477,7 @@ static int cpsw_probe(struct platform_device *pdev)
- 		goto clean_irq_ret;
+ 	desc_write(desc, hw_next,   0);
+ 	desc_write(desc, hw_buffer, buffer);
+@@ -784,7 +796,8 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
+ 		status = -EBUSY;
+ 		goto unlock_ret;
  	}
+-	status	= status & (CPDMA_DESC_EOQ | CPDMA_DESC_TD_COMPLETE);
++	status	= status & (CPDMA_DESC_EOQ | CPDMA_DESC_TD_COMPLETE |
++			    CPDMA_DESC_PORT_MASK);
  
--	if (cpts_register(&pdev->dev, &priv->cpts,
-+	if (cpts_register(&pdev->dev, priv->cpts,
- 			  data->cpts_clock_mult, data->cpts_clock_shift))
- 		dev_err(priv->dev, "error registering cpts device\n");
+ 	chan->head = desc_from_phys(pool, desc_read(desc, hw_next));
+ 	chan_write(chan, cp, desc_dma);
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+index 8d2aeb2..a97d6ab 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.h
++++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+@@ -24,6 +24,8 @@
+ #define __chan_linear(chan_num)	((chan_num) & (CPDMA_MAX_CHANNELS - 1))
+ #define chan_linear(chan)	__chan_linear((chan)->chan_num)
  
-@@ -1516,7 +1522,7 @@ static int cpsw_remove(struct platform_device *pdev)
- 	pr_info("removing device");
- 	platform_set_drvdata(pdev, NULL);
++#define CPDMA_RX_SOURCE_PORT(__status__)	((__status__ >> 16) & 0x7)
++
+ struct cpdma_params {
+ 	struct device		*dev;
+ 	void __iomem		*dmaregs;
+@@ -82,7 +84,7 @@ int cpdma_chan_dump(struct cpdma_chan *chan);
+ int cpdma_chan_get_stats(struct cpdma_chan *chan,
+ 			 struct cpdma_chan_stats *stats);
+ int cpdma_chan_submit(struct cpdma_chan *chan, void *token, void *data,
+-		      int len, gfp_t gfp_mask);
++		      int len, int directed, gfp_t gfp_mask);
+ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
  
--	cpts_unregister(&priv->cpts);
-+	cpts_unregister(priv->cpts);
- 	free_irq(ndev->irq, priv);
- 	cpsw_ale_destroy(priv->ale);
- 	cpdma_chan_destroy(priv->txch);
+ int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 242ec55..52c0536 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1037,7 +1037,7 @@ static void emac_rx_handler(void *token, int len, int status)
+ 
+ recycle:
+ 	ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
+-			skb_tailroom(skb), GFP_KERNEL);
++			skb_tailroom(skb), 0, GFP_KERNEL);
+ 
+ 	WARN_ON(ret == -ENOMEM);
+ 	if (unlikely(ret < 0))
+@@ -1092,7 +1092,7 @@ static int emac_dev_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	skb_tx_timestamp(skb);
+ 
+ 	ret_code = cpdma_chan_submit(priv->txchan, skb, skb->data, skb->len,
+-				     GFP_KERNEL);
++				     0, GFP_KERNEL);
+ 	if (unlikely(ret_code != 0)) {
+ 		if (netif_msg_tx_err(priv) && net_ratelimit())
+ 			dev_err(emac_dev, "DaVinci EMAC: desc submit failed");
+@@ -1558,7 +1558,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 			break;
+ 
+ 		ret = cpdma_chan_submit(priv->rxchan, skb, skb->data,
+-					skb_tailroom(skb), GFP_KERNEL);
++					skb_tailroom(skb), 0, GFP_KERNEL);
+ 		if (WARN_ON(ret < 0))
+ 			break;
+ 	}
 -- 
 1.7.9.5
 
