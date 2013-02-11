@@ -1,33 +1,48 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
-Date: Mon, 11 Feb 2013 11:32:19 +0100
-Message-ID: <5118C8B3.7080803@gmail.com>
-References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org>
-Reply-To: stephan.gatzka@gmail.com
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: Re: [PATCH 1/2] net: calexdaxgmac: fix printing of hardware version
+Date: Mon, 11 Feb 2013 10:59:53 +0000
+Message-ID: <5118CF29.3040205@codethink.co.uk>
+References: <1360510721-17860-1-git-send-email-ben.dooks@codethink.co.uk> <1360510721-17860-2-git-send-email-ben.dooks@codethink.co.uk> <5118208C.7010109@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	davem@davemloft.net, stefanr@s5r6.in-berlin.de
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: Rob Herring <robherring2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f182.google.com ([209.85.215.182]:34085 "EHLO
-	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755180Ab3BKKcX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 05:32:23 -0500
-Received: by mail-ea0-f182.google.com with SMTP id a12so2719754eaa.13
-        for <netdev@vger.kernel.org>; Mon, 11 Feb 2013 02:32:21 -0800 (PST)
-In-Reply-To: <5117B73C.10600@linux-ipv6.org>
+Received: from ducie-dc1.codethink.co.uk ([37.128.190.40]:42032 "EHLO
+	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754366Ab3BKK7z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 05:59:55 -0500
+In-Reply-To: <5118208C.7010109@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+On 10/02/13 22:34, Rob Herring wrote:
+> On 02/10/2013 09:38 AM, Ben Dooks wrote:
+>> The current driver attempts to print netdev_info() before registering the
+>> network device and allowing the name to be set. Change this print to be
+>> after the network deviec has been registered, and thus has been allocated
+>
+> You missed the typo pointed out on the first version sent to lakml.
 
-> Can I have you code?
-I meant the test patch I sent to the 1394 mailing list:
+Oops, sorry.
 
-http://article.gmane.org/gmane.linux.kernel.firewire.devel/15900
+>> a network device name.
+>>
+>> Fix the following issue:
+>>
+>> calxedaxgmac fff50000.ethernet (unregistered net_device): h/w version is 0x1012
+>>
+>> Signed-off-by: Ben Dooks<ben.dooks@codethink.co.uk>
+>
+> Otherwise,
+>
+> Acked-by: Rob Herring<rob.herring@calxeda.com>
 
-Regards,
+Thanks.
 
-Stephan
+
+-- 
+Ben Dooks				http://www.codethink.co.uk/
+Senior Engineer				Codethink - Providing Genius
