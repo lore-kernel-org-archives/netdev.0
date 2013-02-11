@@ -1,73 +1,44 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [net-next 04/10] igb: Fix for sparse warning in
- igb_get_i2c_client
-Date: Mon, 11 Feb 2013 17:27:51 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264D263037@ORSMSX102.amr.corp.intel.com>
-References: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1360319958-10497-5-git-send-email-jeffrey.t.kirsher@intel.com>
- <1360602355.2701.5.camel@bwh-desktop.uk.solarflarecom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Issue with Micrel PCI Network Driver.
+Date: Mon, 11 Feb 2013 17:46:04 +0000
+Message-ID: <1360604764.2701.10.camel@bwh-desktop.uk.solarflarecom.com>
+References: <51158774.8080405@novatechweb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <joseph.lutz@novatechweb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:24074 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758191Ab3BKR1y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Feb 2013 12:27:54 -0500
-In-Reply-To: <1360602355.2701.5.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:7615 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758435Ab3BKRq0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 12:46:26 -0500
+In-Reply-To: <51158774.8080405@novatechweb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10NCj4gT24gQmVo
-YWxmIE9mIEJlbiBIdXRjaGluZ3MNCj4gU2VudDogTW9uZGF5LCBGZWJydWFyeSAxMSwgMjAxMyA5
-OjA2IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IFd5Ym9ybnksIENhcm9seW4NCj4gQ2M6
-IGRhdmVtQGRhdmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IGdvc3BvQHJlZGhh
-dC5jb207DQo+IHNhc3NtYW5uQHJlZGhhdC5jb20NCj4gU3ViamVjdDogUmU6IFtuZXQtbmV4dCAw
-NC8xMF0gaWdiOiBGaXggZm9yIHNwYXJzZSB3YXJuaW5nIGluIGlnYl9nZXRfaTJjX2NsaWVudA0K
-PiANCj4gT24gRnJpLCAyMDEzLTAyLTA4IGF0IDAyOjM5IC0wODAwLCBKZWZmIEtpcnNoZXIgd3Jv
-dGU6DQo+ID4gRnJvbTogQ2Fyb2x5biBXeWJvcm55IDxjYXJvbHluLnd5Ym9ybnlAaW50ZWwuY29t
-Pg0KPiA+DQo+ID4gVGhpcyBwYXRjaCBjaGFuZ2VzIGRlZmluaXRpb24gb2YgaTJjX2NsaWVudCBp
-biBpZ2JfZ2V0X2kyY19jbGllbnQgdG8NCj4gPiBzdGF0aWMgdG8gcHJldmVudCBzcGFyc2Ugd2Fy
-bmluZy4NCj4gDQo+IFNvLCBpbiBvcmRlciB0byBmaXggdGhlIHdhcm5pbmc6DQo+IA0KPiBkcml2
-ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYzo3NjExOjE5OiB3YXJuaW5nOiBz
-eW1ib2wNCj4gJ2lnYl9nZXRfaTJjX2NsaWVudCcgd2FzIG5vdCBkZWNsYXJlZC4gU2hvdWxkIGl0
-IGJlIHN0YXRpYz8NCj4gDQo+IHlvdSBkb24ndCB0b3VjaCB0aGUgZnVuY3Rpb24gZGVjbGFyYXRp
-b24sIGJ1dCBpbnN0ZWFkIG1ha2UgYSBsb2NhbCB2YXJpYWJsZQ0KPiBzdGF0aWMuICBUaGlzIGRv
-ZXNuJ3QgZml4IHRoZSB3YXJuaW5nLCBidXQgZG9lcyBpbnRyb2R1Y2UgYSByYWNlIGNvbmRpdGlv
-bi4uLg0KPiANCj4gQmVuLg0KPiANCj4gPiBSZXBvcnRlZC1ieTogRmVuZ2d1YW5nIFd1IDxmZW5n
-Z3Vhbmcud3VAaW50ZWwuY29tPg0KPiA+IFNpZ25lZC1vZmYtYnk6IENhcm9seW4gV3lib3JueSA8
-Y2Fyb2x5bi53eWJvcm55QGludGVsLmNvbT4NCj4gPiBUZXN0ZWQtYnk6IEFhcm9uIEJyb3duIDxh
-YXJvbi5mLmJyb3duQGludGVsLmNvbT4NCj4gPiBTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIg
-PGplZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT4NCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9tYWluLmMgfCAyICstDQo+ID4gIDEgZmlsZSBjaGFuZ2Vk
-LCAxIGluc2VydGlvbigrKSwgMSBkZWxldGlvbigtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfbWFpbi5jDQo+ID4gYi9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4uYw0KPiA+IGluZGV4IGMxOWEzNWMuLmViZjgz
-ODQgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9t
-YWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pZ2IvaWdiX21haW4u
-Yw0KPiA+IEBAIC03NzMyLDcgKzc3MzIsNyBAQCBpZ2JfZ2V0X2kyY19jbGllbnQoc3RydWN0IGln
-Yl9hZGFwdGVyICphZGFwdGVyLA0KPiA+IHU4IGRldl9hZGRyKSAgew0KPiA+ICAJdWxvbmcgZmxh
-Z3M7DQo+ID4gIAlzdHJ1Y3QgaWdiX2kyY19jbGllbnRfbGlzdCAqY2xpZW50X2xpc3Q7DQo+ID4g
-LQlzdHJ1Y3QgaTJjX2NsaWVudCAqY2xpZW50ID0gTlVMTDsNCj4gPiArCXN0YXRpYyBzdHJ1Y3Qg
-aTJjX2NsaWVudCAqY2xpZW50Ow0KPiA+ICAJc3RydWN0IGkyY19ib2FyZF9pbmZvIGNsaWVudF9p
-bmZvID0gew0KPiA+ICAJCUkyQ19CT0FSRF9JTkZPKCJpZ2IiLCAweDAwKSwNCj4gPiAgCX07DQo+
-IA0KPiAtLQ0KPiBCZW4gSHV0Y2hpbmdzLCBTdGFmZiBFbmdpbmVlciwgU29sYXJmbGFyZSBOb3Qg
-c3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MNCj4gdGhlIG1hcmtldGluZyBkZXBhcnRt
-ZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJlIHByb2R1
-Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KPiANCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJv
-bSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiIgaW4gdGhlIGJv
-ZHkgb2YgYQ0KPiBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpv
-cmRvbW8gaW5mbyBhdA0KPiBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0
-bWwNCg0KWWVzLCBteSBtaXN0YWtlIGluIHRha2luZyBhIHF1aWNrIHN1Z2dlc3Rpb24gd2l0aG91
-dCBlbm91Z2ggZXZhbHVhdGlvbi4gIEknbSBpbiB0aGUgcHJvY2VzcyBvZiBjb21wbGV0ZWx5IHJl
-ZG9pbmcgdGhpcyB0byBub3QgYWxsb2NhdGUgY2xpZW50cyBvbiB0aGUgZmx5IHdoaWNoIHdpbGwg
-ZnVsbHkgZml4IHRoaXMgcHJvYmxlbSBhbmQgdGhlIGluaXRpYWwgb25lLg0KDQpUaGFua3MsDQoN
-CkNhcm9seW4NCg==
+On Fri, 2013-02-08 at 17:17 -0600, Joseph Lutz wrote:
+> I am having an issue with one of the network interface drivers. The 
+> driver in question is 'drivers/net/ethernet/micrel/ksz884x.c', the 
+> driver for the Micrel-Kendin device 8841.
+> I am trying to get systemd to rename the three network interfaces in my 
+> embedded atom system. I have one of the interfaces being renamed (an 
+> Intel Corporation 82574L), but the two Micrel interfaces are not being 
+> renamed. I traced this down to the driver not populating the 
+> /sys/devices/pci* information. Instead it places the driver into 
+> /sys/devices/virtual/net/.
+[...]
+
+Right, this driver doesn't specify the parent device (PCI device) for
+the net devices it creates.
+
+All you should need to is add:
+	SET_NETDEV_DEV(dev, pdev);
+underneath the call to alloc_etherdev().
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
