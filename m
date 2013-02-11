@@ -1,35 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v4 07/11] tbf: ignore max_size check for gso
- skbs
-Date: Mon, 11 Feb 2013 16:11:07 -0500 (EST)
-Message-ID: <20130211.161107.919817010099628482.davem@davemloft.net>
-References: <1360493539-14868-1-git-send-email-jiri@resnulli.us>
-	<1360493539-14868-8-git-send-email-jiri@resnulli.us>
-	<20130211210220.GA1560@minipsycho.orion>
+Subject: Re: [PATCH v2 0/2] netpoll: Cleanup netpoll locking and sparse
+ warnings
+Date: Mon, 11 Feb 2013 16:11:35 -0500 (EST)
+Message-ID: <20130211.161135.580650334150981029.davem@davemloft.net>
+References: <1360248961-30721-1-git-send-email-nhorman@tuxdriver.com>
+	<1360614331-29247-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jhs@mojatatu.com,
-	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
+	eric.dumazet@gmail.com, amwang@redhat.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42445 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42467 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759807Ab3BKVLL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:11:11 -0500
-In-Reply-To: <20130211210220.GA1560@minipsycho.orion>
+	with ESMTP id S932078Ab3BKVLg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 16:11:36 -0500
+In-Reply-To: <1360614331-29247-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 11 Feb 2013 22:02:20 +0100
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Mon, 11 Feb 2013 15:25:29 -0500
 
-> Hmm. I think that this approach might not be correct after all. This
-> might break existing setups when user is taking gso into account and
-> adjust mtu and burst accordingly. After more thorough study, I'm under
-> impression that gso skbs should not be handled in any different way.
+> I was fixing some sparse warnings in netpoll from a previous commit, and it was
+> pointed out to me that one of the rcu_dereferences that I fixed up in 
+> __netpoll_cleanup might not have been correct.  On investigation I found that 
+> rtnl_dereference should have been the correct macro to use, but we had a path in
+> which we weren't properly holding the rtnl lock.  This patch series fixes up the
+> locking in the __netpoll_free_rcu path, and then properly corrects the sparse 
+> warnings in the netpoll.c file that I previously introduced.
 > 
-> Thoughts?
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-I really think userspace should be ignorant of GSO to the maximum
-extent to which that is possible.
+I happen to know that this is meant for net-next, but you really need
+to state that clearly in your patch submissions.
