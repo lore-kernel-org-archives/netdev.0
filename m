@@ -1,48 +1,132 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net] ixgbe: Only set gso_type to SKB_GSO_TCPV4 as RSC
- does not support IPv6
-Date: Tue, 12 Feb 2013 13:39:03 -0800
-Message-ID: <511AB677.9060708@intel.com>
-References: <20130212193624.17818.13843.stgit@ahduyck-cp1.jf.intel.com> <20130212205151.GC6972@redhat.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] ip.7: Improve explanation about calling listen or connect
+Date: Tue, 12 Feb 2013 22:48:48 +0100
+Message-ID: <CAKgNAkiqy=ovvTsLKK8jeOr=7yFsT2tZ7S1Se2dxSkH88OkwbQ@mail.gmail.com>
+References: <1336566636-14713-1-git-send-email-fbl@redhat.com>
+ <4FBF66D8.7060007@redhat.com> <20120606114426.0595fbac@asterix.rh>
+ <CAKgNAkjq3xwO7ZDH5twZdW-Onbwoim5asETPV-Zs6x73twSd7g@mail.gmail.com> <20130211175000.GG31579@obelix.rh>
+Reply-To: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
-	davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:64678 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751915Ab3BLVjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2013 16:39:09 -0500
-In-Reply-To: <20130212205151.GC6972@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130211175000.GG31579-8Luz0qD3JK/tRgLqZ5aouw@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 02/12/2013 12:51 PM, Michael S. Tsirkin wrote:
-> On Tue, Feb 12, 2013 at 11:45:44AM -0800, Alexander Duyck wrote:
->> The original fix that was applied for setting gso_type required more change
->> than necessary because it was assumed ixgbe does RSC on IPv6 frames and this
->> is not correct.  RSC is only supported with IPv4/TCP frames only.  As such we
->> can simplify the fix and avoid the unnecessary move of eth_type_trans.
+Hi Flavio,
+
+On Mon, Feb 11, 2013 at 6:50 PM, Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Sun, Feb 10, 2013 at 03:00:03AM +0100, Michael Kerrisk (man-pages) wrote:
+>> On Wed, Jun 6, 2012 at 4:44 PM, Flavio Leitner <fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>> >
+>> > Hi,
+>> >
+>> > Could someone tell me what's the patch current state?
+>> > It has been a month already with no feedback.
+>> > thanks,
+>> > fbl
 >>
->> The previous patch "ixgbe: fix gso type" and this patch reduce the entire fix
->> to one line that sets gso_type to TCPV4 if the frame is RSC.
+>> Following up, long after the fact.
 >>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Is this architectural? Is it safe to assume there won't be an update
-> that does RSC on IPv6?
+>> Flavio, I had no time pack then to review this patch... One problem
+>> is, you never gave any rationle for the change ("Improve explanation
+>> of..." is not a rationale -- I need to know *why* you think the
+>> changes are needed.)
+>
+> Because the current explanation is not detailed enough and/or the way
+> it is written may lead to a wrong interpretation, specially for non-English
+> users.  Therefore, it should be improved adding supporting details
+> and a better writing to clarify each case.
+>
+> The patch adds the missing details and clarifies each use case.
+>
+> Thanks,
+> fbl
+Peter sent me some supporting technical info that you'd supplied
+elsewhere. I've applied your patch now.
 
-If there is an update at some point in the future we could address it
-then.  I just wanted to keep changes to net minimal to avoid a possible
-regression, and this patch does that.  No point in future proofing it
-for features we may or may not implement at some point in the future.
+Thanks!
 
-If we were to add IPv6 support to RSC it would be a serious rewrite of
-the feature anyway.  This code would hopefully be refactored as a part
-of that rewrite since we would want the hardware to give us the MSS
-instead of making us have to approximate it.
+Michael
 
-Thanks,
 
-Alex
+
+>> > On Fri, 25 May 2012 13:02:48 +0200
+>> > Peter Schiffer <pschiffe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+>> >
+>> >> Hi Michael,
+>> >>
+>> >> do you have any comments for this update? Or do you need some supporting
+>> >> info?
+>> >>
+>> >> peter
+>> >>
+>> >> On 05/09/2012 02:30 PM, Flavio Leitner wrote:
+>> >> > Signed-off-by: Flavio Leitner<fbl-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>> >> > ---
+>> >> >   man7/ip.7 |   15 +++++++++------
+>> >> >   1 files changed, 9 insertions(+), 6 deletions(-)
+>> >> >
+>> >> > diff --git a/man7/ip.7 b/man7/ip.7
+>> >> > index 9f560df..84fe32d 100644
+>> >> > --- a/man7/ip.7
+>> >> > +++ b/man7/ip.7
+>> >> > @@ -69,12 +69,11 @@ For
+>> >> >   you may specify a valid IANA IP protocol defined in
+>> >> >   RFC\ 1700 assigned numbers.
+>> >> >   .PP
+>> >> > -.\" FIXME ip current does an autobind in listen, but I'm not sure
+>> >> > -.\" if that should be documented.
+>> >> >   When a process wants to receive new incoming packets or connections, it
+>> >> >   should bind a socket to a local interface address using
+>> >> >   .BR bind (2).
+>> >> > -Only one IP socket may be bound to any given local (address, port) pair.
+>> >> > +In this case, only one IP socket may be bound to any given local
+>> >> > +(address, port) pair.
+>> >> >   When
+>> >> >   .B INADDR_ANY
+>> >> >   is specified in the bind call, the socket will be bound to
+>> >> > @@ -82,10 +81,14 @@ is specified in the bind call, the socket will be bound to
+>> >> >   local interfaces.
+>> >> >   When
+>> >> >   .BR listen (2)
+>> >> > -or
+>> >> > +is called on an unbound socket, the socket is automatically bound
+>> >> > +to a random free port with the local address set to
+>> >> > +.BR INADDR_ANY .
+>> >> > +When
+>> >> >   .BR connect (2)
+>> >> > -are called on an unbound socket, it is automatically bound to a
+>> >> > -random free port with the local address set to
+>> >> > +is called on an unbound socket, the socket is automatically bound
+>> >> > +to a random free port or an usable shared port with the local address
+>> >> > +set to
+>> >> >   .BR INADDR_ANY .
+>> >> >
+>> >> >   A TCP local socket address that has been bound is unavailable for
+>> >
+>>
+>>
+>>
+>> --
+>> Michael Kerrisk
+>> Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+>> Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+>>
+>
+> --
+> fbl
+
+
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Author of "The Linux Programming Interface"; http://man7.org/tlpi/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
