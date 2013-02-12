@@ -1,37 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-02-12
-Date: Tue, 12 Feb 2013 16:13:17 -0500 (EST)
-Message-ID: <20130212.161317.1315936101869036107.davem@davemloft.net>
-References: <20130212160316.GA2086@tuxdriver.com>
+Subject: Re: [PATCH v2] net: fec_mpc52xx: Read MAC address from device-tree
+Date: Tue, 12 Feb 2013 16:15:26 -0500 (EST)
+Message-ID: <20130212.161526.1610493155978768216.davem@davemloft.net>
+References: <1360660088-27464-1-git-send-email-sr@denx.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130212160316.GA2086@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linuxppc-dev@ozlabs.org, agust@denx.de
+To: sr@denx.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57115 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751244Ab3BLVP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 16:15:29 -0500
+In-Reply-To: <1360660088-27464-1-git-send-email-sr@denx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 12 Feb 2013 11:03:16 -0500
+From: Stefan Roese <sr@denx.de>
+Date: Tue, 12 Feb 2013 10:08:08 +0100
 
-> Here is another handful of late-breaking fixes intended for the 3.8
-> stream...  Hopefully the will still make it! :-)
+> Until now, the MPC5200 FEC ethernet driver relied upon the bootloader
+> (U-Boot) to write the MAC address into the ethernet controller
+> registers. The Linux driver should not rely on such a thing. So
+> lets read the MAC address from the DT as it should be done here.
 > 
-> There are three mac80211 fixes pulled from Johannes:
+> The following priority is now used to read the MAC address:
 > 
-> "Here are three fixes still for the 3.8 stream, the fix from Cong Ding
-> for the bad sizeof (Stephen Hemminger had pointed it out before but I'd
-> promptly forgotten), a mac80211 managed-mode channel context usage fix
-> where a downgrade would never stop until reaching non-HT and a bug in
-> the channel determination that could cause invalid channels like HT40+
-> on channel 11 to be used."
+> 1) First, try OF node MAC address, if not present or invalid, then:
 > 
-> Also included is a mwl8k fix that avoids an oops when using mwl8k
-> devices that only support the 5 GHz band.
+> 2) Read from MAC address registers, if invalid, then:
 > 
-> Please let me know if there are problems!
+> 3) Log a warning message, and choose a random MAC address.
+> 
+> This fixes a problem with a MPC5200 board that uses the SPL U-Boot
+> version without FEC initialization before Linux booting for
+> boot speedup.
+> 
+> Additionally a status line is now be printed upon successful
+> driver probing, also displaying this MAC address.
+> 
+> Signed-off-by: Stefan Roese <sr@denx.de>
 
-Pulled, thanks John.
+Applied.
