@@ -1,38 +1,33 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: atl1c DMA-API mapping errors in 3.8-rc6+
-Date: Mon, 11 Feb 2013 23:55:31 +0000
-Message-ID: <157393863283F442885425D2C4542856489C6865@nasanexd02f.na.qualcomm.com>
-References: <20130211130812.GA21501@hansolo.jdub.homelinux.org>
- <157393863283F442885425D2C4542856489C67E4@nasanexd02f.na.qualcomm.com>
- <157393863283F442885425D2C4542856489C6811@nasanexd02f.na.qualcomm.com>
- <20130211194810.GB21501@hansolo.jdub.homelinux.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net-next] skbuff: create skb_panic() function and
+ its wrappers
+Date: Mon, 11 Feb 2013 19:15:02 -0500 (EST)
+Message-ID: <20130211.191502.1050356000457429462.davem@davemloft.net>
+References: <1360625438-13072-1-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"sgruszka@redhat.com" <sgruszka@redhat.com>,
-	nic-devel <nic-devel@qca.qualcomm.com>
-To: Josh Boyer <jwboyer@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@resnulli.us
+To: sakiwit@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sabertooth01.qualcomm.com ([65.197.215.72]:58253 "EHLO
-	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760072Ab3BKXze convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 18:55:34 -0500
-In-Reply-To: <20130211194810.GB21501@hansolo.jdub.homelinux.org>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:43816 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760679Ab3BLAQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 19:16:41 -0500
+In-Reply-To: <1360625438-13072-1-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> I'd be happy to build a kernel with a patch for the users to test with.
-> However, I don't see a patch here or on netdev.  Did you forget to include it
-> or send it out, or did I miss it somewhere?
-> 
+From: Jean Sacren <sakiwit@gmail.com>
+Date: Mon, 11 Feb 2013 16:30:38 -0700
 
-Thank you Josh, please allow me to do a rough test before send it out, I've borrowed one PC.
+> Create skb_panic() function in lieu of both skb_over_panic() and
+> skb_under_panic() so that code duplication would be avoided. Update type
+> and variable name where necessary.
+> 
+> Jiri Pirko suggested using wrappers so that we would be able to keep the
+> fruits of the original code.
+> 
+> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
 
-BR.
-Xiong
+Applied, thanks.
