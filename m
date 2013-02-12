@@ -1,43 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: request for stable inclusion
-Date: Tue, 12 Feb 2013 12:39:53 -0500 (EST)
-Message-ID: <20130212.123953.1955246533156235230.davem@davemloft.net>
-References: <1448044634.10999492.1359525527955.JavaMail.root@redhat.com>
-	<603624767.11006664.1359526575633.JavaMail.root@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] checksum: remove duplicated line of code in csum_fold
+Date: Tue, 12 Feb 2013 18:41:44 +0100
+Message-ID: <20130212174143.GA24888@localhost>
+References: <1360689003-21794-1-git-send-email-pablo@netfilter.org>
+ <20130212.121235.1398926681356889354.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: caiqian@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52927 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932404Ab3BLRjy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:39:54 -0500
-In-Reply-To: <603624767.11006664.1359526575633.JavaMail.root@redhat.com>
+Received: from slan-550-85.anhosting.com ([174.127.110.175]:61208 "EHLO
+	slan-550-85.anhosting.com" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932151Ab3BLRls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:41:48 -0500
+Content-Disposition: inline
+In-Reply-To: <20130212.121235.1398926681356889354.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: CAI Qian <caiqian@redhat.com>
-Date: Wed, 30 Jan 2013 01:16:15 -0500 (EST)
-
-> 9c13cb8bb477a83b9a3c9e5a5478a4e21294a760
-> tg3: Avoid null pointer dereference in tg3_interrupt in netconsole mode
+On Tue, Feb 12, 2013 at 12:12:35PM -0500, David Miller wrote:
+> From: pablo@netfilter.org
+> Date: Tue, 12 Feb 2013 18:10:03 +0100
 > 
-> daf3ec688e057f6060fb9bb0819feac7a8bbf45c
-> tg3: Fix crc errors on jumbo frame receive
+> > From: Pablo Neira Ayuso <pablo@netfilter.org>
+> > 
+> > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 > 
-> The above 2 commits looks like missing from the stable and the netdev
-> stable queues. It was observed that the above issues can be reproduced in
-> a kernel that as old as a 2.6.32-based fedora kernel, so I'd like to request
-> to include them for 3.0.y, 3.4.y and 3.7.y.
+> I am very sure that those two lines are there intentionally.
+> The first addition one can overflow, therefore we need to
+> fold again (which cannot overflow).
 
-Done.
-
-> 1e47ee8367babe6a5e8adf44a714c7086657b87e
-> netfilter: nf_conntrack: fix BUG_ON while removing nf_conntrack with netns
-> 
-> This one looks like a candidate for 3.7-stable but also missing from the
-> queues. Do you agree?
-
-This has already been merged.
+I was missing that, make sense indeed, thanks.
