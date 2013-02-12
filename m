@@ -1,68 +1,53 @@
-From: Bhushan Bharat-R65777 <R65777@freescale.com>
-Subject: RE: [PATCH v2] net: fec_mpc52xx: Read MAC address from device-tree
-Date: Tue, 12 Feb 2013 11:23:24 +0000
-Message-ID: <6A3DF150A5B70D4F9B66A25E3F7C888D065A1614@039-SN2MPN1-023.039d.mgd.msft.net>
-References: <1360660088-27464-1-git-send-email-sr@denx.de>
- <6A3DF150A5B70D4F9B66A25E3F7C888D065A0271@039-SN2MPN1-023.039d.mgd.msft.net>
- <511A219A.7080000@denx.de>
+From: sjur.brandeland@stericsson.com
+Subject: [PATCHv2 vringh 0/3] Introduce CAIF Virtio driver
+Date: Tue, 12 Feb 2013 12:49:50 +0100
+Message-ID: <1360669793-6921-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>,
-	Anatolij Gustschin <agust@denx.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: Stefan Roese <sr@denx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:13221 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758815Ab3BLLX3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2013 06:23:29 -0500
-In-Reply-To: <511A219A.7080000@denx.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>, sjur@brendeland.net,
+	Linus Walleij <linus.walleij@linaro.org>, linux-kernel@vger.kernel.org,
+	Erwan Yvin <erwan.yvin@stericsson.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	=?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjur.brandeland@stericsson.com>
+To: Rusty Russell <rusty@rustcorp.com.au>,
+	"David S. Miller" <davem@davemloft.net>, Ohad Ben-Cohen <ohad@wizery.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: Stefan Roese [mailto:sr@denx.de]
-> Sent: Tuesday, February 12, 2013 4:34 PM
-> To: Bhushan Bharat-R65777
-> Cc: netdev@vger.kernel.org; linuxppc-dev@ozlabs.org; Anatolij Gustschin; David
-> S. Miller
-> Subject: Re: [PATCH v2] net: fec_mpc52xx: Read MAC address from device-tree
-> 
-> On 12.02.2013 11:56, Bhushan Bharat-R65777 wrote:
-> >> Until now, the MPC5200 FEC ethernet driver relied upon the bootloader
-> >> (U-Boot) to write the MAC address into the ethernet controller
-> >> registers. The Linux driver should not rely on such a thing. So lets
-> >> read the MAC address from the DT as it should be done here.
-> >>
-> >> The following priority is now used to read the MAC address:
-> >>
-> >> 1) First, try OF node MAC address, if not present or invalid, then:
-> >>
-> >> 2) Read from MAC address registers, if invalid, then:
-> >
-> > Why we read from MAC registers if Linux should not rely on bootloader?
-> 
-> It was suggested by David. Backwards compatibility. Here Davids comment to my
-> original patch which removed this register reading completely:
-> 
-> "
-> I don't think this is a conservative enough change.
-> 
-> You have to keep the MAC register reading code around, as a backup code path in
-> case the OF device node lacks a MAC address "
-
-Ok,
-
-But this is really a backward compatibility or hiding some bug? My thought is that if DT does not have a valid MAC address then it is a BUG and should be fixed. Is not it?
-
--Bharat
-
-> 
-> Thanks,
-> Stefan
+RnJvbTogU2p1ciBCcsOmbmRlbGFuZCA8c2p1ci5icmFuZGVsYW5kQHN0ZXJpY3Nzb24uY29tPgoK
+VGhpcyBkcml2ZXIgZGVwZW5kcyBvbiBSdXN0eSdzIG5ldyBob3N0IHZpcnRpbyByaW5nIGltcGxl
+bWVudGF0aW9uLApzbyB0aGlzIHBhdGNoLXNldCBpcyBiYXNlZCBvbiB0aGUgdnJpbmdoIGJyYW5j
+aCBpbiBSdXN0eSdzIGdpdC4KCkNoYW5nZXMgc2luY2UgVjE6Ci0gVXNlIHRoZSBuZXcgaW92IGhl
+bHBlciBmdW5jdGlvbnMsIGFuZCBzaW1wbGlmeSBpb3YgaGFuZGxpbmcuCiAgSG93ZXZlciB0aGlz
+IHRyaWdnZXJzIGNvbXBpbGUgd2FybmluZ3MsIGFzIGl0IHRha2VzIHN0cnVjdCBpb3YKICB3aGls
+ZSBrZXJuZWwgYXBpIHVzZXMgc3RydWN0IGtpb3YKLSBJbnRyb2R1Y2VkIHRoZSBtb2R1bGVfdmly
+dGlvX2RyaXZlciBtYWNybwotIFBhc3MgTlVMTCBhcyB3aW92IHRvIHZyaW5naF9nZXRkZXNjX2tl
+cm4oKSAKClJlZ2FyZHMsClNqdXIKClNqdXIgQnLDpm5kZWxhbmQgKDIpOgogIHJlbW90ZXByb2M6
+IEFkZCBzdXBwb3J0IGZvciB2cmluZ2ggKEhvc3QgdnJpbmdzKQogIHZpcnRpbzogQWRkIG1vZHVs
+ZSBkcml2ZXIgbWFjcm8gZm9yIHZpcnRpbyBkcml2ZXJzLgoKVmlrcmFtIEFSViAoMSk6CiAgY2Fp
+Zl92aXJ0aW86IEludHJvZHVjZSBjYWlmIG92ZXIgdmlydGlvCgogZHJpdmVycy9uZXQvY2FpZi9L
+Y29uZmlnICAgICAgICAgICAgICAgfCAgICA4ICsKIGRyaXZlcnMvbmV0L2NhaWYvTWFrZWZpbGUg
+ICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL25ldC9jYWlmL2NhaWZfdmlydGlvLmMgICAg
+ICAgICB8ICA1NDcgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKIGRyaXZlcnMvcmVt
+b3RlcHJvYy9LY29uZmlnICAgICAgICAgICAgIHwgICAgMyArCiBkcml2ZXJzL3JlbW90ZXByb2Mv
+cmVtb3RlcHJvY192aXJ0aW8uYyB8ICAxMjcgKysrKysrKy0KIGluY2x1ZGUvbGludXgvcmVtb3Rl
+cHJvYy5oICAgICAgICAgICAgIHwgICAxNCArCiBpbmNsdWRlL2xpbnV4L3ZpcnRpby5oICAgICAg
+ICAgICAgICAgICB8ICAgIDkgKwogaW5jbHVkZS9saW51eC92aXJ0aW9fY2FpZi5oICAgICAgICAg
+ICAgfCAgIDI0ICsrCiBpbmNsdWRlL3VhcGkvbGludXgvdmlydGlvX2lkcy5oICAgICAgICB8ICAg
+IDEgKwogOSBmaWxlcyBjaGFuZ2VkLCA3MjkgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkK
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBkcml2ZXJzL25ldC9jYWlmL2NhaWZfdmlydGlvLmMKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL2xpbnV4L3ZpcnRpb19jYWlmLmgKCi0tIAoxLjcuNS40Cgpf
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXph
+dGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5v
+cmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmly
+dHVhbGl6YXRpb24=
