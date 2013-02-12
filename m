@@ -1,42 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: decnet: /proc/sys/net/decnet sysctl entries disappear
-Date: Tue, 12 Feb 2013 11:15:34 -0800
-Message-ID: <1360696534.17456.4.camel@joe-AO722>
-References: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov>
-	 <20130211.200944.1447109432418679998.davem@davemloft.net>
-	 <8EAAA907-914A-4670-BAAF-ABC95C0838CA@usgs.gov>
-	 <20130211.235347.25383457019933412.davem@davemloft.net>
-	 <A16FE98D-5476-4AB2-855F-0CDA3944E7F5@usgs.gov>
-	 <1360694580.17456.2.camel@joe-AO722>
-	 <6AA3F012-5843-4D66-AB3D-F8D40D458450@usgs.gov>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Tue, 12 Feb 2013 20:46:04 +0100
+Message-ID: <511A9BFC.9010907@gmail.com>
+References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org> <5118C8B3.7080803@gmail.com> <5118EE78.5000508@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Larry Baker <baker@usgs.gov>
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	davem@davemloft.net, stefanr@s5r6.in-berlin.de
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:59976 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932165Ab3BLTPh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2013 14:15:37 -0500
-In-Reply-To: <6AA3F012-5843-4D66-AB3D-F8D40D458450@usgs.gov>
+Received: from mail-ee0-f45.google.com ([74.125.83.45]:40891 "EHLO
+	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933385Ab3BLTqJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 14:46:09 -0500
+Received: by mail-ee0-f45.google.com with SMTP id b57so241110eek.18
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 11:46:08 -0800 (PST)
+In-Reply-To: <5118EE78.5000508@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-12 at 10:58 -0800, Larry Baker wrote:
-> The instructions say "e-mail that person".  There are only two persons
-> listed as decnet maintainers, one of which has told me she is not
-> involved much any more.  The instructions only mention sending to
-> mailing lists if the maintainer does not respond.
+
+> Have you tried after skb->ip_summed = CHECKSUM_NONE change?
 > 
-> I explicitly followed the instructions.
+> --yoshfuji
 
-I think you need to read a little farther.
+No, I' don't think so.
 
-> If the developers want mailing lists CC'd right off the bat, the instructions should be updated.
+Nevertheless, there is some hope that I can try out your patch set
+during this week and find some insight why IPv6 does not work with MacOS X.
 
-from: Documentation/SubmittingPatches
+Regards,
 
-6) Select your CC (e-mail carbon copy) list.
-
-Unless you have a reason NOT to do so, CC linux-kernel@vger.kernel.org.
+Stephan
