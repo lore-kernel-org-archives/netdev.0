@@ -1,82 +1,245 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH net-next 2/5] gianfar: Cleanup and optimize struct gfar_private
-Date: Tue, 12 Feb 2013 17:58:27 +0200
-Message-ID: <511A66A3.7040704@freescale.com>
-References: <1360673237-349-1-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-2-git-send-email-claudiu.manoil@freescale.com> <511A5BA3.4020306@windriver.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2013-02-12
+Date: Tue, 12 Feb 2013 11:03:16 -0500
+Message-ID: <20130212160316.GA2086@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="M9NhX3UHpAaciwkO"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:35326
-	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758579Ab3BLP6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 10:58:47 -0500
-In-Reply-To: <511A5BA3.4020306@windriver.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:47184 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933293Ab3BLQPf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 11:15:35 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/12/2013 5:11 PM, Paul Gortmaker wrote:
-> On 13-02-12 07:47 AM, Claudiu Manoil wrote:
->> * group run-time critical fields within the 1st cacheline
->>    followed by the tx|rx_queue reference arrays and the interrupt
->>    group instances (gfargrp) (all cacheline aligned)
->> * change 'padding' from unsigned short to u16
->> * clear 20+ byte memory hole
->
-> Per prev. mail, it gets harder to see which change is where,
-> when they are all lumped together like this.  For example, it
-> wasn't obvious to me where the 20 byte hole was.  Also, it
-> doesn't look like you changed the padding, but rather instead
-> totally re-purposed it, leaving no alignment padding after the
-> uchar bitfields (where it was originally).
->
-> P.
 
-The 20 byte hole was here:
+--M9NhX3UHpAaciwkO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-struct gfar_private {
-         unsigned int               num_tx_queues;
-         unsigned int               num_rx_queues;
-         unsigned int               num_grps;
-         unsigned int               mode;
-         unsigned int               total_tx_ring_size;
-         unsigned int               total_rx_ring_size;
-         struct device_node *       node;
-         struct net_device *        ndev;
-         /* --- cacheline 1 boundary (32 bytes) --- */
-         struct platform_device *   ofdev;
-         enum gfar_errata           errata;
+Dave,
 
-         /* XXX 24 bytes hole, try to pack */
+Here is another handful of late-breaking fixes intended for the 3.8
+stream...  Hopefully the will still make it! :-)
 
-         /* --- cacheline 2 boundary (64 bytes) --- */
-         struct gfar_priv_grp       gfargrp[2];
+There are three mac80211 fixes pulled from Johannes:
 
+"Here are three fixes still for the 3.8 stream, the fix from Cong Ding
+for the bad sizeof (Stephen Hemminger had pointed it out before but I'd
+promptly forgotten), a mac80211 managed-mode channel context usage fix
+where a downgrade would never stop until reaching non-HT and a bug in
+the channel determination that could cause invalid channels like HT40+
+on channel 11 to be used."
 
-At the end of the patch series the first cacheline is without holes.
-Please note that the re-grouping of members and their order is most
-important. For instance why keep in the first cacheline something
-as unimportant as total_rx_ring_size? Members like rx_buffer_size,
-or padding, or even errata, are critical however for the fast path.
-Rx processing (gfar_poll + clean_rx_ring) is the bottleneck here,
-keeping the CPU to 100%. So the main goal is to optimize this path,
-including memory access/cache optimizations. For instance, better 
-results were obtained by inverting rx|tx_queue[] with gfargrp[], originally:
-         /* --- cacheline 1 boundary (32 bytes) --- */
-         struct gfar_priv_tx_q *    tx_queue[8];  /*    32    32 */
-         /* --- cacheline 2 boundary (64 bytes) --- */
-         struct gfar_priv_rx_q *    rx_queue[8]; /*    64    32 */
-         /* --- cacheline 3 boundary (96 bytes) --- */
-         struct gfar_priv_grp       gfargrp[2];  /*    96   192 */
+Also included is a mwl8k fix that avoids an oops when using mwl8k
+devices that only support the 5 GHz band.
 
-The uchar bitfields are unimportant here (used at "init time"), and
-they take 4 bytes including padding anyway. So whether it's uchar or
-uint, it's the same, maybe better left uchar to discourage the abuse
-of these bitfields. (A 2-3byte hole here doesn't change anything
-to the whole structure size, which is padded to be at least a 32B
-multiple.)
+Please let me know if there are problems!
 
-Thanks,
-Claudiu
+John
+
+---
+
+The following changes since commit 547b4e718115eea74087e28d7fa70aec619200db:
+
+  bridge: set priority of STP packets (2013-02-11 14:16:52 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
+avem
+
+for you to fetch changes up to 318d86dbe55cbc63a61a83b9ff6cdbc044905f5e:
+
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
+nville/wireless into for-davem (2013-02-12 10:41:46 -0500)
+
+----------------------------------------------------------------
+
+Cong Ding (1):
+      mac80211: fix error in sizeof() usage
+
+Johannes Berg (2):
+      mac80211: fix managed mode channel context use
+      mac80211: fix channel selection bug
+
+John W. Linville (2):
+      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
+nto for-davem
+
+Jonas Gorski (1):
+      mwl8k: fix band for supported channels
+
+ drivers/net/wireless/mwl8k.c | 36 ++++++++++++++++++------------------
+ net/mac80211/cfg.c           |  3 ++-
+ net/mac80211/mlme.c          | 11 +++++++----
+ 3 files changed, 27 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index 83564d3..a00a03e 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -318,20 +318,20 @@ struct mwl8k_sta {
+ #define MWL8K_STA(_sta) ((struct mwl8k_sta *)&((_sta)->drv_priv))
+=20
+ static const struct ieee80211_channel mwl8k_channels_24[] =3D {
+-	{ .center_freq =3D 2412, .hw_value =3D 1, },
+-	{ .center_freq =3D 2417, .hw_value =3D 2, },
+-	{ .center_freq =3D 2422, .hw_value =3D 3, },
+-	{ .center_freq =3D 2427, .hw_value =3D 4, },
+-	{ .center_freq =3D 2432, .hw_value =3D 5, },
+-	{ .center_freq =3D 2437, .hw_value =3D 6, },
+-	{ .center_freq =3D 2442, .hw_value =3D 7, },
+-	{ .center_freq =3D 2447, .hw_value =3D 8, },
+-	{ .center_freq =3D 2452, .hw_value =3D 9, },
+-	{ .center_freq =3D 2457, .hw_value =3D 10, },
+-	{ .center_freq =3D 2462, .hw_value =3D 11, },
+-	{ .center_freq =3D 2467, .hw_value =3D 12, },
+-	{ .center_freq =3D 2472, .hw_value =3D 13, },
+-	{ .center_freq =3D 2484, .hw_value =3D 14, },
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2412, .hw_value =3D 1, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2417, .hw_value =3D 2, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2422, .hw_value =3D 3, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2427, .hw_value =3D 4, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2432, .hw_value =3D 5, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2437, .hw_value =3D 6, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2442, .hw_value =3D 7, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2447, .hw_value =3D 8, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2452, .hw_value =3D 9, =
+},
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2457, .hw_value =3D 10,=
+ },
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2462, .hw_value =3D 11,=
+ },
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2467, .hw_value =3D 12,=
+ },
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2472, .hw_value =3D 13,=
+ },
++	{ .band =3D IEEE80211_BAND_2GHZ, .center_freq =3D 2484, .hw_value =3D 14,=
+ },
+ };
+=20
+ static const struct ieee80211_rate mwl8k_rates_24[] =3D {
+@@ -352,10 +352,10 @@ static const struct ieee80211_rate mwl8k_rates_24[] =
+=3D {
+ };
+=20
+ static const struct ieee80211_channel mwl8k_channels_50[] =3D {
+-	{ .center_freq =3D 5180, .hw_value =3D 36, },
+-	{ .center_freq =3D 5200, .hw_value =3D 40, },
+-	{ .center_freq =3D 5220, .hw_value =3D 44, },
+-	{ .center_freq =3D 5240, .hw_value =3D 48, },
++	{ .band =3D IEEE80211_BAND_5GHZ, .center_freq =3D 5180, .hw_value =3D 36,=
+ },
++	{ .band =3D IEEE80211_BAND_5GHZ, .center_freq =3D 5200, .hw_value =3D 40,=
+ },
++	{ .band =3D IEEE80211_BAND_5GHZ, .center_freq =3D 5220, .hw_value =3D 44,=
+ },
++	{ .band =3D IEEE80211_BAND_5GHZ, .center_freq =3D 5240, .hw_value =3D 48,=
+ },
+ };
+=20
+ static const struct ieee80211_rate mwl8k_rates_50[] =3D {
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 516fbc9..0479c64 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -2004,7 +2004,8 @@ static int ieee80211_set_mcast_rate(struct wiphy *wip=
+hy, struct net_device *dev,
+ {
+ 	struct ieee80211_sub_if_data *sdata =3D IEEE80211_DEV_TO_SUB_IF(dev);
+=20
+-	memcpy(sdata->vif.bss_conf.mcast_rate, rate, sizeof(rate));
++	memcpy(sdata->vif.bss_conf.mcast_rate, rate,
++	       sizeof(int) * IEEE80211_NUM_BANDS);
+=20
+ 	return 0;
+ }
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index a355292..5107248 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -3400,6 +3400,7 @@ ieee80211_determine_chantype(struct ieee80211_sub_if_=
+data *sdata,
+=20
+ 	ret =3D 0;
+=20
++out:
+ 	while (!cfg80211_chandef_usable(sdata->local->hw.wiphy, chandef,
+ 					IEEE80211_CHAN_DISABLED)) {
+ 		if (WARN_ON(chandef->width =3D=3D NL80211_CHAN_WIDTH_20_NOHT)) {
+@@ -3408,14 +3409,13 @@ ieee80211_determine_chantype(struct ieee80211_sub_i=
+f_data *sdata,
+ 			goto out;
+ 		}
+=20
+-		ret =3D chandef_downgrade(chandef);
++		ret |=3D chandef_downgrade(chandef);
+ 	}
+=20
+ 	if (chandef->width !=3D vht_chandef.width)
+ 		sdata_info(sdata,
+-			   "local regulatory prevented using AP HT/VHT configuration, downgrade=
+d\n");
++			   "capabilities/regulatory prevented using AP HT/VHT configuration, do=
+wngraded\n");
+=20
+-out:
+ 	WARN_ON_ONCE(!cfg80211_chandef_valid(chandef));
+ 	return ret;
+ }
+@@ -3529,8 +3529,11 @@ static int ieee80211_prep_channel(struct ieee80211_s=
+ub_if_data *sdata,
+ 	 */
+ 	ret =3D ieee80211_vif_use_channel(sdata, &chandef,
+ 					IEEE80211_CHANCTX_SHARED);
+-	while (ret && chandef.width !=3D NL80211_CHAN_WIDTH_20_NOHT)
++	while (ret && chandef.width !=3D NL80211_CHAN_WIDTH_20_NOHT) {
+ 		ifmgd->flags |=3D chandef_downgrade(&chandef);
++		ret =3D ieee80211_vif_use_channel(sdata, &chandef,
++						IEEE80211_CHANCTX_SHARED);
++	}
+ 	return ret;
+ }
+=20
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--M9NhX3UHpAaciwkO
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRGmfEAAoJEJctW/TcYTgGBSsP/RKwrk8PPkTdXayqbiQ+RI4a
+w58chzt+4PB2jrQtKFm8i0zCdJM1DUG6b0cFLVm4k3j1zlacpw/QMrZUnOh2S8P1
+7l04yj5BcS3M3I4fvwPemluhHq7EBzhUc4LKVGEHp2gR2awOlOYZogKi1KAQp2MC
+JlHBqZNCYlnbLEvjBhLXCyJ9FlAs0IwS1W2KUrxMzMmigh8THJCFWXGhT4UIH17t
+96cDxYmhIHzFPvvOG8kbabsfDwF5nVt6vK925AR2B2u25eoYGdmp0zuhcQMITbPI
+tdSWTEefifwWHRS+fWkCXciNw5qztp1+AIUkrcVEjz+cjqDQPAfHZX0RRL0uXyqF
+ZZU5lzNGIQlfST30TKqLtISMuYqbYgxynjCPVzs4Kv3Sm+m/TMK5dtfJ8S29Smp8
+ki7nyy72NNPbEpyTWn0r79ybF5Sf/zftSJ+HXntP1klaw2PFVFXa9KHNUAhjUYTu
++f2b+THO74O+HGCkWgpIVNWSKivE1nptGaeYrxfrn+6Yh6RFdjRp4k+AuI7Qlw45
+yHMzRCq0N/Ed8qnozGENXA1x0paxcK9fIvK4FDcYLkyQ3vCvqeuODUWVF5EmrHD/
+bD5tNwBu8nzYOznap1PiKtff4yeaewHBYND8b28hMHwUzzwXYoJPsjgTzMAF72Gl
+Fe0yc1FlSc0Px4JvcPjt
+=tw6J
+-----END PGP SIGNATURE-----
+
+--M9NhX3UHpAaciwkO--
