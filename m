@@ -1,38 +1,42 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 3/3] ipv6: stop multicast forwarding to process reserved/interface/link scoped addresses
-Date: Tue, 12 Feb 2013 23:16:39 +0100
-Message-ID: <20130212221639.GA7250@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60016 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758520Ab3BLWQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 17:16:40 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cyril Roelandt <tipecaml@gmail.com>
+Subject: [PATCH] net: ethernet: ti: remove redundant NULL check.
+Date: Tue, 12 Feb 2013 23:52:30 +0100
+Message-ID: <1360709550-821-1-git-send-email-tipecaml@gmail.com>
+References: <20130212.170650.89534546100043269.davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	mugunthanvnm@ti.com, zonque@gmail.com, hotforest@gmail.com,
+	Julia.Lawall@lip6.fr, netdev@vger.kernel.org,
+	Cyril Roelandt <tipecaml@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130212.170650.89534546100043269.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+cpdma_chan_destroy() on a NULL pointer is a no-op, so the NULL check in
+cpdma_ctlr_destroy() can safely be removed.
+
+Signed-off-by: Cyril Roelandt <tipecaml@gmail.com>
 ---
- net/ipv6/ip6_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ti/davinci_cpdma.c |    6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 5b10414..7cae63ad 100644
---- a/net/ipv6/ip6_input.c
-+++ b/net/ipv6/ip6_input.c
-@@ -279,7 +279,7 @@ int ip6_mc_input(struct sk_buff *skb)
- 	 *      IPv6 multicast router mode is now supported ;)
- 	 */
- 	if (dev_net(skb->dev)->ipv6.devconf_all->mc_forwarding &&
--	    !(ipv6_addr_type(&hdr->daddr) & IPV6_ADDR_LINKLOCAL) &&
-+	    !__ipv6_addr_needs_scope_id(__ipv6_addr_type(&hdr->daddr)) &&
- 	    likely(!(IP6CB(skb)->flags & IP6SKB_FORWARDED))) {
- 		/*
- 		 * Okay, we try to forward - split and duplicate
+diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+index f862918..1c4b0aa 100644
+--- a/drivers/net/ethernet/ti/davinci_cpdma.c
++++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+@@ -449,10 +449,8 @@ int cpdma_ctlr_destroy(struct cpdma_ctlr *ctlr)
+ 	if (ctlr->state != CPDMA_STATE_IDLE)
+ 		cpdma_ctlr_stop(ctlr);
+ 
+-	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++) {
+-		if (ctlr->channels[i])
+-			cpdma_chan_destroy(ctlr->channels[i]);
+-	}
++	for (i = 0; i < ARRAY_SIZE(ctlr->channels); i++)
++		cpdma_chan_destroy(ctlr->channels[i]);
+ 
+ 	cpdma_desc_pool_destroy(ctlr->pool);
+ 	spin_unlock_irqrestore(&ctlr->lock, flags);
 -- 
-1.8.1.2
+1.7.10.4
