@@ -1,60 +1,52 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: Issue with Micrel PCI Network Driver.
-Date: Tue, 12 Feb 2013 11:10:59 +0100
-Message-ID: <87halhkfkc.fsf@nemi.mork.no>
-References: <51158774.8080405@novatechweb.com>
-	<1360604764.2701.10.camel@bwh-desktop.uk.solarflarecom.com>
-	<1360604823.2701.11.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <joseph.lutz@novatechweb.com>, <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Peter Lieven <pl@dlhnet.de>
+Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
+Date: Tue, 12 Feb 2013 11:11:45 +0100
+Message-ID: <D40E1487-27E9-40B3-B007-085B432E5600@dlhnet.de>
+References: <50AE36E0.8000307@dlhnet.de> <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home> <E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de> <20121123110146.GC7051@redhat.com> <50FE5607.9020405@dlhnet.de> <20130123100312.GA8108@redhat.com> <5119E9DC.3000505@dlhnet.de> <20130212090850.GB22029@redhat.com> <056542E4-18E4-4C9F-AC96-60661768D6AF@dlhnet.de> <511A0DBB.7080907@msgid.tls.msk.ru> <20130212095422.GA23270@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Michael Tokarev <mjt@tls.msk.ru>,
+	Stefan Hajnoczi <stefanha@gmail.com>, qemu-devel@nongnu.org,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52468 "EHLO canardo.mork.no"
+Received: from ssl.dlhnet.de ([91.198.192.8]:44901 "EHLO ssl.dlh.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932672Ab3BLKLl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 05:11:41 -0500
-In-Reply-To: <1360604823.2701.11.camel@bwh-desktop.uk.solarflarecom.com> (Ben
-	Hutchings's message of "Mon, 11 Feb 2013 17:47:03 +0000")
+	id S932672Ab3BLKLr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 05:11:47 -0500
+In-Reply-To: <20130212095422.GA23270@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
-> On Mon, 2013-02-11 at 17:46 +0000, Ben Hutchings wrote:
->> On Fri, 2013-02-08 at 17:17 -0600, Joseph Lutz wrote:
->> > I am having an issue with one of the network interface drivers. Th=
-e=20
->> > driver in question is 'drivers/net/ethernet/micrel/ksz884x.c', the=
-=20
->> > driver for the Micrel-Kendin device 8841.
->> > I am trying to get systemd to rename the three network interfaces =
-in my=20
->> > embedded atom system. I have one of the interfaces being renamed (=
-an=20
->> > Intel Corporation 82574L), but the two Micrel interfaces are not b=
-eing=20
->> > renamed. I traced this down to the driver not populating the=20
->> > /sys/devices/pci* information. Instead it places the driver into=20
->> > /sys/devices/virtual/net/.
->> [...]
->>=20
->> Right, this driver doesn't specify the parent device (PCI device) fo=
-r
->> the net devices it creates.
->>=20
->> All you should need to is add:
->> 	SET_NETDEV_DEV(dev, pdev);
->> underneath the call to alloc_etherdev().
->
-> Or rather:
-> 	SET_NETDEV_DEV(dev, &pdev->dev);
 
+Am 12.02.2013 um 10:54 schrieb "Michael S. Tsirkin" <mst@redhat.com>:
 
-That should of course be fixed.  But this bug should not prevent
-userspace from renaming the device, should it? Sounds like a userspace
-application making too many stupid assumptions to me.  Does it work for
-network devices attached to other buses?
+> On Tue, Feb 12, 2013 at 01:39:07PM +0400, Michael Tokarev wrote:
+>> 12.02.2013 13:10, Peter Lieven wrote:
+>> []
+>> 
+>> Guys, can we please trim the excessive quoting just a bit? ;)
+>> 
+>>>>> If have set this option for 2 weeks now and not seen this problem again.
+>>>>> How does this flag work with the recently added tap multiqueue support?
+>> 
+>>>> This will be the only option in 3.8.
+>> 
+>>> Ok, but wouldn`t it be good to set it in qemu for kernels <3.8?
+>> 
+>> I'd say for kernels without mq support, not for <3.8, right? :)
+>> 
+>> Thanks,
+>> 
+>> /mjt
+> 
+> It's harmless to always set this flag, on 3.8 it does nothing.
 
+And kernels <3.8 do not have multi queue support?
 
-Bj=C3=B8rn
+Peter
+
+> 
+> -- 
+> MST
