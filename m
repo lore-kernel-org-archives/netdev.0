@@ -1,40 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix infinite loop in __skb_recv_datagram()
-Date: Tue, 12 Feb 2013 16:07:33 -0500 (EST)
-Message-ID: <20130212.160733.2235089567079483883.davem@davemloft.net>
-References: <1360638903.20362.32.camel@edumazet-glaptop>
-	<CA+ydwtoBttwiVz+oy0hnetUTQMi7XHyS9bfGzjuP1L41srBk=g@mail.gmail.com>
-	<1360685813.13993.12.camel@edumazet-glaptop>
+Subject: Re: [PATCH net] ixgbe: Only set gso_type to SKB_GSO_TCPV4 as RSC
+ does not support IPv6
+Date: Tue, 12 Feb 2013 16:07:46 -0500 (EST)
+Message-ID: <20130212.160746.324394770336310653.davem@davemloft.net>
+References: <20130212193624.17818.13843.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tt.rantala@gmail.com, netdev@vger.kernel.org, davej@redhat.com,
-	xemul@parallels.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com, mst@redhat.com
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56894 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56905 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753195Ab3BLVHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 16:07:35 -0500
-In-Reply-To: <1360685813.13993.12.camel@edumazet-glaptop>
+	with ESMTP id S1755415Ab3BLVHt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 16:07:49 -0500
+In-Reply-To: <20130212193624.17818.13843.stgit@ahduyck-cp1.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 12 Feb 2013 08:16:53 -0800
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Tue, 12 Feb 2013 11:45:44 -0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> The original fix that was applied for setting gso_type required more change
+> than necessary because it was assumed ixgbe does RSC on IPv6 frames and this
+> is not correct.  RSC is only supported with IPv4/TCP frames only.  As such we
+> can simplify the fix and avoid the unnecessary move of eth_type_trans.
 > 
-> Tommi was fuzzing with trinity and reported the following problem :
+> The previous patch "ixgbe: fix gso type" and this patch reduce the entire fix
+> to one line that sets gso_type to TCPV4 if the frame is RSC.
 > 
-> commit 3f518bf745 (datagram: Add offset argument to __skb_recv_datagram)
-> missed that a raw socket receive queue can contain skbs with no payload.
-> 
-> We can loop in __skb_recv_datagram() with MSG_PEEK mode, because
-> wait_for_packet() is not prepared to skip these skbs.
- ...
-> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
-> Tested-by: Tommi Rantala <tt.rantala@gmail.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Applied, thanks.
+Applied.
