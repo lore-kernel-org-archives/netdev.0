@@ -1,43 +1,53 @@
-From: Gerd Hoffmann <kraxel@redhat.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Tue, 12 Feb 2013 11:58:11 +0100
-Message-ID: <511A2043.6040805@redhat.com>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<1360196636-9357-2-git-send-email-acking@vmware.com>
+From: Stefan Roese <sr@denx.de>
+Subject: Re: [PATCH v2] net: fec_mpc52xx: Read MAC address from device-tree
+Date: Tue, 12 Feb 2013 12:03:54 +0100
+Message-ID: <511A219A.7080000@denx.de>
+References: <1360660088-27464-1-git-send-email-sr@denx.de>
+ <6A3DF150A5B70D4F9B66A25E3F7C888D065A0271@039-SN2MPN1-023.039d.mgd.msft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Andy King <acking@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1360196636-9357-2-git-send-email-acking@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Anatolij Gustschin <agust@denx.de>, "David S. Miller" <davem@davemloft.net>,
+ "linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>
+To: Bhushan Bharat-R65777 <R65777@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <6A3DF150A5B70D4F9B66A25E3F7C888D065A0271@039-SN2MPN1-023.039d.mgd.msft.net>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On 02/07/13 01:23, Andy King wrote:
+On 12.02.2013 11:56, Bhushan Bharat-R65777 wrote:
+>> Until now, the MPC5200 FEC ethernet driver relied upon the bootloader
+>> (U-Boot) to write the MAC address into the ethernet controller registers. The
+>> Linux driver should not rely on such a thing. So lets read the MAC address from
+>> the DT as it should be done here.
+>>
+>> The following priority is now used to read the MAC address:
+>>
+>> 1) First, try OF node MAC address, if not present or invalid, then:
+>>
+>> 2) Read from MAC address registers, if invalid, then:
+> 
+> Why we read from MAC registers if Linux should not rely on bootloader?
 
-  Hi,
+It was suggested by David. Backwards compatibility. Here Davids comment
+to my original patch which removed this register reading completely:
 
-> +/* Option name for socket's service label.  Use as the option name in
-> + * setsockopt(3) or getsockopt(3) to set or get the service label for a socket.
-> + * The service label is a C-style NUL-terminated string.  Only available for
-> + * hypervisor endpoints.
-> + */
-> +
-> +#define SO_VM_SOCKETS_SERVICE_LABEL 4
-> +
+"
+I don't think this is a conservative enough change.
 
-What is this and how does it work?
+You have to keep the MAC register reading code around, as a backup
+code path in case the OF device node lacks a MAC address
+"
 
-cheers,
-  Gerd
+Thanks,
+Stefan
