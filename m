@@ -1,43 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next v5 10/11] tbf: take into account gso skbs
-Date: Tue, 12 Feb 2013 09:54:25 -0800
-Message-ID: <1360691665.6884.13.camel@edumazet-glaptop>
-References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
-	 <1360663929-1023-11-git-send-email-jiri@resnulli.us>
-	 <1360687182.6884.5.camel@edumazet-glaptop>
-	 <20130212173127.GC18057@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+From: Larry Baker <baker@usgs.gov>
+Subject: Re: decnet: /proc/sys/net/decnet sysctl entries disappear
+Date: Tue, 12 Feb 2013 10:16:06 -0800
+Message-ID: <730DD436-6FA8-4BB7-9FEB-5EE1F45D3A08@usgs.gov>
+References: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov> <20130211.200944.1447109432418679998.davem@davemloft.net>
+Mime-Version: 1.0 (Apple Message framework v1085)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:45921 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933559Ab3BLRy2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:54:28 -0500
-Received: by mail-pa0-f50.google.com with SMTP id fa11so209145pad.37
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 09:54:27 -0800 (PST)
-In-Reply-To: <20130212173127.GC18057@minipsycho.orion>
+Received: from gscamnlh01.wr.usgs.gov ([130.118.9.68]:43639 "EHLO
+	gscamnlh01.wr.usgs.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933398Ab3BLSQH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 13:16:07 -0500
+In-Reply-To: <20130211.200944.1447109432418679998.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-12 at 18:31 +0100, Jiri Pirko wrote:
-> Tue, Feb 12, 2013 at 05:39:42PM CET, eric.dumazet@gmail.com wrote:
+David,
 
-> >Ideally we could re-segment the skb if psched_l2t_ns(&q->peak, len) is
-> >bigger than q->mtu
+On 11 Feb 2013, at 5:09 PM, David Miller wrote:
+
 > 
-> Okay - that sounds reasonable. Can you give me some hint how would you
-> imagine to do this?
+> Attachments are not the correct way to submit a series of patches.
 > 
+> Please read Documentation/SubmittingPatches
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-This should be a generic helper, and we could use it in sch_codel /
-sch_fq_codel / netem as well.
+I found scripts/get_maintainer.pl lists you as a maintainer of the decnet code.  It also lists Chrissie Caulfield, but she has pretty much bowed out -- she's the one that told me to send my patches to the net-dev list.
 
-The trick in a qdisc is that we have to call qdisc_tree_decrease_qlen()
-to alert parents that packet count changed.
+To make this go as smoothly as possible, I'd like your advice about what I should do.  So, my first question is: should I submit a bug report describing the faulty behavior and my diagnosis while I work on pruning my patches?  To netdev@vger.kernel.org?  Second: I made three patch files to account for the API changes to the kernel over time.  Should those be individual submissions, related somehow by the tag in [PATCH tag]?  Suggestions?
 
-If a GSO packet with 10 segments is segmented, we have to
-qdisc_tree_decrease_qlen(sch, 1 - 10);
+Who changes the banner, me or you?  Do you have a recommendation for choosing the version in the banner?
+
+Eric Biederman fixed the root cause of the faulty behavior in kernel 3.4-rc1.  None of my systems are that new.  He told me about patching stable kernels.
+
+> But there are people who collect bug fixes and apply them to older
+> kernels as long as a fix has been made to Linus's kernel and I would
+> be happy to do a bit of code review and forward those patches
+> to stable@vger.kernel.org if you that is what you are interested in
+> doing with them.
+
+
+Since the current kernel code has apparently fixed the problem, should I send my work to Eric/stable@vger.kernel.org instead of netdev@vger.kernel.org?  I do not want to annoy anyone with issues that might seem trivial to most people -- most people have probably never heard of DECnet.
+
+Thank you in advance for your time.
+
+Larry Baker
+US Geological Survey
+650-329-5608
+baker@usgs.gov
