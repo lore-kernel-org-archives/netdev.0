@@ -1,110 +1,28 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 2/5] gianfar: Cleanup and optimize struct gfar_private
-Date: Tue, 12 Feb 2013 11:49:37 -0500
-Message-ID: <511A72A1.8070009@windriver.com>
-References: <1360673237-349-1-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-2-git-send-email-claudiu.manoil@freescale.com> <511A5BA3.4020306@windriver.com> <511A66A3.7040704@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: fec_mpc52xx: Read MAC address from device-tree
+Date: Tue, 12 Feb 2013 12:05:36 -0500 (EST)
+Message-ID: <20130212.120536.2017028310090249045.davem@davemloft.net>
+References: <1360660088-27464-1-git-send-email-sr@denx.de>
+	<6A3DF150A5B70D4F9B66A25E3F7C888D065A0271@039-SN2MPN1-023.039d.mgd.msft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Cc: sr@denx.de, netdev@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	agust@denx.de
+To: R65777@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:59981 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758698Ab3BLQtH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 11:49:07 -0500
-In-Reply-To: <511A66A3.7040704@freescale.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52415 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933296Ab3BLRFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:05:38 -0500
+In-Reply-To: <6A3DF150A5B70D4F9B66A25E3F7C888D065A0271@039-SN2MPN1-023.039d.mgd.msft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-02-12 10:58 AM, Claudiu Manoil wrote:
-> On 2/12/2013 5:11 PM, Paul Gortmaker wrote:
->> On 13-02-12 07:47 AM, Claudiu Manoil wrote:
->>> * group run-time critical fields within the 1st cacheline
->>>    followed by the tx|rx_queue reference arrays and the interrupt
->>>    group instances (gfargrp) (all cacheline aligned)
->>> * change 'padding' from unsigned short to u16
->>> * clear 20+ byte memory hole
->>
->> Per prev. mail, it gets harder to see which change is where,
->> when they are all lumped together like this.  For example, it
->> wasn't obvious to me where the 20 byte hole was.  Also, it
->> doesn't look like you changed the padding, but rather instead
->> totally re-purposed it, leaving no alignment padding after the
->> uchar bitfields (where it was originally).
->>
->> P.
-> 
-> The 20 byte hole was here:
-> 
-> struct gfar_private {
->          unsigned int               num_tx_queues;
->          unsigned int               num_rx_queues;
->          unsigned int               num_grps;
->          unsigned int               mode;
->          unsigned int               total_tx_ring_size;
->          unsigned int               total_rx_ring_size;
->          struct device_node *       node;
->          struct net_device *        ndev;
->          /* --- cacheline 1 boundary (32 bytes) --- */
->          struct platform_device *   ofdev;
->          enum gfar_errata           errata;
-> 
->          /* XXX 24 bytes hole, try to pack */
+From: Bhushan Bharat-R65777 <R65777@freescale.com>
+Date: Tue, 12 Feb 2013 10:56:05 +0000
 
-OK, so this is good information, that wasn't in your commit log.
-(Is it 20 or 24 though?  I'm guessing 24, and original commit
-log was wrong in saying 20.)
+> Why we read from MAC registers if Linux should not rely on bootloader?
 
-Something like:
-
-"The default gcc layout of gfar_private leaves an implicit 24
-byte hole (bytes XYZ --> ABC in the 1st cache line) after the
-errata enum...."
-
-> 
->          /* --- cacheline 2 boundary (64 bytes) --- */
->          struct gfar_priv_grp       gfargrp[2];
-> 
-> 
-> At the end of the patch series the first cacheline is without holes.
-> Please note that the re-grouping of members and their order is most
-> important. For instance why keep in the first cacheline something
-
-The importance of ordering and alignment was never in question.  What
-was missing, was conveying to the reviewer exactly how you'd made it
-better, without forcing them to manually deconstruct gfar_priv in the
-before and after cases, esp. when you'd already done that analysis.
-
-> as unimportant as total_rx_ring_size? Members like rx_buffer_size,
-> or padding, or even errata, are critical however for the fast path.
-> Rx processing (gfar_poll + clean_rx_ring) is the bottleneck here,
-> keeping the CPU to 100%. So the main goal is to optimize this path,
-> including memory access/cache optimizations. For instance, better 
-> results were obtained by inverting rx|tx_queue[] with gfargrp[], originally:
->          /* --- cacheline 1 boundary (32 bytes) --- */
->          struct gfar_priv_tx_q *    tx_queue[8];  /*    32    32 */
->          /* --- cacheline 2 boundary (64 bytes) --- */
->          struct gfar_priv_rx_q *    rx_queue[8]; /*    64    32 */
->          /* --- cacheline 3 boundary (96 bytes) --- */
->          struct gfar_priv_grp       gfargrp[2];  /*    96   192 */
-> 
-> The uchar bitfields are unimportant here (used at "init time"), and
-> they take 4 bytes including padding anyway. So whether it's uchar or
-> uint, it's the same, maybe better left uchar to discourage the abuse
-> of these bitfields. (A 2-3byte hole here doesn't change anything
-> to the whole structure size, which is padded to be at least a 32B
-> multiple.)
-
-This here too, i.e. why the padding after the bitfields is unimportant
-and hence removed should also be in the long log.
-
-Thanks,
-Paul.
---
-
-> 
-> Thanks,
-> Claudiu
-> 
-> 
+Because it used to and if you just remove that code then you break
+existing setups, and I explicitly told him to code things this way.
