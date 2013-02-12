@@ -1,70 +1,71 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 04/45] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Tue, 12 Feb 2013 08:15:30 -0800
-Message-ID: <20130212161530.GA9929@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
- <20130122073347.13822.85876.stgit@srivatsabhat.in.ibm.com>
- <20130208231017.GK2666@linux.vnet.ibm.com>
- <20130210180607.GA1375@redhat.com>
- <20130210195417.GK2666@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix infinite loop in __skb_recv_datagram()
+Date: Tue, 12 Feb 2013 08:16:53 -0800
+Message-ID: <1360685813.13993.12.camel@edumazet-glaptop>
+References: <CA+ydwtphWsC-B9Y2WwWOPEWtPPj62Wf6Pt2iZ+tAGaTvg_7gCg@mail.gmail.com>
+	 <1360628371.20362.28.camel@edumazet-glaptop>
+	 <1360638903.20362.32.camel@edumazet-glaptop>
+	 <CA+ydwtoBttwiVz+oy0hnetUTQMi7XHyS9bfGzjuP1L41srBk=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org,
-	namhyung@kernel.org, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	rjw@sisk.pl, sbw@mit.edu, fweisbec@gmail.com,
-	linux@arm.linux.org.uk, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130210195417.GK2666@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Dave Jones <davej@redhat.com>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Tommi Rantala <tt.rantala@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:53432 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761270Ab3BLQQ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 11:16:59 -0500
+Received: by mail-pa0-f48.google.com with SMTP id hz10so168343pad.7
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 08:16:58 -0800 (PST)
+In-Reply-To: <CA+ydwtoBttwiVz+oy0hnetUTQMi7XHyS9bfGzjuP1L41srBk=g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 10, 2013 at 11:54:17AM -0800, Paul E. McKenney wrote:
-> On Sun, Feb 10, 2013 at 07:06:07PM +0100, Oleg Nesterov wrote:
-> > On 02/08, Paul E. McKenney wrote:
-> 
-> [ . . . ]
-> 
-> > > > +static inline void sync_reader(struct percpu_rwlock *pcpu_rwlock,
-> > > > +			       unsigned int cpu)
-> > > > +{
-> > > > +	smp_rmb(); /* Paired with smp_[w]mb() in percpu_read_[un]lock() */
-> > >
-> > > As I understand it, the purpose of this memory barrier is to ensure
-> > > that the stores in drop_writer_signal() happen before the reads from
-> > > ->reader_refcnt in reader_uses_percpu_refcnt(), thus preventing the
-> > > race between a new reader attempting to use the fastpath and this writer
-> > > acquiring the lock.  Unless I am confused, this must be smp_mb() rather
-> > > than smp_rmb().
-> > 
-> > And note that before sync_reader() we call announce_writer_active() which
-> > already adds mb() before sync_all_readers/sync_reader, so this rmb() looks
-> > unneeded.
-> > 
-> > But, at the same time, could you confirm that we do not need another mb()
-> > after sync_all_readers() in percpu_write_lock() ? I mean, without mb(),
-> > can't this reader_uses_percpu_refcnt() LOAD leak into the critical section
-> > protected by ->global_rwlock? Then this LOAD can be re-ordered with other
-> > memory operations done by the writer.
-> 
-> As soon as I get the rest of the way through Thomas's patchset.  ;-)
+From: Eric Dumazet <edumazet@google.com>
 
-There is a memory barrier associated with write_lock(), but it is
-only required to keep the critical section inside the lock -- and is
-permitted to allow stuff outside of the lock to be reordered into the
-critical section.  So I believe we do indeed need an smp_mb() between
-sync_all_readers() and write_lock() in percpu_write_lock().
+Tommi was fuzzing with trinity and reported the following problem :
 
-Good eyes, Oleg!
+commit 3f518bf745 (datagram: Add offset argument to __skb_recv_datagram)
+missed that a raw socket receive queue can contain skbs with no payload.
 
-							Thanx, Paul
+We can loop in __skb_recv_datagram() with MSG_PEEK mode, because
+wait_for_packet() is not prepared to skip these skbs.
+
+[   83.541011] INFO: rcu_sched detected stalls on CPUs/tasks: {}
+(detected by 0, t=26002 jiffies, g=27673, c=27672, q=75)
+[   83.541011] INFO: Stall ended before state dump start
+[  108.067010] BUG: soft lockup - CPU#0 stuck for 22s! [trinity-child31:2847]
+...
+[  108.067010] Call Trace:
+[  108.067010]  [<ffffffff818cc103>] __skb_recv_datagram+0x1a3/0x3b0
+[  108.067010]  [<ffffffff818cc33d>] skb_recv_datagram+0x2d/0x30
+[  108.067010]  [<ffffffff819ed43d>] rawv6_recvmsg+0xad/0x240
+[  108.067010]  [<ffffffff818c4b04>] sock_common_recvmsg+0x34/0x50
+[  108.067010]  [<ffffffff818bc8ec>] sock_recvmsg+0xbc/0xf0
+[  108.067010]  [<ffffffff818bf31e>] sys_recvfrom+0xde/0x150
+[  108.067010]  [<ffffffff81ca4329>] system_call_fastpath+0x16/0x1b
+
+Reported-by: Tommi Rantala <tt.rantala@gmail.com>
+Tested-by: Tommi Rantala <tt.rantala@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Pavel Emelyanov <xemul@parallels.com>
+---
+ net/core/datagram.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 0337e2b..368f9c3 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -187,7 +187,7 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		skb_queue_walk(queue, skb) {
+ 			*peeked = skb->peeked;
+ 			if (flags & MSG_PEEK) {
+-				if (*off >= skb->len) {
++				if (*off >= skb->len && skb->len) {
+ 					*off -= skb->len;
+ 					continue;
+ 				}
