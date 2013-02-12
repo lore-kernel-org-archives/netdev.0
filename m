@@ -1,188 +1,157 @@
-From: Stefan Roese <sr@denx.de>
-Subject: [PATCH v2] net: fec_mpc52xx: Read MAC address from device-tree
-Date: Tue, 12 Feb 2013 10:08:08 +0100
-Message-ID: <1360660088-27464-1-git-send-email-sr@denx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, Anatolij Gustschin <agust@denx.de>
-To: netdev@vger.kernel.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Peter Lieven <pl@dlhnet.de>
+Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
+Date: Tue, 12 Feb 2013 10:10:24 +0100
+Message-ID: <056542E4-18E4-4C9F-AC96-60661768D6AF@dlhnet.de>
+References: <50AE36E0.8000307@dlhnet.de> <20121123070211.GC22787@stefanha-thinkpad.hitronhub.home> <E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de> <20121123110146.GC7051@redhat.com> <50FE5607.9020405@dlhnet.de> <20130123100312.GA8108@redhat.com> <5119E9DC.3000505@dlhnet.de> <20130212090850.GB22029@redhat.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Stefan Hajnoczi <stefanha@gmail.com>, qemu-devel@nongnu.org,
+	netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ssl.dlhnet.de ([91.198.192.8]:44486 "EHLO ssl.dlh.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932131Ab3BLJK1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 04:10:27 -0500
+In-Reply-To: <20130212090850.GB22029@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Until now, the MPC5200 FEC ethernet driver relied upon the bootloader
-(U-Boot) to write the MAC address into the ethernet controller
-registers. The Linux driver should not rely on such a thing. So
-lets read the MAC address from the DT as it should be done here.
 
-The following priority is now used to read the MAC address:
+Am 12.02.2013 um 10:08 schrieb "Michael S. Tsirkin" <mst@redhat.com>:
 
-1) First, try OF node MAC address, if not present or invalid, then:
+> On Tue, Feb 12, 2013 at 08:06:04AM +0100, Peter Lieven wrote:
+>> On 23.01.2013 11:03, Michael S. Tsirkin wrote:
+>>> On Tue, Jan 22, 2013 at 10:04:07AM +0100, Peter Lieven wrote:
+>>>> On 23.11.2012 12:01, Michael S. Tsirkin wrote:
+>>>>> On Fri, Nov 23, 2012 at 10:41:21AM +0100, Peter Lieven wrote:
+>>>>>> 
+>>>>>> Am 23.11.2012 um 08:02 schrieb Stefan Hajnoczi:
+>>>>>> 
+>>>>>>> On Thu, Nov 22, 2012 at 03:29:52PM +0100, Peter Lieven wrote:
+>>>>>>>> is anyone aware of a problem with the linux network bridge that in very rare circumstances stops
+>>>>>>>> a bridge from sending pakets to a tap device?
+>>>>>>>> 
+>>>>>>>> My problem occurs in conjunction with vanilla qemu-kvm-1.2.0 and Ubuntu Kernel 3.2.0-34.53
+>>>>>>>> which is based on Linux 3.2.33.
+>>>>>>>> 
+>>>>>>>> I was not yet able to reproduce the issue, it happens in really rare cases. The symptom is that
+>>>>>>>> the tap does not have any TX packets. RX is working fine. I see the packets coming in at
+>>>>>>>> the physical interface on the host, but they are not forwarded to the tap interface.
+>>>>>>>> The bridge itself has learnt the mac address of the vServer that is connected to the tap interface.
+>>>>>>>> It does not help to toggle the bridge link status,  the tap interface status or the interface in the vServer.
+>>>>>>>> It seems that problem occurs if a tap interface that has previously been used, but set to nonpersistent
+>>>>>>>> is set persistent again and then is by chance assigned to the same vServer (=same mac address on same
+>>>>>>>> bridge) again. Unfortunately it seems not to be reproducible.
+>>>>>>> 
+>>>>>>> Not sure but this patch from Michael Tsirkin may help - it solves an
+>>>>>>> issue with persistent tap devices:
+>>>>>>> 
+>>>>>>> http://patchwork.ozlabs.org/patch/198598/
+>>>>>> 
+>>>>>> Hi Stefan,
+>>>>>> 
+>>>>>> thanks for the pointer. I have seen this patch, but I have neglected it because it was dealing
+>>>>>> with persistent taps. But maybe the taps in the kernel are not deleted directly.
+>>>>>> Can you remember what the syptomps of the above issue have been? Sorry for
+>>>>>> being vague, but I currently have no clue whats going on.
+>>>>>> 
+>>>>>> Can someone who has more internal knowledge of the bridging/tap code say if qemu can
+>>>>>> be responsible at all if the tap device is not receiving packets from the bridge.
+>>>>>> 
+>>>>>> If I have the following config. Lets say packets coming in via physical interface eth1.123,
+>>>>>> and a bridge called br123.I further have a virtual machine with tap0. Both eth1.123
+>>>>>> and tap0 are member of br123.
+>>>>>> 
+>>>>>> If the issue occurs the vServer has no network connectivity inbound. If I sent a ping
+>>>>>> from the vServer I see it on tap0 and leaving on eth1.123. I see further the arp reply coming
+>>>>>> in via eth1.123, but the reply can't be seen on tap0.
+>>>>>> 
+>>>>>> Peter
+>>>>> 
+>>>>> If guest is not consuming packets, a TX queue in tap device
+>>>>> will with time overrun (there's space for 1000 packets there).
+>>>>> This is code from tun:
+>>>>> 
+>>>>>        if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
+>>>>>> = dev->tx_queue_len / tun->numqueues){
+>>>>>                if (!(tun->flags & TUN_ONE_QUEUE)) {
+>>>>>                        /* Normal queueing mode. */
+>>>>>                        /* Packet scheduler handles dropping of further
+>>>>> * packets. */
+>>>>>                        netif_stop_subqueue(dev, txq);
+>>>>> 
+>>>>>                        /* We won't see all dropped packets
+>>>>> * individually, so overrun
+>>>>>                         * error is more appropriate. */
+>>>>>                        dev->stats.tx_fifo_errors++;
+>>>>> 
+>>>>> 
+>>>>> So you can detect that this triggered by looking at fifo errors counter in device.
+>>>>> 
+>>>>> Once this happens TX queue is stopped, then you hit this path:
+>>>>> 
+>>>>>                        if (!netif_xmit_stopped(txq)) {
+>>>>>                                __this_cpu_inc(xmit_recursion);
+>>>>>                                rc = dev_hard_start_xmit(skb, dev, txq);
+>>>>>                                __this_cpu_dec(xmit_recursion);
+>>>>>                                if (dev_xmit_complete(rc)) {
+>>>>>                                        HARD_TX_UNLOCK(dev, txq);
+>>>>>                                        goto out;
+>>>>>                                }
+>>>>>                        }
+>>>>> 
+>>>>> so packets are not passed to device anymore.
+>>>>> It will stay this way until guest consumes some packets and
+>>>>> queue is restarted.
+>>>> 
+>>>> After some time I again have a vServer in this state. It seems not like there
+>>>> are no TX errors.
+>>>> 
+>>>> # ifconfig tap10
+>>>> tap10     Link encap:Ethernet  HWaddr 7a:59:20:6f:e7:e5
+>>>>          inet6 addr: fe80::7859:20ff:fe6f:e7e5/64 Scope:Link
+>>>>          UP BROADCAST RUNNING PROMISC MULTICAST  MTU:1500  Metric:1
+>>>>          RX packets:197431 errors:0 dropped:0 overruns:0 frame:0
+>>>>          TX packets:264309 errors:0 dropped:0 overruns:2 carrier:0
+>>>>          collisions:0 txqueuelen:500
+>>>>          RX bytes:13842063 (13.8 MB)  TX bytes:35092821 (35.0 MB)
+>>>> 
+>>>> It seems like the bridge is not forwarding any packets to the tap device anymore altough it has learnt
+>>>> the MAC-Adresses and there are also broadcast packets coming in.
+>>>> 
+>>>> Any more ideas where I could debug?
+>>>> 
+>>>> Peter
+>>>> 
+>>>>> 
+>>>>>>> 
+>>>>>>> Stefan
+>>> 
+>>> Hmm. So there are two overrun errors that triggered, so
+>>> it's possible after the second one the queue got stuck in an xoff state.
+>>> You'd have to use something like systemtap or kdb to poke at the
+>>> queue state to see whether xoff flag is set and/or look
+>>> at the receive queue length.
+>>> 
+>>> For future, we can try to set TUN_ONE_QUEUE flag on the interface,
+>>> or try applying this patch
+>>> 5d097109257c03a71845729f8db6b5770c4bbedc
+>>> in kernel see if this helps.
+>>> 
+>> 
+>> If have set this option for 2 weeks now and not seen this problem again.
+>> How does this flag work with the recently added tap multiqueue support?
+>> 
+>> Peter
+> 
+> This will be the only option in 3.8.
 
-2) Read from MAC address registers, if invalid, then:
+Ok, but wouldn`t it be good to set it in qemu for kernels <3.8?
 
-3) Log a warning message, and choose a random MAC address.
+Peter
 
-This fixes a problem with a MPC5200 board that uses the SPL U-Boot
-version without FEC initialization before Linux booting for
-boot speedup.
-
-Additionally a status line is now be printed upon successful
-driver probing, also displaying this MAC address.
-
-Signed-off-by: Stefan Roese <sr@denx.de>
-Cc: Anatolij Gustschin <agust@denx.de>
----
-v2:
-- Remove module parameter mpc52xx_fec_mac_addr
-- Priority for MAC address probing now is DT, controller regs
-  If the resulting MAC address is invalid, a random address will
-  be generated and used with a warning message
-- Use "np" variable to simplify the code
-
- drivers/net/ethernet/freescale/fec_mpc52xx.c | 61 +++++++++++++++++-----------
- 1 file changed, 37 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-index 817d081..8b725f4 100644
---- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
-+++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
-@@ -76,10 +76,6 @@ static void mpc52xx_fec_stop(struct net_device *dev);
- static void mpc52xx_fec_start(struct net_device *dev);
- static void mpc52xx_fec_reset(struct net_device *dev);
- 
--static u8 mpc52xx_fec_mac_addr[6];
--module_param_array_named(mac, mpc52xx_fec_mac_addr, byte, NULL, 0);
--MODULE_PARM_DESC(mac, "six hex digits, ie. 0x1,0x2,0xc0,0x01,0xba,0xbe");
--
- #define MPC52xx_MESSAGES_DEFAULT ( NETIF_MSG_DRV | NETIF_MSG_PROBE | \
- 		NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP)
- static int debug = -1;	/* the above default */
-@@ -110,15 +106,6 @@ static void mpc52xx_fec_set_paddr(struct net_device *dev, u8 *mac)
- 	out_be32(&fec->paddr2, (*(u16 *)(&mac[4]) << 16) | FEC_PADDR2_TYPE);
- }
- 
--static void mpc52xx_fec_get_paddr(struct net_device *dev, u8 *mac)
--{
--	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
--	struct mpc52xx_fec __iomem *fec = priv->fec;
--
--	*(u32 *)(&mac[0]) = in_be32(&fec->paddr1);
--	*(u16 *)(&mac[4]) = in_be32(&fec->paddr2) >> 16;
--}
--
- static int mpc52xx_fec_set_mac_address(struct net_device *dev, void *addr)
- {
- 	struct sockaddr *sock = addr;
-@@ -853,6 +840,8 @@ static int mpc52xx_fec_probe(struct platform_device *op)
- 	struct resource mem;
- 	const u32 *prop;
- 	int prop_size;
-+	struct device_node *np = op->dev.of_node;
-+	const void *p;
- 
- 	phys_addr_t rx_fifo;
- 	phys_addr_t tx_fifo;
-@@ -866,7 +855,7 @@ static int mpc52xx_fec_probe(struct platform_device *op)
- 	priv->ndev = ndev;
- 
- 	/* Reserve FEC control zone */
--	rv = of_address_to_resource(op->dev.of_node, 0, &mem);
-+	rv = of_address_to_resource(np, 0, &mem);
- 	if (rv) {
- 		printk(KERN_ERR DRIVER_NAME ": "
- 				"Error while parsing device node resource\n" );
-@@ -919,7 +908,7 @@ static int mpc52xx_fec_probe(struct platform_device *op)
- 
- 	/* Get the IRQ we need one by one */
- 		/* Control */
--	ndev->irq = irq_of_parse_and_map(op->dev.of_node, 0);
-+	ndev->irq = irq_of_parse_and_map(np, 0);
- 
- 		/* RX */
- 	priv->r_irq = bcom_get_task_irq(priv->rx_dmatsk);
-@@ -927,11 +916,33 @@ static int mpc52xx_fec_probe(struct platform_device *op)
- 		/* TX */
- 	priv->t_irq = bcom_get_task_irq(priv->tx_dmatsk);
- 
--	/* MAC address init */
--	if (!is_zero_ether_addr(mpc52xx_fec_mac_addr))
--		memcpy(ndev->dev_addr, mpc52xx_fec_mac_addr, 6);
--	else
--		mpc52xx_fec_get_paddr(ndev, ndev->dev_addr);
-+	/*
-+	 * MAC address init:
-+	 *
-+	 * First try to read MAC address from DT
-+	 */
-+	p = of_get_property(np, "local-mac-address", NULL);
-+	if (p != NULL) {
-+		memcpy(ndev->dev_addr, p, 6);
-+	} else {
-+		struct mpc52xx_fec __iomem *fec = priv->fec;
-+
-+		/*
-+		 * If the MAC addresse is not provided via DT then read
-+		 * it back from the controller regs
-+		 */
-+		*(u32 *)(&ndev->dev_addr[0]) = in_be32(&fec->paddr1);
-+		*(u16 *)(&ndev->dev_addr[4]) = in_be32(&fec->paddr2) >> 16;
-+	}
-+
-+	/*
-+	 * Check if the MAC address is valid, if not get a random one
-+	 */
-+	if (!is_valid_ether_addr(ndev->dev_addr)) {
-+		eth_hw_addr_random(ndev);
-+		dev_warn(&ndev->dev, "using random MAC address %pM\n",
-+			 ndev->dev_addr);
-+	}
- 
- 	priv->msg_enable = netif_msg_init(debug, MPC52xx_MESSAGES_DEFAULT);
- 
-@@ -942,20 +953,20 @@ static int mpc52xx_fec_probe(struct platform_device *op)
- 	/* Start with safe defaults for link connection */
- 	priv->speed = 100;
- 	priv->duplex = DUPLEX_HALF;
--	priv->mdio_speed = ((mpc5xxx_get_bus_frequency(op->dev.of_node) >> 20) / 5) << 1;
-+	priv->mdio_speed = ((mpc5xxx_get_bus_frequency(np) >> 20) / 5) << 1;
- 
- 	/* The current speed preconfigures the speed of the MII link */
--	prop = of_get_property(op->dev.of_node, "current-speed", &prop_size);
-+	prop = of_get_property(np, "current-speed", &prop_size);
- 	if (prop && (prop_size >= sizeof(u32) * 2)) {
- 		priv->speed = prop[0];
- 		priv->duplex = prop[1] ? DUPLEX_FULL : DUPLEX_HALF;
- 	}
- 
- 	/* If there is a phy handle, then get the PHY node */
--	priv->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
-+	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
- 
- 	/* the 7-wire property means don't use MII mode */
--	if (of_find_property(op->dev.of_node, "fsl,7-wire-mode", NULL)) {
-+	if (of_find_property(np, "fsl,7-wire-mode", NULL)) {
- 		priv->seven_wire_mode = 1;
- 		dev_info(&ndev->dev, "using 7-wire PHY mode\n");
- 	}
-@@ -970,6 +981,8 @@ static int mpc52xx_fec_probe(struct platform_device *op)
- 
- 	/* We're done ! */
- 	dev_set_drvdata(&op->dev, ndev);
-+	printk(KERN_INFO "%s: %s MAC %pM\n",
-+	       ndev->name, op->dev.of_node->full_name, ndev->dev_addr);
- 
- 	return 0;
- 
--- 
-1.8.1.3
+> 
+> -- 
+> MST
