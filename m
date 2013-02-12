@@ -1,80 +1,43 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v5 10/11] tbf: take into account gso skbs
-Date: Tue, 12 Feb 2013 18:31:27 +0100
-Message-ID: <20130212173127.GC18057@minipsycho.orion>
-References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
- <1360663929-1023-11-git-send-email-jiri@resnulli.us>
- <1360687182.6884.5.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: request for stable inclusion
+Date: Tue, 12 Feb 2013 12:39:53 -0500 (EST)
+Message-ID: <20130212.123953.1955246533156235230.davem@davemloft.net>
+References: <1448044634.10999492.1359525527955.JavaMail.root@redhat.com>
+	<603624767.11006664.1359526575633.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: caiqian@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:40139 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933428Ab3BLRbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:31:35 -0500
-Received: by mail-ee0-f46.google.com with SMTP id e49so178476eek.19
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 09:31:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1360687182.6884.5.camel@edumazet-glaptop>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52927 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932404Ab3BLRjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:39:54 -0500
+In-Reply-To: <603624767.11006664.1359526575633.JavaMail.root@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Feb 12, 2013 at 05:39:42PM CET, eric.dumazet@gmail.com wrote:
->On Tue, 2013-02-12 at 11:12 +0100, Jiri Pirko wrote:
->> Ignore max_size check for gso skbs. This check made bigger packets
->> incorrectly dropped. Remove this limitation for gso skbs.
->> 
->> Also for peaks, ignore mtu for gso skbs.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  net/sched/sch_tbf.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
->> index c8388f3..8973e93 100644
->> --- a/net/sched/sch_tbf.c
->> +++ b/net/sched/sch_tbf.c
->> @@ -121,7 +121,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->>  	struct tbf_sched_data *q = qdisc_priv(sch);
->>  	int ret;
->>  
->> -	if (qdisc_pkt_len(skb) > q->max_size)
->> +	if (qdisc_pkt_len(skb) > q->max_size && !skb_is_gso(skb))
->>  		return qdisc_reshape_fail(skb, sch);
->>  
->>  	ret = qdisc_enqueue(skb, q->qdisc);
->> @@ -165,7 +165,7 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
->>  
->>  		if (q->peak_present) {
->>  			ptoks = toks + q->ptokens;
->> -			if (ptoks > q->mtu)
->> +			if (ptoks > q->mtu && !skb_is_gso(skb))
->>  				ptoks = q->mtu;
->>  			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
->>  		}
->
->
->I guess this part is wrong.
->
->If we dont cap ptoks to q->mtu we allow bigger bursts.
->
->Ideally we could re-segment the skb if psched_l2t_ns(&q->peak, len) is
->bigger than q->mtu
+From: CAI Qian <caiqian@redhat.com>
+Date: Wed, 30 Jan 2013 01:16:15 -0500 (EST)
 
-Okay - that sounds reasonable. Can you give me some hint how would you
-imagine to do this?
+> 9c13cb8bb477a83b9a3c9e5a5478a4e21294a760
+> tg3: Avoid null pointer dereference in tg3_interrupt in netconsole mode
+> 
+> daf3ec688e057f6060fb9bb0819feac7a8bbf45c
+> tg3: Fix crc errors on jumbo frame receive
+> 
+> The above 2 commits looks like missing from the stable and the netdev
+> stable queues. It was observed that the above issues can be reproduced in
+> a kernel that as old as a 2.6.32-based fedora kernel, so I'd like to request
+> to include them for 3.0.y, 3.4.y and 3.7.y.
 
-Thanks.
+Done.
 
-Jiri
+> 1e47ee8367babe6a5e8adf44a714c7086657b87e
+> netfilter: nf_conntrack: fix BUG_ON while removing nf_conntrack with netns
+> 
+> This one looks like a candidate for 3.7-stable but also missing from the
+> queues. Do you agree?
 
->
->
->
->
->
->
+This has already been merged.
