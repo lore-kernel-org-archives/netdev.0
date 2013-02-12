@@ -1,70 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
+From: Larry Baker <baker@usgs.gov>
 Subject: Re: decnet: /proc/sys/net/decnet sysctl entries disappear
-Date: Tue, 12 Feb 2013 18:55:06 +0000
-Message-ID: <1360695306.3050.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov>
-	 <20130211.200944.1447109432418679998.davem@davemloft.net>
-	 <8EAAA907-914A-4670-BAAF-ABC95C0838CA@usgs.gov>
-	 <20130211.235347.25383457019933412.davem@davemloft.net>
-	 <A16FE98D-5476-4AB2-855F-0CDA3944E7F5@usgs.gov>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Larry Baker <baker@usgs.gov>
+Date: Tue, 12 Feb 2013 10:58:55 -0800
+Message-ID: <6AA3F012-5843-4D66-AB3D-F8D40D458450@usgs.gov>
+References: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov> <20130211.200944.1447109432418679998.davem@davemloft.net> <8EAAA907-914A-4670-BAAF-ABC95C0838CA@usgs.gov> <20130211.235347.25383457019933412.davem@davemloft.net> <A16FE98D-5476-4AB2-855F-0CDA3944E7F5@usgs.gov> <1360694580.17456.2.camel@joe-AO722>
+Mime-Version: 1.0 (Apple Message framework v1085)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:43953 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933876Ab3BLSzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 13:55:21 -0500
-In-Reply-To: <A16FE98D-5476-4AB2-855F-0CDA3944E7F5@usgs.gov>
+Received: from gscamnlh01.wr.usgs.gov ([130.118.9.68]:34338 "EHLO
+	gscamnlh01.wr.usgs.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933865Ab3BLS65 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 13:58:57 -0500
+In-Reply-To: <1360694580.17456.2.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-12 at 10:28 -0800, Larry Baker wrote:
-> David,
+Joe,
+
+On 12 Feb 2013, at 10:43 AM, Joe Perches wrote:
+
+> On Tue, 2013-02-12 at 10:28 -0800, Larry Baker wrote:
+>> On 11 Feb 2013, at 8:53 PM, David Miller wrote:
+>>> Never email developers privately, ever.  It is both rude and
+>>> also a very poor use of global developer resources.
+>>> 
+>>> Always ask on the appropriate, public, mailing list, so that
+>>> any developer, not just me, can answer you.
+> []
+>> scripts/get_maintainer.pl said that was you.
 > 
-> On 11 Feb 2013, at 8:53 PM, David Miller wrote:
+> It also said the netdev and lkml mailing lists.
 > 
-> > 
-> > Never email developers privately, ever.  It is both rude and
-> > also a very poor use of global developer resources.
-> > 
-> > Always ask on the appropriate, public, mailing list, so that
-> > any developer, not just me, can answer you.
+> I presume David is objecting not to the email,
+> but to the email without the cc's to the
+> appropriate mailing lists.
 > 
-> I'm sorry you feel this way.  Other developers have been very gracious
-> in offering assistance and encouragement to solve this problem.  I was
-> following the instructions in Documentation/SubmittingPatches you
-> guided me to.  Specifically, the instructions to locate the assigned
-> maintainer and "e-mail that person".
-
-It should also say to mail the related list(s); that's apparently a
-documentation error.
-
-> > 5) Select e-mail destination.
-> > 
-> > Look through the MAINTAINERS file and the source code, and determine
-> > if your change applies to a specific subsystem of the kernel, with
-> > an assigned maintainer.  If so, e-mail that person.  The script
-> > scripts/get_maintainer.pl can be very useful at this step.
-> > 
-> > If no maintainer is listed, or the maintainer does not respond, send
-> > your patch to the primary Linux kernel developer's mailing list,
-> > linux-kernel@vger.kernel.org.  Most kernel developers monitor this
-> > e-mail list, and can comment on your changes.
 > 
-> scripts/get_maintainer.pl said that was you.
 
-David Miller is in overall charge of networking, so for any code under
-drivers/net/ or net/ that doesn't have its own maintainer, he'll show up
-as the primary maintainer.  But in reality I doubt he spends much time
-thinking about relatively obscure areas that have lost their specialist
-maintainer.
+The instructions say "e-mail that person".  There are only two persons listed as decnet maintainers, one of which has told me she is not involved much any more.  The instructions only mention sending to mailing lists if the maintainer does not respond.
 
-Ben.
+I explicitly followed the instructions.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If the developers want mailing lists CC'd right off the bat, the instructions should be updated.
+
+Larry Baker
+US Geological Survey
+650-329-5608
+baker@usgs.gov
