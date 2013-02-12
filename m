@@ -1,8 +1,8 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 14/22] sctp: refactor sctp_outq_teardown to insure proper re-initalization
-Date: Tue, 12 Feb 2013 12:36:57 -0800
-Message-ID: <20130212203416.230269489@linuxfoundation.org>
-References: <20130212203413.459836020@linuxfoundation.org>
+Subject: [ 24/36] sctp: refactor sctp_outq_teardown to insure proper re-initalization
+Date: Tue, 12 Feb 2013 12:41:18 -0800
+Message-ID: <20130212203900.138871064@linuxfoundation.org>
+References: <20130212203857.305594226@linuxfoundation.org>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	stable@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
 	Jamie Parsons <Jamie.Parsons@metaswitch.com>,
@@ -10,11 +10,11 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130212203413.459836020@linuxfoundation.org>
+In-Reply-To: <20130212203857.305594226@linuxfoundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-3.0-stable review patch.  If anyone has any objections, please let me know.
+3.4-stable review patch.  If anyone has any objections, please let me know.
 
 ------------------
 
