@@ -1,57 +1,55 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/3] ipv6: use newly introduced __ipv6_addr_needs_scope_id and ipv6_iface_scope_id
-Date: Wed, 13 Feb 2013 01:13:57 +0100
-Message-ID: <20130213001357.GB1096@order.stressinduktion.org>
-References: <20130212221634.GA7212@order.stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: sctp_v6_get_dst: fix boolean test in dst cache
+Date: Wed, 13 Feb 2013 00:30:16 +0100
+Message-ID: <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+References: <cover.1360709645.git.dborkman@redhat.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60252 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754477Ab3BMAN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 19:13:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20130212221634.GA7212@order.stressinduktion.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19006 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751422Ab3BMAX6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2013 19:23:58 -0500
+In-Reply-To: <cover.1360709645.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 12, 2013 at 11:16:34PM +0100, Hannes Frederic Sowa wrote:
-> This patch requires multicast interface-scoped addresses to supply a
-> sin6_scope_id. Because the sin6_scope_id is now also correctly used
-> in case of interface-scoped multicast traffic this enables one to use
-> interface scoped addresses over interfaces which are not targeted by the
-> default multicast route (the route has to be put there manually, though).
-> 
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/af_inet6.c              |  6 +++---
->  net/ipv6/datagram.c              | 18 ++++++++++--------
->  net/ipv6/icmp.c                  |  2 +-
->  net/ipv6/inet6_connection_sock.c |  6 ++----
->  net/ipv6/raw.c                   |  9 ++++-----
->  net/ipv6/udp.c                   | 14 ++++++++------
->  6 files changed, 28 insertions(+), 27 deletions(-)
-> 
-> diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> index 6b793bf..f56277f 100644
-> --- a/net/ipv6/af_inet6.c
-> +++ b/net/ipv6/af_inet6.c
-> @@ -323,7 +323,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
->  			struct net_device *dev = NULL;
->  
->  			rcu_read_lock();
-> -			if (addr_type & IPV6_ADDR_LINKLOCAL) {
-> +			if (__ipv6_addr_needs_scope_id(addr_type)) {
->  				if (addr_len >= sizeof(struct sockaddr_in6) &&
->  				    addr->sin6_scope_id) {
->  					/* Override any existing binding, if another one
+We walk through the bind address list and try to get the best source
+address for a given destination. However, currently, we take the
+'continue' path of the loop when an entry is invalid (!laddr->valid)
+*and* the entry state does not equal SCTP_ADDR_SRC (laddr->state !=
+SCTP_ADDR_SRC).
 
-By trying to setup the multicast interface scoped routes by default I
-just found a bug in this patch essentially breaking ipv6 multicast. I
-overlooked that ipv6_addr_type strips off the scopes, thus my check if
-a multicast address needs a scope_id always returns true. I'll check
-if I can convert the ipv6_addr_type calls to __ipv6_addr_type and will
-reroll the patch.  Sorry, my tests were too focused on interface/local
-multicast. :(
+Thus, still, invalid entries with SCTP_ADDR_SRC might not 'continue'
+as well as valid entries with SCTP_ADDR_{NEW, SRC, DEL}, with a possible
+false baddr and matchlen as a result, causing in worst case dst route
+to be false or possibly NULL.
+
+This test should actually be a '||' instead of '&&'. But lets fix it
+and make this a bit easier to read by having the condition the same way
+as similarly done in sctp_v4_get_dst.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/ipv6.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+index f3f0f4d..391a245 100644
+--- a/net/sctp/ipv6.c
++++ b/net/sctp/ipv6.c
+@@ -326,9 +326,10 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+ 	 */
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+-		if (!laddr->valid && laddr->state != SCTP_ADDR_SRC)
++		if (!laddr->valid)
+ 			continue;
+-		if ((laddr->a.sa.sa_family == AF_INET6) &&
++		if ((laddr->state == SCTP_ADDR_SRC) &&
++		    (laddr->a.sa.sa_family == AF_INET6) &&
+ 		    (scope <= sctp_scope(&laddr->a))) {
+ 			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
+ 			if (!baddr || (matchlen < bmatchlen)) {
+-- 
+1.7.11.7
