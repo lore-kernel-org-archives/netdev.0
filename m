@@ -1,63 +1,36 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: team driver MAC NAT
-Date: Tue, 12 Feb 2013 10:12:15 -0500
-Message-ID: <511A5BCF.20907@mojatatu.com>
-References: <20130212140247.GB18057@minipsycho.orion>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] tcp: fix FIN_WAIT2 timer expression in /proc/net/tcp
+Date: Tue, 12 Feb 2013 07:13:22 -0800
+Message-ID: <1360682002.13993.3.camel@edumazet-glaptop>
+References: <1360673384.10638.10.camel@ubuntu-vm-makita>
+	 <1360673521.10638.12.camel@ubuntu-vm-makita>
+	 <1360673668.10638.14.camel@ubuntu-vm-makita>
+	 <1360681070.13993.2.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	bart.de.schuymer@pandora.be, stephen@networkplumber.org,
-	pablo@netfilter.org, kaber@trash.net,
-	netfilter-devel@vger.kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130212140247.GB18057@minipsycho.orion>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f182.google.com ([209.85.210.182]:65027 "EHLO
+	mail-ia0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758195Ab3BLPN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 10:13:26 -0500
+Received: by mail-ia0-f182.google.com with SMTP id w33so157524iag.41
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 07:13:25 -0800 (PST)
+In-Reply-To: <1360681070.13993.2.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jiri,
+On Tue, 2013-02-12 at 06:57 -0800, Eric Dumazet wrote:
 
-This would be a good fit for  a tc action. This way such a feature can be
-used by other netdevs (including plain bridge, and not just team)
-The main question is how does the tc action learn about the MAC
-addresses that
-it needs to convert.
+> I find this patch confusing :
+> 
+> 1) Please don't change the indentation for a bug fix
+> 
+> 2) You add a new 'active=3' field, that some user space
+> reading /proc/net/tcp wont expect.
+> 
+> So the changelog is not matching the changes.
 
-cheers,
-jamal
-
-On 13-02-12 09:02 AM, Jiri Pirko wrote:
-> Hi all.
-> 
-> I have following situation:
-> 
-> host X  .............  eth0 -> br0 <- team0 <- eth2  ..............  switch  .........  host Z
-> host Y  .............  eth1 ---^         ^---- eth3  .................^
-> 
-> Now to achieve RX traffic balancing on team0, I have to mangle src mac of
-> all outgoing packets. If the packet goes through eth2, src mac will be set to
-> eth2 mac, same happens on eth3. I have to magle ARP packets as well.
-> 
-> This would achieve something which might be called "MAC NAT".
-> 
-> To unmangle RXed packets back to the original MAC adresses (of host X and host Y)
-> I need to track "connections".
-> 
-> Now the question is: Should this be integrated in netfilter infrastructure?
-> I'm thinking something similar to existing conntrack. NF_HOOK will be placed
-> in team driver rx/tx functions (similar to what bridge does).
-> 
-> I think this would be nicer than to do it independently just in team driver code.
-> Also this MAC NAT (with tracking connections, unlike what bridge MAC NAT does)
-> can be probably handy for other purposes as well (not sure what)
-> 
-> Thanks for any suggestions.
-> 
-> Jiri
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+Also, net/ipv4/inet_diag.c was not changed
