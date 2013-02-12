@@ -1,70 +1,87 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [PATCH net] ixgbe: Only set gso_type to SKB_GSO_TCPV4 as RSC does
- not support IPv6
-Date: Tue, 12 Feb 2013 11:45:44 -0800
-Message-ID: <20130212193624.17818.13843.stgit@ahduyck-cp1.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, davem@davemloft.net, mst@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:57995 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933153Ab3BLTrn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Feb 2013 14:47:43 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [ 14/22] sctp: refactor sctp_outq_teardown to insure proper re-initalization
+Date: Tue, 12 Feb 2013 12:36:57 -0800
+Message-ID: <20130212203416.230269489@linuxfoundation.org>
+References: <20130212203413.459836020@linuxfoundation.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Jamie Parsons <Jamie.Parsons@metaswitch.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130212203413.459836020@linuxfoundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The original fix that was applied for setting gso_type required more change
-than necessary because it was assumed ixgbe does RSC on IPv6 frames and this
-is not correct.  RSC is only supported with IPv4/TCP frames only.  As such we
-can simplify the fix and avoid the unnecessary move of eth_type_trans.
+3.0-stable review patch.  If anyone has any objections, please let me know.
 
-The previous patch "ixgbe: fix gso type" and this patch reduce the entire fix
-to one line that sets gso_type to TCPV4 if the frame is RSC.
+------------------
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+
+From: Neil Horman <nhorman@tuxdriver.com>
+
+[ Upstream commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86 ]
+
+Jamie Parsons reported a problem recently, in which the re-initalization of an
+association (The duplicate init case), resulted in a loss of receive window
+space.  He tracked down the root cause to sctp_outq_teardown, which discarded
+all the data on an outq during a re-initalization of the corresponding
+association, but never reset the outq->outstanding_data field to zero.  I wrote,
+and he tested this fix, which does a proper full re-initalization of the outq,
+fixing this problem, and hopefully future proofing us from simmilar issues down
+the road.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
+Tested-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
+CC: Jamie Parsons <Jamie.Parsons@metaswitch.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
+ net/sctp/outqueue.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-Sorry about not speaking up last week which would have allowed us to avoid
-this patch but I was out on a business trip and had limited access to email
-between flights.
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index e1b2d22..b3e3294 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1401,10 +1401,7 @@ static void ixgbe_set_rsc_gso_size(struct ixgbe_ring *ring,
- 	/* set gso_size to avoid messing up TCP MSS */
- 	skb_shinfo(skb)->gso_size = DIV_ROUND_UP((skb->len - hdr_len),
- 						 IXGBE_CB(skb)->append_cnt);
--	if (skb->protocol == __constant_htons(ETH_P_IPV6))
--		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
--	else
--		skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
- }
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -223,7 +223,7 @@ void sctp_outq_init(struct sctp_associat
  
- static void ixgbe_update_rsc_stats(struct ixgbe_ring *rx_ring,
-@@ -1439,8 +1436,6 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ /* Free the outqueue structure and any related pending chunks.
+  */
+-void sctp_outq_teardown(struct sctp_outq *q)
++static void __sctp_outq_teardown(struct sctp_outq *q)
  {
- 	struct net_device *dev = rx_ring->netdev;
- 
--	skb->protocol = eth_type_trans(skb, dev);
--
- 	ixgbe_update_rsc_stats(rx_ring, skb);
- 
- 	ixgbe_rx_hash(rx_ring, rx_desc, skb);
-@@ -1456,6 +1451,8 @@ static void ixgbe_process_skb_fields(struct ixgbe_ring *rx_ring,
+ 	struct sctp_transport *transport;
+ 	struct list_head *lchunk, *temp;
+@@ -276,8 +276,6 @@ void sctp_outq_teardown(struct sctp_outq
+ 		sctp_chunk_free(chunk);
  	}
  
- 	skb_record_rx_queue(skb, rx_ring->queue_index);
-+
-+	skb->protocol = eth_type_trans(skb, dev);
+-	q->error = 0;
+-
+ 	/* Throw away any leftover control chunks. */
+ 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
+ 		list_del_init(&chunk->list);
+@@ -285,11 +283,17 @@ void sctp_outq_teardown(struct sctp_outq
+ 	}
  }
  
- static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
++void sctp_outq_teardown(struct sctp_outq *q)
++{
++	__sctp_outq_teardown(q);
++	sctp_outq_init(q->asoc, q);
++}
++
+ /* Free the outqueue structure and any related pending chunks.  */
+ void sctp_outq_free(struct sctp_outq *q)
+ {
+ 	/* Throw away leftover chunks. */
+-	sctp_outq_teardown(q);
++	__sctp_outq_teardown(q);
+ 
+ 	/* If we were kmalloc()'d, free the memory.  */
+ 	if (q->malloced)
