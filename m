@@ -1,57 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: decnet: /proc/sys/net/decnet sysctl entries disappear
-Date: Tue, 12 Feb 2013 00:46:28 +0000
-Message-ID: <1360629988.2701.23.camel@bwh-desktop.uk.solarflarecom.com>
-References: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 12 Feb 2013 11:57:33 +1100
+Message-ID: <20130212115733.1205c57d893aa3f16fc83526@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Larry Baker <baker@usgs.gov>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50752 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932675Ab3BLAqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Feb 2013 19:46:49 -0500
-In-Reply-To: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__12_Feb_2013_11_57_33_+1100_BWEO+_NF9FRce+D8"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Yuval Mintz <yuvalmin@broadcom.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Please read and follow the advice in Documentation/SubmittingPatches,
-including in particular about the Developer's Certificate of Origin.
+--Signature=_Tue__12_Feb_2013_11_57_33_+1100_BWEO+_NF9FRce+D8
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, 2013-02-12 at 00:26 +0000, Larry Baker wrote:
-[...]
-> Other changes are:
-> 
-> . Updated banner
-> . DECnet device up/down KERN_INFO messages
-> . debug module parameter
-> . NETDEV_UP/DOWN KERN_DEBUG messages if (debug & 8)
-> . dn_route.c uses dn_hiord[ETH_ALEN] in dn_dev.c
+Hi all,
 
-Each patch should do one thing.  So send one patch with the sysctl
-patch, and additional patches for the other changes.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c between commit
+0aba93e2b9fb ("bnx2x: set gso_type") from the net tree and commit
+cbf1de72324a ("bnx2x: fix GRO parameters") from the net-next tree.
 
-> --- original/net/decnet/af_decnet.c
-> +++ patched/net/decnet/af_decnet.c
-> @@ -1,2 +1 @@
-> -
->  /*
-> @@ -42,2 +41,5 @@
->   *                          prepare for sendpage etc.
-> + *            Larry Baker : Register static /proc/sys/net/decnet entries before
-> + *                          dynamic /proc/sys/net/decnet/conf entries in
-> + *                          dn_dev_init().
->   */
-[...]
+I fixed it up (since the former commit says that the latter is the more
+complex fix, I just used that) and can carry the fix as necessary (no
+action is required).
 
-There is no log changes in file headers; this information is all
-recorded by the git version control system.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Ben.
+--Signature=_Tue__12_Feb_2013_11_57_33_+1100_BWEO+_NF9FRce+D8
+Content-Type: application/pgp-signature
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRGZN9AAoJEECxmPOUX5FELpoQAKdiylGo4xgYSVFWa2aEi2mX
+MYFezta7OCJA1XGrbR3Wy/bH3QDI1k9bZVR10o9Hm9oNYj8x1ks3y8iGQNlQYiHw
+sQCPm/GVDEfy4pKHjoaNYZvGWBTUokj+ZME/0dXjlqcpav4Ew8O7E8B2bQIJiAL5
+0B/jsk6DbQ5bKn9a6L2IZj2rV1g7V2UJX8TGISmzkm0XcbOqElgkfpzj4M3zE3rU
+1OzK4HWe+PIQzfeCCNBkM1jRy8niZZTghSXFqJv3sOantR6xEBruifq+lfdDhEUa
+naNg6vSgDrjp8ovElOcI86jev/ba3WcjKWyOZSdcMzy7yPXGO+n3ucW0vnlhw/uX
+4ZD3Wkeu0MyIeHijg7OgQ6+D7uiBYcoTo57jgdl48vXPbDSD5mxXJMKsvFsnhhZF
+9SxtcLUyM+jiPTvuF4Bt5Nf/tKHz2MuyampR+36l/22My207l9BMnMc/+A7ttdPo
+H+bvmH1/kO7/OhNItiSNwft1z5aJODCCVDnrMb88qieu529Htc1z065lodo4g01g
+Fgjn3hWrKYJVmHgWnhT5lL8612cu9N7gIAXpwpJiSpWyXKEQHKmYMacJAboE9Jp/
+zFXLuWt3Sq3cOzCkrbFkAUrNyoqkIuQTw3QmMT+mgeGlVLIt4fv7daBMWH222J6m
+Mf+7yeKbXwUfkegP5Nf+
+=ODnF
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__12_Feb_2013_11_57_33_+1100_BWEO+_NF9FRce+D8--
