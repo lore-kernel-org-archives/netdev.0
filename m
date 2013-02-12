@@ -1,166 +1,63 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next 2/5] gianfar: Cleanup and optimize struct gfar_private
-Date: Tue, 12 Feb 2013 10:11:31 -0500
-Message-ID: <511A5BA3.4020306@windriver.com>
-References: <1360673237-349-1-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-2-git-send-email-claudiu.manoil@freescale.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: team driver MAC NAT
+Date: Tue, 12 Feb 2013 10:12:15 -0500
+Message-ID: <511A5BCF.20907@mojatatu.com>
+References: <20130212140247.GB18057@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:56310 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760612Ab3BLPLD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 10:11:03 -0500
-In-Reply-To: <1360673237-349-2-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	bart.de.schuymer@pandora.be, stephen@networkplumber.org,
+	pablo@netfilter.org, kaber@trash.net,
+	netfilter-devel@vger.kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130212140247.GB18057@minipsycho.orion>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 13-02-12 07:47 AM, Claudiu Manoil wrote:
-> * group run-time critical fields within the 1st cacheline
->   followed by the tx|rx_queue reference arrays and the interrupt
->   group instances (gfargrp) (all cacheline aligned)
-> * change 'padding' from unsigned short to u16
-> * clear 20+ byte memory hole
+Jiri,
 
-Per prev. mail, it gets harder to see which change is where,
-when they are all lumped together like this.  For example, it
-wasn't obvious to me where the 20 byte hole was.  Also, it
-doesn't look like you changed the padding, but rather instead
-totally re-purposed it, leaving no alignment padding after the
-uchar bitfields (where it was originally).
+This would be a good fit for  a tc action. This way such a feature can be
+used by other netdevs (including plain bridge, and not just team)
+The main question is how does the tc action learn about the MAC
+addresses that
+it needs to convert.
 
-P.
---
+cheers,
+jamal
 
-> * group releated members
-> * push non-critical fields at the end of the struct
+On 13-02-12 09:02 AM, Jiri Pirko wrote:
+> Hi all.
 > 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/gianfar.h |   93 +++++++++++++++--------------
->  1 files changed, 48 insertions(+), 45 deletions(-)
+> I have following situation:
 > 
-> diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-> index 22c2f7a..5304a58 100644
-> --- a/drivers/net/ethernet/freescale/gianfar.h
-> +++ b/drivers/net/ethernet/freescale/gianfar.h
-> @@ -1054,28 +1054,64 @@ enum gfar_errata {
->   * the buffer descriptor determines the actual condition.
->   */
->  struct gfar_private {
-> -
-> -	/* Indicates how many tx, rx queues are enabled */
-> -	unsigned int num_tx_queues;
->  	unsigned int num_rx_queues;
-> -	unsigned int num_grps;
-> -	unsigned int mode;
-> -
-> -	/* The total tx and rx ring size for the enabled queues */
-> -	unsigned int total_tx_ring_size;
-> -	unsigned int total_rx_ring_size;
->  
->  	struct device *dev;
->  	struct net_device *ndev;
-> -	struct platform_device *ofdev;
->  	enum gfar_errata errata;
-> +	unsigned int rx_buffer_size;
-> +
-> +	u16 padding;
-> +
-> +	/* HW time stamping enabled flag */
-> +	int hwts_rx_en;
-> +	int hwts_tx_en;
->  
-> -	struct gfar_priv_grp gfargrp[MAXGROUPS];
->  	struct gfar_priv_tx_q *tx_queue[MAX_TX_QS];
->  	struct gfar_priv_rx_q *rx_queue[MAX_RX_QS];
-> +	struct gfar_priv_grp gfargrp[MAXGROUPS];
-> +
-> +	u32 device_flags;
-> +
-> +	unsigned int mode;
-> +	unsigned int num_tx_queues;
-> +	unsigned int num_grps;
-> +
-> +	/* Network Statistics */
-> +	struct gfar_extra_stats extra_stats;
-> +
-> +	/* PHY stuff */
-> +	phy_interface_t interface;
-> +	struct device_node *phy_node;
-> +	struct device_node *tbi_node;
-> +	struct phy_device *phydev;
-> +	struct mii_bus *mii_bus;
-> +	int oldspeed;
-> +	int oldduplex;
-> +	int oldlink;
-> +
-> +	/* Bitfield update lock */
-> +	spinlock_t bflock;
-> +
-> +	uint32_t msg_enable;
-> +
-> +	struct work_struct reset_task;
-> +
-> +	struct platform_device *ofdev;
-> +	unsigned char
-> +		extended_hash:1,
-> +		bd_stash_en:1,
-> +		rx_filer_enable:1,
-> +		/* Wake-on-LAN enabled */
-> +		wol_en:1,
-> +		/* Enable priorty based Tx scheduling in Hw */
-> +		prio_sched_en:1;
-> +
-> +	/* The total tx and rx ring size for the enabled queues */
-> +	unsigned int total_tx_ring_size;
-> +	unsigned int total_rx_ring_size;
->  
->  	/* RX per device parameters */
-> -	unsigned int rx_buffer_size;
->  	unsigned int rx_stash_size;
->  	unsigned int rx_stash_index;
->  
-> @@ -1094,39 +1130,6 @@ struct gfar_private {
->  	unsigned int fifo_starve;
->  	unsigned int fifo_starve_off;
->  
-> -	/* Bitfield update lock */
-> -	spinlock_t bflock;
-> -
-> -	phy_interface_t interface;
-> -	struct device_node *phy_node;
-> -	struct device_node *tbi_node;
-> -	u32 device_flags;
-> -	unsigned char
-> -		extended_hash:1,
-> -		bd_stash_en:1,
-> -		rx_filer_enable:1,
-> -		wol_en:1, /* Wake-on-LAN enabled */
-> -		prio_sched_en:1; /* Enable priorty based Tx scheduling in Hw */
-> -	unsigned short padding;
-> -
-> -	/* PHY stuff */
-> -	struct phy_device *phydev;
-> -	struct mii_bus *mii_bus;
-> -	int oldspeed;
-> -	int oldduplex;
-> -	int oldlink;
-> -
-> -	uint32_t msg_enable;
-> -
-> -	struct work_struct reset_task;
-> -
-> -	/* Network Statistics */
-> -	struct gfar_extra_stats extra_stats;
-> -
-> -	/* HW time stamping enabled flag */
-> -	int hwts_rx_en;
-> -	int hwts_tx_en;
-> -
->  	/*Filer table*/
->  	unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
->  	unsigned int ftp_rqfcr[MAX_FILER_IDX + 1];
+> host X  .............  eth0 -> br0 <- team0 <- eth2  ..............  switch  .........  host Z
+> host Y  .............  eth1 ---^         ^---- eth3  .................^
 > 
+> Now to achieve RX traffic balancing on team0, I have to mangle src mac of
+> all outgoing packets. If the packet goes through eth2, src mac will be set to
+> eth2 mac, same happens on eth3. I have to magle ARP packets as well.
+> 
+> This would achieve something which might be called "MAC NAT".
+> 
+> To unmangle RXed packets back to the original MAC adresses (of host X and host Y)
+> I need to track "connections".
+> 
+> Now the question is: Should this be integrated in netfilter infrastructure?
+> I'm thinking something similar to existing conntrack. NF_HOOK will be placed
+> in team driver rx/tx functions (similar to what bridge does).
+> 
+> I think this would be nicer than to do it independently just in team driver code.
+> Also this MAC NAT (with tracking connections, unlike what bridge MAC NAT does)
+> can be probably handy for other purposes as well (not sure what)
+> 
+> Thanks for any suggestions.
+> 
+> Jiri
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
