@@ -1,54 +1,45 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: tap devices not receiving packets from a bridge
-Date: Tue, 12 Feb 2013 11:54:23 +0200
-Message-ID: <20130212095422.GA23270@redhat.com>
-References: <50AE36E0.8000307@dlhnet.de>
-	<20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
-	<E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de>
-	<20121123110146.GC7051@redhat.com> <50FE5607.9020405@dlhnet.de>
-	<20130123100312.GA8108@redhat.com> <5119E9DC.3000505@dlhnet.de>
-	<20130212090850.GB22029@redhat.com>
-	<056542E4-18E4-4C9F-AC96-60661768D6AF@dlhnet.de>
-	<511A0DBB.7080907@msgid.tls.msk.ru>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH] net/macb: fix race with RX interrupt while doing NAPI
+Date: Tue, 12 Feb 2013 11:08:48 +0100
+Message-ID: <1360663728-10296-1-git-send-email-nicolas.ferre@atmel.com>
+References: <50D2D7BD.3030801@erwinrol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan Hajnoczi <stefanha@gmail.com>, Peter Lieven <pl@dlhnet.de>,
-	qemu-devel@nongnu.org, netdev@vger.kernel.org
-To: Michael Tokarev <mjt@tls.msk.ru>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-Content-Disposition: inline
-In-Reply-To: <511A0DBB.7080907@msgid.tls.msk.ru>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	<mailinglists@erwinrol.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <50D2D7BD.3030801@erwinrol.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 12, 2013 at 01:39:07PM +0400, Michael Tokarev wrote:
-> 12.02.2013 13:10, Peter Lieven wrote:
-> []
-> 
-> Guys, can we please trim the excessive quoting just a bit? ;)
-> 
-> >>> If have set this option for 2 weeks now and not seen this problem again.
-> >>> How does this flag work with the recently added tap multiqueue support?
-> 
-> >>This will be the only option in 3.8.
-> 
-> >Ok, but wouldn`t it be good to set it in qemu for kernels <3.8?
-> 
-> I'd say for kernels without mq support, not for <3.8, right? :)
-> 
-> Thanks,
-> 
-> /mjt
+When interrupts are disabled, an RX condition can occur but
+it is not reported when enabling interrupts again. We need to check
+RSR and use napi_reschedule() if condition is met.
 
-It's harmless to always set this flag, on 3.8 it does nothing.
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index a9b0830..b9d4bb9 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -693,6 +693,11 @@ static int macb_poll(struct napi_struct *napi, int budget)
+ 		 * get notified when new packets arrive.
+ 		 */
+ 		macb_writel(bp, IER, MACB_RX_INT_FLAGS);
++
++		/* Packets received while interrupts were disabled */
++		status = macb_readl(bp, RSR);
++		if (unlikely(status))
++			napi_reschedule(napi);
+ 	}
+ 
+ 	/* TODO: Handle errors */
 -- 
-MST
+1.8.0
