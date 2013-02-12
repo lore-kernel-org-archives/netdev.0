@@ -1,23 +1,23 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 09/11] act_police: improved accuracy at high rates
-Date: Tue, 12 Feb 2013 11:12:07 +0100
-Message-ID: <1360663929-1023-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v5 07/11] tbf: improved accuracy at high rates
+Date: Tue, 12 Feb 2013 11:12:05 +0100
+Message-ID: <1360663929-1023-8-git-send-email-jiri@resnulli.us>
 References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
 	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:33456 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932870Ab3BLKMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 05:12:42 -0500
-Received: by mail-ee0-f42.google.com with SMTP id b47so3686529eek.15
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 02:12:41 -0800 (PST)
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:58129 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932870Ab3BLKMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 05:12:37 -0500
+Received: by mail-ea0-f169.google.com with SMTP id d13so76543eaa.0
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 02:12:35 -0800 (PST)
 In-Reply-To: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Current act_police uses rate table computed by the "tc" userspace program,
+Current TBF uses rate table computed by the "tc" userspace program,
 which has the following issue:
 
 The rate table has 256 entries to map packet lengths to
@@ -32,183 +32,172 @@ This is a followup to 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- net/sched/act_police.c | 99 +++++++++++++++++++++++++++-----------------------
- 1 file changed, 53 insertions(+), 46 deletions(-)
+ net/sched/sch_tbf.c | 76 ++++++++++++++++++++++++++---------------------------
+ 1 file changed, 37 insertions(+), 39 deletions(-)
 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 378a649..823463a 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -26,20 +26,20 @@ struct tcf_police {
- 	struct tcf_common	common;
- 	int			tcfp_result;
- 	u32			tcfp_ewma_rate;
--	u32			tcfp_burst;
-+	s64			tcfp_burst;
- 	u32			tcfp_mtu;
--	u32			tcfp_toks;
--	u32			tcfp_ptoks;
--	psched_time_t		tcfp_t_c;
--	struct qdisc_rate_table	*tcfp_R_tab;
--	struct qdisc_rate_table	*tcfp_P_tab;
-+	s64			tcfp_toks;
-+	s64			tcfp_ptoks;
-+	s64			tcfp_mtu_ptoks;
-+	s64			tcfp_t_c;
-+	struct psched_ratecfg	rate;
-+	bool			rate_present;
-+	struct psched_ratecfg	peak;
-+	bool			peak_present;
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index 4b056c15..c8388f3 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -19,6 +19,7 @@
+ #include <linux/errno.h>
+ #include <linux/skbuff.h>
+ #include <net/netlink.h>
++#include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
+ 
+ 
+@@ -100,23 +101,21 @@
+ struct tbf_sched_data {
+ /* Parameters */
+ 	u32		limit;		/* Maximal length of backlog: bytes */
+-	u32		buffer;		/* Token bucket depth/rate: MUST BE >= MTU/B */
+-	u32		mtu;
++	s64		buffer;		/* Token bucket depth/rate: MUST BE >= MTU/B */
++	s64		mtu;
+ 	u32		max_size;
+-	struct qdisc_rate_table	*R_tab;
+-	struct qdisc_rate_table	*P_tab;
++	struct psched_ratecfg rate;
++	struct psched_ratecfg peak;
++	bool peak_present;
+ 
+ /* Variables */
+-	long	tokens;			/* Current number of B tokens */
+-	long	ptokens;		/* Current number of P tokens */
+-	psched_time_t	t_c;		/* Time check-point */
++	s64	tokens;			/* Current number of B tokens */
++	s64	ptokens;		/* Current number of P tokens */
++	s64	t_c;			/* Time check-point */
+ 	struct Qdisc	*qdisc;		/* Inner qdisc, default - bfifo queue */
+ 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
  };
- #define to_police(pc)	\
- 	container_of(pc, struct tcf_police, common)
  
--#define L2T(p, L)   qdisc_l2t((p)->tcfp_R_tab, L)
--#define L2T_P(p, L) qdisc_l2t((p)->tcfp_P_tab, L)
+-#define L2T(q, L)   qdisc_l2t((q)->R_tab, L)
+-#define L2T_P(q, L) qdisc_l2t((q)->P_tab, L)
 -
- #define POL_TAB_MASK     15
- static struct tcf_common *tcf_police_ht[POL_TAB_MASK + 1];
- static u32 police_idx_gen;
-@@ -123,10 +123,6 @@ static void tcf_police_destroy(struct tcf_police *p)
- 			write_unlock_bh(&police_lock);
- 			gen_kill_estimator(&p->tcf_bstats,
- 					   &p->tcf_rate_est);
--			if (p->tcfp_R_tab)
--				qdisc_put_rtab(p->tcfp_R_tab);
--			if (p->tcfp_P_tab)
--				qdisc_put_rtab(p->tcfp_P_tab);
- 			/*
- 			 * gen_estimator est_timer() might access p->tcf_lock
- 			 * or bstats, wait a RCU grace period before freeing p
-@@ -227,26 +223,36 @@ override:
- 	}
- 
- 	/* No failure allowed after this point */
--	if (R_tab != NULL) {
--		qdisc_put_rtab(police->tcfp_R_tab);
--		police->tcfp_R_tab = R_tab;
-+	police->tcfp_mtu = parm->mtu;
-+	if (police->tcfp_mtu == 0) {
-+		police->tcfp_mtu = ~0;
-+		if (R_tab)
-+			police->tcfp_mtu = 255 << R_tab->rate.cell_log;
-+	}
-+	if (R_tab) {
-+		police->rate_present = true;
-+		psched_ratecfg_precompute(&police->rate, R_tab->rate.rate);
-+		qdisc_put_rtab(R_tab);
-+	} else {
-+		police->rate_present = false;
- 	}
--	if (P_tab != NULL) {
--		qdisc_put_rtab(police->tcfp_P_tab);
--		police->tcfp_P_tab = P_tab;
-+	if (P_tab) {
-+		police->peak_present = true;
-+		psched_ratecfg_precompute(&police->peak, P_tab->rate.rate);
-+		qdisc_put_rtab(P_tab);
-+	} else {
-+		police->peak_present = false;
- 	}
- 
- 	if (tb[TCA_POLICE_RESULT])
- 		police->tcfp_result = nla_get_u32(tb[TCA_POLICE_RESULT]);
--	police->tcfp_toks = police->tcfp_burst = parm->burst;
--	police->tcfp_mtu = parm->mtu;
--	if (police->tcfp_mtu == 0) {
--		police->tcfp_mtu = ~0;
--		if (police->tcfp_R_tab)
--			police->tcfp_mtu = 255<<police->tcfp_R_tab->rate.cell_log;
-+	police->tcfp_burst = PSCHED_TICKS2NS(parm->burst);
-+	police->tcfp_toks = police->tcfp_burst;
-+	if (police->peak_present) {
-+		police->tcfp_mtu_ptoks = (s64) psched_l2t_ns(&police->peak,
-+							     police->tcfp_mtu);
-+		police->tcfp_ptoks = police->tcfp_mtu_ptoks;
- 	}
--	if (police->tcfp_P_tab)
--		police->tcfp_ptoks = L2T_P(police, police->tcfp_mtu);
- 	police->tcf_action = parm->action;
- 
- 	if (tb[TCA_POLICE_AVRATE])
-@@ -256,7 +262,7 @@ override:
- 	if (ret != ACT_P_CREATED)
- 		return ret;
- 
--	police->tcfp_t_c = psched_get_time();
-+	police->tcfp_t_c = ktime_to_ns(ktime_get());
- 	police->tcf_index = parm->index ? parm->index :
- 		tcf_hash_new_index(&police_idx_gen, &police_hash_info);
- 	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
-@@ -302,9 +308,9 @@ static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
- 			  struct tcf_result *res)
+ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  {
- 	struct tcf_police *police = a->priv;
--	psched_time_t now;
--	long toks;
--	long ptoks = 0;
-+	s64 now;
-+	s64 toks;
-+	s64 ptoks = 0;
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+@@ -156,24 +155,24 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+ 	skb = q->qdisc->ops->peek(q->qdisc);
  
- 	spin_lock(&police->tcf_lock);
- 
-@@ -320,24 +326,25 @@ static int tcf_act_police(struct sk_buff *skb, const struct tc_action *a,
- 	}
- 
- 	if (qdisc_pkt_len(skb) <= police->tcfp_mtu) {
--		if (police->tcfp_R_tab == NULL) {
-+		if (!police->rate_present) {
- 			spin_unlock(&police->tcf_lock);
- 			return police->tcfp_result;
- 		}
+ 	if (skb) {
+-		psched_time_t now;
+-		long toks;
+-		long ptoks = 0;
++		s64 now;
++		s64 toks;
++		s64 ptoks = 0;
+ 		unsigned int len = qdisc_pkt_len(skb);
  
 -		now = psched_get_time();
--		toks = psched_tdiff_bounded(now, police->tcfp_t_c,
--					    police->tcfp_burst);
--		if (police->tcfp_P_tab) {
+-		toks = psched_tdiff_bounded(now, q->t_c, q->buffer);
 +		now = ktime_to_ns(ktime_get());
-+		toks = min_t(s64, now - police->tcfp_t_c,
-+			     police->tcfp_burst);
-+		if (police->peak_present) {
- 			ptoks = toks + police->tcfp_ptoks;
--			if (ptoks > (long)L2T_P(police, police->tcfp_mtu))
--				ptoks = (long)L2T_P(police, police->tcfp_mtu);
--			ptoks -= L2T_P(police, qdisc_pkt_len(skb));
-+			if (ptoks > police->tcfp_mtu_ptoks)
-+				ptoks = police->tcfp_mtu_ptoks;
-+			ptoks -= (s64) psched_l2t_ns(&police->peak,
-+						     qdisc_pkt_len(skb));
- 		}
- 		toks += police->tcfp_toks;
--		if (toks > (long)police->tcfp_burst)
-+		if (toks > police->tcfp_burst)
- 			toks = police->tcfp_burst;
--		toks -= L2T(police, qdisc_pkt_len(skb));
-+		toks -= (s64) psched_l2t_ns(&police->rate, qdisc_pkt_len(skb));
- 		if ((toks|ptoks) >= 0) {
- 			police->tcfp_t_c = now;
- 			police->tcfp_toks = toks;
-@@ -363,15 +370,15 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
- 		.index = police->tcf_index,
- 		.action = police->tcf_action,
- 		.mtu = police->tcfp_mtu,
--		.burst = police->tcfp_burst,
-+		.burst = PSCHED_NS2TICKS(police->tcfp_burst),
- 		.refcnt = police->tcf_refcnt - ref,
- 		.bindcnt = police->tcf_bindcnt - bind,
- 	};
++		toks = min_t(s64, now - q->t_c, q->buffer);
  
--	if (police->tcfp_R_tab)
--		opt.rate = police->tcfp_R_tab->rate;
--	if (police->tcfp_P_tab)
--		opt.peakrate = police->tcfp_P_tab->rate;
-+	if (police->rate_present)
-+		opt.rate.rate = psched_ratecfg_getrate(&police->rate);
-+	if (police->peak_present)
-+		opt.peakrate.rate = psched_ratecfg_getrate(&police->peak);
- 	if (nla_put(skb, TCA_POLICE_TBF, sizeof(opt), &opt))
+-		if (q->P_tab) {
++		if (q->peak_present) {
+ 			ptoks = toks + q->ptokens;
+-			if (ptoks > (long)q->mtu)
++			if (ptoks > q->mtu)
+ 				ptoks = q->mtu;
+-			ptoks -= L2T_P(q, len);
++			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
+ 		}
+ 		toks += q->tokens;
+-		if (toks > (long)q->buffer)
++		if (toks > q->buffer)
+ 			toks = q->buffer;
+-		toks -= L2T(q, len);
++		toks -= (s64) psched_l2t_ns(&q->rate, len);
+ 
+ 		if ((toks|ptoks) >= 0) {
+ 			skb = qdisc_dequeue_peeked(q->qdisc);
+@@ -189,8 +188,8 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+ 			return skb;
+ 		}
+ 
+-		qdisc_watchdog_schedule(&q->watchdog,
+-					now + max_t(long, -toks, -ptoks));
++		qdisc_watchdog_schedule_ns(&q->watchdog,
++					   now + max_t(long, -toks, -ptoks));
+ 
+ 		/* Maybe we have a shorter packet in the queue,
+ 		   which can be sent now. It sounds cool,
+@@ -214,7 +213,7 @@ static void tbf_reset(struct Qdisc *sch)
+ 
+ 	qdisc_reset(q->qdisc);
+ 	sch->q.qlen = 0;
+-	q->t_c = psched_get_time();
++	q->t_c = ktime_to_ns(ktime_get());
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 	qdisc_watchdog_cancel(&q->watchdog);
+@@ -293,14 +292,19 @@ static int tbf_change(struct Qdisc *sch, struct nlattr *opt)
+ 		q->qdisc = child;
+ 	}
+ 	q->limit = qopt->limit;
+-	q->mtu = qopt->mtu;
++	q->mtu = PSCHED_TICKS2NS(qopt->mtu);
+ 	q->max_size = max_size;
+-	q->buffer = qopt->buffer;
++	q->buffer = PSCHED_TICKS2NS(qopt->buffer);
+ 	q->tokens = q->buffer;
+ 	q->ptokens = q->mtu;
+ 
+-	swap(q->R_tab, rtab);
+-	swap(q->P_tab, ptab);
++	psched_ratecfg_precompute(&q->rate, rtab->rate.rate);
++	if (ptab) {
++		psched_ratecfg_precompute(&q->peak, ptab->rate.rate);
++		q->peak_present = true;
++	} else {
++		q->peak_present = false;
++	}
+ 
+ 	sch_tree_unlock(sch);
+ 	err = 0;
+@@ -319,7 +323,7 @@ static int tbf_init(struct Qdisc *sch, struct nlattr *opt)
+ 	if (opt == NULL)
+ 		return -EINVAL;
+ 
+-	q->t_c = psched_get_time();
++	q->t_c = ktime_to_ns(ktime_get());
+ 	qdisc_watchdog_init(&q->watchdog, sch);
+ 	q->qdisc = &noop_qdisc;
+ 
+@@ -331,12 +335,6 @@ static void tbf_destroy(struct Qdisc *sch)
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 
+ 	qdisc_watchdog_cancel(&q->watchdog);
+-
+-	if (q->P_tab)
+-		qdisc_put_rtab(q->P_tab);
+-	if (q->R_tab)
+-		qdisc_put_rtab(q->R_tab);
+-
+ 	qdisc_destroy(q->qdisc);
+ }
+ 
+@@ -352,13 +350,13 @@ static int tbf_dump(struct Qdisc *sch, struct sk_buff *skb)
  		goto nla_put_failure;
- 	if (police->tcfp_result &&
+ 
+ 	opt.limit = q->limit;
+-	opt.rate = q->R_tab->rate;
+-	if (q->P_tab)
+-		opt.peakrate = q->P_tab->rate;
++	opt.rate.rate = psched_ratecfg_getrate(&q->rate);
++	if (q->peak_present)
++		opt.peakrate.rate = psched_ratecfg_getrate(&q->peak);
+ 	else
+ 		memset(&opt.peakrate, 0, sizeof(opt.peakrate));
+-	opt.mtu = q->mtu;
+-	opt.buffer = q->buffer;
++	opt.mtu = PSCHED_NS2TICKS(q->mtu);
++	opt.buffer = PSCHED_NS2TICKS(q->buffer);
+ 	if (nla_put(skb, TCA_TBF_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
+ 
 -- 
 1.8.1.2
