@@ -1,40 +1,38 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH net-next 1/5] gianfar: Cleanup device refs in gfar_private
-Date: Tue, 12 Feb 2013 19:14:11 +0200
-Message-ID: <511A7863.8000901@freescale.com>
-References: <1360673237-349-1-git-send-email-claudiu.manoil@freescale.com> <511A57AA.8070004@windriver.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [net-next 04/10] igb: Fix for sparse warning in
+ igb_get_i2c_client
+Date: Tue, 12 Feb 2013 17:17:23 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264EE7F6A4@ORSMSX102.amr.corp.intel.com>
+References: <1360319958-10497-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1360319958-10497-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1360602355.2701.5.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:40442
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932336Ab3BLROY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:14:24 -0500
-In-Reply-To: <511A57AA.8070004@windriver.com>
+Received: from mga09.intel.com ([134.134.136.24]:52377 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932392Ab3BLRRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Feb 2013 12:17:42 -0500
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/12/2013 4:54 PM, Paul Gortmaker wrote:
-> On 13-02-12 07:47 AM, Claudiu Manoil wrote:
->> * remove unused device_node pointer
->> * remove duplicate SET_NETDEV_DEV()
->> * use device pointer (dev) to simplify the code and to
->>    avoid double indirections (esp. on the "fast path")
->
-> Ideally, when you find yourself making a list within the longlog,
-> that is a hint that you might want to start making it into
-> multiple commits, for ease of review.  Granted #1 and #2 are
-> trivial, but #3 probably could be a separate commit.  Did you
-> see any change in the object size or the disassembly when
-> making change #3?
->
-> P.
-
-I didn't inspect the assembly code yet, but this should definitely
-generate better, faster code. I don't see why it wouldn't...
-
-Thanks,
-Claudiu
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBXeWJvcm55LCBDYXJvbHluDQo+
+IFNlbnQ6IFR1ZXNkYXksIEZlYnJ1YXJ5IDEyLCAyMDEzIDk6MTMgQU0NCj4gVG86ICdCZW4gSHV0
+Y2hpbmdzJzsgS2lyc2hlciwgSmVmZnJleSBUDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBu
+ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBnb3Nwb0ByZWRoYXQuY29tOw0KPiBzYXNzbWFubkByZWRo
+YXQuY29tDQo+IFN1YmplY3Q6IFJFOiBbbmV0LW5leHQgMDQvMTBdIGlnYjogRml4IGZvciBzcGFy
+c2Ugd2FybmluZyBpbiBpZ2JfZ2V0X2kyY19jbGllbnQNCj4gDQpQbGVhc2UgaWdub3JlIG15IGxh
+c3QgZW1haWwgb24gdGhpcy4gSSBhbSB3b3JraW5nIG9uIHRoZSBzcGFyc2UgZXJyb3IgaW4gaWdi
+X2dldF9pMmNfY2xpZW50IGFzIHdlbGwgYXMgYSBsb2NrZGVwIGVycm9yIHRoYXQgdHVybmVkIHVw
+LiAgUGF0Y2ggd2lsbCBiZSBzdWJtaXR0ZWQgdG8gb3VyIGludGVybmFsIHRlc3Qgc3lzdGVtIGFz
+IHNvb24gYXMgcG9zc2libGUuDQoNClNvcnJ5IGZvciB0aGUgdGhyYXNoLA0KDQpDYXJvbHluDQpD
+YXJvbHluIFd5Ym9ybnkgDQpMaW51eCBEZXZlbG9wbWVudCANCk5ldHdvcmtpbmcgRGl2aXNpb24g
+DQpJbnRlbCBDb3Jwb3JhdGlvbiANCg0KDQoNCg0K
