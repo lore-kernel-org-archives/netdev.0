@@ -1,51 +1,38 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 24/61] net: calxedaxgmac: throw away overrun frames
-Date: Tue, 12 Feb 2013 12:34:44 -0800
-Message-ID: <20130212203421.644811246@linuxfoundation.org>
-References: <20130212203417.890993903@linuxfoundation.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130212203417.890993903@linuxfoundation.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] net: sctp: remove unused multiple cookie
+ keys
+Date: Tue, 12 Feb 2013 16:05:39 -0500 (EST)
+Message-ID: <20130212.160539.954346046111294909.davem@davemloft.net>
+References: <1360682133-17658-1-git-send-email-dborkman@redhat.com>
+	<511A631A.60803@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dborkman@redhat.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org, nhorman@tuxdriver.com, vyasevic@redhat.com
+To: vyasevich@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56832 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753571Ab3BLVFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 16:05:44 -0500
+In-Reply-To: <511A631A.60803@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-3.7-stable review patch.  If anyone has any objections, please let me know.
+From: Vlad Yasevich <vyasevich@gmail.com>
+Date: Tue, 12 Feb 2013 10:43:22 -0500
 
-------------------
+> On 02/12/2013 10:15 AM, Daniel Borkmann wrote:
+>> Vlad says: The whole multiple cookie keys code is completely unused
+>> and has been all this time. Noone uses anything other then the
+>> secret_key[0] since there is no changeover support anywhere.
+>>
+>> Thus, for now clean up its left-over fragments.
+>>
+>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> 
+> Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-
-From: Rob Herring <rob.herring@calxeda.com>
-
-[ Upstream commit d6fb3be544b46a7611a3373fcaa62b5b0be01888 ]
-
-The xgmac driver assumes 1 frame per descriptor. If a frame larger than
-the descriptor's buffer size is received, the frame will spill over into
-the next descriptor. So check for received frames that span more than one
-descriptor and discard them. This prevents a crash if we receive erroneous
-large packets.
-
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- drivers/net/ethernet/calxeda/xgmac.c |    4 ++++
- 1 file changed, 4 insertions(+)
-
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -546,6 +546,10 @@ static int desc_get_rx_status(struct xgm
- 		return -1;
- 	}
- 
-+	/* All frames should fit into a single buffer */
-+	if (!(status & RXDESC_FIRST_SEG) || !(status & RXDESC_LAST_SEG))
-+		return -1;
-+
- 	/* Check if packet has checksum already */
- 	if ((status & RXDESC_FRAME_TYPE) && (status & RXDESC_EXT_STATUS) &&
- 		!(ext_status & RXDESC_IP_PAYLOAD_MASK))
+Applied, thanks everyone.
