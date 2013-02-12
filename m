@@ -1,107 +1,191 @@
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH 2/2] tcp: fix FIN_WAIT2 timer expression in /proc/net/tcp
-Date: Tue, 12 Feb 2013 21:54:28 +0900
-Message-ID: <1360673668.10638.14.camel@ubuntu-vm-makita>
-References: <1360673384.10638.10.camel@ubuntu-vm-makita>
-	 <1360673521.10638.12.camel@ubuntu-vm-makita>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Stefan Roese <sr@denx.de>
+Subject: [PATCH v3] net: fec_mpc52xx: Read MAC address from device-tree
+Date: Tue, 12 Feb 2013 14:05:38 +0100
+Message-ID: <1360674338-12776-1-git-send-email-sr@denx.de>
+Cc: linuxppc-dev@ozlabs.org, Anatolij Gustschin <agust@denx.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:33856 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933154Ab3BLMyd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 07:54:33 -0500
-In-Reply-To: <1360673521.10638.12.camel@ubuntu-vm-makita>
+Received: from mo-p05-ob.rzone.de ([81.169.146.181]:55182 "EHLO
+	mo-p05-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932967Ab3BLNGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 08:06:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When tcp_fin_timeout is greater than 60, /proc/net/tcp shows
-FIN_WAIT2 keepalive timer as expires in (tcp_fin_timeout - 60)
-sec. This is confusing because the timer is not for keepalive
-and the socket needs another timewait timer to disappear.
+Until now, the MPC5200 FEC ethernet driver relied upon the bootloader
+(U-Boot) to write the MAC address into the ethernet controller
+registers. The Linux driver should not rely on such a thing. So
+lets read the MAC address from the DT as it should be done here.
 
-Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+The following priority is now used to read the MAC address:
+
+1) First, try OF node MAC address, if not present or invalid, then:
+
+2) Read from MAC address registers, if invalid, then:
+
+3) Log a warning message, and choose a random MAC address.
+
+This fixes a problem with a MPC5200 board that uses the SPL U-Boot
+version without FEC initialization before Linux booting for
+boot speedup.
+
+Additionally a status line is now be printed upon successful
+driver probing, also displaying this MAC address.
+
+Signed-off-by: Stefan Roese <sr@denx.de>
+Cc: Anatolij Gustschin <agust@denx.de>
 ---
- net/ipv4/tcp_ipv4.c |   23 +++++++++++++++--------
- net/ipv6/tcp_ipv6.c |   23 +++++++++++++++--------
- 2 files changed, 30 insertions(+), 16 deletions(-)
+v3:
+- Use of_get_mac_address() instead of of_get_property()
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 629937d..32bde0e 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2656,17 +2656,24 @@ static void get_tcp4_sock(struct sock *sk, struct seq_file *f, int i, int *len)
- 	int rx_queue;
+v2:
+- Remove module parameter mpc52xx_fec_mac_addr
+- Priority for MAC address probing now is DT, controller regs
+  If the resulting MAC address is invalid, a random address will
+  be generated and used with a warning message
+- Use "np" variable to simplify the code
+
+ drivers/net/ethernet/freescale/fec_mpc52xx.c | 62 +++++++++++++++++-----------
+ 1 file changed, 38 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+index 817d081..7f91b0c 100644
+--- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
++++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+@@ -29,6 +29,7 @@
+ #include <linux/delay.h>
+ #include <linux/of_device.h>
+ #include <linux/of_mdio.h>
++#include <linux/of_net.h>
+ #include <linux/of_platform.h>
  
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
--		timer_active	= 1;
--		timer_expires	= icsk->icsk_timeout;
-+		timer_active		= 1;
-+		timer_expires		= icsk->icsk_timeout;
- 	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
--		timer_active	= 4;
--		timer_expires	= icsk->icsk_timeout;
-+		timer_active		= 4;
-+		timer_expires		= icsk->icsk_timeout;
- 	} else if (timer_pending(&sk->sk_timer)) {
--		timer_active	= 2;
--		timer_expires	= sk->sk_timer.expires;
-+		if (sk->sk_state == TCP_FIN_WAIT2 && sock_flag(sk, SOCK_DEAD)) {
-+			timer_active	= 3;
-+			timer_expires	= sk->sk_timer.expires +
-+					  (tp->linger2 >= 0 ?
-+					   TCP_TIMEWAIT_LEN : 0);
-+		} else {
-+			timer_active	= 2;
-+			timer_expires	= sk->sk_timer.expires;
-+		}
- 	} else {
--		timer_active	= 0;
--		timer_expires = jiffies;
-+		timer_active		= 0;
-+		timer_expires		= jiffies;
+ #include <linux/netdevice.h>
+@@ -76,10 +77,6 @@ static void mpc52xx_fec_stop(struct net_device *dev);
+ static void mpc52xx_fec_start(struct net_device *dev);
+ static void mpc52xx_fec_reset(struct net_device *dev);
+ 
+-static u8 mpc52xx_fec_mac_addr[6];
+-module_param_array_named(mac, mpc52xx_fec_mac_addr, byte, NULL, 0);
+-MODULE_PARM_DESC(mac, "six hex digits, ie. 0x1,0x2,0xc0,0x01,0xba,0xbe");
+-
+ #define MPC52xx_MESSAGES_DEFAULT ( NETIF_MSG_DRV | NETIF_MSG_PROBE | \
+ 		NETIF_MSG_LINK | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP)
+ static int debug = -1;	/* the above default */
+@@ -110,15 +107,6 @@ static void mpc52xx_fec_set_paddr(struct net_device *dev, u8 *mac)
+ 	out_be32(&fec->paddr2, (*(u16 *)(&mac[4]) << 16) | FEC_PADDR2_TYPE);
+ }
+ 
+-static void mpc52xx_fec_get_paddr(struct net_device *dev, u8 *mac)
+-{
+-	struct mpc52xx_fec_priv *priv = netdev_priv(dev);
+-	struct mpc52xx_fec __iomem *fec = priv->fec;
+-
+-	*(u32 *)(&mac[0]) = in_be32(&fec->paddr1);
+-	*(u16 *)(&mac[4]) = in_be32(&fec->paddr2) >> 16;
+-}
+-
+ static int mpc52xx_fec_set_mac_address(struct net_device *dev, void *addr)
+ {
+ 	struct sockaddr *sock = addr;
+@@ -853,6 +841,8 @@ static int mpc52xx_fec_probe(struct platform_device *op)
+ 	struct resource mem;
+ 	const u32 *prop;
+ 	int prop_size;
++	struct device_node *np = op->dev.of_node;
++	const char *mac_addr;
+ 
+ 	phys_addr_t rx_fifo;
+ 	phys_addr_t tx_fifo;
+@@ -866,7 +856,7 @@ static int mpc52xx_fec_probe(struct platform_device *op)
+ 	priv->ndev = ndev;
+ 
+ 	/* Reserve FEC control zone */
+-	rv = of_address_to_resource(op->dev.of_node, 0, &mem);
++	rv = of_address_to_resource(np, 0, &mem);
+ 	if (rv) {
+ 		printk(KERN_ERR DRIVER_NAME ": "
+ 				"Error while parsing device node resource\n" );
+@@ -919,7 +909,7 @@ static int mpc52xx_fec_probe(struct platform_device *op)
+ 
+ 	/* Get the IRQ we need one by one */
+ 		/* Control */
+-	ndev->irq = irq_of_parse_and_map(op->dev.of_node, 0);
++	ndev->irq = irq_of_parse_and_map(np, 0);
+ 
+ 		/* RX */
+ 	priv->r_irq = bcom_get_task_irq(priv->rx_dmatsk);
+@@ -927,11 +917,33 @@ static int mpc52xx_fec_probe(struct platform_device *op)
+ 		/* TX */
+ 	priv->t_irq = bcom_get_task_irq(priv->tx_dmatsk);
+ 
+-	/* MAC address init */
+-	if (!is_zero_ether_addr(mpc52xx_fec_mac_addr))
+-		memcpy(ndev->dev_addr, mpc52xx_fec_mac_addr, 6);
+-	else
+-		mpc52xx_fec_get_paddr(ndev, ndev->dev_addr);
++	/*
++	 * MAC address init:
++	 *
++	 * First try to read MAC address from DT
++	 */
++	mac_addr = of_get_mac_address(np);
++	if (mac_addr) {
++		memcpy(ndev->dev_addr, mac_addr, ETH_ALEN);
++	} else {
++		struct mpc52xx_fec __iomem *fec = priv->fec;
++
++		/*
++		 * If the MAC addresse is not provided via DT then read
++		 * it back from the controller regs
++		 */
++		*(u32 *)(&ndev->dev_addr[0]) = in_be32(&fec->paddr1);
++		*(u16 *)(&ndev->dev_addr[4]) = in_be32(&fec->paddr2) >> 16;
++	}
++
++	/*
++	 * Check if the MAC address is valid, if not get a random one
++	 */
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		eth_hw_addr_random(ndev);
++		dev_warn(&ndev->dev, "using random MAC address %pM\n",
++			 ndev->dev_addr);
++	}
+ 
+ 	priv->msg_enable = netif_msg_init(debug, MPC52xx_MESSAGES_DEFAULT);
+ 
+@@ -942,20 +954,20 @@ static int mpc52xx_fec_probe(struct platform_device *op)
+ 	/* Start with safe defaults for link connection */
+ 	priv->speed = 100;
+ 	priv->duplex = DUPLEX_HALF;
+-	priv->mdio_speed = ((mpc5xxx_get_bus_frequency(op->dev.of_node) >> 20) / 5) << 1;
++	priv->mdio_speed = ((mpc5xxx_get_bus_frequency(np) >> 20) / 5) << 1;
+ 
+ 	/* The current speed preconfigures the speed of the MII link */
+-	prop = of_get_property(op->dev.of_node, "current-speed", &prop_size);
++	prop = of_get_property(np, "current-speed", &prop_size);
+ 	if (prop && (prop_size >= sizeof(u32) * 2)) {
+ 		priv->speed = prop[0];
+ 		priv->duplex = prop[1] ? DUPLEX_FULL : DUPLEX_HALF;
  	}
  
- 	if (sk->sk_state == TCP_LISTEN)
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 93825dd..3af4f9d 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1795,17 +1795,24 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 	srcp  = ntohs(inet->inet_sport);
+ 	/* If there is a phy handle, then get the PHY node */
+-	priv->phy_node = of_parse_phandle(op->dev.of_node, "phy-handle", 0);
++	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
  
- 	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
--		timer_active	= 1;
--		timer_expires	= icsk->icsk_timeout;
-+		timer_active		= 1;
-+		timer_expires		= icsk->icsk_timeout;
- 	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
--		timer_active	= 4;
--		timer_expires	= icsk->icsk_timeout;
-+		timer_active		= 4;
-+		timer_expires		= icsk->icsk_timeout;
- 	} else if (timer_pending(&sp->sk_timer)) {
--		timer_active	= 2;
--		timer_expires	= sp->sk_timer.expires;
-+		if (sp->sk_state == TCP_FIN_WAIT2 && sock_flag(sp, SOCK_DEAD)) {
-+			timer_active	= 3;
-+			timer_expires	= sp->sk_timer.expires +
-+					  (tp->linger2 >= 0 ?
-+					   TCP_TIMEWAIT_LEN : 0);
-+		} else {
-+			timer_active	= 2;
-+			timer_expires	= sp->sk_timer.expires;
-+		}
- 	} else {
--		timer_active	= 0;
--		timer_expires = jiffies;
-+		timer_active		= 0;
-+		timer_expires		= jiffies;
+ 	/* the 7-wire property means don't use MII mode */
+-	if (of_find_property(op->dev.of_node, "fsl,7-wire-mode", NULL)) {
++	if (of_find_property(np, "fsl,7-wire-mode", NULL)) {
+ 		priv->seven_wire_mode = 1;
+ 		dev_info(&ndev->dev, "using 7-wire PHY mode\n");
  	}
+@@ -970,6 +982,8 @@ static int mpc52xx_fec_probe(struct platform_device *op)
  
- 	seq_printf(seq,
+ 	/* We're done ! */
+ 	dev_set_drvdata(&op->dev, ndev);
++	printk(KERN_INFO "%s: %s MAC %pM\n",
++	       ndev->name, op->dev.of_node->full_name, ndev->dev_addr);
+ 
+ 	return 0;
+ 
 -- 
-1.7.1
+1.8.1.3
