@@ -1,186 +1,82 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next v2] net: sctp: remove unused multiple cookie
- keys
-Date: Tue, 12 Feb 2013 10:43:22 -0500
-Message-ID: <511A631A.60803@gmail.com>
-References: <1360682133-17658-1-git-send-email-dborkman@redhat.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net-next 2/5] gianfar: Cleanup and optimize struct gfar_private
+Date: Tue, 12 Feb 2013 17:58:27 +0200
+Message-ID: <511A66A3.7040704@freescale.com>
+References: <1360673237-349-1-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-2-git-send-email-claudiu.manoil@freescale.com> <511A5BA3.4020306@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f178.google.com ([209.85.128.178]:53363 "EHLO
-	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758224Ab3BLPn1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 10:43:27 -0500
-In-Reply-To: <1360682133-17658-1-git-send-email-dborkman@redhat.com>
+Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:35326
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758579Ab3BLP6r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 10:58:47 -0500
+In-Reply-To: <511A5BA3.4020306@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/12/2013 10:15 AM, Daniel Borkmann wrote:
-> Vlad says: The whole multiple cookie keys code is completely unused
-> and has been all this time. Noone uses anything other then the
-> secret_key[0] since there is no changeover support anywhere.
+On 2/12/2013 5:11 PM, Paul Gortmaker wrote:
+> On 13-02-12 07:47 AM, Claudiu Manoil wrote:
+>> * group run-time critical fields within the 1st cacheline
+>>    followed by the tx|rx_queue reference arrays and the interrupt
+>>    group instances (gfargrp) (all cacheline aligned)
+>> * change 'padding' from unsigned short to u16
+>> * clear 20+ byte memory hole
 >
-> Thus, for now clean up its left-over fragments.
+> Per prev. mail, it gets harder to see which change is where,
+> when they are all lumped together like this.  For example, it
+> wasn't obvious to me where the 20 byte hole was.  Also, it
+> doesn't look like you changed the padding, but rather instead
+> totally re-purposed it, leaving no alignment padding after the
+> uchar bitfields (where it was originally).
 >
-> Cc: Neil Horman <nhorman@tuxdriver.com>
-> Cc: Vlad Yasevich <vyasevic@redhat.com>
+> P.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+The 20 byte hole was here:
 
-Thanks
--vlad
+struct gfar_private {
+         unsigned int               num_tx_queues;
+         unsigned int               num_rx_queues;
+         unsigned int               num_grps;
+         unsigned int               mode;
+         unsigned int               total_tx_ring_size;
+         unsigned int               total_rx_ring_size;
+         struct device_node *       node;
+         struct net_device *        ndev;
+         /* --- cacheline 1 boundary (32 bytes) --- */
+         struct platform_device *   ofdev;
+         enum gfar_errata           errata;
 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->   include/net/sctp/constants.h |  2 +-
->   include/net/sctp/structs.h   |  5 +----
->   net/sctp/endpointola.c       |  9 ++-------
->   net/sctp/sm_make_chunk.c     | 31 +++++++------------------------
->   4 files changed, 11 insertions(+), 36 deletions(-)
->
-> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-> index c29707d..a7dd5c5 100644
-> --- a/include/net/sctp/constants.h
-> +++ b/include/net/sctp/constants.h
-> @@ -303,7 +303,7 @@ enum { SCTP_MAX_GABS = 16 };
->                                            * to which we will raise the P-MTU.
->   					 */
->   #define SCTP_DEFAULT_MINSEGMENT 512	/* MTU size ... if no mtu disc */
-> -#define SCTP_HOW_MANY_SECRETS 2		/* How many secrets I keep */
-> +
->   #define SCTP_SECRET_SIZE 32		/* Number of octets in a 256 bits. */
->
->   #define SCTP_SIGNATURE_SIZE 20	        /* size of a SLA-1 signature */
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index fdeb85a..0e0f9d2 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -1236,10 +1236,7 @@ struct sctp_endpoint {
->   	 *	      Discussion in [RFC1750] can be helpful in
->   	 *	      selection of the key.
->   	 */
-> -	__u8 secret_key[SCTP_HOW_MANY_SECRETS][SCTP_SECRET_SIZE];
-> -	int current_key;
-> -	int last_key;
-> -	int key_changed_at;
-> +	__u8 secret_key[SCTP_SECRET_SIZE];
->
->    	/* digest:  This is a digest of the sctp cookie.  This field is
->    	 * 	    only used on the receive path when we try to validate
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 1a9c5fb..73aad3d 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -151,9 +151,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
->   	ep->rcvbuf_policy = net->sctp.rcvbuf_policy;
->
->   	/* Initialize the secret key used with cookie. */
-> -	get_random_bytes(&ep->secret_key[0], SCTP_SECRET_SIZE);
-> -	ep->last_key = ep->current_key = 0;
-> -	ep->key_changed_at = jiffies;
-> +	get_random_bytes(ep->secret_key, sizeof(ep->secret_key));
->
->   	/* SCTP-AUTH extensions*/
->   	INIT_LIST_HEAD(&ep->endpoint_shared_keys);
-> @@ -249,8 +247,6 @@ void sctp_endpoint_free(struct sctp_endpoint *ep)
->   /* Final destructor for endpoint.  */
->   static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->   {
-> -	int i;
-> -
->   	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
->
->   	/* Free up the HMAC transform. */
-> @@ -273,8 +269,7 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->   	sctp_inq_free(&ep->base.inqueue);
->   	sctp_bind_addr_free(&ep->base.bind_addr);
->
-> -	for (i = 0; i < SCTP_HOW_MANY_SECRETS; ++i)
-> -		memset(&ep->secret_key[i], 0, SCTP_SECRET_SIZE);
-> +	memset(ep->secret_key, 0, sizeof(ep->secret_key));
->
->   	/* Remove and free the port */
->   	if (sctp_sk(ep->base.sk)->bind_hash)
-> diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-> index e1c5fc2..a193f3b 100644
-> --- a/net/sctp/sm_make_chunk.c
-> +++ b/net/sctp/sm_make_chunk.c
-> @@ -1589,8 +1589,6 @@ static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
->   	struct sctp_signed_cookie *cookie;
->   	struct scatterlist sg;
->   	int headersize, bodysize;
-> -	unsigned int keylen;
-> -	char *key;
->
->   	/* Header size is static data prior to the actual cookie, including
->   	 * any padding.
-> @@ -1650,12 +1648,11 @@ static sctp_cookie_param_t *sctp_pack_cookie(const struct sctp_endpoint *ep,
->
->   		/* Sign the message.  */
->   		sg_init_one(&sg, &cookie->c, bodysize);
-> -		keylen = SCTP_SECRET_SIZE;
-> -		key = (char *)ep->secret_key[ep->current_key];
->   		desc.tfm = sctp_sk(ep->base.sk)->hmac;
->   		desc.flags = 0;
->
-> -		if (crypto_hash_setkey(desc.tfm, key, keylen) ||
-> +		if (crypto_hash_setkey(desc.tfm, ep->secret_key,
-> +				       sizeof(ep->secret_key)) ||
->   		    crypto_hash_digest(&desc, &sg, bodysize, cookie->signature))
->   			goto free_cookie;
->   	}
-> @@ -1682,8 +1679,7 @@ struct sctp_association *sctp_unpack_cookie(
->   	int headersize, bodysize, fixed_size;
->   	__u8 *digest = ep->digest;
->   	struct scatterlist sg;
-> -	unsigned int keylen, len;
-> -	char *key;
-> +	unsigned int len;
->   	sctp_scope_t scope;
->   	struct sk_buff *skb = chunk->skb;
->   	struct timeval tv;
-> @@ -1718,34 +1714,21 @@ struct sctp_association *sctp_unpack_cookie(
->   		goto no_hmac;
->
->   	/* Check the signature.  */
-> -	keylen = SCTP_SECRET_SIZE;
->   	sg_init_one(&sg, bear_cookie, bodysize);
-> -	key = (char *)ep->secret_key[ep->current_key];
->   	desc.tfm = sctp_sk(ep->base.sk)->hmac;
->   	desc.flags = 0;
->
->   	memset(digest, 0x00, SCTP_SIGNATURE_SIZE);
-> -	if (crypto_hash_setkey(desc.tfm, key, keylen) ||
-> +	if (crypto_hash_setkey(desc.tfm, ep->secret_key,
-> +			       sizeof(ep->secret_key)) ||
->   	    crypto_hash_digest(&desc, &sg, bodysize, digest)) {
->   		*error = -SCTP_IERROR_NOMEM;
->   		goto fail;
->   	}
->
->   	if (memcmp(digest, cookie->signature, SCTP_SIGNATURE_SIZE)) {
-> -		/* Try the previous key. */
-> -		key = (char *)ep->secret_key[ep->last_key];
-> -		memset(digest, 0x00, SCTP_SIGNATURE_SIZE);
-> -		if (crypto_hash_setkey(desc.tfm, key, keylen) ||
-> -		    crypto_hash_digest(&desc, &sg, bodysize, digest)) {
-> -			*error = -SCTP_IERROR_NOMEM;
-> -			goto fail;
-> -		}
-> -
-> -		if (memcmp(digest, cookie->signature, SCTP_SIGNATURE_SIZE)) {
-> -			/* Yikes!  Still bad signature! */
-> -			*error = -SCTP_IERROR_BAD_SIG;
-> -			goto fail;
-> -		}
-> +		*error = -SCTP_IERROR_BAD_SIG;
-> +		goto fail;
->   	}
->
->   no_hmac:
->
+         /* XXX 24 bytes hole, try to pack */
+
+         /* --- cacheline 2 boundary (64 bytes) --- */
+         struct gfar_priv_grp       gfargrp[2];
+
+
+At the end of the patch series the first cacheline is without holes.
+Please note that the re-grouping of members and their order is most
+important. For instance why keep in the first cacheline something
+as unimportant as total_rx_ring_size? Members like rx_buffer_size,
+or padding, or even errata, are critical however for the fast path.
+Rx processing (gfar_poll + clean_rx_ring) is the bottleneck here,
+keeping the CPU to 100%. So the main goal is to optimize this path,
+including memory access/cache optimizations. For instance, better 
+results were obtained by inverting rx|tx_queue[] with gfargrp[], originally:
+         /* --- cacheline 1 boundary (32 bytes) --- */
+         struct gfar_priv_tx_q *    tx_queue[8];  /*    32    32 */
+         /* --- cacheline 2 boundary (64 bytes) --- */
+         struct gfar_priv_rx_q *    rx_queue[8]; /*    64    32 */
+         /* --- cacheline 3 boundary (96 bytes) --- */
+         struct gfar_priv_grp       gfargrp[2];  /*    96   192 */
+
+The uchar bitfields are unimportant here (used at "init time"), and
+they take 4 bytes including padding anyway. So whether it's uchar or
+uint, it's the same, maybe better left uchar to discourage the abuse
+of these bitfields. (A 2-3byte hole here doesn't change anything
+to the whole structure size, which is padded to be at least a 32B
+multiple.)
+
+Thanks,
+Claudiu
