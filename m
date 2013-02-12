@@ -1,12 +1,10 @@
 From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [ 49/61] sctp: refactor sctp_outq_teardown to insure proper re-initalization
-Date: Tue, 12 Feb 2013 12:35:09 -0800
-Message-ID: <20130212203424.564075474@linuxfoundation.org>
+Subject: [ 24/61] net: calxedaxgmac: throw away overrun frames
+Date: Tue, 12 Feb 2013 12:34:44 -0800
+Message-ID: <20130212203421.644811246@linuxfoundation.org>
 References: <20130212203417.890993903@linuxfoundation.org>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
-	Jamie Parsons <Jamie.Parsons@metaswitch.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
+	stable@vger.kernel.org, Rob Herring <rob.herring@calxeda.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <stable-owner@vger.kernel.org>
@@ -19,69 +17,35 @@ List-Id: netdev.vger.kernel.org
 ------------------
 
 
-From: Neil Horman <nhorman@tuxdriver.com>
+From: Rob Herring <rob.herring@calxeda.com>
 
-[ Upstream commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86 ]
+[ Upstream commit d6fb3be544b46a7611a3373fcaa62b5b0be01888 ]
 
-Jamie Parsons reported a problem recently, in which the re-initalization of an
-association (The duplicate init case), resulted in a loss of receive window
-space.  He tracked down the root cause to sctp_outq_teardown, which discarded
-all the data on an outq during a re-initalization of the corresponding
-association, but never reset the outq->outstanding_data field to zero.  I wrote,
-and he tested this fix, which does a proper full re-initalization of the outq,
-fixing this problem, and hopefully future proofing us from simmilar issues down
-the road.
+The xgmac driver assumes 1 frame per descriptor. If a frame larger than
+the descriptor's buffer size is received, the frame will spill over into
+the next descriptor. So check for received frames that span more than one
+descriptor and discard them. This prevents a crash if we receive erroneous
+large packets.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-Tested-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-CC: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: netdev@vger.kernel.org
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- net/sctp/outqueue.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/calxeda/xgmac.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -224,7 +224,7 @@ void sctp_outq_init(struct sctp_associat
- 
- /* Free the outqueue structure and any related pending chunks.
-  */
--void sctp_outq_teardown(struct sctp_outq *q)
-+static void __sctp_outq_teardown(struct sctp_outq *q)
- {
- 	struct sctp_transport *transport;
- 	struct list_head *lchunk, *temp;
-@@ -277,8 +277,6 @@ void sctp_outq_teardown(struct sctp_outq
- 		sctp_chunk_free(chunk);
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -546,6 +546,10 @@ static int desc_get_rx_status(struct xgm
+ 		return -1;
  	}
  
--	q->error = 0;
--
- 	/* Throw away any leftover control chunks. */
- 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
- 		list_del_init(&chunk->list);
-@@ -286,11 +284,17 @@ void sctp_outq_teardown(struct sctp_outq
- 	}
- }
- 
-+void sctp_outq_teardown(struct sctp_outq *q)
-+{
-+	__sctp_outq_teardown(q);
-+	sctp_outq_init(q->asoc, q);
-+}
++	/* All frames should fit into a single buffer */
++	if (!(status & RXDESC_FIRST_SEG) || !(status & RXDESC_LAST_SEG))
++		return -1;
 +
- /* Free the outqueue structure and any related pending chunks.  */
- void sctp_outq_free(struct sctp_outq *q)
- {
- 	/* Throw away leftover chunks. */
--	sctp_outq_teardown(q);
-+	__sctp_outq_teardown(q);
- 
- 	/* If we were kmalloc()'d, free the memory.  */
- 	if (q->malloced)
+ 	/* Check if packet has checksum already */
+ 	if ((status & RXDESC_FRAME_TYPE) && (status & RXDESC_EXT_STATUS) &&
+ 		!(ext_status & RXDESC_IP_PAYLOAD_MASK))
