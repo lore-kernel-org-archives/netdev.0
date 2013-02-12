@@ -1,69 +1,52 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v5 00/11] couple of net/sched fixes+improvements
-Date: Tue, 12 Feb 2013 11:11:58 +0100
-Message-ID: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v5 02/11] htb: fix values in opt dump
+Date: Tue, 12 Feb 2013 11:12:00 +0100
+Message-ID: <1360663929-1023-3-git-send-email-jiri@resnulli.us>
+References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, edumazet@google.com, jhs@mojatatu.com,
 	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:42700 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755527Ab3BLKMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 05:12:17 -0500
-Received: by mail-ee0-f50.google.com with SMTP id e51so3777361eek.23
-        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 02:12:15 -0800 (PST)
+Received: from mail-ea0-f177.google.com ([209.85.215.177]:57658 "EHLO
+	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932782Ab3BLKMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 05:12:23 -0500
+Received: by mail-ea0-f177.google.com with SMTP id n13so71633eaa.36
+        for <netdev@vger.kernel.org>; Tue, 12 Feb 2013 02:12:21 -0800 (PST)
+In-Reply-To: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-v4->v5:
- - added patch "sch_api: introduce qdisc_watchdog_schedule_ns()"
- - remove bogus patch "tbf: fix value set for q->ptokens"
- - fixed watchdog scheduling
-   (patch "tbf: improved accuracy at high rates")
- - fixed q->mtu handling
-   (patch "tbf: improved accuracy at high rates")
- - added gso skb checks to "peak" branches
-   (patch "tbf: take into account gso skbs" and
-    patch "act_police: remove <=mtu check for gso skbs")
+in htb_change_class() cl->buffer and cl->buffer are stored in ns.
+So in dump, convert them back to psched ticks.
 
-v3->v4:
- - cache mtu_ptokens value instead of compute in by psched_l2t_ns in fast path
-   (patch "act_police: improved accuracy at high rates" and
-    patch "tbf: fix value set for q->ptokens")
+Note this was introduced by:
+commit 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
+    htb: improved accuracy at high rates
 
-v2->v3:
- - fixed schedule while atomic issue
-   (patch "act_police: improved accuracy at high rates")
+Please consider this for -net/-stable.
 
-v1->v2:
- - made struct psched_ratecfg const in params of couple of inline functions
-   (patch "sch: make htb_rate_cfg and functions around that generic")
- - fixes misspelled "peak"
-   (patch "tbf: improved accuracy at high rates")
- - added last 4 patches to this set
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Acked-by: Eric Dumazet <edumazet@google.com>
+---
+ net/sched/sch_htb.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Jiri Pirko (11):
-  htb: use PSCHED_TICKS2NS()
-  htb: fix values in opt dump
-  htb: remove pointless first initialization of buffer and cbuffer
-  htb: initialize cl->tokens and cl->ctokens correctly
-  sch: make htb_rate_cfg and functions around that generic
-  sch_api: introduce qdisc_watchdog_schedule_ns()
-  tbf: improved accuracy at high rates
-  act_police: move struct tcf_police to act_police.c
-  act_police: improved accuracy at high rates
-  tbf: take into account gso skbs
-  act_police: remove <=mtu check for gso skbs
-
- include/net/act_api.h     |  15 -------
- include/net/pkt_sched.h   |  10 ++++-
- include/net/sch_generic.h |  19 +++++++++
- net/sched/act_police.c    | 102 ++++++++++++++++++++++++++++------------------
- net/sched/sch_api.c       |   6 +--
- net/sched/sch_generic.c   |  37 +++++++++++++++++
- net/sched/sch_htb.c       |  80 +++++++-----------------------------
- net/sched/sch_tbf.c       |  78 +++++++++++++++++------------------
- 8 files changed, 182 insertions(+), 165 deletions(-)
-
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 476992c..14a83dc 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -1135,9 +1135,9 @@ static int htb_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	memset(&opt, 0, sizeof(opt));
+ 
+ 	opt.rate.rate = cl->rate.rate_bps >> 3;
+-	opt.buffer = cl->buffer;
++	opt.buffer = PSCHED_NS2TICKS(cl->buffer);
+ 	opt.ceil.rate = cl->ceil.rate_bps >> 3;
+-	opt.cbuffer = cl->cbuffer;
++	opt.cbuffer = PSCHED_NS2TICKS(cl->cbuffer);
+ 	opt.quantum = cl->quantum;
+ 	opt.prio = cl->prio;
+ 	opt.level = cl->level;
 -- 
 1.8.1.2
