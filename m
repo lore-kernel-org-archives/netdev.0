@@ -1,35 +1,29 @@
-From: pablo@netfilter.org
-Subject: [PATCH] checksum: remove duplicated line of code in csum_fold
-Date: Tue, 12 Feb 2013 18:10:03 +0100
-Message-ID: <1360689003-21794-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, Arnd Bergmann <arnd@arndb.de>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] checksum: remove duplicated line of code in csum_fold
+Date: Tue, 12 Feb 2013 12:12:35 -0500 (EST)
+Message-ID: <20130212.121235.1398926681356889354.davem@davemloft.net>
+References: <1360689003-21794-1-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from slan-550-85.anhosting.com ([209.236.71.68]:39558 "EHLO
-	slan-550-85.anhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932327Ab3BLRKV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:10:21 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:52539 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933463Ab3BLRMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 12:12:37 -0500
+In-Reply-To: <1360689003-21794-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: pablo@netfilter.org
+Date: Tue, 12 Feb 2013 18:10:03 +0100
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- include/asm-generic/checksum.h |    1 -
- 1 file changed, 1 deletion(-)
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
+> 
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-diff --git a/include/asm-generic/checksum.h b/include/asm-generic/checksum.h
-index c084767..f68b2ea 100644
---- a/include/asm-generic/checksum.h
-+++ b/include/asm-generic/checksum.h
-@@ -51,7 +51,6 @@ static inline __sum16 csum_fold(__wsum csum)
- {
- 	u32 sum = (__force u32)csum;
- 	sum = (sum & 0xffff) + (sum >> 16);
--	sum = (sum & 0xffff) + (sum >> 16);
- 	return (__force __sum16)~sum;
- }
- 
--- 
-1.7.10.4
+I am very sure that those two lines are there intentionally.
+The first addition one can overflow, therefore we need to
+fold again (which cannot overflow).
