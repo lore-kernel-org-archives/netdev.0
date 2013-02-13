@@ -1,35 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] batman-adv: Fix NULL pointer dereference in DAT hash
- collision avoidance
-Date: Wed, 13 Feb 2013 13:36:09 -0500 (EST)
-Message-ID: <20130213.133609.1664152397252172830.davem@davemloft.net>
-References: <1360664325-7323-1-git-send-email-paukoning@gmail.com>
+From: "Hefty, Sean" <sean.hefty@intel.com>
+Subject: RE: [PATCH v4 4/9] rdma/cm: Update port reservation to support AF_IB
+Date: Wed, 13 Feb 2013 18:37:00 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A8237368B9A460@ORSMSX101.amr.corp.intel.com>
+References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
+ <1358891797-14625-5-git-send-email-sean.hefty@intel.com>
+ <511B7474.3040201@mellanox.com>
+ <1828884A29C6694DAF28B7E6B8A8237368B9A40F@ORSMSX101.amr.corp.intel.com>
+ <20130213181048.GC1601@obsidianresearch.com>
+ <1828884A29C6694DAF28B7E6B8A8237368B9A432@ORSMSX101.amr.corp.intel.com>
+ <20130213182612.GA11812@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paukoning@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42917 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490Ab3BMSgL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:36:11 -0500
-In-Reply-To: <1360664325-7323-1-git-send-email-paukoning@gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:11431 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752490Ab3BMShD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:37:03 -0500
+In-Reply-To: <20130213182612.GA11812@obsidianresearch.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pau Koning <paukoning@gmail.com>
-Date: Tue, 12 Feb 2013 11:18:45 +0100
+> A long time ago we discussed having different paths for CM GMP,
+> inbound data and outbound data (ie the full IB asymetric pathing
+> model), did that get included in the API as well?
 
-> An entry in DAT with the hashed position of 0 can cause a NULL pointer
-> dereference when the first entry is checked by batadv_choose_next_candidate.
-> This first candidate automatically has the max value of 0 and the max_orig_node
-> of NULL. Not checking max_orig_node for NULL in batadv_is_orig_node_eligible
-> will lead to a NULL pointer dereference when checking for the lowest address.
-> 
-> This problem was added in 785ea1144182c341b8b85b0f8180291839d176a8
-> ("batman-adv: Distributed ARP Table - create DHT helper functions").
-> 
-> Signed-off-by: Pau Koning <paukoning@gmail.com>
-
-Applied.
+Yes - this support made it upstream.
