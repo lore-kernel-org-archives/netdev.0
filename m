@@ -1,48 +1,67 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH v4 4/9] rdma/cm: Update port reservation to support AF_IB
-Date: Wed, 13 Feb 2013 17:44:58 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A8237368B9A40F@ORSMSX101.amr.corp.intel.com>
-References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
- <1358891797-14625-5-git-send-email-sean.hefty@intel.com>
- <511B7474.3040201@mellanox.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net-next 2/2] gianfar: convert u64 status counters to
+ atomic64_t
+Date: Wed, 13 Feb 2013 19:47:20 +0200
+Message-ID: <511BD1A8.4090506@freescale.com>
+References: <1360715064-2689-1-git-send-email-paul.gortmaker@windriver.com>  <1360715064-2689-3-git-send-email-paul.gortmaker@windriver.com>  <511BAFC4.9060006@freescale.com> <1360772065.6884.23.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <511B7474.3040201-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:4473 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934405Ab3BMRrb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 12:47:31 -0500
+In-Reply-To: <1360772065.6884.23.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > The AF_IB uses a 64-bit service id (SID), which the
-> > user can control through the use of a mask.  The rdma_cm
-> > will assign values to the unmasked portions of the SID
-> > based on the selected port space and port number.
-> 
-> Something here I am not sure to follow -- if AF_IB consumers are allowed
-> to provide 64-bit SID, how
-> the IB port space is expressed in their SIDs?
+On 2/13/2013 6:14 PM, Eric Dumazet wrote:
+> On Wed, 2013-02-13 at 17:22 +0200, Claudiu Manoil wrote:
+>
+>> At least it seems that this conversion results in fewer asm
+>> instructions, as apparently addze and the double lwz/stw are
+>> not generated anymore. Hopefully it's faster too :P
+>
+> Strange, could you show us these asm instructions ?
+>
+>
+>
 
-The spec, notably the RDMA CM Annex, provides fixed values for the upper 48-bits of the service ID.  Only the lower 16-bits are available to users.  The upper bits end up identifying the various 'port spaces'. 
+Ok, I'm looking over gfar_clean_rx_ring's asm code, with and w/o this
+patch. They are difficult to compare as asm code changed considerably,
+the initial version having more lines.
+The first thing I notice is that the initial ver has 13 'addic'
+instructions, and the new version has 7.
 
-(Note that there's no actual association between an IB port space and port spaces in the IP network stack.)
+Now taking the code around the last 'addic' instruction (from the
+gfar_clean_rx_ring function):
 
-> Wouldn't it make sense to use a simpler approach that has a dedicated
-> IB_PS in the port space
-> portion of the RDMA-CM IP IBTA annex and let the consumer provide 16
-> bits for their part of the SID?
+Initial version looks like this:
 
-Ultimately, IB establishes communication using 64-bit service IDs, which is what sockaddr_ib exposes.
+     5024:	4b ff ff ac 	b       4fd0 <gfar_clean_rx_ring+0x450>
+     5028:	81 5d 06 30 	lwz     r10,1584(r29)
+     502c:	81 7d 06 34 	lwz     r11,1588(r29)
+     5030:	31 6b 00 01 	addic   r11,r11,1
+     5034:	7d 4a 01 94 	addze   r10,r10
+     5038:	91 5d 06 30 	stw     r10,1584(r29)
+     503c:	91 7d 06 34 	stw     r11,1588(r29)
+     5040:	4b ff fe fc 	b       4f3c <gfar_clean_rx_ring+0x3bc>
 
-The SID mask was proposed by Jason as a way to simplify things.  Conceptually, AF_IB has a single port space range, the 64-bit SID.  The mask helps us break the SID into the various ranges, so we can clearly know which parts of the SID are fixed, and which can be variable.  E.g. when connecting, the entire SID must be provided.  However, when binding we want to support binding to a specific SID or only to a SID range (i.e. port space).
+New version looks like this:
 
-(I'm having trouble finding the original email threads where this was discussed.)
+     4ff8:	4b ff fd a8 	b       4da0 <gfar_clean_rx_ring+0x1ec>
+     4ffc:	80 1c 00 a0 	lwz     r0,160(r28)
+     5000:	38 60 00 00 	li      r3,0
+     5004:	80 a1 00 18 	lwz     r5,24(r1)
+     5008:	38 80 00 01 	li      r4,1
+     500c:	30 00 00 01 	addic   r0,r0,1
+     5010:	90 1c 00 a0 	stw     r0,160(r28)
+     5014:	48 00 00 01 	bl      5014 <gfar_clean_rx_ring+0x460>
+     5018:	4b ff ff 4c 	b       4f64 <gfar_clean_rx_ring+0x3b0>
 
-- Sean
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+I have the whole function's asm excepts, if needed.
