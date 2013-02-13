@@ -1,66 +1,43 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next 2/3] ipv6: use newly introduced __ipv6_addr_needs_scope_id
- and ipv6_iface_scope_id
-Date: Thu, 14 Feb 2013 01:47:47 +0900
-Message-ID: <511BC3B3.3070405@linux-ipv6.org>
-References: <20130212221634.GA7212@order.stressinduktion.org> <20130213001357.GB1096@order.stressinduktion.org> <511AFF9A.8040506@hp.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next 1/1] net: skbuff: fix compile error in skb_panic()
+Date: Wed, 13 Feb 2013 11:52:21 -0500 (EST)
+Message-ID: <20130213.115221.343418412847173849.davem@davemloft.net>
+References: <1360754427-9051-1-git-send-email-james.hogan@imgtec.com>
+	<CA+icZUVB9QaZfnKGSz_Dr=EADBtYULOHqEHDDocdXO5-Dy=uYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-To: Brian Haley <brian.haley@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56461 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756877Ab3BMQsQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 11:48:16 -0500
-In-Reply-To: <511AFF9A.8040506@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: james.hogan@imgtec.com, sakiwit@gmail.com,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	jiri@resnulli.us, netdev@vger.kernel.org
+To: sedat.dilek@gmail.com
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CA+icZUVB9QaZfnKGSz_Dr=EADBtYULOHqEHDDocdXO5-Dy=uYA@mail.gmail.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Brian Haley wrote:
-> On 02/12/2013 07:13 PM, Hannes Frederic Sowa wrote:
->>> --- a/net/ipv6/af_inet6.c
->>> +++ b/net/ipv6/af_inet6.c
->>> @@ -323,7 +323,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
->>>  			struct net_device *dev = NULL;
->>>  
->>>  			rcu_read_lock();
->>> -			if (addr_type & IPV6_ADDR_LINKLOCAL) {
->>> +			if (__ipv6_addr_needs_scope_id(addr_type)) {
->>>  				if (addr_len >= sizeof(struct sockaddr_in6) &&
->>>  				    addr->sin6_scope_id) {
->>>  					/* Override any existing binding, if another one
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Date: Wed, 13 Feb 2013 13:41:21 +0100
+
+> On Wed, Feb 13, 2013 at 12:20 PM, James Hogan <james.hogan@imgtec.com> wrote:
+>> I get the following build error on next-20130213 due to the following
+>> commit:
 >>
->> By trying to setup the multicast interface scoped routes by default I
->> just found a bug in this patch essentially breaking ipv6 multicast. I
->> overlooked that ipv6_addr_type strips off the scopes, thus my check if
->> a multicast address needs a scope_id always returns true. I'll check
->> if I can convert the ipv6_addr_type calls to __ipv6_addr_type and will
->> reroll the patch.  Sorry, my tests were too focused on interface/local
->> multicast. :(
+>> commit f05de73bf82fbbc00265c06d12efb7273f7dc54a ("skbuff: create
+>> skb_panic() function and its wrappers").
+>>
+>> It adds an argument called panic to a function that uses the BUG() macro
+>> which tries to call panic, but the argument masks the panic() function
+>> declaration, resulting in the following error (gcc 4.2.4):
+>>
+>> net/core/skbuff.c In function 'skb_panic':
+>> net/core/skbuff.c +126 : error: called object 'panic' is not a function
+>>
 > 
-> I'd always thought of adding helper inlines like these in net/ipv6.h:
+> [ CC linux-netdev ]
 > 
-> static inline bool ipv6_addr_linklocal(const struct in6_addr *a)
-> {
->         return ((a->s6_addr32[0] & htonl(0xFFC00000)) == htonl(0xFE800000));
-> }
-> 
-> static inline bool ipv6_addr_mc_linklocal(const struct in6_addr *a)
-> {
->         return (((a->s6_addr32[0] & htonl(0xFF000000)) == htonl(0xFF000000)) &&
->                 ((a->s6_addr32[1] & 0x0F) == IPV6_ADDR_SCOPE_LINKLOCAL));
-> }
-> 
-> Maybe something like that would help here?
+> Hmm, with gcc-4.6.3 on Ubuntu/precise I don't see this... compiler-specific?
 
-If you have several address checks around, please use ipv6_addr_type()
-(or __ipv6_addr_type()).  Above "direct" checks should be used only for
-single-shot test.  But well, I have to agree that ipv6_addr_type and
-friends is becoming complex.  In mid-term, I would like to take look
-at it.  I might think of having addr_type for src/dst in skb->cb
-after all.
+Kconfig option specific.
 
---yoshfuji
+Applied, thanks James.
