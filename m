@@ -1,79 +1,70 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH] net: cdc_ncm: fix probing of devices with multiple control interface altsettings
-Date: Wed, 13 Feb 2013 23:09:52 +0100
-Message-ID: <1360793392-7412-1-git-send-email-bjorn@mork.no>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH v11 net-next 10/12] bridge: Add vlan support to static
+ neighbors
+Date: Wed, 13 Feb 2013 22:10:39 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E2AFC42@avmb2.qlogic.org>
+References: <1360792820-14116-11-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
-	Greg Suarez <gsuarez@smithmicro.com>,
-	Alexey Orishko <alexey.orishko@stericsson.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Vlad Yasevich <vyasevic@redhat.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:52968 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760928Ab3BMWKS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2013 17:10:18 -0500
+Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:49150
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964980Ab3BMWKn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 17:10:43 -0500
+In-Reply-To: <1360792820-14116-11-git-send-email-vyasevic@redhat.com>
+Content-Language: en-US
+Content-ID: <1CBE76616633824F8BCADF922BF2755F@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit bd329e1 ("net: cdc_ncm: do not bind to NCM compatible MBIM devic=
-es")
-added a test for a CDC MBIM altsetting, implementing the cdc_ncm part o=
-f
-MBIM backward compatibility support.  This intentionally made the drive=
-r
-behave differently for CDC NCM devices with 2 alternate settings for th=
-e
-Communication interface, depending on whether or not CONFIG_USB_NET_CDC=
-_MBIM
-was enabled.  This is correct iff alternate setting #1 really *is* a MB=
-IM
-setting.  If not, then NCM probing will use a different altsetting than=
- before,
-possibly causing probing failures depending on CONFIG_USB_NET_CDC_MBIM.
 
-=46ix by setting the altsetting back to default after the test, restori=
-ng the
-previous behaviour for non MBIM devices.
+On 2/13/13 2:00 PM, "Vlad Yasevich" <vyasevic@redhat.com> wrote:
 
-This bug causes probing of Huawei E3276 devices to fail when the MBIM d=
-river
-is enabled, because these devices have a second alternate setting with =
-no CDC
-functional descriptors.
+>When a user adds bridge neighbors, allow him to specify VLAN id.
+>If the VLAN id is not specified, the neighbor will be added
+>for VLANs currently in the ports filter list.  If no VLANs are
+>configured on the port, we use vlan 0 and only add 1 entry.
+>
+>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>---
+>drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    2 +-
+>drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    1 +
+>drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 +-
+>drivers/net/macvlan.c                            |    2 +-
+>drivers/net/vxlan.c                              |    3 +-
+>include/linux/netdevice.h                        |    4 +-
+>include/uapi/linux/neighbour.h                   |    1 +
+>net/bridge/br_fdb.c                              |  148
+>+++++++++++++++++++---
+>net/bridge/br_private.h                          |    6 +-
+>net/core/rtnetlink.c                             |   26 +++--
+>10 files changed, 162 insertions(+), 35 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>index b745194..b953168 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>@@ -247,8 +247,8 @@ static int qlcnic_set_mac(struct net_device *netdev,
+>void *p)
+>	return 0;
+>}
+>-static int qlcnic_fdb_del(struct ndmsg *ndm, struct net_device *netdev,
+>-			const unsigned char *addr)
+>+static int qlcnic_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+>+			struct net_device *netdev, const unsigned char *addr)
+>{
+>	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+>	int err = -EOPNOTSUPP;
 
-Cc: Greg Suarez <gsuarez@smithmicro.com>
-Cc: Alexey Orishko <alexey.orishko@stericsson.com>
-Reported-and-tested-by: Jonathan A. <yo.natan@hotmail.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
- drivers/net/usb/cdc_ncm.c |   11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
+Thanks!
 
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 00d3b2d..6d25439 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -576,9 +576,14 @@ static int cdc_ncm_bind(struct usbnet *dev, struct=
- usb_interface *intf)
- 	if ((intf->num_altsetting =3D=3D 2) &&
- 	    !usb_set_interface(dev->udev,
- 			       intf->cur_altsetting->desc.bInterfaceNumber,
--			       CDC_NCM_COMM_ALTSETTING_MBIM) &&
--	    cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
--		return -ENODEV;
-+			       CDC_NCM_COMM_ALTSETTING_MBIM)) {
-+		if (cdc_ncm_comm_intf_is_mbim(intf->cur_altsetting))
-+			return -ENODEV;
-+		else
-+			usb_set_interface(dev->udev,
-+					  intf->cur_altsetting->desc.bInterfaceNumber,
-+					  CDC_NCM_COMM_ALTSETTING_NCM);
-+	}
- #endif
-=20
- 	/* NCM data altsetting is always 1 */
---=20
-1.7.10.4
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
