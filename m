@@ -1,30 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] be2net: remove BUG_ON() in
- be_mcc_compl_is_new()
-Date: Wed, 13 Feb 2013 13:53:59 -0500 (EST)
-Message-ID: <20130213.135359.2148545579553285494.davem@davemloft.net>
-References: <df52a8ca-fbd1-41aa-ad6f-995fd724a4d4@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCH] bgmac: return error on failed PHY write
+Date: Wed, 13 Feb 2013 13:58:43 -0500 (EST)
+Message-ID: <20130213.135843.595990597648635704.davem@davemloft.net>
+References: <1360746891-15124-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43061 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43135 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756905Ab3BMSyB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:54:01 -0500
-In-Reply-To: <df52a8ca-fbd1-41aa-ad6f-995fd724a4d4@CMEXHTCAS1.ad.emulex.com>
+	with ESMTP id S1756382Ab3BMS6p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:58:45 -0500
+In-Reply-To: <1360746891-15124-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Wed, 13 Feb 2013 14:35:19 +0530
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Wed, 13 Feb 2013 10:14:51 +0100
 
-> The current code expects that the last word (with valid bit)
-> of an MCC compl is DMAed in one shot. This may not be the case.
-> Remove this assertion.
-> 
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+> Some callers may want to know if PHY write succeed. Also make PHY
+> functions static, they are not exported anywhere.
+>=20
+> Signed-off-by: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
 
-Applied.
+Applied, thanks.
