@@ -1,41 +1,31 @@
-From: Gerd Hoffmann <kraxel@redhat.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Wed, 13 Feb 2013 13:44:31 +0100
-Message-ID: <511B8AAF.2060202@redhat.com>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<1360196636-9357-2-git-send-email-acking@vmware.com>
+From: Stephan Gatzka <stephan.gatzka@gmail.com>
+Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
+Date: Wed, 13 Feb 2013 13:45:44 +0100
+Message-ID: <511B8AF8.6080409@gmail.com>
+References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org> <5118C8B3.7080803@gmail.com> <5118EE78.5000508@linux-ipv6.org>
+Reply-To: stephan.gatzka@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Andy King <acking@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1360196636-9357-2-git-send-email-acking@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	davem@davemloft.net, stefanr@s5r6.in-berlin.de
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f47.google.com ([209.85.214.47]:46589 "EHLO
+	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752788Ab3BMMps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:45:48 -0500
+Received: by mail-bk0-f47.google.com with SMTP id jc3so509886bkc.6
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 04:45:47 -0800 (PST)
+In-Reply-To: <5118EE78.5000508@linux-ipv6.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/07/13 01:23, Andy King wrote:
-> +static int vsock_create(struct net *net, struct socket *sock,
-> +			int protocol, int kern)
-> +{
-> +	if (!sock)
-> +		return -EINVAL;
-> +
-> +	if (protocol)
-> +		return -EPROTONOSUPPORT;
-> +
+Hi Yoshi,
 
-IMO protocol == PF_VSOCK should not get rejected here.
+I just wanted to try out your patch but is does not apply to net-next.
+What is the tree I should use?
 
-cheers,
-  Gerd
+Regards,
+
+Stephan
