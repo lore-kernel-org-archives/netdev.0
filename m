@@ -1,27 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: ti: remove redundant NULL check.
-Date: Wed, 13 Feb 2013 13:41:53 -0500 (EST)
-Message-ID: <20130213.134153.631152881474627822.davem@davemloft.net>
-References: <20130212.170650.89534546100043269.davem@davemloft.net>
-	<1360709550-821-1-git-send-email-tipecaml@gmail.com>
+Subject: Re: [PATCH net] net: sctp: sctp_v6_get_dst: fix boolean test in
+ dst cache
+Date: Wed, 13 Feb 2013 13:42:45 -0500 (EST)
+Message-ID: <20130213.134245.1682004516494856058.davem@davemloft.net>
+References: <cover.1360709645.git.dborkman@redhat.com>
+	<4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	mugunthanvnm@ti.com, zonque@gmail.com, hotforest@gmail.com,
-	Julia.Lawall@lip6.fr, netdev@vger.kernel.org
-To: tipecaml@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1360709550-821-1-git-send-email-tipecaml@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42969 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753848Ab3BMSmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:42:47 -0500
+In-Reply-To: <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cyril Roelandt <tipecaml@gmail.com>
-Date: Tue, 12 Feb 2013 23:52:30 +0100
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Wed, 13 Feb 2013 00:30:16 +0100
 
-> cpdma_chan_destroy() on a NULL pointer is a no-op, so the NULL check in
-> cpdma_ctlr_destroy() can safely be removed.
+> We walk through the bind address list and try to get the best source
+> address for a given destination. However, currently, we take the
+> 'continue' path of the loop when an entry is invalid (!laddr->valid)
+> *and* the entry state does not equal SCTP_ADDR_SRC (laddr->state !=
+> SCTP_ADDR_SRC).
 > 
-> Signed-off-by: Cyril Roelandt <tipecaml@gmail.com>
+> Thus, still, invalid entries with SCTP_ADDR_SRC might not 'continue'
+> as well as valid entries with SCTP_ADDR_{NEW, SRC, DEL}, with a possible
+> false baddr and matchlen as a result, causing in worst case dst route
+> to be false or possibly NULL.
+> 
+> This test should actually be a '||' instead of '&&'. But lets fix it
+> and make this a bit easier to read by having the condition the same way
+> as similarly done in sctp_v4_get_dst.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied, thanks.
+Applied.
