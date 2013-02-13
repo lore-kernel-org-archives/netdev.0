@@ -1,56 +1,89 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 2/2] net: sctp: add build check for
- sctp_sf_eat_sack_6_2/jsctp_sf_eat_sack
-Date: Wed, 13 Feb 2013 16:15:53 -0500
-Message-ID: <20130213211553.GA15598@hmsreliant.think-freely.org>
-References: <cover.1360752304.git.dborkman@redhat.com>
- <84afa536e3652ea27a7efb1f6c9f7c4f29c15043.1360752304.git.dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tcp_use_frto crashes on empty tcp_write_queue
+Date: Wed, 13 Feb 2013 13:37:33 -0800
+Message-ID: <1360791453.6884.34.camel@edumazet-glaptop>
+References: <511C0127.1040604@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Frediano Ziglio <frediano.ziglio@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43275 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042Ab3BMVQB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 16:16:01 -0500
-Content-Disposition: inline
-In-Reply-To: <84afa536e3652ea27a7efb1f6c9f7c4f29c15043.1360752304.git.dborkman@redhat.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:47389 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760669Ab3BMVhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 16:37:39 -0500
+Received: by mail-ie0-f182.google.com with SMTP id k14so2359880iea.13
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 13:37:37 -0800 (PST)
+In-Reply-To: <511C0127.1040604@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 13, 2013 at 12:03:50PM +0100, Daniel Borkmann wrote:
-> In order to avoid any future surprises of kernel panics due to jprobes
-> function mismatches (as e.g. fixed in 4cb9d6eaf85ecd: sctp: jsctp_sf_eat_sack:
-> fix jprobes function signature mismatch), we should check both function
-> types during build and scream loudly if they do not match. __same_type
-> resolves to __builtin_types_compatible_p, which is 1 in case both types
-> are the same and 0 otherwise, qualifiers are ignored. Tested by myself.
+On Wed, 2013-02-13 at 21:09 +0000, Zoltan Kiss wrote:
+> Hi,
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  net/sctp/probe.c | 7 +++++++
->  1 file changed, 7 insertions(+)
+> I see the following WARN and then crash on 2.6.32.12:
 > 
-> diff --git a/net/sctp/probe.c b/net/sctp/probe.c
-> index 4eaaaf6..261b7b9 100644
-> --- a/net/sctp/probe.c
-> +++ b/net/sctp/probe.c
-> @@ -183,6 +183,13 @@ static __init int sctpprobe_init(void)
->  {
->  	int ret = -ENOMEM;
->  
-> +	/* Warning: if the function signature of sctp_sf_eat_sack_6_2,
-> +	 * has been changed, you also have to change the signature of
-> +	 * jsctp_sf_eat_sack, otherwise you end up right here!
-> +	 */
-> +	BUILD_BUG_ON(__same_type(sctp_sf_eat_sack_6_2,
-> +				 jsctp_sf_eat_sack) == 0);
-> +
->  	init_waitqueue_head(&sctpw.wait);
->  	spin_lock_init(&sctpw.lock);
->  	if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL))
-> -- 
-> 1.7.11.7
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> <4>WARNING: at net/ipv4/tcp_timer.c:293 tcp_retransmit_timer+0x5dd/0x630()
+> 
+> ...
+> 
+> <1>BUG: unable to handle kernel NULL pointer dereference at (null)
+> <1>IP: [<c033f2b5>] tcp_use_frto+0x45/0x90
+> ...
+> <0>Call Trace:
+> <4> [<c0343ab9>] ? tcp_retransmit_timer+0xd9/0x630
+> <4> [<c0120e58>] ? __wake_up_common+0x48/0x70
+> <4> [<c0344580>] ? tcp_write_timer+0xe0/0x1a0
+> <4> [<c0137fe1>] ? run_timer_softirq+0x151/0x200
+> <4> [<c02af069>] ? maybe_schedule_tx_action+0x39/0x40
+> <4> [<c03444a0>] ? tcp_write_timer+0x0/0x1a0
+> <4> [<c013359a>] ? __do_softirq+0xba/0x180
+> <4> [<c015e7a7>] ? move_native_irq+0x47/0x50
+> ...
+> 
+> I've checked the code, tcp_use_frto() crashes because
+> 
+> skb = tcp_write_queue_head(sk);
+> 
+> returns a NULL, as the queue is empty, and in the next line:
+> 
+> if (tcp_skb_is_last(sk, skb))
+> ===>
+> static inline bool tcp_skb_is_last(const struct sock *sk,
+>                     const struct sk_buff *skb)
+> {
+>      return skb_queue_is_last(&sk->sk_write_queue, skb);
+> }
+> ===>
+> static inline bool skb_queue_is_last(const struct sk_buff_head *list,
+>                       const struct sk_buff *skb)
+> {
+>      return (skb->next == (struct sk_buff *) list);
+> }
+> 
+> That skb->next cause the NULL pointer dereference.
+> 
+> I've checked this in upstream, and it seems this would fail in the same 
+> way. Wouldn't it be more reasonable to return from 
+> tcp_retransmit_timer() instead of just signing a WARN? Something like this:
+> 
+> diff -r 7a748d2cb9f1 -r bb8257f0730a net/ipv4/tcp_timer.c
+> --- a/net/ipv4/tcp_timer.c    Wed Feb 13 15:02:50 2013 +0000
+> +++ b/net/ipv4/tcp_timer.c    Wed Feb 13 15:03:18 2013 +0000
+> @@ -287,11 +287,9 @@ void tcp_retransmit_timer(struct sock *s
+>       struct tcp_sock *tp = tcp_sk(sk);
+>       struct inet_connection_sock *icsk = inet_csk(sk);
+> 
+> -    if (!tp->packets_out)
+> +    if (!tp->packets_out || tcp_write_queue_empty(sk))
+>           goto out;
+> 
+> -    WARN_ON(tcp_write_queue_empty(sk));
+> -
+>       if (!tp->snd_wnd && !sock_flag(sk, SOCK_DEAD) &&
+>           !((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))) {
+>           /* Receiver dastardly shrinks window. Our retransmits
+
+This doesn't seem to be a standard kernel.
