@@ -1,170 +1,122 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v10 net-next 00/12] VLAN filtering/VLAN aware bridge
-Date: Wed, 13 Feb 2013 12:41:37 -0500
-Message-ID: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
-Cc: shemminger@vyatta.com, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
+Subject: [PATCH v10 net-next 03/12] bridge: Verify that a vlan is allowed to egress on given port
+Date: Wed, 13 Feb 2013 12:41:40 -0500
+Message-ID: <1360777309-25522-4-git-send-email-vyasevic@redhat.com>
+References: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
+Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
+	davem@davemloft.net, mirqus@gmail.com
 To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2210 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934539Ab3BMRl6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 12:41:58 -0500
+In-Reply-To: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changes since v9:
-* series re-ordering so make functionality more distinct.  Basic vlan
-  filtering is patches 1-4.  Support for PVID/untagged vlans is patches
-  5 and 6.  VLAN support for FDB/MDB is patches 7-11.  Patch 12 is
-  still additional egress policy.
-* Slight simplification to code that extracts the VID from skb.  Since we
-  now depend on the vlan module, at the time of input skb_tci is guaranteed
-  to be set if the packet had 8021q header.  We can simply refere to it.
-* Changed the opaque 'parent' pointer from prior patches to a union so we
-  can be much more explicit in our assignments.
-* Lots of additional testing with STP turned on.  No issues were observed.
+When bridge forwards a frame, make sure that a frame is allowed
+to egress on that port.
 
-Changes since v8:
-* Unified vlans_to_* calls into a single interface
-* Fixed the rest of the issues report by Michal Miroslaw
-* Fixed a bug where fdb entries were not created for all added vlans.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_forward.c |    1 +
+ net/bridge/br_input.c   |   10 ++++++++++
+ net/bridge/br_private.h |   10 ++++++++++
+ net/bridge/br_vlan.c    |   20 ++++++++++++++++++++
+ 4 files changed, 41 insertions(+), 0 deletions(-)
 
-Changes since v7:
-* Rebases on the latest net-next and removed the vlan wrapper patch from
-the series.
-* Fixed a crash in br_fdb_add/br_fdb_delete.
-
-Changes since v6:
-* VLANs are now stored in a VLAN bitmap per port.  This allows for O(1)
-lookup at ingress and egress.  We simply check to see if the bit associated
-with the vlan id is set in the map.  The drawback to this approach is that
-it wastes some space when there is only a small number of VLANs.
-* In addition to the build time configuration option, VLAN filtering also has
-a configuration paramter in sysfs.  By default the filtering is turned off
-and all traffic is permitted.  When the filtring is turned on, we do strict
-matching to the filter configured.  Thus, if there is no configuration, all
-packets are rejected.  This was done to make the behavior more streight
-forward.  Without this (and if egress policy patch is rejected), the
-decision for how to forward untagged traffic that was not filtered at ingress
-is almost impossible to make.  It would not be right to deliver to every
-port that has PVID set as, each port may have a different PVID.
-* Separate egress policy bitmap patch has been isolated and is provided last
-in the series.  This has been a more contentious piece of functionality and I
-wanted to isolate it so that it could easily be dropped and not block the whole
-series.
-
-Changes since v5:
- - Pulled VLAN filtering into its own file and made it a configuration options.
- - Made new vlan filtering option dependent on VLAN_8021Q.
- - Got rid of HW filter inlines and moved then vlan_core.c.
-   (All of the above suggested by Stephen Hemminger)
-
-Changes since v4:
- - Pull per-port vlan data into its own structures and give it to the bridge
-   device thus making bridge device behave like a regular port for vlan
-   configuration.
- - Add a per-vlan 'untagged' bitmap that determins egress policy.  If a port
-   is part of this bitmap, traffic egresses untagged.
- - PVID is now used for ingress policy only.  Incomming frames without VLAN tag
-   are assigned to the PVID vlan.  Egress is determined via bitmap memberships.
- - Allow for incremental config of a vlan.  Now, PVID and untagged memberships
-   may be set on existing vlans.  They however can NOT be cleared separately.
- - VLAN deletion is now done via RTM_DELLINK command for PF_BRIDGE family.
-   This cleans up the netlink interface.
-
-Changes since v3:
- - Re-integrated compiler problems that got left out last time.  Appologies.
- - checkpatches.pl errors fixed
-
-Changes since v2:
- - Added inline functiosn to manimulate vlan hw filters and re-use in 8021q
-   and bridge code.
- - Use rtnl_dereference (Michael Tsirkin)
- - Remove synchronize_net() call (Eric Dumazet)
- - Fix NULL ptr deref bug I introduced in br_ifinfo_notify.
-
-Changes since v1:
- - Fixed some forwarding bugs.
- - Add vlan to local fdb entries.  New local entries are created per vlan
-   to facilite correct forwarding to bridge interface.
- - Allow configuration of vlans directly on the bridge master device
-   in addition to ports.
-
-Changes since rfc v2:
- - Per-port vlan bitmap is gone and is replaced with a vlan list.
- - Added bridge vlan list, which is referenced by each port.  Entries in
-   the birdge vlan list have port bitmap that shows which port are parts
-   of which vlan.
- - Netlink API changes.
- - Dropped sysfs support for now.  If people think this is really usefull,
-   can add it back.
- - Support for native/untagged vlans.
-
-Changes since rfc v1:
- - Comments addressed regarding formatting and RCU usage
- - iocts have been removed and changed over the netlink interface.
- - Added support of user added ndb entries.
- - changed sysfs interface to export a bitmap.  Also added a write interface.
-   I am not sure how much I like it, but it made my testing easier/faster.  I
-   might change the write interface to take text instead of binary.
-
-Vlad Yasevich (12):
-  bridge: Add vlan filtering infrastructure
-  bridge: Validate that vlan is permitted on ingress
-  bridge: Verify that a vlan is allowed to egress on give port
-  bridge: Add netlink interface to configure vlans on bridge ports
-  bridge: Add the ability to configure pvid
-  bridge: Implement vlan ingress/egress policy
-  bridge: Add vlan to unicast fdb entries
-  bridge: Add vlan id to multicast groups
-  bridge: Add vlan support to static neighbors
-  bridge: Add vlan support for local fdb entries
-  bridge: Dump vlan information from a bridge port
-  bridge: Separate egress policy bitmap
-
-
-Vlad Yasevich (12):
-  bridge: Add vlan filtering infrastructure
-  bridge: Validate that vlan is permitted on ingress
-  bridge: Verify that a vlan is allowed to egress on given port
-  bridge: Add netlink interface to configure vlans on bridge ports
-  bridge: Dump vlan information from a bridge port
-  bridge: Implement vlan ingress/egress policy with PVID.
-  bridge: Add the ability to configure pvid
-  bridge: Add vlan to unicast fdb entries
-  bridge: Add vlan id to multicast groups
-  bridge: Add vlan support to static neighbors
-  bridge: Add vlan support for local fdb entries
-  bridge: Separate egress policy bitmap
-
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
- drivers/net/macvlan.c                         |    2 +-
- drivers/net/vxlan.c                           |    3 +-
- include/linux/netdevice.h                     |    6 +-
- include/uapi/linux/if_bridge.h                |   11 +
- include/uapi/linux/neighbour.h                |    1 +
- include/uapi/linux/rtnetlink.h                |    1 +
- net/8021q/vlan_core.c                         |    1 +
- net/bridge/Kconfig                            |   14 +
- net/bridge/Makefile                           |    2 +
- net/bridge/br_device.c                        |    7 +-
- net/bridge/br_fdb.c                           |  258 ++++++++++++---
- net/bridge/br_forward.c                       |    9 +
- net/bridge/br_if.c                            |    4 +-
- net/bridge/br_input.c                         |   28 ++-
- net/bridge/br_multicast.c                     |   69 +++--
- net/bridge/br_netlink.c                       |  242 +++++++++++++--
- net/bridge/br_private.h                       |  175 ++++++++++-
- net/bridge/br_sysfs_br.c                      |   21 ++
- net/bridge/br_vlan.c                          |  415 +++++++++++++++++++++++++
- net/core/rtnetlink.c                          |  111 ++++++-
- 21 files changed, 1257 insertions(+), 128 deletions(-)
- create mode 100644 net/bridge/br_vlan.c
-
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 02015a5..35b0671 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -31,6 +31,7 @@ static inline int should_deliver(const struct net_bridge_port *p,
+ 				 const struct sk_buff *skb)
+ {
+ 	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
++		br_allowed_egress(p->br, nbp_get_vlan_info(p), skb) &&
+ 		p->state == BR_STATE_FORWARDING);
+ }
+ 
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 4ef3f6b..787d7da 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -35,6 +35,16 @@ static int br_pass_frame_up(struct sk_buff *skb)
+ 	brstats->rx_bytes += skb->len;
+ 	u64_stats_update_end(&brstats->syncp);
+ 
++	/* Bridge is just like any other port.  Make sure the
++	 * packet is allowed except in promisc modue when someone
++	 * may be running packet capture.
++	 */
++	if (!(brdev->flags & IFF_PROMISC) &&
++	    !br_allowed_egress(br, br_get_vlan_info(br), skb)) {
++		kfree_skb(skb);
++		return NET_RX_DROP;
++	}
++
+ 	indev = skb->dev;
+ 	skb->dev = brdev;
+ 
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index edac5d1..a18d6a5 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -557,6 +557,9 @@ static inline void br_mdb_uninit(void)
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
+ extern bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 			       struct sk_buff *skb);
++extern bool br_allowed_egress(struct net_bridge *br,
++			      const struct net_port_vlans *v,
++			      const struct sk_buff *skb);
+ extern int br_vlan_add(struct net_bridge *br, u16 vid);
+ extern int br_vlan_delete(struct net_bridge *br, u16 vid);
+ extern void br_vlan_flush(struct net_bridge *br);
+@@ -601,6 +604,13 @@ static inline bool br_allowed_ingress(struct net_bridge *br,
+ 	return true;
+ }
+ 
++static inline bool br_allowed_egress(struct net_bridge *br,
++				     const struct net_port_vlans *v,
++				     const struct sk_buff *skb)
++{
++	return true;
++}
++
+ static inline int br_vlan_add(struct net_bridge *br, u16 vid)
+ {
+ 	return -EOPNOTSUPP;
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 8b4bcd8..d8690bf 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -89,6 +89,26 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
+ 	return false;
+ }
+ 
++/* Called under RCU. */
++bool br_allowed_egress(struct net_bridge *br,
++		       const struct net_port_vlans *v,
++		       const struct sk_buff *skb)
++{
++	u16 vid;
++
++	if (!br->vlan_enabled)
++		return true;
++
++	if (!v)
++		return false;
++
++	br_vlan_get_tag(skb, &vid);
++	if (test_bit(vid, v->vlan_bitmap))
++		return true;
++
++	return false;
++}
++
+ /* Must be protected by RTNL */
+ int br_vlan_add(struct net_bridge *br, u16 vid)
+ {
 -- 
 1.7.7.6
