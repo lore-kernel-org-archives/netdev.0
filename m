@@ -1,43 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next 1/1] net: skbuff: fix compile error in skb_panic()
-Date: Wed, 13 Feb 2013 11:52:21 -0500 (EST)
-Message-ID: <20130213.115221.343418412847173849.davem@davemloft.net>
-References: <1360754427-9051-1-git-send-email-james.hogan@imgtec.com>
-	<CA+icZUVB9QaZfnKGSz_Dr=EADBtYULOHqEHDDocdXO5-Dy=uYA@mail.gmail.com>
+Subject: Re: [PATCH] netpoll: fix smatch warnings in netpoll core code
+Date: Wed, 13 Feb 2013 11:57:20 -0500 (EST)
+Message-ID: <20130213.115720.1571411485926797138.davem@davemloft.net>
+References: <1360773162-11949-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: james.hogan@imgtec.com, sakiwit@gmail.com,
-	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
-	jiri@resnulli.us, netdev@vger.kernel.org
-To: sedat.dilek@gmail.com
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <CA+icZUVB9QaZfnKGSz_Dr=EADBtYULOHqEHDDocdXO5-Dy=uYA@mail.gmail.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
+To: nhorman@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41719 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759808Ab3BMQ5W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 11:57:22 -0500
+In-Reply-To: <1360773162-11949-1-git-send-email-nhorman@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sedat Dilek <sedat.dilek@gmail.com>
-Date: Wed, 13 Feb 2013 13:41:21 +0100
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 13 Feb 2013 11:32:42 -0500
 
-> On Wed, Feb 13, 2013 at 12:20 PM, James Hogan <james.hogan@imgtec.com> wrote:
->> I get the following build error on next-20130213 due to the following
->> commit:
->>
->> commit f05de73bf82fbbc00265c06d12efb7273f7dc54a ("skbuff: create
->> skb_panic() function and its wrappers").
->>
->> It adds an argument called panic to a function that uses the BUG() macro
->> which tries to call panic, but the argument masks the panic() function
->> declaration, resulting in the following error (gcc 4.2.4):
->>
->> net/core/skbuff.c In function 'skb_panic':
->> net/core/skbuff.c +126 : error: called object 'panic' is not a function
->>
+> Dan Carpenter contacted me with some notes regarding some smatch warnings in the
+> netpoll code, some of which I introduced with my recent netpoll locking fixes,
+> some which were there prior.   Specifically they were:
 > 
-> [ CC linux-netdev ]
+> net-next/net/core/netpoll.c:243 netpoll_poll_dev() warn: inconsistent
+>   returns mutex:&ni->dev_lock: locked (213,217) unlocked (210,243)
+> net-next/net/core/netpoll.c:706 netpoll_neigh_reply() warn: potential
+>   pointer math issue ('skb_transport_header(send_skb)' is a 128 bit pointer)
 > 
-> Hmm, with gcc-4.6.3 on Ubuntu/precise I don't see this... compiler-specific?
+> This patch corrects the locking imbalance (the first error), and adds some
+> parenthesis to correct the second error.  Tested by myself. Applies to net-next
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Kconfig option specific.
+Applied, thanks Neil.
 
-Applied, thanks James.
+Again, please specify in the Subject line the destination tree.
