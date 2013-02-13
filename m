@@ -1,45 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tcp_use_frto crashes on empty tcp_write_queue
-Date: Wed, 13 Feb 2013 15:24:10 -0800
-Message-ID: <1360797850.6884.39.camel@edumazet-glaptop>
-References: <511C0127.1040604@citrix.com>
-	 <1360791453.6884.34.camel@edumazet-glaptop> <511C1039.9020001@citrix.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] net: Convert skb->csum_(start|offset) integrity BUG_ON() to
+ WARN_ON() & drop
+Date: Wed, 13 Feb 2013 23:40:21 +0000
+Message-ID: <20130213234021.GA21829@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Frediano Ziglio <frediano.ziglio@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f43.google.com ([209.85.210.43]:35185 "EHLO
-	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965338Ab3BMXYR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 18:24:17 -0500
-Received: by mail-da0-f43.google.com with SMTP id u36so770034dak.2
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 15:24:16 -0800 (PST)
-In-Reply-To: <511C1039.9020001@citrix.com>
+Received: from casper.infradead.org ([85.118.1.10]:47597 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752314Ab3BMXkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 18:40:24 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-13 at 22:14 +0000, Zoltan Kiss wrote:
-> Hi,
-> 
-> On 13/02/13 21:37, Eric Dumazet wrote:
-> > This doesn't seem to be a standard kernel.
-> 
-> Indeed, this is a XenServer 6.0.2 kernel, which contains changes, 
-> however the TCP parts are barely modified. The related code path were 
-> not changed.
-> I'm trying to determine if this bug could be fixed in an obvious way, so 
-> let me rephrase my question: if the socket write queue is empty, 
-> shouldn't we just stop going further instead of dropping a WARN? Or, if 
-> there is a reason to do so, shouldn't we check at least that returned 
-> pointer in tcp_use_frto()?
+skb_checksum_help() verifies the integrity of skb->csum_start
+and skb->csum_offset with BUG_ON()s.
 
-You could change the WARN_ON() to BUG_ON(), as there is a severe bug in
-your tree (and possibly in current trees as well, but its hard to say,
-given 2.6.32 is probably missing some tcp fixes)
+They have been hit with IPoIB which uses a 64K MTU. If a TCP
+retransmission gets partially ACKed and collapsed multiple times
+it is possible for the headroom to grow beyond 64K which will
+overflow the 16bit skb->csum_start.
 
-Trying to hide the bug wont really help.
+This in turn will trigger the BUG_ON() in skb_checksum_help().
+Convert these to WARN_ON() and drop the packet.
 
-How write_queue can be empty and packets_out not null ?
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/core/dev.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index f64e439..629d22e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2047,11 +2047,14 @@ int skb_checksum_help(struct sk_buff *skb)
+ 	}
+ 
+ 	offset = skb_checksum_start_offset(skb);
+-	BUG_ON(offset >= skb_headlen(skb));
++	if (WARN_ON(offset >= skb_headlen(skb)))
++		return -ERANGE;
++
+ 	csum = skb_checksum(skb, offset, skb->len - offset, 0);
+ 
+ 	offset += skb->csum_offset;
+-	BUG_ON(offset + sizeof(__sum16) > skb_headlen(skb));
++	if (WARN_ON(offset + sizeof(__sum16) > skb_headlen(skb)))
++		return -ERANGE;
+ 
+ 	if (skb_cloned(skb) &&
+ 	    !skb_clone_writable(skb, offset + sizeof(__sum16))) {
