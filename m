@@ -1,69 +1,63 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net] net: sctp: sctp_v6_get_dst: fix boolean test in dst
- cache
-Date: Wed, 13 Feb 2013 07:02:45 -0500
-Message-ID: <20130213120245.GA26539@hmsreliant.think-freely.org>
-References: <cover.1360709645.git.dborkman@redhat.com>
- <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+From: Felipe Dias <felipediassss@gmail.com>
+Subject: dev_add_pack() duplicate skb ?
+Date: Wed, 13 Feb 2013 10:11:26 -0200
+Message-ID: <CAJX4=r08yC7PPtO7KA-3rsY5SMsZueJ=tVDdi2HT6MvnuO1ung@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:33863 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754441Ab3BMMC4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:02:56 -0500
-Content-Disposition: inline
-In-Reply-To: <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+Received: from mail-ob0-f196.google.com ([209.85.214.196]:56287 "EHLO
+	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933996Ab3BMML0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:11:26 -0500
+Received: by mail-ob0-f196.google.com with SMTP id va7so328303obc.3
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 04:11:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 13, 2013 at 12:30:16AM +0100, Daniel Borkmann wrote:
-> We walk through the bind address list and try to get the best source
-> address for a given destination. However, currently, we take the
-> 'continue' path of the loop when an entry is invalid (!laddr->valid)
-> *and* the entry state does not equal SCTP_ADDR_SRC (laddr->state !=
-> SCTP_ADDR_SRC).
-> 
-> Thus, still, invalid entries with SCTP_ADDR_SRC might not 'continue'
-> as well as valid entries with SCTP_ADDR_{NEW, SRC, DEL}, with a possible
-> false baddr and matchlen as a result, causing in worst case dst route
-> to be false or possibly NULL.
-> 
-> This test should actually be a '||' instead of '&&'. But lets fix it
-> and make this a bit easier to read by having the condition the same way
-> as similarly done in sctp_v4_get_dst.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  net/sctp/ipv6.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index f3f0f4d..391a245 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -326,9 +326,10 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
->  	 */
->  	rcu_read_lock();
->  	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
-> -		if (!laddr->valid && laddr->state != SCTP_ADDR_SRC)
-> +		if (!laddr->valid)
->  			continue;
-> -		if ((laddr->a.sa.sa_family == AF_INET6) &&
-> +		if ((laddr->state == SCTP_ADDR_SRC) &&
-> +		    (laddr->a.sa.sa_family == AF_INET6) &&
->  		    (scope <= sctp_scope(&laddr->a))) {
->  			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
->  			if (!baddr || (matchlen < bmatchlen)) {
-> -- 
-> 1.7.11.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Hi, someone might try to tell me what I'm doing wrong, please?
+
+
+I have a simple module and I registered one packet handler, in init function:
+---
+     pseudo_proto.type = htons(ETH_P_ALL);
+     pseudo_proto.dev = NULL;
+     pseudo_proto.func = packet_handler;
+     dev_add_pack(&pseudo_proto);
+---
+
+My packet_handler, is a simple function just to print in dmesg info
+about the packet:
+
+---
+...
+
+    switch (ntohs(eth_hdr(skb)->h_proto))
+    {
+        case ETH_P_IPV6:
+            printk(KERN_INFO "%s: (%s %d %s, %s %d) Packet\n",
+                       THIS_MODULE->name,
+                       skb->dev->name,
+                       skb->dev->type,
+                       ntohs(eth_hdr(skb)->h_proto,
+                       ipv6_hdr(skb)->nexthdr,
+                       skb->len);
+            break;
+...
+---
+
+When I sent a icmpv6 with a ping6 -c1 ::1 , this in my tcpdump show
+only 2 packets (icmp request and icmp reply), but in my dmesg I see
+4!:
+
+---
+595:[30469.099222] test: (lo 772 0x86dd, 0x3a 118) Packet
+596:[30469.099226] test: (lo 772 0x86dd, 0x3a 104) Packet
+597:[30469.099234] test: (lo 772 0x86dd, 0x3a 118) Packet
+598:[30469.099236] test: (lo 772 0x86dd, 0x3a 104) Packet
+---
+
+This show 4 packets in ipv4 too. What I'm doing wrong ?
+
+Best Regards,
+fd.
