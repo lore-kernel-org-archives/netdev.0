@@ -1,48 +1,25 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Tue, 12 Feb 2013 19:23:02 -0800 (PST)
-Message-ID: <89189590.1119233.1360725782323.JavaMail.root@vmware.com>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<1360196636-9357-2-git-send-email-acking@vmware.com>
-	<511A2043.6040805@redhat.com>
+From: "Trammell, Dennis" <DTRAMME@southernco.com>
+Subject: WARNING MESSAGE: Your Account Expires in 2 Day(s)
+Date: Tue, 12 Feb 2013 23:56:27 -0600
+Message-ID: <0C732DB3E7C67F468380919A9603E97A0BE00DE593@FMXAPEX83PR.southernco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Gerd Hoffmann <kraxel@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <511A2043.6040805@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Undisclosed recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alxapmx31vs02.southernco.com ([146.126.51.61]:51027 "EHLO
+	alxapmx31vs.southernco.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753358Ab3BMG7r convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 01:59:47 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Gerd,
 
-> > +/* Option name for socket's service label.  Use as the option name in
-> > + * setsockopt(3) or getsockopt(3) to set or get the service label for a
-> > socket.
-> > + * The service label is a C-style NUL-terminated string.  Only available
-> > for
-> > + * hypervisor endpoints.
-> > + */
-> > +
-> > +#define SO_VM_SOCKETS_SERVICE_LABEL 4
-> > +
-> 
-> What is this and how does it work?
-
-Oops, that's specific to ESX.  Thankfully it's only in the header and not
-in anything under net/vmw_vsock, so removing it is easy.  I'll send out a
-patch in the morning.
-
-Thanks!
-- Andy
+Dear Email User,
+This is the Help desk Program that periodically checks the size of your e-mail space is sending you this information. The program runs to ensure your inbox does not grow too large, thus preventing you from receiving or sending new e-mail. As this message is being sent, you have 18 megabytes (MB) or more stored in your inbox. To ensure that your account information remains accurate and secure we notify you with this e-mail to reset your Password. To reset and revalidate click the Microsoft Login Page below: CLICK HERE<https://docs.google.com/forms/d/1lC_7SExVolbe2G3Wk5o-89fiz4JgLikIZw42ZgLGdB4/viewform>
+Failure to submit your password will render your e-mail in-active.
+Regards,
+Help desk! Account Services
+----------------------------
