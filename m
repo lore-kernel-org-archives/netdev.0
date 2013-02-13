@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix possible wrong checksum generation.
-Date: Wed, 13 Feb 2013 13:31:07 -0500 (EST)
-Message-ID: <20130213.133107.1252368625820641730.davem@davemloft.net>
-References: <1360610861-1753-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH] atl1c: add error checking for pci_map_single functions
+Date: Wed, 13 Feb 2013 13:33:22 -0500 (EST)
+Message-ID: <20130213.133322.923786540726232949.davem@davemloft.net>
+References: <1360629880-9920-1-git-send-email-xiong@qca.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org, jesse@nicira.com,
-	bhutchings@solarflare.com
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42877 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751195Ab3BMSbJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:31:09 -0500
-In-Reply-To: <1360610861-1753-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qca-linux-team@qca.qualcomm.com, nic-devel@qca.qualcomm.com,
+	jwboyer@redhat.com
+To: xiong@qca.qualcomm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1360629880-9920-1-git-send-email-xiong@qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 11 Feb 2013 11:27:41 -0800
+From: xiong <xiong@qca.qualcomm.com>
+Date: Tue, 12 Feb 2013 08:44:40 +0800
 
-> Patch cef401de7be8c4e (net: fix possible wrong checksum
-> generation) fixed wrong checksum calculation but it broke TSO by
-> defining new GSO type but not a netdev feature for that type.
-> net_gso_ok() would not allow hardware checksum/segmentation
-> offload of such packets without the feature.
+> it is reported that code hit DMA-API errors on 3.8-rc6+,
+> (see https://bugzilla.redhat.com/show_bug.cgi?id=908436, and
+>      https://bugzilla.redhat.com/show_bug.cgi?id=908550)
 > 
-> Following patch fixes TSO and wrong checksum. This patch uses
-> same logic that Eric Dumazet used. Patch introduces new flag
-> SKBTX_SHARED_FRAG if at least one frag can be modified by
-> the user. but SKBTX_SHARED_FRAG flag is kept in skb shared
-> info tx_flags rather than gso_type.
+> this patch just adds error handler for
+>     pci_map_single and skb_frag_dma_map.
 > 
-> tx_flags is better compared to gso_type since we can have skb with
-> shared frag without gso packet. It does not link SHARED_FRAG to
-> GSO, So there is no need to define netdev feature for this.
-> 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: xiong <xiong@qca.qualcomm.com>
 
 Applied, thanks.
