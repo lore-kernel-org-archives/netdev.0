@@ -1,76 +1,69 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART messages and interrupt pipe setup
-Date: Wed, 13 Feb 2013 12:44:11 +0100
-Message-ID: <87a9r8cub8.fsf@nemi.mork.no>
-References: <20110727141246.GC29616@orbit.nwl.cc>
-	<1357318096.5370.15.camel@dcbw.foobar.com>
-	<1357318289.5370.19.camel@dcbw.foobar.com>
-	<1360176176.11742.16.camel@dcbw.foobar.com>
-	<87ip655eqw.fsf@nemi.mork.no>
-	<1360256793.2382.27.camel@dcbw.foobar.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net] net: sctp: sctp_v6_get_dst: fix boolean test in dst
+ cache
+Date: Wed, 13 Feb 2013 07:02:45 -0500
+Message-ID: <20130213120245.GA26539@hmsreliant.think-freely.org>
+References: <cover.1360709645.git.dborkman@redhat.com>
+ <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver@neukum.org>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:44711 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933831Ab3BMLpE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 06:45:04 -0500
-In-Reply-To: <1360256793.2382.27.camel@dcbw.foobar.com> (Dan Williams's
-	message of "Thu, 07 Feb 2013 11:06:33 -0600")
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33863 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754441Ab3BMMC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:02:56 -0500
+Content-Disposition: inline
+In-Reply-To: <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Williams <dcbw@redhat.com> writes:
-
-> It doesn't need to run exactly at probe, but it appears to need to be
-> the first thing the driver does when communicating with the firmware =
-to
-> ensure clear state and whatnot.  Possibly like the QMI SYNC message t=
-hat
-> clears all the client IDs and resets the internal stack.  (the driver
-> also sends a "shutdown" message to the firmware when unbinding).
->
-> So I do think that somewhere around probe() is the best time to do th=
-is,
-> because it's best to initialize the device when the driver binds to i=
-t
-> and react to errors as soon as possible, rather than trying to set
-> everything up on open/IFF_UP and then fail right before you want to
-> actually use the device.  Late-fail is quite unhelpful for applicatio=
-ns.
->
-> I don't really care if it happens in probe() or somewhere else right
-> after the driver is bound to the device, but it should be part of the
-> initialization process.
-
-I was looking for something else in the rndis_host driver right now and
-noticed that it has the same sort of problem.  The generic_rndis_bind()
-function will call rndis_command() which does
-
-         usb_control_msg(.., USB_CDC_SEND_ENCAPSULATED_COMMAND, ..);
-         usb_interrupt_msg(.., dev->status->desc.bEndpointAddress, .. )=
-;
-         for (count =3D 0; count < 10; count++) {
-             usb_control_msg(.., USB_CDC_GET_ENCAPSULATED_RESPONSE, ..)=
-;
-             if (ok)
-                return 0;
-             msleep(20);
-         }
-
-Somewhat ugly, but it is a way to send and receive commands while
-probing.  This driver also sends a command in unbind().
-
-Looks like your patch would allow this to be solved a lot cleaner,
-replacing the loop over USB_CDC_GET_ENCAPSULATED_RESPONSE with proper
-interrupt endpoint handling.
-
-
-Bj=C3=B8rn
+On Wed, Feb 13, 2013 at 12:30:16AM +0100, Daniel Borkmann wrote:
+> We walk through the bind address list and try to get the best source
+> address for a given destination. However, currently, we take the
+> 'continue' path of the loop when an entry is invalid (!laddr->valid)
+> *and* the entry state does not equal SCTP_ADDR_SRC (laddr->state !=
+> SCTP_ADDR_SRC).
+> 
+> Thus, still, invalid entries with SCTP_ADDR_SRC might not 'continue'
+> as well as valid entries with SCTP_ADDR_{NEW, SRC, DEL}, with a possible
+> false baddr and matchlen as a result, causing in worst case dst route
+> to be false or possibly NULL.
+> 
+> This test should actually be a '||' instead of '&&'. But lets fix it
+> and make this a bit easier to read by having the condition the same way
+> as similarly done in sctp_v4_get_dst.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/sctp/ipv6.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+> index f3f0f4d..391a245 100644
+> --- a/net/sctp/ipv6.c
+> +++ b/net/sctp/ipv6.c
+> @@ -326,9 +326,10 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
+>  	 */
+>  	rcu_read_lock();
+>  	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
+> -		if (!laddr->valid && laddr->state != SCTP_ADDR_SRC)
+> +		if (!laddr->valid)
+>  			continue;
+> -		if ((laddr->a.sa.sa_family == AF_INET6) &&
+> +		if ((laddr->state == SCTP_ADDR_SRC) &&
+> +		    (laddr->a.sa.sa_family == AF_INET6) &&
+>  		    (scope <= sctp_scope(&laddr->a))) {
+>  			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
+>  			if (!baddr || (matchlen < bmatchlen)) {
+> -- 
+> 1.7.11.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
