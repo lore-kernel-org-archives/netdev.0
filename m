@@ -1,58 +1,43 @@
 From: pablo@netfilter.org
-Subject: [PATCH 0/3] netfilter fixes for 3.7-rc8
-Date: Wed, 13 Feb 2013 21:38:30 +0100
-Message-ID: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Subject: [PATCH 1/3] netfilter: ctnetlink: don't permit ct creation with random tuple
+Date: Wed, 13 Feb 2013 21:38:31 +0100
+Message-ID: <1360787913-10335-2-git-send-email-pablo@netfilter.org>
+References: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Florian Westphal <fw@strlen.de>
 
-Hi David,
+Userspace can cause kernel panic by not specifying orig/reply
+tuple: kernel will create a tuple with random stack values.
 
-The following patchset contains three Netfilter fixes, they are:
+Problem is that tuple.dst.dir will be random, too, which
+causes nf_ct_tuplehash_to_ctrack() to return garbage.
 
-* Fix conntrack helper re-assignment after NAT mangling if only if
-  the same helper is attached to the conntrack again, from Florian
-  Westphal.
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@gnumonks.org>
+---
+ net/netfilter/nf_conntrack_netlink.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-* Don't allow the creation of conntrack entries via ctnetlink if the
-  original and reply tuples are missing, from Florian Westphal.
-
-* Fix broken sysctl interface in nf_ct_reasm while adding netns support
-  to it, from Michal Kubecek.
-
-Again, these are coming very late but they seem small and non-intrusive=
- to me.
-If case your verdict is positive, you can pull this changes from:
-
-git://1984.lsi.us.es/nf master
-
-Thanks!
-
-=46lorian Westphal (2):
-  netfilter: ctnetlink: don't permit ct creation with random tuple
-  netfilter: nf_ct_helper: don't discard helper if it is actually the s=
-ame
-
-Michal Kube=C4=8Dek (1):
-  netfilter: nf_ct_reasm: fix per-netns sysctl initialization
-
- net/ipv6/netfilter/nf_conntrack_reasm.c |    6 +++---
- net/netfilter/nf_conntrack_helper.c     |    4 +++-
- net/netfilter/nf_conntrack_netlink.c    |    3 +++
- 3 files changed, 9 insertions(+), 4 deletions(-)
-
---=20
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 627b0e5..a081915 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1705,6 +1705,9 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 		if (nlh->nlmsg_flags & NLM_F_CREATE) {
+ 			enum ip_conntrack_events events;
+ 
++			if (!cda[CTA_TUPLE_ORIG] || !cda[CTA_TUPLE_REPLY])
++				return -EINVAL;
++
+ 			ct = ctnetlink_create_conntrack(net, zone, cda, &otuple,
+ 							&rtuple, u3);
+ 			if (IS_ERR(ct))
+-- 
 1.7.10.4
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
