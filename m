@@ -1,42 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: sctp_v6_get_dst: fix boolean test in
- dst cache
-Date: Wed, 13 Feb 2013 13:42:45 -0500 (EST)
-Message-ID: <20130213.134245.1682004516494856058.davem@davemloft.net>
-References: <cover.1360709645.git.dborkman@redhat.com>
-	<4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+Subject: Re: [PATCH net-next] be2net: remove BUG_ON() in
+ be_mcc_compl_is_new()
+Date: Wed, 13 Feb 2013 13:53:59 -0500 (EST)
+Message-ID: <20130213.135359.2148545579553285494.davem@davemloft.net>
+References: <df52a8ca-fbd1-41aa-ad6f-995fd724a4d4@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42969 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43061 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753848Ab3BMSmr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:42:47 -0500
-In-Reply-To: <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+	with ESMTP id S1756905Ab3BMSyB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 13:54:01 -0500
+In-Reply-To: <df52a8ca-fbd1-41aa-ad6f-995fd724a4d4@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 13 Feb 2013 00:30:16 +0100
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Wed, 13 Feb 2013 14:35:19 +0530
 
-> We walk through the bind address list and try to get the best source
-> address for a given destination. However, currently, we take the
-> 'continue' path of the loop when an entry is invalid (!laddr->valid)
-> *and* the entry state does not equal SCTP_ADDR_SRC (laddr->state !=
-> SCTP_ADDR_SRC).
+> The current code expects that the last word (with valid bit)
+> of an MCC compl is DMAed in one shot. This may not be the case.
+> Remove this assertion.
 > 
-> Thus, still, invalid entries with SCTP_ADDR_SRC might not 'continue'
-> as well as valid entries with SCTP_ADDR_{NEW, SRC, DEL}, with a possible
-> false baddr and matchlen as a result, causing in worst case dst route
-> to be false or possibly NULL.
-> 
-> This test should actually be a '||' instead of '&&'. But lets fix it
-> and make this a bit easier to read by having the condition the same way
-> as similarly done in sctp_v4_get_dst.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
 Applied.
