@@ -1,47 +1,36 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH net-next 2/2] gianfar: convert u64 status counters to
- atomic64_t
-Date: Wed, 13 Feb 2013 17:22:44 +0200
-Message-ID: <511BAFC4.9060006@freescale.com>
-References: <1360715064-2689-1-git-send-email-paul.gortmaker@windriver.com> <1360715064-2689-3-git-send-email-paul.gortmaker@windriver.com>
+From: Felipe Dias <felipediassss@gmail.com>
+Subject: Re: dev_add_pack() duplicate skb ?
+Date: Wed, 13 Feb 2013 14:09:30 -0200
+Message-ID: <CAJX4=r3VobFsBkaykQJyC4g_G9hgdRmO_XpDL3ppUnfM1eY0cw@mail.gmail.com>
+References: <CAJX4=r08yC7PPtO7KA-3rsY5SMsZueJ=tVDdi2HT6MvnuO1ung@mail.gmail.com>
+	<1360767925.6884.22.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:27295
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S934105Ab3BMPXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 10:23:44 -0500
-In-Reply-To: <1360715064-2689-3-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-oa0-f66.google.com ([209.85.219.66]:38978 "EHLO
+	mail-oa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934116Ab3BMQJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 11:09:31 -0500
+Received: by mail-oa0-f66.google.com with SMTP id h2so390333oag.9
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 08:09:31 -0800 (PST)
+In-Reply-To: <1360767925.6884.22.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/13/2013 2:24 AM, Paul Gortmaker wrote:
-> While looking at some asm dump for an unrelated change, Eric
-> noticed in the following stats count increment code:
+On Wed, Feb 13, 2013 at 1:05 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-02-13 at 10:11 -0200, Felipe Dias wrote:
+>> This show 4 packets in ipv4 too. What I'm doing wrong ?
 >
->      50b8:       81 3c 01 f8     lwz     r9,504(r28)
->      50bc:       81 5c 01 fc     lwz     r10,508(r28)
->      50c0:       31 4a 00 01     addic   r10,r10,1
->      50c4:       7d 29 01 94     addze   r9,r9
->      50c8:       91 3c 01 f8     stw     r9,504(r28)
->      50cc:       91 5c 01 fc     stw     r10,508(r28)
+> The ICMP request is sent, _and_ received : 2 packets
+> The ICMP response is sent, _and_ received : 2 packets
 >
-> that a 64 bit counter was used on ppc-32 without sync
-> and hence the "ethtool -S" output was racy.
+> Total : 4 packets.
 >
-> Here we convert all the values to use atomic64_t so that
-> the output will always be consistent.
->
+> af_packet has special code to avoid seeing packets twice on loopback, as
+> it would be a bit annoying.
+Of course. Thank you so much.
 
-At least it seems that this conversion results in fewer asm
-instructions, as apparently addze and the double lwz/stw are
-not generated anymore. Hopefully it's faster too :P
-
-Reviewed-by: Claudiu Manoil <claudiu.manoil@freescale.com>
-
-Thanks,
-Claudiu
+Att
+fd.
