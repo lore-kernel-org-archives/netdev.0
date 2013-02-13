@@ -1,10 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next v5 05/11] sch: make htb_rate_cfg and functions
- around that generic
-Date: Tue, 12 Feb 2013 19:00:32 -0500 (EST)
-Message-ID: <20130212.190032.473881700486277733.davem@davemloft.net>
+Subject: Re: [patch net-next v5 07/11] tbf: improved accuracy at high rates
+Date: Tue, 12 Feb 2013 19:01:29 -0500 (EST)
+Message-ID: <20130212.190129.786462983311147543.davem@davemloft.net>
 References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
-	<1360663929-1023-6-git-send-email-jiri@resnulli.us>
+	<1360663929-1023-8-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,20 +11,35 @@ Cc: netdev@vger.kernel.org, edumazet@google.com, jhs@mojatatu.com,
 	kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
 To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58895 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58926 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759242Ab3BMAAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 19:00:34 -0500
-In-Reply-To: <1360663929-1023-6-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1752075Ab3BMABb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 19:01:31 -0500
+In-Reply-To: <1360663929-1023-8-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 12 Feb 2013 11:12:03 +0100
+Date: Tue, 12 Feb 2013 11:12:05 +0100
 
-> As it is going to be used in tbf as well, push these to generic code.
+> Current TBF uses rate table computed by the "tc" userspace program,
+> which has the following issue:
+> 
+> The rate table has 256 entries to map packet lengths to
+> token (time units).  With TSO sized packets, the 256 entry granularity
+> leads to loss/gain of rate, making the token bucket inaccurate.
+> 
+> Thus, instead of relying on rate table, this patch explicitly computes
+> the time and accounts for packet transmission times with nanosecond
+> granularity.
+> 
+> This is a followup to 56b765b79e9a78dc7d3f8850ba5e5567205a3ecd
+
+Please reference commits by commit ID and also the commit log header
+text (in parenthesis and double quotes), in order to remove ambiguity
+when changes are applies into multiple trees.
+
 > 
 > Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> Acked-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
