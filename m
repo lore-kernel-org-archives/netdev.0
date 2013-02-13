@@ -1,336 +1,156 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v11 net-next 05/12] bridge: Dump vlan information from a bridge port
-Date: Wed, 13 Feb 2013 17:00:13 -0500
-Message-ID: <1360792820-14116-6-git-send-email-vyasevic@redhat.com>
-References: <1360792820-14116-1-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v11 net-next 00/12] VLAN filtering/VLAN aware bridge
+Date: Wed, 13 Feb 2013 17:00:08 -0500
+Message-ID: <1360792820-14116-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
 	netdev@vger.kernel.org
 To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56694 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29727 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964928Ab3BMWAv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2013 17:00:51 -0500
-In-Reply-To: <1360792820-14116-1-git-send-email-vyasevic@redhat.com>
+	id S964928Ab3BMWAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 17:00:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using the RTM_GETLINK dump the vlan filter list of a given
-bridge port.  The information depends on setting the filter
-flag similar to how nic VF info is dumped.
+Changes since v10
+* Updated implemenation of ndo_fdb_del in emulex and qlogic drivers.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    3 +-
- include/linux/netdevice.h                     |    3 +-
- include/uapi/linux/rtnetlink.h                |    1 +
- net/bridge/br_netlink.c                       |   94 ++++++++++++++++++++++---
- net/bridge/br_private.h                       |    3 +-
- net/bridge/br_vlan.c                          |    2 +
- net/core/rtnetlink.c                          |   16 +++-
- 7 files changed, 104 insertions(+), 18 deletions(-)
+Changes since v9:
+* series re-ordering so make functionality more distinct.  Basic vlan
+  filtering is patches 1-4.  Support for PVID/untagged vlans is patches
+  5 and 6.  VLAN support for FDB/MDB is patches 7-11.  Patch 12 is
+  still additional egress policy.
+* Slight simplification to code that extracts the VID from skb.  Since we
+  now depend on the vlan module, at the time of input skb_tci is guaranteed
+  to be set if the packet had 8021q header.  We can simply refere to it.
+* Changed the opaque 'parent' pointer from prior patches to a union so we
+  can be much more explicit in our assignments.
+* Lots of additional testing with STP turned on.  No issues were observed.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 6999269..4e2aa47 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7079,7 +7079,8 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
- }
- 
- static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--				    struct net_device *dev)
-+				    struct net_device *dev,
-+				    u32 filter_mask)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	u16 mode;
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 1b90f94..1964ca6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1019,7 +1019,8 @@ struct net_device_ops {
- 						      struct nlmsghdr *nlh);
- 	int			(*ndo_bridge_getlink)(struct sk_buff *skb,
- 						      u32 pid, u32 seq,
--						      struct net_device *dev);
-+						      struct net_device *dev,
-+						      u32 filter_mask);
- 	int			(*ndo_bridge_dellink)(struct net_device *dev,
- 						      struct nlmsghdr *nlh);
- 	int			(*ndo_change_carrier)(struct net_device *dev,
-diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-index 7a5eb19..7a2144e 100644
---- a/include/uapi/linux/rtnetlink.h
-+++ b/include/uapi/linux/rtnetlink.h
-@@ -630,6 +630,7 @@ struct tcamsg {
- 
- /* New extended info filters for IFLA_EXT_MASK */
- #define RTEXT_FILTER_VF		(1 << 0)
-+#define RTEXT_FILTER_BRVLAN	(1 << 1)
- 
- /* End of information exported to user level */
- 
-diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 534a9f4..fe1980d 100644
---- a/net/bridge/br_netlink.c
-+++ b/net/bridge/br_netlink.c
-@@ -65,15 +65,21 @@ static int br_port_fill_attrs(struct sk_buff *skb,
-  * Create one netlink message for one interface
-  * Contains port and master info as well as carrier and bridge state.
-  */
--static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *port,
--			  u32 pid, u32 seq, int event, unsigned int flags)
-+static int br_fill_ifinfo(struct sk_buff *skb,
-+			  const struct net_bridge_port *port,
-+			  u32 pid, u32 seq, int event, unsigned int flags,
-+			  u32 filter_mask, const struct net_device *dev)
- {
--	const struct net_bridge *br = port->br;
--	const struct net_device *dev = port->dev;
-+	const struct net_bridge *br;
- 	struct ifinfomsg *hdr;
- 	struct nlmsghdr *nlh;
- 	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
- 
-+	if (port)
-+		br = port->br;
-+	else
-+		br = netdev_priv(dev);
-+
- 	br_debug(br, "br_fill_info event %d port %s master %s\n",
- 		     event, dev->name, br->dev->name);
- 
-@@ -99,7 +105,7 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
- 	     nla_put_u32(skb, IFLA_LINK, dev->iflink)))
- 		goto nla_put_failure;
- 
--	if (event == RTM_NEWLINK) {
-+	if (event == RTM_NEWLINK && port) {
- 		struct nlattr *nest
- 			= nla_nest_start(skb, IFLA_PROTINFO | NLA_F_NESTED);
- 
-@@ -108,6 +114,40 @@ static int br_fill_ifinfo(struct sk_buff *skb, const struct net_bridge_port *por
- 		nla_nest_end(skb, nest);
- 	}
- 
-+	/* Check if  the VID information is requested */
-+	if (filter_mask & RTEXT_FILTER_BRVLAN) {
-+		struct nlattr *af;
-+		const struct net_port_vlans *pv;
-+		struct bridge_vlan_info vinfo;
-+		u16 vid;
-+
-+		if (port)
-+			pv = nbp_get_vlan_info(port);
-+		else
-+			pv = br_get_vlan_info(br);
-+
-+		if (!pv || bitmap_empty(pv->vlan_bitmap, BR_VLAN_BITMAP_LEN))
-+			goto done;
-+
-+		af = nla_nest_start(skb, IFLA_AF_SPEC);
-+		if (!af)
-+			goto nla_put_failure;
-+
-+		for (vid = find_first_bit(pv->vlan_bitmap, BR_VLAN_BITMAP_LEN);
-+		     vid < BR_VLAN_BITMAP_LEN;
-+		     vid = find_next_bit(pv->vlan_bitmap,
-+					 BR_VLAN_BITMAP_LEN, vid+1)) {
-+			vinfo.vid = vid;
-+			vinfo.flags = 0;
-+			if (nla_put(skb, IFLA_BRIDGE_VLAN_INFO,
-+				    sizeof(vinfo), &vinfo))
-+				goto nla_put_failure;
-+		}
-+
-+		nla_nest_end(skb, af);
-+	}
-+
-+done:
- 	return nlmsg_end(skb, nlh);
- 
- nla_put_failure:
-@@ -135,7 +175,7 @@ void br_ifinfo_notify(int event, struct net_bridge_port *port)
- 	if (skb == NULL)
- 		goto errout;
- 
--	err = br_fill_ifinfo(skb, port, 0, 0, event, 0);
-+	err = br_fill_ifinfo(skb, port, 0, 0, event, 0, 0, port->dev);
- 	if (err < 0) {
- 		/* -EMSGSIZE implies BUG in br_nlmsg_size() */
- 		WARN_ON(err == -EMSGSIZE);
-@@ -154,16 +194,17 @@ errout:
-  * Dump information about all ports, in response to GETLINK
-  */
- int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--	       struct net_device *dev)
-+	       struct net_device *dev, u32 filter_mask)
- {
- 	int err = 0;
- 	struct net_bridge_port *port = br_port_get_rcu(dev);
- 
--	/* not a bridge port */
--	if (!port)
-+	/* not a bridge port and  */
-+	if (!port && !(filter_mask & RTEXT_FILTER_BRVLAN))
- 		goto out;
- 
--	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI);
-+	err = br_fill_ifinfo(skb, port, pid, seq, RTM_NEWLINK, NLM_F_MULTI,
-+			     filter_mask, dev);
- out:
- 	return err;
- }
-@@ -395,6 +436,29 @@ static int br_validate(struct nlattr *tb[], struct nlattr *data[])
- 	return 0;
- }
- 
-+static size_t br_get_link_af_size(const struct net_device *dev)
-+{
-+	struct net_port_vlans *pv;
-+
-+	if (br_port_exists(dev))
-+		pv = nbp_get_vlan_info(br_port_get_rcu(dev));
-+	else if (dev->priv_flags & IFF_EBRIDGE)
-+		pv = br_get_vlan_info((struct net_bridge *)netdev_priv(dev));
-+	else
-+		return 0;
-+
-+	if (!pv)
-+		return 0;
-+
-+	/* Each VLAN is returned in bridge_vlan_info along with flags */
-+	return pv->num_vlans * nla_total_size(sizeof(struct bridge_vlan_info));
-+}
-+
-+struct rtnl_af_ops br_af_ops = {
-+	.family			= AF_BRIDGE,
-+	.get_link_af_size	= br_get_link_af_size,
-+};
-+
- struct rtnl_link_ops br_link_ops __read_mostly = {
- 	.kind		= "bridge",
- 	.priv_size	= sizeof(struct net_bridge),
-@@ -408,11 +472,18 @@ int __init br_netlink_init(void)
- 	int err;
- 
- 	br_mdb_init();
--	err = rtnl_link_register(&br_link_ops);
-+	err = rtnl_af_register(&br_af_ops);
- 	if (err)
- 		goto out;
- 
-+	err = rtnl_link_register(&br_link_ops);
-+	if (err)
-+		goto out_af;
-+
- 	return 0;
-+
-+out_af:
-+	rtnl_af_unregister(&br_af_ops);
- out:
- 	br_mdb_uninit();
- 	return err;
-@@ -421,5 +492,6 @@ out:
- void __exit br_netlink_fini(void)
- {
- 	br_mdb_uninit();
-+	rtnl_af_unregister(&br_af_ops);
- 	rtnl_link_unregister(&br_link_ops);
- }
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index f609c91..370eaee 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -73,6 +73,7 @@ struct net_port_vlans {
- 	}				parent;
- 	struct rcu_head			rcu;
- 	unsigned long			vlan_bitmap[BR_VLAN_BITMAP_LEN];
-+	u16				num_vlans;
- };
- 
- struct net_bridge_fdb_entry
-@@ -715,7 +716,7 @@ extern void br_ifinfo_notify(int event, struct net_bridge_port *port);
- extern int br_setlink(struct net_device *dev, struct nlmsghdr *nlmsg);
- extern int br_dellink(struct net_device *dev, struct nlmsghdr *nlmsg);
- extern int br_getlink(struct sk_buff *skb, u32 pid, u32 seq,
--		      struct net_device *dev);
-+		      struct net_device *dev, u32 filter_mask);
- 
- #ifdef CONFIG_SYSFS
- /* br_sysfs_if.c */
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index d8690bf..f2bf5a1 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -28,6 +28,7 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid)
- 	}
- 
- 	set_bit(vid, v->vlan_bitmap);
-+	v->num_vlans++;
- 	return 0;
- }
- 
-@@ -44,6 +45,7 @@ static int __vlan_del(struct net_port_vlans *v, u16 vid)
- 	}
- 
- 	clear_bit(vid, v->vlan_bitmap);
-+	v->num_vlans--;
- 	if (bitmap_empty(v->vlan_bitmap, BR_VLAN_BITMAP_LEN)) {
- 		if (v->port_idx)
- 			rcu_assign_pointer(v->parent.port->vlan_info, NULL);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 2c9ccbf..f3a112e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2315,6 +2315,13 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
- 	int idx = 0;
- 	u32 portid = NETLINK_CB(cb->skb).portid;
- 	u32 seq = cb->nlh->nlmsg_seq;
-+	struct nlattr *extfilt;
-+	u32 filter_mask = 0;
-+
-+	extfilt = nlmsg_find_attr(cb->nlh, sizeof(struct rtgenmsg),
-+				  IFLA_EXT_MASK);
-+	if (extfilt)
-+		filter_mask = nla_get_u32(extfilt);
- 
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
-@@ -2324,14 +2331,15 @@ static int rtnl_bridge_getlink(struct sk_buff *skb, struct netlink_callback *cb)
- 		if (br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
- 			if (idx >= cb->args[0] &&
- 			    br_dev->netdev_ops->ndo_bridge_getlink(
--				    skb, portid, seq, dev) < 0)
-+				    skb, portid, seq, dev, filter_mask) < 0)
- 				break;
- 			idx++;
- 		}
- 
- 		if (ops->ndo_bridge_getlink) {
- 			if (idx >= cb->args[0] &&
--			    ops->ndo_bridge_getlink(skb, portid, seq, dev) < 0)
-+			    ops->ndo_bridge_getlink(skb, portid, seq, dev,
-+						    filter_mask) < 0)
- 				break;
- 			idx++;
- 		}
-@@ -2372,14 +2380,14 @@ static int rtnl_bridge_notify(struct net_device *dev, u16 flags)
- 
- 	if ((!flags || (flags & BRIDGE_FLAGS_MASTER)) &&
- 	    br_dev && br_dev->netdev_ops->ndo_bridge_getlink) {
--		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
-+		err = br_dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
- 		if (err < 0)
- 			goto errout;
- 	}
- 
- 	if ((flags & BRIDGE_FLAGS_SELF) &&
- 	    dev->netdev_ops->ndo_bridge_getlink) {
--		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev);
-+		err = dev->netdev_ops->ndo_bridge_getlink(skb, 0, 0, dev, 0);
- 		if (err < 0)
- 			goto errout;
- 	}
+Changes since v8:
+* Unified vlans_to_* calls into a single interface
+* Fixed the rest of the issues report by Michal Miroslaw
+* Fixed a bug where fdb entries were not created for all added vlans.
+
+Changes since v7:
+* Rebases on the latest net-next and removed the vlan wrapper patch from
+the series.
+* Fixed a crash in br_fdb_add/br_fdb_delete.
+
+Changes since v6:
+* VLANs are now stored in a VLAN bitmap per port.  This allows for O(1)
+lookup at ingress and egress.  We simply check to see if the bit associated
+with the vlan id is set in the map.  The drawback to this approach is that
+it wastes some space when there is only a small number of VLANs.
+* In addition to the build time configuration option, VLAN filtering also has
+a configuration paramter in sysfs.  By default the filtering is turned off
+and all traffic is permitted.  When the filtring is turned on, we do strict
+matching to the filter configured.  Thus, if there is no configuration, all
+packets are rejected.  This was done to make the behavior more streight
+forward.  Without this (and if egress policy patch is rejected), the
+decision for how to forward untagged traffic that was not filtered at ingress
+is almost impossible to make.  It would not be right to deliver to every
+port that has PVID set as, each port may have a different PVID.
+* Separate egress policy bitmap patch has been isolated and is provided last
+in the series.  This has been a more contentious piece of functionality and I
+wanted to isolate it so that it could easily be dropped and not block the whole
+series.
+
+Changes since v5:
+ - Pulled VLAN filtering into its own file and made it a configuration options.
+ - Made new vlan filtering option dependent on VLAN_8021Q.
+ - Got rid of HW filter inlines and moved then vlan_core.c.
+   (All of the above suggested by Stephen Hemminger)
+
+Changes since v4:
+ - Pull per-port vlan data into its own structures and give it to the bridge
+   device thus making bridge device behave like a regular port for vlan
+   configuration.
+ - Add a per-vlan 'untagged' bitmap that determins egress policy.  If a port
+   is part of this bitmap, traffic egresses untagged.
+ - PVID is now used for ingress policy only.  Incomming frames without VLAN tag
+   are assigned to the PVID vlan.  Egress is determined via bitmap memberships.
+ - Allow for incremental config of a vlan.  Now, PVID and untagged memberships
+   may be set on existing vlans.  They however can NOT be cleared separately.
+ - VLAN deletion is now done via RTM_DELLINK command for PF_BRIDGE family.
+   This cleans up the netlink interface.
+
+Changes since v3:
+ - Re-integrated compiler problems that got left out last time.  Appologies.
+ - checkpatches.pl errors fixed
+
+Changes since v2:
+ - Added inline functiosn to manimulate vlan hw filters and re-use in 8021q
+   and bridge code.
+ - Use rtnl_dereference (Michael Tsirkin)
+ - Remove synchronize_net() call (Eric Dumazet)
+ - Fix NULL ptr deref bug I introduced in br_ifinfo_notify.
+
+Changes since v1:
+ - Fixed some forwarding bugs.
+ - Add vlan to local fdb entries.  New local entries are created per vlan
+   to facilite correct forwarding to bridge interface.
+ - Allow configuration of vlans directly on the bridge master device
+   in addition to ports.
+
+Changes since rfc v2:
+ - Per-port vlan bitmap is gone and is replaced with a vlan list.
+ - Added bridge vlan list, which is referenced by each port.  Entries in
+   the birdge vlan list have port bitmap that shows which port are parts
+   of which vlan.
+ - Netlink API changes.
+ - Dropped sysfs support for now.  If people think this is really usefull,
+   can add it back.
+ - Support for native/untagged vlans.
+
+Changes since rfc v1:
+ - Comments addressed regarding formatting and RCU usage
+ - iocts have been removed and changed over the netlink interface.
+ - Added support of user added ndb entries.
+ - changed sysfs interface to export a bitmap.  Also added a write interface.
+   I am not sure how much I like it, but it made my testing easier/faster.  I
+   might change the write interface to take text instead of binary.
+
+Vlad Yasevich (12):
+  bridge: Add vlan filtering infrastructure
+  bridge: Validate that vlan is permitted on ingress
+  bridge: Verify that a vlan is allowed to egress on given port
+  bridge: Add netlink interface to configure vlans on bridge ports
+  bridge: Dump vlan information from a bridge port
+  bridge: Implement vlan ingress/egress policy with PVID.
+  bridge: Add the ability to configure pvid
+  bridge: Add vlan to unicast fdb entries
+  bridge: Add vlan id to multicast groups
+  bridge: Add vlan support to static neighbors
+  bridge: Add vlan support for local fdb entries
+  bridge: Separate egress policy bitmap
+
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    5 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    4 +-
+ drivers/net/macvlan.c                            |    2 +-
+ drivers/net/vxlan.c                              |    3 +-
+ include/linux/netdevice.h                        |    9 +-
+ include/uapi/linux/if_bridge.h                   |   11 +
+ include/uapi/linux/neighbour.h                   |    1 +
+ include/uapi/linux/rtnetlink.h                   |    1 +
+ net/8021q/vlan_core.c                            |    1 +
+ net/bridge/Kconfig                               |   14 +
+ net/bridge/Makefile                              |    2 +
+ net/bridge/br_device.c                           |    7 +-
+ net/bridge/br_fdb.c                              |  258 +++++++++++---
+ net/bridge/br_forward.c                          |    9 +
+ net/bridge/br_if.c                               |    4 +-
+ net/bridge/br_input.c                            |   28 ++-
+ net/bridge/br_multicast.c                        |   69 +++-
+ net/bridge/br_netlink.c                          |  242 +++++++++++--
+ net/bridge/br_private.h                          |  175 +++++++++-
+ net/bridge/br_sysfs_br.c                         |   21 ++
+ net/bridge/br_vlan.c                             |  415 ++++++++++++++++++++++
+ net/core/rtnetlink.c                             |  114 ++++++-
+ 23 files changed, 1265 insertions(+), 131 deletions(-)
+ create mode 100644 net/bridge/br_vlan.c
+
 -- 
 1.7.7.6
