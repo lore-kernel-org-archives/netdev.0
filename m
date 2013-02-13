@@ -1,177 +1,116 @@
-From: Jonathan Thibault <jonathan@navigue.com>
-Subject: Re: [Bridge] [PATCH v10 net-next 00/12] VLAN filtering/VLAN aware
- bridge
-Date: Wed, 13 Feb 2013 15:14:40 -0500
-Message-ID: <511BF430.8050809@navigue.com>
-References: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH] Don't allow multiple TPGs or targets to share a portal
+Date: Wed, 13 Feb 2013 12:31:56 -0800
+Message-ID: <1360787516.13707.59.camel@haakon2.linux-iscsi.org>
+References: <1360364708-26104-1-git-send-email-agrover@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>, netdev@vger.kernel.org
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.navigue.com ([74.117.40.3]:41105 "EHLO mail.navigue.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751439Ab3BMUUY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2013 15:20:24 -0500
-In-Reply-To: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Andy Grover <agrover@redhat.com>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <1360364708-26104-1-git-send-email-agrover@redhat.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is just a little note to chime in my enthusiasm over these
-features.  I've been silently wishing for them for years, so most formal
-thanks to you for the work you put in.
+On Fri, 2013-02-08 at 15:05 -0800, Andy Grover wrote:
+> RFC 3720 says "Each Network Portal, as utilized by a given iSCSI Node,
+> belongs to exactly one portal group within that node." therefore
+> iscsit_add_np should not check for existing matching portals, it should
+> just go ahead and try to make the portal, and then kernel_bind() will
+> return the proper error.
+> 
+> Signed-off-by: Andy Grover <agrover@redhat.com>
+> ---
 
-Jonathan
+NACK.  Your interpretation of RFC-3720 is incorrect.  There is nothing
+that says that a single IP address cannot be shared across multiple
+TargetName+TargetPortalGroupTag endpoints.
 
-On 13/02/13 12:41 PM, Vlad Yasevich wrote:
-> Changes since v9:
-> * series re-ordering so make functionality more distinct.  Basic vlan
->   filtering is patches 1-4.  Support for PVID/untagged vlans is patches
->   5 and 6.  VLAN support for FDB/MDB is patches 7-11.  Patch 12 is
->   still additional egress policy.
-> * Slight simplification to code that extracts the VID from skb.  Since we
->   now depend on the vlan module, at the time of input skb_tci is guaranteed
->   to be set if the packet had 8021q header.  We can simply refere to it.
-> * Changed the opaque 'parent' pointer from prior patches to a union so we
->   can be much more explicit in our assignments.
-> * Lots of additional testing with STP turned on.  No issues were observed.
->
-> Changes since v8:
-> * Unified vlans_to_* calls into a single interface
-> * Fixed the rest of the issues report by Michal Miroslaw
-> * Fixed a bug where fdb entries were not created for all added vlans.
->
-> Changes since v7:
-> * Rebases on the latest net-next and removed the vlan wrapper patch from
-> the series.
-> * Fixed a crash in br_fdb_add/br_fdb_delete.
->
-> Changes since v6:
-> * VLANs are now stored in a VLAN bitmap per port.  This allows for O(1)
-> lookup at ingress and egress.  We simply check to see if the bit associated
-> with the vlan id is set in the map.  The drawback to this approach is that
-> it wastes some space when there is only a small number of VLANs.
-> * In addition to the build time configuration option, VLAN filtering also has
-> a configuration paramter in sysfs.  By default the filtering is turned off
-> and all traffic is permitted.  When the filtring is turned on, we do strict
-> matching to the filter configured.  Thus, if there is no configuration, all
-> packets are rejected.  This was done to make the behavior more streight
-> forward.  Without this (and if egress policy patch is rejected), the
-> decision for how to forward untagged traffic that was not filtered at ingress
-> is almost impossible to make.  It would not be right to deliver to every
-> port that has PVID set as, each port may have a different PVID.
-> * Separate egress policy bitmap patch has been isolated and is provided last
-> in the series.  This has been a more contentious piece of functionality and I
-> wanted to isolate it so that it could easily be dropped and not block the whole
-> series.
->
-> Changes since v5:
->  - Pulled VLAN filtering into its own file and made it a configuration options.
->  - Made new vlan filtering option dependent on VLAN_8021Q.
->  - Got rid of HW filter inlines and moved then vlan_core.c.
->    (All of the above suggested by Stephen Hemminger)
->
-> Changes since v4:
->  - Pull per-port vlan data into its own structures and give it to the bridge
->    device thus making bridge device behave like a regular port for vlan
->    configuration.
->  - Add a per-vlan 'untagged' bitmap that determins egress policy.  If a port
->    is part of this bitmap, traffic egresses untagged.
->  - PVID is now used for ingress policy only.  Incomming frames without VLAN tag
->    are assigned to the PVID vlan.  Egress is determined via bitmap memberships.
->  - Allow for incremental config of a vlan.  Now, PVID and untagged memberships
->    may be set on existing vlans.  They however can NOT be cleared separately.
->  - VLAN deletion is now done via RTM_DELLINK command for PF_BRIDGE family.
->    This cleans up the netlink interface.
->
-> Changes since v3:
->  - Re-integrated compiler problems that got left out last time.  Appologies.
->  - checkpatches.pl errors fixed
->
-> Changes since v2:
->  - Added inline functiosn to manimulate vlan hw filters and re-use in 8021q
->    and bridge code.
->  - Use rtnl_dereference (Michael Tsirkin)
->  - Remove synchronize_net() call (Eric Dumazet)
->  - Fix NULL ptr deref bug I introduced in br_ifinfo_notify.
->
-> Changes since v1:
->  - Fixed some forwarding bugs.
->  - Add vlan to local fdb entries.  New local entries are created per vlan
->    to facilite correct forwarding to bridge interface.
->  - Allow configuration of vlans directly on the bridge master device
->    in addition to ports.
->
-> Changes since rfc v2:
->  - Per-port vlan bitmap is gone and is replaced with a vlan list.
->  - Added bridge vlan list, which is referenced by each port.  Entries in
->    the birdge vlan list have port bitmap that shows which port are parts
->    of which vlan.
->  - Netlink API changes.
->  - Dropped sysfs support for now.  If people think this is really usefull,
->    can add it back.
->  - Support for native/untagged vlans.
->
-> Changes since rfc v1:
->  - Comments addressed regarding formatting and RCU usage
->  - iocts have been removed and changed over the netlink interface.
->  - Added support of user added ndb entries.
->  - changed sysfs interface to export a bitmap.  Also added a write interface.
->    I am not sure how much I like it, but it made my testing easier/faster.  I
->    might change the write interface to take text instead of binary.
->
-> Vlad Yasevich (12):
->   bridge: Add vlan filtering infrastructure
->   bridge: Validate that vlan is permitted on ingress
->   bridge: Verify that a vlan is allowed to egress on give port
->   bridge: Add netlink interface to configure vlans on bridge ports
->   bridge: Add the ability to configure pvid
->   bridge: Implement vlan ingress/egress policy
->   bridge: Add vlan to unicast fdb entries
->   bridge: Add vlan id to multicast groups
->   bridge: Add vlan support to static neighbors
->   bridge: Add vlan support for local fdb entries
->   bridge: Dump vlan information from a bridge port
->   bridge: Separate egress policy bitmap
->
->
-> Vlad Yasevich (12):
->   bridge: Add vlan filtering infrastructure
->   bridge: Validate that vlan is permitted on ingress
->   bridge: Verify that a vlan is allowed to egress on given port
->   bridge: Add netlink interface to configure vlans on bridge ports
->   bridge: Dump vlan information from a bridge port
->   bridge: Implement vlan ingress/egress policy with PVID.
->   bridge: Add the ability to configure pvid
->   bridge: Add vlan to unicast fdb entries
->   bridge: Add vlan id to multicast groups
->   bridge: Add vlan support to static neighbors
->   bridge: Add vlan support for local fdb entries
->   bridge: Separate egress policy bitmap
->
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 +-
->  drivers/net/macvlan.c                         |    2 +-
->  drivers/net/vxlan.c                           |    3 +-
->  include/linux/netdevice.h                     |    6 +-
->  include/uapi/linux/if_bridge.h                |   11 +
->  include/uapi/linux/neighbour.h                |    1 +
->  include/uapi/linux/rtnetlink.h                |    1 +
->  net/8021q/vlan_core.c                         |    1 +
->  net/bridge/Kconfig                            |   14 +
->  net/bridge/Makefile                           |    2 +
->  net/bridge/br_device.c                        |    7 +-
->  net/bridge/br_fdb.c                           |  258 ++++++++++++---
->  net/bridge/br_forward.c                       |    9 +
->  net/bridge/br_if.c                            |    4 +-
->  net/bridge/br_input.c                         |   28 ++-
->  net/bridge/br_multicast.c                     |   69 +++--
->  net/bridge/br_netlink.c                       |  242 +++++++++++++--
->  net/bridge/br_private.h                       |  175 ++++++++++-
->  net/bridge/br_sysfs_br.c                      |   21 ++
->  net/bridge/br_vlan.c                          |  415 +++++++++++++++++++++++++
->  net/core/rtnetlink.c                          |  111 ++++++-
->  21 files changed, 1257 insertions(+), 128 deletions(-)
->  create mode 100644 net/bridge/br_vlan.c
->
+--nab
+
+>  drivers/target/iscsi/iscsi_target.c |   64 -----------------------------------
+>  1 files changed, 0 insertions(+), 64 deletions(-)
+> 
+> diff --git a/drivers/target/iscsi/iscsi_target.c b/drivers/target/iscsi/iscsi_target.c
+> index 339f97f..73be05c 100644
+> --- a/drivers/target/iscsi/iscsi_target.c
+> +++ b/drivers/target/iscsi/iscsi_target.c
+> @@ -264,64 +264,6 @@ int iscsit_deaccess_np(struct iscsi_np *np, struct iscsi_portal_group *tpg)
+>  	return 0;
+>  }
+>  
+> -static struct iscsi_np *iscsit_get_np(
+> -	struct __kernel_sockaddr_storage *sockaddr,
+> -	int network_transport)
+> -{
+> -	struct sockaddr_in *sock_in, *sock_in_e;
+> -	struct sockaddr_in6 *sock_in6, *sock_in6_e;
+> -	struct iscsi_np *np;
+> -	int ip_match = 0;
+> -	u16 port;
+> -
+> -	spin_lock_bh(&np_lock);
+> -	list_for_each_entry(np, &g_np_list, np_list) {
+> -		spin_lock(&np->np_thread_lock);
+> -		if (np->np_thread_state != ISCSI_NP_THREAD_ACTIVE) {
+> -			spin_unlock(&np->np_thread_lock);
+> -			continue;
+> -		}
+> -
+> -		if (sockaddr->ss_family == AF_INET6) {
+> -			sock_in6 = (struct sockaddr_in6 *)sockaddr;
+> -			sock_in6_e = (struct sockaddr_in6 *)&np->np_sockaddr;
+> -
+> -			if (!memcmp(&sock_in6->sin6_addr.in6_u,
+> -				    &sock_in6_e->sin6_addr.in6_u,
+> -				    sizeof(struct in6_addr)))
+> -				ip_match = 1;
+> -
+> -			port = ntohs(sock_in6->sin6_port);
+> -		} else {
+> -			sock_in = (struct sockaddr_in *)sockaddr;
+> -			sock_in_e = (struct sockaddr_in *)&np->np_sockaddr;
+> -
+> -			if (sock_in->sin_addr.s_addr ==
+> -			    sock_in_e->sin_addr.s_addr)
+> -				ip_match = 1;
+> -
+> -			port = ntohs(sock_in->sin_port);
+> -		}
+> -
+> -		if ((ip_match == 1) && (np->np_port == port) &&
+> -		    (np->np_network_transport == network_transport)) {
+> -			/*
+> -			 * Increment the np_exports reference count now to
+> -			 * prevent iscsit_del_np() below from being called
+> -			 * while iscsi_tpg_add_network_portal() is called.
+> -			 */
+> -			np->np_exports++;
+> -			spin_unlock(&np->np_thread_lock);
+> -			spin_unlock_bh(&np_lock);
+> -			return np;
+> -		}
+> -		spin_unlock(&np->np_thread_lock);
+> -	}
+> -	spin_unlock_bh(&np_lock);
+> -
+> -	return NULL;
+> -}
+> -
+>  struct iscsi_np *iscsit_add_np(
+>  	struct __kernel_sockaddr_storage *sockaddr,
+>  	char *ip_str,
+> @@ -331,12 +273,6 @@ struct iscsi_np *iscsit_add_np(
+>  	struct sockaddr_in6 *sock_in6;
+>  	struct iscsi_np *np;
+>  	int ret;
+> -	/*
+> -	 * Locate the existing struct iscsi_np if already active..
+> -	 */
+> -	np = iscsit_get_np(sockaddr, network_transport);
+> -	if (np)
+> -		return np;
+>  
+>  	np = kzalloc(sizeof(struct iscsi_np), GFP_KERNEL);
+>  	if (!np) {
