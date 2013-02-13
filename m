@@ -1,122 +1,48 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v10 net-next 03/12] bridge: Verify that a vlan is allowed to egress on given port
-Date: Wed, 13 Feb 2013 12:41:40 -0500
-Message-ID: <1360777309-25522-4-git-send-email-vyasevic@redhat.com>
-References: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
-Cc: bridge@lists.linux-foundation.org, shemminger@vyatta.com,
-	davem@davemloft.net, mirqus@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2210 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934539Ab3BMRl6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Feb 2013 12:41:58 -0500
-In-Reply-To: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v4 4/9] rdma/cm: Update port reservation to support AF_IB
+Date: Wed, 13 Feb 2013 17:44:58 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A8237368B9A40F@ORSMSX101.amr.corp.intel.com>
+References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
+ <1358891797-14625-5-git-send-email-sean.hefty@intel.com>
+ <511B7474.3040201@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <511B7474.3040201-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When bridge forwards a frame, make sure that a frame is allowed
-to egress on that port.
+> > The AF_IB uses a 64-bit service id (SID), which the
+> > user can control through the use of a mask.  The rdma_cm
+> > will assign values to the unmasked portions of the SID
+> > based on the selected port space and port number.
+> 
+> Something here I am not sure to follow -- if AF_IB consumers are allowed
+> to provide 64-bit SID, how
+> the IB port space is expressed in their SIDs?
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_forward.c |    1 +
- net/bridge/br_input.c   |   10 ++++++++++
- net/bridge/br_private.h |   10 ++++++++++
- net/bridge/br_vlan.c    |   20 ++++++++++++++++++++
- 4 files changed, 41 insertions(+), 0 deletions(-)
+The spec, notably the RDMA CM Annex, provides fixed values for the upper 48-bits of the service ID.  Only the lower 16-bits are available to users.  The upper bits end up identifying the various 'port spaces'. 
 
-diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index 02015a5..35b0671 100644
---- a/net/bridge/br_forward.c
-+++ b/net/bridge/br_forward.c
-@@ -31,6 +31,7 @@ static inline int should_deliver(const struct net_bridge_port *p,
- 				 const struct sk_buff *skb)
- {
- 	return (((p->flags & BR_HAIRPIN_MODE) || skb->dev != p->dev) &&
-+		br_allowed_egress(p->br, nbp_get_vlan_info(p), skb) &&
- 		p->state == BR_STATE_FORWARDING);
- }
- 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 4ef3f6b..787d7da 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -35,6 +35,16 @@ static int br_pass_frame_up(struct sk_buff *skb)
- 	brstats->rx_bytes += skb->len;
- 	u64_stats_update_end(&brstats->syncp);
- 
-+	/* Bridge is just like any other port.  Make sure the
-+	 * packet is allowed except in promisc modue when someone
-+	 * may be running packet capture.
-+	 */
-+	if (!(brdev->flags & IFF_PROMISC) &&
-+	    !br_allowed_egress(br, br_get_vlan_info(br), skb)) {
-+		kfree_skb(skb);
-+		return NET_RX_DROP;
-+	}
-+
- 	indev = skb->dev;
- 	skb->dev = brdev;
- 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index edac5d1..a18d6a5 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -557,6 +557,9 @@ static inline void br_mdb_uninit(void)
- #ifdef CONFIG_BRIDGE_VLAN_FILTERING
- extern bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 			       struct sk_buff *skb);
-+extern bool br_allowed_egress(struct net_bridge *br,
-+			      const struct net_port_vlans *v,
-+			      const struct sk_buff *skb);
- extern int br_vlan_add(struct net_bridge *br, u16 vid);
- extern int br_vlan_delete(struct net_bridge *br, u16 vid);
- extern void br_vlan_flush(struct net_bridge *br);
-@@ -601,6 +604,13 @@ static inline bool br_allowed_ingress(struct net_bridge *br,
- 	return true;
- }
- 
-+static inline bool br_allowed_egress(struct net_bridge *br,
-+				     const struct net_port_vlans *v,
-+				     const struct sk_buff *skb)
-+{
-+	return true;
-+}
-+
- static inline int br_vlan_add(struct net_bridge *br, u16 vid)
- {
- 	return -EOPNOTSUPP;
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 8b4bcd8..d8690bf 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -89,6 +89,26 @@ bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
- 	return false;
- }
- 
-+/* Called under RCU. */
-+bool br_allowed_egress(struct net_bridge *br,
-+		       const struct net_port_vlans *v,
-+		       const struct sk_buff *skb)
-+{
-+	u16 vid;
-+
-+	if (!br->vlan_enabled)
-+		return true;
-+
-+	if (!v)
-+		return false;
-+
-+	br_vlan_get_tag(skb, &vid);
-+	if (test_bit(vid, v->vlan_bitmap))
-+		return true;
-+
-+	return false;
-+}
-+
- /* Must be protected by RTNL */
- int br_vlan_add(struct net_bridge *br, u16 vid)
- {
--- 
-1.7.7.6
+(Note that there's no actual association between an IB port space and port spaces in the IP network stack.)
+
+> Wouldn't it make sense to use a simpler approach that has a dedicated
+> IB_PS in the port space
+> portion of the RDMA-CM IP IBTA annex and let the consumer provide 16
+> bits for their part of the SID?
+
+Ultimately, IB establishes communication using 64-bit service IDs, which is what sockaddr_ib exposes.
+
+The SID mask was proposed by Jason as a way to simplify things.  Conceptually, AF_IB has a single port space range, the 64-bit SID.  The mask helps us break the SID into the various ranges, so we can clearly know which parts of the SID are fixed, and which can be variable.  E.g. when connecting, the entire SID must be provided.  However, when binding we want to support binding to a specific SID or only to a SID range (i.e. port space).
+
+(I'm having trouble finding the original email threads where this was discussed.)
+
+- Sean
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
