@@ -1,69 +1,95 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH] netpoll: fix smatch warnings in netpoll core code
-Date: Wed, 13 Feb 2013 11:32:42 -0500
-Message-ID: <1360773162-11949-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART
+ messages and interrupt pipe setup
+Date: Wed, 13 Feb 2013 10:34:19 -0600
+Message-ID: <1360773259.1559.19.camel@dcbw.foobar.com>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	 <1357318096.5370.15.camel@dcbw.foobar.com>
+	 <1357318289.5370.19.camel@dcbw.foobar.com>
+	 <1360176176.11742.16.camel@dcbw.foobar.com> <87ip655eqw.fsf@nemi.mork.no>
+	 <1360256793.2382.27.camel@dcbw.foobar.com> <87a9r8cub8.fsf@nemi.mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.org>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:37850 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759377Ab3BMQdB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 11:33:01 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:25683 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759377Ab3BMQeq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 11:34:46 -0500
+In-Reply-To: <87a9r8cub8.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dan Carpenter contacted me with some notes regarding some smatch warnings in the
-netpoll code, some of which I introduced with my recent netpoll locking fixes,
-some which were there prior.   Specifically they were:
+On Wed, 2013-02-13 at 12:44 +0100, Bj=C3=B8rn Mork wrote:
+> Dan Williams <dcbw@redhat.com> writes:
+>=20
+> > It doesn't need to run exactly at probe, but it appears to need to =
+be
+> > the first thing the driver does when communicating with the firmwar=
+e to
+> > ensure clear state and whatnot.  Possibly like the QMI SYNC message=
+ that
+> > clears all the client IDs and resets the internal stack.  (the driv=
+er
+> > also sends a "shutdown" message to the firmware when unbinding).
+> >
+> > So I do think that somewhere around probe() is the best time to do =
+this,
+> > because it's best to initialize the device when the driver binds to=
+ it
+> > and react to errors as soon as possible, rather than trying to set
+> > everything up on open/IFF_UP and then fail right before you want to
+> > actually use the device.  Late-fail is quite unhelpful for applicat=
+ions.
+> >
+> > I don't really care if it happens in probe() or somewhere else righ=
+t
+> > after the driver is bound to the device, but it should be part of t=
+he
+> > initialization process.
+>=20
+> I was looking for something else in the rndis_host driver right now a=
+nd
+> noticed that it has the same sort of problem.  The generic_rndis_bind=
+()
+> function will call rndis_command() which does
+>=20
+>          usb_control_msg(.., USB_CDC_SEND_ENCAPSULATED_COMMAND, ..);
+>          usb_interrupt_msg(.., dev->status->desc.bEndpointAddress, ..=
+ );
+>          for (count =3D 0; count < 10; count++) {
+>              usb_control_msg(.., USB_CDC_GET_ENCAPSULATED_RESPONSE, .=
+=2E);
+>              if (ok)
+>                 return 0;
+>              msleep(20);
+>          }
+>=20
+> Somewhat ugly, but it is a way to send and receive commands while
+> probing.  This driver also sends a command in unbind().
+>=20
+> Looks like your patch would allow this to be solved a lot cleaner,
+> replacing the loop over USB_CDC_GET_ENCAPSULATED_RESPONSE with proper
+> interrupt endpoint handling.
 
-net-next/net/core/netpoll.c:243 netpoll_poll_dev() warn: inconsistent
-  returns mutex:&ni->dev_lock: locked (213,217) unlocked (210,243)
-net-next/net/core/netpoll.c:706 netpoll_neigh_reply() warn: potential
-  pointer math issue ('skb_transport_header(send_skb)' is a 128 bit pointer)
+It would end up being more "correct" but more complicated, because you'=
+d
+need to have rndis_command() block on a semaphore or something until th=
+e
+response was processed by a "status" handler, which neither rndis_host.=
+c
+or rndis_wlan.c actually implement.  The status handler would have to
+know that something was waiting on it, and then package up the response
+in some way that the rndis_command() (which is now blocking on the
+status interrupt) can read it and return it to the caller.
 
-This patch corrects the locking imbalance (the first error), and adds some
-parenthesis to correct the second error.  Tested by myself. Applies to net-next
+More correct, more code, more complicated...  but probably still
+worthwhile?
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-CC: Dan Carpenter <dan.carpenter@oracle.com>
-CC: "David S. Miller" <davem@davemloft.net>
----
- net/core/netpoll.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index bcfd4f4..fa32899 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -209,12 +209,16 @@ static void netpoll_poll_dev(struct net_device *dev)
- 	if (!mutex_trylock(&ni->dev_lock))
- 		return;
- 
--	if (!dev || !netif_running(dev))
-+	if (!netif_running(dev)) {
-+		mutex_unlock(&ni->dev_lock);
- 		return;
-+	}
- 
- 	ops = dev->netdev_ops;
--	if (!ops->ndo_poll_controller)
-+	if (!ops->ndo_poll_controller) {
-+		mutex_unlock(&ni->dev_lock);
- 		return;
-+	}
- 
- 	/* Process pending work on NIC */
- 	ops->ndo_poll_controller(dev);
-@@ -703,7 +707,7 @@ static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo
- 			icmp6h->icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
- 			icmp6h->icmp6_router = 0;
- 			icmp6h->icmp6_solicited = 1;
--			target = (struct in6_addr *)skb_transport_header(send_skb) + sizeof(struct icmp6hdr);
-+			target = (struct in6_addr *)(skb_transport_header(send_skb) + sizeof(struct icmp6hdr));
- 			*target = msg->target;
- 			icmp6h->icmp6_cksum = csum_ipv6_magic(saddr, daddr, size,
- 							      IPPROTO_ICMPV6,
--- 
-1.7.11.7
+Dan
