@@ -1,63 +1,95 @@
-From: Felipe Dias <felipediassss@gmail.com>
-Subject: dev_add_pack() duplicate skb ?
-Date: Wed, 13 Feb 2013 10:11:26 -0200
-Message-ID: <CAJX4=r08yC7PPtO7KA-3rsY5SMsZueJ=tVDdi2HT6MvnuO1ung@mail.gmail.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Subject: Re: [PATCH -next 1/1] net: skbuff: fix compile error in skb_panic()
+Date: Wed, 13 Feb 2013 13:41:21 +0100
+Message-ID: <CA+icZUVB9QaZfnKGSz_Dr=EADBtYULOHqEHDDocdXO5-Dy=uYA@mail.gmail.com>
+References: <1360754427-9051-1-git-send-email-james.hogan@imgtec.com>
+Reply-To: sedat.dilek@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jean Sacren <sakiwit@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, linux-next@vger.kernel.org,
+	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+To: James Hogan <james.hogan@imgtec.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f196.google.com ([209.85.214.196]:56287 "EHLO
-	mail-ob0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933996Ab3BMML0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:11:26 -0500
-Received: by mail-ob0-f196.google.com with SMTP id va7so328303obc.3
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 04:11:26 -0800 (PST)
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:62390 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933983Ab3BMMl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:41:28 -0500
+In-Reply-To: <1360754427-9051-1-git-send-email-james.hogan@imgtec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi, someone might try to tell me what I'm doing wrong, please?
+On Wed, Feb 13, 2013 at 12:20 PM, James Hogan <james.hogan@imgtec.com> wrote:
+> I get the following build error on next-20130213 due to the following
+> commit:
+>
+> commit f05de73bf82fbbc00265c06d12efb7273f7dc54a ("skbuff: create
+> skb_panic() function and its wrappers").
+>
+> It adds an argument called panic to a function that uses the BUG() macro
+> which tries to call panic, but the argument masks the panic() function
+> declaration, resulting in the following error (gcc 4.2.4):
+>
+> net/core/skbuff.c In function 'skb_panic':
+> net/core/skbuff.c +126 : error: called object 'panic' is not a function
+>
+
+[ CC linux-netdev ]
+
+Hmm, with gcc-4.6.3 on Ubuntu/precise I don't see this... compiler-specific?
+
+$ grep skbuff build-log_3.8.0-rc7-next20130213-2-iniza-small.txt
+  CC      net/core/skbuff.o
+
+- Sedat -
 
 
-I have a simple module and I registered one packet handler, in init function:
----
-     pseudo_proto.type = htons(ETH_P_ALL);
-     pseudo_proto.dev = NULL;
-     pseudo_proto.func = packet_handler;
-     dev_add_pack(&pseudo_proto);
----
-
-My packet_handler, is a simple function just to print in dmesg info
-about the packet:
-
----
-...
-
-    switch (ntohs(eth_hdr(skb)->h_proto))
-    {
-        case ETH_P_IPV6:
-            printk(KERN_INFO "%s: (%s %d %s, %s %d) Packet\n",
-                       THIS_MODULE->name,
-                       skb->dev->name,
-                       skb->dev->type,
-                       ntohs(eth_hdr(skb)->h_proto,
-                       ipv6_hdr(skb)->nexthdr,
-                       skb->len);
-            break;
-...
----
-
-When I sent a icmpv6 with a ping6 -c1 ::1 , this in my tcpdump show
-only 2 packets (icmp request and icmp reply), but in my dmesg I see
-4!:
-
----
-595:[30469.099222] test: (lo 772 0x86dd, 0x3a 118) Packet
-596:[30469.099226] test: (lo 772 0x86dd, 0x3a 104) Packet
-597:[30469.099234] test: (lo 772 0x86dd, 0x3a 118) Packet
-598:[30469.099236] test: (lo 772 0x86dd, 0x3a 104) Packet
----
-
-This show 4 packets in ipv4 too. What I'm doing wrong ?
-
-Best Regards,
-fd.
+> This is fixed by renaming the argument to msg.
+>
+> Signed-off-by: James Hogan <james.hogan@imgtec.com>
+> Cc: Jean Sacren <sakiwit@gmail.com>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> Cc: David S. Miller <davem@davemloft.net>
+> ---
+>
+> Feel free to rename panic to something else or squash this into the
+> offending commit.
+>
+>  net/core/skbuff.c | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index 8731c39..21a22cc 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -109,7 +109,7 @@ static const struct pipe_buf_operations sock_pipe_buf_ops = {
+>   *     @skb:   buffer
+>   *     @sz:    size
+>   *     @addr:  address
+> - *     @panic: skb_over_panic or skb_under_panic
+> + *     @msg:   skb_over_panic or skb_under_panic
+>   *
+>   *     Out-of-line support for skb_put() and skb_push().
+>   *     Called via the wrapper skb_over_panic() or skb_under_panic().
+> @@ -117,10 +117,10 @@ static const struct pipe_buf_operations sock_pipe_buf_ops = {
+>   *     __builtin_return_address is not used because it is not always reliable.
+>   */
+>  static void skb_panic(struct sk_buff *skb, unsigned int sz, void *addr,
+> -                     const char panic[])
+> +                     const char msg[])
+>  {
+>         pr_emerg("%s: text:%p len:%d put:%d head:%p data:%p tail:%#lx end:%#lx dev:%s\n",
+> -                panic, addr, skb->len, sz, skb->head, skb->data,
+> +                msg, addr, skb->len, sz, skb->head, skb->data,
+>                  (unsigned long)skb->tail, (unsigned long)skb->end,
+>                  skb->dev ? skb->dev->name : "<NULL>");
+>         BUG();
+> --
+> 1.8.1.2
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-next" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
