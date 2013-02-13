@@ -1,66 +1,50 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 2/3] ipv6: use newly introduced __ipv6_addr_needs_scope_id and ipv6_iface_scope_id
-Date: Wed, 13 Feb 2013 11:33:02 +0100
-Message-ID: <20130213103302.GC1096@order.stressinduktion.org>
-References: <20130212221634.GA7212@order.stressinduktion.org> <20130213001357.GB1096@order.stressinduktion.org> <511AFF9A.8040506@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Brian Haley <brian.haley@hp.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 2/2] net: sctp: add build check for sctp_sf_eat_sack_6_2/jsctp_sf_eat_sack
+Date: Wed, 13 Feb 2013 12:03:50 +0100
+Message-ID: <84afa536e3652ea27a7efb1f6c9f7c4f29c15043.1360752304.git.dborkman@redhat.com>
+References: <7eef4b701794c1bb78819bc6e6c45bf99b49801d.1360752304.git.dborkman@redhat.com>
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60844 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753022Ab3BMKdE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 05:33:04 -0500
-Content-Disposition: inline
-In-Reply-To: <511AFF9A.8040506@hp.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33482 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932536Ab3BMLDy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 06:03:54 -0500
+In-Reply-To: <7eef4b701794c1bb78819bc6e6c45bf99b49801d.1360752304.git.dborkman@redhat.com>
+In-Reply-To: <cover.1360752304.git.dborkman@redhat.com>
+References: <cover.1360752304.git.dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 12, 2013 at 09:51:06PM -0500, Brian Haley wrote:
-> On 02/12/2013 07:13 PM, Hannes Frederic Sowa wrote:
-> >> --- a/net/ipv6/af_inet6.c
-> >> +++ b/net/ipv6/af_inet6.c
-> >> @@ -323,7 +323,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
-> >>  			struct net_device *dev = NULL;
-> >>  
-> >>  			rcu_read_lock();
-> >> -			if (addr_type & IPV6_ADDR_LINKLOCAL) {
-> >> +			if (__ipv6_addr_needs_scope_id(addr_type)) {
-> >>  				if (addr_len >= sizeof(struct sockaddr_in6) &&
-> >>  				    addr->sin6_scope_id) {
-> >>  					/* Override any existing binding, if another one
-> > 
-> > By trying to setup the multicast interface scoped routes by default I
-> > just found a bug in this patch essentially breaking ipv6 multicast. I
-> > overlooked that ipv6_addr_type strips off the scopes, thus my check if
-> > a multicast address needs a scope_id always returns true. I'll check
-> > if I can convert the ipv6_addr_type calls to __ipv6_addr_type and will
-> > reroll the patch.  Sorry, my tests were too focused on interface/local
-> > multicast. :(
-> 
-> I'd always thought of adding helper inlines like these in net/ipv6.h:
-> 
-> static inline bool ipv6_addr_linklocal(const struct in6_addr *a)
-> {
->         return ((a->s6_addr32[0] & htonl(0xFFC00000)) == htonl(0xFE800000));
-> }
-> 
-> static inline bool ipv6_addr_mc_linklocal(const struct in6_addr *a)
-> {
->         return (((a->s6_addr32[0] & htonl(0xFF000000)) == htonl(0xFF000000)) &&
->                 ((a->s6_addr32[1] & 0x0F) == IPV6_ADDR_SCOPE_LINKLOCAL));
-> }
-> 
-> Maybe something like that would help here?
-> 
-> When I saw this in patch 3/3 it just seemed like the long way to determine if
-> the address was a link-local multicast:
-> 
-> 	!__ipv6_addr_needs_scope_id(__ipv6_addr_type(&hdr->daddr))
-> 
-> The helper isn't as generic as your patch, but more direct.
+In order to avoid any future surprises of kernel panics due to jprobes
+function mismatches (as e.g. fixed in 4cb9d6eaf85ecd: sctp: jsctp_sf_eat_sack:
+fix jprobes function signature mismatch), we should check both function
+types during build and scream loudly if they do not match. __same_type
+resolves to __builtin_types_compatible_p, which is 1 in case both types
+are the same and 0 otherwise, qualifiers are ignored. Tested by myself.
 
-Yup, that would have prevented the bug. My idea was to introduce an
-opaque type to have compiler warnings on misuse of addr_type. I'll have a look
-later today on how to proceed with this patch. Thanks!
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/probe.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/net/sctp/probe.c b/net/sctp/probe.c
+index 4eaaaf6..261b7b9 100644
+--- a/net/sctp/probe.c
++++ b/net/sctp/probe.c
+@@ -183,6 +183,13 @@ static __init int sctpprobe_init(void)
+ {
+ 	int ret = -ENOMEM;
+ 
++	/* Warning: if the function signature of sctp_sf_eat_sack_6_2,
++	 * has been changed, you also have to change the signature of
++	 * jsctp_sf_eat_sack, otherwise you end up right here!
++	 */
++	BUILD_BUG_ON(__same_type(sctp_sf_eat_sack_6_2,
++				 jsctp_sf_eat_sack) == 0);
++
+ 	init_waitqueue_head(&sctpw.wait);
+ 	spin_lock_init(&sctpw.lock);
+ 	if (kfifo_alloc(&sctpw.fifo, bufsize, GFP_KERNEL))
+-- 
+1.7.11.7
