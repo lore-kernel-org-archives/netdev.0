@@ -1,31 +1,69 @@
-From: Stephan Gatzka <stephan.gatzka@gmail.com>
-Subject: Re: [net-next (TAKE 2) 0/4] IPv6 over Firewire
-Date: Wed, 13 Feb 2013 13:45:44 +0100
-Message-ID: <511B8AF8.6080409@gmail.com>
-References: <5117620A.4050005@linux-ipv6.org> <51177689.4070904@gmail.com> <51177B15.3030405@linux-ipv6.org> <51179714.6010706@gmail.com> <5117B73C.10600@linux-ipv6.org> <5118C8B3.7080803@gmail.com> <5118EE78.5000508@linux-ipv6.org>
-Reply-To: stephan.gatzka@gmail.com
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [PATCH vringh 2/2] caif_virtio: Introduce caif over virtio
+Date: Wed, 13 Feb 2013 13:50:41 +0100
+Message-ID: <CAJK669YQ+x5zXSZA1FQHkRrcCt+SgZP-M_ea-Ey8ziGLhq9cqQ@mail.gmail.com>
+References: <1360494273-27889-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1360494273-27889-3-git-send-email-sjur.brandeland@stericsson.com>
+	<87vc9zfic8.fsf@rustcorp.com.au>
+	<81C3A93C17462B4BBD7E272753C105792458EDD161@EXDCVYMBSTM005.EQ1STM.local>
+	<87ehgklds9.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
-	davem@davemloft.net, stefanr@s5r6.in-berlin.de
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f47.google.com ([209.85.214.47]:46589 "EHLO
-	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752788Ab3BMMps (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 07:45:48 -0500
-Received: by mail-bk0-f47.google.com with SMTP id jc3so509886bkc.6
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 04:45:47 -0800 (PST)
-In-Reply-To: <5118EE78.5000508@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Vikram ARV <vikram.arv@stericsson.com>,
+	Dmitry TARNYAGIN <dmitry.tarnyagin@stericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linus Walleij <linus.walleij@linaro.org>, Ido Yariv <ido@wizery.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Erwan YVIN <erwan.yvin@stericsson.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87ehgklds9.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Yoshi,
-
-I just wanted to try out your patch but is does not apply to net-next.
-What is the tree I should use?
-
-Regards,
-
-Stephan
+SGkgUnVzdHksCgpPbiBXZWQsIEZlYiAxMywgMjAxMyBhdCAxMToxNiBBTSwgUnVzdHkgUnVzc2Vs
+bCA8cnVzdHlAcnVzdGNvcnAuY29tLmF1PiB3cm90ZToKPiBTanVyIEJSRU5ERUxBTkQgPHNqdXIu
+YnJhbmRlbGFuZEBzdGVyaWNzc29uLmNvbT4gd3JpdGVzOgo+Pj4gPiArc3RhdGljIGlubGluZSB2
+b2lkIGN0eF9wcmVwX2lvdihzdHJ1Y3QgY2Z2X25hcGlfY29udGV4dCAqY3R4KQo+Pj4gPiArewo+
+Pj4gPiArICBpZiAoY3R4LT5yaW92LmFsbG9jYXRlZCkgewo+Pj4gPiArICAgICAgICAgIGtmcmVl
+KGN0eC0+cmlvdi5pb3YpOwo+Pj4gPiArICAgICAgICAgIGN0eC0+cmlvdi5pb3YgPSBOVUxMOwo+
+Pj4gPiArICAgICAgICAgIGN0eC0+cmlvdi5hbGxvY2F0ZWQgPSBmYWxzZTsKPj4+ID4gKyAgfQo+
+Pj4gPiArICBjdHgtPnJpb3YuaW92ID0gTlVMTDsKPj4+ID4gKyAgY3R4LT5yaW92LmkgPSAwOwo+
+Pj4gPiArICBjdHgtPnJpb3YubWF4ID0gMDsKPj4+ID4gK30KPj4+Cj4+PiBIbW0sIHdlIHNob3Vs
+ZCBwcm9iYWJseSBtYWtlIHN1cmUgeW91IGRvbid0IGhhdmUgdG8gZG8gdGhpczogdGhhdCBpZgo+
+Pj4gYWxsb2NhdGVkIG9uY2UsIHlvdSBjYW4gc2ltcGx5IHJldXNlIGl0IGJ5IHNldHRpbmcgaSA9
+IDAuCj4+Cj4+IFllcywgSSBoYWQgcHJvYmxlbXMgZ2V0dGluZyB0aGUgYWxsb2MvZnJlZSBvZiBp
+b3YgcmlnaHQuIFRoaXMgaXMKPj4gcGVyaGFwcyB0aGUgbGVhc3QgaW50dWl0aXZlbHkgcGFydCBv
+ZiB0aGUgQVBJLiBJIG1heWJlIGl0J3MganVzdCBtZSwgYnV0Cj4+IEkgdGhpbmsgc29tZSBtb3Jl
+IGhlbHBlciBmdW5jdGlvbnMgYW5kIHN1cHBvcnQgZnJvbSB2cmluZ2ggaW4gdGhpcwo+PiBhcmVh
+IHdvdWxkIGJlIGdyZWF0Lgo+Cj4gWWVzLCBJJ3ZlIG5lYXRlbmVkIG15IGdpdCB0cmVlLCBhbiBp
+biBwYXJ0aWN1bGFyIGFkZGVkIGEgY29tbWl0IHdoaWNoCj4gY292ZXJzIHRoaXMgZXhwbGljaXRs
+eSwgYW5kIG9uZSBmb3IgdGhlIC1FUFJPVE8gd2hlbiB3ZSBnZXQgdW5leHBlY3RlZAo+IHIvdyBi
+dWZzLiAgSSd2ZSBhcHBlbmRlZCB0aGVtIGJlbG93LgoKR3JlYXQsIHRoYW5rcy4gVGhpcyBoZWxw
+cyBhIGxvdC4gSSBwaWNrZWQgdXAgeW91ciBwYXRjaC1zZXR0IHllc3RlcmRheQpzbyBteSBWMiBw
+YXRjaC1zZXQgaXMgdXNpbmcgdGhpcyBhbHJlYWR5LgouLi4KPiArc3RhdGljIGlubGluZSB2b2lk
+IHZyaW5naF9pb3ZfaW5pdChzdHJ1Y3QgdnJpbmdoX2lvdiAqaW92LAo+ICsgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgc3RydWN0IGlvdmVjICppb3ZlYywgdW5zaWduZWQgbnVtKQo+
+ICt7Cj4gKyAgICAgICBpb3YtPnVzZWQgPSBpb3YtPmkgPSAwOwo+ICsgICAgICAgaW92LT5vZmYg
+PSAwOwo+ICsgICAgICAgaW92LT5tYXhfbnVtID0gbnVtOwo+ICsgICAgICAgaW92LT5pb3YgPSBp
+b3ZlYzsKPiArfQoKSG93IGFib3V0IHN1cHBvcnRpbmcgc3RydWN0IHZyaW5naF9raW92IGFuZCBz
+dHJ1Y3Qga3ZlYyBhcyB3ZWxsPwpJIGN1cnJlbnRseSBnZXQgdGhlIGZvbGxvd2luZyBjb21wbGFp
+bnRzIHdpdGggbXkgVjIgcGF0Y2gtc2V0OgoKZHJpdmVycy9uZXQvY2FpZi9jYWlmX3ZpcnRpby5j
+OjQ4NjoyOiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDEgb2YK4oCYdnJpbmdoX2lvdl9pbml0
+4oCZIGZyb20gaW5jb21wYXRpYmxlIHBvaW50ZXIgdHlwZSBbZW5hYmxlZCBieSBkZWZhdWx0XQou
+Li4KClRoYW5rcywKU2p1cgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMu
+bGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21h
+aWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
