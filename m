@@ -1,89 +1,182 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tcp_use_frto crashes on empty tcp_write_queue
-Date: Wed, 13 Feb 2013 13:37:33 -0800
-Message-ID: <1360791453.6884.34.camel@edumazet-glaptop>
-References: <511C0127.1040604@citrix.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Frediano Ziglio <frediano.ziglio@citrix.com>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH v11 net-next 02/12] bridge: Validate that vlan is permitted on ingress
+Date: Wed, 13 Feb 2013 17:00:10 -0500
+Message-ID: <1360792820-14116-3-git-send-email-vyasevic@redhat.com>
+References: <1360792820-14116-1-git-send-email-vyasevic@redhat.com>
+Cc: bridge@lists.linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:47389 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760669Ab3BMVhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 16:37:39 -0500
-Received: by mail-ie0-f182.google.com with SMTP id k14so2359880iea.13
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 13:37:37 -0800 (PST)
-In-Reply-To: <511C0127.1040604@citrix.com>
+Received: from mx1.redhat.com ([209.132.183.28]:30145 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934131Ab3BMWAr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 17:00:47 -0500
+In-Reply-To: <1360792820-14116-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-13 at 21:09 +0000, Zoltan Kiss wrote:
-> Hi,
-> 
-> I see the following WARN and then crash on 2.6.32.12:
-> 
-> <4>WARNING: at net/ipv4/tcp_timer.c:293 tcp_retransmit_timer+0x5dd/0x630()
-> 
-> ...
-> 
-> <1>BUG: unable to handle kernel NULL pointer dereference at (null)
-> <1>IP: [<c033f2b5>] tcp_use_frto+0x45/0x90
-> ...
-> <0>Call Trace:
-> <4> [<c0343ab9>] ? tcp_retransmit_timer+0xd9/0x630
-> <4> [<c0120e58>] ? __wake_up_common+0x48/0x70
-> <4> [<c0344580>] ? tcp_write_timer+0xe0/0x1a0
-> <4> [<c0137fe1>] ? run_timer_softirq+0x151/0x200
-> <4> [<c02af069>] ? maybe_schedule_tx_action+0x39/0x40
-> <4> [<c03444a0>] ? tcp_write_timer+0x0/0x1a0
-> <4> [<c013359a>] ? __do_softirq+0xba/0x180
-> <4> [<c015e7a7>] ? move_native_irq+0x47/0x50
-> ...
-> 
-> I've checked the code, tcp_use_frto() crashes because
-> 
-> skb = tcp_write_queue_head(sk);
-> 
-> returns a NULL, as the queue is empty, and in the next line:
-> 
-> if (tcp_skb_is_last(sk, skb))
-> ===>
-> static inline bool tcp_skb_is_last(const struct sock *sk,
->                     const struct sk_buff *skb)
-> {
->      return skb_queue_is_last(&sk->sk_write_queue, skb);
-> }
-> ===>
-> static inline bool skb_queue_is_last(const struct sk_buff_head *list,
->                       const struct sk_buff *skb)
-> {
->      return (skb->next == (struct sk_buff *) list);
-> }
-> 
-> That skb->next cause the NULL pointer dereference.
-> 
-> I've checked this in upstream, and it seems this would fail in the same 
-> way. Wouldn't it be more reasonable to return from 
-> tcp_retransmit_timer() instead of just signing a WARN? Something like this:
-> 
-> diff -r 7a748d2cb9f1 -r bb8257f0730a net/ipv4/tcp_timer.c
-> --- a/net/ipv4/tcp_timer.c    Wed Feb 13 15:02:50 2013 +0000
-> +++ b/net/ipv4/tcp_timer.c    Wed Feb 13 15:03:18 2013 +0000
-> @@ -287,11 +287,9 @@ void tcp_retransmit_timer(struct sock *s
->       struct tcp_sock *tp = tcp_sk(sk);
->       struct inet_connection_sock *icsk = inet_csk(sk);
-> 
-> -    if (!tp->packets_out)
-> +    if (!tp->packets_out || tcp_write_queue_empty(sk))
->           goto out;
-> 
-> -    WARN_ON(tcp_write_queue_empty(sk));
-> -
->       if (!tp->snd_wnd && !sock_flag(sk, SOCK_DEAD) &&
->           !((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))) {
->           /* Receiver dastardly shrinks window. Our retransmits
+When a frame arrives on a port or transmitted by the bridge,
+if we have VLANs configured, validate that a given VLAN is allowed
+to enter the bridge.
 
-This doesn't seem to be a standard kernel.
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_device.c  |    3 ++
+ net/bridge/br_input.c   |    4 +++
+ net/bridge/br_private.h |   53 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/bridge/br_vlan.c    |   25 ++++++++++++++++++++++
+ 4 files changed, 85 insertions(+), 0 deletions(-)
+
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index ca98fa5..35a2c2c 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -45,6 +45,9 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	brstats->tx_bytes += skb->len;
+ 	u64_stats_update_end(&brstats->syncp);
+ 
++	if (!br_allowed_ingress(br, br_get_vlan_info(br), skb))
++		goto out;
++
+ 	BR_INPUT_SKB_CB(skb)->brdev = dev;
+ 
+ 	skb_reset_mac_header(skb);
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 4b34207..4ef3f6b 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -17,6 +17,7 @@
+ #include <linux/etherdevice.h>
+ #include <linux/netfilter_bridge.h>
+ #include <linux/export.h>
++#include <linux/rculist.h>
+ #include "br_private.h"
+ 
+ /* Hook for brouter */
+@@ -54,6 +55,9 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	if (!p || p->state == BR_STATE_DISABLED)
+ 		goto drop;
+ 
++	if (!br_allowed_ingress(p->br, nbp_get_vlan_info(p), skb))
++		goto drop;
++
+ 	/* insert into forwarding database after filtering to avoid spoofing */
+ 	br = p->br;
+ 	br_fdb_update(br, p, eth_hdr(skb)->h_source);
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index f6ca69e..12da56e 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -552,6 +552,8 @@ static inline void br_mdb_uninit(void)
+ 
+ /* br_vlan.c */
+ #ifdef CONFIG_BRIDGE_VLAN_FILTERING
++extern bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
++			       struct sk_buff *skb);
+ extern int br_vlan_add(struct net_bridge *br, u16 vid);
+ extern int br_vlan_delete(struct net_bridge *br, u16 vid);
+ extern void br_vlan_flush(struct net_bridge *br);
+@@ -559,7 +561,43 @@ extern int br_vlan_filter_toggle(struct net_bridge *br, unsigned long val);
+ extern int nbp_vlan_add(struct net_bridge_port *port, u16 vid);
+ extern int nbp_vlan_delete(struct net_bridge_port *port, u16 vid);
+ extern void nbp_vlan_flush(struct net_bridge_port *port);
++
++static inline struct net_port_vlans *br_get_vlan_info(
++						const struct net_bridge *br)
++{
++	return rcu_dereference(br->vlan_info);
++}
++
++static inline struct net_port_vlans *nbp_get_vlan_info(
++						const struct net_bridge_port *p)
++{
++	return rcu_dereference(p->vlan_info);
++}
++
++/* Since bridge now depends on 8021Q module, but the time bridge sees the
++ * skb, the vlan tag will always be present if the frame was tagged.
++ */
++static inline int br_vlan_get_tag(const struct sk_buff *skb, u16 *vid)
++{
++	int err = 0;
++
++	if (vlan_tx_tag_present(skb))
++		*vid = vlan_tx_tag_get(skb) & VLAN_VID_MASK;
++	else {
++		*vid = 0;
++		err = -EINVAL;
++	}
++
++	return err;
++}
+ #else
++static inline bool br_allowed_ingress(struct net_bridge *br,
++				      struct net_port_vlans *v,
++				      struct sk_buff *skb)
++{
++	return true;
++}
++
+ static inline int br_vlan_add(struct net_bridge *br, u16 vid)
+ {
+ 	return -EOPNOTSUPP;
+@@ -588,6 +626,21 @@ static inline void nbp_vlan_flush(struct net_bridge_port *port)
+ {
+ }
+ 
++static inline struct net_port_vlans *br_get_vlan_info(
++						const struct net_bridge *br)
++{
++	return NULL;
++}
++static inline struct net_port_vlans *nbp_get_vlan_info(
++						const struct net_bridge_port *p)
++{
++	return NULL;
++}
++
++static inline u16 br_vlan_get_tag(const struct sk_buff *skb)
++{
++	return 0;
++}
+ #endif
+ 
+ /* br_netfilter.c */
+diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
+index 209464e..8b4bcd8 100644
+--- a/net/bridge/br_vlan.c
++++ b/net/bridge/br_vlan.c
+@@ -64,6 +64,31 @@ static void __vlan_flush(struct net_port_vlans *v)
+ 	kfree_rcu(v, rcu);
+ }
+ 
++/* Called under RCU */
++bool br_allowed_ingress(struct net_bridge *br, struct net_port_vlans *v,
++			struct sk_buff *skb)
++{
++	u16 vid;
++
++	/* If VLAN filtering is disabled on the bridge, all packets are
++	 * permitted.
++	 */
++	if (!br->vlan_enabled)
++		return true;
++
++	/* If there are no vlan in the permitted list, all packets are
++	 * rejected.
++	 */
++	if (!v)
++		return false;
++
++	br_vlan_get_tag(skb, &vid);
++	if (test_bit(vid, v->vlan_bitmap))
++		return true;
++
++	return false;
++}
++
+ /* Must be protected by RTNL */
+ int br_vlan_add(struct net_bridge *br, u16 vid)
+ {
+-- 
+1.7.7.6
