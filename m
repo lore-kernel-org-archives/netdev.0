@@ -1,123 +1,463 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 13 Feb 2013 14:21:55 -0500 (EST)
-Message-ID: <20130213.142155.203725388752600954.davem@davemloft.net>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [PATCH v10 net-next 10/12] bridge: Add vlan support to static
+ neighbors
+Date: Wed, 13 Feb 2013 11:25:08 -0800
+Message-ID: <20130213112508.00001a29@unknown>
+References: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
+	<1360777309-25522-11-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <bridge@lists.linux-foundation.org>,
+	<shemminger@vyatta.com>, <davem@davemloft.net>, <mirqus@gmail.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:19725 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751195Ab3BMTZO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Feb 2013 14:25:14 -0500
+In-Reply-To: <1360777309-25522-11-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DQpUaGlzIGlzIHByaW1hcmlseSB0byBnZXQgdGhvc2UgcjgxNjkgcmV2ZXJ0cyBzb3J0ZWQsIGJ1
-dCBvdGhlcg0KZml4ZXMgaGF2ZSBhY2N1bXVsYXRlZCBtZWFud2hpbGUuDQoNCjEpIFJldmVydCB0
-d28gcjgxNjkgY2hhbmdlcyB0byBmaXggc3VzcGVuZC9yZXN1bWUgZm9yIHNvbWUgdXNlcnMsDQog
-ICBmcm9tIEZyYW5jb2lzIFJvbWlldS4NCg0KMikgUENJIGRtYSBtYXBwaW5nIGVycm9ycyBpbiBh
-dGwxYyBhcmUgbm90IGNoZWNrZWQgZm9yIGFuZCB0aGlzIGNhdXNlDQogICBoYXJkIGNyYXNoZXMg
-Zm9yIHNvbWUgdXNlcnMsIGZyb20gWGlvbmcgSHVhbmcuDQoNCjMpIEluIDMuOC54IHdlIG1lcmdl
-ZCB0aGUgcmVtb3ZhbCBvZiB0aGUgRVhQRVJJTUVOVEFMIGRlcGVuZGVuY3kgZm9yDQogICAnZGxt
-JyBidXQgdGhlIHNhbWUgcGF0Y2ggZm9yICdzY3RwJyBnb3QgbG9zdCBzb21ld2hlcmUsIHJlc3Vs
-dGluZw0KICAgaW4gdGhlIHBvdGVudGlhbCBmb3IgYnVpbGQgZXJyb3JzIHNpbmNlIHRoZXJlIGFy
-ZSBjcm9zcyBkZXBlbmRlbmNpZXMuDQogICBGcm9tIEtlZXMgQ29vay4NCg0KNCkgU0NUUCdzIGlw
-djYgc29ja2V0IHJvdXRlIHZhbGlkYXRpb24gbWFrZXMgYm9vbGVhbiB0ZXN0cyBpbmNvcnJlY3Rs
-eSwNCiAgIGZpeCBmcm9tIERhbmllbCBCb3JrbWFubi4NCg0KNSkgbWFjODAyMTEgZG9lcyBzaXpl
-b2YocHRyKSBpbnN0ZWFkIG9mIChzaXplb2YocHRyKSAqIG5lbGVtKSwgZnJvbSBDb25nDQogICBE
-aW5nLg0KDQo2KSBhcnBfcmN2KCkgY2FuIGNyYXNoIG9uIHNoYXJlZCBub24tbGluZWFyIHBhY2tl
-dHMsIGZyb20gRXJpYyBEdW1hemV0Lg0KDQo3KSBBdm9pZCBjcmFzaGVzIGluIG1hY3Z0YXAgYnkg
-c2V0dGluZyAtPmdzb190eXBlIGNvbnNpc3RlbnRseSBpbiBpeGdiZSwNCiAgIHFsY25pYywgYW5k
-IGJueDJ4IGRyaXZlcnMuICBGcm9tIE1pY2hhZWwgUy4gVHNpcmtpbiBhbmQgQWxleGFuZGVyIER1
-eWNrLg0KDQo4KSBUcmluaXR5IGZ1enplciBzcG90cyBpbmZpbml0ZSBsb29wIGluIF9fc2tiX3Jl
-Y3ZfZGF0YWdyYW0oKSwgZml4IGZyb20NCiAgIEVyaWMgRHVtYXpldC4NCg0KOSkgU1RQIHByb3Rv
-Y29sIGZyYW1lcyBzaG91bGQgdXNlIGhpZ2ggcGFja2V0IHByaW9yaXR5LCBvdGhlcndpc2UgYW4N
-CiAgIG92ZXJsb2FkZWQgYnJpZGdlIGNhbiBnZXQgc3R1Y2suICBGcm9tIFN0ZXBoZW4gSGVtbWlu
-Z2VyLg0KDQoxMCkgVGhlIEhUQiBwYWNrZXQgc2NoZWR1bGVyIHdhcyBjb252ZXJ0ZWQgc29tZSB0
-aW1lIGFnbyB0byBzdG9yZQ0KICAgIGludGVybmFsIHRpbWVzdGFtcHMgaW4gbmFub3NlY29uZHMs
-IGJ1dCB3ZSBkb24ndCBjb252ZXJ0IGJhY2sgaW50bw0KICAgIHBzY2hlZCB0aWNrcyBmb3IgdGhl
-IHVzZXIgZHVyaW5nIGR1bXBzLiAgRml4IGZyb20gSmlyaSBQaXJrby4NCg0KMTEpIG13bDhrIGNo
-YW5uZWwgdGFibGUgZG9lc24ndCBzZXQgdGhlIC5iYW5kIGZpZWxkIHByb3Blcmx5LCByZXN1bHRp
-bmcNCiAgICBpbiBOVUxMIHBvaW50ZXIgZGVyZWZzLiAgRml4IGZyb20gSm9uYXMgR29yc2tpLg0K
-DQoxMikgbWFjODAyMTEgZG9lc24ndCBhY2N1bXVsYXRlIGNoYW5uZWxzIHByb3Blcmx5IGR1cmlu
-ZyBhIHNjYW4gc28gd2UNCiAgICBjYW4gZG93bmdyYWRlIGhlYXZpbHkgdG8gYSBtdWNoIGxlc3Mg
-ZGVzaXJhYmxlIGNvbm5lY3Rpb24gc3BlZWQuDQogICAgRml4IGZyb20gSm9oYW5uZXMgQmVyZy4N
-Cg0KMTMpIFBIWSBwcm9iZSBmYWlsdXJlIGluIHN0bW1hYyBjYW4gcmVzdWx0IGluIHJlc291cmNl
-IGxlYWtzIGFuZA0KICAgIGRvdWJsZSBNRElPIHJlZ2lzdGVyeSBsYXRlciwgZnJvbSBHaXVzZXBw
-ZSBDQVZBTExBUk8uDQoNCjE0KSBDb3JyZWN0IGlwdjYgY2hlY2tzdW1taW5nIGluIGlwNnRfTlBU
-IG5ldGZpbHRlciBtb2R1bGUsIGFsc28gZml4DQogICAgYWRkcmVzcyBwcmVmaXggbWFuZ2xpbmcs
-IGZyb20gWU9TSElGVUpJIEhpZGVha2kuDQoNClBsZWFzZSBwdWxsLCB0aGFua3MgYSBsb3QhDQoN
-ClRoZSBmb2xsb3dpbmcgY2hhbmdlcyBzaW5jZSBjb21taXQgODM2ZGM5ZTNmYmJhYjBjMzBhYTZl
-NjY0NDE3MjI1ZjVjMWZiMWMzOToNCg0KICBMaW51eCAzLjgtcmM3ICgyMDEzLTAyLTA5IDA4OjIw
-OjM5ICsxMTAwKQ0KDQphcmUgYXZhaWxhYmxlIGluIHRoZSBnaXQgcmVwb3NpdG9yeSBhdDoNCg0K
-ICBnaXQ6Ly9naXQua2VybmVsLm9yZy9wdWIvc2NtL2xpbnV4L2tlcm5lbC9naXQvZGF2ZW0vbmV0
-LmdpdCBtYXN0ZXINCg0KZm9yIHlvdSB0byBmZXRjaCBjaGFuZ2VzIHVwIHRvIDNiZGIxYTQ0M2E1
-M2E0MDU4Yjk1YzhhNjdjODU2Y2M4YjgzOTM0MTE6DQoNCiAgbmV0LCBzY3RwOiByZW1vdmUgQ09O
-RklHX0VYUEVSSU1FTlRBTCAoMjAxMy0wMi0xMyAxMzo1NzoyNyAtMDUwMCkNCg0KLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0K
-QWxleGFuZGVyIER1eWNrICgxKToNCiAgICAgIGl4Z2JlOiBPbmx5IHNldCBnc29fdHlwZSB0byBT
-S0JfR1NPX1RDUFY0IGFzIFJTQyBkb2VzIG5vdCBzdXBwb3J0IElQdjYNCg0KQmrDuHJuIE1vcmsg
-KDEpOg0KICAgICAgbmV0OiBxbWlfd3dhbjogYWRkIFlvdGEgLyBNZWdhZm9uIE0xMDAtMSA0ZyBt
-b2RlbQ0KDQpDb25nIERpbmcgKDEpOg0KICAgICAgbWFjODAyMTE6IGZpeCBlcnJvciBpbiBzaXpl
-b2YoKSB1c2FnZQ0KDQpEYW4gQ2FycGVudGVyICgxKToNCiAgICAgIGlwdnM6IGZyZWVpbmcgdW5p
-bml0aWFsaXplZCBwb2ludGVyIG9uIGVycm9yDQoNCkRhbmllbCBCb3JrbWFubiAoMik6DQogICAg
-ICBpcHZzOiBzY3RwOiBmaXggY2hlY2tzdW1taW5nIG9uIHNuYXQgYW5kIGRuYXQgaGFuZGxlcnMN
-CiAgICAgIG5ldDogc2N0cDogc2N0cF92Nl9nZXRfZHN0OiBmaXggYm9vbGVhbiB0ZXN0IGluIGRz
-dCBjYWNoZQ0KDQpEYXZpZCBTLiBNaWxsZXIgKDQpOg0KICAgICAgTWVyZ2UgYnJhbmNoICdkYXZl
-bS5yODE2OScgb2YgZ2l0Oi8vdmlvbGV0LmZyLnpvcmVpbC5jb20vcm9taWV1L2xpbnV4DQogICAg
-ICBNZXJnZSBicmFuY2ggJ2dzb190eXBlJw0KICAgICAgTWVyZ2UgYnJhbmNoICdtYXN0ZXInIG9m
-IGdpdDovLzE5ODQubHNpLnVzLmVzL25mDQogICAgICBNZXJnZSBicmFuY2ggJ2Zvci1kYXZlbScg
-b2YgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvLi4uL2xpbnZpbGxlL3dpcmVsZXNzDQoNCkVyaWMgRHVt
-YXpldCAoMik6DQogICAgICBhcnA6IGZpeCBwb3NzaWJsZSBjcmFzaCBpbiBhcnBfcmN2KCkNCiAg
-ICAgIG5ldDogZml4IGluZmluaXRlIGxvb3AgaW4gX19za2JfcmVjdl9kYXRhZ3JhbSgpDQoNCkZy
-YW5jb2lzIFJvbWlldSAoMik6DQogICAgICBSZXZlcnQgInI4MTY5OiBlbmFibGUgQUxEUFMgZm9y
-IHBvd2VyIHNhdmluZyIuDQogICAgICBSZXZlcnQgInI4MTY5OiBlbmFibGUgaW50ZXJuYWwgQVNQ
-TSBhbmQgY2xvY2sgcmVxdWVzdCBzZXR0aW5ncyIuDQoNCkdpdXNlcHBlIENBVkFMTEFSTyAoMik6
-DQogICAgICBzdG1tYWM6IGZpeCBtYWNybyB1c2VkIGZvciBkZWJ1Z2dpbmcgdGhlIHhtaXQNCiAg
-ICAgIHN0bW1hYzogbWRpbyByZWdpc3RlciBoYXMgdG8gZmFpbCBpZiB0aGUgcGh5IGlzIG5vdCBm
-b3VuZA0KDQpIdWFuZywgWGlvbmcgKDEpOg0KICAgICAgYXRsMWM6IGFkZCBlcnJvciBjaGVja2lu
-ZyBmb3IgcGNpX21hcF9zaW5nbGUgZnVuY3Rpb25zDQoNCkppcmkgUGlya28gKDEpOg0KICAgICAg
-aHRiOiBmaXggdmFsdWVzIGluIG9wdCBkdW1wDQoNCkpvaGFubmVzIEJlcmcgKDIpOg0KICAgICAg
-bWFjODAyMTE6IGZpeCBtYW5hZ2VkIG1vZGUgY2hhbm5lbCBjb250ZXh0IHVzZQ0KICAgICAgbWFj
-ODAyMTE6IGZpeCBjaGFubmVsIHNlbGVjdGlvbiBidWcNCg0KSm9obiBXLiBMaW52aWxsZSAoMik6
-DQogICAgICBNZXJnZSBicmFuY2ggJ2Zvci1qb2huJyBvZiBnaXQ6Ly9naXQua2VybmVsLm9yZy8u
-Li4vamJlcmcvbWFjODAyMTENCiAgICAgIE1lcmdlIGJyYW5jaCAnbWFzdGVyJyBvZiBnaXQ6Ly9n
-aXQua2VybmVsLm9yZy8uLi4vbGludmlsbGUvd2lyZWxlc3MgaW50byBmb3ItZGF2ZW0NCg0KSm9u
-YXMgR29yc2tpICgxKToNCiAgICAgIG13bDhrOiBmaXggYmFuZCBmb3Igc3VwcG9ydGVkIGNoYW5u
-ZWxzDQoNCktlZXMgQ29vayAoMSk6DQogICAgICBuZXQsIHNjdHA6IHJlbW92ZSBDT05GSUdfRVhQ
-RVJJTUVOVEFMDQoNCk1pY2hhZWwgUy4gVHNpcmtpbiAoMyk6DQogICAgICBpeGdiZTogZml4IGdz
-byB0eXBlDQogICAgICBxbGNuaWM6IHNldCBnc29fdHlwZQ0KICAgICAgYm54Mng6IHNldCBnc29f
-dHlwZQ0KDQpOaWNvbGFzIEZlcnJlICgxKToNCiAgICAgIG5ldC9tYWNiOiBmaXggcmFjZSB3aXRo
-IFJYIGludGVycnVwdCB3aGlsZSBkb2luZyBOQVBJDQoNClBhdSBLb25pbmcgKDEpOg0KICAgICAg
-YmF0bWFuLWFkdjogRml4IE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBpbiBEQVQgaGFzaCBjb2xs
-aXNpb24gYXZvaWRhbmNlDQoNClN0ZXBoZW4gSGVtbWluZ2VyICgxKToNCiAgICAgIGJyaWRnZTog
-c2V0IHByaW9yaXR5IG9mIFNUUCBwYWNrZXRzDQoNCllPU0hJRlVKSSBIaWRlYWtpIC8g5ZCJ6Jek
-6Iux5piOICgzKToNCiAgICAgIG5ldGZpbHRlcjogaXA2dF9OUFQ6IEZpeCBhZGp1c3RtZW50IGNh
-bGN1bGF0aW9uDQogICAgICBuZXRmaWx0ZXI6IGlwNnRfTlBUOiBGaXggcHJlZml4IG1hbmdsaW5n
-DQogICAgICBuZXRmaWx0ZXI6IGlwNnRfTlBUOiBFbnN1cmUgdG8gY2hlY2sgbG93ZXIgcGFydCBv
-ZiBwcmVmaXhlcyBhcmUgemVybw0KDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvYXRoZXJvcy9hdGwx
-Yy9hdGwxY19tYWluLmMgICB8IDcxICsrKysrKysrKysrKysrKysrLS0NCiBkcml2ZXJzL25ldC9l
-dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9jbW4uYyAgIHwgMTIgKystLQ0KIGRyaXZlcnMv
-bmV0L2V0aGVybmV0L2NhZGVuY2UvbWFjYi5jICAgICAgICAgICAgICAgfCAgNSArKw0KIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyAgICAgfCAgMSArDQogZHJp
-dmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNuaWNfaW8uYyAgICB8ICA3ICstDQog
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVhbHRlay9yODE2OS5jICAgICAgICAgICAgICB8IDg2ICsr
-KysrLS0tLS0tLS0tLS0tLS0tLS0tDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9zdG1t
-YWMvc3RtbWFjX21haW4uYyB8ICAyICstDQogZHJpdmVycy9uZXQvZXRoZXJuZXQvc3RtaWNyby9z
-dG1tYWMvc3RtbWFjX21kaW8uYyB8IDEwICsrLQ0KIGRyaXZlcnMvbmV0L3VzYi9xbWlfd3dhbi5j
-ICAgICAgICAgICAgICAgICAgICAgICAgfCAgMSArDQogZHJpdmVycy9uZXQvd2lyZWxlc3MvbXds
-OGsuYyAgICAgICAgICAgICAgICAgICAgICB8IDM2ICsrKysrLS0tLS0NCiBuZXQvYmF0bWFuLWFk
-di9kaXN0cmlidXRlZC1hcnAtdGFibGUuYyAgICAgICAgICAgIHwgIDIgKy0NCiBuZXQvYnJpZGdl
-L2JyX3N0cF9icGR1LmMgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKw0KIG5ldC9jb3Jl
-L2RhdGFncmFtLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQ0KIG5ldC9p
-cHY0L2FycC5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAyMSArKystLS0N
-CiBuZXQvaXB2Ni9uZXRmaWx0ZXIvaXA2dF9OUFQuYyAgICAgICAgICAgICAgICAgICAgIHwgMTgg
-KysrLS0NCiBuZXQvbWFjODAyMTEvY2ZnLmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-IHwgIDMgKy0NCiBuZXQvbWFjODAyMTEvbWxtZS5jICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgIHwgMTEgKy0tDQogbmV0L25ldGZpbHRlci9pcHZzL2lwX3ZzX3Byb3RvX3NjdHAuYyAgICAg
-ICAgICAgICB8IDM1ICsrKysrLS0tLQ0KIG5ldC9uZXRmaWx0ZXIvaXB2cy9pcF92c19zeW5jLmMg
-ICAgICAgICAgICAgICAgICAgfCAgMiArDQogbmV0L3NjaGVkL3NjaF9odGIuYyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICB8ICA0ICstDQogbmV0L3NjdHAvS2NvbmZpZyAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICB8ICA0ICstDQogbmV0L3NjdHAvaXB2Ni5jICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICB8ICA1ICstDQogMjIgZmlsZXMgY2hhbmdlZCwgMTkx
-IGluc2VydGlvbnMoKyksIDE0OSBkZWxldGlvbnMoLSkNCg==
+On Wed, 13 Feb 2013 12:41:47 -0500
+Vlad Yasevich <vyasevic@redhat.com> wrote:
+
+> When a user adds bridge neighbors, allow him to specify VLAN id.
+> If the VLAN id is not specified, the neighbor will be added
+> for VLANs currently in the ports filter list.  If no VLANs are
+> configured on the port, we use vlan 0 and only add 1 entry.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+>  drivers/net/macvlan.c                         |    2 +-
+>  drivers/net/vxlan.c                           |    3 +-
+>  include/linux/netdevice.h                     |    1 +
+>  include/uapi/linux/neighbour.h                |    1 +
+>  net/bridge/br_fdb.c                           |  148
+> ++++++++++++++++++++++---
+> net/bridge/br_private.h                       |    6 +-
+> net/core/rtnetlink.c                          |   23 +++-- 8 files
+> changed, 154 insertions(+), 32 deletions(-)
+
+You (or someone) needs to fix up the ndo_fdb_del functions for the
+mellanox and qlogic drivers also since that also instantiate those
+operations.
+
+I look forward to having this feature set.  Quite useful.
+
+Thanks,
+
+- Greg Rose
+Networking Division
+Intel Corp.
+
+> 
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c index
+> eecd9cb..c1394dd 100644 ---
+> a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c +++
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c @@ -7001,7 +7001,7 @@
+> static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+> return err; }
+>  
+> -static int ixgbe_ndo_fdb_del(struct ndmsg *ndm,
+> +static int ixgbe_ndo_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+>  			     struct net_device *dev,
+>  			     const unsigned char *addr)
+>  {
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 7b44ebd..afbea93 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -564,7 +564,7 @@ static int macvlan_fdb_add(struct ndmsg *ndm,
+> struct nlattr *tb[], return err;
+>  }
+>  
+> -static int macvlan_fdb_del(struct ndmsg *ndm,
+> +static int macvlan_fdb_del(struct ndmsg *ndm, struct nlattr *tb[],
+>  			   struct net_device *dev,
+>  			   const unsigned char *addr)
+>  {
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 72485b9..9d70421 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -393,7 +393,8 @@ static int vxlan_fdb_add(struct ndmsg *ndm,
+> struct nlattr *tb[], }
+>  
+>  /* Delete entry (via netlink) */
+> -static int vxlan_fdb_delete(struct ndmsg *ndm, struct net_device
+> *dev, +static int vxlan_fdb_delete(struct ndmsg *ndm, struct nlattr
+> *tb[],
+> +			    struct net_device *dev,
+>  			    const unsigned char *addr)
+>  {
+>  	struct vxlan_dev *vxlan = netdev_priv(dev);
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index bf3db11..6eb70eb 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1008,6 +1008,7 @@ struct net_device_ops {
+>  					       const unsigned char
+> *addr, u16 flags);
+>  	int			(*ndo_fdb_del)(struct ndmsg *ndm,
+> +					       struct nlattr *tb[],
+>  					       struct net_device
+> *dev, const unsigned char *addr);
+>  	int			(*ndo_fdb_dump)(struct sk_buff
+> *skb, diff --git a/include/uapi/linux/neighbour.h
+> b/include/uapi/linux/neighbour.h index 275e5d6..adb068c 100644
+> --- a/include/uapi/linux/neighbour.h
+> +++ b/include/uapi/linux/neighbour.h
+> @@ -20,6 +20,7 @@ enum {
+>  	NDA_LLADDR,
+>  	NDA_CACHEINFO,
+>  	NDA_PROBES,
+> +	NDA_VLAN,
+>  	__NDA_MAX
+>  };
+>  
+> diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+> index 276a522..4b75ad4 100644
+> --- a/net/bridge/br_fdb.c
+> +++ b/net/bridge/br_fdb.c
+> @@ -505,6 +505,10 @@ static int fdb_fill_info(struct sk_buff *skb,
+> const struct net_bridge *br, ci.ndm_refcnt	 = 0;
+>  	if (nla_put(skb, NDA_CACHEINFO, sizeof(ci), &ci))
+>  		goto nla_put_failure;
+> +
+> +	if (nla_put(skb, NDA_VLAN, sizeof(u16), &fdb->vlan_id))
+> +		goto nla_put_failure;
+> +
+>  	return nlmsg_end(skb, nlh);
+>  
+>  nla_put_failure:
+> @@ -516,6 +520,7 @@ static inline size_t fdb_nlmsg_size(void)
+>  {
+>  	return NLMSG_ALIGN(sizeof(struct ndmsg))
+>  		+ nla_total_size(ETH_ALEN) /* NDA_LLADDR */
+> +		+ nla_total_size(sizeof(u16)) /* NDA_VLAN */
+>  		+ nla_total_size(sizeof(struct nda_cacheinfo));
+>  }
+>  
+> @@ -617,6 +622,25 @@ static int fdb_add_entry(struct net_bridge_port
+> *source, const __u8 *addr, return 0;
+>  }
+>  
+> +static int __br_fdb_add(struct ndmsg *ndm, struct net_bridge_port *p,
+> +	       const unsigned char *addr, u16 nlh_flags, u16 vid)
+> +{
+> +	int err = 0;
+> +
+> +	if (ndm->ndm_flags & NTF_USE) {
+> +		rcu_read_lock();
+> +		br_fdb_update(p->br, p, addr, vid);
+> +		rcu_read_unlock();
+> +	} else {
+> +		spin_lock_bh(&p->br->hash_lock);
+> +		err = fdb_add_entry(p, addr, ndm->ndm_state,
+> +				    nlh_flags, vid);
+> +		spin_unlock_bh(&p->br->hash_lock);
+> +	}
+> +
+> +	return err;
+> +}
+> +
+>  /* Add new permanent fdb entry with RTM_NEWNEIGH */
+>  int br_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+>  	       struct net_device *dev,
+> @@ -624,12 +648,29 @@ int br_fdb_add(struct ndmsg *ndm, struct nlattr
+> *tb[], {
+>  	struct net_bridge_port *p;
+>  	int err = 0;
+> +	struct net_port_vlans *pv;
+> +	unsigned short vid = VLAN_N_VID;
+>  
+>  	if (!(ndm->ndm_state &
+> (NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE))) { pr_info("bridge:
+> RTM_NEWNEIGH with invalid state %#x\n", ndm->ndm_state); return
+> -EINVAL; }
+>  
+> +	if (tb[NDA_VLAN]) {
+> +		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short))
+> {
+> +			pr_info("bridge: RTM_NEWNEIGH with invalid
+> vlan\n");
+> +			return -EINVAL;
+> +		}
+> +
+> +		vid = nla_get_u16(tb[NDA_VLAN]);
+> +
+> +		if (vid >= VLAN_N_VID) {
+> +			pr_info("bridge: RTM_NEWNEIGH with invalid
+> vlan id %d\n",
+> +				vid);
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+>  	p = br_port_get_rtnl(dev);
+>  	if (p == NULL) {
+>  		pr_info("bridge: RTM_NEWNEIGH %s not a bridge
+> port\n", @@ -637,41 +678,90 @@ int br_fdb_add(struct ndmsg *ndm,
+> struct nlattr *tb[], return -EINVAL;
+>  	}
+>  
+> -	if (ndm->ndm_flags & NTF_USE) {
+> -		rcu_read_lock();
+> -		br_fdb_update(p->br, p, addr, 0);
+> -		rcu_read_unlock();
+> +	pv = nbp_get_vlan_info(p);
+> +	if (vid != VLAN_N_VID) {
+> +		if (!pv || !test_bit(vid, pv->vlan_bitmap)) {
+> +			pr_info("bridge: RTM_NEWNEIGH with
+> unconfigured "
+> +				"vlan %d on port %s\n", vid,
+> dev->name);
+> +			return -EINVAL;
+> +		}
+> +
+> +		/* VID was specified, so use it. */
+> +		err = __br_fdb_add(ndm, p, addr, nlh_flags, vid);
+>  	} else {
+> -		spin_lock_bh(&p->br->hash_lock);
+> -		err = fdb_add_entry(p, addr, ndm->ndm_state,
+> nlh_flags,
+> -				0);
+> -		spin_unlock_bh(&p->br->hash_lock);
+> +		if (!pv || bitmap_empty(pv->vlan_bitmap,
+> BR_VLAN_BITMAP_LEN)) {
+> +			err = __br_fdb_add(ndm, p, addr, nlh_flags,
+> 0);
+> +			goto out;
+> +		}
+> +
+> +		/* We have vlans configured on this port and user
+> didn't
+> +		 * specify a VLAN.  To be nice, add/update entry for
+> every
+> +		 * vlan on this port.
+> +		 */
+> +		vid = find_first_bit(pv->vlan_bitmap,
+> BR_VLAN_BITMAP_LEN);
+> +		while (vid < BR_VLAN_BITMAP_LEN) {
+> +			err = __br_fdb_add(ndm, p, addr, nlh_flags,
+> vid);
+> +			if (err)
+> +				goto out;
+> +			vid = find_next_bit(pv->vlan_bitmap,
+> +					    BR_VLAN_BITMAP_LEN,
+> vid+1);
+> +		}
+>  	}
+>  
+> +out:
+>  	return err;
+>  }
+>  
+> -static int fdb_delete_by_addr(struct net_bridge_port *p, const u8
+> *addr) +static int fdb_delete_by_addr(struct net_bridge *br, const u8
+> *addr,
+> +			      u16 vlan)
+>  {
+> -	struct net_bridge *br = p->br;
+> -	struct hlist_head *head = &br->hash[br_mac_hash(addr, 0)];
+> +	struct hlist_head *head = &br->hash[br_mac_hash(addr, vlan)];
+>  	struct net_bridge_fdb_entry *fdb;
+>  
+> -	fdb = fdb_find(head, addr, 0);
+> +	fdb = fdb_find(head, addr, vlan);
+>  	if (!fdb)
+>  		return -ENOENT;
+>  
+> -	fdb_delete(p->br, fdb);
+> +	fdb_delete(br, fdb);
+>  	return 0;
+>  }
+>  
+> +static int __br_fdb_delete(struct net_bridge_port *p,
+> +			   const unsigned char *addr, u16 vid)
+> +{
+> +	int err;
+> +
+> +	spin_lock_bh(&p->br->hash_lock);
+> +	err = fdb_delete_by_addr(p->br, addr, vid);
+> +	spin_unlock_bh(&p->br->hash_lock);
+> +
+> +	return err;
+> +}
+> +
+>  /* Remove neighbor entry with RTM_DELNEIGH */
+> -int br_fdb_delete(struct ndmsg *ndm, struct net_device *dev,
+> +int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+> +		  struct net_device *dev,
+>  		  const unsigned char *addr)
+>  {
+>  	struct net_bridge_port *p;
+>  	int err;
+> +	struct net_port_vlans *pv;
+> +	unsigned short vid = VLAN_N_VID;
+>  
+> +	if (tb[NDA_VLAN]) {
+> +		if (nla_len(tb[NDA_VLAN]) != sizeof(unsigned short))
+> {
+> +			pr_info("bridge: RTM_NEWNEIGH with invalid
+> vlan\n");
+> +			return -EINVAL;
+> +		}
+> +
+> +		vid = nla_get_u16(tb[NDA_VLAN]);
+> +
+> +		if (vid >= VLAN_N_VID) {
+> +			pr_info("bridge: RTM_NEWNEIGH with invalid
+> vlan id %d\n",
+> +				vid);
+> +			return -EINVAL;
+> +		}
+> +	}
+>  	p = br_port_get_rtnl(dev);
+>  	if (p == NULL) {
+>  		pr_info("bridge: RTM_DELNEIGH %s not a bridge
+> port\n", @@ -679,9 +769,33 @@ int br_fdb_delete(struct ndmsg *ndm,
+> struct net_device *dev, return -EINVAL;
+>  	}
+>  
+> -	spin_lock_bh(&p->br->hash_lock);
+> -	err = fdb_delete_by_addr(p, addr);
+> -	spin_unlock_bh(&p->br->hash_lock);
+> +	pv = nbp_get_vlan_info(p);
+> +	if (vid != VLAN_N_VID) {
+> +		if (!pv || !test_bit(vid, pv->vlan_bitmap)) {
+> +			pr_info("bridge: RTM_DELNEIGH with
+> unconfigured "
+> +				"vlan %d on port %s\n", vid,
+> dev->name);
+> +			return -EINVAL;
+> +		}
+>  
+> +		err = __br_fdb_delete(p, addr, vid);
+> +	} else {
+> +		if (!pv || bitmap_empty(pv->vlan_bitmap,
+> BR_VLAN_BITMAP_LEN)) {
+> +			err = __br_fdb_delete(p, addr, 0);
+> +			goto out;
+> +		}
+> +
+> +		/* We have vlans configured on this port and user
+> didn't
+> +		 * specify a VLAN.  To be nice, add/update entry for
+> every
+> +		 * vlan on this port.
+> +		 */
+> +		err = -ENOENT;
+> +		vid = find_first_bit(pv->vlan_bitmap,
+> BR_VLAN_BITMAP_LEN);
+> +		while (vid < BR_VLAN_BITMAP_LEN) {
+> +			err &= __br_fdb_delete(p, addr, vid);
+> +			vid = find_next_bit(pv->vlan_bitmap,
+> +					    BR_VLAN_BITMAP_LEN,
+> vid+1);
+> +		}
+> +	}
+> +out:
+>  	return err;
+>  }
+> diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+> index eb197a9..7d2ae78 100644
+> --- a/net/bridge/br_private.h
+> +++ b/net/bridge/br_private.h
+> @@ -391,7 +391,7 @@ extern void br_fdb_update(struct net_bridge *br,
+>  			  const unsigned char *addr,
+>  			  u16 vid);
+>  
+> -extern int br_fdb_delete(struct ndmsg *ndm,
+> +extern int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+>  			 struct net_device *dev,
+>  			 const unsigned char *addr);
+>  extern int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[],
+> @@ -580,13 +580,13 @@ extern void nbp_vlan_flush(struct
+> net_bridge_port *port); static inline struct net_port_vlans
+> *br_get_vlan_info( const struct net_bridge *br)
+>  {
+> -	return rcu_dereference(br->vlan_info);
+> +	return rcu_dereference_rtnl(br->vlan_info);
+>  }
+>  
+>  static inline struct net_port_vlans *nbp_get_vlan_info(
+>  						const struct
+> net_bridge_port *p) {
+> -	return rcu_dereference(p->vlan_info);
+> +	return rcu_dereference_rtnl(p->vlan_info);
+>  }
+>  
+>  /* Since bridge now depends on 8021Q module, but the time bridge
+> sees the diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index e163a60..257b73e 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -2122,7 +2122,7 @@ static int rtnl_fdb_del(struct sk_buff *skb,
+> struct nlmsghdr *nlh, void *arg) {
+>  	struct net *net = sock_net(skb->sk);
+>  	struct ndmsg *ndm;
+> -	struct nlattr *llattr;
+> +	struct nlattr *tb[NDA_MAX+1];
+>  	struct net_device *dev;
+>  	int err = -EINVAL;
+>  	__u8 *addr;
+> @@ -2130,8 +2130,9 @@ static int rtnl_fdb_del(struct sk_buff *skb,
+> struct nlmsghdr *nlh, void *arg) if (!capable(CAP_NET_ADMIN))
+>  		return -EPERM;
+>  
+> -	if (nlmsg_len(nlh) < sizeof(*ndm))
+> -		return -EINVAL;
+> +	err = nlmsg_parse(nlh, sizeof(*ndm), tb, NDA_MAX, NULL);
+> +	if (err < 0)
+> +		return err;
+>  
+>  	ndm = nlmsg_data(nlh);
+>  	if (ndm->ndm_ifindex == 0) {
+> @@ -2145,13 +2146,17 @@ static int rtnl_fdb_del(struct sk_buff *skb,
+> struct nlmsghdr *nlh, void *arg) return -ENODEV;
+>  	}
+>  
+> -	llattr = nlmsg_find_attr(nlh, sizeof(*ndm), NDA_LLADDR);
+> -	if (llattr == NULL || nla_len(llattr) != ETH_ALEN) {
+> -		pr_info("PF_BRIGDE: RTM_DELNEIGH with invalid
+> address\n");
+> +	if (!tb[NDA_LLADDR] || nla_len(tb[NDA_LLADDR]) != ETH_ALEN) {
+> +		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid
+> address\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	addr = nla_data(tb[NDA_LLADDR]);
+> +	if (!is_valid_ether_addr(addr)) {
+> +		pr_info("PF_BRIDGE: RTM_DELNEIGH with invalid ether
+> address\n"); return -EINVAL;
+>  	}
+>  
+> -	addr = nla_data(llattr);
+>  	err = -EOPNOTSUPP;
+>  
+>  	/* Support fdb on master device the net/bridge default case
+> */ @@ -2161,7 +2166,7 @@ static int rtnl_fdb_del(struct sk_buff *skb,
+> struct nlmsghdr *nlh, void *arg) const struct net_device_ops *ops =
+> br_dev->netdev_ops; 
+>  		if (ops->ndo_fdb_del)
+> -			err = ops->ndo_fdb_del(ndm, dev, addr);
+> +			err = ops->ndo_fdb_del(ndm, tb, dev, addr);
+>  
+>  		if (err)
+>  			goto out;
+> @@ -2171,7 +2176,7 @@ static int rtnl_fdb_del(struct sk_buff *skb,
+> struct nlmsghdr *nlh, void *arg) 
+>  	/* Embedded bridge, macvlan, and any other device support */
+>  	if ((ndm->ndm_flags & NTF_SELF) &&
+> dev->netdev_ops->ndo_fdb_del) {
+> -		err = dev->netdev_ops->ndo_fdb_del(ndm, dev, addr);
+> +		err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev,
+> addr); 
+>  		if (!err) {
+>  			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
