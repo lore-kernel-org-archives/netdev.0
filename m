@@ -1,54 +1,50 @@
 From: pablo@netfilter.org
-Subject: [PATCH 3/3] netfilter: nf_ct_reasm: fix per-netns sysctl initialization
-Date: Wed, 13 Feb 2013 21:38:33 +0100
-Message-ID: <1360787913-10335-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/3] netfilter: nf_ct_helper: don't discard helper if it is actually the same
+Date: Wed, 13 Feb 2013 21:38:32 +0100
+Message-ID: <1360787913-10335-3-git-send-email-pablo@netfilter.org>
 References: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from slan-550-85.anhosting.com ([209.236.71.68]:13914 "EHLO
-	slan-550-85.anhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934256Ab3BMUit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 15:38:49 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Michal Kube=C4=8Dek <mkubecek@suse.cz>
+From: Florian Westphal <fw@strlen.de>
 
-Adjusting of data pointers in net/netfilter/nf_conntrack_frag6_*
-sysctl table for other namespaces points to wrong netns_frags
-structure and has reversed order of entries.
+commit (32f5376 netfilter: nf_ct_helper: disable automatic helper
+re-assignment of different type) broke transparent proxy scenarios.
 
-Problem introduced by commit c038a767cd69 in 3.7-rc1
+For example, initial helper lookup might yield "ftp" (dport 21),
+while re-lookup after REDIRECT yields "ftp-2121".
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+This causes the autoassign code to toss the ftp helper, even
+though these are just different instances of the same helper.
+
+Change the test to check for the helper function address instead
+of the helper address, as suggested by Pablo.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@gnumonks.org>
 ---
- net/ipv6/netfilter/nf_conntrack_reasm.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/nf_conntrack_helper.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilt=
-er/nf_conntrack_reasm.c
-index 3dacecc..0156d07 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -97,9 +97,9 @@ static int nf_ct_frag6_sysctl_register(struct net *ne=
-t)
- 		if (table =3D=3D NULL)
- 			goto err_alloc;
-=20
--		table[0].data =3D &net->ipv6.frags.high_thresh;
--		table[1].data =3D &net->ipv6.frags.low_thresh;
--		table[2].data =3D &net->ipv6.frags.timeout;
-+		table[0].data =3D &net->nf_frag.frags.timeout;
-+		table[1].data =3D &net->nf_frag.frags.low_thresh;
-+		table[2].data =3D &net->nf_frag.frags.high_thresh;
- 	}
-=20
- 	hdr =3D register_net_sysctl(net, "net/netfilter", table);
---=20
+diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+index 884f2b3..91527d5 100644
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -236,7 +236,9 @@ int __nf_ct_try_assign_helper(struct nf_conn *ct, struct nf_conn *tmpl,
+ 		/* We only allow helper re-assignment of the same sort since
+ 		 * we cannot reallocate the helper extension area.
+ 		 */
+-		if (help->helper != helper) {
++		struct nf_conntrack_helper *tmp = rcu_dereference(help->helper);
++
++		if (tmp && tmp->help != helper->help) {
+ 			RCU_INIT_POINTER(help->helper, NULL);
+ 			goto out;
+ 		}
+-- 
 1.7.10.4
+
