@@ -1,19 +1,19 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v10 net-next 00/12] VLAN filtering/VLAN aware
 	bridge
-Date: Wed, 13 Feb 2013 14:43:03 -0500
-Message-ID: <511BECC7.4040406@redhat.com>
+Date: Wed, 13 Feb 2013 14:48:45 -0500 (EST)
+Message-ID: <20130213.144845.380703713884877807.davem@davemloft.net>
 References: <1360777309-25522-1-git-send-email-vyasevic@redhat.com>
 	<20130213.140851.2190933816965797127.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+	<511BECC7.4040406@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
 	bridge@lists.linux-foundation.org
-To: David Miller <davem@davemloft.net>
+To: vyasevic@redhat.com
 Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130213.140851.2190933816965797127.davem@davemloft.net>
+In-Reply-To: <511BECC7.4040406@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -25,32 +25,36 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 02/13/2013 02:08 PM, David Miller wrote:
-> From: Vlad Yasevich <vyasevic@redhat.com>
-> Date: Wed, 13 Feb 2013 12:41:37 -0500
->
->> Changes since v9:
->> * series re-ordering so make functionality more distinct.  Basic vlan
->>    filtering is patches 1-4.  Support for PVID/untagged vlans is patches
->>    5 and 6.  VLAN support for FDB/MDB is patches 7-11.  Patch 12 is
->>    still additional egress policy.
->> * Slight simplification to code that extracts the VID from skb.  Since we
->>    now depend on the vlan module, at the time of input skb_tci is guaranteed
->>    to be set if the packet had 8021q header.  We can simply refere to it.
->> * Changed the opaque 'parent' pointer from prior patches to a union so we
->>    can be much more explicit in our assignments.
->> * Lots of additional testing with STP turned on.  No issues were observed.
->
-> Thanks a lot for keeping this series uptodate Vlad.
->
-> Stephen, I think this series is ready, anything needed to be fixed still
-> can be follow-on patches.  Agreed?
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Wed, 13 Feb 2013 14:43:03 -0500
 
-Looks like there are 2 more drivers that need to be update for 
-ndo_fdb_del.  I'll rebase and re-spin.
+> On 02/13/2013 02:08 PM, David Miller wrote:
+>> From: Vlad Yasevich <vyasevic@redhat.com>
+>> Date: Wed, 13 Feb 2013 12:41:37 -0500
+>>
+>>> Changes since v9:
+>>> * series re-ordering so make functionality more distinct.  Basic vlan
+>>>    filtering is patches 1-4.  Support for PVID/untagged vlans is patches
+>>>    5 and 6.  VLAN support for FDB/MDB is patches 7-11.  Patch 12 is
+>>>    still additional egress policy.
+>>> * Slight simplification to code that extracts the VID from skb.  Since
+>>> * we
+>>>    now depend on the vlan module, at the time of input skb_tci is
+>>>    guaranteed
+>>>    to be set if the packet had 8021q header.  We can simply refere to it.
+>>> * Changed the opaque 'parent' pointer from prior patches to a union so
+>>> * we
+>>>    can be much more explicit in our assignments.
+>>> * Lots of additional testing with STP turned on.  No issues were
+>>> * observed.
+>>
+>> Thanks a lot for keeping this series uptodate Vlad.
+>>
+>> Stephen, I think this series is ready, anything needed to be fixed
+>> still
+>> can be follow-on patches.  Agreed?
+> 
+> Looks like there are 2 more drivers that need to be update for
+> ndo_fdb_del.  I'll rebase and re-spin.
 
--vlad
-
->
-> Thanks.
->
+Ok.
