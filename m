@@ -1,207 +1,92 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/2] gianfar: convert u64 status counters to atomic64_t
-Date: Tue, 12 Feb 2013 19:24:24 -0500
-Message-ID: <1360715064-2689-3-git-send-email-paul.gortmaker@windriver.com>
-References: <1360715064-2689-1-git-send-email-paul.gortmaker@windriver.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: how to handle bonding failover when using a bridge over the bond?
+Date: Tue, 12 Feb 2013 18:30:51 -0600
+Message-ID: <511ADEBB.1000701@genband.com>
+References: <511ACE16.3080906@genband.com> <32261.1360713746@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	bridge@lists.linux-foundation.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:43641 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759390Ab3BMAYq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 19:24:46 -0500
-In-Reply-To: <1360715064-2689-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from exprod7og101.obsmtp.com ([64.18.2.155]:60815 "EHLO
+	exprod7og101.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757225Ab3BMAbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 19:31:25 -0500
+In-Reply-To: <32261.1360713746@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While looking at some asm dump for an unrelated change, Eric
-noticed in the following stats count increment code:
+On 02/12/2013 06:02 PM, Jay Vosburgh wrote:
+> Chris Friesen<chris.friesen@genband.com>  wrote:
+>
+>> I've got a scenario that seems to be not well handled with the current
+>> bonding code in linux, but maybe I'm missing something.
+>>
+>> I have a physical host with two ethernet links that are bonded together
+>> (active/backup).  Each link is connected to a separate L2 switch, which
+>> are in turn connected with a crosslink for redundancy.
+>>
+>> The physical host is running multiple virtual machines each with a virtual
+>> adapter.  The virtual adapters and the bond are all bridged together to
+>> allow communication between the virtual machines, the host, and the
+>> outside world.
+>>
+>> Now suppose one of the slave links fails. The bond device will failover to
+>> the other slave and send out a gratuitous arp on the newly active slave.
+>> This will cause the L2 switches to update their lookup tables for the MAC
+>> address associated with the bond (so it now points to the newly active
+>> slave), but doesn't update the MAC addresses associated with the various
+>> virtual machines.  If someone on the network sends a packet to one of the
+>> virtual machines, the switch will try to send it over the failed slave.
+>
+> 	If the link failure is such that there is no carrier on the
+> switch port, the switch will drop the forwarding entry for the virtual
+> machine's MAC address from that port.  The traffic for the VM's MAC
+> would then flood to all ports, presumably including the link to the
+> other switch, which wouldn't have a forwarding entry for the MAC, either
+> (or it would be the switch link port), and would also flood it to all
+> ports, one of which is the correct one.
 
-    50b8:       81 3c 01 f8     lwz     r9,504(r28)
-    50bc:       81 5c 01 fc     lwz     r10,508(r28)
-    50c0:       31 4a 00 01     addic   r10,r10,1
-    50c4:       7d 29 01 94     addze   r9,r9
-    50c8:       91 3c 01 f8     stw     r9,504(r28)
-    50cc:       91 5c 01 fc     stw     r10,508(r28)
+This makes sense, though it wouldn't cover the case where the link only 
+loses carrier in one direction, or if the bond is using arp failover and 
+something fails beyond the first hop.
 
-that a 64 bit counter was used on ppc-32 without sync
-and hence the "ethtool -S" output was racy.
+> 	Is this actually failing for you, or is this a thought
+> experiment?
 
-Here we convert all the values to use atomic64_t so that
-the output will always be consistent.
+It actually failed.  During a customer demo.  :)  From what I understand 
+it was a physical link pull, which (based on what you say above) should 
+have caused the switch to react appropriately.
 
-Reported-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/ethernet/freescale/gianfar.c         | 26 ++++++++++----------
- drivers/net/ethernet/freescale/gianfar.h         | 31 ++++++++++++------------
- drivers/net/ethernet/freescale/gianfar_ethtool.c |  4 +--
- 3 files changed, 31 insertions(+), 30 deletions(-)
+I'll see if I can get some more information.  Maybe the switches weren't 
+behaving properly or something.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index ab32bd0..c82f677 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -2648,7 +2648,7 @@ static inline void count_errors(unsigned short status, struct net_device *dev)
- 	if (status & RXBD_TRUNCATED) {
- 		stats->rx_length_errors++;
- 
--		estats->rx_trunc++;
-+		atomic64_inc(&estats->rx_trunc);
- 
- 		return;
- 	}
-@@ -2657,20 +2657,20 @@ static inline void count_errors(unsigned short status, struct net_device *dev)
- 		stats->rx_length_errors++;
- 
- 		if (status & RXBD_LARGE)
--			estats->rx_large++;
-+			atomic64_inc(&estats->rx_large);
- 		else
--			estats->rx_short++;
-+			atomic64_inc(&estats->rx_short);
- 	}
- 	if (status & RXBD_NONOCTET) {
- 		stats->rx_frame_errors++;
--		estats->rx_nonoctet++;
-+		atomic64_inc(&estats->rx_nonoctet);
- 	}
- 	if (status & RXBD_CRCERR) {
--		estats->rx_crcerr++;
-+		atomic64_inc(&estats->rx_crcerr);
- 		stats->rx_crc_errors++;
- 	}
- 	if (status & RXBD_OVERRUN) {
--		estats->rx_overrun++;
-+		atomic64_inc(&estats->rx_overrun);
- 		stats->rx_crc_errors++;
- 	}
- }
-@@ -2744,7 +2744,7 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 	ret = napi_gro_receive(napi, skb);
- 
- 	if (GRO_DROP == ret)
--		priv->extra_stats.kernel_dropped++;
-+		atomic64_inc(&priv->extra_stats.kernel_dropped);
- 
- 	return 0;
- }
-@@ -2812,7 +2812,7 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
- 			} else {
- 				netif_warn(priv, rx_err, dev, "Missing skb!\n");
- 				rx_queue->stats.rx_dropped++;
--				priv->extra_stats.rx_skbmissing++;
-+				atomic64_inc(&priv->extra_stats.rx_skbmissing);
- 			}
- 
- 		}
-@@ -3245,7 +3245,7 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
- 			netif_dbg(priv, tx_err, dev,
- 				  "TX FIFO underrun, packet dropped\n");
- 			dev->stats.tx_dropped++;
--			priv->extra_stats.tx_underrun++;
-+			atomic64_inc(&priv->extra_stats.tx_underrun);
- 
- 			local_irq_save(flags);
- 			lock_tx_qs(priv);
-@@ -3260,7 +3260,7 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
- 	}
- 	if (events & IEVENT_BSY) {
- 		dev->stats.rx_errors++;
--		priv->extra_stats.rx_bsy++;
-+		atomic64_inc(&priv->extra_stats.rx_bsy);
- 
- 		gfar_receive(irq, grp_id);
- 
-@@ -3269,19 +3269,19 @@ static irqreturn_t gfar_error(int irq, void *grp_id)
- 	}
- 	if (events & IEVENT_BABR) {
- 		dev->stats.rx_errors++;
--		priv->extra_stats.rx_babr++;
-+		atomic64_inc(&priv->extra_stats.rx_babr);
- 
- 		netif_dbg(priv, rx_err, dev, "babbling RX error\n");
- 	}
- 	if (events & IEVENT_EBERR) {
--		priv->extra_stats.eberr++;
-+		atomic64_inc(&priv->extra_stats.eberr);
- 		netif_dbg(priv, rx_err, dev, "bus error\n");
- 	}
- 	if (events & IEVENT_RXC)
- 		netif_dbg(priv, rx_status, dev, "control frame\n");
- 
- 	if (events & IEVENT_BABT) {
--		priv->extra_stats.tx_babt++;
-+		atomic64_inc(&priv->extra_stats.tx_babt);
- 		netif_dbg(priv, tx_err, dev, "babbling TX error\n");
- 	}
- 	return IRQ_HANDLED;
-diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
-index 61b1785..78125f1 100644
---- a/drivers/net/ethernet/freescale/gianfar.h
-+++ b/drivers/net/ethernet/freescale/gianfar.h
-@@ -627,24 +627,25 @@ struct rmon_mib
- };
- 
- struct gfar_extra_stats {
--	u64 kernel_dropped;
--	u64 rx_large;
--	u64 rx_short;
--	u64 rx_nonoctet;
--	u64 rx_crcerr;
--	u64 rx_overrun;
--	u64 rx_bsy;
--	u64 rx_babr;
--	u64 rx_trunc;
--	u64 eberr;
--	u64 tx_babt;
--	u64 tx_underrun;
--	u64 rx_skbmissing;
--	u64 tx_timeout;
-+	atomic64_t kernel_dropped;
-+	atomic64_t rx_large;
-+	atomic64_t rx_short;
-+	atomic64_t rx_nonoctet;
-+	atomic64_t rx_crcerr;
-+	atomic64_t rx_overrun;
-+	atomic64_t rx_bsy;
-+	atomic64_t rx_babr;
-+	atomic64_t rx_trunc;
-+	atomic64_t eberr;
-+	atomic64_t tx_babt;
-+	atomic64_t tx_underrun;
-+	atomic64_t rx_skbmissing;
-+	atomic64_t tx_timeout;
- };
- 
- #define GFAR_RMON_LEN ((sizeof(struct rmon_mib) - 16)/sizeof(u32))
--#define GFAR_EXTRA_STATS_LEN (sizeof(struct gfar_extra_stats)/sizeof(u64))
-+#define GFAR_EXTRA_STATS_LEN \
-+	(sizeof(struct gfar_extra_stats)/sizeof(atomic64_t))
- 
- /* Number of stats exported via ethtool */
- #define GFAR_STATS_LEN (GFAR_RMON_LEN + GFAR_EXTRA_STATS_LEN)
-diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-index 172acb9..75e89ac 100644
---- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
-@@ -149,10 +149,10 @@ static void gfar_fill_stats(struct net_device *dev, struct ethtool_stats *dummy,
- 	int i;
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct gfar __iomem *regs = priv->gfargrp[0].regs;
--	u64 *extra = (u64 *) & priv->extra_stats;
-+	atomic64_t *extra = (atomic64_t *)&priv->extra_stats;
- 
- 	for (i = 0; i < GFAR_EXTRA_STATS_LEN; i++)
--		buf[i] = extra[i];
-+		buf[i] = atomic64_read(&extra[i]);
- 
- 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_RMON) {
- 		u32 __iomem *rmon = (u32 __iomem *) &regs->rmon;
--- 
-1.8.1.2
+>> What's the recommended solution for this?  The logical solution would seem
+>> to be to have something issue GARPs for each virtual machine when the bond
+>> device fails over, but there doesn't seem to be any way to register for
+>> notification (via rtnetlink for instance) when the bond fails over.  I
+>> could monitor for carrier loss, but that wouldn't work for the case where
+>> bonding is using arp monitoring.
+>
+> 	There is a NETDEV_BONDING_FAILOVER notifier that is called for
+> active-backup mode when a new active slave is assigned.  The
+> rtnetlink_event function is on that chain, and will send an rtnetlink
+> message, although I don't see that the actual event is included in the
+> message.
+
+If I'm reading this right it will end up sending an RTM_NEWLINK message, 
+which seems a bit odd.
+
+> 	The bond doesn't track all of the MACs that go through it, but
+> the bridge presumably does, and could respond to the FAILOVER notifier
+> with something to notify the switch that the port assignments for the
+> various MACs have changed.
+
+That would probably make sense.  I've added the bridging folks, maybe 
+they'll have a suggestion how this sort of thing should be handled.
+
+Chris
