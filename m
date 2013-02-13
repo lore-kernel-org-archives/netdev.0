@@ -1,66 +1,64 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net] net: sctp: sctp_v6_get_dst: fix boolean test in dst
- cache
-Date: Tue, 12 Feb 2013 20:13:08 -0500
-Message-ID: <511AE8A4.4060608@gmail.com>
-References: <cover.1360709645.git.dborkman@redhat.com> <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next 2/3] ipv6: use newly introduced __ipv6_addr_needs_scope_id
+ and ipv6_iface_scope_id
+Date: Tue, 12 Feb 2013 21:51:06 -0500
+Message-ID: <511AFF9A.8040506@hp.com>
+References: <20130212221634.GA7212@order.stressinduktion.org> <20130213001357.GB1096@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f176.google.com ([209.85.128.176]:43385 "EHLO
-	mail-ve0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752304Ab3BMBNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 20:13:12 -0500
-In-Reply-To: <4a07201201d7bac08468d17dea3dbc1ea9a67205.1360709645.git.dborkman@redhat.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:9816 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752915Ab3BMCvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Feb 2013 21:51:10 -0500
+In-Reply-To: <20130213001357.GB1096@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/12/2013 06:30 PM, Daniel Borkmann wrote:
-> We walk through the bind address list and try to get the best source
-> address for a given destination. However, currently, we take the
-> 'continue' path of the loop when an entry is invalid (!laddr->valid)
-> *and* the entry state does not equal SCTP_ADDR_SRC (laddr->state !=
-> SCTP_ADDR_SRC).
->
-> Thus, still, invalid entries with SCTP_ADDR_SRC might not 'continue'
-> as well as valid entries with SCTP_ADDR_{NEW, SRC, DEL}, with a possible
-> false baddr and matchlen as a result, causing in worst case dst route
-> to be false or possibly NULL.
->
-> This test should actually be a '||' instead of '&&'. But lets fix it
-> and make this a bit easier to read by having the condition the same way
-> as similarly done in sctp_v4_get_dst.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+On 02/12/2013 07:13 PM, Hannes Frederic Sowa wrote:
+>> --- a/net/ipv6/af_inet6.c
+>> +++ b/net/ipv6/af_inet6.c
+>> @@ -323,7 +323,7 @@ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+>>  			struct net_device *dev = NULL;
+>>  
+>>  			rcu_read_lock();
+>> -			if (addr_type & IPV6_ADDR_LINKLOCAL) {
+>> +			if (__ipv6_addr_needs_scope_id(addr_type)) {
+>>  				if (addr_len >= sizeof(struct sockaddr_in6) &&
+>>  				    addr->sin6_scope_id) {
+>>  					/* Override any existing binding, if another one
+> 
+> By trying to setup the multicast interface scoped routes by default I
+> just found a bug in this patch essentially breaking ipv6 multicast. I
+> overlooked that ipv6_addr_type strips off the scopes, thus my check if
+> a multicast address needs a scope_id always returns true. I'll check
+> if I can convert the ipv6_addr_type calls to __ipv6_addr_type and will
+> reroll the patch.  Sorry, my tests were too focused on interface/local
+> multicast. :(
 
-It uses || everywhere else except this one case.  I don't know what I 
-was thinking when I wrote that one.... :)
+I'd always thought of adding helper inlines like these in net/ipv6.h:
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+static inline bool ipv6_addr_linklocal(const struct in6_addr *a)
+{
+        return ((a->s6_addr32[0] & htonl(0xFFC00000)) == htonl(0xFE800000));
+}
 
-> ---
->   net/sctp/ipv6.c | 5 +++--
->   1 file changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-> index f3f0f4d..391a245 100644
-> --- a/net/sctp/ipv6.c
-> +++ b/net/sctp/ipv6.c
-> @@ -326,9 +326,10 @@ static void sctp_v6_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
->   	 */
->   	rcu_read_lock();
->   	list_for_each_entry_rcu(laddr, &bp->address_list, list) {
-> -		if (!laddr->valid && laddr->state != SCTP_ADDR_SRC)
-> +		if (!laddr->valid)
->   			continue;
-> -		if ((laddr->a.sa.sa_family == AF_INET6) &&
-> +		if ((laddr->state == SCTP_ADDR_SRC) &&
-> +		    (laddr->a.sa.sa_family == AF_INET6) &&
->   		    (scope <= sctp_scope(&laddr->a))) {
->   			bmatchlen = sctp_v6_addr_match_len(daddr, &laddr->a);
->   			if (!baddr || (matchlen < bmatchlen)) {
->
+static inline bool ipv6_addr_mc_linklocal(const struct in6_addr *a)
+{
+        return (((a->s6_addr32[0] & htonl(0xFF000000)) == htonl(0xFF000000)) &&
+                ((a->s6_addr32[1] & 0x0F) == IPV6_ADDR_SCOPE_LINKLOCAL));
+}
+
+Maybe something like that would help here?
+
+When I saw this in patch 3/3 it just seemed like the long way to determine if
+the address was a link-local multicast:
+
+	!__ipv6_addr_needs_scope_id(__ipv6_addr_type(&hdr->daddr))
+
+The helper isn't as generic as your patch, but more direct.
+
+-Brian
