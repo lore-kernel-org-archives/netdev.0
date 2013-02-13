@@ -1,92 +1,76 @@
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: Re: [PATCH net-next 5/5] gianfar: Fix and cleanup Rx FCB handling
-Date: Wed, 13 Feb 2013 13:34:43 +0200
-Message-ID: <511B7A53.3060800@freescale.com>
-References: <1360673237-349-1-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-2-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-3-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-4-git-send-email-claudiu.manoil@freescale.com> <1360673237-349-5-git-send-email-claudiu.manoil@freescale.com> <511A799C.4020105@windriver.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 2/2 v2] sierra_net: fix issues with SYNC/RESTART messages and interrupt pipe setup
+Date: Wed, 13 Feb 2013 12:44:11 +0100
+Message-ID: <87a9r8cub8.fsf@nemi.mork.no>
+References: <20110727141246.GC29616@orbit.nwl.cc>
+	<1357318096.5370.15.camel@dcbw.foobar.com>
+	<1357318289.5370.19.camel@dcbw.foobar.com>
+	<1360176176.11742.16.camel@dcbw.foobar.com>
+	<87ip655eqw.fsf@nemi.mork.no>
+	<1360256793.2382.27.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver@neukum.org>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:37622
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933818Ab3BMLew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 06:34:52 -0500
-In-Reply-To: <511A799C.4020105@windriver.com>
+Received: from canardo.mork.no ([148.122.252.1]:44711 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933831Ab3BMLpE convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 06:45:04 -0500
+In-Reply-To: <1360256793.2382.27.camel@dcbw.foobar.com> (Dan Williams's
+	message of "Thu, 07 Feb 2013 11:06:33 -0600")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/12/2013 7:19 PM, Paul Gortmaker wrote:
-> On 13-02-12 07:47 AM, Claudiu Manoil wrote:
->> NETIF_F_HW_VLAN_TX flag must not condition RxFCB usage.
+Dan Williams <dcbw@redhat.com> writes:
+
+> It doesn't need to run exactly at probe, but it appears to need to be
+> the first thing the driver does when communicating with the firmware =
+to
+> ensure clear state and whatnot.  Possibly like the QMI SYNC message t=
+hat
+> clears all the client IDs and resets the internal stack.  (the driver
+> also sends a "shutdown" message to the firmware when unbinding).
 >
-> The above statement isn't 100% clear to me.  Is this the intent?
-
-The above statement is a rule, if you wish. The existing code breaks
-that rule by saying: RxFCB is enabled if NETIF_F_HW_VLAN_TX; which is
-a false statement. This patch corrects this error, according to the
-rule above.
-So, primarily, this patch is a fix (as expressed in <subj.>). I'll
-resend the patch with additional comments to make this point clearer.
-
+> So I do think that somewhere around probe() is the best time to do th=
+is,
+> because it's best to initialize the device when the driver binds to i=
+t
+> and react to errors as soon as possible, rather than trying to set
+> everything up on open/IFF_UP and then fail right before you want to
+> actually use the device.  Late-fail is quite unhelpful for applicatio=
+ns.
 >
->    Currently, gfar_uses_fcb() calls gfar_is_vlan_on() which in turn
->    checks NETIF_F_HW_VLAN_TX.  However there is no relation between
->    whether FCBs are used and the VLAN transmit state.
->
->> In the case of RxBD rings, FCBs (Frame Control Block) are inserted by
->> the eTSEC whenever RCTRL[PRSDEP] is set to a non-zero value. Only one
->> FCB is inserted per frame (in the buffer pointed to by the RxBD with
->> bit F set). TOE acceleration for receive is enabled for all rx frames
->> in this case.
->> Indroduce the uses_rxfcb field to signal RxFCB insertion in accordance
->> with the specification above (leading to cleaner, less confusing code).
->
-> The is_vlan_on() and uses_fcb() calls were more self documenting than
-> setting/clearing a new single use variable added to priv, I think.
-> Even if they get changed/simplified, perhaps it is worth keeping them?
+> I don't really care if it happens in probe() or somewhere else right
+> after the driver is bound to the device, but it should be part of the
+> initialization process.
 
-gfar_uses_fcb() generates confusion around the FCB concept, this maybe
-explains how it came to the error above. First, there are 2 types of
-FCBs with different meaning, covering different use cases: Rx (receive
-side) FCB and TxFCB. uses_fcb() was intended to signal RxFCB insertion,
-which is not obvious from its name, and it became (subtly) erroneous
-after incorporating is_vlan_on().
-is_vlan_on() is also misleading because we need to differentiate b/w
-hw VLAN extraction/VLEX (marked by VLAN_RX flag) and hw VLAN
-insertion/VLINS (VLAN_TX flag), which are different mechanisms using
-different types of FCBs.
+I was looking for something else in the rndis_host driver right now and
+noticed that it has the same sort of problem.  The generic_rndis_bind()
+function will call rndis_command() which does
 
->
-> Rather than a specific priv->uses_rxfcb field, perhaps it makes sense
-> to make it more future proof with priv->rctrl field, that is a cached
-> value of the register, and then you keep gfar_uses_fcb() and it in
-> turn checks for RCTRL_PRSDEP_INIT bit in rctrl?
->
+         usb_control_msg(.., USB_CDC_SEND_ENCAPSULATED_COMMAND, ..);
+         usb_interrupt_msg(.., dev->status->desc.bEndpointAddress, .. )=
+;
+         for (count =3D 0; count < 10; count++) {
+             usb_control_msg(.., USB_CDC_GET_ENCAPSULATED_RESPONSE, ..)=
+;
+             if (ok)
+                return 0;
+             msleep(20);
+         }
 
-The main purpose of the priv->uses_rxfcb field is to quickly signal, on
-the hot path, that the incoming frame has a *Rx* FCB block inserted
-which needs to be pulled out before passing the skb to the stack.
-This is a performance critical operation, it needs to happen fast,
-that's why uses_rxfcb is placed in the first cacheline of gfar_private.
-This is also why I cannot use a cached rctrl instead: 1) because I
-don't have 32 bits available in the first cacheline of gfar_probe
-(but only 16); 2) no time for bit operations on the hot path.
+Somewhat ugly, but it is a way to send and receive commands while
+probing.  This driver also sends a command in unbind().
 
-> Also, the dependency/conditional on FSL_GIANFAR_DEV_HAS_TIMER seems
-> to simply vanish with this patch, and it isn't clear to me if that
-> was 100% intentional or not...
->
+Looks like your patch would allow this to be solved a lot cleaner,
+replacing the loop over USB_CDC_GET_ENCAPSULATED_RESPONSE with proper
+interrupt endpoint handling.
 
-The dependency on FSL_GIANFAR_DEV_HAS_TIMER is another source of
-confusion. The dependency is actually to priv->hwts_rx_en.
-Upon changing priv->hwts_rx_en via IOCTL, the gfar device is being
-restarted and on init_mac() the priv->hwts_rx_en conditions the RxFCB
-insertion, and rctrl is programmed accordingly. The patch takes care
-of this case too.
 
-So, I'll re-spin this patch with enhanced comments.
-
-Thanks,
-Claudiu
+Bj=C3=B8rn
