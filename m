@@ -1,73 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: dev_add_pack() duplicate skb ?
-Date: Wed, 13 Feb 2013 07:05:25 -0800
-Message-ID: <1360767925.6884.22.camel@edumazet-glaptop>
-References: <CAJX4=r08yC7PPtO7KA-3rsY5SMsZueJ=tVDdi2HT6MvnuO1ung@mail.gmail.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH net-next 2/2] gianfar: convert u64 status counters to
+ atomic64_t
+Date: Wed, 13 Feb 2013 17:22:44 +0200
+Message-ID: <511BAFC4.9060006@freescale.com>
+References: <1360715064-2689-1-git-send-email-paul.gortmaker@windriver.com> <1360715064-2689-3-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Felipe Dias <felipediassss@gmail.com>
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:43579 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934110Ab3BMPF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 10:05:28 -0500
-Received: by mail-pa0-f50.google.com with SMTP id fa11so741178pad.37
-        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 07:05:28 -0800 (PST)
-In-Reply-To: <CAJX4=r08yC7PPtO7KA-3rsY5SMsZueJ=tVDdi2HT6MvnuO1ung@mail.gmail.com>
+Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:27295
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S934105Ab3BMPXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 10:23:44 -0500
+In-Reply-To: <1360715064-2689-3-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-13 at 10:11 -0200, Felipe Dias wrote:
-> Hi, someone might try to tell me what I'm doing wrong, please?
-> 
-> 
-> I have a simple module and I registered one packet handler, in init function:
-> ---
->      pseudo_proto.type = htons(ETH_P_ALL);
->      pseudo_proto.dev = NULL;
->      pseudo_proto.func = packet_handler;
->      dev_add_pack(&pseudo_proto);
-> ---
-> 
-> My packet_handler, is a simple function just to print in dmesg info
-> about the packet:
-> 
-> ---
-> ...
-> 
->     switch (ntohs(eth_hdr(skb)->h_proto))
->     {
->         case ETH_P_IPV6:
->             printk(KERN_INFO "%s: (%s %d %s, %s %d) Packet\n",
->                        THIS_MODULE->name,
->                        skb->dev->name,
->                        skb->dev->type,
->                        ntohs(eth_hdr(skb)->h_proto,
->                        ipv6_hdr(skb)->nexthdr,
->                        skb->len);
->             break;
-> ...
-> ---
-> 
-> When I sent a icmpv6 with a ping6 -c1 ::1 , this in my tcpdump show
-> only 2 packets (icmp request and icmp reply), but in my dmesg I see
-> 4!:
-> 
-> ---
-> 595:[30469.099222] test: (lo 772 0x86dd, 0x3a 118) Packet
-> 596:[30469.099226] test: (lo 772 0x86dd, 0x3a 104) Packet
-> 597:[30469.099234] test: (lo 772 0x86dd, 0x3a 118) Packet
-> 598:[30469.099236] test: (lo 772 0x86dd, 0x3a 104) Packet
-> ---
-> 
-> This show 4 packets in ipv4 too. What I'm doing wrong ?
+On 2/13/2013 2:24 AM, Paul Gortmaker wrote:
+> While looking at some asm dump for an unrelated change, Eric
+> noticed in the following stats count increment code:
+>
+>      50b8:       81 3c 01 f8     lwz     r9,504(r28)
+>      50bc:       81 5c 01 fc     lwz     r10,508(r28)
+>      50c0:       31 4a 00 01     addic   r10,r10,1
+>      50c4:       7d 29 01 94     addze   r9,r9
+>      50c8:       91 3c 01 f8     stw     r9,504(r28)
+>      50cc:       91 5c 01 fc     stw     r10,508(r28)
+>
+> that a 64 bit counter was used on ppc-32 without sync
+> and hence the "ethtool -S" output was racy.
+>
+> Here we convert all the values to use atomic64_t so that
+> the output will always be consistent.
+>
 
-The ICMP request is sent, _and_ received : 2 packets
-The ICMP response is sent, _and_ received : 2 packets
+At least it seems that this conversion results in fewer asm
+instructions, as apparently addze and the double lwz/stw are
+not generated anymore. Hopefully it's faster too :P
 
-Total : 4 packets.
+Reviewed-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-af_packet has special code to avoid seeing packets twice on loopback, as
-it would be a bit annoying.
+Thanks,
+Claudiu
