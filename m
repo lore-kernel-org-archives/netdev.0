@@ -1,57 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cdc_ncm: fix probing of devices with multiple
- control interface altsettings
-Date: Thu, 14 Feb 2013 13:15:16 -0500 (EST)
-Message-ID: <20130214.131516.1338992153364367929.davem@davemloft.net>
-References: <1360793392-7412-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH 0/3] netfilter fixes for 3.7-rc8
+Date: Thu, 14 Feb 2013 13:18:11 -0500 (EST)
+Message-ID: <20130214.131811.650216250906083038.davem@davemloft.net>
+References: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	gsuarez@smithmicro.com, alexey.orishko@stericsson.com
-To: bjorn@mork.no
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58544 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758482Ab3BNSPT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:15:19 -0500
-In-Reply-To: <1360793392-7412-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1360787913-10335-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Wed, 13 Feb 2013 23:09:52 +0100
+From: pablo@netfilter.org
+Date: Wed, 13 Feb 2013 21:38:30 +0100
 
-> commit bd329e1 ("net: cdc_ncm: do not bind to NCM compatible MBIM dev=
-ices")
-> added a test for a CDC MBIM altsetting, implementing the cdc_ncm part=
- of
-> MBIM backward compatibility support.  This intentionally made the dri=
-ver
-> behave differently for CDC NCM devices with 2 alternate settings for =
-the
-> Communication interface, depending on whether or not CONFIG_USB_NET_C=
-DC_MBIM
-> was enabled.  This is correct iff alternate setting #1 really *is* a =
-MBIM
-> setting.  If not, then NCM probing will use a different altsetting th=
-an before,
-> possibly causing probing failures depending on CONFIG_USB_NET_CDC_MBI=
-M.
->=20
-> Fix by setting the altsetting back to default after the test, restori=
-ng the
-> previous behaviour for non MBIM devices.
->=20
-> This bug causes probing of Huawei E3276 devices to fail when the MBIM=
- driver
-> is enabled, because these devices have a second alternate setting wit=
-h no CDC
-> functional descriptors.
->=20
-> Cc: Greg Suarez <gsuarez@smithmicro.com>
-> Cc: Alexey Orishko <alexey.orishko@stericsson.com>
-> Reported-and-tested-by: Jonathan A. <yo.natan@hotmail.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
+> The following patchset contains three Netfilter fixes, they are:
+> 
+> * Fix conntrack helper re-assignment after NAT mangling if only if
+>   the same helper is attached to the conntrack again, from Florian
+>   Westphal.
+> 
+> * Don't allow the creation of conntrack entries via ctnetlink if the
+>   original and reply tuples are missing, from Florian Westphal.
+> 
+> * Fix broken sysctl interface in nf_ct_reasm while adding netns support
+>   to it, from Michal Kubecek.
+> 
+> Again, these are coming very late but they seem small and non-intrusive to me.
+> If case your verdict is positive, you can pull this changes from:
+> 
+> git://1984.lsi.us.es/nf master
 
-Applied.
+Pulled, thanks Pablo.
