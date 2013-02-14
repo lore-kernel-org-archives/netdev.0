@@ -1,40 +1,43 @@
-From: Nathan Hintz <nlhintz@hotmail.com>
-Subject: [PATCH] bgmac: add read of interrupt mask after disabling interrupts
-Date: Wed, 13 Feb 2013 21:14:10 -0800
-Message-ID: <BLU0-SMTP798071F8F18DD115610285AC0F0@phx.gbl>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, hauke@hauke-m.de, zajec5@gmail.com,
-	Nathan Hintz <nlhintz@hotmail.com>
-To: davem@davemloft.net
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] bridge: use __u16 in if_bridge.h
+Date: Thu, 14 Feb 2013 13:32:31 +0800
+Message-ID: <1360819951-19484-1-git-send-email-amwang@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from blu0-omc1-s4.blu0.hotmail.com ([65.55.116.15]:17309 "EHLO
-	blu0-omc1-s4.blu0.hotmail.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751101Ab3BNFV0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 00:21:26 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:39550 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751126Ab3BNFcp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2013 00:32:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The specs prescribe an immediate read of the interrupt mask after
-disabling interrupts.  This patch updates the driver to match the
-specs.
+From: Cong Wang <amwang@redhat.com>
 
-Signed-off-by: Nathan Hintz <nlhintz@hotmail.com>
+We should use "__u16" instead of "u16" in the user-space visable
+header.
+
+Cc: Vlad Yasevich <vyasevic@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
- drivers/net/ethernet/broadcom/bgmac.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index 52d9a54..d341090 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -974,6 +974,7 @@ static void bgmac_chip_intrs_on(struct bgmac *bgmac)
- static void bgmac_chip_intrs_off(struct bgmac *bgmac)
- {
- 	bgmac_write(bgmac, BGMAC_INT_MASK, 0);
-+	bgmac_read(bgmac, BGMAC_INT_MASK);
- }
+diff --git a/include/uapi/linux/if_bridge.h b/include/uapi/linux/if_bridge.h
+index f1bf8d3..2d70d79 100644
+--- a/include/uapi/linux/if_bridge.h
++++ b/include/uapi/linux/if_bridge.h
+@@ -124,8 +124,8 @@ enum {
+ #define BRIDGE_VLAN_INFO_UNTAGGED	(1<<2)	/* VLAN egresses untagged */
  
- /* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/gmac_enable */
--- 
-1.7.7.6
+ struct bridge_vlan_info {
+-	u16 flags;
+-	u16 vid;
++	__u16 flags;
++	__u16 vid;
+ };
+ 
+ /* Bridge multicast database attributes
