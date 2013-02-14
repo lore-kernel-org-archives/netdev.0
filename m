@@ -1,10 +1,10 @@
 From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH 2/2] xen-netback: cancel the credit timer when taking
- the vif down
-Date: Thu, 14 Feb 2013 16:39:07 +0000
-Message-ID: <1360859947.20449.465.camel@zakaz.uk.xensource.com>
+Subject: Re: [PATCH 1/2] xen-netback: correctly return errors from
+ netbk_count_requests()
+Date: Thu, 14 Feb 2013 16:39:01 +0000
+Message-ID: <1360859941.20449.463.camel@zakaz.uk.xensource.com>
 References: <1360847938-11185-1-git-send-email-david.vrabel@citrix.com>
-	 <1360847938-11185-3-git-send-email-david.vrabel@citrix.com>
+	 <1360847938-11185-2-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -12,69 +12,88 @@ Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
 	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
 	Jan Beulich <jbeulich@suse.com>,
 	"Wei Liu (3P)" <wei.liu@citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
 To: David Vrabel <david.vrabel@citrix.com>,
 	"Christopher S. Aker" <caker@theshore.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from smtp.eu.citrix.com ([46.33.159.39]:19460 "EHLO
 	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757950Ab3BNQjJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 11:39:09 -0500
-In-Reply-To: <1360847938-11185-3-git-send-email-david.vrabel@citrix.com>
+	with ESMTP id S1757950Ab3BNQjG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 11:39:06 -0500
+In-Reply-To: <1360847938-11185-2-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Thu, 2013-02-14 at 13:18 +0000, David Vrabel wrote:
 > From: David Vrabel <david.vrabel@citrix.com>
 > 
-> If the credit timer is left armed after calling
-> xen_netbk_remove_xenvif(), then it may fire and attempt to schedule
-> the vif which will then oops as vif->netbk == NULL.
+> netbk_count_requests() could detect an error, call
+> netbk_fatal_tx_error() but return 0.  The vif may then be used
+> afterwards (e.g., in a call to netbk_tx_error().
 > 
-> This may happen both in the fatal error path and during normal
-> disconnection from the front end.
+> Since netbk_fatal_tx_error() could set vif->refcnt to 1, the vif may
+> be freed immediately after the call to netbk_fatal_tx_error() (e.g.,
+> if the vif is also removed).
 > 
-> The sequencing during shutdown is critical to ensure that: a)
-> vif->netbk doesn't become unexpectedly NULL; and b) the net device/vif
-> is not freed.
+> Netback thread              Xenwatch thread
+> -------------------------------------------
+> netbk_fatal_tx_err()        netback_remove()
+>                               xenvif_disconnect()
+>                                 ...
+>                                 free_netdev()
+> netbk_tx_err() Oops!
 > 
-> 1. Mark as unschedulable (netif_carrier_off()).
-> 2. Synchronously cancel the timer.
-> 3. Remove the vif from the schedule list.
-> 4. Remove it from it netback thread group.
-> 5. Wait for vif->refcnt to become 0.
-> 
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Signed-off-by: Jan Beulich <JBeulich@suse.com>
 > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
+Reported-by: Christopher S. Aker <caker@theshore.net>
 Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Was this one also Reported-by Christopher S. Aker or was it just
-discovered in the process of investigating?
+Although I would like to add a Tested-by: Christopher too if possible.
 
-Another stable candidate please Dave.
+David (M) this should go to stable please.
 
 > ---
->  drivers/net/xen-netback/interface.c |    3 +--
->  1 files changed, 1 insertions(+), 2 deletions(-)
+>  drivers/net/xen-netback/netback.c |    8 ++++----
+>  1 files changed, 4 insertions(+), 4 deletions(-)
 > 
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index b8c5193..221f426 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -132,6 +132,7 @@ static void xenvif_up(struct xenvif *vif)
->  static void xenvif_down(struct xenvif *vif)
->  {
->  	disable_irq(vif->irq);
-> +	del_timer_sync(&vif->credit_timeout);
->  	xen_netbk_deschedule_xenvif(vif);
->  	xen_netbk_remove_xenvif(vif);
->  }
-> @@ -363,8 +364,6 @@ void xenvif_disconnect(struct xenvif *vif)
->  	atomic_dec(&vif->refcnt);
->  	wait_event(vif->waiting_to_free, atomic_read(&vif->refcnt) == 0);
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index 2b9520c..cd49ba9 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -911,13 +911,13 @@ static int netbk_count_requests(struct xenvif *vif,
+>  		if (frags >= work_to_do) {
+>  			netdev_err(vif->dev, "Need more frags\n");
+>  			netbk_fatal_tx_err(vif);
+> -			return -frags;
+> +			return -ENODATA;
+>  		}
 >  
-> -	del_timer_sync(&vif->credit_timeout);
-> -
->  	if (vif->irq)
->  		unbind_from_irqhandler(vif->irq, vif);
+>  		if (unlikely(frags >= MAX_SKB_FRAGS)) {
+>  			netdev_err(vif->dev, "Too many frags\n");
+>  			netbk_fatal_tx_err(vif);
+> -			return -frags;
+> +			return -E2BIG;
+>  		}
 >  
+>  		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+> @@ -925,7 +925,7 @@ static int netbk_count_requests(struct xenvif *vif,
+>  		if (txp->size > first->size) {
+>  			netdev_err(vif->dev, "Frag is bigger than frame.\n");
+>  			netbk_fatal_tx_err(vif);
+> -			return -frags;
+> +			return -EIO;
+>  		}
+>  
+>  		first->size -= txp->size;
+> @@ -935,7 +935,7 @@ static int netbk_count_requests(struct xenvif *vif,
+>  			netdev_err(vif->dev, "txp->offset: %x, size: %u\n",
+>  				 txp->offset, txp->size);
+>  			netbk_fatal_tx_err(vif);
+> -			return -frags;
+> +			return -EINVAL;
+>  		}
+>  	} while ((txp++)->flags & XEN_NETTXF_more_data);
+>  	return frags;
