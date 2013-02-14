@@ -1,111 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Convert skb->csum_(start|offset) integrity
- BUG_ON() to WARN_ON() & drop
-Date: Thu, 14 Feb 2013 11:21:55 -0800
-Message-ID: <1360869715.6884.58.camel@edumazet-glaptop>
-References: <20130213234021.GA21829@casper.infradead.org>
-	 <20130213234843.GB21829@casper.infradead.org>
-	 <20130213.193759.1094469499685059296.davem@davemloft.net>
-	 <20130214101853.GC21829@casper.infradead.org>
-	 <1360858943.6884.47.camel@edumazet-glaptop>
-	 <20130214185008.GA10745@casper.infradead.org>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: how to handle bonding failover when using a bridge over the bond?
+Date: Thu, 14 Feb 2013 13:29:00 -0600
+Message-ID: <511D3AFC.10504@genband.com>
+References: <511ACE16.3080906@genband.com> <32261.1360713746@death.nxdomain> <511ADEBB.1000701@genband.com> <kfi5k6$1mq$1@ger.gmane.org> <511D141B.602@genband.com> <23692.1360864993@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:48440 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934815Ab3BNTV6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 14:21:58 -0500
-Received: by mail-pb0-f53.google.com with SMTP id un1so283028pbc.40
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 11:21:58 -0800 (PST)
-In-Reply-To: <20130214185008.GA10745@casper.infradead.org>
+Received: from exprod7og118.obsmtp.com ([64.18.2.8]:60005 "EHLO
+	exprod7og118.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758702Ab3BNTaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 14:30:05 -0500
+In-Reply-To: <23692.1360864993@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-14 at 18:50 +0000, Thomas Graf wrote:
-> On 02/14/13 at 08:22am, Eric Dumazet wrote:
-> > It seems not possible to avoid bugs, being a BUG_ON() or a out of bound
-> > memory access or whatever. We must fix them eventually.
-> 
-> Of course, I never intended to not fix this but I still think
-> leaving the BUG_ON() is wrong ;-)
-> 
-> > In this case, it seems we must limit payload to 
-> > 
-> > 65535 - MAX_TCP_HEADER 
-> > 
-> > It would make tcp_xmit_size_goal() a bit shorter.
-> > 
-> > diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> > index 2c7e596..2f6c8e5 100644
-> > --- a/net/ipv4/tcp.c
-> > +++ b/net/ipv4/tcp.c
-> > @@ -793,10 +793,7 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
-> >  	xmit_size_goal = mss_now;
-> >  
-> >  	if (large_allowed && sk_can_gso(sk)) {
-> > -		xmit_size_goal = ((sk->sk_gso_max_size - 1) -
-> > -				  inet_csk(sk)->icsk_af_ops->net_header_len -
-> > -				  inet_csk(sk)->icsk_ext_hdr_len -
-> > -				  tp->tcp_header_len);
-> > +		xmit_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
-> >  
-> >  		/* TSQ : try to have two TSO segments in flight */
-> >  		xmit_size_goal = min_t(u32, xmit_size_goal,
-> 
-> I don't think this would help. The allocated skb data will still
-> exceed 64K and thus after trimming the acked data and collapsing
-> the header might be stored after the 64K mark.
-> 
+On 02/14/2013 12:03 PM, Jay Vosburgh wrote:
+> Chris Friesen<chris.friesen@genband.com>  wrote:
 
-OK, I now understand your issue.
+>> The problem is that L2 switch "B" still thinks that all the virtual
+>> machines are accessible via L2 switch "A".  Thus any incoming packets
+>> destined for a virtual machine will get dropped.
+>
+> 	I'm trying to track down the system I tested previously to see
+> exactly how it is set up and why it works when yours does not.  It's
+> possible that it doesn't work, and the testing we did simply missed this
+> case.
 
-> We would have to limit the skb tailroom to 64K upon allocation.
-> That would mean we would waste some of the additional space that
-> kmalloc() might have given us:
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 32443eb..c8f9850 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -241,6 +241,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mas
->          * to allow max possible filling before reallocation.
->          */
->         size = SKB_WITH_OVERHEAD(ksize(data));
-> +       /* ensure that all offsets based on skb->head fit into 16bits */
-> +       size = min_t(int, size, 65535);
->         prefetchw(data + size);
->  
+After thinking about this for a while, it doesn't seem like a natural 
+thing for either the bond or the bridge to care about--though if someone 
+wanted to fix it generically that would be great.
 
-This part is certainly not good. 
+It might be worth considering sending out a bonding-specific netlink 
+message when a bond fails over, giving the name of the bond as well as 
+the newly active slave device.  This would allow for an efficient 
+userspace daemon to issue gratuitous arps for all the VM MAC addresses.
 
-alloc_skb() is generic and some users really want more than 64K
+It almost seems like the most elegant way to deal with this would be to 
+forgo the bond completely and just add both links into the bridge, then 
+run STP to make sure there are no loops.  That way link pulls get 
+handled immediately and STP will update the other L2 switches 
+appropriately.  Unfortunately this doesn't seem to be an option for us 
+since some apparently customers frown on a server participating in STP. 
+(Not sure why, we're already dealing with much more complicated 
+protocols...)
 
->         /*
-> 
-> 
-> Or if that is not ideal, avoiding the collapse that causes the overflow
-> would also help:
-> 
-> 
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index 5d45159..e9111b4 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -2301,6 +2301,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
->                 if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
->                         break;
->  
-> +               /* Never collapse if the resulting headroom + data exceeds
-> +                * 64K as that is the maximum csum_start can cover.
-> +                */
-> +               if (skb_headroom(to) + to->len + skb->len > 65535)
-> +                       break;
-> +
->                 tcp_collapse_retrans(sk, to);
->    
-
-Definitely better.
+Chris
