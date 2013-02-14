@@ -1,52 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tuntap: Overload handling
-Date: Thu, 14 Feb 2013 08:32:27 -0800
-Message-ID: <1360859547.6884.51.camel@edumazet-glaptop>
-References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
-	 <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH 2/2] xen-netback: cancel the credit timer when taking
+ the vif down
+Date: Thu, 14 Feb 2013 16:39:07 +0000
+Message-ID: <1360859947.20449.465.camel@zakaz.uk.xensource.com>
+References: <1360847938-11185-1-git-send-email-david.vrabel@citrix.com>
+	 <1360847938-11185-3-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@googlemail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"Konrad Rzeszutek Wilk" <konrad.wilk@oracle.com>,
+	Jan Beulich <jbeulich@suse.com>,
+	"Wei Liu (3P)" <wei.liu@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Vrabel <david.vrabel@citrix.com>,
+	"Christopher S. Aker" <caker@theshore.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:34038 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934752Ab3BNQcg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 11:32:36 -0500
-Received: by mail-pb0-f52.google.com with SMTP id ma3so224482pbc.39
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 08:32:35 -0800 (PST)
-In-Reply-To: <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:19460 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757950Ab3BNQjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 11:39:09 -0500
+In-Reply-To: <1360847938-11185-3-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-14 at 12:50 +0100, Sebastian P=C3=B6hn wrote:
-> I am having a look on the tun driver to realize an userspace network
-> driver ( TAP + UIO ). Maybe that's not the use-case tun is intended
-> for.
->=20
-> What I've noticed is that in tun.c Line 741
->=20
-> static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_devic=
-e *dev)
->=20
-> /* Limit the number of packets queued by dividing txq length with the
->  * number of queues.
->  */
-> if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
->  >=3D dev->tx_queue_len / tun->numqueues)
-> goto drop;
->=20
-> If a frame can not be tx it is dropped by the driver.
-> Wouldn't it be more correct to netif_tx_stop_queue() so that packet
-> drops are performed by the overlying traffic control code?
->=20
-> Of course this is not very likely in virtual environments but as soon
-> as any real network hop is involved it could be important.
->=20
-> (I also had a look on some two year old version of tun.c. There
-> queue/tx stopping was done correctly.)
+On Thu, 2013-02-14 at 13:18 +0000, David Vrabel wrote:
+> From: David Vrabel <david.vrabel@citrix.com>
+> 
+> If the credit timer is left armed after calling
+> xen_netbk_remove_xenvif(), then it may fire and attempt to schedule
+> the vif which will then oops as vif->netbk == NULL.
+> 
+> This may happen both in the fatal error path and during normal
+> disconnection from the front end.
+> 
+> The sequencing during shutdown is critical to ensure that: a)
+> vif->netbk doesn't become unexpectedly NULL; and b) the net device/vif
+> is not freed.
+> 
+> 1. Mark as unschedulable (netif_carrier_off()).
+> 2. Synchronously cancel the timer.
+> 3. Remove the vif from the schedule list.
+> 4. Remove it from it netback thread group.
+> 5. Wait for vif->refcnt to become 0.
+> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
-You should ask Michael S. Tsirkin, as he removed the flow control
-in commit 5d097109257c03a71845729f8db6b5770c4bbedc
-(tun: only queue packets on device)
+Acked-by: Ian Campbell <ian.campbell@citrix.com>
+
+Was this one also Reported-by Christopher S. Aker or was it just
+discovered in the process of investigating?
+
+Another stable candidate please Dave.
+
+> ---
+>  drivers/net/xen-netback/interface.c |    3 +--
+>  1 files changed, 1 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+> index b8c5193..221f426 100644
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -132,6 +132,7 @@ static void xenvif_up(struct xenvif *vif)
+>  static void xenvif_down(struct xenvif *vif)
+>  {
+>  	disable_irq(vif->irq);
+> +	del_timer_sync(&vif->credit_timeout);
+>  	xen_netbk_deschedule_xenvif(vif);
+>  	xen_netbk_remove_xenvif(vif);
+>  }
+> @@ -363,8 +364,6 @@ void xenvif_disconnect(struct xenvif *vif)
+>  	atomic_dec(&vif->refcnt);
+>  	wait_event(vif->waiting_to_free, atomic_read(&vif->refcnt) == 0);
+>  
+> -	del_timer_sync(&vif->credit_timeout);
+> -
+>  	if (vif->irq)
+>  		unbind_from_irqhandler(vif->irq, vif);
+>  
