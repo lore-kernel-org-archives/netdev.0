@@ -1,55 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: how to handle bonding failover when using a bridge over the bond?
-Date: Thu, 14 Feb 2013 08:01:10 +0000 (UTC)
-Message-ID: <kfi5k6$1mq$1@ger.gmane.org>
-References: <511ACE16.3080906@genband.com> <32261.1360713746@death.nxdomain>
- <511ADEBB.1000701@genband.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] bridge: add some missing __rcu marks
+Date: Thu, 14 Feb 2013 16:23:25 +0800
+Message-ID: <1360830205.3279.1.camel@cr0>
+References: <1360822350-26882-1-git-send-email-amwang@redhat.com>
+	 <20130213223935.122d035b@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Vlad Yasevich <vyasevic@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:48605 "EHLO plane.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:33095 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756181Ab3BNIBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 03:01:23 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1U5tlG-00048W-0D
-	for netdev@vger.kernel.org; Thu, 14 Feb 2013 09:01:42 +0100
-Received: from 180.129.241.48 ([180.129.241.48])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 09:01:41 +0100
-Received: from xiyou.wangcong by 180.129.241.48 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 09:01:41 +0100
+	id S1756160Ab3BNIXf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2013 03:23:35 -0500
+In-Reply-To: <20130213223935.122d035b@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 13 Feb 2013 at 00:30 GMT, Chris Friesen <chris.friesen@genband.com> wrote:
-> On 02/12/2013 06:02 PM, Jay Vosburgh wrote:
->> 	The bond doesn't track all of the MACs that go through it, but
->> the bridge presumably does, and could respond to the FAILOVER notifier
->> with something to notify the switch that the port assignments for the
->> various MACs have changed.
->
-> That would probably make sense.  I've added the bridging folks, maybe 
-> they'll have a suggestion how this sort of thing should be handled.
->
+On Wed, 2013-02-13 at 22:39 -0800, Stephen Hemminger wrote:
+> On Thu, 14 Feb 2013 14:12:30 +0800
+> Cong Wang <amwang@redhat.com> wrote:
+> >  #ifdef CONFIG_NET_POLL_CONTROLLER
+> > -static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
+> > +static inline struct netpoll_info __rcu *br_netpoll_info(struct net_bridge *br)
+> >  {
+> >  	return br->dev->npinfo;
+> >  }
+> 
+> 
+> This doesn't seem right since there is no rcu_dereference() here.
 
-It is already handled. When BONDING_FAILOVER is triggered and the MAC has
-been changed, NETDEV_CHANGEADDR is issued too, then bridge will capture
-it and update its fdb:
-
-        case NETDEV_CHANGEADDR:
-                spin_lock_bh(&br->lock);
-                br_fdb_changeaddr(p, dev->dev_addr);
-                changed_addr = br_stp_recalculate_bridge_id(br);
-                spin_unlock_bh(&br->lock);
-
-                if (changed_addr)
-                        call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
-
-                break;
-		
+But we don't dereference ->npinfo here, we only check if it is NULL.
