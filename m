@@ -1,120 +1,130 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Fw: [Bug 53821] New: ip rules (policy routing) no longer applied
- consistency
-Date: Thu, 14 Feb 2013 22:53:05 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1302142234480.1820@ja.ssi.bg>
-References: <20130214082616.44ad070c@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next] net: Don't write to current task flags on every
+ packet received.
+Date: Thu, 14 Feb 2013 15:58:23 -0500 (EST)
+Message-ID: <20130214.155823.2119249078866607548.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:40424 "EHLO ja.ssi.bg"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758971Ab3BNUr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 15:47:59 -0500
-In-Reply-To: <20130214082616.44ad070c@nehalam.linuxnetplumber.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60577 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758193Ab3BNU61 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 15:58:27 -0500
+Received: from localhost (nat-pool-rdu.redhat.com [66.187.233.202])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 3B5BB5813B9
+	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 12:58:30 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-	Hello,
+Even for non-pfmalloc SKBs, __netif_receive_skb() will do a
+tsk_restore_flags() on current unconditionally.
 
-On Thu, 14 Feb 2013, Stephen Hemminger wrote:
+Make __netif_receive_skb() a shim around the existing code, renamed to
+__netif_receive_skb_core().  Let __netif_receive_skb() wrap the
+__netif_receive_skb_core() call with the task flag modifications, if
+necessary.
 
-> Begin forwarded message:
-> 
-> Date: Thu, 14 Feb 2013 01:26:32 -0800
-> From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-> To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-> Subject: [Bug 53821] New: ip rules (policy routing) no longer applied consistency
-> 
-> 
-> https://bugzilla.kernel.org/show_bug.cgi?id=53821
-> 
->            Summary: ip rules (policy routing) no longer applied
->                     consistency
->            Product: Networking
->            Version: 2.5
->     Kernel Version: 3.7
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: IPV4
->         AssignedTo: shemminger@linux-foundation.org
->         ReportedBy: korn-kernel.org@elan.rulez.org
->         Regression: Yes
-> 
-> 
-> Hi,
-> 
-> on upgrading to 3.7.x, I noticed that some of my ip rules were no longer
-> applied.
-> 
-> For example, I had:
-> 
-> # ip ru sh
-> 0:      from all lookup local 
-> 32762:  from 192.168.0.15 lookup foo
-> 32763:  from 1.2.3.4 lookup foo
-> 32764:  from 10.74.91.0/24 lookup foo
-> 32765:  from 192.168.0.19 lookup vpntunnel 
-> 32766:  from all lookup main 
-> 32767:  from all lookup default 
-> 
-> # ip ro sh table vpntunnel
-> default via 192.168.0.144 dev br0 
-> 192.168.0.0/24 dev br0  scope link 
-> 
-> The 'lookup foo' rules were applied, but 'lookup vpntunnel' was not.
-> 
-> I then tried to use an fwmark based rule to achieve the same result:
-> 
-> # ip ru sh
-> 0:      from all lookup local 
-> 32761:  from all fwmark 0x2 lookup vpntunnel 
-> 32762:  from 192.168.0.15 lookup foo
-> 32763:  from 1.2.3.4 lookup foo
-> 32764:  from 10.74.91.0/24 lookup foo
-> 32765:  from 192.168.0.19 lookup vpntunnel 
-> 32766:  from all lookup main 
-> 32767:  from all lookup default 
-> 
-> Of course I made sure the appropriate packets were marked with 0x2. This worked
-> a lot better and most packets go out via 192.168.0.144 now, but strangely, not
-> all. I have a netfilter rule that catches the ones going the wrong way, and I
-> get quite a few log messages along the lines of:
-> 
-> kernel: FW: DROP: IN= OUT=eth1 SRC=192.168.0.19 DST=2.3.4.5 LEN=131 TOS=0x00
-> PREC=0x00 TTL=64 ID=0 DF PROTO=UDP SPT=17504 DPT=42834 LEN=111 UID=1007
-> GID=1007 MARK=0x2 
-> 
-> As you can see, the packet is logged as having the correct fwmark, but is still
-> sent out through eth1 instead of br0. (And the IP based rule should have
-> applied to, but didn't.)
-> 
-> This particular result was obtained with 3.7.6-vs2.3.5.5 (linux-vserver patch),
-> but I've seen similar behaviour with 3.7.anything.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
 
-	Not sure if it is related but in patch-3.7.7-vs2.3.5.6.diff
-there is function ip_v4_find_src() that calls __ip_route_output_key
-multiple times without resetting some input keys (oif, tos) with
-flowi4_update_output(). ip_route_connect() is example for
-such usage. This is needed in case we want to provide
-original TOS and OIF for next lookups.
+I'll commit this after I do a bunch of tests.
 
-> Source IP based rules worked fine with kernels up to 3.6. Confusingly, _some_
-> of them still work, but not all.
-> 
-> Maybe something was broken by the removal of the route cache?
+ net/core/dev.c | 46 ++++++++++++++++++++++++++++------------------
+ 1 file changed, 28 insertions(+), 18 deletions(-)
 
-	At first look I don't see other problems with
-the route usage in this patch.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2f31bf9..f444736 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3457,7 +3457,7 @@ static bool skb_pfmemalloc_protocol(struct sk_buff *skb)
+ 	}
+ }
+ 
+-static int __netif_receive_skb(struct sk_buff *skb)
++static int __netif_receive_skb_core(struct sk_buff *skb, bool pfmemalloc)
+ {
+ 	struct packet_type *ptype, *pt_prev;
+ 	rx_handler_func_t *rx_handler;
+@@ -3466,24 +3466,11 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	bool deliver_exact = false;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
+-	unsigned long pflags = current->flags;
+ 
+ 	net_timestamp_check(!netdev_tstamp_prequeue, skb);
+ 
+ 	trace_netif_receive_skb(skb);
+ 
+-	/*
+-	 * PFMEMALLOC skbs are special, they should
+-	 * - be delivered to SOCK_MEMALLOC sockets only
+-	 * - stay away from userspace
+-	 * - have bounded memory usage
+-	 *
+-	 * Use PF_MEMALLOC as this saves us from propagating the allocation
+-	 * context down to all allocation sites.
+-	 */
+-	if (sk_memalloc_socks() && skb_pfmemalloc(skb))
+-		current->flags |= PF_MEMALLOC;
+-
+ 	/* if we've gotten here through NAPI, check netpoll */
+ 	if (netpoll_receive_skb(skb))
+ 		goto out;
+@@ -3517,7 +3504,7 @@ another_round:
+ 	}
+ #endif
+ 
+-	if (sk_memalloc_socks() && skb_pfmemalloc(skb))
++	if (pfmemalloc)
+ 		goto skip_taps;
+ 
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+@@ -3536,8 +3523,7 @@ skip_taps:
+ ncls:
+ #endif
+ 
+-	if (sk_memalloc_socks() && skb_pfmemalloc(skb)
+-				&& !skb_pfmemalloc_protocol(skb))
++	if (pfmemalloc && !skb_pfmemalloc_protocol(skb))
+ 		goto drop;
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+@@ -3607,7 +3593,31 @@ drop:
+ unlock:
+ 	rcu_read_unlock();
+ out:
+-	tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	return ret;
++}
++
++static int __netif_receive_skb(struct sk_buff *skb)
++{
++	int ret;
++
++	if (sk_memalloc_socks() && skb_pfmemalloc(skb)) {
++		unsigned long pflags = current->flags;
++
++		/*
++		 * PFMEMALLOC skbs are special, they should
++		 * - be delivered to SOCK_MEMALLOC sockets only
++		 * - stay away from userspace
++		 * - have bounded memory usage
++		 *
++		 * Use PF_MEMALLOC as this saves us from propagating the allocation
++		 * context down to all allocation sites.
++		 */
++		current->flags |= PF_MEMALLOC;
++		ret = __netif_receive_skb_core(skb, true);
++		tsk_restore_flags(current, pflags, PF_MEMALLOC);
++	} else
++		ret = __netif_receive_skb_core(skb, false);
++
+ 	return ret;
+ }
+ 
+-- 
+1.7.11.7
