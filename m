@@ -1,233 +1,335 @@
-From: Larry Baker <baker@usgs.gov>
-Subject: Re: decnet: /proc/sys/net/decnet sysctl entries disappear
-Date: Wed, 13 Feb 2013 16:50:38 -0800
-Message-ID: <5AFC1880-0AAB-4255-B77C-BF55534DF9A0@usgs.gov>
-References: <FAAC90D7-8126-44CA-AACF-A5F8237C1A8E@usgs.gov> <456F0392-03CE-4207-A092-F890D530B746@usgs.gov> <877gmca8qb.fsf@xmission.com>
-Mime-Version: 1.0 (Apple Message framework v1085)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org,
-	decnet list <linux-decnet-user@lists.sourceforge.net>
-To: Eric Biederman <ebiederm@xmission.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCHi v2] net: sh_eth: Add support of device tree probe
+Date: Thu, 14 Feb 2013 09:51:31 +0900
+Message-ID: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Cc: horms+renesas@verge.net.au, magnus.damm@gmail.com,
+	devicetree-discuss@lists.ozlabs.org, kda@linux-powerpc.org,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gscamnlh01.wr.usgs.gov ([130.118.9.68]:23080 "EHLO
-	gscamnlh01.wr.usgs.gov" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753083Ab3BNAuk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 19:50:40 -0500
-In-Reply-To: <877gmca8qb.fsf@xmission.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:46696 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753083Ab3BNAv4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 19:51:56 -0500
+Received: by mail-pa0-f50.google.com with SMTP id fa11so1018782pad.23
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 16:51:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric,
+This adds support of device tree probe for Renesas sh-ether driver.
 
-(Sorry for the re-send.  I had to make up a new e-mail address book entry for you without your middle initial to pass through the vger.kernel.org e-mail filters.  Apple Mail shows me the enclosing quotes, but apparently doesn't actually insert them in the SMTP text.)
+Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-FYI.  My original post to netdev for this problem is at http://www.spinics.net/lists/netdev/msg225990.html.  Since then, I have focused on reporting and patching only the problem with the disappearing sysctl entries.  My follow-up post with the problem description is at http://www.spinics.net/lists/netdev/msg226123.html.
-
-On 13 Feb 2013, at 1:01 AM, Eric W. Biederman wrote:
-
-> If you send me just the sysctl bits I will be happy to
-> double check them and forward them to stable@vger.kernel.org.  Feel free
-> to Cc netdev.  For at least the sysctl bits having them pass through me
-> and getting my quick review and signed-off-by should help a little
-> getting them backported.
-
-Below is my stab at a proper patch for this problem for the 2.6.32.60 stable kernel.  This is the kernel series used by the latest CentOS/Red Hat 6.3.
-
-scripts/checkpatch.pl warns about a couple lines over 80 characters (code motion and the banner), and gives one error:
-
-ERROR: do not initialise statics to 0 or NULL
-#53: FILE: net/decnet/dn_dev.c:173:
-+static struct ctl_table_header *dn_conf_path = NULL;
-
-I followed the same practice as the code in net/decnet/sysctl_net_decnet.c:
-
-static struct ctl_table_header *dn_table_header = NULL;
-
-I leave it to you to decide if that is a concern.
-
-> For your other changes I can't tell if they are clean-ups or enhancments
-> or just unneeded (like updating the banner string). As a cleanup it
-> would probably make sense to just delete that silly banner string.
-
-Lots of kernel modules have banner strings.  I find them informative.  I think the version should to be updated when (substantive?) changes are made.
-
-> There are question I have when looking at your patches:
-> Does dn_hiord_addr to -> dh_hiord make a difference?
-> What is the purpose of all of the code motion?
-> Will anyone besides you use the new debug option?  Or would we better to
-> just forget that change.
-
-Maybe only your code motion question still applies?  The code motion is required to create the sysctl entries in the correct order:
-
-. Static executor node (host) entries in /proc/sys/net/decnet
-. Static empty path entry /proc/sys/net/decnet/conf
-. Static template network device entries in /proc/sys/net/decnet/conf/<type>
-. Dynamic active DECnet device entries in /proc/sys/net/decnet/conf/<dev-name>
-
-The entries in /proc/sys/net/decnet are created in sysctl_net_decnet.c; the entries in /proc/sys/net/decnet/conf are created in dn_dev.c.  The workaround only works when the empty path entry is created before the entries in /proc/sys/net/decnet.  Thus the code rearrangement.  Even when the workaround can be removed (3.4 and later), I think this is more rational behavior.
-
-> Eric
-
-Thanks again,
-
-Larry Baker
-US Geological Survey
-650-329-5608
-baker@usgs.gov
-
-----------
-
-This is the patch for stable kernel 2.6.32.60.  I tested this on a CentOS 6.3 x86_64 system, which uses a 2.6.32+ kernel.  I installed the 2.6.32.60 kernel, verified the problem in the original decnet module, patched the decnet source, and verified the patched module fixes the problem.
-
-I don't know what is a good subject line.  It is supposed to say "what" and "why".  Should it tie in to the same patches Al made for net/core and net/ipv6?  (Add a reference to those patches in the message body?)  Should it mention the aberrant behavior being fixed?
-
-I tried to pay attention to separating the lines for the changelog from the rest of the description.
-
-Subject line:
-
-Subject: [PATCH] decnet: Fix for sysctl rewrite (stable kernel 2.6.32.x)
-
-Message body:
-
-From: Larry Baker <baker@usgs.gov>
-
-Fixes the problem of disappearing /proc/sys/net/decnet sysctl entries reported in http://www.spinics.net/lists/netdev/msg226123.html.  Applies the same workaround used in net/core/sysctl_net_core.c and net/ipv6/sysctl_net_ipv6.c.
-
-The problem first appeared in kernel 2.6.27.  The later rewrite of sysctl in kernel 3.4 restored the previous behavior and eliminated the need for this workaround. 
-
-Signed-off-by: Larry Baker <baker@usgs.gov>
 ---
+V2: - Removed ether_setup().
+    - Fixed typo from "sh-etn" to "sh-eth".
+	- Removed "needs-init" and sh-eth,endian from definition of DT.
+	- Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
+	  in definition of DT.
 
-The workaround is to register an empty sysctl path entry before registering any entries beneath it.  For example, the same workaround appears in sysctl_core_init() in net/core/sysctl_net_core.c and ipv6_static_sysctl_register() in net/ipv6/sysctl_net_ipv6.c.
+ Documentation/devicetree/bindings/net/sh_ether.txt |   41 +++++
+ drivers/net/ethernet/renesas/sh_eth.c              |  156 +++++++++++++++++---
+ 2 files changed, 173 insertions(+), 24 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
 
-The additional code motion is required to create the sysctl entries in the correct order:
-
-. Static executor node (host) entries in /proc/sys/net/decnet
-. Static empty path entry /proc/sys/net/decnet/conf
-. Static template network device entries in /proc/sys/net/decnet/conf/<type>
-. Dynamic active DECnet device entries in /proc/sys/net/decnet/conf/<dev-name>
-
-The entries in /proc/sys/net/decnet are created in sysctl_net_decnet.c; the entries in /proc/sys/net/decnet/conf are created in dn_dev.c.  The workaround only works when the empty path entry is created before the entries in /proc/sys/net/decnet.  The code rearrangement accomplishes this.
-
---- original/net/decnet/af_decnet.c
-+++ patched/net/decnet/af_decnet.c
-@@ -2360,7 +2360,7 @@ MODULE_AUTHOR("Linux DECnet Project Team
-MODULE_LICENSE("GPL");
-MODULE_ALIAS_NETPROTO(PF_DECnet);
-
--static char banner[] __initdata = KERN_INFO "NET4: DECnet for Linux: V.2.5.68s (C) 1995-2003 Linux DECnet Project Team\n";
-+static char banner[] __initdata = KERN_INFO "DECnet: DECnet for Linux: V.2.6.32 (C) 1995-2013 Linux DECnet Project Team\n";
-
-static int __init decnet_init(void)
-{
-@@ -2372,6 +2372,8 @@ static int __init decnet_init(void)
-	if (rc != 0)
-		goto out;
-
-+	dn_register_sysctl();
+diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
+new file mode 100644
+index 0000000..7415e54
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+@@ -0,0 +1,41 @@
++* Renesas Electronics SuperH EMAC
 +
-	dn_neigh_init();
-	dn_dev_init();
-	dn_route_init();
-@@ -2382,7 +2384,6 @@ static int __init decnet_init(void)
-	register_netdevice_notifier(&dn_dev_notifier);
-
-	proc_net_fops_create(&init_net, "decnet", S_IRUGO, &dn_socket_seq_fops);
--	dn_register_sysctl();
-out:
-	return rc;
-
-@@ -2401,8 +2402,6 @@ static void __exit decnet_exit(void)
-	rtnl_unregister_all(PF_DECnet);
-	dev_remove_pack(&dn_dix_packet_type);
-
--	dn_unregister_sysctl();
--
-	unregister_netdevice_notifier(&dn_dev_notifier);
-
-	dn_route_cleanup();
-@@ -2410,6 +2409,8 @@ static void __exit decnet_exit(void)
-	dn_neigh_cleanup();
-	dn_fib_cleanup();
-
-+	dn_unregister_sysctl();
++This file provides information, what the device node
++for the sh_eth interface contains.
 +
-	proc_net_remove(&init_net, "decnet");
-
-	proto_unregister(&dn_proto);
---- original/net/decnet/dn_dev.c
-+++ patched/net/decnet/dn_dev.c
-@@ -170,6 +170,8 @@ static int dn_forwarding_sysctl(ctl_tabl
-			void __user *oldval, size_t __user *oldlenp,
-			void __user *newval, size_t newlen);
-
-+static struct ctl_table_header *dn_conf_path = NULL;
++Required properties:
++- compatible:                   "renesas,sh-eth";
++- interrupt-parent:             The phandle for the interrupt controller that
++                                services interrupts for this device.
++- reg:                          Offset and length of the register set for the
++                                device.
++- interrupts:                   Interrupt mapping for the sh_eth interrupt
++                                sources (vector id).
++- phy-mode:                     String, operation mode of the PHY interface.
++- sh-eth,register-type:         String, register type of sh_eth.
++                                Please select "gigabit", "fast-sh4" or
++                                "fast-sh3-sh2".
++- sh-eth,phy-id:                PHY id.
 +
-static struct dn_dev_sysctl_table {
-	struct ctl_table_header *sysctl_header;
-	ctl_table dn_dev_vars[5];
-@@ -1436,6 +1438,14 @@ MODULE_PARM_DESC(addr, "The DECnet addre
-
-void __init dn_dev_init(void)
-{
-+	struct ctl_path dn_conf[] = {
-+		{ .procname = "net", .ctl_name = CTL_NET, },
-+		{ .procname = "decnet", .ctl_name = NET_DECNET, },
-+		{ .procname = "conf", .ctl_name = NET_DECNET_CONF, },
-+		{ },
++Optional properties:
++- local-mac-address:            6 bytes, mac address
++- sh-eth,no-ether-link:         Set link control by software. When device does
++                                not support ether-link, set.
++- sh-eth,ether-link-active-low: Set link check method.
++                                When detection of link is treated as active-low,
++                                set.
++- sh-eth,edmac-big-endian:      Set big endian for sh_eth dmac.
++                                It work as little endian when this is not set. 
++- sh-etn,needs-init:            Initialization flag.
++                                When initialize device in probing device, set.
++
++Example (armadillo800eva):
++	sh-eth@e9a00000 {
++		compatible = "renesas,sh-eth";
++		interrupt-parent = <&intca>;
++		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
++		interrupts = <0x500>;
++		phy-mode = "mii";
++		sh-eth,register-type = "gigabit";
++		sh-eth,phy-id = <0>;
 +	};
-+	static ctl_table empty[1];
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 3d70586..15e50b87 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1,7 +1,7 @@
+ /*
+  *  SuperH Ethernet device driver
+  *
+- *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
++ *  Copyright (C) 2006-2013 Nobuhiro Iwamatsu
+  *  Copyright (C) 2008-2012 Renesas Solutions Corp.
+  *
+  *  This program is free software; you can redistribute it and/or modify it
+@@ -31,6 +31,12 @@
+ #include <linux/platform_device.h>
+ #include <linux/mdio-bitbang.h>
+ #include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_net.h>
+ #include <linux/phy.h>
+ #include <linux/cache.h>
+ #include <linux/io.h>
+@@ -2347,26 +2353,109 @@ static const struct net_device_ops sh_eth_netdev_ops = {
+ 	.ndo_change_mtu		= eth_change_mtu,
+ };
+ 
++#ifdef CONFIG_OF
 +
-	if (addr[0] > 63 || addr[0] < 0) {
-		printk(KERN_ERR "DECnet: Area must be between 0 and 63");
-		return;
-@@ -1448,34 +1458,36 @@ void __init dn_dev_init(void)
-
-	decnet_address = cpu_to_le16((addr[0] << 10) | addr[1]);
-
--	dn_dev_devices_on();
++static int
++sh_eth_of_get_register_type(struct device_node *np)
++{
++	const char *of_str;
++	int ret = of_property_read_string(np, "sh-eth,register-type", &of_str);
++	if (ret)
++		return ret;
++
++	if (of_str && !strcmp(of_str, "gigabit"))
++		return SH_ETH_REG_GIGABIT;
++
++	else if (of_str && !strcmp(of_str, "fast-sh4"))
++		return SH_ETH_REG_FAST_SH4;
++	else if (of_str && !strcmp(of_str, "fast-sh3-sh2"))
++		return SH_ETH_REG_FAST_SH3_SH2;
++	else
++		return -EINVAL;
++}
++
++static struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
++{
++	int ret;
++	struct device_node *np = dev->of_node;
++	struct sh_eth_plat_data *pdata;
++
++	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
++					GFP_KERNEL);
++	if (!pdata) {
++		dev_err(dev, "%s: failed to allocate config data\n", __func__);
++		return NULL;
++	}
++
++	pdata->phy_interface = of_get_phy_mode(np);
++
++	of_property_read_u32(np, "sh-eth,phy-id", &pdata->phy);
++
++	if (of_find_property(np, "sh-eth,edmac-big-endian", NULL))
++		pdata->edmac_endian = EDMAC_BIG_ENDIAN;
++	else
++		pdata->edmac_endian = EDMAC_LITTLE_ENDIAN;
++
++	if (of_find_property(np, "sh-eth,no-ether-link", NULL))
++		pdata->no_ether_link = 1;
++	else
++		pdata->no_ether_link = 0;
++
++	if (of_find_property(np, "sh-eth,ether-link-active-low", NULL))
++		pdata->ether_link_active_low = 1;
++	else
++		pdata->ether_link_active_low = 0;
++
++	ret = sh_eth_of_get_register_type(np);
++	if (ret < 0)
++		goto error;
++	pdata->register_type = ret;
++
++#ifdef CONFIG_OF_NET
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		const char *macaddr = of_get_mac_address(np);
++		if (macaddr)
++			memcpy(pdata->mac_addr, macaddr, ETH_ALEN);
++	}
++#endif
++
++	return pdata;
++
++error:
++	devm_kfree(dev, pdata);
++	return NULL;
++}
++#else
++static struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
++{
++	return NULL;
++}
++#endif
++
+ static int sh_eth_drv_probe(struct platform_device *pdev)
+ {
+-	int ret, devno = 0;
++	int ret = 0, devno = 0;
+ 	struct resource *res;
+ 	struct net_device *ndev = NULL;
+ 	struct sh_eth_private *mdp = NULL;
+ 	struct sh_eth_plat_data *pd;
++	struct device_node *np = pdev->dev.of_node;
++
++	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
++	if (!ndev) {
++		ret = -ENOMEM;
++		goto out;
++	}
+ 
++	mdp = netdev_priv(ndev);
+ 	/* get base addr */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (unlikely(res == NULL)) {
+ 		dev_err(&pdev->dev, "invalid resource\n");
+ 		ret = -EINVAL;
+-		goto out;
+-	}
 -
--	rtnl_register(PF_DECnet, RTM_NEWADDR, dn_nl_newaddr, NULL);
--	rtnl_register(PF_DECnet, RTM_DELADDR, dn_nl_deladdr, NULL);
--	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, dn_nl_dump_ifaddr);
+-	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
+-	if (!ndev) {
+-		ret = -ENOMEM;
+-		goto out;
++		goto out_release;
+ 	}
+ 
+ 	/* The sh Ether-specific entries in the device structure. */
+@@ -2383,27 +2472,41 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	}
+ 	ndev->irq = ret;
+ 
+-	SET_NETDEV_DEV(ndev, &pdev->dev);
 -
--	proc_net_fops_create(&init_net, "decnet_dev", S_IRUGO, &dn_dev_seq_fops);
+-	/* Fill in the fields of the device structure with ethernet values. */
+-	ether_setup(ndev);
 -
-#ifdef CONFIG_SYSCTL
-+	dn_conf_path = register_sysctl_paths(dn_conf, empty);
-	{
-		int i;
-		for(i = 0; i < DN_DEV_LIST_SIZE; i++)
-			dn_dev_sysctl_register(NULL, &dn_dev_list[i]);
-	}
-#endif /* CONFIG_SYSCTL */
+-	mdp = netdev_priv(ndev);
+-	mdp->num_tx_ring = TX_RING_SIZE;
+-	mdp->num_rx_ring = RX_RING_SIZE;
+ 	mdp->addr = ioremap(res->start, resource_size(res));
+ 	if (mdp->addr == NULL) {
+ 		ret = -ENOMEM;
+ 		dev_err(&pdev->dev, "ioremap failed.\n");
+ 		goto out_release;
+ 	}
++#ifdef CONFIG_OF
++	if (np && of_device_is_available(np)) {
++		pd = sh_eth_parse_dt(&pdev->dev, ndev);
++		if (pdev->dev.platform_data) {
++			struct sh_eth_plat_data *tmp =
++				pdev->dev.platform_data;
++			pd->set_mdio_gate = tmp->set_mdio_gate;
++			pd->needs_init = tmp->needs_init;
++		}
++	} else
++#endif
++		pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
++	
++	if (!pd) {
++		dev_err(&pdev->dev, "no setup data defined\n");
++		ret = -EINVAL;
++		goto out_release;
++	}
 +
-+	dn_dev_devices_on();
++	SET_NETDEV_DEV(ndev, &pdev->dev);
 +
-+	rtnl_register(PF_DECnet, RTM_NEWADDR, dn_nl_newaddr, NULL);
-+	rtnl_register(PF_DECnet, RTM_DELADDR, dn_nl_deladdr, NULL);
-+	rtnl_register(PF_DECnet, RTM_GETADDR, NULL, dn_nl_dump_ifaddr);
-+
-+	proc_net_fops_create(&init_net, "decnet_dev", S_IRUGO, &dn_dev_seq_fops);
-}
-
-void __exit dn_dev_cleanup(void)
-{
-+	proc_net_remove(&init_net, "decnet_dev");
-+
-+	dn_dev_devices_off();
-+
-#ifdef CONFIG_SYSCTL
-	{
-		int i;
-		for(i = 0; i < DN_DEV_LIST_SIZE; i++)
-			dn_dev_sysctl_unregister(&dn_dev_list[i]);
-	}
-+	unregister_sysctl_table(dn_conf_path);
-#endif /* CONFIG_SYSCTL */
++	mdp->num_tx_ring = TX_RING_SIZE;
++	mdp->num_rx_ring = RX_RING_SIZE;
+ 
+ 	spin_lock_init(&mdp->lock);
+ 	mdp->pdev = pdev;
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_resume(&pdev->dev);
+ 
+-	pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
+ 	/* get PHY ID */
+ 	mdp->phy_id = pd->phy;
+ 	mdp->phy_interface = pd->phy_interface;
+@@ -2412,6 +2515,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	mdp->no_ether_link = pd->no_ether_link;
+ 	mdp->ether_link_active_low = pd->ether_link_active_low;
+ 	mdp->reg_offset = sh_eth_get_register_offset(pd->register_type);
++	/* read and set MAC address */
++	read_mac_address(ndev, pd->mac_addr);
+ 
+ 	/* set cpu data */
+ #if defined(SH_ETH_HAS_BOTH_MODULES)
+@@ -2429,20 +2534,16 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	/* debug message level */
+ 	mdp->msg_enable = SH_ETH_DEF_MSG_ENABLE;
+ 
+-	/* read and set MAC address */
+-	read_mac_address(ndev, pd->mac_addr);
 -
--	proc_net_remove(&init_net, "decnet_dev");
--
--	dn_dev_devices_off();
-}
+ 	/* ioremap the TSU registers */
+ 	if (mdp->cd->tsu) {
+ 		struct resource *rtsu;
+ 		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 		if (!rtsu) {
+ 			dev_err(&pdev->dev, "Not found TSU resource\n");
+-			ret = -ENODEV;
+ 			goto out_release;
+ 		}
+ 		mdp->tsu_addr = ioremap(rtsu->start,
+-					resource_size(rtsu));
++				resource_size(rtsu));
+ 		mdp->port = devno % 2;
+ 		ndev->features = NETIF_F_HW_VLAN_FILTER;
+ 	}
+@@ -2522,17 +2623,24 @@ static int sh_eth_runtime_nop(struct device *dev)
+ 	return 0;
+ }
+ 
+-static struct dev_pm_ops sh_eth_dev_pm_ops = {
++static const struct dev_pm_ops sh_eth_dev_pm_ops = {
+ 	.runtime_suspend = sh_eth_runtime_nop,
+ 	.runtime_resume = sh_eth_runtime_nop,
+ };
+ 
++static struct of_device_id sh_eth_match[] = {
++	{ .compatible = "renesas,sh-eth",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, sh_eth_match);
++
+ static struct platform_driver sh_eth_driver = {
+ 	.probe = sh_eth_drv_probe,
+ 	.remove = sh_eth_drv_remove,
+ 	.driver = {
+ 		   .name = CARDNAME,
+ 		   .pm = &sh_eth_dev_pm_ops,
++		   .of_match_table = sh_eth_match,
+ 	},
+ };
+ 
+-- 
+1.7.10.4
