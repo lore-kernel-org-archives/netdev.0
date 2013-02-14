@@ -1,45 +1,39 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: Convert skb->csum_(start|offset) integrity BUG_ON()
- to WARN_ON() & drop
-Date: Thu, 14 Feb 2013 10:18:53 +0000
-Message-ID: <20130214101853.GC21829@casper.infradead.org>
-References: <20130213234021.GA21829@casper.infradead.org>
- <20130213234843.GB21829@casper.infradead.org>
- <20130213.193759.1094469499685059296.davem@davemloft.net>
+From: Gerd Hoffmann <kraxel@redhat.com>
+Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Thu, 14 Feb 2013 12:05:53 +0100
+Message-ID: <511CC511.7080902@redhat.com>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
+	<1360196636-9357-2-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:49144 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933837Ab3BNKS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 05:18:56 -0500
-Content-Disposition: inline
-In-Reply-To: <20130213.193759.1094469499685059296.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: Andy King <acking@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1360196636-9357-2-git-send-email-acking@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 02/13/13 at 07:37pm, David Miller wrote:
-> From: Thomas Graf <tgraf@suug.ch>
-> Date: Wed, 13 Feb 2013 23:48:43 +0000
-[...]
-> >  b) No longer collapse if the new skb would result in a
-> >     a headroom + data that exceeds 64K. This seems to be the
-> >     most trivial fix.
-[...]
-> > Other ideas?
-> 
-> "b" is a good idea.
+On 02/07/13 01:23, Andy King wrote:
+> +		written = transport->stream_enqueue(
+> +				vsk, msg->msg_iov,
+> +				len - total_written);
 
-OK, patch to do so being tested by original reporter.
+Hmm, shouldn't we pass total_written to stream_enqueue here?
 
-> Let's not paper over this, this BUG_ON() is really a BUG_ON()
-> meaning "FIX ME NOW" :-)
+In case a blocking send(big-buffer) call gets splitted into multiple
+stream_enqueue calls the second (and further) stream_enqueue calls need
+to know at which msg offset they should continue sending the data, no?
 
-Maybe it's my general dislike of BUG_ON() in the processing
-path, especially if the bug condition can be influenced remotely.
-It looks absolutely doable to trigger the previously mentioned
-partial acking & collapsing on purpose by a malicious receiver
-even with an MTU of 1500. I believe we should avoid total DoS
-in future similar situations that we don't think of yet.
+cheers,
+  Gerd
