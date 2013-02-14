@@ -1,470 +1,191 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: failure when attempting to build vmci_transport on net-next
-Date: Thu, 14 Feb 2013 11:50:11 +0200
-Message-ID: <511CB353.3000704@mellanox.com>
+From: Sasikanth babu <sasikanth.v19@gmail.com>
+Subject: Query/Help: Enabling net-sched config cause IXGE tx hang and
+ continuous NMIs
+Date: Thu, 14 Feb 2013 15:29:45 +0530
+Message-ID: <CAOJFanW5mbgR_2-UN1j37ZR9sFXH2uA4f0RdNMJowp6eobAKJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	George Zhang <georgezhang@vmware.com>
-To: Andy king <acking@vmware.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog119.obsmtp.com ([207.126.144.147]:52105 "HELO
-	eu1sys200aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1757097Ab3BNJuV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 04:50:21 -0500
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:37110 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752576Ab3BNJ7q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 04:59:46 -0500
+Received: by mail-ob0-f169.google.com with SMTP id ta14so2267098obb.14
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 01:59:45 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Andy & Co
+Hi all,
 
-I didn't manage to get the VMWARE_VMCI_VSOCKETS directive to be set, 
-unless I added the below patch, and
-once that done got the tons of errors below, am I doing something wrong?
+   After enabling Queueing/Scheduling and Classification, I'm getting
+NMI's continuously and also observed RCU stall. I had truned off
+gro,lro,tso and gso settings too.
 
-Or.
+IGB version:        3.2.9
+IXGBE version :  3.4.24
 
-diff --git a/net/vmw_vsock/Kconfig b/net/vmw_vsock/Kconfig
-index b5fa7e4..620982c 100644
---- a/net/vmw_vsock/Kconfig
-+++ b/net/vmw_vsock/Kconfig
-@@ -15,6 +15,9 @@ config VSOCKETS
-           To compile this driver as a module, choose M here: the module
-           will be called vsock. If unsure, say N.
+TX HANG
+=======
 
-+config VMWARE_VMCI
-+       def_bool y
-+
-  config VMWARE_VMCI_VSOCKETS
-         tristate "VMware VMCI transport for Virtual Sockets"
-         depends on VSOCKETS && VMWARE_VMCI
+[   68.353583] ixgbe 0000:82:00.0: eth8: Detected Tx Unit Hang
+[   68.353585]   Tx Queue             <0>
+[   68.353586]   TDH, TDT             <0>, <e>
+[   68.353587]   next_to_use          <e>
+[   68.353587]   next_to_clean        <2>
+[   68.353591] ixgbe 0000:82:00.0: eth8: tx_buffer_info[next_to_clean]
+[   68.353592]   time_stamp           <ffffa375>
+[   68.353592]   jiffies              <ffffa582>
+[   68.353595] ixgbe 0000:82:00.0: eth8: tx hang 1 detected on queue
+0, resetting adapter
+[   68.353611] ixgbe 0000:82:00.0: eth8: Reset adapter
+[   69.232095] ixgbe 0000:82:00.0: eth8: NIC Link is Up 10 Gbps, Flow
+Control: RX/TX
+[   71.670656] eth0: no IPv6 routers present
+[   72.099976] ------------[ cut here ]------------
+[   72.099984] WARNING: at linux/net/sched/sch_generic.c:
+256 dev_watchdog+0x1fa/0x210()
+[   72.099988] Hardware name: To be filled by O.E.M.
+[   72.099990] NETDEV WATCHDOG: eth0 (igb): transmit queue 0 timed out
+[   72.099991] Modules linked in: ixgbe pmbus_core igb ltc2978 i2c_mux
+pca954x ip_tables iptable_filter ip6_tables ip6table_filter mloopback
+[last unloaded: scsi_wait_scan]
+[   72.100001] Pid: 102, comm: softirq-net-tx/ Not tainted 2.6.34.12 #1
+[   72.100004] Call Trace:
+[   72.100006]  <IRQ>  [<ffffffff810455a3>] ? warn_slowpath_common+0x73/0xb0
+[   72.100020]  [<ffffffff81038737>] ? __enqueue_rt_entity+0x107/0x2b0
+[   72.100024]  [<ffffffff81045640>] ? warn_slowpath_fmt+0x40/0x50
+[   72.100031]  [<ffffffff81668dc0>] ? dcbnl_app_nest+0x1100c0/0x11a300
+[   72.100038]  [<ffffffff81240451>] ? strlcpy+0x41/0x50
+[   72.100040]  [<ffffffff813e2e7a>] ? dev_watchdog+0x1fa/0x210
+[   72.100043]  [<ffffffff813e2c80>] ? dev_watchdog+0x0/0x210
+[   72.100043]  [<ffffffff813e2c80>] ? dev_watchdog+0x0/0x210
+[   72.100049]  [<ffffffff81051cec>] ? run_timer_softirq+0x13c/0x210
+[   72.100056]  [<ffffffff8101c618>] ? lapic_next_event+0x18/0x20
+[   72.100060]  [<ffffffff8104bb59>] ? __do_softirq+0x99/0x140
+[   72.100065]  [<ffffffff81063277>] ? hrtimer_interrupt+0x147/0x260
+[   72.100071]  [<ffffffff81003d0c>] ? call_softirq+0x1c/0x30
+[   72.100074]  [<ffffffff81005f5d>] ? do_softirq+0x4d/0x80
+[   72.100078]  [<ffffffff8101d05a>] ? smp_apic_timer_interrupt+0x6a/0xa0
+[   72.100081]  [<ffffffff810037d8>] ? apic_timer_interrupt+0x18/0x20
+[   72.100083]  <EOI>  [<ffffffff814d0cd0>] ? _cond_resched+0x0/0x40
+[   72.100090]  [<ffffffff8104b9a9>] ? run_ksoftirqd+0x129/0x240
+[   72.100093]  [<ffffffff8104b880>] ? run_ksoftirqd+0x0/0x240
+[   72.100096]  [<ffffffff8105e8ae>] ? kthread+0x8e/0xa0
+[   72.100099]  [<ffffffff81003c14>] ? kernel_thread_helper+0x4/0x10
+[   72.100104]  [<ffffffff814d2b11>] ? restore_args+0x0/0x30
+[   72.100106]  [<ffffffff8105e820>] ? kthread+0x0/0xa0
+[   72.100109]  [<ffffffff81003c10>] ? kernel_thread_helper+0x0/0x10
+[   72.100112] ---[ end trace 5434e21c964b684e ]---
+[  143.940213] ---[ end trace c9fd33f6d69e8670 ]---
+[  143.940216] ixgbe 0000:82:00.0: eth8: Fake Tx hang detected with
+timeout of 5 seconds
+[  149.934687] ixgbe 0000:82:00.1: eth9: NIC Link is Up 10 Gbps, Flow
+Control: RX/TX
+[  149.936083] ADDRCONF(NETDEV_CHANGE): eth9: link becomes ready
+[  152.824920] ixgbe 0000:82:00.1: eth9: NIC Link is Down
+[  153.924681] ixgbe 0000:82:00.0: eth8: Fake Tx hang detected with
+timeout of 10 seconds
+
+RCU STALL
+=========
+[   93.832690] INFO: RCU detected CPU 0 stall (t=1000 jiffies)
+[   93.832693] sending NMI to all CPUs:
+[   93.832698] NMI backtrace for cpu 0
+[   93.832699] CPU 0
+[   93.832759] Process softirq-net-tx/ (pid: 6, threadinfo
+ffff88027691a000, task ffff880276902cb0)
+[   93.832761] Stack:
+[   93.834759]  ffffffff8101d0aa 00000015db168963 0000000000000002
+0000000000006280
+[   93.834762] <0> ffffffff8101d72c ffff880009403df8 ffff880000000002
+ffff880009403e08
+[   93.834765] <0> 0000000000000000 ffffffff84ade880 ffffffff84ade980
+0000000000000000
+[   93.834769] Call Trace:
+[   93.837207]  <IRQ>
+[   93.839308]  [<ffffffff8101d0aa>] ? native_safe_apic_wait_icr_idle+0x1a/0x50
+[   93.839313]  [<ffffffff8101d72c>] ?
+default_send_IPI_mask_sequence_phys+0xcc/0xe0
+[   93.839317]  [<ffffffff8101d839>] ? arch_trigger_all_cpu_backtrace+0x49/0x80
+[   93.839322]  [<ffffffff81091fbb>] ? __rcu_pending+0x7b/0x330
+[   93.839325]  [<ffffffff810922af>] ? rcu_check_callbacks+0x3f/0x150
+[   93.839329]  [<ffffffff8105277f>] ? update_process_times+0x3f/0x70
+[   93.839334]  [<ffffffff8106dd78>] ? tick_sched_timer+0x58/0x150
+[   93.839338]  [<ffffffff81062f19>] ? __run_hrtimer+0x49/0xe0
+[   93.839341]  [<ffffffff81063217>] ? hrtimer_interrupt+0xe7/0x260
+[   93.839345]  [<ffffffff8101d055>] ? smp_apic_timer_interrupt+0x65/0xa0
+[   93.839349]  [<ffffffff810037d8>] ? apic_timer_interrupt+0x18/0x20
+[   93.839351]  <EOI>
+[   93.841457]  [<ffffffff813c80aa>] ? __netif_schedule+0xa/0x50
+[   93.841461]  [<ffffffff813e3642>] ? sch_direct_xmit+0x122/0x1b0
+[   93.841463]  [<ffffffff813e3733>] ? __qdisc_run+0x63/0xe0
+[   93.841467]  [<ffffffff813c8a08>] ? net_tx_action+0xe8/0x130
+[   93.841471]  [<ffffffff8104b994>] ? run_ksoftirqd+0x114/0x240
+[   93.841474]  [<ffffffff8104b880>] ? run_ksoftirqd+0x0/0x240
+[   93.841477]  [<ffffffff8105e8ae>] ? kthread+0x8e/0xa0
+[   93.841481]  [<ffffffff81003c14>] ? kernel_thread_helper+0x4/0x10
+[   93.841486]  [<ffffffff814d2b11>] ? restore_args+0x0/0x30
+[   93.841488]  [<ffffffff8105e820>] ? kthread+0x0/0xa0
+[   93.841491]  [<ffffffff81003c10>] ? kernel_thread_helper+0x0/0x10
+[   93.841493] Code: 66 66 2e 0f 1f
 
 
->  CC [M]  net/vmw_vsock/vmci_transport.o
-> In file included from net/vmw_vsock/vmci_transport.c:41:
-> net/vmw_vsock/vmci_transport_notify.h:20:33: error: 
-> linux/vmw_vmci_defs.h: No such file or directory
-> net/vmw_vsock/vmci_transport_notify.h:21:32: error: 
-> linux/vmw_vmci_api.h: No such file or directory
-> In file included from net/vmw_vsock/vmci_transport_notify.h:24,
->                  from net/vmw_vsock/vmci_transport.c:41:
-> net/vmw_vsock/vmci_transport.h:66: error: field ?dg? has incomplete type
-> net/vmw_vsock/vmci_transport.h:76: error: field ?handle? has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.h:110: error: field ?dg_handle? has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.h:112: error: field ?qp_handle? has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:47: warning: ?struct vmci_event_data? 
-> declared inside parameter list
-> net/vmw_vsock/vmci_transport.c:47: warning: its scope is only this 
-> definition or declaration, which is probably not what you want
-> net/vmw_vsock/vmci_transport.c:50: warning: ?struct vmci_event_data? 
-> declared inside parameter list
-> net/vmw_vsock/vmci_transport.c:80: error: variable 
-> ?vmci_transport_stream_handle? has initializer but incomplete type
-> net/vmw_vsock/vmci_transport.c:80: error: ?VMCI_INVALID_ID? undeclared 
-> here (not in a function)
-> net/vmw_vsock/vmci_transport.c:80: warning: excess elements in struct 
-> initializer
-> net/vmw_vsock/vmci_transport.c:80: warning: (near initialization for 
-> ?vmci_transport_stream_handle?)
-> net/vmw_vsock/vmci_transport.c:81: warning: excess elements in struct 
-> initializer
-> net/vmw_vsock/vmci_transport.c:81: warning: (near initialization for 
-> ?vmci_transport_stream_handle?)
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_error_to_vsock_error?:
-> net/vmw_vsock/vmci_transport.c:104: error: ?VMCI_ERROR_NO_MEM? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:104: error: (Each undeclared identifier 
-> is reported only once
-> net/vmw_vsock/vmci_transport.c:104: error: for each function it 
-> appears in.)
-> net/vmw_vsock/vmci_transport.c:107: error: 
-> ?VMCI_ERROR_DUPLICATE_ENTRY? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:108: error: ?VMCI_ERROR_ALREADY_EXISTS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:111: error: ?VMCI_ERROR_NO_ACCESS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:114: error: ?VMCI_ERROR_NO_RESOURCES? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:117: error: 
-> ?VMCI_ERROR_INVALID_RESOURCE? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:120: error: ?VMCI_ERROR_INVALID_ARGS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:137: error: parameter 9 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_packet_init?:
-> net/vmw_vsock/vmci_transport.c:142: error: implicit declaration of 
-> function ?vmci_make_handle?
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:210: error: parameter 9 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?__vmci_transport_send_control_pkt?:
-> net/vmw_vsock/vmci_transport.c:216: error: type of formal parameter 9 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c:217: error: implicit declaration of 
-> function ?vmci_datagram_send?
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:230: error: parameter 6 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_reply_control_pkt_fast?:
-> net/vmw_vsock/vmci_transport.c:243: error: type of formal parameter 9 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:254: error: parameter 7 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_control_pkt_bh?:
-> net/vmw_vsock/vmci_transport.c:266: error: type of formal parameter 9 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:276: error: parameter 7 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_control_pkt?:
-> net/vmw_vsock/vmci_transport.c:297: error: type of formal parameter 9 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_reset_bh?:
-> net/vmw_vsock/vmci_transport.c:312: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:312: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_send_reset?:
-> net/vmw_vsock/vmci_transport.c:323: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:323: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_negotiate?:
-> net/vmw_vsock/vmci_transport.c:333: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:333: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_negotiate2?:
-> net/vmw_vsock/vmci_transport.c:343: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:343: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:347: error: parameter 2 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_qp_offer?:
-> net/vmw_vsock/vmci_transport.c:352: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:356: error: parameter 2 (?handle?) has 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_send_attach?:
-> net/vmw_vsock/vmci_transport.c:361: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_reply_reset?:
-> net/vmw_vsock/vmci_transport.c:370: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:370: error: type of formal parameter 6 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_invalid_bh?:
-> net/vmw_vsock/vmci_transport.c:379: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:379: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_wrote_bh?:
-> net/vmw_vsock/vmci_transport.c:388: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:388: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_send_read_bh?:
-> net/vmw_vsock/vmci_transport.c:397: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:397: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_send_wrote?:
-> net/vmw_vsock/vmci_transport.c:405: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:405: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_send_read?:
-> net/vmw_vsock/vmci_transport.c:413: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:413: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_waiting_write?:
-> net/vmw_vsock/vmci_transport.c:422: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:422: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_waiting_read?:
-> net/vmw_vsock/vmci_transport.c:431: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:431: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_shutdown?:
-> net/vmw_vsock/vmci_transport.c:441: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:441: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_conn_request?:
-> net/vmw_vsock/vmci_transport.c:450: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:450: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_send_conn_request2?:
-> net/vmw_vsock/vmci_transport.c:459: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:459: error: type of formal parameter 7 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_is_trusted?:
-> net/vmw_vsock/vmci_transport.c:507: error: implicit declaration of 
-> function ?vmci_is_context_owner?
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_allow_dgram?:
-> net/vmw_vsock/vmci_transport.c:519: error: implicit declaration of 
-> function ?vmci_context_get_priv_flags?
-> net/vmw_vsock/vmci_transport.c:520: error: 
-> ?VMCI_PRIVILEGE_FLAG_RESTRICTED? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_queue_pair_alloc?:
-> net/vmw_vsock/vmci_transport.c:544: error: implicit declaration of 
-> function ?vmci_qpair_alloc?
-> net/vmw_vsock/vmci_transport.c:547: error: 
-> ?VMCI_PRIVILEGE_FLAG_TRUSTED? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:548: error: ?VMCI_ERROR_NO_ACCESS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:554: error: ?VMCI_NO_PRIVILEGE_FLAGS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:568: error: expected declaration 
-> specifiers or ?...? before ?vmci_datagram_recv_cb?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_datagram_create_hnd?:
-> net/vmw_vsock/vmci_transport.c:578: error: implicit declaration of 
-> function ?vmci_datagram_create_handle_priv?
-> net/vmw_vsock/vmci_transport.c:579: error: 
-> ?VMCI_PRIVILEGE_FLAG_TRUSTED? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:580: error: ?recv_cb? undeclared (first 
-> use in this function)
-> net/vmw_vsock/vmci_transport.c:583: error: ?VMCI_ERROR_NO_ACCESS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:584: error: implicit declaration of 
-> function ?vmci_datagram_create_handle?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_recv_dgram_cb?:
-> net/vmw_vsock/vmci_transport.c:615: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:616: error: ?VMCI_ERROR_NO_ACCESS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:618: error: implicit declaration of 
-> function ?VMCI_DG_SIZE?
-> net/vmw_vsock/vmci_transport.c:630: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_recv_stream_cb?:
-> net/vmw_vsock/vmci_transport.c:667: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c:674: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:675: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:676: error: ?VMCI_ERROR_NO_ACCESS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:680: error: ?VMCI_ERROR_INVALID_ARGS? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:707: error: ?VMCI_ERROR_NOT_FOUND? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:759: error: ?VMCI_ERROR_NO_MEM? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:785: warning: ?struct vmci_event_data? 
-> declared inside parameter list
-> net/vmw_vsock/vmci_transport.c:783: error: conflicting types for 
-> ?vmci_transport_peer_attach_cb?
-> net/vmw_vsock/vmci_transport.c:45: note: previous declaration of 
-> ?vmci_transport_peer_attach_cb? was here
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_peer_attach_cb?:
-> net/vmw_vsock/vmci_transport.c:791: error: implicit declaration of 
-> function ?vmci_event_data_const_payload?
-> net/vmw_vsock/vmci_transport.c:791: warning: assignment makes pointer 
-> from integer without a cast
-> net/vmw_vsock/vmci_transport.c:807: error: implicit declaration of 
-> function ?vmci_handle_is_equal?
-> net/vmw_vsock/vmci_transport.c:808: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_handle_detach?:
-> net/vmw_vsock/vmci_transport.c:826: error: implicit declaration of 
-> function ?vmci_handle_is_invalid?
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:861: warning: ?struct vmci_event_data? 
-> declared inside parameter list
-> net/vmw_vsock/vmci_transport.c:859: error: conflicting types for 
-> ?vmci_transport_peer_detach_cb?
-> net/vmw_vsock/vmci_transport.c:48: note: previous declaration of 
-> ?vmci_transport_peer_detach_cb? was here
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_peer_detach_cb?:
-> net/vmw_vsock/vmci_transport.c:867: warning: assignment makes pointer 
-> from integer without a cast
-> net/vmw_vsock/vmci_transport.c:869: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:880: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: At top level:
-> net/vmw_vsock/vmci_transport.c:889: warning: ?struct vmci_event_data? 
-> declared inside parameter list
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_recv_connecting_server?:
-> net/vmw_vsock/vmci_transport.c:1126: error: storage size of ?handle? 
-> isn?t known
-> net/vmw_vsock/vmci_transport.c:1165: error: implicit declaration of 
-> function ?vmci_event_subscribe?
-> net/vmw_vsock/vmci_transport.c:1165: error: 
-> ?VMCI_EVENT_QP_PEER_DETACH? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1168: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1185: error: ?VMCI_QPFLAG_ATTACH_ONLY? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1186: error: ?VMCI_QPFLAG_LOCAL? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1228: error: type of formal parameter 2 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c:1126: warning: unused variable ?handle?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_recv_connecting_client_negotiate?:
-> net/vmw_vsock/vmci_transport.c:1373: error: storage size of ?handle? 
-> isn?t known
-> net/vmw_vsock/vmci_transport.c:1384: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1436: error: 
-> ?VMCI_EVENT_QP_PEER_ATTACH? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1439: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1444: error: 
-> ?VMCI_EVENT_QP_PEER_DETACH? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1455: error: ?VMCI_QPFLAG_LOCAL? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1470: error: type of formal parameter 2 
-> is incomplete
-> net/vmw_vsock/vmci_transport.c:1491: error: implicit declaration of 
-> function ?vmci_event_unsubscribe?
-> net/vmw_vsock/vmci_transport.c:1497: error: implicit declaration of 
-> function ?vmci_qpair_detach?
-> net/vmw_vsock/vmci_transport.c:1373: warning: unused variable ?handle?
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_socket_init?:
-> net/vmw_vsock/vmci_transport.c:1589: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_destruct?:
-> net/vmw_vsock/vmci_transport.c:1629: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_release?:
-> net/vmw_vsock/vmci_transport.c:1644: error: implicit declaration of 
-> function ?vmci_datagram_destroy_handle?
-> net/vmw_vsock/vmci_transport.c:1645: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_dgram_bind?:
-> net/vmw_vsock/vmci_transport.c:1666: error: ?VMCI_FLAG_ANYCID_DG_HND? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1671: warning: passing argument 4 of 
-> ?vmci_transport_datagram_create_hnd? from incompatible pointer type
-> net/vmw_vsock/vmci_transport.c:566: note: expected ?struct vmci_handle 
-> *? but argument is of type ?struct sock *?
-> net/vmw_vsock/vmci_transport.c:1671: error: too many arguments to 
-> function ?vmci_transport_datagram_create_hnd?
-> net/vmw_vsock/vmci_transport.c:1672: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_dgram_enqueue?:
-> net/vmw_vsock/vmci_transport.c:1689: error: ?VMCI_MAX_DG_PAYLOAD_SIZE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:1696: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1700: error: implicit declaration of 
-> function ?VMCI_DG_PAYLOAD?
-> net/vmw_vsock/vmci_transport.c:1700: warning: passing argument 1 of 
-> ?memcpy_fromiovec? makes pointer from integer without a cast
-> include/linux/socket.h:307: note: expected ?unsigned char *? but 
-> argument is of type ?int?
-> net/vmw_vsock/vmci_transport.c:1702: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1704: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1706: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1713: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_dgram_dequeue?:
-> net/vmw_vsock/vmci_transport.c:1746: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1748: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1759: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1770: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c:1770: error: dereferencing pointer to 
-> incomplete type
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_dgram_allow?:
-> net/vmw_vsock/vmci_transport.c:1786: error: 
-> ?VMCI_UNITY_PBRPC_REGISTER? undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_stream_dequeue?:
-> net/vmw_vsock/vmci_transport.c:1830: error: implicit declaration of 
-> function ?vmci_qpair_peekv?
-> net/vmw_vsock/vmci_transport.c:1832: error: implicit declaration of 
-> function ?vmci_qpair_dequev?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_stream_enqueue?:
-> net/vmw_vsock/vmci_transport.c:1840: error: implicit declaration of 
-> function ?vmci_qpair_enquev?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_stream_has_data?:
-> net/vmw_vsock/vmci_transport.c:1845: error: implicit declaration of 
-> function ?vmci_qpair_consume_buf_ready?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_stream_has_space?:
-> net/vmw_vsock/vmci_transport.c:1850: error: implicit declaration of 
-> function ?vmci_qpair_produce_free_space?
-> net/vmw_vsock/vmci_transport.c: In function 
-> ?vmci_transport_get_local_cid?:
-> net/vmw_vsock/vmci_transport.c:2055: error: implicit declaration of 
-> function ?vmci_get_context_id?
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_init?:
-> net/vmw_vsock/vmci_transport.c:2102: error: ?VMCI_FLAG_ANYCID_DG_HND? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:2105: error: too many arguments to 
-> function ?vmci_transport_datagram_create_hnd?
-> net/vmw_vsock/vmci_transport.c:2106: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c:2111: error: ?VMCI_EVENT_QP_RESUMED? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:2130: error: 
-> ?vmci_transport_stream_handle? has an incomplete type
-> net/vmw_vsock/vmci_transport.c: In function ?vmci_transport_exit?:
-> net/vmw_vsock/vmci_transport.c:2137: error: 
-> ?vmci_transport_stream_handle? has an incomplete type
-> net/vmw_vsock/vmci_transport.c:2139: error: 
-> ?vmci_transport_stream_handle? has an incomplete type
-> net/vmw_vsock/vmci_transport.c:2139: error: ?VMCI_SUCCESS? undeclared 
-> (first use in this function)
-> net/vmw_vsock/vmci_transport.c:2141: error: ?VMCI_INVALID_HANDLE? 
-> undeclared (first use in this function)
-> net/vmw_vsock/vmci_transport.c:2141: error: 
-> ?vmci_transport_stream_handle? has an incomplete type
-> make[2]: *** [net/vmw_vsock/vmci_transport.o] Error 1
-> make[1]: *** [net/vmw_vsock] Error 2
-> make: *** [net] Error 2
+    Newly add config
+    -----------------------------
+
+    CONFIG_NET_SCHED=y
+    #
+    # Queueing/Scheduling
+    #
+    CONFIG_NET_SCH_CBQ=m
+    CONFIG_NET_SCH_HTB=m
+    CONFIG_NET_SCH_HFSC=m
+    CONFIG_NET_SCH_PRIO=m
+    CONFIG_NET_SCH_MULTIQ=m
+    CONFIG_NET_SCH_RED=m
+    CONFIG_NET_SCH_SFQ=m
+    CONFIG_NET_SCH_TEQL=m
+    CONFIG_NET_SCH_TBF=m
+    CONFIG_NET_SCH_GRED=m
+    CONFIG_NET_SCH_DSMARK=m
+    CONFIG_NET_SCH_NETEM=m
+    CONFIG_NET_SCH_DRR=m
+    CONFIG_NET_SCH_INGRESS=m
+    #
+    # Classification
+    #
+    CONFIG_NET_CLS=y
+    CONFIG_NET_CLS_BASIC=m
+    CONFIG_NET_CLS_TCINDEX=m
+    CONFIG_NET_CLS_ROUTE4=m
+    CONFIG_NET_CLS_FW=m
+    CONFIG_NET_CLS_U32=m
+    CONFIG_CLS_U32_PERF=y
+    CONFIG_CLS_U32_MARK=y
+    CONFIG_NET_CLS_RSVP=m
+    CONFIG_NET_CLS_RSVP6=m
+    CONFIG_NET_CLS_FLOW=m
+    CONFIG_NET_CLS_CGROUP=m
+    CONFIG_NET_EMATCH=y
+    CONFIG_NET_EMATCH_STACK=32
+    CONFIG_NET_EMATCH_CMP=m
+    CONFIG_NET_EMATCH_NBYTE=m
+    CONFIG_NET_EMATCH_U32=m
+    CONFIG_NET_EMATCH_META=m
+    CONFIG_NET_EMATCH_TEXT=m
+    CONFIG_NET_CLS_ACT=y
+    CONFIG_NET_ACT_POLICE=m
+    CONFIG_NET_ACT_GACT=m
+    CONFIG_GACT_PROB=y
+    CONFIG_NET_ACT_MIRRED=m
+    CONFIG_NET_ACT_IPT=m
+    CONFIG_NET_ACT_NAT=m
+    CONFIG_NET_ACT_PEDIT=m
+    CONFIG_NET_ACT_SIMP=m
+    CONFIG_NET_ACT_SKBEDIT=m
+    CONFIG_NET_CLS_IND=y
+    CONFIG_NET_SCH_FIFO=y
+
+
+Thanks In Advance
