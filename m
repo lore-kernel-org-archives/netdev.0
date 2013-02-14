@@ -1,68 +1,170 @@
 From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Subject: [PATCH net-next 5/7] gianfar: gfar_process_frame returns void
-Date: Thu, 14 Feb 2013 17:00:05 +0200
-Message-ID: <1360854007-11094-6-git-send-email-claudiu.manoil@freescale.com>
+Subject: [PATCH net-next 3/7] gianfar: Cleanup and optimize struct gfar_private
+Date: Thu, 14 Feb 2013 17:00:03 +0200
+Message-ID: <1360854007-11094-4-git-send-email-claudiu.manoil@freescale.com>
 References: <1360854007-11094-1-git-send-email-claudiu.manoil@freescale.com>
  <1360854007-11094-2-git-send-email-claudiu.manoil@freescale.com>
  <1360854007-11094-3-git-send-email-claudiu.manoil@freescale.com>
- <1360854007-11094-4-git-send-email-claudiu.manoil@freescale.com>
- <1360854007-11094-5-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe004.messaging.microsoft.com ([216.32.181.184]:48459
+Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:8669
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754474Ab3BNPAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 10:00:19 -0500
-In-Reply-To: <1360854007-11094-5-git-send-email-claudiu.manoil@freescale.com>
+	by vger.kernel.org with ESMTP id S1758873Ab3BNPAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 10:00:18 -0500
+In-Reply-To: <1360854007-11094-3-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No return code is expected from gfar_process_frame(), hence
-change it to return void.
+Group run-time critical fields within the 1st cacheline (32B)
+followed by the tx|rx_queue reference arrays and the interrupt
+group instances (gfargrp), all cacheline aligned.
+
+This has several benefits. Firstly comes the performance benefit
+by having the members required by the driver's hot path re-grouped
+in the structure's first cache lines, whereas the unimportant
+members were pushed towards the end of the struct.
+Another benefit comes from eliminating a 24 byte memory hole that
+was rendering gfar_priv's 2nd cacheline useless. The default gcc
+layout of gfar_private leaves an implicit 24 byte hole after the
+errata (enum) member. This patch fixes it.
+
+The uchar bitfields were pushed towards the end of the struct
+as these are not run-time performance critical (used for init
+time operations). Because there is no other 2 byte member
+around to couple the uchar bitfields memeber with, we will
+have an addititnal 2 byte hole after the bitfields. This is
+unsignificant however, and it doesn't influence gfar_priv's
+size, because the whole structure is padded to be a 32B multiple.
 
 Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 ---
- drivers/net/ethernet/freescale/gianfar.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/gianfar.h |   93 +++++++++++++++--------------
+ 1 files changed, 48 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
-index af0f4d6..d70f74c 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -133,8 +133,8 @@ static void gfar_netpoll(struct net_device *dev);
- #endif
- int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit);
- static int gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue);
--static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
--			      int amount_pull, struct napi_struct *napi);
-+static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
-+			       int amount_pull, struct napi_struct *napi);
- void gfar_halt(struct net_device *dev);
- static void gfar_halt_nodisable(struct net_device *dev);
- void gfar_start(struct net_device *dev);
-@@ -2692,8 +2692,8 @@ static inline void gfar_rx_checksum(struct sk_buff *skb, struct rxfcb *fcb)
- 
- 
- /* gfar_process_frame() -- handle one incoming packet if skb isn't NULL. */
--static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
--			      int amount_pull, struct napi_struct *napi)
-+static void gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
-+			       int amount_pull, struct napi_struct *napi)
- {
- 	struct gfar_private *priv = netdev_priv(dev);
- 	struct rxfcb *fcb = NULL;
-@@ -2742,8 +2742,6 @@ static int gfar_process_frame(struct net_device *dev, struct sk_buff *skb,
- 
- 	if (unlikely(GRO_DROP == ret))
- 		atomic64_inc(&priv->extra_stats.kernel_dropped);
+diff --git a/drivers/net/ethernet/freescale/gianfar.h b/drivers/net/ethernet/freescale/gianfar.h
+index 8b27e5f..1e2ce8b 100644
+--- a/drivers/net/ethernet/freescale/gianfar.h
++++ b/drivers/net/ethernet/freescale/gianfar.h
+@@ -1049,28 +1049,64 @@ enum gfar_errata {
+  * the buffer descriptor determines the actual condition.
+  */
+ struct gfar_private {
 -
--	return 0;
- }
+-	/* Indicates how many tx, rx queues are enabled */
+-	unsigned int num_tx_queues;
+ 	unsigned int num_rx_queues;
+-	unsigned int num_grps;
+-	unsigned int mode;
+-
+-	/* The total tx and rx ring size for the enabled queues */
+-	unsigned int total_tx_ring_size;
+-	unsigned int total_rx_ring_size;
  
- /* gfar_clean_rx_ring() -- Processes each frame in the rx ring
+ 	struct device *dev;
+ 	struct net_device *ndev;
+-	struct platform_device *ofdev;
+ 	enum gfar_errata errata;
++	unsigned int rx_buffer_size;
++
++	u16 padding;
++
++	/* HW time stamping enabled flag */
++	int hwts_rx_en;
++	int hwts_tx_en;
+ 
+-	struct gfar_priv_grp gfargrp[MAXGROUPS];
+ 	struct gfar_priv_tx_q *tx_queue[MAX_TX_QS];
+ 	struct gfar_priv_rx_q *rx_queue[MAX_RX_QS];
++	struct gfar_priv_grp gfargrp[MAXGROUPS];
++
++	u32 device_flags;
++
++	unsigned int mode;
++	unsigned int num_tx_queues;
++	unsigned int num_grps;
++
++	/* Network Statistics */
++	struct gfar_extra_stats extra_stats;
++
++	/* PHY stuff */
++	phy_interface_t interface;
++	struct device_node *phy_node;
++	struct device_node *tbi_node;
++	struct phy_device *phydev;
++	struct mii_bus *mii_bus;
++	int oldspeed;
++	int oldduplex;
++	int oldlink;
++
++	/* Bitfield update lock */
++	spinlock_t bflock;
++
++	uint32_t msg_enable;
++
++	struct work_struct reset_task;
++
++	struct platform_device *ofdev;
++	unsigned char
++		extended_hash:1,
++		bd_stash_en:1,
++		rx_filer_enable:1,
++		/* Wake-on-LAN enabled */
++		wol_en:1,
++		/* Enable priorty based Tx scheduling in Hw */
++		prio_sched_en:1;
++
++	/* The total tx and rx ring size for the enabled queues */
++	unsigned int total_tx_ring_size;
++	unsigned int total_rx_ring_size;
+ 
+ 	/* RX per device parameters */
+-	unsigned int rx_buffer_size;
+ 	unsigned int rx_stash_size;
+ 	unsigned int rx_stash_index;
+ 
+@@ -1089,39 +1125,6 @@ struct gfar_private {
+ 	unsigned int fifo_starve;
+ 	unsigned int fifo_starve_off;
+ 
+-	/* Bitfield update lock */
+-	spinlock_t bflock;
+-
+-	phy_interface_t interface;
+-	struct device_node *phy_node;
+-	struct device_node *tbi_node;
+-	u32 device_flags;
+-	unsigned char
+-		extended_hash:1,
+-		bd_stash_en:1,
+-		rx_filer_enable:1,
+-		wol_en:1, /* Wake-on-LAN enabled */
+-		prio_sched_en:1; /* Enable priorty based Tx scheduling in Hw */
+-	unsigned short padding;
+-
+-	/* PHY stuff */
+-	struct phy_device *phydev;
+-	struct mii_bus *mii_bus;
+-	int oldspeed;
+-	int oldduplex;
+-	int oldlink;
+-
+-	uint32_t msg_enable;
+-
+-	struct work_struct reset_task;
+-
+-	/* Network Statistics */
+-	struct gfar_extra_stats extra_stats;
+-
+-	/* HW time stamping enabled flag */
+-	int hwts_rx_en;
+-	int hwts_tx_en;
+-
+ 	/*Filer table*/
+ 	unsigned int ftp_rqfpr[MAX_FILER_IDX + 1];
+ 	unsigned int ftp_rqfcr[MAX_FILER_IDX + 1];
 -- 
 1.7.7.4
