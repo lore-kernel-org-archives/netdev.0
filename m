@@ -1,52 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/5 net-next] tg3: Add 57766 device support.
-Date: Thu, 14 Feb 2013 14:25:50 -0800
-Message-ID: <1360880750.3051.7.camel@joe-AO722>
-References: <1360880022-12856-1-git-send-email-mchan@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, nsujir@broadcom.com
-To: Michael Chan <mchan@broadcom.com>,
-	Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:55307 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759164Ab3BNWZv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 17:25:51 -0500
-In-Reply-To: <1360880022-12856-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 0/9] arm-soc/for-next allyesconfig build regressions
+Date: Thu, 14 Feb 2013 23:47:42 +0100
+Message-ID: <1360882071-4072668-1-git-send-email-arnd@arndb.de>
+Cc: linux-kernel@vger.kernel.org, arm@kernel.org,
+	Arnd Bergmann <arnd@arndb.de>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Dave Airlie <airlied@redhat.com>,
+	Marc Zyngier <marc.zyngier@arm.com>,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	Mauro Carvalho Chehab <mchehab@redhat.com>,
+	Paul Walmsley <paul@pwsan.com>, Rob Clark <rob@ti.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Sascha Hauer <s.hauer@pengutronix.de>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Tony Lindgren <tony@atomide.com>, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-02-14 at 14:13 -0800, Michael Chan wrote:
-> From: Matt Carlson <mcarlson@broadcom.com>
-> 
-> The patch also adds a couple of fixes
-> 
->  - For the 57766, bootcode needs to setup the PCIE Fast Training
->    Sequence (FTS) value to prevent transmit hangs. Unfortunately, it
->    does not have enough room in the selfboot case (i.e. devices with no
->    NVRAM).  The driver needs to implement this.
-[]
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-[]
-> @@ -9179,7 +9180,14 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
->  		}
->  
->  		if (GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_57765_AX) {
-> -			u32 grc_mode = tr32(GRC_MODE);
-> +			u32 grc_mode;
-> +
-> +			/* Fix transmit hangs */
-> +			val = tr32(TG3_CPMU_PADRNG_CTL);
-> +			val |= TG3_CPMU_PADRNG_CTL_RDIV2;
-> +			tw32(TG3_CPMU_PADRNG_CTL, val);
-> +
+These are the patches I still need to cleanly build allyesconfig
+and allmodconfig on arm-soc/for-next. Please review and provide
+Acks where appropriate so we can add the fixes directly to the
+branches that introduce the problems, or apply them directly
+to a maintainer tree where appropriate.
 
-This seems to write this val to more devices than just
-a 57766.  Intentional?
+The bulk of these patches happen to be omap specific, which
+does not mean that we had a lot of regressions in omap, but
+that we just started including omap in the multiplatform
+builds, which has uncovered a number of older problems that
+we did not see before.
 
-> +			grc_mode = tr32(GRC_MODE);
->  
->  			/* Access the lower 1K of DL PCIE block registers. */
->  			val = grc_mode & ~GRC_MODE_PCIE_PORT_MASK;
+	Arnd
+
+Arnd Bergmann (9):
+  ARM: arch_timer: include linux/errno.h
+  ARM: imx: MACH_MX31ADS_WM1133_EV1 needs REGULATOR_WM8350
+  ARM: omap2: include linux/errno.h in hwmod_reset
+  ARM: omap: add include guard for soc.h
+  drm: export drm_vm_open_locked
+  net: cwdavinci_cpdma: export symbols for cpsw
+  remoteproc: omap: depend on OMAP_MBOX_FWK
+  [HACK] ARM: imx: work around v7_cpu_resume link error
+  [media] davinci: do not include mach/hardware.h
+
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Dave Airlie <airlied@redhat.com>
+Cc: Marc Zyngier <marc.zyngier@arm.com>
+Cc: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
+Cc: Paul Walmsley <paul@pwsan.com>
+Cc: Rob Clark <rob@ti.com>
+Cc: Russell King <linux@arm.linux.org.uk>
+Cc: Sascha Hauer <s.hauer@pengutronix.de>
+Cc: Shawn Guo <shawn.guo@linaro.org>
+Cc: Tony Lindgren <tony@atomide.com>
+Cc: netdev@vger.kernel.org
+
+ arch/arm/kernel/arch_timer.c            | 1 +
+ arch/arm/mach-imx/Kconfig               | 2 +-
+ arch/arm/mach-imx/headsmp.S             | 4 +++-
+ arch/arm/mach-omap2/omap_hwmod_reset.c  | 1 +
+ arch/arm/mach-omap2/soc.h               | 3 +++
+ drivers/gpu/drm/drm_vm.c                | 1 +
+ drivers/media/platform/davinci/vpss.c   | 1 -
+ drivers/net/ethernet/ti/davinci_cpdma.c | 3 +++
+ drivers/remoteproc/Kconfig              | 2 +-
+ 9 files changed, 14 insertions(+), 4 deletions(-)
+
+-- 
+1.8.1.2
