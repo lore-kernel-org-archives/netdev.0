@@ -1,111 +1,331 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bonding inactive slaves vs rx_dropped
-Date: Thu, 14 Feb 2013 15:43:08 -0800
-Message-ID: <6330.1360885388@death.nxdomain>
-References: <20130214.160657.1394358701071068786.davem@davemloft.net> <4606.1360878661@death.nxdomain> <20130214.171821.186191007478674738.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+From: Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
+Subject: [PATCH v3] net: sh_eth: Add support of device tree probe
+Date: Fri, 15 Feb 2013 08:47:54 +0900
+Message-ID: <1360885674-6780-1-git-send-email-iwamatsu@nigauri.org>
+Cc: horms+renesas@verge.net.au, magnus.damm@gmail.com,
+	devicetree-discuss@lists.ozlabs.org, kda@linux-powerpc.org,
+	kuninori.morimoto.gx@renesas.com,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:56960 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932106Ab3BNXnj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 18:43:39 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 14 Feb 2013 18:43:38 -0500
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id C67FDC90023
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 18:43:36 -0500 (EST)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1ENha75197258
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 18:43:36 -0500
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1ENhACu002807
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 16:43:12 -0700
-In-reply-to: <20130214.171821.186191007478674738.davem@davemloft.net>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:40757 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932106Ab3BNXsH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 18:48:07 -0500
+Received: by mail-pa0-f41.google.com with SMTP id fb11so1535712pad.28
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 15:48:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
->From: Jay Vosburgh <fubar@us.ibm.com>
->Date: Thu, 14 Feb 2013 13:51:01 -0800
->
->> David Miller <davem@davemloft.net> wrote:
->> 
->>>People are starting to notice that rx_dropped now increments on every
->>>packet received on an bond's inactive slave.
->>>
->>>I'm actually fine with rx_dropped incrementing in this situation.
->>>
->>>The problem I want to address is that rx_dropped is encompassing
->>>several unrelated situations and thus has become less useful for
->>>diagnosis.
->>>
->>>I think we should add some new RX stats such that we can get at
->>>least a small amount of granularity for rx_dropped.
->>>
->>>This way team, bond, etc. can increment a new netdev_stats->rx_foo in
->>>this situation, and then someone doing diagnosis can see that
->>>rx_dropped and rx_foo are incrementing at similar rates.
->> 
->> 	This drop isn't really happening in bonding, though.  From
->> looking at the code, it comes about because, for the inactive slave, the
->> rx_handler call returns EXACT, and there aren't any exact match ptype
->> bindings, so __netif_receive_skb throws it away.  This isn't always the
->> case; sometimes there is an exact match, for things like iSCSI or FCoE
->> that are really determined to get the packet.
->
->This isn't even the whole story, it won't return 'exact' if the packet
->from the inactive slave is broadcast or multicast.
+This adds support of device tree probe for Renesas sh-ether driver.
 
-	It should; it returns EXACT if the packet is on an inactive
-slave, with one exception: for a balance-alb mode inactive slave,
-broadcast and multicast return EXACT, but unicast (technically, not
-broadcast and not multicast) returns ANOTHER after assigning skb->dev to
-the bond.
+Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-	This permits unicast traffic to pass on the inactive slave(s) in
-alb mode, because its inactive slaves are really "mostly active," and we
-only need to suppress broadcasts and multicasts.
-
-	The 802.3ad LACPDU protocol handler will return CONSUME for the
-skbs it handles, but that doesn't confuse any drop statistics.
-
->My general rule is that every special case increments a special
->'absurdity' statistic counter for the code :-)
-
-	Gonna need a whole lot of those for bonding, then.  Maybe it
-should have its own ethtool -S stats to handle all of the
-bonding-internal absurdity.
-
->> 	We could probably add an, oh, rx_dropped_inactive, or some
->> variation on that theme, that is incremented at the end of
->> __netif_receive_skb if deliver_exact is set, e.g., something like:
->
->Yes, that looks fine to me.
->
->> 	There's the separate questions of whether there should be more
->> counters (e.g., drops in dev_skb_forward or enqueue_to_backlog), and how
->> to deliver the counter(s) to user space.
->
->Since there is some pain in adding counters, I think we should try to
->find a nice (very small) set of cases to cover all at once.
-
-	There aren't a lot of places that increment rx_dropped outside
-of the hardware device driver.  There's this case (__netif_receive_skb),
-plus dev_forward_skb, enqueue_to_backlog and one other in
-gro_cells_receive.  The dev_forward_skb case has two reasons:
-skb_copy_ubufs failure, or !is_skb_forwardable.  Leaving both of the
-dev_forward_skb reasons as one new counter, that leaves approximately:
-
-	rx_dropped_inactive, rx_dropped_forward, rx_dropped_backlog and
-rx_dropped_gro
-
-	Is four too many?  Am I missing a case somewhere?
-
-	-J
-
+V3: - Remove empty sh_eth_parse_dt().
+V3: - Removed sentnece of "needs-init" from document.
+V2: - Removed ether_setup().
+    - Fixed typo from "sh-etn" to "sh-eth".
+	- Removed "needs-init" and sh-eth,endian from definition of DT.
+	- Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
+	  in definition of DT.
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ Documentation/devicetree/bindings/net/sh_ether.txt |   39 +++++
+ drivers/net/ethernet/renesas/sh_eth.c              |  150 ++++++++++++++++----
+ 2 files changed, 165 insertions(+), 24 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
+
+diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
+new file mode 100644
+index 0000000..f20d66a
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+@@ -0,0 +1,39 @@
++* Renesas Electronics SuperH EMAC
++
++This file provides information, what the device node
++for the sh_eth interface contains.
++
++Required properties:
++- compatible:                   "renesas,sh-eth";
++- interrupt-parent:             The phandle for the interrupt controller that
++                                services interrupts for this device.
++- reg:                          Offset and length of the register set for the
++                                device.
++- interrupts:                   Interrupt mapping for the sh_eth interrupt
++                                sources (vector id).
++- phy-mode:                     String, operation mode of the PHY interface.
++- sh-eth,register-type:         String, register type of sh_eth.
++                                Please select "gigabit", "fast-sh4" or
++                                "fast-sh3-sh2".
++- sh-eth,phy-id:                PHY id.
++
++Optional properties:
++- local-mac-address:            6 bytes, mac address
++- sh-eth,no-ether-link:         Set link control by software. When device does
++                                not support ether-link, set.
++- sh-eth,ether-link-active-low: Set link check method.
++                                When detection of link is treated as active-low,
++                                set.
++- sh-eth,edmac-big-endian:      Set big endian for sh_eth dmac.
++                                It work as little endian when this is not set.
++
++Example (armadillo800eva):
++	sh-eth@e9a00000 {
++		compatible = "renesas,sh-eth";
++		interrupt-parent = <&intca>;
++		reg = <0xe9a00000 0x800>, <0xe9a01800 0x800>;
++		interrupts = <0x500>;
++		phy-mode = "mii";
++		sh-eth,register-type = "gigabit";
++		sh-eth,phy-id = <0>;
++	};
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 3d70586..b41249a 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1,7 +1,7 @@
+ /*
+  *  SuperH Ethernet device driver
+  *
+- *  Copyright (C) 2006-2012 Nobuhiro Iwamatsu
++ *  Copyright (C) 2006-2013 Nobuhiro Iwamatsu
+  *  Copyright (C) 2008-2012 Renesas Solutions Corp.
+  *
+  *  This program is free software; you can redistribute it and/or modify it
+@@ -31,6 +31,12 @@
+ #include <linux/platform_device.h>
+ #include <linux/mdio-bitbang.h>
+ #include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_device.h>
++#include <linux/of_platform.h>
++#include <linux/of_address.h>
++#include <linux/of_irq.h>
++#include <linux/of_net.h>
+ #include <linux/phy.h>
+ #include <linux/cache.h>
+ #include <linux/io.h>
+@@ -2347,26 +2353,103 @@ static const struct net_device_ops sh_eth_netdev_ops = {
+ 	.ndo_change_mtu		= eth_change_mtu,
+ };
+ 
++#ifdef CONFIG_OF
++
++static int
++sh_eth_of_get_register_type(struct device_node *np)
++{
++	const char *of_str;
++	int ret = of_property_read_string(np, "sh-eth,register-type", &of_str);
++	if (ret)
++		return ret;
++
++	if (of_str && !strcmp(of_str, "gigabit"))
++		return SH_ETH_REG_GIGABIT;
++
++	else if (of_str && !strcmp(of_str, "fast-sh4"))
++		return SH_ETH_REG_FAST_SH4;
++	else if (of_str && !strcmp(of_str, "fast-sh3-sh2"))
++		return SH_ETH_REG_FAST_SH3_SH2;
++	else
++		return -EINVAL;
++}
++
++static struct sh_eth_plat_data *
++sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
++{
++	int ret;
++	struct device_node *np = dev->of_node;
++	struct sh_eth_plat_data *pdata;
++
++	pdata = devm_kzalloc(dev, sizeof(struct sh_eth_plat_data),
++					GFP_KERNEL);
++	if (!pdata) {
++		dev_err(dev, "%s: failed to allocate config data\n", __func__);
++		return NULL;
++	}
++
++	pdata->phy_interface = of_get_phy_mode(np);
++
++	of_property_read_u32(np, "sh-eth,phy-id", &pdata->phy);
++
++	if (of_find_property(np, "sh-eth,edmac-big-endian", NULL))
++		pdata->edmac_endian = EDMAC_BIG_ENDIAN;
++	else
++		pdata->edmac_endian = EDMAC_LITTLE_ENDIAN;
++
++	if (of_find_property(np, "sh-eth,no-ether-link", NULL))
++		pdata->no_ether_link = 1;
++	else
++		pdata->no_ether_link = 0;
++
++	if (of_find_property(np, "sh-eth,ether-link-active-low", NULL))
++		pdata->ether_link_active_low = 1;
++	else
++		pdata->ether_link_active_low = 0;
++
++	ret = sh_eth_of_get_register_type(np);
++	if (ret < 0)
++		goto error;
++	pdata->register_type = ret;
++
++#ifdef CONFIG_OF_NET
++	if (!is_valid_ether_addr(ndev->dev_addr)) {
++		const char *macaddr = of_get_mac_address(np);
++		if (macaddr)
++			memcpy(pdata->mac_addr, macaddr, ETH_ALEN);
++	}
++#endif
++
++	return pdata;
++
++error:
++	devm_kfree(dev, pdata);
++	return NULL;
++}
++#endif
++
+ static int sh_eth_drv_probe(struct platform_device *pdev)
+ {
+-	int ret, devno = 0;
++	int ret = 0, devno = 0;
+ 	struct resource *res;
+ 	struct net_device *ndev = NULL;
+ 	struct sh_eth_private *mdp = NULL;
+ 	struct sh_eth_plat_data *pd;
++	struct device_node *np = pdev->dev.of_node;
++
++	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
++	if (!ndev) {
++		ret = -ENOMEM;
++		goto out;
++	}
+ 
++	mdp = netdev_priv(ndev);
+ 	/* get base addr */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	if (unlikely(res == NULL)) {
+ 		dev_err(&pdev->dev, "invalid resource\n");
+ 		ret = -EINVAL;
+-		goto out;
+-	}
+-
+-	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
+-	if (!ndev) {
+-		ret = -ENOMEM;
+-		goto out;
++		goto out_release;
+ 	}
+ 
+ 	/* The sh Ether-specific entries in the device structure. */
+@@ -2383,27 +2466,41 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	}
+ 	ndev->irq = ret;
+ 
+-	SET_NETDEV_DEV(ndev, &pdev->dev);
+-
+-	/* Fill in the fields of the device structure with ethernet values. */
+-	ether_setup(ndev);
+-
+-	mdp = netdev_priv(ndev);
+-	mdp->num_tx_ring = TX_RING_SIZE;
+-	mdp->num_rx_ring = RX_RING_SIZE;
+ 	mdp->addr = ioremap(res->start, resource_size(res));
+ 	if (mdp->addr == NULL) {
+ 		ret = -ENOMEM;
+ 		dev_err(&pdev->dev, "ioremap failed.\n");
+ 		goto out_release;
+ 	}
++#ifdef CONFIG_OF
++	if (np && of_device_is_available(np)) {
++		pd = sh_eth_parse_dt(&pdev->dev, ndev);
++		if (pdev->dev.platform_data) {
++			struct sh_eth_plat_data *tmp =
++				pdev->dev.platform_data;
++			pd->set_mdio_gate = tmp->set_mdio_gate;
++			pd->needs_init = tmp->needs_init;
++		}
++	} else
++#endif
++		pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
++
++	if (!pd) {
++		dev_err(&pdev->dev, "no setup data defined\n");
++		ret = -EINVAL;
++		goto out_release;
++	}
++
++	SET_NETDEV_DEV(ndev, &pdev->dev);
++
++	mdp->num_tx_ring = TX_RING_SIZE;
++	mdp->num_rx_ring = RX_RING_SIZE;
+ 
+ 	spin_lock_init(&mdp->lock);
+ 	mdp->pdev = pdev;
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_resume(&pdev->dev);
+ 
+-	pd = (struct sh_eth_plat_data *)(pdev->dev.platform_data);
+ 	/* get PHY ID */
+ 	mdp->phy_id = pd->phy;
+ 	mdp->phy_interface = pd->phy_interface;
+@@ -2412,6 +2509,8 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	mdp->no_ether_link = pd->no_ether_link;
+ 	mdp->ether_link_active_low = pd->ether_link_active_low;
+ 	mdp->reg_offset = sh_eth_get_register_offset(pd->register_type);
++	/* read and set MAC address */
++	read_mac_address(ndev, pd->mac_addr);
+ 
+ 	/* set cpu data */
+ #if defined(SH_ETH_HAS_BOTH_MODULES)
+@@ -2429,20 +2528,16 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+ 	/* debug message level */
+ 	mdp->msg_enable = SH_ETH_DEF_MSG_ENABLE;
+ 
+-	/* read and set MAC address */
+-	read_mac_address(ndev, pd->mac_addr);
+-
+ 	/* ioremap the TSU registers */
+ 	if (mdp->cd->tsu) {
+ 		struct resource *rtsu;
+ 		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+ 		if (!rtsu) {
+ 			dev_err(&pdev->dev, "Not found TSU resource\n");
+-			ret = -ENODEV;
+ 			goto out_release;
+ 		}
+ 		mdp->tsu_addr = ioremap(rtsu->start,
+-					resource_size(rtsu));
++				resource_size(rtsu));
+ 		mdp->port = devno % 2;
+ 		ndev->features = NETIF_F_HW_VLAN_FILTER;
+ 	}
+@@ -2522,17 +2617,24 @@ static int sh_eth_runtime_nop(struct device *dev)
+ 	return 0;
+ }
+ 
+-static struct dev_pm_ops sh_eth_dev_pm_ops = {
++static const struct dev_pm_ops sh_eth_dev_pm_ops = {
+ 	.runtime_suspend = sh_eth_runtime_nop,
+ 	.runtime_resume = sh_eth_runtime_nop,
+ };
+ 
++static struct of_device_id sh_eth_match[] = {
++	{ .compatible = "renesas,sh-eth",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, sh_eth_match);
++
+ static struct platform_driver sh_eth_driver = {
+ 	.probe = sh_eth_drv_probe,
+ 	.remove = sh_eth_drv_remove,
+ 	.driver = {
+ 		   .name = CARDNAME,
+ 		   .pm = &sh_eth_dev_pm_ops,
++		   .of_match_table = sh_eth_match,
+ 	},
+ };
+ 
+-- 
+1.7.10.4
