@@ -1,37 +1,92 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Wed, 13 Feb 2013 19:07:18 -0800 (PST)
-Message-ID: <1221598093.1412783.1360811238629.JavaMail.root@vmware.com>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<1360196636-9357-2-git-send-email-acking@vmware.com>
-	<511B8AAF.2060202@redhat.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCHi v2] net: sh_eth: Add support of device tree probe
+Date: Thu, 14 Feb 2013 12:18:32 +0900
+Message-ID: <CABMQnVKYt+WNcDoUG20zQaoXBxMwbcdyW-CeMqdfqE+=gdsjsg@mail.gmail.com>
+References: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+ <CANqRtoQ_+eZFc-n0juBQP+BofR-bmVmEW_aVZdDP-vyr_aW5Kw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Gerd Hoffmann <kraxel@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <511B8AAF.2060202@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	kda@linux-powerpc.org, horms+renesas@verge.net.au
+To: Magnus Damm <magnus.damm@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f45.google.com ([209.85.215.45]:57074 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205Ab3BNDTF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Feb 2013 22:19:05 -0500
+Received: by mail-la0-f45.google.com with SMTP id er20so1851110lab.4
+        for <netdev@vger.kernel.org>; Wed, 13 Feb 2013 19:19:02 -0800 (PST)
+In-Reply-To: <CANqRtoQ_+eZFc-n0juBQP+BofR-bmVmEW_aVZdDP-vyr_aW5Kw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > +	if (protocol)
-> > +		return -EPROTONOSUPPORT;
-> > +
-> 
-> IMO protocol == PF_VSOCK should not get rejected here.
+On Thu, Feb 14, 2013 at 10:47 AM, Magnus Damm <magnus.damm@gmail.com> wrote:
+> Hi Iwamatsu-san,
+>
+> On Thu, Feb 14, 2013 at 9:51 AM, Nobuhiro Iwamatsu
+> <nobuhiro.iwamatsu.yj@renesas.com> wrote:
+>> This adds support of device tree probe for Renesas sh-ether driver.
+>>
+>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+>>
+>> ---
+>> V2: - Removed ether_setup().
+>>     - Fixed typo from "sh-etn" to "sh-eth".
+>>         - Removed "needs-init" and sh-eth,endian from definition of DT.
+>>         - Changed "sh-eth,edmac-endian" instead of "sh-eth,edmac-big-endain"
+>>           in definition of DT.
+>>
+>>  Documentation/devicetree/bindings/net/sh_ether.txt |   41 +++++
+>>  drivers/net/ethernet/renesas/sh_eth.c              |  156 +++++++++++++++++---
+>>  2 files changed, 173 insertions(+), 24 deletions(-)
+>>  create mode 100644 Documentation/devicetree/bindings/net/sh_ether.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/sh_ether.txt b/Documentation/devicetree/bindings/net/sh_ether.txt
+>> new file mode 100644
+>> index 0000000..7415e54
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/sh_ether.txt
+>> @@ -0,0 +1,41 @@
+>> +* Renesas Electronics SuperH EMAC
+>> +
+>> +This file provides information, what the device node
+>> +for the sh_eth interface contains.
+>> +
+>> +Required properties:
+>> +- compatible:                   "renesas,sh-eth";
+>> +- interrupt-parent:             The phandle for the interrupt controller that
+>> +                                services interrupts for this device.
+>> +- reg:                          Offset and length of the register set for the
+>> +                                device.
+>> +- interrupts:                   Interrupt mapping for the sh_eth interrupt
+>> +                                sources (vector id).
+>> +- phy-mode:                     String, operation mode of the PHY interface.
+>> +- sh-eth,register-type:         String, register type of sh_eth.
+>> +                                Please select "gigabit", "fast-sh4" or
+>> +                                "fast-sh3-sh2".
+>> +- sh-eth,phy-id:                PHY id.
+>> +
+>> +Optional properties:
+>> +- local-mac-address:            6 bytes, mac address
+>> +- sh-eth,no-ether-link:         Set link control by software. When device does
+>> +                                not support ether-link, set.
+>> +- sh-eth,ether-link-active-low: Set link check method.
+>> +                                When detection of link is treated as active-low,
+>> +                                set.
+>> +- sh-eth,edmac-big-endian:      Set big endian for sh_eth dmac.
+>> +                                It work as little endian when this is not set.
+>> +- sh-etn,needs-init:            Initialization flag.
+>> +                                When initialize device in probing device, set.
+>
+> I believe the above still says "sh-etn". Also, it is unclear why you
+> want this flag at all since it is not used to describe the hardware.
+>
 
-Agreed, let me fix that too.
+yes, I forgot to delete this.
+I will fix.
 
-Thanks!
-- Andy
+regards,
+  Nobuhiro
+
+-- 
+Nobuhiro Iwamatsu
