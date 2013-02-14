@@ -1,53 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tuntap: Overload handling
-Date: Thu, 14 Feb 2013 09:01:30 -0800
-Message-ID: <1360861290.6884.55.camel@edumazet-glaptop>
-References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
-	 <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
-	 <1360859547.6884.51.camel@edumazet-glaptop>
-	 <20130214164053.GB18721@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Convert skb->csum_(start|offset) integrity
+ BUG_ON() to WARN_ON() & drop
+Date: Thu, 14 Feb 2013 13:00:11 -0500 (EST)
+Message-ID: <20130214.130011.1650629621355208039.davem@davemloft.net>
+References: <20130213234843.GB21829@casper.infradead.org>
+	<20130213.193759.1094469499685059296.davem@davemloft.net>
+	<20130214101853.GC21829@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?=
-	<sebastian.poehn@googlemail.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:49729 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934609Ab3BNRBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 12:01:34 -0500
-Received: by mail-pa0-f48.google.com with SMTP id hz10so1388408pad.21
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 09:01:33 -0800 (PST)
-In-Reply-To: <20130214164053.GB18721@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58387 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758307Ab3BNSAO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:00:14 -0500
+In-Reply-To: <20130214101853.GC21829@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-14 at 18:42 +0200, Michael S. Tsirkin wrote:
+From: Thomas Graf <tgraf@suug.ch>
+Date: Thu, 14 Feb 2013 10:18:53 +0000
 
-> Hmm so ~1000 packets in the tun queue is not enough?
-> You always have the option to increase it some more ...
-> 
-> > You should ask Michael S. Tsirkin, as he removed the flow control
-> > in commit 5d097109257c03a71845729f8db6b5770c4bbedc
-> > (tun: only queue packets on device)
-> > 
-> 
-> Eric in the past you said the following things
-> (http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/00784.html)
-> > > In your case I would just not use qdisc at all, like other virtual
-> > > devices.
-> ...
-> > > Anyway, with a 500 packet limit in TUN queue itself, qdisc layer should
-> > > be always empty. Whats the point storing more than 500 packets for a
-> > > device ? Thats a latency killer.
-> you don't think this applies, anymore?
-> 
+> On 02/13/13 at 07:37pm, David Miller wrote:
+> Maybe it's my general dislike of BUG_ON() in the processing
+> path, especially if the bug condition can be influenced remotely.
+> It looks absolutely doable to trigger the previously mentioned
+> partial acking & collapsing on purpose by a malicious receiver
+> even with an MTU of 1500. I believe we should avoid total DoS
+> in future similar situations that we don't think of yet.
 
-Users have the choice to setup a qdisc or not.
-
-Having no qdisc can help raw performance, at the expense of bufferbloat.
-Thats all I was saying.
-
-It seems tun.c has no longer the possibility to effectively use a qdisc,
-(allowing the queue to buildup at qdisc layer)
+I heard that people can very effectively protect themselves from DoS's
+by not using Infiniband. :-)
