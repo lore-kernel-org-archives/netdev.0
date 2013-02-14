@@ -1,59 +1,53 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: [PATCH net-next v1 0/7] Fix, cleanup, optimize gfar_private and
- the Rx path
-Date: Thu, 14 Feb 2013 11:49:45 -0500
-Message-ID: <511D15A9.9090001@windriver.com>
-References: <1360854007-11094-1-git-send-email-claudiu.manoil@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tuntap: Overload handling
+Date: Thu, 14 Feb 2013 09:01:30 -0800
+Message-ID: <1360861290.6884.55.camel@edumazet-glaptop>
+References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
+	 <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
+	 <1360859547.6884.51.camel@edumazet-glaptop>
+	 <20130214164053.GB18721@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?=
+	<sebastian.poehn@googlemail.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:53628 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755410Ab3BNQtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 11:49:14 -0500
-In-Reply-To: <1360854007-11094-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:49729 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934609Ab3BNRBe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 12:01:34 -0500
+Received: by mail-pa0-f48.google.com with SMTP id hz10so1388408pad.21
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 09:01:33 -0800 (PST)
+In-Reply-To: <20130214164053.GB18721@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-02-14 10:00 AM, Claudiu Manoil wrote:
-> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
->   "David S. Miller" <davem@davemloft.net>
-> 
-> 
-> Hi Dave,
-> These patches went already through a review round with Paul.
-> Changes since the initial version of the patches:
-> * split the 1st patch into two patches (01 & 02, as suggested by Paul)
-> * added the suggested trivial cleanup patch:
->   gianfar: gfar_process_frame returns void
-> * provided "long logs" with detailed comments and explanations
+On Thu, 2013-02-14 at 18:42 +0200, Michael S. Tsirkin wrote:
 
-The commit headers do look a lot better, thanks.  Passes basic boot
-test on today's net-next with sbc8548 and NFS root.
+> Hmm so ~1000 packets in the tun queue is not enough?
+> You always have the option to increase it some more ...
+> 
+> > You should ask Michael S. Tsirkin, as he removed the flow control
+> > in commit 5d097109257c03a71845729f8db6b5770c4bbedc
+> > (tun: only queue packets on device)
+> > 
+> 
+> Eric in the past you said the following things
+> (http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/00784.html)
+> > > In your case I would just not use qdisc at all, like other virtual
+> > > devices.
+> ...
+> > > Anyway, with a 500 packet limit in TUN queue itself, qdisc layer should
+> > > be always empty. Whats the point storing more than 500 packets for a
+> > > device ? Thats a latency killer.
+> you don't think this applies, anymore?
+> 
 
-Paul.
---
+Users have the choice to setup a qdisc or not.
 
-> 
-> Thank you.
-> 
-> Regards,
-> Claudiu
-> 
-> 
-> Claudiu Manoil (7):
->   gianfar: Remove unused device_node ref in gfar_private
->   gianfar: Add device ref (dev) in gfar_private
->   gianfar: Cleanup and optimize struct gfar_private
->   gianfar: GRO_DROP is unlikely
->   gianfar: gfar_process_frame returns void
->   gianfar: Remove wrong buffer size conditioning to VLAN h/w offload
->   gianfar: Fix and cleanup Rx FCB indication
-> 
->  drivers/net/ethernet/freescale/gianfar.c |   85 ++++++++++++---------------
->  drivers/net/ethernet/freescale/gianfar.h |   96 +++++++++++++++--------------
->  2 files changed, 88 insertions(+), 93 deletions(-)
-> 
+Having no qdisc can help raw performance, at the expense of bufferbloat.
+Thats all I was saying.
+
+It seems tun.c has no longer the possibility to effectively use a qdisc,
+(allowing the queue to buildup at qdisc layer)
