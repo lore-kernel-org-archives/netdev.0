@@ -1,87 +1,54 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bonding inactive slaves vs rx_dropped
-Date: Thu, 14 Feb 2013 13:51:01 -0800
-Message-ID: <4606.1360878661@death.nxdomain>
-References: <20130214.160657.1394358701071068786.davem@davemloft.net>
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH 3/5 net-next] tg3: Fix 5762 NVRAM sizing
+Date: Thu, 14 Feb 2013 14:13:40 -0800
+Message-ID: <1360880022-12856-3-git-send-email-mchan@broadcom.com>
+References: <1360880022-12856-1-git-send-email-mchan@broadcom.com>
+ <1360880022-12856-2-git-send-email-mchan@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nsujir@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:47674 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934909Ab3BNVvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 16:51:23 -0500
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 14 Feb 2013 14:51:22 -0700
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 3EC463E4003E
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 14:51:08 -0700 (MST)
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1ELpESU183368
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 14:51:15 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1ELpAqG009118
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 14:51:12 -0700
-In-reply-to: <20130214.160657.1394358701071068786.davem@davemloft.net>
+Received: from mms3.broadcom.com ([216.31.210.19]:4440 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934910Ab3BNV4b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2013 16:56:31 -0500
+In-Reply-To: <1360880022-12856-2-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+Don't set the default size to 128K if it is 5762.  Instead, rely on the
+size we obtain from NVRAM location 0xf0.
 
->People are starting to notice that rx_dropped now increments on every
->packet received on an bond's inactive slave.
->
->I'm actually fine with rx_dropped incrementing in this situation.
->
->The problem I want to address is that rx_dropped is encompassing
->several unrelated situations and thus has become less useful for
->diagnosis.
->
->I think we should add some new RX stats such that we can get at
->least a small amount of granularity for rx_dropped.
->
->This way team, bond, etc. can increment a new netdev_stats->rx_foo in
->this situation, and then someone doing diagnosis can see that
->rx_dropped and rx_foo are incrementing at similar rates.
-
-	This drop isn't really happening in bonding, though.  From
-looking at the code, it comes about because, for the inactive slave, the
-rx_handler call returns EXACT, and there aren't any exact match ptype
-bindings, so __netif_receive_skb throws it away.  This isn't always the
-case; sometimes there is an exact match, for things like iSCSI or FCoE
-that are really determined to get the packet.
-
-	On a non-bonded interface, the same drop path (except for the
-rx_handler) is taken for incoming packets for an unsupported protocol.
-
-	We could probably add an, oh, rx_dropped_inactive, or some
-variation on that theme, that is incremented at the end of
-__netif_receive_skb if deliver_exact is set, e.g., something like:
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a87bc74..4cd7c1f 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3559,6 +3559,8 @@ ncls:
- 	} else {
- drop:
- 		atomic_long_inc(&skb->dev->rx_dropped);
-+		if (deliver_exact)
-+			atomic_long_inc(&skb->dev->rx_dropped_inactive);
- 		kfree_skb(skb);
- 		/* Jamal, now you will not able to escape explaining
- 		 * me how you were going to use this. :-)
-
-	I think this would only hit frames that have been soft-rejected
-(rx_handler says EXACT) by bonding or team, but were not subsequently
-delivered to an exact match listener.
-
-	There's the separate questions of whether there should be more
-counters (e.g., drops in dev_skb_forward or enqueue_to_backlog), and how
-to deliver the counter(s) to user space.
-
-	-J
-
+Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/ethernet/broadcom/tg3.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 3004d69..7ac0bd0 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -13883,7 +13883,8 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
+ 			tp->nvram_size = TG3_NVRAM_SIZE_1MB;
+ 			break;
+ 		default:
+-			tp->nvram_size = TG3_NVRAM_SIZE_128KB;
++			if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5762)
++				tp->nvram_size = TG3_NVRAM_SIZE_128KB;
+ 			break;
+ 		}
+ 		break;
+@@ -13929,7 +13930,8 @@ static void tg3_get_5720_nvram_info(struct tg3 *tp)
+ 			tp->nvram_size = TG3_NVRAM_SIZE_1MB;
+ 			break;
+ 		default:
+-			tp->nvram_size = TG3_NVRAM_SIZE_128KB;
++			if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5762)
++				tp->nvram_size = TG3_NVRAM_SIZE_128KB;
+ 			break;
+ 		}
+ 		break;
+-- 
+1.7.1
