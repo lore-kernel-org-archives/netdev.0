@@ -1,50 +1,58 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: how to handle bonding failover when using a bridge over the bond?
-Date: Thu, 14 Feb 2013 13:29:00 -0600
-Message-ID: <511D3AFC.10504@genband.com>
-References: <511ACE16.3080906@genband.com> <32261.1360713746@death.nxdomain> <511ADEBB.1000701@genband.com> <kfi5k6$1mq$1@ger.gmane.org> <511D141B.602@genband.com> <23692.1360864993@death.nxdomain>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [PATCH net-next 2/3] ipv6: use newly introduced __ipv6_addr_needs_scope_id
+ and ipv6_iface_scope_id
+Date: Thu, 14 Feb 2013 14:31:06 -0500
+Message-ID: <511D3B7A.8040802@hp.com>
+References: <20130212221634.GA7212@order.stressinduktion.org> <20130213001357.GB1096@order.stressinduktion.org> <511AFF9A.8040506@hp.com> <511BC3B3.3070405@linux-ipv6.org> <20130214042543.GB24534@order.stressinduktion.org> <511D01FA.8080506@hp.com> <20130214185326.GB8611@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og118.obsmtp.com ([64.18.2.8]:60005 "EHLO
-	exprod7og118.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758702Ab3BNTaF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 14:30:05 -0500
-In-Reply-To: <23692.1360864993@death.nxdomain>
+Received: from g1t0029.austin.hp.com ([15.216.28.36]:45073 "EHLO
+	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934846Ab3BNTbJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 14:31:09 -0500
+In-Reply-To: <20130214185326.GB8611@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/14/2013 12:03 PM, Jay Vosburgh wrote:
-> Chris Friesen<chris.friesen@genband.com>  wrote:
+On 02/14/2013 01:53 PM, Hannes Frederic Sowa wrote:
+> On Thu, Feb 14, 2013 at 10:25:46AM -0500, Brian Haley wrote:
+>>> [PATCH net-next RFC] ipv6: introduce new type ipv6_addr_props to hold type and scope
+>>>
+>>> ---
+>>>  include/net/ipv6.h       | 16 +++++---
+>>>  net/ipv6/addrconf.c      | 27 +++++++-------
+>>>  net/ipv6/addrconf_core.c | 97 +++++++++++++++++++++++++++++++-----------------
+>>>  net/ipv6/datagram.c      | 12 +++---
+>>>  4 files changed, 95 insertions(+), 57 deletions(-)
+>>>
+>>> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+>>> index 851d541..3a3ec1cc 100644
+>>> --- a/include/net/ipv6.h
+>>> +++ b/include/net/ipv6.h
+>>> @@ -298,20 +298,26 @@ static inline int ip6_frag_mem(struct net *net)
+>>>  #define IPV6_FRAG_LOW_THRESH	(3 * 1024*1024)	/* 3145728 */
+>>>  #define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
+>>>  
+>>> -extern int __ipv6_addr_type(const struct in6_addr *addr);
+>>> +struct ipv6_addr_props {
+>>> +	u16 type;
+>>> +	s16 scope;
+>>> +};
+>>
+>> Seeing this makes me think we should unify the flags and scope members of
+>> inet6_ifaddr to something like this, moving to a single set of values for IPv6
+>> addresses.  Then ipv6_dev_get_saddr() wouldn't have to use __ipv6_adr_type() as
+>> much since the address struct would already have the values.  Possible future
+>> work...
+> 
+> Thanks for your feedback. I will incooperate it in my patch.
 
->> The problem is that L2 switch "B" still thinks that all the virtual
->> machines are accessible via L2 switch "A".  Thus any incoming packets
->> destined for a virtual machine will get dropped.
->
-> 	I'm trying to track down the system I tested previously to see
-> exactly how it is set up and why it works when yours does not.  It's
-> possible that it doesn't work, and the testing we did simply missed this
-> case.
+Ok, just don't worry about this above one right now, once you dig into it you
+will realize it's not straightforward.  I'd just fix any existing bugs first.
+I'll see if I can find the time to send out an RFC patch of what I mean...
 
-After thinking about this for a while, it doesn't seem like a natural 
-thing for either the bond or the bridge to care about--though if someone 
-wanted to fix it generically that would be great.
-
-It might be worth considering sending out a bonding-specific netlink 
-message when a bond fails over, giving the name of the bond as well as 
-the newly active slave device.  This would allow for an efficient 
-userspace daemon to issue gratuitous arps for all the VM MAC addresses.
-
-It almost seems like the most elegant way to deal with this would be to 
-forgo the bond completely and just add both links into the bridge, then 
-run STP to make sure there are no loops.  That way link pulls get 
-handled immediately and STP will update the other L2 switches 
-appropriately.  Unfortunately this doesn't seem to be an option for us 
-since some apparently customers frown on a server participating in STP. 
-(Not sure why, we're already dealing with much more complicated 
-protocols...)
-
-Chris
+-Brian
