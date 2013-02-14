@@ -1,80 +1,72 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCHi v2] net: sh_eth: Add support of device tree probe
-Date: Fri, 15 Feb 2013 08:07:13 +0900
-Message-ID: <CABMQnVLVW1fbmZSsZeshB8=NgyYLK67Lv9xydLeQmDLdM8FrmA@mail.gmail.com>
-References: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: [PATCH 1/5 net-next] tg3: Add 57766 device support.
+Date: Thu, 14 Feb 2013 15:13:09 -0800
+Message-ID: <511D6F85.6060201@broadcom.com>
+References: <1360880022-12856-1-git-send-email-mchan@broadcom.com>
+ <1360880750.3051.7.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	magnus.damm@gmail.com, kda@linux-powerpc.org,
-	horms+renesas@verge.net.au
-To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Michael Chan" <mchan@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Joe Perches" <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f182.google.com ([209.85.217.182]:60718 "EHLO
-	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759164Ab3BNXHp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 18:07:45 -0500
-Received: by mail-lb0-f182.google.com with SMTP id gg6so2223358lbb.13
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 15:07:44 -0800 (PST)
-In-Reply-To: <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:2992 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934976Ab3BNXNT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2013 18:13:19 -0500
+In-Reply-To: <1360880750.3051.7.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 14, 2013 at 10:24 AM, Kuninori Morimoto
-<kuninori.morimoto.gx@renesas.com> wrote:
->
-> Hi Iwamatsu-san
->
-> Thank you for this patch.
->
-> Small comment from me
->
->> +#ifdef CONFIG_OF
-> (snip)
->> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
->> +{
->> +     int ret;
->> +     struct device_node *np = dev->of_node;
->> +     struct sh_eth_plat_data *pdata;
-> ...
->> +#else
->> +static struct sh_eth_plat_data *
->> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
->> +{
->> +     return NULL;
->> +}
->> +#endif
->
-> (snip)
->
->>  static int sh_eth_drv_probe(struct platform_device *pdev)
->>  {
-> ...
->> +#ifdef CONFIG_OF
->> +     if (np && of_device_is_available(np)) {
->> +             pd = sh_eth_parse_dt(&pdev->dev, ndev);
->> +             if (pdev->dev.platform_data) {
->> +                     struct sh_eth_plat_data *tmp =
->> +                             pdev->dev.platform_data;
->> +                     pd->set_mdio_gate = tmp->set_mdio_gate;
->> +                     pd->needs_init = tmp->needs_init;
->> +             }
->> +     } else
->> +#endif
->
-> sh_eth_parse_dt() was defined for both CO NFIG_OF and !CONFIG_OF.
-> But it is called only from CONFIG_OF ?
->
-Because of_device_is_available depennds CONFIG_OF.
-I already send a patch which add empty fuction of of_device_is_available.
-If this was applied, your point does not need.
 
-OK, I erase empty sh_eth_parse_dt, and if a patch is applied, I will
-update this.
 
-Regards,
- Nobuhiro
+On 02/14/2013 02:25 PM, Joe Perches wrote:
+> On Thu, 2013-02-14 at 14:13 -0800, Michael Chan wrote:
+>> From: Matt Carlson <mcarlson@broadcom.com>
+>>
+>> The patch also adds a couple of fixes
+>>
+>>   - For the 57766, bootcode needs to setup the PCIE Fast Training
+>>     Sequence (FTS) value to prevent transmit hangs. Unfortunately, it
+>>     does not have enough room in the selfboot case (i.e. devices with no
+>>     NVRAM).  The driver needs to implement this.
+> []
+>> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> []
+>> @@ -9179,7 +9180,14 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+>>   		}
+>>
+>>   		if (GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_57765_AX) {
+>> -			u32 grc_mode = tr32(GRC_MODE);
+>> +			u32 grc_mode;
+>> +
+>> +			/* Fix transmit hangs */
+>> +			val = tr32(TG3_CPMU_PADRNG_CTL);
+>> +			val |= TG3_CPMU_PADRNG_CTL_RDIV2;
+>> +			tw32(TG3_CPMU_PADRNG_CTL, val);
+>> +
+>
+> This seems to write this val to more devices than just
+> a 57766.  Intentional?
+>
 
--- 
-Nobuhiro Iwamatsu
+Yes. In addition to the 57766, this fix applies to non-AX revisions of the 57765.
+
+It's not apparent from the patch, but this code chunk is inside the conditional -
+
+	if (tg3_flag(tp, 57765_CLASS)) {
+
+which is set for 57765 and 57766 devices.
+
+
+
+>> +			grc_mode = tr32(GRC_MODE);
+>>
+>>   			/* Access the lower 1K of DL PCIE block registers. */
+>>   			val = grc_mode & ~GRC_MODE_PCIE_PORT_MASK;
+>
+>
+>
