@@ -1,35 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Convert skb->csum_(start|offset) integrity
- BUG_ON() to WARN_ON() & drop
-Date: Thu, 14 Feb 2013 13:00:11 -0500 (EST)
-Message-ID: <20130214.130011.1650629621355208039.davem@davemloft.net>
-References: <20130213234843.GB21829@casper.infradead.org>
-	<20130213.193759.1094469499685059296.davem@davemloft.net>
-	<20130214101853.GC21829@casper.infradead.org>
+Subject: Re: [PATCH] net: cdc_ncm: fix probing of devices with multiple
+ control interface altsettings
+Date: Thu, 14 Feb 2013 13:15:16 -0500 (EST)
+Message-ID: <20130214.131516.1338992153364367929.davem@davemloft.net>
+References: <1360793392-7412-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tgraf@suug.ch
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	gsuarez@smithmicro.com, alexey.orishko@stericsson.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58387 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58544 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758307Ab3BNSAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:00:14 -0500
-In-Reply-To: <20130214101853.GC21829@casper.infradead.org>
+	with ESMTP id S1758482Ab3BNSPT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:15:19 -0500
+In-Reply-To: <1360793392-7412-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@suug.ch>
-Date: Thu, 14 Feb 2013 10:18:53 +0000
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Wed, 13 Feb 2013 23:09:52 +0100
 
-> On 02/13/13 at 07:37pm, David Miller wrote:
-> Maybe it's my general dislike of BUG_ON() in the processing
-> path, especially if the bug condition can be influenced remotely.
-> It looks absolutely doable to trigger the previously mentioned
-> partial acking & collapsing on purpose by a malicious receiver
-> even with an MTU of 1500. I believe we should avoid total DoS
-> in future similar situations that we don't think of yet.
+> commit bd329e1 ("net: cdc_ncm: do not bind to NCM compatible MBIM dev=
+ices")
+> added a test for a CDC MBIM altsetting, implementing the cdc_ncm part=
+ of
+> MBIM backward compatibility support.  This intentionally made the dri=
+ver
+> behave differently for CDC NCM devices with 2 alternate settings for =
+the
+> Communication interface, depending on whether or not CONFIG_USB_NET_C=
+DC_MBIM
+> was enabled.  This is correct iff alternate setting #1 really *is* a =
+MBIM
+> setting.  If not, then NCM probing will use a different altsetting th=
+an before,
+> possibly causing probing failures depending on CONFIG_USB_NET_CDC_MBI=
+M.
+>=20
+> Fix by setting the altsetting back to default after the test, restori=
+ng the
+> previous behaviour for non MBIM devices.
+>=20
+> This bug causes probing of Huawei E3276 devices to fail when the MBIM=
+ driver
+> is enabled, because these devices have a second alternate setting wit=
+h no CDC
+> functional descriptors.
+>=20
+> Cc: Greg Suarez <gsuarez@smithmicro.com>
+> Cc: Alexey Orishko <alexey.orishko@stericsson.com>
+> Reported-and-tested-by: Jonathan A. <yo.natan@hotmail.com>
+> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-I heard that people can very effectively protect themselves from DoS's
-by not using Infiniband. :-)
+Applied.
