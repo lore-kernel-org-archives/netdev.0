@@ -1,106 +1,98 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: how to handle bonding failover when using a bridge over the bond?
-Date: Thu, 14 Feb 2013 10:03:13 -0800
-Message-ID: <23692.1360864993@death.nxdomain>
-References: <511ACE16.3080906@genband.com> <32261.1360713746@death.nxdomain> <511ADEBB.1000701@genband.com> <kfi5k6$1mq$1@ger.gmane.org> <511D141B.602@genband.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Chris Friesen <chris.friesen@genband.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] net: Convert skb->csum_(start|offset) integrity BUG_ON()
+ to WARN_ON() & drop
+Date: Thu, 14 Feb 2013 18:50:08 +0000
+Message-ID: <20130214185008.GA10745@casper.infradead.org>
+References: <20130213234021.GA21829@casper.infradead.org>
+ <20130213234843.GB21829@casper.infradead.org>
+ <20130213.193759.1094469499685059296.davem@davemloft.net>
+ <20130214101853.GC21829@casper.infradead.org>
+ <1360858943.6884.47.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:44662 "EHLO e2.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758490Ab3BNSoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 13:44:03 -0500
-Received: from /spool/local
-	by e2.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 14 Feb 2013 13:44:02 -0500
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id D9C062110312
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 13:04:58 -0500 (EST)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1EI4wZB334876
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 13:04:58 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1EI4v36028309
-	for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 13:04:58 -0500
-In-reply-to: <511D141B.602@genband.com>
+Received: from casper.infradead.org ([85.118.1.10]:50806 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761517Ab3BNSuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:50:11 -0500
+Content-Disposition: inline
+In-Reply-To: <1360858943.6884.47.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chris Friesen <chris.friesen@genband.com> wrote:
+On 02/14/13 at 08:22am, Eric Dumazet wrote:
+> It seems not possible to avoid bugs, being a BUG_ON() or a out of bound
+> memory access or whatever. We must fix them eventually.
 
->On 02/14/2013 02:01 AM, Cong Wang wrote:
->> On Wed, 13 Feb 2013 at 00:30 GMT, Chris Friesen<chris.friesen@genband.com>  wrote:
->>> On 02/12/2013 06:02 PM, Jay Vosburgh wrote:
->>>> 	The bond doesn't track all of the MACs that go through it, but
->>>> the bridge presumably does, and could respond to the FAILOVER notifier
->>>> with something to notify the switch that the port assignments for the
->>>> various MACs have changed.
->>>
->>> That would probably make sense.  I've added the bridging folks, maybe
->>> they'll have a suggestion how this sort of thing should be handled.
->>>
->>
->> It is already handled. When BONDING_FAILOVER is triggered and the MAC has
->> been changed, NETDEV_CHANGEADDR is issued too, then bridge will capture
->> it and update its fdb:
->>
->>          case NETDEV_CHANGEADDR:
->>                  spin_lock_bh(&br->lock);
->>                  br_fdb_changeaddr(p, dev->dev_addr);
->>                  changed_addr = br_stp_recalculate_bridge_id(br);
->>                  spin_unlock_bh(&br->lock);
->>
->>                  if (changed_addr)
->>                          call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
->>
->>                  break;
->
->I'm not familiar with the bridge code, can you elaborate on how this helps?
+Of course, I never intended to not fix this but I still think
+leaving the BUG_ON() is wrong ;-)
 
-	I'm not sure that it does, even if you're using STP (although
-I'd want to try it with STP to make sure).  This only updates the fdb's
-MAC for the bond's port.  It won't affect the VM's MACs (which it
-shouldn't, because they don't change), and won't send any gratuitous
-updates through the bond's port to the switch that would notify the
-second switch ("B" in Chris's description, below) that the switch port
-for the VM's MAC(s) has changed.
+> In this case, it seems we must limit payload to 
+> 
+> 65535 - MAX_TCP_HEADER 
+> 
+> It would make tcp_xmit_size_goal() a bit shorter.
+> 
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 2c7e596..2f6c8e5 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -793,10 +793,7 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+>  	xmit_size_goal = mss_now;
+>  
+>  	if (large_allowed && sk_can_gso(sk)) {
+> -		xmit_size_goal = ((sk->sk_gso_max_size - 1) -
+> -				  inet_csk(sk)->icsk_af_ops->net_header_len -
+> -				  inet_csk(sk)->icsk_ext_hdr_len -
+> -				  tp->tcp_header_len);
+> +		xmit_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
+>  
+>  		/* TSQ : try to have two TSO segments in flight */
+>  		xmit_size_goal = min_t(u32, xmit_size_goal,
 
-	Also, if the bond has fail_over_mac=follow, then no CHANGEADDR
-is issued, because the MAC address does not change.  This is not common
-(and not the case in the configuration described below), but does occur.
+I don't think this would help. The allocated skb data will still
+exceed 64K and thus after trimming the acked data and collapsing
+the header might be stored after the 64K mark.
 
->The problem scenario is this:
->
->I have a host with eth0/eth1 bonded together as bond0.  eth0/eth1 are
->connected to separate L2 switches, which are interconnected.
->
->On the host there are a number of virtual machines, each with a virtual
->interface.
->
->All the virtual interfaces as well as bond0 are bridged together to allow
->the VMs, the host, and the outside world to talk to each other.
->
->Currently the host does NOT participate in STP because it is considered an
->edge node.
->
->Suppose eth0 is the active link and we pull it.  The bond will make eth1
->active and emit gratuitous arp packets for itself, so the external L2
->switches will update the location of the MAC address belonging to the
->bond.  On loss of carrier for the link to eth0 L2 switch "A" will drop the
->entries for the MAC addresses, including the ones for the virtual
->machines.
->
->The problem is that L2 switch "B" still thinks that all the virtual
->machines are accessible via L2 switch "A".  Thus any incoming packets
->destined for a virtual machine will get dropped.
+We would have to limit the skb tailroom to 64K upon allocation.
+That would mean we would waste some of the additional space that
+kmalloc() might have given us:
 
-	I'm trying to track down the system I tested previously to see
-exactly how it is set up and why it works when yours does not.  It's
-possible that it doesn't work, and the testing we did simply missed this
-case.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 32443eb..c8f9850 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -241,6 +241,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mas
+         * to allow max possible filling before reallocation.
+         */
+        size = SKB_WITH_OVERHEAD(ksize(data));
++       /* ensure that all offsets based on skb->head fit into 16bits */
++       size = min_t(int, size, 65535);
+        prefetchw(data + size);
+ 
+        /*
 
-	-J
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Or if that is not ideal, avoiding the collapse that causes the overflow
+would also help:
+
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 5d45159..e9111b4 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2301,6 +2301,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+                if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
+                        break;
+ 
++               /* Never collapse if the resulting headroom + data exceeds
++                * 64K as that is the maximum csum_start can cover.
++                */
++               if (skb_headroom(to) + to->len + skb->len > 65535)
++                       break;
++
+                tcp_collapse_retrans(sk, to);
+        }
+ }
