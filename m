@@ -1,204 +1,76 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 6/7] xfrm: make gc_thresh configurable in all namespaces
-Date: Thu, 14 Feb 2013 12:47:26 +0100
-Message-ID: <1360842447-3344-7-git-send-email-steffen.klassert@secunet.com>
+Subject: [PATCH 7/7] xfrm: Allow inserting policies with matching mark and different priorities
+Date: Thu, 14 Feb 2013 12:47:27 +0100
+Message-ID: <1360842447-3344-8-git-send-email-steffen.klassert@secunet.com>
 References: <1360842447-3344-1-git-send-email-steffen.klassert@secunet.com>
 Cc: Herbert Xu <herbert@gondor.apana.org.au>,
 	Steffen Klassert <steffen.klassert@secunet.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44543 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:44538 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934307Ab3BNLr5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 06:47:57 -0500
+	id S934317Ab3BNLr6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Feb 2013 06:47:58 -0500
 In-Reply-To: <1360842447-3344-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
+We currently can not insert policies with mark and mask
+such that some flows would be matched from both policies.
+We make this possible when the priority of these policies
+are different. If both policies match a flow, the one with
+the higher priority is used.
 
-The xfrm gc threshold can be configured via xfrm{4,6}_gc_thresh
-sysctl but currently only in init_net, other namespaces always
-use the default value. This can substantially limit the number
-of IPsec tunnels that can be effectively used.
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Reported-by: Emmanuel Thierry <emmanuel.thierry@telecom-bretagne.eu>
+Reported-by: Romain Kuntz <r.kuntz@ipflavors.com>
 Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- include/net/netns/ipv4.h |    1 +
- include/net/netns/ipv6.h |    1 +
- net/ipv4/xfrm4_policy.c  |   49 ++++++++++++++++++++++++++++++++++++++++---
- net/ipv6/xfrm6_policy.c  |   52 +++++++++++++++++++++++++++++++++++++++++-----
- 4 files changed, 95 insertions(+), 8 deletions(-)
+ net/xfrm/xfrm_policy.c |   18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index 9b78862..2ba9de8 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -22,6 +22,7 @@ struct netns_ipv4 {
- 	struct ctl_table_header	*frags_hdr;
- 	struct ctl_table_header	*ipv4_hdr;
- 	struct ctl_table_header *route_hdr;
-+	struct ctl_table_header *xfrm4_hdr;
- #endif
- 	struct ipv4_devconf	*devconf_all;
- 	struct ipv4_devconf	*devconf_dflt;
-diff --git a/include/net/netns/ipv6.h b/include/net/netns/ipv6.h
-index 214cb0a..1242f37 100644
---- a/include/net/netns/ipv6.h
-+++ b/include/net/netns/ipv6.h
-@@ -16,6 +16,7 @@ struct netns_sysctl_ipv6 {
- 	struct ctl_table_header *route_hdr;
- 	struct ctl_table_header *icmp_hdr;
- 	struct ctl_table_header *frags_hdr;
-+	struct ctl_table_header *xfrm6_hdr;
- #endif
- 	int bindv6only;
- 	int flush_delay;
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 0e28383..9a459be 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -262,7 +262,51 @@ static struct ctl_table xfrm4_policy_table[] = {
- 	{ }
- };
- 
--static struct ctl_table_header *sysctl_hdr;
-+static int __net_init xfrm4_net_init(struct net *net)
-+{
-+	struct ctl_table *table;
-+	struct ctl_table_header *hdr;
-+
-+	table = xfrm4_policy_table;
-+	if (!net_eq(net, &init_net)) {
-+		table = kmemdup(table, sizeof(xfrm4_policy_table), GFP_KERNEL);
-+		if (!table)
-+			goto err_alloc;
-+
-+		table[0].data = &net->xfrm.xfrm4_dst_ops.gc_thresh;
-+	}
-+
-+	hdr = register_net_sysctl(net, "net/ipv4", table);
-+	if (!hdr)
-+		goto err_reg;
-+
-+	net->ipv4.xfrm4_hdr = hdr;
-+	return 0;
-+
-+err_reg:
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
-+}
-+
-+static void __net_exit xfrm4_net_exit(struct net *net)
-+{
-+	struct ctl_table *table;
-+
-+	if (net->ipv4.xfrm4_hdr == NULL)
-+		return;
-+
-+	table = net->ipv4.xfrm4_hdr->ctl_table_arg;
-+	unregister_net_sysctl_table(net->ipv4.xfrm4_hdr);
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+}
-+
-+static struct pernet_operations __net_initdata xfrm4_net_ops = {
-+	.init	= xfrm4_net_init,
-+	.exit	= xfrm4_net_exit,
-+};
- #endif
- 
- static void __init xfrm4_policy_init(void)
-@@ -277,8 +321,7 @@ void __init xfrm4_init(void)
- 	xfrm4_state_init();
- 	xfrm4_policy_init();
- #ifdef CONFIG_SYSCTL
--	sysctl_hdr = register_net_sysctl(&init_net, "net/ipv4",
--					 xfrm4_policy_table);
-+	register_pernet_subsys(&xfrm4_net_ops);
- #endif
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 456b11b..257dfb1 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -607,6 +607,21 @@ static void xfrm_policy_requeue(struct xfrm_policy *old,
+ 	spin_unlock_bh(&pq->hold_queue.lock);
  }
  
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index 1282737..4ef7bdb 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -320,7 +320,51 @@ static struct ctl_table xfrm6_policy_table[] = {
- 	{ }
- };
- 
--static struct ctl_table_header *sysctl_hdr;
-+static int __net_init xfrm6_net_init(struct net *net)
++static bool xfrm_policy_mark_match(struct xfrm_policy *policy,
++				   struct xfrm_policy *pol)
 +{
-+	struct ctl_table *table;
-+	struct ctl_table_header *hdr;
++	u32 mark = policy->mark.v & policy->mark.m;
 +
-+	table = xfrm6_policy_table;
-+	if (!net_eq(net, &init_net)) {
-+		table = kmemdup(table, sizeof(xfrm6_policy_table), GFP_KERNEL);
-+		if (!table)
-+			goto err_alloc;
++	if (policy->mark.v == pol->mark.v && policy->mark.m == pol->mark.m)
++		return true;
 +
-+		table[0].data = &net->xfrm.xfrm6_dst_ops.gc_thresh;
-+	}
++	if ((mark & pol->mark.m) == pol->mark.v &&
++	    policy->priority == pol->priority)
++		return true;
 +
-+	hdr = register_net_sysctl(net, "net/ipv6", table);
-+	if (!hdr)
-+		goto err_reg;
-+
-+	net->ipv6.sysctl.xfrm6_hdr = hdr;
-+	return 0;
-+
-+err_reg:
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+err_alloc:
-+	return -ENOMEM;
++	return false;
 +}
 +
-+static void __net_exit xfrm6_net_exit(struct net *net)
-+{
-+	struct ctl_table *table;
-+
-+	if (net->ipv6.sysctl.xfrm6_hdr == NULL)
-+		return;
-+
-+	table = net->ipv6.sysctl.xfrm6_hdr->ctl_table_arg;
-+	unregister_net_sysctl_table(net->ipv6.sysctl.xfrm6_hdr);
-+	if (!net_eq(net, &init_net))
-+		kfree(table);
-+}
-+
-+static struct pernet_operations xfrm6_net_ops = {
-+	.init	= xfrm6_net_init,
-+	.exit	= xfrm6_net_exit,
-+};
- #endif
- 
- int __init xfrm6_init(void)
-@@ -339,8 +383,7 @@ int __init xfrm6_init(void)
- 		goto out_policy;
- 
- #ifdef CONFIG_SYSCTL
--	sysctl_hdr = register_net_sysctl(&init_net, "net/ipv6",
--					 xfrm6_policy_table);
-+	register_pernet_subsys(&xfrm6_net_ops);
- #endif
- out:
- 	return ret;
-@@ -352,8 +395,7 @@ out_policy:
- void xfrm6_fini(void)
+ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
  {
- #ifdef CONFIG_SYSCTL
--	if (sysctl_hdr)
--		unregister_net_sysctl_table(sysctl_hdr);
-+	unregister_pernet_subsys(&xfrm6_net_ops);
- #endif
- 	xfrm6_policy_fini();
- 	xfrm6_state_fini();
+ 	struct net *net = xp_net(policy);
+@@ -614,7 +629,6 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 	struct xfrm_policy *delpol;
+ 	struct hlist_head *chain;
+ 	struct hlist_node *entry, *newpos;
+-	u32 mark = policy->mark.v & policy->mark.m;
+ 
+ 	write_lock_bh(&xfrm_policy_lock);
+ 	chain = policy_hash_bysel(net, &policy->selector, policy->family, dir);
+@@ -623,7 +637,7 @@ int xfrm_policy_insert(int dir, struct xfrm_policy *policy, int excl)
+ 	hlist_for_each_entry(pol, entry, chain, bydst) {
+ 		if (pol->type == policy->type &&
+ 		    !selector_cmp(&pol->selector, &policy->selector) &&
+-		    (mark & pol->mark.m) == pol->mark.v &&
++		    xfrm_policy_mark_match(policy, pol) &&
+ 		    xfrm_sec_ctx_match(pol->security, policy->security) &&
+ 		    !WARN_ON(delpol)) {
+ 			if (excl) {
 -- 
 1.7.9.5
