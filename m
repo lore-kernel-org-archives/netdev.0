@@ -1,30 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: xen-netback: fix oopes during shutdown and error handling
-Date: Thu, 14 Feb 2013 13:21:18 -0500 (EST)
-Message-ID: <20130214.132118.1110984061087346493.davem@davemloft.net>
-References: <1360847938-11185-1-git-send-email-david.vrabel@citrix.com>
+Subject: Re: [PATCH] bgmac: add read of interrupt mask after disabling
+ interrupts
+Date: Thu, 14 Feb 2013 13:24:25 -0500 (EST)
+Message-ID: <20130214.132425.1545950999539714554.davem@davemloft.net>
+References: <BLU0-SMTP798071F8F18DD115610285AC0F0@phx.gbl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, konrad.wilk@oracle.com,
-	ian.campbell@citrix.com, jbeulich@suse.com, wei.liu@citrix.com,
-	netdev@vger.kernel.org
-To: david.vrabel@citrix.com
+Cc: netdev@vger.kernel.org, hauke@hauke-m.de, zajec5@gmail.com
+To: nlhintz@hotmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58617 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58639 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758431Ab3BNSVU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:21:20 -0500
-In-Reply-To: <1360847938-11185-1-git-send-email-david.vrabel@citrix.com>
+	with ESMTP id S1758431Ab3BNSY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:24:29 -0500
+In-Reply-To: <BLU0-SMTP798071F8F18DD115610285AC0F0@phx.gbl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Thu, 14 Feb 2013 13:18:56 +0000
+From: Nathan Hintz <nlhintz@hotmail.com>
+Date: Wed, 13 Feb 2013 21:14:10 -0800
 
-> These two netback patches fix oopes that may occur during shutdown or
-> if a specific fatal error occurs.
+> The specs prescribe an immediate read of the interrupt mask after
+> disabling interrupts.  This patch updates the driver to match the
+> specs.
 > 
-> They are stable candidants.
+> Signed-off-by: Nathan Hintz <nlhintz@hotmail.com>
 
-Both applied and queued up for -stable, thanks.
+Applied to net-next.
+
+Please state clearly, in your Subject line, what tree your patch is
+targetted at.  In this case "[PATCH net-next] " would have been
+an appropriate subject prefix.
