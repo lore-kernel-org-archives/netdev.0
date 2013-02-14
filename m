@@ -1,41 +1,80 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 2/5 net-next v2] tg3: Expand EEE support for all 5717 B0
-Date: Thu, 14 Feb 2013 15:24:27 -0800
-Message-ID: <1360884267-12977-1-git-send-email-mchan@broadcom.com>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: Re: [PATCHi v2] net: sh_eth: Add support of device tree probe
+Date: Fri, 15 Feb 2013 08:07:13 +0900
+Message-ID: <CABMQnVLVW1fbmZSsZeshB8=NgyYLK67Lv9xydLeQmDLdM8FrmA@mail.gmail.com>
+References: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+ <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nsujir@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	magnus.damm@gmail.com, kda@linux-powerpc.org,
+	horms+renesas@verge.net.au
+To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3810 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759164Ab3BNXHR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 18:07:17 -0500
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:60718 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759164Ab3BNXHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 18:07:45 -0500
+Received: by mail-lb0-f182.google.com with SMTP id gg6so2223358lbb.13
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 15:07:44 -0800 (PST)
+In-Reply-To: <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This chip supports Energy Efficient Ethernet.  The existing code only
-supports a smaller set of devices with 5718 PCI ID.  Expand support for
-all devices with the same 5717 B0 chip ID.
+On Thu, Feb 14, 2013 at 10:24 AM, Kuninori Morimoto
+<kuninori.morimoto.gx@renesas.com> wrote:
+>
+> Hi Iwamatsu-san
+>
+> Thank you for this patch.
+>
+> Small comment from me
+>
+>> +#ifdef CONFIG_OF
+> (snip)
+>> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
+>> +{
+>> +     int ret;
+>> +     struct device_node *np = dev->of_node;
+>> +     struct sh_eth_plat_data *pdata;
+> ...
+>> +#else
+>> +static struct sh_eth_plat_data *
+>> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
+>> +{
+>> +     return NULL;
+>> +}
+>> +#endif
+>
+> (snip)
+>
+>>  static int sh_eth_drv_probe(struct platform_device *pdev)
+>>  {
+> ...
+>> +#ifdef CONFIG_OF
+>> +     if (np && of_device_is_available(np)) {
+>> +             pd = sh_eth_parse_dt(&pdev->dev, ndev);
+>> +             if (pdev->dev.platform_data) {
+>> +                     struct sh_eth_plat_data *tmp =
+>> +                             pdev->dev.platform_data;
+>> +                     pd->set_mdio_gate = tmp->set_mdio_gate;
+>> +                     pd->needs_init = tmp->needs_init;
+>> +             }
+>> +     } else
+>> +#endif
+>
+> sh_eth_parse_dt() was defined for both CO NFIG_OF and !CONFIG_OF.
+> But it is called only from CONFIG_OF ?
+>
+Because of_device_is_available depennds CONFIG_OF.
+I already send a patch which add empty fuction of of_device_is_available.
+If this was applied, your point does not need.
 
-Signed-off-by: Michael Chan <mchan@broadocm.com>
----
- drivers/net/ethernet/broadcom/tg3.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+OK, I erase empty sh_eth_parse_dt, and if a patch is applied, I will
+update this.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 6e676a7..3004d69 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -14514,7 +14514,7 @@ static int tg3_phy_probe(struct tg3 *tp)
- 	    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719 ||
- 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5720 ||
- 	     GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5762 ||
--	     (tp->pdev->device == TG3PCI_DEVICE_TIGON3_5718 &&
-+	     (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5717 &&
- 	      tp->pci_chip_rev_id != CHIPREV_ID_5717_A0) ||
- 	     (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57765 &&
- 	      tp->pci_chip_rev_id != CHIPREV_ID_57765_A0)))
+Regards,
+ Nobuhiro
+
 -- 
-1.7.1
+Nobuhiro Iwamatsu
