@@ -1,76 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: tuntap: Overload handling
-Date: Thu, 14 Feb 2013 18:42:42 +0200
-Message-ID: <20130214164053.GB18721@redhat.com>
-References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
- <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
- <1360859547.6884.51.camel@edumazet-glaptop>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: how to handle bonding failover when using a bridge over the bond?
+Date: Thu, 14 Feb 2013 10:43:07 -0600
+Message-ID: <511D141B.602@genband.com>
+References: <511ACE16.3080906@genband.com> <32261.1360713746@death.nxdomain> <511ADEBB.1000701@genband.com> <kfi5k6$1mq$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Sebastian =?iso-8859-1?Q?P=F6hn?=
-	<sebastian.poehn@googlemail.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49344 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758033Ab3BNQms (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 11:42:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1360859547.6884.51.camel@edumazet-glaptop>
+Received: from exprod7og113.obsmtp.com ([64.18.2.179]:36588 "EHLO
+	exprod7og113.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758033Ab3BNQnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 11:43:10 -0500
+In-Reply-To: <kfi5k6$1mq$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 14, 2013 at 08:32:27AM -0800, Eric Dumazet wrote:
-> On Thu, 2013-02-14 at 12:50 +0100, Sebastian P=F6hn wrote:
-> > I am having a look on the tun driver to realize an userspace networ=
-k
-> > driver ( TAP + UIO ). Maybe that's not the use-case tun is intended
-> > for.
-> >=20
-> > What I've noticed is that in tun.c Line 741
-> >=20
-> > static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_dev=
-ice *dev)
-> >=20
-> > /* Limit the number of packets queued by dividing txq length with t=
-he
-> >  * number of queues.
-> >  */
-> > if (skb_queue_len(&tfile->socket.sk->sk_receive_queue)
-> >  >=3D dev->tx_queue_len / tun->numqueues)
-> > goto drop;
-> >=20
-> > If a frame can not be tx it is dropped by the driver.
-> > Wouldn't it be more correct to netif_tx_stop_queue() so that packet
-> > drops are performed by the overlying traffic control code?
-> >=20
-> > Of course this is not very likely in virtual environments but as so=
-on
-> > as any real network hop is involved it could be important.
-> >=20
-> > (I also had a look on some two year old version of tun.c. There
-> > queue/tx stopping was done correctly.)
+On 02/14/2013 02:01 AM, Cong Wang wrote:
+> On Wed, 13 Feb 2013 at 00:30 GMT, Chris Friesen<chris.friesen@genband.com>  wrote:
+>> On 02/12/2013 06:02 PM, Jay Vosburgh wrote:
+>>> 	The bond doesn't track all of the MACs that go through it, but
+>>> the bridge presumably does, and could respond to the FAILOVER notifier
+>>> with something to notify the switch that the port assignments for the
+>>> various MACs have changed.
+>>
+>> That would probably make sense.  I've added the bridging folks, maybe
+>> they'll have a suggestion how this sort of thing should be handled.
+>>
+>
+> It is already handled. When BONDING_FAILOVER is triggered and the MAC has
+> been changed, NETDEV_CHANGEADDR is issued too, then bridge will capture
+> it and update its fdb:
+>
+>          case NETDEV_CHANGEADDR:
+>                  spin_lock_bh(&br->lock);
+>                  br_fdb_changeaddr(p, dev->dev_addr);
+>                  changed_addr = br_stp_recalculate_bridge_id(br);
+>                  spin_unlock_bh(&br->lock);
+>
+>                  if (changed_addr)
+>                          call_netdevice_notifiers(NETDEV_CHANGEADDR, br->dev);
+>
+>                  break;
 
-Hmm so ~1000 packets in the tun queue is not enough?
-You always have the option to increase it some more ...
+I'm not familiar with the bridge code, can you elaborate on how this helps?
 
-> You should ask Michael S. Tsirkin, as he removed the flow control
-> in commit 5d097109257c03a71845729f8db6b5770c4bbedc
-> (tun: only queue packets on device)
->=20
+The problem scenario is this:
 
-Eric in the past you said the following things
-(http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/00784.html)
-> > In your case I would just not use qdisc at all, like other virtual
-> > devices.
-=2E..
-> > Anyway, with a 500 packet limit in TUN queue itself, qdisc layer sh=
-ould
-> > be always empty. Whats the point storing more than 500 packets for =
-a
-> > device ? Thats a latency killer.
-you don't think this applies, anymore?
+I have a host with eth0/eth1 bonded together as bond0.  eth0/eth1 are 
+connected to separate L2 switches, which are interconnected.
 
---=20
-MST
+On the host there are a number of virtual machines, each with a virtual 
+interface.
+
+All the virtual interfaces as well as bond0 are bridged together to 
+allow the VMs, the host, and the outside world to talk to each other.
+
+Currently the host does NOT participate in STP because it is considered 
+an edge node.
+
+Suppose eth0 is the active link and we pull it.  The bond will make eth1 
+active and emit gratuitous arp packets for itself, so the external L2 
+switches will update the location of the MAC address belonging to the 
+bond.  On loss of carrier for the link to eth0 L2 switch "A" will drop 
+the entries for the MAC addresses, including the ones for the virtual 
+machines.
+
+The problem is that L2 switch "B" still thinks that all the virtual 
+machines are accessible via L2 switch "A".  Thus any incoming packets 
+destined for a virtual machine will get dropped.
+
+Chris
