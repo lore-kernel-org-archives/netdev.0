@@ -1,39 +1,50 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: failure when attempting to build vmci_transport on net-next
-Date: Thu, 14 Feb 2013 06:54:41 -0800 (PST)
-Message-ID: <1074156873.1496876.1360853681687.JavaMail.root@vmware.com>
-References: <511CB353.3000704@mellanox.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH net-next v1 0/7] Fix, cleanup, optimize gfar_private and the Rx path
+Date: Thu, 14 Feb 2013 17:00:00 +0200
+Message-ID: <1360854007-11094-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	George Zhang <georgezhang@vmware.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Content-Type: text/plain
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:58771 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759953Ab3BNOym (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 09:54:42 -0500
-In-Reply-To: <511CB353.3000704@mellanox.com>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:57635 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754317Ab3BNPAR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 10:00:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Or,
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+  "David S. Miller" <davem@davemloft.net>
 
-> I didn't manage to get the VMWARE_VMCI_VSOCKETS directive to be set,
-> unless I added the below patch, and
-> once that done got the tons of errors below, am I doing something wrong?
 
-That's because VMCI, which is necessary for the vSock vmci_transport,
-came in via Greg's char-misc-next tree, and it hasn't yet merged all the
-way over to Dave's net-next tree.
+Hi Dave,
+These patches went already through a review round with Paul.
+Changes since the initial version of the patches:
+* split the 1st patch into two patches (01 & 02, as suggested by Paul)
+* added the suggested trivial cleanup patch:
+  gianfar: gfar_process_frame returns void
+* provided "long logs" with detailed comments and explanations
 
-However, I just checked the top-level linux-next tree and it has both,
-so perhaps you could try that instead?
+Thank you.
 
-http://git.kernel.org/?p=linux/kernel/git/next/linux-next.git;a=summary
+Regards,
+Claudiu
 
-Thanks!
-- Andy
+
+Claudiu Manoil (7):
+  gianfar: Remove unused device_node ref in gfar_private
+  gianfar: Add device ref (dev) in gfar_private
+  gianfar: Cleanup and optimize struct gfar_private
+  gianfar: GRO_DROP is unlikely
+  gianfar: gfar_process_frame returns void
+  gianfar: Remove wrong buffer size conditioning to VLAN h/w offload
+  gianfar: Fix and cleanup Rx FCB indication
+
+ drivers/net/ethernet/freescale/gianfar.c |   85 ++++++++++++---------------
+ drivers/net/ethernet/freescale/gianfar.h |   96 +++++++++++++++--------------
+ 2 files changed, 88 insertions(+), 93 deletions(-)
+
+-- 
+1.7.7.4
