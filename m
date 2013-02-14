@@ -1,98 +1,80 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] net: Convert skb->csum_(start|offset) integrity BUG_ON()
- to WARN_ON() & drop
-Date: Thu, 14 Feb 2013 18:50:08 +0000
-Message-ID: <20130214185008.GA10745@casper.infradead.org>
-References: <20130213234021.GA21829@casper.infradead.org>
- <20130213234843.GB21829@casper.infradead.org>
- <20130213.193759.1094469499685059296.davem@davemloft.net>
- <20130214101853.GC21829@casper.infradead.org>
- <1360858943.6884.47.camel@edumazet-glaptop>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 2/3] ipv6: use newly introduced __ipv6_addr_needs_scope_id and ipv6_iface_scope_id
+Date: Thu, 14 Feb 2013 19:53:26 +0100
+Message-ID: <20130214185326.GB8611@order.stressinduktion.org>
+References: <20130212221634.GA7212@order.stressinduktion.org> <20130213001357.GB1096@order.stressinduktion.org> <511AFF9A.8040506@hp.com> <511BC3B3.3070405@linux-ipv6.org> <20130214042543.GB24534@order.stressinduktion.org> <511D01FA.8080506@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@vger.kernel.org
+To: Brian Haley <brian.haley@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:50806 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761517Ab3BNSuL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:50:11 -0500
+Received: from order.stressinduktion.org ([87.106.68.36]:35809 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758544Ab3BNSx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 13:53:27 -0500
 Content-Disposition: inline
-In-Reply-To: <1360858943.6884.47.camel@edumazet-glaptop>
+In-Reply-To: <511D01FA.8080506@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/14/13 at 08:22am, Eric Dumazet wrote:
-> It seems not possible to avoid bugs, being a BUG_ON() or a out of bound
-> memory access or whatever. We must fix them eventually.
-
-Of course, I never intended to not fix this but I still think
-leaving the BUG_ON() is wrong ;-)
-
-> In this case, it seems we must limit payload to 
+On Thu, Feb 14, 2013 at 10:25:46AM -0500, Brian Haley wrote:
+> > [PATCH net-next RFC] ipv6: introduce new type ipv6_addr_props to hold type and scope
+> > 
+> > ---
+> >  include/net/ipv6.h       | 16 +++++---
+> >  net/ipv6/addrconf.c      | 27 +++++++-------
+> >  net/ipv6/addrconf_core.c | 97 +++++++++++++++++++++++++++++++-----------------
+> >  net/ipv6/datagram.c      | 12 +++---
+> >  4 files changed, 95 insertions(+), 57 deletions(-)
+> > 
+> > diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> > index 851d541..3a3ec1cc 100644
+> > --- a/include/net/ipv6.h
+> > +++ b/include/net/ipv6.h
+> > @@ -298,20 +298,26 @@ static inline int ip6_frag_mem(struct net *net)
+> >  #define IPV6_FRAG_LOW_THRESH	(3 * 1024*1024)	/* 3145728 */
+> >  #define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
+> >  
+> > -extern int __ipv6_addr_type(const struct in6_addr *addr);
+> > +struct ipv6_addr_props {
+> > +	u16 type;
+> > +	s16 scope;
+> > +};
 > 
-> 65535 - MAX_TCP_HEADER 
+> Seeing this makes me think we should unify the flags and scope members of
+> inet6_ifaddr to something like this, moving to a single set of values for IPv6
+> addresses.  Then ipv6_dev_get_saddr() wouldn't have to use __ipv6_adr_type() as
+> much since the address struct would already have the values.  Possible future
+> work...
+
+Thanks for your feedback. I will incooperate it in my patch.
+
+> >  	if ((st & htonl(0xFFC00000)) == htonl(0xFEC00000))
+> > -		return (IPV6_ADDR_SITELOCAL | IPV6_ADDR_UNICAST |
+> > -			IPV6_ADDR_SCOPE_TYPE(IPV6_ADDR_SCOPE_SITELOCAL));		/* addr-select 3.1 */
+> > +		/* addr-select 3.1 */
+> > +		return (struct ipv6_addr_props){
+> > +			.type = IPV6_ADDR_LINKLOCAL|IPV6_ADDR_UNICAST,
+> > +			.scope = IPV6_ADDR_SCOPE_SITELOCAL,
+> > +		};
 > 
-> It would make tcp_xmit_size_goal() a bit shorter.
+> type here is wrong, should be IPV6_ADDR_SITELOCAL not linklocal.
+
+Oops, of course. :)
+
+> > @@ -653,13 +653,15 @@ int ip6_datagram_send_ctl(struct net *net, struct sock *sk,
+> >  					rcu_read_unlock();
+> >  					return -ENODEV;
+> >  				}
+> > -			} else if (addr_type & IPV6_ADDR_LINKLOCAL) {
+> > +			} else if (addr_props.type & IPV6_ADDR_LINKLOCAL) {
 > 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 2c7e596..2f6c8e5 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -793,10 +793,7 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
->  	xmit_size_goal = mss_now;
->  
->  	if (large_allowed && sk_can_gso(sk)) {
-> -		xmit_size_goal = ((sk->sk_gso_max_size - 1) -
-> -				  inet_csk(sk)->icsk_af_ops->net_header_len -
-> -				  inet_csk(sk)->icsk_ext_hdr_len -
-> -				  tp->tcp_header_len);
-> +		xmit_size_goal = sk->sk_gso_max_size - 1 - MAX_TCP_HEADER;
->  
->  		/* TSQ : try to have two TSO segments in flight */
->  		xmit_size_goal = min_t(u32, xmit_size_goal,
+> Could be (addr_props.scope == IPV6_ADDR_SCOPE_LINKLOCAL), right?
 
-I don't think this would help. The allocated skb data will still
-exceed 64K and thus after trimming the acked data and collapsing
-the header might be stored after the 64K mark.
+This code will be changed by my other patches (see the series I posted
+about introducing helper functions for checking for sin6_scope_id, patch
+1/2). I think I will let it as is for the time being.
 
-We would have to limit the skb tailroom to 64K upon allocation.
-That would mean we would waste some of the additional space that
-kmalloc() might have given us:
+Thanks,
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 32443eb..c8f9850 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -241,6 +241,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mas
-         * to allow max possible filling before reallocation.
-         */
-        size = SKB_WITH_OVERHEAD(ksize(data));
-+       /* ensure that all offsets based on skb->head fit into 16bits */
-+       size = min_t(int, size, 65535);
-        prefetchw(data + size);
- 
-        /*
-
-
-Or if that is not ideal, avoiding the collapse that causes the overflow
-would also help:
-
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 5d45159..e9111b4 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2301,6 +2301,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
-                if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
-                        break;
- 
-+               /* Never collapse if the resulting headroom + data exceeds
-+                * 64K as that is the maximum csum_start can cover.
-+                */
-+               if (skb_headroom(to) + to->len + skb->len > 65535)
-+                       break;
-+
-                tcp_collapse_retrans(sk, to);
-        }
- }
+  Hannes
