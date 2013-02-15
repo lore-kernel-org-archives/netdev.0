@@ -1,37 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] v3 GRE: TCP segmentation offload
-Date: Fri, 15 Feb 2013 15:18:24 -0500 (EST)
-Message-ID: <20130215.151824.1125629773152171791.davem@davemloft.net>
-References: <1360871081-1987-1-git-send-email-pshelar@nicira.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 1/1] drivers: net: davinci_cpdma: acknowledge
+ interrupt properly
+Date: Fri, 15 Feb 2013 12:18:59 -0800
+Message-ID: <1360959539.21068.5.camel@joe-AO722>
+References: <1360866406-17261-1-git-send-email-mugunthanvnm@ti.com>
+	 <20130215.150506.499818568035818118.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
-	bhutchings@solarflare.com, mirqus@gmail.com
-To: pshelar@nicira.com
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-omap@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44217 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750781Ab3BOUS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 15:18:28 -0500
-In-Reply-To: <1360871081-1987-1-git-send-email-pshelar@nicira.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:34794 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751049Ab3BOUTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2013 15:19:00 -0500
+In-Reply-To: <20130215.150506.499818568035818118.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Thu, 14 Feb 2013 11:44:41 -0800
-
-> Following patches add TCP segmentation offload to GRE. These 
-> patches shows 20-25% performance improvement in netperf single
-> process TCP_STREAM test on 10G network.
+On Fri, 2013-02-15 at 15:05 -0500, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Thu, 14 Feb 2013 23:56:46 +0530
 > 
-> Pravin B Shelar (3):
->   net: Add skb_unclone() helper function.
->   net: factor out skb_mac_gso_segment() from skb_gso_segment()
->   GRE: Add TCP segmentation offload for GRE
+> > +enum {
+> > +     CPDMA_EOI_RX_THRESH = 0,
+> > +     CPDMA_EOI_RX,
+> > +     CPDMA_EOI_TX,
+> > +     CPDMA_EOI_MISC,
+> > +};
+> 
+> Do not use enumerations for hardware register values, which must be
+> exact, otherwise you are potentially going to succumb to the vagaries
+> of C language enumeration value assignment.
 
-All applied, incorporating the suggestions/fixes from Eric.  Specifically,
-using skb_reset_mac_len() in patch #2 and computing pkt_len before ip_local_out()
-in patch #3.
+Vagaries?
 
-Thanks.
+In what way is c enumeration (6.7.2.2) vague?
+char vs int?  Isn't smaller mostly better?
+
+Concern about possible future reordering given an
+insertion or deletion might be the only consideration
+I could imagine.
