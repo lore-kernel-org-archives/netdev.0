@@ -1,189 +1,143 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 2/3] tipc: byte-based overload control on socket receive queue
-Date: Fri, 15 Feb 2013 17:57:46 -0500
-Message-ID: <1360969067-29956-3-git-send-email-paul.gortmaker@windriver.com>
-References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+From: Phil Oester <kernel@linuxace.com>
+Subject: 3.7 networking regression - bisected
+Date: Fri, 15 Feb 2013 15:27:52 -0800
+Message-ID: <20130215232752.GA19796@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:60962 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752976Ab3BOW6i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 17:58:38 -0500
-In-Reply-To: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:53702 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816Ab3BOX15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 18:27:57 -0500
+Received: by mail-pa0-f53.google.com with SMTP id bg4so1939585pad.40
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 15:27:57 -0800 (PST)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+Since upgrading a box to 3.7, I've been seeing e1000e issues on one box:
 
-Change overload control to be purely byte-based, using
-sk->sk_rmem_alloc as byte counter, and compare it to a calculated
-upper limit for the socket receive queue.
+	e1000e 0000:00:19.0: eth2: Detected Hardware Unit Hang
 
-For all connection messages, irrespective of message importance,
-the overload limit is set to a constant value (i.e, 67MB). This
-limit should normally never be reached because of the lower
-limit used by the flow control algorithm, and is there only
-as a last resort in case a faulty peer doesn't respect the send
-window limit.
+While 3.6 worked fine.  I bisected the problem down to commit
+69b08f62e17439ee3d436faf0b9a7ca6fffb78db ("net: use bigger pages in
+__netdev_alloc_frag").  Running 3.7.x without that commit is 
+currently working fine.  
 
-For datagram messages, message importance is taken into account
-when calculating the overload limit. The calculation is based
-on sk->sk_rcvbuf, and is hence configurable via the socket option
-SO_RCVBUF.
+I have other boxes on 3.7 with e1000e that are not experiencing this
+problem.  The difference on this box is it runs at 100mb, which
+disables TSO:
 
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- net/tipc/socket.c | 77 ++++++++++++++++++++++++++++---------------------------
- 1 file changed, 39 insertions(+), 38 deletions(-)
+	e1000e 0000:00:19.0 eth2: 10/100 speed: disabling TSO
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index f6ceecd..cbe2f6e 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -43,7 +43,8 @@
- #define SS_LISTENING	-1	/* socket is listening */
- #define SS_READY	-2	/* socket is connectionless */
- 
--#define OVERLOAD_LIMIT_BASE	10000
-+#define CONN_OVERLOAD_LIMIT	((TIPC_FLOW_CONTROL_WIN * 2 + 1) * \
-+				SKB_TRUESIZE(TIPC_MAX_USER_MSG_SIZE))
- #define CONN_TIMEOUT_DEFAULT	8000	/* default connect timeout = 8s */
- 
- struct tipc_sock {
-@@ -202,7 +203,6 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
- 
- 	sock_init_data(sock, sk);
- 	sk->sk_backlog_rcv = backlog_rcv;
--	sk->sk_rcvbuf = TIPC_FLOW_CONTROL_WIN * 2 * TIPC_MAX_USER_MSG_SIZE * 2;
- 	sk->sk_data_ready = tipc_data_ready;
- 	sk->sk_write_space = tipc_write_space;
- 	tipc_sk(sk)->p = tp_ptr;
-@@ -1142,34 +1142,6 @@ static void tipc_data_ready(struct sock *sk, int len)
- }
- 
- /**
-- * rx_queue_full - determine if receive queue can accept another message
-- * @msg: message to be added to queue
-- * @queue_size: current size of queue
-- * @base: nominal maximum size of queue
-- *
-- * Returns 1 if queue is unable to accept message, 0 otherwise
-- */
--static int rx_queue_full(struct tipc_msg *msg, u32 queue_size, u32 base)
--{
--	u32 threshold;
--	u32 imp = msg_importance(msg);
--
--	if (imp == TIPC_LOW_IMPORTANCE)
--		threshold = base;
--	else if (imp == TIPC_MEDIUM_IMPORTANCE)
--		threshold = base * 2;
--	else if (imp == TIPC_HIGH_IMPORTANCE)
--		threshold = base * 100;
--	else
--		return 0;
--
--	if (msg_connected(msg))
--		threshold *= 4;
--
--	return queue_size >= threshold;
--}
--
--/**
-  * filter_connect - Handle all incoming messages for a connection-based socket
-  * @tsock: TIPC socket
-  * @msg: message
-@@ -1247,6 +1219,36 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
- }
- 
- /**
-+ * rcvbuf_limit - get proper overload limit of socket receive queue
-+ * @sk: socket
-+ * @buf: message
-+ *
-+ * For all connection oriented messages, irrespective of importance,
-+ * the default overload value (i.e. 67MB) is set as limit.
-+ *
-+ * For all connectionless messages, by default new queue limits are
-+ * as belows:
-+ *
-+ * TIPC_LOW_IMPORTANCE       (5MB)
-+ * TIPC_MEDIUM_IMPORTANCE    (10MB)
-+ * TIPC_HIGH_IMPORTANCE      (20MB)
-+ * TIPC_CRITICAL_IMPORTANCE  (40MB)
-+ *
-+ * Returns overload limit according to corresponding message importance
-+ */
-+static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
-+{
-+	struct tipc_msg *msg = buf_msg(buf);
-+	unsigned int limit;
-+
-+	if (msg_connected(msg))
-+		limit = CONN_OVERLOAD_LIMIT;
-+	else
-+		limit = sk->sk_rcvbuf << (msg_importance(msg) + 5);
-+	return limit;
-+}
-+
-+/**
-  * filter_rcv - validate incoming message
-  * @sk: socket
-  * @buf: message
-@@ -1262,7 +1264,7 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- {
- 	struct socket *sock = sk->sk_socket;
- 	struct tipc_msg *msg = buf_msg(buf);
--	u32 recv_q_len;
-+	unsigned int limit = rcvbuf_limit(sk, buf);
- 	u32 res = TIPC_OK;
- 
- 	/* Reject message if it is wrong sort of message for socket */
-@@ -1279,15 +1281,13 @@ static u32 filter_rcv(struct sock *sk, struct sk_buff *buf)
- 	}
- 
- 	/* Reject message if there isn't room to queue it */
--	recv_q_len = skb_queue_len(&sk->sk_receive_queue);
--	if (unlikely(recv_q_len >= (OVERLOAD_LIMIT_BASE / 2))) {
--		if (rx_queue_full(msg, recv_q_len, OVERLOAD_LIMIT_BASE / 2))
--			return TIPC_ERR_OVERLOAD;
--	}
-+	if (sk_rmem_alloc_get(sk) + buf->truesize >= limit)
-+		return TIPC_ERR_OVERLOAD;
- 
--	/* Enqueue message (finally!) */
-+	/* Enqueue message */
- 	TIPC_SKB_CB(buf)->handle = 0;
- 	__skb_queue_tail(&sk->sk_receive_queue, buf);
-+	skb_set_owner_r(buf, sk);
- 
- 	sk->sk_data_ready(sk, 0);
- 	return TIPC_OK;
-@@ -1336,7 +1336,7 @@ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf)
- 	if (!sock_owned_by_user(sk)) {
- 		res = filter_rcv(sk, buf);
- 	} else {
--		if (sk_add_backlog(sk, buf, sk->sk_rcvbuf))
-+		if (sk_add_backlog(sk, buf, rcvbuf_limit(sk, buf)))
- 			res = TIPC_ERR_OVERLOAD;
- 		else
- 			res = TIPC_OK;
-@@ -1570,6 +1570,7 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
- 	} else {
- 		__skb_dequeue(&sk->sk_receive_queue);
- 		__skb_queue_head(&new_sk->sk_receive_queue, buf);
-+		skb_set_owner_r(buf, new_sk);
- 	}
- 	release_sock(new_sk);
- 
--- 
-1.8.1.2
+So maybe the problem doesn't occur with TSO enabled?  Either that,
+or there is something unique about the traffic pattern this box is seeing.
+
+Full log entries below.
+
+Phil Oester
+
+
+
+Feb 15 17:38:19 char1 kernel: e1000e 0000:00:19.0: eth2: Detected Hardware Unit Hang:
+Feb 15 17:38:19 char1 kernel:  TDH                  <f>
+Feb 15 17:38:19 char1 kernel:  TDT                  <22>
+Feb 15 17:38:19 char1 kernel:  next_to_use          <22>
+Feb 15 17:38:19 char1 kernel:  next_to_clean        <d>
+Feb 15 17:38:19 char1 kernel: buffer_info[next_to_clean]:
+Feb 15 17:38:19 char1 kernel:  time_stamp           <10001bb67>
+Feb 15 17:38:19 char1 kernel:  next_to_watch        <f>
+Feb 15 17:38:19 char1 kernel:  jiffies              <10001bfa9>
+Feb 15 17:38:19 char1 kernel:  next_to_watch.status <0>
+Feb 15 17:38:19 char1 kernel: MAC Status             <80243>
+Feb 15 17:38:19 char1 kernel: PHY Status             <792d>
+Feb 15 17:38:19 char1 kernel: PHY 1000BASE-T Status  <0>
+Feb 15 17:38:19 char1 kernel: PHY Extended Status    <3000>
+Feb 15 17:38:19 char1 kernel: PCI Status             <10>
+Feb 15 17:38:21 char1 kernel: e1000e 0000:00:19.0: eth2: Detected Hardware Unit Hang:
+Feb 15 17:38:21 char1 kernel:  TDH                  <f>
+Feb 15 17:38:21 char1 kernel:  TDT                  <22>
+Feb 15 17:38:21 char1 kernel:  next_to_use          <22>
+Feb 15 17:38:21 char1 kernel:  next_to_clean        <d>
+Feb 15 17:38:21 char1 kernel: buffer_info[next_to_clean]:
+Feb 15 17:38:21 char1 kernel:  time_stamp           <10001bb67>
+Feb 15 17:38:21 char1 kernel:  next_to_watch        <f>
+Feb 15 17:38:21 char1 kernel:  jiffies              <10001c071>
+Feb 15 17:38:21 char1 kernel:  next_to_watch.status <0>
+Feb 15 17:38:21 char1 kernel: MAC Status             <80243>
+Feb 15 17:38:21 char1 kernel: PHY Status             <792d>
+Feb 15 17:38:21 char1 kernel: PHY 1000BASE-T Status  <0>
+Feb 15 17:38:21 char1 kernel: PHY Extended Status    <3000>
+Feb 15 17:38:21 char1 kernel: PCI Status             <10>
+Feb 15 17:38:23 char1 kernel: e1000e 0000:00:19.0: eth2: Detected Hardware Unit Hang:
+Feb 15 17:38:23 char1 kernel:  TDH                  <f>
+Feb 15 17:38:23 char1 kernel:  TDT                  <22>
+Feb 15 17:38:23 char1 kernel:  next_to_use          <22>
+Feb 15 17:38:23 char1 kernel:  next_to_clean        <d>
+Feb 15 17:38:23 char1 kernel: buffer_info[next_to_clean]:
+Feb 15 17:38:23 char1 kernel:  time_stamp           <10001bb67>
+Feb 15 17:38:23 char1 kernel:  next_to_watch        <f>
+Feb 15 17:38:23 char1 kernel:  jiffies              <10001c139>
+Feb 15 17:38:23 char1 kernel:  next_to_watch.status <0>
+Feb 15 17:38:23 char1 kernel: MAC Status             <80243>
+Feb 15 17:38:23 char1 kernel: PHY Status             <792d>
+Feb 15 17:38:23 char1 kernel: PHY 1000BASE-T Status  <0>
+Feb 15 17:38:23 char1 kernel: PHY Extended Status    <3000>
+Feb 15 17:38:23 char1 kernel: PCI Status             <10>
+Feb 15 17:38:25 char1 kernel: e1000e 0000:00:19.0: eth2: Detected Hardware Unit Hang:
+Feb 15 17:38:25 char1 kernel:  TDH                  <f>
+Feb 15 17:38:25 char1 kernel:  TDT                  <22>
+Feb 15 17:38:25 char1 kernel:  next_to_use          <22>
+Feb 15 17:38:25 char1 kernel:  next_to_clean        <d>
+Feb 15 17:38:25 char1 kernel: buffer_info[next_to_clean]:
+Feb 15 17:38:25 char1 kernel:  time_stamp           <10001bb67>
+Feb 15 17:38:25 char1 kernel:  next_to_watch        <f>
+Feb 15 17:38:25 char1 kernel:  jiffies              <10001c201>
+Feb 15 17:38:25 char1 kernel:  next_to_watch.status <0>
+Feb 15 17:38:25 char1 kernel: MAC Status             <80243>
+Feb 15 17:38:25 char1 kernel: PHY Status             <792d>
+Feb 15 17:38:25 char1 kernel: PHY 1000BASE-T Status  <0>
+Feb 15 17:38:25 char1 kernel: PHY Extended Status    <3000>
+Feb 15 17:38:25 char1 kernel: PCI Status             <10>
+Feb 15 17:38:27 char1 kernel: e1000e 0000:00:19.0: eth2: Detected Hardware Unit Hang:
+Feb 15 17:38:27 char1 kernel:  TDH                  <f>
+Feb 15 17:38:27 char1 kernel:  TDT                  <22>
+Feb 15 17:38:27 char1 kernel:  next_to_use          <22>
+Feb 15 17:38:27 char1 kernel:  next_to_clean        <d>
+Feb 15 17:38:27 char1 kernel: buffer_info[next_to_clean]:
+Feb 15 17:38:27 char1 kernel:  time_stamp           <10001bb67>
+Feb 15 17:38:27 char1 kernel:  next_to_watch        <f>
+Feb 15 17:38:27 char1 kernel:  jiffies              <10001c2c9>
+Feb 15 17:38:27 char1 kernel:  next_to_watch.status <0>
+Feb 15 17:38:27 char1 kernel: MAC Status             <80243>
+Feb 15 17:38:27 char1 kernel: PHY Status             <792d>
+Feb 15 17:38:27 char1 kernel: PHY 1000BASE-T Status  <0>
+Feb 15 17:38:27 char1 kernel: PHY Extended Status    <3000>
+Feb 15 17:38:27 char1 kernel: PCI Status             <10>
+Feb 15 17:38:28 char1 kernel: ------------[ cut here ]------------
+Feb 15 17:38:28 char1 kernel: WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x239/0x250()
+Feb 15 17:38:28 char1 kernel: Hardware name: OptiPlex 755                 
+Feb 15 17:38:28 char1 kernel: NETDEV WATCHDOG: eth2 (e1000e): transmit queue 0 timed out
+Feb 15 17:38:28 char1 kernel: Modules linked in: iptable_nat nf_nat_ipv4 xt_LOG xt_limit xt_pkttype xt_tcpudp xt_state xt_iprange xt_multiport iptable_filter ip_tables x_tables nf_nat_tftp nf_nat_ftp nf_nat nf_conntrack_tftp nf_conntrack_ftp nf_conntrack_ipv4 nf_defrag_ipv4 nf_conntrack e1000e e1000 lpc_ich coretemp hwmon mfd_core ahci libahci
+Feb 15 17:38:28 char1 kernel: Pid: 0, comm: swapper/1 Not tainted 3.6.0-2.fc16.x86_64 #1
+Feb 15 17:38:28 char1 kernel: Call Trace:
+Feb 15 17:38:28 char1 kernel: <IRQ>  [<ffffffff8128c300>] ? dev_watchdog+0x170/0x250
+Feb 15 17:38:28 char1 kernel: [<ffffffff8102ac6b>] ? warn_slowpath_common+0x7b/0xc0
+Feb 15 17:38:28 char1 kernel: [<ffffffff8102ad65>] ? warn_slowpath_fmt+0x45/0x50
+Feb 15 17:38:28 char1 kernel: [<ffffffff8128c3c9>] ? dev_watchdog+0x239/0x250
+Feb 15 17:38:28 char1 kernel: [<ffffffff81036bb6>] ? run_timer_softirq+0x106/0x230
+Feb 15 17:38:28 char1 kernel: [<ffffffff8128c190>] ? pfifo_fast_dequeue+0xe0/0xe0
+Feb 15 17:38:28 char1 kernel: [<ffffffff81031af8>] ? __do_softirq+0xa8/0x150
+Feb 15 17:38:28 char1 kernel: [<ffffffff812fd3ec>] ? call_softirq+0x1c/0x26
+Feb 15 17:38:28 char1 kernel: [<ffffffff81003a1d>] ? do_softirq+0x4d/0x80
+Feb 15 17:38:28 char1 kernel: [<ffffffff81031e0e>] ? irq_exit+0x8e/0xb0
+Feb 15 17:38:28 char1 kernel: [<ffffffff8101c628>] ? smp_apic_timer_interrupt+0x68/0xa0
+Feb 15 17:38:28 char1 kernel: [<ffffffff812fcd07>] ? apic_timer_interrupt+0x67/0x70
+Feb 15 17:38:28 char1 kernel: <EOI>  [<ffffffff81061690>] ? __tick_nohz_idle_enter+0x330/0x410
+Feb 15 17:38:28 char1 kernel: [<ffffffff810098a1>] ? mwait_idle+0x51/0x70
+Feb 15 17:38:28 char1 kernel: [<ffffffff8100a1b6>] ? cpu_idle+0x86/0xd0
+Feb 15 17:38:28 char1 kernel: ---[ end trace 50a96207e385a66c ]---
+Feb 15 17:38:28 char1 kernel: e1000e 0000:00:19.0: eth2: Reset adapter
+Feb 15 17:38:29 char1 kernel: e1000e: eth2 NIC Link is Up 100 Mbps Full Duplex, Flow Control: None
