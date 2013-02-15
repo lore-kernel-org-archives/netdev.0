@@ -1,95 +1,60 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH 1/5 net-next v2] tg3: Add 57766 device support.
-Date: Thu, 14 Feb 2013 16:27:51 -0800
-Message-ID: <1360888071-13108-1-git-send-email-mchan@broadcom.com>
+From: Vinson Lee <vlee@twitter.com>
+Subject: Re: [STABLE REQUEST] Merge to linux-3.4.y net: Downgrade
+ CAP_SYS_MODULE deprecated message from error to warning.
+Date: Thu, 14 Feb 2013 16:16:18 -0800
+Message-ID: <CAKixpbhtD-mhAESjV3HOZRxYqvsWrjH0vTpDgKZuUismUvVa-g@mail.gmail.com>
+References: <CAKixpbjutA_84JzM0Zjtw-Pxo8m3KCP9+R_aSJWTPaCqCsVbsw@mail.gmail.com>
+	<20130214233735.GA4390@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nsujir@broadcom.com,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: stable@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	mirq-linux@rere.qmqm.pl, jpirko@redhat.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3081 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759753Ab3BOAKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Feb 2013 19:10:34 -0500
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:61843 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935228Ab3BOAQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 19:16:20 -0500
+Received: by mail-ee0-f48.google.com with SMTP id t10so1566697eei.21
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 16:16:19 -0800 (PST)
+In-Reply-To: <20130214233735.GA4390@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matt Carlson <mcarlson@broadcom.com>
+On Thu, Feb 14, 2013 at 3:37 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> On Thu, Feb 14, 2013 at 03:29:44PM -0800, Vinson Lee wrote:
+>> Hi.
+>>
+>> I would like to nominate commit
+>> 7cecb523adedcaf8acba5e14d47559d8bc3f40d7 for backport to stable
+>> branches 3.4 and earlier.
+>>
+>> commit 7cecb523adedcaf8acba5e14d47559d8bc3f40d7
+>> Author: Vinson Lee <vlee@twitter.com>
+>> Date:   Wed Jun 27 14:32:07 2012 +0000
+>>
+>>     net: Downgrade CAP_SYS_MODULE deprecated message from error to warning.
+>>
+>>     Make logging level consistent with other deprecation messages in net
+>>     subsystem.
+>>
+>>     Signed-off-by: Vinson Lee <vlee@twitter.com>
+>>     Cc: David Mackey <tdmackey@twitter.com>
+>>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> I fail to see how this patch meets the rules described in
+> Documentation/stable_kernel_rules.txt.  What am I missing?
+>
+> thanks,
+>
+> greg k-h
 
-The patch also adds a couple of fixes
+I am logging different kernel log-level messages to different files
+and monitoring them here. I see this message most often in the errors
+pile. It's arguable that this is not a bug, but it is definitely
+bothering me here. Please consider for backport but I would understand
+if this request was turned down.
 
- - For the 57766 and non Ax versions of 57765, bootcode needs to setup
-   the PCIE Fast Training Sequence (FTS) value to prevent transmit hangs.
-   Unfortunately, it does not have enough room in the selfboot case (i.e.
-   devices with no NVRAM).  The driver needs to implement this.
-
- - For performance reasons, the 2k DMA engine mode on the 57766 should
-   be enabled and dma size limited to 2k for standard sized packets.
-
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   18 +++++++++++++++++-
- drivers/net/ethernet/broadcom/tg3.h |    2 ++
- 2 files changed, 19 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index b1b3bc0..6e676a7 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -332,6 +332,7 @@ static DEFINE_PCI_DEVICE_TABLE(tg3_pci_tbl) = {
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5719)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5720)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57762)},
-+	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_57766)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5762)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5725)},
- 	{PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, TG3PCI_DEVICE_TIGON3_5727)},
-@@ -9179,7 +9180,14 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 		}
- 
- 		if (GET_CHIP_REV(tp->pci_chip_rev_id) != CHIPREV_57765_AX) {
--			u32 grc_mode = tr32(GRC_MODE);
-+			u32 grc_mode;
-+
-+			/* Fix transmit hangs */
-+			val = tr32(TG3_CPMU_PADRNG_CTL);
-+			val |= TG3_CPMU_PADRNG_CTL_RDIV2;
-+			tw32(TG3_CPMU_PADRNG_CTL, val);
-+
-+			grc_mode = tr32(GRC_MODE);
- 
- 			/* Access the lower 1K of DL PCIE block registers. */
- 			val = grc_mode & ~GRC_MODE_PCIE_PORT_MASK;
-@@ -9492,6 +9500,14 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
- 	if (tg3_flag(tp, PCI_EXPRESS))
- 		rdmac_mode |= RDMAC_MODE_FIFO_LONG_BURST;
- 
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_57766) {
-+		tp->dma_limit = 0;
-+		if (tp->dev->mtu <= ETH_DATA_LEN) {
-+			rdmac_mode |= RDMAC_MODE_JMB_2K_MMRR;
-+			tp->dma_limit = TG3_TX_BD_DMA_MAX_2K;
-+		}
-+	}
-+
- 	if (tg3_flag(tp, HW_TSO_1) ||
- 	    tg3_flag(tp, HW_TSO_2) ||
- 	    tg3_flag(tp, HW_TSO_3))
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index ef6ced2..b676728 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -1164,6 +1164,8 @@
- #define  CPMU_MUTEX_GNT_DRIVER		 0x00001000
- #define TG3_CPMU_PHY_STRAP		0x00003664
- #define TG3_CPMU_PHY_STRAP_IS_SERDES	 0x00000020
-+#define TG3_CPMU_PADRNG_CTL		0x00003668
-+#define  TG3_CPMU_PADRNG_CTL_RDIV2	 0x00040000
- /* 0x3664 --> 0x36b0 unused */
- 
- #define TG3_CPMU_EEE_MODE		0x000036b0
--- 
-1.7.1
+Cheers,
+Vinson
