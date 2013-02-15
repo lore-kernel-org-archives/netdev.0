@@ -1,46 +1,50 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH 1/8] netback: don't bind kthread to cpu
-Date: Fri, 15 Feb 2013 16:00:02 +0000
-Message-ID: <1360944010-15336-2-git-send-email-wei.liu2@citrix.com>
-References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next] tbf: handle gso skbs properly
+Date: Fri, 15 Feb 2013 08:13:03 -0800
+Message-ID: <1360944783.19353.9.camel@edumazet-glaptop>
+References: <1360941882-6727-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<ian.campbell@citrix.com>, <konrad.wilk@oracle.com>,
-	<annie.li@oracle.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:27169 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756350Ab3BOQAy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 11:00:54 -0500
-In-Reply-To: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:34415 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932675Ab3BOQNH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 11:13:07 -0500
+Received: by mail-pb0-f51.google.com with SMTP id un15so655371pbc.38
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 08:13:06 -0800 (PST)
+In-Reply-To: <1360941882-6727-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The initialization process makes an assumption that the online cpus are
-numbered from 0 to xen_netbk_group_nr-1,  which is not always true.
+On Fri, 2013-02-15 at 16:24 +0100, Jiri Pirko wrote:
+> So far, gso skbs has been handled by tbf in the same way as any other
+> ones. Given their pkt_len they got dropped which leads to very
+> inaccurate rates. This patch makes tbf gso-aware.
+> 
+> According to Eric's suggestion, when gso skb can't be sent in one mtu
+> time, resegment it.
+> 
 
-As we only need a pool of worker threads, simply don't bind them to specific
-cpus.
+> +	do {
+> +		next_skb = skb->next;
+> +		qdisc_skb_cb(skb)->pkt_len = skb->len;
+> +		qdisc_calculate_pkt_len(skb, qdisc);
+> +		__skb_queue_after(&qdisc->q, prev_skb, skb);
+> +		prev_skb = skb;
+> +		skb = next_skb;
+> +		num_skbs++;
+> +	} while (skb);
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
----
- drivers/net/xen-netback/netback.c |    2 --
- 1 file changed, 2 deletions(-)
+This only works if qdisc is a fifo (holding packets in qdisc->q)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 3ae49b1..db8d45a 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1729,8 +1729,6 @@ static int __init netback_init(void)
- 			goto failed_init;
- 		}
- 
--		kthread_bind(netbk->task, group);
--
- 		INIT_LIST_HEAD(&netbk->net_schedule_list);
- 
- 		spin_lock_init(&netbk->net_schedule_list_lock);
--- 
-1.7.10.4
+Please try :
+
+tc qdisc del dev eth0 root 2>/dev/null
+tc qdisc add dev eth0 root handle 10 tbf rate 0.5mbit burst 5kb latency 70ms peakrate 1mbit minburst 1540
+tc qd add dev eth0 parent 10: handle 20 fq_codel
+
+I guess we need a per qdisc ops to reinject the packets at the right place.
