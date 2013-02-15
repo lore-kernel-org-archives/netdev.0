@@ -1,72 +1,92 @@
 From: Tom Parkin <tparkin@katalix.com>
-Subject: [RFC PATCH 4/6] l2tp: export l2tp_tunnel_closeall
-Date: Fri, 15 Feb 2013 10:25:17 +0000
-Message-ID: <1360923919-7203-5-git-send-email-tparkin@katalix.com>
+Subject: [RFC PATCH 1/6] udp: add encap_destroy callback
+Date: Fri, 15 Feb 2013 10:25:14 +0000
+Message-ID: <1360923919-7203-2-git-send-email-tparkin@katalix.com>
 References: <1360923919-7203-1-git-send-email-tparkin@katalix.com>
 Cc: jchapman@katalix.com, celston@katalix.com,
 	Tom Parkin <tparkin@katalix.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:34091 "EHLO mail.katalix.com"
+Received: from katalix.com ([82.103.140.233]:34088 "EHLO mail.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161231Ab3BOKZg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 05:25:36 -0500
+	id S1161229Ab3BOKZf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2013 05:25:35 -0500
 In-Reply-To: <1360923919-7203-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-l2tp_core internally uses l2tp_tunnel_closeall to close all sessions in a
-tunnel when a UDP-encapsualtion socket is destroyed.  We need to do something
-similar for IP-encapsualtion sockets.
+Users of udp encapsulation currently have an encap_rcv callback which they can
+use to hook into the udp receive path.
 
-Export l2tp_tunnel_closeall as a GPL symbol to enable l2tp_ip and l2tp_ip6 to
-call it from their .destroy handlers.
+In situations where a encapsulation user allocates resources associated with a
+udp encap socket, it may be convenient to be able to also hook the proto
+.destroy operation.  For example, if an encap user holds a reference to the
+udp socket, the destroy hook might be used to relinquish this reference.
+
+This patch adds a socket destroy hook into udp, which is set and enabled
+in the same way as the existing encap_rcv hook.
 
 ---
- net/l2tp/l2tp_core.c |    4 ++--
- net/l2tp/l2tp_core.h |    1 +
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ include/linux/udp.h |    1 +
+ net/ipv4/udp.c      |    7 +++++++
+ net/ipv6/udp.c      |    8 ++++++++
+ 3 files changed, 16 insertions(+)
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 7f3ab65..26b5f00 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -114,7 +114,6 @@ struct l2tp_net {
+diff --git a/include/linux/udp.h b/include/linux/udp.h
+index 9d81de1..42278bb 100644
+--- a/include/linux/udp.h
++++ b/include/linux/udp.h
+@@ -68,6 +68,7 @@ struct udp_sock {
+ 	 * For encapsulation sockets.
+ 	 */
+ 	int (*encap_rcv)(struct sock *sk, struct sk_buff *skb);
++	void (*encap_destroy)(struct sock *sk);
+ };
  
- static void l2tp_session_set_header_len(struct l2tp_session *session, int version);
- static void l2tp_tunnel_free(struct l2tp_tunnel *tunnel);
--static void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
+ static inline struct udp_sock *udp_sk(const struct sock *sk)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 6791aac..48e2366 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1762,9 +1762,16 @@ int udp_rcv(struct sk_buff *skb)
  
- static inline struct l2tp_net *l2tp_pernet(struct net *net)
+ void udp_destroy_sock(struct sock *sk)
  {
-@@ -1279,7 +1278,7 @@ end:
- 
- /* When the tunnel is closed, all the attached sessions need to go too.
-  */
--static void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
-+void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel)
- {
- 	int hash;
- 	struct hlist_node *walk;
-@@ -1342,6 +1341,7 @@ again:
- 	}
- 	write_unlock_bh(&tunnel->hlist_lock);
++	struct udp_sock *up = udp_sk(sk);
+ 	bool slow = lock_sock_fast(sk);
+ 	udp_flush_pending_frames(sk);
+ 	unlock_sock_fast(sk, slow);
++	if (static_key_false(&udp_encap_needed) && up->encap_type) {
++		void (*encap_destroy)(struct sock *sk);
++		encap_destroy = ACCESS_ONCE(up->encap_destroy);
++		if (encap_destroy)
++			encap_destroy(sk);
++	}
  }
-+EXPORT_SYMBOL_GPL(l2tp_tunnel_closeall);
  
- /* Tunnel socket destroy hook for UDP encapsulation */
- static void l2tp_udp_encap_destroy(struct sock *sk)
-diff --git a/net/l2tp/l2tp_core.h b/net/l2tp/l2tp_core.h
-index a6d9c5d..d1b37c1 100644
---- a/net/l2tp/l2tp_core.h
-+++ b/net/l2tp/l2tp_core.h
-@@ -239,6 +239,7 @@ extern struct l2tp_tunnel *l2tp_tunnel_find(struct net *net, u32 tunnel_id);
- extern struct l2tp_tunnel *l2tp_tunnel_find_nth(struct net *net, int nth);
+ /*
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 599e1ba6..d8e5e85 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1285,10 +1285,18 @@ do_confirm:
  
- extern int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32 peer_tunnel_id, struct l2tp_tunnel_cfg *cfg, struct l2tp_tunnel **tunnelp);
-+extern void l2tp_tunnel_closeall(struct l2tp_tunnel *tunnel);
- extern int l2tp_tunnel_delete(struct l2tp_tunnel *tunnel);
- extern struct l2tp_session *l2tp_session_create(int priv_size, struct l2tp_tunnel *tunnel, u32 session_id, u32 peer_session_id, struct l2tp_session_cfg *cfg);
- extern int l2tp_session_delete(struct l2tp_session *session);
+ void udpv6_destroy_sock(struct sock *sk)
+ {
++	struct udp_sock *up = udp_sk(sk);
+ 	lock_sock(sk);
+ 	udp_v6_flush_pending_frames(sk);
+ 	release_sock(sk);
+ 
++	if (static_key_false(&udpv6_encap_needed) && up->encap_type) {
++		void (*encap_destroy)(struct sock *sk);
++		encap_destroy = ACCESS_ONCE(up->encap_destroy);
++		if (encap_destroy)
++			encap_destroy(sk);
++	}
++
+ 	inet6_destroy_sock(sk);
+ }
+ 
 -- 
 1.7.9.5
