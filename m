@@ -1,45 +1,110 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/3] v4 GRE: Add TCP segmentation offload for
- GRE
-Date: Fri, 15 Feb 2013 06:41:00 -0800
-Message-ID: <1360939260.19353.2.camel@edumazet-glaptop>
-References: <1360886561-1630-1-git-send-email-pshelar@nicira.com>
+From: Christian Ruppert <christian.ruppert@abilis.com>
+Subject: Re: [PATCH] Prevent interrupt loop with DWMAC MMC RX IPC Counter
+Date: Fri, 15 Feb 2013 15:48:17 +0100
+Message-ID: <20130215144815.GA31098@ab42.lan>
+References: <1360934123-30476-1-git-send-email-christian.ruppert@abilis.com>
+ <511E3C28.7090101@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
-	bhutchings@solarflare.com, mirqus@gmail.com
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:47462 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932237Ab3BOOlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 09:41:04 -0500
-Received: by mail-pa0-f48.google.com with SMTP id hz10so1790910pad.7
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 06:41:03 -0800 (PST)
-In-Reply-To: <1360886561-1630-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <511E3C28.7090101@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-02-14 at 16:02 -0800, Pravin B Shelar wrote:
+Hello Guiseppe,
 
-> +	err = ip_local_out(skb);
-> +	if (likely(net_xmit_eval(err) == 0)) {
-> +		int pkt_len = skb->len - skb_transport_offset(skb);
-> +		u64_stats_update_begin(&tstats->syncp);
-> +		tstats->tx_bytes += pkt_len;
-> +		tstats->tx_packets++;
-> +		u64_stats_update_end(&tstats->syncp);
-> +	} else {
-> +		dev->stats.tx_errors++;
-> +		dev->stats.tx_aborted_errors++;
-> +	}
->  	return NETDEV_TX_OK;
+Thanks for the feedback. I'll send a new patch shortly which
+unconditionally masks the interrupts as you suggest. The mask register
+does not exist in DWMACs without RX IPC counters, however, and I have n=
+o
+way of testing if accessing this register nevertheless generates a bus
+error. Do you have hardware to verify if everything works fine even
+without RX IPC counters before integrating the patch?
 
-Once given to ip_local_out(), you cant reference the skb anymore,
-therefore you must evaluate pkt_len before :
+Greetings,
+  Christian
 
-pkt_len = skb->len - skb_transport_offset(skb);
-err = ip_local_out(skb);
-if (likely(net_xmit_eval(err) == 0)) {
-    ...
+On Fri, Feb 15, 2013 at 02:46:16PM +0100, Giuseppe CAVALLARO wrote:
+> Hello Christian
+>=20
+> On 2/15/2013 2:15 PM, Christian Ruppert wrote:
+> >If the DesignWare MAC is synthesised with MMC RX IPC Counter, an unm=
+anaged
+> >and unacknowledged interrupt is generated after some time of operati=
+on. To
+> >my knowledge there is no way to autodetect this configuration.
+> >
+> >This patch adds a Kconfig option to tell the driver about the counte=
+r which
+> >in turn masks the undesired interrupts.
+> >
+> >Signed-off-by: Christian Ruppert <christian.ruppert@abilis.com>
+> >---
+> >  drivers/net/ethernet/stmicro/stmmac/Kconfig    |    8 ++++++++
+> >  drivers/net/ethernet/stmicro/stmmac/mmc_core.c |    3 +++
+> >  2 files changed, 11 insertions(+), 0 deletions(-)
+> >
+> >diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/n=
+et/ethernet/stmicro/stmmac/Kconfig
+> >index 1164930..60e5130 100644
+> >--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
+> >+++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+> >@@ -71,5 +71,13 @@ config STMMAC_CHAINED
+> >
+> >  endchoice
+> >
+> >+config STMMAC_RX_IPC_CTRS
+> >+	bool "MMC Receive IPC Counters enabled"
+> >+	depends on STMMAC_ETH
+> >+	default n
+> >+	---help---
+> >+	  Select this option in case MMC Receive IPC counters were enabled=
+ at
+> >+	  synthesis time of the block. If this option is not set correctly=
+,
+> >+	  system might hang after a certain amount of time.
+> >
+> >  endif
+> >diff --git a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c b/driver=
+s/net/ethernet/stmicro/stmmac/mmc_core.c
+> >index 0c74a70..ae877ee 100644
+> >--- a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
+> >+++ b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
+> >@@ -149,6 +149,9 @@ void dwmac_mmc_intr_all_mask(void __iomem *ioadd=
+r)
+> >  {
+> >  	writel(MMC_DEFAULT_MASK, ioaddr + MMC_RX_INTR_MASK);
+> >  	writel(MMC_DEFAULT_MASK, ioaddr + MMC_TX_INTR_MASK);
+> >+#ifdef CONFIG_STMMAC_RX_IPC_CTRS
+> >+	writel(MMC_DEFAULT_MASK, ioaddr + MMC_RX_IPC_INTR_MASK);
+> >+#endif
+>=20
+> your fix makes sense to me; I have never faced this problem because t=
+he
+> MMC RX IPC Counter is not synthesised  on the GMAC chip I used.
+>=20
+> Anyway all mmc interrupts are not managed by defsign so I only ask
+> you to remove the Kconfig option and add the writel in the
+> dwmac_mmc_intr_all_mask.
+>=20
+> peppe
+>=20
+> >  }
+> >
+> >  /* This reads the MAC core counters (if actaully supported).
+> >
+>=20
+
+--=20
+  Christian Ruppert              ,          <christian.ruppert@abilis.c=
+om>
+                                /|
+  Tel: +41/(0)22 816 19-42     //|                 3, Chemin du Pr=E9-F=
+leuri
+                             _// | bilis Systems   CH-1228 Plan-les-Oua=
+tes
