@@ -1,49 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix infinite loop in __skb_recv_datagram()
-Date: Fri, 15 Feb 2013 13:56:00 -0500 (EST)
-Message-ID: <20130215.135600.962022690327903176.davem@davemloft.net>
-References: <1360685813.13993.12.camel@edumazet-glaptop>
-	<20130212.160733.2235089567079483883.davem@davemloft.net>
-	<20130215124141.GB20018@order.stressinduktion.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [MacVLAN] failure to deliver reassembled IPv6 multicast traffic
+Date: Fri, 15 Feb 2013 11:07:12 -0800
+Message-ID: <511E8760.9070703@candelatech.com>
+References: <20130215170028.GG12219@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, tt.rantala@gmail.com,
-	netdev@vger.kernel.org, davej@redhat.com, xemul@parallels.com
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, kaber@trash.net, ataschner@suse.com
+To: Erik Hugne <erik.hugne@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43548 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784Ab3BOS4C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 13:56:02 -0500
-In-Reply-To: <20130215124141.GB20018@order.stressinduktion.org>
+Received: from mail.candelatech.com ([208.74.158.172]:38959 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750755Ab3BOTH0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 14:07:26 -0500
+In-Reply-To: <20130215170028.GG12219@eerihug-hybrid.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 15 Feb 2013 13:41:41 +0100
+On 02/15/2013 09:00 AM, Erik Hugne wrote:
+> If macvlan's are configured on a device, IPv6 multicast
+> traffic received on the underlying ethernet device is not
+> delivered properly to higher layers. Large amounts of packets are lost, and
+> the problem seems to get worse the more macvlans are defined
+> on top of the device, up to the point where no traffic is delivered
+> at all...
+>
+>
+> Steps to reproduce (2 hosts required)
+> On host 1, set up some macvlans:
+> ip link add link eth0 name macvlan0 type macvlan mode bridge
+> ip link add link eth0 name macvlan2 type macvlan mode bridge
+> ip link add link eth0 name macvlan3 type macvlan mode bridge
+> ip link set link dev macvlan0 up
+> ip link set link dev macvlan2 up
+> ip link set link dev macvlan3 up
+>
+> Start a server that binds to ff02::1 scoped to eth0
+> ./server6 -sff02::1 -eeth0
+>
+>
+> On host 2:
+> ./client6 -dff02::1 -eeth0
+>
+>
+> This seems to only occur for large (fragmented) IPv6 multicast traffic.
+> If you bind to :: instead (-s:: on the server) and send to
+> the linklocal address of Host1/eth0, packets are delivered just fine.
 
-> On Tue, Feb 12, 2013 at 04:07:33PM -0500, David Miller wrote:
->> From: Eric Dumazet <eric.dumazet@gmail.com>
->> Date: Tue, 12 Feb 2013 08:16:53 -0800
->> 
->> > From: Eric Dumazet <edumazet@google.com>
->> > 
->> > Tommi was fuzzing with trinity and reported the following problem :
->> > 
->> > commit 3f518bf745 (datagram: Add offset argument to __skb_recv_datagram)
->> > missed that a raw socket receive queue can contain skbs with no payload.
->> > 
->> > We can loop in __skb_recv_datagram() with MSG_PEEK mode, because
->> > wait_for_packet() is not prepared to skip these skbs.
->>  ...
->> > Reported-by: Tommi Rantala <tt.rantala@gmail.com>
->> > Tested-by: Tommi Rantala <tt.rantala@gmail.com>
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> 
->> Applied, thanks.
-> 
-> This issue got a CVE: http://seclists.org/oss-sec/2013/q1/310
-> Perhaps it's something that should go to stable?
+This has been around for a long time, maybe forever.  Last time
+we looked at this it did not appear there was an easy fix, something
+to do with how UDP packets are re-assembled....
 
-It's already queued up in my -stable queue.
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
