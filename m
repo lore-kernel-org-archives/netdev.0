@@ -1,57 +1,121 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] tcp: sysctl to disable TCP simultaneous connect
-Date: Thu, 14 Feb 2013 22:41:39 -0800
-Message-ID: <CAGXu5jJKQSDo61TD0Jgn9Gq8TL2rCUVbA=Kq4AvfeFUb2FdJMw@mail.gmail.com>
-References: <20130207175240.GA12520@www.outflux.net>
-	<20130207103950.662698ea@nehalam.linuxnetplumber.net>
-	<CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com>
-	<87y5eq87pa.fsf@xmission.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Fri, 15 Feb 2013 17:56:27 +1100
+Message-ID: <20130215175627.33aa3b62763438465e34d42f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Rob Landley <rob@landley.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Shan Wei <davidshan@tencent.com>,
-	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
-	netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87y5eq87pa.fsf@xmission.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Fri__15_Feb_2013_17_56_27_+1100_bfS_WqYXhP5JfWcx"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 14, 2013 at 9:30 PM, Eric W. Biederman
-<ebiederm@xmission.com> wrote:
-> Kees Cook <keescook@chromium.org> writes:
->
->> The patch would not break it -- it defaults the sysctl to staying enabled.
->>
->> If you mean the documentation should be updated, sure, that's easy to do.
->>
->> David: I know you aren't a fan of this patch, but I'd like to try to
->> convince you. :) This leaves the feature enabled and add a toggle for
->> systems (like Chrome OS) that don't want to risk this DoS at all.
->> There are so very many other toggle, I don't see why this one would be
->> a problem to add.
->
-> Chrome OS has no plans to implement webrtc?  Last I had read that
-> support had been added to the release versions of Chrome, and was in the
-> development builds of firefox.  I really don't belive that there are
-> many systems that don't intend to run a web browser.
+--Signature=_Fri__15_Feb_2013_17_56_27_+1100_bfS_WqYXhP5JfWcx
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I haven't looked at the internals of webrtc. Are you implying some
-feature in it relies on the TCP simultaneous connect?
+Hi Andrew,
 
--Kees
+Today's linux-next merge of the akpm tree got a conflict in
+net/bridge/br_fdb.c between commit 2ba071ecb6d4 ("bridge: Add vlan to
+unicast fdb entries") from the net-next tree and commit "hlist: drop the
+node parameter from iterators" from the akpm tree.
 
--- 
-Kees Cook
-Chrome OS Security
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc net/bridge/br_fdb.c
+index 8117900,4fb0461..0000000
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@@ -263,16 -231,12 +263,15 @@@ void br_fdb_delete_by_port(struct net_b
+ =20
+  /* No locking or refcounting, assumes caller has rcu_read_lock */
+  struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
+ -					  const unsigned char *addr)
+ +					  const unsigned char *addr,
+ +					  __u16 vid)
+  {
+- 	struct hlist_node *h;
+  	struct net_bridge_fdb_entry *fdb;
+ =20
+- 	hlist_for_each_entry_rcu(fdb, h,
+ -	hlist_for_each_entry_rcu(fdb, &br->hash[br_mac_hash(addr)], hlist) {
+ -		if (ether_addr_equal(fdb->addr.addr, addr)) {
+++	hlist_for_each_entry_rcu(fdb,
+ +				&br->hash[br_mac_hash(addr, vid)], hlist) {
+ +		if (ether_addr_equal(fdb->addr.addr, addr) &&
+ +		    fdb->vlan_id =3D=3D vid) {
+  			if (unlikely(has_expired(br, fdb)))
+  				break;
+  			return fdb;
+@@@ -360,30 -323,24 +358,28 @@@ int br_fdb_fillbuf(struct net_bridge *b
+  }
+ =20
+  static struct net_bridge_fdb_entry *fdb_find(struct hlist_head *head,
+ -					     const unsigned char *addr)
+ +					     const unsigned char *addr,
+ +					     __u16 vid)
+  {
+- 	struct hlist_node *h;
+  	struct net_bridge_fdb_entry *fdb;
+ =20
+- 	hlist_for_each_entry(fdb, h, head, hlist) {
++ 	hlist_for_each_entry(fdb, head, hlist) {
+ -		if (ether_addr_equal(fdb->addr.addr, addr))
+ +		if (ether_addr_equal(fdb->addr.addr, addr) &&
+ +		    fdb->vlan_id =3D=3D vid)
+  			return fdb;
+  	}
+  	return NULL;
+  }
+ =20
+  static struct net_bridge_fdb_entry *fdb_find_rcu(struct hlist_head *head,
+ -						 const unsigned char *addr)
+ +						 const unsigned char *addr,
+ +						 __u16 vid)
+  {
+- 	struct hlist_node *h;
+  	struct net_bridge_fdb_entry *fdb;
+ =20
+- 	hlist_for_each_entry_rcu(fdb, h, head, hlist) {
++ 	hlist_for_each_entry_rcu(fdb, head, hlist) {
+ -		if (ether_addr_equal(fdb->addr.addr, addr))
+ +		if (ether_addr_equal(fdb->addr.addr, addr) &&
+ +		    fdb->vlan_id =3D=3D vid)
+  			return fdb;
+  	}
+  	return NULL;
+
+--Signature=_Fri__15_Feb_2013_17_56_27_+1100_bfS_WqYXhP5JfWcx
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRHdwbAAoJEECxmPOUX5FE4isP/Ax9eDN7klh7TAPW5AF6Y6cp
+vyrTROeduAWiUZ0jfpkzA60sD6wA55zKmNnpEdZpwXxD30p/DFgHiXpFmKGcYXCK
+Z631fCX5T6P9DVqkz7ooVxKjaHx4tHvW0WIWAta2ZhBuepXHY9q2YFy8zZPm1WiT
+e30dT7QUioNJPAGWuFwVd1qGEJfkcCRejjcURMTzOoP1tlS/Wl4DMxyrKhbXWaAP
+8OH1cECNdmRh3Q5MMaDqbn11czo+leIL/YGiYIN3ljxpGaFw98yHawib0qRdk1sX
+44eHaiP3a5TjhpjUb+HY4aExnEpDE99juPnfSB+vKzq7RJ0YXU9K3Vym1ZE5uNvb
+ao5RVeGYP1aIFOdRyLU3RNdS9WqPaSMdttIHm2EB8j6ZD56nNUqJYF5QQSbPpZRX
+D+8ISL7YjHF8UsAiImhxr61hVb91UFl8yr4fIsyk4v8ViM8clP3T6INsEAlYdEuW
+jgVYIU/QSoihZX7U87a2STbtGqLGsk6KKJHx3FTonRg/YYIBLGnSWTCn/Bci6BZ4
+dIJLiZ9ICUUFUGtnj50KUsGGT7PSAGYBGatYVMobM+hIg4yR1s7d6PN7xvt+pN+6
+VRzWXpUIvsVArkglWtMdN6gaKGfP46g/sdp5zqyG/rM90ys/CJW7ZlM+7XV9RQJv
+lzv7u/Ag1FCyok0ue+ek
+=+NGQ
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__15_Feb_2013_17_56_27_+1100_bfS_WqYXhP5JfWcx--
