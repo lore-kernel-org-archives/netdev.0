@@ -1,69 +1,54 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 3/3] tipc: remove redundant checking for the number of iovecs in a send request
-Date: Fri, 15 Feb 2013 17:57:47 -0500
-Message-ID: <1360969067-29956-4-git-send-email-paul.gortmaker@windriver.com>
-References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 0/3] tipc: two cleanups, plus overload respin
+Date: Fri, 15 Feb 2013 17:57:44 -0500
+Message-ID: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Ying Xue <ying.xue@windriver.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Neil Horman <nhorman@tuxdriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:38738 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752886Ab3BOW6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 17:58:09 -0500
-In-Reply-To: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+Received: from mail.windriver.com ([147.11.1.11]:60956 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752688Ab3BOW6Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 17:58:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+Two relatively small cleanup patches here, plus a reimplementation
+of the patch Neil had questions about[1] in the last development
+cycle.
 
-As the number of iovecs in a send request is already limited within
-UIO_MAXIOV(i.e. 1024) in __sys_sendmsg(), it's unnecessary to check it
-again in TIPC stack.
+Tested on today's net-next, between 32 and 64 bit x86 machines using
+the server/client in tipc-utils, as usual.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+[1] http://patchwork.ozlabs.org/patch/204507/
+
+Thanks,
+Paul.
+
+Cc: Neil Horman <nhorman@tuxdriver.com>
 ---
- net/tipc/socket.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index cbe2f6e..a9622b6 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -503,8 +503,7 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
- 	if (unlikely((m->msg_namelen < sizeof(*dest)) ||
- 		     (dest->family != AF_TIPC)))
- 		return -EINVAL;
--	if ((total_len > TIPC_MAX_USER_MSG_SIZE) ||
--	    (m->msg_iovlen > (unsigned int)INT_MAX))
-+	if (total_len > TIPC_MAX_USER_MSG_SIZE)
- 		return -EMSGSIZE;
- 
- 	if (iocb)
-@@ -612,8 +611,7 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
- 	if (unlikely(dest))
- 		return send_msg(iocb, sock, m, total_len);
- 
--	if ((total_len > TIPC_MAX_USER_MSG_SIZE) ||
--	    (m->msg_iovlen > (unsigned int)INT_MAX))
-+	if (total_len > TIPC_MAX_USER_MSG_SIZE)
- 		return -EMSGSIZE;
- 
- 	if (iocb)
-@@ -698,8 +696,7 @@ static int send_stream(struct kiocb *iocb, struct socket *sock,
- 		goto exit;
- 	}
- 
--	if ((total_len > (unsigned int)INT_MAX) ||
--	    (m->msg_iovlen > (unsigned int)INT_MAX)) {
-+	if (total_len > (unsigned int)INT_MAX) {
- 		res = -EMSGSIZE;
- 		goto exit;
- 	}
--- 
-1.8.1.2
+The following changes since commit d887199dc28c46788b155b234274d5ff41afed8e:
+
+  tg3: Update version to 3.130 (2013-02-15 14:02:59 -0500)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tipc_net-next
+
+for you to fetch changes up to 97f8b87e9108485a0b7070645662253561304458:
+
+  tipc: remove redundant checking for the number of iovecs in a send request (2013-02-15 17:03:32 -0500)
+
+----------------------------------------------------------------
+Ying Xue (3):
+      tipc: eliminate duplicated discard_rx_queue routine
+      tipc: byte-based overload control on socket receive queue
+      tipc: remove redundant checking for the number of iovecs in a send request
+
+ net/tipc/socket.c | 103 +++++++++++++++++++++++-------------------------------
+ 1 file changed, 44 insertions(+), 59 deletions(-)
