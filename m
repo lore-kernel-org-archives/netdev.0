@@ -1,74 +1,136 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: [RFC PATCH 2/6] l2tp: add udp encap socket destroy handler
-Date: Fri, 15 Feb 2013 10:25:15 +0000
-Message-ID: <1360923919-7203-3-git-send-email-tparkin@katalix.com>
-References: <1360923919-7203-1-git-send-email-tparkin@katalix.com>
-Cc: jchapman@katalix.com, celston@katalix.com,
-	Tom Parkin <tparkin@katalix.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:34089 "EHLO mail.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161227Ab3BOKZf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 05:25:35 -0500
-In-Reply-To: <1360923919-7203-1-git-send-email-tparkin@katalix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] tcp: sysctl to disable TCP simultaneous connect
+Date: Fri, 15 Feb 2013 02:31:27 -0800
+Message-ID: <87621tyikg.fsf@xmission.com>
+References: <20130207175240.GA12520@www.outflux.net>
+	<20130207103950.662698ea@nehalam.linuxnetplumber.net>
+	<CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com>
+	<87y5eq87pa.fsf@xmission.com>
+	<CAGXu5jJKQSDo61TD0Jgn9Gq8TL2rCUVbA=Kq4AvfeFUb2FdJMw@mail.gmail.com>
+	<87r4ki6oi1.fsf@xmission.com> <20130215075539.GB7535@1wt.eu>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Kees Cook <keescook@chromium.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Shan Wei <davidshan@tencent.com>,
+	"linux-doc\@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Willy Tarreau <w@1wt.eu>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130215075539.GB7535@1wt.eu> (Willy Tarreau's message of "Fri,
+	15 Feb 2013 08:55:39 +0100")
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-L2TP sessions hold a reference to the tunnel socket to prevent it going away
-while sessions are still active.  However, since tunnel destruction is handled
-by the sock sk_destruct callback there is a catch-22: a tunnel with sessions
-cannot be deleted since each session holds a reference to the tunnel socket.
-If userspace closes a managed tunnel socket, or dies, the tunnel will persist
-and it will be neccessary to individually delete the sessions using netlink
-commands.  This is ugly.
+Willy Tarreau <w@1wt.eu> writes:
 
-To prevent this occuring, this patch leverages the udp encapsulation socket
-destroy callback to gain early notification when the tunnel socket is closed.
-This allows us to safely close the sessions running in the tunnel, dropping
-the tunnel socket references in the process.  The tunnel socket is then
-destroyed as normal, and the tunnel resources deallocated in sk_destruct.
+> Hi Eric,
+>
+> On Thu, Feb 14, 2013 at 11:10:46PM -0800, Eric W. Biederman wrote:
+>> Kees Cook <keescook@chromium.org> writes:
+>> 
+>> > On Thu, Feb 14, 2013 at 9:30 PM, Eric W. Biederman
+>> > <ebiederm@xmission.com> wrote:
+>> >> Kees Cook <keescook@chromium.org> writes:
+>> >>
+>> >>> The patch would not break it -- it defaults the sysctl to staying enabled.
+>> >>>
+>> >>> If you mean the documentation should be updated, sure, that's easy to do.
+>> >>>
+>> >>> David: I know you aren't a fan of this patch, but I'd like to try to
+>> >>> convince you. :) This leaves the feature enabled and add a toggle for
+>> >>> systems (like Chrome OS) that don't want to risk this DoS at all.
+>> >>> There are so very many other toggle, I don't see why this one would be
+>> >>> a problem to add.
+>> >>
+>> >> Chrome OS has no plans to implement webrtc?  Last I had read that
+>> >> support had been added to the release versions of Chrome, and was in the
+>> >> development builds of firefox.  I really don't belive that there are
+>> >> many systems that don't intend to run a web browser.
+>> >
+>> > I haven't looked at the internals of webrtc. Are you implying some
+>> > feature in it relies on the TCP simultaneous connect?
+>> 
+>> I am saying that yes.
+>> 
+>> webrtc is built on ICE (interactivity connectivity establishment).  ICE
+>> support for TCP (RFC6544) uses TCP simultaneous connect.  webrtc
+>> supports tcp connections.
+>
+> Then I suspect that a large number of firewalls will need updates after
+> significant rework for this proposal to succeed.
 
----
- net/l2tp/l2tp_core.c |   12 ++++++++++++
- 1 file changed, 12 insertions(+)
+Not at all.  ICE is about trying different ways to get two machines
+talking and using what works, and UDP connections are the primary.
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 5edf1e2..3842f67 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1249,6 +1249,7 @@ static void l2tp_tunnel_destruct(struct sock *sk)
- 		/* No longer an encapsulation socket. See net/ipv4/udp.c */
- 		(udp_sk(sk))->encap_type = 0;
- 		(udp_sk(sk))->encap_rcv = NULL;
-+		(udp_sk(sk))->encap_destroy = NULL;
- 		break;
- 	case L2TP_ENCAPTYPE_IP:
- 		break;
-@@ -1340,6 +1341,16 @@ again:
- 	write_unlock_bh(&tunnel->hlist_lock);
- }
- 
-+/* Tunnel socket destroy hook for UDP encapsulation */
-+static void l2tp_udp_encap_destroy(struct sock *sk)
-+{
-+	struct l2tp_tunnel *tunnel = l2tp_sock_to_tunnel(sk);
-+	if (tunnel) {
-+		l2tp_tunnel_closeall(tunnel);
-+		sock_put(sk);
-+	}
-+}
-+
- /* Really kill the tunnel.
-  * Come here only when all sessions have been cleared from the tunnel.
-  */
-@@ -1635,6 +1646,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 		/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
- 		udp_sk(sk)->encap_type = UDP_ENCAP_L2TPINUDP;
- 		udp_sk(sk)->encap_rcv = l2tp_udp_encap_recv;
-+		udp_sk(sk)->encap_destroy = l2tp_udp_encap_destroy;
- #if IS_ENABLED(CONFIG_IPV6)
- 		if (sk->sk_family == PF_INET6)
- 			udpv6_encap_enable();
--- 
-1.7.9.5
+> I'm not saying this will
+> not eventually happen, but there are significant risks associated with
+> this feature.  Netfilter had this in the window tracking patches around
+> 2002-2003 and this had to be reverted because a client was able to establish
+> complete connections by sending SYN-SYN/ACK-ACK itself. Other products will
+> fall through these cracks.
+
+Interesting.  It works for me here on 3.8.
+
+I was able to get two machines to perform a simultaneous TCP open and
+successfully pass each other a message.
+
+Between those two machines were to NAT routers use conntrack ip
+masquerading.
+
+Those two NAT routers were connected by a third router that just routed
+their between their public addresses.
+
+Well strictly speaking they were network namespaces created with
+ip netns add .. and connected by veth tunnels, but it still worked
+and it definitely exercised the proper code paths.
+
+> And last but not least, it's the only behaviour in TCP which allows a
+> random attacker to prevent a connection from establishing by guessing
+> only a 16-bit port, regardless of any sequence number. Considering how
+> we've been bothered by people who considered that our sequence numbers
+> were not random enough, I already expect that the absolute lack of need
+> of a sequence number will bring new funny articles.
+
+I don't quite understand the DOS potential.  Is the problem the attacker
+makes it look like a different connection has already suceeded so that
+legitimate connections get a RST?
+
+I'm not clear how that differs in practice in DoS potential from simply
+spoofing a SYN to a listening port.
+
+> Back then, I did a PoC which permanently prevented an anti-virus proxy
+> from establishing any connection to its update server, and it did not
+> require a lot of traffic obviously. People running such proxies probably
+> don't need webrtc with its assorted lot of issues.
+>
+> I'm not advocating for pushing the patch, I understand it's not desired.
+> I just want to ensure that people understand what simultaneous connect
+> means in terms of DoS for a feature which is rarely used and rarely
+> technically possible at all.
+
+When the STUNT folks measured the TCP simultaneous open feasiblity back
+in 2005 they measured an average 88% success rate in estabilishing TCP
+peer connections in the wild.  So unless something has changed
+drastically (or their mesasurements were wildly inaccurate) it
+technically feasible a very interesting percentage of the time.
+
+Beyond that it is a sufficiently common trick for establishing peer to
+peer communications that an RFC has been written allowing peer to
+peer code written by different authors to interoperate.
+
+I just want to make it clear that for a lot of interesting cases TCP
+simultaneous open works today and is very interesting for getting
+client machines talking directly to each other.
+
+Eric
