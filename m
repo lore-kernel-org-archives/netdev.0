@@ -1,112 +1,68 @@
-From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
-Subject: [ 3.5.y.z extended stable ] Patch "sctp: refactor sctp_outq_teardown to insure proper" has been added to staging queue
-Date: Fri, 15 Feb 2013 01:11:21 -0200
-Message-ID: <1360897881-16028-1-git-send-email-herton.krzesinski@canonical.com>
-Cc: Jamie Parsons <Jamie.Parsons@metaswitch.com>,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>,
-	kernel-team@lists.ubuntu.com
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 3/3] GRE: Add TCP segmentation offload for GRE
+Date: Thu, 14 Feb 2013 19:19:29 -0800
+Message-ID: <CALnjE+q_P=7fbkwcs8A8YP9H9fdWMVN8Zir3nFixfcEMfNfCwQ@mail.gmail.com>
+References: <1360871101-2086-1-git-send-email-pshelar@nicira.com>
+	<1360892389.6884.74.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
+	bhutchings@solarflare.com, mirqus@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:34704 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932322Ab3BODLk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 22:11:40 -0500
+Received: from na3sys009aog123.obsmtp.com ([74.125.149.149]:52589 "HELO
+	na3sys009aog123.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932322Ab3BODTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 22:19:30 -0500
+Received: by mail-ye0-f200.google.com with SMTP id r13so3740643yen.3
+        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 19:19:30 -0800 (PST)
+In-Reply-To: <1360892389.6884.74.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a note to let you know that I have just added a patch titled
+On Thu, Feb 14, 2013 at 5:39 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2013-02-14 at 11:45 -0800, Pravin B Shelar wrote:
+>> Following patch adds GRE protocol offload handler so that
+>> skb_gso_segment() can segment GRE packets.
+>> SKB GSO CB is added to keep track of total header length so that
+>> skb_segment can push entire header. e.g. in case of GRE, skb_segment
+>> need to push inner and outer headers to every segment.
+>> New NETIF_F_GRE_GSO feature is added for devices which support HW
+>> GRE TSO offload. Currently none of devices support it therefore GRE GSO
+>> always fall backs to software GSO.
+>>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> ---
+>> Fixed according to comments from Jesse and Eric.
+>> v2-v3:
+>>  - Use device features to segment inner packet.
+>>  - Moved skb_mac_gso_segment to separate patch.
+>>  - simplified gre_gso_segment().
+>>  - Added NETIF_F_GRE_GSO feature.
+>>
+>> v1-v2:
+>>  - Factored a MAC layer handler out of skb_gso_segment().
+>>  - Eliminated copy operation from gre_gso_segment().
+>>  - Refresh header pointer after pskb_may_pull().
+>> ---
+>
+> Seems very good to me, thanks !
+>
+> The only thing that puzzles me is the ip_select_ident() in
+> ipgre_tunnel_xmit()
+>
+> Do we care of the IP identifiers being 0, 1, 2, 3, ... on the outer
+> headers ?
+>
+> Without TSO, we are using 0 IP identifiers (DF being set)
+>
+right. I will keep id as zero for all cases.
 
-    sctp: refactor sctp_outq_teardown to insure proper
+> Also if we can't unclone the skb in handle_offloads(), we should
+> increment tx_dropped or tx_errors.
+>
+ok.
 
-to the linux-3.5.y-queue branch of the 3.5.y.z extended stable tree 
-which can be found at:
-
- http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.5.y-queue
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 3.5.y.z tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Herton
-
-------
-
->From c749be1458b2046faaeb42ff7cf2a07f0627fd24 Mon Sep 17 00:00:00 2001
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 17 Jan 2013 11:15:08 +0000
-Subject: [PATCH] sctp: refactor sctp_outq_teardown to insure proper
- re-initalization
-
-commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86 upstream.
-
-Jamie Parsons reported a problem recently, in which the re-initalization of an
-association (The duplicate init case), resulted in a loss of receive window
-space.  He tracked down the root cause to sctp_outq_teardown, which discarded
-all the data on an outq during a re-initalization of the corresponding
-association, but never reset the outq->outstanding_data field to zero.  I wrote,
-and he tested this fix, which does a proper full re-initalization of the outq,
-fixing this problem, and hopefully future proofing us from simmilar issues down
-the road.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-Tested-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-CC: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: netdev@vger.kernel.org
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
----
- net/sctp/outqueue.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index a0fa19f..0716290 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -223,7 +223,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
-
- /* Free the outqueue structure and any related pending chunks.
-  */
--void sctp_outq_teardown(struct sctp_outq *q)
-+static void __sctp_outq_teardown(struct sctp_outq *q)
- {
- 	struct sctp_transport *transport;
- 	struct list_head *lchunk, *temp;
-@@ -276,8 +276,6 @@ void sctp_outq_teardown(struct sctp_outq *q)
- 		sctp_chunk_free(chunk);
- 	}
-
--	q->error = 0;
--
- 	/* Throw away any leftover control chunks. */
- 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
- 		list_del_init(&chunk->list);
-@@ -285,11 +283,17 @@ void sctp_outq_teardown(struct sctp_outq *q)
- 	}
- }
-
-+void sctp_outq_teardown(struct sctp_outq *q)
-+{
-+	__sctp_outq_teardown(q);
-+	sctp_outq_init(q->asoc, q);
-+}
-+
- /* Free the outqueue structure and any related pending chunks.  */
- void sctp_outq_free(struct sctp_outq *q)
- {
- 	/* Throw away leftover chunks. */
--	sctp_outq_teardown(q);
-+	__sctp_outq_teardown(q);
-
- 	/* If we were kmalloc()'d, free the memory.  */
- 	if (q->malloced)
---
-1.7.9.5
+>
+>
+>
