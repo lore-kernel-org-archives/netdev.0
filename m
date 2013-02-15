@@ -1,130 +1,93 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH iproute 3/3] bridge: Update bridge man pages to include vlan command
-Date: Fri, 15 Feb 2013 15:21:52 -0500
-Message-ID: <1360959712-7977-4-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH iproute 1/3] bridge: Add vlan support to fdb entries
+Date: Fri, 15 Feb 2013 15:21:50 -0500
+Message-ID: <1360959712-7977-2-git-send-email-vyasevic@redhat.com>
 References: <1360959712-7977-1-git-send-email-vyasevic@redhat.com>
 Cc: shemminger@vyatta.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44024 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16006 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751968Ab3BOUV5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 15:21:57 -0500
+	id S1751859Ab3BOUVz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2013 15:21:55 -0500
 In-Reply-To: <1360959712-7977-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the vlan command documentation to bridge man page.
+Provide the ability to set and show vlans on FDB entries.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- man/man8/bridge.8 |   73 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 72 insertions(+), 1 deletions(-)
+ bridge/fdb.c              |   16 +++++++++++++++-
+ include/linux/neighbour.h |    1 +
+ 2 files changed, 16 insertions(+), 1 deletions(-)
 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index fd91618..d34e3cf 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -13,7 +13,7 @@ bridge \- show / manipulate bridge addresses and devices
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 4ca4861..447045e 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -29,7 +29,7 @@ int filter_index;
  
- .ti -8
- .IR OBJECT " := { "
--.BR fdb " | " monitor " }"
-+.BR fdb " | " vlan " | " monitor " }"
- .sp
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: bridge fdb { add | del } ADDR dev DEV {self|master} [ temp ] [ dst IPADDR]\n");
++	fprintf(stderr, "Usage: bridge fdb { add | del } ADDR dev DEV {self|master} [ temp ] [ dst IPADDR] [ vlan VID ]\n");
+ 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
+ 	exit(-1);
+ }
+@@ -107,6 +107,11 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 				    abuf, sizeof(abuf)));
+ 	}
  
- .ti -8
-@@ -35,6 +35,20 @@ bridge \- show / manipulate bridge addresses and devices
- .IR DEV " ]"
++	if (tb[NDA_VLAN]) {
++		__u16 vid = rta_getattr_u16(tb[NDA_VLAN]);
++		fprintf(fp, "vlan %hu ", vid);
++	}
++
+ 	if (show_stats && tb[NDA_CACHEINFO]) {
+ 		struct nda_cacheinfo *ci = RTA_DATA(tb[NDA_CACHEINFO]);
+ 		int hz = get_user_hz();
+@@ -171,6 +176,7 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 	char abuf[ETH_ALEN];
+ 	int dst_ok = 0;
+ 	inet_prefix dst;
++	short vid = -1;
  
- .ti -8
-+.BR "bridge vlan" " { " add " | " del " } "
-+.B  dev
-+.IR DEV
-+.B  vid 
-+.IR VID " [ "
-+.BR  pvid " ] [ " untagged " ]  [ "
-+.BR  self " ]  [ " master " ] "
-+
-+.ti -8
-+.BR "bridge vlan" " [ " show " ] [ "
-+.B  dev
-+.IR DEV " ]"
-+
-+.ti -8
- .BR "bridge monitor" " [ " all " | " neigh " | " link " ]"
+ 	memset(&req, 0, sizeof(req));
  
- .SH OPTIONS
-@@ -61,6 +75,10 @@ As a rule, the information is statistics or some time values.
- .B fdb 
- - Forwarding Database entry.
+@@ -199,6 +205,11 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 			req.ndm.ndm_state |= NUD_PERMANENT;
+ 		} else if (matches(*argv, "temp") == 0) {
+ 			req.ndm.ndm_state |= NUD_REACHABLE;
++		} else if (matches(*argv, "vlan") == 0) {
++			if (vid >= 0)
++				duparg2("vlan", *argv);
++			NEXT_ARG();
++			vid = atoi(*argv);
+ 		} else {
+ 			if (strcmp(*argv, "to") == 0) {
+ 				NEXT_ARG();
+@@ -236,6 +247,9 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 	if (dst_ok)
+ 		addattr_l(&req.n, sizeof(req), NDA_DST, &dst.data, dst.bytelen);
  
-+.TP
-+.B vlan
-+- VLAN filter list.
++	if (vid >= 0)
++		addattr16(&req.n, sizeof(req), NDA_VLAN, vid); 
 +
- .SS
- .I COMMAND
+ 	req.ndm.ndm_ifindex = ll_name_to_index(d);
+ 	if (req.ndm.ndm_ifindex == 0) {
+ 		fprintf(stderr, "Cannot find device \"%s\"\n", d);
+diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+index 275e5d6..adb068c 100644
+--- a/include/linux/neighbour.h
++++ b/include/linux/neighbour.h
+@@ -20,6 +20,7 @@ enum {
+ 	NDA_LLADDR,
+ 	NDA_CACHEINFO,
+ 	NDA_PROBES,
++	NDA_VLAN,
+ 	__NDA_MAX
+ };
  
-@@ -143,6 +161,59 @@ With the
- option, the command becomes verbose.  It prints out the last updated
- and last used time for each entry.
- 
-+.SH bridge vlan - VLAN filter list
-+
-+.B vlan
-+objects contain known VLAN IDs for a link.
-+
-+.P
-+The corresponding commands display vlan filter entries, add new entries,
-+and delete old ones.
-+
-+.SS bridge vlan add - add a new vlan filter entry
-+
-+This command creates a new vlan filter entry.
-+
-+.TP
-+.BI dev " NAME"
-+the interface with which this vlan is associated.
-+
-+.TP
-+.BI vid " VID"
-+the VLAN ID that identifies the vlan.
-+
-+.TP
-+.BI pvid
-+the vlan specified is to be considered a PVID at ingress.
-+Any untagged frames will be assigned to this VLAN.
-+
-+.TP
-+.BI untagged
-+the vlan specified is to be treated as untagged on egress.
-+
-+.TP
-+.BI self
-+the vlan is configured on the specified physical device.  Required if the
-+device is the bridge device.
-+
-+.TP
-+.BI master
-+the vlan is configured on the sofware bridge (default).
-+
-+.SS bridge vlan delete - delete a forwarding database entry
-+This command removes an existing fdb entry.
-+
-+.PP
-+The arguments are the same as with
-+.BR "bridge vlan add".
-+The
-+.BR "pvid " and " untagged"
-+flags are ignored.
-+
-+.SS bridge vlan show - list vlan configuration.
-+
-+This command displays the current VLAN filter table.
-+
- .SH bridge monitor - state monitoring
- 
- The
 -- 
 1.7.7.6
