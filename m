@@ -1,75 +1,193 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] Prevent interrupt loop with DWMAC MMC RX IPC Counter
-Date: Fri, 15 Feb 2013 14:46:16 +0100
-Message-ID: <511E3C28.7090101@st.com>
-References: <1360934123-30476-1-git-send-email-christian.ruppert@abilis.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch net-next RFC] tbf: handle gso skbs properly
+Date: Fri, 15 Feb 2013 06:18:49 -0800
+Message-ID: <1360937929.6884.82.camel@edumazet-glaptop>
+References: <1360932297-6698-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>
-To: Christian Ruppert <christian.ruppert@abilis.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1360934123-30476-1-git-send-email-christian.ruppert@abilis.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33550 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934192Ab3BOOSw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 09:18:52 -0500
+Received: by mail-pa0-f45.google.com with SMTP id kl14so1739782pab.4
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 06:18:52 -0800 (PST)
+In-Reply-To: <1360932297-6698-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Christian
-
-On 2/15/2013 2:15 PM, Christian Ruppert wrote:
-> If the DesignWare MAC is synthesised with MMC RX IPC Counter, an unmanaged
-> and unacknowledged interrupt is generated after some time of operation. To
-> my knowledge there is no way to autodetect this configuration.
->
-> This patch adds a Kconfig option to tell the driver about the counter which
-> in turn masks the undesired interrupts.
->
-> Signed-off-by: Christian Ruppert <christian.ruppert@abilis.com>
+On Fri, 2013-02-15 at 13:44 +0100, Jiri Pirko wrote:
+> According to Eric's suggestion, when gso skb can't be sent in one mtu
+> time, resegment it.
+> 
+> Note that helper will be moved to sch_api.c probably so it can be used
+> by other code.
+> 
+> Also, I'm not sure similar patch to this can be done for act_police. I
+> have to look at that more closely.
+> 
+> Thanks for review.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 > ---
->   drivers/net/ethernet/stmicro/stmmac/Kconfig    |    8 ++++++++
->   drivers/net/ethernet/stmicro/stmmac/mmc_core.c |    3 +++
->   2 files changed, 11 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-> index 1164930..60e5130 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
-> +++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
-> @@ -71,5 +71,13 @@ config STMMAC_CHAINED
->
->   endchoice
->
-> +config STMMAC_RX_IPC_CTRS
-> +	bool "MMC Receive IPC Counters enabled"
-> +	depends on STMMAC_ETH
-> +	default n
-> +	---help---
-> +	  Select this option in case MMC Receive IPC counters were enabled at
-> +	  synthesis time of the block. If this option is not set correctly,
-> +	  system might hang after a certain amount of time.
->
->   endif
-> diff --git a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
-> index 0c74a70..ae877ee 100644
-> --- a/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
-> +++ b/drivers/net/ethernet/stmicro/stmmac/mmc_core.c
-> @@ -149,6 +149,9 @@ void dwmac_mmc_intr_all_mask(void __iomem *ioaddr)
->   {
->   	writel(MMC_DEFAULT_MASK, ioaddr + MMC_RX_INTR_MASK);
->   	writel(MMC_DEFAULT_MASK, ioaddr + MMC_TX_INTR_MASK);
-> +#ifdef CONFIG_STMMAC_RX_IPC_CTRS
-> +	writel(MMC_DEFAULT_MASK, ioaddr + MMC_RX_IPC_INTR_MASK);
-> +#endif
+>  include/net/sch_generic.h |  1 +
+>  net/core/dev.c            | 24 ------------------------
+>  net/sched/sch_api.c       | 27 +++++++++++++++++++++++++++
+>  net/sched/sch_tbf.c       | 38 +++++++++++++++++++++++++++++++++++++-
+>  4 files changed, 65 insertions(+), 25 deletions(-)
+> 
+> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> index 2761c90..de6db57 100644
+> --- a/include/net/sch_generic.h
+> +++ b/include/net/sch_generic.h
+> @@ -372,6 +372,7 @@ extern struct Qdisc *qdisc_create_dflt(struct netdev_queue *dev_queue,
+>  				       struct Qdisc_ops *ops, u32 parentid);
+>  extern void __qdisc_calculate_pkt_len(struct sk_buff *skb,
+>  				      const struct qdisc_size_table *stab);
+> +extern void qdisc_pkt_len_init(struct sk_buff *skb);
+>  extern void tcf_destroy(struct tcf_proto *tp);
+>  extern void tcf_destroy_chain(struct tcf_proto **fl);
+>  
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index f444736..8f86b1c 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -2680,30 +2680,6 @@ out:
+>  	return rc;
+>  }
+>  
+> -static void qdisc_pkt_len_init(struct sk_buff *skb)
+> -{
+> -	const struct skb_shared_info *shinfo = skb_shinfo(skb);
+> -
+> -	qdisc_skb_cb(skb)->pkt_len = skb->len;
+> -
+> -	/* To get more precise estimation of bytes sent on wire,
+> -	 * we add to pkt_len the headers size of all segments
+> -	 */
+> -	if (shinfo->gso_size)  {
+> -		unsigned int hdr_len;
+> -
+> -		/* mac layer + network layer */
+> -		hdr_len = skb_transport_header(skb) - skb_mac_header(skb);
+> -
+> -		/* + transport layer */
+> -		if (likely(shinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)))
+> -			hdr_len += tcp_hdrlen(skb);
+> -		else
+> -			hdr_len += sizeof(struct udphdr);
+> -		qdisc_skb_cb(skb)->pkt_len += (shinfo->gso_segs - 1) * hdr_len;
+> -	}
+> -}
+> -
 
-your fix makes sense to me; I have never faced this problem because the
-MMC RX IPC Counter is not synthesised  on the GMAC chip I used.
+Please dont move this function, its called in fast path and should be
+inlined by compiler
 
-Anyway all mmc interrupts are not managed by defsign so I only ask you 
-to remove the Kconfig option and add the writel in the 
-dwmac_mmc_intr_all_mask.
+>  static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  				 struct net_device *dev,
+>  				 struct netdev_queue *txq)
+> diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+> index fe1ba54..7672259 100644
+> --- a/net/sched/sch_api.c
+> +++ b/net/sched/sch_api.c
+> @@ -29,6 +29,8 @@
+>  #include <linux/hrtimer.h>
+>  #include <linux/lockdep.h>
+>  #include <linux/slab.h>
+> +#include <linux/tcp.h>
+> +#include <linux/udp.h>
+>  
+>  #include <net/net_namespace.h>
+>  #include <net/sock.h>
+> @@ -464,6 +466,31 @@ out:
+>  }
+>  EXPORT_SYMBOL(__qdisc_calculate_pkt_len);
+>  
+> +
+>  void qdisc_warn_nonwc(char *txt, struct Qdisc *qdisc)
+>  {
+>  	if (!(qdisc->flags & TCQ_F_WARN_NONWC)) {
+> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+> index c8388f3..bfc89be 100644
+> --- a/net/sched/sch_tbf.c
+> +++ b/net/sched/sch_tbf.c
+> @@ -121,7 +121,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  	struct tbf_sched_data *q = qdisc_priv(sch);
+>  	int ret;
+>  
+> -	if (qdisc_pkt_len(skb) > q->max_size)
+> +	if (qdisc_pkt_len(skb) > q->max_size && !skb_is_gso(skb))
+>  		return qdisc_reshape_fail(skb, sch);
+>  
+>  	ret = qdisc_enqueue(skb, q->qdisc);
+> @@ -147,6 +147,33 @@ static unsigned int tbf_drop(struct Qdisc *sch)
+>  	return len;
+>  }
+>  
+> +static bool qdisc_gso_segment(struct Qdisc *qdisc, struct sk_buff *skb)
+> +{
+> +	struct sk_buff *segs;
+> +	struct sk_buff *next_skb;
+> +	struct sk_buff *prev_skb;
+> +	int num_skbs = 0;
+> +
+> +	segs = skb_gso_segment(skb, 0);
+> +	if (IS_ERR(segs) || !segs)
+> +		return false;
+> +	__skb_unlink(skb, &qdisc->q);
+> +	kfree_skb(skb);
+> +	skb = segs;
+> +	prev_skb = (struct sk_buff *) &qdisc->q;
+> +	do {
+> +		next_skb = skb->next;
+> +		qdisc_pkt_len_init(skb);
+> +		qdisc_calculate_pkt_len(skb, qdisc);
 
-peppe
+You don't need this, packet is non gso, so you only have to 
 
->   }
->
->   /* This reads the MAC core counters (if actaully supported).
->
+qdisc_skb_cb(skb)->pkt_len = skb->len;
+qdisc_calculate_pkt_len();
+
+> +		__skb_queue_after(&qdisc->q, prev_skb, skb);
+
+Yes, this might need different strategy for non fifo qdisc, we can
+see that later.
+
+> +		prev_skb = skb;
+> +		skb = next_skb;
+> +		num_skbs++;
+> +	} while (skb);
+> +	qdisc_tree_decrease_qlen(qdisc, 1 - num_skbs);
+> +	return true;
+> +}
+> +
+>  static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+>  {
+>  	struct tbf_sched_data *q = qdisc_priv(sch);
+> @@ -167,6 +194,15 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+>  			ptoks = toks + q->ptokens;
+>  			if (ptoks > q->mtu)
+>  				ptoks = q->mtu;
+
+Cache psched_l2t_ns(&q->peak, len) in a variable here to avoid double
+call.
+
+> +			if (skb_is_gso(skb) &&
+> +			    (s64) psched_l2t_ns(&q->peak, len) > q->mtu &&
+> +			    qdisc_gso_segment(q->qdisc, skb)) {
+> +				q->qdisc->gso_skb = NULL;
+> +				skb = q->qdisc->ops->peek(q->qdisc);
+> +				if (unlikely(!skb))
+> +					return NULL;
+> +				len = qdisc_pkt_len(skb);
+> +			}
+>  			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
+>  		}
+>  		toks += q->tokens;
+
+Thanks !
