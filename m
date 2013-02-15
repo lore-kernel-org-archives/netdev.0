@@ -1,29 +1,24 @@
 From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
-Subject: [ 3.5.y.z extended stable ] Patch "net: calxedaxgmac: throw away
-	overrun frames" has been added to staging queue
-Date: Fri, 15 Feb 2013 01:10:32 -0200
-Message-ID: <1360897832-15328-1-git-send-email-herton.krzesinski@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@lists.ubuntu.com,
-	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Rob Herring <rob.herring@calxeda.com>
-Return-path: <kernel-team-bounces@lists.ubuntu.com>
-List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
-	<mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
-List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
-List-Post: <mailto:kernel-team@lists.ubuntu.com>
-List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
-List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
-	<mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
-Sender: kernel-team-bounces@lists.ubuntu.com
-Errors-To: kernel-team-bounces@lists.ubuntu.com
-List-Id: netdev.vger.kernel.org
+Subject: [ 3.5.y.z extended stable ] Patch "sctp: refactor sctp_outq_teardown to insure proper" has been added to staging queue
+Date: Fri, 15 Feb 2013 01:11:21 -0200
+Message-ID: <1360897881-16028-1-git-send-email-herton.krzesinski@canonical.com>
+Cc: Jamie Parsons <Jamie.Parsons@metaswitch.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:34704 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932322Ab3BODLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 22:11:40 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 This is a note to let you know that I have just added a patch titled
 
-    net: calxedaxgmac: throw away overrun frames
+    sctp: refactor sctp_outq_teardown to insure proper
 
 to the linux-3.5.y-queue branch of the 3.5.y.z extended stable tree 
 which can be found at:
@@ -41,42 +36,77 @@ Thanks.
 
 ------
 
->From f600e21bce4bd4f5c25873bbd8b89b8cdd8dbaef Mon Sep 17 00:00:00 2001
-From: Rob Herring <rob.herring@calxeda.com>
-Date: Wed, 16 Jan 2013 13:36:37 +0000
-Subject: [PATCH] net: calxedaxgmac: throw away overrun frames
+>From c749be1458b2046faaeb42ff7cf2a07f0627fd24 Mon Sep 17 00:00:00 2001
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 17 Jan 2013 11:15:08 +0000
+Subject: [PATCH] sctp: refactor sctp_outq_teardown to insure proper
+ re-initalization
 
-commit d6fb3be544b46a7611a3373fcaa62b5b0be01888 upstream.
+commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86 upstream.
 
-The xgmac driver assumes 1 frame per descriptor. If a frame larger than
-the descriptor's buffer size is received, the frame will spill over into
-the next descriptor. So check for received frames that span more than one
-descriptor and discard them. This prevents a crash if we receive erroneous
-large packets.
+Jamie Parsons reported a problem recently, in which the re-initalization of an
+association (The duplicate init case), resulted in a loss of receive window
+space.  He tracked down the root cause to sctp_outq_teardown, which discarded
+all the data on an outq during a re-initalization of the corresponding
+association, but never reset the outq->outstanding_data field to zero.  I wrote,
+and he tested this fix, which does a proper full re-initalization of the outq,
+fixing this problem, and hopefully future proofing us from simmilar issues down
+the road.
 
-Signed-off-by: Rob Herring <rob.herring@calxeda.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
+Tested-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
+CC: Jamie Parsons <Jamie.Parsons@metaswitch.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: netdev@vger.kernel.org
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
 ---
- drivers/net/ethernet/calxeda/xgmac.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ net/sctp/outqueue.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
-index 8b0a0e4..8a3cd87 100644
---- a/drivers/net/ethernet/calxeda/xgmac.c
-+++ b/drivers/net/ethernet/calxeda/xgmac.c
-@@ -546,6 +546,10 @@ static int desc_get_rx_status(struct xgmac_priv *priv, struct xgmac_dma_desc *p)
- 		return -1;
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index a0fa19f..0716290 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -223,7 +223,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+
+ /* Free the outqueue structure and any related pending chunks.
+  */
+-void sctp_outq_teardown(struct sctp_outq *q)
++static void __sctp_outq_teardown(struct sctp_outq *q)
+ {
+ 	struct sctp_transport *transport;
+ 	struct list_head *lchunk, *temp;
+@@ -276,8 +276,6 @@ void sctp_outq_teardown(struct sctp_outq *q)
+ 		sctp_chunk_free(chunk);
  	}
 
-+	/* All frames should fit into a single buffer */
-+	if (!(status & RXDESC_FIRST_SEG) || !(status & RXDESC_LAST_SEG))
-+		return -1;
+-	q->error = 0;
+-
+ 	/* Throw away any leftover control chunks. */
+ 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
+ 		list_del_init(&chunk->list);
+@@ -285,11 +283,17 @@ void sctp_outq_teardown(struct sctp_outq *q)
+ 	}
+ }
+
++void sctp_outq_teardown(struct sctp_outq *q)
++{
++	__sctp_outq_teardown(q);
++	sctp_outq_init(q->asoc, q);
++}
 +
- 	/* Check if packet has checksum already */
- 	if ((status & RXDESC_FRAME_TYPE) && (status & RXDESC_EXT_STATUS) &&
- 		!(ext_status & RXDESC_IP_PAYLOAD_MASK))
+ /* Free the outqueue structure and any related pending chunks.  */
+ void sctp_outq_free(struct sctp_outq *q)
+ {
+ 	/* Throw away leftover chunks. */
+-	sctp_outq_teardown(q);
++	__sctp_outq_teardown(q);
+
+ 	/* If we were kmalloc()'d, free the memory.  */
+ 	if (q->malloced)
 --
 1.7.9.5
