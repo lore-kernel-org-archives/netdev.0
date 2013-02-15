@@ -1,42 +1,26 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: bonding inactive slaves vs rx_dropped
-Date: Fri, 15 Feb 2013 17:47:50 +0000
-Message-ID: <1360950470.3192.1.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130214.160657.1394358701071068786.davem@davemloft.net>
-	 <4606.1360878661@death.nxdomain>
-	 <20130214.171821.186191007478674738.davem@davemloft.net>
-	 <6330.1360885388@death.nxdomain>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: fix infinite loop in __skb_recv_datagram()
+Date: Fri, 15 Feb 2013 18:55:22 +0100
+Message-ID: <20130215175522.GC20018@order.stressinduktion.org>
+References: <1360638903.20362.32.camel@edumazet-glaptop> <CA+ydwtoBttwiVz+oy0hnetUTQMi7XHyS9bfGzjuP1L41srBk=g@mail.gmail.com> <1360685813.13993.12.camel@edumazet-glaptop> <20130212.160733.2235089567079483883.davem@davemloft.net> <20130215124141.GB20018@order.stressinduktion.org> <1360950210.3192.0.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<eric.dumazet@gmail.com>, <andy@greyhouse.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	tt.rantala@gmail.com, netdev@vger.kernel.org, davej@redhat.com,
+	xemul@parallels.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:63733 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753349Ab3BORrx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 12:47:53 -0500
-In-Reply-To: <6330.1360885388@death.nxdomain>
+Received: from order.stressinduktion.org ([87.106.68.36]:37764 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755869Ab3BORzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 12:55:24 -0500
+Content-Disposition: inline
+In-Reply-To: <1360950210.3192.0.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-14 at 15:43 -0800, Jay Vosburgh wrote:
-> David Miller <davem@davemloft.net> wrote:
-[...]
-> >My general rule is that every special case increments a special
-> >'absurdity' statistic counter for the code :-)
-> 
-> 	Gonna need a whole lot of those for bonding, then.  Maybe it
-> should have its own ethtool -S stats to handle all of the
-> bonding-internal absurdity.
-[...]
+On Fri, Feb 15, 2013 at 05:43:30PM +0000, Ben Hutchings wrote:
+> David has already worked that out for himself:
+> http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
 
-Yes, I think it should.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks, didn't know where to look.
