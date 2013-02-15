@@ -1,42 +1,71 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] stmmac: fix the parsing of the eee_timer parameter
-Date: Fri, 15 Feb 2013 10:00:13 +0100
-Message-ID: <1360918813-25805-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 00/10][pull request] Intel Wired LAN Driver Updates 2013.02.15
+Date: Fri, 15 Feb 2013 02:03:59 -0800
+Message-ID: <1360922649-3388-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:47348 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752395Ab3BOJA0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 04:00:26 -0500
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 7D2763ED
-	for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 09:00:23 +0000 (GMT)
-Received: from mail7.sgp.st.com (unknown [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id D8A764731
-	for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 09:00:22 +0000 (GMT)
+Received: from mga11.intel.com ([192.55.52.93]:65113 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755890Ab3BOKEO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2013 05:04:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This pacth fixes the parsing of the eee_timer driver parameter.
+This series contains updates to igb and ixgbe.  Most of the changes
+are against igb, except for one patch against ixgbe.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+There are 3 igb fixes from Carolyn which were reported by Dan
+Carpenter which resolve issues found in the get_i2c_client().  Alex
+does some cleanup of the igb driver to match similar functionality
+in ixgbe on transmit.  Alex also makes it so that we can enable the use
+of build_skb for cases where jumbo frames are disabled.  The advantage
+to this is that we do not have to perform a memcpy to populate the header
+and as a result we see a significant performance improvement.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index b75f4b2..601dd84 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2254,7 +2254,7 @@ static int __init stmmac_cmdline_opt(char *str)
- 		} else if (!strncmp(opt, "pause:", 6)) {
- 			if (kstrtoint(opt + 6, 0, &pause))
- 				goto err;
--		} else if (!strncmp(opt, "eee_timer:", 6)) {
-+		} else if (!strncmp(opt, "eee_timer:", 10)) {
- 			if (kstrtoint(opt + 10, 0, &eee_timer))
- 				goto err;
- 		}
+Akeem provides 4 patches to initialize function pointers and do a
+re-factoring of the function pointers in igb_get_variants() to assist
+with driver debugging.
+
+The ixgbe patch comes from Emil to reshuffle the switch/case structure
+of the flag assignment to allow for the flags to be set for each MAC
+type separately. This is needed for new hardware that does not have feature
+parity with older hardware.
+
+v2: updated patches 4 & 5 based on feedback from Ben Hutchings and Eric
+    Dumazet
+
+The following are changes since commit 9754e293491e3a4e6c1ac020d25140b1ed3d9cd2:
+  net: Don't write to current task flags on every packet received.
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G. Abodunrin (4):
+  igb: Initialize PHY function pointers
+  igb: Initialize NVM function pointers
+  igb: Intialize MAC function pointers
+  igb: Refractoring function pointers in igb_get_invariants function
+
+Alexander Duyck (2):
+  igb: Support using build_skb in the case that jumbo frames are
+    disabled
+  igb: Update igb to use a path similar to ixgbe to determine when to
+    stop Tx
+
+Carolyn Wyborny (3):
+  igb: Fix for improper exit in igb_get_i2c_client
+  igb: Fix for improper allocation flag in igb_get_i2c_client
+  igb: Refix sparse warning in igb_get_i2c_client
+
+Emil Tantilov (1):
+  ixgbe: refactor initialization of feature flags
+
+ drivers/net/ethernet/intel/igb/e1000_82575.c  | 488 ++++++++++++++------------
+ drivers/net/ethernet/intel/igb/igb.h          |  21 +-
+ drivers/net/ethernet/intel/igb/igb_main.c     | 228 +++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  58 +--
+ 4 files changed, 495 insertions(+), 300 deletions(-)
+
 -- 
-1.7.4.4
+1.7.11.7
