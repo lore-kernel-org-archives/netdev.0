@@ -1,62 +1,64 @@
-From: =?ISO-8859-1?Q?Sebastian_P=F6hn?= <sebastian.poehn@googlemail.com>
-Subject: Re: tuntap: Overload handling
-Date: Fri, 15 Feb 2013 08:04:44 +0100
-Message-ID: <CAGUzgd+fVUEc6wqHbTdygAfbhuck5Hy7odtoGTFVQToHy6_7eg@mail.gmail.com>
-References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
-	<CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
-	<1360859547.6884.51.camel@edumazet-glaptop>
-	<20130214164053.GB18721@redhat.com>
-	<1360861290.6884.55.camel@edumazet-glaptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] tcp: sysctl to disable TCP simultaneous connect
+Date: Thu, 14 Feb 2013 23:10:46 -0800
+Message-ID: <87r4ki6oi1.fsf@xmission.com>
+References: <20130207175240.GA12520@www.outflux.net>
+	<20130207103950.662698ea@nehalam.linuxnetplumber.net>
+	<CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com>
+	<87y5eq87pa.fsf@xmission.com>
+	<CAGXu5jJKQSDo61TD0Jgn9Gq8TL2rCUVbA=Kq4AvfeFUb2FdJMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f46.google.com ([209.85.210.46]:39391 "EHLO
-	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683Ab3BOHEp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 02:04:45 -0500
-Received: by mail-da0-f46.google.com with SMTP id p5so1383826dak.33
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 23:04:44 -0800 (PST)
-In-Reply-To: <1360861290.6884.55.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Shan Wei <davidshan@tencent.com>,
+	"linux-doc\@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	netdev@vger.kernel.org, Willy Tarreau <w@1wt.eu>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5jJKQSDo61TD0Jgn9Gq8TL2rCUVbA=Kq4AvfeFUb2FdJMw@mail.gmail.com>
+	(Kees Cook's message of "Thu, 14 Feb 2013 22:41:39 -0800")
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ok, thanks. So if you think of tuntap as a virtual device (and that's
-what it is) then the drop behavior is quite a valid way.
+Kees Cook <keescook@chromium.org> writes:
 
-So I'll gonna try to use the "old" version with qdisc support and
-extend it be the features I need.
+> On Thu, Feb 14, 2013 at 9:30 PM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+>> Kees Cook <keescook@chromium.org> writes:
+>>
+>>> The patch would not break it -- it defaults the sysctl to staying enabled.
+>>>
+>>> If you mean the documentation should be updated, sure, that's easy to do.
+>>>
+>>> David: I know you aren't a fan of this patch, but I'd like to try to
+>>> convince you. :) This leaves the feature enabled and add a toggle for
+>>> systems (like Chrome OS) that don't want to risk this DoS at all.
+>>> There are so very many other toggle, I don't see why this one would be
+>>> a problem to add.
+>>
+>> Chrome OS has no plans to implement webrtc?  Last I had read that
+>> support had been added to the release versions of Chrome, and was in the
+>> development builds of firefox.  I really don't belive that there are
+>> many systems that don't intend to run a web browser.
+>
+> I haven't looked at the internals of webrtc. Are you implying some
+> feature in it relies on the TCP simultaneous connect?
 
-On Thu, Feb 14, 2013 at 6:01 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2013-02-14 at 18:42 +0200, Michael S. Tsirkin wrote:
->
->> Hmm so ~1000 packets in the tun queue is not enough?
->> You always have the option to increase it some more ...
->>
->> > You should ask Michael S. Tsirkin, as he removed the flow control
->> > in commit 5d097109257c03a71845729f8db6b5770c4bbedc
->> > (tun: only queue packets on device)
->> >
->>
->> Eric in the past you said the following things
->> (http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/00784.html)
->> > > In your case I would just not use qdisc at all, like other virtual
->> > > devices.
->> ...
->> > > Anyway, with a 500 packet limit in TUN queue itself, qdisc layer should
->> > > be always empty. Whats the point storing more than 500 packets for a
->> > > device ? Thats a latency killer.
->> you don't think this applies, anymore?
->>
->
-> Users have the choice to setup a qdisc or not.
->
-> Having no qdisc can help raw performance, at the expense of bufferbloat.
-> Thats all I was saying.
->
-> It seems tun.c has no longer the possibility to effectively use a qdisc,
-> (allowing the queue to buildup at qdisc layer)
->
->
->
+I am saying that yes.
+
+webrtc is built on ICE (interactivity connectivity establishment).  ICE
+support for TCP (RFC6544) uses TCP simultaneous connect.  webrtc
+supports tcp connections.
+
+Eric
+
