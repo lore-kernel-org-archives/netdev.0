@@ -1,145 +1,97 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/10] igb: Initialize NVM function pointers
-Date: Fri, 15 Feb 2013 02:04:06 -0800
-Message-ID: <1360922649-3388-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/10] igb: Intialize MAC function pointers
+Date: Fri, 15 Feb 2013 02:04:07 -0800
+Message-ID: <1360922649-3388-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1360922649-3388-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:65113 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:63593 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935577Ab3BOKES (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 05:04:18 -0500
+	id S935617Ab3BOKER (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2013 05:04:17 -0500
 In-Reply-To: <1360922649-3388-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-This patch initializes NVM function pointers for device configuration.
+This patch initializes MAC function pointers for device configuration.
 
 Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_82575.c | 109 +++++++++++++++++++++++++++
- 1 file changed, 109 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.c | 61 ++++++++++++++++++++++++++++
+ 1 file changed, 61 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
-index fc69414..e59fc9b 100644
+index e59fc9b..8604013 100644
 --- a/drivers/net/ethernet/intel/igb/e1000_82575.c
 +++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
-@@ -223,6 +223,115 @@ out:
- 	return ret_val;
+@@ -332,6 +332,67 @@ s32 igb_init_nvm_params_82575(struct e1000_hw *hw)
+ 	return 0;
  }
  
 +/**
-+ *  igb_init_nvm_params_82575 - Init NVM func ptrs.
++ *  igb_init_mac_params_82575 - Init MAC func ptrs.
 + *  @hw: pointer to the HW structure
 + **/
-+s32 igb_init_nvm_params_82575(struct e1000_hw *hw)
++static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
 +{
-+	struct e1000_nvm_info *nvm = &hw->nvm;
-+	u32 eecd = rd32(E1000_EECD);
-+	u16 size;
++	struct e1000_mac_info *mac = &hw->mac;
++	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
 +
-+	size = (u16)((eecd & E1000_EECD_SIZE_EX_MASK) >>
-+		     E1000_EECD_SIZE_EX_SHIFT);
-+	/* Added to a constant, "size" becomes the left-shift value
-+	 * for setting word_size.
-+	 */
-+	size += NVM_WORD_SIZE_BASE_SHIFT;
-+
-+	/* Just in case size is out of range, cap it to the largest
-+	 * EEPROM size supported
-+	 */
-+	if (size > 15)
-+		size = 15;
-+
-+	nvm->word_size = 1 << size;
-+	if (hw->mac.type < e1000_i210) {
-+		nvm->opcode_bits = 8;
-+		nvm->delay_usec = 1;
-+
-+		switch (nvm->override) {
-+		case e1000_nvm_override_spi_large:
-+			nvm->page_size = 32;
-+			nvm->address_bits = 16;
-+			break;
-+		case e1000_nvm_override_spi_small:
-+			nvm->page_size = 8;
-+			nvm->address_bits = 8;
-+			break;
-+		default:
-+			nvm->page_size = eecd & E1000_EECD_ADDR_BITS ? 32 : 8;
-+			nvm->address_bits = eecd & E1000_EECD_ADDR_BITS ?
-+					    16 : 8;
-+			break;
-+		}
-+		if (nvm->word_size == (1 << 15))
-+			nvm->page_size = 128;
-+
-+		nvm->type = e1000_nvm_eeprom_spi;
-+	} else {
-+		nvm->type = e1000_nvm_flash_hw;
-+	}
-+
-+	/* NVM Function Pointers */
-+	switch (hw->mac.type) {
++	/* Set mta register count */
++	mac->mta_reg_count = 128;
++	/* Set rar entry count */
++	switch (mac->type) {
++	case e1000_82576:
++		mac->rar_entry_count = E1000_RAR_ENTRIES_82576;
++		break;
 +	case e1000_82580:
-+		nvm->ops.validate = igb_validate_nvm_checksum_82580;
-+		nvm->ops.update = igb_update_nvm_checksum_82580;
-+		nvm->ops.acquire = igb_acquire_nvm_82575;
-+		nvm->ops.release = igb_release_nvm_82575;
-+		if (nvm->word_size < (1 << 15))
-+			nvm->ops.read = igb_read_nvm_eerd;
-+		else
-+			nvm->ops.read = igb_read_nvm_spi;
-+		nvm->ops.write = igb_write_nvm_spi;
++		mac->rar_entry_count = E1000_RAR_ENTRIES_82580;
 +		break;
 +	case e1000_i350:
-+		nvm->ops.validate = igb_validate_nvm_checksum_i350;
-+		nvm->ops.update = igb_update_nvm_checksum_i350;
-+		nvm->ops.acquire = igb_acquire_nvm_82575;
-+		nvm->ops.release = igb_release_nvm_82575;
-+		if (nvm->word_size < (1 << 15))
-+			nvm->ops.read = igb_read_nvm_eerd;
-+		else
-+			nvm->ops.read = igb_read_nvm_spi;
-+		nvm->ops.write = igb_write_nvm_spi;
-+		break;
-+	case e1000_i210:
-+		nvm->ops.validate = igb_validate_nvm_checksum_i210;
-+		nvm->ops.update   = igb_update_nvm_checksum_i210;
-+		nvm->ops.acquire = igb_acquire_nvm_i210;
-+		nvm->ops.release = igb_release_nvm_i210;
-+		nvm->ops.read    = igb_read_nvm_srrd_i210;
-+		nvm->ops.write   = igb_write_nvm_srwr_i210;
-+		nvm->ops.valid_led_default = igb_valid_led_default_i210;
-+		break;
-+	case e1000_i211:
-+		nvm->ops.acquire  = igb_acquire_nvm_i210;
-+		nvm->ops.release  = igb_release_nvm_i210;
-+		nvm->ops.read     = igb_read_nvm_i211;
-+		nvm->ops.valid_led_default = igb_valid_led_default_i210;
-+		nvm->ops.validate = NULL;
-+		nvm->ops.update   = NULL;
-+		nvm->ops.write    = NULL;
++		mac->rar_entry_count = E1000_RAR_ENTRIES_I350;
 +		break;
 +	default:
-+		nvm->ops.validate = igb_validate_nvm_checksum;
-+		nvm->ops.update = igb_update_nvm_checksum;
-+		nvm->ops.acquire = igb_acquire_nvm_82575;
-+		nvm->ops.release = igb_release_nvm_82575;
-+		if (nvm->word_size < (1 << 15))
-+			nvm->ops.read = igb_read_nvm_eerd;
-+		else
-+			nvm->ops.read = igb_read_nvm_spi;
-+		nvm->ops.write = igb_write_nvm_spi;
++		mac->rar_entry_count = E1000_RAR_ENTRIES_82575;
 +		break;
 +	}
++	/* reset */
++	if (mac->type >= e1000_82580)
++		mac->ops.reset_hw = igb_reset_hw_82580;
++	else
++		mac->ops.reset_hw = igb_reset_hw_82575;
++
++	if (mac->type >= e1000_i210) {
++		mac->ops.acquire_swfw_sync = igb_acquire_swfw_sync_i210;
++		mac->ops.release_swfw_sync = igb_release_swfw_sync_i210;
++
++	} else {
++		mac->ops.acquire_swfw_sync = igb_acquire_swfw_sync_82575;
++		mac->ops.release_swfw_sync = igb_release_swfw_sync_82575;
++	}
++
++	/* Set if part includes ASF firmware */
++	mac->asf_firmware_present = true;
++	/* Set if manageability features are enabled. */
++	mac->arc_subsystem_valid =
++		(rd32(E1000_FWSM) & E1000_FWSM_MODE_MASK)
++			? true : false;
++	/* enable EEE on i350 parts and later parts */
++	if (mac->type >= e1000_i350)
++		dev_spec->eee_disable = false;
++	else
++		dev_spec->eee_disable = true;
++	/* physical interface link setup */
++	mac->ops.setup_physical_interface =
++		(hw->phy.media_type == e1000_media_type_copper)
++			? igb_setup_copper_link_82575
++			: igb_setup_serdes_link_82575;
 +
 +	return 0;
 +}
