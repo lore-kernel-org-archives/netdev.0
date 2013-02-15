@@ -1,69 +1,66 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net] tipc: fix missing spinlock init in broadcast code
-Date: Thu, 14 Feb 2013 19:43:33 -0500
-Message-ID: <1360889013-4394-1-git-send-email-paul.gortmaker@windriver.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [STABLE REQUEST] Merge to linux-3.4.y net: Downgrade
+ CAP_SYS_MODULE deprecated message from error to warning.
+Date: Thu, 14 Feb 2013 16:45:51 -0800
+Message-ID: <20130215004551.GA9060@kroah.com>
+References: <CAKixpbjutA_84JzM0Zjtw-Pxo8m3KCP9+R_aSJWTPaCqCsVbsw@mail.gmail.com>
+ <20130214233735.GA4390@kroah.com>
+ <CAKixpbhtD-mhAESjV3HOZRxYqvsWrjH0vTpDgKZuUismUvVa-g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Erik Hugne <erik.hugne@ericsson.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:62787 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759774Ab3BOAnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 19:43:49 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	mirq-linux@rere.qmqm.pl, jpirko@redhat.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: Vinson Lee <vlee@twitter.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAKixpbhtD-mhAESjV3HOZRxYqvsWrjH0vTpDgKZuUismUvVa-g@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On Thu, Feb 14, 2013 at 04:16:18PM -0800, Vinson Lee wrote:
+> On Thu, Feb 14, 2013 at 3:37 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> > On Thu, Feb 14, 2013 at 03:29:44PM -0800, Vinson Lee wrote:
+> >> Hi.
+> >>
+> >> I would like to nominate commit
+> >> 7cecb523adedcaf8acba5e14d47559d8bc3f40d7 for backport to stable
+> >> branches 3.4 and earlier.
+> >>
+> >> commit 7cecb523adedcaf8acba5e14d47559d8bc3f40d7
+> >> Author: Vinson Lee <vlee@twitter.com>
+> >> Date:   Wed Jun 27 14:32:07 2012 +0000
+> >>
+> >>     net: Downgrade CAP_SYS_MODULE deprecated message from error to warning.
+> >>
+> >>     Make logging level consistent with other deprecation messages in net
+> >>     subsystem.
+> >>
+> >>     Signed-off-by: Vinson Lee <vlee@twitter.com>
+> >>     Cc: David Mackey <tdmackey@twitter.com>
+> >>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> >
+> > I fail to see how this patch meets the rules described in
+> > Documentation/stable_kernel_rules.txt.  What am I missing?
+> >
+> > thanks,
+> >
+> > greg k-h
+> 
+> I am logging different kernel log-level messages to different files
+> and monitoring them here. I see this message most often in the errors
+> pile. It's arguable that this is not a bug, but it is definitely
+> bothering me here. Please consider for backport but I would understand
+> if this request was turned down.
 
-After commit 3c294cb3 "tipc: remove the bearer congestion mechanism",
-we try to grab the broadcast bearer lock when sending multicast
-messages over the broadcast link. This will cause an oops because
-the lock is never initialized. This is an old bug, but the lock
-was never actually used before commit 3c294cb3, so that why it was
-not visible until now.  The oops will look something like:
+As it's not a "bug", and it's something trivial you can fix on your end
+if it really annoys you (you should be fixing the root problem here, not
+the kernel log message, right?), I'm not going to take it in the -stable
+tree.
 
-	BUG: spinlock bad magic on CPU#2, daemon/147
-	lock: bcast_bearer+0x48/0xffffffffffffd19a [tipc],
-	.magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
-	Pid: 147, comm: daemon Not tainted 3.8.0-rc3+ #206
-	Call Trace:
-	spin_dump+0x8a/0x8f
-	spin_bug+0x21/0x26
-	do_raw_spin_lock+0x114/0x150
-	_raw_spin_lock_bh+0x19/0x20
-	tipc_bearer_blocked+0x1f/0x40 [tipc]
-	tipc_link_send_buf+0x82/0x280 [tipc]
-	? __alloc_skb+0x9f/0x2b0
-	tipc_bclink_send_msg+0x77/0xa0 [tipc]
-	tipc_multicast+0x11b/0x1b0 [tipc]
-	send_msg+0x225/0x530 [tipc]
-	sock_sendmsg+0xca/0xe0
+Unless the network maintainers want to override me, in which case, I'll
+be glad to take it then :)
 
-The above can be triggered by running the multicast demo program.
+thanks,
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
-
-[PG: I've marked this as "net" since git describe --contains 3c294cb3
-gives v3.8-rc1~139^2~242^2~5 --- i.e. the now closing 3.8 dev cycle.]
-
- net/tipc/bcast.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 54f89f9..2655c9f 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -774,6 +774,7 @@ void tipc_bclink_init(void)
- 	bcl->owner = &bclink->node;
- 	bcl->max_pkt = MAX_PKT_DEFAULT_MCAST;
- 	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
-+	spin_lock_init(&bcbearer->bearer.lock);
- 	bcl->b_ptr = &bcbearer->bearer;
- 	bcl->state = WORKING_WORKING;
- 	strlcpy(bcl->name, tipc_bclink_name, TIPC_MAX_LINK_NAME);
--- 
-1.8.1.2
+greg k-h
