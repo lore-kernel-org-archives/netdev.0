@@ -1,50 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next] tbf: handle gso skbs properly
-Date: Fri, 15 Feb 2013 08:13:03 -0800
-Message-ID: <1360944783.19353.9.camel@edumazet-glaptop>
-References: <1360941882-6727-1-git-send-email-jiri@resnulli.us>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH 4/8] xenbus_client: Extend interface to
+ support multi-page ring
+Date: Fri, 15 Feb 2013 16:17:11 +0000
+Message-ID: <511E6D9702000078000BED23@nat28.tlf.novell.com>
+References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
+ <1360944010-15336-5-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>,
+	"Roger Pau Monne" <roger.pau@citrix.com>,
+	"Stefano Stabellini" <stefano.stabellini@eu.citrix.com>,
+	<xen-devel@lists.xen.org>, <annie.li@oracle.com>,
+	<konrad.wilk@oracle.com>, <netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:34415 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932675Ab3BOQNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 11:13:07 -0500
-Received: by mail-pb0-f51.google.com with SMTP id un15so655371pbc.38
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 08:13:06 -0800 (PST)
-In-Reply-To: <1360941882-6727-1-git-send-email-jiri@resnulli.us>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:40266 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753536Ab3BOQRR convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:5:1>);
+	Fri, 15 Feb 2013 11:17:17 -0500
+In-Reply-To: <1360944010-15336-5-git-send-email-wei.liu2@citrix.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-02-15 at 16:24 +0100, Jiri Pirko wrote:
-> So far, gso skbs has been handled by tbf in the same way as any other
-> ones. Given their pkt_len they got dropped which leads to very
-> inaccurate rates. This patch makes tbf gso-aware.
-> 
-> According to Eric's suggestion, when gso skb can't be sent in one mtu
-> time, resegment it.
-> 
+>>> On 15.02.13 at 17:00, Wei Liu <wei.liu2@citrix.com> wrote:
+> Also bundle fixes for xen frontends and backends in this patch.
 
-> +	do {
-> +		next_skb = skb->next;
-> +		qdisc_skb_cb(skb)->pkt_len = skb->len;
-> +		qdisc_calculate_pkt_len(skb, qdisc);
-> +		__skb_queue_after(&qdisc->q, prev_skb, skb);
-> +		prev_skb = skb;
-> +		skb = next_skb;
-> +		num_skbs++;
-> +	} while (skb);
+Could you at least enumerate those fixes in the patch description?
 
-This only works if qdisc is a fifo (holding packets in qdisc->q)
-
-Please try :
-
-tc qdisc del dev eth0 root 2>/dev/null
-tc qdisc add dev eth0 root handle 10 tbf rate 0.5mbit burst 5kb latency 70ms peakrate 1mbit minburst 1540
-tc qd add dev eth0 parent 10: handle 20 fq_codel
-
-I guess we need a per qdisc ops to reinject the packets at the right place.
+Jan
