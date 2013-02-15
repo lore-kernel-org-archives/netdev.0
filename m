@@ -1,41 +1,69 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: Re: kernel 3.7.6, l2tp, =?UTF-8?Q?qdisc=5Ftx=20circular=20loc?=
- =?UTF-8?Q?king?=
-Date: Sat, 16 Feb 2013 00:54:51 +0200
-Message-ID: <f7eac976327ae563a2ab0fe313474128@visp.net.lb>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 3/3] tipc: remove redundant checking for the number of iovecs in a send request
+Date: Fri, 15 Feb 2013 17:57:47 -0500
+Message-ID: <1360969067-29956-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: Eric Dumazet <eric.dumazet@gmail.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:59639 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751471Ab3BOWyy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 17:54:54 -0500
+Received: from mail1.windriver.com ([147.11.146.13]:38738 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752886Ab3BOW6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 17:58:09 -0500
+In-Reply-To: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sorry accidentaly deleted my emails, i will try in next 2 days to 
-update server with l2tp, and will test everything there, if i can 
-reproduce bug.
+From: Ying Xue <ying.xue@windriver.com>
 
->diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
->index dcfd64e..7baf88f 100644
->--- a/net/l2tp/l2tp_core.c
->+++ b/net/l2tp/l2tp_core.c
->@@ -1251,8 +1251,11 @@ int l2tp_xmit_skb(struct l2tp_session *session, 
-> struct sk_buff *skb, int hdr_len
-> 	}
->
-> 	l2tp_skb_set_owner_w(skb, sk);
->+	bh_unlock_sock(sk);
->
-> 	l2tp_xmit_core(session, skb, fl, data_len);
->+	return ret;
->+
-> out_unlock:
-> 	bh_unlock_sock(sk);
+As the number of iovecs in a send request is already limited within
+UIO_MAXIOV(i.e. 1024) in __sys_sendmsg(), it's unnecessary to check it
+again in TIPC stack.
 
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+ net/tipc/socket.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index cbe2f6e..a9622b6 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -503,8 +503,7 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
+ 	if (unlikely((m->msg_namelen < sizeof(*dest)) ||
+ 		     (dest->family != AF_TIPC)))
+ 		return -EINVAL;
+-	if ((total_len > TIPC_MAX_USER_MSG_SIZE) ||
+-	    (m->msg_iovlen > (unsigned int)INT_MAX))
++	if (total_len > TIPC_MAX_USER_MSG_SIZE)
+ 		return -EMSGSIZE;
+ 
+ 	if (iocb)
+@@ -612,8 +611,7 @@ static int send_packet(struct kiocb *iocb, struct socket *sock,
+ 	if (unlikely(dest))
+ 		return send_msg(iocb, sock, m, total_len);
+ 
+-	if ((total_len > TIPC_MAX_USER_MSG_SIZE) ||
+-	    (m->msg_iovlen > (unsigned int)INT_MAX))
++	if (total_len > TIPC_MAX_USER_MSG_SIZE)
+ 		return -EMSGSIZE;
+ 
+ 	if (iocb)
+@@ -698,8 +696,7 @@ static int send_stream(struct kiocb *iocb, struct socket *sock,
+ 		goto exit;
+ 	}
+ 
+-	if ((total_len > (unsigned int)INT_MAX) ||
+-	    (m->msg_iovlen > (unsigned int)INT_MAX)) {
++	if (total_len > (unsigned int)INT_MAX) {
+ 		res = -EMSGSIZE;
+ 		goto exit;
+ 	}
+-- 
+1.8.1.2
