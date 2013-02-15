@@ -1,92 +1,82 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
-Date: Fri, 15 Feb 2013 03:45:20 +0100
-Message-ID: <CAHXqBFKpByeeLPD5ibDxTW94wsLA3hSnqhakZ_8YQO_BDT7ruQ@mail.gmail.com>
-References: <1360279763-4768-1-git-send-email-sustrik@250bpm.com>
+From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
+Subject: [ 3.5.y.z extended stable ] Patch "net: calxedaxgmac: throw away
+	overrun frames" has been added to staging queue
+Date: Fri, 15 Feb 2013 01:10:32 -0200
+Message-ID: <1360897832-15328-1-git-send-email-herton.krzesinski@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Sha Zhengju <handai.szj@taobao.com>,
-	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Martin Sustrik <sustrik@250bpm.com>
-Return-path: <linux-fsdevel-owner@vger.kernel.org>
-In-Reply-To: <1360279763-4768-1-git-send-email-sustrik@250bpm.com>
-Sender: linux-fsdevel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@lists.ubuntu.com,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Rob Herring <rob.herring@calxeda.com>
+Return-path: <kernel-team-bounces@lists.ubuntu.com>
+List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
+	<mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
+List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
+List-Post: <mailto:kernel-team@lists.ubuntu.com>
+List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
+List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
+	<mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
+Sender: kernel-team-bounces@lists.ubuntu.com
+Errors-To: kernel-team-bounces@lists.ubuntu.com
 List-Id: netdev.vger.kernel.org
 
-2013/2/8 Martin Sustrik <sustrik@250bpm.com>:
-> When implementing network protocols in user space, one has to impleme=
-nt
-> fake user-space file descriptors to represent the sockets for the pro=
-tocol.
-[...]
-> This patch implements new EFD_MASK flag which attempts to solve this =
-problem.
-[...]
-> @@ -55,6 +64,9 @@ __u64 eventfd_signal(struct eventfd_ctx *ctx, __u64=
- n)
->  {
->         unsigned long flags;
->
-> +       /* This function should never be used with eventfd in the mas=
-k mode. */
-> +       BUG_ON(ctx->flags & EFD_MASK);
-> +
->         spin_lock_irqsave(&ctx->wqh.lock, flags);
->         if (ULLONG_MAX - ctx->count < n)
->                 n =3D ULLONG_MAX - ctx->count;
-> @@ -123,12 +135,16 @@ static unsigned int eventfd_poll(struct file *f=
-ile, poll_table *wait)
->         poll_wait(file, &ctx->wqh, wait);
->
->         spin_lock_irqsave(&ctx->wqh.lock, flags);
-> -       if (ctx->count > 0)
-> -               events |=3D POLLIN;
-> -       if (ctx->count =3D=3D ULLONG_MAX)
-> -               events |=3D POLLERR;
-> -       if (ULLONG_MAX - 1 > ctx->count)
-> -               events |=3D POLLOUT;
-> +       if (ctx->flags & EFD_MASK) {
-> +               events =3D ctx->mask.events;
-> +       } else {
-> +               if (ctx->count > 0)
-> +                       events |=3D POLLIN;
-> +               if (ctx->count =3D=3D ULLONG_MAX)
-> +                       events |=3D POLLERR;
-> +               if (ULLONG_MAX - 1 > ctx->count)
-> +                       events |=3D POLLOUT;
-> +       }
->         spin_unlock_irqrestore(&ctx->wqh.lock, flags);
->
->         return events;
-[...]
-> @@ -412,7 +464,12 @@ struct file *eventfd_file_create(unsigned int co=
-unt, int flags)
->
->         kref_init(&ctx->kref);
->         init_waitqueue_head(&ctx->wqh);
-> -       ctx->count =3D count;
-> +       if (flags & EFD_MASK) {
-> +               ctx->mask.events =3D 0;
-> +               ctx->mask.ptr =3D NULL;
-> +       } else {
-> +               ctx->count =3D count;
-> +       }
->         ctx->flags =3D flags;
->
->         file =3D anon_inode_getfile("[eventfd]", &eventfd_fops, ctx,
+This is a note to let you know that I have just added a patch titled
 
-Since EFD_MASK is a persistent flag for a fd's lifetime, maybe you
-could instead of all those if/elses and BUG_ON()s use another
-file_operations struct for this feature?
+    net: calxedaxgmac: throw away overrun frames
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+to the linux-3.5.y-queue branch of the 3.5.y.z extended stable tree 
+which can be found at:
+
+ http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.5.y-queue
+
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 3.5.y.z tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Herton
+
+------
+
+>From f600e21bce4bd4f5c25873bbd8b89b8cdd8dbaef Mon Sep 17 00:00:00 2001
+From: Rob Herring <rob.herring@calxeda.com>
+Date: Wed, 16 Jan 2013 13:36:37 +0000
+Subject: [PATCH] net: calxedaxgmac: throw away overrun frames
+
+commit d6fb3be544b46a7611a3373fcaa62b5b0be01888 upstream.
+
+The xgmac driver assumes 1 frame per descriptor. If a frame larger than
+the descriptor's buffer size is received, the frame will spill over into
+the next descriptor. So check for received frames that span more than one
+descriptor and discard them. This prevents a crash if we receive erroneous
+large packets.
+
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
+---
+ drivers/net/ethernet/calxeda/xgmac.c |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 8b0a0e4..8a3cd87 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -546,6 +546,10 @@ static int desc_get_rx_status(struct xgmac_priv *priv, struct xgmac_dma_desc *p)
+ 		return -1;
+ 	}
+
++	/* All frames should fit into a single buffer */
++	if (!(status & RXDESC_FIRST_SEG) || !(status & RXDESC_LAST_SEG))
++		return -1;
++
+ 	/* Check if packet has checksum already */
+ 	if ((status & RXDESC_FRAME_TYPE) && (status & RXDESC_EXT_STATUS) &&
+ 		!(ext_status & RXDESC_IP_PAYLOAD_MASK))
 --
-To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
-" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.9.5
