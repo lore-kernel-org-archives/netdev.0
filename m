@@ -1,81 +1,69 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCHi v2] net: sh_eth: Add support of device tree probe
-Date: Thu, 14 Feb 2013 11:56:57 +0900
-Message-ID: <511C5279.3070008@renesas.com>
-References: <1360803091-26400-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net] tipc: fix missing spinlock init in broadcast code
+Date: Thu, 14 Feb 2013 19:43:33 -0500
+Message-ID: <1360889013-4394-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, horms+renesas@verge.net.au,
-	magnus.damm@gmail.com, devicetree-discuss@lists.ozlabs.org,
-	kda@linux-powerpc.org
-To: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Erik Hugne <erik.hugne@ericsson.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor2.renesas.com ([210.160.252.172]:64800 "EHLO
-	relmlor2.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759774Ab3BOAlT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 19:41:19 -0500
-Received: from relmlir4.idc.renesas.com ([10.200.68.154])
- by relmlor2.idc.renesas.com ( SJSMS)
- with ESMTP id <0MI80030VKCHFN50@relmlor2.idc.renesas.com> for
- netdev@vger.kernel.org; Fri, 15 Feb 2013 09:36:17 +0900 (JST)
-Received: from relmlac3.idc.renesas.com ([10.200.69.23])
- by relmlir4.idc.renesas.com ( SJSMS)
- with ESMTP id <0MI8004VUKCFW810@relmlir4.idc.renesas.com> for
- netdev@vger.kernel.org; Fri, 15 Feb 2013 09:36:17 +0900 (JST)
-In-reply-to: <87mwv7ofgj.wl%kuninori.morimoto.gx@renesas.com>
+Received: from mail.windriver.com ([147.11.1.11]:62787 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759774Ab3BOAnt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 19:43:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-(2013/02/14 10:24), Kuninori Morimoto wrote:
->
-> Hi Iwamatsu-san
->
-> Thank you for this patch.
->
-> Small comment from me
->
->> +#ifdef CONFIG_OF
-> (snip)
->> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
->> +{
->> +	int ret;
->> +	struct device_node *np = dev->of_node;
->> +	struct sh_eth_plat_data *pdata;
-> ...
->> +#else
->> +static struct sh_eth_plat_data *
->> +sh_eth_parse_dt(struct device *dev, struct net_device *ndev)
->> +{
->> +	return NULL;
->> +}
->> +#endif
->
-> (snip)
->
->>   static int sh_eth_drv_probe(struct platform_device *pdev)
->>   {
-> ...
->> +#ifdef CONFIG_OF
->> +	if (np&&  of_device_is_available(np)) {
->> +		pd = sh_eth_parse_dt(&pdev->dev, ndev);
->> +		if (pdev->dev.platform_data) {
->> +			struct sh_eth_plat_data *tmp =
->> +				pdev->dev.platform_data;
->> +			pd->set_mdio_gate = tmp->set_mdio_gate;
->> +			pd->needs_init = tmp->needs_init;
->> +		}
->> +	} else
->> +#endif
->
-> sh_eth_parse_dt() was defined for both CONFIG_OF and !CONFIG_OF.
-> But it is called only from CONFIG_OF ?
->
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Because of_device_is_available needs CONFIG_OF.
-I already send a patch which add empty function of of_device_is_available.
-If this was apply, this ifdef becomes without need.
+After commit 3c294cb3 "tipc: remove the bearer congestion mechanism",
+we try to grab the broadcast bearer lock when sending multicast
+messages over the broadcast link. This will cause an oops because
+the lock is never initialized. This is an old bug, but the lock
+was never actually used before commit 3c294cb3, so that why it was
+not visible until now.  The oops will look something like:
 
-Best,
-   Nobuhiro
+	BUG: spinlock bad magic on CPU#2, daemon/147
+	lock: bcast_bearer+0x48/0xffffffffffffd19a [tipc],
+	.magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
+	Pid: 147, comm: daemon Not tainted 3.8.0-rc3+ #206
+	Call Trace:
+	spin_dump+0x8a/0x8f
+	spin_bug+0x21/0x26
+	do_raw_spin_lock+0x114/0x150
+	_raw_spin_lock_bh+0x19/0x20
+	tipc_bearer_blocked+0x1f/0x40 [tipc]
+	tipc_link_send_buf+0x82/0x280 [tipc]
+	? __alloc_skb+0x9f/0x2b0
+	tipc_bclink_send_msg+0x77/0xa0 [tipc]
+	tipc_multicast+0x11b/0x1b0 [tipc]
+	send_msg+0x225/0x530 [tipc]
+	sock_sendmsg+0xca/0xe0
+
+The above can be triggered by running the multicast demo program.
+
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+
+[PG: I've marked this as "net" since git describe --contains 3c294cb3
+gives v3.8-rc1~139^2~242^2~5 --- i.e. the now closing 3.8 dev cycle.]
+
+ net/tipc/bcast.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 54f89f9..2655c9f 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -774,6 +774,7 @@ void tipc_bclink_init(void)
+ 	bcl->owner = &bclink->node;
+ 	bcl->max_pkt = MAX_PKT_DEFAULT_MCAST;
+ 	tipc_link_set_queue_limits(bcl, BCLINK_WIN_DEFAULT);
++	spin_lock_init(&bcbearer->bearer.lock);
+ 	bcl->b_ptr = &bcbearer->bearer;
+ 	bcl->state = WORKING_WORKING;
+ 	strlcpy(bcl->name, tipc_bclink_name, TIPC_MAX_LINK_NAME);
+-- 
+1.8.1.2
