@@ -1,58 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v2] netpoll: add some missing __rcu marks in
- several places
-Date: Sat, 16 Feb 2013 11:16:27 +0800
-Message-ID: <1360984587.12539.2.camel@cr0>
-References: <20130213223935.122d035b@nehalam.linuxnetplumber.net>
-	 <1360831039-11418-1-git-send-email-amwang@redhat.com>
-	 <20130214.132054.2237485951582283881.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH vringh 2/2] caif_virtio: Introduce caif over virtio
+Date: Fri, 15 Feb 2013 15:05:42 +1030
+Message-ID: <87bobmjish.fsf@rustcorp.com.au>
+References: <1360494273-27889-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1360494273-27889-3-git-send-email-sjur.brandeland@stericsson.com>
+	<87vc9zfic8.fsf@rustcorp.com.au>
+	<81C3A93C17462B4BBD7E272753C105792458EDD161@EXDCVYMBSTM005.EQ1STM.local>
+	<87ehgklds9.fsf@rustcorp.com.au>
+	<CAJK669YQ+x5zXSZA1FQHkRrcCt+SgZP-M_ea-Ey8ziGLhq9cqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@resnulli.us, vyasevic@redhat.com,
-	stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54584 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751027Ab3BPDQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 22:16:40 -0500
-In-Reply-To: <20130214.132054.2237485951582283881.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Vikram ARV <vikram.arv@stericsson.com>,
+	Dmitry TARNYAGIN <dmitry.tarnyagin@stericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linus Walleij <linus.walleij@linaro.org>, Ido Yariv <ido@wizery.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Erwan YVIN <erwan.yvin@stericsson.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Sjur =?utf-8?Q?Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAJK669YQ+x5zXSZA1FQHkRrcCt+SgZP-M_ea-Ey8ziGLhq9cqQ@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-02-14 at 13:20 -0500, David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Thu, 14 Feb 2013 16:37:19 +0800
-> 
-> > From: Cong Wang <amwang@redhat.com>
-> > 
-> > This fixes sparse warnings like the one below:
-> > 
-> > drivers/net/team/team.c:953:25: warning: incorrect type in return expression (different address spaces)
-> > drivers/net/team/team.c:953:25:    expected struct netpoll_info *
-> > drivers/net/team/team.c:953:25:    got struct netpoll_info [noderef] <asn:4>*npinfo
-> > 
-> > Cc: Jiri Pirko <jiri@resnulli.us>
-> > Cc: Vlad Yasevich <vyasevic@redhat.com>
-> > Cc: Stephen Hemminger <stephen@networkplumber.org>
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> This is a very confusing patch submission.
-> 
-> You're posting a "v2" of a patch but with a completely different Subject
-> line so that it's hard, without looking into the details of the patch,
-> to determine what this patch is a "v2" of.
-> 
-> You've also not addressed Stephen's feedback about the lack of an
-> rcu_dereference() in these routines you've added __rcu annotations
-> to.
-> 
-> I'm tossing all versions of this patch, therefore.
-
-The reason is we don't dereference ->npinfo pointer, we just check if it
-is NULL, so doesn't need to call rcu_dereference(). Or am I missing
-anything?
-
-Thanks.
+U2p1ciBCcsOmbmRlbGFuZCA8c2p1cmJyZW5AZ21haWwuY29tPiB3cml0ZXM6Cj4gSG93IGFib3V0
+IHN1cHBvcnRpbmcgc3RydWN0IHZyaW5naF9raW92IGFuZCBzdHJ1Y3Qga3ZlYyBhcyB3ZWxsPwo+
+IEkgY3VycmVudGx5IGdldCB0aGUgZm9sbG93aW5nIGNvbXBsYWludHMgd2l0aCBteSBWMiBwYXRj
+aC1zZXQ6Cj4KPiBkcml2ZXJzL25ldC9jYWlmL2NhaWZfdmlydGlvLmM6NDg2OjI6IHdhcm5pbmc6
+IHBhc3NpbmcgYXJndW1lbnQgMSBvZgo+IOKAmHZyaW5naF9pb3ZfaW5pdOKAmSBmcm9tIGluY29t
+cGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0KCnZyaW5naF9raW92X2lu
+aXQoKT8gIERpZCBJIG1pc3Mgc29tZXRoaW5nIGVsc2U/CgpDaGVlcnMsClJ1c3R5LgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
+YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
+cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
+YXRpb24=
