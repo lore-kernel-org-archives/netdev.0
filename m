@@ -1,52 +1,92 @@
 From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH net-next 3/3] GRE: Add TCP segmentation offload for GRE
-Date: Fri, 15 Feb 2013 03:35:11 +0100
-Message-ID: <CAHXqBFJi57WA6vJsWEBrzz_-f7_iSYA8eN+Mta9-6rx9n9bfhw@mail.gmail.com>
-References: <1360871101-2086-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH 1/1] eventfd: implementation of EFD_MASK flag
+Date: Fri, 15 Feb 2013 03:45:20 +0100
+Message-ID: <CAHXqBFKpByeeLPD5ibDxTW94wsLA3hSnqhakZ_8YQO_BDT7ruQ@mail.gmail.com>
+References: <1360279763-4768-1-git-send-email-sustrik@250bpm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
-	bhutchings@solarflare.com
-To: Pravin B Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:49044 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932394Ab3BOCfj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Feb 2013 21:35:39 -0500
-Received: by mail-ie0-f180.google.com with SMTP id bn7so4128486ieb.39
-        for <netdev@vger.kernel.org>; Thu, 14 Feb 2013 18:35:38 -0800 (PST)
-In-Reply-To: <1360871101-2086-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Sha Zhengju <handai.szj@taobao.com>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Martin Sustrik <sustrik@250bpm.com>
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+In-Reply-To: <1360279763-4768-1-git-send-email-sustrik@250bpm.com>
+Sender: linux-fsdevel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/2/14 Pravin B Shelar <pshelar@nicira.com>:
-> Following patch adds GRE protocol offload handler so that
-> skb_gso_segment() can segment GRE packets.
-> SKB GSO CB is added to keep track of total header length so that
-> skb_segment can push entire header. e.g. in case of GRE, skb_segment
-> need to push inner and outer headers to every segment.
-> New NETIF_F_GRE_GSO feature is added for devices which support HW
-> GRE TSO offload. Currently none of devices support it therefore GRE G=
-SO
-> always fall backs to software GSO.
+2013/2/8 Martin Sustrik <sustrik@250bpm.com>:
+> When implementing network protocols in user space, one has to impleme=
+nt
+> fake user-space file descriptors to represent the sockets for the pro=
+tocol.
 [...]
-> @@ -1044,6 +1102,14 @@ static int ipgre_tunnel_bind_dev(struct net_de=
-vice *dev)
->                 mtu =3D 68;
+> This patch implements new EFD_MASK flag which attempts to solve this =
+problem.
+[...]
+> @@ -55,6 +64,9 @@ __u64 eventfd_signal(struct eventfd_ctx *ctx, __u64=
+ n)
+>  {
+>         unsigned long flags;
 >
->         tunnel->hlen =3D addend;
-> +       if (tunnel->parms.o_flags & GRE_SEQ) {
-> +               /* TCP offload with GRE SEQ is not supported. */
-> +               dev->features &=3D ~NETIF_F_GSO_SOFTWARE;
-> +               dev->hw_features &=3D ~NETIF_F_GSO_SOFTWARE;
+> +       /* This function should never be used with eventfd in the mas=
+k mode. */
+> +       BUG_ON(ctx->flags & EFD_MASK);
+> +
+>         spin_lock_irqsave(&ctx->wqh.lock, flags);
+>         if (ULLONG_MAX - ctx->count < n)
+>                 n =3D ULLONG_MAX - ctx->count;
+> @@ -123,12 +135,16 @@ static unsigned int eventfd_poll(struct file *f=
+ile, poll_table *wait)
+>         poll_wait(file, &ctx->wqh, wait);
+>
+>         spin_lock_irqsave(&ctx->wqh.lock, flags);
+> -       if (ctx->count > 0)
+> -               events |=3D POLLIN;
+> -       if (ctx->count =3D=3D ULLONG_MAX)
+> -               events |=3D POLLERR;
+> -       if (ULLONG_MAX - 1 > ctx->count)
+> -               events |=3D POLLOUT;
+> +       if (ctx->flags & EFD_MASK) {
+> +               events =3D ctx->mask.events;
 > +       } else {
-> +               dev->features |=3D NETIF_F_GSO_SOFTWARE;
-> +               dev->hw_features |=3D NETIF_F_GSO_SOFTWARE;
+> +               if (ctx->count > 0)
+> +                       events |=3D POLLIN;
+> +               if (ctx->count =3D=3D ULLONG_MAX)
+> +                       events |=3D POLLERR;
+> +               if (ULLONG_MAX - 1 > ctx->count)
+> +                       events |=3D POLLOUT;
 > +       }
+>         spin_unlock_irqrestore(&ctx->wqh.lock, flags);
+>
+>         return events;
+[...]
+> @@ -412,7 +464,12 @@ struct file *eventfd_file_create(unsigned int co=
+unt, int flags)
+>
+>         kref_init(&ctx->kref);
+>         init_waitqueue_head(&ctx->wqh);
+> -       ctx->count =3D count;
+> +       if (flags & EFD_MASK) {
+> +               ctx->mask.events =3D 0;
+> +               ctx->mask.ptr =3D NULL;
+> +       } else {
+> +               ctx->count =3D count;
+> +       }
+>         ctx->flags =3D flags;
+>
+>         file =3D anon_inode_getfile("[eventfd]", &eventfd_fops, ctx,
 
-=46eature clipping belongs to ndo_fix_features. Here,
-netdev_update_features() for the tunnel device should be called.
+Since EFD_MASK is a persistent flag for a fd's lifetime, maybe you
+could instead of all those if/elses and BUG_ON()s use another
+file_operations struct for this feature?
 
-Wishing You Good Night,
+Best Regards,
 Micha=C5=82 Miros=C5=82aw
+--
+To unsubscribe from this list: send the line "unsubscribe linux-fsdevel=
+" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
