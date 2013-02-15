@@ -1,45 +1,45 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next RFC] tbf: handle gso skbs properly
-Date: Fri, 15 Feb 2013 15:28:47 +0100
-Message-ID: <20130215142847.GA1543@minipsycho.orion>
-References: <1360932297-6698-1-git-send-email-jiri@resnulli.us>
- <1360937929.6884.82.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/3] v4 GRE: Add TCP segmentation offload for
+ GRE
+Date: Fri, 15 Feb 2013 06:41:00 -0800
+Message-ID: <1360939260.19353.2.camel@edumazet-glaptop>
+References: <1360886561-1630-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
+	bhutchings@solarflare.com, mirqus@gmail.com
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:40663 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755343Ab3BOO25 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 09:28:57 -0500
-Received: by mail-ee0-f50.google.com with SMTP id e51so1796987eek.9
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 06:28:55 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1360937929.6884.82.camel@edumazet-glaptop>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:47462 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932237Ab3BOOlE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 09:41:04 -0500
+Received: by mail-pa0-f48.google.com with SMTP id hz10so1790910pad.7
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 06:41:03 -0800 (PST)
+In-Reply-To: <1360886561-1630-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks for review Eric. I will process your suggestions and submit the
-patch.
+On Thu, 2013-02-14 at 16:02 -0800, Pravin B Shelar wrote:
 
+> +	err = ip_local_out(skb);
+> +	if (likely(net_xmit_eval(err) == 0)) {
+> +		int pkt_len = skb->len - skb_transport_offset(skb);
+> +		u64_stats_update_begin(&tstats->syncp);
+> +		tstats->tx_bytes += pkt_len;
+> +		tstats->tx_packets++;
+> +		u64_stats_update_end(&tstats->syncp);
+> +	} else {
+> +		dev->stats.tx_errors++;
+> +		dev->stats.tx_aborted_errors++;
+> +	}
+>  	return NETDEV_TX_OK;
 
-Fri, Feb 15, 2013 at 03:18:49PM CET, eric.dumazet@gmail.com wrote:
->On Fri, 2013-02-15 at 13:44 +0100, Jiri Pirko wrote:
->> According to Eric's suggestion, when gso skb can't be sent in one mtu
->> time, resegment it.
->> 
->> Note that helper will be moved to sch_api.c probably so it can be used
->> by other code.
->> 
->> Also, I'm not sure similar patch to this can be done for act_police. I
->> have to look at that more closely.
+Once given to ip_local_out(), you cant reference the skb anymore,
+therefore you must evaluate pkt_len before :
 
-
-Any idea how to fix this in act_police? I believe we can't use the same
-approach since there is no queue there.
-
-Thanks.
-
-Jiri
+pkt_len = skb->len - skb_transport_offset(skb);
+err = ip_local_out(skb);
+if (likely(net_xmit_eval(err) == 0)) {
+    ...
