@@ -1,121 +1,90 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: PROBLEM: Software injected vlan tagged packets are unable to be identified using recent BPF modifications
-Date: Thu, 14 Feb 2013 23:20:08 -0800
-Message-ID: <87fw0y6o2f.fsf@xmission.com>
-References: <CAOUgPvQP2RrngPPf=hYxpPdGSQ4L-Db0T-BMDwVg6iy8LTAu=Q@mail.gmail.com>
-	<20130108103811.GA1621@minipsycho.orion>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH] tcp: sysctl to disable TCP simultaneous connect
+Date: Fri, 15 Feb 2013 08:55:39 +0100
+Message-ID: <20130215075539.GB7535@1wt.eu>
+References: <20130207175240.GA12520@www.outflux.net> <20130207103950.662698ea@nehalam.linuxnetplumber.net> <CAGXu5jJiupzommJYPEYQnk-4i9FUKai0NcPnihLN-QpWV64jtQ@mail.gmail.com> <87y5eq87pa.fsf@xmission.com> <CAGXu5jJKQSDo61TD0Jgn9Gq8TL2rCUVbA=Kq4AvfeFUb2FdJMw@mail.gmail.com> <87r4ki6oi1.fsf@xmission.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Pearce <pearce@cs.berkeley.edu>, netdev@vger.kernel.org,
-	tcpdump-workers@lists.tcpdump.org, davem@davemloft.net,
-	edumazet@google.com, jpirko@redhat.com,
-	Ani Sinha <ani@aristanetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60457 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935345Ab3BOHUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 02:20:20 -0500
-In-Reply-To: <20130108103811.GA1621@minipsycho.orion> (Jiri Pirko's message of
-	"Tue, 8 Jan 2013 11:38:11 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kees Cook <keescook@chromium.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Rob Landley <rob@landley.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Shan Wei <davidshan@tencent.com>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <87r4ki6oi1.fsf@xmission.com>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jiri Pirko <jiri@resnulli.us> writes:
+Hi Eric,
 
-> Tue, Jan 08, 2013 at 01:05:39AM CET, pearce@cs.berkeley.edu wrote:
->>Hello folks,
->>
->>PROBLEM:
->>
->>vlan tagged packets that are injected via software are not picked up
->>by filters using recent (kernel commit
->>f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
->>BPF vlan modifications. I suspect this is a problem with the Linux
->>kernel.
->>
->>linux-netdev and tcpdump-workers are both cc'd.
->>
->>BACKGROUND:
->>
->>Kernel commit bcc6d47903612c3861201cc3a866fb604f26b8b2 (Jiri
->>Pirko/David S. Miller) removed vlan headers on rx packets prior to
->>them reaching the packet filters. This broke BPF/libpcap's ability to
->>do kernel-level packet filtering based on vlan tag information (the
->>'vlan' keyword).
->>
->>Kernel commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1 (Eric
->>Dumazet/David S. Miller, just merged into Linus's tree
->>http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
->>added the ability to use BPF to once again filter based on vlan
->>tags. Related bpf jit commit:
->>http://www.spinics.net/lists/netdev/msg214759.html
->>
->>libpcap (Ani Sinha) recently RFC'd a patch to use Eric/David's BPF
->>modifications to restore vlan filtering to libpcap.
->>http://www.mail-archive.com/tcpdump-workers@lists.tcpdump.org/msg06810.html
->>I'm using this patch and it works.
->>
->>DETAILS:
->>
->>Under these patches vlan tagged packets received from mediam (actual
->>packets from the wire) can be identified based on vlan tag information
->>using the new BPF functionality.This is good.
->>
->>However, raw vlan tagged packets that are *injected* into the
->>interface using libpcap's pcap_inject() (which is just a fancy wrapper
->>for the send() syscall) are not identified by filters using the recent
->>BPF modifications.
->>
->>The bug manifests itself if you attempt to use the new BPF
->>modifications to filter vlan tagged packets on a live interface. All
->>packets from the medium show up, but all injected packets are dropped.
->>
->>Prior to commit bcc6d47 both medium and injected packets could both be
->>identified using BPFs.
->>
->>These injected packets can however still be identified using the
->>previous, now incorrect "offset into the header" technique. Given
->>this, I suspect what's going on is the kernel code path for these
->>injected packets is not setting skb->vlan_tci correctly (at all?).
->>Since the vlan tag is not in the skb data structure the new BPF
->>modifications don't identify the packets as having a vlan tag,
->>despite it being in the packet header.
->
->
-> You are right. skb->vlan_tci is not set. Looking at packet_snd() function
-> in net/packet/af_packet.c I guess that something like following patch
-> would be needed:
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index e639645..2238559 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -2292,6 +2292,12 @@ static int packet_snd(struct socket *sock,
->  	if (unlikely(extra_len == 4))
->  		skb->no_fcs = 1;
->  
-> +	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
-> +		skb = vlan_untag(skb);
-> +		if (unlikely(!skb))
-> +			goto out_unlock;
-> +	}
-> +
->  	/*
->  	 *	Now send it
->  	 */
->
-> Thoughts?
+On Thu, Feb 14, 2013 at 11:10:46PM -0800, Eric W. Biederman wrote:
+> Kees Cook <keescook@chromium.org> writes:
+> 
+> > On Thu, Feb 14, 2013 at 9:30 PM, Eric W. Biederman
+> > <ebiederm@xmission.com> wrote:
+> >> Kees Cook <keescook@chromium.org> writes:
+> >>
+> >>> The patch would not break it -- it defaults the sysctl to staying enabled.
+> >>>
+> >>> If you mean the documentation should be updated, sure, that's easy to do.
+> >>>
+> >>> David: I know you aren't a fan of this patch, but I'd like to try to
+> >>> convince you. :) This leaves the feature enabled and add a toggle for
+> >>> systems (like Chrome OS) that don't want to risk this DoS at all.
+> >>> There are so very many other toggle, I don't see why this one would be
+> >>> a problem to add.
+> >>
+> >> Chrome OS has no plans to implement webrtc?  Last I had read that
+> >> support had been added to the release versions of Chrome, and was in the
+> >> development builds of firefox.  I really don't belive that there are
+> >> many systems that don't intend to run a web browser.
+> >
+> > I haven't looked at the internals of webrtc. Are you implying some
+> > feature in it relies on the TCP simultaneous connect?
+> 
+> I am saying that yes.
+> 
+> webrtc is built on ICE (interactivity connectivity establishment).  ICE
+> support for TCP (RFC6544) uses TCP simultaneous connect.  webrtc
+> supports tcp connections.
 
-That sounds about right.  I don't know how much NIC drivers care but it
-looks like af_packet is the only path through the code that can generate
-a vlan tagged packet that we will transmit where a vlan tagged packet
-can be generated without setting vlan_tci.  So it should make the code
-safer.
+Then I suspect that a large number of firewalls will need updates after
+significant rework for this proposal to succeed. I'm not saying this will
+not eventually happen, but there are significant risks associated with
+this feature.  Netfilter had this in the window tracking patches around
+2002-2003 and this had to be reverted because a client was able to establish
+complete connections by sending SYN-SYN/ACK-ACK itself. Other products will
+fall through these cracks.
 
-Certainly we want this to look to the vlan driver like a proper case of
-nested vlans and not something weird.
+And last but not least, it's the only behaviour in TCP which allows a
+random attacker to prevent a connection from establishing by guessing
+only a 16-bit port, regardless of any sequence number. Considering how
+we've been bothered by people who considered that our sequence numbers
+were not random enough, I already expect that the absolute lack of need
+of a sequence number will bring new funny articles.
 
-But note we need to handle tpacket_snd as well as packet_snd.
+Back then, I did a PoC which permanently prevented an anti-virus proxy
+from establishing any connection to its update server, and it did not
+require a lot of traffic obviously. People running such proxies probably
+don't need webrtc with its assorted lot of issues.
 
-Eric
+I'm not advocating for pushing the patch, I understand it's not desired.
+I just want to ensure that people understand what simultaneous connect
+means in terms of DoS for a feature which is rarely used and rarely
+technically possible at all.
+
+Regards,
+Willy
+
