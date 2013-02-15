@@ -1,54 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tipc: fix missing spinlock init in broadcast code
-Date: Fri, 15 Feb 2013 15:41:22 -0500 (EST)
-Message-ID: <20130215.154122.2016353281507345149.davem@davemloft.net>
-References: <1360889013-4394-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [RFC PATCH 0/6] udp: add encapsulation socket destroy hook
+Date: Fri, 15 Feb 2013 16:02:36 -0500 (EST)
+Message-ID: <20130215.160236.126363484380703537.davem@davemloft.net>
+References: <1360923919-7203-1-git-send-email-tparkin@katalix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, erik.hugne@ericsson.com
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org, jchapman@katalix.com, celston@katalix.com
+To: tparkin@katalix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44479 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44630 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734Ab3BOUlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 15:41:24 -0500
-In-Reply-To: <1360889013-4394-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1750755Ab3BOVCj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 16:02:39 -0500
+In-Reply-To: <1360923919-7203-1-git-send-email-tparkin@katalix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Thu, 14 Feb 2013 19:43:33 -0500
+From: Tom Parkin <tparkin@katalix.com>
+Date: Fri, 15 Feb 2013 10:25:13 +0000
 
-> From: Erik Hugne <erik.hugne@ericsson.com>
+> While working on an issue in l2tp relating to tunnel cleanup I discovered a
+> problem which I think may require a new hook in udp core to resolve.  The l2tp
+> code uses encapsulated udp sockets, and it needs to know when a socket is
+> being closed in order to clean up.  Since sessions hold a reference to the
+> tunnel socket, hooking sk_destruct isn't sufficient: any tunnel with sessions
+> running in it will be pinned open by the sessions.
 > 
-> After commit 3c294cb3 "tipc: remove the bearer congestion mechanism",
-> we try to grab the broadcast bearer lock when sending multicast
-> messages over the broadcast link. This will cause an oops because
-> the lock is never initialized. This is an old bug, but the lock
-> was never actually used before commit 3c294cb3, so that why it was
-> not visible until now.  The oops will look something like:
+> To resolve this, the first patch in this series adds a .destroy hook to udp, 
+> while the following patches show how I'd use this feature in l2tp.  Essentially 
+> the .destroy callback is used to close the sessions in the tunnel, thereby 
+> dropping the socket references.
 > 
-> 	BUG: spinlock bad magic on CPU#2, daemon/147
-> 	lock: bcast_bearer+0x48/0xffffffffffffd19a [tipc],
-> 	.magic: 00000000, .owner: <none>/-1, .owner_cpu: 0
-> 	Pid: 147, comm: daemon Not tainted 3.8.0-rc3+ #206
-> 	Call Trace:
-> 	spin_dump+0x8a/0x8f
-> 	spin_bug+0x21/0x26
-> 	do_raw_spin_lock+0x114/0x150
-> 	_raw_spin_lock_bh+0x19/0x20
-> 	tipc_bearer_blocked+0x1f/0x40 [tipc]
-> 	tipc_link_send_buf+0x82/0x280 [tipc]
-> 	? __alloc_skb+0x9f/0x2b0
-> 	tipc_bclink_send_msg+0x77/0xa0 [tipc]
-> 	tipc_multicast+0x11b/0x1b0 [tipc]
-> 	send_msg+0x225/0x530 [tipc]
-> 	sock_sendmsg+0xca/0xe0
-> 
-> The above can be triggered by running the multicast demo program.
-> 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Does this seem like a reasonable approach?  I'm reluctant to modify udp, but
+> I've not managed to discover a safe alternative...
 
-Applied, thanks.
+For now this is fine by me.
+
+If we commonly start to encapsulate in other datagram protocols we'll
+need to facilitate this more generically, perhaps by having something
+that hooks in near the sk_prot->destroy() in sk_release_common().
