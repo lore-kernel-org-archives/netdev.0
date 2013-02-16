@@ -1,44 +1,43 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH 2/2] tg3: Use different macros for pci_chip_rev_id
- accesses
-Date: Sat, 16 Feb 2013 14:09:45 -0800
-Message-ID: <1361052585.2240.4.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <dea1c655b2c1380821aae6cd8438ad742ddf6e12.1361049158.git.joe@perches.com>
- <1d3ed7a644e8de210614f51375e8e913da2f5cb3.1361049158.git.joe@perches.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Universal tap device
+Date: Sat, 16 Feb 2013 22:25:06 +0000
+Message-ID: <201302162225.06536.arnd@arndb.de>
+References: <20130216140132.GB1536@minipsycho.orion> <alpine.LNX.2.01.1302161743180.8831@nerf07.vanv.qr> <20130216165430.GC1536@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "Matt Carlson" <mcarlson@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Joe Perches" <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1d3ed7a644e8de210614f51375e8e913da2f5cb3.1361049158.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jan Engelhardt <jengelh@inai.de>, netdev@vger.kernel.org,
+	ebiederm@xmission.com, stephen@networkplumber.org,
+	eric.dumazet@gmail.com, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.8]:58692 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537Ab3BPWZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 17:25:48 -0500
+In-Reply-To: <20130216165430.GC1536@minipsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-02-16 at 13:20 -0800, Joe Perches wrote:
-> Upper case macros for various chip attributes are slightly
-> difficult to read and are a bit out of characterto the other
-> tg3_<foo> attribute functions.
+On Saturday 16 February 2013, Jiri Pirko wrote:
+> Sat, Feb 16, 2013 at 05:46:25PM CET, jengelh@inai.de wrote:
+> >On Saturday 2013-02-16 15:01, Jiri Pirko wrote:
+> >
+> >>Hi all.                                                                  
+> >>                                                                         
+> >>Looking at macvtap and thinking about the tap solutions in general,
+> >>I think it would be handly to have some universal tap device.
+> >
+> >As in, allowing tuntap to register as an rx_handler for arbitrary
+> >devices?
 > 
-> Convert:
+> Essentially yes, but I was thinking without the actual netdev:
+> not eth0 -> tap0 -> chardev
+> but eth0 -> chardev
 > 
-> GET_ASIC_REV(tp->pci_chip_rev_id)       -> tg3_asic_rev(tp)
-> GET_CHIP_REV(tp->pci_chip_rev_id)       -> tg3_chip_rev(tp)
-> 
-> Remove:
-> GET_METAL_REV(tp->pci_chip_rev_id)      -> tg3_metal_rev(tp) (unused)
-> 
-> Add:
-> tg3_chip_rev_id(tp) for tp->pci_chip_rev_id so access styles
-> are similar to tg3_asic_rev and tg3_chip_rev.
-> 
-> These macros are not converted to static inline functions
-> because gcc (tested with 4.7.2) is currently unable to
-> optimize the object code it produces the same way and code
-> is otherwise larger.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com> 
+> Not sure though if that is easily doable..
 
-Acked-by: Michael Chan <mchan@broadcom.com>
+Isn't that the same as setting up macvtap in PASSTHRU mode?
+
+	Arnd
