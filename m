@@ -1,54 +1,94 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] ipv6: optimize inet6_hash_frag()
-Date: Fri, 15 Feb 2013 20:14:48 -0800
-Message-ID: <1360988088.19353.46.camel@edumazet-glaptop>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [RFC PATCH net-next] ipv6: Queue fragments per interface for multicast/link-local
+ addresses.
+Date: Sat, 16 Feb 2013 14:03:28 +0900
+Message-ID: <511F1320.6090309@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Ben Greear <greearb@candelatech.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:44994 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751316Ab3BPEOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 23:14:51 -0500
-Received: by mail-pb0-f42.google.com with SMTP id xb4so870286pbc.15
-        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 20:14:50 -0800 (PST)
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:58540 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750710Ab3BPFDa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 00:03:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+We should queue fragments for the same link-local address on
+different interfaces (e.g. fe80::1%eth0 and fe80::1%eth1) to the
+different queue, because of nature of addressing architecture.
 
-Use ipv6_addr_hash() and a single jhash invocation.
+Similarly, we should queue fragments for multicast on different
+interface to the different queue.  This is okay because
+application joins group on speicific interface, and multicast
+traffic is expected only on that interface.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+CC: Ben Greear <greearb@candelatech.com>
+CC: Vlad Yasevich <vyasevic@redhat.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
- net/ipv6/reassembly.c |   15 +--------------
- 1 file changed, 1 insertion(+), 14 deletions(-)
+ include/net/ipv6.h    |    1 +
+ net/ipv6/reassembly.c |   11 +++++++++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 851d541..1af98aa 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -463,6 +463,7 @@ enum ip6_defrag_users {
+ struct ip6_create_arg {
+ 	__be32 id;
+ 	u32 user;
++	int ifindex;
+ 	const struct in6_addr *src;
+ 	const struct in6_addr *dst;
+ };
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index e354743..9a6428a 100644
+index bab2c27..83f02f5 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
-@@ -79,20 +79,7 @@ unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
- {
- 	u32 c;
+@@ -113,6 +113,7 @@ bool ip6_frag_match(struct inet_frag_queue *q, void *a)
  
--	c = jhash_3words((__force u32)saddr->s6_addr32[0],
--			 (__force u32)saddr->s6_addr32[1],
--			 (__force u32)saddr->s6_addr32[2],
--			 rnd);
--
--	c = jhash_3words((__force u32)saddr->s6_addr32[3],
--			 (__force u32)daddr->s6_addr32[0],
--			 (__force u32)daddr->s6_addr32[1],
--			 c);
--
--	c =  jhash_3words((__force u32)daddr->s6_addr32[2],
--			  (__force u32)daddr->s6_addr32[3],
--			  (__force u32)id,
--			  c);
-+	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr), id, rnd);
- 
- 	return c & (INETFRAGS_HASHSZ - 1);
+ 	fq = container_of(q, struct frag_queue, q);
+ 	return	fq->id == arg->id &&
++		(!arg->ifindex || fq->iif == arg->ifindex) &&
+ 		fq->user == arg->user &&
+ 		ipv6_addr_equal(&fq->saddr, arg->src) &&
+ 		ipv6_addr_equal(&fq->daddr, arg->dst);
+@@ -182,13 +183,18 @@ static void ip6_frag_expire(unsigned long data)
  }
+ 
+ static __inline__ struct frag_queue *
+-fq_find(struct net *net, __be32 id, const struct in6_addr *src, const struct in6_addr *dst)
++fq_find(struct net *net, __be32 id, int ifindex, const struct in6_addr *src, const struct in6_addr *dst)
+ {
+ 	struct inet_frag_queue *q;
+ 	struct ip6_create_arg arg;
+ 	unsigned int hash;
++	int addr_type = ipv6_addr_type(dst);
+ 
+ 	arg.id = id;
++	if (addr_type & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL))
++		arg.ifindex = ifindex;
++	else
++		arg.ifindex = 0;
+ 	arg.user = IP6_DEFRAG_LOCAL_DELIVER;
+ 	arg.src = src;
+ 	arg.dst = dst;
+@@ -534,7 +540,8 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 		IP6_ADD_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
+ 				 IPSTATS_MIB_REASMFAILS, evicted);
+ 
+-	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr);
++	fq = fq_find(net, fhdr->identification, skb->dev->ifindex,
++		     &hdr->saddr, &hdr->daddr);
+ 	if (fq != NULL) {
+ 		int ret;
+ 
+-- 
+1.7.9.5
