@@ -1,82 +1,58 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [MacVLAN] failure to deliver reassembled IPv6 multicast traffic
-Date: Fri, 15 Feb 2013 21:57:30 -0500
-Message-ID: <511EF59A.4090103@redhat.com>
-References: <20130215170028.GG12219@eerihug-hybrid.ki.sw.ericsson.se>   <511E8760.9070703@candelatech.com>  <1360955900.19353.22.camel@edumazet-glaptop>  <511E8C3D.5070603@candelatech.com> <1360956930.19353.24.camel@edumazet-glaptop> <511EEE14.8050902@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v2] netpoll: add some missing __rcu marks in
+ several places
+Date: Sat, 16 Feb 2013 11:16:27 +0800
+Message-ID: <1360984587.12539.2.camel@cr0>
+References: <20130213223935.122d035b@nehalam.linuxnetplumber.net>
+	 <1360831039-11418-1-git-send-email-amwang@redhat.com>
+	 <20130214.132054.2237485951582283881.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ben Greear <greearb@candelatech.com>,
-	Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	kaber@trash.net, ataschner@suse.com
-To: vyasevic@redhat.com
+Cc: netdev@vger.kernel.org, jiri@resnulli.us, vyasevic@redhat.com,
+	stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27912 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54584 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751951Ab3BPC5k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 15 Feb 2013 21:57:40 -0500
-In-Reply-To: <511EEE14.8050902@redhat.com>
+	id S1751027Ab3BPDQk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 15 Feb 2013 22:16:40 -0500
+In-Reply-To: <20130214.132054.2237485951582283881.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/15/2013 09:25 PM, Vlad Yasevich wrote:
-> On 02/15/2013 02:35 PM, Eric Dumazet wrote:
->> On Fri, 2013-02-15 at 11:27 -0800, Ben Greear wrote:
->>
->>> For some reason I was thinking this wasn't fully fixed for IPv4, but
->>> maybe it is..the bug in our internal tracker only mentions IPv6
->>> as having issues...
->>>
->>> We'll do some testing on IPv4 sometime soon to make sure, and can test
->>> IPv6 patches as well...
->>
->> This worries me a bit, as I wrote this patch because you reported the
->> issue.
->>
->> commit bc416d9768aa9a2e46eb11354a9c58399dafeb01
->> Author: Eric Dumazet <eric.dumazet@gmail.com>
->> Date:   Thu Oct 6 10:28:31 2011 +0000
->>
->>      macvlan: handle fragmented multicast frames
->>
->>      Fragmented multicast frames are delivered to a single macvlan port,
->>      because ip defrag logic considers other samples are redundant.
->>
->>      Implement a defrag step before trying to send the multicast frame.
->>
->>      Reported-by: Ben Greear <greearb@candelatech.com>
->>      Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
->>      Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->>
->
-> Yep, IPv4 is there.  IPv6 is not and is a lot harder/more interesting
-> since IPv6 may be disable, but reassembly may still need to work to
-> service the taps connected to VMs.  :(
->
-> The only reason I say this is because I've ran into too many people who
-> turn IPv6 off for "security reasons".
+On Thu, 2013-02-14 at 13:20 -0500, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Thu, 14 Feb 2013 16:37:19 +0800
+> 
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > This fixes sparse warnings like the one below:
+> > 
+> > drivers/net/team/team.c:953:25: warning: incorrect type in return expression (different address spaces)
+> > drivers/net/team/team.c:953:25:    expected struct netpoll_info *
+> > drivers/net/team/team.c:953:25:    got struct netpoll_info [noderef] <asn:4>*npinfo
+> > 
+> > Cc: Jiri Pirko <jiri@resnulli.us>
+> > Cc: Vlad Yasevich <vyasevic@redhat.com>
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> This is a very confusing patch submission.
+> 
+> You're posting a "v2" of a patch but with a completely different Subject
+> line so that it's hard, without looking into the details of the patch,
+> to determine what this patch is a "v2" of.
+> 
+> You've also not addressed Stephen's feedback about the lack of an
+> rcu_dereference() in these routines you've added __rcu annotations
+> to.
+> 
+> I'm tossing all versions of this patch, therefore.
 
-Looking a bit more, I don't think this is going to be a problem with 
-macvtaps since the root cause of the drops here is most likely inside
-IPv6 reassembly, since the same frags may get queued multiple times to 
-the same queue.  That would not be an issue with macvtaps.
+The reason is we don't dereference ->npinfo pointer, we just check if it
+is NULL, so doesn't need to call rcu_dereference(). Or am I missing
+anything?
 
--vlad
-
->
-> -vlad
->
->>
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
