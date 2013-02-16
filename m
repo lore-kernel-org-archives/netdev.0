@@ -1,55 +1,54 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH net-next (V2)] ipv6: Queue fragments per interface
- for multicast/link-local addresses.
-Date: Sat, 16 Feb 2013 13:53:27 -0500
-Message-ID: <511FD5A7.3050207@redhat.com>
-References: <511F1E03.9010205@linux-ipv6.org>  <1360995918.19353.56.camel@edumazet-glaptop>  <511F6FF1.9000004@linux-ipv6.org> <1361031313.19353.63.camel@edumazet-glaptop>
-Reply-To: vyasevic@redhat.com
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: Re: [PATCH] bgmac: fix unaligned accesses to network headers
+Date: Sat, 16 Feb 2013 20:01:32 +0100
+Message-ID: <511FD78C.5000805@hauke-m.de>
+References: <1361025154-11612-1-git-send-email-hauke@hauke-m.de> <20130216103612.190d908e@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, davem@davemloft.net,
-	Ben Greear <greearb@candelatech.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22849 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753968Ab3BPSxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 13:53:35 -0500
-In-Reply-To: <1361031313.19353.63.camel@edumazet-glaptop>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:34823 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753987Ab3BPTBo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Feb 2013 14:01:44 -0500
+In-Reply-To: <20130216103612.190d908e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/16/2013 11:15 AM, Eric Dumazet wrote:
-> On Sat, 2013-02-16 at 20:39 +0900, YOSHIFUJI Hideaki wrote:
->
->> Could you elaborate, please?
+On 02/16/2013 07:36 PM, Stephen Hemminger wrote:
+> On Sat, 16 Feb 2013 15:32:34 +0100
+> Hauke Mehrtens <hauke@hauke-m.de> wrote:
+> 
+>> Without this patch I get many unaligned access warnings per packet,
+>> this patches fixes them all. This should improve performance ony some
+>> systems like mips.
 >>
->> The patch does not compare incoming interface if address is
->> non-link-local unicast address.
->
-> There must be a reason ipv6 reasm is duplicated in
-> net/ipv6/netfilter/nf_conntrack_reasm.c
->
-> netfilter uses the notion of ct zone, and several nics can belong to
-> same zone.
->
-> Anyway your patch touches netfilter land, so must be CC to netfilter
-> guys.
->
-> M:      Pablo Neira Ayuso <pablo@netfilter.org>
-> M:      Patrick McHardy <kaber@trash.net>
-> L:      netfilter-devel@vger.kernel.org
->
+>> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+>> ---
+>>  drivers/net/ethernet/broadcom/bgmac.c |    3 ++-
+>>  1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+>> index d341090..f9b1bc8 100644
+>> --- a/drivers/net/ethernet/broadcom/bgmac.c
+>> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+>> @@ -301,8 +301,9 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+>>  			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+>>  				  ring->start);
+>>  		} else {
+>> -			new_skb = netdev_alloc_skb(bgmac->net_dev, len);
+>> +			new_skb = netdev_alloc_skb(bgmac->net_dev, len + 2);
+>>  			if (new_skb) {
+>> +				skb_reserve(new_skb, 2);
+>>  				skb_put(new_skb, len);
+>>  				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
+>>  								 new_skb->data,
+> 
+> NAK. Use netdev_alloc_skb_ip_align instead. 
+> It is less error prone, and handles case of architectures where unaligned is faster.
 
-Looks like netfilter implementation will benefit from a similar patch as 
-well.  I like the idea of tagging the reassembly queue with the 
-interface and I think it would have application in netfilter as well.
-Link-local traffic is limited to the interface already, so that 
-shouldn't break netfilter assumptions.  Multicast traffic is also bound
-to an interface since group membership is per interface.  If multiple 
-interfaces are receiving the same fragmented multicast traffic, we want
-multiple reassembly queues, or we'd end up discarding.
+Thanks for the hint, I will send a better version of this patch.
 
--vlad
+Hauke
