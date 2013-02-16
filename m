@@ -1,52 +1,206 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/15] e1000e: display a warning message when SmartSpeed works
-Date: Sat, 16 Feb 2013 00:33:23 -0800
-Message-ID: <1361003616-3422-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/15] igbvf: Make next_to_watch a pointer and adjust memory barriers to avoid races
+Date: Sat, 16 Feb 2013 00:33:24 -0800
+Message-ID: <1361003616-3422-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Koki Sanagi <sanagi.koki@jp.fujitsu.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2804 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:14939 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751432Ab3BPIdl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 03:33:41 -0500
+	id S1751742Ab3BPIdm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Feb 2013 03:33:42 -0500
 In-Reply-To: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-Current e1000e driver doesn't tell nothing when Link Speed is downgraded due to
-SmartSpeed.  As a result, users suspect that there is something wrong with
-NIC.  If the cause of it is SmartSpeed, there is no means to replace NIC. This
-patch make e1000e notify users that SmartSpeed worked.
+This change is meant to address several race issues that become possible
+because next_to_watch could possibly be set to a value that shows that the
+descriptor is done when it is not.  In order to correct that we instead make
+next_to_watch a pointer that is set to NULL during cleanup, and set to the
+eop_desc after the descriptor rings have been written.
 
-Signed-off-by: Koki Sanagi <sanagi.koki@jp.fujitsu.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+To enforce proper ordering the next_to_watch pointer is not set until after
+a wmb writing the values to the last descriptor in a transmit.  In order to
+guarantee that the descriptor is not read until after the eop_desc we use the
+read_barrier_depends which is only really necessary on the alpha architecture.
+
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/ethernet/intel/igbvf/igbvf.h  |  2 +-
+ drivers/net/ethernet/intel/igbvf/netdev.c | 52 ++++++++++++++++++-------------
+ 2 files changed, 31 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 3f7dbd1..a177b8b 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4830,6 +4830,13 @@ static void e1000_watchdog_task(struct work_struct *work)
- 						   &adapter->link_speed,
- 						   &adapter->link_duplex);
- 			e1000_print_link_info(adapter);
+diff --git a/drivers/net/ethernet/intel/igbvf/igbvf.h b/drivers/net/ethernet/intel/igbvf/igbvf.h
+index fdca7b6..a1463e3 100644
+--- a/drivers/net/ethernet/intel/igbvf/igbvf.h
++++ b/drivers/net/ethernet/intel/igbvf/igbvf.h
+@@ -127,8 +127,8 @@ struct igbvf_buffer {
+ 		/* Tx */
+ 		struct {
+ 			unsigned long time_stamp;
++			union e1000_adv_tx_desc *next_to_watch;
+ 			u16 length;
+-			u16 next_to_watch;
+ 			u16 mapped_as_page;
+ 		};
+ 		/* Rx */
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index f53f713..d60cd43 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -797,20 +797,31 @@ static bool igbvf_clean_tx_irq(struct igbvf_ring *tx_ring)
+ 	struct sk_buff *skb;
+ 	union e1000_adv_tx_desc *tx_desc, *eop_desc;
+ 	unsigned int total_bytes = 0, total_packets = 0;
+-	unsigned int i, eop, count = 0;
++	unsigned int i, count = 0;
+ 	bool cleaned = false;
+ 
+ 	i = tx_ring->next_to_clean;
+-	eop = tx_ring->buffer_info[i].next_to_watch;
+-	eop_desc = IGBVF_TX_DESC_ADV(*tx_ring, eop);
++	buffer_info = &tx_ring->buffer_info[i];
++	eop_desc = buffer_info->next_to_watch;
 +
-+			/* check if SmartSpeed worked */
-+			e1000e_check_downshift(hw);
-+			if (phy->speed_downgraded)
-+				netdev_warn(netdev,
-+					    "Link Speed was downgraded by SmartSpeed\n");
++	do {
++		/* if next_to_watch is not set then there is no work pending */
++		if (!eop_desc)
++			break;
 +
- 			/* On supported PHYs, check for duplex mismatch only
- 			 * if link has autonegotiated at 10/100 half
- 			 */
++		/* prevent any other reads prior to eop_desc */
++		read_barrier_depends();
++
++		/* if DD is not set pending work has not been completed */
++		if (!(eop_desc->wb.status & cpu_to_le32(E1000_TXD_STAT_DD)))
++			break;
++
++		/* clear next_to_watch to prevent false hangs */
++		buffer_info->next_to_watch = NULL;
+ 
+-	while ((eop_desc->wb.status & cpu_to_le32(E1000_TXD_STAT_DD)) &&
+-	       (count < tx_ring->count)) {
+-		rmb();	/* read buffer_info after eop_desc status */
+ 		for (cleaned = false; !cleaned; count++) {
+ 			tx_desc = IGBVF_TX_DESC_ADV(*tx_ring, i);
+-			buffer_info = &tx_ring->buffer_info[i];
+-			cleaned = (i == eop);
++			cleaned = (tx_desc == eop_desc);
+ 			skb = buffer_info->skb;
+ 
+ 			if (skb) {
+@@ -831,10 +842,12 @@ static bool igbvf_clean_tx_irq(struct igbvf_ring *tx_ring)
+ 			i++;
+ 			if (i == tx_ring->count)
+ 				i = 0;
++
++			buffer_info = &tx_ring->buffer_info[i];
+ 		}
+-		eop = tx_ring->buffer_info[i].next_to_watch;
+-		eop_desc = IGBVF_TX_DESC_ADV(*tx_ring, eop);
+-	}
++
++		eop_desc = buffer_info->next_to_watch;
++	} while (count < tx_ring->count);
+ 
+ 	tx_ring->next_to_clean = i;
+ 
+@@ -1961,7 +1974,6 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
+ 	context_desc->seqnum_seed = 0;
+ 
+ 	buffer_info->time_stamp = jiffies;
+-	buffer_info->next_to_watch = i;
+ 	buffer_info->dma = 0;
+ 	i++;
+ 	if (i == tx_ring->count)
+@@ -2021,7 +2033,6 @@ static inline bool igbvf_tx_csum(struct igbvf_adapter *adapter,
+ 		context_desc->mss_l4len_idx = 0;
+ 
+ 		buffer_info->time_stamp = jiffies;
+-		buffer_info->next_to_watch = i;
+ 		buffer_info->dma = 0;
+ 		i++;
+ 		if (i == tx_ring->count)
+@@ -2061,8 +2072,7 @@ static int igbvf_maybe_stop_tx(struct net_device *netdev, int size)
+ 
+ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+                                    struct igbvf_ring *tx_ring,
+-                                   struct sk_buff *skb,
+-                                   unsigned int first)
++				   struct sk_buff *skb)
+ {
+ 	struct igbvf_buffer *buffer_info;
+ 	struct pci_dev *pdev = adapter->pdev;
+@@ -2077,7 +2087,6 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+ 	buffer_info->length = len;
+ 	/* set time_stamp *before* dma to help avoid a possible race */
+ 	buffer_info->time_stamp = jiffies;
+-	buffer_info->next_to_watch = i;
+ 	buffer_info->mapped_as_page = false;
+ 	buffer_info->dma = dma_map_single(&pdev->dev, skb->data, len,
+ 					  DMA_TO_DEVICE);
+@@ -2100,7 +2109,6 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+ 		BUG_ON(len >= IGBVF_MAX_DATA_PER_TXD);
+ 		buffer_info->length = len;
+ 		buffer_info->time_stamp = jiffies;
+-		buffer_info->next_to_watch = i;
+ 		buffer_info->mapped_as_page = true;
+ 		buffer_info->dma = skb_frag_dma_map(&pdev->dev, frag, 0, len,
+ 						DMA_TO_DEVICE);
+@@ -2109,7 +2117,6 @@ static inline int igbvf_tx_map_adv(struct igbvf_adapter *adapter,
+ 	}
+ 
+ 	tx_ring->buffer_info[i].skb = skb;
+-	tx_ring->buffer_info[first].next_to_watch = i;
+ 
+ 	return ++count;
+ 
+@@ -2120,7 +2127,6 @@ dma_error:
+ 	buffer_info->dma = 0;
+ 	buffer_info->time_stamp = 0;
+ 	buffer_info->length = 0;
+-	buffer_info->next_to_watch = 0;
+ 	buffer_info->mapped_as_page = false;
+ 	if (count)
+ 		count--;
+@@ -2139,7 +2145,8 @@ dma_error:
+ 
+ static inline void igbvf_tx_queue_adv(struct igbvf_adapter *adapter,
+                                       struct igbvf_ring *tx_ring,
+-                                      int tx_flags, int count, u32 paylen,
++				      int tx_flags, int count,
++				      unsigned int first, u32 paylen,
+                                       u8 hdr_len)
+ {
+ 	union e1000_adv_tx_desc *tx_desc = NULL;
+@@ -2189,6 +2196,7 @@ static inline void igbvf_tx_queue_adv(struct igbvf_adapter *adapter,
+ 	 * such as IA-64). */
+ 	wmb();
+ 
++	tx_ring->buffer_info[first].next_to_watch = tx_desc;
+ 	tx_ring->next_to_use = i;
+ 	writel(i, adapter->hw.hw_addr + tx_ring->tail);
+ 	/* we need this if more than one processor can write to our tail
+@@ -2255,11 +2263,11 @@ static netdev_tx_t igbvf_xmit_frame_ring_adv(struct sk_buff *skb,
+ 	 * count reflects descriptors mapped, if 0 then mapping error
+ 	 * has occurred and we need to rewind the descriptor queue
+ 	 */
+-	count = igbvf_tx_map_adv(adapter, tx_ring, skb, first);
++	count = igbvf_tx_map_adv(adapter, tx_ring, skb);
+ 
+ 	if (count) {
+ 		igbvf_tx_queue_adv(adapter, tx_ring, tx_flags, count,
+-		                   skb->len, hdr_len);
++				   first, skb->len, hdr_len);
+ 		/* Make sure there is space in the ring for the next send. */
+ 		igbvf_maybe_stop_tx(netdev, MAX_SKB_FRAGS + 4);
+ 	} else {
 -- 
 1.7.11.7
