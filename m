@@ -1,50 +1,39 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: tg3 question: Why use misc_host_ctrl not pci_chip_rev_id
- here?
-Date: Sat, 16 Feb 2013 12:54:17 -0800
-Message-ID: <1361048057.2240.1.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1360968076.21068.28.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, "Jeff Garzik" <jeff@garzik.org>,
-	"David Miller" <davem@davemloft.net>,
-	"Matt Carlson" <mcarlson@broadcom.com>
-To: "Joe Perches" <joe@perches.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH v2] bgmac: fix unaligned accesses to network headers
+Date: Sat, 16 Feb 2013 22:10:38 +0100
+Message-ID: <1361049038-25924-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, netdev@vger.kernel.org,
+	stephen@networkplumber.org, Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1305 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753065Ab3BPUy2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 15:54:28 -0500
-In-Reply-To: <1360968076.21068.28.camel@joe-AO722>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:34935 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754379Ab3BPVKr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Feb 2013 16:10:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-02-15 at 14:41 -0800, Joe Perches wrote: 
-> This code is in the original 2002 tg3 commit from Jeff.
-> (line 15764 today)
-> 
-> static int tg3_get_invariants(struct tg3 *tp, const struct pci_device_id *ent)
-> []
-> 	if ((pci_state_reg & PCISTATE_CONV_PCI_MODE) == 0 &&
-> 	    !tg3_flag(tp, PCIX_TARGET_HWBUG)) {
-> (15764)		u32 chiprevid = GET_CHIP_REV_ID(tp->misc_host_ctrl)
-> 
-> 		if (chiprevid == CHIPREV_ID_5701_A0 ||
-> 		    chiprevid == CHIPREV_ID_5701_B0 ||
-> 		    chiprevid == CHIPREV_ID_5701_B2 ||
-> 		    chiprevid == CHIPREV_ID_5701_B5) {
-> 
-> This is the only test of GET_CHIP_REV_ID.
-> 
-> Shouldn't that GET_CHIP_REV_ID(tp->misc_host_ctrl)
-> and the tests below it be converted to tests like
-> 
-> 	tp->pci_chip_rev_id == CHIPREV_ID_5701_A0
-> 
-> to be similar to all the pci_chip_rev_id tests that
-> the code in the same function uses?
+Without this patch I get many unaligned access warnings per packet,
+this patches fixes them all. This should improve performance on some
+systems like mips.
 
-Yes, I agree with you that the 2 methods are the same and we should make
-everything consistent.  Thanks.
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index d341090..3fd3288 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -301,7 +301,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+ 				  ring->start);
+ 		} else {
+-			new_skb = netdev_alloc_skb(bgmac->net_dev, len);
++			new_skb = netdev_alloc_skb_ip_align(bgmac->net_dev, len);
+ 			if (new_skb) {
+ 				skb_put(new_skb, len);
+ 				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
+-- 
+1.7.10.4
