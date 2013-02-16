@@ -1,39 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] ip: fix warning in xfrm4_mode_tunnel_input
-Date: Sat, 16 Feb 2013 09:40:29 -0800
-Message-ID: <20130216094029.4d2fc993@nehalam.linuxnetplumber.net>
-References: <20130216093815.45e2d8b2@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33632 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753514Ab3BPRkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 12:40:47 -0500
-Received: by mail-pa0-f51.google.com with SMTP id hz1so2183600pad.10
-        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 09:40:46 -0800 (PST)
-In-Reply-To: <20130216093815.45e2d8b2@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kumar Amit Mehta <gmate.amit@gmail.com>
+Subject: [PATCH] ethernet: neterion: vxge: vxge-traffic.c: fix for a potential NULL pointer dereference
+Date: Sat, 16 Feb 2013 09:56:34 -0800
+Message-ID: <1361037394-14731-1-git-send-email-gmate.amit@gmail.com>
+Cc: davem@davemloft.net, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: jdmason@kudzu.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Same problem as IPv6
+fix for a potential NULL pointer dereference and removal of a redundant
+assignment operation. Found using smatch.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+---
+ drivers/net/ethernet/neterion/vxge/vxge-traffic.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-
---- a/net/ipv4/xfrm4_mode_tunnel.c	2013-02-16 09:09:41.388937316 -0800
-+++ b/net/ipv4/xfrm4_mode_tunnel.c	2013-02-16 09:39:21.849910500 -0800
-@@ -142,7 +142,8 @@ static int xfrm4_mode_tunnel_input(struc
- 	for_each_input_rcu(rcv_notify_handlers, handler)
- 		handler->handler(skb);
+diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+index 99749bd..adb05a8 100644
+--- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
++++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+@@ -611,11 +611,8 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
+ 	struct vxge_hw_vpath_stats_sw_info *sw_stats;
+ 	struct vxge_hw_vpath_reg __iomem *vp_reg;
  
--	if (err = skb_unclone(skb, GFP_ATOMIC))
-+	err = skb_unclone(skb, GFP_ATOMIC);
-+	if (err)
- 		goto out;
+-	if (vpath == NULL) {
+-		alarm_event = VXGE_HW_SET_LEVEL(VXGE_HW_EVENT_UNKNOWN,
+-			alarm_event);
++	if (vpath == NULL)
+ 		goto out2;
+-	}
  
- 	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
+ 	hldev = vpath->hldev;
+ 	vp_reg = vpath->vp_reg;
+@@ -852,13 +849,12 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
+ 	}
+ out:
+ 	hldev->stats.sw_dev_err_stats.vpath_alarms++;
++	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
+ out2:
+ 	if ((alarm_event == VXGE_HW_EVENT_ALARM_CLEARED) ||
+ 		(alarm_event == VXGE_HW_EVENT_UNKNOWN))
+ 		return VXGE_HW_OK;
+ 
+-	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
+-
+ 	if (alarm_event == VXGE_HW_EVENT_SERR)
+ 		return VXGE_HW_ERR_CRITICAL;
+ 
+-- 
+1.7.9.5
