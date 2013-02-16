@@ -1,71 +1,75 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH 1/2] net: fec: Do a sanity check on the gpio number
-Date: Sat, 16 Feb 2013 20:53:26 -0200
-Message-ID: <1361055207-22870-1-git-send-email-festevam@gmail.com>
-Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH net-next v2 1/4] ipv6: introduce new type ipv6_addr_props
+ to hold ipv6 address type and scope
+Date: Sun, 17 Feb 2013 08:18:16 +0900
+Message-ID: <512013B8.3000608@linux-ipv6.org>
+References: <20130216191008.GA23272@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, brian.haley@hp.com,
+	hannes@stressinduktion.org,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f171.google.com ([209.85.160.171]:34864 "EHLO
-	mail-gh0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754370Ab3BPW6t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 17:58:49 -0500
-Received: by mail-gh0-f171.google.com with SMTP id r17so348567ghr.16
-        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 14:58:48 -0800 (PST)
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56605 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754687Ab3BPXSR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 18:18:17 -0500
+In-Reply-To: <20130216191008.GA23272@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+Hannes Frederic Sowa wrote:
+> This simplifies ipv6 address type handling. The old implementation had
+> the problem that scope and type where both squeezed into one int. Because
+> of this it was dangerous to do comparisons on it or check for scope while
+> it is actually being stripped out. This patch mainly improves type safety.
+> 
+> v2:
+> a) Incorportated feedback from Brian Haley
+> b) fix style in addrconf_core.c:__ipv6_addr_props
+> 
+> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Cc: Brian Haley <brian.haley@hp.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  include/net/ipv6.h       | 20 ++++++----
+>  net/ipv6/addrconf.c      | 28 +++++++-------
+>  net/ipv6/addrconf_core.c | 99 +++++++++++++++++++++++++++++++-----------------
+>  net/ipv6/datagram.c      | 12 +++---
+>  4 files changed, 99 insertions(+), 60 deletions(-)
+> 
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index 851d541..a14700c 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -298,25 +298,31 @@ static inline int ip6_frag_mem(struct net *net)
+>  #define IPV6_FRAG_LOW_THRESH	(3 * 1024*1024)	/* 3145728 */
+>  #define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
+>  
+> -extern int __ipv6_addr_type(const struct in6_addr *addr);
+> -static inline int ipv6_addr_type(const struct in6_addr *addr)
+> +struct ipv6_addr_props {
+> +	u16 type;
+> +	s16 scope;
+> +};
+> +
+> +extern struct ipv6_addr_props __ipv6_addr_props(const struct in6_addr *addr);
+> +static inline unsigned int ipv6_addr_type(const struct in6_addr *addr)
+>  {
+> -	return __ipv6_addr_type(addr) & 0xffff;
+> +	return __ipv6_addr_props(addr).type;
+>  }
+>  
+>  static inline int ipv6_addr_scope(const struct in6_addr *addr)
+>  {
+> -	return __ipv6_addr_type(addr) & IPV6_ADDR_SCOPE_MASK;
+> +	return __ipv6_addr_props(addr).scope;
+>  }
+>  
 
-Since commit 372e722ea4d (gpiolib: use descriptors internally) the following 
-warning is seen on a mx28evk board:
+NAK.  This does not return correct value as before.
+If you are going to covert this, please do not try to
+change usage of inlines.  
 
-[    5.116291] ------------[ cut here ]------------
-[    5.121306] WARNING: at drivers/gpio/gpiolib.c:125 gpio_to_desc+0x30/0x44()
-[    5.128491] invalid GPIO -2
-[    5.131563] Modules linked in:
-[    5.134846] [<c0014e20>] (unwind_backtrace+0x0/0xf4) from [<c001d428>] (warn_slowpath_common+0x4c/0x68)
-[    5.144682] [<c001d428>] (warn_slowpath_common+0x4c/0x68) from [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40)
-[    5.154693] [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40) from [<c0283434>] (gpio_to_desc+0x30/0x44)
-[    5.164002] [<c0283434>] (gpio_to_desc+0x30/0x44) from [<c0285470>] (gpio_request_one+0x10/0xe8)
-[    5.173294] [<c0285470>] (gpio_request_one+0x10/0xe8) from [<c0282f50>] (devm_gpio_request_one+0x40/0x74)
-[    5.183332] [<c0282f50>] (devm_gpio_request_one+0x40/0x74) from [<c0319be0>] (fec_probe+0x2d0/0x99c)
-[    5.192923] [<c0319be0>] (fec_probe+0x2d0/0x99c) from [<c02c8114>] (platform_drv_probe+0x14/0x18)
-[    5.202228] [<c02c8114>] (platform_drv_probe+0x14/0x18) from [<c02c6e00>] (driver_probe_device+0x90/0x224)
-[    5.212332] [<c02c6e00>] (driver_probe_device+0x90/0x224) from [<c02c7028>] (__driver_attach+0x94/0x98)
-[    5.222162] [<c02c7028>] (__driver_attach+0x94/0x98) from [<c02c5750>] (bus_for_each_dev+0x78/0x98)
-[    5.231642] [<c02c5750>] (bus_for_each_dev+0x78/0x98) from [<c02c5fd0>] (bus_add_driver+0x1a4/0x240)
-[    5.241207] [<c02c5fd0>] (bus_add_driver+0x1a4/0x240) from [<c02c7608>] (driver_register+0x78/0x140)
-[    5.250768] [<c02c7608>] (driver_register+0x78/0x140) from [<c00087a4>] (do_one_initcall+0x30/0x17c)
-[    5.260347] [<c00087a4>] (do_one_initcall+0x30/0x17c) from [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0)
-[    5.270381] [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0) from [<c044dfd4>] (kernel_init+0x8/0xe4)
-[    5.279886] [<c044dfd4>] (kernel_init+0x8/0xe4) from [<c000f248>] (ret_from_fork+0x14/0x2c)
-[    5.288740] ---[ end trace c15c72a22979d58d ]--- 
-
-mx28evk has two ethernet controllers. The GPIO that performs the 
-ethernet reset on both ports is the same GPIO, so on the board dts file, only in
-one ethernet instance is passed the GPIO reset property.
-
-Validate the gpio number prior to requesting it in order to avoid such warning.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 0fe68c4..5864a67 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1689,6 +1689,9 @@ static void fec_reset_phy(struct platform_device *pdev)
- 		msec = 1;
- 
- 	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
-+	if (!gpio_is_valid(phy_reset))
-+		return;
-+
- 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
- 				    GPIOF_OUT_INIT_LOW, "phy-reset");
- 	if (err) {
--- 
-1.7.9.5
+--yoshfuji
