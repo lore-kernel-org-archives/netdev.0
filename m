@@ -1,47 +1,52 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH vringh 2/2] caif_virtio: Introduce caif over virtio
-Date: Fri, 15 Feb 2013 15:05:42 +1030
-Message-ID: <87bobmjish.fsf@rustcorp.com.au>
-References: <1360494273-27889-1-git-send-email-sjur.brandeland@stericsson.com>
-	<1360494273-27889-3-git-send-email-sjur.brandeland@stericsson.com>
-	<87vc9zfic8.fsf@rustcorp.com.au>
-	<81C3A93C17462B4BBD7E272753C105792458EDD161@EXDCVYMBSTM005.EQ1STM.local>
-	<87ehgklds9.fsf@rustcorp.com.au>
-	<CAJK669YQ+x5zXSZA1FQHkRrcCt+SgZP-M_ea-Ey8ziGLhq9cqQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next v2] netpoll: add some missing __rcu marks in
+ several places
+Date: Fri, 15 Feb 2013 20:10:23 -0800
+Message-ID: <1360987823.19353.42.camel@edumazet-glaptop>
+References: <20130213223935.122d035b@nehalam.linuxnetplumber.net>
+	 <1360831039-11418-1-git-send-email-amwang@redhat.com>
+	 <20130214.132054.2237485951582283881.davem@davemloft.net>
+	 <1360984587.12539.2.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Vikram ARV <vikram.arv@stericsson.com>,
-	Dmitry TARNYAGIN <dmitry.tarnyagin@stericsson.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linus Walleij <linus.walleij@linaro.org>, Ido Yariv <ido@wizery.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Erwan YVIN <erwan.yvin@stericsson.com>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Sjur =?utf-8?Q?Br=C3=A6ndeland?= <sjurbren@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAJK669YQ+x5zXSZA1FQHkRrcCt+SgZP-M_ea-Ey8ziGLhq9cqQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jiri@resnulli.us, vyasevic@redhat.com, stephen@networkplumber.org
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:40890 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099Ab3BPEK0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 23:10:26 -0500
+Received: by mail-pa0-f50.google.com with SMTP id fa11so2053138pad.9
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 20:10:26 -0800 (PST)
+In-Reply-To: <1360984587.12539.2.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U2p1ciBCcsOmbmRlbGFuZCA8c2p1cmJyZW5AZ21haWwuY29tPiB3cml0ZXM6Cj4gSG93IGFib3V0
-IHN1cHBvcnRpbmcgc3RydWN0IHZyaW5naF9raW92IGFuZCBzdHJ1Y3Qga3ZlYyBhcyB3ZWxsPwo+
-IEkgY3VycmVudGx5IGdldCB0aGUgZm9sbG93aW5nIGNvbXBsYWludHMgd2l0aCBteSBWMiBwYXRj
-aC1zZXQ6Cj4KPiBkcml2ZXJzL25ldC9jYWlmL2NhaWZfdmlydGlvLmM6NDg2OjI6IHdhcm5pbmc6
-IHBhc3NpbmcgYXJndW1lbnQgMSBvZgo+IOKAmHZyaW5naF9pb3ZfaW5pdOKAmSBmcm9tIGluY29t
-cGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJsZWQgYnkgZGVmYXVsdF0KCnZyaW5naF9raW92X2lu
-aXQoKT8gIERpZCBJIG1pc3Mgc29tZXRoaW5nIGVsc2U/CgpDaGVlcnMsClJ1c3R5LgpfX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBt
-YWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0
-cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6
-YXRpb24=
+On Sat, 2013-02-16 at 11:16 +0800, Cong Wang wrote:
+
+> The reason is we don't dereference ->npinfo pointer, we just check if it
+> is NULL, so doesn't need to call rcu_dereference(). Or am I missing
+> anything?
+
+Yes you are missing that the right thing to do is to use
+rcu_access_pointer()
+
+Sparse errors should not be fixed using random RCU verbs,
+please be more careful.
+
+
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 05c5efe..03e5949 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -950,7 +950,7 @@ static void team_port_disable_netpoll(struct team_port *port)
+ 
+ static struct netpoll_info *team_netpoll_info(struct team *team)
+ {
+-	return team->dev->npinfo;
++	return rcu_access_pointer(team->dev->npinfo);
+ }
+ 
+ #else
