@@ -1,83 +1,128 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v3] net: fix some RCU warnings in various places
-Date: Sat, 16 Feb 2013 13:48:00 +0800
-Message-ID: <1360993680-7992-1-git-send-email-amwang@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: [RFC PATCH net-next (V2)] ipv6: Queue fragments per interface for
+ multicast/link-local addresses.
+Date: Sat, 16 Feb 2013 14:49:55 +0900
+Message-ID: <511F1E03.9010205@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>,
 	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+	Eric Dumazet <eric.dumazet@gmail.com>, yoshfuji@linux-ipv6.org
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26462 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750788Ab3BPFsS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 00:48:18 -0500
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:59664 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750753Ab3BPFt5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 00:49:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+We should queue fragments for the same link-local address on
+different interfaces (e.g. fe80::1%eth0 and fe80::1%eth1) to the
+different queue, because of nature of addressing architecture.
 
-This fixes sparse warnings like the one below:
+Similarly, we should queue fragments for multicast on different
+interface to the different queue.  This is okay because
+application joins group on speicific interface, and multicast
+traffic is expected only on that interface.
 
-drivers/net/team/team.c:953:25: warning: incorrect type in return expression (different address spaces)
-drivers/net/team/team.c:953:25:    expected struct netpoll_info *
-drivers/net/team/team.c:953:25:    got struct netpoll_info [noderef] <asn:4>*npinfo
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+CC: Ben Greear <greearb@candelatech.com>
+CC: Vlad Yasevich <vyasevic@redhat.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 ---
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 94c1534..71ad0f2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1302,7 +1302,7 @@ static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, g
+ include/net/ipv6.h                      |    1 +
+ net/ipv6/netfilter/nf_conntrack_reasm.c |    9 +++++++--
+ net/ipv6/reassembly.c                   |   10 ++++++++--
+ 3 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 851d541..1af98aa 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -463,6 +463,7 @@ enum ip6_defrag_users {
+ struct ip6_create_arg {
+ 	__be32 id;
+ 	u32 user;
++	int ifindex;
+ 	const struct in6_addr *src;
+ 	const struct in6_addr *dst;
+ };
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index c674f15..acd1820 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -163,7 +163,8 @@ static void nf_ct_frag6_expire(unsigned long data)
  
- static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
+ /* Creation primitives. */
+ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
+-					 u32 user, struct in6_addr *src,
++					 u32 user, int ifindex,
++					 struct in6_addr *src,
+ 					 struct in6_addr *dst)
  {
--	return bond->dev->npinfo;
-+	return rcu_access_pointer(bond->dev->npinfo);
+ 	struct inet_frag_queue *q;
+@@ -171,6 +172,10 @@ static inline struct frag_queue *fq_find(struct net *net, __be32 id,
+ 	unsigned int hash;
+ 
+ 	arg.id = id;
++	if (ipv6_addr_type(dst) & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL))
++		arg.ifindex = ifindex;
++	else
++		arg.ifindex = 0;
+ 	arg.user = user;
+ 	arg.src = src;
+ 	arg.dst = dst;
+@@ -572,7 +577,7 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
+ 	inet_frag_evictor(&net->nf_frag.frags, &nf_frags, false);
+ 	local_bh_enable();
+ 
+-	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr);
++	fq = fq_find(net, fhdr->identification, user, dev->ifindex, &hdr->saddr, &hdr->daddr);
+ 	if (fq == NULL) {
+ 		pr_debug("Can't find and can't create new queue\n");
+ 		goto ret_orig;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index bab2c27..18c5e3c 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -113,6 +113,7 @@ bool ip6_frag_match(struct inet_frag_queue *q, void *a)
+ 
+ 	fq = container_of(q, struct frag_queue, q);
+ 	return	fq->id == arg->id &&
++		(!arg->ifindex || fq->iif == arg->ifindex) &&
+ 		fq->user == arg->user &&
+ 		ipv6_addr_equal(&fq->saddr, arg->src) &&
+ 		ipv6_addr_equal(&fq->daddr, arg->dst);
+@@ -182,13 +183,17 @@ static void ip6_frag_expire(unsigned long data)
  }
  
- #else
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 05c5efe..03e5949 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -950,7 +950,7 @@ static void team_port_disable_netpoll(struct team_port *port)
- 
- static struct netpoll_info *team_netpoll_info(struct team *team)
+ static __inline__ struct frag_queue *
+-fq_find(struct net *net, __be32 id, const struct in6_addr *src, const struct in6_addr *dst)
++fq_find(struct net *net, __be32 id, int ifindex, const struct in6_addr *src, const struct in6_addr *dst)
  {
--	return team->dev->npinfo;
-+	return rcu_access_pointer(team->dev->npinfo);
- }
+ 	struct inet_frag_queue *q;
+ 	struct ip6_create_arg arg;
+ 	unsigned int hash;
  
- #else
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 6d314c4..0aa1b84 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -330,7 +330,7 @@ extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
- {
--	return br->dev->npinfo;
-+	return rcu_access_pointer(br->dev->npinfo);
- }
+ 	arg.id = id;
++	if (ipv6_addr_type(dst) & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LINKLOCAL))
++		arg.ifindex = ifindex;
++	else
++		arg.ifindex = 0;
+ 	arg.user = IP6_DEFRAG_LOCAL_DELIVER;
+ 	arg.src = src;
+ 	arg.dst = dst;
+@@ -534,7 +539,8 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 		IP6_ADD_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
+ 				 IPSTATS_MIB_REASMFAILS, evicted);
  
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
-@@ -469,7 +469,7 @@ extern void br_multicast_free_pg(struct rcu_head *head);
- extern struct net_bridge_port_group *br_multicast_new_port_group(
- 				struct net_bridge_port *port,
- 				struct br_ip *group,
--				struct net_bridge_port_group *next,
-+				struct net_bridge_port_group __rcu *next,
- 				unsigned char state);
- extern void br_mdb_init(void);
- extern void br_mdb_uninit(void);
+-	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr);
++	fq = fq_find(net, fhdr->identification, skb->dev->ifindex,
++		     &hdr->saddr, &hdr->daddr);
+ 	if (fq != NULL) {
+ 		int ret;
+ 
+-- 
+1.7.9.5
