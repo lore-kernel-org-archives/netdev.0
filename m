@@ -1,49 +1,45 @@
-From: dyoung@redhat.com
-Subject: [PATCH]net: ehea module param description fix
-Date: Sat, 16 Feb 2013 14:19:19 +0800
-Message-ID: <511f24e7.iqc1+9PTu6xF8JTF%dyoung@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next v3] net: fix some RCU warnings in various places
+Date: Fri, 15 Feb 2013 22:23:24 -0800
+Message-ID: <1360995804.19353.55.camel@edumazet-glaptop>
+References: <1360993680-7992-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@resnulli.us>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:8303 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750788Ab3BPGS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 01:18:57 -0500
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:52141 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751181Ab3BPGX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 01:23:28 -0500
+Received: by mail-pa0-f50.google.com with SMTP id fa11so2027263pad.37
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 22:23:27 -0800 (PST)
+In-Reply-To: <1360993680-7992-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In ehea.h the minimal entries is 2^7 - 1:
-#define EHEA_MIN_ENTRIES_QP  127
+On Sat, 2013-02-16 at 13:48 +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+> 
+> This fixes sparse warnings like the one below:
 
-Thus change the module param description accordinglly
+>  static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+> @@ -469,7 +469,7 @@ extern void br_multicast_free_pg(struct rcu_head *head);
+>  extern struct net_bridge_port_group *br_multicast_new_port_group(
+>  				struct net_bridge_port *port,
+>  				struct br_ip *group,
+> -				struct net_bridge_port_group *next,
+> +				struct net_bridge_port_group __rcu *next,
+>  				unsigned char state);
+>  extern void br_mdb_init(void);
+>  extern void br_mdb_uninit(void);
 
-Signed-off-by: Dave Young <dyoung@redhat.com>
----
- drivers/net/ethernet/ibm/ehea/ehea_main.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+This part is wrong, please remove the __rcu annotation in function
+definition.
 
---- linux-2.6.orig/drivers/net/ethernet/ibm/ehea/ehea_main.c
-+++ linux-2.6/drivers/net/ethernet/ibm/ehea/ehea_main.c
-@@ -76,16 +76,16 @@ MODULE_PARM_DESC(msg_level, "msg_level")
- MODULE_PARM_DESC(prop_carrier_state, "Propagate carrier state of physical "
- 		 "port to stack. 1:yes, 0:no.  Default = 0 ");
- MODULE_PARM_DESC(rq3_entries, "Number of entries for Receive Queue 3 "
--		 "[2^x - 1], x = [6..14]. Default = "
-+		 "[2^x - 1], x = [7..14]. Default = "
- 		 __MODULE_STRING(EHEA_DEF_ENTRIES_RQ3) ")");
- MODULE_PARM_DESC(rq2_entries, "Number of entries for Receive Queue 2 "
--		 "[2^x - 1], x = [6..14]. Default = "
-+		 "[2^x - 1], x = [7..14]. Default = "
- 		 __MODULE_STRING(EHEA_DEF_ENTRIES_RQ2) ")");
- MODULE_PARM_DESC(rq1_entries, "Number of entries for Receive Queue 1 "
--		 "[2^x - 1], x = [6..14]. Default = "
-+		 "[2^x - 1], x = [7..14]. Default = "
- 		 __MODULE_STRING(EHEA_DEF_ENTRIES_RQ1) ")");
- MODULE_PARM_DESC(sq_entries, " Number of entries for the Send Queue  "
--		 "[2^x - 1], x = [6..14]. Default = "
-+		 "[2^x - 1], x = [7..14]. Default = "
- 		 __MODULE_STRING(EHEA_DEF_ENTRIES_SQ) ")");
- MODULE_PARM_DESC(use_mcs, " Multiple receive queues, 1: enable, 0: disable, "
- 		 "Default = 1");
+To perform " rcu_assign_pointer(p->next, next); ", there is no need to
+annotate "next" with __rcu
