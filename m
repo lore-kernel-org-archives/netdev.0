@@ -1,40 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: Universal tap device
-Date: Sat, 16 Feb 2013 17:54:30 +0100
-Message-ID: <20130216165430.GC1536@minipsycho.orion>
-References: <20130216140132.GB1536@minipsycho.orion>
- <alpine.LNX.2.01.1302161743180.8831@nerf07.vanv.qr>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next] ipv6: fix warning in xfrm6_mode_tunnel_input
+Date: Sat, 16 Feb 2013 09:38:15 -0800
+Message-ID: <20130216093815.45e2d8b2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, arnd@arndb.de, ebiederm@xmission.com,
-	stephen@networkplumber.org, eric.dumazet@gmail.com,
-	davem@davemloft.net
-To: Jan Engelhardt <jengelh@inai.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f171.google.com ([209.85.215.171]:61264 "EHLO
-	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753065Ab3BPQyf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 11:54:35 -0500
-Received: by mail-ea0-f171.google.com with SMTP id c13so1925686eaa.16
-        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 08:54:33 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1302161743180.8831@nerf07.vanv.qr>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:57972 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753710Ab3BPRie (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 12:38:34 -0500
+Received: by mail-pb0-f54.google.com with SMTP id rr4so1051439pbb.41
+        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 09:38:33 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Feb 16, 2013 at 05:46:25PM CET, jengelh@inai.de wrote:
->On Saturday 2013-02-16 15:01, Jiri Pirko wrote:
->
->>Hi all.                                                                  
->>                                                                         
->>Looking at macvtap and thinking about the tap solutions in general,
->>I think it would be handly to have some universal tap device.
->
->As in, allowing tuntap to register as an rx_handler for arbitrary
->devices?
+Should not use assignment in conditional:
+ warning: suggest parentheses around assignment used as truth value [-Wparentheses]
 
-Essentially yes, but I was thinking without the actual netdev:
-not eth0 -> tap0 -> chardev
-but eth0 -> chardev
+Problem introduced by:
+commit 14bbd6a565e1bcdc240d44687edb93f721cfdf99
+Author: Pravin B Shelar <pshelar@nicira.com>
+Date:   Thu Feb 14 09:44:49 2013 +0000
 
-Not sure though if that is easily doable..
+    net: Add skb_unclone() helper function.
+    
+
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+
+
+--- a/net/ipv6/xfrm6_mode_tunnel.c	2013-02-16 09:09:41.388937316 -0800
++++ b/net/ipv6/xfrm6_mode_tunnel.c	2013-02-16 09:33:49.906203566 -0800
+@@ -69,7 +69,8 @@ static int xfrm6_mode_tunnel_input(struc
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		goto out;
+ 
+-	if (err = skb_unclone(skb, GFP_ATOMIC))
++	err = skb_unclone(skb, GFP_ATOMIC);
++	if (err)
+ 		goto out;
+ 
+ 	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
