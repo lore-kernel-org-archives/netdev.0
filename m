@@ -1,75 +1,28 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH net-next v2 1/4] ipv6: introduce new type ipv6_addr_props
- to hold ipv6 address type and scope
-Date: Sun, 17 Feb 2013 08:18:16 +0900
-Message-ID: <512013B8.3000608@linux-ipv6.org>
-References: <20130216191008.GA23272@order.stressinduktion.org>
+From: "Lin Wei Chou" <willy@mail.sinotech.com.tw>
+Subject: Dear Email User
+Date: Sun, 17 Feb 2013 07:17:34 +0800
+Message-ID: <20130216230340.M40600@mail.sinotech.com.tw>
+Reply-To: webmaster@admin.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, brian.haley@hp.com,
-	hannes@stressinduktion.org,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain;
+	charset=big5
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:56605 "EHLO
-	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754687Ab3BPXSR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 18:18:17 -0500
-In-Reply-To: <20130216191008.GA23272@order.stressinduktion.org>
+Received: from mail.sinotech.com.tw ([59.120.42.115]:59346 "EHLO
+	mail.sinotech.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754906Ab3BPXXy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 18:23:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hannes Frederic Sowa wrote:
-> This simplifies ipv6 address type handling. The old implementation had
-> the problem that scope and type where both squeezed into one int. Because
-> of this it was dangerous to do comparisons on it or check for scope while
-> it is actually being stripped out. This patch mainly improves type safety.
-> 
-> v2:
-> a) Incorportated feedback from Brian Haley
-> b) fix style in addrconf_core.c:__ipv6_addr_props
-> 
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Cc: Brian Haley <brian.haley@hp.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  include/net/ipv6.h       | 20 ++++++----
->  net/ipv6/addrconf.c      | 28 +++++++-------
->  net/ipv6/addrconf_core.c | 99 +++++++++++++++++++++++++++++++-----------------
->  net/ipv6/datagram.c      | 12 +++---
->  4 files changed, 99 insertions(+), 60 deletions(-)
-> 
-> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-> index 851d541..a14700c 100644
-> --- a/include/net/ipv6.h
-> +++ b/include/net/ipv6.h
-> @@ -298,25 +298,31 @@ static inline int ip6_frag_mem(struct net *net)
->  #define IPV6_FRAG_LOW_THRESH	(3 * 1024*1024)	/* 3145728 */
->  #define IPV6_FRAG_TIMEOUT	(60 * HZ)	/* 60 seconds */
->  
-> -extern int __ipv6_addr_type(const struct in6_addr *addr);
-> -static inline int ipv6_addr_type(const struct in6_addr *addr)
-> +struct ipv6_addr_props {
-> +	u16 type;
-> +	s16 scope;
-> +};
-> +
-> +extern struct ipv6_addr_props __ipv6_addr_props(const struct in6_addr *addr);
-> +static inline unsigned int ipv6_addr_type(const struct in6_addr *addr)
->  {
-> -	return __ipv6_addr_type(addr) & 0xffff;
-> +	return __ipv6_addr_props(addr).type;
->  }
->  
->  static inline int ipv6_addr_scope(const struct in6_addr *addr)
->  {
-> -	return __ipv6_addr_type(addr) & IPV6_ADDR_SCOPE_MASK;
-> +	return __ipv6_addr_props(addr).scope;
->  }
->  
+We are currently undergoing email maintenance to prevent your account from 
+closing, you are required to VERIFY your account.
 
-NAK.  This does not return correct value as before.
-If you are going to covert this, please do not try to
-change usage of inlines.  
+click email link below; http://goo.gl/8S7PM
 
---yoshfuji
+Warning! All web mail account owners who refuse to update his or her account 
+within two days of receiving this MESSAGE will lose his or her account 
+permanently. 
+
+Thank you for using our webmail service. 
+Webmaster
