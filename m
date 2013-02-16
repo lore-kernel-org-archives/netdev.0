@@ -1,41 +1,133 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] bgmac: fix unaligned accesses to network headers
-Date: Sat, 16 Feb 2013 15:32:34 +0100
-Message-ID: <1361025154-11612-1-git-send-email-hauke@hauke-m.de>
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: PROBLEM: Software injected vlan tagged packets are unable to
+ be identified using recent BPF modifications
+Date: Sat, 16 Feb 2013 15:34:53 +0100
+Message-ID: <511F990D.3080503@redhat.com>
+References: <CAOUgPvQP2RrngPPf=hYxpPdGSQ4L-Db0T-BMDwVg6iy8LTAu=Q@mail.gmail.com> <20130108103811.GA1621@minipsycho.orion> <87fw0y6o2f.fsf@xmission.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	Paul Pearce <pearce@cs.berkeley.edu>, netdev@vger.kernel.org,
+	tcpdump-workers@lists.tcpdump.org, davem@davemloft.net,
+	edumazet@google.com, jpirko@redhat.com,
+	Ani Sinha <ani@aristanetworks.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:34459 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753236Ab3BPOco (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 09:32:44 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:51300 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753204Ab3BPOfK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Feb 2013 09:35:10 -0500
+In-Reply-To: <87fw0y6o2f.fsf@xmission.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Without this patch I get many unaligned access warnings per packet,
-this patches fixes them all. This should improve performance ony some
-systems like mips.
+On 02/15/2013 08:20 AM, Eric W. Biederman wrote:
+>> Tue, Jan 08, 2013 at 01:05:39AM CET, pearce@cs.berkeley.edu wrote:
+>>> Hello folks,
+>>>
+>>> PROBLEM:
+>>>
+>>> vlan tagged packets that are injected via software are not picked up
+>>> by filters using recent (kernel commit
+>>> f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
+>>> BPF vlan modifications. I suspect this is a problem with the Linux
+>>> kernel.
+>>>
+>>> linux-netdev and tcpdump-workers are both cc'd.
+>>>
+>>> BACKGROUND:
+>>>
+>>> Kernel commit bcc6d47903612c3861201cc3a866fb604f26b8b2 (Jiri
+>>> Pirko/David S. Miller) removed vlan headers on rx packets prior to
+>>> them reaching the packet filters. This broke BPF/libpcap's ability to
+>>> do kernel-level packet filtering based on vlan tag information (the
+>>> 'vlan' keyword).
+>>>
+>>> Kernel commit f3335031b9452baebfe49b8b5e55d3fe0c4677d1 (Eric
+>>> Dumazet/David S. Miller, just merged into Linus's tree
+>>> http://git.kernel.org/?p=linux/kernel/git/torvalds/linux.git;a=commit;h=f3335031b9452baebfe49b8b5e55d3fe0c4677d1)
+>>> added the ability to use BPF to once again filter based on vlan
+>>> tags. Related bpf jit commit:
+>>> http://www.spinics.net/lists/netdev/msg214759.html
+>>>
+>>> libpcap (Ani Sinha) recently RFC'd a patch to use Eric/David's BPF
+>>> modifications to restore vlan filtering to libpcap.
+>>> http://www.mail-archive.com/tcpdump-workers@lists.tcpdump.org/msg06810.html
+>>> I'm using this patch and it works.
+>>>
+>>> DETAILS:
+>>>
+>>> Under these patches vlan tagged packets received from mediam (actual
+>>> packets from the wire) can be identified based on vlan tag information
+>>> using the new BPF functionality.This is good.
+>>>
+>>> However, raw vlan tagged packets that are *injected* into the
+>>> interface using libpcap's pcap_inject() (which is just a fancy wrapper
+>>> for the send() syscall) are not identified by filters using the recent
+>>> BPF modifications.
+>>>
+>>> The bug manifests itself if you attempt to use the new BPF
+>>> modifications to filter vlan tagged packets on a live interface. All
+>>> packets from the medium show up, but all injected packets are dropped.
+>>>
+>>> Prior to commit bcc6d47 both medium and injected packets could both be
+>>> identified using BPFs.
+>>>
+>>> These injected packets can however still be identified using the
+>>> previous, now incorrect "offset into the header" technique. Given
+>>> this, I suspect what's going on is the kernel code path for these
+>>> injected packets is not setting skb->vlan_tci correctly (at all?).
+>>> Since the vlan tag is not in the skb data structure the new BPF
+>>> modifications don't identify the packets as having a vlan tag,
+>>> despite it being in the packet header.
+>>
+>>
+>> You are right. skb->vlan_tci is not set. Looking at packet_snd() function
+>> in net/packet/af_packet.c I guess that something like following patch
+>> would be needed:
+>>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index e639645..2238559 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -2292,6 +2292,12 @@ static int packet_snd(struct socket *sock,
+>>   	if (unlikely(extra_len == 4))
+>>   		skb->no_fcs = 1;
+>>
+>> +	if (skb->protocol == cpu_to_be16(ETH_P_8021Q)) {
+>> +		skb = vlan_untag(skb);
+>> +		if (unlikely(!skb))
+>> +			goto out_unlock;
+>> +	}
+>> +
+>>   	/*
+>>   	 *	Now send it
+>>   	 */
+>>
+>> Thoughts?
+>
+> That sounds about right.  I don't know how much NIC drivers care but it
+> looks like af_packet is the only path through the code that can generate
+> a vlan tagged packet that we will transmit where a vlan tagged packet
+> can be generated without setting vlan_tci.  So it should make the code
+> safer.
+>
+> Certainly we want this to look to the vlan driver like a proper case of
+> nested vlans and not something weird.
+>
+> But note we need to handle tpacket_snd as well as packet_snd.
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/bgmac.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Isn't this overkill? vlan_untag() in TX path performs internally a memmove(),
+not sure if its worth the effort, and in the worst case, if your driver doesn't
+support vlan hw accel, it puts the tag back in via yet another memmove() before
+transmission via __vlan_put_tag() in dev_hard_start_xmit().
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index d341090..f9b1bc8 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -301,8 +301,9 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
- 				  ring->start);
- 		} else {
--			new_skb = netdev_alloc_skb(bgmac->net_dev, len);
-+			new_skb = netdev_alloc_skb(bgmac->net_dev, len + 2);
- 			if (new_skb) {
-+				skb_reserve(new_skb, 2);
- 				skb_put(new_skb, len);
- 				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
- 								 new_skb->data,
--- 
-1.7.10.4
+Besides, it also doesn't solve the issue that was stated here, if I'm not
+mistaken. Isn't the problem, that when you send such a packet while a local
+packet analyser is running at the same time, that back on the input path
+vlan_tci is reset to 0 and you won't be able to use the vlan_tci JIT filter
+if your NIC doesn't have hw accel? This change therefore doesn't help in
+this situation either.
+
+The better solution might be to generate a different BPF code in userland, no?
