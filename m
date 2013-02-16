@@ -1,53 +1,51 @@
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Subject: [PATCH] ethernet: neterion: vxge: vxge-traffic.c: fix for a potential NULL pointer dereference
-Date: Sat, 16 Feb 2013 09:56:34 -0800
-Message-ID: <1361037394-14731-1-git-send-email-gmate.amit@gmail.com>
-Cc: davem@davemloft.net, joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: jdmason@kudzu.us
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] bgmac: fix unaligned accesses to network headers
+Date: Sat, 16 Feb 2013 10:36:12 -0800
+Message-ID: <20130216103612.190d908e@nehalam.linuxnetplumber.net>
+References: <1361025154-11612-1-git-send-email-hauke@hauke-m.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, zajec5@gmail.com, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:34416 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753967Ab3BPSgb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 13:36:31 -0500
+Received: by mail-pb0-f54.google.com with SMTP id rr4so1042826pbb.13
+        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 10:36:30 -0800 (PST)
+In-Reply-To: <1361025154-11612-1-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-fix for a potential NULL pointer dereference and removal of a redundant
-assignment operation. Found using smatch.
+On Sat, 16 Feb 2013 15:32:34 +0100
+Hauke Mehrtens <hauke@hauke-m.de> wrote:
 
-Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
----
- drivers/net/ethernet/neterion/vxge/vxge-traffic.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+> Without this patch I get many unaligned access warnings per packet,
+> this patches fixes them all. This should improve performance ony some
+> systems like mips.
+> 
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+> index d341090..f9b1bc8 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -301,8 +301,9 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+>  			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+>  				  ring->start);
+>  		} else {
+> -			new_skb = netdev_alloc_skb(bgmac->net_dev, len);
+> +			new_skb = netdev_alloc_skb(bgmac->net_dev, len + 2);
+>  			if (new_skb) {
+> +				skb_reserve(new_skb, 2);
+>  				skb_put(new_skb, len);
+>  				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
+>  								 new_skb->data,
 
-diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-index 99749bd..adb05a8 100644
---- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-+++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-@@ -611,11 +611,8 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
- 	struct vxge_hw_vpath_stats_sw_info *sw_stats;
- 	struct vxge_hw_vpath_reg __iomem *vp_reg;
- 
--	if (vpath == NULL) {
--		alarm_event = VXGE_HW_SET_LEVEL(VXGE_HW_EVENT_UNKNOWN,
--			alarm_event);
-+	if (vpath == NULL)
- 		goto out2;
--	}
- 
- 	hldev = vpath->hldev;
- 	vp_reg = vpath->vp_reg;
-@@ -852,13 +849,12 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
- 	}
- out:
- 	hldev->stats.sw_dev_err_stats.vpath_alarms++;
-+	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
- out2:
- 	if ((alarm_event == VXGE_HW_EVENT_ALARM_CLEARED) ||
- 		(alarm_event == VXGE_HW_EVENT_UNKNOWN))
- 		return VXGE_HW_OK;
- 
--	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
--
- 	if (alarm_event == VXGE_HW_EVENT_SERR)
- 		return VXGE_HW_ERR_CRITICAL;
- 
--- 
-1.7.9.5
+NAK. Use netdev_alloc_skb_ip_align instead. 
+It is less error prone, and handles case of architectures where unaligned is faster.
