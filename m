@@ -1,37 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Universal tap device
-Date: Sat, 16 Feb 2013 15:01:32 +0100
-Message-ID: <20130216140132.GB1536@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: arnd@arndb.de, ebiederm@xmission.com, stephen@networkplumber.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] bgmac: fix unaligned accesses to network headers
+Date: Sat, 16 Feb 2013 15:32:34 +0100
+Message-ID: <1361025154-11612-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:47765 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753204Ab3BPOBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 09:01:37 -0500
-Received: by mail-ee0-f48.google.com with SMTP id t10so2218462eei.7
-        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 06:01:36 -0800 (PST)
-Content-Disposition: inline
+Received: from server19320154104.serverpool.info ([193.201.54.104]:34459 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753236Ab3BPOco (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Feb 2013 09:32:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all.                                                                  
-                                                                         
-Looking at macvtap and thinking about the tap solutions in general, I    
-think it would be handly to have some universal tap device.              
-                                                                         
-This could use rx_handler to hook onto any netdev and provide chardev    
-tap-like iface to it. Using that, one can just hook onto macvlan device  
-and macvtap would not be needed.                                         
-                                                                         
-This would allow other scenarios like vxlan-tap, vlan-tap, bond-tap or   
-whatever.                                                                
-                                                                         
-Does this idea seem to be reasonable?                                    
-                                                                         
-Thanks                                                                   
-                                                                         
-Jiri
+Without this patch I get many unaligned access warnings per packet,
+this patches fixes them all. This should improve performance ony some
+systems like mips.
+
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index d341090..f9b1bc8 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -301,8 +301,9 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+ 				  ring->start);
+ 		} else {
+-			new_skb = netdev_alloc_skb(bgmac->net_dev, len);
++			new_skb = netdev_alloc_skb(bgmac->net_dev, len + 2);
+ 			if (new_skb) {
++				skb_reserve(new_skb, 2);
+ 				skb_put(new_skb, len);
+ 				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
+ 								 new_skb->data,
+-- 
+1.7.10.4
