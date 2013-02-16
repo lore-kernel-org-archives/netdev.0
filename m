@@ -1,93 +1,192 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/15] ixgbe: Add support for set_channels ethtool operation
-Date: Sat, 16 Feb 2013 00:33:31 -0800
-Message-ID: <1361003616-3422-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] ixgbe: Define FCoE and Flow director limits much sooner to allow for changes
+Date: Sat, 16 Feb 2013 00:33:26 -0800
+Message-ID: <1361003616-3422-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	Ben Hutchings <bhutchings@solarflare.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:14939 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:21658 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752489Ab3BPIds (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 03:33:48 -0500
+	id S1752444Ab3BPIdp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 16 Feb 2013 03:33:45 -0500
 In-Reply-To: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-This change adds support for the ethtool set_channels operation.
+Instead of adjusting the FCoE and Flow director limits based on the number
+of CPUs we can define them much sooner.  This allows the user to come
+through later and adjust them once we have updated the code to support the
+set_channels ethtool operation.
 
-Since the ixgbe driver has to support DCB as well as the other modes the
-assumption I made here is that the number of channels in DCB modes refers
-to the number of queues per traffic class, not the number of queues total.
+I am still allowing for FCoE and RSS queues to be separated if the number
+queues is less than the number of CPUs.  This essentially treats the two
+groupings like they are two separate traffic classes.
 
-CC: Ben Hutchings <bhutchings@solarflare.com>
+In addition I am changing the initialization to use the MAX_TX/RX_QUEUES
+defines instead of trying to compute the value as it will be possible in
+upcoming patches for the user to request the maximum number of queues.
+
+I have also updated things so that the upper limit on queues is exactly 63
+instead of allowing it to go up to 64.  The reason for this change is to
+address the fact thqt the driver only supports up to 63 queue vectors since
+the hardware supports 64 MSI-X vectors, but one must be reserved for "other"
+causes.
+
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 38 ++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h      | 11 +++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c  |  7 +-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 36 +++++++++++----------------
+ 3 files changed, 19 insertions(+), 35 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index cba27c6..7349a8b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -2802,6 +2802,43 @@ static void ixgbe_get_channels(struct net_device *dev,
- 	ch->combined_count = adapter->ring_feature[RING_F_FDIR].indices;
- }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index d268c7b..4a2831c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -278,15 +278,10 @@ enum ixgbe_ring_f_enum {
  
-+static int ixgbe_set_channels(struct net_device *dev,
-+			      struct ethtool_channels *ch)
-+{
-+	struct ixgbe_adapter *adapter = netdev_priv(dev);
-+	unsigned int count = ch->combined_count;
-+
-+	/* verify they are not requesting separate vectors */
-+	if (!count || ch->rx_count || ch->tx_count)
-+		return -EINVAL;
-+
-+	/* verify other_count has not changed */
-+	if (ch->other_count != NON_Q_VECTORS)
-+		return -EINVAL;
-+
-+	/* verify the number of channels does not exceed hardware limits */
-+	if (count > ixgbe_max_channels(adapter))
-+		return -EINVAL;
-+
-+	/* update feature limits from largest to smallest supported values */
-+	adapter->ring_feature[RING_F_FDIR].limit = count;
-+
-+	/* cap RSS limit at 16 */
-+	if (count > IXGBE_MAX_RSS_INDICES)
-+		count = IXGBE_MAX_RSS_INDICES;
-+	adapter->ring_feature[RING_F_RSS].limit = count;
-+
-+#ifdef IXGBE_FCOE
-+	/* cap FCoE limit at 8 */
-+	if (count > IXGBE_FCRETA_SIZE)
-+		count = IXGBE_FCRETA_SIZE;
-+	adapter->ring_feature[RING_F_FCOE].limit = count;
-+
-+#endif
-+	/* use setup TC to update any traffic class queue mapping */
-+	return ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
-+}
-+
- static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_settings           = ixgbe_get_settings,
- 	.set_settings           = ixgbe_set_settings,
-@@ -2831,6 +2868,7 @@ static const struct ethtool_ops ixgbe_ethtool_ops = {
- 	.get_rxnfc		= ixgbe_get_rxnfc,
- 	.set_rxnfc		= ixgbe_set_rxnfc,
- 	.get_channels		= ixgbe_get_channels,
-+	.set_channels		= ixgbe_set_channels,
- 	.get_ts_info		= ixgbe_get_ts_info,
- };
+ #define IXGBE_MAX_RSS_INDICES  16
+ #define IXGBE_MAX_VMDQ_INDICES 64
+-#define IXGBE_MAX_FDIR_INDICES 64
+-#ifdef IXGBE_FCOE
++#define IXGBE_MAX_FDIR_INDICES 63	/* based on q_vector limit */
+ #define IXGBE_MAX_FCOE_INDICES  8
+-#define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDICES)
+-#define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + IXGBE_MAX_FCOE_INDICES)
+-#else
+-#define MAX_RX_QUEUES IXGBE_MAX_FDIR_INDICES
+-#define MAX_TX_QUEUES IXGBE_MAX_FDIR_INDICES
+-#endif /* IXGBE_FCOE */
++#define MAX_RX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
++#define MAX_TX_QUEUES (IXGBE_MAX_FDIR_INDICES + 1)
+ struct ixgbe_ring_feature {
+ 	u16 limit;	/* upper limit on feature indices */
+ 	u16 indices;	/* current value of indices */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+index 9ffa330..9fafa38 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+@@ -386,7 +386,6 @@ static bool ixgbe_set_dcb_sriov_queues(struct ixgbe_adapter *adapter)
+ 		fcoe = &adapter->ring_feature[RING_F_FCOE];
  
+ 		/* limit ourselves based on feature limits */
+-		fcoe_i = min_t(u16, fcoe_i, num_online_cpus());
+ 		fcoe_i = min_t(u16, fcoe_i, fcoe->limit);
+ 
+ 		if (fcoe_i) {
+@@ -562,9 +561,6 @@ static bool ixgbe_set_sriov_queues(struct ixgbe_adapter *adapter)
+ 		fcoe_i = min_t(u16, fcoe_i, fcoe->limit);
+ 
+ 		if (vmdq_i > 1 && fcoe_i) {
+-			/* reserve no more than number of CPUs */
+-			fcoe_i = min_t(u16, fcoe_i, num_online_cpus());
+-
+ 			/* alloc queues for FCoE separately */
+ 			fcoe->indices = fcoe_i;
+ 			fcoe->offset = vmdq_i * rss_i;
+@@ -623,8 +619,7 @@ static bool ixgbe_set_rss_queues(struct ixgbe_adapter *adapter)
+ 	if (rss_i > 1 && adapter->atr_sample_rate) {
+ 		f = &adapter->ring_feature[RING_F_FDIR];
+ 
+-		f->indices = min_t(u16, num_online_cpus(), f->limit);
+-		rss_i = max_t(u16, rss_i, f->indices);
++		rss_i = f->indices = f->limit;
+ 
+ 		if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+ 			adapter->flags |= IXGBE_FLAG_FDIR_HASH_CAPABLE;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 1d5e093..5fd1667 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -4465,7 +4465,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ {
+ 	struct ixgbe_hw *hw = &adapter->hw;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	unsigned int rss;
++	unsigned int rss, fdir;
+ 	u32 fwsm;
+ #ifdef CONFIG_IXGBE_DCB
+ 	int j;
+@@ -4485,9 +4485,10 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	adapter->ring_feature[RING_F_RSS].limit = rss;
+ 	adapter->flags2 |= IXGBE_FLAG2_RSC_CAPABLE;
+ 	adapter->flags2 |= IXGBE_FLAG2_RSC_ENABLED;
+-	adapter->ring_feature[RING_F_FDIR].limit = IXGBE_MAX_FDIR_INDICES;
+ 	adapter->max_q_vectors = MAX_Q_VECTORS_82599;
+ 	adapter->atr_sample_rate = 20;
++	fdir = min_t(int, IXGBE_MAX_FDIR_INDICES, num_online_cpus());
++	adapter->ring_feature[RING_F_FDIR].limit = fdir;
+ 	adapter->fdir_pballoc = IXGBE_FDIR_PBALLOC_64K;
+ #ifdef CONFIG_IXGBE_DCA
+ 	adapter->flags |= IXGBE_FLAG_DCA_CAPABLE;
+@@ -7230,9 +7231,8 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
+ 	static int cards_found;
+ 	int i, err, pci_using_dac;
++	unsigned int indices = MAX_TX_QUEUES;
+ 	u8 part_str[IXGBE_PBANUM_LENGTH];
+-	unsigned int indices = num_possible_cpus();
+-	unsigned int dcb_max = 0;
+ #ifdef IXGBE_FCOE
+ 	u16 device_caps;
+ #endif
+@@ -7281,25 +7281,15 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
++	if (ii->mac == ixgbe_mac_82598EB) {
+ #ifdef CONFIG_IXGBE_DCB
+-	if (ii->mac == ixgbe_mac_82598EB)
+-		dcb_max = min_t(unsigned int, indices * MAX_TRAFFIC_CLASS,
+-				IXGBE_MAX_RSS_INDICES);
+-	else
+-		dcb_max = min_t(unsigned int, indices * MAX_TRAFFIC_CLASS,
+-				IXGBE_MAX_FDIR_INDICES);
++		/* 8 TC w/ 4 queues per TC */
++		indices = 4 * MAX_TRAFFIC_CLASS;
++#else
++		indices = IXGBE_MAX_RSS_INDICES;
+ #endif
++	}
+ 
+-	if (ii->mac == ixgbe_mac_82598EB)
+-		indices = min_t(unsigned int, indices, IXGBE_MAX_RSS_INDICES);
+-	else
+-		indices = min_t(unsigned int, indices, IXGBE_MAX_FDIR_INDICES);
+-
+-#ifdef IXGBE_FCOE
+-	indices += min_t(unsigned int, num_possible_cpus(),
+-			 IXGBE_MAX_FCOE_INDICES);
+-#endif
+-	indices = max_t(unsigned int, dcb_max, indices);
+ 	netdev = alloc_etherdev_mq(sizeof(struct ixgbe_adapter), indices);
+ 	if (!netdev) {
+ 		err = -ENOMEM;
+@@ -7454,13 +7444,17 @@ skip_sriov:
+ 
+ #ifdef IXGBE_FCOE
+ 	if (adapter->flags & IXGBE_FLAG_FCOE_CAPABLE) {
++		unsigned int fcoe_l;
++
+ 		if (hw->mac.ops.get_device_caps) {
+ 			hw->mac.ops.get_device_caps(hw, &device_caps);
+ 			if (device_caps & IXGBE_DEVICE_CAPS_FCOE_OFFLOADS)
+ 				adapter->flags &= ~IXGBE_FLAG_FCOE_CAPABLE;
+ 		}
+ 
+-		adapter->ring_feature[RING_F_FCOE].limit = IXGBE_FCRETA_SIZE;
++
++		fcoe_l = min_t(int, IXGBE_FCRETA_SIZE, num_online_cpus());
++		adapter->ring_feature[RING_F_FCOE].limit = fcoe_l;
+ 
+ 		netdev->features |= NETIF_F_FSO |
+ 				    NETIF_F_FCOE_CRC;
 -- 
 1.7.11.7
