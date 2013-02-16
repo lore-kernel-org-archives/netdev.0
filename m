@@ -1,119 +1,213 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/15] ixgbe: cleanup error checking in ixgbe_identify_sfp_module_generic()
-Date: Sat, 16 Feb 2013 00:33:33 -0800
-Message-ID: <1361003616-3422-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/15] ixgbe: implement SFF diagnostic monitoring via ethtool
+Date: Sat, 16 Feb 2013 00:33:34 -0800
+Message-ID: <1361003616-3422-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Aur=C3=A9lien=20Guillaume?= <footplus@gmail.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:2804 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:14939 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752491Ab3BPIds (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752507Ab3BPIds (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 16 Feb 2013 03:33:48 -0500
 In-Reply-To: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+=46rom: Aur=C3=A9lien Guillaume <footplus@gmail.com>
 
-This patch replaces instances where a return code from i2c operations
-were checked against a list of error codes with a much simpler
-if ( status != 0 ) check.
+This patch adds support for reading data from SFP+ modules over i2c.
 
-Some whitespace cleanups included.
-
+Signed-off-by: Aur=C3=A9lien Guillaume <footplus@gmail.com>
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c | 34 ++++++++--------------------
- 1 file changed, 10 insertions(+), 24 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c | 114 +++++++++++++++=
+++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   4 +
+ 3 files changed, 119 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-index d7b5bd0..060d2ad 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_phy.c
-@@ -852,11 +852,9 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 
- 	status = hw->phy.ops.read_i2c_eeprom(hw,
- 					     IXGBE_SFF_IDENTIFIER,
--	                                     &identifier);
-+					     &identifier);
- 
--	if (status == IXGBE_ERR_SWFW_SYNC ||
--	    status == IXGBE_ERR_I2C ||
--	    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+	if (status != 0)
- 		goto err_read_i2c_eeprom;
- 
- 	/* LAN ID is needed for sfp_type determination */
-@@ -870,26 +868,20 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 						     IXGBE_SFF_1GBE_COMP_CODES,
- 						     &comp_codes_1g);
- 
--		if (status == IXGBE_ERR_SWFW_SYNC ||
--		    status == IXGBE_ERR_I2C ||
--		    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+		if (status != 0)
- 			goto err_read_i2c_eeprom;
- 
- 		status = hw->phy.ops.read_i2c_eeprom(hw,
- 						     IXGBE_SFF_10GBE_COMP_CODES,
- 						     &comp_codes_10g);
- 
--		if (status == IXGBE_ERR_SWFW_SYNC ||
--		    status == IXGBE_ERR_I2C ||
--		    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+		if (status != 0)
- 			goto err_read_i2c_eeprom;
- 		status = hw->phy.ops.read_i2c_eeprom(hw,
- 						     IXGBE_SFF_CABLE_TECHNOLOGY,
- 						     &cable_tech);
- 
--		if (status == IXGBE_ERR_SWFW_SYNC ||
--		    status == IXGBE_ERR_I2C ||
--		    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+		if (status != 0)
- 			goto err_read_i2c_eeprom;
- 
- 		 /* ID Module
-@@ -984,30 +976,24 @@ s32 ixgbe_identify_sfp_module_generic(struct ixgbe_hw *hw)
- 		if (hw->phy.type != ixgbe_phy_nl) {
- 			hw->phy.id = identifier;
- 			status = hw->phy.ops.read_i2c_eeprom(hw,
--			                            IXGBE_SFF_VENDOR_OUI_BYTE0,
--			                            &oui_bytes[0]);
-+						    IXGBE_SFF_VENDOR_OUI_BYTE0,
-+						    &oui_bytes[0]);
- 
--			if (status == IXGBE_ERR_SWFW_SYNC ||
--			    status == IXGBE_ERR_I2C ||
--			    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+			if (status != 0)
- 				goto err_read_i2c_eeprom;
- 
- 			status = hw->phy.ops.read_i2c_eeprom(hw,
- 			                            IXGBE_SFF_VENDOR_OUI_BYTE1,
- 			                            &oui_bytes[1]);
- 
--			if (status == IXGBE_ERR_SWFW_SYNC ||
--			    status == IXGBE_ERR_I2C ||
--			    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+			if (status != 0)
- 				goto err_read_i2c_eeprom;
- 
- 			status = hw->phy.ops.read_i2c_eeprom(hw,
- 			                            IXGBE_SFF_VENDOR_OUI_BYTE2,
- 			                            &oui_bytes[2]);
- 
--			if (status == IXGBE_ERR_SWFW_SYNC ||
--			    status == IXGBE_ERR_I2C ||
--			    status == IXGBE_ERR_SFP_NOT_PRESENT)
-+			if (status != 0)
- 				goto err_read_i2c_eeprom;
- 
- 			vendor_oui =
--- 
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/eth=
+ernet/intel/ixgbe/ixgbe.h
+index b91f9b6..196002b 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -620,6 +620,7 @@ enum ixgbe_state_t {
+ 	__IXGBE_DOWN,
+ 	__IXGBE_SERVICE_SCHED,
+ 	__IXGBE_IN_SFP_INIT,
++	__IXGBE_READ_I2C,
+ };
+=20
+ struct ixgbe_cb {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers=
+/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index 7349a8b..e6cebdc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -39,6 +39,7 @@
+ #include <linux/uaccess.h>
+=20
+ #include "ixgbe.h"
++#include "ixgbe_phy.h"
+=20
+=20
+ #define IXGBE_ALL_RAR_ENTRIES 16
+@@ -2839,6 +2840,117 @@ static int ixgbe_set_channels(struct net_device=
+ *dev,
+ 	return ixgbe_setup_tc(dev, netdev_get_num_tc(dev));
+ }
+=20
++static int ixgbe_get_module_info(struct net_device *dev,
++				       struct ethtool_modinfo *modinfo)
++{
++	struct ixgbe_adapter *adapter =3D netdev_priv(dev);
++	struct ixgbe_hw *hw =3D &adapter->hw;
++	u32 status;
++	u8 sff8472_rev, addr_mode;
++	int ret_val =3D 0;
++	bool page_swap =3D false;
++
++	/* avoid concurent i2c reads */
++	while (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
++		msleep(100);
++
++	/* used by the service task */
++	set_bit(__IXGBE_READ_I2C, &adapter->state);
++
++	/* Check whether we support SFF-8472 or not */
++	status =3D hw->phy.ops.read_i2c_eeprom(hw,
++					     IXGBE_SFF_SFF_8472_COMP,
++					     &sff8472_rev);
++	if (status !=3D 0) {
++		ret_val =3D -EIO;
++		goto err_out;
++	}
++
++	/* addressing mode is not supported */
++	status =3D hw->phy.ops.read_i2c_eeprom(hw,
++					     IXGBE_SFF_SFF_8472_SWAP,
++					     &addr_mode);
++	if (status !=3D 0) {
++		ret_val =3D -EIO;
++		goto err_out;
++	}
++
++	if (addr_mode & IXGBE_SFF_ADDRESSING_MODE) {
++		e_err(drv, "Address change required to access page 0xA2, but not sup=
+ported. Please report the module type to the driver maintainers.\n");
++		page_swap =3D true;
++	}
++
++	if (sff8472_rev =3D=3D IXGBE_SFF_SFF_8472_UNSUP || page_swap) {
++		/* We have a SFP, but it does not support SFF-8472 */
++		modinfo->type =3D ETH_MODULE_SFF_8079;
++		modinfo->eeprom_len =3D ETH_MODULE_SFF_8079_LEN;
++	} else {
++		/* We have a SFP which supports a revision of SFF-8472. */
++		modinfo->type =3D ETH_MODULE_SFF_8472;
++		modinfo->eeprom_len =3D ETH_MODULE_SFF_8472_LEN;
++	}
++
++err_out:
++	clear_bit(__IXGBE_READ_I2C, &adapter->state);
++	return ret_val;
++}
++
++static int ixgbe_get_module_eeprom(struct net_device *dev,
++					 struct ethtool_eeprom *ee,
++					 u8 *data)
++{
++	struct ixgbe_adapter *adapter =3D netdev_priv(dev);
++	struct ixgbe_hw *hw =3D &adapter->hw;
++	u32 status =3D IXGBE_ERR_PHY_ADDR_INVALID;
++	u8 databyte =3D 0xFF;
++	int i =3D 0;
++	int ret_val =3D 0;
++
++	/* ixgbe_get_module_info is called before this function in all
++	 * cases, so we do not need any checks we already do above,
++	 * and can trust ee->len to be a known value.
++	 */
++
++	while (test_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
++		msleep(100);
++	set_bit(__IXGBE_READ_I2C, &adapter->state);
++
++	/* Read the first block, SFF-8079 */
++	for (i =3D 0; i < ETH_MODULE_SFF_8079_LEN; i++) {
++		status =3D hw->phy.ops.read_i2c_eeprom(hw, i, &databyte);
++		if (status !=3D 0) {
++			/* Error occured while reading module */
++			ret_val =3D -EIO;
++			goto err_out;
++		}
++		data[i] =3D databyte;
++	}
++
++	/* If the second block is requested, check if SFF-8472 is supported. =
+*/
++	if (ee->len =3D=3D ETH_MODULE_SFF_8472_LEN) {
++		if (data[IXGBE_SFF_SFF_8472_COMP] =3D=3D IXGBE_SFF_SFF_8472_UNSUP)
++			return -EOPNOTSUPP;
++
++		/* Read the second block, SFF-8472 */
++		for (i =3D ETH_MODULE_SFF_8079_LEN;
++		     i < ETH_MODULE_SFF_8472_LEN; i++) {
++			status =3D hw->phy.ops.read_i2c_sff8472(hw,
++				i - ETH_MODULE_SFF_8079_LEN, &databyte);
++			if (status !=3D 0) {
++				/* Error occured while reading module */
++				ret_val =3D -EIO;
++				goto err_out;
++			}
++			data[i] =3D databyte;
++		}
++	}
++
++err_out:
++	clear_bit(__IXGBE_READ_I2C, &adapter->state);
++
++	return ret_val;
++}
++
+ static const struct ethtool_ops ixgbe_ethtool_ops =3D {
+ 	.get_settings           =3D ixgbe_get_settings,
+ 	.set_settings           =3D ixgbe_set_settings,
+@@ -2870,6 +2982,8 @@ static const struct ethtool_ops ixgbe_ethtool_ops=
+ =3D {
+ 	.get_channels		=3D ixgbe_get_channels,
+ 	.set_channels		=3D ixgbe_set_channels,
+ 	.get_ts_info		=3D ixgbe_get_ts_info,
++	.get_module_info	=3D ixgbe_get_module_info,
++	.get_module_eeprom	=3D ixgbe_get_module_eeprom,
+ };
+=20
+ void ixgbe_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/ne=
+t/ethernet/intel/ixgbe/ixgbe_main.c
+index aea252a..b0b72fc 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5709,6 +5709,10 @@ static void ixgbe_sfp_detection_subtask(struct i=
+xgbe_adapter *adapter)
+ 	    !(adapter->flags2 & IXGBE_FLAG2_SFP_NEEDS_RESET))
+ 		return;
+=20
++	/* concurent i2c reads are not supported */
++	if (test_bit(__IXGBE_READ_I2C, &adapter->state))
++		return;
++
+ 	/* someone else is in init, wait until next service event */
+ 	if (test_and_set_bit(__IXGBE_IN_SFP_INIT, &adapter->state))
+ 		return;
+--=20
 1.7.11.7
