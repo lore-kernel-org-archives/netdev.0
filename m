@@ -1,44 +1,71 @@
 From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH 2/2] net: fec: Improve logging
-Date: Sat, 16 Feb 2013 20:53:27 -0200
-Message-ID: <1361055207-22870-2-git-send-email-festevam@gmail.com>
-References: <1361055207-22870-1-git-send-email-festevam@gmail.com>
+Subject: [PATCH 1/2] net: fec: Do a sanity check on the gpio number
+Date: Sat, 16 Feb 2013 20:53:26 -0200
+Message-ID: <1361055207-22870-1-git-send-email-festevam@gmail.com>
 Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
 	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:33145 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754905Ab3BPWxr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 17:53:47 -0500
-Received: by mail-gg0-f174.google.com with SMTP id k5so343967ggd.5
-        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 14:53:46 -0800 (PST)
-In-Reply-To: <1361055207-22870-1-git-send-email-festevam@gmail.com>
+Received: from mail-gh0-f171.google.com ([209.85.160.171]:34864 "EHLO
+	mail-gh0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754370Ab3BPW6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 16 Feb 2013 17:58:49 -0500
+Received: by mail-gh0-f171.google.com with SMTP id r17so348567ghr.16
+        for <netdev@vger.kernel.org>; Sat, 16 Feb 2013 14:58:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Fabio Estevam <fabio.estevam@freescale.com>
 
-In case the request of the GPIO reset fails it is interesting to log
-such error even if DEBUG is not enabled, so promote the message to dev_err. 
+Since commit 372e722ea4d (gpiolib: use descriptors internally) the following 
+warning is seen on a mx28evk board:
+
+[    5.116291] ------------[ cut here ]------------
+[    5.121306] WARNING: at drivers/gpio/gpiolib.c:125 gpio_to_desc+0x30/0x44()
+[    5.128491] invalid GPIO -2
+[    5.131563] Modules linked in:
+[    5.134846] [<c0014e20>] (unwind_backtrace+0x0/0xf4) from [<c001d428>] (warn_slowpath_common+0x4c/0x68)
+[    5.144682] [<c001d428>] (warn_slowpath_common+0x4c/0x68) from [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40)
+[    5.154693] [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40) from [<c0283434>] (gpio_to_desc+0x30/0x44)
+[    5.164002] [<c0283434>] (gpio_to_desc+0x30/0x44) from [<c0285470>] (gpio_request_one+0x10/0xe8)
+[    5.173294] [<c0285470>] (gpio_request_one+0x10/0xe8) from [<c0282f50>] (devm_gpio_request_one+0x40/0x74)
+[    5.183332] [<c0282f50>] (devm_gpio_request_one+0x40/0x74) from [<c0319be0>] (fec_probe+0x2d0/0x99c)
+[    5.192923] [<c0319be0>] (fec_probe+0x2d0/0x99c) from [<c02c8114>] (platform_drv_probe+0x14/0x18)
+[    5.202228] [<c02c8114>] (platform_drv_probe+0x14/0x18) from [<c02c6e00>] (driver_probe_device+0x90/0x224)
+[    5.212332] [<c02c6e00>] (driver_probe_device+0x90/0x224) from [<c02c7028>] (__driver_attach+0x94/0x98)
+[    5.222162] [<c02c7028>] (__driver_attach+0x94/0x98) from [<c02c5750>] (bus_for_each_dev+0x78/0x98)
+[    5.231642] [<c02c5750>] (bus_for_each_dev+0x78/0x98) from [<c02c5fd0>] (bus_add_driver+0x1a4/0x240)
+[    5.241207] [<c02c5fd0>] (bus_add_driver+0x1a4/0x240) from [<c02c7608>] (driver_register+0x78/0x140)
+[    5.250768] [<c02c7608>] (driver_register+0x78/0x140) from [<c00087a4>] (do_one_initcall+0x30/0x17c)
+[    5.260347] [<c00087a4>] (do_one_initcall+0x30/0x17c) from [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0)
+[    5.270381] [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0) from [<c044dfd4>] (kernel_init+0x8/0xe4)
+[    5.279886] [<c044dfd4>] (kernel_init+0x8/0xe4) from [<c000f248>] (ret_from_fork+0x14/0x2c)
+[    5.288740] ---[ end trace c15c72a22979d58d ]--- 
+
+mx28evk has two ethernet controllers. The GPIO that performs the 
+ethernet reset on both ports is the same GPIO, so on the board dts file, only in
+one ethernet instance is passed the GPIO reset property.
+
+Validate the gpio number prior to requesting it in order to avoid such warning.
 
 Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 5864a67..29d82cf 100644
+index 0fe68c4..5864a67 100644
 --- a/drivers/net/ethernet/freescale/fec.c
 +++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1695,7 +1695,7 @@ static void fec_reset_phy(struct platform_device *pdev)
+@@ -1689,6 +1689,9 @@ static void fec_reset_phy(struct platform_device *pdev)
+ 		msec = 1;
+ 
+ 	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
++	if (!gpio_is_valid(phy_reset))
++		return;
++
  	err = devm_gpio_request_one(&pdev->dev, phy_reset,
  				    GPIOF_OUT_INIT_LOW, "phy-reset");
  	if (err) {
--		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
-+		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
- 		return;
- 	}
- 	msleep(msec);
 -- 
 1.7.9.5
