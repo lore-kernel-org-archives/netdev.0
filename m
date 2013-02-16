@@ -1,45 +1,37 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [BUG arm-soc] mvneta: tx queue done sometimes causes kernel
- panic
-Date: Sat, 16 Feb 2013 02:20:43 +0100
-Message-ID: <20130216022043.65d5c940@skate>
-References: <511DE679.5080801@hitachi.com>
-	<1360947132.19353.15.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/4] tunneling: Add generic UDP-Tunnel TSO.
+Date: Fri, 15 Feb 2013 17:34:40 -0800
+Message-ID: <1360978480.19353.36.camel@edumazet-glaptop>
+References: <1360976774-1891-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>,
-	linux-arm-kernel@lists.infradead.org,
-	"yrl.pp-manager.tt@hitachi.com" <yrl.pp-manager.tt@hitachi.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1360947132.19353.15.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
+	stephen@networkplumber.org
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:58854 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751074Ab3BPBes (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 15 Feb 2013 20:34:48 -0500
+Received: by mail-pb0-f54.google.com with SMTP id rr4so825872pbb.13
+        for <netdev@vger.kernel.org>; Fri, 15 Feb 2013 17:34:48 -0800 (PST)
+In-Reply-To: <1360976774-1891-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Fri, 2013-02-15 at 17:06 -0800, Pravin B Shelar wrote:
 
-On Fri, 15 Feb 2013 08:52:12 -0800, Eric Dumazet wrote:
+> +	/* segment inner packet. */
+> +	segs = skb_mac_gso_segment(skb, skb->dev->hw_enc_features);
+> +	if (!segs || IS_ERR(segs))
+> +		goto out;
+> +
 
-> Driver is buggy, as TX completion can happen both from ndo_start_xmit()
-> and a timer, and there is no spinlock or appropriate synchro.
+It seems that hw_enc_features is 0 for all devices.
 
-Yes, it is a known issue. I did post a patch fixing the problem on
-netdev@ a while ago [1], but while it was fixing the problem, it wasn't
-considered the right approach. Being busy with other Marvell Armada
-370/XP developments, I haven't yet had the time to investigate the
-issue again.
+We should at least inherit NETIF_F_SG
 
-[1] https://patchwork.kernel.org/patch/1941601/
-
-Best regards,
-
-Thomas
--- 
-Thomas Petazzoni, Free Electrons
-Kernel, drivers, real-time and embedded Linux
-development, consulting, training and support.
-http://free-electrons.com
+(and presumably netdev_fix_features() should not remove NETIF_F_SG if
+CSUM is not supported, as we now copy the data _if_ needed in
+skb_checksum_help())
