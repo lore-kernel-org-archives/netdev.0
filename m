@@ -1,74 +1,51 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v4] netpoll: fix some sparse warnings in various places
-Date: Sat, 16 Feb 2013 16:37:53 +0800
-Message-ID: <1361003873-20622-1-git-send-email-amwang@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38879 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751425Ab3BPIiG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 16 Feb 2013 03:38:06 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [PATCH vringh 2/2] caif_virtio: Introduce caif over virtio
+Date: Sat, 16 Feb 2013 09:48:48 +0100
+Message-ID: <CAJK669ZATh8FojTGdFH_x7ovMvA2L7XFUratiptJmPFZPhv31g@mail.gmail.com>
+References: <1360494273-27889-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1360494273-27889-3-git-send-email-sjur.brandeland@stericsson.com>
+	<87vc9zfic8.fsf@rustcorp.com.au>
+	<81C3A93C17462B4BBD7E272753C105792458EDD161@EXDCVYMBSTM005.EQ1STM.local>
+	<87ehgklds9.fsf@rustcorp.com.au>
+	<CAJK669YQ+x5zXSZA1FQHkRrcCt+SgZP-M_ea-Ey8ziGLhq9cqQ@mail.gmail.com>
+	<87bobmjish.fsf@rustcorp.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Vikram ARV <vikram.arv@stericsson.com>,
+	Dmitry TARNYAGIN <dmitry.tarnyagin@stericsson.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linus Walleij <linus.walleij@linaro.org>, Ido Yariv <ido@wizery.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Erwan YVIN <erwan.yvin@stericsson.com>,
+	"virtualization@lists.linux-foundation.org"
+	<virtualization@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87bobmjish.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-
-This fixes sparse warnings like the one below:
-
-drivers/net/team/team.c:953:25: warning: incorrect type in return expression (different address spaces)
-drivers/net/team/team.c:953:25:    expected struct netpoll_info *
-drivers/net/team/team.c:953:25:    got struct netpoll_info [noderef] <asn:4>*npinfo
-
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 94c1534..71ad0f2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1302,7 +1302,7 @@ static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, g
- 
- static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
- {
--	return bond->dev->npinfo;
-+	return rcu_access_pointer(bond->dev->npinfo);
- }
- 
- #else
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 05c5efe..03e5949 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -950,7 +950,7 @@ static void team_port_disable_netpoll(struct team_port *port)
- 
- static struct netpoll_info *team_netpoll_info(struct team *team)
- {
--	return team->dev->npinfo;
-+	return rcu_access_pointer(team->dev->npinfo);
- }
- 
- #else
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 6d314c4..699d5c4 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -330,7 +330,7 @@ extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
- {
--	return br->dev->npinfo;
-+	return rcu_access_pointer(br->dev->npinfo);
- }
- 
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+PiBTanVyIEJyw6ZuZGVsYW5kIDxzanVyYnJlbkBnbWFpbC5jb20+IHdyaXRlczoKPj4gSG93IGFi
+b3V0IHN1cHBvcnRpbmcgc3RydWN0IHZyaW5naF9raW92IGFuZCBzdHJ1Y3Qga3ZlYyBhcyB3ZWxs
+Pwo+PiBJIGN1cnJlbnRseSBnZXQgdGhlIGZvbGxvd2luZyBjb21wbGFpbnRzIHdpdGggbXkgVjIg
+cGF0Y2gtc2V0Ogo+Pgo+PiBkcml2ZXJzL25ldC9jYWlmL2NhaWZfdmlydGlvLmM6NDg2OjI6IHdh
+cm5pbmc6IHBhc3NpbmcgYXJndW1lbnQgMSBvZgo+PiDigJh2cmluZ2hfaW92X2luaXTigJkgZnJv
+bSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRdCj4KPiB2cmlu
+Z2hfa2lvdl9pbml0KCk/ICBEaWQgSSBtaXNzIHNvbWV0aGluZyBlbHNlPwoKSSBnZXQgYSB3YXJu
+aW5nIGZvciBteSB1c2VvZiB2cmluZ2hfaW92X2NsZWFudXAoKSBpbgphZGRpdGlvbiB0byB0aGUg
+b25lIGFib3ZlLgoKSG93IGFib3V0IGFkZGluZyBraW92IHZhcmlhbnRzIG9mICB2cmluZ2hfaW92
+X2NsZWFudXAoKQphbmQgdnJpbmdoX2lvdl9yZXNldCgpIGFzIHdlbGw/CgpUaGFua3MsClNqdXIK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6
+YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24u
+b3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3Zp
+cnR1YWxpemF0aW9u
