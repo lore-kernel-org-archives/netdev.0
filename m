@@ -1,70 +1,48 @@
-From: walter harms <wharms@bfs.de>
-Subject: Re: [PATCH] ethernet: neterion: vxge: vxge-traffic.c: fix for a potential
- NULL pointer dereference
-Date: Sun, 17 Feb 2013 15:49:28 +0100
-Message-ID: <5120EDF8.7010503@bfs.de>
-References: <1361037394-14731-1-git-send-email-gmate.amit@gmail.com>
-Reply-To: wharms@bfs.de
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: Re: [PATCH 2/2] net: fec: Improve logging
+Date: Sun, 17 Feb 2013 23:08:23 +0800
+Message-ID: <20130217150821.GF6782@S2101-09.ap.freescale.net>
+References: <1361055207-22870-1-git-send-email-festevam@gmail.com>
+ <1361055207-22870-2-git-send-email-festevam@gmail.com>
+ <20130217115555.GA6782@S2101-09.ap.freescale.net>
+ <CAOMZO5AT4=cYrQBG0Or7PDw18hrYYuNyg17Bt-TU2jNSg5GXWg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: jdmason@kudzu.us, davem@davemloft.net, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Kumar Amit Mehta <gmate.amit@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1361037394-14731-1-git-send-email-gmate.amit@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <davem@davemloft.net>, <s.hauer@pengutronix.de>, <marex@denx.de>,
+	<netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:8877
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756204Ab3BQPIW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 10:08:22 -0500
+Content-Disposition: inline
+In-Reply-To: <CAOMZO5AT4=cYrQBG0Or7PDw18hrYYuNyg17Bt-TU2jNSg5GXWg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-Am 16.02.2013 18:56, schrieb Kumar Amit Mehta:
-> fix for a potential NULL pointer dereference and removal of a redundant
-> assignment operation. Found using smatch.
+On Sun, Feb 17, 2013 at 10:41:11AM -0300, Fabio Estevam wrote:
+> On Sun, Feb 17, 2013 at 8:55 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
 > 
-> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
-> ---
->  drivers/net/ethernet/neterion/vxge/vxge-traffic.c |    8 ++------
->  1 file changed, 2 insertions(+), 6 deletions(-)
+> >> --- a/drivers/net/ethernet/freescale/fec.c
+> >> +++ b/drivers/net/ethernet/freescale/fec.c
+> >> @@ -1695,7 +1695,7 @@ static void fec_reset_phy(struct platform_device *pdev)
+> >>       err = devm_gpio_request_one(&pdev->dev, phy_reset,
+> >>                                   GPIOF_OUT_INIT_LOW, "phy-reset");
+> >>       if (err) {
+> >> -             pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
+> >> +             dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+> >
+> > Shouldn't dev_dbg be more like a equivalent of pr_debug?  The reason
+> > why it's taken as a debug message rather than an error is that some
+> > board design may not have reset line for phy.
 > 
-> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-> index 99749bd..adb05a8 100644
-> --- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-> +++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
-> @@ -611,11 +611,8 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
->  	struct vxge_hw_vpath_stats_sw_info *sw_stats;
->  	struct vxge_hw_vpath_reg __iomem *vp_reg;
->  
-> -	if (vpath == NULL) {
-> -		alarm_event = VXGE_HW_SET_LEVEL(VXGE_HW_EVENT_UNKNOWN,
-> -			alarm_event);
-> +	if (vpath == NULL)
->  		goto out2;
-> -	}
->  
->  	hldev = vpath->hldev;
->  	vp_reg = vpath->vp_reg;
-> @@ -852,13 +849,12 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
->  	}
->  out:
->  	hldev->stats.sw_dev_err_stats.vpath_alarms++;
-> +	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
->  out2:
->  	if ((alarm_event == VXGE_HW_EVENT_ALARM_CLEARED) ||
->  		(alarm_event == VXGE_HW_EVENT_UNKNOWN))
->  		return VXGE_HW_OK;
->  
-> -	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
-> -
->  	if (alarm_event == VXGE_HW_EVENT_SERR)
->  		return VXGE_HW_ERR_CRITICAL;
->  
+> If a board does not have a reset line for the PHY then it will not try
+> to request the GPIO as per patch 1/2 of this series.
 
-the patch looks ok.
-it would be nice if someone would rewrite the if (alarm_event == x ) stuff
-using switch or more if()'s it is hardly readable this way.
+Argh, yes, you're right.  The pr_debug makes no sense any more with the
+first patch in place, and it should become a error message.  But they
+should be one patch rather than a series to make the most sense, IMO.
 
-just my 2 cents,
-re,
- wh
+Shawn
