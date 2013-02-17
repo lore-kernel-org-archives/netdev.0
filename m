@@ -1,83 +1,75 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH v3] net: fec: Do a sanity check on the gpio number
-Date: Sun, 17 Feb 2013 12:29:24 -0300
-Message-ID: <1361114964-10517-1-git-send-email-festevam@gmail.com>
-Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@googlemail.com>
+Subject: Re: tuntap: Overload handling
+Date: Sun, 17 Feb 2013 17:08:13 +0100
+Message-ID: <1361117293.1748.1.camel@alpha.Speedport_W723_V_Typ_A_1_00_096>
+References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
+	 <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
+	 <1360859547.6884.51.camel@edumazet-glaptop>
+	 <20130214164053.GB18721@redhat.com>
+	 <1360861290.6884.55.camel@edumazet-glaptop>
+	 <20130217132404.GA22552@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f170.google.com ([209.85.160.170]:41088 "EHLO
-	mail-gh0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756266Ab3BQP3f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 10:29:35 -0500
-Received: by mail-gh0-f170.google.com with SMTP id g14so786814ghb.1
-        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 07:29:34 -0800 (PST)
+Received: from mail-ee0-f52.google.com ([74.125.83.52]:45478 "EHLO
+	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752Ab3BQQIV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 11:08:21 -0500
+Received: by mail-ee0-f52.google.com with SMTP id b15so2392158eek.25
+        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 08:08:19 -0800 (PST)
+In-Reply-To: <20130217132404.GA22552@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+On Sun, 2013-02-17 at 15:24 +0200, Michael S. Tsirkin wrote:
+> On Thu, Feb 14, 2013 at 09:01:30AM -0800, Eric Dumazet wrote:
+> > On Thu, 2013-02-14 at 18:42 +0200, Michael S. Tsirkin wrote:
+> > 
+> > > Hmm so ~1000 packets in the tun queue is not enough?
+> > > You always have the option to increase it some more ...
+> > > 
+> > > > You should ask Michael S. Tsirkin, as he removed the flow control
+> > > > in commit 5d097109257c03a71845729f8db6b5770c4bbedc
+> > > > (tun: only queue packets on device)
+> > > > 
+> > > 
+> > > Eric in the past you said the following things
+> > > (http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/00784.html)
+> > > > > In your case I would just not use qdisc at all, like other virtual
+> > > > > devices.
+> > > ...
+> > > > > Anyway, with a 500 packet limit in TUN queue itself, qdisc layer should
+> > > > > be always empty. Whats the point storing more than 500 packets for a
+> > > > > device ? Thats a latency killer.
+> > > you don't think this applies, anymore?
+> > > 
+> > 
+> > Users have the choice to setup a qdisc or not.
+> > 
+> > Having no qdisc can help raw performance, at the expense of bufferbloat.
+> > Thats all I was saying.
+> > 
+> > It seems tun.c has no longer the possibility to effectively use a qdisc,
+> > (allowing the queue to buildup at qdisc layer)
+> > 
+> 
+> But, userspace is in no position to decide whether using
+> the qdisc is a good or a bad thing.
+> The issue I tried to solve is that with tun, it's trivially easy for
+> userspace to lock up resources forever.
+> Simply not stopping the qdisc is probably the simplest solution.
+> 
+> An alternative is to orphan the skbs before we queue them.
+> At some point I posted a proposal doing exactly this
+> subj of "net: orphan queued skbs if device tx can stall".
+> Do you think it's worth revisiting this?
+> 
+> Also - does anyone know of a testcase showing there's a problem
+> with the simplest solution we now have in place?
+> 
 
-Since commit 372e722ea4d (gpiolib: use descriptors internally) the following 
-warning is seen on a mx28evk board:
-
-[    5.116291] ------------[ cut here ]------------
-[    5.121306] WARNING: at drivers/gpio/gpiolib.c:125 gpio_to_desc+0x30/0x44()
-[    5.128491] invalid GPIO -2
-[    5.131563] Modules linked in:
-[    5.134846] [<c0014e20>] (unwind_backtrace+0x0/0xf4) from [<c001d428>] (warn_slowpath_common+0x4c/0x68)
-[    5.144682] [<c001d428>] (warn_slowpath_common+0x4c/0x68) from [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40)
-[    5.154693] [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40) from [<c0283434>] (gpio_to_desc+0x30/0x44)
-[    5.164002] [<c0283434>] (gpio_to_desc+0x30/0x44) from [<c0285470>] (gpio_request_one+0x10/0xe8)
-[    5.173294] [<c0285470>] (gpio_request_one+0x10/0xe8) from [<c0282f50>] (devm_gpio_request_one+0x40/0x74)
-[    5.183332] [<c0282f50>] (devm_gpio_request_one+0x40/0x74) from [<c0319be0>] (fec_probe+0x2d0/0x99c)
-[    5.192923] [<c0319be0>] (fec_probe+0x2d0/0x99c) from [<c02c8114>] (platform_drv_probe+0x14/0x18)
-[    5.202228] [<c02c8114>] (platform_drv_probe+0x14/0x18) from [<c02c6e00>] (driver_probe_device+0x90/0x224)
-[    5.212332] [<c02c6e00>] (driver_probe_device+0x90/0x224) from [<c02c7028>] (__driver_attach+0x94/0x98)
-[    5.222162] [<c02c7028>] (__driver_attach+0x94/0x98) from [<c02c5750>] (bus_for_each_dev+0x78/0x98)
-[    5.231642] [<c02c5750>] (bus_for_each_dev+0x78/0x98) from [<c02c5fd0>] (bus_add_driver+0x1a4/0x240)
-[    5.241207] [<c02c5fd0>] (bus_add_driver+0x1a4/0x240) from [<c02c7608>] (driver_register+0x78/0x140)
-[    5.250768] [<c02c7608>] (driver_register+0x78/0x140) from [<c00087a4>] (do_one_initcall+0x30/0x17c)
-[    5.260347] [<c00087a4>] (do_one_initcall+0x30/0x17c) from [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0)
-[    5.270381] [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0) from [<c044dfd4>] (kernel_init+0x8/0xe4)
-[    5.279886] [<c044dfd4>] (kernel_init+0x8/0xe4) from [<c000f248>] (ret_from_fork+0x14/0x2c)
-[    5.288740] ---[ end trace c15c72a22979d58d ]--- 
-
-mx28evk has two ethernet controllers. The GPIO that performs the 
-ethernet reset on both ports is the same GPIO, so on the board dts file, only in
-one ethernet instance is passed the GPIO reset property.
-
-Validate the gpio number prior to requesting it in order to avoid such warning.
-
-With such gpio validation in place, it is also safe to change from pr_debug to 
-dev_err in the case the gpio request fails.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
-Changes since v2:
-- Merge the two patches into a single one, and use dev_err
-Changes since v1:
-- Added Shawn's ack
- drivers/net/ethernet/freescale/fec.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 0fe68c4..1a2071b 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1689,10 +1689,13 @@ static void fec_reset_phy(struct platform_device *pdev)
- 		msec = 1;
- 
- 	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
-+	if (!gpio_is_valid(phy_reset))
-+		return;
-+
- 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
- 				    GPIOF_OUT_INIT_LOW, "phy-reset");
- 	if (err) {
--		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
-+		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
- 		return;
- 	}
- 	msleep(msec);
--- 
-1.7.9.5
+I think the solution is good as it is. Of course if you want to do odd
+things with it like me - it's not, but that's not its usual use-case.
