@@ -1,74 +1,55 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH v2 1/2] net: fec: Do a sanity check on the gpio number
-Date: Sun, 17 Feb 2013 10:36:43 -0300
-Message-ID: <1361108204-9498-1-git-send-email-festevam@gmail.com>
-Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
-	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Universal tap device
+Date: Sun, 17 Feb 2013 13:58:50 +0000
+Message-ID: <201302171358.50680.arnd@arndb.de>
+References: <20130216140132.GB1536@minipsycho.orion> <201302162225.06536.arnd@arndb.de> <20130217093520.GA1931@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Engelhardt <jengelh@inai.de>, netdev@vger.kernel.org,
+	ebiederm@xmission.com, stephen@networkplumber.org,
+	eric.dumazet@gmail.com, davem@davemloft.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f180.google.com ([209.85.213.180]:62608 "EHLO
-	mail-ye0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756123Ab3BQNpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 08:45:11 -0500
-Received: by mail-ye0-f180.google.com with SMTP id r14so836788yen.25
-        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 05:45:10 -0800 (PST)
+Received: from moutng.kundenserver.de ([212.227.17.8]:60356 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756126Ab3BQN7V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 08:59:21 -0500
+In-Reply-To: <20130217093520.GA1931@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+On Sunday 17 February 2013, Jiri Pirko wrote:
+> 
+> Sat, Feb 16, 2013 at 11:25:06PM CET, arnd@arndb.de wrote:
+> >On Saturday 16 February 2013, Jiri Pirko wrote:
+> >> Sat, Feb 16, 2013 at 05:46:25PM CET, jengelh@inai.de wrote:
+> >> >On Saturday 2013-02-16 15:01, Jiri Pirko wrote:
+> >> >
+> >> >>Hi all.                                                                  
+> >> >>                                                                         
+> >> >>Looking at macvtap and thinking about the tap solutions in general,
+> >> >>I think it would be handly to have some universal tap device.
+> >> >
+> >> >As in, allowing tuntap to register as an rx_handler for arbitrary
+> >> >devices?
+> >> 
+> >> Essentially yes, but I was thinking without the actual netdev:
+> >> not eth0 -> tap0 -> chardev
+> >> but eth0 -> chardev
+> >> 
+> >> Not sure though if that is easily doable..
+> >
+> >Isn't that the same as setting up macvtap in PASSTHRU mode?
+> 
+> Yep, but without netdev instance. That brings some issues. Maybe the
+> netdev instance should be there. Not sure.
+> 
 
-Since commit 372e722ea4d (gpiolib: use descriptors internally) the following 
-warning is seen on a mx28evk board:
+The idea of macvtap is at least that there should be no run-time
+from using a separate netdev. Having the device is useful mostly
+for configuration, especially with the non-passthrough modes
+where you want to bind to a new mac address.
 
-[    5.116291] ------------[ cut here ]------------
-[    5.121306] WARNING: at drivers/gpio/gpiolib.c:125 gpio_to_desc+0x30/0x44()
-[    5.128491] invalid GPIO -2
-[    5.131563] Modules linked in:
-[    5.134846] [<c0014e20>] (unwind_backtrace+0x0/0xf4) from [<c001d428>] (warn_slowpath_common+0x4c/0x68)
-[    5.144682] [<c001d428>] (warn_slowpath_common+0x4c/0x68) from [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40)
-[    5.154693] [<c001d4d8>] (warn_slowpath_fmt+0x30/0x40) from [<c0283434>] (gpio_to_desc+0x30/0x44)
-[    5.164002] [<c0283434>] (gpio_to_desc+0x30/0x44) from [<c0285470>] (gpio_request_one+0x10/0xe8)
-[    5.173294] [<c0285470>] (gpio_request_one+0x10/0xe8) from [<c0282f50>] (devm_gpio_request_one+0x40/0x74)
-[    5.183332] [<c0282f50>] (devm_gpio_request_one+0x40/0x74) from [<c0319be0>] (fec_probe+0x2d0/0x99c)
-[    5.192923] [<c0319be0>] (fec_probe+0x2d0/0x99c) from [<c02c8114>] (platform_drv_probe+0x14/0x18)
-[    5.202228] [<c02c8114>] (platform_drv_probe+0x14/0x18) from [<c02c6e00>] (driver_probe_device+0x90/0x224)
-[    5.212332] [<c02c6e00>] (driver_probe_device+0x90/0x224) from [<c02c7028>] (__driver_attach+0x94/0x98)
-[    5.222162] [<c02c7028>] (__driver_attach+0x94/0x98) from [<c02c5750>] (bus_for_each_dev+0x78/0x98)
-[    5.231642] [<c02c5750>] (bus_for_each_dev+0x78/0x98) from [<c02c5fd0>] (bus_add_driver+0x1a4/0x240)
-[    5.241207] [<c02c5fd0>] (bus_add_driver+0x1a4/0x240) from [<c02c7608>] (driver_register+0x78/0x140)
-[    5.250768] [<c02c7608>] (driver_register+0x78/0x140) from [<c00087a4>] (do_one_initcall+0x30/0x17c)
-[    5.260347] [<c00087a4>] (do_one_initcall+0x30/0x17c) from [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0)
-[    5.270381] [<c05fa29c>] (kernel_init_freeable+0xe8/0x1b0) from [<c044dfd4>] (kernel_init+0x8/0xe4)
-[    5.279886] [<c044dfd4>] (kernel_init+0x8/0xe4) from [<c000f248>] (ret_from_fork+0x14/0x2c)
-[    5.288740] ---[ end trace c15c72a22979d58d ]--- 
-
-mx28evk has two ethernet controllers. The GPIO that performs the 
-ethernet reset on both ports is the same GPIO, so on the board dts file, only in
-one ethernet instance is passed the GPIO reset property.
-
-Validate the gpio number prior to requesting it in order to avoid such warning.
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
-Acked-by: Shawn Guo <shawn.guo@linaro.org>
----
-Changes since v1:
-- Added Shawn's ack
- drivers/net/ethernet/freescale/fec.c |    3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 0fe68c4..5864a67 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1689,6 +1689,9 @@ static void fec_reset_phy(struct platform_device *pdev)
- 		msec = 1;
- 
- 	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
-+	if (!gpio_is_valid(phy_reset))
-+		return;
-+
- 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
- 				    GPIOF_OUT_INIT_LOW, "phy-reset");
- 	if (err) {
--- 
-1.7.9.5
+	Arnd
