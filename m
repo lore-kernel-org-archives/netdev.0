@@ -1,59 +1,88 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 1/6] qlcnic: fix unsupported CDRP command error
- message.
-Date: Sat, 16 Feb 2013 21:38:56 -0800
-Message-ID: <1361079536.2001.5.camel@joe-AO722>
-References: <1361076831-31746-1-git-send-email-jitendra.kalsaria@qlogic.com>
-	 <1361076831-31746-2-git-send-email-jitendra.kalsaria@qlogic.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 13/15] ixgbe: implement SFF diagnostic monitoring via
+ ethtool
+Date: Sun, 17 Feb 2013 06:16:25 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992337B5051@FMSMSX102.amr.corp.intel.com>
+References: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1361003616-3422-14-git-send-email-jeffrey.t.kirsher@intel.com>
+ <CAHXqBFKS9hPg23qAeiLjhk1uYk8BR=T+1+pZ1Pb5RcMr44Zs6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	sony.chacko@qlogic.com, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	=?utf-8?B?QXVyw6lsaWVuIEd1aWxsYXVtZQ==?= <footplus@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Michal Miroslaw <mirqus@gmail.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:54320 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753715Ab3BQFi6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Feb 2013 00:38:58 -0500
-In-Reply-To: <1361076831-31746-2-git-send-email-jitendra.kalsaria@qlogic.com>
+Received: from mga14.intel.com ([143.182.124.37]:53339 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751433Ab3BQGQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Feb 2013 01:16:28 -0500
+In-Reply-To: <CAHXqBFKS9hPg23qAeiLjhk1uYk8BR=T+1+pZ1Pb5RcMr44Zs6Q@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-02-16 at 23:53 -0500, Jitendra Kalsaria wrote:
-> From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-> 
-> Add debug messages for FW CDRP command failure.
-
-These aren't debug messages but are more detailed.
-
-> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-[]
-> @@ -147,8 +147,36 @@ int qlcnic_82xx_issue_cmd(struct qlcnic_adapter *adapter,
->  		cmd->rsp.arg[0] = QLCNIC_RCODE_TIMEOUT;
->  	} else if (rsp == QLCNIC_CDRP_RSP_FAIL) {
->  		cmd->rsp.arg[0] = QLCRD32(adapter, QLCNIC_CDRP_ARG(1));
-> -		dev_err(&pdev->dev, "failed card response code:0x%x\n",
-> -			cmd->rsp.arg[0]);
-> +		switch (cmd->rsp.arg[0]) {
-> +		case QLCNIC_RCODE_INVALID_ARGS:
-> +			dev_err(&pdev->dev, "CDRP invalid args 0x%x\n",
-> +				cmd->rsp.arg[0]);
-> +			break;
-
-Not sure you care about object size much, but
-it's much smaller object code to do:
-
-	const char *fmt;
-	switch (cmd->rsp.arg[0]);
-	case FOO:
-		fmt = "...";
-		break;
-	etc...
-	}
-
-	dev_err(&pdev->dev, fmt, cmd->rsp.arg[0]);
-
-Also, the #defines are decimal, I don't know why you
-print them out as hex or if you need to print them
-at all really.
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogTWljaGHFgiBNaXJvc8WCYXcgW21h
+aWx0bzptaXJxdXNAZ21haWwuY29tXQ0KPlNlbnQ6IFNhdHVyZGF5LCBGZWJydWFyeSAxNiwgMjAx
+MyAyOjU0IEFNDQo+VG86IEtpcnNoZXIsIEplZmZyZXkgVA0KPkNjOiBkYXZlbUBkYXZlbWxvZnQu
+bmV0OyBBdXLDqWxpZW4gR3VpbGxhdW1lOyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOw0KPmdvc3Bv
+QHJlZGhhdC5jb207IHNhc3NtYW5uQHJlZGhhdC5jb207IFRhbnRpbG92LCBFbWlsIFMNCj5TdWJq
+ZWN0OiBSZTogW25ldC1uZXh0IDEzLzE1XSBpeGdiZTogaW1wbGVtZW50IFNGRiBkaWFnbm9zdGlj
+IG1vbml0b3JpbmcNCj52aWEgZXRodG9vbA0KPg0KPjIwMTMvMi8xNiBKZWZmIEtpcnNoZXIgPGpl
+ZmZyZXkudC5raXJzaGVyQGludGVsLmNvbT46DQo+PiBGcm9tOiBBdXLDqWxpZW4gR3VpbGxhdW1l
+IDxmb290cGx1c0BnbWFpbC5jb20+DQo+Pg0KPj4gVGhpcyBwYXRjaCBhZGRzIHN1cHBvcnQgZm9y
+IHJlYWRpbmcgZGF0YSBmcm9tIFNGUCsgbW9kdWxlcyBvdmVyIGkyYy4NCj4+DQo+PiBTaWduZWQt
+b2ZmLWJ5OiBBdXLDqWxpZW4gR3VpbGxhdW1lIDxmb290cGx1c0BnbWFpbC5jb20+DQo+PiBTaWdu
+ZWQtb2ZmLWJ5OiBFbWlsIFRhbnRpbG92IDxlbWlsLnMudGFudGlsb3ZAaW50ZWwuY29tPg0KPj4g
+VGVzdGVkLWJ5OiBQaGlsIFNjaG1pdHQgPHBoaWxsaXAuai5zY2htaXR0QGludGVsLmNvbT4NCj4+
+IFNpZ25lZC1vZmYtYnk6IEplZmYgS2lyc2hlciA8amVmZnJleS50LmtpcnNoZXJAaW50ZWwuY29t
+Pg0KPj4gLS0tDQo+PiAgZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaCAg
+ICAgICAgIHwgICAxICsNCj4+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdi
+ZV9ldGh0b29sLmMgfCAxMTQNCj4rKysrKysrKysrKysrKysrKysrKysrKw0KPj4gIGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYyAgICB8ICAgNCArDQo+PiAgMyBm
+aWxlcyBjaGFuZ2VkLCAxMTkgaW5zZXJ0aW9ucygrKQ0KPj4NCj4+IGRpZmYgLS1naXQgYS9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZS5oDQo+Yi9kcml2ZXJzL25ldC9ldGhl
+cm5ldC9pbnRlbC9peGdiZS9peGdiZS5oDQo+PiBpbmRleCBiOTFmOWI2Li4xOTYwMDJiIDEwMDY0
+NA0KPj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaA0KPj4g
+KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmUuaA0KPj4gQEAgLTYy
+MCw2ICs2MjAsNyBAQCBlbnVtIGl4Z2JlX3N0YXRlX3Qgew0KPj4gICAgICAgICBfX0lYR0JFX0RP
+V04sDQo+PiAgICAgICAgIF9fSVhHQkVfU0VSVklDRV9TQ0hFRCwNCj4+ICAgICAgICAgX19JWEdC
+RV9JTl9TRlBfSU5JVCwNCj4+ICsgICAgICAgX19JWEdCRV9SRUFEX0kyQywNCj4+ICB9Ow0KPj4N
+Cj4+ICBzdHJ1Y3QgaXhnYmVfY2Igew0KPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2l4Z2JlL2l4Z2JlX2V0aHRvb2wuYw0KPmIvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaXhnYmUvaXhnYmVfZXRodG9vbC5jDQo+PiBpbmRleCA3MzQ5YThiLi5lNmNlYmRjIDEw
+MDY0NA0KPj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfZXRo
+dG9vbC5jDQo+PiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9l
+dGh0b29sLmMNCj4+IEBAIC0zOSw2ICszOSw3IEBADQo+PiAgI2luY2x1ZGUgPGxpbnV4L3VhY2Nl
+c3MuaD4NCj4+DQo+PiAgI2luY2x1ZGUgIml4Z2JlLmgiDQo+PiArI2luY2x1ZGUgIml4Z2JlX3Bo
+eS5oIg0KPj4NCj4+DQo+PiAgI2RlZmluZSBJWEdCRV9BTExfUkFSX0VOVFJJRVMgMTYNCj4+IEBA
+IC0yODM5LDYgKzI4NDAsMTE3IEBAIHN0YXRpYyBpbnQgaXhnYmVfc2V0X2NoYW5uZWxzKHN0cnVj
+dCBuZXRfZGV2aWNlDQo+KmRldiwNCj4+ICAgICAgICAgcmV0dXJuIGl4Z2JlX3NldHVwX3RjKGRl
+diwgbmV0ZGV2X2dldF9udW1fdGMoZGV2KSk7DQo+PiAgfQ0KPj4NCj4+ICtzdGF0aWMgaW50IGl4
+Z2JlX2dldF9tb2R1bGVfaW5mbyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LA0KPj4gKyAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc3RydWN0IGV0aHRvb2xfbW9kaW5mbyAqbW9k
+aW5mbykNCj4+ICt7DQo+PiArICAgICAgIHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyID0g
+bmV0ZGV2X3ByaXYoZGV2KTsNCj4+ICsgICAgICAgc3RydWN0IGl4Z2JlX2h3ICpodyA9ICZhZGFw
+dGVyLT5odzsNCj4+ICsgICAgICAgdTMyIHN0YXR1czsNCj4+ICsgICAgICAgdTggc2ZmODQ3Ml9y
+ZXYsIGFkZHJfbW9kZTsNCj4+ICsgICAgICAgaW50IHJldF92YWwgPSAwOw0KPj4gKyAgICAgICBi
+b29sIHBhZ2Vfc3dhcCA9IGZhbHNlOw0KPj4gKw0KPj4gKyAgICAgICAvKiBhdm9pZCBjb25jdXJl
+bnQgaTJjIHJlYWRzICovDQo+PiArICAgICAgIHdoaWxlICh0ZXN0X2JpdChfX0lYR0JFX0lOX1NG
+UF9JTklULCAmYWRhcHRlci0+c3RhdGUpKQ0KPj4gKyAgICAgICAgICAgICAgIG1zbGVlcCgxMDAp
+Ow0KPj4gKw0KPj4gKyAgICAgICAvKiB1c2VkIGJ5IHRoZSBzZXJ2aWNlIHRhc2sgKi8NCj4+ICsg
+ICAgICAgc2V0X2JpdChfX0lYR0JFX1JFQURfSTJDLCAmYWRhcHRlci0+c3RhdGUpOw0KPg0KPlRo
+aXMgaXMgcmFjeS4gV2h5IGRvIHlvdSBuZWVkIGFub3RoZXIgYml0Pw0KDQpUaGUgSTJDIGJpdCBo
+ZWxwcyB0byByZWR1Y2UgdGhlIGRlbGF5IGluIHRoZSBzZXJ2aWNlIHRhc2sgcmVsYXRpdmUgdG8g
+dGhlIGluaXRpYWxpemF0aW9uIG9mIHRoZSBTRlAgbW9kdWxlcy4NCg0KPg0KPiB3aGlsZSAodGVz
+dF9hbmRfc2V0X2JpdChfX0lYR0JFX0lOX1NGUF9JTklULCAmYWRhcHRlci0+c3RhdGUpKQ0KPiAg
+ICAgICBtc2xlZXAoMTAwKTsNCj4uLi4NCj4gIGNsZWFyX2JpdChfX0lYR0JFX0lOX1NGUF9JTklU
+LCAmYWRhcHRlci0+c3RhdGUpDQoNClRoaXMgaXMgd2hhdCBJIGhhZCBpbml0aWFsbHksIGJ1dCB0
+aGUgaTJjIHJlYWRzIGNhbiB0YWtlIGEgbG9uZyB0aW1lIG9uIHNvbWUgcGFydHMgYW5kIF9fSVhH
+QkVfSU5fU0ZQX0lOSVQgcHJvdGVjdHMgcG9ydGlvbnMgb2YgdGhlIGNvZGUgdGhhdCBoYXZlIG5v
+dGhpbmcgdG8gZG8gd2l0aCBJMkMgcmVhZHMuIFNldHRpbmcgX19JWEdCRV9JTl9TRlBfSU5JVCBp
+biBldGh0b29sIHdoaWxlIGR1bXBpbmcgdGhlIFNGRiBkYXRhIGNhbiBpbnRyb2R1Y2UgbmVlZGxl
+c3NseSBsb25nIGRlbGF5cyBpbiB0aGUgU0ZQIGluaXRpYWxpemF0aW9uIHBhdGguDQoNClRoYW5r
+cywNCkVtaWwNCg0KDQo+QmVzdCBSZWdhcmRzLA0KPk1pY2hhxYIgTWlyb3PFgmF3DQo=
