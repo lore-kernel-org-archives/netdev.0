@@ -1,61 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tuntap: Overload handling
-Date: Sun, 17 Feb 2013 09:43:18 -0800
-Message-ID: <1361122998.19353.86.camel@edumazet-glaptop>
-References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
-	 <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
-	 <1360859547.6884.51.camel@edumazet-glaptop>
-	 <20130214164053.GB18721@redhat.com>
-	 <1360861290.6884.55.camel@edumazet-glaptop>
-	 <20130217132404.GA22552@redhat.com>
+Subject: Re: [patch net-next v5 10/11] tbf: take into account gso skbs
+Date: Sun, 17 Feb 2013 09:54:23 -0800
+Message-ID: <1361123663.19353.94.camel@edumazet-glaptop>
+References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
+	 <1360663929-1023-11-git-send-email-jiri@resnulli.us>
+	 <1360687182.6884.5.camel@edumazet-glaptop>
+	 <20130217161803.GB1931@minipsycho.orion>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sebastian =?ISO-8859-1?Q?P=F6hn?=
-	<sebastian.poehn@googlemail.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:43839 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751357Ab3BQRnU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 12:43:20 -0500
-Received: by mail-pa0-f49.google.com with SMTP id kp6so2425677pab.8
-        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 09:43:20 -0800 (PST)
-In-Reply-To: <20130217132404.GA22552@redhat.com>
+Received: from mail-pb0-f52.google.com ([209.85.160.52]:35398 "EHLO
+	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751490Ab3BQRyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 12:54:25 -0500
+Received: by mail-pb0-f52.google.com with SMTP id ma3so1301671pbc.39
+        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 09:54:25 -0800 (PST)
+In-Reply-To: <20130217161803.GB1931@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-02-17 at 15:24 +0200, Michael S. Tsirkin wrote:
+On Sun, 2013-02-17 at 17:18 +0100, Jiri Pirko wrote:
 
-> But, userspace is in no position to decide whether using
-> the qdisc is a good or a bad thing.
-> The issue I tried to solve is that with tun, it's trivially easy for
-> userspace to lock up resources forever.
-> Simply not stopping the qdisc is probably the simplest solution.
+> I'm going through this issue back and front and on the second thought,
+> I think this patch might not be so wrong after all.
 > 
-> An alternative is to orphan the skbs before we queue them.
-> At some point I posted a proposal doing exactly this
-> subj of "net: orphan queued skbs if device tx can stall".
-> Do you think it's worth revisiting this?
+> "Accumulating" time in ptoks would effectively cause the skb to be sent
+> only in case time for whole skb is available (accumulated).
+> 
+> The re-segmenting will only cause the skb fragments sent in each time frame.
+> 
+> I can't see how the bigger bursts you are reffering to can happen.
+> 
+> Or am I missing something?
 
+Token Bucket Filter doesnt allow to accumulate tokens above a given
+threshold. Thats the whole point of the algo.
 
-Its trivially easy for userspace to consume all resources, with or
-without tuntap.
+After a one hour idle time, you don't want to allow your device sending
+a burst exceeding the constraint.
 
-Say, a regular Gbps ethernet device.
+This is all about avoiding packet drops in a device with a very small
+queue.
 
-We need some flow control at some point, unless we deal with device
-with unlimited bandwidth.
-
-If we orphan skbs too soon, how can we limit a single sender to flood
-the device ? Even a single TCP flow could do that. TCP Small Queues
-prevent this, but relies on proper skb orphaning.
-
-If the tuntap problem is that skb can sit there and are never consumed,
-its not a bug in the producer (the sender), but a problem with the
-receiver (the consumer of the queue). Some kind of cleanup is needed.
-
-Lets take the qdisc analogy :
-
-Codel for instance is able to drop packets that are sitting too long in
-queue. skbs are not orphaned until they are freed.
+Your patch was pretty close to solve the problem.
