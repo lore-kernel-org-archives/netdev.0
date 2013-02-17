@@ -1,55 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Universal tap device
-Date: Sun, 17 Feb 2013 13:58:50 +0000
-Message-ID: <201302171358.50680.arnd@arndb.de>
-References: <20130216140132.GB1536@minipsycho.orion> <201302162225.06536.arnd@arndb.de> <20130217093520.GA1931@minipsycho.orion>
+From: walter harms <wharms@bfs.de>
+Subject: Re: [PATCH] ethernet: neterion: vxge: vxge-traffic.c: fix for a potential
+ NULL pointer dereference
+Date: Sun, 17 Feb 2013 15:49:28 +0100
+Message-ID: <5120EDF8.7010503@bfs.de>
+References: <1361037394-14731-1-git-send-email-gmate.amit@gmail.com>
+Reply-To: wharms@bfs.de
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@inai.de>, netdev@vger.kernel.org,
-	ebiederm@xmission.com, stephen@networkplumber.org,
-	eric.dumazet@gmail.com, davem@davemloft.net
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:60356 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756126Ab3BQN7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 08:59:21 -0500
-In-Reply-To: <20130217093520.GA1931@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jdmason@kudzu.us, davem@davemloft.net, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Kumar Amit Mehta <gmate.amit@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1361037394-14731-1-git-send-email-gmate.amit@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sunday 17 February 2013, Jiri Pirko wrote:
-> 
-> Sat, Feb 16, 2013 at 11:25:06PM CET, arnd@arndb.de wrote:
-> >On Saturday 16 February 2013, Jiri Pirko wrote:
-> >> Sat, Feb 16, 2013 at 05:46:25PM CET, jengelh@inai.de wrote:
-> >> >On Saturday 2013-02-16 15:01, Jiri Pirko wrote:
-> >> >
-> >> >>Hi all.                                                                  
-> >> >>                                                                         
-> >> >>Looking at macvtap and thinking about the tap solutions in general,
-> >> >>I think it would be handly to have some universal tap device.
-> >> >
-> >> >As in, allowing tuntap to register as an rx_handler for arbitrary
-> >> >devices?
-> >> 
-> >> Essentially yes, but I was thinking without the actual netdev:
-> >> not eth0 -> tap0 -> chardev
-> >> but eth0 -> chardev
-> >> 
-> >> Not sure though if that is easily doable..
-> >
-> >Isn't that the same as setting up macvtap in PASSTHRU mode?
-> 
-> Yep, but without netdev instance. That brings some issues. Maybe the
-> netdev instance should be there. Not sure.
-> 
 
-The idea of macvtap is at least that there should be no run-time
-from using a separate netdev. Having the device is useful mostly
-for configuration, especially with the non-passthrough modes
-where you want to bind to a new mac address.
 
-	Arnd
+Am 16.02.2013 18:56, schrieb Kumar Amit Mehta:
+> fix for a potential NULL pointer dereference and removal of a redundant
+> assignment operation. Found using smatch.
+> 
+> Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
+> ---
+>  drivers/net/ethernet/neterion/vxge/vxge-traffic.c |    8 ++------
+>  1 file changed, 2 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+> index 99749bd..adb05a8 100644
+> --- a/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+> +++ b/drivers/net/ethernet/neterion/vxge/vxge-traffic.c
+> @@ -611,11 +611,8 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
+>  	struct vxge_hw_vpath_stats_sw_info *sw_stats;
+>  	struct vxge_hw_vpath_reg __iomem *vp_reg;
+>  
+> -	if (vpath == NULL) {
+> -		alarm_event = VXGE_HW_SET_LEVEL(VXGE_HW_EVENT_UNKNOWN,
+> -			alarm_event);
+> +	if (vpath == NULL)
+>  		goto out2;
+> -	}
+>  
+>  	hldev = vpath->hldev;
+>  	vp_reg = vpath->vp_reg;
+> @@ -852,13 +849,12 @@ __vxge_hw_vpath_alarm_process(struct __vxge_hw_virtualpath *vpath,
+>  	}
+>  out:
+>  	hldev->stats.sw_dev_err_stats.vpath_alarms++;
+> +	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
+>  out2:
+>  	if ((alarm_event == VXGE_HW_EVENT_ALARM_CLEARED) ||
+>  		(alarm_event == VXGE_HW_EVENT_UNKNOWN))
+>  		return VXGE_HW_OK;
+>  
+> -	__vxge_hw_device_handle_error(hldev, vpath->vp_id, alarm_event);
+> -
+>  	if (alarm_event == VXGE_HW_EVENT_SERR)
+>  		return VXGE_HW_ERR_CRITICAL;
+>  
+
+the patch looks ok.
+it would be nice if someone would rewrite the if (alarm_event == x ) stuff
+using switch or more if()'s it is hardly readable this way.
+
+just my 2 cents,
+re,
+ wh
