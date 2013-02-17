@@ -1,50 +1,43 @@
 From: Fabio Estevam <festevam@gmail.com>
-Subject: [PATCH v2 2/2] net: fec: Improve logging
-Date: Sun, 17 Feb 2013 10:36:44 -0300
-Message-ID: <1361108204-9498-2-git-send-email-festevam@gmail.com>
-References: <1361108204-9498-1-git-send-email-festevam@gmail.com>
-Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
+Subject: Re: [PATCH 2/2] net: fec: Improve logging
+Date: Sun, 17 Feb 2013 10:41:11 -0300
+Message-ID: <CAOMZO5AT4=cYrQBG0Or7PDw18hrYYuNyg17Bt-TU2jNSg5GXWg@mail.gmail.com>
+References: <1361055207-22870-1-git-send-email-festevam@gmail.com>
+	<1361055207-22870-2-git-send-email-festevam@gmail.com>
+	<20130217115555.GA6782@S2101-09.ap.freescale.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, s.hauer@pengutronix.de, marex@denx.de,
 	netdev@vger.kernel.org, Fabio Estevam <fabio.estevam@freescale.com>
-To: davem@davemloft.net
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f180.google.com ([209.85.213.180]:59958 "EHLO
-	mail-ye0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756189Ab3BQNg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 08:36:59 -0500
-Received: by mail-ye0-f180.google.com with SMTP id r14so859528yen.11
-        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 05:36:59 -0800 (PST)
-In-Reply-To: <1361108204-9498-1-git-send-email-festevam@gmail.com>
+Received: from mail-ve0-f177.google.com ([209.85.128.177]:38039 "EHLO
+	mail-ve0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756156Ab3BQNlO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 08:41:14 -0500
+Received: by mail-ve0-f177.google.com with SMTP id m1so4150709ves.8
+        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 05:41:13 -0800 (PST)
+In-Reply-To: <20130217115555.GA6782@S2101-09.ap.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
+On Sun, Feb 17, 2013 at 8:55 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
 
-Replace pr_debug with dev_dbg to improve the logging style.
-dev_dbg indicates the device name in the log, which is useful for debugging 
-purposes when we have a dual FEC system, such as mx28. 
+>> --- a/drivers/net/ethernet/freescale/fec.c
+>> +++ b/drivers/net/ethernet/freescale/fec.c
+>> @@ -1695,7 +1695,7 @@ static void fec_reset_phy(struct platform_device *pdev)
+>>       err = devm_gpio_request_one(&pdev->dev, phy_reset,
+>>                                   GPIOF_OUT_INIT_LOW, "phy-reset");
+>>       if (err) {
+>> -             pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
+>> +             dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+>
+> Shouldn't dev_dbg be more like a equivalent of pr_debug?  The reason
+> why it's taken as a debug message rather than an error is that some
+> board design may not have reset line for phy.
 
-Also use "phy-reset-gpios" in the message to correlate with the device tree
-property.
+If a board does not have a reset line for the PHY then it will not try
+to request the GPIO as per patch 1/2 of this series.
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
-Changes since v1:
-- Use dev_dbg instead of dev_err
- drivers/net/ethernet/freescale/fec.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 5864a67..29d82cf 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1695,7 +1695,7 @@ static void fec_reset_phy(struct platform_device *pdev)
- 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
- 				    GPIOF_OUT_INIT_LOW, "phy-reset");
- 	if (err) {
--		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
-+		dev_dbg(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
- 		return;
- 	}
- 	msleep(msec);
--- 
-1.7.9.5
+I sent a v2 with dev_dbg, but I think that the first version with
+dev_err is more useful.
