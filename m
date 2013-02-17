@@ -1,75 +1,86 @@
-From: Sebastian =?ISO-8859-1?Q?P=F6hn?= <sebastian.poehn@googlemail.com>
-Subject: Re: tuntap: Overload handling
-Date: Sun, 17 Feb 2013 17:08:13 +0100
-Message-ID: <1361117293.1748.1.camel@alpha.Speedport_W723_V_Typ_A_1_00_096>
-References: <CAGUzgdK9U3hreLxtc6eP3CSpLsfhkn2ZKpFp9_VJhWr2gz0uCQ@mail.gmail.com>
-	 <CAGUzgdJOLmOyd9dd=Ht-qgZ9B-or59pDwaUY28DrbnL4BKFPcw@mail.gmail.com>
-	 <1360859547.6884.51.camel@edumazet-glaptop>
-	 <20130214164053.GB18721@redhat.com>
-	 <1360861290.6884.55.camel@edumazet-glaptop>
-	 <20130217132404.GA22552@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v5 10/11] tbf: take into account gso skbs
+Date: Sun, 17 Feb 2013 17:18:03 +0100
+Message-ID: <20130217161803.GB1931@minipsycho.orion>
+References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
+ <1360663929-1023-11-git-send-email-jiri@resnulli.us>
+ <1360687182.6884.5.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:45478 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752Ab3BQQIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 11:08:21 -0500
-Received: by mail-ee0-f52.google.com with SMTP id b15so2392158eek.25
-        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 08:08:19 -0800 (PST)
-In-Reply-To: <20130217132404.GA22552@redhat.com>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:56558 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994Ab3BQQSJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 11:18:09 -0500
+Received: by mail-ee0-f50.google.com with SMTP id e51so2485729eek.9
+        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 08:18:08 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1360687182.6884.5.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-02-17 at 15:24 +0200, Michael S. Tsirkin wrote:
-> On Thu, Feb 14, 2013 at 09:01:30AM -0800, Eric Dumazet wrote:
-> > On Thu, 2013-02-14 at 18:42 +0200, Michael S. Tsirkin wrote:
-> > 
-> > > Hmm so ~1000 packets in the tun queue is not enough?
-> > > You always have the option to increase it some more ...
-> > > 
-> > > > You should ask Michael S. Tsirkin, as he removed the flow control
-> > > > in commit 5d097109257c03a71845729f8db6b5770c4bbedc
-> > > > (tun: only queue packets on device)
-> > > > 
-> > > 
-> > > Eric in the past you said the following things
-> > > (http://lkml.indiana.edu/hypermail/linux/kernel/1204.1/00784.html)
-> > > > > In your case I would just not use qdisc at all, like other virtual
-> > > > > devices.
-> > > ...
-> > > > > Anyway, with a 500 packet limit in TUN queue itself, qdisc layer should
-> > > > > be always empty. Whats the point storing more than 500 packets for a
-> > > > > device ? Thats a latency killer.
-> > > you don't think this applies, anymore?
-> > > 
-> > 
-> > Users have the choice to setup a qdisc or not.
-> > 
-> > Having no qdisc can help raw performance, at the expense of bufferbloat.
-> > Thats all I was saying.
-> > 
-> > It seems tun.c has no longer the possibility to effectively use a qdisc,
-> > (allowing the queue to buildup at qdisc layer)
-> > 
-> 
-> But, userspace is in no position to decide whether using
-> the qdisc is a good or a bad thing.
-> The issue I tried to solve is that with tun, it's trivially easy for
-> userspace to lock up resources forever.
-> Simply not stopping the qdisc is probably the simplest solution.
-> 
-> An alternative is to orphan the skbs before we queue them.
-> At some point I posted a proposal doing exactly this
-> subj of "net: orphan queued skbs if device tx can stall".
-> Do you think it's worth revisiting this?
-> 
-> Also - does anyone know of a testcase showing there's a problem
-> with the simplest solution we now have in place?
-> 
+Tue, Feb 12, 2013 at 05:39:42PM CET, eric.dumazet@gmail.com wrote:
+>On Tue, 2013-02-12 at 11:12 +0100, Jiri Pirko wrote:
+>> Ignore max_size check for gso skbs. This check made bigger packets
+>> incorrectly dropped. Remove this limitation for gso skbs.
+>> 
+>> Also for peaks, ignore mtu for gso skbs.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  net/sched/sch_tbf.c | 4 ++--
+>>  1 file changed, 2 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+>> index c8388f3..8973e93 100644
+>> --- a/net/sched/sch_tbf.c
+>> +++ b/net/sched/sch_tbf.c
+>> @@ -121,7 +121,7 @@ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>>  	struct tbf_sched_data *q = qdisc_priv(sch);
+>>  	int ret;
+>>  
+>> -	if (qdisc_pkt_len(skb) > q->max_size)
+>> +	if (qdisc_pkt_len(skb) > q->max_size && !skb_is_gso(skb))
+>>  		return qdisc_reshape_fail(skb, sch);
+>>  
+>>  	ret = qdisc_enqueue(skb, q->qdisc);
+>> @@ -165,7 +165,7 @@ static struct sk_buff *tbf_dequeue(struct Qdisc *sch)
+>>  
+>>  		if (q->peak_present) {
+>>  			ptoks = toks + q->ptokens;
+>> -			if (ptoks > q->mtu)
+>> +			if (ptoks > q->mtu && !skb_is_gso(skb))
+>>  				ptoks = q->mtu;
+>>  			ptoks -= (s64) psched_l2t_ns(&q->peak, len);
+>>  		}
+>
+>
+>I guess this part is wrong.
+>
+>If we dont cap ptoks to q->mtu we allow bigger bursts.
 
-I think the solution is good as it is. Of course if you want to do odd
-things with it like me - it's not, but that's not its usual use-case.
+
+I'm going through this issue back and front and on the second thought,
+I think this patch might not be so wrong after all.
+
+"Accumulating" time in ptoks would effectively cause the skb to be sent
+only in case time for whole skb is available (accumulated).
+
+The re-segmenting will only cause the skb fragments sent in each time frame.
+
+I can't see how the bigger bursts you are reffering to can happen.
+
+Or am I missing something?
+
+>
+>Ideally we could re-segment the skb if psched_l2t_ns(&q->peak, len) is
+>bigger than q->mtu
+>
+>
+>
+>
+>
+>
