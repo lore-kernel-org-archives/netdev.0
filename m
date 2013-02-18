@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 06/46] percpu_rwlock: Rearrange the read-lock code to
- fastpath nested percpu readers
-Date: Mon, 18 Feb 2013 18:09:07 +0530
-Message-ID: <20130218123907.26245.37550.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 02/46] percpu_rwlock: Introduce per-CPU variables for the
+ reader and the writer
+Date: Mon, 18 Feb 2013 18:08:45 +0530
+Message-ID: <20130218123845.26245.58287.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,48 +24,75 @@ In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If we are dealing with a nester percpu reader, we can optimize away quite
-a few costly operations. Improve that fastpath further, by avoiding the
-unnecessary addition and subtraction of 'READER_PRESENT' to reader_refcnt,
-by rearranging the code a bit.
+Per-CPU rwlocks ought to give better performance than global rwlocks.
+That is where the "per-CPU" component comes in. So introduce the necessary
+per-CPU variables that would be necessary at the reader and the writer sides,
+and add the support for dynamically initializing per-CPU rwlocks.
+These per-CPU variables will be used subsequently to implement the core
+algorithm behind per-CPU rwlocks.
 
+Cc: David Howells <dhowells@redhat.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- lib/percpu-rwlock.c |   14 ++++++--------
- 1 file changed, 6 insertions(+), 8 deletions(-)
+ include/linux/percpu-rwlock.h |    8 ++++++++
+ lib/percpu-rwlock.c           |   12 ++++++++++++
+ 2 files changed, 20 insertions(+)
 
+diff --git a/include/linux/percpu-rwlock.h b/include/linux/percpu-rwlock.h
+index 0caf81f..74eaf4d 100644
+--- a/include/linux/percpu-rwlock.h
++++ b/include/linux/percpu-rwlock.h
+@@ -28,7 +28,13 @@
+ #include <linux/lockdep.h>
+ #include <linux/spinlock.h>
+ 
++struct rw_state {
++	unsigned long	reader_refcnt;
++	bool		writer_signal;
++};
++
+ struct percpu_rwlock {
++	struct rw_state __percpu	*rw_state;
+ 	rwlock_t			global_rwlock;
+ };
+ 
+@@ -41,6 +47,8 @@ extern void percpu_write_unlock(struct percpu_rwlock *);
+ extern int __percpu_init_rwlock(struct percpu_rwlock *,
+ 				const char *, struct lock_class_key *);
+ 
++extern void percpu_free_rwlock(struct percpu_rwlock *);
++
+ #define percpu_init_rwlock(pcpu_rwlock)					\
+ ({	static struct lock_class_key rwlock_key;			\
+ 	__percpu_init_rwlock(pcpu_rwlock, #pcpu_rwlock, &rwlock_key);	\
 diff --git a/lib/percpu-rwlock.c b/lib/percpu-rwlock.c
-index ce7e440..ed36531 100644
+index 111a238..f938096 100644
 --- a/lib/percpu-rwlock.c
 +++ b/lib/percpu-rwlock.c
-@@ -80,23 +80,21 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
- 	preempt_disable();
- 
- 	/*
--	 * Let the writer know that a reader is active, even before we choose
--	 * our reader-side synchronization scheme.
--	 */
--	this_cpu_add(pcpu_rwlock->rw_state->reader_refcnt, READER_PRESENT);
--
--	/*
- 	 * If we are already using per-cpu refcounts, it is not safe to switch
- 	 * the synchronization scheme. So continue using the refcounts.
- 	 */
- 	if (reader_uses_percpu_refcnt(pcpu_rwlock)) {
- 		this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
--		this_cpu_sub(pcpu_rwlock->rw_state->reader_refcnt,
--			     READER_PRESENT);
- 		return;
- 	}
- 
- 	/*
-+	 * Let the writer know that a reader is active, even before we choose
-+	 * our reader-side synchronization scheme.
-+	 */
-+	this_cpu_add(pcpu_rwlock->rw_state->reader_refcnt, READER_PRESENT);
+@@ -31,6 +31,10 @@
+ int __percpu_init_rwlock(struct percpu_rwlock *pcpu_rwlock,
+ 			 const char *name, struct lock_class_key *rwlock_key)
+ {
++	pcpu_rwlock->rw_state = alloc_percpu(struct rw_state);
++	if (unlikely(!pcpu_rwlock->rw_state))
++		return -ENOMEM;
 +
-+	/*
- 	 * The write to 'reader_refcnt' must be visible before we read
- 	 * 'writer_signal'.
- 	 */
+ 	/* ->global_rwlock represents the whole percpu_rwlock for lockdep */
+ #ifdef CONFIG_DEBUG_SPINLOCK
+ 	__rwlock_init(&pcpu_rwlock->global_rwlock, name, rwlock_key);
+@@ -41,6 +45,14 @@ int __percpu_init_rwlock(struct percpu_rwlock *pcpu_rwlock,
+ 	return 0;
+ }
+ 
++void percpu_free_rwlock(struct percpu_rwlock *pcpu_rwlock)
++{
++	free_percpu(pcpu_rwlock->rw_state);
++
++	/* Catch use-after-free bugs */
++	pcpu_rwlock->rw_state = NULL;
++}
++
+ void percpu_read_lock(struct percpu_rwlock *pcpu_rwlock)
+ {
+ 	read_lock(&pcpu_rwlock->global_rwlock);
