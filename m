@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 28/46] KVM: Use get/put_online_cpus_atomic() to prevent CPU
- offline from atomic context
-Date: Mon, 18 Feb 2013 18:12:14 +0530
-Message-ID: <20130218124214.26245.41186.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 29/46] kvm/vmx: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Mon, 18 Feb 2013 18:12:26 +0530
+Message-ID: <20130218124226.26245.11310.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,9 +19,9 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
 In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able to
@@ -29,52 +29,41 @@ depend on preempt_disable() or local_irq_disable() to prevent CPUs from
 going offline from under us.
 
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-while invoking from atomic context.
+while invoking from atomic context (in vmx_vcpu_load() to prevent CPUs from
+going offline while clearing vmcs).
 
+Reported-by: Michael Wang <wangyun@linux.vnet.ibm.com>
+Debugged-by: Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>
 Cc: Marcelo Tosatti <mtosatti@redhat.com>
 Cc: Gleb Natapov <gleb@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
 Cc: kvm@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- virt/kvm/kvm_main.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+ arch/x86/kvm/vmx.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index 1cd693a..47f9c30 100644
---- a/virt/kvm/kvm_main.c
-+++ b/virt/kvm/kvm_main.c
-@@ -174,7 +174,8 @@ static bool make_all_cpus_request(struct kvm *kvm, unsigned int req)
+diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
+index 9120ae1..2886ff0 100644
+--- a/arch/x86/kvm/vmx.c
++++ b/arch/x86/kvm/vmx.c
+@@ -1557,10 +1557,14 @@ static void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+ 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+ 	u64 phys_addr = __pa(per_cpu(vmxarea, cpu));
  
- 	zalloc_cpumask_var(&cpus, GFP_ATOMIC);
+-	if (!vmm_exclusive)
++	if (!vmm_exclusive) {
+ 		kvm_cpu_vmxon(phys_addr);
+-	else if (vmx->loaded_vmcs->cpu != cpu)
++	} else if (vmx->loaded_vmcs->cpu != cpu) {
++		/* Prevent any CPU from going offline */
++		get_online_cpus_atomic();
+ 		loaded_vmcs_clear(vmx->loaded_vmcs);
++		put_online_cpus_atomic();
++	}
  
--	me = get_cpu();
-+	get_online_cpus_atomic();
-+	me = smp_processor_id();
- 	kvm_for_each_vcpu(i, vcpu, kvm) {
- 		kvm_make_request(req, vcpu);
- 		cpu = vcpu->cpu;
-@@ -192,7 +193,7 @@ static bool make_all_cpus_request(struct kvm *kvm, unsigned int req)
- 		smp_call_function_many(cpus, ack_flush, NULL, 1);
- 	else
- 		called = false;
--	put_cpu();
-+	put_online_cpus_atomic();
- 	free_cpumask_var(cpus);
- 	return called;
- }
-@@ -1621,11 +1622,12 @@ void kvm_vcpu_kick(struct kvm_vcpu *vcpu)
- 		++vcpu->stat.halt_wakeup;
- 	}
- 
--	me = get_cpu();
-+	get_online_cpus_atomic();
-+	me = smp_processor_id();
- 	if (cpu != me && (unsigned)cpu < nr_cpu_ids && cpu_online(cpu))
- 		if (kvm_arch_vcpu_should_kick(vcpu))
- 			smp_send_reschedule(cpu);
--	put_cpu();
-+	put_online_cpus_atomic();
- }
- #endif /* !CONFIG_S390 */
- 
+ 	if (per_cpu(current_vmcs, cpu) != vmx->loaded_vmcs->vmcs) {
+ 		per_cpu(current_vmcs, cpu) = vmx->loaded_vmcs->vmcs;
+
