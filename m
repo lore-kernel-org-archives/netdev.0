@@ -1,216 +1,205 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next 3/3] bonding: fix bond_release_all inconsistencies
-Date: Mon, 18 Feb 2013 13:56:48 -0800
-Message-ID: <21474.1361224608@death.nxdomain>
-References: <1361210344-14907-1-git-send-email-nikolay@redhat.com> <1361210344-14907-3-git-send-email-nikolay@redhat.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:58263 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756461Ab3BRV4y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 16:56:54 -0500
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Mon, 18 Feb 2013 16:56:53 -0500
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 71F2538C8022
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:56:50 -0500 (EST)
-Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1ILuo1x271790
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:56:50 -0500
-Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
-	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1ILunHv028335
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 18:56:49 -0300
-In-reply-to: <1361210344-14907-3-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: SYSFS "errors"
+Date: Mon, 18 Feb 2013 23:57:43 +0200
+Message-ID: <20130218215743.GA21192@arwen.pp.htv.fi>
+References: <20130218184633.GC10755@arwen.pp.htv.fi>
+ <Pine.LNX.4.44L0.1302181644260.6790-100000@netrider.rowland.org>
+Reply-To: <balbi@ti.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="VS++wcV0S1rZb1Fb"
+Cc: Felipe Balbi <balbi@ti.com>, Greg KH <gregkh@linuxfoundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, <JBottomley@parallels.com>,
+	<linux-scsi@vger.kernel.org>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>,
+	Doug Thompson <dougthompson@xmission.com>,
+	<linux-edac@vger.kernel.org>, <rjw@sisk.pl>,
+	<linux-pm@vger.kernel.org>
+To: Alan Stern <stern@rowland.harvard.edu>
+Return-path: <linux-pm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44L0.1302181644260.6790-100000@netrider.rowland.org>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+--VS++wcV0S1rZb1Fb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->This patch fixes the following inconsistencies in bond_release_all:
->- IFF_BONDING flag is not stripped from slaves
->- MTU is not restored
->- no netdev notifiers are sent
->Instead of trying to keep bond_release and bond_release_all in sync
->I think we can re-use bond_release as the environment for calling it
->is correct (RTNL is held). I have been running tests for the past
->week and they came out successful. The only way for bond_release to fail
->is for the slave to be attached in a different bond or to not be a slave
->but that cannot happen as RTNL is held and no slave manipulations can be
->achieved.
+On Mon, Feb 18, 2013 at 04:48:06PM -0500, Alan Stern wrote:
+> On Mon, 18 Feb 2013, Felipe Balbi wrote:
+>=20
+> > Hi, On Mon, Feb 18, 2013 at 09:49:16AM -0800, Greg KH wrote:
+> > > > Input/output error - /sys/devices/cpu/power/autosuspend_delay_ms
+> > >=20
+> > > The issue with this file is, if the power.use_autosuspend flag is not
+> > > set for the device, then it can't be read or written to.  This flag
+> > > changes dynamically with the system state
+> > > (__pm_runtime_use_autosuspend() can change it), so we can't just not
+> > > show the file if the flag is not set properly, sorry.
+> > >=20
+> > > So the "error" is correct here, as is the 0644 file value.
+> >=20
+> > hmm... we could create the file at pm_runtime_enable() time and remove
+> > it on pm_runtime_disable() time, no ? Addin Rafael to Cc
+>=20
+> In theory this could be done, although the times would be when runtime=20
+> autosuspend is turned on or off, not when pm_runtime_enable is called.
 
-	It might be worthwhile to add an "all" argument to bond_release
-that skips some things that don't make sense if all slaves are being
-released.  I'm thinking in particular of this block:
+Right, I got that after replying. Here's a patch I plan to test
+tomorrow:
 
-	if (oldcurrent == slave) {
-		/*
-		 * Note that we hold RTNL over this sequence, so there
-		 * is no concern that another slave add/remove event
-		 * will interfere.
-		 */
-		write_unlock_bh(&bond->lock);
-		read_lock(&bond->lock);
-		write_lock_bh(&bond->curr_slave_lock);
+8<------------------------ cut here ----------------------------
 
-		bond_select_active_slave(bond);
+=46rom 2cdeeb483383490946cc98727a167843c40d7d27 Mon Sep 17 00:00:00 2001
+=46rom: Felipe Balbi <balbi@ti.com>
+Date: Mon, 18 Feb 2013 21:20:28 +0200
+Subject: [PATCH] base: power: create autosuspend_delay_ms from
+ pm_runtime_use_autosuspend()
 
-		write_unlock_bh(&bond->curr_slave_lock);
-		read_unlock(&bond->lock);
-		write_lock_bh(&bond->lock);
-	}
+this patch moves the creation of autosuspend_delay_ms
+sysfs file to pm_runtime_use_autosuspend() and, conversely,
+its deletion to pm_runtime_dont_use_autosuspend.
 
-	as it's written now, for the release all case, the code may go
-to the trouble of assigning a new active slave each time one slave is
-removed (including various log messages, maybe sending IGMPs, etc).  If
-all slaves are being removed, that's pointless.  This could be something
-like:
+The idea behind this patch is such that the file in
+question is only readable after pm_runtime_use_autosuspend()
+has been called for a particular device, so we might
+as well move the creation of the file to that place.
 
-	if (release_all) {
-		bond->curr_active_slave = NULL;
-	} else if (oldcurrent == slave) {
-		[ the current block of stuff ]
-	}
-
-	it's safe here to unconditionally set curr_active_slave to NULL
-because we hold bond->lock for write.  The lock dance stuff for the
-bond_select_active_slave() call is to satisfy its locking requirements.
-
-	-J
-
-
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->---
-> drivers/net/bonding/bond_main.c | 106 ++--------------------------------------
-> 1 file changed, 5 insertions(+), 101 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 94c1534..fcfc880 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2140,113 +2140,17 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
-> /*
->  * This function releases all slaves.
->  */
->-static int bond_release_all(struct net_device *bond_dev)
->+static void bond_release_all(struct net_device *bond_dev)
-> {
-> 	struct bonding *bond = netdev_priv(bond_dev);
->-	struct slave *slave;
->-	struct net_device *slave_dev;
->-	struct sockaddr addr;
->-
->-	write_lock_bh(&bond->lock);
->-
->-	netif_carrier_off(bond_dev);
->
-> 	if (bond->slave_cnt == 0)
->-		goto out;
->-
->-	bond->current_arp_slave = NULL;
->-	bond->primary_slave = NULL;
->-	bond_change_active_slave(bond, NULL);
->-
->-	while ((slave = bond->first_slave) != NULL) {
->-		/* Inform AD package of unbinding of slave
->-		 * before slave is detached from the list.
->-		 */
->-		if (bond->params.mode == BOND_MODE_8023AD)
->-			bond_3ad_unbind_slave(slave);
->-
->-		slave_dev = slave->dev;
->-		bond_detach_slave(bond, slave);
->-
->-		/* now that the slave is detached, unlock and perform
->-		 * all the undo steps that should not be called from
->-		 * within a lock.
->-		 */
->-		write_unlock_bh(&bond->lock);
->-
->-		/* unregister rx_handler early so bond_handle_frame wouldn't
->-		 * be called for this slave anymore.
->-		 */
->-		netdev_rx_handler_unregister(slave_dev);
->-		synchronize_net();
->-
->-		if (bond_is_lb(bond)) {
->-			/* must be called only after the slave
->-			 * has been detached from the list
->-			 */
->-			bond_alb_deinit_slave(bond, slave);
->-		}
->-
->-		bond_destroy_slave_symlinks(bond_dev, slave_dev);
->-		bond_del_vlans_from_slave(bond, slave_dev);
->-
->-		/* If the mode USES_PRIMARY, then we should only remove its
->-		 * promisc and mc settings if it was the curr_active_slave, but that was
->-		 * already taken care of above when we detached the slave
->-		 */
->-		if (!USES_PRIMARY(bond->params.mode)) {
->-			/* unset promiscuity level from slave */
->-			if (bond_dev->flags & IFF_PROMISC)
->-				dev_set_promiscuity(slave_dev, -1);
->-
->-			/* unset allmulti level from slave */
->-			if (bond_dev->flags & IFF_ALLMULTI)
->-				dev_set_allmulti(slave_dev, -1);
->-
->-			/* flush master's mc_list from slave */
->-			netif_addr_lock_bh(bond_dev);
->-			bond_mc_list_flush(bond_dev, slave_dev);
->-			netif_addr_unlock_bh(bond_dev);
->-		}
->-
->-		bond_upper_dev_unlink(bond_dev, slave_dev);
->-
->-		slave_disable_netpoll(slave);
->-
->-		/* close slave before restoring its mac address */
->-		dev_close(slave_dev);
->-
->-		if (!bond->params.fail_over_mac) {
->-			/* restore original ("permanent") mac address*/
->-			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
->-			addr.sa_family = slave_dev->type;
->-			dev_set_mac_address(slave_dev, &addr);
->-		}
->-
->-		kfree(slave);
->-
->-		/* re-acquire the lock before getting the next slave */
->-		write_lock_bh(&bond->lock);
->-	}
->-
->-	eth_hw_addr_random(bond_dev);
->-	bond->dev_addr_from_first = true;
->-
->-	if (bond_vlan_used(bond)) {
->-		pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
->-			   bond_dev->name, bond_dev->name);
->-		pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
->-			   bond_dev->name);
->-	}
->-
->+		return;
->+	while (bond->first_slave != NULL)
->+		bond_release(bond_dev, bond->first_slave->dev);
-> 	pr_info("%s: released all slaves\n", bond_dev->name);
->
->-out:
->-	write_unlock_bh(&bond->lock);
->-
->-	bond_compute_features(bond);
->-
->-	return 0;
->+	return;
-> }
->
-> /*
->-- 
->1.7.11.7
-
+Signed-off-by: Felipe Balbi <balbi@ti.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/base/power/power.h   |  4 ++++
+ drivers/base/power/runtime.c |  6 ++++++
+ drivers/base/power/sysfs.c   | 25 ++++++++++++++++++++++++-
+ 3 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/base/power/power.h b/drivers/base/power/power.h
+index b16686a..3822b94 100644
+--- a/drivers/base/power/power.h
++++ b/drivers/base/power/power.h
+@@ -90,6 +90,8 @@ static inline void device_pm_init(struct device *dev)
+=20
+ extern int dpm_sysfs_add(struct device *dev);
+ extern void dpm_sysfs_remove(struct device *dev);
++extern int dpm_autosuspend_sysfs_add(struct device *dev);
++extern void dpm_autosuspend_sysfs_remove(struct device *dev);
+ extern void rpm_sysfs_remove(struct device *dev);
+ extern int wakeup_sysfs_add(struct device *dev);
+ extern void wakeup_sysfs_remove(struct device *dev);
+@@ -102,6 +104,8 @@ extern void pm_qos_sysfs_remove_flags(struct device *de=
+v);
+=20
+ static inline int dpm_sysfs_add(struct device *dev) { return 0; }
+ static inline void dpm_sysfs_remove(struct device *dev) {}
++static inline int dpm_autosuspend_sysfs_add(struct device *dev) { return 0=
+; }
++static inline void dpm_autosuspend_sysfs_remove(struct device *dev) {}
+ static inline void rpm_sysfs_remove(struct device *dev) {}
+ static inline int wakeup_sysfs_add(struct device *dev) { return 0; }
+ static inline void wakeup_sysfs_remove(struct device *dev) {}
+diff --git a/drivers/base/power/runtime.c b/drivers/base/power/runtime.c
+index 3148b10..a162ba5 100644
+--- a/drivers/base/power/runtime.c
++++ b/drivers/base/power/runtime.c
+@@ -1266,6 +1266,12 @@ void __pm_runtime_use_autosuspend(struct device *dev=
+, bool use)
+ 	old_use =3D dev->power.use_autosuspend;
+ 	dev->power.use_autosuspend =3D use;
+ 	update_autosuspend(dev, old_delay, old_use);
++
++	if (use)
++		dpm_autosuspend_sysfs_add(dev);
++	else
++		dpm_autosuspend_sysfs_remove(dev);
++
+ 	spin_unlock_irq(&dev->power.lock);
+ }
+ EXPORT_SYMBOL_GPL(__pm_runtime_use_autosuspend);
+diff --git a/drivers/base/power/sysfs.c b/drivers/base/power/sysfs.c
+index 50d16e3..ef2a41c 100644
+--- a/drivers/base/power/sysfs.c
++++ b/drivers/base/power/sysfs.c
+@@ -609,15 +609,26 @@ static struct attribute *runtime_attrs[] =3D {
+ 	&dev_attr_control.attr,
+ 	&dev_attr_runtime_suspended_time.attr,
+ 	&dev_attr_runtime_active_time.attr,
+-	&dev_attr_autosuspend_delay_ms.attr,
+ #endif /* CONFIG_PM_RUNTIME */
+ 	NULL,
+ };
++
+ static struct attribute_group pm_runtime_attr_group =3D {
+ 	.name	=3D power_group_name,
+ 	.attrs	=3D runtime_attrs,
+ };
+=20
++static struct attribute *runtime_autosuspend_attrs[] =3D {
++#ifdef CONFIG_PM_RUNTIME
++	&dev_attr_autosuspend_delay_ms.attr,
++#endif /* CONFIG_PM_RUNTIME */
++};
++
++static struct attribute_group pm_runtime_autosuspend_attr_group =3D {
++	.name	=3D power_group_name,
++	.attrs	=3D runtime_autosuspend_attrs,
++};
++
+ static struct attribute *pm_qos_latency_attrs[] =3D {
+ #ifdef CONFIG_PM_RUNTIME
+ 	&dev_attr_pm_qos_resume_latency_us.attr,
+@@ -671,6 +682,12 @@ int dpm_sysfs_add(struct device *dev)
+ 	return rc;
+ }
+=20
++int dpm_autosuspend_sysfs_add(struct device *dev)
++{
++	return sysfs_merge_group(&dev->kobj,
++			&pm_runtime_autosuspend_attr_group);
++}
++
+ int wakeup_sysfs_add(struct device *dev)
+ {
+ 	return sysfs_merge_group(&dev->kobj, &pm_wakeup_attr_group);
+@@ -712,3 +729,9 @@ void dpm_sysfs_remove(struct device *dev)
+ 	sysfs_unmerge_group(&dev->kobj, &pm_wakeup_attr_group);
+ 	sysfs_remove_group(&dev->kobj, &pm_attr_group);
+ }
++
++void dpm_autosuspend_sysfs_remove(struct device *dev)
++{
++	sysfs_unmerge_group(&dev->kobj,
++			&pm_runtime_autosuspend_attr_group);
++}
+--=20
+1.8.1.rc1.5.g7e0651a
+
+--=20
+balbi
+
+--VS++wcV0S1rZb1Fb
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRIqPWAAoJEIaOsuA1yqREKKQP+gNtEHdA0IaJNfVwCokXa9jF
+4l8AWz8Kxxyckwrn8XPHCCzIXVWuXzIdr0fkZ8A97pz7Ibn6WinNC7Bezk07+hDI
+x1Th8D1BrvCj/wvv/R5rUFGoiZl/9ABF1ihukQDmgObbrXGQEuEMRfqnE6Tj7k2L
++7dnA4Rpj9KN06GGQNk2HiQ7aa8zQ2ezD1vFZ/aarec5vTCyFVxEpUD8fHzTyUNK
+uAvdqslKmpAyktrj5zrFGWKkvmJmd9oYlFrN58OgVWPjqWobmdEBw/8j/wUHNKR2
+9PMsjGpb+CO3iLcJBKLehaI6P44Fwpeytgw/j7XM6YO3JsOJYtHES6r1/JNhuhJ+
+MbImAaGDwtQwElQH4IkN2ujWIPAzxhfo806HEBTDjtXjMo8jKaYw+eG9jC+4zSct
+0Cd3IQ7zVfklYw1Jv5SJGJ8xzI0BO/unxnilB/pmdNJYY97tBJd/G2ev4hc/5KA2
+aEL3fappD/l9i3vc6Hz4eIfxuIupU7FO8pbinlEGsQa4D0UueSwaCPn0kl0e1GQ+
+vrxexnERS5q2Wa1slLQ6mrT6C2fDmjuRjpfle72jBm6ZFW149So/ackKgQB1fBXh
+O8GJNippgaREW9Bza31URJz7VhsZgeJlbMB2+bHnf31873jjfCa0CLGNujXp1O0p
+rvMwqOd3xFaJiFHtcaNg
+=QpVH
+-----END PGP SIGNATURE-----
+
+--VS++wcV0S1rZb1Fb--
