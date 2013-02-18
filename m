@@ -1,53 +1,32 @@
-From: Doug Goldstein <cardoe@cardoe.com>
-Subject: [PATCH] bonding: set sysfs device_type to 'bond'
-Date: Sun, 17 Feb 2013 20:38:47 -0600
-Message-ID: <1361155127-4415-1-git-send-email-cardoe@cardoe.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Doug Goldstein <cardoe@cardoe.com>
-To: netdev@vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v4] netpoll: fix some sparse warnings in
+ various places
+Date: Mon, 18 Feb 2013 10:55:26 +0800
+Message-ID: <1361156126.5967.8.camel@cr0>
+References: <1361003873-20622-1-git-send-email-amwang@redhat.com>
+	 <20130216091808.GA1536@minipsycho.orion>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f181.google.com ([209.85.161.181]:37696 "EHLO
-	mail-gg0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755904Ab3BRCix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 17 Feb 2013 21:38:53 -0500
-Received: by mail-gg0-f181.google.com with SMTP id e5so489047ggh.12
-        for <netdev@vger.kernel.org>; Sun, 17 Feb 2013 18:38:53 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:14690 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755005Ab3BRCzn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 17 Feb 2013 21:55:43 -0500
+In-Reply-To: <20130216091808.GA1536@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sets the sysfs device_type to 'bond' for udev. This allows udev rules to
-be created for bond devices. This is similar to how other network
-devices set their device_type.
+On Sat, 2013-02-16 at 10:18 +0100, Jiri Pirko wrote:
+> 
+> Hmm. I'm just wondering if there wouldn't be nicer for these functions
+> to
+> return bool if you just want to know if npinfo is null or not. This
+> notation seems a bit confusing to me. 
 
-Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
----
- drivers/net/bonding/bond_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b7d45f3..34a6e96 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4350,6 +4350,10 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_add_slave		= bond_enslave,
- 	.ndo_del_slave		= bond_release,
- 	.ndo_fix_features	= bond_fix_features,
-+}; 
-+
-+static const struct device_type bond_type = {
-+	.name = "bond",
- };
- 
- static void bond_destructor(struct net_device *bond_dev)
-@@ -4382,6 +4386,8 @@ static void bond_setup(struct net_device *bond_dev)
- 
- 	bond_dev->destructor = bond_destructor;
- 
-+	SET_NETDEV_DEVTYPE(bond_dev, &bond_type);
-+
- 	/* Initialize the device options */
- 	bond_dev->tx_queue_len = 0;
- 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
--- 
-1.7.12.4
+Yes, makes sense.
