@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 16/46] time/clocksource: Use get/put_online_cpus_atomic()
- to prevent CPU offline
-Date: Mon, 18 Feb 2013 18:10:30 +0530
-Message-ID: <20130218124030.26245.64712.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 19/46] irq: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Mon, 18 Feb 2013 18:10:52 +0530
+Message-ID: <20130218124052.26245.30164.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,58 +19,71 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp08.au.ibm.com ([202.81.31.141]:39337 "EHLO
+	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755579Ab3BRMnD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 07:43:03 -0500
+Received: from /spool/local
+	by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
+	Mon, 18 Feb 2013 22:41:16 +1000
 In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Once stop_machine() is gone from the CPU offline path, we won't be able to
-depend on preempt_disable() or local_irq_disable() to prevent CPUs from going
-offline from under us.
+depend on preempt_disable() or local_irq_disable() to prevent CPUs from
+going offline from under us.
 
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: John Stultz <john.stultz@linaro.org>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/time/clocksource.c |    5 +++++
- 1 file changed, 5 insertions(+)
+ kernel/irq/manage.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/kernel/time/clocksource.c b/kernel/time/clocksource.c
-index c958338..1c8d735 100644
---- a/kernel/time/clocksource.c
-+++ b/kernel/time/clocksource.c
-@@ -30,6 +30,7 @@
- #include <linux/sched.h> /* for spin_unlock_irq() using preempt_count() m68k */
- #include <linux/tick.h>
- #include <linux/kthread.h>
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index e49a288..b4240b9 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -16,6 +16,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/slab.h>
+ #include <linux/sched.h>
 +#include <linux/cpu.h>
+ #include <linux/task_work.h>
  
- void timecounter_init(struct timecounter *tc,
- 		      const struct cyclecounter *cc,
-@@ -320,11 +321,13 @@ static void clocksource_watchdog(unsigned long data)
- 	 * Cycle through CPUs to check if the CPUs stay synchronized
- 	 * to each other.
- 	 */
-+	get_online_cpus_atomic();
- 	next_cpu = cpumask_next(raw_smp_processor_id(), cpu_online_mask);
- 	if (next_cpu >= nr_cpu_ids)
- 		next_cpu = cpumask_first(cpu_online_mask);
- 	watchdog_timer.expires += WATCHDOG_INTERVAL;
- 	add_timer_on(&watchdog_timer, next_cpu);
-+	put_online_cpus_atomic();
- out:
- 	spin_unlock(&watchdog_lock);
- }
-@@ -336,7 +339,9 @@ static inline void clocksource_start_watchdog(void)
- 	init_timer(&watchdog_timer);
- 	watchdog_timer.function = clocksource_watchdog;
- 	watchdog_timer.expires = jiffies + WATCHDOG_INTERVAL;
-+	get_online_cpus_atomic();
- 	add_timer_on(&watchdog_timer, cpumask_first(cpu_online_mask));
-+	put_online_cpus_atomic();
- 	watchdog_running = 1;
- }
+ #include "internals.h"
+@@ -202,7 +203,9 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *mask)
+ 		return -EINVAL;
  
+ 	raw_spin_lock_irqsave(&desc->lock, flags);
++	get_online_cpus_atomic();
+ 	ret =  __irq_set_affinity_locked(irq_desc_get_irq_data(desc), mask);
++	put_online_cpus_atomic();
+ 	raw_spin_unlock_irqrestore(&desc->lock, flags);
+ 	return ret;
+ }
+@@ -343,7 +346,9 @@ int irq_select_affinity_usr(unsigned int irq, struct cpumask *mask)
+ 	int ret;
+ 
+ 	raw_spin_lock_irqsave(&desc->lock, flags);
++	get_online_cpus_atomic();
+ 	ret = setup_affinity(irq, desc, mask);
++	put_online_cpus_atomic();
+ 	raw_spin_unlock_irqrestore(&desc->lock, flags);
+ 	return ret;
+ }
+@@ -1126,7 +1131,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
+ 		}
+ 
+ 		/* Set default affinity mask once everything is setup */
++		get_online_cpus_atomic();
+ 		setup_affinity(irq, desc, mask);
++		put_online_cpus_atomic();
+ 
+ 	} else if (new->flags & IRQF_TRIGGER_MASK) {
+ 		unsigned int nmsk = new->flags & IRQF_TRIGGER_MASK;
