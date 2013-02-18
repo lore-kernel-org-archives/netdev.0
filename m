@@ -1,36 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] xfrm: release neighbor upon dst destruction
-Date: Mon, 18 Feb 2013 14:58:08 -0500 (EST)
-Message-ID: <20130218.145808.1730142643182502981.davem@davemloft.net>
-References: <311F962F-9DAF-4B24-B7FD-F158895D304D@ipflavors.com>
+Subject: Re: [PATCH v3] net: fec: Do a sanity check on the gpio number
+Date: Mon, 18 Feb 2013 15:00:01 -0500 (EST)
+Message-ID: <20130218.150001.165597927582810425.davem@davemloft.net>
+References: <1361114964-10517-1-git-send-email-festevam@gmail.com>
+	<20130218.144754.591538350954943449.davem@davemloft.net>
+	<CAOMZO5DyfksHf9CK9MUGmdwNPmwc2EXtY+3krNffYdivvPr=0Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	yoshfuji@linux-ipv6.org
-To: r.kuntz@ipflavors.com
+Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
+	netdev@vger.kernel.org, fabio.estevam@freescale.com
+To: festevam@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49156 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49186 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752300Ab3BRT6J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 14:58:09 -0500
-In-Reply-To: <311F962F-9DAF-4B24-B7FD-F158895D304D@ipflavors.com>
+	with ESMTP id S1753001Ab3BRUAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 15:00:04 -0500
+In-Reply-To: <CAOMZO5DyfksHf9CK9MUGmdwNPmwc2EXtY+3krNffYdivvPr=0Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Romain KUNTZ <r.kuntz@ipflavors.com>
-Date: Mon, 18 Feb 2013 13:36:24 +0100
+From: Fabio Estevam <festevam@gmail.com>
+Date: Mon, 18 Feb 2013 16:51:49 -0300
 
-> Neighbor is cloned in xfrm6_fill_dst but seems to never be released.
-> Neighbor entry should be released when XFRM6 dst entry is destroyed
-> in xfrm6_dst_destroy, otherwise references may be kept forever on 
-> the device pointed by the neighbor entry.
+> On Mon, Feb 18, 2013 at 4:47 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Fabio Estevam <festevam@gmail.com>
+>> Date: Sun, 17 Feb 2013 12:29:24 -0300
+>>
+>>> Since commit 372e722ea4d (gpiolib: use descriptors internally) the following
+>>> warning is seen on a mx28evk board:
+>>
+>> [davem@drr linux]$ git describe 372e722ea4d
+>> fatal: Not a valid object name 372e722ea4d
+>> [davem@drr linux]$
+>>
+>> That commit ID doesn't exist in any tree I have access to.
 > 
-> I may not have understood all the subtleties of XFRM & dst so I would
-> be happy to receive comments on this patch. 
-> 
-> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
+> It exists in linux-next.
 
-This patch is definitely correct.
+linux-next commits are not valid to reference if they are not
+either in the target tree where your patch belongs or Linus's
+tree.
 
-Applied and queued up for -stable, thanks.
+And if the change that causes the change to be needed doesn't even
+exist in my tree or Linus's upstream, your "fix" has no business in my
+tree either.
