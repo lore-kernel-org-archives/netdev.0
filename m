@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: fec: Do a sanity check on the gpio number
-Date: Mon, 18 Feb 2013 14:47:54 -0500 (EST)
-Message-ID: <20130218.144754.591538350954943449.davem@davemloft.net>
-References: <1361114964-10517-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH] bonding: set sysfs device_type to 'bond'
+Date: Mon, 18 Feb 2013 14:49:34 -0500 (EST)
+Message-ID: <20130218.144934.1015644582010518018.davem@davemloft.net>
+References: <1361155127-4415-1-git-send-email-cardoe@cardoe.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: s.hauer@pengutronix.de, shawn.guo@linaro.org, marex@denx.de,
-	netdev@vger.kernel.org, fabio.estevam@freescale.com
-To: festevam@gmail.com
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
+To: cardoe@cardoe.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48967 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48991 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757136Ab3BRTr4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 14:47:56 -0500
-In-Reply-To: <1361114964-10517-1-git-send-email-festevam@gmail.com>
+	with ESMTP id S1757216Ab3BRTtf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 14:49:35 -0500
+In-Reply-To: <1361155127-4415-1-git-send-email-cardoe@cardoe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Sun, 17 Feb 2013 12:29:24 -0300
+From: Doug Goldstein <cardoe@cardoe.com>
+Date: Sun, 17 Feb 2013 20:38:47 -0600
 
-> Since commit 372e722ea4d (gpiolib: use descriptors internally) the following 
-> warning is seen on a mx28evk board:
+> @@ -4350,6 +4350,10 @@ static const struct net_device_ops bond_netdev_ops = {
+>  	.ndo_add_slave		= bond_enslave,
+>  	.ndo_del_slave		= bond_release,
+>  	.ndo_fix_features	= bond_fix_features,
+> +}; 
+     ^^
 
-[davem@drr linux]$ git describe 372e722ea4d
-fatal: Not a valid object name 372e722ea4d
-[davem@drr linux]$ 
+There is trailing whitespace there, please get rid of it.
 
-That commit ID doesn't exist in any tree I have access to.
-
-I'm not applying this.
+Thanks.
