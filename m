@@ -1,59 +1,45 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] b43: Increase number of RX DMA slots
-Date: Mon, 18 Feb 2013 14:10:55 -0600
-Message-ID: <51228ACF.3060500@lwfinger.net>
-References: <1361156480-32566-1-git-send-email-Larry.Finger@lwfinger.net> <CACna6rwLgE+o2mcRTemLFAqzdsEoA9Xyx8GyEQTh5qbv1iZ04A@mail.gmail.com>
+From: Eric Dumazet <erdnetdev@gmail.com>
+Subject: [PATCH net-next] ipv6: fix a sparse warning
+Date: Mon, 18 Feb 2013 12:18:52 -0800
+Message-ID: <1361218732.19353.105.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Bastian Bittorf <bittorf@bluebottle.com>,
-	Stable <stable@vger.kernel.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:58669 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756133Ab3BRUK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 15:10:58 -0500
-In-Reply-To: <CACna6rwLgE+o2mcRTemLFAqzdsEoA9Xyx8GyEQTh5qbv1iZ04A@mail.gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:56715 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753811Ab3BRUS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 15:18:56 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so2983497pad.10
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 12:18:55 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/18/2013 10:18 AM, Rafa=C5=82 Mi=C5=82ecki wrote:
-> 2013/2/18 Larry Finger <Larry.Finger@lwfinger.net>:
->> Bastian Bittorf reported that some of the silent freezes on a Linksy=
-s WRT54G
->> were due to overflow of the RX DMA ring buffer, which was created wi=
-th 64
->> slots. That finding reminded me that I was seeing similar crashed on=
- a netbook,
->> which also has a relatively slow processor. After increasing the num=
-ber of
->> slots to 128, runs on the netbook that previously failed now worked;=
- however,
->> I found that 109 slots had been used in one test. For that reason, t=
-he number
->> of slots is being increased to 256.
->
-> So probably ideal solution is to use 128 *and* fix the driver's
-> failing on overflow ;)
->
-> Did you try it on some old device? Just for sure firmware&DMA will
-> handle it correctly.
+From: Eric Dumazet <edumazet@google.com>
 
-I tested on BCM4318 (which is pretty old), and two different BCM4312 (1=
-4e4:4315)=20
-units. I think the firmware and DMA can handle it. After all, all the T=
-X rings=20
-have 256 slots. There is, however, a question of the memory. TX only ac=
-quires=20
-the buffers when needed, but RX has to get them in advance, thus 256 sl=
-ots there=20
-will waste a lot of memory.
+net/ipv6/reassembly.c:82:72: warning: incorrect type in argument 3 (different base types)
+net/ipv6/reassembly.c:82:72:    expected unsigned int [unsigned] [usertype] c
+net/ipv6/reassembly.c:82:72:    got restricted __be32 [usertype] id
 
-I agree that there be two patches, depending on Bastian's testing. The =
-slot size=20
-change can be backported to stable.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+ net/ipv6/reassembly.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Larry
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 9a6428a..3c6a772 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -79,7 +79,8 @@ unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+ {
+ 	u32 c;
+ 
+-	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr), id, rnd);
++	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
++			 (__force u32)id, rnd);
+ 
+ 	return c & (INETFRAGS_HASHSZ - 1);
+ }
