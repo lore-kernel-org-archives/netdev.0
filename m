@@ -1,32 +1,45 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] b43: Increase number of RX DMA slots
-Date: Mon, 18 Feb 2013 11:04:00 -0600
-Message-ID: <51225F00.9020707@lwfinger.net>
-References: <1361156480-32566-1-git-send-email-Larry.Finger@lwfinger.net> <CACna6rwLgE+o2mcRTemLFAqzdsEoA9Xyx8GyEQTh5qbv1iZ04A@mail.gmail.com> <20130218165510.GC8730@medion.lan>
+From: Andy King <acking@vmware.com>
+Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Mon, 18 Feb 2013 09:07:31 -0800 (PST)
+Message-ID: <1398469748.2079082.1361207251021.JavaMail.root@vmware.com>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
+	<1360196636-9357-2-git-send-email-acking@vmware.com>
+	<511CC511.7080902@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: Bastian Bittorf <bittorf@bluebottle.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20130218165510.GC8730@medion.lan>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: Gerd Hoffmann <kraxel@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <511CC511.7080902@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 02/18/2013 10:55 AM, Bastian Bittorf wrote:
-> * Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> [18.02.2013 17:54]:
->> 2013/2/18 Larry Finger <Larry.Finger@lwfinger.net>:
->>
->> So probably ideal solution is to use 128 *and* fix the driver's
->> failing on overflow ;)
->
-> i will run a test tomorrow an report, keep calm.
+Hi Gerd,
 
-Do you have debugging turned on for b43? If so, the slot usage line at =
-module=20
-unload would be useful.
+> > +		written = transport->stream_enqueue(
+> > +				vsk, msg->msg_iov,
+> > +				len - total_written);
+> 
+> Hmm, shouldn't we pass total_written to stream_enqueue here?
+> 
+> In case a blocking send(big-buffer) call gets splitted into multiple
+> stream_enqueue calls the second (and further) stream_enqueue calls need
+> to know at which msg offset they should continue sending the data, no?
 
-Larry
+On the client side, the iov tracks it internally; see memcpy_fromiovec().
+On the socket side, VMCI uses a ring buffer, so it also knows its
+position internally.  Or did I misunderstand the question?
+
+Thanks!
+- Andy
