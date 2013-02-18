@@ -1,42 +1,55 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH v2 net-next 6/6] qlcnic: Bump up the version to 5.1.34
-Date: Mon, 18 Feb 2013 17:06:18 -0500
-Message-ID: <1361225178-4363-7-git-send-email-jitendra.kalsaria@qlogic.com>
-References: <1361225178-4363-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:8972 "HELO linux-zupk.site"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757108Ab3BRW2t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 17:28:49 -0500
-In-Reply-To: <1361225178-4363-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Grover <agrover@redhat.com>
+Subject: Re: [PATCH] Don't allow multiple TPGs or targets to share a portal
+Date: Mon, 18 Feb 2013 14:41:09 -0800
+Message-ID: <5122AE05.7060707@redhat.com>
+References: <1360364708-26104-1-git-send-email-agrover@redhat.com>  <1360787516.13707.59.camel@haakon2.linux-iscsi.org>  <511C0EFD.9060702@redhat.com> <1360943188.13707.114.camel@haakon2.linux-iscsi.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <1360943188.13707.114.camel@haakon2.linux-iscsi.org>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+On 02/15/2013 07:46 AM, Nicholas A. Bellinger wrote:
+> The wording in section Section 3.4.1, e) that your referring to:
+>
+> "Each Network Portal, as utilized by a given iSCSI Node, belongs to
+> exactly one portal group within that node."
+>
+> does not mean that individual network portals are limited to a single
+> network entity, but that network portals are linked to a single TPG
+> within an individual TargetName.  Eg, 'that node' does not mean the
+> entire physical machine (network entity), that may contain multiple
+> nodes (TargetName+TargetPortalGroupTag endpoints).
+>
+> However, in practice I've not yet seen a target implementation that
+> supports multiple TPGs actually enforce this, considering this is not
+> accompanied by a "SHOULD not" or "MUST not" anywhere in the spec.  So
+> unless you have a specific problem case where this is causing an issue
+> with an initiator, I'm likely not going to accept a kernel patch to
+> change existing behavior.
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+OK, so I'm clear now that a NetworkPortal can be shared among 
+TargetNames, but not among TPGs within a TargetName.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 01e9ea1..11c3db6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
- 
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 1
--#define _QLCNIC_LINUX_SUBVERSION 33
--#define QLCNIC_LINUX_VERSIONID  "5.1.33"
-+#define _QLCNIC_LINUX_SUBVERSION 34
-+#define QLCNIC_LINUX_VERSIONID  "5.1.34"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
--- 
-1.7.1
+But LIO currently allows it.
+See https://bugzilla.redhat.com/show_bug.cgi?id=908368 .
+
+The tester's actual issue may not be related to this area, but if you 
+look at the attachment in comment 2, this configuration was allowed.
+
+I don't think this is an issue where we need to worry about existing 
+behavior. This *can't* work because the initiator passes the desired 
+TargetName during iSCSI login, but not TargetPortalGroupTag. There's no 
+way a target can tell which TPG the initiator wants if the TargetName 
+for two are the same.
+
+We could add a check for this to the rtslib userspace library, but this 
+would mean the kernel could still be configured this way, if rtslib was 
+not used to wrap configfs accesses. Therefore I'd push for the kernel to 
+check for this. Would a patch for that fly?
+
+Thanks -- Regards -- Andy
