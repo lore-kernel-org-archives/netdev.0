@@ -1,58 +1,37 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Mon, 18 Feb 2013 10:30:22 -0500
-Message-ID: <1361201422.23152.154.camel@gandalf.local.home>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
-	 <510FBC01.2030405@linux.vnet.ibm.com> <87haloiwv0.fsf@rustcorp.com.au>
-	 <51134596.4080106@linux.vnet.ibm.com>
-	 <20130208154113.GV17833@n2100.arm.linux.org.uk>
-	 <51152B81.2050501@linux.vnet.ibm.com> <51153F72.1060005@linux.vnet.ibm.com>
-	 <CAKfTPtCe+cD7LLkb+D6pqG1SwG2V08ws=4XO3ttHEHV2qgmqPg@mail.gmail.com>
-	 <5118E2CD.90401@linux.vnet.ibm.com>
-	 <20130211190852.GA5695@linux.vnet.ibm.com>
-	 <5119BDFD.1000909@linux.vnet.ibm.com>
-	 <CAKfTPtAo2hQTfBKTVUuLKgsGJ2ZLD0UTR3fH9UFuJwyFt4n__w@mail.gmail.com>
-	 <511E8F3C.2010406@linux.vnet.ibm.com>
-	 <CAKfTPtD=2jn1AVjuhVP1ot7_8x9-W4==hNGZET5N9tRE7gtyMw@mail.gmail.com>
-	 <512203B3.7090002@linux.vnet.ibm.com> <512207A6.4000402@linux.vnet.ibm.com>
-	 <CAKfTPtA1aTseD6Gntkf_zbCEbfZzt3P2-P1un6iF5_1TdVLjRQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	paulmck@linux.vnet.ibm.com,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	linux-doc@vger.kernel.org, peterz@infradead.org,
-	fweisbec@gmail.com, linux-kernel@vger.kernel.org,
-	walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
-	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>, rjw@sisk.pl,
-	namhyung@kernel.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Vincent Guittot <vincent.guittot@linaro.org>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CAKfTPtA1aTseD6Gntkf_zbCEbfZzt3P2-P1un6iF5_1TdVLjRQ@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH ipsec] af_key: initialize satype in key_notify_policy_flush()
+Date: Mon, 18 Feb 2013 16:24:20 +0100
+Message-ID: <1361201060-31732-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:48657 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754209Ab3BRPjN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 10:39:13 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-02-18 at 11:58 +0100, Vincent Guittot wrote:
+This field was left uninitialized. Some user daemons perform check against this
+field.
 
-> My tests have been done without cpuidle because i have some issues
-> with function tracer and cpuidle
-> 
-> But the cpu hotplug and cpuidle work well when I run the tests without
-> enabling the function tracer
-> 
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/key/af_key.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-I know suspend and resume has issues with function tracing (because it
-makes things like calling smp_processor_id() crash the system), but I'm
-unaware of issues with hotplug itself. Could be some of the same issues.
-
-Can you give me more details, I'll try to investigate it.
-
-Thanks,
-
--- Steve
+diff --git a/net/key/af_key.c b/net/key/af_key.c
+index 5b426a6..f9bd41e 100644
+--- a/net/key/af_key.c
++++ b/net/key/af_key.c
+@@ -2688,6 +2688,7 @@ static int key_notify_policy_flush(const struct km_event *c)
+ 	hdr->sadb_msg_pid = c->portid;
+ 	hdr->sadb_msg_version = PF_KEY_V2;
+ 	hdr->sadb_msg_errno = (uint8_t) 0;
++	hdr->sadb_msg_satype = SADB_SATYPE_UNSPEC;
+ 	hdr->sadb_msg_len = (sizeof(struct sadb_msg) / sizeof(uint64_t));
+ 	pfkey_broadcast(skb_out, GFP_ATOMIC, BROADCAST_ALL, NULL, c->net);
+ 	return 0;
+-- 
+1.8.0.1
