@@ -1,156 +1,49 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH NET-NEXT] bonding: fix bond_release_all inconsistencies
-Date: Mon, 18 Feb 2013 13:27:27 +0100
-Message-ID: <1361190447-6756-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
-To: netdev@vger.kernel.org
+From: Romain KUNTZ <r.kuntz@ipflavors.com>
+Subject: [RFC PATCH] xfrm: release neighbor upon dst destruction
+Date: Mon, 18 Feb 2013 13:36:24 +0100
+Message-ID: <311F962F-9DAF-4B24-B7FD-F158895D304D@ipflavors.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.2 \(1499\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	"davem@davemloft.net Miller" <davem@davemloft.net>,
+	"yoshfuji@linux-ipv6.org Hideaki" <yoshfuji@linux-ipv6.org>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36078 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751007Ab3BRMac (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 07:30:32 -0500
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:48040 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751965Ab3BRMgY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 07:36:24 -0500
+Received: by mail-wi0-f178.google.com with SMTP id o1so3429855wic.11
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 04:36:22 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the following inconsistencies in bond_release_all:
-- IFF_BONDING flag is not stripped from slaves
-- MTU is not restored
-- no netdev notifiers are sent
-Instead of trying to keep bond_release and bond_release_all in sync
-I think we can re-use bond_release as the environment for calling it
-is correct (RTNL is held). I have been running tests for the past
-week and they came out successful. The only way for bond_release to fail
-is for the slave to be attached in a different bond or to not be a slave
-but that cannot happen as RTNL is held and no slave manipulations can be
-achieved.
+Neighbor is cloned in xfrm6_fill_dst but seems to never be released.
+Neighbor entry should be released when XFRM6 dst entry is destroyed
+in xfrm6_dst_destroy, otherwise references may be kept forever on 
+the device pointed by the neighbor entry.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+I may not have understood all the subtleties of XFRM & dst so I would
+be happy to receive comments on this patch. 
+
+Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
 ---
- drivers/net/bonding/bond_main.c | 106 ++--------------------------------------
- 1 file changed, 5 insertions(+), 101 deletions(-)
+ net/ipv6/xfrm6_policy.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 94c1534..fcfc880 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2140,113 +2140,17 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
- /*
-  * This function releases all slaves.
-  */
--static int bond_release_all(struct net_device *bond_dev)
-+static void bond_release_all(struct net_device *bond_dev)
+diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+index c984413..8f32718 100644
+--- a/net/ipv6/xfrm6_policy.c
++++ b/net/ipv6/xfrm6_policy.c
+@@ -236,6 +236,8 @@ static void xfrm6_dst_destroy(struct dst_entry *dst)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
--	struct slave *slave;
--	struct net_device *slave_dev;
--	struct sockaddr addr;
--
--	write_lock_bh(&bond->lock);
--
--	netif_carrier_off(bond_dev);
+ 	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
  
- 	if (bond->slave_cnt == 0)
--		goto out;
--
--	bond->current_arp_slave = NULL;
--	bond->primary_slave = NULL;
--	bond_change_active_slave(bond, NULL);
--
--	while ((slave = bond->first_slave) != NULL) {
--		/* Inform AD package of unbinding of slave
--		 * before slave is detached from the list.
--		 */
--		if (bond->params.mode == BOND_MODE_8023AD)
--			bond_3ad_unbind_slave(slave);
--
--		slave_dev = slave->dev;
--		bond_detach_slave(bond, slave);
--
--		/* now that the slave is detached, unlock and perform
--		 * all the undo steps that should not be called from
--		 * within a lock.
--		 */
--		write_unlock_bh(&bond->lock);
--
--		/* unregister rx_handler early so bond_handle_frame wouldn't
--		 * be called for this slave anymore.
--		 */
--		netdev_rx_handler_unregister(slave_dev);
--		synchronize_net();
--
--		if (bond_is_lb(bond)) {
--			/* must be called only after the slave
--			 * has been detached from the list
--			 */
--			bond_alb_deinit_slave(bond, slave);
--		}
--
--		bond_destroy_slave_symlinks(bond_dev, slave_dev);
--		bond_del_vlans_from_slave(bond, slave_dev);
--
--		/* If the mode USES_PRIMARY, then we should only remove its
--		 * promisc and mc settings if it was the curr_active_slave, but that was
--		 * already taken care of above when we detached the slave
--		 */
--		if (!USES_PRIMARY(bond->params.mode)) {
--			/* unset promiscuity level from slave */
--			if (bond_dev->flags & IFF_PROMISC)
--				dev_set_promiscuity(slave_dev, -1);
--
--			/* unset allmulti level from slave */
--			if (bond_dev->flags & IFF_ALLMULTI)
--				dev_set_allmulti(slave_dev, -1);
--
--			/* flush master's mc_list from slave */
--			netif_addr_lock_bh(bond_dev);
--			bond_mc_list_flush(bond_dev, slave_dev);
--			netif_addr_unlock_bh(bond_dev);
--		}
--
--		bond_upper_dev_unlink(bond_dev, slave_dev);
--
--		slave_disable_netpoll(slave);
--
--		/* close slave before restoring its mac address */
--		dev_close(slave_dev);
--
--		if (!bond->params.fail_over_mac) {
--			/* restore original ("permanent") mac address*/
--			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
--			addr.sa_family = slave_dev->type;
--			dev_set_mac_address(slave_dev, &addr);
--		}
--
--		kfree(slave);
--
--		/* re-acquire the lock before getting the next slave */
--		write_lock_bh(&bond->lock);
--	}
--
--	eth_hw_addr_random(bond_dev);
--	bond->dev_addr_from_first = true;
--
--	if (bond_vlan_used(bond)) {
--		pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
--			   bond_dev->name, bond_dev->name);
--		pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
--			   bond_dev->name);
--	}
--
-+		return;
-+	while (bond->first_slave != NULL)
-+		bond_release(bond_dev, bond->first_slave->dev);
- 	pr_info("%s: released all slaves\n", bond_dev->name);
- 
--out:
--	write_unlock_bh(&bond->lock);
--
--	bond_compute_features(bond);
--
--	return 0;
-+	return;
- }
- 
- /*
++	if (likely(xdst->u.rt6.n))
++		neigh_release(xdst->u.rt6.n);
+ 	if (likely(xdst->u.rt6.rt6i_idev))
+ 		in6_dev_put(xdst->u.rt6.rt6i_idev);
+ 	dst_destroy_metrics_generic(dst);
 -- 
-1.7.11.7
+1.7.2.5
