@@ -1,29 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: optimize inet6_hash_frag()
-Date: Mon, 18 Feb 2013 12:24:11 -0500 (EST)
-Message-ID: <20130218.122411.1863066294447811214.davem@davemloft.net>
-References: <1360988088.19353.46.camel@edumazet-glaptop>
+Subject: Re: [PATCH]net: ehea module param description fix
+Date: Mon, 18 Feb 2013 12:26:53 -0500 (EST)
+Message-ID: <20130218.122653.2052167397005650003.davem@davemloft.net>
+References: <511f24e7.iqc1+9PTu6xF8JTF%dyoung@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47456 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755566Ab3BRRYM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 12:24:12 -0500
-In-Reply-To: <1360988088.19353.46.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: dyoung@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <511f24e7.iqc1+9PTu6xF8JTF%dyoung@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 15 Feb 2013 20:14:48 -0800
+From: dyoung@redhat.com
+Date: Sat, 16 Feb 2013 14:19:19 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
+> In ehea.h the minimal entries is 2^7 - 1:
+> #define EHEA_MIN_ENTRIES_QP  127
 > 
-> Use ipv6_addr_hash() and a single jhash invocation.
+> Thus change the module param description accordinglly
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Dave Young <dyoung@redhat.com>
 
-Applied, thanks.
+Applied.
