@@ -1,63 +1,97 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v6 07/46] percpu_rwlock: Allow writers to be readers,
- and add lockdep annotations
-Date: Mon, 18 Feb 2013 22:01:26 +0530
-Message-ID: <5122575E.5030405@linux.vnet.ibm.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123913.26245.7713.stgit@srivatsabhat.in.ibm.com> <CANN689Ec4g7jMapv8ChAEom+gEDQ8RDVLa07CKwJ==YO+MUUrA@mail.gmail.com>
+Subject: Re: [PATCH v6 08/46] CPU hotplug: Provide APIs to prevent CPU offline
+ from atomic context
+Date: Mon, 18 Feb 2013 22:13:34 +0530
+Message-ID: <51225A36.40600@linux.vnet.ibm.com>
+References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123920.26245.56709.stgit@srivatsabhat.in.ibm.com> <CANN689HhVxDv+3Bn9UAxOMzj0egTvVp_c7oAmQ2nnQ8Xjn_aMA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-doc@vger.kernel.org, peterz@infradead.org,
-	fweisbec@gmail.com, linux-kernel@vger.kernel.org, mingo@kernel.org,
-	linux-arch@vger.kernel.org, linux@arm.linux.org.uk,
-	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
-	paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, rusty@rustcorp.com.au,
-	rostedt@goodmis.org, rjw@sisk.pl, namhyung@kernel.org,
-	tglx@linutronix.de, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, oleg@redhat.com,
-	vincent.guittot@linaro.org, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vincent.guittot@linaro.org
 To: Michel Lespinasse <walken@google.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CANN689Ec4g7jMapv8ChAEom+gEDQ8RDVLa07CKwJ==YO+MUUrA@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <CANN689HhVxDv+3Bn9UAxOMzj0egTvVp_c7oAmQ2nnQ8Xjn_aMA@mail.gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/18/2013 09:21 PM, Michel Lespinasse wrote:
+On 02/18/2013 09:53 PM, Michel Lespinasse wrote:
 > On Mon, Feb 18, 2013 at 8:39 PM, Srivatsa S. Bhat
 > <srivatsa.bhat@linux.vnet.ibm.com> wrote:
->> @@ -200,6 +217,16 @@ void percpu_write_lock_irqsave(struct percpu_rwlock *pcpu_rwlock,
->>
->>         smp_mb(); /* Complete the wait-for-readers, before taking the lock */
->>         write_lock_irqsave(&pcpu_rwlock->global_rwlock, *flags);
+>> Some important design requirements and considerations:
+>> -----------------------------------------------------
+[...]
+>> +/*
+>> + * Invoked by atomic hotplug reader (a task which wants to prevent
+>> + * CPU offline, but which can't afford to sleep), to prevent CPUs from
+>> + * going offline. So, you can call this function from atomic contexts
+>> + * (including interrupt handlers).
+>> + *
+>> + * Note: This does NOT prevent CPUs from coming online! It only prevents
+>> + * CPUs from going offline.
+>> + *
+>> + * You can call this function recursively.
+>> + *
+>> + * Returns with preemption disabled (but interrupts remain as they are;
+>> + * they are not disabled).
+>> + */
+>> +void get_online_cpus_atomic(void)
+>> +{
+>> +       percpu_read_lock_irqsafe(&hotplug_pcpu_rwlock);
+>> +}
+>> +EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
 >> +
->> +       /*
->> +        * It is desirable to allow the writer to acquire the percpu-rwlock
->> +        * for read (if necessary), without deadlocking or getting complaints
->> +        * from lockdep. To achieve that, just increment the reader_refcnt of
->> +        * this CPU - that way, any attempt by the writer to acquire the
->> +        * percpu-rwlock for read, will get treated as a case of nested percpu
->> +        * reader, which is safe, from a locking perspective.
->> +        */
->> +       this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
+>> +void put_online_cpus_atomic(void)
+>> +{
+>> +       percpu_read_unlock_irqsafe(&hotplug_pcpu_rwlock);
+>> +}
+>> +EXPORT_SYMBOL_GPL(put_online_cpus_atomic);
 > 
-> I find this quite disgusting, but once again this may be because I
-> don't like unfair recursive rwlocks.
+> So, you made it clear why you want a recursive read side here.
+> 
+> I am wondering though, if you could take care of recursive uses in
+> get/put_online_cpus_atomic() instead of doing it as a property of your
+> rwlock:
+> 
+> get_online_cpus_atomic()
+> {
+>     unsigned long flags;
+>     local_irq_save(flags);
+>     if (this_cpu_inc_return(hotplug_recusion_count) == 1)
+>         percpu_read_lock_irqsafe(&hotplug_pcpu_rwlock);
+>     local_irq_restore(flags);
+> }
+> 
+> Once again, the idea there is to avoid baking the reader side
+> recursive properties into your rwlock itself, so that it won't be
+> impossible to implement reader/writer fairness into your rwlock in the
+> future (which may be not be very important for the hotplug use, but
+> could be when other uses get introduced).
 > 
 
-:-)
+Hmm, your proposal above looks good to me, at first glance.
+(Sorry, I had mistaken your earlier mails to mean that you were against
+recursive reader-side, while you actually meant that you didn't like
+implementing the recursive reader-side logic using the recursive property
+of rwlocks).
 
-> In my opinion, the alternative of explicitly not taking the read lock
-> when one already has the write lock sounds *much* nicer.
+While your idea above looks good, it might introduce more complexity
+in the unlock path, since this would allow nesting of heterogeneous readers
+(ie., if hotplug_recursion_count == 1, you don't know whether you need to
+simply decrement the counter or unlock the rwlock as well).
 
-I don't seem to recall any strong reasons to do it this way, so I don't have
-any strong opinions on doing it this way. But one of the things to note is that,
-in the CPU Hotplug case, the readers are *way* more hotter than the writer.
-So avoiding extra checks/'if' conditions/memory barriers in the reader-side
-is very welcome. (If we slow down the read-side, we get a performance hit
-even when *not* doing hotplug!). Considering this, the logic used in this
-patchset seems better, IMHO.
+But I'll give this some more thought to see if we can implement this
+without making it too complex. Thank you!
 
 Regards,
 Srivatsa S. Bhat
+
