@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 19/46] irq: Use get/put_online_cpus_atomic() to prevent CPU
- offline
-Date: Mon, 18 Feb 2013 18:10:52 +0530
-Message-ID: <20130218124052.26245.30164.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 22/46] crypto: pcrypt - Protect access to cpu_online_mask
+ with get/put_online_cpus()
+Date: Mon, 18 Feb 2013 18:11:15 +0530
+Message-ID: <20130218124115.26245.88223.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,71 +19,43 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp08.au.ibm.com ([202.81.31.141]:39337 "EHLO
-	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755579Ab3BRMnD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 07:43:03 -0500
-Received: from /spool/local
-	by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
-	Mon, 18 Feb 2013 22:41:16 +1000
+Return-path: <linux-arch-owner@vger.kernel.org>
 In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Once stop_machine() is gone from the CPU offline path, we won't be able to
-depend on preempt_disable() or local_irq_disable() to prevent CPUs from
-going offline from under us.
+The pcrypt_aead_init_tfm() function access the cpu_online_mask without
+disabling CPU hotplug. And it looks like it can afford to sleep, so use
+the get/put_online_cpus() APIs to protect against CPU hotplug.
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-while invoking from atomic context.
-
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-crypto@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/irq/manage.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ crypto/pcrypt.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index e49a288..b4240b9 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -16,6 +16,7 @@
- #include <linux/interrupt.h>
- #include <linux/slab.h>
- #include <linux/sched.h>
-+#include <linux/cpu.h>
- #include <linux/task_work.h>
+diff --git a/crypto/pcrypt.c b/crypto/pcrypt.c
+index b2c99dc..10f64e2 100644
+--- a/crypto/pcrypt.c
++++ b/crypto/pcrypt.c
+@@ -280,12 +280,16 @@ static int pcrypt_aead_init_tfm(struct crypto_tfm *tfm)
  
- #include "internals.h"
-@@ -202,7 +203,9 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *mask)
- 		return -EINVAL;
+ 	ictx->tfm_count++;
  
- 	raw_spin_lock_irqsave(&desc->lock, flags);
-+	get_online_cpus_atomic();
- 	ret =  __irq_set_affinity_locked(irq_desc_get_irq_data(desc), mask);
-+	put_online_cpus_atomic();
- 	raw_spin_unlock_irqrestore(&desc->lock, flags);
- 	return ret;
- }
-@@ -343,7 +346,9 @@ int irq_select_affinity_usr(unsigned int irq, struct cpumask *mask)
- 	int ret;
++	get_online_cpus();
++
+ 	cpu_index = ictx->tfm_count % cpumask_weight(cpu_online_mask);
  
- 	raw_spin_lock_irqsave(&desc->lock, flags);
-+	get_online_cpus_atomic();
- 	ret = setup_affinity(irq, desc, mask);
-+	put_online_cpus_atomic();
- 	raw_spin_unlock_irqrestore(&desc->lock, flags);
- 	return ret;
- }
-@@ -1126,7 +1131,9 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
- 		}
+ 	ctx->cb_cpu = cpumask_first(cpu_online_mask);
+ 	for (cpu = 0; cpu < cpu_index; cpu++)
+ 		ctx->cb_cpu = cpumask_next(ctx->cb_cpu, cpu_online_mask);
  
- 		/* Set default affinity mask once everything is setup */
-+		get_online_cpus_atomic();
- 		setup_affinity(irq, desc, mask);
-+		put_online_cpus_atomic();
++	put_online_cpus();
++
+ 	cipher = crypto_spawn_aead(crypto_instance_ctx(inst));
  
- 	} else if (new->flags & IRQF_TRIGGER_MASK) {
- 		unsigned int nmsk = new->flags & IRQF_TRIGGER_MASK;
+ 	if (IS_ERR(cipher))
