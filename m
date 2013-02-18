@@ -1,55 +1,58 @@
-From: Andy Grover <agrover@redhat.com>
-Subject: Re: [PATCH] Don't allow multiple TPGs or targets to share a portal
-Date: Mon, 18 Feb 2013 14:41:09 -0800
-Message-ID: <5122AE05.7060707@redhat.com>
-References: <1360364708-26104-1-git-send-email-agrover@redhat.com>  <1360787516.13707.59.camel@haakon2.linux-iscsi.org>  <511C0EFD.9060702@redhat.com> <1360943188.13707.114.camel@haakon2.linux-iscsi.org>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: SYSFS "errors"
+Date: Mon, 18 Feb 2013 23:44:05 +0100
+Message-ID: <20130218224405.GB21493@pd.tnic>
+References: <20130218171334.GA31329@kroah.com>
+ <20130218172700.GH2663@arwen.pp.htv.fi>
+ <20130218174916.GA2070@kroah.com>
+ <20130218184633.GC10755@arwen.pp.htv.fi>
+ <20130218164638.7cb53baa@redhat.com>
+ <20130218200542.GB20137@arwen.pp.htv.fi>
+ <20130218184742.5a4c3c06@redhat.com>
+ <20130218215434.GB16794@kroah.com>
+ <20130218221306.GA21493@pd.tnic>
+ <20130218222618.GA21818@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: target-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Return-path: <target-devel-owner@vger.kernel.org>
-In-Reply-To: <1360943188.13707.114.camel@haakon2.linux-iscsi.org>
-Sender: target-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: Mauro Carvalho Chehab <mchehab@redhat.com>, balbi@ti.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, JBottomley@parallels.com,
+	linux-scsi@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, Doug Thompson <dougthompson@xmission.com>,
+	linux-edac@vger.kernel.org, rjw@sisk.pl, linux-pm@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130218222618.GA21818@kroah.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/15/2013 07:46 AM, Nicholas A. Bellinger wrote:
-> The wording in section Section 3.4.1, e) that your referring to:
->
-> "Each Network Portal, as utilized by a given iSCSI Node, belongs to
-> exactly one portal group within that node."
->
-> does not mean that individual network portals are limited to a single
-> network entity, but that network portals are linked to a single TPG
-> within an individual TargetName.  Eg, 'that node' does not mean the
-> entire physical machine (network entity), that may contain multiple
-> nodes (TargetName+TargetPortalGroupTag endpoints).
->
-> However, in practice I've not yet seen a target implementation that
-> supports multiple TPGs actually enforce this, considering this is not
-> accompanied by a "SHOULD not" or "MUST not" anywhere in the spec.  So
-> unless you have a specific problem case where this is causing an issue
-> with an initiator, I'm likely not going to accept a kernel patch to
-> change existing behavior.
+On Mon, Feb 18, 2013 at 02:26:18PM -0800, Greg KH wrote:
+> I don't know, it depends on if userspace can handle this properly or
+> not. What tools rely on this sysfs file? WHat happens when they get a
+> non-number in the file?
 
-OK, so I'm clear now that a NetworkPortal can be shared among 
-TargetNames, but not among TPGs within a TargetName.
+I'm not aware of any, frankly speaking.
 
-But LIO currently allows it.
-See https://bugzilla.redhat.com/show_bug.cgi?id=908368 .
+If there are any, those tools should be able to handle the -ENODEV
+they get. Now, if this gets changed this way, the read would succeed
+but they'll have to parse the returned value and see that it is not an
+integer.
 
-The tester's actual issue may not be related to this area, but if you 
-look at the attachment in comment 2, this configuration was allowed.
+So I don't know either.
 
-I don't think this is an issue where we need to worry about existing 
-behavior. This *can't* work because the initiator passes the desired 
-TargetName during iSCSI login, but not TargetPortalGroupTag. There's no 
-way a target can tell which TPG the initiator wants if the TargetName 
-for two are the same.
+But my gut feeling says to stay concervative and not touch this code -
+we don't know what uses it and how much we would break by "fixing" it.
+The current situation is not that big of a deal IMVHO and I'd be willing
+to accept the small inconcistency versus possibly breaking userspace.
 
-We could add a check for this to the rtslib userspace library, but this 
-would mean the kernel could still be configured this way, if rtslib was 
-not used to wrap configfs accesses. Therefore I'd push for the kernel to 
-check for this. Would a patch for that fly?
+Thanks.
 
-Thanks -- Regards -- Andy
+-- 
+Regards/Gruss,
+    Boris.
+
+Sent from a fat crate under my desk. Formatting is fine.
+--
