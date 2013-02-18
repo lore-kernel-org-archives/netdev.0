@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 04/46] percpu_rwlock: Implement the core design of Per-CPU
- Reader-Writer Locks
-Date: Mon, 18 Feb 2013 18:08:56 +0530
-Message-ID: <20130218123856.26245.46705.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 07/46] percpu_rwlock: Allow writers to be readers,
+ and add lockdep annotations
+Date: Mon, 18 Feb 2013 18:09:14 +0530
+Message-ID: <20130218123913.26245.7713.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,220 +24,106 @@ In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Using global rwlocks as the backend for per-CPU rwlocks helps us avoid many
-lock-ordering related problems (unlike per-cpu locks). However, global
-rwlocks lead to unnecessary cache-line bouncing even when there are no
-writers present, which can slow down the system needlessly.
+CPU hotplug (which will be the first user of per-CPU rwlocks) has a special
+requirement with respect to locking: the writer, after acquiring the per-CPU
+rwlock for write, must be allowed to take the same lock for read, without
+deadlocking and without getting complaints from lockdep. In comparison, this
+is similar to what get_online_cpus()/put_online_cpus() does today: it allows
+a hotplug writer (who holds the cpu_hotplug.lock mutex) to invoke it without
+locking issues, because it silently returns if the caller is the hotplug
+writer itself.
 
-Per-cpu counters can help solve the cache-line bouncing problem. So we
-actually use the best of both: per-cpu counters (no-waiting) at the reader
-side in the fast-path, and global rwlocks in the slowpath.
+This can be easily achieved with per-CPU rwlocks as well (even without a
+"is this a writer?" check) by incrementing the per-CPU refcount of the writer
+immediately after taking the global rwlock for write, and then decrementing
+the per-CPU refcount before releasing the global rwlock.
+This ensures that any reader that comes along on that CPU while the writer is
+active (on that same CPU), notices the non-zero value of the nested counter
+and assumes that it is a nested read-side critical section and proceeds by
+just incrementing the refcount. Thus we prevent the reader from taking the
+global rwlock for read, which prevents the writer from deadlocking itself.
 
-[ Fastpath = no writer is active; Slowpath = a writer is active ]
-
-IOW, the readers just increment/decrement their per-cpu refcounts (disabling
-interrupts during the updates, if necessary) when no writer is active.
-When a writer becomes active, he signals all readers to switch to global
-rwlocks for the duration of his activity. The readers switch over when it
-is safe for them (ie., when they are about to start a fresh, non-nested
-read-side critical section) and start using (holding) the global rwlock for
-read in their subsequent critical sections.
-
-The writer waits for every existing reader to switch, and then acquires the
-global rwlock for write and enters his critical section. Later, the writer
-signals all readers that he is done, and that they can go back to using their
-per-cpu refcounts again.
-
-Note that the lock-safety (despite the per-cpu scheme) comes from the fact
-that the readers can *choose* _when_ to switch to rwlocks upon the writer's
-signal. And the readers don't wait on anybody based on the per-cpu counters.
-The only true synchronization that involves waiting at the reader-side in this
-scheme, is the one arising from the global rwlock, which is safe from circular
-locking dependency issues.
-
-Reader-writer locks and per-cpu counters are recursive, so they can be
-used in a nested fashion in the reader-path, which makes per-CPU rwlocks also
-recursive. Also, this design of switching the synchronization scheme ensures
-that you can safely nest and use these locks in a very flexible manner.
-
-I'm indebted to Michael Wang and Xiao Guangrong for their numerous thoughtful
-suggestions and ideas, which inspired and influenced many of the decisions in
-this as well as previous designs. Thanks a lot Michael and Xiao!
+Add that support and teach lockdep about this special locking scheme so
+that it knows that this sort of usage is valid. Also add the required lockdep
+annotations to enable it to detect common locking problems with per-CPU
+rwlocks.
 
 Cc: David Howells <dhowells@redhat.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- lib/percpu-rwlock.c |  139 ++++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 137 insertions(+), 2 deletions(-)
+ lib/percpu-rwlock.c |   33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
 
 diff --git a/lib/percpu-rwlock.c b/lib/percpu-rwlock.c
-index f938096..edefdea 100644
+index ed36531..bf95e40 100644
 --- a/lib/percpu-rwlock.c
 +++ b/lib/percpu-rwlock.c
-@@ -27,6 +27,24 @@
- #include <linux/percpu-rwlock.h>
- #include <linux/errno.h>
+@@ -102,6 +102,10 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
  
-+#include <asm/processor.h>
+ 	if (likely(!writer_active(pcpu_rwlock))) {
+ 		this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
 +
-+
-+#define reader_yet_to_switch(pcpu_rwlock, cpu)				    \
-+	(ACCESS_ONCE(per_cpu_ptr((pcpu_rwlock)->rw_state, cpu)->reader_refcnt))
-+
-+#define reader_percpu_nesting_depth(pcpu_rwlock)		  \
-+	(__this_cpu_read((pcpu_rwlock)->rw_state->reader_refcnt))
-+
-+#define reader_uses_percpu_refcnt(pcpu_rwlock)				\
-+				reader_percpu_nesting_depth(pcpu_rwlock)
-+
-+#define reader_nested_percpu(pcpu_rwlock)				\
-+			(reader_percpu_nesting_depth(pcpu_rwlock) > 1)
-+
-+#define writer_active(pcpu_rwlock)					\
-+	(__this_cpu_read((pcpu_rwlock)->rw_state->writer_signal))
-+
++		/* Pretend that we take global_rwlock for lockdep */
++		rwlock_acquire_read(&pcpu_rwlock->global_rwlock.dep_map,
++				    0, 0, _RET_IP_);
+ 	} else {
+ 		/* Writer is active, so switch to global rwlock. */
  
- int __percpu_init_rwlock(struct percpu_rwlock *pcpu_rwlock,
- 			 const char *name, struct lock_class_key *rwlock_key)
-@@ -55,21 +73,138 @@ void percpu_free_rwlock(struct percpu_rwlock *pcpu_rwlock)
+@@ -126,6 +130,12 @@ void percpu_read_lock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
+ 		if (!writer_active(pcpu_rwlock)) {
+ 			this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
+ 			read_unlock(&pcpu_rwlock->global_rwlock);
++
++			/*
++			 * Pretend that we take global_rwlock for lockdep
++			 */
++			rwlock_acquire_read(&pcpu_rwlock->global_rwlock.dep_map,
++					    0, 0, _RET_IP_);
+ 		}
+ 	}
  
- void percpu_read_lock(struct percpu_rwlock *pcpu_rwlock)
- {
--	read_lock(&pcpu_rwlock->global_rwlock);
-+	preempt_disable();
+@@ -162,6 +172,13 @@ void percpu_read_unlock_irqsafe(struct percpu_rwlock *pcpu_rwlock)
+ 		 */
+ 		smp_mb();
+ 		this_cpu_dec(pcpu_rwlock->rw_state->reader_refcnt);
++
++		/*
++		 * Since this is the last decrement, it is time to pretend
++		 * to lockdep that we are releasing the read lock.
++		 */
++		rwlock_release(&pcpu_rwlock->global_rwlock.dep_map,
++			       1, _RET_IP_);
+ 	} else {
+ 		read_unlock(&pcpu_rwlock->global_rwlock);
+ 	}
+@@ -200,6 +217,16 @@ void percpu_write_lock_irqsave(struct percpu_rwlock *pcpu_rwlock,
+ 
+ 	smp_mb(); /* Complete the wait-for-readers, before taking the lock */
+ 	write_lock_irqsave(&pcpu_rwlock->global_rwlock, *flags);
 +
 +	/*
-+	 * Let the writer know that a reader is active, even before we choose
-+	 * our reader-side synchronization scheme.
++	 * It is desirable to allow the writer to acquire the percpu-rwlock
++	 * for read (if necessary), without deadlocking or getting complaints
++	 * from lockdep. To achieve that, just increment the reader_refcnt of
++	 * this CPU - that way, any attempt by the writer to acquire the
++	 * percpu-rwlock for read, will get treated as a case of nested percpu
++	 * reader, which is safe, from a locking perspective.
 +	 */
 +	this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
-+
-+	/*
-+	 * If we are already using per-cpu refcounts, it is not safe to switch
-+	 * the synchronization scheme. So continue using the refcounts.
-+	 */
-+	if (reader_nested_percpu(pcpu_rwlock))
-+		return;
-+
-+	/*
-+	 * The write to 'reader_refcnt' must be visible before we read
-+	 * 'writer_signal'.
-+	 */
-+	smp_mb();
-+
-+	if (likely(!writer_active(pcpu_rwlock))) {
-+		goto out;
-+	} else {
-+		/* Writer is active, so switch to global rwlock. */
-+		read_lock(&pcpu_rwlock->global_rwlock);
-+
-+		/*
-+		 * We might have raced with a writer going inactive before we
-+		 * took the read-lock. So re-evaluate whether we still need to
-+		 * hold the rwlock or if we can switch back to per-cpu
-+		 * refcounts. (This also helps avoid heterogeneous nesting of
-+		 * readers).
-+		 */
-+		if (writer_active(pcpu_rwlock)) {
-+			/*
-+			 * The above writer_active() check can get reordered
-+			 * with this_cpu_dec() below, but this is OK, because
-+			 * holding the rwlock is conservative.
-+			 */
-+			this_cpu_dec(pcpu_rwlock->rw_state->reader_refcnt);
-+		} else {
-+			read_unlock(&pcpu_rwlock->global_rwlock);
-+		}
-+	}
-+
-+out:
-+	/* Prevent reordering of any subsequent reads/writes */
-+	smp_mb();
  }
  
- void percpu_read_unlock(struct percpu_rwlock *pcpu_rwlock)
+ void percpu_write_unlock_irqrestore(struct percpu_rwlock *pcpu_rwlock,
+@@ -207,6 +234,12 @@ void percpu_write_unlock_irqrestore(struct percpu_rwlock *pcpu_rwlock,
  {
--	read_unlock(&pcpu_rwlock->global_rwlock);
-+	/*
-+	 * We never allow heterogeneous nesting of readers. So it is trivial
-+	 * to find out the kind of reader we are, and undo the operation
-+	 * done by our corresponding percpu_read_lock().
-+	 */
-+
-+	/* Try to fast-path: a nested percpu reader is the simplest case */
-+	if (reader_nested_percpu(pcpu_rwlock)) {
-+		this_cpu_dec(pcpu_rwlock->rw_state->reader_refcnt);
-+		preempt_enable();
-+		return;
-+	}
-+
-+	/*
-+	 * Now we are left with only 2 options: a non-nested percpu reader,
-+	 * or a reader holding rwlock
-+	 */
-+	if (reader_uses_percpu_refcnt(pcpu_rwlock)) {
-+		/*
-+		 * Complete the critical section before decrementing the
-+		 * refcnt. We can optimize this away if we are a nested
-+		 * reader (the case above).
-+		 */
-+		smp_mb();
-+		this_cpu_dec(pcpu_rwlock->rw_state->reader_refcnt);
-+	} else {
-+		read_unlock(&pcpu_rwlock->global_rwlock);
-+	}
-+
-+	preempt_enable();
- }
+ 	unsigned int cpu;
  
- void percpu_write_lock(struct percpu_rwlock *pcpu_rwlock)
- {
-+	unsigned int cpu;
-+
 +	/*
-+	 * Tell all readers that a writer is becoming active, so that they
-+	 * start switching over to the global rwlock.
++	 * Undo the special increment that we had done in the write-lock path
++	 * in order to allow writers to be readers.
 +	 */
-+	for_each_possible_cpu(cpu)
-+		per_cpu_ptr(pcpu_rwlock->rw_state, cpu)->writer_signal = true;
++	this_cpu_dec(pcpu_rwlock->rw_state->reader_refcnt);
 +
-+	smp_mb();
-+
-+	/*
-+	 * Wait for every reader to see the writer's signal and switch from
-+	 * percpu refcounts to global rwlock.
-+	 *
-+	 * If a reader is still using percpu refcounts, wait for him to switch.
-+	 * Else, we can safely go ahead, because either the reader has already
-+	 * switched over, or the next reader that comes along on that CPU will
-+	 * notice the writer's signal and will switch over to the rwlock.
-+	 */
-+
-+	for_each_possible_cpu(cpu) {
-+		while (reader_yet_to_switch(pcpu_rwlock, cpu))
-+			cpu_relax();
-+	}
-+
-+	smp_mb(); /* Complete the wait-for-readers, before taking the lock */
- 	write_lock(&pcpu_rwlock->global_rwlock);
- }
- 
- void percpu_write_unlock(struct percpu_rwlock *pcpu_rwlock)
- {
-+	unsigned int cpu;
-+
-+	/* Complete the critical section before clearing ->writer_signal */
-+	smp_mb();
-+
-+	/*
-+	 * Inform all readers that we are done, so that they can switch back
-+	 * to their per-cpu refcounts. (We don't need to wait for them to
-+	 * see it).
-+	 */
-+	for_each_possible_cpu(cpu)
-+		per_cpu_ptr(pcpu_rwlock->rw_state, cpu)->writer_signal = false;
-+
- 	write_unlock(&pcpu_rwlock->global_rwlock);
- }
+ 	/* Complete the critical section before clearing ->writer_signal */
+ 	smp_mb();
  
