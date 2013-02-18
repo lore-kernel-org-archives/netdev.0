@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 24/46] [SCSI] fcoe: Use get/put_online_cpus_atomic() to
+Subject: [PATCH v6 25/46] staging: octeon: Use get/put_online_cpus_atomic() to
  prevent CPU offline
-Date: Mon, 18 Feb 2013 18:11:33 +0530
-Message-ID: <20130218124133.26245.87187.stgit@srivatsabhat.in.ibm.com>
+Date: Mon, 18 Feb 2013 18:11:39 +0530
+Message-ID: <20130218124139.26245.43948.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,9 +19,9 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
 In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able to
@@ -31,53 +31,39 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: Robert Love <robert.w.love@intel.com>
-Cc: "James E.J. Bottomley" <JBottomley@parallels.com>
-Cc: devel@open-fcoe.org
-Cc: linux-scsi@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: David Daney <david.daney@cavium.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- drivers/scsi/fcoe/fcoe.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/staging/octeon/ethernet-rx.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
-index 666b7ac..c971a17 100644
---- a/drivers/scsi/fcoe/fcoe.c
-+++ b/drivers/scsi/fcoe/fcoe.c
-@@ -1475,6 +1475,7 @@ static int fcoe_rcv(struct sk_buff *skb, struct net_device *netdev,
- 	 * was originated, otherwise select cpu using rx exchange id
- 	 * or fcoe_select_cpu().
- 	 */
+diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
+index 34afc16..8588b4d 100644
+--- a/drivers/staging/octeon/ethernet-rx.c
++++ b/drivers/staging/octeon/ethernet-rx.c
+@@ -36,6 +36,7 @@
+ #include <linux/prefetch.h>
+ #include <linux/ratelimit.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/interrupt.h>
+ #include <net/dst.h>
+ #ifdef CONFIG_XFRM
+@@ -97,6 +98,7 @@ static void cvm_oct_enable_one_cpu(void)
+ 		return;
+ 
+ 	/* ... if a CPU is available, Turn on NAPI polling for that CPU.  */
 +	get_online_cpus_atomic();
- 	if (ntoh24(fh->fh_f_ctl) & FC_FC_EX_CTX)
- 		cpu = ntohs(fh->fh_ox_id) & fc_cpu_mask;
- 	else {
-@@ -1484,8 +1485,10 @@ static int fcoe_rcv(struct sk_buff *skb, struct net_device *netdev,
- 			cpu = ntohs(fh->fh_rx_id) & fc_cpu_mask;
- 	}
- 
--	if (cpu >= nr_cpu_ids)
-+	if (cpu >= nr_cpu_ids) {
-+		put_online_cpus_atomic();
- 		goto err;
-+	}
- 
- 	fps = &per_cpu(fcoe_percpu, cpu);
- 	spin_lock(&fps->fcoe_rx_list.lock);
-@@ -1505,6 +1508,7 @@ static int fcoe_rcv(struct sk_buff *skb, struct net_device *netdev,
- 		spin_lock(&fps->fcoe_rx_list.lock);
- 		if (!fps->thread) {
- 			spin_unlock(&fps->fcoe_rx_list.lock);
-+			put_online_cpus_atomic();
- 			goto err;
+ 	for_each_online_cpu(cpu) {
+ 		if (!cpu_test_and_set(cpu, core_state.cpu_state)) {
+ 			v = smp_call_function_single(cpu, cvm_oct_enable_napi,
+@@ -106,6 +108,7 @@ static void cvm_oct_enable_one_cpu(void)
+ 			break;
  		}
  	}
-@@ -1526,6 +1530,7 @@ static int fcoe_rcv(struct sk_buff *skb, struct net_device *netdev,
- 	if (fps->thread->state == TASK_INTERRUPTIBLE)
- 		wake_up_process(fps->thread);
- 	spin_unlock(&fps->fcoe_rx_list.lock);
 +	put_online_cpus_atomic();
+ }
  
- 	return 0;
- err:
+ static void cvm_oct_no_more_work(void)
