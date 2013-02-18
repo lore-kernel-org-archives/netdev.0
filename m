@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] tipc: two cleanups, plus overload respin
-Date: Mon, 18 Feb 2013 12:22:36 -0500 (EST)
-Message-ID: <20130218.122236.1261186341040450796.davem@davemloft.net>
-References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] ipv6: optimize inet6_hash_frag()
+Date: Mon, 18 Feb 2013 12:24:11 -0500 (EST)
+Message-ID: <20130218.122411.1863066294447811214.davem@davemloft.net>
+References: <1360988088.19353.46.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
-	ying.xue@windriver.com, nhorman@tuxdriver.com
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47436 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47456 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756536Ab3BRRWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 12:22:37 -0500
-In-Reply-To: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1755566Ab3BRRYM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 12:24:12 -0500
+In-Reply-To: <1360988088.19353.46.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri, 15 Feb 2013 17:57:44 -0500
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 15 Feb 2013 20:14:48 -0800
 
-> Two relatively small cleanup patches here, plus a reimplementation
-> of the patch Neil had questions about[1] in the last development
-> cycle.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Tested on today's net-next, between 32 and 64 bit x86 machines using
-> the server/client in tipc-utils, as usual.
+> Use ipv6_addr_hash() and a single jhash invocation.
 > 
-> [1] http://patchwork.ozlabs.org/patch/204507/
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Pulled, thanks Paul.
+Applied, thanks.
