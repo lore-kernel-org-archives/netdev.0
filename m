@@ -1,45 +1,57 @@
-From: Eric Dumazet <erdnetdev@gmail.com>
-Subject: [PATCH net-next] ipv6: fix a sparse warning
-Date: Mon, 18 Feb 2013 12:18:52 -0800
-Message-ID: <1361218732.19353.105.camel@edumazet-glaptop>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH v4] net: fec: Do a sanity check on the gpio number
+Date: Mon, 18 Feb 2013 17:20:31 -0300
+Message-ID: <1361218831-17336-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <marex@denx.de>, <s.hauer@pengutronix.de>,
+	<netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:56715 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753811Ab3BRUS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 15:18:56 -0500
-Received: by mail-pa0-f51.google.com with SMTP id hz1so2983497pad.10
-        for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 12:18:55 -0800 (PST)
+Received: from [216.32.180.11] ([216.32.180.11]:36860 "EHLO
+	va3outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1754614Ab3BRUWd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 15:22:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Check whether the phy-reset GPIO is valid, prior to requesting it.
 
-net/ipv6/reassembly.c:82:72: warning: incorrect type in argument 3 (different base types)
-net/ipv6/reassembly.c:82:72:    expected unsigned int [unsigned] [usertype] c
-net/ipv6/reassembly.c:82:72:    got restricted __be32 [usertype] id
+In the case a board does not provide a phy-reset GPIO, just returns immediately.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+With such gpio validation in place, it is also safe to change from pr_debug to 
+dev_err in the case the gpio request fails.
+
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- net/ipv6/reassembly.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Change since v3:
+- Do not refer to a commit that is in linux-next
+Changes since v2:
+- Merge the two patches into a single one, and use dev_err
+Changes since v1:
+- Added Shawn's ack
+ drivers/net/ethernet/freescale/fec.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 9a6428a..3c6a772 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -79,7 +79,8 @@ unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
- {
- 	u32 c;
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 0fe68c4..1a2071b 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1689,10 +1689,13 @@ static void fec_reset_phy(struct platform_device *pdev)
+ 		msec = 1;
  
--	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr), id, rnd);
-+	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
-+			 (__force u32)id, rnd);
- 
- 	return c & (INETFRAGS_HASHSZ - 1);
- }
+ 	phy_reset = of_get_named_gpio(np, "phy-reset-gpios", 0);
++	if (!gpio_is_valid(phy_reset))
++		return;
++
+ 	err = devm_gpio_request_one(&pdev->dev, phy_reset,
+ 				    GPIOF_OUT_INIT_LOW, "phy-reset");
+ 	if (err) {
+-		pr_debug("FEC: failed to get gpio phy-reset: %d\n", err);
++		dev_err(&pdev->dev, "failed to get phy-reset-gpios: %d\n", err);
+ 		return;
+ 	}
+ 	msleep(msec);
+-- 
+1.7.9.5
