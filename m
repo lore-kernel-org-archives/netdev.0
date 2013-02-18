@@ -1,7 +1,9 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 00/46] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Mon, 18 Feb 2013 18:08:27 +0530
-Message-ID: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 01/46] percpu_rwlock: Introduce the global reader-writer
+ lock backend
+Date: Mon, 18 Feb 2013 18:08:33 +0530
+Message-ID: <20130218123833.26245.73434.stgit@srivatsabhat.in.ibm.com>
+References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -17,275 +19,278 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp08.au.ibm.com ([202.81.31.141]:39221 "EHLO
+	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753047Ab3BRMkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 07:40:45 -0500
+Received: from /spool/local
+	by e23smtp08.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
+	Mon, 18 Feb 2013 22:38:57 +1000
+In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+A straight-forward (and obvious) algorithm to implement Per-CPU Reader-Writer
+locks can also lead to too many deadlock possibilities which can make it very
+hard/impossible to use. This is explained in the example below, which helps
+justify the need for a different algorithm to implement flexible Per-CPU
+Reader-Writer locks.
 
-This patchset removes CPU hotplug's dependence on stop_machine() from the CPU
-offline path and provides an alternative (set of APIs) to preempt_disable() to
-prevent CPUs from going offline, which can be invoked from atomic context.
-The motivation behind the removal of stop_machine() is to avoid its ill-effects
-and thus improve the design of CPU hotplug. (More description regarding this
-is available in the patches).
+We can use global rwlocks as shown below safely, without fear of deadlocks:
 
-All the users of preempt_disable()/local_irq_disable() who used to use it to
-prevent CPU offline, have been converted to the new primitives introduced in the
-patchset. Also, the CPU_DYING notifiers have been audited to check whether
-they can cope up with the removal of stop_machine() or whether they need to
-use new locks for synchronization (all CPU_DYING notifiers looked OK, without
-the need for any new locks).
+Readers:
 
-Applies on current mainline (v3.8-rc7+).
+         CPU 0                                CPU 1
+         ------                               ------
 
-This patchset is available in the following git branch:
-
-git://github.com/srivatsabhat/linux.git  stop-machine-free-cpu-hotplug-v6
-
-
-Overview of the patches:
------------------------
-
-Patches 1 to 7 introduce a generic, flexible Per-CPU Reader-Writer Locking
-scheme.
-
-Patch 8 uses this synchronization mechanism to build the
-get/put_online_cpus_atomic() APIs which can be used from atomic context, to
-prevent CPUs from going offline.
-
-Patch 9 is a cleanup; it converts preprocessor macros to static inline
-functions.
-
-Patches 10 to 43 convert various call-sites to use the new APIs.
-
-Patch 44 is the one which actually removes stop_machine() from the CPU
-offline path.
-
-Patch 45 decouples stop_machine() and CPU hotplug from Kconfig.
-
-Patch 46 updates the documentation to reflect the new APIs.
+1.    spin_lock(&random_lock);             read_lock(&my_rwlock);
 
 
-Changes in v6:
---------------
-
-* Fixed issues related to memory barriers, as pointed out by Paul and Oleg.
-* Fixed the locking issue related to clockevents_lock, which was being
-  triggered when cpu idle was enabled.
-* Some code restructuring to improve readability and to enhance some fastpath
-  optimizations.
-* Randconfig build-fixes, reported by Fengguang Wu.
+2.    read_lock(&my_rwlock);               spin_lock(&random_lock);
 
 
-Changes in v5:
---------------
-  Exposed a new generic locking scheme: Flexible Per-CPU Reader-Writer locks,
-  based on the synchronization schemes already discussed in the previous
-  versions, and used it in CPU hotplug, to implement the new APIs.
+Writer:
 
-  Audited the CPU_DYING notifiers in the kernel source tree and replaced
-  usages of preempt_disable() with the new get/put_online_cpus_atomic() APIs
-  where necessary.
+         CPU 2:
+         ------
+
+       write_lock(&my_rwlock);
 
 
-Changes in v4:
---------------
-  The synchronization scheme has been simplified quite a bit, which makes it
-  look a lot less complex than before. Some highlights:
+We can observe that there is no possibility of deadlocks or circular locking
+dependencies here. Its perfectly safe.
 
-* Implicit ACKs:
+Now consider a blind/straight-forward conversion of global rwlocks to per-CPU
+rwlocks like this:
 
-  The earlier design required the readers to explicitly ACK the writer's
-  signal. The new design uses implicit ACKs instead. The reader switching
-  over to rwlock implicitly tells the writer to stop waiting for that reader.
+The reader locks its own per-CPU rwlock for read, and proceeds.
 
-* No atomic operations:
+Something like: read_lock(per-cpu rwlock of this cpu);
 
-  Since we got rid of explicit ACKs, we no longer have the need for a reader
-  and a writer to update the same counter. So we can get rid of atomic ops
-  too.
+The writer acquires all per-CPU rwlocks for write and only then proceeds.
 
-Changes in v3:
---------------
-* Dropped the _light() and _full() variants of the APIs. Provided a single
-  interface: get/put_online_cpus_atomic().
+Something like:
 
-* Completely redesigned the synchronization mechanism again, to make it
-  fast and scalable at the reader-side in the fast-path (when no hotplug
-  writers are active). This new scheme also ensures that there is no
-  possibility of deadlocks due to circular locking dependency.
-  In summary, this provides the scalability and speed of per-cpu rwlocks
-  (without actually using them), while avoiding the downside (deadlock
-  possibilities) which is inherent in any per-cpu locking scheme that is
-  meant to compete with preempt_disable()/enable() in terms of flexibility.
+  for_each_online_cpu(cpu)
+	write_lock(per-cpu rwlock of 'cpu');
 
-  The problem with using per-cpu locking to replace preempt_disable()/enable
-  was explained here:
-  https://lkml.org/lkml/2012/12/6/290
 
-  Basically we use per-cpu counters (for scalability) when no writers are
-  active, and then switch to global rwlocks (for lock-safety) when a writer
-  becomes active. It is a slightly complex scheme, but it is based on
-  standard principles of distributed algorithms.
+Now let's say that for performance reasons, the above scenario (which was
+perfectly safe when using global rwlocks) was converted to use per-CPU rwlocks.
 
-Changes in v2:
--------------
-* Completely redesigned the synchronization scheme to avoid using any extra
-  cpumasks.
 
-* Provided APIs for 2 types of atomic hotplug readers: "light" (for
-  light-weight) and "full". We wish to have more "light" readers than
-  the "full" ones, to avoid indirectly inducing the "stop_machine effect"
-  without even actually using stop_machine().
+         CPU 0                                CPU 1
+         ------                               ------
 
-  And the patches show that it _is_ generally true: 5 patches deal with
-  "light" readers, whereas only 1 patch deals with a "full" reader.
+1.    spin_lock(&random_lock);             read_lock(my_rwlock of CPU 1);
 
-  Also, the "light" readers happen to be in very hot paths. So it makes a
-  lot of sense to have such a distinction and a corresponding light-weight
-  API.
 
-Links to previous versions:
-v5: http://lwn.net/Articles/533553/
-v4: https://lkml.org/lkml/2012/12/11/209
-v3: https://lkml.org/lkml/2012/12/7/287
-v2: https://lkml.org/lkml/2012/12/5/322
-v1: https://lkml.org/lkml/2012/12/4/88
+2.    read_lock(my_rwlock of CPU 0);       spin_lock(&random_lock);
 
---
- Paul E. McKenney (1):
-      cpu: No more __stop_machine() in _cpu_down()
 
-Srivatsa S. Bhat (45):
-      percpu_rwlock: Introduce the global reader-writer lock backend
-      percpu_rwlock: Introduce per-CPU variables for the reader and the writer
-      percpu_rwlock: Provide a way to define and init percpu-rwlocks at compile time
-      percpu_rwlock: Implement the core design of Per-CPU Reader-Writer Locks
-      percpu_rwlock: Make percpu-rwlocks IRQ-safe, optimally
-      percpu_rwlock: Rearrange the read-lock code to fastpath nested percpu readers
-      percpu_rwlock: Allow writers to be readers, and add lockdep annotations
-      CPU hotplug: Provide APIs to prevent CPU offline from atomic context
-      CPU hotplug: Convert preprocessor macros to static inline functions
-      smp, cpu hotplug: Fix smp_call_function_*() to prevent CPU offline properly
-      smp, cpu hotplug: Fix on_each_cpu_*() to prevent CPU offline properly
-      sched/timer: Use get/put_online_cpus_atomic() to prevent CPU offline
-      sched/migration: Use raw_spin_lock/unlock since interrupts are already disabled
-      sched/rt: Use get/put_online_cpus_atomic() to prevent CPU offline
-      tick: Use get/put_online_cpus_atomic() to prevent CPU offline
-      time/clocksource: Use get/put_online_cpus_atomic() to prevent CPU offline
-      clockevents: Use get/put_online_cpus_atomic() in clockevents_notify()
-      softirq: Use get/put_online_cpus_atomic() to prevent CPU offline
-      irq: Use get/put_online_cpus_atomic() to prevent CPU offline
-      net: Use get/put_online_cpus_atomic() to prevent CPU offline
-      block: Use get/put_online_cpus_atomic() to prevent CPU offline
-      crypto: pcrypt - Protect access to cpu_online_mask with get/put_online_cpus()
-      infiniband: ehca: Use get/put_online_cpus_atomic() to prevent CPU offline
-      [SCSI] fcoe: Use get/put_online_cpus_atomic() to prevent CPU offline
-      staging: octeon: Use get/put_online_cpus_atomic() to prevent CPU offline
-      x86: Use get/put_online_cpus_atomic() to prevent CPU offline
-      perf/x86: Use get/put_online_cpus_atomic() to prevent CPU offline
-      KVM: Use get/put_online_cpus_atomic() to prevent CPU offline from atomic context
-      kvm/vmx: Use get/put_online_cpus_atomic() to prevent CPU offline
-      x86/xen: Use get/put_online_cpus_atomic() to prevent CPU offline
-      alpha/smp: Use get/put_online_cpus_atomic() to prevent CPU offline
-      blackfin/smp: Use get/put_online_cpus_atomic() to prevent CPU offline
-      cris/smp: Use get/put_online_cpus_atomic() to prevent CPU offline
-      hexagon/smp: Use get/put_online_cpus_atomic() to prevent CPU offline
-      ia64: Use get/put_online_cpus_atomic() to prevent CPU offline
-      m32r: Use get/put_online_cpus_atomic() to prevent CPU offline
-      MIPS: Use get/put_online_cpus_atomic() to prevent CPU offline
-      mn10300: Use get/put_online_cpus_atomic() to prevent CPU offline
-      parisc: Use get/put_online_cpus_atomic() to prevent CPU offline
-      powerpc: Use get/put_online_cpus_atomic() to prevent CPU offline
-      sh: Use get/put_online_cpus_atomic() to prevent CPU offline
-      sparc: Use get/put_online_cpus_atomic() to prevent CPU offline
-      tile: Use get/put_online_cpus_atomic() to prevent CPU offline
-      CPU hotplug, stop_machine: Decouple CPU hotplug from stop_machine() in Kconfig
-      Documentation/cpu-hotplug: Remove references to stop_machine()
+Writer:
 
-  Documentation/cpu-hotplug.txt                 |   17 +-
- arch/alpha/kernel/smp.c                       |   19 +-
- arch/arm/Kconfig                              |    1 
- arch/blackfin/Kconfig                         |    1 
- arch/blackfin/mach-common/smp.c               |    6 -
- arch/cris/arch-v32/kernel/smp.c               |    8 +
- arch/hexagon/kernel/smp.c                     |    5 
- arch/ia64/Kconfig                             |    1 
- arch/ia64/kernel/irq_ia64.c                   |   13 +
- arch/ia64/kernel/perfmon.c                    |    6 +
- arch/ia64/kernel/smp.c                        |   23 ++
- arch/ia64/mm/tlb.c                            |    6 -
- arch/m32r/kernel/smp.c                        |   12 +
- arch/mips/Kconfig                             |    1 
- arch/mips/kernel/cevt-smtc.c                  |    8 +
- arch/mips/kernel/smp.c                        |   16 +-
- arch/mips/kernel/smtc.c                       |    3 
- arch/mips/mm/c-octeon.c                       |    4 
- arch/mn10300/Kconfig                          |    1 
- arch/mn10300/kernel/smp.c                     |    2 
- arch/mn10300/mm/cache-smp.c                   |    5 
- arch/mn10300/mm/tlb-smp.c                     |   15 +
- arch/parisc/Kconfig                           |    1 
- arch/parisc/kernel/smp.c                      |    4 
- arch/powerpc/Kconfig                          |    1 
- arch/powerpc/mm/mmu_context_nohash.c          |    2 
- arch/s390/Kconfig                             |    1 
- arch/sh/Kconfig                               |    1 
- arch/sh/kernel/smp.c                          |   12 +
- arch/sparc/Kconfig                            |    1 
- arch/sparc/kernel/leon_smp.c                  |    2 
- arch/sparc/kernel/smp_64.c                    |    9 -
- arch/sparc/kernel/sun4d_smp.c                 |    2 
- arch/sparc/kernel/sun4m_smp.c                 |    3 
- arch/tile/kernel/smp.c                        |    4 
- arch/x86/Kconfig                              |    1 
- arch/x86/include/asm/ipi.h                    |    5 
- arch/x86/kernel/apic/apic_flat_64.c           |   10 +
- arch/x86/kernel/apic/apic_numachip.c          |    5 
- arch/x86/kernel/apic/es7000_32.c              |    5 
- arch/x86/kernel/apic/io_apic.c                |    7 -
- arch/x86/kernel/apic/ipi.c                    |   10 +
- arch/x86/kernel/apic/x2apic_cluster.c         |    4 
- arch/x86/kernel/apic/x2apic_uv_x.c            |    4 
- arch/x86/kernel/cpu/mcheck/therm_throt.c      |    4 
- arch/x86/kernel/cpu/perf_event_intel_uncore.c |    5 
- arch/x86/kvm/vmx.c                            |    8 +
- arch/x86/mm/tlb.c                             |   14 +
- arch/x86/xen/mmu.c                            |   11 +
- arch/x86/xen/smp.c                            |    9 +
- block/blk-softirq.c                           |    4 
- crypto/pcrypt.c                               |    4 
- drivers/infiniband/hw/ehca/ehca_irq.c         |    8 +
- drivers/scsi/fcoe/fcoe.c                      |    7 +
- drivers/staging/octeon/ethernet-rx.c          |    3 
- include/linux/cpu.h                           |    8 +
- include/linux/percpu-rwlock.h                 |   74 +++++++
- include/linux/stop_machine.h                  |    2 
- init/Kconfig                                  |    2 
- kernel/cpu.c                                  |   59 +++++-
- kernel/irq/manage.c                           |    7 +
- kernel/sched/core.c                           |   36 +++-
- kernel/sched/fair.c                           |    5 
- kernel/sched/rt.c                             |    3 
- kernel/smp.c                                  |   65 ++++--
- kernel/softirq.c                              |    3 
- kernel/time/clockevents.c                     |    3 
- kernel/time/clocksource.c                     |    5 
- kernel/time/tick-broadcast.c                  |    2 
- kernel/timer.c                                |    2 
- lib/Kconfig                                   |    3 
- lib/Makefile                                  |    1 
- lib/percpu-rwlock.c                           |  256 +++++++++++++++++++++++++
- net/core/dev.c                                |    9 +
- virt/kvm/kvm_main.c                           |   10 +
- 75 files changed, 776 insertions(+), 123 deletions(-)
+         CPU 2:
+         ------
+
+      for_each_online_cpu(cpu)
+        write_lock(my_rwlock of 'cpu');
+
+
+Consider what happens if the writer begins his operation in between steps 1
+and 2 at the reader side. It becomes evident that we end up in a (previously
+non-existent) deadlock due to a circular locking dependency between the 3
+entities, like this:
+
+
+(holds              Waiting for
+ random_lock) CPU 0 -------------> CPU 2  (holds my_rwlock of CPU 0
+                                               for write)
+               ^                   |
+               |                   |
+        Waiting|                   | Waiting
+          for  |                   |  for
+               |                   V
+                ------ CPU 1 <------
+
+                (holds my_rwlock of
+                 CPU 1 for read)
+
+
+
+So obviously this "straight-forward" way of implementing percpu rwlocks is
+deadlock-prone. One simple measure for (or characteristic of) safe percpu
+rwlock should be that if a user replaces global rwlocks with per-CPU rwlocks
+(for performance reasons), he shouldn't suddenly end up in numerous deadlock
+possibilities which never existed before. The replacement should continue to
+remain safe, and perhaps improve the performance.
+
+Observing the robustness of global rwlocks in providing a fair amount of
+deadlock safety, we implement per-CPU rwlocks as nothing but global rwlocks,
+as a first step.
+
+
+Cc: David Howells <dhowells@redhat.com>
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+ include/linux/percpu-rwlock.h |   49 ++++++++++++++++++++++++++++++++
+ lib/Kconfig                   |    3 ++
+ lib/Makefile                  |    1 +
+ lib/percpu-rwlock.c           |   63 +++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 116 insertions(+)
  create mode 100644 include/linux/percpu-rwlock.h
  create mode 100644 lib/percpu-rwlock.c
 
-
-
-Regards,
-Srivatsa S. Bhat
-IBM Linux Technology Center
-
+diff --git a/include/linux/percpu-rwlock.h b/include/linux/percpu-rwlock.h
+new file mode 100644
+index 0000000..0caf81f
+--- /dev/null
++++ b/include/linux/percpu-rwlock.h
+@@ -0,0 +1,49 @@
++/*
++ * Flexible Per-CPU Reader-Writer Locks
++ * (with relaxed locking rules and reduced deadlock-possibilities)
++ *
++ * Copyright (C) IBM Corporation, 2012-2013
++ * Author: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
++ *
++ * With lots of invaluable suggestions from:
++ *	   Oleg Nesterov <oleg@redhat.com>
++ *	   Tejun Heo <tj@kernel.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++#ifndef _LINUX_PERCPU_RWLOCK_H
++#define _LINUX_PERCPU_RWLOCK_H
++
++#include <linux/percpu.h>
++#include <linux/lockdep.h>
++#include <linux/spinlock.h>
++
++struct percpu_rwlock {
++	rwlock_t			global_rwlock;
++};
++
++extern void percpu_read_lock(struct percpu_rwlock *);
++extern void percpu_read_unlock(struct percpu_rwlock *);
++
++extern void percpu_write_lock(struct percpu_rwlock *);
++extern void percpu_write_unlock(struct percpu_rwlock *);
++
++extern int __percpu_init_rwlock(struct percpu_rwlock *,
++				const char *, struct lock_class_key *);
++
++#define percpu_init_rwlock(pcpu_rwlock)					\
++({	static struct lock_class_key rwlock_key;			\
++	__percpu_init_rwlock(pcpu_rwlock, #pcpu_rwlock, &rwlock_key);	\
++})
++
++#endif
+diff --git a/lib/Kconfig b/lib/Kconfig
+index 75cdb77..32fb0b9 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -45,6 +45,9 @@ config STMP_DEVICE
+ config PERCPU_RWSEM
+ 	boolean
+ 
++config PERCPU_RWLOCK
++	boolean
++
+ config CRC_CCITT
+ 	tristate "CRC-CCITT functions"
+ 	help
+diff --git a/lib/Makefile b/lib/Makefile
+index 02ed6c0..1854b5e 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -41,6 +41,7 @@ obj-$(CONFIG_DEBUG_SPINLOCK) += spinlock_debug.o
+ lib-$(CONFIG_RWSEM_GENERIC_SPINLOCK) += rwsem-spinlock.o
+ lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += rwsem.o
+ lib-$(CONFIG_PERCPU_RWSEM) += percpu-rwsem.o
++lib-$(CONFIG_PERCPU_RWLOCK) += percpu-rwlock.o
+ 
+ CFLAGS_hweight.o = $(subst $(quote),,$(CONFIG_ARCH_HWEIGHT_CFLAGS))
+ obj-$(CONFIG_GENERIC_HWEIGHT) += hweight.o
+diff --git a/lib/percpu-rwlock.c b/lib/percpu-rwlock.c
+new file mode 100644
+index 0000000..111a238
+--- /dev/null
++++ b/lib/percpu-rwlock.c
+@@ -0,0 +1,63 @@
++/*
++ * Flexible Per-CPU Reader-Writer Locks
++ * (with relaxed locking rules and reduced deadlock-possibilities)
++ *
++ * Copyright (C) IBM Corporation, 2012-2013
++ * Author: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
++ *
++ * With lots of invaluable suggestions from:
++ *	   Oleg Nesterov <oleg@redhat.com>
++ *	   Tejun Heo <tj@kernel.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++#include <linux/spinlock.h>
++#include <linux/percpu.h>
++#include <linux/lockdep.h>
++#include <linux/percpu-rwlock.h>
++#include <linux/errno.h>
++
++
++int __percpu_init_rwlock(struct percpu_rwlock *pcpu_rwlock,
++			 const char *name, struct lock_class_key *rwlock_key)
++{
++	/* ->global_rwlock represents the whole percpu_rwlock for lockdep */
++#ifdef CONFIG_DEBUG_SPINLOCK
++	__rwlock_init(&pcpu_rwlock->global_rwlock, name, rwlock_key);
++#else
++	pcpu_rwlock->global_rwlock =
++			__RW_LOCK_UNLOCKED(&pcpu_rwlock->global_rwlock);
++#endif
++	return 0;
++}
++
++void percpu_read_lock(struct percpu_rwlock *pcpu_rwlock)
++{
++	read_lock(&pcpu_rwlock->global_rwlock);
++}
++
++void percpu_read_unlock(struct percpu_rwlock *pcpu_rwlock)
++{
++	read_unlock(&pcpu_rwlock->global_rwlock);
++}
++
++void percpu_write_lock(struct percpu_rwlock *pcpu_rwlock)
++{
++	write_lock(&pcpu_rwlock->global_rwlock);
++}
++
++void percpu_write_unlock(struct percpu_rwlock *pcpu_rwlock)
++{
++	write_unlock(&pcpu_rwlock->global_rwlock);
++}
++
