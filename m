@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 14/46] sched/rt: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Mon, 18 Feb 2013 18:10:13 +0530
-Message-ID: <20130218124012.26245.44243.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 17/46] clockevents: Use get/put_online_cpus_atomic() in
+ clockevents_notify()
+Date: Mon, 18 Feb 2013 18:10:42 +0530
+Message-ID: <20130218124042.26245.92242.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,38 +24,44 @@ In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Once stop_machine() is gone from the CPU offline path, we won't be able to
-depend on preempt_disable() or local_irq_disable() to prevent CPUs from
-going offline from under us.
-
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-while invoking from atomic context.
+The cpu idle code invokes clockevents_notify() during idle state transitions
+and the cpu offline code invokes it during the CPU_DYING phase. There
+seems to be a race-condition between the two, where the clockevents_lock
+never gets released, ending in a lockup. This can be fixed by synchronizing
+clockevents_notify() with CPU offline, by wrapping its contents within
+get/put_online_cpus_atomic().
 
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/sched/rt.c |    3 +++
+ kernel/time/clockevents.c |    3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 4f02b28..e546c98 100644
---- a/kernel/sched/rt.c
-+++ b/kernel/sched/rt.c
-@@ -6,6 +6,7 @@
- #include "sched.h"
- 
- #include <linux/slab.h>
+diff --git a/kernel/time/clockevents.c b/kernel/time/clockevents.c
+index 30b6de0..ca340fd 100644
+--- a/kernel/time/clockevents.c
++++ b/kernel/time/clockevents.c
+@@ -17,6 +17,7 @@
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ #include <linux/smp.h>
 +#include <linux/cpu.h>
  
- static int do_sched_rt_period_timer(struct rt_bandwidth *rt_b, int overrun);
+ #include "tick-internal.h"
  
-@@ -26,7 +27,9 @@ static enum hrtimer_restart sched_rt_period_timer(struct hrtimer *timer)
- 		if (!overrun)
- 			break;
+@@ -431,6 +432,7 @@ void clockevents_notify(unsigned long reason, void *arg)
+ 	unsigned long flags;
+ 	int cpu;
  
-+		get_online_cpus_atomic();
- 		idle = do_sched_rt_period_timer(rt_b, overrun);
-+		put_online_cpus_atomic();
++	get_online_cpus_atomic();
+ 	raw_spin_lock_irqsave(&clockevents_lock, flags);
+ 	clockevents_do_notify(reason, arg);
+ 
+@@ -459,6 +461,7 @@ void clockevents_notify(unsigned long reason, void *arg)
+ 		break;
  	}
- 
- 	return idle ? HRTIMER_NORESTART : HRTIMER_RESTART;
+ 	raw_spin_unlock_irqrestore(&clockevents_lock, flags);
++	put_online_cpus_atomic();
+ }
+ EXPORT_SYMBOL_GPL(clockevents_notify);
+ #endif
