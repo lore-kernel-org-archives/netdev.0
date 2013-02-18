@@ -1,52 +1,47 @@
-From: Michel Lespinasse <walken@google.com>
-Subject: Re: [PATCH v6 07/46] percpu_rwlock: Allow writers to be readers, and
- add lockdep annotations
-Date: Mon, 18 Feb 2013 23:51:41 +0800
-Message-ID: <CANN689Ec4g7jMapv8ChAEom+gEDQ8RDVLa07CKwJ==YO+MUUrA@mail.gmail.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-	<20130218123913.26245.7713.stgit@srivatsabhat.in.ibm.com>
+From: Andy King <acking@vmware.com>
+Subject: [PATCH 4/4] VSOCK: Don't reject PF_VSOCK protocol
+Date: Mon, 18 Feb 2013 08:04:13 -0800
+Message-ID: <1361203453-1347-5-git-send-email-acking@vmware.com>
+References: <1361203453-1347-1-git-send-email-acking@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vincent.guittot@linaro.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130218123913.26245.7713.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, Andy King <acking@vmware.com>, davem@davemloft.net
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1361203453-1347-1-git-send-email-acking@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 18, 2013 at 8:39 PM, Srivatsa S. Bhat
-<srivatsa.bhat@linux.vnet.ibm.com> wrote:
-> @@ -200,6 +217,16 @@ void percpu_write_lock_irqsave(struct percpu_rwlock *pcpu_rwlock,
->
->         smp_mb(); /* Complete the wait-for-readers, before taking the lock */
->         write_lock_irqsave(&pcpu_rwlock->global_rwlock, *flags);
-> +
-> +       /*
-> +        * It is desirable to allow the writer to acquire the percpu-rwlock
-> +        * for read (if necessary), without deadlocking or getting complaints
-> +        * from lockdep. To achieve that, just increment the reader_refcnt of
-> +        * this CPU - that way, any attempt by the writer to acquire the
-> +        * percpu-rwlock for read, will get treated as a case of nested percpu
-> +        * reader, which is safe, from a locking perspective.
-> +        */
-> +       this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
+Allow our own family as the protocol value for socket creation.
 
-I find this quite disgusting, but once again this may be because I
-don't like unfair recursive rwlocks.
+Reported-by: Gerd Hoffmann <kraxel@redhat.com>
+Signed-off-by: Andy King <acking@vmware.com>
+---
+ net/vmw_vsock/af_vsock.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-In my opinion, the alternative of explicitly not taking the read lock
-when one already has the write lock sounds *much* nicer.
-
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index c1b9e55..ca511c4 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1860,7 +1860,7 @@ static int vsock_create(struct net *net, struct socket *sock,
+ 	if (!sock)
+ 		return -EINVAL;
+ 
+-	if (protocol)
++	if (protocol && protocol != PF_VSOCK)
+ 		return -EPROTONOSUPPORT;
+ 
+ 	switch (sock->type) {
 -- 
-Michel "Walken" Lespinasse
-A program is never fully debugged until the last user dies.
+1.7.4.1
