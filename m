@@ -1,49 +1,36 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
- handle packets
-Date: Mon, 18 Feb 2013 21:50:52 +0200
-Message-ID: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] xfrm: release neighbor upon dst destruction
+Date: Mon, 18 Feb 2013 14:58:08 -0500 (EST)
+Message-ID: <20130218.145808.1730142643182502981.davem@davemloft.net>
+References: <311F962F-9DAF-4B24-B7FD-F158895D304D@ipflavors.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
+	yoshfuji@linux-ipv6.org
+To: r.kuntz@ipflavors.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1872 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752300Ab3BRT5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 14:57:30 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:49156 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300Ab3BRT6J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 14:58:09 -0500
+In-Reply-To: <311F962F-9DAF-4B24-B7FD-F158895D304D@ipflavors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If device is not able to handle checksumming it will
-be handled in dev_xmit
+From: Romain KUNTZ <r.kuntz@ipflavors.com>
+Date: Mon, 18 Feb 2013 13:36:24 +0100
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
----
-Changes from v1: fixed email address
+> Neighbor is cloned in xfrm6_fill_dst but seems to never be released.
+> Neighbor entry should be released when XFRM6 dst entry is destroyed
+> in xfrm6_dst_destroy, otherwise references may be kept forever on 
+> the device pointed by the neighbor entry.
+> 
+> I may not have understood all the subtleties of XFRM & dst so I would
+> be happy to receive comments on this patch. 
+> 
+> Signed-off-by: Romain Kuntz <r.kuntz@ipflavors.com>
 
- net/ipv4/ip_gre.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+This patch is definitely correct.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index a56f118..cdc31ac 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
- 			goto error;
- 		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
- 		return skb;
--	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		err = skb_checksum_help(skb);
--		if (unlikely(err))
--			goto error;
- 	}
--	skb->ip_summed = CHECKSUM_NONE;
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		skb->ip_summed = CHECKSUM_NONE;
- 
- 	return skb;
- 
--- 
-1.7.7.2
+Applied and queued up for -stable, thanks.
