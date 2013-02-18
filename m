@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 42/46] sparc: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Mon, 18 Feb 2013 18:14:08 +0530
-Message-ID: <20130218124408.26245.83105.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 45/46] CPU hotplug,
+ stop_machine: Decouple CPU hotplug from stop_machine() in Kconfig
+Date: Mon, 18 Feb 2013 18:14:43 +0530
+Message-ID: <20130218124443.26245.34919.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,129 +19,58 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
 In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Once stop_machine() is gone from the CPU offline path, we won't be able to
-depend on preempt_disable() or local_irq_disable() to prevent CPUs from
-going offline from under us.
+Simply dropping HOTPLUG_CPU from the dependency list of STOP_MACHINE will
+lead to the following kconfig issue, reported by Fengguang Wu:
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-while invoking from atomic context.
+"warning: (HAVE_TEXT_POKE_SMP) selects STOP_MACHINE which has unmet direct
+dependencies (SMP && MODULE_UNLOAD)"
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Sam Ravnborg <sam@ravnborg.org>
-Cc: sparclinux@vger.kernel.org
+So drop HOTPLUG_CPU and add HAVE_TEXT_POKE_SMP to the dependency list of
+STOP_MACHINE.
+
+And while at it, also cleanup a comment that refers to CPU hotplug being
+dependent on stop_machine().
+
+Cc: David Howells <dhowells@redhat.com>
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Suggested-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 ---
 
- arch/sparc/kernel/leon_smp.c  |    2 ++
- arch/sparc/kernel/smp_64.c    |    9 +++++----
- arch/sparc/kernel/sun4d_smp.c |    2 ++
- arch/sparc/kernel/sun4m_smp.c |    3 +++
- 4 files changed, 12 insertions(+), 4 deletions(-)
+ include/linux/stop_machine.h |    2 +-
+ init/Kconfig                 |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/sparc/kernel/leon_smp.c b/arch/sparc/kernel/leon_smp.c
-index 0f3fb6d..441d3ac 100644
---- a/arch/sparc/kernel/leon_smp.c
-+++ b/arch/sparc/kernel/leon_smp.c
-@@ -420,6 +420,7 @@ static void leon_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 		unsigned long flags;
+diff --git a/include/linux/stop_machine.h b/include/linux/stop_machine.h
+index 3b5e910..ce2d3c4 100644
+--- a/include/linux/stop_machine.h
++++ b/include/linux/stop_machine.h
+@@ -120,7 +120,7 @@ int stop_machine(int (*fn)(void *), void *data, const struct cpumask *cpus);
+  * @cpus: the cpus to run the @fn() on (NULL = any online cpu)
+  *
+  * Description: This is a special version of the above, which assumes cpus
+- * won't come or go while it's being called.  Used by hotplug cpu.
++ * won't come or go while it's being called.
+  */
+ int __stop_machine(int (*fn)(void *), void *data, const struct cpumask *cpus);
  
- 		spin_lock_irqsave(&cross_call_lock, flags);
-+		get_online_cpus_atomic();
+diff --git a/init/Kconfig b/init/Kconfig
+index be8b7f5..f4f79af 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1711,7 +1711,7 @@ config INIT_ALL_POSSIBLE
+ config STOP_MACHINE
+ 	bool
+ 	default y
+-	depends on (SMP && MODULE_UNLOAD) || HOTPLUG_CPU
++	depends on (SMP && (MODULE_UNLOAD || HAVE_TEXT_POKE_SMP))
+ 	help
+ 	  Need stop_machine() primitive.
  
- 		{
- 			/* If you make changes here, make sure gcc generates proper code... */
-@@ -476,6 +477,7 @@ static void leon_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 			} while (++i <= high);
- 		}
- 
-+		put_online_cpus_atomic();
- 		spin_unlock_irqrestore(&cross_call_lock, flags);
- 	}
- }
-diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
-index 537eb66..e1d7300 100644
---- a/arch/sparc/kernel/smp_64.c
-+++ b/arch/sparc/kernel/smp_64.c
-@@ -894,7 +894,8 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
- 	atomic_inc(&dcpage_flushes);
- #endif
- 
--	this_cpu = get_cpu();
-+	get_online_cpus_atomic();
-+	this_cpu = smp_processor_id();
- 
- 	if (cpu == this_cpu) {
- 		__local_flush_dcache_page(page);
-@@ -920,7 +921,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
- 		}
- 	}
- 
--	put_cpu();
-+	put_online_cpus_atomic();
- }
- 
- void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
-@@ -931,7 +932,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
- 	if (tlb_type == hypervisor)
- 		return;
- 
--	preempt_disable();
-+	get_online_cpus_atomic();
- 
- #ifdef CONFIG_DEBUG_DCFLUSH
- 	atomic_inc(&dcpage_flushes);
-@@ -956,7 +957,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
- 	}
- 	__local_flush_dcache_page(page);
- 
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- void __irq_entry smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
-diff --git a/arch/sparc/kernel/sun4d_smp.c b/arch/sparc/kernel/sun4d_smp.c
-index ddaea31..1fa7ff2 100644
---- a/arch/sparc/kernel/sun4d_smp.c
-+++ b/arch/sparc/kernel/sun4d_smp.c
-@@ -300,6 +300,7 @@ static void sun4d_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 		unsigned long flags;
- 
- 		spin_lock_irqsave(&cross_call_lock, flags);
-+		get_online_cpus_atomic();
- 
- 		{
- 			/*
-@@ -356,6 +357,7 @@ static void sun4d_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 			} while (++i <= high);
- 		}
- 
-+		put_online_cpus_atomic();
- 		spin_unlock_irqrestore(&cross_call_lock, flags);
- 	}
- }
-diff --git a/arch/sparc/kernel/sun4m_smp.c b/arch/sparc/kernel/sun4m_smp.c
-index 128af73..5599548 100644
---- a/arch/sparc/kernel/sun4m_smp.c
-+++ b/arch/sparc/kernel/sun4m_smp.c
-@@ -192,6 +192,7 @@ static void sun4m_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 		unsigned long flags;
- 
- 		spin_lock_irqsave(&cross_call_lock, flags);
-+		get_online_cpus_atomic();
- 
- 		/* Init function glue. */
- 		ccall_info.func = func;
-@@ -238,6 +239,8 @@ static void sun4m_cross_call(smpfunc_t func, cpumask_t mask, unsigned long arg1,
- 					barrier();
- 			} while (++i < ncpus);
- 		}
-+
-+		put_online_cpus_atomic();
- 		spin_unlock_irqrestore(&cross_call_lock, flags);
- }
- 
+
