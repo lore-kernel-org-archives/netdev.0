@@ -1,82 +1,58 @@
-From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 3/3] driver: net: ethernet: cpsw: dual emac interface
- implementation
-Date: Mon, 18 Feb 2013 20:40:48 +0530
-Message-ID: <51224478.7050304@ti.com>
-References: <1360612340-9266-1-git-send-email-mugunthanvnm@ti.com>
- <1360612340-9266-4-git-send-email-mugunthanvnm@ti.com>
- <87mwv1kaln.fsf@dell.be.48ers.dk>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
+Date: Mon, 18 Feb 2013 10:30:22 -0500
+Message-ID: <1361201422.23152.154.camel@gandalf.local.home>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+	 <510FBC01.2030405@linux.vnet.ibm.com> <87haloiwv0.fsf@rustcorp.com.au>
+	 <51134596.4080106@linux.vnet.ibm.com>
+	 <20130208154113.GV17833@n2100.arm.linux.org.uk>
+	 <51152B81.2050501@linux.vnet.ibm.com> <51153F72.1060005@linux.vnet.ibm.com>
+	 <CAKfTPtCe+cD7LLkb+D6pqG1SwG2V08ws=4XO3ttHEHV2qgmqPg@mail.gmail.com>
+	 <5118E2CD.90401@linux.vnet.ibm.com>
+	 <20130211190852.GA5695@linux.vnet.ibm.com>
+	 <5119BDFD.1000909@linux.vnet.ibm.com>
+	 <CAKfTPtAo2hQTfBKTVUuLKgsGJ2ZLD0UTR3fH9UFuJwyFt4n__w@mail.gmail.com>
+	 <511E8F3C.2010406@linux.vnet.ibm.com>
+	 <CAKfTPtD=2jn1AVjuhVP1ot7_8x9-W4==hNGZET5N9tRE7gtyMw@mail.gmail.com>
+	 <512203B3.7090002@linux.vnet.ibm.com> <512207A6.4000402@linux.vnet.ibm.com>
+	 <CAKfTPtA1aTseD6Gntkf_zbCEbfZzt3P2-P1un6iF5_1TdVLjRQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset="ISO-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <87mwv1kaln.fsf-D6SC8u56vOOJDPpyT6T3/w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	paulmck@linux.vnet.ibm.com,
+	Russell King - ARM Linux <linux@arm.linux.org.uk>,
+	linux-doc@vger.kernel.org, peterz@infradead.org,
+	fweisbec@gmail.com, linux-kernel@vger.kernel.org,
+	walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
+	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>, rjw@sisk.pl,
+	namhyung@kernel.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
+	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+To: Vincent Guittot <vincent.guittot@linaro.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <CAKfTPtA1aTseD6Gntkf_zbCEbfZzt3P2-P1un6iF5_1TdVLjRQ@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2/18/2013 7:06 PM, Peter Korsgaard wrote:
->>>>>> "M" == Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org> writes:
->   M> The CPSW switch can act as Dual EMAC by segregating the switch ports
->   M> using VLAN and port VLAN as per the TRM description in
->   M> 14.3.2.10.2 Dual Mac Mode
->
->   M> Following CPSW components will be common for both the interfaces.
->   M> * Interrupt source is common for both eth interfaces
->   M> * Interrupt pacing is common for both interfaces
->   M> * Hardware statistics is common for all the ports
->   M> * CPDMA is common for both eth interface
->   M> * CPTS is common for both the interface and it should not be enabled on
->   M>   both the interface as timestamping information doesn't contain port
->   M>   information.
->
->   M> Constrains
->   M> * Reserved VID of One port should not be used in other interface which will
->   M>   enable switching functionality
->   M> * Same VID must not be used in both the interface which will enable switching
->   M>   functionality
->
->   M> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
->   M> ---
->   M>  Documentation/devicetree/bindings/net/cpsw.txt |    2 +
->   M>  drivers/net/ethernet/ti/cpsw.c                 |  335 ++++++++++++++++++++----
->   M>  include/linux/platform_data/cpsw.h             |    3 +
->   M>  3 files changed, 288 insertions(+), 52 deletions(-)
->
->   M> diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
->   M> index 6ddd028..ecfdf75 100644
->   M> --- a/Documentation/devicetree/bindings/net/cpsw.txt
->   M> +++ b/Documentation/devicetree/bindings/net/cpsw.txt
->   M> @@ -24,6 +24,8 @@ Required properties:
->   M>  Optional properties:
->   M>  - ti,hwmods		: Must be "cpgmac0"
->   M>  - no_bd_ram		: Must be 0 or 1
->   M> +- dual_emac		: Specifies Switch to act as Dual EMAC
->   M> +- dual_emac_res_vlan	: Specifies VID to be used to segregate the ports
->
-> You forgot to CC devicetree-discuss. Properties normally use dashes (-)
-> instead of underscores (_). These properties are more about
-> configuration and not hardware.
->
-> It is not clear to me from the description that dual_emac is a boolean
-> (0/1). Shouldn't dual_emacs_res_vlan be a property of the slave?
->
-> It would also be good to update the example below with this.
-Since the series is already applied in net-next tree, i will submit a 
-patch with incorporating
-the above comments. Will add devicetree-discuss in my future patches.
+On Mon, 2013-02-18 at 11:58 +0100, Vincent Guittot wrote:
 
-Regards
-Mugunthan V N
+> My tests have been done without cpuidle because i have some issues
+> with function tracer and cpuidle
+> 
+> But the cpu hotplug and cpuidle work well when I run the tests without
+> enabling the function tracer
+> 
+
+I know suspend and resume has issues with function tracing (because it
+makes things like calling smp_processor_id() crash the system), but I'm
+unaware of issues with hotplug itself. Could be some of the same issues.
+
+Can you give me more details, I'll try to investigate it.
+
+Thanks,
+
+-- Steve
