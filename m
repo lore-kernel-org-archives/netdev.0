@@ -1,7 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 2/9] bnx2x: fix vlan-mac memory leak
-Date: Mon, 18 Feb 2013 10:16:31 +0200
-Message-ID: <1361175398-12888-3-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 4/9] bnx2x: Set ethtool ops for vfs
+Date: Mon, 18 Feb 2013 10:16:33 +0200
+Message-ID: <1361175398-12888-5-git-send-email-yuvalmin@broadcom.com>
 References: <1361175398-12888-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,33 +12,93 @@ To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms1.broadcom.com ([216.31.210.17]:2379 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757262Ab3BRJVW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 04:21:22 -0500
+	id S1757262Ab3BRJV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 04:21:27 -0500
 In-Reply-To: <1361175398-12888-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch releases memory previously simply omitted when elements
-are removed from pending execution lists in the bnx2x driver.
+From: Ariel Elior <ariele@broadcom.com>
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Virtual functions don't have access to HW registers, therefore most ethtool ops
+are forbidden to them. Instead of checking in each op whether the device being
+driven is a virtual function or a physical function, this patch creates a
+separate ethtool ops struct for virtual functions and uses it to initialize
+the ethtool ops of the driver in case it is driving a virtual function device.
+
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    2 +-
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   29 ++++++++++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 +-
+ 3 files changed, 29 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-index 96dcc92..f701b72 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c
-@@ -2251,6 +2251,7 @@ static int bnx2x_vlan_mac_del_all(struct bnx2x *bp,
- 				return rc;
- 			}
- 			list_del(&exeq_pos->link);
-+			bnx2x_exe_queue_free_elem(bp, exeq_pos);
- 		}
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 3e26eb5..0528f3b 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2287,7 +2287,7 @@ static const u32 dmae_reg_go_c[] = {
+ 	DMAE_REG_GO_C12, DMAE_REG_GO_C13, DMAE_REG_GO_C14, DMAE_REG_GO_C15
+ };
+ 
+-void bnx2x_set_ethtool_ops(struct net_device *netdev);
++void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev);
+ void bnx2x_notify_link_changed(struct bnx2x *bp);
+ 
+ #define BNX2X_MF_SD_PROTOCOL(bp) \
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 9a674b1..77173c9 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -3226,7 +3226,32 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.get_ts_info		= ethtool_op_get_ts_info,
+ };
+ 
+-void bnx2x_set_ethtool_ops(struct net_device *netdev)
++static const struct ethtool_ops bnx2x_vf_ethtool_ops = {
++	.get_settings		= bnx2x_get_settings,
++	.set_settings		= bnx2x_set_settings,
++	.get_drvinfo		= bnx2x_get_drvinfo,
++	.get_msglevel		= bnx2x_get_msglevel,
++	.set_msglevel		= bnx2x_set_msglevel,
++	.get_link		= bnx2x_get_link,
++	.get_coalesce		= bnx2x_get_coalesce,
++	.get_ringparam		= bnx2x_get_ringparam,
++	.set_ringparam		= bnx2x_set_ringparam,
++	.get_sset_count		= bnx2x_get_sset_count,
++	.get_strings		= bnx2x_get_strings,
++	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
++	.get_rxnfc		= bnx2x_get_rxnfc,
++	.set_rxnfc		= bnx2x_set_rxnfc,
++	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
++	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
++	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
++	.get_channels		= bnx2x_get_channels,
++	.set_channels		= bnx2x_set_channels,
++};
++
++void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev)
+ {
+-	SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
++	if (IS_PF(bp))
++		SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
++	else /* vf */
++		SET_ETHTOOL_OPS(netdev, &bnx2x_vf_ethtool_ops);
+ }
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 1776b8b..d3a33ef 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11956,7 +11956,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+ 
+ 	dev->netdev_ops = &bnx2x_netdev_ops;
+-	bnx2x_set_ethtool_ops(dev);
++	bnx2x_set_ethtool_ops(bp, dev);
+ 
+ 	dev->priv_flags |= IFF_UNICAST_FLT;
  
 -- 
 1.7.9.GIT
