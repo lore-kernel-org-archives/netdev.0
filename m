@@ -1,132 +1,42 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH v2 net-next 4/6] qlcnic: fix estimation of receive MSS in case of LRO for 83xx adapter
-Date: Mon, 18 Feb 2013 17:06:16 -0500
-Message-ID: <1361225178-4363-5-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH v2 net-next 6/6] qlcnic: Bump up the version to 5.1.34
+Date: Mon, 18 Feb 2013 17:06:18 -0500
+Message-ID: <1361225178-4363-7-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1361225178-4363-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
 	Dept_NX_Linux_NIC_Driver@qlogic.com,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:21054 "HELO linux-zupk.site"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:8972 "HELO linux-zupk.site"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1757272Ab3BRW2b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 17:28:31 -0500
+	id S1757108Ab3BRW2t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 17:28:49 -0500
 In-Reply-To: <1361225178-4363-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-Set gso_size to MSS obtained from adapter to avoid incorrect estimation
-of receive MSS, which would lead to delayed ACKs in some traffic patterns
-
-Example:
-Send two or three packets and wait for ack and only then send
-remaining packets.
-
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c     |   13 ++++++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   24 +++++++++++++------
- 3 files changed, 29 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index 127fa27..61f81f6 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -223,6 +223,7 @@ struct qlc_83xx_idc {
- #define QLC_83XX_GET_LSO_CAPABILITY(val)		(val & 0x40)
- #define QLC_83XX_GET_HW_LRO_CAPABILITY(val)		(val & 0x400)
- #define QLC_83XX_GET_VLAN_ALIGN_CAPABILITY(val)	(val & 0x4000)
-+#define QLC_83XX_GET_FW_LRO_MSS_CAPABILITY(val)	(val & 0x20000)
- #define QLC_83XX_VIRTUAL_NIC_MODE			0xFF
- #define QLC_83XX_DEFAULT_MODE				0x0
- #define QLCNIC_BRDTYPE_83XX_10G			0x0083
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 662292d..2990f45 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -88,6 +88,8 @@
- #define qlcnic_get_lro_sts_mss(sts_data1)		\
- 	((sts_data1 >> 32) & 0x0FFFF)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 01e9ea1..11c3db6 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -38,8 +38,8 @@
  
-+#define qlcnic_83xx_get_lro_sts_mss(sts) ((sts) & 0xffff)
-+
- /* opcode field in status_desc */
- #define QLCNIC_SYN_OFFLOAD	0x03
- #define QLCNIC_RXPKT_DESC  	0x04
-@@ -1423,7 +1425,7 @@ qlcnic_83xx_process_lro(struct qlcnic_adapter *adapter,
- 	bool push;
- 	int l2_hdr_offset, l4_hdr_offset;
- 	int index;
--	u16 lro_length, length, data_offset;
-+	u16 lro_length, length, data_offset, gso_size;
- 	u16 vid = 0xffff;
- 
- 	if (unlikely(ring > adapter->max_rds_rings))
-@@ -1478,6 +1480,15 @@ qlcnic_83xx_process_lro(struct qlcnic_adapter *adapter,
- 	th->psh = push;
- 	length = skb->len;
- 
-+	if (adapter->flags & QLCNIC_FW_LRO_MSS_CAP) {
-+		gso_size = qlcnic_83xx_get_lro_sts_mss(sts_data[0]);
-+		skb_shinfo(skb)->gso_size = gso_size;
-+		if (skb->protocol == htons(ETH_P_IPV6))
-+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+		else
-+			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+	}
-+
- 	if (vid != 0xffff)
- 		__vlan_hwaccel_put_tag(skb, vid);
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 3a0f182..e03017a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1339,11 +1339,24 @@ qlcnic_free_irq(struct qlcnic_adapter *adapter)
- 	}
- }
- 
-+static void qlcnic_get_lro_mss_capability(struct qlcnic_adapter *adapter)
-+{
-+	u32 capab = 0;
-+
-+	if (qlcnic_82xx_check(adapter)) {
-+		if (adapter->ahw->capabilities2 &
-+		    QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG)
-+			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
-+	} else {
-+		capab = adapter->ahw->capabilities;
-+		if (QLC_83XX_GET_FW_LRO_MSS_CAPABILITY(capab))
-+			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
-+	}
-+}
-+
- int __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- {
- 	int ring;
--	u32 capab2;
--
- 	struct qlcnic_host_rds_ring *rds_ring;
- 
- 	if (adapter->is_up != QLCNIC_ADAPTER_UP_MAGIC)
-@@ -1353,12 +1366,7 @@ int __qlcnic_up(struct qlcnic_adapter *adapter, struct net_device *netdev)
- 		return 0;
- 	if (qlcnic_set_eswitch_port_config(adapter))
- 		return -EIO;
--
--	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) {
--		capab2 = QLCRD32(adapter, CRB_FW_CAPABILITIES_2);
--		if (capab2 & QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG)
--			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
--	}
-+	qlcnic_get_lro_mss_capability(adapter);
- 
- 	if (qlcnic_fw_create_ctx(adapter))
- 		return -EIO;
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 1
+-#define _QLCNIC_LINUX_SUBVERSION 33
+-#define QLCNIC_LINUX_VERSIONID  "5.1.33"
++#define _QLCNIC_LINUX_SUBVERSION 34
++#define QLCNIC_LINUX_VERSIONID  "5.1.34"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
 -- 
 1.7.1
