@@ -1,34 +1,47 @@
-From: Andrew Jones <drjones@redhat.com>
-Subject: [PATCH] xen: netback: remove redundant xenvif_put
-Date: Mon, 18 Feb 2013 21:29:20 +0100
-Message-ID: <1361219360-29176-1-git-send-email-drjones@redhat.com>
+From: Stratos Karafotis <stratosk@semaphore.gr>
+Subject: [PATCH linux-next] net: ipv6: Fix compiler warning
+Date: Mon, 18 Feb 2013 22:38:42 +0200
+Message-ID: <51229152.8010007@semaphore.gr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xen-devel@lists.xensource.com, ian.campbell@citrix.com
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-netbk_fatal_tx_err() calls xenvif_carrier_off(), which does
-a xenvif_put(). As callers of netbk_fatal_tx_err should only
-have one reference to the vif at this time, then the xenvif_put
-in netbk_fatal_tx_err is one too many.
+=46ix the following compiler warning (also a checkpatch error):
 
-Signed-off-by: Andrew Jones <drjones@redhat.com>
+net/ipv6/xfrm6_mode_tunnel.c: In function =91xfrm6_mode_tunnel_input=92=
+:
+net/ipv6/xfrm6_mode_tunnel.c:72:2: warning: suggest parentheses around
+assignment used as truth value [-Wparentheses]
+
+Signed-off-by: Stratos Karafotis <stratosk@semaphore.gr>
 ---
- drivers/net/xen-netback/netback.c | 1 -
- 1 file changed, 1 deletion(-)
+ net/ipv6/xfrm6_mode_tunnel.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 2b9520c..c23b9ec 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -893,7 +893,6 @@ static void netbk_fatal_tx_err(struct xenvif *vif)
- {
- 	netdev_err(vif->dev, "fatal error; disabling device\n");
- 	xenvif_carrier_off(vif);
--	xenvif_put(vif);
- }
- 
- static int netbk_count_requests(struct xenvif *vif,
--- 
+diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.=
+c
+index 93c41a8..9bf6a74 100644
+--- a/net/ipv6/xfrm6_mode_tunnel.c
++++ b/net/ipv6/xfrm6_mode_tunnel.c
+@@ -69,7 +69,8 @@ static int xfrm6_mode_tunnel_input(struct xfrm_state =
+*x, struct sk_buff *skb)
+ 	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+ 		goto out;
+=20
+-	if (err =3D skb_unclone(skb, GFP_ATOMIC))
++	err =3D skb_unclone(skb, GFP_ATOMIC);
++	if (err)
+ 		goto out;
+=20
+ 	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
+--=20
 1.8.1.2
