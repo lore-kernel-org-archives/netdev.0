@@ -1,120 +1,72 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v5] netpoll: fix some sparse warnings in various places
-Date: Mon, 18 Feb 2013 11:22:29 +0800
-Message-ID: <1361157749-9367-1-git-send-email-amwang@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65395 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755212Ab3BRDWv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Feb 2013 22:22:51 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH firmware] rtl_nic: update firmware for RTL8168G
+Date: Mon, 18 Feb 2013 03:28:49 +0000
+Message-ID: <1361158129.5374.549.camel@deadeye.wl.decadent.org.uk>
+References: <1360163939-3625-1-git-send-email-hayeswang@realtek.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-2knzy+UWkxXKFSVKbYGe"
+Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1360163939-3625-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
 
-This fixes sparse warnings like the one below:
+--=-2knzy+UWkxXKFSVKbYGe
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-drivers/net/team/team.c:953:25: warning: incorrect type in return expression (different address spaces)
-drivers/net/team/team.c:953:25:    expected struct netpoll_info *
-drivers/net/team/team.c:953:25:    got struct netpoll_info [noderef] <asn:4>*npinfo
+On Wed, 2013-02-06 at 23:18 +0800, Hayes Wang wrote:
+> File: rtl_nic/rtl8168g-2.fw
+> Version: 0.0.1
+>=20
+> This firmware supports new fw setting mothod for linux kernel.
+>=20
+> Add MAC OCP settings for:
+>  -phy reset
+>  -PXE in ALDPS
+>  -pwron sequence
+>  -OBFF
+>=20
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
+>  WHENCE                |   3 +++
+>  rtl_nic/rtl8168g-2.fw | Bin 0 -> 4896 bytes
+>  2 files changed, 3 insertions(+)
+>  create mode 100644 rtl_nic/rtl8168g-2.fw
+[...]
 
-and make these functions return bool as suggested by Jiri.
+Applied, thanks.
 
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Ben.
 
----
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 94c1534..2263bf2 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1300,9 +1300,9 @@ static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni, g
- 	return err;
- }
- 
--static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
-+static bool bond_netpoll_info(struct bonding *bond)
- {
--	return bond->dev->npinfo;
-+	return rcu_access_pointer(bond->dev->npinfo) != NULL;
- }
- 
- #else
-@@ -1862,8 +1862,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	bond_set_carrier(bond);
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
--	slave_dev->npinfo = bond_netpoll_info(bond);
--	if (slave_dev->npinfo) {
-+	rcu_assign_pointer(slave_dev->npinfo, bond->dev->npinfo);
-+	if (bond_netpoll_info(bond)) {
- 		if (slave_enable_netpoll(new_slave)) {
- 			read_unlock(&bond->lock);
- 			pr_info("Error, %s: master_dev is using netpoll, "
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 05c5efe..26abee3 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -948,9 +948,9 @@ static void team_port_disable_netpoll(struct team_port *port)
- 	kfree(np);
- }
- 
--static struct netpoll_info *team_netpoll_info(struct team *team)
-+static bool team_netpoll_info(struct team *team)
- {
--	return team->dev->npinfo;
-+	return rcu_access_pointer(team->dev->npinfo) != NULL;
- }
- 
- #else
-@@ -962,9 +962,9 @@ static int team_port_enable_netpoll(struct team *team, struct team_port *port,
- static void team_port_disable_netpoll(struct team_port *port)
- {
- }
--static struct netpoll_info *team_netpoll_info(struct team *team)
-+static bool team_netpoll_info(struct team *team)
- {
--	return NULL;
-+	return false;
- }
- #endif
- 
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 6d314c4..f69cdda 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -328,9 +328,9 @@ extern void br_dev_delete(struct net_device *dev, struct list_head *list);
- extern netdev_tx_t br_dev_xmit(struct sk_buff *skb,
- 			       struct net_device *dev);
- #ifdef CONFIG_NET_POLL_CONTROLLER
--static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
-+static inline bool br_netpoll_info(struct net_bridge *br)
- {
--	return br->dev->npinfo;
-+	return rcu_access_pointer(br->dev->npinfo) != NULL;
- }
- 
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
-@@ -345,9 +345,9 @@ static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
- extern int br_netpoll_enable(struct net_bridge_port *p, gfp_t gfp);
- extern void br_netpoll_disable(struct net_bridge_port *p);
- #else
--static inline struct netpoll_info *br_netpoll_info(struct net_bridge *br)
-+static inline bool br_netpoll_info(struct net_bridge *br)
- {
--	return NULL;
-+	return false;
- }
- 
- static inline void br_netpoll_send_skb(const struct net_bridge_port *p,
+--=20
+Ben Hutchings
+Sturgeon's Law: Ninety percent of everything is crap.
+
+--=-2knzy+UWkxXKFSVKbYGe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUSGf8ee/yOyVhhEJAQo2EBAAzYdoqoC5UJiUSonz7zWzuAxAlDahC+3B
+Y972U4Vw54CUnGOWagCLXojdAJUNdmdWvIJnfjkIrU4nC03I1NGOtwNiFrYQhmI1
+q6rO/SpxsE1gGkvvtjjtlB8FDzMPgFLpS739TUwHxTEFi1qsZ1vP5+ajkiMiNkLX
+Om5QCEjBDr7UIXvj4jKdzt2RQUFrTW9Gu5j8wdVTmU784ZSkCVtcO86j4l9sFgJ6
+1vyU0LDej+Lzp75INOUPgmSRf7XrZdNihc1RndSP6ZOpa5oysq1wR3LQ/ihzfAa/
+zQ9MW2+d+PnXrFh1BCPPYRa6zmDYHvDxunEy8gJGxR6rvs+ztVHhvJB/mNnldm8g
+XHS+tO4fUmQoWz6TW5/udEpC29SQA6GZDogFk+Jw7FHthbQ56ZHRsHlfSsPCjvkd
++G2HOlSowslnGdQglzO+K/dGwwl0p7+yOdQASn1shlzuC4z83Mb9IGdnyf8AB+tz
+WTkhWvVlqL+V2RsQLm3SiEU7djMjTRCwWI4yTl3r2RzNL7TqmVdSvVkQlmpKE9v7
+DpHm/W90gkmy5sL7NkdJeiHGgvJVTMj6ZXFi/TPEXpEslALclvAauxEbx7qZOd6L
+U35SF9xzYhco7n4jzE24/WxjT6KMzaC8N0pk7FJ5Z/1MiacEPRbDbfo8G8v//bvo
+puzPKyc8BgM=
+=6iMV
+-----END PGP SIGNATURE-----
+
+--=-2knzy+UWkxXKFSVKbYGe--
