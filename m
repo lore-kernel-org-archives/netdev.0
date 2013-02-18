@@ -1,63 +1,38 @@
-From: Kumar Amit Mehta <gmate.amit@gmail.com>
-Subject: [PATCH] net: wireless: orinoco: orinoco_usb.c: fix DMA buffers on stack
-Date: Mon, 18 Feb 2013 03:37:44 -0800
-Message-ID: <1361187464-24174-1-git-send-email-gmate.amit@gmail.com>
-Cc: sarah.a.sharp@linux.intel.com, dan.carpenter@oracle.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: linville@tuxdriver.com
+From: Martin Sustrik <sustrik@250bpm.com>
+Subject: Re: [PATCH v2 1/1] eventfd: implementation of EFD_MASK flag
+Date: Mon, 18 Feb 2013 12:57:04 +0100
+Message-ID: <51221710.5060102@250bpm.com>
+References: <1360311077-14474-1-git-send-email-sustrik@250bpm.com> <20130214145430.04f8750c.akpm@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Viro <viro@zeniv.linux.org.uk>,
+	Sha Zhengju <handai.szj@taobao.com>,
+	linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Michael Kerrisk <mtk.manpages@gmail.com>,
+	Davide Libenzi <davidel@xmailserver.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Eric Wong <normalperson@yhbt.net>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130214145430.04f8750c.akpm@linux-foundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes an instance of DMA buffer on stack(being passed to
-usb_control_msg) for the wireless USB version of the Agere Orinoco card driver.
-It also fixes the missing audit for the return value of firmware download
-routine. Found using smatch.
+On 14/02/13 23:54, Andrew Morton wrote:
 
-Signed-off-by: Kumar Amit Mehta <gmate.amit@gmail.com>
----
- drivers/net/wireless/orinoco/orinoco_usb.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+> This patch adds userspace interfaces which will require manpage
+> updates.  Please Cc Michael and work with him on getting those changes
+> completed.
 
-diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c b/drivers/net/wireless/orinoco/orinoco_usb.c
-index 01624dc..7744f42 100644
---- a/drivers/net/wireless/orinoco/orinoco_usb.c
-+++ b/drivers/net/wireless/orinoco/orinoco_usb.c
-@@ -804,10 +804,15 @@ static inline int ezusb_8051_cpucs(struct ezusb_priv *upriv, int reset)
- static int ezusb_firmware_download(struct ezusb_priv *upriv,
- 				   struct ez_usb_fw *fw)
- {
--	u8 fw_buffer[FW_BUF_SIZE];
-+	u8 *fw_buffer;
- 	int retval, addr;
- 	int variant_offset;
- 
-+	fw_buffer = kmalloc(FW_BUF_SIZE, GFP_KERNEL);
-+	if (!fw_buffer) {
-+		printk(KERN_ERR PFX "Out of memory for firmware buffer.\n");
-+		return -ENOMEM;
-+	}
- 	/*
- 	 * This byte is 1 and should be replaced with 0.  The offset is
- 	 * 0x10AD in version 0.0.6.  The byte in question should follow
-@@ -859,6 +864,7 @@ static int ezusb_firmware_download(struct ezusb_priv *upriv,
- 	printk(KERN_ERR PFX "Firmware download failed, error %d\n",
- 	       retval);
-  exit:
-+	kfree(fw_buffer);
- 	return retval;
- }
- 
-@@ -1681,7 +1687,8 @@ static int ezusb_probe(struct usb_interface *interface,
- 		firmware.code = fw_entry->data;
- 	}
- 	if (firmware.size && firmware.code) {
--		ezusb_firmware_download(upriv, &firmware);
-+		if (ezusb_firmware_download(upriv, &firmware))
-+			goto error;
- 	} else {
- 		err("No firmware to download");
- 		goto error;
--- 
-1.7.9.5
+Right. It adds the efd_mask structure. As far as I understand how it 
+works is that the actual user-space definition of the structure should 
+be provided by glibc (sys/eventfd.h), right?
+
+If so, should the man page be updated now? If so, it may result in the 
+situation where the man page describes a structure that's not available 
+in the user space yet.
+
+Is there a formal process to do this kind of kernel+glibc+docs changes?
+
+Martin
