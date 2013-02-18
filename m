@@ -1,64 +1,100 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH] bonding: Fix initialize after use for 3ad machine state spinlock
-Date: Mon, 18 Feb 2013 13:45:41 +0100
-Message-ID: <1361191541-7654-1-git-send-email-nikolay@redhat.com>
-Cc: andy@greyhouse.net, fubar@us.ibm.com, davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47406 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754942Ab3BRMr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 07:47:59 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH v6 41/46] sh: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Mon, 18 Feb 2013 18:14:02 +0530
+Message-ID: <20130218124402.26245.3544.stgit@srivatsabhat.in.ibm.com>
+References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	walken@google.com, vincent.guittot@linaro.org
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The 3ad machine state spinlock can be used before it is inititialized
-while doing bond_enslave() (and the port is being initialized) since
-port->slave is set before the lock is prepared, thus causing soft
-lock-ups and a multitude of other nasty bugs.
+Once stop_machine() is gone from the CPU offline path, we won't be able to
+depend on preempt_disable() or local_irq_disable() to prevent CPUs from
+going offline from under us.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
+while invoking from atomic context.
+
+Cc: Paul Mundt <lethal@linux-sh.org>
+Cc: linux-sh@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
- drivers/net/bonding/bond_3ad.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index 1720742..96d471e 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -389,13 +389,13 @@ static u8 __get_duplex(struct port *port)
- 
- /**
-  * __initialize_port_locks - initialize a port's STATE machine spinlock
-- * @port: the port we're looking at
-+ * @port: the slave of the port we're looking at
-  *
+ arch/sh/kernel/smp.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
+index 2062aa8..232fabe 100644
+--- a/arch/sh/kernel/smp.c
++++ b/arch/sh/kernel/smp.c
+@@ -357,7 +357,7 @@ static void flush_tlb_mm_ipi(void *mm)
   */
--static inline void __initialize_port_locks(struct port *port)
-+static inline void __initialize_port_locks(struct slave *port)
+ void flush_tlb_mm(struct mm_struct *mm)
  {
- 	// make sure it isn't called twice
--	spin_lock_init(&(SLAVE_AD_INFO(port->slave).state_machine_lock));
-+	spin_lock_init(&(SLAVE_AD_INFO(port).state_machine_lock));
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		smp_call_function(flush_tlb_mm_ipi, (void *)mm, 1);
+@@ -369,7 +369,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ 	}
+ 	local_flush_tlb_mm(mm);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
  }
  
- //conversions
-@@ -1910,6 +1910,7 @@ int bond_3ad_bind_slave(struct slave *slave)
+ struct flush_tlb_data {
+@@ -390,7 +390,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
  
- 		ad_initialize_port(port, bond->params.lacp_fast);
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		struct flush_tlb_data fd;
  
-+		__initialize_port_locks(slave);
- 		port->slave = slave;
- 		port->actor_port_number = SLAVE_AD_INFO(slave).id;
- 		// key is determined according to the link speed, duplex and user key(which is yet not supported)
-@@ -1932,8 +1933,6 @@ int bond_3ad_bind_slave(struct slave *slave)
- 		port->next_port_in_aggregator = NULL;
+@@ -405,7 +405,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ 				cpu_context(i, mm) = 0;
+ 	}
+ 	local_flush_tlb_range(vma, start, end);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
  
- 		__disable_port(port);
--		__initialize_port_locks(port);
--
+ static void flush_tlb_kernel_range_ipi(void *info)
+@@ -433,7 +433,7 @@ static void flush_tlb_page_ipi(void *info)
  
- 		// aggregator initialization
- 		aggregator = &(SLAVE_AD_INFO(slave).aggregator);
--- 
-1.7.11.7
+ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&vma->vm_mm->mm_users) != 1) ||
+ 	    (current->mm != vma->vm_mm)) {
+ 		struct flush_tlb_data fd;
+@@ -448,7 +448,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ 				cpu_context(i, vma->vm_mm) = 0;
+ 	}
+ 	local_flush_tlb_page(vma, page);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_one_ipi(void *info)
+
