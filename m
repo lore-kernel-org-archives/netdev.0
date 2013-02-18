@@ -1,45 +1,51 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Subject: Re: [PATCH v6 33/46] cris/smp: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Mon, 18 Feb 2013 14:07:12 +0100
-Message-ID: <20130218130712.GO23529@axis.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
- <20130218124254.26245.4577.stgit@srivatsabhat.in.ibm.com>
+From: y@broadcom.com
+Subject: [PATCH net-next 2/2] ip_gre: propogate target device GSO
+ capability to the tunnel device
+Date: Mon, 18 Feb 2013 15:15:20 +0200
+Message-ID: <1365.53704874149$1361193345@news.gmane.org>
+References: <y> <1361193320-11181-1-git-send-email-y>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	walken@google.com, vincent.guittot@linaro.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130218124254.26245.4577.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1840 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753982Ab3BRNPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 08:15:20 -0500
+In-Reply-To: <1361193320-11181-1-git-send-email-y>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 18, 2013 at 06:12:54PM +0530, Srivatsa S. Bhat wrote:
-> Once stop_machine() is gone from the CPU offline path, we won't be able to
-> depend on preempt_disable() or local_irq_disable() to prevent CPUs from
-> going offline from under us.
-> 
-> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-> while invoking from atomic context.
-> 
-> Cc: Mikael Starvik <starvik@axis.com>
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-> Cc: linux-cris-kernel@axis.com
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
-Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+---
+ net/ipv4/ip_gre.c |   10 ++++++++--
+ 1 files changed, 8 insertions(+), 2 deletions(-)
 
-/^JN - Jesper Nilsson
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index cdc31ac..31bc941 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
+ 	tunnel->hlen = addend;
+ 	/* TCP offload with GRE SEQ is not supported. */
+ 	if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+-		dev->features		|= NETIF_F_GSO_SOFTWARE;
+-		dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
++		/* device supports enc gso offload*/
++		if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
++			dev->features		|= NETIF_F_TSO;
++			dev->hw_features	|= NETIF_F_TSO;
++		} else {
++			dev->features		|= NETIF_F_GSO_SOFTWARE;
++			dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
++		}
+ 	}
+ 
+ 	return mtu;
 -- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+1.7.7.2
