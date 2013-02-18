@@ -1,102 +1,368 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next 3/3] bonding: fix bond_release_all inconsistencies
-Date: Mon, 18 Feb 2013 15:17:59 -0800
-Message-ID: <23939.1361229479@death.nxdomain>
-References: <1361210344-14907-1-git-send-email-nikolay@redhat.com> <1361210344-14907-3-git-send-email-nikolay@redhat.com> <21474.1361224608@death.nxdomain> <5122A7A1.4010803@redhat.com>
-Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [PATCH v2 net-next 5/6] qlcnic: fix ping resumption to a VM after a live migration
+Date: Mon, 18 Feb 2013 18:22:37 -0500
+Message-ID: <1361229757-4584-1-git-send-email-jitendra.kalsaria@qlogic.com>
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:50296 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753223Ab3BRXSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 18:18:45 -0500
-Received: from /spool/local
-	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Mon, 18 Feb 2013 16:18:45 -0700
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id B22763E4003E
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:18:34 -0700 (MST)
-Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1INIYTS146640
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:18:34 -0700
-Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1INI14u008312
-	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:18:03 -0700
-In-reply-to: <5122A7A1.4010803@redhat.com>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:32511 "HELO linux-zupk.site"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1756671Ab3BRXoN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 18:44:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
->On 18/02/13 22:56, Jay Vosburgh wrote:
->> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
->> 
->>> This patch fixes the following inconsistencies in bond_release_all:
->>> - IFF_BONDING flag is not stripped from slaves
->>> - MTU is not restored
->>> - no netdev notifiers are sent
->>> Instead of trying to keep bond_release and bond_release_all in sync
->>> I think we can re-use bond_release as the environment for calling it
->>> is correct (RTNL is held). I have been running tests for the past
->>> week and they came out successful. The only way for bond_release to fail
->>> is for the slave to be attached in a different bond or to not be a slave
->>> but that cannot happen as RTNL is held and no slave manipulations can be
->>> achieved.
->> 
->> 	It might be worthwhile to add an "all" argument to bond_release
->> that skips some things that don't make sense if all slaves are being
->> released.  I'm thinking in particular of this block:
->> 
->> 	if (oldcurrent == slave) {
->> 		/*
->> 		 * Note that we hold RTNL over this sequence, so there
->> 		 * is no concern that another slave add/remove event
->> 		 * will interfere.
->> 		 */
->> 		write_unlock_bh(&bond->lock);
->> 		read_lock(&bond->lock);
->> 		write_lock_bh(&bond->curr_slave_lock);
->> 
->> 		bond_select_active_slave(bond);
->> 
->> 		write_unlock_bh(&bond->curr_slave_lock);
->> 		read_unlock(&bond->lock);
->> 		write_lock_bh(&bond->lock);
->> 	}
->> 
->> 	as it's written now, for the release all case, the code may go
->> to the trouble of assigning a new active slave each time one slave is
->> removed (including various log messages, maybe sending IGMPs, etc).  If
->> all slaves are being removed, that's pointless.  This could be something
->> like:
->> 
->> 	if (release_all) {
->> 		bond->curr_active_slave = NULL;
->> 	} else if (oldcurrent == slave) {
->> 		[ the current block of stuff ]
->> 	}
->> 
->> 	it's safe here to unconditionally set curr_active_slave to NULL
->> because we hold bond->lock for write.  The lock dance stuff for the
->> bond_select_active_slave() call is to satisfy its locking requirements.
->> 
->> 	-J
->I see your point and I agree. I will prepare another version that
->incorporates it, although I can't add it as an argument since
->bond_release is used as ndo_del_slave. I'll have to make it a global
->variable.
+Delete the MAC address of a VM, from the adapter's embedded switch,
+after the VM had been migrated out of this adapter/server.
 
-	No, just rename the current bond_release to __bond_release_one,
-add the extra argument, and create a new bond_release .ndo_del_slave
-that calls __bond_release_one with "all=0".  Then, bond_release_all
-calls __bond_release_one with all=1.
-
-	Also, there's only one caller of bond_release_all, and since the
-new & improved bond_release_all is trivial, it could be open coded into
-bond_uninit, eliminating bond_release_all as a function.
-
-	-J
-
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |    5 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c   |   18 +++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c   |  145 ++++++++++++++++++++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   21 +++
+ 4 files changed, 177 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 61b594c..01e9ea1 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -1008,9 +1008,12 @@ struct qlcnic_adapter {
+ 	struct delayed_work idc_aen_work;
+ 
+ 	struct qlcnic_filter_hash fhash;
++	struct qlcnic_filter_hash rx_fhash;
+ 
+ 	spinlock_t tx_clean_lock;
+ 	spinlock_t mac_learn_lock;
++	/* spinlock for catching rcv filters for eswitch traffic */
++	spinlock_t rx_mac_learn_lock;
+ 	u32 file_prd_off;	/*File fw product offset*/
+ 	u32 fw_version;
+ 	const struct firmware *fw;
+@@ -1506,6 +1509,8 @@ int qlcnic_init_pci_info(struct qlcnic_adapter *);
+ int qlcnic_set_default_offload_settings(struct qlcnic_adapter *);
+ int qlcnic_reset_npar_config(struct qlcnic_adapter *);
+ int qlcnic_set_eswitch_port_config(struct qlcnic_adapter *);
++void qlcnic_add_lb_filter(struct qlcnic_adapter *, struct sk_buff *, int,
++			  __le16);
+ /*
+  * QLOGIC Board information
+  */
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 51716ab..325e11e 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -578,7 +578,8 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter *adapter)
+ 	struct qlcnic_filter *tmp_fil;
+ 	struct hlist_node *tmp_hnode, *n;
+ 	struct hlist_head *head;
+-	int i, time;
++	int i;
++	unsigned long time;
+ 	u8 cmd;
+ 
+ 	for (i = 0; i < adapter->fhash.fbucket_size; i++) {
+@@ -600,6 +601,21 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter *adapter)
+ 			}
+ 		}
+ 	}
++	for (i = 0; i < adapter->rx_fhash.fbucket_size; i++) {
++		head = &(adapter->rx_fhash.fhead[i]);
++
++		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode)
++		{
++			time = tmp_fil->ftime;
++			if (jiffies > (QLCNIC_FILTER_AGE * HZ + time)) {
++				spin_lock_bh(&adapter->rx_mac_learn_lock);
++				adapter->rx_fhash.fnum--;
++				hlist_del(&tmp_fil->fnode);
++				spin_unlock_bh(&adapter->rx_mac_learn_lock);
++				kfree(tmp_fil);
++			}
++		}
++	}
+ }
+ 
+ void qlcnic_delete_lb_filters(struct qlcnic_adapter *adapter)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 2990f45..6387e0c 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -152,6 +152,89 @@ static inline u32 qlcnic_get_ref_handle(struct qlcnic_adapter *adapter,
+ 		return handle;
+ }
+ 
++static inline int qlcnic_82xx_is_lb_pkt(u64 sts_data)
++{
++	return (qlcnic_get_sts_status(sts_data) == STATUS_CKSUM_LOOP) ? 1 : 0;
++}
++
++void qlcnic_add_lb_filter(struct qlcnic_adapter *adapter, struct sk_buff *skb,
++			  int loopback_pkt, __le16 vlan_id)
++{
++	struct ethhdr *phdr = (struct ethhdr *)(skb->data);
++	struct qlcnic_filter *fil, *tmp_fil;
++	struct hlist_node *tmp_hnode, *n;
++	struct hlist_head *head;
++	unsigned long time;
++	u64 src_addr = 0;
++	u8 hindex, found = 0, op;
++	int ret;
++
++	memcpy(&src_addr, phdr->h_source, ETH_ALEN);
++
++	if (loopback_pkt) {
++		if (adapter->rx_fhash.fnum >= adapter->rx_fhash.fmax)
++			return;
++
++		hindex = qlcnic_mac_hash(src_addr) &
++			 (adapter->fhash.fbucket_size - 1);
++		head = &(adapter->rx_fhash.fhead[hindex]);
++
++		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode) {
++			if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
++			    tmp_fil->vlan_id == vlan_id) {
++				time = tmp_fil->ftime;
++				if (jiffies > (QLCNIC_READD_AGE * HZ + time))
++					tmp_fil->ftime = jiffies;
++				return;
++			}
++		}
++
++		fil = kzalloc(sizeof(struct qlcnic_filter), GFP_ATOMIC);
++		if (!fil)
++			return;
++
++		fil->ftime = jiffies;
++		memcpy(fil->faddr, &src_addr, ETH_ALEN);
++		fil->vlan_id = vlan_id;
++		spin_lock(&adapter->rx_mac_learn_lock);
++		hlist_add_head(&(fil->fnode), head);
++		adapter->rx_fhash.fnum++;
++		spin_unlock(&adapter->rx_mac_learn_lock);
++	} else {
++		hindex = qlcnic_mac_hash(src_addr) &
++			 (adapter->fhash.fbucket_size - 1);
++		head = &(adapter->rx_fhash.fhead[hindex]);
++		spin_lock(&adapter->rx_mac_learn_lock);
++		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode) {
++			if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
++			    tmp_fil->vlan_id == vlan_id) {
++				found = 1;
++				break;
++			}
++		}
++
++		if (!found) {
++			spin_unlock(&adapter->rx_mac_learn_lock);
++			return;
++		}
++
++		op = vlan_id ? QLCNIC_MAC_VLAN_ADD : QLCNIC_MAC_ADD;
++		ret = qlcnic_sre_macaddr_change(adapter, (u8 *)&src_addr,
++						vlan_id, op);
++		if (!ret) {
++			op = vlan_id ? QLCNIC_MAC_VLAN_DEL : QLCNIC_MAC_DEL;
++			ret = qlcnic_sre_macaddr_change(adapter,
++							(u8 *)&src_addr,
++							vlan_id, op);
++			if (!ret) {
++				hlist_del(&(tmp_fil->fnode));
++				adapter->rx_fhash.fnum--;
++			}
++		}
++		spin_unlock(&adapter->rx_mac_learn_lock);
++	}
++}
++
+ void qlcnic_82xx_change_filter(struct qlcnic_adapter *adapter, u64 *uaddr,
+ 			       __le16 vlan_id)
+ {
+@@ -207,9 +290,6 @@ static void qlcnic_send_filter(struct qlcnic_adapter *adapter,
+ 		return;
+ 	}
+ 
+-	/* Only NPAR capable devices support vlan based learning */
+-	if (adapter->flags & QLCNIC_ESWITCH_ENABLED)
+-		vlan_id = first_desc->vlan_TCI;
+ 	memcpy(&src_addr, phdr->h_source, ETH_ALEN);
+ 	hindex = qlcnic_mac_hash(src_addr) & (adapter->fhash.fbucket_size - 1);
+ 	head = &(adapter->fhash.fhead[hindex]);
+@@ -920,8 +1000,8 @@ qlcnic_process_rcv(struct qlcnic_adapter *adapter,
+ 	struct qlcnic_rx_buffer *buffer;
+ 	struct sk_buff *skb;
+ 	struct qlcnic_host_rds_ring *rds_ring;
+-	int index, length, cksum, pkt_offset;
+-	u16 vid = 0xffff;
++	int index, length, cksum, pkt_offset, is_lb_pkt;
++	u16 vid = 0xffff, t_vid;
+ 
+ 	if (unlikely(ring >= adapter->max_rds_rings))
+ 		return NULL;
+@@ -941,6 +1021,14 @@ qlcnic_process_rcv(struct qlcnic_adapter *adapter,
+ 	if (!skb)
+ 		return buffer;
+ 
++	if (adapter->drv_mac_learn &&
++	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
++		t_vid = 0;
++		is_lb_pkt = qlcnic_82xx_is_lb_pkt(sts_data0);
++		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
++				     cpu_to_le16(t_vid));
++	}
++
+ 	if (length > rds_ring->skb_size)
+ 		skb_put(skb, rds_ring->skb_size);
+ 	else
+@@ -985,8 +1073,8 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+ 	struct ipv6hdr *ipv6h;
+ 	struct tcphdr *th;
+ 	bool push, timestamp;
+-	int index, l2_hdr_offset, l4_hdr_offset;
+-	u16 lro_length, length, data_offset, vid = 0xffff;
++	int index, l2_hdr_offset, l4_hdr_offset, is_lb_pkt;
++	u16 lro_length, length, data_offset, t_vid, vid = 0xffff;
+ 	u32 seq_number;
+ 
+ 	if (unlikely(ring > adapter->max_rds_rings))
+@@ -1011,6 +1099,14 @@ qlcnic_process_lro(struct qlcnic_adapter *adapter,
+ 	if (!skb)
+ 		return buffer;
+ 
++	if (adapter->drv_mac_learn &&
++	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
++		t_vid = 0;
++		is_lb_pkt = qlcnic_82xx_is_lb_pkt(sts_data0);
++		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
++				     cpu_to_le16(t_vid));
++	}
++
+ 	if (timestamp)
+ 		data_offset = l4_hdr_offset + QLC_TCP_TS_HDR_SIZE;
+ 	else
+@@ -1357,6 +1453,17 @@ void qlcnic_82xx_napi_disable(struct qlcnic_adapter *adapter)
+ 	}
+ }
+ 
++#define QLC_83XX_NORMAL_LB_PKT	(1ULL << 36)
++#define QLC_83XX_LRO_LB_PKT	(1ULL << 46)
++
++static inline int qlcnic_83xx_is_lb_pkt(u64 sts_data, int lro_pkt)
++{
++	if (lro_pkt)
++		return (sts_data & QLC_83XX_LRO_LB_PKT) ? 1 : 0;
++	else
++		return (sts_data & QLC_83XX_NORMAL_LB_PKT) ? 1 : 0;
++}
++
+ static struct qlcnic_rx_buffer *
+ qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
+ 			struct qlcnic_host_sds_ring *sds_ring,
+@@ -1367,8 +1474,8 @@ qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
+ 	struct qlcnic_rx_buffer *buffer;
+ 	struct sk_buff *skb;
+ 	struct qlcnic_host_rds_ring *rds_ring;
+-	int index, length, cksum;
+-	u16 vid = 0xffff;
++	int index, length, cksum, is_lb_pkt;
++	u16 vid = 0xffff, t_vid;
+ 
+ 	if (unlikely(ring >= adapter->max_rds_rings))
+ 		return NULL;
+@@ -1386,6 +1493,14 @@ qlcnic_83xx_process_rcv(struct qlcnic_adapter *adapter,
+ 	if (!skb)
+ 		return buffer;
+ 
++	if (adapter->drv_mac_learn &&
++	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
++		t_vid = 0;
++		is_lb_pkt = qlcnic_83xx_is_lb_pkt(sts_data[1], 0);
++		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
++				     cpu_to_le16(t_vid));
++	}
++
+ 	if (length > rds_ring->skb_size)
+ 		skb_put(skb, rds_ring->skb_size);
+ 	else
+@@ -1424,9 +1539,9 @@ qlcnic_83xx_process_lro(struct qlcnic_adapter *adapter,
+ 	struct tcphdr *th;
+ 	bool push;
+ 	int l2_hdr_offset, l4_hdr_offset;
+-	int index;
++	int index, is_lb_pkt;
+ 	u16 lro_length, length, data_offset, gso_size;
+-	u16 vid = 0xffff;
++	u16 vid = 0xffff, t_vid;
+ 
+ 	if (unlikely(ring > adapter->max_rds_rings))
+ 		return NULL;
+@@ -1447,6 +1562,14 @@ qlcnic_83xx_process_lro(struct qlcnic_adapter *adapter,
+ 	skb = qlcnic_process_rxbuf(adapter, rds_ring, index, STATUS_CKSUM_OK);
+ 	if (!skb)
+ 		return buffer;
++
++	if (adapter->drv_mac_learn &&
++	    (adapter->flags & QLCNIC_ESWITCH_ENABLED)) {
++		t_vid = 0;
++		is_lb_pkt = qlcnic_83xx_is_lb_pkt(sts_data[1], 1);
++		qlcnic_add_lb_filter(adapter, skb, is_lb_pkt,
++				     cpu_to_le16(t_vid));
++	}
+ 	if (qlcnic_83xx_is_tstamp(sts_data[1]))
+ 		data_offset = l4_hdr_offset + QLCNIC_TCP_TS_HDR_SIZE;
+ 	else
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index e03017a..5d5fd06 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2208,6 +2208,7 @@ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter)
+ 
+ 	act_pci_func = adapter->ahw->act_pci_func;
+ 	spin_lock_init(&adapter->mac_learn_lock);
++	spin_lock_init(&adapter->rx_mac_learn_lock);
+ 
+ 	if (qlcnic_82xx_check(adapter)) {
+ 		filter_size = QLCNIC_LB_MAX_FILTERS;
+@@ -2231,6 +2232,20 @@ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter)
+ 
+ 	for (i = 0; i < adapter->fhash.fbucket_size; i++)
+ 		INIT_HLIST_HEAD(&adapter->fhash.fhead[i]);
++
++	adapter->rx_fhash.fbucket_size = adapter->fhash.fbucket_size;
++
++	head = kcalloc(adapter->rx_fhash.fbucket_size,
++		       sizeof(struct hlist_head), GFP_ATOMIC);
++
++	if (!head)
++		return;
++
++	adapter->rx_fhash.fmax = (filter_size / act_pci_func);
++	adapter->rx_fhash.fhead = head;
++
++	for (i = 0; i < adapter->rx_fhash.fbucket_size; i++)
++		INIT_HLIST_HEAD(&adapter->rx_fhash.fhead[i]);
+ }
+ 
+ static void qlcnic_free_lb_filters_mem(struct qlcnic_adapter *adapter)
+@@ -2240,6 +2255,12 @@ static void qlcnic_free_lb_filters_mem(struct qlcnic_adapter *adapter)
+ 
+ 	adapter->fhash.fhead = NULL;
+ 	adapter->fhash.fmax = 0;
++
++	if (adapter->rx_fhash.fmax && adapter->rx_fhash.fhead)
++		kfree(adapter->rx_fhash.fhead);
++
++	adapter->rx_fhash.fmax = 0;
++	adapter->rx_fhash.fhead = NULL;
+ }
+ 
+ int qlcnic_check_temp(struct qlcnic_adapter *adapter)
+-- 
+1.7.1
