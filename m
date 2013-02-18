@@ -1,79 +1,95 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: SYSFS "errors"
-Date: Mon, 18 Feb 2013 22:05:42 +0200
-Message-ID: <20130218200542.GB20137@arwen.pp.htv.fi>
-References: <20130218153316.GA2663@arwen.pp.htv.fi>
- <20130218155012.GA30974@kroah.com>
- <20130218155215.GB2663@arwen.pp.htv.fi>
- <20130218171334.GA31329@kroah.com>
- <20130218172700.GH2663@arwen.pp.htv.fi>
- <20130218174916.GA2070@kroah.com>
- <20130218184633.GC10755@arwen.pp.htv.fi>
- <20130218164638.7cb53baa@redhat.com>
-Reply-To: <balbi@ti.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH v2] net: fec: Fix the disabling of RX interrupt
+Date: Mon, 18 Feb 2013 17:04:55 -0300
+Message-ID: <1361217895-17143-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="JYK4vJDZwFMowpUq"
-Cc: <balbi@ti.com>, Greg KH <gregkh@linuxfoundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, <JBottomley@parallels.com>,
-	<linux-scsi@vger.kernel.org>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>,
-	Doug Thompson <dougthompson@xmission.com>,
-	<linux-edac@vger.kernel.org>, <rjw@sisk.pl>,
-	<linux-pm@vger.kernel.org>
-To: Mauro Carvalho Chehab <mchehab@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130218164638.7cb53baa@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <Frank.Li@freescale.com>, <shawn.guo@linaro.org>, <marex@denx.de>,
+	<s.hauer@pengutronix.de>, <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:21526
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757302Ab3BRUIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 15:08:25 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---JYK4vJDZwFMowpUq
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The correct way to disable FEC RX interrupt is to clean only the FEC_ENET_RXF 
+bit.
 
-Hi,
+Since commit dc975382d2e (net: fec: add napi support to improve proformance) 
+FEC_RX_DISABLED_IMASK is being written to the FEC_IMASK register, which also 
+incorrectly sets other bits as per the definitions below: 
 
-On Mon, Feb 18, 2013 at 04:46:38PM -0300, Mauro Carvalho Chehab wrote:
-> > > > No such device - /sys/devices/system/edac/mc/mc0/sdram_scrub_rate
-> > >=20
-> > > Odd, go ask the edac developers
-> >=20
-> > will do ;-)
->=20
-> Well, the question is missing ;) /me assumes that you want to talk about
-> suspending/resume and EDAC, right?
+#define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII)
+#define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
 
-oops, my bad. The thing is that file has read permission but reading it
-isn't allowed ;-)
+This fixes the following kernel crash:
 
---=20
-balbi
+Unable to handle kernel NULL pointer dereference at virtual address 00000002
+pgd = 80004000
+[00000002] *pgd=00000000
+Internal error: Oops: 5 [#1] SMP ARM
+Modules linked in:
+CPU: 0    Not tainted  (3.8.0-rc7-next-20130218+ #1192)
+PC is at fec_enet_interrupt+0xd0/0x354
+LR is at fec_enet_interrupt+0xb8/0x354
+pc : [<8034592c>]    lr : [<80345914>]    psr: 60000193
 
---JYK4vJDZwFMowpUq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+Changes since v1:
+- Fix it also inside fec_enet_init and fix the kernel crash.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
+ drivers/net/ethernet/freescale/fec.c |   13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-iQIcBAEBAgAGBQJRIomWAAoJEIaOsuA1yqREPqMQAIcJwkhZsILJMk/f68kb+jYW
-ddS0ChYFT2YzFD+f9n2cvM/KGViNwcN5uvBlsQdmYrPT9tt2HXTNahyZ/kr0IW+N
-jP5TCEEUf/BcarJDoZQmXh4QbrHyqggNyn4GYyNDGvun7kzsju8DIsJAAPPPMPi3
-15jI8YSXBPyfMAOiVtn6FALcFKzf/IbM93qqASwR5acHftxe+5DNs0scwvfEioZN
-/Ju865Mqcaggw6/D8FU1W0ZuMWrFwUlIcvWt4PQR2+RTyDyyceGGhIJ5rzpH8hTv
-B8Y+pOELH2hdaqLifRE2kbusB2uH/pu0epmS1d6Ej6ilPiqxAP7/GhSPethEdQsG
-8/tfLdgG58hmSIQHGvDv8BSmIAQVUCCJsevIPqcuIUw5YlzFmCVFKmyhvGq3NGNT
-SXc3DinwxngBx9WXZWeaIgdfZGJ6Uus8HjpNBWm/BDRidL2G4AdBH4h1gKRmUpWD
-iD7cLl1CEhGDzlnPx9QcRssOCNhPdjG/wKJ45ojpIbXSFcl7sZIeKQ7cUkJsstah
-fa3VUialnJJzHHC+3dF0ZQ8Vx+om8eZ4KH1164GlTI87bxvLLhnYcIYNmOtEx10s
-jXDBUiu3CjXT/+L9q2+QtHG9O8mXC9T1+6QgYxIQFNWIxIGpf+C6syBljiDyGa1i
-ta6Hfne1GOm9gb8vzpse
-=1AVI
------END PGP SIGNATURE-----
-
---JYK4vJDZwFMowpUq--
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 0fe68c4..4eb0201 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -811,6 +811,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	uint int_events;
+ 	irqreturn_t ret = IRQ_NONE;
++	int reg;
+ 
+ 	do {
+ 		int_events = readl(fep->hwp + FEC_IEVENT);
+@@ -821,8 +822,9 @@ fec_enet_interrupt(int irq, void *dev_id)
+ 
+ 			/* Disable the RX interrupt */
+ 			if (napi_schedule_prep(&fep->napi)) {
+-				writel(FEC_RX_DISABLED_IMASK,
+-					fep->hwp + FEC_IMASK);
++				reg = readl(fep->hwp + FEC_IMASK);
++				reg &= ~FEC_ENET_RXF;
++				writel(reg, fep->hwp + FEC_IMASK);
+ 				__napi_schedule(&fep->napi);
+ 			}
+ 		}
+@@ -1598,7 +1600,7 @@ static int fec_enet_init(struct net_device *ndev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	struct bufdesc *cbd_base;
+ 	struct bufdesc *bdp;
+-	int i;
++	int i, reg;
+ 
+ 	/* Allocate memory for buffer descriptors. */
+ 	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
+@@ -1628,7 +1630,10 @@ static int fec_enet_init(struct net_device *ndev)
+ 	ndev->netdev_ops = &fec_netdev_ops;
+ 	ndev->ethtool_ops = &fec_enet_ethtool_ops;
+ 
+-	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
++	reg = readl(fep->hwp + FEC_IMASK);
++	reg &= ~FEC_ENET_RXF;
++	writel(reg, fep->hwp + FEC_IMASK);
++
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+ 
+ 	/* Initialize the receive buffer descriptors. */
+-- 
+1.7.9.5
