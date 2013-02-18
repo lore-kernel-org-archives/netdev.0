@@ -1,8 +1,7 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 40/46] powerpc: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Mon, 18 Feb 2013 18:13:51 +0530
-Message-ID: <20130218124350.26245.49623.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 44/46] cpu: No more __stop_machine() in _cpu_down()
+Date: Mon, 18 Feb 2013 18:14:31 +0530
+Message-ID: <20130218124431.26245.10956.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,39 +23,49 @@ In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Once stop_machine() is gone from the CPU offline path, we won't be able to
-depend on preempt_disable() or local_irq_disable() to prevent CPUs from
-going offline from under us.
+From: Paul E. McKenney <paul.mckenney@linaro.org>
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-while invoking from atomic context.
+The _cpu_down() function invoked as part of the CPU-hotplug offlining
+process currently invokes __stop_machine(), which is slow and inflicts
+substantial real-time latencies on the entire system.  This patch
+substitutes stop_one_cpu() for __stop_machine() in order to improve
+both performance and real-time latency.
 
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linuxppc-dev@lists.ozlabs.org
+There were a number of uses of preempt_disable() or local_irq_disable()
+that were intended to block CPU-hotplug offlining. These were fixed by
+using get/put_online_cpus_atomic(), which is the new synchronization
+primitive to prevent CPU offline, while invoking from atomic context.
+
+Signed-off-by: Paul E. McKenney <paul.mckenney@linaro.org>
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+[ srivatsa.bhat@linux.vnet.ibm.com: Refer to the new sync primitives for
+  readers (in the changelog); s/stop_cpus/stop_one_cpu and fix comment
+  referring to stop_machine in the code]
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/powerpc/mm/mmu_context_nohash.c |    2 ++
- 1 file changed, 2 insertions(+)
+ kernel/cpu.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/mm/mmu_context_nohash.c b/arch/powerpc/mm/mmu_context_nohash.c
-index e779642..29f58cf 100644
---- a/arch/powerpc/mm/mmu_context_nohash.c
-+++ b/arch/powerpc/mm/mmu_context_nohash.c
-@@ -196,6 +196,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 58dd1df..652fb53 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -337,7 +337,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
+ 	}
+ 	smpboot_park_threads(cpu);
  
- 	/* No lockless fast path .. yet */
- 	raw_spin_lock(&context_lock);
-+	get_online_cpus_atomic();
- 
- 	pr_hard("[%d] activating context for mm @%p, active=%d, id=%d",
- 		cpu, next, next->context.active, next->context.id);
-@@ -279,6 +280,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
- 	/* Flick the MMU and release lock */
- 	pr_hardcont(" -> %d\n", id);
- 	set_context(id, next->pgd);
-+	put_online_cpus_atomic();
- 	raw_spin_unlock(&context_lock);
- }
- 
+-	err = __stop_machine(take_cpu_down, &tcd_param, cpumask_of(cpu));
++	err = stop_one_cpu(cpu, take_cpu_down, &tcd_param);
+ 	if (err) {
+ 		/* CPU didn't die: tell everyone.  Can't complain. */
+ 		smpboot_unpark_threads(cpu);
+@@ -349,7 +349,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
+ 	/*
+ 	 * The migration_call() CPU_DYING callback will have removed all
+ 	 * runnable tasks from the cpu, there's only the idle task left now
+-	 * that the migration thread is done doing the stop_machine thing.
++	 * that the migration thread is done doing the stop_one_cpu() thing.
+ 	 *
+ 	 * Wait for the stop thread to go away.
+ 	 */
