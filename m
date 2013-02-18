@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 17/46] clockevents: Use get/put_online_cpus_atomic() in
- clockevents_notify()
-Date: Mon, 18 Feb 2013 18:10:42 +0530
-Message-ID: <20130218124042.26245.92242.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 18/46] softirq: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Mon, 18 Feb 2013 18:10:47 +0530
+Message-ID: <20130218124047.26245.76718.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -24,44 +24,40 @@ In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cpu idle code invokes clockevents_notify() during idle state transitions
-and the cpu offline code invokes it during the CPU_DYING phase. There
-seems to be a race-condition between the two, where the clockevents_lock
-never gets released, ending in a lockup. This can be fixed by synchronizing
-clockevents_notify() with CPU offline, by wrapping its contents within
-get/put_online_cpus_atomic().
+Once stop_machine() is gone from the CPU offline path, we won't be able to
+depend on preempt_disable() or local_irq_disable() to prevent CPUs from
+going offline from under us.
 
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
+while invoking from atomic context.
+
+Cc: Frederic Weisbecker <fweisbec@gmail.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/time/clockevents.c |    3 +++
+ kernel/softirq.c |    3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/kernel/time/clockevents.c b/kernel/time/clockevents.c
-index 30b6de0..ca340fd 100644
---- a/kernel/time/clockevents.c
-+++ b/kernel/time/clockevents.c
-@@ -17,6 +17,7 @@
- #include <linux/module.h>
- #include <linux/notifier.h>
- #include <linux/smp.h>
-+#include <linux/cpu.h>
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index ed567ba..98c3e27 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -631,6 +631,7 @@ static void remote_softirq_receive(void *data)
  
- #include "tick-internal.h"
- 
-@@ -431,6 +432,7 @@ void clockevents_notify(unsigned long reason, void *arg)
- 	unsigned long flags;
- 	int cpu;
- 
+ static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softirq)
+ {
 +	get_online_cpus_atomic();
- 	raw_spin_lock_irqsave(&clockevents_lock, flags);
- 	clockevents_do_notify(reason, arg);
+ 	if (cpu_online(cpu)) {
+ 		cp->func = remote_softirq_receive;
+ 		cp->info = cp;
+@@ -638,8 +639,10 @@ static int __try_remote_softirq(struct call_single_data *cp, int cpu, int softir
+ 		cp->priv = softirq;
  
-@@ -459,6 +461,7 @@ void clockevents_notify(unsigned long reason, void *arg)
- 		break;
+ 		__smp_call_function_single(cpu, cp, 0);
++		put_online_cpus_atomic();
+ 		return 0;
  	}
- 	raw_spin_unlock_irqrestore(&clockevents_lock, flags);
 +	put_online_cpus_atomic();
+ 	return 1;
  }
- EXPORT_SYMBOL_GPL(clockevents_notify);
- #endif
+ #else /* CONFIG_USE_GENERIC_SMP_HELPERS */
