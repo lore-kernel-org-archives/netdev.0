@@ -1,7 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 4/9] bnx2x: Set ethtool ops for vfs
-Date: Mon, 18 Feb 2013 10:16:33 +0200
-Message-ID: <1361175398-12888-5-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 5/9] bnx2x: Take chip version from MFW
+Date: Mon, 18 Feb 2013 10:16:34 +0200
+Message-ID: <1361175398-12888-6-git-send-email-yuvalmin@broadcom.com>
 References: <1361175398-12888-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,95 +10,68 @@ Cc: eilong@broadcom.com, ariele@broadcom.com,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2379 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:4585 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757262Ab3BRJV1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 04:21:27 -0500
+	id S1757454Ab3BRJV3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 04:21:29 -0500
 In-Reply-To: <1361175398-12888-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+In latest boards, the CHIP_METAL register contains an incorrect
+revision value, so the correct one needs to be obtained in a
+different manner.
 
-Virtual functions don't have access to HW registers, therefore most ethtool ops
-are forbidden to them. Instead of checking in each op whether the device being
-driven is a virtual function or a physical function, this patch creates a
-separate ethtool ops struct for virtual functions and uses it to initialize
-the ethtool ops of the driver in case it is driving a virtual function device.
-
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |    2 +-
- .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    |   29 ++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |    2 +-
- 3 files changed, 29 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    8 ++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h  |    6 ++----
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 3e26eb5..0528f3b 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -2287,7 +2287,7 @@ static const u32 dmae_reg_go_c[] = {
- 	DMAE_REG_GO_C12, DMAE_REG_GO_C13, DMAE_REG_GO_C14, DMAE_REG_GO_C15
- };
- 
--void bnx2x_set_ethtool_ops(struct net_device *netdev);
-+void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev);
- void bnx2x_notify_link_changed(struct bnx2x *bp);
- 
- #define BNX2X_MF_SD_PROTOCOL(bp) \
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 9a674b1..77173c9 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -3226,7 +3226,32 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
- 	.get_ts_info		= ethtool_op_get_ts_info,
- };
- 
--void bnx2x_set_ethtool_ops(struct net_device *netdev)
-+static const struct ethtool_ops bnx2x_vf_ethtool_ops = {
-+	.get_settings		= bnx2x_get_settings,
-+	.set_settings		= bnx2x_set_settings,
-+	.get_drvinfo		= bnx2x_get_drvinfo,
-+	.get_msglevel		= bnx2x_get_msglevel,
-+	.set_msglevel		= bnx2x_set_msglevel,
-+	.get_link		= bnx2x_get_link,
-+	.get_coalesce		= bnx2x_get_coalesce,
-+	.get_ringparam		= bnx2x_get_ringparam,
-+	.set_ringparam		= bnx2x_set_ringparam,
-+	.get_sset_count		= bnx2x_get_sset_count,
-+	.get_strings		= bnx2x_get_strings,
-+	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
-+	.get_rxnfc		= bnx2x_get_rxnfc,
-+	.set_rxnfc		= bnx2x_set_rxnfc,
-+	.get_rxfh_indir_size	= bnx2x_get_rxfh_indir_size,
-+	.get_rxfh_indir		= bnx2x_get_rxfh_indir,
-+	.set_rxfh_indir		= bnx2x_set_rxfh_indir,
-+	.get_channels		= bnx2x_get_channels,
-+	.set_channels		= bnx2x_set_channels,
-+};
-+
-+void bnx2x_set_ethtool_ops(struct bnx2x *bp, struct net_device *netdev)
- {
--	SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
-+	if (IS_PF(bp))
-+		SET_ETHTOOL_OPS(netdev, &bnx2x_ethtool_ops);
-+	else /* vf */
-+		SET_ETHTOOL_OPS(netdev, &bnx2x_vf_ethtool_ops);
- }
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 1776b8b..d3a33ef 100644
+index d3a33ef..f563fdc 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -11956,7 +11956,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 
- 	dev->netdev_ops = &bnx2x_netdev_ops;
--	bnx2x_set_ethtool_ops(dev);
-+	bnx2x_set_ethtool_ops(bp, dev);
- 
- 	dev->priv_flags |= IFF_UNICAST_FLT;
- 
+@@ -10037,8 +10037,12 @@ static void bnx2x_get_common_hwinfo(struct bnx2x *bp)
+ 	id = ((val & 0xffff) << 16);
+ 	val = REG_RD(bp, MISC_REG_CHIP_REV);
+ 	id |= ((val & 0xf) << 12);
+-	val = REG_RD(bp, MISC_REG_CHIP_METAL);
+-	id |= ((val & 0xff) << 4);
++
++	/* Metal is read from PCI regs, but we can't access >=0x400 from
++	 * the configuration space (so we need to reg_rd)
++	 */
++	val = REG_RD(bp, PCICFG_OFFSET + PCI_ID_VAL3);
++	id |= (((val >> 24) & 0xf) << 4);
+ 	val = REG_RD(bp, MISC_REG_BOND_ID);
+ 	id |= (val & 0xf);
+ 	bp->common.chip_id = id;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+index 791eb2d..d22bc40 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_reg.h
+@@ -1491,10 +1491,6 @@
+ /* [R 4] This field indicates the type of the device. '0' - 2 Ports; '1' - 1
+    Port. */
+ #define MISC_REG_BOND_ID					 0xa400
+-/* [R 8] These bits indicate the metal revision of the chip. This value
+-   starts at 0x00 for each all-layer tape-out and increments by one for each
+-   tape-out. */
+-#define MISC_REG_CHIP_METAL					 0xa404
+ /* [R 16] These bits indicate the part number for the chip. */
+ #define MISC_REG_CHIP_NUM					 0xa408
+ /* [R 4] These bits indicate the base revision of the chip. This value
+@@ -6331,6 +6327,8 @@
+ #define PCI_PM_DATA_B					0x414
+ #define PCI_ID_VAL1					0x434
+ #define PCI_ID_VAL2					0x438
++#define PCI_ID_VAL3					0x43c
++
+ #define GRC_CONFIG_REG_PF_INIT_VF		0x624
+ #define GRC_CR_PF_INIT_VF_PF_FIRST_VF_NUM_MASK	0xf
+ /* First VF_NUM for PF is encoded in this register.
 -- 
 1.7.9.GIT
