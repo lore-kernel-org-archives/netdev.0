@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 36/46] m32r: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Mon, 18 Feb 2013 18:13:23 +0530
-Message-ID: <20130218124323.26245.86492.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v6 23/46] infiniband: ehca: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Mon, 18 Feb 2013 18:11:27 +0530
+Message-ID: <20130218124127.26245.52045.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -31,81 +31,64 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: Hirokazu Takata <takata@linux-m32r.org>
-Cc: linux-m32r@ml.linux-m32r.org
-Cc: linux-m32r-ja@ml.linux-m32r.org
+Cc: Roland Dreier <roland@kernel.org>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/m32r/kernel/smp.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ drivers/infiniband/hw/ehca/ehca_irq.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/m32r/kernel/smp.c b/arch/m32r/kernel/smp.c
-index ce7aea3..0dad4d7 100644
---- a/arch/m32r/kernel/smp.c
-+++ b/arch/m32r/kernel/smp.c
-@@ -151,7 +151,7 @@ void smp_flush_cache_all(void)
- 	cpumask_t cpumask;
- 	unsigned long *mask;
+diff --git a/drivers/infiniband/hw/ehca/ehca_irq.c b/drivers/infiniband/hw/ehca/ehca_irq.c
+index 8615d7c..d61936c 100644
+--- a/drivers/infiniband/hw/ehca/ehca_irq.c
++++ b/drivers/infiniband/hw/ehca/ehca_irq.c
+@@ -43,6 +43,7 @@
  
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	cpumask_copy(&cpumask, cpu_online_mask);
- 	cpumask_clear_cpu(smp_processor_id(), &cpumask);
- 	spin_lock(&flushcache_lock);
-@@ -162,7 +162,7 @@ void smp_flush_cache_all(void)
- 	while (flushcache_cpumask)
- 		mb();
- 	spin_unlock(&flushcache_lock);
--	preempt_enable();
-+	put_online_cpus_atomic();
+ #include <linux/slab.h>
+ #include <linux/smpboot.h>
++#include <linux/cpu.h>
+ 
+ #include "ehca_classes.h"
+ #include "ehca_irq.h"
+@@ -653,6 +654,9 @@ void ehca_tasklet_eq(unsigned long data)
+ 	ehca_process_eq((struct ehca_shca*)data, 1);
  }
  
- void smp_flush_cache_all_interrupt(void)
-@@ -250,7 +250,7 @@ void smp_flush_tlb_mm(struct mm_struct *mm)
- 	unsigned long *mmc;
++/*
++ * Must be called under get_online_cpus_atomic() and put_online_cpus_atomic().
++ */
+ static int find_next_online_cpu(struct ehca_comp_pool *pool)
+ {
+ 	int cpu;
+@@ -703,6 +707,7 @@ static void queue_comp_task(struct ehca_cq *__cq)
+ 	int cq_jobs;
  	unsigned long flags;
  
--	preempt_disable();
 +	get_online_cpus_atomic();
- 	cpu_id = smp_processor_id();
- 	mmc = &mm->context[cpu_id];
- 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
-@@ -268,7 +268,7 @@ void smp_flush_tlb_mm(struct mm_struct *mm)
- 	if (!cpumask_empty(&cpu_mask))
- 		flush_tlb_others(cpu_mask, mm, NULL, FLUSH_ALL);
+ 	cpu_id = find_next_online_cpu(pool);
+ 	BUG_ON(!cpu_online(cpu_id));
  
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- /*==========================================================================*
-@@ -715,10 +715,12 @@ static void send_IPI_allbutself(int ipi_num, int try)
- {
- 	cpumask_t cpumask;
- 
-+	get_online_cpus_atomic();
- 	cpumask_copy(&cpumask, cpu_online_mask);
- 	cpumask_clear_cpu(smp_processor_id(), &cpumask);
- 
- 	send_IPI_mask(&cpumask, ipi_num, try);
-+	put_online_cpus_atomic();
- }
- 
- /*==========================================================================*
-@@ -750,6 +752,7 @@ static void send_IPI_mask(const struct cpumask *cpumask, int ipi_num, int try)
- 	if (num_cpus <= 1)	/* NO MP */
- 		return;
- 
-+	get_online_cpus_atomic();
- 	cpumask_and(&tmp, cpumask, cpu_online_mask);
- 	BUG_ON(!cpumask_equal(cpumask, &tmp));
- 
-@@ -760,6 +763,7 @@ static void send_IPI_mask(const struct cpumask *cpumask, int ipi_num, int try)
+@@ -720,6 +725,7 @@ static void queue_comp_task(struct ehca_cq *__cq)
+ 		BUG_ON(!cct || !thread);
  	}
- 
- 	send_IPI_mask_phys(&physid_mask, ipi_num, try);
+ 	__queue_comp_task(__cq, cct, thread);
 +	put_online_cpus_atomic();
  }
  
- /*==========================================================================*
+ static void run_comp_task(struct ehca_cpu_comp_task *cct)
+@@ -759,6 +765,7 @@ static void comp_task_park(unsigned int cpu)
+ 	list_splice_init(&cct->cq_list, &list);
+ 	spin_unlock_irq(&cct->task_lock);
+ 
++	get_online_cpus_atomic();
+ 	cpu = find_next_online_cpu(pool);
+ 	target = per_cpu_ptr(pool->cpu_comp_tasks, cpu);
+ 	thread = *per_cpu_ptr(pool->cpu_comp_threads, cpu);
+@@ -768,6 +775,7 @@ static void comp_task_park(unsigned int cpu)
+ 		__queue_comp_task(cq, target, thread);
+ 	}
+ 	spin_unlock_irq(&target->task_lock);
++	put_online_cpus_atomic();
+ }
+ 
+ static void comp_task_stop(unsigned int cpu, bool online)
