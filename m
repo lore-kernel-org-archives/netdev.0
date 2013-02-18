@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 39/46] parisc: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH v6 40/46] powerpc: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Mon, 18 Feb 2013 18:13:39 +0530
-Message-ID: <20130218124339.26245.21838.stgit@srivatsabhat.in.ibm.com>
+Date: Mon, 18 Feb 2013 18:13:51 +0530
+Message-ID: <20130218124350.26245.49623.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -31,30 +31,32 @@ going offline from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
 while invoking from atomic context.
 
-Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
-Cc: linux-parisc@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linuxppc-dev@lists.ozlabs.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/parisc/kernel/smp.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ arch/powerpc/mm/mmu_context_nohash.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/parisc/kernel/smp.c b/arch/parisc/kernel/smp.c
-index 6266730..f7851b7 100644
---- a/arch/parisc/kernel/smp.c
-+++ b/arch/parisc/kernel/smp.c
-@@ -229,11 +229,13 @@ static inline void
- send_IPI_allbutself(enum ipi_message_type op)
- {
- 	int i;
--	
-+
-+	get_online_cpus_atomic();
- 	for_each_online_cpu(i) {
- 		if (i != smp_processor_id())
- 			send_IPI_single(i, op);
- 	}
-+	put_online_cpus_atomic();
- }
+diff --git a/arch/powerpc/mm/mmu_context_nohash.c b/arch/powerpc/mm/mmu_context_nohash.c
+index e779642..29f58cf 100644
+--- a/arch/powerpc/mm/mmu_context_nohash.c
++++ b/arch/powerpc/mm/mmu_context_nohash.c
+@@ -196,6 +196,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
  
+ 	/* No lockless fast path .. yet */
+ 	raw_spin_lock(&context_lock);
++	get_online_cpus_atomic();
+ 
+ 	pr_hard("[%d] activating context for mm @%p, active=%d, id=%d",
+ 		cpu, next, next->context.active, next->context.id);
+@@ -279,6 +280,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
+ 	/* Flick the MMU and release lock */
+ 	pr_hardcont(" -> %d\n", id);
+ 	set_context(id, next->pgd);
++	put_online_cpus_atomic();
+ 	raw_spin_unlock(&context_lock);
+ }
  
