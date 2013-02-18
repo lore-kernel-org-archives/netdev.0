@@ -1,86 +1,58 @@
-From: Andy King <acking@vmware.com>
-Subject: [PATCH 2/4] VSOCK: get rid of vsock_version.h
-Date: Mon, 18 Feb 2013 08:04:11 -0800
-Message-ID: <1361203453-1347-3-git-send-email-acking@vmware.com>
-References: <1361203453-1347-1-git-send-email-acking@vmware.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] bgmac: fix unaligned accesses to network headers
+Date: Mon, 18 Feb 2013 17:14:25 +0100
+Message-ID: <CACna6ry0DWdnsLv0MLERkg8evYpgzAFvYEJes3Jn71iCPkJVjw@mail.gmail.com>
+References: <1361025154-11612-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, Dmitry Torokhov <dtor@vmware.com>,
-	davem@davemloft.net
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1361203453-1347-1-git-send-email-acking@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:39774 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755742Ab3BRQO3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 11:14:29 -0500
+Received: by mail-ob0-f175.google.com with SMTP id uz6so5660272obc.20
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 08:14:26 -0800 (PST)
+In-Reply-To: <1361025154-11612-1-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Torokhov <dtor@vmware.com>
+2013/2/16 Hauke Mehrtens <hauke@hauke-m.de>:
+> Without this patch I get many unaligned access warnings per packet,
+> this patches fixes them all. This should improve performance ony some
+> systems like mips.
+>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> ---
+>  drivers/net/ethernet/broadcom/bgmac.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethe=
+rnet/broadcom/bgmac.c
+> index d341090..f9b1bc8 100644
+> --- a/drivers/net/ethernet/broadcom/bgmac.c
+> +++ b/drivers/net/ethernet/broadcom/bgmac.c
+> @@ -301,8 +301,9 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac,=
+ struct bgmac_dma_ring *ring,
+>                         bgmac_err(bgmac, "Found poisoned packet at sl=
+ot %d, DMA issue!\n",
+>                                   ring->start);
+>                 } else {
+> -                       new_skb =3D netdev_alloc_skb(bgmac->net_dev, =
+len);
+> +                       new_skb =3D netdev_alloc_skb(bgmac->net_dev, =
+len + 2);
+>                         if (new_skb) {
+> +                               skb_reserve(new_skb, 2);
 
-There isn't really a need to have a separate file for it.
+I never understood that code in b44, glad you hit that warnings! ;)
 
-Acked-by: Andy King <acking@vmware.com>
-Signed-off-by: Dmitry Torokhov <dtor@vmware.com>
----
- net/vmw_vsock/af_vsock.c      |    3 +--
- net/vmw_vsock/vsock_version.h |   22 ----------------------
- 2 files changed, 1 insertions(+), 24 deletions(-)
- delete mode 100644 net/vmw_vsock/vsock_version.h
+The version with netdev_alloc_skb_ip_align looks much better (no more
+magic numbers), b44 should be converted too.
 
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index a8efe5a..c1b9e55 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -98,7 +98,6 @@
- #include <net/sock.h>
- 
- #include "af_vsock.h"
--#include "vsock_version.h"
- 
- static int __vsock_bind(struct sock *sk, struct sockaddr_vm *addr);
- static void vsock_sk_destruct(struct sock *sk);
-@@ -2009,5 +2008,5 @@ EXPORT_SYMBOL_GPL(vsock_core_exit);
- 
- MODULE_AUTHOR("VMware, Inc.");
- MODULE_DESCRIPTION("VMware Virtual Socket Family");
--MODULE_VERSION(VSOCK_DRIVER_VERSION_STRING);
-+MODULE_VERSION("1.0.0.0-k");
- MODULE_LICENSE("GPL v2");
-diff --git a/net/vmw_vsock/vsock_version.h b/net/vmw_vsock/vsock_version.h
-deleted file mode 100644
-index 4df7f5e..0000000
---- a/net/vmw_vsock/vsock_version.h
-+++ /dev/null
-@@ -1,22 +0,0 @@
--/*
-- * VMware vSockets Driver
-- *
-- * Copyright (C) 2011-2012 VMware, Inc. All rights reserved.
-- *
-- * This program is free software; you can redistribute it and/or modify it
-- * under the terms of the GNU General Public License as published by the Free
-- * Software Foundation version 2 and no later version.
-- *
-- * This program is distributed in the hope that it will be useful, but WITHOUT
-- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-- * more details.
-- */
--
--#ifndef _VSOCK_VERSION_H_
--#define _VSOCK_VERSION_H_
--
--#define VSOCK_DRIVER_VERSION_PARTS	{ 1, 0, 0, 0 }
--#define VSOCK_DRIVER_VERSION_STRING	"1.0.0.0-k"
--
--#endif /* _VSOCK_VERSION_H_ */
--- 
-1.7.4.1
+Thanks for your patch!
+
+--=20
+Rafa=C5=82
