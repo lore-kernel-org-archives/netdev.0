@@ -1,34 +1,37 @@
-From: Bastian Bittorf <bittorf-yxHw+vPQXZDZJqsBc5GL+g@public.gmane.org>
-Subject: Re: [PATCH] b43: Increase number of RX DMA slots
-Date: Mon, 18 Feb 2013 17:55:10 +0100
-Message-ID: <20130218165510.GC8730@medion.lan>
-References: <1361156480-32566-1-git-send-email-Larry.Finger@lwfinger.net>
- <CACna6rwLgE+o2mcRTemLFAqzdsEoA9Xyx8GyEQTh5qbv1iZ04A@mail.gmail.com>
+From: Andy King <acking@vmware.com>
+Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Mon, 18 Feb 2013 08:56:28 -0800 (PST)
+Message-ID: <640503542.2078181.1361206588302.JavaMail.root@vmware.com>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
+	<1360196636-9357-2-git-send-email-acking@vmware.com>
+	<511B8AAF.2060202@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Bastian Bittorf <bittorf-yxHw+vPQXZDZJqsBc5GL+g@public.gmane.org>,
-	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CACna6rwLgE+o2mcRTemLFAqzdsEoA9Xyx8GyEQTh5qbv1iZ04A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: Gerd Hoffmann <kraxel@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <511B8AAF.2060202@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-* Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [18.02.2013 17:54]:
-> 2013/2/18 Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>:
->=20
-> So probably ideal solution is to use 128 *and* fix the driver's
-> failing on overflow ;)
+> > +	if (protocol)
+> > +		return -EPROTONOSUPPORT;
+> > +
+> 
+> IMO protocol == PF_VSOCK should not get rejected here.
 
-i will run a test tomorrow an report, keep calm.
+Good catch, I've sent out a patch for this.
 
-bye, bastian
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks!
+- Andy
