@@ -1,32 +1,49 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v4] netpoll: fix some sparse warnings in
- various places
-Date: Mon, 18 Feb 2013 10:55:26 +0800
-Message-ID: <1361156126.5967.8.camel@cr0>
-References: <1361003873-20622-1-git-send-email-amwang@redhat.com>
-	 <20130216091808.GA1536@minipsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14690 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755005Ab3BRCzn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 17 Feb 2013 21:55:43 -0500
-In-Reply-To: <20130216091808.GA1536@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH] b43: Increase number of RX DMA slots
+Date: Sun, 17 Feb 2013 21:01:20 -0600
+Message-ID: <1361156480-32566-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bastian Bittorf <bittorf-yxHw+vPQXZDZJqsBc5GL+g@public.gmane.org>,
+	Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-02-16 at 10:18 +0100, Jiri Pirko wrote:
-> 
-> Hmm. I'm just wondering if there wouldn't be nicer for these functions
-> to
-> return bool if you just want to know if npinfo is null or not. This
-> notation seems a bit confusing to me. 
+Bastian Bittorf reported that some of the silent freezes on a Linksys WRT54G
+were due to overflow of the RX DMA ring buffer, which was created with 64
+slots. That finding reminded me that I was seeing similar crashed on a netbook,
+which also has a relatively slow processor. After increasing the number of
+slots to 128, runs on the netbook that previously failed now worked; however,
+I found that 109 slots had been used in one test. For that reason, the number
+of slots is being increased to 256.
 
-Yes, makes sense.
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: Bastian Bittorf <bittorf-yxHw+vPQXZDZJqsBc5GL+g@public.gmane.org>
+Cc: Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+---
+---
+ drivers/net/wireless/b43/dma.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/b43/dma.h b/drivers/net/wireless/b43/dma.h
+index 315b96e..9fdd198 100644
+--- a/drivers/net/wireless/b43/dma.h
++++ b/drivers/net/wireless/b43/dma.h
+@@ -169,7 +169,7 @@ struct b43_dmadesc_generic {
+ 
+ /* DMA engine tuning knobs */
+ #define B43_TXRING_SLOTS		256
+-#define B43_RXRING_SLOTS		64
++#define B43_RXRING_SLOTS		256
+ #define B43_DMA0_RX_FW598_BUFSIZE	(B43_DMA0_RX_FW598_FO + IEEE80211_MAX_FRAME_LEN)
+ #define B43_DMA0_RX_FW351_BUFSIZE	(B43_DMA0_RX_FW351_FO + IEEE80211_MAX_FRAME_LEN)
+ 
+-- 
+1.8.1.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
