@@ -1,77 +1,69 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Mon, 18 Feb 2013 16:27:32 +0530
-Message-ID: <5122091C.2080308@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <510FBC01.2030405@linux.vnet.ibm.com> <87haloiwv0.fsf@rustcorp.com.au> <51134596.4080106@linux.vnet.ibm.com> <20130208154113.GV17833@n2100.arm.linux.org.uk> <51152B81.2050501@linux.vnet.ibm.com> <51153F72.1060005@linux.vnet.ibm.com> <CAKfTPtCe+cD7LLkb+D6pqG1SwG2V08ws=4XO3ttHEHV2qgmqPg@mail.gmail.com> <5118E2CD.90401@linux.vnet.ibm.com> <20130211190852.GA5695@linux.vnet.ibm.com> <5119BDFD.1000909@linux.vnet.ibm.com> <CAKfTPtAo2hQTfBKTVUuLKgsGJ2ZLD0UTR3fH9UFuJwyFt4n__w@mail.gmail.com> <511E8F3C.2010406@linux.vnet.ibm.com> <CAKfTPtD=2jn1AVjuhVP1ot7_8x9-W4==hNGZET5N9tRE7gtyMw@mail.gmail.com> <512203B3.7090002@linux.vnet.ibm.com> <alpine.LFD.2.02.1302181151040.22263@ionos>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Vincent Guittot <vincent.guittot@linaro.org>,
-	paulmck@linux.vnet.ibm.com,
-	Russell King - ARM Linux <linux@arm.linux.org.uk>,
-	linux-doc@vger.kernel.org, peterz@infradead.org,
-	fweisbec@gmail.com, linux-kernel@vger.kernel.org,
-	walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
-	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	Rusty Russell <rusty@rustcorp.com.au>, rostedt@goodmis.org,
-	rjw@sisk.pl, namhyung@kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.02.1302181151040.22263@ionos>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH net-next 2/4] net: proc: remove proc_net_fops_create
+Date: Mon, 18 Feb 2013 19:34:55 +0800
+Message-ID: <1361187297-2527-2-git-send-email-gaofeng@cn.fujitsu.com>
+References: <1361187297-2527-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: ebiederm@xmission.com, davem@davemloft.net,
+	containers@lists.linux-foundation.org,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:15552 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751368Ab3BRLeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 06:34:25 -0500
+In-Reply-To: <1361187297-2527-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/18/2013 04:24 PM, Thomas Gleixner wrote:
-> On Mon, 18 Feb 2013, Srivatsa S. Bhat wrote:
->> Lockup observed while running this patchset, with CPU_IDLE and INTEL_IDLE turned
->> on in the .config:
->>
->>  smpboot: CPU 1 is now offline
->> Kernel panic - not syncing: Watchdog detected hard LOCKUP on cpu 11
->> Pid: 0, comm: swapper/11 Not tainted 3.8.0-rc7+stpmch13-1 #8
->> Call Trace:
->>  [<ffffffff812aba1e>] do_raw_spin_lock+0x7e/0x150
->>  [<ffffffff815a64c1>] _raw_spin_lock_irqsave+0x61/0x70
->>  [<ffffffff810c0758>] ? clockevents_notify+0x28/0x150
->>  [<ffffffff815a6d37>] ? _raw_spin_unlock_irqrestore+0x77/0x80
->>  [<ffffffff810c0758>] clockevents_notify+0x28/0x150
->>  [<ffffffff8130459f>] intel_idle+0xaf/0xe0
->>  [<ffffffff81472ee0>] ? disable_cpuidle+0x20/0x20
->>  [<ffffffff81472ef9>] cpuidle_enter+0x19/0x20
->>  [<ffffffff814734c1>] cpuidle_wrap_enter+0x41/0xa0
->>  [<ffffffff81473530>] cpuidle_enter_tk+0x10/0x20
->>  [<ffffffff81472f17>] cpuidle_enter_state+0x17/0x50
->>  [<ffffffff81473899>] cpuidle_idle_call+0xd9/0x290
->>  [<ffffffff810203d5>] cpu_idle+0xe5/0x140
->>  [<ffffffff8159c603>] start_secondary+0xdd/0xdf
-> 
->> BUG: spinlock lockup suspected on CPU#2, migration/2/19
->>  lock: clockevents_lock+0x0/0x40, .magic: dead4ead, .owner: swapper/8/0, .owner_cpu: 8
-> 
-> Unfortunately there is no back trace for cpu8.
+proc_net_fops_create has been replaced by proc_create,
+we can remove it now.
 
-Yes :-(
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ fs/proc/proc_net.c      | 8 --------
+ include/linux/proc_fs.h | 3 ---
+ 2 files changed, 11 deletions(-)
 
-I had run this several times hoping to get a backtrace on the lock-holder,
-expecting trigger_all_cpu_backtrace() to get it right at least once. But I
-hadn't succeeded even once.
-
-> That's probably caused
-> by the watchdog -> panic setting.
-> 
-
-Oh, ok..
-
-> So we have no idea why cpu2 and 11 get stuck on the clockevents_lock
-> and without that information it's impossible to decode.
-> 
-
-But thankfully, the issue seems to have been resolved by the diff I posted
-in my previous mail, along with the fixes related to memory barriers.
-
-Regards,
-Srivatsa S. Bhat
+diff --git a/fs/proc/proc_net.c b/fs/proc/proc_net.c
+index fe72cd0..30f7c67 100644
+--- a/fs/proc/proc_net.c
++++ b/fs/proc/proc_net.c
+@@ -177,14 +177,6 @@ const struct file_operations proc_net_operations = {
+ 	.readdir	= proc_tgid_net_readdir,
+ };
+ 
+-
+-struct proc_dir_entry *proc_net_fops_create(struct net *net,
+-	const char *name, umode_t mode, const struct file_operations *fops)
+-{
+-	return proc_create(name, mode, net->proc_net, fops);
+-}
+-EXPORT_SYMBOL_GPL(proc_net_fops_create);
+-
+ void proc_net_remove(struct net *net, const char *name)
+ {
+ 	remove_proc_entry(name, net->proc_net);
+diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
+index 32676b3..35ee189 100644
+--- a/include/linux/proc_fs.h
++++ b/include/linux/proc_fs.h
+@@ -171,8 +171,6 @@ static inline struct proc_dir_entry *create_proc_read_entry(const char *name,
+ 	return res;
+ }
+  
+-extern struct proc_dir_entry *proc_net_fops_create(struct net *net,
+-	const char *name, umode_t mode, const struct file_operations *fops);
+ extern void proc_net_remove(struct net *net, const char *name);
+ extern struct proc_dir_entry *proc_net_mkdir(struct net *net, const char *name,
+ 	struct proc_dir_entry *parent);
+@@ -184,7 +182,6 @@ extern int proc_alloc_inum(unsigned int *pino);
+ extern void proc_free_inum(unsigned int inum);
+ #else
+ 
+-#define proc_net_fops_create(net, name, mode, fops)  ({ (void)(mode), NULL; })
+ static inline void proc_net_remove(struct net *net, const char *name) {}
+ 
+ static inline void proc_flush_task(struct task_struct *task)
+-- 
+1.7.11.7
