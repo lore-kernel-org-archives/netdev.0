@@ -1,51 +1,44 @@
-From: y@broadcom.com
-Subject: [PATCH net-next 1/2] ip_gre: allow CSUM capable devices to
- handle packets
-Date: Mon, 18 Feb 2013 15:15:19 +0200
-Message-ID: <3292.08013504303$1361193355@news.gmane.org>
-References: <y>
+From: Erik Hugne <erik.hugne@ericsson.com>
+Subject: Re: [RFC PATCH net-next (V2, RESENT)] ipv6: Queue fragments per
+ interface for multicast/link-local addresses.
+Date: Mon, 18 Feb 2013 14:19:01 +0100
+Message-ID: <20130218131901.GA24346@eerihug-hybrid.ki.sw.ericsson.se>
+References: <511F1E03.9010205@linux-ipv6.org>
+ <511FB776.8000901@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2940 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754248Ab3BRNP0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 08:15:26 -0500
-In-Reply-To: <y>
+Received: from mailgw1.ericsson.se ([193.180.251.45]:45683 "EHLO
+	mailgw1.ericsson.se" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512Ab3BRNWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 08:22:21 -0500
+Content-Disposition: inline
+In-Reply-To: <511FB776.8000901@linux-ipv6.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+On Sun, Feb 17, 2013 at 01:44:38AM +0900, YOSHIFUJI Hideaki wrote:
+> We should queue fragments for the same link-local address on
+> different interfaces (e.g. fe80::1%eth0 and fe80::1%eth1) to the
+> different queue, because of nature of addressing architecture.
+> 
+> Similarly, we should queue fragments for multicast on different
+> interface to the different queue.  This is okay because
+> application joins group on speicific interface, and multicast
+> traffic is expected only on that interface.
+>
 
-If device is not able to handle checksumming it will
-be handled in dev_xmit
+Your patch does solve the reassembly problem when macvlans are defined, thanks!
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
----
- net/ipv4/ip_gre.c |    7 ++-----
- 1 files changed, 2 insertions(+), 5 deletions(-)
+A tad unrelated, but i think there's still some ipv6 multicast filtering 
+work to be done in the macvlan driver. If you for example join an all scope 
+mcast address, ff09::1 on macvlan 0 it will implicitly be 'joined' on all 
+other macvlans aswell..
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index a56f118..cdc31ac 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
- 			goto error;
- 		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
- 		return skb;
--	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		err = skb_checksum_help(skb);
--		if (unlikely(err))
--			goto error;
- 	}
--	skb->ip_summed = CHECKSUM_NONE;
-+	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+		skb->ip_summed = CHECKSUM_NONE;
- 
- 	return skb;
- 
--- 
-1.7.7.2
+I can buy that linklocal multicast packets are cloned out to all macvlan devices,
+but if a specific prefix is joined on one of them, i dont think it's correct that
+all sibling devices should receive that traffic, unless they asked for it.
+
+//E
