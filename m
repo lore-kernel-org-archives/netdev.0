@@ -1,19 +1,216 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH linux-next] net: ipv6: Fix compiler warning
-Date: Mon, 18 Feb 2013 16:54:53 -0500 (EST)
-Message-ID: <20130218.165453.842833316400614004.davem@davemloft.net>
-References: <51229152.8010007@semaphore.gr>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: stratosk@semaphore.gr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51229152.8010007@semaphore.gr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next 3/3] bonding: fix bond_release_all inconsistencies
+Date: Mon, 18 Feb 2013 13:56:48 -0800
+Message-ID: <21474.1361224608@death.nxdomain>
+References: <1361210344-14907-1-git-send-email-nikolay@redhat.com> <1361210344-14907-3-git-send-email-nikolay@redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andy@greyhouse.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:58263 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756461Ab3BRV4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 16:56:54 -0500
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Mon, 18 Feb 2013 16:56:53 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 71F2538C8022
+	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:56:50 -0500 (EST)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1ILuo1x271790
+	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 16:56:50 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1ILunHv028335
+	for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 18:56:49 -0300
+In-reply-to: <1361210344-14907-3-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+
+>This patch fixes the following inconsistencies in bond_release_all:
+>- IFF_BONDING flag is not stripped from slaves
+>- MTU is not restored
+>- no netdev notifiers are sent
+>Instead of trying to keep bond_release and bond_release_all in sync
+>I think we can re-use bond_release as the environment for calling it
+>is correct (RTNL is held). I have been running tests for the past
+>week and they came out successful. The only way for bond_release to fail
+>is for the slave to be attached in a different bond or to not be a slave
+>but that cannot happen as RTNL is held and no slave manipulations can be
+>achieved.
+
+	It might be worthwhile to add an "all" argument to bond_release
+that skips some things that don't make sense if all slaves are being
+released.  I'm thinking in particular of this block:
+
+	if (oldcurrent == slave) {
+		/*
+		 * Note that we hold RTNL over this sequence, so there
+		 * is no concern that another slave add/remove event
+		 * will interfere.
+		 */
+		write_unlock_bh(&bond->lock);
+		read_lock(&bond->lock);
+		write_lock_bh(&bond->curr_slave_lock);
+
+		bond_select_active_slave(bond);
+
+		write_unlock_bh(&bond->curr_slave_lock);
+		read_unlock(&bond->lock);
+		write_lock_bh(&bond->lock);
+	}
+
+	as it's written now, for the release all case, the code may go
+to the trouble of assigning a new active slave each time one slave is
+removed (including various log messages, maybe sending IGMPs, etc).  If
+all slaves are being removed, that's pointless.  This could be something
+like:
+
+	if (release_all) {
+		bond->curr_active_slave = NULL;
+	} else if (oldcurrent == slave) {
+		[ the current block of stuff ]
+	}
+
+	it's safe here to unconditionally set curr_active_slave to NULL
+because we hold bond->lock for write.  The lock dance stuff for the
+bond_select_active_slave() call is to satisfy its locking requirements.
+
+	-J
 
 
-Patches to fix this have already been applied to net-next, thanks.
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>---
+> drivers/net/bonding/bond_main.c | 106 ++--------------------------------------
+> 1 file changed, 5 insertions(+), 101 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 94c1534..fcfc880 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -2140,113 +2140,17 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
+> /*
+>  * This function releases all slaves.
+>  */
+>-static int bond_release_all(struct net_device *bond_dev)
+>+static void bond_release_all(struct net_device *bond_dev)
+> {
+> 	struct bonding *bond = netdev_priv(bond_dev);
+>-	struct slave *slave;
+>-	struct net_device *slave_dev;
+>-	struct sockaddr addr;
+>-
+>-	write_lock_bh(&bond->lock);
+>-
+>-	netif_carrier_off(bond_dev);
+>
+> 	if (bond->slave_cnt == 0)
+>-		goto out;
+>-
+>-	bond->current_arp_slave = NULL;
+>-	bond->primary_slave = NULL;
+>-	bond_change_active_slave(bond, NULL);
+>-
+>-	while ((slave = bond->first_slave) != NULL) {
+>-		/* Inform AD package of unbinding of slave
+>-		 * before slave is detached from the list.
+>-		 */
+>-		if (bond->params.mode == BOND_MODE_8023AD)
+>-			bond_3ad_unbind_slave(slave);
+>-
+>-		slave_dev = slave->dev;
+>-		bond_detach_slave(bond, slave);
+>-
+>-		/* now that the slave is detached, unlock and perform
+>-		 * all the undo steps that should not be called from
+>-		 * within a lock.
+>-		 */
+>-		write_unlock_bh(&bond->lock);
+>-
+>-		/* unregister rx_handler early so bond_handle_frame wouldn't
+>-		 * be called for this slave anymore.
+>-		 */
+>-		netdev_rx_handler_unregister(slave_dev);
+>-		synchronize_net();
+>-
+>-		if (bond_is_lb(bond)) {
+>-			/* must be called only after the slave
+>-			 * has been detached from the list
+>-			 */
+>-			bond_alb_deinit_slave(bond, slave);
+>-		}
+>-
+>-		bond_destroy_slave_symlinks(bond_dev, slave_dev);
+>-		bond_del_vlans_from_slave(bond, slave_dev);
+>-
+>-		/* If the mode USES_PRIMARY, then we should only remove its
+>-		 * promisc and mc settings if it was the curr_active_slave, but that was
+>-		 * already taken care of above when we detached the slave
+>-		 */
+>-		if (!USES_PRIMARY(bond->params.mode)) {
+>-			/* unset promiscuity level from slave */
+>-			if (bond_dev->flags & IFF_PROMISC)
+>-				dev_set_promiscuity(slave_dev, -1);
+>-
+>-			/* unset allmulti level from slave */
+>-			if (bond_dev->flags & IFF_ALLMULTI)
+>-				dev_set_allmulti(slave_dev, -1);
+>-
+>-			/* flush master's mc_list from slave */
+>-			netif_addr_lock_bh(bond_dev);
+>-			bond_mc_list_flush(bond_dev, slave_dev);
+>-			netif_addr_unlock_bh(bond_dev);
+>-		}
+>-
+>-		bond_upper_dev_unlink(bond_dev, slave_dev);
+>-
+>-		slave_disable_netpoll(slave);
+>-
+>-		/* close slave before restoring its mac address */
+>-		dev_close(slave_dev);
+>-
+>-		if (!bond->params.fail_over_mac) {
+>-			/* restore original ("permanent") mac address*/
+>-			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
+>-			addr.sa_family = slave_dev->type;
+>-			dev_set_mac_address(slave_dev, &addr);
+>-		}
+>-
+>-		kfree(slave);
+>-
+>-		/* re-acquire the lock before getting the next slave */
+>-		write_lock_bh(&bond->lock);
+>-	}
+>-
+>-	eth_hw_addr_random(bond_dev);
+>-	bond->dev_addr_from_first = true;
+>-
+>-	if (bond_vlan_used(bond)) {
+>-		pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+>-			   bond_dev->name, bond_dev->name);
+>-		pr_warning("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs'.\n",
+>-			   bond_dev->name);
+>-	}
+>-
+>+		return;
+>+	while (bond->first_slave != NULL)
+>+		bond_release(bond_dev, bond->first_slave->dev);
+> 	pr_info("%s: released all slaves\n", bond_dev->name);
+>
+>-out:
+>-	write_unlock_bh(&bond->lock);
+>-
+>-	bond_compute_features(bond);
+>-
+>-	return 0;
+>+	return;
+> }
+>
+> /*
+>-- 
+>1.7.11.7
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
