@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v6 25/46] staging: octeon: Use get/put_online_cpus_atomic() to
+Subject: [PATCH v6 27/46] perf/x86: Use get/put_online_cpus_atomic() to
  prevent CPU offline
-Date: Mon, 18 Feb 2013 18:11:39 +0530
-Message-ID: <20130218124139.26245.43948.stgit@srivatsabhat.in.ibm.com>
+Date: Mon, 18 Feb 2013 18:12:02 +0530
+Message-ID: <20130218124202.26245.9275.stgit@srivatsabhat.in.ibm.com>
 References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,51 +19,63 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org
-Return-path: <linux-arch-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Once stop_machine() is gone from the CPU offline path, we won't be able to
-depend on preempt_disable() or local_irq_disable() to prevent CPUs from
-going offline from under us.
+The CPU_DYING notifier modifies the per-cpu pointer pmu->box, and this can
+race with functions such as uncore_pmu_to_box() and uncore_pci_remove() when
+we remove stop_machine() from the CPU offline path. So protect them using
+get/put_online_cpus_atomic().
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
-while invoking from atomic context.
-
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: David Daney <david.daney@cavium.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Arnaldo Carvalho de Melo <acme@redhat.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- drivers/staging/octeon/ethernet-rx.c |    3 +++
- 1 file changed, 3 insertions(+)
+ arch/x86/kernel/cpu/perf_event_intel_uncore.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
-index 34afc16..8588b4d 100644
---- a/drivers/staging/octeon/ethernet-rx.c
-+++ b/drivers/staging/octeon/ethernet-rx.c
-@@ -36,6 +36,7 @@
- #include <linux/prefetch.h>
- #include <linux/ratelimit.h>
- #include <linux/smp.h>
+diff --git a/arch/x86/kernel/cpu/perf_event_intel_uncore.c b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
+index b43200d..6faae53 100644
+--- a/arch/x86/kernel/cpu/perf_event_intel_uncore.c
++++ b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
+@@ -1,3 +1,4 @@
 +#include <linux/cpu.h>
- #include <linux/interrupt.h>
- #include <net/dst.h>
- #ifdef CONFIG_XFRM
-@@ -97,6 +98,7 @@ static void cvm_oct_enable_one_cpu(void)
- 		return;
+ #include "perf_event_intel_uncore.h"
  
- 	/* ... if a CPU is available, Turn on NAPI polling for that CPU.  */
+ static struct intel_uncore_type *empty_uncore[] = { NULL, };
+@@ -1965,6 +1966,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
+ 	if (box)
+ 		return box;
+ 
 +	get_online_cpus_atomic();
- 	for_each_online_cpu(cpu) {
- 		if (!cpu_test_and_set(cpu, core_state.cpu_state)) {
- 			v = smp_call_function_single(cpu, cvm_oct_enable_napi,
-@@ -106,6 +108,7 @@ static void cvm_oct_enable_one_cpu(void)
- 			break;
+ 	raw_spin_lock(&uncore_box_lock);
+ 	list_for_each_entry(box, &pmu->box_list, list) {
+ 		if (box->phys_id == topology_physical_package_id(cpu)) {
+@@ -1974,6 +1976,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
  		}
  	}
+ 	raw_spin_unlock(&uncore_box_lock);
++	put_online_cpus_atomic();
+ 
+ 	return *per_cpu_ptr(pmu->box, cpu);
+ }
+@@ -2556,6 +2559,7 @@ static void uncore_pci_remove(struct pci_dev *pdev)
+ 	if (WARN_ON_ONCE(phys_id != box->phys_id))
+ 		return;
+ 
++	get_online_cpus_atomic();
+ 	raw_spin_lock(&uncore_box_lock);
+ 	list_del(&box->list);
+ 	raw_spin_unlock(&uncore_box_lock);
+@@ -2569,6 +2573,7 @@ static void uncore_pci_remove(struct pci_dev *pdev)
+ 
+ 	WARN_ON_ONCE(atomic_read(&box->refcnt) != 1);
+ 	kfree(box);
 +	put_online_cpus_atomic();
  }
  
- static void cvm_oct_no_more_work(void)
+ static int uncore_pci_probe(struct pci_dev *pdev,
