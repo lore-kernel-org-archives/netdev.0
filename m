@@ -1,30 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Minor vSockets fixes
-Date: Mon, 18 Feb 2013 15:03:08 -0500 (EST)
-Message-ID: <20130218.150308.1936873338532880021.davem@davemloft.net>
-References: <1361203453-1347-1-git-send-email-acking@vmware.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2013-02-18
+Date: Mon, 18 Feb 2013 15:03:54 -0500 (EST)
+Message-ID: <20130218.150354.2133157066560518829.davem@davemloft.net>
+References: <20130218195448.GC12505@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: acking@vmware.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1361203453-1347-1-git-send-email-acking@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130218195448.GC12505-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Andy King <acking@vmware.com>
-Date: Mon, 18 Feb 2013 08:04:09 -0800
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Mon, 18 Feb 2013 14:54:48 -0500
 
-> Minor vSockets fixes, two of which were reported on LKML.
+> Please let me know if there are problems!
 
-Series applied, thanks.
+I'll pull this and sans build problems will push it back out to
+net-next, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
