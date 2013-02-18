@@ -1,7 +1,7 @@
 From: Steven Rostedt <rostedt@goodmis.org>
 Subject: Re: [PATCH v5 00/45] CPU hotplug: stop_machine()-free CPU hotplug
-Date: Mon, 18 Feb 2013 14:53:15 -0500
-Message-ID: <1361217195.23152.170.camel@gandalf.local.home>
+Date: Mon, 18 Feb 2013 14:53:24 -0500
+Message-ID: <1361217204.23152.171.camel@gandalf.local.home>
 References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
 	 <510FBC01.2030405@linux.vnet.ibm.com> <87haloiwv0.fsf@rustcorp.com.au>
 	 <51134596.4080106@linux.vnet.ibm.com>
@@ -69,3 +69,5 @@ f(t) {
 
  <failed? bisect f(t1), if not bisect f(t2)>
 }
+
+-- Steve
