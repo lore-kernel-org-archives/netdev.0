@@ -1,28 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ip: fix warning in xfrm4_mode_tunnel_input
-Date: Mon, 18 Feb 2013 12:43:16 -0500 (EST)
-Message-ID: <20130218.124316.909314461716763522.davem@davemloft.net>
-References: <20130216093815.45e2d8b2@nehalam.linuxnetplumber.net>
-	<20130216094029.4d2fc993@nehalam.linuxnetplumber.net>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH] bonding: Fix initialize after use for 3ad machine state
+ spinlock
+Date: Mon, 18 Feb 2013 18:43:13 +0100
+Message-ID: <51226831.4030105@redhat.com>
+References: <1361191541-7654-1-git-send-email-nikolay@redhat.com> <20130218.120232.679284201789150959.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47653 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756550Ab3BRRnR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 12:43:17 -0500
-In-Reply-To: <20130216094029.4d2fc993@nehalam.linuxnetplumber.net>
+Received: from mx1.redhat.com ([209.132.183.28]:34238 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756339Ab3BRRne (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 18 Feb 2013 12:43:34 -0500
+In-Reply-To: <20130218.120232.679284201789150959.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Sat, 16 Feb 2013 09:40:29 -0800
-
-> Same problem as IPv6
+On 18/02/13 18:02, David Miller wrote:
 > 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> When submitting multiple changes to the same area in a group, you must
+> number your changes.
+> 
+> Using tools such as "git send-email ..." will do this automatically
+> for you, otherwise you must put numberings into your subject lines
+> by hand.
 
-Applied.
+Thanks for the advice, I must've accidentally removed the numbering
+while re-basing as I used git send-email.
+Should I post a v2 with numbering ?
+The actual order of applying these 2 doesn't matter as they touch
+different parts, and if applied in reverse will only spill an offset -1.
+
+Nik
