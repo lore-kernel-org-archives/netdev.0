@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bgmac: fix unaligned accesses to network headers
-Date: Mon, 18 Feb 2013 12:45:28 -0500 (EST)
-Message-ID: <20130218.124528.2278765194870444067.davem@davemloft.net>
-References: <1361049038-25924-1-git-send-email-hauke@hauke-m.de>
+Subject: Re: [PATCH 1/2] tg3: Remove define and single use of
+ GET_CHIP_REV_ID
+Date: Mon, 18 Feb 2013 12:46:17 -0500 (EST)
+Message-ID: <20130218.124617.418052148242224119.davem@davemloft.net>
+References: <dea1c655b2c1380821aae6cd8438ad742ddf6e12.1361049158.git.joe@perches.com>
+	<1361051064.2240.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	stephen@networkplumber.org
-To: hauke@hauke-m.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47682 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755831Ab3BRRpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 12:45:30 -0500
-In-Reply-To: <1361049038-25924-1-git-send-email-hauke@hauke-m.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: joe@perches.com, mcarlson@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mchan@broadcom.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1361051064.2240.2.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Sat, 16 Feb 2013 22:10:38 +0100
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Sat, 16 Feb 2013 13:44:24 -0800
 
-> Without this patch I get many unaligned access warnings per packet,
-> this patches fixes them all. This should improve performance on some
-> systems like mips.
+> On Sat, 2013-02-16 at 13:20 -0800, Joe Perches wrote:
+>> It's the same value as tp->pci_chip_rev_id so use that
+>> instead.  This makes all CHIPREV_ID_<foo> tests the same.
+>> 
+>> Signed-off-by: Joe Perches <joe@perches.com> 
 > 
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> Acked-by: Michael Chan <mchan@broadcom.com>
 
 Applied.
