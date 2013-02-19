@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen: netback: remove redundant xenvif_put
-Date: Tue, 19 Feb 2013 00:53:56 -0500 (EST)
-Message-ID: <20130219.005356.2288460992654639558.davem@davemloft.net>
-References: <1361219360-29176-1-git-send-email-drjones@redhat.com>
+Subject: Re: [PATCH] b44: use netdev_alloc_skb_ip_align()
+Date: Tue, 19 Feb 2013 00:54:02 -0500 (EST)
+Message-ID: <20130219.005402.396031952782939015.davem@davemloft.net>
+References: <1361220596-26478-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xensource.com, ian.campbell@citrix.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: drjones@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1361219360-29176-1-git-send-email-drjones@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: zambrano@broadcom.com, netdev@vger.kernel.org
+To: hauke@hauke-m.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54300 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756502Ab3BSFyD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 00:54:03 -0500
+In-Reply-To: <1361220596-26478-1-git-send-email-hauke@hauke-m.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Jones <drjones@redhat.com>
-Date: Mon, 18 Feb 2013 21:29:20 +0100
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Mon, 18 Feb 2013 21:49:56 +0100
 
-> netbk_fatal_tx_err() calls xenvif_carrier_off(), which does
-> a xenvif_put(). As callers of netbk_fatal_tx_err should only
-> have one reference to the vif at this time, then the xenvif_put
-> in netbk_fatal_tx_err is one too many.
+> Without this patch b44 always allocates the 2 bytes needed for aligned
+> access on every platform, now it uses netdev_alloc_skb_ip_align().
 > 
-> Signed-off-by: Andrew Jones <drjones@redhat.com>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
 Applied.
