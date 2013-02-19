@@ -1,75 +1,56 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: SYSFS "errors"
-Date: Tue, 19 Feb 2013 12:43:46 +0100
-Message-ID: <20130219114345.GA26623@pd.tnic>
-References: <20130218164638.7cb53baa@redhat.com>
- <20130218200542.GB20137@arwen.pp.htv.fi>
- <20130218184742.5a4c3c06@redhat.com>
- <20130218215434.GB16794@kroah.com>
- <20130218221306.GA21493@pd.tnic>
- <20130218222618.GA21818@kroah.com>
- <20130218224405.GB21493@pd.tnic>
- <20130219070310.2cadad7a@redhat.com>
- <20130219101121.GJ23197@arwen.pp.htv.fi>
- <20130219081149.46972f56@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 2/3] net: dev: fix build failed when procfs is disabled
+Date: Tue, 19 Feb 2013 20:02:51 +0800
+Message-ID: <512369EB.7090209@gmail.com>
+References: <1361270592-19492-1-git-send-email-gaofeng@cn.fujitsu.com> <1361270592-19492-2-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: balbi@ti.com, Greg KH <gregkh@linuxfoundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, JBottomley@parallels.com,
-	linux-scsi@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Doug Thompson <dougthompson@xmission.com>,
-	linux-edac@vger.kernel.org, rjw@sisk.pl, linux-pm@vger.kernel.org
-To: Mauro Carvalho Chehab <mchehab@redhat.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130219081149.46972f56@redhat.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:33613 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932659Ab3BSMC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 07:02:58 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so3371658pad.24
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 04:02:57 -0800 (PST)
+In-Reply-To: <1361270592-19492-2-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 19, 2013 at 08:11:49AM -0300, Mauro Carvalho Chehab wrote:
-> > > I remember I saw some discussions about it in the past at bluesmo=
-ke ML,
-> > > saying that -ENODEV is the expected behavior when this is not sup=
-ported.
-> > >=20
-> > > Changing from -ENODEV to "N/A" will break anything that would be =
-relying
-> > > on the previous behavior. So, I think that such change will for s=
-ure break
-> > > userspace.
-> > >=20
-> > > If we're willing to change it, not creating the "sdram_scrub_rate=
-" sysfs=20
-> > > node is less likely to affect userspace.
+On 02/19/2013 06:43 PM, Gao feng wrote:
+> commit 900ff8c6321418dafa03c22e215cb9646a2541b9
+> "net: move procfs code to net/core/net-procfs.c"
+> missed define dev_mcast_init when CONFIG_PROC
+> isn't configured.
+>
+> Cc: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> ---
+>   include/linux/netdevice.h | 2 ++
+>   1 file changed, 2 insertions(+)
+>
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f111b4f..91f6c7b 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -2693,8 +2693,10 @@ extern void		net_disable_timestamp(void);
+>
+>   #ifdef CONFIG_PROC_FS
+>   extern int __init dev_proc_init(void);
+> +extern void __init dev_mcast_init(void);
+>   #else
+>   #define dev_proc_init() 0
+> +#define dev_mcast_init() {}
+>   #endif
+>
+>   extern int netdev_class_create_file(struct class_attribute *class_attr);
+>
 
-This will break scripts which assume this file's presence implicitly.
+Thanks for catching this!
 
-[ =E2=80=A6 ]
+I forgot to test !CONFIG_PROC_FS case again after grabbing the mcast piece.
 
-> @@ -1017,6 +1010,14 @@ int edac_create_sysfs_mci_device(struct mem_ct=
-l_info *mci)
->  		return err;
->  	}
-> =20
-> +	if (mci->set_sdram_scrub_rate && mci->get_sdram_scrub_rate) {
-
-This will break cpc925_edac.c because it defines a
-->get_sdram_scrub_rate but not a ->set_sdram_scrub_rate.
-
-I think a maybe better fix would be to figure out the sysfs file
-permissions based on the presence of the two functions and *then* add
-the attribute.
-
-This way, the only visible change to userspace is the corrected sysfs
-file permissions.
-
---=20
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
+I have a better fix, which moves dev_mcast_init() to dev_proc_init(), 
+will post it right now.
