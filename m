@@ -1,74 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: PPPOE lockdep report  in dev_queue_xmit+0x8b8/0x900
-Date: Tue, 19 Feb 2013 10:42:03 -0800
-Message-ID: <1361299323.19353.156.camel@edumazet-glaptop>
-References: <1361209421.9147.12.camel@d2>
-	 <1361217052.19353.101.camel@edumazet-glaptop> <1361272221.2282.5.camel@d2>
+From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
+Subject: [PATCH 48/81] net: calxedaxgmac: throw away overrun frames
+Date: Tue, 19 Feb 2013 15:49:11 -0300
+Message-ID: <1361299784-8830-49-git-send-email-herton.krzesinski@canonical.com>
+References: <1361299784-8830-1-git-send-email-herton.krzesinski@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Yanko Kaneti <yaneti@declera.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f42.google.com ([209.85.210.42]:44474 "EHLO
-	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932823Ab3BSSmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:42:06 -0500
-Received: by mail-da0-f42.google.com with SMTP id z17so3088629dal.1
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 10:42:05 -0800 (PST)
-In-Reply-To: <1361272221.2282.5.camel@d2>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Rob Herring <rob.herring@calxeda.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	kernel-team@lists.ubuntu.com
+Return-path: <kernel-team-bounces@lists.ubuntu.com>
+In-Reply-To: <1361299784-8830-1-git-send-email-herton.krzesinski@canonical.com>
+List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
+	<mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
+List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
+List-Post: <mailto:kernel-team@lists.ubuntu.com>
+List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
+List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
+	<mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
+Sender: kernel-team-bounces@lists.ubuntu.com
+Errors-To: kernel-team-bounces@lists.ubuntu.com
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+3.5.7.6 -stable review patch.  If anyone has any objections, please let me know.
 
-On Tue, 2013-02-19 at 13:10 +0200, Yanko Kaneti wrote:
+------------------
 
-> 
-> It looks like it has done the job. I am running a kernel with the patch
-> and workload that otherwise inevitably triggers the splat and so far it
-> has been quiet.
-> 
+From: Rob Herring <rob.herring@calxeda.com>
 
-Thanks for testing.
+commit d6fb3be544b46a7611a3373fcaa62b5b0be01888 upstream.
 
-David, there was a typo in the changelog : team should be replaced by
-ppp.
+The xgmac driver assumes 1 frame per descriptor. If a frame larger than
+the descriptor's buffer size is received, the frame will spill over into
+the next descriptor. So check for received frames that span more than one
+descriptor and discard them. This prevents a crash if we receive erroneous
+large packets.
 
-[PATCH v2] ppp: set qdisc_tx_busylock to avoid LOCKDEP splat
-
-If a qdisc is installed on a ppp device, its possible to get
-a lockdep splat under stress, because nested dev_queue_xmit() can
-lock busylock a second time (on a different device, so its a false
-positive)
-
-Avoid this problem using a distinct lock_class_key for ppp
-devices.
-
-Reported-by: Yanko Kaneti <yaneti@declera.com>
-Tested-by: Yanko Kaneti <yaneti@declera.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Rob Herring <rob.herring@calxeda.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
 ---
- drivers/net/ppp/ppp_generic.c |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ drivers/net/ethernet/calxeda/xgmac.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 4fd754e..3db9131 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -1058,7 +1058,15 @@ ppp_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats64)
- 	return stats64;
- }
+diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+index 8b0a0e4..8a3cd87 100644
+--- a/drivers/net/ethernet/calxeda/xgmac.c
++++ b/drivers/net/ethernet/calxeda/xgmac.c
+@@ -546,6 +546,10 @@ static int desc_get_rx_status(struct xgmac_priv *priv, struct xgmac_dma_desc *p)
+ 		return -1;
+ 	}
  
-+static struct lock_class_key ppp_tx_busylock;
-+static int ppp_dev_init(struct net_device *dev)
-+{
-+	dev->qdisc_tx_busylock = &ppp_tx_busylock;
-+	return 0;
-+}
++	/* All frames should fit into a single buffer */
++	if (!(status & RXDESC_FIRST_SEG) || !(status & RXDESC_LAST_SEG))
++		return -1;
 +
- static const struct net_device_ops ppp_netdev_ops = {
-+	.ndo_init	 = ppp_dev_init,
- 	.ndo_start_xmit  = ppp_start_xmit,
- 	.ndo_do_ioctl    = ppp_net_ioctl,
- 	.ndo_get_stats64 = ppp_get_stats64,
+ 	/* Check if packet has checksum already */
+ 	if ((status & RXDESC_FRAME_TYPE) && (status & RXDESC_EXT_STATUS) &&
+ 		!(ext_status & RXDESC_IP_PAYLOAD_MASK))
+-- 
+1.7.9.5
