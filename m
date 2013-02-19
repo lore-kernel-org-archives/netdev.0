@@ -1,42 +1,91 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 1/1] net: rfkill: Fix sparse warning in rfkill-regulator.c
-Date: Tue, 19 Feb 2013 15:27:48 +0530
-Message-ID: <1361267868-2316-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, linville@tuxdriver.com,
-	johannes@sipsolutions.net, sachin.kamat@linaro.org
-To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f47.google.com ([209.85.210.47]:56132 "EHLO
-	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758669Ab3BSKIs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 05:08:48 -0500
-Received: by mail-da0-f47.google.com with SMTP id s35so2908221dak.6
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 02:08:48 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felipe Balbi <balbi@ti.com>
+Subject: Re: SYSFS "errors"
+Date: Tue, 19 Feb 2013 12:11:21 +0200
+Message-ID: <20130219101121.GJ23197@arwen.pp.htv.fi>
+References: <20130218174916.GA2070@kroah.com>
+ <20130218184633.GC10755@arwen.pp.htv.fi>
+ <20130218164638.7cb53baa@redhat.com>
+ <20130218200542.GB20137@arwen.pp.htv.fi>
+ <20130218184742.5a4c3c06@redhat.com>
+ <20130218215434.GB16794@kroah.com>
+ <20130218221306.GA21493@pd.tnic>
+ <20130218222618.GA21818@kroah.com>
+ <20130218224405.GB21493@pd.tnic>
+ <20130219070310.2cadad7a@redhat.com>
+Reply-To: <balbi@ti.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="PEkEgRdBLZYkpbX2"
+Cc: Borislav Petkov <bp@alien8.de>,
+	Greg KH <gregkh@linuxfoundation.org>, <balbi@ti.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, <JBottomley@parallels.com>,
+	<linux-scsi@vger.kernel.org>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>,
+	Doug Thompson <dougthompson@xmission.com>,
+	<linux-edac@vger.kernel.org>, <rjw@sisk.pl>,
+	<linux-pm@vger.kernel.org>
+To: Mauro Carvalho Chehab <mchehab@redhat.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130219070310.2cadad7a@redhat.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-'rfkill_regulator_ops' is used only in this file. Hence make it static.
-Silences the following warning:
-net/rfkill/rfkill-regulator.c:54:19: warning:
-symbol 'rfkill_regulator_ops' was not declared. Should it be static?
+--PEkEgRdBLZYkpbX2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
----
- net/rfkill/rfkill-regulator.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Hi,
 
-diff --git a/net/rfkill/rfkill-regulator.c b/net/rfkill/rfkill-regulator.c
-index 4b5ab21..d11ac79 100644
---- a/net/rfkill/rfkill-regulator.c
-+++ b/net/rfkill/rfkill-regulator.c
-@@ -51,7 +51,7 @@ static int rfkill_regulator_set_block(void *data, bool blocked)
- 	return 0;
- }
- 
--struct rfkill_ops rfkill_regulator_ops = {
-+static struct rfkill_ops rfkill_regulator_ops = {
- 	.set_block = rfkill_regulator_set_block,
- };
- 
--- 
-1.7.4.1
+On Tue, Feb 19, 2013 at 07:03:10AM -0300, Mauro Carvalho Chehab wrote:
+> > But my gut feeling says to stay concervative and not touch this code -
+> > we don't know what uses it and how much we would break by "fixing" it.
+> > The current situation is not that big of a deal IMVHO and I'd be willing
+> > to accept the small inconcistency versus possibly breaking userspace.
+>=20
+> I remember I saw some discussions about it in the past at bluesmoke ML,
+> saying that -ENODEV is the expected behavior when this is not supported.
+>=20
+> Changing from -ENODEV to "N/A" will break anything that would be relying
+> on the previous behavior. So, I think that such change will for sure break
+> userspace.
+>=20
+> If we're willing to change it, not creating the "sdram_scrub_rate" sysfs=
+=20
+> node is less likely to affect userspace.
+
+yeah, I agree with this. Guess we shouldn't be creating files which
+aren't supported by the underlying HW and having a read() return -ENODEV
+is quite weird IMO since that's actually 'breaking' read() interface
+although that's up to interpretations.
+
+--=20
+balbi
+
+--PEkEgRdBLZYkpbX2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRI0/JAAoJEIaOsuA1yqREB/4P/jd/dGVZSoGjV7FrsOEuG/O9
+FyWi0VRov4gOmyTomCL28e3qlKLOyPcnmgsMaj+5OVkIu0BqSrsh76zs9a67ONka
+GX/Wsq7uNo+GH2/5ECKO72QGQIbOFN4c9Lpb1NgYuZWX4dKESwLSOojxsxw4a4NZ
+mlBUtIUhXuuLVQnXX7GcQ/2fs0SOodYJXTBPzxMb/lMqeP3svIJRy+tUxV93VyZp
+ZiZyuYdY5qeflo8vtA5AZMOIqLrhcsG/4vLvioGxkX93p9uwG8fP+NlFlIkVyWgC
+THDidjApsB21hFXnoAEid4tWD+MD5iaJ76k2CAI0aM39AxiEkmJ38FiEKKppWPEj
+rf6o6VQeB55ppuPbIW1qoEj1MTYyx7kTGFmgqpur3kpbYpZJlFrulQOQblsGge8v
+MNNq0WInhW4RIaxz2kpjcnrou2q4DC7Aq4HkL0RdfEPC/d2uHomxX+2dzxSRAVfY
+A7o4t8X3vxydRyujwSQIqcdFTnL/C5I2+5ZdMA2fC0yhVbY/d/KqPhKrs7qNtABX
+x1iBGTRYALtF23dbxKQDg2HSv6lOH2+9Okkmh36ZDqePd6ftKZeX57u2YmojQXXv
+24d5NAXKD3iAz2fgNTszF6kkw62PpPhjXgcUZ3jW+DXFEECHw1jIAEDeFzvJIDn8
+DghQDgawKtAmpImLlpur
+=ZlSk
+-----END PGP SIGNATURE-----
+
+--PEkEgRdBLZYkpbX2--
