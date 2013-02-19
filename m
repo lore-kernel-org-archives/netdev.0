@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] NET/PHY: Eliminate the forced speed reduction
- algorithm.
-Date: Tue, 19 Feb 2013 13:19:14 -0500 (EST)
-Message-ID: <20130219.131914.578123633760866734.davem@davemloft.net>
-References: <1361267628.4919.6.camel@kkk.nita.ru>
+Subject: Re: [PATCH 3/3] net: ipv4: fix waring -Wunused-variable
+Date: Tue, 19 Feb 2013 13:19:33 -0500 (EST)
+Message-ID: <20130219.131933.489737861222137205.davem@davemloft.net>
+References: <1361270592-19492-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<1361270592-19492-3-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	romieu@fr.zoreil.com
-To: kapranoff@inbox.ru
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1361267628.4919.6.camel@kkk.nita.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: gaofeng@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34447 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932858Ab3BSSTe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:19:34 -0500
+In-Reply-To: <1361270592-19492-3-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kirill Kapranov <kapranoff@inbox.ru>
-Date: Tue, 19 Feb 2013 13:53:48 +0400
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Tue, 19 Feb 2013 18:43:12 +0800
 
-> Tested at 2.6.38.7, applicable up to for 3.0.4. 
-> Signed-off-by: Kirill Kapranov <kkk@nita.ru>,<kapranoff@inbox.ru>
->  --- linux/drivers/net/phy/phy.c.orig	2011-05-22 02:13:59.000000000 +0400
-> +++ linux/drivers/net/phy/phy.c	2012-04-28 12:49:37.000000000 +0400
+> the vars ip_rt_gc_timeout is used only when
+> CONFIG_SYSCTL is selected.
+> 
+> move these vars into CONFIG_SYSCTL.
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 
-Your patches are continually poorly formatted, and corrupted by
-your email client, which means that the patches cannot be applied
-properly and all of our automated tools for patch tracking do not
-recognize your submissions as a patch.
+Applied.
