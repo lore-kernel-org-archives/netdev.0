@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] b43: Increase number of RX DMA slots
-Date: Tue, 19 Feb 2013 13:15:53 -0500 (EST)
-Message-ID: <20130219.131553.787630407148880340.davem@davemloft.net>
-References: <20130219.005206.397289032011003833.davem@davemloft.net>
-	<AE90C24D6B3A694183C094C60CF0A2F6026B7152@saturn3.aculab.com>
-	<5123BCFF.5090408@lwfinger.net>
+Subject: Re: [PATCH] NET/PHY: Eliminate the forced speed reduction
+ algorithm.
+Date: Tue, 19 Feb 2013 13:19:14 -0500 (EST)
+Message-ID: <20130219.131914.578123633760866734.davem@davemloft.net>
+References: <1361267628.4919.6.camel@kkk.nita.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	bittorf@bluebottle.com, stable@vger.kernel.org
-To: Larry.Finger@lwfinger.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34367 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933300Ab3BSSPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:15:55 -0500
-In-Reply-To: <5123BCFF.5090408@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	romieu@fr.zoreil.com
+To: kapranoff@inbox.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1361267628.4919.6.camel@kkk.nita.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Date: Tue, 19 Feb 2013 11:57:19 -0600
+From: Kirill Kapranov <kapranoff@inbox.ru>
+Date: Tue, 19 Feb 2013 13:53:48 +0400
 
-> The real problem is that some (perhaps all) versions of the firmware,
-> which manages the 'in' pointer of the FIFO ring, appears to fail to
-> detect the ring full condition. That is the real cause of the freeze;
-> however, we do not have access to the firmware source. We don't even
-> have the right to redistribute it, which is why we have the
-> b43-fwcutter work around.
+> Tested at 2.6.38.7, applicable up to for 3.0.4. 
+> Signed-off-by: Kirill Kapranov <kkk@nita.ru>,<kapranoff@inbox.ru>
+>  --- linux/drivers/net/phy/phy.c.orig	2011-05-22 02:13:59.000000000 +0400
+> +++ linux/drivers/net/phy/phy.c	2012-04-28 12:49:37.000000000 +0400
 
-I understand your constraints, but this is a trivially remotely
-DoS'able condition even on slow CPU atom laptops.
-
-Send an "expansive" full sized frame followed by 300 or so 64-byte UDP
-packets --> instant hang.
+Your patches are continually poorly formatted, and corrupted by
+your email client, which means that the patches cannot be applied
+properly and all of our automated tools for patch tracking do not
+recognize your submissions as a patch.
