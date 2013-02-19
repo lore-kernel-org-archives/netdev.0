@@ -1,48 +1,79 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
- copies out
-Date: Tue, 19 Feb 2013 08:36:49 -0800
-Message-ID: <1361291809.19353.145.camel@edumazet-glaptop>
-References: <20120410051127.GA32048@merlins.org>
-	 <1334038263.2907.1.camel@edumazet-glaptop>
-	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
-	 <1342419529.3265.12217.camel@edumazet-glaptop>
-	 <20120716151826.GA10586@merlins.org>
-	 <1342455717.2830.14.camel@edumazet-glaptop>
-	 <20130219040557.GB4778@merlins.org>
-	 <1361251033.19353.120.camel@edumazet-glaptop>
-	 <1361268221.8553.1.camel@jlt4.sipsolutions.net>
-	 <20130219161830.GD21764@merlins.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v5 10/11] tbf: take into account gso skbs
+Date: Tue, 19 Feb 2013 17:46:26 +0100
+Message-ID: <20130219164626.GC1506@minipsycho.orion>
+References: <1360663929-1023-1-git-send-email-jiri@resnulli.us>
+ <1360663929-1023-11-git-send-email-jiri@resnulli.us>
+ <1360687182.6884.5.camel@edumazet-glaptop>
+ <20130217161803.GB1931@minipsycho.orion>
+ <1361123663.19353.94.camel@edumazet-glaptop>
+ <20130218095837.GA1566@minipsycho.orion>
+ <1361290502.19353.136.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>, Larry.Finger@lwfinger.net,
-	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Marc MERLIN <marc@merlins.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	jhs@mojatatu.com, kuznet@ms2.inr.ac.ru, j.vimal@gmail.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:41886 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758355Ab3BSQgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 11:36:54 -0500
-In-Reply-To: <20130219161830.GD21764@merlins.org>
+Received: from mail-ee0-f43.google.com ([74.125.83.43]:39896 "EHLO
+	mail-ee0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758462Ab3BSQqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 11:46:31 -0500
+Received: by mail-ee0-f43.google.com with SMTP id c50so3478865eek.30
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 08:46:30 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1361290502.19353.136.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-19 at 08:18 -0800, Marc MERLIN wrote:
+Tue, Feb 19, 2013 at 05:15:02PM CET, eric.dumazet@gmail.com wrote:
+>On Mon, 2013-02-18 at 10:58 +0100, Jiri Pirko wrote:
+>> Sun, Feb 17, 2013 at 06:54:23PM CET, eric.dumazet@gmail.com wrote:
+>> >On Sun, 2013-02-17 at 17:18 +0100, Jiri Pirko wrote:
+>> >
+>> >> I'm going through this issue back and front and on the second thought,
+>> >> I think this patch might not be so wrong after all.
+>> >> 
+>> >> "Accumulating" time in ptoks would effectively cause the skb to be sent
+>> >> only in case time for whole skb is available (accumulated).
+>> >> 
+>> >> The re-segmenting will only cause the skb fragments sent in each time frame.
+>> >> 
+>> >> I can't see how the bigger bursts you are reffering to can happen.
+>> >> 
+>> >> Or am I missing something?
+>> >
+>> >Token Bucket Filter doesnt allow to accumulate tokens above a given
+>> >threshold. Thats the whole point of the algo.
+>> >
+>> >After a one hour idle time, you don't want to allow your device sending
+>> >a burst exceeding the constraint.
+>> 
+>> You are right, therefore I said "not so wrong". Let me illustrate my
+>> thoughts. Here is a patch:
+>> 
+>> Subject: [patch net-next RFC] tbf: take into account gso skbs
+>> 
+>> Ignore max_size check for gso skbs. This check made bigger packets
+>> incorrectly dropped. Remove this limitation for gso skbs.
+>> 
+>> Also for peaks, accumulate time for big gso skbs.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>
+>I am sorry, we can not do this accumulation.
+>
+>If we are allowed to send 1k per second, we are not allowed to send 10k
+>after 10 seconds of idle.
+>
+>Either we are able to split the GSO packet, and respect the TBF
+>constraints, either we must drop it.
 
-> 
-> Forgive the newbie question: would the inability to get pages cause
-> interrupts to be disabled or at least something that would stop the mouse
-> cursor and the keyboard from working?
-> 
 
-Maybe these things also need order-1 pages to work ;)
+That's a shame. Would be easy this way, also applicable to act_police :/
 
-Any kmem_cache using order-1 or order-2 pages can not allocate new slabs
+About the gso_segment, do you see any cons doing that on enqueue path
+rather than dequeue?
 
-For example, TCP sockets can not be allocated anymore, and fork() might
-not work anymore (kernel stacks need order-1 pages)
-
-I dont remember your case, but do you use CONFIG_COMPACTION=y ?
+Thanks.
