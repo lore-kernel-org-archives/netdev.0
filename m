@@ -1,32 +1,75 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [RFC] ipv6: rt6_update_expires() seems racy
-Date: Tue, 19 Feb 2013 06:30:32 -0500
-Message-ID: <cmysjd5kttdebnlrt28jldw3.1361273432405@email.android.com>
+From: Borislav Petkov <bp@alien8.de>
+Subject: Re: SYSFS "errors"
+Date: Tue, 19 Feb 2013 12:43:46 +0100
+Message-ID: <20130219114345.GA26623@pd.tnic>
+References: <20130218164638.7cb53baa@redhat.com>
+ <20130218200542.GB20137@arwen.pp.htv.fi>
+ <20130218184742.5a4c3c06@redhat.com>
+ <20130218215434.GB16794@kroah.com>
+ <20130218221306.GA21493@pd.tnic>
+ <20130218222618.GA21818@kroah.com>
+ <20130218224405.GB21493@pd.tnic>
+ <20130219070310.2cadad7a@redhat.com>
+ <20130219101121.GJ23197@arwen.pp.htv.fi>
+ <20130219081149.46972f56@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>, Jiri Bohac <jbohac@suse.cz>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53558 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756613Ab3BSLau (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 06:30:50 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: balbi@ti.com, Greg KH <gregkh@linuxfoundation.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, JBottomley@parallels.com,
+	linux-scsi@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, Doug Thompson <dougthompson@xmission.com>,
+	linux-edac@vger.kernel.org, rjw@sisk.pl, linux-pm@vger.kernel.org
+To: Mauro Carvalho Chehab <mchehab@redhat.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130219081149.46972f56@redhat.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-VGhhbmsgeW91IEVyaWMhICBJJ2xsIGxvb2sgYXQgdGhpcyBpbiBkZXRhaWwgdG9kYXkKCk5laWwK
-CkVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6Cgo+U29tZSBzdHJh
-bmdlIGNyYXNoZXMgaGFwcGVuIGluIHJ0Nl9jaGVja19leHBpcmVkKCksIHdpdGggYWNjZXNzCj50
-byByYW5kb20gYWRkcmVzc2VzLgo+Cj5BdCBmaXJzdCBnbGFuY2UsIGl0IGxvb2tzIGxpa2UgdGhl
-IFJURl9FWFBJUkVTIGFuZAo+c3R1ZmYgYWRkZWQgaW4gY29tbWl0IDE3MTZhOTYxMDFjNDkxODZi
-Cj4oaXB2NjogZml4IHByb2JsZW0gd2l0aCBleHBpcmVkIGRzdCBjYWNoZSkKPmFyZSByYWN5IDog
-c2FtZSBkc3QgY291bGQgYmUgbWFuaXB1bGF0ZWQgYXQgdGhlIHNhbWUgdGltZQo+b24gZGlmZmVy
-ZW50IGNwdXMuCj4KPkF0IHNvbWUgcG9pbnQsIG91ciBzdGFjayBiZWxpZXZlcyBydC0+ZHN0LmZy
-b20gY29udGFpbnMgYSBkc3QgcG9pbnRlciwKPndoaWxlIGl0cyByZWFsbHkgYSBqaWZmaWUgdmFs
-dWUgKGFzIHJ0LT5kc3QuZXhwaXJlcyBzaGFyZXMgdGhlIHNhbWUgYXJlYQo+b2YgbWVtb3J5KQo+
-Cj5ydDZfdXBkYXRlX2V4cGlyZXMoKSBzaG91bGQgYmUgZml4ZWQsIG9yIGFtIEkgbWlzc2luZyBz
-b21ldGhpbmcgPwo+Cj5DQyBOZWlsIGJlY2F1c2Ugb2YgaHR0cHM6Ly9idWd6aWxsYS5yZWRoYXQu
-Y29tL3Nob3dfYnVnLmNnaT9pZD04OTIwNjAKPgo+Cj4KPgo=
+On Tue, Feb 19, 2013 at 08:11:49AM -0300, Mauro Carvalho Chehab wrote:
+> > > I remember I saw some discussions about it in the past at bluesmo=
+ke ML,
+> > > saying that -ENODEV is the expected behavior when this is not sup=
+ported.
+> > >=20
+> > > Changing from -ENODEV to "N/A" will break anything that would be =
+relying
+> > > on the previous behavior. So, I think that such change will for s=
+ure break
+> > > userspace.
+> > >=20
+> > > If we're willing to change it, not creating the "sdram_scrub_rate=
+" sysfs=20
+> > > node is less likely to affect userspace.
+
+This will break scripts which assume this file's presence implicitly.
+
+[ =E2=80=A6 ]
+
+> @@ -1017,6 +1010,14 @@ int edac_create_sysfs_mci_device(struct mem_ct=
+l_info *mci)
+>  		return err;
+>  	}
+> =20
+> +	if (mci->set_sdram_scrub_rate && mci->get_sdram_scrub_rate) {
+
+This will break cpc925_edac.c because it defines a
+->get_sdram_scrub_rate but not a ->set_sdram_scrub_rate.
+
+I think a maybe better fix would be to figure out the sysfs file
+permissions based on the presence of the two functions and *then* add
+the attribute.
+
+This way, the only visible change to userspace is the corrected sysfs
+file permissions.
+
+--=20
+Regards/Gruss,
+    Boris.
+
+Sent from a fat crate under my desk. Formatting is fine.
+--
