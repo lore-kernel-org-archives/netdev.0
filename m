@@ -1,94 +1,62 @@
-From: pravin <pravin.shelar@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
- capability to the tunnel device
-Date: Tue, 19 Feb 2013 14:51:18 -0800
-Message-ID: <CANvJab0mmuap_ygd0BWwVr9LbP0gDnZ3B4TqCv+aeM6f0sbWag@mail.gmail.com>
-References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
-	<1361217053-16984-2-git-send-email-dmitry@broadcom.com>
-	<CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
-	<504C9EFCA2D0054393414C9CB605C37F1C019A53@SJEXCHMB06.corp.ad.broadcom.com>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: [next:akpm 16/587]
+ drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to
+ '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON
+ failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN +
+ IGB_TS_HDR_LEN + ETH...
+Date: Tue, 19 Feb 2013 23:02:17 +0000
+Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264EE87950@ORSMSX102.amr.corp.intel.com>
+References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>
+ <20130219142708.b454d98a.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Santos <daniel.santos@pobox.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	"Wu, Fengguang" <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:48969 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933694Ab3BSWvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 17:51:19 -0500
-Received: by mail-wg0-f48.google.com with SMTP id 16so5832738wgi.3
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 14:51:18 -0800 (PST)
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1C019A53@SJEXCHMB06.corp.ad.broadcom.com>
+Received: from mga14.intel.com ([143.182.124.37]:57527 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933341Ab3BSXCT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 18:02:19 -0500
+In-Reply-To: <20130219142708.b454d98a.akpm@linux-foundation.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 19, 2013 at 11:31 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->> -----Original Message-----
->> From: pravin [mailto:pravin.shelar@gmail.com]
->> Sent: Tuesday, February 19, 2013 8:40 PM
->> To: Dmitry Kravkov
->> Cc: davem@davemloft.net; netdev@vger.kernel.org
->> Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
->> capability to the tunnel device
->>
->> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
->> wrote:
->> >
->> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
->> > ---
->> > Changes from v1: fixed email address
->> >
->> >
->> >  net/ipv4/ip_gre.c |   10 ++++++++--
->> >  1 files changed, 8 insertions(+), 2 deletions(-)
->> >
->> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
->> > index cdc31ac..31bc941 100644
->> > --- a/net/ipv4/ip_gre.c
->> > +++ b/net/ipv4/ip_gre.c
->> > @@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device
->> *dev)
->> >         tunnel->hlen = addend;
->> >         /* TCP offload with GRE SEQ is not supported. */
->> >         if (!(tunnel->parms.o_flags & GRE_SEQ)) {
->> > -               dev->features           |= NETIF_F_GSO_SOFTWARE;
->> > -               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
->> > +               /* device supports enc gso offload*/
->> > +               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
->> > +                       dev->features           |= NETIF_F_TSO;
->> > +                       dev->hw_features        |= NETIF_F_TSO;
->> > +               } else {
->> > +                       dev->features           |= NETIF_F_GSO_SOFTWARE;
->> > +                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
->> > +               }
->> >         }
->>
->> I am not sure about this change, Are you trying to limit GRE TSO to
->> just IPV4  in case of GRE offload in hardware?
->>
-> You're right,
-> It probably should be fixed to:
->         if (tdev && tdev->hw_enc_features & NETIF_F_GRE_GSO) {
->                 dev->features           |= tdev-> hw_enc_features & NETIF_F_GSO_MASK;
->                 dev->hw_features        |= tdev-> hw_enc_features & NETIF_F_GSO_MASK;
->
->> >
->> >         return mtu;
->> > --
->> > 1.7.7.2
->> >
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+> On Behalf Of Andrew Morton
+> Sent: Tuesday, February 19, 2013 2:27 PM
+> To: Wu, Fengguang
+> Cc: Daniel Santos; Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
+> netdev@vger.kernel.org
+> Subject: Re: [next:akpm 16/587]
+> drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to
+> '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON
+> failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD +
+> NET_IP_ALIGN + IGB_TS_HDR_LEN + ETH...
+> 
+[..]
 
-I think if device features are set right, dev_hard_start_xmit() should
-do right thing without any of these changes. i.e. it will GSO ipv6
-packets if hardware only supports GRE-ipv4 packets.
-This patch changes that at encapsulated dev layer and disables rest of
-GSO if one type of TSO available which is not optimal.
+> That BUILD_BUG_ON() triggers without Daniel's patches applied as well:
+> 
+[..]
+> I doubt if anyone will be running this driver on s390, but I guess we should work
+> out why it broke.
+> 
 
->> >
->> > --
->> > To unsubscribe from this list: send the line "unsubscribe netdev" in
->> > the body of a message to majordomo@vger.kernel.org
->> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
+Yes, we'll work on it.
+
+Thanks,
+
+Carolyn
+
+Carolyn Wyborny 
+Linux Development 
+Networking Division 
+Intel Corporation 
