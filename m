@@ -1,62 +1,85 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: [next:akpm 16/587]
- drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to
- '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON
- failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN +
- IGB_TS_HDR_LEN + ETH...
-Date: Tue, 19 Feb 2013 23:02:17 +0000
-Message-ID: <9BBC4E0CF881AA4299206E2E1412B6264EE87950@ORSMSX102.amr.corp.intel.com>
-References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>
- <20130219142708.b454d98a.akpm@linux-foundation.org>
+From: pravin <pravin.shelar@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
+ handle packets
+Date: Tue, 19 Feb 2013 15:03:45 -0800
+Message-ID: <CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
+References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
+	<CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
+	<504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Daniel Santos <daniel.santos@pobox.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Andrew Morton <akpm@linux-foundation.org>,
-	"Wu, Fengguang" <fengguang.wu@intel.com>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:57527 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933341Ab3BSXCT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 18:02:19 -0500
-In-Reply-To: <20130219142708.b454d98a.akpm@linux-foundation.org>
-Content-Language: en-US
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:41884 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932846Ab3BSXDq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 18:03:46 -0500
+Received: by mail-wg0-f49.google.com with SMTP id 15so6138401wgd.16
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 15:03:45 -0800 (PST)
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Andrew Morton
-> Sent: Tuesday, February 19, 2013 2:27 PM
-> To: Wu, Fengguang
-> Cc: Daniel Santos; Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W;
-> netdev@vger.kernel.org
-> Subject: Re: [next:akpm 16/587]
-> drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to
-> '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON
-> failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD +
-> NET_IP_ALIGN + IGB_TS_HDR_LEN + ETH...
-> 
-[..]
+On Tue, Feb 19, 2013 at 11:20 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+>
+>> -----Original Message-----
+>> From: pravin [mailto:pravin.shelar@gmail.com]
+>> Sent: Tuesday, February 19, 2013 8:28 PM
+>> To: Dmitry Kravkov
+>> Cc: davem@davemloft.net; netdev@vger.kernel.org
+>> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
+>> handle packets
+>>
+>> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
+>> wrote:
+>> > If device is not able to handle checksumming it will
+>> > be handled in dev_xmit
+>> >
+>> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+>> > ---
+>> > Changes from v1: fixed email address
+>> >
+>> >  net/ipv4/ip_gre.c |    7 ++-----
+>> >  1 files changed, 2 insertions(+), 5 deletions(-)
+>> >
+>> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+>> > index a56f118..cdc31ac 100644
+>> > --- a/net/ipv4/ip_gre.c
+>> > +++ b/net/ipv4/ip_gre.c
+>> > @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff
+>> *skb)
+>> >                         goto error;
+>> >                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+>> >                 return skb;
+>> > -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+>> > -               err = skb_checksum_help(skb);
+>> > -               if (unlikely(err))
+>> > -                       goto error;
+>> >         }
+>> > -       skb->ip_summed = CHECKSUM_NONE;
+>> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
+>> > +               skb->ip_summed = CHECKSUM_NONE;
+>> >
+>> >         return skb;
+>> >
+>> > --
+>> > 1.7.7.2
+>> >
+>> >
+>>
+>> This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
+>> complete IP packet to checksum entire GRE payload.
+>
+> Testing for o_flags&GRE_CSUM does not look too hurt here, since it will be used in ipgre_tunnel_xmit() later on
+> This is the only problematic case, right?
+>
 
-> That BUILD_BUG_ON() triggers without Daniel's patches applied as well:
-> 
-[..]
-> I doubt if anyone will be running this driver on s390, but I guess we should work
-> out why it broke.
-> 
-
-Yes, we'll work on it.
+It does not work for me. I have GRE device with csum on. Ping works
+fine but Netperf is not working.
+Looking at code, I am not sure how tcp will work if inner packet TCP
+checksum is calculated after GRE_CSUM calculation.
 
 Thanks,
-
-Carolyn
-
-Carolyn Wyborny 
-Linux Development 
-Networking Division 
-Intel Corporation 
+Pravin.
