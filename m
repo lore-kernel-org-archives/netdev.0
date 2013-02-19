@@ -1,52 +1,77 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [MacVLAN] failure to deliver reassembled IPv6 multicast traffic
-Date: Tue, 19 Feb 2013 14:22:42 -0800
-Message-ID: <5123FB32.7050101@candelatech.com>
-References: <20130215170028.GG12219@eerihug-hybrid.ki.sw.ericsson.se>   <511E8760.9070703@candelatech.com>  <1360955900.19353.22.camel@edumazet-glaptop>  <511E8C3D.5070603@candelatech.com> <1360956930.19353.24.camel@edumazet-glaptop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [next:akpm 16/587]
+ drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to
+ '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON
+ failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN +
+ IGB_TS_HDR_LEN + ETH_FRAME_LEN + ETH_FCS_LEN)
+Date: Tue, 19 Feb 2013 14:27:08 -0800
+Message-ID: <20130219142708.b454d98a.akpm@linux-foundation.org>
+References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	kaber@trash.net, ataschner@suse.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Daniel Santos <daniel.santos@pobox.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org
+To: kbuild test robot <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:37704 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934252Ab3BSWWz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 17:22:55 -0500
-In-Reply-To: <1360956930.19353.24.camel@edumazet-glaptop>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:58720 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933908Ab3BSW1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 17:27:10 -0500
+In-Reply-To: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/15/2013 11:35 AM, Eric Dumazet wrote:
-> On Fri, 2013-02-15 at 11:27 -0800, Ben Greear wrote:
->
->> For some reason I was thinking this wasn't fully fixed for IPv4, but
->> maybe it is..the bug in our internal tracker only mentions IPv6
->> as having issues...
->>
->> We'll do some testing on IPv4 sometime soon to make sure, and can test
->> IPv6 patches as well...
->
-> This worries me a bit, as I wrote this patch because you reported the
-> issue.
+On Mon, 18 Feb 2013 19:27:22 +0800
+kbuild test robot <fengguang.wu@intel.com> wrote:
 
-We just did some testing on this on the 3.7.6+ kernel.  IPv4 multicast to
-mac-vlans works OK with large packets if there is a single multicast receiver,
-but does NOT work if there are multiple multicast receivers (ie, several
-mac-vlans with an mcast receive bound to each mvlan).
+> tree:   git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git akpm
+> head:   ae9da2a24a80423b8dbda9c5a72674ce6e7861be
+> commit: f7d7e38e6df399b2af7f04c177054abdd744a077 [16/587] bug.h, compiler.h: Introduce compiletime_assert & BUILD_BUG_ON_MSG
+> config: make ARCH=s390 allmodconfig
+> 
+> All error/warnings:
+> 
+>    In function 'igb_build_rx_buffer',
+>        inlined from 'igb_clean_rx_irq' at drivers/net/ethernet/intel/igb/igb_main.c:6705:8:
+> >> drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HDR_LEN + ETH_FRAME_LEN + ETH_FCS_LEN)
+> 
+> vim +/__compiletime_assert_6235 +6231 drivers/net/ethernet/intel/igb/igb_main.c
+> 
+>   6225	#endif
+>   6226	
+>   6227		/* If we spanned a buffer we have a huge mess so test for it */
+>   6228		BUG_ON(unlikely(!igb_test_staterr(rx_desc, E1000_RXD_STAT_EOP)));
+>   6229	
+>   6230		/* Guarantee this function can be used by verifying buffer sizes */
+> > 6231		BUILD_BUG_ON(SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD +
+>   6232								NET_IP_ALIGN +
+>   6233								IGB_TS_HDR_LEN +
+>   6234								ETH_FRAME_LEN +
+> 
 
-Our setup also involves routing rules and send-to-self rules,
-with sender on the same machine, but I'm not sure that matters
-too much or not.
+That BUILD_BUG_ON() triggers without Daniel's patches applied as well:
 
-Multiple receivers work fine with smaller packets that do not
-need to be segmented.
+  CC [M]  drivers/net/ethernet/intel/igb/igb_main.o
+drivers/net/ethernet/intel/igb/igb_main.c: In function 'igb_build_rx_buffer':
+drivers/net/ethernet/intel/igb/igb_main.c:6231: error: size of array 'type name' is negative
 
-Thanks,
-Ben
+I suspect that driver is busted on s390.  Dunno why.  Here's what cpp emits:
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+s390 allmodconfig:
+
+bool __cond = !(!(((2048) - (((sizeof(struct skb_shared_info)) + (256 - 1)) & ~(256 - 1))) < (32 + 2 + 16 + 1514 + 4)));
+
+
+x86_64 allmodconfig:
+
+bool __cond = !(!(((2048) - (((sizeof(struct skb_shared_info)) + ((1 <<
+(6)) - 1)) & ~((1 << (6)) - 1))) < (({ typeof(32) _max1 = (32); typeof((1
+<< (6))) _max2 = ((1 << (6))); (void) (&_max1 == &_max2); _max1 > _max2 ? _max1 : _max2; }) + 0 + 16 + 1514 + 4)));
+
+
+I doubt if anyone will be running this driver on s390, but I guess we
+should work out why it broke.
