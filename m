@@ -1,123 +1,94 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH v2 2/5] usb: phy: omap-usb2: use the new generic PHY
- framework
-Date: Tue, 19 Feb 2013 10:11:57 +0200
-Message-ID: <20130219081157.GE23197@arwen.pp.htv.fi>
-References: <1361253198-7401-1-git-send-email-kishon@ti.com>
- <1361253198-7401-3-git-send-email-kishon@ti.com>
-Reply-To: <balbi@ti.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next 2/3] tipc: byte-based overload control on socket
+ receive queue
+Date: Tue, 19 Feb 2013 09:07:54 +0100
+Message-ID: <512332DA.5040508@ericsson.com>
+References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com> <1360969067-29956-3-git-send-email-paul.gortmaker@windriver.com> <20130218144757.GA26199@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="k3qmt+ucFURmlhDS"
-Cc: <rob@landley.net>, <tony@atomide.com>, <linux@arm.linux.org.uk>,
-	<eballetbo@gmail.com>, <javier@dowhile0.org>, <balbi@ti.com>,
-	<gregkh@linuxfoundation.org>, <akpm@linux-foundation.org>,
-	<mchehab@redhat.com>, <cesarb@cesarb.net>, <davem@davemloft.net>,
-	<arnd@arndb.de>, <santosh.shilimkar@ti.com>,
-	<broonie@opensource.wolfsonmicro.com>, <swarren@nvidia.com>,
-	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Kishon Vijay Abraham I <kishon@ti.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1361253198-7401-3-git-send-email-kishon@ti.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Ying Xue <ying.xue@windriver.com>
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from usevmg21.ericsson.net ([198.24.6.65]:56853 "EHLO
+	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932288Ab3BSIW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 03:22:58 -0500
+In-Reply-To: <20130218144757.GA26199@hmsreliant.think-freely.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---k3qmt+ucFURmlhDS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 02/18/2013 09:47 AM, Neil Horman wrote:
+> On Fri, Feb 15, 2013 at 05:57:46PM -0500, Paul Gortmaker wrote:
+>> From: Ying Xue <ying.xue@windriver.com>
+>>
+>> Change overload control to be purely byte-based, using
+>> sk->sk_rmem_alloc as byte counter, and compare it to a calculated
+>> upper limit for the socket receive queue.
 
-Hi,
+[...]
 
-On Tue, Feb 19, 2013 at 11:23:15AM +0530, Kishon Vijay Abraham I wrote:
-> Used the generic PHY framework API to create the PHY. omap_usb2_suspend
-> is split into omap_usb_suspend and omap_usb_resume in order to align
-> with the new framework.
->=20
-> However using the old USB PHY library cannot be completely removed
-> because OTG is intertwined with PHY and moving to the new framework
-> will break OTG. Once we have a separate OTG state machine, we
-> can get rid of the USB PHY library.
->=20
-> Signed-off-by: Kishon Vijay Abraham I <kishon@ti.com>
-> ---
->  drivers/usb/phy/omap-usb2.c  |   49 ++++++++++++++++++++++++++++++++++++=
-++++++
->  include/linux/usb/omap_usb.h |    3 +++
->  2 files changed, 52 insertions(+)
->=20
-> diff --git a/drivers/usb/phy/omap-usb2.c b/drivers/usb/phy/omap-usb2.c
-> index 844ab68..924ae59 100644
-> --- a/drivers/usb/phy/omap-usb2.c
-> +++ b/drivers/usb/phy/omap-usb2.c
-> @@ -119,9 +119,48 @@ static int omap_usb2_suspend(struct usb_phy *x, int =
-suspend)
->  	return 0;
->  }
-> =20
-> +static int omap_usb_suspend(struct phy_descriptor *desc)
-> +{
-> +	struct omap_usb *phy =3D desc_to_omapusb(desc);
-> +
-> +	if (!phy->is_suspended) {
+>> + *
+>> + * For all connectionless messages, by default new queue limits are
+>> + * as belows:
+>> + *
+>> + * TIPC_LOW_IMPORTANCE       (5MB)
+>> + * TIPC_MEDIUM_IMPORTANCE    (10MB)
+>> + * TIPC_HIGH_IMPORTANCE      (20MB)
+>> + * TIPC_CRITICAL_IMPORTANCE  (40MB)
+>> + *
+>> + * Returns overload limit according to corresponding message importance
+>> + */
+>> +static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
+>> +{
+>> +	struct tipc_msg *msg = buf_msg(buf);
+>> +	unsigned int limit;
+>> +
+>> +	if (msg_connected(msg))
+>> +		limit = CONN_OVERLOAD_LIMIT;
+> This still strikes me as a bit wierd.  If you really can't tolerate the default
+> rmem settings in proc, have you considered separating the rmem and wmem values
+> out into their own sysctls?  
 
-I wonder if it wouldn't be better to have some refcounting done by phy
-framework itself so that this only gets called when phy->refcount =3D=3D 0
+Initially we tried to set this value as default for sk_rcvbuf, and then use
+fractions of it as limits, as you suggest below. The problem we found was that
+if we want to change this via setsockopt(SOL_SOCKET, SO_RCVBUF) the value range
+we can use is very limited, and doesn't fit our purposes.
 
-> +		omap_control_usb_phy_power(phy->control_dev, 0);
+We did consider to introduce a separate setsockopt at TIPC level for this,
+but thought it had a value in itself to use the mechanism that is already there. 
+Hence the "re-interpretation" of sk_rcvbuf as we do below.
+Considering the weird doubling of this parameter that is done elsewhere in the
+code we thought that having our own interpretation might be acceptable.
+We did of course see the potential issue with this, that is why we cc-ed
+you for comments.
+Now I see that David already pulled the series, so I am a little uncertain 
+about how to proceed. 
+Any comments from David on this?
 
-coudln't you move this to ->runtime_suspend() ?
+///jon
 
-> +		pm_runtime_put_sync(phy->dev);
-> +		phy->is_suspended =3D 1;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static int omap_usb_resume(struct phy_descriptor *desc)
-> +{
-> +	u32 ret;
-> +	struct omap_usb *phy =3D desc_to_omapusb(desc);
-> +
-> +	if (phy->is_suspended) {
-> +		ret =3D pm_runtime_get_sync(phy->dev);
-> +		if (ret < 0) {
-> +			dev_err(phy->dev, "get_sync failed with err %d\n",
-> +									ret);
-> +			return ret;
-> +		}
-> +		omap_control_usb_phy_power(phy->control_dev, 1);
+Decnet is an example of a protocol that does this
+> IIRC.  If you did that, then you wouldn't be mysteriously violating the
+> sk_rcvbuf value that gets set on all new sockets (and you could make this
+> legitimately tunable).
+> 
+>> +	else
+>> +		limit = sk->sk_rcvbuf << (msg_importance(msg) + 5);
+> Same here.  You're using sk_rcvbuf as a base value, rather than a maximum value.
+> It seems to me, sk_rcvbuf should be the maximum backlog at which you will store
+> incomming messages.  You can discard lower importance messages at fractions of
+> sk_rcvbuf if you need to.  If you create separate rmem and wmem sysctls you can
+> still make the queue limits you document above work, and you won't violate the
+> receive buffer value set in the socket.
 
-likewise, this could go to ->runtime_resume().
-
---=20
-balbi
-
---k3qmt+ucFURmlhDS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRIzPNAAoJEIaOsuA1yqREg+0QAKsxwxMggFwI4PN9yXPQ1k+P
-NZYFxgp/BpS9KzE9jhinEzv/e7I0l2VR4hCplP7sYpAyBJPvjswtwDWg0ixhJ9QG
-vEU3sO6aWDekrlvt+K+wn6q21DaoxmpUL9+t/XrIqOHQvD0HvH04jUdt1Z//VWii
-MNn+SuTX8jKq+EKOI8/g/KAiPKIFciCy7G5h8ZjIBe4dRzKRssWdVu5n14Uzk8Hx
-APqQ3eKoacbYf5nOd1ZHYedBSOU6mbR/JNYSnAZnqTGr1LCDs3iUXFzjEbN275aF
-AeZOJ5hC7dPw8wvCTE5MMYfgWFa2eWiXnVwSK0ZXUWZyV3nl6pJyFUzp1BUi5oiN
-UwxW5X4KeD+TuSYduDZRLTy6e+DhBb609sowGl/2WsGE1FzzpNPjo6GtLLH6XDBO
-c5Y6xAZbqhTq4aMQbN+ihy7dQI24WOPMP7c2AwzFXjSNh0FZdYf0IpcUscZEZNCv
-pgCT47slflKuqIb6vO4hvHNhuv7csK2vrBfmpEYtsLqNW3xJR2Cf6BfJ3xVyp205
-srkte+mmNhVinMlSK3iGY/hLDcyFpPXUuKeGZomvuQGF6a4cmlnOZOUrvV9RR5kK
-2BsD0t59obU1LwyFRBxJ9Mll1Pfy28TtCGfXQ9WZU7mrRAfNPrFULsV7dhLRqeoQ
-xqBvomGY8RCmn7cpvA8C
-=LJfB
------END PGP SIGNATURE-----
-
---k3qmt+ucFURmlhDS--
+> 
+> You might also consider looking into adding support for memory accounting, so
+> that you can play a little more fast and loose with memory limits on an
+> individual socket when the system as a whole isn't under pressure (tcp and sctp
+> aer good examples of this).
+> 
+> Neil
+> 
