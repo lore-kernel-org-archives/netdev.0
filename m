@@ -1,42 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: proc: fix build failed when procfs is not
- configured
-Date: Tue, 19 Feb 2013 13:19:26 -0500 (EST)
-Message-ID: <20130219.131926.781333335958742182.davem@davemloft.net>
-References: <1361270592-19492-1-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: Re: [Patch] net: fix a build failure when !CONFIG_PROC_FS
+Date: Tue, 19 Feb 2013 13:19:46 -0500 (EST)
+Message-ID: <20130219.131946.567072598115741930.davem@davemloft.net>
+References: <1361278025-22864-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, gaofeng@cn.fujitsu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34444 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34458 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932858Ab3BSST1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:19:27 -0500
-In-Reply-To: <1361270592-19492-1-git-send-email-gaofeng@cn.fujitsu.com>
+	with ESMTP id S933365Ab3BSSTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:19:48 -0500
+In-Reply-To: <1361278025-22864-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Tue, 19 Feb 2013 18:43:10 +0800
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Tue, 19 Feb 2013 20:47:05 +0800
 
-> commit d4beaa66add8aebf83ab16d2fde4e4de8dac36df
-> "net: proc: change proc_net_fops_create to proc_create"
-> uses proc_create to replace proc_net_fops_create, when
-> CONFIG_PROC isn't configured, some build error will
-> occurs.
+> From: Cong Wang <xiyou.wangcong@gmail.com>
 > 
-> net/packet/af_packet.c: In function 'packet_net_init':
-> net/packet/af_packet.c:3831:48: error: 'packet_seq_fops' undeclared (first use in this function)
-> net/packet/af_packet.c:3831:48: note: each undeclared identifier is reported only once for each function it appears in
+> When !CONFIG_PROC_FS dev_mcast_init() is not defined,
+> actually we can just merge dev_mcast_init() into
+> dev_proc_init().
 > 
-> There may be other build fails like above,this patch
-> change proc_create from function to macros when CONFIG_PROC
-> is not configured,just like what proc_net_fops_create did
-> before this commit.
-> 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Reported-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: Gao feng <gaofeng@cn.fujitsu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-Applied.
+I definitely prefer this version of this fix, applied, thanks.
