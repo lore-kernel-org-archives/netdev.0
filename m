@@ -1,54 +1,41 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: Upcoming cross-tree build breakage on merge window
-Date: Tue, 19 Feb 2013 21:45:15 +0100
-Message-ID: <5123E45B.8060203@phrozen.org>
-References: <CACna6ryD3SjLN-oauvVuRa+q7an8DaULj+Uj4bwFSzQf2WCvMw@mail.gmail.com> <CACna6rwYZWsGhb8ksko+XGvod=hVyVHu2QrCfEisTG=YAEfBRQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC PATCH] ipv6: Split from and expires field in dst_entry out
+ of union [net-next]
+Date: Tue, 19 Feb 2013 13:17:45 -0800
+Message-ID: <1361308665.19353.161.camel@edumazet-glaptop>
+References: <1361231718.19353.117.camel@edumazet-glaptop>
+	 <1361305694-8303-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ralf@linux-mips.org, "David S. Miller" <davem@davemloft.net>,
-	linux-mips@linux-mips.org,
-	Network Development <netdev@vger.kernel.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Gao feng <gaofeng@cn.fujitsu.com>, Jiri Bohac <jbohac@suse.cz>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbd.name ([46.4.11.11]:40468 "EHLO nbd.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934157Ab3BSUuL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2013 15:50:11 -0500
-In-Reply-To: <CACna6rwYZWsGhb8ksko+XGvod=hVyVHu2QrCfEisTG=YAEfBRQ@mail.gmail.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:48759 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758582Ab3BSVRt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 16:17:49 -0500
+Received: by mail-pa0-f43.google.com with SMTP id bh2so3662008pad.16
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 13:17:49 -0800 (PST)
+In-Reply-To: <1361305694-8303-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/02/13 20:44, Rafa=C5=82 Mi=C5=82ecki wrote:
-> 2013/1/23 Rafa=C5=82 Mi=C5=82ecki<zajec5@gmail.com>:
->> I've noticed possible build breakage when two trees get merged:
->> net-next and linux-john (MIPS).
->>
->> This is about two following commits:
->> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3Dc=
-ommit;h=3Ddd4544f05469aaaeee891d7dc54d66430344321e
->> http://git.linux-mips.org/?p=3Djohn/linux-john.git;a=3Dcommit;h=3Da0=
-08ca117bc85a9d66c47cd5ab18a6c332411919
->>
->> The first one adds "bgmac" driver which uses asm/mach-bcm47xx/nvram.=
-h
->> and nvram_getenv. The second one renames them.
->>
->> Can you handle this in some clever way during merge window, please?
->>
->> The fix is trivial:
->> 1) Use<bcm47xx_nvram.h>
->> 2) Use bcm47xx_nvram_getenv
->
-> Just a reminder.
->
+On Tue, 2013-02-19 at 15:28 -0500, Neil Horman wrote:
 
+>  static inline void rt6_update_expires(struct rt6_info *rt, int timeout)
+>  {
+>  	if (!(rt->rt6i_flags & RTF_EXPIRES)) {
+> -		if (rt->dst.from)
+> -			dst_release(rt->dst.from);
+> +		dst_release(rt->dst.from);
+>  		/* dst_set_expires relies on expires == 0 
+>  		 * if it has not been set previously.
+>  		 */
+>  		rt->dst.expires = 0;
+> +		rt6->dst.from = NULL;
+>  	}
+>  
 
-Hi,
-
-Ralf told me he will pull the fix into his upstream-sfr.git today so=20
-that the upcoming linux-next should not build break due to this patch
-
-	John
+Sorry you didnt really address the problem, only reduce the race window.
