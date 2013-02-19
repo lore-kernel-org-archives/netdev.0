@@ -1,70 +1,65 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v5 29/45] x86/xen: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Tue, 19 Feb 2013 23:59:22 +0530
-Message-ID: <5123C482.5070704@linux.vnet.ibm.com>
-References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com> <20130122074046.13822.61950.stgit@srivatsabhat.in.ibm.com> <20130219181038.GB18244@phenom.dumpdata.com>
+From: pravin <pravin.shelar@gmail.com>
+Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
+ capability to the tunnel device
+Date: Tue, 19 Feb 2013 10:39:44 -0800
+Message-ID: <CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
+References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
+	<1361217053-16984-2-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Konrad Rzeszutek Wilk <konrad@kernel.org>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130219181038.GB18244@phenom.dumpdata.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Dmitry Kravkov <dmitry@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:37820 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932823Ab3BSSjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:39:53 -0500
+Received: by mail-wg0-f48.google.com with SMTP id 16so5651173wgi.3
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 10:39:52 -0800 (PST)
+In-Reply-To: <1361217053-16984-2-git-send-email-dmitry@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/19/2013 11:40 PM, Konrad Rzeszutek Wilk wrote:
-> On Tue, Jan 22, 2013 at 01:10:51PM +0530, Srivatsa S. Bhat wrote:
->> Once stop_machine() is gone from the CPU offline path, we won't be able to
->> depend on preempt_disable() or local_irq_disable() to prevent CPUs from
->> going offline from under us.
->>
->> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
->> while invoking from atomic context.
->>
->> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> 
-> Weird. I see this in the patch but I don't see it in the header?
-
-Meaning, you didn't get this email at all?
-
-> Did you
-> explicitly suppress the CC part?
-> 
-
-No.. I sent the entire patchset to a set of email ids and in addition to
-that I CC'ed individual patches to the respective maintainers/lists (the
-CC: list in the changelog). I used the --auto knob from stgit to do that.
-
-> 
-> Anyhow, the patch looks sane enough, thought I need to to run it through
-> a test framework just to be on a sure side.
+On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
 >
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> ---
+> Changes from v1: fixed email address
+>
+>
+>  net/ipv4/ip_gre.c |   10 ++++++++--
+>  1 files changed, 8 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index cdc31ac..31bc941 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
+>         tunnel->hlen = addend;
+>         /* TCP offload with GRE SEQ is not supported. */
+>         if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+> -               dev->features           |= NETIF_F_GSO_SOFTWARE;
+> -               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
+> +               /* device supports enc gso offload*/
+> +               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
+> +                       dev->features           |= NETIF_F_TSO;
+> +                       dev->hw_features        |= NETIF_F_TSO;
+> +               } else {
+> +                       dev->features           |= NETIF_F_GSO_SOFTWARE;
+> +                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
+> +               }
+>         }
 
-Sure, thank you. But you might want to test the v6 that I sent out
-yesterday instead of v5. Oh, wait a min, you didn't get the v6 mail also?
+I am not sure about this change, Are you trying to limit GRE TSO to
+just IPV4  in case of GRE offload in hardware?
 
-Here it is, for your reference:
-http://marc.info/?l=linux-kernel&m=136119260122255&w=2
-
-Regards,
-Srivatsa S. Bhat
-
->> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
->> Cc: "H. Peter Anvin" <hpa@zytor.com>
->> Cc: x86@kernel.org
->> Cc: xen-devel@lists.xensource.com
->> Cc: virtualization@lists.linux-foundation.org
->> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
->> ---
-
+>
+>         return mtu;
+> --
+> 1.7.7.2
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
