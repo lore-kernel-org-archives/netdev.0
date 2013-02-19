@@ -1,39 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: PPPOE lockdep report in dev_queue_xmit+0x8b8/0x900
-Date: Tue, 19 Feb 2013 14:34:25 -0500 (EST)
-Message-ID: <20130219.143425.2168723550194243266.davem@davemloft.net>
-References: <1361217052.19353.101.camel@edumazet-glaptop>
-	<1361272221.2282.5.camel@d2>
-	<1361299323.19353.156.camel@edumazet-glaptop>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: Upcoming cross-tree build breakage on merge window
+Date: Tue, 19 Feb 2013 20:44:07 +0100
+Message-ID: <CACna6rwYZWsGhb8ksko+XGvod=hVyVHu2QrCfEisTG=YAEfBRQ@mail.gmail.com>
+References: <CACna6ryD3SjLN-oauvVuRa+q7an8DaULj+Uj4bwFSzQf2WCvMw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yaneti@declera.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-mips@linux-mips.org,
+	Network Development <netdev@vger.kernel.org>,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: john@phrozen.org, ralf@linux-mips.org,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35630 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933179Ab3BSTe0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 14:34:26 -0500
-In-Reply-To: <1361299323.19353.156.camel@edumazet-glaptop>
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:53010 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933048Ab3BSToH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 14:44:07 -0500
+Received: by mail-ob0-f171.google.com with SMTP id x4so6966684obh.2
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 11:44:07 -0800 (PST)
+In-Reply-To: <CACna6ryD3SjLN-oauvVuRa+q7an8DaULj+Uj4bwFSzQf2WCvMw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 19 Feb 2013 10:42:03 -0800
+2013/1/23 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
+> I've noticed possible build breakage when two trees get merged:
+> net-next and linux-john (MIPS).
+>
+> This is about two following commits:
+> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3Dco=
+mmit;h=3Ddd4544f05469aaaeee891d7dc54d66430344321e
+> http://git.linux-mips.org/?p=3Djohn/linux-john.git;a=3Dcommit;h=3Da00=
+8ca117bc85a9d66c47cd5ab18a6c332411919
+>
+> The first one adds "bgmac" driver which uses asm/mach-bcm47xx/nvram.h
+> and nvram_getenv. The second one renames them.
+>
+> Can you handle this in some clever way during merge window, please?
+>
+> The fix is trivial:
+> 1) Use <bcm47xx_nvram.h>
+> 2) Use bcm47xx_nvram_getenv
 
-> [PATCH v2] ppp: set qdisc_tx_busylock to avoid LOCKDEP splat
-> 
-> If a qdisc is installed on a ppp device, its possible to get
-> a lockdep splat under stress, because nested dev_queue_xmit() can
-> lock busylock a second time (on a different device, so its a false
-> positive)
-> 
-> Avoid this problem using a distinct lock_class_key for ppp
-> devices.
-> 
-> Reported-by: Yanko Kaneti <yaneti@declera.com>
-> Tested-by: Yanko Kaneti <yaneti@declera.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+Just a reminder.
 
-Applied and queued up for -stable, thanks Eric.
+--=20
+Rafa=C5=82
