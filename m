@@ -1,36 +1,100 @@
-From: Alan Ott <alan@signal11.us>
-Subject: Re: [Linux-zigbee-devel] [PATCH] wpan: use GFP_ATOMIC instead of
- GFP_KERNEL
-Date: Tue, 19 Feb 2013 15:31:58 -0800
-Message-ID: <51240B6E.5000501@signal11.us>
-References: <1360078474-24362-1-git-send-email-alex.aring@gmail.com>
+From: Zhang Yanfei <zhangyanfei.yes@gmail.com>
+Subject: [PATCH] IPVS: change type of netns_ipvs->sysctl_sync_qlen_max
+Date: Wed, 20 Feb 2013 07:53:37 +0800
+Message-ID: <51241081.20006@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: alex.bluesman.smirnov@gmail.com, netdev@vger.kernel.org,
-	davem@davemloft.net, linux-zigbee-devel@lists.sourceforge.net
-To: Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:55411 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933654Ab3BSXcA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 18:32:00 -0500
-In-Reply-To: <1360078474-24362-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux MM <linux-mm@kvack.org>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, zhangyanfei@cn.fujitsu.com
+To: akpm@linux-foundation.org, horms@verge.net.au, ja@ssi.bg,
+ davem@davemloft.net
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 02/05/2013 07:34 AM, Alexander Aring wrote:
-> I got this message at runtime:
->
-> [   48.847347] BUG: scheduling while atomic: swapper/0/0/0x40000100
+From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
 
-Hi Alexander,
+This member of struct netns_ipvs is calculated from nr_free_buffer_pages
+so change its type to unsigned long in case of overflow. Also, type of
+its related proc var sync_qlen_max and the return type of function
+sysctl_sync_qlen_max() should be changed to unsigned long, too.
 
-Please check out the patch set here:
+Besides, the type of ipvs_master_sync_state->sync_queue_len should be
+changed to unsigned long accordingly.
 
-      https://github.com/beagleboard/kernel/tree/3.8/patches/6lowpan
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Simon Horman <horms@verge.net.au>
+Cc: Julian Anastasov <ja@ssi.bg>
+Cc: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+---
+ include/net/ip_vs.h            |    8 ++++----
+ net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-This is Tony's patch set which is not merged yet and might save you some 
-time. Tony is hoping to get much of it merged this cycle.
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 68c69d5..108ebe8 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -874,7 +874,7 @@ struct ip_vs_app {
+ struct ipvs_master_sync_state {
+ 	struct list_head	sync_queue;
+ 	struct ip_vs_sync_buff	*sync_buff;
+-	int			sync_queue_len;
++	unsigned long		sync_queue_len;
+ 	unsigned int		sync_queue_delay;
+ 	struct task_struct	*master_thread;
+ 	struct delayed_work	master_wakeup_work;
+@@ -966,7 +966,7 @@ struct netns_ipvs {
+ 	int			sysctl_snat_reroute;
+ 	int			sysctl_sync_ver;
+ 	int			sysctl_sync_ports;
+-	int			sysctl_sync_qlen_max;
++	unsigned long		sysctl_sync_qlen_max;
+ 	int			sysctl_sync_sock_size;
+ 	int			sysctl_cache_bypass;
+ 	int			sysctl_expire_nodest_conn;
+@@ -1052,7 +1052,7 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
+ 	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
+ }
+ 
+-static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
++static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+ {
+ 	return ipvs->sysctl_sync_qlen_max;
+ }
+@@ -1099,7 +1099,7 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
+ 	return 1;
+ }
+ 
+-static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
++static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+ {
+ 	return IPVS_SYNC_QLEN_MAX;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index ec664cb..d79a530 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1747,9 +1747,9 @@ static struct ctl_table vs_vars[] = {
+ 	},
+ 	{
+ 		.procname	= "sync_qlen_max",
+-		.maxlen		= sizeof(int),
++		.maxlen		= sizeof(unsigned long),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_doulongvec_minmax,
+ 	},
+ 	{
+ 		.procname	= "sync_sock_size",
+-- 
+1.7.1
 
-Alan.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
