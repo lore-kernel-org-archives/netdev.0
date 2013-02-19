@@ -1,47 +1,54 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v6 08/46] CPU hotplug: Provide APIs to prevent CPU offline from atomic context
-Date: Tue, 19 Feb 2013 10:42:53 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7154@saturn3.aculab.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123920.26245.56709.stgit@srivatsabhat.in.ibm.com> <CANN689HhVxDv+3Bn9UAxOMzj0egTvVp_c7oAmQ2nnQ8Xjn_aMA@mail.gmail.com> <51225A36.40600@linux.vnet.ibm.com> <CANN689FJPLfz06MFRJ9T+BuToejAzjYP_yrw_H4iGi1Kb3p2-g@mail.gmail.com> <51227810.6090009@linux.vnet.ibm.com> <CANN689E-98zK69pGeojbm30n3sswQYVBvhk3i3OzqvbeqSrSrg@mail.gmail.com> <51234C23.2030909@linux.vnet.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2 0/5] Generic PHY Framework
+Date: Tue, 19 Feb 2013 10:44:28 +0000
+Message-ID: <201302191044.28653.arnd@arndb.de>
+References: <1361253198-7401-1-git-send-email-kishon@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <tglx@linutronix.de>, <peterz@infradead.org>, <tj@kernel.org>,
-	<oleg@redhat.com>, <paulmck@linux.vnet.ibm.com>,
-	<rusty@rustcorp.com.au>, <mingo@kernel.org>,
-	<akpm@linux-foundation.org>, <namhyung@kernel.org>,
-	<rostedt@goodmis.org>, <wangyun@linux.vnet.ibm.com>,
-	<xiaoguangrong@linux.vnet.ibm.com>, <rjw@sisk.pl>, <sbw@mit.edu>,
-	<fweisbec@gmail.com>, <linux@arm.linux.org.uk>,
-	<nikunj@linux.vnet.ibm.com>, <linux-pm@vger.kernel.org>,
-	<linux-arch@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
-	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<vincent.guittot@linaro.org>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	"Michel Lespinasse" <walken@google.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <51234C23.2030909@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: rob@landley.net, tony@atomide.com, linux@arm.linux.org.uk,
+	eballetbo@gmail.com, javier@dowhile0.org, balbi@ti.com,
+	gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mchehab@redhat.com, cesarb@cesarb.net, davem@davemloft.net,
+	santosh.shilimkar@ti.com, broonie@opensource.wolfsonmicro.com,
+	swarren@nvidia.com, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Kishon Vijay Abraham I <kishon@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1361253198-7401-1-git-send-email-kishon@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> I wouldn't go that far... ;-) Unfairness is not a show-stopper right?
-> IMHO, the warning/documentation should suffice for anybody wanting to
-> try out this locking scheme for other use-cases.
+On Tuesday 19 February 2013, Kishon Vijay Abraham I wrote:
+> Added a generic PHY framework that provides a set of APIs for the PHY drivers
+> to create/destroy a PHY and APIs for the PHY users to obtain a reference to
+> the PHY with or without using phandle. To obtain a reference to the PHY
+> without using phandle, the platform specfic intialization code (say from board
+> file) should have already called phy_bind with the binding information. The
+> binding information consists of phy's device name, phy user device name and an
+> index. The index is used when the same phy user binds to mulitple phys.
+> 
+> This framework will be of use only to devices that uses external PHY (PHY
+> functionality is not embedded within the controller).
+> 
+> The intention of creating this framework is to bring the phy drivers spread
+> all over the Linux kernel to drivers/phy to increase code re-use and to
+> increase code maintainability.
+> 
+> Comments to make PHY as bus wasn't done because PHY devices can be part of
+> other bus and making a same device attached to multiple bus leads to bad
+> design.
 
-I presume that by 'fairness' you mean 'write preference'?
+How does this relate to the generic PHY interfaces in drivers/net/phy?
 
-I'd not sure how difficult it would be, but maybe have two functions
-for acquiring the lock for read, one blocks if there is a writer
-waiting, the other doesn't.
+Do you expect that to get merged into drivers/phy in the long run, or
+do you want to keep the generic phy only for everything but ethernet?
 
-That way you can change the individual call sites separately.
+I think it would be problematic to have two alternative interfaces for
+ethernet PHYs because then an ethernet driver still needs to decide
+which subsystem to interface with.
 
-The other place I can imagine a per-cpu rwlock being used
-is to allow a driver to disable 'sleep' or software controlled
-hardware removal while it performs a sequence of operations.
-
-	David
+	Arnd
