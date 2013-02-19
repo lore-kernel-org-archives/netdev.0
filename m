@@ -1,85 +1,72 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v6 08/46] CPU hotplug: Provide APIs to prevent CPU offline
- from atomic context
-Date: Tue, 19 Feb 2013 15:25:47 +0530
-Message-ID: <51234C23.2030909@linux.vnet.ibm.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123920.26245.56709.stgit@srivatsabhat.in.ibm.com> <CANN689HhVxDv+3Bn9UAxOMzj0egTvVp_c7oAmQ2nnQ8Xjn_aMA@mail.gmail.com> <51225A36.40600@linux.vnet.ibm.com> <CANN689FJPLfz06MFRJ9T+BuToejAzjYP_yrw_H4iGi1Kb3p2-g@mail.gmail.com> <51227810.6090009@linux.vnet.ibm.com> <CANN689E-98zK69pGeojbm30n3sswQYVBvhk3i3OzqvbeqSrSrg@mail.gmail.com>
+From: Mauro Carvalho Chehab <mchehab@redhat.com>
+Subject: Re: SYSFS "errors"
+Date: Tue, 19 Feb 2013 07:03:10 -0300
+Message-ID: <20130219070310.2cadad7a@redhat.com>
+References: <20130218171334.GA31329@kroah.com>
+	<20130218172700.GH2663@arwen.pp.htv.fi>
+	<20130218174916.GA2070@kroah.com>
+	<20130218184633.GC10755@arwen.pp.htv.fi>
+	<20130218164638.7cb53baa@redhat.com>
+	<20130218200542.GB20137@arwen.pp.htv.fi>
+	<20130218184742.5a4c3c06@redhat.com>
+	<20130218215434.GB16794@kroah.com>
+	<20130218221306.GA21493@pd.tnic>
+	<20130218222618.GA21818@kroah.com>
+	<20130218224405.GB21493@pd.tnic>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
-	fweisbec@gmail.com, linux@arm.linux.org.uk,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
-	vincent.guittot@linaro.org
-To: Michel Lespinasse <walken@google.com>
+Cc: Greg KH <gregkh@linuxfoundation.org>, balbi@ti.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Frederic Weisbecker <fweisbec@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, JBottomley@parallels.com,
+	linux-scsi@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, Doug Thompson <dougthompson@xmission.com>,
+	linux-edac@vger.kernel.org, rjw@sisk.pl, linux-pm@vger.kernel.org
+To: Borislav Petkov <bp@alien8.de>
 Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <CANN689E-98zK69pGeojbm30n3sswQYVBvhk3i3OzqvbeqSrSrg@mail.gmail.com>
+In-Reply-To: <20130218224405.GB21493@pd.tnic>
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/19/2013 03:10 PM, Michel Lespinasse wrote:
-> On Tue, Feb 19, 2013 at 2:50 AM, Srivatsa S. Bhat
-> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
->> But, the whole intention behind removing the parts depending on the
->> recursive property of rwlocks would be to make it easier to make rwlocks
->> fair (going forward) right? Then, that won't work for CPU hotplug, because,
->> just like we have a legitimate reason to have recursive
->> get_online_cpus_atomic(), we also have a legitimate reason to have
->> unfairness in locking (i.e., for deadlock-safety). So we simply can't
->> afford to make the locking fair - we'll end up in too many deadlock
->> possibilities, as hinted in the changelog of patch 1.
+Em Mon, 18 Feb 2013 23:44:05 +0100
+Borislav Petkov <bp@alien8.de> escreveu:
+
+> On Mon, Feb 18, 2013 at 02:26:18PM -0800, Greg KH wrote:
+> > I don't know, it depends on if userspace can handle this properly or
+> > not. What tools rely on this sysfs file? WHat happens when they get a
+> > non-number in the file?
+
+The thing with "sdram_scrub_rate" is that this is not supported by any
+userspace application I know. I suspect that this is used by userspace
+scripts. So, we'll never know in advance what behavior those scripts would
+expect.
+
 > 
-> Grumpf - I hadn't realized that making the underlying rwlock fair
-> would break your hotplug use case. But you are right, it would. Oh
-> well :/
+> I'm not aware of any, frankly speaking.
 > 
-
-Yeah :-/
-
->> So the only long-term solution I can think of is to decouple
->> percpu-rwlocks and rwlock_t (like what Tejun suggested) by implementing
->> our own unfair locking scheme inside. What do you think?
+> If there are any, those tools should be able to handle the -ENODEV
+> they get. Now, if this gets changed this way, the read would succeed
+> but they'll have to parse the returned value and see that it is not an
+> integer.
 > 
-> I have no idea how hard would it be to change get_online_cpus_atomic()
-> call sites so that the hotplug rwlock read side has a defined order vs
-> other locks (thus making sure the situation you describe in patch 1
-> doesn't happen). I agree we shouldn't base our short term plans around
-> that, but maybe that's doable in the long term ???
->
+> So I don't know either.
+> 
+> But my gut feeling says to stay concervative and not touch this code -
+> we don't know what uses it and how much we would break by "fixing" it.
+> The current situation is not that big of a deal IMVHO and I'd be willing
+> to accept the small inconcistency versus possibly breaking userspace.
 
-I think it should be possible in the longer term. I'm expecting it to be
-*much much* harder to audit and convert (requiring a lot of subsystem
-knowledge of each subsystem that we are touching), than the simpler
-tree-wide conversion that I did in this patchset... but I don't think it
-is impossible.
- 
-> Otherwise, I think we should add some big-fat-warning that percpu
-> rwlocks don't have reader/writer fairness, that the hotplug use case
-> actually depends on the unfairness / would break if the rwlock was
-> made fair, and that any new uses of percpu rwlocks should be very
-> carefully considered because of the reader/writer fairness issues.
+I remember I saw some discussions about it in the past at bluesmoke ML,
+saying that -ENODEV is the expected behavior when this is not supported.
 
-In fact, when I started out, I actually contained all the new locking code
-inside CPU hotplug itself, and didn't even expose it as a generic percpu
-rwlock in some of the previous versions of this patchset... :-)
+Changing from -ENODEV to "N/A" will break anything that would be relying
+on the previous behavior. So, I think that such change will for sure break
+userspace.
 
-But now that we already have a generic locking scheme exposed, we could
-add a warning against using it without due consideration.
-
-> Maybe even give percpu rwlocks a less generic sounding name, given how
-> constrained they are by the hotplug use case.
- 
-I wouldn't go that far... ;-) Unfairness is not a show-stopper right?
-IMHO, the warning/documentation should suffice for anybody wanting to
-try out this locking scheme for other use-cases.
+If we're willing to change it, not creating the "sdram_scrub_rate" sysfs 
+node is less likely to affect userspace.
 
 Regards,
-Srivatsa S. Bhat
-
+Mauro
