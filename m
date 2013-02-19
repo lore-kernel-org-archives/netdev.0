@@ -1,74 +1,94 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [MacVLAN] failure to deliver reassembled IPv6 multicast traffic
-Date: Tue, 19 Feb 2013 14:47:52 -0800
-Message-ID: <51240118.9050904@candelatech.com>
-References: <20130215170028.GG12219@eerihug-hybrid.ki.sw.ericsson.se>    <511E8760.9070703@candelatech.com>   <1360955900.19353.22.camel@edumazet-glaptop>   <511E8C3D.5070603@candelatech.com>  <1360956930.19353.24.camel@edumazet-glaptop>  <5123FB32.7050101@candelatech.com> <1361313484.19353.172.camel@edumazet-glaptop>
+From: pravin <pravin.shelar@gmail.com>
+Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
+ capability to the tunnel device
+Date: Tue, 19 Feb 2013 14:51:18 -0800
+Message-ID: <CANvJab0mmuap_ygd0BWwVr9LbP0gDnZ3B4TqCv+aeM6f0sbWag@mail.gmail.com>
+References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
+	<1361217053-16984-2-git-send-email-dmitry@broadcom.com>
+	<CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
+	<504C9EFCA2D0054393414C9CB605C37F1C019A53@SJEXCHMB06.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Erik Hugne <erik.hugne@ericsson.com>, netdev@vger.kernel.org,
-	kaber@trash.net, ataschner@suse.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:49299 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933030Ab3BSWsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 17:48:02 -0500
-In-Reply-To: <1361313484.19353.172.camel@edumazet-glaptop>
+Received: from mail-wg0-f48.google.com ([74.125.82.48]:48969 "EHLO
+	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933694Ab3BSWvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 17:51:19 -0500
+Received: by mail-wg0-f48.google.com with SMTP id 16so5832738wgi.3
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 14:51:18 -0800 (PST)
+In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F1C019A53@SJEXCHMB06.corp.ad.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/19/2013 02:38 PM, Eric Dumazet wrote:
-> On Tue, 2013-02-19 at 14:22 -0800, Ben Greear wrote:
->> On 02/15/2013 11:35 AM, Eric Dumazet wrote:
->>> On Fri, 2013-02-15 at 11:27 -0800, Ben Greear wrote:
->>>
->>>> For some reason I was thinking this wasn't fully fixed for IPv4, but
->>>> maybe it is..the bug in our internal tracker only mentions IPv6
->>>> as having issues...
->>>>
->>>> We'll do some testing on IPv4 sometime soon to make sure, and can test
->>>> IPv6 patches as well...
->>>
->>> This worries me a bit, as I wrote this patch because you reported the
->>> issue.
+On Tue, Feb 19, 2013 at 11:31 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+>> -----Original Message-----
+>> From: pravin [mailto:pravin.shelar@gmail.com]
+>> Sent: Tuesday, February 19, 2013 8:40 PM
+>> To: Dmitry Kravkov
+>> Cc: davem@davemloft.net; netdev@vger.kernel.org
+>> Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
+>> capability to the tunnel device
 >>
->> We just did some testing on this on the 3.7.6+ kernel.  IPv4 multicast to
->> mac-vlans works OK with large packets if there is a single multicast receiver,
->> but does NOT work if there are multiple multicast receivers (ie, several
->> mac-vlans with an mcast receive bound to each mvlan).
+>> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
+>> wrote:
+>> >
+>> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+>> > ---
+>> > Changes from v1: fixed email address
+>> >
+>> >
+>> >  net/ipv4/ip_gre.c |   10 ++++++++--
+>> >  1 files changed, 8 insertions(+), 2 deletions(-)
+>> >
+>> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+>> > index cdc31ac..31bc941 100644
+>> > --- a/net/ipv4/ip_gre.c
+>> > +++ b/net/ipv4/ip_gre.c
+>> > @@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device
+>> *dev)
+>> >         tunnel->hlen = addend;
+>> >         /* TCP offload with GRE SEQ is not supported. */
+>> >         if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+>> > -               dev->features           |= NETIF_F_GSO_SOFTWARE;
+>> > -               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
+>> > +               /* device supports enc gso offload*/
+>> > +               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
+>> > +                       dev->features           |= NETIF_F_TSO;
+>> > +                       dev->hw_features        |= NETIF_F_TSO;
+>> > +               } else {
+>> > +                       dev->features           |= NETIF_F_GSO_SOFTWARE;
+>> > +                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
+>> > +               }
+>> >         }
 >>
->> Our setup also involves routing rules and send-to-self rules,
->> with sender on the same machine, but I'm not sure that matters
->> too much or not.
+>> I am not sure about this change, Are you trying to limit GRE TSO to
+>> just IPV4  in case of GRE offload in hardware?
+>>
+> You're right,
+> It probably should be fixed to:
+>         if (tdev && tdev->hw_enc_features & NETIF_F_GRE_GSO) {
+>                 dev->features           |= tdev-> hw_enc_features & NETIF_F_GSO_MASK;
+>                 dev->hw_features        |= tdev-> hw_enc_features & NETIF_F_GSO_MASK;
 >
-> It might matter, because before commit 6d1ccff627806829c (net: reset mac
-> header in dev_start_xmit() ), we were accessing wrong ethernet header in
-> macvlan_broadcast() in the send-to-self path
+>> >
+>> >         return mtu;
+>> > --
+>> > 1.7.7.2
+>> >
 
-I have that patch in my tree already, so it does not fix the
-problem...  Also, I mos-spoke slightly...the test was on 3.7.9+
-kernel...
+I think if device features are set right, dev_hard_start_xmit() should
+do right thing without any of these changes. i.e. it will GSO ipv6
+packets if hardware only supports GRE-ipv4 packets.
+This patch changes that at encapsulated dev layer and disables rest of
+GSO if one type of TSO available which is not optimal.
 
-Our test setup is not simple, and is driven by a proprietary
-user-space application.  I can set it up on a system and
-give you access if you want (you could investigate the
-various routing rules, etc, to see how our config actually
-happens).
-
-Or, can help you install our app on your system and configure
-it to cause this bug.  All these features should run fine on
-standard upstream kernels.
-
-There's no sane way for me to reproduce our test setup
-with standard tools and mcast traffic generator/receivers,
-however...
-
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+>> >
+>> > --
+>> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> > the body of a message to majordomo@vger.kernel.org
+>> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>
