@@ -1,30 +1,30 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 Subject: Re: [PATCH 7/7] netfilter: nf_ct_helper: better logging for dropped
  packets
-Date: Tue, 19 Feb 2013 02:43:04 +0100
-Message-ID: <20130219014304.GA10834@localhost>
+Date: Tue, 19 Feb 2013 02:50:15 +0100
+Message-ID: <20130219015015.GA11869@localhost>
 References: <1361232651-5626-1-git-send-email-pablo@netfilter.org>
  <1361232651-5626-8-git-send-email-pablo@netfilter.org>
  <1361233322.2046.3.camel@joe-AO722>
  <20130219011109.GA6362@localhost>
- <1361237017.2046.9.camel@joe-AO722>
+ <1361237594.2046.16.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="DocE+STaALJfprDB"
+Content-Type: multipart/mixed; boundary="vkogqOf2sHV7VnPd"
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	netfilter-devel@vger.kernel.org
 To: Joe Perches <joe@perches.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1361237017.2046.9.camel@joe-AO722>
+In-Reply-To: <1361237594.2046.16.camel@joe-AO722>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---DocE+STaALJfprDB
+--vkogqOf2sHV7VnPd
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, Feb 18, 2013 at 05:23:37PM -0800, Joe Perches wrote:
+On Mon, Feb 18, 2013 at 05:33:14PM -0800, Joe Perches wrote:
 > On Tue, 2013-02-19 at 02:11 +0100, Pablo Neira Ayuso wrote:
 > > On Mon, Feb 18, 2013 at 04:22:02PM -0800, Joe Perches wrote:
 > > > On Tue, 2013-02-19 at 01:10 +0100, pablo@netfilter.org wrote:
@@ -34,41 +34,49 @@ On Mon, Feb 18, 2013 at 05:23:37PM -0800, Joe Perches wrote:
 > > > []
 > > > > diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
 > > > []
-> []
-> > > do please try to avoid splitting formats
+> > > > @@ -100,6 +100,9 @@ struct nf_ct_helper_expectfn {
+> > > >  	void (*expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp);
+> > > >  };
+> > > >  
+> > > > +extern void nf_ct_helper_log(struct sk_buff *skb, const struct nf_conn *,
+> > > > +			     const char *fmt, ...);
 > > > 
-> > > 				nf_ct_helper_log(skb, ct,
-> > > 						 "cannot add expectation");
+> > > this should be declared
+> > > 
+> > > __printf(3, 4)
+> > > void nf_ct_helper_log(etc...)
 > > 
-> > Done whenever possible, sometimes I see myself forced to split them to
-> > fit 80-chars per column.
+> > Fixed, thanks.
 > 
-> It's always possible.
+> Well, not really.
 > 
-> Just ignore line length limitations for formats.
+> The new prototype is:
 > 
-> If the formats are on a separate line, checkpatch
-> won't complain either.
+> +extern __printf(3,4) void nf_ct_helper_log(struct sk_buff *skb,
+> +                                          const struct nf_conn *,
+> +                                          const char *fmt, ...);
+> +
 > 
-> If nf_cg_helper_log was named nf_cg_helper_printk
-> checkpatch wouldn't complain if the original line
-> with format was > 80 cols
+> The extern isn't necessary.
+> The second arg doesn't have a name.
+> The printf args could use a space between them.
 > 
-> 		nf_ct_helper_printk(skb, ct, "some really long format past 80 cols ...");
+> I think this should be
 > 
-> but then the log isn't really a printk either and
-> that's a checkpatch limitation on understanding
-> what is and isn't a logging output function.
+> __printf(3, 4)
+> void nf_ct_helper_log(struct sk_buff *skb, const struct nf_conn *ct,
+>                       const char *fmt, ...);
+> 
+> without the extern to be more like the prototypes that follow
+> it in that file.
 
-I have shortened several log descriptions, that should help. New patch attached.
+Done, thanks.
 
-Thanks for the explanation, will be useful for the next time.
-
---DocE+STaALJfprDB
+--vkogqOf2sHV7VnPd
 Content-Type: text/x-diff; charset=us-ascii
 Content-Disposition: attachment; filename="0007-netfilter-nf_ct_helper-better-logging-for-dropped-pa.patch"
 
->From e91e8b6a6f65c46484ca876ee26b53ab04aa389c Mon Sep 17 00:00:00 2001
+>From b20ab9cc63ca4605aec154cf54faa8455749f3f6 Mon Sep 17 00:00:00 2001
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 Date: Sun, 10 Feb 2013 18:56:56 +0100
 Subject: [PATCH 7/7] netfilter: nf_ct_helper: better logging for dropped packets
@@ -87,6 +95,8 @@ error message in the scope of each helper to help users to debug
 the reason why the packet has been dropped, ie:
 
 	nf_ct_%s: dropping packet: reason ...
+
+Thanks to Joe Perches for many formatting suggestions.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
@@ -109,16 +119,16 @@ Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
  16 files changed, 164 insertions(+), 65 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
-index ce27edf..02cda03 100644
+index ce27edf..26c4ae5 100644
 --- a/include/net/netfilter/nf_conntrack_helper.h
 +++ b/include/net/netfilter/nf_conntrack_helper.h
 @@ -100,6 +100,10 @@ struct nf_ct_helper_expectfn {
  	void (*expectfn)(struct nf_conn *ct, struct nf_conntrack_expect *exp);
  };
  
-+extern __printf(3,4) void nf_ct_helper_log(struct sk_buff *skb,
-+					   const struct nf_conn *,
-+					   const char *fmt, ...);
++__printf(3,4)
++void nf_ct_helper_log(struct sk_buff *skb, const struct nf_conn *ct,
++		      const char *fmt, ...);
 +
  void nf_ct_helper_expectfn_register(struct nf_ct_helper_expectfn *n);
  void nf_ct_helper_expectfn_unregister(struct nf_ct_helper_expectfn *n);
@@ -818,4 +828,4 @@ index ccabbda..7f67e1d 100644
 1.7.10.4
 
 
---DocE+STaALJfprDB--
+--vkogqOf2sHV7VnPd--
