@@ -1,94 +1,48 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [PATCH net-next 2/3] tipc: byte-based overload control on socket
- receive queue
-Date: Tue, 19 Feb 2013 09:07:54 +0100
-Message-ID: <512332DA.5040508@ericsson.com>
-References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com> <1360969067-29956-3-git-send-email-paul.gortmaker@windriver.com> <20130218144757.GA26199@hmsreliant.think-freely.org>
+From: Gerd Hoffmann <kraxel@redhat.com>
+Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
+Date: Tue, 19 Feb 2013 09:45:38 +0100
+Message-ID: <51233BB2.3080401@redhat.com>
+References: <1360196636-9357-1-git-send-email-acking@vmware.com>
+	<1360196636-9357-2-git-send-email-acking@vmware.com>
+	<511CC511.7080902@redhat.com>
+	<1398469748.2079082.1361207251021.JavaMail.root@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Ying Xue <ying.xue@windriver.com>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from usevmg21.ericsson.net ([198.24.6.65]:56853 "EHLO
-	usevmg21.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932288Ab3BSIW6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 03:22:58 -0500
-In-Reply-To: <20130218144757.GA26199@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	gregkh@linuxfoundation.org, davem@davemloft.net
+To: Andy King <acking@vmware.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1398469748.2079082.1361207251021.JavaMail.root@vmware.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 02/18/2013 09:47 AM, Neil Horman wrote:
-> On Fri, Feb 15, 2013 at 05:57:46PM -0500, Paul Gortmaker wrote:
->> From: Ying Xue <ying.xue@windriver.com>
+On 02/18/13 18:07, Andy King wrote:
+> Hi Gerd,
+> 
+>>> +		written = transport->stream_enqueue(
+>>> +				vsk, msg->msg_iov,
+>>> +				len - total_written);
 >>
->> Change overload control to be purely byte-based, using
->> sk->sk_rmem_alloc as byte counter, and compare it to a calculated
->> upper limit for the socket receive queue.
-
-[...]
-
->> + *
->> + * For all connectionless messages, by default new queue limits are
->> + * as belows:
->> + *
->> + * TIPC_LOW_IMPORTANCE       (5MB)
->> + * TIPC_MEDIUM_IMPORTANCE    (10MB)
->> + * TIPC_HIGH_IMPORTANCE      (20MB)
->> + * TIPC_CRITICAL_IMPORTANCE  (40MB)
->> + *
->> + * Returns overload limit according to corresponding message importance
->> + */
->> +static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
->> +{
->> +	struct tipc_msg *msg = buf_msg(buf);
->> +	unsigned int limit;
->> +
->> +	if (msg_connected(msg))
->> +		limit = CONN_OVERLOAD_LIMIT;
-> This still strikes me as a bit wierd.  If you really can't tolerate the default
-> rmem settings in proc, have you considered separating the rmem and wmem values
-> out into their own sysctls?  
-
-Initially we tried to set this value as default for sk_rcvbuf, and then use
-fractions of it as limits, as you suggest below. The problem we found was that
-if we want to change this via setsockopt(SOL_SOCKET, SO_RCVBUF) the value range
-we can use is very limited, and doesn't fit our purposes.
-
-We did consider to introduce a separate setsockopt at TIPC level for this,
-but thought it had a value in itself to use the mechanism that is already there. 
-Hence the "re-interpretation" of sk_rcvbuf as we do below.
-Considering the weird doubling of this parameter that is done elsewhere in the
-code we thought that having our own interpretation might be acceptable.
-We did of course see the potential issue with this, that is why we cc-ed
-you for comments.
-Now I see that David already pulled the series, so I am a little uncertain 
-about how to proceed. 
-Any comments from David on this?
-
-///jon
-
-Decnet is an example of a protocol that does this
-> IIRC.  If you did that, then you wouldn't be mysteriously violating the
-> sk_rcvbuf value that gets set on all new sockets (and you could make this
-> legitimately tunable).
+>> Hmm, shouldn't we pass total_written to stream_enqueue here?
+>>
+>> In case a blocking send(big-buffer) call gets splitted into multiple
+>> stream_enqueue calls the second (and further) stream_enqueue calls need
+>> to know at which msg offset they should continue sending the data, no?
 > 
->> +	else
->> +		limit = sk->sk_rcvbuf << (msg_importance(msg) + 5);
-> Same here.  You're using sk_rcvbuf as a base value, rather than a maximum value.
-> It seems to me, sk_rcvbuf should be the maximum backlog at which you will store
-> incomming messages.  You can discard lower importance messages at fractions of
-> sk_rcvbuf if you need to.  If you create separate rmem and wmem sysctls you can
-> still make the queue limits you document above work, and you won't violate the
-> receive buffer value set in the socket.
+> On the client side, the iov tracks it internally; see memcpy_fromiovec().
 
-> 
-> You might also consider looking into adding support for memory accounting, so
-> that you can play a little more fast and loose with memory limits on an
-> individual socket when the system as a whole isn't under pressure (tcp and sctp
-> aer good examples of this).
-> 
-> Neil
-> 
+Ah, memcpy_fromiovec patches the iovec to keep track of the offset.
+Wasn't aware it does this.  Yes, we don't need to pass the offset then.
+
+cheers,
+  Gerd
