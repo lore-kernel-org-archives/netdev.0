@@ -1,81 +1,93 @@
-From: Felipe Balbi <balbi@ti.com>
-Subject: Re: SYSFS "errors"
-Date: Tue, 19 Feb 2013 16:19:39 +0200
-Message-ID: <20130219141939.GD4390@arwen.pp.htv.fi>
-References: <20130219091610.2b746a30@redhat.com>
- <20130219123502.GD26623@pd.tnic>
- <20130219094640.2abf1a66@redhat.com>
- <20130219130626.GE26623@pd.tnic>
- <20130219131500.GW23197@arwen.pp.htv.fi>
- <20130219132853.GG26623@pd.tnic>
- <20130219133809.GA4390@arwen.pp.htv.fi>
- <20130219135056.GH26623@pd.tnic>
- <512384EF.9020602@suse.de>
- <20130219111440.2b4b2e95@redhat.com>
-Reply-To: <balbi@ti.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 2/3] tipc: byte-based overload control on socket
+ receive queue
+Date: Tue, 19 Feb 2013 09:26:29 -0500
+Message-ID: <20130219142629.GA31871@hmsreliant.think-freely.org>
+References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+ <1360969067-29956-3-git-send-email-paul.gortmaker@windriver.com>
+ <20130218144757.GA26199@hmsreliant.think-freely.org>
+ <512332DA.5040508@ericsson.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="IMjqdzrDRly81ofr"
-Cc: Hannes Reinecke <hare@suse.de>, Borislav Petkov <bp@alien8.de>,
-	Felipe Balbi <balbi@ti.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, <JBottomley@parallels.com>,
-	<linux-scsi@vger.kernel.org>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>,
-	Doug Thompson <dougthompson@xmission.com>,
-	<linux-edac@vger.kernel.org>, <rjw@sisk.pl>,
-	<linux-pm@vger.kernel.org>
-To: Mauro Carvalho Chehab <mchehab@redhat.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130219111440.2b4b2e95@redhat.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---IMjqdzrDRly81ofr
 Content-Type: text/plain; charset=us-ascii
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ying Xue <ying.xue@windriver.com>
+To: Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:55658 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932906Ab3BSO0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 09:26:40 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <512332DA.5040508@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, Feb 19, 2013 at 09:07:54AM +0100, Jon Maloy wrote:
+> On 02/18/2013 09:47 AM, Neil Horman wrote:
+> > On Fri, Feb 15, 2013 at 05:57:46PM -0500, Paul Gortmaker wrote:
+> >> From: Ying Xue <ying.xue@windriver.com>
+> >>
+> >> Change overload control to be purely byte-based, using
+> >> sk->sk_rmem_alloc as byte counter, and compare it to a calculated
+> >> upper limit for the socket receive queue.
+> 
+> [...]
+> 
+> >> + *
+> >> + * For all connectionless messages, by default new queue limits are
+> >> + * as belows:
+> >> + *
+> >> + * TIPC_LOW_IMPORTANCE       (5MB)
+> >> + * TIPC_MEDIUM_IMPORTANCE    (10MB)
+> >> + * TIPC_HIGH_IMPORTANCE      (20MB)
+> >> + * TIPC_CRITICAL_IMPORTANCE  (40MB)
+> >> + *
+> >> + * Returns overload limit according to corresponding message importance
+> >> + */
+> >> +static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
+> >> +{
+> >> +	struct tipc_msg *msg = buf_msg(buf);
+> >> +	unsigned int limit;
+> >> +
+> >> +	if (msg_connected(msg))
+> >> +		limit = CONN_OVERLOAD_LIMIT;
+> > This still strikes me as a bit wierd.  If you really can't tolerate the default
+> > rmem settings in proc, have you considered separating the rmem and wmem values
+> > out into their own sysctls?  
+> 
+> Initially we tried to set this value as default for sk_rcvbuf, and then use
+> fractions of it as limits, as you suggest below. The problem we found was that
+> if we want to change this via setsockopt(SOL_SOCKET, SO_RCVBUF) the value range
+> we can use is very limited, and doesn't fit our purposes.
+> 
+Can you elaborate on this please?  The above doesn't really explain why you
+can't do what I suggested.  Not asserting that what you say is untrue, mind you,
+I'm just trying to understand what it is about TIPC that requires such a
+specific reception buffer envelope, and how enforcing queue limits here is so
+important when packets could just as easily be dropped at the ip layer (with
+ostensibly no fatal failure).
 
-On Tue, Feb 19, 2013 at 11:14:40AM -0300, Mauro Carvalho Chehab wrote:
-> > Please consider adding a default attribute which return '-EINVAL' or=20
-> > somesuch when the function pointers are not set.
-> > But _not_ adding it via device_create_file(). That's evil.
->=20
-> This thread started with Felipe's complain about it returning -ENOSYS ;)
-> when this feature is not supported.
+> We did consider to introduce a separate setsockopt at TIPC level for this,
+> but thought it had a value in itself to use the mechanism that is already there. 
+> Hence the "re-interpretation" of sk_rcvbuf as we do below.
+> Considering the weird doubling of this parameter that is done elsewhere in the
+> code we thought that having our own interpretation might be acceptable.
+Thats quite different IMHO.  The comments in sock_setsockopt make it pretty
+clear that the doubling of the rcvbuf value is done to account for the sk_buff
+overhead of packet reception, and thats documented in the socket(7) man page.
+What you have here is the ability to set sk_rcvbuf, and then have that setting
+be ignored, but only to within several different limits, depending on various
+conditions, all of which are not visible to user space.
 
-I was complaining about a file with read permission not being really
-readable which is a fair bug IMHO.
+> We did of course see the potential issue with this, that is why we cc-ed
+> you for comments.
+I appreciate that.
 
---=20
-balbi
+> Now I see that David already pulled the series, so I am a little uncertain 
+> about how to proceed. 
+I saw that too, and asked him about this.  A follow-on patch (if we wind up
+deciding one is warranted) is the way to go here.
 
---IMjqdzrDRly81ofr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRI4n7AAoJEIaOsuA1yqREaL4P/17Cs0UKjEbT9u0PKToOQjRQ
-AIIRWs4MlccRV+7K//Ajlp/hGbWPIGSVygqQps9KyOsqKr0XjBBh//XCT/rcqcai
-RMGfVbHkni8cCfICYywMQGVFK+exidQvcT3vI7heoOCGtcZsXYKmjhNcsuNgfYU5
-9TNAIE3Aq8c0JqStAKeuGX9i/O+nm2HiDZMUOC49cQ7McbBZs0UOtWD5R9+aIdzY
-Kcz2ivgfIQ+SYkb9Q9UDxkxuAvT2i+hzORBQMmcCXZFAJBuKXklmaJnrjVqS0ZZF
-aGFClx3O2n0z4r/UxJM3XdW0BAWPJ/7SBkQJj2Xw4XAhHV6CJl4v+7pVafVXphnv
-7qZs70f6u4Wf6xmzCEomlHg92IhsWaCoOfJnIhkIEM4bj9zvmdQFwkTR+hV+YvlV
-3pNYer6sq7MXXJyav7nUjOWXQW62nge/ULzYqAidLucoBe3fOwJ7iZ5HH7Mqqicp
-Jz/4sQlpgbTLiaFoHGAYpX02s7OELakk4trVWVYXlYP+uu5kRYID/IfcvFL+ZAf5
-ST631Ko210qCi49cVn86MJFGwe7RW+kCb/roQIEs6EMvvMsGFaOF4wCAJm0zpXoA
-qYfjB1wIgGlsDdQ+A4WyVV04qNn173XQMLqH2+s5rlBSBd9KTnJZ8ipN9WgTcoCy
-hS7IGiyiSJMFZBKnB4y/
-=ranP
------END PGP SIGNATURE-----
-
---IMjqdzrDRly81ofr--
+Regards
+Neil
