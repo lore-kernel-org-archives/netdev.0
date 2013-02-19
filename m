@@ -1,47 +1,48 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: Upcoming cross-tree build breakage on merge window
-Date: Tue, 19 Feb 2013 20:44:07 +0100
-Message-ID: <CACna6rwYZWsGhb8ksko+XGvod=hVyVHu2QrCfEisTG=YAEfBRQ@mail.gmail.com>
-References: <CACna6ryD3SjLN-oauvVuRa+q7an8DaULj+Uj4bwFSzQf2WCvMw@mail.gmail.com>
+From: Bastian Bittorf <bittorf@bluebottle.com>
+Subject: Re: [PATCH] b43: Increase number of RX DMA slots
+Date: Tue, 19 Feb 2013 21:01:31 +0100
+Message-ID: <20130219200131.GL8730@medion.lan>
+References: <1361156480-32566-1-git-send-email-Larry.Finger@lwfinger.net>
+ <CACna6rwLgE+o2mcRTemLFAqzdsEoA9Xyx8GyEQTh5qbv1iZ04A@mail.gmail.com>
+ <51228ACF.3060500@lwfinger.net>
+Reply-To: OpenWrt Development List <openwrt-devel@lists.openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-mips@linux-mips.org,
-	Network Development <netdev@vger.kernel.org>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: john@phrozen.org, ralf@linux-mips.org,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:53010 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933048Ab3BSToH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 14:44:07 -0500
-Received: by mail-ob0-f171.google.com with SMTP id x4so6966684obh.2
-        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 11:44:07 -0800 (PST)
-In-Reply-To: <CACna6ryD3SjLN-oauvVuRa+q7an8DaULj+Uj4bwFSzQf2WCvMw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ linville@tuxdriver.com, Stable <stable@vger.kernel.org>
+To: Larry Finger <Larry.Finger@lwfinger.net>, openwrt-devel@lists.openwrt.org
+Return-path: <openwrt-devel-bounces@lists.openwrt.org>
+Content-Disposition: inline
+In-Reply-To: <51228ACF.3060500@lwfinger.net>
+List-Unsubscribe: <https://lists.openwrt.org/mailman/options/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=unsubscribe>
+List-Archive: <http://lists.openwrt.org/pipermail/openwrt-devel/>
+List-Post: <mailto:openwrt-devel@lists.openwrt.org>
+List-Help: <mailto:openwrt-devel-request@lists.openwrt.org?subject=help>
+List-Subscribe: <https://lists.openwrt.org/mailman/listinfo/openwrt-devel>,
+ <mailto:openwrt-devel-request@lists.openwrt.org?subject=subscribe>
+Errors-To: openwrt-devel-bounces@lists.openwrt.org
+Sender: "openwrt-devel" <openwrt-devel-bounces@lists.openwrt.org>
+List-Id: netdev.vger.kernel.org
 
-2013/1/23 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>:
-> I've noticed possible build breakage when two trees get merged:
-> net-next and linux-john (MIPS).
->
-> This is about two following commits:
-> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next.git;a=3Dco=
-mmit;h=3Ddd4544f05469aaaeee891d7dc54d66430344321e
-> http://git.linux-mips.org/?p=3Djohn/linux-john.git;a=3Dcommit;h=3Da00=
-8ca117bc85a9d66c47cd5ab18a6c332411919
->
-> The first one adds "bgmac" driver which uses asm/mach-bcm47xx/nvram.h
-> and nvram_getenv. The second one renames them.
->
-> Can you handle this in some clever way during merge window, please?
->
-> The fix is trivial:
-> 1) Use <bcm47xx_nvram.h>
-> 2) Use bcm47xx_nvram_getenv
+* Larry Finger <Larry.Finger@lwfinger.net> [18.02.2013 21:17]:
 
-Just a reminder.
+> (14e4:4315) units. I think the firmware and DMA can handle it. After
+> all, all the TX rings have 256 slots. There is, however, a question
+> of the memory. TX only acquires the buffers when needed, but RX has
+> to get them in advance, thus 256 slots there will waste a lot of
+> memory.
 
---=20
-Rafa=C5=82
+I did some testing with 256 slots and the
+"b43-workaround-rx-fifo-overflow.patch" on a very slow board,
+an i'am sure, that 128 slots are not enough. kernel-log is here:
+
+http://intercity-vpn.de/files/openwrt/b43test.dmesg.txt
+
+this was a normal download (100mb @ 1 megabyte/s), but if you
+do some udp-magic (netperf) you run soon into trouble.
+
+thanks for your work!
+
+bye, bastian / wireless.subsignal.org / weimarnetz e.V.
