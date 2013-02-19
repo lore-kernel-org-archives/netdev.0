@@ -1,25 +1,25 @@
-From: Andrew Jones <drjones@redhat.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
 Subject: Re: [Xen-devel] [PATCH] xen: netback: remove redundant xenvif_put
-Date: Tue, 19 Feb 2013 09:58:03 +0100
-Message-ID: <20130219095803.17b28ec3@hawk.usersys.redhat.com>
+Date: Tue, 19 Feb 2013 08:58:44 +0000
+Message-ID: <1361264324.1051.61.camel@zakaz.uk.xensource.com>
 References: <1361219360-29176-1-git-send-email-drjones@redhat.com>
-	<20130219.005356.2288460992654639558.davem@davemloft.net>
-	<51233FF502000078000BF4AE@nat28.tlf.novell.com>
+	 <20130219.005356.2288460992654639558.davem@davemloft.net>
+	 <51233FF502000078000BF4AE@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, <ian.campbell@citrix.com>,
-	<xen-devel@lists.xensource.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, liuw@liuw.name
-To: "Jan Beulich" <JBeulich@suse.com>
+Cc: David Miller <davem@davemloft.net>,
+	"drjones@redhat.com" <drjones@redhat.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <51233FF502000078000BF4AE@nat28.tlf.novell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Feb 2013 08:03:49 +0000
-"Jan Beulich" <JBeulich@suse.com> wrote:
-
+On Tue, 2013-02-19 at 08:03 +0000, Jan Beulich wrote:
 > >>> On 19.02.13 at 06:53, David Miller <davem@davemloft.net> wrote:
 > > From: Andrew Jones <drjones@redhat.com>
 > > Date: Mon, 18 Feb 2013 21:29:20 +0100
@@ -33,21 +33,23 @@ On Tue, 19 Feb 2013 08:03:49 +0000
 > > 
 > > Applied.
 > 
-> But this is wrong from all we can tell, we discussed this before
+> But this is wrong from all we can tell,
+
+Yes, please can this be reverted.
+
+>  we discussed this before
 > (Wei pointed to the discussion in an earlier reply). The core of
 > it is that the put here parallels the one in netbk_tx_err(), and
 > the one in xenvif_carrier_off() matches the get from
 > xenvif_connect() (which normally would be done on the path
 > coming through xenvif_disconnect()).
 
-I see the balance described by Ian in [1] now. Sorry that I missed
-that previous discussion and generated this noise.
+Perhaps Andrew was looking at the tree before "xen-netback: correctly
+return errors from netbk_count_requests()" which fixed a different case
+of a double put which may have appeared to be fixed by this change too.
 
-[1] http://marc.info/?l=xen-devel&m=136084174026977&w=2
+Ian.
 
-drew
-
-> 
 > And anyway - shouldn't changes to netback require an ack from
 > Ian?
 > 
