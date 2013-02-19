@@ -1,48 +1,55 @@
-From: Gerd Hoffmann <kraxel@redhat.com>
-Subject: Re: [PATCH 1/1] VSOCK: Introduce VM Sockets
-Date: Tue, 19 Feb 2013 09:45:38 +0100
-Message-ID: <51233BB2.3080401@redhat.com>
-References: <1360196636-9357-1-git-send-email-acking@vmware.com>
-	<1360196636-9357-2-git-send-email-acking@vmware.com>
-	<511CC511.7080902@redhat.com>
-	<1398469748.2079082.1361207251021.JavaMail.root@vmware.com>
+From: Andrew Jones <drjones@redhat.com>
+Subject: Re: [Xen-devel] [PATCH] xen: netback: remove redundant xenvif_put
+Date: Tue, 19 Feb 2013 09:58:03 +0100
+Message-ID: <20130219095803.17b28ec3@hawk.usersys.redhat.com>
+References: <1361219360-29176-1-git-send-email-drjones@redhat.com>
+	<20130219.005356.2288460992654639558.davem@davemloft.net>
+	<51233FF502000078000BF4AE@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	gregkh@linuxfoundation.org, davem@davemloft.net
-To: Andy King <acking@vmware.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1398469748.2079082.1361207251021.JavaMail.root@vmware.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: "David Miller" <davem@davemloft.net>, <ian.campbell@citrix.com>,
+	<xen-devel@lists.xensource.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, liuw@liuw.name
+To: "Jan Beulich" <JBeulich@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51233FF502000078000BF4AE@nat28.tlf.novell.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 02/18/13 18:07, Andy King wrote:
-> Hi Gerd,
-> 
->>> +		written = transport->stream_enqueue(
->>> +				vsk, msg->msg_iov,
->>> +				len - total_written);
->>
->> Hmm, shouldn't we pass total_written to stream_enqueue here?
->>
->> In case a blocking send(big-buffer) call gets splitted into multiple
->> stream_enqueue calls the second (and further) stream_enqueue calls need
->> to know at which msg offset they should continue sending the data, no?
-> 
-> On the client side, the iov tracks it internally; see memcpy_fromiovec().
+On Tue, 19 Feb 2013 08:03:49 +0000
+"Jan Beulich" <JBeulich@suse.com> wrote:
 
-Ah, memcpy_fromiovec patches the iovec to keep track of the offset.
-Wasn't aware it does this.  Yes, we don't need to pass the offset then.
+> >>> On 19.02.13 at 06:53, David Miller <davem@davemloft.net> wrote:
+> > From: Andrew Jones <drjones@redhat.com>
+> > Date: Mon, 18 Feb 2013 21:29:20 +0100
+> > 
+> >> netbk_fatal_tx_err() calls xenvif_carrier_off(), which does
+> >> a xenvif_put(). As callers of netbk_fatal_tx_err should only
+> >> have one reference to the vif at this time, then the xenvif_put
+> >> in netbk_fatal_tx_err is one too many.
+> >> 
+> >> Signed-off-by: Andrew Jones <drjones@redhat.com>
+> > 
+> > Applied.
+> 
+> But this is wrong from all we can tell, we discussed this before
+> (Wei pointed to the discussion in an earlier reply). The core of
+> it is that the put here parallels the one in netbk_tx_err(), and
+> the one in xenvif_carrier_off() matches the get from
+> xenvif_connect() (which normally would be done on the path
+> coming through xenvif_disconnect()).
 
-cheers,
-  Gerd
+I see the balance described by Ian in [1] now. Sorry that I missed
+that previous discussion and generated this noise.
+
+[1] http://marc.info/?l=xen-devel&m=136084174026977&w=2
+
+drew
+
+> 
+> And anyway - shouldn't changes to netback require an ack from
+> Ian?
+> 
+> Jan
+> 
