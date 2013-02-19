@@ -1,103 +1,132 @@
 From: Felipe Balbi <balbi@ti.com>
-Subject: Re: SYSFS "errors"
-Date: Tue, 19 Feb 2013 16:53:24 +0200
-Message-ID: <20130219145324.GE4390@arwen.pp.htv.fi>
-References: <20130219114345.GA26623@pd.tnic>
- <20130219091610.2b746a30@redhat.com>
- <20130219123502.GD26623@pd.tnic>
- <20130219094640.2abf1a66@redhat.com>
- <20130219130626.GE26623@pd.tnic>
- <20130219131500.GW23197@arwen.pp.htv.fi>
- <20130219132853.GG26623@pd.tnic>
- <20130219133809.GA4390@arwen.pp.htv.fi>
- <20130219135056.GH26623@pd.tnic>
- <20130219113521.510db290@redhat.com>
+Subject: Re: [PATCH v2 0/5] Generic PHY Framework
+Date: Tue, 19 Feb 2013 17:05:00 +0200
+Message-ID: <20130219150500.GG4390@arwen.pp.htv.fi>
+References: <1361253198-7401-1-git-send-email-kishon@ti.com>
+ <201302191233.54677.arnd@arndb.de>
+ <20130219131258.GV23197@arwen.pp.htv.fi>
+ <201302191434.40495.arnd@arndb.de>
 Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3XA6nns4nE4KvaS/"
-Cc: Borislav Petkov <bp@alien8.de>, Felipe Balbi <balbi@ti.com>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, <JBottomley@parallels.com>,
-	<linux-scsi@vger.kernel.org>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>,
-	Doug Thompson <dougthompson@xmission.com>,
-	<linux-edac@vger.kernel.org>, <rjw@sisk.pl>,
-	<linux-pm@vger.kernel.org>
-To: Mauro Carvalho Chehab <mchehab@redhat.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="64j1qyTOoGvYcHb1"
+Cc: <balbi@ti.com>, kishon <kishon@ti.com>, <rob@landley.net>,
+	<tony@atomide.com>, <linux@arm.linux.org.uk>,
+	<eballetbo@gmail.com>, <javier@dowhile0.org>,
+	<gregkh@linuxfoundation.org>, <akpm@linux-foundation.org>,
+	<mchehab@redhat.com>, <cesarb@cesarb.net>, <davem@davemloft.net>,
+	<santosh.shilimkar@ti.com>, <broonie@opensource.wolfsonmicro.com>,
+	<swarren@nvidia.com>, <linux-doc@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-omap-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130219113521.510db290@redhat.com>
-Sender: linux-pm-owner@vger.kernel.org
+In-Reply-To: <201302191434.40495.arnd@arndb.de>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---3XA6nns4nE4KvaS/
+--64j1qyTOoGvYcHb1
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Feb 19, 2013 at 11:35:21AM -0300, Mauro Carvalho Chehab wrote:
-> Em Tue, 19 Feb 2013 14:50:56 +0100
-> Borislav Petkov <bp@alien8.de> escreveu:
->=20
-> > On Tue, Feb 19, 2013 at 03:38:09PM +0200, Felipe Balbi wrote:
-> > > because changing the permission will cause the same issue:
-> >=20
-> > Actually, I take that back. Mauro's patch will already create the file
-> > anyway:
-> >=20
-> > 	if (mci->set_sdram_scrub_rate || mci->get_sdram_scrub_rate)
-> >=20
-> > Adjusting the permissions is simply the last missing piece to this patch
-> > to make the interface to userspace 100% coherent.
->=20
-> That's covers everything but Hannes arguments. I don't think that
-> adding just one more device_create_file() on a driver that creates
-> dozens (or hundreds) of sys nodes, depending on the number of DIMMS
-> on the system would make it any worse.
->=20
-> Regards,
-> Mauro
->=20
-> [PATCH EDAC] edac: only create sdram_scrub_rate where supported
->=20
-> Currently, sdram_scrub_rate sysfs node is created even if the device
-> doesn't support get/set the scub rate. Change the logic to only
-> create this device node when the operation is supported.
->=20
-> Reported-by: Felipe Balbi <balbi@ti.com>
-> Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Hi,
 
-looks alright to me:
+On Tue, Feb 19, 2013 at 02:34:40PM +0000, Arnd Bergmann wrote:
+> On Tuesday 19 February 2013, Felipe Balbi wrote:
+> > On Tue, Feb 19, 2013 at 12:33:54PM +0000, Arnd Bergmann wrote:
+> > > > Currently drivers/phy and drivers/net/phy are independent and are n=
+ot=20
+> > > > related to each other. There are some fundamental differences on ho=
+w=20
+> > > > these frameworks work. IIUC, the *net* uses bus layer (MDIO bus) to=
+=20
+> > > > match a PHY device with a PHY driver and the Ethernet device uses t=
+he=20
+> > > > bus layer to get the PHY.
+> > > > The Generic PHY Framework however doesn't have any bus layer. The P=
+HY=20
+> > > > should be like any other Platform Devices and Drivers and the frame=
+work=20
+> > > > will provide some APIs to register with the framework. And there ar=
+e=20
+> > > > other APIs which any controller can use to get the PHY (for e.g., i=
+n the=20
+> > > > case of dt boot, it can use phandle to get a reference to the PHY).
+> > >=20
+> > > Hmm, I think the use of a bus_type for a PHY actually sounds quite
+> > > appropriate. The actual PHY device would then be a child of the
+> >=20
+> > really ? I'm not so sure, the *bus* used by the PHY is ULPI, UTMI,
+> > UTMI+, PIP3, I2C, etc... adding another 'fake' bus representation is a
+> > bit overkill IMO.
+> >=20
+> > Imagine an I2C-controlled PHY driver like isp1301, that driver will have
+> > to register i2c_driver and phy_driver, which looks weird to me. If the
+> > only substitute for class is a bus, we can't drop classes just yet, I'm
+> > afraid.
+> >=20
+> > Imagine a regulator bus, a pwm bus, an LED bus etc. They don't make
+> > sense IMHO.
+>=20
+> It's a fine line, but I think a phy is something that resembles a device
+> more than an LED does. When I read patch 1, I also noticed and commented
+> on the fact that it does use a 'class'. Now, according to Greg, we should
+> use 'bus_type' instead of 'class' in new code. I originally disagreed with
+> that concept, but he's the boss here and it's good if he has a vision
+> how things should be lined out.
+>=20
+> In practice, there is little difference between a 'bus_type' and a 'class=
+',
+> so just replace any instance of the former with the latter in your head
+> when reading the code ;-)
 
-Reviewed-by: Felipe Balbi <balbi@ti.com>
+it's not so simple :-) if we must use bus_type we need to introduce all
+the device/driver matching mechanism which isn't necessary with a class.
+
+> I understand that there is not a real common bus here, and the bus_type
+> infrastructure would basically be used as a way to represent each PHY
+> in sysfs and provide a way to enumerate and look them up inside of the
+> kernel.
+
+right, but maybe we need another mechanism. If, in the long run we must
+use bus_type, then eventually pwm, led, regulators, etc will all be
+converted to bus_type. It will look quite weird IMHO.
+
+Greg, can you pitch your suggestion here ? It would be great to hear
+your rationale behind dropping class infrastructure, couldn't find
+anything through Google and since feature-removal-schedule.txt has been
+removed (without adding it to feature-removal-schedule.txt, I must add
+:-) I don't know what's the idea behind removing classes.
+
+cheers
 
 --=20
 balbi
 
---3XA6nns4nE4KvaS/
+--64j1qyTOoGvYcHb1
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIcBAEBAgAGBQJRI5HkAAoJEIaOsuA1yqREa5kP/0Zv2X9u7znMsYofXocxvmX3
-BCrtM3ZDIn4ygfMJfbA+eVLTxDXanThEiM15PwXj9xiJRoWfQt2TG+MtmaYNS8QA
-SmALUtFvg6Azm337Nn23/E0QEjxh0XXc9hz4O5pOyKQWRTRl+GIh52CWEPHkpGqA
-3I4NANCKm3j2vrG2Paia/+PJ0sX7sGkmx88qb2WJESXCMOeUe8Lvyim6957mkOaO
-40JPJriYMByEEpMs7HnALz7vIUn/vh7bZ2VhE7PHgs5QyunKmoEueR0fXpCQUHaO
-FtiZNmEPdlkEw1ZruEihbma1IvjyWoTqmEUhHhwnWddxpVc87y0EJ8Hw6hHDXOW5
-c9COqI3GtSt3jtJa/wGrt4N8P9Qa6SlmW4GjFk1k5qXP/mC63/hL1GmtAaInj+EL
-VhUOk04yt4lXGnCkANNuJkAVgUqMXhSUGU2pJUq3TTe/wi1yMMPQ3KZ5g2pCE3T8
-swyvZ8r67mac7oHBoCGGKTlX18mZALw/hbkGjtxY/9i3G1MmKulwTtA93OtHxd7f
-yjX92juXSP5gksj+xGPmaITItLTzX5YiCFNAcw2H6et8z6P/I8W0qpyWMnRf5rqx
-XXUqJlj+prHo9Nyk7Rr+LCB7m1wMLdZMsNKEwiO0ndtYWXtPZkC9s0ne4oGVxYPY
-GDm7+tNoOyst5JvLm+tj
-=uOh6
+iQIcBAEBAgAGBQJRI5SbAAoJEIaOsuA1yqREUfYP/1Va53JVZFSDnDRA4yV6Cq5a
+ldTluhlGuUhVni0Cyovis5LweKvPHhPcmb1kGUCwW2avtwJLg2FBySj5v+uKqjWy
+vSeDS9ceFHYp03JAQbyYH7aRj5kDGUVHK32SanTWYDEMH3T4TSmqfUjB10dikOU/
+dEhbu957T/pu21VSSgF+f0kYFCBS5EEbp0dzO4NpgPBt4TMP2Z11kXqOE9yGYWqy
+zV+SNpektQ4Rj74NA14UuzylpPhqNSpVpEXTasTGtnAcunIrUQPOIu1PB1ZjKnR9
+v1maWqbpZP8+iMHLZuL6+zTyEvEa+GE8d1E76IZapcVYwfwiOElloOXX1vnZ6ylu
+t2Uhp1TIGzRCE8P5o45aK1Zueb0q2SZpG4jCSPpzt16MCV+YydXbXI3JtRNfzGcw
+tDKA0CT/5/97YetsG1qEdc00CIMrNFnp7nrX8I0JtAu22qE141TuHCcyXSEqYOaY
+ysKdi5CDVmbduJrkYOUkHy3b6rQExJZhFAcBLAjWN6q1winX1bF4ZWD6slu2CwgK
+HVHvfr2iLDsJPVPZNiCIhaLnRJYOEX3twYfFoaDJQbTirqBHxXczlKIWBTePu/0l
+xexrzWYlyZ/J9Z71XV2nOFYIavzNEz74uImSrgxNJL5Q1w33Utakgwd3p2ggEMUA
+9YJockzXn1o8js8fP4pp
+=ImRF
 -----END PGP SIGNATURE-----
 
---3XA6nns4nE4KvaS/--
+--64j1qyTOoGvYcHb1--
