@@ -1,142 +1,81 @@
-From: Mauro Carvalho Chehab <mchehab@redhat.com>
+From: Felipe Balbi <balbi@ti.com>
 Subject: Re: SYSFS "errors"
-Date: Tue, 19 Feb 2013 11:14:40 -0300
-Message-ID: <20130219111440.2b4b2e95@redhat.com>
-References: <20130219101121.GJ23197@arwen.pp.htv.fi>
-	<20130219081149.46972f56@redhat.com>
-	<20130219114345.GA26623@pd.tnic>
-	<20130219091610.2b746a30@redhat.com>
-	<20130219123502.GD26623@pd.tnic>
-	<20130219094640.2abf1a66@redhat.com>
-	<20130219130626.GE26623@pd.tnic>
-	<20130219131500.GW23197@arwen.pp.htv.fi>
-	<20130219132853.GG26623@pd.tnic>
-	<20130219133809.GA4390@arwen.pp.htv.fi>
-	<20130219135056.GH26623@pd.tnic>
-	<512384EF.9020602@suse.de>
+Date: Tue, 19 Feb 2013 16:19:39 +0200
+Message-ID: <20130219141939.GD4390@arwen.pp.htv.fi>
+References: <20130219091610.2b746a30@redhat.com>
+ <20130219123502.GD26623@pd.tnic>
+ <20130219094640.2abf1a66@redhat.com>
+ <20130219130626.GE26623@pd.tnic>
+ <20130219131500.GW23197@arwen.pp.htv.fi>
+ <20130219132853.GG26623@pd.tnic>
+ <20130219133809.GA4390@arwen.pp.htv.fi>
+ <20130219135056.GH26623@pd.tnic>
+ <512384EF.9020602@suse.de>
+ <20130219111440.2b4b2e95@redhat.com>
+Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Borislav Petkov <bp@alien8.de>, Felipe Balbi <balbi@ti.com>,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="IMjqdzrDRly81ofr"
+Cc: Hannes Reinecke <hare@suse.de>, Borislav Petkov <bp@alien8.de>,
+	Felipe Balbi <balbi@ti.com>,
 	Greg KH <gregkh@linuxfoundation.org>,
 	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
 	Steven Rostedt <rostedt@goodmis.org>,
 	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, JBottomley@parallels.com,
-	linux-scsi@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Doug Thompson <dougthompson@xmission.com>,
-	linux-edac@vger.kernel.org, rjw@sisk.pl, linux-pm@vger.kernel.org
-To: Hannes Reinecke <hare@suse.de>
+	Ingo Molnar <mingo@redhat.com>, <JBottomley@parallels.com>,
+	<linux-scsi@vger.kernel.org>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>,
+	Doug Thompson <dougthompson@xmission.com>,
+	<linux-edac@vger.kernel.org>, <rjw@sisk.pl>,
+	<linux-pm@vger.kernel.org>
+To: Mauro Carvalho Chehab <mchehab@redhat.com>
 Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <512384EF.9020602@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20130219111440.2b4b2e95@redhat.com>
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Tue, 19 Feb 2013 14:58:07 +0100
-Hannes Reinecke <hare@suse.de> escreveu:
+--IMjqdzrDRly81ofr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> On 02/19/2013 02:50 PM, Borislav Petkov wrote:
-> > On Tue, Feb 19, 2013 at 03:38:09PM +0200, Felipe Balbi wrote:
-> >> because changing the permission will cause the same issue:
-> >
-> > Actually, I take that back. Mauro's patch will already create the file
-> > anyway:
-> >
-> > 	if (mci->set_sdram_scrub_rate || mci->get_sdram_scrub_rate)
-> >
-> > Adjusting the permissions is simply the last missing piece to this patch
-> > to make the interface to userspace 100% coherent.
-> >
-> > --
-> > From: Mauro Carvalho Chehab <mchehab@redhat.com>
-> > Date: Tue, 19 Feb 2013 09:16:10 -0300
-> > Subject: [PATCH] EDAC: only create sdram_scrub_rate where supported
-> >
-> > Currently, sdram_scrub_rate sysfs node is created even if the device
-> > doesn't support get/set the scub rate. Change the logic to only
-> > create this device node when the operation is supported.
-> >
-> > If only read or only write is supported, it will keep returning -ENODEV
-> > just like before.
-> >
-> > Reported-by: Felipe Balbi <balbi@ti.com>
-> > Signed-off-by: Mauro Carvalho Chehab <mchehab@redhat.com>
-> > ---
-> >   drivers/edac/edac_mc_sysfs.c | 21 +++++++++++++++++++--
-> >   1 file changed, 19 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/edac/edac_mc_sysfs.c b/drivers/edac/edac_mc_sysfs.c
-> > index 0ca1ca71157f..5a788e60ff67 100644
-> > --- a/drivers/edac/edac_mc_sysfs.c
-> > +++ b/drivers/edac/edac_mc_sysfs.c
-> > @@ -7,7 +7,7 @@
-> >    *
-> >    * Written Doug Thompson <norsk5@xmission.com> www.softwarebitmaker.com
-> >    *
-> > - * (c) 2012 - Mauro Carvalho Chehab <mchehab@redhat.com>
-> > + * (c) 2012-2013 - Mauro Carvalho Chehab <mchehab@redhat.com>
-> >    *	The entire API were re-written, and ported to use struct device
-> >    *
-> >    */
-> > @@ -878,7 +878,6 @@ static struct attribute *mci_attrs[] = {
-> >   	&dev_attr_ce_noinfo_count.attr,
-> >   	&dev_attr_ue_count.attr,
-> >   	&dev_attr_ce_count.attr,
-> > -	&dev_attr_sdram_scrub_rate.attr,
-> >   	&dev_attr_max_location.attr,
-> >   	NULL
-> >   };
-> > @@ -1012,6 +1011,23 @@ int edac_create_sysfs_mci_device(struct mem_ctl_info *mci)
-> >   		return err;
-> >   	}
-> >
-> > +	if (mci->set_sdram_scrub_rate || mci->get_sdram_scrub_rate) {
-> > +		umode_t mode = 0;
-> > +
-> > +		if (mci->get_sdram_scrub_rate)
-> > +			mode = S_IRUGO;
-> > +
-> > +		if (mci->set_sdram_scrub_rate)
-> > +			mode |= S_IWUSR;
-> > +
-> > +		dev_attr_sdram_scrub_rate.attr.mode = mode;
-> > +
-> > +		err = device_create_file(&mci->dev, &dev_attr_sdram_scrub_rate);
-> > +		if (err) {
-> > +			edac_dbg(1, "failure: create sdram_scrub_rate\n");
-> > +			goto fail2;
-> > +		}
-> > +	}
-> >   	/*
-> >   	 * Create the dimm/rank devices
-> >   	 */
-> > @@ -1056,6 +1072,7 @@ fail:
-> >   			continue;
-> >   		device_unregister(&dimm->dev);
-> >   	}
-> > +fail2:
-> >   	device_unregister(&mci->dev);
-> >   	bus_unregister(&mci->bus);
-> >   	kfree(mci->bus.name);
-> >
-> And of course you all know that creating sysfs attributes via 
-> 'device_create_file' opens all sort of funny race conditions, 
-> especially when checking these attributes from udev ...
+Hi,
 
-Yes, we know that, but this subsystem has already lots of other
-attributes created via device_create_file(). It used to be a
-lot worse than that, as, on a very recent past (before Kernel 3.5),
-those attributes were created via sysfs_create_file().
+On Tue, Feb 19, 2013 at 11:14:40AM -0300, Mauro Carvalho Chehab wrote:
+> > Please consider adding a default attribute which return '-EINVAL' or=20
+> > somesuch when the function pointers are not set.
+> > But _not_ adding it via device_create_file(). That's evil.
+>=20
+> This thread started with Felipe's complain about it returning -ENOSYS ;)
+> when this feature is not supported.
 
-There's not much that can be done to avoid it on this subsystem.
+I was complaining about a file with read permission not being really
+readable which is a fair bug IMHO.
 
-> 
-> Please consider adding a default attribute which return '-EINVAL' or 
-> somesuch when the function pointers are not set.
-> But _not_ adding it via device_create_file(). That's evil.
+--=20
+balbi
 
-This thread started with Felipe's complain about it returning -ENOSYS ;)
-when this feature is not supported.
+--IMjqdzrDRly81ofr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-Regards,
-Mauro
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRI4n7AAoJEIaOsuA1yqREaL4P/17Cs0UKjEbT9u0PKToOQjRQ
+AIIRWs4MlccRV+7K//Ajlp/hGbWPIGSVygqQps9KyOsqKr0XjBBh//XCT/rcqcai
+RMGfVbHkni8cCfICYywMQGVFK+exidQvcT3vI7heoOCGtcZsXYKmjhNcsuNgfYU5
+9TNAIE3Aq8c0JqStAKeuGX9i/O+nm2HiDZMUOC49cQ7McbBZs0UOtWD5R9+aIdzY
+Kcz2ivgfIQ+SYkb9Q9UDxkxuAvT2i+hzORBQMmcCXZFAJBuKXklmaJnrjVqS0ZZF
+aGFClx3O2n0z4r/UxJM3XdW0BAWPJ/7SBkQJj2Xw4XAhHV6CJl4v+7pVafVXphnv
+7qZs70f6u4Wf6xmzCEomlHg92IhsWaCoOfJnIhkIEM4bj9zvmdQFwkTR+hV+YvlV
+3pNYer6sq7MXXJyav7nUjOWXQW62nge/ULzYqAidLucoBe3fOwJ7iZ5HH7Mqqicp
+Jz/4sQlpgbTLiaFoHGAYpX02s7OELakk4trVWVYXlYP+uu5kRYID/IfcvFL+ZAf5
+ST631Ko210qCi49cVn86MJFGwe7RW+kCb/roQIEs6EMvvMsGFaOF4wCAJm0zpXoA
+qYfjB1wIgGlsDdQ+A4WyVV04qNn173XQMLqH2+s5rlBSBd9KTnJZ8ipN9WgTcoCy
+hS7IGiyiSJMFZBKnB4y/
+=ranP
+-----END PGP SIGNATURE-----
+
+--IMjqdzrDRly81ofr--
