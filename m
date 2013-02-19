@@ -1,135 +1,126 @@
-From: Felipe Balbi <balbi@ti.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
 Subject: Re: [PATCH v2 0/5] Generic PHY Framework
-Date: Tue, 19 Feb 2013 17:47:41 +0200
-Message-ID: <20130219154741.GH4390@arwen.pp.htv.fi>
-References: <1361253198-7401-1-git-send-email-kishon@ti.com>
- <201302191434.40495.arnd@arndb.de>
- <20130219150500.GG4390@arwen.pp.htv.fi>
- <201302191528.17698.arnd@arndb.de>
-Reply-To: <balbi@ti.com>
+Date: Tue, 19 Feb 2013 17:07:09 +0100
+Message-ID: <5123A32D.4030005@pengutronix.de>
+References: <1361253198-7401-1-git-send-email-kishon@ti.com> <201302191233.54677.arnd@arndb.de> <20130219131258.GV23197@arwen.pp.htv.fi> <201302191434.40495.arnd@arndb.de> <20130219150500.GG4390@arwen.pp.htv.fi>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="82evfD9Ogz2JrdWZ"
-Cc: <balbi@ti.com>, kishon <kishon@ti.com>, <rob@landley.net>,
-	<tony@atomide.com>, <linux@arm.linux.org.uk>,
-	<eballetbo@gmail.com>, <javier@dowhile0.org>,
-	<gregkh@linuxfoundation.org>, <akpm@linux-foundation.org>,
-	<mchehab@redhat.com>, <cesarb@cesarb.net>, <davem@davemloft.net>,
-	<santosh.shilimkar@ti.com>, <broonie@opensource.wolfsonmicro.com>,
-	<swarren@nvidia.com>, <linux-doc@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-omap@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201302191528.17698.arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+ protocol="application/pgp-signature";
+ boundary="----enig2SBDGRJPVQCFTOJOJDENK"
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-usb@vger.kernel.org,
+	linux@arm.linux.org.uk, mchehab@redhat.com, davem@davemloft.net,
+	tony@atomide.com, gregkh@linuxfoundation.org,
+	broonie@opensource.wolfsonmicro.com, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kishon <kishon@ti.com>,
+	eballetbo@gmail.com, santosh.shilimkar@ti.com,
+	linux-arm-kernel@lists.infradead.org, rob@landley.net,
+	netdev@vger.kernel.org, swarren@nvidia.com, javier@dowhile0.org,
+	linux-omap@vger.kernel.org, akpm@linux-foundation.org,
+	cesarb@cesarb.net
+To: balbi@ti.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <20130219150500.GG4390@arwen.pp.htv.fi>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---82evfD9Ogz2JrdWZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2SBDGRJPVQCFTOJOJDENK
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Feb 19, 2013 at 03:28:17PM +0000, Arnd Bergmann wrote:
-> On Tuesday 19 February 2013, Felipe Balbi wrote:
-> > On Tue, Feb 19, 2013 at 02:34:40PM +0000, Arnd Bergmann wrote:
-> > > On Tuesday 19 February 2013, Felipe Balbi wrote:
-> > > > On Tue, Feb 19, 2013 at 12:33:54PM +0000, Arnd Bergmann wrote:
-> > > It's a fine line, but I think a phy is something that resembles a dev=
-ice
-> > > more than an LED does. When I read patch 1, I also noticed and commen=
-ted
-> > > on the fact that it does use a 'class'. Now, according to Greg, we sh=
-ould
-> > > use 'bus_type' instead of 'class' in new code. I originally disagreed=
- with
-> > > that concept, but he's the boss here and it's good if he has a vision
-> > > how things should be lined out.
-> > >=20
-> > > In practice, there is little difference between a 'bus_type' and a 'c=
-lass',
-> > > so just replace any instance of the former with the latter in your he=
-ad
-> > > when reading the code ;-)
-> >=20
-> > it's not so simple :-) if we must use bus_type we need to introduce all
-> > the device/driver matching mechanism which isn't necessary with a class.
+On 02/19/2013 04:05 PM, Felipe Balbi wrote:
+> Hi,
 >=20
-> I think the idea is to use a bus_type that has devices but no drivers
-> associated with it, but I might be misremembering things.
+> On Tue, Feb 19, 2013 at 02:34:40PM +0000, Arnd Bergmann wrote:
+>> On Tuesday 19 February 2013, Felipe Balbi wrote:
+>>> On Tue, Feb 19, 2013 at 12:33:54PM +0000, Arnd Bergmann wrote:
+>>>>> Currently drivers/phy and drivers/net/phy are independent and are n=
+ot=20
+>>>>> related to each other. There are some fundamental differences on ho=
+w=20
+>>>>> these frameworks work. IIUC, the *net* uses bus layer (MDIO bus) to=
+=20
+>>>>> match a PHY device with a PHY driver and the Ethernet device uses t=
+he=20
+>>>>> bus layer to get the PHY.
+>>>>> The Generic PHY Framework however doesn't have any bus layer. The P=
+HY=20
+>>>>> should be like any other Platform Devices and Drivers and the frame=
+work=20
+>>>>> will provide some APIs to register with the framework. And there ar=
+e=20
+>>>>> other APIs which any controller can use to get the PHY (for e.g., i=
+n the=20
+>>>>> case of dt boot, it can use phandle to get a reference to the PHY).=
 
-but then drivers wouldn't probe ever, although devices would get
-created, so maybe it'll work...
-
-> > Greg, can you pitch your suggestion here ? It would be great to hear
-> > your rationale behind dropping class infrastructure, couldn't find
-> > anything through Google and since feature-removal-schedule.txt has been
-> > removed (without adding it to feature-removal-schedule.txt, I must add
-> > :-) I don't know what's the idea behind removing classes.
+>>>>
+>>>> Hmm, I think the use of a bus_type for a PHY actually sounds quite
+>>>> appropriate. The actual PHY device would then be a child of the
+>>>
+>>> really ? I'm not so sure, the *bus* used by the PHY is ULPI, UTMI,
+>>> UTMI+, PIP3, I2C, etc... adding another 'fake' bus representation is =
+a
+>>> bit overkill IMO.
+>>>
+>>> Imagine an I2C-controlled PHY driver like isp1301, that driver will h=
+ave
+>>> to register i2c_driver and phy_driver, which looks weird to me. If th=
+e
+>>> only substitute for class is a bus, we can't drop classes just yet, I=
+'m
+>>> afraid.
+>>>
+>>> Imagine a regulator bus, a pwm bus, an LED bus etc. They don't make
+>>> sense IMHO.
+>>
+>> It's a fine line, but I think a phy is something that resembles a devi=
+ce
+>> more than an LED does. When I read patch 1, I also noticed and comment=
+ed
+>> on the fact that it does use a 'class'. Now, according to Greg, we sho=
+uld
+>> use 'bus_type' instead of 'class' in new code. I originally disagreed =
+with
+>> that concept, but he's the boss here and it's good if he has a vision
+>> how things should be lined out.
+>>
+>> In practice, there is little difference between a 'bus_type' and a 'cl=
+ass',
+>> so just replace any instance of the former with the latter in your hea=
+d
+>> when reading the code ;-)
 >=20
-> I believe for now, the idea is to not add any new classes, but keep
-> the existing ones for compatibility. 'struct class_device' however
-> was already removed and got turned into 'struct device'.
+> it's not so simple :-) if we must use bus_type we need to introduce all=
 
-was there ever a "struct class_device".
+> the device/driver matching mechanism which isn't necessary with a class=
+=2E
 
-What about struct class ?
+You have the code for phy <-> device matching in your framework anyway.
+Using the bus infrastructure brings changes the open coded matching into
+bus callbacks.
 
-<linux/device.h> ::
-
- 334 struct class {
- 335         const char              *name;
- 336         struct module           *owner;
- 337=20
- 338         struct class_attribute          *class_attrs;
- 339         struct device_attribute         *dev_attrs;
- 340         struct bin_attribute            *dev_bin_attrs;
- 341         struct kobject                  *dev_kobj;
- 342=20
- 343         int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *=
-env);
- 344         char *(*devnode)(struct device *dev, umode_t *mode);
- 345=20
- 346         void (*class_release)(struct class *class);
- 347         void (*dev_release)(struct device *dev);
- 348=20
- 349         int (*suspend)(struct device *dev, pm_message_t state);
- 350         int (*resume)(struct device *dev);
- 351=20
- 352         const struct kobj_ns_type_operations *ns_type;
- 353         const void *(*namespace)(struct device *dev);
- 354=20
- 355         const struct dev_pm_ops *pm;
- 356=20
- 357         struct subsys_private *p;
- 358 };
+regards,
+Marc
 
 --=20
-balbi
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
---82evfD9Ogz2JrdWZ
+
+------enig2SBDGRJPVQCFTOJOJDENK
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-iQIcBAEBAgAGBQJRI56dAAoJEIaOsuA1yqRERe4P+gMQCYwuC9OhRMrgMN2uUu7d
-tPkvx0cgg1EmOe2mRZ7d3nfWuvRZ1ztOaO0USeNAHWvPBNQM46MpRnUK5jYV/ETP
-ObzzwAoVwm7efb8qwglqN/rgFutdV/xvW3X0WBVsRg7exi1DywI5WZUn98d14hiJ
-OdSwO7MQsJzrwWG3At8W+LPSnrUYO9sUMF/kzICYca9jeGcKPZEGW7/y/DgoSOxk
-am5+WXbJdd6oK2I7eg74T3FE3AJu+D4STEKXY+6U0sQDL3kyOeJafln9QL2ooKmr
-lelv466SZ9LeXpRwOig66BHzZ1SOfwB2mHgO9IFwJpvmqlCQONjK16RTmus99Goq
-Id+JPtESyPhxXBixQmctoI51nQBNeWndlrEt6+pg7dPRKz3ObsmHTpNR7eH1MXem
-dlxTYVluH4zIn/HmJUci/cjh0eFCn6f5Fpbc5Vg+Zu6SGrOoSLeKmd1tdhpyFHIV
-c6XFjMX4YBjO2FWlK4NkU1DOPEjzJS8X3m0sqL8Ut++xZNnVEQZXgfN1W8BoL2x+
-FHoz7I9pSdxaH6JZyU3xtb6wPteVidhz3R4BOj6nDwPLmxeIzKHlLuarP9Vac7Td
-y2xu1zhgrWOqDozaFnD64NR+Dj+wid1iIJm1dXqeksrd8xX9Vo4tyvInUDbasnmR
-ONdL8dw6YVx7gEwHXNxi
-=6JTv
+iEYEARECAAYFAlEjozAACgkQjTAFq1RaXHP6mQCfQGmyi8YvXxLTOUA7hgRMJgDU
+KNMAoJm7X9hyPcfnCsdwPwAhuTppFTmV
+=csaX
 -----END PGP SIGNATURE-----
 
---82evfD9Ogz2JrdWZ--
+------enig2SBDGRJPVQCFTOJOJDENK--
