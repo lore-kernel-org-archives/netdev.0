@@ -1,60 +1,47 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH 3/3] net: ipv4: fix waring -Wunused-variable
-Date: Tue, 19 Feb 2013 18:43:12 +0800
-Message-ID: <1361270592-19492-3-git-send-email-gaofeng@cn.fujitsu.com>
-References: <1361270592-19492-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: davem@davemloft.net, Gao feng <gaofeng@cn.fujitsu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:10602 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1758140Ab3BSKmk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 19 Feb 2013 05:42:40 -0500
-In-Reply-To: <1361270592-19492-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v6 08/46] CPU hotplug: Provide APIs to prevent CPU offline from atomic context
+Date: Tue, 19 Feb 2013 10:42:53 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7154@saturn3.aculab.com>
+References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123920.26245.56709.stgit@srivatsabhat.in.ibm.com> <CANN689HhVxDv+3Bn9UAxOMzj0egTvVp_c7oAmQ2nnQ8Xjn_aMA@mail.gmail.com> <51225A36.40600@linux.vnet.ibm.com> <CANN689FJPLfz06MFRJ9T+BuToejAzjYP_yrw_H4iGi1Kb3p2-g@mail.gmail.com> <51227810.6090009@linux.vnet.ibm.com> <CANN689E-98zK69pGeojbm30n3sswQYVBvhk3i3OzqvbeqSrSrg@mail.gmail.com> <51234C23.2030909@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <tglx@linutronix.de>, <peterz@infradead.org>, <tj@kernel.org>,
+	<oleg@redhat.com>, <paulmck@linux.vnet.ibm.com>,
+	<rusty@rustcorp.com.au>, <mingo@kernel.org>,
+	<akpm@linux-foundation.org>, <namhyung@kernel.org>,
+	<rostedt@goodmis.org>, <wangyun@linux.vnet.ibm.com>,
+	<xiaoguangrong@linux.vnet.ibm.com>, <rjw@sisk.pl>, <sbw@mit.edu>,
+	<fweisbec@gmail.com>, <linux@arm.linux.org.uk>,
+	<nikunj@linux.vnet.ibm.com>, <linux-pm@vger.kernel.org>,
+	<linux-arch@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linuxppc-dev@lists.ozlabs.org>, <netdev@vger.kernel.org>,
+	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<vincent.guittot@linaro.org>
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	"Michel Lespinasse" <walken@google.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <51234C23.2030909@linux.vnet.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-the vars ip_rt_gc_timeout is used only when
-CONFIG_SYSCTL is selected.
+> I wouldn't go that far... ;-) Unfairness is not a show-stopper right?
+> IMHO, the warning/documentation should suffice for anybody wanting to
+> try out this locking scheme for other use-cases.
 
-move these vars into CONFIG_SYSCTL.
+I presume that by 'fairness' you mean 'write preference'?
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv4/route.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+I'd not sure how difficult it would be, but maybe have two functions
+for acquiring the lock for read, one blocks if there is a writer
+waiting, the other doesn't.
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 3bdd1b1..6e28514 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -117,15 +117,11 @@
- #define RT_GC_TIMEOUT (300*HZ)
- 
- static int ip_rt_max_size;
--static int ip_rt_gc_timeout __read_mostly	= RT_GC_TIMEOUT;
--static int ip_rt_gc_interval __read_mostly  = 60 * HZ;
--static int ip_rt_gc_min_interval __read_mostly	= HZ / 2;
- static int ip_rt_redirect_number __read_mostly	= 9;
- static int ip_rt_redirect_load __read_mostly	= HZ / 50;
- static int ip_rt_redirect_silence __read_mostly	= ((HZ / 50) << (9 + 1));
- static int ip_rt_error_cost __read_mostly	= HZ;
- static int ip_rt_error_burst __read_mostly	= 5 * HZ;
--static int ip_rt_gc_elasticity __read_mostly	= 8;
- static int ip_rt_mtu_expires __read_mostly	= 10 * 60 * HZ;
- static int ip_rt_min_pmtu __read_mostly		= 512 + 20 + 20;
- static int ip_rt_min_advmss __read_mostly	= 256;
-@@ -2423,6 +2419,11 @@ void ip_rt_multicast_event(struct in_device *in_dev)
- }
- 
- #ifdef CONFIG_SYSCTL
-+static int ip_rt_gc_timeout __read_mostly	= RT_GC_TIMEOUT;
-+static int ip_rt_gc_interval __read_mostly  = 60 * HZ;
-+static int ip_rt_gc_min_interval __read_mostly	= HZ / 2;
-+static int ip_rt_gc_elasticity __read_mostly	= 8;
-+
- static int ipv4_sysctl_rtcache_flush(ctl_table *__ctl, int write,
- 					void __user *buffer,
- 					size_t *lenp, loff_t *ppos)
--- 
-1.7.11.7
+That way you can change the individual call sites separately.
+
+The other place I can imagine a per-cpu rwlock being used
+is to allow a driver to disable 'sleep' or software controlled
+hardware removal while it performs a sequence of operations.
+
+	David
