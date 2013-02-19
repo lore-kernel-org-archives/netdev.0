@@ -1,72 +1,48 @@
-From: Mauro Carvalho Chehab <mchehab@redhat.com>
-Subject: Re: SYSFS "errors"
-Date: Tue, 19 Feb 2013 07:03:10 -0300
-Message-ID: <20130219070310.2cadad7a@redhat.com>
-References: <20130218171334.GA31329@kroah.com>
-	<20130218172700.GH2663@arwen.pp.htv.fi>
-	<20130218174916.GA2070@kroah.com>
-	<20130218184633.GC10755@arwen.pp.htv.fi>
-	<20130218164638.7cb53baa@redhat.com>
-	<20130218200542.GB20137@arwen.pp.htv.fi>
-	<20130218184742.5a4c3c06@redhat.com>
-	<20130218215434.GB16794@kroah.com>
-	<20130218221306.GA21493@pd.tnic>
-	<20130218222618.GA21818@kroah.com>
-	<20130218224405.GB21493@pd.tnic>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Tue, 19 Feb 2013 11:03:41 +0100
+Message-ID: <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 (sfid-20130219_061917_530878_1ED7A14C)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@linuxfoundation.org>, balbi@ti.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Frederic Weisbecker <fweisbec@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, JBottomley@parallels.com,
-	linux-scsi@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Doug Thompson <dougthompson@xmission.com>,
-	linux-edac@vger.kernel.org, rjw@sisk.pl, linux-pm@vger.kernel.org
-To: Borislav Petkov <bp@alien8.de>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130218224405.GB21493@pd.tnic>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
+	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:46363 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758567Ab3BSKEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 05:04:11 -0500
+In-Reply-To: <1361251033.19353.120.camel@edumazet-glaptop> (sfid-20130219_061917_530878_1ED7A14C)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em Mon, 18 Feb 2013 23:44:05 +0100
-Borislav Petkov <bp@alien8.de> escreveu:
+On Mon, 2013-02-18 at 21:17 -0800, Eric Dumazet wrote:
 
-> On Mon, Feb 18, 2013 at 02:26:18PM -0800, Greg KH wrote:
-> > I don't know, it depends on if userspace can handle this properly or
-> > not. What tools rely on this sysfs file? WHat happens when they get a
-> > non-number in the file?
+> > chrome: page allocation failure: order:1, mode:0x4020
+> > Pid: 8730, comm: chrome Tainted: G           O 3.7.8-amd64-preempt-20121226-fixwd #1
+> > Call Trace:
+> >  <IRQ>  [<ffffffff810d5f38>] warn_alloc_failed+0x117/0x12c
 
-The thing with "sdram_scrub_rate" is that this is not supported by any
-userspace application I know. I suspect that this is used by userspace
-scripts. So, we'll never know in advance what behavior those scripts would
-expect.
-
+> You could try to load iwlwifi with amsdu_size_8K set to 0 (disable)
 > 
-> I'm not aware of any, frankly speaking.
-> 
-> If there are any, those tools should be able to handle the -ENODEV
-> they get. Now, if this gets changed this way, the read would succeed
-> but they'll have to parse the returned value and see that it is not an
-> integer.
-> 
-> So I don't know either.
-> 
-> But my gut feeling says to stay concervative and not touch this code -
-> we don't know what uses it and how much we would break by "fixing" it.
-> The current situation is not that big of a deal IMVHO and I'd be willing
-> to accept the small inconcistency versus possibly breaking userspace.
+> It should hopefully use order-0 pages
 
-I remember I saw some discussions about it in the past at bluesmoke ML,
-saying that -ENODEV is the expected behavior when this is not supported.
+It will, do that then, unfortunately it can't switch at runtime because
+it advertised this support to the access point or clients.
 
-Changing from -ENODEV to "N/A" will break anything that would be relying
-on the previous behavior. So, I think that such change will for sure break
-userspace.
-
-If we're willing to change it, not creating the "sdram_scrub_rate" sysfs 
-node is less likely to affect userspace.
-
-Regards,
-Mauro
+johannes
