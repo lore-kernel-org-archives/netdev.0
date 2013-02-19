@@ -1,26 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1c: restore buffer state
-Date: Tue, 19 Feb 2013 13:19:53 -0500 (EST)
-Message-ID: <20130219.131953.1403463983805165846.davem@davemloft.net>
-References: <1361294589-7316-1-git-send-email-xiong@qca.qualcomm.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] b43: Increase number of RX DMA slots
+Date: Tue, 19 Feb 2013 12:28:13 -0600
+Message-ID: <5123C43D.2020602@lwfinger.net>
+References: <20130219.005206.397289032011003833.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7152@saturn3.aculab.com> <5123BCFF.5090408@lwfinger.net> <20130219.131553.787630407148880340.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qca-linux-team@qca.qualcomm.com, nic-devel@qca.qualcomm.com,
-	jwboyer@redhat.com
-To: xiong@qca.qualcomm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1361294589-7316-1-git-send-email-xiong@qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David.Laight@ACULAB.COM, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	bittorf@bluebottle.com, stable@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f49.google.com ([209.85.213.49]:52302 "EHLO
+	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933152Ab3BSS2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:28:17 -0500
+In-Reply-To: <20130219.131553.787630407148880340.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: xiong <xiong@qca.qualcomm.com>
-Date: Wed, 20 Feb 2013 01:23:09 +0800
+On 02/19/2013 12:15 PM, David Miller wrote:
 
-> in the previous commit : f1f220ea1dda078, the BUSY state of buffer is wrongly
-> deleted. this patch just restore it.
-> 
-> Signed-off-by: xiong <xiong@qca.qualcomm.com>
+> I understand your constraints, but this is a trivially remotely
+> DoS'able condition even on slow CPU atom laptops.
+>
+> Send an "expansive" full sized frame followed by 300 or so 64-byte UDP
+> packets --> instant hang.
 
-Applied.
+Thanks for the suggestion for a test. I think the reset solution should survive 
+with only some packet loss, but we will find out.
+
+Larry
