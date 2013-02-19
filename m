@@ -1,32 +1,24 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v5] netpoll: fix some sparse warnings in
- various places
-Date: Tue, 19 Feb 2013 09:28:20 +0800
-Message-ID: <1361237300.25055.0.camel@cr0>
-References: <1361157749-9367-1-git-send-email-amwang@redhat.com>
-	 <20130218170126.GA1576@minipsycho.orion>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: build failure after merge of the net-next tree
+Date: Mon, 18 Feb 2013 20:30:18 -0500 (EST)
+Message-ID: <20130218.203018.1503258377581298518.davem@davemloft.net>
+References: <20130219121722.c5470cdd2040712deb8e8043@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29905 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757400Ab3BSB2e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 18 Feb 2013 20:28:34 -0500
-In-Reply-To: <20130218170126.GA1576@minipsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	r.kuntz@ipflavors.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130219121722.c5470cdd2040712deb8e8043@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-02-18 at 18:01 +0100, Jiri Pirko wrote:
-> >-	return bond->dev->npinfo;
-> >+	return rcu_access_pointer(bond->dev->npinfo) != NULL;
->                                                     ^^^^^^^^
-> 						    this is not necessary
-> 						    (sorry for nitpick)
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Tue, 19 Feb 2013 12:17:22 +1100
 
-No problem. Then let's drop this patch. :)
+> I assume that the problem fixed by the net tree commit is fixed some
+> other way in the net-next tree, so I reverted the net tree commit.
+
+The net tree commit should be simply reverted, yes.
