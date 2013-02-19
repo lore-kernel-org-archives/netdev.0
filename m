@@ -1,57 +1,165 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
- 2013.02.16
-Date: Tue, 19 Feb 2013 18:06:05 +0000
-Message-ID: <87618083B2453E4A8714035B62D67992337C4C8D@FMSMSX102.amr.corp.intel.com>
-References: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <20130218.123700.1507921010708117768.davem@davemloft.net>
+From: Konrad Rzeszutek Wilk <konrad@kernel.org>
+Subject: Re: [PATCH v5 29/45] x86/xen: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Tue, 19 Feb 2013 13:10:39 -0500
+Message-ID: <20130219181038.GB18244@phenom.dumpdata.com>
+References: <20130122073210.13822.50434.stgit@srivatsabhat.in.ibm.com>
+ <20130122074046.13822.61950.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	Michal Miroslaw <mirqus@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57736 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758843Ab3BSSGj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:06:39 -0500
-In-Reply-To: <20130218.123700.1507921010708117768.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130122074046.13822.61950.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.or=
-g] On
->Behalf Of David Miller
->Sent: Monday, February 18, 2013 9:37 AM
->To: Kirsher, Jeffrey T
->Cc: netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
->Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Upd=
-ates
->2013.02.16
->
->From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->Date: Sat, 16 Feb 2013 00:33:21 -0800
->
->> This series contains updates to e1000, e1000e, igb, igbvf and ixgbe.
->> The e1000, e1000e, igb and igbvf are single patch changes and the
->> remaining 11 patches are all against ixgbe.
-> ...
->>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next ma=
-ster
->
->Pulled.
->
->I trust that Emil will work out the I2C mutex locking issues being
->discussed with Micha=B3 Miros=B3aw wrt. patch #13.
->
->Thanks.
+On Tue, Jan 22, 2013 at 01:10:51PM +0530, Srivatsa S. Bhat wrote:
+> Once stop_machine() is gone from the CPU offline path, we won't be able to
+> depend on preempt_disable() or local_irq_disable() to prevent CPUs from
+> going offline from under us.
+> 
+> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going offline,
+> while invoking from atomic context.
+> 
+> Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
 
-Thanks Dave, I will work on improving the I2C locking for sure.
+Weird. I see this in the patch but I don't see it in the header? Did you
+explicitly suppress the CC part?
 
-Emil
+
+Anyhow, the patch looks sane enough, thought I need to to run it through
+a test framework just to be on a sure side.
+
+> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+> Cc: "H. Peter Anvin" <hpa@zytor.com>
+> Cc: x86@kernel.org
+> Cc: xen-devel@lists.xensource.com
+> Cc: virtualization@lists.linux-foundation.org
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> ---
+> 
+>  arch/x86/xen/mmu.c |   11 +++++++++--
+>  arch/x86/xen/smp.c |    9 +++++++++
+>  2 files changed, 18 insertions(+), 2 deletions(-)
+> 
+> diff --git a/arch/x86/xen/mmu.c b/arch/x86/xen/mmu.c
+> index 01de35c..6a95a15 100644
+> --- a/arch/x86/xen/mmu.c
+> +++ b/arch/x86/xen/mmu.c
+> @@ -39,6 +39,7 @@
+>   * Jeremy Fitzhardinge <jeremy@xensource.com>, XenSource Inc, 2007
+>   */
+>  #include <linux/sched.h>
+> +#include <linux/cpu.h>
+>  #include <linux/highmem.h>
+>  #include <linux/debugfs.h>
+>  #include <linux/bug.h>
+> @@ -1163,9 +1164,13 @@ static void xen_drop_mm_ref(struct mm_struct *mm)
+>   */
+>  static void xen_exit_mmap(struct mm_struct *mm)
+>  {
+> -	get_cpu();		/* make sure we don't move around */
+> +	/*
+> +	 * Make sure we don't move around, and prevent CPUs from going
+> +	 * offline.
+> +	 */
+> +	get_online_cpus_atomic();
+>  	xen_drop_mm_ref(mm);
+> -	put_cpu();
+> +	put_online_cpus_atomic();
+>  
+>  	spin_lock(&mm->page_table_lock);
+>  
+> @@ -1371,6 +1376,7 @@ static void xen_flush_tlb_others(const struct cpumask *cpus,
+>  	args->op.arg2.vcpumask = to_cpumask(args->mask);
+>  
+>  	/* Remove us, and any offline CPUS. */
+> +	get_online_cpus_atomic();
+>  	cpumask_and(to_cpumask(args->mask), cpus, cpu_online_mask);
+>  	cpumask_clear_cpu(smp_processor_id(), to_cpumask(args->mask));
+>  
+> @@ -1383,6 +1389,7 @@ static void xen_flush_tlb_others(const struct cpumask *cpus,
+>  	MULTI_mmuext_op(mcs.mc, &args->op, 1, NULL, DOMID_SELF);
+>  
+>  	xen_mc_issue(PARAVIRT_LAZY_MMU);
+> +	put_online_cpus_atomic();
+>  }
+>  
+>  static unsigned long xen_read_cr3(void)
+> diff --git a/arch/x86/xen/smp.c b/arch/x86/xen/smp.c
+> index 4f7d259..7d753ae 100644
+> --- a/arch/x86/xen/smp.c
+> +++ b/arch/x86/xen/smp.c
+> @@ -16,6 +16,7 @@
+>  #include <linux/err.h>
+>  #include <linux/slab.h>
+>  #include <linux/smp.h>
+> +#include <linux/cpu.h>
+>  #include <linux/irq_work.h>
+>  
+>  #include <asm/paravirt.h>
+> @@ -487,8 +488,10 @@ static void __xen_send_IPI_mask(const struct cpumask *mask,
+>  {
+>  	unsigned cpu;
+>  
+> +	get_online_cpus_atomic();
+>  	for_each_cpu_and(cpu, mask, cpu_online_mask)
+>  		xen_send_IPI_one(cpu, vector);
+> +	put_online_cpus_atomic();
+>  }
+>  
+>  static void xen_smp_send_call_function_ipi(const struct cpumask *mask)
+> @@ -551,8 +554,10 @@ void xen_send_IPI_all(int vector)
+>  {
+>  	int xen_vector = xen_map_vector(vector);
+>  
+> +	get_online_cpus_atomic();
+>  	if (xen_vector >= 0)
+>  		__xen_send_IPI_mask(cpu_online_mask, xen_vector);
+> +	put_online_cpus_atomic();
+>  }
+>  
+>  void xen_send_IPI_self(int vector)
+> @@ -572,20 +577,24 @@ void xen_send_IPI_mask_allbutself(const struct cpumask *mask,
+>  	if (!(num_online_cpus() > 1))
+>  		return;
+>  
+> +	get_online_cpus_atomic();
+>  	for_each_cpu_and(cpu, mask, cpu_online_mask) {
+>  		if (this_cpu == cpu)
+>  			continue;
+>  
+>  		xen_smp_send_call_function_single_ipi(cpu);
+>  	}
+> +	put_online_cpus_atomic();
+>  }
+>  
+>  void xen_send_IPI_allbutself(int vector)
+>  {
+>  	int xen_vector = xen_map_vector(vector);
+>  
+> +	get_online_cpus_atomic();
+>  	if (xen_vector >= 0)
+>  		xen_send_IPI_mask_allbutself(cpu_online_mask, xen_vector);
+> +	put_online_cpus_atomic();
+>  }
+>  
+>  static irqreturn_t xen_call_function_interrupt(int irq, void *dev_id)
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
