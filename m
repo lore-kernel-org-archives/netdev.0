@@ -1,35 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] b43: Increase number of RX DMA slots
-Date: Tue, 19 Feb 2013 00:52:06 -0500 (EST)
-Message-ID: <20130219.005206.397289032011003833.davem@davemloft.net>
-References: <1361156480-32566-1-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/3] bonding: Fix race condition between
+ bond_enslave() and bond_3ad_update_lacp_rate()
+Date: Tue, 19 Feb 2013 00:52:29 -0500 (EST)
+Message-ID: <20130219.005229.193592350299221718.davem@davemloft.net>
+References: <1361210344-14907-1-git-send-email-nikolay@redhat.com>
+	<21028.1361221753@death.nxdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bittorf-yxHw+vPQXZDZJqsBc5GL+g@public.gmane.org,
-	stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1361156480-32566-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: nikolay@redhat.com, netdev@vger.kernel.org, andy@greyhouse.net
+To: fubar@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54241 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754980Ab3BSFwa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 00:52:30 -0500
+In-Reply-To: <21028.1361221753@death.nxdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Date: Sun, 17 Feb 2013 21:01:20 -0600
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Mon, 18 Feb 2013 13:09:13 -0800
 
-> Bastian Bittorf reported that some of the silent freezes on a Linksys WRT54G
-> were due to overflow of the RX DMA ring buffer, which was created with 64
-> slots. That finding reminded me that I was seeing similar crashed on a netbook,
-> which also has a relatively slow processor. After increasing the number of
-> slots to 128, runs on the netbook that previously failed now worked; however,
-> I found that 109 slots had been used in one test. For that reason, the number
-> of slots is being increased to 256.
+> Nikolay Aleksandrov <nikolay@redhat.com> wrote:
 > 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>>port->slave can be NULL since it's being initialized in bond_enslave
+>>thus dereferencing a NULL pointer in bond_3ad_update_lacp_rate()
+>>Also fix a minor bug, which could cause a port not to have
+>>AD_STATE_LACP_TIMEOUT since there's no sync between
+>>bond_3ad_update_lacp_rate() and bond_3ad_bind_slave(), by changing
+>>the read_lock to a write_lock_bh in bond_3ad_update_lacp_rate().
+> 
+> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> 
+>>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 
-Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied
