@@ -1,42 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Xen-devel] [PATCH] xen: netback: remove redundant xenvif_put
-Date: Tue, 19 Feb 2013 13:06:07 -0500 (EST)
-Message-ID: <20130219.130607.100487415380997622.davem@davemloft.net>
-References: <20130219.005356.2288460992654639558.davem@davemloft.net>
-	<51233FF502000078000BF4AE@nat28.tlf.novell.com>
-	<1361264324.1051.61.camel@zakaz.uk.xensource.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
+ 2013.02.16
+Date: Tue, 19 Feb 2013 18:06:05 +0000
+Message-ID: <87618083B2453E4A8714035B62D67992337C4C8D@FMSMSX102.amr.corp.intel.com>
+References: <1361003616-3422-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20130218.123700.1507921010708117768.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: JBeulich@suse.com, drjones@redhat.com,
-	xen-devel@lists.xensource.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Ian.Campbell@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1361264324.1051.61.camel@zakaz.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	Michal Miroslaw <mirqus@gmail.com>
+To: David Miller <davem@davemloft.net>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:57736 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758843Ab3BSSGj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:06:39 -0500
+In-Reply-To: <20130218.123700.1507921010708117768.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Tue, 19 Feb 2013 08:58:44 +0000
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.or=
+g] On
+>Behalf Of David Miller
+>Sent: Monday, February 18, 2013 9:37 AM
+>To: Kirsher, Jeffrey T
+>Cc: netdev@vger.kernel.org; gospo@redhat.com; sassmann@redhat.com
+>Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Upd=
+ates
+>2013.02.16
+>
+>From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>Date: Sat, 16 Feb 2013 00:33:21 -0800
+>
+>> This series contains updates to e1000, e1000e, igb, igbvf and ixgbe.
+>> The e1000, e1000e, igb and igbvf are single patch changes and the
+>> remaining 11 patches are all against ixgbe.
+> ...
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next ma=
+ster
+>
+>Pulled.
+>
+>I trust that Emil will work out the I2C mutex locking issues being
+>discussed with Micha=B3 Miros=B3aw wrt. patch #13.
+>
+>Thanks.
 
-> On Tue, 2013-02-19 at 08:03 +0000, Jan Beulich wrote:
->> >>> On 19.02.13 at 06:53, David Miller <davem@davemloft.net> wrote:
->> > From: Andrew Jones <drjones@redhat.com>
->> > Date: Mon, 18 Feb 2013 21:29:20 +0100
->> > 
->> >> netbk_fatal_tx_err() calls xenvif_carrier_off(), which does
->> >> a xenvif_put(). As callers of netbk_fatal_tx_err should only
->> >> have one reference to the vif at this time, then the xenvif_put
->> >> in netbk_fatal_tx_err is one too many.
->> >> 
->> >> Signed-off-by: Andrew Jones <drjones@redhat.com>
->> > 
->> > Applied.
->> 
->> But this is wrong from all we can tell,
-> 
-> Yes, please can this be reverted.
+Thanks Dave, I will work on improving the I2C locking for sure.
 
-Done and I've annotated the revert commit message with as much
-information as possible.
+Emil
