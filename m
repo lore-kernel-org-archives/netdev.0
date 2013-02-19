@@ -1,122 +1,99 @@
-From: Lubomir Rintel <lkundrak@v3.sk>
-Subject: RE: [PATCH] libertas sdio: remove CMD_FUNC_INIT call
-Date: Tue, 19 Feb 2013 05:46:43 +0100
-Message-ID: <1361249203.14137.27.camel@unicorn.kokotovo>
-References: <1358493883-28433-1-git-send-email-lkundrak@v3.sk>
-	 <477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Mon, 18 Feb 2013 21:17:13 -0800
+Message-ID: <1361251033.19353.120.camel@edumazet-glaptop>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Harro Haan <hrhaan@gmail.com>, Dan Williams <dcbw@redhat.com>,
-	"libertas-dev@lists.infradead.org" <libertas-dev@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bing Zhao <bzhao@marvell.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, Larry.Finger@lwfinger.net,
+	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Marc MERLIN <marc@merlins.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:44400 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506Ab3BSFRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 00:17:16 -0500
+In-Reply-To: <20130219040557.GB4778@merlins.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-01-18 at 12:28 -0800, Bing Zhao wrote:
-> Hi Lubomir,
-> 
-> > It actually times out on a 8688 present in GuruPlug with sd8688.bin
-> > (md5=7233401e9687f8c880da547beed4324e) firmware (that's present in
-> > linux-firmware tree), but the adapter works fine.
+On Mon, 2013-02-18 at 20:05 -0800, Marc MERLIN wrote:
+> On Mon, Jul 16, 2012 at 06:21:57PM +0200, Eric Dumazet wrote:
+> > > No, it's atually when I'm 'uploading' from my laptop to my server.
+> > > One interesting thing is that my server is running lvm2 with snapshots,
+> > > which makes writes slower than my laptop can push data over the network, so
+> > > it's definitely causing buffers to fill up.
+> > > I just did a download test and got 4.5MB/s sustained without problems.
 > > 
-> > For that firmware times out with libertas_uap [1] as well, though it succeeds
-> > with sd8688_ap.bin (md5=52cd8f8296b9a7e1d3835d57416256b2) that was originally
-> > shipped with GuruPlug. That firmware is not in linux-firmware tree and btmrvl
-> > driver might win the race programming the 8688 with sd8688.bin anyway.
+> > Hmm, nfs apparently is able to push lot of data, try to reduce
+> > rsize/wsize to sane values, like 32K instead of 512K ?
 > > 
-> > [1] https://github.com/lkundrak/linux/tree/libertas_uap
-> > ---
-> >  drivers/net/wireless/libertas/if_sdio.c |   14 --------------
-> >  1 files changed, 0 insertions(+), 14 deletions(-)
+> > gargamel:/mnt/dshelf2/ /net/gargamel/mnt/dshelf2 nfs4
+> > rw,nosuid,nodev,relatime,vers=4.0,rsize=524288,wsize=524288,namlen=255,hard,proto=tcp,port=0,timeo=600,retrans=2,sec=sys,clientaddr=192.168.205.7,local_lock=none,addr=192.168.205.3 0 0
 > > 
-> > diff --git a/drivers/net/wireless/libertas/if_sdio.c b/drivers/net/wireless/libertas/if_sdio.c
-> > index 2ecab49..3c4c555 100644
-> > --- a/drivers/net/wireless/libertas/if_sdio.c
-> > +++ b/drivers/net/wireless/libertas/if_sdio.c
-> > @@ -825,20 +825,6 @@ static void if_sdio_finish_power_on(struct if_sdio_card *card)
-> > 
-> >  	sdio_release_host(func);
-> > 
-> > -	/*
-> > -	 * FUNC_INIT is required for SD8688 WLAN/BT multiple functions
-> > -	 */
-> > -	if (card->model == MODEL_8688) {
-> > -		struct cmd_header cmd;
-> > -
-> > -		memset(&cmd, 0, sizeof(cmd));
-> > -
-> > -		lbs_deb_sdio("send function INIT command\n");
-> > -		if (__lbs_cmd(priv, CMD_FUNC_INIT, &cmd, sizeof(cmd),
-> > -				lbs_cmd_copyback, (unsigned long) &cmd))
-> > -			netdev_alert(priv->dev, "CMD_FUNC_INIT cmd failed\n");
-> > -	}
-> > -
+> > You could trace svc_sock_setbufsize() and check how large is set
+> > sk_sndbuf
 > 
-> Removing FUNC_INIT could break things in some scenarios.
-> Could you please test the following case?
+> My apologies, I totally dropped the ball on this.
 > 
-> 1. insmod liberates -> download firmware, send FUNC_INIT, ...
-> 2. rmmod libertas -> send FUNC_SHUTDOWN command to firmware; BT is still working.
-> 3. insmod libertas -> skip firmware downloading, send FUNC_INIT, ...
+> So, the problem was still there in more recent kernels.
 > 
-> If FUNC_INIT is removed, I don't expect step 3 to work.
-
-In case btmrvl_sdio is loaded, the driver always locks up in FUNC_INIT
-upon probe time, thus I'm not able to proceed to further steps.
-
-[  209.338953] [<c0502248>] (__schedule+0x610/0x764) from [<bf20ae24>] (__lbs_cmd+0xb8/0x130 [libertas])
-[  209.348340] [<bf20ae24>] (__lbs_cmd+0xb8/0x130 [libertas]) from [<bf222474>] (if_sdio_finish_power_on+0xec/0x1b0 [libertas_sdio])
-[  209.360136] [<bf222474>] (if_sdio_finish_power_on+0xec/0x1b0 [libertas_sdio]) from [<bf2226c4>] (if_sdio_power_on+0x18c/0x20c [libertas_sdio])
-[  209.373052] [<bf2226c4>] (if_sdio_power_on+0x18c/0x20c [libertas_sdio]) from [<bf222944>] (if_sdio_probe+0x200/0x31c [libertas_sdio])
-[  209.385316] [<bf222944>] (if_sdio_probe+0x200/0x31c [libertas_sdio]) from [<bf01d820>] (sdio_bus_probe+0x94/0xfc [mmc_core])
-[  209.396748] [<bf01d820>] (sdio_bus_probe+0x94/0xfc [mmc_core]) from [<c02e729c>] (driver_probe_device+0x12c/0x348)
-[  209.407214] [<c02e729c>] (driver_probe_device+0x12c/0x348) from [<c02e7530>] (__driver_attach+0x78/0x9c)
-[  209.416798] [<c02e7530>] (__driver_attach+0x78/0x9c) from [<c02e5658>] (bus_for_each_dev+0x50/0x88)
-[  209.425946] [<c02e5658>] (bus_for_each_dev+0x50/0x88) from [<c02e6810>] (bus_add_driver+0x108/0x268)
-[  209.435180] [<c02e6810>] (bus_add_driver+0x108/0x268) from [<c02e782c>] (driver_register+0xa4/0x134)
-[  209.444426] [<c02e782c>] (driver_register+0xa4/0x134) from [<bf22601c>] (if_sdio_init_module+0x1c/0x3c [libertas_sdio])
-[  209.455339] [<bf22601c>] (if_sdio_init_module+0x1c/0x3c [libertas_sdio]) from [<c00085b8>] (do_one_initcall+0x98/0x174)
-[  209.466236] [<c00085b8>] (do_one_initcall+0x98/0x174) from [<c0076504>] (load_module+0x1c5c/0x1f80)
-[  209.475390] [<c0076504>] (load_module+0x1c5c/0x1f80) from [<c007692c>] (sys_init_module+0x104/0x128)
-[  209.484632] [<c007692c>] (sys_init_module+0x104/0x128) from [<c0008c40>] (ret_fast_syscall+0x0/0x38)
-
-In case btmrvl_sdio is _not_ loaded, insmod returns, but driver locks up
-waiting for FUNC_INIT to finish:
-
-[  300.538859] [<c0502248>] (__schedule+0x610/0x764) from [<bf1fae24>] (__lbs_cmd+0xb8/0x130 [libertas])
-[  300.548600] [<bf1fae24>] (__lbs_cmd+0xb8/0x130 [libertas]) from [<bf212474>] (if_sdio_finish_power_on+0xec/0x1b0 [libertas_sdio])
-[  300.560398] [<bf212474>] (if_sdio_finish_power_on+0xec/0x1b0 [libertas_sdio]) from [<bf213230>] (if_sdio_do_prog_firmware+0x414/0x454 [libertas_sdio])
-[  300.574052] [<bf213230>] (if_sdio_do_prog_firmware+0x414/0x454 [libertas_sdio]) from [<bf1fffbc>] (lbs_fw_loaded+0x24/0x58 [libertas])
-[  300.586907] [<bf1fffbc>] (lbs_fw_loaded+0x24/0x58 [libertas]) from [<c02f02c0>] (request_firmware_work_func+0xb0/0xf4)
-[  300.597746] [<c02f02c0>] (request_firmware_work_func+0xb0/0xf4) from [<c003ae0c>] (process_one_work+0x348/0x6a8)
-[  300.608288] [<c003ae0c>] (process_one_work+0x348/0x6a8) from [<c003b408>] (worker_thread+0x268/0x390)
-[  300.617630] [<c003b408>] (worker_thread+0x268/0x390) from [<c00414b0>] (kthread+0xc0/0xd4)
-[  300.625947] [<c00414b0>] (kthread+0xc0/0xd4) from [<c0008ce8>] (ret_from_fork+0x14/0x20)
-[  300.634135] 2 locks held by kworker/0:1/19:
-[  300.638383]  #0:  (events){.+.+.+}, at: [<c003accc>] process_one_work+0x208/0x6a8
-[  300.646512]  #1:  ((&fw_work->work)){+.+.+.}, at: [<c003accc>] process_one_work+0x208/0x6a8
-
-If I remove the FUNC_INIT call, wifi works fine, but bluetooth stops
-working after a network scan:
-
-[root@megalodon lkundrak]# iwlist scan >/dev/null 2>&1
-[root@megalodon lkundrak]# hcitool scan --flush
-Device is not available: No such device
-[root@megalodon lkundrak]# 
-
+> TL;DR:
+> - reducing nfs buffers removes the full hang
+> - iwlwifi has a problem where lack of pages causes the whoe machine to hang
+> - NFS copies out, even with buffers down to 32K is very wonky and cp does not
+>   return until over 2mn after the copy is actually finished.
+>   (I have a trace of what's hung in cp/nfs when this happens)
 > 
-> Thanks,
-> Bing
 > 
-> >  	priv->fw_ready = 1;
-> >  	wake_up(&card->pwron_waitq);
-> > 
-> > --
-> > 1.7.1
+> Details:
+> 
+> It's still pretty severe because whatever blocks doesn't just end up
+> blocking disk IO, but actually blocking interrupts altogether since my mouse
+> can't move for a minute or more until some buffer flushes.
+> 
+> The last trace I got during this (I can't do sysrq because I have a broken 
+> Lenovo T530 without a sysrq key, and typing doesn't really work when
+> interrupts aren't firing).
+> 
+> Not sure if it's useful. First chrome had an issue, and then iwlwifi
+> 
+> chrome: page allocation failure: order:1, mode:0x4020
+> Pid: 8730, comm: chrome Tainted: G           O 3.7.8-amd64-preempt-20121226-fixwd #1
+> Call Trace:
+>  <IRQ>  [<ffffffff810d5f38>] warn_alloc_failed+0x117/0x12c
+>  [<ffffffff810d8cfd>] __alloc_pages_nodemask+0x66a/0x702
+>  [<ffffffff8108a948>] ? arch_local_irq_save+0x15/0x1b
+>  [<ffffffff811064af>] alloc_pages_current+0xcd/0xee
+>  [<ffffffffa039b579>] iwl_rx_allocate+0x8c/0x271 [iwlwifi]
+>  [<ffffffffa039c24e>] iwl_irq_tasklet+0x7e5/0x91c [iwlwifi]
+>  [<ffffffff8104805e>] tasklet_action+0x80/0xd2
+>  [<ffffffff81047c99>] __do_softirq+0xdf/0x1c5
+>  [<ffffffff814c1ed6>] ? _raw_spin_lock+0x1b/0x1f
+>  [<ffffffff810a7f37>] ? handle_irq_event+0x4d/0x62
+>  [<ffffffff814c7f5c>] call_softirq+0x1c/0x30
+>  [<ffffffff8101104e>] do_softirq+0x41/0x7f
+>  [<ffffffff81047e52>] irq_exit+0x3f/0xa7
+>  [<ffffffff81010d40>] do_IRQ+0x88/0x9f
+>  [<ffffffff814c246d>] common_interrupt+0x6d/0x6d
+>  <EOI> Mem-Info:
+
+You could try to load iwlwifi with amsdu_size_8K set to 0 (disable)
+
+It should hopefully use order-0 pages
+
+Some drivers cant fallback to low order page allocations.
+
+mlx4 is another example (it uses order-2 pages )
