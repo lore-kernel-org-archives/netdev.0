@@ -1,33 +1,63 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] b43: Increase number of RX DMA slots
-Date: Tue, 19 Feb 2013 12:28:13 -0600
-Message-ID: <5123C43D.2020602@lwfinger.net>
-References: <20130219.005206.397289032011003833.davem@davemloft.net> <AE90C24D6B3A694183C094C60CF0A2F6026B7152@saturn3.aculab.com> <5123BCFF.5090408@lwfinger.net> <20130219.131553.787630407148880340.davem@davemloft.net>
+From: pravin <pravin.shelar@gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
+ handle packets
+Date: Tue, 19 Feb 2013 10:28:19 -0800
+Message-ID: <CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
+References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	bittorf@bluebottle.com, stable@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:52302 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933152Ab3BSS2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:28:17 -0500
-In-Reply-To: <20130219.131553.787630407148880340.davem@davemloft.net>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:42365 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933152Ab3BSS2V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 13:28:21 -0500
+Received: by mail-wg0-f45.google.com with SMTP id dq12so5929383wgb.24
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 10:28:19 -0800 (PST)
+In-Reply-To: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/19/2013 12:15 PM, David Miller wrote:
-
-> I understand your constraints, but this is a trivially remotely
-> DoS'able condition even on slow CPU atom laptops.
+On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+> If device is not able to handle checksumming it will
+> be handled in dev_xmit
 >
-> Send an "expansive" full sized frame followed by 300 or so 64-byte UDP
-> packets --> instant hang.
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> ---
+> Changes from v1: fixed email address
+>
+>  net/ipv4/ip_gre.c |    7 ++-----
+>  1 files changed, 2 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index a56f118..cdc31ac 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
+>                         goto error;
+>                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+>                 return skb;
+> -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+> -               err = skb_checksum_help(skb);
+> -               if (unlikely(err))
+> -                       goto error;
+>         }
+> -       skb->ip_summed = CHECKSUM_NONE;
+> +       if (skb->ip_summed != CHECKSUM_PARTIAL)
+> +               skb->ip_summed = CHECKSUM_NONE;
+>
+>         return skb;
+>
+> --
+> 1.7.7.2
+>
+>
 
-Thanks for the suggestion for a test. I think the reset solution should survive 
-with only some packet loss, but we will find out.
+This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
+complete IP packet to checksum entire GRE payload.
 
-Larry
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
