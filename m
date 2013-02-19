@@ -1,65 +1,54 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Tue, 19 Feb 2013 12:17:22 +1100
-Message-ID: <20130219121722.c5470cdd2040712deb8e8043@canb.auug.org.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 7/7] netfilter: nf_ct_helper: better logging for dropped
+ packets
+Date: Mon, 18 Feb 2013 17:23:37 -0800
+Message-ID: <1361237017.2046.9.camel@joe-AO722>
+References: <1361232651-5626-1-git-send-email-pablo@netfilter.org>
+	 <1361232651-5626-8-git-send-email-pablo@netfilter.org>
+	 <1361233322.2046.3.camel@joe-AO722> <20130219011109.GA6362@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__19_Feb_2013_12_17_22_+1100_+gZotxKmjDXBTSyV"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	=?UTF-8?B?IllPU0hJRlVKSSBIaWRlYWtpIC8g5ZCJ6Jek6Iux5piOIg==?=
-	<yoshfuji@linux-ipv6.org>, Romain KUNTZ <r.kuntz@ipflavors.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130219011109.GA6362@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__19_Feb_2013_12_17_22_+1100_+gZotxKmjDXBTSyV
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Tue, 2013-02-19 at 02:11 +0100, Pablo Neira Ayuso wrote:
+> On Mon, Feb 18, 2013 at 04:22:02PM -0800, Joe Perches wrote:
+> > On Tue, 2013-02-19 at 01:10 +0100, pablo@netfilter.org wrote:
+> > > This patch modifies the existing code to provide more specific
+> > > error message in the scope of each helper to help users to debug
+> > > the reason why the packet has been dropped, ie:
+> > []
+> > > diff --git a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
+> > []
+[]
+> > do please try to avoid splitting formats
+> > 
+> > 				nf_ct_helper_log(skb, ct,
+> > 						 "cannot add expectation");
+> 
+> Done whenever possible, sometimes I see myself forced to split them to
+> fit 80-chars per column.
 
-Hi all,
+It's always possible.
 
-After merging the net-next tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+Just ignore line length limitations for formats.
 
-net/ipv6/xfrm6_policy.c: In function 'xfrm6_dst_destroy':
-net/ipv6/xfrm6_policy.c:238:6: error: 'struct rt6_info' has no member named=
- 'n'
-net/ipv6/xfrm6_policy.c:239:28: error: 'struct rt6_info' has no member name=
-d 'n'
+If the formats are on a separate line, checkpatch
+won't complain either.
 
-Caused by commit 887c95cc1da5 ("ipv6: Complete neighbour entry removal
-from dst_entry") interacting with commit 18cf0d0784b4 ("xfrm: release
-neighbor upon dst destruction") from the net tree.
+If nf_cg_helper_log was named nf_cg_helper_printk
+checkpatch wouldn't complain if the original line
+with format was > 80 cols
 
-I assume that the problem fixed by the net tree commit is fixed some
-other way in the net-next tree, so I reverted the net tree commit.
+		nf_ct_helper_printk(skb, ct, "some really long format past 80 cols ...");
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+but then the log isn't really a printk either and
+that's a checkpatch limitation on understanding
+what is and isn't a logging output function.
 
---Signature=_Tue__19_Feb_2013_12_17_22_+1100_+gZotxKmjDXBTSyV
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRItKiAAoJEECxmPOUX5FESKMP/2ksOFDukLS5ael3qlt64MFW
-+Rnv2X4REVJte2ylwqk4wbH7fsb1EMQfOADZeJJBKZgZgHMM+9yPar/iWLJBqMr6
-pLrZyUWvlelRrFroky7C3urzEy/eNBbBMM95oFfoe8/jJF/twOFWRRoFalhdOPbs
-a4f8GnbDfNc4q65josVHmV8UPJmWfNs18Cd2G5VPeok3CbCmSvvkNlQf/55EeXOf
-08+1ijnRSKu6AR0aBPA3NcZpZjuqNVhv6p65QF1SFgZIyDfUT0k5tRdYSPAA8q8o
-CNT1C5uF/0Xc2Vv2g8GXmpeksL1CVwmvHg6A6Ero7govY0eKdOU8n56R99AdG5Ex
-tMpdUaVCS0W0FaMDTevKBe9P0vJgDK90HIYQe+pP8/cODmMdxFXAh3gyvwxMOR30
-7JfeBrL5fp1+D047Ffl9e+IO8DV0Mc7hhxxQYfVAvDh8BepnfS7GG2Op5uCMcXlh
-9DW73gnG52UzmHzpEOo7iP2CimRQJHYLV5szxUsF2NsUt5SHGzRamXSEfvcA7DnA
-J6Oto6EmKATy1tyU0H55zl3gou0LIfzesTFL4VHa7sARRysab6ecLsCr1nbCOano
-iXeyMKe1Rn3fdpeCEe5sb+LsAInIWWbjWaDEhUXkGrS1U6VxzUzO38JZ/mlJtI3T
-nlwBH+tMsoNAIb3ManF4
-=+pLC
------END PGP SIGNATURE-----
-
---Signature=_Tue__19_Feb_2013_12_17_22_+1100_+gZotxKmjDXBTSyV--
