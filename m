@@ -1,57 +1,66 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen: netback: remove redundant xenvif_put
-Date: Tue, 19 Feb 2013 08:58:44 +0000
-Message-ID: <1361264324.1051.61.camel@zakaz.uk.xensource.com>
-References: <1361219360-29176-1-git-send-email-drjones@redhat.com>
-	 <20130219.005356.2288460992654639558.davem@davemloft.net>
-	 <51233FF502000078000BF4AE@nat28.tlf.novell.com>
+From: Michel Lespinasse <walken@google.com>
+Subject: Re: [PATCH v6 08/46] CPU hotplug: Provide APIs to prevent CPU offline
+ from atomic context
+Date: Tue, 19 Feb 2013 17:40:50 +0800
+Message-ID: <CANN689E-98zK69pGeojbm30n3sswQYVBvhk3i3OzqvbeqSrSrg@mail.gmail.com>
+References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
+	<20130218123920.26245.56709.stgit@srivatsabhat.in.ibm.com>
+	<CANN689HhVxDv+3Bn9UAxOMzj0egTvVp_c7oAmQ2nnQ8Xjn_aMA@mail.gmail.com>
+	<51225A36.40600@linux.vnet.ibm.com>
+	<CANN689FJPLfz06MFRJ9T+BuToejAzjYP_yrw_H4iGi1Kb3p2-g@mail.gmail.com>
+	<51227810.6090009@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"drjones@redhat.com" <drjones@redhat.com>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51233FF502000078000BF4AE@nat28.tlf.novell.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, rjw@sisk.pl, sbw@mit.edu,
+	fweisbec@gmail.com, linux@arm.linux.org.uk,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org,
+	vincent.guittot@linaro.org
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <51227810.6090009@linux.vnet.ibm.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-02-19 at 08:03 +0000, Jan Beulich wrote:
-> >>> On 19.02.13 at 06:53, David Miller <davem@davemloft.net> wrote:
-> > From: Andrew Jones <drjones@redhat.com>
-> > Date: Mon, 18 Feb 2013 21:29:20 +0100
-> > 
-> >> netbk_fatal_tx_err() calls xenvif_carrier_off(), which does
-> >> a xenvif_put(). As callers of netbk_fatal_tx_err should only
-> >> have one reference to the vif at this time, then the xenvif_put
-> >> in netbk_fatal_tx_err is one too many.
-> >> 
-> >> Signed-off-by: Andrew Jones <drjones@redhat.com>
-> > 
-> > Applied.
-> 
-> But this is wrong from all we can tell,
+On Tue, Feb 19, 2013 at 2:50 AM, Srivatsa S. Bhat
+<srivatsa.bhat@linux.vnet.ibm.com> wrote:
+> But, the whole intention behind removing the parts depending on the
+> recursive property of rwlocks would be to make it easier to make rwlocks
+> fair (going forward) right? Then, that won't work for CPU hotplug, because,
+> just like we have a legitimate reason to have recursive
+> get_online_cpus_atomic(), we also have a legitimate reason to have
+> unfairness in locking (i.e., for deadlock-safety). So we simply can't
+> afford to make the locking fair - we'll end up in too many deadlock
+> possibilities, as hinted in the changelog of patch 1.
 
-Yes, please can this be reverted.
+Grumpf - I hadn't realized that making the underlying rwlock fair
+would break your hotplug use case. But you are right, it would. Oh
+well :/
 
->  we discussed this before
-> (Wei pointed to the discussion in an earlier reply). The core of
-> it is that the put here parallels the one in netbk_tx_err(), and
-> the one in xenvif_carrier_off() matches the get from
-> xenvif_connect() (which normally would be done on the path
-> coming through xenvif_disconnect()).
+> So the only long-term solution I can think of is to decouple
+> percpu-rwlocks and rwlock_t (like what Tejun suggested) by implementing
+> our own unfair locking scheme inside. What do you think?
 
-Perhaps Andrew was looking at the tree before "xen-netback: correctly
-return errors from netbk_count_requests()" which fixed a different case
-of a double put which may have appeared to be fixed by this change too.
+I have no idea how hard would it be to change get_online_cpus_atomic()
+call sites so that the hotplug rwlock read side has a defined order vs
+other locks (thus making sure the situation you describe in patch 1
+doesn't happen). I agree we shouldn't base our short term plans around
+that, but maybe that's doable in the long term ???
 
-Ian.
+Otherwise, I think we should add some big-fat-warning that percpu
+rwlocks don't have reader/writer fairness, that the hotplug use case
+actually depends on the unfairness / would break if the rwlock was
+made fair, and that any new uses of percpu rwlocks should be very
+carefully considered because of the reader/writer fairness issues.
+Maybe even give percpu rwlocks a less generic sounding name, given how
+constrained they are by the hotplug use case.
 
-> And anyway - shouldn't changes to netback require an ack from
-> Ian?
-> 
-> Jan
-> 
+-- 
+Michel "Walken" Lespinasse
+A program is never fully debugged until the last user dies.
