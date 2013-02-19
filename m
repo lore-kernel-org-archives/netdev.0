@@ -1,58 +1,87 @@
-From: Doug Goldstein <cardoe@cardoe.com>
-Subject: [PATCHv2] bonding: set sysfs device_type to 'bond'
-Date: Mon, 18 Feb 2013 18:59:23 -0600
-Message-ID: <1361235563-2684-1-git-send-email-cardoe@cardoe.com>
-References: <20130218.144934.1015644582010518018.davem@davemloft.net>
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	Doug Goldstein <cardoe@cardoe.com>
-To: netdev@vger.kernel.org
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH v2] net: fec: Fix the disabling of RX interrupt
+Date: Mon, 18 Feb 2013 23:38:18 -0300
+Message-ID: <CAOMZO5CRQeuF_ERZ0v2uocuADXRWscKLN0KqdDHfu+0Ub2MEhw@mail.gmail.com>
+References: <1361217895-17143-1-git-send-email-fabio.estevam@freescale.com>
+	<CAHrpEqRpjQuADCzXyF4+Q359TjovXDdNJaurGKin0-0Ta2+kZg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Fabio Estevam <fabio.estevam@freescale.com>, davem@davemloft.net,
+	Frank.Li@freescale.com, shawn.guo@linaro.org, marex@denx.de,
+	s.hauer@pengutronix.de, netdev@vger.kernel.org
+To: Frank Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f169.google.com ([209.85.213.169]:55663 "EHLO
-	mail-ye0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757872Ab3BSB4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 20:56:10 -0500
-Received: by mail-ye0-f169.google.com with SMTP id l13so1145821yen.28
-        for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 17:56:08 -0800 (PST)
-In-Reply-To: <20130218.144934.1015644582010518018.davem@davemloft.net>
+Received: from mail-vc0-f178.google.com ([209.85.220.178]:51830 "EHLO
+	mail-vc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757359Ab3BSCoN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 21:44:13 -0500
+Received: by mail-vc0-f178.google.com with SMTP id m8so3971898vcd.37
+        for <netdev@vger.kernel.org>; Mon, 18 Feb 2013 18:44:13 -0800 (PST)
+In-Reply-To: <CAHrpEqRpjQuADCzXyF4+Q359TjovXDdNJaurGKin0-0Ta2+kZg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sets the sysfs device_type to 'bond' for udev. This allows udev rules to
-be created for bond devices. This is similar to how other network
-devices set their device_type.
+On Mon, Feb 18, 2013 at 10:54 PM, Frank Li <lznuaa@gmail.com> wrote:
 
-Signed-off-by: Doug Goldstein <cardoe@cardoe.com>
----
-v2: removed accidental whitespace addition
----
- drivers/net/bonding/bond_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+> This is not correct fix.
+> Read, OR and write is not atomic. Need lock.
+> But if use hw_lock, it cause dead lock.
+> I spend some time to remove such lock.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index b7d45f3..876505f 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4352,6 +4352,10 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_fix_features	= bond_fix_features,
- };
- 
-+static const struct device_type bond_type = {
-+	.name = "bond",
-+};
+Ok, could you please try the patch below? It avoids the kernel crash
+on my mx53qsb:
+
+ drivers/net/ethernet/freescale/fec.c |   23 ++++++++++++++++++++---
+ 1 file changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c
+b/drivers/net/ethernet/freescale/fec.c
+index 0fe68c4..4df6518 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -804,6 +804,24 @@ rx_processing_done:
+ 	return pkt_received;
+ }
+
++static void fec_control_rx(struct net_device *ndev, bool enable)
++{
++	struct fec_enet_private *fep = netdev_priv(ndev);
++	int reg;	
++	unsigned long flags;
 +
- static void bond_destructor(struct net_device *bond_dev)
++	spin_lock_irqsave(&fep->hw_lock, flags);
++	reg = readl(fep->hwp + FEC_IMASK);
++	if (enable)
++		reg |= FEC_ENET_RXF;
++	else
++		reg &= ~FEC_ENET_RXF;
++
++	writel(reg, fep->hwp + FEC_IMASK);
++
++	spin_unlock_irqrestore(&fep->hw_lock, flags);
++}
++
+ static irqreturn_t
+ fec_enet_interrupt(int irq, void *dev_id)
  {
- 	struct bonding *bond = netdev_priv(bond_dev);
-@@ -4382,6 +4386,8 @@ static void bond_setup(struct net_device *bond_dev)
- 
- 	bond_dev->destructor = bond_destructor;
- 
-+	SET_NETDEV_DEVTYPE(bond_dev, &bond_type);
-+
- 	/* Initialize the device options */
- 	bond_dev->tx_queue_len = 0;
- 	bond_dev->flags |= IFF_MASTER|IFF_MULTICAST;
+@@ -821,8 +839,7 @@ fec_enet_interrupt(int irq, void *dev_id)
+
+ 			/* Disable the RX interrupt */
+ 			if (napi_schedule_prep(&fep->napi)) {
+-				writel(FEC_RX_DISABLED_IMASK,
+-					fep->hwp + FEC_IMASK);
++				fec_control_rx(ndev, false);
+ 				__napi_schedule(&fep->napi);
+ 			}
+ 		}
+@@ -1628,7 +1645,7 @@ static int fec_enet_init(struct net_device *ndev)
+ 	ndev->netdev_ops = &fec_netdev_ops;
+ 	ndev->ethtool_ops = &fec_enet_ethtool_ops;
+
+-	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
++	fec_control_rx(ndev, false);
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+
+ 	/* Initialize the receive buffer descriptors. */
 -- 
-1.7.12.4
+1.7.9.5
