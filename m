@@ -1,48 +1,42 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
- copies out
-Date: Tue, 19 Feb 2013 11:03:41 +0100
-Message-ID: <1361268221.8553.1.camel@jlt4.sipsolutions.net>
-References: <1333998672.3007.245.camel@edumazet-glaptop>
-	 <20120409.153452.1284163346306246866.davem@davemloft.net>
-	 <1334030180.13293.98.camel@edumazet-glaptop>
-	 <20120410051127.GA32048@merlins.org>
-	 <1334038263.2907.1.camel@edumazet-glaptop>
-	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
-	 <1342419529.3265.12217.camel@edumazet-glaptop>
-	 <20120716151826.GA10586@merlins.org>
-	 <1342455717.2830.14.camel@edumazet-glaptop>
-	 <20130219040557.GB4778@merlins.org>
-	 <1361251033.19353.120.camel@edumazet-glaptop>
-	 (sfid-20130219_061917_530878_1ED7A14C)
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
-	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH 1/1] net: rfkill: Fix sparse warning in rfkill-regulator.c
+Date: Tue, 19 Feb 2013 15:27:48 +0530
+Message-ID: <1361267868-2316-1-git-send-email-sachin.kamat@linaro.org>
+Cc: davem@davemloft.net, linville@tuxdriver.com,
+	johannes@sipsolutions.net, sachin.kamat@linaro.org
+To: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:46363 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758567Ab3BSKEL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 05:04:11 -0500
-In-Reply-To: <1361251033.19353.120.camel@edumazet-glaptop> (sfid-20130219_061917_530878_1ED7A14C)
+Received: from mail-da0-f47.google.com ([209.85.210.47]:56132 "EHLO
+	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758669Ab3BSKIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 05:08:48 -0500
+Received: by mail-da0-f47.google.com with SMTP id s35so2908221dak.6
+        for <netdev@vger.kernel.org>; Tue, 19 Feb 2013 02:08:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-02-18 at 21:17 -0800, Eric Dumazet wrote:
+'rfkill_regulator_ops' is used only in this file. Hence make it static.
+Silences the following warning:
+net/rfkill/rfkill-regulator.c:54:19: warning:
+symbol 'rfkill_regulator_ops' was not declared. Should it be static?
 
-> > chrome: page allocation failure: order:1, mode:0x4020
-> > Pid: 8730, comm: chrome Tainted: G           O 3.7.8-amd64-preempt-20121226-fixwd #1
-> > Call Trace:
-> >  <IRQ>  [<ffffffff810d5f38>] warn_alloc_failed+0x117/0x12c
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+---
+ net/rfkill/rfkill-regulator.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-> You could try to load iwlwifi with amsdu_size_8K set to 0 (disable)
-> 
-> It should hopefully use order-0 pages
-
-It will, do that then, unfortunately it can't switch at runtime because
-it advertised this support to the access point or clients.
-
-johannes
+diff --git a/net/rfkill/rfkill-regulator.c b/net/rfkill/rfkill-regulator.c
+index 4b5ab21..d11ac79 100644
+--- a/net/rfkill/rfkill-regulator.c
++++ b/net/rfkill/rfkill-regulator.c
+@@ -51,7 +51,7 @@ static int rfkill_regulator_set_block(void *data, bool blocked)
+ 	return 0;
+ }
+ 
+-struct rfkill_ops rfkill_regulator_ops = {
++static struct rfkill_ops rfkill_regulator_ops = {
+ 	.set_block = rfkill_regulator_set_block,
+ };
+ 
+-- 
+1.7.4.1
