@@ -1,27 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
- capability to the tunnel device
-Date: Tue, 19 Feb 2013 00:53:37 -0500 (EST)
-Message-ID: <20130219.005337.2048652980413079153.davem@davemloft.net>
-References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
-	<1361217053-16984-2-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH v4] net: fec: Do a sanity check on the gpio number
+Date: Tue, 19 Feb 2013 00:53:50 -0500 (EST)
+Message-ID: <20130219.005350.884548712379647615.davem@davemloft.net>
+References: <1361218831-17336-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dmitry@broadcom.com
+Cc: shawn.guo@linaro.org, marex@denx.de, s.hauer@pengutronix.de,
+	netdev@vger.kernel.org
+To: fabio.estevam@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54280 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54284 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755958Ab3BSFxj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 00:53:39 -0500
-In-Reply-To: <1361217053-16984-2-git-send-email-dmitry@broadcom.com>
+	with ESMTP id S1756698Ab3BSFxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 00:53:51 -0500
+In-Reply-To: <1361218831-17336-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Mon, 18 Feb 2013 21:50:53 +0200
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Date: Mon, 18 Feb 2013 17:20:31 -0300
 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Check whether the phy-reset GPIO is valid, prior to requesting it.
+> 
+> In the case a board does not provide a phy-reset GPIO, just returns immediately.
+> 
+> With such gpio validation in place, it is also safe to change from pr_debug to 
+> dev_err in the case the gpio request fails.
+> 
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
 Applied.
