@@ -1,102 +1,209 @@
-From: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
-Subject: [PATCH 60/81] sctp: refactor sctp_outq_teardown to insure proper
-	re-initalization
-Date: Tue, 19 Feb 2013 15:49:23 -0300
-Message-ID: <1361299784-8830-61-git-send-email-herton.krzesinski@canonical.com>
-References: <1361299784-8830-1-git-send-email-herton.krzesinski@canonical.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jamie Parsons <Jamie.Parsons@metaswitch.com>,
-	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	kernel-team@lists.ubuntu.com
-Return-path: <kernel-team-bounces@lists.ubuntu.com>
-In-Reply-To: <1361299784-8830-1-git-send-email-herton.krzesinski@canonical.com>
-List-Unsubscribe: <https://lists.ubuntu.com/mailman/options/kernel-team>,
-	<mailto:kernel-team-request@lists.ubuntu.com?subject=unsubscribe>
-List-Archive: <https://lists.ubuntu.com/archives/kernel-team>
-List-Post: <mailto:kernel-team@lists.ubuntu.com>
-List-Help: <mailto:kernel-team-request@lists.ubuntu.com?subject=help>
-List-Subscribe: <https://lists.ubuntu.com/mailman/listinfo/kernel-team>,
-	<mailto:kernel-team-request@lists.ubuntu.com?subject=subscribe>
-Sender: kernel-team-bounces@lists.ubuntu.com
-Errors-To: kernel-team-bounces@lists.ubuntu.com
-List-Id: netdev.vger.kernel.org
-
-3.5.7.6 -stable review patch.  If anyone has any objections, please let me know.
-
-------------------
-
 From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 2/3] tipc: byte-based overload control on socket
+ receive queue
+Date: Tue, 19 Feb 2013 14:18:33 -0500
+Message-ID: <20130219191833.GB31871@hmsreliant.think-freely.org>
+References: <1360969067-29956-1-git-send-email-paul.gortmaker@windriver.com>
+ <1360969067-29956-3-git-send-email-paul.gortmaker@windriver.com>
+ <20130218144757.GA26199@hmsreliant.think-freely.org>
+ <512332DA.5040508@ericsson.com>
+ <20130219142629.GA31871@hmsreliant.think-freely.org>
+ <5123BC46.40909@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ying Xue <ying.xue@windriver.com>
+To: Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:33152 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933382Ab3BSTSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 14:18:51 -0500
+Content-Disposition: inline
+In-Reply-To: <5123BC46.40909@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86 upstream.
+On Tue, Feb 19, 2013 at 06:54:14PM +0100, Jon Maloy wrote:
+> On 02/19/2013 03:26 PM, Neil Horman wrote:
+> > On Tue, Feb 19, 2013 at 09:07:54AM +0100, Jon Maloy wrote:
+> >> On 02/18/2013 09:47 AM, Neil Horman wrote:
+> >>> On Fri, Feb 15, 2013 at 05:57:46PM -0500, Paul Gortmaker wrote:
+> >>>> From: Ying Xue <ying.xue@windriver.com>
+> >>>>
+> >>>> Change overload control to be purely byte-based, using
+> >>>> sk->sk_rmem_alloc as byte counter, and compare it to a calculated
+> >>>> upper limit for the socket receive queue.
+> >>
+> >> [...]
+> >>
+> >>>> + *
+> >>>> + * For all connectionless messages, by default new queue limits are
+> >>>> + * as belows:
+> >>>> + *
+> >>>> + * TIPC_LOW_IMPORTANCE       (5MB)
+> >>>> + * TIPC_MEDIUM_IMPORTANCE    (10MB)
+> >>>> + * TIPC_HIGH_IMPORTANCE      (20MB)
+> >>>> + * TIPC_CRITICAL_IMPORTANCE  (40MB)
+> >>>> + *
+> >>>> + * Returns overload limit according to corresponding message importance
+> >>>> + */
+> >>>> +static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
+> >>>> +{
+> >>>> +	struct tipc_msg *msg = buf_msg(buf);
+> >>>> +	unsigned int limit;
+> >>>> +
+> >>>> +	if (msg_connected(msg))
+> >>>> +		limit = CONN_OVERLOAD_LIMIT;
+> >>> This still strikes me as a bit wierd.  If you really can't tolerate the default
+> >>> rmem settings in proc, have you considered separating the rmem and wmem values
+> >>> out into their own sysctls?  
+> >>
+> >> Initially we tried to set this value as default for sk_rcvbuf, and then use
+> >> fractions of it as limits, as you suggest below. The problem we found was that
+> >> if we want to change this via setsockopt(SOL_SOCKET, SO_RCVBUF) the value range
+> >> we can use is very limited, and doesn't fit our purposes.
+> >>
+> > Can you elaborate on this please?  The above doesn't really explain why you
+> > can't do what I suggested.  Not asserting that what you say is untrue, mind you,
+> > I'm just trying to understand what it is about TIPC that requires such a
+> > specific reception buffer envelope, 
+> 	
+> There are two reasons for this. 
+> The first one due to the message oriented nature of the flow control for 
+> connections. Max message size is 65k, and max number of unacked messages 
+> (at socket level, that is) before the sending process will take a break 
+> is 1024. 
+> So, simple maths gives that we must allow for 64MB + sk_overhead to guarantee 
+> that a connection never is broken because of receiver overload. Contrary to TCP,
+Note, this is false, due to the fact that, it presumes that the sender will
+honor the congestion window.  Granted, that would be a sender violation, but its
+still possible for packets to get lost due to receiver overrun.  The fact that
+you ack packets before accepting them to the receive queue is the problem that
+needs fixing in this case, but that looks like it can be easily accomplished
+(see below).
 
-Jamie Parsons reported a problem recently, in which the re-initalization of an
-association (The duplicate init case), resulted in a loss of receive window
-space.  He tracked down the root cause to sctp_outq_teardown, which discarded
-all the data on an outq during a re-initalization of the corresponding
-association, but never reset the outq->outstanding_data field to zero.  I wrote,
-and he tested this fix, which does a proper full re-initalization of the outq,
-fixing this problem, and hopefully future proofing us from simmilar issues down
-the road.
+> we don't have the luxury to just drop packets and expect them to be retransmitted,
+> because in TIPC they have already passed through the retransmission and 
+> defragmentation layers, and are committed for delivery when they reach the 
+> receiving socket.
+The problem isn't that you don't have the luxury of droping packets, the problem
+is that you've decided to ack an incomming packet before you've determined if
+you have the space to accept it (I sympathise with you here, I had to go through
+this same exercise with SCTP a few years ago).  Just trying to balance your
+rcvbuf space so that you don't have to worry about it causes more problems than
+it solves in the end.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-Tested-by: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-CC: Jamie Parsons <Jamie.Parsons@metaswitch.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: netdev@vger.kernel.org
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Herton Ronaldo Krzesinski <herton.krzesinski@canonical.com>
----
- net/sctp/outqueue.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+The thing to do is just move your rcvbuf check lower in the stack, in this case
+to tipc_recv_msg.  You have a tipc_msg struct there, from which you can
+determine if the message is data, get the desination port, and convert that to a
+tipc_port pointer, which contains a usr_handle pointer.  From my read, the
+usr_handle pointer is only ever set to a socket structure, so if you have a non
+NULL usr_handle, cast it to a struct sock, and read is sk_rcvbuf.  If its over
+capacity, drop the packet before you ack it.
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index a0fa19f..0716290 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -223,7 +223,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- 
- /* Free the outqueue structure and any related pending chunks.
-  */
--void sctp_outq_teardown(struct sctp_outq *q)
-+static void __sctp_outq_teardown(struct sctp_outq *q)
- {
- 	struct sctp_transport *transport;
- 	struct list_head *lchunk, *temp;
-@@ -276,8 +276,6 @@ void sctp_outq_teardown(struct sctp_outq *q)
- 		sctp_chunk_free(chunk);
- 	}
- 
--	q->error = 0;
--
- 	/* Throw away any leftover control chunks. */
- 	list_for_each_entry_safe(chunk, tmp, &q->control_chunk_list, list) {
- 		list_del_init(&chunk->list);
-@@ -285,11 +283,17 @@ void sctp_outq_teardown(struct sctp_outq *q)
- 	}
- }
- 
-+void sctp_outq_teardown(struct sctp_outq *q)
-+{
-+	__sctp_outq_teardown(q);
-+	sctp_outq_init(q->asoc, q);
-+}
-+
- /* Free the outqueue structure and any related pending chunks.  */
- void sctp_outq_free(struct sctp_outq *q)
- {
- 	/* Throw away leftover chunks. */
--	sctp_outq_teardown(q);
-+	__sctp_outq_teardown(q);
- 
- 	/* If we were kmalloc()'d, free the memory.  */
- 	if (q->malloced)
--- 
-1.7.9.5
+> You may question the wisdom of having a message oriented flow control algorithm, 
+> but this the way it is now. We do actually have a working prototype where we 
+> introduce purely byte-based flow control, but it is not ready for delivery yet, 
+> and compatibility constraints will require that we still keep this high limit 
+> in some cases.
+> 
+I do believe that a byte oriented algorithm is better, but for now a message
+based mechanism is fine by me.  My only concern is that you honor the limits
+placed on the socket.  I'm not sure what compatibilty requirement enjoin you
+from having a lower rcvbuf limit, but it would seem to me, just not acking a
+message until you are sure you can accept it would fix those problems.  Even if
+that isn't the case, honor the limits, tie them to the tunables in /proc (or
+create your own), and document what the required limits are.
+
+> The second reason is that TIPC provides SOCK_RDM instead of SOCK_DGRAM as its
+> basic datagram service. (It is the only transport service doing this afaik.)
+> So, the risk of having datagram messages rejected (not dropped), for any reason, 
+> must be extremely low. ("Rejected" here means that we notify the sender when a
+> message cannot be delivered, we don't just silently drop it.)
+Thats fine, I'm not talking about rejecting messages, I'm specifically referring
+to dropping them - i.e. behaving as if they never arrived at the host at all
+(save for maybe increasing a stats counter, so the admin knows whats going on).
+One way or another the sender has to be prepared to handle an unacked frame.  If
+you can't, then the protocol is broken.
+
+> Given that we also often have seen designs with many clients sending towards
+> one server we have empirical experience that we must have a high threshold here.
+> One can discuss whether 2MB or 5MB is the adequate limit for the lowest level, 
+> we don't really now since this a new design, but we have every reason to believe
+> that the upper limit permitted by setsockopt(SOL_SOCK) (425,984 bytes according
+> to a quick test I made) is not enough for us.
+I'm not trying to force you to a lower sk_rcvbuf value, I'm fine with whatever
+you want to set it to, my only request here is that you honor the limits set on
+your socket at least semi accurately.  If you need to set that limit higher by
+default, do so (theres sysctl values for that already:
+sysctl_rmem_[min|default|max], or you can build your own, though I would
+recommend you use the former).
+
+Note also, that the upper limit of sk_rcvbuf isn't 425,984 bytes.  That sounds
+more like what you have sysctl_rmem_max set to on your system at the moment.
+Bump that up if you need it higher (do the same with sysctl_rmem_default, for
+apps that need to expect your old buffer size value.
+
+> 
+> > and how enforcing queue limits here is so
+> > important when packets could just as easily be dropped at the ip layer (with
+> > ostensibly no fatal failure).
+> 
+> There is no IP layer. TIPC and its retransmission layer sits directly on top of
+> L2/Ethernet. Nothing can be dropped below that layer, for obvious reasons,
+> and to drop anything above that layer *has* fatal consequences, because TIPC
+> guarantees delivery both for connection oriented and connectionless (as far as 
+> ever possible) services. 
+Sorry, I forgot TIPC sat directly on top of L2.  Regardless however, as noted
+above, you can certainly still do discards below your ack point in your stack.
+
+> Anyway, only the receiving socket contains the info making it possible to
+> select which messages to reject, in the rare cases where that becomes
+> unavoidable.
+> 
+Yup, and you can interrogate that from tipc_recv_msg
+
+> > 
+> >> We did consider to introduce a separate setsockopt at TIPC level for this,
+> >> but thought it had a value in itself to use the mechanism that is already there. 
+> >> Hence the "re-interpretation" of sk_rcvbuf as we do below.
+> >> Considering the weird doubling of this parameter that is done elsewhere in the
+> >> code we thought that having our own interpretation might be acceptable.
+> > Thats quite different IMHO.  The comments in sock_setsockopt make it pretty
+> > clear that the doubling of the rcvbuf value is done to account for the sk_buff
+> > overhead of packet reception, and thats documented in the socket(7) man page.
+> > What you have here is the ability to set sk_rcvbuf, and then have that setting
+> > be ignored, but only to within several different limits, depending on various
+> > conditions, all of which are not visible to user space.
+> > 
+> >> We did of course see the potential issue with this, that is why we cc-ed
+> >> you for comments.
+> > I appreciate that.
+> > 
+> >> Now I see that David already pulled the series, so I am a little uncertain 
+> >> about how to proceed. 
+> > I saw that too, and asked him about this.  A follow-on patch (if we wind up
+> > deciding one is warranted) is the way to go here.
+> 
+> Good. The best solution I see now, if you think the times-32 scaling is 
+> unacceptable, would be to introduce a setsockopt() at SOL_TIPC level, and allow
+> for much wider limits than SOL_SOCK permits now. That we need these wider limits
+> is beyond doubt, as I see it.
+> 
+No  See above, don't do a special socket option.  Just use the existing sysctl
+to define your default and upper limits, and if they're not big enough, set them
+higher,  you can use /etc/sysctl.conf to automate this.
+
+Neil
+
+> Regards
+> ///jon
+> 
+> > 
+> > Regards
+> > Neil
+> > 
+> 
+> 
