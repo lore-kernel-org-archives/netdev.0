@@ -1,38 +1,46 @@
 From: pablo@netfilter.org
-Subject: [PATCH 2/7] netfilter: xt_conntrack: Add flag to support aliases
-Date: Tue, 19 Feb 2013 01:10:46 +0100
-Message-ID: <1361232651-5626-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/7] netfilter: fix missing dependencies for NETFILTER_XT_MATCH_CONNLABEL
+Date: Tue, 19 Feb 2013 01:10:45 +0100
+Message-ID: <1361232651-5626-2-git-send-email-pablo@netfilter.org>
 References: <1361232651-5626-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netfilter-devel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from slan-550-85.anhosting.com ([209.236.71.68]:31849 "EHLO
+	slan-550-85.anhosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757230Ab3BSALL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 18 Feb 2013 19:11:11 -0500
 In-Reply-To: <1361232651-5626-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Florian Westphal <fw@strlen.de>
 
-The patch adds the flag to denote the "state" alias as of the subset
-of the "conntrack" match.
+It was possible to set NF_CONNTRACK=n and NF_CONNTRACK_LABELS=y via
+NETFILTER_XT_MATCH_CONNLABEL=y.
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+warning: (NETFILTER_XT_MATCH_CONNLABEL) selects NF_CONNTRACK_LABELS which has
+unmet direct dependencies (NET && INET && NETFILTER && NF_CONNTRACK)
+
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Acked-by: Randy Dunlap <rdunlap@infradead.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/xt_conntrack.h |    1 +
+ net/netfilter/Kconfig |    1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/include/uapi/linux/netfilter/xt_conntrack.h b/include/uapi/linux/netfilter/xt_conntrack.h
-index e3c041d..e5bd308 100644
---- a/include/uapi/linux/netfilter/xt_conntrack.h
-+++ b/include/uapi/linux/netfilter/xt_conntrack.h
-@@ -31,6 +31,7 @@ enum {
- 	XT_CONNTRACK_REPLSRC_PORT = 1 << 10,
- 	XT_CONNTRACK_REPLDST_PORT = 1 << 11,
- 	XT_CONNTRACK_DIRECTION    = 1 << 12,
-+	XT_CONNTRACK_STATE_ALIAS  = 1 << 13,
- };
- 
- struct xt_conntrack_mtinfo1 {
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index eb2c8eb..d4dd702 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -860,6 +860,7 @@ config NETFILTER_XT_MATCH_CONNBYTES
+ config NETFILTER_XT_MATCH_CONNLABEL
+ 	tristate '"connlabel" match support'
+ 	select NF_CONNTRACK_LABELS
++	depends on NF_CONNTRACK
+ 	depends on NETFILTER_ADVANCED
+ 	---help---
+ 	  This match allows you to test and assign userspace-defined labels names
 -- 
 1.7.10.4
-
