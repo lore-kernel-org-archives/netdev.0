@@ -1,44 +1,58 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch] net: fix a wrong assignment in skb_split()
-Date: Wed, 20 Feb 2013 16:51:30 +0800
-Message-ID: <1361350290-28581-1-git-send-email-amwang@redhat.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Wed, 20 Feb 2013 10:12:18 +0100
+Message-ID: <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+	 <1361290909.19353.140.camel@edumazet-glaptop>
+	 (sfid-20130219_172155_748777_C3ED0F5E)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
+	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44074 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756933Ab3BTIvx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2013 03:51:53 -0500
+Received: from he.sipsolutions.net ([78.46.109.217]:50204 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753421Ab3BTJMo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 04:12:44 -0500
+In-Reply-To: <1361290909.19353.140.camel@edumazet-glaptop> (sfid-20130219_172155_748777_C3ED0F5E)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit c9af6db4c11ccc6c3e7f1 (net: Fix possible wrong checksum generation)
-has a suspicous piece:
+On Tue, 2013-02-19 at 08:21 -0800, Eric Dumazet wrote:
+> On Tue, 2013-02-19 at 11:03 +0100, Johannes Berg wrote:
+> > On Mon, 2013-02-18 at 21:17 -0800, Eric Dumazet wrote:
+> > 
+> > > > chrome: page allocation failure: order:1, mode:0x4020
+> > > > Pid: 8730, comm: chrome Tainted: G           O 3.7.8-amd64-preempt-20121226-fixwd #1
+> > > > Call Trace:
+> > > >  <IRQ>  [<ffffffff810d5f38>] warn_alloc_failed+0x117/0x12c
+> > 
+> > > You could try to load iwlwifi with amsdu_size_8K set to 0 (disable)
+> > > 
+> > > It should hopefully use order-0 pages
+> > 
+> > It will, do that then, unfortunately it can't switch at runtime because
+> > it advertised this support to the access point or clients.
+> 
+> What are the drawbacks of setting amsdu_size_8K to 0 by default ?
 
-	-       skb_shinfo(skb1)->gso_type = skb_shinfo(skb)->gso_type;
-	-
-	+       skb_shinfo(skb)->tx_flags = skb_shinfo(skb1)->tx_flags & SKBTX_SHARED_FRAG;
+We're discussing this now, the only downside would be that we couldn't
+receive 8k A-MSDUs. Thing is, practically nobody uses A-MSDU anyway, and
+even when I suspect the difference between 4k and 8k won't be huge.
 
-skb1 is the new skb, therefore should be on the left side of the assignment.
-This patch fixes it.
-
-Cc: Pravin B Shelar <pshelar@nicira.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
----
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 2a3ca33..33245ef 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2326,7 +2326,7 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len)
- {
- 	int pos = skb_headlen(skb);
- 
--	skb_shinfo(skb)->tx_flags = skb_shinfo(skb1)->tx_flags & SKBTX_SHARED_FRAG;
-+	skb_shinfo(skb1)->tx_flags = skb_shinfo(skb)->tx_flags & SKBTX_SHARED_FRAG;
- 	if (len < pos)	/* Split line is inside header. */
- 		skb_split_inside_header(skb, skb1, len, pos);
- 	else		/* Second chunk has no header, nothing to copy. */
+johannes
