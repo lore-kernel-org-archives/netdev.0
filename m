@@ -1,66 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [E1000-devel] [next:akpm 16/587]
- drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to
- '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON
- failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN +
- IGB_TS_HDR_LEN + ETH...
-Date: Wed, 20 Feb 2013 13:42:40 -0800
-Message-ID: <1361396560.19353.226.camel@edumazet-glaptop>
-References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>
-	  <20130219142708.b454d98a.akpm@linux-foundation.org>
-	  <804857E1F29AAC47BF68C404FC60A1844D0099DF@ORSMSX102.amr.corp.intel.com>
-	  <CAL4WiirCCfN_Xi423sEJB5v=5hCR_3d8M26JmmG3VJ=fbH4-1g@mail.gmail.com>
-	  <51251303.9030803@intel.com> <1361388156.19353.216.camel@edumazet-glaptop>
-	 <51253ED2.3050605@intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: [GIT] Sparc
+Date: Wed, 20 Feb 2013 17:09:12 -0500 (EST)
+Message-ID: <20130220.170912.2195791275106336110.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Daniel Santos <daniel.santos@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Wu, Fengguang" <fengguang.wu@intel.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f42.google.com ([209.85.210.42]:62448 "EHLO
-	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977Ab3BTVmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 16:42:43 -0500
-Received: by mail-da0-f42.google.com with SMTP id z17so3761066dal.15
-        for <netdev@vger.kernel.org>; Wed, 20 Feb 2013 13:42:43 -0800 (PST)
-In-Reply-To: <51253ED2.3050605@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Wed, 2013-02-20 at 13:23 -0800, Alexander Duyck wrote:
-
-> NET_SKB_PAD is defined for the s390.  It is already 32.  If you look it
-> up we only have 2 definitions for NET_SKB_PAD, one specific to the s390
-> architecture and the other one in skbuff.h.
-> 
-
-Andrew traces disagree, as they were :
-
->>> s390 allmodconfig:
->>>
->>> bool __cond = !(!(((2048) - (((sizeof(struct skb_shared_info)) + (256 - 1)) &
->>> ~(256 - 1))) < (32 + 2 + 16 + 1514 + 4)));
->>>
-
-So it might be only a cross-compile environment issue, I dont know.
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+Mostly more sparc64 THP bug fixes, and a refactoring of SMP bootup on sparc32
+from Sam Ravnborg.
 
-> From what I can tell we would have to drop the NET_SKB_PAD to 0 in order
-> to not trigger this error with igb since we still have to add 22 bytes
-> for igb's per packet timestamp header, IP alignment, and CRC.
-> 
-> The simple fix is for us just to drop the BUILD_BUG_ON check for igb
-> since we already had a check for size check in igb_set_rx_buffer_len. 
-> It just means that build_skb won't be available for standard MTU sizes
-> on s390.
+Please pull, thanks a lot!
 
-Yeah, probably nobody will notice ;)
+The following changes since commit f741656d646f7a5b56ba86765205b954237e7956:
+
+  Merge tag 'stable/for-linus-3.8-rc7-tag-two' of git://git.kernel.org/pub/scm/linux/kernel/git/konrad/xen (2013-02-15 12:12:55 -0800)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/davem/sparc.git master
+
+for you to fetch changes up to f9fd3488f6a3c2c5cc8613e4fd7fbbaa57f6bf8f:
+
+  sparc32: refactor smp boot (2013-02-20 13:36:50 -0800)
+
+----------------------------------------------------------------
+David S. Miller (4):
+      sparc64: Fix gfp_flags setting in tsb_grow().
+      sparc64: Handle hugepage TSB being NULL.
+      sparc64: Fix tsb_grow() in atomic context.
+      sparc64: Fix huge PMD to PTE translation for sun4u in TLB miss handler.
+
+Sam Ravnborg (1):
+      sparc32: refactor smp boot
+
+ arch/sparc/include/asm/hugetlb.h  |  1 -
+ arch/sparc/include/asm/page_64.h  |  4 ++--
+ arch/sparc/include/asm/tsb.h      | 28 +++++++++++++++++++---------
+ arch/sparc/kernel/kernel.h        | 12 ++++++++++++
+ arch/sparc/kernel/leon_smp.c      | 33 +++++++++------------------------
+ arch/sparc/kernel/smp_32.c        | 86 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ arch/sparc/kernel/sun4d_smp.c     | 29 +++++++++--------------------
+ arch/sparc/kernel/sun4m_smp.c     | 33 +++++++++------------------------
+ arch/sparc/kernel/trampoline_32.S | 17 +++++++----------
+ arch/sparc/kernel/tsb.S           | 39 +++++++++++++++++++++++++++++++++++----
+ arch/sparc/mm/fault_64.c          |  9 +++++++--
+ arch/sparc/mm/init_64.c           | 62 +++++++++++++++++++++++++++++++++++++++++---------------------
+ arch/sparc/mm/tlb.c               | 11 +++++++++--
+ arch/sparc/mm/tsb.c               |  2 +-
+ 14 files changed, 246 insertions(+), 120 deletions(-)
