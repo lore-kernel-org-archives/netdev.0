@@ -1,8 +1,8 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
  copies out
-Date: Wed, 20 Feb 2013 12:14:22 -0800
-Message-ID: <1361391262.19353.223.camel@edumazet-glaptop>
+Date: Wed, 20 Feb 2013 21:27:23 +0100
+Message-ID: <1361392043.8579.14.camel@jlt4.sipsolutions.net>
 References: <1333998672.3007.245.camel@edumazet-glaptop>
 	 <20120409.153452.1284163346306246866.davem@davemloft.net>
 	 <1334030180.13293.98.camel@edumazet-glaptop>
@@ -26,33 +26,45 @@ References: <1333998672.3007.245.camel@edumazet-glaptop>
 	 (sfid-20130220_182502_483935_369E6954) <1361384183.8579.1.camel@jlt4.sipsolutions.net>
 	 <1361387854.19353.214.camel@edumazet-glaptop>
 	 (sfid-20130220_201740_409859_E87FECD4) <1361390290.8579.4.camel@jlt4.sipsolutions.net>
+	 <1361391262.19353.223.camel@edumazet-glaptop>
+	 (sfid-20130220_211427_725228_379FD1B7)
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
 	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f42.google.com ([209.85.210.42]:48315 "EHLO
-	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935042Ab3BTUOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 15:14:25 -0500
-In-Reply-To: <1361390290.8579.4.camel@jlt4.sipsolutions.net>
+Received: from he.sipsolutions.net ([78.46.109.217]:52221 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934793Ab3BTU1n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 15:27:43 -0500
+In-Reply-To: <1361391262.19353.223.camel@edumazet-glaptop> (sfid-20130220_211427_725228_379FD1B7)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-20 at 20:58 +0100, Johannes Berg wrote:
-
-> Sure: net/mac80211/rx.c ~line 1900, look for #ifndef
-> CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
+On Wed, 2013-02-20 at 12:14 -0800, Eric Dumazet wrote:
+> On Wed, 2013-02-20 at 20:58 +0100, Johannes Berg wrote:
 > 
-> > On x86 we should not doing anything.
+> > Sure: net/mac80211/rx.c ~line 1900, look for #ifndef
+> > CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
+> > 
+> > > On x86 we should not doing anything.
+> > 
+> > We don't do anything if CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is
+> > defined.
 > 
-> We don't do anything if CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is
-> defined.
+> Thanks !
 
-Thanks !
+:-)
+Hey, I introduced that config symbol back then for precisely this
+reason ;-)
 
-BTW, comment is outdated, as it mentions __skb_push(), while
-its not used.
+> BTW, comment is outdated, as it mentions __skb_push(), while
+> its not used.
+
+Oops, good point, now I wonder what it did actually refer to. Time to
+dig in git history, I'll fix it.
+
+johannes
