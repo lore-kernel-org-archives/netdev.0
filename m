@@ -1,70 +1,64 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
- copies out
-Date: Wed, 20 Feb 2013 21:27:23 +0100
-Message-ID: <1361392043.8579.14.camel@jlt4.sipsolutions.net>
-References: <1333998672.3007.245.camel@edumazet-glaptop>
-	 <20120409.153452.1284163346306246866.davem@davemloft.net>
-	 <1334030180.13293.98.camel@edumazet-glaptop>
-	 <20120410051127.GA32048@merlins.org>
-	 <1334038263.2907.1.camel@edumazet-glaptop>
-	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
-	 <1342419529.3265.12217.camel@edumazet-glaptop>
-	 <20120716151826.GA10586@merlins.org>
-	 <1342455717.2830.14.camel@edumazet-glaptop>
-	 <20130219040557.GB4778@merlins.org>
-	 <1361251033.19353.120.camel@edumazet-glaptop>
-	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
-	 <1361290909.19353.140.camel@edumazet-glaptop>
-	 (sfid-20130219_172155_748777_C3ED0F5E) <1361351538.8629.3.camel@jlt4.sipsolutions.net>
-	 (sfid-20130220_101252_930264_DBD3955C) <1361351703.8629.5.camel@jlt4.sipsolutions.net>
-	 <1361373064.19353.180.camel@edumazet-glaptop>
-	 (sfid-20130220_161110_395796_DBAC0744) <1361377243.8629.34.camel@jlt4.sipsolutions.net>
-	 <1361379331.19353.189.camel@edumazet-glaptop>
-	 (sfid-20130220_175537_373410_F2F98F44) <1361379686.8629.41.camel@jlt4.sipsolutions.net>
-	 <1361381096.19353.195.camel@edumazet-glaptop>
-	 (sfid-20130220_182502_483935_369E6954) <1361384183.8579.1.camel@jlt4.sipsolutions.net>
-	 <1361387854.19353.214.camel@edumazet-glaptop>
-	 (sfid-20130220_201740_409859_E87FECD4) <1361390290.8579.4.camel@jlt4.sipsolutions.net>
-	 <1361391262.19353.223.camel@edumazet-glaptop>
-	 (sfid-20130220_211427_725228_379FD1B7)
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [E1000-devel] [next:akpm 16/587] drivers/net/ethernet/intel/igb/igb_main.c:6231:2:
+ error: call to '__compiletime_assert_6235' declared with attribute error:
+ BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN
+ + IGB_TS_HDR_LEN + ETH...
+Date: Wed, 20 Feb 2013 13:23:30 -0800
+Message-ID: <51253ED2.3050605@intel.com>
+References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>  <20130219142708.b454d98a.akpm@linux-foundation.org>  <804857E1F29AAC47BF68C404FC60A1844D0099DF@ORSMSX102.amr.corp.intel.com>  <CAL4WiirCCfN_Xi423sEJB5v=5hCR_3d8M26JmmG3VJ=fbH4-1g@mail.gmail.com>  <51251303.9030803@intel.com> <1361388156.19353.216.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
-	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	Daniel Santos <daniel.santos@pobox.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Wu, Fengguang" <fengguang.wu@intel.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:52221 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934793Ab3BTU1n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 15:27:43 -0500
-In-Reply-To: <1361391262.19353.223.camel@edumazet-glaptop> (sfid-20130220_211427_725228_379FD1B7)
+Received: from mga14.intel.com ([143.182.124.37]:36632 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935081Ab3BTVXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2013 16:23:52 -0500
+In-Reply-To: <1361388156.19353.216.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-20 at 12:14 -0800, Eric Dumazet wrote:
-> On Wed, 2013-02-20 at 20:58 +0100, Johannes Berg wrote:
-> 
-> > Sure: net/mac80211/rx.c ~line 1900, look for #ifndef
-> > CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS.
-> > 
-> > > On x86 we should not doing anything.
-> > 
-> > We don't do anything if CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS is
-> > defined.
-> 
-> Thanks !
+On 02/20/2013 11:22 AM, Eric Dumazet wrote:
+> On Wed, 2013-02-20 at 10:16 -0800, Alexander Duyck wrote:
+>
+>> The problem is the 256 byte alignment for L1_CACHE_BYTES is increasing
+>> the size of the data and shared info significantly pushing us past the
+>> 2K limit.
+>>
+>> I'll look into this since it likely affects ixgbe as well.
+> Thats what I said.
+>
+> Using 256 bytes of headroom is silly.
+>
+> We should limit NET_SKB_PAD to the 32-64 range
+>
+>
 
-:-)
-Hey, I introduced that config symbol back then for precisely this
-reason ;-)
+NET_SKB_PAD is defined for the s390.  It is already 32.  If you look it
+up we only have 2 definitions for NET_SKB_PAD, one specific to the s390
+architecture and the other one in skbuff.h.
 
-> BTW, comment is outdated, as it mentions __skb_push(), while
-> its not used.
+>From what I can tell we would have to drop the NET_SKB_PAD to 0 in order
+to not trigger this error with igb since we still have to add 22 bytes
+for igb's per packet timestamp header, IP alignment, and CRC.
 
-Oops, good point, now I wonder what it did actually refer to. Time to
-dig in git history, I'll fix it.
+The simple fix is for us just to drop the BUILD_BUG_ON check for igb
+since we already had a check for size check in igb_set_rx_buffer_len. 
+It just means that build_skb won't be available for standard MTU sizes
+on s390.
 
-johannes
+For ixgbe we can do something similar as well to avoid the BUILD_BUG_ON
+message.
+
+Thanks,
+
+Alex
