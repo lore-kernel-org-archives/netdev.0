@@ -1,64 +1,69 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [E1000-devel] [next:akpm 16/587] drivers/net/ethernet/intel/igb/igb_main.c:6231:2:
- error: call to '__compiletime_assert_6235' declared with attribute error:
- BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN
- + IGB_TS_HDR_LEN + ETH...
-Date: Wed, 20 Feb 2013 13:23:30 -0800
-Message-ID: <51253ED2.3050605@intel.com>
-References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com>  <20130219142708.b454d98a.akpm@linux-foundation.org>  <804857E1F29AAC47BF68C404FC60A1844D0099DF@ORSMSX102.amr.corp.intel.com>  <CAL4WiirCCfN_Xi423sEJB5v=5hCR_3d8M26JmmG3VJ=fbH4-1g@mail.gmail.com>  <51251303.9030803@intel.com> <1361388156.19353.216.camel@edumazet-glaptop>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: [Patch] net: fix a wrong assignment in skb_split()
+Date: Wed, 20 Feb 2013 13:32:21 -0800
+Message-ID: <20130220133221.00001491@unknown>
+References: <1361350290-28581-1-git-send-email-amwang@redhat.com>
+	<CALnjE+rwqV_APx-epsaiF6KjvjSmXU=iORwVyNov8Zvk9we0HQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	Daniel Santos <daniel.santos@pobox.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"Wu, Fengguang" <fengguang.wu@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Cong Wang <amwang@redhat.com>, <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:36632 "EHLO mga14.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:27292 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935081Ab3BTVXw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2013 16:23:52 -0500
-In-Reply-To: <1361388156.19353.216.camel@edumazet-glaptop>
+	id S1751723Ab3BTVc0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2013 16:32:26 -0500
+In-Reply-To: <CALnjE+rwqV_APx-epsaiF6KjvjSmXU=iORwVyNov8Zvk9we0HQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2013 11:22 AM, Eric Dumazet wrote:
-> On Wed, 2013-02-20 at 10:16 -0800, Alexander Duyck wrote:
->
->> The problem is the 256 byte alignment for L1_CACHE_BYTES is increasing
->> the size of the data and shared info significantly pushing us past the
->> 2K limit.
->>
->> I'll look into this since it likely affects ixgbe as well.
-> Thats what I said.
->
-> Using 256 bytes of headroom is silly.
->
-> We should limit NET_SKB_PAD to the 32-64 range
->
->
+On Wed, 20 Feb 2013 10:42:18 -0800
+Pravin Shelar <pshelar@nicira.com> wrote:
 
-NET_SKB_PAD is defined for the s390.  It is already 32.  If you look it
-up we only have 2 definitions for NET_SKB_PAD, one specific to the s390
-architecture and the other one in skbuff.h.
+> On Wed, Feb 20, 2013 at 12:51 AM, Cong Wang <amwang@redhat.com> wrote:
+> > commit c9af6db4c11ccc6c3e7f1 (net: Fix possible wrong checksum
+> > generation) has a suspicous piece:
+> >
+> >         -       skb_shinfo(skb1)->gso_type =
+> > skb_shinfo(skb)->gso_type; -
+> >         +       skb_shinfo(skb)->tx_flags =
+> > skb_shinfo(skb1)->tx_flags & SKBTX_SHARED_FRAG;
+> >
+> > skb1 is the new skb, therefore should be on the left side of the
+> > assignment. This patch fixes it.
 
->From what I can tell we would have to drop the NET_SKB_PAD to 0 in order
-to not trigger this error with igb since we still have to add 22 bytes
-for igb's per packet timestamp header, IP alignment, and CRC.
+It looks to me like skb1 is on the right side of the assignment?
 
-The simple fix is for us just to drop the BUILD_BUG_ON check for igb
-since we already had a check for size check in igb_set_rx_buffer_len. 
-It just means that build_skb won't be available for standard MTU sizes
-on s390.
+- Greg
 
-For ixgbe we can do something similar as well to avoid the BUILD_BUG_ON
-message.
-
-Thanks,
-
-Alex
+> >
+> > Cc: Pravin B Shelar <pshelar@nicira.com>
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> >
+> Looks good.
+> 
+> Acked-by: Pravin B Shelar <pshelar@nicira.com>
+> 
+> > ---
+> > diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> > index 2a3ca33..33245ef 100644
+> > --- a/net/core/skbuff.c
+> > +++ b/net/core/skbuff.c
+> > @@ -2326,7 +2326,7 @@ void skb_split(struct sk_buff *skb, struct
+> > sk_buff *skb1, const u32 len) {
+> >         int pos = skb_headlen(skb);
+> >
+> > -       skb_shinfo(skb)->tx_flags = skb_shinfo(skb1)->tx_flags &
+> > SKBTX_SHARED_FRAG;
+> > +       skb_shinfo(skb1)->tx_flags = skb_shinfo(skb)->tx_flags &
+> > SKBTX_SHARED_FRAG; if (len < pos)  /* Split line is inside header.
+> > */ skb_split_inside_header(skb, skb1, len, pos);
+> >         else            /* Second chunk has no header, nothing to
+> > copy. */
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
