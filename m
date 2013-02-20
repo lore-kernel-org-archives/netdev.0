@@ -1,227 +1,70 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 3/3] sctp: fix association hangs due to reassembly/ordering
- logic
-Date: Wed, 20 Feb 2013 13:06:05 -0500
-Message-ID: <5125108D.3010508@gmail.com>
-References: <1361374996.3450.3.camel@laptop.lroberts> <D64EC45690EF85409BA6C4730E0162244310CBC1@G4W3231.americas.hpqcorp.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Wed, 20 Feb 2013 19:16:23 +0100
+Message-ID: <1361384183.8579.1.camel@jlt4.sipsolutions.net>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+	 <1361290909.19353.140.camel@edumazet-glaptop>
+	 (sfid-20130219_172155_748777_C3ED0F5E) <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+	 (sfid-20130220_101252_930264_DBD3955C) <1361351703.8629.5.camel@jlt4.sipsolutions.net>
+	 <1361373064.19353.180.camel@edumazet-glaptop>
+	 (sfid-20130220_161110_395796_DBAC0744) <1361377243.8629.34.camel@jlt4.sipsolutions.net>
+	 <1361379331.19353.189.camel@edumazet-glaptop>
+	 (sfid-20130220_175537_373410_F2F98F44) <1361379686.8629.41.camel@jlt4.sipsolutions.net>
+	 <1361381096.19353.195.camel@edumazet-glaptop>
+	 (sfid-20130220_182502_483935_369E6954)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Roberts, Lee A." <lee.roberts@hp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D64EC45690EF85409BA6C4730E0162244310CBC1@G4W3231.americas.hpqcorp.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
+	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:51841 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756216Ab3BTSQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 13:16:38 -0500
+In-Reply-To: <1361381096.19353.195.camel@edumazet-glaptop> (sfid-20130220_182502_483935_369E6954)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Lee
+On Wed, 2013-02-20 at 09:24 -0800, Eric Dumazet wrote:
+> On Wed, 2013-02-20 at 18:01 +0100, Johannes Berg wrote:
+> 
+> > FWIW, I think just using order-0 pages and turning 8k A-MSDUs off by
+> > default makes more sense, A-MSDU is rarely used to begin with ...
+> > 
+> 
+> My suggested patch makes sure that if someone needs 8k A-MSDU, iwlwifi
+> still works correctly.
 
-On 02/20/2013 10:56 AM, Roberts, Lee A. wrote:
-> From: Lee A. Roberts <lee.roberts@hp.com>
->
-> Resolve SCTP association hangs observed during SCTP stress
-> testing.  Observable symptoms include communications hangs
-> with data being held in the association reassembly and/or lobby
-> (ordering) queues.  Close examination of reassembly queue shows
-> missing packets.
+True, but if we don't advertise 8k A-MSDU then they won't be used, and
+it'll still work correctly, just not be able to receive such large
+A-MSDUs. Linux can't even transmit _any_ A-MSDUs, and many (most?) APs
+don't either.
 
-As a general note for this patch series, you could really benefit
-from a cover letter that describes the symptoms and all the different
-issues you found.
+> > Also, if we copy larger frames here, we should also take into account
+> > the (variable) 802.11 header length to avoid copying into a position
+> > where the IP header ends up being unaligned.
+> 
+> But the current code already has this problem (if its a problem at all,
+> as on x86 NET_IP_ALIGN is 0)
 
-Also, please title your patches based on the context of the patch.
-Giving them all the same title is very confusing and at quick glance
-makes appear that the same patch was applied 3 times.
+Yes and no. The current code doesn't pull in much data, not even the IP
+header, so worst case it copies 14 bytes (ethernet header) in mac80211
+to obtain alignment. By pulling in everything here, it later has to copy
+everything again later to obtain alignment.
 
->
-> In sctp_eat_data(), enter partial delivery mode only if the
-> data on the head of the reassembly queue is at or before the
-> cumulative TSN ACK point.
->
-> In sctp_ulpq_retrieve_partial() and sctp_ulpq_retrieve_first(),
-> correct message reassembly logic for SCTP partial delivery.
-> Change logic to ensure that as much data as possible is sent
-> with the initial partial delivery and that following partial
-> deliveries contain all available data.
->
-> In sctp_ulpq_renege(), adjust logic to enter partial delivery
-> only if the incoming chunk remains on the reassembly queue
-> after processing by sctp_ulpq_tail_data().  Remove call to
-> sctp_tsnmap_mark(), as this is handled correctly in call to
-> sctp_ulpq_tail_data().
->
-> Patch applies to linux-3.8 kernel.
->
-> Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
-> ---
->   net/sctp/sm_statefuns.c |   12 ++++++++++--
->   net/sctp/ulpqueue.c     |   33 ++++++++++++++++++++++++++-------
->   2 files changed, 36 insertions(+), 9 deletions(-)
->
-> diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-SCTP
-> +2/net/sctp/sm_statefuns.c linux-3.8-SCTP+3/net/sctp/sm_statefuns.c
-> --- linux-3.8-SCTP+2/net/sctp/sm_statefuns.c	2013-02-18
-> 16:58:34.000000000 -0700
-> +++ linux-3.8-SCTP+3/net/sctp/sm_statefuns.c	2013-02-20
-> 08:31:51.092132884 -0700
-> @@ -6090,7 +6090,8 @@ static int sctp_eat_data(const struct sc
->   	size_t datalen;
->   	sctp_verb_t deliver;
->   	int tmp;
-> -	__u32 tsn;
-> +	__u32 tsn, ctsn;
-> +	struct sk_buff *skb;
->   	struct sctp_tsnmap *map =3D (struct sctp_tsnmap *)&asoc->peer.tsn_=
-map;
->   	struct sock *sk =3D asoc->base.sk;
->   	struct net *net =3D sock_net(sk);
-> @@ -6160,7 +6161,14 @@ static int sctp_eat_data(const struct sc
->   		/* Even if we don't accept this chunk there is
->   		 * memory pressure.
->   		 */
-> -		sctp_add_cmd_sf(commands, SCTP_CMD_PART_DELIVER, SCTP_NULL());
-> +		skb =3D skb_peek(&asoc->ulpq.reasm);
-> +		if (skb !=3D NULL) {
-> +			ctsn =3D sctp_skb2event(skb)->tsn;
-> +			if (TSN_lte(ctsn,
-> +				sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map)))
-> +				sctp_add_cmd_sf(commands,
-> +					SCTP_CMD_PART_DELIVER, SCTP_NULL());
-> +		}
-
-What if the tsn you are currently processing will advance the
-CUM TSN?  You may still need to eneter PD.  This is why
-sctp_eat_data() is not the right place to place this check.
-
-The more I look at the SCTP_CMD_PART_DELIVERY the more I am thinking=20
-that it has to come after the current TSN has been delivered to the=20
-queue.  That way, if we are currently processing the first fragment,=20
-we'll queue it, then enter PD and pull it off the queue properly.
-If we are processing the middle or last, it will get queued first, and
-then PD will be entered to fetch anything that we can fetch.
-
-In fact, the above is what happens when we issue a RENEGE command, but=20
-the order is reversed is RENEGE is skipped for some reason.  I am still
-trying to figure out if it's possible to enter PD without RENEGE, but I=
-=20
-did notice the above aberration.
-
-
->   	}
->
->   	/* Spill over rwnd a little bit.  Note: While allowed, this spill =
-over
-> diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-SCTP
-> +2/net/sctp/ulpqueue.c linux-3.8-SCTP+3/net/sctp/ulpqueue.c
-> --- linux-3.8-SCTP+2/net/sctp/ulpqueue.c	2013-02-20 08:17:53.67923336=
-5
-> -0700
-> +++ linux-3.8-SCTP+3/net/sctp/ulpqueue.c	2013-02-20 08:27:02.78504274=
-4
-> -0700
-> @@ -540,14 +540,19 @@ static struct sctp_ulpevent *sctp_ulpq_r
->   		ctsn =3D cevent->tsn;
->
->   		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
-> +		case SCTP_DATA_FIRST_FRAG:
-> +			if (!first_frag)
-> +				return NULL;
-> +			goto done;
->   		case SCTP_DATA_MIDDLE_FRAG:
->   			if (!first_frag) {
->   				first_frag =3D pos;
->   				next_tsn =3D ctsn + 1;
->   				last_frag =3D pos;
-> -			} else if (next_tsn =3D=3D ctsn)
-> +			} else if (next_tsn =3D=3D ctsn) {
->   				next_tsn++;
-> -			else
-> +				last_frag =3D pos;
-> +			} else
->   				goto done;
->   			break;
->   		case SCTP_DATA_LAST_FRAG:
-
-This may still allow you to skip over a gap if the first middle fragmen=
-t=20
-in the queue starts after the gap.  We need to make sure that
-TSN of the current chunk is less then equal to sctp_tsnmap_get_ctsn(map=
-).
-
-> @@ -651,6 +656,14 @@ static struct sctp_ulpevent *sctp_ulpq_r
->   			} else
->   				goto done;
->   			break;
-> +
-> +		case SCTP_DATA_LAST_FRAG:
-> +			if (!first_frag)
-> +				return NULL;
-> +			else
-> +				goto done;
-> +			break;
-> +
->   		default:
->   			return NULL;
-
-Same thing here.  Both, FIRST and MIDDLE fragments need to be validated
-against sctp_tsnmap_get_ctsn(), otherwise you may be stepping over a ga=
-p.
-
->   		}
-> @@ -1054,6 +1067,7 @@ void sctp_ulpq_renege(struct sctp_ulpq *
->   		      gfp_t gfp)
->   {
->   	struct sctp_association *asoc;
-> +	struct sk_buff *skb;
->   	__u16 needed, freed;
->
->   	asoc =3D ulpq->asoc;
-> @@ -1074,12 +1088,17 @@ void sctp_ulpq_renege(struct sctp_ulpq *
->   	}
->   	/* If able to free enough room, accept this chunk. */
->   	if (chunk && (freed >=3D needed)) {
-> -		__u32 tsn;
-> +		__u32 tsn, ctsn;
->   		tsn =3D ntohl(chunk->subh.data_hdr->tsn);
-> -		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn, chunk->transport);
-> -		sctp_ulpq_tail_data(ulpq, chunk, gfp);
-> -
-> -		sctp_ulpq_partial_delivery(ulpq, gfp);
-> +		if (sctp_ulpq_tail_data(ulpq, chunk, gfp) =3D=3D 0) {
-> +			skb =3D skb_peek(&ulpq->reasm);
-> +			if (skb !=3D NULL) {
-> +				ctsn =3D sctp_skb2event(skb)->tsn;
-> +				if (TSN_lte(ctsn, tsn))
-> +					sctp_ulpq_partial_delivery(ulpq, chunk,
-> +						gfp);
-> +			}
-> +		}
->   	}
-
-I am not sure this hunk is really needed.
-
-You are trying to use this code make sure that you start PD with=20
-something to deliver, but the PD code already takes care of that.
-You also get some basic cum_tsn checking for the current chunk because
-of how renege is called, but you still don't do the checks for=20
-subsequent chunks in the queue as I stated above, so you are still
-subject to possible hangs.
-
--vlad
-
->
->   	sk_mem_reclaim(asoc->base.sk);
->
-> N=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BDr=EF=BF=BD=EF=BF=BDy=EF=
-=BF=BD=EF=BF=BD=EF=BF=BDb=EF=BF=BDX=EF=BF=BD=EF=BF=BD=C7=A7v=EF=BF=BD^=EF=
-=BF=BD)=DE=BA{.n=EF=BF=BD+=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BD{=EF=BF=BD=
-=EF=BF=BD=EF=BF=BDi=EF=BF=BD{ay=EF=BF=BD=1D=CA=87=DA=99=EF=BF=BD,j=07=EF=
-=BF=BD=EF=BF=BDf=EF=BF=BD=EF=BF=BD=EF=BF=BDh=EF=BF=BD=EF=BF=BD=EF=BF=BD=
-z=EF=BF=BD=1E=EF=BF=BDw=EF=BF=BD=EF=BF=BD=EF=BF=BD=0C=EF=BF=BD=EF=BF=BD=
-=EF=BF=BDj:+v=EF=BF=BD=EF=BF=BD=EF=BF=BDw=EF=BF=BDj=EF=BF=BDm=EF=BF=BD=EF=
-=BF=BD=EF=BF=BD=EF=BF=BD=07=EF=BF=BD=EF=BF=BD=EF=BF=BD=EF=BF=BDzZ+=EF=BF=
-=BD=EF=BF=BD=DD=A2j"=EF=BF=BD=EF=BF=BD!tml=3D
->
+johannes
