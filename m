@@ -1,53 +1,52 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [Patch] net: fix a wrong assignment in skb_split()
-Date: Wed, 20 Feb 2013 10:42:18 -0800
-Message-ID: <CALnjE+rwqV_APx-epsaiF6KjvjSmXU=iORwVyNov8Zvk9we0HQ@mail.gmail.com>
-References: <1361350290-28581-1-git-send-email-amwang@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Wed, 20 Feb 2013 11:17:34 -0800
+Message-ID: <1361387854.19353.214.camel@edumazet-glaptop>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+	 <1361290909.19353.140.camel@edumazet-glaptop>
+	 (sfid-20130219_172155_748777_C3ED0F5E) <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+	 (sfid-20130220_101252_930264_DBD3955C) <1361351703.8629.5.camel@jlt4.sipsolutions.net>
+	 <1361373064.19353.180.camel@edumazet-glaptop>
+	 (sfid-20130220_161110_395796_DBAC0744) <1361377243.8629.34.camel@jlt4.sipsolutions.net>
+	 <1361379331.19353.189.camel@edumazet-glaptop>
+	 (sfid-20130220_175537_373410_F2F98F44) <1361379686.8629.41.camel@jlt4.sipsolutions.net>
+	 <1361381096.19353.195.camel@edumazet-glaptop>
+	 (sfid-20130220_182502_483935_369E6954) <1361384183.8579.1.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
+	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:33484 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S934152Ab3BTSmT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 13:42:19 -0500
-Received: by mail-ye0-f200.google.com with SMTP id r13so10899206yen.11
-        for <netdev@vger.kernel.org>; Wed, 20 Feb 2013 10:42:18 -0800 (PST)
-In-Reply-To: <1361350290-28581-1-git-send-email-amwang@redhat.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:39719 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935757Ab3BTTRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 14:17:38 -0500
+In-Reply-To: <1361384183.8579.1.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 20, 2013 at 12:51 AM, Cong Wang <amwang@redhat.com> wrote:
-> commit c9af6db4c11ccc6c3e7f1 (net: Fix possible wrong checksum generation)
-> has a suspicous piece:
->
->         -       skb_shinfo(skb1)->gso_type = skb_shinfo(skb)->gso_type;
->         -
->         +       skb_shinfo(skb)->tx_flags = skb_shinfo(skb1)->tx_flags & SKBTX_SHARED_FRAG;
->
-> skb1 is the new skb, therefore should be on the left side of the assignment.
-> This patch fixes it.
->
-> Cc: Pravin B Shelar <pshelar@nicira.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
->
-Looks good.
+On Wed, 2013-02-20 at 19:16 +0100, Johannes Berg wrote:
 
-Acked-by: Pravin B Shelar <pshelar@nicira.com>
+> Yes and no. The current code doesn't pull in much data, not even the IP
+> header, so worst case it copies 14 bytes (ethernet header) in mac80211
+> to obtain alignment. By pulling in everything here, it later has to copy
+> everything again later to obtain alignment.
 
-> ---
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 2a3ca33..33245ef 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2326,7 +2326,7 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len)
->  {
->         int pos = skb_headlen(skb);
->
-> -       skb_shinfo(skb)->tx_flags = skb_shinfo(skb1)->tx_flags & SKBTX_SHARED_FRAG;
-> +       skb_shinfo(skb1)->tx_flags = skb_shinfo(skb)->tx_flags & SKBTX_SHARED_FRAG;
->         if (len < pos)  /* Split line is inside header. */
->                 skb_split_inside_header(skb, skb1, len, pos);
->         else            /* Second chunk has no header, nothing to copy. */
+Can you give me pointers to the code doing that ?
+
+On x86 we should not doing anything.
