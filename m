@@ -1,61 +1,30 @@
-From: Denys Fedoryshchenko <denys@visp.net.lb>
-Subject: Re: netlink, =?UTF-8?Q?RTM=5FNEWTCLASS=2C=20nested=20attributes?=
-Date: Thu, 21 Feb 2013 01:24:02 +0200
-Message-ID: <3598cf904e2e235bc9060aa712dcce53@visp.net.lb>
-References: <3a8fd12d117d2281ac90cce96c0d68f3@visp.net.lb>
- <20130220152130.72df1258@samsung-9>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Problem with Reaktek 8168
+Date: Thu, 21 Feb 2013 00:11:22 +0100
+Message-ID: <20130220231122.GA22163@electric-eye.fr.zoreil.com>
+References: <5124B909.4080907@online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <pablo@netfilter.org>,
-	<jhs@mojatatu.com>, <davem@davemloft.net>,
-	<linux-kernel@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130220152130.72df1258@samsung-9>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ralf Friedl <Ralf.Friedl@online.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58541 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751749Ab3BTXnF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 18:43:05 -0500
+Content-Disposition: inline
+In-Reply-To: <5124B909.4080907@online.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013-02-21 01:21, Stephen Hemminger wrote:
-> On Tue, 19 Feb 2013 23:45:25 +0200
-> Denys Fedoryshchenko <denys@visp.net.lb> wrote:
->
->> Hi
->>
->> I tried recently to write my own tool based on amazing libmnl (which
->> makes understanding of netlink - easy), written
->> by Pablo Neira Ayuso, to manage QoS in Linux and faced problem, 
->> which i
->> think probably
->> a bug in handling netlink messages in kernel.
->>
->> For example if i send message, RTM_NEWTCLASS, after attribute
->> TCA_OPTIONS i have nested attributes,
->> for example in HTB: TCA_HTB_PARMS, TCA_HTB_RTAB, TCA_HTB_CTAB.
->> libmnl, if i use nested attribute, adding a bit to it, by OR -
->> NLA_F_NESTED(1 << 15).
->> If i remove this flag - everything works fine. And here is the case,
->> iproute2 tools
->> just update length of TCA_OPTIONS, without setting flag, and it 
->> works
->> because of that fine too.
->>
->> So there is basically 3 solutions:
->> 1)New function in libmnl to do nested attributes without setting by 
->> OR
->> flag
->> 2)AND-ing attribute type in kernel to ignore nested flag
->> 3)Keeping as is, who cares?
->>
->
-> Several legacy netlink interfaces don't use NESTED flag. These are by
-> now enshrined in ABI and can't change. In code, that uses libmnl, I 
-> just
-> manually clear the flag as needed and document why. This could
-> be added to libmnl.
+Ralf Friedl <Ralf.Friedl@online.de> :
+[...]
+> If it helps I can also run a custom driver with additional debug code.
 
-Thank you for clarification!
+Can you send the XID line that your stock kernel r8169 driver displays ?
+It will help identifying your chipset revision as a start.
 
----
-Denys Fedoryshchenko, Network Engineer, Virtual ISP S.A.L.
+Thanks.
+
+-- 
+Ueimor
