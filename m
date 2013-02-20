@@ -1,65 +1,54 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
- copies out
-Date: Wed, 20 Feb 2013 10:15:03 +0100
-Message-ID: <1361351703.8629.5.camel@jlt4.sipsolutions.net>
-References: <1333998672.3007.245.camel@edumazet-glaptop>
-	 <20120409.153452.1284163346306246866.davem@davemloft.net>
-	 <1334030180.13293.98.camel@edumazet-glaptop>
-	 <20120410051127.GA32048@merlins.org>
-	 <1334038263.2907.1.camel@edumazet-glaptop>
-	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
-	 <1342419529.3265.12217.camel@edumazet-glaptop>
-	 <20120716151826.GA10586@merlins.org>
-	 <1342455717.2830.14.camel@edumazet-glaptop>
-	 <20130219040557.GB4778@merlins.org>
-	 <1361251033.19353.120.camel@edumazet-glaptop>
-	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
-	 <1361290909.19353.140.camel@edumazet-glaptop>
-	 (sfid-20130219_172155_748777_C3ED0F5E) <1361351538.8629.3.camel@jlt4.sipsolutions.net>
-	 (sfid-20130220_101252_930264_DBD3955C)
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen: netback: remove redundant xenvif_put
+Date: Wed, 20 Feb 2013 09:23:49 +0000
+Message-ID: <1361352229.1051.144.camel@zakaz.uk.xensource.com>
+References: <20130219.005356.2288460992654639558.davem@davemloft.net>
+	 <51233FF502000078000BF4AE@nat28.tlf.novell.com>
+	 <1361264324.1051.61.camel@zakaz.uk.xensource.com>
+	 <20130219.130607.100487415380997622.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
-	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:50250 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933782Ab3BTJPV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 04:15:21 -0500
-In-Reply-To: <1361351538.8629.3.camel@jlt4.sipsolutions.net> (sfid-20130220_101252_930264_DBD3955C)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "JBeulich@suse.com" <JBeulich@suse.com>,
+	"drjones@redhat.com" <drjones@redhat.com>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130219.130607.100487415380997622.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-20 at 10:12 +0100, Johannes Berg wrote:
-> On Tue, 2013-02-19 at 08:21 -0800, Eric Dumazet wrote:
-> > On Tue, 2013-02-19 at 11:03 +0100, Johannes Berg wrote:
-> > > On Mon, 2013-02-18 at 21:17 -0800, Eric Dumazet wrote:
-> > > 
-> > > > > chrome: page allocation failure: order:1, mode:0x4020
-> > > > > Pid: 8730, comm: chrome Tainted: G           O 3.7.8-amd64-preempt-20121226-fixwd #1
-> > > > > Call Trace:
-> > > > >  <IRQ>  [<ffffffff810d5f38>] warn_alloc_failed+0x117/0x12c
-> > > 
-> > > > You could try to load iwlwifi with amsdu_size_8K set to 0 (disable)
-> > > > 
-> > > > It should hopefully use order-0 pages
-> > > 
-> > > It will, do that then, unfortunately it can't switch at runtime because
-> > > it advertised this support to the access point or clients.
-> > 
-> > What are the drawbacks of setting amsdu_size_8K to 0 by default ?
+On Tue, 2013-02-19 at 18:06 +0000, David Miller wrote:
+> From: Ian Campbell <Ian.Campbell@citrix.com>
+> Date: Tue, 19 Feb 2013 08:58:44 +0000
 > 
-> We're discussing this now, the only downside would be that we couldn't
-> receive 8k A-MSDUs. Thing is, practically nobody uses A-MSDU anyway, and
-> even when I suspect the difference between 4k and 8k won't be huge.
+> > On Tue, 2013-02-19 at 08:03 +0000, Jan Beulich wrote:
+> >> >>> On 19.02.13 at 06:53, David Miller <davem@davemloft.net> wrote:
+> >> > From: Andrew Jones <drjones@redhat.com>
+> >> > Date: Mon, 18 Feb 2013 21:29:20 +0100
+> >> > 
+> >> >> netbk_fatal_tx_err() calls xenvif_carrier_off(), which does
+> >> >> a xenvif_put(). As callers of netbk_fatal_tx_err should only
+> >> >> have one reference to the vif at this time, then the xenvif_put
+> >> >> in netbk_fatal_tx_err is one too many.
+> >> >> 
+> >> >> Signed-off-by: Andrew Jones <drjones@redhat.com>
+> >> > 
+> >> > Applied.
+> >> 
+> >> But this is wrong from all we can tell,
+> > 
+> > Yes, please can this be reverted.
+> 
+> Done and I've annotated the revert commit message with as much
+> information as possible.
 
-OTOH, this affects the protocol, and when you really can't allocate any
-order-1 pages you pointed out yourself that many other things also won't
-work, so I'm not really sure it makes a big difference if we change the
-driver?
+Thanks, 629821d9b looks good to me.
 
-johannes
+May be worth considering the patch in
+<1361281636.1051.100.camel@zakaz.uk.xensource.com> if we get many more
+of these queries...
+
+Ian.
