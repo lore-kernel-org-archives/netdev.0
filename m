@@ -1,8 +1,8 @@
 From: Johannes Berg <johannes@sipsolutions.net>
 Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
  copies out
-Date: Wed, 20 Feb 2013 17:59:57 +0100
-Message-ID: <1361379597.8629.39.camel@jlt4.sipsolutions.net>
+Date: Wed, 20 Feb 2013 18:01:26 +0100
+Message-ID: <1361379686.8629.41.camel@jlt4.sipsolutions.net>
 References: <1333998672.3007.245.camel@edumazet-glaptop>
 	 <20120409.153452.1284163346306246866.davem@davemloft.net>
 	 <1334030180.13293.98.camel@edumazet-glaptop>
@@ -30,25 +30,27 @@ Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:51582 "EHLO
+Received: from he.sipsolutions.net ([78.46.109.217]:51590 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab3BTRAp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 12:00:45 -0500
+	with ESMTP id S1750964Ab3BTRBj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 12:01:39 -0500
 In-Reply-To: <1361379331.19353.189.camel@edumazet-glaptop> (sfid-20130220_175537_373410_F2F98F44)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, 2013-02-20 at 08:55 -0800, Eric Dumazet wrote:
 
-> > > It will make a huge difference, even on non pressure mode, as TCP
-> > > receive window will grow twice faster.
-> > 
-> > Hmm, why does that depend on the allocation size?
-> 
-> I guess you missed all the patches about skb->truesize on netdev
-
-Yeah, I don't follow netdev much any more...
-
+> > > Unless wifi speed reaches 10Gbps, following patch should do the trick
+> > > 
+> > > 
+> > > diff --git a/drivers/net/wireless/iwlwifi/dvm/rx.c b/drivers/net/wireless/iwlwifi/dvm/rx.c
+> > > index a4eed20..77a3ee3 100644
+> > > --- a/drivers/net/wireless/iwlwifi/dvm/rx.c
+> > > +++ b/drivers/net/wireless/iwlwifi/dvm/rx.c
+> > > @@ -750,7 +750,12 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
+> > >  	/* Dont use dev_alloc_skb(), we'll have enough headroom once
+> > >  	 * ieee80211_hdr pulled.
+> > >  	 */
 > > > -	skb = alloc_skb(128, GFP_ATOMIC);
 > > > +	fraglen = 128;
 > > > +	/* if we use order-1 pages, copy to get better TCP performance */
@@ -64,14 +66,12 @@ Yeah, I don't follow netdev much any more...
 > 
 > Code should just works, please read the following lines in the same
 > function....
-> 
->         /* If frame is small enough to fit in skb->head, pull it completely.
->          * If not, only pull ieee80211_hdr so that splice() or TCP coalesce
->          * are more efficient.
->          */
 
-Oh, right, though I guess the comment is now wrong since practically
-every packet will be copied either here or in mac80211 (A-MSDUs are
-split up there)
+FWIW, I think just using order-0 pages and turning 8k A-MSDUs off by
+default makes more sense, A-MSDU is rarely used to begin with ...
+
+Also, if we copy larger frames here, we should also take into account
+the (variable) 802.11 header length to avoid copying into a position
+where the IP header ends up being unaligned.
 
 johannes
