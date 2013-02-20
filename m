@@ -1,32 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip_gre: remove an extra dst_release()
-Date: Tue, 19 Feb 2013 22:24:11 -0500 (EST)
-Message-ID: <20130219.222411.496018730437926446.davem@davemloft.net>
-References: <1361312050.19353.169.camel@edumazet-glaptop>
+Subject: Re: pull request: wireless-next 2013-02-19
+Date: Tue, 19 Feb 2013 22:25:10 -0500 (EST)
+Message-ID: <20130219.222510.1079046045071308389.davem@davemloft.net>
+References: <20130219220457.GA2126@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, pshelar@nicira.com
-To: eric.dumazet@gmail.com
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39791 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39798 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933950Ab3BTDYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 22:24:13 -0500
-In-Reply-To: <1361312050.19353.169.camel@edumazet-glaptop>
+	with ESMTP id S934435Ab3BTDZM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 19 Feb 2013 22:25:12 -0500
+In-Reply-To: <20130219220457.GA2126@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 19 Feb 2013 14:14:10 -0800
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 19 Feb 2013 17:04:58 -0500
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> commit 68c331631143 (v4 GRE: Add TCP segmentation offload for GRE)
-> introduced a bug in error path.
-> 
-> dst is attached to skb, so will be released when skb is freed.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> One last batch of stragglers intended for 3.9...
 
-Applied, thanks.
+Pulled, thanks John.
