@@ -1,26 +1,89 @@
-From: Amidu Hassan <aamiduhassan@gmail.com>
-Subject: ASSISTANCE NEEDED
-Date: Wed, 20 Feb 2013 09:53:05 +0000 (GMT)
-Message-ID: <1361353985.94807.YahooMailClassic@web132404.mail.ird.yahoo.com>
-Reply-To: hassann_amidu@yahoo.fr
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC PATCH] ipv6: Split from and expires field in dst_entry out
+ of union [net-next]
+Date: Wed, 20 Feb 2013 19:02:42 +0900
+Message-ID: <51249F42.3030908@linux-ipv6.org>
+References: <1361231718.19353.117.camel@edumazet-glaptop>   <1361305694-8303-1-git-send-email-nhorman@tuxdriver.com>   <1361308665.19353.161.camel@edumazet-glaptop>   <20130219214934.GD31871@hmsreliant.think-freely.org>  <1361310958.19353.164.camel@edumazet-glaptop>  <51246E43.5010202@cn.fujitsu.com> <1361343610.19353.177.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-To: undisclosed recipients:;
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Gao feng <gaofeng@cn.fujitsu.com>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, Jiri Bohac <jbohac@suse.cz>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm5-vm1.bullet.mail.ird.yahoo.com ([77.238.189.202]:23794 "HELO
-	nm5-vm1.bullet.mail.ird.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933374Ab3BTJxI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 20 Feb 2013 04:53:08 -0500
+Received: from 94.43.138.210.xn.2iij.net ([210.138.43.94]:34598 "EHLO
+	mail.st-paulia.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750872Ab3BTKCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 05:02:46 -0500
+In-Reply-To: <1361343610.19353.177.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Eric Dumazet wrote:
+> On Wed, 2013-02-20 at 14:33 +0800, Gao feng wrote:
+> 
+>> How can we?
+>> one usage of rt6_update_expires and rt6_set_expires
+>> is changing rt6->dst.from to rt6->dst.expires, we should release the
+>> already holded reference of rt6->dst.from.
+>>
+> 
+> Just don't union the two fields, as Neil did.
+> 
+> Setting the dst.expires value should not change dst.from at all.
+> 
+> Something like the (untested, because its too late here) patch ?
+> 
+>  include/net/dst.h     |   11 +++++------
+>  include/net/ip6_fib.h |   21 +++------------------
+>  net/ipv6/route.c      |    3 +--
+>  3 files changed, 9 insertions(+), 26 deletions(-)
+> 
+> diff --git a/include/net/dst.h b/include/net/dst.h
+> index 3da47e0..3f31a48 100644
+> --- a/include/net/dst.h
+> +++ b/include/net/dst.h
+> @@ -36,13 +36,12 @@ struct dst_entry {
+>  	struct net_device       *dev;
+>  	struct  dst_ops	        *ops;
+>  	unsigned long		_metrics;
+> -	union {
+> -		unsigned long           expires;
+> -		/* point to where the dst_entry copied from */
+> -		struct dst_entry        *from;
+> -	};
+> +	unsigned long           expires;
+> +
+> +	/* point to where the dst_entry copied from */
+> +	struct dst_entry        *from;
+> +
+>  	struct dst_entry	*path;
+> -	void			*__pad0;
+>  #ifdef CONFIG_XFRM
+>  	struct xfrm_state	*xfrm;
+>  #else
 
-Dear Friend,
-I know that this mail will come to you as a surprise as we have never met before, but need not to worry as I am contacting you independently of my investigation and no one is informed of this communication. I need your urgent assistance in transferring the sum of $11.3million immediately to your private account.The money has been here in our Bank lying dormant for years now without anybody coming for the claim of it.
-I want to release the money to you as the relative to our deceased customer (the account owner) who died a long with her supposed NEXT OF KING since 31 January 2000. The Banking laws here does not allow such money to stay more than 14 years,because the money will be recalled to the Bank treasury account as unclaimed fund.
-By indicating your interest I will send you the full details on how the business will be executed.
-Please respond urgently and delete if you are not interested
-Regards,
-Mr Hassan Amidu
+Initialize "from" in dst_alloc().
+
+> @@ -199,13 +185,12 @@ static inline void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
+>  {
+>  	struct dst_entry *new = (struct dst_entry *) from;
+>  
+> -	if (!(rt->rt6i_flags & RTF_EXPIRES) && rt->dst.from) {
+> +	if (rt->dst.from) {
+>  		if (new == rt->dst.from)
+>  			return;
+>  		dst_release(rt->dst.from);
+>  	}
+>  
+> -	rt->rt6i_flags &= ~RTF_EXPIRES;
+>  	rt->dst.from = new;
+>  	dst_hold(new);
+>  }
+
+rt6_set_from can work only for fresh entries.
+
+In fact, I have very similar patch.
+
+--yoshfuji
