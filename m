@@ -1,106 +1,101 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel 3.7.2 strange warning and short system hang
-Date: Wed, 20 Feb 2013 08:52:56 -0800
-Message-ID: <1361379176.19353.187.camel@edumazet-glaptop>
-References: <5124F57A.6080908@enas.net>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Wed, 20 Feb 2013 08:55:31 -0800
+Message-ID: <1361379331.19353.189.camel@edumazet-glaptop>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+	 <1361290909.19353.140.camel@edumazet-glaptop>
+	 (sfid-20130219_172155_748777_C3ED0F5E) <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+	 (sfid-20130220_101252_930264_DBD3955C) <1361351703.8629.5.camel@jlt4.sipsolutions.net>
+	 <1361373064.19353.180.camel@edumazet-glaptop>
+	 (sfid-20130220_161110_395796_DBAC0744) <1361377243.8629.34.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Urban Loesch <bind@enas.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5124F57A.6080908@enas.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Marc MERLIN <marc-xnduUnryOU1AfugRpC6u6w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, bhutchings-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1361377243.8629.34.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-02-20 at 17:10 +0100, Urban Loesch wrote:
-> Hi,
+On Wed, 2013-02-20 at 17:20 +0100, Johannes Berg wrote:
+> On Wed, 2013-02-20 at 07:11 -0800, Eric Dumazet wrote:
+> > On Wed, 2013-02-20 at 10:15 +0100, Johannes Berg wrote:
+> > 
+> > > OTOH, this affects the protocol, and when you really can't allocate any
+> > > order-1 pages you pointed out yourself that many other things also won't
+> > > work, so I'm not really sure it makes a big difference if we change the
+> > > driver?
+> > 
+> > It will make a huge difference, even on non pressure mode, as TCP
+> > receive window will grow twice faster.
 > 
-> today I had a strange system hang on one of our new Dell PER620 machines.
-> I'm running a self compiled kernel, version 3.7.2 with linux vserver patch included.
-> 
-> uname -a
-> Linux dbhost04 3.7.2-vs2.3.5.5-rol-em64t #4 SMP Sun Feb 3 14:08:37 CET 2013 x86_64 GNU/Linux
-> 
-> 15min. systemload between 1-3.
-> 
-> 
-> Today the system hangs for some seconds and I got the folling errors in syslog multiple times within one second:
-> 
-> ...
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196338] WARNING: at net/core/skbuff.c:573 skb_release_head_state+0xed/0x100()
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196338] Hardware name: PowerEdge R620
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196352] Modules linked in: lru_cache netconsole configfs act_police cls_basic cls_flow cls_fw cls_u32 
-> sch_tbf sch_prio sch_hfsc sch_htb sch_ingress sch_sfq xt_statistic xt_CT xt_realm xt_LOG xt_c
-> onnlimit iptable_raw xt_comment xt_nat xt_recent ipt_ULOG ipt_REJECT ipt_MASQUERADE ipt_ECN ipt_CLUSTERIP ipt_ah nf_nat_tftp nf_nat_sip nf_nat_pptp 
-> nf_nat_proto_gre nf_nat_irc nf_nat_h323 nf_nat_ftp nf_nat_amanda nf_conntrack_tftp nf_con
-> ntrack_sane nf_conntrack_sip nf_conntrack_proto_udplite nf_conntrack_proto_sctp nf_conntrack_pptp nf_conntrack_proto_gre nf_conntrack_netlink 
-> nf_conntrack_netbios_ns nf_conntrack_broadcast nf_conntrack_irc ts_kmp nf_conntrack_h323 nf_con
-> ntrack_amanda nf_conntrack_ftp xt_TPROXY xt_time nf_tproxy_core xt_TCPMSS xt_tcpmss xt_sctp xt_policy xt_pkttype xt_NFLOG nfnetlink_log xt_physdev 
-> xt_owner xt_NFQUEUE xt_multiport xt_mark xt_mac xt_limit xt_length xt_iprange xt_helper xt
-> _hashlimit xt_DSCP xt_dscp xt_dccp xt_connmark xt_CLASSIFY iptable_nat nf_nat_ipv
-> Feb 20 15:58:04 dbhost04 kernel: 4 nf_nat ip6t_REJECT nf_conntrack_ipv4 xt_tcpudp nf_defrag_ipv4 xt_state nf_conntrack_ipv6 nf_defrag_ipv6 
-> xt_conntrack nf_conntrack iptable_mangle ip6table_raw ip6table_mangle nfnetlink ip6table_filter ip
-> 6_tables iptable_filter ip_tables x_tables ipmi_devintf ipmi_si ipmi_msghandler coretemp kvm_intel kvm ghash_clmulni_intel aesni_intel xts aes_x86_64 
-> lrw gf128mul ablk_helper cryptd iTCO_wdt iTCO_vendor_support dcdbas microcode pcspkr jo
-> ydev lpc_ich shpchp hed evbug hid_generic usbhid hid ahci libahci megaraid_sas tg3 [last unloaded: drbd]
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196368] Pid: 10942, comm: mysqld Tainted: G        W    3.7.2-vs2.3.5.5-rol-em64t #4
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196368] Call Trace:
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196370]  <IRQ> [<ffffffff81053bff>] warn_slowpath_common+0x7f/0xc0
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196371] [<ffffffff81594c52>] ? skb_release_data+0xf2/0x110
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196372] [<ffffffff81053c5a>] warn_slowpath_null+0x1a/0x20
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196373] [<ffffffff81594e9d>] skb_release_head_state+0xed/0x100
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196374] [<ffffffff81594c86>] __kfree_skb+0x16/0xa0
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196375] [<ffffffff8159521c>] consume_skb+0x2c/0x80
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196379] [<ffffffffa000b0af>] tg3_poll_work+0x5ef/0xdb0 [tg3]
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196384] [<ffffffffa000b055>] ? tg3_poll_work+0x595/0xdb0 [tg3]
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196388] [<ffffffffa00145cf>] tg3_poll+0x7f/0x390 [tg3]
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196392] [<ffffffffa000b927>] ? tg3_poll_msix+0xb7/0x140 [tg3]
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196394] [<ffffffff815b9622>] netpoll_poll_dev+0x162/0x580
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196395] [<ffffffff815b9bcc>] netpoll_send_skb_on_dev+0x18c/0x3a0
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196398] [<ffffffff815ba0f7>] netpoll_send_udp+0x277/0x290
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196400] [<ffffffffa03ae91f>] write_msg+0xaf/0x100 [netconsole]
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196401] [<ffffffff81054959>] call_console_drivers.constprop.16+0x99/0x100
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196403] [<ffffffff810553b9>] console_unlock+0x3d9/0x420
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196404] [<ffffffff81055ca5>] vprintk_emit+0x255/0x510
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196406] [<ffffffff8169f0b9>] printk+0x61/0x63
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196407] [<ffffffff81031e8e>] therm_throt_process+0x13e/0x180
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196408] [<ffffffff81032066>] intel_thermal_interrupt+0x196/0x1a0
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196410] [<ffffffff810320c1>] smp_thermal_interrupt+0x21/0x40
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196411] [<ffffffff816b1a1a>] thermal_interrupt+0x6a/0x70
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196413]  <EOI> [<ffffffff816b0e19>] ? system_call_fastpath+0x16/0x1b
-> Feb 20 15:58:04 dbhost04 kernel: [1463997.196414] ---[ end trace e3ec69533a534ff5 ]---
-> ...
-> 
-> After the last message I got this entries in syslog, too:
-> Feb 20 15:58:04 dbhost04 kernel: [1464001.755218] CPU18: Core power limit normal
-> Feb 20 15:58:04 dbhost04 kernel: [1464001.760038] Clocksource tsc unstable (delta = 299966106527 ns)
-> Feb 20 15:58:04 dbhost04 kernel: [1464001.769627] Switching to clocksource hpet
-> 
-> I searched the archives for this error, but I can't find any solution.
-> And my second PER620 doesn't show this error until now.
-> 
-> Have you any idea what this problem could be?
-> 
-> I'm not subscribed to lkml, if you need more information please contact me directly by email.
-> 
-> Many thanks for your help.
-> Urban
+> Hmm, why does that depend on the allocation size?
 
-CC netdev
+I guess you missed all the patches about skb->truesize on netdev
 
-I guess tg3 needs to call dev_kfree_skb_any()
+> 
+> > Unless wifi speed reaches 10Gbps, following patch should do the trick
+> > 
+> > 
+> > diff --git a/drivers/net/wireless/iwlwifi/dvm/rx.c b/drivers/net/wireless/iwlwifi/dvm/rx.c
+> > index a4eed20..77a3ee3 100644
+> > --- a/drivers/net/wireless/iwlwifi/dvm/rx.c
+> > +++ b/drivers/net/wireless/iwlwifi/dvm/rx.c
+> > @@ -750,7 +750,12 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
+> >  	/* Dont use dev_alloc_skb(), we'll have enough headroom once
+> >  	 * ieee80211_hdr pulled.
+> >  	 */
+> > -	skb = alloc_skb(128, GFP_ATOMIC);
+> > +	fraglen = 128;
+> > +	/* if we use order-1 pages, copy to get better TCP performance */
+> > +	if (rxb->truesize > PAGE_SIZE)
+> > +		fraglen = max_t(unsigned, fraglen, len);
+> > +
+> > +	skb = alloc_skb(fraglen, GFP_ATOMIC);
+> 
+> Hmm, I don't quite understand -- that's not doing any copy?
+> 
+> FWIW if you do the copy you should not "steal" the pages, then they'd be
+> recycled in the RX ring right away.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index bdb0869..22d9e44 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -5942,7 +5942,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
- 		pkts_compl++;
- 		bytes_compl += skb->len;
- 
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_any(skb);
- 
- 		if (unlikely(tx_bug)) {
- 			tg3_tx_recover(tp);
+Code should just works, please read the following lines in the same
+function....
+
+        /* If frame is small enough to fit in skb->head, pull it completely.
+         * If not, only pull ieee80211_hdr so that splice() or TCP coalesce
+         * are more efficient.
+         */
+        hdrlen = (len <= skb_tailroom(skb)) ? len : sizeof(*hdr);
+
+        memcpy(skb_put(skb, hdrlen), hdr, hdrlen);
+        fraglen = len - hdrlen;
+
+        if (fraglen) {
+                int offset = (void *)hdr + hdrlen -
+                             rxb_addr(rxb) + rxb_offset(rxb);
+
+                skb_add_rx_frag(skb, 0, rxb_steal_page(rxb), offset,
+                                fraglen, rxb->truesize);
+        }
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
