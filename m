@@ -1,8 +1,8 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
  copies out
-Date: Wed, 20 Feb 2013 18:01:26 +0100
-Message-ID: <1361379686.8629.41.camel@jlt4.sipsolutions.net>
+Date: Wed, 20 Feb 2013 09:24:56 -0800
+Message-ID: <1361381096.19353.195.camel@edumazet-glaptop>
 References: <1333998672.3007.245.camel@edumazet-glaptop>
 	 <20120409.153452.1284163346306246866.davem@davemloft.net>
 	 <1334030180.13293.98.camel@edumazet-glaptop>
@@ -21,57 +21,38 @@ References: <1333998672.3007.245.camel@edumazet-glaptop>
 	 <1361373064.19353.180.camel@edumazet-glaptop>
 	 (sfid-20130220_161110_395796_DBAC0744) <1361377243.8629.34.camel@jlt4.sipsolutions.net>
 	 <1361379331.19353.189.camel@edumazet-glaptop>
-	 (sfid-20130220_175537_373410_F2F98F44)
+	 (sfid-20130220_175537_373410_F2F98F44) <1361379686.8629.41.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
 	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:51590 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750964Ab3BTRBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 12:01:39 -0500
-In-Reply-To: <1361379331.19353.189.camel@edumazet-glaptop> (sfid-20130220_175537_373410_F2F98F44)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:63214 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933359Ab3BTRY7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 12:24:59 -0500
+In-Reply-To: <1361379686.8629.41.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-02-20 at 08:55 -0800, Eric Dumazet wrote:
+On Wed, 2013-02-20 at 18:01 +0100, Johannes Berg wrote:
 
-> > > Unless wifi speed reaches 10Gbps, following patch should do the trick
-> > > 
-> > > 
-> > > diff --git a/drivers/net/wireless/iwlwifi/dvm/rx.c b/drivers/net/wireless/iwlwifi/dvm/rx.c
-> > > index a4eed20..77a3ee3 100644
-> > > --- a/drivers/net/wireless/iwlwifi/dvm/rx.c
-> > > +++ b/drivers/net/wireless/iwlwifi/dvm/rx.c
-> > > @@ -750,7 +750,12 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
-> > >  	/* Dont use dev_alloc_skb(), we'll have enough headroom once
-> > >  	 * ieee80211_hdr pulled.
-> > >  	 */
-> > > -	skb = alloc_skb(128, GFP_ATOMIC);
-> > > +	fraglen = 128;
-> > > +	/* if we use order-1 pages, copy to get better TCP performance */
-> > > +	if (rxb->truesize > PAGE_SIZE)
-> > > +		fraglen = max_t(unsigned, fraglen, len);
-> > > +
-> > > +	skb = alloc_skb(fraglen, GFP_ATOMIC);
-> > 
-> > Hmm, I don't quite understand -- that's not doing any copy?
-> > 
-> > FWIW if you do the copy you should not "steal" the pages, then they'd be
-> > recycled in the RX ring right away.
+> FWIW, I think just using order-0 pages and turning 8k A-MSDUs off by
+> default makes more sense, A-MSDU is rarely used to begin with ...
 > 
-> Code should just works, please read the following lines in the same
-> function....
 
-FWIW, I think just using order-0 pages and turning 8k A-MSDUs off by
-default makes more sense, A-MSDU is rarely used to begin with ...
+My suggested patch makes sure that if someone needs 8k A-MSDU, iwlwifi
+still works correctly.
 
-Also, if we copy larger frames here, we should also take into account
-the (variable) 802.11 header length to avoid copying into a position
-where the IP header ends up being unaligned.
+> Also, if we copy larger frames here, we should also take into account
+> the (variable) 802.11 header length to avoid copying into a position
+> where the IP header ends up being unaligned.
 
-johannes
+But the current code already has this problem (if its a problem at all,
+as on x86 NET_IP_ALIGN is 0)
+
+I only increase available tailroom in the skb. Right now there is enough
+room for IP and tcp headers.
