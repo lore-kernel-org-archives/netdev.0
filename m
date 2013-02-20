@@ -1,102 +1,67 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices
- to handle packets
-Date: Wed, 20 Feb 2013 14:45:30 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F1C019F1F@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
- <CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
- <CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Wed, 20 Feb 2013 07:11:04 -0800
+Message-ID: <1361373064.19353.180.camel@edumazet-glaptop>
+References: <1333998672.3007.245.camel@edumazet-glaptop>
+	 <20120409.153452.1284163346306246866.davem@davemloft.net>
+	 <1334030180.13293.98.camel@edumazet-glaptop>
+	 <20120410051127.GA32048@merlins.org>
+	 <1334038263.2907.1.camel@edumazet-glaptop>
+	 <20120411052733.GA17352@merlins.org> <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 (sfid-20130219_061917_530878_1ED7A14C) <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+	 <1361290909.19353.140.camel@edumazet-glaptop>
+	 (sfid-20130219_172155_748777_C3ED0F5E) <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+	 (sfid-20130220_101252_930264_DBD3955C) <1361351703.8629.5.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: pravin <pravin.shelar@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
+	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2272 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933257Ab3BTOpz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 09:45:55 -0500
-In-Reply-To: <CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-da0-f42.google.com ([209.85.210.42]:33721 "EHLO
+	mail-da0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933198Ab3BTPLH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 10:11:07 -0500
+In-Reply-To: <1361351703.8629.5.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: pravin [mailto:pravin.shelar@gmail.com]
-> Sent: Wednesday, February 20, 2013 1:04 AM
-> To: Dmitry Kravkov
-> Cc: davem@davemloft.net; netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
-> handle packets
-> 
-> On Tue, Feb 19, 2013 at 11:20 AM, Dmitry Kravkov <dmitry@broadcom.com>
-> wrote:
-> >
-> >> -----Original Message-----
-> >> From: pravin [mailto:pravin.shelar@gmail.com]
-> >> Sent: Tuesday, February 19, 2013 8:28 PM
-> >> To: Dmitry Kravkov
-> >> Cc: davem@davemloft.net; netdev@vger.kernel.org
-> >> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
-> >> handle packets
-> >>
-> >> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
-> >> wrote:
-> >> > If device is not able to handle checksumming it will
-> >> > be handled in dev_xmit
-> >> >
-> >> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> >> > ---
-> >> > Changes from v1: fixed email address
-> >> >
-> >> >  net/ipv4/ip_gre.c |    7 ++-----
-> >> >  1 files changed, 2 insertions(+), 5 deletions(-)
-> >> >
-> >> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> >> > index a56f118..cdc31ac 100644
-> >> > --- a/net/ipv4/ip_gre.c
-> >> > +++ b/net/ipv4/ip_gre.c
-> >> > @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff
-> >> *skb)
-> >> >                         goto error;
-> >> >                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
-> >> >                 return skb;
-> >> > -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> >> > -               err = skb_checksum_help(skb);
-> >> > -               if (unlikely(err))
-> >> > -                       goto error;
-> >> >         }
-> >> > -       skb->ip_summed = CHECKSUM_NONE;
-> >> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
-> >> > +               skb->ip_summed = CHECKSUM_NONE;
-> >> >
-> >> >         return skb;
-> >> >
-> >> > --
-> >> > 1.7.7.2
-> >> >
-> >> >
-> >>
-> >> This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
-> >> complete IP packet to checksum entire GRE payload.
-> >
-> > Testing for o_flags&GRE_CSUM does not look too hurt here, since it will be
-> used in ipgre_tunnel_xmit() later on
-> > This is the only problematic case, right?
-> >
-> 
-> It does not work for me. I have GRE device with csum on. Ping works
-> fine but Netperf is not working.
+On Wed, 2013-02-20 at 10:15 +0100, Johannes Berg wrote:
 
-I will test this mode also  ...
+> OTOH, this affects the protocol, and when you really can't allocate any
+> order-1 pages you pointed out yourself that many other things also won't
+> work, so I'm not really sure it makes a big difference if we change the
+> driver?
 
-> Looking at code, I am not sure how tcp will work if inner packet TCP
-> checksum is calculated after GRE_CSUM calculation.
+It will make a huge difference, even on non pressure mode, as TCP
+receive window will grow twice faster.
 
-Not sure if there is HW that supports it today
+Unless wifi speed reaches 10Gbps, following patch should do the trick
 
-> Thanks,
-> Pravin.
+
+diff --git a/drivers/net/wireless/iwlwifi/dvm/rx.c b/drivers/net/wireless/iwlwifi/dvm/rx.c
+index a4eed20..77a3ee3 100644
+--- a/drivers/net/wireless/iwlwifi/dvm/rx.c
++++ b/drivers/net/wireless/iwlwifi/dvm/rx.c
+@@ -750,7 +750,12 @@ static void iwlagn_pass_packet_to_mac80211(struct iwl_priv *priv,
+ 	/* Dont use dev_alloc_skb(), we'll have enough headroom once
+ 	 * ieee80211_hdr pulled.
+ 	 */
+-	skb = alloc_skb(128, GFP_ATOMIC);
++	fraglen = 128;
++	/* if we use order-1 pages, copy to get better TCP performance */
++	if (rxb->truesize > PAGE_SIZE)
++		fraglen = max_t(unsigned, fraglen, len);
++
++	skb = alloc_skb(fraglen, GFP_ATOMIC);
+ 	if (!skb) {
+ 		IWL_ERR(priv, "alloc_skb failed\n");
+ 		return;
