@@ -1,29 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] sctp: fix association hangs due to
- reassembly/ordering logic
-Date: Wed, 20 Feb 2013 12:53:01 -0500 (EST)
-Message-ID: <20130220.125301.1295321158433252629.davem@davemloft.net>
-References: <1361374860.3450.1.camel@laptop.lroberts>
-	<D64EC45690EF85409BA6C4730E0162244310ABA1@G4W3231.americas.hpqcorp.net>
+Subject: Re: Kernel 3.7.2 strange warning and short system hang
+Date: Wed, 20 Feb 2013 12:57:15 -0500 (EST)
+Message-ID: <20130220.125715.2150428275032134361.davem@davemloft.net>
+References: <5124F57A.6080908@enas.net>
+	<1361379176.19353.187.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: lee.roberts@hp.com
+Cc: bind@enas.net, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D64EC45690EF85409BA6C4730E0162244310ABA1@G4W3231.americas.hpqcorp.net>
+In-Reply-To: <1361379176.19353.187.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 20 Feb 2013 08:52:56 -0800
 
-Your email client has corrupted every one of your patches, splitting up
-new lines as well as making other alterations, making them useless for
-us.
+> I guess tg3 needs to call dev_kfree_skb_any()
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index bdb0869..22d9e44 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -5942,7 +5942,7 @@ static void tg3_tx(struct tg3_napi *tnapi)
+>  		pkts_compl++;
+>  		bytes_compl += skb->len;
+>  
+> -		dev_kfree_skb(skb);
+> +		dev_kfree_skb_any(skb);
+>  
+>  		if (unlikely(tx_bug)) {
+>  			tg3_tx_recover(tp);
 
-Please read Documentation/email-clients.txt to learn how to fix this
-problem, and only resubmit your patches when you can successfully
-email a patch to yourself and cleanly apply the patch you receive
-in that email as-is.
+I've seen this pattern on several occasions and I have to wonder...
 
-Thanks.
+Do we really require, therefore, every NAPI driver to use dev_kfree_skb_any()
+in it's TX reclaim if it supports netpoll?
+
+That seems completely bogus.
+
+netpoll is supposed to provide an execution environment when it invokes
+->poll() that is identical to the normal NAPI execution.  If that would
+be true, then this change above would be completely unnecessary.
+
+We need to figure out what is the case here, and audit all the NAPI
+drivers to make sure they do the right thing once we know what the
+right thing actually is.
