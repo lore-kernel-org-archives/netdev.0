@@ -1,160 +1,75 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the akpm tree
-Date: Wed, 20 Feb 2013 17:28:31 +1100
-Message-ID: <20130220172831.cf0bcb1b3bdc5e404d85f100@canb.auug.org.au>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [RFC PATCH] ipv6: Split from and expires field in dst_entry out
+ of union [net-next]
+Date: Wed, 20 Feb 2013 14:33:39 +0800
+Message-ID: <51246E43.5010202@cn.fujitsu.com>
+References: <1361231718.19353.117.camel@edumazet-glaptop>  <1361305694-8303-1-git-send-email-nhorman@tuxdriver.com>  <1361308665.19353.161.camel@edumazet-glaptop>  <20130219214934.GD31871@hmsreliant.think-freely.org> <1361310958.19353.164.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__20_Feb_2013_17_28_31_+1100_mNwQZuB=X/Wq_Vux"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, Jiri Bohac <jbohac@suse.cz>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:46240 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S932597Ab3BTGc5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 20 Feb 2013 01:32:57 -0500
+In-Reply-To: <1361310958.19353.164.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__20_Feb_2013_17_28_31_+1100_mNwQZuB=X/Wq_Vux
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi Eric & Neil,
+On 2013/02/20 05:55, Eric Dumazet wrote:
+> On Tue, 2013-02-19 at 16:49 -0500, Neil Horman wrote:
+>> On Tue, Feb 19, 2013 at 01:17:45PM -0800, Eric Dumazet wrote:
+>>> On Tue, 2013-02-19 at 15:28 -0500, Neil Horman wrote:
+>>>
+>>>>  static inline void rt6_update_expires(struct rt6_info *rt, int timeout)
+>>>>  {
+>>>>  	if (!(rt->rt6i_flags & RTF_EXPIRES)) {
+>>>> -		if (rt->dst.from)
+>>>> -			dst_release(rt->dst.from);
+>>>> +		dst_release(rt->dst.from);
+>>>>  		/* dst_set_expires relies on expires == 0 
+>>>>  		 * if it has not been set previously.
+>>>>  		 */
+>>>>  		rt->dst.expires = 0;
+>>>> +		rt6->dst.from = NULL;
+>>>>  	}
+>>>>  
+>>>
+>>> Sorry you didnt really address the problem, only reduce the race window.
+>>>
+>> I kinda had a feeling you would say that, but the only other solution I see here
+>> is to either introduce some locking to protect the from pointer, or two revert
+>> the patch that introduced the from pointer alltogether, neither of which sounds
+>> appealing to me.  I suppose we could use an xchng to atomically update the from
+>> pointer, so there was only ever one context that was able to free it in
+>> rt6_update_path.  Does that seem reasonable to you?
+> 
 
-Hi Andrew,
+Thanks for your research on this problem.
 
-After merging the akpm tree, today's linux-next build (x86_64
-allmodconfig) failed like this:
+> I believe the setting of rt6->dst.from is safe :
+> It should be done at :
+> - dst creation time, when we are the only user.
+> - dst destry time, when we are the only user.
+> 
+> We only have to do the dst_release() at the right place, when we are the
+> last user of the dst.
+> 
+> So rt6_update_expires() should not mess with rt6->dst.from at all.
+> 
 
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c: In function 'qlcnic_prune_l=
-b_filters':
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c:607:63: error: macro "hlist_=
-for_each_entry_safe" passed 5 arguments, but takes just 4
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c:607:3: error: 'hlist_for_eac=
-h_entry_safe' undeclared (first use in this function)
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c:608:3: error: expected ';' b=
-efore '{' token
+How can we?
+one usage of rt6_update_expires and rt6_set_expires
+is changing rt6->dst.from to rt6->dst.expires, we should release the
+already holded reference of rt6->dst.from.
 
-Caused by commit c4b75b428da3 ("hlist: drop the node parameter from
-iterators") interacting with commit 53643a75b147 ("qlcnic: fix ping
-resumption to a VM after a live migration") from the net-next tree.
-
-I applied this merge fix:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 20 Feb 2013 17:17:54 +1100
-Subject: [PATCH] hlist-drop-the-node-parameter-from-iterators-qlnic-fix
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/e=
-thernet/qlogic/qlcnic/qlcnic_hw.c
-index a5422cd..f89cc7a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -604,7 +604,7 @@ void qlcnic_prune_lb_filters(struct qlcnic_adapter *ada=
-pter)
- 	for (i =3D 0; i < adapter->rx_fhash.fbucket_size; i++) {
- 		head =3D &(adapter->rx_fhash.fhead[i]);
-=20
--		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode)
-+		hlist_for_each_entry_safe(tmp_fil, n, head, fnode)
- 		{
- 			time =3D tmp_fil->ftime;
- 			if (jiffies > (QLCNIC_FILTER_AGE * HZ + time)) {
---=20
-1.8.1
-
-which then lead to these erroes:
-
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c: In function 'qlcnic_add_lb_=
-filter':
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:182:63: error: macro "hlist_=
-for_each_entry_safe" passed 5 arguments, but takes just 4
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:182:3: error: 'hlist_for_eac=
-h_entry_safe' undeclared (first use in this function)
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:182:65: error: expected ';' =
-before '{' token
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:208:63: error: macro "hlist_=
-for_each_entry_safe" passed 5 arguments, but takes just 4
-drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c:208:65: error: expected ';' =
-before '{' token
-
-for which I applied this merge fix patch:
-
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 20 Feb 2013 17:25:26 +1100
-Subject: [PATCH] hlist-drop-the-node-parameter-from-iterators-qlnic-2-fix
-
-Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/e=
-thernet/qlogic/qlcnic/qlcnic_io.c
-index 27196ed..0e63006 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -162,7 +162,7 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *adapte=
-r, struct sk_buff *skb,
- {
- 	struct ethhdr *phdr =3D (struct ethhdr *)(skb->data);
- 	struct qlcnic_filter *fil, *tmp_fil;
--	struct hlist_node *tmp_hnode, *n;
-+	struct hlist_node *n;
- 	struct hlist_head *head;
- 	unsigned long time;
- 	u64 src_addr =3D 0;
-@@ -179,7 +179,7 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *adapte=
-r, struct sk_buff *skb,
- 			 (adapter->fhash.fbucket_size - 1);
- 		head =3D &(adapter->rx_fhash.fhead[hindex]);
-=20
--		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode) {
-+		hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
- 			if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
- 			    tmp_fil->vlan_id =3D=3D vlan_id) {
- 				time =3D tmp_fil->ftime;
-@@ -205,7 +205,7 @@ void qlcnic_add_lb_filter(struct qlcnic_adapter *adapte=
-r, struct sk_buff *skb,
- 			 (adapter->fhash.fbucket_size - 1);
- 		head =3D &(adapter->rx_fhash.fhead[hindex]);
- 		spin_lock(&adapter->rx_mac_learn_lock);
--		hlist_for_each_entry_safe(tmp_fil, tmp_hnode, n, head, fnode) {
-+		hlist_for_each_entry_safe(tmp_fil, n, head, fnode) {
- 			if (!memcmp(tmp_fil->faddr, &src_addr, ETH_ALEN) &&
- 			    tmp_fil->vlan_id =3D=3D vlan_id) {
- 				found =3D 1;
---=20
-1.8.1
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Wed__20_Feb_2013_17_28_31_+1100_mNwQZuB=X/Wq_Vux
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRJG0PAAoJEECxmPOUX5FEnA4P/iEpplQ4dbAk+WbKsoUhfglk
-ECbWwr/82eYudZxkV/HZbYbn3cKAPRajy2JJPLYIW7B9dp5cLLKWr9G4R3xT1M8g
-q8CW+3Pa4YMh6BqMA1mMJG6v84c4A/e/AH7I1ZDzBbpyCbOD48kpOvYQU2G6EdSm
-7nlnLEd6ByVerzX1DOwUvoeGn+l2rFmW83B8p+WUQCSVp2HL5DUYq2dLV7JP4Vw4
-84qCKPVKjaYtTeH/GHMCfFf/+H+lJRMQaYWbQHZmaNydqJnTlxsNNpJhIxqnDEdB
-zxG35y9tzUaPZmOS0bnNMgZcnDrgnQaQBDEg2uSTpPPUnHhTpKE13rAGLpCwVvto
-hA/eGD9WsNZuoJNySoSUAcBhIRfyp1E2YfBn/zs9+LzR9b0Ia3dV+v+dMXcwlxtz
-Niyx78f8m2scp1RpedDBFvDxICRW0yH4iC/HPUAigyFMCvYWNk07xqaNUQJ6Qir2
-67Up1RN27Nvuyk6qKlsqANugNKLDwNSGHG4ucL8gAArqQAc+7EIwTG7ajXlBvX7S
-NTCMUr9/Qn7TOy5Mr3WcPvNVE0crYW/8VXndhyhBzHaqsHnXW+TYBjCI+NTr4fBy
-U1PkLRCkZ7WVOsjiIGbCdzzJetQ8T6OdJbUlum99tH1ExTxx3+jTjmBag+TXtmAH
-84bKpUOwFzE6htQONWo1
-=GAdh
------END PGP SIGNATURE-----
-
---Signature=_Wed__20_Feb_2013_17_28_31_+1100_mNwQZuB=X/Wq_Vux--
+I think maybe we should rework the commit 1716a96101c49186b
+(ipv6: fix problem with expired dst cache). just force setting flag
+RTF_EXPIRES and expires for the rt6 which copied from the rt6(which
+is generated from RA). The only problem of this situation is this
+copied rt6's expire time may be imprecise, we may receive a new
+RA with a new expire time.
