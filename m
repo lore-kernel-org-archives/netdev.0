@@ -1,61 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] ipv6: fix race condition regarding dst->expires and
- dst->from.
-Date: Wed, 20 Feb 2013 15:12:23 -0500 (EST)
-Message-ID: <20130220.151223.700913631821653926.davem@davemloft.net>
-References: <5124A48F.3060907@linux-ipv6.org>
-	<5124A574.5030904@linux-ipv6.org>
+Subject: Re: [Patch] net: fix a wrong assignment in skb_split()
+Date: Wed, 20 Feb 2013 15:13:03 -0500 (EST)
+Message-ID: <20130220.151303.200159114555025820.davem@davemloft.net>
+References: <1361350290-28581-1-git-send-email-amwang@redhat.com>
+	<CALnjE+rwqV_APx-epsaiF6KjvjSmXU=iORwVyNov8Zvk9we0HQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, nhorman@tuxdriver.com,
-	gaofeng@cn.fujitsu.com, netdev@vger.kernel.org
-To: yoshfuji@linux-ipv6.org
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49659 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49676 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934126Ab3BTUM2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 15:12:28 -0500
-In-Reply-To: <5124A574.5030904@linux-ipv6.org>
+	with ESMTP id S934126Ab3BTUNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 15:13:06 -0500
+In-Reply-To: <CALnjE+rwqV_APx-epsaiF6KjvjSmXU=iORwVyNov8Zvk9we0HQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Date: Wed, 20 Feb 2013 19:29:08 +0900
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Wed, 20 Feb 2013 10:42:18 -0800
 
-> Eric Dumazet wrote:
-> | Some strange crashes happen in rt6_check_expired(), with access
-> | to random addresses.
-> |
-> | At first glance, it looks like the RTF_EXPIRES and
-> | stuff added in commit 1716a96101c49186b
-> | (ipv6: fix problem with expired dst cache)
-> | are racy : same dst could be manipulated at the same time
-> | on different cpus.
-> |
-> | At some point, our stack believes rt->dst.from contains a dst pointer,
-> | while its really a jiffie value (as rt->dst.expires shares the same area
-> | of memory)
-> |
-> | rt6_update_expires() should be fixed, or am I missing something ?
-> |
-> | CC Neil because of https://bugzilla.redhat.com/show_bug.cgi?id=892060
+> On Wed, Feb 20, 2013 at 12:51 AM, Cong Wang <amwang@redhat.com> wrote:
+>> commit c9af6db4c11ccc6c3e7f1 (net: Fix possible wrong checksum generation)
+>> has a suspicous piece:
+>>
+>>         -       skb_shinfo(skb1)->gso_type = skb_shinfo(skb)->gso_type;
+>>         -
+>>         +       skb_shinfo(skb)->tx_flags = skb_shinfo(skb1)->tx_flags & SKBTX_SHARED_FRAG;
+>>
+>> skb1 is the new skb, therefore should be on the left side of the assignment.
+>> This patch fixes it.
+>>
+>> Cc: Pravin B Shelar <pshelar@nicira.com>
+>> Cc: David S. Miller <davem@davemloft.net>
+>> Signed-off-by: Cong Wang <amwang@redhat.com>
+>>
+> Looks good.
 > 
-> Because we do not have any locks for dst_entry, we cannot change
-> essential structure in the entry; e.g., we cannot change reference
-> to other entity.
-> 
-> To fix this issue, split 'from' and 'expires' field in dst_entry
-> out of union.  Once it is 'from' is assigned in the constructor,
-> keep the reference until the very last stage of the life time of
-> the object.
-> 
-> Of course, it is unsafe to change 'from', so make rt6_set_from simple
-> just for fresh entries.
-> 
-> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Reported-by: Neil Horman <nhorman@tuxdriver.com>
-> CC: Gao Feng <gaofeng@cn.fujitsu.com>
-> Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Acked-by: Pravin B Shelar <pshelar@nicira.com>
 
-Applied and queued up for -stable, thanks.
+Applied, thanks.
