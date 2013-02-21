@@ -1,42 +1,70 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: why is it not allowed to add a new socket protocol family as
- an external module?
-Date: Thu, 21 Feb 2013 11:58:04 -0600
-Message-ID: <5126602C.5000003@genband.com>
-References: <5125002D.9080008@genband.com>		 <20130220152325.64c57d55@samsung-9> <51256E02.4080509@genband.com>	 <1361410797.17413.3.camel@edumazet-glaptop> <51264195.9060800@genband.com> <1361464988.17413.6.camel@edumazet-glaptop>
+From: "Roberts, Lee A." <lee.roberts@hp.com>
+Subject: [PATCH 1/4 v2] sctp: fix association hangs due to off-by-one errors
+ in sctp_tsnmap_grow()
+Date: Thu, 21 Feb 2013 17:57:46 +0000
+Message-ID: <D64EC45690EF85409BA6C4730E0162244310DF62@G4W3231.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og121.obsmtp.com ([64.18.2.20]:37483 "EHLO
-	exprod7og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754238Ab3BUR6k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 12:58:40 -0500
-In-Reply-To: <1361464988.17413.6.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/21/2013 10:43 AM, Eric Dumazet wrote:
-> On Thu, 2013-02-21 at 09:47 -0600, Chris Friesen wrote:
+From: Lee A. Roberts <lee.roberts@hp.com>
 
->> The three lock_class_key structs (corresponding to
->> af_family_keys/af_family_slock_keys/af_callback_keys) can be
->> auto-allocated by the network core at dynamic registration time.
->
-> Nope, this was the point I specifically raised but you missed it
->
-> Take a look at kernel/lockdep.c, lines 2981-2988
->
-> All the other stuff you mention seems pretty obvious.
+Resolve SCTP association hangs observed during SCTP stress
+testing.  Observable symptoms include communications hangs
+with data being held in the association lobby (ordering)
+queue.  Close examination of reassembly/ordering queues shows
+duplicated packets.
 
-Ah, sorry.  I'm not familiar with the guts of lockdep, so I was not 
-aware that the keys needed to be static.
+In sctp_tsnmap_mark(), correct off-by-one error when calculating
+gap value for tsnmap.
 
-Given that the lockdep code considers module addresses to be okay, it 
-should work to make the keys static in the KLM implementing the new 
-protocol and pass the addresses in at registration time.
+In sctp_tsnmap_grow(), correct off-by-one error when copying
+and resizing the tsnmap.  If max_tsn_seen is in the LSB of the
+word, this bit can be lost, causing the corresponding packet
+to be transmitted again and to be entered as a duplicate into
+the SCTP reassembly/ordering queues.
 
-Chris
+Patch applies to linux-3.8 kernel.
+
+Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
+---
+ net/sctp/tsnmap.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-vanilla/net/sctp/tsnmap.c linux-3.8-SCTP+1/net/sctp/tsnmap.c
+--- linux-3.8-vanilla/net/sctp/tsnmap.c	2013-02-18 16:58:34.000000000 -0700
++++ linux-3.8-SCTP+1/net/sctp/tsnmap.c	2013-02-21 10:44:15.985075048 -0700
+@@ -122,7 +122,7 @@ int sctp_tsnmap_mark(struct sctp_tsnmap
+ 	if (TSN_lt(tsn, map->base_tsn))
+ 		return 0;
+ 
+-	gap = tsn - map->base_tsn;
++	gap = tsn - map->cumulative_tsn_ack_point;
+ 
+ 	if (gap >= map->len && !sctp_tsnmap_grow(map, gap))
+ 		return -ENOMEM;
+@@ -369,14 +369,15 @@ static int sctp_tsnmap_grow(struct sctp_
+ 	if (gap >= SCTP_TSN_MAP_SIZE)
+ 		return 0;
+ 
+-	inc = ALIGN((gap - map->len),BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
++	inc = ALIGN((gap - map->len), BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
+ 	len = min_t(u16, map->len + inc, SCTP_TSN_MAP_SIZE);
+ 
+ 	new = kzalloc(len>>3, GFP_ATOMIC);
+ 	if (!new)
+ 		return 0;
+ 
+-	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn);
++	bitmap_copy(new, map->tsn_map,
++		map->max_tsn_seen - map->cumulative_tsn_ack_point);
+ 	kfree(map->tsn_map);
+ 	map->tsn_map = new;
+ 	map->len = len;
