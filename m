@@ -1,50 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: why is it not allowed to add a new socket protocol family as
- an external module?
-Date: Wed, 20 Feb 2013 20:05:02 -0500 (EST)
-Message-ID: <20130220.200502.1241369422255314068.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: why is it not allowed to add a new socket protocol family as an
+ external module?
+Date: Wed, 20 Feb 2013 17:39:57 -0800
+Message-ID: <1361410797.17413.3.camel@edumazet-glaptop>
 References: <5125002D.9080008@genband.com>
-	<20130220152325.64c57d55@samsung-9>
-	<51256E02.4080509@genband.com>
+	 <20130220152325.64c57d55@samsung-9> <51256E02.4080509@genband.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: chris.friesen@genband.com
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52335 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752610Ab3BUBFH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 20:05:07 -0500
+Received: from mail-ia0-f180.google.com ([209.85.210.180]:60505 "EHLO
+	mail-ia0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751840Ab3BUBkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 20:40:00 -0500
+Received: by mail-ia0-f180.google.com with SMTP id f27so7639914iae.39
+        for <netdev@vger.kernel.org>; Wed, 20 Feb 2013 17:40:00 -0800 (PST)
 In-Reply-To: <51256E02.4080509@genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Friesen <chris.friesen@genband.com>
-Date: Wed, 20 Feb 2013 18:44:50 -0600
+On Wed, 2013-02-20 at 18:44 -0600, Chris Friesen wrote:
 
-> On 02/20/2013 05:23 PM, Stephen Hemminger wrote:
->> On Wed, 20 Feb 2013 10:56:13 -0600
->> Chris Friesen<chris.friesen@genband.com>  wrote:
->>
->>> Hi,
->>>
->>> I was just wondering why the kernel doesn't allow a new network
->>> protocol
->>> family to be loaded as as a kernel module built outside the kernel
->>> source tree.
+> Yes, there are a number of tables sized by NPROTO/AF_MAX/PF_MAX (and the 
+> fact that we use all three within the kernel is kind of sad) but there 
+> is no technical reason why we couldn't extend those dynamically if 
+> desired (with a linked list of additional protocols, perhaps).
 > 
->> If you want an answer, to the question, use a tool like cscope and
->> learn to read the kernel code. There are several tables of pointers
->> sized by NPROTO.
+> Hence my question--is the restriction for an ideological reason or 
+> simply because nobody thought it was worth the effort?
 > 
-> That's a bit insulting, don't you think?
 
-Absolutely not insulting at all.
+I guess nobody did the preliminary work.
 
-The list is _NOT_ a place to go when you're just too damn lazy to take
-the 10 seconds it would have taken to answer your question with a
-quick NPROTO grep on the kernel sources.
+lockdep might be the tricky part.
 
-Stephen's response to you was therefore %100 appropriate, and I would
-have told you likewise if I had been the first to respond.
+net/core/sock.c:197:static const char *const af_family_key_strings[AF_MAX+1] = {
+net/core/sock.c:211:  "sk_lock-AF_NFC"   , "sk_lock-AF_MAX"
+net/core/sock.c:213:static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+net/core/sock.c:227:  "slock-AF_NFC"   , "slock-AF_MAX"
+net/core/sock.c:229:static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+net/core/sock.c:243:  "clock-AF_NFC"   , "clock-AF_MAX"
+net/core/sock.c:250:static struct lock_class_key af_callback_keys[AF_MAX];
