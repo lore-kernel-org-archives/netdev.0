@@ -1,51 +1,101 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Thu, 21 Feb 2013 17:59:23 +0000 (UTC)
-Message-ID: <loom.20130221T185110-574@post.gmane.org>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com> <kepftg$f3c$1@ger.gmane.org> <CAHrpEqQMZNmzRrNQK60hokR2r5S=U65YdC-5h6aHHHzAVdEWKw@mail.gmail.com> <loom.20130221T175907-606@post.gmane.org> <CAOMZO5AJa7fs+VdA8jGE5mDnxp4ZQ6a9CjbSou5J+RA3uXUjxQ@mail.gmail.com>
+From: "Roberts, Lee A." <lee.roberts@hp.com>
+Subject: RE: [PATCH 1/4] sctp: fix association hangs due to off-by-one
+ errors in sctp_tsnmap_grow()
+Date: Thu, 21 Feb 2013 18:00:24 +0000
+Message-ID: <D64EC45690EF85409BA6C4730E0162244310DF6F@G4W3231.americas.hpqcorp.net>
+References: <D64EC45690EF85409BA6C4730E0162244310DEE7@G4W3231.americas.hpqcorp.net>
+ <512656E7.3060908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:35829 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754077Ab3BUR7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2013 12:59:42 -0500
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1U8aR6-0000yd-0M
-	for netdev@vger.kernel.org; Thu, 21 Feb 2013 19:00:00 +0100
-Received: from jimbax.plus.com ([81.174.248.107])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 18:59:59 +0100
-Received: from jim_baxter by jimbax.plus.com with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 18:59:59 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <512656E7.3060908@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fabio Estevam <festevam <at> gmail.com> writes:
+Vlad,
 
+> -----Original Message-----
+> From: Vlad Yasevich [mailto:vyasevich@gmail.com]
+> Sent: Thursday, February 21, 2013 10:19 AM
+> To: Roberts, Lee A.
+> Cc: linux-sctp@vger.kernel.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH 1/4] sctp: fix association hangs due to off-by-one errors in sctp_tsnmap_grow()
 > 
-> On Thu, Feb 21, 2013 at 2:07 PM, Jim Baxter <jim_baxter <at> mentor.com> wrote:
-> > Is the general issue in this driver that the fec_probe function:
-> > request_irq(irq, fec_enet_interrupt, IRQF_DISABLED, pdev->name, ndev);
+> On 02/21/2013 11:44 AM, Roberts, Lee A. wrote:
+> > From: Lee A. Roberts <lee.roberts@hp.com>
 > >
-> > is called before fec_ptp_init() and fec_enet_init() have been called so that
-> > there is a chance the fec_enet_interrupt can occur before the hardware and 
-data
-> > structures are fully setup?
+> > Resolve SCTP association hangs observed during SCTP stress
+> > testing.  Observable symptoms include communications hangs
+> > with data being held in the association lobby (ordering)
+> > queue.  Close examination of reassembly/ordering queues shows
+> > duplicated packets.
+> >
+> > In sctp_tsnmap_grow(), correct off-by-one errors when copying
+> > and resizing the tsnmap.  If max_tsn_seen is in the LSB of the
+> > word, this bit can be lost, causing the corresponding packet
+> > to be transmitted again and to be entered as a duplicate into
+> > the SCTP reassembly/ordering queues.
+> >
+> > Patch applies to linux-3.8 kernel.
+> >
+> > Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
+> > ---
+> >   net/sctp/tsnmap.c |    5 +++--
+> >   1 file changed, 3 insertions(+), 2 deletions(-)
+> >
+> > diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-vanilla/net/sctp/tsnmap.c linux-
+> 3.8-SCTP+1/net/sctp/tsnmap.c
+> > --- linux-3.8-vanilla/net/sctp/tsnmap.c	2013-02-18 16:58:34.000000000 -0700
+> > +++ linux-3.8-SCTP+1/net/sctp/tsnmap.c	2013-02-20 08:01:02.555223259 -0700
+> > @@ -369,14 +369,15 @@ static int sctp_tsnmap_grow(struct sctp_
+> >   	if (gap >= SCTP_TSN_MAP_SIZE)
 > 
-> The scenario you described is fixed by the patch that Frank proposed at:
-> http://patchwork.ozlabs.org/patch/222164/
+> No that I think about this a bit more, this should be gap + 1.  If you
+> do that, you might as well call sctp_tsnmap_grow() with gap+1 as
+> argument and then can just use the 'gap' everywhere inside.
+
+I think the calculation of "gap" in sctp_tsnmap_mark() should change:
+
+-	gap = tsn - map->base_tsn;
++	gap = tsn - map->cumulative_tsn_ack_point;
+
+> 
+> >   		return 0;
+> >
+> > -	inc = ALIGN((gap - map->len),BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
+> > +	inc = ALIGN((gap - map->len + 1), BITS_PER_LONG)
+> > +		+ SCTP_TSN_MAP_INCREMENT;
+> >   	len = min_t(u16, map->len + inc, SCTP_TSN_MAP_SIZE);
+> >
+> >   	new = kzalloc(len>>3, GFP_ATOMIC);
+> >   	if (!new)
+> >   		return 0;
+> >
+> > -	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn);
+> > +	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn + 1);
+> 
+> Can simplify that this by using map->cumulative_tsn_ack_point instead of
+> base_tsn.
+> 
+> -vlad
 > 
 
-That is a good patch that will stop interrupts occurring before request_irq is 
-called.
+I changed the code to use "cumulative_tsn_ack_point" in an updated version
+of the patch.
 
-What about the problem of fec_enet_interrupt calling fec_ptp_start_cyclecounter 
-before fec_ptp_init has been called?
+                                         -- Lee
 
-Should fec_enet_init and fec_ptp_init be setup before the request_irq is called?
+> >   	kfree(map->tsn_map);
+> >   	map->tsn_map = new;
+> >   	map->len = len;
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >
