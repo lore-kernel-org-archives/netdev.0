@@ -1,128 +1,68 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH] net: fec: Ensure that initialization is done prior to request_irq()
-Date: Thu, 21 Feb 2013 16:21:50 -0300
-Message-ID: <1361474510-14286-1-git-send-email-fabio.estevam@freescale.com>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [PATCHv2 vringh 1/3] remoteproc: Add support for vringh (Host
+	vrings)
+Date: Thu, 21 Feb 2013 20:36:42 +0100
+Message-ID: <CAJK669Yr=rkmBhUNZGSQAQzC46c3v2KVewnAaEJhKT1a0Ci8Pw@mail.gmail.com>
+References: <1360669793-6921-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1360669793-6921-2-git-send-email-sjur.brandeland@stericsson.com>
+	<CAK=Wgbb0EeiCh504jsoX+izzi+ZogfEDttz2cHRd4pVXvQunQw@mail.gmail.com>
+	<CAJK669bDu3SphxmEtA+h+v=btsN91t0S9Mn6ik-OKr=8gtducw@mail.gmail.com>
+	<CAK=Wgba5XkK3c7qh1tYHMGEe7-Qima96uYO4E+uAPcaB8K6bmQ@mail.gmail.com>
+	<CAJK669YHwR=nf2zSQR6buaA-x1JSowJfU16hkz1+N_WLL0qA+A@mail.gmail.com>
+	<CAK=Wgbam=Y5GJQxg2DSt2yR6CdcDxjZ5k_Av_0H8+6m+scN+Yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <Frank.Li@freescale.com>, <s.hauer@pengutronix.de>,
-	<jim_baxter@mentor.com>, <netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [216.32.181.181] ([216.32.181.181]:23201 "EHLO
-	ch1outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1751401Ab3BUTXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 14:23:52 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>, netdev@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>, Ido Yariv <ido@wizery.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Erwan Yvin <erwan.yvin@stericsson.com>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ohad Ben-Cohen <ohad@wizery.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAK=Wgbam=Y5GJQxg2DSt2yR6CdcDxjZ5k_Av_0H8+6m+scN+Yw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Currently request_irq() is called prior to fec_enet_init() and fec_ptp_init(), 
-which causes the following crash on a mx53qsb:
-
-Unable to handle kernel NULL pointer dereference at virtual address 00000002
-pgd = 80004000
-[00000002] *pgd=00000000
-Internal error: Oops: 5 [#1] SMP ARM
-Modules linked in:
-CPU: 0    Not tainted  (3.8.0-rc7-next-20130215+ #346)
-PC is at fec_enet_interrupt+0xd0/0x348
-LR is at fec_enet_interrupt+0xb8/0x348
-pc : [<80372b7c>]    lr : [<80372b64>]    psr: 60000193
-sp : df855c20  ip : df855c20  fp : df855c74
-r10: 00000516  r9 : 1c000000  r8 : 00000000
-r7 : 00000000  r6 : 00000000  r5 : 00000000  r4 : df9b7800
-r3 : df9b7df4  r2 : 00000000  r1 : 00000000  r0 : df9b7d34
-
-Ensure that such initialization functions are called prior to requesting the 
-interrupts, so that all necessary the data structures are in place when the 
-irqs occur. 
-
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
----
- drivers/net/ethernet/freescale/fec.c |   30 +++++++++++++++---------------
- 1 file changed, 15 insertions(+), 15 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 29d82cf..2dbb36c 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -1782,6 +1782,15 @@ fec_probe(struct platform_device *pdev)
- 		fep->phy_interface = ret;
- 	}
- 
-+	fep->bufdesc_ex =
-+		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
-+	if (fep->bufdesc_ex)
-+		fec_ptp_init(ndev, pdev);
-+
-+	ret = fec_enet_init(ndev);
-+	if (ret)
-+		goto failed_init;
-+
- 	for (i = 0; i < FEC_IRQ_NUM; i++) {
- 		irq = platform_get_irq(pdev, i);
- 		if (irq < 0) {
-@@ -1819,8 +1828,6 @@ fec_probe(struct platform_device *pdev)
- 	}
- 
- 	fep->clk_ptp = devm_clk_get(&pdev->dev, "ptp");
--	fep->bufdesc_ex =
--		pdev->id_entry->driver_data & FEC_QUIRK_HAS_BUFDESC_EX;
- 	if (IS_ERR(fep->clk_ptp)) {
- 		ret = PTR_ERR(fep->clk_ptp);
- 		fep->bufdesc_ex = 0;
-@@ -1843,13 +1850,6 @@ fec_probe(struct platform_device *pdev)
- 
- 	fec_reset_phy(pdev);
- 
--	if (fep->bufdesc_ex)
--		fec_ptp_init(ndev, pdev);
--
--	ret = fec_enet_init(ndev);
--	if (ret)
--		goto failed_init;
--
- 	ret = fec_enet_mii_init(pdev);
- 	if (ret)
- 		goto failed_mii_init;
-@@ -1866,7 +1866,6 @@ fec_probe(struct platform_device *pdev)
- failed_register:
- 	fec_enet_mii_remove(fep);
- failed_mii_init:
--failed_init:
- failed_regulator:
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
-@@ -1881,6 +1880,7 @@ failed_clk:
- 	}
- failed_irq:
- 	iounmap(fep->hwp);
-+failed_init:
- failed_ioremap:
- 	free_netdev(ndev);
- failed_alloc_etherdev:
-@@ -1899,17 +1899,17 @@ fec_drv_remove(struct platform_device *pdev)
- 
- 	unregister_netdev(ndev);
- 	fec_enet_mii_remove(fep);
--	for (i = 0; i < FEC_IRQ_NUM; i++) {
--		int irq = platform_get_irq(pdev, i);
--		if (irq > 0)
--			free_irq(irq, ndev);
--	}
- 	del_timer_sync(&fep->time_keep);
- 	clk_disable_unprepare(fep->clk_ptp);
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
-+	for (i = 0; i < FEC_IRQ_NUM; i++) {
-+		int irq = platform_get_irq(pdev, i);
-+		if (irq > 0)
-+			free_irq(irq, ndev);
-+	}
- 	iounmap(fep->hwp);
- 	free_netdev(ndev);
- 
--- 
-1.7.9.5
+SGkgT2hhZCwKCk9uIFRodSwgRmViIDIxLCAyMDEzIGF0IDY6NTUgUE0sIE9oYWQgQmVuLUNvaGVu
+IDxvaGFkQHdpemVyeS5jb20+IHdyb3RlOgo+IE9uIFRodSwgRmViIDIxLCAyMDEzIGF0IDc6Mjgg
+UE0sIFNqdXIgQnLDpm5kZWxhbmQgPHNqdXJicmVuQGdtYWlsLmNvbT4gd3JvdGU6Cj4+IFRoZSBt
+b3RpdmF0aW9uIGZvciB1c2luZyB2cmluZ2ggd2FzIHRvIGF2b2lkIGNvcHlpbmcgYnVmZmVycwo+
+PiB3aGVuIHNlbmRpbmcgZGF0YSBmcm9tIHRoZSBtb2RlbSB0byB0aGUgaG9zdC4KPgo+IEkgbWF5
+IGJlIG1pc3Npbmcgc29tZXRoaW5nIGhlcmUsIGJ1dCB3aHkgZG8geW91IG5lZWQgdnJpbmdoIGZv
+ciB0aGF0Pwo+Cj4gV2l0aCBycG1zZyAod2hpY2ggdXNlcyB0d28gcmVndWxhciB2cmluZ3MpIGJv
+dGggZW5kcyBzZW5kIGh1Z2UgYW1vdW50Cj4gb2YgZGF0YSB3aXRob3V0IGNvcHlpbmcgaXQgLSB3
+ZSBqdXN0IHNlbmQgdGhlIHBvaW50ZXJzIGFjcm9zcy4KCk9LLCBXZSBkaWQgY2FyZWZ1bGx5IGNv
+bnNpZGVyIHVzaW5nIHRoZSBub3JtYWwgdnJpbmdzLCBidXQgY29uY2x1ZGVkIGl0IHdhcwpub3Qg
+ZG9hYmxlLiBJJ2xsIHRyeSB0byBnaXZlIHlvdSBzb21lIG9mIHRoZSBiYWNrZ3JvdW5kIHRoYXQg
+SSBjYW4KcmVjYWxsIGZyb20gdG9wIG9mIG15IGhlYWQuCihJIGNhbiBkaWcgb3V0IG1vcmUgaWYg
+eW91J3JlIHN0aWxsIG5vdCBjb252aW5jZWQgOikKClRoZSBtb2RlbSB3ZSdyZSBpbnRlZ3JhdGlu
+ZyB3aXRoIGlzIGEgY29tcGxleCBiZWFzdCAobXVsdGkgbW9kZSBtb2RlbQpMVEUsIEhTUEErLCBl
+dGMpLgpXaGVuIGEgcGFja2V0IGlzIHJlY2VpdmVkIGRlZXAgZG93biBpbiB0aGUgcmFkaW8gc3Rh
+Y2ssIGl0IGFsbG9jYXRlcyBwYWNrZXQKYnVmZmVycyB1c2luZyB0aGUgaW50ZXJuYWwgc2xhYiBh
+bGxvY2F0b3IuVGhlIHBhY2tldCBtYXkgY29udGFpbgphbnl0aGluZyBmcm9tIGNvbnRyb2wsIHZv
+aWNlLApvciBJUCBwYWNrZXRzLiBJZiB0aGUgcGFja2V0IGNvbnRhaW5zIElQLXBheWxvYWQgaXQg
+d2lsbCB0cmF2ZWwgdG8gYQpkaWZmZXJlbnQgYXN5bW1ldHJpYyBDUFUgdGhhdApoYW5kbGVzIHRo
+ZSBJUEMgdG93YXJkcyB0aGUgbW9kZW0uIElmIHRoZSBwYWNrZXQgaXMgbm90IGEgSVAtcGFja2V0
+IGl0IHdpbGwgYmUKcHJvY2Vzc2VkIGludGVybmFsbHkgYW5kIGV2ZW50dWFsbHkgZnJlZWQuCgpX
+aGF0IHdlIGhhdmUgZG9uZSB0byBpbnRlZ3JhdGUgdmlydGlvIGlzIHRvIGluamVjdCB0aGUgY2Fy
+dmVvdXQgaW50byB0aGUKdGhlIG1vZGVtIGludGVybmFsIHNsYWItYWxsb2NhdG9yLgoKVXNpbmcg
+dGhlIHJldmVyc2VkIHJpbmcgYWxsb3dzIHVzIHRvIGludHJvZHVjZSB6ZXJvLWNvcHkgZm9yIHZp
+cnRpbwp3aXRoIHZpcnR1YWxseSBubwppbXBhY3Qgb24gdGhlIHJhZGlvLXN0YWNrLCBvbmx5IGEg
+c21hbGwgY2hhbmdlIG9uIHRoZSBtb2RlbSBzbGFiIGFsbG9jYXRvci4KSXQgc3VwcG9ydHMgZHlu
+YW1pYyBzaXplIGJ1ZmZlciBhbGxvY2F0aW9uLCBhbmQgbW9kZW0gaW50ZXJuYWwKbWVzc2FnaW5n
+IHVzaW5nIGRhdGEKYWxsb2NhdGVkIGZyb20gdGhlIHNoYXJlZCByZWdpb24uIEl0IGFsc28gYWxs
+b3dzIG1vZGVtIHRvIG1hbmFnZSBpdCdzCm93biBtZW1vcnksCndpdGhvdXQgYW55IGRlcGVuZGVu
+Y3kgb24gaG9zdCBzaWRlIGFsbG9jYXRvcnMuCgoKVGhhbmtzLApTanVyCl9fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcg
+bGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xp
+c3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
