@@ -1,44 +1,39 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: why is it not allowed to add a new socket protocol family as
- an external module?
-Date: Wed, 20 Feb 2013 18:44:50 -0600
-Message-ID: <51256E02.4080509@genband.com>
-References: <5125002D.9080008@genband.com> <20130220152325.64c57d55@samsung-9>
+From: Ralf Friedl <Ralf.Friedl@online.de>
+Subject: Re: Problem with Reaktek 8168
+Date: Thu, 21 Feb 2013 01:48:07 +0100
+Message-ID: <51256EC7.90505@online.de>
+References: <5124B909.4080907@online.de> <20130220231122.GA22163@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og116.obsmtp.com ([64.18.2.219]:41671 "EHLO
-	exprod7og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344Ab3BUApL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 19:45:11 -0500
-In-Reply-To: <20130220152325.64c57d55@samsung-9>
+Received: from moutng.kundenserver.de ([212.227.126.171]:60991 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751830Ab3BUAsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 19:48:04 -0500
+In-Reply-To: <20130220231122.GA22163@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2013 05:23 PM, Stephen Hemminger wrote:
-> On Wed, 20 Feb 2013 10:56:13 -0600
-> Chris Friesen<chris.friesen@genband.com>  wrote:
->
->> Hi,
->>
->> I was just wondering why the kernel doesn't allow a new network protocol
->> family to be loaded as as a kernel module built outside the kernel
->> source tree.
+Francois Romieu wrote:
+> Ralf Friedl <Ralf.Friedl@online.de> :
+> [...]
+>   
+>> If it helps I can also run a custom driver with additional debug code.
+>>     
+> Can you send the XID line that your stock kernel r8169 driver displays ?
+> It will help identifying your chipset revision as a start.
+>   
+Thank you for your reply.
+These are the messages when the driver loads.
 
-> If you want an answer, to the question, use a tool like cscope and
-> learn to read the kernel code. There are several tables of pointers sized by NPROTO.
+r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+r8169 0000:02:00.0: irq 90 for MSI/MSI-X
+r8169 0000:02:00.0: eth0: RTL8168f/8111f at 0xffffc90010122000, 
+50:46:5d:a7:30:7a, XID 08000880 IRQ 90
+r8169 0000:02:00.0: eth0: jumbo features [frames: 9200 bytes, tx 
+checksumming: ko]
 
-That's a bit insulting, don't you think?
-
-Yes, there are a number of tables sized by NPROTO/AF_MAX/PF_MAX (and the 
-fact that we use all three within the kernel is kind of sad) but there 
-is no technical reason why we couldn't extend those dynamically if 
-desired (with a linked list of additional protocols, perhaps).
-
-Hence my question--is the restriction for an ideological reason or 
-simply because nobody thought it was worth the effort?
-
-Chris
+Ralf Friedl
