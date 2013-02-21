@@ -1,36 +1,53 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Thu, 21 Feb 2013 15:04:21 -0300
-Message-ID: <CAOMZO5DqzNUvfmRxPZAhk4i_+SKbTthHqTkQCvW7K+8o7b42zg@mail.gmail.com>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com>
-	<kepftg$f3c$1@ger.gmane.org>
-	<CAHrpEqQMZNmzRrNQK60hokR2r5S=U65YdC-5h6aHHHzAVdEWKw@mail.gmail.com>
-	<loom.20130221T175907-606@post.gmane.org>
-	<CAOMZO5AJa7fs+VdA8jGE5mDnxp4ZQ6a9CjbSou5J+RA3uXUjxQ@mail.gmail.com>
-	<loom.20130221T185110-574@post.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: fec: fix crash at mx53 qsb board
+Date: Thu, 21 Feb 2013 13:04:49 -0500 (EST)
+Message-ID: <20130221.130449.868185028543115848.davem@davemloft.net>
+References: <1361408848-14118-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Li Frank-B20596 <B20596@freescale.com>
-To: Jim Baxter <jim_baxter@mentor.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lznuaa@gmail.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, shawn.guo@linaro.org, B38611@freescale.com,
+	s.hauer@pengutronix.de, festevam@gmail.com
+To: Frank.Li@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:41641 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756216Ab3BUSEX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 13:04:23 -0500
-Received: by mail-wi0-f179.google.com with SMTP id ez12so7951815wid.6
-        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 10:04:22 -0800 (PST)
-In-Reply-To: <loom.20130221T185110-574@post.gmane.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60920 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756200Ab3BUSEw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 13:04:52 -0500
+In-Reply-To: <1361408848-14118-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 21, 2013 at 2:59 PM, Jim Baxter <jim_baxter@mentor.com> wrote:
+From: Frank Li <Frank.Li@freescale.com>
+Date: Thu, 21 Feb 2013 09:07:28 +0800
 
-> That is a good patch that will stop interrupts occurring before request_irq is
-> called.
->
-> What about the problem of fec_enet_interrupt calling fec_ptp_start_cyclecounter
-> before fec_ptp_init has been called?
->
-> Should fec_enet_init and fec_ptp_init be setup before the request_irq is called?
+> Unable to handle kernel NULL pointer dereference at virtual address 00000002
+> pgd = 80004000
+> [00000002] *pgd=00000000
+> Internal error: Oops: 5 [#1] SMP ARM
+> Modules linked in:
+> CPU: 0    Not tainted  (3.8.0-rc7-next-20130215+ #346)
+> PC is at fec_enet_interrupt+0xd0/0x348
+> LR is at fec_enet_interrupt+0xb8/0x348
+> pc : [<80372b7c>]    lr : [<80372b64>]    psr: 60000193
+> sp : df855c20  ip : df855c20  fp : df855c74
+> r10: 00000516  r9 : 1c000000  r8 : 00000000
+> r7 : 00000000  r6 : 00000000  r5 : 00000000  r4 : df9b7800
+> r3 : df9b7df4  r2 : 00000000  r1 : 00000000  r0 : df9b7d34
+> 
+> It is possible that issue a irq between request_irq and fec_enet_init.
+> Irq handle will be called but driver data structure is not ready yet.
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
 
-Yes, I think so. Care to submit a patch?
+You must fix this by making sure all of the necessary software
+datastructures are initialized fully before request_irq() is
+invoked.
+
+You absolutely cannot control pending interrupts the chip is already
+signalling and which have been queued up in the interrupt controller
+already, which will be emitted precisely when you request_irq()
+regardless of how you program the chip during this time.
+
+I'm not applying this, fix the bug correctly, thanks.
