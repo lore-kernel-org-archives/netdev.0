@@ -1,106 +1,47 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
- capability to the tunnel device
-Date: Fri, 22 Feb 2013 00:30:05 +0200
-Message-ID: <1361485805.21950.6.camel@lb-tlvb-dmitry>
-References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
- <1361217053-16984-2-git-send-email-dmitry@broadcom.com>
- <CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv6: use a stronger hash for tcp
+Date: Thu, 21 Feb 2013 23:43:16 +0100
+Message-ID: <20130221224316.GA9671@order.stressinduktion.org>
+References: <1361485132.17413.19.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: pravin <pravin.shelar@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3448 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756142Ab3BUWaM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2013 17:30:12 -0500
-In-Reply-To: <CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:49302 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756122Ab3BUWnS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 17:43:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1361485132.17413.19.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-19 at 10:39 -0800, pravin wrote:
-> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
-> >
-> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> > ---
-> > Changes from v1: fixed email address
-> >
-> >
-> >  net/ipv4/ip_gre.c |   10 ++++++++--
-> >  1 files changed, 8 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> > index cdc31ac..31bc941 100644
-> > --- a/net/ipv4/ip_gre.c
-> > +++ b/net/ipv4/ip_gre.c
-> > @@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
-> >         tunnel->hlen = addend;
-> >         /* TCP offload with GRE SEQ is not supported. */
-> >         if (!(tunnel->parms.o_flags & GRE_SEQ)) {
-> > -               dev->features           |= NETIF_F_GSO_SOFTWARE;
-> > -               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
-> > +               /* device supports enc gso offload*/
-> > +               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
-> > +                       dev->features           |= NETIF_F_TSO;
-> > +                       dev->hw_features        |= NETIF_F_TSO;
-> > +               } else {
-> > +                       dev->features           |= NETIF_F_GSO_SOFTWARE;
-> > +                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
-> > +               }
-> >         }
+On Thu, Feb 21, 2013 at 02:18:52PM -0800, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> I am not sure about this change, Are you trying to limit GRE TSO to
-> just IPV4  in case of GRE offload in hardware?
-
-
-This mostly reverts previous patch, but also disables GSO when CSUM is
-set.
-
----
- net/ipv4/ip_gre.c |   14 ++++----------
- 1 files changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 0de54cd..aae2d4b 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -1107,16 +1107,10 @@ static int ipgre_tunnel_bind_dev(struct
-net_device *dev)
- 		mtu = 68;
- 
- 	tunnel->hlen = addend;
--	/* TCP offload with GRE SEQ is not supported. */
--	if (!(tunnel->parms.o_flags & GRE_SEQ)) {
--		/* device supports enc gso offload*/
--		if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
--			dev->features		|= NETIF_F_TSO;
--			dev->hw_features	|= NETIF_F_TSO;
--		} else {
--			dev->features		|= NETIF_F_GSO_SOFTWARE;
--			dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
--		}
-+	/* TCP offload with GRE SEQ or CSUM is not supported. */
-+	if (!(tunnel->parms.o_flags & (GRE_SEQ|GRE_CSUM))) {
-+		dev->features		|= NETIF_F_GSO_SOFTWARE;
-+		dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
- 	}
- 
- 	return mtu;
--- 
-1.7.7.2
-
-
-> >
-> >         return mtu;
-> > --
-> > 1.7.7.2
-> >
-> >
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> It looks like its possible to open thousands of TCP IPv6
+> sessions on a server, all landing in a single slot of TCP hash
+> table. Incoming packets have to lookup sockets in a very
+> long list.
 > 
+> We should hash all bits from foreign IPv6 addresses, using
+> a salt and hash mix, not a simple XOR.
+> 
+> inet6_ehashfn() can also separately use the ports, instead
+> of xoring them.
+
+I like this change. Some weeks ago I have looked at the tcp-metrics
+cache if the weak ipv6 xor hashes could be used to have negative impact
+on servers. Luckily the maximum length of the lists is checked to not
+grow beyond 5 entries (after that reclamation kicks in).
+
+With IPv6 this seems to be a new attack scenario with each user having
+a /64 they could generate about 2^32 hash colliding ipv6 addresses
+(in case of xor hashing) where a full tcp 3whs and shutdown could be made.
+
+Perhaps we should use ipv6_addr_jhash in the destination cache, too, and look
+at other uses of ipv6_addr_hash?
