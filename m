@@ -1,30 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Problem with Reaktek 8168
-Date: Thu, 21 Feb 2013 00:11:22 +0100
-Message-ID: <20130220231122.GA22163@electric-eye.fr.zoreil.com>
-References: <5124B909.4080907@online.de>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: why is it not allowed to add a new socket protocol family as
+ an external module?
+Date: Wed, 20 Feb 2013 18:44:50 -0600
+Message-ID: <51256E02.4080509@genband.com>
+References: <5125002D.9080008@genband.com> <20130220152325.64c57d55@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Ralf Friedl <Ralf.Friedl@online.de>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:58541 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749Ab3BTXnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 18:43:05 -0500
-Content-Disposition: inline
-In-Reply-To: <5124B909.4080907@online.de>
+Received: from exprod7og116.obsmtp.com ([64.18.2.219]:41671 "EHLO
+	exprod7og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752344Ab3BUApL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 19:45:11 -0500
+In-Reply-To: <20130220152325.64c57d55@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ralf Friedl <Ralf.Friedl@online.de> :
-[...]
-> If it helps I can also run a custom driver with additional debug code.
+On 02/20/2013 05:23 PM, Stephen Hemminger wrote:
+> On Wed, 20 Feb 2013 10:56:13 -0600
+> Chris Friesen<chris.friesen@genband.com>  wrote:
+>
+>> Hi,
+>>
+>> I was just wondering why the kernel doesn't allow a new network protocol
+>> family to be loaded as as a kernel module built outside the kernel
+>> source tree.
 
-Can you send the XID line that your stock kernel r8169 driver displays ?
-It will help identifying your chipset revision as a start.
+> If you want an answer, to the question, use a tool like cscope and
+> learn to read the kernel code. There are several tables of pointers sized by NPROTO.
 
-Thanks.
+That's a bit insulting, don't you think?
 
--- 
-Ueimor
+Yes, there are a number of tables sized by NPROTO/AF_MAX/PF_MAX (and the 
+fact that we use all three within the kernel is kind of sad) but there 
+is no technical reason why we couldn't extend those dynamically if 
+desired (with a linked list of additional protocols, perhaps).
+
+Hence my question--is the restriction for an ideological reason or 
+simply because nobody thought it was worth the effort?
+
+Chris
