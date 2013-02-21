@@ -1,149 +1,34 @@
-From: pravin <pravin.shelar@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
- handle packets
-Date: Thu, 21 Feb 2013 15:46:02 -0800
-Message-ID: <CANvJab2S07fUPT3kJKM=NsCPuO-moJhtxhNExiWnxS-kFOkQ2Q@mail.gmail.com>
-References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
-	<CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
-	<504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
-	<CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
-	<1361485562.21950.3.camel@lb-tlvb-dmitry>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] ipv6: use a stronger hash for tcp
+Date: Thu, 21 Feb 2013 15:49:16 -0800
+Message-ID: <m2fw0pxm6b.fsf@firstfloor.org>
+References: <1361485132.17413.19.camel@edumazet-glaptop>
+	<20130221.181822.1234155083700257175.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	ncardwell@google.com, ycheng@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:63083 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755252Ab3BUXqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 18:46:06 -0500
-Received: by mail-wi0-f173.google.com with SMTP id hq4so289392wib.0
-        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 15:46:02 -0800 (PST)
-In-Reply-To: <1361485562.21950.3.camel@lb-tlvb-dmitry>
+Received: from mga03.intel.com ([143.182.124.21]:51256 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754322Ab3BUXtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2013 18:49:18 -0500
+In-Reply-To: <20130221.181822.1234155083700257175.davem@davemloft.net> (David
+	Miller's message of "Thu, 21 Feb 2013 18:18:22 -0500 (EST)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 21, 2013 at 2:26 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
-> On Tue, 2013-02-19 at 15:03 -0800, pravin wrote:
->> On Tue, Feb 19, 2013 at 11:20 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->> >
->> >> -----Original Message-----
->> >> From: pravin [mailto:pravin.shelar@gmail.com]
->> >> Sent: Tuesday, February 19, 2013 8:28 PM
->> >> To: Dmitry Kravkov
->> >> Cc: davem@davemloft.net; netdev@vger.kernel.org
->> >> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
->> >> handle packets
->> >>
->> >> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
->> >> wrote:
->> >> > If device is not able to handle checksumming it will
->> >> > be handled in dev_xmit
->> >> >
->> >> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
->> >> > ---
->> >> > Changes from v1: fixed email address
->> >> >
->> >> >  net/ipv4/ip_gre.c |    7 ++-----
->> >> >  1 files changed, 2 insertions(+), 5 deletions(-)
->> >> >
->> >> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
->> >> > index a56f118..cdc31ac 100644
->> >> > --- a/net/ipv4/ip_gre.c
->> >> > +++ b/net/ipv4/ip_gre.c
->> >> > @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff
->> >> *skb)
->> >> >                         goto error;
->> >> >                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
->> >> >                 return skb;
->> >> > -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
->> >> > -               err = skb_checksum_help(skb);
->> >> > -               if (unlikely(err))
->> >> > -                       goto error;
->> >> >         }
->> >> > -       skb->ip_summed = CHECKSUM_NONE;
->> >> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
->> >> > +               skb->ip_summed = CHECKSUM_NONE;
->> >> >
->> >> >         return skb;
->> >> >
->> >> > --
->> >> > 1.7.7.2
->> >> >
->> >> >
->> >>
->> >> This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
->> >> complete IP packet to checksum entire GRE payload.
->> >
->> > Testing for o_flags&GRE_CSUM does not look too hurt here, since it will be used in ipgre_tunnel_xmit() later on
->> > This is the only problematic case, right?
->> >
->>
->> It does not work for me. I have GRE device with csum on. Ping works
->> fine but Netperf is not working.
->> Looking at code, I am not sure how tcp will work if inner packet TCP
->> checksum is calculated after GRE_CSUM calculation.
+David Miller <davem@davemloft.net> writes:
 >
->
-> Fixes handling when CSUM or SEQ flags are set - via skb_checksum_help()
-> ---
-> Tested with each mode (separately)
->
->  net/ipv4/ip_gre.c |   14 +++++++++++---
->  1 files changed, 11 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 5ef4da7..0de54cd 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -735,7 +735,8 @@ drop:
->         return 0;
->  }
->
-> -static struct sk_buff *handle_offloads(struct sk_buff *skb)
-> +static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel,
-> +                                      struct sk_buff *skb)
->  {
->         int err;
->
-> @@ -745,8 +746,15 @@ static struct sk_buff *handle_offloads(struct
-> sk_buff *skb)
->                         goto error;
->                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
->                 return skb;
-> +       } else if (tunnel->parms.o_flags&(GRE_SEQ|GRE_CSUM) &&
-> +                  skb->ip_summed == CHECKSUM_PARTIAL) {
-> +               err = skb_checksum_help(skb);
-> +               if (unlikely(err))
-> +                       goto error;
->         }
-> -       if (skb->ip_summed != CHECKSUM_PARTIAL)
-> +
-> +       if (skb->ip_summed != CHECKSUM_PARTIAL ||
-> +           tunnel->parms.o_flags&(GRE_SEQ|GRE_CSUM))
->                 skb->ip_summed = CHECKSUM_NONE;
->
-We can simplify this by dropping check of o_flags.
+> I bet we can consolidate this slightly, to make it less
+> expensive yet not give up much in terms of protection.  Two
+> jhash3word()'s is quite a lot.
 
->         return skb;
-> @@ -776,7 +784,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff
-> *skb, struct net_device *dev
->         int    err;
->         int    pkt_len;
->
-> -       skb = handle_offloads(skb);
-> +       skb = handle_offloads(tunnel, skb);
->         if (IS_ERR(skb)) {
->                 dev->stats.tx_dropped++;
->                 return NETDEV_TX_OK;
-> --
-> 1.7.7.2
->
->
->> Thanks,
->> Pravin.
->>
->
->
->
+jhash is not really the state of the art for general hashing anymore,
+murmur3 or cityhash are generally considered faster/possibly better.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only
