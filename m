@@ -1,48 +1,123 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [E1000-devel] [next:akpm 16/587] drivers/net/ethernet/intel/igb/igb_main.c:6231:2: error: call to '__compiletime_assert_6235' declared with attribute error: BUILD_BUG_ON failed: SKB_WITH_OVERHEAD(IGB_RX_BUFSZ) < (NET_SKB_PAD + NET_IP_ALIGN + IGB_TS_HD
-Date: Thu, 21 Feb 2013 09:42:28 -0000
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B715B@saturn3.aculab.com>
-References: <5122101a.nBjTqFyZXZ+WuzPr%fengguang.wu@intel.com> <20130219142708.b454d98a.akpm@linux-foundation.org> <804857E1F29AAC47BF68C404FC60A1844D0099DF@ORSMSX102.amr.corp.intel.com> <CAL4WiirCCfN_Xi423sEJB5v=5hCR_3d8M26JmmG3VJ=fbH4-1g@mail.gmail.com> <51251303.9030803@intel.com> <1361388156.19353.216.camel@edumazet-glaptop>
+From: <sarveshwar.bandi@emulex.com>
+Subject: [PATCH net-next] be2net: Update copyright year
+Date: Thu, 21 Feb 2013 15:26:18 +0530
+Message-ID: <9190fda9-4232-4467-93ea-acbed86c039b@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	<e1000-devel@lists.sourceforge.net>, <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Daniel Santos" <daniel.santos@pobox.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	"Wu, Fengguang" <fengguang.wu@intel.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Alexander Duyck" <alexander.h.duyck@intel.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Vasundhara Volam <vasundhara.volam@emulex.com>,
+	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:55180 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751791Ab3BUJqf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2013 04:46:35 -0500
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 31221-07 for <netdev@vger.kernel.org>;
- Thu, 21 Feb 2013 09:46:32 +0000 (GMT)
-Content-class: urn:content-classes:message
-In-Reply-To: <1361388156.19353.216.camel@edumazet-glaptop>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:53002 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751900Ab3BUJyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 04:54:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IFRoZSBwcm9ibGVtIGlzIHRoZSAyNTYgYnl0ZSBhbGlnbm1lbnQgZm9yIEwxX0NBQ0hFX0JZ
-VEVTIGlzIGluY3JlYXNpbmcNCj4gPiB0aGUgc2l6ZSBvZiB0aGUgZGF0YSBhbmQgc2hhcmVkIGlu
-Zm8gc2lnbmlmaWNhbnRseSBwdXNoaW5nIHVzIHBhc3QgdGhlDQo+ID4gMksgbGltaXQuDQo+ID4N
-Cj4gPiBJJ2xsIGxvb2sgaW50byB0aGlzIHNpbmNlIGl0IGxpa2VseSBhZmZlY3RzIGl4Z2JlIGFz
-IHdlbGwuDQoNCkRvZXNuJ3QgYSAyNTYgYnl0ZSBjYWNoZSBsaW5lIGNhdXNlIGlzc3VlcyBhbG1v
-c3QgZXZlcnl3aGVyZQ0KYW55dGhpbmcgaXMgbWFya2VkIGFzICdjYWNoZV9hbGlnbmVkJyA/DQoN
-ClNvbWUgb3RoZXIgc3RydWN0dXJlcyBoYXZlIG1lbWJlcnMgcGFydCB3YXkgZG93biBtYXJrZWQg
-dGhhdCB3YXkNCnNvIHRoYXQgdGhlIDJuZCBjYWNoZSBsaW5lICh3aXRoIHNtYWxsZXIgbGluZXMp
-IGNvbnRhaW5zIGENCmtub3duIHNldCBvZiBmaWVsZHMgKGVpdGhlciB0byBnZXQgdGhlbSB0b2dl
-dGhlciwgb3Igb3V0IG9mIHRoZQ0KY2FjaGUgbGluZSBjb250YWluaW5nIHRoZSBmaXJzdCBwYXJ0
-IG9mIHRoZSBkYXRhKS4NCg0KV2l0aCAyNTYgYnl0ZSBjYWNoZSBsaW5lcyB0aGUgZW50aXJlIHN0
-cnVjdHVyZSB3b3VsZCBwcm9iYWJseSBiZQ0KYSBzaW5nbGUgY2FjaGUgbGluZSAtIGV4Y2VwdCB0
-aGF0IGl0IGdldHMgZXh0ZW5kZWQgdG8gdHdvIGxpbmVzLg0KDQpJIGtub3cgdGhhdCBzb21lIHBl
-b3BsZSBoYXZlIGEgaGFiaXQgb2YgYWxsb2NhdGluZyBtdXRleCBpbiB0aGVpcg0Kb3duIGNhY2hl
-IGxpbmUgKHdpdGggbm90aGluZyBlbHNlKSwgdGhhdCBhbHNvIGRvZXNuJ3QgbWFrZSBzZW5zZQ0K
-dG8gbWUgLSBlc3BlY2lhbGx5IHdpdGggbGFyZ2UgY2FjaGUgbGluZXMgKEkgZG9uJ3Qga25vdyBp
-ZiB0aGVyZQ0KYW55IG9mIHRob3NlIGluIExpbnV4KS4NCg0KCURhdmlkDQoNCg==
+From: Vasundhara Volam <vasundhara.volam@emulex.com>
+
+Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
+Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h         |    2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |    2 +-
+ drivers/net/ethernet/emulex/benet/be_hw.h      |    2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_roce.c    |    2 +-
+ drivers/net/ethernet/emulex/benet/be_roce.h    |    2 +-
+ 8 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 28ceb84..ff1efe5 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 071aea7..4512e42 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 9697086..6ef4575 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index 76b302f..053f00d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 541d453..c515eea 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 3860888..1f8103c 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_roce.c b/drivers/net/ethernet/emulex/benet/be_roce.c
+index 55d32aa..f3d126d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_roce.c
++++ b/drivers/net/ethernet/emulex/benet/be_roce.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+diff --git a/drivers/net/ethernet/emulex/benet/be_roce.h b/drivers/net/ethernet/emulex/benet/be_roce.h
+index db4ea80..2765729 100644
+--- a/drivers/net/ethernet/emulex/benet/be_roce.h
++++ b/drivers/net/ethernet/emulex/benet/be_roce.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (C) 2005 - 2011 Emulex
++ * Copyright (C) 2005 - 2013 Emulex
+  * All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or
+-- 
+1.7.9.5
