@@ -1,52 +1,96 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [GIT PULL nf] IPVS fixes #2
-Date: Thu, 21 Feb 2013 12:19:02 +0100
-Message-ID: <512602A6.8090609@redhat.com>
-References: <1360113878-31051-1-git-send-email-horms@verge.net.au> <20130207181213.GA18181@localhost> <20130213201301.GA7245@localhost>
+From: Ohad Ben-Cohen <ohad@wizery.com>
+Subject: Re: [PATCHv2 vringh 1/3] remoteproc: Add support for vringh (Host
+	vrings)
+Date: Thu, 21 Feb 2013 15:47:10 +0200
+Message-ID: <CAK=Wgba5XkK3c7qh1tYHMGEe7-Qima96uYO4E+uAPcaB8K6bmQ@mail.gmail.com>
+References: <1360669793-6921-1-git-send-email-sjur.brandeland@stericsson.com>
+	<1360669793-6921-2-git-send-email-sjur.brandeland@stericsson.com>
+	<CAK=Wgbb0EeiCh504jsoX+izzi+ZogfEDttz2cHRd4pVXvQunQw@mail.gmail.com>
+	<CAJK669bDu3SphxmEtA+h+v=btsN91t0S9Mn6ik-OKr=8gtducw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53056 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753831Ab3BULUQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2013 06:20:16 -0500
-In-Reply-To: <20130213201301.GA7245@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Dmitry Tarnyagin <dmitry.tarnyagin@stericsson.com>, netdev@vger.kernel.org,
+	Linus Walleij <linus.walleij@linaro.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Erwan Yvin <erwan.yvin@stericsson.com>,
+	virtualization <virtualization@lists.linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>, Ido Yariv <ido@wizery.com>
+To: =?ISO-8859-1?Q?Sjur_Br=E6ndeland?= <sjur.brandeland@stericsson.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <CAJK669bDu3SphxmEtA+h+v=btsN91t0S9Mn6ik-OKr=8gtducw@mail.gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 02/13/2013 09:13 PM, Pablo Neira Ayuso wrote:
-> On Thu, Feb 07, 2013 at 07:12:13PM +0100, Pablo Neira Ayuso wrote:
->> On Wed, Feb 06, 2013 at 10:24:37AM +0900, Simon Horman wrote:
->>> Hi Pablo,
->>>
->>> Another fix. This one seems suitable for stable all the way back to
->>> 2.6.34. I suspect this change may not apply cleanly all the way back there.
->>> Please let me know if I should prepare some backports.
+On Thu, Feb 21, 2013 at 1:01 AM, Sjur Br=E6ndeland
+<sjur.brandeland@stericsson.com> wrote:
+> [Sjur:]
+>>> How do you see the in-kernel API for this? I would like to see
+>>> something similar to my previous patches, where we extend
+>>> the virtqueue API. E.g. something like this:
+>>> struct virtqueue *vring_new_virtqueueh(...)...
 >
-> While reviewing patches that I'll pass to -stable, I noticed that:
->
-> 4b47bc9 ipvs: sctp: fix checksumming on snat and dnat handlers
->
-> depends on:
->
-> commit d4383f04d145cce8b855c463f40020639ef83ea0
-> Author: Jesper Dangaard Brouer <brouer@redhat.com>
-> Date:   Wed Sep 26 14:07:17 2012 +0200
->
->      ipvs: API change to avoid rescan of IPv6 exthdr
->
-> which is too big to add as dependency (it does not fulfill -stable
-> rule of not bigger patches than 100 lines).
->
-> If you want to me pass this sctp fix to -stable, you or Daniel will
-> have to send me a backport.
+> [Rusty:]
+>>I was just going to create _kernel variants of all the _user helpers,
+>>and let you drive it directly like that.
+>>
+>>If we get a second in-kernel user, we create wrappers (I'd prefer not to
+>>overload struct virtqueue though).
 
-I'm currently working on it. Will send you a patch by today.
+The wrappers suggestion sounds good.
 
-Thanks.
+One of the things we truly enjoyed about virtio is how easy it was to
+reuse its drivers for communication with a remote processor.
+
+It'd be great if we can stick to this design and keep vringh virtio
+drivers decoupled from the low level implementation they are developed
+with (specifically caif and remoteproc in this case).
+
+> Yes, if you insert a "malicious device" like that you can make it crash,
+> but wouldn't most drivers do if you try to register a malicious device...?
+>
+> If we really want to protect from this, we could perhaps validate the vdev
+> pointer in function rproc_virtio_new_vringh() by looking through the vdevs
+> of the registered rprocs.
+
+It sounds like we can instead just avoid this altogether if we follow
+Rusty's wrappers suggestion.
+
+The result would probably look better, and I suspect it might be very
+minimal code.
+
+> If some other driver is showing up using the vringh kernel API where
+> the current API don't fit, I guess it's time to create some abstractions
+> and wrappers... But I hope the current approach will do for now?
+
+Unless I'm missing something here, adding wrappers should be straight
+forward and quick. Coupling a virtio driver with remoteproc doesn't
+look great to me, probably because I appreciate so much the elegance
+of virtio and how easy we could have reused its vanilla drivers with a
+use case it wasn't originally designed to support.
+
+>> I have some other questions as well but maybe it's better to discuss
+>> first the bigger picture.
+>
+> OK, but please don't hesitate to address this. I'm still aiming for this
+> to go into 3.9.
+
+I was wondering - can you please explain your motivation for using
+vringh in caif ?
+
+We have internally discussed supporting multiple remote processors
+talking to each other using rpmsg, and in that scenario using vringh
+can considerably simplifies the solution (no need to decide in advance
+which side is the "guest" and which is the "host"). Was this the
+general incentive in using vringh in caif too or something else?
+
+Thanks,
+Ohad.
