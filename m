@@ -1,55 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: fix a bug in ping_err().
-Date: Thu, 21 Feb 2013 15:26:10 -0500 (EST)
-Message-ID: <20130221.152610.421537041196809390.davem@davemloft.net>
-References: <1361441394-16668-1-git-send-email-lw@cn.fujitsu.com>
-	<20130221.130809.1972679391726935145.davem@davemloft.net>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: fec: Ensure that initialization is done prior to request_irq()
+Date: Thu, 21 Feb 2013 17:29:46 -0300
+Message-ID: <CAOMZO5ArHJy=KN8R5F0cOhDN=MnxRTmBUOgDsn8zutrTNw=igg@mail.gmail.com>
+References: <1361474510-14286-1-git-send-email-fabio.estevam@freescale.com>
+	<20130221.152724.6508078801736235.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: lw@cn.fujitsu.com
+Content-Type: text/plain; charset=UTF-8
+Cc: fabio.estevam@freescale.com, Frank.Li@freescale.com,
+	s.hauer@pengutronix.de, jim_baxter@mentor.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34730 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754225Ab3BUU0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 15:26:14 -0500
-In-Reply-To: <20130221.130809.1972679391726935145.davem@davemloft.net>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:46806 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757709Ab3BUU3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 15:29:48 -0500
+Received: by mail-wi0-f179.google.com with SMTP id ez12so120406wid.6
+        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 12:29:47 -0800 (PST)
+In-Reply-To: <20130221.152724.6508078801736235.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 21 Feb 2013 13:08:09 -0500 (EST)
+On Thu, Feb 21, 2013 at 5:27 PM, David Miller <davem@davemloft.net> wrote:
 
-> From: Li Wei <lw@cn.fujitsu.com>
-> Date: Thu, 21 Feb 2013 18:09:54 +0800
-> 
->> We should get 'type' and 'code' from the outer ICMP header.
->> 
->> Signed-off-by: Li Wei <lw@cn.fujitsu.com>
->> ---
->>  net/ipv4/ping.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->> 
->> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
->> index 55c4ee1..2e91006 100644
->> --- a/net/ipv4/ping.c
->> +++ b/net/ipv4/ping.c
->> @@ -322,8 +322,8 @@ void ping_err(struct sk_buff *skb, u32 info)
->>  	struct iphdr *iph = (struct iphdr *)skb->data;
->>  	struct icmphdr *icmph = (struct icmphdr *)(skb->data+(iph->ihl<<2));
->>  	struct inet_sock *inet_sock;
->> -	int type = icmph->type;
->> -	int code = icmph->code;
->> +	int type = icmp_hdr(skb)->type;
->> +	int code = icmp_hdr(skb)->code;
-> 
-> Isn't that the same thing at this point?  skb->data points to the
-> outer IPv4 header at this point, doesn't it?
+> Looks good, did you test this yourself or should we wait for others to
+> test it out?
 
-Answering myself...
-
-Obviously it isn't, ip_rcv() __skb_pull()'s the IP header before it
-calls down into ICMP, so we have to use the transport header here.
-
-Applied and queued up for -stable, thanks.
+Yes, I tested it myself. I was the one who reported this bug and this
+fixes the problem.
