@@ -1,59 +1,69 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the mips tree
-Date: Thu, 21 Feb 2013 13:01:36 +1100
-Message-ID: <20130221130136.39e7e0fa939e749457ba1f52@canb.auug.org.au>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH 1/1] net: fec: fix crash at mx53 qsb board
+Date: Thu, 21 Feb 2013 09:07:28 +0800
+Message-ID: <1361408848-14118-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Thu__21_Feb_2013_13_01_36_+1100_mW/_qQYgPDmuYDO4"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	John Crispin <blogic@openwrt.org>,
-	Ralf Baechle <ralf@linux-mips.org>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <B38611@freescale.com>,
+	<s.hauer@pengutronix.de>, <festevam@gmail.com>,
+	Frank Li <Frank.Li@freescale.com>
+To: <lznuaa@gmail.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from db3ehsobe004.messaging.microsoft.com ([213.199.154.142]:20663
+	"EHLO db3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752390Ab3BUCIz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 20 Feb 2013 21:08:55 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Thu__21_Feb_2013_13_01_36_+1100_mW/_qQYgPDmuYDO4
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Unable to handle kernel NULL pointer dereference at virtual address 00000002
+pgd = 80004000
+[00000002] *pgd=00000000
+Internal error: Oops: 5 [#1] SMP ARM
+Modules linked in:
+CPU: 0    Not tainted  (3.8.0-rc7-next-20130215+ #346)
+PC is at fec_enet_interrupt+0xd0/0x348
+LR is at fec_enet_interrupt+0xb8/0x348
+pc : [<80372b7c>]    lr : [<80372b64>]    psr: 60000193
+sp : df855c20  ip : df855c20  fp : df855c74
+r10: 00000516  r9 : 1c000000  r8 : 00000000
+r7 : 00000000  r6 : 00000000  r5 : 00000000  r4 : df9b7800
+r3 : df9b7df4  r2 : 00000000  r1 : 00000000  r0 : df9b7d34
 
-Hi all,
+It is possible that issue a irq between request_irq and fec_enet_init.
+Irq handle will be called but driver data structure is not ready yet.
 
-Today's linux-next merge of the net-next tree got a conflict in
-include/linux/ssb/ssb_driver_gige.h between commit 111bd981e221 ("MIPS:
-BCM47XX: add bcm47xx prefix in front of nvram function names") from the
-mips tree and commit 180996c30517 ("ssb: get mac address from sprom
-struct for gige driver") from the net-next tree.
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletions(-)
 
-I fixed it up (the latter seems to supercede the former, so I used that)
-and can carry the fix as necessary (no action is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Thu__21_Feb_2013_13_01_36_+1100_mW/_qQYgPDmuYDO4
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRJYAAAAoJEECxmPOUX5FEt7QP/0avKyr2j4BUA22cL7/i2Tyi
-2iDUOaxa2BvApBfxuSi5AMiQUNvQn/NPtPnhimpmfZxccwRelwubtT78GzsHFATO
-pqno3nPBAVKvhtvSeMNm9vhOOJFeKdWGGXypW4/noZyw0OKuYXwvegFx3HU0iBdi
-C/W3AOqTpFeDRWkXkTJnmcWRn2TkyRq0lOYOSFt1PC+J7HLvE8YSOqOwHI6664Ua
-BKvaT2V7vPIYjq18X318d9qHPYJ3UY7cLH/5jw+F29C8l90kkLlCWwS5QtQ6TE55
-xaNL/3ZNDrYKTcsZEzdgflpgtaLZIW2uqKctrxQFS2L+eDb5wNBQoLubfDihnl1H
-qBRQTiYJOGG/aD8/07BhHaqIyOoruWQMxZKpDfzuOZ+00G2rOMD7DtNwsR81t6Fo
-jHUNF54fZp/mYXG4EGLShhzWRCryqjTAhytCPbjizf1ON+WVp+8vCRS1vdTFHGgN
-TpCuItFOPKS3B9P7XPqKIB9st8zYwkHtmYU2LtS4IPcbK5x/kvULJU3q9pPBMjGO
-Z0AIsa3JE4PjGj5s7+HY1y3Vd6gFaeHKyHzxgxM1FJN/XymbCIj2Fjvw+CRFuLl4
-jGzPkiQpPdQ050cQxTI5YC64ZTvaefuV2bCEBh8WkBU4NZVampaaW2lnzMj2guSh
-H8MrWoLPZ4zFu4nY9KGC
-=iaeS
------END PGP SIGNATURE-----
-
---Signature=_Thu__21_Feb_2013_13_01_36_+1100_mW/_qQYgPDmuYDO4--
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 7c6e890..a860486 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -1676,7 +1676,6 @@ static int fec_enet_init(struct net_device *ndev)
+ 	ndev->netdev_ops = &fec_netdev_ops;
+ 	ndev->ethtool_ops = &fec_enet_ethtool_ops;
+ 
+-	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, FEC_NAPI_WEIGHT);
+ 
+ 	/* Init enet descriptors */
+@@ -1786,6 +1785,13 @@ fec_probe(struct platform_device *pdev)
+ 	fep->pdev = pdev;
+ 	fep->dev_id = dev_id++;
+ 
++	/*
++	 * disable and clean all irq to avoid unexpected irq happen
++	 * between init driver data structure and request_irq
++	 */
++	writel(0, fep->hwp + FEC_IMASK);
++	writel(0xFFFFFFFF, fep->hwp + FEC_IEVENT);
++
+ 	fep->bufdesc_ex = 0;
+ 
+ 	if (!fep->hwp) {
+-- 
+1.7.1
