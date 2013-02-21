@@ -1,9 +1,9 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH 1/4] sctp: fix association hangs due to off-by-one errors
- in sctp_tsnmap_grow()
-Date: Thu, 21 Feb 2013 12:18:31 -0500
-Message-ID: <512656E7.3060908@gmail.com>
-References: <D64EC45690EF85409BA6C4730E0162244310DEE7@G4W3231.americas.hpqcorp.net>
+Subject: Re: [PATCH 2/4] sctp: fix association hangs due to reneging packets
+ below the cumulative TSN ACK point
+Date: Thu, 21 Feb 2013 12:19:35 -0500
+Message-ID: <51265727.8090501@gmail.com>
+References: <D64EC45690EF85409BA6C4730E0162244310DEFE@G4W3231.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: "Roberts, Lee A." <lee.roberts@hp.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <D64EC45690EF85409BA6C4730E0162244310DEE7@G4W3231.americas.hpqcorp.net>
+In-Reply-To: <D64EC45690EF85409BA6C4730E0162244310DEFE@G4W3231.americas.hpqcorp.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -21,55 +21,47 @@ On 02/21/2013 11:44 AM, Roberts, Lee A. wrote:
 >
 > Resolve SCTP association hangs observed during SCTP stress
 > testing.  Observable symptoms include communications hangs
-> with data being held in the association lobby (ordering)
-> queue.  Close examination of reassembly/ordering queues shows
-> duplicated packets.
+> with data being held in the association reassembly and/or lobby
+> (ordering) queues.  Close examination of reassembly queue shows
+> missing packets.
 >
-> In sctp_tsnmap_grow(), correct off-by-one errors when copying
-> and resizing the tsnmap.  If max_tsn_seen is in the LSB of the
-> word, this bit can be lost, causing the corresponding packet
-> to be transmitted again and to be entered as a duplicate into
-> the SCTP reassembly/ordering queues.
+> In sctp_ulpq_renege_list(), do not renege packets below the
+> cumulative TSN ACK point.
 >
 > Patch applies to linux-3.8 kernel.
 >
 > Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
-> ---
->   net/sctp/tsnmap.c |    5 +++--
->   1 file changed, 3 insertions(+), 2 deletions(-)
->
-> diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-vanilla/net/sctp/tsnmap.c linux-3.8-SCTP+1/net/sctp/tsnmap.c
-> --- linux-3.8-vanilla/net/sctp/tsnmap.c	2013-02-18 16:58:34.000000000 -0700
-> +++ linux-3.8-SCTP+1/net/sctp/tsnmap.c	2013-02-20 08:01:02.555223259 -0700
-> @@ -369,14 +369,15 @@ static int sctp_tsnmap_grow(struct sctp_
->   	if (gap >= SCTP_TSN_MAP_SIZE)
 
-No that I think about this a bit more, this should be gap + 1.  If you 
-do that, you might as well call sctp_tsnmap_grow() with gap+1 as 
-argument and then can just use the 'gap' everywhere inside.
-
->   		return 0;
->
-> -	inc = ALIGN((gap - map->len),BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
-> +	inc = ALIGN((gap - map->len + 1), BITS_PER_LONG)
-> +		+ SCTP_TSN_MAP_INCREMENT;
->   	len = min_t(u16, map->len + inc, SCTP_TSN_MAP_SIZE);
->
->   	new = kzalloc(len>>3, GFP_ATOMIC);
->   	if (!new)
->   		return 0;
->
-> -	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn);
-> +	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn + 1);
-
-Can simplify that this by using map->cumulative_tsn_ack_point instead of 
-base_tsn.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
 -vlad
 
->   	kfree(map->tsn_map);
->   	map->tsn_map = new;
->   	map->len = len;
+> ---
+>   net/sctp/ulpqueue.c |    9 +++++++--
+>   1 file changed, 7 insertions(+), 2 deletions(-)
+>
+> diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-SCTP+1/net/sctp/ulpqueue.c linux-3.8-SCTP+2/net/sctp/ulpqueue.c
+> --- linux-3.8-SCTP+1/net/sctp/ulpqueue.c	2013-02-18 16:58:34.000000000 -0700
+> +++ linux-3.8-SCTP+2/net/sctp/ulpqueue.c	2013-02-21 07:39:40.888281496 -0700
+> @@ -969,11 +969,16 @@ static __u16 sctp_ulpq_renege_list(struc
+>
+>   	tsnmap = &ulpq->asoc->peer.tsn_map;
+>
+> -	while ((skb = __skb_dequeue_tail(list)) != NULL) {
+> -		freed += skb_headlen(skb);
+> +	while ((skb = skb_peek_tail(list)) != NULL) {
+>   		event = sctp_skb2event(skb);
+>   		tsn = event->tsn;
+>
+> +		/* Don't renege below the Cumulative TSN ACK Point. */
+> +		if (TSN_lte(tsn, sctp_tsnmap_get_ctsn(tsnmap)))
+> +			break;
+> +
+> +		__skb_unlink(skb, list);
+> +		freed += skb_headlen(skb);
+>   		sctp_ulpevent_free(event);
+>   		sctp_tsnmap_renege(tsnmap, tsn);
+>   		if (freed >= needed)
 > --
 > To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
 > the body of a message to majordomo@vger.kernel.org
