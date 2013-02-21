@@ -1,39 +1,34 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv6: use a stronger hash for tcp
-Date: Fri, 22 Feb 2013 00:06:13 +0100
-Message-ID: <20130221230613.GB9671@order.stressinduktion.org>
-References: <1361485132.17413.19.camel@edumazet-glaptop> <20130221224316.GA9671@order.stressinduktion.org> <1361486903.32484.0.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Problem with Reaktek 8168
+Date: Thu, 21 Feb 2013 23:45:43 +0100
+Message-ID: <20130221224543.GA11240@electric-eye.fr.zoreil.com>
+References: <5124B909.4080907@online.de> <20130220231122.GA22163@electric-eye.fr.zoreil.com> <51256EC7.90505@online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ralf Friedl <Ralf.Friedl@online.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:49349 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753876Ab3BUXGP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 18:06:15 -0500
+Received: from violet.fr.zoreil.com ([92.243.8.30]:32837 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753789Ab3BUXRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 18:17:30 -0500
 Content-Disposition: inline
-In-Reply-To: <1361486903.32484.0.camel@edumazet-glaptop>
+In-Reply-To: <51256EC7.90505@online.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 21, 2013 at 02:48:23PM -0800, Eric Dumazet wrote:
-> On Thu, 2013-02-21 at 23:43 +0100, Hannes Frederic Sowa wrote:
-> 
-> > 
-> > Perhaps we should use ipv6_addr_jhash in the destination cache, too, and look
-> > at other uses of ipv6_addr_hash?
-> 
-> Sure, an audit is needed, but with tcp early demux, TCP lookup was the
-> first weak point.
+Ralf Friedl <Ralf.Friedl@online.de> :
+[...]
+> r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> r8169 0000:02:00.0: irq 90 for MSI/MSI-X
+> r8169 0000:02:00.0: eth0: RTL8168f/8111f at 0xffffc90010122000,
+> 50:46:5d:a7:30:7a, XID 08000880 IRQ 90
 
-I had two simple programs to test this. Perhaps they could be helpful
-to somebody:
+Thanks.
 
-tcpproxy.c - does 3whs and teardown
-gensyn6.c -  generates syn packets from /64 range
+I have not noticed 8168f specific problems as of late. It could be worth
+giving stock 3.8 a try though: its load of changes includes some post
+3.4.x branch 8168f bits.
 
-https://gist.github.com/hannes/5009267
+-- 
+Ueimor
