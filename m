@@ -1,142 +1,106 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices
- to handle packets
-Date: Fri, 22 Feb 2013 00:26:02 +0200
-Message-ID: <1361485562.21950.3.camel@lb-tlvb-dmitry>
+Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
+ capability to the tunnel device
+Date: Fri, 22 Feb 2013 00:30:05 +0200
+Message-ID: <1361485805.21950.6.camel@lb-tlvb-dmitry>
 References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
- <CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
- <504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
- <CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
+ <1361217053-16984-2-git-send-email-dmitry@broadcom.com>
+ <CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: pravin <pravin.shelar@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4360 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:3448 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759100Ab3BUW0B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2013 17:26:01 -0500
-In-Reply-To: <CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
+	id S1756142Ab3BUWaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2013 17:30:12 -0500
+In-Reply-To: <CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-19 at 15:03 -0800, pravin wrote:
-> On Tue, Feb 19, 2013 at 11:20 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+On Tue, 2013-02-19 at 10:39 -0800, pravin wrote:
+> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
 > >
-> >> -----Original Message-----
-> >> From: pravin [mailto:pravin.shelar@gmail.com]
-> >> Sent: Tuesday, February 19, 2013 8:28 PM
-> >> To: Dmitry Kravkov
-> >> Cc: davem@davemloft.net; netdev@vger.kernel.org
-> >> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
-> >> handle packets
-> >>
-> >> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
-> >> wrote:
-> >> > If device is not able to handle checksumming it will
-> >> > be handled in dev_xmit
-> >> >
-> >> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> >> > ---
-> >> > Changes from v1: fixed email address
-> >> >
-> >> >  net/ipv4/ip_gre.c |    7 ++-----
-> >> >  1 files changed, 2 insertions(+), 5 deletions(-)
-> >> >
-> >> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> >> > index a56f118..cdc31ac 100644
-> >> > --- a/net/ipv4/ip_gre.c
-> >> > +++ b/net/ipv4/ip_gre.c
-> >> > @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff
-> >> *skb)
-> >> >                         goto error;
-> >> >                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
-> >> >                 return skb;
-> >> > -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-> >> > -               err = skb_checksum_help(skb);
-> >> > -               if (unlikely(err))
-> >> > -                       goto error;
-> >> >         }
-> >> > -       skb->ip_summed = CHECKSUM_NONE;
-> >> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
-> >> > +               skb->ip_summed = CHECKSUM_NONE;
-> >> >
-> >> >         return skb;
-> >> >
-> >> > --
-> >> > 1.7.7.2
-> >> >
-> >> >
-> >>
-> >> This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
-> >> complete IP packet to checksum entire GRE payload.
+> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> > ---
+> > Changes from v1: fixed email address
 > >
-> > Testing for o_flags&GRE_CSUM does not look too hurt here, since it will be used in ipgre_tunnel_xmit() later on
-> > This is the only problematic case, right?
 > >
+> >  net/ipv4/ip_gre.c |   10 ++++++++--
+> >  1 files changed, 8 insertions(+), 2 deletions(-)
+> >
+> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> > index cdc31ac..31bc941 100644
+> > --- a/net/ipv4/ip_gre.c
+> > +++ b/net/ipv4/ip_gre.c
+> > @@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
+> >         tunnel->hlen = addend;
+> >         /* TCP offload with GRE SEQ is not supported. */
+> >         if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+> > -               dev->features           |= NETIF_F_GSO_SOFTWARE;
+> > -               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
+> > +               /* device supports enc gso offload*/
+> > +               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
+> > +                       dev->features           |= NETIF_F_TSO;
+> > +                       dev->hw_features        |= NETIF_F_TSO;
+> > +               } else {
+> > +                       dev->features           |= NETIF_F_GSO_SOFTWARE;
+> > +                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
+> > +               }
+> >         }
 > 
-> It does not work for me. I have GRE device with csum on. Ping works
-> fine but Netperf is not working.
-> Looking at code, I am not sure how tcp will work if inner packet TCP
-> checksum is calculated after GRE_CSUM calculation.
+> I am not sure about this change, Are you trying to limit GRE TSO to
+> just IPV4  in case of GRE offload in hardware?
 
 
-Fixes handling when CSUM or SEQ flags are set - via skb_checksum_help()
+This mostly reverts previous patch, but also disables GSO when CSUM is
+set.
+
 ---
-Tested with each mode (separately)
-
- net/ipv4/ip_gre.c |   14 +++++++++++---
- 1 files changed, 11 insertions(+), 3 deletions(-)
+ net/ipv4/ip_gre.c |   14 ++++----------
+ 1 files changed, 4 insertions(+), 10 deletions(-)
 
 diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 5ef4da7..0de54cd 100644
+index 0de54cd..aae2d4b 100644
 --- a/net/ipv4/ip_gre.c
 +++ b/net/ipv4/ip_gre.c
-@@ -735,7 +735,8 @@ drop:
- 	return 0;
- }
+@@ -1107,16 +1107,10 @@ static int ipgre_tunnel_bind_dev(struct
+net_device *dev)
+ 		mtu = 68;
  
--static struct sk_buff *handle_offloads(struct sk_buff *skb)
-+static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel,
-+				       struct sk_buff *skb)
- {
- 	int err;
- 
-@@ -745,8 +746,15 @@ static struct sk_buff *handle_offloads(struct
-sk_buff *skb)
- 			goto error;
- 		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
- 		return skb;
-+	} else if (tunnel->parms.o_flags&(GRE_SEQ|GRE_CSUM) &&
-+		   skb->ip_summed == CHECKSUM_PARTIAL) {
-+		err = skb_checksum_help(skb);
-+		if (unlikely(err))
-+			goto error;
+ 	tunnel->hlen = addend;
+-	/* TCP offload with GRE SEQ is not supported. */
+-	if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+-		/* device supports enc gso offload*/
+-		if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
+-			dev->features		|= NETIF_F_TSO;
+-			dev->hw_features	|= NETIF_F_TSO;
+-		} else {
+-			dev->features		|= NETIF_F_GSO_SOFTWARE;
+-			dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
+-		}
++	/* TCP offload with GRE SEQ or CSUM is not supported. */
++	if (!(tunnel->parms.o_flags & (GRE_SEQ|GRE_CSUM))) {
++		dev->features		|= NETIF_F_GSO_SOFTWARE;
++		dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
  	}
--	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+
-+	if (skb->ip_summed != CHECKSUM_PARTIAL ||
-+	    tunnel->parms.o_flags&(GRE_SEQ|GRE_CSUM))
- 		skb->ip_summed = CHECKSUM_NONE;
  
- 	return skb;
-@@ -776,7 +784,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff
-*skb, struct net_device *dev
- 	int    err;
- 	int    pkt_len;
- 
--	skb = handle_offloads(skb);
-+	skb = handle_offloads(tunnel, skb);
- 	if (IS_ERR(skb)) {
- 		dev->stats.tx_dropped++;
- 		return NETDEV_TX_OK;
+ 	return mtu;
 -- 
 1.7.7.2
 
 
-> Thanks,
-> Pravin.
+> >
+> >         return mtu;
+> > --
+> > 1.7.7.2
+> >
+> >
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
