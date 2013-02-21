@@ -1,49 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: Ensure that initialization is done prior to
- request_irq()
-Date: Thu, 21 Feb 2013 15:27:24 -0500 (EST)
-Message-ID: <20130221.152724.6508078801736235.davem@davemloft.net>
-References: <1361474510-14286-1-git-send-email-fabio.estevam@freescale.com>
+From: Jon Maloy <maloy@donjonn.com>
+Subject: Re: [PATCH net-next 2/3] tipc: byte-based overload control on socket
+ receive queue
+Date: Thu, 21 Feb 2013 22:05:37 +0100
+Message-ID: <51268C21.8050602@donjonn.com>
+References: <20130218144757.GA26199@hmsreliant.think-freely.org> <512332DA.5040508@ericsson.com> <20130219142629.GA31871@hmsreliant.think-freely.org> <5123BC46.40909@ericsson.com> <20130219191833.GB31871@hmsreliant.think-freely.org> <5123DDA8.5090202@ericsson.com> <20130219214439.GC31871@hmsreliant.think-freely.org> <5125F5D3.1000509@ericsson.com> <20130221150746.GA2730@shamino.rdu.redhat.com> <51265134.5080001@ericsson.com> <20130221181656.GC2730@shamino.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, s.hauer@pengutronix.de,
-	jim_baxter@mentor.com, netdev@vger.kernel.org
-To: fabio.estevam@freescale.com
+Cc: Jon Maloy <jon.maloy@ericsson.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Ying Xue <ying.xue@windriver.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34759 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755876Ab3BUU10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 15:27:26 -0500
-In-Reply-To: <1361474510-14286-1-git-send-email-fabio.estevam@freescale.com>
+Received: from nm6-vm0.access.bullet.mail.mud.yahoo.com ([66.94.237.158]:41390
+	"EHLO nm6-vm0.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754595Ab3BUVLj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 16:11:39 -0500
+In-Reply-To: <20130221181656.GC2730@shamino.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Date: Thu, 21 Feb 2013 16:21:50 -0300
+On 02/21/2013 07:16 PM, Neil Horman wrote:
+> On Thu, Feb 21, 2013 at 05:54:12PM +0100, Jon Maloy wrote:
+>> On 02/21/2013 04:07 PM, Neil Horman wrote:
+>>> On Thu, Feb 21, 2013 at 11:24:19AM +0100, Jon Maloy wrote:
+>>>> On 02/19/2013 10:44 PM, Neil Horman wrote:
+>>>>> On Tue, Feb 19, 2013 at 09:16:40PM +0100, Jon Maloy wrote:
+>>>>>> On 02/19/2013 08:18 PM, Neil Horman wrote:
+>>>>>>> On Tue, Feb 19, 2013 at 06:54:14PM +0100, Jon Maloy wrote:
+>>>>>>>> On 02/19/2013 03:26 PM, Neil Horman wrote:
+>>>>>>>>> On Tue, Feb 19, 2013 at 09:07:54AM +0100, Jon Maloy wrote:
+>>>>>>>>>> On 02/18/2013 09:47 AM, Neil Horman wrote:
+>>>>>>>>>>> On Fri, Feb 15, 2013 at 05:57:46PM -0500, Paul Gortmaker wrote:
+>>>>>>>>>>>> From: Ying Xue <ying.xue@windriver.com>
+>>>>>> <snip>
+>> I wouldn't call it a bug, because it doesn't cause deadlock in the current code,
+>> but it is clearly a design that can be improved.
+> I don't understand this - Above you said you could demonstrate how my proposal
+> (which was to drop packets when they surpassed the sk_rcvbuf limit), would cause
+> deadlock - if that happens, you have a locking bug.  If the only reason this
+> does not happen currently is because you allow for a large overrun of your
+> set sk_rcvbuf, then ostensibly a lockup can still be triggered if you have a
+> misbehaving sender that is willing to send frames past its congestion window.
+> So I think the root question here is: Does the code currently deadlock if you
+> drop frames in the receive path? 
+No. We can drop as as many as we want, the retransmission protocol will
+take hand of that, and that part is pretty robust by now.
+But it *would* deadlock if we tried to read fields in the sock structure, with
+the necessary grabbing of locks that involves, from within the scope of
+tipc_recv_msg, which is at a completely different level in the stack.
 
-> Currently request_irq() is called prior to fec_enet_init() and fec_ptp_init(), 
-> which causes the following crash on a mx53qsb:
-> 
-> Unable to handle kernel NULL pointer dereference at virtual address 00000002
-> pgd = 80004000
-> [00000002] *pgd=00000000
-> Internal error: Oops: 5 [#1] SMP ARM
-> Modules linked in:
-> CPU: 0    Not tainted  (3.8.0-rc7-next-20130215+ #346)
-> PC is at fec_enet_interrupt+0xd0/0x348
-> LR is at fec_enet_interrupt+0xb8/0x348
-> pc : [<80372b7c>]    lr : [<80372b64>]    psr: 60000193
-> sp : df855c20  ip : df855c20  fp : df855c74
-> r10: 00000516  r9 : 1c000000  r8 : 00000000
-> r7 : 00000000  r6 : 00000000  r5 : 00000000  r4 : df9b7800
-> r3 : df9b7df4  r2 : 00000000  r1 : 00000000  r0 : df9b7d34
-> 
-> Ensure that such initialization functions are called prior to requesting the 
-> interrupts, so that all necessary the data structures are in place when the 
-> irqs occur. 
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Since we don't do that in the current code, there is no deadlock problem.
 
-Looks good, did you test this yourself or should we wait for others to
-test it out?
+///jon
+
+[...]
+>
+>>>>
+>>
