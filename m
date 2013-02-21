@@ -1,58 +1,60 @@
 From: "Roberts, Lee A." <lee.roberts@hp.com>
-Subject: [PATCH 1/4] sctp: fix association hangs due to off-by-one errors in
- sctp_tsnmap_grow()
-Date: Thu, 21 Feb 2013 16:44:14 +0000
-Message-ID: <D64EC45690EF85409BA6C4730E0162244310DEE7@G4W3231.americas.hpqcorp.net>
+Subject: [PATCH 2/4] sctp: fix association hangs due to reneging packets
+ below the cumulative TSN ACK point
+Date: Thu, 21 Feb 2013 16:44:31 +0000
+Message-ID: <D64EC45690EF85409BA6C4730E0162244310DEFE@G4W3231.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
 Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 To: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g4t0015.houston.hp.com ([15.201.24.18]:25707 "EHLO
+	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754947Ab3BUQqY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 11:46:24 -0500
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Lee A. Roberts <lee.roberts@hp.com>
 
 Resolve SCTP association hangs observed during SCTP stress
 testing.  Observable symptoms include communications hangs
-with data being held in the association lobby (ordering)
-queue.  Close examination of reassembly/ordering queues shows
-duplicated packets.
+with data being held in the association reassembly and/or lobby
+(ordering) queues.  Close examination of reassembly queue shows
+missing packets.
 
-In sctp_tsnmap_grow(), correct off-by-one errors when copying
-and resizing the tsnmap.  If max_tsn_seen is in the LSB of the
-word, this bit can be lost, causing the corresponding packet
-to be transmitted again and to be entered as a duplicate into
-the SCTP reassembly/ordering queues.
+In sctp_ulpq_renege_list(), do not renege packets below the
+cumulative TSN ACK point.
 
 Patch applies to linux-3.8 kernel.
 
 Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
 ---
- net/sctp/tsnmap.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ net/sctp/ulpqueue.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-vanilla/net/sctp/tsnmap.c linux-3.8-SCTP+1/net/sctp/tsnmap.c
---- linux-3.8-vanilla/net/sctp/tsnmap.c	2013-02-18 16:58:34.000000000 -0700
-+++ linux-3.8-SCTP+1/net/sctp/tsnmap.c	2013-02-20 08:01:02.555223259 -0700
-@@ -369,14 +369,15 @@ static int sctp_tsnmap_grow(struct sctp_
- 	if (gap >= SCTP_TSN_MAP_SIZE)
- 		return 0;
+diff -uprN -X linux-3.8-vanilla/Documentation/dontdiff linux-3.8-SCTP+1/net/sctp/ulpqueue.c linux-3.8-SCTP+2/net/sctp/ulpqueue.c
+--- linux-3.8-SCTP+1/net/sctp/ulpqueue.c	2013-02-18 16:58:34.000000000 -0700
++++ linux-3.8-SCTP+2/net/sctp/ulpqueue.c	2013-02-21 07:39:40.888281496 -0700
+@@ -969,11 +969,16 @@ static __u16 sctp_ulpq_renege_list(struc
  
--	inc = ALIGN((gap - map->len),BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
-+	inc = ALIGN((gap - map->len + 1), BITS_PER_LONG)
-+		+ SCTP_TSN_MAP_INCREMENT;
- 	len = min_t(u16, map->len + inc, SCTP_TSN_MAP_SIZE);
+ 	tsnmap = &ulpq->asoc->peer.tsn_map;
  
- 	new = kzalloc(len>>3, GFP_ATOMIC);
- 	if (!new)
- 		return 0;
+-	while ((skb = __skb_dequeue_tail(list)) != NULL) {
+-		freed += skb_headlen(skb);
++	while ((skb = skb_peek_tail(list)) != NULL) {
+ 		event = sctp_skb2event(skb);
+ 		tsn = event->tsn;
  
--	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn);
-+	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn + 1);
- 	kfree(map->tsn_map);
- 	map->tsn_map = new;
- 	map->len = len;
++		/* Don't renege below the Cumulative TSN ACK Point. */
++		if (TSN_lte(tsn, sctp_tsnmap_get_ctsn(tsnmap)))
++			break;
++
++		__skb_unlink(skb, list);
++		freed += skb_headlen(skb);
+ 		sctp_ulpevent_free(event);
+ 		sctp_tsnmap_renege(tsnmap, tsn);
+ 		if (freed >= needed)
