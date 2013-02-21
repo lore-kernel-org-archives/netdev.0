@@ -1,67 +1,67 @@
 From: Chris Friesen <chris.friesen@genband.com>
 Subject: Re: why is it not allowed to add a new socket protocol family as
  an external module?
-Date: Thu, 21 Feb 2013 09:19:33 -0600
-Message-ID: <51263B05.1060904@genband.com>
-References: <5125002D.9080008@genband.com>	<20130220152325.64c57d55@samsung-9>	<51256E02.4080509@genband.com> <20130220.200502.1241369422255314068.davem@davemloft.net>
+Date: Thu, 21 Feb 2013 09:47:33 -0600
+Message-ID: <51264195.9060800@genband.com>
+References: <5125002D.9080008@genband.com>	 <20130220152325.64c57d55@samsung-9> <51256E02.4080509@genband.com> <1361410797.17413.3.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og111.obsmtp.com ([64.18.2.175]:36300 "EHLO
-	exprod7og111.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754063Ab3BUPTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 10:19:43 -0500
-In-Reply-To: <20130220.200502.1241369422255314068.davem@davemloft.net>
+Received: from exprod7og109.obsmtp.com ([64.18.2.171]:57628 "EHLO
+	exprod7og109.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754147Ab3BUPrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 10:47:37 -0500
+In-Reply-To: <1361410797.17413.3.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/20/2013 07:05 PM, David Miller wrote:
-> From: Chris Friesen<chris.friesen@genband.com> Date: Wed, 20 Feb 2013
-> 18:44:50 -0600
+On 02/20/2013 07:39 PM, Eric Dumazet wrote:
+> On Wed, 2013-02-20 at 18:44 -0600, Chris Friesen wrote:
 >
->> On 02/20/2013 05:23 PM, Stephen Hemminger wrote:
->>> On Wed, 20 Feb 2013 10:56:13 -0600 Chris
->>> Friesen<chris.friesen@genband.com>   wrote:
->>>
->>>> Hi,
->>>>
->>>> I was just wondering why the kernel doesn't allow a new
->>>> network protocol family to be loaded as as a kernel module
->>>> built outside the kernel source tree.
+>> Yes, there are a number of tables sized by NPROTO/AF_MAX/PF_MAX (and the
+>> fact that we use all three within the kernel is kind of sad) but there
+>> is no technical reason why we couldn't extend those dynamically if
+>> desired (with a linked list of additional protocols, perhaps).
 >>
->>> If you want an answer, to the question, use a tool like cscope
->>> and learn to read the kernel code. There are several tables of
->>> pointers sized by NPROTO.
+>> Hence my question--is the restriction for an ideological reason or
+>> simply because nobody thought it was worth the effort?
 >>
->> That's a bit insulting, don't you think?
 >
-> Absolutely not insulting at all.
+> I guess nobody did the preliminary work.
 >
-> The list is _NOT_ a place to go when you're just too damn lazy to
-> take the 10 seconds it would have taken to answer your question with
-> a quick NPROTO grep on the kernel sources.
+> lockdep might be the tricky part.
 >
-> Stephen's response to you was therefore %100 appropriate, and I
-> would have told you likewise if I had been the first to respond.
+> net/core/sock.c:197:static const char *const af_family_key_strings[AF_MAX+1] = {
+> net/core/sock.c:211:  "sk_lock-AF_NFC"   , "sk_lock-AF_MAX"
+> net/core/sock.c:213:static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+> net/core/sock.c:227:  "slock-AF_NFC"   , "slock-AF_MAX"
+> net/core/sock.c:229:static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+> net/core/sock.c:243:  "clock-AF_NFC"   , "clock-AF_MAX"
+> net/core/sock.c:250:static struct lock_class_key af_callback_keys[AF_MAX];
 
-As the rest of my reply to Stephen should have made clear, I in fact did 
-read the code prior to asking the question.  My question was not about 
-the details of the current implementation, but rather the rationale 
-behind them.
+Unless I'm missing something that looks straightforward.
 
-I'm fully aware that there are statically-sized tables in the current 
-code, and thus the current code does not support dynamically adding 
-protocols.  However, it would be reasonably straightforward to extend 
-the static tables with some form of dynamic data structure to handle 
-adding new network protocols at runtime.
+When registering dynamically the new protocol would need to specify one 
+string, the protocol name.  ("AF_MYPROTOCOL" or something).  The three 
+key strings are derived from that.
 
-If the current restriction is intentional (to minimize the likelihood 
-of non-GPL'd network protocols, for instance), then there's no point in 
-anyone submitting patches to add support for dynamic network protocols. 
-  If it's just because nobody has bothered to do it yet, then it might 
-be an interesting project.
+The three lock_class_key structs (corresponding to 
+af_family_keys/af_family_slock_keys/af_callback_keys) can be 
+auto-allocated by the network core at dynamic registration time.
+
+sock_lock_init(), sk_clone_lock(), and sock_init_data() would need 
+special-casing for protocol number larger than AF_MAX.  The most 
+readable would probably be to do the mapping from family to key/string 
+in helper functions rather than hard-coding a table offset right in 
+these routines.
+
+Yes, there would be a runtime penalty, but it should be minimal.  For 
+static protocols it would be a few "sk->sk_family < AF_MAX" checks.  For 
+dynamic protocols they might need to walk a linked list, which in all 
+probability would be very short.
 
 Chris
