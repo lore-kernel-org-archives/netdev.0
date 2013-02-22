@@ -1,190 +1,190 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH ipsec-next v2] xfrm: allow to avoid copying DSCP during encapsulation
-Date: Fri, 22 Feb 2013 10:54:54 +0100
-Message-ID: <1361526894-4104-1-git-send-email-nicolas.dichtel@6wind.com>
-References: <20130222060644.GH17794@secunet.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
-	davem@davemloft.net
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next 2/3] tipc: byte-based overload control on socket
+ receive queue
+Date: Fri, 22 Feb 2013 12:18:52 +0100
+Message-ID: <5127541C.9070306@ericsson.com>
+References: <20130219142629.GA31871@hmsreliant.think-freely.org> <5123BC46.40909@ericsson.com> <20130219191833.GB31871@hmsreliant.think-freely.org> <5123DDA8.5090202@ericsson.com> <20130219214439.GC31871@hmsreliant.think-freely.org> <5125F5D3.1000509@ericsson.com> <20130221150746.GA2730@shamino.rdu.redhat.com> <51265134.5080001@ericsson.com> <20130221181656.GC2730@shamino.rdu.redhat.com> <51268C21.8050602@donjonn.com> <20130221213528.GA32764@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <maloy@donjonn.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Ying Xue <ying.xue@windriver.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:53189 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753933Ab3BVKIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 05:08:15 -0500
-In-Reply-To: <20130222060644.GH17794@secunet.com>
+Received: from usevmg20.ericsson.net ([198.24.6.45]:58116 "EHLO
+	usevmg20.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756289Ab3BVLTN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 06:19:13 -0500
+In-Reply-To: <20130221213528.GA32764@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By default, DSCP is copying during encapsulation.
-Copying the DSCP in IPsec tunneling may be a bit dangerous because packets with
-different DSCP may get reordered relative to each other in the network and then
-dropped by the remote IPsec GW if the reordering becomes too big compared to the
-replay window.
+On 02/21/2013 10:35 PM, Neil Horman wrote:
+> On Thu, Feb 21, 2013 at 10:05:37PM +0100, Jon Maloy wrote:
+>> On 02/21/2013 07:16 PM, Neil Horman wrote:
+>>> On Thu, Feb 21, 2013 at 05:54:12PM +0100, Jon Maloy wrote:
+>>>> On 02/21/2013 04:07 PM, Neil Horman wrote:
+>>>>> On Thu, Feb 21, 2013 at 11:24:19AM +0100, Jon Maloy wrote:
+>>>>>> On 02/19/2013 10:44 PM, Neil Horman wrote:
+>>>>>>> On Tue, Feb 19, 2013 at 09:16:40PM +0100, Jon Maloy wrote:
+>>>>>>>> On 02/19/2013 08:18 PM, Neil Horman wrote:
+>>>>>>>>> On Tue, Feb 19, 2013 at 06:54:14PM +0100, Jon Maloy wrote:
+>>>>>>>>>> On 02/19/2013 03:26 PM, Neil Horman wrote:
+>>>>>>>>>>> On Tue, Feb 19, 2013 at 09:07:54AM +0100, Jon Maloy wrote:
+>>>>>>>>>>>> On 02/18/2013 09:47 AM, Neil Horman wrote:
+>>>>>>>>>>>>> On Fri, Feb 15, 2013 at 05:57:46PM -0500, Paul Gortmaker wrote:
+>>>>>>>>>>>>>> From: Ying Xue <ying.xue@windriver.com>
+>>>>>>>> <snip>
+>>>> I wouldn't call it a bug, because it doesn't cause deadlock in the current code,
+>>>> but it is clearly a design that can be improved.
+>>> I don't understand this - Above you said you could demonstrate how my proposal
+>>> (which was to drop packets when they surpassed the sk_rcvbuf limit), would cause
+>>> deadlock - if that happens, you have a locking bug.  If the only reason this
+>>> does not happen currently is because you allow for a large overrun of your
+>>> set sk_rcvbuf, then ostensibly a lockup can still be triggered if you have a
+>>> misbehaving sender that is willing to send frames past its congestion window.
+>>> So I think the root question here is: Does the code currently deadlock if you
+>>> drop frames in the receive path? 
+>> No. We can drop as as many as we want, the retransmission protocol will
+>> take hand of that, and that part is pretty robust by now.
+>> But it *would* deadlock if we tried to read fields in the sock structure, with
+>> the necessary grabbing of locks that involves, from within the scope of
+>> tipc_recv_msg, which is at a completely different level in the stack.
+>>
+>> Since we don't do that in the current code, there is no deadlock problem.
+>>
+> Theres tons of protocols that read socket structures that low in the receive
+> path, in fact (with the exception of TIPC) they all do, specifically for the
+> purpose of being able to check, among other things, the socket buffer recieve
+> limit.  See sctp_rcv, tcp_v4_rcv, tcp_v6_rcv, _udp4_lib_rcv, etc for examples.
 
-It is possible to avoid this copy with netfilter rules, but it's very convenient
-to be able to configure it for each SA directly.
+All those examples are trivial in this respect, because they either have
+no retransmission layer at all, or the retransmission is bound to the socket 
+name space itself. If you first have to lookup the socket even to perform the 
+most basic protocol check it goes without saying that you can first take a 
+quick look into sk_rcvbuf before going on. Besides, it doesn't cost any 
+performance with this approach.
 
-This patch adds a toogle for this purpose. By default, it's not set to maintain
-backward compatibility.
+There are, or have  been, other protocols, TIPC, LINX, HDLC, LAPB, MTP2 etc. 
+where reliability is ensured at a logical data link layer (L2.5), and where 
+this kind of early endpoint access is less obvious, but not impossible.
+TIPC is the only one of these present in the Linux kernel and sporting
+a socket API, though; that's why we are having this discussion.
 
-Field flags in struct xfrm_usersa_info is full, hence I add a new attribute.
+> Looking at tipc_recv_msg, it looks to me like you need to grab the
+> tipc_port_lock for a short critical section to get the tipc_port struct, from
+> which (as we previously discussed, you can get the socket).  Presuming you've
+> done appropriate reference counting on your socket, thats it.  One lock, that
+> you take and release in several other places in the same call path.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
+Ok. Currently it looks like this:
 
-v2: rename DONT_ENCAP flag to have a shorter name
-    ensure to copy extra_flags in xfrm_state_clone() and ipcomp_tunnel_create()
+Outgoing data path:
+------------------
 
-Note that I will be off next week, so I will answer to comments only the week
-after.
+grab socket lock
+   grab net lock
+     grab node_lock
+       <send packet(s)>
+     release node lock
+   release net lock
+release socket lock
 
- include/net/xfrm.h           |  1 +
- include/uapi/linux/xfrm.h    |  3 +++
- net/ipv4/ipcomp.c            |  1 +
- net/ipv4/xfrm4_mode_tunnel.c |  8 ++++++--
- net/ipv6/xfrm6_mode_tunnel.c |  7 +++++--
- net/xfrm/xfrm_state.c        |  1 +
- net/xfrm/xfrm_user.c         | 13 +++++++++++++
- 7 files changed, 30 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 24c8886..ae16531 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -162,6 +162,7 @@ struct xfrm_state {
- 		xfrm_address_t	saddr;
- 		int		header_len;
- 		int		trailer_len;
-+		u32		extra_flags;
- 	} props;
+Incoming data path:
+-------------------
+
+grab net lock (read mode)
+    <do some packet sanity check>
+    grab node lock
+       <perform link level protocol check>
+    release node lock'
+release net lock
+grab port lock
+  grab socket lock
+     <check sk_rcvbuf>
+     <deliver or reject>
+  release socket lock
+release port lock
+
+As I interpreted your suggestion, incoming data path
+would become as follows:
+-----------------------
+
+grab net lock (read mode)
+   <do some packet sanity check>
+   grab node lock
+-->   grab port lock
+        grab socket lock
+           <check sk_rcvbuf>
+        release socket lock
+-->   release port lock
+      <perform link level protocol check>
+    release node lock
+release net lock
+grab port lock
+  grab socket lock
+     <check sk_rcvbuf>
+     <deliver or reject>
+  release socket lock
+release port lock
  
- 	struct xfrm_lifetime_cfg lft;
-diff --git a/include/uapi/linux/xfrm.h b/include/uapi/linux/xfrm.h
-index 28e493b..a8cd6a4 100644
---- a/include/uapi/linux/xfrm.h
-+++ b/include/uapi/linux/xfrm.h
-@@ -297,6 +297,7 @@ enum xfrm_attr_type_t {
- 	XFRMA_MARK,		/* struct xfrm_mark */
- 	XFRMA_TFCPAD,		/* __u32 */
- 	XFRMA_REPLAY_ESN_VAL,	/* struct xfrm_replay_esn */
-+	XFRMA_SA_EXTRA_FLAGS,	/* __u32 */
- 	__XFRMA_MAX
- 
- #define XFRMA_MAX (__XFRMA_MAX - 1)
-@@ -367,6 +368,8 @@ struct xfrm_usersa_info {
- #define XFRM_STATE_ESN		128
- };
- 
-+#define XFRM_SA_XFLAG_DONT_ENCAP_DSCP	1
-+
- struct xfrm_usersa_id {
- 	xfrm_address_t			daddr;
- 	__be32				spi;
-diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
-index f01d1b1..59cb8c7 100644
---- a/net/ipv4/ipcomp.c
-+++ b/net/ipv4/ipcomp.c
-@@ -75,6 +75,7 @@ static struct xfrm_state *ipcomp_tunnel_create(struct xfrm_state *x)
- 	t->props.mode = x->props.mode;
- 	t->props.saddr.a4 = x->props.saddr.a4;
- 	t->props.flags = x->props.flags;
-+	t->props.extra_flags = x->props.extra_flags;
- 	memcpy(&t->mark, &x->mark, sizeof(t->mark));
- 
- 	if (xfrm_init_state(t))
-diff --git a/net/ipv4/xfrm4_mode_tunnel.c b/net/ipv4/xfrm4_mode_tunnel.c
-index fe5189e..eb1dd4d 100644
---- a/net/ipv4/xfrm4_mode_tunnel.c
-+++ b/net/ipv4/xfrm4_mode_tunnel.c
-@@ -103,8 +103,12 @@ static int xfrm4_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 
- 	top_iph->protocol = xfrm_af2proto(skb_dst(skb)->ops->family);
- 
--	/* DS disclosed */
--	top_iph->tos = INET_ECN_encapsulate(XFRM_MODE_SKB_CB(skb)->tos,
-+	/* DS disclosing depends on XFRM_SA_XFLAG_DONT_ENCAP_DSCP */
-+	if (x->props.extra_flags & XFRM_SA_XFLAG_DONT_ENCAP_DSCP)
-+		top_iph->tos = 0;
-+	else
-+		top_iph->tos = XFRM_MODE_SKB_CB(skb)->tos;
-+	top_iph->tos = INET_ECN_encapsulate(top_iph->tos,
- 					    XFRM_MODE_SKB_CB(skb)->tos);
- 
- 	flags = x->props.flags;
-diff --git a/net/ipv6/xfrm6_mode_tunnel.c b/net/ipv6/xfrm6_mode_tunnel.c
-index 9bf6a74..4770d51 100644
---- a/net/ipv6/xfrm6_mode_tunnel.c
-+++ b/net/ipv6/xfrm6_mode_tunnel.c
-@@ -49,8 +49,11 @@ static int xfrm6_mode_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
- 	       sizeof(top_iph->flow_lbl));
- 	top_iph->nexthdr = xfrm_af2proto(skb_dst(skb)->ops->family);
- 
--	dsfield = XFRM_MODE_SKB_CB(skb)->tos;
--	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
-+	if (x->props.extra_flags & XFRM_SA_XFLAG_DONT_ENCAP_DSCP)
-+		dsfield = 0;
-+	else
-+		dsfield = XFRM_MODE_SKB_CB(skb)->tos;
-+	dsfield = INET_ECN_encapsulate(dsfield, XFRM_MODE_SKB_CB(skb)->tos);
- 	if (x->props.flags & XFRM_STATE_NOECN)
- 		dsfield &= ~INET_ECN_MASK;
- 	ipv6_change_dsfield(top_iph, 0, dsfield);
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index ae01bdb..2a34167 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -1195,6 +1195,7 @@ static struct xfrm_state *xfrm_state_clone(struct xfrm_state *orig, int *errp)
- 		goto error;
- 
- 	x->props.flags = orig->props.flags;
-+	x->props.extra_flags = orig->props.extra_flags;
- 
- 	x->curlft.add_time = orig->curlft.add_time;
- 	x->km.state = orig->km.state;
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index fbd9e6c..204cba1 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -515,6 +515,9 @@ static struct xfrm_state *xfrm_state_construct(struct net *net,
- 
- 	copy_from_user_state(x, p);
- 
-+	if (attrs[XFRMA_SA_EXTRA_FLAGS])
-+		x->props.extra_flags = nla_get_u32(attrs[XFRMA_SA_EXTRA_FLAGS]);
-+
- 	if ((err = attach_aead(&x->aead, &x->props.ealgo,
- 			       attrs[XFRMA_ALG_AEAD])))
- 		goto error;
-@@ -779,6 +782,13 @@ static int copy_to_user_state_extra(struct xfrm_state *x,
- 
- 	copy_to_user_state(x, p);
- 
-+	if (x->props.extra_flags) {
-+		ret = nla_put_u32(skb, XFRMA_SA_EXTRA_FLAGS,
-+				  x->props.extra_flags);
-+		if (ret)
-+			goto out;
-+	}
-+
- 	if (x->coaddr) {
- 		ret = nla_put(skb, XFRMA_COADDR, sizeof(*x->coaddr), x->coaddr);
- 		if (ret)
-@@ -2302,6 +2312,7 @@ static const struct nla_policy xfrma_policy[XFRMA_MAX+1] = {
- 	[XFRMA_MARK]		= { .len = sizeof(struct xfrm_mark) },
- 	[XFRMA_TFCPAD]		= { .type = NLA_U32 },
- 	[XFRMA_REPLAY_ESN_VAL]	= { .len = sizeof(struct xfrm_replay_state_esn) },
-+	[XFRMA_SA_EXTRA_FLAGS]	= { .type = NLA_U32 },
- };
- 
- static struct xfrm_link {
-@@ -2495,6 +2506,8 @@ static inline size_t xfrm_sa_len(struct xfrm_state *x)
- 				    x->security->ctx_len);
- 	if (x->coaddr)
- 		l += nla_total_size(sizeof(*x->coaddr));
-+	if (x->props.extra_flags)
-+		l += nla_total_size(sizeof(x->props.extra_flags));
- 
- 	/* Must count x->lastused as it may become non-zero behind our back. */
- 	l += nla_total_size(sizeof(u64));
--- 
-1.8.0.1
+I.e., deadlock would occur almost immediately.
+
+
+Now, having slept on it, I see we could also do:
+-----------------------------------------------
+
+grab port lock
+   grab socket lock
+       check sk_rcvbuf>
+   release socket lock
+release port lock
+grab net lock (read mode)
+     <do some packet sanity check>
+     grab node lock
+        <perform link level protocol check>
+     release node lock'
+release net lock'
+grab port lock
+  grab socket lock
+     <check sk_rcvbuf>
+     <deliver or reject>
+  release socket lock
+release port lock
+
+If this is what you meant, then you are right.
+It would work, although it would severely impact performance.
+
+But the fact that it works technically doesn't mean it is the 
+right thing to do, because of the way it would mess up the 
+overall packet flow. 
+This is not a good solution! 
+
+And I think there are better ways...
+If we really want to improve the solution we agreed on
+yesterday we should rather go for a scheme adding back-pressure
+to the sender socket, even for connectionless datagram messages, 
+not only connections as we do now. We have some ideas there, and 
+you are welcome to participate in the discussions. 
+Maybe another thread at tipc-discussion?
+
+Regards
+///jon
+
+
+
+
+> 
+> Neil
+> 
+>> ///jon
+>>
+>> [...]
+>>>
+>>>>>>
+>>>>
+>>
+>>
