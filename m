@@ -1,28 +1,34 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH ipsec] af_key: initialize satype in
- key_notify_policy_flush()
-Date: Fri, 22 Feb 2013 06:56:57 +0100
-Message-ID: <20130222055657.GG17794@secunet.com>
-References: <1361201060-31732-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] IP_GRE: Fix IP-Identification.
+Date: Thu, 21 Feb 2013 22:06:25 -0800
+Message-ID: <1361513185.3683.1.camel@edumazet-glaptop>
+References: <1361499519-1715-1-git-send-email-pshelar@nicira.com>
+	 <1361500507.32484.8.camel@edumazet-glaptop>
+	 <CALnjE+qOTnzdEjuGheRBhVC9piHdVKornV4Fv=ZubKS6ZAF6gQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39719 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752972Ab3BVF5D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2013 00:57:03 -0500
-Content-Disposition: inline
-In-Reply-To: <1361201060-31732-1-git-send-email-nicolas.dichtel@6wind.com>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:49036 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752880Ab3BVGGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 01:06:35 -0500
+Received: by mail-pb0-f45.google.com with SMTP id ro8so213592pbb.18
+        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 22:06:35 -0800 (PST)
+In-Reply-To: <CALnjE+qOTnzdEjuGheRBhVC9piHdVKornV4Fv=ZubKS6ZAF6gQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 18, 2013 at 04:24:20PM +0100, Nicolas Dichtel wrote:
-> This field was left uninitialized. Some user daemons perform check against this
-> field.
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Thu, 2013-02-21 at 19:42 -0800, Pravin Shelar wrote:
 
-Applied, thanks!
+> Without this patch GRE-GSO generates ip fragments with id 0,2,3,4...
+> for every GSO packet, which is not correct. This patch fixes it.
+> --
+
+I guess my question was more : Why dont we inherit ID from the inner
+packet ?
+
+ip_select_ident_more() is a performance killer, as all cpus are going to
+access a shared counter in the dst.
