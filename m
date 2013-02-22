@@ -1,42 +1,40 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Disable IPv4-mapped - enforce IPV6_V6ONLY
-Date: Fri, 22 Feb 2013 16:21:26 +0100
-Message-ID: <51278CF6.2060402@ahsoftware.de>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH] net: fec: Ensure that initialization is done prior to request_irq()
+Date: Fri, 22 Feb 2013 13:22:55 -0300
+Message-ID: <CAOMZO5AcSC5vwXsAcRZBS70WF6Zbfp4Q09iStZZEFMoWvNqzSg@mail.gmail.com>
+References: <1361474510-14286-1-git-send-email-fabio.estevam@freescale.com>
+	<20130221.152724.6508078801736235.davem@davemloft.net>
+	<CAOMZO5ArHJy=KN8R5F0cOhDN=MnxRTmBUOgDsn8zutrTNw=igg@mail.gmail.com>
+	<20130221.153812.2039434956437238374.davem@davemloft.net>
+	<loom.20130222T020618-678@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Jim Baxter <jim_baxter@mentor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:35792 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757033Ab3BVPV7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 10:21:59 -0500
-Received: from eiche.ahsoftware (p57B20389.dip0.t-ipconnect.de [87.178.3.137])
-	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail.ahsoftware.de (Postfix) with ESMTPSA id 7C94088811E
-	for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 16:21:57 +0100 (CET)
-Received: from krabat.ahsoftware (unknown [192.168.207.2])
-	by eiche.ahsoftware (Postfix) with ESMTP id 8BEB5403DF
-	for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 15:21:33 +0000 (UTC)
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:63543 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757424Ab3BVQW6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 11:22:58 -0500
+Received: by mail-wg0-f41.google.com with SMTP id ds1so1598291wgb.2
+        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 08:22:56 -0800 (PST)
+In-Reply-To: <loom.20130222T020618-678@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Thu, Feb 21, 2013 at 10:13 PM, Jim Baxter <jim_baxter@mentor.com> wrote:
 
-I'm searching for a way to either enforce IPV6_V6ONLY or to block 
-IPv4-mapped addresses on ipv6-sockets (e.g. by using iptables) system-wide.
+> There is a divide by zero error.
+>
+> If I enable these 3 kernel hacking options;
+> CONFIG_DEBUG_SPINLOCK:   -- Spinlock and rw-lock debugging: basic checks
+> CONFIG_DEBUG_LOCK_ALLOC: -- Lock debugging: detect incorrect freeing of live
+> locks
+> CONFIG_PROVE_LOCKING:    -- Lock debugging: prove locking correctness
 
-E.g. net.ipv6.bindv6only doesn't help if something calls
+Thanks for reporting this issue, Jim.
 
-int v6on = 0;
-setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on))
+I was testing under mx53, which did not show this problem.
 
-In such a case I still want to disable or block IPv4-mapped addresses on 
-that socket, even if the program thinks it nows it better.
-
-Until now I haven't found a solution.
-
-Regards,
-
-Alexander
+I have a fix for this and I have tested it on both mx6q and mx53. Will
+submit it shortly.
