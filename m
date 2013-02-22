@@ -1,45 +1,54 @@
-From: Mark Lord <kernel@start.ca>
-Subject: Re: [GIT] Networking
-Date: Thu, 21 Feb 2013 22:54:33 -0500
-Message-ID: <5126EBF9.9090107@start.ca>
-References: <20130220.170901.343210063003534302.davem@davemloft.net> <CA+55aFz=tzf9a-SY1CqCAxsqRDz=ebE69YoZ30at6kHeKKhsaA@mail.gmail.com> <5126313E.2060608@start.ca> <CAP=VYLoW2KfdWen6x0p+Kv_DbsDj=mHMdAZB5Mx_RkFZ7jk6fg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@linux-foundation.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch] openvswitch: fix the calculation of checksum for vlan header
+Date: Fri, 22 Feb 2013 13:25:22 +0800
+Message-ID: <1361510722-27831-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@nicira.com>, Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mouse.start.ca ([64.140.120.56]:43211 "EHLO mouse.start.ca"
+Received: from mx1.redhat.com ([209.132.183.28]:47040 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756138Ab3BVDyh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 21 Feb 2013 22:54:37 -0500
-In-Reply-To: <CAP=VYLoW2KfdWen6x0p+Kv_DbsDj=mHMdAZB5Mx_RkFZ7jk6fg@mail.gmail.com>
+	id S1750790Ab3BVFZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2013 00:25:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-02-21 09:26 PM, Paul Gortmaker wrote:
-> On Thu, Feb 21, 2013 at 9:37 AM, Mark Lord <kernel@start.ca> wrote:
->> On 13-02-20 10:05 PM, Linus Torvalds wrote:
->>> On Wed, Feb 20, 2013 at 2:09 PM, David Miller <davem@davemloft.net> wrote:
-..
->>> Nooo.... You killed the 3c501 and 3c503 drivers! Snif.
->>>
->>> I wonder if they still worked..
->>
->> I hope they're not really dead, because we still use them in several machines here
->> as secondary interfaces for test rigs and whatnot.
-..
-> Did you actually look at the drivers deleted?
-..
+From: Cong Wang <amwang@redhat.com>
 
-Finally got to one of the boxes here to check.
-And you're right, I was confusing drivers.
+In vlan_insert_tag(), we insert a 4-byte VLAN header _after_
+mac header:
 
-I always seem to get the 3c509 (ISA) stuff confused with the 3c59x (PCI).
-Our boxes here have the 3c59x (PCI) cards.
+        memmove(skb->data, skb->data + VLAN_HLEN, 2 * ETH_ALEN);
+	...
+        veth->h_vlan_proto = htons(ETH_P_8021Q);
+	...
+        veth->h_vlan_TCI = htons(vlan_tci);
 
-R.I.P. 3c50x.  :)
+so after it, we should recompute the checksum to include these 4 bytes.
+skb->data still points to the mac header, therefore VLAN header is at
+(2 * ETH_ALEN = 12) bytes after it, not (ETH_HLEN = 14) bytes.
+
+This can also be observed via tcpdump:
+
+         0x0000:  ffff ffff ffff 5254 005d 6f6e 8100 000a
+         0x0010:  0806 0001 0800 0604 0001 5254 005d 6f6e
+         0x0020:  c0a8 026e 0000 0000 0000 c0a8 0282
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index ac2defe..a0e202c 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -115,7 +115,7 @@ static int push_vlan(struct sk_buff *skb, const struct ovs_action_push_vlan *vla
+ 
+ 		if (skb->ip_summed == CHECKSUM_COMPLETE)
+ 			skb->csum = csum_add(skb->csum, csum_partial(skb->data
+-					+ ETH_HLEN, VLAN_HLEN, 0));
++					+ (2 * ETH_ALEN), VLAN_HLEN, 0));
+ 
+ 	}
+ 	__vlan_hwaccel_put_tag(skb, ntohs(vlan->vlan_tci) & ~VLAN_TAG_PRESENT);
