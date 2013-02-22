@@ -1,89 +1,43 @@
-From: Li Wei <lw@cn.fujitsu.com>
-Subject: [PATCH] ipv4: fix error handling in icmp_protocol.
-Date: Fri, 22 Feb 2013 16:18:44 +0800
-Message-ID: <1361521124-1135-1-git-send-email-lw@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, lw@cn.fujitsu.com
-To: davem@davemloft.net
+From: Javier Domingo <javierdo1@gmail.com>
+Subject: Re: Softirqs without captured packets
+Date: Fri, 22 Feb 2013 10:32:22 +0100
+Message-ID: <CALZVapmKbqcamTYTEhoerRUPpjsaLJqoTo84Fqmz+aUWWTmh2g@mail.gmail.com>
+References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
+ <20130208.145728.1110053781319882182.davem@davemloft.net> <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
+ <20130208.151523.798634382725569230.davem@davemloft.net> <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
+ <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
+ <1360458962.6696.38.camel@edumazet-glaptop> <CALZVap=_x_nvnH55n7SGMxFGCR9XPKkNzSrt0J1dp41g-HUAqQ@mail.gmail.com>
+ <1360484188.20362.11.camel@edumazet-glaptop> <CALZVapm1evE6rOgNkJapu9VboA6OojKGJ-UhRhZ26J0A+k4nmw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:20543 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754910Ab3BVI2p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2013 03:28:45 -0500
+Received: from mail-vb0-f45.google.com ([209.85.212.45]:39537 "EHLO
+	mail-vb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756324Ab3BVJcn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 04:32:43 -0500
+Received: by mail-vb0-f45.google.com with SMTP id p1so282550vbi.18
+        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 01:32:42 -0800 (PST)
+In-Reply-To: <CALZVapm1evE6rOgNkJapu9VboA6OojKGJ-UhRhZ26J0A+k4nmw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now we handle icmp errors in each transport protocol's err_handler,
-for icmp protocols, that is ping_err. Since this handler only care
-of those icmp errors triggered by echo request, errors triggered
-by echo reply(which sent by kernel) are sliently ignored.
+Which is the reason for that in the poll function, not only some
+drivers have that tx completion (I suppose it is to free resources),
+but also to send packets in that routine?
 
-So wrap ping_err() with icmp_err() to deal with those icmp errors.
+In e1000e, I have found that it frees resources used in tx, with the
+e1000_clean_tx_irq, and also, although the tx completion is first, it
+executes the rx routine.
 
-Signed-off-by: Li Wei <lw@cn.fujitsu.com>
----
- include/net/icmp.h |  1 +
- net/ipv4/af_inet.c |  2 +-
- net/ipv4/icmp.c    | 23 +++++++++++++++++++++++
- 3 files changed, 25 insertions(+), 1 deletion(-)
+On the other hand, tg3 driver not only does the tx resources free but
+also sends packets in that time, and may return from the poll thought
+it might not have done rx work in the net_rx_action routine.
 
-diff --git a/include/net/icmp.h b/include/net/icmp.h
-index 9ac2524..081439f 100644
---- a/include/net/icmp.h
-+++ b/include/net/icmp.h
-@@ -41,6 +41,7 @@ struct net;
- 
- extern void	icmp_send(struct sk_buff *skb_in,  int type, int code, __be32 info);
- extern int	icmp_rcv(struct sk_buff *skb);
-+extern void	icmp_err(struct sk_buff *, u32 info);
- extern int	icmp_init(void);
- extern void	icmp_out_count(struct net *net, unsigned char type);
- 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index e225a4e..334b461 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1572,7 +1572,7 @@ static const struct net_offload udp_offload = {
- 
- static const struct net_protocol icmp_protocol = {
- 	.handler =	icmp_rcv,
--	.err_handler =	ping_err,
-+	.err_handler =	icmp_err,
- 	.no_policy =	1,
- 	.netns_ok =	1,
- };
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 17ff9fd..3ac5dff 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -934,6 +934,29 @@ error:
- 	goto drop;
- }
- 
-+void icmp_err(struct sk_buff *skb, u32 info)
-+{
-+	struct iphdr *iph = (struct iphdr *)skb->data;
-+	struct icmphdr *icmph = (struct icmphdr *)(skb->data+(iph->ihl<<2));
-+	int type = icmp_hdr(skb)->type;
-+	int code = icmp_hdr(skb)->code;
-+	struct net *net = dev_net(skb->dev);
-+
-+	/*
-+	 * Use ping_err to handle all icmp errors except those
-+	 * triggered by ICMP_ECHOREPLY which sent from kernel.
-+	 */
-+	if (icmph->type != ICMP_ECHOREPLY) {
-+		ping_err(skb, info);
-+		return;
-+	}
-+
-+	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED)
-+		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_ICMP, 0);
-+	else if (type == ICMP_REDIRECT)
-+		ipv4_redirect(skb, net, 0, 0, IPPROTO_ICMP, 0);
-+}
-+
- /*
-  *	This table is the definition of how we handle ICMP.
-  */
--- 
-1.8.0.2
+Why is this like that? I mean, why all the tx is done *before* the rx
+thread, thought it may not do any rx work (in tg3) ?
+
+I hope you can help me to understand the reasons,
+
+Javier Domingo
