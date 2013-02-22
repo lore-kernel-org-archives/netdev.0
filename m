@@ -1,125 +1,33 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: AF_VSOCK and the LSMs
-Date: Fri, 22 Feb 2013 15:00:04 -0800
-Message-ID: <5127F874.1050907@schaufler-ca.com>
-References: <1803195.0cVPJuGAEx@sifl>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Problem with Reaktek 8168
+Date: Sat, 23 Feb 2013 00:07:57 +0100
+Message-ID: <20130222230757.GA4248@electric-eye.fr.zoreil.com>
+References: <5124B909.4080907@online.de> <20130220231122.GA22163@electric-eye.fr.zoreil.com> <51256EC7.90505@online.de> <20130221224543.GA11240@electric-eye.fr.zoreil.com> <512786D7.6090003@online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
-	Gerd Hoffmann <kraxel@redhat.com>,
-	Eric Paris <eparis@redhat.com>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1803195.0cVPJuGAEx@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Ralf Friedl <Ralf.Friedl@online.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:36097 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755438Ab3BVXju (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 18:39:50 -0500
+Content-Disposition: inline
+In-Reply-To: <512786D7.6090003@online.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/22/2013 2:33 PM, Paul Moore wrote:
-> With AF_VSOCK now in the next tree I've started looking at what we would need 
-> to do to add the appropriate LSM hooks so that AF_VSOCK traffic can be 
-> controlled just as we do with other protocols.  The reasons why are pretty 
-> simple, those users who rely on LSMs to help enforce separation between VMs 
-> want to be able to ensure that the separation extends down to this new method 
-> of communication, especially considering it provides a mechanism for 
-> communication between VMs.
->
-> Looking at AF_VSOCK, and the underlying VMCI transport (currently the only 
-> transport option), it looks fairly similar to AF_INET, at least it is much 
-> similar to AF_INET than it is to AF_UNIX.  With that in mind, taking an 
-> approach similar to what we currently do for AF_INET should make the necessary 
-> LSM kernel changes smaller and the related, LSM-specific security policy more 
-> approachable to those already familiar with the LSM's network access controls.
->
-> Perhaps the biggest different between the current AF_VSOCK/VMCI combination 
-> and AF_INET is the lack of labeling support at the transport layer.  Basically 
-> the labeling in AF_INET, via protocols that leverage IP, allow the sender to 
-> tag traffic with a security label that can be used to perform access control 
-> on receipt of the traffic.  Since AF_VSOCK traffic sent over the VMCI 
-> transport does not carry any LSM related information about the sender we are 
-> not able to do the same level of access control.  However, if we were to 
-> augment the current VMCI tranport to tag traffic with the security label of 
-> the sender we could start doing proper LSM based access control with AF_VSOCK 
-> traffic.
->
-> I'm currently working on a set of patches to do just that, but before I get 
-> too far down this path, I thought I would toss this out to the various lists 
-> to see if anyone had any strong feelings on this approach (either good or 
-> bad).  Here is what I am proposing, and currently working on ...
->
-> * Add a LSM secid/blob to the vmci_datagram struct
+Ralf Friedl <Ralf.Friedl@online.de> :
+[...]
+> I have one warning in the syslog, but I hope it is not serious.
+> WARNING: at net/sched/sch_generic.c:254 dev_watchdog+0x239/0x250()
+> NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+[snip]
 
-Please add an LSM blob. Please do not use a secid. I am currently
-battling with secids in my efforts for multiple LSM support.
+It's the usual transmit timeout watchdog. A transient loss of network
+traffic should be noticable when it triggers. You may live with it as
+long as it does not happen much but it means that something does not
+work correctly.
 
-> First some background on LSM stacking: there is a lot of work going on to look 
-> at stacking different LSMs (currently it is a one-at-a-time system) but 
-> unfortunately due to a lack of a proper security blob (e.g. we would need a 
-> security void pointer in the sk_buff) it is unlikely that we will be able to 
-> stack LSMs which use network labels anytime soon.  With that in mind, while 
-> some on the LSM list would likely argue for a security blob being added to 
-> struct vmci_datagram I think the easiest solution for the time being is to 
-> just add a secid field (a single u32 scalar); true it is probably not ideal 
-> but it simplifies the management of the field considerably and is no worse 
-> than what we currently have for AF_INET[6].  In the future we could always add 
-> a proper LSM blob if needed as this is internal and private to the kernel.
-
-Please! No secids!
-
-I am going to be able to deal with secids for AF_INET only because 
-SELinux prefers XFRM, Smack requires CIPSO, and AppArmor is going to
-be willing to have networking be optional.
-
-If you have two LSMs that use secids you are never going to have a
-rational way to get the information for both into one secid.
-
->
-> With the background out of the way, adding a LSM secid/blob to struct 
-> vmci_datagram would allow us to convey the sending socket's LSM label with the 
-> rest of the VMCI datagram/packet to the receiving socket where we could 
-> perform a LSM access check using the sender and receiver's LSM labels.  Once 
-> again, this is very similar to what we currently do with AF_INET[6].
->
-> In order to do this we would need to make some changes to a few functions, 
-> mostly just to ensure we have access to the necessary socket labels when 
-> needed:
->
->   - vmci_transport_send_control_pkt()
->   - vmci_transport_reply_control_pkt_fast() / vmci_transport_reply_reset()
->   - vmci_transport_send_control_pkt_bh() / *notify_pkt() handler
->   - vmci_tansport_send_control_pkt()
->
-> This may not be a complete list, and I'm being vague on the actual changes as 
-> this is currently a work in progress ...
->
-> * Add LSM hooks to vmci_transport_recv_{dgram,stream}_cb()
->
-> In both cases we would probably want the LSM access control hook/check to 
-> occur just after the call to vmci_transport_allow_dgram().  While I haven't 
-> gotten to this part of the patchset yet, I expect the LSM hook to look very 
-> similar to the existing security_sock_rcv_skb() hook; in fact, I hope to just 
-> reuse the existing hook but we will have to see how things develop.
->
-> * Add LSM hooks to vmci_transport_recv_connecting_{client,server}()
->
-> This isn't so much an access control point, that is handled above, but rather 
-> a notification for the LSM that the negotiation has finished and the sockets 
-> are connected.  This notification allows the LSM to update any internal state, 
-> e.g. the socket's peer labels.
->
-> * Update the SELinux and Smack LSMs to support the AF_VSOCK address family
->
-> Essentially this means just making sure that the socket level access controls, 
-> and perhaps some of the packet level controls if reused, understand the 
-> AF_VSOCK family and do the right thing.  For Smack this should be rather 
-> trivial, for SELinux it will be slightly more involved but still rather simple 
-> and straightforward (perhaps add a new "virt_socket" object class).
->
-> The other LSMs, TOMOYO and AppArmor, handle their network access controls 
-> differently and as a result, I believe there is no work needed for these LSMs 
-> but I would encourage the TOMOYO and AppArmor devs to correct me if I missed 
-> anything.
->
-
+-- 
+Ueimor
