@@ -1,36 +1,39 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 1/1] net: fec: fix miss init spinlock
-Date: Fri, 22 Feb 2013 18:17:03 -0300
-Message-ID: <CAOMZO5AmJdgQRiQ2ia4t3tW9yJkr1NZSdkKQmoi-YAFvXaC-TA@mail.gmail.com>
-References: <1359708986-23634-1-git-send-email-Frank.Li@freescale.com>
-	<loom.20130204T174808-896@post.gmane.org>
-	<CAHrpEqSXhEBQpnR60mjP67gbVWNemfa3tTuoDTKipej_6QQ62g@mail.gmail.com>
-	<loom.20130205T111507-687@post.gmane.org>
-	<CAHrpEqTsUjWjxY3_C4kGL_S0pgpYawgBaSip3DEnZd3CY1hn0A@mail.gmail.com>
-	<51125F28.4000409@intel.com>
-	<CAHrpEqR9u5t8fZOYRq4k_vTsEORVsNwa2C_rLaxesmusY5e9-Q@mail.gmail.com>
-	<loom.20130222T132206-265@post.gmane.org>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH] net: Fix locking bug in netif_set_xps_queue
+Date: Fri, 22 Feb 2013 13:21:09 -0800
+Message-ID: <5127E145.2070008@intel.com>
+References: <20130222163806.7590.98066.stgit@ahduyck-cp1.jf.intel.com> <20130222.151442.333174353561165623.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Li Frank-B20596 <B20596@freescale.com>
-To: Jim Baxter <jim_baxter@mentor.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
+	dan.carpenter@oracle.com, jeffrey.t.kirsher@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f170.google.com ([209.85.128.170]:48483 "EHLO
-	mail-ve0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755691Ab3BVVRF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 16:17:05 -0500
-Received: by mail-ve0-f170.google.com with SMTP id 14so969718vea.1
-        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 13:17:03 -0800 (PST)
-In-Reply-To: <loom.20130222T132206-265@post.gmane.org>
+Received: from mga01.intel.com ([192.55.52.88]:57898 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755813Ab3BVVVR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 22 Feb 2013 16:21:17 -0500
+In-Reply-To: <20130222.151442.333174353561165623.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jim,
-
-On Fri, Feb 22, 2013 at 9:25 AM, Jim Baxter <jim_baxter@mentor.com> wrote:
-
-> Hi Frank,
+On 02/22/2013 12:14 PM, David Miller wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Fri, 22 Feb 2013 08:38:44 -0800
 >
-> Have you had time to have a look at this issues again?
+>> Smatch found a locking bug in netif_set_xps_queue in which we were not
+>> releasing the lock in the case of an allocation failure.
+>>
+>> This change corrects that so that we release the xps_map_mutex before
+>> returning -ENOMEM in the case of an allocation failure.
+>>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Applied and queue up for -stable, thanks Alex.
 
-Can you try again using the latest net tree from David Miller?
+No patch is needed for -stable.  This was something I had introduced
+into net-next when I moved the XPS logic into its own function.
+
+Thanks,
+
+Alex
