@@ -1,49 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Softirqs without captured packets
-Date: Fri, 22 Feb 2013 06:11:21 -0800
-Message-ID: <1361542281.3683.3.camel@edumazet-glaptop>
-References: <CALZVapktiq5norswRmjZyGXpx7mYdaTgQvJ50vO2UjsJ=pf1=w@mail.gmail.com>
-	 <20130208.145728.1110053781319882182.davem@davemloft.net>
-	 <CALZVapnbVoZ_G_viipXwm3vZC5Qkq1zwmfnf3ydvLjdjEa_8Zg@mail.gmail.com>
-	 <20130208.151523.798634382725569230.davem@davemloft.net>
-	 <CALZVap=-=4Wmo3Pha54rL65zMuxt5=5ti5Abm44TJF73ehe_Vg@mail.gmail.com>
-	 <CALZVapn-oF2L1BB855x26XGjzP6wYyT93jcJB0X3TcmFE8AxYA@mail.gmail.com>
-	 <1360458962.6696.38.camel@edumazet-glaptop>
-	 <CALZVap=_x_nvnH55n7SGMxFGCR9XPKkNzSrt0J1dp41g-HUAqQ@mail.gmail.com>
-	 <1360484188.20362.11.camel@edumazet-glaptop>
-	 <CALZVapm1evE6rOgNkJapu9VboA6OojKGJ-UhRhZ26J0A+k4nmw@mail.gmail.com>
-	 <CALZVapmKbqcamTYTEhoerRUPpjsaLJqoTo84Fqmz+aUWWTmh2g@mail.gmail.com>
+From: Ralf Friedl <Ralf.Friedl@online.de>
+Subject: Re: Problem with Reaktek 8168
+Date: Fri, 22 Feb 2013 15:55:19 +0100
+Message-ID: <512786D7.6090003@online.de>
+References: <5124B909.4080907@online.de> <20130220231122.GA22163@electric-eye.fr.zoreil.com> <51256EC7.90505@online.de> <20130221224543.GA11240@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Javier Domingo <javierdo1@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:57343 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207Ab3BVOL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 09:11:26 -0500
-Received: by mail-pa0-f42.google.com with SMTP id kq12so490394pab.29
-        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 06:11:26 -0800 (PST)
-In-Reply-To: <CALZVapmKbqcamTYTEhoerRUPpjsaLJqoTo84Fqmz+aUWWTmh2g@mail.gmail.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:55332 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755502Ab3BVOzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 09:55:20 -0500
+In-Reply-To: <20130221224543.GA11240@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-02-22 at 10:32 +0100, Javier Domingo wrote:
-> Which is the reason for that in the poll function, not only some
-> drivers have that tx completion (I suppose it is to free resources),
-> but also to send packets in that routine?
-> 
-> In e1000e, I have found that it frees resources used in tx, with the
-> e1000_clean_tx_irq, and also, although the tx completion is first, it
-> executes the rx routine.
-> 
-> On the other hand, tg3 driver not only does the tx resources free but
-> also sends packets in that time, and may return from the poll thought
-> it might not have done rx work in the net_rx_action routine.
-> 
-> Why is this like that? I mean, why all the tx is done *before* the rx
-> thread, thought it may not do any rx work (in tg3) ?
+Francois Romieu wrote:
+> I have not noticed 8168f specific problems as of late. It could be worth
+> giving stock 3.8 a try though: its load of changes includes some post
+> 3.4.x branch 8168f bits.
+>   
+Thank you very much.
+I just installed the OpenSuse kernel 3.8.0-2.1 and transferred my 
+collection of Linux install images, about 145G, to and from another 
+computer, without a single problem.
 
-To free memory, so that rx handler gets more chance to be able to
-allocate memory, and reuse memory already hot in cpu caches.
+So whatever was changed fixed the issue.
+
+I have one warning in the syslog, but I hope it is not serious.
+WARNING: at net/sched/sch_generic.c:254 dev_watchdog+0x239/0x250()
+NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
+Call Trace:
+ <IRQ>  [<ffffffff810355c9>] ? warn_slowpath_common+0x79/0xc0
+ [<ffffffff810356c5>] ? warn_slowpath_fmt+0x45/0x50
+ [<ffffffff813096c9>] ? dev_watchdog+0x239/0x250
+ [<ffffffff81309490>] ? pfifo_fast_dequeue+0xd0/0xd0
+ [<ffffffff810415ba>] ? call_timer_fn.isra.32+0x2a/0x90
+ [<ffffffff8104177e>] ? run_timer_softirq+0x15e/0x1f0
+ [<ffffffff811ce4c9>] ? timerqueue_add+0x59/0xa0
+ [<ffffffff8103c314>] ? __do_softirq+0xa4/0x150
+ [<ffffffff810733df>] ? clockevents_program_event+0x6f/0x110
+ [<ffffffff8138bf4c>] ? call_softirq+0x1c/0x30
+ [<ffffffff8100464d>] ? do_softirq+0x4d/0x80
+ [<ffffffff8103c4e6>] ? irq_exit+0x86/0xa0
+ [<ffffffff810221e8>] ? smp_apic_timer_interrupt+0x68/0xa0
+ [<ffffffff8138b94a>] ? apic_timer_interrupt+0x6a/0x70
+ <EOI>  [<ffffffff81042074>] ? get_next_timer_interrupt+0x1d4/0x270
+ [<ffffffff812c2a71>] ? cpuidle_wrap_enter+0x41/0x80
+ [<ffffffff812c2a6d>] ? cpuidle_wrap_enter+0x3d/0x80
+ [<ffffffff812c2838>] ? cpuidle_idle_call+0x78/0x100
+ [<ffffffff8100b22f>] ? cpu_idle+0x5f/0xd0
+
+
+Ralf
