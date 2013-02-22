@@ -1,35 +1,50 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] vmxnet3: make local function static
-Date: Fri, 22 Feb 2013 10:26:29 -0800
-Message-ID: <20130222102629.6690bdca@nehalam.linuxnetplumber.net>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: batman-adv: gpf in batadv_slide_own_bcast_window
+Date: Fri, 22 Feb 2013 13:37:06 -0500
+Message-ID: <5127BAD2.1040007@oracle.com>
+References: <5127A2AF.9030502@oracle.com> <20130222170621.GU3523@ritirata.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Marek Lindner <lindner_marek@yahoo.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>
+To: Antonio Quartulli <ordex@autistici.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:43900 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754114Ab3BVS0w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 13:26:52 -0500
-Received: by mail-pb0-f42.google.com with SMTP id xb4so542653pbc.29
-        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 10:26:52 -0800 (PST)
+Received: from userp1040.oracle.com ([156.151.31.81]:36334 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758226Ab3BVShn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 13:37:43 -0500
+In-Reply-To: <20130222170621.GU3523@ritirata.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02/22/2013 12:06 PM, Antonio Quartulli wrote:
+> Hi Sasha and thank you very much for reporting this issue.
+> 
+> IIRC this is similar to a bug you already reported in the past.
+> This bug should be the result of a race condition batman-adv has in the
+> hard-interface handling code (this is why it has been triggered while removing
+> eth0).
+> 
+> Now that the rtnl-deadlock has been solved I think we can try to further
+> investigate on this bug and try to find a solution..though it will not be easy
+> as it probably requires another lock to protect the hard-interface during this
+> operations.
+> 
+> If you have any fix proposal feel free to contribute!
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+I'm confused about how batadv_orig_hash_del_if removes an interface from the
+hashtable. I see the hashtable is using rcu to protect it, but when we
+delete an entry we free it straight away by calling batadv_orig_node_del_if()
+and not going through kfree_rcu().
 
---- a/drivers/net/vmxnet3/vmxnet3_drv.c	2013-02-21 21:35:42.998296803 -0800
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c	2013-02-21 21:41:45.149613077 -0800
-@@ -1385,8 +1385,8 @@ vmxnet3_rq_cleanup_all(struct vmxnet3_ad
- }
- 
- 
--void vmxnet3_rq_destroy(struct vmxnet3_rx_queue *rq,
--			struct vmxnet3_adapter *adapter)
-+static void vmxnet3_rq_destroy(struct vmxnet3_rx_queue *rq,
-+			       struct vmxnet3_adapter *adapter)
- {
- 	int i;
- 	int j;
+Is there a reason behind doing that, or might it be the cause of the problem
+we're seeing here?
+
+
+Thanks,
+Sasha
