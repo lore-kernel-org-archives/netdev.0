@@ -1,57 +1,42 @@
-From: Ralf Friedl <Ralf.Friedl@online.de>
-Subject: Re: Problem with Reaktek 8168
-Date: Fri, 22 Feb 2013 15:55:19 +0100
-Message-ID: <512786D7.6090003@online.de>
-References: <5124B909.4080907@online.de> <20130220231122.GA22163@electric-eye.fr.zoreil.com> <51256EC7.90505@online.de> <20130221224543.GA11240@electric-eye.fr.zoreil.com>
+From: Alexander Holler <holler@ahsoftware.de>
+Subject: Disable IPv4-mapped - enforce IPV6_V6ONLY
+Date: Fri, 22 Feb 2013 16:21:26 +0100
+Message-ID: <51278CF6.2060402@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:55332 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755502Ab3BVOzU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 09:55:20 -0500
-In-Reply-To: <20130221224543.GA11240@electric-eye.fr.zoreil.com>
+Received: from h1446028.stratoserver.net ([85.214.92.142]:35792 "EHLO
+	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757033Ab3BVPV7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 10:21:59 -0500
+Received: from eiche.ahsoftware (p57B20389.dip0.t-ipconnect.de [87.178.3.137])
+	(using TLSv1 with cipher ADH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.ahsoftware.de (Postfix) with ESMTPSA id 7C94088811E
+	for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 16:21:57 +0100 (CET)
+Received: from krabat.ahsoftware (unknown [192.168.207.2])
+	by eiche.ahsoftware (Postfix) with ESMTP id 8BEB5403DF
+	for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 15:21:33 +0000 (UTC)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Francois Romieu wrote:
-> I have not noticed 8168f specific problems as of late. It could be worth
-> giving stock 3.8 a try though: its load of changes includes some post
-> 3.4.x branch 8168f bits.
->   
-Thank you very much.
-I just installed the OpenSuse kernel 3.8.0-2.1 and transferred my 
-collection of Linux install images, about 145G, to and from another 
-computer, without a single problem.
+Hello,
 
-So whatever was changed fixed the issue.
+I'm searching for a way to either enforce IPV6_V6ONLY or to block 
+IPv4-mapped addresses on ipv6-sockets (e.g. by using iptables) system-wide.
 
-I have one warning in the syslog, but I hope it is not serious.
-WARNING: at net/sched/sch_generic.c:254 dev_watchdog+0x239/0x250()
-NETDEV WATCHDOG: eth0 (r8169): transmit queue 0 timed out
-Call Trace:
- <IRQ>  [<ffffffff810355c9>] ? warn_slowpath_common+0x79/0xc0
- [<ffffffff810356c5>] ? warn_slowpath_fmt+0x45/0x50
- [<ffffffff813096c9>] ? dev_watchdog+0x239/0x250
- [<ffffffff81309490>] ? pfifo_fast_dequeue+0xd0/0xd0
- [<ffffffff810415ba>] ? call_timer_fn.isra.32+0x2a/0x90
- [<ffffffff8104177e>] ? run_timer_softirq+0x15e/0x1f0
- [<ffffffff811ce4c9>] ? timerqueue_add+0x59/0xa0
- [<ffffffff8103c314>] ? __do_softirq+0xa4/0x150
- [<ffffffff810733df>] ? clockevents_program_event+0x6f/0x110
- [<ffffffff8138bf4c>] ? call_softirq+0x1c/0x30
- [<ffffffff8100464d>] ? do_softirq+0x4d/0x80
- [<ffffffff8103c4e6>] ? irq_exit+0x86/0xa0
- [<ffffffff810221e8>] ? smp_apic_timer_interrupt+0x68/0xa0
- [<ffffffff8138b94a>] ? apic_timer_interrupt+0x6a/0x70
- <EOI>  [<ffffffff81042074>] ? get_next_timer_interrupt+0x1d4/0x270
- [<ffffffff812c2a71>] ? cpuidle_wrap_enter+0x41/0x80
- [<ffffffff812c2a6d>] ? cpuidle_wrap_enter+0x3d/0x80
- [<ffffffff812c2838>] ? cpuidle_idle_call+0x78/0x100
- [<ffffffff8100b22f>] ? cpu_idle+0x5f/0xd0
+E.g. net.ipv6.bindv6only doesn't help if something calls
 
+int v6on = 0;
+setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on))
 
-Ralf
+In such a case I still want to disable or block IPv4-mapped addresses on 
+that socket, even if the program thinks it nows it better.
+
+Until now I haven't found a solution.
+
+Regards,
+
+Alexander
