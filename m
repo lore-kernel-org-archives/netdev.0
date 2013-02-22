@@ -1,35 +1,45 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next] IP_GRE: Fix IP-Identification.
-Date: Thu, 21 Feb 2013 19:42:31 -0800
-Message-ID: <CALnjE+qOTnzdEjuGheRBhVC9piHdVKornV4Fv=ZubKS6ZAF6gQ@mail.gmail.com>
-References: <1361499519-1715-1-git-send-email-pshelar@nicira.com>
-	<1361500507.32484.8.camel@edumazet-glaptop>
+From: Mark Lord <kernel@start.ca>
+Subject: Re: [GIT] Networking
+Date: Thu, 21 Feb 2013 22:54:33 -0500
+Message-ID: <5126EBF9.9090107@start.ca>
+References: <20130220.170901.343210063003534302.davem@davemloft.net> <CA+55aFz=tzf9a-SY1CqCAxsqRDz=ebE69YoZ30at6kHeKKhsaA@mail.gmail.com> <5126313E.2060608@start.ca> <CAP=VYLoW2KfdWen6x0p+Kv_DbsDj=mHMdAZB5Mx_RkFZ7jk6fg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:42162 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755183Ab3BVDmc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 21 Feb 2013 22:42:32 -0500
-Received: by mail-vc0-f197.google.com with SMTP id gb30so377199vcb.8
-        for <netdev@vger.kernel.org>; Thu, 21 Feb 2013 19:42:31 -0800 (PST)
-In-Reply-To: <1361500507.32484.8.camel@edumazet-glaptop>
+Received: from mouse.start.ca ([64.140.120.56]:43211 "EHLO mouse.start.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756138Ab3BVDyh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 21 Feb 2013 22:54:37 -0500
+In-Reply-To: <CAP=VYLoW2KfdWen6x0p+Kv_DbsDj=mHMdAZB5Mx_RkFZ7jk6fg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 21, 2013 at 6:35 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2013-02-21 at 18:18 -0800, Pravin B Shelar wrote:
->> Use ip_select_ident_more() to generate and account ids for all
->> segments that can be used for segments of a gso packet.
+On 13-02-21 09:26 PM, Paul Gortmaker wrote:
+> On Thu, Feb 21, 2013 at 9:37 AM, Mark Lord <kernel@start.ca> wrote:
+>> On 13-02-20 10:05 PM, Linus Torvalds wrote:
+>>> On Wed, Feb 20, 2013 at 2:09 PM, David Miller <davem@davemloft.net> wrote:
+..
+>>> Nooo.... You killed the 3c501 and 3c503 drivers! Snif.
+>>>
+>>> I wonder if they still worked..
 >>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->
-> I am not sure it makes any sense to do that.
->
-> Why is it needed ?
->
+>> I hope they're not really dead, because we still use them in several machines here
+>> as secondary interfaces for test rigs and whatnot.
+..
+> Did you actually look at the drivers deleted?
+..
 
-Without this patch GRE-GSO generates ip fragments with id 0,2,3,4...
-for every GSO packet, which is not correct. This patch fixes it.
+Finally got to one of the boxes here to check.
+And you're right, I was confusing drivers.
+
+I always seem to get the 3c509 (ISA) stuff confused with the 3c59x (PCI).
+Our boxes here have the 3c59x (PCI) cards.
+
+R.I.P. 3c50x.  :)
