@@ -1,52 +1,57 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch] openvswitch: remove some useless comments
-Date: Fri, 22 Feb 2013 19:41:26 +0800
-Message-ID: <1361533286-29210-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@nicira.com>, Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] tipc: byte-based overload control on socket receive queue
+Date: Fri, 22 Feb 2013 11:54:29 -0000
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7164@saturn3.aculab.com>
+References: <20130219142629.GA31871@hmsreliant.think-freely.org> <5123BC46.40909@ericsson.com> <20130219191833.GB31871@hmsreliant.think-freely.org> <5123DDA8.5090202@ericsson.com> <20130219214439.GC31871@hmsreliant.think-freely.org> <5125F5D3.1000509@ericsson.com> <20130221150746.GA2730@shamino.rdu.redhat.com> <51265134.5080001@ericsson.com> <20130221181656.GC2730@shamino.rdu.redhat.com> <51268C21.8050602@donjonn.com> <20130221213528.GA32764@hmsreliant.think-freely.org> <5127541C.9070306@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Jon Maloy" <maloy@donjonn.com>,
+	"Paul Gortmaker" <paul.gortmaker@windriver.com>,
+	"David Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"Ying Xue" <ying.xue@windriver.com>
+To: "Jon Maloy" <jon.maloy@ericsson.com>,
+	"Neil Horman" <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18719 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755951Ab3BVLlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 22 Feb 2013 06:41:42 -0500
+Received: from mx0.aculab.com ([213.249.233.131]:44662 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1756432Ab3BVLz6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 06:55:58 -0500
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01315-08 for <netdev@vger.kernel.org>;
+ Fri, 22 Feb 2013 11:55:52 +0000 (GMT)
+Content-class: urn:content-classes:message
+In-Reply-To: <5127541C.9070306@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+> grab net lock (read mode)
+>    <do some packet sanity check>
+>    grab node lock
+> -->   grab port lock
+>         grab socket lock
+>            <check sk_rcvbuf>
+>         release socket lock
+> -->   release port lock
+>       <perform link level protocol check>
+>     release node lock
+> release net lock
+> grab port lock
+>   grab socket lock
+>      <check sk_rcvbuf>
+>      <deliver or reject>
+>   release socket lock
+> release port lock
 
-These comments are useless in upstream kernel.
+You probably don't need to grab the socket lock itself, you
+only need to be able to read a 'receive buffer full' marker.
+That could (probably) be done with some careful coding in the
+socket create/delete paths.
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Jesse Gross <jesse@nicira.com>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Another option is to remember that the socket became full
+the previous time, and only do the early check of the
+receive buffer state when it had previously been full.
 
----
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 670cbc3..2130d61 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -43,8 +43,7 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
- 
- 	/* Make our own copy of the packet.  Otherwise we will mangle the
- 	 * packet for anyone who came before us (e.g. tcpdump via AF_PACKET).
--	 * (No one comes after us, since we tell handle_bridge() that we took
--	 * the packet.) */
-+	 */
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
- 		return;
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 70af0be..6255e48 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -326,8 +326,7 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
-  * @skb: skb that was received
-  *
-  * Must be called with rcu_read_lock.  The packet cannot be shared and
-- * skb->data should point to the Ethernet header.  The caller must have already
-- * called compute_ip_summed() to initialize the checksumming fields.
-+ * skb->data should point to the Ethernet header.
-  */
- void ovs_vport_receive(struct vport *vport, struct sk_buff *skb)
- {
+	David
