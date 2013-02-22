@@ -1,7 +1,7 @@
 From: Ming Lei <ming.lei@canonical.com>
-Subject: [PATCH 1/3] usbnet: smsc95xx: fix suspend failure
-Date: Fri, 22 Feb 2013 21:05:03 +0800
-Message-ID: <1361538305-28418-2-git-send-email-ming.lei@canonical.com>
+Subject: [PATCH 2/3] usbnet: smsc95xx: fix broken runtime suspend
+Date: Fri, 22 Feb 2013 21:05:04 +0800
+Message-ID: <1361538305-28418-3-git-send-email-ming.lei@canonical.com>
 References: <1361538305-28418-1-git-send-email-ming.lei@canonical.com>
 Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
 	linux-usb@vger.kernel.org, Ming Lei <ming.lei@canonical.com>,
@@ -9,78 +9,56 @@ Cc: Oliver Neukum <oneukum@suse.de>, netdev@vger.kernel.org,
 To: "David S. Miller" <davem@davemloft.net>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:57541 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756489Ab3BVNGI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 08:06:08 -0500
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:42341 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756489Ab3BVNGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 08:06:21 -0500
 In-Reply-To: <1361538305-28418-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The three below functions:
+Commit b2d4b150(smsc95xx: enable dynamic autosuspend) implements
+autosuspend, but breaks current runtime suspend, such as:
+when the interface becomes down, the usb device can't be put into
+runtime suspend any more.
 
-	smsc95xx_enter_suspend0()
-	smsc95xx_enter_suspend1()
-	smsc95xx_enter_suspend2()
+This patch fixes the broken runtime suspend.
 
-return > 0 in case of success, so they will cause smsc95xx_suspend()
-to return > 0 and cause suspend failure.
-
-The bug is introduced in commit 3b9f7d(smsc95xx: fix error handling
-in suspend failure case).
-
-Cc: <stable@vger.kernel.org>		[3.8]
 Cc: Steve Glendinning <steve.glendinning@shawell.net>
 Signed-off-by: Ming Lei <ming.lei@canonical.com>
 ---
- drivers/net/usb/smsc95xx.c |   12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/usb/smsc95xx.c |   12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
-index ff4fa37..b2721bc 100644
+index b2721bc..7fa9622 100644
 --- a/drivers/net/usb/smsc95xx.c
 +++ b/drivers/net/usb/smsc95xx.c
-@@ -1247,10 +1247,12 @@ static int smsc95xx_enter_suspend0(struct usbnet *dev)
+@@ -1418,15 +1418,6 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 	u32 val, link_up;
+ 	int ret;
  
- 	/* read back PM_CTRL */
- 	ret = smsc95xx_read_reg_nopm(dev, PM_CTRL, &val);
-+	if (ret < 0)
-+		return ret;
+-	/* TODO: don't indicate this feature to usb framework if
+-	 * our current hardware doesn't have the capability
+-	 */
+-	if ((message.event == PM_EVENT_AUTO_SUSPEND) &&
+-	    (!(pdata->features & FEATURE_AUTOSUSPEND))) {
+-		netdev_warn(dev->net, "autosuspend not supported\n");
+-		return -EBUSY;
+-	}
+-
+ 	ret = usbnet_suspend(intf, message);
+ 	if (ret < 0) {
+ 		netdev_warn(dev->net, "usbnet_suspend error\n");
+@@ -1441,7 +1432,8 @@ static int smsc95xx_suspend(struct usb_interface *intf, pm_message_t message)
+ 	/* determine if link is up using only _nopm functions */
+ 	link_up = smsc95xx_link_ok_nopm(dev);
  
- 	pdata->suspend_flags |= SUSPEND_SUSPEND0;
- 
--	return ret;
-+	return 0;
- }
- 
- static int smsc95xx_enter_suspend1(struct usbnet *dev)
-@@ -1293,10 +1295,12 @@ static int smsc95xx_enter_suspend1(struct usbnet *dev)
- 	val |= (PM_CTL_WUPS_ED_ | PM_CTL_ED_EN_);
- 
- 	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
-+	if (ret < 0)
-+		return ret;
- 
- 	pdata->suspend_flags |= SUSPEND_SUSPEND1;
- 
--	return ret;
-+	return 0;
- }
- 
- static int smsc95xx_enter_suspend2(struct usbnet *dev)
-@@ -1313,10 +1317,12 @@ static int smsc95xx_enter_suspend2(struct usbnet *dev)
- 	val |= PM_CTL_SUS_MODE_2;
- 
- 	ret = smsc95xx_write_reg_nopm(dev, PM_CTRL, val);
-+	if (ret < 0)
-+		return ret;
- 
- 	pdata->suspend_flags |= SUSPEND_SUSPEND2;
- 
--	return ret;
-+	return 0;
- }
- 
- static int smsc95xx_enter_suspend3(struct usbnet *dev)
+-	if (message.event == PM_EVENT_AUTO_SUSPEND) {
++	if (message.event == PM_EVENT_AUTO_SUSPEND &&
++	    (pdata->features & FEATURE_AUTOSUSPEND)) {
+ 		ret = smsc95xx_autosuspend(dev, link_up);
+ 		goto done;
+ 	}
 -- 
 1.7.9.5
