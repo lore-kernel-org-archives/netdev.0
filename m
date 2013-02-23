@@ -1,55 +1,40 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2/2] vlan: adjust vlan_set_encap_proto() for its callers
-Date: Fri, 22 Feb 2013 17:05:01 -0800
-Message-ID: <CAEP_g=_eWXuR_3zUYsbBiAjaCJQjRpSmUypqpJe5_jwN=rmM0Q@mail.gmail.com>
-References: <1361525547-21808-1-git-send-email-amwang@redhat.com> <1361525547-21808-2-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+From: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+Subject: [PATCH] mlx4_en: fix allocation of device tx_cq
+Date: Fri, 22 Feb 2013 21:58:02 -0300
+Message-ID: <1361581082-5583-1-git-send-email-klebers@linux.vnet.ibm.com>
+Cc: Amir Vadai <amirv@mellanox.com>, netdev@vger.kernel.org,
+	Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:47368 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754922Ab3BWBFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 20:05:22 -0500
-Received: by mail-oa0-f72.google.com with SMTP id j6so6232534oag.11
-        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 17:05:21 -0800 (PST)
-In-Reply-To: <1361525547-21808-2-git-send-email-amwang@redhat.com>
+Received: from bb40dc42.virtua.com.br ([187.64.220.66]:42162 "EHLO
+	oc3234564620.ibm.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754922Ab3BWBFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 20:05:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 22, 2013 at 1:32 AM, Cong Wang <amwang@redhat.com> wrote:
-> From: Cong Wang <amwang@redhat.com>
->
-> There are two places to call vlan_set_encap_proto():
-> vlan_untag() and __pop_vlan_tci().
->
-> vlan_untag() assumes skb->data points after mac addr, otherwise
-> the following code
->
->         vhdr = (struct vlan_hdr *) skb->data;
->         vlan_tci = ntohs(vhdr->h_vlan_TCI);
->         __vlan_hwaccel_put_tag(skb, vlan_tci);
->
->         skb_pull_rcsum(skb, VLAN_HLEN);
->
-> won't be correct. But __pop_vlan_tci() assumes points _before_
-> mac addr.
->
-> In vlan_set_encap_proto(), it looks for some magic L2 value
-> after mac addr:
->
->         rawp = skb->data;
->         if (*(unsigned short *) rawp == 0xFFFF)
->         ...
->
-> Therefore __pop_vlan_tci() is obviously wrong.
->
-> A quick fix is avoiding using skb->data in vlan_set_encap_proto(),
-> use 'vhdr+1' is always correct in both cases.
->
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Jesse Gross <jesse@nicira.com>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+The memory to hold the network device tx_cq is not being allocated with
+the correct size in mlx4_en_init_netdev(). It should use MAX_TX_RINGS
+instead of MAX_RX_RINGS. This can cause problems if the number of tx
+rings being used is greater than MAX_RX_RINGS.
 
-Acked-by: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Kleber Sacilotto de Souza <klebers@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 5088dc5..5944dd6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2067,7 +2067,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 		err = -ENOMEM;
+ 		goto out;
+ 	}
+-	priv->tx_cq = kzalloc(sizeof(struct mlx4_en_cq) * MAX_RX_RINGS,
++	priv->tx_cq = kzalloc(sizeof(struct mlx4_en_cq) * MAX_TX_RINGS,
+ 			      GFP_KERNEL);
+ 	if (!priv->tx_cq) {
+ 		err = -ENOMEM;
+-- 
+1.7.1
