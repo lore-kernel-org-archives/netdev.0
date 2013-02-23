@@ -1,73 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Fw: [Bug 54231] r8169 driver regression caused by the commit aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
-Date: Sat, 23 Feb 2013 00:09:08 +0100
-Message-ID: <20130222230908.GB4248@electric-eye.fr.zoreil.com>
-References: <20130222095546.396e63a8@nehalam.linuxnetplumber.net>
+From: Petri Gynther <petri.gynther@gmail.com>
+Subject: How to hairpin two Ethernet interfaces together (L2 hub/repeater mode)?
+Date: Fri, 22 Feb 2013 16:10:54 -0800
+Message-ID: <CAKuTDr_eC4Wrv=uGthGJk3Zps=fnyAxpqqmsSDau7ZLs4PGyZw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, tomimo@ncircle.nullnet.fi
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:36105 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756412Ab3BVXlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 18:41:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20130222095546.396e63a8@nehalam.linuxnetplumber.net>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:57409 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755239Ab3BWAKz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 19:10:55 -0500
+Received: by mail-ie0-f169.google.com with SMTP id 13so1452203iea.0
+        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 16:10:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> :
-[...]
-> https://bugzilla.kernel.org/show_bug.cgi?id=54231
-> 
-> --- Comment #1 from Tomi Orava <tomimo@ncircle.nullnet.fi>  2013-02-22 16:40:49 ---
-> Although the r8169 has been working just fine on 3.4.31 for the past 5 days, it
-> seems that I missed the second DMA Burst setting in the previous patch that
-> should get fixed as well:
-[...]
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -4406,8 +4407,14 @@ static void rtl_set_rx_tx_config_registers(struct
-> rtl8169_private *tp)
->      void __iomem *ioaddr = tp->mmio_addr;
-> 
->      /* Set DMA burst size and Interframe Gap Time */
-> -    RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-> -        (InterFrameGap << TxInterFrameGapShift));
-> +
-> +    if (tp->mac_version == RTL_GIGA_MAC_VER_11) {
-> +        RTL_W32(TxConfig, (TX_DMA_BURST_512 << TxDMAShift) |
-> +            (InterFrameGap << TxInterFrameGapShift));
-> +    } else {
-> +        RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-> +            (InterFrameGap << TxInterFrameGapShift));
-> +    }
->  }
+Hi netdev:
 
-This one should not be used in the (RTL_CFG_1) 8168 / RTL_GIGA_MAC_VER_11
-path.
+I'd like to hairpin two Ethernet interfaces together (e.g. eth0 and
+eth1) so that any frame received on eth0 is forwarded as-is to eth1
+and vice versa.
 
-Tomi, what does lspci say about your 8168b device ?
+Does Linux networking code support this? I've looked at the bridging
+code, but it doesn't seem to do this (at least trivially).
+Specifically, when eth0 and eth1 are added to bridge, unicast frames
+destined to eth0 (or eth1) MAC address end up to the bridge interface
+for local consumption, rather than being flooded to other ports on the
+bridge.
 
->  static void rtl_hw_start(struct net_device *dev)
-> @@ -5148,8 +5155,13 @@ static void rtl_hw_start_8168(struct net_device *dev)
-> 
->      rtl_set_rx_mode(dev);
-> 
-> -    RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-> -        (InterFrameGap << TxInterFrameGapShift));
-> +    if (tp->mac_version == RTL_GIGA_MAC_VER_11) {
-> +        RTL_W32(TxConfig, (TX_DMA_BURST_512 << TxDMAShift) |
-> +            (InterFrameGap << TxInterFrameGapShift));
-> +    } else {
-> +        RTL_W32(TxConfig, (TX_DMA_BURST << TxDMAShift) |
-> +            (InterFrameGap << TxInterFrameGapShift));
-> +    }
-
-	RTL_W32(TxConfig, (InterFrameGap << TxInterFrameGapShift) |
-		(((tp->mac_version == RTL_GIGA_MAC_VER_11) ?
-		 TX_DMA_BURST_512 : TX_DMA_BURST) << TxDMAShift));
-
--- 
-Ueimor
+Any trivial solutions to this? Can Linux bridge be configured in L2
+hub/repeater mode so that it simply floods every Rx frame to all other
+ports of the bridge?
