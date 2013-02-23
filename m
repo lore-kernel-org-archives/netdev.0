@@ -1,33 +1,66 @@
-From: Petri Gynther <petri.gynther@gmail.com>
-Subject: How to hairpin two Ethernet interfaces together (L2 hub/repeater mode)?
-Date: Fri, 22 Feb 2013 16:10:54 -0800
-Message-ID: <CAKuTDr_eC4Wrv=uGthGJk3Zps=fnyAxpqqmsSDau7ZLs4PGyZw@mail.gmail.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: AF_VSOCK and the LSMs
+Date: Fri, 22 Feb 2013 19:27:25 -0500
+Message-ID: <2331260.82H25I6ITJ@sifl>
+References: <1803195.0cVPJuGAEx@sifl> <888679886.3769933.1361573683299.JavaMail.root@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:57409 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755239Ab3BWAKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 22 Feb 2013 19:10:55 -0500
-Received: by mail-ie0-f169.google.com with SMTP id 13so1452203iea.0
-        for <netdev@vger.kernel.org>; Fri, 22 Feb 2013 16:10:54 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, Gerd Hoffmann <kraxel@redhat.com>,
+	Eric Paris <eparis@redhat.com>
+To: Andy King <acking@vmware.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <888679886.3769933.1361573683299.JavaMail.root@vmware.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi netdev:
+On Friday, February 22, 2013 02:54:43 PM Andy King wrote:
+> Hi Paul,
+> 
+> > to see if anyone had any strong feelings on this approach (either good or
+> > bad).  Here is what I am proposing, and currently working on ...
+> > 
+> > * Add a LSM secid/blob to the vmci_datagram struct
+> 
+> I think perhaps this is the wrong layer at which to embed this.  Think
+> of that structure as an ethernet header, with VMCI being ethernet; it's
+> what the device (and the hypervisor and peer) understand.  So this
+> really cannot be changed.
 
-I'd like to hairpin two Ethernet interfaces together (e.g. eth0 and
-eth1) so that any frame received on eth0 is forwarded as-is to eth1
-and vice versa.
+Hmmm, so can VMware/VMCI-enabled guests send vmci_datagram packets directly 
+into the kernel?  It isn't wrapped by things like AF_VSOCK?  If that is the 
+case, then yes, we'll probably need to add a thin wrapper struct to carry the 
+security label; similar to the control packets but not quite, as we have data 
+to deal with unlike the control packets.  However, if vmci_datagram is an 
+internal only structure, why not add the extra field?
 
-Does Linux networking code support this? I've looked at the bridging
-code, but it doesn't seem to do this (at least trivially).
-Specifically, when eth0 and eth1 are added to bridge, unicast frames
-destined to eth0 (or eth1) MAC address end up to the bridge interface
-for local consumption, rather than being flooded to other ports on the
-bridge.
+Either way, we should be able to work around this, it would just be cleaner if 
+we could add it to the datagram directly.
 
-Any trivial solutions to this? Can Linux bridge be configured in L2
-hub/repeater mode so that it simply floods every Rx frame to all other
-ports of the bridge?
+> It's also not entirely clear to me how this will work in a heterogeneous
+> environments.  What if there's a Linux guest running on a Windows host,
+> or vice-versa?
+
+I maybe missing something here, but VMCI never leaves the physical host system 
+correct?  It doesn't get tunneled over some external network does it?
+
+Assuming it stays on the physical host system then we don't really care about 
+a Windows host in this context do we?  From a guests point of view it doesn't 
+really matter, the kernel handles all of the labeling and access control; the 
+guests create their AF_VSOCKS as they normally would.
+
+> I'll take a closer read at the rest of your mail, but I think we need to
+> address the above first.
+
+I think there is some confusion about VMCI - which is almost surely on my end 
+- and what I'm trying to accomplish with the labeling, perhaps by answering 
+the above questions you can help me gain a better understanding and we can 
+sort things out.
+
+Thanks.
+
+-- 
+paul moore
+security and virtualization @ redhat
+
