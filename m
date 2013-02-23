@@ -1,64 +1,73 @@
 From: Paul Moore <pmoore@redhat.com>
 Subject: Re: AF_VSOCK and the LSMs
-Date: Fri, 22 Feb 2013 19:27:25 -0500
-Message-ID: <2331260.82H25I6ITJ@sifl>
-References: <1803195.0cVPJuGAEx@sifl> <888679886.3769933.1361573683299.JavaMail.root@vmware.com>
+Date: Fri, 22 Feb 2013 19:45:54 -0500
+Message-ID: <1968537.V0Fsdryuo8@sifl>
+References: <1803195.0cVPJuGAEx@sifl> <5127F874.1050907@schaufler-ca.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
 Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, Gerd Hoffmann <kraxel@redhat.com>,
+	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
+	Gerd Hoffmann <kraxel@redhat.com>,
 	Eric Paris <eparis@redhat.com>
-To: Andy King <acking@vmware.com>
+To: Casey Schaufler <casey@schaufler-ca.com>
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <888679886.3769933.1361573683299.JavaMail.root@vmware.com>
+In-Reply-To: <5127F874.1050907@schaufler-ca.com>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, February 22, 2013 02:54:43 PM Andy King wrote:
-> Hi Paul,
+On Friday, February 22, 2013 03:00:04 PM Casey Schaufler wrote:
+> Please add an LSM blob. Please do not use a secid. I am currently
+> battling with secids in my efforts for multiple LSM support.
+>
+> ...
 > 
-> > to see if anyone had any strong feelings on this approach (either good or
-> > bad).  Here is what I am proposing, and currently working on ...
-> > 
-> > * Add a LSM secid/blob to the vmci_datagram struct
-> 
-> I think perhaps this is the wrong layer at which to embed this.  Think
-> of that structure as an ethernet header, with VMCI being ethernet; it's
-> what the device (and the hypervisor and peer) understand.  So this
-> really cannot be changed.
+> I am going to be able to deal with secids for AF_INET only because
+> SELinux prefers XFRM, Smack requires CIPSO, and AppArmor is going to
+> be willing to have networking be optional.
 
-Hmmm, so can VMware/VMCI-enabled guests send vmci_datagram packets directly 
-into the kernel?  It isn't wrapped by things like AF_VSOCK?  If that is the 
-case, then yes, we'll probably need to add a thin wrapper struct to carry the 
-security label; similar to the control packets but not quite, as we have data 
-to deal with unlike the control packets.  However, if vmci_datagram is an 
-internal only structure, why not add the extra field?
+"prefers"?  Really Casey, did you think I would let you get away with that 
+statement?  What a LSM "prefers" is really not relevant to the stacking 
+effort, what a LSM _supports_ is what matters.
 
-Either way, we should be able to work around this, it would just be cleaner if 
-we could add it to the datagram directly.
+SELinux _supports_ NetLabel (CIPSO, etc.), XFRM (labeled IPsec), and secmark.
 
-> It's also not entirely clear to me how this will work in a heterogeneous
-> environments.  What if there's a Linux guest running on a Windows host,
-> or vice-versa?
+Smack _supports_ NetLabel (CIPSO).
 
-I maybe missing something here, but VMCI never leaves the physical host system 
-correct?  It doesn't get tunneled over some external network does it?
+AppArmor and TOMOYO don't really do any of the forms of labeled networking 
+that are relevant for this discussion.  If you are going to do stacking with 
+LSMs that conflict when it comes to what they _support_, not what they 
+_prefer_, with labeled networking then you are either going to have to either:
 
-Assuming it stays on the physical host system then we don't really care about 
-a Windows host in this context do we?  From a guests point of view it doesn't 
-really matter, the kernel handles all of the labeling and access control; the 
-guests create their AF_VSOCKS as they normally would.
+1. Selectively remove support from all but one of the LSMs. (ungh ...)
+2. Convince netdev to give you a blob in the sk_buff. (the pigs are flying!)
+3. Work some sub-system dependent magic.
 
-> I'll take a closer read at the rest of your mail, but I think we need to
-> address the above first.
+If you want to try option #3 I think we might be able to do something with 
+NetLabel to support multiple LSMs as the label abstraction stuff should 
+theoretically make this possible; although the NetLabel cache will need some 
+work.  Labeled IPsec is likely out due to the way it was designed unless you 
+want to attempt to negotiate two labels during the IKE exchange (yuck).  I 
+think we can also rule out secmark as multi-LSM enabled due to the limitations 
+on a 32 bit integer.
 
-I think there is some confusion about VMCI - which is almost surely on my end 
-- and what I'm trying to accomplish with the labeling, perhaps by answering 
-the above questions you can help me gain a better understanding and we can 
-sort things out.
+If you want to talk about this further let me know - I think we've talked 
+about this at the past two security summits - but don't attempt to gloss over 
+details with this "prefers" crap.
 
-Thanks.
+> If you have two LSMs that use secids you are never going to have a
+> rational way to get the information for both into one secid.
+
+Exactly, I don't disagree which is why I've always said that networking was 
+going to be a major problem for the stacked LSM effort.  Unfortunately it 
+sounds like you haven't yet made any serious effort into resolving that 
+problem other than saying "don't do that".
+
+Now, circling back to the issue of secid/blob in the AF_VSOCK/VMCI context ... 
+based on Andy's email I think I'm still missing some critical bit of 
+understanding regarding how VMCI is used so let's punt on this for a moment; 
+however, your preference for a blob is noted (you also remember that I prefer 
+blobs when they make sense, reference a lot of our earlier discussions).
 
 -- 
 paul moore
