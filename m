@@ -1,71 +1,59 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: Disable IPv4-mapped - enforce IPV6_V6ONLY
-Date: Sat, 23 Feb 2013 21:44:27 +0100
-Message-ID: <51292A2B.3000304@ahsoftware.de>
-References: <51278CF6.2060402@ahsoftware.de>
+From: Rob Landley <rob@landley.net>
+Subject: Re: [PATCH v2 0/5] Generic PHY Framework
+Date: Sat, 23 Feb 2013 14:05:42 -0600
+Message-ID: <1361649942.11282.13@driftwood>
+References: <20130219150500.GG4390@arwen.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: Arnd Bergmann <arnd@arndb.de>, balbi@ti.com,
+	kishon <kishon@ti.com>, tony@atomide.com, linux@arm.linux.org.uk,
+	eballetbo@gmail.com, javier@dowhile0.org,
+	gregkh@linuxfoundation.org, akpm@linux-foundation.org,
+	mchehab@redhat.com, cesarb@cesarb.net, davem@davemloft.net,
+	santosh.shilimkar@ti.com, broonie@opensource.wolfsonmicro.com,
+	swarren@nvidia.com, linux-doc@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-omap@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org
+To: balbi@ti.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51278CF6.2060402@ahsoftware.de>
+In-Reply-To: <20130219150500.GG4390@arwen.pp.htv.fi> (from balbi@ti.com on
+	Tue Feb 19 09:05:00 2013)
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 22.02.2013 16:21, schrieb Alexander Holler:
-> Hello,
->
-> I'm searching for a way to either enforce IPV6_V6ONLY or to block
-> IPv4-mapped addresses on ipv6-sockets (e.g. by using iptables) system-wide.
->
-> E.g. net.ipv6.bindv6only doesn't help if something calls
->
-> int v6on = 0;
-> setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on))
->
-> In such a case I still want to disable or block IPv4-mapped addresses on
-> that socket, even if the program thinks it nows it better.
->
-> Until now I haven't found a solution.
+On 02/19/2013 09:05:00 AM, Felipe Balbi wrote:
+> Greg, can you pitch your suggestion here ? It would be great to hear
+> your rationale behind dropping class infrastructure, couldn't find
+> anything through Google and since feature-removal-schedule.txt has  
+> been
+> removed (without adding it to feature-removal-schedule.txt, I must add
+> :-) I don't know what's the idea behind removing classes.
 
-I've now done it by the following hack:
+I actually went through and poked a couple of people about old entries  
+in feature-removal-shedule.txt last year, but I haven't been very  
+active since the kernel.org breakin because my account got disabled,  
+and I needed to meet kernel developers in person to get keys signed to  
+get it switched back on (or set up a separate git tree with signed  
+commits -next could pull from).
 
------------
-diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index d1e2e8e..9eefd3e 100644
---- a/net/ipv6/ipv6_sockglue.c
-+++ b/net/ipv6/ipv6_sockglue.c
-@@ -235,7 +235,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int 
-level, int optname,
-                 if (optlen < sizeof(int) ||
-                     inet_sk(sk)->inet_num)
-                         goto e_inval;
--               np->ipv6only = valbool;
-+               np->ipv6only = valbool || net->ipv6.sysctl.bindv6only;
-                 retv = 0;
-                 break;
------------
+I don't get out much; as a consultant I have to take time off from work  
+and pay for my own travel and lodging. So I've been to exactly two  
+conferences in the past 3 years: last year's Texas Linux Fest (my house  
+got broken into and a netbook with the key on it stolen the following  
+wednesday), and CELF (which I'm on the plane back from now, Greg KH  
+signed my key! Woo!).
 
-A proper solution would be to either return false if net.ipv6.bindv6only 
-is true and optval is false (which would break downward compatibility 
-because it wouldn't just be a default and setsockopt might return an 
-error) or to introduce a new sysctl variable like 
-net.ipv6.bindv6only_enforced_silently. ("silently" because setsockopt() 
-wouldn't return an error if net.ipv6.bindv6only is true and optval 
-(v6only in the example above) is false.)
+If I can use that to get my account back, set up a tree feeding into  
+linux-next, and maybe even recover the ability to update  
+http://kernel.org/doc, I'd happily field some sort of  
+feature-removal-schedule list and make sure it stays current. (Linus  
+didn't ask me about removing the old one, I found out about it from the  
+git log. But I can't blame him, I haven't exactly been tearing through  
+the bureaucracy to get my access back. "Volunteer work" and "painful"  
+tend not to combine well on my todo list in terms of scheduling  
+priority...)
 
-I would volunteer to write a patch which introduces something like 
-net.ipv6.bindv6only_enforced_silently if some maintainer would give me 
-his ok.
-
-If so, the question remains if
-
-systemctl net.ipv6.bindv6only_enforced_silently = 1
-
-should set systemctl.net.ipv6.bindv6only too or if an error should be 
-returned if net.ipv6.bindv6only is false.
-
-Regards,
-
-Alexander
+Rob
