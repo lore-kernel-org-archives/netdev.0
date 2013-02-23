@@ -1,26 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vxlan: remove depends on CONFIG_EXPERIMENTAL
-Date: Sat, 23 Feb 2013 13:54:39 -0500 (EST)
-Message-ID: <20130223.135439.1188316565117960228.davem@davemloft.net>
-References: <20130223072538.GA4770@www.outflux.net>
+Subject: Re: [PATCH 0/2] net: sock_diag fixes
+Date: Sat, 23 Feb 2013 13:54:52 -0500 (EST)
+Message-ID: <20130223.135452.1786757508965940073.davem@davemloft.net>
+References: <1361618028-9024-1-git-send-email-minipli@googlemail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, shemminger@vyatta.com,
-	gregkh@linuxfoundation.org, netdev@vger.kernel.org
-To: keescook@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130223072538.GA4770@www.outflux.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: minipli@googlemail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56959 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755298Ab3BWSyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2013 13:54:54 -0500
+In-Reply-To: <1361618028-9024-1-git-send-email-minipli@googlemail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 22 Feb 2013 23:25:38 -0800
+From: Mathias Krause <minipli@googlemail.com>
+Date: Sat, 23 Feb 2013 12:13:46 +0100
 
-> The CONFIG_EXPERIMENTAL config item has not carried much meaning for a
-> while now and is almost always enabled by default. As agreed during the
-> Linux kernel summit, remove it from any "depends on" lines in Kconfigs.
+> Hi Dave,
 > 
-> Signed-off-by: Kees Cook <keescook@chromium.org>
+> this small series fixes an exploitable bug in sock_diag. An unprivileged
+> user can send us a netlink message resulting in an out-of-bounds access
+> that allows userland to take over control while in kernel mode.
+> 
+> The first patch fixes the bug and should be pushed to stable. The second
+> one is an attempt to cleanup the sock_diag_handlers[] access mess in
+> __sock_diag_rcv_msg.
+> 
+> Please apply!
 
-Applied.
+Series applied, thanks.
