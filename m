@@ -1,64 +1,43 @@
 From: Syam Sidhardhan <syamsidhardh@gmail.com>
-Subject: [PATCH] net/pasemi: Fix missing coding style
-Date: Mon, 25 Feb 2013 04:31:19 +0530
-Message-ID: <1361746879-29261-1-git-send-email-s.syam@samsung.com>
-Cc: syamsidhardh@gmail.com, olof@lixom.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f49.google.com ([209.85.210.49]:51152 "EHLO
-	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751763Ab3BXXBd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 18:01:33 -0500
-Received: by mail-da0-f49.google.com with SMTP id t11so238488daj.8
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 15:01:32 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH] s3c-adc-battery: Fix possible NULL pointer dereference
+Date: Mon, 25 Feb 2013 04:33:25 +0530
+Message-ID: <1361747005-29306-1-git-send-email-s.syam@samsung.com>
+Cc: syamsidhardh@gmail.com, dwmw2@infradead.org, cbou@mail.ru
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix missing () & { }
+Check for (bat == NULL) has to be done before accessing bat
 
 Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
 ---
- drivers/net/ethernet/pasemi/pasemi_mac.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ drivers/power/s3c_adc_battery.c |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
-index 0be5844..b1cfbb7 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac.c
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
-@@ -579,8 +579,9 @@ static void pasemi_mac_free_tx_resources(struct pasemi_mac *mac)
- 						(TX_RING_SIZE-1)].dma;
- 			freed = pasemi_mac_unmap_tx_skb(mac, nfrags,
- 							info->skb, dmas);
--		} else
-+		} else {
- 			freed = 2;
-+		}
+diff --git a/drivers/power/s3c_adc_battery.c b/drivers/power/s3c_adc_battery.c
+index d2ca989..5948ce0 100644
+--- a/drivers/power/s3c_adc_battery.c
++++ b/drivers/power/s3c_adc_battery.c
+@@ -145,14 +145,17 @@ static int s3c_adc_bat_get_property(struct power_supply *psy,
+ 
+ 	int new_level;
+ 	int full_volt;
+-	const struct s3c_adc_bat_thresh *lut = bat->pdata->lut_noac;
+-	unsigned int lut_size = bat->pdata->lut_noac_cnt;
++	const struct s3c_adc_bat_thresh *lut;
++	unsigned int lut_size;
+ 
+ 	if (!bat) {
+ 		dev_err(psy->dev, "no battery infos ?!\n");
+ 		return -EINVAL;
  	}
  
- 	kfree(txring->ring_info);
-@@ -808,8 +809,9 @@ static int pasemi_mac_clean_rx(struct pasemi_mac_rxring *rx,
- 			skb->ip_summed = CHECKSUM_UNNECESSARY;
- 			skb->csum = (macrx & XCT_MACRX_CSUM_M) >>
- 					   XCT_MACRX_CSUM_S;
--		} else
-+		} else {
- 			skb_checksum_none_assert(skb);
-+		}
- 
- 		packets++;
- 		tot_bytes += len;
-@@ -1829,10 +1831,11 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		dev_err(&mac->pdev->dev, "register_netdev failed with error %d\n",
- 			err);
- 		goto out;
--	} else if netif_msg_probe(mac)
-+	} else if (netif_msg_probe(mac)) {
- 		printk(KERN_INFO "%s: PA Semi %s: intf %d, hw addr %pM\n",
- 		       dev->name, mac->type == MAC_TYPE_GMAC ? "GMAC" : "XAUI",
- 		       mac->dma_if, dev->dev_addr);
-+	}
- 
- 	return err;
- 
++	lut = bat->pdata->lut_noac;
++	lut_size = bat->pdata->lut_noac_cnt;
++
+ 	if (bat->volt_value < 0 || bat->cur_value < 0 ||
+ 		jiffies_to_msecs(jiffies - bat->timestamp) >
+ 			BAT_POLL_INTERVAL) {
 -- 
 1.7.9.5
