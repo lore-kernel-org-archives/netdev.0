@@ -1,58 +1,62 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: Re: Gianfar breaks one of my test configs
-Date: Sun, 24 Feb 2013 10:05:17 -0500
-Message-ID: <CAP=VYLpjNHkYZL0aJXFshQ0fZY9yGpKN-8qhCzHARmKx=S9jFA@mail.gmail.com>
-References: <1361717023.16950.12.camel@pasglop>
+From: Tomi Orava <tomimo@ncircle.nullnet.fi>
+Subject: Re: Fw: [Bug 54231] r8169 driver regression caused by the commit
+ aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
+Date: Sun, 24 Feb 2013 17:03:12 +0200
+Message-ID: <512A2BB0.9050803@ncircle.nullnet.fi>
+References: <20130222095546.396e63a8@nehalam.linuxnetplumber.net> <20130222230908.GB4248@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jianhua Xie <jianhua.xie@freescale.com>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, claudiu.manoil@freescale.com
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:48406 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757434Ab3BXPFt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 10:05:49 -0500
-Received: by mail-wi0-f169.google.com with SMTP id l13so3723292wie.2
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 07:05:48 -0800 (PST)
-In-Reply-To: <1361717023.16950.12.camel@pasglop>
+Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:36627 "EHLO
+	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757922Ab3BXPJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 10:09:49 -0500
+In-Reply-To: <20130222230908.GB4248@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 24, 2013 at 9:43 AM, Benjamin Herrenschmidt
-<benh@kernel.crashing.org> wrote:
-> Hi folks !
->
-> Current Linus tree as of this morning fails to build with one of my
-> (semi-random) test configs (attached):
->
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c: In function 'gfar_netpoll':
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2909:32: error: 'struct gfar_priv_grp' has no member named 'interruptTransmit'
+On 02/23/2013 01:09 AM, Francois Romieu wrote:
+> Stephen Hemminger <stephen@networkplumber.org> :
+> [...]
+>> https://bugzilla.kernel.org/show_bug.cgi?id=54231
+> This one should not be used in the (RTL_CFG_1) 8168 / RTL_GIGA_MAC_VER_11
+> path.
 
-I see the problem - it wasn't tested with NET_POLL.   I'll have a fix
-out shortly.
+I started re-testing after your comment and figured out that the
+real problem seems to lie somehow with jumbo frames. Ie. the DMA burst
+changes do not actually prevent the hangs at all in my case. The
+catch here, that I missed previously, was that for some interesting
+reason the NIC will fail in a couple of minutes with a suitable traffic
+if the jumbo frames (mtu 4000) have been enabled from the start.
+However, if I enable the jumbo frames manually after the system
+has already started up, there are no stability issues related to network.
 
-Thanks,
-Paul.
---
+I ran my tests again with unmodified 3.7.9 kernel and got the
+same results as with the 3.4.31 version.
 
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2910:32: error: 'struct gfar_priv_grp' has no member named 'interruptReceive'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2911:32: error: 'struct gfar_priv_grp' has no member named 'interruptError'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2912:35: error: 'struct gfar_priv_grp' has no member named 'interruptTransmit'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2914:31: error: 'struct gfar_priv_grp' has no member named 'interruptError'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2915:31: error: 'struct gfar_priv_grp' has no member named 'interruptReceive'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2916:31: error: 'struct gfar_priv_grp' has no member named 'interruptTransmit'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2920:32: error: 'struct gfar_priv_grp' has no member named 'interruptTransmit'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2921:35: error: 'struct gfar_priv_grp' has no member named 'interruptTransmit'
-> /home/benh/linux-powerpc-test/drivers/net/ethernet/freescale/gianfar.c:2923:31: error: 'struct gfar_priv_grp' has no member named 'interruptTransmit'
-> make[5]: *** [drivers/net/ethernet/freescale/gianfar.o] Error 1
-> make[5]: *** Waiting for unfinished jobs....
->
-> Cheers,
-> Ben.
->
->
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@lists.ozlabs.org
-> https://lists.ozlabs.org/listinfo/linuxppc-dev
+> 
+> Tomi, what does lspci say about your 8168b device ?
+
+The NIC information is:
+
+03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
+Express Gigabit Ethernet controller (rev 01)
+
+03:00.0 0200: 10ec:8168 (rev 01)
+    Subsystem: 1043:8385
+    Flags: bus master, fast devsel, latency 0, IRQ 40
+    I/O ports at e800 [size=256]
+    Memory at febff000 (64-bit, non-prefetchable) [size=4K]
+    Expansion ROM at febc0000 [disabled] [size=128K]
+    Capabilities: [40] Power Management version 2
+    Capabilities: [48] Vital Product Data
+    Capabilities: [50] MSI: Enable+ Count=1/2 Maskable- 64bit+
+    Capabilities: [60] Express Endpoint, MSI 00
+    Capabilities: [84] Vendor Specific Information: Len=4c <?>
+    Kernel driver in use: r8169
+
+Tomi
