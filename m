@@ -1,61 +1,113 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] vlan: adjust vlan_set_encap_proto() for its callers
-Date: Sat, 23 Feb 2013 21:01:01 -0500 (EST)
-Message-ID: <20130223.210101.591221456276487742.davem@davemloft.net>
-References: <1361525547-21808-1-git-send-email-amwang@redhat.com>
-	<1361525547-21808-2-git-send-email-amwang@redhat.com>
-	<CAEP_g=_eWXuR_3zUYsbBiAjaCJQjRpSmUypqpJe5_jwN=rmM0Q@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Fw: [Bug 54281] New: kernel NULL pointer dereference on
+ deleting a vlan interface
+Date: Sun, 24 Feb 2013 04:01:07 +0000 (UTC)
+Message-ID: <kgc3a2$2k1$1@ger.gmane.org>
+References: <20130223072603.594c45e1@samsung-9>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org
-To: jesse@nicira.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60210 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759379Ab3BXCBG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 23 Feb 2013 21:01:06 -0500
-In-Reply-To: <CAEP_g=_eWXuR_3zUYsbBiAjaCJQjRpSmUypqpJe5_jwN=rmM0Q@mail.gmail.com>
+Received: from plane.gmane.org ([80.91.229.3]:53864 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758970Ab3BXEBc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 23 Feb 2013 23:01:32 -0500
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1U9SmX-0001fX-J6
+	for netdev@vger.kernel.org; Sun, 24 Feb 2013 05:01:45 +0100
+Received: from 14.205.10.47 ([14.205.10.47])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 05:01:45 +0100
+Received: from xiyou.wangcong by 14.205.10.47 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 05:01:45 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Fri, 22 Feb 2013 17:05:01 -0800
+On Sat, 23 Feb 2013 at 15:26 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> # ip link  del em1.57
+> BUG: unable to handle kernel NULL pointer dereference at (null)
+> IP: [<ffffffffa03c356f>] garp_uninit_applicant+0x2f/0xd0 [garp]
+> PGD 47ce2f1067 PUD 47cbc15067 PMD 0 
+> Oops: 0000 [#1] SMP 
+> last sysfs file: /sys/devices/system/cpu/cpu23/cache/index2/shared_cpu_map
+> CPU 15 
+> Modules linked in: bridge xt_comment ipt_LOG xt_limit fuse bonding 8021q garp
+> stp llc ipt_REJECT nf_conntrack_ipv4 nf_defrag_ipv4 iptable_filter ip_tables
+> ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 xt_state nf_conntrack
+> ip6table_filter ip6_tables ipv6 xfs exportfs power_meter dcdbas microcode
+> sb_edac edac_core iTCO_wdt iTCO_vendor_support shpchp sg tg3 ext4 mbcache jbd2
+> sr_mod cdrom sd_mod crc_t10dif ahci wmi megaraid_sas dm_mirror dm_region_hash
+> dm_log dm_mod [last unloaded: speedstep_lib]
+>
+> Pid: 27564, comm: ip Not tainted 2.6.32-279.el6.x86_64 #1 Dell Inc. PowerEdge
+> R720/0VWT90
+> RIP: 0010:[<ffffffffa03c356f>]  [<ffffffffa03c356f>]
+> garp_uninit_applicant+0x2f/0xd0 [garp]
+> RSP: 0018:ffff8847ce2e38a8  EFLAGS: 00010282
+> RAX: 0000000000000000 RBX: ffff8823cdc8e020 RCX: ffff8847cc6c0080
+> RDX: ffffffff81b12200 RSI: ffffffffa03cfa20 RDI: ffff8823cdc8e020
+> RBP: ffff8847ce2e38c8 R08: ffffffff81b12200 R09: 00000000ffffffff
+> R10: 0000000000000000 R11: 0000000000000000 R12: ffff8823cdc8e020
+> R13: ffffffffa03cfa20 R14: 0000000000000000 R15: ffff8823cdab26c0
+> FS:  00007fe26eef1700(0000) GS:ffff8824aece0000(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> CR2: 0000000000000000 CR3: 00000047cce94000 CR4: 00000000000406e0
+> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+> Process ip (pid: 27564, threadinfo ffff8847ce2e2000, task ffff8847cc6c0080)
+> Stack:
+>  ffff8823cdc8e020 0000000000000039 ffff8847cf7b4020 ffffffffa0141d80
+><d> ffff8847ce2e38d8 ffffffffa03ce085 ffff8847ce2e3918 ffffffffa03cb420
+><d> 00000000ffffffa6 ffffffff8200cec0 ffff8847cc914810 0000000000000001
+> Call Trace:
+>  [<ffffffffa03ce085>] vlan_gvrp_uninit_applicant+0x15/0x20 [8021q]
+>  [<ffffffffa03cb420>] unregister_vlan_dev+0xf0/0x190 [8021q]
+>  [<ffffffff81448ae0>] rtnl_dellink+0xd0/0x110
+>  [<ffffffff81448837>] rtnetlink_rcv_msg+0x177/0x290
+>  [<ffffffff814486c0>] ? rtnetlink_rcv_msg+0x0/0x290
+>  [<ffffffff81463df9>] netlink_rcv_skb+0xa9/0xd0
+>  [<ffffffff814486a5>] rtnetlink_rcv+0x25/0x40
+>  [<ffffffff81463a56>] netlink_unicast+0x2e6/0x300
+>  [<ffffffff814643e0>] netlink_sendmsg+0x200/0x2e0
+>  [<ffffffff81428003>] sock_sendmsg+0x123/0x150
+>  [<ffffffff810920d0>] ? autoremove_wake_function+0x0/0x40
+>  [<ffffffff81427c24>] ? move_addr_to_kernel+0x64/0x70
+>  [<ffffffff81429b56>] __sys_sendmsg+0x406/0x420
+>  [<ffffffff8104452c>] ? __do_page_fault+0x1ec/0x480
+>  [<ffffffff8114328b>] ? vma_link+0x9b/0xf0
+>  [<ffffffff811453bc>] ? do_brk+0x26c/0x350
+>  [<ffffffff81429d79>] sys_sendmsg+0x49/0x90
+>  [<ffffffff8100b0f2>] system_call_fastpath+0x16/0x1b
+> Code: 48 83 ec 20 48 89 1c 24 4c 89 64 24 08 4c 89 6c 24 10 4c 89 74 24 18 0f
+> 1f 44 00 00 8b 06 4c 8b b7 28 04 00 00 49 89 fc 49 89 f5 <49> 8b 1c c6 e8 38 46
+> 08 e1 85 c0 74 6f 41 8b 45 00 49 c7 04 c6 
+> RIP  [<ffffffffa03c356f>] garp_uninit_applicant+0x2f/0xd0 [garp]
+>  RSP <ffff8847ce2e38a8>
+> CR2: 0000000000000000
+>
 
-> On Fri, Feb 22, 2013 at 1:32 AM, Cong Wang <amwang@redhat.com> wrote:
->> From: Cong Wang <amwang@redhat.com>
->>
->> There are two places to call vlan_set_encap_proto():
->> vlan_untag() and __pop_vlan_tci().
->>
->> vlan_untag() assumes skb->data points after mac addr, otherwise
->> the following code
->>
->>         vhdr = (struct vlan_hdr *) skb->data;
->>         vlan_tci = ntohs(vhdr->h_vlan_TCI);
->>         __vlan_hwaccel_put_tag(skb, vlan_tci);
->>
->>         skb_pull_rcsum(skb, VLAN_HLEN);
->>
->> won't be correct. But __pop_vlan_tci() assumes points _before_
->> mac addr.
->>
->> In vlan_set_encap_proto(), it looks for some magic L2 value
->> after mac addr:
->>
->>         rawp = skb->data;
->>         if (*(unsigned short *) rawp == 0xFFFF)
->>         ...
->>
->> Therefore __pop_vlan_tci() is obviously wrong.
->>
->> A quick fix is avoiding using skb->data in vlan_set_encap_proto(),
->> use 'vhdr+1' is always correct in both cases.
->>
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Jesse Gross <jesse@nicira.com>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> Acked-by: Jesse Gross <jesse@nicira.com>
+I think we miss some locking...
 
-Applied, thanks.
+-----
+
+diff --git a/net/802/garp.c b/net/802/garp.c
+index 1dcb066..5f72212 100644
+--- a/net/802/garp.c
++++ b/net/802/garp.c
+@@ -611,8 +611,10 @@ void garp_uninit_applicant(struct net_device
+*dev, struct garp_application *appl
+        /* Delete timer and generate a final TRANSMIT_PDU event to
+flush out
+         * all pending messages before the applicant is gone. */
+         del_timer_sync(&app->join_timer);
+ +       spin_lock_bh(&app->lock);
+         garp_gid_event(app, GARP_EVENT_TRANSMIT_PDU);
+         garp_pdu_queue(app);
+ +       spin_unlock_bh(&app->lock);
+         garp_queue_xmit(app);
+			  
+         dev_mc_delete(dev,appl->proto.group_address, ETH_ALEN, 0);
