@@ -1,42 +1,38 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [PATCH net] bnx2x: remove dead code and make local funcs
- static
-Date: Sun, 24 Feb 2013 22:25:20 +0200
-Message-ID: <1361737520.3557.3.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <20130222100110.057520e1@nehalam.linuxnetplumber.net>
-Reply-To: eilong@broadcom.com
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	dmitry@broadcom.com, yanivr@broadcom.com
-To: "Stephen Hemminger" <stephen@networkplumber.org>
+From: Syam Sidhardhan <syamsidhardh@gmail.com>
+Subject: [PATCH] rndis_wlan: Remove redundant NULL check before kfree
+Date: Mon, 25 Feb 2013 03:35:43 +0530
+Message-ID: <1361743543-27912-1-git-send-email-s.syam@samsung.com>
+Cc: syamsidhardh@gmail.com
+To: jussi.kivilinna@mbnet.fi, linville@tuxdriver.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1356 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757152Ab3BXUZh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 24 Feb 2013 15:25:37 -0500
-In-Reply-To: <20130222100110.057520e1@nehalam.linuxnetplumber.net>
+Received: from mail-da0-f54.google.com ([209.85.210.54]:36409 "EHLO
+	mail-da0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751015Ab3BXWF6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 17:05:58 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-02-22 at 10:01 -0800, Stephen Hemminger wrote:
-> Sparse warned about several functions that were unnecessarily global.
-> After making them static, discovered that several functions were actually never used.
-> 
-> Compile tested only.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
+kfree on a NULL pointer is a no-op.
 
-Hi Stephen,
+Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
+---
+ drivers/net/wireless/rndis_wlan.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Thanks for this patch. The "dead code" part is actually a missing call
-in case of PHY FW upgrade for the 84833 PHY - without it, a server
-reboot is required for the new PHY FW to take affect - but this reboot
-saving enhancement should wait until net-next is open, so I'm acking
-this patch and we will add the code back with the proper call once the
-net-next is open again.
-
-Acked-by: Eilon Greenstein <eilong@broadcomo.com>
+diff --git a/drivers/net/wireless/rndis_wlan.c b/drivers/net/wireless/rndis_wlan.c
+index 525fd75..5f66b4e 100644
+--- a/drivers/net/wireless/rndis_wlan.c
++++ b/drivers/net/wireless/rndis_wlan.c
+@@ -2839,8 +2839,7 @@ static void rndis_wlan_do_link_up_work(struct usbnet *usbdev)
+ 	} else if (priv->infra_mode == NDIS_80211_INFRA_ADHOC)
+ 		cfg80211_ibss_joined(usbdev->net, bssid, GFP_KERNEL);
+ 
+-	if (info != NULL)
+-		kfree(info);
++	kfree(info);
+ 
+ 	priv->connected = true;
+ 	memcpy(priv->bssid, bssid, ETH_ALEN);
+-- 
+1.7.9.5
