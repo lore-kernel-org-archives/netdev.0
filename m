@@ -1,62 +1,84 @@
-From: Tomi Orava <tomimo@ncircle.nullnet.fi>
-Subject: Re: Fw: [Bug 54231] r8169 driver regression caused by the commit
- aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
-Date: Sun, 24 Feb 2013 17:03:12 +0200
-Message-ID: <512A2BB0.9050803@ncircle.nullnet.fi>
-References: <20130222095546.396e63a8@nehalam.linuxnetplumber.net> <20130222230908.GB4248@electric-eye.fr.zoreil.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net] gianfar: fix compile fail for NET_POLL=y due to struct packing
+Date: Sun, 24 Feb 2013 10:38:31 -0500
+Message-ID: <1361720311-13267-1-git-send-email-paul.gortmaker@windriver.com>
+References: <1361717023.16950.12.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Jianhua Xie <jianhua.xie@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:36627 "EHLO
-	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757922Ab3BXPJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 10:09:49 -0500
-In-Reply-To: <20130222230908.GB4248@electric-eye.fr.zoreil.com>
+Received: from mail.windriver.com ([147.11.1.11]:63014 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757294Ab3BXPkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 10:40:15 -0500
+In-Reply-To: <1361717023.16950.12.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/23/2013 01:09 AM, Francois Romieu wrote:
-> Stephen Hemminger <stephen@networkplumber.org> :
-> [...]
->> https://bugzilla.kernel.org/show_bug.cgi?id=54231
-> This one should not be used in the (RTL_CFG_1) 8168 / RTL_GIGA_MAC_VER_11
-> path.
+Commit ee873fda3bec7c668407b837fc5519eb961fcd37 ("gianfar: Pack struct
+gfar_priv_grp into three cachelines") moved the irq number and names
+off into a separate struct and created accessors for them.  However
+it was never tested with NET_POLL enabled, and so some conversions
+that were simply overlooked went undetected until now.
 
-I started re-testing after your comment and figured out that the
-real problem seems to lie somehow with jumbo frames. Ie. the DMA burst
-changes do not actually prevent the hangs at all in my case. The
-catch here, that I missed previously, was that for some interesting
-reason the NIC will fail in a couple of minutes with a suitable traffic
-if the jumbo frames (mtu 4000) have been enabled from the start.
-However, if I enable the jumbo frames manually after the system
-has already started up, there are no stability issues related to network.
+Make the netpoll ones also use the gfar_irq() accessors.
 
-I ran my tests again with unmodified 3.7.9 kernel and got the
-same results as with the 3.4.31 version.
+Reported-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+Cc: Jianhua Xie <jianhua.xie@freescale.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
 
-> 
-> Tomi, what does lspci say about your 8168b device ?
+[compile tested for sbc8548 with NET_POLL=y]
 
-The NIC information is:
+ drivers/net/ethernet/freescale/gianfar.c | 26 ++++++++++++++------------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
 
-03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
-Express Gigabit Ethernet controller (rev 01)
-
-03:00.0 0200: 10ec:8168 (rev 01)
-    Subsystem: 1043:8385
-    Flags: bus master, fast devsel, latency 0, IRQ 40
-    I/O ports at e800 [size=256]
-    Memory at febff000 (64-bit, non-prefetchable) [size=4K]
-    Expansion ROM at febc0000 [disabled] [size=128K]
-    Capabilities: [40] Power Management version 2
-    Capabilities: [48] Vital Product Data
-    Capabilities: [50] MSI: Enable+ Count=1/2 Maskable- 64bit+
-    Capabilities: [60] Express Endpoint, MSI 00
-    Capabilities: [84] Vendor Specific Information: Len=4c <?>
-    Kernel driver in use: r8169
-
-Tomi
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 4b5e8a6..d2c5441 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -2906,21 +2906,23 @@ static void gfar_netpoll(struct net_device *dev)
+ 	/* If the device has multiple interrupts, run tx/rx */
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_MULTI_INTR) {
+ 		for (i = 0; i < priv->num_grps; i++) {
+-			disable_irq(priv->gfargrp[i].interruptTransmit);
+-			disable_irq(priv->gfargrp[i].interruptReceive);
+-			disable_irq(priv->gfargrp[i].interruptError);
+-			gfar_interrupt(priv->gfargrp[i].interruptTransmit,
+-				       &priv->gfargrp[i]);
+-			enable_irq(priv->gfargrp[i].interruptError);
+-			enable_irq(priv->gfargrp[i].interruptReceive);
+-			enable_irq(priv->gfargrp[i].interruptTransmit);
++			struct gfar_priv_grp *grp = &priv->gfargrp[i];
++
++			disable_irq(gfar_irq(grp, TX)->irq);
++			disable_irq(gfar_irq(grp, RX)->irq);
++			disable_irq(gfar_irq(grp, ER)->irq);
++			gfar_interrupt(gfar_irq(grp, TX)->irq, grp);
++			enable_irq(gfar_irq(grp, ER)->irq);
++			enable_irq(gfar_irq(grp, RX)->irq);
++			enable_irq(gfar_irq(grp, TX)->irq);
+ 		}
+ 	} else {
+ 		for (i = 0; i < priv->num_grps; i++) {
+-			disable_irq(priv->gfargrp[i].interruptTransmit);
+-			gfar_interrupt(priv->gfargrp[i].interruptTransmit,
+-				       &priv->gfargrp[i]);
+-			enable_irq(priv->gfargrp[i].interruptTransmit);
++			struct gfar_priv_grp *grp = &priv->gfargrp[i];
++
++			disable_irq(gfar_irq(grp, TX)->irq);
++			gfar_interrupt(gfar_irq(grp, TX)->irq, grp);
++			enable_irq(gfar_irq(grp, TX)->irq);
+ 		}
+ 	}
+ }
+-- 
+1.8.1.2
