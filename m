@@ -1,158 +1,77 @@
-From: Lai Jiangshan <eag0628@gmail.com>
-Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Mon, 25 Feb 2013 23:53:22 +0800
-Message-ID: <CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com>
-	<20130218123856.26245.46705.stgit@srivatsabhat.in.ibm.com>
-	<CANN689F9S7c1M8+cEpz3tsxGF34+NTRBLvxgPUOtbvav5u+RRA@mail.gmail.com>
-	<5122551E.1080703@linux.vnet.ibm.com>
-	<51226B46.9080707@linux.vnet.ibm.com>
-	<CANN689FSxOz+0Cu7EG_yKD8ZE1OpT4kyT+ybLfXSqaifodJRpw@mail.gmail.com>
-	<51226F91.7000108@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michel Lespinasse <walken@google.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <51226F91.7000108@linux.vnet.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] b43: Fix lockdep splat on module unload
+Date: Mon, 25 Feb 2013 10:09:24 -0600
+Message-ID: <1361808564-22684-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:47741 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759931Ab3BYQJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 11:09:44 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Srivatsa,
+On unload, b43 produces a lockdep warning that can be summarized in the
+following way:
 
-The target of the whole patchset is nice for me.
-A question: How did you find out the such usages of
-"preempt_disable()" and convert them? did all are converted?
+ ======================================================
+ [ INFO: possible circular locking dependency detected ]
+ 3.8.0-wl+ #117 Not tainted
+ -------------------------------------------------------
+ modprobe/5557 is trying to acquire lock:
+  ((&wl->firmware_load)){+.+.+.}, at: [<ffffffff81062160>] flush_work+0x0/0x2a0
 
-And I think the lock is too complex and reinvent the wheel, why don't
-you reuse the lglock?
-I wrote an untested draft here.
+ but task is already holding lock:
+  (rtnl_mutex){+.+.+.}, at: [<ffffffff813bd7d2>] rtnl_lock+0x12/0x20
 
-Thanks,
-Lai
+ which lock already depends on the new lock.
+ [ INFO: possible circular locking dependency detected ]
+ ======================================================
 
-PS: Some HA tools(I'm writing one) which takes checkpoints of
-virtual-machines frequently, I guess this patchset can speedup the
-tools.
+The full output is available at http://lkml.indiana.edu/hypermail/linux/kernel/1302.3/00060.html.
+To summarize, commit 6b6fa58 added a 'cancel_work_sync(&wl->firmware_load)'
+call in the wrong place.
 
->From 01db542693a1b7fc6f9ece45d57cb529d9be5b66 Mon Sep 17 00:00:00 2001
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Date: Mon, 25 Feb 2013 23:14:27 +0800
-Subject: [PATCH] lglock: add read-preference local-global rwlock
+The fix is to move the cancel_work_sync() call to b43_bcma_remove() and
+b43_ssb_remove(). Thanks to Johannes Berg and Michael Buesch for help in
+diagnosing the log output.
 
-locality via lglock(trylock)
-read-preference read-write-lock via fallback rwlock_t
-
-Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org> [V3.5+]
 ---
- include/linux/lglock.h |   31 +++++++++++++++++++++++++++++++
- kernel/lglock.c        |   45 +++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 76 insertions(+), 0 deletions(-)
+ drivers/net/wireless/b43/main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/lglock.h b/include/linux/lglock.h
-index 0d24e93..30fe887 100644
---- a/include/linux/lglock.h
-+++ b/include/linux/lglock.h
-@@ -67,4 +67,35 @@ void lg_local_unlock_cpu(struct lglock *lg, int cpu);
- void lg_global_lock(struct lglock *lg);
- void lg_global_unlock(struct lglock *lg);
-
-+struct lgrwlock {
-+	unsigned long __percpu *fallback_reader_refcnt;
-+	struct lglock lglock;
-+	rwlock_t fallback_rwlock;
-+};
-+
-+#define DEFINE_LGRWLOCK(name)						\
-+	static DEFINE_PER_CPU(arch_spinlock_t, name ## _lock)		\
-+	= __ARCH_SPIN_LOCK_UNLOCKED;					\
-+	static DEFINE_PER_CPU(unsigned long, name ## _refcnt);		\
-+	struct lgrwlock name = {					\
-+		.fallback_reader_refcnt = &name ## _refcnt,		\
-+		.lglock = { .lock = &name ## _lock } }
-+
-+#define DEFINE_STATIC_LGRWLOCK(name)					\
-+	static DEFINE_PER_CPU(arch_spinlock_t, name ## _lock)		\
-+	= __ARCH_SPIN_LOCK_UNLOCKED;					\
-+	static DEFINE_PER_CPU(unsigned long, name ## _refcnt);		\
-+	static struct lgrwlock name = {					\
-+		.fallback_reader_refcnt = &name ## _refcnt,		\
-+		.lglock = { .lock = &name ## _lock } }
-+
-+static inline void lg_rwlock_init(struct lgrwlock *lgrw, char *name)
-+{
-+	lg_lock_init(&lgrw->lglock, name);
-+}
-+
-+void lg_rwlock_local_read_lock(struct lgrwlock *lgrw);
-+void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw);
-+void lg_rwlock_global_write_lock(struct lgrwlock *lgrw);
-+void lg_rwlock_global_write_unlock(struct lgrwlock *lgrw);
- #endif
-diff --git a/kernel/lglock.c b/kernel/lglock.c
-index 6535a66..463543a 100644
---- a/kernel/lglock.c
-+++ b/kernel/lglock.c
-@@ -87,3 +87,48 @@ void lg_global_unlock(struct lglock *lg)
- 	preempt_enable();
- }
- EXPORT_SYMBOL(lg_global_unlock);
-+
-+void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
-+{
-+	struct lglock *lg = &lgrw->lglock;
-+
-+	preempt_disable();
-+	if (likely(!__this_cpu_read(*lgrw->fallback_reader_refcnt))) {
-+		if (likely(arch_spin_trylock(this_cpu_ptr(lg->lock)))) {
-+			rwlock_acquire_read(&lg->lock_dep_map, 0, 0, _RET_IP_);
-+			return;
-+		}
-+		read_lock(&lgrw->fallback_rwlock);
-+	}
-+
-+	__this_cpu_inc(*lgrw->fallback_reader_refcnt);
-+}
-+EXPORT_SYMBOL(lg_rwlock_local_read_lock);
-+
-+void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
-+{
-+	if (likely(!__this_cpu_read(*lgrw->fallback_reader_refcnt))) {
-+		lg_local_unlock(&lgrw->lglock);
-+		return;
-+	}
-+
-+	if (!__this_cpu_dec_return(*lgrw->fallback_reader_refcnt))
-+		read_unlock(&lgrw->fallback_rwlock);
-+
-+	preempt_enable();
-+}
-+EXPORT_SYMBOL(lg_rwlock_local_read_unlock);
-+
-+void lg_rwlock_global_write_lock(struct lgrwlock *lgrw)
-+{
-+	lg_global_lock(&lgrw->lglock);
-+	write_lock(&lgrw->fallback_rwlock);
-+}
-+EXPORT_SYMBOL(lg_rwlock_global_write_lock);
-+
-+void lg_rwlock_global_write_unlock(struct lgrwlock *lgrw)
-+{
-+	write_unlock(&lgrw->fallback_rwlock);
-+	lg_global_unlock(&lgrw->lglock);
-+}
-+EXPORT_SYMBOL(lg_rwlock_global_write_unlock);
+diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
+index 806e34c..0568273 100644
+--- a/drivers/net/wireless/b43/main.c
++++ b/drivers/net/wireless/b43/main.c
+@@ -4214,7 +4214,6 @@ redo:
+ 	mutex_unlock(&wl->mutex);
+ 	cancel_delayed_work_sync(&dev->periodic_work);
+ 	cancel_work_sync(&wl->tx_work);
+-	cancel_work_sync(&wl->firmware_load);
+ 	mutex_lock(&wl->mutex);
+ 	dev = wl->current_dev;
+ 	if (!dev || b43_status(dev) < B43_STAT_STARTED) {
+@@ -5434,6 +5433,7 @@ static void b43_bcma_remove(struct bcma_device *core)
+ 	/* We must cancel any work here before unregistering from ieee80211,
+ 	 * as the ieee80211 unreg will destroy the workqueue. */
+ 	cancel_work_sync(&wldev->restart_work);
++	cancel_work_sync(&wl->firmware_load);
+ 
+ 	B43_WARN_ON(!wl);
+ 	if (!wldev->fw.ucode.data)
+@@ -5510,6 +5510,7 @@ static void b43_ssb_remove(struct ssb_device *sdev)
+ 	/* We must cancel any work here before unregistering from ieee80211,
+ 	 * as the ieee80211 unreg will destroy the workqueue. */
+ 	cancel_work_sync(&wldev->restart_work);
++	cancel_work_sync(&wl->firmware_load);
+ 
+ 	B43_WARN_ON(!wl);
+ 	if (!wldev->fw.ucode.data)
 -- 
-1.7.7.6
+1.8.1.4
