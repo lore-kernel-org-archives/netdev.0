@@ -1,47 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: remove the unnecessary list_del
-Date: Mon, 25 Feb 2013 00:39:31 -0500 (EST)
-Message-ID: <20130225.003931.1364384031279092217.davem@davemloft.net>
-References: <1361767316-28583-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<20130224.235411.1871885689914104471.davem@davemloft.net>
-	<512AF088.5040206@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next 1/2] IP_GRE: Fix GRE_CSUM case.
+Date: Sun, 24 Feb 2013 22:05:05 -0800
+Message-ID: <1361772305-1665-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, dmitry@broadcom.com,
+	Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45706 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750743Ab3BYFje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 00:39:34 -0500
-In-Reply-To: <512AF088.5040206@cn.fujitsu.com>
+Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:40103 "HELO
+	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750706Ab3BYGFx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 01:05:53 -0500
+Received: by mail-pb0-f69.google.com with SMTP id rp8so3830375pbb.0
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 22:05:52 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Mon, 25 Feb 2013 13:03:04 +0800
+commit "ip_gre: allow CSUM capable devices to handle packets"
+aa0e51cdda005cd37e2, broke GRE_CSUM case.
+GRE_CSUM needs checksum computed for inner packet. Therefore
+csum-calculation can not be offloaded if tunnel device requires
+GRE_CSUM.  Following patch fixes it by computing inner packet checksum
+for GRE_CSUM type, for all other type of GRE devices csum is offloaded.
 
-> On 2013/02/25 12:54, David Miller wrote:
->> From: Gao feng <gaofeng@cn.fujitsu.com>
->> Date: Mon, 25 Feb 2013 12:41:56 +0800
->> 
->>> These lists are used by unregister_netdevice_many,
->>> they are local variables,will not be seen by others.
->>> there is no need to delete them.
->>>
->>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
->> 
->> What about the devices on the list?  The ones at the front and the
->> rear of the list will have list pointers that point into no longer
->> valid stack frame locations.
-> 
-> These lists are only used by unregister_netdevice_many,
-> we don't access these lists again after unregister_netdevice_many,
-> so I think it doesn't have invalid stack frame locations problems.
+CC: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/ipv4/ip_gre.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
-I do not see unregister_netdevice_many() list_del()'ing the devices
-on the list, therefore those netdevice objects have pointers into
-the stale stack frame.
-
-You cannot make this change.
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 5ef4da7..9b4996d 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -735,7 +735,7 @@ drop:
+ 	return 0;
+ }
+ 
+-static struct sk_buff *handle_offloads(struct sk_buff *skb)
++static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel, struct sk_buff *skb)
+ {
+ 	int err;
+ 
+@@ -745,8 +745,12 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
+ 			goto error;
+ 		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+ 		return skb;
+-	}
+-	if (skb->ip_summed != CHECKSUM_PARTIAL)
++	} else if (skb->ip_summed == CHECKSUM_PARTIAL &&
++		   tunnel->parms.o_flags&GRE_CSUM) {
++		err = skb_checksum_help(skb);
++		if (unlikely(err))
++			goto error;
++	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
+ 		skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	return skb;
+@@ -776,7 +780,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 	int    err;
+ 	int    pkt_len;
+ 
+-	skb = handle_offloads(skb);
++	skb = handle_offloads(tunnel, skb);
+ 	if (IS_ERR(skb)) {
+ 		dev->stats.tx_dropped++;
+ 		return NETDEV_TX_OK;
+-- 
+1.7.1
