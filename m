@@ -1,141 +1,144 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
- handle packets
-Date: Sun, 24 Feb 2013 22:09:14 -0800
-Message-ID: <CALnjE+qROGF+TScOBuqWxcXqAuNtoNxacYjKq7RCvZkY1-fONA@mail.gmail.com>
-References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
-	<CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
-	<504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
-	<CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
-	<1361485562.21950.3.camel@lb-tlvb-dmitry>
-	<CANvJab2S07fUPT3kJKM=NsCPuO-moJhtxhNExiWnxS-kFOkQ2Q@mail.gmail.com>
-	<CANvJab3_ZMiMtCns2TtVxjM8GjVtqtk=+WYzsoj3t2b2958AVg@mail.gmail.com>
-	<1361725018.20403.6.camel@lb-tlvb-dmitry.il.broadcom.com>
+From: kishon <kishon@ti.com>
+Subject: Re: [PATCH v2 1/5] drivers: phy: add generic PHY framework
+Date: Mon, 25 Feb 2013 12:11:48 +0530
+Message-ID: <512B07AC.5090809@ti.com>
+References: <1361659480.11282.15@driftwood>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dmitry Kravkov <dmitry@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:47333 "HELO
-	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750821Ab3BYGJQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 01:09:16 -0500
-Received: by mail-gh0-f199.google.com with SMTP id r16so4146321ghr.2
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 22:09:15 -0800 (PST)
-In-Reply-To: <1361725018.20403.6.camel@lb-tlvb-dmitry.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <tony@atomide.com>, <linux@arm.linux.org.uk>,
+	<eballetbo@gmail.com>, <javier@dowhile0.org>, <balbi@ti.com>,
+	<gregkh@linuxfoundation.org>, <akpm@linux-foundation.org>,
+	<mchehab@redhat.com>, <cesarb@cesarb.net>, <davem@davemloft.net>,
+	<arnd@arndb.de>, <santosh.shilimkar@ti.com>,
+	<broonie@opensource.wolfsonmicro.com>, <swarren@nvidia.com>,
+	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-omap@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Rob Landley <rob@landley.net>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1361659480.11282.15@driftwood>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 24, 2013 at 8:56 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
-> On Thu, 2013-02-21 at 23:19 -0800, pravin wrote:
->> On Thu, Feb 21, 2013 at 3:46 PM, pravin <pravin.shelar@gmail.com> wrote:
->> > On Thu, Feb 21, 2013 at 2:26 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->> >> On Tue, 2013-02-19 at 15:03 -0800, pravin wrote:
->> >>> On Tue, Feb 19, 2013 at 11:20 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->> >>> >
->> >>> >> -----Original Message-----
->> >>> >> From: pravin [mailto:pravin.shelar@gmail.com]
->> >>> >> Sent: Tuesday, February 19, 2013 8:28 PM
->> >>> >> To: Dmitry Kravkov
->> >>> >> Cc: davem@davemloft.net; netdev@vger.kernel.org
->> >>> >> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
->> >>> >> handle packets
->> >>> >>
->> >>> >> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
->> >>> >> wrote:
->> >>> >> > If device is not able to handle checksumming it will
->> >>> >> > be handled in dev_xmit
->> >>> >> >
->> >>> >> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
->> >>> >> > ---
->> >>> >> > Changes from v1: fixed email address
->> >>> >> >
->> >>> >> >  net/ipv4/ip_gre.c |    7 ++-----
->> >>> >> >  1 files changed, 2 insertions(+), 5 deletions(-)
->> >>> >> >
->> >>> >> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
->> >>> >> > index a56f118..cdc31ac 100644
->> >>> >> > --- a/net/ipv4/ip_gre.c
->> >>> >> > +++ b/net/ipv4/ip_gre.c
->> >>> >> > @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff
->> >>> >> *skb)
->> >>> >> >                         goto error;
->> >>> >> >                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
->> >>> >> >                 return skb;
->> >>> >> > -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
->> >>> >> > -               err = skb_checksum_help(skb);
->> >>> >> > -               if (unlikely(err))
->> >>> >> > -                       goto error;
->> >>> >> >         }
->> >>> >> > -       skb->ip_summed = CHECKSUM_NONE;
->> >>> >> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
->> >>> >> > +               skb->ip_summed = CHECKSUM_NONE;
->> >>> >> >
->> >>> >> >         return skb;
->> >>> >> >
->> >>> >> > --
->> >>> >> > 1.7.7.2
->> >>> >> >
->> >>> >> >
->> >>> >>
->> >>> >> This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
->> >>> >> complete IP packet to checksum entire GRE payload.
->> >>> >
->> >>> > Testing for o_flags&GRE_CSUM does not look too hurt here, since it will be used in ipgre_tunnel_xmit() later on
->> >>> > This is the only problematic case, right?
->> >>> >
->> >>>
->> >>> It does not work for me. I have GRE device with csum on. Ping works
->> >>> fine but Netperf is not working.
->> >>> Looking at code, I am not sure how tcp will work if inner packet TCP
->> >>> checksum is calculated after GRE_CSUM calculation.
->> >>
->> >>
->> >> Fixes handling when CSUM or SEQ flags are set - via skb_checksum_help()
->> >> ---
->> >> Tested with each mode (separately)
->> >>
->> >>  net/ipv4/ip_gre.c |   14 +++++++++++---
->> >>  1 files changed, 11 insertions(+), 3 deletions(-)
->> >>
->> >> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
->> >> index 5ef4da7..0de54cd 100644
->> >> --- a/net/ipv4/ip_gre.c
->> >> +++ b/net/ipv4/ip_gre.c
->> >> @@ -735,7 +735,8 @@ drop:
->> >>         return 0;
->> >>  }
->> >>
->> >> -static struct sk_buff *handle_offloads(struct sk_buff *skb)
->> >> +static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel,
->> >> +                                      struct sk_buff *skb)
->> >>  {
->> >>         int err;
->> >>
->> >> @@ -745,8 +746,15 @@ static struct sk_buff *handle_offloads(struct
->> >> sk_buff *skb)
->> >>                         goto error;
->> >>                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
->> >>                 return skb;
->> >> +       } else if (tunnel->parms.o_flags&(GRE_SEQ|GRE_CSUM) &&
->> >> +                  skb->ip_summed == CHECKSUM_PARTIAL) {
->> >> +               err = skb_checksum_help(skb);
->> >> +               if (unlikely(err))
->> >> +                       goto error;
->> >>         }
->>
->> one more thing, there is no need to do csum for GRE_SEQ case.
-> If csum is not performed TCP csum become incorrect for offload
-> capable and incapable devices.
->
->
-that csum computation is only required for GRE_CSUM case, not for GRE_SEQ.
-I have send out patches to fix GRE issues, please have a look.
+Hi,
 
+On Sunday 24 February 2013 04:14 AM, Rob Landley wrote:
+> On 02/18/2013 11:53:14 PM, Kishon Vijay Abraham I wrote:
+>> The PHY framework provides a set of APIs for the PHY drivers to
+>> create/destroy a PHY and APIs for the PHY users to obtain a reference
+>> to the
+>> PHY with or without using phandle. To obtain a reference to the PHY
+>> without
+>> using phandle, the platform specfic intialization code (say from board
+>> file)
+>> should have already called phy_bind with the binding information. The
+>> binding
+>> information consists of phy's device name, phy user device name and an
+>> index.
+>> The index is used when the same phy user binds to mulitple phys.
 >
+> Given that this has a separately selectable config option, I'm guessing
+> that it's useful all by itself even in the absence of a driver using
+
+Not really. It has to be thought of like a bridge that connects the 
+device (can be USB/SATA/..) and the PHY. The PHY driver will register 
+the PHY in this framework and the device controller driver can obtain a 
+reference to this PHY from this framework.
+> this phy? (Or it gives user visibility to the phy buried in an E1000 or
+> SATA drive or some such?)
+
+The PHY and the device are generally independent entities and there has 
+to be a way to bind them in-order for the device controller to use the 
+PHY. For e.g., MUSB in OMAP4 uses a PHY which is different from PHY in 
+OMAP3 and it's going to be different from a PHY used in other SoCs. So 
+in-order for MUSB to use the correct PHY, there has to be a framework 
+that maintains the list of PHY and returns the correct PHY when a device 
+controller driver requests for it. So whenever the PHY driver gets 
+probed, it registers itself with this framework and then the MUSB can 
+get the reference to the PHY from this framework. The use of this 
+framework is more prevalent when there are multiple MUSB controllers 
+each using a different PHY in a single SoC.
+
+This holds true for other device controllers as well.
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> +1. Introduction
+>> +
+>> +*PHY* is the abbreviation for physical layer. It is used to connect a
+>> device
+>> +to the physical medium e.g., the USB controller has a PHY to provide
+>> functions
+>> +such as serialization, de-serialization, encoding, decoding and is
+>> responsible
+>> +for obtaining the required data transmission rate. Note that some USB
+>> +controller has PHY functionality embedded into it and others use an
+>> external
+>> +PHY. Other peripherals that uses a PHY include Wireless LAN, Ethernet,
+>> +SATA etc.
+>
+> I've usually heard the word "transciever" used to describe these.
+
+hmm.. IMO there is a thin line differentiating "transceiver" and "PHY" 
+and can be used interchangeably. Since it's been referred as "PHY" in 
+data sheets and TRMs, I preferred to call it PHY.
+>
+>> +The intention of creating this framework is to bring the phy drivers
+>> spread
+>> +all over the Linux kernel to drivers/phy to increase code re-use and to
+>> +increase code maintainability.
+>> +
+>> +This framework will be of use only to devices that uses external PHY
+>> (PHY
+>> +functionality is not embedded within the controller).
+>> +
+>> +2. Creating the PHY
+>> +
+>> +The PHY driver should create the PHY in order for other peripheral
+>> controllers
+>> +to make use of it. The PHY framework provides 2 APIs to create the PHY.
+>
+> Given that a PHY is a chip (random example
+> http://ark.intel.com/products/47620/Intel-82579LM-Gigabit-Ethernet-PHY),
+> you seem to be saying that software should manifest a piece of hardware
+> out of thin air through sheer willpower. I'm pretty sure I've
+> misunderstood this phrasing.
+>
+>> +struct phy *phy_create(struct device *dev, struct phy_descriptor *desc);
+>> +struct phy *devm_phy_create(struct device *dev, struct phy_descriptor
+>> *desc);
+>> +
+>> +The PHY drivers can use one of the above 2 APIs to create the PHY by
+>> passing
+>
+> Um, the driver should _bind_ to the phy, maybe? Allocate? Initialize?
+
+There is actually difference between allocating/initializing and 
+binding. Binding is to bind the device controller with the PHY. My 
+previous explanation might help to clarify it.
+>
+>> +6. Destroying the PHY
+>
+> I've run drivers like that. I try not to, though.
+>
+>> +7. Current Status
+>> +
+>> +Currently only USB in OMAP is made to use this framework. However
+>> using the
+>> +USB PHY library cannot be completely removed because it is
+>> intertwined with
+>> +OTG. Once we move OTG out of PHY completely, using the old PHY
+>> library can be
+>> +completely removed. SATA in OMAP will also more likely use this new
+>> framework
+>> +and we should have a patch for it soon.
+>
+> Does this paragraph belong in the documentation? (Git commit, sure, but
+> I've seen a lot of stale paragraphs like these hang around a
+> surprisingly long time.)
+
+hmm.. there are a few others who raised concern on having this 
+paragraph. I've planned to remove it in my next version.
+
+Thanks
+Kishon
