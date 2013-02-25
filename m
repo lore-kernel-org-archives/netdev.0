@@ -1,65 +1,113 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: Fix possible NULL pointer dereference
-Date: Mon, 25 Feb 2013 09:09:43 -0300
-Message-ID: <20130225120943.GA4830@oc0268524204.ibm.com>
-References: <1361746798-29215-1-git-send-email-s.syam@samsung.com>
+From: Kirill Kapranov <kapranoff@inbox.ru>
+Subject: [PATCH] NET/PHY: Eliminate the forced speed reduction algorithm
+Date: Mon, 25 Feb 2013 16:25:18 +0400
+Message-ID: <1361795118.3980.108.camel@kkk.nita.ru>
+Reply-To: kapranoff@inbox.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Syam Sidhardhan <syamsidhardh@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:60806 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756167Ab3BYMJv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 07:09:51 -0500
-Received: from /spool/local
-	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Mon, 25 Feb 2013 09:09:49 -0300
-Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id C1C903520055
-	for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 07:09:45 -0500 (EST)
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay02.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1PC93e631850746
-	for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 09:09:04 -0300
-Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1PC9iHm004937
-	for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 09:09:45 -0300
-Content-Disposition: inline
-In-Reply-To: <1361746798-29215-1-git-send-email-s.syam@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="KOI8-R"
+Content-Transfer-Encoding: 7bit
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 25, 2013 at 04:29:58AM +0530, Syam Sidhardhan wrote:
-> Check for (queue == NULL) has to be done before accessing queue.
-> 
-> Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
-> ---
->  drivers/net/ethernet/ibm/ehea/ehea_qmr.c |    4 +++-
->  1 file changed, 3 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-> index 9b03033..a0820f7 100644
-> --- a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-> +++ b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
-> @@ -103,12 +103,14 @@ out_nomem:
-> 
->  static void hw_queue_dtor(struct hw_queue *queue)
->  {
-> -	int pages_per_kpage = PAGE_SIZE / queue->pagesize;
-> +	int pages_per_kpage;
->  	int i, nr_pages;
-> 
->  	if (!queue || !queue->queue_pages)
->  		return;
-> 
-> +	pages_per_kpage = PAGE_SIZE / queue->pagesize;
-> +
->  	nr_pages = queue->queue_length / queue->pagesize;
-> 
->  	for (i = 0; i < nr_pages; i += pages_per_kpage)
-> -- 
-> 1.7.9.5
-> 
+>From Kirill Kapranov  <kkk@nita.ru>,<kapranoff@inbox.ru>
 
-Acked-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+NET/PHY: Eliminate the forced speed reduction algorithm.
+In case of fixed speed set up for a NIC (e.g. ethtool -s eth0 autoneg off speed 100 duplex full) with an ethernet cable plugged off, the mentioned algorithm slows down a NIC speed, so further hooking up a cable does not lead to "link" state.
+Signed-off-by: Kirill Kapranov <kkk@nita.ru>,<kapranoff@inbox.ru>
+---
+The purpose of the introduced patch is deletion of the forced speed reduction algorithm realization from the driver module "phy".
+The above mentioned algorithm works in the following way: if the PHY detected unlink line state (connector plugged off), NIC speed is decreased step-by-step in the sequence:
+100 full duplex
+100 half duplex
+10 full duplex
+10 half duplex
+with the latency circa 10 s per step, and stops at 10-HD value.
+I have looked up RFC-802.3, and found, that the mentioned algorithm is neither quoted nor described. AFAIK, no one RFC describe the mentioned algorithm, so it may be a witty invention of the developer(s).
+
+In the case of the fixed speed and duplex set, with the autonegotiation off, for a NIC (e.g. # ethtool -s eth0 autoneg off speed 100 duplex full) with ethernet cable plugged off, mentioned algorithm slows down NIC speed, so when ethernet connector is plugged in, connection will be inoperative: an ethernet switch will try to connect with 100/full (e.g.), a NIC will stay at 10/half.
+Thus, this algorithm is destructive for the fixed speed/duplex mode (with autonegotiation off).
+
+In the AUTO mode, the mentioned algorithm is inessential. The autonegotiation procedure works fine regardless an speed/duplex settings at the moment of connector hooking up.
+Thus, there is no point in using of this algorithm in driver.
+
+Tested at 2.6.38.7, applicable up to for 3.0.4. 
+
+--- linux/drivers/net/phy/phy.c.orig	2011-05-22 02:13:59.000000000 +0400
++++ linux/drivers/net/phy/phy.c	2012-04-28 12:49:37.000000000 +0400
+@@ -457,34 +457,6 @@ void phy_stop_machine(struct phy_device
+ }
+ 
+ /**
+- * phy_force_reduction - reduce PHY speed/duplex settings by one step
+- * @phydev: target phy_device struct
+- *
+- * Description: Reduces the speed/duplex settings by one notch,
+- *   in this order--
+- *   1000/FULL, 1000/HALF, 100/FULL, 100/HALF, 10/FULL, 10/HALF.
+- *   The function bottoms out at 10/HALF.
+- */
+-static void phy_force_reduction(struct phy_device *phydev)
+-{
+-	int idx;
+-
+-	idx = phy_find_setting(phydev->speed, phydev->duplex);
+-	
+-	idx++;
+-
+-	idx = phy_find_valid(idx, phydev->supported);
+-
+-	phydev->speed = settings[idx].speed;
+-	phydev->duplex = settings[idx].duplex;
+-
+-	pr_info("Trying %d/%s\n", phydev->speed,
+-			DUPLEX_FULL == phydev->duplex ?
+-			"FULL" : "HALF");
+-}
+-
+-
+-/**
+  * phy_error - enter HALTED state for this PHY device
+  * @phydev: target phy_device struct
+  *
+@@ -814,30 +786,12 @@ void phy_state_machine(struct work_struc
+ 				phydev->adjust_link(phydev->attached_dev);
+ 
+ 			} else if (0 == phydev->link_timeout--) {
+-				int idx;
+ 
+ 				needs_aneg = 1;
+ 				/* If we have the magic_aneg bit,
+ 				 * we try again */
+ 				if (phydev->drv->flags & PHY_HAS_MAGICANEG)
+ 					break;
+-
+-				/* The timer expired, and we still
+-				 * don't have a setting, so we try
+-				 * forcing it until we find one that
+-				 * works, starting from the fastest speed,
+-				 * and working our way down */
+-				idx = phy_find_valid(0, phydev->supported);
+-
+-				phydev->speed = settings[idx].speed;
+-				phydev->duplex = settings[idx].duplex;
+-
+-				phydev->autoneg = AUTONEG_DISABLE;
+-
+-				pr_info("Trying %d/%s\n", phydev->speed,
+-						DUPLEX_FULL ==
+-						phydev->duplex ?
+-						"FULL" : "HALF");
+ 			}
+ 			break;
+ 		case PHY_NOLINK:
+@@ -863,7 +817,6 @@ void phy_state_machine(struct work_struc
+ 				netif_carrier_on(phydev->attached_dev);
+ 			} else {
+ 				if (0 == phydev->link_timeout--) {
+-					phy_force_reduction(phydev);
+ 					needs_aneg = 1;
+ 				}
+ 			}
