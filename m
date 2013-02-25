@@ -1,69 +1,94 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 1/2] IP_GRE: Fix GRE_CSUM case.
-Date: Sun, 24 Feb 2013 22:05:05 -0800
-Message-ID: <1361772305-1665-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 2/2] Revert "ip_gre: propogate target device GSO capability to the tunnel device"
+Date: Sun, 24 Feb 2013 22:05:12 -0800
+Message-ID: <1361772312-1698-1-git-send-email-pshelar@nicira.com>
 Cc: netdev@vger.kernel.org, dmitry@broadcom.com,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:40103 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750706Ab3BYGFx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 01:05:53 -0500
-Received: by mail-pb0-f69.google.com with SMTP id rp8so3830375pbb.0
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 22:05:52 -0800 (PST)
+Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:45900 "HELO
+	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751323Ab3BYGGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 01:06:00 -0500
+Received: by mail-da0-f69.google.com with SMTP id p8so2536021dan.0
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 22:05:59 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit "ip_gre: allow CSUM capable devices to handle packets"
-aa0e51cdda005cd37e2, broke GRE_CSUM case.
-GRE_CSUM needs checksum computed for inner packet. Therefore
-csum-calculation can not be offloaded if tunnel device requires
-GRE_CSUM.  Following patch fixes it by computing inner packet checksum
-for GRE_CSUM type, for all other type of GRE devices csum is offloaded.
+This reverts commit eb6b9a8cad65e820b145547844b108117cece3a0.
+
+Above commit limits GSO capability of gre device to just TSO, but
+software GRE-GSO is capable of handling all GSO capabilities.
+
+This patch also fixes following panic which reverted commit introduced:-
+
+BUG: unable to handle kernel NULL pointer dereference at 00000000000000a2
+IP: [<ffffffffa0680fd1>] ipgre_tunnel_bind_dev+0x161/0x1f0 [ip_gre]
+PGD 42bc19067 PUD 42bca9067 PMD 0
+Oops: 0000 [#1] SMP
+Pid: 2636, comm: ip Tainted: GF            3.8.0+ #83 Dell Inc. PowerEdge R620/0KCKR5
+RIP: 0010:[<ffffffffa0680fd1>]  [<ffffffffa0680fd1>] ipgre_tunnel_bind_dev+0x161/0x1f0 [ip_gre]
+RSP: 0018:ffff88042bfcb708  EFLAGS: 00010246
+RAX: 00000000000005b6 RBX: ffff88042d2fa000 RCX: 0000000000000044
+RDX: 0000000000000018 RSI: 0000000000000078 RDI: 0000000000000060
+RBP: ffff88042bfcb748 R08: 0000000000000018 R09: 000000000000000c
+R10: 0000000000000020 R11: 000000000101010a R12: ffff88042d2fa800
+R13: 0000000000000000 R14: ffff88042d2fa800 R15: ffff88042cd7f650
+FS:  00007fa784f55700(0000) GS:ffff88043fd20000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 00000000000000a2 CR3: 000000042d8b9000 CR4: 00000000000407e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process ip (pid: 2636, threadinfo ffff88042bfca000, task ffff88042d142a80)
+Stack:
+ 0000000100000000 002f000000000000 0a01010100000000 000000000b010101
+ ffff88042d2fa800 ffff88042d2fa000 ffff88042bfcb858 ffff88042f418c00
+ ffff88042bfcb798 ffffffffa068199a ffff88042bfcb798 ffff88042d2fa830
+Call Trace:
+ [<ffffffffa068199a>] ipgre_newlink+0xca/0x160 [ip_gre]
+ [<ffffffff8143b692>] rtnl_newlink+0x532/0x5f0
+ [<ffffffff8143b2fc>] ? rtnl_newlink+0x19c/0x5f0
+ [<ffffffff81438978>] rtnetlink_rcv_msg+0x2c8/0x340
+ [<ffffffff814386b0>] ? rtnetlink_rcv+0x40/0x40
+ [<ffffffff814560f9>] netlink_rcv_skb+0xa9/0xd0
+ [<ffffffff81438695>] rtnetlink_rcv+0x25/0x40
+ [<ffffffff81455ddc>] netlink_unicast+0x1ac/0x230
+ [<ffffffff81456a45>] netlink_sendmsg+0x265/0x380
+ [<ffffffff814138c0>] sock_sendmsg+0xb0/0xe0
+ [<ffffffff8141141e>] ? move_addr_to_kernel+0x4e/0x90
+ [<ffffffff81420445>] ? verify_iovec+0x85/0xf0
+ [<ffffffff81414ffd>] __sys_sendmsg+0x3fd/0x420
+ [<ffffffff8114b701>] ? handle_mm_fault+0x251/0x3b0
+ [<ffffffff8114f39f>] ? vma_link+0xcf/0xe0
+ [<ffffffff81415239>] sys_sendmsg+0x49/0x90
+ [<ffffffff814ffd19>] system_call_fastpath+0x16/0x1b
 
 CC: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/ipv4/ip_gre.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+ net/ipv4/ip_gre.c |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
 
 diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 5ef4da7..9b4996d 100644
+index 9b4996d..1517b6f 100644
 --- a/net/ipv4/ip_gre.c
 +++ b/net/ipv4/ip_gre.c
-@@ -735,7 +735,7 @@ drop:
- 	return 0;
- }
+@@ -1105,14 +1105,8 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
+ 	tunnel->hlen = addend;
+ 	/* TCP offload with GRE SEQ is not supported. */
+ 	if (!(tunnel->parms.o_flags & GRE_SEQ)) {
+-		/* device supports enc gso offload*/
+-		if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
+-			dev->features		|= NETIF_F_TSO;
+-			dev->hw_features	|= NETIF_F_TSO;
+-		} else {
+-			dev->features		|= NETIF_F_GSO_SOFTWARE;
+-			dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
+-		}
++		dev->features		|= NETIF_F_GSO_SOFTWARE;
++		dev->hw_features	|= NETIF_F_GSO_SOFTWARE;
+ 	}
  
--static struct sk_buff *handle_offloads(struct sk_buff *skb)
-+static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel, struct sk_buff *skb)
- {
- 	int err;
- 
-@@ -745,8 +745,12 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
- 			goto error;
- 		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
- 		return skb;
--	}
--	if (skb->ip_summed != CHECKSUM_PARTIAL)
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL &&
-+		   tunnel->parms.o_flags&GRE_CSUM) {
-+		err = skb_checksum_help(skb);
-+		if (unlikely(err))
-+			goto error;
-+	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
- 		skb->ip_summed = CHECKSUM_NONE;
- 
- 	return skb;
-@@ -776,7 +780,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 	int    err;
- 	int    pkt_len;
- 
--	skb = handle_offloads(skb);
-+	skb = handle_offloads(tunnel, skb);
- 	if (IS_ERR(skb)) {
- 		dev->stats.tx_dropped++;
- 		return NETDEV_TX_OK;
+ 	return mtu;
 -- 
 1.7.1
