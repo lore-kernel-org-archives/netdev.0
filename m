@@ -1,70 +1,65 @@
-From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: Re: Disable IPv4-mapped - enforce IPV6_V6ONLY
-Date: Mon, 25 Feb 2013 20:44:47 +0900
-Message-ID: <512B4EAF.2050301@linux-ipv6.org>
-References: <51278CF6.2060402@ahsoftware.de> <51292A2B.3000304@ahsoftware.de>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ehea: Fix possible NULL pointer dereference
+Date: Mon, 25 Feb 2013 09:09:43 -0300
+Message-ID: <20130225120943.GA4830@oc0268524204.ibm.com>
+References: <1361746798-29215-1-git-send-email-s.syam@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexander Holler <holler@ahsoftware.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51292A2B.3000304@ahsoftware.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Syam Sidhardhan <syamsidhardh@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp01.br.ibm.com ([32.104.18.85]:60806 "EHLO
+	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756167Ab3BYMJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 07:09:51 -0500
+Received: from /spool/local
+	by e24smtp01.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Mon, 25 Feb 2013 09:09:49 -0300
+Received: from d24relay02.br.ibm.com (d24relay02.br.ibm.com [9.13.184.26])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id C1C903520055
+	for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 07:09:45 -0500 (EST)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay02.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r1PC93e631850746
+	for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 09:09:04 -0300
+Received: from d24av05.br.ibm.com (loopback [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r1PC9iHm004937
+	for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 09:09:45 -0300
+Content-Disposition: inline
+In-Reply-To: <1361746798-29215-1-git-send-email-s.syam@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, Feb 25, 2013 at 04:29:58AM +0530, Syam Sidhardhan wrote:
+> Check for (queue == NULL) has to be done before accessing queue.
+> 
+> Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
+> ---
+>  drivers/net/ethernet/ibm/ehea/ehea_qmr.c |    4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+> index 9b03033..a0820f7 100644
+> --- a/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+> +++ b/drivers/net/ethernet/ibm/ehea/ehea_qmr.c
+> @@ -103,12 +103,14 @@ out_nomem:
+> 
+>  static void hw_queue_dtor(struct hw_queue *queue)
+>  {
+> -	int pages_per_kpage = PAGE_SIZE / queue->pagesize;
+> +	int pages_per_kpage;
+>  	int i, nr_pages;
+> 
+>  	if (!queue || !queue->queue_pages)
+>  		return;
+> 
+> +	pages_per_kpage = PAGE_SIZE / queue->pagesize;
+> +
+>  	nr_pages = queue->queue_length / queue->pagesize;
+> 
+>  	for (i = 0; i < nr_pages; i += pages_per_kpage)
+> -- 
+> 1.7.9.5
+> 
 
-Alexander Holler wrote:
-> Am 22.02.2013 16:21, schrieb Alexander Holler:
->> Hello,
->>
->> I'm searching for a way to either enforce IPV6_V6ONLY or to block
->> IPv4-mapped addresses on ipv6-sockets (e.g. by using iptables) system-wide.
->>
->> E.g. net.ipv6.bindv6only doesn't help if something calls
->>
->> int v6on = 0;
->> setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on))
->>
->> In such a case I still want to disable or block IPv4-mapped addresses on
->> that socket, even if the program thinks it nows it better.
->>
->> Until now I haven't found a solution.
-> 
-> I've now done it by the following hack:
-> 
-> -----------
-> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-> index d1e2e8e..9eefd3e 100644
-> --- a/net/ipv6/ipv6_sockglue.c
-> +++ b/net/ipv6/ipv6_sockglue.c
-> @@ -235,7 +235,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
->                 if (optlen < sizeof(int) ||
->                     inet_sk(sk)->inet_num)
->                         goto e_inval;
-> -               np->ipv6only = valbool;
-> +               np->ipv6only = valbool || net->ipv6.sysctl.bindv6only;
->                 retv = 0;
->                 break;
-> -----------
-> 
-> A proper solution would be to either return false if net.ipv6.bindv6only is true and optval is false (which would break downward compatibility because it wouldn't just be a default and setsockopt might return an error) or to introduce a new sysctl variable like net.ipv6.bindv6only_enforced_silently. ("silently" because setsockopt() wouldn't return an error if net.ipv6.bindv6only is true and optval (v6only in the example above) is false.)
-> 
-> I would volunteer to write a patch which introduces something like net.ipv6.bindv6only_enforced_silently if some maintainer would give me his ok.
-> 
-> If so, the question remains if
-> 
-> systemctl net.ipv6.bindv6only_enforced_silently = 1
-> 
-> should set systemctl.net.ipv6.bindv6only too or if an error should be returned if net.ipv6.bindv6only is false.
-
-I am not convinced why you need this, and I am not in favor of
-enfocing IPV6_V6ONLY, but... some points:
-
-- We should allow system-admin to "enforce" IPV6_V6ONLY to 0 as well.
-- CAP_NET_ADMIN users should always be able to use both modes
-  (They can do sysctl anyway.)
-- setsockopt should fail w/ EPERM if user tries to override.
-
---yoshfuji
+Acked-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
