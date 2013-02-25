@@ -1,111 +1,138 @@
 From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v2 2/2] ip_gre: propogate target device GSO
- capability to the tunnel device
-Date: Sun, 24 Feb 2013 22:07:45 -0800
-Message-ID: <CALnjE+pijatQgSLTkveWBJjDkWt5SQqcxP0d-fTe1SyC1UwDhQ@mail.gmail.com>
+Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
+ handle packets
+Date: Sun, 24 Feb 2013 22:09:14 -0800
+Message-ID: <CALnjE+qROGF+TScOBuqWxcXqAuNtoNxacYjKq7RCvZkY1-fONA@mail.gmail.com>
 References: <1361217053-16984-1-git-send-email-dmitry@broadcom.com>
-	<1361217053-16984-2-git-send-email-dmitry@broadcom.com>
-	<CANvJab2wKiQjZ=ZEuJO1A=jCnja==a0qL8XULSAU2dc6W-rh3A@mail.gmail.com>
-	<1361485805.21950.6.camel@lb-tlvb-dmitry>
-	<CANvJab3zfR2r_hV=UHWWb5qjx-eyT38F1ZWZWmjRya9eUz5XjA@mail.gmail.com>
-	<1361724339.20403.2.camel@lb-tlvb-dmitry.il.broadcom.com>
+	<CANvJab2uOKaGG6SrJCjvhe39oPqQbLBuc44j_nkShz_NW8G98w@mail.gmail.com>
+	<504C9EFCA2D0054393414C9CB605C37F1C019A30@SJEXCHMB06.corp.ad.broadcom.com>
+	<CANvJab0xqZhj9TDZOQKtqvDjLu4ez7MrocWY3FaBw28Nxc-Qdg@mail.gmail.com>
+	<1361485562.21950.3.camel@lb-tlvb-dmitry>
+	<CANvJab2S07fUPT3kJKM=NsCPuO-moJhtxhNExiWnxS-kFOkQ2Q@mail.gmail.com>
+	<CANvJab3_ZMiMtCns2TtVxjM8GjVtqtk=+WYzsoj3t2b2958AVg@mail.gmail.com>
+	<1361725018.20403.6.camel@lb-tlvb-dmitry.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: pravin <pravin.shelar@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Dmitry Kravkov <dmitry@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:44398 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754563Ab3BYGHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 01:07:46 -0500
-Received: by mail-qe0-f71.google.com with SMTP id 3so4858241qea.2
-        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 22:07:45 -0800 (PST)
-In-Reply-To: <1361724339.20403.2.camel@lb-tlvb-dmitry.il.broadcom.com>
+Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:47333 "HELO
+	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750821Ab3BYGJQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 01:09:16 -0500
+Received: by mail-gh0-f199.google.com with SMTP id r16so4146321ghr.2
+        for <netdev@vger.kernel.org>; Sun, 24 Feb 2013 22:09:15 -0800 (PST)
+In-Reply-To: <1361725018.20403.6.camel@lb-tlvb-dmitry.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 24, 2013 at 8:45 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
-> On Thu, 2013-02-21 at 15:53 -0800, pravin wrote:
->> On Thu, Feb 21, 2013 at 2:30 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->> > On Tue, 2013-02-19 at 10:39 -0800, pravin wrote:
->> >> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
->> >> >
->> >> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
->> >> > ---
->> >> > Changes from v1: fixed email address
->> >> >
->> >> >
->> >> >  net/ipv4/ip_gre.c |   10 ++++++++--
->> >> >  1 files changed, 8 insertions(+), 2 deletions(-)
->> >> >
->> >> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
->> >> > index cdc31ac..31bc941 100644
->> >> > --- a/net/ipv4/ip_gre.c
->> >> > +++ b/net/ipv4/ip_gre.c
->> >> > @@ -1103,8 +1103,14 @@ static int ipgre_tunnel_bind_dev(struct net_device *dev)
->> >> >         tunnel->hlen = addend;
->> >> >         /* TCP offload with GRE SEQ is not supported. */
->> >> >         if (!(tunnel->parms.o_flags & GRE_SEQ)) {
->> >> > -               dev->features           |= NETIF_F_GSO_SOFTWARE;
->> >> > -               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
->> >> > +               /* device supports enc gso offload*/
->> >> > +               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
->> >> > +                       dev->features           |= NETIF_F_TSO;
->> >> > +                       dev->hw_features        |= NETIF_F_TSO;
->> >> > +               } else {
->> >> > +                       dev->features           |= NETIF_F_GSO_SOFTWARE;
->> >> > +                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
->> >> > +               }
->> >> >         }
+On Sun, Feb 24, 2013 at 8:56 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+> On Thu, 2013-02-21 at 23:19 -0800, pravin wrote:
+>> On Thu, Feb 21, 2013 at 3:46 PM, pravin <pravin.shelar@gmail.com> wrote:
+>> > On Thu, Feb 21, 2013 at 2:26 PM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+>> >> On Tue, 2013-02-19 at 15:03 -0800, pravin wrote:
+>> >>> On Tue, Feb 19, 2013 at 11:20 AM, Dmitry Kravkov <dmitry@broadcom.com> wrote:
+>> >>> >
+>> >>> >> -----Original Message-----
+>> >>> >> From: pravin [mailto:pravin.shelar@gmail.com]
+>> >>> >> Sent: Tuesday, February 19, 2013 8:28 PM
+>> >>> >> To: Dmitry Kravkov
+>> >>> >> Cc: davem@davemloft.net; netdev@vger.kernel.org
+>> >>> >> Subject: Re: [PATCH net-next v2 1/2] ip_gre: allow CSUM capable devices to
+>> >>> >> handle packets
+>> >>> >>
+>> >>> >> On Mon, Feb 18, 2013 at 11:50 AM, Dmitry Kravkov <dmitry@broadcom.com>
+>> >>> >> wrote:
+>> >>> >> > If device is not able to handle checksumming it will
+>> >>> >> > be handled in dev_xmit
+>> >>> >> >
+>> >>> >> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+>> >>> >> > ---
+>> >>> >> > Changes from v1: fixed email address
+>> >>> >> >
+>> >>> >> >  net/ipv4/ip_gre.c |    7 ++-----
+>> >>> >> >  1 files changed, 2 insertions(+), 5 deletions(-)
+>> >>> >> >
+>> >>> >> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+>> >>> >> > index a56f118..cdc31ac 100644
+>> >>> >> > --- a/net/ipv4/ip_gre.c
+>> >>> >> > +++ b/net/ipv4/ip_gre.c
+>> >>> >> > @@ -745,12 +745,9 @@ static struct sk_buff *handle_offloads(struct sk_buff
+>> >>> >> *skb)
+>> >>> >> >                         goto error;
+>> >>> >> >                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+>> >>> >> >                 return skb;
+>> >>> >> > -       } else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+>> >>> >> > -               err = skb_checksum_help(skb);
+>> >>> >> > -               if (unlikely(err))
+>> >>> >> > -                       goto error;
+>> >>> >> >         }
+>> >>> >> > -       skb->ip_summed = CHECKSUM_NONE;
+>> >>> >> > +       if (skb->ip_summed != CHECKSUM_PARTIAL)
+>> >>> >> > +               skb->ip_summed = CHECKSUM_NONE;
+>> >>> >> >
+>> >>> >> >         return skb;
+>> >>> >> >
+>> >>> >> > --
+>> >>> >> > 1.7.7.2
+>> >>> >> >
+>> >>> >> >
+>> >>> >>
+>> >>> >> This patch breaks GRE tunnel with GRE_CSUM. since GRE_CSUM need
+>> >>> >> complete IP packet to checksum entire GRE payload.
+>> >>> >
+>> >>> > Testing for o_flags&GRE_CSUM does not look too hurt here, since it will be used in ipgre_tunnel_xmit() later on
+>> >>> > This is the only problematic case, right?
+>> >>> >
+>> >>>
+>> >>> It does not work for me. I have GRE device with csum on. Ping works
+>> >>> fine but Netperf is not working.
+>> >>> Looking at code, I am not sure how tcp will work if inner packet TCP
+>> >>> checksum is calculated after GRE_CSUM calculation.
 >> >>
->> >> I am not sure about this change, Are you trying to limit GRE TSO to
->> >> just IPV4  in case of GRE offload in hardware?
->> >
->> >
->> > This mostly reverts previous patch, but also disables GSO when CSUM is
->> > set.
->> >
->> > ---
->> >  net/ipv4/ip_gre.c |   14 ++++----------
->> >  1 files changed, 4 insertions(+), 10 deletions(-)
->> >
->> > diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
->> > index 0de54cd..aae2d4b 100644
->> > --- a/net/ipv4/ip_gre.c
->> > +++ b/net/ipv4/ip_gre.c
->> > @@ -1107,16 +1107,10 @@ static int ipgre_tunnel_bind_dev(struct
->> > net_device *dev)
->> >                 mtu = 68;
->> >
->> >         tunnel->hlen = addend;
->> > -       /* TCP offload with GRE SEQ is not supported. */
->> > -       if (!(tunnel->parms.o_flags & GRE_SEQ)) {
->> > -               /* device supports enc gso offload*/
->> > -               if (tdev->hw_enc_features & NETIF_F_GRE_GSO) {
->> > -                       dev->features           |= NETIF_F_TSO;
->> > -                       dev->hw_features        |= NETIF_F_TSO;
->> > -               } else {
->> > -                       dev->features           |= NETIF_F_GSO_SOFTWARE;
->> > -                       dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
->> > -               }
->> > +       /* TCP offload with GRE SEQ or CSUM is not supported. */
->> > +       if (!(tunnel->parms.o_flags & (GRE_SEQ|GRE_CSUM))) {
->> > +               dev->features           |= NETIF_F_GSO_SOFTWARE;
->> > +               dev->hw_features        |= NETIF_F_GSO_SOFTWARE;
->> >         }
->> >
->> >         return mtu;
+>> >>
+>> >> Fixes handling when CSUM or SEQ flags are set - via skb_checksum_help()
+>> >> ---
+>> >> Tested with each mode (separately)
+>> >>
+>> >>  net/ipv4/ip_gre.c |   14 +++++++++++---
+>> >>  1 files changed, 11 insertions(+), 3 deletions(-)
+>> >>
+>> >> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+>> >> index 5ef4da7..0de54cd 100644
+>> >> --- a/net/ipv4/ip_gre.c
+>> >> +++ b/net/ipv4/ip_gre.c
+>> >> @@ -735,7 +735,8 @@ drop:
+>> >>         return 0;
+>> >>  }
+>> >>
+>> >> -static struct sk_buff *handle_offloads(struct sk_buff *skb)
+>> >> +static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel,
+>> >> +                                      struct sk_buff *skb)
+>> >>  {
+>> >>         int err;
+>> >>
+>> >> @@ -745,8 +746,15 @@ static struct sk_buff *handle_offloads(struct
+>> >> sk_buff *skb)
+>> >>                         goto error;
+>> >>                 skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+>> >>                 return skb;
+>> >> +       } else if (tunnel->parms.o_flags&(GRE_SEQ|GRE_CSUM) &&
+>> >> +                  skb->ip_summed == CHECKSUM_PARTIAL) {
+>> >> +               err = skb_checksum_help(skb);
+>> >> +               if (unlikely(err))
+>> >> +                       goto error;
+>> >>         }
 >>
->> This narrows down definition of NETIF_F_GRE_GSO. Is it required for
->> hardware offload?
+>> one more thing, there is no need to do csum for GRE_SEQ case.
+> If csum is not performed TCP csum become incorrect for offload
+> capable and incapable devices.
 >
-> This is required to prevent dev_hard_xmit() to perform soft GSO.
-> W/o it device receives divided packets.
 >
-If NIC features are set correctly dev_hard_xmit() will not perform GSO.
+that csum computation is only required for GRE_CSUM case, not for GRE_SEQ.
+I have send out patches to fix GRE issues, please have a look.
 
->
 >
 >
 > --
