@@ -1,153 +1,121 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: AF_VSOCK and the LSMs
-Date: Mon, 25 Feb 2013 11:55:06 -0500
-Message-ID: <5429810.RVpOLLsSs4@sifl>
-References: <1803195.0cVPJuGAEx@sifl> <1968537.V0Fsdryuo8@sifl> <5129541B.4030806@schaufler-ca.com>
+From: Greg Rose <gregory.v.rose@intel.com>
+Subject: Re: igb: NULL pointer dereference
+Date: Mon, 25 Feb 2013 09:10:39 -0800
+Message-ID: <20130225091039.00007484@unknown>
+References: <1361752504.2532.9.camel@bling.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
-	Gerd Hoffmann <kraxel@redhat.com>,
-	Eric Paris <eparis@redhat.com>
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <5129541B.4030806@schaufler-ca.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <jeffrey.t.kirsher@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1361752504.2532.9.camel@bling.home>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-[NOTE/WARNING: we're veering away from the VSOCK discussion and towards a LSM 
-stacking discussion; see my response to Gerd if you want to stay on topic.]
+On Sun, 24 Feb 2013 17:35:04 -0700
+Alex Williamson <alex.williamson@redhat.com> wrote:
 
-On Saturday, February 23, 2013 03:43:23 PM Casey Schaufler wrote:
-> On 2/22/2013 4:45 PM, Paul Moore wrote:
-> > On Friday, February 22, 2013 03:00:04 PM Casey Schaufler wrote:
-> >> Please add an LSM blob. Please do not use a secid. I am currently
-> >> battling with secids in my efforts for multiple LSM support.
-> >> 
-> >> ...
-> >> 
-> >> I am going to be able to deal with secids for AF_INET only because
-> >> SELinux prefers XFRM, Smack requires CIPSO, and AppArmor is going to
-> >> be willing to have networking be optional.
-> > 
-> > "prefers"?  Really Casey, did you think I would let you get away with that
-> > statement?  What a LSM "prefers" is really not relevant to the stacking
-> > effort, what a LSM _supports_ is what matters.
+> On Linus' current tree I get the the oops below.  I realize I'm still
+> using the deprecated max_vfs= module option, but this isn't a very
+> compatible or friendly migration path.  I'm using an 82576 PF as an
+> interface for connecting an iscsi root disk and I also use the VF off
+> this interface for misc virtual machine assignment.  Suggestions
+> welcome on migrating to sysfs based sr-iov enabling from an initramfs
+> without bouncing the PF interface, but I think the below needs to be
+> fixed regardless.  git bisected to:
+
+This definitely looks like a bug.  You should be able to use both
+methods without a problem.  I'll look into it and see if I can figure
+out what's going on.
+
+- Greg
+
 > 
-> I suppose. My point, which you may refute if it is incorrect,
-> is that there are common, legitimate SELinux configurations which
-> eschew Netlabel in favor of XFRM.
-
-There are common, legitimate use cases which use exclusively NetLabel, 
-exclusively labeled IPsec, and both.  A LSM stacking design that forces 
-SELinux to only operate with XFRM (labeled IPsec) is wrong.  If you are giving 
-admins the ability to selectively stack LSMs you should also allow them to 
-selectively pick which non-shareable functionality they assign to each LSM.
-
-> > SELinux _supports_ NetLabel (CIPSO, etc.), XFRM (labeled IPsec), and
-> > secmark.
-> > 
-> > Smack _supports_ NetLabel (CIPSO).
-> > 
-> > AppArmor and TOMOYO don't really do any of the forms of labeled networking
-> > that are relevant for this discussion.
+> commit fa44f2f185f7f9da19d331929bb1b56c1ccd1d93
+> Author: Greg Rose <gregory.v.rose@intel.com>
+> Date:   Thu Jan 17 01:03:06 2013 -0800
 > 
-> I am informed that labeled networking is being developed as an
-> option for AppArmor.
-
-I've remember hearing the same several years ago too, until we see patches it 
-doesn't make sense to spend a lot of time worrying about what the AppArmor 
-developers plan to support.  Regardless, if anything I think this only 
-furthers the need to provide a mechanism to selectively assign non-shareable 
-LSM functionality to individuals LSMs in a stacked scenario.
- 
-> > If you want to try option #3 I think we might be able to do something with
-> > NetLabel to support multiple LSMs as the label abstraction stuff should
-> > theoretically make this possible; although the NetLabel cache will need
-> > some work.
+>     igb: Enable SR-IOV configuration via PCI sysfs interface
+>     
+>     Implement callback in the driver for the new PCI bus driver
+>     interface that allows the user to enable/disable SR-IOV
+>     virtual functions in a device via the sysfs interface.
+>     
+>     Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+>     Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+>     Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > 
-> It is reasonably easy to restrict Netlabel to a single LSM,
-> and since SELinux seems better served by XFRM in most configurations ...
-
-I disagree.  In some use cases SELinux is better served by XFRM, in others it 
-is better served by NetLabel.  Once again, I think you need to focus on what 
-is possible with the LSMs rather than a particular set of use cases which 
-happen to make the LSM stacking project easier.
-
-> and AppArmor intends to make networking an option that seems
-> like a viable strategy until Netlabel gets multiple LSM support.
-
-It would be nice if the AppArmor developers could share their plans - or have 
-I missed them on the list?  My apologies if that is the case, a pointer would 
-be helpful ...
-
-> > Labeled IPsec is likely out due to the way it was designed unless you
-> > want to attempt to negotiate two labels during the IKE exchange (yuck).  I
-> > think we can also rule out secmark as multi-LSM enabled due to the
-> > limitations on a 32 bit integer.
+> Thanks,
 > 
-> That was my take as well. But, since only SELinux uses those currently,
-> and I see little pressure for Smack to support them I don't have
-> a lot of incentive in that direction.
-
-Agreed.
-
-> >> If you have two LSMs that use secids you are never going to have a
-> >> rational way to get the information for both into one secid.
-> > 
-> > Exactly, I don't disagree which is why I've always said that networking
-> > was going to be a major problem for the stacked LSM effort.  Unfortunately
-> > it sounds like you haven't yet made any serious effort into resolving that
-> > problem other than saying "don't do that".
+> Alex
 > 
-> Oh believe me, I have made serious effort. I just haven't made
-> significant progress.
-
-True, that wasn't a fair comment for me to make - my apologies.
-
-> The good news is that there can be a networking configuration (SELinux with
-> XFRM, Smack with Netlabel, AppArmor with none) that is both supported and
-> rational.
-
-I disagree that the approach you are proposing is the one that should be 
-adopted.  I am very much in favor of providing the ability to selectively 
-assign non-shareable LSM features when stacking.  If you aren't able to create 
-a mechanism to assign features when stacking, I think I would be more in favor 
-of a "first come, first served" model (the first LSM gets whatever it wants, 
-and each LSM stacked on top has to make do with what is left) over what you 
-are currently proposing.
-
-> Options I have considered include:
-> 	- Netlabel support for discriminating LSM use by host,
-> 	  just as it currently allows for unlabeled hosts.
-
-Hmm, interesting ... not sure what I think of this.
-
-> 	- Netlabel as an independent LSM. Lots of refactoring.
-
-Ungh, no.
-
-> 	- secid maps.
-
-Can you elaborate on this?  I can think of a few different meanings here ...
-
-> 	- Remove secids completely in favor of blobs.
-
-Obviously ideal, but unlikely to happen unless the netdev crew change their 
-mind on blobs in sk_buff.
-
-> I should have an updated patch set by month's end. I think it
-> will address the current LSM issues. I don't know that I can
-> say it will address everything new LSMs might want to try.
-
-I'll be sure to take a closer look then.  I should have taken a closer look at 
-your previous patches - my mistake and I'll take responsibility for that - but 
-based on the discussion from the last security summit I was under the 
-impression that stacking was only going to be allowed between "big" and 
-"little" LSMs, that is obviously no longer the case.
-
--- 
-paul moore
-security and virtualization @ redhat
-
+> 
+> [    4.831907] igb: Intel(R) Gigabit Ethernet Network Driver -
+> version 4.1.2-k [    4.838868] igb: Copyright (c) 2007-2012 Intel
+> Corporation. [    4.844710] igb 0000:01:00.0: Maximum of 7 VFs per
+> PF, using max [    4.850768] igb 0000:01:00.0: Enabling SR-IOV VFs
+> using the module parameter is deprecated - please use the pci sysfs
+> interface. [    4.872310] systemd[1]: Starting dracut initqueue
+> hook... Startin[    4.877937] BUG: unable to handle kernel NULL
+> pointer dereference at 0000000000000048 [    4.887143] IP:
+> [<ffffffffa015862d>] igb_reset+0xcd/0x460 [igb] [    4.893175] PGD 0
+> [    4.895267] Oops: 0002 [#1] SMP [    4.898666] Modules linked in:
+> igb(+) ptp usb_storage pps_core iscsi_tcp be2iscsi bnx2i cnic uio
+> cxgb4i cxgb4 cxgb3i cxgb3 mdio libcxgbi libiscsi_tcp qla4xxx
+> iscsi_boot_sysfs libiscsi scsi_transport_iscsi [    4.918125] CPU 2
+> [    4.919959] Pid: 207, comm: systemd-udevd Not tainted 3.8.0-rc3+
+> #278 LENOVO 4157CTO/LENOVO [    4.928541] RIP:
+> 0010:[<ffffffffa015862d>]  [<ffffffffa015862d>] igb_reset+0xcd/0x460
+> [igb] [    4.937039] RSP: 0018:ffff880367f63b38  EFLAGS: 00010246
+> [    4.942409] RAX: 00000000000000ff RBX: ffff880367020800 RCX:
+> 0000000000000001 [    4.949601] RDX: 0000000000000000 RSI:
+> 0000000000000202 RDI: ffff880367020800 [    4.956803] RBP:
+> ffff880367f63b58 R08: ffff88036814d408 R09: 0000000000000007
+> [    4.964004] R10: ffffffff813eea13 R11: 000000000000000f R12:
+> ffff880367020d68 [    4.971205] R13: ffff880371267000 R14:
+> 0000000000000040 R15: ffff880367020000 [    4.978398] FS:
+> 00007fdebfc3b840(0000) GS:ffff88037fc80000(0000)
+> knlGS:0000000000000000 [    4.986549] CS:  0010 DS: 0000 ES: 0000
+> CR0: 0000000080050033 [    4.992369] CR2: 0000000000000048 CR3:
+> 0000000367df3000 CR4: 00000000000007e0 [    4.999649] DR0:
+> 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+> [    5.006893] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+> 0000000000000400 [    5.014136] Process systemd-udevd (pid: 207,
+> threadinfo ffff880367f62000, task ffff880367fa0000) [    5.023108]
+> Stack: [    5.025280]  ffff880371267000 ffff880371267098
+> ffff880371267000 0000000000000001 [    5.033327]  ffff880367f63bd8
+> ffffffffa01593e5 ffff880371267098 ffff880367020d68 [    5.041400]
+> 0000000000020000 ffff880367020800 0000000000000004 ffff880300007136
+> [    5.049451] Call Trace: [    5.052050]  [<ffffffffa01593e5>]
+> igb_probe+0x855/0xde0 [igb] [    5.058023]  [<ffffffff8131eddb>]
+> local_pci_probe+0x4b/0x80 [    5.063925]  [<ffffffff8131f0e1>]
+> pci_device_probe+0x111/0x120 [    5.070082]  [<ffffffff813e4c1b>]
+> driver_probe_device+0x8b/0x390 [    5.076375]  [<ffffffff813e4fcb>]
+> __driver_attach+0xab/0xb0 [    5.082303]  [<ffffffff813e4f20>] ?
+> driver_probe_device+0x390/0x390 [    5.088736]  [<ffffffff813e2ca5>]
+> bus_for_each_dev+0x55/0x90 [    5.094458]  [<ffffffff813e458e>]
+> driver_attach+0x1e/0x20 [    5.099921]  [<ffffffff813e41c0>]
+> bus_add_driver+0x1a0/0x290 [    5.105691]  [<ffffffffa0180000>] ?
+> 0xffffffffa017ffff [    5.110937]  [<ffffffffa0180000>] ?
+> 0xffffffffa017ffff [    5.116305]  [<ffffffff813e5697>]
+> driver_register+0x77/0x170 [    5.122287]  [<ffffffffa0180000>] ?
+> 0xffffffffa017ffff [    5.127786]  [<ffffffff8131e0ab>]
+> __pci_register_driver+0x4b/0x50 [    5.134004]  [<ffffffffa018004f>]
+> igb_init_module+0x4f/0x1000 [igb] [    5.140565]
+> [<ffffffff8100215a>] do_one_initcall+0x12a/0x180 [    5.146321]
+> [<ffffffff810c3f3a>] load_module+0x1a8a/0x20c0 [    5.152020]
+> [<ffffffff8130f0a0>] ? ddebug_proc_open+0xc0/0xc0 [    5.157914]
+> [<ffffffff810c4647>] sys_init_module+0xd7/0x120 [    5.163639]
+> [<ffffffff81650ed9>] system_call_fastpath+0x16/0x1b [    5.169702]
+> Code: 83 e9 10 45 85 c9 89 8b 14 08 00 00 74 4d 31 c9 66 0f 1f 44 00
+> 00 48 63 d1 83 c1 01 48 8d 14 52 48 c1 e2 05 48 03 93 98 0e 00 00
+> <83> 62 48 08 3b 8b 94 0e 00 00 72 df 48 89 df e8 2f da ff ff 48
+> [    5.192637] RIP  [<ffffffffa015862d>] igb_reset+0xcd/0x460 [igb] g
+> dracut initque[    5.198783]  RSP <ffff880367f63b38> [    5.203660]
+> CR2: 0000000000000048 ue hook... [    5.207169] ---[ end trace
+> 494789df673e4a4c ]---
+> 
+> 
