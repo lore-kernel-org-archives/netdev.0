@@ -1,87 +1,126 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: Bonding driver problem
-Date: Mon, 25 Feb 2013 14:48:45 -0800
-Message-ID: <20130225144845.00006bc5@unknown>
-References: <20130225141008.00004621@unknown>
-	<20130225221835.GA1730@minipsycho.orion>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: AF_VSOCK and the LSMs
+Date: Mon, 25 Feb 2013 15:06:14 -0800
+Message-ID: <512BEE66.9030405@schaufler-ca.com>
+References: <1803195.0cVPJuGAEx@sifl> <5429810.RVpOLLsSs4@sifl> <512BA742.5050304@schaufler-ca.com> <1495862.ttoqQE2oSv@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <sibai.li@intel.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
+	Gerd Hoffmann <kraxel@redhat.com>,
+	Eric Paris <eparis@redhat.com>,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: Paul Moore <pmoore@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:45393 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759674Ab3BYWss convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 17:48:48 -0500
-In-Reply-To: <20130225221835.GA1730@minipsycho.orion>
+Received: from nm3-vm0.access.bullet.mail.mud.yahoo.com ([66.94.237.136]:28633
+	"EHLO nm3-vm0.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756732Ab3BYXGO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 18:06:14 -0500
+In-Reply-To: <1495862.ttoqQE2oSv@sifl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 25 Feb 2013 23:18:35 +0100
-Jiri Pirko <jiri@resnulli.us> wrote:
+On 2/25/2013 1:05 PM, Paul Moore wrote:
+> On Monday, February 25, 2013 10:02:42 AM Casey Schaufler wrote:
+>> On 2/25/2013 8:55 AM, Paul Moore wrote:
+>>> [NOTE/WARNING: we're veering away from the VSOCK discussion and towards a
+>>> LSM stacking discussion; see my response to Gerd if you want to stay on
+>>> topic.]> 
+>>> On Saturday, February 23, 2013 03:43:23 PM Casey Schaufler wrote:
+>>>> On 2/22/2013 4:45 PM, Paul Moore wrote:
+>>>>> On Friday, February 22, 2013 03:00:04 PM Casey Schaufler wrote:
+>>>>>> Please add an LSM blob. Please do not use a secid. I am currently
+>>>>>> battling with secids in my efforts for multiple LSM support.
+>>>>>>
+>>>>>> ...
+>>>>>>
+>>>>>> I am going to be able to deal with secids for AF_INET only because
+>>>>>> SELinux prefers XFRM, Smack requires CIPSO, and AppArmor is going to
+>>>>>> be willing to have networking be optional.
+>>>>> "prefers"?  Really Casey, did you think I would let you get away with
+>>>>> that statement?  What a LSM "prefers" is really not relevant to the
+>>>>> stacking effort, what a LSM _supports_ is what matters.
+>>>> I suppose. My point, which you may refute if it is incorrect,
+>>>> is that there are common, legitimate SELinux configurations which
+>>>> eschew Netlabel in favor of XFRM.
+>>> There are common, legitimate use cases which use exclusively NetLabel,
+>>> exclusively labeled IPsec, and both.  A LSM stacking design that forces
+>>> SELinux to only operate with XFRM (labeled IPsec) is wrong.  If you are
+>>> giving admins the ability to selectively stack LSMs you should also allow
+>>> them to selectively pick which non-shareable functionality they assign to
+>>> each LSM.
+>> That is the approach I'm taking. The kernel configuration
+>> will specify which LSM gets Netlabel and which gets XFRM.
+> Okay, it wasn't obvious to me in your previous emails that this was the case. 
+> Also, just so I'm clear, you configure the stacking and the stacked network 
+> access controls at the same time, yes?  I want to avoid the situation where 
+> the stacked network access controls are determined at build time and the LSM 
+> stacking order/configuration is determined at boot.
 
-> Mon, Feb 25, 2013 at 11:10:08PM CET, gregory.v.rose@intel.com wrote:
-> >
-> >We're having some problems with the following commit:
-> >
-> >commit 409cc1f8a4149c26bbb8e5d3bacb36541ad371e2
-> >Author: Jiri Pirko <jiri@resnulli.us>
-> >Date:   Wed Jan 30 11:08:11 2013 +0100
-> >
-> >    bond: have random dev address by default instead of zeroes
-> >   =20
-> >    Makes more sense to have randomly generated address by default
-> > than to have all zeroes. It also allows user to for example put the
-> > bond into bridge without need to have any slaves in it.
-> >   =20
-> >    Also note that this changes only behaviour of bonds with no
-> > slaves. Once the first slave device is enslaved, its address will
-> > be used (no change here).
-> >   =20
-> >    Also, fix dev_assign_type values on the way.
-> >   =20
-> >    Reported-by: Pavel =C5=A0imerda <psimerda@redhat.com>
-> >    Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >    Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-> >    Signed-off-by: David S. Miller <davem@davemloft.net>
-> >
-> >According to our tester, Sibai, before the patch, the mac of bonding
-> >device is assigned by default as zero when it has no slave. Once the
-> >first slave is enslaved, the bonding device takes the mac of first
-> >slave, then passes this mac to all slaves.=20
-> >
-> >But with this patch, the mac of the bonding interface is assigned a
-> >random mac, and when the slave device is enslaved, the bonding devic=
-e
-> >keeps taking the mac of the slave it last enslaved. And former
-> >enslaved slaves keep reverting to their original mac.  So for  mode
-> >1, since the first slave is the active one, the rest of the slaves
-> >are the backup, because the mac of bonding is different than the
-> >first slave, so the bonding device cannot receive packets.
->=20
-> I think I know what is the issue. bond->dev_addr_from_first should be
-> set to false in bond_enslave. I will fix this tomorrow. Sorry for the
-> inconvenience.
+The set of LSMs, the order they are invoked, which LSM
+uses /proc/.../attr/current and which LSM uses Netlabel,
+XFRM and secmark are all determined by Kconfig. You can
+specify a limited set of LSMs using security= at boot,
+but not the networking configuration.
 
-Thank you Jiri!  Looking forward to the patch.
+Tetsuo is lobbying for loadable security modules. I am
+doing my best to leave everything in a state where some
+soul braver than I might pick that up after I'm done.
+I do not have any intention of supporting on the fly
+or heuristically determined networking.
 
-- Greg
+ 
 
->=20
->=20
-> >
-> >When we tried test build that reverted this patch the issue she was
-> >seeing went away and the bonding worked the she was accustomed to.
-> >
-> >This may be deliberate and we may have to change our test procedures
-> >but we wanted to make sure.
-> >
-> >The specific use case is to use a two virtual functions each from a
-> >different physical function port to create fail over bonding.
-> >
-> >Thanks,
-> >
-> >- Greg Rose
-> >Networking Division
-> >Intel Corp.
+>>>>> If you want to try option #3 I think we might be able to do something
+>>>>> with NetLabel to support multiple LSMs as the label abstraction stuff
+>>>>> should theoretically make this possible; although the NetLabel cache
+>>>>> will need some work.
+>>>> It is reasonably easy to restrict Netlabel to a single LSM,
+>>>> and since SELinux seems better served by XFRM in most configurations ...
+>>> I disagree.  In some use cases SELinux is better served by XFRM, in others
+>>> it is better served by NetLabel.  Once again, I think you need to focus
+>>> on what is possible with the LSMs rather than a particular set of use
+>>> cases which happen to make the LSM stacking project easier.
+>> I'm trying not to make too many architectural changes to the
+>> code around the LSM mechanism itself. I don't see that as cost
+>> effective or likely to be popular. If the implication of that is
+>> that there are certain configurations that are unsupportable but
+>> that have plausible alternatives I think it will do for phase I.
+> That statement is vague enough that I can't really say yes or no to it, but I 
+> will stick by my previous comments about the network access controls.
+
+Ah. I want to create a useful system. I want to create it
+reasonably short order. I am willing to forgo supporting
+some configuration options to reduce the project time. In
+particular, I hope to avoid mucking up other people's code
+as that is a sure fire way to bog a project down.
+
+>>>> Options I have considered include:
+>>>> 	- Netlabel support for discriminating LSM use by host,
+>>>> 	
+>>>> 	  just as it currently allows for unlabeled hosts.
+>>> Hmm, interesting ... not sure what I think of this.
+>> It breaks down on 127.0.0.1. Otherwise is looks pretty easy to do.
+> When I said I wasn't sure what I thought of this, it was more along the lines 
+> of I'm not sure if it makes sense, not that it would be difficult to do.
+
+It makes sense if you're in a network environment with heterogeneous
+legacy multilevel secure systems and you want some of those machines
+to talk to SELinux controlled processes and others to talk to Smack
+controlled processes. That is unlikely to be an industry dominating
+scenario.
+
+>>>> 	- secid maps.
+>>> Can you elaborate on this?  I can think of a few different meanings here
+>>> ...
+>> This fell out of my first shot at stacking, the one that never saw
+>> the light of day for tax reasons. I had implemented a stacker LSM
+>> that slid into the existing infrastructure. Hooks that asked for
+>> secids got the secid from my LSM, not the underlying LSM secids.
+>> There was a table much like the Smack label list that mapped the
+>> global secids to sets of underlying secids. The obvious problem
+>> is that that table grows quickly and can never go away.
+> Interesting idea, but I can imagine it gets rather intrusive very quickly.
+
+That's one way to describe it. I'm striving to avoid it.
