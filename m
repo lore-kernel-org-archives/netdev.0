@@ -1,85 +1,70 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net-next 1/2] IP_GRE: Fix GRE_CSUM case.
-Date: Mon, 25 Feb 2013 11:40:06 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F1C01B740@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1361772305-1665-1-git-send-email-pshelar@nicira.com>
+From: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Subject: Re: Disable IPv4-mapped - enforce IPV6_V6ONLY
+Date: Mon, 25 Feb 2013 20:44:47 +0900
+Message-ID: <512B4EAF.2050301@linux-ipv6.org>
+References: <51278CF6.2060402@ahsoftware.de> <51292A2B.3000304@ahsoftware.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Pravin B Shelar" <pshelar@nicira.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2158 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759652Ab3BYLkO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 06:40:14 -0500
-In-Reply-To: <1361772305-1665-1-git-send-email-pshelar@nicira.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexander Holler <holler@ahsoftware.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51292A2B.3000304@ahsoftware.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Pravin B Shelar [mailto:pshelar@nicira.com]
-> Sent: Monday, February 25, 2013 8:05 AM
-> To: davem@davemloft.net
-> Cc: netdev@vger.kernel.org; Dmitry Kravkov; Pravin B Shelar
-> Subject: [PATCH net-next 1/2] IP_GRE: Fix GRE_CSUM case.
-> 
-> commit "ip_gre: allow CSUM capable devices to handle packets"
-> aa0e51cdda005cd37e2, broke GRE_CSUM case.
-> GRE_CSUM needs checksum computed for inner packet. Therefore
-> csum-calculation can not be offloaded if tunnel device requires
-> GRE_CSUM.  Following patch fixes it by computing inner packet checksum
-> for GRE_CSUM type, for all other type of GRE devices csum is offloaded.
-> 
-> CC: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->  net/ipv4/ip_gre.c |   12 ++++++++----
->  1 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 5ef4da7..9b4996d 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -735,7 +735,7 @@ drop:
->  	return 0;
->  }
-> 
-> -static struct sk_buff *handle_offloads(struct sk_buff *skb)
-> +static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel, struct sk_buff *skb)
->  {
->  	int err;
-> 
-> @@ -745,8 +745,12 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
->  			goto error;
->  		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
->  		return skb;
-> -	}
-> -	if (skb->ip_summed != CHECKSUM_PARTIAL)
-> +	} else if (skb->ip_summed == CHECKSUM_PARTIAL &&
-> +		   tunnel->parms.o_flags&GRE_CSUM) {
-> +		err = skb_checksum_help(skb);
-> +		if (unlikely(err))
-> +			goto error;
-> +	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
->  		skb->ip_summed = CHECKSUM_NONE;
-> 
->  	return skb;
-> @@ -776,7 +780,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
->  	int    err;
->  	int    pkt_len;
-> 
-> -	skb = handle_offloads(skb);
-> +	skb = handle_offloads(tunnel, skb);
->  	if (IS_ERR(skb)) {
->  		dev->stats.tx_dropped++;
->  		return NETDEV_TX_OK;
-> --
-> 1.7.1
+Hello.
 
-Tested the series on two different devices
+Alexander Holler wrote:
+> Am 22.02.2013 16:21, schrieb Alexander Holler:
+>> Hello,
+>>
+>> I'm searching for a way to either enforce IPV6_V6ONLY or to block
+>> IPv4-mapped addresses on ipv6-sockets (e.g. by using iptables) system-wide.
+>>
+>> E.g. net.ipv6.bindv6only doesn't help if something calls
+>>
+>> int v6on = 0;
+>> setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on))
+>>
+>> In such a case I still want to disable or block IPv4-mapped addresses on
+>> that socket, even if the program thinks it nows it better.
+>>
+>> Until now I haven't found a solution.
+> 
+> I've now done it by the following hack:
+> 
+> -----------
+> diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+> index d1e2e8e..9eefd3e 100644
+> --- a/net/ipv6/ipv6_sockglue.c
+> +++ b/net/ipv6/ipv6_sockglue.c
+> @@ -235,7 +235,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
+>                 if (optlen < sizeof(int) ||
+>                     inet_sk(sk)->inet_num)
+>                         goto e_inval;
+> -               np->ipv6only = valbool;
+> +               np->ipv6only = valbool || net->ipv6.sysctl.bindv6only;
+>                 retv = 0;
+>                 break;
+> -----------
+> 
+> A proper solution would be to either return false if net.ipv6.bindv6only is true and optval is false (which would break downward compatibility because it wouldn't just be a default and setsockopt might return an error) or to introduce a new sysctl variable like net.ipv6.bindv6only_enforced_silently. ("silently" because setsockopt() wouldn't return an error if net.ipv6.bindv6only is true and optval (v6only in the example above) is false.)
+> 
+> I would volunteer to write a patch which introduces something like net.ipv6.bindv6only_enforced_silently if some maintainer would give me his ok.
+> 
+> If so, the question remains if
+> 
+> systemctl net.ipv6.bindv6only_enforced_silently = 1
+> 
+> should set systemctl.net.ipv6.bindv6only too or if an error should be returned if net.ipv6.bindv6only is false.
 
-Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
+I am not convinced why you need this, and I am not in favor of
+enfocing IPV6_V6ONLY, but... some points:
+
+- We should allow system-admin to "enforce" IPV6_V6ONLY to 0 as well.
+- CAP_NET_ADMIN users should always be able to use both modes
+  (They can do sysctl anyway.)
+- setsockopt should fail w/ EPERM if user tries to override.
+
+--yoshfuji
