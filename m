@@ -1,77 +1,153 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] b43: Fix lockdep splat on module unload
-Date: Mon, 25 Feb 2013 10:09:24 -0600
-Message-ID: <1361808564-22684-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:47741 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759931Ab3BYQJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 11:09:44 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: AF_VSOCK and the LSMs
+Date: Mon, 25 Feb 2013 11:55:06 -0500
+Message-ID: <5429810.RVpOLLsSs4@sifl>
+References: <1803195.0cVPJuGAEx@sifl> <1968537.V0Fsdryuo8@sifl> <5129541B.4030806@schaufler-ca.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
+	Gerd Hoffmann <kraxel@redhat.com>,
+	Eric Paris <eparis@redhat.com>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <5129541B.4030806@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On unload, b43 produces a lockdep warning that can be summarized in the
-following way:
+[NOTE/WARNING: we're veering away from the VSOCK discussion and towards a LSM 
+stacking discussion; see my response to Gerd if you want to stay on topic.]
 
- ======================================================
- [ INFO: possible circular locking dependency detected ]
- 3.8.0-wl+ #117 Not tainted
- -------------------------------------------------------
- modprobe/5557 is trying to acquire lock:
-  ((&wl->firmware_load)){+.+.+.}, at: [<ffffffff81062160>] flush_work+0x0/0x2a0
+On Saturday, February 23, 2013 03:43:23 PM Casey Schaufler wrote:
+> On 2/22/2013 4:45 PM, Paul Moore wrote:
+> > On Friday, February 22, 2013 03:00:04 PM Casey Schaufler wrote:
+> >> Please add an LSM blob. Please do not use a secid. I am currently
+> >> battling with secids in my efforts for multiple LSM support.
+> >> 
+> >> ...
+> >> 
+> >> I am going to be able to deal with secids for AF_INET only because
+> >> SELinux prefers XFRM, Smack requires CIPSO, and AppArmor is going to
+> >> be willing to have networking be optional.
+> > 
+> > "prefers"?  Really Casey, did you think I would let you get away with that
+> > statement?  What a LSM "prefers" is really not relevant to the stacking
+> > effort, what a LSM _supports_ is what matters.
+> 
+> I suppose. My point, which you may refute if it is incorrect,
+> is that there are common, legitimate SELinux configurations which
+> eschew Netlabel in favor of XFRM.
 
- but task is already holding lock:
-  (rtnl_mutex){+.+.+.}, at: [<ffffffff813bd7d2>] rtnl_lock+0x12/0x20
+There are common, legitimate use cases which use exclusively NetLabel, 
+exclusively labeled IPsec, and both.  A LSM stacking design that forces 
+SELinux to only operate with XFRM (labeled IPsec) is wrong.  If you are giving 
+admins the ability to selectively stack LSMs you should also allow them to 
+selectively pick which non-shareable functionality they assign to each LSM.
 
- which lock already depends on the new lock.
- [ INFO: possible circular locking dependency detected ]
- ======================================================
+> > SELinux _supports_ NetLabel (CIPSO, etc.), XFRM (labeled IPsec), and
+> > secmark.
+> > 
+> > Smack _supports_ NetLabel (CIPSO).
+> > 
+> > AppArmor and TOMOYO don't really do any of the forms of labeled networking
+> > that are relevant for this discussion.
+> 
+> I am informed that labeled networking is being developed as an
+> option for AppArmor.
 
-The full output is available at http://lkml.indiana.edu/hypermail/linux/kernel/1302.3/00060.html.
-To summarize, commit 6b6fa58 added a 'cancel_work_sync(&wl->firmware_load)'
-call in the wrong place.
-
-The fix is to move the cancel_work_sync() call to b43_bcma_remove() and
-b43_ssb_remove(). Thanks to Johannes Berg and Michael Buesch for help in
-diagnosing the log output.
-
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org> [V3.5+]
----
- drivers/net/wireless/b43/main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/b43/main.c b/drivers/net/wireless/b43/main.c
-index 806e34c..0568273 100644
---- a/drivers/net/wireless/b43/main.c
-+++ b/drivers/net/wireless/b43/main.c
-@@ -4214,7 +4214,6 @@ redo:
- 	mutex_unlock(&wl->mutex);
- 	cancel_delayed_work_sync(&dev->periodic_work);
- 	cancel_work_sync(&wl->tx_work);
--	cancel_work_sync(&wl->firmware_load);
- 	mutex_lock(&wl->mutex);
- 	dev = wl->current_dev;
- 	if (!dev || b43_status(dev) < B43_STAT_STARTED) {
-@@ -5434,6 +5433,7 @@ static void b43_bcma_remove(struct bcma_device *core)
- 	/* We must cancel any work here before unregistering from ieee80211,
- 	 * as the ieee80211 unreg will destroy the workqueue. */
- 	cancel_work_sync(&wldev->restart_work);
-+	cancel_work_sync(&wl->firmware_load);
+I've remember hearing the same several years ago too, until we see patches it 
+doesn't make sense to spend a lot of time worrying about what the AppArmor 
+developers plan to support.  Regardless, if anything I think this only 
+furthers the need to provide a mechanism to selectively assign non-shareable 
+LSM functionality to individuals LSMs in a stacked scenario.
  
- 	B43_WARN_ON(!wl);
- 	if (!wldev->fw.ucode.data)
-@@ -5510,6 +5510,7 @@ static void b43_ssb_remove(struct ssb_device *sdev)
- 	/* We must cancel any work here before unregistering from ieee80211,
- 	 * as the ieee80211 unreg will destroy the workqueue. */
- 	cancel_work_sync(&wldev->restart_work);
-+	cancel_work_sync(&wl->firmware_load);
- 
- 	B43_WARN_ON(!wl);
- 	if (!wldev->fw.ucode.data)
+> > If you want to try option #3 I think we might be able to do something with
+> > NetLabel to support multiple LSMs as the label abstraction stuff should
+> > theoretically make this possible; although the NetLabel cache will need
+> > some work.
+> 
+> It is reasonably easy to restrict Netlabel to a single LSM,
+> and since SELinux seems better served by XFRM in most configurations ...
+
+I disagree.  In some use cases SELinux is better served by XFRM, in others it 
+is better served by NetLabel.  Once again, I think you need to focus on what 
+is possible with the LSMs rather than a particular set of use cases which 
+happen to make the LSM stacking project easier.
+
+> and AppArmor intends to make networking an option that seems
+> like a viable strategy until Netlabel gets multiple LSM support.
+
+It would be nice if the AppArmor developers could share their plans - or have 
+I missed them on the list?  My apologies if that is the case, a pointer would 
+be helpful ...
+
+> > Labeled IPsec is likely out due to the way it was designed unless you
+> > want to attempt to negotiate two labels during the IKE exchange (yuck).  I
+> > think we can also rule out secmark as multi-LSM enabled due to the
+> > limitations on a 32 bit integer.
+> 
+> That was my take as well. But, since only SELinux uses those currently,
+> and I see little pressure for Smack to support them I don't have
+> a lot of incentive in that direction.
+
+Agreed.
+
+> >> If you have two LSMs that use secids you are never going to have a
+> >> rational way to get the information for both into one secid.
+> > 
+> > Exactly, I don't disagree which is why I've always said that networking
+> > was going to be a major problem for the stacked LSM effort.  Unfortunately
+> > it sounds like you haven't yet made any serious effort into resolving that
+> > problem other than saying "don't do that".
+> 
+> Oh believe me, I have made serious effort. I just haven't made
+> significant progress.
+
+True, that wasn't a fair comment for me to make - my apologies.
+
+> The good news is that there can be a networking configuration (SELinux with
+> XFRM, Smack with Netlabel, AppArmor with none) that is both supported and
+> rational.
+
+I disagree that the approach you are proposing is the one that should be 
+adopted.  I am very much in favor of providing the ability to selectively 
+assign non-shareable LSM features when stacking.  If you aren't able to create 
+a mechanism to assign features when stacking, I think I would be more in favor 
+of a "first come, first served" model (the first LSM gets whatever it wants, 
+and each LSM stacked on top has to make do with what is left) over what you 
+are currently proposing.
+
+> Options I have considered include:
+> 	- Netlabel support for discriminating LSM use by host,
+> 	  just as it currently allows for unlabeled hosts.
+
+Hmm, interesting ... not sure what I think of this.
+
+> 	- Netlabel as an independent LSM. Lots of refactoring.
+
+Ungh, no.
+
+> 	- secid maps.
+
+Can you elaborate on this?  I can think of a few different meanings here ...
+
+> 	- Remove secids completely in favor of blobs.
+
+Obviously ideal, but unlikely to happen unless the netdev crew change their 
+mind on blobs in sk_buff.
+
+> I should have an updated patch set by month's end. I think it
+> will address the current LSM issues. I don't know that I can
+> say it will address everything new LSMs might want to try.
+
+I'll be sure to take a closer look then.  I should have taken a closer look at 
+your previous patches - my mistake and I'll take responsibility for that - but 
+based on the discussion from the last security summit I was under the 
+impression that stacking was only going to be allowed between "big" and 
+"little" LSMs, that is obviously no longer the case.
+
 -- 
-1.8.1.4
+paul moore
+security and virtualization @ redhat
+
