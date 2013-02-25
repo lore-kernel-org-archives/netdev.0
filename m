@@ -1,38 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] vmxnet3: fix ethtool ring buffer size setting
-Date: Sun, 24 Feb 2013 20:19:36 -0500 (EST)
-Message-ID: <20130224.201936.1455941402175863131.davem@davemloft.net>
-References: <1361565144-18301-1-git-send-email-nhorman@tuxdriver.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net/pasemi: Fix missing coding style
+Date: Sun, 24 Feb 2013 17:23:29 -0800
+Message-ID: <1361755409.2281.9.camel@joe-AO722>
+References: <1361746879-29261-1-git-send-email-s.syam@samsung.com>
+	 <20130224.201301.457851300548359313.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sbhatewara@vmware.com,
-	pv-drivers@vmware.com
-To: nhorman@tuxdriver.com
+Cc: syamsidhardh@gmail.com, netdev@vger.kernel.org, olof@lixom.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43979 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759457Ab3BYBTy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 24 Feb 2013 20:19:54 -0500
-In-Reply-To: <1361565144-18301-1-git-send-email-nhorman@tuxdriver.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:55272 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1759456Ab3BYBXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 24 Feb 2013 20:23:36 -0500
+In-Reply-To: <20130224.201301.457851300548359313.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 22 Feb 2013 15:32:24 -0500
-
-> Noticed that vmxnet3's get_ringparam function was returning the summation of all
-> ring buffers on a NIC, rather than just the size of any one ring.  This causes
-> problems when a vmxnet3 instance has multiple queues, as ethtool, when setting
-> ring parameters, first gets the current ring parameters to set the existing
-> values in the set_ringparm commannd.  The result is, that unless both rx and tx
-> ring sizes are set in a single operation, which ever ring is not set will
-> silently have its ring count multiplied by the number of queues on the NIC until
-> it reaches a driver defined maxiumum value.
+On Sun, 2013-02-24 at 20:13 -0500, David Miller wrote:
+> From: Syam Sidhardhan <syamsidhardh@gmail.com>
+> Date: Mon, 25 Feb 2013 04:31:19 +0530
 > 
-> Fix it by not multiplying the rx and tx ring sizes by the number of queues in
-> the system, like every other driver.  Tested by myself successfully.
+> > -             } else
+> > +             } else {
+> >                       freed = 2;
+> > +             }
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Single line statements do not need braces.
 
-Applied.
+I guess you didn't see the preceding block with braces.
+
+CodingStyle:
+
+This does not apply if only one branch of a conditional statement is a single
+statement; in the latter case use braces in both branches:
