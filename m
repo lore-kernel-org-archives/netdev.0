@@ -1,201 +1,423 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Tue, 26 Feb 2013 00:56:16 +0530
-Message-ID: <512BBAD8.8010006@linux.vnet.ibm.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123856.26245.46705.stgit@srivatsabhat.in.ibm.com> <CANN689F9S7c1M8+cEpz3tsxGF34+NTRBLvxgPUOtbvav5u+RRA@mail.gmail.com> <5122551E.1080703@linux.vnet.ibm.com>	<51226B46.9080707@linux.vnet.ibm.com> <CANN689FSxOz+0Cu7EG_yKD8ZE1OpT4kyT+ybLfXSqaifodJRpw@mail.gmail.com> <51226F91.7000108@linux.vnet.ibm.com> <CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com>
+From: rebelyouth hacklab <rebelyouth.hacklab@gmail.com>
+Subject: Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast
+ Ethernet (rev b0) 1.0.0.7 md5/sha1 corrupted using NFS and samba (updated)
+Date: Mon, 25 Feb 2013 15:23:22 -0500
+Message-ID: <CAPxKiawJC3gLqmg2Lx5qrw6WPXQjBRYRpcD0Fkd7Bt6QX8hzoA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Michel Lespinasse <walken@google.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Lai Jiangshan <eag0628@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f66.google.com ([209.85.215.66]:45092 "EHLO
+	mail-la0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758580Ab3BYUXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 15:23:24 -0500
+Received: by mail-la0-f66.google.com with SMTP id gw10so1008277lab.5
+        for <netdev@vger.kernel.org>; Mon, 25 Feb 2013 12:23:22 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Lai,
+Hi,
+I'm writing again for the same issue about  :
 
-On 02/25/2013 09:23 PM, Lai Jiangshan wrote:
-> Hi, Srivatsa,
-> 
-> The target of the whole patchset is nice for me.
+Atheros Communications Inc. AR8121/AR8113/AR8114 Gigabit or Fast
+Ethernet (rev b0) 1.0.0.7 md5 /sha1 corrupted using NFS and samba
 
-Cool! Thanks :-)
+My solution in this past 7 months was one : don't use the chip (I also
+deactivate the chip from the BIOS)
 
-> A question: How did you find out the such usages of
-> "preempt_disable()" and convert them? did all are converted?
-> 
+A friend of mine let me borrowed a pci-x with a Realtek RTL8168C/8111C.
 
-Well, I scanned through the source tree for usages which implicitly
-disabled CPU offline and converted them over. Its not limited to uses
-of preempt_disable() alone - even spin_locks, rwlocks, local_irq_disable()
-etc also help disable CPU offline. So I tried to dig out all such uses
-and converted them. However, since the merge window is open, a lot of
-new code is flowing into the tree. So I'll have to rescan the tree to
-see if there are any more places to convert.
+The card worked in any condition, no problem with nfs or samba.
 
-> And I think the lock is too complex and reinvent the wheel, why don't
-> you reuse the lglock?
+Unfortunately my friend need back the card for a project and I
+activated back the Atheros card...and the problem is still there
 
-lglocks? No way! ;-) See below...
+I'm using at the moment a Debian sid with kernel 3.7.9 and a Chackra
+2012 with kernel 3.7.6 and I see the atl1e is the same 1.0.0.7-NAPI :
 
-> I wrote an untested draft here.
-> 
-> Thanks,
-> Lai
-> 
-> PS: Some HA tools(I'm writing one) which takes checkpoints of
-> virtual-machines frequently, I guess this patchset can speedup the
-> tools.
-> 
-> From 01db542693a1b7fc6f9ece45d57cb529d9be5b66 Mon Sep 17 00:00:00 2001
-> From: Lai Jiangshan <laijs@cn.fujitsu.com>
-> Date: Mon, 25 Feb 2013 23:14:27 +0800
-> Subject: [PATCH] lglock: add read-preference local-global rwlock
-> 
-> locality via lglock(trylock)
-> read-preference read-write-lock via fallback rwlock_t
-> 
-> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
-> ---
->  include/linux/lglock.h |   31 +++++++++++++++++++++++++++++++
->  kernel/lglock.c        |   45 +++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 76 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/lglock.h b/include/linux/lglock.h
-> index 0d24e93..30fe887 100644
-> --- a/include/linux/lglock.h
-> +++ b/include/linux/lglock.h
-> @@ -67,4 +67,35 @@ void lg_local_unlock_cpu(struct lglock *lg, int cpu);
->  void lg_global_lock(struct lglock *lg);
->  void lg_global_unlock(struct lglock *lg);
-> 
-> +struct lgrwlock {
-> +	unsigned long __percpu *fallback_reader_refcnt;
-> +	struct lglock lglock;
-> +	rwlock_t fallback_rwlock;
-> +};
-> +
-> +#define DEFINE_LGRWLOCK(name)						\
-> +	static DEFINE_PER_CPU(arch_spinlock_t, name ## _lock)		\
-> +	= __ARCH_SPIN_LOCK_UNLOCKED;					\
-> +	static DEFINE_PER_CPU(unsigned long, name ## _refcnt);		\
-> +	struct lgrwlock name = {					\
-> +		.fallback_reader_refcnt = &name ## _refcnt,		\
-> +		.lglock = { .lock = &name ## _lock } }
-> +
-> +#define DEFINE_STATIC_LGRWLOCK(name)					\
-> +	static DEFINE_PER_CPU(arch_spinlock_t, name ## _lock)		\
-> +	= __ARCH_SPIN_LOCK_UNLOCKED;					\
-> +	static DEFINE_PER_CPU(unsigned long, name ## _refcnt);		\
-> +	static struct lgrwlock name = {					\
-> +		.fallback_reader_refcnt = &name ## _refcnt,		\
-> +		.lglock = { .lock = &name ## _lock } }
-> +
-> +static inline void lg_rwlock_init(struct lgrwlock *lgrw, char *name)
-> +{
-> +	lg_lock_init(&lgrw->lglock, name);
-> +}
-> +
-> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw);
-> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw);
-> +void lg_rwlock_global_write_lock(struct lgrwlock *lgrw);
-> +void lg_rwlock_global_write_unlock(struct lgrwlock *lgrw);
->  #endif
-> diff --git a/kernel/lglock.c b/kernel/lglock.c
-> index 6535a66..463543a 100644
-> --- a/kernel/lglock.c
-> +++ b/kernel/lglock.c
-> @@ -87,3 +87,48 @@ void lg_global_unlock(struct lglock *lg)
->  	preempt_enable();
->  }
->  EXPORT_SYMBOL(lg_global_unlock);
-> +
-> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
-> +{
-> +	struct lglock *lg = &lgrw->lglock;
-> +
-> +	preempt_disable();
-> +	if (likely(!__this_cpu_read(*lgrw->fallback_reader_refcnt))) {
-> +		if (likely(arch_spin_trylock(this_cpu_ptr(lg->lock)))) {
-> +			rwlock_acquire_read(&lg->lock_dep_map, 0, 0, _RET_IP_);
-> +			return;
-> +		}
-> +		read_lock(&lgrw->fallback_rwlock);
-> +	}
-> +
-> +	__this_cpu_inc(*lgrw->fallback_reader_refcnt);
-> +}
-> +EXPORT_SYMBOL(lg_rwlock_local_read_lock);
-> +
-> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
-> +{
-> +	if (likely(!__this_cpu_read(*lgrw->fallback_reader_refcnt))) {
-> +		lg_local_unlock(&lgrw->lglock);
-> +		return;
-> +	}
-> +
-> +	if (!__this_cpu_dec_return(*lgrw->fallback_reader_refcnt))
-> +		read_unlock(&lgrw->fallback_rwlock);
-> +
-> +	preempt_enable();
-> +}
-> +EXPORT_SYMBOL(lg_rwlock_local_read_unlock);
-> +
+modinfo atl1e
 
-If I read the code above correctly, all you are doing is implementing a
-recursive reader-side primitive (ie., allowing the reader to call these
-functions recursively, without resulting in a self-deadlock).
+filename:
+/lib/modules/3.7.9-amd64/kernel/drivers/net/ethernet/atheros/atl1e/atl1e.ko
+version:        1.0.0.7-NAPI
+license:        GPL
+description:    Atheros 1000M Ethernet Network Driver
+author:         Atheros Corporation, <xiong.huang@atheros.com>, Jie
+Yang <jie.yang@atheros.com>
+srcversion:     440FEE0BD620C8D71C0B74A
+alias:          pci:v00001969d00001066sv*sd*bc*sc*i*
+alias:          pci:v00001969d00001026sv*sd*bc*sc*i*
+depends:
+intree:         Y
+vermagic:       3.7.9-amd64 SMP preempt mod_unload modversions
+parm:           tx_desc_cnt:Transmit description count (array of int)
+parm:           rx_mem_size:memory size of rx buffer(KB) (array of int)
+parm:           media_type:MediaType Select (array of int)
+parm:           int_mod_timer:Interrupt Moderator Timer (array of int)
 
-But the thing is, making the reader-side recursive is the least of our
-problems! Our main challenge is to make the locking extremely flexible
-and also safe-guard it against circular-locking-dependencies and deadlocks.
-Please take a look at the changelog of patch 1 - it explains the situation
-with an example.
 
-> +void lg_rwlock_global_write_lock(struct lgrwlock *lgrw)
-> +{
-> +	lg_global_lock(&lgrw->lglock);
+I know the simple solution will be to buy a card with a different chip
+(like the Realtek RTL8168C/8111C) but I would like to help the
+community with this issue.
 
-This does a for-loop on all CPUs and takes their locks one-by-one. That's
-exactly what we want to prevent, because that is the _source_ of all our
-deadlock woes in this case. In the presence of perfect lock ordering
-guarantees, this wouldn't have been a problem (that's why lglocks are
-being used successfully elsewhere in the kernel). In the stop-machine()
-removal case, the over-flexibility of preempt_disable() forces us to provide
-an equally flexible locking alternative. Hence we can't use such per-cpu
-locking schemes.
+The problem : files bigger of 1Gb are corrupted (and file 400mb +  I
+get a corruption in the 75% of the cases)
 
-You might note that, for exactly this reason, I haven't actually used any
-per-cpu _locks_ in this synchronization scheme, though it is named as
-"per-cpu rwlocks". The only per-cpu component here are the refcounts, and
-we consciously avoid waiting/spinning on them (because then that would be
-equivalent to having per-cpu locks, which are deadlock-prone). We use
-global rwlocks to get the deadlock-safety that we need.
+I don't receive any oops on the kernel or any dmesg error on the
+client side but the server receive a lot of errors in RX:
 
-> +	write_lock(&lgrw->fallback_rwlock);
-> +}
-> +EXPORT_SYMBOL(lg_rwlock_global_write_lock);
-> +
-> +void lg_rwlock_global_write_unlock(struct lgrwlock *lgrw)
-> +{
-> +	write_unlock(&lgrw->fallback_rwlock);
-> +	lg_global_unlock(&lgrw->lglock);
-> +}
-> +EXPORT_SYMBOL(lg_rwlock_global_write_unlock);
-> 
+RX packets:78125369 errors:58741 dropped:0 overruns:58741 frame:0
 
-Regards,
-Srivatsa S. Bhat
+This are the test I did:
+
+I test the connection with another cable CAT 6e, tried another router,
+a switch and direct connection, also tried to connect another adapter
+to the server
+to see if the chipset on the server (Ethernet controller: NVIDIA
+Corporation MCP79 Ethernet (rev b1) ) was the one who send corrupt
+data or have a conflict with the atheros,  but this, from my test,
+wasn't the case
+
+Software test:
+
+I'm using Nfs 4 with this setting on the server:
+
+/media               192.168.0.0/24(rw,fsid=0,no_subtree_check,sync)
+/media/disk          192.168.0.0/24(rw,nohide,insecure,no_subtree_check,sync)
+
+(tried async but doesn't fix the issue)
+
+on the client : 192.168.0.1:/    /nfs            nfs4
+defaults,users,_netdev 0 0 (tried  rsize=32768,wsize=32768, async
+without success)
+
+I tried too copy large zero files (400mb, 1gb, 4gb,8gb ,16gb) and the
+sha1/md5 are ok
+if I try a iso or vdi or  a video bigger on these above that the
+corruption occurs all the time,
+same issue if I use samba.
+
+I tried big DVD isos and separate files zip an rar and there
+areperfect in Windows, Freebsd and Mac OS X (samba,ftp,nfs) the
+ipconfig
+on the server showing is all ok
+
+Temp solution :
+
+1) disable TSO with ethtool -K eth0 tso off working at 80% for some reason
+
+2) set the fstab on the nfs to use proto=udp working but samba files
+are still corrupted
+
+3) with the usb adapter with Axis AX88772A I have no problem with nfs
+and samba with standard setting (the same setting I used with the
+Realtek RTL8168C/8111C)
+
+
+I hope these information will  help to find the solution and I'm will
+available for others tests.
+
+Here my lspci -vvv:
+
+00:00.0 Host bridge: Advanced Micro Devices [AMD] RS780 Host Bridge
+        Subsystem: Advanced Micro Devices [AMD] RS780 Host Bridge
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort+ >SERR- <PERR- INTx-
+        Latency: 0
+        Capabilities: <access denied>
+
+00:02.0 PCI bridge: Advanced Micro Devices [AMD] RS780 PCI to PCI
+bridge (ext gfx port 0) (prog-if 00 [Normal decode])
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Bus: primary=00, secondary=01, subordinate=01, sec-latency=0
+        I/O behind bridge: 0000d000-0000dfff
+        Memory behind bridge: fbe00000-fbefffff
+        Prefetchable memory behind bridge: 00000000d0000000-00000000dfffffff
+        Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- <SERR- <PERR-
+        BridgeCtl: Parity+ SERR+ NoISA- VGA+ MAbort- >Reset- FastB2B-
+                PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+        Capabilities: <access denied>
+        Kernel driver in use: pcieport
+
+00:06.0 PCI bridge: Advanced Micro Devices [AMD] RS780 PCI to PCI
+bridge (PCIE port 2) (prog-if 00 [Normal decode])
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Bus: primary=00, secondary=02, subordinate=02, sec-latency=0
+        I/O behind bridge: 0000e000-0000efff
+        Memory behind bridge: fbf00000-fbffffff
+        Prefetchable memory behind bridge: 00000000fff00000-00000000000fffff
+        Secondary status: 66MHz- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- <SERR- <PERR-
+        BridgeCtl: Parity+ SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
+                PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+        Capabilities: <access denied>
+        Kernel driver in use: pcieport
+
+00:11.0 SATA controller: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 SATA Controller [AHCI mode] (prog-if 01 [AHCI 1.0])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 SATA Controller [AHCI mode]
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 42
+        Region 0: I/O ports at c000 [size=8]
+        Region 1: I/O ports at b000 [size=4]
+        Region 2: I/O ports at a000 [size=8]
+        Region 3: I/O ports at 9000 [size=4]
+        Region 4: I/O ports at 8000 [size=16]
+        Region 5: Memory at fbdffc00 (32-bit, non-prefetchable) [size=1K]
+        Capabilities: <access denied>
+        Kernel driver in use: ahci
+
+00:12.0 USB controller: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB OHCI0 Controller (prog-if 10 [OHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB OHCI0 Controller
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 16
+        Region 0: Memory at fbdfd000 (32-bit, non-prefetchable) [size=4K]
+        Kernel driver in use: ohci_hcd
+
+00:12.1 USB controller: Advanced Micro Devices [AMD] nee ATI SB7x0 USB
+OHCI1 Controller (prog-if 10 [OHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI SB7x0 USB
+OHCI1 Controller
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 16
+        Region 0: Memory at fbdfe000 (32-bit, non-prefetchable) [size=4K]
+        Kernel driver in use: ohci_hcd
+
+00:12.2 USB controller: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB EHCI Controller (prog-if 20 [EHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI Device 4397
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin B routed to IRQ 17
+        Region 0: Memory at fbdff800 (32-bit, non-prefetchable) [size=256]
+        Capabilities: <access denied>
+        Kernel driver in use: ehci_hcd
+
+00:13.0 USB controller: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB OHCI0 Controller (prog-if 10 [OHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI Device 4398
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 18
+        Region 0: Memory at fbdfb000 (32-bit, non-prefetchable) [size=4K]
+        Kernel driver in use: ohci_hcd
+
+00:13.1 USB controller: Advanced Micro Devices [AMD] nee ATI SB7x0 USB
+OHCI1 Controller (prog-if 10 [OHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI Device 4399
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 18
+        Region 0: Memory at fbdfc000 (32-bit, non-prefetchable) [size=4K]
+        Kernel driver in use: ohci_hcd
+
+00:13.2 USB controller: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB EHCI Controller (prog-if 20 [EHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB EHCI Controller
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin B routed to IRQ 19
+        Region 0: Memory at fbdff400 (32-bit, non-prefetchable) [size=256]
+        Capabilities: <access denied>
+        Kernel driver in use: ehci_hcd
+
+00:14.0 SMBus: Advanced Micro Devices [AMD] nee ATI SBx00 SMBus
+Controller (rev 3c)
+        Subsystem: Advanced Micro Devices [AMD] nee ATI SBx00 SMBus Controller
+        Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx+
+        Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium
+>TAbort- <TAbort+ <MAbort- >SERR- <PERR- INTx-
+        Capabilities: <access denied>
+
+00:14.1 IDE interface: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 IDE Controller (prog-if 8a [Master SecP PriP])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 IDE Controller
+        Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 16
+        Region 0: I/O ports at 01f0 [size=8]
+        Region 1: I/O ports at 03f4 [size=1]
+        Region 2: I/O ports at 0170 [size=8]
+        Region 3: I/O ports at 0374 [size=1]
+        Region 4: I/O ports at ff00 [size=16]
+        Capabilities: <access denied>
+        Kernel driver in use: pata_atiixp
+
+00:14.2 Audio device: Advanced Micro Devices [AMD] nee ATI SBx00
+Azalia (Intel HDA)
+        Subsystem: ASUSTeK Computer Inc. Device 8357
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=slow >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 16
+        Region 0: Memory at fbdf4000 (64-bit, non-prefetchable) [size=16K]
+        Capabilities: <access denied>
+        Kernel driver in use: snd_hda_intel
+
+00:14.3 ISA bridge: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 LPC host controller
+        Subsystem: Advanced Micro Devices [AMD] nee ATI Device 4383
+        Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B- ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0
+
+00:14.4 PCI bridge: Advanced Micro Devices [AMD] nee ATI SBx00 PCI to
+PCI Bridge (prog-if 01 [Subtractive decode])
+        Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64
+        Bus: primary=00, secondary=03, subordinate=03, sec-latency=64
+        I/O behind bridge: 0000f000-00000fff
+        Memory behind bridge: fff00000-000fffff
+        Prefetchable memory behind bridge: fff00000-000fffff
+        Secondary status: 66MHz- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort+ <SERR- <PERR-
+        BridgeCtl: Parity+ SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
+                PriDiscTmr- SecDiscTmr- DiscTmrStat- DiscTmrSERREn-
+
+00:14.5 USB controller: Advanced Micro Devices [AMD] nee ATI
+SB7x0/SB8x0/SB9x0 USB OHCI2 Controller (prog-if 10 [OHCI])
+        Subsystem: Advanced Micro Devices [AMD] nee ATI Device 4396
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium
+>TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64, Cache Line Size: 64 bytes
+        Interrupt: pin C routed to IRQ 18
+        Region 0: Memory at fbdfa000 (32-bit, non-prefetchable) [size=4K]
+        Kernel driver in use: ohci_hcd
+
+00:18.0 Host bridge: Advanced Micro Devices [AMD] Family 10h Processor
+HyperTransport Configuration
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Capabilities: <access denied>
+
+00:18.1 Host bridge: Advanced Micro Devices [AMD] Family 10h Processor
+Address Map
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+
+00:18.2 Host bridge: Advanced Micro Devices [AMD] Family 10h Processor
+DRAM Controller
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+
+00:18.3 Host bridge: Advanced Micro Devices [AMD] Family 10h Processor
+Miscellaneous Control
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Capabilities: <access denied>
+        Kernel driver in use: k10temp
+
+00:18.4 Host bridge: Advanced Micro Devices [AMD] Family 10h Processor
+Link Control
+        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR- FastB2B- DisINTx-
+        Status: Cap- 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+
+01:00.0 VGA compatible controller: Advanced Micro Devices [AMD] nee
+ATI Juniper [Radeon HD 5700 Series] (prog-if 00 [VGA controller])
+        Subsystem: Micro-Star International Co., Ltd. Device 2140
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 43
+        Region 0: Memory at d0000000 (64-bit, prefetchable) [size=256M]
+        Region 2: Memory at fbec0000 (64-bit, non-prefetchable) [size=128K]
+        Region 4: I/O ports at d000 [size=256]
+        Expansion ROM at fbea0000 [disabled] [size=128K]
+        Capabilities: <access denied>
+        Kernel driver in use: radeon
+
+01:00.1 Audio device: Advanced Micro Devices [AMD] nee ATI Juniper
+HDMI Audio [Radeon HD 5700 Series]
+        Subsystem: Micro-Star International Co., Ltd. Device aa58
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin B routed to IRQ 44
+        Region 0: Memory at fbefc000 (64-bit, non-prefetchable) [size=16K]
+        Capabilities: <access denied>
+        Kernel driver in use: snd_hda_intel
+
+02:00.0 Ethernet controller: Atheros Communications Inc.
+AR8121/AR8113/AR8114 Gigabit or Fast Ethernet (rev b0)
+        Subsystem: ASUSTeK Computer Inc. Device 831c
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop-
+ParErr- Stepping- SERR+ FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin A routed to IRQ 45
+        Region 0: Memory at fbfc0000 (64-bit, non-prefetchable) [size=256K]
+        Region 2: I/O ports at ec00 [size=128]
+        Capabilities: <access denied>
+        Kernel driver in use: ATL1E
+
+
+And the lsusb :Bus 001 Device 004: ID 0b95:772a ASIX Electronics Corp.
+AX88772A Fast Ethernet
