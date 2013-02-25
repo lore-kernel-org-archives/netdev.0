@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] VXLAN: Use tunnel_ip_select_ident() for
- tunnel IP-Identification.
-Date: Mon, 25 Feb 2013 15:48:53 -0500 (EST)
-Message-ID: <20130225.154853.635944788762772510.davem@davemloft.net>
-References: <1361554240-1678-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH 0/3] usbnet: smsc95xx: fix smsc95xx_suspend
+Date: Mon, 25 Feb 2013 15:50:08 -0500 (EST)
+Message-ID: <20130225.155008.2113562107665771295.davem@davemloft.net>
+References: <1361538305-28418-1-git-send-email-ming.lei@canonical.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, jesse@nicira.com,
-	stephen@networkplumber.org
-To: pshelar@nicira.com
+Cc: gregkh@linuxfoundation.org, oneukum@suse.de,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: ming.lei@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56067 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56091 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755402Ab3BYUsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 15:48:54 -0500
-In-Reply-To: <1361554240-1678-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1759560Ab3BYUuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 15:50:10 -0500
+In-Reply-To: <1361538305-28418-1-git-send-email-ming.lei@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Fri, 22 Feb 2013 09:30:40 -0800
+From: Ming Lei <ming.lei@canonical.com>
+Date: Fri, 22 Feb 2013 21:05:02 +0800
 
-> tunnel_ip_select_ident() is more efficient when generating ip-header
-> id given inner packet is of ipv4 type.
+> The 1st two patches fix smsc95xx_suspend, and the 1st one should
+> be backported to 3.8.
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> The last one is to rename the misleading FEATURE_AUTOSUSPEND.
 
-Applied.
+All applied, thanks.
