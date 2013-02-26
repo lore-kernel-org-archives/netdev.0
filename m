@@ -1,121 +1,36 @@
-From: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Subject: Re: [E1000-devel] [PATCH RESEND 3/3] e1000e: fix accessing to suspended
- device
-Date: Tue, 26 Feb 2013 14:03:53 +0400
-Message-ID: <512C8889.80107@openvz.org>
-References: <20130225051010.12689.28611.stgit@zurg> <20130225051911.12689.11167.stgit@zurg> <512C0B59.4020209@intel.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH 0/8] Bugfix and mechanical works for Xen
+ network driver
+Date: Tue, 26 Feb 2013 11:33:06 +0000
+Message-ID: <1361878386.2109.42.camel@zion.uk.xensource.com>
+References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>
+	 <512C26F5.8020100@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>
-To: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <512C0B59.4020209@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <wei.liu2@citrix.com>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: ANNIE LI <annie.li@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:49599 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757513Ab3BZLdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 06:33:08 -0500
+In-Reply-To: <512C26F5.8020100@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Waskiewicz Jr, Peter P wrote:
-> On 2/24/2013 9:19 PM, Konstantin Khlebnikov wrote:
->> This patch fixes some annoying messages like 'Error reading PHY register' and
->> 'Hardware Erorr' and saves several seconds on reboot.
->
-> Any networking-related patches should also include netdev@vger.kernel.org.
+On Tue, 2013-02-26 at 03:07 +0000, ANNIE LI wrote:
+> What the version are these patches based on?
+> I tried v3.8-rc7 and 3.8-rc6, patch 3/8, 4/8 ... can not be merged 
+> successfully. Can you rebase it?
+> 
 
-Yeah, I forgot about this, since I came here from PCI-bus side, not from the network =)
+IIRC we had some XSA patches after this series. Or I just developed it
+on top of a old branch. I will rebase it soon.
 
->
-> I'm also a bit confused how the changes below match the patch description.
- > Elaborating a bit more how the changes suppress the messages might be a good thing.
 
-Patch eliminates reason of these errors -- now driver will wake up
-the device before accessing to its registers.
-
->
->>
->> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
->> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
->> Cc: e1000-devel@lists.sourceforge.net
->> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
->> Cc: Bruce Allan <bruce.w.allan@intel.com>
->> ---
->> drivers/net/ethernet/intel/e1000e/ethtool.c | 13 +++++++++++++
->> drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
->> 2 files changed, 15 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
->> index 2c18137..f91a8f3 100644
->> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
->> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
->> @@ -36,6 +36,7 @@
->> #include <linux/delay.h>
->> #include <linux/vmalloc.h>
->> #include <linux/mdio.h>
->> +#include <linux/pm_runtime.h>
->>
->> #include "e1000.h"
->>
->> @@ -2229,7 +2230,19 @@ static int e1000e_get_ts_info(struct net_device *netdev,
->> return 0;
->> }
->>
->> +static int e1000e_ethtool_begin(struct net_device *netdev)
->> +{
->> + return pm_runtime_get_sync(netdev->dev.parent);
->> +}
->> +
->> +static void e1000e_ethtool_complete(struct net_device *netdev)
->> +{
->> + pm_runtime_put_sync(netdev->dev.parent);
->> +}
->> +
->> static const struct ethtool_ops e1000_ethtool_ops = {
->> + .begin = e1000e_ethtool_begin,
->> + .complete = e1000e_ethtool_complete,
->> .get_settings = e1000_get_settings,
->> .set_settings = e1000_set_settings,
->> .get_drvinfo = e1000_get_drvinfo,
->
-> What do the ethtool additions have to do with this patch? The patch description really doesn't seem to cover why these are here.
->
->> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
->> index 2954cc7..948b86ff 100644
->> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
->> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
->> @@ -4663,6 +4663,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
->> (adapter->hw.phy.media_type == e1000_media_type_copper)) {
->> int ret_val;
->>
->> + pm_runtime_get_sync(&adapter->pdev->dev);
->> ret_val = e1e_rphy(hw, MII_BMCR, &phy->bmcr);
->> ret_val |= e1e_rphy(hw, MII_BMSR, &phy->bmsr);
->> ret_val |= e1e_rphy(hw, MII_ADVERTISE, &phy->advertise);
->> @@ -4673,6 +4674,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
->> ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
->> if (ret_val)
->> e_warn("Error reading PHY register\n");
->> + pm_runtime_put_sync(&adapter->pdev->dev);
->> } else {
->> /* Do not read PHY registers if link is not up
->> * Set values to typical power-on defaults
->>
->>
->> ------------------------------------------------------------------------------
->> Everyone hates slow websites. So do we.
->> Make your web apps faster with AppDynamics
->> Download AppDynamics Lite for free today:
->> http://p.sf.net/sfu/appdyn_d2d_feb
->> _______________________________________________
->> E1000-devel mailing list
->> E1000-devel@lists.sourceforge.net
->> https://lists.sourceforge.net/lists/listinfo/e1000-devel
->> To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
->>
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at http://www.tux.org/lkml/
+Wei.
