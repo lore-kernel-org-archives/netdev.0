@@ -1,102 +1,206 @@
-From: Antti Palosaari <crope@iki.fi>
-Subject: Re: 3.9 merge window kernels
-Date: Tue, 26 Feb 2013 10:54:49 +0200
-Message-ID: <512C7859.6090304@iki.fi>
-References: <20130222234825.GB2419@hansolo.jdub.homelinux.org> <20130222210938.4f62cede@redhat.com> <512816AD.9050406@gmail.com> <20130222223014.1b9a2cc0@redhat.com> <512857FB.3050803@gmail.com> <20130223090148.4a4bd5e0@redhat.com> <CA+5PVA46LfV-WTkJVF7fz9nrz1Qrib894fqMo+8GL8AjuW8_Yg@mail.gmail.com> <5129491A.5020406@gmail.com> <512AAED8.3070205@iki.fi> <512BFC31.7010800@gmail.com> <20130226011209.GC2071@hansolo.jdub.homelinux.org> <512C1B5C.20604@gmail.com> <512C698E.7070306@iki.fi>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
+ Per-CPU Reader-Writer Locks
+Date: Tue, 26 Feb 2013 14:32:48 +0530
+Message-ID: <512C7A38.8060906@linux.vnet.ibm.com>
+References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123856.26245.46705.stgit@srivatsabhat.in.ibm.com> <CANN689F9S7c1M8+cEpz3tsxGF34+NTRBLvxgPUOtbvav5u+RRA@mail.gmail.com> <5122551E.1080703@linux.vnet.ibm.com>	<51226B46.9080707@linux.vnet.ibm.com> <CANN689FSxOz+0Cu7EG_yKD8ZE1OpT4kyT+ybLfXSqaifodJRpw@mail.gmail.com> <51226F91.7000108@linux.vnet.ibm.com> <CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com> <512BBAD8.8010006@linux.vnet.ibm.com> <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Josh Boyer <jwboyer@redhat.com>,
-	Mauro Carvalho Chehab <mchehab@redhat.com>,
-	kernel@lists.fedoraproject.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Stephen Hemminger <shemminger@osdl.org>
-To: poma <pomidorabelisima@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kapsi.fi ([217.30.184.167]:42338 "EHLO mail.kapsi.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759610Ab3BZIzg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2013 03:55:36 -0500
-In-Reply-To: <512C698E.7070306@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Michel Lespinasse <walken@google.com>, linux-doc@vger.kernel.org,
+	peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, namhyung@kernel.org,
+	mingo@kernel.org, linux-arch@vger.kernel.org,
+	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
+	vincent.guittot@linaro.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
+	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+To: Lai Jiangshan <eag0628@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/2013 09:51 AM, Antti Palosaari wrote:
-> On 02/26/2013 04:18 AM, poma wrote:
->> On 02/26/13 02:12, Josh Boyer wrote:
->>> On Tue, Feb 26, 2013 at 01:05:05AM +0100, poma wrote:
->>>> On 02/25/13 01:22, Antti Palosaari wrote:
->>>> [=E2=80=A6]
->>>>>>> Poma, you should probably just start filing bugs for things you=
- hit.
->>>>>>> In this case, the skge backtrace is just a warning but it can b=
-e
->>>>>>> fixed
->>>>>>> up relatively easily.
->>>>>>>
->>>>>>
->>>>>> https://bugzilla.redhat.com/show_bug.cgi?id=3D914994
->>>>>> Josh, Mauro thanks for the overview. :)
->>>>>> Antti, cheers. ;)
->>>>>>
->>>>>> poma
->>>>>
->>>>> I cannot see these warnings at all. What is Kernel option to enab=
-le
->>>>> those debug(?) warnings? From which menu it could be located when=
- make
->>>>> menuconfig ?
->>>>>
->>>>
->>>> http://kojipkgs.fedoraproject.org/packages/kernel/3.9.0/0.rc0.git7=
-=2E1.fc19/data/logs/x86_64/build.log
->>>>
->>>> Even after reapplying Stephen's "skge: check for PCI dma mapping
->>>> errors"[1] from David's 'net-next' tree, no luck.
->>>> =E2=80=A6
->>>> WARNING: at lib/dma-debug.c:933 check_unmap+0x47b/0x960()
->>>> skge 0000:01:09.0: DMA-API: device driver failed to check map
->>>> error[device address=3D0x000000010287094a] [size=3D90 bytes] [mapp=
-ed as
->>>> single]
->>>> =E2=80=A6
->>>
->>> I'm confused.  You pointed to the build I did this morning, which
->>> definitely doesn't include the commit you mentioned.  Are you sayin=
-g you
->>> took this morning's build and applied the patch yourself?  If so, d=
-id it
->>> really get applied?  Do you have logs?  Do you have more than just =
-that
->>> tiny snippet of error message?
->>>
+On 02/26/2013 05:47 AM, Lai Jiangshan wrote:
+> On Tue, Feb 26, 2013 at 3:26 AM, Srivatsa S. Bhat
+> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
+>> Hi Lai,
 >>
->> build.log is for Antti's eyes only. :)
->> Logs are virtually the same, with or without that *old* commit, whic=
-h is
->> actually replaced by this one[1].
->> So of course it isn't in 3.9.0-0.rc0.git7.1.fc19.x86_64. ;)
->> Building particular module groups(skge & Co.) rather than build an
->> entire kernel tree isn't big deal, likewise.
->> You know that better than me. ;)
->> The real question is whether someone will help squeeze this bug.
+>> On 02/25/2013 09:23 PM, Lai Jiangshan wrote:
+>>> Hi, Srivatsa,
+>>>
+>>> The target of the whole patchset is nice for me.
+>>
+>> Cool! Thanks :-)
+>>
+[...]
+>>> I wrote an untested draft here.
+>>>
+>>> Thanks,
+>>> Lai
+>>>
+>>> PS: Some HA tools(I'm writing one) which takes checkpoints of
+>>> virtual-machines frequently, I guess this patchset can speedup the
+>>> tools.
+>>>
+>>> From 01db542693a1b7fc6f9ece45d57cb529d9be5b66 Mon Sep 17 00:00:00 2001
+>>> From: Lai Jiangshan <laijs@cn.fujitsu.com>
+>>> Date: Mon, 25 Feb 2013 23:14:27 +0800
+>>> Subject: [PATCH] lglock: add read-preference local-global rwlock
+>>>
+>>> locality via lglock(trylock)
+>>> read-preference read-write-lock via fallback rwlock_t
+>>>
+>>> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+>>> ---
+>>>  include/linux/lglock.h |   31 +++++++++++++++++++++++++++++++
+>>>  kernel/lglock.c        |   45 +++++++++++++++++++++++++++++++++++++++++++++
+>>>  2 files changed, 76 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/include/linux/lglock.h b/include/linux/lglock.h
+>>> index 0d24e93..30fe887 100644
+>>> --- a/include/linux/lglock.h
+>>> +++ b/include/linux/lglock.h
+>>> @@ -67,4 +67,35 @@ void lg_local_unlock_cpu(struct lglock *lg, int cpu);
+>>>  void lg_global_lock(struct lglock *lg);
+>>>  void lg_global_unlock(struct lglock *lg);
+>>>
+>>> +struct lgrwlock {
+>>> +     unsigned long __percpu *fallback_reader_refcnt;
+>>> +     struct lglock lglock;
+>>> +     rwlock_t fallback_rwlock;
+>>> +};
+>>> +
+>>> +#define DEFINE_LGRWLOCK(name)                                                \
+>>> +     static DEFINE_PER_CPU(arch_spinlock_t, name ## _lock)           \
+>>> +     = __ARCH_SPIN_LOCK_UNLOCKED;                                    \
+>>> +     static DEFINE_PER_CPU(unsigned long, name ## _refcnt);          \
+>>> +     struct lgrwlock name = {                                        \
+>>> +             .fallback_reader_refcnt = &name ## _refcnt,             \
+>>> +             .lglock = { .lock = &name ## _lock } }
+>>> +
+>>> +#define DEFINE_STATIC_LGRWLOCK(name)                                 \
+>>> +     static DEFINE_PER_CPU(arch_spinlock_t, name ## _lock)           \
+>>> +     = __ARCH_SPIN_LOCK_UNLOCKED;                                    \
+>>> +     static DEFINE_PER_CPU(unsigned long, name ## _refcnt);          \
+>>> +     static struct lgrwlock name = {                                 \
+>>> +             .fallback_reader_refcnt = &name ## _refcnt,             \
+>>> +             .lglock = { .lock = &name ## _lock } }
+>>> +
+>>> +static inline void lg_rwlock_init(struct lgrwlock *lgrw, char *name)
+>>> +{
+>>> +     lg_lock_init(&lgrw->lglock, name);
+>>> +}
+>>> +
+>>> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw);
+>>> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw);
+>>> +void lg_rwlock_global_write_lock(struct lgrwlock *lgrw);
+>>> +void lg_rwlock_global_write_unlock(struct lgrwlock *lgrw);
+>>>  #endif
+>>> diff --git a/kernel/lglock.c b/kernel/lglock.c
+>>> index 6535a66..463543a 100644
+>>> --- a/kernel/lglock.c
+>>> +++ b/kernel/lglock.c
+>>> @@ -87,3 +87,48 @@ void lg_global_unlock(struct lglock *lg)
+>>>       preempt_enable();
+>>>  }
+>>>  EXPORT_SYMBOL(lg_global_unlock);
+>>> +
+>>> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
+>>> +{
+>>> +     struct lglock *lg = &lgrw->lglock;
+>>> +
+>>> +     preempt_disable();
+>>> +     if (likely(!__this_cpu_read(*lgrw->fallback_reader_refcnt))) {
+>>> +             if (likely(arch_spin_trylock(this_cpu_ptr(lg->lock)))) {
+>>> +                     rwlock_acquire_read(&lg->lock_dep_map, 0, 0, _RET_IP_);
+>>> +                     return;
+>>> +             }
+>>> +             read_lock(&lgrw->fallback_rwlock);
+>>> +     }
+>>> +
+>>> +     __this_cpu_inc(*lgrw->fallback_reader_refcnt);
+>>> +}
+>>> +EXPORT_SYMBOL(lg_rwlock_local_read_lock);
+>>> +
+>>> +void lg_rwlock_local_read_unlock(struct lgrwlock *lgrw)
+>>> +{
+>>> +     if (likely(!__this_cpu_read(*lgrw->fallback_reader_refcnt))) {
+>>> +             lg_local_unlock(&lgrw->lglock);
+>>> +             return;
+>>> +     }
+>>> +
+>>> +     if (!__this_cpu_dec_return(*lgrw->fallback_reader_refcnt))
+>>> +             read_unlock(&lgrw->fallback_rwlock);
+>>> +
+>>> +     preempt_enable();
+>>> +}
+>>> +EXPORT_SYMBOL(lg_rwlock_local_read_unlock);
+>>> +
+>>
+>> If I read the code above correctly, all you are doing is implementing a
+>> recursive reader-side primitive (ie., allowing the reader to call these
+>> functions recursively, without resulting in a self-deadlock).
+>>
+>> But the thing is, making the reader-side recursive is the least of our
+>> problems! Our main challenge is to make the locking extremely flexible
+>> and also safe-guard it against circular-locking-dependencies and deadlocks.
+>> Please take a look at the changelog of patch 1 - it explains the situation
+>> with an example.
+> 
+> 
+> My lock fixes your requirements(I read patch 1-6 before I sent). In
+> readsite, lglock 's lock is token via trylock, the lglock doesn't
+> contribute to deadlocks, we can consider it doesn't exist when we find
+> deadlock from it. And global fallback rwlock doesn't result to
+> deadlocks because it is read-preference(you need to inc the
+> fallback_reader_refcnt inside the cpu-hotplug write-side, I don't do
+> it in generic lgrwlock)
 >
-> I want just know if I could reproduce that AF9015 error message or wa=
-s
-> it just warning. Is it something I have to fix for Kernel 3.10 or
-> earlier. I am running Fedora 17 AMD64 and could surely compile any
-> Kernel needed.
 
-OK, found it finally.
-Kernel hacking  --->  Enable debugging of DMA-API usage
+Ah, since you hadn't mentioned the increment at the writer-side in your
+previous email, I had missed the bigger picture of what you were trying
+to achieve.
+ 
+> 
+> If lg_rwlock_local_read_lock() spins, which means
+> lg_rwlock_local_read_lock() spins on fallback_rwlock, and which means
+> lg_rwlock_global_write_lock() took the lgrwlock successfully and
+> return, and which means lg_rwlock_local_read_lock() will stop spinning
+> when the write side finished.
+> 
 
-There was rather many DVB USB drivers using USB bulk buffers from the=20
-stack. I will fix at least some of those, lets say for 3.10.
+Unfortunately, I see quite a few issues with the code above. IIUC, the
+writer and the reader both increment the same counters. So how will the
+unlock() code in the reader path know when to unlock which of the locks?
+(The counter-dropping-to-zero logic is not safe, since it can be updated
+due to different reasons). And now that I look at it again, in the absence
+of the writer, the reader is allowed to be recursive at the heavy cost of
+taking the global rwlock for read, every 2nd time you nest (because the
+spinlock is non-recursive). Also, this lg_rwlock implementation uses 3
+different data-structures - a per-cpu spinlock, a global rwlock and
+a per-cpu refcnt, and its not immediately apparent why you need those many
+or even those many varieties. Also I see that this doesn't handle the
+case of interrupt-handlers also being readers.
 
-regards
-Antti
---=20
-http://palosaari.fi/
+IMHO, the per-cpu rwlock scheme that I have implemented in this patchset
+has a clean, understandable design and just enough data-structures/locks
+to achieve its goal and has several optimizations (like reducing the
+interrupts-disabled time etc) included - all in a very straight-forward
+manner. Since this is non-trivial, IMHO, starting from a clean slate is
+actually better than trying to retrofit the logic into some locking scheme
+which we actively want to avoid (and hence effectively we aren't even
+borrowing anything from!).
+
+To summarize, if you are just pointing out that we can implement the same
+logic by altering lglocks, then sure, I acknowledge the possibility.
+However, I don't think doing that actually makes it better; it either
+convolutes the logic unnecessarily, or ends up looking _very_ similar to
+the implementation in this patchset, from what I can see.
+
+Regards,
+Srivatsa S. Bhat
