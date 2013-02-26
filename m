@@ -1,35 +1,94 @@
-From: Daniel Drake <dsd@laptop.org>
-Subject: Re: [PATCH] libertas sdio: remove CMD_FUNC_INIT call
-Date: Tue, 26 Feb 2013 09:33:12 -0600
-Message-ID: <CAMLZHHTnRUT0pbpKR7=wVSDkOxo65tnA_JWYGtq9rejsVy2scQ@mail.gmail.com>
-References: <1358493883-28433-1-git-send-email-lkundrak@v3.sk>
-	<477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
-	<1361249203.14137.27.camel@unicorn.kokotovo>
-	<477F20668A386D41ADCC57781B1F70430D9D6CEA08@SC-VEXCH1.marvell.com>
-	<1361730693.31709.1.camel@unicorn.kokotovo>
-	<477F20668A386D41ADCC57781B1F70430D9D7F8FF0@SC-VEXCH1.marvell.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 54491] New: UFO (UDP fragmentation offload) does not work
+ if the payload size specified is within the range ( (MTU-28)  to (MTU-8) )
+Date: Tue, 26 Feb 2013 07:46:06 -0800
+Message-ID: <20130226074606.4d16ebfb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Lubomir Rintel <lkundrak@v3.sk>, Harro Haan <hrhaan@gmail.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"libertas-dev@lists.infradead.org" <libertas-dev@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Bing Zhao <bzhao@marvell.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f45.google.com ([209.85.216.45]:35948 "EHLO
-	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932114Ab3BZPdO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 10:33:14 -0500
-In-Reply-To: <477F20668A386D41ADCC57781B1F70430D9D7F8FF0@SC-VEXCH1.marvell.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:55832 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759657Ab3BZPqc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 10:46:32 -0500
+Received: by mail-pa0-f45.google.com with SMTP id kl14so2513420pab.32
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 07:46:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 25, 2013 at 5:21 PM, Bing Zhao <bzhao@marvell.com> wrote:
-> Do you have any concern for OLPC platforms with above change? If it doesn't seem to break OLPC I will send a patch to the list.
 
-Looks fine to me. Thanks for investigating.
 
-Daniel
+Begin forwarded message:
+
+Date: Tue, 26 Feb 2013 00:52:33 -0800
+=46rom: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla=
+=2Ekernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 54491] New: UFO (UDP fragmentation offload) does not work=
+ if the payload size specified is within the range ( (MTU-28)  to (MTU-=
+8) )
+
+
+https://bugzilla.kernel.org/show_bug.cgi?id=3D54491
+
+           Summary: UFO (UDP fragmentation offload) does not work if th=
+e
+                    payload size specified is within the range ( (MTU-2=
+8)
+                    to (MTU-8) )
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.3.4
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: IPV4
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: hnk437@gmail.com
+        Regression: No
+
+
+=46or IPv4/UDP if the payload size specified is within the range ( (MTU=
+-28)=20
+to (MTU-8) ) packet gets segmented in kernel even if the following netd=
+ev
+features are set:
+
+NETIF_F_SG=20
+NETIF_F_GEN_CSUM=20
+NETIF_F_UFO=20
+NETIF_F_TSO=20
+NETIF_F_GSO=20
+NETIF_F_GSO_ROBUST
+
+Analysis:
+udp_sendmsg() computes packet length by adding UDP header size to paylo=
+ad size:
+=E2=80=9Culen +=3D sizeof(struct udphdr)=E2=80=9D
+Then the function calls ip_make_skb(), however IP header size is not ad=
+ded to
+the packet length.
+ip_make_skb() in turn calls __ip_append_data(). The same packet length =
+is used
+here.=20
+__ip_append_data() compares the packet length with MTU. The packet leng=
+th still
+does not include IP header size (20 bytes).
+In result, when payload size =E2=80=9Cis within the range ( (MTU-28) to=
+ (MTU-8) )=E2=80=9D
+standard branch is taken rather than ip_ufo_append_data(). Gso_size is =
+not
+computed, therefore IP fragmentation is triggered from ip_finish_output=
+().
+
+The issue was reproduced on 3.4.3 as well
+
+--=20
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=3Demai=
+l
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
