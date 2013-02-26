@@ -1,25 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usb/net/asix_devices: Add USBNET HG20F9 ethernet dongle
-Date: Tue, 26 Feb 2013 17:29:55 -0500 (EST)
-Message-ID: <20130226.172955.926853809838377302.davem@davemloft.net>
-References: <1361852232.23197.4.camel@andromache.adelaide.aarnet.edu.au>
-	<20130226.172856.235525833921140241.davem@davemloft.net>
+Subject: Re: [patch net] bond: check if slave count is 0 in case when
+ deciding to take slave's mac
+Date: Tue, 26 Feb 2013 17:32:55 -0500 (EST)
+Message-ID: <20130226.173255.365855195674301131.davem@davemloft.net>
+References: <1361867175-4033-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: gdt@gdt.id.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130226.172856.235525833921140241.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	gregory.v.rose@intel.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43407 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752163Ab3BZWc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 17:32:58 -0500
+In-Reply-To: <1361867175-4033-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVHVlLCAyNiBG
-ZWIgMjAxMyAxNzoyODo1NiAtMDUwMCAoRVNUKQ0KDQo+IEFwcGxpZWQsIHRoYW5rcyBHbGVuLg0K
-DQpBY3R1YWxseSwgSSBoYWQgdG8gcmV2ZXJ0LCB0aGlzIGRvZXNuJ3QgZXZlbiBjb21waWxlIGFn
-YWluc3QNCmN1cnJlbnQgc291cmNlczoNCg0KICBDQyBbTV0gIGRyaXZlcnMvbmV0L3VzYi9hc2l4
-X2RldmljZXMubw0KZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5jOjk0MToxNDogZXJyb3I6
-IKFhc2l4X3J4X2ZpeHVwoiB1bmRlY2xhcmVkIGhlcmUgKG5vdCBpbiBhIGZ1bmN0aW9uKQ0KbWFr
-ZVsxXTogKioqIFtkcml2ZXJzL25ldC91c2IvYXNpeF9kZXZpY2VzLm9dIEVycm9yIDENCm1ha2U6
-ICoqKiBbZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNlcy5vXSBFcnJvciAyDQo=
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue, 26 Feb 2013 09:26:15 +0100
+
+> in bond_enslave(), check slave_cnt before actually using slave address.
+> 
+> introduced by:
+> commit 409cc1f8a41 (bond: have random dev address by default instead of zeroes)
+> 
+> Reported-by: Greg Rose <gregory.v.rose@intel.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+
+Applied, thanks Jiri.
