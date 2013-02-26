@@ -1,360 +1,226 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFC/RFT 10/27] rtlwifi: rtl8188ee: Add new driver - part 1
-Date: Mon, 25 Feb 2013 18:13:22 -0600
-Message-ID: <1361837619-2985-11-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [RFC/RFT 09/27] rtlwifi: Rework rtl_lps_leave() and rtl_lps_enter() to use work queue
+Date: Mon, 25 Feb 2013 18:13:21 -0600
+Message-ID: <1361837619-2985-10-git-send-email-Larry.Finger@lwfinger.net>
 References: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, jcheung@suse.com, machen@suse.com,
-	mmarek@suse.cz
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:54759 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759894Ab3BZAOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 19:14:18 -0500
-In-Reply-To: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jcheung-IBi9RG/b67k@public.gmane.org, machen-IBi9RG/b67k@public.gmane.org,
+	mmarek-AlSwsSmVLrQ@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1361837619-2985-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: jcheung@suse.com
-Cc: machen@suse.com
-Cc: mmarek@suse.cz
+In commit a5ffbe0, some of the calls to rtl_lps_leave() were switched
+to be called from a work queue to avoid a scheduling while atomic bug.
+This patch converts the remaining calls to use the work queue. In
+addition, the call to rtl_lps_enter() is also switched to the work
+queue. None of these newly converted calls had triggered the bug (yet),
+but this change make all of them fit a single pattern.
+
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: jcheung-IBi9RG/b67k@public.gmane.org
+Cc: machen-IBi9RG/b67k@public.gmane.org
+Cc: mmarek-AlSwsSmVLrQ@public.gmane.org
 ---
- drivers/net/wireless/rtlwifi/rtl8188ee/def.h | 324 +++++++++++++++++++++++++++
- 1 file changed, 324 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/def.h
+ drivers/net/wireless/rtlwifi/base.c | 19 +++++++++----------
+ drivers/net/wireless/rtlwifi/core.c |  9 ++++++---
+ drivers/net/wireless/rtlwifi/pci.c  | 26 +++++++++++++++++---------
+ drivers/net/wireless/rtlwifi/wifi.h |  3 ++-
+ 4 files changed, 34 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/def.h b/drivers/net/wireless/rtlwifi/rtl8188ee/def.h
-new file mode 100644
-index 0000000..4f9ab29
---- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/def.h
-@@ -0,0 +1,324 @@
-+/******************************************************************************
-+ *
-+ * Copyright(c) 2009-2010  Realtek Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of version 2 of the GNU General Public License as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-+ *
-+ * The full GNU General Public License is included in this distribution in the
-+ * file called LICENSE.
-+ *
-+ * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
-+ * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
-+ * Hsinchu 300, Taiwan.
-+ *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
-+ *
-+ *****************************************************************************/
-+
-+#ifndef __RTL92C_DEF_H__
-+#define __RTL92C_DEF_H__
-+
-+#define HAL_RETRY_LIMIT_INFRA				48
-+#define HAL_RETRY_LIMIT_AP_ADHOC			7
-+
-+#define RESET_DELAY_8185				20
-+
-+#define RT_IBSS_INT_MASKS	(IMR_BCNINT | IMR_TBDOK | IMR_TBDER)
-+#define RT_AC_INT_MASKS		(IMR_VIDOK | IMR_VODOK | IMR_BEDOK|IMR_BKDOK)
-+
-+#define NUM_OF_FIRMWARE_QUEUE				10
-+#define NUM_OF_PAGES_IN_FW				0x100
-+#define NUM_OF_PAGE_IN_FW_QUEUE_BK			0x07
-+#define NUM_OF_PAGE_IN_FW_QUEUE_BE			0x07
-+#define NUM_OF_PAGE_IN_FW_QUEUE_VI			0x07
-+#define NUM_OF_PAGE_IN_FW_QUEUE_VO			0x07
-+#define NUM_OF_PAGE_IN_FW_QUEUE_HCCA			0x0
-+#define NUM_OF_PAGE_IN_FW_QUEUE_CMD			0x0
-+#define NUM_OF_PAGE_IN_FW_QUEUE_MGNT			0x02
-+#define NUM_OF_PAGE_IN_FW_QUEUE_HIGH			0x02
-+#define NUM_OF_PAGE_IN_FW_QUEUE_BCN			0x2
-+#define NUM_OF_PAGE_IN_FW_QUEUE_PUB			0xA1
-+
-+#define NUM_OF_PAGE_IN_FW_QUEUE_BK_DTM			0x026
-+#define NUM_OF_PAGE_IN_FW_QUEUE_BE_DTM			0x048
-+#define NUM_OF_PAGE_IN_FW_QUEUE_VI_DTM			0x048
-+#define NUM_OF_PAGE_IN_FW_QUEUE_VO_DTM			0x026
-+#define NUM_OF_PAGE_IN_FW_QUEUE_PUB_DTM			0x00
-+
-+#define MAX_LINES_HWCONFIG_TXT				1000
-+#define MAX_BYTES_LINE_HWCONFIG_TXT			256
-+
-+#define SW_THREE_WIRE					0
-+#define HW_THREE_WIRE					2
-+
-+#define BT_DEMO_BOARD					0
-+#define BT_QA_BOARD					1
-+#define BT_FPGA						2
-+
-+#define HAL_PRIME_CHNL_OFFSET_DONT_CARE			0
-+#define HAL_PRIME_CHNL_OFFSET_LOWER			1
-+#define HAL_PRIME_CHNL_OFFSET_UPPER			2
-+
-+#define MAX_H2C_QUEUE_NUM				10
-+
-+#define RX_MPDU_QUEUE					0
-+#define RX_CMD_QUEUE					1
-+#define RX_MAX_QUEUE					2
-+#define AC2QUEUEID(_AC)					(_AC)
-+
-+#define	C2H_RX_CMD_HDR_LEN				8
-+#define	GET_C2H_CMD_CMD_LEN(__prxhdr)			\
-+	LE_BITS_TO_4BYTE((__prxhdr), 0, 16)
-+#define	GET_C2H_CMD_ELEMENT_ID(__prxhdr)		\
-+	LE_BITS_TO_4BYTE((__prxhdr), 16, 8)
-+#define	GET_C2H_CMD_CMD_SEQ(__prxhdr)			\
-+	LE_BITS_TO_4BYTE((__prxhdr), 24, 7)
-+#define	GET_C2H_CMD_CONTINUE(__prxhdr)			\
-+	LE_BITS_TO_4BYTE((__prxhdr), 31, 1)
-+#define	GET_C2H_CMD_CONTENT(__prxhdr)			\
-+	((u8 *)(__prxhdr) + C2H_RX_CMD_HDR_LEN)
-+
-+#define	GET_C2H_CMD_FEEDBACK_ELEMENT_ID(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE((__pcmdfbhdr), 0, 8)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_LEN(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE((__pcmdfbhdr), 8, 8)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_CMD_CNT(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE((__pcmdfbhdr), 16, 16)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_MAC_ID(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 0, 5)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_VALID(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 7, 1)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_RETRY_CNT(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 8, 5)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_TOK(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 15, 1)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_QSEL(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 16, 4)
-+#define	GET_C2H_CMD_FEEDBACK_CCX_SEQ(__pcmdfbhdr)	\
-+	LE_BITS_TO_4BYTE(((__pcmdfbhdr) + 4), 20, 12)
-+
-+#define CHIP_BONDING_IDENTIFIER(_value)	(((_value)>>22)&0x3)
-+
-+
-+/* [15:12] IC version(CUT): A-cut=0, B-cut=1, C-cut=2, D-cut=3
-+ * [7] Manufacturer: TSMC=0, UMC=1
-+ * [6:4] RF type: 1T1R=0, 1T2R=1, 2T2R=2
-+ * [3] Chip type: TEST=0, NORMAL=1
-+ * [2:0] IC type: 81xxC=0, 8723=1, 92D=2
-+ */
-+#define CHIP_8723			BIT(0)
-+#define CHIP_92D			BIT(1)
-+#define NORMAL_CHIP			BIT(3)
-+#define RF_TYPE_1T1R			(~(BIT(4)|BIT(5)|BIT(6)))
-+#define RF_TYPE_1T2R			BIT(4)
-+#define RF_TYPE_2T2R			BIT(5)
-+#define CHIP_VENDOR_UMC			BIT(7)
-+#define B_CUT_VERSION			BIT(12)
-+#define C_CUT_VERSION			BIT(13)
-+#define D_CUT_VERSION			((BIT(12)|BIT(13)))
-+#define E_CUT_VERSION			BIT(14)
-+
-+
-+/* MASK */
-+#define IC_TYPE_MASK			(BIT(0)|BIT(1)|BIT(2))
-+#define CHIP_TYPE_MASK			BIT(3)
-+#define RF_TYPE_MASK			(BIT(4)|BIT(5)|BIT(6))
-+#define MANUFACTUER_MASK		BIT(7)
-+#define ROM_VERSION_MASK		(BIT(11)|BIT(10)|BIT(9)|BIT(8))
-+#define CUT_VERSION_MASK		(BIT(15)|BIT(14)|BIT(13)|BIT(12))
-+
-+/* Get element */
-+#define GET_CVID_IC_TYPE(version)	((version) & IC_TYPE_MASK)
-+#define GET_CVID_CHIP_TYPE(version)	((version) & CHIP_TYPE_MASK)
-+#define GET_CVID_RF_TYPE(version)	((version) & RF_TYPE_MASK)
-+#define GET_CVID_MANUFACTUER(version)	((version) & MANUFACTUER_MASK)
-+#define GET_CVID_ROM_VERSION(version)	((version) & ROM_VERSION_MASK)
-+#define GET_CVID_CUT_VERSION(version)	((version) & CUT_VERSION_MASK)
-+
-+
-+#define IS_81XXC(version)						\
-+	((GET_CVID_IC_TYPE(version) == 0) ? true : false)
-+#define IS_8723_SERIES(version)						\
-+	((GET_CVID_IC_TYPE(version) == CHIP_8723) ? true : false)
-+#define IS_92D(version)							\
-+	((GET_CVID_IC_TYPE(version) == CHIP_92D) ? true : false)
-+
-+#define IS_NORMAL_CHIP(version)						\
-+	((GET_CVID_CHIP_TYPE(version)) ? true : false)
-+#define IS_NORMAL_CHIP92D(version)					\
-+	((GET_CVID_CHIP_TYPE(version)) ? true : false)
-+
-+#define IS_1T1R(version)						\
-+	((GET_CVID_RF_TYPE(version)) ? false : true)
-+#define IS_1T2R(version)						\
-+	((GET_CVID_RF_TYPE(version) == RF_TYPE_1T2R) ? true : false)
-+#define IS_2T2R(version)						\
-+	((GET_CVID_RF_TYPE(version) == RF_TYPE_2T2R) ? true : false)
-+#define IS_CHIP_VENDOR_UMC(version)					\
-+	((GET_CVID_MANUFACTUER(version)) ? true : false)
-+
-+#define IS_92C_SERIAL(version)						\
-+	((IS_81XXC(version) && IS_2T2R(version)) ? true : false)
-+#define IS_81xxC_VENDOR_UMC_A_CUT(version)				\
-+	(IS_81XXC(version) ? ((IS_CHIP_VENDOR_UMC(version)) ?		\
-+	 ((GET_CVID_CUT_VERSION(version)) ? false : true) : false) : false)
-+#define IS_81xxC_VENDOR_UMC_B_CUT(version)				\
-+	(IS_81XXC(version) ? (IS_CHIP_VENDOR_UMC(version) ?		\
-+	((GET_CVID_CUT_VERSION(version) == B_CUT_VERSION) ? true	\
-+	: false) : false) : false)
-+
-+enum version_8188e {
-+	VERSION_TEST_CHIP_88E = 0x00,
-+	VERSION_NORMAL_CHIP_88E = 0x01,
-+	VERSION_UNKNOWN = 0xFF,
-+};
-+
-+enum rx_packet_type {
-+	NORMAL_RX,
-+	TX_REPORT1,
-+	TX_REPORT2,
-+	HIS_REPORT,
-+};
-+
-+enum rtl819x_loopback_e {
-+	RTL819X_NO_LOOPBACK = 0,
-+	RTL819X_MAC_LOOPBACK = 1,
-+	RTL819X_DMA_LOOPBACK = 2,
-+	RTL819X_CCK_LOOPBACK = 3,
-+};
-+
-+enum rf_optype {
-+	RF_OP_BY_SW_3WIRE = 0,
-+	RF_OP_BY_FW,
-+	RF_OP_MAX
-+};
-+
-+enum rf_power_state {
-+	RF_ON,
-+	RF_OFF,
-+	RF_SLEEP,
-+	RF_SHUT_DOWN,
-+};
-+
-+enum power_save_mode {
-+	POWER_SAVE_MODE_ACTIVE,
-+	POWER_SAVE_MODE_SAVE,
-+};
-+
-+enum power_polocy_config {
-+	POWERCFG_MAX_POWER_SAVINGS,
-+	POWERCFG_GLOBAL_POWER_SAVINGS,
-+	POWERCFG_LOCAL_POWER_SAVINGS,
-+	POWERCFG_LENOVO,
-+};
-+
-+enum interface_select_pci {
-+	INTF_SEL1_MINICARD,
-+	INTF_SEL0_PCIE,
-+	INTF_SEL2_RSV,
-+	INTF_SEL3_RSV,
-+};
-+
-+enum hal_fw_c2h_cmd_id {
-+	HAL_FW_C2H_CMD_Read_MACREG,
-+	HAL_FW_C2H_CMD_Read_BBREG,
-+	HAL_FW_C2H_CMD_Read_RFREG,
-+	HAL_FW_C2H_CMD_Read_EEPROM,
-+	HAL_FW_C2H_CMD_Read_EFUSE,
-+	HAL_FW_C2H_CMD_Read_CAM,
-+	HAL_FW_C2H_CMD_Get_BasicRate,
-+	HAL_FW_C2H_CMD_Get_DataRate,
-+	HAL_FW_C2H_CMD_Survey,
-+	HAL_FW_C2H_CMD_SurveyDone,
-+	HAL_FW_C2H_CMD_JoinBss,
-+	HAL_FW_C2H_CMD_AddSTA,
-+	HAL_FW_C2H_CMD_DelSTA,
-+	HAL_FW_C2H_CMD_AtimDone,
-+	HAL_FW_C2H_CMD_TX_Report,
-+	HAL_FW_C2H_CMD_CCX_Report,
-+	HAL_FW_C2H_CMD_DTM_Report,
-+	HAL_FW_C2H_CMD_TX_Rate_Statistics,
-+	HAL_FW_C2H_CMD_C2HLBK,
-+	HAL_FW_C2H_CMD_C2HDBG,
-+	HAL_FW_C2H_CMD_C2HFEEDBACK,
-+	HAL_FW_C2H_CMD_MAX
-+};
-+
-+enum wake_on_wlan_mode {
-+	ewowlandisable,
-+	ewakeonmagicpacketonly,
-+	ewakeonpatternmatchonly,
-+	ewakeonbothtypepacket
-+};
-+
-+enum rtl_desc_qsel {
-+	QSLT_BK = 0x2,
-+	QSLT_BE = 0x0,
-+	QSLT_VI = 0x5,
-+	QSLT_VO = 0x7,
-+	QSLT_BEACON = 0x10,
-+	QSLT_HIGH = 0x11,
-+	QSLT_MGNT = 0x12,
-+	QSLT_CMD = 0x13,
-+};
-+
-+enum rtl_desc92c_rate {
-+	DESC92C_RATE1M = 0x00,
-+	DESC92C_RATE2M = 0x01,
-+	DESC92C_RATE5_5M = 0x02,
-+	DESC92C_RATE11M = 0x03,
-+
-+	DESC92C_RATE6M = 0x04,
-+	DESC92C_RATE9M = 0x05,
-+	DESC92C_RATE12M = 0x06,
-+	DESC92C_RATE18M = 0x07,
-+	DESC92C_RATE24M = 0x08,
-+	DESC92C_RATE36M = 0x09,
-+	DESC92C_RATE48M = 0x0a,
-+	DESC92C_RATE54M = 0x0b,
-+
-+	DESC92C_RATEMCS0 = 0x0c,
-+	DESC92C_RATEMCS1 = 0x0d,
-+	DESC92C_RATEMCS2 = 0x0e,
-+	DESC92C_RATEMCS3 = 0x0f,
-+	DESC92C_RATEMCS4 = 0x10,
-+	DESC92C_RATEMCS5 = 0x11,
-+	DESC92C_RATEMCS6 = 0x12,
-+	DESC92C_RATEMCS7 = 0x13,
-+	DESC92C_RATEMCS8 = 0x14,
-+	DESC92C_RATEMCS9 = 0x15,
-+	DESC92C_RATEMCS10 = 0x16,
-+	DESC92C_RATEMCS11 = 0x17,
-+	DESC92C_RATEMCS12 = 0x18,
-+	DESC92C_RATEMCS13 = 0x19,
-+	DESC92C_RATEMCS14 = 0x1a,
-+	DESC92C_RATEMCS15 = 0x1b,
-+	DESC92C_RATEMCS15_SG = 0x1c,
-+	DESC92C_RATEMCS32 = 0x20,
-+};
-+
-+struct phy_sts_cck_8192s_t {
-+	u8 adc_pwdb_X[4];
-+	u8 sq_rpt;
-+	u8 cck_agc_rpt;
-+};
-+
-+struct h2c_cmd_8192c {
-+	u8 element_id;
-+	u32 cmd_len;
-+	u8 *p_cmdbuffer;
-+};
-+
-+#endif
+diff --git a/drivers/net/wireless/rtlwifi/base.c b/drivers/net/wireless/rtlwifi/base.c
+index acea8e8..e5b14b8 100644
+--- a/drivers/net/wireless/rtlwifi/base.c
++++ b/drivers/net/wireless/rtlwifi/base.c
+@@ -1086,8 +1086,9 @@ u8 rtl_is_special_data(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx)
+ 					 is_tx ? "Tx" : "Rx");
+ 
+ 				if (is_tx) {
++					rtlpriv->enter_ps = false;
+ 					schedule_work(&rtlpriv->
+-						      works.lps_leave_work);
++						      works.lps_change_work);
+ 					ppsc->last_delaylps_stamp_jiffies =
+ 					    jiffies;
+ 				}
+@@ -1097,7 +1098,8 @@ u8 rtl_is_special_data(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx)
+ 		}
+ 	} else if (ETH_P_ARP == ether_type) {
+ 		if (is_tx) {
+-			schedule_work(&rtlpriv->works.lps_leave_work);
++			rtlpriv->enter_ps = false;
++			schedule_work(&rtlpriv->works.lps_change_work);
+ 			ppsc->last_delaylps_stamp_jiffies = jiffies;
+ 		}
+ 
+@@ -1107,7 +1109,8 @@ u8 rtl_is_special_data(struct ieee80211_hw *hw, struct sk_buff *skb, u8 is_tx)
+ 			 "802.1X %s EAPOL pkt!!\n", is_tx ? "Tx" : "Rx");
+ 
+ 		if (is_tx) {
+-			schedule_work(&rtlpriv->works.lps_leave_work);
++			rtlpriv->enter_ps = false;
++			schedule_work(&rtlpriv->works.lps_change_work);
+ 			ppsc->last_delaylps_stamp_jiffies = jiffies;
+ 		}
+ 
+@@ -1316,7 +1319,6 @@ void rtl_watchdog_wq_callback(void *data)
+ 	u32 aver_tx_cnt_inperiod = 0;
+ 	u32 aver_tidtx_inperiod[MAX_TID_COUNT] = {0};
+ 	u32 tidtx_inp4eriod[MAX_TID_COUNT] = {0};
+-	bool enter_ps = false;
+ 
+ 	if (is_hal_stop(rtlhal))
+ 		return;
+@@ -1398,15 +1400,12 @@ void rtl_watchdog_wq_callback(void *data)
+ 		if (((rtlpriv->link_info.num_rx_inperiod +
+ 		      rtlpriv->link_info.num_tx_inperiod) > 8) ||
+ 		    (rtlpriv->link_info.num_rx_inperiod > 2))
+-			enter_ps = false;
++			rtlpriv->enter_ps = true;
+ 		else
+-			enter_ps = true;
++			rtlpriv->enter_ps = false;
+ 
+ 		/* LeisurePS only work in infra mode. */
+-		if (enter_ps)
+-			rtl_lps_enter(hw);
+-		else
+-			schedule_work(&rtlpriv->works.lps_leave_work);
++		schedule_work(&rtlpriv->works.lps_change_work);
+ 	}
+ 
+ 	rtlpriv->link_info.num_rx_inperiod = 0;
+diff --git a/drivers/net/wireless/rtlwifi/core.c b/drivers/net/wireless/rtlwifi/core.c
+index 470a67d..3706182 100644
+--- a/drivers/net/wireless/rtlwifi/core.c
++++ b/drivers/net/wireless/rtlwifi/core.c
+@@ -742,8 +742,10 @@ static void rtl_op_bss_info_changed(struct ieee80211_hw *hw,
+ 			RT_TRACE(rtlpriv, COMP_MAC80211, DBG_DMESG,
+ 				 "BSS_CHANGED_ASSOC\n");
+ 		} else {
+-			if (mac->link_state == MAC80211_LINKED)
+-				schedule_work(&rtlpriv->works.lps_leave_work);
++			if (mac->link_state == MAC80211_LINKED) {
++				rtlpriv->enter_ps = false;
++				schedule_work(&rtlpriv->works.lps_change_work);
++			}
+ 
+ 			if (ppsc->p2p_ps_info.p2p_ps_mode > P2P_PS_NONE)
+ 				rtl_p2p_ps_cmd(hw, P2P_PS_DISABLE);
+@@ -1018,7 +1020,8 @@ static void rtl_op_sw_scan_start(struct ieee80211_hw *hw)
+ 			rtlpriv->cfg->ops->chk_switch_dmdp(hw);
+ 	}
+ 	if (mac->link_state == MAC80211_LINKED) {
+-		schedule_work(&rtlpriv->works.lps_leave_work);
++		rtlpriv->enter_ps = false;
++		schedule_work(&rtlpriv->works.lps_change_work);
+ 		mac->link_state = MAC80211_LINKED_SCANNING;
+ 	} else {
+ 		rtl_ips_nic_on(hw);
+diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
+index 70c2497..3bd98f7 100644
+--- a/drivers/net/wireless/rtlwifi/pci.c
++++ b/drivers/net/wireless/rtlwifi/pci.c
+@@ -655,7 +655,8 @@ tx_status_ok:
+ 	if (((rtlpriv->link_info.num_rx_inperiod +
+ 		rtlpriv->link_info.num_tx_inperiod) > 8) ||
+ 		(rtlpriv->link_info.num_rx_inperiod > 2)) {
+-		schedule_work(&rtlpriv->works.lps_leave_work);
++		rtlpriv->enter_ps = false;
++		schedule_work(&rtlpriv->works.lps_change_work);
+ 	}
+ }
+ 
+@@ -837,8 +838,10 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
+ 
+ 			if (((rtlpriv->link_info.num_rx_inperiod +
+ 			      rtlpriv->link_info.num_tx_inperiod) > 8) ||
+-			      (rtlpriv->link_info.num_rx_inperiod > 2))
+-				schedule_work(&rtlpriv->works.lps_leave_work);
++			      (rtlpriv->link_info.num_rx_inperiod > 2)) {
++				rtlpriv->enter_ps = false;
++				schedule_work(&rtlpriv->works.lps_change_work);
++			}
+ 
+ 			_rtl_pci_init_one_rxdesc(hw, pdesc, rxring_idx,
+ 				rtlpci->rx_ring[rxring_idx].idx);
+@@ -1029,13 +1032,17 @@ static void _rtl_pci_prepare_bcn_tasklet(struct ieee80211_hw *hw)
+ 	return;
+ }
+ 
+-static void rtl_lps_leave_work_callback(struct work_struct *work)
++static void rtl_lps_change_work_callback(struct work_struct *work)
+ {
+ 	struct rtl_works *rtlworks =
+-	    container_of(work, struct rtl_works, lps_leave_work);
++	    container_of(work, struct rtl_works, lps_change_work);
+ 	struct ieee80211_hw *hw = rtlworks->hw;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 
+-	rtl_lps_leave(hw);
++	if (rtlpriv->enter_ps)
++		rtl_lps_enter(hw);
++	else
++		rtl_lps_leave(hw);
+ }
+ 
+ static void _rtl_pci_init_trx_var(struct ieee80211_hw *hw)
+@@ -1099,7 +1106,8 @@ static void _rtl_pci_init_struct(struct ieee80211_hw *hw,
+ 	tasklet_init(&rtlpriv->works.irq_prepare_bcn_tasklet,
+ 		     (void (*)(unsigned long))_rtl_pci_prepare_bcn_tasklet,
+ 		     (unsigned long)hw);
+-	INIT_WORK(&rtlpriv->works.lps_leave_work, rtl_lps_leave_work_callback);
++	INIT_WORK(&rtlpriv->works.lps_change_work,
++		  rtl_lps_change_work_callback);
+ }
+ 
+ static int _rtl_pci_init_tx_ring(struct ieee80211_hw *hw,
+@@ -1530,7 +1538,7 @@ static void rtl_pci_deinit(struct ieee80211_hw *hw)
+ 
+ 	synchronize_irq(rtlpci->pdev->irq);
+ 	tasklet_kill(&rtlpriv->works.irq_tasklet);
+-	cancel_work_sync(&rtlpriv->works.lps_leave_work);
++	cancel_work_sync(&rtlpriv->works.lps_change_work);
+ 
+ 	flush_workqueue(rtlpriv->works.rtl_wq);
+ 	destroy_workqueue(rtlpriv->works.rtl_wq);
+@@ -1605,7 +1613,7 @@ static void rtl_pci_stop(struct ieee80211_hw *hw)
+ 	set_hal_stop(rtlhal);
+ 
+ 	rtlpriv->cfg->ops->disable_interrupt(hw);
+-	cancel_work_sync(&rtlpriv->works.lps_leave_work);
++	cancel_work_sync(&rtlpriv->works.lps_change_work);
+ 
+ 	spin_lock_irqsave(&rtlpriv->locks.rf_ps_lock, flags);
+ 	while (ppsc->rfchange_inprogress) {
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index a57b876..f6825c1 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -1794,7 +1794,7 @@ struct rtl_works {
+ 	struct delayed_work ps_rfon_wq;
+ 	struct delayed_work fwevt_wq;
+ 
+-	struct work_struct lps_leave_work;
++	struct work_struct lps_change_work;
+ };
+ 
+ struct rtl_debug {
+@@ -1964,6 +1964,7 @@ struct rtl_priv {
+ 			bool bt_operation_on;
+ 		};
+ 	};
++	bool enter_ps;	/* true when entering PS */
+ 
+ 	/*This must be the last item so
+ 	   that it points to the data allocated
 -- 
 1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
