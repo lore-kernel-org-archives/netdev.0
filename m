@@ -1,56 +1,201 @@
-From: poma <pomidorabelisima-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 3.9 merge window kernels
-Date: Tue, 26 Feb 2013 01:05:05 +0100
-Message-ID: <512BFC31.7010800@gmail.com>
-References: <20130222151634.GA1015@hansolo.jdub.homelinux.org>
-	<20130222181552.GA7308@wolff.to> <5127FF54.1010906@gmail.com>
-	<20130222234825.GB2419@hansolo.jdub.homelinux.org>
-	<20130222210938.4f62cede@redhat.com> <512816AD.9050406@gmail.com>
-	<20130222223014.1b9a2cc0@redhat.com> <512857FB.3050803@gmail.com>
-	<20130223090148.4a4bd5e0@redhat.com>
-	<CA+5PVA46LfV-WTkJVF7fz9nrz1Qrib894fqMo+8GL8AjuW8_Yg@mail.gmail.com>
-	<5129491A.5020406@gmail.com> <512AAED8.3070205@iki.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Mauro Carvalho Chehab <mchehab-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Stephen Hemminger <shemminger-3NddpPZAyC0@public.gmane.org>
-To: Antti Palosaari <crope-X3B1VOXEql0@public.gmane.org>
-Return-path: <kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-In-Reply-To: <512AAED8.3070205-X3B1VOXEql0@public.gmane.org>
-List-Unsubscribe: <https://admin.fedoraproject.org/mailman/options/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.fedoraproject.org/pipermail/kernel/>
-List-Post: <mailto:kernel-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org>
-List-Help: <mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=help>
-List-Subscribe: <https://admin.fedoraproject.org/mailman/listinfo/kernel>,
-	<mailto:kernel-request-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org?subject=subscribe>
-Sender: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-Errors-To: kernel-bounces-TuqUDEhatI4ANWPb/1PvSmm0pvjS0E/A@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [RFC/RFT 01/27] rtlwifi: Modify the master header for for updates to vendor version 2013.02.07
+Date: Mon, 25 Feb 2013 18:13:13 -0600
+Message-ID: <1361837619-2985-2-git-send-email-Larry.Finger@lwfinger.net>
+References: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, jcheung@suse.com, machen@suse.com,
+	mmarek@suse.cz
+To: linville@tuxdriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f45.google.com ([209.85.219.45]:39454 "EHLO
+	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759155Ab3BZAOD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 19:14:03 -0500
+In-Reply-To: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDIvMjUvMTMgMDE6MjIsIEFudHRpIFBhbG9zYWFyaSB3cm90ZToKW+KApl0KPj4+IFBvbWEs
-IHlvdSBzaG91bGQgcHJvYmFibHkganVzdCBzdGFydCBmaWxpbmcgYnVncyBmb3IgdGhpbmdzIHlv
-dSBoaXQuCj4+PiBJbiB0aGlzIGNhc2UsIHRoZSBza2dlIGJhY2t0cmFjZSBpcyBqdXN0IGEgd2Fy
-bmluZyBidXQgaXQgY2FuIGJlIGZpeGVkCj4+PiB1cCByZWxhdGl2ZWx5IGVhc2lseS4KPj4+Cj4+
-Cj4+IGh0dHBzOi8vYnVnemlsbGEucmVkaGF0LmNvbS9zaG93X2J1Zy5jZ2k/aWQ9OTE0OTk0Cj4+
-IEpvc2gsIE1hdXJvIHRoYW5rcyBmb3IgdGhlIG92ZXJ2aWV3LiA6KQo+PiBBbnR0aSwgY2hlZXJz
-LiA7KQo+Pgo+PiBwb21hCj4gCj4gSSBjYW5ub3Qgc2VlIHRoZXNlIHdhcm5pbmdzIGF0IGFsbC4g
-V2hhdCBpcyBLZXJuZWwgb3B0aW9uIHRvIGVuYWJsZQo+IHRob3NlIGRlYnVnKD8pIHdhcm5pbmdz
-PyBGcm9tIHdoaWNoIG1lbnUgaXQgY291bGQgYmUgbG9jYXRlZCB3aGVuIG1ha2UKPiBtZW51Y29u
-ZmlnID8KPiAKCmh0dHA6Ly9rb2ppcGtncy5mZWRvcmFwcm9qZWN0Lm9yZy9wYWNrYWdlcy9rZXJu
-ZWwvMy45LjAvMC5yYzAuZ2l0Ny4xLmZjMTkvZGF0YS9sb2dzL3g4Nl82NC9idWlsZC5sb2cKRXZl
-biBhZnRlciByZWFwcGx5aW5nIFN0ZXBoZW4ncyAic2tnZTogY2hlY2sgZm9yIFBDSSBkbWEgbWFw
-cGluZwplcnJvcnMiWzFdIGZyb20gRGF2aWQncyAnbmV0LW5leHQnIHRyZWUsIG5vIGx1Y2suCuKA
-pgpXQVJOSU5HOiBhdCBsaWIvZG1hLWRlYnVnLmM6OTMzIGNoZWNrX3VubWFwKzB4NDdiLzB4OTYw
-KCkKc2tnZSAwMDAwOjAxOjA5LjA6IERNQS1BUEk6IGRldmljZSBkcml2ZXIgZmFpbGVkIHRvIGNo
-ZWNrIG1hcAplcnJvcltkZXZpY2UgYWRkcmVzcz0weDAwMDAwMDAxMDI4NzA5NGFdIFtzaXplPTkw
-IGJ5dGVzXSBbbWFwcGVkIGFzIHNpbmdsZV0K4oCmCgoKQ2hlZXJzLApwb21hCgoKWzFdCmh0dHA6
-Ly9naXQua2VybmVsLm9yZy8/cD1saW51eC9rZXJuZWwvZ2l0L2RhdmVtL25ldC1uZXh0LmdpdDth
-PWNvbW1pdDtoPWQwMjQ5ZTQ0NDMyYWEwZmZjZjcxMGI2NDQ0OWI4ZWFhMzcyMjU0N2UKCgoKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18Ka2VybmVsIG1haWxp
-bmcgbGlzdAprZXJuZWxAbGlzdHMuZmVkb3JhcHJvamVjdC5vcmcKaHR0cHM6Ly9hZG1pbi5mZWRv
-cmFwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2tlcm5lbA==
+These changes add the new variables for P2P and modify the various struct
+definitions for other new features.
+
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: jcheung@suse.com
+Cc: machen@suse.com
+Cc: mmarek@suse.cz
+---
+ drivers/net/wireless/rtlwifi/wifi.h | 80 ++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 79 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index f13258a..9536963 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -278,7 +278,10 @@ enum hw_variables {
+ 	HW_VAR_SET_RPWM,
+ 	HW_VAR_H2C_FW_PWRMODE,
+ 	HW_VAR_H2C_FW_JOINBSSRPT,
++	HW_VAR_H2C_FW_P2P_PS_OFFLOAD,
+ 	HW_VAR_FW_PSMODE_STATUS,
++	HW_VAR_RESUME_CLK_ON,
++	HW_VAR_FW_LPS_ACTION,
+ 	HW_VAR_1X1_RECV_COMBINE,
+ 	HW_VAR_STOP_SEND_BEACON,
+ 	HW_VAR_TSF_TIMER,
+@@ -461,6 +464,7 @@ enum rtl_var_map {
+ 	EFUSE_MAX_SECTION_MAP,
+ 	EFUSE_REAL_CONTENT_SIZE,
+ 	EFUSE_OOB_PROTECT_BYTES_LEN,
++	EFUSE_ACCESS,
+ 
+ 	/*CAM map */
+ 	RWCAM,
+@@ -826,7 +830,64 @@ struct rtl_rfkill {
+ 	bool rfkill_state;	/*0 is off, 1 is on */
+ };
+ 
+-#define IQK_MATRIX_REG_NUM	8
++/*for P2P PS**/
++#define	P2P_MAX_NOA_NUM		2
++
++enum p2p_role {
++	P2P_ROLE_DISABLE = 0,
++	P2P_ROLE_DEVICE = 1,
++	P2P_ROLE_CLIENT = 2,
++	P2P_ROLE_GO = 3
++};
++
++enum p2p_ps_state {
++	P2P_PS_DISABLE = 0,
++	P2P_PS_ENABLE = 1,
++	P2P_PS_SCAN = 2,
++	P2P_PS_SCAN_DONE = 3,
++	P2P_PS_ALLSTASLEEP = 4, /* for P2P GO */
++};
++
++enum p2p_ps_mode {
++	P2P_PS_NONE = 0,
++	P2P_PS_CTWINDOW = 1,
++	P2P_PS_NOA	 = 2,
++	P2P_PS_MIX = 3, /* CTWindow and NoA */
++};
++
++struct rtl_p2p_ps_info {
++	enum p2p_ps_mode p2p_ps_mode; /* indicate p2p ps mode */
++	enum p2p_ps_state p2p_ps_state; /*  indicate p2p ps state */
++	u8 noa_index; /*  Identifies instance of Notice of Absence timing. */
++	/*  Client traffic window. A period of time in TU after TBTT. */
++	u8 ctwindow;
++	u8 opp_ps; /*  opportunistic power save. */
++	u8 noa_num; /*  number of NoA descriptor in P2P IE. */
++	/*  Count for owner, Type of client. */
++	u8 noa_count_type[P2P_MAX_NOA_NUM];
++	/*  Max duration for owner, preferred or min acceptable duration
++	 * for client.
++	 */
++	u32 noa_duration[P2P_MAX_NOA_NUM];
++	/*  Length of interval for owner, preferred or max acceptable intervali
++	 * of client.
++	 */
++	u32 noa_interval[P2P_MAX_NOA_NUM];
++	/*  schedule in terms of the lower 4 bytes of the TSF timer. */
++	u32 noa_start_time[P2P_MAX_NOA_NUM];
++};
++
++struct p2p_ps_offload_t {
++	u8 offload_en:1;
++	u8 role:1; /* 1: Owner, 0: Client */
++	u8 ctwindow_en:1;
++	u8 noa0_en:1;
++	u8 noa1_en:1;
++	u8 allstasleep:1;
++	u8 discovery:1;
++	u8 reserved:1;
++};
++ #define IQK_MATRIX_REG_NUM	8
+ #define IQK_MATRIX_SETTINGS_NUM	(1 + 24 + 21)
+ struct iqk_matrix_regs {
+ 	bool iqk_done;
+@@ -954,6 +1015,7 @@ struct rtl_sta_info {
+ 	u8 ratr_index;
+ 	u8 wireless_mode;
+ 	u8 mimo_ps;
++	u8 mac_addr[ETH_ALEN];
+ 	struct rtl_tid_data tids[MAX_TID_COUNT];
+ 
+ 	/* just used for ap adhoc or mesh*/
+@@ -1005,6 +1067,8 @@ struct rtl_mac {
+ 	int n_bitrates;
+ 
+ 	bool offchan_delay;
++	u8 p2p;	/*using p2p role*/
++	bool p2p_in_use;
+ 
+ 	/*filters */
+ 	u32 rx_conf;
+@@ -1014,6 +1078,7 @@ struct rtl_mac {
+ 
+ 	bool act_scanning;
+ 	u8 cnt_after_linked;
++	bool skip_scan;
+ 
+ 	/* early mode */
+ 	/* skb wait queue */
+@@ -1341,6 +1406,7 @@ struct rtl_ps_ctl {
+ 	bool fw_current_inpsmode;
+ 	u8 reg_max_lps_awakeintvl;
+ 	bool report_linked;
++	bool low_power_enable;/*for 32k*/
+ 
+ 	/*for IPS */
+ 	bool inactiveps;
+@@ -1373,6 +1439,11 @@ struct rtl_ps_ctl {
+ 	unsigned long last_beacon;
+ 	unsigned long last_action;
+ 	unsigned long last_slept;
++
++	/*For P2P PS */
++	struct rtl_p2p_ps_info p2p_ps_info;
++	u8 pwr_mode;
++	u8 smart_ps;
+ };
+ 
+ struct rtl_stats {
+@@ -1670,6 +1741,9 @@ struct rtl_locks {
+ 	spinlock_t entry_list_lock;
+ 	spinlock_t usb_lock;
+ 
++	/*FW clock change */
++	spinlock_t fw_ps_lock;
++
+ 	/*Dual mac*/
+ 	spinlock_t cck_and_rw_pagea_lock;
+ 
+@@ -1683,6 +1757,8 @@ struct rtl_works {
+ 	/*timer */
+ 	struct timer_list watchdog_timer;
+ 	struct timer_list dualmac_easyconcurrent_retrytimer;
++	struct timer_list fw_clockoff_timer;
++	struct timer_list fast_antenna_training_timer;
+ 
+ 	/*task */
+ 	struct tasklet_struct irq_tasklet;
+@@ -1696,6 +1772,7 @@ struct rtl_works {
+ 	/* For SW LPS */
+ 	struct delayed_work ps_work;
+ 	struct delayed_work ps_rfon_wq;
++	struct delayed_work fwevt_wq;
+ 
+ 	struct work_struct lps_leave_work;
+ };
+@@ -1802,6 +1879,7 @@ struct rtl_global_var {
+ };
+ 
+ struct rtl_priv {
++	struct ieee80211_hw *hw;
+ 	struct completion firmware_loading_complete;
+ 	struct list_head list;
+ 	struct rtl_priv *buddy_priv;
+-- 
+1.8.1.4
