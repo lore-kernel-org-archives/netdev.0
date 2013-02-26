@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net] bond: check if slave count is 0 in case when
- deciding to take slave's mac
-Date: Tue, 26 Feb 2013 17:32:55 -0500 (EST)
-Message-ID: <20130226.173255.365855195674301131.davem@davemloft.net>
-References: <1361867175-4033-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH] isdn: hisax: add missing usb_free_urb
+Date: Tue, 26 Feb 2013 17:35:01 -0500 (EST)
+Message-ID: <20130226.173501.222300885333128722.davem@davemloft.net>
+References: <1361867210-13309-1-git-send-email-makienko@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	gregory.v.rose@intel.com
-To: jiri@resnulli.us
+Cc: isdn@linux-pingi.de, netdev@vger.kernel.org,
+	ldv-project@linuxtesting.org
+To: makienko@ispras.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43407 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43438 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752163Ab3BZWc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 17:32:58 -0500
-In-Reply-To: <1361867175-4033-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1753053Ab3BZWfD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 17:35:03 -0500
+In-Reply-To: <1361867210-13309-1-git-send-email-makienko@ispras.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Tue, 26 Feb 2013 09:26:15 +0100
+From: Marina Makienko <makienko@ispras.ru>
+Date: Tue, 26 Feb 2013 12:26:50 +0400
 
-> in bond_enslave(), check slave_cnt before actually using slave address.
+> Add missing usb_free_urb() on failure path in st5481_setup_usb().
 > 
-> introduced by:
-> commit 409cc1f8a41 (bond: have random dev address by default instead of zeroes)
+> Found by Linux Driver Verification project (linuxtesting.org).
 > 
-> Reported-by: Greg Rose <gregory.v.rose@intel.com>
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Marina Makienko <makienko@ispras.ru>
 
-Applied, thanks Jiri.
+Applied, thanks.
