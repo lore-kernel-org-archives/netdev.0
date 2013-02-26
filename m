@@ -1,37 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: ethernet: cpsw: consider number of
- slaves in interation
-Date: Tue, 26 Feb 2013 17:26:59 -0500 (EST)
-Message-ID: <20130226.172659.1629171793131816809.davem@davemloft.net>
-References: <1361887580-1770-1-git-send-email-zonque@gmail.com>
-	<512CCCF2.7030306@ti.com>
+Subject: Re: [PATCH] usb/net/asix_devices: Add USBNET HG20F9 ethernet dongle
+Date: Tue, 26 Feb 2013 17:28:56 -0500 (EST)
+Message-ID: <20130226.172856.235525833921140241.davem@davemloft.net>
+References: <1361852232.23197.4.camel@andromache.adelaide.aarnet.edu.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zonque@gmail.com, netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
+Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gdt@gdt.id.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43316 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43358 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752828Ab3BZW1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 17:27:01 -0500
-In-Reply-To: <512CCCF2.7030306@ti.com>
+	with ESMTP id S1755863Ab3BZW26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 17:28:58 -0500
+In-Reply-To: <1361852232.23197.4.camel@andromache.adelaide.aarnet.edu.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Tue, 26 Feb 2013 20:25:46 +0530
+From: Glen Turner <gdt@gdt.id.au>
+Date: Tue, 26 Feb 2013 14:47:12 +1030
 
-> On 2/26/2013 7:36 PM, Daniel Mack wrote:
->> Make cpsw_add_default_vlan() look at the actual number of slaves for
->> its
->> iteration, so boards with less than 2 slaves don't ooops at boot.
->>
->> Signed-off-by: Daniel Mack <zonque@gmail.com>
->> Cc: Mugunthan V N <mugunthanvnm@ti.com>
->> Cc: David S. Miller <davem@davemloft.net>
-> Looks ok for me
+> This USB ethernet adapter was purchased in anodyne packaging
+> marked "USB2.0 to LAN" from the computer store adjacent to
+> linux.conf.au 2013 in Canberra (Australia). A web search
+> shows other recent purchasers in Lancaster (UK) and Seattle
+> (USA). Just like an emergent virus, our age of e-commerce and
+> airmail allows underdocumented hardware to spread around the
+> world instantly using the vector of ridiculously low prices.
 > 
-> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Paige Thompson, infected via eBay, discovered that the HG20F9
+> is a copy of the Asix 88772B; many viruses copy the RNA of
+> other viruses. See Paige's work at
+> <https://github.com/paigeadele/HG20F9>.
+> This patch uses her discovery to update the restructured Asix
+> driver in the current kernel.
+> 
+> The spread of viruses is often accompanied by rumours. It is
+> rumoured that the HG20F9 has extensions to to provide gigabit
+> ethernet. This patch does not chase that chimera.
+> 
+> Just as some viruses inhabit seemingly-healthy cells, the
+> HG20F9 uses the Vendor ID 0x066b assigned to Linksys Inc.
+> For the present there is no clash of Product ID 0x20f9.
+> 
+> Signed-off-by: Glen Turner <gdt@gdt.id.au>
 
-Applied, thanks.
+Applied, thanks Glen.
