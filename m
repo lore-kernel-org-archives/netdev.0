@@ -1,43 +1,30 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] bond: check if slave count is 0 in case when deciding to take slave's mac
-Date: Tue, 26 Feb 2013 09:26:15 +0100
-Message-ID: <1361867175-4033-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, fubar@us.ibm.com, andy@greyhouse.net,
-	gregory.v.rose@intel.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:47901 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752911Ab3BZI0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 03:26:21 -0500
-Received: by mail-wg0-f43.google.com with SMTP id e12so3205867wge.10
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 00:26:20 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] proc connector: reject unprivileged listener bumps
+Date: Tue, 26 Feb 2013 12:46:06 +0400
+Message-ID: <20130226084606.GA21048@ioremap.net>
+References: <20130226073225.GA15489@www.outflux.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Matt Helsley <matthltc@us.ibm.com>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130226073225.GA15489@www.outflux.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-in bond_enslave(), check slave_cnt before actually using slave address.
+Hi
 
-introduced by:
-commit 409cc1f8a41 (bond: have random dev address by default instead of zeroes)
+On Mon, Feb 25, 2013 at 11:32:25PM -0800, Kees Cook (keescook@chromium.org) wrote:
+> While PROC_CN_MCAST_LISTEN/IGNORE is entirely advisory, it was possible
+> for an unprivileged user to turn off notifications for all listeners by
+> sending PROC_CN_MCAST_IGNORE. Instead, require the same privileges as
+> required for a multicast bind.
 
-Reported-by: Greg Rose <gregory.v.rose@intel.com>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/bonding/bond_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Sounds resonable.
+Not sure whether this is a candidate for stable release, but otherwise
+Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 11d01d6..7bd068a 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1629,7 +1629,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 
- 	/* If this is the first slave, then we need to set the master's hardware
- 	 * address to be the same as the slave's. */
--	if (bond->dev_addr_from_first)
-+	if (bond->slave_cnt == 0 && bond->dev_addr_from_first)
- 		bond_set_dev_addr(bond->dev, slave_dev);
- 
- 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
 -- 
-1.8.1.2
+	Evgeniy Polyakov
