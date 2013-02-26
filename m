@@ -1,73 +1,50 @@
-From: Tomi Orava <tomimo@ncircle.nullnet.fi>
-Subject: Re: Fw: [Bug 54231] r8169 driver regression caused by the commit
- aee77e4accbeb2c86b1d294cd84fec4a12dde3bd
-Date: Tue, 26 Feb 2013 20:41:07 +0200
-Message-ID: <512D01C3.3080604@ncircle.nullnet.fi>
-References: <20130222095546.396e63a8@nehalam.linuxnetplumber.net> <20130222230908.GB4248@electric-eye.fr.zoreil.com> <512A2BB0.9050803@ncircle.nullnet.fi> <20130224220413.GA22870@electric-eye.fr.zoreil.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Pull request: sfc 2013-02-26
+Date: Tue, 26 Feb 2013 19:09:23 +0000
+Message-ID: <1361905763.2996.9.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
+	scrum-linux <scrum-linux@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xdsl-83-150-88-111.nebulazone.fi ([83.150.88.111]:59550 "EHLO
-	ncircle.nullnet.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755209Ab3BZSlM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 13:41:12 -0500
-In-Reply-To: <20130224220413.GA22870@electric-eye.fr.zoreil.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:35913 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757187Ab3BZTJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 14:09:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/25/2013 12:04 AM, Francois Romieu wrote:
-> Tomi Orava <tomimo@ncircle.nullnet.fi> :
->> On 02/23/2013 01:09 AM, Francois Romieu wrote:
-> [...]
->> I started re-testing after your comment and figured out that the
->> real problem seems to lie somehow with jumbo frames. Ie. the DMA burst
->> changes do not actually prevent the hangs at all in my case. The
->> catch here, that I missed previously, was that for some interesting
->> reason the NIC will fail in a couple of minutes with a suitable traffic
->> if the jumbo frames (mtu 4000) have been enabled from the start.
->> However, if I enable the jumbo frames manually after the system
->> has already started up, there are no stability issues related to network.
-> 
-> If you mean that 'ip link set dev ... mtu 4000; ip link set dev ... up'
-> fails whereas 'ip link set dev ... up; ip link set dev ... mtu 4000'
-> works, the patch below is a candidate:
+The following changes since commit eb970ff07c15f13eb474f643fd165ebe3e4e24b2:
 
-Yes, this fits exactly my problem. I tested this change on 3.7.9 and
-on 3.4.33 and I had no network hangs anymore.
+  usbnet: smsc95xx: rename FEATURE_AUTOSUSPEND (2013-02-25 15:49:52 -0500)
 
-Thanks!
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc.git sfc-3.9
 
-Tomi
+Some fixes that should go into 3.9:
 
-> diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-> index 8900398..af99498 100644
-> --- a/drivers/net/ethernet/realtek/r8169.c
-> +++ b/drivers/net/ethernet/realtek/r8169.c
-> @@ -4766,7 +4766,7 @@ static void rtl_hw_start_8168bb(struct rtl8169_private *tp)
->  	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
->  
->  	rtl_tx_performance_tweak(pdev,
-> -		(0x5 << MAX_READ_REQUEST_SHIFT) | PCI_EXP_DEVCTL_NOSNOOP_EN);
-> +		(0x2 << MAX_READ_REQUEST_SHIFT) | PCI_EXP_DEVCTL_NOSNOOP_EN);
->  }
->  
->  static void rtl_hw_start_8168bef(struct rtl8169_private *tp)
-> ---
-> 
-> [...]
->>> Tomi, what does lspci say about your 8168b device ?
->>
->> The NIC information is:
->>
->> 03:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168B PCI
->> Express Gigabit Ethernet controller (rev 01)
->>
->> 03:00.0 0200: 10ec:8168 (rev 01)
-> 
-> Ok, so the first hunk of the patch that Stephen forwarded would not make
-> any difference for your chipset.
-> 
+1. Fix packet corruption when using non-coherent RX DMA buffers.
+2. Fix occasional watchdog misfiring when changing MTU or ring size.
+
+These are longstanding bugs and should be fixed in stable as well, but
+I'd like to review other recent fixes first and send a separate request
+for stable inclusion.
+
+Ben.
+
+Ben Hutchings (3):
+      sfc: Properly sync RX DMA buffer when it is not the last in the page
+      sfc: Fix efx_rx_buf_offset() in the presence of swiotlb
+      sfc: Detach net device when stopping queues for reconfiguration
+
+ drivers/net/ethernet/sfc/efx.c        |   16 ++++++++++++----
+ drivers/net/ethernet/sfc/net_driver.h |    4 +++-
+ drivers/net/ethernet/sfc/rx.c         |   25 +++++++++++++++----------
+ 3 files changed, 30 insertions(+), 15 deletions(-)
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
