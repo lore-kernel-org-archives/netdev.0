@@ -1,59 +1,89 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: netif_receive_skb return value in bridging scenario
-Date: Tue, 26 Feb 2013 08:35:28 -0800
-Message-ID: <1361896528.11403.6.camel@edumazet-glaptop>
-References: <675385003F19144A8CE636FC6B7BB7012F25EC@039-SN2MPN1-021.039d.mgd.msft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Bercaru Cristian-B43982 <B43982@freescale.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [RFC PATCH] core: Add ioctls to control device unicast hw addresses
+Date: Tue, 26 Feb 2013 11:59:30 -0500
+Message-ID: <1361897970-1728-1-git-send-email-vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:37465 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759595Ab3BZQfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 11:35:32 -0500
-Received: by mail-pa0-f41.google.com with SMTP id fb11so2553219pad.0
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 08:35:31 -0800 (PST)
-In-Reply-To: <675385003F19144A8CE636FC6B7BB7012F25EC@039-SN2MPN1-021.039d.mgd.msft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:61541 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750784Ab3BZQ7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2013 11:59:31 -0500
+Received: from int-mx12.intmail.prod.int.phx2.redhat.com (int-mx12.intmail.prod.int.phx2.redhat.com [10.5.11.25])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r1QGxVPq027566
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 11:59:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-02-26 at 14:57 +0000, Bercaru Cristian-B43982 wrote:
-> Hello!
-> 
-> I noticed that the return value of __netif_receive_skb is initialized
-> to NET_RX_DROP.
-> 
-> If the bridging code handles the packet and successfully returns
-> RX_HANDLER_CONSUMED, __netif_receive_skb returns the default value,
-> NET_RX_DROP. I don't think it is fair to consider the packet dropped,
-> since it is received successfully.
-> 
-> I thought the return value of __netif_receive_skb was used by Ethernet
-> NIC drivers for updating their RX_DROP and RX_OX counters, but I
-> studied the source code of various drivers and they seem to ignore
-> whatever the return value. It seems strange. Then shouldn't the
-> function header look like      " void netif_receive_skb(... "  ?
+There is currently a way to manage the multicast HW address list
+through SIOCADDMULTI/SIOCDELMULTI, but there is no way to
+consistently manage the unicast list.  Some drivers provide
+FDB based interface, but that depends on driver configuration
+in almost every case.
 
-It seems better to factorize whatever is needed in core network layer,
-instead of adding code in all drivers to check netif_receive_skb()
-return code.
+This patch provides 2 new ioctls that allow on to add/delete
+unicast HW address on a device.
 
-Check the follwing "atomic_long_inc(&skb->dev->rx_dropped);"
-in __netif_receive_skb_core()
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ include/uapi/linux/sockios.h |    4 ++++
+ net/core/dev_ioctl.c         |   22 ++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 0 deletions(-)
 
-For the case you mention, I guess we need the following patch 
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 17bc535..e98fb4d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3446,6 +3446,7 @@ ncls:
- 		}
- 		switch (rx_handler(&skb)) {
- 		case RX_HANDLER_CONSUMED:
-+			ret = NET_RX_SUCCESS;
- 			goto unlock;
- 		case RX_HANDLER_ANOTHER:
- 			goto another_round;
+diff --git a/include/uapi/linux/sockios.h b/include/uapi/linux/sockios.h
+index 7997a50..442360e 100644
+--- a/include/uapi/linux/sockios.h
++++ b/include/uapi/linux/sockios.h
+@@ -127,6 +127,10 @@
+ /* hardware time stamping: parameters in linux/net_tstamp.h */
+ #define SIOCSHWTSTAMP   0x89b0
+ 
++/* Device address management */
++#define SIOCADDHWADDR	0x89c0		/* Unicast address list */
++#define SIOCDELHWADDR	0x8932
++
+ /* Device private ioctl calls */
+ 
+ /*
+diff --git a/net/core/dev_ioctl.c b/net/core/dev_ioctl.c
+index 6cc0481..d84f6f9 100644
+--- a/net/core/dev_ioctl.c
++++ b/net/core/dev_ioctl.c
+@@ -314,6 +314,26 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
+ 		ifr->ifr_newname[IFNAMSIZ-1] = '\0';
+ 		return dev_change_name(dev, ifr->ifr_newname);
+ 
++	case SIOCADDHWADDR:
++		if (!ops->ndo_set_rx_mode ||
++		    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
++			return -EINVAL;
++		if (!netif_device_present(dev))
++			return -ENODEV;
++		if (!is_unicast_ether_addr(addr))
++			return -EINVAL;
++		return dev_uc_add_excl(dev, ifr->ifr_hwaddr.sa_data);
++
++	case SIOCDELHWADDR:
++		if (!ops->ndo_set_rx_mode ||
++		    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
++			return -EINVAL;
++		if (!netif_device_present(dev))
++			return -ENODEV;
++		if (!is_unicast_ether_addr(addr))
++			return -EINVAL;
++		return dev_uc_del(dev, ifr->ifr_hwaddr.sa_data);
++
+ 	case SIOCSHWTSTAMP:
+ 		err = net_hwtstamp_validate(ifr);
+ 		if (err)
+@@ -532,6 +552,8 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 	case SIOCBRADDIF:
+ 	case SIOCBRDELIF:
+ 	case SIOCSHWTSTAMP:
++	case SIOCADDHWADDR:
++	case SIOCDELHWADDR:
+ 		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
+ 			return -EPERM;
+ 		/* fall through */
+-- 
+1.7.7.6
