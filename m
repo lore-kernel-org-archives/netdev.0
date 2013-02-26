@@ -1,105 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net 3/3] sfc: Detach net device when stopping queues for
- reconfiguration
-Date: Tue, 26 Feb 2013 19:12:48 +0000
-Message-ID: <1361905968.2996.12.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1361905763.2996.9.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	<scrum-linux@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Vijay Subramanian <subramanian.vijay@gmail.com>
+Subject: [iproute2 ] Fix compilation error of m_ipt.c with -Werror enabled
+Date: Tue, 26 Feb 2013 11:12:07 -0800
+Message-ID: <1361905927-31534-1-git-send-email-subramanian.vijay@gmail.com>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Vijay Subramanian <subramanian.vijay@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:36034 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724Ab3BZTMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 14:12:51 -0500
-In-Reply-To: <1361905763.2996.9.camel@bwh-desktop.uk.solarflarecom.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:39572 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757196Ab3BZTNQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 14:13:16 -0500
+Received: by mail-pa0-f54.google.com with SMTP id fa10so2615109pad.41
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 11:13:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We must only ever stop TX queues when they are full or the net device
-is not 'ready' so far as the net core, and specifically the watchdog,
-is concerned.  Otherwise, the watchdog may fire *immediately* if no
-packets have been added to the queue in the last 5 seconds.
+Commit (5a650703d47e10aa386406c855eff5a593b2120b Makefile: make warnings into
+errors ) causes the following build error.
 
-The device is ready if all the following are true:
+gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
+-Wmissing-declarations -Wold-style-definition -O2 -I../include
+-DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
+-D_GNU_SOURCE -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=\"/lib/xtables\"
+-DYY_NO_INPUT   -c -o m_ipt.o m_ipt.c
+cc1: warnings being treated as errors
+m_ipt.c:72: error: no previous prototype for 'xtables_register_target'
+m_ipt.c:361: error: no previous prototype for 'build_st'
+make[1]: *** [m_ipt.o] Error 1
 
-(a) It has a qdisc
-(b) It is marked present
-(c) It is running
-(d) The link is reported up
+This is fixed by adding the prototype in the header include/iptables.h
 
-(a) and (c) are normally true, and must not be changed by a driver.
-(d) is under our control, but fake link changes may disturb userland.
-This leaves (b).  We already mark the device absent during reset
-and self-test, but we need to do the same during MTU changes and ring
-reallocation.  We don't need to do this when the device is brought
-down because then (c) is already false.
+I am not sure if this is due to something wrong on my build system but I am
+using current glibc 2.17.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+
+Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
 ---
- drivers/net/ethernet/sfc/efx.c |   16 ++++++++++++----
- 1 files changed, 12 insertions(+), 4 deletions(-)
+ include/iptables.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index bf57b3c..0bc0099 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -779,6 +779,7 @@ efx_realloc_channels(struct efx_nic *efx, u32 rxq_entries, u32 txq_entries)
- 						tx_queue->txd.entries);
- 	}
+diff --git a/include/iptables.h b/include/iptables.h
+index dd844c1..f1e62e2 100644
+--- a/include/iptables.h
++++ b/include/iptables.h
+@@ -143,6 +143,8 @@ extern int line;
+ /* Your shared library should call one of these. */
+ extern void register_match(struct iptables_match *me);
+ extern void register_target(struct iptables_target *me);
++extern void xtables_register_target(struct iptables_target *me);
++extern int build_st(struct iptables_target *target, struct ipt_entry_target *t);
  
-+	efx_device_detach_sync(efx);
- 	efx_stop_all(efx);
- 	efx_stop_interrupts(efx, true);
- 
-@@ -832,6 +833,7 @@ out:
- 
- 	efx_start_interrupts(efx, true);
- 	efx_start_all(efx);
-+	netif_device_attach(efx->net_dev);
- 	return rc;
- 
- rollback:
-@@ -1641,8 +1643,12 @@ static void efx_stop_all(struct efx_nic *efx)
- 	/* Flush efx_mac_work(), refill_workqueue, monitor_work */
- 	efx_flush_all(efx);
- 
--	/* Stop the kernel transmit interface late, so the watchdog
--	 * timer isn't ticking over the flush */
-+	/* Stop the kernel transmit interface.  This is only valid if
-+	 * the device is stopped or detached; otherwise the watchdog
-+	 * may fire immediately.
-+	 */
-+	WARN_ON(netif_running(efx->net_dev) &&
-+		netif_device_present(efx->net_dev));
- 	netif_tx_disable(efx->net_dev);
- 
- 	efx_stop_datapath(efx);
-@@ -1963,16 +1969,18 @@ static int efx_change_mtu(struct net_device *net_dev, int new_mtu)
- 	if (new_mtu > EFX_MAX_MTU)
- 		return -EINVAL;
- 
--	efx_stop_all(efx);
--
- 	netif_dbg(efx, drv, efx->net_dev, "changing MTU to %d\n", new_mtu);
- 
-+	efx_device_detach_sync(efx);
-+	efx_stop_all(efx);
-+
- 	mutex_lock(&efx->mac_lock);
- 	net_dev->mtu = new_mtu;
- 	efx->type->reconfigure_mac(efx);
- 	mutex_unlock(&efx->mac_lock);
- 
- 	efx_start_all(efx);
-+	netif_device_attach(efx->net_dev);
- 	return 0;
- }
- 
+ extern struct in_addr *dotted_to_addr(const char *dotted);
+ extern char *addr_to_dotted(const struct in_addr *addrp);
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.0.4
