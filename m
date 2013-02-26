@@ -1,56 +1,51 @@
 From: Vijay Subramanian <subramanian.vijay@gmail.com>
-Subject: [iproute2 ] Fix compilation error of m_ipt.c with -Werror enabled
-Date: Tue, 26 Feb 2013 11:12:07 -0800
-Message-ID: <1361905927-31534-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: Re: [iproute2 ] Fix compilation error of m_ipt.c with -Werror enabled
+Date: Tue, 26 Feb 2013 11:23:45 -0800
+Message-ID: <CAGK4HS_uu6RLBqHYrq181Jd0p7HCC=_W2ziQaeQQHhEWfazdNA@mail.gmail.com>
+References: <1361905927-31534-1-git-send-email-subramanian.vijay@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Vijay Subramanian <subramanian.vijay@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:39572 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757196Ab3BZTNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 14:13:16 -0500
-Received: by mail-pa0-f54.google.com with SMTP id fa10so2615109pad.41
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 11:13:16 -0800 (PST)
+Received: from mail-oa0-f54.google.com ([209.85.219.54]:34632 "EHLO
+	mail-oa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932566Ab3BZTXq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 14:23:46 -0500
+Received: by mail-oa0-f54.google.com with SMTP id n12so6029890oag.13
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 11:23:45 -0800 (PST)
+In-Reply-To: <1361905927-31534-1-git-send-email-subramanian.vijay@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit (5a650703d47e10aa386406c855eff5a593b2120b Makefile: make warnings into
-errors ) causes the following build error.
+On 26 February 2013 11:12, Vijay Subramanian
+<subramanian.vijay@gmail.com> wrote:
+> Commit (5a650703d47e10aa386406c855eff5a593b2120b Makefile: make warnings into
+> errors ) causes the following build error.
+>
+
+A similar error occurs for misc/ss.c
 
 gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
--Wmissing-declarations -Wold-style-definition -O2 -I../include
--DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
--D_GNU_SOURCE -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=\"/lib/xtables\"
--DYY_NO_INPUT   -c -o m_ipt.o m_ipt.c
+-Wmissing-declarations -Wold-style-definition -O2
+-I../include -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\"
+-DCONFDIR=\"/etc/iproute2\" -D_GNU_SOURCE   -c -o ss.o ss.c
 cc1: warnings being treated as errors
-m_ipt.c:72: error: no previous prototype for 'xtables_register_target'
-m_ipt.c:361: error: no previous prototype for 'build_st'
-make[1]: *** [m_ipt.o] Error 1
+ss.c: In function 'user_ent_hash_build':
+ss.c:300: error: ignoring return value of 'fscanf', declared with
+attribute warn_unused_result
+ss.c: In function 'get_slabstat':
+ss.c:382: error: ignoring return value of 'fgets', declared with
+attribute warn_unused_result
+ss.c: In function 'init_service_resolver':
+ss.c:506: error: ignoring return value of 'fgets', declared with
+attribute warn_unused_result
+---cut---
 
-This is fixed by adding the prototype in the header include/iptables.h
+Not sure what is the best fix for this but can send a patch based on
+suggestions.
+I am using "Ubuntu 10.04.1 LTS" with ldd (GNU libc) 2.17.
 
-I am not sure if this is due to something wrong on my build system but I am
-using current glibc 2.17.
 
-
-Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
----
- include/iptables.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/include/iptables.h b/include/iptables.h
-index dd844c1..f1e62e2 100644
---- a/include/iptables.h
-+++ b/include/iptables.h
-@@ -143,6 +143,8 @@ extern int line;
- /* Your shared library should call one of these. */
- extern void register_match(struct iptables_match *me);
- extern void register_target(struct iptables_target *me);
-+extern void xtables_register_target(struct iptables_target *me);
-+extern int build_st(struct iptables_target *target, struct ipt_entry_target *t);
- 
- extern struct in_addr *dotted_to_addr(const char *dotted);
- extern char *addr_to_dotted(const struct in_addr *addrp);
--- 
-1.7.0.4
+Vijay
