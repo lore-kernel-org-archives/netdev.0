@@ -1,84 +1,109 @@
-From: Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>
-Subject: linux-next: manual merge of the infiniband tree with Linus' tree
-Date: Tue, 26 Feb 2013 11:45:08 +1100
-Message-ID: <20130226114508.0f8d1101156f9f4a309579f6@canb.auug.org.au>
+From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
+Subject: Re: [E1000-devel] [PATCH RESEND 3/3] e1000e: fix accessing to suspended
+ device
+Date: Mon, 25 Feb 2013 17:09:45 -0800
+Message-ID: <512C0B59.4020209@intel.com>
+References: <20130225051010.12689.28611.stgit@zurg> <20130225051911.12689.11167.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Tue__26_Feb_2013_11_45_08_+1100_5VQ.Sey5M+0YYHMR"
-Cc: linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Hadar Hen Zion <hadarh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shani Michaeli <shanim-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-To: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130225051911.12689.11167.stgit@zurg>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Tue__26_Feb_2013_11_45_08_+1100_5VQ.Sey5M+0YYHMR
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 2/24/2013 9:19 PM, Konstantin Khlebnikov wrote:
+> This patch fixes some annoying messages like 'Error reading PHY register' and
+> 'Hardware Erorr' and saves several seconds on reboot.
 
-Hi all,
+Any networking-related patches should also include netdev@vger.kernel.org.
 
-Today's linux-next merge of the infiniband tree got a conflict in
-drivers/net/ethernet/mellanox/mlx4/mlx4.h between commit 23537b732f5d
-("net/mlx4_core: Use firmware driven flow steering hash mode") from
-Linus' tree and commit e448834e3545 ("mlx4_core: Enable memory windows in
-{INIT, QUERY}_HCA") from the infiniband tree.
+I'm also a bit confused how the changes below match the patch 
+description.  Elaborating a bit more how the changes suppress the 
+messages might be a good thing.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+>
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Cc: Bruce Allan <bruce.w.allan@intel.com>
+> ---
+>   drivers/net/ethernet/intel/e1000e/ethtool.c |   13 +++++++++++++
+>   drivers/net/ethernet/intel/e1000e/netdev.c  |    2 ++
+>   2 files changed, 15 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> index 2c18137..f91a8f3 100644
+> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
+> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
+> @@ -36,6 +36,7 @@
+>   #include <linux/delay.h>
+>   #include <linux/vmalloc.h>
+>   #include <linux/mdio.h>
+> +#include <linux/pm_runtime.h>
+>
+>   #include "e1000.h"
+>
+> @@ -2229,7 +2230,19 @@ static int e1000e_get_ts_info(struct net_device *netdev,
+>   	return 0;
+>   }
+>
+> +static int e1000e_ethtool_begin(struct net_device *netdev)
+> +{
+> +	return pm_runtime_get_sync(netdev->dev.parent);
+> +}
+> +
+> +static void e1000e_ethtool_complete(struct net_device *netdev)
+> +{
+> +	pm_runtime_put_sync(netdev->dev.parent);
+> +}
+> +
+>   static const struct ethtool_ops e1000_ethtool_ops = {
+> +	.begin			= e1000e_ethtool_begin,
+> +	.complete		= e1000e_ethtool_complete,
+>   	.get_settings		= e1000_get_settings,
+>   	.set_settings		= e1000_set_settings,
+>   	.get_drvinfo		= e1000_get_drvinfo,
 
---=20
-Cheers,
-Stephen Rothwell                    sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org
+What do the ethtool additions have to do with this patch?  The patch 
+description really doesn't seem to cover why these are here.
 
-diff --cc drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index ed4a695,8b75d5e..0000000
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@@ -60,6 -60,13 +60,8 @@@
-  #define MLX4_FS_MGM_LOG_ENTRY_SIZE	7
-  #define MLX4_FS_NUM_MCG			(1 << 17)
- =20
-+ #define INIT_HCA_TPT_MW_ENABLE          (1 << 7)
-+=20
- -enum {
- -	MLX4_FS_L2_HASH =3D 0,
- -	MLX4_FS_L2_L3_L4_HASH,
- -};
- -
-  #define MLX4_NUM_UP		8
-  #define MLX4_NUM_TC		8
-  #define MLX4_RATELIMIT_UNITS 3 /* 100 Mbps */
-
---Signature=_Tue__26_Feb_2013_11_45_08_+1100_5VQ.Sey5M+0YYHMR
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRLAWUAAoJEECxmPOUX5FEWXoP/ipAtcUnrZtBgk0zBNCOXBZs
-PBEZbRhdyqLIVOwGkYDk53hyK4EzkvQw/3zpUXud85LEzl433sjFqLu1EVYowjzn
-cYuXa8vYi8C3ehi/PImceRQttLjn5zIoFUoVTO54ks04m96+QQKnrfjBzRNIMcvV
-ct6EpiqgaiQHFlxM9Wy1ai452uap2X2EYnGfOUAvStsxAry1FwmJKRb9lobWeDHD
-GveG+n5oArmkDgntLN/fS//yXdkEihdWMBwyonmu7+RwMbRdqeiN4tDhsb/z35tF
-b/68zE+eIrqbj8Ngcwpt77V5Ql3DlbiECO6e/jVyiWCcuW9t4D6fM1rS/et+ZhlF
-iv/MHmPVBd2XWrH6EmCVpRQOvq6eeiEoIW8lnRuUHq5kJzzaycvs83PJHMPE4TGt
-2sYmAB8G7vk9mEyqyjt/baPD4iDfk+Fl4ZAnlZ3SVACfV2RuUj3nrL12ZZXEumkr
-JsodduCYAxv/kL4AWCeuSn3GdjuwOOICSvpAfxJOvTanr6JK/iODxNWH0ypnHnAB
-ENMD1B3ctABIwilPPYyIEkZpUW4mh9vyubG9RwjllDK4UDyq2xrbh11WhtHL4Tmd
-gg0ymFPsJul/KVtFqkYezkIcVPOjqofiojotHzbcXskcq7gjQdkpdNSrCDkzd7VC
-iv0C5w77WdYfA7YZ3zVo
-=YK2k
------END PGP SIGNATURE-----
-
---Signature=_Tue__26_Feb_2013_11_45_08_+1100_5VQ.Sey5M+0YYHMR--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> index 2954cc7..948b86ff 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -4663,6 +4663,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+>   	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
+>   		int ret_val;
+>
+> +		pm_runtime_get_sync(&adapter->pdev->dev);
+>   		ret_val = e1e_rphy(hw, MII_BMCR, &phy->bmcr);
+>   		ret_val |= e1e_rphy(hw, MII_BMSR, &phy->bmsr);
+>   		ret_val |= e1e_rphy(hw, MII_ADVERTISE, &phy->advertise);
+> @@ -4673,6 +4674,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
+>   		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
+>   		if (ret_val)
+>   			e_warn("Error reading PHY register\n");
+> +		pm_runtime_put_sync(&adapter->pdev->dev);
+>   	} else {
+>   		/* Do not read PHY registers if link is not up
+>   		 * Set values to typical power-on defaults
+>
+>
+> ------------------------------------------------------------------------------
+> Everyone hates slow websites. So do we.
+> Make your web apps faster with AppDynamics
+> Download AppDynamics Lite for free today:
+> http://p.sf.net/sfu/appdyn_d2d_feb
+> _______________________________________________
+> E1000-devel mailing list
+> E1000-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/e1000-devel
+> To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+>
