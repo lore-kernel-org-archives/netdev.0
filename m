@@ -1,40 +1,57 @@
-From: Syam Sidhardhan <syamsidhardh@gmail.com>
-Subject: [PATCH] xilinx: ll_temac: Remove redundant NULL check before kfree
-Date: Wed, 27 Feb 2013 01:29:37 +0530
-Message-ID: <1361908777-3340-1-git-send-email-s.syam@samsung.com>
-Cc: syamsidhardh@gmail.com, John.Linn@xilinx.com, anirudh@xilinx.com,
-	davem@davemloft.net
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] core: Add ioctls to control device unicast hw
+ addresses
+Date: Tue, 26 Feb 2013 15:03:09 -0500 (EST)
+Message-ID: <20130226.150309.1215210522427869530.davem@davemloft.net>
+References: <20130226.124322.28904104699526114.davem@davemloft.net>
+	<1361907862-13009-1-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:62369 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759849Ab3BZT7w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 14:59:52 -0500
-Received: by mail-pa0-f49.google.com with SMTP id kp6so2663818pab.36
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 11:59:51 -0800 (PST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:41514 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752035Ab3BZUDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 15:03:13 -0500
+In-Reply-To: <1361907862-13009-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-kfree on NULL pointer is a no-op.
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Tue, 26 Feb 2013 14:44:22 -0500
 
-Signed-off-by: Syam Sidhardhan <s.syam@samsung.com>
----
- drivers/net/ethernet/xilinx/ll_temac_main.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> David Miller wrote:
+>> No new ioctls please, extend the netlink interfaces as necessary
+>> instead.
+>>
+>> Thanks.
+> 
+> So, something like below patch (compiled only) would be better in your opinion?
+> The one concern I have is that there is no way to probe for the availabilty
+> of this functionality, since netlink will just ignore unknown types and appear
+> to succeed.  With an ioctl it is clear if the support is present.
+> 
+> -- >8 --
+> 
+> 
+> [RFC PATCH] rtnetlink: Add support for adding/removing additional hw addresses.
+> 
+> Add an ability to add and remove HW addresses to the device
+> unicast and multicast address lists.  Right now, we only have
+> an ioctl() to manage the multicast addresses and there is no
+> way the manage the unicast list.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/ethernet/xilinx/ll_temac_main.c
-index 9fc2ada..200a341 100644
---- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-+++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-@@ -224,8 +224,7 @@ static void temac_dma_bd_release(struct net_device *ndev)
- 		dma_free_coherent(ndev->dev.parent,
- 				sizeof(*lp->tx_bd_v) * TX_BD_NUM,
- 				lp->tx_bd_v, lp->tx_bd_p);
--	if (lp->rx_skb)
--		kfree(lp->rx_skb);
-+	kfree(lp->rx_skb);
- }
- 
- /**
--- 
-1.7.9.5
+This is a step in the right direction, and you're right that there is
+a difficulty in detecting whether support exists or not.
+
+I am so surprised that we've have ->set_rx_mode() support for multiple
+unicast MAC addresses in so many drivers all this time, yet no way
+outside of FDB to make use of it at all.
+
+Anyways, as per the feature detection issue, we could create a new
+RTM_* operation that returns a u32 feature flag mask.  It's just one
+idea.
