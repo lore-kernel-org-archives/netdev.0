@@ -1,109 +1,77 @@
-From: "Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [E1000-devel] [PATCH RESEND 3/3] e1000e: fix accessing to suspended
- device
-Date: Mon, 25 Feb 2013 17:09:45 -0800
-Message-ID: <512C0B59.4020209@intel.com>
-References: <20130225051010.12689.28611.stgit@zurg> <20130225051911.12689.11167.stgit@zurg>
+From: Josh Boyer <jwboyer@redhat.com>
+Subject: Re: 3.9 merge window kernels
+Date: Mon, 25 Feb 2013 20:12:09 -0500
+Message-ID: <20130226011209.GC2071@hansolo.jdub.homelinux.org>
+References: <20130222234825.GB2419@hansolo.jdub.homelinux.org>
+ <20130222210938.4f62cede@redhat.com>
+ <512816AD.9050406@gmail.com>
+ <20130222223014.1b9a2cc0@redhat.com>
+ <512857FB.3050803@gmail.com>
+ <20130223090148.4a4bd5e0@redhat.com>
+ <CA+5PVA46LfV-WTkJVF7fz9nrz1Qrib894fqMo+8GL8AjuW8_Yg@mail.gmail.com>
+ <5129491A.5020406@gmail.com>
+ <512AAED8.3070205@iki.fi>
+ <512BFC31.7010800@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>
-To: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130225051911.12689.11167.stgit@zurg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Antti Palosaari <crope@iki.fi>,
+	Mauro Carvalho Chehab <mchehab@redhat.com>,
+	kernel@lists.fedoraproject.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Stephen Hemminger <shemminger@osdl.org>
+To: poma <pomidorabelisima@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:21249 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932850Ab3BZBM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 25 Feb 2013 20:12:28 -0500
+Content-Disposition: inline
+In-Reply-To: <512BFC31.7010800@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/24/2013 9:19 PM, Konstantin Khlebnikov wrote:
-> This patch fixes some annoying messages like 'Error reading PHY register' and
-> 'Hardware Erorr' and saves several seconds on reboot.
+On Tue, Feb 26, 2013 at 01:05:05AM +0100, poma wrote:
+> On 02/25/13 01:22, Antti Palosaari wrote:
+> [=E2=80=A6]
+> >>> Poma, you should probably just start filing bugs for things you h=
+it.
+> >>> In this case, the skge backtrace is just a warning but it can be =
+fixed
+> >>> up relatively easily.
+> >>>
+> >>
+> >> https://bugzilla.redhat.com/show_bug.cgi?id=3D914994
+> >> Josh, Mauro thanks for the overview. :)
+> >> Antti, cheers. ;)
+> >>
+> >> poma
+> >=20
+> > I cannot see these warnings at all. What is Kernel option to enable
+> > those debug(?) warnings? From which menu it could be located when m=
+ake
+> > menuconfig ?
+> >=20
+>=20
+> http://kojipkgs.fedoraproject.org/packages/kernel/3.9.0/0.rc0.git7.1.=
+fc19/data/logs/x86_64/build.log
+> Even after reapplying Stephen's "skge: check for PCI dma mapping
+> errors"[1] from David's 'net-next' tree, no luck.
+> =E2=80=A6
+> WARNING: at lib/dma-debug.c:933 check_unmap+0x47b/0x960()
+> skge 0000:01:09.0: DMA-API: device driver failed to check map
+> error[device address=3D0x000000010287094a] [size=3D90 bytes] [mapped =
+as single]
+> =E2=80=A6
 
-Any networking-related patches should also include netdev@vger.kernel.org.
+I'm confused.  You pointed to the build I did this morning, which
+definitely doesn't include the commit you mentioned.  Are you saying yo=
+u
+took this morning's build and applied the patch yourself?  If so, did i=
+t
+really get applied?  Do you have logs?  Do you have more than just that
+tiny snippet of error message?
 
-I'm also a bit confused how the changes below match the patch 
-description.  Elaborating a bit more how the changes suppress the 
-messages might be a good thing.
-
->
-> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
-> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-> Cc: e1000-devel@lists.sourceforge.net
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> ---
->   drivers/net/ethernet/intel/e1000e/ethtool.c |   13 +++++++++++++
->   drivers/net/ethernet/intel/e1000e/netdev.c  |    2 ++
->   2 files changed, 15 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/e1000e/ethtool.c b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> index 2c18137..f91a8f3 100644
-> --- a/drivers/net/ethernet/intel/e1000e/ethtool.c
-> +++ b/drivers/net/ethernet/intel/e1000e/ethtool.c
-> @@ -36,6 +36,7 @@
->   #include <linux/delay.h>
->   #include <linux/vmalloc.h>
->   #include <linux/mdio.h>
-> +#include <linux/pm_runtime.h>
->
->   #include "e1000.h"
->
-> @@ -2229,7 +2230,19 @@ static int e1000e_get_ts_info(struct net_device *netdev,
->   	return 0;
->   }
->
-> +static int e1000e_ethtool_begin(struct net_device *netdev)
-> +{
-> +	return pm_runtime_get_sync(netdev->dev.parent);
-> +}
-> +
-> +static void e1000e_ethtool_complete(struct net_device *netdev)
-> +{
-> +	pm_runtime_put_sync(netdev->dev.parent);
-> +}
-> +
->   static const struct ethtool_ops e1000_ethtool_ops = {
-> +	.begin			= e1000e_ethtool_begin,
-> +	.complete		= e1000e_ethtool_complete,
->   	.get_settings		= e1000_get_settings,
->   	.set_settings		= e1000_set_settings,
->   	.get_drvinfo		= e1000_get_drvinfo,
-
-What do the ethtool additions have to do with this patch?  The patch 
-description really doesn't seem to cover why these are here.
-
-> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-> index 2954cc7..948b86ff 100644
-> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> @@ -4663,6 +4663,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
->   	    (adapter->hw.phy.media_type == e1000_media_type_copper)) {
->   		int ret_val;
->
-> +		pm_runtime_get_sync(&adapter->pdev->dev);
->   		ret_val = e1e_rphy(hw, MII_BMCR, &phy->bmcr);
->   		ret_val |= e1e_rphy(hw, MII_BMSR, &phy->bmsr);
->   		ret_val |= e1e_rphy(hw, MII_ADVERTISE, &phy->advertise);
-> @@ -4673,6 +4674,7 @@ static void e1000_phy_read_status(struct e1000_adapter *adapter)
->   		ret_val |= e1e_rphy(hw, MII_ESTATUS, &phy->estatus);
->   		if (ret_val)
->   			e_warn("Error reading PHY register\n");
-> +		pm_runtime_put_sync(&adapter->pdev->dev);
->   	} else {
->   		/* Do not read PHY registers if link is not up
->   		 * Set values to typical power-on defaults
->
->
-> ------------------------------------------------------------------------------
-> Everyone hates slow websites. So do we.
-> Make your web apps faster with AppDynamics
-> Download AppDynamics Lite for free today:
-> http://p.sf.net/sfu/appdyn_d2d_feb
-> _______________________________________________
-> E1000-devel mailing list
-> E1000-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/e1000-devel
-> To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
->
+josh
