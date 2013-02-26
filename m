@@ -1,266 +1,202 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Wed, 27 Feb 2013 01:00:47 +0530
-Message-ID: <512D0D67.9010609@linux.vnet.ibm.com>
-References: <20130218123714.26245.61816.stgit@srivatsabhat.in.ibm.com> <20130218123856.26245.46705.stgit@srivatsabhat.in.ibm.com> <CANN689F9S7c1M8+cEpz3tsxGF34+NTRBLvxgPUOtbvav5u+RRA@mail.gmail.com> <5122551E.1080703@linux.vnet.ibm.com>	<51226B46.9080707@linux.vnet.ibm.com> <CANN689FSxOz+0Cu7EG_yKD8ZE1OpT4kyT+ybLfXSqaifodJRpw@mail.gmail.com> <51226F91.7000108@linux.vnet.ibm.com> <CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com> <512BBAD8.8010006@linux.vnet.ibm.com> <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com> <512C7A38.8060906@linux.vnet.ibm.com> <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com> <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Michel Lespinasse <walken@google.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	oleg@redhat.com, sbw@mit.edu, tj@kernel.org,
-	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Lai Jiangshan <eag0628@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [RFC PATCH] core: Add ioctls to control device unicast hw addresses
+Date: Tue, 26 Feb 2013 14:44:22 -0500
+Message-ID: <1361907862-13009-1-git-send-email-vyasevic@redhat.com>
+References: <20130226.124322.28904104699526114.davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43249 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759602Ab3BZToZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2013 14:44:25 -0500
+In-Reply-To: <20130226.124322.28904104699526114.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2013 09:55 PM, Lai Jiangshan wrote:
-> On Tue, Feb 26, 2013 at 10:22 PM, Srivatsa S. Bhat
-> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
->>
->> Hi Lai,
->>
->> I'm really not convinced that piggy-backing on lglocks would help
->> us in any way. But still, let me try to address some of the points
->> you raised...
->>
->> On 02/26/2013 06:29 PM, Lai Jiangshan wrote:
->>> On Tue, Feb 26, 2013 at 5:02 PM, Srivatsa S. Bhat
->>> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
->>>> On 02/26/2013 05:47 AM, Lai Jiangshan wrote:
->>>>> On Tue, Feb 26, 2013 at 3:26 AM, Srivatsa S. Bhat
->>>>> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
->>>>>> Hi Lai,
->>>>>>
->>>>>> On 02/25/2013 09:23 PM, Lai Jiangshan wrote:
->>>>>>> Hi, Srivatsa,
->>>>>>>
->>>>>>> The target of the whole patchset is nice for me.
->>>>>>
->>>>>> Cool! Thanks :-)
->>>>>>
->>>> [...]
->>>>
->>>> Unfortunately, I see quite a few issues with the code above. IIUC, the
->>>> writer and the reader both increment the same counters. So how will the
->>>> unlock() code in the reader path know when to unlock which of the locks?
->>>
->>> The same as your code, the reader(which nested in write C.S.) just dec
->>> the counters.
->>
->> And that works fine in my case because the writer and the reader update
->> _two_ _different_ counters.
-> 
-> I can't find any magic in your code, they are the same counter.
-> 
->         /*
->          * It is desirable to allow the writer to acquire the percpu-rwlock
->          * for read (if necessary), without deadlocking or getting complaints
->          * from lockdep. To achieve that, just increment the reader_refcnt of
->          * this CPU - that way, any attempt by the writer to acquire the
->          * percpu-rwlock for read, will get treated as a case of nested percpu
->          * reader, which is safe, from a locking perspective.
->          */
->         this_cpu_inc(pcpu_rwlock->rw_state->reader_refcnt);
+David Miller wrote:
+> No new ioctls please, extend the netlink interfaces as necessary
+> instead.
 >
+> Thanks.
 
-Whoa! Hold on, were you really referring to _this_ increment when you said
-that, in your patch you would increment the refcnt at the writer? Then I guess
-there is a major disconnect in our conversations. (I had assumed that you were
-referring to the update of writer_signal, and were just trying to have a single
-refcnt instead of reader_refcnt and writer_signal).
+So, something like below patch (compiled only) would be better in your opinion?
+The one concern I have is that there is no way to probe for the availabilty
+of this functionality, since netlink will just ignore unknown types and appear
+to succeed.  With an ioctl it is clear if the support is present.
 
-So, please let me clarify things a bit here. Forget about the above increment
-of reader_refcnt at the writer side. Its almost utterly insignificant for our
-current discussion. We can simply replace it with a check as shown below, at
-the reader side:
+-- >8 --
 
-void percpu_read_lock_irqsafe()
-{
-	if (current == active_writer)
-		return;
 
-	/* Rest of the code */
-}
+[RFC PATCH] rtnetlink: Add support for adding/removing additional hw addresses.
 
-Now, assuming that, in your patch, you were trying to use the per-cpu refcnt
-to allow the writer to safely take the reader path, you can simply get rid of
-that percpu-refcnt, as demonstrated above.
+Add an ability to add and remove HW addresses to the device
+unicast and multicast address lists.  Right now, we only have
+an ioctl() to manage the multicast addresses and there is no
+way the manage the unicast list.
 
-So that would reduce your code to the following (after simplification):
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ include/uapi/linux/if_link.h   |    3 +
+ include/uapi/linux/rtnetlink.h |    1 +
+ net/core/rtnetlink.c           |   84 +++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 87 insertions(+), 1 deletions(-)
 
-lg_rwlock_local_read_lock()
-{
-	if (current == active_writer)
-		return;
-	if (arch_spin_trylock(per-cpu-spinlock))
-		return;
-	read_lock(global-rwlock);
-}
-
-Now, let us assume that hotplug is not happening, meaning, nobody is running
-the writer side code. Now let's see what happens at the reader side in your
-patch. As I mentioned earlier, the readers are _very_ frequent and can be in
-very hot paths. And they also happen to be nested quite often. 
-
-So, a non-nested reader acquires the per-cpu spinlock. Every subsequent nested
-reader on that CPU has to acquire the global rwlock for read. Right there you
-have 2 significant performance issues -
-1. Acquiring the (spin) lock is costly
-2. Acquiring the global rwlock causes cacheline bouncing, which hurts
-   performance.
-
-And why do we care so much about performance here? Because, the existing
-kernel does an efficient preempt_disable() here - which is an optimized
-per-cpu counter increment. Replacing that with such heavy primitives on the
-reader side can be very bad.
-
-Now, how does my patchset tackle this? My scheme just requires an increment
-of a per-cpu refcnt (reader_refcnt) and memory barrier. Which is acceptable
-from a performance-perspective, because IMHO its not horrendously worse than
-a preempt_disable().
-
-> 
->> If both of them update the same counter, there
->> will be a semantic clash - an increment of the counter can either mean that
->> a new writer became active, or it can also indicate a nested reader. A decrement
->> can also similarly have 2 meanings. And thus it will be difficult to decide
->> the right action to take, based on the value of the counter.
->>
->>>
->>>> (The counter-dropping-to-zero logic is not safe, since it can be updated
->>>> due to different reasons). And now that I look at it again, in the absence
->>>> of the writer, the reader is allowed to be recursive at the heavy cost of
->>>> taking the global rwlock for read, every 2nd time you nest (because the
->>>> spinlock is non-recursive).
->>>
->>> (I did not understand your comments of this part)
->>> nested reader is considered seldom.
->>
->> No, nested readers can be _quite_ frequent. Because, potentially all users
->> of preempt_disable() are readers - and its well-known how frequently we
->> nest preempt_disable(). As a simple example, any atomic reader who calls
->> smp_call_function() will become a nested reader, because smp_call_function()
->> itself is a reader. So reader nesting is expected to be quite frequent.
->>
->>> But if N(>=2) nested readers happen,
->>> the overhead is:
->>>     1 spin_try_lock() + 1 read_lock() + (N-1) __this_cpu_inc()
->>>
->>
->> In my patch, its just this_cpu_inc(). Note that these are _very_ hot paths.
->> So every bit of optimization that you can add is worthwhile.
->>
->> And your read_lock() is a _global_ lock - thus, it can lead to a lot of
->> cache-line bouncing. That's *exactly* why I have used per-cpu refcounts in
->> my synchronization scheme, to avoid taking the global rwlock as much as possible.
->>
->> Another important point to note is that, the overhead we are talking about
->> here, exists even when _not_ performing hotplug. And its the replacement to
->> the super-fast preempt_disable(). So its extremely important to consciously
->> minimize this overhead - else we'll end up slowing down the system significantly.
->>
-> 
-> All I was considered is "nested reader is seldom", so I always
-> fallback to rwlock when nested.
-> If you like, I can add 6 lines of code, the overhead is
-> 1 spin_try_lock()(fast path)  + N  __this_cpu_inc()
-> 
-
-I'm assuming that calculation is no longer valid, considering that
-we just discussed how the per-cpu refcnt that you were using is quite
-unnecessary and can be removed.
-
-IIUC, the overhead with your code, as per above discussion would be:
-1 spin_try_lock() [non-nested] + N read_lock(global_rwlock).
-
-Note that I'm referring to the scenario when hotplug is _not_ happening
-(ie., nobody is running writer side code).
-
-> The overhead of your code is
-> 2 smp_mb() + N __this_cpu_inc()
-> 
-
-Right. And as you can see, this is much much better than the overhead
-shown above.
-
-> I don't see how much different.
-> 
->>>> Also, this lg_rwlock implementation uses 3
->>>> different data-structures - a per-cpu spinlock, a global rwlock and
->>>> a per-cpu refcnt, and its not immediately apparent why you need those many
->>>> or even those many varieties.
->>>
->>> data-structures is the same as yours.
->>> fallback_reader_refcnt <--> reader_refcnt
->>
->> This has semantic problems, as noted above.
->>
->>> per-cpu spinlock <--> write_signal
->>
->> Acquire/release of (spin) lock is costlier than inc/dec of a counter, IIUC.
->>
->>> fallback_rwlock  <---> global_rwlock
->>>
->>>> Also I see that this doesn't handle the
->>>> case of interrupt-handlers also being readers.
->>>
->>> handled. nested reader will see the ref or take the fallback_rwlock
->>>
-> 
-> Sorry, _reentrance_ read_lock() will see the ref or take the fallback_rwlock
-> 
->>
->> I'm not referring to simple nested readers here, but interrupt handlers who
->> can act as readers. For starters, the arch_spin_trylock() is not safe when
->> interrupt handlers can also run the same code, right? You'll need to save
->> and restore interrupts at critical points in the code. Also, the __foo()
->> variants used to read/update the counters are not interrupt-safe.
-> 
-> I must missed something.
-> 
-> Could you elaborate more why arch_spin_trylock() is not safe when
-> interrupt handlers can also run the same code?
-> 
-> Could you elaborate more why __this_cpu_op variants is not
-> interrupt-safe since they are always called paired.
->
-
-Take a look at include/linux/percpu.h. You'll note that __this_cpu_*
-operations map to __this_cpu_generic_to_op(), which doesn't disable interrupts
-while doing the update. Hence you can get inconsistent results if an interrupt
-hits the CPU at that time and the interrupt handler tries to do the same thing.
-In contrast, if you use this_cpu_inc() for example, interrupts are explicitly
-disabled during the update and hence you won't get inconsistent results.
-
-> 
->> And,
->> the unlock() code in the reader path is again going to be confused about
->> what to do when interrupt handlers interrupt regular readers, due to the
->> messed up refcount.
-> 
-> I still can't understand.
->
-
-The primary reason _I_ was using the refcnt vs the reason _you_ were using the
-refcnt, appears to be very different. Maybe that's why the above statement
-didn't make sense. In your case, IIUC, you can simply get rid of the refcnt
-and replace it with the simple check I mentioned above. Whereas, I use
-refcnts to keep the reader-side synchronization fast (and for reader-writer
-communication).
-
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index c4edfe1..7933a1c 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -143,6 +143,9 @@ enum {
+ 	IFLA_NUM_TX_QUEUES,
+ 	IFLA_NUM_RX_QUEUES,
+ 	IFLA_CARRIER,
++	IFLA_HW_ADDR_ADD,
++	IFLA_HW_ADDR_DEL,
++	IFLA_HW_ADDR_LIST,
+ 	__IFLA_MAX
+ };
  
-Regards,
-Srivatsa S. Bhat
-
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 7a2144e..4d6f1c9 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
+@@ -631,6 +631,7 @@ struct tcamsg {
+ /* New extended info filters for IFLA_EXT_MASK */
+ #define RTEXT_FILTER_VF		(1 << 0)
+ #define RTEXT_FILTER_BRVLAN	(1 << 1)
++#define RTEXT_FILTER_MACLIST	(1 << 2)
+ 
+ /* End of information exported to user level */
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index d8aa20f..4df2ff1 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -763,6 +763,20 @@ static size_t rtnl_port_size(const struct net_device *dev)
+ 		return port_self_size;
+ }
+ 
++static size_t rtnl_maclist_size(const struct net_device *dev,
++				u32 ext_filter_mask)
++{
++	size_t size = 0;
++
++	if (ext_filter_mask & RTEXT_FILTER_MACLIST) {
++		size = nla_total_size(sizeof(struct nlattr)) +
++			nla_total_size(ETH_ALEN) *
++			(netdev_uc_count(dev) + netdev_mc_count(dev));
++	}
++
++	return size;
++}
++
+ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 				     u32 ext_filter_mask)
+ {
+@@ -790,6 +804,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 			        & RTEXT_FILTER_VF ? 4 : 0) /* IFLA_NUM_VF */
+ 	       + rtnl_vfinfo_size(dev, ext_filter_mask) /* IFLA_VFINFO_LIST */
+ 	       + rtnl_port_size(dev) /* IFLA_VF_PORTS + IFLA_PORT_SELF */
++	       + rtnl_maclist_size(dev, ext_filter_mask) /* IFLA_MAC_LIST */
+ 	       + rtnl_link_get_size(dev) /* IFLA_LINKINFO */
+ 	       + rtnl_link_get_af_size(dev); /* IFLA_AF_SPEC */
+ }
+@@ -870,6 +885,39 @@ static int rtnl_port_fill(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_hwaddr_fill(struct sk_buff *skb, struct net_device *dev,
++			    u32 ext_filter_mask)
++{
++	struct netdev_hw_addr *ha;
++	struct nlattr *hw_list;
++
++	if (!(ext_filter_mask & RTEXT_FILTER_MACLIST))
++		return 0;
++
++	if ((netdev_uc_count(dev) + netdev_mc_count(dev)) == 0)
++		return 0;
++
++	hw_list = nla_nest_start(skb, IFLA_HW_ADDR_LIST);
++	if (!hw_list)
++		return -EMSGSIZE;
++
++	/* Unicasts first */
++	netdev_for_each_uc_addr(ha, dev) {
++		if (nla_put(skb, IFLA_ADDRESS, ETH_ALEN, ha->addr))
++			goto nla_put_fail;
++	}
++
++	/* Now multicasts */
++	netdev_for_each_mc_addr(ha, dev) {
++		if (nla_put(skb, IFLA_ADDRESS, ETH_ALEN, ha->addr))
++			goto nla_put_fail;
++	}
++
++nla_put_fail:
++	nla_nest_cancel(skb, hw_list);
++	return -EMSGSIZE;
++}
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -1044,6 +1092,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 		}
+ 	}
+ 
++	if (rtnl_hwaddr_fill(skb, dev, ext_filter_mask))
++		goto nla_put_failure;
++
+ 	nla_nest_end(skb, af_spec);
+ 
+ 	return nlmsg_end(skb, nlh);
+@@ -1128,6 +1179,8 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PROMISCUITY]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_TX_QUEUES]	= { .type = NLA_U32 },
+ 	[IFLA_NUM_RX_QUEUES]	= { .type = NLA_U32 },
++	[IFLA_HW_ADDR_ADD]	= { .type = NLA_BINARY, .len = ETH_ALEN },
++	[IFLA_HW_ADDR_DEL]	= { .type = NLA_BINARY, .len = ETH_ALEN },
+ };
+ EXPORT_SYMBOL(ifla_policy);
+ 
+@@ -1527,7 +1580,36 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
+ 			modified = 1;
+ 		}
+ 	}
+-	err = 0;
++
++	if (tb[IFLA_HW_ADDR_ADD]) {
++		const unsigned char *addr;
++
++		addr = nla_data(tb[IFLA_HW_ADDR_ADD]);
++
++		if (is_unicast_ether_addr(addr))
++			err = dev_uc_add_excl(dev, addr);
++		else if (is_multicast_ether_addr(addr))
++			err = dev_mc_add_excl(dev, addr);
++
++		if (err)
++			goto errout;
++		modified = 1;
++	}
++
++	if (tb[IFLA_HW_ADDR_DEL]) {
++		const unsigned char *addr;
++
++		addr = nla_data(tb[IFLA_HW_ADDR_DEL]);
++
++		if (is_unicast_ether_addr(addr))
++			err = dev_uc_del(dev, addr);
++		else if (is_multicast_ether_addr(addr))
++			err = dev_mc_del(dev, addr);
++
++		if (err)
++			goto errout;
++		modified = 1;
++	}
+ 
+ errout:
+ 	if (err < 0 && modified)
+-- 
+1.7.7.6
