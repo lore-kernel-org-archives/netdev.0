@@ -1,37 +1,60 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: linux-next: manual merge of the infiniband tree with Linus' tree
-Date: Tue, 26 Feb 2013 09:27:06 +0200
-Message-ID: <512C63CA.3050004@mellanox.com>
-References: <20130226114508.0f8d1101156f9f4a309579f6@canb.auug.org.au>
+From: Kees Cook <keescook@chromium.org>
+Subject: [PATCH] proc connector: reject unprivileged listener bumps
+Date: Mon, 25 Feb 2013 23:32:25 -0800
+Message-ID: <20130226073225.GA15489@www.outflux.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland@kernel.org>, <linux-rdma@vger.kernel.org>,
-	<linux-next@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Haggai Eran <haggaie@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evgeniy Polyakov <zbr@ioremap.net>, netdev@vger.kernel.org,
+	Matt Helsley <matthltc@us.ibm.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130226114508.0f8d1101156f9f4a309579f6@canb.auug.org.au>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26/02/2013 02:45, Stephen Rothwell wrote:
-> Hi all,
->
-> Today's linux-next merge of the infiniband tree got a conflict in
-> drivers/net/ethernet/mellanox/mlx4/mlx4.h between commit 23537b732f5d
-> ("net/mlx4_core: Use firmware driven flow steering hash mode") from
-> Linus' tree and commit e448834e3545 ("mlx4_core: Enable memory windows in
-> {INIT, QUERY}_HCA") from the infiniband tree.
->
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
->
+While PROC_CN_MCAST_LISTEN/IGNORE is entirely advisory, it was possible
+for an unprivileged user to turn off notifications for all listeners by
+sending PROC_CN_MCAST_IGNORE. Instead, require the same privileges as
+required for a multicast bind.
 
-thanks,
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Cc: Evgeniy Polyakov <zbr@ioremap.net>
+Cc: Matt Helsley <matthltc@us.ibm.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/connector/cn_proc.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-Acked-by: Or Gerlitz <ogerlitz@mellanox.com>
+diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
+index fce2000..1110478 100644
+--- a/drivers/connector/cn_proc.c
++++ b/drivers/connector/cn_proc.c
+@@ -313,6 +313,12 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
+ 	    (task_active_pid_ns(current) != &init_pid_ns))
+ 		return;
+ 
++	/* Can only change if privileged. */
++	if (!capable(CAP_NET_ADMIN)) {
++		err = EPERM;
++		goto out;
++	}
++
+ 	mc_op = (enum proc_cn_mcast_op *)msg->data;
+ 	switch (*mc_op) {
+ 	case PROC_CN_MCAST_LISTEN:
+@@ -325,6 +331,8 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
+ 		err = EINVAL;
+ 		break;
+ 	}
++
++out:
+ 	cn_proc_ack(err, msg->seq, msg->ack);
+ }
+ 
+-- 
+1.7.9.5
+
+
+-- 
+Kees Cook
+Chrome OS Security
