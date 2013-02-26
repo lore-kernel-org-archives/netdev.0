@@ -1,39 +1,35 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [RFC/RFT 14/27] rtlwifi: rtl8188ee: Add files for new driver - part 5
-Date: Mon, 25 Feb 2013 18:13:26 -0600
-Message-ID: <1361837619-2985-15-git-send-email-Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: [RFC/RFT 20/27] rtlwifi: rtl8188ee: Add files for new driver - part 11
+Date: Mon, 25 Feb 2013 18:13:32 -0600
+Message-ID: <1361837619-2985-21-git-send-email-Larry.Finger@lwfinger.net>
 References: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, jcheung@suse.com, machen@suse.com,
-	mmarek@suse.cz
-To: linville@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:44104 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932199Ab3BZAO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 19:14:28 -0500
-In-Reply-To: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jcheung-IBi9RG/b67k@public.gmane.org, machen-IBi9RG/b67k@public.gmane.org,
+	mmarek-AlSwsSmVLrQ@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1361837619-2985-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: jcheung@suse.com
-Cc: machen@suse.com
-Cc: mmarek@suse.cz
+Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Cc: jcheung-IBi9RG/b67k@public.gmane.org
+Cc: machen-IBi9RG/b67k@public.gmane.org
+Cc: mmarek-AlSwsSmVLrQ@public.gmane.org
 ---
- drivers/net/wireless/rtlwifi/rtl8188ee/led.c | 158 +++++++++++++++++++++++++++
- drivers/net/wireless/rtlwifi/rtl8188ee/led.h |  38 +++++++
- 2 files changed, 196 insertions(+)
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/led.c
- create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/led.h
+ drivers/net/wireless/rtlwifi/rtl8188ee/sw.c | 402 ++++++++++++++++++++++++++++
+ drivers/net/wireless/rtlwifi/rtl8188ee/sw.h |  36 +++
+ 2 files changed, 438 insertions(+)
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
+ create mode 100644 drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/led.c b/drivers/net/wireless/rtlwifi/rtl8188ee/led.c
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
 new file mode 100644
-index 0000000..7fac87f
+index 0000000..cff2dd6
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/led.c
-@@ -0,0 +1,158 @@
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.c
+@@ -0,0 +1,402 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2013  Realtek Corporation.
@@ -55,149 +51,393 @@ index 0000000..7fac87f
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
++ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
++ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 + *
 + *****************************************************************************/
 +
 +#include "../wifi.h"
++#include "../core.h"
 +#include "../pci.h"
 +#include "reg.h"
++#include "def.h"
++#include "phy.h"
++#include "dm.h"
++#include "hw.h"
++#include "sw.h"
++#include "trx.h"
 +#include "led.h"
++#include "table.h"
 +
-+static void _rtl88ee_init_led(struct ieee80211_hw *hw,
-+			      struct rtl_led *pled, enum rtl_led_pin ledpin)
++#include <linux/vmalloc.h>
++#include <linux/module.h>
++
++static void rtl88e_init_aspm_vars(struct ieee80211_hw *hw)
 +{
-+	pled->hw = hw;
-+	pled->ledpin = ledpin;
-+	pled->ledon = false;
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++
++	/*close ASPM for AMD defaultly */
++	rtlpci->const_amdpci_aspm = 0;
++
++	/* ASPM PS mode.
++	 * 0 - Disable ASPM,
++	 * 1 - Enable ASPM without Clock Req,
++	 * 2 - Enable ASPM with Clock Req,
++	 * 3 - Alwyas Enable ASPM with Clock Req,
++	 * 4 - Always Enable ASPM without Clock Req.
++	 * set defult to RTL8192CE:3 RTL8192E:2
++	 */
++	rtlpci->const_pci_aspm = 3;
++
++	/*Setting for PCI-E device */
++	rtlpci->const_devicepci_aspm_setting = 0x03;
++
++	/*Setting for PCI-E bridge */
++	rtlpci->const_hostpci_aspm_setting = 0x02;
++
++	/* In Hw/Sw Radio Off situation.
++	 * 0 - Default,
++	 * 1 - From ASPM setting without low Mac Pwr,
++	 * 2 - From ASPM setting with low Mac Pwr,
++	 * 3 - Bus D3
++	 * set default to RTL8192CE:0 RTL8192SE:2
++	 */
++	rtlpci->const_hwsw_rfoff_d3 = 0;
++
++	/* This setting works for those device with
++	 * backdoor ASPM setting such as EPHY setting.
++	 * 0 - Not support ASPM,
++	 * 1 - Support ASPM,
++	 * 2 - According to chipset.
++	 */
++	rtlpci->const_support_pciaspm = 1;
 +}
 +
-+void rtl88ee_sw_led_on(struct ieee80211_hw *hw, struct rtl_led *pled)
++int rtl88e_init_sw_vars(struct ieee80211_hw *hw)
 +{
-+	u8 ledcfg;
++	int err = 0;
 +	struct rtl_priv *rtlpriv = rtl_priv(hw);
++	struct rtl_pci *rtlpci = rtl_pcidev(rtl_pcipriv(hw));
++	const struct firmware *firmware;
++	char *fw_name = NULL;
++	u8 tid;
 +
-+	RT_TRACE(rtlpriv, COMP_LED, DBG_LOUD,
-+		 "LedAddr:%X ledpin =%d\n", REG_LEDCFG2, pled->ledpin);
++	rtl8188ee_bt_reg_init(hw);
 +
++	rtlpriv->dm.dm_initialgain_enable = 1;
++	rtlpriv->dm.dm_flag = 0;
++	rtlpriv->dm.disable_framebursting = 0;
++	rtlpriv->dm.thermalvalue = 0;
++	rtlpci->transmit_config = CFENDFORM | BIT(15);
 +
++	/* compatible 5G band 88ce just 2.4G band & smsp */
++	rtlpriv->rtlhal.current_bandtype = BAND_ON_2_4G;
++	rtlpriv->rtlhal.bandset = BAND_ON_2_4G;
++	rtlpriv->rtlhal.macphymode = SINGLEMAC_SINGLEPHY;
 +
-+	switch (pled->ledpin) {
-+	case LED_PIN_GPIO0:
-+		break;
-+	case LED_PIN_LED0:
-+		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG2);
-+		rtl_write_byte(rtlpriv,
-+			       REG_LEDCFG2, (ledcfg & 0xf0) | BIT(5) | BIT(6));
-+		break;
-+	case LED_PIN_LED1:
-+		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG1);
-+		rtl_write_byte(rtlpriv, REG_LEDCFG1, ledcfg & 0x10);
-+		break;
-+	default:
++	rtlpci->receive_config = (RCR_APPFCS |
++				  RCR_APP_MIC |
++				  RCR_APP_ICV |
++				  RCR_APP_PHYST_RXFF |
++				  RCR_HTC_LOC_CTRL |
++				  RCR_AMF |
++				  RCR_ACF |
++				  RCR_ADF |
++				  RCR_AICV |
++				  RCR_ACRC32 |
++				  RCR_AB |
++				  RCR_AM |
++				  RCR_APM |
++				  0);
++
++	rtlpci->irq_mask[0] =
++				(u32) (IMR_PSTIMEOUT	|
++				IMR_HSISR_IND_ON_INT	|
++				IMR_C2HCMD		|
++				IMR_HIGHDOK		|
++				IMR_MGNTDOK		|
++				IMR_BKDOK		|
++				IMR_BEDOK		|
++				IMR_VIDOK		|
++				IMR_VODOK		|
++				IMR_RDU			|
++				IMR_ROK			|
++				0);
++	rtlpci->irq_mask[1] = (u32) (IMR_RXFOVW | 0);
++	rtlpci->sys_irq_mask = (u32) (HSIMR_PDN_INT_EN | HSIMR_RON_INT_EN);
++	/* for LPS & IPS */
++	rtlpriv->psc.inactiveps = rtlpriv->cfg->mod_params->inactiveps;
++	rtlpriv->psc.swctrl_lps = rtlpriv->cfg->mod_params->swctrl_lps;
++	rtlpriv->psc.fwctrl_lps = rtlpriv->cfg->mod_params->fwctrl_lps;
++	rtlpriv->psc.reg_fwctrl_lps = 3;
++	rtlpriv->psc.reg_max_lps_awakeintvl = 5;
++	/* for ASPM, you can close aspm through
++	 * set const_support_pciaspm = 0
++	 */
++	rtl88e_init_aspm_vars(hw);
++
++	if (rtlpriv->psc.reg_fwctrl_lps == 1)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_MIN_MODE;
++	else if (rtlpriv->psc.reg_fwctrl_lps == 2)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_MAX_MODE;
++	else if (rtlpriv->psc.reg_fwctrl_lps == 3)
++		rtlpriv->psc.fwctrl_psmode = FW_PS_DTIM_MODE;
++
++	/* for firmware buf */
++	rtlpriv->rtlhal.pfirmware = vmalloc(0x8000);
++	if (!rtlpriv->rtlhal.pfirmware) {
 +		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+			 "switch case not processed\n");
-+		break;
++			 "Can't alloc buffer for fw.\n");
++		return 1;
 +	}
-+	pled->ledon = true;
-+}
 +
-+void rtl88ee_sw_led_off(struct ieee80211_hw *hw, struct rtl_led *pled)
-+{
-+	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
-+	u8 ledcfg;
++	fw_name = "rtlwifi/rtl8188efw.bin";
++	err = request_firmware(&firmware, fw_name, rtlpriv->io.dev);
 +
-+	RT_TRACE(rtlpriv, COMP_LED, DBG_LOUD,
-+		 "LedAddr:%X ledpin =%d\n", REG_LEDCFG2, pled->ledpin);
-+
-+	switch (pled->ledpin) {
-+	case LED_PIN_GPIO0:
-+		break;
-+	case LED_PIN_LED0:
-+		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG2);
-+		ledcfg &= 0xf0;
-+		if (pcipriv->ledctl.led_opendrain == true) {
-+			rtl_write_byte(rtlpriv, REG_LEDCFG2,
-+				       (ledcfg | BIT(3) | BIT(5) | BIT(6)));
-+			ledcfg = rtl_read_byte(rtlpriv, REG_MAC_PINMUX_CFG);
-+			rtl_write_byte(rtlpriv, REG_MAC_PINMUX_CFG,
-+				       ledcfg & 0xFE);
-+		} else {
-+			rtl_write_byte(rtlpriv, REG_LEDCFG2,
-+				       (ledcfg | BIT(3) | BIT(5) | BIT(6)));
-+		}
-+		break;
-+	case LED_PIN_LED1:
-+		ledcfg = rtl_read_byte(rtlpriv, REG_LEDCFG1);
-+		ledcfg &= 0x10;
-+		rtl_write_byte(rtlpriv, REG_LEDCFG1, (ledcfg | BIT(3)));
-+		break;
-+	default:
++	if (err) {
 +		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
-+			 "switch case not processed\n");
-+		break;
++			 "Failed to request firmware!\n");
++		return 1;
 +	}
-+	pled->ledon = false;
-+}
-+
-+void rtl88ee_init_sw_leds(struct ieee80211_hw *hw)
-+{
-+	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
-+	_rtl88ee_init_led(hw, &(pcipriv->ledctl.sw_led0), LED_PIN_LED0);
-+	_rtl88ee_init_led(hw, &(pcipriv->ledctl.sw_led1), LED_PIN_LED1);
-+}
-+
-+static void _rtl88ee_sw_led_control(struct ieee80211_hw *hw,
-+				    enum led_ctl_mode ledaction)
-+{
-+	struct rtl_pci_priv *pcipriv = rtl_pcipriv(hw);
-+	struct rtl_led *pLed0 = &(pcipriv->ledctl.sw_led0);
-+	switch (ledaction) {
-+	case LED_CTL_POWER_ON:
-+	case LED_CTL_LINK:
-+	case LED_CTL_NO_LINK:
-+		rtl88ee_sw_led_on(hw, pLed0);
-+		break;
-+	case LED_CTL_POWER_OFF:
-+		rtl88ee_sw_led_off(hw, pLed0);
-+		break;
-+	default:
-+		break;
++	if (firmware->size > 0x8000) {
++		RT_TRACE(rtlpriv, COMP_ERR, DBG_EMERG,
++			 "Firmware is too big!\n");
++		release_firmware(firmware);
++		return 1;
 +	}
++	memcpy(rtlpriv->rtlhal.pfirmware, firmware->data, firmware->size);
++	rtlpriv->rtlhal.fwsize = firmware->size;
++	release_firmware(firmware);
++
++	/* for early mode */
++	rtlpriv->rtlhal.earlymode_enable = true;
++	rtlpriv->rtlhal.max_earlymode_num = 10;
++	for (tid = 0; tid < 8; tid++)
++		skb_queue_head_init(&rtlpriv->mac80211.skb_waitq[tid]);
++
++	/*low power */
++	rtlpriv->psc.low_power_enable = false;
++	if (rtlpriv->psc.low_power_enable) {
++		init_timer(&rtlpriv->works.fw_clockoff_timer);
++		setup_timer(&rtlpriv->works.fw_clockoff_timer,
++			    rtl88ee_fw_clk_off_timer_callback,
++			    (unsigned long)hw);
++	}
++
++	init_timer(&rtlpriv->works.fast_antenna_training_timer);
++	setup_timer(&rtlpriv->works.fast_antenna_training_timer,
++		    rtl88e_dm_fast_antenna_training_callback,
++		    (unsigned long)hw);
++	return err;
 +}
 +
-+void rtl88ee_led_control(struct ieee80211_hw *hw,
-+			enum led_ctl_mode ledaction)
++void rtl88e_deinit_sw_vars(struct ieee80211_hw *hw)
 +{
 +	struct rtl_priv *rtlpriv = rtl_priv(hw);
-+	struct rtl_ps_ctl *ppsc = rtl_psc(rtl_priv(hw));
 +
-+	if ((ppsc->rfoff_reason > RF_CHANGE_BY_PS) &&
-+	    (ledaction == LED_CTL_TX ||
-+	     ledaction == LED_CTL_RX ||
-+	     ledaction == LED_CTL_SITE_SURVEY ||
-+	     ledaction == LED_CTL_LINK ||
-+	     ledaction == LED_CTL_NO_LINK ||
-+	     ledaction == LED_CTL_START_TO_LINK ||
-+	     ledaction == LED_CTL_POWER_ON)) {
-+		return;
++	if (rtlpriv->rtlhal.pfirmware) {
++		vfree(rtlpriv->rtlhal.pfirmware);
++		rtlpriv->rtlhal.pfirmware = NULL;
 +	}
-+	RT_TRACE(rtlpriv, COMP_LED, DBG_TRACE, "ledaction %d,\n",
-+		 ledaction);
-+	_rtl88ee_sw_led_control(hw, ledaction);
++
++	if (rtlpriv->psc.low_power_enable)
++		del_timer_sync(&rtlpriv->works.fw_clockoff_timer);
++
++	del_timer_sync(&rtlpriv->works.fast_antenna_training_timer);
 +}
 +
-diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/led.h b/drivers/net/wireless/rtlwifi/rtl8188ee/led.h
++static struct rtl_hal_ops rtl8188ee_hal_ops = {
++	.init_sw_vars = rtl88e_init_sw_vars,
++	.deinit_sw_vars = rtl88e_deinit_sw_vars,
++	.read_eeprom_info = rtl88ee_read_eeprom_info,
++	.interrupt_recognized = rtl88ee_interrupt_recognized,/*need check*/
++	.hw_init = rtl88ee_hw_init,
++	.hw_disable = rtl88ee_card_disable,
++	.hw_suspend = rtl88ee_suspend,
++	.hw_resume = rtl88ee_resume,
++	.enable_interrupt = rtl88ee_enable_interrupt,
++	.disable_interrupt = rtl88ee_disable_interrupt,
++	.set_network_type = rtl88ee_set_network_type,
++	.set_chk_bssid = rtl88ee_set_check_bssid,
++	.set_qos = rtl88ee_set_qos,
++	.set_bcn_reg = rtl88ee_set_beacon_related_registers,
++	.set_bcn_intv = rtl88ee_set_beacon_interval,
++	.update_interrupt_mask = rtl88ee_update_interrupt_mask,
++	.get_hw_reg = rtl88ee_get_hw_reg,
++	.set_hw_reg = rtl88ee_set_hw_reg,
++	.update_rate_tbl = rtl88ee_update_hal_rate_tbl,
++	.fill_tx_desc = rtl88ee_tx_fill_desc,
++	.fill_tx_cmddesc = rtl88ee_tx_fill_cmddesc,
++	.query_rx_desc = rtl88ee_rx_query_desc,
++	.set_channel_access = rtl88ee_update_channel_access_setting,
++	.radio_onoff_checking = rtl88ee_gpio_radio_on_off_checking,
++	.set_bw_mode = rtl88e_phy_set_bw_mode,
++	.switch_channel = rtl88e_phy_sw_chnl,
++	.dm_watchdog = rtl88e_dm_watchdog,
++	.scan_operation_backup = rtl88e_phy_scan_operation_backup,
++	.set_rf_power_state = rtl88e_phy_set_rf_power_state,
++	.led_control = rtl88ee_led_control,
++	.set_desc = rtl88ee_set_desc,
++	.get_desc = rtl88ee_get_desc,
++	.tx_polling = rtl88ee_tx_polling,
++	.enable_hw_sec = rtl88ee_enable_hw_security_config,
++	.set_key = rtl88ee_set_key,
++	.init_sw_leds = rtl88ee_init_sw_leds,
++	.allow_all_destaddr = rtl88ee_allow_all_destaddr,
++	.get_bbreg = rtl88e_phy_query_bb_reg,
++	.set_bbreg = rtl88e_phy_set_bb_reg,
++	.get_rfreg = rtl88e_phy_query_rf_reg,
++	.set_rfreg = rtl88e_phy_set_rf_reg,
++};
++
++static struct rtl_mod_params rtl88ee_mod_params = {
++	.sw_crypto = false,
++	.inactiveps = true,
++	.swctrl_lps = false,
++	.fwctrl_lps = true,
++	.debug = DBG_EMERG,
++};
++
++static struct rtl_hal_cfg rtl88ee_hal_cfg = {
++	.bar_id = 2,
++	.write_readback = true,
++	.name = "rtl88e_pci",
++	.fw_name = "rtlwifi/rtl8188efw.bin",
++	.ops = &rtl8188ee_hal_ops,
++	.mod_params = &rtl88ee_mod_params,
++
++	.maps[SYS_ISO_CTRL] = REG_SYS_ISO_CTRL,
++	.maps[SYS_FUNC_EN] = REG_SYS_FUNC_EN,
++	.maps[SYS_CLK] = REG_SYS_CLKR,
++	.maps[MAC_RCR_AM] = AM,
++	.maps[MAC_RCR_AB] = AB,
++	.maps[MAC_RCR_ACRC32] = ACRC32,
++	.maps[MAC_RCR_ACF] = ACF,
++	.maps[MAC_RCR_AAP] = AAP,
++
++	.maps[EFUSE_ACCESS] = REG_EFUSE_ACCESS,
++
++	.maps[EFUSE_TEST] = REG_EFUSE_TEST,
++	.maps[EFUSE_CTRL] = REG_EFUSE_CTRL,
++	.maps[EFUSE_CLK] = 0,
++	.maps[EFUSE_CLK_CTRL] = REG_EFUSE_CTRL,
++	.maps[EFUSE_PWC_EV12V] = PWC_EV12V,
++	.maps[EFUSE_FEN_ELDR] = FEN_ELDR,
++	.maps[EFUSE_LOADER_CLK_EN] = LOADER_CLK_EN,
++	.maps[EFUSE_ANA8M] = ANA8M,
++	.maps[EFUSE_HWSET_MAX_SIZE] = HWSET_MAX_SIZE,
++	.maps[EFUSE_MAX_SECTION_MAP] = EFUSE_MAX_SECTION,
++	.maps[EFUSE_REAL_CONTENT_SIZE] = EFUSE_REAL_CONTENT_LEN,
++	.maps[EFUSE_OOB_PROTECT_BYTES_LEN] = EFUSE_OOB_PROTECT_BYTES,
++
++	.maps[RWCAM] = REG_CAMCMD,
++	.maps[WCAMI] = REG_CAMWRITE,
++	.maps[RCAMO] = REG_CAMREAD,
++	.maps[CAMDBG] = REG_CAMDBG,
++	.maps[SECR] = REG_SECCFG,
++	.maps[SEC_CAM_NONE] = CAM_NONE,
++	.maps[SEC_CAM_WEP40] = CAM_WEP40,
++	.maps[SEC_CAM_TKIP] = CAM_TKIP,
++	.maps[SEC_CAM_AES] = CAM_AES,
++	.maps[SEC_CAM_WEP104] = CAM_WEP104,
++
++	.maps[RTL_IMR_BCNDMAINT6] = IMR_BCNDMAINT6,
++	.maps[RTL_IMR_BCNDMAINT5] = IMR_BCNDMAINT5,
++	.maps[RTL_IMR_BCNDMAINT4] = IMR_BCNDMAINT4,
++	.maps[RTL_IMR_BCNDMAINT3] = IMR_BCNDMAINT3,
++	.maps[RTL_IMR_BCNDMAINT2] = IMR_BCNDMAINT2,
++	.maps[RTL_IMR_BCNDMAINT1] = IMR_BCNDMAINT1,
++/*	.maps[RTL_IMR_BCNDOK8] = IMR_BCNDOK8,     */   /*need check*/
++	.maps[RTL_IMR_BCNDOK7] = IMR_BCNDOK7,
++	.maps[RTL_IMR_BCNDOK6] = IMR_BCNDOK6,
++	.maps[RTL_IMR_BCNDOK5] = IMR_BCNDOK5,
++	.maps[RTL_IMR_BCNDOK4] = IMR_BCNDOK4,
++	.maps[RTL_IMR_BCNDOK3] = IMR_BCNDOK3,
++	.maps[RTL_IMR_BCNDOK2] = IMR_BCNDOK2,
++	.maps[RTL_IMR_BCNDOK1] = IMR_BCNDOK1,
++/*	.maps[RTL_IMR_TIMEOUT2] = IMR_TIMEOUT2,*/
++/*	.maps[RTL_IMR_TIMEOUT1] = IMR_TIMEOUT1,*/
++
++	.maps[RTL_IMR_TXFOVW] = IMR_TXFOVW,
++	.maps[RTL_IMR_PSTIMEOUT] = IMR_PSTIMEOUT,
++	.maps[RTL_IMR_BCNINT] = IMR_BCNDMAINT0,
++	.maps[RTL_IMR_RXFOVW] = IMR_RXFOVW,
++	.maps[RTL_IMR_RDU] = IMR_RDU,
++	.maps[RTL_IMR_ATIMEND] = IMR_ATIMEND,
++	.maps[RTL_IMR_BDOK] = IMR_BCNDOK0,
++	.maps[RTL_IMR_MGNTDOK] = IMR_MGNTDOK,
++	.maps[RTL_IMR_TBDER] = IMR_TBDER,
++	.maps[RTL_IMR_HIGHDOK] = IMR_HIGHDOK,
++	.maps[RTL_IMR_TBDOK] = IMR_TBDOK,
++	.maps[RTL_IMR_BKDOK] = IMR_BKDOK,
++	.maps[RTL_IMR_BEDOK] = IMR_BEDOK,
++	.maps[RTL_IMR_VIDOK] = IMR_VIDOK,
++	.maps[RTL_IMR_VODOK] = IMR_VODOK,
++	.maps[RTL_IMR_ROK] = IMR_ROK,
++	.maps[RTL_IBSS_INT_MASKS] = (IMR_BCNDMAINT0 | IMR_TBDOK | IMR_TBDER),
++
++	.maps[RTL_RC_CCK_RATE1M] = DESC92C_RATE1M,
++	.maps[RTL_RC_CCK_RATE2M] = DESC92C_RATE2M,
++	.maps[RTL_RC_CCK_RATE5_5M] = DESC92C_RATE5_5M,
++	.maps[RTL_RC_CCK_RATE11M] = DESC92C_RATE11M,
++	.maps[RTL_RC_OFDM_RATE6M] = DESC92C_RATE6M,
++	.maps[RTL_RC_OFDM_RATE9M] = DESC92C_RATE9M,
++	.maps[RTL_RC_OFDM_RATE12M] = DESC92C_RATE12M,
++	.maps[RTL_RC_OFDM_RATE18M] = DESC92C_RATE18M,
++	.maps[RTL_RC_OFDM_RATE24M] = DESC92C_RATE24M,
++	.maps[RTL_RC_OFDM_RATE36M] = DESC92C_RATE36M,
++	.maps[RTL_RC_OFDM_RATE48M] = DESC92C_RATE48M,
++	.maps[RTL_RC_OFDM_RATE54M] = DESC92C_RATE54M,
++
++	.maps[RTL_RC_HT_RATEMCS7] = DESC92C_RATEMCS7,
++	.maps[RTL_RC_HT_RATEMCS15] = DESC92C_RATEMCS15,
++};
++
++static DEFINE_PCI_DEVICE_TABLE(rtl88ee_pci_ids) = {
++	{RTL_PCI_DEVICE(PCI_VENDOR_ID_REALTEK, 0x8179, rtl88ee_hal_cfg)},
++	{},
++};
++
++MODULE_DEVICE_TABLE(pci, rtl88ee_pci_ids);
++
++MODULE_AUTHOR("zhiyuan_yang	<zhiyuan_yang-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>");
++MODULE_AUTHOR("Realtek WlanFAE	<wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>");
++MODULE_AUTHOR("Larry Finger	<Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>");
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("Realtek 8188E 802.11n PCI wireless");
++MODULE_FIRMWARE("rtlwifi/rtl8188efw.bin");
++
++module_param_named(swenc, rtl88ee_mod_params.sw_crypto, bool, 0444);
++module_param_named(debug, rtl88ee_mod_params.debug, int, 0444);
++module_param_named(ips, rtl88ee_mod_params.inactiveps, bool, 0444);
++module_param_named(swlps, rtl88ee_mod_params.swctrl_lps, bool, 0444);
++module_param_named(fwlps, rtl88ee_mod_params.fwctrl_lps, bool, 0444);
++MODULE_PARM_DESC(swenc, "Set to 1 for software crypto (default 0)\n");
++MODULE_PARM_DESC(ips, "Set to 0 to not use link power save (default 1)\n");
++MODULE_PARM_DESC(swlps, "Set to 1 to use SW control power save (default 0)\n");
++MODULE_PARM_DESC(fwlps, "Set to 1 to use FW control power save (default 1)\n");
++MODULE_PARM_DESC(debug, "Set debug level (0-5) (default 0)");
++
++static SIMPLE_DEV_PM_OPS(rtlwifi_pm_ops, rtl_pci_suspend, rtl_pci_resume);
++
++static struct pci_driver rtl88ee_driver = {
++	.name = KBUILD_MODNAME,
++	.id_table = rtl88ee_pci_ids,
++	.probe = rtl_pci_probe,
++	.remove = rtl_pci_disconnect,
++	.driver.pm = &rtlwifi_pm_ops,
++};
++
++module_pci_driver(rtl88ee_driver);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
 new file mode 100644
-index 0000000..4073f6f
+index 0000000..85e02b3
 --- /dev/null
-+++ b/drivers/net/wireless/rtlwifi/rtl8188ee/led.h
-@@ -0,0 +1,38 @@
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/sw.h
+@@ -0,0 +1,36 @@
 +/******************************************************************************
 + *
 + * Copyright(c) 2009-2013  Realtek Corporation.
@@ -219,22 +459,25 @@ index 0000000..4073f6f
 + * file called LICENSE.
 + *
 + * Contact Information:
-+ * wlanfae <wlanfae@realtek.com>
++ * wlanfae <wlanfae-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
 + * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
 + * Hsinchu 300, Taiwan.
 + *
-+ * Larry Finger <Larry.Finger@lwfinger.net>
++ * Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
 + *
 + *****************************************************************************/
 +
-+#ifndef __RTL92CE_LED_H__
-+#define __RTL92CE_LED_H__
++#ifndef __RTL92CE_SW_H__
++#define __RTL92CE_SW_H__
 +
-+void rtl88ee_init_sw_leds(struct ieee80211_hw *hw);
-+void rtl88ee_sw_led_on(struct ieee80211_hw *hw, struct rtl_led *pled);
-+void rtl88ee_sw_led_off(struct ieee80211_hw *hw, struct rtl_led *pled);
-+void rtl88ee_led_control(struct ieee80211_hw *hw, enum led_ctl_mode ledaction);
++int rtl88e_init_sw_vars(struct ieee80211_hw *hw);
++void rtl88e_deinit_sw_vars(struct ieee80211_hw *hw);
 +
 +#endif
 -- 
 1.8.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
