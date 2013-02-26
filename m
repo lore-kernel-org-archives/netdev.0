@@ -1,33 +1,25 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC/RFT 00/27] Updates for the rtlwifi family of drivers
-Date: Mon, 25 Feb 2013 18:22:37 -0800
-Message-ID: <1361845357.2023.7.camel@joe-AO722>
-References: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
+From: prisca koroma <prisca88@suomi24.fi>
+Subject: Hello!
+Date: Tue, 26 Feb 2013 03:21:07 +0100 (CET)
+Message-ID: <17479349.311721361845267280.JavaMail.defaultUser@defaultHost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain;charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, jcheung@suse.com, machen@suse.com,
-	mmarek@suse.cz
-To: Larry Finger <Larry.Finger@lwfinger.net>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:42670 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1760056Ab3BZCWk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 25 Feb 2013 21:22:40 -0500
-In-Reply-To: <1361837619-2985-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mx1.suomi24.fi ([80.76.155.36]:53436 "EHLO
+	s24-maa01.sth.basefarm.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1758168Ab3BZC2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 25 Feb 2013 21:28:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-02-25 at 18:13 -0600, Larry Finger wrote:
-> This set of patches upgrades drivers rtlwifi, rtl8192c, rtl8192ce, rtl8192se,
-> and rtl8723ae to the state of the vendor driver issued on 2013.02.07. In
-> addition, a new driver for the RTL8188EE chip is added to the kernel.
-> 
-> Note: These patches do not upgrade rtl8192de. Those changes will be sent
-> later.
+Hello!
+ Hapy new year i come across your profile today and picked
+interest in you, My name is Miss Prisca. I wish to be in good relationship with 
+you.
 
-rtl8188e isn't very kernel stylish.
-Looking at it briefly, in fact it's kind of ugly.
-
-Could/should it go into staging?
+Please if you feel interested write me through the contact so i will send you 
+my pictures and for us to know each other more better,
+I will be happy to seeing a good responds from you
+Prisca
