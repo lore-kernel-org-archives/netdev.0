@@ -1,44 +1,74 @@
-From: Bing Zhao <bzhao@marvell.com>
-Subject: RE: [PATCH] libertas sdio: remove CMD_FUNC_INIT call
-Date: Tue, 26 Feb 2013 12:59:46 -0800
-Message-ID: <477F20668A386D41ADCC57781B1F70430D9D7F932B@SC-VEXCH1.marvell.com>
-References: <1358493883-28433-1-git-send-email-lkundrak@v3.sk>
-	<477F20668A386D41ADCC57781B1F70430D140B07DE@SC-VEXCH1.marvell.com>
-	<1361249203.14137.27.camel@unicorn.kokotovo>
-	<477F20668A386D41ADCC57781B1F70430D9D6CEA08@SC-VEXCH1.marvell.com>
-	<1361730693.31709.1.camel@unicorn.kokotovo>
-	<477F20668A386D41ADCC57781B1F70430D9D7F8FF0@SC-VEXCH1.marvell.com>
- <CAMLZHHTnRUT0pbpKR7=wVSDkOxo65tnA_JWYGtq9rejsVy2scQ@mail.gmail.com>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: qeth_l2 duplicated frames in promiscuous mode
+Date: Tue, 26 Feb 2013 16:08:37 -0500
+Message-ID: <20130226210837.GB18118@d2.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Lubomir Rintel <lkundrak@v3.sk>, Harro Haan <hrhaan@gmail.com>,
-	Dan Williams <dcbw@redhat.com>,
-	"libertas-dev@lists.infradead.org" <libertas-dev@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Daniel Drake <dsd@laptop.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Post <mpost@suse.com>, linux390@de.ibm.com,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: Ursula Braun <ursula.braun@de.ibm.com>,
+	Frank Blaschka <blaschka@linux.vnet.ibm.com>,
+	Martin Schwidefsky <schwidefsky@de.ibm.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog129.obsmtp.com ([74.125.149.142]:54883 "EHLO
-	na3sys009aog129.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932604Ab3BZVDn convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2013 16:03:43 -0500
-In-Reply-To: <CAMLZHHTnRUT0pbpKR7=wVSDkOxo65tnA_JWYGtq9rejsVy2scQ@mail.gmail.com>
-Content-Language: en-US
+Received: from cantor2.suse.de ([195.135.220.15]:33545 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752555Ab3BZVIn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2013 16:08:43 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Hello,
 
-> > Do you have any concern for OLPC platforms with above change? If it doesn't seem to break OLPC I
-> will send a patch to the list.
-> 
-> Looks fine to me. Thanks for investigating.
+While working with the qeth/qeth_l2 drivers I've noticed that once the
+nic enters promiscuous mode, every received frame is duplicated. This
+appears to happen at the (virtual) hardware level since the "RX Packets"
+counter printed by `#cp q nic [...] det` shows this duplicated count. It
+also happens when setting promiscuous mode using `#cp set nic [...]
+pro`.
 
-Thanks. I've just sent the patch.
+It can be witnessed in tcpdump output or simply by pinging the machine
+from another host. As soon as promiscuous mode is enabled using the cp
+command above, the machine receives the echo request in duplicate and
+answers them accordingly:
+64 bytes from 10.121.155.133: icmp_seq=61 ttl=64 time=0.314 ms
+64 bytes from 10.121.155.133: icmp_seq=62 ttl=64 time=0.308 ms
+# enable promiscuous mode on 10.121.155.133 now
+64 bytes from 10.121.155.133: icmp_seq=63 ttl=64 time=0.301 ms
+64 bytes from 10.121.155.133: icmp_seq=63 ttl=64 time=0.326 ms (DUP!)
+64 bytes from 10.121.155.133: icmp_seq=64 ttl=64 time=0.309 ms
+64 bytes from 10.121.155.133: icmp_seq=64 ttl=64 time=0.330 ms (DUP!)
 
-Regards,
-Bing
+This duplication happens for multicast and unicast frames, whether those
+are directed to an address in the uc filter list or not.
+
+Tested on v3.8.
+
+Is this a known issue?
+
+Here is the nic info, let me know if you need anything else, I'm not
+familiar with s390.
+
+CP Q NIC 0800 DET
+Adapter 0800.P00 Type: QDIO      Name: UNASSIGNED  Devices: 3
+  MAC: 02-00-00-00-00-07         VSWITCH: SYSTEM VSWNL2
+      RX Packets: 3005625    Discarded: 1318       Errors: 0
+      TX Packets: 287690     Discarded: 0          Errors: 0
+      RX Bytes: 3777624734           TX Bytes: 32040428
+  Connection Name: HALLOLE   State: Session Established
+      Device: 0800  Unit: 000   Role: CTL-READ
+      Device: 0801  Unit: 001   Role: CTL-WRITE
+      Device: 0802  Unit: 002   Role: DATA       vPort: 0264  Index: 0264
+      VLAN: 0556
+      Options: Ethernet Broadcast Promiscuous
+        Unicast MAC Addresses:
+          02-00-00-00-00-07
+        Multicast MAC Addresses:
+          01-00-5E-00-00-01
+          33-33-00-00-00-01
+          33-33-00-00-02-02
+          33-33-FF-00-00-07
+
+Thank you,
+-Benjamin
