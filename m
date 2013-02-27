@@ -1,28 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: fix UDP checksum for 57710/57711.
-Date: Wed, 27 Feb 2013 13:12:11 -0500 (EST)
-Message-ID: <20130227.131211.135994908660158725.davem@davemloft.net>
-References: <1361959499-3968-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [patch] irda: small read beyond end of array in debug code
+Date: Wed, 27 Feb 2013 13:12:17 -0500 (EST)
+Message-ID: <20130227.131217.1331086829065132895.davem@davemloft.net>
+References: <20130227051502.GC22703@longonot.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, yuvalmin@broadcom.com
-To: dmitry@broadcom.com
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58410 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58414 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932557Ab3B0SMN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 13:12:13 -0500
-In-Reply-To: <1361959499-3968-1-git-send-email-dmitry@broadcom.com>
+	with ESMTP id S932561Ab3B0SMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 13:12:18 -0500
+In-Reply-To: <20130227051502.GC22703@longonot.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Wed, 27 Feb 2013 12:04:59 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 27 Feb 2013 08:15:02 +0300
 
-> Since commit 86564c3f "bnx2x: Remove many sparse warnings" UDP
-> csum offload is broken for 57710/57711. Fix return value.
+> charset comes from skb->data.  It's a number in the 0-255 range.
+> If we have debugging turned on then this could cause a read beyond
+> the end of the array.
 > 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
