@@ -1,7 +1,7 @@
 From: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>
-Subject: [RFC PATCH 4/5] ixgbe: add extra stats for ndo_ll_poll
-Date: Wed, 27 Feb 2013 09:56:11 -0800
-Message-ID: <20130227175611.10611.48152.stgit@gitlad.jf.intel.com>
+Subject: [RFC PATCH 5/5] ixgbe: kprobes latency test module
+Date: Wed, 27 Feb 2013 09:56:17 -0800
+Message-ID: <20130227175617.10611.73061.stgit@gitlad.jf.intel.com>
 References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,183 +13,268 @@ Cc: Dave Miller <davem@davemloft.net>,
 	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
 	Eliezer Tamir <eliezer@tamir.org.il>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:52761 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760716Ab3B0R4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2013 12:56:02 -0500
 In-Reply-To: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add additional statistics to the ixgbe driver for ndo_ll_poll
-Defined under LL_EXTENDED_STATS
+A module to measure time between two symbols.
+For each delta compile with EXTRA_CFLAGS="-DSTAGE=$stage"
+where stage is from 0 to 20
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   14 ++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   40 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |   13 +++++++
- 3 files changed, 67 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    5 -
+ samples/kprobes/Makefile                      |    2 
+ samples/kprobes/kprobe_delta.c                |  208 +++++++++++++++++++++++++
+ 3 files changed, 212 insertions(+), 3 deletions(-)
+ create mode 100644 samples/kprobes/kprobe_delta.c
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 71e7a28..1b5cdd1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -52,6 +52,9 @@
- #include <linux/dca.h>
- #endif
- 
-+#ifdef CONFIG_INET_LL_RX_POLL
-+#define LL_EXTENDED_STATS
-+#endif  /* CONFIG_INET_LL_RX_POLL */
- /* common prefix used by pr_<> macros */
- #undef pr_fmt
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -182,6 +185,11 @@ struct ixgbe_rx_buffer {
- struct ixgbe_queue_stats {
- 	u64 packets;
- 	u64 bytes;
-+#ifdef LL_EXTENDED_STATS
-+	u64 yields;
-+	u64 misses;
-+	u64 cleaned;
-+#endif  /* LL_EXTENDED_STATS */
- };
- 
- struct ixgbe_tx_queue_stats {
-@@ -389,6 +397,9 @@ static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
- 		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
- 		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->tx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* we don't care if someone yielded */
- 		q_vector->state = IXGBE_QV_STATE_NAPI;
-@@ -419,6 +430,9 @@ static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 	if ((q_vector->state & IXGBE_QV_LOCKED)) {
- 		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->rx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* preserve yield marks */
- 		q_vector->state |= IXGBE_QV_STATE_POLL;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index f4d2e9e..de513b3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1055,6 +1055,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1064,6 +1070,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
- 		ring = adapter->rx_ring[j];
-@@ -1071,6 +1083,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1080,6 +1098,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 
- 	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
-@@ -1116,12 +1140,28 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "tx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "tx_q_%u_napi_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
- 			sprintf(p, "rx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "rx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "rx_q_%u_ll_poll_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
- 			sprintf(p, "tx_pb_%u_pxon", i);
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 903bbc0..5248c63 100644
+index 5248c63..c7c8432 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -1971,6 +1971,12 @@ static int ixgbe_low_latency_recv(struct napi_struct *napi)
+@@ -1755,8 +1755,9 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
+ 	return true;
+ }
  
- 	ixgbe_for_each_ring(ring, q_vector->rx) {
- 		found = ixgbe_clean_rx_irq(q_vector, ring, 4);
-+#ifdef LL_EXTENDED_STATS
-+		if (found)
-+			ring->stats.cleaned += found;
-+		else
-+			ring->stats.misses++;
-+#endif
- 		if (found)
- 			break;
- 	}
-@@ -2523,6 +2529,13 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
- 	ixgbe_for_each_ring(ring, q_vector->tx)
- 		clean_complete &= !!ixgbe_clean_tx_irq(q_vector, ring);
+-static struct sk_buff *ixgbe_fetch_rx_buffer(struct ixgbe_ring *rx_ring,
+-					     union ixgbe_adv_rx_desc *rx_desc)
++static noinline struct sk_buff *ixgbe_fetch_rx_buffer(
++				struct ixgbe_ring *rx_ring,
++				union ixgbe_adv_rx_desc *rx_desc)
+ {
+ 	struct ixgbe_rx_buffer *rx_buffer;
+ 	struct sk_buff *skb;
+diff --git a/samples/kprobes/Makefile b/samples/kprobes/Makefile
+index 68739bc..5559ea9 100644
+--- a/samples/kprobes/Makefile
++++ b/samples/kprobes/Makefile
+@@ -1,5 +1,5 @@
+ # builds the kprobes example kernel modules;
+ # then to use one (as root):  insmod <module_name.ko>
  
-+#ifdef LL_EXTENDED_STATS
-+	if (clean_complete)
-+		q_vector->tx.ring->stats.cleaned++;
-+	else
-+		q_vector->tx.ring->stats.misses++;
+-obj-$(CONFIG_SAMPLE_KPROBES) += kprobe_example.o jprobe_example.o
++obj-$(CONFIG_SAMPLE_KPROBES) += kprobe_example.o kprobe_delta.o jprobe_example.o
+ obj-$(CONFIG_SAMPLE_KRETPROBES) += kretprobe_example.o
+diff --git a/samples/kprobes/kprobe_delta.c b/samples/kprobes/kprobe_delta.c
+new file mode 100644
+index 0000000..88abe63
+--- /dev/null
++++ b/samples/kprobes/kprobe_delta.c
+@@ -0,0 +1,208 @@
++/*
++ * measure the time between two points in the kernel.
++ * for each stage compile with EXTRA_CFLAGS="-DSTAGE=$stage"
++ * where stage goes from 0 to 20
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/kprobes.h>
++#include <linux/ktime.h>
++#include <linux/limits.h>
++#include <linux/sched.h>
++
++#ifndef STAGE
++#define STAGE 3
 +#endif
 +
- 	if (!ixgbe_qv_lock_napi(q_vector))
- 		return budget;
- 
++#if (STAGE == 0)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "__netif_receive_skb"
++#elif (STAGE == 1)
++#define START_SYMBOL "__netif_receive_skb"
++#define END_SYMBOL "tcp_v4_rcv"
++#elif (STAGE == 2)
++#define START_SYMBOL "tcp_v4_rcv"
++#define END_SYMBOL "sys_recvfrom"
++#define END_POST
++#elif (STAGE == 3)
++#define START_SYMBOL "sys_recvfrom"
++#define START_POST
++#define END_SYMBOL "sys_sendto"
++#elif (STAGE == 4)
++#define START_SYMBOL "sys_sendto"
++#define END_SYMBOL "tcp_transmit_skb"
++#elif (STAGE == 5)
++#define START_SYMBOL "tcp_transmit_skb"
++#define END_SYMBOL "dev_queue_xmit"
++#elif (STAGE == 6)
++#define START_SYMBOL "dev_queue_xmit"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 7)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 8)
++#define START_SYMBOL "__netif_receive_skb"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 9)
++#define START_SYMBOL "tcp_v4_rcv"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 10)
++#define START_SYMBOL "sys_recvfrom"
++#define START_POST
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 11)
++#define START_SYMBOL "sys_sendto"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 12)
++#define START_SYMBOL "tcp_transmit_skb"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 13)
++#define START_SYMBOL "dev_queue_xmit"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#elif (STAGE == 14)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "__netif_receive_skb"
++#elif (STAGE == 15)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "tcp_v4_rcv"
++#elif (STAGE == 16)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "sys_recvfrom"
++#define END_POST
++#elif (STAGE == 17)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "sys_sendto"
++#elif (STAGE == 18)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "tcp_transmit_skb"
++#elif (STAGE == 19)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "dev_queue_xmit"
++#elif (STAGE == 20)
++#define START_SYMBOL "ixgbe_fetch_rx_buffer"
++#define END_SYMBOL "ixgbe_xmit_frame"
++#define END_POST
++#endif
++
++/* per-instance private data */
++u64 start_cycles;
++u64 total_cycles;
++bool probe_valid;
++unsigned int sample_count;
++
++static u64 rdtsc(void)
++{
++	unsigned int l, h;
++
++	asm volatile("rdtsc" : "=a" (l), "=d" (h));
++
++	return l | (((u64)h) << 32);
++}
++
++/* Here we use the entry_hanlder to timestamp function entry */
++static int start_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
++{
++	start_cycles = rdtsc();
++	probe_valid = true;
++
++	return 0;
++}
++
++/*
++ * Return-probe handler: Log the return value and duration. Duration may turn
++ * out to be zero consistently, depending upon the granularity of time
++ * accounting on the platform.
++ */
++static int end_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
++{
++	if (probe_valid) {
++		total_cycles += rdtsc() - start_cycles;
++		sample_count++;
++		probe_valid = false;
++	}
++
++	if (sample_count > 1000000) {
++		trace_printk("%4lldns %22s -> " END_SYMBOL " %s\n",
++				(long long)(total_cycles * 10) /
++				(sample_count * 27),
++#ifdef START_POST
++			     START_SYMBOL " (ret)",
++#else
++			     START_SYMBOL,
++#endif
++#ifdef END_POST
++			     "(ret)"
++#else
++			     ""
++#endif
++			);
++		total_cycles = 0;
++		sample_count = 0;
++	}
++
++	return 0;
++}
++
++/* For each probe you need to allocate a kprobe structure */
++static struct kretprobe start_kretprobe = {
++#ifdef START_POST
++	.handler		= start_handler,
++#else
++	.entry_handler		= start_handler,
++#endif
++	.kp.symbol_name		= START_SYMBOL,
++};
++
++static struct kretprobe end_kretprobe = {
++#ifdef END_POST
++	.handler		= end_handler,
++#else
++	.entry_handler		= end_handler,
++#endif
++	.kp.symbol_name		= END_SYMBOL,
++};
++
++static int __init kretprobe_init(void)
++{
++	int ret;
++
++	total_cycles = 0;
++	sample_count = 0;
++	probe_valid = false;
++
++	ret = register_kretprobe(&start_kretprobe);
++	if (ret < 0) {
++		printk(KERN_INFO "register_kretprobe failed, returned %d\n",
++			ret);
++		return ret;
++	}
++
++	ret = register_kretprobe(&end_kretprobe);
++	if (ret < 0) {
++		unregister_kretprobe(&end_kretprobe);
++		printk(KERN_INFO "register_kretprobe failed, returned %d\n",
++			ret);
++		return ret;
++	}
++
++	return 0;
++}
++
++static void __exit kretprobe_exit(void)
++{
++	unregister_kretprobe(&start_kretprobe);
++	unregister_kretprobe(&end_kretprobe);
++}
++
++module_init(kretprobe_init)
++module_exit(kretprobe_exit)
++MODULE_LICENSE("GPL");
