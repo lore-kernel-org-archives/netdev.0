@@ -1,13 +1,12 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [RFC PATCH 0/5] net: low latency Ethernet device polling
-Date: Wed, 27 Feb 2013 21:17:17 +0200
-Message-ID: <512E5BBD.2040803@linux.intel.com>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com> <20130227101354.15636ba5@nehalam.linuxnetplumber.net> <CA+mtBx85G3qD2_QP709kOMERP9T8v1W+ZNj12qnZWg_kALQtLg@mail.gmail.com>
+Subject: Re: [RFC PATCH 3/5] ixgbe: Add support for ndo_ll_poll
+Date: Wed, 27 Feb 2013 21:20:02 +0200
+Message-ID: <512E5C62.2030507@linux.intel.com>
+References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com>  <20130227175606.10611.55498.stgit@gitlad.jf.intel.com> <1361990502.15793.0.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
+Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Dave Miller <davem@davemloft.net>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
@@ -15,23 +14,31 @@ Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	Willem de Bruijn <willemb@google.com>,
 	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
 	Eliezer Tamir <eliezer@tamir.org.il>
-To: Tom Herbert <therbert@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+mtBx85G3qD2_QP709kOMERP9T8v1W+ZNj12qnZWg_kALQtLg@mail.gmail.com>
+In-Reply-To: <1361990502.15793.0.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 27/02/2013 20:47, Tom Herbert wrote:
-> On Wed, Feb 27, 2013 at 10:13 AM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
+On 27/02/2013 20:41, Eric Dumazet wrote:
+> On Wed, 2013-02-27 at 09:56 -0800, Eliezer Tamir wrote:
+>
+>> @@ -1458,7 +1459,9 @@ static void ixgbe_rx_skb(struct ixgbe_q_vector *q_vector,
+>>   {
+>>   	struct ixgbe_adapter *adapter = q_vector->adapter;
 >>
->> Have you looked at netmap? Seems like a cleaner user API for this.
->>
-> That might be a bit orthogonal to this.  I believe the intent it to
-> allow spin polling from socket calls without API change.
+>> -	if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+>> +	if (ixgbe_qv_ll_polling(q_vector))
+>> +		netif_receive_skb(skb);
+>> +	else if (!(adapter->flags & IXGBE_FLAG_IN_NETPOLL))
+>>   		napi_gro_receive(&q_vector->napi, skb);
+>>   	else
+>>   		netif_rx(skb);
+>
+> Interesting reordering issue here.
+yes, we need to fix this.
+Maybe force a GRO flush when spinning, or maybe disable GRO in a more 
+global manner when someone is busy-polling
 
-Exactly.
-
-BTW, an interesting alternative to netmap would be to map a VF into 
-userspace. (you would need to pre-allocate DMA memory regions and all of 
-that RDMA-like stuff)
+> Why by-passing GRO stack if its enabled ?
+you want to bypass GRO because it adds latency.
