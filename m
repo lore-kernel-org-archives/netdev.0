@@ -1,180 +1,117 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 4/4] sctp: fix association hangs due to partial delivery
- errors
-Date: Wed, 27 Feb 2013 08:53:30 -0500
-Message-ID: <512E0FDA.4030704@redhat.com>
-References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com> <1361889376-22171-5-git-send-email-lee.roberts@hp.com>
-Reply-To: vyasevic@redhat.com
+From: Glen Turner <gdt@gdt.id.au>
+Subject: [PATCHv2] usb/net/asix_devices: Add USBNET HG20F9 ethernet dongle
+Date: Thu, 28 Feb 2013 01:02:36 +1030
+Message-ID: <1361975556.13093.3.camel@ilion>
+References: <1361852232.23197.4.camel@andromache.adelaide.aarnet.edu.au>
+	 <20130226.172856.235525833921140241.davem@davemloft.net>
+	 <20130226.172955.926853809838377302.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Lee A. Roberts" <lee.roberts@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46952 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759904Ab3B0Nxh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 08:53:37 -0500
-In-Reply-To: <1361889376-22171-5-git-send-email-lee.roberts@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130226.172955.926853809838377302.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/26/2013 09:36 AM, Lee A. Roberts wrote:
-> From: "Lee A. Roberts" <lee.roberts@hp.com>
->
-> Resolve SCTP association hangs observed during SCTP stress
-> testing.  Observable symptoms include communications hangs
-> with data being held in the association reassembly and/or lobby
-> (ordering) queues.  Close examination of reassembly queue shows
-> missing packets.
->
-> In sctp_ulpq_tail_data(), use return values 0,1 to indicate whether
-> a complete event (with MSG_EOR set) was delivered.  A return value
-> of -ENOMEM continues to indicate an out-of-memory condition was
-> encountered.
->
-> In sctp_ulpq_retrieve_partial() and sctp_ulpq_retrieve_first(),
-> correct message reassembly logic for SCTP partial delivery.
-> Change logic to ensure that as much data as possible is sent
-> with the initial partial delivery and that following partial
-> deliveries contain all available data.
->
-> In sctp_ulpq_partial_delivery(), attempt partial delivery only
-> if the data on the head of the reassembly queue is at or before
-> the cumulative TSN ACK point.
->
-> In sctp_ulpq_renege(), use the modified return values from
-> sctp_ulpq_tail_data() to choose whether to attempt partial
-> delivery or to attempt to drain the reassembly queue as a
-> means to reduce memory pressure.  Remove call to
-> sctp_tsnmap_mark(), as this is handled correctly in call to
-> sctp_ulpq_tail_data().
->
-> Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
+This USB ethernet adapter was purchased in anodyne packaging
+from the computer store adjacent to linux.conf.au 2013 in
+Canberra (Australia). A web search shows other recent
+purchasers in Lancaster (UK) and Seattle (USA). Just like an
+emergent virus, our age of e-commerce and airmail allows
+underdocumented hardware to spread around the world instantly
+using the vector of ridiculously low prices.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Paige Thompson, infected via eBay, discovered that the HG20F9
+is a copy of the Asix 88772B; many viruses copy the RNA of
+other viruses. See Paige's work at
+<https://github.com/paigeadele/HG20F9>.
+This patch uses her discovery to update the restructured Asix
+driver in the current kernel.
 
--vlad
+Just as some viruses inhabit seemingly-healthy cells, the
+HG20F9 uses the Vendor ID 0x066b assigned to Linksys Inc.
+=46or the present there is no clash of Product ID 0x20f9.
 
-> ---
->   net/sctp/ulpqueue.c |   54 ++++++++++++++++++++++++++++++++++++++++-----------
->   1 file changed, 43 insertions(+), 11 deletions(-)
->
-> diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-> index f221fbb..482e3ea 100644
-> --- a/net/sctp/ulpqueue.c
-> +++ b/net/sctp/ulpqueue.c
-> @@ -106,6 +106,7 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
->   {
->   	struct sk_buff_head temp;
->   	struct sctp_ulpevent *event;
-> +	int event_eor = 0;
->
->   	/* Create an event from the incoming chunk. */
->   	event = sctp_ulpevent_make_rcvmsg(chunk->asoc, chunk, gfp);
-> @@ -127,10 +128,12 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
->   	/* Send event to the ULP.  'event' is the sctp_ulpevent for
->   	 * very first SKB on the 'temp' list.
->   	 */
-> -	if (event)
-> +	if (event) {
-> +		event_eor = (event->msg_flags & MSG_EOR) ? 1 : 0;
->   		sctp_ulpq_tail_event(ulpq, event);
-> +	}
->
-> -	return 0;
-> +	return event_eor;
->   }
->
->   /* Add a new event for propagation to the ULP.  */
-> @@ -540,14 +543,19 @@ static struct sctp_ulpevent *sctp_ulpq_retrieve_partial(struct sctp_ulpq *ulpq)
->   		ctsn = cevent->tsn;
->
->   		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
-> +		case SCTP_DATA_FIRST_FRAG:
-> +			if (!first_frag)
-> +				return NULL;
-> +			goto done;
->   		case SCTP_DATA_MIDDLE_FRAG:
->   			if (!first_frag) {
->   				first_frag = pos;
->   				next_tsn = ctsn + 1;
->   				last_frag = pos;
-> -			} else if (next_tsn == ctsn)
-> +			} else if (next_tsn == ctsn) {
->   				next_tsn++;
-> -			else
-> +				last_frag = pos;
-> +			} else
->   				goto done;
->   			break;
->   		case SCTP_DATA_LAST_FRAG:
-> @@ -651,6 +659,14 @@ static struct sctp_ulpevent *sctp_ulpq_retrieve_first(struct sctp_ulpq *ulpq)
->   			} else
->   				goto done;
->   			break;
-> +
-> +		case SCTP_DATA_LAST_FRAG:
-> +			if (!first_frag)
-> +				return NULL;
-> +			else
-> +				goto done;
-> +			break;
-> +
->   		default:
->   			return NULL;
->   		}
-> @@ -1025,16 +1041,28 @@ void sctp_ulpq_partial_delivery(struct sctp_ulpq *ulpq,
->   	struct sctp_ulpevent *event;
->   	struct sctp_association *asoc;
->   	struct sctp_sock *sp;
-> +	__u32 ctsn;
-> +	struct sk_buff *skb;
->
->   	asoc = ulpq->asoc;
->   	sp = sctp_sk(asoc->base.sk);
->
->   	/* If the association is already in Partial Delivery mode
-> -	 * we have noting to do.
-> +	 * we have nothing to do.
->   	 */
->   	if (ulpq->pd_mode)
->   		return;
->
-> +	/* Data must be at or below the Cumulative TSN ACK Point to
-> +	 * start partial delivery.
-> +	 */
-> +	skb = skb_peek(&asoc->ulpq.reasm);
-> +	if (skb != NULL) {
-> +		ctsn = sctp_skb2event(skb)->tsn;
-> +		if (!TSN_lte(ctsn, sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map)))
-> +			return;
-> +	}
-> +
->   	/* If the user enabled fragment interleave socket option,
->   	 * multiple associations can enter partial delivery.
->   	 * Otherwise, we can only enter partial delivery if the
-> @@ -1077,12 +1105,16 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
->   	}
->   	/* If able to free enough room, accept this chunk. */
->   	if (chunk && (freed >= needed)) {
-> -		__u32 tsn;
-> -		tsn = ntohl(chunk->subh.data_hdr->tsn);
-> -		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn, chunk->transport);
-> -		sctp_ulpq_tail_data(ulpq, chunk, gfp);
-> -
-> -		sctp_ulpq_partial_delivery(ulpq, gfp);
-> +		int retval;
-> +		retval = sctp_ulpq_tail_data(ulpq, chunk, gfp);
-> +		/*
-> +		 * Enter partial delivery if chunk has not been
-> +		 * delivered; otherwise, drain the reassembly queue.
-> +		 */
-> +		if (retval <= 0)
-> +			sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
-> +		else if (retval == 1)
-> +			sctp_ulpq_reasm_drain(ulpq);
->   	}
->
->   	sk_mem_reclaim(asoc->base.sk);
->
+Signed-off-by: Glen Turner <gdt@gdt.id.au>
+---
+David,
+
+My apologies for the patch failing to compile. I worked off Linus' GIT =
+tree
+from a week ago, which I now realise was ignorant. Today I downloaded
+<git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git>,
+modified the patch to suit, compiled with a distributor's .config (ten =
+hours
+on my EeePC 901), and re-tested against a range of switches and traffic=
+=2E
+
+Thanks to Bj=C3=B8rn Mork for the heads-up about comment coding style. =
+I had
+copied the style used throughout asix_devices.c but one never knows whe=
+re
+being on the bad side of an automated tool can lead, now that the creat=
+or
+of the Daleks can no longer protect us from robots with rigid notions
+of the acceptable and the exterminatable.
+
+-glen
+
+ drivers/net/usb/asix_devices.c |   31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/drivers/net/usb/asix_devices.c b/drivers/net/usb/asix_devi=
+ces.c
+index 2205dbc..7097534 100644
+--- a/drivers/net/usb/asix_devices.c
++++ b/drivers/net/usb/asix_devices.c
+@@ -924,6 +924,29 @@ static const struct driver_info ax88178_info =3D {
+ 	.tx_fixup =3D asix_tx_fixup,
+ };
+=20
++/*
++ * USBLINK 20F9 "USB 2.0 LAN" USB ethernet adapter, typically found in
++ * no-name packaging.
++ * USB device strings are:
++ *   1: Manufacturer: USBLINK
++ *   2: Product: HG20F9 USB2.0
++ *   3: Serial: 000003
++ * Appears to be compatible with Asix 88772B.
++ */
++static const struct driver_info hg20f9_info =3D {
++	.description =3D "HG20F9 USB 2.0 Ethernet",
++	.bind =3D ax88772_bind,
++	.unbind =3D ax88772_unbind,
++	.status =3D asix_status,
++	.link_reset =3D ax88772_link_reset,
++	.reset =3D ax88772_reset,
++	.flags =3D FLAG_ETHER | FLAG_FRAMING_AX | FLAG_LINK_INTR |
++	         FLAG_MULTI_PACKET,
++	.rx_fixup =3D asix_rx_fixup_common,
++	.tx_fixup =3D asix_tx_fixup,
++	.data =3D FLAG_EEPROM_MAC,
++};
++
+ extern const struct driver_info ax88172a_info;
+=20
+ static const struct usb_device_id	products [] =3D {
+@@ -1063,6 +1086,14 @@ static const struct usb_device_id	products [] =3D=
+ {
+ 	/* ASIX 88172a demo board */
+ 	USB_DEVICE(0x0b95, 0x172a),
+ 	.driver_info =3D (unsigned long) &ax88172a_info,
++}, {
++	/*
++	 * USBLINK HG20F9 "USB 2.0 LAN"
++	 * Appears to have gazumped Linksys's manufacturer ID but
++	 * doesn't (yet) conflict with any known Linksys product.
++	 */
++	USB_DEVICE(0x066b, 0x20f9),
++	.driver_info =3D (unsigned long) &hg20f9_info,
+ },
+ 	{ },		// END
+ };
+--=20
+1.7.10.4
