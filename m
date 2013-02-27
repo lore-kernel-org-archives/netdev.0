@@ -1,81 +1,66 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH] net/sctp: Validate parameter size for
- SCTP_GET_ASSOC_STATS control message
-Date: Wed, 27 Feb 2013 15:09:31 -0500
-Message-ID: <20130227200931.GB7993@hmsreliant.think-freely.org>
-References: <1361994231-5355-1-git-send-email-linux@roeck-us.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: rtl8192cu: Fix schedule while atomic bug splat
+Date: Wed, 27 Feb 2013 14:10:30 -0600
+Message-ID: <512e6836.2JGN8MWwRh2P7FD2%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: John W Linville <linville@tuxdriver.com>, jussi.kivilinna@mbnet.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56142 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286Ab3B0UJz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:09:55 -0500
-Content-Disposition: inline
-In-Reply-To: <1361994231-5355-1-git-send-email-linux@roeck-us.net>
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.122]:25906 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753815Ab3B0UKd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:10:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 27, 2013 at 11:43:51AM -0800, Guenter Roeck wrote:
-> Building sctp may fail with:
->=20
-> In function =E2=80=98copy_from_user=E2=80=99,
->     inlined from =E2=80=98sctp_getsockopt_assoc_stats=E2=80=99 at
->     net/sctp/socket.c:5656:20:
-> arch/x86/include/asm/uaccess_32.h:211:26: error: call to
->     =E2=80=98copy_from_user_overflow=E2=80=99 declared with attribute=
- error: copy_from_user()
->     buffer size is not provably correct
->=20
-> if built with W=3D1 due to a missing parameter size validation.
->=20
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
->  net/sctp/socket.c |    2 ++
->  1 file changed, 2 insertions(+)
->=20
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index cedd9bf..0a5f2bf 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -5652,6 +5652,8 @@ static int sctp_getsockopt_assoc_stats(struct s=
-ock *sk, int len,
->  	/* User must provide at least the assoc id */
->  	if (len < sizeof(sctp_assoc_t))
->  		return -EINVAL;
-> +	if (len > sizeof(struct sctp_assoc_stats))
-> +		len =3D sizeof(struct sctp_assoc_stats);
-> =20
->  	if (copy_from_user(&sas, optval, len))
->  		return -EFAULT;
-> --=20
-> 1.7.9.7
->=20
->=20
+When run at debug 3 or higher, rtl8192cu reports a BUG as follows:
 
-Theres more than that going on here.  This will fix the warning, but th=
-e
-function is written such that, if you pass in a size that is greater th=
-an the
-size of a struct sctp_association, but less than a struct sctp_assoc_st=
-ats.  I'm
-not sure that a partial stat struct is really that useful to people.  W=
-hat if
-you were to check for max(struct sctp_association, struct sctp_assoc_st=
-ats) as
-your minimum length check, then just did a copy_from_user of that lengt=
-h.  It
-would save you having to compute two lengths separately, since you coul=
-d then
-just do a copy_to_user(...,sizeof(struct sctp_assoc_stats), at the bott=
-om of
-that function.
+BUG: scheduling while atomic: kworker/u:0/5281/0x00000002
+INFO: lockdep is turned off.
+Modules linked in: rtl8192cu rtl8192c_common rtlwifi fuse af_packet bnep bluetooth b43 mac80211 cfg80211 ipv6 snd_hda_codec_conexant kvm_amd k
+vm snd_hda_intel snd_hda_codec bcma rng_core snd_pcm ssb mmc_core snd_seq snd_timer snd_seq_device snd i2c_nforce2 sr_mod pcmcia forcedeth i2c_core soundcore
+ cdrom sg serio_raw k8temp hwmon joydev ac battery pcmcia_core snd_page_alloc video button wmi autofs4 ext4 mbcache jbd2 crc16 thermal processor scsi_dh_alua
+ scsi_dh_hp_sw scsi_dh_rdac scsi_dh_emc scsi_dh ata_generic pata_acpi pata_amd [last unloaded: rtlwifi]
+Pid: 5281, comm: kworker/u:0 Tainted: G        W    3.8.0-wl+ #119
+Call Trace:
+ [<ffffffff814531e7>] __schedule_bug+0x62/0x70
+ [<ffffffff81459af0>] __schedule+0x730/0xa30
+ [<ffffffff81326e49>] ? usb_hcd_link_urb_to_ep+0x19/0xa0
+ [<ffffffff8145a0d4>] schedule+0x24/0x70
+ [<ffffffff814575ec>] schedule_timeout+0x18c/0x2f0
+ [<ffffffff81459ec0>] ? wait_for_common+0x40/0x180
+ [<ffffffff8133f461>] ? ehci_urb_enqueue+0xf1/0xee0
+ [<ffffffff810a579d>] ? trace_hardirqs_on+0xd/0x10
+ [<ffffffff81459f65>] wait_for_common+0xe5/0x180
+ [<ffffffff8107d1c0>] ? try_to_wake_up+0x2d0/0x2d0
+ [<ffffffff8145a08e>] wait_for_completion_timeout+0xe/0x10
+ [<ffffffff8132ab1c>] usb_start_wait_urb+0x8c/0x100
+ [<ffffffff8132adf9>] usb_control_msg+0xd9/0x130
+ [<ffffffffa057dd8d>] _usb_read_sync+0xcd/0x140 [rtlwifi]
+ [<ffffffffa057de0e>] _usb_read32_sync+0xe/0x10 [rtlwifi]
+ [<ffffffffa04b0555>] rtl92cu_update_hal_rate_table+0x1a5/0x1f0 [rtl8192cu]
 
-Thanks!
-Neil
+The cause is a synchronous read from routine rtl92cu_update_hal_rate_table().
+The resulting output is not critical, thus the debug statement is
+deleted.
+
+Reported-by: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: Stable <stable@vger.kernel.org>
+---
+
+Index: wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+===================================================================
+--- wireless-testing-new.orig/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
++++ wireless-testing-new/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+@@ -2058,8 +2058,6 @@ void rtl92cu_update_hal_rate_table(struc
+ 			       (shortgi_rate << 4) | (shortgi_rate);
+ 	}
+ 	rtl_write_dword(rtlpriv, REG_ARFR0 + ratr_index * 4, ratr_value);
+-	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG, "%x\n",
+-		 rtl_read_dword(rtlpriv, REG_ARFR0));
+ }
+ 
+ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
