@@ -1,47 +1,32 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 ] Fix compilation error of m_ipt.c with -Werror
- enabled
-Date: Tue, 26 Feb 2013 17:36:58 -0800
-Message-ID: <20130226173658.74b51f2d@nehalam.linuxnetplumber.net>
-References: <1361905927-31534-1-git-send-email-subramanian.vijay@gmail.com>
+Subject: Re: [PATCH iproute 2/2] ss: show socket memory stats for unix
+ sockets if requested
+Date: Tue, 26 Feb 2013 17:38:02 -0800
+Message-ID: <20130226173802.73ca5c06@nehalam.linuxnetplumber.net>
+References: <20130223012818.GA6655@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Vijay Subramanian <subramanian.vijay@gmail.com>
+Cc: netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:44418 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759286Ab3B0BhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 20:37:25 -0500
-Received: by mail-pb0-f50.google.com with SMTP id up1so26821pbc.9
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 17:37:24 -0800 (PST)
-In-Reply-To: <1361905927-31534-1-git-send-email-subramanian.vijay@gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:40056 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755909Ab3B0Bi3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 26 Feb 2013 20:38:29 -0500
+Received: by mail-pa0-f50.google.com with SMTP id fa11so83673pad.23
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 17:38:29 -0800 (PST)
+In-Reply-To: <20130223012818.GA6655@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 26 Feb 2013 11:12:07 -0800
-Vijay Subramanian <subramanian.vijay@gmail.com> wrote:
+On Sat, 23 Feb 2013 02:28:18 +0100
+Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
 
-> Commit (5a650703d47e10aa386406c855eff5a593b2120b Makefile: make warnings into
-> errors ) causes the following build error.
+> The output format is the same as for tcp sockets but only the following
+> fields are currently non-zero: sk_rcvbuf, sk_wmem_alloc and sk_sndbuf.
 > 
-> gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
-> -Wmissing-declarations -Wold-style-definition -O2 -I../include
-> -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
-> -D_GNU_SOURCE -DCONFIG_GACT -DCONFIG_GACT_PROB -DIPT_LIB_DIR=\"/lib/xtables\"
-> -DYY_NO_INPUT   -c -o m_ipt.o m_ipt.c
-> cc1: warnings being treated as errors
-> m_ipt.c:72: error: no previous prototype for 'xtables_register_target'
-> m_ipt.c:361: error: no previous prototype for 'build_st'
-> make[1]: *** [m_ipt.o] Error 1
-> 
-> This is fixed by adding the prototype in the header include/iptables.h
-> 
-> I am not sure if this is due to something wrong on my build system but I am
-> using current glibc 2.17.
-> 
-> 
-> Signed-off-by: Vijay Subramanian <subramanian.vijay@gmail.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied, thanks
+Both applied
