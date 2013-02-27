@@ -1,58 +1,45 @@
-From: Oleg Nesterov <oleg@redhat.com>
-Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
-	Per-CPU Reader-Writer Locks
-Date: Wed, 27 Feb 2013 20:25:51 +0100
-Message-ID: <20130227192551.GA8333@redhat.com>
-References: <51226F91.7000108@linux.vnet.ibm.com> <CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com> <512BBAD8.8010006@linux.vnet.ibm.com> <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com> <512C7A38.8060906@linux.vnet.ibm.com> <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com> <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CANN689FuuEb9wpV43DkTtgv6syvBYL-LQxByWznyAq8dkrhzBw@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 0/4] sctp: fix association hangs due to reassembly/ordering
+ logic
+Date: Wed, 27 Feb 2013 20:36:50 +0100
+Message-ID: <512E6052.6050301@redhat.com>
+References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com> <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Michel Lespinasse <walken@google.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CANN689FuuEb9wpV43DkTtgv6syvBYL-LQxByWznyAq8dkrhzBw@mail.gmail.com>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: "Lee A. Roberts" <lee.roberts@hp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:59542 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751398Ab3B0Tgz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2013 14:36:55 -0500
+In-Reply-To: <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/27, Michel Lespinasse wrote:
+On 02/27/2013 07:54 PM, Lee A. Roberts wrote:
+> From: "Lee A. Roberts" <lee.roberts@hp.com>
 >
-> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
-> +{
-> +       preempt_disable();
-> +
-> +       if (__this_cpu_read(*lgrw->local_refcnt) ||
-> +           arch_spin_trylock(this_cpu_ptr(lgrw->lglock->lock))) {
-> +               __this_cpu_inc(*lgrw->local_refcnt);
+> This series of patches resolves several SCTP association hangs observed during
+> SCTP stress testing.  Observable symptoms include communications hangs with
+> data being held in the association reassembly and/or lobby (ordering) queues.
+> Close examination of reassembly/ordering queues may show either duplicated
+> or missing packets.
 
-Please look at __this_cpu_generic_to_op(). You need this_cpu_inc()
-to avoid the race with irs. The same for _read_unlock.
+Just nitpicking here ... all of your 4 patches have the same first paragraph,
+which can actually be left out completely if it is already in your patch cover
+letter stated.
 
-But otherwise I agree, looks like a clever and working idea to me.
-And simple!
-
-> There is an interesting case where lg_rwlock_local_read_lock could be
-> interrupted after getting the local lglock but before incrementing
-> local_refcnt to 1; if that happens any nested readers within that
-> interrupt will have to take the global rwlock read side. I think this
-> is perfectly acceptable
-
-Agreed.
-
-Or interrupt can do spin_trylock(percpu-lock) after we take the global
-->fallback_rwlock (if we race with write_lock + write_unlock), but I do
-not see any possible deadlock in this case.
-
-Oleg.
-
+> Lee A. Roberts (4):
+>    sctp: fix association hangs due to off-by-one errors in
+>      sctp_tsnmap_grow()
+>    sctp: fix association hangs due to reneging packets below the
+>      cumulative TSN ACK point
+>    sctp: fix association hangs due to errors when reneging events from
+>      the ordering queue
+>    sctp: fix association hangs due to partial delivery errors
+>
+>   net/sctp/tsnmap.c   |   13 ++++----
+>   net/sctp/ulpqueue.c |   87 +++++++++++++++++++++++++++++++++++++++++----------
+>   2 files changed, 78 insertions(+), 22 deletions(-)
