@@ -1,87 +1,75 @@
-From: "Roberts, Lee A." <lee.roberts@hp.com>
-Subject: RE: [PATCH v2 0/4] sctp: fix association hangs due to
- reassembly/ordering logic
-Date: Wed, 27 Feb 2013 20:26:39 +0000
-Message-ID: <D64EC45690EF85409BA6C4730E0162244310F025@G4W3231.americas.hpqcorp.net>
-References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
- <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
- <512E6905.2020808@redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] net: af_packet: Validate parameter size for
+ PACKET_HDRLEN control message
+Date: Wed, 27 Feb 2013 12:33:27 -0800
+Message-ID: <20130227203327.GA6113@roeck-us.net>
+References: <1361994418-1403-1-git-send-email-linux@roeck-us.net>
+ <512E6AF9.3030901@redhat.com>
+ <20130227.152630.35846741651175869.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "vyasevic@redhat.com" <vyasevic@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dborkman@redhat.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0014.houston.hp.com ([15.201.24.17]:1048 "EHLO
-	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896Ab3B0U1n convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:27:43 -0500
-In-Reply-To: <512E6905.2020808@redhat.com>
-Content-Language: en-US
+Received: from mail.active-venture.com ([67.228.131.205]:49554 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752706Ab3B0UdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:33:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20130227.152630.35846741651175869.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Vlad Yasevich [mailto:vyasevic@redhat.com]
-> Sent: Wednesday, February 27, 2013 1:14 PM
-> To: Roberts, Lee A.
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH v2 0/4] sctp: fix association hangs due to reassembly/ordering logic
-> 
-> On 02/27/2013 01:54 PM, Lee A. Roberts wrote:
-> > From: "Lee A. Roberts" <lee.roberts@hp.com>
-> >
-> > This series of patches resolves several SCTP association hangs observed during
-> > SCTP stress testing.  Observable symptoms include communications hangs with
-> > data being held in the association reassembly and/or lobby (ordering) queues.
-> > Close examination of reassembly/ordering queues may show either duplicated
-> > or missing packets.
-> 
-> Hi Lee
-> 
-> What changed in this series?  I looked through and they don't look
-> different from the prior version?
-> 
-> -vlad
-> 
+On Wed, Feb 27, 2013 at 03:26:30PM -0500, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Wed, 27 Feb 2013 21:22:17 +0100
+>=20
+> > On 02/27/2013 08:46 PM, Guenter Roeck wrote:
+> >> Building af_packet may fail with
+> >>
+> >> In function =E2=80=98copy_from_user=E2=80=99,
+> >>      inlined from =E2=80=98packet_getsockopt=E2=80=99 at
+> >>      net/packet/af_packet.c:3215:21:
+> >> arch/x86/include/asm/uaccess_32.h:211:26: error: call to
+> >>      =E2=80=98copy_from_user_overflow=E2=80=99 declared with attri=
+bute error:
+> >>      copy_from_user()
+> >>      buffer size is not provably correct
+> >>
+> >> if built with W=3D1 due to a missing parameter size validation.
+> >>
+> >> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> >> ---
+> >>   net/packet/af_packet.c |    2 ++
+> >>   1 file changed, 2 insertions(+)
+> >>
+> >> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+> >> index c7bfeff..1976b23 100644
+> >> --- a/net/packet/af_packet.c
+> >> +++ b/net/packet/af_packet.c
+> >> @@ -3210,6 +3210,8 @@ static int packet_getsockopt(struct socket
+> >> *sock, int level, int optname,
+> >>   		val =3D po->tp_version;
+> >>   		break;
+> >>   	case PACKET_HDRLEN:
+> >> +		if (len < sizeof(int))
+> >> +			return -EINVAL;
+> >=20
+> > I think this could break some user space applications here, those w=
+ho
+> > e.g. only pass
+> > an uint16_t to packet_getsockopt with PACKET_HDRLEN.
+>=20
+> Well, their shit is broken on big endian then.
 
-Vlad,
+There must be something else going on anyway ... yes, my patch fixes th=
+e
+warning/error, but copy_from_user should only bail out if the copy size
+can be larger than the provided buffer (unless I misunderstand the code
+in copy_from_user). And the second check should take care of that.
 
-In patch #4, routine sctp_ulpq_renege(), the inserted call to sctp_ulpq_partial_delivery()
-still used the 3.2.x calling sequence with three arguments.
+Anyway, point taken. I'll waste my time elsewhere :).
 
-The first version of patch #4 stated:
-
-+		if (retval <= 0)
-+			sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
-+		else if (retval == 1)
-+			sctp_ulpq_reasm_drain(ulpq);
-
-The second version of patch #4 has corrected the call to sctp_ulpq_partial_delivery():
-
-+		if (retval <= 0)
-+			sctp_ulpq_partial_delivery(ulpq, gfp);
-+		else if (retval == 1)
-+			sctp_ulpq_reasm_drain(ulpq);
-
-I have adjusted the patch comments for yet another version of the patch series.
-I'm holding them at the moment to collect any further change requests.
-
-                                        - Lee
-
-
-
-> >
-> > Lee A. Roberts (4):
-> >    sctp: fix association hangs due to off-by-one errors in
-> >      sctp_tsnmap_grow()
-> >    sctp: fix association hangs due to reneging packets below the
-> >      cumulative TSN ACK point
-> >    sctp: fix association hangs due to errors when reneging events from
-> >      the ordering queue
-> >    sctp: fix association hangs due to partial delivery errors
-> >
-> >   net/sctp/tsnmap.c   |   13 ++++----
-> >   net/sctp/ulpqueue.c |   87 +++++++++++++++++++++++++++++++++++++++++----------
-> >   2 files changed, 78 insertions(+), 22 deletions(-)
-> >
+Thanks,
+Guenter
