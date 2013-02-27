@@ -1,138 +1,100 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH] core: Add ioctls to control device unicast hw addresses
-Date: Tue, 26 Feb 2013 23:34:44 -0800
-Message-ID: <512DB714.6090203@gmail.com>
-References: <BECD8E8A1B550B48A1BF97C13991F60E2D2E1A@avmb2.qlogic.org>
+From: ANNIE LI <annie.li@oracle.com>
+Subject: Re: [PATCH 6/8] netfront: multi-page ring support
+Date: Wed, 27 Feb 2013 15:39:38 +0800
+Message-ID: <512DB83A.6050503@oracle.com>
+References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com>  <1360944010-15336-7-git-send-email-wei.liu2@citrix.com>  <512C5B96.10204@oracle.com> <1361882139.2109.52.camel@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: John Fastabend <john.r.fastabend@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:53967 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752348Ab3B0Hf2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 02:35:28 -0500
-Received: by mail-oa0-f52.google.com with SMTP id k14so548745oag.11
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 23:35:28 -0800 (PST)
-In-Reply-To: <BECD8E8A1B550B48A1BF97C13991F60E2D2E1A@avmb2.qlogic.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:31748 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348Ab3B0HjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 02:39:09 -0500
+In-Reply-To: <1361882139.2109.52.camel@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2013 09:42 PM, Jitendra Kalsaria wrote:
->
->
-> On 2/26/13 9:01 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
->
->> On 2/26/2013 6:27 PM, Vlad Yasevich wrote:
->>> On 02/26/2013 09:07 PM, John Fastabend wrote:
->>>> On Tue, Feb 26, 2013 at 05:15:03PM -0500, David Miller wrote:
->>>>> From: John Fastabend <john.r.fastabend@intel.com>
->>>>> Date: Tue, 26 Feb 2013 13:58:39 -0800
->>>>>
->>>>>> [...]
->>>>>>
->>>>>>>>>
->>>>>>>>>
->>>>>>>>> [RFC PATCH] rtnetlink: Add support for adding/removing additional
->>>>>>>>> hw
->>>>>>>>> addresses.
->>>>>>>>>
->>>>>>>>> Add an ability to add and remove HW addresses to the device
->>>>>>>>> unicast and multicast address lists.  Right now, we only have
->>>>>>>>> an ioctl() to manage the multicast addresses and there is no
->>>>>>>>> way the manage the unicast list.
->>>>>>>>>
->>>>>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>>>>>>
->>>>>>>> This is a step in the right direction, and you're right that there
->>>>>>>> is
->>>>>>>> a difficulty in detecting whether support exists or not.
->>>>>>>>
->>>>>>>> I am so surprised that we've have ->set_rx_mode() support for
->>>>>>>> multiple
->>>>>>>> unicast MAC addresses in so many drivers all this time, yet no way
->>>>>>>> outside of FDB to make use of it at all.
->>>>>>>
->>>>>>> And even that is not always available.  In most drivers it requires
->>>>>>> module parameters or other explicit configuration steps.  Meanwhile
->>>>>>> set_rx_mode() doesn't seem to depend on any of those and just does
->>>>>>> the
->>>>>>> right thing.
->>>>>>>
->>>>>>> For what I was trying to do ioctl() was a really easy way out for
->>>>>>> both
->>>>>>> kernel and user space implementation, so I gave is shot.
->>>>>>>
->>>>>>> -vlad
->>>>>>>
->>>>>>
->>>>>> Don't we already support this with
->>>>>
->>>>> The whole point is that these multiple-unicast-address configuration
->>>>> facilities are inaccessible without FDB, and there is no reason
->>>>> whatsoever for that.
->>>>
->>>> Yes I see now sorry I was behind the thread.
->>>>
->>>> We could just use the fdb hooks and add a dflt routine to handle the
->>>> case where the netdev doesn't provide a specific ndo_op for us. This
->>>> boils down to calling set_rx_mode anyways through this call chain,
->>>>
->>>>      ndo_fdb_add
->>>>      dev_uc_add_excl
->>>>          __dev_set_rx_mode
->>>>              ndo_set_rx_mode
->>>>
->>>> As long as folks don't think this is too much of an abuse of the fdb
->>>> hooks. Here's an example I only compile tested this so take it as
->>>> an example only. It probably needs some cleanups and the dump routine
->>>> needs some thought not sure you want to dump all MACs always.
+
+
+On 2013-2-26 20:35, Wei Liu wrote:
+> On Tue, 2013-02-26 at 06:52 +0000, ANNIE LI wrote:
+>> On 2013-2-16 0:00, Wei Liu wrote:
+>>> Signed-off-by: Wei Liu<wei.liu2@citrix.com>
+>>> ---
+>>>    drivers/net/xen-netfront.c |  246 +++++++++++++++++++++++++++++++-------------
+>>>    1 file changed, 174 insertions(+), 72 deletions(-)
 >>>
->>> I thought about doing, but this becomes broken on the drivers that
->>> support ndo_fdb_* functions.  Those drivers mainly require additional
->>> configuration that is not necessary for dev_uc_add_excl() to work.
+>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>>> index 8bd75a1..de73a71 100644
+>>> --- a/drivers/net/xen-netfront.c
+>>> +++ b/drivers/net/xen-netfront.c
+>>> @@ -67,9 +67,19 @@ struct netfront_cb {
 >>>
->>> For example, ixgbe and melanox requires VF to be on, qlogic needs a
->>> module parameter, macvlan has to be in passthrough.  However,
->>> ndo_set_rx_mode() in most cases doesn't care about those settings and
->>> just works.
+>>>    #define GRANT_INVALID_REF   0
 >>>
+>>> -#define NET_TX_RING_SIZE __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE)
+>>> -#define NET_RX_RING_SIZE __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE)
+>>> -#define TX_MAX_TARGET min_t(int, NET_TX_RING_SIZE, 256)
+>>> +#define XENNET_MAX_RING_PAGE_ORDER XENBUS_MAX_RING_PAGE_ORDER
+>>> +#define XENNET_MAX_RING_PAGES      (1U<<   XENNET_MAX_RING_PAGE_ORDER)
+>>> +
+>>> +
+>>> +#define NET_TX_RING_SIZE(_nr_pages)                  \
+>>> +     __CONST_RING_SIZE(xen_netif_tx, PAGE_SIZE * (_nr_pages))
+>>> +#define NET_RX_RING_SIZE(_nr_pages)                  \
+>>> +     __CONST_RING_SIZE(xen_netif_rx, PAGE_SIZE * (_nr_pages))
+>>> +
+>>> +#define XENNET_MAX_TX_RING_SIZE NET_TX_RING_SIZE(XENNET_MAX_RING_PAGES)
+>>> +#define XENNET_MAX_RX_RING_SIZE NET_RX_RING_SIZE(XENNET_MAX_RING_PAGES)
+>>> +
+>>> +#define TX_MAX_TARGET min_t(int, NET_TX_RING_SIZE(1), 256)
+>> Not using multi-page ring here?
+>> In xennet_create_dev, gnttab_alloc_grant_references allocates
+>> TX_MAX_TARGET number of grant reference for tx. In
+>> xennet_release_tx_bufs, NET_TX_RING_SIZE(np->tx_ring_pages) numbers of
+>> grants are processed. And NET_RX_RING_SIZE(np->tx_ring_pages) is totally
+>> different from TX_MAX_TARGET if np->rx_ring_pages is not 1. Although
+>> skb_entry_is_link helps to not release invalid grants, lots of null loop
+>> seems unnecessary. I think TX_MAX_TARGET should be changed into some
+>> variableconnected with np->tx_ring_pages. Or you intended to use one
+>> page ring here?
 >>
->> The ixgbe piece could just use the dflt routines I put below. The
->> SR-IOV check is only there because when I wrote that I didn't consider
->> adding additional addresses without VFs. This was a poor example.
->>
->> The mlx4 card is checking if the device is a slave or master before
->> adding/removing addresses. My guess is this is the same type of check
->> as ixgbe and would work just fine without it.
->>
->> I'm not sure macvlan supports unicast hw addresses either way but
->> there is no reason we couldn't. The idea was we would come back and
->> write it later. Like many things I haven't got to it yet.
->>
->> Calling set_rx_mode() on qlcnic doesn't look to help you at all either
->> it appears to ignore the uc_list either way.
+> Looking back my history, this limitation was introduced because if we
+> have a multi-page backend and single page frontend, the backend skb
+> processing could overlap.
+
+I did not see the overlap you mentioned here in netback. Although 
+netback supports multi-page, netback->vif still uses single page if the 
+frontend only supports single page. Netfront and netback negotiate this 
+through xenstore in your 5/8 patch. The requests and response should not 
+have any overlap between netback and netfront. Am I missing something?
+
 >
-> Even though we use module parameter for fdb but it would be good it have
-> set_rx_mode().
-> We don't ignore uc_list but it never called set_rx_mode() when I use
-> dev_uc_add_excl when added support and thought that's how it might
-> designed.
+> I agree with you that this limit should be variable, but as we still use
+> M:N model, the safe option is to cap this limit to 1 page.
+
+Yes, M:N model is still used here. But the share ring should be same for 
+netback->vif and netfront.
+
+Thanks
+Annie
+
 >
-> -Jiten
->>
-
-Hopefully not too off topic but you probably should use dev_uc_add_excl
-in fdb_add and then fix your set_rx_mode() handler to configure the
-uc_list correctly. Not sure what happens today when a unicast addr
-is added to the list for example with macvlan looks like a bug to me.
-
-
-.John
-
--- 
-John Fastabend         Intel Corporation
+> Another option is to check validity of skbs before processing them. I
+> will look into that as well.
+>
+> The same reason applies to the RX ring as well.
+>
+>
+> Wei.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
