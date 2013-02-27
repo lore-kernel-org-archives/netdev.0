@@ -1,112 +1,111 @@
-From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: LSM stacking and the network access controls
-Date: Wed, 27 Feb 2013 08:51:50 -0800
-Message-ID: <512E39A6.1000804@schaufler-ca.com>
-References: <1803195.0cVPJuGAEx@sifl> <1495594.zrMMDNjium@sifl> <512D415F.7050205@schaufler-ca.com> <9802466.KDjcZ61qbX@sifl>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: avoid wakeups for pure ACK
+Date: Wed, 27 Feb 2013 09:05:03 -0800
+Message-ID: <1361984703.11403.43.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
-	Gerd Hoffmann <kraxel@redhat.com>,
-	Eric Paris <eparis@redhat.com>
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <9802466.KDjcZ61qbX@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Neal Cardwell <ncardwell@google.com>,
+	Tom Herbert <therbert@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Andi Kleen <ak@linux.intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:38368 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760239Ab3B0RFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 12:05:08 -0500
+Received: by mail-pa0-f47.google.com with SMTP id bj3so544899pad.20
+        for <netdev@vger.kernel.org>; Wed, 27 Feb 2013 09:05:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/27/2013 8:43 AM, Paul Moore wrote:
-> On Tuesday, February 26, 2013 03:12:31 PM Casey Schaufler wrote:
->> On 2/26/2013 1:21 PM, Paul Moore wrote:
->>> On Monday, February 25, 2013 03:06:14 PM Casey Schaufler wrote:
->>>> The set of LSMs, the order they are invoked, which LSM
->>>> uses /proc/.../attr/current and which LSM uses Netlabel,
->>>> XFRM and secmark are all determined by Kconfig. You can
->>>> specify a limited set of LSMs using security= at boot,
->>>> but not the networking configuration.
->>> That's unfortunate.  I'm _really_ not in favor of that, I would much
->>> rather see the non-shared LSM functionality assigned at the same time as
->>> the stacking order.  I'm not sure I'd NACK the current approach, or even\
->>> if anyone would care that I did, but that is how I'm currently leaning
->>> with this split (build vs runtime) selection.
->> I'm not against that approach. How would you see it working?
->>
->> The distro compiles in all the LSMs.
->> They specify that SELinux gets xfrm and secmark.
->> They specify the Smack gets Netlabel.
->> They tell (the new and improved) AppArmor to eschew networking.
->> They specify a boot order of "selinux,smack,apparmor,yama"
->> (They left off tomoyo for tax purposes).
->>
->> On the boot line, the user types "security=apparmor".
->>
->> What should happen?
-> Okay, I misunderstood what was specified at boot time; I thought the stacking 
-> order could be defined at boot but based on your example I'm guessing the 
-> stacking order is defined at compile time and you can only enable/disable LSMs 
-> at boot?
+From: Eric Dumazet <edumazet@google.com>
 
-Well, no. It looks as if I gave a poor example.
+TCP prequeue mechanism purpose is to let incoming packets
+being processed by the thread currently blocked in tcp_recvmsg(),
+instead of behalf of the softirq handler, to better adapt flow
+control on receiver host capacity to schedule the consumer.
 
-	"security=apparmor,tomoyo,selinux"
+But in typical request/answer workloads, we send request, then
+block to receive the answer. And before the actual answer, TCP
+stack receives the ACK packets acknowledging the request.
 
-is legitimate and indicates that AppArmor goes first,
-then TOMOYO, then SELinux. No LSM gets NetLabel because
-that was allocated to Smack. SELinux gets XFRM and secmark.
+Processing pure ACK on behalf of the thread blocked in tcp_recvmsg()
+is a waste of resources, as thread has to immediately sleep again
+because it got no payload.
+
+This patch avoids the extra context switches and scheduler overhead.
+
+Before patch :
+
+a:~# echo 0 >/proc/sys/net/ipv4/tcp_low_latency
+a:~# perf stat ./super_netperf 300 -t TCP_RR -l 10 -H 7.7.7.84 -- -r 8k,8k
+231676
+
+ Performance counter stats for './super_netperf 300 -t TCP_RR -l 10 -H 7.7.7.84 -- -r 8k,8k':
+
+     116251.501765 task-clock                #   11.369 CPUs utilized          
+         5,025,463 context-switches          #    0.043 M/sec                  
+         1,074,511 CPU-migrations            #    0.009 M/sec                  
+           216,923 page-faults               #    0.002 M/sec                  
+   311,636,972,396 cycles                    #    2.681 GHz                    
+   260,507,138,069 stalled-cycles-frontend   #   83.59% frontend cycles idle   
+   155,590,092,840 stalled-cycles-backend    #   49.93% backend  cycles idle   
+   100,101,255,411 instructions              #    0.32  insns per cycle        
+                                             #    2.60  stalled cycles per insn
+    16,535,930,999 branches                  #  142.243 M/sec                  
+       646,483,591 branch-misses             #    3.91% of all branches        
+
+      10.225482774 seconds time elapsed
+
+After patch :
+
+a:~# echo 0 >/proc/sys/net/ipv4/tcp_low_latency
+a:~# perf stat ./super_netperf 300 -t TCP_RR -l 10 -H 7.7.7.84 -- -r 8k,8k
+233297
+
+ Performance counter stats for './super_netperf 300 -t TCP_RR -l 10 -H 7.7.7.84 -- -r 8k,8k':
+
+      91084.870855 task-clock                #    8.887 CPUs utilized          
+         2,485,916 context-switches          #    0.027 M/sec                  
+           815,520 CPU-migrations            #    0.009 M/sec                  
+           216,932 page-faults               #    0.002 M/sec                  
+   245,195,022,629 cycles                    #    2.692 GHz                    
+   202,635,777,041 stalled-cycles-frontend   #   82.64% frontend cycles idle   
+   124,280,372,407 stalled-cycles-backend    #   50.69% backend  cycles idle   
+    83,457,289,618 instructions              #    0.34  insns per cycle        
+                                             #    2.43  stalled cycles per insn
+    13,431,472,361 branches                  #  147.461 M/sec                  
+       504,470,665 branch-misses             #    3.76% of all branches        
+
+      10.249594448 seconds time elapsed
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Andi Kleen <ak@linux.intel.com>
+---
+David : Feel free to postpone this to 3.10.
+I'll send a patch to move tcp_prequeue() out of line when net-next opens
+
+ include/net/tcp.h |    4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 23f2e98..cf0694d 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1045,6 +1045,10 @@ static inline bool tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+ 	if (sysctl_tcp_low_latency || !tp->ucopy.task)
+ 		return false;
  
-
->>>> Tetsuo is lobbying for loadable security modules. I am
->>>> doing my best to leave everything in a state where some
->>>> soul braver than I might pick that up after I'm done.
->>>> I do not have any intention of supporting on the fly
->>>> or heuristically determined networking.
->>> Well, if that is the case I think the first-come-first-served approach to
->>> the non-shared functionality probably makes the most sense.  I understand
->>> why it might not be ideal in ever situation but it is predictable.
->> Would you have the same opinion if SELinux were last, instead of first?
-> Yes.
->
-> In fact, considering the example above, and also assuming I'm understanding it 
-> correctly, I think I am more in favor of the first-come-first-served approach 
-> since you can enable/disable LSMs at boot.  Imagine if you gave one LSM all 
-> the non-shared functionality but disabled it at boot in favor of another LSM 
-> which could make use of some of this functionality but was denied due to the 
-> compile time option.  This seems much more useful to me.
->
->>>>>> I'm trying not to make too many architectural changes to the
->>>>>> code around the LSM mechanism itself. I don't see that as cost
->>>>>> effective or likely to be popular. If the implication of that is
->>>>>> that there are certain configurations that are unsupportable but
->>>>>> that have plausible alternatives I think it will do for phase I.
->>>>> That statement is vague enough that I can't really say yes or no to it,
->>>>> but I will stick by my previous comments about the network access
->>>>> controls.
->>>> Ah. I want to create a useful system. I want to create it
->>>> reasonably short order. I am willing to forgo supporting
->>>> some configuration options to reduce the project time. In
->>>> particular, I hope to avoid mucking up other people's code
->>>> as that is a sure fire way to bog a project down.
->>> Usefulness is paramount of course
->> Agreed
->>
->>> and quickness is nice,
->> If it drags on too long the boss gets cranky. And "labelled" NFSv4.2
->> gets done. And the list macros get reworked. And ....
->>
->>> but I do think it takes a back seat to "the right solution".
->> If I had two years and didn't have to worry about anyone else's
->> changes and weren't beholden to retaining some of the past's more
->> interesting design choices I'd be more concerned about "right" than
->> "good".
->>
->>> We're all going to have to live with this f-o-r-e-v-e-r,
->> Assuming it gets adopted. It will have to be good enough for that.
->> There is no guarantee on that.
->>
->>> or at least what will surely seem like it, so I'd much rather we take the
->>> time to make sure we beat out as much ugly as we can before it is merged.
->> I'm with you there. I just hope the ugly hasn't been lifting weights.
-> February is "fitness month".
-
-
++	if (skb->len <= tcp_hdrlen(skb) &&
++	    skb_queue_len(&tp->ucopy.prequeue) == 0)
++		return false;
++
+ 	__skb_queue_tail(&tp->ucopy.prequeue, skb);
+ 	tp->ucopy.memory += skb->truesize;
+ 	if (tp->ucopy.memory > sk->sk_rcvbuf) {
