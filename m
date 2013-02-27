@@ -1,75 +1,41 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [RFC PATCH 0/5] net: low latency Ethernet device polling
-Date: Wed, 27 Feb 2013 22:40:03 +0200
-Message-ID: <512E6F23.3090003@linux.intel.com>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com> <512E654A.2010209@hp.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] sctp: check len in sctp_getsockopt_assoc_stats()
+Date: Wed, 27 Feb 2013 23:41:44 +0300
+Message-ID: <20130227204144.GA11300@longonot.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <512E654A.2010209@hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>,
+	Michele Baldessari <michele@acksyn.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25602 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757251Ab3B0UnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:43:07 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 27/02/2013 21:58, Rick Jones wrote:
-> On 02/27/2013 09:55 AM, Eliezer Tamir wrote:
->>
->> Performance numbers:
->> Kernel   Config     C3/6  rx-usecs  TCP  UDP
->> 3.8rc6   typical    off   adaptive  37k  40k
->> 3.8rc6   typical    off   0*        50k  56k
->> 3.8rc6   optimized  off   0*        61k  67k
->> 3.8rc6   optimized  on    adaptive  26k  29k
->> patched  typical    off   adaptive  70k  78k
->> patched  optimized  off   adaptive  79k  88k
->> patched  optimized  off   100       84k  92k
->> patched  optimized  on    adaptive  83k  91k
->> *rx-usecs=0 is usually not useful in a production environment.
->
-> I would think that latency-sensitive folks would be using rx-usecs=0 in
-> production - at least if the NIC in use didn't have low enough latency
-> with its default interrupt coalescing/avoidance heuristics.
+This check is missing an upper bound.
 
-It will only work well if you have no bulk traffic on the same port as 
-the low latency traffic at all.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+This should go in 3.8 -stable as well.
 
-> If I take the first "pure" A/B comparison it seems that the change as
-> benchmarked takes latency for TCP from ~27 usec (37k) to ~14 usec (70k).
->   At what request/response size does the benefit taper-off?  13 usec
-> seems to be about 16250 bytes at 10 GbE.
-
-It's pretty easy to get a result of 80K+ with a little tweaking, an 
-rx-usecs value of 100 with C3/6 enabled will get you that.
-
-> When I last looked at netperf TCP_RR performance where something similar
-> could happen I think it was IPoIB where it was possible to set things up
-> such that polling happened rather than wakeups (perhaps it was with a
-> shim library that converted netperf's socket calls to "native" IB).  My
-> recollection is that it "did a number" on the netperf service demands
-> thanks to the spinning.  It would be a good thing to include those
-> figures in any subsequent rounds of benchmarking.
-
-I will get service demand numbers, but we are busy polling so I can tell 
-you right now that one core will be at 100%.
-
-> Am I correct in assuming this is a mechanism which would not be used in
-> a high aggregate PPS situation?
-
-The current design has in mind situations where you want to react very 
-fast to a trigger but that reaction could involve more than short 
-messages. so we are willing to burn CPU cycles when there is nothing 
-better to do, but we also want to work well when there is bulk traffic.
-Ideally I would want the system to be smart about this and to know when 
-not to allow busy polling.
-
-> happy benchmarking,
-we love netperf.
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index c99458d..fbd8386 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5652,6 +5652,8 @@ static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
+ 	/* User must provide at least the assoc id */
+ 	if (len < sizeof(sctp_assoc_t))
+ 		return -EINVAL;
++	if (len > sizeof(struct sctp_assoc_stats))
++		len = sizeof(struct sctp_assoc_stats);
+ 
+ 	if (copy_from_user(&sas, optval, len))
+ 		return -EFAULT;
