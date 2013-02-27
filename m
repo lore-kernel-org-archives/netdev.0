@@ -1,54 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC PATCH 0/5] net: low latency Ethernet device polling
-Date: Wed, 27 Feb 2013 13:42:41 -0800
-Message-ID: <512E7DD1.1010209@candelatech.com>
-References: <20130227175549.10611.82188.stgit@gitlad.jf.intel.com> <512E654A.2010209@hp.com> <512E6F23.3090003@linux.intel.com>
+From: David Ward <david.ward@ll.mit.edu>
+Subject: [PATCH iproute2] ip/iptunnel: Fix incorrect syntax in man page
+Date: Wed, 27 Feb 2013 17:58:15 -0500
+Message-ID: <1362005895-8460-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Eliezer Tamir <eliezer.tamir@linux.jf.intel.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Dave Miller <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <512E6F23.3090003@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Andreas Henriksson <andreas@fatal.se>,
+	David Ward <david.ward@ll.mit.edu>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:37274 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751991Ab3B0XXg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2013 18:23:36 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2013 12:40 PM, Eliezer Tamir wrote:
-> On 27/02/2013 21:58, Rick Jones wrote:
->> On 02/27/2013 09:55 AM, Eliezer Tamir wrote:
->>>
->>> Performance numbers:
->>> Kernel   Config     C3/6  rx-usecs  TCP  UDP
->>> 3.8rc6   typical    off   adaptive  37k  40k
->>> 3.8rc6   typical    off   0*        50k  56k
->>> 3.8rc6   optimized  off   0*        61k  67k
->>> 3.8rc6   optimized  on    adaptive  26k  29k
->>> patched  typical    off   adaptive  70k  78k
->>> patched  optimized  off   adaptive  79k  88k
->>> patched  optimized  off   100       84k  92k
->>> patched  optimized  on    adaptive  83k  91k
->>> *rx-usecs=0 is usually not useful in a production environment.
->>
->> I would think that latency-sensitive folks would be using rx-usecs=0 in
->> production - at least if the NIC in use didn't have low enough latency
->> with its default interrupt coalescing/avoidance heuristics.
->
-> It will only work well if you have no bulk traffic on the same port as the low latency traffic at all.
+Reported-by: Andreas Henriksson <andreas@fatal.se>
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+---
+ man/man8/ip-tunnel.8 |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Have you done any tests for bulk throughput with busy-poll?  Yes, it will eat a core,
-but that might be worth it in some cases if there was significant throughput increase...
-
-Thanks,
-Ben
-
+diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
+index b408517..3e558b0 100644
+--- a/man/man8/ip-tunnel.8
++++ b/man/man8/ip-tunnel.8
+@@ -60,9 +60,9 @@ ip-tunnel - tunnel configuration
+ .IR TOS " := { " STRING " | " 00 ".." ff " |"
+ .BR inherit " |"
+ .BI "inherit/" STRING
+-.R " |"
++.RB "|"
+ .BI "inherit/" 00 ".." ff
+-.R " }"
++.RB "}"
+ 
+ .ti -8
+ .IR ELIM " := {"
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.1
