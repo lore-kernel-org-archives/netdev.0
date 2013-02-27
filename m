@@ -1,101 +1,148 @@
-From: nello martuscielli <ppc.addon@gmail.com>
-Subject: Re: iproute-3.8.0 build error on Linux ppc64
-Date: Wed, 27 Feb 2013 06:39:35 +0100
-Message-ID: <CABMX=Wwfsn6GSc1NSw1zc1V9z12x2Z7HJ9-KxL=NiYFuCV-7BA@mail.gmail.com>
-References: <CABMX=WwSNeTq_ascBRxJtQrsErR-cFODZQh_wrim6K8weyLDtQ@mail.gmail.com>
-	<CABMX=WwQNmNPsfZHvMYq9p9W_Q1RbZ=bpTCcv5AN=wD0CGSqmQ@mail.gmail.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [RFC PATCH] core: Add ioctls to control device unicast hw
+ addresses
+Date: Wed, 27 Feb 2013 05:42:21 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E2D2E1A@avmb2.qlogic.org>
+References: <512D9337.6070504@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: John Fastabend <john.fastabend@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: John Fastabend <john.r.fastabend@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f48.google.com ([209.85.212.48]:41787 "EHLO
-	mail-vb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750992Ab3B0Fjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 00:39:36 -0500
-Received: by mail-vb0-f48.google.com with SMTP id fc21so14503vbb.35
-        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 21:39:35 -0800 (PST)
-In-Reply-To: <CABMX=WwQNmNPsfZHvMYq9p9W_Q1RbZ=bpTCcv5AN=wD0CGSqmQ@mail.gmail.com>
+Received: from co1ehsobe004.messaging.microsoft.com ([216.32.180.187]:25780
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750803Ab3B0Fm0 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2013 00:42:26 -0500
+In-Reply-To: <512D9337.6070504@intel.com>
+Content-Language: en-US
+Content-ID: <A4AE0EC17B2B3246B9959E44D5EFF697@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sorry, it was the previous commit about -Werror
-
- thanks,
- Nell
 
 
+On 2/26/13 9:01 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
 
-On Wed, Feb 27, 2013 at 6:15 AM, nello martuscielli <ppc.addon@gmail.com> wrote:
-> hi,
-> after  commit:
-> http://git.kernel.org/?p=linux/kernel/git/shemminger/iproute2.git;a=commitdiff;h=6398d3a65277a2ebed085ad9deef15fea6f4ed09
+>On 2/26/2013 6:27 PM, Vlad Yasevich wrote:
+>> On 02/26/2013 09:07 PM, John Fastabend wrote:
+>>> On Tue, Feb 26, 2013 at 05:15:03PM -0500, David Miller wrote:
+>>>> From: John Fastabend <john.r.fastabend@intel.com>
+>>>> Date: Tue, 26 Feb 2013 13:58:39 -0800
+>>>>
+>>>>> [...]
+>>>>>
+>>>>>>>>
+>>>>>>>>
+>>>>>>>> [RFC PATCH] rtnetlink: Add support for adding/removing additional
+>>>>>>>>hw
+>>>>>>>> addresses.
+>>>>>>>>
+>>>>>>>> Add an ability to add and remove HW addresses to the device
+>>>>>>>> unicast and multicast address lists.  Right now, we only have
+>>>>>>>> an ioctl() to manage the multicast addresses and there is no
+>>>>>>>> way the manage the unicast list.
+>>>>>>>>
+>>>>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>>>>>>
+>>>>>>> This is a step in the right direction, and you're right that there
+>>>>>>>is
+>>>>>>> a difficulty in detecting whether support exists or not.
+>>>>>>>
+>>>>>>> I am so surprised that we've have ->set_rx_mode() support for
+>>>>>>> multiple
+>>>>>>> unicast MAC addresses in so many drivers all this time, yet no way
+>>>>>>> outside of FDB to make use of it at all.
+>>>>>>
+>>>>>> And even that is not always available.  In most drivers it requires
+>>>>>> module parameters or other explicit configuration steps.  Meanwhile
+>>>>>> set_rx_mode() doesn't seem to depend on any of those and just does
+>>>>>>the
+>>>>>> right thing.
+>>>>>>
+>>>>>> For what I was trying to do ioctl() was a really easy way out for
+>>>>>>both
+>>>>>> kernel and user space implementation, so I gave is shot.
+>>>>>>
+>>>>>> -vlad
+>>>>>>
+>>>>>
+>>>>> Don't we already support this with
+>>>>
+>>>> The whole point is that these multiple-unicast-address configuration
+>>>> facilities are inaccessible without FDB, and there is no reason
+>>>> whatsoever for that.
+>>>
+>>> Yes I see now sorry I was behind the thread.
+>>>
+>>> We could just use the fdb hooks and add a dflt routine to handle the
+>>> case where the netdev doesn't provide a specific ndo_op for us. This
+>>> boils down to calling set_rx_mode anyways through this call chain,
+>>>
+>>>     ndo_fdb_add
+>>>     dev_uc_add_excl
+>>>         __dev_set_rx_mode
+>>>             ndo_set_rx_mode
+>>>
+>>> As long as folks don't think this is too much of an abuse of the fdb
+>>> hooks. Here's an example I only compile tested this so take it as
+>>> an example only. It probably needs some cleanups and the dump routine
+>>> needs some thought not sure you want to dump all MACs always.
+>>
+>> I thought about doing, but this becomes broken on the drivers that
+>> support ndo_fdb_* functions.  Those drivers mainly require additional
+>> configuration that is not necessary for dev_uc_add_excl() to work.
+>>
+>> For example, ixgbe and melanox requires VF to be on, qlogic needs a
+>> module parameter, macvlan has to be in passthrough.  However,
+>> ndo_set_rx_mode() in most cases doesn't care about those settings and
+>> just works.
+>>
 >
-> specifically -Wmissing-prototypes and I get this error on Linux ppc64
+>The ixgbe piece could just use the dflt routines I put below. The
+>SR-IOV check is only there because when I wrote that I didn't consider
+>adding additional addresses without VFs. This was a poor example.
 >
-> [...]
-> gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
-> -Wmissing-declarations -Wold-style-definition -O2 -I../include
-> -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
-> -D_GNU_SOURCE   -c -o ipneigh.o ipneigh.c
-> gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
-> -Wmissing-declarations -Wold-style-definition -O2 -I../include
-> -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
-> -D_GNU_SOURCE   -c -o ipntable.o ipntable.c
-> cc1: warnings being treated as errors
-> ipntable.c: In function 'print_ntable':
-> ipntable.c:435:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:488:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:492:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:496:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:505:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:509:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:539:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:543:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:551:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:563:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:564:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:565:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:570:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:571:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:572:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:577:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:578:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:583:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> ipntable.c:584:3: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> make[1]: *** [ipntable.o] Error 1
-> make[1]: Leaving directory `/root/iproute2-3.8.0/ip'
-> make: *** [all] Error 2
+>The mlx4 card is checking if the device is a slave or master before
+>adding/removing addresses. My guess is this is the same type of check
+>as ixgbe and would work just fine without it.
 >
+>I'm not sure macvlan supports unicast hw addresses either way but
+>there is no reason we couldn't. The idea was we would come back and
+>write it later. Like many things I haven't got to it yet.
 >
-> my system is IBM POWER4+ with a CRUX PPC 3.0alpha (64bit).
->
->
-> thanks,
-> Nell
-> --
-> my blog: http://linuxpowerpc.blogspot.com/
+>Calling set_rx_mode() on qlcnic doesn't look to help you at all either
+>it appears to ignore the uc_list either way.
 
-
-
--- 
---
-Power Mac G4 AGP 450MHz - CRUX PPC (32bit)
+Even though we use module parameter for fdb but it would be good it have
+set_rx_mode().
+We don't ignore uc_list but it never called set_rx_mode() when I use
+dev_uc_add_excl when added support and thought that's how it might
+designed.
+  
+-Jiten
+>
+>is that all the callers? looks like it.
+>
+>> So fdb will not always work even if the driver has proper support for
+>> IFF_UNICAST_FLT.
+>>
+>
+>The fdb could work if we fix the drivers it seems to me most
+>the cases where it wouldn't work are just lack of foresight or the code
+>isn't there yet. I think it might be valuable to have a single API for
+>both use cases.
+>
+>.John
+>
+>> -vlad
+>>
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
