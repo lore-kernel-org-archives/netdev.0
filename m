@@ -1,80 +1,70 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Fwd: [linux] [PATCH] ATH6KL: "Fix the byte alignment rule to avoid
- loss of bytes in a TCP segment" (#27)
-Date: Wed, 27 Feb 2013 09:19:09 -0800
-Message-ID: <CA+55aFxmE+hEm53f2gjFetNREW6J8X1GfpzeVxhHnECC-h6D7Q@mail.gmail.com>
-References: <torvalds/linux/pull/27@github.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: LSM stacking and the network access controls
+Date: Wed, 27 Feb 2013 12:31:22 -0500
+Message-ID: <7528811.sQvF0CQ3Ma@sifl>
+References: <1803195.0cVPJuGAEx@sifl> <9802466.KDjcZ61qbX@sifl> <512E39A6.1000804@schaufler-ca.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Myoungje Kim <mjei78@gmail.com>
-To: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f171.google.com ([209.85.128.171]:49666 "EHLO
-	mail-ve0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927Ab3B0RTK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 12:19:10 -0500
-Received: by mail-ve0-f171.google.com with SMTP id b10so846401vea.30
-        for <netdev@vger.kernel.org>; Wed, 27 Feb 2013 09:19:09 -0800 (PST)
-In-Reply-To: <torvalds/linux/pull/27@github.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, Andy King <acking@vmware.com>,
+	Gerd Hoffmann <kraxel@redhat.com>,
+	Eric Paris <eparis@redhat.com>
+To: Casey Schaufler <casey@schaufler-ca.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <512E39A6.1000804@schaufler-ca.com>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-"How do I hate GitHub pull requests? Let me count the ways...."
+On Wednesday, February 27, 2013 08:51:50 AM Casey Schaufler wrote:
+> On 2/27/2013 8:43 AM, Paul Moore wrote:
+> > On Tuesday, February 26, 2013 03:12:31 PM Casey Schaufler wrote:
+> >> On 2/26/2013 1:21 PM, Paul Moore wrote:
+> >>> On Monday, February 25, 2013 03:06:14 PM Casey Schaufler wrote:
+> >>>> The set of LSMs, the order they are invoked, which LSM
+> >>>> uses /proc/.../attr/current and which LSM uses Netlabel,
+> >>>> XFRM and secmark are all determined by Kconfig. You can
+> >>>> specify a limited set of LSMs using security= at boot,
+> >>>> but not the networking configuration.
+> >>> 
+> >>> That's unfortunate.  I'm _really_ not in favor of that, I would much
+> >>> rather see the non-shared LSM functionality assigned at the same time as
+> >>> the stacking order.  I'm not sure I'd NACK the current approach, or
+> >>> even\
+> >>> if anyone would care that I did, but that is how I'm currently leaning
+> >>> with this split (build vs runtime) selection.
+> >> 
+> >> I'm not against that approach. How would you see it working?
+> >> 
+> >> The distro compiles in all the LSMs.
+> >> They specify that SELinux gets xfrm and secmark.
+> >> They specify the Smack gets Netlabel.
+> >> They tell (the new and improved) AppArmor to eschew networking.
+> >> They specify a boot order of "selinux,smack,apparmor,yama"
+> >> (They left off tomoyo for tax purposes).
+> >> 
+> >> On the boot line, the user types "security=apparmor".
+> >> 
+> >> What should happen?
+> > 
+> > Okay, I misunderstood what was specified at boot time; I thought the
+> > stacking order could be defined at boot but based on your example I'm
+> > guessing the stacking order is defined at compile time and you can only
+> > enable/disable LSMs at boot?
+> 
+> Well, no. It looks as if I gave a poor example.
+> 
+> 	"security=apparmor,tomoyo,selinux"
+> 
+> is legitimate and indicates that AppArmor goes first,
+> then TOMOYO, then SELinux. No LSM gets NetLabel because
+> that was allocated to Smack. SELinux gets XFRM and secmark.
 
-That said, the bug description alone makes this worth forwarding,
-despite the cluelessness of GitHub pull requests. Myoungje Kim spent
-some time explaining the issue, so while I despise the github pull
-request format, I'm not faulting the effort spent on describing the
-patch.
+All the more reason to either adopt a mechanism that allows you to assign the 
+non-shareable resources on the command line along with the stacking 
+configuration or simply adopt a first-come-first-serve policy.
 
-                  Linus
+-- 
+paul moore
+security and virtualization @ redhat
 
----------- Forwarded message ----------
-From: Steven Kim <notifications@github.com>
-Date: Tue, Feb 26, 2013 at 9:17 PM
-Subject: [linux] [PATCH] ATH6KL: "Fix the byte alignment rule to avoid
-loss of bytes in a TCP segment" (#27)
-To: torvalds/linux <linux@noreply.github.com>
-
-
-I found the driver bug which occur loss of some bytes on the TCP/IP stack.
-
-Either first 3 bytes of the first received tcp segment or last one
-over MTU size file can be loss due to the byte alignment problem.
-Although ATH6KL_HTC_ALIGN_BYTES was defined
-for 'extra bytes for htc header alignment'
-in the patch "Fix buffer alignment for scatter-gather I/O"(1df94a8),
-there exists the bytes loss issue which means that it will be truncated
-3 bytes in the transmitted file contents if a file which
-has over MTU size is transferred through TCP/IP stack.
-It doesn't look like TCP/IP stack bug of 3.5 or the latest version of
-kernel but the byte alignment issue.
-This patch is to use the roundup() function for the byte alignment
-rather than the predefined ATH6KL_HTC_ALIGN_BYTES.
-
-Signed-off-by: Myoungje Kim mjei78@gmail.com
-
-________________________________
-
-You can merge this Pull Request by running
-
-  git pull https://github.com/kingpotato/linux master
-
-Or view, comment on, or merge it at:
-
-  https://github.com/torvalds/linux/pull/27
-
-Commit Summary
-
-ath6kl: Fix the byte alignment rule to avoid loss of bytes in a TCP segment
-
-File Changes
-
-M drivers/net/wireless/ath/ath6kl/init.c (4)
-M drivers/net/wireless/ath/ath6kl/main.c (4)
-
-Patch Links:
-
-https://github.com/torvalds/linux/pull/27.patch
-https://github.com/torvalds/linux/pull/27.diff
