@@ -1,237 +1,185 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH] core: Add ioctls to control device unicast hw addresses
-Date: Tue, 26 Feb 2013 21:27:51 -0500
-Message-ID: <512D6F27.90209@redhat.com>
-References: <20130226.150309.1215210522427869530.davem@davemloft.net> <512D1A01.9020301@redhat.com> <512D300F.20405@intel.com> <20130226.171503.1736601811583226926.davem@davemloft.net> <20130227020744.GA25063@nitbit.x32>
+Subject: Re: [PATCH 4/4] sctp: fix association hangs due to partial delivery
+ errors
+Date: Tue, 26 Feb 2013 21:34:56 -0500
+Message-ID: <512D70D0.1060208@redhat.com>
+References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com> <1361889376-22171-5-git-send-email-lee.roberts@hp.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, john.r.fastabend@intel.com,
-	netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: netdev@vger.kernel.org
+To: "Lee A. Roberts" <lee.roberts@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36928 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9791 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759904Ab3B0C15 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 26 Feb 2013 21:27:57 -0500
-In-Reply-To: <20130227020744.GA25063@nitbit.x32>
+	id S1758699Ab3B0Ce6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 26 Feb 2013 21:34:58 -0500
+In-Reply-To: <1361889376-22171-5-git-send-email-lee.roberts@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2013 09:07 PM, John Fastabend wrote:
-> On Tue, Feb 26, 2013 at 05:15:03PM -0500, David Miller wrote:
->> From: John Fastabend <john.r.fastabend@intel.com>
->> Date: Tue, 26 Feb 2013 13:58:39 -0800
->>
->>> [...]
->>>
->>>>>>
->>>>>>
->>>>>> [RFC PATCH] rtnetlink: Add support for adding/removing additional hw
->>>>>> addresses.
->>>>>>
->>>>>> Add an ability to add and remove HW addresses to the device
->>>>>> unicast and multicast address lists.  Right now, we only have
->>>>>> an ioctl() to manage the multicast addresses and there is no
->>>>>> way the manage the unicast list.
->>>>>>
->>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>>>
->>>>> This is a step in the right direction, and you're right that there is
->>>>> a difficulty in detecting whether support exists or not.
->>>>>
->>>>> I am so surprised that we've have ->set_rx_mode() support for multiple
->>>>> unicast MAC addresses in so many drivers all this time, yet no way
->>>>> outside of FDB to make use of it at all.
->>>>
->>>> And even that is not always available.  In most drivers it requires
->>>> module parameters or other explicit configuration steps.  Meanwhile
->>>> set_rx_mode() doesn't seem to depend on any of those and just does the
->>>> right thing.
->>>>
->>>> For what I was trying to do ioctl() was a really easy way out for both
->>>> kernel and user space implementation, so I gave is shot.
->>>>
->>>> -vlad
->>>>
->>>
->>> Don't we already support this with
->>
->> The whole point is that these multiple-unicast-address configuration
->> facilities are inaccessible without FDB, and there is no reason
->> whatsoever for that.
+On 02/26/2013 09:36 AM, Lee A. Roberts wrote:
+> From: "Lee A. Roberts" <lee.roberts@hp.com>
 >
-> Yes I see now sorry I was behind the thread.
+> Resolve SCTP association hangs observed during SCTP stress
+> testing.  Observable symptoms include communications hangs
+> with data being held in the association reassembly and/or lobby
+> (ordering) queues.  Close examination of reassembly queue shows
+> missing packets.
 >
-> We could just use the fdb hooks and add a dflt routine to handle the
-> case where the netdev doesn't provide a specific ndo_op for us. This
-> boils down to calling set_rx_mode anyways through this call chain,
+> In sctp_ulpq_tail_data(), use return values 0,1 to indicate whether
+> a complete event (with MSG_EOR set) was delivered.  A return value
+> of -ENOMEM continues to indicate an out-of-memory condition was
+> encountered.
 >
->     ndo_fdb_add
-> 	dev_uc_add_excl
-> 		__dev_set_rx_mode
-> 			ndo_set_rx_mode
+> In sctp_ulpq_retrieve_partial() and sctp_ulpq_retrieve_first(),
+> correct message reassembly logic for SCTP partial delivery.
+> Change logic to ensure that as much data as possible is sent
+> with the initial partial delivery and that following partial
+> deliveries contain all available data.
 >
-> As long as folks don't think this is too much of an abuse of the fdb
-> hooks. Here's an example I only compile tested this so take it as
-> an example only. It probably needs some cleanups and the dump routine
-> needs some thought not sure you want to dump all MACs always.
+> In sctp_ulpq_partial_delivery(), attempt partial delivery only
+> if the data on the head of the reassembly queue is at or before
+> the cumulative TSN ACK point.
+>
+> In sctp_ulpq_renege(), use the modified return values from
+> sctp_ulpq_tail_data() to choose whether to attempt partial
+> delivery or to attempt to drain the reassembly queue as a
+> means to reduce memory pressure.  Remove call to
+> sctp_tsnmap_mark(), as this is handled correctly in call to
+> sctp_ulpq_tail_data().
+>
+> Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
+> ---
+>   net/sctp/ulpqueue.c |   54 ++++++++++++++++++++++++++++++++++++++++-----------
+>   1 file changed, 43 insertions(+), 11 deletions(-)
+>
+> diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+> index f221fbb..482e3ea 100644
+> --- a/net/sctp/ulpqueue.c
+> +++ b/net/sctp/ulpqueue.c
+> @@ -106,6 +106,7 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
+>   {
+>   	struct sk_buff_head temp;
+>   	struct sctp_ulpevent *event;
+> +	int event_eor = 0;
+>
+>   	/* Create an event from the incoming chunk. */
+>   	event = sctp_ulpevent_make_rcvmsg(chunk->asoc, chunk, gfp);
+> @@ -127,10 +128,12 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
+>   	/* Send event to the ULP.  'event' is the sctp_ulpevent for
+>   	 * very first SKB on the 'temp' list.
+>   	 */
+> -	if (event)
+> +	if (event) {
+> +		event_eor = (event->msg_flags & MSG_EOR) ? 1 : 0;
+>   		sctp_ulpq_tail_event(ulpq, event);
+> +	}
 
-I thought about doing, but this becomes broken on the drivers that 
-support ndo_fdb_* functions.  Those drivers mainly require additional 
-configuration that is not necessary for dev_uc_add_excl() to work.
+You can re-use the check just before this one to catch the EOR 
+condition.   You already do
+	if ((event) && (event->msg_flags & MSG_EOR)){
 
-For example, ixgbe and melanox requires VF to be on, qlogic needs a 
-module parameter, macvlan has to be in passthrough.  However, 
-ndo_set_rx_mode() in most cases doesn't care about those settings and 
-just works.
+right after you try to get a reassembled event.
 
-So fdb will not always work even if the driver has proper support for
-IFF_UNICAST_FLT.
-
+Everything else looks good.
 -vlad
 
 >
->
-> [RFC PATCH] net: fdb: generic set support for drivers without ndo_op
->
-> If the driver does not support the ndo_op use the generic
-> handler for it. This should work in the majority of cases.
-> Eventually the fdb_dflt_add call gets translated into a
-> __dev_set_rx_mode() call which should handle hardware
-> support for filtering via the IFF_UNICAST_FLT flag.
->
-> Namely IFF_UNICAST_FLT indicates if the hardware can do
-> unicast address filtering. If no support is available
-> the device is put into promisc mode.
->
-> It looks like we likely also need IFF_MULTICAST_FLT and
-> also tighten up how drivers handle multicast filters. But
-> thats another patch.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->   net/core/rtnetlink.c |   80 ++++++++++++++++++++++++++++++++++++++++++++++----
->   1 file changed, 74 insertions(+), 6 deletions(-)
->
-> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-> index d8aa20f..d1c6f71 100644
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -2049,6 +2049,37 @@ errout:
->   	rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
+> -	return 0;
+> +	return event_eor;
 >   }
 >
-> +/**
-> + * ndo_dflt_fdb_add - default netdevice operation to add an FDB entry
-> + */
-> +static int ndo_dflt_fdb_add(struct ndmsg *ndm,
-> +			    struct nlattr *tb[],
-> +			    struct net_device *dev,
-> +			    const unsigned char *addr,
-> +			    u16 flags)
-> +{
-> +	int err = -EINVAL;
+>   /* Add a new event for propagation to the ULP.  */
+> @@ -540,14 +543,19 @@ static struct sctp_ulpevent *sctp_ulpq_retrieve_partial(struct sctp_ulpq *ulpq)
+>   		ctsn = cevent->tsn;
+>
+>   		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
+> +		case SCTP_DATA_FIRST_FRAG:
+> +			if (!first_frag)
+> +				return NULL;
+> +			goto done;
+>   		case SCTP_DATA_MIDDLE_FRAG:
+>   			if (!first_frag) {
+>   				first_frag = pos;
+>   				next_tsn = ctsn + 1;
+>   				last_frag = pos;
+> -			} else if (next_tsn == ctsn)
+> +			} else if (next_tsn == ctsn) {
+>   				next_tsn++;
+> -			else
+> +				last_frag = pos;
+> +			} else
+>   				goto done;
+>   			break;
+>   		case SCTP_DATA_LAST_FRAG:
+> @@ -651,6 +659,14 @@ static struct sctp_ulpevent *sctp_ulpq_retrieve_first(struct sctp_ulpq *ulpq)
+>   			} else
+>   				goto done;
+>   			break;
 > +
-> +	/* If aging addresses are supported device will need to
-> +	 * implement its own handler for this.
+> +		case SCTP_DATA_LAST_FRAG:
+> +			if (!first_frag)
+> +				return NULL;
+> +			else
+> +				goto done;
+> +			break;
+> +
+>   		default:
+>   			return NULL;
+>   		}
+> @@ -1025,16 +1041,28 @@ void sctp_ulpq_partial_delivery(struct sctp_ulpq *ulpq,
+>   	struct sctp_ulpevent *event;
+>   	struct sctp_association *asoc;
+>   	struct sctp_sock *sp;
+> +	__u32 ctsn;
+> +	struct sk_buff *skb;
+>
+>   	asoc = ulpq->asoc;
+>   	sp = sctp_sk(asoc->base.sk);
+>
+>   	/* If the association is already in Partial Delivery mode
+> -	 * we have noting to do.
+> +	 * we have nothing to do.
+>   	 */
+>   	if (ulpq->pd_mode)
+>   		return;
+>
+> +	/* Data must be at or below the Cumulative TSN ACK Point to
+> +	 * start partial delivery.
 > +	 */
-> +	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
-> +		pr_info("%s: FDB only supports static addresses\n", dev->name);
-> +		return err;
+> +	skb = skb_peek(&asoc->ulpq.reasm);
+> +	if (skb != NULL) {
+> +		ctsn = sctp_skb2event(skb)->tsn;
+> +		if (!TSN_lte(ctsn, sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map)))
+> +			return;
 > +	}
 > +
-> +	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
-> +		err = dev_uc_add_excl(dev, addr);
-> +	else if (is_multicast_ether_addr(addr))
-> +		err = dev_mc_add_excl(dev, addr);
-> +
-> +	/* Only return duplicate errors if NLM_F_EXCL is set */
-> +	if (err == -EEXIST && !(flags & NLM_F_EXCL))
-> +		err = 0;
-> +
-> +	return err;
-> +}
-> +
->   static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
->   {
->   	struct net *net = sock_net(skb->sk);
-> @@ -2101,10 +2132,14 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+>   	/* If the user enabled fragment interleave socket option,
+>   	 * multiple associations can enter partial delivery.
+>   	 * Otherwise, we can only enter partial delivery if the
+> @@ -1077,12 +1105,16 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
+>   	}
+>   	/* If able to free enough room, accept this chunk. */
+>   	if (chunk && (freed >= needed)) {
+> -		__u32 tsn;
+> -		tsn = ntohl(chunk->subh.data_hdr->tsn);
+> -		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn, chunk->transport);
+> -		sctp_ulpq_tail_data(ulpq, chunk, gfp);
+> -
+> -		sctp_ulpq_partial_delivery(ulpq, gfp);
+> +		int retval;
+> +		retval = sctp_ulpq_tail_data(ulpq, chunk, gfp);
+> +		/*
+> +		 * Enter partial delivery if chunk has not been
+> +		 * delivered; otherwise, drain the reassembly queue.
+> +		 */
+> +		if (retval <= 0)
+> +			sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
+> +		else if (retval == 1)
+> +			sctp_ulpq_reasm_drain(ulpq);
 >   	}
 >
->   	/* Embedded bridge, macvlan, and any other device support */
-> -	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_add) {
-> -		err = dev->netdev_ops->ndo_fdb_add(ndm, tb,
-> -						   dev, addr,
-> -						   nlh->nlmsg_flags);
-> +	if ((ndm->ndm_flags & NTF_SELF)) {
-> +		if (dev->netdev_ops->ndo_fdb_add)
-> +			err = dev->netdev_ops->ndo_fdb_add(ndm, tb,
-> +						   	   dev, addr,
-> +						   	   nlh->nlmsg_flags);
-> +		else
-> +			err = ndo_dflt_fdb_add(ndm, tb, dev, addr,
-> +					       nlh->nlmsg_flags);
->
->   		if (!err) {
->   			rtnl_fdb_notify(dev, addr, RTM_NEWNEIGH);
-> @@ -2115,6 +2150,34 @@ out:
->   	return err;
->   }
->
-> +/**
-> + * ndo_dflt_fdb_del - default netdevice operation to delete an FDB entry
-> + */
-> +static int ndo_dflt_fdb_del(struct ndmsg *ndm,
-> +			    struct nlattr *tb[],
-> +			    struct net_device *dev,
-> +			    const unsigned char *addr)
-> +{
-> +	int err = -EOPNOTSUPP;
-> +
-> +	/* If aging addresses are supported device will need to
-> +	 * implement its own handler for this.
-> +	 */
-> +	if (ndm->ndm_state & NUD_PERMANENT) {
-> +		pr_info("%s: FDB only supports static addresses\n", dev->name);
-> +		return -EINVAL;
-> +	}
-> +
-> +	if (is_unicast_ether_addr(addr))
-> +		err = dev_uc_del(dev, addr);
-> +	else if (is_multicast_ether_addr(addr))
-> +		err = dev_mc_del(dev, addr);
-> +	else
-> +		err = -EINVAL;
-> +
-> +	return err;
-> +}
-> +
->   static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
->   {
->   	struct net *net = sock_net(skb->sk);
-> @@ -2172,8 +2235,11 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
->   	}
->
->   	/* Embedded bridge, macvlan, and any other device support */
-> -	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_del) {
-> -		err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
-> +	if (ndm->ndm_flags & NTF_SELF) {
-> +		if (dev->netdev_ops->ndo_fdb_del)
-> +			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
-> +		else
-> +			err = ndo_dflt_fdb_del(ndm, tb, dev, addr);
->
->   		if (!err) {
->   			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
-> @@ -2258,6 +2324,8 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
->
->   		if (dev->netdev_ops->ndo_fdb_dump)
->   			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
-> +		else
-> +			ndo_dflt_fdb_dump(skb, cb, dev, idx);
->   	}
->   	rcu_read_unlock();
->
+>   	sk_mem_reclaim(asoc->base.sk);
 >
