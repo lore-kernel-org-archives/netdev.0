@@ -1,70 +1,71 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v2] net/sctp: Validate parameter size for SCTP_GET_ASSOC_STATS
-Date: Wed, 27 Feb 2013 12:57:31 -0800
-Message-ID: <1361998651-19354-1-git-send-email-linux@roeck-us.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH] net/sctp: Validate parameter size for SCTP_GET_ASSOC_STATS
+ control message
+Date: Wed, 27 Feb 2013 15:58:04 -0500
+Message-ID: <512E735C.10600@redhat.com>
+References: <1361994231-5355-1-git-send-email-linux@roeck-us.net> <20130227.153344.2178498124458359369.davem@davemloft.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-7;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Guenter Roeck <linux@roeck-us.net>
-To: netdev@vger.kernel.org
+Cc: linux@roeck-us.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, vyasevich@gmail.com, sri@us.ibm.com,
+	nhorman@tuxdriver.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.active-venture.com ([67.228.131.205]:59789 "EHLO
-	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750955Ab3B0U5k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:57:40 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:46795 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752599Ab3B0U6X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2013 15:58:23 -0500
+In-Reply-To: <20130227.153344.2178498124458359369.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Building sctp may fail with:
+On 02/27/2013 03:33 PM, David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Wed, 27 Feb 2013 11:43:51 -0800
+>
+>> Building sctp may fail with:
+>>
+>> In function =A1copy_from_user=A2,
+>>      inlined from =A1sctp_getsockopt_assoc_stats=A2 at
+>>      net/sctp/socket.c:5656:20:
+>> arch/x86/include/asm/uaccess_32.h:211:26: error: call to
+>>      =A1copy_from_user_overflow=A2 declared with attribute error: co=
+py_from_user()
+>>      buffer size is not provably correct
+>>
+>> if built with W=3D1 due to a missing parameter size validation.
+>>
+>> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+>
+> This change is correct, but please fix this by simply moving the:
+>
+> 	/* Allow the struct to grow and fill in as much as possible */
+> 	len =3D min_t(size_t, len, sizeof(sas));
+>
+> line higher up in the function.
+>
+> And I also prefer this because:
+>
+> 	something testing sizeof(foo);
+> 	if (copy_from_user(..., ..., sizeof(foo)))
+>
+> must easier to audit and validate, especially in patch form.
+>
+> Otherwise I have to bring the code into an editor and read the whole
+> function just to make sure you got the type correct.
 
-In function =E2=80=98copy_from_user=E2=80=99,
-    inlined from =E2=80=98sctp_getsockopt_assoc_stats=E2=80=99 at
-    net/sctp/socket.c:5656:20:
-arch/x86/include/asm/uaccess_32.h:211:26: error: call to
-    =E2=80=98copy_from_user_overflow=E2=80=99 declared with attribute e=
-rror: copy_from_user()
-    buffer size is not provably correct
+Right.  In this particular case, we are after a very small portion of=20
+user data (just the association id) and copying the entire structure is
+rather pointless.
 
-if built with W=3D1 due to a missing parameter size validation
-before the call to copy_from_user.
+A nicer solution here would be to do this:
+	 if (copy_from_user(&sas, optval, sizeof(sctp_assoc_t))
 
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
-v2: Fix by moving the existing parameter size validation up
-    in the function instead of adding an additional one.
+We are already guaranteed that much space and we make sure that we don'=
+t=20
+overwrite the kernel stack.
 
- net/sctp/socket.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index cedd9bf..9ef5c73 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -5653,6 +5653,9 @@ static int sctp_getsockopt_assoc_stats(struct soc=
-k *sk, int len,
- 	if (len < sizeof(sctp_assoc_t))
- 		return -EINVAL;
-=20
-+	/* Allow the struct to grow and fill in as much as possible */
-+	len =3D min_t(size_t, len, sizeof(sas));
-+
- 	if (copy_from_user(&sas, optval, len))
- 		return -EFAULT;
-=20
-@@ -5686,9 +5689,6 @@ static int sctp_getsockopt_assoc_stats(struct soc=
-k *sk, int len,
- 	/* Mark beginning of a new observation period */
- 	asoc->stats.max_obs_rto =3D asoc->rto_min;
-=20
--	/* Allow the struct to grow and fill in as much as possible */
--	len =3D min_t(size_t, len, sizeof(sas));
--
- 	if (put_user(len, optlen))
- 		return -EFAULT;
-=20
---=20
-1.7.9.7
+-vlad
