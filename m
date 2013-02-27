@@ -1,38 +1,138 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH] net: dev: deinit list in unregister_netdevice_many
-Date: Wed, 27 Feb 2013 15:31:26 +0800
-Message-ID: <512DB64E.6010103@cn.fujitsu.com>
-References: <1361948391-4906-1-git-send-email-gaofeng@cn.fujitsu.com> <20130227.022125.374228548587492555.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [RFC PATCH] core: Add ioctls to control device unicast hw addresses
+Date: Tue, 26 Feb 2013 23:34:44 -0800
+Message-ID: <512DB714.6090203@gmail.com>
+References: <BECD8E8A1B550B48A1BF97C13991F60E2D2E1A@avmb2.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:4280 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752537Ab3B0Hal (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 02:30:41 -0500
-In-Reply-To: <20130227.022125.374228548587492555.davem@davemloft.net>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:53967 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348Ab3B0Hf2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 02:35:28 -0500
+Received: by mail-oa0-f52.google.com with SMTP id k14so548745oag.11
+        for <netdev@vger.kernel.org>; Tue, 26 Feb 2013 23:35:28 -0800 (PST)
+In-Reply-To: <BECD8E8A1B550B48A1BF97C13991F60E2D2E1A@avmb2.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013/02/27 15:21, David Miller wrote:
-> 
-> mroute_clean_tables() uses the list after unregister_netdevice_many().
+On 02/26/2013 09:42 PM, Jitendra Kalsaria wrote:
 >
+>
+> On 2/26/13 9:01 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
+>
+>> On 2/26/2013 6:27 PM, Vlad Yasevich wrote:
+>>> On 02/26/2013 09:07 PM, John Fastabend wrote:
+>>>> On Tue, Feb 26, 2013 at 05:15:03PM -0500, David Miller wrote:
+>>>>> From: John Fastabend <john.r.fastabend@intel.com>
+>>>>> Date: Tue, 26 Feb 2013 13:58:39 -0800
+>>>>>
+>>>>>> [...]
+>>>>>>
+>>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> [RFC PATCH] rtnetlink: Add support for adding/removing additional
+>>>>>>>>> hw
+>>>>>>>>> addresses.
+>>>>>>>>>
+>>>>>>>>> Add an ability to add and remove HW addresses to the device
+>>>>>>>>> unicast and multicast address lists.  Right now, we only have
+>>>>>>>>> an ioctl() to manage the multicast addresses and there is no
+>>>>>>>>> way the manage the unicast list.
+>>>>>>>>>
+>>>>>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>>>>>>>
+>>>>>>>> This is a step in the right direction, and you're right that there
+>>>>>>>> is
+>>>>>>>> a difficulty in detecting whether support exists or not.
+>>>>>>>>
+>>>>>>>> I am so surprised that we've have ->set_rx_mode() support for
+>>>>>>>> multiple
+>>>>>>>> unicast MAC addresses in so many drivers all this time, yet no way
+>>>>>>>> outside of FDB to make use of it at all.
+>>>>>>>
+>>>>>>> And even that is not always available.  In most drivers it requires
+>>>>>>> module parameters or other explicit configuration steps.  Meanwhile
+>>>>>>> set_rx_mode() doesn't seem to depend on any of those and just does
+>>>>>>> the
+>>>>>>> right thing.
+>>>>>>>
+>>>>>>> For what I was trying to do ioctl() was a really easy way out for
+>>>>>>> both
+>>>>>>> kernel and user space implementation, so I gave is shot.
+>>>>>>>
+>>>>>>> -vlad
+>>>>>>>
+>>>>>>
+>>>>>> Don't we already support this with
+>>>>>
+>>>>> The whole point is that these multiple-unicast-address configuration
+>>>>> facilities are inaccessible without FDB, and there is no reason
+>>>>> whatsoever for that.
+>>>>
+>>>> Yes I see now sorry I was behind the thread.
+>>>>
+>>>> We could just use the fdb hooks and add a dflt routine to handle the
+>>>> case where the netdev doesn't provide a specific ndo_op for us. This
+>>>> boils down to calling set_rx_mode anyways through this call chain,
+>>>>
+>>>>      ndo_fdb_add
+>>>>      dev_uc_add_excl
+>>>>          __dev_set_rx_mode
+>>>>              ndo_set_rx_mode
+>>>>
+>>>> As long as folks don't think this is too much of an abuse of the fdb
+>>>> hooks. Here's an example I only compile tested this so take it as
+>>>> an example only. It probably needs some cleanups and the dump routine
+>>>> needs some thought not sure you want to dump all MACs always.
+>>>
+>>> I thought about doing, but this becomes broken on the drivers that
+>>> support ndo_fdb_* functions.  Those drivers mainly require additional
+>>> configuration that is not necessary for dev_uc_add_excl() to work.
+>>>
+>>> For example, ixgbe and melanox requires VF to be on, qlogic needs a
+>>> module parameter, macvlan has to be in passthrough.  However,
+>>> ndo_set_rx_mode() in most cases doesn't care about those settings and
+>>> just works.
+>>>
+>>
+>> The ixgbe piece could just use the dflt routines I put below. The
+>> SR-IOV check is only there because when I wrote that I didn't consider
+>> adding additional addresses without VFs. This was a poor example.
+>>
+>> The mlx4 card is checking if the device is a slave or master before
+>> adding/removing addresses. My guess is this is the same type of check
+>> as ixgbe and would work just fine without it.
+>>
+>> I'm not sure macvlan supports unicast hw addresses either way but
+>> there is no reason we couldn't. The idea was we would come back and
+>> write it later. Like many things I haven't got to it yet.
+>>
+>> Calling set_rx_mode() on qlcnic doesn't look to help you at all either
+>> it appears to ignore the uc_list either way.
+>
+> Even though we use module parameter for fdb but it would be good it have
+> set_rx_mode().
+> We don't ignore uc_list but it never called set_rx_mode() when I use
+> dev_uc_add_excl when added support and thought that's how it might
+> designed.
+>
+> -Jiten
+>>
 
-You mean list_for_each_entry_safe(c, next, &mrt->mfc_cache_array[i], list)
-in mroute_clean_tables()?
+Hopefully not too off topic but you probably should use dev_uc_add_excl
+in fdb_add and then fix your set_rx_mode() handler to configure the
+uc_list correctly. Not sure what happens today when a unicast addr
+is added to the list for example with macvlan looks like a bug to me.
 
-Isn't this list just a member of struct mfc_cache?
-I can't find the other codes in mroute_clean_tables uses this list
-after unregister_netdevice_many.
 
-> Can you please just stop tinkering in this area?  You are making many
-> careless errors.
-> 
+.John
 
-Ok,I am fine if you drop this patch,just as commit ceaaec98ad99859ac90ac6863ad0a6cd075d8e0e
-said "device is freed without touching its unreg_list". there will be no serious problems
-if we don't have this patch.
+-- 
+John Fastabend         Intel Corporation
