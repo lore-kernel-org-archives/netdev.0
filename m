@@ -1,106 +1,86 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [Suggestion] drivers/isdn: about the loop after call isdn_tty_send_msg
-Date: Wed, 27 Feb 2013 17:32:35 +0800
-Message-ID: <512DD2B3.2070404@asianux.com>
+From: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+Subject: Re: [PATCH] drivers/net/wireless/ath/wil6210: Makefile, only -Werror when no -W* in EXTRA_CFLAGS
+Date: Wed, 27 Feb 2013 11:46:37 +0200
+Message-ID: <1921426.IqHmmMU5eP@lx-vladimir>
+References: <512DADCA.9040609@asianux.com> <1385870.TegBXpTM9i@lx-vladimir> <512DCA59.4040800@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: Greg KH <gregkh@linuxfoundation.org>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	netdev <netdev@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
-	Jiri Slaby <jslaby@suse.cz>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <wil6210@qca.qualcomm.com>,
+	"netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:54723 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932146Ab3B0Jcy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 04:32:54 -0500
+Received: from sabertooth01.qualcomm.com ([65.197.215.72]:53584 "EHLO
+	sabertooth01.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818Ab3B0Jql convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 04:46:41 -0500
+In-Reply-To: <512DCA59.4040800@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Maintainers:
+On Wednesday, February 27, 2013 04:56:57 PM Chen Gang wrote:
+> =E4=BA=8E 2013=E5=B9=B402=E6=9C=8827=E6=97=A5 16:45, Vladimir Kondrat=
+iev =E5=86=99=E9=81=93:
+> > On Wednesday, February 27, 2013 02:55:06 PM Chen Gang wrote:
+> >>
+> >>   When make with EXTRA_CFLAGS=3D-W, it will report error.
+> >>   so give a check in Makefile.
+> >>
+> >> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> >> ---
+> >>  drivers/net/wireless/ath/wil6210/Makefile |    4 +++-
+> >>  1 files changed, 3 insertions(+), 1 deletions(-)
+> >>
+> >> diff --git a/drivers/net/wireless/ath/wil6210/Makefile b/drivers/n=
+et/wireless/ath/wil6210/Makefile
+> >> index 9396dc9..d288eea 100644
+> >> --- a/drivers/net/wireless/ath/wil6210/Makefile
+> >> +++ b/drivers/net/wireless/ath/wil6210/Makefile
+> >> @@ -9,5 +9,7 @@ wil6210-objs +=3D wmi.o
+> >>  wil6210-objs +=3D interrupt.o
+> >>  wil6210-objs +=3D txrx.o
+> >> =20
+> >> -subdir-ccflags-y +=3D -Werror
+> >> +ifeq (, $(findstring -W,$(EXTRA_CFLAGS)))
+> >> +	subdir-ccflags-y +=3D -Werror
+> >> +endif
+> >>  subdir-ccflags-y +=3D -D__CHECK_ENDIAN__
+> >>
+> > Acked-by: Vladimir Kondratiev <qca_vkondrat@qca.qualcomm.com>
+> >=20
+> > Well, agree; -W triggers lots of warnings, I suspect all other plac=
+es that use
+> > -Werror should be problematic. Worth fixing all others? Quick look =
+for v3.8 raises:
+> >=20
+>=20
+>   thank you for your suggestion.
+>   after this patch applied, I will do for others (let you as signed-o=
+f-by, too).
 
-  do we need break out of the loop after call isdn_tty_send_msg ?
-    p is not increased after finish calling isdn_tty_send_msg.
-    and then will loop back to process the p again.
+Perhaps, it would be good idea to fight the original problem.
 
-  do we intend to scan again the string which appended "+M..." ?
+I mean, fix warnings where possible. Example: there are lots of
+"unused parameter" ones. Where it is false warning, add __maybe_unused
+attribute. Like this:
 
-  we also assume "+M..." is a NUL terminated string, is it OK ? (it seems ok)
-
-
-  thanks.
-
-gchen.
-
-
-in drivers/isdn/i4l/isdn_tty.c:
-
-
-3408 static void
-3409 isdn_tty_parse_at(modem_info *info)
-3410 {
-3411         atemu *m = &info->emu;
-3412         char *p;
-3413         char ds[ISDN_MSNLEN];
-3414
-3415 #ifdef ISDN_DEBUG_AT
-3416         printk(KERN_DEBUG "AT: '%s'\n", m->mdmcmd);
-3417 #endif
-3418         for (p = &m->mdmcmd[2]; *p;) {
-3419                 switch (*p) {
-3420                 case ' ':
-3421                         p++;
-3422                         break;
-...
-
-3559                 case '+':
-3560                         p++;
-3561                         switch (*p) {
-3562 #ifdef CONFIG_ISDN_AUDIO
-3563                         case 'F':
-3564                                 p++;
-3565                                 if (isdn_tty_cmd_PLUSF(&p, info))
-3566                                         return;
-3567                                 break;
-3568                         case 'V':
-3569                                 if ((!(m->mdmreg[REG_SI1] & 1)) ||
-3570                                     (m->mdmreg[REG_L2PROT] == ISDN_PROTO_L2_MODEM))
-3571                                         PARSE_ERROR;
-3572                                 p++;
-3573                                 if (isdn_tty_cmd_PLUSV(&p, info))
-3574                                         return;
-3575                                 break;
-3576 #endif                          /* CONFIG_ISDN_AUDIO */
-3577                         case 'S':       /* SUSPEND */
-3578                                 p++;
-3579                                 isdn_tty_get_msnstr(ds, &p);
-3580                                 isdn_tty_suspend(ds, info, m);
-3581                                 break;
-3582                         case 'R':       /* RESUME */
-3583                                 p++;
-3584                                 isdn_tty_get_msnstr(ds, &p);
-3585                                 isdn_tty_resume(ds, info, m);
-3586                                 break;
-3587                         case 'M':       /* MESSAGE */
-3588                                 p++;
-3589                                 isdn_tty_send_msg(info, m, p);
-3590                                 break;
-3591                         default:
-3592                                 PARSE_ERROR;
-3593                         }
-3594                         break;
-3595                 case '&':
-3596                         p++;
-3597                         if (isdn_tty_cmd_ATand(&p, info))
-3598                                 return;
-3599                         break;
-3600                 default:
-3601                         PARSE_ERROR;
-3602                 }
-3603         }
-3604 #ifdef CONFIG_ISDN_AUDIO
-3605         if (!info->vonline)
-3606 #endif
-3607                 isdn_tty_modem_result(RESULT_OK, info);
-3608 }
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index c566927..83e43b7 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -163,8 +163,9 @@ extern int _cond_resched(void);
+ # define might_sleep() \
+        do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } w=
+hile (0)
+ #else
+-  static inline void __might_sleep(const char *file, int line,
+-                                  int preempt_offset) { }
++  static inline void __might_sleep(const char *file __maybe_unused,
++                                  int line __maybe_unused,
++                                  int preempt_offset __maybe_unused) {=
+ }
+ # define might_sleep() do { might_resched(); } while (0)
+ #endif
+=20
