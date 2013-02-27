@@ -1,58 +1,88 @@
-From: David Miller <davem@davemloft.net>
+From: Guenter Roeck <linux@roeck-us.net>
 Subject: Re: [PATCH] net/sctp: Validate parameter size for
  SCTP_GET_ASSOC_STATS control message
-Date: Wed, 27 Feb 2013 15:22:33 -0500 (EST)
-Message-ID: <20130227.152233.1255341111357013803.davem@davemloft.net>
+Date: Wed, 27 Feb 2013 12:22:55 -0800
+Message-ID: <20130227202255.GA31830@roeck-us.net>
 References: <1361994231-5355-1-git-send-email-linux@roeck-us.net>
-	<20130227200931.GB7993@hmsreliant.think-freely.org>
+ <20130227200931.GB7993@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux@roeck-us.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, vyasevich@gmail.com, sri@us.ibm.com
-To: nhorman@tuxdriver.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60413 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753383Ab3B0UWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:22:35 -0500
+Received: from mail.active-venture.com ([67.228.131.205]:56492 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754529Ab3B0UW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:22:56 -0500
+Content-Disposition: inline
 In-Reply-To: <20130227200931.GB7993@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4NCkRhdGU6IFdlZCwgMjcg
-RmViIDIwMTMgMTU6MDk6MzEgLTA1MDANCg0KPiBPbiBXZWQsIEZlYiAyNywgMjAxMyBhdCAxMTo0
-Mzo1MUFNIC0wODAwLCBHdWVudGVyIFJvZWNrIHdyb3RlOg0KPj4gQnVpbGRpbmcgc2N0cCBtYXkg
-ZmFpbCB3aXRoOg0KPj4gDQo+PiBJbiBmdW5jdGlvbiChY29weV9mcm9tX3VzZXKiLA0KPj4gICAg
-IGlubGluZWQgZnJvbSChc2N0cF9nZXRzb2Nrb3B0X2Fzc29jX3N0YXRzoiBhdA0KPj4gICAgIG5l
-dC9zY3RwL3NvY2tldC5jOjU2NTY6MjA6DQo+PiBhcmNoL3g4Ni9pbmNsdWRlL2FzbS91YWNjZXNz
-XzMyLmg6MjExOjI2OiBlcnJvcjogY2FsbCB0bw0KPj4gICAgIKFjb3B5X2Zyb21fdXNlcl9vdmVy
-Zmxvd6IgZGVjbGFyZWQgd2l0aCBhdHRyaWJ1dGUgZXJyb3I6IGNvcHlfZnJvbV91c2VyKCkNCj4+
-ICAgICBidWZmZXIgc2l6ZSBpcyBub3QgcHJvdmFibHkgY29ycmVjdA0KPj4gDQo+PiBpZiBidWls
-dCB3aXRoIFc9MSBkdWUgdG8gYSBtaXNzaW5nIHBhcmFtZXRlciBzaXplIHZhbGlkYXRpb24uDQo+
-PiANCj4+IFNpZ25lZC1vZmYtYnk6IEd1ZW50ZXIgUm9lY2sgPGxpbnV4QHJvZWNrLXVzLm5ldD4N
-Cj4+IC0tLQ0KPj4gIG5ldC9zY3RwL3NvY2tldC5jIHwgICAgMiArKw0KPj4gIDEgZmlsZSBjaGFu
-Z2VkLCAyIGluc2VydGlvbnMoKykNCj4+IA0KPj4gZGlmZiAtLWdpdCBhL25ldC9zY3RwL3NvY2tl
-dC5jIGIvbmV0L3NjdHAvc29ja2V0LmMNCj4+IGluZGV4IGNlZGQ5YmYuLjBhNWYyYmYgMTAwNjQ0
-DQo+PiAtLS0gYS9uZXQvc2N0cC9zb2NrZXQuYw0KPj4gKysrIGIvbmV0L3NjdHAvc29ja2V0LmMN
-Cj4+IEBAIC01NjUyLDYgKzU2NTIsOCBAQCBzdGF0aWMgaW50IHNjdHBfZ2V0c29ja29wdF9hc3Nv
-Y19zdGF0cyhzdHJ1Y3Qgc29jayAqc2ssIGludCBsZW4sDQo+PiAgCS8qIFVzZXIgbXVzdCBwcm92
-aWRlIGF0IGxlYXN0IHRoZSBhc3NvYyBpZCAqLw0KPj4gIAlpZiAobGVuIDwgc2l6ZW9mKHNjdHBf
-YXNzb2NfdCkpDQo+PiAgCQlyZXR1cm4gLUVJTlZBTDsNCj4+ICsJaWYgKGxlbiA+IHNpemVvZihz
-dHJ1Y3Qgc2N0cF9hc3NvY19zdGF0cykpDQo+PiArCQlsZW4gPSBzaXplb2Yoc3RydWN0IHNjdHBf
-YXNzb2Nfc3RhdHMpOw0KPj4gIA0KPj4gIAlpZiAoY29weV9mcm9tX3VzZXIoJnNhcywgb3B0dmFs
-LCBsZW4pKQ0KPj4gIAkJcmV0dXJuIC1FRkFVTFQ7DQo+PiAtLSANCj4+IDEuNy45LjcNCj4+IA0K
-Pj4gDQo+IA0KPiBUaGVyZXMgbW9yZSB0aGFuIHRoYXQgZ29pbmcgb24gaGVyZS4gIFRoaXMgd2ls
-bCBmaXggdGhlIHdhcm5pbmcsIGJ1dCB0aGUNCj4gZnVuY3Rpb24gaXMgd3JpdHRlbiBzdWNoIHRo
-YXQsIGlmIHlvdSBwYXNzIGluIGEgc2l6ZSB0aGF0IGlzIGdyZWF0ZXIgdGhhbiB0aGUNCj4gc2l6
-ZSBvZiBhIHN0cnVjdCBzY3RwX2Fzc29jaWF0aW9uLCBidXQgbGVzcyB0aGFuIGEgc3RydWN0IHNj
-dHBfYXNzb2Nfc3RhdHMuICBJJ20NCj4gbm90IHN1cmUgdGhhdCBhIHBhcnRpYWwgc3RhdCBzdHJ1
-Y3QgaXMgcmVhbGx5IHRoYXQgdXNlZnVsIHRvIHBlb3BsZS4gIFdoYXQgaWYNCj4geW91IHdlcmUg
-dG8gY2hlY2sgZm9yIG1heChzdHJ1Y3Qgc2N0cF9hc3NvY2lhdGlvbiwgc3RydWN0IHNjdHBfYXNz
-b2Nfc3RhdHMpIGFzDQo+IHlvdXIgbWluaW11bSBsZW5ndGggY2hlY2ssIHRoZW4ganVzdCBkaWQg
-YSBjb3B5X2Zyb21fdXNlciBvZiB0aGF0IGxlbmd0aC4gIEl0DQo+IHdvdWxkIHNhdmUgeW91IGhh
-dmluZyB0byBjb21wdXRlIHR3byBsZW5ndGhzIHNlcGFyYXRlbHksIHNpbmNlIHlvdSBjb3VsZCB0
-aGVuDQo+IGp1c3QgZG8gYSBjb3B5X3RvX3VzZXIoLi4uLHNpemVvZihzdHJ1Y3Qgc2N0cF9hc3Nv
-Y19zdGF0cyksIGF0IHRoZSBib3R0b20gb2YNCj4gdGhhdCBmdW5jdGlvbi4NCg0KR2VucmVhbGx5
-LCBnZXRzb2Nrb3B0KCkgaW1wbGVtZW50YXRpb25zIGhhcHBpbHkgZ2l2ZSBwYXJ0aWFsIHJldHVy
-biB2YWx1ZXMNCndoZW4gdGhlIHVzZXIgZ2l2ZXMgYSB0b28gc21hbGwgbGVuZ3RoLg0K
+On Wed, Feb 27, 2013 at 03:09:31PM -0500, Neil Horman wrote:
+> On Wed, Feb 27, 2013 at 11:43:51AM -0800, Guenter Roeck wrote:
+> > Building sctp may fail with:
+> >=20
+> > In function =E2=80=98copy_from_user=E2=80=99,
+> >     inlined from =E2=80=98sctp_getsockopt_assoc_stats=E2=80=99 at
+> >     net/sctp/socket.c:5656:20:
+> > arch/x86/include/asm/uaccess_32.h:211:26: error: call to
+> >     =E2=80=98copy_from_user_overflow=E2=80=99 declared with attribu=
+te error: copy_from_user()
+> >     buffer size is not provably correct
+> >=20
+> > if built with W=3D1 due to a missing parameter size validation.
+> >=20
+> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> > ---
+> >  net/sctp/socket.c |    2 ++
+> >  1 file changed, 2 insertions(+)
+> >=20
+> > diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> > index cedd9bf..0a5f2bf 100644
+> > --- a/net/sctp/socket.c
+> > +++ b/net/sctp/socket.c
+> > @@ -5652,6 +5652,8 @@ static int sctp_getsockopt_assoc_stats(struct=
+ sock *sk, int len,
+> >  	/* User must provide at least the assoc id */
+> >  	if (len < sizeof(sctp_assoc_t))
+> >  		return -EINVAL;
+> > +	if (len > sizeof(struct sctp_assoc_stats))
+> > +		len =3D sizeof(struct sctp_assoc_stats);
+> > =20
+> >  	if (copy_from_user(&sas, optval, len))
+> >  		return -EFAULT;
+> > --=20
+> > 1.7.9.7
+> >=20
+> >=20
+>=20
+> Theres more than that going on here.  This will fix the warning, but =
+the
+> function is written such that, if you pass in a size that is greater =
+than the
+> size of a struct sctp_association, but less than a struct sctp_assoc_=
+stats.  I'm
+> not sure that a partial stat struct is really that useful to people. =
+ What if
+> you were to check for max(struct sctp_association, struct sctp_assoc_=
+stats) as
+> your minimum length check, then just did a copy_from_user of that len=
+gth.  It
+> would save you having to compute two lengths separately, since you co=
+uld then
+> just do a copy_to_user(...,sizeof(struct sctp_assoc_stats), at the bo=
+ttom of
+> that function.
+>=20
+Yes, but that would require input from someone who knows the code. All =
+I am trying
+to accomplish is to ensure that copy_from_user does not overwrite the s=
+tack.
+
+Thanks,
+Guenter
