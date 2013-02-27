@@ -1,44 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] sctp: fix association hangs due to
- reassembly/ordering logic
-Date: Wed, 27 Feb 2013 13:09:59 -0500 (EST)
-Message-ID: <20130227.130959.379760800169434112.davem@davemloft.net>
-References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
+Subject: Re: [PATCHv2] usb/net/asix_devices: Add USBNET HG20F9 ethernet
+ dongle
+Date: Wed, 27 Feb 2013 13:11:54 -0500 (EST)
+Message-ID: <20130227.131154.341075972488849111.davem@davemloft.net>
+References: <20130226.172856.235525833921140241.davem@davemloft.net>
+	<20130226.172955.926853809838377302.davem@davemloft.net>
+	<1361975556.13093.3.camel@ilion>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: lee.roberts@hp.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58389 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758009Ab3B0SKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 13:10:00 -0500
-In-Reply-To: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: gdt@gdt.id.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1361975556.13093.3.camel@ilion>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogIkxlZSBBLiBSb2JlcnRzIiA8bGVlLnJvYmVydHNAaHAuY29tPg0KRGF0ZTogVHVlLCAy
-NiBGZWIgMjAxMyAwNzozNjoxMiAtMDcwMA0KDQo+IEZyb206ICJMZWUgQS4gUm9iZXJ0cyIgPGxl
-ZS5yb2JlcnRzQGhwLmNvbT4NCj4gDQo+IFRoaXMgc2VyaWVzIG9mIHBhdGNoZXMgcmVzb2x2ZXMg
-c2V2ZXJhbCBTQ1RQIGFzc29jaWF0aW9uIGhhbmdzIG9ic2VydmVkIGR1cmluZw0KPiBTQ1RQIHN0
-cmVzcyB0ZXN0aW5nLiAgT2JzZXJ2YWJsZSBzeW1wdG9tcyBpbmNsdWRlIGNvbW11bmljYXRpb25z
-IGhhbmdzIHdpdGgNCj4gZGF0YSBiZWluZyBoZWxkIGluIHRoZSBhc3NvY2lhdGlvbiByZWFzc2Vt
-Ymx5IGFuZC9vciBsb2JieSAob3JkZXJpbmcpIHF1ZXVlcy4NCj4gQ2xvc2UgZXhhbWluYXRpb24g
-b2YgcmVhc3NlbWJseS9vcmRlcmluZyBxdWV1ZXMgbWF5IHNob3cgZWl0aGVyIGR1cGxpY2F0ZWQN
-Cj4gb3IgbWlzc2luZyBwYWNrZXRzLg0KPiANCj4gTGVlIEEuIFJvYmVydHMgKDQpOg0KPiAgIHNj
-dHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBkdWUgdG8gb2ZmLWJ5LW9uZSBlcnJvcnMgaW4NCj4g
-ICAgIHNjdHBfdHNubWFwX2dyb3coKQ0KPiAgIHNjdHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBk
-dWUgdG8gcmVuZWdpbmcgcGFja2V0cyBiZWxvdyB0aGUNCj4gICAgIGN1bXVsYXRpdmUgVFNOIEFD
-SyBwb2ludA0KPiAgIHNjdHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBkdWUgdG8gZXJyb3JzIHdo
-ZW4gcmVuZWdpbmcgZXZlbnRzIGZyb20NCj4gICAgIHRoZSBvcmRlcmluZyBxdWV1ZQ0KPiAgIHNj
-dHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBkdWUgdG8gcGFydGlhbCBkZWxpdmVyeSBlcnJvcnMN
-Cg0KQXBweWluZyB0aGVzZSBwYXRjaGVzIGJyZWFrcyB0aGUgYnVpbGQ6DQoNCm5ldC9zY3RwL3Vs
-cHF1ZXVlLmM6IEluIGZ1bmN0aW9uIKFzY3RwX3VscHFfcmVuZWdlojoNCm5ldC9zY3RwL3VscHF1
-ZXVlLmM6MTExNTo0OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoXNjdHBfdWxwcV9w
-YXJ0aWFsX2RlbGl2ZXJ5oiBtYWtlcyBpbnRlZ2VyIGZyb20gcG9pbnRlciB3aXRob3V0IGEgY2Fz
-dCBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KbmV0L3NjdHAvdWxwcXVldWUuYzoxMDM4OjY6IG5vdGU6
-IGV4cGVjdGVkIKFnZnBfdKIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXN0cnVjdCBzY3RwX2No
-dW5rICqiDQpuZXQvc2N0cC91bHBxdWV1ZS5jOjExMTU6NDogZXJyb3I6IHRvbyBtYW55IGFyZ3Vt
-ZW50cyB0byBmdW5jdGlvbiChc2N0cF91bHBxX3BhcnRpYWxfZGVsaXZlcnmiDQpuZXQvc2N0cC91
-bHBxdWV1ZS5jOjEwMzg6Njogbm90ZTogZGVjbGFyZWQgaGVyZQ0K
+From: Glen Turner <gdt@gdt.id.au>
+Date: Thu, 28 Feb 2013 01:02:36 +1030
+
+> This USB ethernet adapter was purchased in anodyne packaging
+> from the computer store adjacent to linux.conf.au 2013 in
+> Canberra (Australia). A web search shows other recent
+> purchasers in Lancaster (UK) and Seattle (USA). Just like an
+> emergent virus, our age of e-commerce and airmail allows
+> underdocumented hardware to spread around the world instantly
+> using the vector of ridiculously low prices.
+> 
+> Paige Thompson, infected via eBay, discovered that the HG20F9
+> is a copy of the Asix 88772B; many viruses copy the RNA of
+> other viruses. See Paige's work at
+> <https://github.com/paigeadele/HG20F9>.
+> This patch uses her discovery to update the restructured Asix
+> driver in the current kernel.
+> 
+> Just as some viruses inhabit seemingly-healthy cells, the
+> HG20F9 uses the Vendor ID 0x066b assigned to Linksys Inc.
+> For the present there is no clash of Product ID 0x20f9.
+> 
+> Signed-off-by: Glen Turner <gdt@gdt.id.au>
+
+Applied, thanks.
