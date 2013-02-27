@@ -1,33 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] bnx2x: Link/LED fixes
-Date: Wed, 27 Feb 2013 16:14:00 -0500 (EST)
-Message-ID: <20130227.161400.856600913555612621.davem@davemloft.net>
-References: <1362006406-2489-1-git-send-email-yanivr@broadcom.com>
-	<20130227.161044.1861708594976235273.davem@davemloft.net>
+Subject: Re: [PATCH] tcp: avoid wakeups for pure ACK
+Date: Wed, 27 Feb 2013 16:15:52 -0500 (EST)
+Message-ID: <20130227.161552.102016616709396662.davem@davemloft.net>
+References: <1361984703.11403.43.camel@edumazet-glaptop>
+	<20130227.130444.2188252064827683663.davem@davemloft.net>
+	<1361989059.11403.50.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: yanivr@broadcom.com
+Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
+	ycheng@google.com, ak@linux.intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32912 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32946 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973Ab3B0VOB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 16:14:01 -0500
-In-Reply-To: <20130227.161044.1861708594976235273.davem@davemloft.net>
+	with ESMTP id S1750699Ab3B0VPy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 16:15:54 -0500
+In-Reply-To: <1361989059.11403.50.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 27 Feb 2013 16:10:44 -0500 (EST)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 27 Feb 2013 10:17:39 -0800
 
-> From: "Yaniv Rosner" <yanivr@broadcom.com>
-> Date: Thu, 28 Feb 2013 01:06:43 +0200
-> 
->> Hi Dave,
->> The following patch series describe couple of link fixes.
->> Please consider applying it to net.
-> 
-> Where is patch #1?
+> So this patch will also help this (not very usual) situation, as we will
+> only wakeup the tcp_sendmsg() thread when ACK is processed from softirq
+> handler, and let the thread blocked in tcp_recvmsg() sleeping.
 
-Nevermind it just showed up :)
+Ok, thanks for the analysis.
