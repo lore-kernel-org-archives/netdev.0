@@ -1,79 +1,70 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: Re: iproute-3.8.0 build error on Linux ppc64
-Date: Wed, 27 Feb 2013 23:53:25 +0300
-Message-ID: <CAOJe8K12n7Y74WwY_PK1qcRb-RDwc+3N43m8yMSkWAspqtcLow@mail.gmail.com>
-References: <CABMX=WwSNeTq_ascBRxJtQrsErR-cFODZQh_wrim6K8weyLDtQ@mail.gmail.com>
-	<CABMX=WxaxNhvx4YA6-KiDjoRURXsotCSEpxQJu4mK11UtW78jw@mail.gmail.com>
-	<20130227072830.6ab4373e@nehalam.linuxnetplumber.net>
-	<CABMX=WyV7t-RcdM103z9sqvvicxvnTtX-OW_OyL9MA5j_4ho1w@mail.gmail.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH v2] net/sctp: Validate parameter size for SCTP_GET_ASSOC_STATS
+Date: Wed, 27 Feb 2013 12:57:31 -0800
+Message-ID: <1361998651-19354-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: nello martuscielli <ppc.addon@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:38735 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756718Ab3B0Ux0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:53:26 -0500
-Received: by mail-oa0-f50.google.com with SMTP id l20so2172129oag.37
-        for <netdev@vger.kernel.org>; Wed, 27 Feb 2013 12:53:25 -0800 (PST)
-In-Reply-To: <CABMX=WyV7t-RcdM103z9sqvvicxvnTtX-OW_OyL9MA5j_4ho1w@mail.gmail.com>
+Received: from mail.active-venture.com ([67.228.131.205]:59789 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750955Ab3B0U5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:57:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's been solved by using  __SANE_USERSPACE_TYPES__ which selects the
-proper type for __u64 on PowerPC:
-https://patchwork.kernel.org/patch/2029141/
+Building sctp may fail with:
 
-On 2/27/13, nello martuscielli <ppc.addon@gmail.com> wrote:
-> On Wed, Feb 27, 2013 at 4:28 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->
-> __omissis
->>> >
->>> > gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
->>> > -Wmissing-declarations -Wold-style-definition -O2 -I../include
->>> > -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
->>> > -D_GNU_SOURCE   -c -o ipntable.o ipntable.c
->>> > cc1: warnings being treated as errors
->>> > ipntable.c: In function 'print_ntable':
->>> > ipntable.c:435:3: error: format '%llu' expects type 'long long
->>
->> Pushed up a fix for this using casts.
->> Would rather have used inttypes.h but that was incompatible with kernel's
->> __u64.
->
->
-> thanks a lot, this fix ipntable.c .
-> Now I got this same type build error on tcp_metrics.c
->
-> [...]
-> gcc -Wall -Wstrict-prototypes -Werror -Wmissing-prototypes
-> -Wmissing-declarations -Wold-style-definition -O2 -I../include
-> -DRESOLVE_HOSTNAMES -DLIBDIR=\"/usr/lib\" -DCONFDIR=\"/etc/iproute2\"
-> -D_GNU_SOURCE   -c -o tcp_metrics.o tcp_metrics.c
-> cc1: warnings being treated as errors
-> tcp_metrics.c: In function 'process_msg':
-> tcp_metrics.c:172:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 3 has type '__u64'
-> tcp_metrics.c:172:4: error: format '%03llu' expects type 'long long
-> unsigned int', but argument 4 has type '__u64'
-> tcp_metrics.c:232:4: error: format '%llu' expects type 'long long
-> unsigned int', but argument 4 has type '__u64'
-> tcp_metrics.c:232:4: error: format '%03llu' expects type 'long long
-> unsigned int', but argument 5 has type '__u64'
-> make[1]: *** [tcp_metrics.o] Error 1
-> make[1]: Leaving directory `/root/iproute2-3.8.0/ip'
-> make: *** [all] Error 2
->
->
->
-> Nello
-> --
-> LinuxPPC64 user.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+In function =E2=80=98copy_from_user=E2=80=99,
+    inlined from =E2=80=98sctp_getsockopt_assoc_stats=E2=80=99 at
+    net/sctp/socket.c:5656:20:
+arch/x86/include/asm/uaccess_32.h:211:26: error: call to
+    =E2=80=98copy_from_user_overflow=E2=80=99 declared with attribute e=
+rror: copy_from_user()
+    buffer size is not provably correct
+
+if built with W=3D1 due to a missing parameter size validation
+before the call to copy_from_user.
+
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+v2: Fix by moving the existing parameter size validation up
+    in the function instead of adding an additional one.
+
+ net/sctp/socket.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index cedd9bf..9ef5c73 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5653,6 +5653,9 @@ static int sctp_getsockopt_assoc_stats(struct soc=
+k *sk, int len,
+ 	if (len < sizeof(sctp_assoc_t))
+ 		return -EINVAL;
+=20
++	/* Allow the struct to grow and fill in as much as possible */
++	len =3D min_t(size_t, len, sizeof(sas));
++
+ 	if (copy_from_user(&sas, optval, len))
+ 		return -EFAULT;
+=20
+@@ -5686,9 +5689,6 @@ static int sctp_getsockopt_assoc_stats(struct soc=
+k *sk, int len,
+ 	/* Mark beginning of a new observation period */
+ 	asoc->stats.max_obs_rto =3D asoc->rto_min;
+=20
+-	/* Allow the struct to grow and fill in as much as possible */
+-	len =3D min_t(size_t, len, sizeof(sas));
+-
+ 	if (put_user(len, optlen))
+ 		return -EFAULT;
+=20
+--=20
+1.7.9.7
