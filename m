@@ -1,52 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] proc connector: reject unprivileged listener bumps
-Date: Wed, 27 Feb 2013 13:08:59 -0500 (EST)
-Message-ID: <20130227.130859.1239743436839936054.davem@davemloft.net>
-References: <20130226073225.GA15489@www.outflux.net>
-	<20130226172441.GA6312@us.ibm.com>
+Subject: Re: [PATCH 0/4] sctp: fix association hangs due to
+ reassembly/ordering logic
+Date: Wed, 27 Feb 2013 13:09:59 -0500 (EST)
+Message-ID: <20130227.130959.379760800169434112.davem@davemloft.net>
+References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: keescook@chromium.org, linux-kernel@vger.kernel.org,
-	zbr@ioremap.net, netdev@vger.kernel.org, matthltc@us.ibm.com
-To: matthltc@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130226172441.GA6312@us.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: lee.roberts@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58389 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758009Ab3B0SKA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 13:10:00 -0500
+In-Reply-To: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Matt Helsley <matthltc@linux.vnet.ibm.com>
-Date: Tue, 26 Feb 2013 09:24:41 -0800
-
-> On Mon, Feb 25, 2013 at 11:32:25PM -0800, Kees Cook wrote:
->> While PROC_CN_MCAST_LISTEN/IGNORE is entirely advisory, it was possible
->> for an unprivileged user to turn off notifications for all listeners by
->> sending PROC_CN_MCAST_IGNORE. Instead, require the same privileges as
->> required for a multicast bind.
->> 
->> Signed-off-by: Kees Cook <keescook@chromium.org>
->> Cc: Evgeniy Polyakov <zbr@ioremap.net>
->> Cc: Matt Helsley <matthltc@us.ibm.com>
->> Cc: stable@vger.kernel.org
->> ---
->>  drivers/connector/cn_proc.c |    8 ++++++++
->>  1 file changed, 8 insertions(+)
->> 
->> diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
->> index fce2000..1110478 100644
->> --- a/drivers/connector/cn_proc.c
->> +++ b/drivers/connector/cn_proc.c
->> @@ -313,6 +313,12 @@ static void cn_proc_mcast_ctl(struct cn_msg *msg,
->>  	    (task_active_pid_ns(current) != &init_pid_ns))
->>  		return;
->> 
->> +	/* Can only change if privileged. */
-> 
-> I think this comment doesn't tell us anything above and beyond the
-> what capability check already tells us. I think you could improve it
-> by noting that since the connector is multicast and not namespace-safe
-> it's not yet appropriate to use ns_capable() here.
-> 
-> Acked-by: Matt Helsley <matthltc@us.ibm.com>
-
-Applied.
+RnJvbTogIkxlZSBBLiBSb2JlcnRzIiA8bGVlLnJvYmVydHNAaHAuY29tPg0KRGF0ZTogVHVlLCAy
+NiBGZWIgMjAxMyAwNzozNjoxMiAtMDcwMA0KDQo+IEZyb206ICJMZWUgQS4gUm9iZXJ0cyIgPGxl
+ZS5yb2JlcnRzQGhwLmNvbT4NCj4gDQo+IFRoaXMgc2VyaWVzIG9mIHBhdGNoZXMgcmVzb2x2ZXMg
+c2V2ZXJhbCBTQ1RQIGFzc29jaWF0aW9uIGhhbmdzIG9ic2VydmVkIGR1cmluZw0KPiBTQ1RQIHN0
+cmVzcyB0ZXN0aW5nLiAgT2JzZXJ2YWJsZSBzeW1wdG9tcyBpbmNsdWRlIGNvbW11bmljYXRpb25z
+IGhhbmdzIHdpdGgNCj4gZGF0YSBiZWluZyBoZWxkIGluIHRoZSBhc3NvY2lhdGlvbiByZWFzc2Vt
+Ymx5IGFuZC9vciBsb2JieSAob3JkZXJpbmcpIHF1ZXVlcy4NCj4gQ2xvc2UgZXhhbWluYXRpb24g
+b2YgcmVhc3NlbWJseS9vcmRlcmluZyBxdWV1ZXMgbWF5IHNob3cgZWl0aGVyIGR1cGxpY2F0ZWQN
+Cj4gb3IgbWlzc2luZyBwYWNrZXRzLg0KPiANCj4gTGVlIEEuIFJvYmVydHMgKDQpOg0KPiAgIHNj
+dHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBkdWUgdG8gb2ZmLWJ5LW9uZSBlcnJvcnMgaW4NCj4g
+ICAgIHNjdHBfdHNubWFwX2dyb3coKQ0KPiAgIHNjdHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBk
+dWUgdG8gcmVuZWdpbmcgcGFja2V0cyBiZWxvdyB0aGUNCj4gICAgIGN1bXVsYXRpdmUgVFNOIEFD
+SyBwb2ludA0KPiAgIHNjdHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBkdWUgdG8gZXJyb3JzIHdo
+ZW4gcmVuZWdpbmcgZXZlbnRzIGZyb20NCj4gICAgIHRoZSBvcmRlcmluZyBxdWV1ZQ0KPiAgIHNj
+dHA6IGZpeCBhc3NvY2lhdGlvbiBoYW5ncyBkdWUgdG8gcGFydGlhbCBkZWxpdmVyeSBlcnJvcnMN
+Cg0KQXBweWluZyB0aGVzZSBwYXRjaGVzIGJyZWFrcyB0aGUgYnVpbGQ6DQoNCm5ldC9zY3RwL3Vs
+cHF1ZXVlLmM6IEluIGZ1bmN0aW9uIKFzY3RwX3VscHFfcmVuZWdlojoNCm5ldC9zY3RwL3VscHF1
+ZXVlLmM6MTExNTo0OiB3YXJuaW5nOiBwYXNzaW5nIGFyZ3VtZW50IDIgb2YgoXNjdHBfdWxwcV9w
+YXJ0aWFsX2RlbGl2ZXJ5oiBtYWtlcyBpbnRlZ2VyIGZyb20gcG9pbnRlciB3aXRob3V0IGEgY2Fz
+dCBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KbmV0L3NjdHAvdWxwcXVldWUuYzoxMDM4OjY6IG5vdGU6
+IGV4cGVjdGVkIKFnZnBfdKIgYnV0IGFyZ3VtZW50IGlzIG9mIHR5cGUgoXN0cnVjdCBzY3RwX2No
+dW5rICqiDQpuZXQvc2N0cC91bHBxdWV1ZS5jOjExMTU6NDogZXJyb3I6IHRvbyBtYW55IGFyZ3Vt
+ZW50cyB0byBmdW5jdGlvbiChc2N0cF91bHBxX3BhcnRpYWxfZGVsaXZlcnmiDQpuZXQvc2N0cC91
+bHBxdWV1ZS5jOjEwMzg6Njogbm90ZTogZGVjbGFyZWQgaGVyZQ0K
