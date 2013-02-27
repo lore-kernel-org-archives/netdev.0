@@ -1,47 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] sctp: fix association hangs due to
- reassembly/ordering logic
-Date: Wed, 27 Feb 2013 14:43:20 -0500 (EST)
-Message-ID: <20130227.144320.1686689616982948637.davem@davemloft.net>
-References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
-	<1361991273-30578-1-git-send-email-lee.roberts@hp.com>
-	<512E6052.6050301@redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] net/sctp: Validate parameter size for SCTP_GET_ASSOC_STATS control message
+Date: Wed, 27 Feb 2013 11:43:51 -0800
+Message-ID: <1361994231-5355-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lee.roberts@hp.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59864 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916Ab3B0TnW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 14:43:22 -0500
-In-Reply-To: <512E6052.6050301@redhat.com>
+Received: from mail.active-venture.com ([67.228.131.205]:62714 "EHLO
+	mail.active-venture.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753851Ab3B0Tn5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 14:43:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 27 Feb 2013 20:36:50 +0100
+Building sctp may fail with:
 
-> On 02/27/2013 07:54 PM, Lee A. Roberts wrote:
->> From: "Lee A. Roberts" <lee.roberts@hp.com>
->>
->> This series of patches resolves several SCTP association hangs
->> observed during
->> SCTP stress testing.  Observable symptoms include communications hangs
->> with
->> data being held in the association reassembly and/or lobby (ordering)
->> queues.
->> Close examination of reassembly/ordering queues may show either
->> duplicated
->> or missing packets.
-> 
-> Just nitpicking here ... all of your 4 patches have the same first
-> paragraph,
-> which can actually be left out completely if it is already in your
-> patch cover
-> letter stated.
+In function =E2=80=98copy_from_user=E2=80=99,
+    inlined from =E2=80=98sctp_getsockopt_assoc_stats=E2=80=99 at
+    net/sctp/socket.c:5656:20:
+arch/x86/include/asm/uaccess_32.h:211:26: error: call to
+    =E2=80=98copy_from_user_overflow=E2=80=99 declared with attribute e=
+rror: copy_from_user()
+    buffer size is not provably correct
 
-Right because I can create a merge commit for the series when I apply
-it and put that text there.
+if built with W=3D1 due to a missing parameter size validation.
+
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ net/sctp/socket.c |    2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index cedd9bf..0a5f2bf 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -5652,6 +5652,8 @@ static int sctp_getsockopt_assoc_stats(struct soc=
+k *sk, int len,
+ 	/* User must provide at least the assoc id */
+ 	if (len < sizeof(sctp_assoc_t))
+ 		return -EINVAL;
++	if (len > sizeof(struct sctp_assoc_stats))
++		len =3D sizeof(struct sctp_assoc_stats);
+=20
+ 	if (copy_from_user(&sas, optval, len))
+ 		return -EFAULT;
+--=20
+1.7.9.7
