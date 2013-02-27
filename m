@@ -1,73 +1,31 @@
-From: "Roberts, Lee A." <lee.roberts@hp.com>
-Subject: RE: [PATCH 0/4] sctp: fix association hangs due to
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] sctp: fix association hangs due to
  reassembly/ordering logic
-Date: Wed, 27 Feb 2013 18:55:36 +0000
-Message-ID: <D64EC45690EF85409BA6C4730E0162244310EF1F@G4W3231.americas.hpqcorp.net>
+Date: Wed, 27 Feb 2013 14:09:22 -0500 (EST)
+Message-ID: <20130227.140922.297055134527931147.davem@davemloft.net>
 References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
- <20130227.130959.379760800169434112.davem@davemloft.net>
+	<20130227.130959.379760800169434112.davem@davemloft.net>
+	<D64EC45690EF85409BA6C4730E0162244310EF1F@G4W3231.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-7
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: lee.roberts@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:18963 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760334Ab3B0S5H convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 13:57:07 -0500
-In-Reply-To: <20130227.130959.379760800169434112.davem@davemloft.net>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:59519 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760542Ab3B0TJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 14:09:25 -0500
+In-Reply-To: <D64EC45690EF85409BA6C4730E0162244310EF1F@G4W3231.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I missed the change in the calling sequence for sctp_ulpq_partial_deliv=
-ery()
-when porting the changes forward from 3.2.x.  An updated patch has been=
- sent.
+From: "Roberts, Lee A." <lee.roberts@hp.com>
+Date: Wed, 27 Feb 2013 18:55:36 +0000
 
-                                             - Lee Roberts
+> I missed the change in the calling sequence for sctp_ulpq_partial_delivery()
+> when porting the changes forward from 3.2.x.  An updated patch has been sent.
 
------Original Message-----
-=46rom: David Miller [mailto:davem@davemloft.net]=20
-Sent: Wednesday, February 27, 2013 11:10 AM
-To: Roberts, Lee A.
-Cc: netdev@vger.kernel.org
-Subject: Re: [PATCH 0/4] sctp: fix association hangs due to reassembly/=
-ordering logic
-Importance: High
-
-=46rom: "Lee A. Roberts" <lee.roberts@hp.com>
-Date: Tue, 26 Feb 2013 07:36:12 -0700
-
-> From: "Lee A. Roberts" <lee.roberts@hp.com>
->=20
-> This series of patches resolves several SCTP association hangs observ=
-ed during
-> SCTP stress testing.  Observable symptoms include communications hang=
-s with
-> data being held in the association reassembly and/or lobby (ordering)=
- queues.
-> Close examination of reassembly/ordering queues may show either dupli=
-cated
-> or missing packets.
->=20
-> Lee A. Roberts (4):
->   sctp: fix association hangs due to off-by-one errors in
->     sctp_tsnmap_grow()
->   sctp: fix association hangs due to reneging packets below the
->     cumulative TSN ACK point
->   sctp: fix association hangs due to errors when reneging events from
->     the ordering queue
->   sctp: fix association hangs due to partial delivery errors
-
-Appying these patches breaks the build:
-
-net/sctp/ulpqueue.c: In function =A1sctp_ulpq_renege=A2:
-net/sctp/ulpqueue.c:1115:4: warning: passing argument 2 of =A1sctp_ulpq=
-_partial_delivery=A2 makes integer from pointer without a cast [enabled=
- by default]
-net/sctp/ulpqueue.c:1038:6: note: expected =A1gfp_t=A2 but argument is =
-of type =A1struct sctp_chunk *=A2
-net/sctp/ulpqueue.c:1115:4: error: too many arguments to function =A1sc=
-tp_ulpq_partial_delivery=A2
-net/sctp/ulpqueue.c:1038:6: note: declared here
+Thanks.  But please CC: the SCTP maintainers or at least CC: the
+linux-sctp list, as well as netdev, when you post SCTP patches,
+thanks.
