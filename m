@@ -1,41 +1,75 @@
 From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH iproute2] ip/iptunnel: Fix incorrect syntax in man page
-Date: Wed, 27 Feb 2013 17:58:15 -0500
-Message-ID: <1362005895-8460-1-git-send-email-david.ward@ll.mit.edu>
+Subject: [PATCH iproute2] iplink_vlan: Add flag for Multiple VLAN Registration Protocol (MVRP)
+Date: Wed, 27 Feb 2013 18:00:40 -0500
+Message-ID: <1362006040-8561-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Andreas Henriksson <andreas@fatal.se>,
-	David Ward <david.ward@ll.mit.edu>
+Cc: David Ward <david.ward@ll.mit.edu>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from MX2.LL.MIT.EDU ([129.55.12.46]:37274 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751991Ab3B0XXg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 18:23:36 -0500
+	id S1752033Ab3B0X1h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 27 Feb 2013 18:27:37 -0500
+Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id r1RN0mYE005620 for <netdev@vger.kernel.org>; Wed, 27 Feb 2013 18:00:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported-by: Andreas Henriksson <andreas@fatal.se>
 Signed-off-by: David Ward <david.ward@ll.mit.edu>
+Acked-by: Patrick McHardy <kaber@trash.net>
 ---
- man/man8/ip-tunnel.8 |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/if_vlan.h |    1 +
+ ip/iplink_vlan.c        |   12 +++++++++++-
+ 2 files changed, 12 insertions(+), 1 deletions(-)
 
-diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
-index b408517..3e558b0 100644
---- a/man/man8/ip-tunnel.8
-+++ b/man/man8/ip-tunnel.8
-@@ -60,9 +60,9 @@ ip-tunnel - tunnel configuration
- .IR TOS " := { " STRING " | " 00 ".." ff " |"
- .BR inherit " |"
- .BI "inherit/" STRING
--.R " |"
-+.RB "|"
- .BI "inherit/" 00 ".." ff
--.R " }"
-+.RB "}"
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 3be1ca6..24ae007 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -34,6 +34,7 @@ enum vlan_flags {
+ 	VLAN_FLAG_REORDER_HDR	= 0x1,
+ 	VLAN_FLAG_GVRP		= 0x2,
+ 	VLAN_FLAG_LOOSE_BINDING	= 0x4,
++	VLAN_FLAG_MVRP		= 0x8,
+ };
  
- .ti -8
- .IR ELIM " := {"
+ enum vlan_name_types {
+diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
+index 26ceb8d..ed8984a 100644
+--- a/ip/iplink_vlan.c
++++ b/ip/iplink_vlan.c
+@@ -26,7 +26,7 @@ static void explain(void)
+ 		"\n"
+ 		"VLANID := 0-4095\n"
+ 		"FLAG-LIST := [ FLAG-LIST ] FLAG\n"
+-		"FLAG := [ reorder_hdr { on | off } ] [ gvrp { on | off } ]\n"
++		"FLAG := [ reorder_hdr { on | off } ] [ gvrp { on | off } ] [ mvrp { on | off } ]\n"
+ 		"        [ loose_binding { on | off } ]\n"
+ 		"QOS-MAP := [ QOS-MAP ] QOS-MAPPING\n"
+ 		"QOS-MAPPING := FROM:TO\n"
+@@ -103,6 +103,15 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
+ 				flags.flags &= ~VLAN_FLAG_GVRP;
+ 			else
+ 				return on_off("gvrp", *argv);
++		} else if (matches(*argv, "mvrp") == 0) {
++			NEXT_ARG();
++			flags.mask |= VLAN_FLAG_MVRP;
++			if (strcmp(*argv, "on") == 0)
++				flags.flags |= VLAN_FLAG_MVRP;
++			else if (strcmp(*argv, "off") == 0)
++				flags.flags &= ~VLAN_FLAG_MVRP;
++			else
++				return on_off("mvrp", *argv);
+ 		} else if (matches(*argv, "loose_binding") == 0) {
+ 			NEXT_ARG();
+ 			flags.mask |= VLAN_FLAG_LOOSE_BINDING;
+@@ -166,6 +175,7 @@ static void vlan_print_flags(FILE *fp, __u32 flags)
+ 		}
+ 	_PF(REORDER_HDR);
+ 	_PF(GVRP);
++	_PF(MVRP);
+ 	_PF(LOOSE_BINDING);
+ #undef _PF
+ 	if (flags)
 -- 
 1.7.1
