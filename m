@@ -1,219 +1,104 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH 4/4] sctp: fix association hangs due to partial delivery
- errors
-Date: Wed, 27 Feb 2013 08:51:04 -0500
-Message-ID: <512E0F48.3030007@redhat.com>
-References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com> <1361889376-22171-5-git-send-email-lee.roberts@hp.com> <512D70D0.1060208@redhat.com> <D64EC45690EF85409BA6C4730E0162244310EDA1@G4W3231.americas.hpqcorp.net>
-Reply-To: vyasevic@redhat.com
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH 1/4] sctp: fix association hangs due to off-by-one errors
+ in sctp_tsnmap_grow()
+Date: Wed, 27 Feb 2013 08:52:12 -0500
+Message-ID: <512E0F8C.4030408@gmail.com>
+References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com> <1361889376-22171-2-git-send-email-lee.roberts@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Roberts, Lee A." <lee.roberts@hp.com>
+Cc: netdev@vger.kernel.org
+To: "Lee A. Roberts" <lee.roberts@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18271 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759968Ab3B0NvL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 08:51:11 -0500
-In-Reply-To: <D64EC45690EF85409BA6C4730E0162244310EDA1@G4W3231.americas.hpqcorp.net>
+Received: from mail-yh0-f42.google.com ([209.85.213.42]:62163 "EHLO
+	mail-yh0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759904Ab3B0NwQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 08:52:16 -0500
+Received: by mail-yh0-f42.google.com with SMTP id w49so59292yhw.29
+        for <netdev@vger.kernel.org>; Wed, 27 Feb 2013 05:52:16 -0800 (PST)
+In-Reply-To: <1361889376-22171-2-git-send-email-lee.roberts@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/26/2013 11:38 PM, Roberts, Lee A. wrote:
-> Vlad,
+On 02/26/2013 09:36 AM, Lee A. Roberts wrote:
+> From: "Lee A. Roberts" <lee.roberts@hp.com>
 >
->> -----Original Message-----
->> From: Vlad Yasevich [mailto:vyasevic@redhat.com]
->> Sent: Tuesday, February 26, 2013 7:35 PM
->> To: Roberts, Lee A.
->> Cc: netdev@vger.kernel.org
->> Subject: Re: [PATCH 4/4] sctp: fix association hangs due to partial delivery errors
->>
->> On 02/26/2013 09:36 AM, Lee A. Roberts wrote:
->>> From: "Lee A. Roberts" <lee.roberts@hp.com>
->>>
->>> Resolve SCTP association hangs observed during SCTP stress
->>> testing.  Observable symptoms include communications hangs
->>> with data being held in the association reassembly and/or lobby
->>> (ordering) queues.  Close examination of reassembly queue shows
->>> missing packets.
->>>
->>> In sctp_ulpq_tail_data(), use return values 0,1 to indicate whether
->>> a complete event (with MSG_EOR set) was delivered.  A return value
->>> of -ENOMEM continues to indicate an out-of-memory condition was
->>> encountered.
->>>
->>> In sctp_ulpq_retrieve_partial() and sctp_ulpq_retrieve_first(),
->>> correct message reassembly logic for SCTP partial delivery.
->>> Change logic to ensure that as much data as possible is sent
->>> with the initial partial delivery and that following partial
->>> deliveries contain all available data.
->>>
->>> In sctp_ulpq_partial_delivery(), attempt partial delivery only
->>> if the data on the head of the reassembly queue is at or before
->>> the cumulative TSN ACK point.
->>>
->>> In sctp_ulpq_renege(), use the modified return values from
->>> sctp_ulpq_tail_data() to choose whether to attempt partial
->>> delivery or to attempt to drain the reassembly queue as a
->>> means to reduce memory pressure.  Remove call to
->>> sctp_tsnmap_mark(), as this is handled correctly in call to
->>> sctp_ulpq_tail_data().
->>>
->>> Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
->>> ---
->>>    net/sctp/ulpqueue.c |   54 ++++++++++++++++++++++++++++++++++++++++-----------
->>>    1 file changed, 43 insertions(+), 11 deletions(-)
->>>
->>> diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
->>> index f221fbb..482e3ea 100644
->>> --- a/net/sctp/ulpqueue.c
->>> +++ b/net/sctp/ulpqueue.c
->>> @@ -106,6 +106,7 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
->>>    {
->>>    	struct sk_buff_head temp;
->>>    	struct sctp_ulpevent *event;
->>> +	int event_eor = 0;
->>>
->>>    	/* Create an event from the incoming chunk. */
->>>    	event = sctp_ulpevent_make_rcvmsg(chunk->asoc, chunk, gfp);
->>> @@ -127,10 +128,12 @@ int sctp_ulpq_tail_data(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
->>>    	/* Send event to the ULP.  'event' is the sctp_ulpevent for
->>>    	 * very first SKB on the 'temp' list.
->>>    	 */
->>> -	if (event)
->>> +	if (event) {
->>> +		event_eor = (event->msg_flags & MSG_EOR) ? 1 : 0;
->>>    		sctp_ulpq_tail_event(ulpq, event);
->>> +	}
->>
->> You can re-use the check just before this one to catch the EOR
->> condition.   You already do
->> 	if ((event) && (event->msg_flags & MSG_EOR)){
->>
->> right after you try to get a reassembled event.
->>
->> Everything else looks good.
->> -vlad
->>
-> It depends on what we want the return value to mean.  In the case where we've reneged
-> to be able to put in a packet, we know that the incoming packet is the next one we're
-> looking for.  In which case, the earlier test is correct, since this will be the next
-> event.
+> Resolve SCTP association hangs observed during SCTP stress
+> testing.  Observable symptoms include communications hangs
+> with data being held in the association lobby (ordering)
+> queue.  Close examination of reassembly/ordering queues shows
+> duplicated packets.
 >
-> In general, the event that's being passed to sctp_ulpq_order() might not be the
-> next event.  In that case, sctp_ulpq_order() will call sctp_ulpq_store_ordered()
-> and return NULL.  Only at the last "if (event)" can we really be sure that an event
-> is being passed to the ULP.
+> In sctp_tsnmap_mark(), correct off-by-one error when calculating
+> size value for sctp_tsnmap_grow().
 >
-> In general, do we want to return 1 if a complete event is actually passed to the ULP?
-> Or, do we want to return 1 if we've seen a complete event come from reassembly?
+> In sctp_tsnmap_grow(), correct off-by-one error when copying
+> and resizing the tsnmap.  If max_tsn_seen is in the LSB of the
+> word, this bit can be lost, causing the corresponding packet
+> to be transmitted again and to be entered as a duplicate into
+> the SCTP reassembly/ordering queues.  Change parameter name
+> from "gap" (zero-based index) to "size" (one-based) to enhance
+> code readability.
+>
+> Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
 
-You are right.  We want it set based on deliver to ULP.  There is a 
-probability (if PARTIAL_DELIVERY_POINT is set) that we might get
-a partial message here without EOR and skip ordering.  So, your check
-is correct.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
 -vlad
+
+> ---
+>   net/sctp/tsnmap.c |   13 +++++++------
+>   1 file changed, 7 insertions(+), 6 deletions(-)
 >
->                                                      - Lee
+> diff --git a/net/sctp/tsnmap.c b/net/sctp/tsnmap.c
+> index 5f25e0c..396c451 100644
+> --- a/net/sctp/tsnmap.c
+> +++ b/net/sctp/tsnmap.c
+> @@ -51,7 +51,7 @@
+>   static void sctp_tsnmap_update(struct sctp_tsnmap *map);
+>   static void sctp_tsnmap_find_gap_ack(unsigned long *map, __u16 off,
+>   				     __u16 len, __u16 *start, __u16 *end);
+> -static int sctp_tsnmap_grow(struct sctp_tsnmap *map, u16 gap);
+> +static int sctp_tsnmap_grow(struct sctp_tsnmap *map, u16 size);
 >
->>>
->>> -	return 0;
->>> +	return event_eor;
->>>    }
->>>
->>>    /* Add a new event for propagation to the ULP.  */
->>> @@ -540,14 +543,19 @@ static struct sctp_ulpevent *sctp_ulpq_retrieve_partial(struct sctp_ulpq
->> *ulpq)
->>>    		ctsn = cevent->tsn;
->>>
->>>    		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
->>> +		case SCTP_DATA_FIRST_FRAG:
->>> +			if (!first_frag)
->>> +				return NULL;
->>> +			goto done;
->>>    		case SCTP_DATA_MIDDLE_FRAG:
->>>    			if (!first_frag) {
->>>    				first_frag = pos;
->>>    				next_tsn = ctsn + 1;
->>>    				last_frag = pos;
->>> -			} else if (next_tsn == ctsn)
->>> +			} else if (next_tsn == ctsn) {
->>>    				next_tsn++;
->>> -			else
->>> +				last_frag = pos;
->>> +			} else
->>>    				goto done;
->>>    			break;
->>>    		case SCTP_DATA_LAST_FRAG:
->>> @@ -651,6 +659,14 @@ static struct sctp_ulpevent *sctp_ulpq_retrieve_first(struct sctp_ulpq *ulpq)
->>>    			} else
->>>    				goto done;
->>>    			break;
->>> +
->>> +		case SCTP_DATA_LAST_FRAG:
->>> +			if (!first_frag)
->>> +				return NULL;
->>> +			else
->>> +				goto done;
->>> +			break;
->>> +
->>>    		default:
->>>    			return NULL;
->>>    		}
->>> @@ -1025,16 +1041,28 @@ void sctp_ulpq_partial_delivery(struct sctp_ulpq *ulpq,
->>>    	struct sctp_ulpevent *event;
->>>    	struct sctp_association *asoc;
->>>    	struct sctp_sock *sp;
->>> +	__u32 ctsn;
->>> +	struct sk_buff *skb;
->>>
->>>    	asoc = ulpq->asoc;
->>>    	sp = sctp_sk(asoc->base.sk);
->>>
->>>    	/* If the association is already in Partial Delivery mode
->>> -	 * we have noting to do.
->>> +	 * we have nothing to do.
->>>    	 */
->>>    	if (ulpq->pd_mode)
->>>    		return;
->>>
->>> +	/* Data must be at or below the Cumulative TSN ACK Point to
->>> +	 * start partial delivery.
->>> +	 */
->>> +	skb = skb_peek(&asoc->ulpq.reasm);
->>> +	if (skb != NULL) {
->>> +		ctsn = sctp_skb2event(skb)->tsn;
->>> +		if (!TSN_lte(ctsn, sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map)))
->>> +			return;
->>> +	}
->>> +
->>>    	/* If the user enabled fragment interleave socket option,
->>>    	 * multiple associations can enter partial delivery.
->>>    	 * Otherwise, we can only enter partial delivery if the
->>> @@ -1077,12 +1105,16 @@ void sctp_ulpq_renege(struct sctp_ulpq *ulpq, struct sctp_chunk *chunk,
->>>    	}
->>>    	/* If able to free enough room, accept this chunk. */
->>>    	if (chunk && (freed >= needed)) {
->>> -		__u32 tsn;
->>> -		tsn = ntohl(chunk->subh.data_hdr->tsn);
->>> -		sctp_tsnmap_mark(&asoc->peer.tsn_map, tsn, chunk->transport);
->>> -		sctp_ulpq_tail_data(ulpq, chunk, gfp);
->>> -
->>> -		sctp_ulpq_partial_delivery(ulpq, gfp);
->>> +		int retval;
->>> +		retval = sctp_ulpq_tail_data(ulpq, chunk, gfp);
->>> +		/*
->>> +		 * Enter partial delivery if chunk has not been
->>> +		 * delivered; otherwise, drain the reassembly queue.
->>> +		 */
->>> +		if (retval <= 0)
->>> +			sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
->>> +		else if (retval == 1)
->>> +			sctp_ulpq_reasm_drain(ulpq);
->>>    	}
->>>
->>>    	sk_mem_reclaim(asoc->base.sk);
->>>
+>   /* Initialize a block of memory as a tsnmap.  */
+>   struct sctp_tsnmap *sctp_tsnmap_init(struct sctp_tsnmap *map, __u16 len,
+> @@ -124,7 +124,7 @@ int sctp_tsnmap_mark(struct sctp_tsnmap *map, __u32 tsn,
+>
+>   	gap = tsn - map->base_tsn;
+>
+> -	if (gap >= map->len && !sctp_tsnmap_grow(map, gap))
+> +	if (gap >= map->len && !sctp_tsnmap_grow(map, gap + 1))
+>   		return -ENOMEM;
+>
+>   	if (!sctp_tsnmap_has_gap(map) && gap == 0) {
+> @@ -360,23 +360,24 @@ __u16 sctp_tsnmap_num_gabs(struct sctp_tsnmap *map,
+>   	return ngaps;
+>   }
+>
+> -static int sctp_tsnmap_grow(struct sctp_tsnmap *map, u16 gap)
+> +static int sctp_tsnmap_grow(struct sctp_tsnmap *map, u16 size)
+>   {
+>   	unsigned long *new;
+>   	unsigned long inc;
+>   	u16  len;
+>
+> -	if (gap >= SCTP_TSN_MAP_SIZE)
+> +	if (size > SCTP_TSN_MAP_SIZE)
+>   		return 0;
+>
+> -	inc = ALIGN((gap - map->len),BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
+> +	inc = ALIGN((size - map->len), BITS_PER_LONG) + SCTP_TSN_MAP_INCREMENT;
+>   	len = min_t(u16, map->len + inc, SCTP_TSN_MAP_SIZE);
+>
+>   	new = kzalloc(len>>3, GFP_ATOMIC);
+>   	if (!new)
+>   		return 0;
+>
+> -	bitmap_copy(new, map->tsn_map, map->max_tsn_seen - map->base_tsn);
+> +	bitmap_copy(new, map->tsn_map,
+> +		map->max_tsn_seen - map->cumulative_tsn_ack_point);
+>   	kfree(map->tsn_map);
+>   	map->tsn_map = new;
+>   	map->len = len;
 >
