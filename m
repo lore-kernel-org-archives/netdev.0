@@ -1,75 +1,124 @@
-From: David Ward <david.ward@ll.mit.edu>
-Subject: [PATCH iproute2] iplink_vlan: Add flag for Multiple VLAN Registration Protocol (MVRP)
-Date: Wed, 27 Feb 2013 18:00:40 -0500
-Message-ID: <1362006040-8561-1-git-send-email-david.ward@ll.mit.edu>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net 1/1] r8169: honor jumbo settings when chipset is requested to start.
+Date: Thu, 28 Feb 2013 00:01:57 +0100
+Message-ID: <20130227230157.GA30053@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Ward <david.ward@ll.mit.edu>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tomi Orava <tomimo@ncircle.nullnet.fi>,
+	David Miller <davem@davemloft.net>,
+	Hayes Wang <hayeswang@realtek.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:37274 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752033Ab3B0X1h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 18:27:37 -0500
-Received: from LLE2K7-HUB02.mitll.ad.local (LLE2K7-HUB02.mitll.ad.local) by mx2.ll.mit.edu (unknown) with ESMTP id r1RN0mYE005620 for <netdev@vger.kernel.org>; Wed, 27 Feb 2013 18:00:48 -0500
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46892 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751672Ab3B0Xek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 18:34:40 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: David Ward <david.ward@ll.mit.edu>
-Acked-by: Patrick McHardy <kaber@trash.net>
----
- include/linux/if_vlan.h |    1 +
- ip/iplink_vlan.c        |   12 +++++++++++-
- 2 files changed, 12 insertions(+), 1 deletions(-)
+Some hardware start settings implicitely assume an usual 1500 bytes mtu
+that can't be guaranteed because changes of mtu may be requested both
+before and after the hardware is started.
 
-diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 3be1ca6..24ae007 100644
---- a/include/linux/if_vlan.h
-+++ b/include/linux/if_vlan.h
-@@ -34,6 +34,7 @@ enum vlan_flags {
- 	VLAN_FLAG_REORDER_HDR	= 0x1,
- 	VLAN_FLAG_GVRP		= 0x2,
- 	VLAN_FLAG_LOOSE_BINDING	= 0x4,
-+	VLAN_FLAG_MVRP		= 0x8,
- };
+Reported-by: Tomi Orava <tomimo@ncircle.nullnet.fi>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Hayes Wang <hayeswang@realtek.com>
+---
+
+ Tomi, can you give this one a try ? It should be the "don't break non
+ jumbo setup and fix similar problem on different chipsets" patch that
+ my previous hack wasn't.
+
+ drivers/net/ethernet/realtek/r8169.c | 27 ++++++++++++++++++---------
+ 1 file changed, 18 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index 8900398..28fb50a 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4765,8 +4765,10 @@ static void rtl_hw_start_8168bb(struct rtl8169_private *tp)
  
- enum vlan_name_types {
-diff --git a/ip/iplink_vlan.c b/ip/iplink_vlan.c
-index 26ceb8d..ed8984a 100644
---- a/ip/iplink_vlan.c
-+++ b/ip/iplink_vlan.c
-@@ -26,7 +26,7 @@ static void explain(void)
- 		"\n"
- 		"VLANID := 0-4095\n"
- 		"FLAG-LIST := [ FLAG-LIST ] FLAG\n"
--		"FLAG := [ reorder_hdr { on | off } ] [ gvrp { on | off } ]\n"
-+		"FLAG := [ reorder_hdr { on | off } ] [ gvrp { on | off } ] [ mvrp { on | off } ]\n"
- 		"        [ loose_binding { on | off } ]\n"
- 		"QOS-MAP := [ QOS-MAP ] QOS-MAPPING\n"
- 		"QOS-MAPPING := FROM:TO\n"
-@@ -103,6 +103,15 @@ static int vlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				flags.flags &= ~VLAN_FLAG_GVRP;
- 			else
- 				return on_off("gvrp", *argv);
-+		} else if (matches(*argv, "mvrp") == 0) {
-+			NEXT_ARG();
-+			flags.mask |= VLAN_FLAG_MVRP;
-+			if (strcmp(*argv, "on") == 0)
-+				flags.flags |= VLAN_FLAG_MVRP;
-+			else if (strcmp(*argv, "off") == 0)
-+				flags.flags &= ~VLAN_FLAG_MVRP;
-+			else
-+				return on_off("mvrp", *argv);
- 		} else if (matches(*argv, "loose_binding") == 0) {
- 			NEXT_ARG();
- 			flags.mask |= VLAN_FLAG_LOOSE_BINDING;
-@@ -166,6 +175,7 @@ static void vlan_print_flags(FILE *fp, __u32 flags)
- 		}
- 	_PF(REORDER_HDR);
- 	_PF(GVRP);
-+	_PF(MVRP);
- 	_PF(LOOSE_BINDING);
- #undef _PF
- 	if (flags)
+ 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
+ 
+-	rtl_tx_performance_tweak(pdev,
+-		(0x5 << MAX_READ_REQUEST_SHIFT) | PCI_EXP_DEVCTL_NOSNOOP_EN);
++	if (tp->dev->mtu <= ETH_DATA_LEN) {
++		rtl_tx_performance_tweak(pdev, (0x5 << MAX_READ_REQUEST_SHIFT) |
++					 PCI_EXP_DEVCTL_NOSNOOP_EN);
++	}
+ }
+ 
+ static void rtl_hw_start_8168bef(struct rtl8169_private *tp)
+@@ -4789,7 +4791,8 @@ static void __rtl_hw_start_8168cp(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	rtl_disable_clock_request(pdev);
+ 
+@@ -4822,7 +4825,8 @@ static void rtl_hw_start_8168cp_2(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
+ }
+@@ -4841,7 +4845,8 @@ static void rtl_hw_start_8168cp_3(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
+ }
+@@ -4901,7 +4906,8 @@ static void rtl_hw_start_8168d(struct rtl8169_private *tp)
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
+ }
+@@ -4913,7 +4919,8 @@ static void rtl_hw_start_8168dp(struct rtl8169_private *tp)
+ 
+ 	rtl_csi_access_enable_1(tp);
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+@@ -4972,7 +4979,8 @@ static void rtl_hw_start_8168e_1(struct rtl8169_private *tp)
+ 
+ 	rtl_ephy_init(tp, e_info_8168e_1, ARRAY_SIZE(e_info_8168e_1));
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
+ 
+@@ -4998,7 +5006,8 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
+ 
+ 	rtl_ephy_init(tp, e_info_8168e_2, ARRAY_SIZE(e_info_8168e_2));
+ 
+-	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
++	if (tp->dev->mtu <= ETH_DATA_LEN)
++		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
+ 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+ 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
 -- 
-1.7.1
+1.8.1.2
