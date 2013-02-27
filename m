@@ -1,44 +1,38 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net] bnx2x: fix UDP checksum for 57710/57711.
-Date: Wed, 27 Feb 2013 12:04:59 +0200
-Message-ID: <1361959499-3968-1-git-send-email-dmitry@broadcom.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [Suggestion] drivers/isdn: about the loop after call isdn_tty_send_msg
+Date: Wed, 27 Feb 2013 18:08:18 +0800
+Message-ID: <512DDB12.9030008@asianux.com>
+References: <512DD2B3.2070404@asianux.com> <512DD94C.2020008@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	netdev <netdev@vger.kernel.org>
+To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3033 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751213Ab3B0KFT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 05:05:19 -0500
+Received: from intranet.asianux.com ([58.214.24.6]:29435 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751792Ab3B0KIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 05:08:36 -0500
+In-Reply-To: <512DD94C.2020008@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since commit 86564c3f "bnx2x: Remove many sparse warnings" UDP
-csum offload is broken for 57710/57711. Fix return value.
+=E4=BA=8E 2013=E5=B9=B402=E6=9C=8827=E6=97=A5 18:00, Jiri Slaby =E5=86=99=
+=E9=81=93:
+> Nope, we should break the for loop because isdn_tty_send_msg is inten=
+ded
+> to eat the rest of the string. Evidently nobody tested this path yet.
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-CC: Ariel Elior <ariele@broadcom.com>
-CC: Yuval Mintz <yuvalmin@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+  thank you for your reply.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index ecac04a3..a923bc4 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3142,7 +3142,7 @@ static inline __le16 bnx2x_csum_fix(unsigned char *t_header, u16 csum, s8 fix)
- 		tsum = ~csum_fold(csum_add((__force __wsum) csum,
- 				  csum_partial(t_header, -fix, 0)));
- 
--	return bswab16(csum);
-+	return bswab16(tsum);
- }
- 
- static inline u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
--- 
-1.7.7.2
+  I will send relative patch, tomorrow. please help to check, thanks.
+
+  :-)
+
+--=20
+Chen Gang
+
+Asianux Corporation
