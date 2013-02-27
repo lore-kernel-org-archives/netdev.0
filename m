@@ -1,44 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: af_packet: Validate parameter size for
- PACKET_HDRLEN control message
-Date: Wed, 27 Feb 2013 15:26:30 -0500 (EST)
-Message-ID: <20130227.152630.35846741651175869.davem@davemloft.net>
-References: <1361994418-1403-1-git-send-email-linux@roeck-us.net>
-	<512E6AF9.3030901@redhat.com>
+From: "Roberts, Lee A." <lee.roberts@hp.com>
+Subject: RE: [PATCH v2 0/4] sctp: fix association hangs due to
+ reassembly/ordering logic
+Date: Wed, 27 Feb 2013 20:26:39 +0000
+Message-ID: <D64EC45690EF85409BA6C4730E0162244310F025@G4W3231.americas.hpqcorp.net>
+References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
+ <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
+ <512E6905.2020808@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux@roeck-us.net, netdev@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "vyasevic@redhat.com" <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60489 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751370Ab3B0U0c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:26:32 -0500
-In-Reply-To: <512E6AF9.3030901@redhat.com>
+Received: from g4t0014.houston.hp.com ([15.201.24.17]:1048 "EHLO
+	g4t0014.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896Ab3B0U1n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:27:43 -0500
+In-Reply-To: <512E6905.2020808@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGFuaWVsIEJvcmttYW5uIDxkYm9ya21hbkByZWRoYXQuY29tPg0KRGF0ZTogV2VkLCAy
-NyBGZWIgMjAxMyAyMToyMjoxNyArMDEwMA0KDQo+IE9uIDAyLzI3LzIwMTMgMDg6NDYgUE0sIEd1
-ZW50ZXIgUm9lY2sgd3JvdGU6DQo+PiBCdWlsZGluZyBhZl9wYWNrZXQgbWF5IGZhaWwgd2l0aA0K
-Pj4NCj4+IEluIGZ1bmN0aW9uIKFjb3B5X2Zyb21fdXNlcqIsDQo+PiAgICAgIGlubGluZWQgZnJv
-bSChcGFja2V0X2dldHNvY2tvcHSiIGF0DQo+PiAgICAgIG5ldC9wYWNrZXQvYWZfcGFja2V0LmM6
-MzIxNToyMToNCj4+IGFyY2gveDg2L2luY2x1ZGUvYXNtL3VhY2Nlc3NfMzIuaDoyMTE6MjY6IGVy
-cm9yOiBjYWxsIHRvDQo+PiAgICAgIKFjb3B5X2Zyb21fdXNlcl9vdmVyZmxvd6IgZGVjbGFyZWQg
-d2l0aCBhdHRyaWJ1dGUgZXJyb3I6DQo+PiAgICAgIGNvcHlfZnJvbV91c2VyKCkNCj4+ICAgICAg
-YnVmZmVyIHNpemUgaXMgbm90IHByb3ZhYmx5IGNvcnJlY3QNCj4+DQo+PiBpZiBidWlsdCB3aXRo
-IFc9MSBkdWUgdG8gYSBtaXNzaW5nIHBhcmFtZXRlciBzaXplIHZhbGlkYXRpb24uDQo+Pg0KPj4g
-U2lnbmVkLW9mZi1ieTogR3VlbnRlciBSb2VjayA8bGludXhAcm9lY2stdXMubmV0Pg0KPj4gLS0t
-DQo+PiAgIG5ldC9wYWNrZXQvYWZfcGFja2V0LmMgfCAgICAyICsrDQo+PiAgIDEgZmlsZSBjaGFu
-Z2VkLCAyIGluc2VydGlvbnMoKykNCj4+DQo+PiBkaWZmIC0tZ2l0IGEvbmV0L3BhY2tldC9hZl9w
-YWNrZXQuYyBiL25ldC9wYWNrZXQvYWZfcGFja2V0LmMNCj4+IGluZGV4IGM3YmZlZmYuLjE5NzZi
-MjMgMTAwNjQ0DQo+PiAtLS0gYS9uZXQvcGFja2V0L2FmX3BhY2tldC5jDQo+PiArKysgYi9uZXQv
-cGFja2V0L2FmX3BhY2tldC5jDQo+PiBAQCAtMzIxMCw2ICszMjEwLDggQEAgc3RhdGljIGludCBw
-YWNrZXRfZ2V0c29ja29wdChzdHJ1Y3Qgc29ja2V0DQo+PiAqc29jaywgaW50IGxldmVsLCBpbnQg
-b3B0bmFtZSwNCj4+ICAgCQl2YWwgPSBwby0+dHBfdmVyc2lvbjsNCj4+ICAgCQlicmVhazsNCj4+
-ICAgCWNhc2UgUEFDS0VUX0hEUkxFTjoNCj4+ICsJCWlmIChsZW4gPCBzaXplb2YoaW50KSkNCj4+
-ICsJCQlyZXR1cm4gLUVJTlZBTDsNCj4gDQo+IEkgdGhpbmsgdGhpcyBjb3VsZCBicmVhayBzb21l
-IHVzZXIgc3BhY2UgYXBwbGljYXRpb25zIGhlcmUsIHRob3NlIHdobw0KPiBlLmcuIG9ubHkgcGFz
-cw0KPiBhbiB1aW50MTZfdCB0byBwYWNrZXRfZ2V0c29ja29wdCB3aXRoIFBBQ0tFVF9IRFJMRU4u
-DQoNCldlbGwsIHRoZWlyIHNoaXQgaXMgYnJva2VuIG9uIGJpZyBlbmRpYW4gdGhlbi4NCg==
+> -----Original Message-----
+> From: Vlad Yasevich [mailto:vyasevic@redhat.com]
+> Sent: Wednesday, February 27, 2013 1:14 PM
+> To: Roberts, Lee A.
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [PATCH v2 0/4] sctp: fix association hangs due to reassembly/ordering logic
+> 
+> On 02/27/2013 01:54 PM, Lee A. Roberts wrote:
+> > From: "Lee A. Roberts" <lee.roberts@hp.com>
+> >
+> > This series of patches resolves several SCTP association hangs observed during
+> > SCTP stress testing.  Observable symptoms include communications hangs with
+> > data being held in the association reassembly and/or lobby (ordering) queues.
+> > Close examination of reassembly/ordering queues may show either duplicated
+> > or missing packets.
+> 
+> Hi Lee
+> 
+> What changed in this series?  I looked through and they don't look
+> different from the prior version?
+> 
+> -vlad
+> 
+
+Vlad,
+
+In patch #4, routine sctp_ulpq_renege(), the inserted call to sctp_ulpq_partial_delivery()
+still used the 3.2.x calling sequence with three arguments.
+
+The first version of patch #4 stated:
+
++		if (retval <= 0)
++			sctp_ulpq_partial_delivery(ulpq, chunk, gfp);
++		else if (retval == 1)
++			sctp_ulpq_reasm_drain(ulpq);
+
+The second version of patch #4 has corrected the call to sctp_ulpq_partial_delivery():
+
++		if (retval <= 0)
++			sctp_ulpq_partial_delivery(ulpq, gfp);
++		else if (retval == 1)
++			sctp_ulpq_reasm_drain(ulpq);
+
+I have adjusted the patch comments for yet another version of the patch series.
+I'm holding them at the moment to collect any further change requests.
+
+                                        - Lee
+
+
+
+> >
+> > Lee A. Roberts (4):
+> >    sctp: fix association hangs due to off-by-one errors in
+> >      sctp_tsnmap_grow()
+> >    sctp: fix association hangs due to reneging packets below the
+> >      cumulative TSN ACK point
+> >    sctp: fix association hangs due to errors when reneging events from
+> >      the ordering queue
+> >    sctp: fix association hangs due to partial delivery errors
+> >
+> >   net/sctp/tsnmap.c   |   13 ++++----
+> >   net/sctp/ulpqueue.c |   87 +++++++++++++++++++++++++++++++++++++++++----------
+> >   2 files changed, 78 insertions(+), 22 deletions(-)
+> >
