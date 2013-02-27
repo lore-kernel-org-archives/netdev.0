@@ -1,148 +1,44 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: Re: [RFC PATCH] core: Add ioctls to control device unicast hw
- addresses
-Date: Wed, 27 Feb 2013 05:42:21 +0000
-Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E2D2E1A@avmb2.qlogic.org>
-References: <512D9337.6070504@intel.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] drivers/net/wireless/ath/wil6210: Makefile, only -Werror
+ when no -W* in EXTRA_CFLAGS
+Date: Wed, 27 Feb 2013 14:55:06 +0800
+Message-ID: <512DADCA.9040609@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: John Fastabend <john.fastabend@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>,
-	"vyasevic@redhat.com" <vyasevic@redhat.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+To: qca_vkondrat@qca.qualcomm.com,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, wil6210@qca.qualcomm.com,
+	"netdev@vger.kernel.org >> netdev" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe004.messaging.microsoft.com ([216.32.180.187]:25780
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750803Ab3B0Fm0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 00:42:26 -0500
-In-Reply-To: <512D9337.6070504@intel.com>
-Content-Language: en-US
-Content-ID: <A4AE0EC17B2B3246B9959E44D5EFF697@qlogic.com>
+Received: from intranet.asianux.com ([58.214.24.6]:56641 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751410Ab3B0Gz0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 01:55:26 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+  When make with EXTRA_CFLAGS=-W, it will report error.
+  so give a check in Makefile.
 
-On 2/26/13 9:01 PM, "John Fastabend" <john.r.fastabend@intel.com> wrote:
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ drivers/net/wireless/ath/wil6210/Makefile |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
->On 2/26/2013 6:27 PM, Vlad Yasevich wrote:
->> On 02/26/2013 09:07 PM, John Fastabend wrote:
->>> On Tue, Feb 26, 2013 at 05:15:03PM -0500, David Miller wrote:
->>>> From: John Fastabend <john.r.fastabend@intel.com>
->>>> Date: Tue, 26 Feb 2013 13:58:39 -0800
->>>>
->>>>> [...]
->>>>>
->>>>>>>>
->>>>>>>>
->>>>>>>> [RFC PATCH] rtnetlink: Add support for adding/removing additional
->>>>>>>>hw
->>>>>>>> addresses.
->>>>>>>>
->>>>>>>> Add an ability to add and remove HW addresses to the device
->>>>>>>> unicast and multicast address lists.  Right now, we only have
->>>>>>>> an ioctl() to manage the multicast addresses and there is no
->>>>>>>> way the manage the unicast list.
->>>>>>>>
->>>>>>>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>>>>>
->>>>>>> This is a step in the right direction, and you're right that there
->>>>>>>is
->>>>>>> a difficulty in detecting whether support exists or not.
->>>>>>>
->>>>>>> I am so surprised that we've have ->set_rx_mode() support for
->>>>>>> multiple
->>>>>>> unicast MAC addresses in so many drivers all this time, yet no way
->>>>>>> outside of FDB to make use of it at all.
->>>>>>
->>>>>> And even that is not always available.  In most drivers it requires
->>>>>> module parameters or other explicit configuration steps.  Meanwhile
->>>>>> set_rx_mode() doesn't seem to depend on any of those and just does
->>>>>>the
->>>>>> right thing.
->>>>>>
->>>>>> For what I was trying to do ioctl() was a really easy way out for
->>>>>>both
->>>>>> kernel and user space implementation, so I gave is shot.
->>>>>>
->>>>>> -vlad
->>>>>>
->>>>>
->>>>> Don't we already support this with
->>>>
->>>> The whole point is that these multiple-unicast-address configuration
->>>> facilities are inaccessible without FDB, and there is no reason
->>>> whatsoever for that.
->>>
->>> Yes I see now sorry I was behind the thread.
->>>
->>> We could just use the fdb hooks and add a dflt routine to handle the
->>> case where the netdev doesn't provide a specific ndo_op for us. This
->>> boils down to calling set_rx_mode anyways through this call chain,
->>>
->>>     ndo_fdb_add
->>>     dev_uc_add_excl
->>>         __dev_set_rx_mode
->>>             ndo_set_rx_mode
->>>
->>> As long as folks don't think this is too much of an abuse of the fdb
->>> hooks. Here's an example I only compile tested this so take it as
->>> an example only. It probably needs some cleanups and the dump routine
->>> needs some thought not sure you want to dump all MACs always.
->>
->> I thought about doing, but this becomes broken on the drivers that
->> support ndo_fdb_* functions.  Those drivers mainly require additional
->> configuration that is not necessary for dev_uc_add_excl() to work.
->>
->> For example, ixgbe and melanox requires VF to be on, qlogic needs a
->> module parameter, macvlan has to be in passthrough.  However,
->> ndo_set_rx_mode() in most cases doesn't care about those settings and
->> just works.
->>
->
->The ixgbe piece could just use the dflt routines I put below. The
->SR-IOV check is only there because when I wrote that I didn't consider
->adding additional addresses without VFs. This was a poor example.
->
->The mlx4 card is checking if the device is a slave or master before
->adding/removing addresses. My guess is this is the same type of check
->as ixgbe and would work just fine without it.
->
->I'm not sure macvlan supports unicast hw addresses either way but
->there is no reason we couldn't. The idea was we would come back and
->write it later. Like many things I haven't got to it yet.
->
->Calling set_rx_mode() on qlcnic doesn't look to help you at all either
->it appears to ignore the uc_list either way.
-
-Even though we use module parameter for fdb but it would be good it have
-set_rx_mode().
-We don't ignore uc_list but it never called set_rx_mode() when I use
-dev_uc_add_excl when added support and thought that's how it might
-designed.
-  
--Jiten
->
->is that all the callers? looks like it.
->
->> So fdb will not always work even if the driver has proper support for
->> IFF_UNICAST_FLT.
->>
->
->The fdb could work if we fix the drivers it seems to me most
->the cases where it wouldn't work are just lack of foresight or the code
->isn't there yet. I think it might be valuable to have a single API for
->both use cases.
->
->.John
->
->> -vlad
->>
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/drivers/net/wireless/ath/wil6210/Makefile b/drivers/net/wireless/ath/wil6210/Makefile
+index 9396dc9..d288eea 100644
+--- a/drivers/net/wireless/ath/wil6210/Makefile
++++ b/drivers/net/wireless/ath/wil6210/Makefile
+@@ -9,5 +9,7 @@ wil6210-objs += wmi.o
+ wil6210-objs += interrupt.o
+ wil6210-objs += txrx.o
+ 
+-subdir-ccflags-y += -Werror
++ifeq (, $(findstring -W,$(EXTRA_CFLAGS)))
++	subdir-ccflags-y += -Werror
++endif
+ subdir-ccflags-y += -D__CHECK_ENDIAN__
+-- 
+1.7.7.6
