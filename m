@@ -1,58 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: af_packet: Validate parameter size for PACKET_HDRLEN
- control message
-Date: Wed, 27 Feb 2013 21:22:17 +0100
-Message-ID: <512E6AF9.3030901@redhat.com>
-References: <1361994418-1403-1-git-send-email-linux@roeck-us.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net/sctp: Validate parameter size for
+ SCTP_GET_ASSOC_STATS control message
+Date: Wed, 27 Feb 2013 15:22:33 -0500 (EST)
+Message-ID: <20130227.152233.1255341111357013803.davem@davemloft.net>
+References: <1361994231-5355-1-git-send-email-linux@roeck-us.net>
+	<20130227200931.GB7993@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Guenter Roeck <linux@roeck-us.net>
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux@roeck-us.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, vyasevich@gmail.com, sri@us.ibm.com
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7337 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752945Ab3B0UWZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 27 Feb 2013 15:22:25 -0500
-In-Reply-To: <1361994418-1403-1-git-send-email-linux@roeck-us.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60413 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753383Ab3B0UWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 15:22:35 -0500
+In-Reply-To: <20130227200931.GB7993@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2013 08:46 PM, Guenter Roeck wrote:
-> Building af_packet may fail with
->
-> In function =E2=80=98copy_from_user=E2=80=99,
->      inlined from =E2=80=98packet_getsockopt=E2=80=99 at
->      net/packet/af_packet.c:3215:21:
-> arch/x86/include/asm/uaccess_32.h:211:26: error: call to
->      =E2=80=98copy_from_user_overflow=E2=80=99 declared with attribut=
-e error: copy_from_user()
->      buffer size is not provably correct
->
-> if built with W=3D1 due to a missing parameter size validation.
->
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
->   net/packet/af_packet.c |    2 ++
->   1 file changed, 2 insertions(+)
->
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index c7bfeff..1976b23 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -3210,6 +3210,8 @@ static int packet_getsockopt(struct socket *soc=
-k, int level, int optname,
->   		val =3D po->tp_version;
->   		break;
->   	case PACKET_HDRLEN:
-> +		if (len < sizeof(int))
-> +			return -EINVAL;
-
-I think this could break some user space applications here, those who e=
-=2Eg. only pass
-an uint16_t to packet_getsockopt with PACKET_HDRLEN.
-
->   		if (len > sizeof(int))
->   			len =3D sizeof(int);
->   		if (copy_from_user(&val, optval, len))
+RnJvbTogTmVpbCBIb3JtYW4gPG5ob3JtYW5AdHV4ZHJpdmVyLmNvbT4NCkRhdGU6IFdlZCwgMjcg
+RmViIDIwMTMgMTU6MDk6MzEgLTA1MDANCg0KPiBPbiBXZWQsIEZlYiAyNywgMjAxMyBhdCAxMTo0
+Mzo1MUFNIC0wODAwLCBHdWVudGVyIFJvZWNrIHdyb3RlOg0KPj4gQnVpbGRpbmcgc2N0cCBtYXkg
+ZmFpbCB3aXRoOg0KPj4gDQo+PiBJbiBmdW5jdGlvbiChY29weV9mcm9tX3VzZXKiLA0KPj4gICAg
+IGlubGluZWQgZnJvbSChc2N0cF9nZXRzb2Nrb3B0X2Fzc29jX3N0YXRzoiBhdA0KPj4gICAgIG5l
+dC9zY3RwL3NvY2tldC5jOjU2NTY6MjA6DQo+PiBhcmNoL3g4Ni9pbmNsdWRlL2FzbS91YWNjZXNz
+XzMyLmg6MjExOjI2OiBlcnJvcjogY2FsbCB0bw0KPj4gICAgIKFjb3B5X2Zyb21fdXNlcl9vdmVy
+Zmxvd6IgZGVjbGFyZWQgd2l0aCBhdHRyaWJ1dGUgZXJyb3I6IGNvcHlfZnJvbV91c2VyKCkNCj4+
+ICAgICBidWZmZXIgc2l6ZSBpcyBub3QgcHJvdmFibHkgY29ycmVjdA0KPj4gDQo+PiBpZiBidWls
+dCB3aXRoIFc9MSBkdWUgdG8gYSBtaXNzaW5nIHBhcmFtZXRlciBzaXplIHZhbGlkYXRpb24uDQo+
+PiANCj4+IFNpZ25lZC1vZmYtYnk6IEd1ZW50ZXIgUm9lY2sgPGxpbnV4QHJvZWNrLXVzLm5ldD4N
+Cj4+IC0tLQ0KPj4gIG5ldC9zY3RwL3NvY2tldC5jIHwgICAgMiArKw0KPj4gIDEgZmlsZSBjaGFu
+Z2VkLCAyIGluc2VydGlvbnMoKykNCj4+IA0KPj4gZGlmZiAtLWdpdCBhL25ldC9zY3RwL3NvY2tl
+dC5jIGIvbmV0L3NjdHAvc29ja2V0LmMNCj4+IGluZGV4IGNlZGQ5YmYuLjBhNWYyYmYgMTAwNjQ0
+DQo+PiAtLS0gYS9uZXQvc2N0cC9zb2NrZXQuYw0KPj4gKysrIGIvbmV0L3NjdHAvc29ja2V0LmMN
+Cj4+IEBAIC01NjUyLDYgKzU2NTIsOCBAQCBzdGF0aWMgaW50IHNjdHBfZ2V0c29ja29wdF9hc3Nv
+Y19zdGF0cyhzdHJ1Y3Qgc29jayAqc2ssIGludCBsZW4sDQo+PiAgCS8qIFVzZXIgbXVzdCBwcm92
+aWRlIGF0IGxlYXN0IHRoZSBhc3NvYyBpZCAqLw0KPj4gIAlpZiAobGVuIDwgc2l6ZW9mKHNjdHBf
+YXNzb2NfdCkpDQo+PiAgCQlyZXR1cm4gLUVJTlZBTDsNCj4+ICsJaWYgKGxlbiA+IHNpemVvZihz
+dHJ1Y3Qgc2N0cF9hc3NvY19zdGF0cykpDQo+PiArCQlsZW4gPSBzaXplb2Yoc3RydWN0IHNjdHBf
+YXNzb2Nfc3RhdHMpOw0KPj4gIA0KPj4gIAlpZiAoY29weV9mcm9tX3VzZXIoJnNhcywgb3B0dmFs
+LCBsZW4pKQ0KPj4gIAkJcmV0dXJuIC1FRkFVTFQ7DQo+PiAtLSANCj4+IDEuNy45LjcNCj4+IA0K
+Pj4gDQo+IA0KPiBUaGVyZXMgbW9yZSB0aGFuIHRoYXQgZ29pbmcgb24gaGVyZS4gIFRoaXMgd2ls
+bCBmaXggdGhlIHdhcm5pbmcsIGJ1dCB0aGUNCj4gZnVuY3Rpb24gaXMgd3JpdHRlbiBzdWNoIHRo
+YXQsIGlmIHlvdSBwYXNzIGluIGEgc2l6ZSB0aGF0IGlzIGdyZWF0ZXIgdGhhbiB0aGUNCj4gc2l6
+ZSBvZiBhIHN0cnVjdCBzY3RwX2Fzc29jaWF0aW9uLCBidXQgbGVzcyB0aGFuIGEgc3RydWN0IHNj
+dHBfYXNzb2Nfc3RhdHMuICBJJ20NCj4gbm90IHN1cmUgdGhhdCBhIHBhcnRpYWwgc3RhdCBzdHJ1
+Y3QgaXMgcmVhbGx5IHRoYXQgdXNlZnVsIHRvIHBlb3BsZS4gIFdoYXQgaWYNCj4geW91IHdlcmUg
+dG8gY2hlY2sgZm9yIG1heChzdHJ1Y3Qgc2N0cF9hc3NvY2lhdGlvbiwgc3RydWN0IHNjdHBfYXNz
+b2Nfc3RhdHMpIGFzDQo+IHlvdXIgbWluaW11bSBsZW5ndGggY2hlY2ssIHRoZW4ganVzdCBkaWQg
+YSBjb3B5X2Zyb21fdXNlciBvZiB0aGF0IGxlbmd0aC4gIEl0DQo+IHdvdWxkIHNhdmUgeW91IGhh
+dmluZyB0byBjb21wdXRlIHR3byBsZW5ndGhzIHNlcGFyYXRlbHksIHNpbmNlIHlvdSBjb3VsZCB0
+aGVuDQo+IGp1c3QgZG8gYSBjb3B5X3RvX3VzZXIoLi4uLHNpemVvZihzdHJ1Y3Qgc2N0cF9hc3Nv
+Y19zdGF0cyksIGF0IHRoZSBib3R0b20gb2YNCj4gdGhhdCBmdW5jdGlvbi4NCg0KR2VucmVhbGx5
+LCBnZXRzb2Nrb3B0KCkgaW1wbGVtZW50YXRpb25zIGhhcHBpbHkgZ2l2ZSBwYXJ0aWFsIHJldHVy
+biB2YWx1ZXMNCndoZW4gdGhlIHVzZXIgZ2l2ZXMgYSB0b28gc21hbGwgbGVuZ3RoLg0K
