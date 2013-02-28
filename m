@@ -1,45 +1,51 @@
 From: "Lee A. Roberts" <lee.roberts@hp.com>
-Subject: [PATCH v3 0/4] sctp: fix association hangs due to reassembly/ordering logic
-Date: Thu, 28 Feb 2013 07:37:26 -0700
-Message-ID: <1362062250-26749-1-git-send-email-lee.roberts@hp.com>
+Subject: [PATCH v3 2/4] sctp: fix association hangs due to reneging packets below the cumulative TSN ACK point
+Date: Thu, 28 Feb 2013 07:37:28 -0700
+Message-ID: <1362062250-26749-3-git-send-email-lee.roberts@hp.com>
 References: <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
 Cc: linux-sctp@vger.kernel.org, lee.roberts@hp.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:39221 "EHLO
+Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:39241 "EHLO
 	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752774Ab3B1Oge (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 09:36:34 -0500
+	with ESMTP id S1752774Ab3B1Ogg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 09:36:36 -0500
 In-Reply-To: <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Lee A. Roberts" <lee.roberts@hp.com>
 
-This series of patches resolves several SCTP association hangs observed during
-SCTP stress testing.  Observable symptoms include communications hangs with
-data being held in the association reassembly and/or lobby (ordering) queues.
-Close examination of reassembly/ordering queues may show either duplicated
-or missing packets.
+In sctp_ulpq_renege_list(), do not renege packets below the
+cumulative TSN ACK point.
 
-In version #2, corrected build failure in initial version of patch series
-due to wrong calling sequence for sctp_ulpq_partial_delivery() being inserted
-in sctp_ulpq_renege().
+Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
+---
+ net/sctp/ulpqueue.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-In version #3, adjusted patch documentation to be less repetitive.
-
-Lee A. Roberts (4):
-  sctp: fix association hangs due to off-by-one errors in
-    sctp_tsnmap_grow()
-  sctp: fix association hangs due to reneging packets below the
-    cumulative TSN ACK point
-  sctp: fix association hangs due to errors when reneging events from
-    the ordering queue
-  sctp: fix association hangs due to partial delivery errors
-
- net/sctp/tsnmap.c   |   13 ++++----
- net/sctp/ulpqueue.c |   87 +++++++++++++++++++++++++++++++++++++++++----------
- 2 files changed, 78 insertions(+), 22 deletions(-)
-
+diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+index ada1746..63afddc 100644
+--- a/net/sctp/ulpqueue.c
++++ b/net/sctp/ulpqueue.c
+@@ -969,11 +969,16 @@ static __u16 sctp_ulpq_renege_list(struct sctp_ulpq *ulpq,
+ 
+ 	tsnmap = &ulpq->asoc->peer.tsn_map;
+ 
+-	while ((skb = __skb_dequeue_tail(list)) != NULL) {
+-		freed += skb_headlen(skb);
++	while ((skb = skb_peek_tail(list)) != NULL) {
+ 		event = sctp_skb2event(skb);
+ 		tsn = event->tsn;
+ 
++		/* Don't renege below the Cumulative TSN ACK Point. */
++		if (TSN_lte(tsn, sctp_tsnmap_get_ctsn(tsnmap)))
++			break;
++
++		__skb_unlink(skb, list);
++		freed += skb_headlen(skb);
+ 		sctp_ulpevent_free(event);
+ 		sctp_tsnmap_renege(tsnmap, tsn);
+ 		if (freed >= needed)
 -- 
 1.7.9.5
