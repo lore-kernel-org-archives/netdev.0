@@ -1,30 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: omit the fcs
-Date: Thu, 28 Feb 2013 15:38:22 -0500 (EST)
-Message-ID: <20130228.153822.333101811485615011.davem@davemloft.net>
-References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
+Subject: Re: [PATCH v2] phy: Fix phy_device_free memory leak
+Date: Thu, 28 Feb 2013 15:38:43 -0500 (EST)
+Message-ID: <20130228.153843.113719126611463624.davem@davemloft.net>
+References: <20130228110152.GA26262@bordel.klfree.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zajec5@gmail.com, netdev@vger.kernel.org
-To: hauke@hauke-m.de
+Cc: netdev@vger.kernel.org
+To: oss@malat.biz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47849 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47859 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758725Ab3B1UiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:38:23 -0500
-In-Reply-To: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
+	with ESMTP id S1753277Ab3B1Uio (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:38:44 -0500
+In-Reply-To: <20130228110152.GA26262@bordel.klfree.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Date: Thu, 28 Feb 2013 18:16:54 +0100
+From: Petr Malat <oss@malat.biz>
+Date: Thu, 28 Feb 2013 12:01:52 +0100
 
-> Do not include the frame check sequence when adding the skb to
-> netif_receive_skb(). This causes problems when this interface was
-> bridged to a wifi ap and a big package should be forwarded from this
-> Ethernet driver through a bride to the wifi client.
 > 
-> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+> From: Petr Malat <oss@malat.biz>
+> 
+> Fix memory leak in phy_device_free() for the case when phy_device*
+> returned by phy_device_create() is not registered in the system.
+> 
+> Bug description:
+> phy_device_create() sets name of kobject using dev_set_name(), which 
+> allocates memory using kvasprintf(), but this memory isn't freed if 
+> the underlying device isn't registered properly, because kobject_cleanup()
+> is not called in that case. This can happen (and actually is happening on 
+> our machines) if phy_device_register(), called by mdiobus_scan(), fails. 
+> 
+> Patch description:
+> Embedded struct device is initialized in phy_device_create() and it 
+> counterpart phy_device_free() just drops one reference to the device,
+> which leads to proper deinitialization including releasing the kobject 
+> name memory.
+> 
+> Signed-off-by: Petr Malat <oss@malat.biz>
 
-Applied.
+This looks great, applied, thanks.
