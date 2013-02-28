@@ -1,44 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] phy: Fix phy_device_free memory leak
-Date: Thu, 28 Feb 2013 15:38:43 -0500 (EST)
-Message-ID: <20130228.153843.113719126611463624.davem@davemloft.net>
-References: <20130228110152.GA26262@bordel.klfree.net>
+Subject: Re: [PATCH 1/1 net-next] fec: net: put tx to napi poll function to
+ fix dead lock
+Date: Thu, 28 Feb 2013 15:39:42 -0500 (EST)
+Message-ID: <20130228.153942.1205752844713252540.davem@davemloft.net>
+References: <1362023060-10277-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: oss@malat.biz
+Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de
+To: Frank.Li@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47859 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47877 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277Ab3B1Uio (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:38:44 -0500
-In-Reply-To: <20130228110152.GA26262@bordel.klfree.net>
+	with ESMTP id S1756359Ab3B1Ujo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:39:44 -0500
+In-Reply-To: <1362023060-10277-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petr Malat <oss@malat.biz>
-Date: Thu, 28 Feb 2013 12:01:52 +0100
+From: Frank Li <Frank.Li@freescale.com>
+Date: Thu, 28 Feb 2013 11:44:20 +0800
 
-> 
-> From: Petr Malat <oss@malat.biz>
-> 
-> Fix memory leak in phy_device_free() for the case when phy_device*
-> returned by phy_device_create() is not registered in the system.
-> 
-> Bug description:
-> phy_device_create() sets name of kobject using dev_set_name(), which 
-> allocates memory using kvasprintf(), but this memory isn't freed if 
-> the underlying device isn't registered properly, because kobject_cleanup()
-> is not called in that case. This can happen (and actually is happening on 
-> our machines) if phy_device_register(), called by mdiobus_scan(), fails. 
-> 
-> Patch description:
-> Embedded struct device is initialized in phy_device_create() and it 
-> counterpart phy_device_free() just drops one reference to the device,
-> which leads to proper deinitialization including releasing the kobject 
-> name memory.
-> 
-> Signed-off-by: Petr Malat <oss@malat.biz>
+> +	int tx_pkts = fec_enet_tx(ndev);
+> +
+> +	if (tx_pkts)
+> +		return budget;
 
-This looks great, applied, thanks.
+This isn't right, you don't want to finish the NAPI poll because
+TX work was done.
+
+Ignore the TX work for poll completion purposes, see
+drivers/net/ethernet/broadcom/tg3.c:tg3_poll_work() for
+example.
