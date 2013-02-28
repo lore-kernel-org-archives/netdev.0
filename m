@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1 net-next] fec: net: put tx to napi poll function to
- fix dead lock
-Date: Thu, 28 Feb 2013 15:39:42 -0500 (EST)
-Message-ID: <20130228.153942.1205752844713252540.davem@davemloft.net>
-References: <1362023060-10277-1-git-send-email-Frank.Li@freescale.com>
+Subject: Re: [PATCH net 1/1] r8169: honor jumbo settings when chipset is
+ requested to start.
+Date: Thu, 28 Feb 2013 15:39:53 -0500 (EST)
+Message-ID: <20130228.153953.535569326042504902.davem@davemloft.net>
+References: <20130227230157.GA30053@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lznuaa@gmail.com, shawn.guo@linaro.org, B38611@freescale.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de
-To: Frank.Li@freescale.com
+Cc: netdev@vger.kernel.org, tomimo@ncircle.nullnet.fi,
+	hayeswang@realtek.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47877 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47884 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756359Ab3B1Ujo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:39:44 -0500
-In-Reply-To: <1362023060-10277-1-git-send-email-Frank.Li@freescale.com>
+	with ESMTP id S1756726Ab3B1Uj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:39:56 -0500
+In-Reply-To: <20130227230157.GA30053@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Frank Li <Frank.Li@freescale.com>
-Date: Thu, 28 Feb 2013 11:44:20 +0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 28 Feb 2013 00:01:57 +0100
 
-> +	int tx_pkts = fec_enet_tx(ndev);
-> +
-> +	if (tx_pkts)
-> +		return budget;
+> Some hardware start settings implicitely assume an usual 1500 bytes mtu
+> that can't be guaranteed because changes of mtu may be requested both
+> before and after the hardware is started.
+> 
+> Reported-by: Tomi Orava <tomimo@ncircle.nullnet.fi>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-This isn't right, you don't want to finish the NAPI poll because
-TX work was done.
-
-Ignore the TX work for poll completion purposes, see
-drivers/net/ethernet/broadcom/tg3.c:tg3_poll_work() for
-example.
+Applied.
