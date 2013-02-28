@@ -1,40 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net] tcp: Don't collapse if resulting skb could overflow
- skb->csum_start
-Date: Thu, 28 Feb 2013 16:45:02 +0000
-Message-ID: <20130228164502.GD7558@casper.infradead.org>
-References: <20130228102603.GA7558@casper.infradead.org>
- <1362068326.15793.33.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, foraker1@llnl.gov
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Subject: [PATCH] bgmac: omit the fcs
+Date: Thu, 28 Feb 2013 18:16:54 +0100
+Message-ID: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
+Cc: zajec5@gmail.com, netdev@vger.kernel.org,
+	Hauke Mehrtens <hauke@hauke-m.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51072 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753277Ab3B1QpH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 11:45:07 -0500
-Content-Disposition: inline
-In-Reply-To: <1362068326.15793.33.camel@edumazet-glaptop>
+Received: from server19320154104.serverpool.info ([193.201.54.104]:40417 "EHLO
+	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759406Ab3B1RRC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2013 12:17:02 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/28/13 at 08:18am, Eric Dumazet wrote:
-> but.... what is the value of skb_availroom(to) ?
-> 
-> The earlier test at line 2302 should already guard this case ?
-> 
->                /* Punt if not enough space exists in the first SKB for
->                  * the data in the second
->                  */
->                 if (skb->len > skb_availroom(to))
->                         break;
+Do not include the frame check sequence when adding the skb to
+netif_receive_skb(). This causes problems when this interface was
+bridged to a wifi ap and a big package should be forwarded from this
+Ethernet driver through a bride to the wifi client.
 
-Only if it is guaranteed that we never see an MSS > 64K.
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+---
+ drivers/net/ethernet/broadcom/bgmac.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-Assuming that is true forever, then a21d45726 (tcp: avoid order-1
-allocations on wifi and tx path) does in fact resolve this
-issue at the cost of not being able to use the extra room
-kmalloc() might have given us in __alloc_skb() for collapsing.
-
-Was that an intentional side effect of a21d45726?
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index bf985c0..bce30e7 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -301,12 +301,16 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+ 				  ring->start);
+ 		} else {
++			/* Omit CRC. */
++			len -= ETH_FCS_LEN;
++
+ 			new_skb = netdev_alloc_skb_ip_align(bgmac->net_dev, len);
+ 			if (new_skb) {
+ 				skb_put(new_skb, len);
+ 				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
+ 								 new_skb->data,
+ 								 len);
++				skb_checksum_none_assert(skb);
+ 				new_skb->protocol =
+ 					eth_type_trans(new_skb, bgmac->net_dev);
+ 				netif_receive_skb(new_skb);
+-- 
+1.7.10.4
