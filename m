@@ -1,41 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: avoid wakeups for pure ACK
-Date: Thu, 28 Feb 2013 15:38:07 -0500 (EST)
-Message-ID: <20130228.153807.1427421999295174182.davem@davemloft.net>
-References: <1361984703.11403.43.camel@edumazet-glaptop>
+Subject: Re: [PATCH] bgmac: omit the fcs
+Date: Thu, 28 Feb 2013 15:38:22 -0500 (EST)
+Message-ID: <20130228.153822.333101811485615011.davem@davemloft.net>
+References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
-	ycheng@google.com, ak@linux.intel.com
-To: eric.dumazet@gmail.com
+Cc: zajec5@gmail.com, netdev@vger.kernel.org
+To: hauke@hauke-m.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47828 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47849 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755175Ab3B1UiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:38:10 -0500
-In-Reply-To: <1361984703.11403.43.camel@edumazet-glaptop>
+	with ESMTP id S1758725Ab3B1UiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:38:23 -0500
+In-Reply-To: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 27 Feb 2013 09:05:03 -0800
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Thu, 28 Feb 2013 18:16:54 +0100
 
-> TCP prequeue mechanism purpose is to let incoming packets
-> being processed by the thread currently blocked in tcp_recvmsg(),
-> instead of behalf of the softirq handler, to better adapt flow
-> control on receiver host capacity to schedule the consumer.
+> Do not include the frame check sequence when adding the skb to
+> netif_receive_skb(). This causes problems when this interface was
+> bridged to a wifi ap and a big package should be forwarded from this
+> Ethernet driver through a bride to the wifi client.
 > 
-> But in typical request/answer workloads, we send request, then
-> block to receive the answer. And before the actual answer, TCP
-> stack receives the ACK packets acknowledging the request.
-> 
-> Processing pure ACK on behalf of the thread blocked in tcp_recvmsg()
-> is a waste of resources, as thread has to immediately sleep again
-> because it got no payload.
-> 
-> This patch avoids the extra context switches and scheduler overhead.
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
 
 Applied.
