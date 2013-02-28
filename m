@@ -1,66 +1,56 @@
 From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] drivers/isdn: checkng length to be sure not memory overflow
-Date: Thu, 28 Feb 2013 09:45:46 +0800
-Message-ID: <512EB6CA.6030609@asianux.com>
-References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz>
+Subject: [PATCH] drivers/isdn: break out of the loop after call isdn_tty_send_msg
+Date: Thu, 28 Feb 2013 10:57:32 +0800
+Message-ID: <512EC79C.3010700@asianux.com>
+References: <512DD2B3.2070404@asianux.com> <512DD94C.2020008@suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Transfer-Encoding: 7bit
 Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
-	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
+	Greg KH <gregkh@linuxfoundation.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
 	netdev <netdev@vger.kernel.org>
 To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:8385 "EHLO
+Received: from intranet.asianux.com ([58.214.24.6]:15701 "EHLO
 	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587Ab3B1BqK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 20:46:10 -0500
-In-Reply-To: <512DE380.8080804@suse.cz>
+	with ESMTP id S1751190Ab3B1C5x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 21:57:53 -0500
+In-Reply-To: <512DD94C.2020008@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=E4=BA=8E 2013=E5=B9=B402=E6=9C=8827=E6=97=A5 18:44, Jiri Slaby =E5=86=99=
-=E9=81=93:
-> On 02/27/2013 11:25 AM, Chen Gang wrote:
->> > =E4=BA=8E 2013=E5=B9=B402=E6=9C=8827=E6=97=A5 17:48, Jiri Slaby =E5=
-=86=99=E9=81=93:
->>> >> I have no idea if
->>> >> this is correct from the ISDN POV as we drop the end of the buff=
-er
->> >=20
->> >   pardon ?  what about "ISDN POV".
-> "point of view" aka POV.
->=20
-> Hmm, "also known as" alias "aka" :).
 
+  need break out of the loop after call isdn_tty_send_msg.
+    isdn_tty_send_msg is intended to eat the rest of the string.
+    so need not scan again the string which appended "+M...".
 
-  sorry, I still not quite understand (I am really not familiar with IS=
-DN)
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ drivers/isdn/i4l/isdn_tty.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-  so I have to bother you with 2 questions, please help reply, thanks.
-
-    A) is our current patch OK ?
-       a. yes, ok, need do nothing for it, just is waiting for Acked-by=
- or applying.
-       b. no, need improving (e.g. additional consideration, comments, =
-or others)
-       c. no, it is useless patch.
-
-    B) does "ISDN POV" point to another issue ?
-       if yes:
-         I will read source code or search document on net, and should =
-not bother you again.
-         if possible, I can try to send relative patches, next.
-       else (no):
-         could you please say more details again ?
-         I should improve current patch (also need let you as Signed-of=
--By)
-
-  thanks.
-
-  :-)
-
---=20
-Chen Gang
-
-Asianux Corporation
+diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
+index d8a7d83..8ac7b33 100644
+--- a/drivers/isdn/i4l/isdn_tty.c
++++ b/drivers/isdn/i4l/isdn_tty.c
+@@ -3587,7 +3587,7 @@ isdn_tty_parse_at(modem_info *info)
+ 			case 'M':	/* MESSAGE */
+ 				p++;
+ 				isdn_tty_send_msg(info, m, p);
+-				break;
++				goto tail;
+ 			default:
+ 				PARSE_ERROR;
+ 			}
+@@ -3601,6 +3601,8 @@ isdn_tty_parse_at(modem_info *info)
+ 			PARSE_ERROR;
+ 		}
+ 	}
++
++tail:
+ #ifdef CONFIG_ISDN_AUDIO
+ 	if (!info->vonline)
+ #endif
+-- 
+1.7.7.6
