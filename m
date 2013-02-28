@@ -1,76 +1,48 @@
-From: "Lee A. Roberts" <lee.roberts@hp.com>
-Subject: [PATCH v3 3/4] sctp: fix association hangs due to errors when reneging events from the ordering queue
-Date: Thu, 28 Feb 2013 07:37:29 -0700
-Message-ID: <1362062250-26749-4-git-send-email-lee.roberts@hp.com>
-References: <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
-Cc: linux-sctp@vger.kernel.org, lee.roberts@hp.com
-To: netdev@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH ethtool] Restore 20000baseKR2 cap display
+Date: Thu, 28 Feb 2013 15:01:29 +0000
+Message-ID: <1362063689.3599.0.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1362046206-6907-1-git-send-email-yanivr@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Yaniv Rosner <yanivr@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0184.atlanta.hp.com ([15.193.32.61]:39246 "EHLO
-	g6t0184.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753803Ab3B1Ogh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 09:36:37 -0500
-In-Reply-To: <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:26461 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759468Ab3B1PBw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 10:01:52 -0500
+In-Reply-To: <1362046206-6907-1-git-send-email-yanivr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Lee A. Roberts" <lee.roberts@hp.com>
+On Thu, 2013-02-28 at 12:10 +0200, Yaniv Rosner wrote:
+> Restore the 20000baseKR2 which was removed by mistake back in June 2012.
 
-In sctp_ulpq_renege_list(), events being reneged from the
-ordering queue may correspond to multiple TSNs.  Identify
-all affected packets; sum freed space and renege from the
-tsnmap.
+Applied, thanks.
 
-Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
----
- net/sctp/ulpqueue.c |   26 ++++++++++++++++++++++----
- 1 file changed, 22 insertions(+), 4 deletions(-)
+Ben.
 
-diff --git a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
-index 63afddc..f221fbb 100644
---- a/net/sctp/ulpqueue.c
-+++ b/net/sctp/ulpqueue.c
-@@ -962,8 +962,8 @@ static __u16 sctp_ulpq_renege_list(struct sctp_ulpq *ulpq,
- 		struct sk_buff_head *list, __u16 needed)
- {
- 	__u16 freed = 0;
--	__u32 tsn;
--	struct sk_buff *skb;
-+	__u32 tsn, last_tsn;
-+	struct sk_buff *skb, *flist, *last;
- 	struct sctp_ulpevent *event;
- 	struct sctp_tsnmap *tsnmap;
- 
-@@ -977,10 +977,28 @@ static __u16 sctp_ulpq_renege_list(struct sctp_ulpq *ulpq,
- 		if (TSN_lte(tsn, sctp_tsnmap_get_ctsn(tsnmap)))
- 			break;
- 
--		__skb_unlink(skb, list);
-+		/* Events in ordering queue may have multiple fragments
-+		 * corresponding to additional TSNs.  Sum the total
-+		 * freed space; find the last TSN.
-+		 */
- 		freed += skb_headlen(skb);
-+		flist = skb_shinfo(skb)->frag_list;
-+		for (last = flist; flist; flist = flist->next) {
-+			last = flist;
-+			freed += skb_headlen(last);
-+		}
-+		if (last)
-+			last_tsn = sctp_skb2event(last)->tsn;
-+		else
-+			last_tsn = tsn;
-+
-+		/* Unlink the event, then renege all applicable TSNs. */
-+		__skb_unlink(skb, list);
- 		sctp_ulpevent_free(event);
--		sctp_tsnmap_renege(tsnmap, tsn);
-+		while (TSN_lte(tsn, last_tsn)) {
-+			sctp_tsnmap_renege(tsnmap, tsn);
-+			tsn++;
-+		}
- 		if (freed >= needed)
- 			return freed;
- 	}
+> Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
+> ---
+>  ethtool.c |    1 +
+>  1 files changed, 1 insertions(+), 0 deletions(-)
+> 
+> diff --git a/ethtool.c b/ethtool.c
+> index 55bc082..acac32a 100644
+> --- a/ethtool.c
+> +++ b/ethtool.c
+> @@ -513,6 +513,7 @@ dump_link_caps(const char *prefix, const char *an_prefix, u32 mask,
+>  		{ 0, ADVERTISED_10000baseT_Full,    "10000baseT/Full" },
+>  		{ 0, ADVERTISED_10000baseKX4_Full,  "10000baseKX4/Full" },
+>  		{ 0, ADVERTISED_20000baseMLD2_Full, "20000baseMLD2/Full" },
+> +		{ 0, ADVERTISED_20000baseKR2_Full,  "20000baseKR2/Full" },
+>  		{ 0, ADVERTISED_40000baseKR4_Full,  "40000baseKR4/Full" },
+>  		{ 0, ADVERTISED_40000baseCR4_Full,  "40000baseCR4/Full" },
+>  		{ 0, ADVERTISED_40000baseSR4_Full,  "40000baseSR4/Full" },
+
 -- 
-1.7.9.5
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
