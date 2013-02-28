@@ -1,87 +1,68 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: query: localhost - 794ed393b clips hefty load tbench, does it
- matter?
-Date: Thu, 28 Feb 2013 08:13:38 -0800
-Message-ID: <1362068018.15793.31.camel@edumazet-glaptop>
-References: <1362055757.4460.236.camel@marge.simpson.net>
+Subject: Re: [PATCH net] tcp: Don't collapse if resulting skb could overflow
+ skb->csum_start
+Date: Thu, 28 Feb 2013 08:18:46 -0800
+Message-ID: <1362068326.15793.33.camel@edumazet-glaptop>
+References: <20130228102603.GA7558@casper.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
-To: Mike Galbraith <bitbucket@online.de>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, foraker1@llnl.gov
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:42027 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756140Ab3B1QNo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 11:13:44 -0500
-Received: by mail-pa0-f52.google.com with SMTP id fb1so1219947pad.25
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 08:13:44 -0800 (PST)
-In-Reply-To: <1362055757.4460.236.camel@marge.simpson.net>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:46057 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752251Ab3B1QSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 11:18:49 -0500
+Received: by mail-pa0-f51.google.com with SMTP id hz1so1224700pad.10
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 08:18:49 -0800 (PST)
+In-Reply-To: <20130228102603.GA7558@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-28 at 13:49 +0100, Mike Galbraith wrote:
-> Greetings network wizards,
+On Thu, 2013-02-28 at 10:26 +0000, Thomas Graf wrote:
+> If a TCP retransmission gets partially ACKed and collapsed multiple
+> times it is possible for the headroom to grow beyond 64K which will
+> overflow the 16bit skb->csum_start which is based on the start of
+> the headroom. It has been observed rarely in the wild with IPoIB due
+> to the 64K MTU.
 > 
-> I was testing a 64 core box after 3.0-stable update, and noticed
-> $subject.
+> With this patch, the overflow has not been observed for over a week
+> while previously it would occur within ~ 1 day.
 > 
-> vogelweide:~/:[0]# numactl --hardware
-> available: 1 nodes (0)
-> node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63
-> node 0 size: 8181 MB
-> node 0 free: 7353 MB
-> node distances:
-> node   0 
->   0:  10
+> A big thank you to Jim Foraker <foraker1@llnl.gov> and the team at
+> LLNL for helping out with the investigation and testing.
 > 
-> Sob, poor thing.  Anyway, that's the box in case it matters.
+> Reported-by: Jim Foraker <foraker1@llnl.gov>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+>  net/ipv4/tcp_output.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
 > 
-> Without 94ed393b. 
-> 
-> vogelweide:~/:[0]# for i in 1 2 4 8 16 32 64 128 256 512; do tbench.sh $i 10 2>&1|grep Throughput; done
-> Throughput 288.784 MB/sec 1 procs
-> Throughput 559.937 MB/sec 2 procs
-> Throughput 1068.75 MB/sec 4 procs
-> Throughput 2159.04 MB/sec 8 procs
-> Throughput 4193.75 MB/sec 16 procs
-> Throughput 7662.24 MB/sec 32 procs
-> Throughput 9034.49 MB/sec 64 procs
-> Throughput 9045.9 MB/sec 128 procs
-> Throughput 9077.55 MB/sec 256 procs
-> Throughput 8907.48 MB/sec 512 procs
-> 
-> With.
-> 
-> vogelweide:~/:[0]# for i in 1 2 4 8 16 32 64 128 256 512; do tbench.sh $i 10 2>&1|grep Throughput; done
-> Throughput 288.833 MB/sec 1 procs
-> Throughput 520.87 MB/sec 2 procs
-> Throughput 937.758 MB/sec 4 procs
-> Throughput 1563.3 MB/sec 8 procs
-> Throughput 1775.14 MB/sec 16 procs
-> Throughput 1406.55 MB/sec 32 procs
-> Throughput 1448.77 MB/sec 64 procs
-> Throughput 1468.92 MB/sec 128 procs
-> Throughput 1525.35 MB/sec 256 procs
-> Throughput 1713.54 MB/sec 512 procs
-> 
-> I'm wondering if this could cause problems on a big box doing something
-> like say mysql queries of a local database, blasting retrieved data out
-> over industrial strength copper/glass or such.  My desktop box surely
-> won't notice, but it seems heavy lifters might.  I saw the reason for
-> it, but I was left wondering why we used to care about it, but no more,
-> so here I am to see if I can get my curiosity spot scratched.
-> 
-> I'll sorta miss good ole tbench in scheduler litmus test role.  On the
-> bright side, localhost based scalability reports are history.  Oh wait.
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index e2b4461..1902fee 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -2305,6 +2305,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+>  		if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
+>  			break;
+>  
+> +		/* Never collapse if the resulting headroom + data exceeds
+> +		 * 64K as that is the maximum csum_start can cover.
+> +		 */
+> +		if (skb_headroom(to) + to->len + skb->len > 0xFFFF)
+> +			break;
+> +
+>  		tcp_collapse_retrans(sk, to);
+>  	}
+>  }
 
-Sure, this patch re-introduces the dst->__refcnt false sharing for
-loopback.
+but.... what is the value of skb_availroom(to) ?
 
-Hopefully, with current kernels it's not an issue, because each cpu gets
-a different dst.
+The earlier test at line 2302 should already guard this case ?
 
-(It would be an issue if the connect() calls are all done on a single
-cpu, than traffic handled on other cpus)
-
-So please try tbench on linux-3.8 or current git tree ;)
+               /* Punt if not enough space exists in the first SKB for
+                 * the data in the second
+                 */
+                if (skb->len > skb_availroom(to))
+                        break;
