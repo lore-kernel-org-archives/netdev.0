@@ -1,48 +1,57 @@
-From: Hauke Mehrtens <hauke@hauke-m.de>
-Subject: [PATCH] bgmac: omit the fcs
-Date: Thu, 28 Feb 2013 18:16:54 +0100
-Message-ID: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
-Cc: zajec5@gmail.com, netdev@vger.kernel.org,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] tcp: Don't collapse if resulting skb could overflow
+ skb->csum_start
+Date: Thu, 28 Feb 2013 09:35:52 -0800
+Message-ID: <1362072952.15793.41.camel@edumazet-glaptop>
+References: <20130228102603.GA7558@casper.infradead.org>
+	 <1362068326.15793.33.camel@edumazet-glaptop>
+	 <20130228164502.GD7558@casper.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, foraker1@llnl.gov
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server19320154104.serverpool.info ([193.201.54.104]:40417 "EHLO
-	hauke-m.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759406Ab3B1RRC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2013 12:17:02 -0500
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:50836 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752282Ab3B1Rfz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 12:35:55 -0500
+Received: by mail-pb0-f49.google.com with SMTP id xa12so1193101pbc.22
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 09:35:54 -0800 (PST)
+In-Reply-To: <20130228164502.GD7558@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Do not include the frame check sequence when adding the skb to
-netif_receive_skb(). This causes problems when this interface was
-bridged to a wifi ap and a big package should be forwarded from this
-Ethernet driver through a bride to the wifi client.
+On Thu, 2013-02-28 at 16:45 +0000, Thomas Graf wrote:
+> On 02/28/13 at 08:18am, Eric Dumazet wrote:
+> > but.... what is the value of skb_availroom(to) ?
+> > 
+> > The earlier test at line 2302 should already guard this case ?
+> > 
+> >                /* Punt if not enough space exists in the first SKB for
+> >                  * the data in the second
+> >                  */
+> >                 if (skb->len > skb_availroom(to))
+> >                         break;
+> 
+> Only if it is guaranteed that we never see an MSS > 64K.
+> 
+> Assuming that is true forever, then a21d45726 (tcp: avoid order-1
+> allocations on wifi and tx path) does in fact resolve this
+> issue at the cost of not being able to use the extra room
+> kmalloc() might have given us in __alloc_skb() for collapsing.
+> 
+> Was that an intentional side effect of a21d45726?
 
-Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
----
- drivers/net/ethernet/broadcom/bgmac.c |    4 ++++
- 1 file changed, 4 insertions(+)
+This had a followup with 22b4a4f22da4
+(tcp: fix retransmit of partially acked frames)
 
-diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
-index bf985c0..bce30e7 100644
---- a/drivers/net/ethernet/broadcom/bgmac.c
-+++ b/drivers/net/ethernet/broadcom/bgmac.c
-@@ -301,12 +301,16 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
- 			bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
- 				  ring->start);
- 		} else {
-+			/* Omit CRC. */
-+			len -= ETH_FCS_LEN;
-+
- 			new_skb = netdev_alloc_skb_ip_align(bgmac->net_dev, len);
- 			if (new_skb) {
- 				skb_put(new_skb, len);
- 				skb_copy_from_linear_data_offset(skb, BGMAC_RX_FRAME_OFFSET,
- 								 new_skb->data,
- 								 len);
-+				skb_checksum_none_assert(skb);
- 				new_skb->protocol =
- 					eth_type_trans(new_skb, bgmac->net_dev);
- 				netif_receive_skb(new_skb);
--- 
-1.7.10.4
+I also wonder if there is not another similar potential problem in
+__tcp_retransmit_skb) after call to 
+
+tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq)
+
+csum_start can overflow again because of MAX_TCP_HEADER headroom
+reserve.
+
+So maybe we should limit TCP MTU to (64K - MAX_TCP_HEADER)
