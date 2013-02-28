@@ -1,55 +1,122 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v3 0/4] sctp: fix association hangs due to reassembly/ordering
- logic
-Date: Thu, 28 Feb 2013 10:07:39 -0500
-Message-ID: <512F72BB.30909@gmail.com>
-References: <1361991273-30578-1-git-send-email-lee.roberts@hp.com> <1362062250-26749-1-git-send-email-lee.roberts@hp.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [RFC PATCH 2/3] ixgbe: Use default fdb handlers when not in VF
+ mode.
+Date: Thu, 28 Feb 2013 09:46:35 -0500
+Message-ID: <512F6DCB.2080408@redhat.com>
+References: <1361987164-15280-1-git-send-email-vyasevic@redhat.com> <1361987164-15280-3-git-send-email-vyasevic@redhat.com> <512EDC77.5090802@intel.com>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: "Lee A. Roberts" <lee.roberts@hp.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f54.google.com ([209.85.128.54]:35002 "EHLO
-	mail-qe0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758113Ab3B1POe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 10:14:34 -0500
-In-Reply-To: <1362062250-26749-1-git-send-email-lee.roberts@hp.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51137 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755649Ab3B1Oqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2013 09:46:40 -0500
+In-Reply-To: <512EDC77.5090802@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2013 09:37 AM, Lee A. Roberts wrote:
-> From: "Lee A. Roberts" <lee.roberts@hp.com>
+On 02/27/2013 11:26 PM, John Fastabend wrote:
+> On 2/27/2013 9:46 AM, Vlad Yasevich wrote:
+>> Allow the use of ndo_dflt_fdb_<add|del|dump> when the
+>> adapter does not have VF configured.  This allows for
+>> IFF_UNICAST_FLT support and allows VF handling to potentially
+>> do something different.
+>>
+>> CC: John Fastabend <john.r.fastabend@intel.com>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   26
+>> ++++++++++--------------
+>>   1 files changed, 11 insertions(+), 15 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 68478d6..0ae2525 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -7007,7 +7007,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm,
+>> struct nlattr *tb[],
 >
-> This series of patches resolves several SCTP association hangs observed during
-> SCTP stress testing.  Observable symptoms include communications hangs with
-> data being held in the association reassembly and/or lobby (ordering) queues.
-> Close examination of reassembly/ordering queues may show either duplicated
-> or missing packets.
+> With the first patch we can just remove this routine altogether and
+> let the dflt handler do its work.
 >
-> In version #2, corrected build failure in initial version of patch series
-> due to wrong calling sequence for sctp_ulpq_partial_delivery() being inserted
-> in sctp_ulpq_renege().
->
-> In version #3, adjusted patch documentation to be less repetitive.
+> CC'd Greg in case I miss something.
 
-My Acks from version 1 still apply.
-
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+OK.  I took the safe approach and kept the functions.  The only 
+difference right now is that right now with VF configured, fdb_add
+refuses to add more then IXGBE_MAX_PF_MACVLANS and thus never would
+enter into promisc mode.   I am not sure if that how its supposed to
+be have or not.  That's one of the reasons I kept this around.
 
 -vlad
 
 >
-> Lee A. Roberts (4):
->    sctp: fix association hangs due to off-by-one errors in
->      sctp_tsnmap_grow()
->    sctp: fix association hangs due to reneging packets below the
->      cumulative TSN ACK point
->    sctp: fix association hangs due to errors when reneging events from
->      the ordering queue
->    sctp: fix association hangs due to partial delivery errors
+>>       int err;
+>>
+>>       if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+>> -        return -EOPNOTSUPP;
+>> +        return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
+>>
+>>       /* Hardware does not support aging addresses so if a
+>>        * ndm_state is given only allow permanent addresses
+>> @@ -7045,20 +7045,21 @@ static int ixgbe_ndo_fdb_del(struct ndmsg
+>> *ndm, struct nlattr *tb[],
 >
->   net/sctp/tsnmap.c   |   13 ++++----
->   net/sctp/ulpqueue.c |   87 +++++++++++++++++++++++++++++++++++++++++----------
->   2 files changed, 78 insertions(+), 22 deletions(-)
+> same here just remove it and use the dflt handler.
+>
+>>       struct ixgbe_adapter *adapter = netdev_priv(dev);
+>>       int err = -EOPNOTSUPP;
+>>
+>> +    if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
+>> +        return ndo_dflt_fdb_del(ndm, tb, dev, addr);
+>> +
+>>       if (ndm->ndm_state & NUD_PERMANENT) {
+>>           pr_info("%s: FDB only supports static addresses\n",
+>>               ixgbe_driver_name);
+>>           return -EINVAL;
+>>       }
+>>
+>> -    if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
+>> -        if (is_unicast_ether_addr(addr))
+>> -            err = dev_uc_del(dev, addr);
+>> -        else if (is_multicast_ether_addr(addr))
+>> -            err = dev_mc_del(dev, addr);
+>> -        else
+>> -            err = -EINVAL;
+>> -    }
+>> +    if (is_unicast_ether_addr(addr))
+>> +        err = dev_uc_del(dev, addr);
+>> +    else if (is_multicast_ether_addr(addr))
+>> +        err = dev_mc_del(dev, addr);
+>> +    else
+>> +        err = -EINVAL;
+>>
+>>       return err;
+>>   }
+>> @@ -7068,12 +7069,7 @@ static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
+>>                     struct net_device *dev,
+>>                     int idx)
+>>   {
+>
+> This is the same as not defining the op at all right? Just
+> remove it.
+>
+>> -    struct ixgbe_adapter *adapter = netdev_priv(dev);
+>> -
+>> -    if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
+>> -        idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
+>> -
+>> -    return idx;
+>> +    return ndo_dflt_fdb_dump(skb, cb, dev, idx);
+>>   }
+>>
+>>   static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
+>>
+>
+> Then we get a patch with all '-' which is sort of nice.
 >
