@@ -1,40 +1,43 @@
-From: Vlastimil Kosar <ikosar@fit.vutbr.cz>
-Subject: [PATCH 1/1] net/phy: micrel: Disable asymmetric pause for KSZ9021
-Date: Thu, 28 Feb 2013 19:45:22 +0100
-Message-ID: <1362077122-4266-1-git-send-email-ikosar@fit.vutbr.cz>
-Cc: linux-kernel@vger.kernel.org, Vlastimil Kosar <ikosar@fit.vutbr.cz>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bgmac: omit the fcs
+Date: Thu, 28 Feb 2013 14:21:42 -0500 (EST)
+Message-ID: <20130228.142142.242861205295035084.davem@davemloft.net>
+References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
+	<CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hauke@hauke-m.de, netdev@vger.kernel.org
+To: zajec5@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eva.fit.vutbr.cz ([147.229.176.14]:49706 "EHLO eva.fit.vutbr.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932149Ab3B1S67 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2013 13:58:59 -0500
+Received: from shards.monkeyblade.net ([149.20.54.216]:46833 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449Ab3B1TVo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 14:21:44 -0500
+In-Reply-To: <CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phyter KSZ9021 has hardware bug. If asymmetric pause is enabled,
-then it is necessary to disconnect and then reconnect the ethernet
-cable to get the phyter working. The solution is to disable the
-asymmetric pause.
+=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
+Date: Thu, 28 Feb 2013 18:57:03 +0100
 
-Signed-off-by: Vlastimil Kosar <ikosar@fit.vutbr.cz>
----
- drivers/net/phy/micrel.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> 2013/2/28 Hauke Mehrtens <hauke@hauke-m.de>:
+>> Do not include the frame check sequence when adding the skb to
+>> netif_receive_skb(). This causes problems when this interface was
+>> bridged to a wifi ap and a big package should be forwarded from this
+>> Ethernet driver through a bride to the wifi client.
+>=20
+> Is this a real fix?
+>=20
+> Don't get me wrong, but it sounds a little like a workaround for some
+> issue in another network layer ;)
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 2993444..abf7b61 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -257,8 +257,7 @@ static struct phy_driver ksphy_driver[] = {
- 	.phy_id		= PHY_ID_KSZ9021,
- 	.phy_id_mask	= 0x000ffffe,
- 	.name		= "Micrel KSZ9021 Gigabit PHY",
--	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause
--				| SUPPORTED_Asym_Pause),
-+	.features	= (PHY_GBIT_FEATURES | SUPPORTED_Pause),
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
- 	.config_init	= kszphy_config_init,
- 	.config_aneg	= genphy_config_aneg,
--- 
-1.7.2.5
+=46CS should never be included in the SKB unless a specific debugging
+configuration knob has enabled it.
+
+Having the FCS there will screw up things like device provided partial
+checksums (CHECKSUM_PARTIAL), which operate over the entire contents
+of the packet starting at a particular offset, so if the FCS is there
+we'll include it.
+
+This change is therefore about as correct as can possibly be.
