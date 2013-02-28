@@ -1,73 +1,49 @@
-From: Mike Galbraith <bitbucket@online.de>
-Subject: query: localhost - 794ed393b clips hefty load tbench, does it
- matter?
-Date: Thu, 28 Feb 2013 13:49:17 +0100
-Message-ID: <1362055757.4460.236.camel@marge.simpson.net>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [PATCH 6/8] netfront: multi-page ring support
+Date: Thu, 28 Feb 2013 20:55:02 +0800
+Message-ID: <512F53A6.4000401@oracle.com>
+References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com> <1360944010-15336-7-git-send-email-wei.liu2@citrix.com> <512C5B96.10204@oracle.com> <1361882139.2109.52.camel@zion.uk.xensource.com> <512DB83A.6050503@oracle.com> <1361980154.2109.67.camel@zion.uk.xensource.com> <512EE8EF.30200@oracle.com> <20130228110237.GA23777@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>
-To: netdev <netdev@vger.kernel.org>
+Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:64434 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073Ab3B1MtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 07:49:20 -0500
+Received: from userp1040.oracle.com ([156.151.31.81]:39477 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751265Ab3B1M4O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 07:56:14 -0500
+In-Reply-To: <20130228110237.GA23777@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings network wizards,
 
-I was testing a 64 core box after 3.0-stable update, and noticed
-$subject.
+On 2013-2-28 19:02, Wei Liu wrote:
+> On Thu, Feb 28, 2013 at 05:19:43AM +0000, ANNIE LI wrote:
+>> I checked the code in Konrad's tree and am thinking this overlap issue
+>> you mentioned existing in original netback(without multi-ring) and newer
+>> netfront. Original netback does not support multi-ring, and your newer
+>> netfront before this bug fix used "#define TX_MAX_TARGET
+>> XENNET_MAX_TX_RING_SIZE" directly. So that would cause overlap when
+>> netfront allocating rx skbs.
+>> "#define TX_MAX_TARGET min_t(int, NET_TX_RING_SIZE(1), 256)" limits the
+>> netfront to single ring, it fixed the overlap issue, but not enough.
+>>
+> Yes. I just saw a bug report from Xen-user list yesterday for the same
+> issue in original netback (1 page ring), so the overlap issue is not
+> introduced by multi-page ring implementation. If your team also sees that
+> issue, do you have patch to fix that?
 
-vogelweide:~/:[0]# numactl --hardware
-available: 1 nodes (0)
-node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63
-node 0 size: 8181 MB
-node 0 free: 7353 MB
-node distances:
-node   0 
-  0:  10
+No. We thought your patch fixed it, and I did not check it further at 
+that time.
+Are you sure they are same? What is the thread title in Xen-user?
+The overlap issue here exists in netfront when netfront allocates skb 
+greedily. In Konrad's tree merged with your patch, netfront with 
+"#define TX_MAX_TARGET XENNET_MAX_TX_RING_SIZE" should hit this overlap 
+issue when it runs with single ring netback.
 
-Sob, poor thing.  Anyway, that's the box in case it matters.
-
-Without 94ed393b. 
-
-vogelweide:~/:[0]# for i in 1 2 4 8 16 32 64 128 256 512; do tbench.sh $i 10 2>&1|grep Throughput; done
-Throughput 288.784 MB/sec 1 procs
-Throughput 559.937 MB/sec 2 procs
-Throughput 1068.75 MB/sec 4 procs
-Throughput 2159.04 MB/sec 8 procs
-Throughput 4193.75 MB/sec 16 procs
-Throughput 7662.24 MB/sec 32 procs
-Throughput 9034.49 MB/sec 64 procs
-Throughput 9045.9 MB/sec 128 procs
-Throughput 9077.55 MB/sec 256 procs
-Throughput 8907.48 MB/sec 512 procs
-
-With.
-
-vogelweide:~/:[0]# for i in 1 2 4 8 16 32 64 128 256 512; do tbench.sh $i 10 2>&1|grep Throughput; done
-Throughput 288.833 MB/sec 1 procs
-Throughput 520.87 MB/sec 2 procs
-Throughput 937.758 MB/sec 4 procs
-Throughput 1563.3 MB/sec 8 procs
-Throughput 1775.14 MB/sec 16 procs
-Throughput 1406.55 MB/sec 32 procs
-Throughput 1448.77 MB/sec 64 procs
-Throughput 1468.92 MB/sec 128 procs
-Throughput 1525.35 MB/sec 256 procs
-Throughput 1713.54 MB/sec 512 procs
-
-I'm wondering if this could cause problems on a big box doing something
-like say mysql queries of a local database, blasting retrieved data out
-over industrial strength copper/glass or such.  My desktop box surely
-won't notice, but it seems heavy lifters might.  I saw the reason for
-it, but I was left wondering why we used to care about it, but no more,
-so here I am to see if I can get my curiosity spot scratched.
-
-I'll sorta miss good ole tbench in scheduler litmus test role.  On the
-bright side, localhost based scalability reports are history.  Oh wait.
-
--Mike
+Thanks
+Annie
