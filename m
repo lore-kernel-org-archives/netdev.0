@@ -1,34 +1,60 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH] bgmac: omit the fcs
-Date: Thu, 28 Feb 2013 18:57:03 +0100
-Message-ID: <CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
-References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
+	Per-CPU Reader-Writer Locks
+Date: Thu, 28 Feb 2013 19:00:07 +0100
+Message-ID: <20130228180007.GA3537@redhat.com>
+References: <512BBAD8.8010006@linux.vnet.ibm.com> <CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com> <512C7A38.8060906@linux.vnet.ibm.com> <CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com> <512CC509.1050000@linux.vnet.ibm.com> <CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com> <512D0D67.9010609@linux.vnet.ibm.com> <CANN689FuuEb9wpV43DkTtgv6syvBYL-LQxByWznyAq8dkrhzBw@mail.gmail.com> <20130227192551.GA8333@redhat.com> <CANN689EhqoQAKALR7WhT3YrQh3=VDA2Dq3QX1yLuYU_gZAo_Tg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Hauke Mehrtens <hauke@hauke-m.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f51.google.com ([209.85.219.51]:39833 "EHLO
-	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759887Ab3B1R5E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 12:57:04 -0500
-Received: by mail-oa0-f51.google.com with SMTP id h2so4157428oag.10
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 09:57:04 -0800 (PST)
-In-Reply-To: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
+	peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, namhyung@kernel.org,
+	mingo@kernel.org, linux-arch@vger.kernel.org,
+	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
+	vincent.guittot@linaro.org, tglx@linutronix.de,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Michel Lespinasse <walken@google.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CANN689EhqoQAKALR7WhT3YrQh3=VDA2Dq3QX1yLuYU_gZAo_Tg@mail.gmail.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/2/28 Hauke Mehrtens <hauke@hauke-m.de>:
-> Do not include the frame check sequence when adding the skb to
-> netif_receive_skb(). This causes problems when this interface was
-> bridged to a wifi ap and a big package should be forwarded from this
-> Ethernet driver through a bride to the wifi client.
+On 02/28, Michel Lespinasse wrote:
+>
+> On Thu, Feb 28, 2013 at 3:25 AM, Oleg Nesterov <oleg@redhat.com> wrote:
+> > On 02/27, Michel Lespinasse wrote:
+> >>
+> >> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
+> >> +{
+> >> +       preempt_disable();
+> >> +
+> >> +       if (__this_cpu_read(*lgrw->local_refcnt) ||
+> >> +           arch_spin_trylock(this_cpu_ptr(lgrw->lglock->lock))) {
+> >> +               __this_cpu_inc(*lgrw->local_refcnt);
+> >
+> > Please look at __this_cpu_generic_to_op(). You need this_cpu_inc()
+> > to avoid the race with irs. The same for _read_unlock.
+>
+> Hmmm, I was thinking that this was safe because while interrupts might
+> modify local_refcnt to acquire a nested read lock, they are expected
+> to release that lock as well which would set local_refcnt back to its
+> original value ???
 
-Is this a real fix?
+Yes, yes, this is correct.
 
-Don't get me wrong, but it sounds a little like a workaround for some
-issue in another network layer ;)
+I meant that (in general, x86 is fine) __this_cpu_inc() itself is not
+irq-safe. It simply does "pcp += 1".
 
---=20
-Rafa=C5=82
+this_cpu_inc() is fine, _this_cpu_generic_to_op() does cli/sti around.
+
+I know this only because I did the same mistake recently, and Srivatsa
+explained the problem to me ;)
+
+Oleg.
