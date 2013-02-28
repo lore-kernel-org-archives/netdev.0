@@ -1,37 +1,42 @@
-From: Luciano Coelho <coelho@ti.com>
-Subject: Re: [PATCH 3/5] wl1251: call pm_runtime_put_sync in
- pm_runtime_get_sync failed case
-Date: Thu, 28 Feb 2013 10:18:22 +0200
-Message-ID: <1362039502.23194.81.camel@cumari.coelho.fi>
-References: <1362037031.6212.3.camel@fli24-HP-Compaq-8100-Elite-CMT-PC>
-	 <1362037455.6212.8.camel@fli24-HP-Compaq-8100-Elite-CMT-PC>
-	 <1362037892.6212.13.camel@fli24-HP-Compaq-8100-Elite-CMT-PC>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] net/rds: using strlcpy instead of strncpy
+Date: Thu, 28 Feb 2013 16:28:36 +0800
+Message-ID: <512F1534.9020404@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: <linville@tuxdriver.com>, <wfp5p@virginia.edu>,
-	<gregkh@linuxfoundation.org>, <notasas@gmail.com>, <rjw@sisk.pl>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <chuansheng.liu@intel.com>
-To: Li Fei <fei.li@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1362037892.6212.13.camel@fli24-HP-Compaq-8100-Elite-CMT-PC>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: venkat.x.venkatsubra@oracle.com,
+	David Miller <davem@davemloft.net>, rds-devel@oss.oracle.com,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:31211 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752474Ab3B1I26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 03:28:58 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-28 at 15:51 +0800, Li Fei wrote:
-> Even in failed case of pm_runtime_get_sync, the usage_count
-> is incremented. In order to keep the usage_count with correct
-> value and runtime power management to behave correctly, call
-> pm_runtime_put(_sync) in such case.
-> 
-> Signed-off-by Liu Chuansheng <chuansheng.liu@intel.com>
-> Signed-off-by: Li Fei <fei.li@intel.com>
-> ---
 
-Looks good.  I'll apply this via my tree.
+  when src strlen is sizeof(ctr.name) - 1, the dest str is not '\0' end.
+  better use strlcpy instead.
 
-Thanks!
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ net/rds/stats.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
---
-Luca.
+diff --git a/net/rds/stats.c b/net/rds/stats.c
+index 7be790d..b9ac1df 100644
+--- a/net/rds/stats.c
++++ b/net/rds/stats.c
+@@ -86,7 +86,7 @@ void rds_stats_info_copy(struct rds_info_iterator *iter,
+ 
+ 	for (i = 0; i < nr; i++) {
+ 		BUG_ON(strlen(names[i]) >= sizeof(ctr.name));
+-		strncpy(ctr.name, names[i], sizeof(ctr.name) - 1);
++		strlcpy(ctr.name, names[i], sizeof(ctr.name));
+ 		ctr.value = values[i];
+ 
+ 		rds_info_copy(iter, &ctr, sizeof(ctr));
+-- 
+1.7.7.6
