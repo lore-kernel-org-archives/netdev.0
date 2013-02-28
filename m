@@ -1,59 +1,67 @@
-From: Michel Lespinasse <walken@google.com>
-Subject: Re: [PATCH v6 04/46] percpu_rwlock: Implement the core design of
- Per-CPU Reader-Writer Locks
-Date: Thu, 28 Feb 2013 19:34:31 +0800
-Message-ID: <CANN689EhqoQAKALR7WhT3YrQh3=VDA2Dq3QX1yLuYU_gZAo_Tg@mail.gmail.com>
-References: <51226F91.7000108@linux.vnet.ibm.com>
-	<CACvQF53bdh4_BxF0y1fnTVR+T2OmRc0jmWQYftsvx92-fg-Lug@mail.gmail.com>
-	<512BBAD8.8010006@linux.vnet.ibm.com>
-	<CACvQF51jCxk5jUqmhD=QBBtUsBkQWZzakacrKO4Gsk=w61rNwQ@mail.gmail.com>
-	<512C7A38.8060906@linux.vnet.ibm.com>
-	<CACvQF51RvhM8XNqu3-1OTQ=cZUZ=pAX+_zx0a29+W67N1X+BgQ@mail.gmail.com>
-	<512CC509.1050000@linux.vnet.ibm.com>
-	<CACvQF50UgiqPpDk3HCmV86zKSf6tPjqr0bZowfPEOJs0g0r0MQ@mail.gmail.com>
-	<512D0D67.9010609@linux.vnet.ibm.com>
-	<CANN689FuuEb9wpV43DkTtgv6syvBYL-LQxByWznyAq8dkrhzBw@mail.gmail.com>
-	<20130227192551.GA8333@redhat.com>
+From: Yan Burman <yanb@mellanox.com>
+Subject: RE: [RFC PATCH 3/3] mlx4: Use default fdb handlers when not
+ multifunction.
+Date: Thu, 28 Feb 2013 12:32:23 +0000
+Message-ID: <0EE9A1CDC8D6434DB00095CD7DB87346219AC704@MTLDAG02.mtl.com>
+References: <1361987164-15280-1-git-send-email-vyasevic@redhat.com>
+	<1361987164-15280-4-git-send-email-vyasevic@redhat.com>
+	<512EDCC7.8050207@intel.com>
+ <CAJZOPZLcphuZEXR+jhT35=qtOq9bfxWzWEokN6UrMorciCvvsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
-	Lai Jiangshan <eag0628@gmail.com>, linux-doc@vger.kernel.org,
-	peterz@infradead.org, fweisbec@gmail.com,
-	linux-kernel@vger.kernel.org, namhyung@kernel.org,
-	mingo@kernel.org, linux-arch@vger.kernel.org,
-	linux@arm.linux.org.uk, xiaoguangrong@linux.vnet.ibm.com,
-	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	rusty@rustcorp.com.au, rostedt@goodmis.org, rjw@sisk.pl,
-	vincent.guittot@linaro.org, tglx@linutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20130227192551.GA8333@redhat.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "john.r.fastabend@intel.com" <john.r.fastabend@intel.com>,
+	"vyasevic@redhat.com" <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:37700 "EHLO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751937Ab3B1Mil convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 28 Feb 2013 07:38:41 -0500
+In-Reply-To: <CAJZOPZLcphuZEXR+jhT35=qtOq9bfxWzWEokN6UrMorciCvvsA@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 28, 2013 at 3:25 AM, Oleg Nesterov <oleg@redhat.com> wrote:
-> On 02/27, Michel Lespinasse wrote:
->>
->> +void lg_rwlock_local_read_lock(struct lgrwlock *lgrw)
->> +{
->> +       preempt_disable();
->> +
->> +       if (__this_cpu_read(*lgrw->local_refcnt) ||
->> +           arch_spin_trylock(this_cpu_ptr(lgrw->lglock->lock))) {
->> +               __this_cpu_inc(*lgrw->local_refcnt);
->
-> Please look at __this_cpu_generic_to_op(). You need this_cpu_inc()
-> to avoid the race with irs. The same for _read_unlock.
 
-Hmmm, I was thinking that this was safe because while interrupts might
-modify local_refcnt to acquire a nested read lock, they are expected
-to release that lock as well which would set local_refcnt back to its
-original value ???
 
--- 
-Michel "Walken" Lespinasse
-A program is never fully debugged until the last user dies.
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Thu, Feb 28, 2013 at 6:27 AM
+> Subject: Re: [RFC PATCH 3/3] mlx4: Use default fdb handlers when not
+> multifunction.
+> To: Vlad Yasevich <vyasevic@redhat.com>, Amir Vadai <amirv@mellanox.com>
+> Cc: netdev@vger.kernel.org, davem@davemloft.net
+> 
+> 
+> On 2/27/2013 9:46 AM, Vlad Yasevich wrote:
+> >
+> > Allow the use of ndo_dflt_fdb_<add|del|dump> when the adapter is not
+> > configured with virtual functins (!mlx4_is_mfunc()) This allows proper
+> > IFF_UNICAST_FLT support and allows for additional handling by the
+> > driver if needed.
+> >
+> > CC: Amir Vadai <amirv@mellanox.com>
+> > Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> > ---
+> >   drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   12 +++---------
+> >   1 files changed, 3 insertions(+), 9 deletions(-)
+> >
+> > diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > index 5385474..5732025 100644
+> > --- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > +++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+> > @@ -1934,7 +1934,7 @@ static int mlx4_en_fdb_add(struct ndmsg *ndm,
+> > struct nlattr *tb[],
+> 
+> 
+> Amir are the default ops good enough here?
+> 
+
+The default ops can be used instead of mlx4 fdb_add, fdb_delete, and fdb_dump.
+
+Yan
