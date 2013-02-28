@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bgmac: omit the fcs
-Date: Thu, 28 Feb 2013 14:21:42 -0500 (EST)
-Message-ID: <20130228.142142.242861205295035084.davem@davemloft.net>
-References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
-	<CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net] tcp: Don't collapse if resulting skb could overflow
+ skb->csum_start
+Date: Thu, 28 Feb 2013 19:23:51 +0000
+Message-ID: <20130228192351.GE7558@casper.infradead.org>
+References: <20130228102603.GA7558@casper.infradead.org>
+ <1362068326.15793.33.camel@edumazet-glaptop>
+ <20130228164502.GD7558@casper.infradead.org>
+ <1362072952.15793.41.camel@edumazet-glaptop>
+ <1362073254.15793.43.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hauke@hauke-m.de, netdev@vger.kernel.org
-To: zajec5@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org, foraker1@llnl.gov
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46833 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751449Ab3B1TVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 14:21:44 -0500
-In-Reply-To: <CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:51752 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752846Ab3B1TX7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 14:23:59 -0500
+Content-Disposition: inline
+In-Reply-To: <1362073254.15793.43.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Rafa=A9=A9 Mi=A9=A9ecki <zajec5@gmail.com>
-Date: Thu, 28 Feb 2013 18:57:03 +0100
+On 02/28/13 at 09:40am, Eric Dumazet wrote:
+> On Thu, 2013-02-28 at 09:35 -0800, Eric Dumazet wrote:
+> > This had a followup with 22b4a4f22da4
+> > (tcp: fix retransmit of partially acked frames)
+> > 
+> > I also wonder if there is not another similar potential problem in
+> > __tcp_retransmit_skb) after call to 
+> > 
+> > tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq)
+> > 
+> > csum_start can overflow again because of MAX_TCP_HEADER headroom
+> > reserve.
+> > 
+> > So maybe we should limit TCP MTU to (64K - MAX_TCP_HEADER)
+> > 
+> 
+> Or adapt the test at line 2390 in net/ipv4/tcp_output.c
+> 
+> to force in the case there could be an overflow a :
+> 
+> struct sk_buff *nskb = __pskb_copy()
+> 
+> So that we have a new skb with minimal headroom.
 
-> 2013/2/28 Hauke Mehrtens <hauke@hauke-m.de>:
->> Do not include the frame check sequence when adding the skb to
->> netif_receive_skb(). This causes problems when this interface was
->> bridged to a wifi ap and a big package should be forwarded from this
->> Ethernet driver through a bride to the wifi client.
->=20
-> Is this a real fix?
->=20
-> Don't get me wrong, but it sounds a little like a workaround for some
-> issue in another network layer ;)
-
-=46CS should never be included in the SKB unless a specific debugging
-configuration knob has enabled it.
-
-Having the FCS there will screw up things like device provided partial
-checksums (CHECKSUM_PARTIAL), which operate over the entire contents
-of the packet starting at a particular offset, so if the FCS is there
-we'll include it.
-
-This change is therefore about as correct as can possibly be.
+I would favour the __pskb_copy() variant as that would be more
+generic. I'll redo the patch.
