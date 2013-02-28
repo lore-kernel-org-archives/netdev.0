@@ -1,124 +1,66 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net 1/1] r8169: honor jumbo settings when chipset is requested to start.
-Date: Thu, 28 Feb 2013 00:01:57 +0100
-Message-ID: <20130227230157.GA30053@electric-eye.fr.zoreil.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] drivers/isdn: checkng length to be sure not memory overflow
+Date: Thu, 28 Feb 2013 09:45:46 +0800
+Message-ID: <512EB6CA.6030609@asianux.com>
+References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tomi Orava <tomimo@ncircle.nullnet.fi>,
-	David Miller <davem@davemloft.net>,
-	Hayes Wang <hayeswang@realtek.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
+	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
+	netdev <netdev@vger.kernel.org>
+To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46892 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751672Ab3B0Xek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 18:34:40 -0500
-Content-Disposition: inline
+Received: from intranet.asianux.com ([58.214.24.6]:8385 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752587Ab3B1BqK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 27 Feb 2013 20:46:10 -0500
+In-Reply-To: <512DE380.8080804@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some hardware start settings implicitely assume an usual 1500 bytes mtu
-that can't be guaranteed because changes of mtu may be requested both
-before and after the hardware is started.
+=E4=BA=8E 2013=E5=B9=B402=E6=9C=8827=E6=97=A5 18:44, Jiri Slaby =E5=86=99=
+=E9=81=93:
+> On 02/27/2013 11:25 AM, Chen Gang wrote:
+>> > =E4=BA=8E 2013=E5=B9=B402=E6=9C=8827=E6=97=A5 17:48, Jiri Slaby =E5=
+=86=99=E9=81=93:
+>>> >> I have no idea if
+>>> >> this is correct from the ISDN POV as we drop the end of the buff=
+er
+>> >=20
+>> >   pardon ?  what about "ISDN POV".
+> "point of view" aka POV.
+>=20
+> Hmm, "also known as" alias "aka" :).
 
-Reported-by: Tomi Orava <tomimo@ncircle.nullnet.fi>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Hayes Wang <hayeswang@realtek.com>
----
 
- Tomi, can you give this one a try ? It should be the "don't break non
- jumbo setup and fix similar problem on different chipsets" patch that
- my previous hack wasn't.
+  sorry, I still not quite understand (I am really not familiar with IS=
+DN)
 
- drivers/net/ethernet/realtek/r8169.c | 27 ++++++++++++++++++---------
- 1 file changed, 18 insertions(+), 9 deletions(-)
+  so I have to bother you with 2 questions, please help reply, thanks.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 8900398..28fb50a 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4765,8 +4765,10 @@ static void rtl_hw_start_8168bb(struct rtl8169_private *tp)
- 
- 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
- 
--	rtl_tx_performance_tweak(pdev,
--		(0x5 << MAX_READ_REQUEST_SHIFT) | PCI_EXP_DEVCTL_NOSNOOP_EN);
-+	if (tp->dev->mtu <= ETH_DATA_LEN) {
-+		rtl_tx_performance_tweak(pdev, (0x5 << MAX_READ_REQUEST_SHIFT) |
-+					 PCI_EXP_DEVCTL_NOSNOOP_EN);
-+	}
- }
- 
- static void rtl_hw_start_8168bef(struct rtl8169_private *tp)
-@@ -4789,7 +4791,8 @@ static void __rtl_hw_start_8168cp(struct rtl8169_private *tp)
- 
- 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	rtl_disable_clock_request(pdev);
- 
-@@ -4822,7 +4825,8 @@ static void rtl_hw_start_8168cp_2(struct rtl8169_private *tp)
- 
- 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
- }
-@@ -4841,7 +4845,8 @@ static void rtl_hw_start_8168cp_3(struct rtl8169_private *tp)
- 
- 	RTL_W8(MaxTxPacketSize, TxPacketMax);
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
- }
-@@ -4901,7 +4906,8 @@ static void rtl_hw_start_8168d(struct rtl8169_private *tp)
- 
- 	RTL_W8(MaxTxPacketSize, TxPacketMax);
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R8168_CPCMD_QUIRK_MASK);
- }
-@@ -4913,7 +4919,8 @@ static void rtl_hw_start_8168dp(struct rtl8169_private *tp)
- 
- 	rtl_csi_access_enable_1(tp);
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	RTL_W8(MaxTxPacketSize, TxPacketMax);
- 
-@@ -4972,7 +4979,8 @@ static void rtl_hw_start_8168e_1(struct rtl8169_private *tp)
- 
- 	rtl_ephy_init(tp, e_info_8168e_1, ARRAY_SIZE(e_info_8168e_1));
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	RTL_W8(MaxTxPacketSize, TxPacketMax);
- 
-@@ -4998,7 +5006,8 @@ static void rtl_hw_start_8168e_2(struct rtl8169_private *tp)
- 
- 	rtl_ephy_init(tp, e_info_8168e_2, ARRAY_SIZE(e_info_8168e_2));
- 
--	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
-+	if (tp->dev->mtu <= ETH_DATA_LEN)
-+		rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
- 
- 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
- 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
--- 
-1.8.1.2
+    A) is our current patch OK ?
+       a. yes, ok, need do nothing for it, just is waiting for Acked-by=
+ or applying.
+       b. no, need improving (e.g. additional consideration, comments, =
+or others)
+       c. no, it is useless patch.
+
+    B) does "ISDN POV" point to another issue ?
+       if yes:
+         I will read source code or search document on net, and should =
+not bother you again.
+         if possible, I can try to send relative patches, next.
+       else (no):
+         could you please say more details again ?
+         I should improve current patch (also need let you as Signed-of=
+-By)
+
+  thanks.
+
+  :-)
+
+--=20
+Chen Gang
+
+Asianux Corporation
