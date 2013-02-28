@@ -1,39 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 0/4] sctp: fix association hangs due to
- reassembly/ordering logic
-Date: Thu, 28 Feb 2013 15:36:34 -0500 (EST)
-Message-ID: <20130228.153634.1310286567455843160.davem@davemloft.net>
-References: <1361991273-30578-1-git-send-email-lee.roberts@hp.com>
-	<1362062250-26749-1-git-send-email-lee.roberts@hp.com>
+Subject: Re: [PATCH] tcp: avoid wakeups for pure ACK
+Date: Thu, 28 Feb 2013 15:38:07 -0500 (EST)
+Message-ID: <20130228.153807.1427421999295174182.davem@davemloft.net>
+References: <1361984703.11403.43.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: lee.roberts@hp.com
+Cc: netdev@vger.kernel.org, ncardwell@google.com, therbert@google.com,
+	ycheng@google.com, ak@linux.intel.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47802 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47828 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760232Ab3B1Ugj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:36:39 -0500
-In-Reply-To: <1362062250-26749-1-git-send-email-lee.roberts@hp.com>
+	with ESMTP id S1755175Ab3B1UiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 15:38:10 -0500
+In-Reply-To: <1361984703.11403.43.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Lee A. Roberts" <lee.roberts@hp.com>
-Date: Thu, 28 Feb 2013 07:37:26 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 27 Feb 2013 09:05:03 -0800
 
-> From: "Lee A. Roberts" <lee.roberts@hp.com>
+> TCP prequeue mechanism purpose is to let incoming packets
+> being processed by the thread currently blocked in tcp_recvmsg(),
+> instead of behalf of the softirq handler, to better adapt flow
+> control on receiver host capacity to schedule the consumer.
 > 
-> This series of patches resolves several SCTP association hangs observed during
-> SCTP stress testing.  Observable symptoms include communications hangs with
-> data being held in the association reassembly and/or lobby (ordering) queues.
-> Close examination of reassembly/ordering queues may show either duplicated
-> or missing packets.
+> But in typical request/answer workloads, we send request, then
+> block to receive the answer. And before the actual answer, TCP
+> stack receives the ACK packets acknowledging the request.
 > 
-> In version #2, corrected build failure in initial version of patch series
-> due to wrong calling sequence for sctp_ulpq_partial_delivery() being inserted
-> in sctp_ulpq_renege().
+> Processing pure ACK on behalf of the thread blocked in tcp_recvmsg()
+> is a waste of resources, as thread has to immediately sleep again
+> because it got no payload.
 > 
-> In version #3, adjusted patch documentation to be less repetitive.
+> This patch avoids the extra context switches and scheduler overhead.
+ ...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Series applied, thanks.
+Applied.
