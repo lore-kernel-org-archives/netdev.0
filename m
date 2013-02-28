@@ -1,53 +1,43 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH] drivers/isdn: checkng length to be sure not memory overflow
-Date: Thu, 28 Feb 2013 14:43:48 +0100
-Message-ID: <512F5F14.6070801@suse.cz>
-References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz> <512EB6CA.6030609@asianux.com> <512F2AA7.4040204@suse.cz> <512F38F8.2060804@asianux.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH v2 1/4] sctp: fix association hangs due to off-by-one
+ errors in sctp_tsnmap_grow()
+Date: Thu, 28 Feb 2013 09:31:47 -0500
+Message-ID: <20130228143146.GA23518@shamino.rdu.redhat.com>
+References: <1361889376-22171-1-git-send-email-lee.roberts@hp.com>
+ <1361991273-30578-2-git-send-email-lee.roberts@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
-	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: "Lee A. Roberts" <lee.roberts@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f54.google.com ([74.125.83.54]:50934 "EHLO
-	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752620Ab3B1Nnx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 08:43:53 -0500
-Received: by mail-ee0-f54.google.com with SMTP id c41so1528024eek.13
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 05:43:51 -0800 (PST)
-In-Reply-To: <512F38F8.2060804@asianux.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:37444 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752986Ab3B1Ob6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 09:31:58 -0500
+Content-Disposition: inline
+In-Reply-To: <1361991273-30578-2-git-send-email-lee.roberts@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/28/2013 12:01 PM, Chen Gang wrote:
-> =E4=BA=8E 2013=E5=B9=B402=E6=9C=8828=E6=97=A5 18:00, Jiri Slaby =E5=86=
-=99=E9=81=93:
->> I don't think there are piles of people to care about ISDN much nowa=
-days.=20
->=20
->   I don't think either.
->     (I found it through reading the source code, by search strncpy)
->=20
->   if this is quite minor:
->     I suggest to delete this module.
-
-Nah, there *are* still people using ISDN.
-
->> So we can
->> close that it is correct to drop the rest of the buffer. In a hope t=
-hat
->> +M is not followed by text longer than 50-or-so chars.
->=20
->   can we be sure that "+M..." is no more than 100+ chars ?
->     (I guess the sizeof (isdn_ctrl.parm) is 80+, but less than 100)
->   if we can not be sure:
-
-No, we cannot be sure that a user gives us less than that. Your patch
-just throws the rest to fix that overflow, right? What I'm saying I
-wouldn't fix more than that.
-
---=20
-js
-suse labs
+On Wed, Feb 27, 2013 at 11:54:30AM -0700, Lee A. Roberts wrote:
+> From: "Lee A. Roberts" <lee.roberts@hp.com>
+> 
+> Resolve SCTP association hangs observed during SCTP stress
+> testing.  Observable symptoms include communications hangs
+> with data being held in the association lobby (ordering)
+> queue.  Close examination of reassembly/ordering queues shows
+> duplicated packets.
+> 
+> In sctp_tsnmap_mark(), correct off-by-one error when calculating
+> size value for sctp_tsnmap_grow().
+> 
+> In sctp_tsnmap_grow(), correct off-by-one error when copying
+> and resizing the tsnmap.  If max_tsn_seen is in the LSB of the
+> word, this bit can be lost, causing the corresponding packet
+> to be transmitted again and to be entered as a duplicate into
+> the SCTP reassembly/ordering queues.  Change parameter name
+> from "gap" (zero-based index) to "size" (one-based) to enhance
+> code readability.
+> 
+> Signed-off-by: Lee A. Roberts <lee.roberts@hp.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
