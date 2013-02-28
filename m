@@ -1,122 +1,87 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [RFC PATCH 2/3] ixgbe: Use default fdb handlers when not in VF
- mode.
-Date: Thu, 28 Feb 2013 09:46:35 -0500
-Message-ID: <512F6DCB.2080408@redhat.com>
-References: <1361987164-15280-1-git-send-email-vyasevic@redhat.com> <1361987164-15280-3-git-send-email-vyasevic@redhat.com> <512EDC77.5090802@intel.com>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: query: localhost - 794ed393b clips hefty load tbench, does it
+ matter?
+Date: Thu, 28 Feb 2013 08:13:38 -0800
+Message-ID: <1362068018.15793.31.camel@edumazet-glaptop>
+References: <1362055757.4460.236.camel@marge.simpson.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: netdev <netdev@vger.kernel.org>, Eric Dumazet <edumazet@google.com>
+To: Mike Galbraith <bitbucket@online.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51137 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755649Ab3B1Oqk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2013 09:46:40 -0500
-In-Reply-To: <512EDC77.5090802@intel.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:42027 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756140Ab3B1QNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 11:13:44 -0500
+Received: by mail-pa0-f52.google.com with SMTP id fb1so1219947pad.25
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 08:13:44 -0800 (PST)
+In-Reply-To: <1362055757.4460.236.camel@marge.simpson.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/27/2013 11:26 PM, John Fastabend wrote:
-> On 2/27/2013 9:46 AM, Vlad Yasevich wrote:
->> Allow the use of ndo_dflt_fdb_<add|del|dump> when the
->> adapter does not have VF configured.  This allows for
->> IFF_UNICAST_FLT support and allows VF handling to potentially
->> do something different.
->>
->> CC: John Fastabend <john.r.fastabend@intel.com>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   26
->> ++++++++++--------------
->>   1 files changed, 11 insertions(+), 15 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 68478d6..0ae2525 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -7007,7 +7007,7 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm,
->> struct nlattr *tb[],
->
-> With the first patch we can just remove this routine altogether and
-> let the dflt handler do its work.
->
-> CC'd Greg in case I miss something.
+On Thu, 2013-02-28 at 13:49 +0100, Mike Galbraith wrote:
+> Greetings network wizards,
+> 
+> I was testing a 64 core box after 3.0-stable update, and noticed
+> $subject.
+> 
+> vogelweide:~/:[0]# numactl --hardware
+> available: 1 nodes (0)
+> node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63
+> node 0 size: 8181 MB
+> node 0 free: 7353 MB
+> node distances:
+> node   0 
+>   0:  10
+> 
+> Sob, poor thing.  Anyway, that's the box in case it matters.
+> 
+> Without 94ed393b. 
+> 
+> vogelweide:~/:[0]# for i in 1 2 4 8 16 32 64 128 256 512; do tbench.sh $i 10 2>&1|grep Throughput; done
+> Throughput 288.784 MB/sec 1 procs
+> Throughput 559.937 MB/sec 2 procs
+> Throughput 1068.75 MB/sec 4 procs
+> Throughput 2159.04 MB/sec 8 procs
+> Throughput 4193.75 MB/sec 16 procs
+> Throughput 7662.24 MB/sec 32 procs
+> Throughput 9034.49 MB/sec 64 procs
+> Throughput 9045.9 MB/sec 128 procs
+> Throughput 9077.55 MB/sec 256 procs
+> Throughput 8907.48 MB/sec 512 procs
+> 
+> With.
+> 
+> vogelweide:~/:[0]# for i in 1 2 4 8 16 32 64 128 256 512; do tbench.sh $i 10 2>&1|grep Throughput; done
+> Throughput 288.833 MB/sec 1 procs
+> Throughput 520.87 MB/sec 2 procs
+> Throughput 937.758 MB/sec 4 procs
+> Throughput 1563.3 MB/sec 8 procs
+> Throughput 1775.14 MB/sec 16 procs
+> Throughput 1406.55 MB/sec 32 procs
+> Throughput 1448.77 MB/sec 64 procs
+> Throughput 1468.92 MB/sec 128 procs
+> Throughput 1525.35 MB/sec 256 procs
+> Throughput 1713.54 MB/sec 512 procs
+> 
+> I'm wondering if this could cause problems on a big box doing something
+> like say mysql queries of a local database, blasting retrieved data out
+> over industrial strength copper/glass or such.  My desktop box surely
+> won't notice, but it seems heavy lifters might.  I saw the reason for
+> it, but I was left wondering why we used to care about it, but no more,
+> so here I am to see if I can get my curiosity spot scratched.
+> 
+> I'll sorta miss good ole tbench in scheduler litmus test role.  On the
+> bright side, localhost based scalability reports are history.  Oh wait.
 
-OK.  I took the safe approach and kept the functions.  The only 
-difference right now is that right now with VF configured, fdb_add
-refuses to add more then IXGBE_MAX_PF_MACVLANS and thus never would
-enter into promisc mode.   I am not sure if that how its supposed to
-be have or not.  That's one of the reasons I kept this around.
+Sure, this patch re-introduces the dst->__refcnt false sharing for
+loopback.
 
--vlad
+Hopefully, with current kernels it's not an issue, because each cpu gets
+a different dst.
 
->
->>       int err;
->>
->>       if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
->> -        return -EOPNOTSUPP;
->> +        return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
->>
->>       /* Hardware does not support aging addresses so if a
->>        * ndm_state is given only allow permanent addresses
->> @@ -7045,20 +7045,21 @@ static int ixgbe_ndo_fdb_del(struct ndmsg
->> *ndm, struct nlattr *tb[],
->
-> same here just remove it and use the dflt handler.
->
->>       struct ixgbe_adapter *adapter = netdev_priv(dev);
->>       int err = -EOPNOTSUPP;
->>
->> +    if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
->> +        return ndo_dflt_fdb_del(ndm, tb, dev, addr);
->> +
->>       if (ndm->ndm_state & NUD_PERMANENT) {
->>           pr_info("%s: FDB only supports static addresses\n",
->>               ixgbe_driver_name);
->>           return -EINVAL;
->>       }
->>
->> -    if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED) {
->> -        if (is_unicast_ether_addr(addr))
->> -            err = dev_uc_del(dev, addr);
->> -        else if (is_multicast_ether_addr(addr))
->> -            err = dev_mc_del(dev, addr);
->> -        else
->> -            err = -EINVAL;
->> -    }
->> +    if (is_unicast_ether_addr(addr))
->> +        err = dev_uc_del(dev, addr);
->> +    else if (is_multicast_ether_addr(addr))
->> +        err = dev_mc_del(dev, addr);
->> +    else
->> +        err = -EINVAL;
->>
->>       return err;
->>   }
->> @@ -7068,12 +7069,7 @@ static int ixgbe_ndo_fdb_dump(struct sk_buff *skb,
->>                     struct net_device *dev,
->>                     int idx)
->>   {
->
-> This is the same as not defining the op at all right? Just
-> remove it.
->
->> -    struct ixgbe_adapter *adapter = netdev_priv(dev);
->> -
->> -    if (adapter->flags & IXGBE_FLAG_SRIOV_ENABLED)
->> -        idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
->> -
->> -    return idx;
->> +    return ndo_dflt_fdb_dump(skb, cb, dev, idx);
->>   }
->>
->>   static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
->>
->
-> Then we get a patch with all '-' which is sort of nice.
->
+(It would be an issue if the connect() calls are all done on a single
+cpu, than traffic handled on other cpus)
+
+So please try tbench on linux-3.8 or current git tree ;)
