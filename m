@@ -1,30 +1,53 @@
-From: "Broadwell, Tom L." <TLBROADW@southernco.com>
-Subject: Helpdesk: Important Message From Account Service.
-Date: Thu, 28 Feb 2013 04:55:53 -0500
-Message-ID: <B6D4AAEFBFE5D14F91A8D62133253088526AB6196E@FMXGPEX71PR.southernco.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net] tcp: Don't collapse if resulting skb could overflow
+ skb->csum_start
+Date: Thu, 28 Feb 2013 10:26:03 +0000
+Message-ID: <20130228102603.GA7558@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, foraker1@llnl.gov
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from GAXGPMX41VS01.southernco.com ([146.126.61.60]:39635 "EHLO
-	gaxgpmx41vs.southernco.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750973Ab3B1KP7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2013 05:15:59 -0500
-Content-Language: en-US
+Received: from casper.infradead.org ([85.118.1.10]:48853 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751370Ab3B1K0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 05:26:06 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+If a TCP retransmission gets partially ACKed and collapsed multiple
+times it is possible for the headroom to grow beyond 64K which will
+overflow the 16bit skb->csum_start which is based on the start of
+the headroom. It has been observed rarely in the wild with IPoIB due
+to the 64K MTU.
 
-Dear Account Owner,
+With this patch, the overflow has not been observed for over a week
+while previously it would occur within ~ 1 day.
 
- We are currently Migrating to Microsoft Exchange 2013 (from Exchange 2003/2007). With the introduction of Internet Explorer 9, Outlook Express has apparently been removed from the installation package on our Message Center. OWA 2010 provides the same conversation view and experience as Outlook 2010: By default, messages are displayed in threads so that all the messages on a particular topic are grouped. Inability to complete information on the form within 48 hours Message Center will render your e-mail in-active from our database. Fill information on the Form by clicking on the link below:
+A big thank you to Jim Foraker <foraker1@llnl.gov> and the team at
+LLNL for helping out with the investigation and testing.
 
-CLICK HERE<https://docs.google.com/forms/d/1Q3VT6Jt44-TGvUixwCVszZGDEC4uKQl--eDp83B5cNw/viewform>
+Reported-by: Jim Foraker <foraker1@llnl.gov>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+ net/ipv4/tcp_output.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-You will receive an e-mail within 48 hours when your mailbox account is moved.
-
-Thank you.
-Help Desk
-(@)2013. All Rights Reserved
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index e2b4461..1902fee 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2305,6 +2305,12 @@ static void tcp_retrans_try_collapse(struct sock *sk, struct sk_buff *to,
+ 		if (after(TCP_SKB_CB(skb)->end_seq, tcp_wnd_end(tp)))
+ 			break;
+ 
++		/* Never collapse if the resulting headroom + data exceeds
++		 * 64K as that is the maximum csum_start can cover.
++		 */
++		if (skb_headroom(to) + to->len + skb->len > 0xFFFF)
++			break;
++
+ 		tcp_collapse_retrans(sk, to);
+ 	}
+ }
