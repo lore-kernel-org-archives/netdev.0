@@ -1,84 +1,58 @@
-From: Petr Malat <oss@malat.biz>
-Subject: [PATCH v2] phy: Fix phy_device_free memory leak
-Date: Thu, 28 Feb 2013 12:01:52 +0100
-Message-ID: <20130228110152.GA26262@bordel.klfree.net>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] drivers/isdn: checkng length to be sure not memory overflow
+Date: Thu, 28 Feb 2013 19:01:12 +0800
+Message-ID: <512F38F8.2060804@asianux.com>
+References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz> <512EB6CA.6030609@asianux.com> <512F2AA7.4040204@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oss@malat.biz
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
+	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
+	netdev <netdev@vger.kernel.org>
+To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:42274 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163Ab3B1K6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 05:58:12 -0500
-Received: by mail-ee0-f45.google.com with SMTP id b57so1310578eek.4
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 02:58:11 -0800 (PST)
-Content-Disposition: inline
+Received: from intranet.asianux.com ([58.214.24.6]:24231 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753060Ab3B1LBc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 06:01:32 -0500
+In-Reply-To: <512F2AA7.4040204@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=E4=BA=8E 2013=E5=B9=B402=E6=9C=8828=E6=97=A5 18:00, Jiri Slaby =E5=86=99=
+=E9=81=93:
+> I don't think there are piles of people to care about ISDN much nowad=
+ays.=20
 
-From: Petr Malat <oss@malat.biz>
+  I don't think either.
+    (I found it through reading the source code, by search strncpy)
 
-Fix memory leak in phy_device_free() for the case when phy_device*
-returned by phy_device_create() is not registered in the system.
+  if this is quite minor:
+    I suggest to delete this module.
+    the reason is:
+      it can not provide contributes, any more.
+      but may give a chance to the hacker which want to make an attack.
 
-Bug description:
-phy_device_create() sets name of kobject using dev_set_name(), which 
-allocates memory using kvasprintf(), but this memory isn't freed if 
-the underlying device isn't registered properly, because kobject_cleanup()
-is not called in that case. This can happen (and actually is happening on 
-our machines) if phy_device_register(), called by mdiobus_scan(), fails. 
+  :-)
 
-Patch description:
-Embedded struct device is initialized in phy_device_create() and it 
-counterpart phy_device_free() just drops one reference to the device,
-which leads to proper deinitialization including releasing the kobject 
-name memory.
+> So we can
+> close that it is correct to drop the rest of the buffer. In a hope th=
+at
+> +M is not followed by text longer than 50-or-so chars.
 
-Signed-off-by: Petr Malat <oss@malat.biz>
----
-Updated according to according to David Miller proposal - put_device is
-used to release the memory now.
+  can we be sure that "+M..." is no more than 100+ chars ?
+    (I guess the sizeof (isdn_ctrl.parm) is 80+, but less than 100)
+  if we can not be sure:
+    do we need check and limit the length ? (I prefer to give a check)
+    if the module will really be delete,
+      I still suggest to maintain previous versions (for security issue=
+)
 
-Please put me on CC, I'm not signed into the mailing list.
 
---- linux-3.8/drivers/net/phy/phy_device.c.orig	2013-02-19 00:58:34.000000000 +0100
-+++ linux-3.8/drivers/net/phy/phy_device.c	2013-02-28 11:20:51.841528627 +0100
-@@ -44,13 +44,13 @@ MODULE_LICENSE("GPL");
- 
- void phy_device_free(struct phy_device *phydev)
- {
--	kfree(phydev);
-+	put_device(&phydev->dev);
- }
- EXPORT_SYMBOL(phy_device_free);
- 
- static void phy_device_release(struct device *dev)
- {
--	phy_device_free(to_phy_device(dev));
-+	kfree(to_phy_device(dev));
- }
- 
- static struct phy_driver genphy_driver;
-@@ -201,6 +201,8 @@ struct phy_device *phy_device_create(str
- 	   there's no driver _already_ loaded. */
- 	request_module(MDIO_MODULE_PREFIX MDIO_ID_FMT, MDIO_ID_ARGS(phy_id));
- 
-+	device_initialize(&dev->dev);
-+
- 	return dev;
- }
- EXPORT_SYMBOL(phy_device_create);
-@@ -363,9 +365,9 @@ int phy_device_register(struct phy_devic
- 	/* Run all of the fixups for this PHY */
- 	phy_scan_fixups(phydev);
- 
--	err = device_register(&phydev->dev);
-+	err = device_add(&phydev->dev);
- 	if (err) {
--		pr_err("phy %d failed to register\n", phydev->addr);
-+		pr_err("PHY %d failed to add\n", phydev->addr);
- 		goto out;
- 	}
- 
+  thanks.
+
+
+--=20
+Chen Gang
+
+Asianux Corporation
