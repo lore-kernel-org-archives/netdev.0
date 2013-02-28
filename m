@@ -1,63 +1,55 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ethtool 3.8 released
-Date: Thu, 28 Feb 2013 15:04:29 +0000
-Message-ID: <1362063869.3599.1.camel@bwh-desktop.uk.solarflarecom.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v3 0/4] sctp: fix association hangs due to reassembly/ordering
+ logic
+Date: Thu, 28 Feb 2013 10:07:39 -0500
+Message-ID: <512F72BB.30909@gmail.com>
+References: <1361991273-30578-1-git-send-email-lee.roberts@hp.com> <1362062250-26749-1-git-send-email-lee.roberts@hp.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-9vGjL4D1M0oE8kShRzwD"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: "Lee A. Roberts" <lee.roberts@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26563 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932502Ab3B1PEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 10:04:36 -0500
+Received: from mail-qe0-f54.google.com ([209.85.128.54]:35002 "EHLO
+	mail-qe0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758113Ab3B1POe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 10:14:34 -0500
+In-Reply-To: <1362062250-26749-1-git-send-email-lee.roberts@hp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-9vGjL4D1M0oE8kShRzwD
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 02/28/2013 09:37 AM, Lee A. Roberts wrote:
+> From: "Lee A. Roberts" <lee.roberts@hp.com>
+>
+> This series of patches resolves several SCTP association hangs observed during
+> SCTP stress testing.  Observable symptoms include communications hangs with
+> data being held in the association reassembly and/or lobby (ordering) queues.
+> Close examination of reassembly/ordering queues may show either duplicated
+> or missing packets.
+>
+> In version #2, corrected build failure in initial version of patch series
+> due to wrong calling sequence for sctp_ulpq_partial_delivery() being inserted
+> in sctp_ulpq_renege().
+>
+> In version #3, adjusted patch documentation to be less repetitive.
 
-ethtool version 3.8 has been released.
+My Acks from version 1 still apply.
 
-Home page: https://ftp.kernel.org/pub/software/network/ethtool/
-Download link:
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-3.8.tar.xz
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-Release notes:
+-vlad
 
-	* Feature: Allow setting destination MAC address in L3/L4 flow spec
-	  rules (-N/-U option)
-	* Fix: Show full 64 bits of user-data (-n/-u option)
-	* Fix: Add version check for et131x regs (-d option)
-	* Doc: Improve description of -f, -t, -s, -N/-U, -W options in man page
-	* Fix: Restore 20000baseKR2 cap display (no options)
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
-
-
---=-9vGjL4D1M0oE8kShRzwD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQEcBAABCAAGBQJRL3H9AAoJEGkILBsOca60cPkH/jRVyuhxzF/WIxa7UnKlHH9X
-H5eGDUAIdR1tBbIkZe1xW4tqoqdZIhqFMpTvW1Igrb7z6QYsVY0uxP2OoklosuPu
-0Lf5MCxv7urprm2AH3Lxfgt9SGozoXosRiFhaw9xj8GVrCWmbDSLGqfB/Fj1SnfA
-uW+pHz5HhEDLvh+11YxXRgNLoThW031LpDwD6/ITrJTaWjkRUwO6d8v3xGXGIjkK
-kPsP8HA19Ouj8RPHwBbLIBu6M/OqM+TzxPhqoU0Xq1GegVQyokKEoalZ1BxkjwvR
-/ISlYPELSYtovP/4h7/E0Uy2rzyPxp+i0VNL75XfTquvfqV/JmLnYDYwaCkwp1E=
-=l+g0
------END PGP SIGNATURE-----
-
---=-9vGjL4D1M0oE8kShRzwD--
+>
+> Lee A. Roberts (4):
+>    sctp: fix association hangs due to off-by-one errors in
+>      sctp_tsnmap_grow()
+>    sctp: fix association hangs due to reneging packets below the
+>      cumulative TSN ACK point
+>    sctp: fix association hangs due to errors when reneging events from
+>      the ordering queue
+>    sctp: fix association hangs due to partial delivery errors
+>
+>   net/sctp/tsnmap.c   |   13 ++++----
+>   net/sctp/ulpqueue.c |   87 +++++++++++++++++++++++++++++++++++++++++----------
+>   2 files changed, 78 insertions(+), 22 deletions(-)
+>
