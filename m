@@ -1,32 +1,45 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] bgmac: omit the fcs
-Date: Thu, 28 Feb 2013 14:16:08 -0800
-Message-ID: <1362089768.15793.49.camel@edumazet-glaptop>
-References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
-	 <CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
+Subject: Re: [PATCH net-next] generalize VXLAN forwarding tables
+Date: Thu, 28 Feb 2013 14:27:55 -0800
+Message-ID: <1362090475.15793.51.camel@edumazet-glaptop>
+References: <201302281924.r1SJN7u5024149@lab1.dls>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hauke Mehrtens <hauke@hauke-m.de>, davem@davemloft.net,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	netdev@vger.kernel.org
-To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:54415 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755493Ab3B1WQL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 17:16:11 -0500
-Received: by mail-pb0-f42.google.com with SMTP id xb4so1326888pbc.15
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 14:16:10 -0800 (PST)
-In-Reply-To: <CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34956 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753217Ab3B1W15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 17:27:57 -0500
+Received: by mail-pa0-f44.google.com with SMTP id kp1so1401611pab.17
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 14:27:57 -0800 (PST)
+In-Reply-To: <201302281924.r1SJN7u5024149@lab1.dls>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-28 at 18:57 +0100, Rafa=C5=82 Mi=C5=82ecki wrote:
+On Thu, 2013-02-28 at 14:23 -0500, David L Stevens wrote:
 
-> Is this a real fix?
->=20
-> Don't get me wrong, but it sounds a little like a workaround for some
-> issue in another network layer ;)
+> +	/* if there are multiple destinations, send copies */
+> +	for (rdst = rdst0->remote_next; rdst; rdst = rdst->remote_next) {
+> +		struct sk_buff *skb1;
+> +
+> +		skb1 = skb_clone(skb, GFP_ATOMIC);
+> +		rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
+> +		if (rc == NETDEV_TX_OK)
+> +			rc = rc1;
+> +	}
+> +
+> +	rc1 = vxlan_xmit_one(skb, dev, rdst0, did_rsc);
+> +	if (rc == NETDEV_TX_OK)
+> +		rc = rc1;
+> +	return rc;
+> +}
 
-It looks a real fix in a forwarding workload, or else MTU would need 4
-extra bytes.
+
+It looks like vxlan_xmit_one() will overwrite header
+
+So skb_clone() is probably not what you wanted ?
