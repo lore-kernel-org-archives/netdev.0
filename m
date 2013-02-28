@@ -1,68 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: Don't collapse if resulting skb could overflow
- skb->csum_start
-Date: Thu, 28 Feb 2013 09:40:54 -0800
-Message-ID: <1362073254.15793.43.camel@edumazet-glaptop>
-References: <20130228102603.GA7558@casper.infradead.org>
-	 <1362068326.15793.33.camel@edumazet-glaptop>
-	 <20130228164502.GD7558@casper.infradead.org>
-	 <1362072952.15793.41.camel@edumazet-glaptop>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] bgmac: omit the fcs
+Date: Thu, 28 Feb 2013 18:57:03 +0100
+Message-ID: <CACna6rw6MR3agrDvz0+X7ne6uSNQN0tpZupeM5c-6xy5-pvv2Q@mail.gmail.com>
+References: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, foraker1@llnl.gov
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Hauke Mehrtens <hauke@hauke-m.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:46648 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752282Ab3B1Rk4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 12:40:56 -0500
-Received: by mail-pa0-f43.google.com with SMTP id bh2so1282241pad.16
-        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 09:40:55 -0800 (PST)
-In-Reply-To: <1362072952.15793.41.camel@edumazet-glaptop>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:39833 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759887Ab3B1R5E convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 12:57:04 -0500
+Received: by mail-oa0-f51.google.com with SMTP id h2so4157428oag.10
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 09:57:04 -0800 (PST)
+In-Reply-To: <1362071814-12822-1-git-send-email-hauke@hauke-m.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-02-28 at 09:35 -0800, Eric Dumazet wrote:
-> On Thu, 2013-02-28 at 16:45 +0000, Thomas Graf wrote:
-> > On 02/28/13 at 08:18am, Eric Dumazet wrote:
-> > > but.... what is the value of skb_availroom(to) ?
-> > > 
-> > > The earlier test at line 2302 should already guard this case ?
-> > > 
-> > >                /* Punt if not enough space exists in the first SKB for
-> > >                  * the data in the second
-> > >                  */
-> > >                 if (skb->len > skb_availroom(to))
-> > >                         break;
-> > 
-> > Only if it is guaranteed that we never see an MSS > 64K.
-> > 
-> > Assuming that is true forever, then a21d45726 (tcp: avoid order-1
-> > allocations on wifi and tx path) does in fact resolve this
-> > issue at the cost of not being able to use the extra room
-> > kmalloc() might have given us in __alloc_skb() for collapsing.
-> > 
-> > Was that an intentional side effect of a21d45726?
-> 
-> This had a followup with 22b4a4f22da4
-> (tcp: fix retransmit of partially acked frames)
-> 
-> I also wonder if there is not another similar potential problem in
-> __tcp_retransmit_skb) after call to 
-> 
-> tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq)
-> 
-> csum_start can overflow again because of MAX_TCP_HEADER headroom
-> reserve.
-> 
-> So maybe we should limit TCP MTU to (64K - MAX_TCP_HEADER)
-> 
+2013/2/28 Hauke Mehrtens <hauke@hauke-m.de>:
+> Do not include the frame check sequence when adding the skb to
+> netif_receive_skb(). This causes problems when this interface was
+> bridged to a wifi ap and a big package should be forwarded from this
+> Ethernet driver through a bride to the wifi client.
 
-Or adapt the test at line 2390 in net/ipv4/tcp_output.c
+Is this a real fix?
 
-to force in the case there could be an overflow a :
+Don't get me wrong, but it sounds a little like a workaround for some
+issue in another network layer ;)
 
-struct sk_buff *nskb = __pskb_copy()
-
-So that we have a new skb with minimal headroom.
+--=20
+Rafa=C5=82
