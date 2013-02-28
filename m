@@ -1,49 +1,53 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH 6/8] netfront: multi-page ring support
-Date: Thu, 28 Feb 2013 20:55:02 +0800
-Message-ID: <512F53A6.4000401@oracle.com>
-References: <1360944010-15336-1-git-send-email-wei.liu2@citrix.com> <1360944010-15336-7-git-send-email-wei.liu2@citrix.com> <512C5B96.10204@oracle.com> <1361882139.2109.52.camel@zion.uk.xensource.com> <512DB83A.6050503@oracle.com> <1361980154.2109.67.camel@zion.uk.xensource.com> <512EE8EF.30200@oracle.com> <20130228110237.GA23777@zion.uk.xensource.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH] drivers/isdn: checkng length to be sure not memory overflow
+Date: Thu, 28 Feb 2013 14:43:48 +0100
+Message-ID: <512F5F14.6070801@suse.cz>
+References: <512DCC4A.6060106@asianux.com> <512DD66E.4040409@suse.cz> <512DDF03.10107@asianux.com> <512DE380.8080804@suse.cz> <512EB6CA.6030609@asianux.com> <512F2AA7.4040204@suse.cz> <512F38F8.2060804@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jiri Kosina <jkosina@suse.cz>, isdn@linux-pingi.de,
+	Greg KH <gregkh@linuxfoundation.org>, alan@linux.intel.com,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39477 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751265Ab3B1M4O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 07:56:14 -0500
-In-Reply-To: <20130228110237.GA23777@zion.uk.xensource.com>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:50934 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752620Ab3B1Nnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 28 Feb 2013 08:43:53 -0500
+Received: by mail-ee0-f54.google.com with SMTP id c41so1528024eek.13
+        for <netdev@vger.kernel.org>; Thu, 28 Feb 2013 05:43:51 -0800 (PST)
+In-Reply-To: <512F38F8.2060804@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 02/28/2013 12:01 PM, Chen Gang wrote:
+> =E4=BA=8E 2013=E5=B9=B402=E6=9C=8828=E6=97=A5 18:00, Jiri Slaby =E5=86=
+=99=E9=81=93:
+>> I don't think there are piles of people to care about ISDN much nowa=
+days.=20
+>=20
+>   I don't think either.
+>     (I found it through reading the source code, by search strncpy)
+>=20
+>   if this is quite minor:
+>     I suggest to delete this module.
 
-On 2013-2-28 19:02, Wei Liu wrote:
-> On Thu, Feb 28, 2013 at 05:19:43AM +0000, ANNIE LI wrote:
->> I checked the code in Konrad's tree and am thinking this overlap issue
->> you mentioned existing in original netback(without multi-ring) and newer
->> netfront. Original netback does not support multi-ring, and your newer
->> netfront before this bug fix used "#define TX_MAX_TARGET
->> XENNET_MAX_TX_RING_SIZE" directly. So that would cause overlap when
->> netfront allocating rx skbs.
->> "#define TX_MAX_TARGET min_t(int, NET_TX_RING_SIZE(1), 256)" limits the
->> netfront to single ring, it fixed the overlap issue, but not enough.
->>
-> Yes. I just saw a bug report from Xen-user list yesterday for the same
-> issue in original netback (1 page ring), so the overlap issue is not
-> introduced by multi-page ring implementation. If your team also sees that
-> issue, do you have patch to fix that?
+Nah, there *are* still people using ISDN.
 
-No. We thought your patch fixed it, and I did not check it further at 
-that time.
-Are you sure they are same? What is the thread title in Xen-user?
-The overlap issue here exists in netfront when netfront allocates skb 
-greedily. In Konrad's tree merged with your patch, netfront with 
-"#define TX_MAX_TARGET XENNET_MAX_TX_RING_SIZE" should hit this overlap 
-issue when it runs with single ring netback.
+>> So we can
+>> close that it is correct to drop the rest of the buffer. In a hope t=
+hat
+>> +M is not followed by text longer than 50-or-so chars.
+>=20
+>   can we be sure that "+M..." is no more than 100+ chars ?
+>     (I guess the sizeof (isdn_ctrl.parm) is 80+, but less than 100)
+>   if we can not be sure:
 
-Thanks
-Annie
+No, we cannot be sure that a user gives us less than that. Your patch
+just throws the rest to fix that overflow, right? What I'm saying I
+wouldn't fix more than that.
+
+--=20
+js
+suse labs
