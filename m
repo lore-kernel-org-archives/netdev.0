@@ -1,123 +1,50 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 net-next 3/4] mlx4: Remove driver specific fdb handlers.
-Date: Fri,  1 Mar 2013 10:31:45 -0500
-Message-ID: <1362151906-20993-4-git-send-email-vyasevic@redhat.com>
-References: <1362151906-20993-1-git-send-email-vyasevic@redhat.com>
-Cc: john.r.fastabend@intel.com, Vlad Yasevich <vyasevic@redhat.com>,
-	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
-To: netdev@vger.kernel.org
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: tg3: regression of netdev stats
+Date: Fri, 1 Mar 2013 07:47:16 -0800
+Message-ID: <1362152836.6212.27.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <878v67xnkr.fsf@devron.myhome.or.jp>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: nsujir@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+To: "OGAWA Hirofumi" <hirofumi@mail.parknet.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1332 "EHLO mx1.redhat.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3996 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751744Ab3CAPcI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Mar 2013 10:32:08 -0500
-In-Reply-To: <1362151906-20993-1-git-send-email-vyasevic@redhat.com>
+	id S1751245Ab3CAPr1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Mar 2013 10:47:27 -0500
+In-Reply-To: <878v67xnkr.fsf@devron.myhome.or.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove driver specific fdb hadlers since they are the same as
-the default ones.
+On Fri, 2013-03-01 at 22:21 +0900, OGAWA Hirofumi wrote: 
+> Hi,
+> 
+> f4a46d1f46a8fece34edd2023e054072b02e110d (tg3: Prevent spurious tx
+> timeout by setting carrier off before tx disable.) seems to add the bug.
+> 
+> On 3.8.1 (I didn't use 3.7.x series), "ifconfig" commands doesn't show
+> any stats, i.e. all stats are zero.
 
-CC: Amir Vadai <amirv@mellanox.com>
-CC: Yan Burman <yanb@mellanox.com>
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   76 ------------------------
- 1 files changed, 0 insertions(+), 76 deletions(-)
+No stats on an active device transmitting and receiving packets?  I
+don't seem to see the same problem, but we'll look into this further.
+Thanks.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 5385474..5c1bb44 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1925,79 +1925,6 @@ static int mlx4_en_set_features(struct net_device *netdev,
- 
- }
- 
--static int mlx4_en_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
--			   struct net_device *dev,
--			   const unsigned char *addr, u16 flags)
--{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_dev *mdev = priv->mdev->dev;
--	int err;
--
--	if (!mlx4_is_mfunc(mdev))
--		return -EOPNOTSUPP;
--
--	/* Hardware does not support aging addresses, allow only
--	 * permanent addresses if ndm_state is given
--	 */
--	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
--		en_info(priv, "Add FDB only supports static addresses\n");
--		return -EINVAL;
--	}
--
--	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
--		err = dev_uc_add_excl(dev, addr);
--	else if (is_multicast_ether_addr(addr))
--		err = dev_mc_add_excl(dev, addr);
--	else
--		err = -EINVAL;
--
--	/* Only return duplicate errors if NLM_F_EXCL is set */
--	if (err == -EEXIST && !(flags & NLM_F_EXCL))
--		err = 0;
--
--	return err;
--}
--
--static int mlx4_en_fdb_del(struct ndmsg *ndm,
--			   struct nlattr *tb[],
--			   struct net_device *dev,
--			   const unsigned char *addr)
--{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_dev *mdev = priv->mdev->dev;
--	int err;
--
--	if (!mlx4_is_mfunc(mdev))
--		return -EOPNOTSUPP;
--
--	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
--		en_info(priv, "Del FDB only supports static addresses\n");
--		return -EINVAL;
--	}
--
--	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
--		err = dev_uc_del(dev, addr);
--	else if (is_multicast_ether_addr(addr))
--		err = dev_mc_del(dev, addr);
--	else
--		err = -EINVAL;
--
--	return err;
--}
--
--static int mlx4_en_fdb_dump(struct sk_buff *skb,
--			    struct netlink_callback *cb,
--			    struct net_device *dev, int idx)
--{
--	struct mlx4_en_priv *priv = netdev_priv(dev);
--	struct mlx4_dev *mdev = priv->mdev->dev;
--
--	if (mlx4_is_mfunc(mdev))
--		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
--
--	return idx;
--}
--
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
-@@ -2019,9 +1946,6 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
- #endif
--	.ndo_fdb_add		= mlx4_en_fdb_add,
--	.ndo_fdb_del		= mlx4_en_fdb_del,
--	.ndo_fdb_dump		= mlx4_en_fdb_dump,
- };
- 
- int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
--- 
-1.7.7.6
+> And bisect points the above commit.
+> In fact, reverting the above patch fixes the regression of netdev stats.
+> 
+> This patch looks like strange, and I'm not sure what this want to do.
+> Any ideas?
+
+Every time we reset the device (ethtool, MTU change, etc), we need to
+turn off all the tx queues before resetting.  As soon as we turn off
+these queues, if we don't turn off carrier, a tx timeout may be
+triggered if it's been more than 5 seconds since the last transmit on
+any of the tx queues.  These tx timeouts cause unnecessary concern to
+the user.
+
+> 
+> Well, anyway, this is bug report.
+> 
+> Thanks.
