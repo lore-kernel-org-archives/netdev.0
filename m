@@ -1,30 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 1/1 net-next] fec: net: put tx to napi poll function
- to fix dead lock
-Date: Fri, 01 Mar 2013 03:37:32 -0500 (EST)
-Message-ID: <20130301.033732.2050436929173088609.davem@davemloft.net>
-References: <1362109034-25805-1-git-send-email-Frank.Li@freescale.com>
-	<CANg6MZiQTPkWDBRiZB74nVrj-QY2=Nis36fvhv1Cj+p=jzOstA@mail.gmail.com>
+From: Richard Genoud <richard.genoud@gmail.com>
+Subject: Re: hv_netvsc: WARNING in softirq.c
+Date: Fri, 1 Mar 2013 09:39:16 +0100
+Message-ID: <CACQ1gAgyYp+Dxmk-0C3zfKK+CkEwQX51NvWjzkV7=8GC3CD=Qg@mail.gmail.com>
+References: <20130228083437.GA28143@lnx-rg> <78fd1c1df13b449887de6e0b3505a988@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, lznuaa@gmail.com, shawn.guo@linaro.org,
-	B38611@freescale.com, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, s.hauer@pengutronix.de
-To: linuxzsc@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54058 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750758Ab3CAIhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 03:37:36 -0500
-In-Reply-To: <CANg6MZiQTPkWDBRiZB74nVrj-QY2=Nis36fvhv1Cj+p=jzOstA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <78fd1c1df13b449887de6e0b3505a988@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Zhao <linuxzsc@gmail.com>
-Date: Fri, 1 Mar 2013 16:30:05 +0800
+2013/2/28 Haiyang Zhang <haiyangz@microsoft.com>:
+> We will look into this. And further info around the time will also be helpful.
+>
+> Thanks,
+> - Haiyang
 
-> Is it better to change title prefix to net: fec: ..... ?
+The only thing the admin sys could think about is a rsync process
+between the windows host and ANOTHER linux guest that ends at 22h30
+more or less.
+(the other linux guest is a debian 6, without any HV driver)
 
-I'm aiming to put it into 'net' regardless of what title prefix he
-uses :-)
+
+-- 
+for me, ck means con kolivas and not calvin klein... does it mean I'm a geek ?
