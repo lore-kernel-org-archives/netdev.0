@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/4] Provide default fdb operation to allow
- mac filter setting
-Date: Fri, 01 Mar 2013 16:26:12 -0500 (EST)
-Message-ID: <20130301.162612.2115492006742815404.davem@davemloft.net>
-References: <1362151906-20993-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [patch net-next 0/2] team: introduce random mode
+Date: Fri, 01 Mar 2013 16:26:42 -0500 (EST)
+Message-ID: <20130301.162642.706579030978161550.davem@davemloft.net>
+References: <1362133566-1382-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com
-To: vyasevic@redhat.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, fbl@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33400 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33410 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462Ab3CAV0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 16:26:14 -0500
-In-Reply-To: <1362151906-20993-1-git-send-email-vyasevic@redhat.com>
+	with ESMTP id S1751043Ab3CAV0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 16:26:44 -0500
+In-Reply-To: <1362133566-1382-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Fri,  1 Mar 2013 10:31:42 -0500
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri,  1 Mar 2013 11:26:04 +0100
 
-> This is a short series that now allows mac filter programming on any
-> card that support IFF_UNICAST_FLT by using the existing FDB interface.
-> 
-> Some existing drivers that had FDB functionality usually supported
-> it only in SR-IOV mode.  Since that's not always enabled, and
-> we want to take advantage of IFF_UNICAST_FLT support, these drivers
-> have been converted to call the default handler when not in SRIOV mode.
+> Jiri Pirko (2):
+>   team: introduce two default team_modeop functions and use them in
+>     modes
+>   team: introduce random mode
 
-These changes look great, please resubmit them once I open net-next
-back up.
-
-Thanks.
+Looks fine, please resubmit when net-next opens back up.
