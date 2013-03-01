@@ -1,79 +1,45 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next 2/4] ixgbe: Remove driver specific fdb handlers.
-Date: Fri, 01 Mar 2013 09:35:15 -0500
-Message-ID: <5130BCA3.3080709@redhat.com>
-References: <1362093183-5938-1-git-send-email-vyasevic@redhat.com> <1362093183-5938-3-git-send-email-vyasevic@redhat.com> <51304296.8080106@intel.com>
-Reply-To: vyasevic@redhat.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [patch] sctp: use the passed in gfp flags instead GFP_KERNEL
+Date: Fri, 1 Mar 2013 09:35:17 -0500
+Message-ID: <20130301143517.GA1523@hmsreliant.think-freely.org>
+References: <20130301052743.GD2669@longonot.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Gregory Rose <gregory.v.rose@intel.com>
-To: John Fastabend <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Sridhar Samudrala <sri@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29520 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750779Ab3CAOfT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Mar 2013 09:35:19 -0500
-In-Reply-To: <51304296.8080106@intel.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53801 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751245Ab3CAOff (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 09:35:35 -0500
+Content-Disposition: inline
+In-Reply-To: <20130301052743.GD2669@longonot.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/01/2013 12:54 AM, John Fastabend wrote:
-> On 2/28/2013 3:13 PM, Vlad Yasevich wrote:
->> Remove driver specific fdb handlers since they are the same
->> as the default ones.
->>
->> CC: John Fastabend <john.r.fastabend@intel.com>
->> CC: CC: Gregory Rose <gregory.v.rose@intel.com>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   81
->> -------------------------
->>   1 files changed, 0 insertions(+), 81 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> index 68478d6..212b74e 100644
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> @@ -6998,84 +6998,6 @@ static int ixgbe_set_features(struct net_device
->> *netdev,
->>       return 0;
->>   }
->>
->> -static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
->> -                 struct net_device *dev,
->> -                 const unsigned char *addr,
->> -                 u16 flags)
->> -{
->
-> [...]
->
->> -    if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr)) {
->> -        u32 rar_uc_entries = IXGBE_MAX_PF_MACVLANS;
->> -
->> -        if (netdev_uc_count(dev) < rar_uc_entries)
->> -            err = dev_uc_add_excl(dev, addr);
->> -        else
->> -            err = -ENOMEM;
->
-> OK after talking with Greg I realized there is a problem with
-> just removing the add routine.
->
-> The problem with this is we lose the ability to indicate the
-> hardware table is full and return ENOMEM. Although our set_rx_mode
-> routine will put the device in promisc mode this won't forward
-> packets from a VF to the PF in the SR-IOV case.
->
-> So we either need to leave ixgbe_ndo_fdb_add() or let set_rx_mode
-> return an -ENOMEM error. I believe in the first case we can still
-> remove the dump and del cases.
->
-> Sorry for the hassle took me a second review to catch it.
-
-No problem.  That was the reason I left it in the first version (because
-of different error handling).  I'll restore the add function.
-
--vlad
->
-> .John
+On Fri, Mar 01, 2013 at 08:27:43AM +0300, Dan Carpenter wrote:
+> This patch doesn't change how the code works because in the current
+> kernel gfp is always GFP_KERNEL.  But gfp was obviously intended
+> instead of GFP_KERNEL.
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+> index 2b3ef03..12ed45d 100644
+> --- a/net/sctp/endpointola.c
+> +++ b/net/sctp/endpointola.c
+> @@ -155,7 +155,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
+>  
+>  	/* SCTP-AUTH extensions*/
+>  	INIT_LIST_HEAD(&ep->endpoint_shared_keys);
+> -	null_key = sctp_auth_shkey_create(0, GFP_KERNEL);
+> +	null_key = sctp_auth_shkey_create(0, gfp);
+>  	if (!null_key)
+>  		goto nomem;
+>  
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
