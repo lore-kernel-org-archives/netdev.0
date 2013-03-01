@@ -1,72 +1,75 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFC Patch net-next] vxlan: add ipv6 support
-Date: Fri, 01 Mar 2013 11:31:19 +0800
-Message-ID: <1362108679.31103.3.camel@cr0>
-References: <1362031286-23295-1-git-send-email-amwang@redhat.com>
-	 <20130228103311.GC7558@casper.infradead.org> <512FC71D.8080508@redhat.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v4 1/9] rdma/cm: define native IB address
+Date: Fri, 1 Mar 2013 03:49:30 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A823736F35600F@ORSMSX101.amr.corp.intel.com>
+References: <1358891797-14625-1-git-send-email-sean.hefty@intel.com>
+ <1358891797-14625-2-git-send-email-sean.hefty@intel.com>
+ <1828884A29C6694DAF28B7E6B8A8237368B99D59@ORSMSX101.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59085 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750750Ab3CADbl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 28 Feb 2013 22:31:41 -0500
-In-Reply-To: <512FC71D.8080508@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David Miller (davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org)" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1828884A29C6694DAF28B7E6B8A8237368B99D59-P5GAC/sN6hmkrb+BlOpmy7fspsVTdybXVpNB7YpNyf8@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-02-28 at 16:07 -0500, Vlad Yasevich wrote:
-> On 02/28/2013 05:33 AM, Thomas Graf wrote:
-> > On 02/28/13 at 02:01pm, Cong Wang wrote:
-> >> WARNING: This is just an RFC patch, it only compiles!!
-> >>
-> >> This patch adds IPv6 support to vxlan device, as the new version
-> >> RFC already mentioned it:
-> >>
-> >> 	http://tools.ietf.org/html/draft-mahalingam-dutt-dcops-vxlan-03
-> >>
-> >> I am not sure if the following trick will work:
-> >>
-> >> 	+       if (nla_len(nla) == sizeof(__be32)) {
-> >> 	+               ip->ip4 = nla_get_be32(nla);
-> >> 	+               ip->proto = htons(ETH_P_IP);
-> >> 	+       }
-> >> 	+#if IS_ENABLED(CONFIG_IPV6)
-> >> 	+       else if (nla_len(nla) == sizeof(struct in6_addr)) {
-> >> 	+               nla_memcpy(&ip->ip6, nla, sizeof(struct in6_addr));
-> >> 	+               ip->proto = htons(ETH_P_IPV6);
-> >> 	+       }
-> >> 	+#endif
-> >>
-> >> otherwise we have to introduce some new netlink attributes for
-> >> IPv6 addresses? Any comments?
+> > Define AF_IB and sockaddr_ib to allow the rdma_cm to use native IB
+> > addressing.
 > >
-> > How about setting ndm_family to AF_INET6 and parse NDA_DST based on
-> > that?
+> > Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > ---
+> >  include/linux/socket.h |    2 +
+> >  include/rdma/ib.h      |   89
+> ++++++++++++++++++++++++++++++++++++++++++++++++
+> >  2 files changed, 91 insertions(+), 0 deletions(-)
+> >  create mode 100644 include/rdma/ib.h
 > >
+> > diff --git a/include/linux/socket.h b/include/linux/socket.h
+> > index 9a546ff..17a33f7 100644
+> > --- a/include/linux/socket.h
+> > +++ b/include/linux/socket.h
+> > @@ -167,6 +167,7 @@ struct ucred {
+> >  #define AF_PPPOX	24	/* PPPoX sockets		*/
+> >  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+> >  #define AF_LLC		26	/* Linux LLC			*/
+> > +#define AF_IB		27	/* Native InfiniBand address	*/
 > 
-> Not sure if you can do that without registering your own fdb netlink 
-> handler.  rtnl_fdb_add is registered for PF_BRIDGE family.
-
-Yeah...
-
+> ...
 > 
-> You could do that, or use NDA_DST similar to how neighbor table uses it.
-> There the data inside of NDA_DST holds an address family and other data.
+> > diff --git a/include/rdma/ib.h b/include/rdma/ib.h
 > 
+> ...
+> 
+> > +struct sockaddr_ib {
+> > +	unsigned short int	sib_family;	/* AF_IB */
+> > +	__be16			sib_pkey;
+> > +	__be32			sib_flowinfo;
+> > +	struct ib_addr		sib_addr;
+> > +	__be64			sib_sid;
+> > +	__be64			sib_sid_mask;
+> > +	__u64			sib_scope_id;
+> > +};
+> 
+> Dave/Roland/anyone, is there any feedback on this approach?
 
-The data inside NDA_DST in neighbor table is the IP address used as a
-key:
+ping...
 
-        if (nla_put(skb, NDA_DST, neigh->tbl->key_len,
-neigh->primary_key))
-                goto nla_put_failure;
+Seriously, there is a need to establish connections using native IB GIDs.  It is preferable to add this functionality to the rdma_cm.  Although the ib_cm can exchange IB CM messages based on GIDs, the rdma_cm is the only interface that provides applications with dynamic service IDs, path record queries, and usable multicast support. 
 
-there is not address family inside it.
+The rdma_cm uses sockaddr for addressing information.  The sockaddr_ib structure is defined within the RDMA tree, but I believe that the address family value belongs in socket.h.  This helps to avoid any future conflicts.  However, I can change the rdma_cm to use an internal enum for address values if there is an objection.
 
-Thanks.
+sockaddr_ib/AF_IB is usable with any IB network card.  It allows an application to establish connections over IB without IBoIP being present, which is a real need.  It also allows an application to use out of band mechanisms for discovering remote GIDs.  Such mechanisms are needed to work through IP load balancing software and for MPI scalability.
+
+I'm not trying to be impatient, but it's been 3 years... 
+
+- Sean
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
