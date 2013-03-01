@@ -1,175 +1,123 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH v2 net-next 1/4] net: generic fdb support for drivers without ndo_fdb_<op>
-Date: Fri,  1 Mar 2013 10:31:43 -0500
-Message-ID: <1362151906-20993-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCH v2 net-next 3/4] mlx4: Remove driver specific fdb handlers.
+Date: Fri,  1 Mar 2013 10:31:45 -0500
+Message-ID: <1362151906-20993-4-git-send-email-vyasevic@redhat.com>
 References: <1362151906-20993-1-git-send-email-vyasevic@redhat.com>
-Cc: john.r.fastabend@intel.com, Vlad Yasevich <vyasevic@redhat.com>
+Cc: john.r.fastabend@intel.com, Vlad Yasevich <vyasevic@redhat.com>,
+	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29165 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1332 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751418Ab3CAPcB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Mar 2013 10:32:01 -0500
+	id S1751744Ab3CAPcI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Mar 2013 10:32:08 -0500
 In-Reply-To: <1362151906-20993-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the driver does not support the ndo_op use the generic
-handler for it. This should work in the majority of cases.
-Eventually the fdb_dflt_add call gets translated into a
-__dev_set_rx_mode() call which should handle hardware
-support for filtering via the IFF_UNICAST_FLT flag.
+Remove driver specific fdb hadlers since they are the same as
+the default ones.
 
-Namely IFF_UNICAST_FLT indicates if the hardware can do
-unicast address filtering. If no support is available
-the device is put into promisc mode.
-
-CC: John Fastabend <john.r.fastabend@intel.com>
+CC: Amir Vadai <amirv@mellanox.com>
+CC: Yan Burman <yanb@mellanox.com>
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
- include/linux/rtnetlink.h |    9 +++++
- net/core/rtnetlink.c      |   81 +++++++++++++++++++++++++++++++++++++++++---
- 2 files changed, 84 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   76 ------------------------
+ 1 files changed, 0 insertions(+), 76 deletions(-)
 
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 489dd7bb..f28544b 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
-@@ -69,6 +69,15 @@ extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
- 			     struct netlink_callback *cb,
- 			     struct net_device *dev,
- 			     int idx);
-+extern int ndo_dflt_fdb_add(struct ndmsg *ndm,
-+			    struct nlattr *tb[],
-+			    struct net_device *dev,
-+			    const unsigned char *addr,
-+			     u16 flags);
-+extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
-+			    struct nlattr *tb[],
-+			    struct net_device *dev,
-+			    const unsigned char *addr);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 5385474..5c1bb44 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1925,79 +1925,6 @@ static int mlx4_en_set_features(struct net_device *netdev,
  
- extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 				   struct net_device *dev, u16 mode);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d8aa20f..56b0038 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2049,6 +2049,38 @@ errout:
- 	rtnl_set_sk_err(net, RTNLGRP_NEIGH, err);
  }
  
-+/**
-+ * ndo_dflt_fdb_add - default netdevice operation to add an FDB entry
-+ */
-+int ndo_dflt_fdb_add(struct ndmsg *ndm,
-+		     struct nlattr *tb[],
-+		     struct net_device *dev,
-+		     const unsigned char *addr,
-+		     u16 flags)
-+{
-+	int err = -EINVAL;
-+
-+	/* If aging addresses are supported device will need to
-+	 * implement its own handler for this.
-+	 */
-+	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
-+		pr_info("%s: FDB only supports static addresses\n", dev->name);
-+		return err;
-+	}
-+
-+	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
-+		err = dev_uc_add_excl(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_add_excl(dev, addr);
-+
-+	/* Only return duplicate errors if NLM_F_EXCL is set */
-+	if (err == -EEXIST && !(flags & NLM_F_EXCL))
-+		err = 0;
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(ndo_dflt_fdb_add);
-+
- static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -2101,10 +2133,13 @@ static int rtnl_fdb_add(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	}
+-static int mlx4_en_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+-			   struct net_device *dev,
+-			   const unsigned char *addr, u16 flags)
+-{
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_dev *mdev = priv->mdev->dev;
+-	int err;
+-
+-	if (!mlx4_is_mfunc(mdev))
+-		return -EOPNOTSUPP;
+-
+-	/* Hardware does not support aging addresses, allow only
+-	 * permanent addresses if ndm_state is given
+-	 */
+-	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
+-		en_info(priv, "Add FDB only supports static addresses\n");
+-		return -EINVAL;
+-	}
+-
+-	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
+-		err = dev_uc_add_excl(dev, addr);
+-	else if (is_multicast_ether_addr(addr))
+-		err = dev_mc_add_excl(dev, addr);
+-	else
+-		err = -EINVAL;
+-
+-	/* Only return duplicate errors if NLM_F_EXCL is set */
+-	if (err == -EEXIST && !(flags & NLM_F_EXCL))
+-		err = 0;
+-
+-	return err;
+-}
+-
+-static int mlx4_en_fdb_del(struct ndmsg *ndm,
+-			   struct nlattr *tb[],
+-			   struct net_device *dev,
+-			   const unsigned char *addr)
+-{
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_dev *mdev = priv->mdev->dev;
+-	int err;
+-
+-	if (!mlx4_is_mfunc(mdev))
+-		return -EOPNOTSUPP;
+-
+-	if (ndm->ndm_state && !(ndm->ndm_state & NUD_PERMANENT)) {
+-		en_info(priv, "Del FDB only supports static addresses\n");
+-		return -EINVAL;
+-	}
+-
+-	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
+-		err = dev_uc_del(dev, addr);
+-	else if (is_multicast_ether_addr(addr))
+-		err = dev_mc_del(dev, addr);
+-	else
+-		err = -EINVAL;
+-
+-	return err;
+-}
+-
+-static int mlx4_en_fdb_dump(struct sk_buff *skb,
+-			    struct netlink_callback *cb,
+-			    struct net_device *dev, int idx)
+-{
+-	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	struct mlx4_dev *mdev = priv->mdev->dev;
+-
+-	if (mlx4_is_mfunc(mdev))
+-		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
+-
+-	return idx;
+-}
+-
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -2019,9 +1946,6 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
+-	.ndo_fdb_add		= mlx4_en_fdb_add,
+-	.ndo_fdb_del		= mlx4_en_fdb_del,
+-	.ndo_fdb_dump		= mlx4_en_fdb_dump,
+ };
  
- 	/* Embedded bridge, macvlan, and any other device support */
--	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_add) {
--		err = dev->netdev_ops->ndo_fdb_add(ndm, tb,
--						   dev, addr,
--						   nlh->nlmsg_flags);
-+	if ((ndm->ndm_flags & NTF_SELF)) {
-+		if (dev->netdev_ops->ndo_fdb_add)
-+			err = dev->netdev_ops->ndo_fdb_add(ndm, tb, dev, addr,
-+							   nlh->nlmsg_flags);
-+		else
-+			err = ndo_dflt_fdb_add(ndm, tb, dev, addr,
-+					       nlh->nlmsg_flags);
- 
- 		if (!err) {
- 			rtnl_fdb_notify(dev, addr, RTM_NEWNEIGH);
-@@ -2115,6 +2150,35 @@ out:
- 	return err;
- }
- 
-+/**
-+ * ndo_dflt_fdb_del - default netdevice operation to delete an FDB entry
-+ */
-+int ndo_dflt_fdb_del(struct ndmsg *ndm,
-+		     struct nlattr *tb[],
-+		     struct net_device *dev,
-+		     const unsigned char *addr)
-+{
-+	int err = -EOPNOTSUPP;
-+
-+	/* If aging addresses are supported device will need to
-+	 * implement its own handler for this.
-+	 */
-+	if (ndm->ndm_state & NUD_PERMANENT) {
-+		pr_info("%s: FDB only supports static addresses\n", dev->name);
-+		return -EINVAL;
-+	}
-+
-+	if (is_unicast_ether_addr(addr) || is_link_local_ether_addr(addr))
-+		err = dev_uc_del(dev, addr);
-+	else if (is_multicast_ether_addr(addr))
-+		err = dev_mc_del(dev, addr);
-+	else
-+		err = -EINVAL;
-+
-+	return err;
-+}
-+EXPORT_SYMBOL(ndo_dflt_fdb_del);
-+
- static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -2172,8 +2236,11 @@ static int rtnl_fdb_del(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 	}
- 
- 	/* Embedded bridge, macvlan, and any other device support */
--	if ((ndm->ndm_flags & NTF_SELF) && dev->netdev_ops->ndo_fdb_del) {
--		err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
-+	if (ndm->ndm_flags & NTF_SELF) {
-+		if (dev->netdev_ops->ndo_fdb_del)
-+			err = dev->netdev_ops->ndo_fdb_del(ndm, tb, dev, addr);
-+		else
-+			err = ndo_dflt_fdb_del(ndm, tb, dev, addr);
- 
- 		if (!err) {
- 			rtnl_fdb_notify(dev, addr, RTM_DELNEIGH);
-@@ -2258,6 +2325,8 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 		if (dev->netdev_ops->ndo_fdb_dump)
- 			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
-+		else
-+			ndo_dflt_fdb_dump(skb, cb, dev, idx);
- 	}
- 	rcu_read_unlock();
- 
+ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 -- 
 1.7.7.6
