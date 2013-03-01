@@ -1,56 +1,74 @@
-From: Alexander Holler <holler@ahsoftware.de>
-Subject: Re: [PATCH] mv643xx_eth: Fix a possible deadlock upon ifdown
-Date: Fri, 01 Mar 2013 18:30:13 +0100
-Message-ID: <5130E5A5.90303@ahsoftware.de>
-References: <1357308422-19639-1-git-send-email-lkundrak@v3.sk> <20130104202509.GX27530@wantstofly.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lubomir Rintel <lkundrak@v3.sk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Lubomir Rintel <lubo.rintel@gooddata.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH v2 net-next] ipv[4|6]: correct dropwatch false positive in local_deliver_finish
+Date: Fri,  1 Mar 2013 12:44:08 -0500
+Message-ID: <1362159848-8530-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	William Reich <reich@ulticom.com>, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from h1446028.stratoserver.net ([85.214.92.142]:46394 "EHLO
-	mail.ahsoftware.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151Ab3CARmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 12:42:35 -0500
-In-Reply-To: <20130104202509.GX27530@wantstofly.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56540 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751782Ab3CARoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 12:44:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 04.01.2013 21:25, schrieb Lennert Buytenhek:
-> On Fri, Jan 04, 2013 at 03:07:02PM +0100, Lubomir Rintel wrote:
->
->> From: Lubomir Rintel <lubo.rintel@gooddata.com>
->>
->> =================================
->> [ INFO: inconsistent lock state ]
->> 3.7.0-6.luboskovo.fc19.armv5tel.kirkwood #1 Tainted: G        W
->> ---------------------------------
->> inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
->> NetworkManager/337 [HC0[0]:SC0[0]:HE1:SE1] takes:
->>   (_xmit_ETHER#2){+.?...}, at: [<bf07adfc>] txq_reclaim+0x54/0x264 [mv643xx_eth]
+I had a report recently of a user trying to use dropwatch to localise some frame
+loss, and they were getting false positives.  Turned out they were using a user
+space SCTP stack that used raw sockets to grab frames.  When we don't have a
+registered protocol for a given packet, we record it as a drop, even if a raw
+socket receieves the frame.  We should only record the drop in the event a raw
+socket doesnt exist to receive the frames
 
-I get the same annoying warning when the MTU gets changed (through dhcp).
+Tested by the reported successfully
 
->
-> Maybe I'm not reading it right, but I doubt that this is an actual
-> deadlock or that the patch is needed.
->
-> txq_reclaim() indeed doesn't disable BHs, but that's because it's
-> always called in BH context.  Almost always -- the only exception is
-> txq_deinit(), called from ->ndo_stop(), but by that time we've
-> already napi_disable()'d and netif_carrier_off()'d and free_irq()'d.
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: William Reich <reich@ulticom.com>
+Tested-by: William Reich <reich@ulticom.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: William Reich <reich@ulticom.com>
+CC: eric.dumazet@gmail.com
+---
+ net/ipv4/ip_input.c  | 6 ++++--
+ net/ipv6/ip6_input.c | 6 ++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
 
-Agreed. I've just read me through that too and don't think a deadlock is 
-possible.
-
->
-> How to explain that to lockdep, though, I don't know.
-
-The patch helps with that. ;)
-
-Regards,
-
-Alexander
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 87abd3e..2bdf802 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -228,9 +228,11 @@ static int ip_local_deliver_finish(struct sk_buff *skb)
+ 					icmp_send(skb, ICMP_DEST_UNREACH,
+ 						  ICMP_PROT_UNREACH, 0);
+ 				}
+-			} else
++				kfree_skb(skb);
++			} else {
+ 				IP_INC_STATS_BH(net, IPSTATS_MIB_INDELIVERS);
+-			kfree_skb(skb);
++				consume_skb(skb);
++			}
+ 		}
+ 	}
+  out:
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 5b10414..b1876e5 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -241,9 +241,11 @@ resubmit:
+ 				icmpv6_send(skb, ICMPV6_PARAMPROB,
+ 					    ICMPV6_UNK_NEXTHDR, nhoff);
+ 			}
+-		} else
++			kfree_skb(skb);
++		} else {
+ 			IP6_INC_STATS_BH(net, idev, IPSTATS_MIB_INDELIVERS);
+-		kfree_skb(skb);
++			consume_skb(skb);
++		}
+ 	}
+ 	rcu_read_unlock();
+ 	return 0;
+-- 
+1.7.11.7
