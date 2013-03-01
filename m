@@ -1,45 +1,48 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [patch] sctp: use the passed in gfp flags instead GFP_KERNEL
-Date: Fri, 1 Mar 2013 09:35:17 -0500
-Message-ID: <20130301143517.GA1523@hmsreliant.think-freely.org>
-References: <20130301052743.GD2669@longonot.mountain>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH] l2tp: Restore socket refcount when sendmsg succeeds
+Date: Fri, 1 Mar 2013 16:02:02 +0100
+Message-ID: <20130301150202.GA3649@alphalink.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Vlad Yasevich <vyasevich@gmail.com>,
-	Sridhar Samudrala <sri@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:53801 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751245Ab3CAOff (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Mar 2013 09:35:35 -0500
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: James Chapman <jchapman@katalix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130301052743.GD2669@longonot.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 01, 2013 at 08:27:43AM +0300, Dan Carpenter wrote:
-> This patch doesn't change how the code works because in the current
-> kernel gfp is always GFP_KERNEL.  But gfp was obviously intended
-> instead of GFP_KERNEL.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 2b3ef03..12ed45d 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -155,7 +155,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
->  
->  	/* SCTP-AUTH extensions*/
->  	INIT_LIST_HEAD(&ep->endpoint_shared_keys);
-> -	null_key = sctp_auth_shkey_create(0, GFP_KERNEL);
-> +	null_key = sctp_auth_shkey_create(0, gfp);
->  	if (!null_key)
->  		goto nomem;
->  
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+The sendmsg() syscall handler for PPPoL2TP doesn't decrease the socket
+reference counter after successful transmissions. Any successful
+sendmsg() call from userspace will then increase the reference counter
+forever, thus preventing the kernel's session and tunnel data from
+being freed later on.
+
+The problem only happens when writing directly on L2TP sockets.
+PPP sockets attached to L2TP are unaffected as the PPP subsystem
+uses pppol2tp_xmit() which symmetrically increase/decrease reference
+counters.
+
+This patch adds the missing call to sock_put() before returning from
+pppol2tp_sendmsg().
+
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_ppp.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
+index 3f4e3af..6a53371 100644
+--- a/net/l2tp/l2tp_ppp.c
++++ b/net/l2tp/l2tp_ppp.c
+@@ -355,6 +355,7 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
+ 	l2tp_xmit_skb(session, skb, session->hdr_len);
+ 
+ 	sock_put(ps->tunnel_sock);
++	sock_put(sk);
+ 
+ 	return error;
+ 
+-- 
+1.7.10.4
