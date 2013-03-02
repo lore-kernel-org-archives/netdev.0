@@ -1,69 +1,70 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: hang with e1000_
-Date: Fri, 1 Mar 2013 15:44:22 -0800
-Message-ID: <CAE9FiQVmJ0dtrxjViGHkaHigQHiBYZvuu5=4Xn4hgS=86xq9yQ@mail.gmail.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: tg3: regression of netdev stats
+Date: Fri, 1 Mar 2013 18:30:14 -0800
+Message-ID: <51316436.9090807@broadcom.com>
+References: <878v67xnkr.fsf@devron.myhome.or.jp>
+ <1362152836.6212.27.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	NetDev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=windows-1252;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "OGAWA Hirofumi" <hirofumi@mail.parknet.co.jp>,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: "Michael Chan" <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2352 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751528Ab3CBCa3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Mar 2013 21:30:29 -0500
+In-Reply-To: <1362152836.6212.27.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-on today mainline tree.
 
-[  529.379490] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs"
-disables this message.
-[  529.399350] swapper/0       D ffff883025294000     0     1      0 0x00000000
-[  529.399726]  ffff8810274f5ab8 0000000000000046 ffffffff810b3111
-ffff8810274f5fd8
-[  529.424058]  ffff8810274f5fd8 0000000000004000 ffff881027578000
-ffff8810274f8000
-[  529.439317]  ffff8810274f59f8 0000000000000002 0000000000000282
-ffff88203e40d680
-[  529.439740] Call Trace:
-[  529.459254]  [<ffffffff810b3111>] ? __hrtimer_start_range_ns+0x391/0x400
-[  529.459610]  [<ffffffff810e95bd>] ? trace_hardirqs_on+0xd/0x10
-[  529.480104]  [<ffffffff810b3111>] ? __hrtimer_start_range_ns+0x391/0x400
-[  529.480482]  [<ffffffff8219535d>] schedule+0x5d/0x60
-[  529.499357]  [<ffffffff8219405c>] schedule_hrtimeout_range_clock+0x10c/0x160
-[  529.499710]  [<ffffffff810b2720>] ? update_rmtp+0x70/0x70
-[  529.519406]  [<ffffffff810b31b4>] ? hrtimer_start_range_ns+0x14/0x20
-[  529.539192]  [<ffffffff821940c3>] schedule_hrtimeout_range+0x13/0x20
-[  529.539507]  [<ffffffff8109a040>] usleep_range+0x40/0x50
-[  529.559225]  [<ffffffff81b33dc9>] e1000_get_cfg_done_82571+0x39/0x50
-[  529.559539]  [<ffffffff81b42dc2>] e1000e_phy_hw_reset_generic+0x102/0x160
-[  529.579338]  [<ffffffff81b41ac7>] e1000e_copper_link_setup_igp+0x17/0x160
-[  529.579662]  [<ffffffff81b34e80>] e1000_setup_copper_link_82571+0xb0/0xd0
-[  529.599457]  [<ffffffff81b3e22f>] e1000e_setup_link_generic+0xbf/0x280
-[  529.621078]  [<ffffffff81b33fc2>] e1000_setup_link_82571+0x32/0x40
-[  529.621365]  [<ffffffff81b54495>] e1000_open+0xc5/0x540
-[  529.639395]  [<ffffffff810b4f3e>] ? __raw_notifier_call_chain+0xe/0x10
-[  529.639723]  [<ffffffff81f95510>] __dev_open+0x90/0x100
-[  529.659431]  [<ffffffff81f95804>] __dev_change_flags+0xd4/0x170
-[  529.659723]  [<ffffffff81f95948>] dev_change_flags+0x28/0x70
-[  529.679957]  [<ffffffff82ffc978>] ip_auto_config+0x193/0xea4
-[  529.680270]  [<ffffffff82ffc7e5>] ? root_nfs_parse_addr+0xc0/0xc0
-[  529.699378]  [<ffffffff82179e58>] ? printk+0x4d/0x4f
-[  529.699668]  [<ffffffff82ffc7e5>] ? root_nfs_parse_addr+0xc0/0xc0
-[  529.719381]  [<ffffffff81000254>] do_one_initcall+0x64/0x160
-[  529.719692]  [<ffffffff82faf31c>] kernel_init_freeable+0x1bf/0x251
-[  529.739527]  [<ffffffff82faea6c>] ? loglevel+0x31/0x31
-[  529.739835]  [<ffffffff82164a70>] ? rest_init+0xc0/0xc0
-[  529.759417]  [<ffffffff82164a7e>] kernel_init+0xe/0xf0
-[  529.759658]  [<ffffffff8219f75c>] ret_from_fork+0x7c/0xb0
-[  529.779357]  [<ffffffff82164a70>] ? rest_init+0xc0/0xc0
-[  529.779592] 1 lock held by swapper/0/1:
-[  529.799285]  #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81fa3487>]
-rtnl_lock+0x17/0x20
 
-The system is nehalem-ex 8 sockets.
+On 3/1/2013 7:47 AM, Michael Chan wrote:
+> On Fri, 2013-03-01 at 22:21 +0900, OGAWA Hirofumi wrote:
+>> Hi,
+>>
+>> f4a46d1f46a8fece34edd2023e054072b02e110d (tg3: Prevent spurious tx
+>> timeout by setting carrier off before tx disable.) seems to add the bug.
+>>
+>> On 3.8.1 (I didn't use 3.7.x series), "ifconfig" commands doesn't show
+>> any stats, i.e. all stats are zero.
+>
+> No stats on an active device transmitting and receiving packets?  I
+> don't seem to see the same problem, but we'll look into this further.
+> Thanks.
+>
 
-Another westmere-ex 8 sockets is ok.
+Hi Hirofumi,
+I too am not able to see zero stats with 3.8.1. I ran traffic and stats 
+go up as expected.
 
-They have same IO add-on cards.
+Are you certain that the interface was up? Did you run ifconfig with 
+traffic running on the interface?
 
-Thanks
+Thanks,
+Nithin.
 
-Yinghai
+
+>> And bisect points the above commit.
+>> In fact, reverting the above patch fixes the regression of netdev stats.
+>>
+>> This patch looks like strange, and I'm not sure what this want to do.
+>> Any ideas?
+>
+> Every time we reset the device (ethtool, MTU change, etc), we need to
+> turn off all the tx queues before resetting.  As soon as we turn off
+> these queues, if we don't turn off carrier, a tx timeout may be
+> triggered if it's been more than 5 seconds since the last transmit on
+> any of the tx queues.  These tx timeouts cause unnecessary concern to
+> the user.
+>
+>>
+>> Well, anyway, this is bug report.
+>>
+>> Thanks.
+>
+>
